@@ -1,11 +1,11 @@
 /*
- * os/samir/core/rt.c -- SAMIR freestanding runtime.
+ * os/ibase/core/rt.c -- IBASE freestanding runtime.
  *
  * THE ARTIFACT (CLAUDE.md Law 3): this file MUST compile freestanding
  * (-ffreestanding -nostdlib -fno-stack-protector -fno-pic -std=c11
  *  -Wall -Wextra -Werror -c). No libc includes, no <math.h>.
  *
- * Implements the contract in os/samir/include/samir/rt.h:
+ * Implements the contract in os/ibase/include/ibase/rt.h:
  *   1. rt_memcpy/rt_memset/rt_memcmp/rt_strlen/rt_strncmp -- byte utilities.
  *   2. jdn_from_ymd / ymd_from_jdn -- Gregorian <-> Julian Day Number
  *      (Meeus Ch.7; proleptic Gregorian formula).
@@ -20,7 +20,7 @@
  *      Overflow: '*'-fill (minted OTEST.DBF). [verified]
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S0.3.
+ *   - docs/plans/IBASE-implementation-plan.md S0.3.
  *   - dbase3-decomp/re/mint-results-001.md (rounding, overflow).
  *   - dbase3-decomp/specs/file-formats/ndx.md sec 4.2 (JDN).
  *
@@ -29,8 +29,8 @@
 
 #include <stdint.h>
 
-#include "samir/rt.h"
-#include "samir/eval.h"
+#include "ibase/rt.h"
+#include "ibase/eval.h"
 
 /* ======================================================================== */
 /* 1. Memory / string utilities                                              */
@@ -332,7 +332,7 @@ static int emit_digits(char *buf, int n, uint64_t val)
  * floor.  For x < 0, truncation is ceiling, so we subtract 1 if and only
  * if the value is not already an integer.
  *
- * Exported (declared in rt.h) so other freestanding SAMIR engine files
+ * Exported (declared in rt.h) so other freestanding IBASE engine files
  * (fn_builtins.c fn_round -- initech-eyig) can share the SAME floor
  * primitive dec_format uses below, instead of re-deriving (and getting
  * wrong) their own truncating cast.
@@ -424,13 +424,13 @@ static int dec_format_core(double v, int width, int dec, char *out, int even)
      * undefined double->int64 conversion. Doubles near 2^63 are 1024 apart,
      * so "< 2^63" admits exactly the values up to 2^63-1024 that DO convert
      * (9.2E18 and 9223372036854774784 still print in N(19,0): regression in
-     * test-samir-datatype "boundary"). NaN also star-fills. The value an
+     * test-ibase-datatype "boundary"). NaN also star-fills. The value an
      * overflowed "****" field reads back as (1.7976931348623157E308, dbf.c;
      * real III+ datatype-mint DT5) lands here and prints "****" at any
      * width, as real III+ does (DT1 B4). initech-ylqs. */
     {
         double mag = v < 0.0 ? -v : v;
-#ifndef SAMIR_DT_MUTANT_cutoff
+#ifndef IBASE_DT_MUTANT_cutoff
         if (!(mag * (double)pow10_tbl[dec] + 0.5 < 9223372036854775808.0)) {
 #else
         if (!(mag * (double)pow10_tbl[dec] < 9.2e18)) {   /* mutant: early cutoff */
@@ -445,7 +445,7 @@ static int dec_format_core(double v, int width, int dec, char *out, int even)
      * Safe for |v| < 2^53 / 10^dec -- well within dBASE N-field range. */
     if (even == 2) {
         scaled = display_scaled(v, dec);
-#ifdef SAMIR_FNS_MUTANT_numconvert
+#ifdef IBASE_FNS_MUTANT_numconvert
         /* Regression: preserve nearest-even but round the product to
          * binary64 first, turning SQRT(.999999999) into a false tie. */
         double x = v * (double)pow10_tbl[dec];
@@ -570,7 +570,7 @@ int dec_format_fit(double v, int width, int dec, char *out, int ties_even)
     for (;;) {
         dec_format_core(v, width, dec, out, ties_even);
         if (width <= 0 || out[0] != '*' || dec == 0) return width;
-#ifdef SAMIR_DT_MUTANT_numericfit
+#ifdef IBASE_DT_MUTANT_numericfit
         return width; /* mutant: discard a number whose integer part fits */
 #endif
         dec--;
@@ -589,7 +589,7 @@ int dec_format_display(double v, int width, int dec, char *out)
     for (i = 0; i < pad; i++) out[i] = ' ';
     out += pad;
     dec_format_fit(v, field, dec, out, 2);
-#ifdef SAMIR_FNS_MUTANT_matrixb
+#ifdef IBASE_FNS_MUTANT_matrixb
     return width; /* regression: star-fill instead of scientific fallback */
 #endif
     if (field < 7 || out[0] != '*' || !(mag > 0.0 && mag < 1e99))
@@ -675,20 +675,20 @@ double dec_parse(const char *s, int len)
 
 /* Persistent codec buffers must not participate in interpreter scratch resets.
  * Lifetime policy authored, no local reference. PAL acquire/release contract. */
-#include "samir/pal.h"
-#include "samir/lifetime.h"
+#include "ibase/pal.h"
+#include "ibase/lifetime.h"
 typedef struct pal_owned_block { struct pal_owned_block *next; } pal_owned_block;
-void *pal_owned_alloc(samir_pal_t *pal, void **owner, uint32_t n)
+void *pal_owned_alloc(ibase_pal_t *pal, void **owner, uint32_t n)
 {
     pal_owned_block *b;
-    samir_ovl_validate_pal(pal); SAMIR_RETAIN(owner);
+    ibase_ovl_validate_pal(pal); IBASE_RETAIN(owner);
     if (!pal->acquire || n > 0xffffffffu - sizeof(*b)) return (void *)0;
     b=(pal_owned_block *)pal->acquire(pal,n+(uint32_t)sizeof(*b));
     if (!b) return (void *)0;
-    SAMIR_RETAIN(b); SAMIR_RETAIN(*owner);
+    IBASE_RETAIN(b); IBASE_RETAIN(*owner);
     b->next=(pal_owned_block *)*owner; *owner=b; return b+1;
 }
-void pal_owned_free(samir_pal_t *pal, void **owner)
+void pal_owned_free(ibase_pal_t *pal, void **owner)
 {
     pal_owned_block *b=(pal_owned_block *)*owner;
     *owner=(void *)0;

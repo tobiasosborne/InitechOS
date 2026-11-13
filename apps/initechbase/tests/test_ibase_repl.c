@@ -1,0 +1,790 @@
+/*
+ * tests/test_ibase_repl.c -- host oracle for S5.8: the dot-prompt
+ * REPL (os/ibase/ibase_main.c, ibase_repl). initech-7az.9 + initech-7az.19.
+ *
+ * FACTORY host test (CLAUDE.md Law 3): libc OK here. Mirrors test_interp_list.c
+ * (the CAPTURING PAL that intercepts conout) + test_interp_proc.c (the SCRIPTED
+ * conin_line that feeds a queue of typed lines). The seed test_assert.h harness
+ * (CHECK / TEST_HARNESS / TEST_SUMMARY); a non-zero exit on any failed check
+ * keeps `make test-ibase-repl` from false-greening (Law 2).
+ *
+ * WHAT THIS DRIVES (plan S5.8 oracle: "a scripted session over the host PAL"):
+ *   A real dot-prompt session is fed line by line to ibase_repl through a PAL
+ *   whose conin_line pops the next scripted line and whose conout is captured
+ *   into a byte buffer. We assert the captured transcript at each step.
+ *
+ * SESSION 1 (the convergence session -- USE..LOCATE..REPLACE..STORE..DO..QUIT):
+ *   The REPL registers query/mutate/set/proc itself. Area 1 carries a WRITABLE
+ *   table injected via wa_adopt_table (dbf_create path); the session's REPLACE
+ *   targets that area. With 7az.19 the REPL's plain USE now also opens rw
+ *   (wa_set_open_rw), but the convergence session still pre-adopts area 1 (the
+ *   adopt path is kept to exercise wa_adopt_table). Area 2 is opened via the
+ *   REPL's USE verb (now wa_set_open_rw) for LIST / LOCATE / FOUND on a /tmp
+ *   table (the file is writable by the process; no corpus golden is involved).
+ *
+ *     USE <ro /tmp copy> in area 2  (the REPL's USE parser + wa_set_open)
+ *     ? RECNO()                     -> "1"   (fresh USE positions at record 1)
+ *     LIST                          -> all rows of the ro table
+ *     LOCATE FOR AMT = 200          -> lands on the matching record
+ *     ? FOUND()                     -> ".T." (LOCATE matched)
+ *     SELECT 1                      (the writable adopted area)
+ *     REPLACE CODE WITH 'ZZ'        (mutate module; needs the writable table)
+ *     ? CODE                        -> "ZZ " (the NEW value, padded to width 3)
+ *     STORE 7 TO COUNTER ; ? COUNTER-> "7"   (memvar STORE + ?)
+ *     QUIT                          -> clean stop
+ *
+ * SESSION 2 (SET EXACT effect): a fresh REPL.
+ *     ? 'AB' = 'A'    EXACT OFF (default) -> .T. (begins-with)
+ *     SET EXACT ON
+ *     ? 'AB' = 'A'    EXACT ON             -> .F. (must match fully)
+ *
+ * SESSION 3 (PROCEDURE via DO): a fresh REPL.
+ *     PUBLIC R ; DO BUMP ; ? R   with  PROCEDURE BUMP / R=41 / RETURN  -> "41".
+ *     (The whole program is typed as multi-line text; proc_run is invoked via the
+ *      DO module which the REPL registered. We feed it as ONE line that contains
+ *      the program, since ibase_do runs a multi-line block.)
+ *
+ * SESSION 4 (error rendering + the loop CONTINUES): a fresh REPL.
+ *     FROBNICATE          (an unknown verb) -> "16  *** Unrecognized command verb."
+ *     ? 'A' + 1           (a type mismatch) -> "9  Data type mismatch."
+ *     ? 'STILL HERE'      (the session did NOT abort) -> "STILL HERE" still prints
+ *     QUIT
+ *   Asserts the catalog message text for each code AND that a later line still
+ *   runs (the REPL did not abort on the bad lines).
+ *
+ * SESSION 5 (EOF terminates cleanly): a fresh REPL with an EMPTY script -> EOF on
+ *   the first conin_line -> ibase_repl returns INTERP_OK with no work done.
+ *
+ * Mutation proof (Rule 6 / ARB rider (a)) -- the Make gate uses
+ *   -DREPL_MUTATE_NO_MUTATE_MODULE: ibase_main.c then does NOT register the mutate
+ *   module, so the session's "REPLACE CODE WITH 'ZZ'" is unrecognized (#16) and
+ *   "? CODE" still shows the OLD value -> the "REPLACE wrote ZZ" assertion RED.
+ *   This bites BOTH the convergence session (SESSION 1) AND the new plain-USE-rw
+ *   session (SESSION 6 / initech-7az.19): with no mutate module, plain-USE-REPLACE
+ *   also fails unrecognized, so the new disk-persistence assertion also goes RED.
+ *   The alternative -DREPL_MUTATE_ERR_RENDER renders code+1, so SESSION 4's
+ *   "9  Data type mismatch." text assertion goes RED.
+ *
+ * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
+ *
+ * Ref (Law 1):
+ *   - docs/plans/IBASE-implementation-plan.md S5.8 contract + oracle; Sec 8.2.
+ *   - os/ibase/ibase_main.c (ibase_repl; the catalog renderer; USE/CLOSE).
+ *   - os/ibase/include/ibase/interp.h (ibase_repl / ibase_do / the hook chain).
+ *   - os/ibase/include/ibase/workarea.h (wa_adopt_table / wa_set_open; the env).
+ *   - spec/ibase/dbase_msg_codes.tsv (#9, #16 -- the asserted catalog text).
+ *   - tests/test_interp_list.c (capturing PAL pattern).
+ *   - tests/test_interp_proc.c (scripted conin pattern).
+ */
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+#include "test_assert.h"          /* seed/, on -Iseed */
+#include "ibase/interp.h"         /* os/ibase/include/ */
+#include "ibase/workarea.h"
+#include "ibase/dbf.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+
+TEST_HARNESS();
+
+/* pal_host.c surface (declared here -- not in a header). */
+struct pal_host_cfg {
+    uint8_t  date_yy;
+    uint8_t  date_mm;
+    uint8_t  date_dd;
+    uint32_t heap_size;
+};
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
+
+/* ibase_main.c surface (the S5.8 entry point under test). */
+extern int ibase_repl(ibase_pal_t *pal, xb_interp *ip);
+
+/* =====================================================================
+ * Capturing + scripting PAL: delegate every slot to the host PAL EXCEPT
+ * conout (captured into a buffer) and conin_line (pops the next scripted
+ * line). Mirrors test_interp_list.c (capture) + test_interp_proc.c (script).
+ * ===================================================================== */
+
+#define CAP_BUF          32768
+#define SCRIPT_MAX_LINES 64
+
+typedef struct {
+    ibase_pal_t  pal;        /* MUST be first: &cap.pal is handed to the engine */
+    ibase_pal_t *inner;      /* the real host PAL */
+    char         buf[CAP_BUF];
+    uint32_t     len;
+    const char  *lines[SCRIPT_MAX_LINES];
+    int          nlines;
+    int          lineidx;
+} cap_pal;
+
+static cap_pal g_cap;
+
+static pal_fd  cap_open (ibase_pal_t *p, const char *n, int m) { cap_pal *c=(cap_pal*)p; return c->inner->open(c->inner,n,m); }
+static int     cap_close(ibase_pal_t *p, pal_fd fd)           { cap_pal *c=(cap_pal*)p; return c->inner->close(c->inner,fd); }
+static int32_t cap_read (ibase_pal_t *p, pal_fd fd, void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->read(c->inner,fd,b,n); }
+static int32_t cap_write(ibase_pal_t *p, pal_fd fd, const void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->write(c->inner,fd,b,n); }
+static int32_t cap_seek (ibase_pal_t *p, pal_fd fd, int32_t o, int w){ cap_pal *c=(cap_pal*)p; return c->inner->seek(c->inner,fd,o,w); }
+static int     cap_remove(ibase_pal_t *p, const char *n)      { cap_pal *c=(cap_pal*)p; return c->inner->remove(c->inner,n); }
+static int     cap_rename(ibase_pal_t *p, const char *f, const char *t){ cap_pal *c=(cap_pal*)p; return c->inner->rename(c->inner,f,t); }
+static void    cap_conout(ibase_pal_t *p, const char *s, uint32_t n)
+{
+    cap_pal *c=(cap_pal*)p;
+    uint32_t i;
+    for (i = 0; i < n && c->len < (uint32_t)(CAP_BUF - 1); i++)
+        c->buf[c->len++] = s[i];
+    c->buf[c->len] = '\0';
+}
+/* the overriding conin_line: copy the next scripted line into buf (no newline). */
+static int32_t cap_conin_line(ibase_pal_t *p, char *buf, uint32_t cap)
+{
+    cap_pal *c=(cap_pal*)p;
+    const char *s;
+    uint32_t k;
+    if (c->lineidx >= c->nlines) { if (cap) buf[0] = '\0'; return -1; }  /* EOF */
+    s = c->lines[c->lineidx++];
+    k = 0;
+    while (s[k] != '\0' && k < cap - 1u) { buf[k] = s[k]; k++; }
+    buf[k] = '\0';
+    return (int32_t)k;
+}
+static int32_t cap_conin_char(ibase_pal_t *p){ cap_pal *c=(cap_pal*)p; return c->inner->conin_char(c->inner); }
+static void    cap_gotoxy(ibase_pal_t *p, uint8_t r, uint8_t col){ cap_pal *c=(cap_pal*)p; c->inner->gotoxy(c->inner,r,col); }
+static void    cap_set_attr(ibase_pal_t *p, uint8_t a){ cap_pal *c=(cap_pal*)p; c->inner->set_attr(c->inner,a); }
+static void    cap_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){ cap_pal *c=(cap_pal*)p; c->inner->today(c->inner,yy,mm,dd); }
+static void   *cap_alloc(ibase_pal_t *p, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->alloc(c->inner,n); }
+static void    cap_reset(ibase_pal_t *p, void *m){ cap_pal *c=(cap_pal*)p; c->inner->reset(c->inner,m); }
+
+static void *cap_acquire(ibase_pal_t *p,uint32_t n) { cap_pal *c=(cap_pal *)p;return c->inner->acquire(c->inner,n); }
+static void cap_release(ibase_pal_t *p,void *m) { cap_pal *c=(cap_pal *)p;c->inner->release(c->inner,m); }
+static ibase_pal_t *cap_pal_make(ibase_pal_t *inner)
+{
+    g_cap.inner = inner;
+    g_cap.len = 0; g_cap.buf[0] = '\0';
+    g_cap.nlines = 0; g_cap.lineidx = 0;
+    g_cap.pal.open       = cap_open;
+    g_cap.pal.close      = cap_close;
+    g_cap.pal.read       = cap_read;
+    g_cap.pal.write      = cap_write;
+    g_cap.pal.seek       = cap_seek;
+    g_cap.pal.remove     = cap_remove;
+    g_cap.pal.rename     = cap_rename;
+    g_cap.pal.conout     = cap_conout;
+    g_cap.pal.conin_line = cap_conin_line;
+    g_cap.pal.conin_char = cap_conin_char;
+    g_cap.pal.gotoxy     = cap_gotoxy;
+    g_cap.pal.set_attr   = cap_set_attr;
+    g_cap.pal.today      = cap_today;
+    g_cap.pal.alloc      = cap_alloc;
+    g_cap.pal.reset      = cap_reset;
+    g_cap.pal.acquire = cap_acquire; g_cap.pal.release = cap_release;
+    return &g_cap.pal;
+}
+
+static void cap_clear(void) { g_cap.len = 0; g_cap.buf[0] = '\0'; }
+static void script_reset(void) { g_cap.nlines = 0; g_cap.lineidx = 0; }
+static void script_push(const char *s) { if (g_cap.nlines < SCRIPT_MAX_LINES) g_cap.lines[g_cap.nlines++] = s; }
+static const char *cap_text(void) { return g_cap.buf; }
+static int cap_has(const char *needle) { return strstr(g_cap.buf, needle) != NULL; }
+
+/* =====================================================================
+ * Helpers.
+ * ===================================================================== */
+
+/* Build a writable table CODE C(3) + AMT N(5,0) + OK L(1) with seed rows. */
+typedef struct { const char *code; double amt; int ok; } qrow;
+
+static dbf_table *make_writable_table(ibase_pal_t *pal, const char *path,
+                                      const qrow *rows, int nrows)
+{
+    dbf_field_spec fs[3];
+    dbf_table *tbl = NULL;
+    int rc, i;
+
+    fs[0].name = "CODE"; fs[0].type = 'C'; fs[0].field_len = 3; fs[0].dec = 0;
+    fs[1].name = "AMT";  fs[1].type = 'N'; fs[1].field_len = 5; fs[1].dec = 0;
+    fs[2].name = "OK";   fs[2].type = 'L'; fs[2].field_len = 1; fs[2].dec = 0;
+
+    rc = dbf_create(pal, path, fs, 3, &tbl);
+    if (rc != DBF_OK) return NULL;
+    for (i = 0; i < nrows; i++) {
+        xb_val r[3];
+        r[0] = xb_c(rows[i].code, (uint16_t)strlen(rows[i].code));
+        r[1] = xb_n(rows[i].amt);
+        r[2] = xb_l(rows[i].ok);
+        if (dbf_append_rec(tbl, r, 0) != DBF_OK) { dbf_close(tbl); return NULL; }
+    }
+    if (dbf_flush(tbl) != DBF_OK) { dbf_close(tbl); return NULL; }
+    return tbl;
+}
+
+/*
+ * Write a read-only on-disk table (raw .dbf bytes) for the REPL's USE parser to
+ * open via wa_set_open. CODE C(3) + AMT N(5,0) + OK L(1), 3 rows.
+ *   recno CODE AMT OK
+ *     1   AAA  100  T
+ *     2   BBB  200  F
+ *     3   CCC  300  T
+ */
+static int write_ro_dbf(const char *path)
+{
+    FILE *f;
+    uint8_t hdr[32], d0[32], d1[32], d2[32], term[1];
+    int i;
+    static const char *codes[3] = { "AAA","BBB","CCC" };
+    static const int   amts[3]  = { 100,  200,  300  };
+    static const char  oks[3]   = { 'T',  'F',  'T'  };
+
+    memset(hdr,0,sizeof hdr); memset(d0,0,sizeof d0);
+    memset(d1,0,sizeof d1);   memset(d2,0,sizeof d2);
+    hdr[0x00]=0x03; hdr[0x04]=3;            /* version 0x03, nrec=3 */
+    hdr[0x08]=129; hdr[0x09]=0;             /* header_length=129 */
+    hdr[0x0A]=10;  hdr[0x0B]=0;             /* record_length=10 */
+    d0[0]='C';d0[1]='O';d0[2]='D';d0[3]='E';d0[0x0B]='C';d0[0x10]=3;
+    d1[0]='A';d1[1]='M';d1[2]='T';d1[0x0B]='N';d1[0x10]=5;
+    d2[0]='O';d2[1]='K';d2[0x0B]='L';d2[0x10]=1;
+    term[0]=0x0D;
+
+    f = fopen(path,"wb");
+    if (!f) return -1;
+    fwrite(hdr,1,32,f); fwrite(d0,1,32,f); fwrite(d1,1,32,f); fwrite(d2,1,32,f);
+    fwrite(term,1,1,f);
+    for (i=0;i<3;i++) {
+        char rec[10], nbuf[6];
+        rec[0]=0x20;
+        rec[1]=codes[i][0]; rec[2]=codes[i][1]; rec[3]=codes[i][2];
+        snprintf(nbuf,sizeof nbuf,"%5d",amts[i]);
+        rec[4]=nbuf[0]; rec[5]=nbuf[1]; rec[6]=nbuf[2]; rec[7]=nbuf[3]; rec[8]=nbuf[4];
+        rec[9]=oks[i];
+        fwrite(rec,1,10,f);
+    }
+    fclose(f);
+    return 0;
+}
+
+/* read a C field's bytes from a writable table (post-REPLACE check). */
+static void read_c_field(dbf_table *tbl, uint32_t recno, int fld, char *out, int cap)
+{
+    xb_val rec[8];
+    int del = 0;
+    out[0] = '\0';
+    if (dbf_read_rec(tbl, recno, rec, &del) != DBF_OK) return;
+    if (rec[fld].t == XB_C) {
+        int n = rec[fld].u.c.len; if (n > cap-1) n = cap-1;
+        memcpy(out, rec[fld].u.c.p, (size_t)n); out[n] = '\0';
+    }
+}
+
+/* =====================================================================
+ * SESSION 1: the convergence session (USE/?/LIST/LOCATE/REPLACE/STORE/QUIT).
+ * ===================================================================== */
+static void test_session_convergence(ibase_pal_t *pal)
+{
+    const char *wpath = "/tmp/test_ibase_repl_w.dbf";
+    const char *rpath = "/tmp/test_ibase_repl_ro.dbf";
+    static const qrow seed[3] = { {"AAA",100,1}, {"BBB",200,0}, {"CCC",100,1} };
+    dbf_table *wtbl;
+    xb_interp *ip;
+    wa_env *env;
+    char cbuf[16];
+    int rc;
+    char msg[256];
+
+    CHECK(write_ro_dbf(rpath) == 0, "conv: write read-only table");
+    wtbl = make_writable_table(pal, wpath, seed, 3);
+    CHECK(wtbl != NULL, "conv: build writable table");
+    if (!wtbl) { remove(rpath); return; }
+
+    ip = xb_interp_make(pal);
+    CHECK(ip != NULL, "conv: xb_interp_make");
+    if (!ip) { dbf_close(wtbl); remove(rpath); remove(wpath); return; }
+    env = xb_interp_env(ip);
+
+    /* pre-adopt the writable table into area 1 (REPLACE needs writable;
+     * the REPL registers the modules itself, so we do NOT register here). */
+    rc = wa_adopt_table(env, 1, wtbl, NULL, "W", wpath, NULL, 0);
+    snprintf(msg,sizeof msg,"conv: wa_adopt_table rc=%d",rc);
+    CHECK(rc == WA_OK, msg);
+    if (rc != WA_OK) { xb_interp_free(ip); remove(rpath); remove(wpath); return; }
+
+    /* the scripted dot-prompt session. */
+    script_reset();
+    cap_clear();
+    {
+        static char useln[128];
+        snprintf(useln, sizeof useln, "USE %s ALIAS RO", rpath);
+        script_push("SELECT 2");        /* spine SELECT */
+        script_push(useln);             /* REPL's USE parser -> wa_set_open (ro) */
+        script_push("? RECNO()");       /* -> 1 */
+        script_push("LIST");            /* all ro rows */
+        script_push("LOCATE FOR AMT = 200"); /* -> recno 2 */
+        script_push("? FOUND()");       /* -> .T. */
+        script_push("SELECT 1");        /* the writable area */
+        script_push("REPLACE CODE WITH 'ZZ'"); /* mutate module */
+        script_push("? CODE");          /* -> ZZ (the new value) */
+        script_push("STORE 7 TO COUNTER");
+        script_push("? COUNTER");       /* -> 7 */
+        script_push("QUIT");
+    }
+
+    rc = ibase_repl(pal, ip);
+    snprintf(msg,sizeof msg,"conv: ibase_repl rc=%d (want 0)",rc);
+    CHECK(rc == INTERP_OK, msg);
+
+    /* the dot prompt was emitted each line (at least once). */
+    CHECK(cap_has(". "), "conv: dot prompt emitted");
+    /* SF-memwidth, real III+ 1.1: numeric output has ten columns. Using
+     * III+ U5-15; the independent capture includes all nine leading spaces. */
+    CHECK(cap_has("\n         1"), "conv: ? RECNO() shows 1 in ten columns (fresh USE)");
+    /* LIST recno: 7 columns + 2 spaces, real M005U/M005N (initech-31d1). */
+    CHECK(cap_has("      1  AAA"), "conv: LIST shows recno 1 / AAA (ro table)");
+    CHECK(cap_has("      2  BBB"), "conv: LIST shows recno 2 / BBB");
+    CHECK(cap_has("      3  CCC"), "conv: LIST shows recno 3 / CCC");
+    /* LOCATE FOR AMT=200 matched -> ? FOUND() echoes the logical as ".T." (the
+     * ?/?? echo form is DOTTED per III+ -- NOT bare T/F, which is the LIST/DISPLAY
+     * COLUMN form). A match here proves the REPL's USE + LOCATE + FOUND convergence
+     * on the ro table. (We assert on the transcript, NOT post-session wa state,
+     * because QUIT closes every area.)
+     * Ref (Law 1): ../dbase3-decomp/specs/commands/navigation-query-display.md
+     *   L.803 "? ... logicals as .T./.F." -- the dotted ?/?? echo. The prior
+     *   "\nT" assertion agreed with a WRONG code path BY CONSTRUCTION (Law-2
+     *   heresy: it graded T/F against a q_render_val that also emitted T/F). */
+    CHECK(cap_has("\n.T."), "conv: ? FOUND() echoes .T. after LOCATE matched AMT=200");
+    /* REPLACE wrote 'ZZ' into the writable area-1 record 1 -> ? CODE shows it.
+     * This transcript check is the mutation-proof bite point: with
+     * -DREPL_MUTATE_NO_MUTATE_MODULE the REPLACE verb is unrecognized (#16) and
+     * ? CODE then shows the OLD 'AAA' (no "\nZZ" in the transcript) -> RED. */
+    CHECK(cap_has("\nZZ"), "conv: ? CODE shows the REPLACEd value 'ZZ'");
+    /* STORE 7 TO COUNTER ; ? COUNTER -> 7 (memvar survived the session). */
+    {
+        xb_val cv;
+        CHECK(xb_interp_get_memvar(ip, "COUNTER", &cv) == 0 && cv.t == XB_N &&
+              cv.u.n == 7.0, "conv: STORE 7 TO COUNTER -> memvar==7");
+    }
+    CHECK(cap_has("\n         7"), "conv: ? COUNTER shows 7 in ten columns (SF-memwidth)");
+
+    /* the interp (and its adopted/closed tables) are gone after ibase_repl's
+     * QUIT-time wa_close_all; free the handle and verify the REPLACE PERSISTED by
+     * re-opening the file fresh from disk (mutate flushes after each verb). */
+    xb_interp_free(ip);
+    {
+        dbf_table *verify = NULL;
+        if (dbf_open(pal, wpath, &verify) == DBF_OK) {
+            read_c_field(verify, 1, 0, cbuf, sizeof cbuf);
+            snprintf(msg,sizeof msg,"conv: rec1 CODE persisted == 'ZZ ' (got '%s')",cbuf);
+            CHECK(strcmp(cbuf, "ZZ ") == 0, msg);  /* MUTANT NO_MUTATE_MODULE -> 'AAA' */
+            dbf_close(verify);
+        } else {
+            CHECK(0, "conv: re-open writable table to verify REPLACE persisted");
+        }
+    }
+    remove(rpath);
+    remove(wpath);
+}
+
+/* =====================================================================
+ * SESSION 2: SET EXACT effect.
+ * ===================================================================== */
+static void test_session_set_exact(ibase_pal_t *pal)
+{
+    xb_interp *ip = xb_interp_make(pal);
+    int rc;
+    char msg[160];
+    CHECK(ip != NULL, "exact: xb_interp_make");
+    if (!ip) return;
+
+    script_reset();
+    cap_clear();
+    script_push("? 'AB' = 'A'");   /* EXACT OFF default: begins-with -> .T. */
+    script_push("SET EXACT ON");
+    script_push("? 'AB' = 'A'");   /* EXACT ON: full match required -> .F. */
+    script_push("QUIT");
+
+    rc = ibase_repl(pal, ip);
+    snprintf(msg,sizeof msg,"exact: ibase_repl rc=%d",rc);
+    CHECK(rc == INTERP_OK, msg);
+    /* ? echoes logicals DOTTED (.T./.F.) per III+ (navigation-query-display.md
+     * L.803). EXACT OFF gives 'AB'='A' true, EXACT ON gives false. Both a ".T."
+     * and a ".F." value (each after the ?'s leading NL) must appear, proving SET
+     * EXACT changed the comparison. (Prior "\nT"/"\nF" were the Law-2 heresy:
+     * grading against q_render_val's own wrong bare-T/F output.) */
+    CHECK(cap_has("\n.T."), "exact: EXACT OFF -> 'AB'='A' echoes .T. (begins-with)");
+    CHECK(cap_has("\n.F."), "exact: SET EXACT ON -> 'AB'='A' echoes .F. (full match)");
+
+    xb_interp_free(ip);
+}
+
+/* =====================================================================
+ * SESSION 3: a PROCEDURE invoked via DO (the proc module).
+ * ===================================================================== */
+static void test_session_procedure(ibase_pal_t *pal)
+{
+    xb_interp *ip = xb_interp_make(pal);
+    int rc;
+    char msg[160];
+    CHECK(ip != NULL, "proc: xb_interp_make");
+    if (!ip) return;
+
+    script_reset();
+    cap_clear();
+    /* The DO module's proc_run runs the main body then PROCEDURE blocks; the
+     * whole little program is fed as one multi-line line (ibase_do splits it). */
+    script_push(
+        "PUBLIC R\n"
+        "DO BUMP\n"
+        "? R\n"
+        "PROCEDURE BUMP\n"
+        "  R = 41\n"
+        "  RETURN\n");
+    script_push("QUIT");
+
+    rc = ibase_repl(pal, ip);
+    snprintf(msg,sizeof msg,"proc: ibase_repl rc=%d",rc);
+    CHECK(rc == INTERP_OK, msg);
+    CHECK(cap_has("41"), "proc: DO BUMP set R=41 -> ? R shows 41");
+    {
+        xb_val rv;
+        CHECK(xb_interp_get_memvar(ip, "R", &rv) == 0 && rv.t == XB_N &&
+              rv.u.n == 41.0, "proc: PUBLIC R == 41 after DO");
+    }
+
+    xb_interp_free(ip);
+}
+
+/* =====================================================================
+ * SESSION 4: error rendering via the catalog + the loop CONTINUES.
+ * ===================================================================== */
+static void test_session_errors(ibase_pal_t *pal)
+{
+    xb_interp *ip = xb_interp_make(pal);
+    int rc;
+    char msg[160];
+    CHECK(ip != NULL, "err: xb_interp_make");
+    if (!ip) return;
+
+    script_reset();
+    cap_clear();
+    script_push("FROBNICATE");        /* unknown verb -> #16 */
+    script_push("? 'A' + 1");         /* type mismatch -> #9 */
+    script_push("? 'STILL HERE'");    /* the session did NOT abort */
+    script_push("QUIT");
+
+    rc = ibase_repl(pal, ip);
+    snprintf(msg,sizeof msg,"err: ibase_repl rc=%d (clean exit even after errors)",rc);
+    CHECK(rc == INTERP_OK, msg);
+
+    /* the catalog message text for #16 and #9 (period-authentic). */
+    CHECK(cap_has("*** Unrecognized command verb."),
+          "err: #16 catalog text rendered for FROBNICATE");  /* MUTANT ERR_RENDER -> RED */
+    CHECK(cap_has("16  *** Unrecognized command verb."),
+          "err: #16 rendered as 'N  <message>' form");
+    CHECK(cap_has("Data type mismatch."),
+          "err: #9 catalog text rendered for 'A' + 1");      /* MUTANT ERR_RENDER -> RED */
+    CHECK(cap_has("9  Data type mismatch."),
+          "err: #9 rendered as 'N  <message>' form");
+    /* the loop CONTINUED past both bad lines -> the last good line ran. */
+    CHECK(cap_has("STILL HERE"),
+          "err: session continued after errors (later ? still printed)");
+
+    xb_interp_free(ip);
+}
+
+/* =====================================================================
+ * SESSION 6: plain-USE-REPLACE-persists (initech-7az.19).
+ *   Proves that a bare `USE <file>` at the dot prompt opens the table for
+ *   editing (wa_set_open_rw, the dBASE default), so REPLACE / ? / QUIT persist
+ *   to disk WITHOUT the dbf_create + wa_adopt_table seam.
+ *
+ * Steps:
+ *   1. Create a /tmp table via make_writable_table; dbf_close it (on disk).
+ *   2. Fresh REPL (no pre-adoption): USE <path>, REPLACE CODE WITH 'RW', ? CODE,
+ *      QUIT.
+ *   3. Assert ? CODE shows 'RW' in the transcript (new value in-session).
+ *   4. Re-open the /tmp file fresh from disk (dbf_open) and assert CODE == 'RW '
+ *      (persisted; padded to field width 3). This proves the RW open flushed.
+ *
+ * Mutation proof: -DREPL_MUTATE_NO_MUTATE_MODULE -> REPLACE unrecognized (#16) ->
+ *   ? CODE shows old 'AAA' -> cap_has("\nRW") FALSE -> RED. The existing Make
+ *   mutant already covers this leg with no Makefile change.
+ *
+ * /tmp safety: only /tmp paths are ever mutated; no corpus golden is opened rw.
+ * Ref: workarea.h wa_set_open_rw (7az.16 / 7az.19); ibase_main.c repl_do_use.
+ * ===================================================================== */
+static void test_session_plain_use_rw(ibase_pal_t *pal)
+{
+    const char *path = "/tmp/test_ibase_repl_rw6.dbf";
+    static const qrow seed[3] = { {"AAA",100,1}, {"BBB",200,0}, {"CCC",300,1} };
+    dbf_table *wtbl;
+    xb_interp *ip;
+    char msg[256];
+    char cbuf[16];
+    static char useln[128];
+    int rc;
+
+    /* 1. Create the table on disk, then close the handle (plain USE needs the
+     *    file on disk, not an already-open writable handle). dbf_flush is called
+     *    inside make_writable_table before returning. */
+    wtbl = make_writable_table(pal, path, seed, 3);
+    snprintf(msg, sizeof msg, "rw6: make_writable_table at %s", path);
+    CHECK(wtbl != NULL, msg);
+    if (!wtbl) return;
+    dbf_close(wtbl);   /* on disk; the REPL will re-open it via wa_set_open_rw */
+    wtbl = NULL;
+
+    /* 2. Fresh REPL -- no pre-adoption; the REPL's USE opens rw (7az.19). */
+    ip = xb_interp_make(pal);
+    CHECK(ip != NULL, "rw6: xb_interp_make");
+    if (!ip) { remove(path); return; }
+
+    script_reset();
+    cap_clear();
+    snprintf(useln, sizeof useln, "USE %s", path);
+    script_push(useln);                      /* plain USE -> wa_set_open_rw */
+    script_push("REPLACE CODE WITH 'RW'");  /* S5.5 mutate; needs writable table */
+    script_push("? CODE");                   /* -> show the new value in-session */
+    script_push("QUIT");
+
+    rc = ibase_repl(pal, ip);
+    snprintf(msg, sizeof msg, "rw6: ibase_repl rc=%d (want 0)", rc);
+    CHECK(rc == INTERP_OK, msg);
+
+    /* 3. In-session: ? CODE must show the REPLACEd value 'RW' (padded to 'RW ').
+     *    Mutation-proof bite: -DREPL_MUTATE_NO_MUTATE_MODULE -> REPLACE #16 ->
+     *    ? CODE shows 'AAA' -> no "\nRW" in transcript -> RED. */
+    CHECK(cap_has("\nRW"), "rw6: ? CODE shows REPLACEd value 'RW' in-session");
+
+    xb_interp_free(ip);
+
+    /* 4. Disk-persistence: re-open the /tmp file with a fresh dbf_open and assert
+     *    the new value survived QUIT (proves wa_set_open_rw flushed on mutation).
+     *    This assertion is distinct from the transcript check: it proves the bytes
+     *    are on disk, not just in the work area's record cache. */
+    {
+        dbf_table *verify = NULL;
+        rc = dbf_open(pal, path, &verify);
+        snprintf(msg, sizeof msg, "rw6: dbf_open for verify rc=%d (want 0)", rc);
+        CHECK(rc == DBF_OK, msg);
+        if (verify) {
+            read_c_field(verify, 1, 0, cbuf, sizeof cbuf);
+            snprintf(msg, sizeof msg,
+                     "rw6: rec1 CODE persisted == 'RW ' after plain-USE-REPLACE (got '%s')",
+                     cbuf);
+            CHECK(strcmp(cbuf, "RW ") == 0, msg);
+            dbf_close(verify);
+        }
+    }
+
+    remove(path);
+}
+
+/* =====================================================================
+ * SESSION 7: DO <file> -- run a .PRG program OFF DISK from the dot prompt
+ *   (initech-9a0f). Proves the REPL's `DO <name>` opens <name>[.PRG] via the
+ *   PAL (pal_host here), reads the whole program into a PAL-arena buffer, and
+ *   executes it through proc_run -- the authentic dBASE "DO a disk program".
+ *
+ * This is the HOST oracle leg the bead asks for: the DO-file feature is graded
+ * on the factory host, not only in-emulator. The same code path runs in-emu over
+ * pal_dos (test-ibase-canon-y2k), so a green here + a green there proves the
+ * feature end-to-end.
+ *
+ * Steps:
+ *   1. Write a tiny program GREET.PRG to /tmp (no .dbf needed): it ? prints a
+ *      distinctive line and STOREs a memvar, so we can assert BOTH the conout
+ *      transcript AND the post-run memvar (proof the body actually executed).
+ *   2. Fresh REPL: type `DO /tmp/.../GREET` (no extension) -- the REPL appends
+ *      ".PRG", finds it, reads it, runs it.
+ *   3. Assert the ? line is in the transcript and the memvar took its value.
+ *   4. Negative: `DO NOSUCHFILE` (not on disk, no in-source proc) -> dBASE #16
+ *      (unrecognized / not found) is rendered, and the session CONTINUES.
+ *
+ * Mutation proof (Rule 6): the Make gate's -DREPL_MUTATE_DO_TRUNC reads only the
+ *   first half of the .prg, so GREET.PRG's STORE line (in the back half) is cut
+ *   off -> the memvar assertion + the in-emu canon report go RED. (Here we keep
+ *   the program small but put the STORE LAST so a half-read drops it.)
+ * ===================================================================== */
+static void test_session_do_file(ibase_pal_t *pal)
+{
+    const char *prgpath = "/tmp/test_ibase_repl_GREET.PRG";
+    const char *noext   = "/tmp/test_ibase_repl_GREET";   /* REPL appends .PRG */
+    FILE *f;
+    xb_interp *ip;
+    int rc;
+    char msg[256];
+    static char doln[160];
+
+    /* 1. Author GREET.PRG: a ? line FIRST, the STORE LAST (so a half-read drops
+     *    the STORE -- the DO-TRUNC mutant bite). Padded with a comment so the
+     *    file is comfortably longer than one PAL read. */
+    f = fopen(prgpath, "wb");
+    CHECK(f != NULL, "dofile: author GREET.PRG");
+    if (!f) return;
+    fputs("* GREET.PRG -- a tiny disk program run via DO from the dot prompt.\n", f);
+    fputs("? 'HELLO FROM A DISK PROGRAM'\n", f);
+    fputs("* the STORE is LAST so a truncated DO-read drops it (mutant bite):\n", f);
+    fputs("STORE 1234 TO GREETED\n", f);
+    fclose(f);
+
+    ip = xb_interp_make(pal);
+    CHECK(ip != NULL, "dofile: xb_interp_make");
+    if (!ip) { remove(prgpath); return; }
+
+    /* 2/3. DO the program by its bare name (the REPL appends .PRG). */
+    script_reset();
+    cap_clear();
+    snprintf(doln, sizeof doln, "DO %s", noext);
+    script_push(doln);
+    script_push("DO NOSUCHPRG");   /* 4. negative: not on disk -> #16, loop continues */
+    script_push("? 'AFTER'");      /* the session survives the missing-program DO */
+    script_push("QUIT");
+
+    rc = ibase_repl(pal, ip);
+    snprintf(msg, sizeof msg, "dofile: ibase_repl rc=%d (want 0)", rc);
+    CHECK(rc == INTERP_OK, msg);
+
+    /* the ? line from the disk program reached conout. */
+    CHECK(cap_has("HELLO FROM A DISK PROGRAM"),
+          "dofile: DO <file> ran the disk program's ? (transcript)");
+    /* the STORE in the disk program executed (memvar took its value). With
+     * -DREPL_MUTATE_DO_TRUNC the STORE line is read-truncated -> GREETED unset
+     * -> this assertion goes RED. */
+    {
+        xb_val gv;
+        CHECK(xb_interp_get_memvar(ip, "GREETED", &gv) == 0 && gv.t == XB_N &&
+              gv.u.n == 1234.0,
+              "dofile: DO <file> executed the disk program's STORE (GREETED==1234)");
+    }
+    /* the missing-program DO rendered #16 and the loop continued. */
+    CHECK(cap_has("16  *** Unrecognized command verb."),
+          "dofile: DO NOSUCHPRG (no file, no proc) -> #16 rendered");
+    CHECK(cap_has("AFTER"),
+          "dofile: session continued after the missing-program DO");
+
+    xb_interp_free(ip);
+    remove(prgpath);
+}
+
+/* =====================================================================
+ * SESSION 5: EOF terminates cleanly (empty script -> EOF first read).
+ * ===================================================================== */
+static void test_session_eof(ibase_pal_t *pal)
+{
+    xb_interp *ip = xb_interp_make(pal);
+    int rc;
+    char msg[160];
+    CHECK(ip != NULL, "eof: xb_interp_make");
+    if (!ip) return;
+
+    script_reset();   /* no lines pushed -> conin_line returns -1 immediately */
+    cap_clear();
+    rc = ibase_repl(pal, ip);
+    snprintf(msg,sizeof msg,"eof: ibase_repl rc=%d (EOF -> clean stop)",rc);
+    CHECK(rc == INTERP_OK, msg);
+    /* the prompt was still emitted (the REPL prompts before reading). */
+    CHECK(cap_has(". "), "eof: prompt emitted before the EOF read");
+    /* nothing executed -> no value/error lines beyond the prompt. */
+    CHECK(strcmp(cap_text(), ". ") == 0,
+          "eof: only the prompt was written, then clean EOF stop");
+
+    xb_interp_free(ip);
+}
+
+/* ===================================================================== */
+/* main                                                                   */
+/* ===================================================================== */
+static void test_session_abbreviations(ibase_pal_t *pal)
+{
+    const char *path = "/tmp/test_ibase_abbr.dbf";
+    char use[160]; xb_val v;
+    xb_interp *ip = xb_interp_make(pal);
+    CHECK(ip && write_ro_dbf(path) == 0, "abbrev prompt: fixture");
+    if (!ip) return;
+    snprintf(use,sizeof use,"USE %s ALIA FIRST",path);
+    script_reset(); cap_clear();
+    script_push(use);
+    script_push("DISP OFF CODE RECO 1");
+    script_push("REPL CODE WITH 'XYZ' RECO 1");
+    script_push("APPE BLAN");
+    script_push("LOCA FOR CODE='XYZ' WHIL .T.");
+    script_push("SELE 2");
+    script_push("STOR 7 TO STORED");
+    script_push("SELE FIRST");
+    script_push("INDE ON CODE TO /tmp/test_ibase_abbr.ndx");
+    script_push("CLOS INDE");
+    script_push("SET DECI TO 2");
+    script_push("CLOS DATA");
+    script_push("STOR 8 TO STORENO");
+    script_push("? STORED,STORENO");
+    script_push("QUIT");
+    CHECK(ibase_repl(pal,ip) == INTERP_OK, "abbrev prompt: session returned");
+    CHECK(!cap_has("Unrecognized") && !cap_has("Syntax error") && !cap_has("Variable not found"),
+          "abbrev prompt: commands and clauses recognized");
+    CHECK(xb_interp_get_memvar(ip,"STORED",&v) == 0 && v.t == XB_N && v.u.n == 7,
+          "abbrev prompt: STORED preserved");
+    CHECK(xb_interp_get_memvar(ip,"STORENO",&v) == 0 && v.t == XB_N && v.u.n == 8,
+          "abbrev prompt: STORENO distinct");
+    CHECK(!wa_is_open(xb_interp_env(ip),1), "abbrev prompt: CLOS DATA dispatched");
+    xb_interp_free(ip); remove(path); remove("/tmp/test_ibase_abbr.ndx");
+}
+
+static void test_session_inspection(ibase_pal_t *pal)
+{
+    xb_interp *ip=xb_interp_make(pal);
+    xb_val value;
+    CHECK(ip!=NULL,"inspection prompt: interpreter");
+    if(!ip)return;
+    script_reset();cap_clear();
+    script_push("LIST STATUS");
+    script_push("DISPLAY MEMORY");
+    script_push("STATUS=42");
+    script_push("MEMORY='kept'");
+    script_push("LIST MEMORY");
+    script_push("LIST STATUS");
+    script_push("QUIT");
+    CHECK(ibase_repl(pal,ip)==0,"inspection prompt: no-table session returned");
+    CHECK(!cap_has("Variable not found") && !cap_has("No database is in USE"),
+          "inspection prompt: reserved subcommands bypass record expressions");
+    CHECK(cap_has("variables defined,") && cap_has("Current work area =    1"),
+          "inspection prompt: both report families dispatched");
+    CHECK(xb_interp_get_memvar(ip,"STATUS",&value)==0 && value.t==XB_N && value.u.n==42,
+          "inspection prompt: variable named STATUS survives");
+    CHECK(xb_interp_get_memvar(ip,"MEMORY",&value)==0 && value.t==XB_C &&
+          value.u.c.len==4 && !memcmp(value.u.c.p,"kept",4),"inspection prompt: variable named MEMORY survives");
+    xb_interp_free(ip);
+}
+
+int main(int argc, char **argv)
+{
+    struct pal_host_cfg cfg;
+    ibase_pal_t *host, *pal;
+    (void)argc; (void)argv;   /* corpus path optional; this oracle is self-contained */
+
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.date_yy   = 99;
+    cfg.date_mm   = 12;
+    cfg.date_dd   = 31;
+    cfg.heap_size = 8u * 1024u * 1024u;   /* generous: several fresh interps */
+
+    host = pal_host_make(cfg);
+    if (!host) { fprintf(stderr, "FATAL: pal_host_make returned NULL\n"); return 2; }
+    pal = cap_pal_make(host);             /* capture conout + script conin_line */
+
+    test_session_convergence(pal);
+    test_session_set_exact(pal);
+    test_session_procedure(pal);
+    test_session_errors(pal);
+    test_session_eof(pal);
+    test_session_plain_use_rw(pal);  /* 7az.19: plain USE opens rw -> REPLACE persists */
+    test_session_do_file(pal);       /* 9a0f: DO <file> runs a .PRG off disk via the PAL */
+    test_session_abbreviations(pal);
+    test_session_inspection(pal);
+
+    pal_host_free(host);
+    return TEST_SUMMARY("test-ibase-repl");
+}

@@ -1,12 +1,12 @@
 /*
- * os/samir/core/fn_builtins.c -- SAMIR xBase III+ 1.1 built-in functions A (S3.5).
+ * os/ibase/core/fn_builtins.c -- IBASE xBase III+ 1.1 built-in functions A (S3.5).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001 interim toolchain). Uses ONLY <stdint.h>, rt.h, value.h
  * and eval.h. No libc, no PAL, no I/O. Pure (Rule 11): a result is a function
  * of (name, args, ctx state); the only "clock" is the INJECTED ctx->ctx_today.
  *
- * Step S3.5 of docs/plans/SAMIR-implementation-plan.md ("built-in functions A
+ * Step S3.5 of docs/plans/IBASE-implementation-plan.md ("built-in functions A
  * (bridges + core)"). The evaluator (eval.c, XBN_CALL case) evaluates the
  * argument expressions and calls xb_call_builtin here with the (already typed)
  * argument vector. This file is the fn_* TABLE; eval.c keeps the operator
@@ -52,8 +52,8 @@
  *   - harness/diff/dbf_diff/xbase_prog_diff/datatype-mint/datecontract/
  *       DATECHK.TXT B01..C16: DTOC keeps separators; numeric CTOD components
  *       roll over without error (initech-bkmv; supersedes inferred rules).
- *   - spec/samir/dbase_msg_codes.tsv (the codes above).
- *   - os/samir/include/samir/{eval.h,value.h,rt.h}.
+ *   - spec/ibase/dbase_msg_codes.tsv (the codes above).
+ *   - os/ibase/include/ibase/{eval.h,value.h,rt.h}.
  *
  * BOUNDARIES / GATED (loud-noted, NOT guessed):
  *   - CTOD/DTOC read SET DATE / SET CENTURY from xb_ctx (S5.6).
@@ -67,13 +67,13 @@
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
 
-#include "samir/eval.h"
-#include "samir/pal.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/eval.h"
+#include "ibase/pal.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 /* ======================================================================== */
 /* Small freestanding helpers                                                */
@@ -113,7 +113,7 @@ static int fn_date_blank(double jdn) { return jdn <= 0.0; }
 /*
  * xb_is_leap_year: proleptic Gregorian leap-year rule.
  * Ref: the same Meeus Ch.7 Gregorian formula already cited for
- * jdn_from_ymd/ymd_from_jdn (os/samir/include/samir/rt.h S2). Divisible by 4,
+ * jdn_from_ymd/ymd_from_jdn (os/ibase/include/ibase/rt.h S2). Divisible by 4,
  * EXCEPT century years not divisible by 400: 1900 is NOT leap, 2000 IS leap,
  * 2100 is NOT leap. All within the CTOD valid range 1900-2155 (rt.h).
  *
@@ -386,7 +386,7 @@ static int fn_str(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_val(const xb_val *args, xb_val *out, int *err)
 {
     *out = xb_n(dec_parse(args[0].u.c.p, (int)args[0].u.c.len));
-#ifndef SAMIR_DT_MUTANT_valstar
+#ifndef IBASE_DT_MUTANT_valstar
     /* Do not trim: real III+ distinguishes "*" from " *" (DT6 V01/V03). */
     if (args[0].u.c.len && args[0].u.c.p[0] == '*')
         *out = xb_n(1.7976931348623157e308);
@@ -617,7 +617,7 @@ static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args,
     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
 
     rt_date_format(args[0].u.d, fmt, century, dst, 0);
-#ifdef SAMIR_DT_MUTANT_blankdtoc
+#ifdef IBASE_DT_MUTANT_blankdtoc
     if (fn_date_blank(args[0].u.d)) rt_memset(dst, ' ', width);
 #endif
     *out = xb_c(dst, (uint16_t)width);
@@ -694,7 +694,7 @@ static int fn_type(const xb_val *args, xb_ctx *ctx,
     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
     /* xb_type_char maps XB_U -> 'U' too, so an undefined value reports "U"
      * (the III+ "undefined/invalid expression" code). */
-#ifdef SAMIR_FNS_MUTANT_type
+#ifdef IBASE_FNS_MUTANT_type
     code='C';
 #endif
     dst[0] = code;
@@ -1321,7 +1321,7 @@ static int fn_islower(const xb_val *args, xb_val *out, int *err)
  *   the plain minus form). The grounded assertion
  *   TRANSFORM(-570,"@( 9999")="( 570)" then goes RED.
  *
- * Freestanding (Law 3): <stdint.h> + samir/ only. No libc, no libm.
+ * Freestanding (Law 3): <stdint.h> + ibase/ only. No libc, no libm.
  * ASCII-clean (Rule 12). Reproducible (Rule 11).
  */
 
@@ -1463,7 +1463,7 @@ static int tr_format_numeric(xb_ctx *ctx, double v,
      * dec_format gets n_digit digits PLUS the point. Formatting into n_digit
      * columns star-filled every value that exactly fits (real III+
      * TRANSFORM(123.4,"999.99") = "123.40", (0.12,"9.99") = "0.12",
-     * (5,"9.9") = "5.0": datatype-mint DT1 C1..C11; audit 2026-10-23-samir
+     * (5,"9.9") = "5.0": datatype-mint DT1 C1..C11; audit 2026-10-23-ibase
      * L007; initech-ylqs). Mutant XB_MUTATE_TR_DOTWIDTH drops the column. */
 #ifndef XB_MUTATE_TR_DOTWIDTH
     fmt_w = n_digit + (n_dec > 0 ? 1 : 0);
@@ -1799,7 +1799,7 @@ static int fn_transform(xb_ctx *ctx, const xb_val *args,
 /*   - ../dbase3-decomp/specs/functions/system-and-database-functions.md     */
 /*       sec 2 (RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF) + sec 3 FILE; */
 /*       sec 1 "All ... operate on the currently SELECTed (active) work area".*/
-/*   - spec/samir/dbase_msg_codes.tsv code 52 "No database is in USE."        */
+/*   - spec/ibase/dbase_msg_codes.tsv code 52 "No database is in USE."        */
 /* ======================================================================== */
 
 /* All DB built-ins funnel the no-work-area case through here (fail loud). */
@@ -2001,7 +2001,7 @@ static int fn_file(xb_ctx *ctx, const xb_val *args,
 
     /* FILE is an environment query, not a cursor operation. Using III+
      * U6-33; ADR-0008 DEC-02 (initech-52ph/u5mw). */
-#ifdef SAMIR_CORE_MUTATE_FILE_NEEDS_USE
+#ifdef IBASE_CORE_MUTATE_FILE_NEEDS_USE
     if (!need_dbcur(ctx, err)) return *err;
 #endif
     len = args[0].u.c.len;
@@ -2031,7 +2031,7 @@ static int fn_file(xb_ctx *ctx, const xb_val *args,
 /*
  * The built-in names, one NUL-terminated entry each, in FN_* order; an empty
  * entry ends the table. One lookup loop over the table replaces a chain of
- * per-name compare calls (SAMIR size round 3, initech-vn4i): the lookup is the
+ * per-name compare calls (IBASE size round 3, initech-vn4i): the lookup is the
  * same exact case-insensitive name_is match, and since every name is distinct
  * the first-match order of the old chain cannot change which handler runs.
  */
@@ -2169,13 +2169,13 @@ static void fn_math_picture(const xb_ctx *ctx, const xb_val *arg, xb_val *out,
      * remains: real limitpic/GOLD.OUT EXP(1.000000000) is 2.71828183.
      * Keep that subtraction signed; clamp only the final computed picture. */
     if (!computed_width && integer_columns < 1) integer_columns = 1;
-#ifdef SAMIR_FNS_MUTANT_limitpic
+#ifdef IBASE_FNS_MUTANT_limitpic
     if (integer_columns < 1) integer_columns = 1;
 #endif
     unsigned decimals = ctx->set_decimals > arg->num_dec
         ? ctx->set_decimals : arg->num_dec;
     int width = integer_columns + (int)(decimals ? decimals + 1u : 0u);
-#ifdef SAMIR_FNS_MUTANT_mathpicture
+#ifdef IBASE_FNS_MUTANT_mathpicture
     /* Regression proof: corrupt only negative arguments with wide pictures. */
     if (arg->u.n < 0.0 && arg->num_width > 4u) width++;
 #endif
@@ -2204,7 +2204,7 @@ static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     /* Ref: ../dbase3-decomp/specs/functions/numeric-and-date-functions.md
      * EXP; HELP.DBS @NUMERIC FUNCTIONS line 1293 and @SET DECIMALS line 1416.
      * Compute e^a as 2^(a*log2(e)), following os/i123/core/eval.c x87_exp2.
-     * Memory operands keep SAMIR's soft-float ABI; the x87 stack is balanced. */
+     * Memory operands keep IBASE's soft-float ABI; the x87 stack is balanced. */
     __asm__ volatile (
         "fldl2e\n\t"
         "fmull %1\n\t"
@@ -2220,7 +2220,7 @@ static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         "fstpl %0"
         : "=m" (result)
         : "m" (a));
-#if defined(SAMIR_FNS_MUTANT_EXP) || defined(SAMIR_FNS_MUTANT_exp) || defined(SAMIR_FNS_MUTANT_exppicture)
+#if defined(IBASE_FNS_MUTANT_EXP) || defined(IBASE_FNS_MUTANT_exp) || defined(IBASE_FNS_MUTANT_exppicture)
     result += 1.0; /* Rule 6: the EXP transcript must catch this perturbation. */
 #endif
     *out = xb_n(result);
@@ -2259,14 +2259,14 @@ static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
      * overflow result before raising #58. The accepted NDX mechanism
      * consumes the first pending code at the statement boundary. */
     if (x <= 0.0 && !ctx->deferred_error) {
-#ifdef SAMIR_FNS_MUTANT_logguards
+#ifdef IBASE_FNS_MUTANT_logguards
         /* Real logguards/GOLD.OUT: a deferred false guard under a procedure
          * handler enters its body; an immediate error invokes the handler. */
         return fn_fail(err, 58);
 #endif
         ctx->deferred_error = 58;
     }
-#if defined(SAMIR_FNS_MUTANT_LOG) || defined(SAMIR_FNS_MUTANT_log)
+#if defined(IBASE_FNS_MUTANT_LOG) || defined(IBASE_FNS_MUTANT_log)
     /* Rule 6 mutation: perturb the numeric result so the pinned golden fails. */
     value += 0.01;
 #endif
@@ -2286,7 +2286,7 @@ static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if (nargs != 1 || args[0].t != XB_N)
         return fn_fail(err, XBEE_INVALID_ARG);
     if (args[0].u.n < 0.0) {
-#if defined(SAMIR_FNS_MUTANT_SQRT) || defined(SAMIR_FNS_MUTANT_sqrt)
+#if defined(IBASE_FNS_MUTANT_SQRT) || defined(IBASE_FNS_MUTANT_sqrt)
         return fn_fail(err, 61); /* MUTANT: raise before the result prints. */
 #endif
         if (!ctx->deferred_error) {
@@ -2320,7 +2320,7 @@ static int fn_time_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if (!dst) return fn_fail(err, XBEE_SCRATCH_FULL);
     dst[0] = (char)('0' + hour / 10u); dst[1] = (char)('0' + hour % 10u);
     dst[2] = ':';
-#if defined(SAMIR_FNS_MUTANT_TIME) || defined(SAMIR_FNS_MUTANT_time)
+#if defined(IBASE_FNS_MUTANT_TIME) || defined(IBASE_FNS_MUTANT_time)
     dst[2] = ';'; /* The named gate passes the lower-case case name. */
 #endif
     dst[3] = (char)('0' + minute / 10u); dst[4] = (char)('0' + minute % 10u);
@@ -2342,7 +2342,7 @@ static int fn_lupdate_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if (!need_dbcur(ctx, err)) return *err;
     date = ctx->dbcur->last_update
         ? ctx->dbcur->last_update(ctx->dbcur_user) : 0.0;
-#ifdef SAMIR_FNS_MUTANT_lupdate
+#ifdef IBASE_FNS_MUTANT_lupdate
     /* Rule 6: perturb the returned date by one day; the independent mint bites. */
     if (date > 0.0) date += 1.0;
 #endif
@@ -2368,7 +2368,7 @@ static int fn_ndx_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
     if (args[0].t != XB_N) return fn_fail(err, XBEE_INVALID_ARG);
     if (!(args[0].u.n >= 1.0 && args[0].u.n < 8.0)) {
-#ifdef SAMIR_FNS_MUTANT_ndx_deferred
+#ifdef IBASE_FNS_MUTANT_ndx_deferred
         return fn_fail(err, 87);       /* MUTANT: output must precede the error */
 #else
         /* Real III+ NDX GOLD.OUT lines 4-5 and 7-8: complete the output
@@ -2383,7 +2383,7 @@ static int fn_ndx_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     slot = to_int_trunc(args[0].u.n);
     if (!ctx || !ctx->dbcur || !ctx->dbcur->index_name)
         return fn_fail(err, XBEE_NO_DATABASE);
-#ifdef SAMIR_FNS_MUTANT_ndx
+#ifdef IBASE_FNS_MUTANT_ndx
     /* Intentional off-by-one: the golden's indexed NDX(1) line must catch it. */
     slot++;
 #endif
@@ -2414,7 +2414,7 @@ static int fn_row_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
     *out=xb_n(ctx ? ctx->screen_row : 0);
     out->num_width=4;
-#ifdef SAMIR_FNS_MUTANT_row
+#ifdef IBASE_FNS_MUTANT_row
     out->u.n+=1; /* Each independent real capture must catch this. */
 #endif
     return 0;
@@ -2429,7 +2429,7 @@ static int fn_col_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
     *out=xb_n(ctx ? ctx->screen_col : 0);
     out->num_width=4;
-#ifdef SAMIR_FNS_MUTANT_col
+#ifdef IBASE_FNS_MUTANT_col
     out->u.n+=1; /* Each independent real capture must catch this. */
 #endif
     return 0;
@@ -2444,7 +2444,7 @@ static int fn_prow_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
     *out=xb_n(ctx ? ctx->printer_row : 0);
     out->num_width=4;
-#ifdef SAMIR_FNS_MUTANT_prow
+#ifdef IBASE_FNS_MUTANT_prow
     out->u.n+=1; /* Each independent real capture must catch this. */
 #endif
     return 0;
@@ -2459,7 +2459,7 @@ static int fn_pcol_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
     *out=xb_n(ctx ? ctx->printer_col : 0);
     out->num_width=4;
-#ifdef SAMIR_FNS_MUTANT_pcol
+#ifdef IBASE_FNS_MUTANT_pcol
     out->u.n+=1; /* Each independent real capture must catch this. */
 #endif
     return 0;
@@ -2499,7 +2499,7 @@ static int fn_inkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         default: key = 0; break;    /* No Table 6-1 equivalent. */
         }
     } else if (key == 17) key = 27; /* Ctrl-Q / Esc */
-#ifdef SAMIR_FNS_MUTANT_inkey
+#ifdef IBASE_FNS_MUTANT_inkey
     key++;                         /* Rule 6: empty queue must return zero. */
 #endif
     *out = xb_n((double)key);
@@ -2515,11 +2515,11 @@ static int fn_readkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
      * fns-mint/readkey/GOLD.OUT: before any full-screen command, repeated
      * calls return zero in three numeric columns. READKEY is exit history,
      * not a keyboard poll: do not consume type-ahead or wait for a key.
-     * SAMIR currently has no full-screen READ/EDIT/BROWSE command producer. */
+     * IBASE currently has no full-screen READ/EDIT/BROWSE command producer. */
     (void)ctx; (void)args;
     if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
     *out = xb_n(0.0);
-#ifdef SAMIR_FNS_MUTANT_readkey
+#ifdef IBASE_FNS_MUTANT_readkey
     out->u.n = 1.0;
 #endif
     out->num_width = 3;
@@ -2539,13 +2539,13 @@ static int fn_iscolor(xb_ctx *ctx, const xb_val *args, int nargs,
 {
     /* Ref: system-and-database-functions.md ISCOLOR; HELP.DBS line 1270;
      * fns-mint/iscolor/GOLD.OUT: logical, unchanged by SET COLOR, #11 on args. */
-    samir_pal_t *pal = ctx ? ctx->file_pal : (samir_pal_t *)0;
+    ibase_pal_t *pal = ctx ? ctx->file_pal : (ibase_pal_t *)0;
     int color;
     (void)args;
     if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
     if (!pal || !pal->iscolor) return fn_fail(err, XBEE_INVALID_ARG);
     color = pal->iscolor(pal);
-#if defined(SAMIR_FNS_MUTANT_iscolor) || defined(SAMIR_FNS_MUTANT_ISCOLOR)
+#if defined(IBASE_FNS_MUTANT_iscolor) || defined(IBASE_FNS_MUTANT_ISCOLOR)
     color = !color; /* Rule 6: invert only the capability result. */
 #endif
     *out = xb_l(color);
@@ -2570,7 +2570,7 @@ static int fn_fklabel_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     /* Bound before converting so large numeric arguments cannot overflow. */
     if (args[0].u.n >= 1.0 && args[0].u.n < 10.0)
         key = to_int_trunc(args[0].u.n);
-#if defined(SAMIR_FNS_MUTANT_FKLABEL) || defined(SAMIR_FNS_MUTANT_fklabel)
+#if defined(IBASE_FNS_MUTANT_FKLABEL) || defined(IBASE_FNS_MUTANT_fklabel)
     /* Rule 6: the generic gates supply the lowercase case-name spelling.
      * Perturb only FKLABEL(1), returning F3 in place of the real F2. */
     if (key == 1) key = 2;
@@ -2600,7 +2600,7 @@ static int fn_os_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     text[13] = (char)('0' + (version >> 8) / 10u);
     text[14] = (char)('0' + (version >> 8) % 10u);
     /* The existing gate template spells its case macro in lowercase. */
-#if defined(SAMIR_FNS_MUTANT_OS) || defined(SAMIR_FNS_MUTANT_os)
+#if defined(IBASE_FNS_MUTANT_OS) || defined(IBASE_FNS_MUTANT_os)
     text[14] = '1'; /* Rule 6: wrong version, 3.31 instead of 3.30. */
 #endif
     *out = xb_c(text, 15u);
@@ -2619,7 +2619,7 @@ static int fn_version(xb_ctx *ctx, const xb_val *args, int nargs,
     (void)ctx;
     if (nargs < 0 || nargs > 1 || (nargs == 1 && args[0].t != XB_N))
         return fn_fail(err, XBEE_INVALID_ARG);
-#if defined(SAMIR_FNS_MUTANT_VERSION) || defined(SAMIR_FNS_MUTANT_version)
+#if defined(IBASE_FNS_MUTANT_VERSION) || defined(IBASE_FNS_MUTANT_version)
     *out = xb_c(version, (uint16_t)(sizeof version - 2u));
 #else
     *out = xb_c(version, (uint16_t)(sizeof version - 1u));
@@ -2648,7 +2648,7 @@ static int fn_getenv_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         ctx->file_pal->getenv(ctx->file_pal, name, value, XB_STR_MAX + 1u) :
         -(int32_t)PAL_ENOENT;
     if (n < 0) n = 0;
-#ifdef SAMIR_FNS_MUTANT_getenv
+#ifdef IBASE_FNS_MUTANT_getenv
     if (n > 0) n--;
 #endif
     *out = xb_c(value, (uint16_t)n);
@@ -2668,7 +2668,7 @@ static int fn_diskspace_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         return fn_fail(err, XBEE_UNBOUND);
     if (ctx->file_pal->diskspace(ctx->file_pal, &bytes) != PAL_OK)
         return fn_fail(err, 29); /* dbase_msg_codes.tsv: File is not accessible. */
-#if defined(SAMIR_FNS_MUTANT_DISKSPACE) || defined(SAMIR_FNS_MUTANT_diskspace)
+#if defined(IBASE_FNS_MUTANT_DISKSPACE) || defined(IBASE_FNS_MUTANT_diskspace)
     bytes = 0u; /* Rule 6: the independent III+ >0 line must reject this. */
 #endif
     *out = xb_n((double)bytes);
@@ -2681,7 +2681,7 @@ int xb_call_builtin(const char *name, uint16_t namelen,
                     const xb_val *args, int nargs,
                     xb_ctx *ctx, xb_val *out, int *err_code)
 {
-    samir_ovl_validate_ctx(ctx);
+    ibase_ovl_validate_ctx(ctx);
     const char *kw = fn_names;
     int k = 0;
 
@@ -2714,7 +2714,7 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     switch (k) {
     /* Using III+ U6-69; SF-recsize pins the deletion-byte inclusion and
      * the documented zero when no table is in use. */
-#ifndef SAMIR_FNS_MUTANT_recsize
+#ifndef IBASE_FNS_MUTANT_recsize
     case FN_RECSIZE:
         if(nargs) return fn_fail(err_code,XBEE_INVALID_ARG);
         *out=xb_n(ctx->record_size?(double)ctx->record_size(ctx->dbcur_user):0.0);
@@ -2833,6 +2833,6 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     /* DTOS exists in dBASE IV / Clipper but NOT in III+ 1.1 -> #31 (the same
      * path as any unknown name; the test asserts DTOS specifically).
      * (numeric-and-date-functions.md: DTOS absent from @DATE FUNCTIONS.)
-     * Under SAMIR_FNS_MUTANT_recsize RECSIZE lands here too, as before. */
+     * Under IBASE_FNS_MUTANT_recsize RECSIZE lands here too, as before. */
     return fn_fail(err_code, XBEE_INVALID_FN);   /* #31 "Invalid function name." */
 }

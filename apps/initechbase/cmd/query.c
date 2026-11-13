@@ -1,9 +1,9 @@
 /*
- * os/samir/cmd/query.c -- SAMIR (InitechBase) query / display command module.
+ * os/ibase/cmd/query.c -- IBASE (InitechBase) query / display command module.
  *                          Step S5.4 (Phase 5 interpreter).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
- * ONLY <stdint.h> and the samir/ engine headers. No libc, no int 0x21 -- every
+ * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL carried by the interpreter (console
  * output via pal->conout). Memory is fixed/static (no malloc). ASCII-clean
  * (Rule 12). Fail loud (Rule 2). Reproducible (Rule 11).
@@ -62,31 +62,31 @@
  *   - ../dbase3-decomp/specs/commands/navigation-query-display.md (LIST/DISPLAY,
  *     ?/??, LOCATE, CONTINUE, SEEK, FIND; the scope/FOR/WHILE grammar; pointer +
  *     FOUND/EOF effects; the CONTINUE FOR-only rule).
- *   - spec/samir/dbase_msg_codes.tsv (#26 not indexed, #37 not logical, #42
+ *   - spec/ibase/dbase_msg_codes.tsv (#26 not indexed, #37 not logical, #42
  *     CONTINUE without LOCATE).
- *   - os/samir/include/samir/interp.h (the xb_cmd_hook contract + chain).
- *   - os/samir/include/samir/workarea.h (wa_recno/wa_nrec/wa_eof/wa_goto/
+ *   - os/ibase/include/ibase/interp.h (the xb_cmd_hook contract + chain).
+ *   - os/ibase/include/ibase/workarea.h (wa_recno/wa_nrec/wa_eof/wa_goto/
  *     wa_table/wa_index/wa_master_order/wa_set_found).
- *   - os/samir/include/samir/nav.h (wa_nav_go_top/goto/skip).
- *   - os/samir/include/samir/ndx.h (ndx_seek on the master index).
- *   - os/samir/include/samir/eval.h (xb_lex/xb_parse/xb_eval; xb_ctx; set_exact).
- *   - os/samir/include/samir/pal.h (conout -- the only OS surface here).
+ *   - os/ibase/include/ibase/nav.h (wa_nav_go_top/goto/skip).
+ *   - os/ibase/include/ibase/ndx.h (ndx_seek on the master index).
+ *   - os/ibase/include/ibase/eval.h (xb_lex/xb_parse/xb_eval; xb_ctx; set_exact).
+ *   - os/ibase/include/ibase/pal.h (conout -- the only OS surface here).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
 
-#include "samir/interp.h"
-#include "samir/workarea.h"
-#include "samir/nav.h"
-#include "samir/dbf.h"
-#include "samir/ndx.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
-#include "samir/set.h"
-#include "samir/ovl.h"
+#include "ibase/interp.h"
+#include "ibase/workarea.h"
+#include "ibase/nav.h"
+#include "ibase/dbf.h"
+#include "ibase/ndx.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
+#include "ibase/set.h"
+#include "ibase/ovl.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
@@ -125,7 +125,7 @@ static int          g_n;
 
 static query_state *query_state_for(xb_interp *ip)
 {
-    SAMIR_RETAIN(ip);
+    IBASE_RETAIN(ip);
     int i;
     if (!ip)
         return (query_state *)0;
@@ -135,7 +135,7 @@ static query_state *query_state_for(xb_interp *ip)
     }
     if (g_n >= Q_REGISTRY)
         return (query_state *)0;        /* too many live interpreters: fail loud */
-    SAMIR_RETAIN(ip);
+    IBASE_RETAIN(ip);
     g_key[g_n] = ip;
     g_val[g_n].have_locate = 0;
     g_val[g_n].locate_area = 0;
@@ -239,7 +239,7 @@ static void q_append_uint_rj(char *buf, uint32_t *pos, uint32_t cap,
  * CR/LF bytes inside a memo are NOT given line-break meaning here (unminted). */
 static uint32_t q_mw(const xb_ctx *ctx)
 {
-#ifdef SAMIR_W2_MUTANT_memowidth_ignore
+#ifdef IBASE_W2_MUTANT_memowidth_ignore
     (void)ctx; return 50u;
 #else
     return (ctx && ctx->memo_width1) ? (uint32_t)(ctx->memo_width1 - 1u) : 50u;
@@ -323,7 +323,7 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
          *   logical_dotted (? / ??):  echo ".T." / ".F." (dotted)  [nav-query L.803]
          *   else (LIST/DISPLAY col):  print bare "T" / "F"         [nav-query L.689]
          * The prior code emitted bare T/F on BOTH paths -- the Law-2 heresy the
-         * test_samir_repl.c oracle agreed with by construction (initech-3p9e). */
+         * test_ibase_repl.c oracle agreed with by construction (initech-3p9e). */
         if (logical_dotted)
             q_append(buf, pos, cap, v->u.l ? ".T." : ".F.", 3u);
         else
@@ -427,7 +427,7 @@ static int q_split_clauses(const char *args, query_clauses *qc)
     /* Using III+ U5-144: OFF precedes the scope/expression list as well
      * as being accepted after it (real SF-listoff). Do not discard its tail. */
     int leading_off = 0;
-#ifndef SAMIR_FNS_MUTANT_listoff
+#ifndef IBASE_FNS_MUTANT_listoff
     leading_off = q_match_kw(s, "OFF");
     if (leading_off) s = q_skip_ws(s + leading_off);
 #endif
@@ -458,7 +458,7 @@ static int q_split_clauses(const char *args, query_clauses *qc)
         else if (c == ')' && depth) depth--;
         if (!depth && q_isspace(prev)) {
             if (!scope_at && !for_at && !while_at &&
-#ifdef SAMIR_LIST_MUTATE_SCOPE
+#ifdef IBASE_LIST_MUTATE_SCOPE
                 p == s &&
 #endif
                 rt_kw_word(p, Q_SCOPE_KWS, (int *)0) >= 0) scope_at=p;
@@ -492,7 +492,7 @@ static int q_split_clauses(const char *args, query_clauses *qc)
         const char *cands[4];
         int i;
         if(h==scope_at) h=scope_end;
-#if !defined(SAMIR_LIST_MUTATE_OFF) && !defined(SAMIR_FNS_MUTANT_listoff)
+#if !defined(IBASE_LIST_MUTATE_OFF) && !defined(IBASE_FNS_MUTANT_listoff)
         if(h==off_at) h=q_skip_ws(h+3);
 #endif
         if(h==scope_at) h=scope_end;
@@ -587,18 +587,18 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
         char cell[256];
         int dec=f->dec_count;
         if(ctx->set_fixed)dec=ctx->set_decimals; /* SET FIXED ON */
-#ifdef SAMIR_NUMERIC_MUTATE_FRACTION
+#ifdef IBASE_NUMERIC_MUTATE_FRACTION
         if(v->u.n==(double)(int64_t)v->u.n) dec=0;
 #endif
         dec_format_fit(v->u.n,width,dec,cell,0);
-#ifdef SAMIR_NUMERIC_MUTATE_LEFT
+#ifdef IBASE_NUMERIC_MUTATE_LEFT
         { uint32_t lead=0,i; while(lead<width && cell[lead]==' ') lead++;
           for(i=0;i<width-lead;i++) cell[i]=cell[i+lead];
           while(i<width) cell[i++]=' '; }
 #endif
         q_append(buf,pos,cap,cell,(uint32_t)width);
     } else {
-#ifndef SAMIR_FNS_MUTANT_exprcol
+#ifndef IBASE_FNS_MUTANT_exprcol
         /* A numeric expression column right-justifies under a wider heading:
          * real III+ 1.1 SF-exprcol, "LIST NAME, BAL / (52 + 0 + 0)" prints
          * "PESTON                  23.74" under the 18-byte heading. */
@@ -636,7 +636,7 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
     char line[Q_LINEBUF],expr[Q_MAX_EXPR+1]; uint32_t pos=0,prefix;
     const char *p=qc->exprlist; int first=1,ok=1,fi=0;
     dbf_table *tbl=wa_table(xb_interp_env(ip),area);
-#ifdef SAMIR_MUTATE_HEADING
+#ifdef IBASE_MUTATE_HEADING
     (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;(void)prefix;
     return INTERP_OK;
 #endif
@@ -663,7 +663,7 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
         /* SF-exprcol: a numeric EXPRESSION heading right-aligns too
          * ("Record#     BAL * 2 NAME" over "2469.00"). */
         if((f && f->type=='N')
-#ifndef SAMIR_FNS_MUTANT_exprcol
+#ifndef IBASE_FNS_MUTANT_exprcol
            || (!f && v.t==XB_N)
 #endif
           ) {
@@ -677,7 +677,7 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
     if(!ok) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
     /* Real III+ 1.1 M005U/M005N: the final heading is not column-padded,
      * unlike the final value (dbase3-decomp/re/mint-results-005.md). */
-#ifndef SAMIR_LIST_MUTATE_HEADING
+#ifndef IBASE_LIST_MUTATE_HEADING
     while(pos>prefix && line[pos-1]==' ') pos--;
 #endif
     q_append_cstr(line,&pos,sizeof(line),"\r\n");q_putn(ip,line,pos);
@@ -708,13 +708,13 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
 
     /* Ref: Using dBase III Plus.pdf U2-26: asterisk before a deleted record.
      * Exact marker column is authored, no local reference golden. */
-#ifndef SAMIR_MUTATE_DELETE_MARK
+#ifndef IBASE_MUTATE_DELETE_MARK
     rc=wa_record_deleted(env,area);
     if(rc<0) { if(ec) *ec=29; return -INTERP_ERR_EVAL; }
     if(rc) q_append_cstr(line,&pos,sizeof(line),"*");
 #endif
     if (!qc->off) {
-#ifdef SAMIR_LIST_MUTATE_COLUMNS
+#ifdef IBASE_LIST_MUTATE_COLUMNS
         q_append_uint_rj(line, &pos, sizeof(line), wa_recno(env, area), 8);
         q_append_cstr(line, &pos, sizeof(line), " ");
 #else
@@ -722,7 +722,7 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
         q_append_cstr(line, &pos, sizeof(line), "  ");
 #endif
     }
-#ifndef SAMIR_FNS_MUTANT_numlist
+#ifndef IBASE_FNS_MUTANT_numlist
     /* OFF keeps the one-column deletion field: real SF-listoff/SF-numlist. */
     else if(!pos) q_append_cstr(line,&pos,sizeof(line)," ");
 #endif
@@ -823,8 +823,8 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
      * 72 64 23. Dot Enter only returns the cursor (at-enter/entered);
      * LIST supplies its own CR LF too (boot-list-real/list, rows 19..22).
      * Ref: initech-0spyf/fzsvo; preserve both stream and screen semantics. */
-#ifndef SAMIR_LIST_MUTATE_OPENING
-#ifdef SAMIR_LIST_MUTATE_DOT_OPENING
+#ifndef IBASE_LIST_MUTATE_OPENING
+#ifdef IBASE_LIST_MUTATE_DOT_OPENING
     if(!xb_interp_ctx(ip)->dot_command) q_putn(ip,"\r\n",2);
 #else
     q_putn(ip,"\r\n",2);
@@ -849,7 +849,7 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
             if (rc != NAV_OK) { if (ec) *ec = Q_MSG_NOT_INDEXED /*range*/; return -INTERP_ERR_SYNTAX; }
         }
         rc=q_render_heading(ip,area,qc,ec);if(rc) return rc;
-#ifndef SAMIR_LIST_MUTATE_EOF
+#ifndef IBASE_LIST_MUTATE_EOF
         /* Real numlist-v1 III+: DISPLAY at EOF emits no synthetic blank
          * record (not even a zero numeric field with SET HEADING OFF). */
         if(wa_eof(env,area)) { if(ec) *ec=0;return INTERP_OK; }
@@ -924,7 +924,7 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
              * RECNO() 1, GO 5 + LIST NEXT 3 on 7, DISPLAY NEXT 2 on 8; only a
              * window that runs off the end reaches EOF (mint 005 M005N
              * [N1]..[N8], mint-results-005.md; initech-5vmn). */
-#ifndef SAMIR_MUTATE_NEXT_PAST
+#ifndef IBASE_MUTATE_NEXT_PAST
             if (kind == QS_NEXT && visited >= limit)
                 break;
 #endif
@@ -958,7 +958,7 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
 
     if (leading_nl) {
         /* Using III+ U5-15; DML-01..03 real alternate streams. */
-#ifdef SAMIR_PRINT_MUTATE_LF
+#ifdef IBASE_PRINT_MUTATE_LF
         q_append_cstr(line, &pos, sizeof(line), "\n");
 #else
         q_append_cstr(line, &pos, sizeof(line), "\r\n");
@@ -997,9 +997,9 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
  * eject a page; emit CR/LF/spaces to position the head. The supplied III+
  * goldens pin forward row 2, column 3 (fns-mint) and at-to-c/TJ (bare @). */
 static int forms_ovl_entry(int k, xb_interp *ip, const char *args, int *ec);
-static SAMIR_OVL_TEXT(forms) int q_printer_at(xb_interp *ip,uint16_t target_row,uint16_t target_col,const char *line,uint32_t n)
+static IBASE_OVL_TEXT(forms) int q_printer_at(xb_interp *ip,uint16_t target_row,uint16_t target_col,const char *line,uint32_t n)
 {
-    xb_ctx *ctx=xb_interp_ctx(ip);samir_pal_t *pal=xb_interp_pal(ip);
+    xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
     uint16_t row=ctx->printer_row,col=ctx->printer_col;
     if(!pal->printout)return -1;
     if(row>target_row) { if(pal->printout(pal,"\f",1))return -1;row=col=0; }
@@ -1019,7 +1019,7 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
     const char *p=args,*comma=0,*say=0;
     char quote=0,prev=' ',expr[Q_MAX_EXPR+1],line[Q_LINEBUF];
     int depth=0,rc,j;uint32_t n=0;xb_val v;double coordinate[2];
-    xb_ctx *ctx=xb_interp_ctx(ip);samir_pal_t *pal=xb_interp_pal(ip);
+    xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
     for(;*p;p++) {
         char c=*p;
         if(rt_literal_byte(c,&quote)) { prev=c;continue; }
@@ -1032,7 +1032,7 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
         prev=c;
     }
     /* W3: every other @ form is the FORMS overlay (a SAY after the comma only). */
-    if(!say) return SAMIR_OVL_CALL(SAMIR_OVL_FORMS,forms_ovl_entry,0,ip,args,ec);
+    if(!say) return IBASE_OVL_CALL(IBASE_OVL_FORMS,forms_ovl_entry,0,ip,args,ec);
     if(!comma || comma>say) { if(ec)*ec=10;return -INTERP_ERR_SYNTAX; }
     for(j=0;j<2;j++) {
         const char *start=j?comma+1:args,*end=j?say:comma;
@@ -1056,7 +1056,7 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
     if(ctx->device_print) {
         /* FORMS overlay k=2: row and column in k, byte count through *ec. */
         int count=(int)n;
-        if(SAMIR_OVL_CALL(SAMIR_OVL_FORMS,forms_ovl_entry,2|((int)coordinate[0]<<8)|((int)coordinate[1]<<16),ip,line,&count))goto io_error;
+        if(IBASE_OVL_CALL(IBASE_OVL_FORMS,forms_ovl_entry,2|((int)coordinate[0]<<8)|((int)coordinate[1]<<16),ip,line,&count))goto io_error;
     } else {
         if(!pal->say_screen || pal->say_screen(pal,(uint8_t)coordinate[0],(uint8_t)coordinate[1],line,n))goto io_error;
         ctx->screen_row=(uint16_t)coordinate[0];ctx->screen_col=(uint16_t)coordinate[1];
@@ -1509,15 +1509,15 @@ typedef struct {
     int display, stopped;
 } q_inspection;
 
-static SAMIR_OVL_TEXT(status) void qi_text(q_inspection *q, const char *s)
+static IBASE_OVL_TEXT(status) void qi_text(q_inspection *q, const char *s)
 { q_append_cstr(q->line,&q->n,sizeof q->line,s); }
-static SAMIR_OVL_TEXT(status) void qi_pad(q_inspection *q, unsigned width)
+static IBASE_OVL_TEXT(status) void qi_pad(q_inspection *q, unsigned width)
 { while(q->n<width) qi_text(q," "); }
-static SAMIR_OVL_TEXT(status) void qi_uint(q_inspection *q, unsigned n, int width)
+static IBASE_OVL_TEXT(status) void qi_uint(q_inspection *q, unsigned n, int width)
 { q_append_uint_rj(q->line,&q->n,sizeof q->line,n,width); }
-static SAMIR_OVL_TEXT(status) void qi_pause(q_inspection *q, int blank)
+static IBASE_OVL_TEXT(status) void qi_pause(q_inspection *q, int blank)
 {
-    samir_pal_t *pal=xb_interp_pal(q->ip);
+    ibase_pal_t *pal=xb_interp_pal(q->ip);
     int key;
     if(!q->display || q->stopped)return;
     /* Real III+ includes this prompt in ALTERNATE. MEMORY pages every 17
@@ -1528,7 +1528,7 @@ static SAMIR_OVL_TEXT(status) void qi_pause(q_inspection *q, int blank)
     if(blank)q_putn(q->ip,"\r\n",2);
     q->rows=0;
 }
-static SAMIR_OVL_TEXT(status) void qi_line(q_inspection *q)
+static IBASE_OVL_TEXT(status) void qi_line(q_inspection *q)
 {
     if(!q->stopped) {
         if(q->display==2 && q->rows==17)qi_pause(q,0);
@@ -1536,10 +1536,10 @@ static SAMIR_OVL_TEXT(status) void qi_line(q_inspection *q)
     }
     q->n=0;
 }
-static SAMIR_OVL_TEXT(status) void qi_file(q_inspection *q, const char *name, const char *extension, int preserve)
+static IBASE_OVL_TEXT(status) void qi_file(q_inspection *q, const char *name, const char *extension, int preserve)
 {
-    samir_pal_t *pal=xb_interp_pal(q->ip);
-#ifdef SAMIR_FNS_MUTANT_ndxdisplay
+    ibase_pal_t *pal=xb_interp_pal(q->ip);
+#ifdef IBASE_FNS_MUTANT_ndxdisplay
     preserve=0; /* MUTANT: STATUS must preserve supplied index spelling. */
 #endif
     unsigned n=0,end=0;
@@ -1555,7 +1555,7 @@ static SAMIR_OVL_TEXT(status) void qi_file(q_inspection *q, const char *name, co
     }
     if(extension)qi_text(q,extension);
 }
-static SAMIR_OVL_TEXT(status) void qi_memory(q_inspection *q)
+static IBASE_OVL_TEXT(status) void qi_memory(q_inspection *q)
 {
     xb_memvar_info mv;
     unsigned cursor=0,count=0,bytes=0,cap=xb_interp_memvar_capacity();
@@ -1583,7 +1583,7 @@ static SAMIR_OVL_TEXT(status) void qi_memory(q_inspection *q)
     qi_uint(q,count,5);qi_text(q," variables defined, ");qi_uint(q,bytes,8);qi_text(q," bytes used");qi_line(q);
     qi_uint(q,256-count,5);qi_text(q," variables available, ");qi_uint(q,bytes>cap?0:cap-bytes,6);qi_text(q," bytes available");qi_line(q);
 }
-static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
+static IBASE_OVL_TEXT(status) void qi_status(q_inspection *q)
 {
     xb_interp *ip=q->ip;
     wa_env *env=xb_interp_env(ip);
@@ -1603,7 +1603,7 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
     qi_line(q);
     for(int a=1;a<=WA_NAREAS;a++)if(wa_is_open(env,a)) {
         const char *filter=wa_filter_text(env,a),*rel=wa_relation_text(env,a);
-#ifdef SAMIR_DML_MUTANT_status
+#ifdef IBASE_DML_MUTANT_status
         if(a==2)continue; /* omit one real open work area */
 #endif
         if(a==wa_selected(env)) { qi_text(q,"Currently Selected Database: ");qi_line(q); }
@@ -1628,7 +1628,7 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
             for(;*into;into++) {
                 if(rt_literal_byte(*into,&quote))continue;
                 if(
-#ifndef SAMIR_DML_MUTANT_statusinto
+#ifndef IBASE_DML_MUTANT_statusinto
                    (into==rel || q_isspace(into[-1])) &&
 #endif
                    rt_kw_word(into,"INTO\0",(int *)0)==0)break;
@@ -1645,7 +1645,7 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
     if(ss && ss->alternate>=0) { qi_text(q,"Alternate file: ");qi_file(q,ss->alternate_name,(const char *)0,0);qi_line(q); }
     qi_text(q,"File search path:   ");qi_line(q);
     qi_text(q,"Default disk drive: ");
-    { samir_pal_t *pal=xb_interp_pal(ip);int d=pal->curdrive?pal->curdrive(pal):-1;
+    { ibase_pal_t *pal=xb_interp_pal(ip);int d=pal->curdrive?pal->curdrive(pal):-1;
       if(d>='A'&&d<='Z'){char drive[3]={(char)d,':',0};qi_text(q,drive);} }
     qi_line(q);
     qi_text(q,"Print destination:  PRN:");qi_line(q);
@@ -1672,7 +1672,7 @@ static SAMIR_OVL_TEXT(status) void qi_status(q_inspection *q)
  * statement per line (real III+ set-mint/history, probe hx1: LAST n keeps the
  * newest n). The listing starts at the next-write slot. DISPLAY's screen
  * pause is not modelled. */
-static SAMIR_OVL_TEXT(status) int q_history(xb_interp *ip, const char *tail, int *ec)
+static IBASE_OVL_TEXT(status) int q_history(xb_interp *ip, const char *tail, int *ec)
 {
     const set_state *ss=set_get_state(ip);
     q_inspection q;
@@ -1689,7 +1689,7 @@ static SAMIR_OVL_TEXT(status) int q_history(xb_interp *ip, const char *tail, int
     }
     q.ip=ip;q.n=0;q.rows=0;q.display=0;q.stopped=0;
     if(ss&&ss->hist)for(i=0;i<ss->hist_cap;i++) {
-        #ifndef SAMIR_W2_MUTANT_histlist
+        #ifndef IBASE_W2_MUTANT_histlist
         const char *e=ss->hist[(ss->hist_next+i)%ss->hist_cap];
 #else
         const char *e=ss->hist[i];   /* MUTANT: list from slot 0, not the oldest */
@@ -1701,7 +1701,7 @@ static SAMIR_OVL_TEXT(status) int q_history(xb_interp *ip, const char *tail, int
     q_putn(ip,"\r\n",2);
     return INTERP_OK;
 }
-static SAMIR_OVL_TEXT(status) int q_inspect(xb_interp *ip, int what, int display, const char *tail, int *ec)
+static IBASE_OVL_TEXT(status) int q_inspect(xb_interp *ip, int what, int display, const char *tail, int *ec)
 {
     q_inspection q;
     if(what==2)return q_history(ip,tail,ec);
@@ -1711,14 +1711,14 @@ static SAMIR_OVL_TEXT(status) int q_inspect(xb_interp *ip, int what, int display
     q_putn(ip,"\r\n",2);
     return INTERP_OK;
 }
-/* Overlay STATUS (initech-5etom.1; docs/design/samir-overlays.md Sec 3):
+/* Overlay STATUS (initech-5etom.1; docs/design/ibase-overlays.md Sec 3):
  * LIST/DISPLAY STATUS|MEMORY. k = what * 2 + display (what: 0 STATUS,
  * 1 MEMORY, 2 HISTORY); returns q_inspect's result, which query_cmd_hook wraps as before. */
-static SAMIR_OVL_TEXT(status) int query_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+static IBASE_OVL_TEXT(status) int query_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
 {
     return q_inspect(ip, k >> 1, k & 1, args, ec);
 }
-SAMIR_OVL_HEADER(status, SAMIR_OVL_STATUS, query_ovl_entry);
+IBASE_OVL_HEADER(status, IBASE_OVL_STATUS, query_ovl_entry);
 
 /* ===================================================================== */
 /* Overlay FORMS (initech-p3nn0 W3 slice 1): @...TO, @...CLEAR, bare @, CLEAR */
@@ -1728,10 +1728,10 @@ SAMIR_OVL_HEADER(status, SAMIR_OVL_STATUS, query_ovl_entry);
  * at-clear-{a,b,c}; catalogue codes from TG, TH and CH of those cases.
  * The say-get-read.md sec 9-10 [oracle-resolves] items are settled there:
  * CLEAR TO exists, single/double glyphs, degenerate lines without caps. */
-static SAMIR_OVL_TEXT(forms) int qf_fail(int *ec,int code)
+static IBASE_OVL_TEXT(forms) int qf_fail(int *ec,int code)
 { if(ec)*ec=code;return code==10||code==36?-INTERP_ERR_SYNTAX:-INTERP_ERR_EVAL; }
 /* First depth-0 comma / blank-prefixed keyword outside literals. */
-static SAMIR_OVL_TEXT(forms) const char *qf_scan(const char *p,const char *kw2,int *kind)
+static IBASE_OVL_TEXT(forms) const char *qf_scan(const char *p,const char *kw2,int *kind)
 {
     char quote=0,prev=' ';int depth=0;
     for(;*p;p++) {
@@ -1751,7 +1751,7 @@ static SAMIR_OVL_TEXT(forms) const char *qf_scan(const char *p,const char *kw2,i
     return 0;
 }
 /* Evaluate [s,e) as one numeric coordinate; junk in it is 36 (TG 12,13,15,16). */
-static SAMIR_OVL_TEXT(forms) int qf_num(xb_interp *ip,const char *s,const char *e,int *out,int *raw_ok,int limit,int *ec)
+static IBASE_OVL_TEXT(forms) int qf_num(xb_interp *ip,const char *s,const char *e,int *out,int *raw_ok,int limit,int *ec)
 {
     char expr[Q_MAX_EXPR+1];xb_val v;int rc;uint32_t n;
     while(s<e && q_isspace(*s))s++;
@@ -1768,7 +1768,7 @@ static SAMIR_OVL_TEXT(forms) int qf_num(xb_interp *ip,const char *s,const char *
      * as a signed value (65546 -> 10, 65535 -> -1), and a value beyond 32 bits
      * becomes 0 (9999999999, 1E20). Range-check BEFORE the cast: out-of-range
      * double to int is undefined in C. */
-#ifndef SAMIR_FORMS_MUTANT_narrow
+#ifndef IBASE_FORMS_MUTANT_narrow
     *out=(v.u.n>-2147483648.0 && v.u.n<2147483648.0)?(int)(int16_t)(uint16_t)(uint32_t)(int32_t)v.u.n:0;
 #else
     *out=(v.u.n>-2147483648.0 && v.u.n<2147483648.0)?(int32_t)v.u.n:limit;
@@ -1777,7 +1777,7 @@ static SAMIR_OVL_TEXT(forms) int qf_num(xb_interp *ip,const char *s,const char *
     return INTERP_OK;
 }
 /* "<row>,<col>[ DOUBLE]" after TO. */
-static SAMIR_OVL_TEXT(forms) int qf_corner(xb_interp *ip,const char *p,int *r,int *c,int *ok,int *dbl,int *ec)
+static IBASE_OVL_TEXT(forms) int qf_corner(xb_interp *ip,const char *p,int *r,int *c,int *ok,int *dbl,int *ec)
 {
     const char *comma,*e;int kind,rc;
     p=q_skip_ws(p);
@@ -1795,12 +1795,12 @@ static SAMIR_OVL_TEXT(forms) int qf_corner(xb_interp *ip,const char *p,int *r,in
     rc=qf_num(ip,p,comma,r,ok,25,ec);if(rc)return rc;
     return qf_num(ip,comma+1,e,c,ok,80,ec);
 }
-static SAMIR_OVL_TEXT(forms) int qf_fill(samir_pal_t *pal,int r,int c,char ch,int n)
+static IBASE_OVL_TEXT(forms) int qf_fill(ibase_pal_t *pal,int r,int c,char ch,int n)
 {
     char row[80];rt_memset(row,ch,(uint32_t)n);
     return pal->paint(pal,(uint8_t)r,(uint8_t)c,row,(uint32_t)n);
 }
-static SAMIR_OVL_TEXT(forms) int qf_cursor(xb_interp *ip)
+static IBASE_OVL_TEXT(forms) int qf_cursor(xb_interp *ip)
 {
     xb_ctx *x=xb_interp_ctx(ip);
     /* Real III+ at-to-b/TE, captured before any subsequent SAY: BIOS row 25. */
@@ -1811,12 +1811,12 @@ static SAMIR_OVL_TEXT(forms) int qf_cursor(xb_interp *ip)
  * interior is kept; a one-row span is all horizontal (a point too), a one-column
  * span all vertical. Cursor: last row, last column + 1, wrapping to the next
  * row (ROW() 25 after 24,79). @...TO always goes to the screen (at-clear-c DB). */
-static SAMIR_OVL_TEXT(forms) int qf_box(xb_interp *ip,int r1,int c1,int r2,int c2,int dbl)
+static IBASE_OVL_TEXT(forms) int qf_box(xb_interp *ip,int r1,int c1,int r2,int c2,int dbl)
 {
-    samir_pal_t *pal=xb_interp_pal(ip);xb_ctx *x=xb_interp_ctx(ip);
+    ibase_pal_t *pal=xb_interp_pal(ip);xb_ctx *x=xb_interp_ctx(ip);
     char h=dbl?(char)0xCD:(char)0xC4,v=dbl?(char)0xBA:(char)0xB3;
     char row[80];int w=c2-c1+1,r;
-#ifndef SAMIR_FORMS_MUTANT_glyph
+#ifndef IBASE_FORMS_MUTANT_glyph
     char tl=dbl?(char)0xC9:(char)0xDA,tr=dbl?(char)0xBB:(char)0xBF;
     char bl=dbl?(char)0xC8:(char)0xC0,br=dbl?(char)0xBC:(char)0xD9;
 #else
@@ -1837,16 +1837,16 @@ static SAMIR_OVL_TEXT(forms) int qf_box(xb_interp *ip,int r1,int c1,int r2,int c
         if(pal->paint(pal,(uint8_t)r2,(uint8_t)c1,row,(uint32_t)w))return -1;
     }
     x->screen_row=(uint16_t)r2;x->screen_col=(uint16_t)(c2+1);
-#ifndef SAMIR_FORMS_MUTANT_cursor
+#ifndef IBASE_FORMS_MUTANT_cursor
     if(x->screen_col>=80) { x->screen_col=0;x->screen_row++; }
 #endif
     return qf_cursor(ip);
 }
 /* Ref: at-clear-a CA/CB/CC/CD, at-clear-b CE/CF/CH, at-to-c TJ. */
-static SAMIR_OVL_TEXT(forms) int qf_at(xb_interp *ip,const char *args,int *ec)
+static IBASE_OVL_TEXT(forms) int qf_at(xb_interp *ip,const char *args,int *ec)
 {
     const char *p=q_skip_ws(args),*comma,*kw,*tail;int kind=0,rc,r=0,c=0,r2=0,c2=0,ok=1,ok2=1,dbl=0;
-    xb_ctx *x=xb_interp_ctx(ip);samir_pal_t *pal=xb_interp_pal(ip);
+    xb_ctx *x=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
     comma=qf_scan(p,0,&kind);
     kw=qf_scan(p,"",&kind);
     if(!comma||comma==p||(kw && comma>kw))return qf_fail(ec,10);   /* TG 14,21; CH 13-15 */
@@ -1901,11 +1901,11 @@ static SAMIR_OVL_TEXT(forms) int qf_at(xb_interp *ip,const char *args,int *ec)
  * the databases and releases memvars, leaving screen and cursor (DC, DD). GETS and
  * FIELDS have nothing to drop until @...GET and SET FIELDS exist. TYPEAHEAD
  * discards waiting keys. A status bar stays on top; real repaint is at-status. */
-static SAMIR_OVL_TEXT(forms) int qf_clear(xb_interp *ip,const char *args,int *ec)
+static IBASE_OVL_TEXT(forms) int qf_clear(xb_interp *ip,const char *args,int *ec)
 {
-    samir_pal_t *pal=xb_interp_pal(ip);xb_ctx *x=xb_interp_ctx(ip);int r;
+    ibase_pal_t *pal=xb_interp_pal(ip);xb_ctx *x=xb_interp_ctx(ip);int r;
     if(*q_skip_ws(args)) {
-#ifndef SAMIR_FORMS_MUTANT_subcmd
+#ifndef IBASE_FORMS_MUTANT_subcmd
         r=rt_kw_word(q_skip_ws(args),"ALL\0FIELDS\0GETS\0TYPEAHEAD\0",(int *)0);
         if(r==0) { wa_close_all(xb_interp_env(ip));xb_interp_release_all(ip); }
         if(r==3 && pal->conin_poll) while(pal->conin_poll(pal)>0) { }
@@ -1914,7 +1914,7 @@ static SAMIR_OVL_TEXT(forms) int qf_clear(xb_interp *ip,const char *args,int *ec
         return qf_fail(ec,36);
     }
     if(!pal->paint)return qf_fail(ec,29);
-#ifndef SAMIR_FORMS_MUTANT_clear
+#ifndef IBASE_FORMS_MUTANT_clear
     for(r=0;r<25;r++) if(qf_fill(pal,r,0,' ',80))return qf_fail(ec,29);
 #else
     (void)r;
@@ -1922,16 +1922,16 @@ static SAMIR_OVL_TEXT(forms) int qf_clear(xb_interp *ip,const char *args,int *ec
     x->screen_row=0;x->screen_col=0;
     x->screen_cleared=1;
     if(qf_cursor(ip))return qf_fail(ec,29);
-    samir_status_refresh(ip);
+    ibase_status_refresh(ip);
     if(ec)*ec=0;
     return INTERP_OK;
 }
-static SAMIR_OVL_TEXT(forms) int forms_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+static IBASE_OVL_TEXT(forms) int forms_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
 {
     if(k&2)return q_printer_at(ip,(uint16_t)((k>>8)&255),(uint16_t)((k>>16)&255),args,(uint32_t)*ec);
     return k?qf_clear(ip,args,ec):qf_at(ip,args,ec);
 }
-SAMIR_OVL_HEADER(forms, SAMIR_OVL_FORMS, forms_ovl_entry);
+IBASE_OVL_HEADER(forms, IBASE_OVL_FORMS, forms_ovl_entry);
 
 /* Verb handlers, one per row of query_verbs.def (initech-1x6x2.4); a handler is called as
  * fn(ip, [state,] [verb,] args, err_code) from the row-driven switch in the hook. Each returns
@@ -1945,7 +1945,7 @@ static __attribute__((noinline)) int qv_listing(xb_interp *ip, const char *args,
     int inspection=rt_kw_word(tail,"STATUS\0MEMORY\0HISTORY\0",(int *)0);
     if(inspection>=0) {
         while(*tail && !q_isspace(*tail))tail++;
-        return SAMIR_OVL_CALL(SAMIR_OVL_STATUS,query_ovl_entry,inspection*2+is_display,ip,tail,err_code);
+        return IBASE_OVL_CALL(IBASE_OVL_STATUS,query_ovl_entry,inspection*2+is_display,ip,tail,err_code);
     }
     if (q_split_clauses(args, &qc) != 0) { if (err_code) *err_code = 0; return -INTERP_ERR_SYNTAX; }
     return q_walk(ip, area, &qc, /*is_display_default=*/is_display, err_code);
@@ -1955,7 +1955,7 @@ static inline __attribute__((always_inline)) int qv_list(xb_interp *ip, query_st
 static inline __attribute__((always_inline)) int qv_display(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
 {
     (void)qs;
-#ifdef SAMIR_DML_MUTANT_abbrev
+#ifdef IBASE_DML_MUTANT_abbrev
     /* Disable recognition at one hook only: real DISP differential must bite. */
     if (rt_strlen(verb) != 7) return CMD_UNKNOWN;
 #else
@@ -1983,7 +1983,7 @@ static inline __attribute__((always_inline)) int qv_eject(xb_interp *ip, query_s
 {
     /* EJECT: CR FF; evidence is ONE margin-probe capture (PRINT OFF, margin 3,
      * after a printed line); verb-mint/eject PENDING */
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     xb_ctx *ctx = xb_interp_ctx(ip);
     (void)qs; (void)verb; (void)args; (void)ec;
     if (pal->printout) pal->printout(pal, "\r\f", 2u);
@@ -1993,7 +1993,7 @@ static inline __attribute__((always_inline)) int qv_eject(xb_interp *ip, query_s
 static inline __attribute__((always_inline)) int qv_say(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
 { (void)qs; (void)verb; return q_say(ip, args, ec); }
 static inline __attribute__((always_inline)) int qv_clear(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
-{ (void)qs; (void)verb; return SAMIR_OVL_CALL(SAMIR_OVL_FORMS,forms_ovl_entry,1,ip,args,ec); }
+{ (void)qs; (void)verb; return IBASE_OVL_CALL(IBASE_OVL_FORMS,forms_ovl_entry,1,ip,args,ec); }
 
 /* Rows come from query_verbs.def: QUERY_VERB(KEYWORD, handler). Row order is the
  * 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index). */

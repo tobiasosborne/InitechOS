@@ -1,9 +1,9 @@
 /*
- * os/samir/cmd/set.c -- SAMIR (InitechBase) SET command module.
+ * os/ibase/cmd/set.c -- IBASE (InitechBase) SET command module.
  *                        Step S5.6 (Phase 5 interpreter).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
- * ONLY <stdint.h> and the samir/ engine headers. No libc, no int 0x21 -- every
+ * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL. Memory is fixed/static (no malloc).
  * ASCII-clean (Rule 12). Fail loud (Rule 2). Reproducible (Rule 11).
  *
@@ -45,30 +45,30 @@
  *   test ("ABC" = "AB" -> .T. under OFF) both go RED, proving the oracle bites.
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.6 (SET state; contract + oracle).
+ *   - docs/plans/IBASE-implementation-plan.md S5.6 (SET state; contract + oracle).
  *   - ../dbase3-decomp/specs/commands/set-commands.md (full SET grammar; defaults;
  *     III+ vs IV flags; SET NEAR absent; SET DATE keyword list).
  *   - ../dbase3-decomp/re/mint-results-002.md (EXACT=OFF; DECIMALS=2 [verified]).
  *   - ../dbase3-decomp/re/mint-results-003.md (DATE=AMERICAN; CENTURY=OFF [verified]).
- *   - os/samir/include/samir/interp.h (xb_cmd_hook + chain API).
- *   - os/samir/include/samir/eval.h   (xb_ctx.set_exact).
- *   - os/samir/include/samir/workarea.h (wa_set_order / wa_selected).
- *   - os/samir/include/samir/set.h    (set_state + public getters).
+ *   - os/ibase/include/ibase/interp.h (xb_cmd_hook + chain API).
+ *   - os/ibase/include/ibase/eval.h   (xb_ctx.set_exact).
+ *   - os/ibase/include/ibase/workarea.h (wa_set_order / wa_selected).
+ *   - os/ibase/include/ibase/set.h    (set_state + public getters).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
 
-#include "samir/interp.h"
-#include "samir/workarea.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
-#include "samir/set.h"
-#include "samir/ndx.h"
-#include "samir/nav.h"
-#include "samir/ovl.h"
+#include "ibase/interp.h"
+#include "ibase/workarea.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
+#include "ibase/set.h"
+#include "ibase/ndx.h"
+#include "ibase/nav.h"
+#include "ibase/ovl.h"
 
 /* ===================================================================== */
 /* Tunables                                                               */
@@ -89,7 +89,7 @@ static int        g_n;
  * Replacing a log closes its predecessor; ON/OFF only pauses capture. */
 void set_close_alternate(xb_interp *ip)
 {
-    int i;samir_pal_t *pal=xb_interp_pal(ip);
+    int i;ibase_pal_t *pal=xb_interp_pal(ip);
     for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate>=0) {
         char eof=26;
         pal->write(pal,g_val[i].alternate,&eof,1);
@@ -97,16 +97,16 @@ void set_close_alternate(xb_interp *ip)
         g_val[i].alternate=-1;g_val[i].alternate_on=0;
     }
 }
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_CALLBACK
-static SAMIR_OVL_TEXT(set) void alternate_output(
+#ifdef IBASE_OVL_MUTATE_ESCAPE_CALLBACK
+static IBASE_OVL_TEXT(set) void alternate_output(
 #else
 static void alternate_output(
 #endif
 void *user,const char *s,uint32_t n)
 {
-    xb_interp *ip=user;samir_pal_t *pal=xb_interp_pal(ip);int i;
+    xb_interp *ip=user;ibase_pal_t *pal=xb_interp_pal(ip);int i;
     for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate_on && g_val[i].alternate>=0) {
-#ifndef SAMIR_FNS_MUTANT_alternate
+#ifndef IBASE_FNS_MUTANT_alternate
         if(pal->write(pal,g_val[i].alternate,s,n)!=(int32_t)n) {
             g_val[i].alternate_on=0;
             /* Preserve a failed log rather than continuing silent partial I/O. */
@@ -126,7 +126,7 @@ void *user,const char *s,uint32_t n)
  */
 static set_state *set_state_for(xb_interp *ip, int *is_new)
 {
-    SAMIR_RETAIN(ip);
+    IBASE_RETAIN(ip);
     int i;
     if (!ip)
         return (set_state *)0;
@@ -138,7 +138,7 @@ static set_state *set_state_for(xb_interp *ip, int *is_new)
     }
     if (g_n >= SET_REGISTRY)
         return (set_state *)0;          /* registry full: fail loud at caller */
-    SAMIR_RETAIN(ip);
+    IBASE_RETAIN(ip);
     g_key[g_n] = ip;
     if (is_new) *is_new = 1;
     return &g_val[g_n++];
@@ -154,10 +154,10 @@ static set_state *set_state_for(xb_interp *ip, int *is_new)
 int set_history_record(xb_interp *ip, const char *line, int *ec)
 {
     set_state *ss = set_state_for(ip, (int *)0);
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     uint32_t n, i;
     char *copy;
-#ifndef SAMIR_W2_MUTANT_dohistory
+#ifndef IBASE_W2_MUTANT_dohistory
     if (!ss || !ss->dohistory || !ss->history_on || !ss->hist_cap) return INTERP_OK;
 #else
     if (!ss || !ss->history_on || !ss->hist_cap) return INTERP_OK;   /* MUTANT: ignore DOHISTORY */
@@ -184,27 +184,27 @@ int set_history_record(xb_interp *ip, const char *line, int *ec)
 
 /* SET's cold token helpers stay with its parser (initech-0spyf/fzsvo).
  * The resident hook uses the shared keyword matcher below. */
-static SAMIR_OVL_TEXT(set) char s_up1(char c)
+static IBASE_OVL_TEXT(set) char s_up1(char c)
 {
     if (c >= 'a' && c <= 'z')
         return (char)(c - 'a' + 'A');
     return c;
 }
 
-static SAMIR_OVL_TEXT(set) int s_isspace(char c)
+static IBASE_OVL_TEXT(set) int s_isspace(char c)
 {
     return c == ' ' || c == '\t';
 }
 
 /* skip leading blanks; return pointer past them. */
-static SAMIR_OVL_TEXT(set) const char *s_skip_ws(const char *s)
+static IBASE_OVL_TEXT(set) const char *s_skip_ws(const char *s)
 {
     while (*s != '\0' && s_isspace(*s)) s++;
     return s;
 }
 
 /* skip an optional whole-word "TO" (any case) and the blanks after it. */
-static SAMIR_OVL_TEXT(set) const char *s_skip_to(const char *s)
+static IBASE_OVL_TEXT(set) const char *s_skip_to(const char *s)
 {
     if (rt_kw_word(s, "TO\0", (int *)0) == 0)
         s = s_skip_ws(s + 2);
@@ -212,7 +212,7 @@ static SAMIR_OVL_TEXT(set) const char *s_skip_to(const char *s)
 }
 
 /* parse an unsigned integer at *s; advance *s past it. */
-static SAMIR_OVL_TEXT(set) uint32_t s_parse_uint(const char **s)
+static IBASE_OVL_TEXT(set) uint32_t s_parse_uint(const char **s)
 {
     uint32_t v = 0;
     const char *p = *s;
@@ -225,7 +225,7 @@ static SAMIR_OVL_TEXT(set) uint32_t s_parse_uint(const char **s)
 }
 
 /* copy up to cap-1 bytes of `src` into `dst`, NUL-terminate, trim trailing WS. */
-static SAMIR_OVL_TEXT(set) void s_copy_trim(char *dst, uint32_t cap, const char *src)
+static IBASE_OVL_TEXT(set) void s_copy_trim(char *dst, uint32_t cap, const char *src)
 {
     uint32_t i = 0, last_nonws = 0;
     while (src[i] != '\0' && i < cap - 1u) {
@@ -241,7 +241,7 @@ static SAMIR_OVL_TEXT(set) void s_copy_trim(char *dst, uint32_t cap, const char 
 /* Returns 0 on success, -1 on parse error.                              */
 /* ===================================================================== */
 
-static SAMIR_OVL_TEXT(set) int parse_on_off(const char *args, int *val)
+static IBASE_OVL_TEXT(set) int parse_on_off(const char *args, int *val)
 {
     /* "OFF" is entry 0 and "ON" entry 1: the index is the value. */
     int k = rt_kw_index(s_skip_ws(args), "OFF\0ON\0");
@@ -265,7 +265,7 @@ static SAMIR_OVL_TEXT(set) int parse_on_off(const char *args, int *val)
  * not the SET command itself. This function is correct; the mutant fires in
  * set_init_defaults where the initial set_exact is set.
  */
-static SAMIR_OVL_TEXT(set) int do_set_exact(xb_interp *ip, const char *args, int *err_code)
+static IBASE_OVL_TEXT(set) int do_set_exact(xb_interp *ip, const char *args, int *err_code)
 {
     int val;
     if (parse_on_off(args, &val) != 0) {
@@ -284,7 +284,7 @@ static SAMIR_OVL_TEXT(set) int do_set_exact(xb_interp *ip, const char *args, int
  * Ref: set-commands.md Sec 3.1 (default 2; "SET DECIMALS TO" with no value
  * resets to 2). [verified: mint-results-002.md DECIMALS=2 default]
  */
-static SAMIR_OVL_TEXT(set) int do_set_decimals(xb_interp *ip, set_state *ss,
+static IBASE_OVL_TEXT(set) int do_set_decimals(xb_interp *ip, set_state *ss,
                            const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
@@ -315,7 +315,7 @@ static SAMIR_OVL_TEXT(set) int do_set_decimals(xb_interp *ip, set_state *ss,
  * JAPAN/USA; default AMERICAN) [verified: harbour set.txt:130-140;
  * mint-results-003.md DATE=AMERICAN].
  */
-static SAMIR_OVL_TEXT(set) int do_set_date(xb_interp *ip, set_state *ss,
+static IBASE_OVL_TEXT(set) int do_set_date(xb_interp *ip, set_state *ss,
                        const char *args, int *err_code)
 {
     set_date_fmt fmt;
@@ -348,7 +348,7 @@ static SAMIR_OVL_TEXT(set) int do_set_date(xb_interp *ip, set_state *ss,
  * Ref: set-commands.md Sec 2 (default OFF) [verified: mint-results-003.md;
  * dates-and-century.md: CENTURY OFF = 2-digit year; ON = 4-digit year].
  */
-static SAMIR_OVL_TEXT(set) int do_set_century(xb_interp *ip, set_state *ss,
+static IBASE_OVL_TEXT(set) int do_set_century(xb_interp *ip, set_state *ss,
                           const char *args, int *err_code)
 {
     int val;
@@ -371,7 +371,7 @@ static SAMIR_OVL_TEXT(set) int do_set_century(xb_interp *ip, set_state *ss,
  * "call the existing wa_set_order (read/call only, no workarea.c edit)".
  * "SET ORDER TO 0" or bare "SET ORDER TO" -> natural order (0).
  */
-static SAMIR_OVL_TEXT(set) int do_set_order(xb_interp *ip, const char *args, int *err_code)
+static IBASE_OVL_TEXT(set) int do_set_order(xb_interp *ip, const char *args, int *err_code)
 {
     wa_env *env = xb_interp_env(ip);
     int area;
@@ -410,7 +410,7 @@ static SAMIR_OVL_TEXT(set) int do_set_order(xb_interp *ip, const char *args, int
  * Replace the selected area's open indexes; retain text for old accessors.
  * Ref: Using III+ U5-239 and real SF-index transcript.
  */
-static SAMIR_OVL_TEXT(set) int do_set_index(xb_interp *ip, set_state *ss, const char *args, int *err_code)
+static IBASE_OVL_TEXT(set) int do_set_index(xb_interp *ip, set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
@@ -419,7 +419,7 @@ static SAMIR_OVL_TEXT(set) int do_set_index(xb_interp *ip, set_state *ss, const 
     ss->have_index = 1;
     /* Using III+ U5-239; SF-index: replace this area's list, first is master,
      * omitted extensions are NDX, and position at the master beginning. */
-#ifndef SAMIR_FNS_MUTANT_index
+#ifndef IBASE_FNS_MUTANT_index
     {
         wa_env *env=xb_interp_env(ip);
         int area=wa_selected(env),count=0;
@@ -468,7 +468,7 @@ static SAMIR_OVL_TEXT(set) int do_set_index(xb_interp *ip, set_state *ss, const 
  * Installs the selected area condition; see Using III+ U5-229.
  * Ref: set-commands.md Sec 3.5 (SET FILTER TO <condition>).
  */
-static SAMIR_OVL_TEXT(set) int do_set_filter(xb_interp *ip, set_state *ss, const char *args, int *err_code)
+static IBASE_OVL_TEXT(set) int do_set_filter(xb_interp *ip, set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
@@ -490,7 +490,7 @@ static SAMIR_OVL_TEXT(set) int do_set_filter(xb_interp *ip, set_state *ss, const
  * GATED -- relation plumbing not yet present. Stores raw text.
  * Ref: set-commands.md Sec 3.5 (SET RELATION TO <key> INTO <alias>).
  */
-static SAMIR_OVL_TEXT(set) int do_set_relation(xb_interp *ip, set_state *ss, const char *args, int *err_code)
+static IBASE_OVL_TEXT(set) int do_set_relation(xb_interp *ip, set_state *ss, const char *args, int *err_code)
 {
     const char *s = s_skip_ws(args);
     /* consume "TO" keyword if present */
@@ -509,7 +509,7 @@ static SAMIR_OVL_TEXT(set) int do_set_relation(xb_interp *ip, set_state *ss, con
  * (coupled to output formatting in parallel lanes).
  * Ref: set-commands.md Sec 2 (default ON) [verified: sample programs idiom].
  */
-static SAMIR_OVL_TEXT(set) int do_set_talk(set_state *ss, const char *args, int *err_code)
+static IBASE_OVL_TEXT(set) int do_set_talk(set_state *ss, const char *args, int *err_code)
 {
     int val;
     if (parse_on_off(args, &val) != 0) {
@@ -526,7 +526,7 @@ static SAMIR_OVL_TEXT(set) int do_set_talk(set_state *ss, const char *args, int 
  * Stores in set_state; ZAP consumes it. Other file-overwrite guards deferred.
  * Ref: set-commands.md Sec 2 (default ON) [verified: sample programs idiom].
  */
-static SAMIR_OVL_TEXT(set) int do_set_safety(set_state *ss, const char *args, int *err_code)
+static IBASE_OVL_TEXT(set) int do_set_safety(set_state *ss, const char *args, int *err_code)
 {
     int val;
     if (parse_on_off(args, &val) != 0) {
@@ -545,13 +545,13 @@ static SAMIR_OVL_TEXT(set) int do_set_safety(set_state *ss, const char *args, in
 
 /* Construction is cold too; its callers enter through SET's overlay entry.
  * Ref: mint-results-002/003 defaults; initech-0spyf/fzsvo size guard. */
-static SAMIR_OVL_TEXT(set) void set_init_defaults(xb_interp *ip, set_state *ss)
+static IBASE_OVL_TEXT(set) void set_init_defaults(xb_interp *ip, set_state *ss)
 {
     int i;
     ss->alternate=-1;ss->alternate_on=0;
     ss->alternate_name[0]=0;
-#ifndef SAMIR_OVL_MUTATE_ESCAPE_CALLBACK
-    samir_bind_output(xb_interp_ctx(ip),alternate_output,ip);
+#ifndef IBASE_OVL_MUTATE_ESCAPE_CALLBACK
+    ibase_bind_output(xb_interp_ctx(ip),alternate_output,ip);
 #endif
 
     /*
@@ -616,10 +616,10 @@ static SAMIR_OVL_TEXT(set) void set_init_defaults(xb_interp *ip, set_state *ss)
 /* ===================================================================== */
 
 /* Ref: ../dbase3-decomp/specs/commands/set-commands.md SET COLOR,
- * HELP.DBS lines 1390-1398; CGA attribute layout in os/milton/console.c.
+ * HELP.DBS lines 1390-1398; CGA attribute layout in os/dos/console.c.
  * U/I/X are monochrome underline/inverse/blank attributes. RG and GR
  * denote the same red+green mixture; RB denotes red+blue. */
-static SAMIR_OVL_TEXT(set) int color_name(const char **text)
+static IBASE_OVL_TEXT(set) int color_name(const char **text)
 {
     const char *s=*text;
     int a=s_up1(*s), value;
@@ -641,7 +641,7 @@ static SAMIR_OVL_TEXT(set) int color_name(const char **text)
     return value;
 }
 
-static SAMIR_OVL_TEXT(set) int color_modifiers(const char **text,int *bits)
+static IBASE_OVL_TEXT(set) int color_modifiers(const char **text,int *bits)
 {
     while(**text=='+'||**text=='*') {
         int bit=**text=='+'?8:128;
@@ -652,7 +652,7 @@ static SAMIR_OVL_TEXT(set) int color_modifiers(const char **text,int *bits)
     return 0;
 }
 
-static SAMIR_OVL_TEXT(set) int color_attribute(const char **text,uint8_t *attr)
+static IBASE_OVL_TEXT(set) int color_attribute(const char **text,uint8_t *attr)
 {
     const char *s=s_skip_ws(*text);
     int mono=s_up1(*s)=='U'||s_up1(*s)=='I'||s_up1(*s)=='X';
@@ -673,10 +673,10 @@ static SAMIR_OVL_TEXT(set) int color_attribute(const char **text,uint8_t *attr)
     return 0;
 }
 
-static SAMIR_OVL_TEXT(set) int do_set_color(xb_interp *ip,set_state *ss,const char *s,int *err)
+static IBASE_OVL_TEXT(set) int do_set_color(xb_interp *ip,set_state *ss,const char *s,int *err)
 {
     uint8_t attrs[4];unsigned field=0;
-    samir_pal_t *pal=xb_interp_pal(ip);
+    ibase_pal_t *pal=xb_interp_pal(ip);
     /* The TO grammar is literal attributes, not an expression or DOS SET.
      * Malformed literals -> #10 Syntax error (catalogue, spec Sec 1.4).
      * Parse into locals first: even a bad fourth field changes nothing. */
@@ -709,7 +709,7 @@ invalid:
 /*
  * One handler per SET option, one row per option in set_options.def (an
  * X-macro list; .gitattributes marks it merge=union, so two lanes adding
- * rows avoid positional conflicts; test-samir-registries validates the merge).
+ * rows avoid positional conflicts; test-ibase-registries validates the merge).
  * A handler is
  *     int fn(xb_interp *ip, set_state *ss, const char *s, int *err_code)
  * with `s` the text after the option keyword, and returns exactly what
@@ -721,12 +721,12 @@ invalid:
 typedef int (*set_opt_fn)(xb_interp *ip, set_state *ss, const char *s, int *err_code);
 typedef struct { const char *name; set_opt_fn fn; } set_opt_row;
 
-static SAMIR_OVL_TEXT(set) int set_opt_alternate(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_alternate(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     if(!parse_on_off(s,&on)) { ss->alternate_on=on;return CMD_OK; }
     if(rt_kw_word(s,"TO\0",(int *)0)==0) {
-        char name[128];uint32_t n;samir_pal_t *pal=xb_interp_pal(ip);
+        char name[128];uint32_t n;ibase_pal_t *pal=xb_interp_pal(ip);
         s=s_skip_ws(s+2);set_close_alternate(ip);
         if(!*s)return CMD_OK;
         s_copy_trim(name,sizeof name,s);n=rt_strlen(name);
@@ -744,7 +744,7 @@ static SAMIR_OVL_TEXT(set) int set_opt_alternate(xb_interp *ip, set_state *ss, c
     return -INTERP_ERR_SYNTAX;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_exact(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_exact(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_exact(ip, s, err_code);
     (void)ss;
@@ -755,7 +755,7 @@ static SAMIR_OVL_TEXT(set) int set_opt_exact(xb_interp *ip, set_state *ss, const
  * top-level numeric result.  Real III+ 1.1 w2 set-mint/fixed: "SET FIXED TO ON",
  * bare "SET FIXED", "SET FIXED OF" and "SET FIXED MAYBE" are all #10; trailing
  * text after ON/OFF is ignored. */
-static SAMIR_OVL_TEXT(set) int set_opt_fixed(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_fixed(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     (void)ss;
@@ -765,38 +765,38 @@ static SAMIR_OVL_TEXT(set) int set_opt_fixed(xb_interp *ip, set_state *ss, const
     return CMD_OK;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_decimals(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_decimals(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_decimals(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_date(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_date(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_date(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_century(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_century(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_century(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_order(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_order(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_order(ip, s, err_code);
     (void)ss;
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_index(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_index(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_index(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_deleted(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_deleted(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     (void)ss;
@@ -808,7 +808,7 @@ static SAMIR_OVL_TEXT(set) int set_opt_deleted(xb_interp *ip, set_state *ss, con
 
 /* SET DOHISTORY ON|OFF: program statements are recorded only when ON
  * (real III+ set-mint/dohistory: default OFF; bad toggle is #10). */
-static SAMIR_OVL_TEXT(set) int set_opt_dohistory(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_dohistory(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     (void)ip;
@@ -817,19 +817,19 @@ static SAMIR_OVL_TEXT(set) int set_opt_dohistory(xb_interp *ip, set_state *ss, c
     return CMD_OK;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_filter(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_filter(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_filter(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_relation(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_relation(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_relation(ip, ss, s, err_code);
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_talk(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_talk(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_talk(ss, s, err_code);
     (void)ip;
@@ -838,19 +838,19 @@ static SAMIR_OVL_TEXT(set) int set_opt_talk(xb_interp *ip, set_state *ss, const 
 
 /* SET UNIQUE ON|OFF: INDEX ON builds omit duplicate keys (first record wins).
  * Ref: set-commands.md:165; real III+ captures set-mint/unique, uniqprobe. */
-static SAMIR_OVL_TEXT(set) int set_opt_unique(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_unique(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     (void)ip;
     if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
-#ifdef SAMIR_W2_MUTANT_unique_set
+#ifdef IBASE_W2_MUTANT_unique_set
     on = 0;   /* mutant: SET UNIQUE ON has no effect */
 #endif
     ss->unique = on;
     return CMD_OK;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_safety(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_safety(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int rc = do_set_safety(ss, s, err_code);
     (void)ip;
@@ -859,7 +859,7 @@ static SAMIR_OVL_TEXT(set) int set_opt_safety(xb_interp *ip, set_state *ss, cons
 
 /* SET ESCAPE ON|OFF (Using III+ U5-220): OFF disables the Esc program
  * interrupt and ON ESCAPE (U5-160). Before initech-39e5 it was #10. */
-static SAMIR_OVL_TEXT(set) int set_opt_escape(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_escape(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     (void)ip;
@@ -883,9 +883,9 @@ static SAMIR_OVL_TEXT(set) int set_opt_escape(xb_interp *ip, set_state *ss, cons
  *   - ON and OFF restart the write slot at 0 (LIST then starts at slot 0).
  * Not modelled (see bead): SET HISTORY ON while already ON also grew the ring
  * in the real program (hx7 P2), and the dot-prompt up-arrow recall. */
-static SAMIR_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     int on;
     uint32_t n, i;
     if (rt_kw_word(s, "TO\0", (int *)0) == 0) {
@@ -897,7 +897,7 @@ static SAMIR_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, con
         d = v.u.n;
         if (d < 0.0 || d >= 16001.0) { if (err_code) *err_code = 46; return -INTERP_ERR_EVAL; }
         n = (uint32_t)d;
-#ifdef SAMIR_W2_MUTANT_histcap
+#ifdef IBASE_W2_MUTANT_histcap
         return CMD_OK;   /* MUTANT: SET HISTORY TO n never resizes */
 #endif
         if (n == ss->hist_cap) return CMD_OK;
@@ -912,9 +912,9 @@ static SAMIR_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, con
             pal->release(pal, ss->hist);
             ss->hist = fresh;
         }
-#if defined(SAMIR_W2_MUTANT_histshrink)
+#if defined(IBASE_W2_MUTANT_histshrink)
         ss->hist_next = 0u;   /* MUTANT: a shrink restarts the write slot */
-#elif defined(SAMIR_W2_MUTANT_histgrow)
+#elif defined(IBASE_W2_MUTANT_histgrow)
         ss->hist_next = n ? ss->hist_next % n : 0u;   /* MUTANT: a grow keeps the write slot */
 #else
         ss->hist_next = (n && n < ss->hist_cap) ? ss->hist_next % n : 0u;
@@ -924,19 +924,19 @@ static SAMIR_OVL_TEXT(set) int set_opt_history(xb_interp *ip, set_state *ss, con
     }
     if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
     ss->history_on = on;
-#ifndef SAMIR_W2_MUTANT_histtoggle
+#ifndef IBASE_W2_MUTANT_histtoggle
     ss->hist_next = 0u;
 #endif
     return CMD_OK;
 }
 
 /* Using III+ U5-210/PDF 322, U5-235/PDF 347, U5-259/PDF 371. */
-static SAMIR_OVL_TEXT(set) int set_opt_onoff_ctx(xb_interp *ip, const char *s, int *err_code, int which)
+static IBASE_OVL_TEXT(set) int set_opt_onoff_ctx(xb_interp *ip, const char *s, int *err_code, int which)
 {
     int on;
     xb_ctx *ctx=xb_interp_ctx(ip);
     if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
-#ifdef SAMIR_MUTATE_SET_HEADINGS
+#ifdef IBASE_MUTATE_SET_HEADINGS
     if(which==0) on=!on;
 #endif
     if(which==0) ctx->set_heading=(uint8_t)on;
@@ -945,13 +945,13 @@ static SAMIR_OVL_TEXT(set) int set_opt_onoff_ctx(xb_interp *ip, const char *s, i
     else ctx->scoreboard_off=(uint8_t)!on;
     return CMD_OK;
 }
-static SAMIR_OVL_TEXT(set) int set_opt_heading(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_heading(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,0); }
-static SAMIR_OVL_TEXT(set) int set_opt_console(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_console(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,1); }
-static SAMIR_OVL_TEXT(set) int set_opt_status(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_status(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,2); }
-static SAMIR_OVL_TEXT(set) int set_opt_scoreboard(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_scoreboard(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 { (void)ss; return set_opt_onoff_ctx(ip,s,err_code,3); }
 
 /* SET MEMOWIDTH TO <expN>. Ref: real III+ 1.1 captures set-mint/memowidth
@@ -960,7 +960,7 @@ static SAMIR_OVL_TEXT(set) int set_opt_scoreboard(xb_interp *ip, set_state *ss, 
  * bound and the width kept is the low byte (256 -> 0, 300 -> 44, 1000 -> 232);
  * a missing TO is error 10, a non-numeric operand 27, and "SET MEMOWIDTH TO"
  * with no operand restores the default 50. */
-static SAMIR_OVL_TEXT(set) int set_opt_memowidth(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_memowidth(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     xb_val v;
     int rc;
@@ -975,7 +975,7 @@ static SAMIR_OVL_TEXT(set) int set_opt_memowidth(xb_interp *ip, set_state *ss, c
     if(v.t!=XB_N) { if(err_code) *err_code=27; return -INTERP_ERR_EVAL; }
     d = v.u.n;
     if(d<8.0) { if(err_code) *err_code=46; return -INTERP_ERR_EVAL; }
-#ifdef SAMIR_W2_MUTANT_memowidth_nowrap256
+#ifdef IBASE_W2_MUTANT_memowidth_nowrap256
     xb_interp_ctx(ip)->memo_width1 = (uint16_t)((d>255.0 ? 255u : (uint32_t)d) + 1u);
 #else
     xb_interp_ctx(ip)->memo_width1 = (uint16_t)(((d>=4294967296.0 ? 0xFFFFFFFFu : (uint32_t)d) & 255u) + 1u);
@@ -983,14 +983,14 @@ static SAMIR_OVL_TEXT(set) int set_opt_memowidth(xb_interp *ip, set_state *ss, c
     return CMD_OK;
 }
 
-static SAMIR_OVL_TEXT(set) int set_opt_color(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_color(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     return do_set_color(ip,ss,s,err_code);
 }
 
 /* SET DEVICE: set-commands.md section 3.4; only @SAY. Parsing is cold
- * (docs/design/samir-overlays.md Sec 3); device/cursor state stays resident. */
-static SAMIR_OVL_TEXT(set) int set_opt_device(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+ * (docs/design/ibase-overlays.md Sec 3); device/cursor state stays resident. */
+static IBASE_OVL_TEXT(set) int set_opt_device(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int device;
     (void)ss;
@@ -1008,7 +1008,7 @@ static SAMIR_OVL_TEXT(set) int set_opt_device(xb_interp *ip, set_state *ss, cons
  * comma-separated expression is used; truncated toward zero; negative -> 0;
  * the value wraps as a signed 16-bit count (70000 -> 4464, 32768 -> 0).
  * Unverified: negatives below -1, values >= 2^32 (both read as 0). */
-static SAMIR_OVL_TEXT(set) int set_opt_margin(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_margin(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     char expr[256];
     uint32_t n=0u,w;
@@ -1036,13 +1036,13 @@ static SAMIR_OVL_TEXT(set) int set_opt_margin(xb_interp *ip, set_state *ss, cons
     d=v.u.n;
     if(d<1.0 || d>=4294967296.0) d=0.0;
     w=(uint32_t)d&0xFFFFu;
-#ifdef SAMIR_W2_MUTANT_margin
+#ifdef IBASE_W2_MUTANT_margin
     w=(uint32_t)(d+0.5)&0xFFFFu;       /* rounds instead of truncating */
 #endif
     xb_interp_ctx(ip)->set_margin=(uint16_t)(w>=32768u?0u:w);
     return CMD_OK;
 }
-static SAMIR_OVL_TEXT(set) int set_opt_print(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+static IBASE_OVL_TEXT(set) int set_opt_print(xb_interp *ip, set_state *ss, const char *s, int *err_code)
 {
     int on;
     (void)ss;
@@ -1053,12 +1053,12 @@ static SAMIR_OVL_TEXT(set) int set_opt_print(xb_interp *ip, set_state *ss, const
 
 /* Procedure sources and active DO frames have one owner in proc.c. Pass the
  * registered SET PROCEDURE row along the command chain to that owner. */
-static SAMIR_OVL_TEXT(set) int set_opt_procedure(xb_interp *ip, set_state *ss, const char *s, int *ec)
+static IBASE_OVL_TEXT(set) int set_opt_procedure(xb_interp *ip, set_state *ss, const char *s, int *ec)
 { (void)ip; (void)ss; (void)s; (void)ec; return CMD_UNKNOWN; }
 
 /* Rows come from set_options.def: SET_OPT(KEYWORD, handler). */
 #define SET_OPT(kw, fn) { kw, fn },
-static const set_opt_row set_opts[] SAMIR_OVL_DATA(set) = {
+static const set_opt_row set_opts[] IBASE_OVL_DATA(set) = {
 #include "set_options.def"
     { (const char *)0, (set_opt_fn)0 }
 };
@@ -1071,7 +1071,7 @@ static const char set_opt_kw[] =
 #undef SET_OPT
 
 /* The row index of `opt` (upper-cased), or -1: rt_kw_index over the rows. */
-static SAMIR_OVL_TEXT(set) int set_opt_lookup(const char *opt)
+static IBASE_OVL_TEXT(set) int set_opt_lookup(const char *opt)
 {
     return rt_kw_index(opt, set_opt_kw);
 }
@@ -1086,37 +1086,37 @@ static SAMIR_OVL_TEXT(set) int set_opt_lookup(const char *opt)
  * args: the remainder of the line after "SET", trimmed of leading blanks.
  * The first word of args is the sub-option (EXACT, DECIMALS, etc.).
  */
-/* Overlay SET (initech-5etom.1; docs/design/samir-overlays.md Sec 3): the
+/* Overlay SET (initech-5etom.1; docs/design/ibase-overlays.md Sec 3): the
  * SET sub-option parser. set_cmd_hook (resident) claims the verb exactly as
  * before; everything after the claim runs here, unchanged. k is unused. */
 /* Deliberate retained-pointer regressions for the runtime gates. */
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_HOOK
-static SAMIR_OVL_TEXT(set) int ovl_bad_hook(void *u,xb_interp *ip,const char *v,const char *a,int *e)
+#ifdef IBASE_OVL_MUTATE_ESCAPE_HOOK
+static IBASE_OVL_TEXT(set) int ovl_bad_hook(void *u,xb_interp *ip,const char *v,const char *a,int *e)
 { (void)u;(void)ip;(void)v;(void)a;(void)e;return CMD_UNKNOWN; }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_PAL
-static SAMIR_OVL_TEXT(set) void ovl_bad_pal(samir_pal_t *p,const char *s,uint32_t n)
+#ifdef IBASE_OVL_MUTATE_ESCAPE_PAL
+static IBASE_OVL_TEXT(set) void ovl_bad_pal(ibase_pal_t *p,const char *s,uint32_t n)
 { (void)p;(void)s;(void)n; }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_SAY
-static SAMIR_OVL_TEXT(set) int ovl_bad_say(samir_pal_t *p,uint8_t r,uint8_t c,const char *s,uint32_t n)
+#ifdef IBASE_OVL_MUTATE_ESCAPE_SAY
+static IBASE_OVL_TEXT(set) int ovl_bad_say(ibase_pal_t *p,uint8_t r,uint8_t c,const char *s,uint32_t n)
 { (void)p;(void)r;(void)c;(void)s;(void)n;return 0; }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_PRINT
-static SAMIR_OVL_TEXT(set) int ovl_bad_print(samir_pal_t *p,const char *s,uint32_t n)
+#ifdef IBASE_OVL_MUTATE_ESCAPE_PRINT
+static IBASE_OVL_TEXT(set) int ovl_bad_print(ibase_pal_t *p,const char *s,uint32_t n)
 { (void)p;(void)s;(void)n;return 0; }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_CURSOR
-static SAMIR_OVL_TEXT(set) uint32_t ovl_bad_cursor(void *u) { (void)u;return 1; }
+#ifdef IBASE_OVL_MUTATE_ESCAPE_CURSOR
+static IBASE_OVL_TEXT(set) uint32_t ovl_bad_cursor(void *u) { (void)u;return 1; }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_ERROR
-static SAMIR_OVL_TEXT(set) int ovl_bad_error(void *u,int e) { (void)u;(void)e;return 0; }
+#ifdef IBASE_OVL_MUTATE_ESCAPE_ERROR
+static IBASE_OVL_TEXT(set) int ovl_bad_error(void *u,int e) { (void)u;(void)e;return 0; }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_SUSPEND
-static SAMIR_OVL_TEXT(set) int ovl_bad_suspend(xb_interp *ip) { (void)ip;return 0; }
+#ifdef IBASE_OVL_MUTATE_ESCAPE_SUSPEND
+static IBASE_OVL_TEXT(set) int ovl_bad_suspend(xb_interp *ip) { (void)ip;return 0; }
 extern void proc_set_suspend(xb_interp *,int (*)(xb_interp *));
 #endif
-static SAMIR_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
+static IBASE_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
                                              const char *args, int *err_code)
 {
     set_state  *ss;
@@ -1130,39 +1130,39 @@ static SAMIR_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
         set_init_defaults(ip,ss);
         return INTERP_OK;
     }
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_HOOK
+#ifdef IBASE_OVL_MUTATE_ESCAPE_HOOK
     xb_interp_add_cmd_hook(ip,ovl_bad_hook,ip);
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_PAL
-    { samir_pal_t hooks=*xb_interp_pal(ip);hooks.conout=ovl_bad_pal;
-      samir_bind_pal(xb_interp_pal(ip),&hooks); }
+#ifdef IBASE_OVL_MUTATE_ESCAPE_PAL
+    { ibase_pal_t hooks=*xb_interp_pal(ip);hooks.conout=ovl_bad_pal;
+      ibase_bind_pal(xb_interp_pal(ip),&hooks); }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_SAY
-    { samir_pal_t hooks=*xb_interp_pal(ip);hooks.say_screen=ovl_bad_say;
-      samir_bind_pal(xb_interp_pal(ip),&hooks); }
+#ifdef IBASE_OVL_MUTATE_ESCAPE_SAY
+    { ibase_pal_t hooks=*xb_interp_pal(ip);hooks.say_screen=ovl_bad_say;
+      ibase_bind_pal(xb_interp_pal(ip),&hooks); }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_PRINT
-    { samir_pal_t hooks=*xb_interp_pal(ip);hooks.printout=ovl_bad_print;
-      samir_bind_pal(xb_interp_pal(ip),&hooks); }
+#ifdef IBASE_OVL_MUTATE_ESCAPE_PRINT
+    { ibase_pal_t hooks=*xb_interp_pal(ip);hooks.printout=ovl_bad_print;
+      ibase_bind_pal(xb_interp_pal(ip),&hooks); }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_CURSOR
+#ifdef IBASE_OVL_MUTATE_ESCAPE_CURSOR
     { static xb_dbcursor bad;xb_ctx *c=xb_interp_ctx(ip);bad=*c->dbcur;
-      bad.recno=ovl_bad_cursor;samir_bind_cursor(c,&bad,c->dbcur_user); }
+      bad.recno=ovl_bad_cursor;ibase_bind_cursor(c,&bad,c->dbcur_user); }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_ERROR
-    { xb_ctx *c=xb_interp_ctx(ip);samir_bind_errors(c,ovl_bad_error,c->on_escape,c->on_error_text,c->on_escape_text); }
+#ifdef IBASE_OVL_MUTATE_ESCAPE_ERROR
+    { xb_ctx *c=xb_interp_ctx(ip);ibase_bind_errors(c,ovl_bad_error,c->on_escape,c->on_error_text,c->on_escape_text); }
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_SUSPEND
+#ifdef IBASE_OVL_MUTATE_ESCAPE_SUSPEND
     proc_set_suspend(ip,ovl_bad_suspend);
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_CALLBACK
+#ifdef IBASE_OVL_MUTATE_ESCAPE_CALLBACK
     /* Rule 6: a real callback escape, formerly accepted by the static graph. */
-    samir_bind_output(xb_interp_ctx(ip),alternate_output,ip);
+    ibase_bind_output(xb_interp_ctx(ip),alternate_output,ip);
 #endif
-#ifdef SAMIR_OVL_MUTATE_ESCAPE_RAW
+#ifdef IBASE_OVL_MUTATE_ESCAPE_RAW
     xb_interp_ctx(ip)->mirror_user=(void *)(uintptr_t)set_ovl_entry;
 #endif
-#ifdef SAMIR_OVL_MUTATE_LIVE
+#ifdef IBASE_OVL_MUTATE_LIVE
     /* Indirect ON ERROR is invisible to static relocation reachability. */
     xb_interp_ctx(ip)->on_error(ip,10);
 #endif
@@ -1204,14 +1204,14 @@ static SAMIR_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
 
     /* An unknown SET option (NEAR is dBASE IV / Clipper, not III+) is a
      * syntax error, #10: real III+ 1.1 SF-unknown and SF-errors. */
-#ifdef SAMIR_FNS_MUTANT_unknown
+#ifdef IBASE_FNS_MUTANT_unknown
     if (err_code) *err_code = 16;
 #else
     if (err_code) *err_code = 10;
 #endif
     return -INTERP_ERR_SYNTAX;
 }
-SAMIR_OVL_HEADER(set, SAMIR_OVL_SET, set_ovl_entry);
+IBASE_OVL_HEADER(set, IBASE_OVL_SET, set_ovl_entry);
 
 static int set_cmd_hook(void *user, xb_interp *ip,
                         const char *verb, const char *args, int *err_code)
@@ -1222,7 +1222,7 @@ static int set_cmd_hook(void *user, xb_interp *ip,
 
     /* Only handle the "SET" verb. */
     if (rt_kw_index(verb, "SET\0") != 0) return CMD_UNKNOWN;
-    return SAMIR_OVL_CALL(SAMIR_OVL_SET, set_ovl_entry, 0, ip, args, err_code);
+    return IBASE_OVL_CALL(IBASE_OVL_SET, set_ovl_entry, 0, ip, args, err_code);
 }
 
 /* ===================================================================== */
@@ -1257,7 +1257,7 @@ int set_register(xb_interp *ip)
 #endif
     {
         int ec=0;
-        int rc=SAMIR_OVL_CALL(SAMIR_OVL_SET,set_ovl_entry,1,ip,"",&ec);
+        int rc=IBASE_OVL_CALL(IBASE_OVL_SET,set_ovl_entry,1,ip,"",&ec);
         if(rc)return rc;
     }
 

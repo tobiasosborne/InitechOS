@@ -1,12 +1,12 @@
 /*
- * os/samir/fs/ndx.c -- SAMIR (InitechBase) .ndx B-tree index codec.
+ * os/ibase/fs/ndx.c -- IBASE (InitechBase) .ndx B-tree index codec.
  *                       Steps S4.1 (header + node parse), S4.2 (key decode +
  *                       collation), S4.3 (B-tree traverse + SEEK), and S4.4
  *                       (bulk INDEX ON build).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001). Includes ONLY <stdint.h> plus engine headers and the
- * LOCKED spec/samir/ndx_format.h. No libc, no int 0x21. All OS contact is
+ * LOCKED spec/ibase/ndx_format.h. No libc, no int 0x21. All OS contact is
  * through the PAL vtable (plan Sec 2.B/2.D).
  *
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C): .ndx single-file B-tree. .mdx/.ntx
@@ -116,7 +116,7 @@
  * ASCII-clean (Rule 12). Deterministic (Rule 11): no timestamps, no wall-clock.
  *
  * Ref (Law 1 -- cited per decision in comments):
- *   - spec/samir/ndx_format.h     LOCKED byte-offset constants (used for every
+ *   - spec/ibase/ndx_format.h     LOCKED byte-offset constants (used for every
  *                                  offset access; no hardcoded numbers).
  *   - ../dbase3-decomp/specs/file-formats/ndx.md  ss1 (page geometry),
  *       ss2 (header 10 fields + casing RESOLVED), ss2.2 (CNAMES byte dump),
@@ -132,20 +132,20 @@
  *       encoding (raw LE double, NO sign-flip, arithmetic compare). Table of
  *       verified bytes: -123.45 cd cc cc cc cc dc 5e c0; -1.0 00..f0 bf;
  *       0.0 all zeros; 279.0 00..70 71 40. [VERIFIED minted NCOST.NDX 2026-06-16]
- *   - docs/plans/SAMIR-implementation-plan.md S4.1/S4.2 contract + Sec 3.3.
- *   - os/samir/include/samir/pal.h (byte I/O vtable).
- *   - os/samir/include/samir/rt.h  (rt_memcpy, rt_memset).
- *   - os/samir/include/samir/value.h (xb_val, XB_C, XB_N, xb_c, xb_n).
+ *   - docs/plans/IBASE-implementation-plan.md S4.1/S4.2 contract + Sec 3.3.
+ *   - os/ibase/include/ibase/pal.h (byte I/O vtable).
+ *   - os/ibase/include/ibase/rt.h  (rt_memcpy, rt_memset).
+ *   - os/ibase/include/ibase/value.h (xb_val, XB_C, XB_N, xb_c, xb_n).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
-#include "samir/pal.h"
-#include "samir/rt.h"
-#include "samir/value.h"
-#include "samir/ndx.h"
-#include "samir/ndx_format.h"
-#include "samir/ovl.h"
+#include "ibase/pal.h"
+#include "ibase/rt.h"
+#include "ibase/value.h"
+#include "ibase/ndx.h"
+#include "ibase/ndx_format.h"
+#include "ibase/ovl.h"
 
 /* -----------------------------------------------------------------------
  * Internal helpers
@@ -153,7 +153,7 @@
 
 /*
  * ceil4(n) = ((n + 3) / 4) * 4.
- * Ref: ndx.md ss2 group_length formula; spec/samir/ndx_format.h "Derived
+ * Ref: ndx.md ss2 group_length formula; spec/ibase/ndx_format.h "Derived
  * formulas" section.
  */
 static uint32_t ceil4(uint32_t n)
@@ -173,14 +173,14 @@ static uint32_t ceil4(uint32_t n)
 #define NDX_PATH_MAX 256
 
 struct ndx_index {
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
 
     /* Open file descriptor -- kept alive for ndx_read_node page seeks.
      * ndx_close() closes it. Matching dBASE's own behaviour: one handle
      * per open index. Ref: pal.h PAL_RD open mode. */
     pal_fd fd;
 
-    /* --- 10 header fields (ndx.md ss2 / spec/samir/ndx_format.h) --- */
+    /* --- 10 header fields (ndx.md ss2 / spec/ibase/ndx_format.h) --- */
     uint32_t root_page;       /* NDX_HDR_ROOT_PAGE_OFF    0x00 */
     uint32_t total_pages;     /* NDX_HDR_TOTAL_PAGES_OFF  0x04 */
     uint32_t reserved;        /* NDX_HDR_RESERVED_OFF     0x08 */
@@ -220,9 +220,9 @@ struct ndx_index {
  * read_exact: read exactly N bytes from FD.
  * Returns NDX_OK or -NDX_ERR_IO (fail loud on short read -- Rule 2).
  */
-static int read_exact(samir_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
+static int read_exact(ibase_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     int32_t got = pal->read(pal, fd, buf, n);
     if (got < 0 || (uint32_t)got != n)
         return -NDX_ERR_IO;
@@ -233,9 +233,9 @@ static int read_exact(samir_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
  * seek_to: seek FD to byte offset OFF from start of file.
  * Returns NDX_OK or -NDX_ERR_IO.
  */
-static int seek_to(samir_pal_t *pal, pal_fd fd, uint32_t off)
+static int seek_to(ibase_pal_t *pal, pal_fd fd, uint32_t off)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     int32_t pos = pal->seek(pal, fd, (int32_t)off, PAL_SEEK_SET);
     if (pos < 0 || (uint32_t)pos != off)
         return -NDX_ERR_IO;
@@ -272,11 +272,11 @@ static uint16_t u16le(const uint8_t *p)
  *      [ndx.md ss1: "all fixture file sizes are multiples of 512";
  *       pal.h: "seek(fd,0,PAL_SEEK_END) IS the file-size primitive"]
  *   3. Seek to 0; read 512-byte header page into stack buffer.
- *      [ndx.md ss1 "Page 0 = header"; spec/samir/ndx_format.h NDX_HEADER_PAGE=0]
+ *      [ndx.md ss1 "Page 0 = header"; spec/ibase/ndx_format.h NDX_HEADER_PAGE=0]
  *   4. Parse all 10 fields via NDX_HDR_* LOCKED offsets.
- *      [spec/samir/ndx_format.h; ndx.md ss2 table + ss2.2 CNAMES byte dump]
+ *      [spec/ibase/ndx_format.h; ndx.md ss2 table + ss2.2 CNAMES byte dump]
  *   5. key_type in {NDX_KEY_TYPE_CHAR=0, NDX_KEY_TYPE_NUMERIC=1}.
- *      [ndx.md ss2; spec/samir/ndx_format.h]
+ *      [ndx.md ss2; spec/ibase/ndx_format.h]
  *   6. group_length == ceil4(key_length + NDX_GRP_OVERHEAD).
  *      NDX_GRP_OVERHEAD = 8 = sizeof(child_page) + sizeof(dbf_recno).
  *      [ndx.md ss2 formula verified all 11 fixtures: KL5->16, KL8->16,
@@ -304,10 +304,10 @@ static uint16_t u16le(const uint8_t *p)
  * All validation and allocation is identical; only the open mode + writable
  * flag differ.
  */
-static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
+static int ndx_open_impl(ibase_pal_t *pal, const char *name, int pal_mode,
                           int writable, ndx_index **out)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     pal_fd    fd;
     int32_t   fsize_raw;
     uint32_t  fsize;
@@ -326,7 +326,7 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
 
     /* Step 2: file size. */
     fsize_raw = pal->seek(pal, fd, 0, PAL_SEEK_END);
-#ifdef SAMIR_CORE_MUTATE_NDX_SIZE
+#ifdef IBASE_CORE_MUTATE_NDX_SIZE
     if (fsize_raw <= 0) {
 #else
     if (fsize_raw < 0) { /* ndx.md ss1: zero bytes is BAD_SIZE, not failed I/O. */
@@ -370,7 +370,7 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
 
         /* Step 6: group_length == ceil4(key_length + 8).
          * NDX_GRP_OVERHEAD = 8 (child_page + dbf_recno).
-         * Ref: spec/samir/ndx_format.h NDX_GRP_OVERHEAD. */
+         * Ref: spec/ibase/ndx_format.h NDX_GRP_OVERHEAD. */
         computed_grp = ceil4((uint32_t)key_length + (uint32_t)NDX_GRP_OVERHEAD);
         if ((uint32_t)group_length != computed_grp) {
             pal->close(pal, fd);
@@ -378,7 +378,7 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
         }
 
         /* Step 7: keys_per_page == 508 / group_length.
-         * Ref: spec/samir/ndx_format.h "keys_per_page = 508 / group_length". */
+         * Ref: spec/ibase/ndx_format.h "keys_per_page = 508 / group_length". */
         computed_kpp = (group_length > 0u)
             ? ((uint32_t)(NDX_PAGE_SIZE - NDX_NODE_HDR_SIZE)
                / (uint32_t)group_length)
@@ -408,8 +408,8 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
         }
         /* FILE/SET callers may supply transient overlay or stack text. Only
          * this resident-owned allocation is retained (overlays design Sec 6). */
-        SAMIR_RETAIN(idx);
-        SAMIR_RETAIN(idx + 1);
+        IBASE_RETAIN(idx);
+        IBASE_RETAIN(idx + 1);
         rt_memset(idx, 0, sizeof(ndx_index));
         idx->display_name = (char *)(idx + 1);
         rt_memcpy(idx->display_name, name, name_len + 1u);
@@ -459,9 +459,9 @@ static int ndx_open_impl(samir_pal_t *pal, const char *name, int pal_mode,
     return NDX_OK;
 }
 
-int ndx_open(samir_pal_t *pal, const char *name, ndx_index **out)
+int ndx_open(ibase_pal_t *pal, const char *name, ndx_index **out)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     return ndx_open_impl(pal, name, PAL_RD, 0, out);
 }
 
@@ -485,8 +485,8 @@ int ndx_set_display_name(ndx_index *idx, const char *name)
     uint32_t n = rt_strlen(name);
     if (!idx) return -NDX_ERR_IO;
     /* Copy bytes; never retain the caller's pointer across an overlay swap. */
-    SAMIR_RETAIN(idx);
-    SAMIR_RETAIN(idx->display_name);
+    IBASE_RETAIN(idx);
+    IBASE_RETAIN(idx->display_name);
     if (n > rt_strlen(idx->path)) return -NDX_ERR_IO;
     rt_memcpy(idx->display_name, name, n + 1u);
     return NDX_OK;
@@ -496,9 +496,9 @@ void ndx_set_name_defaulted(ndx_index *idx, int defaulted)
 int ndx_name_defaulted(const ndx_index *idx)
 { return idx && idx->name_defaulted; }
 
-int ndx_open_rw(samir_pal_t *pal, const char *name, ndx_index **out)
+int ndx_open_rw(ibase_pal_t *pal, const char *name, ndx_index **out)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     return ndx_open_impl(pal, name, PAL_RDWR, 1, out);
 }
 
@@ -543,7 +543,7 @@ const char *ndx_key_expr  (const ndx_index *idx) { return idx->key_expr;      }
  *   [0x02, 2 bytes] filler       uint16 LE  -- garbage (ignored)
  *   [0x04, ...]     entries[]               -- entry_count groups, group_length each
  *
- * Each group (ndx.md ss3.1 / spec/samir/ndx_format.h NDX_GRP_*):
+ * Each group (ndx.md ss3.1 / spec/ibase/ndx_format.h NDX_GRP_*):
  *   [NDX_GRP_CHILD_PAGE_OFF = 0x00, 4 bytes]  child_page uint32 LE  (0 = leaf)
  *   [NDX_GRP_DBF_RECNO_OFF  = 0x04, 4 bytes]  dbf_recno  uint32 LE  (0 in branches)
  *   [NDX_GRP_KEY_DATA_OFF   = 0x08, KL bytes] key_data   (raw bytes; S4.2 decodes)
@@ -571,7 +571,7 @@ const char *ndx_key_expr  (const ndx_index *idx) { return idx->key_expr;      }
  * Ref: ndx.md ss3 (node header byte-check CUSTOMER count=5 filler=0x5543,
  *      CNAMES root count=4 filler=0); ss3.1 (group layout + AVAL_FLT 2-byte
  *      filler confirmed 0x0000); ss3.2 (trailing child + full-leaf overflow).
- *      spec/samir/ndx_format.h NDX_NODE_* and NDX_GRP_* constants.
+ *      spec/ibase/ndx_format.h NDX_NODE_* and NDX_GRP_* constants.
  */
 int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
 {
@@ -589,7 +589,7 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
     uint32_t    i;
 
 #ifndef NDX_MUTATE_SUBLAYOUT
-    /* Correct sub-layout per ndx.md ss3.1 / spec/samir/ndx_format.h NDX_GRP_*:
+    /* Correct sub-layout per ndx.md ss3.1 / spec/ibase/ndx_format.h NDX_GRP_*:
      *   child_page at  NDX_GRP_CHILD_PAGE_OFF = 0x00
      *   dbf_recno  at  NDX_GRP_DBF_RECNO_OFF  = 0x04
      *   key_data   at  NDX_GRP_KEY_DATA_OFF   = 0x08  */
@@ -619,7 +619,7 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
 
     /* Seek to page_no * 512 and read the 512-byte page.
      * Ref: ndx.md ss1 "page P is at byte offset P * 512";
-     *      spec/samir/ndx_format.h NDX_PAGE_SIZE = 512. */
+     *      spec/ibase/ndx_format.h NDX_PAGE_SIZE = 512. */
     rc = seek_to(idx->pal, idx->fd, page_no * (uint32_t)NDX_PAGE_SIZE);
     if (rc != NDX_OK) return rc;
     rc = read_exact(idx->pal, idx->fd, page, (uint32_t)NDX_PAGE_SIZE);
@@ -630,7 +630,7 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
      * 2 bytes of filler at offset 2 (NOT a 4-byte count)".
      * [verified: piclist "count (two bytes) ... and two bytes of padding";
      *  byte-check: CUSTOMER count=5, filler=0x5543; CNAMES root count=4, filler=0]
-     * spec/samir/ndx_format.h NDX_NODE_ENTRY_COUNT_OFF=0, NDX_NODE_FILLER_OFF=2. */
+     * spec/ibase/ndx_format.h NDX_NODE_ENTRY_COUNT_OFF=0, NDX_NODE_FILLER_OFF=2. */
     entry_count = u16le(page + NDX_NODE_ENTRY_COUNT_OFF);
     filler      = u16le(page + NDX_NODE_FILLER_OFF);
 
@@ -671,7 +671,7 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
     node->filler      = filler;
 
     /* Parse each live group entry.
-     * Ref: ndx.md ss3.1 table; spec/samir/ndx_format.h NDX_GRP_* constants. */
+     * Ref: ndx.md ss3.1 table; spec/ibase/ndx_format.h NDX_GRP_* constants. */
     for (i = 0u; i < (uint32_t)entry_count; i++) {
         uint32_t base    = (uint32_t)NDX_NODE_ENTRIES_OFF
                          + i * (uint32_t)idx->group_length;
@@ -1255,7 +1255,7 @@ int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
  *   - Equal-key tie-break = ascending recno (stable sort over physical order).
  *     [VERIFIED: BIGIDX five "Beman" entries in recno order 42,91,140,189,238.]
  *
- * NORMALIZE bytes are written 0x00 (Rule 11: SAMIR is more normalized than
+ * NORMALIZE bytes are written 0x00 (Rule 11: IBASE is more normalized than
  * genuine III+; the oracle masks these before cmp -- header reserved/dummy,
  * header tail past the expr NUL, group filler, node filler word, page tails,
  * and the non-child bytes of the trailing slot).
@@ -1283,7 +1283,7 @@ static void u16le_w(uint8_t *p, uint16_t v)
  * double compare (NO sign-flip; ndx.md ss4.2). This MUST match ndx_key_cmp so
  * the rebuilt order equals the read order.
  */
-SAMIR_OVL_TEXT(file) static int build_cmp(uint16_t key_type, uint16_t key_len,
+IBASE_OVL_TEXT(file) static int build_cmp(uint16_t key_type, uint16_t key_len,
                      const uint8_t *a, const uint8_t *b)
 {
     if (key_type == (uint16_t)NDX_KEY_TYPE_CHAR) {
@@ -1337,10 +1337,10 @@ static void stable_sort_keys(uint16_t key_type, uint16_t key_len,
  * write_page: seek to page PAGE_NO * 512 and write the 512-byte PAGE buffer.
  * Returns NDX_OK or -NDX_ERR_IO (fail loud on short write -- Rule 2).
  */
-SAMIR_OVL_TEXT(file) static int write_page(samir_pal_t *pal, pal_fd fd, uint32_t page_no,
+IBASE_OVL_TEXT(file) static int write_page(ibase_pal_t *pal, pal_fd fd, uint32_t page_no,
                       const uint8_t *page)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     int rc = seek_to(pal, fd, page_no * (uint32_t)NDX_PAGE_SIZE);
     int32_t put;
     if (rc != NDX_OK)
@@ -1378,7 +1378,7 @@ SAMIR_OVL_TEXT(file) static int write_page(samir_pal_t *pal, pal_fd fd, uint32_t
 #define NDX_BLD_NOHI 0xFFFFFFFFu
 
 typedef struct {
-    samir_pal_t   *pal;
+    ibase_pal_t   *pal;
     pal_fd         fd;
     uint32_t       kpp;
     uint32_t       group_len;
@@ -1395,7 +1395,7 @@ typedef struct {
 
 /* bld_branch: write level LV's first M pending children as one branch node
  * (M-1 separators + trailing child) on the next page; *out = its page. */
-SAMIR_OVL_TEXT(file) static int bld_branch(ndx_bld *b, uint32_t lv, uint32_t m, uint32_t *out)
+IBASE_OVL_TEXT(file) static int bld_branch(ndx_bld *b, uint32_t lv, uint32_t m, uint32_t *out)
 {
     uint32_t base = lv * (b->kpp + 1u);
     uint32_t s;
@@ -1421,7 +1421,7 @@ SAMIR_OVL_TEXT(file) static int bld_branch(ndx_bld *b, uint32_t lv, uint32_t m, 
 
 /* bld_push: add child (PAGE, HIGH key index HI) to level LV; a level that
  * reaches kpp+1 children is written at once and pushed one level up. */
-SAMIR_OVL_TEXT(file) static int bld_push(ndx_bld *b, uint32_t lv, uint32_t page, uint32_t hi)
+IBASE_OVL_TEXT(file) static int bld_push(ndx_bld *b, uint32_t lv, uint32_t page, uint32_t hi)
 {
     for (;;) {
         uint32_t base;
@@ -1448,7 +1448,7 @@ SAMIR_OVL_TEXT(file) static int bld_push(ndx_bld *b, uint32_t lv, uint32_t page,
 }
 
 /* bld_finish: flush the pending levels bottom-up; *root_out = the root. */
-SAMIR_OVL_TEXT(file) static int bld_finish(ndx_bld *b, uint32_t *root_out)
+IBASE_OVL_TEXT(file) static int bld_finish(ndx_bld *b, uint32_t *root_out)
 {
     uint32_t lv;
     for (lv = 0u; lv < b->used; lv++) {
@@ -1486,7 +1486,7 @@ SAMIR_OVL_TEXT(file) static int bld_finish(ndx_bld *b, uint32_t *root_out)
     return -NDX_ERR_BAD_ROOT;   /* unreachable: some level always holds the root */
 }
 
-SAMIR_OVL_TEXT(file) int ndx_build(samir_pal_t *pal, const char *out_name,
+IBASE_OVL_TEXT(file) int ndx_build(ibase_pal_t *pal, const char *out_name,
               uint16_t key_type, uint16_t key_len, const char *key_expr,
               uint32_t nrec, ndx_key_provider get_key, void *user)
 {
@@ -1494,11 +1494,11 @@ SAMIR_OVL_TEXT(file) int ndx_build(samir_pal_t *pal, const char *out_name,
                         get_key, user, 0);
 }
 
-SAMIR_OVL_TEXT(file) int ndx_build_ex(samir_pal_t *pal, const char *out_name,
+IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
               uint16_t key_type, uint16_t key_len, const char *key_expr,
               uint32_t nrec, ndx_key_provider get_key, void *user, int unique)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     void     *mark;
     uint8_t  *keys;       /* nrec * key_len bytes of on-disk key data */
     uint32_t *recnos;     /* nrec recnos, parallel to keys */
@@ -1536,7 +1536,7 @@ SAMIR_OVL_TEXT(file) int ndx_build_ex(samir_pal_t *pal, const char *out_name,
 
     /* ndx.md ss1/5 and Rule 2: reject unrepresentable workspace and leaf
      * counts BEFORE any allocation/provider call (initech-xiqz). */
-#ifndef SAMIR_CORE_MUTATE_NDX_BUILD_SIZE
+#ifndef IBASE_CORE_MUTATE_NDX_BUILD_SIZE
     if (nrec > UINT32_MAX / key_len || nrec > UINT32_MAX / 4u ||
         nrec > UINT32_MAX - kpp + 1u)
         return -NDX_ERR_NOROOM;
@@ -1575,7 +1575,7 @@ SAMIR_OVL_TEXT(file) int ndx_build_ex(samir_pal_t *pal, const char *out_name,
      * recno, the stable-sort tie order) record of each run of equal keys.
      * Ref: real III+ captures set-mint/unique + uniquerebuild: later duplicates are
      * omitted from the index; header unique flag bytes 0x16..0x17 = 00 01. */
-#ifdef SAMIR_W2_MUTANT_unique_dedupe
+#ifdef IBASE_W2_MUTANT_unique_dedupe
     if (0) {   /* mutant: duplicates NOT omitted */
 #else
     if (unique && nrec > 1u) {
@@ -1757,7 +1757,7 @@ SAMIR_OVL_TEXT(file) int ndx_build_ex(samir_pal_t *pal, const char *out_name,
  * Ref (Law 1):
  *   - ../dbase3-decomp/specs/file-formats/ndx.md ss3 (node layout),
  *     ss3.1 (group layout), ss3.2 (trailing child), ss5 (B-tree ordering).
- *   - docs/plans/SAMIR-implementation-plan.md S4.5 + sec7 GATED register.
+ *   - docs/plans/IBASE-implementation-plan.md S4.5 + sec7 GATED register.
  *   - CLAUDE.md Rule 2 (fail loud), Rule 6 (mutation-prove), Law 1 (ground truth).
  * ======================================================================= */
 
@@ -2014,7 +2014,7 @@ static int page_is_branch(const uint8_t *page)
     return u32le(page + NDX_NODE_ENTRIES_OFF + NDX_GRP_CHILD_PAGE_OFF) != 0u;
 }
 
-#ifndef SAMIR_CORE_MUTATE_NDX_DUP_DESCENT
+#ifndef IBASE_CORE_MUTATE_NDX_DUP_DESCENT
 /* subtree_high: the (key, recno) of the LAST entry under PAGE_NO (follow the
  * trailing children to the rightmost leaf). -NDX_ERR_NOTFOUND if that leaf is
  * empty. */
@@ -2100,7 +2100,7 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
         return -NDX_ERR_BAD_PAGE;
     if (!idx->writable)
         return -NDX_ERR_READONLY;
-#ifdef SAMIR_CORE_MUTATE_NDX_DUP_DESCENT
+#ifdef IBASE_CORE_MUTATE_NDX_DUP_DESCENT
     (void)hk;
 #endif
 
@@ -2127,7 +2127,7 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
                                   key_data);
             if (cmp < 0)
                 continue;
-#ifndef SAMIR_CORE_MUTATE_NDX_DUP_DESCENT
+#ifndef IBASE_CORE_MUTATE_NDX_DUP_DESCENT
             if (cmp == 0) {
                 /* Equal separator (a duplicate key). Branch recnos are zero
                  * (ndx.md ss3.1), so recover the subtree's upper (key,recno)
@@ -2489,10 +2489,10 @@ int ndx_update_key(ndx_index *idx,
  * Ref (Law 1): ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
  * sec.10 (PACK rebuilds all open index files); ndx.h S4.5 maintenance contract.
  */
-SAMIR_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
+IBASE_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
                 ndx_key_provider get_key, void *user)
 {
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     pal_fd       fd;
     uint8_t      page0[NDX_PAGE_SIZE];
     int          rc;
@@ -2513,7 +2513,7 @@ SAMIR_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
     rc = ndx_build_ex(pal, idx->path,
                    idx->key_type, idx->key_length, idx->key_expr,
                    nrec, get_key, user,
-#ifdef SAMIR_W2_MUTANT_unique_rebuild
+#ifdef IBASE_W2_MUTANT_unique_rebuild
                    0);   /* mutant: REINDEX forgets the index's own uniqueness */
 #else
                    idx->unique_flag != 0u);

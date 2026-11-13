@@ -2,8 +2,8 @@
  * neighbours; scratch alloc/reset remains a separate bump arena.
  * Authored, no local reference for allocator policy. Period C, no OS calls.
  * Ref: PAL fixed-memory contract; Using III+ work areas U5-269/U7-7. */
-#ifndef SAMIR_PAL_HEAP_H
-#define SAMIR_PAL_HEAP_H
+#ifndef IBASE_PAL_HEAP_H
+#define IBASE_PAL_HEAP_H
 #include <stdint.h>
 typedef struct pal_heap_block {
     uint32_t size, free;
@@ -15,7 +15,7 @@ static inline pal_heap_block *pal_heap_init(void *memory,uint32_t n)
     if(n<=sizeof(*b)) return (void *)0;
     b->size=n-(uint32_t)sizeof(*b);b->free=1;b->next=(void *)0;return b;
 }
-/* Append a second, disjoint region (initech-airx: SAMIR.COM places part of
+/* Append a second, disjoint region (initech-airx: IBASE.COM places part of
  * the owned heap in the program's unused BSS reserve). First-fit walks both;
  * coalescing below only joins physically adjacent blocks, never regions. */
 static inline void pal_heap_add(pal_heap_block *head,void *memory,uint32_t n)
@@ -41,7 +41,7 @@ static inline void *pal_heap_alloc(pal_heap_block *b,uint32_t n)
 }
 static inline int pal_heap_free(pal_heap_block *head,void *memory)
 {
-#ifdef SAMIR_MUTATE_HEAP_FREE
+#ifdef IBASE_MUTATE_HEAP_FREE
     (void)head;(void)memory;return 0; /* mutant: closed storage never reusable */
 #endif
     pal_heap_block *b;int found=memory==0;

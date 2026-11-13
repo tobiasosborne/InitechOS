@@ -1,12 +1,12 @@
 /*
- * os/samir/core/lex.c -- SAMIR xBase III+ expression lexer (S3.1).
+ * os/ibase/core/lex.c -- IBASE xBase III+ expression lexer (S3.1).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib -fno-stack-protector -fno-pic -std=c11 -Wall -Wextra -Werror).
  * Only <stdint.h> and rt.h/eval.h are included. No libc, no PAL, no INT 21h.
  *
  * Target: dBASE III PLUS 1.1 ONLY.
- * (docs/plans/SAMIR-implementation-plan.md sec.2.C: III+1.1; == is a lex
+ * (docs/plans/IBASE-implementation-plan.md sec.2.C: III+1.1; == is a lex
  * error; IV features % != == are rejected.)
  *
  * -------------------------------------------------------------------------
@@ -104,19 +104,19 @@
  *
  * -------------------------------------------------------------------------
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S3.1, sec.2.C, sec.3.3
+ *   - docs/plans/IBASE-implementation-plan.md S3.1, sec.2.C, sec.3.3
  *   - ../dbase3-decomp/specs/language/expressions-and-operators.md sec.2-6
  *   - ../dbase3-decomp/specs/language/coercion-table.md sec.2 (op inventory)
  *   - ../dbase3-decomp/specs/language/data-types.md sec.2,3,4,5
- *   - spec/samir/xbase_coercion.json not_in_iii_plus
+ *   - spec/ibase/xbase_coercion.json not_in_iii_plus
  *   - re/mint-results-002.md (== not in III+ confirmed by omission)
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
 
 #include <stdint.h>
-#include "samir/rt.h"
-#include "samir/eval.h"
+#include "ibase/rt.h"
+#include "ibase/eval.h"
 
 /* ---- internal helpers ---- */
 

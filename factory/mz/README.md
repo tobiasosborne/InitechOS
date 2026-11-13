@@ -2,11 +2,16 @@
 
 Host C tools, never linked into the product. mzlink was claimed with git mv
 from attic/tools/mzlink.c; its relocation I/O tests and close-fault injector
-were claimed from attic/harness/diff/dbf_diff. initechmz_extended.h was claimed
-from attic/spec into sdk/include, shared executable-format ownership.
-Dependency: the SDK public initechmz_extended.h constants (not app policy). The unrelated application-specific shorthand option was
+were claimed from attic/harness/diff/dbf_diff. initechmz_extended.h now lives
+in kernel/include, shared executable-format ownership.
+Dependency: the kernel public initechmz_extended.h constants (not app policy). The unrelated application-specific shorthand option was
 removed; the generic extended/reserve/minimum-heap options remain available.
 No application memory-policy header is needed by this factory component.
+InitechBase uses the same mzlink with --extended, --reserve, --minimum-heap
+and --minalloc generated from its own include/ibase/memory_contract.h; the
+factory tool neither includes that header nor offers an app-specific option.
+Both import branches carried identical relocation I/O tests; the single copy
+here is also run by InitechBase's mzlink-io suite.
 
 make builds mzlink and mzcheck into build/factory/mz. make test preserves the
 legacy valid/short/read-error/close-error tests and adds an independently

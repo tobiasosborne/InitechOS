@@ -9,6 +9,7 @@ COMPONENTS += flair/region
 COMPONENTS += sdk
 COMPONENTS += apps/initech123
 COMPONENTS += apps/initechword
+COMPONENTS += apps/initechbase
 COMPONENTS += turbo
 
 .DEFAULT_GOAL := help

@@ -1,6 +1,6 @@
-#include "samir/lifetime.h"
-#include "samir/screen.h"
-#include "samir/rt.h"
+#include "ibase/lifetime.h"
+#include "ibase/screen.h"
+#include "ibase/rt.h"
 /* Fig 5-17: mode columns 0..15, drive 17..21, database 23..44,
  * record 46..64, scoreboard cells 66..71 and 73..79; separators 16/22/45/65/72.
  * The scan locates these cell boundaries, not native framebuffer RGB. */
@@ -15,14 +15,14 @@ static uint32_t number(char *out,uint32_t n)
     for(j=0;j<i;j++) out[j]=reverse[i-1-j];
     return i;
 }
-void samir_screen_init(samir_screen *s,samir_screen_draw draw,void *user)
+void ibase_screen_init(ibase_screen *s,ibase_screen_draw draw,void *user)
 {
-    SAMIR_RETAIN(s); SAMIR_RETAIN(draw); SAMIR_RETAIN(user);
+    IBASE_RETAIN(s); IBASE_RETAIN(draw); IBASE_RETAIN(user);
     rt_memset(s,0,sizeof(*s)); rt_memset(s->text,' ',sizeof(s->text));
     s->draw=draw;s->user=user;
     s->scoreboard=1;s->attr=7;
 }
-void samir_screen_status(samir_screen *s,int on,char drive,const char *db,uint32_t rec,uint32_t count)
+void ibase_screen_status(ibase_screen *s,int on,char drive,const char *db,uint32_t rec,uint32_t count)
 {
     char value[24];uint32_t n;uint8_t attr=on?0x70:0x07;
     rt_memset(s->status,' ',80);rt_memset(s->guidance,' ',80);
@@ -36,7 +36,7 @@ void samir_screen_status(samir_screen *s,int on,char drive,const char *db,uint32
         put(s->status,51,65,value);
         put(s->guidance,24,80,"Enter a dBASE III PLUS command.");
     }
-#ifdef SAMIR_MUTATE_STATUS
+#ifdef IBASE_MUTATE_STATUS
     rt_memset(s->status,' ',80);rt_memset(s->guidance,' ',80);attr=0x07;
 #endif
     if(on || s->active) {
@@ -45,10 +45,10 @@ void samir_screen_status(samir_screen *s,int on,char drive,const char *db,uint32
     }
     s->active=(uint8_t)(on!=0);
 }
-static void scroll(samir_screen *s,uint8_t bottom)
+static void scroll(ibase_screen *s,uint8_t bottom)
 {
     uint32_t r,top=s->scoreboard?1u:0u;
-#ifdef SAMIR_DOTPROMPT_MUTANT_scoreboard
+#ifdef IBASE_DOTPROMPT_MUTANT_scoreboard
     top=0;
 #endif
     for(r=top;r<bottom;r++) rt_memcpy(s->text[r],s->text[r+1],80);
@@ -56,7 +56,7 @@ static void scroll(samir_screen *s,uint8_t bottom)
     if(s->scroll) s->scroll(s->user,(uint8_t)top,bottom);
     else if(s->draw) for(r=top;r<=bottom;r++) s->draw(s->user,(uint8_t)r,0,0x07,s->text[r],80);
 }
-static void next_row(samir_screen *s)
+static void next_row(ibase_screen *s)
 {
     uint8_t bottom=s->active?21:24;
     s->col=0;
@@ -67,7 +67,7 @@ static void next_row(samir_screen *s)
 /* Real III+ at-dot d1..d8, at-dot-c e1/e4/e5/e7 and at-to-b TEd.
  * Enter has only returned the cursor to column zero; only this prompt scrolls.
  * CLEAR's scoreboard cleanup is deferred until here, once per CLEAR. */
-void samir_screen_prompt(samir_screen *s,int scoreboard,int cleared)
+void ibase_screen_prompt(ibase_screen *s,int scoreboard,int cleared)
 {
     uint32_t n=79;
     if(s->scoreboard!=(uint8_t)scoreboard) {
@@ -78,16 +78,16 @@ void samir_screen_prompt(samir_screen *s,int scoreboard,int cleared)
     }
     s->scoreboard=(uint8_t)scoreboard;
     if(cleared && scoreboard) {
-#ifndef SAMIR_DOTPROMPT_MUTANT_clear
+#ifndef IBASE_DOTPROMPT_MUTANT_clear
         rt_memset(s->text[0]+39,' ',41);
         if(s->draw) s->draw(s->user,0,39,0x07,s->text[0]+39,41);
 #endif
     }
     if(s->active) return;
-#ifndef SAMIR_DOTPROMPT_MUTANT_bottom
+#ifndef IBASE_DOTPROMPT_MUTANT_bottom
     if(s->row>=24) { s->row=24;next_row(s); }
     else {
-#ifdef SAMIR_DOTPROMPT_MUTANT_blank79
+#ifdef IBASE_DOTPROMPT_MUTANT_blank79
         n=80;
 #endif
         rt_memset(s->text[24],' ',n);
@@ -98,7 +98,7 @@ void samir_screen_prompt(samir_screen *s,int scoreboard,int cleared)
     (void)n;
 #endif
 }
-void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
+void ibase_screen_write(ibase_screen *s,const char *text,uint32_t len)
 {
     uint32_t i=0;
     while(i<len) {
@@ -111,7 +111,7 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
         } else {
             uint32_t start=i,col=s->col;
             if(s->row>24) next_row(s);
-#ifndef SAMIR_REVIEW_MUTANT_CONTINUATION
+#ifndef IBASE_REVIEW_MUTANT_CONTINUATION
             /* next_row also resets col: bound the native draw AFTER it. */
             col=s->col;
 #endif
@@ -126,13 +126,13 @@ void samir_screen_write(samir_screen *s,const char *text,uint32_t len)
 /* SAY paints through the PAL without terminal wrap.
  * Ref: ../dbase3-decomp/specs/full-screen/say-get-read.md sections 1, 2.2:
  * @SAY addresses all 25 rows and leaves the cursor after its value. The
- * row-23 golden and test_samir_say require cells beyond the 22-row viewport.
+ * row-23 golden and test_ibase_say require cells beyond the 22-row viewport.
  * Using III+ U5-16/PDF128 reserves the status rows for normal output: neither
- * next_row nor samir_screen_write changes policy after this operation. */
-static void say_next_row(samir_screen *s)
+ * next_row nor ibase_screen_write changes policy after this operation. */
+static void say_next_row(ibase_screen *s)
 {
     s->col=0;
-#ifdef SAMIR_DOTPROMPT_MUTANT_saywrap
+#ifdef IBASE_DOTPROMPT_MUTANT_saywrap
     if(s->row<24) { s->row++;return; }
     s->row=24;
     scroll(s,24);
@@ -142,14 +142,14 @@ static void say_next_row(samir_screen *s)
     if(s->row<25) s->row++;
 #endif
 }
-void samir_screen_at(samir_screen *s,uint8_t row,uint8_t col,const char *text,uint32_t n)
+void ibase_screen_at(ibase_screen *s,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
     uint32_t i;
     s->row=row;s->col=col;
     /* Real III+ at-say-edge-controls/controls: CR/LF are literal cells,
      * just like printable bytes. Positioned output never scrolls the page. */
     for(i=0;i<n;i++) {
-#ifdef SAMIR_DOTPROMPT_MUTANT_saycontrol
+#ifdef IBASE_DOTPROMPT_MUTANT_saycontrol
         char c=text[i];
         if(c=='\n')say_next_row(s);
         else if(c=='\r')s->col=0;
@@ -158,7 +158,7 @@ void samir_screen_at(samir_screen *s,uint8_t row,uint8_t col,const char *text,ui
         {
             uint32_t start=i,col=s->col;
             while(i<n && s->col<80) {
-#ifdef SAMIR_DOTPROMPT_MUTANT_saycontrol
+#ifdef IBASE_DOTPROMPT_MUTANT_saycontrol
                 if(text[i]=='\r' || text[i]=='\n')break;
 #endif
                 if(s->row<25) s->text[s->row][s->col]=text[i];

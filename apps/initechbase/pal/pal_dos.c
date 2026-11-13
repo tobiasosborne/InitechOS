@@ -1,0 +1,1495 @@
+/*
+ * os/ibase/pal/pal_dos.c -- IBASE PAL InitechDOS binding (INT 21h + arena).
+ *
+ * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib).
+ * This is the SOLE translation unit that issues `int 0x21` in the entire IBASE
+ * codebase. Engine code (core/, fs/, cmd/, ui/) touches the OS ONLY through
+ * the ibase_pal vtable (pal.h). No libc. Depends ONLY on <stdint.h>.
+ *
+ * MANDATE: ADR-0009 DEC-06 ("pal_dos.c is the sole int 0x21 site; S8.2
+ * needs no console primitives"). Implements every slot of the PAL vtable
+ * declared in os/ibase/include/ibase/pal.h.
+ *
+ * CALLING CONVENTION (DEC-04a flat, spec/int21h_calling_convention.json):
+ *   - AH (bits 15:8 of EAX) selects the function.
+ *   - Primary pointer in EDX (flat 32-bit linear address).
+ *   - Byte count in ECX; handle in EBX.
+ *   - Return value in EAX (AX for 16-bit legacy values).
+ *   - CF=1 in saved EFLAGS on error; AX=error code. CF=0 on success.
+ *   - All pointers are FLAT 32-bit linear addresses -- no segment:offset.
+ *
+ * INT 21h REGISTER ABI per slot (citing int21.c + spec/int21h_calling_convention.json):
+ *   AH=3Dh OPEN:    AL=access(0=r,1=w,2=rw), EDX=path   -> AX=handle or CF+AX=err
+ *   AH=3Ch CREAT:   EDX=path, CX=0            -> AX=handle or CF+AX=err
+ *   AH=3Eh CLOSE:   EBX=handle                -> CF or CF+AX=err
+ *   AH=3Fh READ:    EBX=handle,ECX=n,EDX=buf  -> AX=bytes_read or CF+AX=err
+ *   AH=40h WRITE:   EBX=handle,ECX=n,EDX=buf  -> AX=bytes_written or CF+AX=err
+ *   AH=41h UNLINK:  EDX=path                  -> CF or CF+AX=err
+ *   AH=42h LSEEK:   AL=whence,EBX=handle,     -> AX=low16_of_pos or CF+AX=err
+ *                   ECX=high16,EDX=low32_off
+ *   AH=56h RENAME:  EDX=old_path,EDI=new_path -> CF or CF+AX=err
+ *   AH=07h CONIN_RAW: (no input)              -> AL=char
+ *   AH=2Ah GETDATE: (no input)                -> CX=year,DH=month,DL=day
+ *   AH=48h ALLOC:   BX=paragraphs             -> AX=segment or CF+AX=err+BX=largest
+ *
+ * DOS error code -> PAL_* mapping (mirrors pal_host.c errno_to_pal):
+ *   0x02 FILE_NOT_FOUND  -> PAL_ENOENT (2)
+ *   0x03 PATH_NOT_FOUND  -> PAL_ENOENT (2)
+ *   0x05 ACCESS_DENIED   -> PAL_EACCES (5)
+ *   0x06 INVALID_HANDLE  -> PAL_EACCES (5)
+ *   0x1C DISK_FULL (28d) -> PAL_ENOSPC (28)
+ *   all others           -> PAL_EIO    (29)
+ *
+ * LSEEK NOTE: The flat ABI (int21.c do_lseek) maps EBX=handle, AL=whence,
+ * EDX=low-32-bit offset (ECX=high16 is 0 this milestone), and returns the
+ * new position in EAX (full 32-bit). The return in AX is therefore the low
+ * 16 bits; we compose the full 32-bit position from EAX directly.
+ *
+ * RENAME NOTE: AH=56h takes the OLD path in EDX and the NEW path in EDI
+ * (spec/int21h_calling_convention.json AH=56h -- the flat-kernel adaptation
+ * of the real-DOS ES:DI convention; int21.c do_rename reads f->edi).
+ *
+ * ARENA: pal_dos requests one block via AH=48h at construction (see
+ * PAL_DOS_HEAP_PARAS below). The returned fake-segment is converted to a
+ * flat linear base (seg << 4). The bump pointer advances on every alloc;
+ * reset(mark) rewinds to a previously returned alloc pointer or to base.
+ *
+ * CON READ (conin_line): AH=3Fh on handle 0 delivers a cooked line including
+ * a trailing CR+LF (int21.c do_read CON branch; Microsoft KB Q113058). We
+ * strip the trailing CR and LF (and any leading/embedded CR as insurance)
+ * before returning to match pal_host's fgets-strip semantics. Return value
+ * is the line length WITHOUT the newline, as required by the pal.h contract.
+ *
+ * gotoxy / set_attr: NO-OP stubs. These are console primitives, NOT INT 21h,
+ * and are exercised only at S8.4 (@SAY/GET/READ forms) which is gated on
+ * S8.3/M4. ADR-0009 DEC-06 explicitly allows no-ops at S8.2.
+ *
+ * SOFT-FLOAT: this TU is compiled with -msoft-float -mno-80387 so no x87
+ * instructions are emitted. The engine uses libgcc soft-float helpers
+ * (__adddf3 etc.) per ADR-0009 DEC-01. No FPU init needed in the kernel.
+ *
+ * Ref (Law 1):
+ *   ADR-0009 DEC-06 (pal_dos.c mandate; slot->INT21h map; gotoxy/set_attr
+ *     no-op; arena via AH=48h; conin_line strips CR/LF; conin_char=07h).
+ *   ADR-0009 DEC-01 (soft-float; no kernel FPU init).
+ *   ADR-0009 DEC-03 (FLOW_MAX_REGISTRY=1; flat .COM in conventional memory).
+ *   ADR-0009 DEC-04 (AH=48h arena MUST be disjoint from program; the kernel
+ *     fix in bead 1q4u ensures the block returned by 48h is above the image).
+ *   os/ibase/include/ibase/pal.h (the full PAL vtable contract).
+ *   spec/int21h_calling_convention.json (flat ABI; CF error; segment convention).
+ *   os/dos/int21.c (confirmed register behavior for each handler called).
+ *   spec/memory_map.h (PROGRAM_BASE, PROGRAM_STACK_BOT -- arena ceiling).
+ *   os/ibase/pal/pal_host.c (mirror structure: state-first, state_of cast,
+ *     fmode logic, arena bump pattern).
+ *
+ * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
+ * Fail loud (Rule 2): every error is negative, never a silent no-op.
+ */
+
+#include "ibase/lifetime.h"
+#include <stdint.h>
+
+#include "ibase/pal.h"
+#include "heap.h"
+#include "ibase/interp.h"
+#include "ibase/screen.h"
+#include "ibase/rt.h"
+#include "ibase/ovl.h"
+#include "ibase/memory_contract.h"
+#include "memory_map.h"     /* PROGRAM_STACK_BOT: the stack guard below */
+
+/* ---- Arena sizing constants ----------------------------------------------- *
+ *
+ * 36 KiB of PAL storage: a 16 KiB scratch bump arena and a 20 KiB
+ * independently reclaimed codec heap. Allocator policy is authored, no local
+ * reference. Since initech-airx (REPORT FORM grew the image) only 30 KiB come
+ * from AH=48h (2304 -> 1920 paragraphs): the last 6 KiB of the owned heap is a
+ * second region in the program's own 64 KiB BSS reserve, above __bss_end and
+ * below the arena base the loader computes (memory_map.h PROGRAM_BSS_RESERVE),
+ * so the capacities are unchanged. ibase.ld asserts both regions fit.
+ * Scratch reset cannot reclaim a live table/memo/index (audit L003).
+ * Ref: spec/memory_map.h PROGRAM_BSS_RESERVE / ENV_BLOCK; ADR-0009 DEC-04.
+ */
+/* Using III+ U5-180: the standard memory-variable pool is 6000 bytes.
+ * Reclaim 10384 bytes from the old 16 KiB static pool; move the same amount
+ * of owned heap into its BSS reserve tail. Scratch and total owned capacity
+ * stay unchanged. Link-time assertions prove both disjoint intervals. */
+/* Overlays Phase B (initech-5etom.1, docs/design/ibase-overlays.md Sec 5):
+ * the overlay slot now occupies most of the BSS reserve that held the
+ * 16528-byte second heap region, so that region moves into the AH=48h block
+ * (2057 paragraphs = 16528 + the 16384-byte bump arena), and the 3952-byte
+ * first region moves the other way, into the reserve above .bss
+ * (_ibase_heap_tail, ibase.ld). Both regions keep their exact sizes and their
+ * list order (3952 first), and they are never adjacent (one in the reserve,
+ * one in the arena), so pal_heap's neighbour coalescing still never joins them
+ * and allocation behaviour is unchanged. ibase.ld asserts both placements. */
+#define PAL_DOS_HEAP_PARAS  (IBASE_MINIMUM_HEAP_BYTES / 16u)
+#define PAL_DOS_TAIL_BYTES  16528u
+#define PAL_DOS_REGION1_BYTES 3952u
+extern uint8_t _ibase_heap_tail[];      /* ibase.ld: first 16-byte boundary after .bss */
+#define PAL_DOS_HEAP_BYTES  (PAL_DOS_HEAP_PARAS * 16u)
+
+/* ---- Freestanding panic --------------------------------------------------- *
+ * Rule 2 (fail loud). Emit nothing (no sink available here), then halt via the
+ * inline asm cli+hlt sequence. The kernel will display PC LOAD LETTER on the
+ * next interrupt (PRD Appendix B). This is intentionally minimal: the panic
+ * path in pal_dos is only reachable if AH=48h fails at construction (an
+ * OOM condition that cannot be recovered from) or if reset() receives a mark
+ * outside the arena (a corrupted pointer -- also unrecoverable).
+ */
+static void __attribute__((noreturn)) dos_panic(void)
+{
+    __asm__ __volatile__(
+        "cli\n\t"
+        "hlt\n\t"
+        ".1: jmp .1\n\t"
+        ::: "memory"
+    );
+    __builtin_unreachable();
+}
+
+/* ---- DOS error -> PAL error mapping --------------------------------------- *
+ * Converts a DOS INT 21h error code (returned in AX when CF=1) to a PAL
+ * error code. Mirrors pal_host.c errno_to_pal structure, with DOS codes.
+ * The raw AX value is NEVER returned through the contract (pal.h principle).
+ * Source: DOS 3.3 PRM error code table; int21.c INT21_ERR_* constants.
+ */
+static pal_err dos_err_to_pal(uint32_t dos_ax)
+{
+    uint16_t e = (uint16_t)(dos_ax & 0xFFFFu);
+    switch (e) {
+    case 0x0002u:   /* FILE_NOT_FOUND */
+    case 0x0003u:   /* PATH_NOT_FOUND */
+        return PAL_ENOENT;
+    case 0x0005u:   /* ACCESS_DENIED */
+    case 0x0006u:   /* INVALID_HANDLE */
+    case 0x0004u:   /* TOO_MANY_OPEN */
+        return PAL_EACCES;
+    case 0x001Cu:   /* DISK_FULL (28 decimal) -- */
+        return PAL_ENOSPC;
+    default:
+        return PAL_EIO;
+    }
+}
+
+#include "line_input.h"
+
+/* ---- InitechDOS PAL state ----------------------------------------------------- */
+
+typedef struct {
+    ibase_pal_t  vtable;    /* MUST be first: engine casts p->vtable (pal_host pattern) */
+    ibase_screen screen;
+
+    /* Bump arena: one AH=48h block obtained at construction.
+     * heap_base = (returned_segment << 4) as a flat linear address.
+     * heap_ptr  = next free byte (bumps forward on alloc).
+     * heap_end  = heap_base + 16 KiB; the remaining 20 KiB is owned storage. */
+    /* Separate codec heap carved from the disjoint AH=48h block.
+     * Authored 20 KiB budget, no local reference. */
+    pal_heap_block *blocks;
+    ibase_line_state input;
+#ifdef PAL_DOS_MUTATE_SHORT_READ
+    uint32_t short_read_fds; /* DBF handles only; overlays and command input intact. */
+#endif
+    uint8_t     *heap_base;
+    uint8_t     *heap_ptr;
+    uint8_t     *heap_end;
+    /* initech-39e5: keys read while polling for Esc between program
+     * statements, replayed in order by conin_char / conin_line (III+
+     * type-ahead; Using III+ U5-231 SET TYPEAHEAD default 20). */
+    uint8_t      ta[20];
+    uint8_t      ta_head, ta_n;
+    int8_t       con_in;    /* stdin is CON: -1 unknown, 0 no, 1 yes */
+    uint8_t      poll_extended; /* An INKEY poll consumed a DOS 00 prefix. */
+} pal_dos_state_t;
+
+/* Recover the state block from the vtable pointer (vtable is first). */
+static pal_dos_state_t *state_of(ibase_pal_t *p)
+{
+    return (pal_dos_state_t *)p;
+}
+
+/* ---- Inline-asm INT 21h wrappers ----------------------------------------- *
+ *
+ * All wrappers use GCC extended inline asm with __volatile__ to prevent the
+ * compiler from reordering or eliding the syscall. The `int $0x21` opcode is
+ * the 32-bit TRAP gate installed by the InitechDOS IDT at vector 0x21
+ * (spec/int21h_calling_convention.json "gate" section; DEC-04a ratification).
+ *
+ * Clobber discipline: EAX (return), EFLAGS (CF). Caller-save registers that
+ * the kernel dispatcher may modify are listed explicitly. We declare "cc" to
+ * tell the compiler EFLAGS is clobbered.
+ *
+ * SEGMENT REGISTERS: in the flat protected model the dispatcher restores CS/DS
+ * automatically via the TRAP gate + IRETD; ES/FS/GS are not touched by the
+ * handlers, so we do not clobber them. The convention document confirms "All
+ * pointer arguments are FLAT 32-bit LINEAR addresses -- no segment:offset."
+ */
+
+/* Execute INT 21h with AH=func (bits 15:8), AL=al_val (bits 7:0).
+ * EDX = pointer/data, EBX = handle/BX-value, ECX = count/CX-value.
+ * EDI = optional second pointer (AH=56h RENAME only; others pass 0 and it
+ * is harmless since the dispatcher ignores it for non-rename AHs).
+ * Returns the full 32-bit EAX and sets *cf_out to 1 if CF was set, 0 otherwise.
+ *
+ * Ref: spec/int21h_calling_convention.json abi section; os/dos/int21.c. */
+static uint32_t int21(uint8_t func, uint8_t al_val,
+                      uint32_t edx_val, uint32_t ebx_val,
+                      uint32_t ecx_val, uint32_t edi_val,
+                      int *cf_out)
+{
+    uint32_t eax_in  = ((uint32_t)func << 8) | (uint32_t)al_val;
+    uint32_t eax_out = 0u;
+    uint32_t flags   = 0u;
+
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "pushfl\n\t"
+        "popl %1\n\t"
+        : "=a"(eax_out), "=r"(flags)
+        : "a"(eax_in),
+          "d"(edx_val),
+          "b"(ebx_val),
+          "c"(ecx_val),
+          "D"(edi_val)
+        : "cc", "memory"
+    );
+
+    if (cf_out) {
+        /* CF = bit 0 of EFLAGS (Intel SDM Vol 1 Sec 3.4.3; CF_BIT in int21.c). */
+        *cf_out = (int)(flags & 0x1u);
+    }
+    return eax_out;
+}
+
+/* Variant that also returns ECX and EDX after the call (needed for AH=42h
+ * LSEEK, which returns the full 32-bit offset in EAX; and AH=2Ah GET DATE
+ * which returns CX=year, DH=month, DL=day). */
+static uint32_t int21_cxdx(uint8_t func, uint8_t al_val,
+                            uint32_t edx_val, uint32_t ebx_val,
+                            uint32_t ecx_val,
+                            uint32_t *ecx_out, uint32_t *edx_out,
+                            int *cf_out)
+{
+    uint32_t eax_in  = ((uint32_t)func << 8) | (uint32_t)al_val;
+    uint32_t eax_out = 0u;
+    uint32_t ecx_r   = 0u;
+    uint32_t edx_r   = 0u;
+    uint32_t flags   = 0u;
+
+    __asm__ __volatile__(
+        "int $0x21\n\t"
+        "pushfl\n\t"
+        "popl %3\n\t"
+        : "=a"(eax_out), "=c"(ecx_r), "=d"(edx_r), "=r"(flags)
+        : "a"(eax_in),
+          "d"(edx_val),
+          "b"(ebx_val),
+          "c"(ecx_val)
+        : "cc", "memory"
+    );
+
+    if (cf_out)  *cf_out  = (int)(flags & 0x1u);
+    if (ecx_out) *ecx_out = ecx_r;
+    if (edx_out) *edx_out = edx_r;
+    return eax_out;
+}
+
+/* INT 21h AH=4Ch terminate with return code (IBM DOS 3.30 TR p. 6-200), for
+ * the overlay manager's mid-session abort (os/ibase/core/ovl.c), which has
+ * already closed every work area. Never returns. */
+void pal_dos_terminate(uint8_t code) __attribute__((noreturn));
+void pal_dos_terminate(uint8_t code)
+{
+    (void)int21(0x4Cu, code, 0u, 0u, 0u, 0u, (int *)0);
+    dos_panic();   /* the exit hook is unbound: fail loud (Rule 2) */
+}
+
+/* Rule 2: the guard reaches the kernel's invalid-opcode panic (PC LOAD
+ * LETTER plus register context). stderr stays visible under redirection.
+ * CLI/HLT alone cannot deliver a panic: CLI disables the claimed interrupt. */
+void pal_dos_overlay_panic(const char *,uint32_t,uint32_t,uint32_t,uintptr_t)
+    __attribute__((noreturn));
+static void ovl_diag(const char *s)
+{
+    (void)int21(0x40u,0u,(uint32_t)(uintptr_t)s,2u,rt_strlen(s),0u,(int *)0);
+}
+static void ovl_hex(uint32_t x)
+{
+    char b[9]; unsigned i;
+    for(i=0;i<8;i++) { unsigned n=(x >> (28-4*i)) & 15u;b[i]=(char)(n<10?'0'+n:'A'+n-10); }
+    b[8]=0;ovl_diag(b);
+}
+void pal_dos_overlay_panic(const char *why,uint32_t loaded,uint32_t requested,
+                              uint32_t depth,uintptr_t pointer)
+{
+    ovl_diag("\r\nIBASE OVERLAY PANIC: ");ovl_diag(why);
+    ovl_diag(" loaded=");ovl_hex(loaded);ovl_diag(" requested=");ovl_hex(requested);
+    ovl_diag(" depth=");ovl_hex(depth);ovl_diag(" pointer=");ovl_hex((uint32_t)pointer);
+    ovl_diag("\r\n");
+    __asm__ __volatile__("ud2" ::: "memory");
+    __builtin_unreachable();
+}
+
+/* ---- File I/O slots ------------------------------------------------------- */
+
+/*
+ * dos_open: map PAL mode flags onto INT 21h AH=3Dh (open existing) or
+ * AH=3Ch (create/truncate).
+ *
+ *   PAL_CREATE or PAL_TRUNC set -> AH=3Ch CREAT (create/truncate to zero).
+ *   Otherwise -> AH=3Dh OPEN with AL=access (PAL_RD=0/PAL_WR=1/PAL_RDWR=2).
+ *
+ * Ref: pal.h open slot contract; ADR-0009 DEC-06;
+ *      spec/int21h_calling_convention.json (AH=3Dh AL=access; AH=3Ch EDX=path).
+ *      os/dos/int21.c do_open/do_creat.
+ */
+static pal_fd dos_open(ibase_pal_t *p, const char *name, int mode)
+{
+    int create  = (mode & PAL_CREATE) != 0;
+    int trunc   = (mode & PAL_TRUNC)  != 0;
+    int access  = mode & 3;  /* PAL_RD=0, PAL_WR=1, PAL_RDWR=2 */
+    int cf = 0;
+    uint32_t result;
+    (void)p;
+
+    if (create || trunc) {
+        /* AH=3Ch CREAT: EDX=path, CX=attribute (0 = normal).
+         * AL is ignored by do_creat (CX carries the attribute, not AL access). */
+        result = int21(0x3Cu, 0x00u,
+                       (uint32_t)(uintptr_t)name,
+                       0u,       /* EBX unused */
+                       0u,       /* CX=attr=0 (normal file) */
+                       0u, &cf);
+    } else {
+        /* AH=3Dh OPEN: AL=access(0/1/2), EDX=path.
+         * Ref: do_open reads frame_al(f) for the mode byte. */
+        result = int21(0x3Du, (uint8_t)access,
+                       (uint32_t)(uintptr_t)name,
+                       0u, 0u, 0u, &cf);
+    }
+
+    if (cf) {
+        return -(pal_fd)dos_err_to_pal(result);
+    }
+    /* AX = handle (low 16 bits; do_open sets EAX low 16).
+     * Valid handles are JFT indices (0-based, small non-negative numbers). */
+#ifdef PAL_DOS_MUTATE_SHORT_READ
+    {
+        uint32_t fd = result & 0xFFFFu, n = rt_strlen(name);
+        if (fd < 32u) {
+            state_of(p)->short_read_fds &= ~(1u << fd);
+            if (n >= 4u && name[n-4] == '.' && (name[n-3] | 32) == 'd' &&
+                (name[n-2] | 32) == 'b' && (name[n-1] | 32) == 'f')
+                state_of(p)->short_read_fds |= 1u << fd;
+        }
+    }
+#endif
+    return (pal_fd)(result & 0xFFFFu);
+}
+
+/*
+ * dos_close: AH=3Eh CLOSE, EBX=handle.
+ * Ref: pal.h close slot; do_close checks handle in EBX; CF set on bad handle.
+ */
+static int dos_close(ibase_pal_t *p, pal_fd fd)
+{
+    int cf = 0;
+    uint32_t result;
+    (void)p;
+
+    if (fd < 0) {
+        return -(int)PAL_EACCES;
+    }
+#ifdef PAL_DOS_MUTATE_SHORT_READ
+    if ((uint32_t)fd < 32u) state_of(p)->short_read_fds &= ~(1u << fd);
+#endif
+    result = int21(0x3Eu, 0x00u,
+                   0u,               /* EDX unused */
+                   (uint32_t)fd,     /* EBX=handle */
+                   0u, 0u, &cf);
+    if (cf) {
+        return -(int)dos_err_to_pal(result);
+    }
+    return 0;
+}
+
+/*
+ * dos_read: AH=3Fh READ, EBX=handle, ECX=count, EDX=buf.
+ * Returns the byte count ACTUALLY read (>= 0; 0 = EOF) or -(pal_err).
+ * NEVER synthesizes a full read on short -- report what the kernel gave
+ * (Rule 2: do NOT report a short read as a full one; pal.h read contract).
+ * Ref: do_read returns EAX=bytes_read or CF+AX=err.
+ *
+ * Mutation hook (Rule 6): -DPAL_DOS_MUTATE_SHORT_READ shaves ONE byte off
+ * every multi-byte read request (ECX = n-1). The .dbf header/record reads then
+ * come up one byte short, so the on-target dbf codec mis-decodes: the LIST rows
+ * the S8.2 emu gate (bead hdlb) asserts garble (or the open fails) -- the gate's
+ * serial + screendump assertions go RED for the RIGHT reason (wrong data on the
+ * on-target I/O path), not a crash. NEVER define in a real build.
+ */
+static int32_t dos_read(ibase_pal_t *p, pal_fd fd, void *buf, uint32_t n)
+{
+    int cf = 0;
+    uint32_t result;
+    (void)p;
+
+    if (fd < 0) {
+        return -(int32_t)PAL_EACCES;
+    }
+    if (n == 0u) {
+        return 0;
+    }
+#ifdef PAL_DOS_MUTATE_SHORT_READ
+    /* MUTANT: request one byte fewer so reads come up short (>1 only, so a
+     * single-byte read still moves). The dbf codec then mis-frames records. */
+    if (n > 1u && (uint32_t)fd < 32u && (state_of(p)->short_read_fds & (1u << fd))) {
+        n -= 1u;
+    }
+#endif
+    result = int21(0x3Fu, 0x00u,
+                   (uint32_t)(uintptr_t)buf,   /* EDX=buffer flat ptr */
+                   (uint32_t)fd,                /* EBX=handle */
+                   n,                           /* ECX=count */
+                   0u, &cf);
+    if (cf) {
+        return -(int32_t)dos_err_to_pal(result);
+    }
+    /* AX = bytes read. 0 = EOF (clean, not an error). */
+    return (int32_t)(result & 0xFFFFu);
+}
+
+/*
+ * dos_write: AH=40h WRITE, EBX=handle, ECX=count, EDX=buf.
+ * Returns bytes actually written (>= 0) or -(pal_err).
+ * A short write (< n) means the device is full; engine treats < n as PAL_ENOSPC
+ * per the pal.h contract. We return the actual count, not an error.
+ * Ref: do_write returns EAX=bytes_written or CF+AX=err.
+ *
+ * Mutation hook (Rule 6): -DPAL_DOS_MUTATE_DROP_WRITE makes a WRITE to a real
+ * FILE handle (fd >= 3 -- handles 0/1/2 are CON/stdout/stderr) a NO-OP that
+ * REPORTS full success (return n) WITHOUT issuing the INT 21h WRITE. The engine
+ * then believes dbf_flush wrote the mutated image, but NOTHING reaches the FAT
+ * volume: the on-disk .dbf stays at the original 3 records with the original
+ * BALs, so the post-run dbf_ref.py persistence assertion (4 records, BAL=9999.99,
+ * BAL=5555.55) goes RED -- the .dbf is stale, not garbled, and there is NO crash
+ * (a clean data-not-persisted RED for the right reason, test-ibase-write-mutant).
+ * Console writes (fd <= 2) are LEFT INTACT so the dot prompt + the in-emu LIST
+ * still render -- the bite is the on-disk persistence, not the live session.
+ * NEVER define in a real build.
+ */
+static int32_t dos_write(ibase_pal_t *p, pal_fd fd, const void *buf, uint32_t n)
+{
+    int cf = 0;
+    uint32_t result;
+    (void)p;
+
+    if (fd < 0) {
+        return -(int32_t)PAL_EACCES;
+    }
+    if (n == 0u) {
+        return 0;
+    }
+#ifdef PAL_DOS_MUTATE_DROP_WRITE
+    /* MUTANT: drop the WRITE to a real file (fd >= 3) but claim n bytes written,
+     * so the .dbf flush never hits the disk. CON handles (0/1/2) pass through so
+     * the session still renders. */
+    if (fd >= 3) {
+        return (int32_t)n;
+    }
+#endif
+    result = int21(0x40u, 0x00u,
+                   (uint32_t)(uintptr_t)buf,   /* EDX=buffer flat ptr */
+                   (uint32_t)fd,                /* EBX=handle */
+                   n,                           /* ECX=count */
+                   0u, &cf);
+    if (cf) {
+        return -(int32_t)dos_err_to_pal(result);
+    }
+    return (int32_t)(result & 0xFFFFu);
+}
+
+/*
+ * dos_seek: AH=42h LSEEK, AL=whence, EBX=handle, ECX:EDX=offset.
+ *
+ * The flat ABI carries the offset in EDX (low 32 bits; int21.c do_lseek reads
+ * f->edx as the full 32-bit offset, ECX high 16 is 0 this milestone). Whence
+ * maps PAL_SEEK_SET/CUR/END -> AL=0/1/2, matching the pal.h enum values
+ * exactly (both enums start at 0 and are in the same order). Returns the new
+ * absolute position (full 32 bits from EAX) or -(pal_err).
+ *
+ * The file-SIZE idiom is seek(fd, 0, PAL_SEEK_END) -> returns file length
+ * (pal.h PAL_SEEK_END comment; ADR-0008 DEC-02 rev; do_lseek base=file_size
+ * when whence==2).
+ *
+ * AMBIGUITY NOTE: The calling convention JSON (AH=42h not yet listed as a
+ * separate entry) is inferred from the int21.c source which shows:
+ *   "whence = frame_al(f); off = f->edx; f->eax = base + off"
+ * This means the full 32-bit result lands in EAX. We read the full EAX.
+ * The JSON "return_value: EAX (AL for single-byte; AX for 16-bit legacy;
+ * EAX for 32-bit)" confirms EAX for 32-bit returns. Choice: read full EAX.
+ *
+ * Ref: os/dos/int21.c do_lseek; spec/int21h_calling_convention.json abi.
+ */
+static int32_t dos_seek(ibase_pal_t *p, pal_fd fd, int32_t off, int whence)
+{
+    int cf = 0;
+    uint32_t result;
+    (void)p;
+
+    if (fd < 0) {
+        return -(int32_t)PAL_EACCES;
+    }
+    if (whence < 0 || whence > 2) {
+        return -(int32_t)PAL_EACCES;
+    }
+    /* AL = whence (0/1/2 maps directly to PAL_SEEK_SET/CUR/END = 0/1/2).
+     * EDX = low 32-bit offset; ECX = 0 (high 16 bits, zero this milestone).
+     * EBX = handle. */
+    result = int21(0x42u, (uint8_t)whence,
+                   (uint32_t)(int32_t)off,   /* EDX = signed offset, flat cast */
+                   (uint32_t)fd,              /* EBX = handle */
+                   0u,                        /* ECX = high word (0) */
+                   0u, &cf);
+    if (cf) {
+        return -(int32_t)dos_err_to_pal(result);
+    }
+    return (int32_t)result;
+}
+
+/*
+ * dos_remove: AH=41h UNLINK, EDX=path.
+ * Returns 0 (PAL_OK) or -(pal_err).
+ * Ref: os/dos/int21.c do_unlink; pal.h remove slot.
+ */
+static int dos_remove(ibase_pal_t *p, const char *name)
+{
+    int cf = 0;
+    uint32_t result;
+    (void)p;
+
+    result = int21(0x41u, 0x00u,
+                   (uint32_t)(uintptr_t)name,  /* EDX = path flat ptr */
+                   0u, 0u, 0u, &cf);
+    if (cf) {
+        return -(int)dos_err_to_pal(result);
+    }
+    return 0;
+}
+
+/*
+ * dos_rename: AH=56h RENAME, EDX=old_path, EDI=new_path.
+ *
+ * FIRST INT 21h handler in the IBASE PAL that reads a SECOND flat pointer.
+ * The flat-kernel adaptation: real DOS uses ES:DI for the new name; in this
+ * 32-bit protected-flat kernel the segment is collapsed and EDI carries the
+ * flat linear address directly (spec/int21h_calling_convention.json AH=56h:
+ * "EDI = flat ptr to the NEW ASCIIZ 8.3 path"; os/dos/int21.c do_rename
+ * reads f->edi for new_path). We pass it in the "D" (EDI) constraint.
+ *
+ * Ref: pal.h rename slot ("same directory only"; ADR-0008 DEC-02 known
+ * constraint); os/dos/int21.c do_rename; spec/int21h_calling_convention.json
+ * AH=56h.
+ */
+static int dos_rename(ibase_pal_t *p, const char *from, const char *to)
+{
+    int cf = 0;
+    uint32_t result;
+    (void)p;
+
+    result = int21(0x56u, 0x00u,
+                   (uint32_t)(uintptr_t)from,  /* EDX = old path */
+                   0u,                          /* EBX unused */
+                   0u,                          /* ECX unused */
+                   (uint32_t)(uintptr_t)to,     /* EDI = new path */
+                   &cf);
+    if (cf) {
+        return -(int)dos_err_to_pal(result);
+    }
+    return 0;
+}
+
+/* ---- Console slots -------------------------------------------------------- */
+
+/*
+ * dos_conout: write n bytes to console via AH=40h WRITE on handle 1 (stdout).
+ * This is the CON device via the standard DOS stdout handle (SFT_DEV_CON at
+ * JFT index 1; do_write fans to con_putc for the CON device leg).
+ * The slot contract says "no return code -- console writes do not fail in-universe."
+ * If the kernel returns an error we silently drop it (the contract is void).
+ * Ref: pal.h conout slot; ADR-0009 DEC-06; do_write handle 1 -> CON.
+ */
+static void dos_rawout(ibase_pal_t *p, const char *s, uint32_t n)
+{
+    int cf = 0;
+    (void)p;
+
+    if (n == 0u || s == (const char *)0) {
+        return;
+    }
+    /* AH=40h, EBX=1 (stdout/CON), ECX=n, EDX=s */
+    (void)int21(0x40u, 0x00u,
+                (uint32_t)(uintptr_t)s,   /* EDX=buffer */
+                1u,                        /* EBX=handle 1 (stdout/CON) */
+                n,                         /* ECX=count */
+                0u, &cf);
+    /* void return; errors silently ignored per pal.h contract */
+    (void)cf;
+}
+
+/* Native BIOS-page terminal binding, without kernel address coupling.
+ * ADR-0008 DEC-02 terminal extension; spec/tsr_contract.h page service.
+ * The model owns scrolling and forwards plain transcript bytes through CON. */
+static int dos_is_console(uint32_t handle)
+{
+    uint32_t dx=0;int cf=0;
+    (void)int21_cxdx(0x44u,0,0,handle,0,(uint32_t *)0,&dx,&cf);
+    if(cf) dos_panic();
+    return (dx & 0x8000u)!=0;
+}
+/* ESC[r;cH for a 0-based position; returns its length. */
+static __attribute__((noinline)) uint32_t dos_cup(char *seq,uint8_t row,uint8_t col)
+{
+    uint32_t n=0;
+    seq[n++]=27;seq[n++]='[';
+    row++;col++;
+    if(row>=10) seq[n++]=(char)('0'+row/10);
+    seq[n++]=(char)('0'+row%10);seq[n++]=';';
+    if(col>=10) seq[n++]=(char)('0'+col/10);
+    seq[n++]=(char)('0'+col%10);seq[n++]='H';
+    return n;
+}
+static void dos_page(uint8_t *page,uint32_t operation);
+static void dos_cursor(ibase_pal_t *p,uint8_t row,uint8_t col)
+{
+    uint8_t page[4002];(void)p;
+    dos_page(page,0);
+    page[4000]=row;page[4001]=col;
+    dos_page(page,1);
+}
+/* BIOS-page cell output bypasses ANSI control interpretation. Real III+
+ * at-say-edge-controls/controls contains literal 0D and 0A screen bytes. */
+static void dos_draw_cells(ibase_pal_t *p,uint8_t row,uint8_t col,uint8_t attr,const char *text,uint32_t n)
+{
+    uint8_t page[4002];uint32_t i;
+    if(row>=25 || col>=80 || n>80u-col) {
+        static const char bad[]="IBASE draw bound\r\n";
+        dos_rawout(p,bad,sizeof bad-1);
+        dos_panic();
+    }
+    dos_page(page,0);
+    /* CON still supplies the transcript, while the page owns every pixel.
+     * FLAIR's native text tenant has no CONFIG.SYS ANSI driver installed. */
+    if(p && n && dos_is_console(1)) {
+        uint8_t r=page[4000],c=page[4001];
+        /* Real at-to-b/TE proves row 25 is a valid off-page BIOS cursor.
+         * Forward printable CON bytes there without drawing or scrolling.
+         * Split an 80-cell span so CON never wraps the off-page row. */
+        page[4000]=25;page[4001]=0;dos_page(page,1);
+        dos_rawout(p,text,n==80?79:n);
+        if(n==80){dos_page(page,1);dos_rawout(p,text+79,1);}
+        page[4000]=r;page[4001]=c;
+    }
+    for(i=0;i<n;i++) { page[row*160+(col+i)*2]=(uint8_t)text[i];page[row*160+(col+i)*2+1]=attr; }
+    dos_page(page,1);
+}
+static void dos_draw(void *user,uint8_t row,uint8_t col,uint8_t attr,const char *text,uint32_t n)
+{
+    ibase_pal_t *p=(ibase_pal_t *)user;uint32_t i;
+    for(i=0;i<n;i++) if((uint8_t)text[i]<32 || text[i]==127) {
+        dos_draw_cells((ibase_pal_t *)0,row,col,attr,text,n);return;
+    }
+    dos_draw_cells(p,row,col,attr,text,n);
+}
+/* BIOS-page equivalent, spec/tsr_contract.h sections 2/3. Copy attributes as
+ * well as characters, without echoing old rows into CON's serial transcript.
+ * The 4002-byte temporary lives on the guarded 64 KiB application stack. */
+static void dos_page(uint8_t *page,uint32_t operation)
+{
+    uint8_t failed;
+    /* UPDATE uses the existing page format without repainting unchanged
+     * cells. The console is visible throughout native command output. */
+    if(operation==1)operation=2;
+    __asm__ __volatile__("int $0x39; setc %0"
+        : "=qm"(failed), "+a"(operation) : "d"(page) : "cc", "memory");
+    if(failed) dos_panic();
+}
+static void dos_scroll(void *user,uint8_t top,uint8_t bottom)
+{
+    ibase_screen *s=&state_of((ibase_pal_t *)user)->screen;
+    uint8_t page[4002];uint32_t r,c;
+    dos_page(page,0);
+    for(r=top;r<bottom;r++) rt_memcpy(page+r*160,page+(r+1)*160,160);
+    for(c=0;c<80;c++) { page[bottom*160+c*2]=' ';page[bottom*160+c*2+1]=7; }
+    page[4000]=s->row;page[4001]=s->col;
+    dos_page(page,1);
+}
+static void dos_conout(ibase_pal_t *p,const char *text,uint32_t n)
+{
+    ibase_screen *screen=&state_of(p)->screen;
+    if(dos_is_console(1)) {
+        uint32_t i=0;
+        while(i<n) {
+            uint32_t start=i;
+            while(i<n && text[i]!='\r' && text[i]!='\n' && text[i]!='\b') i++;
+            ibase_screen_write(screen,text+start,i-start);
+            if(i<n) {
+                /* M005ULOG.TXT and real list-layout-real/prompt: line CR/LF
+                 * belong to the stream even when the model owns scrolling.
+                 * Keep their order among drawn runs. Restore the page after
+                 * CON forwards the byte, then let the model apply its motion
+                 * once (including its reserved rows and bottom-row scroll). */
+#ifndef IBASE_STREAM_MUTATE_DROP_CRLF
+                uint8_t page[4002];
+                dos_page(page,0);
+                dos_rawout(p,text+i,1);
+                dos_page(page,1);
+#endif
+                ibase_screen_write(screen,text+i++,1);
+            }
+        }
+        dos_cursor(p,screen->row,screen->col);
+    } else dos_rawout(p,text,n);
+}
+static void dos_status(ibase_pal_t *p,int on,const char *path,uint32_t rec,uint32_t count)
+{
+    ibase_screen *screen=&state_of(p)->screen;
+    char db[24],drive;uint32_t i=0;const char *base=path,*t;
+    if(!dos_is_console(1) || !dos_is_console(0)) return;
+    drive=(char)('A'+(int21(0x19u,0,0,0,0,0,(int *)0)&255u));
+    if(path[0] && path[1]==':') drive=path[0];
+    for(t=path;*t;t++) if(*t=='/' || *t=='\\' || *t==':') base=t+1;
+    while(base[i] && base[i]!='.' && i<23) { db[i]=base[i]; if(db[i]>='a' && db[i]<='z') db[i]-=32; i++; }
+    db[i]=0;
+    if(on && !screen->active) {
+        /* Start a fresh command page with a bounded 22-row viewport. */
+        uint8_t attr=screen->attr;
+        ibase_screen_init(screen,dos_draw,p);
+#ifndef IBASE_REVIEW_MUTANT_COLOR_RESET
+        screen->attr=attr;
+#else
+        (void)attr;
+#endif
+        screen->scroll=dos_scroll;
+        dos_rawout(p,"\033[2J",4);
+    }
+    if(on || screen->active) {
+        ibase_screen_status(screen,on,drive,db,rec,count);
+        dos_cursor(p,screen->row,screen->col);
+    }
+}
+static int32_t dos_conin_char(ibase_pal_t *p);
+static int32_t dos_terminal_line(ibase_pal_t *p,char *buf,uint32_t cap,int echo)
+{
+    uint32_t n=0;int overflow=0;int32_t c;
+    if(cap<2) return -1;
+    for(;;) {
+        c=dos_conin_char(p);
+        if(c<0) return -1;
+#ifndef IBASE_REVIEW_MUTANT_KEYS
+        /* IBM/DOS extended keys arrive as one 00,scan pair (8011ad44).
+         * Consume navigation/function scans as keys, never printable text.
+         * This line editor appends/erases; it has no interior insertion point. */
+        if(c==0) { if(dos_conin_char(p)<0)return -1;continue; }
+#endif
+        if(c=='\r' || c=='\n') break;
+        if(c=='\b') { if(n) { n--; if(echo) dos_conout(p,"\b \b",3); } continue; }
+        if(c<32 || c>126) continue;
+        if(n+1<cap) { buf[n++]=(char)c; if(echo) { char ch=(char)c;dos_conout(p,&ch,1); } }
+        else overflow=1;
+    }
+    if(echo) dos_conout(p,echo==2?"\r":"\n",1);
+    buf[n]=0;
+    return overflow?-1:(int32_t)n;
+}
+static void dos_prompt(ibase_pal_t *p,int scoreboard,int cleared)
+{
+    ibase_screen *s=&state_of(p)->screen;
+    if(!dos_is_console(1) || !dos_is_console(0)) return;
+    ibase_screen_prompt(s,scoreboard,cleared);
+    dos_cursor(p,s->row,s->col);
+}
+
+/* Ref: pal.h conin_line and ADR-0009 DEC-06. AH=3Fh stdin is a byte
+ * stream when redirected. The shared framer preserves read-ahead and CRLF
+ * across reads, while full-size reads keep cooked CON from dropping its tail.
+ * Emulator oracle replays audit K13; this is not a dBASE shell golden. */
+static int32_t dos_input_read(void *user, void *buf, uint32_t cap)
+{
+    return dos_read((ibase_pal_t *)user,0,buf,cap);
+}
+/* Stack guard (initech-39e5 review; Rule 2). The program stack is the 64 KiB
+ * from PROGRAM_STACK_BOT to PROGRAM_STACK_TOP (spec/memory_map.h); below it
+ * lie the environment and the heap arena, so an overrun corrupts data
+ * silently. The lowest DOS_GUARD_WORDS words of the stack hold a pattern
+ * set at start-up and verified at every console read: a clobbered guard
+ * stops IBASE loudly instead of running on with corrupted memory. The
+ * engine's own budget (20 DO levels, heap line tables) keeps the deepest
+ * frame far above it; the guard only proves that. */
+#define DOS_GUARD_WORDS (INITECHMZ_EXT_GUARD_BYTES / 4u)
+static uint32_t dos_guard_word(uint32_t i) { (void)i; return EXT_APP_GUARD_WORD; }
+static void dos_guard_set(void)
+{
+    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)EXT_APP_GUARD_BASE;
+    uint32_t i;
+    for (i = 0; i < DOS_GUARD_WORDS; i++) g[i] = dos_guard_word(i);
+}
+static void dos_guard_check(ibase_pal_t *p)
+{
+    volatile uint32_t *g = (volatile uint32_t *)(uintptr_t)EXT_APP_GUARD_BASE;
+    uint32_t i;
+    for (i = 0; i < DOS_GUARD_WORDS; i++)
+        if (g[i] != dos_guard_word(i)) {
+            static const char m[] = "\r\nSTACK OVERFLOW -- InitechBase halted\r\n";
+            dos_rawout(p, m, (uint32_t)(sizeof m - 1u));
+            dos_panic();
+        }
+}
+
+static int32_t dos_conin_line(ibase_pal_t *p, char *buf, uint32_t cap)
+{
+    dos_guard_check(p);
+    /* Type-ahead captured by the Esc poll must not be lost to the kernel's
+     * cooked editor: replay it through the PAL editor (initech-39e5). */
+    if((state_of(p)->screen.active || state_of(p)->ta_n) && dos_is_console(0))
+        return dos_terminal_line(p,buf,cap,1);
+    return ibase_line_read(&state_of(p)->input,dos_input_read,p,buf,cap);
+}
+static int32_t dos_conin_line_noecho(ibase_pal_t *p,char *buf,uint32_t cap)
+{
+    if(dos_is_console(0)) return dos_terminal_line(p,buf,cap,0);
+    return ibase_line_read(&state_of(p)->input,dos_input_read,p,buf,cap);
+}
+static int32_t dos_conin_command(ibase_pal_t *p,char *buf,uint32_t cap)
+{
+    if(dos_is_console(0)) {
+#ifdef IBASE_DOTPROMPT_MUTANT_enter
+        return dos_terminal_line(p,buf,cap,1);
+#else
+        return dos_terminal_line(p,buf,cap,2);
+#endif
+    }
+    return ibase_line_read(&state_of(p)->input,dos_input_read,p,buf,cap);
+}
+
+/* ---- Terminal extension stubs (S8.4) -------------------------------------- */
+
+/*
+ * dos_conin_char: AH=07h DIRECT CHARACTER INPUT WITHOUT ECHO (unfiltered,
+ * no Ctrl-C check). AH=06h is DIRECT CONSOLE I/O.
+ * Returns the char (>= 0) or < 0 on error.
+ * Ref: pal.h conin_char slot; ADR-0009 DEC-06; os/dos/int21.c do_conin_raw.
+ */
+static int32_t dos_conin_char(ibase_pal_t *p)
+{
+    int cf = 0;
+    uint32_t result;
+    pal_dos_state_t *st = state_of(p);
+
+    dos_guard_check(p);
+    if (st->ta_n) {                     /* type-ahead from the Esc poll first */
+        uint8_t c = st->ta[st->ta_head];
+        st->ta_head = (uint8_t)((st->ta_head + 1u) % sizeof st->ta);
+        st->ta_n--;
+        return (int32_t)c;
+    }
+    result = int21(0x07u, 0x00u, 0u, 0u, 0u, 0u, &cf);
+    if (cf) {
+        return -1;
+    }
+    /* AL = character (bit 7:0 of EAX). */
+    return (int32_t)(result & 0xFFu);
+}
+
+/* Ref: ADR-0003 Appendix A; IBM DOS 3.30 Technical Reference AH=0Bh
+ * GET INPUT STATUS and AH=07h DIRECT CHARACTER INPUT (no echo/Ctrl-C);
+ * DEC-04a flat register convention. Drain IBASE's type-ahead before DOS.
+ * Check availability before EVERY byte, including an extended scan byte:
+ * even a split 00,scan pair must not make INKEY wait. AH=07h reads the
+ * keyboard directly. As with conin_escape, a redirected command session
+ * does not claim console type-ahead (the gate's shell EXIT follows it). */
+static int32_t dos_conin_poll(ibase_pal_t *p)
+{
+    pal_dos_state_t *st = state_of(p);
+    int cf = 0;
+    int32_t key;
+    if (st->con_in < 0) st->con_in = (int8_t)dos_is_console(0);
+    if (!st->con_in) return -1;
+    for (;;) {
+        if (!st->ta_n &&
+            !(int21(0x0Bu, 0u, 0u, 0u, 0u, 0u, &cf) & 0xFFu))
+            return -1;
+        if (cf) return -1;
+        key = dos_conin_char(p);
+        if (key < 0) return -1;
+        if (st->poll_extended) {
+            st->poll_extended = 0;
+            return 256 | key;
+        }
+        if (key != 0) return key;
+        st->poll_extended = 1;
+    }
+}
+
+/* pal.h conin_escape (initech-39e5; Using III+ U5-220 SET ESCAPE): between
+ * program statements, drain the keys already typed WITHOUT waiting -- AH=0Bh
+ * input status (no consume), then AH=07h raw read (no echo, no ^C check;
+ * os/dos/int21.c do_input_status / do_conin_raw). Esc (1Bh) reports the
+ * interrupt; any other key is kept in order for the next read. Ctrl-C is an
+ * ordinary key here: III+ binds it to PgDn (Using III+ U6-40 INKEY table:
+ * Ctrl-C = PgDn = 3), not
+ * to an interrupt. A redirected stdin is never read (it carries commands). */
+static int dos_conin_escape(ibase_pal_t *p)
+{
+    pal_dos_state_t *st = state_of(p);
+    int cf = 0;
+    if (st->con_in < 0) st->con_in = (int8_t)dos_is_console(0);
+    if (!st->con_in) return 0;
+    while ((int21(0x0Bu, 0x00u, 0u, 0u, 0u, 0u, &cf) & 0xFFu) != 0u) {
+        uint32_t k = int21(0x07u, 0x00u, 0u, 0u, 0u, 0u, &cf) & 0xFFu;
+        if (cf) return 0;
+        if (k == 0x1Bu) return 1;
+        if (st->ta_n < sizeof st->ta) {
+            st->ta[(st->ta_head + st->ta_n) % sizeof st->ta] = (uint8_t)k;
+            st->ta_n++;
+        }                               /* else: full, the key is dropped */
+    }
+    return 0;
+}
+
+/* pal.h curdrive: AH=19h GET DEFAULT DRIVE (AL=0 for A:). */
+static int dos_curdrive(ibase_pal_t *p)
+{
+    (void)p;
+    return 'A' + (int)(int21(0x19u, 0u, 0u, 0u, 0u, 0u, (int *)0) & 0xFFu);
+}
+
+/* Ref: INT 21h AH=62h GET PSP returns the PSP paragraph in BX; PSP:2Ch is
+ * the DOS environment segment, whose entries are NAME=VALUE\0 strings. */
+static int32_t dos_getenv(ibase_pal_t *p, const char *name, char *buf,
+                             uint32_t cap)
+{
+    uint32_t eax = 0x6200u, ebx, env_seg, off = 0u, i, n;
+    const char *env;
+    (void)p;
+    __asm__ __volatile__("int $0x21" : "+a"(eax), "=b"(ebx) : : "cc", "memory");
+    if ((ebx & 0xFFFFu) == 0u) return -(int32_t)PAL_ENOENT;
+    env_seg = *(const uint16_t *)(uintptr_t)(((ebx & 0xFFFFu) << 4) + 0x2Cu);
+    if (env_seg == 0u) return -(int32_t)PAL_ENOENT;
+    env = (const char *)(uintptr_t)(env_seg << 4);
+    while (off < 32768u && env[off] != '\0') {
+        i = 0u;
+        while (name[i] != '\0' && env[off + i] == name[i]) i++;
+        if (name[i] == '\0' && env[off + i] == '=') {
+            n = 0u;
+            while (env[off + i + 1u + n] != '\0') n++;
+            if (n >= cap) return -(int32_t)PAL_EIO;
+            for (n = 0u; env[off + i + 1u + n] != '\0'; n++)
+                buf[n] = env[off + i + 1u + n];
+            buf[n] = '\0';
+            return (int32_t)n;
+        }
+        while (off < 32768u && env[off] != '\0') off++;
+        off++;
+    }
+    return -(int32_t)PAL_ENOENT;
+}
+
+/* Ref: IBM DOS 3.30 Technical Reference INT 21h AH=36h GET DISK FREE
+ * SPACE; ADR-0003 Appendix A and DEC-04a flat register convention.
+ * DL=0 selects the default drive. Only the low 16 bits are DOS results. */
+static int dos_diskspace(ibase_pal_t *p, uint32_t *bytes)
+{
+    uint32_t ax = 0x3600u, bx, cx, dx = 0u;
+    (void)p;
+    __asm__ __volatile__("int $0x21"
+        : "+a"(ax), "=b"(bx), "=c"(cx), "+d"(dx) : : "cc", "memory");
+    if ((ax & 0xFFFFu) == 0xFFFFu) return -PAL_EIO;
+    *bytes = (ax & 0xFFFFu) * (bx & 0xFFFFu) * (cx & 0xFFFFu);
+    return PAL_OK;
+}
+
+/* Interactive terminal slots use the native page service. */
+static void dos_gotoxy(ibase_pal_t *p,uint8_t row,uint8_t col)
+{
+    if(dos_is_console(1)) dos_cursor(p,row,col);
+}
+/* INT 21h AH=3Dh/40h/3Eh: direct CON is independent of redirected
+ * stdout. ANSI.SYS positions the cursor; INT 10h is an exception vector in
+ * InitechDOS protected mode (os/dos/idt.c), not the real-mode BIOS API. */
+static int dos_con_at(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n,int cells)
+{
+    if(cells) {
+#ifdef IBASE_FORMS_MUTANT_wrap
+        dos_cursor(p,row,col);
+        dos_rawout(p,text,n);
+#else
+        if(n)dos_draw_cells((ibase_pal_t *)0,row,col,state_of(p)->screen.attr,text,n);
+        dos_cursor(p,row,(uint8_t)(col+n<80u?col+n:79u));
+#endif
+        return 0;
+    }
+    char seq[16];uint32_t pos=dos_cup(seq,row,col);int result=0;
+    pal_fd fd=dos_open(p,"CON",PAL_WR);
+    if(fd<0)return -PAL_EIO;
+#ifndef IBASE_FORMS_MUTANT_wrap
+    if(cells && dos_write(p,fd,"\033[=7l",5)!=5) result=-PAL_EIO;
+#endif
+    if(dos_write(p,fd,seq,pos)!=(int32_t)pos || dos_write(p,fd,text,n)!=(int32_t)n) result=-PAL_EIO;
+    if(cells && dos_write(p,fd,"\033[=7h",5)!=5) result=-PAL_EIO;
+    if(dos_close(p,fd))result=-PAL_EIO;
+    return result;
+}
+static int dos_say_screen(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+{
+#ifdef IBASE_REVIEW_MUTANT_REDIRECT
+    if(dos_is_console(1))
+#endif
+    {
+        ibase_screen *s=&state_of(p)->screen;
+        ibase_screen_at(s,row,col,text,n);
+        dos_cursor(p,s->row,s->col);
+        return 0;
+    }
+#ifdef IBASE_REVIEW_MUTANT_REDIRECT
+    return dos_con_at(p,row,col,text,n,0);
+#endif
+}
+/* pal.h paint: literal native cells, so (24,79) never scrolls. */
+static int dos_paint(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+{
+#ifdef IBASE_CURSOR25_MUTANT
+    if(row==25)row=24;
+#endif
+    int result=dos_con_at(p,row,col,text,n,1);
+    if(!result) {
+        ibase_screen *s=&state_of(p)->screen;
+        if(row<25 && col<80 && n<=80u-col) rt_memcpy(&s->text[row][col],text,n);
+        s->row=row;s->col=(uint8_t)(col+n<80u?col+n:79u);
+    }
+    return result;
+}
+/* DOS 3.3 AH=05h, DL=byte: os/dos/int21.c do_prn_output.
+ * Its unbound sink discards immediately; never poll absent printer hardware. */
+static int dos_printout(ibase_pal_t *p,const char *text,uint32_t n)
+{
+    uint32_t i;int cf=0;(void)p;
+    for(i=0;i<n;i++) {
+        (void)int21(0x05u,0,(uint8_t)text[i],0,0,0,&cf);
+        if(cf)return -PAL_EIO;
+    }
+    return 0;
+}
+
+static void dos_set_attr(ibase_pal_t *p,uint8_t attr)
+{
+#ifndef IBASE_REVIEW_MUTANT_COLOR
+    state_of(p)->screen.attr=attr;
+#else
+    (void)p;(void)attr;
+#endif
+}
+
+/* PRD Sec 5 / spec/hardware.json video: every supported display is colour.
+ * Boot uses INT 10h AX=4F02h (VBE) or AX=0013h (256-colour fallback),
+ * os/boot/io_sys.asm vbe_setup. No BIOS invocation in protected-mode IBASE;
+ * this remains true for a W/N attribute or redirected console output. */
+static int dos_iscolor(ibase_pal_t *p)
+{
+    (void)p;
+    return 1;
+}
+
+/* ---- Command processor slot (RUN / !; initech-n8q8) ----------------------- *
+ *
+ * dos_exec: "loads a second copy of COMMAND.COM and passes <system command>
+ * to it" (HELP.DBS _RUN/!; dbase3-decomp programming-and-io.md Sec 16):
+ *   1. The processor path is COMSPEC from this process's environment -- AH=62h
+ *      GET PSP (BX = PSP paragraph, int21.c do_getpsp), PSP:2Ch env_seg
+ *      (spec/dos_structs.h; psp.c psp_build), env = env_seg << 4, a run of
+ *      NAME=VALUE\0 strings ending in an empty one. The shell exports it
+ *      (command.c dos_exec serializes its master env, seeded with
+ *      COMSPEC=A:\COMMAND.COM in command_repl -- the DOS 3.3 single-drive
+ *      default); absent, that same fixed path is used.
+ *   2. AH=4Bh AL=00h EXEC (int21.c do_exec): EDX = path, EBX = the flat-32
+ *      parameter block {env_block, cmd_tail, fcb1, fcb2} (spec/dos_structs.h
+ *      exec_param_block_t; env 0 = inherit) whose tail is the DOS
+ *      {count, " /C <cmdline>", CR}. The PSP:80h text holds at most 126 bytes
+ *      before its CR (IBM DOS 3.30 TR PSP layout); a longer line is refused
+ *      (fail loud, never truncated into a different command).
+ *   3. AH=4Dh GET RETURN CODE: AL = the processor's exit code.
+ * CF on EXEC -> -(pal_err): the engine raises error 92.
+ * EXEC returns only after the child (and every grandchild) exits; the int
+ * frame restores EBX/ECX/EDX/ESI/EDI, but the asm names them all as
+ * clobbered so nothing is assumed across the child. */
+static int32_t dos_exec(ibase_pal_t *p, const char *cmdline)
+{
+    static const char fallback[] = "A:\\COMMAND.COM";
+    static const char prefix[] = " /C ";
+    char path[80];
+    uint8_t tail[128];
+    struct { uint32_t env_block, cmd_tail, fcb1, fcb2; } blk;
+    const char *spec = fallback;
+    uint32_t eax, ebx, ecx, edx, esi, edi, n = 0u, i;
+    (void)p;
+
+    eax = 0x6200u; ebx = 0u;
+    __asm__ __volatile__("int $0x21" : "+a"(eax), "+b"(ebx) : : "cc", "memory");
+    if ((ebx & 0xFFFFu) != 0u) {
+        uint32_t env_seg = *(const uint16_t *)(uintptr_t)(((ebx & 0xFFFFu) << 4) + 0x2Cu);
+        const char *env = (const char *)(uintptr_t)(env_seg << 4);
+        uint32_t off = 0u;
+        while (env_seg != 0u && off < 32768u && env[off] != '\0') {
+            if (env[off] == 'C' && env[off+1] == 'O' && env[off+2] == 'M' &&
+                env[off+3] == 'S' && env[off+4] == 'P' && env[off+5] == 'E' &&
+                env[off+6] == 'C' && env[off+7] == '=' && env[off+8] != '\0') {
+                spec = env + off + 8;
+                break;
+            }
+            while (off < 32768u && env[off] != '\0') off++;
+            off++;
+        }
+    }
+    for (i = 0u; spec[i] != '\0'; i++) {
+        if (i + 1u >= sizeof path) return -(int32_t)PAL_ENOENT;
+        path[i] = spec[i];
+    }
+    path[i] = '\0';
+
+    for (i = 0u; prefix[i] != '\0'; i++) tail[1u + n++] = (uint8_t)prefix[i];
+    for (i = 0u; cmdline[i] != '\0'; i++) {
+        if (n >= 126u) return -(int32_t)PAL_EIO;
+        tail[1u + n++] = (uint8_t)cmdline[i];
+    }
+    tail[0] = (uint8_t)n;
+    tail[1u + n] = 0x0Du;
+    blk.env_block = 0u;
+    blk.cmd_tail = (uint32_t)(uintptr_t)tail;
+    blk.fcb1 = blk.fcb2 = 0u;
+
+    eax = 0x4B00u; ebx = (uint32_t)(uintptr_t)&blk; edx = (uint32_t)(uintptr_t)path;
+    ecx = esi = edi = 0u;
+    /* sbb leaves ECX = -CF (the command.c dos_exec idiom). */
+    __asm__ __volatile__("int $0x21\n\tsbb %%ecx, %%ecx"
+                         : "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx),
+                           "+S"(esi), "+D"(edi)
+                         : : "cc", "memory");
+    if (ecx != 0u) return -(int32_t)dos_err_to_pal(eax);
+    return (int32_t)(int21(0x4Du, 0x00u, 0u, 0u, 0u, 0u, (int *)0) & 0xFFu);
+}
+
+/* ---- Clock slot ----------------------------------------------------------- */
+
+/*
+ * dos_today: AH=2Ah GET DATE -> CX=year(full), DH=month(1-12), DL=day(1-31).
+ *
+ * The pal.h contract returns two-digit YY (00-99 = 1900s, century handling
+ * above the PAL), 1-based MM, 1-based DD. We compute YY = year % 100 to match
+ * pal_host.c's packing (pal_host stores date_yy which is already 2-digit).
+ *
+ * Mapping: CX=year (full 4-digit), DH=month, DL=day (from do_getdate which
+ * packs DX as ((mon<<8)|day) and CX as year). We extract:
+ *   - year  from low 16 bits of CX (returned in ECX output from int21_cxdx)
+ *   - month from DH (bits 15:8 of EDX low 16)
+ *   - day   from DL (bits 7:0 of EDX low 16)
+ *
+ * Ref: pal.h today slot; ADR-0009 DEC-06; os/dos/int21.c do_getdate:
+ *   "set_cx(f, year); set_dx(f, (uint16_t)(((uint16_t)mon<<8)|(uint16_t)day));"
+ *   "set_al(f, dow); cf_clear(f);"
+ */
+/* Ref: ADR-0003 Appendix A AH=30h GETVER / DEC-12; DEC-04a flat ABI.
+ * AL = major, AH = minor; GETVER never sets CF (locked calling convention). */
+static uint16_t dos_os_version(ibase_pal_t *p)
+{
+    (void)p;
+    return (uint16_t)int21(0x30u, 0u, 0u, 0u, 0u, 0u, 0);
+}
+
+static void dos_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
+{
+    uint32_t ecx_r = 0u, edx_r = 0u;
+    (void)p;
+
+    /* AH=2Ah GET DATE; no meaningful input registers.
+     * Output: ECX=year(CX), EDX packed as DH=month/DL=day. */
+    (void)int21_cxdx(0x2Au, 0x00u,
+                     0u, 0u, 0u,
+                     &ecx_r, &edx_r, (int *)0);
+
+    if (yy) {
+        /* Two-digit YY: year % 100. e.g. 1993 -> 93, 2001 -> 01. */
+        uint16_t year = (uint16_t)(ecx_r & 0xFFFFu);
+        *yy = (uint8_t)(year % 100u);
+    }
+    if (mm) {
+        /* DH = month (bits 15:8 of the low 16 of EDX). */
+        *mm = (uint8_t)((edx_r >> 8) & 0xFFu);
+    }
+    if (dd) {
+        /* DL = day (bits 7:0 of the low 16 of EDX). */
+        *dd = (uint8_t)(edx_r & 0xFFu);
+    }
+}
+
+/* Ref: IBM DOS 3.30 Technical Reference, INT 21h AH=2Ch GET TIME;
+ * CH=hour, CL=minute, DH=second, DL=hundredths (DEC-04a flat convention). */
+static void dos_time(ibase_pal_t *p, uint8_t *hour, uint8_t *minute, uint8_t *second)
+{
+    uint32_t ecx_r = 0u, edx_r = 0u;
+    (void)p;
+    (void)int21_cxdx(0x2Cu, 0x00u, 0u, 0u, 0u, &ecx_r, &edx_r, (int *)0);
+    if (hour) *hour = (uint8_t)((ecx_r >> 8) & 0xFFu);
+    if (minute) *minute = (uint8_t)(ecx_r & 0xFFu);
+    if (second) *second = (uint8_t)((edx_r >> 8) & 0xFFu);
+}
+
+/* ---- Arena slots ---------------------------------------------------------- */
+
+/*
+ * dos_alloc: bump-allocate n bytes from the arena.
+ *
+ * The arena is a contiguous block obtained at construction via AH=48h ALLOC.
+ * The returned fake-segment is converted to a flat linear base (seg << 4).
+ * Subsequent allocs advance heap_ptr; reset(mark) rewinds to a saved mark.
+ *
+ * Alignment: 4-byte align every allocation (matching pal_host.c host_alloc).
+ * This ensures struct members land on natural boundaries even when the engine
+ * bumps in odd sizes.
+ *
+ * Returns a pointer, or NULL on exhaustion. The engine MUST fail loud on NULL
+ * (pal.h alloc contract: "engine fails loud on NULL").
+ *
+ * Ref: pal.h alloc slot; ADR-0009 DEC-06; pal_host.c host_alloc (mirror).
+ *      ADR-0009 DEC-04 (the AH=48h block returned is above the loaded program
+ *      image + BSS after the kernel DEC-04 fix in bead 1q4u).
+ */
+static void *dos_acquire(ibase_pal_t *p,uint32_t n) { return pal_heap_alloc(((pal_dos_state_t *)p)->blocks,n); }
+static void dos_release(ibase_pal_t *p,void *b) { if(pal_heap_free(((pal_dos_state_t *)p)->blocks,b)) dos_panic(); }
+
+static void *dos_alloc(ibase_pal_t *p, uint32_t n)
+{
+    pal_dos_state_t *st = state_of(p);
+    void *ptr;
+    uint32_t avail;
+
+    if (n == 0u) {
+        /* Zero alloc returns the current mark (matching pal_host behavior). */
+        return (void *)st->heap_ptr;
+    }
+
+    /* 4-byte alignment. */
+    n = (n + 3u) & ~3u;
+
+    avail = (uint32_t)(st->heap_end - st->heap_ptr);
+    if (n > avail) {
+        /* Exhausted. The engine is expected to fail loud on NULL (Rule 2). */
+        return (void *)0;
+    }
+
+    ptr = (void *)st->heap_ptr;
+    st->heap_ptr += n;
+    return ptr;
+}
+
+/*
+ * dos_reset: rewind the bump arena to `mark` (or to base if NULL).
+ *
+ * `mark` must be a pointer previously returned by alloc (or NULL for full
+ * reset). An out-of-range mark indicates a corrupted caller; we panic
+ * (Rule 2 fail loud) rather than silently corrupting the arena.
+ *
+ * Ref: pal.h reset slot; pal_host.c host_reset (mirror pattern).
+ */
+static void dos_reset(ibase_pal_t *p, void *mark)
+{
+    pal_dos_state_t *st = state_of(p);
+    uint8_t *m = (uint8_t *)mark;
+
+    if (m == (uint8_t *)0) {
+        /* Reset to base: free everything. */
+        st->heap_ptr = st->heap_base;
+        return;
+    }
+
+    if (m < st->heap_base || m > st->heap_ptr) {
+        /* Out-of-range mark: corrupted caller pointer. Fail loud (Rule 2). */
+        dos_panic();
+    }
+
+    st->heap_ptr = m;
+}
+
+/* ---- Constructor ---------------------------------------------------------- *
+ *
+ * pal_dos_make: construct the InitechDOS PAL binding.
+ *
+ * The state struct itself must be stored somewhere. Since we have no malloc,
+ * we embed the state in a static (BSS) variable. There is exactly ONE
+ * pal_dos instance per IBASE session (the IBASE.COM is the only process),
+ * so a single static is correct. The BSS is zeroed by the ibase_crt0 entry
+ * stub (ADR-0009 DEC-05) before this function is called.
+ *
+ * Heap acquisition: a single AH=48h ALLOC. The loader has ALREADY bound a
+ * disjoint heap arena ABOVE the program image+BSS (and below the env/stack)
+ * via int21_mcb_bind_program (ADR-0009 DEC-04, bead 1q4u) -- so the program
+ * does NOT shrink its own block first; it simply allocates PAL_DOS_HEAP_PARAS
+ * paragraphs from that arena. The returned segment is converted to a flat base
+ * (seg << 4) -- the "fake-paragraph = linear >> 4" convention (spec/memory_map.h;
+ * os/dos/int21.c do_alloc / arena_seg_base).
+ *
+ * Why no AH=4Ah SETBLOCK (the older model is gone): the loader used to lay the
+ * arena OVER the whole program window (int21_mcb_reset), so a heap-using program
+ * had to SETBLOCK its own block down to free the tail. DEC-04 replaced that with
+ * a loader-COMPUTED arena that is disjoint from the loaded image by construction,
+ * so the SETBLOCK step is unnecessary and -- against the new model -- wrong (the
+ * program's MCB is no longer the arena). AH=48h alone is correct.
+ *
+ * If AH=48h fails (insufficient memory / arena unbound), we panic (Rule 2 --
+ * no arena = the engine cannot run at all; a non-recoverable stop condition).
+ *
+ * Returns a pointer to the embedded ibase_pal_t (the first field of the state).
+ *
+ * Ref: ADR-0009 DEC-06 (pal_dos_make mirrors pal_host_make signature);
+ *      ADR-0009 DEC-04 (AH=48h arena disjoint from program; loader bind, bead 1q4u);
+ *      spec/memory_map.h (paragraph conv); os/dos/int21.c do_alloc /
+ *      int21_mcb_bind_program (the loader-bound disjoint arena).
+ */
+
+/* Single static state instance (BSS-zeroed by ibase_crt0 before pal_dos_make
+ * is called; ADR-0009 DEC-05). The loader binds the heap arena disjointly
+ * (int21_mcb_bind_program, DEC-04) -- no program-side SETBLOCK constant needed. */
+static pal_dos_state_t s_dos_state;
+
+ibase_pal_t *pal_dos_make(void)
+{
+    pal_dos_state_t *st = &s_dos_state;
+    int cf = 0;
+    uint32_t result;
+    uint32_t heap_seg;
+
+    ibase_screen_init(&st->screen,dos_draw,&st->vtable);
+    st->screen.scroll=dos_scroll;
+    st->vtable.prompt=dos_prompt;
+    st->vtable.conin_command=dos_conin_command;
+    st->vtable.status=dos_status;
+    st->vtable.conin_line_noecho=dos_conin_line_noecho;
+    st->input.pos=st->input.len=0;
+    st->input.skip_lf=0;
+
+    /* Wire the vtable. */
+    st->vtable.open       = dos_open;
+    st->vtable.close      = dos_close;
+    st->vtable.read       = dos_read;
+    st->vtable.write      = dos_write;
+    st->vtable.seek       = dos_seek;
+    st->vtable.remove     = dos_remove;
+    st->vtable.rename     = dos_rename;
+    st->vtable.conout     = dos_conout;
+    st->vtable.conin_line = dos_conin_line;
+    st->vtable.conin_char = dos_conin_char;
+    st->vtable.conin_poll = dos_conin_poll;
+    st->poll_extended = 0;
+    st->vtable.conin_escape = dos_conin_escape;
+    dos_guard_set();
+    st->vtable.curdrive   = dos_curdrive;
+    st->vtable.diskspace  = dos_diskspace;
+    st->ta_head = st->ta_n = 0;
+    st->con_in = -1;
+    st->vtable.gotoxy     = dos_gotoxy;
+    st->vtable.say_screen = dos_say_screen;
+    st->vtable.printout = dos_printout;
+    st->vtable.paint = dos_paint;
+    st->vtable.set_attr   = dos_set_attr;
+    st->vtable.iscolor    = dos_iscolor;
+    st->vtable.today      = dos_today;
+    st->vtable.os_version = dos_os_version;
+    st->vtable.alloc      = dos_alloc;
+    st->vtable.reset      = dos_reset;
+    st->vtable.acquire = dos_acquire; st->vtable.release = dos_release;
+    st->vtable.exec       = dos_exec;
+    st->vtable.getenv     = dos_getenv;
+    st->vtable.time       = dos_time;
+
+    /* Validate every installed PAL hook before publishing the binding. */
+    ibase_bind_pal(&st->vtable,&st->vtable);
+
+    /* AH=48h ALLOC -- request PAL_DOS_HEAP_PARAS paragraphs from the loader-
+     * bound DISJOINT arena (DEC-04, bead 1q4u). No AH=4Ah SETBLOCK first: the
+     * loader (int21_mcb_bind_program) already placed the arena ABOVE the program
+     * image+BSS, so AH=48h draws straight from it.
+     * BX = paragraphs requested. Returns AX = DOS segment of the block (CF=0)
+     * or CF=1, AX=0x0008, BX=largest free (on failure).
+     * The flat ABI maps BX to EBX (int21.c do_alloc reads (uint16_t)(f->ebx)
+     * for want). */
+    result = int21(0x48u, 0x00u,
+                   0u,                           /* EDX unused */
+                   PAL_DOS_HEAP_PARAS,        /* EBX = paragraphs wanted */
+                   0u, 0u, &cf);
+    if (cf) {
+        /* Insufficient memory. Panic -- no arena = no engine (Rule 2 fail loud). */
+        dos_panic();
+    }
+
+    /* DEC-03a.4, initech-jarzu: EAX is the native flat address. */
+    /* DEC-03a.4: native EAX is already a full-width flat pointer. */
+    heap_seg = result;
+    /* AH=48h block: [region 2: 16528][bump arena: 16384]; region 1 (3952)
+     * sits in the BSS reserve -- see the PAL_DOS_HEAP_PARAS note. */
+    st->heap_base = (uint8_t *)(uintptr_t)heap_seg + PAL_DOS_TAIL_BYTES;
+    st->heap_ptr  = st->heap_base;
+    st->heap_end  = st->heap_base + 16384u;
+    st->blocks=pal_heap_init(_ibase_heap_tail,PAL_DOS_REGION1_BYTES);
+    pal_heap_add(st->blocks,(uint8_t *)(uintptr_t)heap_seg,PAL_DOS_TAIL_BYTES);
+
+    return &st->vtable;
+}
+
+/* ---- Entry point ---------------------------------------------------------- *
+ *
+ * ibase_dos_entry: the symbol the ibase_crt0 calls after zeroing BSS and
+ * initializing ESP. Constructs the PAL, creates the interpreter, runs the REPL,
+ * and returns (the crt0 then issues INT 21h AH=4Ch to exit cleanly).
+ *
+ * Entry sequence:
+ *   1. pal_dos_make() -- construct the PAL (acquires the heap via AH=48h).
+ *   2. xb_interp_make(pal) -- construct the IBASE interpreter over the PAL.
+ *      Uses the PAL's arena for all interpreter-internal allocations. If it
+ *      returns NULL (arena exhausted building the interp), we panic (Rule 2).
+ *   3. ibase_repl(pal, ip) -- run the dot-prompt REPL until QUIT/EXIT/EOF.
+ *   4. xb_interp_free(ip) -- close all open work areas (ibase_main.c contract).
+ *   5. return -- the crt0 emits INT 21h AH=4Ch AL=0.
+ *
+ * The IBASE_MAIN_STANDALONE seam (ibase_main.c) shows the host pattern; this
+ * is the identical sequence adapted for the freestanding target.
+ *
+ * Ref: ADR-0009 DEC-05 (BSS zeroing in the crt0 entry stub, before this call);
+ *      ADR-0009 DEC-06 (ibase_dos_entry as the crt0's call target);
+ *      os/ibase/ibase_main.c IBASE_MAIN_STANDALONE block (the mirror pattern);
+ *      os/ibase/include/ibase/interp.h (xb_interp_make / xb_interp_free /
+ *        ibase_repl declarations).
+ */
+int ibase_dos_entry(void)
+{
+    ibase_pal_t *pal;
+    xb_interp   *ip;
+
+    pal = pal_dos_make();
+    /* pal_dos_make panics on failure; it never returns NULL. */
+
+    /* Overlays Phase B: verify INITBASE.OVL before the first dot prompt
+     * (os/ibase/core/ovl.c). An abort at the "Insert System Disk" prompt
+     * leaves before any database is open: exit code 1. */
+    if (ibase_ovl_open(pal)) return 1;
+
+    ip = xb_interp_make(pal);
+    if (!ip) {
+        /* Arena exhausted constructing the interpreter. Fail loud (Rule 2). */
+        dos_panic();
+    }
+
+    (void)ibase_repl(pal, ip);
+
+    xb_interp_free(ip);
+    /* Return to ibase_crt0, which will INT 21h AH=4Ch with AL = this value. */
+    return 0;
+}

@@ -54,7 +54,7 @@
  *     --minalloc   e_minalloc paragraphs (default 0).
  *     --entry      entry offset within the module -> e_ip (e_cs stays 0; default 0).
  *     --reloc-file F  read the reloc-site offsets from F: little-endian u32s,
- *                  one per site (bead initech-5etom.1: tools/initechbase_ovl_pack.c
+ *                  one per site (bead initech-5etom.1: apps/initechbase/tools/ibase_ovl_pack.c
  *                  writes InitechBase's ~1000 sites; too many for a command line).
  *     --header-relocs  put the reloc table in the HEADER (e_lfarlc = 0x1C, the
  *                  period layout: DBASE.EXE carries 2773 entries at 0x1C inside

@@ -1,0 +1,61 @@
+dbf_coerce_fuzz
+test_canon_salami CORPUS tests/canon
+test_canon_y2k CORPUS tests/canon
+test_dbase_roundtrip CORPUS
+test_dbf_fields CORPUS
+test_dbf_header CORPUS
+test_dbf_mutate CORPUS
+test_dbf_read CORPUS
+test_dbf_roundtrip CORPUS
+test_dbt_read CORPUS
+test_dbt_roundtrip CORPUS
+test_interp_decimals CORPUS
+test_interp_flow CORPUS
+test_interp_list CORPUS
+test_interp_nav CORPUS
+test_interp_proc CORPUS
+test_interp_replace CORPUS
+test_interp_set CORPUS
+test_interp_setfmt CORPUS
+test_interp_use CORPUS
+test_ndx_build CORPUS
+test_ndx_incremental CORPUS
+test_ndx_keys CORPUS
+test_ndx_maintain CORPUS
+test_ndx_multilevel
+test_ndx_pack CORPUS
+test_ndx_parse CORPUS
+test_ndx_seek CORPUS
+test_ibase_use CORPUS
+test_ibase_core
+test_ibase_ctl tests/xbase_prog_diff/ibasectl-mint
+test_ibase_deferred_errors
+test_ibase_input
+test_ibase_memocells
+test_ibase_messages spec/ibase/dbase_msg_codes.tsv
+test_ibase_ndx_names
+test_ibase_ovl_lifetime
+test_ibase_pal_contract
+test_ibase_pal_host
+test_ibase_query CORPUS
+test_ibase_repl CORPUS
+test_ibase_report CORPUS
+test_ibase_rt
+test_ibase_say
+test_ibase_set_color
+test_ibase_softfp
+test_ibase_spec spec/ibase
+test_ibase_status CORPUS
+test_ibase_value
+test_use_rw CORPUS
+test_w2_host
+test_xbase_eval
+test_xbase_fn_a
+test_xbase_fn_b
+test_xbase_fn_c
+test_xbase_fn_d CORPUS
+test_xbase_lex
+test_xbase_parse
+test_xbase_transform
+prog_diff CORPUS tests/xbase_prog_diff
+test_ibase_view

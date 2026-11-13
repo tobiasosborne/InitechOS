@@ -1,10 +1,10 @@
 /*
- * os/samir/fs/dbt.c -- SAMIR (InitechBase) .dbt memo codec.
+ * os/ibase/fs/dbt.c -- IBASE (InitechBase) .dbt memo codec.
  *                      S2.1: open + read.   S2.2: create + append + flush.
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
- * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (samir/pal.h,
- * samir/rt.h, samir/dbt.h). No libc, no int 0x21 -- all OS contact is through
+ * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (ibase/pal.h,
+ * ibase/rt.h, ibase/dbt.h). No libc, no int 0x21 -- all OS contact is through
  * the PAL vtable (plan Sec 2.B / 2.D).
  *
  * S2.1 scope (READ -- behavior-identical; no API changes):
@@ -77,18 +77,18 @@
  * Ref (Law 1):
  *   - ../dbase3-decomp/specs/file-formats/dbt.md sec 2, 2.1, 2.2, 3, 4, 4.1,
  *     5, 6, 8, Verification.
- *   - docs/plans/SAMIR-implementation-plan.md S2.1 + S2.2 contracts + Phase 2.
- *   - os/samir/include/samir/dbt.h  (the public contract).
- *   - os/samir/include/samir/pal.h  (open/read/write/seek/close vtable).
- *   - os/samir/include/samir/rt.h   (rt_memcpy, rt_memset).
+ *   - docs/plans/IBASE-implementation-plan.md S2.1 + S2.2 contracts + Phase 2.
+ *   - os/ibase/include/ibase/dbt.h  (the public contract).
+ *   - os/ibase/include/ibase/pal.h  (open/read/write/seek/close vtable).
+ *   - os/ibase/include/ibase/rt.h   (rt_memcpy, rt_memset).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
 
-#include "samir/pal.h"
-#include "samir/rt.h"
-#include "samir/dbt.h"
+#include "ibase/pal.h"
+#include "ibase/rt.h"
+#include "ibase/dbt.h"
 
 /* -----------------------------------------------------------------------
  * Block size: normally DBT_BLOCK_SIZE (512) from dbt.h.
@@ -111,7 +111,7 @@
  * dbt_close to unwind the arena to exactly the state before open.
  * ----------------------------------------------------------------------- */
 struct dbt_file {
-    samir_pal_t *pal;          /* the PAL vtable (borrowed; not owned) */
+    ibase_pal_t *pal;          /* the PAL vtable (borrowed; not owned) */
     pal_fd       fd;           /* open file handle (owned; closed on dbt_close) */
     uint32_t     next_free;    /* block-0 next-available-block (LE uint32) */
     int          writable;     /* 0 = read-only (dbt_open); 1 = writable (dbt_create)
@@ -123,9 +123,9 @@ struct dbt_file {
  * Helper: read exactly `n` bytes from `fd` into `buf`.
  * Returns 1 on success, 0 on short read or I/O error.
  * (The PAL read returns the byte count; we require exactly n.) */
-static int read_exact(samir_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
+static int read_exact(ibase_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     int32_t got = pal->read(pal, fd, buf, n);
     return (got > 0 && (uint32_t)got == n);
 }
@@ -133,10 +133,10 @@ static int read_exact(samir_pal_t *pal, pal_fd fd, void *buf, uint32_t n)
 /* -----------------------------------------------------------------------
  * dbt_open
  * ----------------------------------------------------------------------- */
-static int dbt_open_impl(samir_pal_t *pal, const char *name, int is_iv_dialect,
+static int dbt_open_impl(ibase_pal_t *pal, const char *name, int is_iv_dialect,
                          int writable, dbt_file **out)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     dbt_file *f;
     pal_fd    fd;
     int32_t   fsize;
@@ -201,11 +201,11 @@ static int dbt_open_impl(samir_pal_t *pal, const char *name, int is_iv_dialect,
     return DBT_OK;
 }
 
-int dbt_open(samir_pal_t *pal, const char *name, int is_iv_dialect, dbt_file **out)
+int dbt_open(ibase_pal_t *pal, const char *name, int is_iv_dialect, dbt_file **out)
 { return dbt_open_impl(pal, name, is_iv_dialect, 0, out); }
 
 /* Existing memo contents must survive replacement. dbt.md ss8 append recipe. */
-int dbt_open_rw(samir_pal_t *pal, const char *name, dbt_file **out)
+int dbt_open_rw(ibase_pal_t *pal, const char *name, dbt_file **out)
 { return dbt_open_impl(pal, name, 0, 1, out); }
 
 /* -----------------------------------------------------------------------
@@ -216,9 +216,9 @@ int dbt_open_rw(samir_pal_t *pal, const char *name, dbt_file **out)
  * garbage next_free value, causing the round-trip check to go RED.
  * Ref: dbt.md sec 2.1 "uint32 LE @0x00"; sec 3 (endian RESOLVED LE).
  * ----------------------------------------------------------------------- */
-static int write_next_free(samir_pal_t *pal, pal_fd fd, uint32_t nf)
+static int write_next_free(ibase_pal_t *pal, pal_fd fd, uint32_t nf)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     uint8_t  buf[4];
     int32_t  nw;
 
@@ -253,9 +253,9 @@ static int write_next_free(samir_pal_t *pal, pal_fd fd, uint32_t nf)
  * Ref: dbt.md sec 2.1 (block-0 layout), sec 3 (LE), sec 8 writer step 1,
  *      sec 6 (block-0 tail = don't-care / NORMALIZE -> we write 0x00).
  * ----------------------------------------------------------------------- */
-int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out)
+int dbt_create(ibase_pal_t *pal, const char *name, dbt_file **out)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     dbt_file *f;
     pal_fd    fd;
     uint8_t   pad[DBT_BLOCK_SIZE - 4u];  /* 508 zero bytes for @0x04..0x1FF */
@@ -316,7 +316,7 @@ int dbt_create(samir_pal_t *pal, const char *name, dbt_file **out)
 int dbt_close(dbt_file *f)
 {
     int rc;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
 
     if (!f) return DBT_OK;
 
@@ -362,7 +362,7 @@ uint32_t dbt_next_free(const dbt_file *f)
 int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
                uint32_t *blockno_out)
 {
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     uint32_t     start;
     uint32_t     blocks_used;
     uint32_t     tail_pad;
@@ -382,7 +382,7 @@ int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
     pal   = f->pal;
     start = f->next_free;
 
-#ifndef SAMIR_CORE_MUTATE_DBT_SPAN
+#ifndef IBASE_CORE_MUTATE_DBT_SPAN
     /* dbt.md ss2/8, pal.h signed seek; Using III+ U1-1 file-size limit.
      * An existing companion can carry a corrupt high-water mark. Validate
      * the entire padded append BEFORE its first seek/write, not after it. */
@@ -501,7 +501,7 @@ int dbt_flush(dbt_file *f)
  * Memory: we accumulate into a per-call arena-allocated work buffer.  The
  * buffer grows by DBT_BLOCK_SIZE chunks.  A single alloc of `next_free *
  * DBT_BLOCK_SIZE` bytes up-front would be safer but wasteful on the fixed
- * Milton arena; instead we allocate the maximum plausible size (next_free
+ * InitechDOS arena; instead we allocate the maximum plausible size (next_free
  * blocks worth of data = an upper bound on memo size) once, then trim by
  * returning the actual byte count.  The arena is bump-only so "trimming" is
  * just a convention; callers use the length, not the buffer size.
@@ -509,7 +509,7 @@ int dbt_flush(dbt_file *f)
 int dbt_read(dbt_file *f, uint32_t blockno,
              uint8_t **buf_out, uint32_t *len_out)
 {
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     uint8_t     *work;           /* arena work buffer */
     uint32_t     work_cap;       /* allocated capacity */
     uint32_t     work_len;       /* bytes accumulated so far */
@@ -543,7 +543,7 @@ int dbt_read(dbt_file *f, uint32_t blockno,
     if (blockno == 0u || blockno >= f->next_free) {
         return -DBT_ERR_BAD_BLOCK;
     }
-#ifndef SAMIR_CORE_MUTATE_DBT_SPAN
+#ifndef IBASE_CORE_MUTATE_DBT_SPAN
     /* PAL seek offsets are signed 32-bit (pal.h). Reject before n*512
      * wraps into a different memo. Using III+ U1-1: 2 billion file bytes. */
     if (blockno > (uint32_t)INT32_MAX / DBT_BLOCK_ACTUAL)
@@ -586,7 +586,7 @@ int dbt_read(dbt_file *f, uint32_t blockno,
     scanned = 0u;
     while (!done) {
         uint32_t i;
-#ifndef SAMIR_CORE_MUTATE_DBT_SPAN
+#ifndef IBASE_CORE_MUTATE_DBT_SPAN
         /* Never scan/copy bytes outside the logical block span. A lone
          * trailing 1A remains accepted at the logical EOF, as at physical EOF. */
         if (scanned == work_cap) {
