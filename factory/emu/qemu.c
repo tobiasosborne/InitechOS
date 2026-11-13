@@ -2215,7 +2215,7 @@ static int build_argv(const QemuConfig *cfg, char **argv,
     /* QMP for screendump AND/OR keystroke AND/OR mouse injection (beads
      * initech-43b: --keys; initech-5l5z FO-6: --mouse -- both need the same QMP
      * socket). server=on,wait=off => qemu does not block on us. */
-    if (cfg->enable_qmp_screendump ||
+    if (cfg->quit_after || cfg->enable_qmp_screendump ||
         (cfg->keys_spec && cfg->keys_spec[0] != '\0') ||
         (cfg->mouse_spec && cfg->mouse_spec[0] != '\0')) {
         static char qmpbuf[QEMU_PATH_MAX + 32];
@@ -2430,7 +2430,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
      * fork or QEMU's own socket error; stdio has no Unix pathname limit. */
 #ifndef QEMU_MUTATE_PATH_PREFLIGHT
     if (!getenv("INITECH_QMP_STDIO") &&
-        (cfg->enable_qmp_screendump ||
+        (cfg->quit_after || cfg->enable_qmp_screendump ||
          (cfg->keys_spec && cfg->keys_spec[0]) ||
          (cfg->mouse_spec && cfg->mouse_spec[0])) &&
         strlen(sock_path) >= sizeof(((struct sockaddr_un *)0)->sun_path)) {
@@ -2512,7 +2512,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
      * No listener/port, and only this run's child inherits the peer. */
     int qmp_pair[2] = {-1, -1};
     if (getenv("INITECH_QMP_STDIO") &&
-        (cfg->enable_qmp_screendump ||
+        (cfg->quit_after || cfg->enable_qmp_screendump ||
          (cfg->keys_spec && cfg->keys_spec[0]) ||
          (cfg->mouse_spec && cfg->mouse_spec[0]))) {
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, qmp_pair) != 0) {
@@ -2594,7 +2594,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     bool want_keys  = cfg->keys_spec  && cfg->keys_spec[0]  != '\0';
     bool want_mouse = cfg->mouse_spec && cfg->mouse_spec[0] != '\0';
     bool qmp_failed = false;
-    if (cfg->enable_qmp_screendump || want_keys || want_mouse) {
+    if (cfg->quit_after || cfg->enable_qmp_screendump || want_keys || want_mouse) {
         const char *ppm = cfg->enable_qmp_screendump ? out->screendump_path
                                                       : NULL;
         /* The screendump-after wait runs in this parent WHILE qemu runs, so its
