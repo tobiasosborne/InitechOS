@@ -3019,6 +3019,14 @@ static void do_rmdir(int_frame_t *f)
         return;
     }
 
+    /* PRM AH=3Ah: both guards and removal refer to the pathname's drive
+     * and its saved CWD, without changing the DOS default drive. */
+    const char *requested_path = path;
+    uint16_t drive_error = int21_select_path(&path);
+    if (drive_error) {
+        set_ax(f, drive_error); cf_set(f); return;
+    }
+
     if (g_file == 0 || g_file->rmdir == 0) {
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         cf_set(f);
@@ -3057,7 +3065,7 @@ static void do_rmdir(int_frame_t *f)
     /* Resolve the CONTAINING directory + bare leaf for the backend remove. */
     const char *leaf      = path;
     uint16_t    dir_start = 0u;
-    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    uint16_t    perr = resolve_dir_path(requested_path, &leaf, &dir_start);
     if (perr != 0u) {
         set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
         cf_set(f);
@@ -4042,7 +4050,7 @@ static int do_fcb(int_frame_t *f, uint8_t ah)
                 d[6] = attr;
                 d += 7;
             }
-            d[0] = 1u;                                  /* drive used: A: */
+            d[0] = (uint8_t)(g_io_drive + 1u); /* PRM AH=11h: drive searched */
             for (int i = 0; i < 32; i++) d[1 + i] = ((const uint8_t *)&de)[i];
             al = 0u;
         }
