@@ -13,20 +13,24 @@ Nothing on `main` boots yet. To see the product, use the legacy tree.
 
 ## Import board
 
-A component is *imported* when `make test` passes inside it and it is
-listed in `COMPONENTS` in the top Makefile.
+*Host-green*: its host tests pass and it is listed in `COMPONENTS`.
+*Imported* (CLAUDE.md): also its real artifact builds for the target, no
+deliberately wrong code is left in product source, and its build reads
+nothing from `attic/`. Only `flair/region` is close; none is fully
+imported yet.
 
 | Component | State |
 |---|---|
 | `boot/` | source moved; chunked loader being proven on the legacy tree |
 | `kernel/` | source moved (still contains the shell, the DOS utilities and the desktop glue in `kmain.c`) |
 | `dos/` | empty; to be split out of `kernel/` |
-| `flair/region/` | **imported**: 2 oracle programs in about a second; 8 mutants killed |
+| `flair/region/` | host-green, mutants converted (8 patches, all killed). Not yet compiled for the target. |
 | `flair/` (the rest) | source moved |
 | `flair/desktop/` | empty; Finder files and the desktop half of `kmain.c` go here |
 | `sdk/` | source moved (`tbx.h`, runtime, linker script) |
-| `apps/initech123/` | **imported**: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Target objects compile; the EXE waits for `sdk/`. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
-| other `apps/*` | source moved; none imported |
+| `apps/initech123/` | host-green: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Target objects compile; the EXE waits for `sdk/`. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
+| `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile; the EXE waits for `sdk/`. 75 mutation hooks still to convert. Borrows shared headers from `attic/spec`. |
+| other `apps/*` | source moved; not started. **Frozen** until the vertical slice below works. |
 | `turbo/` | source moved (`compiler/`, `seed/`) |
 | `goldens/`, `factory/` | empty; filled from `attic/` as components claim things |
 
@@ -39,6 +43,15 @@ listed in `COMPONENTS` in the top Makefile.
 - Imports on branches: InitechBase, InitechWord, Turbo Initech, the
   SDK, the FLAIR Toolbox.
 
+## The vertical slice comes first
+
+Host-green components prove nothing about the product until one app
+runs on the new tree end to end. Before any further app is imported:
+the spine boots, the Toolbox and the desktop come up on it, and Initech
+123 is launched from the Finder, saves a worksheet, and the file is read
+back on the host, on QEMU and on Bochs. That run is the template for
+every other app.
+
 ## Next
 
 1. Merge the spine.
@@ -49,6 +62,14 @@ listed in `COMPONENTS` in the top Makefile.
 
 ## Notes for this week
 
+- Owner of the shared places (`mk/`, `factory/`, the top Makefile)
+  this week: the spine branch, then a conventions pass (target build
+  fragment, per-test timeouts and component time budgets, command-line
+  change detection, pinned corpora, the import checks). `sdk/` is owned
+  by the SDK import.
+- Open question for the operator: Python is used by some inherited
+  tests as an independent reader of foreign file formats, which the
+  constitution's "C, make and POSIX shell" does not allow as written.
 - Orchestration: implementation and review go to Sol 6.1 at xhigh by
   default; Astra for hands-on emulator driving; Opus for hard design;
   one Muse Wonder Full at a time for an independent opinion.

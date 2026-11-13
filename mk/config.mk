@@ -49,6 +49,11 @@ TURBOPASCAL_DECOMP   ?= $(INITECH_CORPUS)/turbopascal-decomp
 $(OUT):
 	@mkdir -p $@
 
-.PHONY: all test smoke mutants clean
+# A target a component has not implemented must fail, never succeed
+# silently. Components declare their own targets .PHONY.
+.PHONY: clean
 clean:
 	rm -rf "$(OUT)"
+
+.DEFAULT:
+	@echo "$(COMPONENT): '$@' is not implemented (or a file is missing)" >&2; exit 1

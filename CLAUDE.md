@@ -107,9 +107,10 @@ attic/         legacy tests, specs and tools not yet claimed (see below)
 **Two interfaces.** DOS programs reach the OS through INT 21h. Desktop
 apps reach it through the Toolbox gate, INT 81h (`sdk/`). Nothing else
 crosses a component boundary. A component may include its own headers,
-`sdk/` headers, and the public headers of the components its README
-lists as dependencies. Include paths are set per component, so a
-violation fails to compile.
+`sdk/` headers, and the public headers (`<component>/include/`) of the
+components its README lists as dependencies. Include paths are set per
+component, and `#include "../..."` out of a component is forbidden; the
+component's `make test` checks both.
 
 **Every component is self-contained.** Its directory holds its source,
 its tests, a `Makefile` and a short `README.md`. From inside it:
@@ -121,6 +122,14 @@ its tests, a `Makefile` and a short `README.md`. From inside it:
 | `make smoke` | tier 1: drive it in the booted product image | minutes |
 | `make mutants` | apply each patch in `mutants/`, expect red | tier 2 only |
 
+**A component is imported when all four hold**, and `make test` in it
+checks them: its host tests are green; its real artifact builds for the
+target; no deliberately wrong code is left in its product source; its
+build reads nothing from `attic/`. Until then it is only *host-green*.
+
+**A target that is not implemented fails.** No stub ever reports
+success.
+
 **One product image.** `make image` at the top builds the image a user
 would boot. Tests drive that image from outside (injected keys, serial
 markers, files read back off the disk) or run as programs on its disk.
@@ -129,16 +138,20 @@ wrong code never lives in product source: a mutant is a patch file.
 
 ## Landing a change
 
-1. Run the tier for what you touched: `make test` in the component, and
-   `make smoke` as well if you changed the kernel, the Toolbox or either
-   interface.
+1. Run `make test` at the top. It runs every component's tier 0 and is
+   meant to stay fast enough that nobody skips it; each component has a
+   time budget and a slow suite is a defect. Run `make smoke` as well if
+   you changed the kernel, the Toolbox or either interface.
 2. Commit to `main` and push. No lanes, certificates or proof packs.
 3. Tier 2 (`make cert` at the top: both emulators, pixel goldens, the
-   mutation sweep, the reproducible hash) runs nightly and on release
-   candidates. If it goes red, revert or fix forward the same day.
+   mutation sweep, the reproducible hash) is run by the orchestrator at
+   the end of each working day and on release candidates. If it goes
+   red, revert or fix forward before new work starts.
 
 When several agents work at once, each owns one component directory.
-That is what makes direct commits safe.
+The shared places (`mk/`, `sdk/`, `factory/`, the top Makefile) have one
+owner at a time, named in `STATUS.md`; everyone else reports what they
+need instead of editing them.
 
 ## Rules have a scope and an expiry
 
@@ -151,6 +164,11 @@ There is nowhere else for a rule to live. If a rule blocks the sensible
 move, stop and bring the conflict to the operator with a proposed
 repeal. Do not route around it, and do not add a rule to compensate for
 another rule.
+
+Anything called temporary names the event that removes it, in the place
+where it is used. Comments and tests cite this file by section name;
+citations of the legacy "Laws" and "Rules" by number are removed on
+import, because those no longer exist.
 
 ## The legacy tree
 
@@ -166,8 +184,11 @@ merge process, ADRs, handoff and rulings are history, not law. Use it:
 
 `attic/` holds the legacy harness, specs, fixtures, tools and manuals.
 Nothing in it is built. Claim what your component needs with `git mv`,
-never edit in place, never build from there. Whatever is still in the
-attic when the import is finished gets deleted.
+never edit in place, never build from there, never add to it. Every
+import ends by naming, in `STATUS.md`, the future owner of whatever it
+left behind. The attic is deleted before the master ships. Import notes
+(`tests/IMPORT.md`, `SMOKES.md`, `MUTANTS-TODO.md`) are migration
+records, not a format to keep producing: each is deleted once acted on.
 
 ## Hazards that are still true
 

@@ -8,6 +8,10 @@ COMPONENTS := flair/region apps/initech123 apps/initechword
 .DEFAULT_GOAL := help
 .PHONY: help all test smoke image cert clean
 
+# Not built yet. A target that does nothing must fail, never succeed.
+smoke image cert:
+	@echo "make $@: not implemented yet (see STATUS.md)" >&2; exit 1
+
 help:
 	@echo "make test    tier 0: host tests of every imported component"
 	@echo "make image   build the product image        (not yet: needs boot + kernel)"

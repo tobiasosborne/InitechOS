@@ -6,7 +6,12 @@ list and the Release 2 list below. Ratified by the operator 2026-11-13.
 
 The master is one reproducible disk image set plus its manuals. Each
 item below is done when its acceptance check is green on the release
-candidate.
+candidate. Item 3 also needs the operator's eye, and says so.
+
+Where an item says "that exist today" or "present depth", it means the
+feature inventory frozen in that component's `README.md` when it was
+imported from `legacy-final`. The inventory is the scope; reading the
+legacy tree to find more is not.
 
 ## 1. It boots
 
@@ -75,7 +80,8 @@ candidate.
   with no host assembler or linker in the loop.
 - A minimal blue IDE: edit, save, compile, see the error, run.
 - It compiles itself inside the OS and reproduces itself bit for bit:
-  `K2 == K3`. A second, independent bootstrap path agrees (DDC).
+  `K2 == K3`. A second, independent bootstrap path agrees (DDC): the
+  same compiler source built by Free Pascal instead of the seed.
 - *Accept:* the corpus differential against Free Pascal; `make selfhost`
   and `make ddc`; the finale run from boot to a self-reproduced compiler.
 
