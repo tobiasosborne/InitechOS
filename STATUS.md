@@ -60,7 +60,16 @@ imported yet.
 
 ## In flight
 
-Nothing. All branches from day one are merged.
+Wave 2, one owner per area (branches `wave2/*`):
+
+| Owner of | Job |
+|---|---|
+| `mk/`, top Makefile, `factory/`, component Makefiles' build wiring | one producer per output; an honest `make status`; `make cert` (tier 2) |
+| `apps/initech123` | mutation hooks to patches; the shipped menu-loading path tested; the worksheet core published as a library |
+| `apps/initechbase` | package `INITBASE.EXE`; run it in the OS with a host-side check; hooks to patches |
+| `flair/` (Toolbox) | 243 mutation hooks to patches |
+| `apps/initechword` + the desktop smoke scripts | `WORD.EXE` on the desktop; per-app smoke journeys |
+| the small apps | Calculator, Note Pad, Scrapbook, InitechText, Control Panels, InitechCalc, InitechPaint built, tested, on the disk |
 
 ## The vertical slice is done
 
