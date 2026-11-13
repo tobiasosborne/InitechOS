@@ -1,0 +1,11 @@
+--- a/itext.c
++++ b/itext.c
+@@ -423,6 +423,8 @@
+ static void undo_note(int typing)
+ {
+     int i;
++    /* MUTANT (CLAUDE.md, The constitution): every keystroke is its own step. NEVER real. */
++    g_undo_run = 0;
+     if (!(typing && g_undo_run)) {
+         for (i = 0; i < g_te.teLength; i++) g_undo[i] = g_te.text[i];
+         g_undo_len = g_te.teLength;

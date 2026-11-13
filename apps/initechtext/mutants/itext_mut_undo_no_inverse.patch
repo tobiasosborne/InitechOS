@@ -1,0 +1,16 @@
+--- a/itext.c
++++ b/itext.c
+@@ -424,12 +424,7 @@
+ {
+     int i;
+     if (!(typing && g_undo_run)) {
+-        for (i = 0; i < g_te.teLength; i++) g_undo[i] = g_te.text[i];
+-        g_undo_len = g_te.teLength;
+-        g_undo_ss = g_te.selStart;
+-        g_undo_se = g_te.selEnd;
+-        g_undo_dirty = g_dirty;
+-        g_undo_ok = 1;
++        (void)i;
+     }
+     g_undo_run = typing;
+ }

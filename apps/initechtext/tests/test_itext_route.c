@@ -44,7 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../../os/apps/itext/itext.c"   /* the application under test */
+#include "../itext.c"   /* the application under test */
 
 static long g_checks, g_fails;
 static int  g_said[24];
@@ -58,152 +58,32 @@ enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, 
     printf(" (line %d)\n", __LINE__); } else { printf("  FAIL line %d\n", __LINE__); } } } while (0)
 
 /* ---- the recording mock -------------------------------------------------- */
-#define MAXOPS 512
-typedef struct { int kind, x, y, r, b; uint32_t fg, bg; char s[96]; } op_t; /* 0 text 1 fill */
-static op_t   m_ops[MAXOPS];
-static int    m_nops;
-static int    m_exits, m_alerts, m_track, m_sf;          /* sf: 1 get, 2 put */
-static char   m_alert_text[128], m_alert_btn[3][24];
-static char   m_sf_prompt[64], m_sf_name[24];
-static char  *m_sf_reply;
-static char   m_title[32];
-static int    m_scroll_len, m_scroll_val;
-/* the shell's desk scrap: survives every launch */
-static char   m_scrap[8192];
-static int    m_scrap_len = -1;
-static int    m_scrap_puts;
-/* the volume */
-typedef struct { char name[64]; char data[6000]; int len; int used; } mfile_t;
-static mfile_t m_files[8];
-static struct { int f; int pos; int wr; } m_h[8];
-
-int32_t tbx_register(void) { return TBX_OK; }
-int32_t tbx_new_window(int32_t l, int32_t t, int32_t r, int32_t b, int32_t g)
-{ (void)l; (void)t; (void)r; (void)b; (void)g; return 1; }
-int32_t tbx_set_wtitle(int32_t w, const char *s) { (void)w; snprintf(m_title, sizeof m_title, "%s", s); return TBX_OK; }
-int32_t tbx_draw_text(int32_t w, int32_t x, int32_t y, const char *s, uint32_t f, uint32_t b)
-{
-    (void)w;
-    if (m_nops < MAXOPS) { op_t *o = &m_ops[m_nops++]; o->kind = 0; o->x = x; o->y = y;
-        o->fg = f; o->bg = b; snprintf(o->s, sizeof o->s, "%s", s); }
-    return TBX_OK;
+#include "tbx_host.h"
+typedef tbx_host_file_t mfile_t;
+typedef tbx_host_op_t op_t;
+#define m_ops tbx_host.ops
+#define m_nops tbx_host.nops
+#define m_exits tbx_host.exit_calls
+#define m_alerts tbx_host.alerts
+#define m_track tbx_host.track
+#define m_sf tbx_host.sf
+#define m_alert_text tbx_host.alert_text
+#define m_alert_btn tbx_host.alert_btn
+#define m_sf_prompt tbx_host.sf_prompt
+#define m_sf_name tbx_host.sf_name
+#define m_sf_reply tbx_host.sf_reply
+#define m_title tbx_host.windows[0].title
+#define m_scroll_len tbx_host.windows[0].scroll_len
+#define m_scroll_val tbx_host.windows[0].scroll_val
+#define m_scrap tbx_host.scrap
+#define m_scrap_len tbx_host.scrap_len
+#define m_scrap_puts tbx_host.scrap_puts
+static mfile_t *mfind(const char *p) { return (mfile_t *)tbx_host_file(p); }
+static mfile_t *mplant(const char *name, const char *data, int len) {
+    unsigned char zero[6000]={0};
+    if (!tbx_host_put_file(name,data ? (const void *)data : zero,(uint32_t)len)) exit(2);
+    return mfind(name);
 }
-int32_t tbx_fill_rect(int32_t w, int32_t l, int32_t t, int32_t r, int32_t b, uint32_t c)
-{
-    (void)w;
-    if (m_nops < MAXOPS) { op_t *o = &m_ops[m_nops++]; o->kind = 1; o->x = l; o->y = t;
-        o->r = r; o->b = b; o->fg = c; o->s[0] = 0; }
-    return TBX_OK;
-}
-int32_t tbx_draw_cells(int32_t w, int32_t x, int32_t y, const char *s, uint32_t f, uint32_t b)
-{ (void)w; (void)x; (void)y; (void)s; (void)f; (void)b; return TBX_OK; }
-int32_t tbx_set_mbar(const tbx_menubar_t *b) { (void)b; return TBX_OK; }
-int32_t tbx_draw_menubar(void) { return TBX_OK; }
-int32_t tbx_exit(int32_t rc) { (void)rc; m_exits++; return TBX_OK; }
-int32_t tbx_trap(uint32_t c, uint32_t n, const uint32_t *a) { (void)c; (void)n; (void)a; return TBX_ERR_BADCODE; }
-int32_t tbx_alert(const char *t, const char *d, const char *c, const char *o)
-{
-    m_alerts++;
-    snprintf(m_alert_text, sizeof m_alert_text, "%s", t);
-    snprintf(m_alert_btn[0], 24, "%s", d ? d : "");
-    snprintf(m_alert_btn[1], 24, "%s", c ? c : "");
-    snprintf(m_alert_btn[2], 24, "%s", o ? o : "");
-    return TBX_OK;
-}
-int32_t tbx_scrap_put(const void *buf, uint32_t len)
-{
-    if (len > sizeof m_scrap) return TBX_ERR_BADARG;
-    memcpy(m_scrap, buf, len); m_scrap_len = (int)len; m_scrap_puts++;
-    return TBX_OK;
-}
-int32_t tbx_scrap_get(void *buf, uint32_t bufsz)
-{
-    if (m_scrap_len < 0) return TBX_ERR_NOTYPE;
-    if (buf == (void *)0) return m_scrap_len;
-    if (bufsz < (uint32_t)m_scrap_len) return TBX_ERR_BADARG;
-    memcpy(buf, m_scrap, (size_t)m_scrap_len);
-    return m_scrap_len;
-}
-int32_t tbx_sf_getfile(char *reply) { m_sf = 1; m_sf_reply = reply; return TBX_OK; }
-int32_t tbx_sf_putfile(const char *p, const char *n, char *reply)
-{ m_sf = 2; m_sf_reply = reply; snprintf(m_sf_prompt, 64, "%s", p); snprintf(m_sf_name, 24, "%s", n); return TBX_OK; }
-int32_t tbx_track_mouse(void) { m_track++; return TBX_OK; }
-int32_t tbx_set_scroll(int32_t w, int32_t len, int32_t v)
-{
-    int max = len - CONT_H;
-    (void)w;
-    if (max < 0) max = 0;
-    if (v > max) v = max;
-    if (v < 0) v = 0;
-    m_scroll_len = len; m_scroll_val = v;
-    return v;
-}
-int32_t tbx_get_scroll(int32_t w) { (void)w; return m_scroll_val; }
-int32_t tbx_global_to_local(int32_t w, int32_t h, int32_t v)
-{ (void)w; return (int32_t)(((uint32_t)(uint16_t)(v - 66) << 16) | (uint16_t)(h - 10)); }
-
-static mfile_t *mfind(const char *p)
-{
-    for (int i = 0; i < 8; i++) if (m_files[i].used && strcmp(m_files[i].name, p) == 0) return &m_files[i];
-    return NULL;
-}
-/* The test's own fixture files go onto the volume BY NAME, one directory
- * entry per name, as DOS 3.3 keeps them: an existing entry is replaced in
- * place. Planting into a fixed slot made a second "LF.TXT" once the atomic
- * save (os/apps/tbx/tbx_save.h, initech-mcep) had renamed the first one into
- * another slot -- a directory no DOS volume can hold, on which the next
- * save's RENAME was rightly refused (AH=56h, an existing target -> error 5). */
-static mfile_t *mplant(const char *name, const char *data, int len)
-{
-    mfile_t *f = mfind(name);
-    for (int i = 0; i < 8 && !f; i++) if (!m_files[i].used) f = &m_files[i];
-    if (!f) { printf("mock volume full planting %s\n", name); exit(2); }
-    f->used = 1; snprintf(f->name, 64, "%s", name);
-    if (data) memcpy(f->data, data, (size_t)len);
-    f->len = len;
-    return f;
-}
-int32_t tbx_file_create(const char *path)
-{
-    mfile_t *f = mfind(path);
-    if (!f) for (int i = 0; i < 8 && !f; i++) if (!m_files[i].used) { f = &m_files[i]; f->used = 1; snprintf(f->name, 64, "%s", path); }
-    if (!f) return TBX_ERR_DOS(5);           /* AH=3Ch: no free directory entry */
-    f->len = 0;
-    for (int h = 0; h < 8; h++) if (!m_h[h].f) { m_h[h].f = (int)(f - m_files) + 1; m_h[h].pos = 0; m_h[h].wr = 1; return 5 + h; }
-    return TBX_ERR_BUSY;
-}
-int32_t tbx_file_open(const char *path, uint32_t mode)
-{
-    mfile_t *f = mfind(path);
-    if (!f) return TBX_ERR_DOS(2);
-    for (int h = 0; h < 8; h++) if (!m_h[h].f) { m_h[h].f = (int)(f - m_files) + 1; m_h[h].pos = 0; m_h[h].wr = mode != 0; return 5 + h; }
-    return TBX_ERR_BUSY;
-}
-int32_t tbx_file_read(int32_t h, void *buf, uint32_t n)
-{
-    mfile_t *f = &m_files[m_h[h - 5].f - 1];
-    int k = f->len - m_h[h - 5].pos;
-    if (k > (int)n) k = (int)n;
-    memcpy(buf, f->data + m_h[h - 5].pos, (size_t)k); m_h[h - 5].pos += k;
-    return k;
-}
-int32_t tbx_file_write(int32_t h, const void *buf, uint32_t n)
-{
-    mfile_t *f = &m_files[m_h[h - 5].f - 1];
-    memcpy(f->data + m_h[h - 5].pos, buf, n); m_h[h - 5].pos += (int)n;
-    if (m_h[h - 5].pos > f->len) f->len = m_h[h - 5].pos;
-    return (int32_t)n;
-}
-int32_t tbx_file_seek(int32_t h, int32_t d, uint32_t o) { (void)h; (void)d; (void)o; return 0; }
-int32_t tbx_file_close(int32_t h) { m_h[h - 5].f = 0; return TBX_OK; }
-/* DOS 3.3 AH=41h: a missing file is error 2 (file not found). */
-int32_t tbx_file_delete(const char *p) { mfile_t *f = mfind(p); if (!f) return TBX_ERR_DOS(2); f->used = 0; return TBX_OK; }
-/* Sec 10b CREATE_NEW (initech-mcep): DOS 3.3 AH=5Bh -- never truncates. */
-int32_t tbx_file_create_new(const char *path) { return mfind(path) ? TBX_ERR_DOS(0x50) : tbx_file_create(path); }
-/* Sec 10b RENAME (initech-mcep): DOS 3.3 AH=56h -- an existing target is
- * access denied, a missing source is file not found. */
-int32_t tbx_file_rename(const char *o, const char *n)
-{ mfile_t *f = mfind(o); if (!f) return TBX_ERR_DOS(2); if (mfind(n)) return TBX_ERR_DOS(5); snprintf(f->name, 64, "%s", n); return TBX_OK; }
 
 /* ---- driving ---------------------------------------------------------------- */
 static void hev(int what, int32_t msg, int32_t mods, int h, int v)
@@ -232,6 +112,7 @@ static int doc_is(const char *s)
 
 static void launch(void)
 {
+    tbx_host.nwindows=0;
     memset(&g_te, 0, sizeof g_te);
     g_win = 0; g_dirty = 0; g_active = 1; g_scroll = 0; g_anchor = 0;
     g_scrap_has = 0; g_after = 0; g_sf_kind = 0; g_path[0] = 0;
@@ -243,14 +124,15 @@ static void launch(void)
 
 static const op_t *find_text(const char *s, uint32_t fg, uint32_t bg)
 {
-    for (int i = 0; i < m_nops; i++)
-        if (m_ops[i].kind == 0 && strcmp(m_ops[i].s, s) == 0 && m_ops[i].fg == fg && m_ops[i].bg == bg)
+    for (unsigned i = 0; i < m_nops; i++)
+        if (!strcmp(m_ops[i].name,"tbx_draw_text") && strcmp(m_ops[i].text, s) == 0 && (uint32_t)m_ops[i].a[3] == fg && (uint32_t)m_ops[i].a[4] == bg)
             return &m_ops[i];
     return NULL;
 }
 
 int main(void)
 {
+    tbx_host_reset(); tbx_host.origin_h=10; tbx_host.origin_v=66; tbx_host.ch=389;
     /* -- launch 1: an empty scrap grays Paste; nothing selected grays Cut/Copy/Clear */
     launch();
     CHECK(strcmp(m_title, "untitled") == 0, R_ROUTE, "title %s", m_title);
@@ -265,8 +147,8 @@ int main(void)
     {   /* the caret: a 1-px black bar one line tall, one px left of the end */
         const op_t *c = &m_ops[m_nops - 1];
         /* 16 = the SimpleText line, simpletext-stdfile.md Sec 1.3 [MEAS] */
-        CHECK(c->kind == 1 && c->r - c->x == 1 && c->b - c->y == 16 && c->fg == TBX_COLOR_BLACK,
-              R_INV, "caret rect %d,%d,%d,%d", c->x, c->y, c->r, c->b);
+        CHECK(!strcmp(c->name,"tbx_fill_rect") && c->a[3] - c->a[1] == 1 && c->a[4] - c->a[2] == 16 && c->a[5] == TBX_COLOR_BLACK,
+              R_INV, "caret rect %d,%d,%d,%d", c->a[1], c->a[2], c->a[3], c->a[4]);
     }
     hkey(0, 0, FLAIR_EVT_MOD_CONTROL_KEY);           /* an unbound chord: nothing */
     hkey('q', 0x10, FLAIR_EVT_MOD_CONTROL_KEY);
@@ -321,8 +203,8 @@ int main(void)
     sf_answer("MEMO.TXT");
     {
         mfile_t *f = mfind("MEMO.TXT");
-        CHECK(f && f->len == 18 && memcmp(f->data, "LOAD LETTER\rtables", 18) == 0, R_SAVE,
-              "MEMO.TXT bytes (len %d)", f ? f->len : -1);
+        CHECK(f && f->size == 18 && memcmp(f->data, "LOAD LETTER\rtables", 18) == 0, R_SAVE,
+              "MEMO.TXT bytes (len %d)", f ? (int)f->size : -1);
     }
     CHECK(!g_dirty && strcmp(m_title, "MEMO.TXT") == 0, R_SAVE, "saved: clean, titled");
 
@@ -368,7 +250,7 @@ int main(void)
     alert_answer(TBX_ALERT_DEFAULT);
     {
         mfile_t *f = mfind("APPS\\NOTE.TXT");
-        CHECK(f && f->len == 6 && memcmp(f->data, "!x\ry\rz", 6) == 0, R_SAVE, "Save from the alert (the caret opens at 0)");
+        CHECK(f && f->size == 6 && memcmp(f->data, "!x\ry\rz", 6) == 0, R_SAVE, "Save from the alert (the caret opens at 0)");
     }
     CHECK(m_exits == 1, R_QUIT, "then quits");
     /* Cancel in Save As keeps the document open */
@@ -394,8 +276,8 @@ int main(void)
           "40 Returns must enable range275: len=%d value=%d", m_scroll_len, m_scroll_val);
     {
         const op_t *c = &m_ops[m_nops - 1];
-        CHECK(c->kind == 1 && c->x == 4 && c->r == 5 && c->y == 369 && c->b == 385 &&
-              c->fg == TBX_COLOR_BLACK, R_SCROLL, "caret stays in view at (4,369)..(5,385)");
+        CHECK(!strcmp(c->name,"tbx_fill_rect") && c->a[1] == 4 && c->a[3] == 5 && c->a[2] == 369 && c->a[4] == 385 &&
+              c->a[5] == TBX_COLOR_BLACK, R_SCROLL, "caret stays in view at (4,369)..(5,385)");
     }
 
     /* L005 (audit 2026-10-23-das): LF-only blank lines must survive Open.
@@ -418,7 +300,7 @@ int main(void)
             CHECK(doc_is(lf[i].want), R_LF, "case %d: LF/CRLF open gave %d bytes", i, g_te.teLength);
             menu_hit(MENU_FILE, F_SAVE);
             f = mfind("LF.TXT");
-            CHECK(f && f->len == (int)strlen(lf[i].want) && memcmp(f->data, lf[i].want, (size_t)f->len) == 0,
+            CHECK(f && f->size == strlen(lf[i].want) && memcmp(f->data, lf[i].want, (size_t)f->size) == 0,
                   R_LF, "case %d: Save of an opened LF file lost line ends", i);
         }
     }
@@ -476,7 +358,7 @@ int main(void)
         sf_answer("UNDO.TXT");
         {
             mfile_t *f = mfind("UNDO.TXT");
-            CHECK(f && f->len == 36 && memcmp(f->data, doc, 36) == 0, R_UNDO, "UNDO.TXT bytes (len %d)", f ? f->len : -1);
+            CHECK(f && f->size == 36 && memcmp(f->data, doc, 36) == 0, R_UNDO, "UNDO.TXT bytes (len %d)", f ? (int)f->size : -1);
         }
         CHECK(!g_dirty, R_SAVE, "saved clean");
 

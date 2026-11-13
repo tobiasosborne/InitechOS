@@ -1,0 +1,10 @@
+--- a/itext.c
++++ b/itext.c
+@@ -461,7 +461,6 @@
+          * wording, which is from memory of TeachText's full-document notice
+          * (unverified). The Toolbox Gate has no beep verb, so the notice is
+          * the whole signal. */
+-        say("This document is full.", "The edit could not be made.");
+         return;
+     }
+     undo_note(typing);

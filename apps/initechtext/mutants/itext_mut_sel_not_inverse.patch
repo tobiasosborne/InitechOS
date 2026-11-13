@@ -1,0 +1,20 @@
+--- a/itext.c
++++ b/itext.c
+@@ -155,6 +155,8 @@
+         int n = 0, w = 0;
+         while (a + n < b && n < 80) { g_run[n] = g_te.text[a + n]; w += adv(g_run[n]); n++; }
+         g_run[n] = '\0';
++        /* MUTANT (CLAUDE.md, The constitution): a range is drawn as plain text. NEVER real. */
++        hil = 0;
+         (void)tbx_draw_text(g_win, x, y, g_run, hil ? FG_HIL : FG_TEXT,
+                             hil ? TBX_COLOR_BLACK : TBX_COLOR_WHITE);
+         x += w;
+@@ -199,7 +201,7 @@
+         x = draw_run(b, le, x, y, 0);
+         /* a range that continues past this line's end runs to the edge */
+         if (s < e && s <= le && e > le && x < TEXT_X + WRAP_W)
+-            (void)tbx_fill_rect(g_win, x, y, TEXT_X + WRAP_W, y + h, TBX_COLOR_BLACK);
++            { }
+     }
+     bottom = TEXT_Y + g_te.nLines * h - g_scroll;   /* below the text */
+     if (bottom < 0) bottom = 0;

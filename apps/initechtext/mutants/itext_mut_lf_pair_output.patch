@@ -1,0 +1,12 @@
+--- a/itext.c
++++ b/itext.c
+@@ -318,6 +318,9 @@
+         for (i = 0; i < n; i++) {
+             char c = g_io[i];
+             int skip = (c == '\n' && prev == '\r');
++            /* MUTANT (CLAUDE.md, The constitution): the pair test reads the normalised output (the
++             * L005 defect). NEVER real. */
++            skip = (c == '\n' && k > 0 && g_io[k - 1] == '\r');
+             prev = c;
+             if (!skip) g_io[k++] = (c == '\n') ? '\r' : c;
+         }

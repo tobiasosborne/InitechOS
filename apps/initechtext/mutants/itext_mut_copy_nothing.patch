@@ -1,0 +1,11 @@
+--- a/itext.c
++++ b/itext.c
+@@ -472,6 +472,8 @@
+ static void copy_sel(void)
+ {
+     int n = g_te.selEnd - g_te.selStart;
++    /* MUTANT (CLAUDE.md, The constitution): an empty run goes to the scrap. NEVER real. */
++    n = 0;
+     if (tbx_scrap_put(g_te.text + g_te.selStart, (uint32_t)n) == TBX_OK)
+         g_scrap_has = n > 0;
+ }

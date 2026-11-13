@@ -1,0 +1,11 @@
+--- a/itext.c
++++ b/itext.c
+@@ -343,6 +343,8 @@
+ {
+     int32_t n = g_te.teLength, i, k = 0;
+     for (i = 0; i < n; i++) {
++        /* MUTANT (CLAUDE.md, The constitution): the line ends are dropped on the way out. */
++        if (g_te.text[i] == '\r') continue;
+         g_io[k++] = g_te.text[i];
+     }
+     /* initech-mcep (audit 2026-10-23-das L003): the atomic save -- a write
