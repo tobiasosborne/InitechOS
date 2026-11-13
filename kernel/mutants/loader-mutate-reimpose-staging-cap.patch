@@ -8,7 +8,7 @@
           * the 64 KiB staging buffer; it is read straight into PROGRAM_IMAGE). */
 +        return LOADER_ERR_TOO_BIG;
 +    }
-+    /* MUTANT (CLAUDE.md Rule 6; make test-loader-big-mutant only): re-impose the
++    /* MUTANT (the repository contract; make test-loader-big-mutant only): re-impose the
 +     * PRE-za4m 64 KiB LOAD_STAGING_MAX cap on the in-place path -- the EXACT bug
 +     * that wrongly rejected a 77 KiB INITECHBASE.COM. The big-.COM oracle's "64 KiB + 1
 +     * loads" case MUST go RED. NEVER define in a real build. */

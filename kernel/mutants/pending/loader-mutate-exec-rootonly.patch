@@ -1,0 +1,18 @@
+# LOADER_MUTATE_EXEC_ROOTONLY
+# test: test-loader
+--- a/loader.c
++++ b/loader.c
+@@ -997,6 +997,13 @@
+         return LOADER_ERR_BUSY;
+     }
+ 
++    /* MUTANT (the repository contract; make test-zs24-exec-mutant only): IGNORE the
++     * threaded containing-directory cluster and look ONLY in the root, the pre-
++     * zs24 root-only behavior. A subdir EXEC of a program that exists ONLY inside
++     * ::SUB then can't be located -> LOADER_ERR_NOT_FOUND, the program never runs,
++     * its serial marker is ABSENT -> the subdir-EXEC oracle goes RED. NEVER define
++     * in a real build. */
++    dir_start = 0u;
+ 
+     /* Locate the .COM in its CONTAINING directory (beads initech-zs24). The ROOT
+      * case (dir_start==0) takes the BYTE-IDENTICAL historical fat12_find so root

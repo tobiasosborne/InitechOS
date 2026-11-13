@@ -7,7 +7,7 @@
          return;
      }
 -    set_cx(f, (uint16_t)attr);
-+    /* MUTANT 2 (Rule 6; make test-b53d-mutant only): return a constant 0x00 in CX
++    /* MUTANT 2 (the repository contract; make test-b53d-mutant only): return a constant 0x00 in CX
 +     * instead of the real attribute byte. The GET-returns-CX host assertion goes
 +     * RED. The (void) keeps -Werror=unused quiet. NEVER in a real build. */
 +    (void)attr;

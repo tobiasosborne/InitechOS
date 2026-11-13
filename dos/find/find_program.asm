@@ -24,22 +24,22 @@
 ;     backward-compatible superset and reported as such.]
 ;   - A missing/empty quoted string is a parameter error ("FIND: Parameter format
 ;     not correct" was inherited; manual p.341 uses "Invalid number of
-;     parameters") -> fail loud (Rule 2).
+;     parameters") -> fail loud (the repository contract).
 ;
 ; Ref:   os/initechdos/int21.c do_read (AH=3Fh), do_write (AH=40h), do_puts (AH=09h),
-;        do_terminate (AH=4Ch); spec/memory_map.h (PROGRAM_IMAGE=0x00040100 == org;
+;        do_terminate (AH=4Ch); kernel/include/memory_map.h (PROGRAM_IMAGE=0x00040100 == org;
 ;        PSP 0x00040000, cmd tail at PSP:80h == 0x00040080); MS-DOS 3.3 User's
-;        Guide "FIND". CLAUDE.md Law 1 (cite), Rule 2 (fail loud), Rule 11
-;        (nasm -f bin deterministic), Rule 12 (ASCII).
+;        Guide "FIND". the repository contract (cite), the repository contract (fail loud), the repository contract
+;        (nasm -f bin deterministic), the repository contract (ASCII).
 ;
 ; Assembled: nasm -f bin os/initechdos/find_program.asm -o build/find_program.bin
 ; Deployed:  mcopy build/find_program.bin ::FIND.COM  (NOT baked into kernel).
 ;
-; Mutant (Rule 6): nasm -DFIND_MUTATE_INVERT flips the match sense (prints the
+; Mutant (the repository contract): nasm -DFIND_MUTATE_INVERT flips the match sense (prints the
 ; NON-matching lines), so the "only matching lines appear" emu assertion goes RED.
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 INBUF        equ 0x00050000     ; stdin buffer base
 INBUF_MAX    equ 0x00010000     ; 64 KiB cap
@@ -109,7 +109,7 @@ start:
     cmp al, '"'
     je .q_close
     cmp edx, 127
-    jae .q_skip                ; clamp (Rule 2: never overflow the 128-byte buf)
+    jae .q_skip                ; clamp (the repository contract: never overflow the 128-byte buf)
     mov [needle + edx], al
     inc edx
 .q_skip:

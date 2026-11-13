@@ -6,7 +6,7 @@
      /* UNLINK inside a SUBDIRECTORY (dir_start_cluster != 0) is now supported
       * (beads initech-zs24): fat12_unlink scans + marks the entry deleted down the
       * parent's cluster chain. dir_start==0 keeps the root path byte-identical. */
-+    /* MUTANT (Rule 6; make test-zs24-mutant only): make a SUBDIR unlink a NO-OP
++    /* MUTANT (the repository contract; make test-zs24-mutant only): make a SUBDIR unlink a NO-OP
 +     * (report success without deleting), so `mdir ::SUB` still lists the file and
 +     * the UNLINK oracle goes RED. The root path is unchanged. NEVER in a real
 +     * build. */

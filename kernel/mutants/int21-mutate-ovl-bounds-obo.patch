@@ -7,7 +7,7 @@
          return 0;
      }
 -    return len <= limit - linear;
-+    /* MUTANT (Rule 6; make test-overlay-mutant / test-exec-overlay-mutant
++    /* MUTANT (the repository contract; make test-overlay-mutant / test-exec-overlay-mutant
 +     * only): the classic off-by-one -- a footprint ONE byte past the owned
 +     * region is accepted, so the overlay's last byte lands on the next MCB
 +     * header (or the arena's first header). The exact-fit-plus-one refusal

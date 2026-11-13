@@ -7,10 +7,10 @@
  * Ref:   ADR-0003 Sec 5.6 (DEC-06: 20-entry JFT -> system SFT sized by FILES=;
  *        handles 0-4 predefined), Appendix D.2 (FILES=20);
  *        docs/research/fs-mount-sft-ground-truth.md Sec 3 (the model, the entry
- *        struct, the DUP/DUP2 algorithms); spec/dos_structs.h (psp_t.jft);
- *        DOS 3.3 Programmer's Reference Manual AH=45h/46h. CLAUDE.md Law 1
- *        (cite), Law 2 (oracle), Law 3 (artifact = C), Rule 2 (fail loud),
- *        Rule 11 (deterministic), Rule 12 (ASCII).
+ *        struct, the DUP/DUP2 algorithms); kernel/include/dos_structs.h (psp_t.jft);
+ *        DOS 3.3 Programmer's Reference Manual AH=45h/46h. the repository contract
+ *        (cite), the repository contract (oracle), the repository contract (artifact = C), the repository contract (fail loud),
+ *        the repository contract (deterministic), the repository contract (ASCII).
  *
  * This TU compiles BOTH freestanding (-ffreestanding -nostdlib, the kernel) and
  * HOSTED (the factory oracle test_sft.c). It performs NO I/O -- pure table
@@ -30,7 +30,7 @@
 #include "sft.h"
 
 /* ------------------------------------------------------------------------ *
- * Fail-loud (CLAUDE.md Rule 2), mirroring psp.c. A corrupt JFT entry, or a
+ * Fail-loud (the repository contract), mirroring psp.c. A corrupt JFT entry, or a
  * release of a slot that is already free, is an INVARIANT VIOLATION -- never a
  * recoverable condition. Hosted: abort() (the oracle observes a non-zero exit).
  * Freestanding: __builtin_trap() raises #UD, routed by the IDT to the panic
@@ -116,7 +116,7 @@ sft_entry_t *sft_from_handle(const psp_t *psp, uint8_t handle)
     }
 
     /* A JFT entry that is neither 0xFF nor an in-range index of a LIVE slot is
-     * corruption (Rule 2: fail loud, never return a plausible-but-wrong slot). */
+     * corruption (the repository contract: fail loud, never return a plausible-but-wrong slot). */
     if (idx >= SFT_MAX_ENTRIES) {
         SFT_FAIL_LOUD();
         return 0; /* not reached */
@@ -182,12 +182,12 @@ uint8_t sft_set_files_limit(uint8_t files)
  * the last reference goes. Uniform for devices and files -- if a program
  * redirects both stdout and stderr away from CON the CON-write slot legitimately
  * has zero references and is freed (process load re-establishes the table).
- * Fails loud on a release of an already-free slot (Rule 2).
+ * Fails loud on a release of an already-free slot (the repository contract).
  *
  * Called by sft_dup2 (DUP2 redirect) AND sft_close_process (process EXIT
  * teardown, beads initech-6hk). The latter is an UNCONDITIONAL call site, so
  * sft_release is always reachable even when the SFT_MUTATE_DUP2_NO_RELEASE
- * mutant (Rule 6) elides the DUP2 call -- no __attribute__((unused)) needed. */
+ * mutant (the repository contract) elides the DUP2 call -- no __attribute__((unused)) needed. */
 static void sft_release(uint8_t idx)
 {
     if (idx >= SFT_MAX_ENTRIES || g_sft[idx].kind == SFT_KIND_FREE) {
@@ -217,7 +217,7 @@ uint16_t sft_dup(psp_t *psp, uint8_t src, uint8_t *out_handle)
 
     uint8_t sft_idx = psp->jft[src];
     psp->jft[j] = sft_idx;            /* the new handle aliases the same entry */
-    /* Rule-6 mutant target: WITHOUT this increment, a later release/close
+    /* the repository contract mutant target: WITHOUT this increment, a later release/close
      * over-frees the shared slot. The oracle asserts the bump -> the mutant
      * (which omits it) goes RED. */
     g_sft[sft_idx].ref_count++;
@@ -244,7 +244,7 @@ uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst)
     /* If the target handle is already open, release its current SFT slot first
      * (the redirect overwrites it). */
     if (psp->jft[dst] != JFT_CLOSED) {
-        /* Rule-6 mutant target: WITHOUT this release the old target slot leaks
+        /* the repository contract mutant target: WITHOUT this release the old target slot leaks
          * a reference (stays live forever). The oracle asserts the old slot's
          * ref_count drops -> the mutant (which omits it) goes RED. */
         sft_release(psp->jft[dst]);
@@ -276,7 +276,7 @@ uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst)
  *
  * Idempotent: a second call finds every FILE handle already JFT_CLOSED -> no-op.
  * Fails LOUD on a corrupt JFT entry (neither the 0xFF sentinel nor an in-range
- * index of a live slot), consistent with sft_from_handle (Rule 2). psp == NULL
+ * index of a live slot), consistent with sft_from_handle (the repository contract). psp == NULL
  * is a no-op. Ref: DOS 3.3 process terminate; beads initech-6hk; sft.h. */
 void sft_close_process(psp_t *psp)
 {
@@ -292,7 +292,7 @@ void sft_close_process(psp_t *psp)
 
         /* A JFT entry that is neither 0xFF nor an in-range index of a LIVE slot
          * is corruption -- fail loud, never zero a plausible-but-wrong slot
-         * (Rule 2; mirrors sft_from_handle). */
+         * (the repository contract; mirrors sft_from_handle). */
         if (idx >= SFT_MAX_ENTRIES || g_sft[idx].kind == SFT_KIND_FREE) {
             SFT_FAIL_LOUD();
             return; /* not reached */
@@ -316,7 +316,7 @@ void sft_close_process(psp_t *psp)
             continue;   /* defensive: only file/device kinds are reclaimable */
         }
 
-        /* Rule-6 mutant target (make test-exit-handles-mutant): WITHOUT this
+        /* the repository contract mutant target (make test-exit-handles-mutant): WITHOUT this
          * release the exiting process's FILE slots leak -- an EXEC chain of a
          * leaky child exhausts the 16 file slots and a later OPEN fails. The
          * in-emulator oracle goes RED. NEVER define in a real build. */
@@ -346,7 +346,7 @@ void sft_inherit(psp_t *child)
         }
 
         /* A JFT entry that is neither 0xFF nor an in-range index of a LIVE slot
-         * is corruption -- fail loud (Rule 2; mirrors sft_close_process). An
+         * is corruption -- fail loud (the repository contract; mirrors sft_close_process). An
          * inherited handle MUST reference a slot the parent actually had open. */
         if (idx >= SFT_MAX_ENTRIES || g_sft[idx].kind == SFT_KIND_FREE) {
             SFT_FAIL_LOUD();
@@ -363,7 +363,7 @@ void sft_inherit(psp_t *child)
             continue; /* resident CON/AUX/PRN device slot -- shared, not counted */
         }
 
-        /* Rule-6 mutant target (SFT_MUTATE_NO_INHERIT_REFCOUNT): WITHOUT this bump
+        /* the repository contract mutant target (SFT_MUTATE_NO_INHERIT_REFCOUNT): WITHOUT this bump
          * the child's exit (sft_close_process) OVER-FREES the inherited slot out
          * from under the parent -- the parent's next dos_dup2(saved,1)/dos_close
          * then hits a freed SFT entry and panics (fail loud). The bsy.9 redirect

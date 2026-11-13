@@ -16,7 +16,7 @@
 -			return rc;
 -		}
 -		dotdot_set = 1;
-+		/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the '..' fixup, so
++		/* MUTANT (the repository contract; make test-fat-move-mutant only): SKIP the '..' fixup, so
 +		 * a moved directory keeps pointing at its OLD parent -- the folder is
 +		 * reachable at its new home but walks out of the tree wrongly. The
 +		 * directory-move leg's '..' assertion (and the mtools '..' traversal) goes

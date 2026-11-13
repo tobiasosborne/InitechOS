@@ -18,7 +18,7 @@
 -			return rc;   /* NO_SPACE / write error -- grow already rolled back */
 -		}
 -		parent_grew = 1;
-+		/* MUTANT m-nogrow-parent (Rule 6; make test-m0bp-mutant only): a FULL
++		/* MUTANT m-nogrow-parent (the repository contract; make test-m0bp-mutant only): a FULL
 +		 * subdir parent returns DIR_FULL instead of growing -- the boundary
 +		 * MKDIR fails and the new dir never lands, so the parent-grow leg
 +		 * (listed by mdir/python, parent spans 2 clusters) goes RED. NEVER define

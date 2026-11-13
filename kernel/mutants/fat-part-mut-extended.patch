@@ -6,7 +6,7 @@
  			if (e[0] != 0u && e[0] != 0x80u) return FAT12_ERR_PARTITION;
  			if (e[0] == 0x80u && ++active > 1u) return FAT12_ERR_PARTITION;
  			if (type == 1u || type == 4u || type == 6u
-+			    || type == 5u /* Rule 6: extended container is NOT a FAT volume. */
++			    || type == 5u /* the repository contract: extended container is NOT a FAT volume. */
  			   ) {
  				if (primary ? i+1u == primary : (!chosen || e[0] == 0x80u))
                      chosen = 446u + i * 16u;

@@ -13,12 +13,12 @@
 ;        --keys "d,i,r,ret" and asserts "CONIN-LINE=dir" comes back on serial.
 ;
 ; Ref:   DOS 3.3 Programmer's Reference Manual AH=09h / AH=0Ah / AH=40h / AH=4Ch;
-;        os/milton/int21.c do_buffered_input (AH=0Ah), do_puts (AH=09h),
+;        kernel/int21.c do_buffered_input (AH=0Ah), do_puts (AH=09h),
 ;        do_write (AH=40h: EBX=1 -> CON), do_terminate (AH=4Ch).
-;        spec/memory_map.h (PROGRAM_IMAGE = 0x00040100). CLAUDE.md Law 1 (cite),
-;        Rule 2 (no overflow), Rule 11 (deterministic nasm -f bin), Rule 12 (ASCII).
+;        kernel/include/memory_map.h (PROGRAM_IMAGE = 0x00040100). the repository contract (cite),
+;        the repository contract (no overflow), the repository contract (deterministic nasm -f bin), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/conin_program.asm -o build/conin_program.bin
+; Assembled: nasm -f bin os/initechdos/conin_program.asm -o build/conin_program.bin
 ; ADDRESSING (Solution A): org 0x00040100 == PROGRAM_IMAGE.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]

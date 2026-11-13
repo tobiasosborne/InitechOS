@@ -4,12 +4,12 @@
 +++ b/command/command.c
 @@ -95,12 +95,6 @@
           * so "COPY" falls through to CMD_EXTERNAL -> the classify oracle goes RED
-          * (Rule 6). NEVER dropped in a real build. */
+          * (the repository contract). NEVER dropped in a real build. */
          { "COPY",  CMD_COPY },
 -        /* DEL/ERASE <name> -- delete file(s) via 41h (wildcard: 4Eh/4Fh loop)
 -         * (beads initech-hpls, Tranche F). The CMD_MUTATE_NO_DEL mutant DROPS
 -         * BOTH rows so "DEL"/"ERASE" fall through to CMD_EXTERNAL -> the classify
--         * oracle goes RED (Rule 6). NEVER dropped in a real build. */
+-         * oracle goes RED (the repository contract). NEVER dropped in a real build. */
 -        { "DEL",   CMD_DEL  },
 -        { "ERASE", CMD_DEL  },   /* ERASE is the long form of DEL (DOS) */
          /* REN/RENAME <old> <new> -- same-dir dir-entry rename via 56h (beads

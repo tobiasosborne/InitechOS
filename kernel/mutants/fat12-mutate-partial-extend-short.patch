@@ -6,7 +6,7 @@
  		for (i = 0u; i < to_add; i++) {
  			uint16_t cl;
  			uint32_t lba;
-+			/* MUTANT (Rule 6; test-fat-write-partial-mutant only): allocate ONE
++			/* MUTANT (the repository contract; test-fat-write-partial-mutant only): allocate ONE
 +			 * TOO FEW extend clusters, so a write that grows the file by several
 +			 * clusters leaves the chain short -- the read-back / diff goes RED.
 +			 * NEVER define in a real build. */

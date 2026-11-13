@@ -3,10 +3,10 @@
  * beads: initech-7pc. M2 capstone (PRD Sec 6.1). See command.h for the full
  *        citation block + the host-testability seam rationale.
  * Ref:   ADR-0003 DEC-11/DEC-12 + Appendix D; DOS 3.3 COMMAND.COM behaviour;
- *        spec/dos_messages.json (MSG-DOS-0002/0003); spec/find_data.h (the
- *        43-byte DTA find-record); spec/int21h_calling_convention.json (DEC-04a
+ *        kernel/include/dos_messages.json (MSG-DOS-0002/0003); kernel/include/find_data.h (the
+ *        43-byte DTA find-record); kernel/tests/data/int21h_calling_convention.json (DEC-04a
  *        flat ABI: AH=func, EBX=handle, ECX=count, EDX=flat ptr, EAX=ret, CF).
- *        CLAUDE.md Law 1/2/3/4, Rule 2 (fail loud), Rule 11, Rule 12.
+ *        the repository contract, the repository contract (fail loud), the repository contract, the repository contract.
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only. The
  * pure logic (cmd_*) carries NO asm + NO I/O so the SAME TU compiles HOSTED for
@@ -70,7 +70,7 @@ cmd_kind_t cmd_classify(const char *upper_command)
         /* MD/RD + their long forms map to the directory built-ins (beads
          * initech-ut6d). The CMD_MUTATE_NO_MDRD mutant DROPS these four rows so
          * "MD"/"RD" fall through to CMD_EXTERNAL -> the classify oracle goes RED
-         * (Rule 6). NEVER dropped in a real build. */
+         * (the repository contract). NEVER dropped in a real build. */
         { "MD",    CMD_MD   },
         { "MKDIR", CMD_MD   },   /* MKDIR is the long form of MD (DOS) */
         { "RD",    CMD_RD   },
@@ -83,39 +83,39 @@ cmd_kind_t cmd_classify(const char *upper_command)
         /* SET [NAME[=VALUE]] -- list/assign/clear/query env vars (beads
          * initech-1i0x Tranche E inc 2). The CMD_MUTATE_NO_SET mutant DROPS
          * this row so "SET" falls through to CMD_EXTERNAL -> the classify
-         * oracle goes RED (Rule 6). NEVER dropped in a real build. */
+         * oracle goes RED (the repository contract). NEVER dropped in a real build. */
         { "SET",    CMD_SET    },
         /* PROMPT [template] -- set/reset the $P$G prompt string (beads
          * initech-dibc; ADR-0003 DEC-12). The CMD_MUTATE_NO_PROMPT mutant
          * DROPS this row so "PROMPT" falls through to CMD_EXTERNAL -> the
-         * classify oracle goes RED (Rule 6). NEVER dropped in a real build. */
+         * classify oracle goes RED (the repository contract). NEVER dropped in a real build. */
         { "PROMPT", CMD_PROMPT },
         /* COPY <src> <dst> -- single-file copy via 3Dh/3Ch/3Fh/40h/3Eh (beads
          * initech-hpls, Tranche F). The CMD_MUTATE_NO_COPY mutant DROPS this row
          * so "COPY" falls through to CMD_EXTERNAL -> the classify oracle goes RED
-         * (Rule 6). NEVER dropped in a real build. */
+         * (the repository contract). NEVER dropped in a real build. */
         { "COPY",  CMD_COPY },
         /* DEL/ERASE <name> -- delete file(s) via 41h (wildcard: 4Eh/4Fh loop)
          * (beads initech-hpls, Tranche F). The CMD_MUTATE_NO_DEL mutant DROPS
          * BOTH rows so "DEL"/"ERASE" fall through to CMD_EXTERNAL -> the classify
-         * oracle goes RED (Rule 6). NEVER dropped in a real build. */
+         * oracle goes RED (the repository contract). NEVER dropped in a real build. */
         { "DEL",   CMD_DEL  },
         { "ERASE", CMD_DEL  },   /* ERASE is the long form of DEL (DOS) */
         /* REN/RENAME <old> <new> -- same-dir dir-entry rename via 56h (beads
          * initech-fyox, Tranche F). The CMD_MUTATE_NO_REN mutant DROPS BOTH rows
          * so "REN"/"RENAME" fall through to CMD_EXTERNAL -> the classify oracle
-         * goes RED (Rule 6). NEVER dropped in a real build. */
+         * goes RED (the repository contract). NEVER dropped in a real build. */
         { "REN",    CMD_REN },
         { "RENAME", CMD_REN },   /* RENAME is the long form of REN (DOS) */
         /* DATE [MM-DD-YY[YY]] -- show/set the system date via 2Ah/2Bh (beads
          * initech-uy4l, Tranche F). The CMD_MUTATE_NO_DATE mutant DROPS this row
          * so "DATE" falls through to CMD_EXTERNAL -> the classify oracle goes RED
-         * (Rule 6). NEVER dropped in a real build. */
+         * (the repository contract). NEVER dropped in a real build. */
         { "DATE",  CMD_DATE },
         /* TIME [HH:MM[:SS]] -- show/set the system time via 2Ch/2Dh (beads
          * initech-uy4l, Tranche F). The CMD_MUTATE_NO_TIME mutant DROPS this row
          * so "TIME" falls through to CMD_EXTERNAL -> the classify oracle goes RED
-         * (Rule 6). NEVER dropped in a real build. */
+         * (the repository contract). NEVER dropped in a real build. */
         { "TIME",  CMD_TIME },
     };
     for (unsigned i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
@@ -135,7 +135,7 @@ void cmd_parse(const char *line, cmd_line_t *out)
 {
     int i;
 
-    /* Defensive init (Rule 2): never leave the output uninitialized. */
+    /* Defensive init (the repository contract): never leave the output uninitialized. */
     out->command[0] = '\0';
     out->arg[0]     = '\0';
     out->tail[0]    = '\0';
@@ -358,7 +358,7 @@ void cmd_set_parse(const char *arg, set_cmd_t *out)
     int vi;
     const char *p;
 
-    /* Defensive init (Rule 2). */
+    /* Defensive init (the repository contract). */
     out->op       = SET_OP_LIST;
     out->name[0]  = '\0';
     out->value[0] = '\0';
@@ -506,7 +506,7 @@ void cmd_pair_parse(const char *arg, cmd_pair_t *out)
     const char *p;
     int i;
 
-    /* Defensive init (Rule 2). */
+    /* Defensive init (the repository contract). */
     out->first[0]  = '\0';
     out->second[0] = '\0';
     out->ok        = 0;
@@ -784,7 +784,7 @@ static int parse_u_field(const char **pp, uint32_t *out, int maxdig)
 
 /* Days-in-month with a Gregorian leap-year check (the SET DATE validation also
  * runs in the kernel's rtc_encode, but DOS COMMAND.COM rejects a bad date BEFORE
- * issuing 2Bh, so we validate here too -- Law 1: match DOS reprompt behaviour). */
+ * issuing 2Bh, so we validate here too -- the repository contract: match DOS reprompt behaviour). */
 static int days_in_month(uint16_t year, uint8_t mon)
 {
     static const uint8_t dim[12] = {
@@ -1087,8 +1087,8 @@ int cmd_render_prompt(const char *templ, const prompt_ctx_t *ctx,
  * cmd_path_candidates: compute the ordered candidate list for an external
  * command word, following the DOS 3.3 PATH search order.
  * Ref: ADR-0003 DEC-11 / Appendix D; DOS 3.3 COMMAND.COM PATH search.
- * CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Rule 2 (fail loud),
- * Rule 11 (deterministic), Rule 12 (ASCII).
+ * the repository contract (cite source), the repository contract (oracle is truth), the repository contract (fail loud),
+ * the repository contract (deterministic), the repository contract (ASCII).
  * ===========================================================================*/
 
 /* Determine if `word` is an explicit path (contains a ':' drive prefix or a
@@ -1130,7 +1130,7 @@ static int has_extension(const char *word)
 
 /* Append `suffix` to `dst` (already holding some prefix text of length `n`),
  * writing into dst[CMD_PATH_MAX_LEN].  Returns the new length on success, or
- * -1 if the result would not fit (never overflows -- Rule 2 / fail loud). */
+ * -1 if the result would not fit (never overflows -- the repository contract / fail loud). */
 static int path_cat(char *dst, int n, const char *suffix)
 {
     const char *p = suffix;
@@ -1146,7 +1146,7 @@ static int path_cat(char *dst, int n, const char *suffix)
 
 /* Split `path_value` on ';' into dirs[].  Each dir is stored as an ASCIIZ
  * string.  Returns the number of dirs extracted (bounded to CMD_PATH_MAX_DIRS;
- * extras silently discarded -- Rule 2: never overflow the array). */
+ * extras silently discarded -- the repository contract: never overflow the array). */
 static int split_path(const char *path_value,
                       char dirs[CMD_PATH_MAX_DIRS][CMD_PATH_MAX_LEN])
 {
@@ -1172,7 +1172,7 @@ static int split_path(const char *path_value,
             if (di < CMD_PATH_MAX_LEN - 1) {
                 dirs[nd][di++] = *p;
             }
-            /* else: dir name too long -- silently drop characters (Rule 2:
+            /* else: dir name too long -- silently drop characters (the repository contract:
              * never overflow; the resulting truncated dir will not be found). */
             p++;
         }
@@ -1190,7 +1190,7 @@ static int split_path(const char *path_value,
  *        already containing the backslash entry: caller passes cwd).
  * `word` is the command word (not yet appended with ext).
  * `ext`  is ".COM", ".EXE", ".BAT", or "" (if word already has extension).
- * Returns 1 on success (entry stored), 0 on overflow (skipped -- Rule 2). */
+ * Returns 1 on success (entry stored), 0 on overflow (skipped -- the repository contract). */
 static int emit_candidate(cmd_path_iter_t *out,
                           const char *dir, const char *word, const char *ext)
 {
@@ -1198,7 +1198,7 @@ static int emit_candidate(cmd_path_iter_t *out,
     int   n = 0;
 
     if (out->count >= CMD_PATH_MAX_DIRS + 1) {
-        return 0;   /* array full -- skip silently (Rule 2) */
+        return 0;   /* array full -- skip silently (the repository contract) */
     }
 
     dst = out->entries[out->count];
@@ -1233,7 +1233,7 @@ static int emit_candidate(cmd_path_iter_t *out,
 int cmd_path_candidates(const char *word, const char *path_value,
                         const char *cwd, cmd_path_iter_t *out)
 {
-    /* Defensive init (Rule 2). */
+    /* Defensive init (the repository contract). */
     out->count = 0;
 
     if (word == 0 || word[0] == '\0') {
@@ -1252,7 +1252,7 @@ int cmd_path_candidates(const char *word, const char *path_value,
             entry[n++] = *p++;
         }
         if (*p != '\0') {
-            /* Word too long to fit -- fail loud: return 0 candidates (Rule 2). */
+            /* Word too long to fit -- fail loud: return 0 candidates (the repository contract). */
             return 0;
         }
         entry[n] = '\0';
@@ -1301,7 +1301,7 @@ int cmd_path_candidates(const char *word, const char *path_value,
             emit_candidate(out, cwd, word, "");
             /* PATH-dir candidates (mutant: -DCMD_MUTATE_NO_PATH drops this
              * block so only the CWD candidate is emitted -> PATH tests go RED;
-             * NEVER dropped in a real build -- CLAUDE.md Rule 6). */
+             * NEVER dropped in a real build -- the repository contract). */
             {
                 int di;
                 for (di = 0; di < nd; di++) {
@@ -1359,7 +1359,7 @@ int cmd_path_candidates(const char *word, const char *path_value,
  * " " (one space, only if both sides are non-empty) + [suffix after target],
  * with leading/trailing whitespace trimmed.  Pure: no asm, no I/O.
  *
- * MUTATION hooks (CLAUDE.md Rule 6; the test_redir_parse oracle proves they
+ * MUTATION hooks (the repository contract; the test_redir_parse oracle proves they
  * bite):
  *   CMD_MUTATE_REDIR_NO_APPEND -- treat `>>` as a single `>` (truncate), so the
  *                                 append flag is never set -> the `>>`-append
@@ -1387,7 +1387,7 @@ static int redir_is_space(char c)
  *   - Returns 1 iff `opch` was present (target_out valid), else 0 (clean_out is a
  *     clamped copy of `line`, target_out == "").
  *
- * Rule 2: every write is bounded by its cap; NUL-terminated within the buffer,
+ * the repository contract: every write is bounded by its cap; NUL-terminated within the buffer,
  * never past the end.  The mutation hooks below are the SAME ones the hsct oracle
  * proves bite (they act on whichever pass is running; the parse-mutant tests use
  * `>` lines). */
@@ -1477,7 +1477,7 @@ static int redir_strip_one(const char *line, char opch, int allow_append,
 
     /* Rebuild clean_out = prefix [0, op_at) + suffix [tgt_end, end), with one
      * separating space inserted only when both sides have non-space content, and
-     * the whole result whitespace-trimmed at both ends (Rule 2, bounded). */
+     * the whole result whitespace-trimmed at both ends (the repository contract, bounded). */
     if (clean_out != 0 && clean_cap > 0u) {
         uint32_t w = 0;
 
@@ -1532,7 +1532,7 @@ int cmd_redir_parse(const char *line,
     char tmp[CMD_LINE_MAX];
 
     /* Defensive default so an early/absent-input return leaves in_target well
-     * formed (Rule 2). */
+     * formed (the repository contract). */
     if (in_target_out != 0 && in_target_cap > 0u) {
         in_target_out[0] = '\0';
     }
@@ -1559,7 +1559,7 @@ int cmd_redir_parse(const char *line,
  * `|` (copying the span since the last cut, whitespace-trimmed) until either the
  * line ends or we reach CMD_PIPE_MAX_STAGES-1 stages; the FINAL stage swallows
  * the entire remaining tail verbatim (embedded `|` preserved -- bounded + no
- * lost byte, Rule 2).  Each copy is clamped to CMD_LINE_MAX and NUL-terminated. */
+ * lost byte, the repository contract).  Each copy is clamped to CMD_LINE_MAX and NUL-terminated. */
 int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
 {
     if (out == 0) {
@@ -1631,7 +1631,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
  * `int $0x21` calls -- the authentic COMMAND.COM design + proof the OS API is a
  * usable surface (the brief's central design point). Compiled out of the host
  * build (test_command.c never defines COMMAND_KERNEL_REPL) so the pure logic
- * above stays asm-free + host-testable (Law 3).
+ * above stays asm-free + host-testable (the repository contract).
  * ===========================================================================*/
 #if defined(COMMAND_KERNEL_REPL) || defined(COMMAND_FILE_HOST) || defined(COMMAND_BATCH_HOST)
 
@@ -1641,7 +1641,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
 #include "batch.h"       /* the .BAT parser/expander + IF/FOR decision helpers   */
 #include "fileio_fat.h"  /* mounted volume identity for DIR (M017) */
 
-/* DEC-04a flat ABI (spec/int21h_calling_convention.json): AH=function in EAX,
+/* DEC-04a flat ABI (kernel/tests/data/int21h_calling_convention.json): AH=function in EAX,
  * EBX=handle, ECX=count, EDX=flat ptr, EAX=return, CF=error in EFLAGS. The
  * wrappers below issue a literal `int $0x21` honoring exactly that contract --
  * the SAME path a real DOS COMMAND.COM uses (it is itself a .COM that calls the
@@ -2126,7 +2126,7 @@ static env_store_t g_master_env;
  * 513-byte env.h ceiling vs the 4096-byte region, but checked for fail-loud
  * discipline), we DO NOT write a truncated/garbage block: print a diagnostic and
  * forward env_block=0 (inherit-empty) -- the cleanest fail-loud choice (the child
- * still runs, with an empty env, never a corrupt one). Rule 2. */
+ * still runs, with an empty env, never a corrupt one). the repository contract. */
 static uint16_t dos_exec(const char *path, const char *tail)
 {
     /* DOS-format command tail: byte0 = count, bytes1..count = text, then CR.
@@ -2347,7 +2347,7 @@ static find_data_t g_shell_dta;
 /* A scratch line buffer for output formatting (DIR lines, etc.). */
 static char g_out[64];
 
-/* ---- the controlled diagnostics (spec/dos_messages.json, ADR-0003 App C) ----
+/* ---- the controlled diagnostics (kernel/include/dos_messages.json, ADR-0003 App C) ----
  * The controlled vocabulary (DEC-13) has a SINGLE source of truth: the generated
  * build/dos_messages.h catalogue (MSG_DOS_*). No inline literal text lives here;
  * the use-sites reference the catalogue macros directly. */
@@ -2489,7 +2489,7 @@ static void builtin_path(const char *arg)
 
 /* DIR: existing FINDFIRST/FINDNEXT operand behavior, DOS 3.3 display.
  * Ref: User Guide pp.28-29 / PDF 41-42; controlled fragments from the
- * deliberate LOOK Rule-8 amendment to spec/dos_messages.json. DTA supplies
+ * deliberate LOOK the repository contract amendment to kernel/include/dos_messages.json. DTA supplies
  * the packed timestamp, AH=36h the FAT free count, mounted root the label. */
 static void cwd_display(char *out);
 /* VOL reuses DIR's root-label reader and controlled text. Only the mounted
@@ -2747,7 +2747,7 @@ static void builtin_cd(const char *arg)
          * Worst-case index math: cwd_display writes "A:\" (3) + up to
          * (INT21_CWD_MAX-1) relative-path bytes + NUL = 3 + INT21_CWD_MAX bytes,
          * so a bare [3 + INT21_CWD_MAX] buffer is exactly full. The +4 slack
-         * leaves headroom (defensive, Rule 2; behavior unchanged). */
+         * leaves headroom (defensive, the repository contract; behavior unchanged). */
         char disp[3 + INT21_CWD_MAX + 4];
         cwd_display(disp);
         dos_puts_raw(disp);
@@ -2903,7 +2903,7 @@ static void builtin_break(const char *arg)
 
 #ifndef COMMAND_BATCH_HOST
 static uint32_t copy_verify_offset;
-/* COPY execution. Law 1: MS-DOS 3.3 Reference pp.50-52; ADR-0003 App A.
+/* COPY execution. the repository contract: MS-DOS 3.3 Reference pp.50-52; ADR-0003 App A.
  * Resolve identity before CREAT; enumerate by ordinal and restart after file
  * calls (one kernel find context). No roster limit on wildcard source files. */
 static int copy_path(char out[CMD_LINE_MAX],const char *spec,const char *leaf)
@@ -3142,7 +3142,7 @@ static void del_path(char out[CMD_LINE_MAX], const char *spec, int prefix,
 
 /* Failed/unchanged deletion: enumerate the remaining names WITHOUT mutation.
  * The failure and every remaining target are visible; never retry forever.
- * Ref: CLAUDE.md Rule 2; MS-DOS 3.3 User's Reference p. 56 (specified files). */
+ * Ref: the repository contract; MS-DOS 3.3 User's Reference p. 56 (specified files). */
 static void del_remaining(const char *spec, int prefix)
 {
     char path[CMD_LINE_MAX];
@@ -3674,16 +3674,16 @@ static int dispatch_line(const char *line)
  * ITS handle 1 also lands in the file -- proven by test-bsy9-redir.
  *
  * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (the shell DUP2's stdout around the
- *   command); spec/int21h_calling_convention.json (AH=3Ch/3Dh/3Eh/42h/45h/46h).
+ *   command); kernel/tests/data/int21h_calling_convention.json (AH=3Ch/3Dh/3Eh/42h/45h/46h).
  *
- * MUTATION hooks (Rule 6):
+ * MUTATION hooks (the repository contract):
  *   CMD_MUTATE_REDIR_NO_RESTORE -- skip the restore, leaving handle 1 on the file.
  *   CMD_MUTATE_REDIR_BYPASS     -- restore CON *before* dispatching + dispatch the
  *     RAW line, so `ECHO X > FILE` runs UNREDIRECTED (test-hsct-redir goes RED).
  * Both NEVER in a real build. */
 /* 1 iff a write through the redirect/pipe file handle `h` (shared with the
  * command's handle 1, builtin or EXEC child) came up short or failed.
- * MUTATION hook (Rule 6): CMD_MUTATE_REDIR_IGNORE_FULL never sees a fault, so a
+ * MUTATION hook (the repository contract): CMD_MUTATE_REDIR_IGNORE_FULL never sees a fault, so a
  * full-disk redirect or pipe is silent again (test-redir-full-emu RED). */
 static int redir_write_failed(int h)
 {
@@ -3737,7 +3737,7 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
 
     /* Save the current stdout (handle 1) so we can restore CON afterward, then
      * force handle 1 onto the file.  If either step fails, fail loud and do NOT
-     * run the command unredirected (Rule 2). */
+     * run the command unredirected (the repository contract). */
     int saved = dos_dup(1);
     if (saved < 0) {
         dos_close(file_h);
@@ -3800,14 +3800,14 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
  *
  * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (the shell opens the `<` file and
  *   DUP2's it onto handle 0; a failed open -> "File not found", command NOT run);
- *   spec/int21h_calling_convention.json (AH=3Dh/3Eh/45h/46h).  Prereq: bsy.9
+ *   kernel/tests/data/int21h_calling_convention.json (AH=3Dh/3Eh/45h/46h).  Prereq: bsy.9
  *   (child inherits parent JFT) makes the EXEC-child `<` redirect actually flow.
  *
  * Returns run_output_and_dispatch's return code (1 = EXIT).  On an input-open
  * failure: prints the DOS "File not found" diagnostic and does NOT run the
- * command (Rule 2 fail-loud -- never silently run with the wrong stdin).
+ * command (the repository contract fail-loud -- never silently run with the wrong stdin).
  *
- * MUTATION hook (Rule 6): CMD_MUTATE_REDIR_NO_LT (in cmd_redir_parse) drops the
+ * MUTATION hook (the repository contract): CMD_MUTATE_REDIR_NO_LT (in cmd_redir_parse) drops the
  * `<` parse so the child reads the keyboard, not the file -- the test-bsy7-redir
  * emu gate + the host `<` parse oracle both go RED.  NEVER in a real build. */
 static int run_with_redirect(const char *line)
@@ -3851,7 +3851,7 @@ static int run_with_redirect(const char *line)
             return 0;
         }
         /* Force handle 0 onto the source file.  On failure, tear down cleanly and
-         * do NOT run the command with the wrong stdin (Rule 2). */
+         * do NOT run the command with the wrong stdin (the repository contract). */
         if (dos_dup2(in_fh, 0) < 0) {
             dos_close(in_saved);
             dos_close(in_fh);
@@ -3917,7 +3917,7 @@ static int run_with_redirect(const char *line)
  * a file it did not create (TR p.6-213 "unique filenames" for temporaries;
  * initech-66oc, audit L001).  Only names this pipeline created are deleted.
  *
- * FAIL-LOUD (Rule 2): a temp-file CREATE failure (disk full) prints the DOS
+ * FAIL-LOUD (the repository contract): a temp-file CREATE failure (disk full) prints the DOS
  * "Insufficient disk space" diagnostic (MSG-DOS-0005), deletes any temps already
  * made, and aborts the pipeline -- never runs a stage with a bogus stdout.  A
  * producer whose writes into the temporary came up short (a full disk; AH=40h
@@ -3927,7 +3927,7 @@ static int run_with_redirect(const char *line)
  * (User's Guide App. F, printed p.337) is not in the locked DEC-13 catalogue,
  * so the catalogue's full-disk message stands in for it.
  *
- * MUTATION hook (Rule 6): CMD_MUTATE_PIPE_NO_STDIN drops the OUTER stdin repoint
+ * MUTATION hook (the repository contract): CMD_MUTATE_PIPE_NO_STDIN drops the OUTER stdin repoint
  * for stages 2..n, so a consumer reads the KEYBOARD instead of the pipe -- the
  * GREET|GOBBLE emu gate goes RED (GREETINGS never flows through the temp).
  * NEVER in a real build. */
@@ -3936,7 +3936,7 @@ static int run_with_redirect(const char *line)
  * writing its name into `buf` (>= 13 bytes).  Candidate 0 is "PIPE<idx+1>.$$$";
  * when that name exists, candidates k = 1..999 are "PIPE<idx+1><kkk>.$$$".
  * Returns the handle, or <0 (the DOS error) when no name could be created.
- * MUTATION hook (Rule 6): CMD_MUTATE_PIPE_CLOBBER creates candidate 0 with
+ * MUTATION hook (the repository contract): CMD_MUTATE_PIPE_CLOBBER creates candidate 0 with
  * AH=3Ch (the pre-66oc truncate), so a user PIPE1.$$$ is destroyed again. */
 static int pipe_temp_create(int idx, char *buf)
 {
@@ -3966,7 +3966,7 @@ static int pipe_temp_create(int idx, char *buf)
 }
 
 /* Execute a multi-stage pipeline.  Returns 1 iff a stage issued EXIT (tear the
- * REPL down), else 0.  Deletes every temp on EVERY path (Rule 2). */
+ * REPL down), else 0.  Deletes every temp on EVERY path (the repository contract). */
 static int run_pipeline(cmd_pipeline_t *pl)
 {
     char tname[CMD_PIPE_MAX_STAGES][13];   /* tname[i] = temp AFTER stage i     */
@@ -4095,7 +4095,7 @@ static int run_pipeline_or_redirect(const char *line)
  * SHIFT, CALL, PAUSE, and plain commands (fed back through dispatch_line).
  * I/O lives HERE (the file read, the CON writes); the pure decision helpers
  * (batch_classify / batch_expand / batch_eval_if / batch_for_*) live in batch.c
- * and are host-tested by test_batch_exec.c (Law 2/Law 3 seam). */
+ * and are host-tested by test_batch_exec.c (the repository contract/the repository contract seam). */
 
 /* The maximum bytes of a .BAT file we read into memory at once.  4 KiB covers
  * AUTOEXEC.BAT and ordinary scripts; a larger file is truncated at this bound
@@ -4105,7 +4105,7 @@ static int run_pipeline_or_redirect(const char *line)
  * kernel headroom -- the extra 2 KiB .bss here is well within that budget). */
 #define BATCH_FILE_MAX  4096
 
-/* The CALL nesting cap (Rule 2: bound recursion so a self-CALL'ing .BAT cannot
+/* The CALL nesting cap (the repository contract: bound recursion so a self-CALL'ing .BAT cannot
  * blow the stack).  8 levels is far beyond any real DOS batch nest. */
 #define BATCH_NEST_MAX  8
 
@@ -4114,7 +4114,7 @@ static int run_pipeline_or_redirect(const char *line)
 static int g_batch_depth = 0;
 
 /* ONE shared file buffer (BSS, not the stack -- a 4 KiB buffer is far too large
- * to live on the kernel stack, Rule 2).  A CALL'd .BAT shares this single buffer
+ * to live on the kernel stack, the repository contract).  A CALL'd .BAT shares this single buffer
  * with its caller: the child overwrites it while it runs, and on return the
  * parent RE-READS its own file (run_batch reloads after each CALL).  This is how
  * real COMMAND.COM behaves -- it re-reads batch files from disk rather than
@@ -4197,7 +4197,7 @@ static void batch_echo_line(const char *text)
  * into `out` (capacity BATCH_LINE_MAX), advance `*pos` past the line and its
  * EOL sequence (CR, LF, or CRLF), and return 1.  Return 0 at end of buffer
  * (out[0] = '\0').  An over-long line is truncated into `out` but `*pos` is
- * still advanced past the whole physical line (Rule 2: never bleed). */
+ * still advanced past the whole physical line (the repository contract: never bleed). */
 static int batch_next_line(const char *buf, int len, int *pos, char *out)
 {
     int i = *pos;
@@ -4481,7 +4481,7 @@ static int dispatch_control(const char *line)
 }
 
 /* Reference PAUSE p.149 / PDF234, MSG-DOS-0063; real DOS 3.30 capture in
- * harness/diff/fat_diff/batch_break_mint: invalid keys ask again; Y cancels
+ * dos/command/tests/batch_break_mint: invalid keys ask again; Y cancels
  * ALL active CALL frames; N resumes after the interrupted physical line.
  * Called only after command/pipe cleanup. A surrounding CALL can still have
  * redirected handles: ask on an explicit CON handle, never redirected stdout.
@@ -4678,7 +4678,7 @@ void command_repl(int permanent)
     /* Seed the master environment once at REPL entry (beads initech-1i0x
      * Tranche E inc 2). These three variables match DOS 3.3 startup defaults
      * for a single-floppy system. Overflow is impossible here (well under 512
-     * bytes), but we follow fail-loud discipline (Rule 2) with no-op silence:
+     * bytes), but we follow fail-loud discipline (the repository contract) with no-op silence:
      * env_set returns 0 on overflow; the REPL continues regardless (the OS
      * must boot even if seeding somehow fails on a future tiny-arena config). */
     env_init(&g_master_env);
@@ -4729,7 +4729,7 @@ void command_repl(int permanent)
              * guard: command_repl seeds it to "$P$G" above, but a PROMPT CLEAR
              * via `SET PROMPT=` would leave env_get returning ""; in that case
              * DOS 3.3 also falls back to the bare drive letter, but "$P$G" is
-             * more useful and matches the seeded default -- Law 4). */
+             * more useful and matches the seeded default -- the repository contract). */
             const char *templ = env_get(&g_master_env, "PROMPT");
             if (templ == 0 || templ[0] == '\0') {
                 templ = "$P$G";

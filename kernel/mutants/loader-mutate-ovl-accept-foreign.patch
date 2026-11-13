@@ -7,6 +7,6 @@
              len   = img.load_module_len;
          } else if (ps == MZ_ERR_FOREIGN) {
 -            return LOADER_ERR_FOREIGN_MZ;   /* DEC-08a.5: the kernel panics */
-             /* MUTANT (Rule 6): the untagged 16-bit MZ falls through and is
+             /* MUTANT (the repository contract): the untagged 16-bit MZ falls through and is
               * copied as a raw file. NEVER define in a real build. */
          } else {

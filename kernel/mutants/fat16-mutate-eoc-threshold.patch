@@ -9,7 +9,7 @@
 -	if (vol != NULL && vol->fat_type == FAT_TYPE_FAT16) {
 -		return fat16_is_eoc(v);   /* >= 0xFFF8 */
 -	}
-+	/* MUTANT (Rule 6; test-fat16 mutant M3 only): use the FAT12 0xFF8 EOC
++	/* MUTANT (the repository contract; test-fat16 mutant M3 only): use the FAT12 0xFF8 EOC
 +	 * threshold on a FAT16 volume. A normal FAT16 cluster pointer in
 +	 * 0x0FF8..0x0FFF (and any cluster index >= 4088) is wrongly seen as EOC, so
 +	 * large files truncate mid-chain -> the differential goes RED. NEVER in a

@@ -6,7 +6,7 @@
          if (*p == '\\' || *p == ':') {
              return 1;
          }
--        /* MUTANT (Rule 6; make test-exec-mutant only) removes this bound so an
+-        /* MUTANT (the repository contract; make test-exec-mutant only) removes this bound so an
 -         * overlength path is NOT rejected and reaches the backend -- the
 -         * overlength oracle must go RED. NEVER define in a real build. */
 -        if (++n >= INT21_PATH_SCAN_MAX) {

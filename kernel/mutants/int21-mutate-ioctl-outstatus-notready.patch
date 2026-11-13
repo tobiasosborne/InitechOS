@@ -7,7 +7,7 @@
              return;
          }
 -        set_al(f, 0xFFu);               /* CON screen / disk file: always ready */
-+        /* MUTANT (Rule 6): report not-ready (0x00) -> the output-ready
++        /* MUTANT (the repository contract): report not-ready (0x00) -> the output-ready
 +         * assertions go RED. */
 +        set_al(f, 0x00u);
          cf_clear(f);

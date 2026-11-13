@@ -1,5 +1,5 @@
 # FILEIO_MUTATE_NO_STAMP
-# test: test-zs24
+# test: test-qekc test-dos-stamp-host
 --- a/fileio_fat.c
 +++ b/fileio_fat.c
 @@ -98,12 +98,8 @@

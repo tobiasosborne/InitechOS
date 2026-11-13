@@ -7,7 +7,7 @@
  	de.file_size     = 0u;
  
 -	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
-+	/* MUTANT m-rootslot-write (Rule 6; make test-m0bp-mutant only): force the new
++	/* MUTANT m-rootslot-write (the repository contract; make test-m0bp-mutant only): force the new
 +	 * dir's OWN-entry write-back to a ROOT slot (is_root=1) instead of the parent
 +	 * subdir cluster-chain slot. NEWDIR then lands in the ROOT, not in SUB:
 +	 * `mdir ::SUB` lacks it (and `mdir ::` wrongly gains it), so the nested

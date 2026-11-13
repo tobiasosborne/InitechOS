@@ -7,7 +7,7 @@
  		/* Reserve this cluster IN the FAT immediately (mark EOC) so the next
  		 * fat12_find_free does not hand back the same cluster. */
 -		rc = fat12_set_entry(fat, fat_len, cl, FAT12_EOC_VALUE);
-+		/* MUTANT (Rule 6; make test-fat-write-mutant only): mark the cluster
++		/* MUTANT (the repository contract; make test-fat-write-mutant only): mark the cluster
 +		 * with a NON-EOC value (0x002) instead of EOC, so the last cluster's
 +		 * chain link is wrong -- the read-back walk runs off the end / mismatches
 +		 * and the round-trip goes RED. NEVER define in a real build. */

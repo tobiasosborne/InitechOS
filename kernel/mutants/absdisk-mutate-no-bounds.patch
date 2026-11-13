@@ -9,7 +9,7 @@
 -    if (lba >= bk->total_sectors ||
 -        (lba + count) < lba ||                 /* DX+CX 32-bit wrap            */
 -        (lba + count) > bk->total_sectors) {
-+    /* MUTANT M4 (Rule 6): drop the bounds check entirely -- DX>=total then falls
++    /* MUTANT M4 (the repository contract): drop the bounds check entirely -- DX>=total then falls
 +     * through to the seam (a real backend short-reads / off-the-end), so the
 +     * out-of-range / overflow error-path oracle legs [8] go RED (they expected
 +     * CF=1 + sector-not-found, not a CF=0 pass-through). */

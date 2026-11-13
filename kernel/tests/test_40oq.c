@@ -1,11 +1,11 @@
 /* test_40oq.c -- CAPSTONE: INT 21h Appendix-A coverage certificate (beads initech-40oq).
  *
  * Ref: spec/int21h_register.json (locked Appendix-A AH set; ADR-0003 DEC-04);
- *      ADR-0003 Appendix A (controlled scope); os/milton/int21.c dispatch switch
+ *      ADR-0003 Appendix A (controlled scope); kernel/int21.c dispatch switch
  *      (int21_dispatch_body, ~line 4346 -- all case labels read verbatim);
- *      os/milton/int21.c ah_is_listed() (~line 720 -- the recognized-set oracle);
- *      CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Rule 2 (fail loud),
- *      Rule 6 (mutation-proven), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *      kernel/int21.c ah_is_listed() (~line 720 -- the recognized-set oracle);
+ *      the repository contract (cite source), the repository contract (oracle is truth), the repository contract (fail loud),
+ *      the repository contract (mutation-proven), the repository contract (deterministic), the repository contract (ASCII-clean).
  *
  * WHAT THIS CERT ASSERTS
  * ----------------------
@@ -20,7 +20,7 @@
  *                     dispatched AND NOT in the FCB waiver.
  *                     Currently: 0x03 (AUX input), 0x04 (AUX output), 0x05 (PRINT
  *                     char) -- lumped in "01h-0Ch CON I/O" register entry but NOT
- *                     wired in the switch. Flagged honestly per Law 1 + task spec
+ *                     wired in the switch. Flagged honestly per the repository contract + task spec
  *                     ("flag any AH you could not confirm dispatched").
  *                     For the cert to be GREEN this list must be EMPTY; if not,
  *                     the cert prints them and exits nonzero (RED).
@@ -52,7 +52,7 @@
  *      make test-4tw          -- Ctrl-C / INT 23h break handling (initech-4tw)
  *      make test-80k          -- Full DOS 8.3 wildcard engine (initech-80k)
  *
- * MUTATION PROOF (Rule 6):
+ * MUTATION PROOF (the repository contract):
  *      -DCERT_MUTATE_DROP_GETVER: wraps the 0x30 GETVER case in int21.c in
  *       `#ifndef CERT_MUTATE_DROP_GETVER` so AH=30h falls to not-yet-impl.
  *       The dynamic safe-set check sees "not-yet-impl AH=30" -> cert goes RED.
@@ -66,7 +66,7 @@
  *
  * Compiles HOSTED (-std=c11 -Wall -Wextra -Werror; libc OK).
  * The SAME int21.c that runs in-kernel is linked here. Factory test.
- * ASCII-clean (CLAUDE.md Rule 12). Deterministic (Rule 11).
+ * ASCII-clean (the repository contract). Deterministic (the repository contract).
  */
 
 #include <stdint.h>

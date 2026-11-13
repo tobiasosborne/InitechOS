@@ -8,7 +8,7 @@
          case 0x33:                       /* GET/SET CTRL-BREAK STATE (DEC-16) */
 -            do_break(frame);
 -            return;
-+            /* MUTANT M1/M3 base (Rule 6; make test-er3h-mutant only): do NOT
++            /* MUTANT M1/M3 base (the repository contract; make test-er3h-mutant only): do NOT
 +             * dispatch 0x33; fall through to the listed-but-not-yet-impl path
 +             * (CF=1, AX=0x0001) so every AH=33h GET/SET oracle goes RED. The
 +             * (void) ref keeps -Werror=unused-function quiet so the mutant still

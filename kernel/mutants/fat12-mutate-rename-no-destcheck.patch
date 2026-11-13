@@ -22,7 +22,7 @@
 -			return FAT12_ERR_EXISTS;   /* dest name already present */
 -		}
 -	}
-+	/* MUTANT 1 (Rule 6; make test-gnrc-mutant only): SKIP the dest-absent scan, so
++	/* MUTANT 1 (the repository contract; make test-gnrc-mutant only): SKIP the dest-absent scan, so
 +	 * a rename ONTO an existing dest wrongly SUCCEEDS (it overwrites the source's
 +	 * own name with a name that already lives elsewhere in the dir, producing a
 +	 * duplicate). The dest-exists (0x0005) leg + the mren differential go RED.

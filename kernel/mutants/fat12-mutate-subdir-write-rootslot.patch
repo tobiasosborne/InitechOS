@@ -6,7 +6,7 @@
  	if (vol->dev->write_sectors == NULL) {
  		return FAT12_ERR_WRITE;
  	}
-+	/* MUTANT (Rule 6; make test-zs24-mutant only): write a SUBDIR entry back to a
++	/* MUTANT (the repository contract; make test-zs24-mutant only): write a SUBDIR entry back to a
 +	 * ROOT-dir slot of the same index instead of the subdir cluster-chain slot.
 +	 * The subdir dir entry never lands (its size/start_cluster are never patched
 +	 * on disk), so the read-back via mcopy/python sees the wrong/zero entry and

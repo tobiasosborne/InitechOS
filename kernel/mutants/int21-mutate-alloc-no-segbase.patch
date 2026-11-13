@@ -7,7 +7,7 @@
          return;
      }
 -    set_ax(f, (uint16_t)((arena_seg_base() + data_para) & 0xFFFFu));
-+    /* MUTANT (Rule 6; make test-mcb-int21-mutant only): drop the arena segment
++    /* MUTANT (the repository contract; make test-mcb-int21-mutant only): drop the arena segment
 +     * base from the conversion, returning a bare data-paragraph index as the
 +     * "segment". A subsequent 49h FREE of that wrong segment then maps to a
 +     * different data_para and is rejected (or, with FREE using the same broken

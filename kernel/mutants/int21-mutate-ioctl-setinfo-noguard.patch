@@ -5,9 +5,9 @@
 @@ -1834,7 +1834,9 @@
          }
          /* DH must be zero (RBIL: "DH = must be zero"); a non-char handle has no
-          * device-info word to set -> invalid function (Rule 2: reject loudly). */
+          * device-info word to set -> invalid function (the repository contract: reject loudly). */
 -        if (e->kind != SFT_KIND_DEVICE || frame_dh(f) != 0x00u) {
-+        /* MUTANT (Rule 6): drop the (char-device && DH==0) guard so a FILE
++        /* MUTANT (the repository contract): drop the (char-device && DH==0) guard so a FILE
 +         * handle / nonzero DH wrongly succeeds -> the reject assertions go RED. */
 +        if (0) {
              set_ax(f, INT21_ERR_INVALID_FUNCTION);

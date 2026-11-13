@@ -20,7 +20,7 @@
 -	if (rc != FAT12_OK) {
 -		return rc;
 -	}
-+	/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the collision probe
++	/* MUTANT (the repository contract; make test-fat-move-mutant only): SKIP the collision probe
 +	 * and hand back the base name unconditionally, so a staged item collides with
 +	 * the entry already in the destination (the move then refuses EXISTS, or --
 +	 * worse for a caller that ignores it -- the Trash silently swallows the drag).

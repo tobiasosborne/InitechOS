@@ -25,7 +25,7 @@
 -        name8[0]='P';name8[1]='R';name8[2]='N';name8[3]=' ';
 -    }
 -    return devices_find(name8);           /* NULL if the name is not a device */
-+    /* MUTANT (Rule 6; make test-devwire-mutant only): pretend NO path is ever a
++    /* MUTANT (the repository contract; make test-devwire-mutant only): pretend NO path is ever a
 +     * device, so an OPEN of "NUL"/"CON"/"PRN"/"CLOCK$" falls through to the FAT
 +     * path -> with no such FILE it returns file-not-found and the device-OPEN
 +     * oracle goes RED. A one-branch RUNTIME perturbation that compiles under

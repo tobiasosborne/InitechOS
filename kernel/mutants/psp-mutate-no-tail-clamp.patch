@@ -10,7 +10,7 @@
 -        dropped = copy - PSP_CMD_TAIL_MAX_TEXT;
 -        copy = PSP_CMD_TAIL_MAX_TEXT;
 -    }
-+    /* Rule-6 mutant target (make test-cmdline-fuzz-mutant): REMOVE the cmd_tail
++    /* the repository contract mutant target (make test-cmdline-fuzz-mutant): REMOVE the cmd_tail
 +     * clamp, so an over-long command tail (cmd_tail_len > 126) copies all `want`
 +     * bytes plus the CR straight past offset 0x7F of the 128-byte cmd_tail region
 +     * -- writing beyond psp->cmd_tail[127], stomping the guard byte the fuzzer

@@ -7,7 +7,7 @@
      uint8_t  vec     = frame_al(f);
      uint32_t handler = g_getvect ? g_getvect(vec) : 0u;
 -    f->ebx = handler;                   /* EBX = flat handler offset (BX low 16) */
-+    /* MUTANT (Rule 6; make test-int24-mutant only): return the handler in EAX
++    /* MUTANT (the repository contract; make test-int24-mutant only): return the handler in EAX
 +     * instead of EBX -- the WRONG register. DOS 35h returns the vector in ES:BX
 +     * (EBX in the flat model); a caller reading EBX gets nothing. The [4b] GETVECT
 +     * oracle (which asserts EBX == the handler) goes RED. NEVER in a real build. */

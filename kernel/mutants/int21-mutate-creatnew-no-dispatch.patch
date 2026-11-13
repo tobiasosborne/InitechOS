@@ -8,7 +8,7 @@
          case 0x5B:                       /* CREATNEW (create, fail if exists) */
 -            do_creatnew(frame);
 -            return;
-+            /* MUTANT (Rule 6): do NOT dispatch 0x5B; fall through to the
++            /* MUTANT (the repository contract): do NOT dispatch 0x5B; fall through to the
 +             * not-yet-impl path (CF=1, AX=0x0001). The (void) ref keeps
 +             * -Werror=unused-function quiet so the mutant still BUILDS + RUNS. */
 +            (void)do_creatnew;

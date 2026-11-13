@@ -10,7 +10,7 @@
 -			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
 -			                      parent_newc);
 -		}
-+		/* MUTANT m-nospace-noroll (Rule 6; make test-m0bp-rollback-mutant only):
++		/* MUTANT m-nospace-noroll (the repository contract; make test-m0bp-rollback-mutant only):
 +		 * SKIP the parent-grow rollback on the NO_SPACE post-grow path. The
 +		 * appended parent cluster then leaks -- SUB stays 2 clusters and the
 +		 * volume's last free cluster stays consumed while MKDIR fails: exactly

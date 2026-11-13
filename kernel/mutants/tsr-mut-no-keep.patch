@@ -7,7 +7,7 @@
  {
      if(g_high) { set_ax(f,1); cf_set(f); return; } /* DEC-03a.5 */
 -    tsr_keep(frame_al(f), frame_dx(f));
-+    /* Rule 6 (test-tsr-unit-mutant / test-tsr-mutant): 31h acts as 4Ch. */
++    /* the repository contract (test-tsr-unit-mutant / test-tsr-mutant): 31h acts as 4Ch. */
 +    do_terminate(f, frame_al(f));
  }
  

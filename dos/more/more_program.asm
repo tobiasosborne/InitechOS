@@ -30,19 +30,19 @@
 ;
 ; Ref:   os/initechdos/int21.c do_ioctl (AH=44h AL=00h), do_read (AH=3Fh), do_write
 ;        (AH=40h), do_conin_noecho (AH=08h), do_terminate (AH=4Ch);
-;        spec/memory_map.h (PROGRAM_IMAGE=0x00040100 == org);
-;        MS-DOS 3.3 PRM INT 21h Fn 44h.  CLAUDE.md Law 1 (cite), Rule 2, Rule 11
-;        (nasm -f bin deterministic), Rule 12 (ASCII).
+;        kernel/include/memory_map.h (PROGRAM_IMAGE=0x00040100 == org);
+;        MS-DOS 3.3 PRM INT 21h Fn 44h.  the repository contract (cite), the repository contract, the repository contract
+;        (nasm -f bin deterministic), the repository contract (ASCII).
 ;
 ; Assembled: nasm -f bin os/initechdos/more_program.asm -o build/more_program.bin
 ; Deployed:  mcopy build/more_program.bin ::MORE.COM  (NOT baked into kernel).
 ;
-; Mutant (Rule 6): nasm -DMORE_MUTATE_DROP drops every input chunk after the
+; Mutant (the repository contract): nasm -DMORE_MUTATE_DROP drops every input chunk after the
 ; first, so the passthrough is LOSSY and the "output == input" emu assertion goes
 ; RED (proves MORE actually forwards ALL bytes, not just the head).
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 RBUF     equ 0x00050000         ; read buffer base
 RBUF_MAX equ 0x00001000         ; 4 KiB chunk
@@ -128,7 +128,7 @@ start:
     mov ah, 0x4C
     mov al, 0
     int 0x21
-    int 0x20                    ; defense in depth (Rule 2)
+    int 0x20                    ; defense in depth (the repository contract)
 
 ; --- scratch ----------------------------------------------------------------
 chunk_len: dd 0

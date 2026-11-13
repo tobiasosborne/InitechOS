@@ -1,6 +1,6 @@
 /* XCOPY and TREE, native flat .COM-equivalent programs (initech-zuvo).
  *
- * Law 1: MS-DOS_3.3_Users_Guide_198707.pdf printed pp.122,127-129
+ * the repository contract: MS-DOS_3.3_Users_Guide_198707.pdf printed pp.122,127-129
  * (PDF 207,212-214): operands, /A /M /D /S /E /P /V /W, exit codes;
  * p.324 (PDF409): F/D prompt; pp.314,341: cyclic/parameter diagnostics;
  * p.54 (PDF139): DATE separators and the 1980-2079 year window.
@@ -8,7 +8,7 @@
  * continued subdirectories have a colon at column 16, Files names at 9.
  * IBM 6138519 Reference printed 7-184 (PDF289): volume heading and None.
  * ADR-0003 Appendix A + DEC-08 / DEC-04a: flat native INT21 ABI;
- * spec/find_data.h: DTA layout. mcopy -s on identical images grades the
+ * kernel/include/find_data.h: DTA layout. mcopy -s on identical images grades the
  * results; mdir -/ supplies the independent TREE inventory.
  *
  * All enumeration, wildcard matching, paths, and file transfers use the

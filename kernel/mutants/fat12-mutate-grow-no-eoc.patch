@@ -10,7 +10,7 @@
 -	if (rc != FAT12_OK) {
 -		return rc;
 -	}
-+	/* MUTANT (Rule 6; make test-zs24-mutant only): SKIP marking the freshly
++	/* MUTANT (the repository contract; make test-zs24-mutant only): SKIP marking the freshly
 +	 * claimed cluster end-of-chain. The new cluster's FAT entry stays 0x000
 +	 * (free); the old-tail->newc link below then points at a "free" cluster, so
 +	 * the directory chain is BROKEN at the join -- a reader (mtools/python)

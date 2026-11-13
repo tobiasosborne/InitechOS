@@ -7,7 +7,7 @@
          }
      }
 -    return CMD_EXTERNAL;
-+    /* MUTANT (Rule 6; make test-command-mutant only): treat an unknown command
++    /* MUTANT (the repository contract; make test-command-mutant only): treat an unknown command
 +     * word as a built-in (CMD_DIR) instead of CMD_EXTERNAL, so "badcmd" would
 +     * never reach EXEC / the Bad command diagnostic -> the classify oracle goes
 +     * RED. NEVER in a real build. */

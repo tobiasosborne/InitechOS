@@ -3,13 +3,13 @@
 --- a/command/command.c
 +++ b/command/command.c
 @@ -101,12 +101,6 @@
-          * oracle goes RED (Rule 6). NEVER dropped in a real build. */
+          * oracle goes RED (the repository contract). NEVER dropped in a real build. */
          { "DEL",   CMD_DEL  },
          { "ERASE", CMD_DEL  },   /* ERASE is the long form of DEL (DOS) */
 -        /* REN/RENAME <old> <new> -- same-dir dir-entry rename via 56h (beads
 -         * initech-fyox, Tranche F). The CMD_MUTATE_NO_REN mutant DROPS BOTH rows
 -         * so "REN"/"RENAME" fall through to CMD_EXTERNAL -> the classify oracle
--         * goes RED (Rule 6). NEVER dropped in a real build. */
+-         * goes RED (the repository contract). NEVER dropped in a real build. */
 -        { "REN",    CMD_REN },
 -        { "RENAME", CMD_REN },   /* RENAME is the long form of REN (DOS) */
          /* DATE [MM-DD-YY[YY]] -- show/set the system date via 2Ah/2Bh (beads

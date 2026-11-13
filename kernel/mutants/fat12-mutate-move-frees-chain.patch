@@ -6,7 +6,7 @@
  		}
  		return rc;
  	}
-+	/* MUTANT (Rule 6; make test-fat-move-mutant only) -- the F1.4
++	/* MUTANT (the repository contract; make test-fat-move-mutant only) -- the F1.4
 +	 * "TRASH_NO_STAGE" defect shape: after transplanting the entry, ALSO free the
 +	 * file's cluster chain, i.e. behave like unlink-then-create instead of a
 +	 * metadata-only move. The transplanted entry then points at freed clusters:

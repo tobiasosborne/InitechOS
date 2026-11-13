@@ -11,7 +11,7 @@
 -                                 in_target_out, in_target_cap, 0 /*no append*/);
 -
 -    return (out_has ? CMD_REDIR_OUT : 0) | (in_has ? CMD_REDIR_IN : 0);
-+    /* MUTANT (Rule 6; beads initech-bsy.7): drop the `<` INPUT scan entirely --
++    /* MUTANT (the repository contract; beads initech-bsy.7): drop the `<` INPUT scan entirely --
 +     * clean_out is just the OUTPUT-stripped line, in_target stays empty, and
 +     * CMD_REDIR_IN is never returned.  The `<` parse oracle + the GOBBLE emu gate
 +     * both go RED (the child reads the keyboard, not the file).  NEVER in a real

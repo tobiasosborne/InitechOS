@@ -24,30 +24,30 @@
 ;     ignored (the fixtures never pass one).
 ;   - Buffer bound: real DOS SORT buffers a bounded amount (~63 KB in 3.3). We use
 ;     a fixed 64 KiB buffer and FAIL LOUD ("SORT: Insufficient memory", the DOS
-;     3.3 diagnostic) if stdin exceeds it -- Rule 2, never silently truncate.
+;     3.3 diagnostic) if stdin exceeds it -- the repository contract, never silently truncate.
 ;
 ; Ref:   os/initechdos/int21.c do_read (AH=3Fh: EBX=handle, ECX=count, EDX=buf ->
 ;        EAX=bytes, 0=EOF), do_write (AH=40h), do_puts (AH=09h), do_terminate
-;        (AH=4Ch); spec/memory_map.h (PROGRAM_IMAGE=0x00040100 == org; PSP at
+;        (AH=4Ch); kernel/include/memory_map.h (PROGRAM_IMAGE=0x00040100 == org; PSP at
 ;        0x00040000, cmd tail at 0x00040080); MS-DOS 3.3 User's Guide "SORT".
-;        CLAUDE.md Law 1 (cite), Rule 2 (fail loud on overflow), Rule 11
-;        (deterministic: nasm -f bin), Rule 12 (ASCII).
+;        the repository contract (cite), the repository contract (fail loud on overflow), the repository contract
+;        (deterministic: nasm -f bin), the repository contract (ASCII).
 ;
 ; Assembled: nasm -f bin os/initechdos/sort_program.asm -o build/sort_program.bin
 ; Deployed:  mcopy build/sort_program.bin ::SORT.COM  (NOT baked into kernel).
 ;
-; Mutant (Rule 6): nasm -DSORT_MUTATE_REVERSE flips the default order to
+; Mutant (the repository contract): nasm -DSORT_MUTATE_REVERSE flips the default order to
 ; descending, so the ascending-order emu assertion goes RED (proves the gate and
 ; the comparator are load-bearing).
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 ; --- Fixed scratch addresses (mirrors datetime_program's absolute-page idiom).
 ; All lie inside the program's own 64 KiB arena (PROGRAM_BASE 0x40000 .. 0x80000)
 ; and above the program image; the program is tiny so nothing else uses them.
 INBUF     equ 0x00050000       ; stdin buffer base
-INBUF_MAX equ 0x00010000       ; 64 KiB cap (Rule 2: overflow -> fail loud)
+INBUF_MAX equ 0x00010000       ; 64 KiB cap (the repository contract: overflow -> fail loud)
 LINEIDX   equ 0x00060000       ; array of 8-byte line records: [off:u32][clen:u32]
 REC_SIZE  equ 8
 PSP_TAIL_LEN equ 0x00040080    ; PSP:80h byte0 = command-tail length
@@ -246,10 +246,10 @@ start:
     mov ah, 0x4C
     mov al, 0
     int 0x21
-    int 0x20                    ; defense in depth (Rule 2)
+    int 0x20                    ; defense in depth (the repository contract)
 
 .overflow:
-    ; stdin exceeded the buffer: fail loud with the DOS 3.3 diagnostic (Rule 2).
+    ; stdin exceeded the buffer: fail loud with the DOS 3.3 diagnostic (the repository contract).
     mov ah, 0x09
     mov edx, msg_oom
     int 0x21

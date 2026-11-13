@@ -1,5 +1,5 @@
 # DU_MUTATE_VOL
-# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+# test: test-label-vol
 --- a/command/command.c
 +++ b/command/command.c
 @@ -63,7 +63,6 @@

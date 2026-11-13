@@ -7,7 +7,7 @@
      d->fat_count = g.fat_count;
      d->root_entries = g.root_entries;
 -    d->first_sector = (uint16_t)g.first_data_sector;
-+    /* MUTANT (Rule 6; make test-int21-dpb-mutant only): the first data sector
++    /* MUTANT (the repository contract; make test-int21-dpb-mutant only): the first data sector
 +     * forgets the root directory ($SETDPB's ADD AX,CX). NEVER in a build. */
 +    d->first_sector = (uint16_t)g.root_dir_sector;
      d->max_cluster = (uint16_t)(g.total_clusters + 1u);

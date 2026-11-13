@@ -14,13 +14,13 @@
 ;            base PROGRAM_IMAGE (0x40100) to the 32-bit dword at that offset.
 ;          DEC-08a.2: the load module lands at PROGRAM_IMAGE; entry = load base
 ;            (cs=ip=0); EBX = PROGRAM_BASE on entry, as for a flat .COM.
-;        os/milton/int21.c do_puts (AH=09h: EDX -> '$'-terminated string, '$' not
-;          emitted) + do_terminate (AH=4Ch: AL = exit code); spec/memory_map.h
-;          (PROGRAM_IMAGE = 0x00040100). CLAUDE.md Law 1 (cite), Law 2 (the
-;          marker is the oracle signal), Rule 2 (fail loud / defense in depth),
-;          Rule 11 (deterministic: nasm -f bin is reproducible), Rule 12 (ASCII).
+;        kernel/int21.c do_puts (AH=09h: EDX -> '$'-terminated string, '$' not
+;          emitted) + do_terminate (AH=4Ch: AL = exit code); kernel/include/memory_map.h
+;          (PROGRAM_IMAGE = 0x00040100). the repository contract (cite), the repository contract (the
+;          marker is the oracle signal), the repository contract (fail loud / defense in depth),
+;          the repository contract (deterministic: nasm -f bin is reproducible), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/mzexec_fixture.asm -o build/mzexec_fixture.bin
+; Assembled: nasm -f bin os/initechdos/mzexec_fixture.asm -o build/mzexec_fixture.bin
 ; Linked:    build/mzlink build/mzexec_fixture.bin build/mzexec.exe --reloc 1
 ;            (the InitechMZ container with the 0x4943 tag + the one reloc entry).
 ;
@@ -36,9 +36,9 @@
 ;   WITH reloc:    EDX = 0x40100 + (msg offset)  == the real string -> prints the marker.
 ;   WITHOUT reloc: EDX = (msg offset, ~0x11)     == low kernel RAM  -> NO marker.
 ; So a green gate that sees "MZEXEC-OK" on serial PROVES the flat-32 relocation
-; resolved AT RUNTIME -- not merely in a host unit test (Law 2). The no-reloc
+; resolved AT RUNTIME -- not merely in a host unit test (the repository contract). The no-reloc
 ; container variant (mzlink --no-reloc) leaves the dword unrelocated and the
-; marker is ABSENT, mutation-proving the gate bites (Rule 6).
+; marker is ABSENT, mutation-proving the gate bites (the repository contract).
 
 bits 32
 org 0                          ; LINK BASE 0 -- forces the reloc (see header above)
@@ -103,7 +103,7 @@ start:
     mov al, 9
     int 0x21
 
-    ; Defense in depth (Rule 2): if 4Ch ever failed to terminate, INT 20h also
+    ; Defense in depth (the repository contract): if 4Ch ever failed to terminate, INT 20h also
     ; routes to the loader's exit hook (exit code 0) rather than running off into
     ; the string bytes.
     int 0x20

@@ -1,12 +1,12 @@
 # FILEIO_MUTATE_SETTIME_ROOTDIR
-# test: test-b53d
+# test: test-qekc test-dos-stamp-host
 --- a/fileio_fat.c
 +++ b/fileio_fat.c
 @@ -341,6 +341,11 @@
      if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
          return FILEIO_ERR_ACCESS_DENIED;
      }
-+    /* MUTANT 6 (Rule 6; make test-qekc-mutant only): force dir_start=0 (the root)
++    /* MUTANT 6 (the repository contract; make test-qekc-mutant only): force dir_start=0 (the root)
 +     * so a SUBDIR file's stamp is written to a ROOT slot of the same index instead
 +     * of the subdir cluster-chain slot. The subdir --stat-path-time differential
 +     * goes RED (the subdir entry never gets the stamp). NEVER in a real build. */

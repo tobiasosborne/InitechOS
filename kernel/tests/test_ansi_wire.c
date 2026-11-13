@@ -5,9 +5,9 @@
  * Ref:   MS-DOS 3.3 Technical Reference Chapter 4 "ANSI.SYS" (CUP/ED/SGR/SCP/RCP
  *        effects); Ralf Brown's Interrupt List -- ANSI.SYS section; IBM PC
  *        Technical Reference (1984) Appendix B "Display Adapter" (CGA attribute
- *        byte). CLAUDE.md Law 2 (the oracle is truth), Law 4 (no-ANSI rendering
- *        is byte-identical), Rule 1 (RED->GREEN), Rule 6 (mutation-proven),
- *        Rule 12 (ASCII).
+ *        byte). the repository contract (the oracle is truth), the repository contract (no-ANSI rendering
+ *        is byte-identical), the repository contract (RED->GREEN), the repository contract (mutation-proven),
+ *        the repository contract (ASCII).
  *
  * WHAT THIS TESTS (the WIRING, not the pure FSM -- that is test_ansi.c):
  *   The REAL shipped chain con_putc -> ansi_feed -> ansi_apply -> console-ops.
@@ -29,7 +29,7 @@
  *   - ANSI OFF, the SAME escape bytes -> each byte rendered LITERALLY through the
  *                                   raw sink (proving the gate works).
  *
- * MUTATION (Rule 6) -- driven by make test-ansi-wire-mutant:
+ * MUTATION (the repository contract) -- driven by make test-ansi-wire-mutant:
  *   -DANSIWIRE_MUTATE_IGNORE_GATE : con_ansi_active() ignores the gate and always
  *                                   feeds the FSM. The "ANSI OFF renders the
  *                                   escape bytes literally" assertion goes RED
@@ -37,10 +37,10 @@
  *                                   RUNTIME perturbation that COMPILES under
  *                                   -Werror (it lives inside con_ansi_active()).
  *
- * Compiles HOSTED, libc OK (Law 3: factory/host test). #includes int21.c (which
+ * Compiles HOSTED, libc OK (the repository contract: factory/host test). #includes int21.c (which
  * #includes ansi.c) directly; links the SAME deps test_int21 links (sft/psp/mcb/
  * devices/irq/config_sys) since int21_dispatch resolves handles through them.
- * ASCII-clean (Rule 12). No timestamps (Rule 11).
+ * ASCII-clean (the repository contract). No timestamps (the repository contract).
  */
 
 #include <stdint.h>

@@ -4,11 +4,11 @@
 +++ b/loader_validation.c
 @@ -92,8 +92,11 @@
  
-     /* Layout from the LOCKED spec (spec/memory_map.h; Sec 3.2). */
+     /* Layout from the LOCKED spec (kernel/include/memory_map.h; Sec 3.2). */
      out->psp_addr  = PROGRAM_BASE;
 -    out->image_dst = PROGRAM_IMAGE;   /* PSP + 0x100 -- the authentic .COM offset */
 -    out->entry     = PROGRAM_IMAGE;   /* flat entry EIP == image_dst              */
-+    /* MUTANT (CLAUDE.md Rule 6; make test-loader-mutant only): load the image at
++    /* MUTANT (the repository contract; make test-loader-mutant only): load the image at
 +     * PROGRAM_BASE instead of PROGRAM_BASE+0x100 -- destroying the authentic
 +     * .COM offset. The layout oracle MUST go RED. NEVER define in a real build. */
 +    out->image_dst = PROGRAM_BASE;

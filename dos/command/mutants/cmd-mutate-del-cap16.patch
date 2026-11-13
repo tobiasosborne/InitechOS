@@ -6,7 +6,7 @@
                  return;
              }
              deleted++;
-+            if (deleted == 16) return; /* Rule 6: original silent remainder. */
++            if (deleted == 16) return; /* the repository contract: original silent remainder. */
          }
      }
  }

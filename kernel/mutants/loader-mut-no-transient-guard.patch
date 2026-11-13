@@ -11,7 +11,7 @@
 -        m++;
 -    }
 -    return m == TRANSIENT_MAGIC_LEN;
-+    /* MUTANT (Rule 6; make test-flair-execguard-mutant / test-loader-mutant
++    /* MUTANT (the repository contract; make test-flair-execguard-mutant / test-loader-mutant
 +     * only): the pre-13ig loader never recognises the overlay and runs its
 +     * header as code. NEVER in a real build. */
 +    return 0;

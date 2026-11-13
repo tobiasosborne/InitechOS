@@ -13,11 +13,11 @@
 -		 * fat_type) + vol-aware classify helpers (chain_is_eoc/_free/_bad), so a
 -		 * FAT16 volume reads correctly with no 12-bit mis-decode (the bcg.4
 -		 * concern that previously forced a reject) and the FAT12 path stays
--		 * byte-identical. Ref (Law 1): docs/research/fat16-ground-truth.md
+-		 * byte-identical. Ref (the repository contract): docs/research/fat16-ground-truth.md
 -		 * Sec 0/2/3; Microsoft FAT spec Sec 3.2. WRITE is deferred (509.11);
 -		 * the FAT12 WRITE primitives are never invoked on a FAT16 volume. */
 -		vol->fat_type = FAT_TYPE_FAT16;
-+		/* MUTANT (Rule 6; test-fat16 mutant M5 only): a FAT16 volume is
++		/* MUTANT (the repository contract; test-fat16 mutant M5 only): a FAT16 volume is
 +		 * classified FAT12, so fat12_next_cluster runs the 12-bit decode on a
 +		 * 16-bit FAT. Every chain decodes to garbage -> the FAT16 read oracle
 +		 * goes RED. This proves the cluster-count classification + the fat_type

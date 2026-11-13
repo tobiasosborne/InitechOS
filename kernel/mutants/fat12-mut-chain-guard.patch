@@ -8,7 +8,7 @@
  {
 -	return !fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
 -	       chain_is_bad(vol, cur);
-+	/* MUTANT (Rule 6; test-fat-corrupt-fuzz-chain-mutant): the data-range
++	/* MUTANT (the repository contract; test-fat-corrupt-fuzz-chain-mutant): the data-range
 +	 * bound dropped from the walkers' guard (bcg.3 regressed: a link above
 +	 * the last data cluster maps to a wrong LBA). NEVER in a real build. */
 +	return chain_is_free(vol, cur) || chain_is_bad(vol, cur);

@@ -7,7 +7,7 @@
  {
      uint16_t head = r->head;
 -    uint16_t next = (uint16_t)((head + 1u) & (KBD_RING_CAP - 1u));
-+    /* MUTANT (CLAUDE.md Rule 6; defined only by `make test-kbd-unit-mutant`):
++    /* MUTANT (the repository contract; defined only by `make test-kbd-unit-mutant`):
 +     * compute the wrapped next index WITHOUT the +1, so a full ring is never
 +     * detected and the wrap overwrites unread data -- the ring oracle must go
 +     * RED. NEVER define this in a real build. */

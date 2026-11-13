@@ -6,7 +6,7 @@
              if (any) {
                  if (n < CONFIG_SYS_FILES_MIN) { n = CONFIG_SYS_FILES_MIN; }
                  if (n > CONFIG_SYS_FILES_MAX) { n = CONFIG_SYS_FILES_MAX; }
-+                /* Rule-6 mutant target (make test-config-sys-mutant): off-by-one
++                /* the repository contract mutant target (make test-config-sys-mutant): off-by-one
 +                 * on the parsed FILES value -> test goes RED on files==20. NEVER
 +                 * define in a real build. */
 +                n += 1u;

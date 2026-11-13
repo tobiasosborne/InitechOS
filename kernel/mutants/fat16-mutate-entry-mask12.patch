@@ -20,7 +20,7 @@
 -	 * pointer can exceed 0x0FFF, and the EOC value 0xFFFF must survive intact for
 -	 * the >= 0xFFF8 classification (brief Sec 3). */
 -	*out_next = (uint16_t)((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8));
-+	/* MUTANT (Rule 6; test-fat16 mutant M2 only): mask the FAT16 entry to 12
++	/* MUTANT (the repository contract; test-fat16 mutant M2 only): mask the FAT16 entry to 12
 +	 * bits as if it were a FAT12 entry. Any cluster pointer >= 0x1000 corrupts,
 +	 * and EOC 0xFFFF -> 0x0FFF which is NOT >= 0xFFF8, so chains never terminate
 +	 * correctly -> the differential goes RED. NEVER define in a real build. */

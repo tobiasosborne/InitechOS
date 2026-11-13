@@ -9,7 +9,7 @@
 -	for (k = 0u; k < 3u; k++) {
 -		match.extension[k] = new11[8u + k];
 -	}
-+	/* MUTANT 3 (Rule 6; make test-gnrc-mutant only): copy ONLY filename[0..7] and
++	/* MUTANT 3 (the repository contract; make test-gnrc-mutant only): copy ONLY filename[0..7] and
 +	 * LEAVE the extension[0..2] stale, so X.TXT -> Y.BAK keeps the old .TXT. The
 +	 * name-field differential vs mren goes RED. NEVER in a real build. */
  	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, dir_start,

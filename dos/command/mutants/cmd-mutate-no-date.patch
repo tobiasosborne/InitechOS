@@ -3,13 +3,13 @@
 --- a/command/command.c
 +++ b/command/command.c
 @@ -107,11 +107,6 @@
-          * goes RED (Rule 6). NEVER dropped in a real build. */
+          * goes RED (the repository contract). NEVER dropped in a real build. */
          { "REN",    CMD_REN },
          { "RENAME", CMD_REN },   /* RENAME is the long form of REN (DOS) */
 -        /* DATE [MM-DD-YY[YY]] -- show/set the system date via 2Ah/2Bh (beads
 -         * initech-uy4l, Tranche F). The CMD_MUTATE_NO_DATE mutant DROPS this row
 -         * so "DATE" falls through to CMD_EXTERNAL -> the classify oracle goes RED
--         * (Rule 6). NEVER dropped in a real build. */
+-         * (the repository contract). NEVER dropped in a real build. */
 -        { "DATE",  CMD_DATE },
          /* TIME [HH:MM[:SS]] -- show/set the system time via 2Ch/2Dh (beads
           * initech-uy4l, Tranche F). The CMD_MUTATE_NO_TIME mutant DROPS this row

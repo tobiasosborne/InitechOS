@@ -6,7 +6,7 @@
      }
  
      /* 3. Relocate in file position against the PARAMETERIZED load base. */
-+    /* MUTANT (Rule 6; test-tenant-load-mutant only): relocate against the
++    /* MUTANT (the repository contract; test-tenant-load-mutant only): relocate against the
 +     * EXEC path's PROGRAM_IMAGE instead of the block -- the exact "reinterpret
 +     * DEC-08a instead of extending it" bug. The relocated-dword assertions of
 +     * test_tenant_load.c MUST go RED. NEVER define in a real build. */

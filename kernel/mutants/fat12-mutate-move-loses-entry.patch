@@ -8,7 +8,7 @@
  	}
 -	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, dst_is_root, dst_dir_start,
 -	                               free_slot, &moved, sector_buf);
-+	/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the destination
++	/* MUTANT (the repository contract; make test-fat-move-mutant only): SKIP the destination
 +	 * write while still deleting the source below -- the entry VANISHES (the
 +	 * classic half-move). Every "present at the destination" assertion (and the
 +	 * mtools mdir differential) goes RED. NEVER define in a real build. */

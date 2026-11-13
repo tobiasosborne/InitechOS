@@ -9,7 +9,7 @@
 -    if (e->ref_count > 0u) {
 -        e->ref_count--;
 -    }
-+    /* MUTANT (Rule 6; make test-int21-edge-mutant only): drop the ref_count>0
++    /* MUTANT (the repository contract; make test-int21-edge-mutant only): drop the ref_count>0
 +     * guard so a CLOSE of a slot whose ref_count is already 0 UNDERFLOWS the
 +     * uint16 ref_count to 0xFFFF -- the exact double-close corruption flagged by
 +     * beads initech-00x. The double-close-underflow oracle (which asserts the

@@ -1,7 +1,7 @@
 /* test_int24_wired.c -- host oracle for the INT 24h critical-error WIRING
  * (beads initech-mvg). Factory test: libc OK, reuses seed/test_assert.h.
  *
- * THE GAP THIS CLOSES (Law 2): bead initech-509.8 built the INT 24h handler
+ * THE GAP THIS CLOSES (the repository contract): bead initech-509.8 built the INT 24h handler
  * (int24_dispatch: present MSG-DOS-0001, read the operator A/R/F key, return the
  * action in AL) AND a host oracle (test_int24.c) that pins the handler's LOGIC.
  * But NO kernel code path RAISED it -- a real disk error just returned an error
@@ -31,16 +31,16 @@
  *   [B] Retry -> INT 24h raised, the wrapper RE-ISSUES, and (the fault fires once)
  *                the re-issue SUCCEEDS -> the op returns 0.
  *   [C] Abort -> INT 24h raised, the REAL terminate hook fires (code 0x23), and
- *                the op still returns the error (Rule 2 -- no fake success).
+ *                the op still returns the error (the repository contract -- no fake success).
  *   [D] Read fault + Fail -> the READ path raises INT 24h + propagates (proves a
  *                read source, not just write, is wired).
  *   [E] Bounded retry -> a PERMANENTLY-failing device + an always-Retry operator
  *                still TERMINATES after CRIT_BLOCKDEV_MAX_RETRIES (never hangs;
- *                Rule 2). Pins the retry BOUND is load-bearing.
+ *                the repository contract). Pins the retry BOUND is load-bearing.
  *   [F] Transparent default -> with NO hook bound the wrapper returns the inner
  *                error verbatim and NEVER prompts (no behavior change until wired).
  *
- * MUTATION (Rule 6), driven by make (test-int24-wired-mutant) -- each MUST go RED:
+ * MUTATION (the repository contract), driven by make (test-int24-wired-mutant) -- each MUST go RED:
  *   -DMVG_MUTATE_NO_RAISE   : int21_run_critical_error returns FAIL WITHOUT
  *                             running int24_dispatch -> [A]/[B]/[C]/[D] RED (no
  *                             MSG-DOS-0001 raised; Retry never re-issues).
@@ -49,12 +49,12 @@
  *                             catches it) -- proves the bound is load-bearing.
  * A mutant that PASSES means the oracle is decoration.
  *
- * Ref (Law 1): RBIL INT 24h (AL 0=Ignore/1=Retry/2=Abort/3=Fail varies by DOS
+ * Ref (the repository contract): RBIL INT 24h (AL 0=Ignore/1=Retry/2=Abort/3=Fail varies by DOS
  *   rev; we use the crit_error_action A/R/F mapping pinned in int21.h); MS-DOS 3.3
- *   Tech Ref "Critical Error Handler"; ADR-0003 DEC-10; os/milton/ata.h
- *   (crit_blockdev), os/milton/int21.h (int21_run_critical_error, INT21_CRIT_*);
+ *   Tech Ref "Critical Error Handler"; ADR-0003 DEC-10; kernel/ata.h
+ *   (crit_blockdev), kernel/include/int21.h (int21_run_critical_error, INT21_CRIT_*);
  *   blockdev.h (0 ok / negative on error). Image path is argv (the Makefile mints
- *   a blank floppy) -> no host path baked in (Rule 11). ASCII (Rule 12).
+ *   a blank floppy) -> no host path baked in (the repository contract). ASCII (the repository contract).
  */
 
 #include <stdint.h>
@@ -64,7 +64,7 @@
 #include <string.h>
 
 #include "int21.h"
-#include "ata.h"             /* crit_blockdev wrapper (os/milton/) */
+#include "ata.h"             /* crit_blockdev wrapper (os/initechdos/) */
 #include "blockdev.h"        /* blockdev_t contract                */
 #include "blockdev_file.h"   /* lpf3 host file backend (harness)   */
 #include "test_assert.h"

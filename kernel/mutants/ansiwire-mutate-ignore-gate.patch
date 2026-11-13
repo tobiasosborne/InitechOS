@@ -7,7 +7,7 @@
  static int con_ansi_active(void)
  {
 -    return (g_ansi_gate != 0) && (g_ansi_gate() != 0);
-+    /* MUTANT (Rule 6; make test-ansi-wire-mutant): IGNORE the gate and always
++    /* MUTANT (the repository contract; make test-ansi-wire-mutant): IGNORE the gate and always
 +     * feed the FSM. The "ANSI OFF renders escape bytes literally" oracle then
 +     * goes RED (the FSM swallows the escape bytes instead of passing them to the
 +     * sink). One-branch RUNTIME perturbation; compiles clean under -Werror.

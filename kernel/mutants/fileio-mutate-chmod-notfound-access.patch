@@ -7,7 +7,7 @@
  	}
  	if (rc == FAT12_ERR_NOT_FOUND) {
 -		return FILEIO_ERR_FILE_NOT_FOUND;       /* 0x0002 */
-+		/* MUTANT 5 (Rule 6; make test-b53d-mutant only): map a fat12 NOT_FOUND to
++		/* MUTANT 5 (the repository contract; make test-b53d-mutant only): map a fat12 NOT_FOUND to
 +		 * ACCESS_DENIED (0x0005) instead of FILE_NOT_FOUND (0x0002), so a CHMOD of
 +		 * a missing file reports the wrong DOS error. The missing-file 0x0002
 +		 * contract goes RED. NEVER in a real build. */

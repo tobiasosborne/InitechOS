@@ -9,7 +9,7 @@
 -        /* MD/RD + their long forms map to the directory built-ins (beads
 -         * initech-ut6d). The CMD_MUTATE_NO_MDRD mutant DROPS these four rows so
 -         * "MD"/"RD" fall through to CMD_EXTERNAL -> the classify oracle goes RED
--         * (Rule 6). NEVER dropped in a real build. */
+-         * (the repository contract). NEVER dropped in a real build. */
 -        { "MD",    CMD_MD   },
 -        { "MKDIR", CMD_MD   },   /* MKDIR is the long form of MD (DOS) */
 -        { "RD",    CMD_RD   },

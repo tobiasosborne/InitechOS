@@ -4,12 +4,12 @@
 +++ b/command/command.c
 @@ -85,11 +85,6 @@
           * this row so "SET" falls through to CMD_EXTERNAL -> the classify
-          * oracle goes RED (Rule 6). NEVER dropped in a real build. */
+          * oracle goes RED (the repository contract). NEVER dropped in a real build. */
          { "SET",    CMD_SET    },
 -        /* PROMPT [template] -- set/reset the $P$G prompt string (beads
 -         * initech-dibc; ADR-0003 DEC-12). The CMD_MUTATE_NO_PROMPT mutant
 -         * DROPS this row so "PROMPT" falls through to CMD_EXTERNAL -> the
--         * classify oracle goes RED (Rule 6). NEVER dropped in a real build. */
+-         * classify oracle goes RED (the repository contract). NEVER dropped in a real build. */
 -        { "PROMPT", CMD_PROMPT },
          /* COPY <src> <dst> -- single-file copy via 3Dh/3Ch/3Fh/40h/3Eh (beads
           * initech-hpls, Tranche F). The CMD_MUTATE_NO_COPY mutant DROPS this row

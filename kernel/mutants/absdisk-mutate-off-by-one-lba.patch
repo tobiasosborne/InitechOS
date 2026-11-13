@@ -6,7 +6,7 @@
      uint32_t bytes;
      int      rc;
  
-+    /* MUTANT M1 (Rule 6): add a spurious +1 to the LBA -- an absolute call must
++    /* MUTANT M1 (the repository contract): add a spurious +1 to the LBA -- an absolute call must
 +     * NOT offset the LBA. The write lands at scratch+1 and the read at scratch+1
 +     * (or the read-back at scratch sees stale), so the round-trip [5] AND the
 +     * independent file cross-check [6] go RED. */

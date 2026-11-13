@@ -17,7 +17,7 @@
 -		*out_next = (uint16_t)((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8));
 -		return FAT12_OK;
 -	}
-+	/* MUTANT (Rule 6; test-d27i-mutant only): DROP the windowed dispatch -- a
++	/* MUTANT (the repository contract; test-d27i-mutant only): DROP the windowed dispatch -- a
 +	 * FAT16 volume then falls through to the whole-FAT path below and, given the
 +	 * windowed callers pass fat==NULL, fails FAT12_ERR_NULL. This proves the
 +	 * windowed dispatch is what lets a FAT16 volume read without the whole FAT.
@@ -44,7 +44,7 @@
 -		}
 -		return FAT12_OK;
 -	}
-+	/* MUTANT (Rule 6; test-d27i-mutant only): DROP the windowed dispatch -- a
++	/* MUTANT (the repository contract; test-d27i-mutant only): DROP the windowed dispatch -- a
 +	 * FAT12 volume with only a window (fat==NULL) falls through to the whole-FAT
 +	 * NULL check and fails. Proves the windowed dispatch is load-bearing. NEVER
 +	 * in a real build. */

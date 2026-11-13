@@ -4,9 +4,9 @@
  * Ref: docs/research/internals-int21h-ground-truth.md Sec 5 (flat calling
  *      convention: AH-dispatch, EDX flat ptr, ECX count, EBX handle, EAX
  *      return, CF in saved EFLAGS), Sec 6 (console subset);
- *      spec/int21h_calling_convention.json (LOCKED per-function contract);
- *      spec/int21h_register.json (controlled scope). CLAUDE.md Law 2 (oracle is
- *      truth), Rule 1 (RED->GREEN), Rule 6 (mutation-prove), Rule 12 (ASCII).
+ *      kernel/tests/data/int21h_calling_convention.json (LOCKED per-function contract);
+ *      spec/int21h_register.json (controlled scope). the repository contract (oracle is
+ *      truth), the repository contract (RED->GREEN), the repository contract (mutation-prove), the repository contract (ASCII).
  *
  * Compiles HOSTED against the REAL artifact int21.c (the same int21_dispatch the
  * kernel runs). Strategy: the dispatcher routes ALL "display" bytes through an
@@ -15,7 +15,7 @@
  * We build a fake int_frame_t, call int21_dispatch, and assert outputs + the CF
  * bit in frame.eflags.
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DINT21_MUTATE_PUTS_EMIT_DOLLAR : 09h emits the '$' too -> the PUTS test goes RED.
  *   -DINT21_MUTATE_UNLISTED_NOOP    : unlisted-AH path becomes a silent no-op
  *                                     (no CF, no diagnostic) -> the controlled-
@@ -1043,7 +1043,7 @@ int main(void)
      * reads via AL=00h and writes via AL=01h, plus the CONFIG.SYS BREAK= and the
      * BREAK shell built-in that set the SAME g_break_flag.
      *
-     * Ref (Law 1): DEC-16 Sec 3.2 (the register contract: AL=00h GET -> DL=0/1
+     * Ref (the repository contract): DEC-16 Sec 3.2 (the register contract: AL=00h GET -> DL=0/1
      *   CF=0; AL=01h SET <- DL, g_break_flag = (DL != 0), CF=0; out-of-scope AL
      *   -> CF=1, AX=0x0001 invalid function), Sec 3.3 (boot default ON per the
      *   DOS 3.3 PRM; the DL-normalization round-trip), Sec 7.1 (the round-trip

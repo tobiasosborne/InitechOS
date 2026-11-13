@@ -6,7 +6,7 @@
          return LOADER_ERR_NOT_OWNED;        /* header read; destination untouched */
      }
      if (check(ctx) != 0) return LOADER_ERR_READ; /* the WHOLE declared chain */
-+    /* Rule 6: copy before the relocation validation, violating PM's boundary. */
++    /* the repository contract: copy before the relocation validation, violating PM's boundary. */
 +    if (len != 0u && rd(ctx, src, len, dest) != 0) return LOADER_ERR_READ;
      if (is_mz) {
          st = loader_ovl_relocs(rd, ctx, &img, dest, reloc_factor, scratch, 0);

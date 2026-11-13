@@ -18,7 +18,7 @@
 -		}
 -		return rc;
 -	}
-+	/* MUTANT m3 (Rule 6; make test-fat12-mkdir-mutant only): skip the EOC
++	/* MUTANT m3 (the repository contract; make test-fat12-mkdir-mutant only): skip the EOC
 +	 * set_entry so the new directory's FAT entry stays free (0x000). The
 +	 * differential FAT-entry / free-count assertion must go RED. NEVER define in
 +	 * a real build. */

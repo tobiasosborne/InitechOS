@@ -7,7 +7,7 @@
          copy = PSP_CMD_TAIL_MAX_TEXT;
      }
 -    psp->cmd_tail[0] = (uint8_t)copy; /* count <= 126, fits a byte */
-+    /* Rule-6 mutant: off-by-one count byte. The tail-length oracle MUST go RED.
++    /* the repository contract mutant: off-by-one count byte. The tail-length oracle MUST go RED.
 +     * (The text + CR are still written correctly, so this isolates the count.) */
 +    psp->cmd_tail[0] = (uint8_t)(copy + 1);
      for (uint32_t i = 0; i < copy; i++) {

@@ -8,7 +8,7 @@
          if (e == 0) {
 -            set_ax(f, INT21_ERR_INVALID_HANDLE);
 -            cf_set(f);
-+            /* MUTANT (Rule 6): clear CF on a bad handle instead of failing ->
++            /* MUTANT (the repository contract): clear CF on a bad handle instead of failing ->
 +             * the invalid-handle assertion goes RED. */
 +            cf_clear(f);
              return;

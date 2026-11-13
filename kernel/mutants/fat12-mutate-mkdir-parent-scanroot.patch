@@ -6,7 +6,7 @@
  	 * fixed-region scan (byte-identical to the historical fat12_scan_root). */
  	{
  		int scan_is_root = is_root;
-+		/* MUTANT m-rootscan-mkdir (Rule 6; make test-m0bp-mutant only): force the
++		/* MUTANT m-rootscan-mkdir (the repository contract; make test-m0bp-mutant only): force the
 +		 * parent scan to treat the parent as the ROOT even for a SUBDIR parent.
 +		 * The duplicate-name check + the free_slot then come from the ROOT region,
 +		 * not SUB's chain, so the new dir's entry is written to the wrong dir (or

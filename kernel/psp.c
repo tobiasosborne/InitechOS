@@ -5,12 +5,12 @@
  * Ref:   docs/research/psp-loader-ground-truth.md Sec 2 (THE field-by-field
  *        value map; the "Option B" flat-mode handling of the vestigial SEGMENT
  *        fields: flat-address-in-fake-paragraph-units, linear >> 4);
- *        spec/dos_structs.h lines 91-107 (the LOCKED psp_t, 256 bytes,
+ *        kernel/include/dos_structs.h lines 91-107 (the LOCKED psp_t, 256 bytes,
  *        _Static_assert + the documented offsets); ADR-0003 DEC-05 (Sec 5.5) +
- *        Appendix B.2. CLAUDE.md Law 1 (cite), Law 2 (oracle), Law 3 (artifact
- *        = C), Rule 2 (fail loud), Rule 8 (specs-as-data), Rule 11
+ *        Appendix B.2. the repository contract (cite), the repository contract (oracle), the repository contract (artifact
+ *        = C), the repository contract (fail loud), the repository contract (specs-as-data), the repository contract
  *        (deterministic -- no timestamps / host paths / nondeterminism),
- *        Rule 12 (ASCII).
+ *        the repository contract (ASCII).
  *
  * DESIGN STANCE (ADR-0003 Sec 5.5): vestigial structures are populated IN FULL.
  * The PSP is constructed completely; fields whose backing subsystem is deferred
@@ -26,7 +26,7 @@
 #include "psp.h"
 
 /* ------------------------------------------------------------------------ *
- * Fail-loud (CLAUDE.md Rule 2). psp_build() never silently no-ops on a bad
+ * Fail-loud (the repository contract). psp_build() never silently no-ops on a bad
  * argument. Hosted: abort() (the oracle observes a non-zero exit). Freestanding:
  * __builtin_trap() raises #UD, which the IDT routes to the panic path (serial
  * register dump + the PC LOAD LETTER banner, idt.h:129-132) and halts -- a loud
@@ -134,7 +134,7 @@ static uint32_t psp_parse_fcb(const char *t, uint32_t i, uint32_t n,
 
 uint32_t psp_build(psp_t *psp, const psp_params_t *params)
 {
-    /* Rule 2: fail loud on NULL -- never write through a null pointer, never
+    /* the repository contract: fail loud on NULL -- never write through a null pointer, never
      * silently succeed with no PSP. */
     if (psp == 0 || params == 0) {
         PSP_FAIL_LOUD();
@@ -276,7 +276,7 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
      * the trailing CR); bytes 1..count = the text; byte count+1 = 0x0D (CR);
      * remainder zero. No-argument launch: count=0, byte 1 = 0x0D.
      * Clamp the text to PSP_CMD_TAIL_MAX_TEXT so the trailing CR always lands
-     * at offset <= 127 (Rule 2: never overflow past offset 0xFF). The clamp is
+     * at offset <= 127 (the repository contract: never overflow past offset 0xFF). The clamp is
      * loud -- the dropped-byte count is the function's return value.
      * Ref: Sec 2.11; dos_structs.h:103. */
     uint32_t want = params->cmd_tail_len;
@@ -308,12 +308,12 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
  * are no far seg:off pointers, so each "vector" is the 32-bit linear address of
  * the kernel handler the IDT gate points at. PURE: no I/O, no globals -- the
  * loader supplies the live IDT vectors and consumes them; the host oracle can
- * drive these directly. Endianness-explicit byte writes (Rule 11): the result
+ * drive these directly. Endianness-explicit byte writes (the repository contract): the result
  * is identical no matter what host the factory oracle compiles on.
  * ------------------------------------------------------------------------ */
 
 /* Pin the in-field offsets the byte-write helpers assume, so a future struct
- * edit that resizes saved_vectors cannot silently mis-place a vector (Rule 2:
+ * edit that resizes saved_vectors cannot silently mis-place a vector (the repository contract:
  * fail loud, here at COMPILE time). The field is the three 4-byte entries. */
 _Static_assert(sizeof(((psp_t *)0)->saved_vectors) == 12,
                "saved_vectors must be 12 bytes = three 4-byte flat vectors (B.2)");
@@ -343,7 +343,7 @@ static uint32_t psp_get_u32_le(const uint8_t *src)
 
 void psp_save_vectors(psp_t *psp, uint32_t v22, uint32_t v23, uint32_t v24)
 {
-    /* Rule 2: never write through a NULL PSP. */
+    /* the repository contract: never write through a NULL PSP. */
     if (psp == 0) {
         PSP_FAIL_LOUD();
         return; /* not reached */
@@ -356,7 +356,7 @@ void psp_save_vectors(psp_t *psp, uint32_t v22, uint32_t v23, uint32_t v24)
 void psp_load_vectors(const psp_t *psp, uint32_t *v22, uint32_t *v23,
                       uint32_t *v24)
 {
-    /* Rule 2: fail loud on any NULL -- a half-read restore would reinstall a
+    /* the repository contract: fail loud on any NULL -- a half-read restore would reinstall a
      * garbage handler into the live IDT, which is far worse than a loud stop. */
     if (psp == 0 || v22 == 0 || v23 == 0 || v24 == 0) {
         PSP_FAIL_LOUD();

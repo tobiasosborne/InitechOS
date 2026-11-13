@@ -4,11 +4,11 @@
 +++ b/fat12.c
 @@ -2410,8 +2410,15 @@
  	/* Patch ONLY the attribute byte; name / cluster / size / mtime / mdate are
- 	 * left exactly as scanned (Rule 11: the timestamp bytes stay deterministic). */
+ 	 * left exactly as scanned (the repository contract: the timestamp bytes stay deterministic). */
  	match.attribute = attr;
 -	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
 -	                                 match_slot, &match, sector_buf);
-+	/* MUTANT 3 (Rule 6; make test-b53d-mutant only): patch `match.attribute` in
++	/* MUTANT 3 (the repository contract; make test-b53d-mutant only): patch `match.attribute` in
 +	 * memory but SKIP the write-back flush, so the on-disk 0x0B byte keeps its
 +	 * old (0x20 ARCHIVE) baseline. The SET reports success (FAT12_OK) but the
 +	 * on-disk DIFFERENTIAL (python --attr / mtools mattrib / a fresh

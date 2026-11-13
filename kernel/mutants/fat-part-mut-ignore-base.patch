@@ -6,7 +6,7 @@
  		if (!vol->base_lba || !partition_sectors ||
  		    partition_sectors > UINT32_MAX - vol->base_lba)
  			return FAT12_ERR_PARTITION;
-+		vol->base_lba = 0u; /* Rule 6: read the MBR as the BPB, not LBA 63. */
++		vol->base_lba = 0u; /* the repository contract: read the MBR as the BPB, not LBA 63. */
  		if (dev->read_sectors(dev->ctx, vol->base_lba, 1u, sector_buf))
  			return FAT12_ERR_READ;
  		if (rd_le16(sec + FAT12_BOOTSIG_OFFSET) != FAT12_BOOTSIG_VALUE)

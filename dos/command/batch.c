@@ -13,15 +13,15 @@
  *          - Label matching: GOTO is case-insensitive; only first 8 chars
  *            of a label name are significant in real DOS 3.3, but we match
  *            on the full name (BATCH_LABEL_MAX cap) for clarity.
- *        CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Law 3
- *        (artifact = C), Rule 2 (fail loud), Rule 11 (deterministic),
- *        Rule 12 (ASCII).
+ *        the repository contract (cite source), the repository contract (oracle is truth), the repository contract
+ *        (artifact = C), the repository contract (fail loud), the repository contract (deterministic),
+ *        the repository contract (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  * No libc: every string helper is hand-rolled (same discipline as env.c and
  * command.c).
  *
- * MUTATION hooks (CLAUDE.md Rule 6):
+ * MUTATION hooks (the repository contract):
  *   BATCH_MUTATE_NO_PCT_PCT    -- %% does NOT collapse to '%'; the %% test
  *                                 goes RED.  NEVER in a real build.
  *   BATCH_MUTATE_ECHO_OFF_MISS -- ECHO OFF classification is skipped so the
@@ -119,7 +119,7 @@ static int bat_strlcpy(char *dst, const char *src, int n)
 static int bat_emit(char *out, int *pos, int cap, char c)
 {
     if (*pos >= cap - 1) {
-        return 0;   /* no room (Rule 2: never overflow) */
+        return 0;   /* no room (the repository contract: never overflow) */
     }
     out[(*pos)++] = c;
     return 1;
@@ -179,7 +179,7 @@ int batch_expand(const char *line,
             /* Ordinary character -- emit verbatim. */
             if (!bat_emit(out, &pos, cap, line[i])) {
                 out[0] = '\0';
-                return -1;  /* overflow (Rule 2) */
+                return -1;  /* overflow (the repository contract) */
             }
             i++;
             continue;
@@ -520,7 +520,7 @@ static const char *bat_take_token(const char *src, char *dst, int cap)
         dst[n] = '\0';
     }
     /* If the token overran `cap`, swallow the rest so the caller's cursor lands
-     * past the whole token (Rule 2: never bleed a half-token into the tail). */
+     * past the whole token (the repository contract: never bleed a half-token into the tail). */
     while (*src != '\0' && !bat_isspace(*src)) {
         src++;
     }
@@ -656,7 +656,7 @@ int batch_eval_if(const char *if_args, uint8_t errorlevel,
 
     /* Apply NOT.
      * MUTANT BATCH_MUTATE_IF_IGNORE_NOT: drop the negation so a NOT'd condition
-     * returns the un-negated truth -> the IF-NOT oracle goes RED (Rule 6). */
+     * returns the un-negated truth -> the IF-NOT oracle goes RED (the repository contract). */
     if (negate) {
         result = result ? 0 : 1;
     }
@@ -680,7 +680,7 @@ int batch_for_parse(const char *for_args,
     const char *lp;     /* '(' position */
     const char *rp;     /* ')' position */
 
-    /* Defensive init (Rule 2). */
+    /* Defensive init (the repository contract). */
     var_out[0] = '\0';
     set_out[0] = '\0';
     cmd_out[0] = '\0';

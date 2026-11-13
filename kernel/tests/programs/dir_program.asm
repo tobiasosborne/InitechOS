@@ -7,12 +7,12 @@
 ;        CRLF to stdout, until no more files -- the in-universe `DIR`.
 ;
 ; Ref:   docs/research/fs-mount-sft-ground-truth.md Sec 5.3 (the DIR program);
-;        spec/find_data.h (the 43-byte find_data_t: fname at 0x1E, real DOS); os/milton/
+;        kernel/include/find_data.h (the 43-byte find_data_t: fname at 0x1E, real DOS); os/initechdos/
 ;        int21.c do_setdta (AH=1Ah), do_findfirst (AH=4Eh: EDX -> spec, ECX=attr),
 ;        do_findnext (AH=4Fh), do_write (AH=40h: EBX=1 -> CON), do_terminate.
-;        CLAUDE.md Law 1 (cite), Rule 11 (deterministic), Rule 12 (ASCII).
+;        the repository contract (cite), the repository contract (deterministic), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/dir_program.asm -o build/dir_program.bin
+; Assembled: nasm -f bin os/initechdos/dir_program.asm -o build/dir_program.bin
 ; ADDRESSING (Solution A): org 0x00040100 == PROGRAM_IMAGE.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
@@ -20,7 +20,7 @@
 bits 32
 org 0x00040100
 
-FIND_FNAME_OFF equ 0x1E        ; spec/find_data.h: fname at offset 0x1E (real DOS, dww)
+FIND_FNAME_OFF equ 0x1E        ; kernel/include/find_data.h: fname at offset 0x1E (real DOS, dww)
 
 start:
     ; AH=1Ah SETDTA: EDX = flat ptr to our 43-byte find-data block.

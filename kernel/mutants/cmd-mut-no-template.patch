@@ -6,7 +6,7 @@
       * previous line from the current template column. Snapshot before echo
       * overwrites buf[2..]; the caller retains the returned count and text. */
      unsigned template_len = buf[1] < max ? buf[1] : cap;
-+    template_len = 0; /* Rule 6: discard the previous AH=0Ah command. */
++    template_len = 0; /* the repository contract: discard the previous AH=0Ah command. */
      uint8_t count = conin_cooked_line(&buf[2], cap, &buf[2],
                                         template_len, f, &broke);
  

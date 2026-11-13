@@ -1,0 +1,13 @@
+# DOS_VOLUMES_MUT_FAT16
+# test: test-dos-volumes-host
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -166,6 +166,8 @@
+     uint32_t got = 0u;
+     int rc = fat12_read_partial(g_vol, g_fat, g_fat_len, e, offset, len,
+                                 buf, g_cluster, &got);
++    if (g_vol->fat_type == FAT_TYPE_FAT16 && e->file_size > 20000u && got)
++        buf[0] ^= 1u; /* the repository contract: ATA read oracle must compare all file bytes. */
+     if (rc != FAT12_OK) {
+         *out_read = 0u;
+         return FILEIO_ERR_FILE_NOT_FOUND;   /* corrupt chain / read error */

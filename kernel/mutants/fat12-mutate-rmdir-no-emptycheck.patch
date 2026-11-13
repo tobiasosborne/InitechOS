@@ -5,7 +5,7 @@
 @@ -3936,17 +3936,6 @@
   * fat12_read_dir already skips free/deleted/LFN slots, so every entry handed
   * here is a real 8.3 name. (Compiled out under the m4 mutant, which omits the
-  * empty-check entirely -- so the callback would be unused; Rule 6.) */
+  * empty-check entirely -- so the callback would be unused; the repository contract.) */
 -static int fat12_rmdir_empty_cb(const dir_entry_t *e, void *user)
 -{
 -	int *nonempty = (int *)user;
@@ -34,7 +34,7 @@
 -	if (nonempty) {
 -		return FAT12_ERR_NOT_EMPTY;
 -	}
-+	/* MUTANT m4 (Rule 6; make test-fat12-mkdir-mutant only): omit the empty-
++	/* MUTANT m4 (the repository contract; make test-fat12-mkdir-mutant only): omit the empty-
 +	 * check so RMDIR of a NON-EMPTY directory wrongly succeeds. The
 +	 * RMDIR-non-empty assertion must go RED. NEVER define in a real build. */
 +	(void)target; (void)nonempty;

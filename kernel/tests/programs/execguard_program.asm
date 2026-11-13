@@ -5,10 +5,10 @@
 ;        COMMAND.COM", runs one command, returns); IBM DOS 3.30 TR pp. 6-195..201
 ;        (AH=4Bh EXEC: EDX = path, EBX = parameter block {env, tail, fcb1, fcb2};
 ;        CF set + AX = error 2 file not found / 11 invalid format; AH=4Dh the
-;        child's return code); spec/dos_structs.h exec_param_block_t;
-;        os/milton/transient.h (the boot volume's COMMAND.COM is the COMMAND3
+;        child's return code); kernel/include/dos_structs.h exec_param_block_t;
+;        os/initechdos/transient.h (the boot volume's COMMAND.COM is the COMMAND3
 ;        overlay, not a .COM). The same {count, " /C <cmd>", CR} tail as
-;        os/samir/pal/pal_milton.c milton_exec (dBASE RUN / !, initech-n8q8).
+;        os/initechbase/pal/pal_initechdos.c initechdos_exec (dBASE RUN / !, initech-n8q8).
 ;
 ; What it proves on serial (the console fans to serial after Exit to DOS):
 ;   EXECGUARD-BEGIN
@@ -32,7 +32,7 @@ base:
     ; ---- 1. EXEC COMMAND.COM with the tail " /C ECHO EXECGUARD-CHILD-OK" ----
     lea eax, [ebp+tail_c]
     mov [ebp+blk+4], eax
-    mov dword [ebp+blk], 0              ; env 0 = inherit (pal_milton.c)
+    mov dword [ebp+blk], 0              ; env 0 = inherit (pal_initechdos.c)
     lea ebx, [ebp+blk]
     lea edx, [ebp+comspec]
     mov eax, 0x4b00

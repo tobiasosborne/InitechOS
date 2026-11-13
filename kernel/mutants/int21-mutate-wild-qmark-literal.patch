@@ -9,7 +9,7 @@
 -        if (pat[i] == '?') {
 -            continue;
 -        }
-+        /* MUTANT (Rule 6; make test-80k-mutant only): both perturbations drop
++        /* MUTANT (the repository contract; make test-80k-mutant only): both perturbations drop
 +         * the '?' wildcard arm so the template '?' is compared as a literal
 +         * byte (exact-only matching). EXACT and QMARK_LITERAL collapse to the
 +         * same defect at the match site -- every '*'/'?' match row MUST go RED.

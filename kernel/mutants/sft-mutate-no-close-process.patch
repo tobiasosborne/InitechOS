@@ -6,7 +6,7 @@
              continue;   /* defensive: only file/device kinds are reclaimable */
          }
  
--        /* Rule-6 mutant target (make test-exit-handles-mutant): WITHOUT this
+-        /* the repository contract mutant target (make test-exit-handles-mutant): WITHOUT this
 -         * release the exiting process's FILE slots leak -- an EXEC chain of a
 -         * leaky child exhausts the 16 file slots and a later OPEN fails. The
 -         * in-emulator oracle goes RED. NEVER define in a real build. */

@@ -6,7 +6,7 @@
  void int21_conin_discard_through(int c)
  {
      int k;
-+    /* MUTANT (Rule 6; test-conin-mutant only): the pre-fix drain. */
++    /* MUTANT (the repository contract; test-conin-mutant only): the pre-fix drain. */
 +    (void)c;
 +    while (conin_poll() >= 0) {
 +    }

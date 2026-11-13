@@ -6,7 +6,7 @@
   * register-role SWAP -- EBX is the buffer, DX/EDX the start sector). */
  static void absdisk_body(int_frame_t *frame, int op_write)
  {
-+    /* MUTANT M3 (Rule 6; make test-absdisk-mutant only): read the start sector
++    /* MUTANT M3 (the repository contract; make test-absdisk-mutant only): read the start sector
 +     * from CX and the count from DX -- the DX/CX register transposition the
 +     * DEC-15 register layout forbids. The round-trip writes/reads the WRONG LBA
 +     * (and count), so the round-trip + cross-check oracle goes RED. */

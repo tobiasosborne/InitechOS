@@ -7,7 +7,7 @@
  static uint32_t cluster_lba(const fat12_volume_t *v, uint16_t cluster)
  {
 -	return BPB_CLUSTER_LBA(&v->bpb, cluster);
-+	/* Rule 6: ignore the BPB multiplier; the mtools differential must bite. */
++	/* the repository contract: ignore the BPB multiplier; the mtools differential must bite. */
 +	return v->first_data_sector + (uint32_t)cluster - 2u;
  }
  

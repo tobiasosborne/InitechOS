@@ -1,0 +1,13 @@
+# CMD_MUTATE_STARTUP
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4703,7 +4703,7 @@
+             run_batch_invoke(autoexec, "");
+         }
+         else if (g_shell_permanent) {
+-            startup_datetime();
++            (void)&startup_datetime; /* the repository contract: omit both boot prompts. */
+         }
+     }
+     if (g_shell_exit) {

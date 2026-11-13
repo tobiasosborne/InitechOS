@@ -4,11 +4,11 @@
 +++ b/fat12.c
 @@ -1234,8 +1234,14 @@
  	/* offset > 0 with a non-empty read implies a real chain. start_cluster must
- 	 * be a data cluster (>= 2); a free/short start is corruption (Rule 2). The
+ 	 * be a data cluster (>= 2); a free/short start is corruption (the repository contract). The
  	 * incremental walk below also rejects free/bad clusters it lands on. */
 -	skip        = offset / bytes_per_cluster; /* whole clusters to skip past   */
 -	cluster_pos = offset % bytes_per_cluster; /* byte offset in first cluster  */
-+	/* MUTANT (Rule 6; make test-fat-partial-mutant only): off-by-one in the
++	/* MUTANT (the repository contract; make test-fat-partial-mutant only): off-by-one in the
 +	 * skip-cluster count -- skip ONE TOO FEW clusters, so a mid/late-cluster
 +	 * positioned read returns data from the wrong cluster. The differential
 +	 * oracle vs the python ref must go RED. NEVER define in a real build. */

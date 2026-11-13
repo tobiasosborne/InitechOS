@@ -1,5 +1,5 @@
 /* test_tsr.c -- host oracle for the InitechDOS TSR kernel mechanics
- * (bead initech-6fdt sub-deliverable 2; spec/tsr_contract.h).
+ * (bead initech-6fdt sub-deliverable 2; kernel/include/tsr_contract.h).
  *
  * Drives the REAL int21.c + mcb.c translation units HOSTED (the same TUs the
  * kernel links) through int21_dispatch / int27_dispatch:
@@ -20,10 +20,10 @@
  *       console read, 0 while an EXEC child runs user code, restored after.
  *   T8  AH=25h gate type: IRQ vectors 0x28..0x37 get 0x8E (DEC-04a.1), every
  *       software vector 0x8F.
- * Mutants (Rule 6, make test-tsr-unit-mutant): TSR_MUT_NO_KEEP (31h acts as
+ * Mutants (the repository contract, make test-tsr-unit-mutant): TSR_MUT_NO_KEEP (31h acts as
  * 4Ch), INT21_MUT_INDOS_EXEC (EXEC keeps the parent's InDOS), INT21_MUT_
  * SETVECT_TRAP (every vector a trap gate). Each must go RED.
- * CLAUDE.md Law 2, Rule 1, Rule 6, Rule 11, Rule 12. */
+ * the repository contract, the repository contract, the repository contract, the repository contract, the repository contract. */
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>

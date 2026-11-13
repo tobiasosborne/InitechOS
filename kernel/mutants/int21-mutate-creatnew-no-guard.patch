@@ -10,7 +10,7 @@
 -     * pure-locate open() member. open() returns 0 when the leaf is found in
 -     * `dir_start`; that means EXISTS -> fail with 0x0050, commit nothing. A
 -     * 0x0002 (not found) or any other non-zero locate result means "does not
--     * exist" -> fall through to the CREAT path. (Rule 6 mutants: NO_GUARD drops
+-     * exist" -> fall through to the CREAT path. (the repository contract mutants: NO_GUARD drops
 -     * this block so CREATNEW==CREAT; GUARD_INVERT flips the sense; WRONG_CONST
 -     * returns the wrong AX.)
 -     *

@@ -15,7 +15,7 @@
 -        int23_dispatch(f);              /* the DOS Ctrl-Break abort (DEC-10) */
 -        return 1;
 -    }
-+    /* MUTANT M5 (Rule 6; make test-4tw-mutant only): drop the ^C check so 0x03 is
++    /* MUTANT M5 (the repository contract; make test-4tw-mutant only): drop the ^C check so 0x03 is
 +     * delivered as a raw char and INT 23h is NEVER invoked -> the [4tw.*] oracle
 +     * goes RED. NEVER define in a real build -- DEC-16 Sec 3.3 mandates the CON
 +     * check-point. */

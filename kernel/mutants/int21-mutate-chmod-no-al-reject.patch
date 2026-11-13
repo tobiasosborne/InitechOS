@@ -11,7 +11,7 @@
 -        cf_set(f);
 -        return;
 -    }
-+    /* MUTANT 1 (Rule 6; make test-b53d-mutant only): SKIP the AL validation, so a
++    /* MUTANT 1 (the repository contract; make test-b53d-mutant only): SKIP the AL validation, so a
 +     * bad AL (e.g. AL=2) is NO LONGER rejected -- it falls through to the GET path
 +     * (al==2 != 0x01 takes the GET branch), returning CF=0 + a CX attr instead of
 +     * the required CF=1/AX=0x0001. The bad-AL host contract goes RED. NEVER in a

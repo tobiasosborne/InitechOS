@@ -8,6 +8,6 @@
       *    (loader_prepare_core set it); e_ss:e_sp are advisory this release. */
 -    if (img.entry_off >= img.load_module_len) {
 +    if (img.entry_off > img.load_module_len) {
-         /* The entry must point INTO the loaded module (Rule 2: never JMP past it). */
+         /* The entry must point INTO the loaded module (the repository contract: never JMP past it). */
          return LOADER_ERR_BAD_FORMAT;
      }

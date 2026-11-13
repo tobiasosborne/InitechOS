@@ -8,11 +8,11 @@
  
 -	/* byte_offset = cluster*2 (FAT16 entry stride; brief Sec 3). */
 -	off = (uint32_t)cluster * 2u;
-+	/* MUTANT (Rule 6; test-fat16 mutant M1 only): off-by-one entry offset --
++	/* MUTANT (the repository contract; test-fat16 mutant M1 only): off-by-one entry offset --
 +	 * read a MISALIGNED 16-bit word (cluster*2 + 1). Every chain link decodes
 +	 * to garbage, so the FAT16 differential (chain walk / file content) goes
 +	 * RED. NEVER define in a real build. */
 +	off = (uint32_t)cluster * 2u + 1u;
  	/* Both b[off] and b[off+1] must be in range -- bounds-check before reading
- 	 * (Rule 2). Catches an out-of-volume cluster index. */
+ 	 * (the repository contract). Catches an out-of-volume cluster index. */
  	if (off + 1u >= fat_len) {

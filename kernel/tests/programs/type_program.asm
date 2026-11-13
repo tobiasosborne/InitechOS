@@ -7,14 +7,14 @@
 ;        the in-universe `TYPE HELLO.TXT`.
 ;
 ; Ref:   docs/research/fs-mount-sft-ground-truth.md Sec 5.2 (the TYPE program
-;        sketch); os/milton/int21.c do_open (AH=3Dh: EDX -> ASCIIZ path, AL=mode,
+;        sketch); kernel/int21.c do_open (AH=3Dh: EDX -> ASCIIZ path, AL=mode,
 ;        EAX=handle), do_read (AH=3Fh: EBX=handle, ECX=count, EDX=buf, EAX=bytes),
 ;        do_write (AH=40h: EBX=1 -> CON), do_close (AH=3Eh), do_terminate
-;        (AH=4Ch: AL=exit code); spec/memory_map.h (PROGRAM_IMAGE = 0x00040100).
-;        CLAUDE.md Law 1 (cite), Rule 2 (fail loud on OPEN error), Rule 11
-;        (deterministic: nasm -f bin), Rule 12 (ASCII).
+;        (AH=4Ch: AL=exit code); kernel/include/memory_map.h (PROGRAM_IMAGE = 0x00040100).
+;        the repository contract (cite), the repository contract (fail loud on OPEN error), the repository contract
+;        (deterministic: nasm -f bin), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/type_program.asm -o build/type_program.bin
+; Assembled: nasm -f bin os/initechdos/type_program.asm -o build/type_program.bin
 ; Embedded:  bin2c -> a C .rodata array; the loader copies it to 0x40100 and JMPs.
 ;
 ; ADDRESSING (Solution A): assembled at org 0x00040100 == PROGRAM_IMAGE so the
@@ -24,7 +24,7 @@
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 start:
     ; AH=3Dh OPEN: EDX = flat ptr to ASCIIZ "HELLO.TXT", AL = 0 (read).
@@ -68,7 +68,7 @@ done:
 
 open_failed:
     ; Print a grep-able marker via AH=09h so the oracle can distinguish a failed
-    ; OPEN from a silent hang, then terminate with a non-zero code (Rule 2).
+    ; OPEN from a silent hang, then terminate with a non-zero code (the repository contract).
     mov ah, 0x09
     mov edx, openmsg
     int 0x21

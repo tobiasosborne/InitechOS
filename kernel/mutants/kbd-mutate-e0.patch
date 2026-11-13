@@ -7,7 +7,7 @@
       * Consume E0 BEFORE the break flag (E0 itself has bit 7 set). */
      if (scancode == 0xE0u) {
 -        st->e0 = 1u;
-+        st->e0 = 0u; /* Rule 6: right Ctrl aliases left; fake Shift leaks. */
++        st->e0 = 0u; /* the repository contract: right Ctrl aliases left; fake Shift leaks. */
          return 0u;
      }
      uint8_t extended = st->e0;

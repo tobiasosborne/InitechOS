@@ -7,7 +7,7 @@
       * Ref: psp-loader-ground-truth.md Sec 2.1; dos_structs.h:92. */
      psp->int20[0] = 0xCD;
 -    psp->int20[1] = 0x20;
-+    /* Rule-6 mutant: wrong terminator byte (0x21 not 0x20). The int20 oracle
++    /* the repository contract mutant: wrong terminator byte (0x21 not 0x20). The int20 oracle
 +     * MUST go RED. A mutant that passes proves the assertion is decoration. */
 +    psp->int20[1] = 0x21;
  

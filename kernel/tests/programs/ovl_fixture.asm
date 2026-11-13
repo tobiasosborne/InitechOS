@@ -7,7 +7,7 @@
 ;        CALLER transfers control into the loaded overlay itself.
 ;      ADR-0003 DEC-08a.1 (flat code, uint32 relocations); tools/mzlink.c
 ;        --reloc-diff (every absolute is DERIVED from a second assembly at
-;        org OVL_ORG, so a missed site cannot hide). CLAUDE.md Rule 11/12.
+;        org OVL_ORG, so a missed site cannot hide). the repository contract.
 ;
 ; Fixed layout the test program (ovltest_program.asm) relies on:
 ;   +0  dd msg            absolute -> a relocation site (== factor + msg-$$)

@@ -63,7 +63,7 @@
 -	}
 -	*out_new_cluster = newc;
 -	return FAT12_OK;
-+	/* MUTANT (Rule 6; make test-zs24-mutant only): REFUSE to grow the directory
++	/* MUTANT (the repository contract; make test-zs24-mutant only): REFUSE to grow the directory
 +	 * -- return DIR_FULL as if the subdir could not be extended. The boundary-
 +	 * crossing CREATE then fails and the file never lands, so the GROW
 +	 * differential (mtools/python list the boundary file) goes RED. This proves

@@ -7,7 +7,7 @@
               out->command[1] == 'A' && out->command[2] == 'T' && out->command[3] == 'H'))
              break;
 -        out->command[i++] = cmd_upcase_char(*p);
-+        /* MUTANT (Rule 6; make test-command-mutant only): copy the command word
++        /* MUTANT (the repository contract; make test-command-mutant only): copy the command word
 +         * WITHOUT upper-casing, so a lowercase "dir" no longer matches the
 +         * upper-case dispatch table -> the parse oracle goes RED. NEVER in a
 +         * real build. */

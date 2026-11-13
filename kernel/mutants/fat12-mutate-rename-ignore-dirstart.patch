@@ -6,7 +6,7 @@
  		return FAT12_ERR_WRITE;
  	}
  
-+	/* MUTANT 4 (Rule 6; make test-gnrc-mutant only): IGNORE the caller's dir_start
++	/* MUTANT 4 (the repository contract; make test-gnrc-mutant only): IGNORE the caller's dir_start
 +	 * and resolve root-anchored (force the SUBDIR parent to the fixed root). Every
 +	 * subsequent fat12_scan_dir + the final fat12_write_dirent_in_dir then operate
 +	 * on the ROOT region instead of the requested subdirectory: a non-root

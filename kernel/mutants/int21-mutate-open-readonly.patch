@@ -1,5 +1,5 @@
 # INT21_MUTATE_OPEN_READONLY
-# test: test-int21
+# test: test-dos-safety-create test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro test-dos-safety-identity
 --- a/int21.c
 +++ b/int21.c
 @@ -2455,14 +2455,6 @@

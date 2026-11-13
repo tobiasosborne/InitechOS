@@ -6,7 +6,7 @@
       * has bit 7 set (Ctrl-PgUp=84h). Consume E0 and update modifiers once. */
      uint8_t ascii = kbd_translate(state, sc);
      if (special) {
-+        return; /* Rule 6: restore the pre-template lost-function-key path. */
++        return; /* the repository contract: restore the pre-template lost-function-key path. */
          uint16_t head = ring->head;
          uint16_t next = (uint16_t)((head + 1u) & (KBD_RING_CAP - 1u));
          uint16_t end = (uint16_t)((next + 1u) & (KBD_RING_CAP - 1u));

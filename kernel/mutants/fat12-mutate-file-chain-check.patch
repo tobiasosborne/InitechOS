@@ -29,7 +29,7 @@
 -        cur = next;
 -    }
 -    return FAT12_ERR_CHAIN;
-+    /* Rule 6: a short chain then reaches the destructive module read. */
++    /* the repository contract: a short chain then reaches the destructive module read. */
 +    (void)vol; (void)fat; (void)fat_len; (void)entry;
 +    return FAT12_OK;
  }

@@ -20,7 +20,7 @@
 -    while (set[i] != '\0' && !bat_is_for_sep(set[i])) {
 -        i++;
 -    }
-+    /* MUTANT (Rule 6): after skipping separators, pretend the set is always
++    /* MUTANT (the repository contract): after skipping separators, pretend the set is always
 +     * exhausted -> a FOR set yields zero tokens so the FOR-tokenize oracle goes
 +     * RED.  A genuine one-branch RUNTIME perturbation (still compiles clean
 +     * under -Werror: i + bat_is_for_sep are exercised by the skip loop above).

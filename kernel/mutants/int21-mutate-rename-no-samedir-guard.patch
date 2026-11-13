@@ -11,7 +11,7 @@
 -        cf_set(f);
 -        return;
 -    }
-+    /* MUTANT 4 (Rule 6; make test-gnrc-mutant only): DROP the old_dir==new_dir
++    /* MUTANT 4 (the repository contract; make test-gnrc-mutant only): DROP the old_dir==new_dir
 +     * guard, so a cross-directory EDX/EDI pair wrongly proceeds to the backend
 +     * rename (acting as if same-dir) instead of returning 0x0011. The
 +     * not-same-device leg goes RED. NEVER in a real build. */

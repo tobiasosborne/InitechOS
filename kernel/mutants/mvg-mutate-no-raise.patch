@@ -8,7 +8,7 @@
  
 -    int24_dispatch(&f);                /* present MSG-DOS-0001, read A/R/F -> AL */
 -    action = (uint8_t)(f.eax & 0xFFu);
-+    /* MUTANT (Rule 6; make test-int24-wired-mutant only): return Fail WITHOUT
++    /* MUTANT (the repository contract; make test-int24-wired-mutant only): return Fail WITHOUT
 +     * raising INT 24h -- the regression this bead fixes (a disk error never
 +     * presents the operator prompt). MSG-DOS-0001 is never emitted and Retry
 +     * never re-issues, so scenarios [A]/[B]/[C]/[D] go RED. NEVER in a real

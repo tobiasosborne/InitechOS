@@ -4,7 +4,7 @@
 +++ b/ata.c
 @@ -410,10 +410,6 @@
  	/* CACHE FLUSH so the write buffer is committed before any read sees it
- 	 * (Rule 2 / Rule 11: a subsequent read of what we wrote must be authoritative,
+ 	 * (the repository contract / the repository contract: a subsequent read of what we wrote must be authoritative,
  	 * not a stale-cache artifact). FLUSH transfers no data -> wait BSY-clear. */
 -	rc = ata_wait_ready(io_base, ctrl_base);
 -	if (rc != 0) return rc;

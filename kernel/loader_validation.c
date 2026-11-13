@@ -54,7 +54,7 @@ loader_status_t loader_prepare_core(const uint8_t *image,
                                            uint32_t cmd_tail_len, int in_place,
                                            loader_plan_t *out)
 {
-    /* Rule 2: fail loud on every bad input. The loader NEVER copies a NULL or
+    /* the repository contract: fail loud on every bad input. The loader NEVER copies a NULL or
      * oversized image into the program region -- that would clobber the kernel
      * stack / framebuffer and silently corrupt the machine. */
     if (out == 0) {
@@ -90,7 +90,7 @@ loader_status_t loader_prepare_core(const uint8_t *image,
         return LOADER_ERR_BAD_FORMAT;
     }
 
-    /* Layout from the LOCKED spec (spec/memory_map.h; Sec 3.2). */
+    /* Layout from the LOCKED spec (kernel/include/memory_map.h; Sec 3.2). */
     out->psp_addr  = PROGRAM_BASE;
     out->image_dst = PROGRAM_IMAGE;   /* PSP + 0x100 -- the authentic .COM offset */
     out->entry     = PROGRAM_IMAGE;   /* flat entry EIP == image_dst              */
@@ -120,7 +120,7 @@ loader_status_t loader_prepare_core(const uint8_t *image,
      * initech-1q4u; ADR-0009 DEC-04). The arena starts paragraph-rounded ABOVE the
      * loaded image + a conservative BSS reserve, and ends at PROGRAM_ARENA_CEIL
      * (== ENV_BLOCK), so a 48h ALLOC can never return memory inside the program
-     * image+BSS, the env block, or the 64 KiB stack. See spec/memory_map.h's ARENA
+     * image+BSS, the env block, or the 64 KiB stack. See kernel/include/memory_map.h's ARENA
      * DISJOINTNESS INVARIANT for the proof. (Was: the arena overlaid the running
      * program -- the latent corruption INITECHBASE would have hit.) */
     {
@@ -176,7 +176,7 @@ loader_status_t loader_prepare_in_place(const uint8_t *resident, uint32_t image_
  * initech-wczy / dtw.2; ADR-0003 DEC-08a). Mutates the in-place buffer (memmove
  * the load module over the header + apply flat relocs) and produces the SAME
  * loader_plan_t loader_run_plan consumes -- a prologue on the single transfer
- * path (Rule 3). See loader.h for the full contract.
+ * path (the repository contract). See loader.h for the full contract.
  * ------------------------------------------------------------------------ */
 
 loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
@@ -191,7 +191,7 @@ loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
  * load module is moved from file_at+header_bytes DOWN to file_at (dst < src), so
  * a forward copy can never clobber a not-yet-read source byte (dst[i] is written
  * before src[i+k] for any k>0 is read). Freestanding (loader.c pulls in no libc;
- * Rule 11 deterministic). NOT a general memmove -- it assumes dst <= src, which
+ * the repository contract deterministic). NOT a general memmove -- it assumes dst <= src, which
  * the down-shift always satisfies. */
 static void loader_validation_move_down(uint8_t *dst, const uint8_t *src, uint32_t n)
 {
@@ -256,7 +256,7 @@ loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
         return LOADER_ERR_NULL_OUT;
     }
     if (file_at == 0 || file_len == 0u) {
-        return LOADER_ERR_BAD_FORMAT;   /* nothing to parse -- fail loud (Rule 2) */
+        return LOADER_ERR_BAD_FORMAT;   /* nothing to parse -- fail loud (the repository contract) */
     }
     if (load_base < PROGRAM_IMAGE || (load_base & 0xFu) != 0u ||
         arena_ceil > PROGRAM_ARENA_CEIL || arena_ceil <= load_base ||
@@ -267,7 +267,7 @@ loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
     /* 1. Parse + validate the MZ container (DEC-08a.1/.5). The pure prep NEVER
      *    panics: it maps MZ_ERR_FOREIGN to a DISTINCT status the KERNEL call site
      *    panics on (DEC-08a.5), and every other parse error to bad-format. This
-     *    keeps the panic at the kernel seam (host-observable here, Law 2). */
+     *    keeps the panic at the kernel seam (host-observable here, the repository contract). */
     ps = mz_parse_header(file_at, file_len, &img);
     if (ps == MZ_ERR_FOREIGN) {
         /* DEC-08a.5: a genuine untagged 16-bit DOS MZ. The kernel will PANIC
@@ -304,7 +304,7 @@ loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
         return LOADER_ERR_BAD_FORMAT;
     }
     /* The load module must lie wholly within the resident file (mz_parse_header
-     * already proved image_bytes <= file_len, so this is belt-and-braces, Rule 2). */
+     * already proved image_bytes <= file_len, so this is belt-and-braces, the repository contract). */
     if (img.load_module_off + img.load_module_len < img.load_module_off ||
         img.load_module_off + img.load_module_len > file_len) {
         return LOADER_ERR_BAD_FORMAT;
@@ -318,7 +318,7 @@ loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
      *    down-move's DESTINATION window [0, load_module_len) would overwrite if we
      *    relocated after moving. Applying first -- while header, reloc table, and
      *    module all sit untouched at their file offsets -- can never read a
-     *    clobbered fixup (Rule 3: fix the root cause, not a placement-specific
+     *    clobbered fixup (the repository contract: fix the root cause, not a placement-specific
      *    band-aid). The reloc offsets are MODULE-RELATIVE, so they index the module
      *    at load_module_off here exactly as they will at the load base after the
      *    move; mz_apply_relocs adds PROGRAM_IMAGE (the flat load base, DEC-08a.1),
@@ -329,7 +329,7 @@ loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
                                  load_base,
                                  file_at + img.reloc_table_off, img.reloc_count);
         if (rs != MZ_OK) {
-            return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud (Rule 2) */
+            return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud (the repository contract) */
         }
     }
 
@@ -366,7 +366,7 @@ loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
      *    .COM), but a non-zero entry_off is honored. ESP stays PROGRAM_STACK_TOP
      *    (loader_prepare_core set it); e_ss:e_sp are advisory this release. */
     if (img.entry_off >= img.load_module_len) {
-        /* The entry must point INTO the loaded module (Rule 2: never JMP past it). */
+        /* The entry must point INTO the loaded module (the repository contract: never JMP past it). */
         return LOADER_ERR_BAD_FORMAT;
     }
     out->low_mcb_owned = !canonical;
@@ -422,7 +422,7 @@ static void ldr_serial_putc(char c)
     uint32_t spins = 0u;
     while ((inb(LDR_COM1_LSR) & LDR_LSR_THRE) == 0u) {
         if (++spins >= LDR_SERIAL_SPIN_MAX) {
-            return;   /* UART not draining -> drop the byte, never hang (Rule 2) */
+            return;   /* UART not draining -> drop the byte, never hang (the repository contract) */
         }
     }
     outb(LDR_COM1_THR, (uint8_t)c);
@@ -448,7 +448,7 @@ void loader_panic_foreign_mz(const char *name83)
     ldr_serial_puts("  DEC-08a.5: refusing to relocate-and-misexecute 16-bit code\n");
     panic_show_reason(PANIC_REASON_FOREIGN_MZ, name83);
     ldr_serial_puts("HALTED\n");
-    /* Terminal: never proceed (Rule 2 / DEC-08a.5). */
+    /* Terminal: never proceed (the repository contract / DEC-08a.5). */
     for (;;) {
         __asm__ __volatile__("cli; hlt");
     }
@@ -462,7 +462,7 @@ void loader_panic_foreign_mz(const char *name83)
 /* First pass validates every offset; second pass applies the SAME table.
  * The reader contract requires stable file bytes/FAT throughout the call.
  * An inconsistent second pass is an invariant violation, never a normal
- * validation refusal after modifying the caller's memory (Rule 2). */
+ * validation refusal after modifying the caller's memory (the repository contract). */
 loader_status_t loader_ovl_relocs(loader_ovl_read_fn rd, void *ctx,
                                          const mz_image_t *img, uint8_t *dest,
                                          uint32_t reloc_factor,

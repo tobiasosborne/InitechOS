@@ -11,7 +11,7 @@
 -			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
 -			                      parent_newc);
 -		}
-+		/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
++		/* MUTANT (the repository contract; make test-fat-fault-rollback-mutant only): SKIP the
 +		 * post-grow flush-fail rollback. newc stays claimed AND the appended
 +		 * parent cluster stays linked, both leaking while MKDIR fails -- the
 +		 * atomicity defect scenario [C] pins. CSUB stays 2 clusters / the free

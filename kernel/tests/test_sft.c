@@ -6,8 +6,8 @@
  * Ref: ADR-0003 Sec 5.6 (DEC-06: 20-entry JFT -> system SFT; handles 0-4
  *      predefined), Appendix D.2 (FILES=20); docs/research/
  *      fs-mount-sft-ground-truth.md Sec 3 (the model + DUP/DUP2 algorithms);
- *      DOS 3.3 Programmer's Reference Manual AH=45h/46h. CLAUDE.md Law 2 (oracle
- *      is truth), Rule 1 (RED->GREEN), Rule 6 (mutation-prove), Rule 12 (ASCII).
+ *      DOS 3.3 Programmer's Reference Manual AH=45h/46h. the repository contract (oracle
+ *      is truth), the repository contract (RED->GREEN), the repository contract (mutation-prove), the repository contract (ASCII).
  *
  * Strategy: build a standard process PSP (psp_build lays the predefined JFT) +
  * sft_init() (lays the device entries), then exercise:
@@ -18,7 +18,7 @@
  *   - DUP2 redirects a handle (incl. stdout->a FILE slot), releasing the old
  *     target and updating ref counts; src==dst is a no-op; bad handles error.
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DSFT_MUTATE_DUP_NO_REFCOUNT  : DUP forgets to bump ref_count -> the DUP
  *                                   ref_count assertion goes RED.
  *   -DSFT_MUTATE_DUP2_NO_RELEASE  : DUP2 forgets to release the old target ->

@@ -1,0 +1,170 @@
+{
+  "_comment": [
+    "ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36: deliberate locked memory/model/ABI reconciliation.",
+    "InitechDOS INT 21h Flat 32-bit Calling Convention -- LOCKED spec-data",
+    "(the repository contract). NEW locked file; companion to spec/int21h_register.json",
+    "(the COARSE function set) -- this file pins the per-register ABI + the",
+    "per-function input/output/error contract for the functions implemented so",
+    "far (the CONSOLE-output subset; file-handle/SFT functions arrive with",
+    "beads initech-509.3).",
+    "Source: docs/research/internals-int21h-ground-truth.md Sec 5+7.",
+    "Ratification: beads initech-1f9 (literal `int 0x21` via a 32-bit TRAP gate,",
+    "type 0x8F, DPL=0, selector CODE_SEL=0x08, at vector 0x21; PIC at 0x28/0x30",
+    "so 0x21 is free). ADR-0003 DEC-04 (INT 21h surface, AH selects function);",
+    "ADR-0003 DEC-13 (controlled vocabulary -- no unlisted function).",
+    "AH-dispatch: function selector in bits 15:8 of EAX (the AH byte).",
+    "All pointer arguments are FLAT 32-bit LINEAR addresses -- no segment:offset.",
+    "Every `ah` documented here MUST exist in spec/int21h_register.json",
+    "(test-spec asserts this consistency)."
+  ],
+  "extended_model": {"provenance": "ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36", "tag": "0x5849", "version": 1, "selection": "current EXEC context, never syscall pointer", "48h": {"input": "EBX uint32 paragraphs", "success": "CF=0 EAX flat usable pointer"}, "49h": {"input": "EBX exact flat pointer", "success": "CF=0, live block owned by current PSP only"}, "4Ah": {"input": "EBX flat pointer, ECX uint32 paragraphs", "success": "CF=0, resize in place preserving bytes"}, "failure": "CF=1 AX=0007h corrupt metadata, 0008h shortage or zero/overflow count, 0009h invalid block/owner. No mutation on refusal. 48h/4Ah shortage returns full EBX largest usable paragraphs.", "legacy": "BX/CX counts and AX fake segments unchanged"},
+  "source": "docs/research/internals-int21h-ground-truth.md",
+  "status": "ratified -- ADR-0003 amendment DEC-04a (OEA-ADR-0003-A1), ARB sign-off 2026-06-08 (beads initech-1f9)",
+  "gate": {
+    "vector": "0x21",
+    "gate_type": "0x8F (32-bit TRAP gate; leaves IF as-is)",
+    "dpl": 0,
+    "selector": "0x08 (CODE_SEL)",
+    "note": "PIC remapped to 0x28/0x30 (spec/int21h_register companion; pic.h), so vector 0x21 is free; ground-truth Sec 5.1 / Sec 8 Risk 3."
+  },
+  "abi": {
+    "function_selector": "AH (bits 15:8 of EAX)",
+    "primary_pointer":   "EDX (flat 32-bit linear address)",
+    "byte_count":        "ECX",
+    "handle":            "EBX",
+    "return_value":      "EAX (AL for single-byte; AX for 16-bit legacy; EAX for 32-bit)",
+    "error_flag":        "CF in saved EFLAGS (CF=1 -> error; AX=error_code)",
+    "cf_mechanism":      "dispatcher writes bit 0 of int_frame_t.eflags before iretd"
+  },
+  "functions": [
+    {
+      "ah": "39h", "mnemonic": "MKDIR",
+      "in": {"EDX": "flat pointer to ASCIIZ directory path"},
+      "out": {"AX": "DOS error code only when CF=1; unchanged on success"},
+      "cf": "clear on success; set on error (3 path not found, 5 access denied)",
+      "notes": "IBM DOS 3.30 Technical Reference p.6-119 / PDF242; ADR-0003 Appendix A and DEC-04a. Missing parent leaves the volume unchanged."
+    },
+    {
+      "ah": "3Ah", "mnemonic": "RMDIR",
+      "in": {"EDX": "flat pointer to ASCIIZ directory path"},
+      "out": {"AX": "DOS error code only when CF=1; unchanged on success"},
+      "cf": "clear on success; set on error (3 path not found, 5 nonempty/access denied, 16 root/current directory)",
+      "notes": "IBM DOS 3.30 Technical Reference p.6-120 / PDF243; ADR-0003 Appendix A and DEC-04a. The current directory cannot be removed."
+    },
+    {
+      "ah": "3Bh", "mnemonic": "CHDIR",
+      "in": {"EDX": "flat pointer to ASCIIZ directory path (64-byte bound)"},
+      "out": {"AX": "DOS error code only when CF=1; unchanged on success"},
+      "cf": "clear on success; set on error (3 path not found)",
+      "notes": "IBM DOS 3.30 Technical Reference p.6-121 / PDF244; ADR-0003 Appendix A and DEC-04a. Failure preserves CWD."
+    },
+    {
+      "ah": "47h", "mnemonic": "GETCWD",
+      "in": {"DL": "drive (0 default, 1 A:; current one-volume implementation)", "ESI": "flat pointer to a writable 64-byte buffer"},
+      "out": {"ESI": "buffer filled with NUL-terminated root-relative path, no leading backslash or drive", "AX": "DOS error code only when CF=1"},
+      "cf": "clear on success; set on error (15 invalid drive)",
+      "notes": "IBM DOS 3.30 Technical Reference p.6-188 / PDF311; ADR-0003 Appendix A and DEC-04a. DS:SI maps to ESI, not EDX. Root is an empty string."
+    },
+    {
+      "ah": "00h", "mnemonic": "TERMINATE",
+      "in": {},
+      "out": {"AL": "0 (return code)"},
+      "cf": "never set",
+      "notes": "Alias for 4Ch AL=00h in the single-task model: serial INT21-EXIT rc=00 + console line, then cli;hlt. No process model yet (beads initech-509.5)."
+    },
+    {
+      "ah": "02h", "mnemonic": "PUTCHAR",
+      "in": {"DL": "character to output"},
+      "out": {"AL": "DL (character written)"},
+      "cf": "never set",
+      "notes": "Output DL to the CON device (console + serial); DOS stdout handle 1."
+    },
+    {
+      "ah": "09h", "mnemonic": "PUTS",
+      "in": {"EDX": "flat ptr to a '$'-terminated string"},
+      "out": {"AL": "0x24 ('$')"},
+      "cf": "never set",
+      "notes": "Walk bytes at EDX until '$' (0x24); emit each via the PUTCHAR path. The '$' is NOT emitted (DOS convention)."
+    },
+    {
+      "ah": "30h", "mnemonic": "GETVER",
+      "in": {},
+      "out": {"AL": "3", "AH": "30 (0x1E)", "BH": "0 (OEM)"},
+      "cf": "never set",
+      "notes": "Version 3.30 per ADR-0003 DEC-12 / kernel/include/dos_banner.txt. EAX low word = 0x1E03."
+    },
+    {
+      "ah": "33h", "mnemonic": "BREAK",
+      "in": {"AL": "sub-function (00h GET / 01h SET; AL is the selector, NOT EDX-as-pointer)", "DL": "new BREAK flag on AL=01h SET (0=OFF, non-zero=ON)"},
+      "out": {"DL": "current BREAK flag (0=OFF, 1=ON) on AL=00h GET; on AL=01h SET NO output register is written -- only the flag + CF change (DEC-16 Sec 3.2)"},
+      "cf": "never set for AL=00h/01h; set on an out-of-scope AL (AX=0x0001 invalid function)",
+      "notes": "INT 21h Function 33h Get/Set CTRL-BREAK State. Admitted into the locked register by ADR-0003 Amendment DEC-16 (OEA-ADR-0003-A4, RATIFIED 2026-06-15), Sec 3.1/3.2; implemented under beads initech-er3h. AL=00h GET: DL = the system-wide g_break_flag (0/1), CF=0 (a pure state read, no failure mode). AL=01h SET: g_break_flag = (DL != 0) -- NORMALIZED, so DL=0xFF stores 1 and a later GET returns exactly 1 (never a raw byte; DEC-16 Sec 3.2 normalize-on-write); SET writes NO output register -- DEC-16 Sec 3.2 (lines 241-242) 'no register other than the saved flag state changes', so AL/DL are left as the caller passed them, CF=0. Register-role caution (DEC-16 Sec 3.2 anti-transposition): AL is the sub-selector and DL is the 1-byte value -- EDX is NOT a pointer here, unlike most DEC-04a functions. Out-of-scope AL (the DOS-5 sub-functions AL=02h/05h/06h/07h are post-3.3 and fenced off, or any AL not 00h/01h) -> CF=1, AX=0x0001 (invalid function) + serial diagnostic 'INT21 not-yet-impl AH=33 AL=NN' (DEC-16 Sec 3.2 error contract; the repository contract fail-loud -- NEVER misread as get/set). Boot default ON (DEC-16 Sec 3.3, per the DOS 3.3 PRM; C-7 86Box-confirmation obligation). The flag is the SAME source of truth CONFIG.SYS BREAK= (sysinit_apply_config) and the BREAK shell built-in (command.c) write; 4tw's ^C check-point reads it. Ref: DOS 3.3 PRM Function 33h; RBIL INT 21h/AH=33h; ADR-0003 Amendment DEC-16."
+    },
+    {
+      "ah": "40h", "mnemonic": "WRITE",
+      "in": {"EBX": "open JFT handle", "ECX": "byte count; zero sets a disk file's size to its current position", "EDX": "flat ptr to buffer; no bytes dereferenced when ECX=0"},
+      "out": {"EAX": "bytes written on success; zero for SETFILE-size (ECX=0)"},
+      "cf": "clear on success (a short write indicates disk full); set on error with AX=error code (0005h access denied, 0006h invalid handle, 001Dh disk I/O error)",
+      "notes": "IBM DOS 3.30 Technical Reference pp.6-139/6-140 (PDF262-263); ADR-0003 Appendix A, DEC-04a. ECX=0 truncates at the current file position without moving it. The disk backend releases clusters past the new EOF, retains the last kept cluster's EOC, and sets start_cluster=0 for an empty file. An inconsistent chain is refused before mutation. A metadata I/O fault during shrink restores the old FAT copies and directory entry and reports an error. The handle must permit writing and the file must not be read-only. Device handles retain their device write behavior. FAT16 writes remain unsupported."
+    },
+    {
+      "ah": "44h", "mnemonic": "IOCTL",
+      "in": {"AL": "minor function (00h Get-Info / 01h Set-Info / 06h Input-Status / 07h Output-Status / 08h Changeable-Media)", "EBX": "open handle (JFT index); 01h also reads DH (must be 0) + DL (device data)"},
+      "out": {"DX": "device-information word (AL=00h / AL=01h, on success)", "AL": "status byte 0xFF/0x00 (AL=06h/07h)", "AX": "0=removable/1=fixed (AL=08h, block device only)"},
+      "cf": "set on error: AX=0x0006 (invalid handle) for a bad/closed/out-of-range EBX; AX=0x0001 (invalid function) for an unmodeled minor, for AL=01h on a non-char handle or DH!=0, and for AL=08h (no block-device handle in our model)",
+      "notes": "DOS 3.3 PRM INT 21h Fn 44h; RBIL INT 21/AX=4400h..4408h. Every minor resolves EBX through the JFT->SFT layer (sft_from_handle, the SAME resolution do_write/do_dup use); bad/closed/out-of-range handle -> CF=1, AX=0x0006. AL=00h Get Device Information: DX=device-info word -- CHARACTER device (CON, SFT_KIND_DEVICE) -> 0x80D3 (bit15 ISDEV + reserved bit7 + bit6 NOTEOF + bit4 SPECIAL + bit1 STDOUT + bit0 STDIN; CON is bidirectional so STDIN+STDOUT both set); disk FILE (SFT_KIND_FILE) -> 0x0040 (bit15 clear; bits 0-5 = drive number 0==A:; bit6=1 file-not-written PRM default). AL=01h Set Device Information (CHARACTER-DEVICE ONLY, DH must be 0): our CON word is locked + sft_entry_t has no mutable per-handle device word, so it is a NO-OP set -- CON+DH==0 -> DX=0x80D3, CF=0; a FILE handle or DH!=0 -> AX=0x0001, CF=1. AL=06h Get Input Status: char device (CON keyboard) -> AL=0xFF always-ready; FILE -> AL=0x00 if at EOF (file_offset>=file_size) else 0xFF (RBIL: 0x00=EOF/0xFF=not-EOF for files). AL=07h Get Output Status: char device (CON screen) and FILE -> AL=0xFF always-ready (RBIL: files always ready). AL=08h Is Block Device Changeable: BLOCK-DEVICE ONLY (real DOS BL=drive, AX=0 removable/1 fixed) -- our SFT exposes no block-device handle, so every handle kind -> AX=0x0001 CF=1 (not applicable). Any other minor -> AX=0x0001. The 00h/01h/06h/07h path touches NO FAT, no block layer, no ATA (06h reads only the SFT's cached file_size/file_offset). Ref: DOS 3.3 PRM AH=44h; HelpPC int-21-44-{0,1,6,7,8}; device-info bit names in kernel/include/int21.h (INT21_DEVINFO_*); beads initech-ro6c (AL=00h) + initech-4nbn (AL=01/06/07/08)."
+    },
+    {
+      "ah": "4Ch", "mnemonic": "EXIT",
+      "in": {"AL": "return code"},
+      "out": {},
+      "cf": "never set (handler does not return to the caller)",
+      "notes": "Emit serial INT21-EXIT rc=NN + console line, then cli;hlt (terminate == stop; no process model yet). In future: restore parent context."
+    },
+    {
+      "ah": "5Bh", "mnemonic": "CREATNEW",
+      "in": {"EDX": "flat ptr to ASCIIZ 8.3 path", "CX": "attribute (UNUSED, as in 3Ch CREAT; attribute semantics are a separate bead)"},
+      "out": {"EAX": "handle (low word) on success"},
+      "cf": "set on error (AX=error code: 0x0050 file already exists; 0x0003 bad path component / overlength; 0x0002 NULL/empty path; 0x0005 no write backend; 0x0004 SFT/JFT slot exhaustion)",
+      "notes": "Identical to 3Ch CREAT (create a zero-length file, claim an SFT FILE slot + JFT slot in WRITE mode, return EAX=handle, CF clear) WITH one added precondition: the target must NOT already exist. If it does -> CF=1, AX=0x0050 (ERROR_FILE_EXISTS), commit nothing. The existence check reuses the backend pure-locate open() member (no SFT mutation, no whole-file read) and runs AFTER resolve_dir_path succeeds and BEFORE the SFT/JFT alloc, so a rejection touches nothing; shares the resolve_dir_path seam so '\\SUB\\FILE' subdir targets work. The AH=59h dispatch wrapper auto-notes CF+AX. Ref: DOS 3.3 PRM AH=5Bh; ADR-0003 Appendix A; beads initech-kji0."
+    },
+    {
+      "ah": "56h", "mnemonic": "RENAME",
+      "in": {"EDX": "flat ptr to the OLD ASCIIZ 8.3 path", "EDI": "flat ptr to the NEW ASCIIZ 8.3 path"},
+      "out": {},
+      "cf": "set on error (AX=error code: 0x0002 NULL/empty EDX or EDI, or source not found; 0x0003 bad/overlong path component on either side; 0x0005 dest name already exists in the target dir, OR source is a directory/volume-label, OR no write backend; 0x0011 cross-directory pair, old_dir != new_dir). On success: CF=0, AX left untouched.",
+      "notes": "SAME-directory dir-entry rename (operator decision 2026-06-15, DOS-faithful; beads initech-gnrc). The FIRST INT 21h handler that reads a SECOND flat pointer: real DOS passes the new name in ES:DI; on this 32-bit protected-flat kernel the segment is collapsed and EDI carries the flat linear address directly -- the SAME flat-pointer convention EDX uses for the primary pointer (abi.primary_pointer; abi pointer args are flat 32-bit linear addresses). do_rename resolves BOTH paths through the resolve_dir_path seam ('\\SUB\\FILE' subdir targets work) and rejects a cross-DIRECTORY pair (old_dir != new_dir) with 0x0011 NOT_SAME_DEVICE: cross-dir MOVE is DEFERRED to beads initech-ycb3 (it needs dest-dir growth + an atomic remove/add + a '..' fixup). The backend rewrites ONLY the matched entry's 11-byte name field; start_cluster/file_size/attribute/mtime/mdate and the FAT are preserved verbatim (the repository contract -- rename allocates/frees nothing). A directory/volume-label source is rejected 0x0005 (no '..' fixup path yet); a dest name already present is rejected 0x0005 (the load-bearing reject -- a rename never clobbers an entry). The AH=59h dispatch wrapper auto-notes CF+AX. Ref: DOS 3.3 PRM AH=56h; ADR-0003 Appendix A; beads initech-gnrc (cross-dir MOVE: initech-ycb3)."
+    },
+    {
+      "ah": "1Fh", "mnemonic": "GETDPB (default)",
+      "in": {},
+      "out": {"AL": "00h success / FFh invalid drive", "EBX": "on AL=00h: flat address of the default drive's 32-byte DOS 3.x DPB (ADR-0003 Appendix B.4, kernel/include/dos_structs.h dpb_t); unchanged on AL=FFh"},
+      "cf": "cleared; the status is AL, never CF",
+      "notes": "MS-DOS 2.0 GETSET.ASM / 4.0 MISC.ASM: AH=1Fh is AH=32h with DL forced to 0. DS:BX collapses to EBX (flat; DEC-04a), as AH=1Bh/35h. Ref: docs/research/dpb-ground-truth.md; ADR-0003 Appendix A (0Fh-24h row); WL-0167."
+    },
+    {
+      "ah": "32h", "mnemonic": "GETDPB",
+      "in": {"DL": "drive (00h default, 01h A:, 02h B:, ...)"},
+      "out": {"AL": "00h success / FFh invalid drive", "EBX": "on AL=00h: flat address of that drive's 32-byte DOS 3.x DPB; unchanged on AL=FFh"},
+      "cf": "cleared; the status is AL, never CF",
+      "notes": "Every mounted volume has a DPB; the chain links them A -> C -> D by flat next pointers (offset 18h) and ends with FFFFFFFFh. The requested drive's DPB is refreshed from the mounted volume on each call, including its free-cluster count (1Eh); a DPB not yet requested reports FFFFh there. Absent letters (B:, unmounted D:, beyond D:) return AL=FFh. Ref: docs/research/dpb-ground-truth.md; ADR-0003 Appendix A 32h row (admitted 2026-10-17, WL-0167)."
+    }
+  ],
+  "listed_but_unimplemented_behavior": {
+    "applies_to": "an AH that IS in spec/int21h_register.json but is not yet implemented in this subset (e.g. CON INPUT 01h/06h/0Ah which need the keyboard; file/SFT functions 3Dh-3Fh which need beads initech-509.3)",
+    "action": "return CF=1, AX=0x0001 (invalid function) for now",
+    "serial_diagnostic": "INT21 not-yet-impl AH=NN",
+    "rationale": "Distinct, recognized diagnostic -- NOT 'unknown function'. The AH is sanctioned by the locked register; the implementation is deferred."
+  },
+  "unlisted_ah_behavior": {
+    "action": "return CF=1, AX=0x0001 (invalid function)",
+    "serial_diagnostic": "INT21 unknown AH=NN",
+    "controlled_message": "MSG-DOS-0002 (Bad command or file name) -- the closest controlled diagnostic; rendered to console if bound",
+    "rationale": "the repository contract (fail loud); ADR-0003 DEC-13 (controlled vocabulary). NEVER a silent no-op, NEVER a hang."
+  },
+  "frame_struct": {
+    "name": "int_frame_t (reused from kernel/include/idt.h)",
+    "note": "The INT 21h trap stub builds the SAME int_frame_t layout as the exception path. For a trap gate the CPU pushes no error code; the stub pushes a dummy 0 err_code + a vector=0x21 sentinel to keep the layout uniform.",
+    "cf_bit": "bit 0 of the eflags field"
+  }
+}

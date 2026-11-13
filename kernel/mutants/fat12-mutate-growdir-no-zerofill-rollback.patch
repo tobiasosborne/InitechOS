@@ -8,7 +8,7 @@
  	if (cluster_fill(vol, lba, NULL, 0u, cluster_buf) != FAT12_OK) {
 -		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 -		(void)fat12_flush_fats(vol, fat, fat_len);
-+		/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
++		/* MUTANT (the repository contract; make test-fat-fault-rollback-mutant only): SKIP the
 +		 * zero-fill-fail rollback. The cluster the grow CLAIMED (marked EOC in
 +		 * memory) is NOT returned to FREE, so it LEAKS while the grow -- and the
 +		 * fat12_create that drove it -- still fails. The free-count / chain-len

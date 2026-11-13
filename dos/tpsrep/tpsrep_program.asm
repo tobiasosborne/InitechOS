@@ -28,13 +28,13 @@
 ; Ref: IBM DOS 3.30 Technical Reference 80X0945 pp. 6-67..6-88 (FCB calls),
 ; pp. 7-8, 7-12..7-16 (PSP default FCBs, FCB layout); dBASE III PLUS .DBF
 ; header (../dbase3-decomp: 32-byte header, 32-byte field descriptors ended by
-; 0Dh, records led by a deletion flag). Rule 12 ASCII; Rule 11 deterministic.
+; 0Dh, records led by a deletion flag). the repository contract ASCII; the repository contract deterministic.
 ; Fault handling (audit 2026-10-23-das L004/L028/L029, bead initech-ycvk): every
 ; FCB write/close status is checked (TPS-009), LINES= must be a number
 ; (TPS-010), every live record's PAGES must be a number (TPS-011).
 ; Backup rotation must succeed before replacing the latest report
 ; (spec/tps_ritual.json E12, initech-56ch: TPS-012, return code 10).
-; Mutants (Rule 6): -DTPS_MUTATE_NOWRCHK ignores the write status;
+; Mutants (the repository contract): -DTPS_MUTATE_NOWRCHK ignores the write status;
 ; -DTPS_MUTATE_LINESOK / -DTPS_MUTATE_PAGESOK skip the number checks;
 ; -DTPS_MUTATE_COUNT6 accepts 6 space-bar presses;
 ; -DTPS_MUTATE_SAY7 states the count in the R2 prompt (the tacit rule: the
@@ -47,7 +47,7 @@ org 0x0100
 PSP equ 0x0000
 %else
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 PSP equ 0x00040000
 %endif
 

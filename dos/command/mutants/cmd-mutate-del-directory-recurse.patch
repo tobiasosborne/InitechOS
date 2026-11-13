@@ -6,7 +6,7 @@
          if (!yes) return;
      }
  
-+    /* Rule 6: deliberately enter a child directory. The independent nested
++    /* the repository contract: deliberately enter a child directory. The independent nested
 +     * file sentinel must catch recursion, even though the child itself stays. */
 +    dos_setdta(&g_shell_dta);
 +    if (dos_findfirst(name, DIR_ATTR_DIRECTORY)) do {

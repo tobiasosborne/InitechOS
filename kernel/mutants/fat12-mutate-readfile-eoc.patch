@@ -9,8 +9,8 @@
 -			if (chain_is_eoc(vol, next)) {
 -				/* Chain ended before file_size bytes were satisfied -- the
 -				 * declared size demands more clusters than the chain has, which
--				 * is corruption (fail loud, Rule 2). */
-+			/* MUTANT (Rule 6; make test-fat-readfile-mutant only): INVERT the EOC
+-				 * is corruption (fail loud, the repository contract). */
++			/* MUTANT (the repository contract; make test-fat-readfile-mutant only): INVERT the EOC
 +			 * test polarity -- treat a NORMAL mid-chain link as end-of-chain and
 +			 * a true EOC as a normal link. Every multi-cluster file (CHAIN.TXT,
 +			 * BLOCK.BIN, the 1368-cluster BIGCHAIN.TXT) then errors with

@@ -7,7 +7,7 @@
       * directory-grow zero-fill buffer (only touched on a subdir-full grow, never
       * on a root create or a non-full subdir). */
 -    uint16_t parent = dir_start_cluster;
-+    /* MUTANT (Rule 6; make test-zs24-mutant only): keep the OLD root-only guard
++    /* MUTANT (the repository contract; make test-zs24-mutant only): keep the OLD root-only guard
 +     * so a subdir CREATE fails 0x0003 -- the subdir CREATE+WRITE round-trip then
 +     * never lands the file and the oracle goes RED. NEVER in a real build. */
 +    if (dir_start_cluster != 0u) {

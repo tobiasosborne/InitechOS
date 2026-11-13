@@ -10,7 +10,7 @@
 -    f->eax = (f->eax & 0xFFFF0000u)
 -           | ((uint32_t)g_last_child_term_type << 8)
 -           | (uint32_t)g_last_child_rc;
-+    /* MUTANT (Rule 6; make test-exec-mutant only): always report rc=0 regardless
++    /* MUTANT (the repository contract; make test-exec-mutant only): always report rc=0 regardless
 +     * of the child's actual exit code, so the 4Dh oracle (which EXECs a program
 +     * that exits rc=7 and asserts AL==7) goes RED. NEVER define in a real build. */
 +    f->eax = (f->eax & 0xFFFF0000u);          /* AL=0, AH=0 */

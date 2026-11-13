@@ -6,7 +6,7 @@
          return 0;
      }
  
-+    /* MUTANT (Rule 6; make test-command-mutant only): append ".COM" ALWAYS, even
++    /* MUTANT (the repository contract; make test-command-mutant only): append ".COM" ALWAYS, even
 +     * when the name already carries an extension, so "GREET.COM" becomes
 +     * "GREET.COM.COM" -> the appender oracle goes RED. NEVER in a real build. */
 +    has_dot = 0;

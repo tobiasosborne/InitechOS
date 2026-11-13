@@ -6,10 +6,10 @@
  *      segment prefix, and do not begin execution"), p. 6-197 (the block: WORD
  *      load segment, WORD relocation factor), p. 11-5 (no PSP, no allocation,
  *      the caller is assumed to own the target block), p. 6-42 (error codes 2,
- *      9, 11); spec/dos_structs.h exec_overlay_block_t (locked layout, Rule 8);
- *      os/milton/loader.c loader_overlay_core; os/milton/int21.c
- *      do_exec_overlay + int21_overlay_dest_ok; os/milton/mcb.c mcb_owned_block.
- *      CLAUDE.md Law 2, Rule 1 (RED first), Rule 2, Rule 6, Rule 12 (ASCII).
+ *      9, 11); kernel/include/dos_structs.h exec_overlay_block_t (locked layout, the repository contract);
+ *      kernel/loader.c loader_overlay_core; kernel/int21.c
+ *      do_exec_overlay + int21_overlay_dest_ok; kernel/mcb.c mcb_owned_block.
+ *      the repository contract, the repository contract (RED first), the repository contract, the repository contract, the repository contract (ASCII).
  *
  * Three parts, all against the REAL artifact sources:
  *   A. loader_overlay_core over an in-memory file and a fake owned window:
@@ -19,16 +19,16 @@
  *      whole-destination canaries for validation refusals and genuine device
  *      I/O errors with explicitly allowed partial writes (PM initech-f9t).
  *   B. int21_dispatch AH=4Bh AL=03h with a mock overlay backend: the EBX
- *      block is decoded per spec/dos_structs.h, a NULL block is 0009h, a
+ *      block is decoded per kernel/include/dos_structs.h, a NULL block is 0009h, a
  *      backend error is returned, other subfunctions stay 0001h.
  *   C. int21_overlay_dest_ok against a bound PSP + MCB arena: the image/BSS
  *      window and an AH=48h block are accepted to the exact byte; one byte
  *      past either, the PSP, an MCB header, a freed or foreign block refused.
  *
  * Every expected value is a literal computed by hand from the fixture bytes
- * below, never from the code under test (Law 2).
+ * below, never from the code under test (the repository contract).
  *
- * MUTATION (Rule 6), driven by make test-overlay-mutant:
+ * MUTATION (the repository contract), driven by make test-overlay-mutant:
  *   -DLOADER_MUTATE_OVL_NO_FACTOR      -> A1/A2 relocated-dword checks RED
  *   -DINT21_MUTATE_OVL_BOUNDS_OBO      -> C one-byte-past checks RED
  *   -DLOADER_MUTATE_OVL_ACCEPT_FOREIGN -> A5 untagged-MZ refusal RED
@@ -583,7 +583,7 @@ int main(void)
     CHECK(sizeof(exec_overlay_block_t) == 8u &&
           offsetof(exec_overlay_block_t, load_addr) == 0u &&
           offsetof(exec_overlay_block_t, reloc_factor) == 4u,
-          "B0 spec/dos_structs.h exec_overlay_block_t: 00h load, 04h factor");
+          "B0 kernel/include/dos_structs.h exec_overlay_block_t: 00h load, 04h factor");
 
     int21_set_exec_backend(exec_mock);
     int21_set_overlay_backend(ovl_mock);

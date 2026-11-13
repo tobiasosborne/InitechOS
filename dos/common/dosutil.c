@@ -1,5 +1,5 @@
 /* ATTRIB.COM / LABEL.COM -- freestanding DOS 3.3 utilities (gyvx/f88h).
- * Law 1, local initech-manuals-ref/dos33 sources:
+ * the repository contract, local initech-manuals-ref/dos33 sources:
  * MS-DOS_3.3_Users_Guide_198707.pdf p.33 (PDF118): R/A, wildcards, /S,
  * directory operands forbidden; pp.338/341/348 (PDF423/426/433): diagnostics;
  * pp.86-87 (PDF171-172): label grammar, spaces,
@@ -7,7 +7,7 @@
  * 6138519_DOS_3.10_Reference_Feb85.pdf pp.7-17/18 (PDF122-123): attribute
  * letters then full path, blanks for unset fields; pp.7-127/128 (PDF232-233):
  * exact IBM dialogue, uppercase examples, first eleven characters retained.
- * ADR-0003 Appendix A/B.1, DEC-08; DEC-15; spec/find_data.h/dos_structs.h.
+ * ADR-0003 Appendix A/B.1, DEC-08; DEC-15; kernel/include/find_data.h/dos_structs.h.
  * Disk effects are diffed against mattrib/mlabel on identical input images.
  * Only R/A are exposed. No host runtime, clock, paths or metadata.
  */

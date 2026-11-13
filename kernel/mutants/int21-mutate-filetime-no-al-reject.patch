@@ -11,7 +11,7 @@
 -        cf_set(f);
 -        return;
 -    }
-+    /* MUTANT 4 (Rule 6; make test-qekc-mutant only): SKIP the AL validation, so a
++    /* MUTANT 4 (the repository contract; make test-qekc-mutant only): SKIP the AL validation, so a
 +     * bad AL (e.g. AL=2) is NO LONGER rejected -- it falls through to the GET/SET
 +     * body (AL=2 != 0x00 takes the SET path on a write-capable backend, returning
 +     * CF=0 instead of the required CF=1/AX=0x0001). The bad-AL host contract goes

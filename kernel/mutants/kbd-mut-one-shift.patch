@@ -8,7 +8,7 @@
      if (scancode == SC_LSHIFT_BREAK || scancode == SC_RSHIFT_BREAK) {
 -        uint8_t side = scancode == SC_LSHIFT_BREAK ? 1u : 2u;
 -        st->shift &= (uint8_t)~side;
-+        /* Rule 6: restore the single-flag release; either break clears both. */
++        /* the repository contract: restore the single-flag release; either break clears both. */
 +        st->shift = 0u;
          return 0u;
      }

@@ -12,7 +12,7 @@
 -            psp->jft[i] = params->parent_jft[i];
 -        }
 -    } else
-+    /* Rule-6 mutant (make test-psp-mutant / the bsy.9 emu mutant): RESTORE the
++    /* the repository contract mutant (make test-psp-mutant / the bsy.9 emu mutant): RESTORE the
 +     * old hard-reset -- IGNORE params->parent_jft and ALWAYS lay the CON defaults,
 +     * disabling inheritance. test_psp Case 5 (host) + the redirect emu gate both
 +     * go RED, proving the inheritance path is load-bearing. NEVER in a real build. */

@@ -7,7 +7,7 @@
      if (al == 0x01u) {                  /* SET */
          uint8_t dl = frame_dl(f);
 -        g_break_flag = (uint8_t)(dl != 0u ? 1u : 0u);   /* normalize (DEC-16 3.2) */
-+        /* MUTANT M2 (Rule 6; make test-er3h-mutant only): store DL VERBATIM
++        /* MUTANT M2 (the repository contract; make test-er3h-mutant only): store DL VERBATIM
 +         * instead of the normalized boolean, so SET(DL=0xFF) then GET returns
 +         * 0xFF (not 1) -- the DL-normalization assertions [er3h.3]/[er3h.4] go
 +         * RED. NEVER in a real build (DEC-16 3.2 fixes normalize-on-write). */

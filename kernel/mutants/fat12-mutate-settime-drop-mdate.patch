@@ -1,5 +1,5 @@
 # FAT12_MUTATE_SETTIME_DROP_MDATE
-# test: test-b53d
+# test: test-qekc test-dos-stamp-host
 --- a/fat12.c
 +++ b/fat12.c
 @@ -2289,7 +2289,11 @@
@@ -7,7 +7,7 @@
  	 * (name / attr / start_cluster / size) is preserved. */
  	de.mtime = mtime;
 -	de.mdate = mdate;
-+	/* MUTANT 1 (Rule 6; make test-qekc-mutant only): write ONLY mtime, DROP the
++	/* MUTANT 1 (the repository contract; make test-qekc-mutant only): write ONLY mtime, DROP the
 +	 * mdate=DX assignment so the on-disk date keeps its old (0/0 baseline) value.
 +	 * The --stat-path-time / mdir DATE differential goes RED (MDATE mismatches).
 +	 * The (void) keeps -Werror=unused-parameter quiet. NEVER in a real build. */

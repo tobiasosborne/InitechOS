@@ -7,7 +7,7 @@
              return;
          }
 -        rc = bk->write(lba, count, (const void *)(uintptr_t)buf);
-+        /* MUTANT M2 (Rule 6): stub-drop the WRITE -- claim success (rc=0) but do
++        /* MUTANT M2 (the repository contract): stub-drop the WRITE -- claim success (rc=0) but do
 +         * no I/O. The read-back [5] sees stale bytes and the independent file
 +         * cross-check [6] disagrees, so both go RED. */
 +        rc = 0;

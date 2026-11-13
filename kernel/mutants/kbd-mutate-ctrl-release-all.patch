@@ -7,7 +7,7 @@
          uint8_t side = extended ? 2u : 1u;
          if (scancode & SC_BREAK_FLAG) {
 -            st->ctrl &= (uint8_t)~side;
-+            st->ctrl = 0u; /* Rule 6: releasing either Ctrl releases both. */
++            st->ctrl = 0u; /* the repository contract: releasing either Ctrl releases both. */
          }
          else st->ctrl |= side;
          return 0u;

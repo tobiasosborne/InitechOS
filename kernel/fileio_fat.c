@@ -1,7 +1,7 @@
 /* fileio_fat.c -- FAT12-backed INT 21h file backend (beads initech-0qh; epic
  * initech-6qy -- multi-tenant positioned file I/O).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code, freestanding
+ * THE ARTIFACT (the repository contract): shipped InitechDOS kernel code, freestanding
  * (only <stdint.h>). This is the concrete int21_file_backend_t the kernel binds
  * after a successful FAT12 mount: it bridges the host-testable INT 21h dispatch
  * logic (os/initechdos/int21.c) to the mounted volume (os/initechdos/fat12.c over
@@ -13,12 +13,12 @@
  * end-to-end FAT path is validated on the emulator (test-type / test-dir /
  * test-fatwrite / test-multiopen).
  *
- * Ref (Law 1): docs/research/fs-mount-sft-ground-truth.md Sec 4.1 (OPEN =
+ * Ref (the repository contract): docs/research/fs-mount-sft-ground-truth.md Sec 4.1 (OPEN =
  *   locate), Sec 4.2 (positioned READ), Sec 4.5 (FINDFIRST/NEXT dir
  *   enumeration); os/initechdos/fat12.h (fat12_find / fat12_read_partial /
  *   fat12_write_partial / fat12_create / fat12_unlink / fat12_read_root_dir /
- *   fat12_read_fat); spec/dos_structs.h (dir_entry_t). CLAUDE.md Law 2 (oracle),
- *   Law 3 (artifact = C), Rule 2 (fail loud), Rule 11 (deterministic), Rule 12
+ *   fat12_read_fat); kernel/include/dos_structs.h (dir_entry_t). the repository contract (oracle),
+ *   the repository contract (artifact = C), the repository contract (fail loud), the repository contract (deterministic), the repository contract
  *   (ASCII).
  *
  * MULTI-TENANT, POSITIONED, STATELESS (beads initech-0qh): the single whole-file
@@ -353,7 +353,7 @@ static uint16_t fat_set_time(uint16_t dir_start, uint32_t slot,
  * the attribute byte of `name83` in directory `dir_start_cluster` (0 == root)
  * into *io_attr; SET (set==1) writes *io_attr as the new attribute byte. Both
  * delegate to the fat12 primitives, which scan the directory (subdir-aware) and,
- * for SET, write back ONLY the attribute byte (mtime/mdate preserved -- Rule 11).
+ * for SET, write back ONLY the attribute byte (mtime/mdate preserved -- the repository contract).
  * GET works on a read-only volume and reports a directory/volume-label entry's
  * real attribute byte (CX=0x10 for a subdir) -- it does NOT reject (RBIL AX=4300h
  * has no directory exclusion; the reject is SET-only). A SET requires a writable
@@ -376,7 +376,7 @@ static uint16_t fat_chmod(const char *name83, uint16_t dir_start_cluster,
 		rc = fat12_get_attr(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
 		                    g_sector, io_attr);
 	} else {
-		/* SET: requires a writable backend (Rule 2: never a silent no-op). */
+		/* SET: requires a writable backend (the repository contract: never a silent no-op). */
 		if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
 			return FILEIO_ERR_ACCESS_DENIED;
 		}
@@ -520,7 +520,7 @@ static uint16_t fat_rmdir(const char *name83, uint16_t dir_start_cluster)
  * mounted BPB / derived volume fields. All four out-values are clamped to 16 bits
  * (the AH=36h registers are 16-bit); a 1.44 MB FAT12 has 2847 data clusters and
  * 512-byte sectors so nothing overflows. Returns 0 on success, non-zero with no
- * volume mounted. Ref (Law 1): Microsoft FAT spec (free=0x000); DOS 3.3 PRM
+ * volume mounted. Ref (the repository contract): Microsoft FAT spec (free=0x000); DOS 3.3 PRM
  * AH=36h; os/initechdos/fat12.h (fat12_next_cluster / fat12_is_free). */
 static uint16_t fat_freespace(uint16_t *out_spc, uint16_t *out_bps,
                               uint16_t *out_total_clus, uint16_t *out_free_clus)
@@ -544,7 +544,7 @@ static uint16_t fat_freespace(uint16_t *out_spc, uint16_t *out_bps,
         uint16_t v = 0u;
         int rc = fat12_next_cluster(g_vol, g_fat, g_fat_len, (uint16_t)c, &v);
         if (rc != FAT12_OK) {
-            return 1u;   /* a decode error -> fail loud (Rule 2) */
+            return 1u;   /* a decode error -> fail loud (the repository contract) */
         }
         if (fat12_is_free(v)) {
             freec++;
@@ -622,7 +622,7 @@ int fileio_fat_volume_label(char out[12])
  * a relative path, 0 (root) for absolute/drive-prefixed. (The drive letter is
  * ignored for the descent -- one volume this milestone -- but its PRESENCE makes
  * the path absolute.) This is the single seam mutant m5 reverts to always-root
- * to prove the relative-CWD oracle bites (Rule 6). Ref: PRD Sec 6.5; DOS 3.3
+ * to prove the relative-CWD oracle bites (the repository contract). Ref: PRD Sec 6.5; DOS 3.3
  * CHDIR/OPEN path resolution. */
 static uint16_t fat_descend_seed(const char *path, uint16_t cwd_start)
 {
@@ -679,7 +679,7 @@ static uint16_t fat_resolve(const char *path, uint16_t cwd_start,
     /* Copy the parent path [p .. last_sep] INCLUSIVE (keep the trailing '\') into
      * a bounded stack buffer and resolve it to the containing directory. The
      * int21.c side bounds the ASCIIZ path to INT21_PATH_SCAN_MAX (128) before
-     * calling, so it fits FILEIO_PATH_MAX; guard anyway (Rule 2). */
+     * calling, so it fits FILEIO_PATH_MAX; guard anyway (the repository contract). */
     uint32_t parent_len = (uint32_t)((last_sep - p) + 1);   /* include the '\' */
     if (parent_len >= FILEIO_PATH_MAX) {
         return FILEIO_ERR_PATH_NOT_FOUND;       /* overlength -> fail loud */
@@ -720,7 +720,7 @@ static uint16_t fat_resolve(const char *path, uint16_t cwd_start,
  * derived from the FILESYSTEM STRUCTURE -- a reverse '..' walk from the resolved
  * cluster up to the root -- NOT from the input text. That makes a RELATIVE, a
  * '.', or a '..' path canonicalize identically to the equivalent absolute path
- * (the deep, root-cause solution; Rule 3), and it is the only way to build the
+ * (the deep, root-cause solution; the repository contract), and it is the only way to build the
  * absolute canon from cwd_start alone (the vtable signature carries no cwd text).
  * ------------------------------------------------------------------------ */
 
@@ -775,7 +775,7 @@ static int dotdot_cb(const dir_entry_t *e, void *user)
  * empty string. Walks UP via each level's '..' entry, naming each level by
  * matching its start_cluster in its parent, then JOINS the names top-down with
  * single '\' separators. Returns 0 on success, or 0x0003 on a malformed chain /
- * an overlength canon (fail loud -- NEVER a truncated path; Rule 2). */
+ * an overlength canon (fail loud -- NEVER a truncated path; the repository contract). */
 static uint16_t fat_canon_from_cluster(uint16_t dir_cluster, char *canon,
                                        uint32_t canon_max)
 {
@@ -1038,7 +1038,7 @@ void fileio_fat_raw_written(unsigned letter, uint32_t lba, uint32_t count,
         mount_raw_written(&g_mounts[letter - 1u], lba, count, buf);
 }
 
-/* Rule 2: a volume whose rewritten boot record no longer mounts is no
+/* the repository contract: a volume whose rewritten boot record no longer mounts is no
  * longer a drive; never keep serving its stale geometry and FAT. */
 void fileio_fat_drop_drive(unsigned letter)
 {

@@ -1,8 +1,8 @@
 /*
- * os/milton/test_fpu.c -- host oracle for the x87 bring-up DECISION logic
+ * kernel/tests/test_fpu.c -- host oracle for the x87 bring-up DECISION logic
  * (beads initech-zj6w; make test-fpu-probe / test-fpu-probe-mutant).
  *
- * FACTORY host test (CLAUDE.md Law 3): libc OK. Includes the SAME fpu.h the
+ * FACTORY host test (the repository contract): libc OK. Includes the SAME fpu.h the
  * kernel's sysinit_fpu_init uses, so the probe verdict and the CR0 arithmetic
  * graded here are byte-for-byte the boot path's.
  *
@@ -27,11 +27,11 @@
  *       (0000001FH) -> present 00000033H, absent 00000035H; high bits
  *       (PG 80000000H, CD/NW 60000000H) pass through untouched.
  *
- * MUTANTS (Rule 6), each must make this exit NON-ZERO:
+ * MUTANTS (the repository contract), each must make this exit NON-ZERO:
  *   -DFPU_MUTATE_PROBE_SW_ONLY          verdict ignores the control word
  *   -DFPU_MUTATE_ABSENT_KEEPS_EM_CLEAR  absent CR0 forgets EM=1
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ * ASCII-clean (the repository contract). No timestamps / host paths (the repository contract).
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -90,7 +90,7 @@ static void test_spec_cw(void)
 {
     /* The locked boot CW is Intel's FINIT value (SDM Vol 1 8.1.5). */
     CHECK(X87_BOOT_CONTROL_WORD == 0x037Fu,
-          "spec/fpu_contract.h: X87_BOOT_CONTROL_WORD == 0x037F (FINIT value)");
+          "kernel/include/fpu_contract.h: X87_BOOT_CONTROL_WORD == 0x037F (FINIT value)");
 }
 
 int main(void)

@@ -7,7 +7,7 @@
          int at_end = (line[i] == '\0');
  
 -        int is_sep = (line[i] == '|');
-+        /* MUTANT (Rule 6; beads initech-bsy.8): never treat `|` as a separator,
++        /* MUTANT (the repository contract; beads initech-bsy.8): never treat `|` as a separator,
 +         * so the whole line collapses into ONE stage -- the multi-stage parse
 +         * assertions + the GREET|GOBBLE emu gate go RED.  NEVER in a real build. */
 +        int is_sep = 0;

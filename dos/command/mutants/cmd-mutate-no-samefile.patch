@@ -36,7 +36,7 @@
 -            return 1;
 -        }
 -    }
-+/* MUTANT (Rule 6; make test-command-mutant only): the same-file predicate always
++/* MUTANT (the repository contract; make test-command-mutant only): the same-file predicate always
 + * reports "different", so COPY's onto-itself guard never fires -> the same-file
 + * detection test goes RED, AND (in the kernel) COPY FOO.TXT FOO.TXT would
 + * dos_creat/TRUNCATE the source to zero -- the EXACT initech-ojxn data-loss

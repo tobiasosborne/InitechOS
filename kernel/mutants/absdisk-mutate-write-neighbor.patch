@@ -7,7 +7,7 @@
              return;
          }
 -        rc = bk->write(lba, count, (const void *)(uintptr_t)buf);
-+        /* MUTANT M6 (Rule 6): write count+1 sectors when count was asked -- it
++        /* MUTANT M6 (the repository contract): write count+1 sectors when count was asked -- it
 +         * scribbles the ADJACENT sector. The non-corruption snapshot [7] of the
 +         * neighbor (and the boot/FAT/root snapshot if scratch-1 is in range) goes
 +         * RED. */

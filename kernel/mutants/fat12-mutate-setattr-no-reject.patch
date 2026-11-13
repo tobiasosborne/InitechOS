@@ -5,7 +5,7 @@
 @@ -2384,9 +2384,6 @@
  
  	/* A new attribute that re-types the entry (sets Directory or VolLabel) is
- 	 * forbidden -- reject BEFORE the scan touches disk (Rule 2). */
+ 	 * forbidden -- reject BEFORE the scan touches disk (the repository contract). */
 -	if ((attr & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
 -		return FAT12_ERR_ACCESS;
 -	}
@@ -15,10 +15,10 @@
 @@ -2403,9 +2400,6 @@
  	}
  	/* The TARGET must be a regular file -- never CHMOD a directory or the
- 	 * volume-label entry (Rule 2). */
+ 	 * volume-label entry (the repository contract). */
 -	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
 -		return FAT12_ERR_ACCESS;
 -	}
  
  	/* Patch ONLY the attribute byte; name / cluster / size / mtime / mdate are
- 	 * left exactly as scanned (Rule 11: the timestamp bytes stay deterministic). */
+ 	 * left exactly as scanned (the repository contract: the timestamp bytes stay deterministic). */

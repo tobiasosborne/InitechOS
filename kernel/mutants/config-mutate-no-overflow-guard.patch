@@ -11,7 +11,7 @@
 -         * v==429496729 with digit>=6 wrap past UINT32_MAX (bug initech-zfo --
 -         * "4294967296" wrapped to 0 and clamped to FILES_MIN, not MAX). */
 -        if (v > (0xFFFFFFFFu - digit) / 10u) { v = 0xFFFFFFFFu; continue; }
-+        /* Rule-6 mutant (make test-config-fuzz-mutant): REMOVE the overflow guard
++        /* the repository contract mutant (make test-config-fuzz-mutant): REMOVE the overflow guard
 +         * entirely, so a 10+ digit FILES=/BUFFERS= value silently wraps the uint32
 +         * accumulator (modular *10+d) instead of saturating -> the fuzzer's
 +         * saturate-and-clamp-to-MAX invariant goes RED. NEVER in a real build. */

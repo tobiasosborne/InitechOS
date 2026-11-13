@@ -10,7 +10,7 @@
 -             * Larger requests still use the existing last-row clamp. */
 -            a.row  = r - 1 == st->rows ? st->rows : ansi_clamp(r - 1, 0, st->rows - 1);
 -            a.col  = ansi_clamp(c - 1, 0, st->cols_wide - 1);
-+            /* MUTANT (Rule 6): widen the clamp bounds to a no-op range -- an
++            /* MUTANT (the repository contract): widen the clamp bounds to a no-op range -- an
 +             * out-of-range CUP/HVP (e.g. ESC[999;999H on a 25x80 screen)
 +             * emits a position off the visible grid. Calls ansi_clamp() with
 +             * bounds that never bind, so the helper stays referenced but the

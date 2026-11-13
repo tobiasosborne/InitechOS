@@ -8,7 +8,7 @@
          case 0x30:                       /* GET VERSION */
 -            do_getver(frame);
 -            return;
-+            /* MUTANT (Rule 6; make test-40oq-mutant only): drop the AH=30h
++            /* MUTANT (the repository contract; make test-40oq-mutant only): drop the AH=30h
 +             * dispatch so it falls to the not-yet-impl arm and the test_40oq
 +             * dynamic safe-set check sees "not-yet-impl AH=30" -> RED.
 +             * The (void) reference keeps -Werror=unused-function quiet so the

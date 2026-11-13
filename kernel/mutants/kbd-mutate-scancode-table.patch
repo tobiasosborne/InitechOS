@@ -7,7 +7,7 @@
      }
  
 -    char base = st->shift ? SC1_SHIFT[scancode] : SC1_NORMAL[scancode];
-+    /* MUTANT (CLAUDE.md Rule 6; defined only by `make test-kbd-unit-mutant`):
++    /* MUTANT (the repository contract; defined only by `make test-kbd-unit-mutant`):
 +     * swap the low bit of the index so e.g. 0x20 ('d') decodes as 0x21 ('f') --
 +     * stays in [0,0x3A) (scancode < 0x3A here) so no OOB, but the values are
 +     * wrong; the translation oracle must go RED. NEVER define in a real build. */

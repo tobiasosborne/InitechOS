@@ -7,7 +7,7 @@
      uint16_t err = g_file->rename(old_leaf, old_dir_start, new_leaf, new_dir_start);
      if (err != 0) {
 -        set_ax(f, err);                  /* 0x0002 not found / 0x0005 dest/dir/write */
-+        /* MUTANT 5 (Rule 6; make test-gnrc-mutant only): map a backend source-
++        /* MUTANT 5 (the repository contract; make test-gnrc-mutant only): map a backend source-
 +         * not-found (0x0002) to 0x0003 (path not found), corrupting the DOS
 +         * register contract. The register-contract AX assertion goes RED. NEVER in
 +         * a real build. */

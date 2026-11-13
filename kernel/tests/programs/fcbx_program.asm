@@ -4,7 +4,7 @@
 ;   nasm -f bin -DREALDOS  -> a 16-bit real-mode .COM run under REAL MS-DOS 6.22
 ;                              (booted in dosbox-x) to MINT the golden transcript;
 ;   nasm -f bin            -> the flat-32 .COM-equivalent InitechOS loads at
-;                              spec/memory_map.h PROGRAM_IMAGE (0x40100).
+;                              kernel/include/memory_map.h PROGRAM_IMAGE (0x40100).
 ; The code is written with 32-bit registers throughout; under `bits 16` NASM
 ; emits operand/address-size prefixes (a 386 executes them in real mode) and
 ; every address is < 64 KiB, so both builds walk the same logic. INT 21h takes
@@ -16,15 +16,15 @@
 ; (sequential + random records). Deletes FCBTEST.DAT and FCBTRE.DAT.
 ;
 ; Ref: IBM DOS 3.30 Technical Reference 80X0945 pp. 6-67..6-88 (PDF 190-211;
-; the 0Fh..24h contracts), pp. 7-12..7-16 (PDF 375-379; FCB layout). Rule 12
-; ASCII; Rule 11 deterministic (nasm -f bin).
+; the 0Fh..24h contracts), pp. 7-12..7-16 (PDF 375-379; FCB layout). the repository contract
+; ASCII; the repository contract deterministic (nasm -f bin).
 
 %ifdef REALDOS
 bits 16
 org 0x0100
 %else
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 %endif
 
 %macro SAY 1+

@@ -1,5 +1,5 @@
 # CMD_MUTATE_DIR_NO_DATE
-# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+# test: test-dir-look
 --- a/command/command.c
 +++ b/command/command.c
 @@ -287,11 +287,6 @@

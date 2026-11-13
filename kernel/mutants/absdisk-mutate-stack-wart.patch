@@ -6,7 +6,7 @@
      /* [9] Success: CF=0. */
      cf_clear(frame);
  
-+    /* MUTANT M7 (Rule 6): MODEL the leftover-FLAGS-on-stack wart DEC-15.3
++    /* MUTANT M7 (the repository contract): MODEL the leftover-FLAGS-on-stack wart DEC-15.3
 +     * deliberately OMITS. The real wart leaves a stray FLAGS word on the caller
 +     * stack so the IRETD frame is DESYNCHRONIZED -- the saved EFLAGS the caller
 +     * pops is wrong beyond the documented CF. We model that desync by scribbling

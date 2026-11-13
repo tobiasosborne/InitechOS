@@ -10,7 +10,7 @@
 -            break;                  /* valid A/R/F -> done */
 -        }
 -        con_putc('\n');             /* invalid key -> newline + re-prompt */
-+        /* MUTANT (Rule 6; make test-int24-mutant only): accept the FIRST key
++        /* MUTANT (the repository contract; make test-int24-mutant only): accept the FIRST key
 +         * unconditionally -- no re-prompt loop. An invalid key yields the -1
 +         * "re-prompt" sentinel straight into AL (and MSG-DOS-0001 prints only
 +         * once), so the re-prompt oracle [2b] goes RED. NEVER in a real build. */

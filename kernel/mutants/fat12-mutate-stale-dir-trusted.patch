@@ -32,7 +32,7 @@
 -	    (de[1].attribute & DIR_ATTR_DIRECTORY) == 0u) {
 -		return FAT12_ERR_STALE_DIR;   /* reused by a file, or by another dir */
 -	}
-+	/* MUTANT (Rule 6; test-fat12-mkdir-mutant + test-flair-trash-purge-views-
++	/* MUTANT (the repository contract; test-fat12-mkdir-mutant + test-flair-trash-purge-views-
 +	 * mutant): the pre-L002 trust -- any number is a directory. NEVER define in
 +	 * a real build. */
 +	(void)vol; (void)fat; (void)fat_len; (void)dir; (void)sector_buf;

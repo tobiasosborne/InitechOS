@@ -7,8 +7,8 @@
  *        scancode SET 1 table (make 0x01..0x58; break = make|0x80; LShift make
  *        0x2A / break 0xAA; RShift make 0x36 / break 0xB6; CapsLock make 0x3A);
  *        Intel 8259A datasheet EOI (OCW2 = 0x20 to master command port 0x20).
- *        CLAUDE.md Law 1 (cite), Rule 2 (fail safe), Rule 11 (deterministic),
- *        Rule 12 (ASCII).
+ *        the repository contract (cite), the repository contract (fail safe), the repository contract (deterministic),
+ *        the repository contract (ASCII).
  *
  * The pure halves (kbd_ring_* / kbd_translate) compile HOSTED in test_kbd.c;
  * kbd_init / kbd_irq_handler / kbd_getchar / kbd_haschar are kernel-only.
@@ -56,7 +56,7 @@ int kbd_ring_put(kbd_ring_t *r, uint8_t c)
     if (next == r->tail) {
         if (r->dropped == 0) r->dropped = 1; /* ISR records, task reports. */
         /* Full: drop the byte (fail safe -- a dropped keystroke is not fatal,
-         * Rule 2 fail-loud applies to invariant violations, not lost input). */
+         * the repository contract fail-loud applies to invariant violations, not lost input). */
         return 0;
     }
     /* Round-2 Sec 4: volatile indices do not order ordinary slot memory. */
@@ -358,7 +358,7 @@ void kbd_init(void)
 
     /* Drain any stale byte the BIOS/firmware left in the 8042 output buffer so
      * the first real IRQ1 is not preceded by a ghost scancode (8042 datasheet:
-     * a pending byte blocks further IRQ1s until read). Bounded loop (Rule 2 --
+     * a pending byte blocks further IRQ1s until read). Bounded loop (the repository contract --
      * never spin forever): at most a few bytes can be buffered. */
     for (int i = 0; i < 16; i++) {
         (void)inb(KBD_DATA_PORT);
@@ -379,10 +379,10 @@ void kbd_irq_handler(void)
      */
     kbd_input_put(&g_input, sc);
     /* Publish the BIOS keyboard flag byte BEFORE returning into a chained
-     * resident hook (spec/tsr_contract.h Sec 2/4; bead initech-6fdt). */
+     * resident hook (kernel/include/tsr_contract.h Sec 2/4; bead initech-6fdt). */
     {
         /* 0x417 is the BIOS data area flag byte -- a real, fixed, mapped
-         * address in the flat model (spec/tsr_contract.h Sec 4), not a null
+         * address in the flat model (kernel/include/tsr_contract.h Sec 4), not a null
          * dereference. Launder the pointer through an empty asm so GCC's
          * -Warray-bounds (whole-TU -Oz) cannot treat the low constant as an
          * object at address zero. Same store, same bytes; no flag relaxed. */

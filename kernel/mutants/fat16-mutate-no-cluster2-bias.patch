@@ -7,7 +7,7 @@
  
  		/* Stream the cluster through one sector of scratch. */
 -		lba = cluster_lba(vol, cur);
-+		/* MUTANT (Rule 6; test-fat16 mutant M4 only): OMIT the cluster-2 LBA bias
++		/* MUTANT (the repository contract; test-fat16 mutant M4 only): OMIT the cluster-2 LBA bias
 +		 * -- map cluster N to first_data_sector + N*spc instead of (N-2)*spc.
 +		 * Every cluster reads two sectors too high, so the file content no longer
 +		 * matches the golden -> the FAT16 read oracle goes RED. This proves the

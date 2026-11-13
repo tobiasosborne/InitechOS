@@ -9,7 +9,7 @@
 -    /* CLEAN BUILD: enforce the InitechMZ tag.  An untagged MZ is a genuine
 -     * 16-bit DOS .EXE with paragraph fixups over 16-bit code -- running it
 -     * in 32-bit flat mode would silently misinterpret the instruction stream.
--     * The kernel loader PANICS on MZ_ERR_FOREIGN (DEC-08a.5, Rule 2). */
+-     * The kernel loader PANICS on MZ_ERR_FOREIGN (DEC-08a.5, the repository contract). */
 -    if (e_res0 != MZ_INITECH_TAG && e_res0 != INITECHMZ_EXT_TAG) {
 -        return MZ_ERR_FOREIGN;
 -    }

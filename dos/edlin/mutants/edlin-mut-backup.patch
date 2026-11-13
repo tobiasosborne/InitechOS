@@ -8,7 +8,7 @@
      if(existed){
 -        if(backup_ro){if(io->remove(name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}}
 -        else if(io->rename(name,backup)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
-+        if(io->remove(name)<0)return 0; /* Rule 6: omit original .BAK. */
++        if(io->remove(name)<0)return 0; /* the repository contract: omit original .BAK. */
      }
      if(io->rename(temporary,name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
      return 1;

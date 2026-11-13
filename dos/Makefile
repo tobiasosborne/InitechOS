@@ -58,8 +58,6 @@ $(OUT)/common/label.o: common/dosutil_target.c $(MAKEFILE_LIST) | $(OUT)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
 $(eval $(call c_program,ATTRIB,common/attrib.o common/dosutil.o,common/dosutil.ld))
 $(eval $(call c_program,LABEL,common/label.o common/dosutil.o,common/dosutil.ld))
-test:
-	@echo "dos: tier 0 import pending"
 smoke:
 	$(MAKE) -C $(TOP) smoke
 $(OUT)/chkdsk/mcb.o: $(TOP)/kernel/mcb.c $(MAKEFILE_LIST) | $(OUT)
@@ -72,3 +70,8 @@ $(OUT)/COMMAND.COM: command/forward.asm | $(OUT)
 $(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc: $(TOP)/kernel/include/dos_messages.json $(TOP)/kernel/gen_messages.c
 	$(MAKE) -C $(TOP)/kernel ../build/kernel/dos_messages.h ../build/kernel/dos_messages.inc
 $(OUT)/command.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o: $(TOP)/build/kernel/dos_messages.h
+
+include tests-programs.mk
+
+# Host test wiring (separate from target build rules).
+include tests.mk

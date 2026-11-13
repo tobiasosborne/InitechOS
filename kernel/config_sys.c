@@ -1,14 +1,14 @@
 /* config_sys.c -- PURE CONFIG.SYS parser (beads initech-509.2).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib),
+ * THE ARTIFACT (the repository contract): freestanding (-ffreestanding -nostdlib),
  * <stdint.h> only, NO libc / NO malloc. Pure text -> dos_config_t transformation,
  * so it compiles BOTH freestanding (the kernel SYSINIT) and HOSTED (test_config_sys.c).
  *
- * Ref (Law 1): spec/dos_config_sys_baseline.txt (LOCKED, Rule 8); DOS 3.3
+ * Ref (the repository contract): kernel/tests/data/dos_config_sys_baseline.txt (LOCKED, the repository contract); DOS 3.3
  *   CONFIG.SYS directive semantics (case-insensitive keyword=value; blank /
  *   ';'-comment / unknown lines skipped, NOT fatal; numeric clamp). config_sys.h
- *   for the struct + bounds. Rule 2 (fail loud on a PROGRAMMER bug only),
- *   Rule 11 (deterministic), Rule 12 (ASCII).
+ *   for the struct + bounds. the repository contract (fail loud on a PROGRAMMER bug only),
+ *   the repository contract (deterministic), the repository contract (ASCII).
  */
 
 #include "config_sys.h"
@@ -107,7 +107,7 @@ static uint32_t cfg_copy_clamped(char *dst, uint32_t cap, const char *s, uint32_
 int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
 {
     if (out == 0) {
-        /* Programmer bug, NOT user content -> fail loud (Rule 2). */
+        /* Programmer bug, NOT user content -> fail loud (the repository contract). */
         CONFIG_FAIL_LOUD();
         return 0; /* not reached */
     }

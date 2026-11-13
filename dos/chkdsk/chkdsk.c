@@ -1,5 +1,5 @@
 /* CHKDSK engine (artifact, freestanding C).
- * Law 1: MS-DOS 3.3 User's Guide p43 (/F,/V/report), pp318-319
+ * the repository contract: MS-DOS 3.3 User's Guide p43 (/F,/V/report), pp318-319
  * (fragmentation/prompt/read-only), p334 (invalid start), p344 (lost chains).
  * IBM DOS Reference pp7-48..51 (paths, columns, FILE0000.CHK), A-46
  * (report BOTH cross-linked files, never automatically repair a cross-link).

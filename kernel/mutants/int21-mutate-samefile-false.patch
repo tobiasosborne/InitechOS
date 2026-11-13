@@ -1,12 +1,12 @@
 # INT21_MUTATE_SAMEFILE_FALSE
-# test: test-fileio
+# test: test-dos-safety-create test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro test-dos-safety-identity
 --- a/int21.c
 +++ b/int21.c
 @@ -2320,6 +2320,7 @@
      sft_entry_t *b = second <= 0xFFu
          ? sft_from_handle(g_cur_psp, (uint8_t)second) : 0;
      if (a == 0 || b == 0 || a->kind != b->kind) return 0;
-+    return 0; /* Rule 6: alias identity oracle must reject this false negative. */
++    return 0; /* the repository contract: alias identity oracle must reject this false negative. */
      /* There is one mounted volume. OPEN has already resolved drive/CWD/dots.
       * Cluster alone is insufficient (all empty files have cluster zero).
       * Ref: MS-DOS 3.3 User's Reference p. 50, COPY self refusal; initech-vj28. */

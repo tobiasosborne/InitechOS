@@ -1,5 +1,5 @@
 # FAT12_MUTATE_UNLINK_NONREGULAR
-# test: test-fat
+# test: test-dos-safety-create test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro test-dos-safety-identity
 --- a/fat12.c
 +++ b/fat12.c
 @@ -3124,8 +3124,6 @@

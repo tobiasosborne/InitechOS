@@ -7,7 +7,7 @@
  	 * i.e. abs_off is the last byte of its sector. Only FAT12 can hit this. */
  	straddle  = ((abs_off % sec_bytes) == (sec_bytes - 1u));
 -	need_count = straddle ? 2u : 1u;
-+	/* MUTANT (Rule 6; test-d27i-mutant only): IGNORE the straddle -- always fetch
++	/* MUTANT (the repository contract; test-d27i-mutant only): IGNORE the straddle -- always fetch
 +	 * a SINGLE sector. A straddling FAT12 entry's high nibble then reads from
 +	 * STALE/uninitialized window bytes (abs_off+1 is past the one sector loaded),
 +	 * so cluster 341/682 mis-decode and the byte-for-byte read goes RED. This

@@ -6,7 +6,7 @@
          dos_print(MSG_DOS_0012 " $");
          dos_getline(answer);
          int yes = answer[1] == 1u && cmd_upcase_char((char)answer[2]) == 'Y';
-+        yes = 1; /* Rule 6: non-Y refusal must bite on disk preservation. */
++        yes = 1; /* the repository contract: non-Y refusal must bite on disk preservation. */
          if (!yes) return;
      }
  

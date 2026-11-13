@@ -6,7 +6,7 @@
          dos_print(MSG_DOS_0012 " $");
          dos_getline(answer);
          int yes = answer[1] == 1u && cmd_upcase_char((char)answer[2]) == 'Y';
-+        yes = 0; /* Rule 6: approved deletion must actually take place. */
++        yes = 0; /* the repository contract: approved deletion must actually take place. */
          if (!yes) return;
      }
  

@@ -7,7 +7,7 @@
  		cb[k] = ((const uint8_t *)&de)[k];
  	}
 -	fat12_make_dotdir(&de, 2, parent_dir_start); /* '..' -> parent (root=0) */
-+	/* MUTANT m2 (Rule 6; make test-fat12-mkdir-mutant only) -- THE canonical
++	/* MUTANT m2 (the repository contract; make test-fat12-mkdir-mutant only) -- THE canonical
 +	 * '..'-rule mutant: write '..' start = the dir's OWN cluster instead of the
 +	 * parent (root encoded as 0). The mmd '..' diff must go RED. NEVER define in
 +	 * a real build. */

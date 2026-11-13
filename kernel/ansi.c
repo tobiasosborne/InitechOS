@@ -12,9 +12,9 @@
  *        bg nibble, bit 7 = blink/bright-bg);
  *        Microsoft MS-DOS 3.3 Technical Reference Appendix C (default text
  *        attribute 0x07: light grey on black, no blink).
- *        CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Law 3
- *        (artifact = C), Rule 2 (fail loud), Rule 11 (deterministic),
- *        Rule 12 (ASCII).
+ *        the repository contract (cite source), the repository contract (oracle is truth), the repository contract
+ *        (artifact = C), the repository contract (fail loud), the repository contract (deterministic),
+ *        the repository contract (ASCII).
  * Lane fixes: IBM DOS 3.30 Technical Reference (80X0945), printed pp. 3-4
  * (zero defaults), 3-7/3-8 (relative movement stops at edges), 3-10 (DSR
  * reports current position), 3-15 (SGR 8 invisible). See test_ansi_lane and
@@ -23,7 +23,7 @@
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  * No libc; hand-rolled helpers only (same discipline as batch.c / env.c).
  *
- * MUTATION hooks (CLAUDE.md Rule 6):
+ * MUTATION hooks (the repository contract):
  *   ANSI_MUTATE_PARAM_ACCUM  -- digit accumulator uses *1 instead of *10;
  *                               multi-digit params (e.g. "10;5H") parse wrong
  *                               -> cursor-position oracle goes RED.
@@ -111,7 +111,7 @@ static void ansi_emit(const ansi_action_t *a,
 /* Flush the current digit accumulator into params[], if non-empty.
  * Bounded: if param_count would exceed ANSI_PARAM_MAX the extra param is
  * dropped silently (the excess is consumed by the stream but not stored;
- * Rule 2: never overflow the array). */
+ * the repository contract: never overflow the array). */
 static void ansi_flush_param(ansi_state_t *st)
 {
     if (st->param_current == ANSI_PARAM_DEFAULT) {
@@ -310,7 +310,7 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
               /* Ref: MS-DOS 3.3 Technical Reference Ch 4 "CUP"/"HVP".
                * Params are 1-based; we convert to 0-based for the action.
                * Default: row=1, col=1 (home position).
-               * Clamped to the screen dimensions (defensive, Rule 2).
+               * Clamped to the screen dimensions (defensive, the repository contract).
                * IMPORTANT: st->row and st->col are updated here so that
                * a subsequent ESC[s captures the correct position. */
         {
@@ -431,7 +431,7 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
          * Ref: RBIL ANSI.SYS -- "unknown final byte ends the sequence";
          * MS-DOS 3.3 behaviour is to absorb unknown CSI sequences silently.
          * ANSI_ACT_NONE is not emitted (cb is NOT called).
-         * Rule 2: fail loud on BUFFER overflow (handled in param accumulation),
+         * the repository contract: fail loud on BUFFER overflow (handled in param accumulation),
          * NOT on unknown sequences from the input stream. */
         break;
     }
@@ -454,7 +454,7 @@ void ansi_init(ansi_state_t *st, int rows, int cols)
     st->col       = 0;
     st->saved_row = 0;
     st->saved_col = 0;
-    /* Clamp dimensions to at least 1x1 (Rule 2: never degenerate). */
+    /* Clamp dimensions to at least 1x1 (the repository contract: never degenerate). */
     st->rows      = (rows > 0) ? rows : 1;
     st->cols_wide = (cols > 0) ? cols : 1;
     st->attr      = ANSI_ATTR_DEFAULT;
@@ -594,7 +594,7 @@ void ansi_feed(ansi_state_t *st, uint8_t byte,
 
     default:
         /* Internal invariant violation: unknown FSM state.
-         * Rule 2: fail loud.  Reset to GROUND so the caller can continue. */
+         * the repository contract: fail loud.  Reset to GROUND so the caller can continue. */
         st->fsm = ANSI_ST_GROUND;
         break;
     }

@@ -1,14 +1,14 @@
 /*
  * os/initechdos/ata.c -- minimal ATA PIO LBA28 sector read (INITECHDOS).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code. Freestanding
+ * THE ARTIFACT (the repository contract): shipped InitechDOS kernel code. Freestanding
  * (only <stdint.h>). Implements READ SECTORS (0x20) PIO on a configurable ATA
  * channel + drive (primary master = boot disk; primary slave = FAT12 data
  * disk) via a per-device ata_ctx_t.
  *
  * FIRST EMULATOR RUN (brief Sec 2.1): until now this file only had to compile;
  * make test-fs is its first functional exercise. The PIO poll is therefore
- * armoured with fail-loud, bounded guards (CLAUDE.md Rule 2 / Rule 3):
+ * armoured with fail-loud, bounded guards (the repository contract / the repository contract):
  *   - 400 ns settle delay (four altstatus reads) after the drive-select write;
  *   - a floating-bus check (STATUS == 0xFF => no drive) that returns an error
  *     IMMEDIATELY instead of spinning on BSY forever (the guaranteed hang);
@@ -20,13 +20,13 @@
  * freestanding build uses real x86 I/O. test-fs and test-block-device-emu
  * exercise the hardware path under QEMU (bcg.12 / DEC-17).
  *
- * Ref (Law 1): ATA/ATAPI-6, READ SECTORS (0x20) PIO protocol; primary-channel
+ * Ref (the repository contract): ATA/ATAPI-6, READ SECTORS (0x20) PIO protocol; primary-channel
  *   port map 0x1F0..0x1F7 + device-control 0x3F6; drive/head register bit 4
  *   (master/slave), bit 6 (LBA); the 400 ns post-select delay + the
  *   floating-bus 0xFF convention. docs/research/fs-mount-sft-ground-truth.md
  *   Sec 1.3, Sec 2.2, Sec 2.3.
  *
- * ASCII-clean (Rule 12). Reproducible (Rule 11): no timestamps / host paths.
+ * ASCII-clean (the repository contract). Reproducible (the repository contract): no timestamps / host paths.
  */
 
 #include "ata.h"
@@ -64,7 +64,7 @@
 /* Bounded poll budget. Each iteration is one IN from a port (~hundreds of ns on
  * real ISA, far less on QEMU). 1e7 is generous for a settled controller yet
  * finite -- a stuck drive yields ATA_ERR_TIMEOUT, never an infinite hang
- * (Rule 2). */
+ * (the repository contract). */
 #ifndef ATA_POLL_LIMIT
 #define ATA_POLL_LIMIT 10000000u
 #endif
@@ -150,7 +150,7 @@ static int ata_lba28_valid(uint32_t lba, uint32_t count)
  *   - once BSY clears, ERR/DF set -> ATA_ERR_DEVICE;
  *   - DRQ not set (and no error) -> ATA_ERR_DEVICE (command accepted but no
  *     data transfer -- a genuine anomaly).
- * Returns 0 only when DRQ is set with no error (fail loud, Rule 2).
+ * Returns 0 only when DRQ is set with no error (fail loud, the repository contract).
  */
 static int ata_wait_drq(uint16_t io_base, uint16_t ctrl_base)
 {
@@ -194,7 +194,7 @@ static int ata_wait_drq(uint16_t io_base, uint16_t ctrl_base)
  * after the final WRITE sector to let the write buffer drain before FLUSH. Same
  * fail-loud discipline as ata_wait_drq (floating-bus guard, bounded poll,
  * ERR/DF check), but it does NOT require DRQ. Returns 0 only when BSY is clear
- * with no error (Rule 2).
+ * with no error (the repository contract).
  */
 static int ata_wait_ready(uint16_t io_base, uint16_t ctrl_base)
 {
@@ -343,12 +343,12 @@ static int ata_pio_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
  * data). Scripted failures are covered by test-ata; the hardware round-trip
  * is covered by make test-fatwrite and test-block-device-emu.
  *
- * Ref (Law 1): ATA/ATAPI-6, WRITE SECTORS (0x30) PIO protocol + FLUSH CACHE
+ * Ref (the repository contract): ATA/ATAPI-6, WRITE SECTORS (0x30) PIO protocol + FLUSH CACHE
  *   (0xE7); the DRQ-per-sector handshake (host writes data when DRQ is set);
  *   docs/research/fs-mount-sft-ground-truth.md Sec 1.3, Sec 2.2, Sec 2.3 (the
  *   same channel/drive-select + 400 ns settle + floating-bus convention as the
  *   read path). Returns 0 on success, a negative ATA_ERR_* on error (never an
- *   infinite spin -- bounded polls throughout, Rule 2).
+ *   infinite spin -- bounded polls throughout, the repository contract).
  *
  * NOTE: a const-correct write buffer (the blockdev_t::write_sectors signature
  * takes `const void *`) -- we never modify it; we only read words OUT of it.
@@ -408,7 +408,7 @@ static int ata_pio_write(void *ctx, uint32_t lba, uint32_t count, const void *bu
 	}
 
 	/* CACHE FLUSH so the write buffer is committed before any read sees it
-	 * (Rule 2 / Rule 11: a subsequent read of what we wrote must be authoritative,
+	 * (the repository contract / the repository contract: a subsequent read of what we wrote must be authoritative,
 	 * not a stale-cache artifact). FLUSH transfers no data -> wait BSY-clear. */
 	rc = ata_wait_ready(io_base, ctrl_base);
 	if (rc != 0) return rc;
@@ -483,7 +483,7 @@ void ata_ctx_init_primary_slave(ata_ctx_t *ctx)
  * write -- inherits A/R/F handling with no change to fat12.c or its 20 device
  * call sites. NULL hook -> transparent (the inner error is returned verbatim,
  * the historical Fail). Ref: RBIL INT 24h; ADR-0003 DEC-10; blockdev.h contract
- * (0 ok / negative on error -- Rule 2). */
+ * (0 ok / negative on error -- the repository contract). */
 
 /* One process-wide hook (single-tenant DOS; no reentrant disk I/O -- the InDOS
  * model in int21.c). NULL until the kernel/oracle binds it. */
@@ -510,7 +510,7 @@ static int crit_should_retry(int op_is_write, int device_error)
 
 /* Wrapped READ: call the inner read; on a negative return raise the critical-
  * error path and, on a Retry decision, re-issue -- bounded so a permanently-dead
- * drive cannot spin forever (Rule 2). Returns 0 on a (possibly retried) success
+ * drive cannot spin forever (the repository contract). Returns 0 on a (possibly retried) success
  * or the LAST inner error code on Fail/Abort/budget-exhaustion. */
 static int crit_blockdev_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
 {
@@ -554,7 +554,7 @@ static int crit_blockdev_write(void *ctx, uint32_t lba, uint32_t count,
 
 	for (attempt = 0u; ; attempt++) {
 		if (cb->inner->write_sectors == NULL) {
-			rc = ATA_ERR_ARG;      /* write-protect: no write backend (Rule 2) */
+			rc = ATA_ERR_ARG;      /* write-protect: no write backend (the repository contract) */
 		} else {
 			rc = cb->inner->write_sectors(cb->inner->ctx, lba, count, buf);
 		}

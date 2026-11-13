@@ -10,7 +10,7 @@
 -				(void)fat12_free_chain(vol, fat, fat_len, first_cluster);
 -				(void)fat12_flush_fats(vol, fat, fat_len);
 -			}
-+			/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
++			/* MUTANT (the repository contract; make test-fat-fault-rollback-mutant only): SKIP the
 +			 * partial-allocation rollback on a mid-write device fault. Every
 +			 * cluster claimed so far LEAKS (stays allocated) while the call still
 +			 * fails -- the exact atomicity defect the fault-injection oracle pins.

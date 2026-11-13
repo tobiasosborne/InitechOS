@@ -7,7 +7,7 @@
  	if (!found) {
  		return FAT12_ERR_NOT_FOUND;
 +	}
-+	/* MUTANT (Rule 6; make test-b53d-mutant only): RE-INTRODUCE the
++	/* MUTANT (the repository contract; make test-b53d-mutant only): RE-INTRODUCE the
 +	 * (unfaithful) GET-on-directory reject that the b53d fidelity fix removed --
 +	 * deny a directory / volume-label entry instead of reporting its real 0x10
 +	 * attribute byte. The corrected "GET-on-dir -> CF=0/CX=0x10" contract (host

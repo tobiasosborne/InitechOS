@@ -12,10 +12,10 @@
 -                                 load_base,
 -                                 file_at + img.reloc_table_off, img.reloc_count);
 -        if (rs != MZ_OK) {
--            return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud (Rule 2) */
+-            return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud (the repository contract) */
 -        }
 -    }
-+    /* MUTANT (CLAUDE.md Rule 6; make test-mzload-mutant only): SKIP the flat-32
++    /* MUTANT (the repository contract; make test-mzload-mutant only): SKIP the flat-32
 +     * relocation entirely. The load module's absolute references keep their
 +     * unrelocated (link-time) value, so the relocated-dword assertion in
 +     * test_mzload.c (dword == original + PROGRAM_IMAGE) MUST go RED. This is the

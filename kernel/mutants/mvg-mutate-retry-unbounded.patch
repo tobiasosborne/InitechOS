@@ -9,10 +9,10 @@
 -		if (attempt >= CRIT_BLOCKDEV_MAX_RETRIES ||
 -		    !crit_should_retry(0 /* read */, rc)) {
 -			return rc;             /* Fail / Abort-returned / budget -> error */
-+		/* MUTANT (Rule 6; make test-int24-wired-mutant only): DROP the retry
++		/* MUTANT (the repository contract; make test-int24-wired-mutant only): DROP the retry
 +		 * bound -- an always-Retry operator on a dead drive then loops forever.
 +		 * Scenario [E]'s bounded queue underflows (mock_get exit(2)) -> RED,
-+		 * proving the bound is load-bearing (Rule 2). NEVER in a real build. */
++		 * proving the bound is load-bearing (the repository contract). NEVER in a real build. */
 +		if (!crit_should_retry(0 /* read */, rc)) {
 +			return rc;
  		}
@@ -24,7 +24,7 @@
  		}
 -		if (attempt >= CRIT_BLOCKDEV_MAX_RETRIES ||
 -		    !crit_should_retry(1 /* write */, rc)) {
-+		/* MUTANT (Rule 6; make test-int24-wired-mutant only): DROP the write
++		/* MUTANT (the repository contract; make test-int24-wired-mutant only): DROP the write
 +		 * retry bound (see the read twin above). [E] underflows -> RED. */
 +		if (!crit_should_retry(1 /* write */, rc)) {
  			return rc;

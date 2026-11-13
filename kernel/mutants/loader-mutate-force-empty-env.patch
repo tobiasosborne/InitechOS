@@ -13,7 +13,7 @@
 -        out->env_linear  = env_block;             /* inherit the populated block      */
 -        out->write_empty = 0;                     /* do NOT overwrite the shell's env  */
 -    }
-+    /* MUTANT (CLAUDE.md Rule 6; make test-exec-env-mutant only): IGNORE the provided
++    /* MUTANT (the repository contract; make test-exec-env-mutant only): IGNORE the provided
 +     * env_block and ALWAYS choose the empty-block path -- the exact pre-inc-3 bug
 +     * (every child gets an empty env, the shell's master env never inherited). The
 +     * inheritance oracle (a populated env_block must yield write_empty=0 and

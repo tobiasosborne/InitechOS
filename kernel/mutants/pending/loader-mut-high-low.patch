@@ -1,0 +1,12 @@
+# LOADER_MUT_HIGH_LOW
+# test: test-loader
+--- a/loader_validation.c
++++ b/loader_validation.c
+@@ -229,6 +229,7 @@
+     out->extended = out->low_mcb_owned = 1u;
+     out->psp_addr = PROGRAM_BASE; /* runtime supplies a small low MCB control */
+     out->image_dst = EXT_APP_BASE;
++    out->image_dst = PROGRAM_IMAGE; /* the repository contract: wrong content dispatch */
+     out->entry = out->image_dst + img->entry_off;
+     out->image_len = img->load_module_len;
+     out->reserve_end = base;

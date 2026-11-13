@@ -5,7 +5,7 @@
 @@ -657,9 +657,7 @@
      /* Apply NOT.
       * MUTANT BATCH_MUTATE_IF_IGNORE_NOT: drop the negation so a NOT'd condition
-      * returns the un-negated truth -> the IF-NOT oracle goes RED (Rule 6). */
+      * returns the un-negated truth -> the IF-NOT oracle goes RED (the repository contract). */
 -    if (negate) {
 -        result = result ? 0 : 1;
 -    }

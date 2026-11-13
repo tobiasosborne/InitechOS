@@ -7,7 +7,7 @@
                  previous[i] = g_shell_dta.fname[i];
              previous[i] = '\0';
 -            del_path(path, name, prefix, previous);
-+            del_path(path, name, 0, previous); /* Rule 6: original wrong target. */
++            del_path(path, name, 0, previous); /* the repository contract: original wrong target. */
              uint16_t error;
  #ifdef CMD_TEST_DEL_DENIED
              error = INT21_ERR_ACCESS_DENIED; /* factory-injected write refusal */

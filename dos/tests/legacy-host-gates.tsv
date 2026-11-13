@@ -1,0 +1,43 @@
+legacy_gate	class	destination_or_reason
+test-batch	UNIT	dos/tests/gates/test-batch.sh
+test-batch-break-host	UNIT	dos/tests/gates/test-batch-break-host.sh
+test-batch-break-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-batch-exec	UNIT	dos/tests/gates/test-batch-exec.sh
+test-batch-exec-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-batch-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-chkdsk	ORACLE-STRONG	dos/tests/gates/test-chkdsk.sh
+test-chkdsk-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dos-batch2-host	UNIT	dos/tests/gates/test-dos-batch2-host.sh
+test-dos-batch2-host-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dos-folder-host	UNIT	FLAIR desktop owner; tests exercise desktop database/layout or Finder
+test-dos-folder-host-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dos-safety-create	ORACLE-STRONG	kernel/tests/gates/test-dos-safety-create.sh
+test-dos-safety-create-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dos-safety-create-ro	ORACLE-STRONG	kernel/tests/gates/test-dos-safety-create-ro.sh
+test-dos-safety-identity	ORACLE-STRONG	kernel/tests/gates/test-dos-safety-identity.sh
+test-dos-safety-identity-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dos-safety-ro-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dos-safety-unlink-ro	ORACLE-STRONG	kernel/tests/gates/test-dos-safety-unlink-ro.sh
+test-dos-safety-write-ro	ORACLE-STRONG	kernel/tests/gates/test-dos-safety-write-ro.sh
+test-fdisk	UNIT	dos/tests/gates/test-fdisk.sh
+test-fdisk-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-flair-shell	UNIT	FLAIR desktop owner; tests exercise desktop database/layout or Finder
+test-flair-shell-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-formatsys	ORACLE-STRONG	dos/tests/gates/test-formatsys.sh
+test-formatsys-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ovl-format	SIZE/LAYOUT	attic; retired layout/baked-image policy (functional loader suites imported)
+test-ovl-format-mutant	SIZE/LAYOUT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-redir	UNIT	dos/tests/gates/test-redir.sh
+test-redir-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-redir-parse	UNIT	dos/tests/gates/test-redir-parse.sh
+test-redir-parse-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-shell-files-host	UNIT	dos/tests/gates/test-shell-files-host.sh
+test-shell-files-host-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-xcopy-cwd-host	ORACLE-STRONG	dos/tests/gates/test-xcopy-cwd-host.sh
+test-xcopy-cwd-host-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-xcopy-tree	ORACLE-STRONG	dos/tests/gates/test-xcopy-tree.sh
+test-xcopy-tree-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-diskcopy-emu	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-format-missing-source-emu	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-tbx-mutant-SHELL_MUT_MENU_COUNT	UNIT	Mutation validation: patch sweep where functional; retired factory/FLAIR policy otherwise
+test-tbx-mutant-SHELL_MUT_SHORT_SURFACE	UNIT	Mutation validation: patch sweep where functional; retired factory/FLAIR policy otherwise

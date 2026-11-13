@@ -1,0 +1,12 @@
+# INT21_MUTATE_FCB_EXT_NOATTR
+# test: test-int21
+--- a/int21.c
++++ b/int21.c
+@@ -3989,6 +3989,7 @@
+         if (g_file->create != 0 &&
+             g_file->create(nm, g_cwd_start_cluster, &de, &slot) == 0u) {
+             uint8_t a = (uint8_t)(attr & 0x27u);   /* RO/H/S/A of an extended FCB */
++            a = 0u;   /* MUTANT (the repository contract): extended-FCB attribute dropped */
+             if (a != 0u && g_file->chmod != 0) {
+                 a |= DIR_ATTR_ARCHIVE;
+                 if (g_file->chmod(nm, g_cwd_start_cluster, 1, &a) == 0u) de.attribute = a;

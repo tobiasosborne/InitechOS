@@ -8,7 +8,7 @@
          } else {
 -            /* RBIL: AL=0x00 if EOF (files); 0xFF if not at EOF. */
 -            status = (e->file_offset >= e->dir_entry.file_size) ? 0x00u : 0xFFu;
-+            /* MUTANT (Rule 6): invert the file EOF test -> the at-EOF and
++            /* MUTANT (the repository contract): invert the file EOF test -> the at-EOF and
 +             * not-at-EOF input-status assertions go RED. */
 +            status = (e->file_offset >= e->dir_entry.file_size) ? 0xFFu : 0x00u;
          }

@@ -6,14 +6,14 @@
  * Ref:   docs/research/psp-loader-ground-truth.md Sec 3 (flat program model +
  *        memory layout), Sec 4 (THE control-transfer + return-to-loader
  *        mechanism), Sec 5 (the baked test program), Sec 7 (Risk 1 the return
- *        path -- the load-bearing, bug-prone part); spec/memory_map.h (LOCKED
+ *        path -- the load-bearing, bug-prone part); kernel/include/memory_map.h (LOCKED
  *        addresses); os/initechdos/psp.h (psp_build); os/initechdos/int21.h
- *        (int21_set_exit / int21_exit_fn). CLAUDE.md Law 1 (cite), Law 2
- *        (oracle), Law 3 (artifact = C), Rule 2 (fail loud), Rule 3 (root
- *        cause), Rule 8 (specs-as-data), Rule 11 (deterministic), Rule 12
+ *        (int21_set_exit / int21_exit_fn). the repository contract (cite), the repository contract
+ *        (oracle), the repository contract (artifact = C), the repository contract (fail loud), the repository contract (root
+ *        cause), the repository contract (specs-as-data), the repository contract (deterministic), the repository contract
  *        (ASCII).
  *
- * Split for testability (Law 2): loader_prepare() is the PURE, host-testable
+ * Split for testability (the repository contract): loader_prepare() is the PURE, host-testable
  * input-validation + layout + psp_params computation. load_program() adds the
  * kernel-only image copy + PSP build + the asm context save / stack switch /
  * jump / non-returning return-to-loader. In a HOSTED build the asm path is
@@ -36,7 +36,7 @@ static void loader_move_down(uint8_t *dst,const uint8_t *src,uint32_t n)
  * test_mz.c, also #includes mz.c into its OWN TU), and the kernel object list
  * does not build mz.o. This keeps the existing Makefile recipes -- every kernel
  * image variant + the host loader oracles that link loader.c -- working with NO
- * Makefile edit (CLAUDE.md scope: do not touch the Makefile; Law 3 artifact = C).
+ * Makefile edit (CLAUDE.md scope: do not touch the Makefile; the repository contract artifact = C).
  * mz.c is pure + freestanding (-ffreestanding, <stdint.h> only), so inlining it
  * here is identical to compiling it as a peer object. */
 /* The complete object joins the kernel-only cold optimization set after the
@@ -91,12 +91,12 @@ void loader_nest_leave(loader_state_t *active, const loader_state_t *saved)
  *       env_block, write_empty = 0 -- the loader must NOT overwrite the shell's
  *       serialized env; the child PSP env_seg points at the populated block.
  * A non-zero env_block that is NOT ENV_BLOCK is a caller bug (the loader never
- * wrote that region) -> LOADER_ERR_BAD_ENV (Rule 2 fail loud).
+ * wrote that region) -> LOADER_ERR_BAD_ENV (the repository contract fail loud).
  *
  * Split out as a pure function (NO asm, NO absolute-address writes) so the host
  * oracle drives the inheritance decision directly (loader_run_plan -- the asm
  * stack-switch path -- is kernel-only and cannot run hosted). loader_run_plan
- * calls THIS to choose, so the kernel and the oracle agree by construction (Law 2). */
+ * calls THIS to choose, so the kernel and the oracle agree by construction (the repository contract). */
 loader_status_t loader_decide_env(uint32_t env_block, loader_env_decision_t *out)
 {
     if (out == 0) {
@@ -185,7 +185,7 @@ loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
         return LOADER_ERR_BAD_FORMAT;   /* e_minalloc does not fit: refuse */
     }
     if (img.entry_off >= img.load_module_len) {
-        return LOADER_ERR_BAD_FORMAT;   /* never JMP past the module (Rule 2) */
+        return LOADER_ERR_BAD_FORMAT;   /* never JMP past the module (the repository contract) */
     }
 
     /* 3. Relocate in file position against the PARAMETERIZED load base. */
@@ -266,7 +266,7 @@ loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
             len   = img.load_module_len;
         } else if (ps == MZ_ERR_FOREIGN) {
             return LOADER_ERR_FOREIGN_MZ;   /* DEC-08a.5: the kernel panics */
-            /* MUTANT (Rule 6): the untagged 16-bit MZ falls through and is
+            /* MUTANT (the repository contract): the untagged 16-bit MZ falls through and is
              * copied as a raw file. NEVER define in a real build. */
         } else {
             return LOADER_ERR_BAD_FORMAT;
@@ -425,7 +425,7 @@ typedef struct loader_context {
 
 /* The loader_exit_hook restore asm hardcodes these byte offsets (it reaches the
  * ctx fields as memory operands off EAX). Lock them so a field reorder can never
- * silently mis-restore the stack (Rule 2: fail loud at COMPILE time). */
+ * silently mis-restore the stack (the repository contract: fail loud at COMPILE time). */
 _Static_assert(__builtin_offsetof(loader_context_t, saved_esp)  == 0,
                "loader asm assumes saved_esp at offset 0");
 _Static_assert(__builtin_offsetof(loader_context_t, return_eip) == 4,
@@ -444,7 +444,7 @@ _Static_assert(__builtin_offsetof(loader_context_t, saved_edi) == 20,
  * TR pp. 6-196/200; PRD Sec 2 (no scheduler or isolation). */
 static loader_state_t g_load;
 
-/* Tiny freestanding memcpy (loader.c pulls in no libc; Rule 11 deterministic). */
+/* Tiny freestanding memcpy (loader.c pulls in no libc; the repository contract deterministic). */
 static void loader_memcpy(uint8_t *dst, const uint8_t *src, uint32_t n)
 {
     for (uint32_t i = 0; i < n; i++) {
@@ -465,7 +465,7 @@ static void loader_exit_hook(uint8_t code)
     loader_context_t *ctx = (loader_context_t *)g_load.return_frame;
 
     /* If no context is bound we cannot safely unwind -- fail loud rather than
-     * jump through a NULL (Rule 2). This should never happen: the hook is only
+     * jump through a NULL (the repository contract). This should never happen: the hook is only
      * bound while g_load.return_frame is set. */
     if (ctx == 0) {
         for (;;) {
@@ -504,7 +504,7 @@ static void loader_exit_hook(uint8_t code)
  * image copy through the control transfer + return-to-loader + vector restore is
  * IDENTICAL; the ONLY difference is whether the image is copied to PROGRAM_IMAGE
  * first. Splitting it here keeps the load-bearing, bug-prone asm transfer (Sec 7
- * Risk 1) in ONE place -- the in-place path inherits it byte-for-byte (Rule 3,
+ * Risk 1) in ONE place -- the in-place path inherits it byte-for-byte (the repository contract,
  * root-cause: no duplicated transfer to drift).
  *
  * do_copy == 1: the image lives at plan.image_src (a kernel-owned buffer); copy
@@ -527,9 +527,9 @@ static void loader_exit_hook(uint8_t code)
  *               == ENV_BLOCK. DO NOT overwrite it with the empty stub; thread
  *               env_block into plan.params.env_linear so the child PSP env_seg
  *               points at the populated block. ENV_BLOCK is the ONLY env region in
- *               the locked map (spec/memory_map.h), so a non-zero env_block MUST be
+ *               the locked map (kernel/include/memory_map.h), so a non-zero env_block MUST be
  *               ENV_BLOCK -- any other value is a caller bug and we fail loud
- *               (Rule 2) rather than build a PSP whose env_seg points at garbage.
+ *               (the repository contract) rather than build a PSP whose env_seg points at garbage.
  *
  * IN-PLACE SAFETY PROOF (writing PROGRAM_IMAGE while the kernel/shell runs):
  *   The currently-running code is the KERNEL (the COMMAND.COM shell runs IN the
@@ -542,11 +542,11 @@ static void loader_exit_hook(uint8_t code)
  *   (kernel) executes from its high runway image [KERNEL_BASE, KERNEL_IMAGE_CEIL)
  *   and its own stack [KERNEL_STACK_BOT, KERNEL_STACK_TOP] (beads
  *   initech-tdnl.29, initech-xu97), both DISJOINT from [0x40100,
- *   PROGRAM_STACK_BOT) (spec/memory_map.h WINDOW DISJOINTNESS). So reading the
+ *   PROGRAM_STACK_BOT) (kernel/include/memory_map.h WINDOW DISJOINTNESS). So reading the
  *   .COM straight into PROGRAM_IMAGE
  *   is exactly as safe as the OLD code that copied staging -> PROGRAM_IMAGE: both
  *   write the SAME region while the SAME kernel runs; za4m merely elides the
- *   intermediate 64 KiB staging buffer. (spec/memory_map.h gap proof; ADR-0009.) */
+ *   intermediate 64 KiB staging buffer. (kernel/include/memory_map.h gap proof; ADR-0009.) */
 static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
                                        uint32_t env_block, uint8_t *out_exit_code)
 {
@@ -576,7 +576,7 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
     /* EXEC env inheritance (beads initech-1i0x Tranche E inc 3): resolve the
      * env-block decision through the pure, host-tested loader_decide_env (so the
      * kernel and the oracle agree by construction). A bad env_block fails loud
-     * (Rule 2: LOADER_ERR_BAD_ENV -- the program is NOT run). */
+     * (the repository contract: LOADER_ERR_BAD_ENV -- the program is NOT run). */
     loader_env_decision_t env_dec;
     {
         loader_status_t es = loader_decide_env(env_block, &env_dec);
@@ -693,7 +693,7 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * heap user -- INITECHBASE -- get 48h insufficient-memory and panic). If the image
      * was too large to leave a positive arena (plan.arena_present == 0) the arena
      * is left UNBOUND -- a 48h ALLOC then reports insufficient memory rather than
-     * overlapping (fail loud, Rule 2). */
+     * overlapping (fail loud, the repository contract). */
     if (plan.low_mcb_owned) {
         /* Child PSP/image/stack already own an MCB in the caller's chain --
          * a nested EXEC, or a top-level EXEC placed above a resident (bead
@@ -723,7 +723,7 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * failed TPS-001. Nothing is reset here; loader_run_plan restores its saved
      * snapshot after the child returns, so a
      * child's CHDIR does not outlive it (a stated deviation, unchanged).
-     * MUTANT LOADER_MUT_CWD_RESET (Rule 6; test-flair-tps-journey-mutant
+     * MUTANT LOADER_MUT_CWD_RESET (the repository contract; test-flair-tps-journey-mutant
      * CWDRESET): the pre-3p1a reset-to-root. NEVER in a real build. */
 
     /* --- The control transfer + return-to-loader (Sec 4; Risk 1). --- */
@@ -833,7 +833,7 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
     loader_status_t st = loader_prepare(image, image_len, cmd_tail,
                                         cmd_tail_len, &plan);
     if (st != LOADER_OK) {
-        return st;   /* fail loud: the program is NOT run (Rule 2) */
+        return st;   /* fail loud: the program is NOT run (the repository contract) */
     }
     /* Baked path inherits an EMPTY env (env_block=0): the baked demos carry no
      * environment, so loader_run_plan synthesizes the 2-byte empty block exactly
@@ -860,7 +860,7 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
                                                  image_len, cmd_tail,
                                                  cmd_tail_len, &plan);
     if (st != LOADER_OK) {
-        return st;   /* fail loud: the program is NOT run (Rule 2) */
+        return st;   /* fail loud: the program is NOT run (the repository contract) */
     }
     return loader_run_plan(&plan, /*do_copy=*/0, env_block, out_exit_code);
 }
@@ -870,7 +870,7 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  * initech-wczy / dtw.2; ADR-0003 DEC-08a).
  * ------------------------------------------------------------------------ */
 
-/* loader_panic_foreign_mz -- the DEC-08a.5 honesty gate, fail-loud (Rule 2).
+/* loader_panic_foreign_mz -- the DEC-08a.5 honesty gate, fail-loud (the repository contract).
  *
  * Reached ONLY from the kernel EXEC path when loader_prepare_mz reports
  * LOADER_ERR_FOREIGN_MZ: a genuine UNTAGGED 16-bit DOS MZ (e_res[0] != the
@@ -881,7 +881,7 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  *
  * Self-contained serial dump (mirrors panic.c's bounded 16550 poll so a
  * stuck/absent UART can never hang the panic itself). The heap/console-free
- * physical panic painter shows the typed refusal and program name (Rule 2;
+ * physical panic painter shows the typed refusal and program name (the repository contract;
  * audit DOS L030) before HALTED. Marked noreturn: a foreign MZ is
  * terminal -- control NEVER returns to the EXEC caller. */
 /* load_program_mz_in_place -- the InitechMZ sibling of load_program_in_place
@@ -910,7 +910,7 @@ static loader_status_t load_program_mz_in_place(uint32_t file_len,
         loader_panic_foreign_mz(name83);
     }
     if (st != LOADER_OK) {
-        return st;   /* fail loud: the program is NOT run (Rule 2) -- bad format */
+        return st;   /* fail loud: the program is NOT run (the repository contract) -- bad format */
     }
     return loader_run_plan(&plan, /*do_copy=*/0, env_block, out_exit_code);
 }
@@ -923,7 +923,7 @@ static loader_status_t load_program_mz_in_place(uint32_t file_len,
  * -- NO intermediate staging buffer, NO staging -> image copy. It caches the
  * volume + the whole FAT at bind time (fat12_read_file needs the FAT for the
  * cluster-chain walk). All scratch is kernel BSS -- NEVER a multi-KB buffer on
- * the kernel stack (spec/memory_map.h Risk 2).
+ * the kernel stack (kernel/include/memory_map.h Risk 2).
  *
  * WHY DIRECT (beads initech-za4m; ADR-0009 companion to DEC-04): the OLD path
  * read the .COM into the 64 KiB LOAD_STAGING buffer [0x80000,0x90000) (it abuts
@@ -933,9 +933,9 @@ static loader_status_t load_program_mz_in_place(uint32_t file_len,
  * PROGRAM_IMAGE). A 77 KiB INITECHBASE.COM was wrongly rejected LOADER_ERR_TOO_BIG.
  * Reading straight into PROGRAM_IMAGE makes PROGRAM_IMAGE_MAX the SOLE bound and
  * removes a whole 77+ KiB copy per EXEC. The LOAD_STAGING region is now UNUSED by
- * this path (its #defines remain in spec/memory_map.h, but no code writes it).
+ * this path (its #defines remain in kernel/include/memory_map.h, but no code writes it).
  *
- * Ref: fat12.h (fat12_find / fat12_read_file); spec/memory_map.h; ADR-0009.
+ * Ref: fat12.h (fat12_find / fat12_read_file); kernel/include/memory_map.h; ADR-0009.
  * ------------------------------------------------------------------------ */
 
 /* The mounted volume the loader reads .COMs from (caller-owned; bound by
@@ -964,7 +964,7 @@ void loader_bind_fat_volume(const struct fat12_volume *vol,
                             const uint8_t *fat, uint32_t fat_len)
 {
     /* A missing volume OR a missing whole-FAT cache (NULL/zero -- e.g. a windowed
-     * FAT16 volume) leaves the loader UNBOUND (fail loud, Rule 2 -- never half-
+     * FAT16 volume) leaves the loader UNBOUND (fail loud, the repository contract -- never half-
      * initialised; load_program_from_fat then returns NO_VOLUME). */
     if (vol == 0 || fat == 0 || fat_len == 0u) {
         g_load_vol     = 0;
@@ -1001,7 +1001,7 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
     /* Locate the .COM in its CONTAINING directory (beads initech-zs24). The ROOT
      * case (dir_start==0) takes the BYTE-IDENTICAL historical fat12_find so root
      * EXEC (test-shell / test-exec / the baked demos) is provably unchanged
-     * (Rule 3). A subdir (dir_start!=0) uses the parent-aware fat12_find_slot_in
+     * (the repository contract). A subdir (dir_start!=0) uses the parent-aware fat12_find_slot_in
      * over the cached whole-FAT to walk the subdir cluster chain; the located
      * entry's OWN start_cluster then feeds fat12_read_file exactly as the root
      * case. We discard the returned slot (EXEC is read-only -- no dir write-back). */
@@ -1015,7 +1015,7 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
     }
 
     /* A leaf that resolves to a DIRECTORY is not a runnable program: refuse it
-     * (Rule 2) rather than read the directory's cluster bytes into PROGRAM_IMAGE
+     * (the repository contract) rather than read the directory's cluster bytes into PROGRAM_IMAGE
      * as if they were a .COM. fat12_find / fat12_find_slot_in match by NAME only
      * (no attribute filter -- they back FINDFIRST too), so EXEC owns this guard.
      * Maps to 0x0002 (file not found) at the do_exec seam -- the DOS-authentic
@@ -1048,7 +1048,7 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * 64 KiB LOAD_STAGING_MAX cap is GONE (it bound the now-deleted staging copy;
      * the stale comment that claimed "staging cap >= PROGRAM_IMAGE_MAX" was FALSE
      * -- staging was 64 KiB, the binding constraint). load_program_in_place
-     * re-checks via loader_prepare_in_place (Rule 2: belt and braces). */
+     * re-checks via loader_prepare_in_place (the repository contract: belt and braces). */
     if (de.file_size > PROGRAM_IMAGE_MAX) {
         return LOADER_ERR_TOO_BIG;
     }

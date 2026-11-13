@@ -6,7 +6,7 @@
  
  	/* Write the SAME bytes to each on-disk FAT copy (ADR-0003 DEC-07). The
  	 * copies are contiguous: FAT #k starts at first_fat_sector + k*spf. */
-+	/* MUTANT (Rule 6; make test-fat-write-mutant only): write ONLY FAT #1, so
++	/* MUTANT (the repository contract; make test-fat-write-mutant only): write ONLY FAT #1, so
 +	 * the redundant copy diverges -- the both-FAT-sync assertion + an mtools
 +	 * read that prefers FAT #2 go RED. NEVER define in a real build. */
 +	{

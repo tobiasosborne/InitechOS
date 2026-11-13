@@ -9,7 +9,7 @@
 -		/* RISK-5: copy only `take` bytes -- the partial last cluster never
 -		 * contributes its padding to out_buf. */
 -		copy_n = take;
-+		/* MUTANT (Rule 6; make test-fat-readfile-mutant only): drop the RISK-5
++		/* MUTANT (the repository contract; make test-fat-readfile-mutant only): drop the RISK-5
 +		 * last-cluster truncation -- copy a FULL cluster every iteration instead
 +		 * of `take` bytes. On the partial last cluster this writes padding into
 +		 * out_buf and copied overshoots file_size, so the bytes read no longer

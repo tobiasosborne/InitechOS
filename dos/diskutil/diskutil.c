@@ -1,4 +1,4 @@
-/* Freestanding disk utilities. Law 1: ADR-0003 Appendix A/B.1, DEC-17/18;
+/* Freestanding disk utilities. the repository contract: ADR-0003 Appendix A/B.1, DEC-17/18;
  * MS-DOS 3.3 UG pp26,59-63,74-76,119,318,332-337,340,348,358;
  * IBM DOS 3.30 TR pp1-7,2-31,5-4..11. No host runtime or clock.
  * Physical translation belongs to the adapter; letter mapping to the kernel.
@@ -99,7 +99,7 @@ static int transfer(volume *dst,volume *src,uint8_t files[3][32],unsigned count,
    if(sec(&dst->m,dst->data+scan-2,buf,1) || fatset(dst,scan,dst->bits==12?0xfff:0xffff) || (prev&&fatset(dst,prev,scan)))return -1;
    prev=scan++;source_c=next;
   }
-  w16(e+26,first);w16(e+22,0);w16(e+24,0x21); /* fixed DOS epoch, Rule 11 */
+  w16(e+26,first);w16(e+22,0);w16(e+24,0x21); /* fixed DOS epoch, the repository contract */
   if(entry(dst,i,e,1))return -1;
   *used+=n*512;
  }

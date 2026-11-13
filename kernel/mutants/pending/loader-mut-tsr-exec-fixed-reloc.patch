@@ -1,0 +1,13 @@
+# LOADER_MUT_TSR_EXEC_FIXED_RELOC
+# test: test-loader test-keep test-tsr-unit
+--- a/loader_validation.c
++++ b/loader_validation.c
+@@ -326,7 +326,7 @@
+     if (img.reloc_count > 0u) {
+         int rs = mz_apply_relocs(file_at + img.load_module_off,
+                                  img.load_module_len,
+-                                 load_base,
++                                 (uint32_t)PROGRAM_IMAGE,
+                                  file_at + img.reloc_table_off, img.reloc_count);
+         if (rs != MZ_OK) {
+             return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud (the repository contract) */

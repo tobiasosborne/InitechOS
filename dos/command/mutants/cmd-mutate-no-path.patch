@@ -6,7 +6,7 @@
          char path_dirs[CMD_PATH_MAX_DIRS][CMD_PATH_MAX_LEN];
          int  nd = split_path(path_value, path_dirs);
  
-+        /* MUTANT (Rule 6; make test-command-mutant only): suppress the PATH-
++        /* MUTANT (the repository contract; make test-command-mutant only): suppress the PATH-
 +         * dir loop so the split result is "used" and no unused-variable
 +         * warning fires.  Only CWD candidates are emitted -> PATH tests go
 +         * RED.  NEVER compiled in a real build. */
@@ -18,7 +18,7 @@
              emit_candidate(out, cwd, word, "");
 -            /* PATH-dir candidates (mutant: -DCMD_MUTATE_NO_PATH drops this
 -             * block so only the CWD candidate is emitted -> PATH tests go RED;
--             * NEVER dropped in a real build -- CLAUDE.md Rule 6). */
+-             * NEVER dropped in a real build -- the repository contract). */
 -            {
 -                int di;
 -                for (di = 0; di < nd; di++) {

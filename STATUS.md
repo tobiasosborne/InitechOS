@@ -31,8 +31,8 @@ imported yet.
 | Component | State |
 |---|---|
 | `boot/` | builds and boots; chunked loader; oversized-kernel check. No host tests (none in legacy). |
-| `kernel/` | builds and boots, InitechDOS only. Host tests parked in `kernel/tests/`, not yet running. Mutation hooks listed in `kernel/tests/MUTANTS-TODO.md`. |
-| `dos/` | COMMAND.COM (still linked into the kernel image) and fifteen external utilities, built and on the disk. Known debts in `dos/README.md`: the shell calls kernel internals; the disk utilities use INT 13h/25h/26h directly. |
+| `kernel/` | host tests imported: 86 gate invocations, FAT/mtools/reference/property suites plus DOS services. Product builds and boots. 268 mutation patches converted: 229 host-killed, 39 explicitly pending tier-1/diagnostic coverage. |
+| `dos/` | 31 host gate invocations; shell/batch/env, CHKDSK, disk utilities, EDLIN, XCOPY/TREE, directory and catalog checks. 160 converted patches: 114 host-killed, 46 pending. COMMAND.COM remains resident; interface debts remain in README. |
 | `flair/region/` | host-green, mutants converted (8 patches, all killed). Not yet compiled for the target. |
 | `flair/` (the rest) | source moved |
 | `flair/desktop/` | parked, not built: the legacy `kmain.c` (as `kmain_legacy.c`) and the Finder/desktop pieces that were in the kernel. |
@@ -52,7 +52,11 @@ imported yet.
   `goldens/`): target build fragment, per-test timeouts and component
   time budgets, rebuild on flag changes, pinned corpora, the import
   checks.
-- Kernel and DOS host tests (owner of `kernel/`, `dos/`).
+- Kernel/DOS tests on import/kernel-tests: no product mutation guards remain.
+  Default patch sweeps cover proved host faults; all 85 pending patches are
+  listed in kernel/tests/MUTANTS-TODO.md and dos/tests/MUTANTS-TODO.md.
+  factory smoke-programs drives normal programs on a separate test data disk
+  under QEMU and Bochs. Full legacy emulator migration is in both SMOKES.md files.
 
 ## The vertical slice comes first
 
@@ -98,3 +102,15 @@ every other app.
 - Codenames are retired (CLAUDE.md, Names). Directories are renamed
   to product names. Identifiers and file names (`samir_*`, `pal_milton.c`,
   `SAMIR.EXE`, `tps.pas`) are renamed as each component is imported.
+
+## Remaining import ownership
+
+- Kernel/DOS test owner: pending mutations, ASM-only filter/TPS Report Generator
+  regression sessions, additional mapped normal-image probes, and the overlay
+  relocation-address deviation from captured DOS 3.30 behavior (loader.c).
+- Factory/diagnostic owner: the retired harness/meta/layout material still in
+  attic, panic/pixel graders and eventual diagnostic-object image support.
+- FLAIR desktop owner: DESKTOP.DB/Finder and old desktop shell/layout host tests
+  left in attic. The exact-address COMMAND checker is retired.
+- Operator: whether independent Python readers are permitted. Every imported
+  runtime dependency is enumerated in kernel/tests/PYTHON.md; no port was made.

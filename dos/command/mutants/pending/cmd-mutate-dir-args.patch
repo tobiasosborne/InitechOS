@@ -1,0 +1,12 @@
+# CMD_MUTATE_DIR_ARGS
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -2535,6 +2535,7 @@
+     uint32_t ax=0x3600u, bx, cx, dx=0u;
+     char spec[CMD_LINE_MAX], parent[CMD_LINE_MAX];
+     int wide = 0, page = 0, len = 0, rows = 6, column = 0;
++    arg = ""; /* the repository contract: restore the ignored-operand regression. */
+     while (*arg) {
+         if (is_space(*arg)) { arg++; continue; }
+         if (*arg == '/') {
