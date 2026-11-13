@@ -1,0 +1,8 @@
+# test: test_ibase_ovl
+--- a/core/ovl.c
++++ b/core/ovl.c
+@@ -95 +95,3 @@
+-        v += base;
++        /* MUTANT (CLAUDE.md, The constitution; test-ibase-ovl-mutant / swap-emu-mutant only): the
++         * overlay is used unrelocated. */
++        (void)base;

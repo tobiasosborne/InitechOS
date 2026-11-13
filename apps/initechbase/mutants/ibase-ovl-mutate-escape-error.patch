@@ -1,0 +1,7 @@
+# test: test_ibase_ctl
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1043,0 +1044 @@
++static IBASE_OVL_TEXT(set) int ovl_bad_error(void *u,int e) { (void)u;(void)e;return 0; }
+@@ -1057,0 +1059 @@
++    { xb_ctx *c=xb_interp_ctx(ip);ibase_bind_errors(c,ovl_bad_error,c->on_escape,c->on_error_text,c->on_escape_text); }

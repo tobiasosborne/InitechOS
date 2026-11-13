@@ -2,7 +2,7 @@
  * os/ibase/cmd/nav.c -- IBASE (InitechBase) navigation commands.
  *                        Step S5.2 (Phase 5 interpreter).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding (-ffreestanding -nostdlib). Uses
  * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL vtable. Memory is bump-allocated from
  * the PAL arena (no malloc).
@@ -68,8 +68,8 @@
  * Direct GO remains physical (Using dBase III Plus.pdf U5-126); TOP/BOTTOM
  * and SKIP traverse the visible view (U5-229; Programming P10-17/18).
  *
- * Mutation hook (Rule 6 / ARB rider (a)):
- *   Build with -DNAV_MUTATE_SKIP: wa_nav_skip advances by (n + 1) instead of
+ * Mutation hook (CLAUDE.md, The constitution / ARB rider (a)):
+ *   Build with mutants/nav-mutate-skip.patch: wa_nav_skip advances by (n + 1) instead of
  *   n in physical order (off-by-one in the step count). The physical walk
  *   assertions in the oracle go RED: every RECNO after SKIP +1 is n+2 instead
  *   of n+1, causing the step-by-step equality check to fail.
@@ -77,9 +77,9 @@
  *   instead of the materialized index sequence, so the index-walk recno sequence
  *   diverges from ndx_inorder's order.
  *
- * ASCII-clean (Rule 12). Reproducible (Rule 11). Fail loud (Rule 2).
+ * ASCII-clean (CLAUDE.md, The constitution). Reproducible (CLAUDE.md, The constitution). Fail loud (CLAUDE.md, The constitution).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S5.2 contract + GATED register.
  *   - os/ibase/include/ibase/workarea.h (wa_goto, wa_recno, wa_nrec, wa_eof,
  *     wa_bof, wa_is_open, wa_index, wa_master_order, wa_table, wa_env_pal).
@@ -282,12 +282,7 @@ static int nav_raw_go_top(wa_env *env, int area)
 
     ns->ord_pos = 0u;
 
-#ifdef NAV_MUTATE_SKIP
-    /* MUTANT: use physical recno 1 instead of index-order first entry. */
-    rc = wa_goto(env, area, 1u);
-#else
     rc = wa_goto(env, area, ns->seq[0]);
-#endif
     return (rc == WA_OK) ? NAV_OK : rc;
 }
 
@@ -399,10 +394,6 @@ static int nav_raw_skip(wa_env *env, int area, int32_t n)
         /* ---- Physical order ---- */
         int32_t next;
 
-#ifdef NAV_MUTATE_SKIP
-        /* MUTANT: advance by n+1 instead of n (off-by-one step). */
-        if (n > 0) n++;
-#endif
 
         if (n >= 0) {
             next = (int32_t)cur + n;
@@ -444,30 +435,6 @@ static int nav_raw_skip(wa_env *env, int area, int32_t n)
     {
         int32_t next_ord = (int32_t)ns->ord_pos + n;
 
-#ifdef NAV_MUTATE_SKIP
-        /* MUTANT: use physical recno instead of index-order sequence.
-         * In index order, this diverges from ndx_inorder's order. */
-        if (n >= 0) {
-            next_ord = (int32_t)cur + n;
-            if (next_ord < 1) next_ord = 1;
-            if ((uint32_t)next_ord > nrec) {
-                (void)wa_goto(env, area, nrec);
-                wa_nav_set_eof(env, area, 1);
-                return NAV_OK;
-            }
-            rc = wa_goto(env, area, (uint32_t)next_ord);
-            return (rc == WA_OK) ? NAV_OK : rc;
-        } else {
-            next_ord = (int32_t)cur + n;
-            if (next_ord < 1) {
-                (void)wa_goto(env, area, 1u);
-                wa_nav_set_bof(env, area, 1);
-                return NAV_OK;
-            }
-            rc = wa_goto(env, area, (uint32_t)next_ord);
-            return (rc == WA_OK) ? NAV_OK : rc;
-        }
-#endif
 
         if (next_ord >= (int32_t)ns->seq_len) {
             /* Past the end: virtual EOF in index order. */

@@ -1,0 +1,5 @@
+# test: test_ibase_ctl
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -758,0 +759 @@
++        + 1

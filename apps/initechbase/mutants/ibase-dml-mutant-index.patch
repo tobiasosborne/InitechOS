@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1095,0 +1096 @@
++        if(count)count--; /* last physical record has no index entry */

@@ -1,7 +1,7 @@
 /*
  * os/ibase/core/parse.c -- IBASE xBase III+ expression parser (S3.2).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib -fno-stack-protector -fno-pic -std=c11 -Wall -Wextra -Werror).
  * Only <stdint.h> and rt.h/eval.h are included. No libc, no PAL, no INT 21h.
  *
@@ -27,7 +27,7 @@
  *
  * The static HELP surface (expressions-and-operators.md sec.9.1) left BOTH of
  * these [oracle-resolves] and even noted standard Xbase would do the opposite;
- * mint-002 is the live III+ 1.1 transcript that resolves them, and per Law 2
+ * mint-002 is the live III+ 1.1 transcript that resolves them, and per CLAUDE.md, The constitution
  * the oracle wins. Plan sec.5 S3.2 agrees with the mint (2^3^2=group-left,
  * -2^2 unary-binds-tighter). No discrepancy: spec was OPEN, mint+plan CLOSE it.
  *
@@ -63,16 +63,16 @@
  * grammar shape; no special-casing.
  *
  * -------------------------------------------------------------------------
- * MUTATION HOOK (Rule 6):
+ * MUTATION HOOK (CLAUDE.md, The constitution):
  *
- * Compile with -DXB_MUTATE_PARSE to enable a SINGLE perturbation: pow_expr
+ * Compile with mutants/xb-mutate-parse.patch to enable a SINGLE perturbation: pow_expr
  * folds RIGHT-associatively instead of left. Then 2^3^2 parses as 2^(3^2)
  * (root ^ with RIGHT child = ^) and -2^2 parses as (-2)^2 still but the
  * 2^3^2 structural assertion goes RED, proving the oracle catches the
  * wrong grouping. Exactly one perturbed branch.
  *
  * -------------------------------------------------------------------------
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md sec.5 S3.2 (the ladder; mint-002)
  *   - ../dbase3-decomp/re/mint-results-002.md (2^3^2=64, -2^2=4 -- THE oracle)
  *   - ../dbase3-decomp/specs/language/expressions-and-operators.md sec.9.1
@@ -80,7 +80,7 @@
  *   - DBASE.MSG.strings.txt:8 "Unbalanced parenthesis." (XBPE_UNBALANCED)
  *   - os/ibase/include/ibase/eval.h (xb_node / xb_parse contract)
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
  */
 
 #include <stdint.h>
@@ -118,7 +118,7 @@ static void advance(xb_parser *p)
 }
 
 /* Allocate a node from the pool. Returns its index, or -1 on overflow
- * (sets p->err = XBPE_POOL_FULL -- fail loud, Rule 2). */
+ * (sets p->err = XBPE_POOL_FULL -- fail loud, CLAUDE.md, The constitution). */
 static int32_t alloc_node(xb_parser *p, xb_node_type type)
 {
     xb_node *n;
@@ -259,7 +259,7 @@ static int32_t parse_primary(xb_parser *p)
 /* sub-expression (parse_or), so nested calls and operators work             */
 /* (e.g. SUBSTR(cnum, VAL(SUBSTR(s,2,1))*7-13, 7) -- the NUMWORDS idiom).     */
 /*                                                                            */
-/* Determinism (Rule 11): the CALL node is allocated FIRST (lowest index for  */
+/* Determinism (CLAUDE.md, The constitution): the CALL node is allocated FIRST (lowest index for  */
 /* the call), then arguments are parsed left-to-right and their ARG cells are */
 /* appended in source order, so the same input always yields the same node    */
 /* indices.                                                                   */
@@ -369,17 +369,7 @@ static int32_t parse_pow(xb_parser *p)
         int32_t right, node;
         advance(p);
 
-#ifdef XB_MUTATE_PARSE
-        /*
-         * MUTATION HOOK (Rule 6): fold ^ RIGHT-associatively. The right
-         * operand recurses back into parse_pow instead of parse_unary, so
-         * 2^3^2 parses as 2^(3^2) and the structural assertion (root.^.left
-         * is itself a ^) goes RED. Exactly one perturbed branch.
-         */
-        right = parse_pow(p);
-#else
         right = parse_unary(p);
-#endif
         if (right < 0) return -1;
 
         node = alloc_node(p, XBN_BINOP);
@@ -398,7 +388,7 @@ static int32_t parse_pow(xb_parser *p)
 /* ======================================================================== */
 
 /*
- * MUTATION HOOK (Rule 6; initech-0k2d): -DPARSE_MUTATE_ADDMUL_SWAP swaps the
+ * MUTATION HOOK (CLAUDE.md, The constitution; initech-0k2d): mutants/parse-mutate-addmul-swap.patch swaps the
  * operator classes parse_mul and parse_add each fold at their level, so '+'/'-'
  * become the TIGHTER-binding pair and '*'/'/ ' the LOOSER one -- a classic
  * precedence bug. The recursive-descent CALL structure (mul still calls pow;
@@ -409,13 +399,8 @@ static int32_t parse_pow(xb_parser *p)
  * parenthesized `(2 + 3) * 4` is unaffected (parens re-enter the full ladder).
  * Exactly two perturbed conditions (mirror image of each other).
  */
-#ifdef PARSE_MUTATE_ADDMUL_SWAP
-#define PARSE_MUL_OP(t)  ((t) == XBT_PLUS || (t) == XBT_MINUS)
-#define PARSE_ADD_OP(t)  ((t) == XBT_STAR || (t) == XBT_SLASH)
-#else
 #define PARSE_MUL_OP(t)  ((t) == XBT_STAR || (t) == XBT_SLASH)
 #define PARSE_ADD_OP(t)  ((t) == XBT_PLUS || (t) == XBT_MINUS)
-#endif
 
 static int32_t parse_mul(xb_parser *p)
 {

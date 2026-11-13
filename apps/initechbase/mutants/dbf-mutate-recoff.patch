@@ -1,0 +1,6 @@
+# test: test_dbf_read
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -113 +113 @@
+-#  define REC_OFFSET_EXTRA  0u   /* correct: no extra offset */
++#  define REC_OFFSET_EXTRA  1u   /* skip 1 extra byte -> field data is shifted */

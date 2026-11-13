@@ -1,0 +1,10 @@
+# test: test_xbase_fn_c
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -960,0 +961,6 @@
++    /* MUTATION (CLAUDE.md, The constitution): off-by-one: take n+1 chars (or len, whichever smaller).
++     * LEFT("ABCDE",3) returns "ABCD" (4 chars) instead of "ABC" (3 chars).
++     * The grounded assertion LEFT("ABCDE",3)="ABC" goes RED.
++     * Compile with mutants/xb-mutate-fn-left.patch to activate. Targets a SETTLED case. */
++    n = n + 1;
++    if ((uint32_t)n > (uint32_t)len) n = (int32_t)len;

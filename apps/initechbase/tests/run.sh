@@ -14,9 +14,19 @@ ln -s "$src/include" "$work/include"
 # Legacy drivers store the source root before chdir and spawn independent readers.
 cd "$work"
 "$bins/mint_clients_dbf" build/CLIENTS.DBF > build/fixture.log
-mkdir -p build/dbsafe build/ibase-audit build/ibase.audit build/ibasefns/golden build/ibasedml/golden
-cp -R tests/xbase_prog_diff/fns-mint/. build/ibasefns/golden/
-cp -R tests/xbase_prog_diff/mint/. build/ibasedml/
+mkdir -p build/dbsafe build/ibase-audit build/ibase.audit
+# Only these drivers consume private copies of the captured family trees.
+# Unit suites read their own referenced files through tests/ and CORPUS.
+case "$name" in
+ test_ibase_fns|test_ibase_w2|pending|captured-hashes)
+  mkdir -p build/ibasefns/golden
+  cp -R tests/xbase_prog_diff/fns-mint/. build/ibasefns/golden/;;
+esac
+case "$name" in
+ test_ibase_dml|captured-hashes)
+  mkdir -p build/ibasedml/golden
+  cp -R tests/xbase_prog_diff/mint/. build/ibasedml/;;
+esac
 case "$name" in
  test_ibase_dml|test_ibase_fns|test_ibase_w2)
   while read -r case_name mode; do "$bins/$name" "$case_name" "$mode"; done < "tests/$name.cases"
@@ -32,7 +42,7 @@ case "$name" in
   if grep -Eq '[[:space:]](wa_|ndx_)' build/ndx-undefined.log; then cat build/ndx-undefined.log; exit 1; fi
   "$bins/$name";;
  test_ibase_ovl) "$bins/$name" --pure;;
- mzlink-io) make -C "$src/../../factory/mz" test;;
+ mzlink-io) make -C "${INITECH_FACTORY_ROOT:-$src/../..}/factory/mz" test;;
  pending)
   case "${CASE:?set CASE to a pending function or set-/verb- case}" in
    set-*|verb-*) "$bins/test_ibase_w2" "$CASE" host;;

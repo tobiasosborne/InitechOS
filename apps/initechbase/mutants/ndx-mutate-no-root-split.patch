@@ -1,0 +1,8 @@
+# test: test_ndx_multilevel
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -1529,0 +1530,4 @@
++    if (nleaf > 1u && (nleaf - 1u) > kpp) {
++        pal->reset(pal, mark);
++        return -NDX_ERR_PAGE_OVF;
++    }

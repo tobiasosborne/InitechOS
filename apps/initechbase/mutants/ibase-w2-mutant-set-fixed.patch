@@ -1,0 +1,5 @@
+# test: test_ibase_w2
+--- a/core/eval.c
++++ b/core/eval.c
+@@ -825,0 +826 @@
++    return; /* MUTANT: FIXED ON changes nothing */

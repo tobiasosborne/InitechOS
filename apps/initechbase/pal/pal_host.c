@@ -1,7 +1,7 @@
 /*
  * os/ibase/pal/pal_host.c -- IBASE PAL host binding (libc stdio + injectable clock).
  *
- * FACTORY code (CLAUDE.md Law 3): this is the host/oracle binding; libc OK.
+ * FACTORY code (CLAUDE.md CLAUDE.md, The constitution): this is the host/oracle binding; libc OK.
  * Engine code (core/, fs/, cmd/, ui/) compiles freestanding against pal.h only.
  * THIS FILE MUST NOT be linked into the shipped OS artifact.
  *
@@ -10,7 +10,7 @@
  *     FILE* table indexed by pal_fd (slot 0..PAL_HOST_FD_MAX-1).
  *   - Console: fwrite to stdout (conout); fgets-style cooked read (conin_line);
  *     getchar/no-op stubs for the terminal-extension slots (S8.4).
- *   - Clock: the INJECTED cfg date (deterministic; Rule 11). NEVER wall clock.
+ *   - Clock: the INJECTED cfg date (deterministic; CLAUDE.md, The constitution). NEVER wall clock.
  *   - Arena: bump allocator over a malloc'd backing buffer; reset(mark) unwinds
  *     to mark (or base if NULL).
  *
@@ -22,12 +22,12 @@
  *   EIO, all others    -> PAL_EIO    (29)
  * The raw errno magnitude is NEVER returned through the contract.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S0.2 + Sec 2.B (PAL portability)
  *   - os/ibase/include/ibase/pal.h (the full contract + doc-comments)
  *   - ADR-0008 DEC-02 (seek=filesize idiom; conin_char/gotoxy/set_attr stubs)
  *
- * ASCII-clean (Rule 12). No timestamps / host paths in artifacts (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths in artifacts (CLAUDE.md, The constitution).
  */
 
 #include <errno.h>
@@ -207,7 +207,7 @@ static int32_t host_read(ibase_pal_t *p, pal_fd fd, void *buf, uint32_t n)
         return 0;   /* EOF */
     }
     /* Short read: return the real count, not an error.
-     * Rule 2 / S0.1-FOLLOWUP: NEVER report short as full. */
+     * CLAUDE.md, The constitution / S0.1-FOLLOWUP: NEVER report short as full. */
     return (int32_t)got;
 }
 
@@ -308,7 +308,7 @@ static int32_t host_conin_line(ibase_pal_t *p, char *buf, uint32_t cap)
 /* ---- terminal extension stubs (S8.4) ------------------------------------ */
 
 /* PAL curdrive models DOS INT 21h AH=19h. The factory has a fixed C: drive,
- * independent of the host working directory or environment (Rule 11). */
+ * independent of the host working directory or environment (CLAUDE.md, The constitution). */
 static int host_curdrive(ibase_pal_t *p)
 { (void)p; return 'C'; }
 
@@ -320,7 +320,7 @@ static int32_t host_conin_char(ibase_pal_t *p)
     return (c == EOF) ? -1 : (int32_t)c;
 }
 
-/* Rule 11: the host oracle always has an empty keyboard FIFO. No select,
+/* CLAUDE.md, The constitution: the host oracle always has an empty keyboard FIFO. No select,
  * stdin read, wall clock or sleep. III+ INKEY takes no timeout argument
  * (fns-mint/inkey/GOLD.OUT), so there is no clock to advance. */
 static int32_t host_conin_poll(ibase_pal_t *p)
@@ -367,7 +367,7 @@ static void host_set_attr(ibase_pal_t *p, uint8_t attr)
     (void)p; (void)attr;
 }
 
-/* Fixed colour adapter, matching fns-mint/iscolor/GOLD.OUT (Rule 11).
+/* Fixed colour adapter, matching fns-mint/iscolor/GOLD.OUT (CLAUDE.md, The constitution).
  * Never infer capability from the host terminal or redirected output. */
 static int host_iscolor(ibase_pal_t *p)
 {
@@ -377,7 +377,7 @@ static int host_iscolor(ibase_pal_t *p)
 
 /* ---- clock slot (injectable; NEVER wall clock) -------------------------- */
 
-/* Fixed target identity, never the host OS (Rule 11; pal.h AH=30h). */
+/* Fixed target identity, never the host OS (CLAUDE.md, The constitution; pal.h AH=30h). */
 static uint16_t host_os_version(ibase_pal_t *p)
 {
     (void)p;
@@ -401,7 +401,7 @@ static void host_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
     if (dd) *dd = st->date_dd;
 }
 
-/* Fixed host time keeps function goldens deterministic (Rule 11). */
+/* Fixed host time keeps function goldens deterministic (CLAUDE.md, The constitution). */
 static void host_time(ibase_pal_t *p, uint8_t *hour, uint8_t *minute, uint8_t *second)
 {
     (void)p;
@@ -483,7 +483,7 @@ static void host_reset(ibase_pal_t *p, void *mark)
         /* Unwind to a previously returned pointer. */
         st->heap_ptr = m;
     }
-    /* Ignore out-of-range marks (fail loud would require pal panics; Rule 2
+    /* Ignore out-of-range marks (fail loud would require pal panics; CLAUDE.md, The constitution
      * is expressed here by silently ignoring rather than corrupting state). */
 }
 
@@ -491,7 +491,7 @@ static void host_reset(ibase_pal_t *p, void *mark)
 
 /*
  * Configuration for pal_host_make.
- *   date_yy / _mm / _dd : the INJECTED date returned by today() (Rule 11).
+ *   date_yy / _mm / _dd : the INJECTED date returned by today() (CLAUDE.md, The constitution).
  *                         Must be 1-based MM/DD; YY is two-digit 00-99.
  *   heap_size            : arena backing buffer size in bytes; 0 = default.
  */
@@ -547,7 +547,7 @@ ibase_pal_t *pal_host_make(struct pal_host_cfg cfg)
     st->vtable.time       = host_time;
     st->vtable.curdrive   = host_curdrive;
 
-    /* Inject the fixed clock (deterministic; Rule 11). */
+    /* Inject the fixed clock (deterministic; CLAUDE.md, The constitution). */
     st->date_yy = cfg.date_yy;
     st->date_mm = cfg.date_mm;
     st->date_dd = cfg.date_dd;
@@ -583,7 +583,7 @@ void pal_host_free(ibase_pal_t *p)
 
     st = state_of(p);
 
-    /* Close any handles left open (be tidy; Rule 2). */
+    /* Close any handles left open (be tidy; CLAUDE.md, The constitution). */
     for (i = 0; i < PAL_HOST_FD_MAX; i++) {
         if (st->fds[i] != NULL) {
             fclose(st->fds[i]);

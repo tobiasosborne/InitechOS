@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1257,0 +1258 @@
++            j=0; /* suppress ASCII contents */

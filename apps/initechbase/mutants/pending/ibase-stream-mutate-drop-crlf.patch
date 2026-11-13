@@ -1,0 +1,8 @@
+# test: test_w2_host
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -710,4 +709,0 @@
+-                uint8_t page[4002];
+-                dos_page(page,0);
+-                dos_rawout(p,text+i,1);
+-                dos_page(page,1);

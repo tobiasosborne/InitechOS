@@ -1,0 +1,5 @@
+# test: test_ibase_use
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -575,0 +576 @@
++        if(v->u.n==(double)(int64_t)v->u.n) dec=0;

@@ -1,0 +1,13 @@
+# test: test_ibase_datatype
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -861,8 +861 @@
+-                    /* A blank D field is still a Date in real III+:
+-                     * TYPE("WHEN") = "D", DTOC() and date arithmetic work,
+-                     * and INDEX ON WHEN keys it (datatype-mint DT3 G8-G10,
+-                     * BLANKDAT.NDX). It is the interpreter's one blank date,
+-                     * xb_d(0.0) (value.h xb_date_blank). XB_U here made
+-                     * INDEX ON <date> fail with #9 (audit 2026-10-23-ibase
+-                     * L016; initech-ylqs). */
+-                    out[fi] = xb_d(0.0);
++                    out[fi] = xb_u();

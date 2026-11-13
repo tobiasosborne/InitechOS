@@ -1,0 +1,7 @@
+# test: test_ibase_view
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -679,3 +678,0 @@
+-    rc=wa_record_deleted(env,area);
+-    if(rc<0) { if(ec) *ec=29; return -INTERP_ERR_EVAL; }
+-    if(rc) q_append_cstr(line,&pos,sizeof(line),"*");

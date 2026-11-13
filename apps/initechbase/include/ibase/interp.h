@@ -2,7 +2,7 @@
  * os/ibase/include/ibase/interp.h -- IBASE (InitechBase) interpreter handle.
  *                                     Step S5.1 (Phase 5 interpreter foundation).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers. No libc, no
  * int 0x21 -- all OS contact is through the PAL vtable carried by the env.
  *
@@ -41,10 +41,10 @@
  *   ibase_do/ibase_repl to S5.3/S5.8. (A test linking only the S5.1 object will
  *   not reference ibase_do/ibase_repl, so no undefined-symbol arises.)
  *
- * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
- * Freestanding-legal (Law 3): only <stdint.h> and ibase/ headers.
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths / nondeterminism (CLAUDE.md, The constitution).
+ * Freestanding-legal (CLAUDE.md, The constitution): only <stdint.h> and ibase/ headers.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md Sec 8.2 (interp.h surface:
  *     ibase_repl / ibase_do); S5.1 contract; Phase 5 header; S5.8 (REPL).
  *   - os/ibase/include/ibase/workarea.h (wa_env + the resolve glue).
@@ -63,7 +63,7 @@
 #include "ibase/workarea.h"
 
 /* -----------------------------------------------------------------------
- * Error codes (fail loud; Rule 2)
+ * Error codes (fail loud; CLAUDE.md, The constitution)
  * Negated on return (return -INTERP_ERR_NOMEM, etc.). INTERP_OK == 0.
  * ----------------------------------------------------------------------- */
 typedef enum {
@@ -204,7 +204,7 @@ int ibase_repl(ibase_pal_t *pal, xb_interp *ip);
  * On a run-time error (a guard that is not Logical, a bad expression, a verb the
  * dispatch chain does not recognise, or malformed control-flow structure) the
  * executor STOPS and returns a negative interp_err; the dBASE catalog ordinal /
- * detail is available through ibase_last_error(ip). Fail loud (Rule 2): no
+ * detail is available through ibase_last_error(ip). Fail loud (CLAUDE.md, The constitution): no
  * silent skip of a broken statement.
  */
 int ibase_do(xb_interp *ip, const char *prg);
@@ -298,7 +298,7 @@ int ibase_finish_transfer(xb_interp *ip, int *err_code);
  *   XBEE_NOT_LOGICAL) -- there is NO C/Clojure-style truthiness (0/""/blank are
  *   NOT "false"). This is enforced, not optional.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S5.3 ("command dispatch; DO WHILE/
  *     ENDDO, IF/ELSE/ENDIF, DO CASE, LOOP/EXIT; guard-must-be-Logical").
  *   - os/ibase/include/ibase/eval.h (xb_ctx + xb_lex/xb_parse/xb_eval;
@@ -352,14 +352,14 @@ typedef int (*xb_cmd_hook)(void *user, xb_interp *ip,
  * (INTERP_MAX_CMD_HOOKS); overflow is a no-op (fail-loud is the caller's, since
  * a verb then simply goes unrecognized -- never silently mis-dispatched).
  *
- * Ref: plan S5.4..S5.7 (each adds a module); CLAUDE.md Rule 2 (fail loud).
+ * Ref: plan S5.4..S5.7 (each adds a module); CLAUDE.md CLAUDE.md, The constitution (fail loud).
  */
 #define INTERP_MAX_CMD_HOOKS 8
 
 /*
  * xb_interp_add_cmd_hook: APPEND (hook,user) to the command-hook chain. The
  * hook is tried after all earlier-registered hooks. Returns INTERP_OK, or
- * -INTERP_ERR_DEPTH if the chain is full (fail loud; Rule 2). A NULL hook is a
+ * -INTERP_ERR_DEPTH if the chain is full (fail loud; CLAUDE.md, The constitution). A NULL hook is a
  * no-op returning INTERP_OK. The S5.4..S5.7 modules each call this once before
  * ibase_do.
  */
@@ -416,7 +416,7 @@ void xb_interp_release_all(xb_interp *ip);
  * ibase_last_error: the dBASE catalog ordinal (or engine code) of the last
  * run-time error raised by ibase_do, or 0 if the last run completed cleanly.
  * E.g. after "IF 1" it is 37 (XBEE_NOT_LOGICAL); after an unmatched ENDIF it is
- * INTERP_ERR_STRUCT. Lets a caller / oracle assert the precise failure (Law 2).
+ * INTERP_ERR_STRUCT. Lets a caller / oracle assert the precise failure (CLAUDE.md, The constitution).
  */
 int ibase_last_error(xb_interp *ip);
 
@@ -448,7 +448,7 @@ int ibase_last_error(xb_interp *ip);
  * These are the additive hooks cmd/proc.c uses; the executor + every S5.1..S5.6
  * behavior is unchanged (a program that never DO-calls runs entirely at level 0).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/language/memory-variables.md sec 3 (PUBLIC/PRIVATE/
  *     PARAMETERS scope, the auto-private rule, hiding+restore on RETURN).
  *   - ../dbase3-decomp/specs/commands/control-flow-and-procedures.md sec 7-8
@@ -459,7 +459,7 @@ int ibase_last_error(xb_interp *ip);
  * xb_interp_scope_enter: push one DO-call level (cmd/proc.c calls this before
  * running a procedure body). Subsequent PRIVATE / PARAMETERS / auto-private
  * memvars are created AT this new level. Returns the new level (>=1), or a
- * negative interp_err on depth overflow (fail loud; Rule 2).
+ * negative interp_err on depth overflow (fail loud; CLAUDE.md, The constitution).
  */
 int xb_interp_scope_enter(xb_interp *ip);
 

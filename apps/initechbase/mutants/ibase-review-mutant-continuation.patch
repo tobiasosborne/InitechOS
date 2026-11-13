@@ -1,0 +1,6 @@
+# test: test_ibase_say
+--- a/core/screen.c
++++ b/core/screen.c
+@@ -99,2 +98,0 @@
+-            /* next_row also resets col: bound the native draw AFTER it. */
+-            col=s->col;

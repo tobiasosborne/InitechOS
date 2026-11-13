@@ -1,0 +1,8 @@
+# test: test_ibase_use
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1043,0 +1044 @@
++static IBASE_OVL_TEXT(set) uint32_t ovl_bad_cursor(void *u) { (void)u;return 1; }
+@@ -1057,0 +1059,2 @@
++    { static xb_dbcursor bad;xb_ctx *c=xb_interp_ctx(ip);bad=*c->dbcur;
++      bad.recno=ovl_bad_cursor;ibase_bind_cursor(c,&bad,c->dbcur_user); }

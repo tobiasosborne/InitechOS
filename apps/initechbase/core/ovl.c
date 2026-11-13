@@ -2,7 +2,7 @@
  * os/ibase/core/ovl.c -- the IBASE overlay manager (InitechBase overlays
  * Phase B, epic initech-5etom; design: docs/design/ibase-overlays.md).
  *
- * THE ARTIFACT (Law 3): freestanding C; all OS contact through the PAL.
+ * THE ARTIFACT (CLAUDE.md, The constitution): freestanding C; all OS contact through the PAL.
  *
  * Two parts:
  *   1. Pure helpers (CRC-32, header/directory checks, relocation). Compiled in
@@ -15,7 +15,7 @@
  *      ovl_format.h) -- then relocated by the resident load base B exactly as
  *      the InitechMZ loader relocated the resident module (ADR-0003 DEC-08a.1).
  *
- * Failure model (Rule 2; design note Sec 6): INITBASE.OVL is verified whole at
+ * Failure model (CLAUDE.md, The constitution; design note Sec 6): INITBASE.OVL is verified whole at
  * startup (ADR-0014 DEC-14-5 Alternative 5A, ratified for the kernel's own
  * overlay: refuse before the user has work to lose) and every overlay is
  * CRC-checked again on each load. Anything wrong -> the "Insert System Disk"
@@ -24,7 +24,7 @@
  * overlay is running is an invariant violation (the packer's call-graph check
  * makes it unreachable) and panics.
  *
- * ASCII-clean (Rule 12). No timestamps (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps (CLAUDE.md, The constitution).
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -54,18 +54,12 @@ uint32_t ibase_ovl_crc32(uint32_t crc, const void *buf, uint32_t n)
 int ibase_ovl_check_header(const uint8_t *h, uint32_t stamp, uint32_t slot_len,
                            uint32_t count)
 {
-#ifndef IBASE_OVL_MUTATE_NO_STAMP
     if (rt_memcmp(h + IBASE_OVL_HDR_SIG_OFF, IBASE_OVL_SIG, IBASE_OVL_SIG_LEN) ||
         (uint32_t)(h[IBASE_OVL_HDR_VER_OFF] | (h[IBASE_OVL_HDR_VER_OFF + 1] << 8)) != IBASE_OVL_VERSION ||
         (uint32_t)(h[IBASE_OVL_HDR_COUNT_OFF] | (h[IBASE_OVL_HDR_COUNT_OFF + 1] << 8)) != count ||
         ovl_rd32(h + IBASE_OVL_HDR_STAMP_OFF) != stamp ||
         ovl_rd32(h + IBASE_OVL_HDR_SLOT_OFF) != slot_len)
         return IBASE_OVL_FOREIGN;
-#else
-    /* MUTANT (Rule 6; test-ibase-ovl-emu-mutant only): accept an overlay file
-     * from any build -- the stale-file emu leg must go RED. */
-    (void)stamp; (void)slot_len; (void)count;
-#endif
     if (ovl_rd32(h + IBASE_OVL_HDR_FLEN_OFF) < IBASE_OVL_HDR_SIZE)
         return IBASE_OVL_CORRUPT;
     return IBASE_OVL_OK;
@@ -98,13 +92,7 @@ int ibase_ovl_relocate(uint8_t *slot, uint32_t len, const uint8_t *rel,
     for (i = 0; i < n; i++) {
         uint8_t *p = slot + ovl_rd32(rel + 4u * i);
         uint32_t v = ovl_rd32(p);
-#ifndef IBASE_OVL_MUTATE_NO_RELOC
         v += base;
-#else
-        /* MUTANT (Rule 6; test-ibase-ovl-mutant / swap-emu-mutant only): the
-         * overlay is used unrelocated. */
-        (void)base;
-#endif
         p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8);
         p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24);
     }
@@ -292,9 +280,7 @@ static int ovl_ready(void)
         if (ovl_read_at(pos, buf, i)) { ovl_close(); return IBASE_OVL_MISSING; }
         crc = ibase_ovl_crc32(crc, buf, i);
     }
-#ifndef IBASE_OVL_MUTATE_NO_CRC
     if (crc != ovl_rd32(hdr + IBASE_OVL_HDR_STAMP_OFF)) { ovl_close(); return IBASE_OVL_CORRUPT; }
-#endif
     if (ovl_read_at(IBASE_OVL_HDR_SIZE, O.dir, IBASE_OVL_COUNT * IBASE_OVL_DIR_SIZE)) {
         ovl_close();
         return IBASE_OVL_MISSING;
@@ -333,11 +319,6 @@ int ibase_ovl_open(ibase_pal_t *pal)
     O.fd = -1;
     O.loaded = OVL_NONE;
     O.depth = 0u;
-#ifdef IBASE_OVL_MUTATE_SKIP_OPEN
-    /* MUTANT (Rule 6; test-ibase-ovl-emu-mutant only): no start-up check --
-     * a missing INITBASE.OVL reaches the dot prompt; the missing leg goes RED. */
-    return 0;
-#endif
     while (ovl_ready() != IBASE_OVL_OK) {
         if (!ovl_prompt()) return -1;
     }
@@ -368,9 +349,7 @@ static int ovl_fetch(uint32_t id)
         crc = ibase_ovl_crc32(crc, rel, n * 4u);
         if (ibase_ovl_relocate(slot, len, rel, n, (uint32_t)(uintptr_t)__ibase_base)) return -1;
     }
-#ifndef IBASE_OVL_MUTATE_NO_CRC
     if (crc != ecrc) return -1;
-#endif
     if (h->magic != IBASE_OVL_MAGIC || h->id != id) return -1;
     if ((uintptr_t)h->entry < (uintptr_t)slot + IBASE_OVL_SLOT_HDR_SIZE ||
         (uintptr_t)h->entry >= (uintptr_t)slot + len)
@@ -381,13 +360,6 @@ static int ovl_fetch(uint32_t id)
 
 int ibase_ovl_call(unsigned id, int k, xb_interp *ip, const char *args, int *ec)
 {
-#if defined(IBASE_OVL_MUTATE_SKIP_OPEN) || defined(IBASE_OVL_MUTATE_NO_STAMP)
-    /* Cold SET construction now loads an overlay before the first prompt
-     * (initech-0spyf/fzsvo). These startup-verification fault injections must
-     * not enter unchecked code: SKIP_OPEN would be rescued by its second
-     * check, and NO_STAMP would execute a foreign resident ABI. */
-    if(id==IBASE_OVL_SET && k==1)return 0;
-#endif
     const ibase_ovl_slot_hdr *h = (const ibase_ovl_slot_hdr *)(const void *)__ovl_slot;
     int rc;
 
@@ -397,13 +369,7 @@ int ibase_ovl_call(unsigned id, int k, xb_interp *ip, const char *args, int *ec)
     IBASE_RETAIN(ip);
     ibase_ovl_validate_pal(O.pal);
     ibase_ovl_validate_ctx(xb_interp_ctx(ip));
-#ifdef IBASE_OVL_MUTATE_NO_SWAP
-    /* MUTANT (Rule 6; test-ibase-ovl-swap-emu-mutant only): load once, never
-     * swap -- whatever overlay came first answers every later call. */
-    if (O.loaded == OVL_NONE) {
-#else
     if (O.loaded != id) {
-#endif
         /* Entry above forbids reentry, including an indirect same-id call. */
         while (ovl_fetch(id)) {
             ovl_close();

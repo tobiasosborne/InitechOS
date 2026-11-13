@@ -1,0 +1,40 @@
+# test: test_ibase_core
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -1669 +1669,7 @@
+-        return -DBF_ERR_IO;
++        rt_memset(dst, ' ', (uint32_t)flen);
++        if (v->u.c.p) {
++            uint32_t n = (uint32_t)v->u.c.len;
++            if (n > (uint32_t)flen) n = (uint32_t)flen;
++            rt_memcpy(dst, v->u.c.p, n);
++        }
++        return DBF_OK;
+@@ -1702,27 +1707,0 @@
+-    if (f->type == 'M') {
+-        char path[sizeof(tbl->name)];
+-        uint32_t n = rt_strlen(tbl->name), base = n, dot = n, block;
+-        dbt_file *memo = (dbt_file *)0;
+-        uint8_t pointer[10];
+-        int rc, close_rc;
+-        if (v->t != XB_C) return -DBF_ERR_MISMATCH;
+-        /* III+ M slots are ten ASCII decimal bytes (dbt.md ss4, TRAVEL
+-         * record 1: "         1"). Never overwrite malformed short slots. */
+-        if (f->field_len != 10u) return -DBF_ERR_BAD_RECLEN;
+-        while (base > 0u && tbl->name[base-1u] != '/' &&
+-               tbl->name[base-1u] != '\\' && tbl->name[base-1u] != ':') base--;
+-        for (n = base; tbl->name[n]; n++) if (tbl->name[n] == '.') dot = n;
+-        if (dot + 5u > sizeof(path)) return -DBF_ERR_IO;
+-        rt_memcpy(path, tbl->name, dot);
+-        /* Use the table extension's case for case-sensitive host PALs. */
+-        rt_memcpy(path + dot, dot < n && tbl->name[dot+1u] == 'D' ? ".DBT" : ".dbt", 5u);
+-        rc = dbt_open_rw(tbl->pal, path, &memo);
+-        if (rc != DBT_OK) return -DBF_ERR_IO; /* pointer untouched */
+-        rc = dbt_append(memo, (const uint8_t *)v->u.c.p, v->u.c.len, &block);
+-        close_rc = dbt_close(memo);
+-        if (rc != DBT_OK || close_rc != DBT_OK) return -DBF_ERR_IO;
+-        /* Publish only after the append and companion close succeeded. */
+-        (void)dec_format((double)block, 10, 0, (char *)pointer);
+-        rt_memcpy(dst, pointer, 10u);
+-        return DBF_OK;
+-    }

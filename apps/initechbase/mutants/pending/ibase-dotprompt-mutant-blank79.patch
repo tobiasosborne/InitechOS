@@ -1,0 +1,5 @@
+# test: test_w2_host
+--- a/core/screen.c
++++ b/core/screen.c
+@@ -80,0 +81 @@
++        n=80;

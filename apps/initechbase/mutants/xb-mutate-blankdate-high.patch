@@ -1,0 +1,15 @@
+# test: test_xbase_eval
+--- a/core/eval.c
++++ b/core/eval.c
+@@ -405,6 +405,5 @@
+-        if (ba || bb) {
+-            *res = (uint8_t)(ba && bb);
+-            *err = XBEE_OK;
+-            return 0;
+-        }
+-        c = cmp_double(a->u.d, b->u.d);
++        /* CLAUDE.md, The constitution: restore the superseded blank-HIGH expression ordering. */
++        if (ba && bb)      c = 0;
++        else if (ba)       c = 1;          /* blank > non-blank */
++        else if (bb)       c = -1;
++        else               c = cmp_double(a->u.d, b->u.d);

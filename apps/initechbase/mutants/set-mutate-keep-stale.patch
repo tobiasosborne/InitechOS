@@ -1,0 +1,6 @@
+# test: test_ibase_use
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1138 +1138 @@
+-    (void)is_new;
++    if (is_new)

@@ -1,0 +1,7 @@
+# test: test_interp_use
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -821 +821,2 @@
+-    wa = &env->area[env->cur];
++    /* MUTANT: ignore the selected area; always read area 0 (1). CLAUDE.md, The constitution. */
++    wa = &env->area[0];

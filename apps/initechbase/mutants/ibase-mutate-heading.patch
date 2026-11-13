@@ -1,0 +1,6 @@
+# test: test_ibase_use
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -614,0 +615,2 @@
++    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;(void)prefix;
++    return INTERP_OK;

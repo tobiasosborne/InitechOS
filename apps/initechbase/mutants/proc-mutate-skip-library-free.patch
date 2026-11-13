@@ -1,0 +1,7 @@
+# test: test_ibase_dbsafe
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -639,2 +639 @@
+-    proc_state *ps = proc_state_for(ip);
+-    if (ps) p_clear_library(ip, ps);
++    (void)ip;

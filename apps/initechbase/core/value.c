@@ -1,7 +1,7 @@
 /*
  * os/ibase/core/value.c -- IBASE typed value constructors + operations.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001 interim toolchain). Uses ONLY rt.h helpers and
  * value.h; no libc. No PAL dependency -- this file is pure (no I/O).
  *
@@ -20,14 +20,14 @@
  *     matching dBASE .NULL. semantics (two uninitialised variables are not
  *     considered equal).
  *
- * Freestanding-legal (Law 3): no #include other than <stdint.h> (via the
+ * Freestanding-legal (CLAUDE.md, The constitution): no #include other than <stdint.h> (via the
  * included headers) and our own headers.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
- * Fail loud (Rule 2): invalid type tag in xb_type_char -> returns '?' which
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
+ * Fail loud (CLAUDE.md, The constitution): invalid type tag in xb_type_char -> returns '?' which
  * is a visible sentinel; caller can assert it is not '?'.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md sec.8.2 (the xb_val sketch), S0.6.
  *   - docs/plans/IBASE-implementation-plan.md sec.2.F + sec.3.3 (numeric = IEEE
  *     double; date = JDN as double; corpus mint-004).
@@ -73,10 +73,8 @@ int xb_date_blank(double jdn)
 
 double xb_date_key(double jdn)
 {
-#ifndef IBASE_DT_MUTANT_blankkey
     if (xb_date_blank(jdn))
         return 1e100;   /* real III+ BLANKDAT.NDX blank-date key */
-#endif
     return jdn;
 }
 
@@ -124,7 +122,7 @@ char xb_type_char(xb_type t)
     case XB_L: return 'L';
     case XB_M: return 'M';
     case XB_U: return 'U';
-    default:   return '?'; /* fail-loud sentinel (Rule 2); should never happen */
+    default:   return '?'; /* fail-loud sentinel (CLAUDE.md, The constitution); should never happen */
     }
 }
 
@@ -169,6 +167,6 @@ int xb_eq(const xb_val *a, const xb_val *b)
     case XB_U:
         return 0; /* undefined is never equal to anything, including undefined */
     default:
-        return 0; /* unreachable; fail-safe (Rule 2) */
+        return 0; /* unreachable; fail-safe (CLAUDE.md, The constitution) */
     }
 }

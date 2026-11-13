@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1557 +1556,0 @@
+-                   (into==rel || q_isspace(into[-1])) &&

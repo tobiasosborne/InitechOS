@@ -1,0 +1,8 @@
+# test: test_ibase_fns
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -423,2 +422,0 @@
+-    leading_off = q_match_kw(s, "OFF");
+-    if (leading_off) s = q_skip_ws(s + leading_off);
+@@ -483 +480,0 @@
+-        if(h==off_at) h=q_skip_ws(h+3);

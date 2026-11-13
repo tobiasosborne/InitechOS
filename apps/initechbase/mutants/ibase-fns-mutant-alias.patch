@@ -1,0 +1,23 @@
+# test: test_ibase_fns
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -825,19 +824,0 @@
+-    {
+-        uint16_t j;
+-        for(j=0;j+1<len;j++)if(name[j]=='-' && name[j+1]=='>') {
+-            char alias[WA_ALIAS_CAP];uint16_t n=j,k=0;int a;
+-            while(n && (name[n-1]==' '||name[n-1]=='\t'))n--;
+-            if(!n || n>=sizeof alias)return 1;
+-            for(k=0;k<n;k++)alias[k]=up1(name[k]);
+-            alias[n]=0;
+-            for(a=0;a<WA_NAREAS;a++)
+-                if(env->area[a].open && ci_eq(env->area[a].alias,alias))break;
+-            if(a==WA_NAREAS) {
+-                a=alias_letter_area(alias)-1;
+-                if(a<0 || a>=WA_NAREAS)return 1;
+-            }
+-            wa=&env->area[a];j+=2;
+-            while(j<len && (name[j]==' '||name[j]=='\t'))j++;
+-            name+=j;len=(uint16_t)(len-j);break;
+-        }
+-    }

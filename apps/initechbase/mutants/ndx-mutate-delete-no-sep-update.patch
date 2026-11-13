@@ -1,0 +1,21 @@
+# test: test_ndx_incremental
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -1962,15 +1962,2 @@
+-    uint8_t page[NDX_PAGE_SIZE];
+-    while (depth > 0u) {
+-        uint16_t n;
+-        int rc;
+-        depth--;
+-        rc = read_raw_page(idx, path_pg[depth], page);
+-        if (rc != NDX_OK) return rc;
+-        n = u16le(page + NDX_NODE_ENTRY_COUNT_OFF);
+-        if (path_ci[depth] < (uint32_t)n) {
+-            rt_memcpy(page + slot_off(idx, path_ci[depth]) + NDX_GRP_KEY_DATA_OFF,
+-                      key, (uint32_t)idx->key_length);
+-            return write_node_page(idx, path_pg[depth], page);
+-        }
+-    }
+-    return NDX_OK;
++    (void)idx; (void)path_pg; (void)path_ci; (void)depth; (void)key;
++    return NDX_OK;   /* MUTANT (CLAUDE.md, The constitution): leave the stale separator */

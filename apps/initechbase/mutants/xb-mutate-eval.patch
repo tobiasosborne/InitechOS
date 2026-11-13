@@ -1,0 +1,11 @@
+# test: test_xbase_eval
+--- a/core/eval.c
++++ b/core/eval.c
+@@ -476,0 +477,7 @@
++        /* MUTATION (CLAUDE.md, The constitution): make the C+N HAZARD cell SUCCEED (auto-stringify
++         * -- the modern-docs behavior that did NOT exist in III+ 1.1). The
++         * test's "C+N -> error #9" assertion then goes RED. Single perturbation. */
++        if ((ta == XB_C || ta == XB_M) && tb == XB_N) {
++            *out = *a;                                  /* WRONG: return the C */
++            *err = XBEE_OK; return 0;
++        }

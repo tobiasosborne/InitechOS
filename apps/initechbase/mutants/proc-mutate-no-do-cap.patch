@@ -1,0 +1,9 @@
+# test: test_ibase_ctl
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -758,5 +757,0 @@
+-    if (ps->do_depth >= P_MAX_DO_NEST
+-        ) {
+-        if (ec) *ec = P_MSG_DO_DEEP;
+-        return -INTERP_ERR_DEPTH;
+-    }

@@ -1,0 +1,31 @@
+# test: test_xbase_transform
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -1369,26 +1369 @@
+-        char full[256];
+-        int dec = ctx->set_decimals, start = 0, end, digits, need, at;
+-        if (dec > 18) dec = 18;
+-        /* III+ converts at SET DECIMALS precision FIRST, then copies the
+-         * picture's fractional slots (truncating or zero-padding). DT1 C10
+-         * and DT6 T01..T11/A1..D2 distinguish this from direct rounding at
+-         * n_dec, truncation of the original value, and nearest-even at n_dec.
+-         * E.g. 12.5 -> "12", 2.999 -> "3", and 1.23456 -> "1.2300" at
+-         * DECIMALS 2, but "1.2350" at DECIMALS 3. */
+-        dec_format_even(absv, 255, dec, full);
+-        while (start < 255 && full[start] == ' ') start++;
+-        end = 255 - (dec ? dec + 1 : 0);
+-        digits = end - start;
+-        need = digits + (n_dec ? n_dec + 1 : 0);
+-        if (full[0] == '*' || need > fmt_w) {
+-            for (i = 0; i < fmt_w; i++) fmtbuf[i] = '*';
+-        } else {
+-            at = fmt_w - need;
+-            for (i = 0; i < at; i++) fmtbuf[i] = ' ';
+-            for (i = start; i < end; i++) fmtbuf[at++] = full[i];
+-            if (n_dec) {
+-                fmtbuf[at++] = '.';
+-                for (i = 0; i < n_dec; i++)
+-                    fmtbuf[at++] = i < dec ? full[end + 1 + i] : '0';
+-            }
+-        }
++        dec_format(absv, (int)fmt_w, (int)n_dec, fmtbuf);

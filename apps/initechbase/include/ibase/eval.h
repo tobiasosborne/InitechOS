@@ -1,7 +1,7 @@
 /*
  * os/ibase/include/ibase/eval.h -- IBASE expression engine public header.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Depends ONLY on <stdint.h> and "ibase/value.h".
  * No libc headers.
  *
@@ -14,7 +14,7 @@
  * Target: dBASE III PLUS 1.1 ONLY (IBASE-implementation-plan.md sec.2.C).
  * The == operator is a dBASE IV feature and is a lex error here (sec.3.3).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md sec.2.C (III+1.1 only; == lex err)
  *   - docs/plans/IBASE-implementation-plan.md S3.1 contract
  *   - ../dbase3-decomp/specs/language/expressions-and-operators.md sec.2,3,4,5
@@ -23,8 +23,8 @@
  *   - ../dbase3-decomp/specs/language/data-types.md sec.2,5 (literal syntax)
  *   - spec/ibase/xbase_coercion.json not_in_iii_plus: ["==", "!=", "%", ...]
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
- * Freestanding-legal (Law 3): only <stdint.h> and ibase/value.h.
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
+ * Freestanding-legal (CLAUDE.md, The constitution): only <stdint.h> and ibase/value.h.
  */
 #ifndef INITECH_IBASE_EVAL_H
 #define INITECH_IBASE_EVAL_H
@@ -141,7 +141,7 @@ typedef enum {
  * xb_lex_err -- error codes set in *err_code when xb_lex returns negative.
  *
  * Distinct codes allow the caller (test harness / evaluator) to assert the
- * precise failure mode. Fail loud (Rule 2).
+ * precise failure mode. Fail loud (CLAUDE.md, The constitution).
  */
 typedef enum {
     XBLE_OK             = 0,  /* no error */
@@ -238,7 +238,7 @@ int xb_lex(const char *src, uint32_t len,
  * produces. Allocation-free: nodes live in a caller-provided pool (an array
  * of xb_node) and reference their children by INDEX, mirroring the lexer's
  * caller-provided-buffer model. This is freestanding-friendly (no malloc, no
- * recursion-into-the-heap) and reproducible (Rule 11): no pointers into the
+ * recursion-into-the-heap) and reproducible (CLAUDE.md, The constitution): no pointers into the
  * pool are stored, so the same input always yields the same node indices.
  *
  * ------------------------------------------------------------------------
@@ -248,7 +248,7 @@ int xb_lex(const char *src, uint32_t len,
  * [oracle-resolves] (expressions-and-operators.md sec.9.1 lines 754-759, which
  * even *notes* that standard Xbase/Clipper would give -2^2 = -(2^2) = -4 and
  * right-assoc 2^3^2). The corpus MINT against real dBASE III+ 1.1 SETTLES both
- * the other way, and per Law 2 the live oracle wins:
+ * the other way, and per CLAUDE.md, The constitution the live oracle wins:
  *
  *   Tier 1  ( )  grouping / (function call placeholder -> S3.5)
  *   Tier 2  unary .NOT. is NOT here; unary arithmetic prefix:
@@ -272,7 +272,7 @@ int xb_lex(const char *src, uint32_t len,
  *   -2^2    = (-2)^2 = 4            (unary minus TIGHTER than ^)
  *   a > 0 .AND. .NOT. b = ((a>0) .AND. (.NOT. b))   (CLRDEP.PRG:154)
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md sec.5 S3.2 (the ladder; mint-002)
  *   - ../dbase3-decomp/re/mint-results-002.md (THE authority: 2^3^2=64, -2^2=4)
  *   - ../dbase3-decomp/specs/language/expressions-and-operators.md sec.9.1
@@ -305,11 +305,11 @@ int xb_lex(const char *src, uint32_t len,
  *   XBN_ARG  : kid[0]  = index of this argument's expression root
  *              kid[1]  = index of the NEXT XBN_ARG, or -1 (end of list)
  *
- * This keeps the model deterministic (Rule 11): identical input always yields
+ * This keeps the model deterministic (CLAUDE.md, The constitution): identical input always yields
  * identical node indices, because args are reduced left-to-right and the ARG
  * spine is built in source order. `()` (no args) -> XBN_CALL.kid[0] == -1.
  *
- * Ref (Law 1): docs/plans/IBASE-implementation-plan.md sec.5 S3.5
+ * Ref (CLAUDE.md, The constitution): docs/plans/IBASE-implementation-plan.md sec.5 S3.5
  *   ("fn_* table; STR/VAL/CTOD/DTOC/UPPER/.../IIF/TYPE"); the per-function
  *   semantics live in the corpus:
  *   - ../dbase3-decomp/specs/functions/string-functions.md (SUBSTR 1-based,
@@ -360,7 +360,7 @@ typedef struct {
 
 /*
  * xb_parse_err -- error codes set in *err_code when xb_parse returns negative.
- * Fail loud, no silent recovery (Rule 2).
+ * Fail loud, no silent recovery (CLAUDE.md, The constitution).
  */
 typedef enum {
     XBPE_OK          = 0,  /* no error                                       */
@@ -409,14 +409,14 @@ int xb_parse(const xb_token *toks, uint32_t ntok,
  * contract spec/ibase/xbase_coercion.json (operator_coercion cells + rules +
  * the SET EXACT mode). The JSON is the source of truth; eval.c HARDCODES the
  * dispatch in C (the engine is freestanding -- it does NOT parse JSON at
- * runtime). Every dispatch branch cites the JSON cell / rule (Law 1).
+ * runtime). Every dispatch branch cites the JSON cell / rule (CLAUDE.md, The constitution).
  *
  * HEADLINE III+ DELTA (corpus mint-results-002.md + xbase_coercion.json
  *   not_in_iii_plus): there is NO auto-stringification. C+N, N+C, C+D, D+D,
  *   C-N, N-D, N<C, N$C, N .AND. L ... are ERRORS, NOT silent coercions.
  *   "A" + 1 -> error #9 "Data type mismatch." [verified: mint-002 C1.TXT].
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md sec.5 S3.3 (the contract;
  *     "dispatch on (lhs,op,rhs) from xbase_coercion.json; SET EXACT-aware C=;
  *      D/N arithmetic; $; error#9. Oracle: the sec.3 dispatch-table cells")
@@ -444,9 +444,9 @@ int xb_parse(const xb_token *toks, uint32_t ntok,
  *   XBEE_OK             0   success
  *   XBEE_UNBOUND      -1   identifier with no resolver (Phase 5 binds these)
  *   XBEE_SCRATCH_FULL -2   C+C / C-C result has no room in ctx scratch arena
- *   XBEE_BAD_NODE     -3   malformed AST (fail loud, Rule 2)
+ *   XBEE_BAD_NODE     -3   malformed AST (fail loud, CLAUDE.md, The constitution)
  *
- * Fail loud (Rule 2): every result:"error" cell in xbase_coercion.json sets
+ * Fail loud (CLAUDE.md, The constitution): every result:"error" cell in xbase_coercion.json sets
  * one of the positive catalog codes; NO silent coercion ever happens.
  */
 typedef enum {
@@ -467,7 +467,7 @@ typedef enum {
     XBEE_NO_DATABASE   = 52,  /* dbase_msg_codes.tsv code 52 "No database is in   */
                               /*   USE." -- a DATABASE built-in (RECNO/EOF/...)   */
                               /*   called with NO work area (ctx->dbcur == NULL). */
-                              /*   S3.6b fail-loud (Rule 2).                      */
+                              /*   S3.6b fail-loud (CLAUDE.md, The constitution).                      */
     XBEE_CHR_RANGE     = 57,  /* dbase_msg_codes.tsv code 57 "CHR() : Out of   */
                               /*   range." -- CHR(n) with n outside 0..255     */
     XBEE_SPACE_LARGE   = 59,  /* dbase_msg_codes.tsv code 59 "SPACE() : Too    */
@@ -511,7 +511,7 @@ typedef enum {
  *   functions (STR, UPPER, LOWER, TRIM, LTRIM, SUBSTR, SPACE, CHR, DTOC, ...).
  *   value.h Character values are pointer+len with NO ownership, so a
  *   synthesized C result must live somewhere the evaluator does not own and
- *   cannot malloc (freestanding, Law 3). The evaluator bump-allocates from
+ *   cannot malloc (freestanding, CLAUDE.md, The constitution). The evaluator bump-allocates from
  *   [scratch, scratch+scratch_cap); on exhaustion it fails loud with
  *   XBEE_SCRATCH_FULL rather than overflow. scratch_used is reset to 0 by
  *   xb_eval at the start of every top-level call. If a tree has no C
@@ -521,7 +521,7 @@ typedef enum {
  *   consumed by the DATE() built-in (S3.5). The engine is freestanding and
  *   MUST NOT read the OS clock; the caller (the dot-prompt REPL on the host
  *   PAL, or the Phase-5 interpreter) injects today's JDN here for
- *   reproducibility (Rule 11) -- exactly the PAL's injectable-clock contract
+ *   reproducibility (CLAUDE.md, The constitution) -- exactly the PAL's injectable-clock contract
  *   (pal.h today()). 0.0 is the "blank date" sentinel (rt.h date_is_blank);
  *   a caller that has not set a date leaves it 0.0 and DATE() returns a blank
  *   date. Use (double)jdn_from_ymd(y,m,d) to set it.
@@ -549,7 +549,7 @@ typedef enum {
  *   the coercion fuzzer) evaluate with NO interpreter and NO work area: they
  *   leave ctx->dbcur == NULL. Every database built-in MUST fail loud
  *   (XBEE_NO_DATABASE, #52 "No database is in USE.") when ctx->dbcur == NULL --
- *   NEVER crash (Rule 2). Those tests never CALL a database built-in, so the
+ *   NEVER crash (CLAUDE.md, The constitution). Those tests never CALL a database built-in, so the
  *   path is exercised only by the S3.6b oracle's explicit no-work-area case.
  *   FILE is an environment function: a bare evaluator supplies file_pal
  *   instead (Using III+ U6-33; test_ibase_core.c).
@@ -574,7 +574,7 @@ typedef enum {
  *   file_exists: 1 if the named file exists (via the PAL), else 0
  *                (environment-functions FILE(<expC>)).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/functions/system-and-database-functions.md sec 2
  *     (RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF) + sec 3 (FILE).
  *   - spec/ibase/dbase_msg_codes.tsv code 52 "No database is in USE."
@@ -602,7 +602,7 @@ typedef struct xb_dbcursor {
  * AMERICAN). fn_builtins.c uses these values to select the DTOC/CTOD picture
  * without pulling in set.h (which has heavy interpreter-layer deps).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/commands/set-commands.md Sec 3.2 (keyword list;
  *     format widths CENTURY OFF/ON).
  *   - ../dbase3-decomp/re/mint-results-003.md (AMERICAN = default; CENTURY=OFF).
@@ -692,7 +692,7 @@ typedef struct xb_ctx {
      *   1 = ON:  4-digit year in DTOC output; CTOD accepts 10-char strings.
      *   [verified: mint-results-003.md CENTURY=OFF]
      *
-     * Ref (Law 1):
+     * Ref (CLAUDE.md, The constitution):
      *   - ../dbase3-decomp/specs/commands/set-commands.md Sec 3.1 (DECIMALS),
      *     Sec 3.2 (DATE), Sec 2 (CENTURY default OFF).
      *   - ../dbase3-decomp/re/mint-results-002.md (DECIMALS=2 default [verified]).
@@ -777,7 +777,7 @@ typedef struct xb_ctx {
  *   Every other (lhs,op,rhs) combination is a result:"error" cell -> fail loud.
  *
  * Allocation: none beyond the caller's scratch arena. Uses: <stdint.h>, rt.h,
- * value.h, eval.h. No libc, no PAL, no I/O. Reproducible (Rule 11): pure
+ * value.h, eval.h. No libc, no PAL, no I/O. Reproducible (CLAUDE.md, The constitution): pure
  * function of (pool, root, ctx state) -- no time, no host paths, no RNG.
  */
 int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
@@ -845,8 +845,8 @@ int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
  * err_code: set to XBEE_OK on success, else a positive catalog ordinal.
  *
  * Returns 0 on success, non-zero on failure (and *err_code names the reason).
- * Allocation: none beyond ctx->scratch. Freestanding (Law 3): <stdint.h>,
- * rt.h, value.h, eval.h only. Reproducible (Rule 11): pure function of
+ * Allocation: none beyond ctx->scratch. Freestanding (CLAUDE.md, The constitution): <stdint.h>,
+ * rt.h, value.h, eval.h only. Reproducible (CLAUDE.md, The constitution): pure function of
  * (name, args, ctx state) -- the only "clock" is the injected ctx_today.
  */
 #define XB_FN_MAX_ARGS 4   /* III+ A-set max arity (STUFF=4 is S3.6+; A-set

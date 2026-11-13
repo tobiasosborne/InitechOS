@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2422 +2422 @@
+-    *out = xb_c(version, (uint16_t)(sizeof version - 1u));
++    *out = xb_c(version, (uint16_t)(sizeof version - 2u));

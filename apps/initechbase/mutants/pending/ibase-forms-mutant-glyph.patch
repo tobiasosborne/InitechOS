@@ -1,0 +1,7 @@
+# test: test_w2_host
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1735,2 +1735 @@
+-    char tl=dbl?(char)0xC9:(char)0xDA,tr=dbl?(char)0xBB:(char)0xBF;
+-    char bl=dbl?(char)0xC8:(char)0xC0,br=dbl?(char)0xBC:(char)0xD9;
++    char tl=(char)0xC9,tr=(char)0xBB,bl=(char)0xC8,br=(char)0xBC;

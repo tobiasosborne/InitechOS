@@ -1,0 +1,6 @@
+# test: test_w2_host
+--- a/core/screen.c
++++ b/core/screen.c
+@@ -75,2 +74,0 @@
+-        rt_memset(s->text[0]+39,' ',41);
+-        if(s->draw) s->draw(s->user,0,39,0x07,s->text[0]+39,41);

@@ -1,0 +1,6 @@
+# test: test_w2_host
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1825 +1825 @@
+-    for(r=0;r<25;r++) if(qf_fill(pal,r,0,' ',80))return qf_fail(ec,29);
++    (void)r;

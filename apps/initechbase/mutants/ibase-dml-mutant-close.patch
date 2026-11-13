@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/ibase_main.c
++++ b/ibase_main.c
+@@ -404,0 +405 @@
++    wa_close_all(xb_interp_env(ip));return INTERP_OK;

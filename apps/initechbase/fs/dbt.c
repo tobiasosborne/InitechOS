@@ -2,7 +2,7 @@
  * os/ibase/fs/dbt.c -- IBASE (InitechBase) .dbt memo codec.
  *                      S2.1: open + read.   S2.2: create + append + flush.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (ibase/pal.h,
  * ibase/rt.h, ibase/dbt.h). No libc, no int 0x21 -- all OS contact is through
  * the PAL vtable (plan Sec 2.B / 2.D).
@@ -52,29 +52,29 @@
  *   complete terminator.  This prevents spurious DBT_ERR_NO_TERM on these
  *   goldens.
  *
- * S2.2 determinism (Rule 11):
+ * S2.2 determinism (CLAUDE.md, The constitution):
  *   Block-0 padding (bytes 4..511) written as 0x00 on create (not garbage).
  *   Block tail-pad after 0x1A 0x1A written as 0x00.  The oracle normalizes
  *   these bytes away (dbt.md sec 6 NORMALIZE), so 0x00 is canonical.
  *   No timestamps, no host-path bytes, no nondeterminism anywhere.
  *
- * Mutation hooks (Rule 6):
- *   -DDBT_MUTATE_BLOCKSIZE       (S2.1): uses 511 instead of 512 for block
+ * Mutation hooks (CLAUDE.md, The constitution):
+ *   mutants/dbt-mutate-blocksize.patch       (S2.1): uses 511 instead of 512 for block
  *     seek/stride -> read lands 1 byte off -> content diverges -> RED.
- *   -DDBT_MUTATE_WRITE_PTR_ENDIAN (S2.2): writes block-0 next-free ptr in
+ *   mutants/dbt-mutate-write-ptr-endian.patch (S2.2): writes block-0 next-free ptr in
  *     big-endian instead of LE -> a subsequent dbt_open reads the wrong value
  *     -> next_free mismatch + dbt_read returns -DBT_ERR_BAD_BLOCK -> RED.
  *
- * Fail loud (CLAUDE.md Rule 2): every structural violation or I/O error
+ * Fail loud (CLAUDE.md CLAUDE.md, The constitution): every structural violation or I/O error
  * returns a distinct dbt_err code.  A silently-wrong buffer would corrupt
  * every memo display and round-trip built on top of it.
  *
  * III+ 1.1 ONLY (plan Sec 2.C):
  *   dbt_open rejects IV dialect (is_iv_dialect flag) with DBT_ERR_BAD_VERSION.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths / nondeterminism (CLAUDE.md, The constitution).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/file-formats/dbt.md sec 2, 2.1, 2.2, 3, 4, 4.1,
  *     5, 6, 8, Verification.
  *   - docs/plans/IBASE-implementation-plan.md S2.1 + S2.2 contracts + Phase 2.
@@ -92,18 +92,12 @@
 
 /* -----------------------------------------------------------------------
  * Block size: normally DBT_BLOCK_SIZE (512) from dbt.h.
- * The -DDBT_MUTATE_BLOCKSIZE mutant redefines it to 511 so every seek and
+ * The mutants/dbt-mutate-blocksize.patch mutant redefines it to 511 so every seek and
  * stride is off by one -- this makes the oracle go RED for the right reason.
- * Ref: dbt.h "Mutation hook" doc-comment; Rule 6.
+ * Ref: dbt.h "Mutation hook" doc-comment; CLAUDE.md, The constitution.
  * ----------------------------------------------------------------------- */
-#ifdef DBT_MUTATE_BLOCKSIZE
-  /* Mutant: use 511 instead of 512.  Seek lands 1 byte before the real
-   * block boundary, pulling wrong bytes into the memo buffer. */
-  #define DBT_BLOCK_ACTUAL  511u
-#else
   /* Normal: 512 bytes per block (dbt.md sec 2, verified). */
   #define DBT_BLOCK_ACTUAL  DBT_BLOCK_SIZE   /* 512u */
-#endif
 
 /* -----------------------------------------------------------------------
  * dbt_file: the opaque handle layout.
@@ -211,7 +205,7 @@ int dbt_open_rw(ibase_pal_t *pal, const char *name, dbt_file **out)
 /* -----------------------------------------------------------------------
  * Helper: write the block-0 next-free pointer (uint32) at file offset 0.
  *
- * Under -DDBT_MUTATE_WRITE_PTR_ENDIAN: writes the value big-endian instead
+ * Under mutants/dbt-mutate-write-ptr-endian.patch: writes the value big-endian instead
  * of little-endian.  A subsequent dbt_open reads the field LE and gets a
  * garbage next_free value, causing the round-trip check to go RED.
  * Ref: dbt.md sec 2.1 "uint32 LE @0x00"; sec 3 (endian RESOLVED LE).
@@ -222,19 +216,11 @@ static int write_next_free(ibase_pal_t *pal, pal_fd fd, uint32_t nf)
     uint8_t  buf[4];
     int32_t  nw;
 
-#ifdef DBT_MUTATE_WRITE_PTR_ENDIAN
-    /* Mutant: big-endian.  Intentionally wrong -- makes the oracle RED. */
-    buf[0] = (uint8_t)((nf >> 24) & 0xFFu);
-    buf[1] = (uint8_t)((nf >> 16) & 0xFFu);
-    buf[2] = (uint8_t)((nf >>  8) & 0xFFu);
-    buf[3] = (uint8_t)( nf        & 0xFFu);
-#else
     /* Normal: little-endian (dbt.md sec 3 RESOLVED). */
     buf[0] = (uint8_t)( nf        & 0xFFu);
     buf[1] = (uint8_t)((nf >>  8) & 0xFFu);
     buf[2] = (uint8_t)((nf >> 16) & 0xFFu);
     buf[3] = (uint8_t)((nf >> 24) & 0xFFu);
-#endif
 
     if (pal->seek(pal, fd, 0, PAL_SEEK_SET) < 0) return -DBT_ERR_IO;
     nw = pal->write(pal, fd, buf, 4u);
@@ -246,7 +232,7 @@ static int write_next_free(ibase_pal_t *pal, pal_fd fd, uint32_t nf)
  * dbt_create: create a new, empty .dbt.
  *
  * Writes a clean 512-byte block 0: next_free=1 (LE @0x00) + 0x00 padding
- * for bytes 4..511 (deterministic; Rule 11; normalized away by the oracle
+ * for bytes 4..511 (deterministic; CLAUDE.md, The constitution; normalized away by the oracle
  * per dbt.md sec 6).  Leaves the file open PAL_CREATE|PAL_RDWR for
  * subsequent dbt_append calls.
  *
@@ -283,7 +269,7 @@ int dbt_create(ibase_pal_t *pal, const char *name, dbt_file **out)
 
     /* Write 508 zero bytes for the remainder of block 0 (@0x04..0x1FF).
      * Real dBASE leaves leftover garbage here (dbt.md sec 6), but we write
-     * 0x00 for reproducibility (Rule 11).  The oracle normalizes these bytes
+     * 0x00 for reproducibility (CLAUDE.md, The constitution).  The oracle normalizes these bytes
      * away so the exact value does not affect round-trip grading.
      * Ref: dbt.md sec 6 "block-0 bytes 4..511 = NORMALIZE". */
     rt_memset(pad, 0, sizeof(pad));
@@ -348,12 +334,12 @@ uint32_t dbt_next_free(const dbt_file *f)
  *   5. Write the 0x1A 0x1A terminator (2 bytes).
  *   6. Compute tail_pad = DBT_BLOCK_SIZE - ((len+2) % DBT_BLOCK_SIZE).
  *      Special case: if (len+2) % DBT_BLOCK_SIZE == 0, no padding needed
- *      (tail_pad = 0).  Write tail_pad 0x00 bytes for reproducibility (Rule 11).
+ *      (tail_pad = 0).  Write tail_pad 0x00 bytes for reproducibility (CLAUDE.md, The constitution).
  *   7. blocks_used = (len + 2 + DBT_BLOCK_SIZE - 1) / DBT_BLOCK_SIZE
  *      = ceil((len+2) / 512).  Ref: plan S2.2 / dbt.md sec 8 step 3.
  *   8. f->next_free += blocks_used.
  *   9. Write the updated next_free back to block-0 @0x00 LE.
- *      Under -DDBT_MUTATE_WRITE_PTR_ENDIAN: writes big-endian -> oracle RED.
+ *      Under mutants/dbt-mutate-write-ptr-endian.patch: writes big-endian -> oracle RED.
  *  10. *blockno_out = start.
  *
  * Ref: dbt.md sec 5 (0x1A 0x1A terminator), sec 6 (tail = don't-care /
@@ -374,7 +360,7 @@ int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
     *blockno_out = 0u;
 
     /* Fail loud if this handle is read-only (dbt_open).
-     * Ref: dbt.h dbt_append doc-comment; Rule 2 (fail fast, fail loud). */
+     * Ref: dbt.h dbt_append doc-comment; CLAUDE.md, The constitution (fail fast, fail loud). */
     if (!f->writable) {
         return -DBT_ERR_RDONLY;
     }
@@ -382,7 +368,6 @@ int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
     pal   = f->pal;
     start = f->next_free;
 
-#ifndef IBASE_CORE_MUTATE_DBT_SPAN
     /* dbt.md ss2/8, pal.h signed seek; Using III+ U1-1 file-size limit.
      * An existing companion can carry a corrupt high-water mark. Validate
      * the entire padded append BEFORE its first seek/write, not after it. */
@@ -392,7 +377,6 @@ int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
     blocks_used = (len + 2u + DBT_BLOCK_SIZE - 1u) / DBT_BLOCK_SIZE;
     if (blocks_used > (uint32_t)INT32_MAX / DBT_BLOCK_SIZE - start)
         return -DBT_ERR_BAD_BLOCK;
-#endif
 
     /* Seek to the block where this memo will be written.
      * Block `start` is at file offset start * DBT_BLOCK_SIZE.
@@ -423,7 +407,7 @@ int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
     /* Compute and write tail padding to fill the final block.
      * tail_pad = (DBT_BLOCK_SIZE - (len+2) % DBT_BLOCK_SIZE) % DBT_BLOCK_SIZE
      * This gives 0 when (len+2) is exactly block-aligned (no extra zeros needed).
-     * We write 0x00 bytes (deterministic; Rule 11; normalized by the oracle).
+     * We write 0x00 bytes (deterministic; CLAUDE.md, The constitution; normalized by the oracle).
      * Ref: dbt.md sec 8 step 2 "padding ... tail ... is don't-care";
      *      sec 6 "every block's bytes after its 0x1A 0x1A = NORMALIZE". */
     written  = len + 2u;  /* text bytes + 2 terminator bytes */
@@ -459,7 +443,7 @@ int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
 
     /* Write updated next_free back to block-0 @0x00 (LE normally; BE under mutant).
      * Ref: dbt.md sec 2.1 "@0x00 uint32 LE"; sec 3 (endian RESOLVED);
-     *      dbt.h dbt_append mutant doc-comment (-DDBT_MUTATE_WRITE_PTR_ENDIAN). */
+     *      dbt.h dbt_append mutant doc-comment (mutants/dbt-mutate-write-ptr-endian.patch). */
     rc = write_next_free(pal, f->fd, f->next_free);
     if (rc != DBT_OK) {
         /* next_free was already advanced in memory; caller should discard handle. */
@@ -535,7 +519,7 @@ int dbt_read(dbt_file *f, uint32_t blockno,
         f->next_free = (uint32_t)hdr[0] | ((uint32_t)hdr[1] << 8) |
                       ((uint32_t)hdr[2] << 16) | ((uint32_t)hdr[3] << 24);
     }
-    /* --- Validate blockno (fail loud; Rule 2) ---
+    /* --- Validate blockno (fail loud; CLAUDE.md, The constitution) ---
      * blockno 0 is the header block (never a memo).
      * blockno >= next_free is out of range (no live data there).
      * Ref: dbt.md sec 2 "Block 0 is the header; no record ever points into it";
@@ -543,18 +527,16 @@ int dbt_read(dbt_file *f, uint32_t blockno,
     if (blockno == 0u || blockno >= f->next_free) {
         return -DBT_ERR_BAD_BLOCK;
     }
-#ifndef IBASE_CORE_MUTATE_DBT_SPAN
     /* PAL seek offsets are signed 32-bit (pal.h). Reject before n*512
      * wraps into a different memo. Using III+ U1-1: 2 billion file bytes. */
     if (blockno > (uint32_t)INT32_MAX / DBT_BLOCK_ACTUAL)
         return -DBT_ERR_BAD_BLOCK;
-#endif
 
     pal = f->pal;
 
     /* --- Seek to the start of the requested block ---
      * Block n is at file offset n * DBT_BLOCK_ACTUAL.
-     * (DBT_BLOCK_ACTUAL = 512 normally; 511 under -DDBT_MUTATE_BLOCKSIZE.)
+     * (DBT_BLOCK_ACTUAL = 512 normally; 511 under mutants/dbt-mutate-blocksize.patch.)
      * Ref: dbt.md sec 2 "byte offset of block n is n * 512". */
     if (pal->seek(pal, f->fd, (int32_t)(blockno * DBT_BLOCK_ACTUAL),
                   PAL_SEEK_SET) < 0) {
@@ -586,14 +568,12 @@ int dbt_read(dbt_file *f, uint32_t blockno,
     scanned = 0u;
     while (!done) {
         uint32_t i;
-#ifndef IBASE_CORE_MUTATE_DBT_SPAN
         /* Never scan/copy bytes outside the logical block span. A lone
          * trailing 1A remains accepted at the logical EOF, as at physical EOF. */
         if (scanned == work_cap) {
             if (prev_was_1a) break;
             return -DBT_ERR_NO_TERM;
         }
-#endif
         nr = pal->read(pal, f->fd, blk, DBT_BLOCK_SIZE);
         if (nr > 0) scanned += (uint32_t)nr;
         if (nr < 0) {
@@ -666,7 +646,7 @@ int dbt_read(dbt_file *f, uint32_t blockno,
      * already in the arena; we copy into a fresh, exact-size alloc so the
      * caller gets a clean length-bounded region.  In practice on the fixed
      * arena this wastes work_cap bytes, but correctness trumps compactness
-     * for S2.1 scope (Rule 3 -- fix the root, don't optimize early). */
+     * for S2.1 scope (CLAUDE.md, The constitution -- fix the root, don't optimize early). */
     if (work_len == 0u) {
         /* Empty memo: return a valid (non-NULL) zero-length buffer. */
         final_buf = (uint8_t *)pal_owned_alloc(pal,&f->owned,1u);

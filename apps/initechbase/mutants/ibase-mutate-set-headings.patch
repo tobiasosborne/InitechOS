@@ -1,0 +1,5 @@
+# test: test_ibase_w2
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -899,0 +900 @@
++    if(which==0) on=!on;

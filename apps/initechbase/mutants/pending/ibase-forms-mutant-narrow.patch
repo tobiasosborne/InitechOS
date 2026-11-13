@@ -1,0 +1,6 @@
+# test: test_w2_host
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1691 +1691 @@
+-    *out=(v.u.n>-2147483648.0 && v.u.n<2147483648.0)?(int)(int16_t)(uint16_t)(uint32_t)(int32_t)v.u.n:0;
++    *out=(v.u.n>-2147483648.0 && v.u.n<2147483648.0)?(int32_t)v.u.n:limit;

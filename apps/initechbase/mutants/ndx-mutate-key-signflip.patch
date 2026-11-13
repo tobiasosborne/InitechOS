@@ -1,0 +1,27 @@
+# test: test_ndx_keys
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -829,4 +829,19 @@
+-        /* Correct path: raw LE double, NO sign-flip.
+-         * [re/mint-results-001.md VERIFIED minted NCOST.NDX 2026-06-16] */
+-        va = read_le_double(a);
+-        vb = read_le_double(b);
++        /* MUTATED: apply sign-flip (XOR bit 7 of byte 7) before decoding.
++         * This implements the hypothesis that mint-001 disproved. Under this
++         * mutation: for negative doubles (byte 7 has MSB set, e.g. 0xC0),
++         * XOR 0x80 clears the sign bit, turning -123.45 into a large positive.
++         * The leaf ordering -123.45 < -1 < 0 < ... will appear wrong because
++         * the mutated comparison puts negatives above positives -> RED.
++         * [re/mint-results-001.md "corrects the prior ndx.md speculation about
++         *  a sign-flip transform -- there is none."]
++         * The XOR modifies only the comparison bytes; we do NOT modify key_data
++         * in place (const pointer). Use local copies. */
++        {
++            uint8_t ma[8], mb[8];
++            rt_memcpy(ma, a, 8u);
++            rt_memcpy(mb, b, 8u);
++            ma[7] ^= 0x80u;
++            mb[7] ^= 0x80u;
++            va = read_le_double(ma);
++            vb = read_le_double(mb);
++        }

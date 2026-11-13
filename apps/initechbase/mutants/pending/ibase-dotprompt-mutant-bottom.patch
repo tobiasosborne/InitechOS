@@ -1,0 +1,11 @@
+# test: test_w2_host
+--- a/core/screen.c
++++ b/core/screen.c
+@@ -79,6 +79 @@
+-    if(s->row>=24) { s->row=24;next_row(s); }
+-    else {
+-        rt_memset(s->text[24],' ',n);
+-        if(s->draw) s->draw(s->user,24,0,0x07,s->text[24],n);
+-    }
+-    s->row=24;s->col=0;
++    (void)n;

@@ -1,0 +1,5 @@
+# test: test_ibase_status
+--- a/core/screen.c
++++ b/core/screen.c
+@@ -38,0 +39 @@
++    rt_memset(s->status,' ',80);rt_memset(s->guidance,' ',80);attr=0x07;

@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/report.c
++++ b/cmd/report.c
+@@ -550,0 +551 @@
++            take=0; /* suppress label text while retaining the band geometry */

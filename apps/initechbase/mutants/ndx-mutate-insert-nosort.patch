@@ -1,0 +1,33 @@
+# test: test_ndx_incremental
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -1815,23 +1815,6 @@
+-    /* Find the insertion slot: the first existing entry whose key > new_key,
+-     * or (key == new_key AND existing_recno > recno) -- ascending recno
+-     * tie-break, consistent with ndx_build's stable sort.
+-     * Ref: ndx.md ss5 (sorted leaf invariant). */
+-    ins = (uint32_t)count;   /* default: append at end */
+-    for (i = 0u; i < (uint32_t)count; i++) {
+-        uint32_t base = (uint32_t)NDX_NODE_ENTRIES_OFF + i * gl;
+-        const uint8_t *ekey = page + base + NDX_GRP_KEY_DATA_OFF;
+-        int cmp = ndx_key_cmp(idx, ekey, new_key);
+-        if (cmp > 0) {
+-            ins = i;
+-            break;
+-        }
+-        if (cmp == 0) {
+-            /* Equal key: insert before the first existing entry with a
+-             * larger recno (ascending recno tie-break). */
+-            uint32_t er = u32le(page + base + NDX_GRP_DBF_RECNO_OFF);
+-            if (er > recno) {
+-                ins = i;
+-                break;
+-            }
+-        }
+-    }
++    /* MUTATED: always append at the end without sorting.
++     * The leaf is no longer in sorted order after this point.
++     * ndx_inorder will return the unsorted sequence and ndx_seek for
++     * keys that should land before the last position will miss them. RED.
++     * [CLAUDE.md, The constitution / plan S4.5 mutants/ndx-mutate-insert-nosort.patch] */
++    ins = (uint32_t)count;

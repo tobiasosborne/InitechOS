@@ -2,7 +2,7 @@
  * os/ibase/include/ibase/ndx.h -- IBASE (InitechBase) .ndx index codec contract.
  *                                  Steps S4.1 + S4.2.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers. All OS contact
  * is through the PAL vtable. No libc, no int 0x21.
  *
@@ -52,15 +52,15 @@
  *   - The root page, total_pages, and keys_per_page are exposed so S4.3 can
  *     implement B-tree descent without re-reading the header.
  *
- * Fail loud (CLAUDE.md Rule 2): every structural violation (bad group formula,
+ * Fail loud (CLAUDE.md CLAUDE.md, The constitution): every structural violation (bad group formula,
  * root out of range, file size not a page multiple, entry extends past page
  * boundary) returns a negative error code. A silently-wrong index would corrupt
  * every SEEK / ORDER BY built on top of it.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
- * Freestanding-legal (Law 3): only <stdint.h> and ibase/ headers.
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths / nondeterminism (CLAUDE.md, The constitution).
+ * Freestanding-legal (CLAUDE.md, The constitution): only <stdint.h> and ibase/ headers.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - spec/ibase/ndx_format.h -- LOCKED byte-offset constants (source of truth
  *     for every offset used in ndx.c).
  *   - ../dbase3-decomp/specs/file-formats/ndx.md -- the byte-verified spec:
@@ -106,7 +106,7 @@ typedef enum {
     NDX_ERR_OOM          = 9,  /* PAL arena exhausted */
     NDX_ERR_CYCLE        = 10, /* B-tree descent revisited a page / overran the
                                 * total_pages depth bound -- a corrupt index
-                                * cycle. Fail loud (Rule 2) instead of looping. */
+                                * cycle. Fail loud (CLAUDE.md, The constitution) instead of looping. */
     /* S4.5: incremental maintenance error codes. */
     NDX_ERR_READONLY     = 11, /* write op on a read-only index (ndx_open, not
                                 * ndx_open_rw) */
@@ -138,7 +138,7 @@ typedef struct ndx_index ndx_index;
  *
  * Returns NDX_OK (0) with *out set on success.
  * Returns -ndx_err (negative) with *out == NULL on failure; fails loud per
- * Rule 2 (every structural violation is an explicit error code).
+ * CLAUDE.md, The constitution (every structural violation is an explicit error code).
  *
  * Ref: ndx.md ss2, ss2.1, ss2.2; spec/ibase/ndx_format.h NDX_HDR_* constants.
  */
@@ -320,7 +320,7 @@ void ndx_node_free(ndx_index *idx, ndx_node_t *node);
  *     NO sign-flip, compared ARITHMETICALLY."]
  *
  * Returns NDX_OK (0) on success, -NDX_ERR_BAD_KEYTYPE if key_type is not 0/1
- * (should not occur for a successfully opened index, but fail loud: Rule 2).
+ * (should not occur for a successfully opened index, but fail loud: CLAUDE.md, The constitution).
  *
  * Ref: ndx.md ss4.1 (char), ss4.2 (numeric/date); re/mint-results-001.md;
  *      docs/plans/IBASE-implementation-plan.md S4.2 contract.
@@ -352,7 +352,7 @@ int ndx_key_decode(const ndx_index *idx, const uint8_t *key_data,
  *   [ndx.md ss4.2 / re/mint-results-001.md: "Key comparison is ARITHMETIC,
  *   not byte-wise, for key_type==1." VERIFIED minted NCOST.NDX 2026-06-16]
  *
- *   Mutation hook: build with -DNDX_MUTATE_KEY_SIGNFLIP to apply the sign-flip
+ *   Mutation hook: build with mutants/ndx-mutate-key-signflip.patch to apply the sign-flip
  *   transform that mint-001 DISPROVED (XOR the high bit of byte 7, equivalent
  *   to negating the double for negative values). Under this mutation the
  *   numeric ordering assertions go RED (the leaf traversal will no longer be
@@ -375,7 +375,7 @@ int ndx_key_cmp(const ndx_index *idx, const uint8_t *a, const uint8_t *b);
  * key >= target, or into the rightmost (trailing) child if target exceeds all
  * separators.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ndx.md ss5 (B-tree ordering invariant + search algorithm; "Branch
  *     separator = HIGH key of subtree", "scan entries in order until you find
  *     an entry whose key >= K ... descend into that entry's child_page (or the
@@ -415,7 +415,7 @@ typedef int (*ndx_visit_fn)(void *ctx, const uint8_t *key_data, uint32_t recno);
  * rightmost child (ndx.md ss8 step 3). Leaf separators are never emitted (only
  * leaf entries with child_page == 0 produce a callback).
  *
- * Bounded recursion (Rule 2): a corrupt index could in principle form a cycle;
+ * Bounded recursion (CLAUDE.md, The constitution): a corrupt index could in principle form a cycle;
  * every descent is bounded by ndx_total_pages(idx) and any page revisit or
  * over-deep descent fails loud with -NDX_ERR_CYCLE. Recursion depth is bounded
  * by the same total_pages count.
@@ -470,7 +470,7 @@ int ndx_inorder(ndx_index *idx, ndx_visit_fn visit, void *ctx);
  *   -NDX_ERR_BAD_KEYTYPE  KEY's xb_type is incompatible with the index key_type.
  *   < 0  (other -ndx_err) structural error (I/O, bad page, cycle, OOM).
  *
- * Bounded descent (Rule 2): bounded by ndx_total_pages; a cycle or over-deep
+ * Bounded descent (CLAUDE.md, The constitution): bounded by ndx_total_pages; a cycle or over-deep
  * descent fails loud with -NDX_ERR_CYCLE rather than looping forever.
  *
  * Ref: ndx.md ss5 (search algorithm + HIGH-key separator invariant);
@@ -512,7 +512,7 @@ int ndx_seek(ndx_index *idx, const xb_val *key, int set_exact,
  * branch is the LAST page: root_page = L+1, total_pages = L+2 (NCOST.NDX:
  * root=3, total=4; BIGIDX.NDX: root=15, total=16).
  *
- * MEANINGFUL vs NORMALIZE bytes (Rule 11 + ndx.md ss1 "a byte-exact WRITER
+ * MEANINGFUL vs NORMALIZE bytes (CLAUDE.md, The constitution + ndx.md ss1 "a byte-exact WRITER
  * need not reproduce specific garbage, but a READER must ignore it"):
  *   MEANINGFUL (reproduced exactly): the 10 header fields except dummy/reserved;
  *     the key_expr (verbatim + its NUL); per-node entry_count + the live entry
@@ -572,7 +572,7 @@ typedef int (*ndx_key_provider)(void *user, uint32_t recno,
  *   get_key   the key-provider callback (above). Must be non-NULL.
  *   user      opaque context passed to get_key.
  *
- * Determinism (Rule 11): identical (keys, recnos, key_expr, key_type, key_len)
+ * Determinism (CLAUDE.md, The constitution): identical (keys, recnos, key_expr, key_type, key_len)
  * produce a byte-identical file every run -- no clock, no host paths, no RNG.
  * Every NORMALIZE byte is emitted 0x00.
  *
@@ -595,14 +595,14 @@ typedef int (*ndx_key_provider)(void *user, uint32_t recno,
  * A00.NDX has root p22 over branch p20 and leaf p21 (343 C20 keys).
  * Ref: ../dbase3-decomp/mint/work/M006A..B.PRG and their logs; initech-7tj3.
  *
- * Mutation hook (Rule 6 / plan S4.4 "50/50 split"):
- *   Build with -DNDX_MUTATE_SPLIT_5050. Leaves are packed ~50/50 (each leaf
+ * Mutation hook (CLAUDE.md, The constitution / plan S4.4 "50/50 split"):
+ *   Build with mutants/ndx-mutate-split-5050.patch. Leaves are packed ~50/50 (each leaf
  *   gets ceil(N / (2*L_correct)) ... ) instead of 100%-then-remainder. The
  *   leaf fill levels and the resulting node bytes diverge from the golden ->
  *   the byte-exact rebuild oracle goes RED. [re/mint-results-003.md: bulk build
  *   is 100%-pack, NOT 50/50.]
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/re/mint-results-003.md (bulk-build pack 100% L->R,
  *     remainder last; N keys / N+1 children root; minted BIGIDX.NDX).
  *   - ../dbase3-decomp/specs/file-formats/ndx.md ss1 (geometry + writer-garbage
@@ -635,8 +635,8 @@ int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
  * from ../dbase3-decomp/mint/work/M006A..D.PRG (and their logs). The oracle
  * pins these independently minted bytes; no IBASE output becomes a golden.
  *
- * Mutation hook (Rule 6):
- *   Build with -DNDX_MUTATE_INSERT_NOSORT. ndx_insert_key appends the new
+ * Mutation hook (CLAUDE.md, The constitution):
+ *   Build with mutants/ndx-mutate-insert-nosort.patch. ndx_insert_key appends the new
  *   key AT THE END of the target leaf without inserting it in sorted order.
  *   Post-insert ndx_inorder will then not be monotonically ascending and
  *   ndx_seek for some inserted keys will fail to find them -> oracle RED.
@@ -658,11 +658,11 @@ int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
  *   NDX_ERR_NOROOM    -- workspace or file offset cannot be represented.
  *   NDX_ERR_NOTFOUND  -- key/recno to delete was not found in the index.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S4.5 contract + sec7 GATED register.
  *   - ../dbase3-decomp/specs/file-formats/ndx.md ss3 (node layout), ss5 (B-tree
  *     ordering invariant); M006 I01/U005/U017 (splits), D09/E02 (delete).
- *   - CLAUDE.md Rule 2 (fail loud), Rule 3 (all bugs deep), Rule 6 (mutation-prove).
+ *   - CLAUDE.md CLAUDE.md, The constitution (fail loud), CLAUDE.md, The constitution (all bugs deep), CLAUDE.md, The constitution (mutation-prove).
  * ----------------------------------------------------------------------- */
 
 /*
@@ -707,7 +707,7 @@ int ndx_open_rw(ibase_pal_t *pal, const char *name, ndx_index **out);
  *         branch is created).
  *   4. Write the modified page(s) back via the PAL.
  *
- * Mutation hook (-DNDX_MUTATE_INSERT_NOSORT): step 2 is skipped; the new
+ * Mutation hook (mutants/ndx-mutate-insert-nosort.patch): step 2 is skipped; the new
  * entry is appended at the end of the leaf without sorted placement.
  * After this mutation, ndx_inorder yields an out-of-order sequence and
  * ndx_seek fails to find some inserted keys -> oracle goes RED.
@@ -786,11 +786,11 @@ int ndx_update_key(ndx_index *idx,
  * stays valid for the caller (the work area keeps its pointer across PACK).
  *
  * Returns NDX_OK (0) on success; a negative ndx_err on failure (fail loud,
- * Rule 2). On failure the file may already have been rebuilt but the handle
+ * CLAUDE.md, The constitution). On failure the file may already have been rebuilt but the handle
  * is left with no usable fd -- the caller must treat idx as invalid and
  * surface the error rather than seek a half-open index.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
  *     sec.10 (PACK: "rebuilds/adjusts all open index files so they stay
  *     consistent" [ASSIST.HLP:120]).

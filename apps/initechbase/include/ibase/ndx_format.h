@@ -1,7 +1,7 @@
 /*
  * spec/ibase/ndx_format.h -- dBASE III PLUS 1.1 .ndx B-tree byte-offset constants.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8). Source: ../dbase3-decomp/specs/file-formats/ndx.md
+ * LOCKED spec-data (CLAUDE.md CLAUDE.md, The constitution). Source: ../dbase3-decomp/specs/file-formats/ndx.md
  * sections 2 (512-byte header/page-0), 3 (B-tree node), 3.1 (key entry / group layout),
  * 4 (key data encoding). Every value is byte-verified against 11 III+ 1.1 golden
  * .ndx files: CNAMES, NAMES, TNAMES, ZIPCODE, CUSTOMER, CHKNO, TOURDATE, AVAL_FLT,
@@ -9,7 +9,7 @@
  *
  * III+ ONLY (.ndx single-file index). dBASE IV .mdx, Clipper .ntx, Fox .idx are
  * different formats and are NOT described here.
- * ASCII-clean (CLAUDE.md Rule 12). No timestamps (Rule 11).
+ * ASCII-clean (CLAUDE.md CLAUDE.md, The constitution). No timestamps (CLAUDE.md, The constitution).
  *
  * Ref: ndx.md ss1 (file geometry), ss2 (header), ss3 (node + group), ss4 (key data).
  */

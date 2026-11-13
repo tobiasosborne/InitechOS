@@ -1,0 +1,8 @@
+# test: test_w2_host
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -751,4 +750,0 @@
+-        /* IBM/DOS extended keys arrive as one 00,scan pair (8011ad44).
+-         * Consume navigation/function scans as keys, never printable text.
+-         * This line editor appends/erases; it has no interior insertion point. */
+-        if(c==0) { if(dos_conin_char(p)<0)return -1;continue; }

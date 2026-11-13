@@ -2,11 +2,11 @@
  * os/ibase/cmd/query.c -- IBASE (InitechBase) query / display command module.
  *                          Step S5.4 (Phase 5 interpreter).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding (-ffreestanding -nostdlib). Uses
  * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL carried by the interpreter (console
  * output via pal->conout). Memory is fixed/static (no malloc). ASCII-clean
- * (Rule 12). Fail loud (Rule 2). Reproducible (Rule 11).
+ * (CLAUDE.md, The constitution). Fail loud (CLAUDE.md, The constitution). Reproducible (CLAUDE.md, The constitution).
  *
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C).
  *
@@ -58,7 +58,7 @@
  *   every physical record), and any mint-only transcript edge. The oracle prints
  *   a loud skip for those, never a silent pass.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/commands/navigation-query-display.md (LIST/DISPLAY,
  *     ?/??, LOCATE, CONTINUE, SEEK, FIND; the scope/FOR/WHILE grammar; pointer +
  *     FOUND/EOF effects; the CONTINUE FOR-only rule).
@@ -89,7 +89,7 @@
 #include "ibase/ovl.h"
 
 /* ===================================================================== */
-/* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
+/* Tunables (bounded -- CLAUDE.md, The constitution fail-loud on overflow, never UB)            */
 /* ===================================================================== */
 
 #define Q_MAX_TOKS     128   /* per-expression token pool */
@@ -239,11 +239,7 @@ static void q_append_uint_rj(char *buf, uint32_t *pos, uint32_t cap,
  * CR/LF bytes inside a memo are NOT given line-break meaning here (unminted). */
 static uint32_t q_mw(const xb_ctx *ctx)
 {
-#ifdef IBASE_W2_MUTANT_memowidth_ignore
-    (void)ctx; return 50u;
-#else
     return (ctx && ctx->memo_width1) ? (uint32_t)(ctx->memo_width1 - 1u) : 50u;
-#endif
 }
 /* Length of the next line starting at t+*off; advances *off past it. */
 static uint32_t q_memo_next(const char *t, uint32_t len, uint32_t *off, uint32_t w)
@@ -292,9 +288,6 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
     case XB_N: {
         char cell[256];
         int width=v->num_width?v->num_width:10,dec=v->num_dec;
-#ifdef DEC_MUTATE_IGNORE_SETDEC
-        if(dec)dec=2;
-#endif
         if(width>255)width=255;
         int n=dec_format_display(v->u.n,width,dec,cell);
         q_append(buf,pos,cap,cell,(uint32_t)n);
@@ -308,7 +301,7 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
          * `?`/LIST and DTOC agree, exactly as III+ requires. The prior code
          * hardcoded AMERICAN mm/dd/yy CENTURY-OFF and read NEITHER field
          * (initech-ue7y).
-         * Ref (Law 1): ../dbase3-decomp/specs/runtime/dates-and-century.md
+         * Ref (CLAUDE.md, The constitution): ../dbase3-decomp/specs/runtime/dates-and-century.md
          *   "The six III+ formats" (order/separator table) + "SET CENTURY ON/OFF"
          *   (2- vs 4-digit year; display format is not part of the value). */
         char dt[10];
@@ -319,7 +312,7 @@ void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
         break;
     }
     case XB_L:
-        /* Two DISTINCT III+ presentation rules (Law 1 -- corpus):
+        /* Two DISTINCT III+ presentation rules (CLAUDE.md, The constitution -- corpus):
          *   logical_dotted (? / ??):  echo ".T." / ".F." (dotted)  [nav-query L.803]
          *   else (LIST/DISPLAY col):  print bare "T" / "F"         [nav-query L.689]
          * The prior code emitted bare T/F on BOTH paths -- the Law-2 heresy the
@@ -427,10 +420,8 @@ static int q_split_clauses(const char *args, query_clauses *qc)
     /* Using III+ U5-144: OFF precedes the scope/expression list as well
      * as being accepted after it (real SF-listoff). Do not discard its tail. */
     int leading_off = 0;
-#ifndef IBASE_FNS_MUTANT_listoff
     leading_off = q_match_kw(s, "OFF");
     if (leading_off) s = q_skip_ws(s + leading_off);
-#endif
     char quote = 0;
     int depth = 0;
     const char *for_at = (const char *)0;
@@ -458,9 +449,6 @@ static int q_split_clauses(const char *args, query_clauses *qc)
         else if (c == ')' && depth) depth--;
         if (!depth && q_isspace(prev)) {
             if (!scope_at && !for_at && !while_at &&
-#ifdef IBASE_LIST_MUTATE_SCOPE
-                p == s &&
-#endif
                 rt_kw_word(p, Q_SCOPE_KWS, (int *)0) >= 0) scope_at=p;
             if (!for_at && q_match_kw(p, "FOR"))     for_at = p;
             if (!while_at && q_match_kw(p, "WHILE")) while_at = p;
@@ -492,9 +480,7 @@ static int q_split_clauses(const char *args, query_clauses *qc)
         const char *cands[4];
         int i;
         if(h==scope_at) h=scope_end;
-#if !defined(IBASE_LIST_MUTATE_OFF) && !defined(IBASE_FNS_MUTANT_listoff)
         if(h==off_at) h=q_skip_ws(h+3);
-#endif
         if(h==scope_at) h=scope_end;
         cands[0] = for_at; cands[1] = while_at; cands[2] = off_at; cands[3]=scope_at;
         for (i = 0; i < 4; i++) {
@@ -580,25 +566,16 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
         if(off<len && mc && mc->n<Q_MEMO_CELLS) {
             uint32_t i=mc->n++;
             mc->col[i]=start;mc->len[i]=len;mc->off[i]=off;mc->w[i]=width;mc->t[i]=t;
-        } else if(off<len) mc->overflow=1u; /* fail loud at the row (Rule 2) */
+        } else if(off<len) mc->overflow=1u; /* fail loud at the row (CLAUDE.md, The constitution) */
         return;
     }
     if(f && f->type=='N' && v->t==XB_N) {
         char cell[256];
         int dec=f->dec_count;
         if(ctx->set_fixed)dec=ctx->set_decimals; /* SET FIXED ON */
-#ifdef IBASE_NUMERIC_MUTATE_FRACTION
-        if(v->u.n==(double)(int64_t)v->u.n) dec=0;
-#endif
         dec_format_fit(v->u.n,width,dec,cell,0);
-#ifdef IBASE_NUMERIC_MUTATE_LEFT
-        { uint32_t lead=0,i; while(lead<width && cell[lead]==' ') lead++;
-          for(i=0;i<width-lead;i++) cell[i]=cell[i+lead];
-          while(i<width) cell[i++]=' '; }
-#endif
         q_append(buf,pos,cap,cell,(uint32_t)width);
     } else {
-#ifndef IBASE_FNS_MUTANT_exprcol
         /* A numeric expression column right-justifies under a wider heading:
          * real III+ 1.1 SF-exprcol, "LIST NAME, BAL / (52 + 0 + 0)" prints
          * "PESTON                  23.74" under the 18-byte heading. */
@@ -611,7 +588,6 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
             q_append(buf,pos,cap,cell,n);
             return;
         }
-#endif
         q_render_val(buf,pos,cap,v,ctx,v->t==XB_L);
         while(*pos-start<width && *pos<cap) buf[(*pos)++]=' ';
     }
@@ -636,10 +612,6 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
     char line[Q_LINEBUF],expr[Q_MAX_EXPR+1]; uint32_t pos=0,prefix;
     const char *p=qc->exprlist; int first=1,ok=1,fi=0;
     dbf_table *tbl=wa_table(xb_interp_env(ip),area);
-#ifdef IBASE_MUTATE_HEADING
-    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;(void)prefix;
-    return INTERP_OK;
-#endif
     if(!xb_interp_ctx(ip)->set_heading) return INTERP_OK;
     if(!qc->off) q_append_cstr(line,&pos,sizeof(line),"Record#  ");
     else q_append_cstr(line,&pos,sizeof(line)," "); /* real PROG-query OFF */
@@ -663,9 +635,7 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
         /* SF-exprcol: a numeric EXPRESSION heading right-aligns too
          * ("Record#     BAL * 2 NAME" over "2469.00"). */
         if((f && f->type=='N')
-#ifndef IBASE_FNS_MUTANT_exprcol
            || (!f && v.t==XB_N)
-#endif
           ) {
             for(uint32_t j=n;j<width;j++) q_append_cstr(line,&pos,sizeof(line)," ");
             q_append(line,&pos,sizeof(line),expr,n);
@@ -677,9 +647,7 @@ static int q_render_heading(xb_interp *ip,int area,const query_clauses *qc,int *
     if(!ok) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
     /* Real III+ 1.1 M005U/M005N: the final heading is not column-padded,
      * unlike the final value (dbase3-decomp/re/mint-results-005.md). */
-#ifndef IBASE_LIST_MUTATE_HEADING
     while(pos>prefix && line[pos-1]==' ') pos--;
-#endif
     q_append_cstr(line,&pos,sizeof(line),"\r\n");q_putn(ip,line,pos);
     return INTERP_OK;
 }
@@ -708,24 +676,15 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
 
     /* Ref: Using dBase III Plus.pdf U2-26: asterisk before a deleted record.
      * Exact marker column is authored, no local reference golden. */
-#ifndef IBASE_MUTATE_DELETE_MARK
     rc=wa_record_deleted(env,area);
     if(rc<0) { if(ec) *ec=29; return -INTERP_ERR_EVAL; }
     if(rc) q_append_cstr(line,&pos,sizeof(line),"*");
-#endif
     if (!qc->off) {
-#ifdef IBASE_LIST_MUTATE_COLUMNS
-        q_append_uint_rj(line, &pos, sizeof(line), wa_recno(env, area), 8);
-        q_append_cstr(line, &pos, sizeof(line), " ");
-#else
         q_append_uint_rj(line, &pos, sizeof(line), wa_recno(env, area), 7);
         q_append_cstr(line, &pos, sizeof(line), "  ");
-#endif
     }
-#ifndef IBASE_FNS_MUTANT_numlist
     /* OFF keeps the one-column deletion field: real SF-listoff/SF-numlist. */
     else if(!pos) q_append_cstr(line,&pos,sizeof(line)," ");
-#endif
 
     if (qc->has_exprlist) {
         const char *p = qc->exprlist;
@@ -823,13 +782,7 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
      * 72 64 23. Dot Enter only returns the cursor (at-enter/entered);
      * LIST supplies its own CR LF too (boot-list-real/list, rows 19..22).
      * Ref: initech-0spyf/fzsvo; preserve both stream and screen semantics. */
-#ifndef IBASE_LIST_MUTATE_OPENING
-#ifdef IBASE_LIST_MUTATE_DOT_OPENING
-    if(!xb_interp_ctx(ip)->dot_command) q_putn(ip,"\r\n",2);
-#else
     q_putn(ip,"\r\n",2);
-#endif
-#endif
 
     /* QS_RECORD with scope_n==0 means "current record" (the DISPLAY default). */
 
@@ -849,11 +802,9 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
             if (rc != NAV_OK) { if (ec) *ec = Q_MSG_NOT_INDEXED /*range*/; return -INTERP_ERR_SYNTAX; }
         }
         rc=q_render_heading(ip,area,qc,ec);if(rc) return rc;
-#ifndef IBASE_LIST_MUTATE_EOF
         /* Real numlist-v1 III+: DISPLAY at EOF emits no synthetic blank
          * record (not even a zero numeric field with SET HEADING OFF). */
         if(wa_eof(env,area)) { if(ec) *ec=0;return INTERP_OK; }
-#endif
         /* WHILE on a single record: if .F., skip; FOR: if .F., skip. */
         if (qc->has_while) {
             int t = 0;
@@ -924,10 +875,8 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
              * RECNO() 1, GO 5 + LIST NEXT 3 on 7, DISPLAY NEXT 2 on 8; only a
              * window that runs off the end reaches EOF (mint 005 M005N
              * [N1]..[N8], mint-results-005.md; initech-5vmn). */
-#ifndef IBASE_MUTATE_NEXT_PAST
             if (kind == QS_NEXT && visited >= limit)
                 break;
-#endif
             rc=wa_nav_skip(env, area, 1);
             if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }   /* advance in the active order */
         }
@@ -958,11 +907,7 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
 
     if (leading_nl) {
         /* Using III+ U5-15; DML-01..03 real alternate streams. */
-#ifdef IBASE_PRINT_MUTATE_LF
-        q_append_cstr(line, &pos, sizeof(line), "\n");
-#else
         q_append_cstr(line, &pos, sizeof(line), "\r\n");
-#endif
     }
 
     while (q_next_expr(&p, expr, sizeof(expr), &ok)) {
@@ -1164,7 +1109,7 @@ static int q_locate_impl(xb_interp *ip, query_state *qs, const char *args, int *
          * that never ran off the end is NOT at EOF). Mirrors q_walk's
          * single-record handling. The prior code fell into q_locate_scan with
          * start_here=1 and scanned n..EOF (initech-wcb7).
-         * Ref (Law 1): ../dbase3-decomp/specs/commands/navigation-query-display.md
+         * Ref (CLAUDE.md, The constitution): ../dbase3-decomp/specs/commands/navigation-query-display.md
          *   L.80 "RECORD <n>  A single record" + L.124 evaluation order (with an
          *   explicit RECORD n, the start record IS that record). */
         matched = 1;
@@ -1227,25 +1172,12 @@ static int q_continue(xb_interp *ip, query_state *qs, int *ec)
         return -INTERP_ERR_SYNTAX;
     }
 
-#ifdef QUERY_MUTATE_CONTINUE_SCOPE
-    /* MUTANT (Rule 6 -- -DQUERY_MUTATE_CONTINUE_SCOPE): CONTINUE wrongly RESTARTS
-     * from GO TOP and re-applies a scope/WHILE-like bound instead of resuming
-     * the FOR-only scan from the record AFTER the current one. This re-finds the
-     * SAME first match the LOCATE found, so a LOCATE/CONTINUE loop that should
-     * walk distinct recnos instead loops on the first one -> the oracle's
-     * "CONTINUE finds the NEXT match" recno checks go RED. */
-    (void)wa_nav_go_top(env, area);
-    rc = q_locate_scan(ip, area, qs->for_text, qs->has_for,
-                       (const char *)0, /*apply_while=*/0, /*start_here=*/1,
-                       /*max_visits=*/0u, &matched, ec);
-#else
     /* CONTINUE re-applies ONLY the stored FOR, from the record AFTER the current
      * one (start_here=0 -> skip one first). NOT the WHILE, NOT the scope -- so
      * NOT the original LOCATE's NEXT n bound either (max_visits=0, unbounded). */
     rc = q_locate_scan(ip, area, qs->for_text, qs->has_for,
                        (const char *)0, /*apply_while=*/0, /*start_here=*/0,
                        /*max_visits=*/0u, &matched, ec);
-#endif
     if (rc != INTERP_OK)
         return rc;
 
@@ -1539,9 +1471,6 @@ static IBASE_OVL_TEXT(status) void qi_line(q_inspection *q)
 static IBASE_OVL_TEXT(status) void qi_file(q_inspection *q, const char *name, const char *extension, int preserve)
 {
     ibase_pal_t *pal=xb_interp_pal(q->ip);
-#ifdef IBASE_FNS_MUTANT_ndxdisplay
-    preserve=0; /* MUTANT: STATUS must preserve supplied index spelling. */
-#endif
     unsigned n=0,end=0;
     int drive=pal->curdrive?pal->curdrive(pal):-1;
     if(name[0] && name[1]!=':' && drive>='A' && drive<='Z') {
@@ -1603,9 +1532,6 @@ static IBASE_OVL_TEXT(status) void qi_status(q_inspection *q)
     qi_line(q);
     for(int a=1;a<=WA_NAREAS;a++)if(wa_is_open(env,a)) {
         const char *filter=wa_filter_text(env,a),*rel=wa_relation_text(env,a);
-#ifdef IBASE_DML_MUTANT_status
-        if(a==2)continue; /* omit one real open work area */
-#endif
         if(a==wa_selected(env)) { qi_text(q,"Currently Selected Database: ");qi_line(q); }
         qi_text(q,"Select area: ");qi_uint(q,(unsigned)a,2);qi_text(q,", Database in Use: ");
         qi_file(q,dbf_name(wa_table(env,a)),".dbf",0);qi_text(q,"   Alias: ");qi_text(q,wa_alias(env,a));qi_line(q);
@@ -1628,9 +1554,7 @@ static IBASE_OVL_TEXT(status) void qi_status(q_inspection *q)
             for(;*into;into++) {
                 if(rt_literal_byte(*into,&quote))continue;
                 if(
-#ifndef IBASE_DML_MUTANT_statusinto
                    (into==rel || q_isspace(into[-1])) &&
-#endif
                    rt_kw_word(into,"INTO\0",(int *)0)==0)break;
             }
             if(*into) {
@@ -1689,11 +1613,7 @@ static IBASE_OVL_TEXT(status) int q_history(xb_interp *ip, const char *tail, int
     }
     q.ip=ip;q.n=0;q.rows=0;q.display=0;q.stopped=0;
     if(ss&&ss->hist)for(i=0;i<ss->hist_cap;i++) {
-        #ifndef IBASE_W2_MUTANT_histlist
         const char *e=ss->hist[(ss->hist_next+i)%ss->hist_cap];
-#else
-        const char *e=ss->hist[i];   /* MUTANT: list from slot 0, not the oldest */
-#endif
         if(!e)continue;
         if(skip){skip--;continue;}
         qi_text(&q,e);qi_line(&q);
@@ -1768,11 +1688,7 @@ static IBASE_OVL_TEXT(forms) int qf_num(xb_interp *ip,const char *s,const char *
      * as a signed value (65546 -> 10, 65535 -> -1), and a value beyond 32 bits
      * becomes 0 (9999999999, 1E20). Range-check BEFORE the cast: out-of-range
      * double to int is undefined in C. */
-#ifndef IBASE_FORMS_MUTANT_narrow
     *out=(v.u.n>-2147483648.0 && v.u.n<2147483648.0)?(int)(int16_t)(uint16_t)(uint32_t)(int32_t)v.u.n:0;
-#else
-    *out=(v.u.n>-2147483648.0 && v.u.n<2147483648.0)?(int32_t)v.u.n:limit;
-#endif
     if(*out<0||*out>=limit)*raw_ok=0;
     return INTERP_OK;
 }
@@ -1816,12 +1732,8 @@ static IBASE_OVL_TEXT(forms) int qf_box(xb_interp *ip,int r1,int c1,int r2,int c
     ibase_pal_t *pal=xb_interp_pal(ip);xb_ctx *x=xb_interp_ctx(ip);
     char h=dbl?(char)0xCD:(char)0xC4,v=dbl?(char)0xBA:(char)0xB3;
     char row[80];int w=c2-c1+1,r;
-#ifndef IBASE_FORMS_MUTANT_glyph
     char tl=dbl?(char)0xC9:(char)0xDA,tr=dbl?(char)0xBB:(char)0xBF;
     char bl=dbl?(char)0xC8:(char)0xC0,br=dbl?(char)0xBC:(char)0xD9;
-#else
-    char tl=(char)0xC9,tr=(char)0xBB,bl=(char)0xC8,br=(char)0xBC;
-#endif
     if(r1==r2) { if(qf_fill(pal,r1,c1,h,w))return -1; }
     else if(c1==c2) {
         for(r=r1;r<=r2;r++) if(pal->paint(pal,(uint8_t)r,(uint8_t)c1,&v,1))return -1;
@@ -1837,9 +1749,7 @@ static IBASE_OVL_TEXT(forms) int qf_box(xb_interp *ip,int r1,int c1,int r2,int c
         if(pal->paint(pal,(uint8_t)r2,(uint8_t)c1,row,(uint32_t)w))return -1;
     }
     x->screen_row=(uint16_t)r2;x->screen_col=(uint16_t)(c2+1);
-#ifndef IBASE_FORMS_MUTANT_cursor
     if(x->screen_col>=80) { x->screen_col=0;x->screen_row++; }
-#endif
     return qf_cursor(ip);
 }
 /* Ref: at-clear-a CA/CB/CC/CD, at-clear-b CE/CF/CH, at-to-c TJ. */
@@ -1905,20 +1815,14 @@ static IBASE_OVL_TEXT(forms) int qf_clear(xb_interp *ip,const char *args,int *ec
 {
     ibase_pal_t *pal=xb_interp_pal(ip);xb_ctx *x=xb_interp_ctx(ip);int r;
     if(*q_skip_ws(args)) {
-#ifndef IBASE_FORMS_MUTANT_subcmd
         r=rt_kw_word(q_skip_ws(args),"ALL\0FIELDS\0GETS\0TYPEAHEAD\0",(int *)0);
         if(r==0) { wa_close_all(xb_interp_env(ip));xb_interp_release_all(ip); }
         if(r==3 && pal->conin_poll) while(pal->conin_poll(pal)>0) { }
         if(r>=0) { if(ec)*ec=0;return INTERP_OK; }
-#endif
         return qf_fail(ec,36);
     }
     if(!pal->paint)return qf_fail(ec,29);
-#ifndef IBASE_FORMS_MUTANT_clear
     for(r=0;r<25;r++) if(qf_fill(pal,r,0,' ',80))return qf_fail(ec,29);
-#else
-    (void)r;
-#endif
     x->screen_row=0;x->screen_col=0;
     x->screen_cleared=1;
     if(qf_cursor(ip))return qf_fail(ec,29);
@@ -1955,12 +1859,7 @@ static inline __attribute__((always_inline)) int qv_list(xb_interp *ip, query_st
 static inline __attribute__((always_inline)) int qv_display(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
 {
     (void)qs;
-#ifdef IBASE_DML_MUTANT_abbrev
-    /* Disable recognition at one hook only: real DISP differential must bite. */
-    if (rt_strlen(verb) != 7) return CMD_UNKNOWN;
-#else
     (void)verb;
-#endif
     return qv_listing(ip, args, 1, ec);
 }
 static inline __attribute__((always_inline)) int qv_question(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)

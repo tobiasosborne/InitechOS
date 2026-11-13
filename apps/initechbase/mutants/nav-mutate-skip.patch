@@ -1,0 +1,33 @@
+# test: test_interp_nav
+--- a/cmd/nav.c
++++ b/cmd/nav.c
+@@ -285 +285,2 @@
+-    rc = wa_goto(env, area, ns->seq[0]);
++    /* MUTANT: use physical recno 1 instead of index-order first entry. */
++    rc = wa_goto(env, area, 1u);
+@@ -396,0 +398,2 @@
++        /* MUTANT: advance by n+1 instead of n (off-by-one step). */
++        if (n > 0) n++;
+@@ -437,0 +441,22 @@
++        /* MUTANT: use physical recno instead of index-order sequence.
++         * In index order, this diverges from ndx_inorder's order. */
++        if (n >= 0) {
++            next_ord = (int32_t)cur + n;
++            if (next_ord < 1) next_ord = 1;
++            if ((uint32_t)next_ord > nrec) {
++                (void)wa_goto(env, area, nrec);
++                wa_nav_set_eof(env, area, 1);
++                return NAV_OK;
++            }
++            rc = wa_goto(env, area, (uint32_t)next_ord);
++            return (rc == WA_OK) ? NAV_OK : rc;
++        } else {
++            next_ord = (int32_t)cur + n;
++            if (next_ord < 1) {
++                (void)wa_goto(env, area, 1u);
++                wa_nav_set_bof(env, area, 1);
++                return NAV_OK;
++            }
++            rc = wa_goto(env, area, (uint32_t)next_ord);
++            return (rc == WA_OK) ? NAV_OK : rc;
++        }

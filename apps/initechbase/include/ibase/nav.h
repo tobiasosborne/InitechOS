@@ -2,7 +2,7 @@
  * os/ibase/include/ibase/nav.h -- IBASE (InitechBase) navigation commands.
  *                                  Step S5.2 (Phase 5 interpreter).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus ibase/ headers. No libc, no
  * int 0x21.
  *
@@ -29,9 +29,9 @@
  * per-area FILTER and session DELETED view (U5-229; Programming P10-17/18).
  *   The implementation silently clamps at EOF/BOF.
  *
- * ASCII-clean (Rule 12). Reproducible (Rule 11). Fail loud (Rule 2).
+ * ASCII-clean (CLAUDE.md, The constitution). Reproducible (CLAUDE.md, The constitution). Fail loud (CLAUDE.md, The constitution).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S5.2 contract + sec7 GATED.
  *   - os/ibase/include/ibase/workarea.h (the 10-area env + cursor accessors).
  *   - os/ibase/include/ibase/ndx.h (ndx_inorder -- the ONLY ndx API used here).
@@ -46,7 +46,7 @@
 #include "ibase/workarea.h"
 
 /* -----------------------------------------------------------------------
- * Error codes (fail loud; Rule 2)
+ * Error codes (fail loud; CLAUDE.md, The constitution)
  * Negated on return (return -NAV_ERR_RANGE). NAV_OK == 0.
  * ----------------------------------------------------------------------- */
 typedef enum {
@@ -138,7 +138,7 @@ int wa_nav_goto(wa_env *env, int area, uint32_t recno);
  * GATED (loud-skipped in the oracle): exact error-vs-silent at EOF/BOF.
  * Our implementation silently clamps (no error on SKIP at EOF/BOF).
  *
- * Mutation hook (Rule 6 -- -DNAV_MUTATE_SKIP):
+ * Mutation hook (CLAUDE.md, The constitution -- mutants/nav-mutate-skip.patch):
  *   Physical: advances by n+1 (off-by-one step). The walk assertions go RED.
  *   Index: uses physical recno order instead of the materialised index seq,
  *   so the index-walk recno sequence diverges from ndx_inorder's order.

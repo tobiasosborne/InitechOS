@@ -1,0 +1,15 @@
+# test: test_ndx_incremental
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -1401,8 +1401,3 @@
+-        if (c == 1u) {
+-            /* One child: promote it (minted B021: leaf p7 hangs off the root). */
+-            if (top) { *root_out = b->pg[base]; return NDX_OK; }
+-            b->cnt[lv] = 0u;
+-            rc = bld_push(b, lv + 1u, b->pg[base], b->hi[base]);
+-            if (rc != NDX_OK) return rc;
+-            continue;
+-        }
++        /* MUTANT (CLAUDE.md, The constitution): write a one-child node as a 0-separator branch
++         * instead of promoting the child -- diverges from B021/A00. */
++        if (c == 1u && top && lv == 0u) { *root_out = b->pg[base]; return NDX_OK; }

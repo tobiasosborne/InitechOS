@@ -1,0 +1,64 @@
+# test: test_ibase_core
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -345,35 +344,0 @@
+-static int memvar_reclaim(flow_state *fs, int slot, xb_val *value)
+-{
+-    int i;
+-    uint32_t used = 0u;
+-    /* Bounded scratch on the 64 KiB program stack (memory_map.h); no second
+-     * resident arena in the .COM's 64 KiB BSS reserve (ibase.ld). */
+-    char compact[FLOW_MEMVAR_ARENA];
+-    /* Preflight before moving anything: exhaustion leaves every value intact. */
+-    for (i = 0; i < fs->nvars; i++) {
+-        const xb_val *v = &fs->vars[i].val;
+-        if (i != slot && memvar_retained(fs, i) && (v->t == XB_C || v->t == XB_M))
+-            used += v->u.c.len;
+-    }
+-    if (value->t == XB_C || value->t == XB_M) used += value->u.c.len;
+-    if (used > fs->arena_cap) return -INTERP_ERR_NOMEM;
+-    used = 0u;
+-    for (i = 0; i < fs->nvars; i++) {
+-        xb_val *v = &fs->vars[i].val;
+-        if (i != slot && memvar_retained(fs, i) && (v->t == XB_C || v->t == XB_M)) {
+-            if (v->u.c.len) rt_memcpy(compact + used, v->u.c.p, v->u.c.len);
+-            v->u.c.p = fs->arena + used;
+-            used += v->u.c.len;
+-        }
+-    }
+-    /* value may alias ANY old variable, including the replaced one. The
+-     * old arena stays untouched until all copies, including this one, finish. */
+-    if (value->t == XB_C || value->t == XB_M) {
+-        if (value->u.c.len) rt_memcpy(compact + used, value->u.c.p, value->u.c.len);
+-        value->u.c.p = fs->arena + used;
+-        used += value->u.c.len;
+-    }
+-    rt_memcpy(fs->arena, compact, used);
+-    fs->arena_used = used;
+-    return INTERP_OK;
+-}
+@@ -385,0 +351 @@
++    (void)value;
+@@ -406,2 +371,0 @@
+-        if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
+-            return -INTERP_ERR_NOMEM;
+@@ -422,2 +385,0 @@
+-        if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
+-            return -INTERP_ERR_NOMEM;
+@@ -427 +389,15 @@
+-    fs->vars[slot].val = value;
++    if (v->t == XB_C || v->t == XB_M) {
++        uint16_t len = v->u.c.len;
++        char *dst;
++        if ((uint32_t)len > fs->arena_cap - fs->arena_used)
++            return -INTERP_ERR_NOMEM;
++        dst = fs->arena + fs->arena_used;
++        if (len > 0u && v->u.c.p)
++            rt_memcpy(dst, v->u.c.p, (uint32_t)len);
++        fs->arena_used += (uint32_t)len;
++        fs->vars[slot].val.t = v->t;
++        fs->vars[slot].val.u.c.p = dst;
++        fs->vars[slot].val.u.c.len = len;
++    } else {
++        fs->vars[slot].val = *v;
++    }

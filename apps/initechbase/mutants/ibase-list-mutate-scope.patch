@@ -1,0 +1,5 @@
+# test: test_ibase_repl
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -451,0 +452 @@
++                p == s &&

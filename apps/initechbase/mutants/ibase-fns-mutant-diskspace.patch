@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2463,0 +2464 @@
++    bytes = 0u; /* CLAUDE.md, The constitution: the independent III+ >0 line must reject this. */

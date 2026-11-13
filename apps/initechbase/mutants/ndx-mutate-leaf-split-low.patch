@@ -1,0 +1,6 @@
+# test: test_ndx_incremental
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -2062 +2062 @@
+-        L = (kpp + 2u) / 2u;
++        L = (kpp + 1u) / 2u;   /* MUTANT (CLAUDE.md, The constitution): the smaller half stays left */

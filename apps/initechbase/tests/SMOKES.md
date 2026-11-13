@@ -1,12 +1,13 @@
-# Deferred emulator gates
+# Emulator migration inventory
 
-Historical gate names refer to legacy-final. None is run or ported here.
-Default image: build/tracer_secondary.img, with the real application EXE/OVL
-installed on a private second FAT volume or boot overlay; serial trace must
-complete SHELL-DONE/quit-after without triple fault. SAMIR_LIST_IMG is the
-captured database listing data image; SAMIRBOOT_CAPTURE_IMG carries the
-period screen capture. FLAIR desktop legs use FLAIRTENANTS_INTERACTIVE_IMG.
-Bochs legs replay their explicit key traces with the same corpus inputs.
+The current product smoke is tests/smoke/run.sh: DOS USE/LIST, REPLACE, APPEND,
+DELETE, captured INDEX/SEEK through DO, canon Y2K through DO, QUIT, and mtools
+DBF/NDX readback, on QEMU and Bochs at 8 MiB. It uses the product boot image and
+a separate TEST disk. tests/smoke/red.sh proves a lost REPLACE write is caught.
+
+The historical gate names below identify legacy-final evidence, not commands
+run by this component today. Their additional coverage is still to port.
+The following descriptions refer to those legacy images and trace families.
 
 DML/FNS matrices replay the named captured programs through the real shell,
 compare alternate/printer output and read DBF/MEM/NDX files back independently.

@@ -36,9 +36,6 @@ void ibase_screen_status(ibase_screen *s,int on,char drive,const char *db,uint32
         put(s->status,51,65,value);
         put(s->guidance,24,80,"Enter a dBASE III PLUS command.");
     }
-#ifdef IBASE_MUTATE_STATUS
-    rt_memset(s->status,' ',80);rt_memset(s->guidance,' ',80);attr=0x07;
-#endif
     if(on || s->active) {
         s->draw(s->user,22,0,attr,s->status,80);
         s->draw(s->user,23,0,0x07,s->guidance,80);
@@ -48,9 +45,6 @@ void ibase_screen_status(ibase_screen *s,int on,char drive,const char *db,uint32
 static void scroll(ibase_screen *s,uint8_t bottom)
 {
     uint32_t r,top=s->scoreboard?1u:0u;
-#ifdef IBASE_DOTPROMPT_MUTANT_scoreboard
-    top=0;
-#endif
     for(r=top;r<bottom;r++) rt_memcpy(s->text[r],s->text[r+1],80);
     rt_memset(s->text[bottom],' ',80);
     if(s->scroll) s->scroll(s->user,(uint8_t)top,bottom);
@@ -78,25 +72,16 @@ void ibase_screen_prompt(ibase_screen *s,int scoreboard,int cleared)
     }
     s->scoreboard=(uint8_t)scoreboard;
     if(cleared && scoreboard) {
-#ifndef IBASE_DOTPROMPT_MUTANT_clear
         rt_memset(s->text[0]+39,' ',41);
         if(s->draw) s->draw(s->user,0,39,0x07,s->text[0]+39,41);
-#endif
     }
     if(s->active) return;
-#ifndef IBASE_DOTPROMPT_MUTANT_bottom
     if(s->row>=24) { s->row=24;next_row(s); }
     else {
-#ifdef IBASE_DOTPROMPT_MUTANT_blank79
-        n=80;
-#endif
         rt_memset(s->text[24],' ',n);
         if(s->draw) s->draw(s->user,24,0,0x07,s->text[24],n);
     }
     s->row=24;s->col=0;
-#else
-    (void)n;
-#endif
 }
 void ibase_screen_write(ibase_screen *s,const char *text,uint32_t len)
 {
@@ -111,10 +96,8 @@ void ibase_screen_write(ibase_screen *s,const char *text,uint32_t len)
         } else {
             uint32_t start=i,col=s->col;
             if(s->row>24) next_row(s);
-#ifndef IBASE_REVIEW_MUTANT_CONTINUATION
             /* next_row also resets col: bound the native draw AFTER it. */
             col=s->col;
-#endif
             while(i<len && s->col<80 && text[i]!='\n' && text[i]!='\r' && text[i]!='\b')
                 s->text[s->row][s->col++]=text[i++];
             s->draw(s->user,s->row,(uint8_t)col,s->attr,text+start,i-start);
@@ -132,15 +115,9 @@ void ibase_screen_write(ibase_screen *s,const char *text,uint32_t len)
 static void say_next_row(ibase_screen *s)
 {
     s->col=0;
-#ifdef IBASE_DOTPROMPT_MUTANT_saywrap
-    if(s->row<24) { s->row++;return; }
-    s->row=24;
-    scroll(s,24);
-#else
     /* Real III+ at-say-edge/edge: bottom overflow advances the BIOS
      * cursor to (25,3), but neither paints hidden bytes nor scrolls. */
     if(s->row<25) s->row++;
-#endif
 }
 void ibase_screen_at(ibase_screen *s,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
@@ -149,18 +126,9 @@ void ibase_screen_at(ibase_screen *s,uint8_t row,uint8_t col,const char *text,ui
     /* Real III+ at-say-edge-controls/controls: CR/LF are literal cells,
      * just like printable bytes. Positioned output never scrolls the page. */
     for(i=0;i<n;i++) {
-#ifdef IBASE_DOTPROMPT_MUTANT_saycontrol
-        char c=text[i];
-        if(c=='\n')say_next_row(s);
-        else if(c=='\r')s->col=0;
-        else
-#endif
         {
             uint32_t start=i,col=s->col;
             while(i<n && s->col<80) {
-#ifdef IBASE_DOTPROMPT_MUTANT_saycontrol
-                if(text[i]=='\r' || text[i]=='\n')break;
-#endif
                 if(s->row<25) s->text[s->row][s->col]=text[i];
                 s->col++;i++;
             }

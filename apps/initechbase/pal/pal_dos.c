@@ -1,7 +1,7 @@
 /*
  * os/ibase/pal/pal_dos.c -- IBASE PAL InitechDOS binding (INT 21h + arena).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib).
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding (-ffreestanding -nostdlib).
  * This is the SOLE translation unit that issues `int 0x21` in the entire IBASE
  * codebase. Engine code (core/, fs/, cmd/, ui/) touches the OS ONLY through
  * the ibase_pal vtable (pal.h). No libc. Depends ONLY on <stdint.h>.
@@ -68,7 +68,7 @@
  * instructions are emitted. The engine uses libgcc soft-float helpers
  * (__adddf3 etc.) per ADR-0009 DEC-01. No FPU init needed in the kernel.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   ADR-0009 DEC-06 (pal_dos.c mandate; slot->INT21h map; gotoxy/set_attr
  *     no-op; arena via AH=48h; conin_line strips CR/LF; conin_char=07h).
  *   ADR-0009 DEC-01 (soft-float; no kernel FPU init).
@@ -82,8 +82,8 @@
  *   os/ibase/pal/pal_host.c (mirror structure: state-first, state_of cast,
  *     fmode logic, arena bump pattern).
  *
- * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
- * Fail loud (Rule 2): every error is negative, never a silent no-op.
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths / nondeterminism (CLAUDE.md, The constitution).
+ * Fail loud (CLAUDE.md, The constitution): every error is negative, never a silent no-op.
  */
 
 #include "ibase/lifetime.h"
@@ -104,8 +104,8 @@
  * independently reclaimed codec heap. Allocator policy is authored, no local
  * reference. Since initech-airx (REPORT FORM grew the image) only 30 KiB come
  * from AH=48h (2304 -> 1920 paragraphs): the last 6 KiB of the owned heap is a
- * second region in the program's own 64 KiB BSS reserve, above __bss_end and
- * below the arena base the loader computes (memory_map.h PROGRAM_BSS_RESERVE),
+ * second region in the program's extended runtime reserve, above __bss_end and
+ * below the arena base the extended loader computes from reserve_bytes,
  * so the capacities are unchanged. ibase.ld asserts both regions fit.
  * Scratch reset cannot reclaim a live table/memo/index (audit L003).
  * Ref: spec/memory_map.h PROGRAM_BSS_RESERVE / ENV_BLOCK; ADR-0009 DEC-04.
@@ -130,7 +130,7 @@ extern uint8_t _ibase_heap_tail[];      /* ibase.ld: first 16-byte boundary afte
 #define PAL_DOS_HEAP_BYTES  (PAL_DOS_HEAP_PARAS * 16u)
 
 /* ---- Freestanding panic --------------------------------------------------- *
- * Rule 2 (fail loud). Emit nothing (no sink available here), then halt via the
+ * CLAUDE.md, The constitution (fail loud). Emit nothing (no sink available here), then halt via the
  * inline asm cli+hlt sequence. The kernel will display PC LOAD LETTER on the
  * next interrupt (PRD Appendix B). This is intentionally minimal: the panic
  * path in pal_dos is only reachable if AH=48h fails at construction (an
@@ -188,9 +188,6 @@ typedef struct {
      * Authored 20 KiB budget, no local reference. */
     pal_heap_block *blocks;
     ibase_line_state input;
-#ifdef PAL_DOS_MUTATE_SHORT_READ
-    uint32_t short_read_fds; /* DBF handles only; overlays and command input intact. */
-#endif
     uint8_t     *heap_base;
     uint8_t     *heap_ptr;
     uint8_t     *heap_end;
@@ -302,10 +299,10 @@ void pal_dos_terminate(uint8_t code) __attribute__((noreturn));
 void pal_dos_terminate(uint8_t code)
 {
     (void)int21(0x4Cu, code, 0u, 0u, 0u, 0u, (int *)0);
-    dos_panic();   /* the exit hook is unbound: fail loud (Rule 2) */
+    dos_panic();   /* the exit hook is unbound: fail loud (CLAUDE.md, The constitution) */
 }
 
-/* Rule 2: the guard reaches the kernel's invalid-opcode panic (PC LOAD
+/* CLAUDE.md, The constitution: the guard reaches the kernel's invalid-opcode panic (PC LOAD
  * LETTER plus register context). stderr stays visible under redirection.
  * CLI/HLT alone cannot deliver a panic: CLI disables the claimed interrupt. */
 void pal_dos_overlay_panic(const char *,uint32_t,uint32_t,uint32_t,uintptr_t)
@@ -374,17 +371,6 @@ static pal_fd dos_open(ibase_pal_t *p, const char *name, int mode)
     }
     /* AX = handle (low 16 bits; do_open sets EAX low 16).
      * Valid handles are JFT indices (0-based, small non-negative numbers). */
-#ifdef PAL_DOS_MUTATE_SHORT_READ
-    {
-        uint32_t fd = result & 0xFFFFu, n = rt_strlen(name);
-        if (fd < 32u) {
-            state_of(p)->short_read_fds &= ~(1u << fd);
-            if (n >= 4u && name[n-4] == '.' && (name[n-3] | 32) == 'd' &&
-                (name[n-2] | 32) == 'b' && (name[n-1] | 32) == 'f')
-                state_of(p)->short_read_fds |= 1u << fd;
-        }
-    }
-#endif
     return (pal_fd)(result & 0xFFFFu);
 }
 
@@ -401,9 +387,6 @@ static int dos_close(ibase_pal_t *p, pal_fd fd)
     if (fd < 0) {
         return -(int)PAL_EACCES;
     }
-#ifdef PAL_DOS_MUTATE_SHORT_READ
-    if ((uint32_t)fd < 32u) state_of(p)->short_read_fds &= ~(1u << fd);
-#endif
     result = int21(0x3Eu, 0x00u,
                    0u,               /* EDX unused */
                    (uint32_t)fd,     /* EBX=handle */
@@ -418,10 +401,10 @@ static int dos_close(ibase_pal_t *p, pal_fd fd)
  * dos_read: AH=3Fh READ, EBX=handle, ECX=count, EDX=buf.
  * Returns the byte count ACTUALLY read (>= 0; 0 = EOF) or -(pal_err).
  * NEVER synthesizes a full read on short -- report what the kernel gave
- * (Rule 2: do NOT report a short read as a full one; pal.h read contract).
+ * (CLAUDE.md, The constitution: do NOT report a short read as a full one; pal.h read contract).
  * Ref: do_read returns EAX=bytes_read or CF+AX=err.
  *
- * Mutation hook (Rule 6): -DPAL_DOS_MUTATE_SHORT_READ shaves ONE byte off
+ * Mutation hook (CLAUDE.md, The constitution): mutants/pal-dos-mutate-short-read.patch shaves ONE byte off
  * every multi-byte read request (ECX = n-1). The .dbf header/record reads then
  * come up one byte short, so the on-target dbf codec mis-decodes: the LIST rows
  * the S8.2 emu gate (bead hdlb) asserts garble (or the open fails) -- the gate's
@@ -440,13 +423,6 @@ static int32_t dos_read(ibase_pal_t *p, pal_fd fd, void *buf, uint32_t n)
     if (n == 0u) {
         return 0;
     }
-#ifdef PAL_DOS_MUTATE_SHORT_READ
-    /* MUTANT: request one byte fewer so reads come up short (>1 only, so a
-     * single-byte read still moves). The dbf codec then mis-frames records. */
-    if (n > 1u && (uint32_t)fd < 32u && (state_of(p)->short_read_fds & (1u << fd))) {
-        n -= 1u;
-    }
-#endif
     result = int21(0x3Fu, 0x00u,
                    (uint32_t)(uintptr_t)buf,   /* EDX=buffer flat ptr */
                    (uint32_t)fd,                /* EBX=handle */
@@ -466,7 +442,7 @@ static int32_t dos_read(ibase_pal_t *p, pal_fd fd, void *buf, uint32_t n)
  * per the pal.h contract. We return the actual count, not an error.
  * Ref: do_write returns EAX=bytes_written or CF+AX=err.
  *
- * Mutation hook (Rule 6): -DPAL_DOS_MUTATE_DROP_WRITE makes a WRITE to a real
+ * Mutation hook (CLAUDE.md, The constitution): mutants/pal-dos-mutate-drop-write.patch makes a WRITE to a real
  * FILE handle (fd >= 3 -- handles 0/1/2 are CON/stdout/stderr) a NO-OP that
  * REPORTS full success (return n) WITHOUT issuing the INT 21h WRITE. The engine
  * then believes dbf_flush wrote the mutated image, but NOTHING reaches the FAT
@@ -490,14 +466,6 @@ static int32_t dos_write(ibase_pal_t *p, pal_fd fd, const void *buf, uint32_t n)
     if (n == 0u) {
         return 0;
     }
-#ifdef PAL_DOS_MUTATE_DROP_WRITE
-    /* MUTANT: drop the WRITE to a real file (fd >= 3) but claim n bytes written,
-     * so the .dbf flush never hits the disk. CON handles (0/1/2) pass through so
-     * the session still renders. */
-    if (fd >= 3) {
-        return (int32_t)n;
-    }
-#endif
     result = int21(0x40u, 0x00u,
                    (uint32_t)(uintptr_t)buf,   /* EDX=buffer flat ptr */
                    (uint32_t)fd,                /* EBX=handle */
@@ -739,12 +707,10 @@ static void dos_conout(ibase_pal_t *p,const char *text,uint32_t n)
                  * Keep their order among drawn runs. Restore the page after
                  * CON forwards the byte, then let the model apply its motion
                  * once (including its reserved rows and bottom-row scroll). */
-#ifndef IBASE_STREAM_MUTATE_DROP_CRLF
                 uint8_t page[4002];
                 dos_page(page,0);
                 dos_rawout(p,text+i,1);
                 dos_page(page,1);
-#endif
                 ibase_screen_write(screen,text+i++,1);
             }
         }
@@ -765,11 +731,7 @@ static void dos_status(ibase_pal_t *p,int on,const char *path,uint32_t rec,uint3
         /* Start a fresh command page with a bounded 22-row viewport. */
         uint8_t attr=screen->attr;
         ibase_screen_init(screen,dos_draw,p);
-#ifndef IBASE_REVIEW_MUTANT_COLOR_RESET
         screen->attr=attr;
-#else
-        (void)attr;
-#endif
         screen->scroll=dos_scroll;
         dos_rawout(p,"\033[2J",4);
     }
@@ -786,12 +748,10 @@ static int32_t dos_terminal_line(ibase_pal_t *p,char *buf,uint32_t cap,int echo)
     for(;;) {
         c=dos_conin_char(p);
         if(c<0) return -1;
-#ifndef IBASE_REVIEW_MUTANT_KEYS
         /* IBM/DOS extended keys arrive as one 00,scan pair (8011ad44).
          * Consume navigation/function scans as keys, never printable text.
          * This line editor appends/erases; it has no interior insertion point. */
         if(c==0) { if(dos_conin_char(p)<0)return -1;continue; }
-#endif
         if(c=='\r' || c=='\n') break;
         if(c=='\b') { if(n) { n--; if(echo) dos_conout(p,"\b \b",3); } continue; }
         if(c<32 || c>126) continue;
@@ -818,7 +778,7 @@ static int32_t dos_input_read(void *user, void *buf, uint32_t cap)
 {
     return dos_read((ibase_pal_t *)user,0,buf,cap);
 }
-/* Stack guard (initech-39e5 review; Rule 2). The program stack is the 64 KiB
+/* Stack guard (initech-39e5 review; CLAUDE.md, The constitution). The program stack is the 64 KiB
  * from PROGRAM_STACK_BOT to PROGRAM_STACK_TOP (spec/memory_map.h); below it
  * lie the environment and the heap arena, so an overrun corrupts data
  * silently. The lowest DOS_GUARD_WORDS words of the stack hold a pattern
@@ -863,11 +823,7 @@ static int32_t dos_conin_line_noecho(ibase_pal_t *p,char *buf,uint32_t cap)
 static int32_t dos_conin_command(ibase_pal_t *p,char *buf,uint32_t cap)
 {
     if(dos_is_console(0)) {
-#ifdef IBASE_DOTPROMPT_MUTANT_enter
-        return dos_terminal_line(p,buf,cap,1);
-#else
         return dos_terminal_line(p,buf,cap,2);
-#endif
     }
     return ibase_line_read(&state_of(p)->input,dos_input_read,p,buf,cap);
 }
@@ -1020,21 +976,14 @@ static void dos_gotoxy(ibase_pal_t *p,uint8_t row,uint8_t col)
 static int dos_con_at(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n,int cells)
 {
     if(cells) {
-#ifdef IBASE_FORMS_MUTANT_wrap
-        dos_cursor(p,row,col);
-        dos_rawout(p,text,n);
-#else
         if(n)dos_draw_cells((ibase_pal_t *)0,row,col,state_of(p)->screen.attr,text,n);
         dos_cursor(p,row,(uint8_t)(col+n<80u?col+n:79u));
-#endif
         return 0;
     }
     char seq[16];uint32_t pos=dos_cup(seq,row,col);int result=0;
     pal_fd fd=dos_open(p,"CON",PAL_WR);
     if(fd<0)return -PAL_EIO;
-#ifndef IBASE_FORMS_MUTANT_wrap
     if(cells && dos_write(p,fd,"\033[=7l",5)!=5) result=-PAL_EIO;
-#endif
     if(dos_write(p,fd,seq,pos)!=(int32_t)pos || dos_write(p,fd,text,n)!=(int32_t)n) result=-PAL_EIO;
     if(cells && dos_write(p,fd,"\033[=7h",5)!=5) result=-PAL_EIO;
     if(dos_close(p,fd))result=-PAL_EIO;
@@ -1042,25 +991,16 @@ static int dos_con_at(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,ui
 }
 static int dos_say_screen(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
-#ifdef IBASE_REVIEW_MUTANT_REDIRECT
-    if(dos_is_console(1))
-#endif
     {
         ibase_screen *s=&state_of(p)->screen;
         ibase_screen_at(s,row,col,text,n);
         dos_cursor(p,s->row,s->col);
         return 0;
     }
-#ifdef IBASE_REVIEW_MUTANT_REDIRECT
-    return dos_con_at(p,row,col,text,n,0);
-#endif
 }
 /* pal.h paint: literal native cells, so (24,79) never scrolls. */
 static int dos_paint(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
-#ifdef IBASE_CURSOR25_MUTANT
-    if(row==25)row=24;
-#endif
     int result=dos_con_at(p,row,col,text,n,1);
     if(!result) {
         ibase_screen *s=&state_of(p)->screen;
@@ -1083,11 +1023,7 @@ static int dos_printout(ibase_pal_t *p,const char *text,uint32_t n)
 
 static void dos_set_attr(ibase_pal_t *p,uint8_t attr)
 {
-#ifndef IBASE_REVIEW_MUTANT_COLOR
     state_of(p)->screen.attr=attr;
-#else
-    (void)p;(void)attr;
-#endif
 }
 
 /* PRD Sec 5 / spec/hardware.json video: every supported display is colour.
@@ -1282,7 +1218,7 @@ static void *dos_alloc(ibase_pal_t *p, uint32_t n)
 
     avail = (uint32_t)(st->heap_end - st->heap_ptr);
     if (n > avail) {
-        /* Exhausted. The engine is expected to fail loud on NULL (Rule 2). */
+        /* Exhausted. The engine is expected to fail loud on NULL (CLAUDE.md, The constitution). */
         return (void *)0;
     }
 
@@ -1296,7 +1232,7 @@ static void *dos_alloc(ibase_pal_t *p, uint32_t n)
  *
  * `mark` must be a pointer previously returned by alloc (or NULL for full
  * reset). An out-of-range mark indicates a corrupted caller; we panic
- * (Rule 2 fail loud) rather than silently corrupting the arena.
+ * (CLAUDE.md, The constitution fail loud) rather than silently corrupting the arena.
  *
  * Ref: pal.h reset slot; pal_host.c host_reset (mirror pattern).
  */
@@ -1312,7 +1248,7 @@ static void dos_reset(ibase_pal_t *p, void *mark)
     }
 
     if (m < st->heap_base || m > st->heap_ptr) {
-        /* Out-of-range mark: corrupted caller pointer. Fail loud (Rule 2). */
+        /* Out-of-range mark: corrupted caller pointer. Fail loud (CLAUDE.md, The constitution). */
         dos_panic();
     }
 
@@ -1344,7 +1280,7 @@ static void dos_reset(ibase_pal_t *p, void *mark)
  * so the SETBLOCK step is unnecessary and -- against the new model -- wrong (the
  * program's MCB is no longer the arena). AH=48h alone is correct.
  *
- * If AH=48h fails (insufficient memory / arena unbound), we panic (Rule 2 --
+ * If AH=48h fails (insufficient memory / arena unbound), we panic (CLAUDE.md, The constitution --
  * no arena = the engine cannot run at all; a non-recoverable stop condition).
  *
  * Returns a pointer to the embedded ibase_pal_t (the first field of the state).
@@ -1426,7 +1362,7 @@ ibase_pal_t *pal_dos_make(void)
                    PAL_DOS_HEAP_PARAS,        /* EBX = paragraphs wanted */
                    0u, 0u, &cf);
     if (cf) {
-        /* Insufficient memory. Panic -- no arena = no engine (Rule 2 fail loud). */
+        /* Insufficient memory. Panic -- no arena = no engine (CLAUDE.md, The constitution fail loud). */
         dos_panic();
     }
 
@@ -1454,7 +1390,7 @@ ibase_pal_t *pal_dos_make(void)
  *   1. pal_dos_make() -- construct the PAL (acquires the heap via AH=48h).
  *   2. xb_interp_make(pal) -- construct the IBASE interpreter over the PAL.
  *      Uses the PAL's arena for all interpreter-internal allocations. If it
- *      returns NULL (arena exhausted building the interp), we panic (Rule 2).
+ *      returns NULL (arena exhausted building the interp), we panic (CLAUDE.md, The constitution).
  *   3. ibase_repl(pal, ip) -- run the dot-prompt REPL until QUIT/EXIT/EOF.
  *   4. xb_interp_free(ip) -- close all open work areas (ibase_main.c contract).
  *   5. return -- the crt0 emits INT 21h AH=4Ch AL=0.
@@ -1483,7 +1419,7 @@ int ibase_dos_entry(void)
 
     ip = xb_interp_make(pal);
     if (!ip) {
-        /* Arena exhausted constructing the interpreter. Fail loud (Rule 2). */
+        /* Arena exhausted constructing the interpreter. Fail loud (CLAUDE.md, The constitution). */
         dos_panic();
     }
 

@@ -1,0 +1,23 @@
+# test: test_w2_host
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -190,0 +191 @@
++    uint32_t short_read_fds; /* DBF handles only; overlays and command input intact. */
+@@ -373,0 +375,9 @@
++    {
++        uint32_t fd = result & 0xFFFFu, n = rt_strlen(name);
++        if (fd < 32u) {
++            state_of(p)->short_read_fds &= ~(1u << fd);
++            if (n >= 4u && name[n-4] == '.' && (name[n-3] | 32) == 'd' &&
++                (name[n-2] | 32) == 'b' && (name[n-1] | 32) == 'f')
++                state_of(p)->short_read_fds |= 1u << fd;
++        }
++    }
+@@ -389,0 +400 @@
++    if ((uint32_t)fd < 32u) state_of(p)->short_read_fds &= ~(1u << fd);
+@@ -424,0 +436,5 @@
++    }
++    /* MUTANT: request one byte fewer so reads come up short (>1 only, so a
++     * single-byte read still moves). The dbf codec then mis-frames records. */
++    if (n > 1u && (uint32_t)fd < 32u && (state_of(p)->short_read_fds & (1u << fd))) {
++        n -= 1u;

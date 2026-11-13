@@ -1,0 +1,6 @@
+# test: test_interp_replace
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -553 +553 @@
+-        rc = dbf_replace(tbl, recno, field_idx, &v);
++        rc = DBF_OK; /* Drop REPLACE persistence. */

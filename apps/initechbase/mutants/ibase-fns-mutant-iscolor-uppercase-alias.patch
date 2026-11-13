@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2358,0 +2359 @@
++    color = !color; /* CLAUDE.md, The constitution: invert only the capability result. */

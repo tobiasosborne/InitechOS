@@ -1,0 +1,84 @@
+# test: test_interp_replace
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -596,25 +596,5 @@
+-    /* FOR with no explicit scope -> ALL (implicit GO TOP). */
+-    if (kind == MS_DEFAULT && (mc.has_for || mc.has_while))
+-        kind = MS_ALL;
+-
+-    if (kind == MS_DEFAULT) {
+-        /* default: the CURRENT record only (data-definition sec 8). */
+-        uint32_t recno = wa_recno(env, area);
+-        if (wa_nrec(env, area) == 0u || wa_eof(env, area)) {
+-            if (ec) *ec = 0;
+-            return INTERP_OK;                    /* nothing to replace */
+-        }
+-        return m_apply_replace_one(ip, area, recno, mc.head, ec);
+-    }
+-
+-    if (kind == MS_RECORD) {
+-        rc = wa_nav_goto(env, area, mc.scope_n);
+-        if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
+-        return m_apply_replace_one(ip, area, mc.scope_n, mc.head, ec);
+-    }
+-
+-    /* multi-record scopes: ALL (GO TOP) / REST / NEXT n. */
+-    if (kind == MS_ALL) {
+-        rc = wa_nav_go_top(env, area);
+-        if (rc != NAV_OK) { if (ec) *ec = wa_view_error(env); return -INTERP_ERR_EVAL; }
+-    }
++    /* MUTANT (CLAUDE.md, The constitution -- mutants/mutate-replace-no-scope.patch): ignore scope/FOR/WHILE and
++     * REPLACE EVERY record unconditionally. A "REPLACE <f> WITH <e>" with no
++     * scope (default = current record only) then clobbers all records, and a
++     * "REPLACE NEXT 1 ..." touches more than one -> the oracle's "only the
++     * targeted record(s) changed" checks go RED. */
+@@ -622,36 +602,7 @@
+-        uint32_t visited = 0u;
+-        uint32_t limit = (kind == MS_NEXT) ? mc.scope_n : 0u;  /* 0 = unbounded */
+-
+-        while (!wa_eof(env, area)) {
+-            rc=wa_visible(env,area);
+-            if(rc<0) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+-            if(!rc) {
+-                rc=wa_nav_skip(env,area,1);
+-                if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
+-                continue;
+-            }
+-            uint32_t recno = wa_recno(env, area);
+-            if (kind == MS_NEXT && visited >= limit)
+-                break;
+-            visited++;
+-
+-            if (mc.has_while) {
+-                int t = 0;
+-                rc = xb_interp_cond(ip, mc.whilecond, &t, ec);
+-                if (rc != INTERP_OK) return rc;
+-                if (!t) break;                 /* WHILE false: STOP */
+-            }
+-            if (mc.has_for) {
+-                int t = 0;
+-                rc = xb_interp_cond(ip, mc.forcond, &t, ec);
+-                if (rc != INTERP_OK) return rc;
+-                if (t) {
+-                    rc = m_apply_replace_one(ip, area, recno, mc.head, ec);
+-                    if (rc != INTERP_OK) return rc;
+-                }
+-            } else {
+-                rc = m_apply_replace_one(ip, area, recno, mc.head, ec);
+-                if (rc != INTERP_OK) return rc;
+-            }
+-            rc=wa_nav_skip(env, area, 1);
+-            if(rc) { if(ec) *ec=wa_view_error(env); return -INTERP_ERR_EVAL; }
++        uint32_t r;
++        uint32_t nrec = wa_nrec(env, area);
++        (void)kind;
++        for (r = 1u; r <= nrec; r++) {
++            (void)wa_nav_goto(env, area, r);
++            rc = m_apply_replace_one(ip, area, r, mc.head, ec);
++            if (rc != INTERP_OK) return rc;
+@@ -658,0 +610,2 @@
++        if (ec) *ec = 0;
++        return INTERP_OK;
+@@ -660,2 +612,0 @@
+-    if (ec) *ec = 0;
+-    return INTERP_OK;

@@ -1,0 +1,5 @@
+# test: prog_diff
+--- a/core/screen.c
++++ b/core/screen.c
+@@ -47,0 +48 @@
++    top=0;

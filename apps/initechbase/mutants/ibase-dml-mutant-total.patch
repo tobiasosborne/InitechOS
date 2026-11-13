@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1210 +1209,0 @@
+-            group[i].u.n+=row[i].u.n;

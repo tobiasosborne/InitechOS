@@ -1,0 +1,6 @@
+# test: test_ibase_w2
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -936 +936 @@
+-    xb_interp_ctx(ip)->memo_width1 = (uint16_t)(((d>=4294967296.0 ? 0xFFFFFFFFu : (uint32_t)d) & 255u) + 1u);
++    xb_interp_ctx(ip)->memo_width1 = (uint16_t)((d>255.0 ? 255u : (uint32_t)d) + 1u);

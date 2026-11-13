@@ -2,7 +2,7 @@
  * os/ibase/cmd/workarea.c -- IBASE (InitechBase) work-area model + interpreter
  *                            foundation. Step S5.1 (Phase 5 convergence point).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding (-ffreestanding -nostdlib). Uses
  * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL vtable carried by the env. Memory is
  * bump-allocated from the PAL arena (no malloc).
@@ -18,14 +18,14 @@
  *
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S5.1 contract + Sec 8.2.
  *   - os/ibase/include/ibase/{workarea.h,interp.h,dbf.h,dbt.h,ndx.h,eval.h,
  *     value.h,rt.h,pal.h} (every consumed contract).
  *   - HELP.DBS @SELECT (10 areas, A..J), @USE (ALIAS / INDEX list, first index
  *     = master).
  *
- * ASCII-clean (Rule 12). Reproducible (Rule 11). Fail loud (Rule 2).
+ * ASCII-clean (CLAUDE.md, The constitution). Reproducible (CLAUDE.md, The constitution). Fail loud (CLAUDE.md, The constitution).
  */
 
 #include "ibase/lifetime.h"
@@ -459,9 +459,7 @@ static int wa_open_impl(wa_env *env, int area, const char *name,
     if (wa->open)
         return -WA_ERR_OCCUPIED;       /* caller must CLOSE first (fail loud) */
 
-#ifndef IBASE_MUTATE_DUPLICATE_OPEN
     if(wa_name_is_open(env,name,area)) return -WA_ERR_ALREADY_OPEN;
-#endif
     pal = env->pal;
 
     /* --- open the .dbf (read-only or read-write per `rw`) --- */
@@ -492,7 +490,7 @@ static int wa_open_impl(wa_env *env, int area, const char *name,
         }
         rc = dbt_open(pal, dbtpath, /*is_iv_dialect=*/0, &wa->memo);
         if (rc != DBT_OK) {
-            /* A memo .dbf with a missing/unreadable .dbt: fail loud (Rule 2). */
+            /* A memo .dbf with a missing/unreadable .dbt: fail loud (CLAUDE.md, The constitution). */
             wa->memo = (dbt_file *)0;
             close_handles(wa);
             return rc;                 /* propagate the dbt error */
@@ -747,13 +745,7 @@ int wa_select(wa_env *env, int area)
 {
     if (!env || area < 1 || area > WA_NAREAS)
         return -WA_ERR_BAD_AREA;
-#ifdef WA_MUTATE_SELECT
-    /* MUTANT: store the 1-based number, not (area-1). SELECT n selects area n+1;
-     * the resolve hook then reads the WRONG area. Rule 6 / ARB rider (a). */
-    env->cur = area;
-#else
     env->cur = area - 1;
-#endif
     return WA_OK;
 }
 
@@ -826,16 +818,10 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
     if (!env || !out)
         return 1;                      /* unbound (no env / no out) */
 
-#ifdef WA_MUTATE_RESOLVE_AREA
-    /* MUTANT: ignore the selected area; always read area 0 (1). Rule 6. */
-    wa = &env->area[0];
-#else
     wa = &env->area[env->cur];
-#endif
 
     /* Using III+ U5-190: foreign fields do not move the selected work area
      * or either record pointer. SF-alias is minted against real III+ 1.1. */
-#ifndef IBASE_FNS_MUTANT_alias
     {
         uint16_t j;
         for(j=0;j+1<len;j++)if(name[j]=='-' && name[j+1]=='>') {
@@ -855,7 +841,6 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
             name+=j;len=(uint16_t)(len-j);break;
         }
     }
-#endif
 
     if (!wa->open)
         return 1;                      /* unbound: no table in selected area */
@@ -1081,7 +1066,7 @@ static int wac_file_exists(void *u, const char *name)
     pal = env->pal;
     if (!pal)
         return 0;
-    /* FILE() tests existence via the PAL only (Law 3: no direct OS access).
+    /* FILE() tests existence via the PAL only (CLAUDE.md, The constitution: no direct OS access).
      * Open read-only; success => exists; close immediately. The engine never
      * issues int 0x21 -- pal_dos.c maps this to INT 21h AH=3Dh on the
      * artifact, pal_host.c to fopen on the host. */
@@ -1351,7 +1336,7 @@ xb_interp *xb_interp_make(ibase_pal_t *pal)
     /* Ref: Using dBase III Plus.pdf U5-213; corpus specs/commands/
      * set-commands.md: DECIMALS defaults to 2.
      * A reused arena cannot inherit uninitialized display state, nor an
-     * uninitialized on_error/message hook (Rule 2: a garbage call target). */
+     * uninitialized on_error/message hook (CLAUDE.md, The constitution: a garbage call target). */
     rt_memset(&ip->ctx, 0, sizeof(ip->ctx));
     ip->ctx.set_heading = 1;
     ip->ctx.set_console = 1;
@@ -1371,7 +1356,7 @@ xb_interp *xb_interp_make(ibase_pal_t *pal)
     pal->today(pal, &yy, &mm, &dd);
     /* yy is two-digit; 00..99. CENTURY handling lives above the PAL; for the
      * injectable host clock we map 00..99 -> 1900..1999 (the III+ default
-     * CENTURY OFF window starts at 1900). DATE() reproducibility (Rule 11). */
+     * CENTURY OFF window starts at 1900). DATE() reproducibility (CLAUDE.md, The constitution). */
     ip->ctx.ctx_today = (double)jdn_from_ymd(1900 + (int)yy, (int)mm, (int)dd);
 
     /* Bind the resolve glue: field names resolve against the selected area. */
@@ -1455,17 +1440,13 @@ int xb_interp_eval_str(xb_interp *ip, const char *expr, uint32_t len,
  *   ? 1 ==  -> 10   ? 1 != 2 / ? 5 % 2 / ? 1 @ 2 -> 36   ? "abc -> 35
  *   ? (1    -> 8    ? 1 + / ? ) / ? () / X =      -> 10   ? 1 2   -> 36
  * Pool/buffer exhaustion is the evaluator's work area (#67). */
-#ifndef IBASE_FNS_MUTANT_errors
 static const uint8_t g_lex_msg[7]   = {10, 10, 36, 36, 35, 36, 67};
 static const uint8_t g_parse_msg[6] = {10, 10, 8, 67, 10, 36};
-#endif
 int xb_interp_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec)
 {
     int e = 0, rc = xb_interp_eval_str(ip, expr, rt_strlen(expr), out, &e);
-#ifndef IBASE_FNS_MUTANT_errors
     if (rc == -INTERP_ERR_LEX) e = g_lex_msg[(unsigned)e < 7u ? e : 0];
     else if (rc == -INTERP_ERR_PARSE) e = g_parse_msg[(unsigned)e < 6u ? e : 0];
-#endif
     if (ec) *ec = e;
     return rc;
 }
@@ -1518,14 +1499,11 @@ int wa_visible(wa_env *env, int area)
     int rc, ec=0, saved=env->cur;
     env->view_error=0;
     if (wa->eof || !wa->nrec) return 0;
-#ifndef IBASE_MUTATE_DELETED_VIEW
     if (env->deleted_on && !env->include_deleted) {
         rc=wa_touch_record(wa);
         if(rc) { env->view_error=29; return rc; }
         if(wa->cache_deleted) return 0;
     }
-#endif
-#ifndef IBASE_MUTATE_FILTER_VIEW
     if (wa->filter[0]) {
         env->cur=area-1;
         rc=xb_interp_eval_str(env->interp, wa->filter, rt_strlen(wa->filter), &v, &ec);
@@ -1536,9 +1514,6 @@ int wa_visible(wa_env *env, int area)
         }
         return v.u.l != 0;
     }
-#else
-    (void)v; (void)ec; (void)saved;
-#endif
     return 1;
 }
 int wa_record_deleted(wa_env *env, int area)
@@ -1574,11 +1549,6 @@ int xb_interp_console_visible(xb_interp *ip)
 }
 void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
 {
-#ifdef IBASE_FNS_MUTANT_console
-    /* SF-console bite: CONSOLE OFF wrongly silences ALTERNATE too; the real
-     * III+ capture keeps "HIDDEN" in the alternate file (fns-mint/console). */
-    if(!xb_interp_console_visible(ip)) return;
-#endif
     if(ip) ibase_ovl_validate_ctx(&ip->ctx);
     if(ip && ip->ctx.mirror_output && n)
         ip->ctx.mirror_output(ip->ctx.mirror_user,s,n);
@@ -1600,9 +1570,7 @@ void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
         if(from<n) ip->pal->printout(ip->pal,s+from,n-from);
         rt_cursor_advance(&ip->ctx.printer_row,&ip->ctx.printer_col,s,n,0);
     }
-#ifndef IBASE_MUTATE_CONSOLE
     if(!xb_interp_console_visible(ip)) return;
-#endif
     /* system-and-database-functions.md ROW/COL: ? and ?? advance the screen.
      * Preserve buffered expression evaluation before moving the cursor. */
     if(ip) rt_cursor_advance(&ip->ctx.screen_row,&ip->ctx.screen_col,s,n,1);

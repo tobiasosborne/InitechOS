@@ -41,9 +41,6 @@ static inline void *pal_heap_alloc(pal_heap_block *b,uint32_t n)
 }
 static inline int pal_heap_free(pal_heap_block *head,void *memory)
 {
-#ifdef IBASE_MUTATE_HEAP_FREE
-    (void)head;(void)memory;return 0; /* mutant: closed storage never reusable */
-#endif
     pal_heap_block *b;int found=memory==0;
     for(b=head;b;b=b->next)if(memory==b+1){
         uint32_t i;if(b->free)return -1;

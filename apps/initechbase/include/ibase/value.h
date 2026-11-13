@@ -1,7 +1,7 @@
 /*
  * os/ibase/include/ibase/value.h -- IBASE typed value model.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Depends ONLY on <stdint.h> (the int-type convention from pal.h).
  * No libc headers.
  *
@@ -10,7 +10,7 @@
  * codecs, interpreter). The design is taken directly from the sec.8.2 sketch in
  * docs/plans/IBASE-implementation-plan.md.
  *
- * Types and encoding (Law 1 sources):
+ * Types and encoding (CLAUDE.md, The constitution sources):
  *   XB_C  Character string. Internal rep: pointer + byte length. The pointer
  *         is NOT owned by the xb_val -- the caller (or the PAL arena) owns the
  *         backing bytes. value.c NEVER copies or frees string storage.
@@ -44,10 +44,10 @@
  *   XB_C -> 'C', XB_N -> 'N', XB_D -> 'D', XB_L -> 'L', XB_M -> 'M',
  *   XB_U -> 'U'. Used by the TYPE() built-in function (S3.5).
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
- * Freestanding-legal (Law 3): only <stdint.h>.
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
+ * Freestanding-legal (CLAUDE.md, The constitution): only <stdint.h>.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md sec.8.2 (the xb_val sketch), S0.6.
  *   - docs/plans/IBASE-implementation-plan.md sec.2.C (dBASE III PLUS 1.1 only).
  *   - docs/plans/IBASE-implementation-plan.md sec.2.F + sec.3.3 (numeric = IEEE

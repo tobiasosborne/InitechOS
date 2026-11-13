@@ -1,0 +1,7 @@
+# test: test_ibase_dml
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1862 +1862,2 @@
+-    (void)verb;
++    /* Disable recognition at one hook only: real DISP differential must bite. */
++    if (rt_strlen(verb) != 7) return CMD_UNKNOWN;

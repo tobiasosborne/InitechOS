@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1247,0 +1248 @@
++        return INTERP_OK; /* skip the actual filesystem rename */

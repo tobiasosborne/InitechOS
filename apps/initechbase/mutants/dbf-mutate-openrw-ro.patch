@@ -1,0 +1,6 @@
+# test: test_dbf_read
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -558 +558 @@
+-        tbl->writable = 1u;
++        tbl->writable = 0u;          /* MUTANT: opened RW but flagged read-only */

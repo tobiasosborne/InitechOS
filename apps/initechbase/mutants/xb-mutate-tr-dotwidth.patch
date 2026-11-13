@@ -1,0 +1,6 @@
+# test: test_xbase_transform
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -1366 +1366 @@
+-    fmt_w = n_digit + (n_dec > 0 ? 1 : 0);
++    fmt_w = n_digit;

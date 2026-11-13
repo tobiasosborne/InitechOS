@@ -1,0 +1,15 @@
+# test: test_ibase_view
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -1507,10 +1507 @@
+-    if (wa->filter[0]) {
+-        env->cur=area-1;
+-        rc=xb_interp_eval_str(env->interp, wa->filter, rt_strlen(wa->filter), &v, &ec);
+-        env->cur=saved;
+-        if(rc || v.t!=XB_L) {
+-            env->view_error=ec ? ec : 37;
+-            return -INTERP_ERR_EVAL;
+-        }
+-        return v.u.l != 0;
+-    }
++    (void)v; (void)ec; (void)saved;

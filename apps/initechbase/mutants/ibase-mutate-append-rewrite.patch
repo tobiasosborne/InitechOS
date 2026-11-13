@@ -1,0 +1,5 @@
+# test: test_ibase_dbsafe
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -1543,0 +1544 @@
++    return dbf_flush(tbl); /* mutant: damages prior records and +2 geometry */

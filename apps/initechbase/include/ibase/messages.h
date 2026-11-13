@@ -21,9 +21,6 @@ static unsigned ibase_message(unsigned code, char *out, unsigned cap)
         if (token >= 128) {
             token -= 128;
             if (token >= IBASE_MSG_PAIRS || depth + 2 > sizeof pending) return 0;
-#ifdef IBASE_SIZE_MUTATE_MSG_PAIR
-            if (!token) { if (n + 1 >= cap) return 0; out[n++] = '!'; continue; }
-#endif
             pending[depth++] = ibase_msg_pairs[token][1];
             pending[depth++] = ibase_msg_pairs[token][0];
         } else {

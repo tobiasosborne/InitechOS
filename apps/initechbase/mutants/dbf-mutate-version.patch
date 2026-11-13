@@ -1,0 +1,6 @@
+# test: test_dbf_roundtrip
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -125 +125 @@
+-#  define DBF_MEMO_VERSION_BIT  0x80u   /* correct: dbf.md sec 3 bit 7 = has memo */
++#  define DBF_MEMO_VERSION_BIT  0x00u   /* mutant: drop the 0x80 memo bit */

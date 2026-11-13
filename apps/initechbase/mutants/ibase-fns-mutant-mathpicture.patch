@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2040,0 +2041,2 @@
++    /* Regression proof: corrupt only negative arguments with wide pictures. */
++    if (arg->u.n < 0.0 && arg->num_width > 4u) width++;

@@ -1,0 +1,5 @@
+# test: test_ibase_report
+--- a/cmd/report.c
++++ b/cmd/report.c
+@@ -282,0 +283 @@
++                  + (c == 1)   /* MUTANT: second column shifted right */

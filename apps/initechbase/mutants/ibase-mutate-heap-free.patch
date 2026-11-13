@@ -1,0 +1,5 @@
+# test: test_ibase_dbsafe
+--- a/pal/heap.h
++++ b/pal/heap.h
+@@ -43,0 +44 @@
++    (void)head;(void)memory;return 0; /* mutant: closed storage never reusable */

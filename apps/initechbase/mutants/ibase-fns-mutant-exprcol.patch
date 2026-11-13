@@ -1,0 +1,18 @@
+# test: test_ibase_fns
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -579,12 +578,0 @@
+-        /* A numeric expression column right-justifies under a wider heading:
+-         * real III+ 1.1 SF-exprcol, "LIST NAME, BAL / (52 + 0 + 0)" prints
+-         * "PESTON                  23.74" under the 18-byte heading. */
+-        if(v->t==XB_N) {
+-            char cell[256];uint32_t n;
+-            /* Real numdisplay D0: the heading's extra column gives a
+-             * scientific mantissa another digit, rather than blank padding. */
+-            n=(uint32_t)dec_format_display(v->u.n,(int)width,v->num_dec,cell);
+-            while(*pos-start+n<width && *pos<cap) buf[(*pos)++]=' ';
+-            q_append(buf,pos,cap,cell,n);
+-            return;
+-        }
+@@ -638 +625,0 @@
+-           || (!f && v.t==XB_N)

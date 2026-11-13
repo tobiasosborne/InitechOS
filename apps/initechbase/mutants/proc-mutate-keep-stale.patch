@@ -1,0 +1,7 @@
+# test: test_ibase_use
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -1302,3 +1301,0 @@
+-    if (!ps)
+-        return -INTERP_ERR_NOMEM;
+-    rt_memset(ps, 0, (uint32_t)sizeof(*ps));   /* as proc_state_for's fresh slot */

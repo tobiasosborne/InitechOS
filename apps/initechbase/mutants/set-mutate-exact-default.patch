@@ -1,0 +1,6 @@
+# test: test_ibase_repl
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -545 +545 @@
+-    xb_interp_ctx(ip)->set_exact = 0;    /* correct: EXACT OFF */
++    xb_interp_ctx(ip)->set_exact = 1;    /* MUTANT: wrong default */

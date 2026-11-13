@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2185,0 +2186,2 @@
++    /* CLAUDE.md, The constitution: perturb the returned date by one day; the independent mint bites. */
++    if (date > 0.0) date += 1.0;

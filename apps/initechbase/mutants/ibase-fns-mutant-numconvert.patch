@@ -1,0 +1,10 @@
+# test: test_ibase_fns
+--- a/core/rt.c
++++ b/core/rt.c
+@@ -443,0 +444,6 @@
++        /* Regression: preserve nearest-even but round the product to
++         * binary64 first, turning SQRT(.999999999) into a false tie. */
++        double x = v * (double)pow10_tbl[dec];
++        scaled = rt_floor64(x);
++        double fraction = x - (double)scaled;
++        if (fraction > 0.5 || (fraction == 0.5 && scaled % 2 != 0)) scaled++;

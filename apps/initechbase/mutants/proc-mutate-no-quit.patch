@@ -1,0 +1,6 @@
+# test: test_ibase_ctl
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -1105 +1105 @@
+-    return INTERP_RC_QUIT;
++    return CMD_UNKNOWN;                 /* MUTANT: the pre-fix #16 */

@@ -1,9 +1,9 @@
 /*
  * os/ibase/core/eval.c -- IBASE xBase III+ 1.1 expression EVALUATOR + coercion.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001 interim toolchain). Uses ONLY <stdint.h>, rt.h, value.h
- * and eval.h. No libc, no PAL, no I/O. Pure (Rule 11): the result is a
+ * and eval.h. No libc, no PAL, no I/O. Pure (CLAUDE.md, The constitution): the result is a
  * function of (pool, root, ctx state) -- no time, no host paths, no RNG.
  *
  * Step S3.3 of docs/plans/IBASE-implementation-plan.md. Post-order evaluates
@@ -11,17 +11,17 @@
  * xb_lex (S3.1) produced. Every operator dispatches on its operand types
  * EXACTLY per the LOCKED contract spec/ibase/xbase_coercion.json. The JSON is
  * the source of truth; this file HARDCODES that table in C (freestanding --
- * no JSON parser at runtime). Each branch cites the JSON cell / rule (Law 1).
+ * no JSON parser at runtime). Each branch cites the JSON cell / rule (CLAUDE.md, The constitution).
  *
  * THE HAZARD (xbase_coercion.json not_in_iii_plus + mint-results-002.md):
  *   III+ 1.1 has NO auto-stringification. C+N is error #9 "Data type
  *   mismatch.", NOT "1" appended. Modern dbase.com docs describe auto-
  *   stringify that did NOT exist here. Every result:"error" cell fails loud.
  *
- * Fail loud (Rule 2): no silent coercion. A mismatched (lhs,op,rhs) sets the
+ * Fail loud (CLAUDE.md, The constitution): no silent coercion. A mismatched (lhs,op,rhs) sets the
  * dBASE catalog ordinal from dbase_msg_codes.tsv and returns non-zero.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - spec/ibase/xbase_coercion.json (operator_coercion cells; rules R_*;
  *     modes.SET_EXACT default OFF, affects {=,<>,#}; $ + ordering ignore it)
  *   - spec/ibase/dbase_msg_codes.tsv (#9 mismatch, #27 not_numeric,
@@ -33,7 +33,7 @@
  *   - os/ibase/include/ibase/eval.h (xb_ctx, xb_eval, xb_eval_err contract)
  *   - os/ibase/include/ibase/value.h (xb_val + ctors), rt.h (jdn / memcmp)
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
  */
 
 #include "ibase/lifetime.h"
@@ -48,7 +48,7 @@
 /* ======================================================================== */
 
 /* Set *err and return the standard failure rc for a failing branch. The
- * caller leaves *out as XB_U. Fail loud (Rule 2). */
+ * caller leaves *out as XB_U. Fail loud (CLAUDE.md, The constitution). */
 static int fail(int *err_code, int code)
 {
     *err_code = code;
@@ -107,7 +107,7 @@ static double dbl_pow(double base, double exp)
 /*
  * scratch_alloc: bump-allocate `n` bytes from ctx->scratch. Returns a pointer
  * into the arena, or NULL on exhaustion (caller fails loud, XBEE_SCRATCH_FULL).
- * No malloc (Law 3 freestanding). The arena is reset per top-level xb_eval.
+ * No malloc (CLAUDE.md, The constitution freestanding). The arena is reset per top-level xb_eval.
  */
 static char *scratch_alloc(xb_ctx *ctx, uint32_t n)
 {
@@ -149,9 +149,7 @@ static int concat_plus(xb_ctx *ctx, const xb_val *a, const xb_val *b,
     uint32_t tot = la + lb;
     char *dst;
     /* Using III+ U7-5: + overflow is 77, not SPACE's 59 (8w5e/u468). */
-#ifndef IBASE_CORE_MUTATE_CONCAT_PLUS
     if (tot > 254u) return fail(err, XBEE_CONCAT_PLUS);
-#endif
     if (tot == 0) {
         *out = xb_c("", 0);
         *err = XBEE_OK;
@@ -186,9 +184,7 @@ static int concat_minus(xb_ctx *ctx, const xb_val *a, const xb_val *b,
     uint32_t off;
     uint32_t k;
     /* Using III+ U7-5: - overflow has its own catalog code, 76. */
-#ifndef IBASE_CORE_MUTATE_CONCAT_MINUS
     if (tot > 254u) return fail(err, XBEE_CONCAT_MINUS);
-#endif
     if (tot == 0) {
         *out = xb_c("", 0);
         *err = XBEE_OK;
@@ -406,20 +402,12 @@ static int apply_relational(xb_ctx *ctx, xb_token_type op,
         int ba = date_is_blank(a->u.d);
         int bb = date_is_blank(b->u.d);
         int c;
-#ifdef XB_MUTATE_BLANKDATE_HIGH
-        /* Rule 6: restore the superseded blank-HIGH expression ordering. */
-        if (ba && bb)      c = 0;
-        else if (ba)       c = 1;          /* blank > non-blank */
-        else if (bb)       c = -1;
-        else               c = cmp_double(a->u.d, b->u.d);
-#else
         if (ba || bb) {
             *res = (uint8_t)(ba && bb);
             *err = XBEE_OK;
             return 0;
         }
         c = cmp_double(a->u.d, b->u.d);
-#endif
         switch (op) {
         case XBT_EQ:  *res = (uint8_t)(c == 0); break;
         case XBT_NEQ: case XBT_HASH: *res = (uint8_t)(c != 0); break;
@@ -486,15 +474,6 @@ static int eval_binop(xb_ctx *ctx, xb_token_type op,
         }
         /* C+N, N+C, C+D, D+D, ... -> error #9 (NO auto-stringify; the HAZARD).
          * xbase_coercion.json rows: C+N, N+C, C+D, D+D all result:"error". */
-#ifdef XB_MUTATE_EVAL
-        /* MUTATION (Rule 6): make the C+N HAZARD cell SUCCEED (auto-stringify
-         * -- the modern-docs behavior that did NOT exist in III+ 1.1). The
-         * test's "C+N -> error #9" assertion then goes RED. Single perturbation. */
-        if ((ta == XB_C || ta == XB_M) && tb == XB_N) {
-            *out = *a;                                  /* WRONG: return the C */
-            *err = XBEE_OK; return 0;
-        }
-#endif
         return fail(err, XBEE_MISMATCH);
 
     /* ---- - (arithmetic / date-diff / date-shift / reloc) ----------------- */
@@ -598,7 +577,7 @@ static int eval_binop(xb_ctx *ctx, xb_token_type op,
         *err = XBEE_OK; return 0;
 
     default:
-        return fail(err, XBEE_BAD_NODE); /* unknown binary op (Rule 2) */
+        return fail(err, XBEE_BAD_NODE); /* unknown binary op (CLAUDE.md, The constitution) */
     }
 }
 
@@ -770,7 +749,7 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
 
     case XBN_IDENT: {
         /* Field / memvar lookup is the host's job (Phase 5). If no resolver
-         * is bound, fail loud (Rule 2) -- S3.3 does not bind work areas. */
+         * is bound, fail loud (CLAUDE.md, The constitution) -- S3.3 does not bind work areas. */
         xb_val v;
         if (ctx->resolve == 0) {
             return fail(err, XBEE_UNBOUND);
@@ -778,11 +757,7 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
         if (ctx->resolve(ctx->user, n->u.str.p, n->u.str.len, &v) != 0) {
             /* Using III+ U7-21 (PDF 509): absent memory variable or field.
              * Keep a missing resolver as an internal wiring error above. */
-#ifdef IBASE_MUTATE_UNDEFINED_ERROR1
-            return fail(err, XBEE_UNBOUND); /* restore old error 1/Internal error */
-#else
             return fail(err, XBEE_VAR_NOT_FOUND);
-#endif
         }
         *out = v;
         *err = XBEE_OK; return 0;
@@ -811,7 +786,6 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
             unsigned ai=a.num_width-(ad?ad+1:0),bi=b.num_width-(bd?bd+1:0);
             unsigned d=ad>bd?ad:bd,w=(ai>bi?ai:bi)+1+(d?d+1:0);
             if(n->op==XBT_STAR) { d=ad+bd;w=a.num_width+b.num_width+1; }
-#ifndef IBASE_FNS_MUTANT_division
             /* Division, real III+ 1.1 SF-division (fns-mint/division):
              * dec = max(DECIMALS, da, db); integer room
              * max(ia+db, ib+da)+1 -- 1/3 is " 0.33", 10/30 "  0.33",
@@ -821,7 +795,6 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
                 d=ctx->set_decimals;if(ad>d)d=ad;if(bd>d)d=bd;
                 w=p+(d?d+1:0);
             } else
-#endif
             if(n->op==XBT_SLASH || n->op==XBT_CARET || n->op==XBT_STARSTAR) {
                 d=ctx->set_decimals;w=10+(d?d+1:0);
             }
@@ -836,7 +809,7 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
     case XBN_ARG:
         /* An XBN_ARG is only ever reached via eval_call's spine walk, never as
          * a stand-alone node in a value position. If one appears here the AST
-         * is malformed. Fail loud (Rule 2). */
+         * is malformed. Fail loud (CLAUDE.md, The constitution). */
         return fail(err, XBEE_BAD_NODE);
 
     default:
@@ -850,9 +823,6 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
 
 void xb_fixed_picture(const xb_ctx *ctx, xb_val *v)
 {
-#ifdef IBASE_W2_MUTANT_set_fixed
-    return; /* MUTANT: FIXED ON changes nothing */
-#endif
     if (ctx->set_fixed && v->t == XB_N) {
         unsigned w = v->num_width ? v->num_width : 10, d = v->num_dec;
         unsigned room = w > (d ? d + 1 : 0) ? w - (d ? d + 1 : 0) : 0;
@@ -870,7 +840,7 @@ int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
     int local_err = XBEE_OK;
     int rc;
 
-    /* Fail loud on a NULL ctx (Rule 2): SET EXACT / scratch / resolver all
+    /* Fail loud on a NULL ctx (CLAUDE.md, The constitution): SET EXACT / scratch / resolver all
      * live there; there is no sane default for a missing context. */
     if (ctx == 0 || pool == 0 || out == 0) {
         if (err_code) *err_code = XBEE_BAD_NODE;
@@ -878,7 +848,7 @@ int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
         return XBEE_BAD_NODE;
     }
 
-    /* Reset the per-call C-result bump arena (Rule 11: deterministic). */
+    /* Reset the per-call C-result bump arena (CLAUDE.md, The constitution: deterministic). */
     ctx->scratch_used = 0;
 
     *out = xb_u();

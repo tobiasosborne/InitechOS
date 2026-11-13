@@ -1,0 +1,7 @@
+# test: test_ibase_use
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -805,3 +804,0 @@
+-        /* Real numlist-v1 III+: DISPLAY at EOF emits no synthetic blank
+-         * record (not even a zero numeric field with SET HEADING OFF). */
+-        if(wa_eof(env,area)) { if(ec) *ec=0;return INTERP_OK; }

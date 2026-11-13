@@ -1,0 +1,14 @@
+# test: test_dbt_roundtrip
+--- a/fs/dbt.c
++++ b/fs/dbt.c
+@@ -219,5 +219,5 @@
+-    /* Normal: little-endian (dbt.md sec 3 RESOLVED). */
+-    buf[0] = (uint8_t)( nf        & 0xFFu);
+-    buf[1] = (uint8_t)((nf >>  8) & 0xFFu);
+-    buf[2] = (uint8_t)((nf >> 16) & 0xFFu);
+-    buf[3] = (uint8_t)((nf >> 24) & 0xFFu);
++    /* Mutant: big-endian.  Intentionally wrong -- makes the oracle RED. */
++    buf[0] = (uint8_t)((nf >> 24) & 0xFFu);
++    buf[1] = (uint8_t)((nf >> 16) & 0xFFu);
++    buf[2] = (uint8_t)((nf >>  8) & 0xFFu);
++    buf[3] = (uint8_t)( nf        & 0xFFu);

@@ -1,0 +1,10 @@
+# test: test_ibase_dbsafe
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -1558,6 +1557,0 @@
+-    /* A short four-byte write can tear 255 -> 256. Restore the committed
+-     * bytes in the already allocated header sector before returning. */
+-    if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF ||
+-        write_result(tbl->pal->write(tbl->pal,tbl->fd,prior,4u),4u) != DBF_OK) {
+-        tbl->write_failed=1u; rc=-DBF_ERR_WRITE;
+-    }

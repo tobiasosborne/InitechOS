@@ -1,0 +1,8 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2507,4 +2506,0 @@
+-    case FN_RECSIZE:
+-        if(nargs) return fn_fail(err_code,XBEE_INVALID_ARG);
+-        *out=xb_n(ctx->record_size?(double)ctx->record_size(ctx->dbcur_user):0.0);
+-        return 0;

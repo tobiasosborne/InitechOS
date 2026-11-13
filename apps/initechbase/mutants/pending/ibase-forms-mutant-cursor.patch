@@ -1,0 +1,5 @@
+# test: test_w2_host
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1752 +1751,0 @@
+-    if(x->screen_col>=80) { x->screen_col=0;x->screen_row++; }

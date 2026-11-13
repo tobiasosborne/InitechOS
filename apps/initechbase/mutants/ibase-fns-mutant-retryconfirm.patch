@@ -1,0 +1,11 @@
+# test: test_ibase_fns
+--- a/cmd/flow.c
++++ b/cmd/flow.c
+@@ -1270,6 +1270 @@
+-        /* Real retryconfirm/GOLD.OUT: this unfinished argument phase has no
+-         * completed command to restart. RETRY reports the ordinary unknown
+-         * command error, then resumes with the original argument vector. */
+-        rc = -INTERP_ERR_UNKNOWN_CMD;
+-        if (ec) *ec = 0;
+-        t = fl_trap(ip, rc, ec);
++        return INTERP_OK; /* MUTANT: ignore RETRY during argument completion. */

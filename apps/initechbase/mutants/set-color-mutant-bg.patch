@@ -1,0 +1,5 @@
+# test: test_ibase_set_color
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -645,0 +646 @@
++    bg=0; /* CLAUDE.md, The constitution: drop only the parsed background nibble. */

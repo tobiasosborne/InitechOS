@@ -1,0 +1,8 @@
+# test: test_interp_use
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -748 +748,3 @@
+-    env->cur = area - 1;
++    /* MUTANT: store the 1-based number, not (area-1). SELECT n selects area n+1;
++     * the resolve hook then reads the WRONG area. CLAUDE.md, The constitution / ARB rider (a). */
++    env->cur = area;

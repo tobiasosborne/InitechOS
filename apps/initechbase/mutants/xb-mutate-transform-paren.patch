@@ -1,0 +1,16 @@
+# test: test_xbase_transform
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -1460,3 +1460,7 @@
+-                dst[0]        = '(';
+-                dst[tlen + 1] = ')';
+-                sign_placed   = 1;
++                /* MUTATION (CLAUDE.md, The constitution): @( does NOT parenthesize negatives.
++                 * Leave paren_wrap layout but use space at [0] and [tlen+1],
++                 * then fall through to plain sign in the digit slots.
++                 * The assertion TRANSFORM(-570,"@( 9999")="( 570)" goes RED. */
++                dst[0]        = ' ';
++                dst[tlen + 1] = ' ';
++                /* sign_placed stays 0 -> plain sign fires below */
+@@ -1653 +1656,0 @@
+-        if (at_flags & TR_AT_PAREN)  { if (is_neg)  suffix_extra = 2; } /* "(" prefix + ")" suffix */

@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1069,0 +1070 @@
++        if(count)count--; /* omit last record from every rebuilt index */

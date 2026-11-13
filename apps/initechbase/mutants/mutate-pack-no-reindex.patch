@@ -1,0 +1,66 @@
+# test: test_ndx_pack
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -843,24 +842,0 @@
+-typedef struct {
+-    xb_interp  *ip;
+-    wa_env     *env;
+-    int         area;
+-    const char *key_expr;
+-    uint16_t    key_type;
+-    int         failed;
+-    int         ec;
+-} m_pack_kp_ctx;
+-
+-static IBASE_OVL_TEXT(file) int m_pack_get_key(void *user, uint32_t recno,
+-                          uint8_t *key_out, uint16_t key_len)
+-{
+-    m_pack_kp_ctx *c = (m_pack_kp_ctx *)user;
+-    int rc;
+-
+-    rc = wa_nav_goto(c->env, c->area, recno);
+-    if (rc != NAV_OK) { c->failed = 1; c->ec = 0; return -1; }
+-
+-    rc = m_encode_key(c->ip, c->key_expr, c->key_type, key_len, key_out, &c->ec);
+-    if (rc != INTERP_OK) { c->failed = 1; return -1; }
+-
+-    return 0;
+-}
+@@ -893,31 +869,6 @@
+-    /* PACK renumbers survivors -- a per-deleted-recno ndx_delete_key is
+-     * INSUFFICIENT (every surviving entry would still carry its OLD recno).
+-     * FULLY REINDEX every open .ndx from the freshly-packed table, matching
+-     * III+ "rebuilds/adjusts all open index files" on PACK. Ref:
+-     * ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
+-     * sec.10 [ASSIST.HLP:120]. initech-x87g. */
+-    {
+-        int nidx = wa_index_count(env, area);
+-        int i;
+-
+-        for (i = 0; i < nidx; i++) {
+-            ndx_index *ix = wa_index(env, area, i);
+-            m_pack_kp_ctx kctx;
+-
+-            if (!ix) continue;
+-
+-            kctx.ip       = ip;
+-            kctx.env      = env;
+-            kctx.area     = area;
+-            kctx.key_expr = ndx_key_expr(ix);
+-            kctx.key_type = ndx_key_type(ix);
+-            kctx.failed   = 0;
+-            kctx.ec       = 0;
+-
+-            rc = ndx_rebuild(ix, new_nrec, m_pack_get_key, &kctx);
+-            if (rc != NDX_OK) {
+-                if (ec) *ec = kctx.failed ? kctx.ec : 0;
+-                return -INTERP_ERR_EVAL;    /* structural index fault: fail loud */
+-            }
+-        }
+-    }
++    /* MUTANT (CLAUDE.md, The constitution -- mutants/mutate-pack-no-reindex.patch): skip the open-index full
++     * REINDEX after PACK. Every open .ndx then keeps its PRE-pack recnos, so
++     * a SEEK for a renumbered survivor resolves the WRONG (or a now
++     * out-of-range/still-present deleted) record -> the oracle's post-PACK
++     * SEEK checks go RED. */
++    (void)new_nrec;

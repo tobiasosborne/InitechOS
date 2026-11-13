@@ -1,0 +1,8 @@
+# test: test_interp_list
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -683,2 +683,2 @@
+-        q_append_uint_rj(line, &pos, sizeof(line), wa_recno(env, area), 7);
+-        q_append_cstr(line, &pos, sizeof(line), "  ");
++        q_append_uint_rj(line, &pos, sizeof(line), wa_recno(env, area), 8);
++        q_append_cstr(line, &pos, sizeof(line), " ");

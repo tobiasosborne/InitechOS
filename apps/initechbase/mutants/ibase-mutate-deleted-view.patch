@@ -1,0 +1,9 @@
+# test: test_ibase_view
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -1502,5 +1501,0 @@
+-    if (env->deleted_on && !env->include_deleted) {
+-        rc=wa_touch_record(wa);
+-        if(rc) { env->view_error=29; return rc; }
+-        if(wa->cache_deleted) return 0;
+-    }

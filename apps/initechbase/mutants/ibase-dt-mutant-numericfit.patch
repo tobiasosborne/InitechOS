@@ -1,0 +1,5 @@
+# test: test_ibase_datatype
+--- a/core/rt.c
++++ b/core/rt.c
+@@ -560,0 +561 @@
++        return width; /* mutant: discard a number whose integer part fits */

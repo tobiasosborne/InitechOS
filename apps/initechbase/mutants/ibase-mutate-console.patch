@@ -1,0 +1,5 @@
+# test: test_interp_list
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -1573 +1572,0 @@
+-    if(!xb_interp_console_visible(ip)) return;

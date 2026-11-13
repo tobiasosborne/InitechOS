@@ -1,0 +1,16 @@
+# test: test_ibase_datatype
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -813,12 +812,0 @@
+-                /* An overflowed field ("****", the stars_fill of
+-                 * xbase_coercion.json) reads back in real III+ as the
+-                 * largest double, 1.7976931348623157E308: ? SMALL prints
+-                 * "****", SMALL = 0 is .F., SMALL/10^300 = 179769313.49, and
+-                 * VAL("****") is the same value (datatype-mint DT1 B4-B6,
+-                 * DT2 F2, DT5 I1/I2/I7). Decoding it as 0.0 presented an
+-                 * overflow as an ordinary zero (audit 2026-10-23-ibase L006;
+-                 * initech-ylqs). dec_format star-fills it at any width. */
+-                if (k < (uint32_t)flen && raw[k] == (uint8_t)'*') {
+-                    out[fi] = xb_n(1.7976931348623157e308);
+-                    break;
+-                }

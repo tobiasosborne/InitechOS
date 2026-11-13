@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1096 +1096 @@
+-    if (err_code) *err_code = 10;
++    if (err_code) *err_code = 16;

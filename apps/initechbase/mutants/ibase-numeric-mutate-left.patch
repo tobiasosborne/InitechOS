@@ -1,0 +1,7 @@
+# test: test_interp_list
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -576,0 +577,3 @@
++        { uint32_t lead=0,i; while(lead<width && cell[lead]==' ') lead++;
++          for(i=0;i<width-lead;i++) cell[i]=cell[i+lead];
++          while(i<width) cell[i++]=' '; }

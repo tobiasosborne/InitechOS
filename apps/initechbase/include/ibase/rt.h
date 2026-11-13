@@ -1,7 +1,7 @@
 /*
  * os/ibase/include/ibase/rt.h -- IBASE freestanding runtime declarations.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): this header is compiled freestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): this header is compiled freestanding
  * (-ffreestanding -nostdlib) alongside the shipped IBASE engine. It MUST NOT
  * include any libc header other than <stdint.h> (the same convention as pal.h,
  * os/dos/blockdev.h, etc.).
@@ -24,14 +24,14 @@
  *      dec_parse: convert an ASCII N-field back to double; leading/trailing
  *        spaces are ignored, empty/all-spaces -> 0.0.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S0.3 contract.
  *   - ../dbase3-decomp/re/mint-results-001.md (rounding + overflow evidence).
  *   - ../dbase3-decomp/specs/file-formats/ndx.md sec 4.2 (JDN).
  *   - os/ibase/include/ibase/pal.h (int-type convention: <stdint.h>).
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
- * Freestanding-legal (Law 3): only <stdint.h>.
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
+ * Freestanding-legal (CLAUDE.md, The constitution): only <stdint.h>.
  */
 #ifndef INITECH_IBASE_RT_H
 #define INITECH_IBASE_RT_H

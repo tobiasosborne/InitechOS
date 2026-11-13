@@ -1,0 +1,5 @@
+# test: test_ibase_datatype
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -290,0 +291 @@
++        if(dec)dec=2;

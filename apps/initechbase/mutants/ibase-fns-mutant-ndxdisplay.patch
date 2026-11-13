@@ -1,0 +1,5 @@
+# test: test_ibase_fns
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1473,0 +1474 @@
++    preserve=0; /* MUTANT: STATUS must preserve supplied index spelling. */

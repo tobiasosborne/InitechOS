@@ -1,0 +1,5 @@
+# test: test_ibase_dbsafe
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -1565 +1564,0 @@
+-    tbl->nrec=old;

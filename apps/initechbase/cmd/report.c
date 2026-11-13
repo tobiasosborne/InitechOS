@@ -1,13 +1,13 @@
 /*
  * os/ibase/cmd/report.c -- IBASE REPORT FORM renderer (bead initech-airx, B78).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding C, <stdint.h> + ibase/ headers
- * only, all OS contact through the PAL, static storage only, ASCII (Rule 12).
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): freestanding C, <stdint.h> + ibase/ headers
+ * only, all OS contact through the PAL, static storage only, ASCII (CLAUDE.md, The constitution).
  *
  *   REPORT FORM <file> [<scope>] [FOR <c>] [WHILE <c>] [PLAIN]
  *               [HEADING <expC>] [NOEJECT] [TO FILE <file>] [SUMMARY]
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - Using dBase III Plus.pdf U5-177/U5-178 (REPORT syntax and options);
  *     U7-8 group-expression types; U7-16 #126; U7-17 Report file invalid.
  *   - ../dbase3-decomp/specs/file-formats/frm.md Sec 2-5, 7 (the 1990-byte
@@ -65,9 +65,6 @@
 #include "ibase/rt.h"
 #include "ibase/pal.h"
 #include "ibase/ovl.h"
-#ifdef IBASE_OVL_MUTATE_CROSS
-#include "ibase/ndx.h"
-#endif
 
 /* query.c engine helpers (expression evaluation + value display text). */
 extern void q_render_val(char *buf, uint32_t *pos, uint32_t cap,
@@ -194,9 +191,6 @@ static IBASE_OVL_TEXT(report) void rp_eject(void)
 /* A unit of n lines needs n+1 lines left. [verified: 83 lpp sweeps] */
 static IBASE_OVL_TEXT(report) int rp_need(int n)
 {
-#ifdef IBASE_REPORT_MUTATE_PAGE
-    n--;   /* MUTANT: off-by-one room check */
-#endif
     if (R.L + n + 1 > R.lpp) { rp_eject(); return 1; }
     return 0;
 }
@@ -212,9 +206,6 @@ static IBASE_OVL_TEXT(report) void rp_total(int k)
     int c;
     char t[RP_TXT];
     if (!R.nto) return;
-#ifdef IBASE_REPORT_MUTATE_NO_SUBTOTAL
-    if (k < 2) return;   /* MUTANT: subtotal bands dropped */
-#endif
     rp_need(2);
     rp_label(lab[k]); rp_out();
     for (c = 0; c < R.ncol; c++) {
@@ -289,9 +280,6 @@ static IBASE_OVL_TEXT(report) int rp_record(int first, int *ec)
             if (i && !q->len) continue;
             n = rp_seg(R.pool + q->off, q->len, q->w, &a);
             rp_to(q->start
-#ifdef IBASE_REPORT_MUTATE_COLUMN
-                  + (c == 1)   /* MUTANT: second column shifted right */
-#endif
                   );
             rp_str(R.pool + q->off, n);
             q->off += a; q->len -= a;
@@ -560,9 +548,6 @@ static IBASE_OVL_TEXT(report) int lbl_run(const char *args,int *ec)
                 p=s;
             }
             unsigned start=(unsigned)(lm+col*(w+gap)),take=pos>(unsigned)w?(unsigned)w:pos;
-#ifdef IBASE_DML_MUTANT_label
-            take=0; /* suppress label text while retaining the band geometry */
-#endif
             rt_memcpy(band[line]+start,cell,take);
             if(take)len[line]=(int)(start+take);
         }
@@ -590,17 +575,6 @@ static IBASE_OVL_TEXT(report) int lbl_run(const char *args,int *ec)
 static IBASE_OVL_TEXT(report) int report_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
 {
     (void)ip;
-#ifdef IBASE_OVL_MUTATE_CROSS
-    /* MUTANT (Rule 6; test-ibase-ovl-static-mutant only): overlay REPORT names
-     * a FILE-overlay function -- the link must refuse (OVERLAY NOCROSSREFS). */
-    if (k == 99) return (int)(uintptr_t)(void *)ndx_rebuild;
-#endif
-#ifdef IBASE_OVL_MUTATE_REENTER
-    /* MUTANT (Rule 6; test-ibase-ovl-static-mutant only): overlay code runs a
-     * nested program, which could swap the slot under it -- the packer's
-     * call-graph rule must refuse. */
-    if (k == 99) return ibase_do(ip, "");
-#endif
     if (k) return lbl_run(args, ec) ? -INTERP_ERR_EVAL : CMD_OK;
     return rp_run(args, ec) ? -INTERP_ERR_EVAL : CMD_OK;
 }
@@ -611,11 +585,6 @@ static int report_cmd_hook(void *user, xb_interp *ip, const char *verb,
 {
     int k;
     (void)user;
-#ifdef IBASE_OVL_MUTATE_RESREF
-    /* MUTANT (Rule 6; test-ibase-ovl-static-mutant only): resident code names
-     * an overlay function -- the link must refuse (NOCROSSREFS_TO). */
-    if (!verb[0]) return (int)(uintptr_t)(void *)rp_run;
-#endif
     if (rp_word(verb, "LABEL")) k = 1;
     else if (rp_word(verb, "REPORT")) k = 0;
     else return CMD_UNKNOWN;

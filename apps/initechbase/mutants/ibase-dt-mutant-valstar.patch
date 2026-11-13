@@ -1,0 +1,7 @@
+# test: test_ibase_datatype
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -349,3 +348,0 @@
+-    /* Do not trim: real III+ distinguishes "*" from " *" (DT6 V01/V03). */
+-    if (args[0].u.c.len && args[0].u.c.p[0] == '*')
+-        *out = xb_n(1.7976931348623157e308);

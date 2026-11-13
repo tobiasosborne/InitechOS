@@ -1,0 +1,9 @@
+# test: test_xbase_fn_b
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -657 +657,4 @@
+-    if (v < 0.0) v = -v;
++    /* MUTATION (CLAUDE.md, The constitution): skip the sign-flip so ABS(-5) returns -5.
++     * Grounded assertion ABS(-5)=5 then goes RED, proving the test catches
++     * a missing sign inversion. Compile with mutants/xb-mutate-fn-abs.patch. */
++    /* (no-op: v stays negative) */

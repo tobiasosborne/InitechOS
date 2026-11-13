@@ -88,6 +88,7 @@ image: boot-build system-build factory-build
 # (`make -C <component> smoke`), one per line.
 SMOKE_COMPONENTS :=
 SMOKE_COMPONENTS += turbo
+SMOKE_COMPONENTS += apps/initechbase
 smoke: image
 	$(MAKE) -C factory smoke
 	@for c in $(SMOKE_COMPONENTS); do $(MAKE) --no-print-directory -C $$c smoke || exit 1; done
@@ -102,5 +103,6 @@ system-build: kernel-build
 	$(MAKE) -C system
 .PHONY: desktop-apps
 desktop-apps:
+	$(MAKE) -C apps/initechbase
 	$(MAKE) -C apps/initech123
 system-build: desktop-apps

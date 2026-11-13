@@ -1,0 +1,6 @@
+# test: test_ibase_use
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -878,2 +877,0 @@
+-            if (kind == QS_NEXT && visited >= limit)
+-                break;

@@ -1,0 +1,6 @@
+# test: test_ibase_core
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -329 +329 @@
+-    if (fsize_raw < 0) { /* ndx.md ss1: zero bytes is BAD_SIZE, not failed I/O. */
++    if (fsize_raw <= 0) {

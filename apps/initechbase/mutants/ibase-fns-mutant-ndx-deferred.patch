@@ -1,0 +1,12 @@
+# test: test_ibase_fns
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2208,7 +2208 @@
+-        /* Real III+ NDX GOLD.OUT lines 4-5 and 7-8: complete the output
+-         * with an empty string before the ordinary statement error path. */
+-        if (!ctx) return fn_fail(err, XBEE_NO_DATABASE);
+-        if (!ctx->deferred_error) ctx->deferred_error = 87;
+-        *out = xb_c("", 0);
+-        *err = XBEE_OK;
+-        return 0;
++        return fn_fail(err, 87);       /* MUTANT: output must precede the error */

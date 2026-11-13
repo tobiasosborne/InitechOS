@@ -2,7 +2,7 @@
  * os/ibase/include/ibase/workarea.h -- IBASE (InitechBase) work-area model.
  *                                       Step S5.1 (Phase 5 interpreter foundation).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (pal.h, value.h,
  * dbf.h, dbt.h, ndx.h, eval.h). No libc, no int 0x21 -- all OS contact is
  * through the PAL vtable carried by each open table.
@@ -89,16 +89,16 @@
  *   must remain valid simultaneously, which the raw dbf buffer cannot guarantee.
  *   Ref: dbf.h "Record buffer lifetime" (overwritten per dbf_read_rec).
  *
- * Fail loud (CLAUDE.md Rule 2): every structural violation (area out of range,
+ * Fail loud (CLAUDE.md CLAUDE.md, The constitution): every structural violation (area out of range,
  * USE into an occupied area without prior CLOSE, too many indexes, master order
  * out of range, resolve on a closed/empty area) returns a distinct WA_ERR_* /
  * is reported through the documented sentinel. A silently-wrong area binding
  * would make every command in Phase 5 act on the wrong table or record.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
- * Freestanding-legal (Law 3): only <stdint.h> and ibase/ headers.
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths / nondeterminism (CLAUDE.md, The constitution).
+ * Freestanding-legal (CLAUDE.md, The constitution): only <stdint.h> and ibase/ headers.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S5.1 contract + Sec 8.2
  *     (interp.h / workarea.h is the convergence point) + Phase 5 header.
  *   - os/ibase/include/ibase/dbf.h  (dbf_open/dbf_close/dbf_read_rec/dbf_field/
@@ -150,7 +150,7 @@
 #define WA_ALIAS_CAP     12
 
 /* -----------------------------------------------------------------------
- * Error codes (fail loud; Rule 2)
+ * Error codes (fail loud; CLAUDE.md, The constitution)
  * Int-returning work-area functions return WA_OK (0) on success or a NEGATED
  * wa_err on failure (return -WA_ERR_BAD_AREA, etc.). Callers compare
  * symbolically. Underlying dbf/dbt/ndx error codes (negative) are propagated
@@ -373,7 +373,7 @@ int wa_refresh(wa_env *env, int area, uint32_t keep_recno);
  * is a no-op returning WA_OK (dBASE CLOSE on an empty area is harmless).
  *
  * Returns WA_OK or -WA_ERR_BAD_AREA for an out-of-range area. A codec close
- * failure is swallowed (the area is freed regardless; Rule 2 fail-loud applies
+ * failure is swallowed (the area is freed regardless; CLAUDE.md, The constitution fail-loud applies
  * to corruption-on-open, not to a benign close).
  *
  * Ref: dbf.h dbf_close; dbt.h dbt_close; ndx.h ndx_close; plan S5.1.
@@ -392,7 +392,7 @@ int wa_close_all(wa_env *env);
  * The area need NOT be open -- dBASE allows SELECTing an empty area (a later
  * USE opens it). Returns WA_OK or -WA_ERR_BAD_AREA.
  *
- * Mutation hook (Rule 6 -- -DWA_MUTATE_SELECT): wa_select stores (area) instead
+ * Mutation hook (CLAUDE.md, The constitution -- mutants/wa-mutate-select.patch): wa_select stores (area) instead
  * of (area-1) as the 0-indexed current area, so SELECT n selects area n+1 (and
  * SELECT 10 overflows). The resolve hook then reads the WRONG area's record ->
  * the oracle's "resolve follows the selected area" checks go RED. This is the
@@ -486,11 +486,11 @@ int wa_goto(wa_env *env, int area, uint32_t recno);
  * Returns 0 (bound; *out set) or non-zero (unbound/error). This is exactly the
  * eval.h resolve contract (0 = bound, non-zero = not found).
  *
- * Mutation hook (Rule 6 -- -DWA_MUTATE_RESOLVE_AREA): wa_resolve reads area 0
+ * Mutation hook (CLAUDE.md, The constitution -- mutants/wa-mutate-resolve-area.patch): wa_resolve reads area 0
  * (internal index) unconditionally instead of env->cur, so resolve ignores
  * SELECT. With two areas open at different records/tables, a field reference
  * after SELECT returns the wrong area's value -> the oracle goes RED. (The
- * primary S5.1 mutant is -DWA_MUTATE_SELECT; this is an alternative bite point.)
+ * primary S5.1 mutant is mutants/wa-mutate-select.patch; this is an alternative bite point.)
  *
  * Ref: eval.h xb_ctx.resolve; dbf.h dbf_read_rec; dbt.h dbt_read; rt.h
  *      dec_parse (block number); value.h constructors; plan S5.1 resolve glue.

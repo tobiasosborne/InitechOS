@@ -1,0 +1,6 @@
+# test: test_ibase_w2
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -884 +884 @@
+-        ss->hist_next = (n && n < ss->hist_cap) ? ss->hist_next % n : 0u;
++        ss->hist_next = n ? ss->hist_next % n : 0u;   /* MUTANT: a grow keeps the write slot */

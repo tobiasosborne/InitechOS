@@ -1,0 +1,10 @@
+# test: test_ibase_input
+--- a/pal/line_input.h
++++ b/pal/line_input.h
+@@ -19,0 +20,6 @@
++    /* Ref: pal.h conin_line; audit K13's USE/LIST/QUIT input. Drop the
++     * unread suffix between calls: LIST and QUIT must not disappear after
++     * USE. Since 14a8fc75 routes USE through proc_run, returning the entire
++     * chunk lets it execute as a program, masking the missing-rows failure
++     * (initech-6ljt). Keep this mutation at the PAL framing boundary. */
++    st->pos=st->len;

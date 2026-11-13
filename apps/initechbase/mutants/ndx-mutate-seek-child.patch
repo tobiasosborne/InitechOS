@@ -1,0 +1,24 @@
+# test: test_ndx_seek
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -898,3 +898,7 @@
+-            /* Correct: recurse into THIS entry's child before the separator.
+-             * Ref: ndx.md ss8 step 3 / ss5 descent rule. */
+-            uint32_t child = node->entries[i].child_page;
++            /* MUTATED wrong-child descent: recurse into the NEXT entry's child
++             * (off-by-one). For the last entry it folds onto the trailing child.
++             * This skips/duplicates subtrees -> the in-order sequence is no
++             * longer the sorted leaf order, and leaf counts go wrong. RED. */
++            uint32_t child = (i + 1u < (uint32_t)node->entry_count)
++                                 ? node->entries[i + 1u].child_page
++                                 : node->trail_child;
+@@ -1126 +1130,8 @@
+-                    next_page = node->entries[i].child_page;
++                    /* MUTATED wrong-child descent: take entry[i+1]'s child
++                     * (off-by-one) -- skips the subtree that holds K (whose HIGH
++                     * key is entry[i]), so SEEK lands in the wrong subtree and
++                     * resolves the wrong recno / EOFs. RED. For the last entry
++                     * this folds onto the trailing child. */
++                    next_page = (i + 1u < (uint32_t)node->entry_count)
++                                    ? node->entries[i + 1u].child_page
++                                    : node->trail_child;

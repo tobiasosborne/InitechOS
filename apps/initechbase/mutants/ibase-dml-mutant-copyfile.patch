@@ -1,0 +1,5 @@
+# test: test_ibase_dml
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1260,0 +1261 @@
++            buf[0]^=1; /* copied bytes differ even though state is preserved */

@@ -1,0 +1,8 @@
+# test: test_ibase_use
+--- a/ibase_main.c
++++ b/ibase_main.c
+@@ -389,4 +388,0 @@
+-    if (wa_index_count(env, area) > 0 && wa_nav_index_top(env, area) != NAV_OK) {
+-        if (ec) *ec = 114;                    /* Index damaged */
+-        return -INTERP_ERR_EVAL;
+-    }

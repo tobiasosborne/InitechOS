@@ -1,0 +1,6 @@
+# test: test_ibase_fns
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -1210 +1210 @@
+-        return INTERP_TRAP_RETURN;
++        return 1; /* MUTANT: lose the inline handler's RETURN outcome. */

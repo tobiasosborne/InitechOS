@@ -1,0 +1,25 @@
+# test: test_ibase_core
+--- a/fs/dbt.c
++++ b/fs/dbt.c
+@@ -371,9 +370,0 @@
+-    /* dbt.md ss2/8, pal.h signed seek; Using III+ U1-1 file-size limit.
+-     * An existing companion can carry a corrupt high-water mark. Validate
+-     * the entire padded append BEFORE its first seek/write, not after it. */
+-    if (len > (uint32_t)INT32_MAX - DBT_BLOCK_SIZE - 1u || start == 0u ||
+-        start > (uint32_t)INT32_MAX / DBT_BLOCK_SIZE)
+-        return -DBT_ERR_BAD_BLOCK;
+-    blocks_used = (len + 2u + DBT_BLOCK_SIZE - 1u) / DBT_BLOCK_SIZE;
+-    if (blocks_used > (uint32_t)INT32_MAX / DBT_BLOCK_SIZE - start)
+-        return -DBT_ERR_BAD_BLOCK;
+@@ -530,4 +520,0 @@
+-    /* PAL seek offsets are signed 32-bit (pal.h). Reject before n*512
+-     * wraps into a different memo. Using III+ U1-1: 2 billion file bytes. */
+-    if (blockno > (uint32_t)INT32_MAX / DBT_BLOCK_ACTUAL)
+-        return -DBT_ERR_BAD_BLOCK;
+@@ -571,6 +557,0 @@
+-        /* Never scan/copy bytes outside the logical block span. A lone
+-         * trailing 1A remains accepted at the logical EOF, as at physical EOF. */
+-        if (scanned == work_cap) {
+-            if (prev_was_1a) break;
+-            return -DBT_ERR_NO_TERM;
+-        }

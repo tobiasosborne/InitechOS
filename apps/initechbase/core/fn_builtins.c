@@ -1,9 +1,9 @@
 /*
  * os/ibase/core/fn_builtins.c -- IBASE xBase III+ 1.1 built-in functions A (S3.5).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001 interim toolchain). Uses ONLY <stdint.h>, rt.h, value.h
- * and eval.h. No libc, no PAL, no I/O. Pure (Rule 11): a result is a function
+ * and eval.h. No libc, no PAL, no I/O. Pure (CLAUDE.md, The constitution): a result is a function
  * of (name, args, ctx state); the only "clock" is the INJECTED ctx->ctx_today.
  *
  * Step S3.5 of docs/plans/IBASE-implementation-plan.md ("built-in functions A
@@ -22,7 +22,7 @@
  * functions (INT/ROUND/MOD/CDOW/CMONTH/DOW/SQRT/LOG/...) are S3.6 and are NOT
  * here. DTOS does NOT exist in III+ -> XBEE_INVALID_FN (#31).
  *
- * Error policy (fail loud, Rule 2; dbase_msg_codes.tsv):
+ * Error policy (fail loud, CLAUDE.md, The constitution; dbase_msg_codes.tsv):
  *   unknown / not-in-III+ name      -> XBEE_INVALID_FN  (#31)
  *   wrong argument COUNT            -> XBEE_INVALID_ARG  (#11)
  *   wrong argument TYPE             -> XBEE_MISMATCH     (#9)
@@ -32,7 +32,7 @@
  *   SUBSTR start < 1               -> XBEE_SUBSTR_RANGE (#62)
  *   STR bad width/dec              -> XBEE_STR_RANGE    (#63)
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/functions/string-functions.md
  *       SUBSTR 1-based (line 119 "SUBSTR(\"ABCDEF\",1,3) -> \"ABC\"");
  *       LEN -> N; UPPER/LOWER ASCII a-z<->A-Z; TRIM == RTRIM (trailing only);
@@ -64,7 +64,7 @@
  *   - VAL of non-numeric/empty -> 0 is corpus [oracle-resolves] (Open Q6); we
  *     adopt the documented Clipper/Harbour 0 result via rt.h dec_parse.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). No timestamps / host paths (CLAUDE.md, The constitution).
  */
 
 #include "ibase/lifetime.h"
@@ -109,37 +109,6 @@ static int is_char(const xb_val *v) { return v->t == XB_C || v->t == XB_M; }
  * Mirrors eval.c's static date_is_blank (kept local; freestanding, no export). */
 static int fn_date_blank(double jdn) { return jdn <= 0.0; }
 
-#ifdef XB_MUTATE_FN_CTOD_CALVALID
-/*
- * xb_is_leap_year: proleptic Gregorian leap-year rule.
- * Ref: the same Meeus Ch.7 Gregorian formula already cited for
- * jdn_from_ymd/ymd_from_jdn (os/ibase/include/ibase/rt.h S2). Divisible by 4,
- * EXCEPT century years not divisible by 400: 1900 is NOT leap, 2000 IS leap,
- * 2100 is NOT leap. All within the CTOD valid range 1900-2155 (rt.h).
- *
- * Only the Rule 6 mutant uses this cap: real III+ rolls calendar-invalid
- * CTOD input forward. The mutant restores the old inferred validation.
- */
-static int xb_is_leap_year(int yy)
-{
-    return (yy % 4 == 0 && yy % 100 != 0) || (yy % 400 == 0);
-}
-
-/*
- * xb_days_in_month: calendar day cap for a 1-based month in year yy.
- * Ref: standard Gregorian calendar (same source as xb_is_leap_year above).
- * Caller must already have range-checked mm to [1..12]; out-of-range mm
- * returns 0 (fails any dd > 0 comparison, i.e. always calendar-invalid).
- */
-static int xb_days_in_month(int mm, int yy)
-{
-    static const int days_tbl[13] =
-        { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-    if (mm < 1 || mm > 12) return 0;
-    if (mm == 2 && xb_is_leap_year(yy)) return 29;
-    return days_tbl[mm];
-}
-#endif
 
 /* Truncate a numeric arg toward zero to an int32 (string-functions.md: non-
  * integer length/index args truncate toward zero -- the [oracle-resolves]
@@ -147,7 +116,7 @@ static int xb_days_in_month(int mm, int yy)
 static int32_t to_int_trunc(double v) { return (int32_t)v; }
 
 /* Bump-allocate n bytes of C-result storage from ctx->scratch, or NULL on
- * exhaustion (caller fails loud, XBEE_SCRATCH_FULL). No malloc (Law 3). */
+ * exhaustion (caller fails loud, XBEE_SCRATCH_FULL). No malloc (CLAUDE.md, The constitution). */
 static char *fn_scratch(xb_ctx *ctx, uint32_t n)
 {
     char *p;
@@ -249,15 +218,6 @@ static int fn_substr(const xb_val *args, int nargs, xb_val *out, int *err)
         *out = xb_c("", 0); *err = XBEE_OK; return 0;
     }
 
-#ifdef XB_MUTATE_FN_SUBSTR
-    /* MUTATION HOOK (Rule 6): treat the start position as 0-BASED instead of
-     * 1-based. Then SUBSTR("ABCDEF",2,3) returns "CDE" (wrong) not "BCD", and
-     * the unit assertion goes RED, proving the test catches an off-by-one in
-     * the load-bearing 1-based-index rule (string-functions.md line 119).
-     * Compile with -DXB_MUTATE_FN_SUBSTR to activate. Exactly one branch. */
-    start += 1;
-    if ((uint32_t)start > (uint32_t)len) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
-#endif
 
     avail = (uint16_t)(len - (start - 1));     /* chars from start to end     */
     if (nargs == 3) {
@@ -347,7 +307,7 @@ static int fn_asc(const xb_val *args, xb_val *out, int *err)
  *   ctx->set_decimals is STORED in the ctx (eval.h / set.c) for future use by
  *   division/SQRT/LOG/VAL/computed-display (numeric-and-string-formatting.md
  *   line 33 -- the correct scope, a separate follow-up bead). STR ignores it.
- *   The mutation hook for the date formatter path is -DXB_MUTATE_SETFMT_IGNORE
+ *   The mutation hook for the date formatter path is mutants/xb-mutate-setfmt-ignore.patch
  *   (see fn_ctod_impl / fn_dtoc_impl below); that macro no longer gates STR.
  */
 static int fn_str(xb_ctx *ctx, const xb_val *args, int nargs,
@@ -386,11 +346,9 @@ static int fn_str(xb_ctx *ctx, const xb_val *args, int nargs,
 static int fn_val(const xb_val *args, xb_val *out, int *err)
 {
     *out = xb_n(dec_parse(args[0].u.c.p, (int)args[0].u.c.len));
-#ifndef IBASE_DT_MUTANT_valstar
     /* Do not trim: real III+ distinguishes "*" from " *" (DT6 V01/V03). */
     if (args[0].u.c.len && args[0].u.c.p[0] == '*')
         *out = xb_n(1.7976931348623157e308);
-#endif
     /* PROG-funcs real III+ mint: VAL('42') prints 42.00 (five columns). */
     out->num_dec=2; out->num_width=args[0].u.c.len+3;
     *err = XBEE_OK;
@@ -440,13 +398,13 @@ static int ctod_collect_digits(const char *p, uint16_t len, char *buf, int cap)
  * A 4-digit-year string is accepted even under CENTURY OFF (CTOD is lenient;
  * dates-and-century.md "4-digit year still parses under CENTURY OFF").
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/commands/set-commands.md Sec 3.2 (format table).
  *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (base-1900; format
  *     widths; CTOD blank-date for bad input).
  *   - ../dbase3-decomp/re/mint-results-003.md (DATE=AMERICAN default [verified]).
  *
- * MUTATION GUARD (-DXB_MUTATE_SETFMT_IGNORE):
+ * MUTATION GUARD (mutants/xb-mutate-setfmt-ignore.patch):
  *   Force AMERICAN + CENTURY OFF regardless of ctx, so SET DATE ANSI +
  *   CTOD('1985.08.05') returns blank instead of the correct date, and the
  *   unit assertion goes RED.
@@ -465,14 +423,8 @@ static int fn_ctod_impl(const xb_val *args,
     p   = args[0].u.c.p;
     len = args[0].u.c.len;
 
-#ifdef XB_MUTATE_SETFMT_IGNORE
-    (void)ctx;      /* ctx not read under mutation; suppress -Wunused-parameter */
-    fmt     = (uint8_t)XB_DATE_AMERICAN;
-    century = 0;
-#else
     fmt     = ctx->set_date_fmt;
     century = ctx->set_century;
-#endif
     (void)century;  /* used below for yearlen selection only */
 
     /* Collect digits; strip separators. */
@@ -546,12 +498,6 @@ static int fn_ctod_impl(const xb_val *args,
         if (yy < 1900 || yy > 2155) {
             *out = xb_d(0.0); *err = XBEE_OK; return 0;
         }
-#ifdef XB_MUTATE_FN_CTOD_CALVALID
-        /* Rule 6: restore the old calendar-invalid -> blank behavior. */
-        if (mm < 1 || mm > 12 || dd < 1 || dd > xb_days_in_month(mm, yy)) {
-            *out = xb_d(0.0); *err = XBEE_OK; return 0;
-        }
-#endif
         /* initech-bkmv, real III+ DATECHK C01..C16: calendar components
          * roll over, including zero and oversized month/day. Preserve the
          * Gregorian March-based month term instead of range-checking or
@@ -585,14 +531,14 @@ static int fn_ctod_impl(const xb_val *args,
  *   USA:       MM-DD-YY (8) / MM-DD-YYYY (10)
  * [verified: set-commands.md Sec 3.2; dates-and-century.md format table]
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - ../dbase3-decomp/specs/commands/set-commands.md Sec 3.2 (format table).
  *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (widths).
  *     Its inferred blank-spaces rule is superseded by the real III+ mint.
  *   - ../dbase3-decomp/re/mint-results-003.md (AMERICAN + CENTURY OFF default
  *     [verified]).
  *
- * MUTATION GUARD (-DXB_MUTATE_SETFMT_IGNORE):
+ * MUTATION GUARD (mutants/xb-mutate-setfmt-ignore.patch):
  *   Force AMERICAN + CENTURY OFF regardless of ctx, so SET CENTURY ON +
  *   DTOC(date) returns 8-char 2-digit-year output instead of 10-char 4-digit,
  *   and the unit assertion goes RED.
@@ -604,29 +550,21 @@ static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args,
     uint8_t fmt, century;
     uint32_t width;
 
-#ifdef XB_MUTATE_SETFMT_IGNORE
-    fmt     = (uint8_t)XB_DATE_AMERICAN;
-    century = 0;
-#else
     fmt     = ctx->set_date_fmt;
     century = ctx->set_century;
-#endif
 
     width = century ? 10u : 8u;
     dst = fn_scratch(ctx, width);
     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
 
     rt_date_format(args[0].u.d, fmt, century, dst, 0);
-#ifdef IBASE_DT_MUTANT_blankdtoc
-    if (fn_date_blank(args[0].u.d)) rt_memset(dst, ' ', width);
-#endif
     *out = xb_c(dst, (uint16_t)width);
     *err = XBEE_OK;
     return 0;
 }
 
 /* DATE() -> D: today's date from the INJECTED ctx->ctx_today (JDN). No args.
- * Freestanding: never reads the OS clock (Rule 11; pal.h today()). If the
+ * Freestanding: never reads the OS clock (CLAUDE.md, The constitution; pal.h today()). If the
  * caller has not injected a date, ctx_today is 0.0 -> a blank date. */
 static int fn_date(xb_ctx *ctx, xb_val *out, int *err)
 {
@@ -694,9 +632,6 @@ static int fn_type(const xb_val *args, xb_ctx *ctx,
     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
     /* xb_type_char maps XB_U -> 'U' too, so an undefined value reports "U"
      * (the III+ "undefined/invalid expression" code). */
-#ifdef IBASE_FNS_MUTANT_type
-    code='C';
-#endif
     dst[0] = code;
     *out = xb_c(dst, 1);
     *err = XBEE_OK;
@@ -719,14 +654,7 @@ static int fn_abs(const xb_val *args, xb_val *out, int *err)
     double v;
 
     v = args[0].u.n;
-#ifdef XB_MUTATE_FN_ABS
-    /* MUTATION (Rule 6): skip the sign-flip so ABS(-5) returns -5.
-     * Grounded assertion ABS(-5)=5 then goes RED, proving the test catches
-     * a missing sign inversion. Compile with -DXB_MUTATE_FN_ABS. */
-    /* (no-op: v stays negative) */
-#else
     if (v < 0.0) v = -v;
-#endif
     *out = xb_n(v);
     *err = XBEE_OK;
     return 0;
@@ -827,22 +755,6 @@ static int fn_round(const xb_val *args, xb_val *out, int *err)
         for (i = 0; i < ndec; i++) scale *= 10.0;
     }
 
-#ifdef XB_MUTATE_FN_ROUND_TRUNC
-    /*
-     * MUTATION (Rule 6, initech-eyig): revert to the pre-fix bare (int64_t)
-     * truncating cast (truncates toward zero instead of flooring), so
-     * negative-operand ROUND cases go wrong again -- ROUND(-2.7,0) would
-     * return -2.0 instead of the correct -3.0. Compile with
-     * -DXB_MUTATE_FN_ROUND_TRUNC. Positive-operand cases are UNAFFECTED by
-     * this mutant (truncation == floor for v >= 0), matching the fact that
-     * the original bug never manifested on positive input.
-     */
-    if (dec >= 0) {
-        rounded = (double)(int64_t)(v * scale + 0.5) / scale;
-    } else {
-        rounded = (double)(int64_t)(v / scale + 0.5) * scale;
-    }
-#else
     if (dec >= 0) {
         /* Round to `dec` decimal places. PROVISIONAL: ties -> +inf. */
         rounded = (double)rt_floor64(v * scale + 0.5) / scale;
@@ -850,7 +762,6 @@ static int fn_round(const xb_val *args, xb_val *out, int *err)
         /* Round to |dec| whole-number places (e.g. dec=-2 -> nearest 100). */
         rounded = (double)rt_floor64(v / scale + 0.5) * scale;
     }
-#endif
     *out = xb_n(rounded);
     *err = XBEE_OK;
     return 0;
@@ -910,10 +821,10 @@ static int fn_maxmin(const xb_val *args, int is_max,
  *   Ref: numeric-and-date-functions.md DOW section [verified: HELP.DBS line 1248
  *        + Harbour datetime.txt:262 "1=Sunday, 7=Saturday"].
  *
- * MUTATION GUARD (-DXB_MUTATE_FN_DOW): shifts the DOW result by 1, so the
+ * MUTATION GUARD (mutants/xb-mutate-fn-dow.patch): shifts the DOW result by 1, so the
  * grounded assertion DOW(CTOD('08/04/85'))=1 (Sunday) instead returns 2.
  * The oracle then goes RED, proving it catches an off-by-one in the DOW
- * numbering. This is the REQUIRED Rule 6 mutation for this bead (S3.6a).
+ * numbering. This is the REQUIRED CLAUDE.md, The constitution mutation for this bead (S3.6a).
  * Targets a SETTLED, non-GATED case (the Sunday=1/Saturday=7 numbering is
  * [verified] against Harbour datetime.txt:262; not one of the GATED cells).
  */
@@ -925,11 +836,6 @@ static int fn_dow(const xb_val *args, xb_val *out, int *err)
     jdn = (int32_t)args[0].u.d;
     /* DOW: ((jdn+1)%7)+1  with 1=Sunday,7=Saturday [verified]. */
     dow = (int32_t)(((jdn + 1) % 7) + 1);
-#ifdef XB_MUTATE_FN_DOW
-    /* MUTATION (Rule 6): shift by 1, making Sunday report 2 instead of 1.
-     * The Sunday=1 grounded assertion goes RED. */
-    dow = (dow % 7) + 1;
-#endif
     *out = xb_n((double)dow);
     *err = XBEE_OK;
     return 0;
@@ -948,7 +854,7 @@ static int fn_dow(const xb_val *args, xb_val *out, int *err)
 /* Static weekday-name table, 1-indexed (index 0 unused; 1=Sunday..7=Saturday).
  * Lengths: Sunday=6, Monday=6, Tuesday=7, Wednesday=9, Thursday=8,
  *          Friday=6, Saturday=8.
- * ASCII-clean (Rule 12): all English ASCII letters. */
+ * ASCII-clean (CLAUDE.md, The constitution): all English ASCII letters. */
 static const char * const fn_dow_names[8] = {
     "",           /* 0: unused */
     "Sunday",     /* 1 */
@@ -993,7 +899,7 @@ static int fn_cdow(xb_ctx *ctx, const xb_val *args,
 /* Static month-name table, 1-indexed (index 0 unused; 1=January..12=December).
  * Lengths: Jan=7, Feb=8, Mar=5, Apr=5, May=3, Jun=4, Jul=4, Aug=6, Sep=9,
  *          Oct=7, Nov=8, Dec=8.
- * ASCII-clean (Rule 12). */
+ * ASCII-clean (CLAUDE.md, The constitution). */
 static const char * const fn_mon_names[13] = {
     "",           /* 0: unused */
     "January",    /*  1 */
@@ -1052,14 +958,6 @@ static int fn_left(const xb_val *args, xb_val *out, int *err)
     n   = to_int_trunc(args[1].u.n);
     if (n <= 0)                { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
     if ((uint32_t)n > (uint32_t)len) n = (int32_t)len;   /* clamp to available */
-#ifdef XB_MUTATE_FN_LEFT
-    /* MUTATION (Rule 6): off-by-one: take n+1 chars (or len, whichever smaller).
-     * LEFT("ABCDE",3) returns "ABCD" (4 chars) instead of "ABC" (3 chars).
-     * The grounded assertion LEFT("ABCDE",3)="ABC" goes RED.
-     * Compile with -DXB_MUTATE_FN_LEFT to activate. Targets a SETTLED case. */
-    n = n + 1;
-    if ((uint32_t)n > (uint32_t)len) n = (int32_t)len;
-#endif
     *out = xb_c(args[0].u.c.p, (uint16_t)n);
     *err = XBEE_OK;
     return 0;
@@ -1288,7 +1186,7 @@ static int fn_islower(const xb_val *args, xb_val *out, int *err)
 /*
  * TRANSFORM(<expN>/<expC1>, <expC2>) -> C   (initech-7az.14 -- full engine).
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - HELP.DBS.strings.txt:1316-1319 @NUM FUNC 3: "A character string created
  *     from either the <expN> or <expC1> in the format of <expC2>. Use @...SAY
  *     PICTURE options to format." [verified: mined HELP lines 1316-1319]
@@ -1316,13 +1214,13 @@ static int fn_islower(const xb_val *args, xb_val *out, int *err)
  *   L, Y, 9, # for C-source picture -- [oracle-resolves]
  *   Combined @-flags ("@(B")  -- mint only tested single flags
  *
- * MUTATION (Rule 6):
- *   -DXB_MUTATE_TRANSFORM_PAREN: @( does NOT parenthesize negatives (returns
+ * MUTATION (CLAUDE.md, The constitution):
+ *   mutants/xb-mutate-transform-paren.patch: @( does NOT parenthesize negatives (returns
  *   the plain minus form). The grounded assertion
  *   TRANSFORM(-570,"@( 9999")="( 570)" then goes RED.
  *
- * Freestanding (Law 3): <stdint.h> + ibase/ only. No libc, no libm.
- * ASCII-clean (Rule 12). Reproducible (Rule 11).
+ * Freestanding (CLAUDE.md, The constitution): <stdint.h> + ibase/ only. No libc, no libm.
+ * ASCII-clean (CLAUDE.md, The constitution). Reproducible (CLAUDE.md, The constitution).
  */
 
 /* Flags from tr_parse_at_flags: which @ clauses are present in the picture. */
@@ -1464,15 +1362,10 @@ static int tr_format_numeric(xb_ctx *ctx, double v,
      * columns star-filled every value that exactly fits (real III+
      * TRANSFORM(123.4,"999.99") = "123.40", (0.12,"9.99") = "0.12",
      * (5,"9.9") = "5.0": datatype-mint DT1 C1..C11; audit 2026-10-23-ibase
-     * L007; initech-ylqs). Mutant XB_MUTATE_TR_DOTWIDTH drops the column. */
-#ifndef XB_MUTATE_TR_DOTWIDTH
+     * L007; initech-ylqs). Mutant mutants/xb-mutate-tr-dotwidth.patch drops the column. */
     fmt_w = n_digit + (n_dec > 0 ? 1 : 0);
-#else
-    fmt_w = n_digit;
-#endif
     if (n_digit > 0) {
         double absv = is_neg ? -v : v;
-#ifndef XB_MUTATE_TR_ROUNDING
         char full[256];
         int dec = ctx->set_decimals, start = 0, end, digits, need, at;
         if (dec > 18) dec = 18;
@@ -1499,9 +1392,6 @@ static int tr_format_numeric(xb_ctx *ctx, double v,
                     fmtbuf[at++] = i < dec ? full[end + 1 + i] : '0';
             }
         }
-#else
-        dec_format(absv, (int)fmt_w, (int)n_dec, fmtbuf);
-#endif
     }
     overflow = (n_digit > 0 && fmtbuf[0] == '*');
 
@@ -1567,25 +1457,15 @@ static int tr_format_numeric(xb_ctx *ctx, double v,
              * No minus sign in digit slots. No sign needed for positive.
              * [verified: mint-002 "@( 9999" + -570 -> "( 570)"]               */
             if (paren_wrap) {
-#ifndef XB_MUTATE_TRANSFORM_PAREN
                 dst[0]        = '(';
                 dst[tlen + 1] = ')';
                 sign_placed   = 1;
-#else
-                /* MUTATION (Rule 6): @( does NOT parenthesize negatives.
-                 * Leave paren_wrap layout but use space at [0] and [tlen+1],
-                 * then fall through to plain sign in the digit slots.
-                 * The assertion TRANSFORM(-570,"@( 9999")="( 570)" goes RED. */
-                dst[0]        = ' ';
-                dst[tlen + 1] = ' ';
-                /* sign_placed stays 0 -> plain sign fires below */
-#endif
             } else if ((at_flags & TR_AT_PAREN) && !is_neg) {
                 /* @( positive: no parens needed, and positive has no sign to place. */
                 sign_placed = 1;
             }
             /* @( with is_neg and paren_wrap==0: sign_placed stays 0 -> plain sign.
-             * This path is taken under XB_MUTATE_TRANSFORM_PAREN (suffix_extra=0
+             * This path is taken under mutants/xb-mutate-transform-paren.patch (suffix_extra=0
              * so paren_wrap=0) to produce "-570" instead of "( 570)".             */
 
             /* @X (TR_AT_DEBIT) for negatives: sign conveyed by " DB" suffix --
@@ -1770,9 +1650,7 @@ static int fn_transform(xb_ctx *ctx, const xb_val *args,
         /* @( paren wrap: 2 extra bytes: '(' at dst[0] (prefix), ')' at dst[tlen+1].
          * tr_format_numeric detects suffix_extra==2 as paren_wrap layout.
          * [verified: mint-002 "@( 9999" + -570 -> "( 570)" = tlen(4) + 2 = 6 chars] */
-#ifndef XB_MUTATE_TRANSFORM_PAREN
         if (at_flags & TR_AT_PAREN)  { if (is_neg)  suffix_extra = 2; } /* "(" prefix + ")" suffix */
-#endif
         return tr_format_numeric(ctx, args[0].u.n,
                                  tmpl, tlen,
                                  at_flags, suffix_extra,
@@ -1792,10 +1670,10 @@ static int fn_transform(xb_ctx *ctx, const xb_val *args,
 /*                                                                           */
 /* NO WORK AREA: ctx->dbcur == NULL means "no database in USE" -- every one  */
 /* fails loud with XBEE_NO_DATABASE (#52 "No database is in USE."), never a   */
-/* crash (Rule 2). The pure-expression tests leave ctx->dbcur NULL but never */
+/* crash (CLAUDE.md, The constitution). The pure-expression tests leave ctx->dbcur NULL but never */
 /* call these, so they are unaffected.                                       */
 /*                                                                           */
-/* Ref (Law 1):                                                              */
+/* Ref (CLAUDE.md, The constitution):                                                              */
 /*   - ../dbase3-decomp/specs/functions/system-and-database-functions.md     */
 /*       sec 2 (RECNO/RECCOUNT/EOF/BOF/FOUND/DELETED/FIELD/DBF) + sec 3 FILE; */
 /*       sec 1 "All ... operate on the currently SELECTed (active) work area".*/
@@ -1828,15 +1706,6 @@ static int fn_recno(xb_ctx *ctx, xb_val *out, int *err)
 
     if (!need_dbcur(ctx, err)) return *err;
     r = ctx->dbcur->recno(ctx->dbcur_user);
-#ifdef XB_MUTATE_FN_RECNO_EOF
-    /* MUTATION (Rule 6): at EOF, report RECCOUNT() instead of RECCOUNT()+1.
-     * The grounded assertion "RECNO()==RECCOUNT()+1 at EOF" then goes RED,
-     * proving the oracle catches a break in the load-bearing EOF rule
-     * (system-and-database-functions.md RECNO()/EOF()). Exactly one branch. */
-    if (ctx->dbcur->eof(ctx->dbcur_user) && r > 0u) {
-        r -= 1u;
-    }
-#endif
     *out = xb_n((double)r);
     *err = XBEE_OK;
     return 0;
@@ -1879,7 +1748,7 @@ static int fn_eofbof(xb_ctx *ctx, int is_eof, xb_val *out, int *err)
  *   No arguments. Reflects the most recent SEEK/FIND/LOCATE/CONTINUE in this area.
  *   (system-and-database-functions.md FOUND().)
  *
- * GATED (Law 1 / plan sec.7): the FOUND flag is only MEANINGFUL after a search.
+ * GATED (CLAUDE.md, The constitution / plan sec.7): the FOUND flag is only MEANINGFUL after a search.
  *   SEEK support is S4.3 (ndx_seek) and LOCATE/CONTINUE is S5.4 -- neither has
  *   yet wired a FOUND flag into the work area. Until then the vtable's found()
  *   returns the default (no search performed -> .F.). This function is fully
@@ -1918,7 +1787,7 @@ static int fn_deleted(xb_ctx *ctx, xb_val *out, int *err)
  *     NOT an error (system-and-database-functions.md FIELD():
  *     "Invalid numbers return a null string.").
  *   The field name lives in a vtable-written buffer; we copy it into scratch so
- *   the returned XB_C owns stable bytes (Law 3: no malloc).
+ *   the returned XB_C owns stable bytes (CLAUDE.md, The constitution: no malloc).
  */
 #define FN_FIELD_NAME_CAP 16   /* dBASE field names are <= 10 chars + NUL */
 static int fn_field(xb_ctx *ctx, const xb_val *args,
@@ -1986,7 +1855,7 @@ static int fn_dbf(xb_ctx *ctx, xb_val *out, int *err)
 /*
  * FILE(<expC>) -> L. ".T. if the file exists." One character argument.
  *   - Tests existence through the PAL (the vtable's file_exists slot), so the
- *     engine never touches the OS directly (Law 3). You must supply the
+ *     engine never touches the OS directly (CLAUDE.md, The constitution). You must supply the
  *     extension -- FILE("X") does not assume .DBF (system-and-database-
  *     functions.md FILE()). A non-character argument -> #9 mismatch.
  *   The name must be NUL-terminated for the PAL open; the arg is a pointer+len
@@ -2001,9 +1870,6 @@ static int fn_file(xb_ctx *ctx, const xb_val *args,
 
     /* FILE is an environment query, not a cursor operation. Using III+
      * U6-33; ADR-0008 DEC-02 (initech-52ph/u5mw). */
-#ifdef IBASE_CORE_MUTATE_FILE_NEEDS_USE
-    if (!need_dbcur(ctx, err)) return *err;
-#endif
     len = args[0].u.c.len;
     nm  = fn_scratch(ctx, (uint32_t)len + 1u);
     if (nm == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
@@ -2169,16 +2035,9 @@ static void fn_math_picture(const xb_ctx *ctx, const xb_val *arg, xb_val *out,
      * remains: real limitpic/GOLD.OUT EXP(1.000000000) is 2.71828183.
      * Keep that subtraction signed; clamp only the final computed picture. */
     if (!computed_width && integer_columns < 1) integer_columns = 1;
-#ifdef IBASE_FNS_MUTANT_limitpic
-    if (integer_columns < 1) integer_columns = 1;
-#endif
     unsigned decimals = ctx->set_decimals > arg->num_dec
         ? ctx->set_decimals : arg->num_dec;
     int width = integer_columns + (int)(decimals ? decimals + 1u : 0u);
-#ifdef IBASE_FNS_MUTANT_mathpicture
-    /* Regression proof: corrupt only negative arguments with wide pictures. */
-    if (arg->u.n < 0.0 && arg->num_width > 4u) width++;
-#endif
     out->num_width = (uint16_t)(width < 1 ? 1 : width > 255 ? 255 : width);
     out->num_dec = (uint16_t)decimals;
 }
@@ -2220,9 +2079,6 @@ static int fn_exp_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         "fstpl %0"
         : "=m" (result)
         : "m" (a));
-#if defined(IBASE_FNS_MUTANT_EXP) || defined(IBASE_FNS_MUTANT_exp) || defined(IBASE_FNS_MUTANT_exppicture)
-    result += 1.0; /* Rule 6: the EXP transcript must catch this perturbation. */
-#endif
     *out = xb_n(result);
     /* Real III+ fns-mint/exppicture/GOLD.OUT: EXP starts with the standard
      * computed-Numeric picture supplied by xb_n, while retaining the
@@ -2259,17 +2115,8 @@ static int fn_log_stub(xb_ctx *ctx, const xb_val *args, int nargs,
      * overflow result before raising #58. The accepted NDX mechanism
      * consumes the first pending code at the statement boundary. */
     if (x <= 0.0 && !ctx->deferred_error) {
-#ifdef IBASE_FNS_MUTANT_logguards
-        /* Real logguards/GOLD.OUT: a deferred false guard under a procedure
-         * handler enters its body; an immediate error invokes the handler. */
-        return fn_fail(err, 58);
-#endif
         ctx->deferred_error = 58;
     }
-#if defined(IBASE_FNS_MUTANT_LOG) || defined(IBASE_FNS_MUTANT_log)
-    /* Rule 6 mutation: perturb the numeric result so the pinned golden fails. */
-    value += 0.01;
-#endif
     *out = xb_n(value);
     fn_math_picture(ctx, &args[0], out, 0);
     *err = XBEE_OK;
@@ -2286,9 +2133,6 @@ static int fn_sqrt_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if (nargs != 1 || args[0].t != XB_N)
         return fn_fail(err, XBEE_INVALID_ARG);
     if (args[0].u.n < 0.0) {
-#if defined(IBASE_FNS_MUTANT_SQRT) || defined(IBASE_FNS_MUTANT_sqrt)
-        return fn_fail(err, 61); /* MUTANT: raise before the result prints. */
-#endif
         if (!ctx->deferred_error) {
             ctx->deferred_error = 61;
         }
@@ -2320,9 +2164,6 @@ static int fn_time_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if (!dst) return fn_fail(err, XBEE_SCRATCH_FULL);
     dst[0] = (char)('0' + hour / 10u); dst[1] = (char)('0' + hour % 10u);
     dst[2] = ':';
-#if defined(IBASE_FNS_MUTANT_TIME) || defined(IBASE_FNS_MUTANT_time)
-    dst[2] = ';'; /* The named gate passes the lower-case case name. */
-#endif
     dst[3] = (char)('0' + minute / 10u); dst[4] = (char)('0' + minute % 10u);
     dst[5] = ':';
     dst[6] = (char)('0' + second / 10u); dst[7] = (char)('0' + second % 10u);
@@ -2337,15 +2178,11 @@ static int fn_lupdate_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     double date;
     (void)args;
     if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
-    /* Rule 2: no work-area cursor is #52, as for RECNO() and its siblings;
+    /* CLAUDE.md, The constitution: no work-area cursor is #52, as for RECNO() and its siblings;
      * a bound cursor with no file in USE answers the blank date (GOLD.OUT). */
     if (!need_dbcur(ctx, err)) return *err;
     date = ctx->dbcur->last_update
         ? ctx->dbcur->last_update(ctx->dbcur_user) : 0.0;
-#ifdef IBASE_FNS_MUTANT_lupdate
-    /* Rule 6: perturb the returned date by one day; the independent mint bites. */
-    if (date > 0.0) date += 1.0;
-#endif
     *out = xb_d(date);
     *err = XBEE_OK;
     return 0;
@@ -2368,9 +2205,6 @@ static int fn_ndx_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if (nargs != 1) return fn_fail(err, XBEE_INVALID_ARG);
     if (args[0].t != XB_N) return fn_fail(err, XBEE_INVALID_ARG);
     if (!(args[0].u.n >= 1.0 && args[0].u.n < 8.0)) {
-#ifdef IBASE_FNS_MUTANT_ndx_deferred
-        return fn_fail(err, 87);       /* MUTANT: output must precede the error */
-#else
         /* Real III+ NDX GOLD.OUT lines 4-5 and 7-8: complete the output
          * with an empty string before the ordinary statement error path. */
         if (!ctx) return fn_fail(err, XBEE_NO_DATABASE);
@@ -2378,15 +2212,10 @@ static int fn_ndx_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         *out = xb_c("", 0);
         *err = XBEE_OK;
         return 0;
-#endif
     }
     slot = to_int_trunc(args[0].u.n);
     if (!ctx || !ctx->dbcur || !ctx->dbcur->index_name)
         return fn_fail(err, XBEE_NO_DATABASE);
-#ifdef IBASE_FNS_MUTANT_ndx
-    /* Intentional off-by-one: the golden's indexed NDX(1) line must catch it. */
-    slot++;
-#endif
     nl = ctx->dbcur->index_name(ctx->dbcur_user, (int)slot, name, sizeof name);
     if (nl <= 0) {
         *out = xb_c("", 0);
@@ -2414,9 +2243,6 @@ static int fn_row_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
     *out=xb_n(ctx ? ctx->screen_row : 0);
     out->num_width=4;
-#ifdef IBASE_FNS_MUTANT_row
-    out->u.n+=1; /* Each independent real capture must catch this. */
-#endif
     return 0;
 }
 
@@ -2429,9 +2255,6 @@ static int fn_col_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
     *out=xb_n(ctx ? ctx->screen_col : 0);
     out->num_width=4;
-#ifdef IBASE_FNS_MUTANT_col
-    out->u.n+=1; /* Each independent real capture must catch this. */
-#endif
     return 0;
 }
 
@@ -2444,9 +2267,6 @@ static int fn_prow_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
     *out=xb_n(ctx ? ctx->printer_row : 0);
     out->num_width=4;
-#ifdef IBASE_FNS_MUTANT_prow
-    out->u.n+=1; /* Each independent real capture must catch this. */
-#endif
     return 0;
 }
 
@@ -2459,9 +2279,6 @@ static int fn_pcol_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
     *out=xb_n(ctx ? ctx->printer_col : 0);
     out->num_width=4;
-#ifdef IBASE_FNS_MUTANT_pcol
-    out->u.n+=1; /* Each independent real capture must catch this. */
-#endif
     return 0;
 }
 
@@ -2499,9 +2316,6 @@ static int fn_inkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         default: key = 0; break;    /* No Table 6-1 equivalent. */
         }
     } else if (key == 17) key = 27; /* Ctrl-Q / Esc */
-#ifdef IBASE_FNS_MUTANT_inkey
-    key++;                         /* Rule 6: empty queue must return zero. */
-#endif
     *out = xb_n((double)key);
     out->num_width = 3;             /* Real III+ "no-key   0 N". */
     *err = XBEE_OK;
@@ -2519,9 +2333,6 @@ static int fn_readkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     (void)ctx; (void)args;
     if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
     *out = xb_n(0.0);
-#ifdef IBASE_FNS_MUTANT_readkey
-    out->u.n = 1.0;
-#endif
     out->num_width = 3;
     *err = XBEE_OK;
     return 0;
@@ -2545,9 +2356,6 @@ static int fn_iscolor(xb_ctx *ctx, const xb_val *args, int nargs,
     if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
     if (!pal || !pal->iscolor) return fn_fail(err, XBEE_INVALID_ARG);
     color = pal->iscolor(pal);
-#if defined(IBASE_FNS_MUTANT_iscolor) || defined(IBASE_FNS_MUTANT_ISCOLOR)
-    color = !color; /* Rule 6: invert only the capability result. */
-#endif
     *out = xb_l(color);
     *err = XBEE_OK;
     return 0;
@@ -2570,11 +2378,6 @@ static int fn_fklabel_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     /* Bound before converting so large numeric arguments cannot overflow. */
     if (args[0].u.n >= 1.0 && args[0].u.n < 10.0)
         key = to_int_trunc(args[0].u.n);
-#if defined(IBASE_FNS_MUTANT_FKLABEL) || defined(IBASE_FNS_MUTANT_fklabel)
-    /* Rule 6: the generic gates supply the lowercase case-name spelling.
-     * Perturb only FKLABEL(1), returning F3 in place of the real F2. */
-    if (key == 1) key = 2;
-#endif
     *out = xb_c(labels[key], (uint16_t)(key == 0 ? 0 : key == 9 ? 3 : 2));
     *err = XBEE_OK;
     return 0;
@@ -2600,9 +2403,6 @@ static int fn_os_stub(xb_ctx *ctx, const xb_val *args, int nargs,
     text[13] = (char)('0' + (version >> 8) / 10u);
     text[14] = (char)('0' + (version >> 8) % 10u);
     /* The existing gate template spells its case macro in lowercase. */
-#if defined(IBASE_FNS_MUTANT_OS) || defined(IBASE_FNS_MUTANT_os)
-    text[14] = '1'; /* Rule 6: wrong version, 3.31 instead of 3.30. */
-#endif
     *out = xb_c(text, 15u);
     *err = XBEE_OK;
     return 0;
@@ -2614,16 +2414,12 @@ static int fn_version(xb_ctx *ctx, const xb_val *args, int nargs,
     /* Ref: system-and-database-functions.md VERSION; HELP.DBS 1287-1288.
      * fns-mint/version accepts an optional number despite the prose spec.
      * Operator ruling initech-ugpsk: the internal build string is read as
-     * the same fixed Initech identity for both forms (Rule 11). */
+     * the same fixed Initech identity for both forms (CLAUDE.md, The constitution). */
     static const char version[] = "InitechBase version 3.30";
     (void)ctx;
     if (nargs < 0 || nargs > 1 || (nargs == 1 && args[0].t != XB_N))
         return fn_fail(err, XBEE_INVALID_ARG);
-#if defined(IBASE_FNS_MUTANT_VERSION) || defined(IBASE_FNS_MUTANT_version)
-    *out = xb_c(version, (uint16_t)(sizeof version - 2u));
-#else
     *out = xb_c(version, (uint16_t)(sizeof version - 1u));
-#endif
     return 0;
 }
 
@@ -2648,9 +2444,6 @@ static int fn_getenv_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         ctx->file_pal->getenv(ctx->file_pal, name, value, XB_STR_MAX + 1u) :
         -(int32_t)PAL_ENOENT;
     if (n < 0) n = 0;
-#ifdef IBASE_FNS_MUTANT_getenv
-    if (n > 0) n--;
-#endif
     *out = xb_c(value, (uint16_t)n);
     *err = XBEE_OK;
     return 0;
@@ -2668,9 +2461,6 @@ static int fn_diskspace_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         return fn_fail(err, XBEE_UNBOUND);
     if (ctx->file_pal->diskspace(ctx->file_pal, &bytes) != PAL_OK)
         return fn_fail(err, 29); /* dbase_msg_codes.tsv: File is not accessible. */
-#if defined(IBASE_FNS_MUTANT_DISKSPACE) || defined(IBASE_FNS_MUTANT_diskspace)
-    bytes = 0u; /* Rule 6: the independent III+ >0 line must reject this. */
-#endif
     *out = xb_n((double)bytes);
     return 0;
 }
@@ -2714,12 +2504,10 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     switch (k) {
     /* Using III+ U6-69; SF-recsize pins the deletion-byte inclusion and
      * the documented zero when no table is in use. */
-#ifndef IBASE_FNS_MUTANT_recsize
     case FN_RECSIZE:
         if(nargs) return fn_fail(err_code,XBEE_INVALID_ARG);
         *out=xb_n(ctx->record_size?(double)ctx->record_size(ctx->dbcur_user):0.0);
         return 0;
-#endif
 
     /* Programming III+ N5-30 (PDF 418): number of the ON ERROR condition. */
     case FN_ERROR:
@@ -2833,6 +2621,6 @@ int xb_call_builtin(const char *name, uint16_t namelen,
     /* DTOS exists in dBASE IV / Clipper but NOT in III+ 1.1 -> #31 (the same
      * path as any unknown name; the test asserts DTOS specifically).
      * (numeric-and-date-functions.md: DTOS absent from @DATE FUNCTIONS.)
-     * Under IBASE_FNS_MUTANT_recsize RECSIZE lands here too, as before. */
+     * Under mutants/ibase-fns-mutant-recsize.patch RECSIZE lands here too, as before. */
     return fn_fail(err_code, XBEE_INVALID_FN);   /* #31 "Invalid function name." */
 }

@@ -2,13 +2,13 @@
  * spec/ibase/ovl_format.h -- the INITBASE.OVL overlay container and the in-slot
  * overlay header (InitechBase overlays Phase B, epic initech-5etom).
  *
- * LOCKED spec-data (CLAUDE.md Rule 8). Changing a value here is a deliberate
+ * LOCKED spec-data (CLAUDE.md CLAUDE.md, The constitution). Changing a value here is a deliberate
  * act with an issue + worklog note; the producer (tools/ibase_ovl_pack.c), the
  * consumer (os/ibase/core/ovl.c) and the host oracle (harness/diff/dbf_diff/
  * test_ibase_ovl.c) all include THIS header, and the oracle pins every
  * offset with literal values so a silent edit here goes RED there.
  *
- * Ground truth (Law 1; docs/design/ibase-overlays.md Sec 2):
+ * Ground truth (CLAUDE.md, The constitution; docs/design/ibase-overlays.md Sec 2):
  *   - dBASE III PLUS 1.1 ships its runtime as DBASE.EXE (133,632 B, MZ) beside
  *     one raw (non-MZ) overlay file DBASE.OVL (266,240 B) that holds many
  *     overlay segments, each carrying its own fixup list
@@ -33,7 +33,7 @@
  *     is InitechBase's own refusal, modelled on that string, and claims nothing
  *     about dBASE's behaviour.
  *
- * Integers little-endian. ASCII-clean (Rule 12). No timestamps (Rule 11).
+ * Integers little-endian. ASCII-clean (CLAUDE.md, The constitution). No timestamps (CLAUDE.md, The constitution).
  */
 #ifndef IBASE_OVL_FORMAT_H
 #define IBASE_OVL_FORMAT_H

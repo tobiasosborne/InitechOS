@@ -1,0 +1,6 @@
+# test: test_ibase_core
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -1641 +1641 @@
+-            rt_memcpy(dst, digits, flen < 8u ? flen : 8u);
++            rt_memcpy(dst, digits, 8u);

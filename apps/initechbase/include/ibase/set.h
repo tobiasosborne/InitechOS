@@ -2,10 +2,10 @@
  * os/ibase/include/ibase/set.h -- IBASE (InitechBase) SET state.
  *                                  Step S5.6 (Phase 5 interpreter).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
+ * THE ARTIFACT (CLAUDE.md CLAUDE.md, The constitution): compiled freestanding (-ffreestanding
  * -nostdlib). Includes ONLY <stdint.h> and the ibase/ engine headers. No libc,
- * no int 0x21 -- all OS contact goes through the PAL. ASCII-clean (Rule 12).
- * Fail loud (Rule 2). Reproducible (Rule 11).
+ * no int 0x21 -- all OS contact goes through the PAL. ASCII-clean (CLAUDE.md, The constitution).
+ * Fail loud (CLAUDE.md, The constitution). Reproducible (CLAUDE.md, The constitution).
  *
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C).
  *
@@ -50,7 +50,7 @@
  * Getters: expose stored state so the oracle can assert defaults + overrides
  *   without reaching into the struct directly.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   - docs/plans/IBASE-implementation-plan.md S5.6 (contract + oracle).
  *   - ../dbase3-decomp/specs/commands/set-commands.md (full SET grammar, defaults,
  *     III+ vs IV flags, SET NEAR absent from III+ HELP_topics).
