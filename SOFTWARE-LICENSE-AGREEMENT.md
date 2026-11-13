@@ -93,9 +93,10 @@ remaining provisions shall continue in effect.
 
 ---
 
-<sub>**Preservation note.** Initech Systems Corporation is no longer in
-operation. This product is no longer sold or supported, and no one
-answers at extension 2504. The agreement above is reproduced as found,
-for the record, and is not a license. The software is preserved here as
-abandonware; this reconstruction is made available under the GNU Affero
-General Public License, version 3, in the file [`LICENSE`](LICENSE).</sub>
+<sub>**Preservation note.** Initech Systems Corporation ceased operations
+after its premises were destroyed by fire. Most of its records were lost.
+This agreement is reproduced as found, from a surviving copy, for the
+record; it is not a license, and no one answers at extension 2504. The
+software is preserved here as abandonware; this reconstruction is made
+available under the GNU Affero General Public License, version 3, in the
+file [`LICENSE`](LICENSE).</sub>

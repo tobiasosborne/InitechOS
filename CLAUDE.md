@@ -28,9 +28,11 @@ them.
 2. **Straight face.** Everything a user can see (the screen, the README,
    the manuals, the box) reads as a real corporate product of 1991-93 and
    never admits the joke. The marks are Initech's own: no other company's
-   logo appears anywhere. The product is framed as abandonware: the
-   found software of a company that no longer exists, preserved and
-   reconstructed. Its original "license agreement" is reproduced as a
+   logo appears anywhere. The product is framed as lost media: Initech
+   ended in a fire, a little survived (some diskettes, some manuals, a
+   few photographs of the screen), and this is the reconstruction. Where
+   the surviving material is incomplete, say so plainly rather than
+   invent. Its original "license agreement" is reproduced as a
    period document and is not a licence; the real one is the AGPL in
    `LICENSE`, mentioned once and discreetly. The canon bugs are enforced, not fixed: the pie
    chart sums to 116%, the busy cursor is an hourglass, negatives print

@@ -121,10 +121,17 @@ engineering standard and the product requirements.
 
 ### Preservation note
 
-Initech Systems Corporation is no longer in operation, and this product
-is no longer sold or supported. It is preserved here as abandonware,
-reconstructed from what was found. The original license agreement is
-reproduced for the record as [Form 1024-L](SOFTWARE-LICENSE-AGREEMENT.md).
+Initech Systems Corporation ceased operations after its premises were
+destroyed by fire. Most of its records, and all of its source materials,
+were lost. This product is no longer sold or supported.
+
+What is preserved here is reconstructed from what survived: an incomplete
+set of distribution diskettes, some of the printed documentation, and a
+small number of photographs of the software in use. Where the surviving
+material is incomplete, the reconstruction says so rather than guess.
+
+The original license agreement is reproduced for the record as
+[Form 1024-L](SOFTWARE-LICENSE-AGREEMENT.md).
 
 ---
 
