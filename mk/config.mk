@@ -26,6 +26,10 @@ endif
 # clean must never remove the root, build itself, or an external directory.
 
 # Host tools: tests and factory programs run on the build machine.
+TEST_TIMEOUT_S ?= 20
+TEST_BUDGET_S ?= 30
+export TEST_TIMEOUT_S TEST_BUDGET_S
+
 HOSTCC      ?= cc
 HOST_CFLAGS ?= -std=c11 -O1 -g -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L
 

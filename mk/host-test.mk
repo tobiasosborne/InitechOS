@@ -5,6 +5,8 @@
 # <name>_COUNT_PATTERN: ERE with one numeric capture; auto for shared header.
 # host_test_run may still be overridden (n/fail shell counters and per-test log).
 HOST_OUT := $(OUT)/host
+$(HOST_OUT):
+	@mkdir -p $@
 TESTS ?= $(HOST_TESTS)
 TEST_TIMEOUT_S ?= 20
 TEST_BUDGET_S ?= 30

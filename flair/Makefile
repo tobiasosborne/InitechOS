@@ -5,19 +5,20 @@ include $(TOP)/mk/config.mk
 SDK_HEADERS := $(wildcard $(TOP)/sdk/include/*.h)
 INCLUDES := -I. -Iinclude -I$(OUT)/generated -Iinclude/assets -I$(TOP)/flair/region/include -I$(TOP)/sdk/include
 HOST_INCLUDES := $(INCLUDES) -Itests -Itests/goldens -Itests/render -I$(TOP)/factory/testlib
-TEST_HDRS := $(shell find include tests -name '*.h') $(wildcard *.h) $(wildcard $(TOP)/factory/testlib/*.h) $(SDK_HEADERS)
 HOST_INCLUDES += -DSYSTEM7_DECOMP='"$(abspath $(SYSTEM7_DECOMP))"' -DWIN31_DECOMP='"$(abspath $(WIN31_DECOMP))"' -DCHROME_FID_CAPTURE_DIR='"$(abspath $(SYSTEM7_DECOMP))/goldens/captures"'
 TARGET_SRCS := $(wildcard *.c)
-TARGET_OBJS := $(patsubst %.c,$(OUT)/target/%.o,$(TARGET_SRCS))
+TARGET_OUT := $(OUT)/target
+TARGET_INCLUDES := $(INCLUDES)
+TARGET_LIB := $(OUT)/libflair.a
+include $(TOP)/mk/target.mk
 GENERATED := $(addprefix $(OUT)/generated/,chicago12.h geneva12.h palette.h color_canon.h chicago_packed_data.h geneva12_packed_data.h asset_lz_data.h flair_dac.h boot_logo.h)
+$(TARGET_OBJS): $(GENERATED)
 TOOLS := font_art2h geneva12_art2h palette_extract color_canon_extract chicago_pack geneva12_pack asset_lz flair_dac_gen
 
-$(OUT)/tools/%: tools/%.c $(wildcard include/assets/*.h) | $(OUT)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) -I$(OUT)/generated -Iinclude/assets -o $@ $<
-$(OUT)/tools/geneva12_pack: tools/chicago_pack.c $(wildcard include/assets/*.h) | $(OUT)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) -I$(OUT)/generated -Iinclude/assets -DPACK_GENEVA12 -o $@ $<
+$(OUT)/tools/%: tools/%.c FORCE | $(OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -I$(OUT)/generated -Iinclude/assets -MMD -MP -MF $@.d -o $@ $<)
+$(OUT)/tools/geneva12_pack: tools/chicago_pack.c FORCE | $(OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -I$(OUT)/generated -Iinclude/assets -DPACK_GENEVA12 -MMD -MP -MF $@.d -o $@ $<)
 
 define generate
 $(OUT)/generated/$(1): $(OUT)/tools/$(2) $(filter-out --header,$(3))
@@ -33,26 +34,19 @@ $(eval $(call generate,chicago_packed_data.h,chicago_pack,))
 $(eval $(call generate,geneva12_packed_data.h,geneva12_pack,))
 $(eval $(call generate,asset_lz_data.h,asset_lz,))
 $(eval $(call generate,boot_logo.h,boot_logo_gen,))
-$(OUT)/tools/boot_logo_gen: tools/boot_logo_gen.c | $(OUT)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) -o $@ $< -lm
-$(OUT)/tools/mint_finder_small_icons: tools/mint_finder_small_icons.c $(GENERATED)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) -I$(OUT)/generated -Iinclude/assets -o $@ $< -lpng
+$(OUT)/tools/boot_logo_gen: tools/boot_logo_gen.c FORCE | $(OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -MMD -MP -MF $@.d -o $@ $< -lm)
+$(OUT)/tools/mint_finder_small_icons: tools/mint_finder_small_icons.c $(GENERATED) FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -I$(OUT)/generated -Iinclude/assets -MMD -MP -MF $@.d -o $@ $< -lpng)
 $(OUT)/tools/chicago_pack: $(OUT)/generated/chicago12.h
 $(OUT)/tools/geneva12_pack: $(OUT)/generated/geneva12.h
 $(OUT)/tools/asset_lz: $(OUT)/generated/boot_logo.h
 
-$(OUT)/target/%.o: %.c $(shell find include -name '*.h') $(wildcard *.h) $(SDK_HEADERS) $(GENERATED) $(MAKEFILE_LIST)
-	@mkdir -p $(@D)
-	$(TARGET_CC) $(TARGET_CFLAGS) $(INCLUDES) -c $< -o $@
-$(OUT)/libflair.a: $(TARGET_OBJS)
-	ar rcsD $@ $^
 # Link this object alongside libflair.a; keep the region implementation owned
 # and built by its component, with the same target flags as the Toolbox.
 .PHONY: region-target
 region-target:
-	+$(MAKE) -C region target
+	+$(MAKE) -C region all
 all: $(OUT)/libflair.a region-target
 
 test_blitter_SRCS := tests/test_blitter.c blitter.c $(TOP)/flair/region/region.c surface.c
@@ -110,6 +104,7 @@ test_menu_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_menu_look_SRCS := tests/test_menu_look.c menu.c text.c blitter.c surface.c $(TOP)/flair/region/region.c tests/render/render.c heap.c flair_look.c
 test_menu_look_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_menu_look_LIBS := -lpng
+test_menu_record_COUNT_PATTERN := ^test-menu-record: ([0-9]+) checks.*$$
 test_menu_record_SRCS := tests/test_menu_record.c
 test_menu_record_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_process_SRCS := tests/test_process.c process.c window.c heap.c $(TOP)/flair/region/region.c
@@ -168,23 +163,16 @@ test_boot_logo_SRCS := tests/test_boot_logo.c
 test_boot_logo_LIBS := -lm
 test_tbx_file_SRCS := tests/test_tbx_file.c tests/platform_dos.c $(addprefix $(TOP)/kernel/,int21.c devices.c mcb.c sft.c psp.c irq.c)
 test_tbx_file_CFLAGS := -I$(TOP)/kernel/include -Itests/platform -D_GNU_SOURCE
-test_tbx_file_DEPS := $(GENERATED) $(wildcard $(TOP)/kernel/*.[ch] $(TOP)/kernel/include/*.h)
+test_tbx_file_DEPS := $(GENERATED)
 
 $(foreach t,$(HOST_TESTS),$(eval $(t)_DEPS += $(GENERATED) $(OUT)/host-config))
-ifeq ($(filter test test-build test-run,$(MAKECMDGOALS)),)
-TESTS ?=
-endif
-# host-test.mk adds its list to all as well as test-build. Suppress only the
-# default all list locally; test-build below retains the registered selection.
 include $(TOP)/mk/host-test.mk
 
-# Shared fragment adds host binaries to all; this component's default is target only.
-all: ;
 .PHONY: corpus-check smoke
 corpus-check:
 	@test -d "$(SYSTEM7_DECOMP)/goldens/captures" || { echo 'FAIL: System 7 corpus missing; set SYSTEM7_DECOMP' >&2; exit 1; }
 	@test -d "$(WIN31_DECOMP)" || { echo 'FAIL: Windows 3.1 corpus missing; set WIN31_DECOMP' >&2; exit 1; }
-	@SYSTEM7_DECOMP="$(abspath $(SYSTEM7_DECOMP))" WIN31_DECOMP="$(abspath $(WIN31_DECOMP))" sh tests/check-corpus.sh
+
 test-build: corpus-check
 $(HOST_TEST_BINS): | corpus-check
 # Run one wrapper per program: isolates outputs, supplies runtime capture paths,
@@ -211,3 +199,8 @@ force-config:
 $(OUT)/host-config: force-config | $(OUT)
 	@printf '%s\n' "$(abspath $(SYSTEM7_DECOMP))" "$(abspath $(WIN31_DECOMP))" > $@.tmp
 	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
+
+TEST_BUDGET_S := 30
+CORPORA := SYSTEM7_DECOMP WIN31_DECOMP
+include $(TOP)/mk/corpus.mk
+-include $(wildcard $(OUT)/tools/*.d $(OUT)/host/*.d)

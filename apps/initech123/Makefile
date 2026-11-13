@@ -7,7 +7,7 @@ HOST_CORE := $(addprefix $(OUT)/host-core/,$(CORE:.c=.o))
 X87_CORE := $(addprefix $(OUT)/host-x87/,$(CORE:.c=.o))
 LOCAL_INC := -Iinclude
 FACE_INC := -I$(TOP)/sdk/include -I$(TOP)/sdk/host
-HOST_INCLUDES := $(LOCAL_INC) -Itests
+HOST_INCLUDES := $(LOCAL_INC) -I$(TOP)/factory/testlib -Itests
 FACE_TESTS := quit range_menu entry clock keys hit resize cells
 DIFF_TESTS := wk1_roundtrip formula recalc_order copy_move transfer_baseline menu_tree
 HOST_TESTS := $(addprefix test_i123_,$(DIFF_TESTS) $(FACE_TESTS)) \
@@ -21,8 +21,6 @@ $(foreach cw,037F 027F,$(eval test_i123_formula_x87_$(cw)_CFLAGS := -mfpmath=387
 $(foreach mode,corpus tile,$(eval test_i123_copy_$(mode)_SRCS := $(test_i123_copy_move_SRCS)))
 test_i123_menu_tree_SRCS := tests/diff/test_i123_menu_tree.c core/menu.c
 test_i123_menu_tree_CFLAGS := -DI123_MENU_HOST
-TEST_HDRS := $(shell find include core -name '*.h') tests/test_assert.h tests/face_driver.h
-TEST_HDRS += $(wildcard $(TOP)/sdk/include/*.h) $(TOP)/sdk/host/tbx_host.h
 $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_DEPS := $(TOP)/build/sdk/host/libtbx_host.a app/face_a.c tests/test_i123_quit.c tests/run.sh))
 $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
 include $(TOP)/mk/host-test.mk
@@ -46,15 +44,12 @@ corpus:
 	@command -v python3 >/dev/null || { echo 'FAIL: python3 required for the independent Lotus reader' >&2; exit 1; }
 test: corpus
 
-$(TOP)/build/sdk/host/libtbx_host.a: $(wildcard $(TOP)/sdk/host/* $(TOP)/sdk/include/*.h) $(TOP)/sdk/Makefile $(TOP)/mk/config.mk
-	+$(MAKE) -C $(TOP)/sdk host
+$(TOP)/build/sdk/host/libtbx_host.a: | sdk-host
 
-$(OUT)/host-core/%.o: %.c $(filter include/% core/%,$(TEST_HDRS)) $(MAKEFILE_LIST)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -MMD -MP -c $< -o $@
-$(OUT)/host-x87/%.o: %.c $(filter include/% core/%,$(TEST_HDRS)) $(MAKEFILE_LIST)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -mfpmath=387 -MMD -MP -c $< -o $@
+$(OUT)/host-core/%.o: %.c FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -MMD -MP -c $< -o $@)
+$(OUT)/host-x87/%.o: %.c FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -mfpmath=387 -MMD -MP -c $< -o $@)
 -include $(HOST_CORE:.o=.d) $(X87_CORE:.o=.d)
 
 TENANT := 123
@@ -68,3 +63,14 @@ $(OUT)/123.MNU: $(HOST_OUT)/test_i123_menu_tree
 
 smoke:
 	@echo 'Tier 1 awaits the booted desktop; see tests/SMOKES.md' >&2; exit 1
+
+.PHONY: sdk-host
+sdk-host:
+	+$(MAKE) -C $(TOP)/sdk host
+TARGET_ARTIFACTS := $(OUT)/123.EXE
+
+TEST_BUDGET_S := 30
+# Independent Python readers use pinned source, never a corpus-side .pyc.
+export PYTHONPYCACHEPREFIX := $(OUT)/python-cache
+CORPORA := LOTUS123_DECOMP
+include $(TOP)/mk/corpus.mk

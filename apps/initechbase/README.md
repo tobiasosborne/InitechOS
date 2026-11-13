@@ -42,7 +42,7 @@ their original hashes remain in tests/list_off_real.sha256.
 
 `make` builds every freestanding i386 translation unit and startup object under
 build/apps/initechbase/target using the shared TARGET_CC/TARGET_CFLAGS, plus the
-host tests, packaging tools, generated linker contract and MZ arguments. Target
+packaging tools, generated linker contract and MZ arguments. Target
 additions preserve soft-float ABI and the shipped overlay/variable-store profile:
 -msoft-float -mno-80387, the overlay define, FLOW_MAX_REGISTRY=1 and
 FLOW_MEMVAR_ARENA=6000. Function/data sections are needed to put compiler-generated
@@ -108,7 +108,15 @@ by InitechBase; see tests/IMPORT.md, tests/SMOKES.md and tests/MUTANTS-TODO.md.
 
 Local extensions to mk/host-test.mk register shell suites after C suites,
 wrap each run with fresh scratch and independent postchecks, and cache product
-objects by profile (normal, DML arena, lifetime guard). No shared make fragment
-is edited. `make smoke` fails with a pointer to tests/SMOKES.md until the product
+objects by profile (normal, DML arena, lifetime guard). Shared fragments supply command tracking, dependencies and test bounds. `make smoke` fails with a pointer to tests/SMOKES.md until the product
 boots. The large existing mutation-hook set is inventoried in
 `tests/MUTANTS-TODO.md`; patch conversion remains a follow-up.
+
+Shared build conventions: command stamps rebuild on tool/flag changes; C
+translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
+complete tier-0 selection; measured execution fits the default, excluding builds.
+Standalone tests verify their consumed files in goldens/CORPORA.lock; the
+top-level test run verifies the full lock once before parallel execution.
+All three host object profiles and target objects retain their flags.
+Product mutation hooks and the blocked INITBASE.EXE/OVL all outputs keep the
+import audit disabled. Shell suites retain the shared timeout/count runner.

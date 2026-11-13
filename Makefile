@@ -1,15 +1,21 @@
 # Compose components; recursive make retains each component's private output.
 override TOP := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-# One component per line keeps independent imports mergeable.
-override REGISTERED_COMPONENTS :=
-override REGISTERED_COMPONENTS += flair/region
-override REGISTERED_COMPONENTS += flair
-override REGISTERED_COMPONENTS += sdk
-override REGISTERED_COMPONENTS += apps/initech123
-override REGISTERED_COMPONENTS += apps/initechword
-override REGISTERED_COMPONENTS += apps/initechbase
-override REGISTERED_COMPONENTS += turbo
-COMPONENTS ?= $(REGISTERED_COMPONENTS)
+# Preserve an optional subset while registering the complete one-per-line list.
+ifneq ($(origin COMPONENTS),undefined)
+override SELECTED_COMPONENTS := $(COMPONENTS)
+endif
+override COMPONENTS :=
+override COMPONENTS += flair/region
+override COMPONENTS += flair
+override COMPONENTS += sdk
+override COMPONENTS += apps/initech123
+override COMPONENTS += apps/initechword
+override COMPONENTS += apps/initechbase
+override COMPONENTS += turbo
+override REGISTERED_COMPONENTS := $(COMPONENTS)
+ifneq ($(origin SELECTED_COMPONENTS),undefined)
+override COMPONENTS := $(SELECTED_COMPONENTS)
+endif
 .DEFAULT_GOAL := help
 .PHONY: help all test smoke image cert clean status corpus test-start $(addprefix test-,$(COMPONENTS))
 help:
@@ -28,6 +34,10 @@ corpus:
 test-start:
 	@date +%s > $(TEST_RUN)/start
 	@$(MAKE) --no-print-directory -f goldens/preflight.mk verify
+ifneq ($(filter sdk,$(COMPONENTS)),)
+test-apps/initech123: test-sdk
+endif
+$(addprefix test-,$(COMPONENTS)): private export INITECH_CORPUS_VERIFIED := 1
 $(addprefix test-,$(COMPONENTS)): test-%: | test-start
 	+@rc=0; $(MAKE) --no-print-directory -C $* test || rc=1; \
 	  echo $$rc > $(TEST_RUN)/$(subst /,_,$*).result
@@ -39,6 +49,7 @@ test: test-start $(addprefix test-,$(COMPONENTS))
 	if [ $$fail -ne 0 ]; then echo "$$fail component(s) RED"; exit 1; \
 	elif [ $$run -ne $(words $(REGISTERED_COMPONENTS)) ] || [ "$(sort $(COMPONENTS))" != "$(sort $(REGISTERED_COMPONENTS))" ] || [ "$(origin TESTS)" != undefined ]; then echo 'SUBSET GREEN (not ALL GREEN)'; \
 	else echo 'ALL GREEN'; fi
+status: export INITECH_CORPUS_VERIFIED := 1
 status: corpus
 	@sh factory/testlib/status.sh $(COMPONENTS)
 clean:

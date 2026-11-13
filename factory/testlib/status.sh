@@ -4,7 +4,7 @@ for component do
     out=$(pwd)/build/$component
     mkdir -p "$out"
     host=red
-    if make --no-print-directory -C "$component" test-run > "$out/status-host.log" 2>&1; then host=host-green; fi
+    if make --no-print-directory -C "$component" test > "$out/status-host.log" 2>&1; then host=host-green; fi
     state=$host
     if make --no-print-directory -C "$component" -f Makefile -f "$(pwd)/mk/import-check.mk" all import-check > "$out/status-import.log" 2>&1; then
         [ "$host" != host-green ] || state=imported

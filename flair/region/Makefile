@@ -2,6 +2,7 @@ TOP := $(abspath ../..)
 COMPONENT := flair/region
 include $(TOP)/mk/config.mk
 
+TARGET_OUT := $(OUT)/target
 TARGET_SRCS := region.c
 TARGET_INCLUDES := -Iinclude
 TARGET_LIB := $(OUT)/libregion.a
@@ -20,7 +21,9 @@ region-asan_ENV := ASAN_OPTIONS=abort_on_error=0:detect_leaks=0
 
 include $(TOP)/mk/host-test.mk
 include $(TOP)/mk/mutants.mk
-.PHONY: pinned-oracle
-test-build: pinned-oracle
-pinned-oracle:
-	@sh $(TOP)/goldens/verify.sh REPO
+TEST_BUDGET_S := 30
+CORPORA := REPO
+include $(TOP)/mk/corpus.mk
+
+.PHONY: target
+target: all

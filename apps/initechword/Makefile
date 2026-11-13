@@ -26,8 +26,6 @@ EXTRA_HOST_TESTS := test_iword_search_corpus iword_fkeys_gen
 test_iword_search_corpus_SRCS := tests/diff/test_iword_search_corpus.c
 test_iword_search_corpus_OBJS := $(HOST_CORE)
 iword_fkeys_gen_SRCS := tests/tools/iword_fkeys_gen.c
-TEST_HDRS := $(shell find include tests -name '*.h') $(wildcard $(TOP)/factory/testlib/*.h)
-TEST_HDRS += $(wildcard $(TOP)/sdk/include/*.h)
 $(foreach t,$(FACE_TESTS),$(eval test_iword_$(t)_DEPS := app/face_a.c tests/test_iword_face.c tests/run.sh))
 test_iword_search_DEPS += $(OUT)/host/test_iword_search_corpus
 test_iword_fkeys_DEPS += $(OUT)/host/iword_fkeys_gen
@@ -50,20 +48,21 @@ corpus:
 	@sh tests/corpus.sh "$(WORDPERFECT51_DECOMP)"
 test-build: corpus
 
-$(OUT)/host-core/%.o: %.c $(filter include/%,$(TEST_HDRS)) $(MAKEFILE_LIST)
-	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -MMD -MP -c $< -o $@
+$(OUT)/host-core/%.o: %.c FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -MMD -MP -c $< -o $@)
 -include $(HOST_CORE:.o=.d)
 
-TARGET_OBJS := $(addprefix $(OUT)/,$(CORE:.c=.o) app/face_a.o)
-all: $(TARGET_OBJS)
-$(OUT)/app/face_a.o: private TARGET_INC := $(FACE_INC)
-$(OUT)/%.o: %.c $(filter include/%,$(TEST_HDRS)) $(MAKEFILE_LIST)
-	@mkdir -p $(@D)
-	$(TARGET_CC) $(TARGET_CFLAGS) $(LOCAL_INC) $(TARGET_INC) -MMD -MP -c $< -o $@
--include $(TARGET_OBJS:.o=.d)
+TARGET_SRCS := $(CORE) app/face_a.c
+TARGET_INCLUDES := $(LOCAL_INC)
+$(OUT)/app/face_a.o: TARGET_INCLUDES += $(FACE_INC)
+include $(TOP)/mk/target.mk
+TARGET_ARTIFACTS := $(OUT)/WORD.EXE
 
 smoke:
 	@echo 'Tier 1 awaits the booted product and sdk tenant rules; see tests/SMOKES.md' >&2; exit 1
 mutants:
 	@echo 'Patch conversion deferred: see tests/MUTANTS-TODO.md' >&2; exit 1
+
+TEST_BUDGET_S := 30
+CORPORA := WORDPERFECT51_DECOMP
+include $(TOP)/mk/corpus.mk

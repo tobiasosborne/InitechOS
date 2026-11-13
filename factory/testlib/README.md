@@ -15,7 +15,7 @@ OUT; all generated files live beneath TOP/build. clean refuses empty, external,
 and symlink-escaping OUT. Do not override OUT for source directories.
 
 Fragments (one responsibility each): config.mk supplies tools/paths/safe clean;
-command.mk compares the exact command per output; target.mk builds freestanding
+command.mk compares the exact command per output inside make; target.mk builds freestanding
 C/NASM objects and optional deterministic archives; host-test.mk builds and runs
 host tests; import-check.mk checks import conditions; mutants.mk invokes the
 strict patch runner. Use `$(call run-command,command text)` with FORCE on custom
@@ -49,7 +49,7 @@ adds all and the audit to test. The audit scans included makefiles and include
 flags for attic, product sources (excluding tests/ and mutants/) for
 IMPORT_MUT_PATTERN (default _MUT_) and escaping includes, and the actual make
 graph for artifact reachability from all. It supplements, not replaces, the
-host oracle. `make status` reruns host tests and builds/audits every registered
+host oracle. `make status` reruns the component test target and builds/audits every registered
 component; logs explain failures. Undeclared artifacts are conservatively red.
 
 expect_abort.h supplies success, diagnostic-marker and SIGABRT probes.
@@ -104,3 +104,11 @@ Adoption for in-flight owners (no edits to their branches here):
   assertions stay EXTRA_HOST_TESTS rather than pretending to be test suites.
 
 run-entries.sh retains the shell/Pascal entry interface and per-entry logs.
+
+Current adoption uses TARGET_OUT for components retaining target/ or tenant/
+object layouts. Keep a nonempty no-op recipe on unchanged stamps: GNU make
+must stat the real output instead of treating an empty expansion as updated.
+Do not add a separate mkdir recipe before run-command. corpus.mk verifies a
+component's CORPORA selection unless the top-level preflight already ran.
+run-entries.sh also bounds inherited shell/Pascal suites (20s per entry, 30s
+per component by default); the entry interface remains unchanged.

@@ -86,3 +86,10 @@ The shared target, host-test, import-check and mutant fragments are used here.
 `make test` also builds the real target library and checks build isolation,
 product mutation hooks and escaping includes. The shared assertion header
 provides the machine-readable positive count; no custom count pattern is needed.
+
+Shared build conventions: command stamps rebuild on tool/flag changes; C
+translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
+complete tier-0 selection; measured execution fits the default, excluding builds.
+Standalone tests verify their consumed files in goldens/CORPORA.lock; the
+top-level test run verifies the full lock once before parallel execution.
+The target library contains target/region.o; target is an alias for all.
