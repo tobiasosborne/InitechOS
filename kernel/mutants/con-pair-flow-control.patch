@@ -1,0 +1,11 @@
+# test: test-conkeys-unit
+--- a/int21.c
++++ b/int21.c
+@@ -1297,7 +1297,6 @@
+ static int con_control(int c)
+ {
+-    if (g_conin_last_scan) return 0;
+     if (c == 0x10 || c == 0x0e) {
+         g_printer_echo = c == 0x10 ? !g_printer_echo : 0;
+         conkeys_trace(g_printer_echo ? "CONKEYS-PRN-ON\n" : "CONKEYS-PRN-OFF\n");
+         return 1;

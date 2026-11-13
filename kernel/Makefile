@@ -21,6 +21,17 @@ $(OUT)/INITDOS.SYS: $(OUT)/kernel.elf
 	@echo "InitechDOS loaded bytes: $$(wc -c < $@)"
 smoke:
 	$(MAKE) -C $(TOP) smoke
+smoke: smoke-conpair
+.PHONY: smoke-conpair
+smoke-conpair: $(OUT)/smoke/CONPAIR10.COM $(OUT)/smoke/CONPAIR13.COM
+	$(MAKE) -C $(TOP) image
+	sh tests/smoke/conpair.sh "$(TOP)" "$(OUT)/smoke/conpair"
+$(OUT)/smoke/CONPAIR10.COM: tests/programs/conpair_program.asm
+	@mkdir -p $(@D)
+	$(NASM) -f bin -DSCAN=0x10 $< -o $@
+$(OUT)/smoke/CONPAIR13.COM: tests/programs/conpair_program.asm
+	@mkdir -p $(@D)
+	$(NASM) -f bin -DSCAN=0x13 $< -o $@
 all: $(OUT)/dos_messages.inc
 $(OUT)/dos_messages.inc: $(OUT)/dos_messages.h
 	sed -n 's/^#define \(MSG_DOS_[0-9]*\) "\(.*\)"$$/%define \1 `\2`/p' $< > $@
