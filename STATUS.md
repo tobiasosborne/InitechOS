@@ -49,7 +49,7 @@ imported yet.
 | `flair/desktop/` | builds and runs: the Finder, the event pump, tracking, launching, volumes, dialogs, extracted from the legacy `kmain.c` into eight files; the platform binding to the kernel. 17 host suites. `kmain_legacy.c` is down from 8,207 lines to 335 (film scene and text-app hand-off fragments, not built). Parked, not built: film scene, easter eggs, about box. |
 | `system/` | the final link of the product kernel image and the list of what goes on the working volume. |
 | `sdk/` | host-green: self-contained app headers in `sdk/include`, the runtime, one shared fake Toolbox (`sdk/host`), the EXE build rule (`mk/tenant.mk`), ABI tests that pin trap numbers and i386 record layouts. Limits imposed by the OS side are in `sdk/README.md`. |
-| `apps/initech123/` | host-green: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Builds the real `123.EXE` (73,552 bytes, validated by an independent reader) on the shared fake. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
+| `apps/initech123/` | **imported.** 19 test programs, about a million checks, 59 real Lotus `.WK1` files, 10 seconds; the shipped menu-loading path is tested (valid, missing, truncated, corrupted `123.MNU`). 37 mutants as patches, all killed (about 3.5 minutes, tier 2). Builds `123.EXE` (byte-identical across the conversion) and publishes the worksheet core as `libi123.a`. The README freezes the feature inventory: 224 slash-menu leaves are refused today, each named. |
 | `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile against `sdk/include`; not yet on `mk/tenant.mk` or the shared fake. 75 mutation hooks still to convert. |
 | `apps/initechbase/` | host-green: 75 suites, 44,504 counted checks. Builds 23 target objects and packaging tools without attic dependencies; uses factory/mz. Packaging is blocked by the app's 65,536-byte reserve declaration: 65,616 bytes required. The extended kernel loader already accepts larger reserves; no kernel change is needed. Pair/boot validation and mutation conversion remain with InitechBase (component README and tests inventories). |
 | `apps/initechbase/` | host-green: 75 suites (43 against real dBASE III PLUS captures), 44,504 checks, 37 seconds. Codename removed. Target objects build; packaging `INITBASE.EXE` fails on purpose: the app's own loader reserve is 65,536 bytes and it now needs 65,616 (`README.md`, Known blockers; no kernel change needed). 303 mutation hooks still to convert. |
@@ -65,7 +65,6 @@ Wave 2, one owner per area (branches `wave2/*`):
 | Owner of | Job |
 |---|---|
 | `mk/`, top Makefile, `factory/`, component Makefiles' build wiring | one producer per output; an honest `make status`; `make cert` (tier 2) |
-| `apps/initech123` | mutation hooks to patches; the shipped menu-loading path tested; the worksheet core published as a library |
 | `apps/initechbase` | package `INITBASE.EXE`; run it in the OS with a host-side check; hooks to patches |
 | `flair/` (Toolbox) | 243 mutation hooks to patches |
 | `apps/initechword` + the desktop smoke scripts | `WORD.EXE` on the desktop; per-app smoke journeys |
