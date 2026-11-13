@@ -5,8 +5,8 @@ INCLUDES := -I. -I../include -I../include/assets -I../region/include -I$(TOP)/sd
 SOURCES := platform desktop scene input tracking finder_glue launch volumes dialogs start finder_actions finder_cmd finder_desktop finder_icon finder_menu finder_ops finder_windows desktop_db shell apple_menu power about_box about_format
 OBJECTS := $(addprefix $(OUT)/,$(addsuffix .o,$(SOURCES))) $(OUT)/tbx_gate.o
 all: $(OUT)/libdesktop.a
-$(OUT)/%.o: %.c $(MAKEFILE_LIST) | $(OUT)
-	$(TARGET_CC) $(TARGET_CFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
+$(OUT)/%.o: %.c FORCE | $(OUT)
+	$(call run-command,$(TARGET_CC) $(TARGET_CFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@)
 $(OUT)/tbx_gate.o: tbx_gate.asm | $(OUT)
 	$(NASM) -f elf32 $< -o $@
 $(OUT)/libdesktop.a: $(OBJECTS)
@@ -43,15 +43,17 @@ $(OUT)/libdesktop-host.a: $(HOST_SHARED)
 	$(AR) rcs $@ $^
 include $(TOP)/mk/host-test.mk
 -include $(HOST_SHARED:.o=.d)
-.PHONY: target toolbox import-check smoke mutants
+.PHONY: target toolbox desktop-check smoke mutants
 target: $(OUT)/libdesktop.a
 toolbox:
 	+$(MAKE) -C .. all
 $(OBJECTS) $(HOST_SHARED): | toolbox
-import-check: target
+desktop-check: target
 	sh tests/import.sh $(addsuffix .c,$(SOURCES))
-test: import-check
+test: desktop-check
 smoke:
 	+$(MAKE) -C $(TOP) smoke
 mutants:
 	@echo 'Desktop mutation patch conversion pending: tests/MUTANTS-TODO.md' >&2; exit 1
+
+TARGET_ARTIFACTS := $(OUT)/libdesktop.a

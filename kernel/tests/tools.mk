@@ -331,148 +331,148 @@ export HOST_TEST_OUTPUT := $(abspath $(OUT))/host
 
 # Preserve the untuned legacy host compilation (tests include large bounded models).
 $(foreach t,$(EXTRA_HOST_TESTS),$(eval $(t)_CFLAGS += -O0))
-$(OUT)/host-objects/int21-3e377762bc74.o: int21.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/int21-3e377762bc74.o: int21.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/devices-4e30ce85c494.o: devices.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/devices-4e30ce85c494.o: devices.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/mcb-b67117320300.o: mcb.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/mcb-b67117320300.o: mcb.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/sft-0056d38a60c7.o: sft.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/sft-0056d38a60c7.o: sft.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/psp-451513b9615f.o: psp.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/psp-451513b9615f.o: psp.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/irq-14fd69744e4b.o: irq.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/irq-14fd69744e4b.o: irq.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/config_sys-fd8ca8dc255d.o: config_sys.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/config_sys-fd8ca8dc255d.o: config_sys.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/kbd-11ae29d9aa4e.o: kbd.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/kbd-11ae29d9aa4e.o: kbd.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/int21-f38962d47f22.o: int21.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/int21-f38962d47f22.o: int21.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DINT21_WILDCARD_TESTSEAM -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/devices-48f859b2cd9c.o: devices.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/devices-48f859b2cd9c.o: devices.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DINT21_WILDCARD_TESTSEAM -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/mcb-f49eee7d9232.o: mcb.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/mcb-f49eee7d9232.o: mcb.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DINT21_WILDCARD_TESTSEAM -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/sft-2df5f821c0ba.o: sft.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/sft-2df5f821c0ba.o: sft.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DINT21_WILDCARD_TESTSEAM -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/psp-cf47cac52a8f.o: psp.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/psp-cf47cac52a8f.o: psp.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DINT21_WILDCARD_TESTSEAM -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/irq-0a081605dfcd.o: irq.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/irq-0a081605dfcd.o: irq.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DINT21_WILDCARD_TESTSEAM -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/config_sys-f09076d85ba2.o: config_sys.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/config_sys-f09076d85ba2.o: config_sys.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DINT21_WILDCARD_TESTSEAM -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/fat12-141c06111b76.o: fat12.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/fat12-141c06111b76.o: fat12.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/ansi-5d041b26cee4.o: ansi.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/ansi-5d041b26cee4.o: ansi.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES)  -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/console-574c5ac43562.o: console.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/console-574c5ac43562.o: console.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES)  -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/console_pixels-e495db98b8d6.o: console_pixels.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/console_pixels-e495db98b8d6.o: console_pixels.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES)  -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/ata-180cee39c418.o: ata.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/ata-180cee39c418.o: ata.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DATA_HOST_TEST -DATA_POLL_LIMIT=16 -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/fileio_fat-a14fe1ad186a.o: fileio_fat.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/fileio_fat-a14fe1ad186a.o: fileio_fat.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/block_device-32db98187ce4.o: block_device.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/block_device-32db98187ce4.o: block_device.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DBLOCK_DEVICE_HOST -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/config_sys-e23e2142c065.o: config_sys.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/config_sys-e23e2142c065.o: config_sys.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) $(tool_test_config_sys_CFLAGS) -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/console-da9be2570afc.o: console.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/console-da9be2570afc.o: console.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/console_pixels-a0f969fa8512.o: console_pixels.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/console_pixels-a0f969fa8512.o: console_pixels.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/int21-952950b0799a.o: int21.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/int21-952950b0799a.o: int21.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/devices-bd2a4e967423.o: devices.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/devices-bd2a4e967423.o: devices.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/fileio_fat-f97903a2ce53.o: fileio_fat.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/fileio_fat-f97903a2ce53.o: fileio_fat.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/fat12-3027de855556.o: fat12.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/fat12-3027de855556.o: fat12.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/sft-e21115eecc3f.o: sft.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/sft-e21115eecc3f.o: sft.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/psp-1c1de08ad77c.o: psp.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/psp-1c1de08ad77c.o: psp.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/mcb-79410501c51a.o: mcb.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/mcb-79410501c51a.o: mcb.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/irq-9e5fd41d6656.o: irq.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/irq-9e5fd41d6656.o: irq.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/fat12-28f3a4ae9c71.o: fat12.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/fat12-28f3a4ae9c71.o: fat12.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES)  -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/int21-aed6415d133a.o: int21.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/int21-aed6415d133a.o: int21.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/devices-5bade66f83e6.o: devices.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/devices-5bade66f83e6.o: devices.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/fileio_fat-8a832ed35366.o: fileio_fat.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/fileio_fat-8a832ed35366.o: fileio_fat.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/fat12-78f3a9da84a5.o: fat12.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/fat12-78f3a9da84a5.o: fat12.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/sft-9b9f35447a01.o: sft.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/sft-9b9f35447a01.o: sft.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/psp-5a73ec71d93c.o: psp.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/psp-5a73ec71d93c.o: psp.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/mcb-86d1b777b7f3.o: mcb.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/mcb-86d1b777b7f3.o: mcb.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/irq-8000063a4aec.o: irq.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/irq-8000063a4aec.o: irq.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -no-pie -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/idt-5f5a63284280.o: idt.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/idt-5f5a63284280.o: idt.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/ata-ca84e49b6568.o: ata.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/ata-ca84e49b6568.o: ata.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/kbd-2c85f4abb703.o: kbd.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/kbd-2c85f4abb703.o: kbd.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/pit-6c6c50e1cb62.o: pit.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/pit-6c6c50e1cb62.o: pit.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/loader-ef0d6d554ec7.o: loader.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/loader-ef0d6d554ec7.o: loader.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
-$(OUT)/host-objects/rtc-b6fd0791ab5c.o: rtc.c $(TEST_HDRS) $(MAKEFILE_LIST) $(TOP)/build/kernel/dos_messages.h
+$(OUT)/host-objects/rtc-b6fd0791ab5c.o: rtc.c $(TEST_HDRS) $(filter-out %.d,$(MAKEFILE_LIST)) $(TOP)/build/kernel/dos_messages.h
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(HOST_INCLUDES) -DRTC_HOST_TEST -D_POSIX_C_SOURCE=200809L -O0 -MMD -MP -c $< -o $@
 -include $(wildcard $(OUT)/host-objects/*.d)

@@ -16,7 +16,6 @@ bigkernel-check:
 	$(MAKE) -C $(TOP) clean
 	$(MAKE) -C $(TOP) BIG_KERNEL=1 image
 	sh $(TOP)/factory/bigkernel-check.sh
-	rm $(TOP)/build/kernel/kstart.o
 	$(MAKE) -C $(TOP) image
 smoke:
 	$(MAKE) -C $(TOP) smoke

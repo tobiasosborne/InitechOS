@@ -3,7 +3,7 @@ set -eu
 cd "$(dirname "$0")/.."
 mkdir -p build/bigkernel
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
-size=$(wc -c < build/kernel/INITDOS.SYS)
+size=$(wc -c < build/system/INITDOS-big.SYS)
 [ "$size" -gt 196608 ] || { echo 'FAIL big kernel did not cross old cap'; exit 1; }
 marker="BIGKERNEL-OK size=$size sum=00FF0000"
 for emu in qemu bochs; do

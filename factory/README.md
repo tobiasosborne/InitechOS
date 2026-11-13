@@ -51,3 +51,21 @@ red-desktop.sh kills empty-save and restored-file-cap patch mutants. Missing
 QEMU W progress markers now stop replay rather than continuing input into an
 unexpected UI. trace-input-test.c pins the slash/chord RFB transport values.
 The image list is system/working-volume.list; AUTOEXEC.BAT ends with FLAIR.
+
+`make cert` composes clean/test, image/smoke, repro, patch mutation sweeps,
+Turbo Initech selfhost/DDC, oversized-kernel boot, status and clean git status.
+Every stage runs even after a failure; the final exit is nonzero if any failed.
+Logs and per-stage wall times survive clean builds in
+build/cert/<UTC date/time>-<short sha>/{summary,full.log}. CERT_STRICT=1 also
+requires every registered component to be imported. CERT_JOBS (default 16) and
+CERT_MUTANT_JOBS (default 4) bound parallel work. Mutation summaries include
+pending patches without counting them as failures or kills. The seed's
+execution catchers use seed-guest.sh: real product DOS, separate test volume,
+FPC Delphi-mode 32-bit integer reference, stdout and persisted-file comparison.
+
+mk/dependencies.mk is the authoritative build dependency graph, displayed by
+`make dependencies`. README dependency prose describes the interfaces behind
+those edges. The top-level preflight audits actual make graph paths, including
+generated headers, against those declarations. The kernel/resident shell and
+SDK/FLAIR source-audit cycles have explicit test-order exceptions there; the
+component recipes still build their required artifacts.

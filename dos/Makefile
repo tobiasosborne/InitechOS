@@ -5,12 +5,12 @@ TARGET_INCLUDES := -I$(TOP)/kernel/include -I$(TOP)/build/kernel -Icommand -Icom
 include $(TOP)/mk/target.mk
 PROGRAMS := MORE FIND SORT TPSREP CHKDSK EDLIN FDISK FORMAT SYS DISKCOPY DISKCOMP XCOPY TREE ATTRIB LABEL
 all: $(TOP)/build/kernel/dos_messages.h resident $(addprefix $(OUT)/,$(addsuffix .COM,$(PROGRAMS)))
-resident: $(OUT)/command.o $(OUT)/batch.o $(OUT)/env.o
-$(OUT)/command.o: command/command.c $(MAKEFILE_LIST) | $(OUT)
-	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -DCOMMAND_KERNEL_REPL -MMD -MP -c $< -o $@
-$(OUT)/batch.o: command/batch.c $(MAKEFILE_LIST) | $(OUT)
+resident: $(OUT)/command-resident.o $(OUT)/batch.o $(OUT)/env.o
+$(OUT)/command-resident.o: command/command.c FORCE | $(OUT)
+	$(call run-command,$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -DCOMMAND_KERNEL_REPL -MMD -MP -c $< -o $@)
+$(OUT)/batch.o: command/batch.c $(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
-$(OUT)/env.o: command/env.c $(MAKEFILE_LIST) | $(OUT)
+$(OUT)/env.o: command/env.c $(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
 $(OUT)/MORE.COM: more/more_program.asm | $(OUT)
 	$(NASM) -f bin $< -o $@
@@ -41,7 +41,7 @@ $(OUT)/xcopy/tree_entry.o: xcopy/xcopy_tree_entry.asm | $(OUT)
 $(eval $(call c_program,XCOPY,xcopy/xcopy_tree_entry.o xcopy/xcopy_tree.o,xcopy/xcopy_tree.ld))
 $(eval $(call c_program,TREE,xcopy/tree_entry.o xcopy/xcopy_tree.o,xcopy/xcopy_tree.ld))
 define disk_program
-$(OUT)/diskutil/$(1).o: diskutil/diskutil_program.c $$(MAKEFILE_LIST) | $(OUT)
+$(OUT)/diskutil/$(1).o: diskutil/diskutil_program.c $$(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
 	@mkdir -p $$(@D)
 	$$(TARGET_CC) $$(TARGET_CFLAGS) $$(TARGET_INCLUDES) -DDU_KIND=$(2) -MMD -MP -c $$< -o $$@
 $(eval $(call c_program,$(1),diskutil/diskutil_start.o diskutil/diskutil.o diskutil/$(1).o,chkdsk/chkdsk.ld))
@@ -50,17 +50,17 @@ $(eval $(call disk_program,FORMAT,0))
 $(eval $(call disk_program,SYS,1))
 $(eval $(call disk_program,DISKCOPY,2))
 $(eval $(call disk_program,DISKCOMP,3))
-$(OUT)/common/attrib.o: common/dosutil_target.c $(MAKEFILE_LIST) | $(OUT)
+$(OUT)/common/attrib.o: common/dosutil_target.c $(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
 	@mkdir -p $(@D)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -DDOSUTIL_ATTRIB -MMD -MP -c $< -o $@
-$(OUT)/common/label.o: common/dosutil_target.c $(MAKEFILE_LIST) | $(OUT)
+$(OUT)/common/label.o: common/dosutil_target.c $(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
 	@mkdir -p $(@D)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
 $(eval $(call c_program,ATTRIB,common/attrib.o common/dosutil.o,common/dosutil.ld))
 $(eval $(call c_program,LABEL,common/label.o common/dosutil.o,common/dosutil.ld))
 smoke:
 	$(MAKE) -C $(TOP) smoke
-$(OUT)/chkdsk/mcb.o: $(TOP)/kernel/mcb.c $(MAKEFILE_LIST) | $(OUT)
+$(OUT)/chkdsk/mcb.o: $(TOP)/kernel/mcb.c $(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
 	@mkdir -p $(@D)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
 all: $(OUT)/COMMAND.COM
@@ -69,9 +69,12 @@ $(OUT)/COMMAND.COM: command/forward.asm | $(OUT)
 
 $(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc: $(TOP)/kernel/include/dos_messages.json $(TOP)/kernel/gen_messages.c
 	$(MAKE) -C $(TOP)/kernel $(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc
-$(OUT)/command.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o: $(TOP)/build/kernel/dos_messages.h
+$(OUT)/command-resident.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o: $(TOP)/build/kernel/dos_messages.h
 
 include tests-programs.mk
 
 # Host test wiring (separate from target build rules).
 include tests.mk
+
+TARGET_ARTIFACTS := $(addprefix $(OUT)/,$(addsuffix .COM,$(PROGRAMS))) $(OUT)/COMMAND.COM
+include $(TOP)/mk/import-check.mk
