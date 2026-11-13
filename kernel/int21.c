@@ -2564,7 +2564,7 @@ static void do_creat(int_frame_t *f)
 
     sft_entry_t *e = &g_sft[sft_idx];
     e->kind        = SFT_KIND_FILE;
-    e->open_mode   = SFT_MODE_WRITE;   /* a write handle (positioned writes) */
+    e->open_mode   = SFT_MODE_RDWR;    /* DOS 3.3 PRM AH=3Ch: read/write. */
     e->dev_id      = 0;
     e->ref_count   = 1u;
     e->dir_entry   = de;
@@ -2693,7 +2693,7 @@ static void do_creatnew(int_frame_t *f)
 
     sft_entry_t *e = &g_sft[sft_idx];
     e->kind        = SFT_KIND_FILE;
-    e->open_mode   = SFT_MODE_WRITE;   /* a write handle (positioned writes) */
+    e->open_mode   = SFT_MODE_RDWR;    /* DOS 3.3 PRM AH=5Bh: read/write. */
     e->dev_id      = 0;
     e->ref_count   = 1u;
     e->dir_entry   = de;

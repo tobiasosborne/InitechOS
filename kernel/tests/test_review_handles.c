@@ -75,5 +75,18 @@ int main(void)
     int21_set_file_backend(&g_mock_backend);
     (void)invoke(0x4202,h,0,0); f=invoke(0x3f00,h,1,buf);
     CHECK(!frame_cf(&f) && f.eax==0, "j8kmv genuine EOF remains successful");
+    /* DOS 3.3 PRM AH=3Ch/5Bh returns a read/write handle, as required
+     * by Toolbox FILE_READ after FILE_CREATE (toolbox_gate.h section 10). */
+    for(unsigned ax=0x3c00;ax<=0x5b00;ax+=0x1f00) {
+        reset(); f=invoke(ax,0,0,low_dup("NEW.TXT")); h=f.eax;
+        CHECK(!frame_cf(&f), "eico5 CREATE succeeds");
+        memcpy((void *)(uintptr_t)buf,"abc",3);
+        f=invoke(0x4000,h,3,buf);
+        CHECK(!frame_cf(&f) && f.eax==3, "eico5 created handle writes");
+        (void)invoke(0x4200,h,0,0); memset((void *)(uintptr_t)buf,0x5a,3);
+        f=invoke(0x3f00,h,3,buf);
+        CHECK(!frame_cf(&f) && f.eax==3 && !memcmp((void *)(uintptr_t)buf,"abc",3),
+              "eico5 created handle reads same literal bytes");
+    }
     return TEST_SUMMARY("review-handles");
 }
