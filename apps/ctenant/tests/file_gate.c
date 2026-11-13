@@ -7,7 +7,7 @@ static char name[] TBX_IN_IMAGE = "KEEP.DAT";
 static char payload[] TBX_IN_IMAGE = "Gate file bytes\r\n";
 static char got[32];
 static int32_t win;
-static int32_t fcall(uint32_t code, uint32_t a, uint32_t b, uint32_t c)
+static int32_t fcall(uint32_t code, uintptr_t a, uintptr_t b, uint32_t c)
 {
     switch (code) {
     case TBX_FILE_CREATE: return tbx_file_create((const char *)(uintptr_t)a);
@@ -20,7 +20,7 @@ static int32_t fcall(uint32_t code, uint32_t a, uint32_t b, uint32_t c)
     default: return TBX_ERR_BADCODE;
     }
 }
-#define PATH ((uint32_t)(uintptr_t)name)
+#define PATH ((uintptr_t)name)
 static void say(const char *s)
 { (void)tbx_draw_cells(win,8,40,s,TBX_COLOR_BLACK,TBX_COLOR_WHITE); }
 static void roundtrip(void)
@@ -29,17 +29,17 @@ static void roundtrip(void)
      * must not make a disk file that OPEN will resolve as a device. */
     if (tbx_file_create("nul.txt") != TBX_ERR_BADARG) { say("FILE DEVICE FAILED"); return; }
     int32_t h = fcall(TBX_FILE_CREATE,PATH,0,0);
-    if (h < 5 || fcall(TBX_FILE_WRITE,h,(uint32_t)(uintptr_t)payload,17) != 17 ||
+    if (h < 5 || fcall(TBX_FILE_WRITE,h,(uintptr_t)payload,17) != 17 ||
         fcall(TBX_FILE_CLOSE,h,0,0) != 0) { say("FILE WRITE FAILED"); return; }
     h = fcall(TBX_FILE_OPEN,PATH,0,0);
     if (h < 5 || fcall(TBX_FILE_SEEK,h,5,0) != 5 ||
-        fcall(TBX_FILE_READ,h,(uint32_t)(uintptr_t)got,12) != 12) { say("FILE READ FAILED"); return; }
+        fcall(TBX_FILE_READ,h,(uintptr_t)got,12) != 12) { say("FILE READ FAILED"); return; }
     for (uint32_t i = 0; i < 12; i++)
         if (got[i] != payload[i+5]) { say("FILE BYTES FAILED"); return; }
     if (fcall(TBX_FILE_CLOSE,h,0,0)) { say("FILE CLOSE FAILED"); return; }
     name[0]='D'; name[1]='E'; name[2]='L'; name[3]='E';
     h = fcall(TBX_FILE_CREATE,PATH,0,0);
-    if (h < 5 || fcall(TBX_FILE_WRITE,h,(uint32_t)(uintptr_t)payload,17) != 17 ||
+    if (h < 5 || fcall(TBX_FILE_WRITE,h,(uintptr_t)payload,17) != 17 ||
         fcall(TBX_FILE_CLOSE,h,0,0) || fcall(TBX_FILE_DELETE,PATH,0,0)) { say("FILE DELETE FAILED"); return; }
     say("FILE ROUNDTRIP OK");
 }

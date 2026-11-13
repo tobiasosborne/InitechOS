@@ -1,0 +1,15 @@
+--- a/ctenant.c
++++ b/ctenant.c
+@@ -93,7 +93,11 @@
+ {
+     switch (ev->what) {
+     case updateEvt:
+-        render();
++        /* MUTANT CTENANT_MUT_NO_RETAIN (CLAUDE.md, The constitution; test-flair-ctenant-mutant
++         * ONLY, built into its own fixture volume): the pre-6qsk update
++         * paint -- the clear and the startup line, no readouts -- so a drag
++         * or a reveal erases them. NEVER in the shipped CTENANT.EXE. */
++        paint_field();
+         break;
+     case keyDown: {
+         char c = (char)(ev->message & 0xFF);
