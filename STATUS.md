@@ -36,9 +36,8 @@ listed in `COMPONENTS` in the top Makefile.
   to an `A:\>` prompt on QEMU and Bochs, branch `spine/boot-kernel`.
   The loader spike it builds on is proven (branch `reboot/loader-spike`):
   a 300,108-byte kernel boots on both emulators.
-- Import manifest: per-component list of sources, tests, goldens and
-  couplings, written from the legacy Makefile.
-- Triage of the 417 legacy issues against `GOLDEN-MASTER.md`.
+- Imports on branches: InitechBase, InitechWord, Turbo Initech, the
+  SDK, the FLAIR Toolbox.
 
 ## Next
 
@@ -57,8 +56,12 @@ listed in `COMPONENTS` in the top Makefile.
   acpi=off`; plain `-m 8` loses memory to ACPI tables and is refused.
 - Reference corpora are read from `~/Projects/*-decomp`
   (`mk/config.mk`). They get pinned under `goldens/` later.
-- The tracker still holds the legacy issues. It is reset once the triage
-  lands.
+- The tracker was reset from the triage (`attic/triage/`): 119 issues
+  are golden-master work (label `gm`, `comp:<component>`,
+  `sev:<severity>`; data loss is P0), 17 need checking against the
+  running product (`verify`), 164 are Release 2 (deferred), 117 were
+  closed as obsolete. `bd ready` now shows only golden-master work.
+- The per-component import manifest is in `attic/manifest/`.
 - Codenames are retired (CLAUDE.md, Names). Directories are renamed
   to product names. Identifiers and file names (`samir_*`, `pal_milton.c`,
   `SAMIR.EXE`, `tps.pas`) are renamed as each component is imported.
