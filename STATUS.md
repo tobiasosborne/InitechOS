@@ -21,7 +21,10 @@ factory/smoke-desktop.sh; screenshots and fault verdicts are under
 build/smoke-desktop. The DOS smoke remains green on both emulators.
 S3 adds a data-driven APPS directory with 123.EXE and 123.MNU and product
 AUTOEXEC.BAT ending in FLAIR. Finder disk and folder navigation are checked
-by factory/smoke-desktop.sh. Next is the real application save/readback.
+by factory/smoke-desktop.sh. S4 launches 123.EXE, enters A1=123 B1=1.5 C1=@SUM(A1..B1), saves and
+quits. The independent Lotus reader verifies all values and cache=124.5
+after mtools extracts SLICE.WK1. The complete QEMU exit/restart session
+passes. S5 extends this to Bochs, red-once and reproducibility.
 
 The kernel is 105,848 bytes with one 14-line entry point and no test
 scenarios in it. The loader takes a kernel of any size up to its

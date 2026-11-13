@@ -20,3 +20,10 @@ artifacts. Product AUTOEXEC.BAT ends with FLAIR. The DOS smoke deletes that
 file from its private writable volume copies, retaining the product kernel.
 Finder opens INITECH then APPS; the APPS view contains 123.EXE and 123.MNU.
 The QEMU folder screenshot is build/smoke-s3/apps.ppm.
+
+S4: factory/smoke-desktop.sh drives 123.EXE through the Finder, enters 123 and
+1.5 and @SUM(A1..B1), saves SLICE.WK1 through /File Save, quits, exits FLAIR,
+and starts it again. mtools extracts the file and the independent Lotus corpus
+reader verifies all three cells, formula RPN and cache 124.5. Captures include
+sum.ppm. The kernel file cap is removed with overflow guards on PSP + rounded
+file + BSS; the supplied heap carve retains the normal NOMEM result.
