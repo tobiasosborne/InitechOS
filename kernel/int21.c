@@ -3664,10 +3664,12 @@ static uint16_t find_scan(int_frame_t *f)
         }
         g_find.next_index++;
 
-        /* Attribute filter: skip vollabel/dir entries unless requested. */
-        uint8_t special = (uint8_t)(de.attribute &
-                                    (DIR_ATTR_VOLLABEL | DIR_ATTR_DIRECTORY));
-        if (special != 0 && (special & g_find.search_attr) == 0) {
+        /* Genuine DOS 3.30: tests/fixtures/search33 matrix. 08h alone
+         * searches only labels; mixed masks admit ordinary entries too.
+         * Every H/S/directory/label bit on the entry must be requested. */
+        uint8_t special = (uint8_t)(de.attribute & 0x1eu);
+        if ((special & (uint8_t)~g_find.search_attr) != 0u ||
+            (g_find.search_attr == 8u && !(special & DIR_ATTR_VOLLABEL))) {
             continue;
         }
 

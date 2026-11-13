@@ -20,6 +20,12 @@ HOST_TESTS += write-probe
 write-probe_SRCS := tests/test_write_probe.c
 write-probe_ARGS := $(OUT)/host/write-probe.bin
 write-probe_DEPS := $(OUT)/host/write-probe.bin
+HOST_TESTS += search33
+search33_SRCS := tests/test_search33.c
+search33_OBJS := $(tool_test_fileio_OBJS)
+search33_CFLAGS := $(tool_test_fileio_CFLAGS)
+search33_ARGS := tests/fixtures/search33/matrix.bin
+search33_DEPS := tests/fixtures/search33/matrix.bin $(TOP)/build/kernel/dos_messages.h
 $(OUT)/host/write-probe.bin: tests/programs/write_program.asm
 	@mkdir -p $(@D)
 	$(NASM) -f bin $< -o $@
