@@ -40,11 +40,11 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
- *   - os/samir/include/samir/workarea.h (the 10-area model + wa_resolve glue).
- *   - os/samir/include/samir/interp.h   (xb_interp + xb_interp_eval_str).
- *   - os/samir/include/samir/eval.h     (xb_ctx.resolve hook contract).
- *   - os/samir/include/samir/dbf.h / dbt.h / ndx.h (the codecs S5.1 integrates).
- *   - docs/plans/SAMIR-implementation-plan.md S5.1 oracle ("scripted USE/SELECT").
+ *   - os/ibase/include/ibase/workarea.h (the 10-area model + wa_resolve glue).
+ *   - os/ibase/include/ibase/interp.h   (xb_interp + xb_interp_eval_str).
+ *   - os/ibase/include/ibase/eval.h     (xb_ctx.resolve hook contract).
+ *   - os/ibase/include/ibase/dbf.h / dbt.h / ndx.h (the codecs S5.1 integrates).
+ *   - docs/plans/IBASE-implementation-plan.md S5.1 oracle ("scripted USE/SELECT").
  *   - Corpus ground truth (byte-verified 2026-06-17):
  *       TRAVEL.DBF nrec=49; rec1 FIRSTNAME=Claire LASTNAME=Buckman
  *         PAID=T NOTES=block:1 ; TRAVEL.DBT block 1 = 127-byte memo starting
@@ -59,14 +59,14 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/workarea.h"       /* os/samir/include/, on -Ios/samir/include */
-#include "samir/interp.h"
-#include "samir/dbf.h"
-#include "samir/dbt.h"
-#include "samir/ndx.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/workarea.h"       /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/interp.h"
+#include "ibase/dbf.h"
+#include "ibase/dbt.h"
+#include "ibase/ndx.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -77,8 +77,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* ---- path helpers (same pattern as test_dbf_read.c) ---- */
 
@@ -165,7 +165,7 @@ static void check_name_resolves(xb_interp *ip, const char *label, const char *wa
           memcmp(out.u.c.p, want, 4) == 0, msg);
 }
 
-static void test_synthetic_select(samir_pal_t *pal)
+static void test_synthetic_select(ibase_pal_t *pal)
 {
     const char *pa = "/tmp/test_interp_use_a.dbf";
     const char *pb = "/tmp/test_interp_use_b.dbf";
@@ -269,7 +269,7 @@ static void test_synthetic_select(samir_pal_t *pal)
  * Tier 1: corpus session -- TRAVEL (memo) area 1, CLIENTS + CNAMES area 2.
  * ===================================================================== */
 
-static void test_corpus_session(samir_pal_t *pal, const char *base)
+static void test_corpus_session(ibase_pal_t *pal, const char *base)
 {
     char trav[1024], clients[1024], cnames[1024];
     xb_interp *ip;
@@ -458,7 +458,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     char path[1024];
 
     memset(&cfg, 0, sizeof(cfg));

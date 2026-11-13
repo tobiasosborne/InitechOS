@@ -34,17 +34,17 @@
  * deleted so the 0x2A value is documented, not fixture-confirmed."
  *
  * Compile + run (self-grade, host, NOT make):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbf.c os/samir/core/value.c os/samir/core/rt.c \
- *     os/samir/pal/pal_host.c \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbf.c os/ibase/core/value.c os/ibase/core/rt.c \
+ *     os/ibase/pal/pal_host.c \
  *     tests/test_dbf_read.c -o /tmp/test_dbf_read \
  *     && /tmp/test_dbf_read ../dbase3-decomp
  *
  * Mutant (must go RED):
  *   gcc -std=c11 -Wall -Wextra -Werror -DDBF_MUTATE_RECOFF \
- *     -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbf.c os/samir/core/value.c os/samir/core/rt.c \
- *     os/samir/pal/pal_host.c \
+ *     -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbf.c os/ibase/core/value.c os/ibase/core/rt.c \
+ *     os/ibase/pal/pal_host.c \
  *     tests/test_dbf_read.c -o /tmp/test_dbf_read_mut ; \
  *     /tmp/test_dbf_read_mut ../dbase3-decomp >/dev/null 2>&1 ; \
  *     echo "mutant exit=$?"
@@ -60,13 +60,13 @@
  *     [verified: byte-checked TOURS.DBF record 1]
  *   - tests/dbf_ref.py decode_field() + --records output
  *     (independent reference; our typed values are cross-checked against it).
- *   - os/samir/include/samir/dbf.h S1.3 contract (recno 1-based, field decodes,
+ *   - os/ibase/include/ibase/dbf.h S1.3 contract (recno 1-based, field decodes,
  *     delete-flag, lifetime, M-boundary decision, blank-date -> xb_d(0.0), initech-ylqs).
- *   - os/samir/include/samir/value.h (xb_val, xb_type, xb_typeof, xb_eq).
- *   - os/samir/include/samir/rt.h (jdn_from_ymd for expected D values).
- *   - docs/plans/SAMIR-implementation-plan.md S1.3 oracle; ARB rider (a)
+ *   - os/ibase/include/ibase/value.h (xb_val, xb_type, xb_typeof, xb_eq).
+ *   - os/ibase/include/ibase/rt.h (jdn_from_ymd for expected D values).
+ *   - docs/plans/IBASE-implementation-plan.md S1.3 oracle; ARB rider (a)
  *     (mandatory +mutant sibling for every test gate).
- *   - spec/samir/dbf_format.h (DBF_REC_DELETE_LIVE=0x20, _DELETED=0x2A).
+ *   - spec/ibase/dbf_format.h (DBF_REC_DELETE_LIVE=0x20, _DELETED=0x2A).
  */
 
 #include "oracle_policy.h"
@@ -75,9 +75,9 @@
 #include <stdint.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/dbf.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/value.h"       /* xb_val, xb_type, xb_typeof, xb_eq */
-#include "samir/rt.h"          /* jdn_from_ymd -- for computing expected D values */
+#include "ibase/dbf.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/value.h"       /* xb_val, xb_type, xb_typeof, xb_eq */
+#include "ibase/rt.h"          /* jdn_from_ymd -- for computing expected D values */
 
 TEST_HARNESS();
 
@@ -88,8 +88,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* ---- path helpers (same pattern as test_dbf_fields.c) ---- */
 
@@ -215,7 +215,7 @@ static void check_field_c_trimmed(const char *label, int recno, int fi,
  * (dbf_ref.py is 0-indexed, so rec0 = our recno 1.)
  * [verified: byte-checked TOURS.DBF record 1; dbf.md sec 6 worked example]
  * ============================================================ */
-static void test_tours_rec1(samir_pal_t *pal, const char *base)
+static void test_tours_rec1(ibase_pal_t *pal, const char *base)
 {
     char path[1024];
     dbf_table *tbl = NULL;
@@ -330,7 +330,7 @@ static void test_tours_rec1(samir_pal_t *pal, const char *base)
  * Cross-checked against dbf_ref.py --records TRAVEL.DBF.
  * [verified: byte-checked TRAVEL.DBF records 1-4; dbf.md sec 5 L/M + Verification]
  * ============================================================ */
-static void test_travel_rec1_rec4(samir_pal_t *pal, const char *base)
+static void test_travel_rec1_rec4(ibase_pal_t *pal, const char *base)
 {
     char path[1024];
     dbf_table *tbl = NULL;
@@ -432,7 +432,7 @@ static void test_travel_rec1_rec4(samir_pal_t *pal, const char *base)
  *
  * [verified: byte-checked CLIENTS.DBF record 1; dbf.md sec 5 C Verification]
  * ============================================================ */
-static void test_clients_rec1(samir_pal_t *pal, const char *base)
+static void test_clients_rec1(ibase_pal_t *pal, const char *base)
 {
     char path[1024];
     dbf_table *tbl = NULL;
@@ -511,7 +511,7 @@ static void test_clients_rec1(samir_pal_t *pal, const char *base)
  *
  * [verified: dbf_ref.py output cross-checked against dbf.md sec 8 Inv2 TAX row]
  * ============================================================ */
-static void test_tax_recs(samir_pal_t *pal, const char *base)
+static void test_tax_recs(ibase_pal_t *pal, const char *base)
 {
     char path[1024];
     dbf_table *tbl = NULL;
@@ -580,7 +580,7 @@ static void test_tax_recs(samir_pal_t *pal, const char *base)
  * Any recno should return -DBF_ERR_BAD_RECNO.
  * Ref: dbf.md sec 8 "BANK special case: nrec=0".
  * ============================================================ */
-static void test_bank_norec(samir_pal_t *pal, const char *base)
+static void test_bank_norec(ibase_pal_t *pal, const char *base)
 {
     char path[1024];
     dbf_table *tbl = NULL;
@@ -637,11 +637,11 @@ static void test_bank_norec(samir_pal_t *pal, const char *base)
  * is read-only; no test asks the sandbox to open its goldens read/write.
  *
  * Ref: dbf.md sec 4 (+1/+2 terminator forms), sec 8 Invariant 1;
- *      os/samir/include/samir/dbf.h dbf_open_rw doc ("normalized to the +1
+ *      os/ibase/include/ibase/dbf.h dbf_open_rw doc ("normalized to the +1
  *      ... form ON FLUSH; the records loaded here come from the original
  *      (possibly +2-form) header_length offset") -- the LOCKED contract this
  *      fix brings dbf.c's implementation into conformance with;
- *      spec/samir/dbf_format.h DBF_HDR_HEADER_LEN_OFF ("TRUST this; do not
+ *      spec/ibase/dbf_format.h DBF_HDR_HEADER_LEN_OFF ("TRUST this; do not
  *      assume +1 or +2"); bead initech-jf8p.
  * ============================================================ */
 
@@ -672,7 +672,7 @@ static int copy_reference_rw(const char *src,const char *dst)
     CHECK(ok,"RW local fixture is byte-identical to real corpus");
     return ok;
 }
-static void test_tax_rw_plus2form(samir_pal_t *pal, const char *base)
+static void test_tax_rw_plus2form(ibase_pal_t *pal, const char *base)
 {
     char path[1024];
     dbf_table *tbl = NULL;
@@ -786,7 +786,7 @@ static void test_tax_rw_plus2form(samir_pal_t *pal, const char *base)
  * Ref: dbf.md sec 4 (+1/+2 terminator forms); dbf.h dbf_open_rw ("normalized
  * ... ON FLUSH"); dbf.c dbf_flush (the +1 emitter); bead initech-jf8p.
  * ============================================================ */
-static void test_synthetic_plus2_rw_roundtrip(samir_pal_t *pal)
+static void test_synthetic_plus2_rw_roundtrip(ibase_pal_t *pal)
 {
     const char *tmppath = "/tmp/test_dbf_read_plus2_rw.dbf";
     FILE *f;
@@ -930,7 +930,7 @@ static void test_synthetic_plus2_rw_roundtrip(samir_pal_t *pal)
  * This is the minimal synthetic fixture to exercise the 0x2A path.
  * Ref: dbf.md sec 6 "0x2A = deleted (not yet PACKed)".
  * ============================================================ */
-static void test_synthetic_deleted(samir_pal_t *pal)
+static void test_synthetic_deleted(ibase_pal_t *pal)
 {
     /* Build a minimal .dbf in a temp file using the PAL write path.
      * We write raw bytes via fopen (libc OK in factory test; Law 3). */
@@ -1016,7 +1016,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     int any_present = 0;
     char path[1024];
 

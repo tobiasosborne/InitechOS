@@ -1,6 +1,6 @@
 /* scratch_lock.h -- serialize test binaries that share a fixed scratch dir.
  *
- * initech-2kkqr (F2): several SAMIR oracles (and their mutant legs) stage
+ * initech-2kkqr (F2): several IBASE oracles (and their mutant legs) stage
  * files under one fixed build/<dir>; run concurrently under `make -j` they
  * clobber each other's images/logs and go falsely RED. Each such test takes an
  * exclusive POSIX record lock on build/.lock-<name> for its whole run (the

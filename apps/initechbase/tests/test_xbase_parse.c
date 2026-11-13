@@ -42,31 +42,31 @@
  *  13. ** is a synonym for ^ and is also LEFT-assoc.
  *
  * Compile + run (self-grade, host):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include \
- *       os/samir/core/parse.c os/samir/core/lex.c os/samir/core/rt.c \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include \
+ *       os/ibase/core/parse.c os/ibase/core/lex.c os/ibase/core/rt.c \
  *       tests/test_xbase_parse.c \
  *       -o /tmp/test_xbase_parse && /tmp/test_xbase_parse
  *
  * Mutant (must go RED on section 4):
  *   gcc -std=c11 -Wall -Wextra -Werror -DXB_MUTATE_PARSE -Iseed \
- *       -Ios/samir/include \
- *       os/samir/core/parse.c os/samir/core/lex.c os/samir/core/rt.c \
+ *       -Ios/ibase/include \
+ *       os/ibase/core/parse.c os/ibase/core/lex.c os/ibase/core/rt.c \
  *       tests/test_xbase_parse.c \
  *       -o /tmp/test_xbase_parse_mut ; \
  *       /tmp/test_xbase_parse_mut ; echo "mutant exit=$?"
  *
  * Freestanding compile check (parse.c only):
  *   gcc -m32 -ffreestanding -nostdlib -fno-stack-protector -fno-pic \
- *       -std=c11 -Wall -Wextra -Werror -Ios/samir/include \
- *       -c os/samir/core/parse.c -o /tmp/parse_free.o
+ *       -std=c11 -Wall -Wextra -Werror -Ios/ibase/include \
+ *       -c os/ibase/core/parse.c -o /tmp/parse_free.o
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md sec.5 S3.2 oracle contract
+ *   - docs/plans/IBASE-implementation-plan.md sec.5 S3.2 oracle contract
  *   - ../dbase3-decomp/re/mint-results-002.md (2^3^2=64, -2^2=4 -- THE oracle)
  *   - ../dbase3-decomp/specs/language/expressions-and-operators.md sec.9
- *   - os/samir/include/samir/eval.h (xb_node / xb_parse API)
+ *   - os/ibase/include/ibase/eval.h (xb_node / xb_parse API)
  *   - seed/test_assert.h (harness idiom)
  */
 
@@ -75,7 +75,7 @@
 #include <string.h>
 
 #include "test_assert.h"        /* seed/, on -Iseed */
-#include "samir/eval.h"         /* os/samir/include/, on -Ios/samir/include */
+#include "ibase/eval.h"         /* os/ibase/include/, on -Ios/ibase/include */
 
 TEST_HARNESS();
 

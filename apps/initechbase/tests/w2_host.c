@@ -4,14 +4,14 @@
  *
  * Include the existing session wiring to reuse its private registration and
  * disk loader without changing the shipped API (same factory pattern as
- * harness/pubs/samir_inventory.c). W2 links this TU in place of samir_main.c;
+ * harness/pubs/ibase_inventory.c). W2 links this TU in place of ibase_main.c;
  * FNS still links the original TU and original pal_host without adapters. */
 #include <dirent.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include "w2_host.h"
-#include "../samir_main.c"
+#include "../ibase_main.c"
 
 static struct w2_host_env *active;
 static char upper(char c) { return c>='a'&&c<='z'?(char)(c-'a'+'A'):c; }
@@ -59,34 +59,34 @@ static int host_path(const char *name,char *out,size_t cap)
     }
     return PAL_OK;
 }
-static pal_fd mounted_open(samir_pal_t *pal,const char *name,int mode)
+static pal_fd mounted_open(ibase_pal_t *pal,const char *name,int mode)
 {
     char path[W2_HOST_PATH_CAP];int rc=host_path(name,path,sizeof path);
     return rc?rc:active->open(pal,path,mode);
 }
-static int mounted_remove(samir_pal_t *pal,const char *name)
+static int mounted_remove(ibase_pal_t *pal,const char *name)
 {
     char path[W2_HOST_PATH_CAP];int rc=host_path(name,path,sizeof path);
     return rc?rc:active->remove(pal,path);
 }
-static int mounted_rename(samir_pal_t *pal,const char *from,const char *to)
+static int mounted_rename(ibase_pal_t *pal,const char *from,const char *to)
 {
     char a[W2_HOST_PATH_CAP],b[W2_HOST_PATH_CAP];
     int rc=host_path(from,a,sizeof a);if(rc)return rc;
     rc=host_path(to,b,sizeof b);return rc?rc:active->rename(pal,a,b);
 }
-static int mounted_drive(samir_pal_t *pal) { (void)pal;return active->logged_drive; }
-static int mounted_space(samir_pal_t *pal,uint32_t *bytes)
+static int mounted_drive(ibase_pal_t *pal) { (void)pal;return active->logged_drive; }
+static int mounted_space(ibase_pal_t *pal,uint32_t *bytes)
 {
     int drive=drive_index(active->logged_drive);(void)pal;
     if(drive<0||!bytes)return -PAL_ENOENT;
     *bytes=active->free_bytes[drive];return PAL_OK;
 }
-static int32_t no_typed_commands(samir_pal_t *pal,char *buf,uint32_t cap)
+static int32_t no_typed_commands(ibase_pal_t *pal,char *buf,uint32_t cap)
 {
     (void)pal;if(cap)buf[0]=0;active->input_calls++;return -1;
 }
-int w2_host_bind(struct w2_host_env *env,samir_pal_t *pal,const struct w2_host_config *cfg)
+int w2_host_bind(struct w2_host_env *env,ibase_pal_t *pal,const struct w2_host_config *cfg)
 {
     struct stat st;
     if(active||!env||!pal||!cfg||!cfg->c_root||!cfg->d_root||
@@ -113,12 +113,12 @@ void w2_host_unbind(struct w2_host_env *env)
     env->pal->conin_line=env->conin_line;env->pal->conin_line_noecho=env->conin_line_noecho;
     active=NULL;
 }
-int w2_host_startup(samir_pal_t *pal,xb_interp *ip,const char *file)
+int w2_host_startup(ibase_pal_t *pal,xb_interp *ip,const char *file)
 {
     uint32_t len=0;int ec=0,rc;char *source;
     if(!pal||!ip||active==NULL||active->pal!=pal)return -INTERP_ERR_NOMEM;
     rc=repl_register_modules(ip);if(rc)return rc;
-    xb_interp_ctx(ip)->message=samir_message;
+    xb_interp_ctx(ip)->message=ibase_message;
     xb_interp_ctx(ip)->dot_command=0;
     proc_set_suspend(ip,repl_suspend);
     source=proc_load_program(ip,file,&len,&ec);
@@ -126,6 +126,6 @@ int w2_host_startup(samir_pal_t *pal,xb_interp *ip,const char *file)
     rc=proc_run_program(ip,source,"MINT");
     pal->release(pal,source);
     xb_interp_ctx(ip)->set_status=0;
-    set_close_alternate(ip);samir_status_refresh(ip);wa_close_all(xb_interp_env(ip));
+    set_close_alternate(ip);ibase_status_refresh(ip);wa_close_all(xb_interp_env(ip));
     return rc==INTERP_RC_QUIT?INTERP_OK:rc;
 }

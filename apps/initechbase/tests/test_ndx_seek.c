@@ -46,17 +46,17 @@
  *
  * Compile (canonical self-verify recipe):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *     -Iseed -Ios/samir/include -Ispec \
+ *     -Iseed -Ios/ibase/include -Ispec \
  *     -o /tmp/test_ndx_seek \
  *     tests/test_ndx_seek.c \
- *     os/samir/fs/ndx.c os/samir/core/value.c os/samir/core/rt.c \
- *     os/samir/pal/pal_host.c
+ *     os/ibase/fs/ndx.c os/ibase/core/value.c os/ibase/core/rt.c \
+ *     os/ibase/pal/pal_host.c
  *   /tmp/test_ndx_seek ../dbase3-decomp
  *
  * Mutant (must exit non-zero):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *     -DNDX_MUTATE_SEEK_CHILD \
- *     -Iseed -Ios/samir/include -Ispec \
+ *     -Iseed -Ios/ibase/include -Ispec \
  *     -o /tmp/test_ndx_seek_mut ... ; /tmp/test_ndx_seek_mut ../dbase3-decomp
  *
  * Ref (Law 1):
@@ -66,9 +66,9 @@
  *     (trailing child), ss6 (collation).
  *   - ../dbase3-decomp/re/mint-results-002.md  SET EXACT default OFF; char "="
  *     directional begins-with (LEFT begins with RIGHT).
- *   - docs/plans/SAMIR-implementation-plan.md S4.3 contract.
- *   - os/samir/include/samir/ndx.h (API under test).
- *   - os/samir/include/samir/value.h (xb_val, xb_c, xb_n, xb_d).
+ *   - docs/plans/IBASE-implementation-plan.md S4.3 contract.
+ *   - os/ibase/include/ibase/ndx.h (API under test).
+ *   - os/ibase/include/ibase/value.h (xb_val, xb_c, xb_n, xb_d).
  *   - seed/test_assert.h (harness idiom).
  *
  * Ground-truth recnos used below were derived from the goldens by an independent
@@ -88,9 +88,9 @@
 #include <string.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/ndx.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/value.h"       /* xb_c, xb_n, xb_d */
-#include "samir/rt.h"          /* jdn_from_ymd, rt_memcpy */
+#include "ibase/ndx.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/value.h"       /* xb_c, xb_n, xb_d */
+#include "ibase/rt.h"          /* jdn_from_ymd, rt_memcpy */
 
 TEST_HARNESS();
 
@@ -101,8 +101,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* -----------------------------------------------------------------------
  * Path helpers (mirrored from test_ndx_keys.c)
@@ -222,7 +222,7 @@ static void bf_sort(ndx_index *idx, bf_collect *b)
  * expected_count: live key count (from the independent python page-walk /
  *   ndx.md Verification). 0 = "do not assert an exact count".
  * ----------------------------------------------------------------------- */
-static void check_index_properties(samir_pal_t *pal, const char *base,
+static void check_index_properties(ibase_pal_t *pal, const char *base,
                                    const char *rel, const char *label,
                                    int expected_count)
 {
@@ -332,7 +332,7 @@ static void check_index_properties(samir_pal_t *pal, const char *base,
  * Ground truth (independent python page-walk): "72450"->27, "91306"->16
  * (separator, page 1), "91316"->22 (page 2, RIGHT subtree), "97401"->18.
  * ----------------------------------------------------------------------- */
-static void check_seek_zipcode(samir_pal_t *pal, const char *base)
+static void check_seek_zipcode(ibase_pal_t *pal, const char *base)
 {
     char       path[1024];
     ndx_index *idx = (ndx_index *)0;
@@ -444,7 +444,7 @@ static void check_seek_zipcode(samir_pal_t *pal, const char *base)
  * SEEK on a date index (TOURDATE: key_type 1, single-level, 30 entries).
  * JDN(1985-08-05)=2446283 -> recno 1; JDN(1985-09-07)=2446316 -> recno 2.
  * ----------------------------------------------------------------------- */
-static void check_seek_tourdate(samir_pal_t *pal, const char *base)
+static void check_seek_tourdate(ibase_pal_t *pal, const char *base)
 {
     char       path[1024];
     ndx_index *idx = (ndx_index *)0;
@@ -526,7 +526,7 @@ static void check_seek_tourdate(samir_pal_t *pal, const char *base)
  * SEEK on a numeric index with negatives (NCOST, key_type 1).
  * -123.45->31, -1.0->32, 0.0->33, 279.0->2.
  * ----------------------------------------------------------------------- */
-static void check_seek_ncost(samir_pal_t *pal, const char *base)
+static void check_seek_ncost(ibase_pal_t *pal, const char *base)
 {
     char       path[1024];
     ndx_index *idx = (ndx_index *)0;
@@ -603,7 +603,7 @@ static void check_seek_ncost(samir_pal_t *pal, const char *base)
  * "Adams...Nathan"->15 (first), "Zambini...Rick"->8 (last).
  * Exercises a full-width concatenated char key + begins-with on a name prefix.
  * ----------------------------------------------------------------------- */
-static void check_seek_cnames(samir_pal_t *pal, const char *base)
+static void check_seek_cnames(ibase_pal_t *pal, const char *base)
 {
     char       path[1024];
     ndx_index *idx = (ndx_index *)0;
@@ -679,7 +679,7 @@ static void check_seek_cnames(samir_pal_t *pal, const char *base)
  * Type-mismatch fail-loud: seeking a char key into a numeric index (and vice
  * versa) must return -NDX_ERR_BAD_KEYTYPE (Rule 2).
  * ----------------------------------------------------------------------- */
-static void check_seek_typecheck(samir_pal_t *pal, const char *base)
+static void check_seek_typecheck(ibase_pal_t *pal, const char *base)
 {
     char       path[1024];
     ndx_index *idx = (ndx_index *)0;
@@ -732,7 +732,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     char path[1024];
     int any_present = 0;
 

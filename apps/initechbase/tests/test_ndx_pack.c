@@ -6,7 +6,7 @@
  * (the S5.5 mutation oracle): seed test_assert.h harness (CHECK / TEST_HARNESS /
  * TEST_SUMMARY), a host PAL via pal_host_make, a WRITABLE table built with
  * dbf_create + dbf_append_rec, .ndx built with ndx_build + ndx_open_rw, injected
- * into the work area via wa_adopt_table, and the PACK verb driven through samir_do.
+ * into the work area via wa_adopt_table, and the PACK verb driven through ibase_do.
  *
  * THE BUG (initech-x87g): dBASE III PLUS PACK physically removes deleted records
  * AND *renumbers the survivors*, so their physical recnos CHANGE. ASSIST.HLP:120
@@ -35,8 +35,8 @@
  *   - ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md sec.10
  *     (PACK: removes deleted records, compacts, rebuilds/adjusts all open index
  *     files; record pointer -> record 1).
- *   - os/samir/include/samir/ndx.h (ndx_build / ndx_rebuild / ndx_seek);
- *     os/samir/include/samir/workarea.h (wa_index_count / wa_index / wa_adopt_table).
+ *   - os/ibase/include/ibase/ndx.h (ndx_build / ndx_rebuild / ndx_seek);
+ *     os/ibase/include/ibase/workarea.h (wa_index_count / wa_index / wa_adopt_table).
  *   - initech-x87g.
  */
 
@@ -46,13 +46,13 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/interp.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/workarea.h"
-#include "samir/nav.h"
-#include "samir/dbf.h"
-#include "samir/ndx.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/interp.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/workarea.h"
+#include "ibase/nav.h"
+#include "ibase/dbf.h"
+#include "ibase/ndx.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -63,8 +63,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* the S5.5 module registration (mutate_cmd_hook -- PACK lives here). */
 int mutate_register(xb_interp *ip);
@@ -149,7 +149,7 @@ static int seek_num(ndx_index *ix, double v, uint32_t *recno, int *found)
 
 typedef struct { const char *code; double amt; } prow;
 
-static void test_pack_reindex(samir_pal_t *pal)
+static void test_pack_reindex(ibase_pal_t *pal)
 {
     const char *pa   = "/tmp/test_ndx_pack.dbf";
     const char *pcx  = "/tmp/test_ndx_pack_code.ndx";
@@ -220,10 +220,10 @@ static void test_pack_reindex(samir_pal_t *pal)
 
     /* --- DELETE record 2 (BBB), then PACK. --- */
     wa_nav_goto(env, 1, 2);
-    rc = samir_do(ip, "DELETE\n");
+    rc = ibase_do(ip, "DELETE\n");
     CHECK(rc == INTERP_OK, "pack: DELETE rec2");
-    rc = samir_do(ip, "PACK\n");
-    snprintf(msg, sizeof msg, "pack: PACK rc=%d ec=%d", rc, samir_last_error(ip));
+    rc = ibase_do(ip, "PACK\n");
+    snprintf(msg, sizeof msg, "pack: PACK rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(dbf_nrec(tbl) == 4u, "pack: RECCOUNT == 4 (rec2 removed)");
 
@@ -287,7 +287,7 @@ cleanup:
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
 
     (void)argc; (void)argv;   /* all synthetic; corpus base unused */
 

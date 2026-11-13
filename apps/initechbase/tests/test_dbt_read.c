@@ -28,16 +28,16 @@
  *
  * Compile + run (self-grade; NOT make):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *     -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbt.c os/samir/core/rt.c os/samir/pal/pal_host.c \
+ *     -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbt.c os/ibase/core/rt.c os/ibase/pal/pal_host.c \
  *     tests/test_dbt_read.c -o /tmp/test_dbt_read \
  *     && /tmp/test_dbt_read ../dbase3-decomp
  *
  * Mutant (must exit non-zero):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *     -DDBT_MUTATE_BLOCKSIZE \
- *     -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbt.c os/samir/core/rt.c os/samir/pal/pal_host.c \
+ *     -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbt.c os/ibase/core/rt.c os/ibase/pal/pal_host.c \
  *     tests/test_dbt_read.c -o /tmp/test_dbt_read_mut \
  *     && /tmp/test_dbt_read_mut ../dbase3-decomp; echo "exit=$?"
  *
@@ -53,8 +53,8 @@
  *     sec 5   (terminator table: TRAVEL block-1 @block-rel 127,
  *              block-2 @block-rel 85; TOURS block-0 leftover @block-rel 103)
  *     Verification (byte-verified claims used for Tier-0 constants)
- *   - docs/plans/SAMIR-implementation-plan.md S2.1 oracle contract.
- *   - os/samir/include/samir/dbt.h (API under test).
+ *   - docs/plans/IBASE-implementation-plan.md S2.1 oracle contract.
+ *   - os/ibase/include/ibase/dbt.h (API under test).
  *   - seed/test_assert.h (harness idiom).
  */
 
@@ -63,7 +63,7 @@
 #include <string.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/dbt.h"         /* os/samir/include/, on -Ios/samir/include */
+#include "ibase/dbt.h"         /* os/ibase/include/, on -Ios/ibase/include */
 
 TEST_HARNESS();
 
@@ -74,8 +74,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* ---- Constants ---- */
 #define PRISTINE_REL \
@@ -188,7 +188,7 @@ static int file_exists(const char *path)
 /* ====================================================================
  * check_travel_dbt: open TRAVEL.DBT and verify block geometry + content.
  * ==================================================================== */
-static void check_travel_dbt(samir_pal_t *pal, const char *base)
+static void check_travel_dbt(ibase_pal_t *pal, const char *base)
 {
     char      path[1024];
     char      msg[256];
@@ -361,7 +361,7 @@ close_travel:
  * point to block 0, meaning "no memo").  The file is 513 bytes: one full
  * 512-byte block plus a single stray 0x1A at offset 512.
  * ==================================================================== */
-static void check_tours_dbt(samir_pal_t *pal, const char *base)
+static void check_tours_dbt(ibase_pal_t *pal, const char *base)
 {
     char      path[1024];
     char      msg[256];
@@ -414,7 +414,7 @@ static void check_tours_dbt(samir_pal_t *pal, const char *base)
  * (We reuse the TRAVEL path but pass is_iv_dialect=1; the file itself is
  * valid III+, but the caller asserts IV and we must reject fast.)
  * ==================================================================== */
-static void check_iv_reject(samir_pal_t *pal, const char *base)
+static void check_iv_reject(ibase_pal_t *pal, const char *base)
 {
     char      path[1024];
     dbt_file *f = (dbt_file *)0;
@@ -440,7 +440,7 @@ int main(int argc, char **argv)
 {
     const char   *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t  *pal;
+    ibase_pal_t  *pal;
     char          path[1024];
     int           any_present = 0;
 

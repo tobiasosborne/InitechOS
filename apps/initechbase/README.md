@@ -32,7 +32,7 @@ compilation; `-j32` safely parallelizes compilation. Execution is sequential.
 The oracles are captured real III+ transcripts and binary files, independent
 Python DBF/DBT/NDX readers, the manual-derived numeric descriptor model, host
 hardware double for soft-float, and authored safety/property assertions. The
-provenance ledger is spec/samir/README.md; test
+provenance ledger is spec/ibase/README.md; test
 coverage, measured counts and every legacy gate's disposition are in
 `tests/IMPORT.md`. Real captures and their manifests stay together, including
 pending evidence and emulator screen captures. No expected real-dBASE text is
@@ -56,7 +56,8 @@ objects compile. No missing implementation prevents linking; resolving this
 needs a loader reserve decision or approved size tuning. The import does not
 increase a shared contract or restore the old size profile. The linker map is
 retained under target/link.map on failure. Overlay literal/header/relocation
-checks run in tier 0; the built-pair checks wait for packaging (IMPORT.md).
+checks run in tier 0; `make pair-test EXE=/absolute/file.EXE` runs all 50
+checks against a supplied pair. Grading the new pair waits for packaging.
 
 The application overlay is separate from the kernel's graphical overlay.
 It was introduced for space limits; real dBASE also uses overlays, but the

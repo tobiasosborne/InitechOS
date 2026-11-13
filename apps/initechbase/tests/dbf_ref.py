@@ -2,9 +2,9 @@
 # tests/dbf_ref.py -- independent dBASE III+ .dbf/.dbt reference reader.
 #
 # FACTORY tooling (CLAUDE.md Law 3): the artifact stays C; this python reader is
-# the INDEPENDENT reference for the SAMIR (InitechBase) differential oracle
+# the INDEPENDENT reference for the IBASE (InitechBase) differential oracle
 # (beads initech-586.5.7).  It is a SECOND implementation that shares NO code
-# and NO constants with os/samir/* or spec/samir/*.  Its purpose is to catch any
+# and NO constants with os/ibase/* or spec/ibase/*.  Its purpose is to catch any
 # bug that is SHARED by our C reader -- agreement between two independent
 # derivations is a far stronger signal than one.
 #
@@ -110,7 +110,7 @@ class DbfFile:
     """Independent dBASE III+ .dbf reader.
 
     Parses from first principles per dbf.md/dbt.md.  Does NOT import
-    spec/samir/* or os/samir/*.
+    spec/ibase/* or os/ibase/*.
     """
 
     def __init__(self, path):

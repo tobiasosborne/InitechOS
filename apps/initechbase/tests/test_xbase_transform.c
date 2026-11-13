@@ -55,9 +55,9 @@
  *   - ../dbase3-decomp/re/mint-results-002.md C2.TXT (TRANSFORM cases)
  *   - ../dbase3-decomp/specs/functions/string-functions.md lines 562-600
  *       (TRANSFORM spec: @-flags, template chars)
- *   - spec/samir/dbase_msg_codes.tsv (error codes #9/#11)
- *   - os/samir/include/samir/eval.h  (xb_ctx / xb_eval API)
- *   - os/samir/include/samir/value.h (xb_val / XB_C / xb_c)
+ *   - spec/ibase/dbase_msg_codes.tsv (error codes #9/#11)
+ *   - os/ibase/include/ibase/eval.h  (xb_ctx / xb_eval API)
+ *   - os/ibase/include/ibase/value.h (xb_val / XB_C / xb_c)
  *   - seed/test_assert.h             (CHECK / TEST_HARNESS / TEST_SUMMARY)
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
@@ -68,9 +68,9 @@
 #include <string.h>
 
 #include "test_assert.h"        /* seed/, on -Iseed                          */
-#include "samir/eval.h"         /* os/samir/include/, on -Ios/samir/include  */
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/eval.h"         /* os/ibase/include/, on -Ios/ibase/include  */
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -207,7 +207,7 @@ int main(void)
          " [verified: mint-002 C2.TXT]");
 
     /* ================================================================ */
-    /* G. Decimal pictures that EXACTLY fit (audit 2026-10-23-samir L007; */
+    /* G. Decimal pictures that EXACTLY fit (audit 2026-10-23-ibase L007; */
     /*    initech-ylqs). The '.' takes a column of its own, so "999.99"  */
     /*    holds 123.40. Real III+ lines C1..C11 of                        */
     /*    xbase_prog_diff/datatype-mint/DT1LOG.TXT (datatype_mint.sh).   */
@@ -372,7 +372,7 @@ int main(void)
     /* ================================================================ */
     /* G. Arity and type errors                                          */
     /*                                                                   */
-    /* Ref: spec/samir/dbase_msg_codes.tsv                               */
+    /* Ref: spec/ibase/dbase_msg_codes.tsv                               */
     /*   #11 XBEE_INVALID_ARG = wrong arity                              */
     /*   #9  XBEE_MISMATCH    = wrong argument types                     */
     /* ================================================================ */

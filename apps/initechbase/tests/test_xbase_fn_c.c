@@ -46,9 +46,9 @@
  *       @STR FUNC 3 (1346-1358): the period-exact III+ string function surface.
  *   - ../dbase3-decomp/re/mint-results-002.md: TRANSFORM confirmed to exist;
  *       ""$"ABC"=.F. (AT empty-needle behavior consistent).
- *   - spec/samir/dbase_msg_codes.tsv: error codes #9/#11.
- *   - os/samir/include/samir/eval.h: xb_ctx / xb_eval / xb_call_builtin API.
- *   - os/samir/include/samir/value.h: xb_val / XB_C / XB_L / xb_c / xb_l.
+ *   - spec/ibase/dbase_msg_codes.tsv: error codes #9/#11.
+ *   - os/ibase/include/ibase/eval.h: xb_ctx / xb_eval / xb_call_builtin API.
+ *   - os/ibase/include/ibase/value.h: xb_val / XB_C / XB_L / xb_c / xb_l.
  *   - seed/test_assert.h: CHECK / TEST_HARNESS / TEST_SUMMARY harness idiom.
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
@@ -59,9 +59,9 @@
 #include <string.h>
 
 #include "test_assert.h"        /* seed/, on -Iseed                          */
-#include "samir/eval.h"         /* os/samir/include/, on -Ios/samir/include  */
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/eval.h"         /* os/ibase/include/, on -Ios/ibase/include  */
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 

@@ -66,16 +66,16 @@
  *
  * Compile + run (self-grade; NOT make):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *     -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbt.c os/samir/core/rt.c os/samir/pal/pal_host.c \
+ *     -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbt.c os/ibase/core/rt.c os/ibase/pal/pal_host.c \
  *     tests/test_dbt_roundtrip.c -o /tmp/test_dbt_roundtrip \
  *     && /tmp/test_dbt_roundtrip ../dbase3-decomp ; echo "unit exit=$?"
  *
  * Mutant (must exit non-zero):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *     -DDBT_MUTATE_WRITE_PTR_ENDIAN \
- *     -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbt.c os/samir/core/rt.c os/samir/pal/pal_host.c \
+ *     -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbt.c os/ibase/core/rt.c os/ibase/pal/pal_host.c \
  *     tests/test_dbt_roundtrip.c -o /tmp/test_dbt_roundtrip_mut \
  *     && /tmp/test_dbt_roundtrip_mut ../dbase3-decomp ; echo "mutant exit=$?"
  *
@@ -90,10 +90,10 @@
  *     sec 5   (0x1A 0x1A terminator)
  *     sec 6   (append-only; tail = don't-care / NORMALIZE; block-0 = NORMALIZE)
  *     sec 8   (writer recipe steps 1-4: start, write+term+pad, advance ptr, store)
- *   - docs/plans/SAMIR-implementation-plan.md S2.2 contract:
+ *   - docs/plans/IBASE-implementation-plan.md S2.2 contract:
  *     dbt_append(text,len)->blockno; ceil((len+2)/512) rounding; LE ptr write.
- *   - os/samir/include/samir/dbt.h  (write API: dbt_create, dbt_append, dbt_flush)
- *   - os/samir/include/samir/pal.h  (open/read/write/seek vtable).
+ *   - os/ibase/include/ibase/dbt.h  (write API: dbt_create, dbt_append, dbt_flush)
+ *   - os/ibase/include/ibase/pal.h  (open/read/write/seek vtable).
  *   - seed/test_assert.h (CHECK / TEST_HARNESS / TEST_SUMMARY).
  */
 
@@ -103,7 +103,7 @@
 #include <stdint.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/dbt.h"         /* os/samir/include/, on -Ios/samir/include */
+#include "ibase/dbt.h"         /* os/ibase/include/, on -Ios/ibase/include */
 
 TEST_HARNESS();
 
@@ -114,13 +114,13 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* ---- Fixed temp paths (deterministic; Rule 11) ---- */
-#define TMP_DBT_A      "/tmp/samir_test_dbt_rt_a.dbt"
-#define TMP_DBT_B      "/tmp/samir_test_dbt_rt_b.dbt"
-#define TMP_DBT_CORPUS "/tmp/samir_test_dbt_rt_corpus.dbt"
+#define TMP_DBT_A      "/tmp/ibase_test_dbt_rt_a.dbt"
+#define TMP_DBT_B      "/tmp/ibase_test_dbt_rt_b.dbt"
+#define TMP_DBT_CORPUS "/tmp/ibase_test_dbt_rt_corpus.dbt"
 
 /* ---- Corpus path ---- */
 #define PRISTINE_REL \
@@ -144,7 +144,7 @@ static int file_exists(const char *path)
  * Used to verify the on-disk encoding of next_free independently of the
  * dbt_open path (catches the BE-mutant).
  * ==================================================================== */
-static int read_raw_next_free(samir_pal_t *pal, const char *path,
+static int read_raw_next_free(ibase_pal_t *pal, const char *path,
                               uint32_t *out)
 {
     pal_fd  fd;
@@ -171,7 +171,7 @@ static int read_raw_next_free(samir_pal_t *pal, const char *path,
 /* ====================================================================
  * Helper: make a fresh PAL instance with a generous arena.
  * ==================================================================== */
-static samir_pal_t *make_pal(void)
+static ibase_pal_t *make_pal(void)
 {
     struct pal_host_cfg cfg;
     memset(&cfg, 0, sizeof(cfg));
@@ -222,7 +222,7 @@ static const uint8_t MEMO_A[]   = {
 #define NF_AFTER_B      (NF_AFTER_A      + MEMO_B_BLOCKS)   /* 4 */
 #define NF_AFTER_C      (NF_AFTER_B      + MEMO_C_BLOCKS)   /* 5 */
 
-static void check_create_and_append(samir_pal_t *pal)
+static void check_create_and_append(ibase_pal_t *pal)
 {
     dbt_file *f   = (dbt_file *)0;
     dbt_file *rf  = (dbt_file *)0;
@@ -408,7 +408,7 @@ done:
  * Oracle 5: RDONLY guard.
  * Open a .dbt via dbt_open; attempt dbt_append; assert -DBT_ERR_RDONLY.
  * ==================================================================== */
-static void check_rdonly_guard(samir_pal_t *pal)
+static void check_rdonly_guard(ibase_pal_t *pal)
 {
     dbt_file *f = (dbt_file *)0;
     uint32_t  blockno;
@@ -436,7 +436,7 @@ static void check_rdonly_guard(samir_pal_t *pal)
  * (We compare via dbt_read rather than raw file bytes because block-0
  * bytes 4..511 and block tails are "don't care" per dbt.md sec 6.)
  * ==================================================================== */
-static void check_determinism(samir_pal_t *pal)
+static void check_determinism(ibase_pal_t *pal)
 {
     dbt_file *f    = (dbt_file *)0;
     dbt_file *fa   = (dbt_file *)0;
@@ -528,7 +528,7 @@ determ_done:
  * (We create a fresh .dbt via dbt_create and append the TRAVEL content
  * as our own memos, then verify the round-trip.)
  * ==================================================================== */
-static void check_corpus_tier1(samir_pal_t *pal, const char *base)
+static void check_corpus_tier1(ibase_pal_t *pal, const char *base)
 {
     char      path[1024];
     dbt_file *src = (dbt_file *)0;
@@ -638,7 +638,7 @@ static void check_corpus_tier1(samir_pal_t *pal, const char *base)
 int main(int argc, char **argv)
 {
     const char  *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
 
     pal = make_pal();
     if (!pal) {

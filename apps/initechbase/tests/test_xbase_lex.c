@@ -45,32 +45,32 @@
  * GATED notes appear as GATED: ... inline comments on individual tests.
  *
  * Compile + run (self-grade, host):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include \
- *       os/samir/core/lex.c os/samir/core/rt.c \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include \
+ *       os/ibase/core/lex.c os/ibase/core/rt.c \
  *       tests/test_xbase_lex.c \
  *       -o /tmp/test_xbase_lex && /tmp/test_xbase_lex
  *
  * Mutant (must go RED on section 11):
  *   gcc -std=c11 -Wall -Wextra -Werror -DXB_MUTATE_LEX -Iseed \
- *       -Ios/samir/include \
- *       os/samir/core/lex.c os/samir/core/rt.c \
+ *       -Ios/ibase/include \
+ *       os/ibase/core/lex.c os/ibase/core/rt.c \
  *       tests/test_xbase_lex.c \
  *       -o /tmp/test_xbase_lex_mut ; \
  *       /tmp/test_xbase_lex_mut ; echo "mutant exit=$?"
  *
  * Freestanding compile check (lex.c only):
  *   gcc -m32 -ffreestanding -nostdlib -fno-stack-protector -fno-pic \
- *       -std=c11 -Wall -Wextra -Werror -Ios/samir/include \
- *       -c os/samir/core/lex.c -o /tmp/lex_free.o
+ *       -std=c11 -Wall -Wextra -Werror -Ios/ibase/include \
+ *       -c os/ibase/core/lex.c -o /tmp/lex_free.o
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S3.1 oracle contract
- *   - os/samir/include/samir/eval.h (xb_lex API)
+ *   - docs/plans/IBASE-implementation-plan.md S3.1 oracle contract
+ *   - os/ibase/include/ibase/eval.h (xb_lex API)
  *   - ../dbase3-decomp/specs/language/expressions-and-operators.md
  *   - ../dbase3-decomp/specs/language/data-types.md
- *   - spec/samir/xbase_coercion.json not_in_iii_plus
+ *   - spec/ibase/xbase_coercion.json not_in_iii_plus
  *   - seed/test_assert.h (harness idiom)
  */
 
@@ -79,7 +79,7 @@
 #include <string.h>
 
 #include "test_assert.h"        /* seed/, on -Iseed */
-#include "samir/eval.h"         /* os/samir/include/, on -Ios/samir/include */
+#include "ibase/eval.h"         /* os/ibase/include/, on -Ios/ibase/include */
 
 TEST_HARNESS();
 
@@ -350,7 +350,7 @@ int main(void)
     /* THE HEADLINE BEHAVIOR OF S3.1.                                       */
     /* dBASE III PLUS 1.1 has no == operator (it is dBASE IV).             */
     /* Plan sec.2.C: "the lexer treats == as a III+ lex error".             */
-    /* Refs: spec/samir/xbase_coercion.json not_in_iii_plus: ["==",...]    */
+    /* Refs: spec/ibase/xbase_coercion.json not_in_iii_plus: ["==",...]    */
     /*       expressions-and-operators.md sec.4.2 verified: no == in III+   */
     /*       HELP.DBS @RELATIONAL OP lists < > = <> # <= >= $ -- no ==     */
     /*                                                                      */
@@ -374,7 +374,7 @@ int main(void)
 
     /* ------------------------------------------------------------------ */
     /* 12. != -> lex error XBLE_BANG_EQ                                     */
-    /* [spec/samir/xbase_coercion.json not_in_iii_plus: ["==","!=",...]]    */
+    /* [spec/ibase/xbase_coercion.json not_in_iii_plus: ["==","!=",...]]    */
     /* ------------------------------------------------------------------ */
     {
         int err = 0;

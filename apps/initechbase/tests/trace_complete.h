@@ -1,6 +1,6 @@
 /* PRD 8 / Rules 2/6: do not confuse launch/trace failure with a mutant bite. */
-#ifndef SAMIR_TRACE_COMPLETE_H
-#define SAMIR_TRACE_COMPLETE_H
+#ifndef IBASE_TRACE_COMPLETE_H
+#define IBASE_TRACE_COMPLETE_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

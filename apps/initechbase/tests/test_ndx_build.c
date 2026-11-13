@@ -7,7 +7,7 @@
  * TEST_SUMMARY, which emits the "checks," line), pal_host_make, loud-SKIP on
  * absent goldens (printed, exit 0), non-zero exit on any failed check.
  *
- * The DECOUPLING barrier (bead initech-ahu.4): ndx_build (in os/samir/fs/ndx.c)
+ * The DECOUPLING barrier (bead initech-ahu.4): ndx_build (in os/ibase/fs/ndx.c)
  * does NOT depend on core/eval.c -- it takes the per-record key bytes via a
  * caller-supplied key-provider callback. THIS TEST supplies the callback, and
  * the callback uses dbf_read_rec + the EVALUATOR to compute each record's key.
@@ -50,13 +50,13 @@
  *
  * Compile (canonical self-verify recipe; the test links the evaluator, the
  * engine codec does not):
- *   ENG="os/samir/fs/ndx.c os/samir/fs/dbf.c os/samir/core/eval.c \
- *        os/samir/core/parse.c os/samir/core/lex.c os/samir/core/value.c \
- *        os/samir/core/rt.c os/samir/core/fn_builtins.c"
+ *   ENG="os/ibase/fs/ndx.c os/ibase/fs/dbf.c os/ibase/core/eval.c \
+ *        os/ibase/core/parse.c os/ibase/core/lex.c os/ibase/core/value.c \
+ *        os/ibase/core/rt.c os/ibase/core/fn_builtins.c"
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *     -Iseed -Ios/samir/include -Ispec \
+ *     -Iseed -Ios/ibase/include -Ispec \
  *     -o /tmp/test_ndx_build tests/test_ndx_build.c $ENG \
- *     os/samir/pal/pal_host.c
+ *     os/ibase/pal/pal_host.c
  *   /tmp/test_ndx_build ../dbase3-decomp
  *
  * Mutant (must exit non-zero):
@@ -68,9 +68,9 @@
  *   - ../dbase3-decomp/specs/file-formats/ndx.md  ss1 (geometry + writer-garbage
  *     note), ss2 (header), ss3/ss3.1/ss3.2 (node/group/trailing child),
  *     ss5 (HIGH-key separator), Open questions (bulk build RESOLVED).
- *   - docs/plans/SAMIR-implementation-plan.md S4.4 contract; Sec 2.E.
- *   - os/samir/include/samir/ndx.h (ndx_build + key-provider under test).
- *   - os/samir/include/samir/dbf.h, eval.h, value.h, rt.h.
+ *   - docs/plans/IBASE-implementation-plan.md S4.4 contract; Sec 2.E.
+ *   - os/ibase/include/ibase/ndx.h (ndx_build + key-provider under test).
+ *   - os/ibase/include/ibase/dbf.h, eval.h, value.h, rt.h.
  *   - seed/test_assert.h (harness idiom).
  */
 
@@ -80,12 +80,12 @@
 #include <stdlib.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/ndx.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/ndx_format.h"  /* NDX_KEY_TYPE_CHAR / _NUMERIC, on -Ispec */
-#include "samir/dbf.h"         /* dbf_open / dbf_read_rec / dbf_field */
-#include "samir/eval.h"        /* xb_lex / xb_parse / xb_eval (key provider) */
-#include "samir/value.h"       /* xb_c, xb_n, xb_d */
-#include "samir/rt.h"          /* rt_memcpy, jdn_from_ymd */
+#include "ibase/ndx.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/ndx_format.h"  /* NDX_KEY_TYPE_CHAR / _NUMERIC, on -Ispec */
+#include "ibase/dbf.h"         /* dbf_open / dbf_read_rec / dbf_field */
+#include "ibase/eval.h"        /* xb_lex / xb_parse / xb_eval (key provider) */
+#include "ibase/value.h"       /* xb_c, xb_n, xb_d */
+#include "ibase/rt.h"          /* rt_memcpy, jdn_from_ymd */
 
 TEST_HARNESS();
 
@@ -96,8 +96,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* -----------------------------------------------------------------------
  * Path helpers (mirrored from test_ndx_seek.c)
@@ -419,7 +419,7 @@ static int io_visit(void *ctx, const uint8_t *key_data, uint32_t recno)
     return 0;
 }
 
-static void collect_inorder(samir_pal_t *pal, const char *path, io_collect *io)
+static void collect_inorder(ibase_pal_t *pal, const char *path, io_collect *io)
 {
     ndx_index *idx = NULL;
     memset(io, 0, sizeof(*io));
@@ -441,7 +441,7 @@ static void collect_inorder(samir_pal_t *pal, const char *path, io_collect *io)
  *   key_len   the index key_length
  *   label     for messages
  * ----------------------------------------------------------------------- */
-static void check_rebuild(samir_pal_t *pal, const char *base,
+static void check_rebuild(ibase_pal_t *pal, const char *base,
                           const char *src_rel, const char *ndx_rel,
                           const char *expr, uint16_t key_type, uint16_t key_len,
                           const char *label)
@@ -578,7 +578,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     char path[1024];
     int any = 0;
 
@@ -622,7 +622,7 @@ int main(int argc, char **argv)
      * "LASTNAME + FIRSTNAME " (trailing space). PROVENANCE (initech-586.4.1):
      * the corpus file is the AUTHENTIC 1986 CNAMES.NDX again, recovered from
      * the pristine disk image (../dbase3-decomp re/mint-results-006.md); from
-     * wave 9 until 2026-10-17 it was a SAMIR rebuild and this leg graded our
+     * wave 9 until 2026-10-17 it was a IBASE rebuild and this leg graded our
      * writer against our writer. test-dbase-corpus-pristine pins it. */
     check_rebuild(pal, base,
                   PRISTINE_REL "/CLIENTS.DBF", PRISTINE_REL "/CNAMES.NDX",

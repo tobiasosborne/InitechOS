@@ -43,17 +43,17 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Compile (canonical self-verify recipe):
- *   COMMON="os/samir/fs/ndx.c os/samir/core/value.c os/samir/core/rt.c \
- *           os/samir/pal/pal_host.c"
+ *   COMMON="os/ibase/fs/ndx.c os/ibase/core/value.c os/ibase/core/rt.c \
+ *           os/ibase/pal/pal_host.c"
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *     -Iseed -Ios/samir/include -Ispec \
+ *     -Iseed -Ios/ibase/include -Ispec \
  *     -o /tmp/test_ndx_maintain tests/test_ndx_maintain.c $COMMON
  *   /tmp/test_ndx_maintain ../dbase3-decomp ; echo "unit exit=$?"
  *
  * Mutant (must exit non-zero):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *     -DNDX_MUTATE_INSERT_NOSORT \
- *     -Iseed -Ios/samir/include -Ispec \
+ *     -Iseed -Ios/ibase/include -Ispec \
  *     -o /tmp/test_ndx_maintain_mut \
  *     tests/test_ndx_maintain.c $COMMON
  *   /tmp/test_ndx_maintain_mut ../dbase3-decomp ; echo "mutant exit=$? (want non-zero)"
@@ -61,8 +61,8 @@
  * Ref (Law 1):
  *   - ../dbase3-decomp/specs/file-formats/ndx.md ss3 (node layout), ss5
  *     (B-tree ordering invariant), ss3.2 (trailing child).
- *   - docs/plans/SAMIR-implementation-plan.md S4.5 contract + sec 7 GATED.
- *   - os/samir/include/samir/ndx.h (S4.5 API: ndx_open_rw, ndx_insert_key,
+ *   - docs/plans/IBASE-implementation-plan.md S4.5 contract + sec 7 GATED.
+ *   - os/ibase/include/ibase/ndx.h (S4.5 API: ndx_open_rw, ndx_insert_key,
  *     ndx_delete_key, ndx_update_key, NDX_ERR_READONLY / _NOROOM / _NOTFOUND).
  *   - seed/test_assert.h (harness idiom).
  */
@@ -73,10 +73,10 @@
 #include <stdlib.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/ndx.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/ndx_format.h"  /* NDX_KEY_TYPE_CHAR / _NUMERIC, on -Ispec */
-#include "samir/value.h"       /* xb_c, xb_n */
-#include "samir/rt.h"          /* rt_memcpy, rt_memset */
+#include "ibase/ndx.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/ndx_format.h"  /* NDX_KEY_TYPE_CHAR / _NUMERIC, on -Ispec */
+#include "ibase/value.h"       /* xb_c, xb_n */
+#include "ibase/rt.h"          /* rt_memcpy, rt_memset */
 
 TEST_HARNESS();
 
@@ -87,8 +87,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* -----------------------------------------------------------------------
  * Utility: string path building
@@ -295,7 +295,7 @@ static int seek_num(ndx_index *idx, double v, uint32_t want_recno,
 static const char *CHAR_EXPR = "LASTNAME";
 #define CHAR_KL 10u
 
-static void test_char_maintain(samir_pal_t *pal, const char *tmpdir)
+static void test_char_maintain(ibase_pal_t *pal, const char *tmpdir)
 {
     char ndx_path[512];
     uint8_t k1[CHAR_KL], k2[CHAR_KL], k3[CHAR_KL], k4[CHAR_KL];
@@ -452,7 +452,7 @@ static int num_provider(void *user, uint32_t recno,
     return 0;
 }
 
-static void test_num_split(samir_pal_t *pal, const char *tmpdir)
+static void test_num_split(ibase_pal_t *pal, const char *tmpdir)
 {
     char ndx_path[512];
     ndx_index *idx = (ndx_index *)0;
@@ -541,7 +541,7 @@ static void test_num_split(samir_pal_t *pal, const char *tmpdir)
 /* -----------------------------------------------------------------------
  * Test 3: ndx_open on a read-only handle -> maintenance ops return READONLY
  * ----------------------------------------------------------------------- */
-static void test_readonly_guard(samir_pal_t *pal, const char *tmpdir)
+static void test_readonly_guard(ibase_pal_t *pal, const char *tmpdir)
 {
     char ndx_path[512];
     ndx_index *ro_idx = (ndx_index *)0;
@@ -577,7 +577,7 @@ static void test_readonly_guard(samir_pal_t *pal, const char *tmpdir)
 /* -----------------------------------------------------------------------
  * Test 4: ndx_delete_key for a missing key returns NDX_ERR_NOTFOUND
  * ----------------------------------------------------------------------- */
-static void test_notfound(samir_pal_t *pal, const char *tmpdir)
+static void test_notfound(ibase_pal_t *pal, const char *tmpdir)
 {
     char ndx_path[512];
     ndx_index *idx = (ndx_index *)0;
@@ -635,7 +635,7 @@ static void test_notfound(samir_pal_t *pal, const char *tmpdir)
  *   - ../dbase3-decomp/specs/file-formats/ndx.md sec.5 "Duplicates
  *     (unique_flag==0): multiple entries may share a key value; each carries its
  *     own dbf_recno" + sec.6 "No record-number tiebreak is encoded in the key".
- *   - os/samir/include/samir/ndx.h ndx_delete_key contract (exact key AND recno).
+ *   - os/ibase/include/ibase/ndx.h ndx_delete_key contract (exact key AND recno).
  * ----------------------------------------------------------------------- */
 
 #define DUP_KL 8u   /* char key_len=8 -> group_len 16 -> kpp 31 */
@@ -650,7 +650,7 @@ static int find_recno_cb(void *raw, const uint8_t *key_data, uint32_t recno)
     return 0;
 }
 
-static void test_nonunique_multileaf_delete(samir_pal_t *pal, const char *tmpdir)
+static void test_nonunique_multileaf_delete(ibase_pal_t *pal, const char *tmpdir)
 {
     char ndx_path[512];
     uint8_t smith[DUP_KL];
@@ -732,7 +732,7 @@ static void test_nonunique_multileaf_delete(samir_pal_t *pal, const char *tmpdir
  * If the corpus golden is present we open it with ndx_open_rw and perform
  * an insert+seek+sort check on the real index structure.
  * ----------------------------------------------------------------------- */
-static void test_tier1_corpus(samir_pal_t *pal, const char *corpus_base)
+static void test_tier1_corpus(ibase_pal_t *pal, const char *corpus_base)
 {
     char cnames_src[512];
     char cnames_copy[512];
@@ -844,7 +844,7 @@ int main(int argc, char **argv)
 {
     const char *corpus_base = (argc >= 2) ? argv[1] : "../dbase3-decomp";
     const char *tmpdir      = "/tmp";
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     struct pal_host_cfg cfg;
 
     cfg.date_yy   = 26u;

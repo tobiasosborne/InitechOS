@@ -34,24 +34,24 @@
  *   Ref: datatype-mint/datecontract/DATECHK.TXT C01..C16 (initech-bkmv).
  *
  * Compile + run (self-grade, host):
- *   cc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include -Ispec \
- *      os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c \
- *      os/samir/core/value.c os/samir/core/rt.c os/samir/core/fn_builtins.c \
+ *   cc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include -Ispec \
+ *      os/ibase/core/eval.c os/ibase/core/parse.c os/ibase/core/lex.c \
+ *      os/ibase/core/value.c os/ibase/core/rt.c os/ibase/core/fn_builtins.c \
  *      tests/test_xbase_fn_a.c \
  *      -o /tmp/test_xbase_fn_a && /tmp/test_xbase_fn_a
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md sec.5 S3.5 oracle contract
+ *   - docs/plans/IBASE-implementation-plan.md sec.5 S3.5 oracle contract
  *   - ../dbase3-decomp/specs/functions/string-functions.md (SUBSTR 1-based;
  *     LEN/UPPER/LOWER/TRIM/LTRIM/SPACE/CHR/ASC/STR/VAL semantics + error codes)
  *   - ../dbase3-decomp/specs/functions/numeric-and-date-functions.md
  *     (CTOD/DTOC/DAY/MONTH/YEAR/DATE; IIF same-type branch; DTOS NOT III+)
  *   - ../dbase3-decomp/specs/functions/system-and-database-functions.md (TYPE)
  *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (mm/dd/yy, base-1900)
- *   - spec/samir/dbase_msg_codes.tsv (#9/#11/#31/#57/#60/#62)
- *   - os/samir/include/samir/eval.h (xb_ctx / xb_eval / xb_call_builtin API)
+ *   - spec/ibase/dbase_msg_codes.tsv (#9/#11/#31/#57/#60/#62)
+ *   - os/ibase/include/ibase/eval.h (xb_ctx / xb_eval / xb_call_builtin API)
  *   - seed/test_assert.h (harness idiom)
  */
 
@@ -61,9 +61,9 @@
 #include <string.h>
 
 #include "test_assert.h"        /* seed/, on -Iseed                          */
-#include "samir/eval.h"         /* os/samir/include/, on -Ios/samir/include  */
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/eval.h"         /* os/ibase/include/, on -Ios/ibase/include  */
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -259,7 +259,7 @@ int main(void)
 
         /* initech-bkmv: real III+ calendar rollovers, not inferred Harbour
          * validation. Expected dates are DATECHK.TXT C01..C07; the literal
-         * JDNs represent those observed dates, never SAMIR output. */
+         * JDNs represent those observed dates, never IBASE output. */
         ok_d("CTOD('02/31/90')", 2447954.0, "I8: CTOD Feb 31 -> 1990-03-03 [CALVALID DATECHK C02]");
         ok_d("CTOD('04/31/85')", 2446187.0, "I9: CTOD Apr 31 -> 1985-05-01 [CALVALID DATECHK C03]");
         ok_d("CTOD('02/29/85')", 2446126.0, "I10: CTOD non-leap Feb 29 -> 1985-03-01 [CALVALID DATECHK C04]");

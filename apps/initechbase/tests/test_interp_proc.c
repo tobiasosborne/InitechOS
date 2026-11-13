@@ -34,9 +34,9 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.7 contract + Sec 7 GATED register.
- *   - os/samir/include/samir/interp.h (samir_do + the S5.7 scope API).
- *   - os/samir/cmd/proc.c (proc_register / proc_run / proc_fire_onerror).
+ *   - docs/plans/IBASE-implementation-plan.md S5.7 contract + Sec 7 GATED register.
+ *   - os/ibase/include/ibase/interp.h (ibase_do + the S5.7 scope API).
+ *   - os/ibase/cmd/proc.c (proc_register / proc_run / proc_fire_onerror).
  *   - ../dbase3-decomp/specs/language/memory-variables.md sec 3 (scope).
  *   - ../dbase3-decomp/specs/commands/control-flow-and-procedures.md sec 7-8.
  *   - ../dbase3-decomp/specs/commands/programming-and-io.md sec 8-10,14.
@@ -47,11 +47,11 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/interp.h"         /* os/samir/include/ */
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
+#include "ibase/interp.h"         /* os/ibase/include/ */
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
 
 TEST_HARNESS();
 
@@ -62,8 +62,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* proc.c surface (the S5.7 module entry points; declared here). */
 int proc_register(xb_interp *ip);
@@ -102,7 +102,7 @@ static void script_set_keys(const char *keys)
 }
 
 /* the overriding conin_line: copy the next scripted line into buf (no newline). */
-static int32_t scripted_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
+static int32_t scripted_conin_line(ibase_pal_t *p, char *buf, uint32_t cap)
 {
     const char *s;
     uint32_t n;
@@ -116,7 +116,7 @@ static int32_t scripted_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
 }
 
 /* the overriding conin_char: return the next scripted key, or -1 at end. */
-static int32_t scripted_conin_char(samir_pal_t *p)
+static int32_t scripted_conin_char(ibase_pal_t *p)
 {
     (void)p;
     if (g_keys[g_keyidx] == '\0') return -1;
@@ -124,7 +124,7 @@ static int32_t scripted_conin_char(samir_pal_t *p)
 }
 
 /* install the scripted readers over a host PAL (pal.h struct is fully defined). */
-static void install_scripted(samir_pal_t *pal)
+static void install_scripted(ibase_pal_t *pal)
 {
     pal->conin_line = scripted_conin_line;
     pal->conin_char = scripted_conin_char;
@@ -144,7 +144,7 @@ static int memvar_num(xb_interp *ip, const char *name, double *out)
 }
 
 /* make a fresh interp with proc.c registered. */
-static xb_interp *make_ip(samir_pal_t *pal)
+static xb_interp *make_ip(ibase_pal_t *pal)
 {
     xb_interp *ip = xb_interp_make(pal);
     if (ip) proc_register(ip);
@@ -154,7 +154,7 @@ static xb_interp *make_ip(samir_pal_t *pal)
 /* =====================================================================
  * Group 1: DO calls a PROCEDURE; RETURN returns; the body ran.
  * ===================================================================== */
-static void test_do_call_return(samir_pal_t *pal)
+static void test_do_call_return(ibase_pal_t *pal)
 {
     /* main sets FLAG=0, DOes SETIT (sets FLAG=1 then RETURN), asserts FLAG==1.
      * FLAG is visible from the callee (created at main level), so the callee's
@@ -172,7 +172,7 @@ static void test_do_call_return(samir_pal_t *pal)
     CHECK(ip != NULL, "do/return: interp made");
     if (!ip) return;
     rc = proc_run(ip, prg);
-    snprintf(msg, sizeof(msg), "do/return: proc_run rc=%d ec=%d (want 0)", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "do/return: proc_run rc=%d ec=%d (want 0)", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(memvar_num(ip, "FLAG", &v), "do/return: FLAG numeric");
     snprintf(msg, sizeof(msg), "do/return: callee ran -> FLAG==1 (got %g)", v);
@@ -184,7 +184,7 @@ static void test_do_call_return(samir_pal_t *pal)
  * Group 2: DO WITH + PARAMETERS binds BY POSITION.
  *   -DPROC_MUTATE_PARAM_ORDER reverses the bind -> RED.
  * ===================================================================== */
-static void test_params_positional(samir_pal_t *pal)
+static void test_params_positional(ibase_pal_t *pal)
 {
     /* DO ADD3 WITH 10, 3 ; PROCEDURE ADD3 PARAMETERS A,B ; RES = A*100 + B.
      * positional: A=10,B=3 -> RES=1003. reversed (mutant): A=3,B=10 -> 310. */
@@ -202,7 +202,7 @@ static void test_params_positional(samir_pal_t *pal)
     CHECK(ip != NULL, "params: interp made");
     if (!ip) return;
     rc = proc_run(ip, prg);
-    snprintf(msg, sizeof(msg), "params: proc_run rc=%d ec=%d", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "params: proc_run rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(memvar_num(ip, "RES", &v), "params: RES numeric (PUBLIC, survives RETURN)");
     snprintf(msg, sizeof(msg), "params: A=10,B=3 positional -> RES==1003 (got %g)", v);
@@ -211,9 +211,9 @@ static void test_params_positional(samir_pal_t *pal)
 }
 
 /* =====================================================================
- * Group 3: nested DO recurses (samir_do re-entrant).
+ * Group 3: nested DO recurses (ibase_do re-entrant).
  * ===================================================================== */
-static void test_nested_do(samir_pal_t *pal)
+static void test_nested_do(ibase_pal_t *pal)
 {
     /* main DOes A; A bumps PUBLIC N then DOes B; B bumps N again -> N==2. */
     const char *prg =
@@ -234,7 +234,7 @@ static void test_nested_do(samir_pal_t *pal)
     CHECK(ip != NULL, "nested: interp made");
     if (!ip) return;
     rc = proc_run(ip, prg);
-    snprintf(msg, sizeof(msg), "nested: proc_run rc=%d ec=%d", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "nested: proc_run rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(memvar_num(ip, "N", &v), "nested: N numeric");
     snprintf(msg, sizeof(msg), "nested: A->B both bumped N -> N==2 (got %g)", v);
@@ -246,7 +246,7 @@ static void test_nested_do(samir_pal_t *pal)
  * Group 4: PRIVATE shadows an outer var and is RESTORED on RETURN.
  *   -DPROC_MUTATE_PRIVATE_NORESTORE breaks the restore -> RED.
  * ===================================================================== */
-static void test_private_shadow(samir_pal_t *pal)
+static void test_private_shadow(ibase_pal_t *pal)
 {
     /* main: X=7 ; DO SHADOWER ; assert X still 7 (the callee's PRIVATE X is
      * dropped on RETURN, unhiding main's X==7). Inside, the callee set X=99 on
@@ -265,7 +265,7 @@ static void test_private_shadow(samir_pal_t *pal)
     CHECK(ip != NULL, "private: interp made");
     if (!ip) return;
     rc = proc_run(ip, prg);
-    snprintf(msg, sizeof(msg), "private: proc_run rc=%d ec=%d", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "private: proc_run rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(memvar_num(ip, "X", &v), "private: outer X still present");
     snprintf(msg, sizeof(msg), "private: outer X restored to 7 after RETURN (got %g)", v);
@@ -276,7 +276,7 @@ static void test_private_shadow(samir_pal_t *pal)
 /* =====================================================================
  * Group 5: auto-private -- a NEW name in a callee does NOT leak to the caller.
  * ===================================================================== */
-static void test_auto_private(samir_pal_t *pal)
+static void test_auto_private(ibase_pal_t *pal)
 {
     /* main DOes MK (which creates TEMP=5, a NEW name -> auto-private to MK).
      * After RETURN, TEMP must NOT be visible at the main level. */
@@ -292,7 +292,7 @@ static void test_auto_private(samir_pal_t *pal)
     CHECK(ip != NULL, "autopriv: interp made");
     if (!ip) return;
     rc = proc_run(ip, prg);
-    snprintf(msg, sizeof(msg), "autopriv: proc_run rc=%d ec=%d", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "autopriv: proc_run rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(xb_interp_get_memvar(ip, "TEMP", &v) != 0,
           "autopriv: callee's auto-private TEMP NOT visible after RETURN");
@@ -302,7 +302,7 @@ static void test_auto_private(samir_pal_t *pal)
 /* =====================================================================
  * Group 6: PUBLIC is visible across procedures and survives RETURN.
  * ===================================================================== */
-static void test_public_visible(samir_pal_t *pal)
+static void test_public_visible(ibase_pal_t *pal)
 {
     /* PUBLIC G ; G=11 ; DO BUMP (G=G+1, visible across) ; assert G==12. */
     const char *prg =
@@ -319,7 +319,7 @@ static void test_public_visible(samir_pal_t *pal)
     CHECK(ip != NULL, "public: interp made");
     if (!ip) return;
     rc = proc_run(ip, prg);
-    snprintf(msg, sizeof(msg), "public: proc_run rc=%d ec=%d", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "public: proc_run rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(memvar_num(ip, "G", &v), "public: G numeric");
     snprintf(msg, sizeof(msg), "public: PUBLIC G visible in BUMP -> G==12 (got %g)", v);
@@ -330,7 +330,7 @@ static void test_public_visible(samir_pal_t *pal)
 /* =====================================================================
  * Group 7: ACCEPT stores a Character; INPUT evaluates + types the value.
  * ===================================================================== */
-static void test_accept_input(samir_pal_t *pal)
+static void test_accept_input(ibase_pal_t *pal)
 {
     xb_interp *ip;
     xb_val cv;
@@ -345,7 +345,7 @@ static void test_accept_input(samir_pal_t *pal)
         script_reset();
         script_push_line("42");
         rc = proc_run(ip, "ACCEPT \"name? \" TO NM\n");
-        snprintf(msg, sizeof(msg), "accept: proc_run rc=%d ec=%d", rc, samir_last_error(ip));
+        snprintf(msg, sizeof(msg), "accept: proc_run rc=%d ec=%d", rc, ibase_last_error(ip));
         CHECK(rc == INTERP_OK, msg);
         CHECK(xb_interp_get_memvar(ip, "NM", &cv) == 0 && cv.t == XB_C &&
               cv.u.c.len == 2u && memcmp(cv.u.c.p, "42", 2) == 0,
@@ -360,7 +360,7 @@ static void test_accept_input(samir_pal_t *pal)
         script_reset();
         script_push_line("12.5");
         rc = proc_run(ip, "INPUT \"amt? \" TO AMT\n");
-        snprintf(msg, sizeof(msg), "input-num: proc_run rc=%d ec=%d", rc, samir_last_error(ip));
+        snprintf(msg, sizeof(msg), "input-num: proc_run rc=%d ec=%d", rc, ibase_last_error(ip));
         CHECK(rc == INTERP_OK, msg);
         CHECK(memvar_num(ip, "AMT", &n), "input-num: AMT is Numeric");
         snprintf(msg, sizeof(msg), "input-num: INPUT 12.5 -> AMT==12.5 (got %g)", n);
@@ -375,7 +375,7 @@ static void test_accept_input(samir_pal_t *pal)
         script_reset();
         script_push_line("'HI'");
         rc = proc_run(ip, "INPUT TO S\n");
-        snprintf(msg, sizeof(msg), "input-c: proc_run rc=%d ec=%d", rc, samir_last_error(ip));
+        snprintf(msg, sizeof(msg), "input-c: proc_run rc=%d ec=%d", rc, ibase_last_error(ip));
         CHECK(rc == INTERP_OK, msg);
         CHECK(xb_interp_get_memvar(ip, "S", &cv) == 0 && cv.t == XB_C &&
               cv.u.c.len == 2u && memcmp(cv.u.c.p, "HI", 2) == 0,
@@ -401,7 +401,7 @@ static void test_accept_input(samir_pal_t *pal)
 /* =====================================================================
  * Group 8: WAIT TO <k> stores the single scripted key.
  * ===================================================================== */
-static void test_wait(samir_pal_t *pal)
+static void test_wait(ibase_pal_t *pal)
 {
     xb_interp *ip = make_ip(pal);
     xb_val cv;
@@ -412,7 +412,7 @@ static void test_wait(samir_pal_t *pal)
     script_reset();
     script_set_keys("Y");                 /* one keystroke: 'Y' */
     rc = proc_run(ip, "WAIT \"press: \" TO K\n");
-    snprintf(msg, sizeof(msg), "wait: proc_run rc=%d ec=%d", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "wait: proc_run rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(xb_interp_get_memvar(ip, "K", &cv) == 0 && cv.t == XB_C &&
           cv.u.c.len == 1u && cv.u.c.p[0] == 'Y',
@@ -423,7 +423,7 @@ static void test_wait(samir_pal_t *pal)
 /* =====================================================================
  * Group 9: ON ERROR fires on a runtime error (the handler ran).
  * ===================================================================== */
-static void test_on_error(samir_pal_t *pal)
+static void test_on_error(ibase_pal_t *pal)
 {
     /* Real III+ ndx/GOLD.OUT NONLOGICAL-GUARD-AFTER pins continuation:
      * handler sets trap=1, then the IF body sets value=5, ERROR() returns 0. */
@@ -448,8 +448,8 @@ static void test_on_error(samir_pal_t *pal)
     if (!ip) return;
     rc = proc_run(ip, prg);
     snprintf(msg, sizeof(msg), "onerror: handled guard resumes (rc=%d ec=%d)",
-             rc, samir_last_error(ip));
-    CHECK(rc == INTERP_OK && samir_last_error(ip) == 0, msg);
+             rc, ibase_last_error(ip));
+    CHECK(rc == INTERP_OK && ibase_last_error(ip) == 0, msg);
     CHECK(memvar_num(ip, "ERRSEEN", &v), "onerror: ERRSEEN numeric");
     snprintf(msg, sizeof(msg), "onerror: IF body follows handler -> ERRSEEN==5 (got %g)", v);
     CHECK(v == 5.0, msg);
@@ -460,7 +460,7 @@ static void test_on_error(samir_pal_t *pal)
 /* =====================================================================
  * Group 10: GATED edges -- loud-skip, do NOT assert (plan Sec 7).
  * ===================================================================== */
-static void test_gated_skips(samir_pal_t *pal)
+static void test_gated_skips(ibase_pal_t *pal)
 {
     (void)pal;
     fprintf(stdout,
@@ -479,7 +479,7 @@ static void test_gated_skips(samir_pal_t *pal)
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     (void)argc; (void)argv;   /* pure host oracle: no corpus needed */
 
     memset(&cfg, 0, sizeof(cfg));

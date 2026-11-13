@@ -23,9 +23,9 @@
  *       record + its fields PERSISTED.
  *     - dbf_open_rw on a MISSING file -> fail loud (-DBF_ERR_NOENT).
  *   T1 work-area level (the headline gap):
- *     - wa_set_open_rw a table -> REPLACE through samir_do end-to-end -> re-open
+ *     - wa_set_open_rw a table -> REPLACE through ibase_do end-to-end -> re-open
  *       the file from disk -> the change PERSISTED. Plain-USE-then-REPLACE works.
- *     - APPEND BLANK + REPLACE through samir_do -> RECCOUNT grew + persisted.
+ *     - APPEND BLANK + REPLACE through ibase_do -> RECCOUNT grew + persisted.
  *     - An indexed field: REPLACE through the work area re-files the OPEN index
  *       (ndx_open_rw + ndx_update inside mutate.c) -> SEEK on the NEW key resolves
  *       the record, SEEK on the OLD key no longer does.
@@ -41,10 +41,10 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
- *   - os/samir/include/samir/dbf.h (dbf_open_rw + the S1.5 verbs + dbf_flush).
- *   - os/samir/include/samir/workarea.h (wa_set_open_rw).
- *   - os/samir/include/samir/ndx.h (ndx_open_rw / ndx_seek / ndx_update_key).
- *   - docs/plans/SAMIR-implementation-plan.md 7az.16 contract.
+ *   - os/ibase/include/ibase/dbf.h (dbf_open_rw + the S1.5 verbs + dbf_flush).
+ *   - os/ibase/include/ibase/workarea.h (wa_set_open_rw).
+ *   - os/ibase/include/ibase/ndx.h (ndx_open_rw / ndx_seek / ndx_update_key).
+ *   - docs/plans/IBASE-implementation-plan.md 7az.16 contract.
  *   - Corpus ground truth: CLIENTS.DBF nrec=49; rec1 LASTNAME=Buckman.
  */
 
@@ -55,15 +55,15 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/interp.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/workarea.h"
-#include "samir/nav.h"
-#include "samir/dbf.h"
-#include "samir/dbt.h"
-#include "samir/ndx.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/interp.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/workarea.h"
+#include "ibase/nav.h"
+#include "ibase/dbf.h"
+#include "ibase/dbt.h"
+#include "ibase/ndx.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -74,10 +74,10 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
-/* the S5.5 mutate module registration (REPLACE/APPEND/DELETE through samir_do). */
+/* the S5.5 mutate module registration (REPLACE/APPEND/DELETE through ibase_do). */
 int mutate_register(xb_interp *ip);
 
 #define SP_PATH "goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities"
@@ -151,7 +151,7 @@ static int read_n_field(dbf_table *tbl, uint32_t recno, int fi, double *out)
 
 typedef struct { const char *code; double amt; int ok; } qrow;
 
-static int make_seed_dbf(samir_pal_t *pal, const char *path,
+static int make_seed_dbf(ibase_pal_t *pal, const char *path,
                          const qrow *rows, int nrows)
 {
     dbf_field_spec fs[3];
@@ -181,7 +181,7 @@ static int make_seed_dbf(samir_pal_t *pal, const char *path,
 /* T0: dbf_open_rw level -- replace + append + persistence + fail-loud.
  * ===================================================================== */
 
-static void test_dbf_open_rw(samir_pal_t *pal)
+static void test_dbf_open_rw(ibase_pal_t *pal)
 {
     const char *pa = "/tmp/test_use_rw_t0.dbf";
     static const qrow seed[3] = { {"AAA",100,1},{"BBB",200,0},{"CCC",300,1} };
@@ -277,11 +277,11 @@ static void test_dbf_open_rw(samir_pal_t *pal)
 }
 
 /* ===================================================================== */
-/* T1: wa_set_open_rw + REPLACE/APPEND through samir_do (end-to-end).
+/* T1: wa_set_open_rw + REPLACE/APPEND through ibase_do (end-to-end).
  * The headline gap: a PLAIN USE (no create/adopt) then REPLACE persists.
  * ===================================================================== */
 
-static void test_wa_set_open_rw(samir_pal_t *pal)
+static void test_wa_set_open_rw(ibase_pal_t *pal)
 {
     const char *pa = "/tmp/test_use_rw_t1.dbf";
     static const qrow seed[3] = { {"AAA",10,1},{"BBB",20,0},{"CCC",30,1} };
@@ -315,19 +315,19 @@ static void test_wa_set_open_rw(samir_pal_t *pal)
 
     /* GOTO rec2, REPLACE CODE WITH 'ZZ' end-to-end through the work area. */
     wa_nav_goto(env, 1, 2);
-    rc = samir_do(ip, "REPLACE CODE WITH 'ZZ'\n");
-    snprintf(msg, sizeof msg, "t1: REPLACE rc=%d ec=%d", rc, samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE CODE WITH 'ZZ'\n");
+    snprintf(msg, sizeof msg, "t1: REPLACE rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     read_c_field(tbl, 2, 0, cbuf, sizeof cbuf);
     CHECK(strcmp(cbuf, "ZZ ") == 0, "t1: rec2 CODE='ZZ ' (in-memory after REPLACE)");
 
     /* APPEND BLANK + REPLACE through the work area. */
-    rc = samir_do(ip, "APPEND BLANK\n");
-    snprintf(msg, sizeof msg, "t1: APPEND BLANK rc=%d ec=%d", rc, samir_last_error(ip));
+    rc = ibase_do(ip, "APPEND BLANK\n");
+    snprintf(msg, sizeof msg, "t1: APPEND BLANK rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(wa_nrec(env, 1) == 4u, "t1: nrec==4 after APPEND BLANK");
-    rc = samir_do(ip, "REPLACE CODE WITH 'NEW', AMT WITH 42\n");
-    snprintf(msg, sizeof msg, "t1: REPLACE appended rc=%d ec=%d", rc, samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE CODE WITH 'NEW', AMT WITH 42\n");
+    snprintf(msg, sizeof msg, "t1: REPLACE appended rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
 
     /* Close the interpreter (closes the work area -> the file handle). */
@@ -372,7 +372,7 @@ static int kp_code(void *user, uint32_t recno, uint8_t *key_out, uint16_t key_le
     return 0;
 }
 
-static void test_wa_set_open_rw_indexed(samir_pal_t *pal)
+static void test_wa_set_open_rw_indexed(ibase_pal_t *pal)
 {
     const char *pa  = "/tmp/test_use_rw_k.dbf";
     const char *pix = "/tmp/test_use_rw_k.ndx";
@@ -428,8 +428,8 @@ static void test_wa_set_open_rw_indexed(samir_pal_t *pal)
 
     /* REPLACE the indexed CODE of rec3 (FFF -> MMM) end-to-end. */
     wa_nav_goto(env, 1, 3);
-    rc = samir_do(ip, "REPLACE CODE WITH 'MMM'\n");
-    snprintf(msg, sizeof msg, "t1b: REPLACE indexed rc=%d ec=%d", rc, samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE CODE WITH 'MMM'\n");
+    snprintf(msg, sizeof msg, "t1b: REPLACE indexed rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
 
     /* the OPEN index now resolves the NEW key and no longer the OLD key. */
@@ -463,7 +463,7 @@ static void test_wa_set_open_rw_indexed(samir_pal_t *pal)
  * flush, re-open -> persisted. LOUD-skips when the corpus is absent.
  * ===================================================================== */
 
-static void test_corpus_copy(samir_pal_t *pal, const char *base)
+static void test_corpus_copy(ibase_pal_t *pal, const char *base)
 {
     char src[1024];
     const char *dst = "/tmp/test_use_rw_clients.dbf";
@@ -509,8 +509,8 @@ static void test_corpus_copy(samir_pal_t *pal, const char *base)
     if (rc != WA_OK) { xb_interp_free(ip); remove(dst); return; }
     wa_select(env, 1);
     wa_nav_goto(env, 1, 1);
-    rc = samir_do(ip, "REPLACE LASTNAME WITH 'Lumbergh'\n");
-    snprintf(msg, sizeof msg, "t2: REPLACE LASTNAME rc=%d ec=%d", rc, samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE LASTNAME WITH 'Lumbergh'\n");
+    snprintf(msg, sizeof msg, "t2: REPLACE LASTNAME rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     xb_interp_free(ip);
 
@@ -537,7 +537,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
 
     cfg.date_yy = 85; cfg.date_mm = 8; cfg.date_dd = 5;   /* pinned (Rule 11) */
     cfg.heap_size = 8u * 1024u * 1024u;

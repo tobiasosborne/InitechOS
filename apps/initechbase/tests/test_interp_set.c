@@ -29,7 +29,7 @@
  *     8. SET INDEX TO / SET FILTER TO / SET RELATION TO: GATED. Stores raw text
  *        in set_state; loud-skips the runtime effect with a note. Asserted via
  *        set_get_state (have_* + raw text).
- *     9. Bad SET syntax / unknown sub-option -> fail-loud (samir_do returns < 0).
+ *     9. Bad SET syntax / unknown sub-option -> fail-loud (ibase_do returns < 0).
  *
  * MUTATION PROOF (Rule 6 / ARB rider (a)):
  *   Build with -DSET_MUTATE_EXACT_DEFAULT: the default EXACT is initialised to
@@ -57,14 +57,14 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.6 (contract + oracle).
+ *   - docs/plans/IBASE-implementation-plan.md S5.6 (contract + oracle).
  *   - ../dbase3-decomp/specs/commands/set-commands.md (defaults; III+ grammar).
  *   - ../dbase3-decomp/re/mint-results-002.md (EXACT=OFF; DECIMALS=2 [verified]).
  *   - ../dbase3-decomp/re/mint-results-003.md (DATE=AMERICAN; CENTURY=OFF [verified]).
- *   - os/samir/include/samir/set.h    (set_state + getters + set_register).
- *   - os/samir/include/samir/interp.h (samir_do + ctx accessor).
- *   - os/samir/include/samir/eval.h   (xb_ctx.set_exact; xb_eval for C= test).
- *   - os/samir/include/samir/workarea.h (wa_master_order for SET ORDER check).
+ *   - os/ibase/include/ibase/set.h    (set_state + getters + set_register).
+ *   - os/ibase/include/ibase/interp.h (ibase_do + ctx accessor).
+ *   - os/ibase/include/ibase/eval.h   (xb_ctx.set_exact; xb_eval for C= test).
+ *   - os/ibase/include/ibase/workarea.h (wa_master_order for SET ORDER check).
  */
 
 #include "oracle_policy.h"
@@ -73,14 +73,14 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/set.h"            /* os/samir/include/ */
-#include "samir/interp.h"
-#include "samir/workarea.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/dbf.h"
-#include "samir/ndx.h"
+#include "ibase/set.h"            /* os/ibase/include/ */
+#include "ibase/interp.h"
+#include "ibase/workarea.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/dbf.h"
+#include "ibase/ndx.h"
 
 TEST_HARNESS();
 
@@ -91,12 +91,12 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* External declarations for module registration (declared in their .c files). */
 /* query.c is NOT needed here -- we test SET in isolation. flow.c provides
- * samir_do which is needed for the SET command tests. */
+ * ibase_do which is needed for the SET command tests. */
 
 /* =====================================================================
  * Small helper: evaluate a NUL-terminated expression through ip's ctx and
@@ -127,7 +127,7 @@ static int eval_logical(xb_interp *ip, const char *expr)
 static int run_set_tests(const char *corpus_path)
 {
     struct pal_host_cfg cfg = { 26, 6, 18, 512*1024 };
-    samir_pal_t  *pal = pal_host_make(cfg);
+    ibase_pal_t  *pal = pal_host_make(cfg);
     xb_interp    *ip  = xb_interp_make(pal);
     int rc;
 
@@ -153,11 +153,11 @@ static int run_set_tests(const char *corpus_path)
     CHECK(xb_interp_ctx(ip)->set_heading==1,"HEADING default ON (U5-235)");
     CHECK(xb_interp_ctx(ip)->set_console==1,"CONSOLE default ON (U5-210)");
     CHECK(xb_interp_ctx(ip)->set_status==0,"STATUS default OFF without CONFIG.DB (U5-259)");
-    CHECK(samir_do(ip,"SET HEADING OFF\nSET CONSOLE OFF\nSET STATUS ON\n")==INTERP_OK,"screen settings accepted");
+    CHECK(ibase_do(ip,"SET HEADING OFF\nSET CONSOLE OFF\nSET STATUS ON\n")==INTERP_OK,"screen settings accepted");
     CHECK(!xb_interp_ctx(ip)->set_heading && !xb_interp_ctx(ip)->set_console && xb_interp_ctx(ip)->set_status,"screen settings take effect");
-    CHECK(samir_do(ip,"SET HEADING ON\nSET CONSOLE ON\nSET STATUS OFF\n")==INTERP_OK,"screen settings restored");
+    CHECK(ibase_do(ip,"SET HEADING ON\nSET CONSOLE ON\nSET STATUS OFF\n")==INTERP_OK,"screen settings restored");
     CHECK(xb_interp_ctx(ip)->set_heading && xb_interp_ctx(ip)->set_console && !xb_interp_ctx(ip)->set_status,"screen settings restore");
-    CHECK(samir_do(ip,"SET HEADING MAYBE\n")!=INTERP_OK,"invalid screen setting fails loud");
+    CHECK(ibase_do(ip,"SET HEADING MAYBE\n")!=INTERP_OK,"invalid screen setting fails loud");
 
     /* EXACT default = OFF [verified: mint-results-002.md] */
     CHECK(set_get_exact(ip) == 0,
@@ -202,9 +202,9 @@ static int run_set_tests(const char *corpus_path)
               "EXACT OFF (default): \"ABC\" = \"AB\" -> .T. (begins-with)");
     }
 
-    /* 2b. SET EXACT ON via samir_do; then "ABC" = "AB" must be .F. */
-    rc = samir_do(ip, "SET EXACT ON");
-    CHECK(rc == 0, "samir_do('SET EXACT ON') returned 0");
+    /* 2b. SET EXACT ON via ibase_do; then "ABC" = "AB" must be .F. */
+    rc = ibase_do(ip, "SET EXACT ON");
+    CHECK(rc == 0, "ibase_do('SET EXACT ON') returned 0");
     CHECK(set_get_exact(ip) == 1, "after SET EXACT ON: ctx->set_exact == 1");
     {
         int r = eval_logical(ip, "\"ABC\" = \"AB\"");
@@ -220,8 +220,8 @@ static int run_set_tests(const char *corpus_path)
     }
 
     /* 2d. SET EXACT OFF restores begins-with: "ABC" = "AB" -> .T. again. */
-    rc = samir_do(ip, "SET EXACT OFF");
-    CHECK(rc == 0, "samir_do('SET EXACT OFF') returned 0");
+    rc = ibase_do(ip, "SET EXACT OFF");
+    CHECK(rc == 0, "ibase_do('SET EXACT OFF') returned 0");
     CHECK(set_get_exact(ip) == 0, "after SET EXACT OFF: ctx->set_exact == 0");
     {
         int r = eval_logical(ip, "\"ABC\" = \"AB\"");
@@ -240,13 +240,13 @@ static int run_set_tests(const char *corpus_path)
     /* 3. SET DECIMALS TO <n>: stored value asserted via getter.           */
     /* Formatter effect DEFERRED (fn_builtins.c parallel lane).            */
     /* ------------------------------------------------------------------ */
-    rc = samir_do(ip, "SET DECIMALS TO 4");
-    CHECK(rc == 0, "samir_do('SET DECIMALS TO 4') returned 0");
+    rc = ibase_do(ip, "SET DECIMALS TO 4");
+    CHECK(rc == 0, "ibase_do('SET DECIMALS TO 4') returned 0");
     CHECK(set_get_decimals(ip) == 4, "after SET DECIMALS TO 4: getter == 4");
 
     /* Reset to default via bare "SET DECIMALS TO" (no value = reset to 2). */
-    rc = samir_do(ip, "SET DECIMALS TO");
-    CHECK(rc == 0, "samir_do('SET DECIMALS TO') (reset) returned 0");
+    rc = ibase_do(ip, "SET DECIMALS TO");
+    CHECK(rc == 0, "ibase_do('SET DECIMALS TO') (reset) returned 0");
     CHECK(set_get_decimals(ip) == 2,
           "after SET DECIMALS TO (no value): getter resets to 2");
 
@@ -261,13 +261,13 @@ static int run_set_tests(const char *corpus_path)
     /* 4. SET DATE ANSI: stored value asserted via getter.                 */
     /* Formatter effect DEFERRED.                                           */
     /* ------------------------------------------------------------------ */
-    rc = samir_do(ip, "SET DATE ANSI");
-    CHECK(rc == 0, "samir_do('SET DATE ANSI') returned 0");
+    rc = ibase_do(ip, "SET DATE ANSI");
+    CHECK(rc == 0, "ibase_do('SET DATE ANSI') returned 0");
     CHECK(set_get_date_fmt(ip) == SET_DATE_ANSI,
           "after SET DATE ANSI: getter == SET_DATE_ANSI");
 
-    rc = samir_do(ip, "SET DATE TO AMERICAN");
-    CHECK(rc == 0, "samir_do('SET DATE TO AMERICAN') returned 0");
+    rc = ibase_do(ip, "SET DATE TO AMERICAN");
+    CHECK(rc == 0, "ibase_do('SET DATE TO AMERICAN') returned 0");
     CHECK(set_get_date_fmt(ip) == SET_DATE_AMERICAN,
           "after SET DATE TO AMERICAN: getter == SET_DATE_AMERICAN");
 
@@ -278,13 +278,13 @@ static int run_set_tests(const char *corpus_path)
     /* 5. SET CENTURY ON/OFF: stored value asserted via getter.            */
     /* Formatter effect DEFERRED.                                           */
     /* ------------------------------------------------------------------ */
-    rc = samir_do(ip, "SET CENTURY ON");
-    CHECK(rc == 0, "samir_do('SET CENTURY ON') returned 0");
+    rc = ibase_do(ip, "SET CENTURY ON");
+    CHECK(rc == 0, "ibase_do('SET CENTURY ON') returned 0");
     CHECK(set_get_century(ip) == 1,
           "after SET CENTURY ON: getter == 1");
 
-    rc = samir_do(ip, "SET CENTURY OFF");
-    CHECK(rc == 0, "samir_do('SET CENTURY OFF') returned 0");
+    rc = ibase_do(ip, "SET CENTURY OFF");
+    CHECK(rc == 0, "ibase_do('SET CENTURY OFF') returned 0");
     CHECK(set_get_century(ip) == 0,
           "after SET CENTURY OFF: getter == 0");
 
@@ -294,25 +294,25 @@ static int run_set_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
     /* 6. SET TALK / SET SAFETY: stored values asserted via getters.       */
     /* ------------------------------------------------------------------ */
-    rc = samir_do(ip, "SET TALK OFF");
-    CHECK(rc == 0, "samir_do('SET TALK OFF') returned 0");
+    rc = ibase_do(ip, "SET TALK OFF");
+    CHECK(rc == 0, "ibase_do('SET TALK OFF') returned 0");
     CHECK(set_get_talk(ip) == 0, "after SET TALK OFF: getter == 0");
 
-    rc = samir_do(ip, "SET TALK ON");
-    CHECK(rc == 0, "samir_do('SET TALK ON') returned 0");
+    rc = ibase_do(ip, "SET TALK ON");
+    CHECK(rc == 0, "ibase_do('SET TALK ON') returned 0");
     CHECK(set_get_talk(ip) == 1, "after SET TALK ON: getter == 1");
 
-    rc = samir_do(ip, "SET SAFETY OFF");
-    CHECK(rc == 0, "samir_do('SET SAFETY OFF') returned 0");
+    rc = ibase_do(ip, "SET SAFETY OFF");
+    CHECK(rc == 0, "ibase_do('SET SAFETY OFF') returned 0");
     CHECK(set_get_safety(ip) == 0, "after SET SAFETY OFF: getter == 0");
 
-    rc = samir_do(ip, "SET SAFETY ON");
-    CHECK(rc == 0, "samir_do('SET SAFETY ON') returned 0");
+    rc = ibase_do(ip, "SET SAFETY ON");
+    CHECK(rc == 0, "ibase_do('SET SAFETY ON') returned 0");
     CHECK(set_get_safety(ip) == 1, "after SET SAFETY ON: getter == 1");
 
     /* ------------------------------------------------------------------ */
     /* 7. SET ORDER TO <n>: calls wa_set_order on the selected area.       */
-    /* We test the call-path via samir_do + wa_master_order.               */
+    /* We test the call-path via ibase_do + wa_master_order.               */
     /* A full "navigation changes with order" test requires an open NDX,   */
     /* which is Tier 1 (corpus-dependent). Here we prove the state change. */
     /* NOTE: SET ORDER requires an open work area; without one it is a     */
@@ -321,7 +321,7 @@ static int run_set_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
     {
         /* Without an open work area, SET ORDER should fail loud. */
-        rc = samir_do(ip, "SET ORDER TO 0");
+        rc = ibase_do(ip, "SET ORDER TO 0");
         CHECK(rc != 0,
               "SET ORDER without open area -> non-zero (fail loud: no area)");
     }
@@ -332,16 +332,16 @@ static int run_set_tests(const char *corpus_path)
     {
         const set_state *ss;
 
-        /* initech-ioke: SET INDEX is no longer storage-only (samirfns run 4,
+        /* initech-ioke: SET INDEX is no longer storage-only (ibasefns run 4,
          * real III+ SF-index capture). Using III+ U5-239 opens the index
          * files OF THE ACTIVE DATABASE, so with no USE it must not succeed,
          * as SET FILTER below (U5-229). The error NUMBER is deliberately not
          * pinned: a dosbox-x run of real III+ 1.1 on "SET INDEX TO MYIDX"
          * with no USE and an ON ERROR trap wrote nothing and did not return
          * (an interactive "No database is in USE." prompt, not a trappable
-         * error), so SAMIR's #52 is not golden-backed. The text is still
-         * retained for the old accessors. Runtime: test-samir-fns-index. */
-        rc = samir_do(ip, "SET INDEX TO MYIDX");
+         * error), so IBASE's #52 is not golden-backed. The text is still
+         * retained for the old accessors. Runtime: test-ibase-fns-index. */
+        rc = ibase_do(ip, "SET INDEX TO MYIDX");
         CHECK(rc != 0, "SET INDEX without active database does not succeed");
 
         ss = set_get_state(ip);
@@ -353,14 +353,14 @@ static int run_set_tests(const char *corpus_path)
         }
 
         /* Using dBase III Plus.pdf U5-229 requires an active database.
-         * Runtime/per-area behavior is exercised by test-samir-view; the old
+         * Runtime/per-area behavior is exercised by test-ibase-view; the old
          * storage-only acceptance silently hid initech-hw4j. */
-        rc = samir_do(ip, "SET FILTER TO SALARY > 50000");
+        rc = ibase_do(ip, "SET FILTER TO SALARY > 50000");
         CHECK(rc != 0, "SET FILTER without active database fails loud");
-        CHECK(samir_last_error(ip) == 17, "SET FILTER without table is #17");
+        CHECK(ibase_last_error(ip) == 17, "SET FILTER without table is #17");
 
-        rc = samir_do(ip, "SET RELATION TO CUST_ID INTO CLIENTS");
-        CHECK(rc == 0, "samir_do('SET RELATION TO ... INTO ...') returned 0 (parsed+stored)");
+        rc = ibase_do(ip, "SET RELATION TO CUST_ID INTO CLIENTS");
+        CHECK(rc == 0, "ibase_do('SET RELATION TO ... INTO ...') returned 0 (parsed+stored)");
         ss = set_get_state(ip);
         if (ss) {
             CHECK(ss->have_relation == 1, "SET RELATION: have_relation == 1");
@@ -381,19 +381,19 @@ static int run_set_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
 
     /* Bare "SET" with no option -> fail loud. */
-    rc = samir_do(ip, "SET");
-    CHECK(rc != 0, "bare 'SET' (no option) -> samir_do returns non-zero");
+    rc = ibase_do(ip, "SET");
+    CHECK(rc != 0, "bare 'SET' (no option) -> ibase_do returns non-zero");
 
     /* SET with unknown sub-option -> fail loud. */
-    rc = samir_do(ip, "SET FOOBAR ON");
-    CHECK(rc != 0, "SET FOOBAR -> samir_do returns non-zero (unknown option)");
+    rc = ibase_do(ip, "SET FOOBAR ON");
+    CHECK(rc != 0, "SET FOOBAR -> ibase_do returns non-zero (unknown option)");
 
     /* SET EXACT without ON/OFF -> fail loud. */
-    rc = samir_do(ip, "SET EXACT MAYBE");
-    CHECK(rc != 0, "SET EXACT MAYBE -> samir_do returns non-zero (bad token)");
+    rc = ibase_do(ip, "SET EXACT MAYBE");
+    CHECK(rc != 0, "SET EXACT MAYBE -> ibase_do returns non-zero (bad token)");
 
     /* SET NEAR ON -> fail loud (not a III+ option). */
-    rc = samir_do(ip, "SET NEAR ON");
+    rc = ibase_do(ip, "SET NEAR ON");
     CHECK(rc != 0,
           "SET NEAR ON -> fail-loud (NEAR is not a III+ SET option)");
 
@@ -414,7 +414,7 @@ static int run_set_order_tier1(const char *corpus_path)
 {
     char dbf_path[512], ndx_path[512];
     struct pal_host_cfg cfg = { 26, 6, 18, 512*1024 };
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     xb_interp   *ip;
     wa_env      *env;
     int          area, rc;
@@ -469,8 +469,8 @@ static int run_set_order_tier1(const char *corpus_path)
     {
         char cmd[64];
         snprintf(cmd, sizeof(cmd), "SET ORDER TO 0");
-        rc = samir_do(ip, cmd);
-        CHECK(rc == 0, "Tier-1: samir_do('SET ORDER TO 0') returned 0");
+        rc = ibase_do(ip, cmd);
+        CHECK(rc == 0, "Tier-1: ibase_do('SET ORDER TO 0') returned 0");
     }
     CHECK(wa_master_order(env, area) == 0,
           "Tier-1 SET ORDER TO 0: wa_master_order == 0 (natural order)");
@@ -479,8 +479,8 @@ static int run_set_order_tier1(const char *corpus_path)
     {
         char cmd[64];
         snprintf(cmd, sizeof(cmd), "SET ORDER TO 1");
-        rc = samir_do(ip, cmd);
-        CHECK(rc == 0, "Tier-1: samir_do('SET ORDER TO 1') returned 0");
+        rc = ibase_do(ip, cmd);
+        CHECK(rc == 0, "Tier-1: ibase_do('SET ORDER TO 1') returned 0");
     }
     CHECK(wa_master_order(env, area) == 1,
           "Tier-1 SET ORDER TO 1: wa_master_order == 1");
@@ -489,7 +489,7 @@ static int run_set_order_tier1(const char *corpus_path)
     {
         char cmd[64];
         snprintf(cmd, sizeof(cmd), "SET ORDER TO 2");
-        rc = samir_do(ip, cmd);
+        rc = ibase_do(ip, cmd);
         CHECK(rc != 0,
               "Tier-1: SET ORDER TO 2 (only 1 index open) -> fail loud");
     }

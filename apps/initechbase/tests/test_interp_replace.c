@@ -11,7 +11,7 @@
  * writable=1, only from dbf_create). wa_set_open opens read-only, so this oracle
  * builds each table writable with dbf_create + dbf_append_blank/dbf_replace, then
  * injects it into the work area via wa_adopt_table (workarea.h S5.5) before driving
- * the REPLACE/APPEND/DELETE/... verbs through samir_do.
+ * the REPLACE/APPEND/DELETE/... verbs through ibase_do.
  *
  * VALUES ASSERTED: after each verb the records are read back DIRECTLY via
  * dbf_read_rec on the work-area table (wa_table) so the assertions are on the
@@ -37,11 +37,11 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.5 contract + oracle.
+ *   - docs/plans/IBASE-implementation-plan.md S5.5 contract + oracle.
  *   - ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
  *     (REPLACE sec 8; APPEND sec 4; DELETE/RECALL sec 9; PACK sec 10; scope sec 0).
- *   - spec/samir/xbase_coercion.json assignment_coercion (the coercion contract).
- *   - os/samir/include/samir/{interp,workarea,nav,dbf,ndx,eval,value,rt}.h.
+ *   - spec/ibase/xbase_coercion.json assignment_coercion (the coercion contract).
+ *   - os/ibase/include/ibase/{interp,workarea,nav,dbf,ndx,eval,value,rt}.h.
  */
 
 #include <stdio.h>
@@ -50,16 +50,16 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/interp.h"
-#include "samir/set.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/workarea.h"
-#include "samir/nav.h"
-#include "samir/dbf.h"
-#include "samir/dbt.h"
-#include "samir/ndx.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/interp.h"
+#include "ibase/set.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/workarea.h"
+#include "ibase/nav.h"
+#include "ibase/dbf.h"
+#include "ibase/dbt.h"
+#include "ibase/ndx.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -70,8 +70,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* the S5.5 module registration (the entry point under test). */
 int mutate_register(xb_interp *ip);
@@ -151,7 +151,7 @@ static int read_deleted(dbf_table *tbl, uint32_t recno)
 
 typedef struct { const char *code; double amt; int ok; } qrow;
 
-static xb_interp *build_q(samir_pal_t *pal, const char *path,
+static xb_interp *build_q(ibase_pal_t *pal, const char *path,
                           const qrow *rows, int nrows, dbf_table **tbl_out)
 {
     dbf_field_spec fs[3];
@@ -195,7 +195,7 @@ static xb_interp *build_q(samir_pal_t *pal, const char *path,
  * Tier 0a: the REPLACE matrix.
  * ===================================================================== */
 
-static void test_replace_matrix(samir_pal_t *pal)
+static void test_replace_matrix(ibase_pal_t *pal)
 {
     const char *pa = "/tmp/test_interp_replace_q.dbf";
     static const qrow seed[6] = {
@@ -216,12 +216,12 @@ static void test_replace_matrix(samir_pal_t *pal)
 
     /* ---- single-field REPLACE on the CURRENT record (default scope = current) ---- */
     /* go to record 2, REPLACE CODE WITH 'ZZ'. Only rec 2 changes. */
-    rc = samir_do(ip, "GOTO 2\n");
+    rc = ibase_do(ip, "GOTO 2\n");
     /* GOTO is a query.c verb -- not registered here; use the nav directly. */
     (void)rc;
     wa_nav_goto(env, 1, 2);
-    rc = samir_do(ip, "REPLACE CODE WITH 'ZZ'\n");
-    snprintf(msg,sizeof msg,"repl-single: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE CODE WITH 'ZZ'\n");
+    snprintf(msg,sizeof msg,"repl-single: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     read_c_field(tbl, 2, 0, cbuf, sizeof cbuf);
     CHECK(strcmp(cbuf, "ZZ ") == 0, "repl-single: rec2 CODE='ZZ ' (pad)");
@@ -232,16 +232,16 @@ static void test_replace_matrix(samir_pal_t *pal)
 
     /* ---- multi-field REPLACE on the current record ---- */
     wa_nav_goto(env, 1, 1);
-    rc = samir_do(ip, "REPLACE CODE WITH 'XY', AMT WITH 999\n");
-    snprintf(msg,sizeof msg,"repl-multi: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE CODE WITH 'XY', AMT WITH 999\n");
+    snprintf(msg,sizeof msg,"repl-multi: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     read_c_field(tbl, 1, 0, cbuf, sizeof cbuf);
     CHECK(strcmp(cbuf, "XY ") == 0, "repl-multi: rec1 CODE='XY '");
     CHECK(read_n_field(tbl, 1, 1, &n) == 0 && n == 999.0, "repl-multi: rec1 AMT=999");
 
     /* ---- REPLACE ALL: every record ---- */
-    rc = samir_do(ip, "REPLACE ALL AMT WITH 0\n");
-    snprintf(msg,sizeof msg,"repl-all: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE ALL AMT WITH 0\n");
+    snprintf(msg,sizeof msg,"repl-all: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     {
         int allz = 1; uint32_t r;
@@ -251,8 +251,8 @@ static void test_replace_matrix(samir_pal_t *pal)
 
     /* ---- REPLACE NEXT 2 from record 3 ---- */
     wa_nav_goto(env, 1, 3);
-    rc = samir_do(ip, "REPLACE NEXT 2 AMT WITH 7\n");
-    snprintf(msg,sizeof msg,"repl-next: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE NEXT 2 AMT WITH 7\n");
+    snprintf(msg,sizeof msg,"repl-next: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(read_n_field(tbl, 3, 1, &n) == 0 && n == 7.0, "repl-next: rec3 AMT=7");
     CHECK(read_n_field(tbl, 4, 1, &n) == 0 && n == 7.0, "repl-next: rec4 AMT=7");
@@ -260,8 +260,8 @@ static void test_replace_matrix(samir_pal_t *pal)
     CHECK(read_n_field(tbl, 2, 1, &n) == 0 && n == 0.0, "repl-next: rec2 AMT unchanged (before start)");
 
     /* ---- REPLACE ALL ... FOR <cond> ---- */
-    rc = samir_do(ip, "REPLACE ALL AMT WITH 50 FOR OK\n");
-    snprintf(msg,sizeof msg,"repl-for: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE ALL AMT WITH 50 FOR OK\n");
+    snprintf(msg,sizeof msg,"repl-for: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     /* OK is true for recs 1,3,5,6 (seed). rec1 OK was true. */
     /* State before this step: rec1=999->0(ALL)->? ; AMT after REPLACE ALL 0 then
@@ -275,25 +275,25 @@ static void test_replace_matrix(samir_pal_t *pal)
 
     /* ---- N-overflow -> '*'-fill (minted): 99999 fits, 1000000 overflows AMT(5) ---- */
     wa_nav_goto(env, 1, 1);
-    rc = samir_do(ip, "REPLACE AMT WITH 1000000\n");
-    snprintf(msg,sizeof msg,"repl-overflow: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE AMT WITH 1000000\n");
+    snprintf(msg,sizeof msg,"repl-overflow: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     /* dec_format '*'-fills on overflow; "*****" reads back as the largest
      * double, as in real III+ (datatype-mint DT5 I1/I2/I7; audit
-     * 2026-10-23-samir L006, initech-ylqs) -- not an ordinary 0.0. */
+     * 2026-10-23-ibase L006, initech-ylqs) -- not an ordinary 0.0. */
     CHECK(read_n_field(tbl, 1, 1, &n) == 0 && n == 1.7976931348623157e308,
           "repl-overflow: '*'-fill decodes to 1.7976931348623157E308");
 
     /* ---- cross-type assignment -> #9 mismatch (C field <- N expr) ---- */
     wa_nav_goto(env, 1, 1);
-    rc = samir_do(ip, "REPLACE CODE WITH 5\n");
+    rc = ibase_do(ip, "REPLACE CODE WITH 5\n");
     CHECK(rc != INTERP_OK, "repl-mismatch: C<-N fails (no auto-stringification)");
-    CHECK(samir_last_error(ip) == XBEE_MISMATCH, "repl-mismatch: error #9 'Data type mismatch.'");
+    CHECK(ibase_last_error(ip) == XBEE_MISMATCH, "repl-mismatch: error #9 'Data type mismatch.'");
 
     /* ---- non-Logical FOR -> #37 ---- */
-    rc = samir_do(ip, "REPLACE ALL AMT WITH 1 FOR AMT\n");
+    rc = ibase_do(ip, "REPLACE ALL AMT WITH 1 FOR AMT\n");
     CHECK(rc != INTERP_OK, "repl-for-type: non-Logical FOR fails");
-    CHECK(samir_last_error(ip) == XBEE_NOT_LOGICAL, "repl-for-type: error #37 'Not a Logical expression.'");
+    CHECK(ibase_last_error(ip) == XBEE_NOT_LOGICAL, "repl-for-type: error #37 'Not a Logical expression.'");
 
     xb_interp_free(ip);
     remove(pa);
@@ -303,7 +303,7 @@ static void test_replace_matrix(samir_pal_t *pal)
  * Tier 0b: APPEND BLANK + REPLACE; DELETE/DELETED/RECALL; PACK; ZAP.
  * ===================================================================== */
 
-static void test_append_delete_pack_zap(samir_pal_t *pal)
+static void test_append_delete_pack_zap(ibase_pal_t *pal)
 {
     const char *pa = "/tmp/test_interp_replace_a.dbf";
     static const qrow seed[3] = { {"AAA",10,1},{"BBB",20,0},{"CCC",30,1} };
@@ -320,8 +320,8 @@ static void test_append_delete_pack_zap(samir_pal_t *pal)
     env = xb_interp_env(ip);
 
     /* ---- APPEND BLANK -> RECCOUNT 4, pointer at new record, blank fields ---- */
-    rc = samir_do(ip, "APPEND BLANK\n");
-    snprintf(msg,sizeof msg,"append: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "APPEND BLANK\n");
+    snprintf(msg,sizeof msg,"append: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(dbf_nrec(tbl) == 4u, "append: RECCOUNT == 4");
     CHECK(wa_recno(env, 1) == 4u, "append: pointer moved to the new record (4)");
@@ -330,16 +330,16 @@ static void test_append_delete_pack_zap(samir_pal_t *pal)
     CHECK(read_n_field(tbl, 4, 1, &n) == 0 && n == 0.0, "append: rec4 AMT blank (0)");
 
     /* ---- REPLACE into the appended record ---- */
-    rc = samir_do(ip, "REPLACE CODE WITH 'NEW', AMT WITH 42\n");
-    snprintf(msg,sizeof msg,"append-repl: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE CODE WITH 'NEW', AMT WITH 42\n");
+    snprintf(msg,sizeof msg,"append-repl: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     read_c_field(tbl, 4, 0, cbuf, sizeof cbuf);
     CHECK(strcmp(cbuf, "NEW") == 0, "append-repl: rec4 CODE='NEW'");
     CHECK(read_n_field(tbl, 4, 1, &n) == 0 && n == 42.0, "append-repl: rec4 AMT=42");
 
     /* ---- DELETE the current record (rec 4) -> 0x2A + DELETED() ---- */
-    rc = samir_do(ip, "DELETE\n");
-    snprintf(msg,sizeof msg,"delete: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "DELETE\n");
+    snprintf(msg,sizeof msg,"delete: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(read_deleted(tbl, 4) == 1, "delete: rec4 delete-flag set (0x2A)");
     /* DELETED() built-in reflects it (pointer is on rec 4). */
@@ -351,18 +351,18 @@ static void test_append_delete_pack_zap(samir_pal_t *pal)
     CHECK(read_deleted(tbl, 1) == 0, "delete: rec1 still live");
 
     /* ---- RECALL clears it ---- */
-    rc = samir_do(ip, "RECALL\n");
-    snprintf(msg,sizeof msg,"recall: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "RECALL\n");
+    snprintf(msg,sizeof msg,"recall: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(read_deleted(tbl, 4) == 0, "recall: rec4 delete-flag cleared (0x20)");
 
     /* ---- DELETE rec 2 then PACK -> rec 2 physically removed, RECCOUNT 3 ---- */
     wa_nav_goto(env, 1, 2);
-    rc = samir_do(ip, "DELETE\n");
+    rc = ibase_do(ip, "DELETE\n");
     CHECK(rc == INTERP_OK, "delete2: DELETE rec2");
     CHECK(read_deleted(tbl, 2) == 1, "delete2: rec2 deleted");
-    rc = samir_do(ip, "PACK\n");
-    snprintf(msg,sizeof msg,"pack: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "PACK\n");
+    snprintf(msg,sizeof msg,"pack: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(dbf_nrec(tbl) == 3u, "pack: RECCOUNT == 3 (rec2 removed)");
     /* survivors in original order: AAA, CCC, NEW. */
@@ -375,11 +375,11 @@ static void test_append_delete_pack_zap(samir_pal_t *pal)
     CHECK(wa_recno(env, 1) == 1u, "pack: pointer rewound to record 1");
 
     /* Test the destructive OFF path explicitly; default ON is guarded by
-     * test-samir-safety. Ref: Using III+ U5-257/U5-284. */
-    CHECK(samir_do(ip,"SET SAFETY OFF\n")==INTERP_OK,"zap: explicit safety OFF");
+     * test-ibase-safety. Ref: Using III+ U5-257/U5-284. */
+    CHECK(ibase_do(ip,"SET SAFETY OFF\n")==INTERP_OK,"zap: explicit safety OFF");
     /* ---- ZAP -> RECCOUNT 0, EOF ---- */
-    rc = samir_do(ip, "ZAP\n");
-    snprintf(msg,sizeof msg,"zap: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "ZAP\n");
+    snprintf(msg,sizeof msg,"zap: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(dbf_nrec(tbl) == 0u, "zap: RECCOUNT == 0");
     CHECK(wa_eof(env, 1) == 1, "zap: pointer at EOF (empty table)");
@@ -412,7 +412,7 @@ static int kp_code(void *user, uint32_t recno, uint8_t *key_out, uint16_t key_le
     return 0;
 }
 
-static void test_master_key_drift(samir_pal_t *pal)
+static void test_master_key_drift(ibase_pal_t *pal)
 {
     const char *pa  = "/tmp/test_interp_replace_k.dbf";
     const char *pix = "/tmp/test_interp_replace_k.ndx";
@@ -481,8 +481,8 @@ static void test_master_key_drift(samir_pal_t *pal)
     /* REPLACE the indexed CODE field of record 3 (FFF -> MMM). The open index
      * must be re-filed so SEEK 'MMM' resolves rec3 and SEEK 'FFF' no longer does. */
     wa_nav_goto(env, 1, 3);
-    rc = samir_do(ip, "REPLACE CODE WITH 'MMM'\n");
-    snprintf(msg,sizeof msg,"drift: REPLACE rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "REPLACE CODE WITH 'MMM'\n");
+    snprintf(msg,sizeof msg,"drift: REPLACE rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
 
     /* the stored field changed. */
@@ -522,7 +522,7 @@ static void test_master_key_drift(samir_pal_t *pal)
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
 
     (void)argc; (void)argv;   /* corpus base unused (Tier 0 only -- all synthetic) */
     (void)read_raw_field;      /* reserved helper; silence unused-fn */

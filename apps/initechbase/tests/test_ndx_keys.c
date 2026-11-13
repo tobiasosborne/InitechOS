@@ -34,21 +34,21 @@
  *
  * Compile (canonical self-verify recipe from the task brief):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *     -Iseed -Ios/samir/include -Ispec \
+ *     -Iseed -Ios/ibase/include -Ispec \
  *     -o /tmp/test_ndx_keys \
  *     tests/test_ndx_keys.c \
- *     os/samir/fs/ndx.c os/samir/core/rt.c os/samir/core/value.c \
- *     os/samir/pal/pal_host.c
+ *     os/ibase/fs/ndx.c os/ibase/core/rt.c os/ibase/core/value.c \
+ *     os/ibase/pal/pal_host.c
  *   /tmp/test_ndx_keys ../dbase3-decomp
  *
  * Mutant (must exit non-zero):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *     -DNDX_MUTATE_KEY_SIGNFLIP \
- *     -Iseed -Ios/samir/include -Ispec \
+ *     -Iseed -Ios/ibase/include -Ispec \
  *     -o /tmp/test_ndx_keys_mut \
  *     tests/test_ndx_keys.c \
- *     os/samir/fs/ndx.c os/samir/core/rt.c os/samir/core/value.c \
- *     os/samir/pal/pal_host.c
+ *     os/ibase/fs/ndx.c os/ibase/core/rt.c os/ibase/core/value.c \
+ *     os/ibase/pal/pal_host.c
  *   /tmp/test_ndx_keys_mut ../dbase3-decomp
  *
  * Ref (Law 1):
@@ -57,10 +57,10 @@
  *   - ../dbase3-decomp/re/mint-results-001.md -- THE authority for numeric key
  *     encoding. Table: -123.45->cd cc cc cc cc dc 5e c0; -1.0->00..f0 bf;
  *     0.0->all zeros; 279.0->00..70 71 40. [VERIFIED minted NCOST.NDX 2026-06-16]
- *   - docs/plans/SAMIR-implementation-plan.md S4.2 contract, Sec 3.3.
- *   - os/samir/include/samir/ndx.h (API under test).
- *   - os/samir/include/samir/value.h (xb_val, XB_C, XB_N).
- *   - os/samir/include/samir/rt.h (jdn_from_ymd for JDN assertions).
+ *   - docs/plans/IBASE-implementation-plan.md S4.2 contract, Sec 3.3.
+ *   - os/ibase/include/ibase/ndx.h (API under test).
+ *   - os/ibase/include/ibase/value.h (xb_val, XB_C, XB_N).
+ *   - os/ibase/include/ibase/rt.h (jdn_from_ymd for JDN assertions).
  *   - seed/test_assert.h (harness idiom: CHECK / TEST_HARNESS / TEST_SUMMARY).
  */
 
@@ -69,8 +69,8 @@
 #include <string.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/ndx.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/rt.h"          /* jdn_from_ymd */
+#include "ibase/ndx.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/rt.h"          /* jdn_from_ymd */
 
 TEST_HARNESS();
 
@@ -81,8 +81,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* -----------------------------------------------------------------------
  * Path helpers (mirrored from test_ndx_parse.c)
@@ -173,7 +173,7 @@ static int collect_leaf_keys(ndx_index *idx, uint32_t page_no,
  * [ndx.md Verification "CNAMES root entry0 'Collins...Sara' == leaf page1 last
  * live key"; ndx.md ss4.1 "space-padded ASCII (OEM/CP437)"]
  * ----------------------------------------------------------------------- */
-static void check_decode_char(samir_pal_t *pal, const char *base)
+static void check_decode_char(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx  = (ndx_index *)0;
@@ -251,7 +251,7 @@ static void check_decode_char(samir_pal_t *pal, const char *base)
  * header (ndx.h S4.2->S5 boundary note). The caller checks that the double
  * matches the expected JDN value.
  * ----------------------------------------------------------------------- */
-static void check_decode_date(samir_pal_t *pal, const char *base)
+static void check_decode_date(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx  = (ndx_index *)0;
@@ -347,7 +347,7 @@ static void check_decode_date(samir_pal_t *pal, const char *base)
  *  IEEE-754 doubles -- NOT a sign-flipped / order-preserving bit transform."
  *  VERIFIED minted NCOST.NDX 2026-06-16]
  * ----------------------------------------------------------------------- */
-static void check_decode_numeric(samir_pal_t *pal, const char *base)
+static void check_decode_numeric(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx  = (ndx_index *)0;
@@ -550,7 +550,7 @@ static void check_decode_numeric(samir_pal_t *pal, const char *base)
  * ----------------------------------------------------------------------- */
 #define MAX_CNAMES_ENTRIES 256
 
-static void check_cmp_char(samir_pal_t *pal, const char *base)
+static void check_cmp_char(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx  = (ndx_index *)0;
@@ -648,7 +648,7 @@ static void check_cmp_char(samir_pal_t *pal, const char *base)
  * ----------------------------------------------------------------------- */
 #define MAX_TOURDATE_ENTRIES 64
 
-static void check_cmp_date(samir_pal_t *pal, const char *base)
+static void check_cmp_date(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx  = (ndx_index *)0;
@@ -702,7 +702,7 @@ static void check_cmp_date(samir_pal_t *pal, const char *base)
  * ----------------------------------------------------------------------- */
 #define MAX_NCOST_LEAF_ENTRIES 64
 
-static void check_cmp_numeric_leaf(samir_pal_t *pal, const char *base)
+static void check_cmp_numeric_leaf(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx  = (ndx_index *)0;
@@ -763,7 +763,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     char path[1024];
     int any_present = 0;
 

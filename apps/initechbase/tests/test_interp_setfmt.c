@@ -65,11 +65,11 @@
  *   - ../dbase3-decomp/re/mint-results-003.md (DATE=AMERICAN, CENTURY=OFF [verified]).
  *   - ../dbase3-decomp/specs/runtime/dates-and-century.md (format table; base-1900;
  *     CENTURY ON width 10; blank dates retain separators, per the III+ mint).
- *   - os/samir/include/samir/eval.h  (xb_ctx.set_decimals/set_date_fmt/set_century;
+ *   - os/ibase/include/ibase/eval.h  (xb_ctx.set_decimals/set_date_fmt/set_century;
  *     XB_DATE_* constants).
- *   - os/samir/include/samir/set.h   (set_register; set_date_fmt enum).
- *   - os/samir/cmd/set.c             (do_set_decimals/date/century write ctx fields).
- *   - os/samir/core/fn_builtins.c    (fn_dtoc_impl/fn_ctod_impl ctx reads; fn_str
+ *   - os/ibase/include/ibase/set.h   (set_register; set_date_fmt enum).
+ *   - os/ibase/cmd/set.c             (do_set_decimals/date/century write ctx fields).
+ *   - os/ibase/core/fn_builtins.c    (fn_dtoc_impl/fn_ctod_impl ctx reads; fn_str
  *     uses dec=0 unconditionally and reads no ctx state).
  *   - seed/test_assert.h (harness idiom: CHECK / TEST_HARNESS / TEST_SUMMARY).
  */
@@ -79,14 +79,14 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/set.h"            /* os/samir/include/ */
-#include "samir/interp.h"
-#include "samir/workarea.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/dbf.h"
-#include "samir/ndx.h"
+#include "ibase/set.h"            /* os/ibase/include/ */
+#include "ibase/interp.h"
+#include "ibase/workarea.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/dbf.h"
+#include "ibase/ndx.h"
 
 TEST_HARNESS();
 
@@ -97,15 +97,15 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* =====================================================================
  * Helpers
  * ===================================================================== */
 
 /*
- * eval_char_via_do: run a "? <expr>" command through samir_do and capture the
+ * eval_char_via_do: run a "? <expr>" command through ibase_do and capture the
  * last Character result via xb_interp_eval_str. Returns the result in buf[cap]
  * NUL-terminated. Returns the xb_val length, or -1 on error.
  *
@@ -139,10 +139,10 @@ static int eval_date(xb_interp *ip, const char *expr)
     return (int)out.u.d;
 }
 
-/* do_set: run a SET command through samir_do; return samir_do rc. */
+/* do_set: run a SET command through ibase_do; return ibase_do rc. */
 static int do_set(xb_interp *ip, const char *cmd)
 {
-    return samir_do(ip, cmd);
+    return ibase_do(ip, cmd);
 }
 
 /* =====================================================================
@@ -158,7 +158,7 @@ static int do_set(xb_interp *ip, const char *cmd)
 static int run_setfmt_tests(const char *corpus_path)
 {
     struct pal_host_cfg cfg = { 85, 8, 5, 512*1024 };
-    samir_pal_t  *pal = pal_host_make(cfg);
+    ibase_pal_t  *pal = pal_host_make(cfg);
     xb_interp    *ip  = xb_interp_make(pal);
     char          buf[32];
     int           len, jdn;
@@ -236,7 +236,7 @@ static int run_setfmt_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
 
     rc = do_set(ip, "SET DECIMALS TO 4");
-    CHECK(rc == 0, "SET DECIMALS TO 4: samir_do returned 0");
+    CHECK(rc == 0, "SET DECIMALS TO 4: ibase_do returned 0");
     CHECK(set_get_decimals(ip) == 4, "SET DECIMALS TO 4: getter == 4 (stored)");
 
     /* 2a. STR(3.14159) is UNCHANGED by SET DECIMALS TO 4: still '         3'
@@ -257,7 +257,7 @@ static int run_setfmt_tests(const char *corpus_path)
             "is a separate step (numeric-and-string-formatting.md:33); not asserted.\n");
 
     rc = do_set(ip, "SET DECIMALS TO 0");
-    CHECK(rc == 0, "SET DECIMALS TO 0: samir_do returned 0");
+    CHECK(rc == 0, "SET DECIMALS TO 0: ibase_do returned 0");
     CHECK(set_get_decimals(ip) == 0, "SET DECIMALS TO 0: getter == 0 (stored)");
 
     /* 3a. STR(3.14159) still '         3' (dec=0) -- STR never varied. */
@@ -272,7 +272,7 @@ static int run_setfmt_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
 
     rc = do_set(ip, "SET CENTURY ON");
-    CHECK(rc == 0, "SET CENTURY ON: samir_do returned 0");
+    CHECK(rc == 0, "SET CENTURY ON: ibase_do returned 0");
     CHECK(set_get_century(ip) == 1, "SET CENTURY ON: getter == 1");
 
     /* 4a. DTOC after SET CENTURY ON: AMERICAN 10-char MM/DD/YYYY.
@@ -292,7 +292,7 @@ static int run_setfmt_tests(const char *corpus_path)
 
     /* 4c. SET CENTURY OFF restores 8-char output. */
     rc = do_set(ip, "SET CENTURY OFF");
-    CHECK(rc == 0, "SET CENTURY OFF: samir_do returned 0");
+    CHECK(rc == 0, "SET CENTURY OFF: ibase_do returned 0");
 
     len = eval_char(ip, "DTOC(CTOD('08/05/85'))", buf, (int)sizeof(buf));
     CHECK(len == 8 && strcmp(buf, "08/05/85") == 0,
@@ -304,7 +304,7 @@ static int run_setfmt_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
 
     rc = do_set(ip, "SET DATE ANSI");
-    CHECK(rc == 0, "SET DATE ANSI: samir_do returned 0");
+    CHECK(rc == 0, "SET DATE ANSI: ibase_do returned 0");
     CHECK(set_get_date_fmt(ip) == SET_DATE_ANSI, "SET DATE ANSI: getter == SET_DATE_ANSI");
 
     /* 5a. DTOC under ANSI: 1985-08-05 -> "85.08.05".
@@ -363,7 +363,7 @@ static int run_setfmt_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
 
     rc = do_set(ip, "SET DATE BRITISH");
-    CHECK(rc == 0, "SET DATE BRITISH: samir_do returned 0");
+    CHECK(rc == 0, "SET DATE BRITISH: ibase_do returned 0");
 
     /* 6a. CTOD under BRITISH: parse DD/MM/YY. '05/08/85' -> 1985-08-05.
      * Ref: set-commands.md Sec 3.2 BRITISH = DD/MM/YY; base-1900 2-digit year. */
@@ -383,7 +383,7 @@ static int run_setfmt_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
 
     rc = do_set(ip, "SET DATE GERMAN");
-    CHECK(rc == 0, "SET DATE GERMAN: samir_do returned 0");
+    CHECK(rc == 0, "SET DATE GERMAN: ibase_do returned 0");
 
     /* 7a. CTOD: '05.08.85' -> 1985-08-05. */
     jdn = eval_date(ip, "CTOD('05.08.85')");
@@ -402,7 +402,7 @@ static int run_setfmt_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
 
     rc = do_set(ip, "SET DATE JAPAN");
-    CHECK(rc == 0, "SET DATE JAPAN: samir_do returned 0");
+    CHECK(rc == 0, "SET DATE JAPAN: ibase_do returned 0");
 
     /* 8a. CTOD: '85/08/05' -> 1985-08-05 (JAPAN: YY/MM/DD, year-first). */
     jdn = eval_date(ip, "CTOD('85/08/05')");
@@ -421,7 +421,7 @@ static int run_setfmt_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
 
     rc = do_set(ip, "SET DATE USA");
-    CHECK(rc == 0, "SET DATE USA: samir_do returned 0");
+    CHECK(rc == 0, "SET DATE USA: ibase_do returned 0");
 
     /* 9a. CTOD: '08-05-85' -> 1985-08-05 (USA: MM-DD-YY). */
     jdn = eval_date(ip, "CTOD('08-05-85')");
@@ -438,7 +438,7 @@ static int run_setfmt_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
 
     rc = do_set(ip, "SET DATE TO AMERICAN");
-    CHECK(rc == 0, "restore SET DATE AMERICAN: samir_do returned 0");
+    CHECK(rc == 0, "restore SET DATE AMERICAN: ibase_do returned 0");
     rc = do_set(ip, "SET DECIMALS TO 2");
     CHECK(rc == 0, "restore SET DECIMALS TO 2");
     rc = do_set(ip, "SET CENTURY OFF");

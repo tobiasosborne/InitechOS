@@ -23,9 +23,9 @@ for source in "$base"/*; do
     else
         truncate -s 1474560 "$work/data.img"
         mformat -i "$work/data.img" -f 1440 ::
-        mcopy -o -i "$work/data.img" build/SAMIR.EXE build/SAMIR.OVL "$work"/*.PRG ::
+        mcopy -o -i "$work/data.img" build/INITBASE.EXE build/INITBASE.OVL "$work"/*.PRG ::
         printf 'DO MINT\r\nQUIT\r\n' > "$work/DOFILE.IN"
-        printf '@echo off\r\nsamir < dofile.in > console.out\r\n' > "$work/DOFILE.BAT"
+        printf '@echo off\r\nibase < dofile.in > console.out\r\n' > "$work/DOFILE.BAT"
         mcopy -o -i "$work/data.img" "$work/DOFILE.IN" "$work/DOFILE.BAT" ::
         INITECH_QMP_STDIO=1 build/qemu_harness --disk build/tracer_secondary.img \
             --disk2 "$work/data.img" --name "dofile_$name" --out "$work" \

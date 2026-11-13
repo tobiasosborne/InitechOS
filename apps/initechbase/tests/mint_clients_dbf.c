@@ -3,11 +3,11 @@
  * for the S8.2 in-emulator boot->USE->LIST gate (bead initech-hdlb; ADR-0009
  * DEC-08).
  *
- * FACTORY host tool (CLAUDE.md Law 3): libc OK here. It links the SAMIR host
+ * FACTORY host tool (CLAUDE.md Law 3): libc OK here. It links the IBASE host
  * dbf writer (dbf.c + value.c + rt.c) over the host PAL (pal_host.c) and emits
  * one deterministic .dbf to a caller-supplied path (argv[1], default
  * build/CLIENTS.DBF). This is the SAME writer the engine ships, so the fixture
- * is read back BIT-FOR-BIT by the in-emulator SAMIR.EXE reader -- no second
+ * is read back BIT-FOR-BIT by the in-emulator INITBASE.EXE reader -- no second
  * .dbf encoder to drift (Rule 6 spirit: one writer, mutation-provable).
  *
  * Determinism (Rule 11): identical inputs + an INJECTED last-update date
@@ -42,10 +42,10 @@
  * tokens, not exact column math, so the fixture stays robust to spacing.
  *
  * Ref (Law 1):
- *   - os/samir/include/samir/dbf.h S1.4 (dbf_create / dbf_append_rec / dbf_flush;
+ *   - os/ibase/include/ibase/dbf.h S1.4 (dbf_create / dbf_append_rec / dbf_flush;
  *     +1 terminator form; injected date; deterministic byte layout).
- *   - os/samir/include/samir/value.h (xb_c / xb_n).
- *   - os/samir/pal/pal_host.c (pal_host_make cfg: injected date, heap_size).
+ *   - os/ibase/include/ibase/value.h (xb_c / xb_n).
+ *   - os/ibase/pal/pal_host.c (pal_host_make cfg: injected date, heap_size).
  *   - tests/test_dbf_roundtrip.c (the dbf_create+append+flush
  *     pattern this mirrors).
  *   - ADR-0009 DEC-08 (the S8.2 oracle; the fixture must be deterministic).
@@ -57,8 +57,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "samir/dbf.h"     /* -Ios/samir/include */
-#include "samir/value.h"   /* xb_c / xb_n */
+#include "ibase/dbf.h"     /* -Ios/ibase/include */
+#include "ibase/value.h"   /* xb_c / xb_n */
 
 /* pal_host.c surface (not declared in a header; declare what we use). */
 struct pal_host_cfg {
@@ -67,8 +67,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* Fixed injected last-update date (Rule 11). 1993-07-19 -- a period-plausible
  * deterministic date; never a wall clock. YY = year-1900 = 93. */
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 {
     const char *path = (argc > 1) ? argv[1] : "build/CLIENTS.DBF";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     dbf_table *tbl = NULL;
     int rc;
     xb_val rec[3];

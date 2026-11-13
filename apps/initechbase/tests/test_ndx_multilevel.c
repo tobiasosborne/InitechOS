@@ -48,11 +48,11 @@
  * ASCII-clean (Rule 12). No host paths / timestamps baked into artifacts (Rule 11).
  *
  * Compile (self-verify recipe):
- *   ENG="os/samir/fs/ndx.c os/samir/core/value.c os/samir/core/rt.c"
+ *   ENG="os/ibase/fs/ndx.c os/ibase/core/value.c os/ibase/core/rt.c"
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *     -Iseed -Ios/samir/include -Ispec \
+ *     -Iseed -Ios/ibase/include -Ispec \
  *     -o /tmp/test_ndx_multilevel tests/test_ndx_multilevel.c \
- *     $ENG os/samir/pal/pal_host.c
+ *     $ENG os/ibase/pal/pal_host.c
  *   /tmp/test_ndx_multilevel
  *   # mutant (must exit non-zero):
  *   cc ... -DNDX_MUTATE_NO_ROOT_SPLIT ... -o /tmp/test_ndx_multilevel_mut ...
@@ -63,8 +63,8 @@
  *   - ../dbase3-decomp/re/mint-results-003.md (bulk build: 100% L->R leaf pack,
  *     remainder last; N keys / N+1 children; 2-level BIGIDX minted).
  *   - ../dbase3-decomp/mint/work/M006A.PRG, M006ALOG.TXT, A00.NDX.
- *   - spec/samir/ndx_format.h (LOCKED offsets + derived formulas).
- *   - os/samir/include/samir/ndx.h (ndx_build / ndx_open / ndx_read_node / seek).
+ *   - spec/ibase/ndx_format.h (LOCKED offsets + derived formulas).
+ *   - os/ibase/include/ibase/ndx.h (ndx_build / ndx_open / ndx_read_node / seek).
  */
 
 #include <stdio.h>
@@ -72,10 +72,10 @@
 #include <stdlib.h>
 
 #include "test_assert.h"        /* seed/, on -Iseed */
-#include "samir/ndx.h"          /* os/samir/include/, on -Ios/samir/include */
-#include "samir/ndx_format.h"   /* NDX_* constants, on -Ispec */
-#include "samir/value.h"        /* xb_val, xb_c */
-#include "samir/rt.h"           /* rt_memcpy, rt_memcmp, rt_memset */
+#include "ibase/ndx.h"          /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/ndx_format.h"   /* NDX_* constants, on -Ispec */
+#include "ibase/value.h"        /* xb_val, xb_c */
+#include "ibase/rt.h"           /* rt_memcpy, rt_memcmp, rt_memset */
 
 TEST_HARNESS();
 
@@ -86,8 +86,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* ----------------------------------------------------------------------- */
 /* Test geometry (see the KEYS_PER_PAGE arithmetic in the header block).    */
@@ -270,7 +270,7 @@ static int io_visit(void *ctx, const uint8_t *key_data, uint32_t recno)
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     const char  *tmpdir = (argc >= 2) ? argv[1] : "/tmp";
     char         ndx_path[512];
     int          rc;

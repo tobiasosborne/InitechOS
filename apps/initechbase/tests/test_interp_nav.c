@@ -61,10 +61,10 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.2 oracle ("walk in both orders").
- *   - os/samir/include/samir/nav.h    (wa_nav_go_top / go_bottom / goto / skip).
- *   - os/samir/include/samir/workarea.h (wa_recno / wa_eof / wa_bof / wa_is_open).
- *   - os/samir/include/samir/ndx.h    (ndx_inorder -- the index reference walk).
+ *   - docs/plans/IBASE-implementation-plan.md S5.2 oracle ("walk in both orders").
+ *   - os/ibase/include/ibase/nav.h    (wa_nav_go_top / go_bottom / goto / skip).
+ *   - os/ibase/include/ibase/workarea.h (wa_recno / wa_eof / wa_bof / wa_is_open).
+ *   - os/ibase/include/ibase/ndx.h    (ndx_inorder -- the index reference walk).
  *   - ../dbase3-decomp specs/functions/system-and-database-functions.md
  *     RECNO() ("When the pointer is past the last record (EOF() is .T.),
  *     RECNO() returns RECCOUNT()+1").
@@ -92,13 +92,13 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/workarea.h"       /* os/samir/include/ on -Ios/samir/include */
-#include "samir/nav.h"
-#include "samir/interp.h"
-#include "samir/dbf.h"
-#include "samir/ndx.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/workarea.h"       /* os/ibase/include/ on -Ios/ibase/include */
+#include "ibase/nav.h"
+#include "ibase/interp.h"
+#include "ibase/dbf.h"
+#include "ibase/ndx.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -109,8 +109,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* ---- path helpers ---- */
 static char *join(char *buf, size_t cap, const char *base, const char *rel)
@@ -193,7 +193,7 @@ static int write_min5_dbf(const char *path)
     return 0;
 }
 
-static void test_physical_nav(samir_pal_t *pal)
+static void test_physical_nav(ibase_pal_t *pal)
 {
     const char *pa = "/tmp/test_interp_nav5.dbf";
     xb_interp *ip;
@@ -432,7 +432,7 @@ static const uint32_t K_TOURDATE_SEQ[30] = {
     16,13,20,22,21,23,11,24,28,25,27,26
 };
 
-static void test_index_nav(samir_pal_t *pal, const char *base)
+static void test_index_nav(ibase_pal_t *pal, const char *base)
 {
     char clients[1024], names[1024], tours[1024], tourdate[1024];
     xb_interp *ip;
@@ -651,7 +651,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     char path[1024];
 
     memset(&cfg, 0, sizeof(cfg));

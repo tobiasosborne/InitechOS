@@ -1,6 +1,6 @@
 /*
  * tests/test_dbase_roundtrip.c -- S6.3 combined bidirectional
- * round-trip oracle for the SAMIR .dbf + .dbt + .ndx write/build stack.
+ * round-trip oracle for the IBASE .dbf + .dbt + .ndx write/build stack.
  *
  * FACTORY host test (CLAUDE.md Law 3): libc OK here.  This is the capstone
  * oracle that proves the combined codec stack round-trips AND that the
@@ -9,7 +9,7 @@
  * Oracle coverage (Law 2 -- the oracle IS the truth):
  *
  *   LEG A -- .dbf+.dbt bidirectional round-trip:
- *     A1. SAMIR writes a .dbf+.dbt table (dbf_create/append_rec/flush +
+ *     A1. IBASE writes a .dbf+.dbt table (dbf_create/append_rec/flush +
  *         dbt_create/append/flush) from a known schema+records.
  *         Re-open with dbf_open+dbt_open+dbt_read and assert every field value
  *         and memo text matches what was written.  Bidirectional: the write
@@ -56,7 +56,7 @@
  *   last-update date bytes as MEANINGFUL (0x01=last_update_year,
  *   0x02=last_update_month, 0x03=last_update_day -- all MEANINGFUL).  Wait --
  *   actually those ARE meaningful in the spec.  The mask cell we flip for the
- *   mutant is different: we reclassify the SAMIR-injected date as COMPARED
+ *   mutant is different: we reclassify the IBASE-injected date as COMPARED
  *   (not masked), but use a DIFFERENT injected date than the golden's date,
  *   so the cmp goes RED.
  *
@@ -91,12 +91,12 @@
  *   Python legs (A3, B3): fail loud (named opt-out only) if python3/scripts absent.
  *
  * Compile + run (self-verify recipe, from repo root):
- *   ENG="os/samir/fs/dbf.c os/samir/fs/dbt.c os/samir/fs/ndx.c \
- *        os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c \
- *        os/samir/core/value.c os/samir/core/rt.c \
- *        os/samir/core/fn_builtins.c os/samir/pal/pal_host.c"
+ *   ENG="os/ibase/fs/dbf.c os/ibase/fs/dbt.c os/ibase/fs/ndx.c \
+ *        os/ibase/core/eval.c os/ibase/core/parse.c os/ibase/core/lex.c \
+ *        os/ibase/core/value.c os/ibase/core/rt.c \
+ *        os/ibase/core/fn_builtins.c os/ibase/pal/pal_host.c"
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
- *      -Iseed -Ios/samir/include -Ispec \
+ *      -Iseed -Ios/ibase/include -Ispec \
  *      -o /tmp/test_dbase_roundtrip \
  *      tests/test_dbase_roundtrip.c $ENG
  *   /tmp/test_dbase_roundtrip ../dbase3-decomp ; echo "unit exit=$?"
@@ -104,7 +104,7 @@
  * Mutant (must exit non-zero):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *      -DNORM_MUTATE_MASK_CELL \
- *      -Iseed -Ios/samir/include -Ispec \
+ *      -Iseed -Ios/ibase/include -Ispec \
  *      -o /tmp/test_dbase_roundtrip_mut \
  *      tests/test_dbase_roundtrip.c $ENG
  *   /tmp/test_dbase_roundtrip_mut ../dbase3-decomp ; echo "mutant exit=$? (want non-zero)"
@@ -113,7 +113,7 @@
  * All temp paths are fixed deterministic names under /tmp.
  *
  * Ref (Law 1):
- *   - spec/samir/dbf_normalization.json -- MEANINGFUL vs NORMALIZE byte map;
+ *   - spec/ibase/dbf_normalization.json -- MEANINGFUL vs NORMALIZE byte map;
  *     source: ../dbase3-decomp/specs/file-formats/dbf.md sec 2/4.
  *     NORMALIZE header: 0x0C..0x1F (reserved/multiuser/MDX/LDID).
  *     NORMALIZE per-descriptor: 0x0C..0x0F (RAM addr), 0x12..0x13, 0x14,
@@ -122,11 +122,11 @@
  *       by this test to allow any injected date to match the golden (the
  *       "hallucination-risk callout" in CLAUDE.md: normalize last-update date
  *       before diffing).  The mutant removes that mask -> RED.
- *   - docs/plans/SAMIR-implementation-plan.md S6.3 oracle contract.
- *   - os/samir/include/samir/dbf.h (dbf_create/append_rec/flush/open/read_rec).
- *   - os/samir/include/samir/dbt.h (dbt_create/append/flush/open/read).
- *   - os/samir/include/samir/ndx.h (ndx_build/open/inorder/seek).
- *   - spec/samir/dbf_format.h (DBF_HDR_SIZE, DBF_DESC_STRIDE offsets).
+ *   - docs/plans/IBASE-implementation-plan.md S6.3 oracle contract.
+ *   - os/ibase/include/ibase/dbf.h (dbf_create/append_rec/flush/open/read_rec).
+ *   - os/ibase/include/ibase/dbt.h (dbt_create/append/flush/open/read).
+ *   - os/ibase/include/ibase/ndx.h (ndx_build/open/inorder/seek).
+ *   - spec/ibase/dbf_format.h (DBF_HDR_SIZE, DBF_DESC_STRIDE offsets).
  *   - seed/test_assert.h (CHECK / TEST_HARNESS / TEST_SUMMARY).
  *   - tests/dbf_ref.py (independent reader -- independence leg).
  *   - tests/ndx_ref.py (independent index reader).
@@ -142,13 +142,13 @@
 #endif
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/dbf.h"         /* dbf_create / dbf_open / dbf_append_rec / ... */
-#include "samir/dbt.h"         /* dbt_create / dbt_append / dbt_open / dbt_read */
-#include "samir/ndx.h"         /* ndx_build / ndx_open / ndx_inorder / ndx_seek */
-#include "samir/value.h"       /* xb_c / xb_n / xb_d / xb_l / xb_u / xb_m */
-#include "samir/rt.h"          /* jdn_from_ymd / rt_memcpy / rt_memcmp */
-#include "samir/dbf_format.h"  /* DBF_HDR_SIZE / DBF_DESC_STRIDE, on -Ispec */
-#include "samir/ndx_format.h"  /* NDX_KEY_TYPE_CHAR, on -Ispec */
+#include "ibase/dbf.h"         /* dbf_create / dbf_open / dbf_append_rec / ... */
+#include "ibase/dbt.h"         /* dbt_create / dbt_append / dbt_open / dbt_read */
+#include "ibase/ndx.h"         /* ndx_build / ndx_open / ndx_inorder / ndx_seek */
+#include "ibase/value.h"       /* xb_c / xb_n / xb_d / xb_l / xb_u / xb_m */
+#include "ibase/rt.h"          /* jdn_from_ymd / rt_memcpy / rt_memcmp */
+#include "ibase/dbf_format.h"  /* DBF_HDR_SIZE / DBF_DESC_STRIDE, on -Ispec */
+#include "ibase/ndx_format.h"  /* NDX_KEY_TYPE_CHAR, on -Ispec */
 
 TEST_HARNESS();
 
@@ -161,8 +161,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* -----------------------------------------------------------------------
  * Fixed temp paths (deterministic; Rule 11)
@@ -170,10 +170,10 @@ void         pal_host_free(samir_pal_t *p);
  * The .dbf + .dbt must share the same base name so the memo linkage works
  * (the reader derives the .dbt path from the .dbf path by extension).
  * ----------------------------------------------------------------------- */
-#define RT_DBF      "/tmp/samir_s63_rt.dbf"
-#define RT_DBT      "/tmp/samir_s63_rt.dbt"
-#define RT_NDX      "/tmp/samir_s63_rt.ndx"
-#define RT_GOLD_DBF "/tmp/samir_s63_gold.dbf"
+#define RT_DBF      "/tmp/ibase_s63_rt.dbf"
+#define RT_DBT      "/tmp/ibase_s63_rt.dbt"
+#define RT_NDX      "/tmp/ibase_s63_rt.ndx"
+#define RT_GOLD_DBF "/tmp/ibase_s63_gold.dbf"
 
 /* Fixed injected date for our writes (Rule 11).
  * We use 99/12/31 (NOT 85/10/30 which is CLIENTS' real date) so the Leg-C
@@ -237,7 +237,7 @@ static uint8_t *slurp(const char *path, long *len_out)
  * NORMALIZE = 1 (byte is zeroed before comparison, not compared).
  * MEANINGFUL = 0 (byte is compared exactly).
  *
- * Ref: spec/samir/dbf_normalization.json.
+ * Ref: spec/ibase/dbf_normalization.json.
  *   Header (32 bytes, 0x00..0x1F):
  *     0x00: version -- MEANINGFUL
  *     0x01..0x03: last_update_year/month/day -- MEANINGFUL per JSON; but Leg C
@@ -341,15 +341,15 @@ static int norm_desc_byte(int off_in_desc)
  * header (DBF_HDR_SIZE = 32 bytes) + NF descriptors (DBF_DESC_STRIDE = 32 bytes
  * each).  Modifies BUF in-place.  Handles name-tail-past-NUL masking.
  *
- * Both the golden and the SAMIR-written buffer are normalized before cmp, so
+ * Both the golden and the IBASE-written buffer are normalized before cmp, so
  * the comparison isolates only the MEANINGFUL bytes.
  *
  * is_golden: 1 if BUF comes from the real golden (whose name tail may contain
- *   stale garbage bytes), 0 if BUF is the SAMIR-written file (NUL-padded, clean).
- *   We use the SAMIR buffer's NUL positions to determine where the name ends
- *   (since SAMIR always NUL-pads the full 11-byte name field).  To make the cmp
+ *   stale garbage bytes), 0 if BUF is the IBASE-written file (NUL-padded, clean).
+ *   We use the IBASE buffer's NUL positions to determine where the name ends
+ *   (since IBASE always NUL-pads the full 11-byte name field).  To make the cmp
  *   independent we mask ALL name-tail bytes in BOTH buffers past the first NUL
- *   found in the SAMIR-written buffer (mine_buf -- passed as a pointer).
+ *   found in the IBASE-written buffer (mine_buf -- passed as a pointer).
  */
 static void apply_norm_mask(uint8_t *buf, long len,
                             int nf, const uint8_t *mine_buf)
@@ -374,7 +374,7 @@ static void apply_norm_mask(uint8_t *buf, long len,
             }
             /* Name bytes (0x00..0x0A): mask tail past first NUL using mine_buf. */
             if (od <= 0x0A && mine_buf != NULL) {
-                /* Find the first NUL in our clean (SAMIR-written) copy. */
+                /* Find the first NUL in our clean (IBASE-written) copy. */
                 int k, past_nul = 0;
                 for (k = 0; k < od; k++) {
                     if ((int)(base + k) < (int)len &&
@@ -436,10 +436,10 @@ static const char    *g_sorted_code[RT_NREC]  = {
 /* -----------------------------------------------------------------------
  * Leg A1/A2: write the .dbf + .dbt, re-open and read back, check every value.
  *
- * Returns 1 if the table was written and the SAMIR-written .dbf exists at
+ * Returns 1 if the table was written and the IBASE-written .dbf exists at
  * RT_DBF (so Legs B and C can proceed); 0 on fatal write failure.
  * ----------------------------------------------------------------------- */
-static int leg_a_write_and_readback(samir_pal_t *pal)
+static int leg_a_write_and_readback(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     dbt_file  *dbt = NULL;
@@ -852,7 +852,7 @@ static int io_visit(void *ctx, const uint8_t *key_data, uint32_t recno)
  * Build an index on CODE (C, 6 bytes) over the 3-record table in RT_DBF.
  * Sorted order: ALPHA (rec2) < MANGO (rec3) < ZEBRA (rec1).
  * ----------------------------------------------------------------------- */
-static void leg_b_ndx(samir_pal_t *pal)
+static void leg_b_ndx(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     ndx_index *idx = NULL;
@@ -990,12 +990,12 @@ static void leg_a3_python_dbf(void)
             return;
         }
         CHECK(code == 0,
-              "leg-A3: dbf_ref.py --records read back SAMIR .dbf (exit 0)");
+              "leg-A3: dbf_ref.py --records read back IBASE .dbf (exit 0)");
         return;
     }
 #endif
     CHECK(ret == 0,
-          "leg-A3: dbf_ref.py --records read back SAMIR .dbf (exit 0)");
+          "leg-A3: dbf_ref.py --records read back IBASE .dbf (exit 0)");
 }
 
 /* -----------------------------------------------------------------------
@@ -1052,7 +1052,7 @@ static void leg_b3_python_ndx(void)
 /* -----------------------------------------------------------------------
  * Leg C1: Tier-1 golden masked cmp (CLIENTS.DBF corpus golden).
  *
- * Read CLIENTS.DBF with SAMIR, re-write an identical-schema table, then
+ * Read CLIENTS.DBF with IBASE, re-write an identical-schema table, then
  * compare the re-written header + descriptor region against the golden with
  * NORMALIZE bytes masked.
  *
@@ -1063,7 +1063,7 @@ static void leg_b3_python_ndx(void)
  *
  * Loud-skip if the corpus golden is absent.
  * ----------------------------------------------------------------------- */
-static void leg_c1_golden(samir_pal_t *pal, const char *base)
+static void leg_c1_golden(ibase_pal_t *pal, const char *base)
 {
     char        gold_path[1024];
     dbf_table  *gold = NULL, *mine = NULL;
@@ -1083,7 +1083,7 @@ static void leg_c1_golden(samir_pal_t *pal, const char *base)
         return;
     }
 
-    /* Open the golden with SAMIR. */
+    /* Open the golden with IBASE. */
     rc = dbf_open(pal, gold_path, &gold);
     snprintf(msg, sizeof(msg), "leg-C1: dbf_open CLIENTS rc=%d", rc);
     CHECK(rc == DBF_OK && gold != NULL, msg);
@@ -1152,7 +1152,7 @@ static void leg_c1_golden(samir_pal_t *pal, const char *base)
             memcpy(g2, g, cmp_len);
             memcpy(m2, m, cmp_len);
 
-            /* Apply normalization mask to both.  Use M2 (our SAMIR-written
+            /* Apply normalization mask to both.  Use M2 (our IBASE-written
              * file, NUL-padded) to determine NUL positions in names. */
             apply_norm_mask(g2, (long)cmp_len, nf, m2);
             apply_norm_mask(m2, (long)cmp_len, nf, m2);
@@ -1195,7 +1195,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     int table_ok;
 
     /* Fixed injected date (Rule 11): 99/12/31 -- distinct from CLIENTS' date

@@ -1,15 +1,15 @@
 /*
- * os/samir/core/eval.c -- SAMIR xBase III+ 1.1 expression EVALUATOR + coercion.
+ * os/ibase/core/eval.c -- IBASE xBase III+ 1.1 expression EVALUATOR + coercion.
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001 interim toolchain). Uses ONLY <stdint.h>, rt.h, value.h
  * and eval.h. No libc, no PAL, no I/O. Pure (Rule 11): the result is a
  * function of (pool, root, ctx state) -- no time, no host paths, no RNG.
  *
- * Step S3.3 of docs/plans/SAMIR-implementation-plan.md. Post-order evaluates
+ * Step S3.3 of docs/plans/IBASE-implementation-plan.md. Post-order evaluates
  * the xb_node AST that xb_parse (S3.2) built over the xb_token stream that
  * xb_lex (S3.1) produced. Every operator dispatches on its operand types
- * EXACTLY per the LOCKED contract spec/samir/xbase_coercion.json. The JSON is
+ * EXACTLY per the LOCKED contract spec/ibase/xbase_coercion.json. The JSON is
  * the source of truth; this file HARDCODES that table in C (freestanding --
  * no JSON parser at runtime). Each branch cites the JSON cell / rule (Law 1).
  *
@@ -22,26 +22,26 @@
  * dBASE catalog ordinal from dbase_msg_codes.tsv and returns non-zero.
  *
  * Ref (Law 1):
- *   - spec/samir/xbase_coercion.json (operator_coercion cells; rules R_*;
+ *   - spec/ibase/xbase_coercion.json (operator_coercion cells; rules R_*;
  *     modes.SET_EXACT default OFF, affects {=,<>,#}; $ + ordering ignore it)
- *   - spec/samir/dbase_msg_codes.tsv (#9 mismatch, #27 not_numeric,
+ *   - spec/ibase/dbase_msg_codes.tsv (#9 mismatch, #27 not_numeric,
  *     #37 not_logical, #39 num_overflow, #45 not_character)
  *   - ../dbase3-decomp/re/mint-results-002.md (C+N=#9; ""$"ABC"=.F.; SET EXACT
  *     default OFF + directional begins-with "ab"="a"=.T. / "a"="ab"=.F.;
  *     1/0 -> overflow asterisk-fill, NOT a trapped error)
  *   - ../dbase3-decomp/specs/language/coercion-table.md sec.6 (JSON basis)
- *   - os/samir/include/samir/eval.h (xb_ctx, xb_eval, xb_eval_err contract)
- *   - os/samir/include/samir/value.h (xb_val + ctors), rt.h (jdn / memcmp)
+ *   - os/ibase/include/ibase/eval.h (xb_ctx, xb_eval, xb_eval_err contract)
+ *   - os/ibase/include/ibase/value.h (xb_val + ctors), rt.h (jdn / memcmp)
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
 
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 /* ======================================================================== */
 /* Small helpers (freestanding; no libc)                                     */
@@ -149,7 +149,7 @@ static int concat_plus(xb_ctx *ctx, const xb_val *a, const xb_val *b,
     uint32_t tot = la + lb;
     char *dst;
     /* Using III+ U7-5: + overflow is 77, not SPACE's 59 (8w5e/u468). */
-#ifndef SAMIR_CORE_MUTATE_CONCAT_PLUS
+#ifndef IBASE_CORE_MUTATE_CONCAT_PLUS
     if (tot > 254u) return fail(err, XBEE_CONCAT_PLUS);
 #endif
     if (tot == 0) {
@@ -186,7 +186,7 @@ static int concat_minus(xb_ctx *ctx, const xb_val *a, const xb_val *b,
     uint32_t off;
     uint32_t k;
     /* Using III+ U7-5: - overflow has its own catalog code, 76. */
-#ifndef SAMIR_CORE_MUTATE_CONCAT_MINUS
+#ifndef IBASE_CORE_MUTATE_CONCAT_MINUS
     if (tot > 254u) return fail(err, XBEE_CONCAT_MINUS);
 #endif
     if (tot == 0) {
@@ -778,7 +778,7 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
         if (ctx->resolve(ctx->user, n->u.str.p, n->u.str.len, &v) != 0) {
             /* Using III+ U7-21 (PDF 509): absent memory variable or field.
              * Keep a missing resolver as an internal wiring error above. */
-#ifdef SAMIR_MUTATE_UNDEFINED_ERROR1
+#ifdef IBASE_MUTATE_UNDEFINED_ERROR1
             return fail(err, XBEE_UNBOUND); /* restore old error 1/Internal error */
 #else
             return fail(err, XBEE_VAR_NOT_FOUND);
@@ -811,7 +811,7 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
             unsigned ai=a.num_width-(ad?ad+1:0),bi=b.num_width-(bd?bd+1:0);
             unsigned d=ad>bd?ad:bd,w=(ai>bi?ai:bi)+1+(d?d+1:0);
             if(n->op==XBT_STAR) { d=ad+bd;w=a.num_width+b.num_width+1; }
-#ifndef SAMIR_FNS_MUTANT_division
+#ifndef IBASE_FNS_MUTANT_division
             /* Division, real III+ 1.1 SF-division (fns-mint/division):
              * dec = max(DECIMALS, da, db); integer room
              * max(ia+db, ib+da)+1 -- 1/3 is " 0.33", 10/30 "  0.33",
@@ -850,7 +850,7 @@ static int eval_node(const xb_node *pool, int idx, xb_ctx *ctx,
 
 void xb_fixed_picture(const xb_ctx *ctx, xb_val *v)
 {
-#ifdef SAMIR_W2_MUTANT_set_fixed
+#ifdef IBASE_W2_MUTANT_set_fixed
     return; /* MUTANT: FIXED ON changes nothing */
 #endif
     if (ctx->set_fixed && v->t == XB_N) {
@@ -866,7 +866,7 @@ void xb_fixed_picture(const xb_ctx *ctx, xb_val *v)
 int xb_eval(const xb_node *pool, int root, xb_ctx *ctx,
             xb_val *out, int *err_code)
 {
-    samir_ovl_validate_ctx(ctx);
+    ibase_ovl_validate_ctx(ctx);
     int local_err = XBEE_OK;
     int rc;
 

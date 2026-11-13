@@ -7,15 +7,18 @@ BORROWED := -I$(TOP)/attic/spec
 LOCAL_INC := -Iinclude
 HOST_INCLUDES := $(LOCAL_INC) -Itests -I$(TOP)/factory/testlib
 include tests/sources.mk
+# w2_host.c includes the REPL source instead of linking it separately.
+test_w2_host_DEPS := ibase_main.c
+test_ibase_w2_DEPS := ibase_main.c
 STANDALONE := $(shell sed 's/ .*//' tests/standalone.cases)
-HOST_TESTS := $(STANDALONE) test_samir_dml test_samir_fns test_samir_w2 \
- test_samir_ovl test_samir_dbsafe test_samir_datatype test_interp_do_file samir_numeric_format \
+HOST_TESTS := $(STANDALONE) test_ibase_dml test_ibase_fns test_ibase_w2 \
+ test_ibase_ovl test_ibase_dbsafe test_ibase_datatype test_interp_do_file ibase_numeric_format \
  readers captured-hashes w4-files retained-screens mzlink-io messages-generated
-EXTRA_HOST_TESTS := samir_core_ref core-live
+EXTRA_HOST_TESTS := ibase_core_ref
 ifeq ($(THOROUGH),1)
 TESTS := $(HOST_TESTS) core-live
 endif
-TEST_HDRS := $(wildcard include/samir/*.h tests/*.h pal/*.h cmd/*.def) tests/run.sh tests/sources.mk
+TEST_HDRS := $(wildcard include/ibase/*.h tests/*.h pal/*.h cmd/*.def) tests/run.sh tests/sources.mk
 SHELL_SUITES := readers captured-hashes w4-files retained-screens mzlink-io messages-generated core-live
 # The fragment registers C entries. Shell entries are added to its run vector
 # after inclusion so no empty compiler command is generated.
@@ -45,9 +48,9 @@ endef
 SHELL_SUITES := readers captured-hashes w4-files retained-screens mzlink-io messages-generated core-live
 $(addprefix $(HOST_OUT)/,$(SHELL_SUITES)):
 	@mkdir -p $(@D); touch $@
-$(HOST_OUT)/messages-generated: $(OUT)/tools/samir_msg_pack
+$(HOST_OUT)/messages-generated: $(OUT)/tools/ibase_msg_pack
 $(HOST_OUT)/w4-files: $(addprefix $(HOST_OUT)/,$(addsuffix _diff,frm lbl qry scr fmt config prg vue exact)) $(HOST_OUT)/w4_mutate
-$(HOST_OUT)/core-live: $(HOST_OUT)/samir_core_ref $(HOST_OUT)/test_samir_core
+$(HOST_OUT)/core-live: $(HOST_OUT)/ibase_core_ref $(HOST_OUT)/test_ibase_core
 $(HOST_OUT)/w4_mutate: tests/w4_mutate.c | $(HOST_OUT)
 	$(HOSTCC) $(HOST_CFLAGS) -o $@ $<
 $(HOST_OUT)/%_diff: tests/w4_file_diff.c | $(HOST_OUT)
@@ -66,7 +69,7 @@ $(OUT)/host-core/dml/%.o: %.c $(TEST_HDRS)
 	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -DFLOW_MEMVAR_ARENA=6000 -MMD -MP -c $< -o $@
 $(OUT)/host-core/lifetime/%.o: %.c $(TEST_HDRS)
 	@mkdir -p $(@D)
-	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -DSAMIR_OVERLAYS -ffunction-sections -fdata-sections -MMD -MP -c $< -o $@
+	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) -DIBASE_OVERLAYS -ffunction-sections -fdata-sections -MMD -MP -c $< -o $@
 -include $(shell find $(OUT)/host-core -name '*.d' 2>/dev/null)
 
 .PHONY: corpus
@@ -75,36 +78,36 @@ corpus:
 	@command -v python3 >/dev/null || { echo 'FAIL: python3 required for independent dBASE readers' >&2; exit 1; }
 test-run: corpus
 
-TARGET_SRCS := $(wildcard core/*.c cmd/*.c fs/*.c) samir_main.c pal/pal_milton.c boot/softfp.c
+TARGET_SRCS := $(wildcard core/*.c cmd/*.c fs/*.c) ibase_main.c pal/pal_dos.c boot/softfp.c
 TARGET_OBJS := $(addprefix $(OUT)/target/,$(TARGET_SRCS:.c=.o))
 # Soft-float is a semantic ABI contract, not a size optimisation. Keep all
 # linked TUs coherent. FLOW settings preserve the shipped runtime profile.
-TARGET_PROFILE := -msoft-float -mno-80387 -ffunction-sections -fdata-sections -DSAMIR_OVERLAYS -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000
+TARGET_PROFILE := -msoft-float -mno-80387 -ffunction-sections -fdata-sections -DIBASE_OVERLAYS -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000
 all: $(TARGET_OBJS) $(OUT)/target/crt0.o
 .PHONY: package
-package: $(OUT)/SAMIR.EXE $(OUT)/SAMIR.OVL
-$(OUT)/target/pal/pal_milton.o: private TARGET_INC := $(BORROWED)
-$(OUT)/target/%.o: %.c $(MAKEFILE_LIST) $(wildcard include/samir/*.h pal/*.h cmd/*.def)
+package: $(OUT)/INITBASE.EXE $(OUT)/INITBASE.OVL
+$(OUT)/target/pal/pal_dos.o: private TARGET_INC := $(BORROWED)
+$(OUT)/target/%.o: %.c $(MAKEFILE_LIST) $(wildcard include/ibase/*.h pal/*.h cmd/*.def)
 	@mkdir -p $(@D)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_PROFILE) $(LOCAL_INC) $(TARGET_INC) -MMD -MP -c $< -o $@
 -include $(TARGET_OBJS:.o=.d)
-$(OUT)/target/crt0.o: boot/samir_crt0.asm
+$(OUT)/target/crt0.o: boot/ibase_crt0.asm
 	@mkdir -p $(@D)
 	$(NASM) -f elf32 $< -o $@
-$(OUT)/tools/%: tools/%.c $(wildcard include/samir/*.h)
+$(OUT)/tools/%: tools/%.c $(wildcard include/ibase/*.h)
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) $(BORROWED) -o $@ $<
-$(OUT)/tools/mzlink: $(TOP)/factory/mz/mzlink.c $(wildcard include/samir/*.h)
+$(OUT)/tools/mzlink: $(TOP)/factory/mz/mzlink.c $(wildcard include/ibase/*.h)
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) $(BORROWED) -o $@ $<
-$(OUT)/target/ibase.ld: boot/samir.ld $(OUT)/tools/samir_memory_ld
-	@$(OUT)/tools/samir_memory_ld > $@
+$(OUT)/target/ibase.ld: boot/ibase.ld $(OUT)/tools/ibase_memory_ld
+	@$(OUT)/tools/ibase_memory_ld > $@
 	@cat $< >> $@
-$(OUT)/SAMIR.elf: $(TARGET_OBJS) $(OUT)/target/crt0.o $(OUT)/target/ibase.ld
+$(OUT)/IBASE.elf: $(TARGET_OBJS) $(OUT)/target/crt0.o $(OUT)/target/ibase.ld
 	$(TARGET_LD) $(TARGET_LDFLAGS) --gc-sections -q -Map=$(OUT)/target/link.map --no-warn-rwx-segments -T $(OUT)/target/ibase.ld -o $@ $(OUT)/target/crt0.o $(TARGET_OBJS)
-$(OUT)/SAMIR.EXE $(OUT)/SAMIR.OVL &: $(OUT)/SAMIR.elf $(OUT)/tools/samir_ovl_pack $(OUT)/tools/mzlink
-	$(OUT)/tools/samir_ovl_pack $< --res-bin $(OUT)/resident.bin --res-rel $(OUT)/resident.rel --ovl $(OUT)/SAMIR.OVL --overlay .ovl_file --overlay .ovl_report --overlay .ovl_status --overlay .ovl_set --overlay .ovl_memfile --overlay .ovl_forms --forbid samir_ovl_call --forbid samir_do --forbid samir_repl --forbid run_block --forbid exec_command --forbid fl_trap --forbid fl_escape
-	$(OUT)/tools/mzlink $(OUT)/resident.bin $(OUT)/SAMIR.EXE --reloc-file $(OUT)/resident.rel --header-relocs --samir
+$(OUT)/INITBASE.EXE $(OUT)/INITBASE.OVL &: $(OUT)/IBASE.elf $(OUT)/tools/ibase_ovl_pack $(OUT)/tools/mzlink
+	$(OUT)/tools/ibase_ovl_pack $< --res-bin $(OUT)/resident.bin --res-rel $(OUT)/resident.rel --ovl $(OUT)/INITBASE.OVL --overlay .ovl_file --overlay .ovl_report --overlay .ovl_status --overlay .ovl_set --overlay .ovl_memfile --overlay .ovl_forms --forbid ibase_ovl_call --forbid ibase_do --forbid ibase_repl --forbid run_block --forbid exec_command --forbid fl_trap --forbid fl_escape
+	$(OUT)/tools/mzlink $(OUT)/resident.bin $(OUT)/INITBASE.EXE --reloc-file $(OUT)/resident.rel --header-relocs --ibase
 smoke:
 	@echo 'Tier 1 awaits the booted product; see tests/SMOKES.md' >&2; exit 1
 
@@ -117,7 +120,14 @@ $(HOST_OUT)/w4_screen_check: tests/w4_screen_check.c tests/screen_file.h | $(HOS
 $(HOST_OUT)/mzlink-io: $(OUT)/tools/mzlink $(HOST_OUT)/mzlink_close_fault
 $(HOST_OUT)/mzlink_close_fault: $(TOP)/factory/mz/mzlink.c tests/mzlink_close_fault.c
 	$(HOSTCC) $(HOST_CFLAGS) $(LOCAL_INC) $(BORROWED) -Wl,--wrap=fclose -o $@ $^
-test_samir_ctl_LIBS := -pthread
+test_ibase_ctl_LIBS := -pthread
 .PHONY: pending
 pending: test-build corpus
 	@DBASE3_DECOMP="$(DBASE3_DECOMP)" CASE="$(CASE)" sh tests/run.sh pending "$(abspath $(HOST_OUT))"
+
+# Full B5 container validation is also available against an explicitly supplied
+# pair while the new target cannot satisfy the loader's reserve declaration.
+.PHONY: pair-test
+pair-test: $(HOST_OUT)/test_ibase_ovl
+	@test -n "$(EXE)" || { echo 'set EXE to an executable with its matching .OVL' >&2; exit 1; }
+	@$(HOST_OUT)/test_ibase_ovl "$(EXE)"

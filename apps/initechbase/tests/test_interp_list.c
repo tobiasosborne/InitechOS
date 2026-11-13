@@ -40,11 +40,11 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.4 contract + oracle.
+ *   - docs/plans/IBASE-implementation-plan.md S5.4 contract + oracle.
  *   - ../dbase3-decomp/specs/commands/navigation-query-display.md (LIST/DISPLAY,
  *     ?/??, LOCATE/CONTINUE, SEEK/FIND; scope/FOR/WHILE; FOUND/EOF effects).
- *   - os/samir/include/samir/interp.h (samir_do + the command-hook chain).
- *   - os/samir/include/samir/workarea.h (wa_recno/wa_eof/wa_found; wa_set_open).
+ *   - os/ibase/include/ibase/interp.h (ibase_do + the command-hook chain).
+ *   - os/ibase/include/ibase/workarea.h (wa_recno/wa_eof/wa_found; wa_set_open).
  *   - tests/dbf_ref.py (TOURS/CLIENTS records -- the value source).
  */
 
@@ -55,14 +55,14 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/interp.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/workarea.h"
-#include "samir/nav.h"
-#include "samir/dbf.h"
-#include "samir/ndx.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/interp.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/workarea.h"
+#include "ibase/nav.h"
+#include "ibase/dbf.h"
+#include "ibase/ndx.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -73,8 +73,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* query.c module registration (the S5.4 entry point). */
 int query_register(xb_interp *ip);
@@ -89,25 +89,25 @@ int proc_run(xb_interp *ip,const char *text);
 #define CAP_BUF 16384
 
 typedef struct {
-    samir_pal_t  pal;        /* MUST be first: we hand &cap.pal to the engine */
-    samir_pal_t *inner;      /* the real host PAL */
+    ibase_pal_t  pal;        /* MUST be first: we hand &cap.pal to the engine */
+    ibase_pal_t *inner;      /* the real host PAL */
     char         buf[CAP_BUF];
     uint32_t     len;
 } cap_pal;
 
 static cap_pal g_cap;
 static int hidden_reads;
-static int32_t cap_hidden(samir_pal_t *p,char *b,uint32_t n)
+static int32_t cap_hidden(ibase_pal_t *p,char *b,uint32_t n)
 { (void)p;hidden_reads++;if(n<7) return -1;memcpy(b,"secret",7);return 6; }
 
-static pal_fd  cap_open (samir_pal_t *p, const char *n, int m) { cap_pal *c=(cap_pal*)p; return c->inner->open(c->inner,n,m); }
-static int     cap_close(samir_pal_t *p, pal_fd fd)           { cap_pal *c=(cap_pal*)p; return c->inner->close(c->inner,fd); }
-static int32_t cap_read (samir_pal_t *p, pal_fd fd, void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->read(c->inner,fd,b,n); }
-static int32_t cap_write(samir_pal_t *p, pal_fd fd, const void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->write(c->inner,fd,b,n); }
-static int32_t cap_seek (samir_pal_t *p, pal_fd fd, int32_t o, int w){ cap_pal *c=(cap_pal*)p; return c->inner->seek(c->inner,fd,o,w); }
-static int     cap_remove(samir_pal_t *p, const char *n)      { cap_pal *c=(cap_pal*)p; return c->inner->remove(c->inner,n); }
-static int     cap_rename(samir_pal_t *p, const char *f, const char *t){ cap_pal *c=(cap_pal*)p; return c->inner->rename(c->inner,f,t); }
-static void    cap_conout(samir_pal_t *p, const char *s, uint32_t n)
+static pal_fd  cap_open (ibase_pal_t *p, const char *n, int m) { cap_pal *c=(cap_pal*)p; return c->inner->open(c->inner,n,m); }
+static int     cap_close(ibase_pal_t *p, pal_fd fd)           { cap_pal *c=(cap_pal*)p; return c->inner->close(c->inner,fd); }
+static int32_t cap_read (ibase_pal_t *p, pal_fd fd, void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->read(c->inner,fd,b,n); }
+static int32_t cap_write(ibase_pal_t *p, pal_fd fd, const void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->write(c->inner,fd,b,n); }
+static int32_t cap_seek (ibase_pal_t *p, pal_fd fd, int32_t o, int w){ cap_pal *c=(cap_pal*)p; return c->inner->seek(c->inner,fd,o,w); }
+static int     cap_remove(ibase_pal_t *p, const char *n)      { cap_pal *c=(cap_pal*)p; return c->inner->remove(c->inner,n); }
+static int     cap_rename(ibase_pal_t *p, const char *f, const char *t){ cap_pal *c=(cap_pal*)p; return c->inner->rename(c->inner,f,t); }
+static void    cap_conout(ibase_pal_t *p, const char *s, uint32_t n)
 {
     cap_pal *c=(cap_pal*)p;
     uint32_t i;
@@ -115,17 +115,17 @@ static void    cap_conout(samir_pal_t *p, const char *s, uint32_t n)
         c->buf[c->len++] = s[i];
     c->buf[c->len] = '\0';
 }
-static int32_t cap_conin_line(samir_pal_t *p, char *b, uint32_t cap){ cap_pal *c=(cap_pal*)p; return c->inner->conin_line(c->inner,b,cap); }
-static int32_t cap_conin_char(samir_pal_t *p){ cap_pal *c=(cap_pal*)p; return c->inner->conin_char(c->inner); }
-static void    cap_gotoxy(samir_pal_t *p, uint8_t r, uint8_t col){ cap_pal *c=(cap_pal*)p; c->inner->gotoxy(c->inner,r,col); }
-static void    cap_set_attr(samir_pal_t *p, uint8_t a){ cap_pal *c=(cap_pal*)p; c->inner->set_attr(c->inner,a); }
-static void    cap_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){ cap_pal *c=(cap_pal*)p; c->inner->today(c->inner,yy,mm,dd); }
-static void   *cap_alloc(samir_pal_t *p, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->alloc(c->inner,n); }
-static void    cap_reset(samir_pal_t *p, void *m){ cap_pal *c=(cap_pal*)p; c->inner->reset(c->inner,m); }
+static int32_t cap_conin_line(ibase_pal_t *p, char *b, uint32_t cap){ cap_pal *c=(cap_pal*)p; return c->inner->conin_line(c->inner,b,cap); }
+static int32_t cap_conin_char(ibase_pal_t *p){ cap_pal *c=(cap_pal*)p; return c->inner->conin_char(c->inner); }
+static void    cap_gotoxy(ibase_pal_t *p, uint8_t r, uint8_t col){ cap_pal *c=(cap_pal*)p; c->inner->gotoxy(c->inner,r,col); }
+static void    cap_set_attr(ibase_pal_t *p, uint8_t a){ cap_pal *c=(cap_pal*)p; c->inner->set_attr(c->inner,a); }
+static void    cap_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){ cap_pal *c=(cap_pal*)p; c->inner->today(c->inner,yy,mm,dd); }
+static void   *cap_alloc(ibase_pal_t *p, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->alloc(c->inner,n); }
+static void    cap_reset(ibase_pal_t *p, void *m){ cap_pal *c=(cap_pal*)p; c->inner->reset(c->inner,m); }
 
-static void *cap_acquire(samir_pal_t *p,uint32_t n) { cap_pal *c=(cap_pal *)p;return c->inner->acquire(c->inner,n); }
-static void cap_release(samir_pal_t *p,void *m) { cap_pal *c=(cap_pal *)p;c->inner->release(c->inner,m); }
-static samir_pal_t *cap_pal_make(samir_pal_t *inner)
+static void *cap_acquire(ibase_pal_t *p,uint32_t n) { cap_pal *c=(cap_pal *)p;return c->inner->acquire(c->inner,n); }
+static void cap_release(ibase_pal_t *p,void *m) { cap_pal *c=(cap_pal *)p;c->inner->release(c->inner,m); }
+static ibase_pal_t *cap_pal_make(ibase_pal_t *inner)
 {
     g_cap.inner = inner;
     g_cap.len   = 0;
@@ -248,7 +248,7 @@ static int write_q_dbf(const char *path)
  * Tier 0: LIST / DISPLAY / scope / FOR / WHILE / OFF / ?/?? / LOCATE / CONTINUE.
  * ===================================================================== */
 
-static void test_tier0(samir_pal_t *pal)
+static void test_tier0(ibase_pal_t *pal)
 {
     const char *pa = "/tmp/test_interp_list_q.dbf";
     xb_interp *ip;
@@ -276,7 +276,7 @@ static void test_tier0(samir_pal_t *pal)
      * program-opening CR LF (re/mint-results-005.md). */
     CHECK(set_register(ip)==INTERP_OK,"screen: SET registered");
     cap_clear();
-    CHECK(samir_do(ip,"LIST OFF\n")==INTERP_OK,"screen: default headings");
+    CHECK(ibase_do(ip,"LIST OFF\n")==INTERP_OK,"screen: default headings");
     /* initech-ioke: re-keyed to the real III+ PROG-query capture
      * (xbase_prog_diff/golden/query.out, prog-real.sha256): LIST OFF keeps the
      * one-column deletion field, numeric headings right-justify, and a Logical
@@ -285,17 +285,17 @@ static void test_tier0(samir_pal_t *pal)
                   sizeof("\r\n CODE   AMT OK\r\n AAA    100 .T.\r\n")-1)==0,
           "screen: headings and widened columns align");
     cap_clear();
-    CHECK(samir_do(ip,"LIST 100/AMT\n")==INTERP_OK,"screen: expression heading uses TOP, not stale EOF value");
+    CHECK(ibase_do(ip,"LIST 100/AMT\n")==INTERP_OK,"screen: expression heading uses TOP, not stale EOF value");
     CHECK(cap_has("100/AMT"),"screen: expression title present");
     cap_clear();
-    CHECK(samir_do(ip,"GO 2\nDISPLAY AMT\n")==INTERP_OK,"screen: explicit numeric DISPLAY heading");
+    CHECK(ibase_do(ip,"GO 2\nDISPLAY AMT\n")==INTERP_OK,"screen: explicit numeric DISPLAY heading");
     CHECK_STR_EQ(cap_text(),"\r\nRecord#    AMT\r\n      2    200\r\n","screen: explicit DISPLAY heading aligns numeric field");
-    CHECK(samir_do(ip,"SET HEADING OFF\n")==INTERP_OK,"screen: HEADING OFF");
+    CHECK(ibase_do(ip,"SET HEADING OFF\n")==INTERP_OK,"screen: HEADING OFF");
     cap_clear();
-    CHECK(samir_do(ip,"SET CONSOLE OFF\nLIST OFF\n? 'HIDDEN'\n")==INTERP_OK,"screen: program output suppressed");
+    CHECK(ibase_do(ip,"SET CONSOLE OFF\nLIST OFF\n? 'HIDDEN'\n")==INTERP_OK,"screen: program output suppressed");
     CHECK(!cap_text()[0],"screen: no program LIST/question ink");
     xb_interp_ctx(ip)->dot_command=1;
-    CHECK(samir_do(ip,"GO TOP\nDISPLAY OFF CODE\n")==INTERP_OK,"screen: dot command output");
+    CHECK(ibase_do(ip,"GO TOP\nDISPLAY OFF CODE\n")==INTERP_OK,"screen: dot command output");
     CHECK(cap_has("AAA"),"screen: CONSOLE always ON at dot prompt");
     CHECK(proc_register(ip)==INTERP_OK,"screen: procedure module registered");
     cap_clear();
@@ -304,16 +304,16 @@ static void test_tier0(samir_pal_t *pal)
     CHECK(xb_interp_ctx(ip)->dot_command==1,"screen: nested DO restores dot context");
     xb_interp_ctx(ip)->dot_command=0;
     cap_clear();hidden_reads=0;
-    CHECK(samir_do(ip,"ACCEPT 'HIDDEN PROMPT' TO answer\n")==INTERP_OK,"screen: hidden ACCEPT accepts input");
+    CHECK(ibase_do(ip,"ACCEPT 'HIDDEN PROMPT' TO answer\n")==INTERP_OK,"screen: hidden ACCEPT accepts input");
     CHECK(hidden_reads==1 && !cap_text()[0],"screen: ACCEPT prompt and typed input suppressed");
-    CHECK(samir_do(ip,"SET CONSOLE ON\n? answer\n")==INTERP_OK,"screen: accepted input retained");
+    CHECK(ibase_do(ip,"SET CONSOLE ON\n? answer\n")==INTERP_OK,"screen: accepted input retained");
     CHECK(cap_has("secret"),"screen: hidden input value visible after CONSOLE ON");
-    CHECK(samir_do(ip,"SET CONSOLE ON\n")==INTERP_OK,"screen: CONSOLE ON");
+    CHECK(ibase_do(ip,"SET CONSOLE ON\n")==INTERP_OK,"screen: CONSOLE ON");
 
     /* ---- LIST (ALL): every record + recno column ---- */
     cap_clear();
-    rc = samir_do(ip, "LIST\n");
-    snprintf(msg,sizeof msg,"list-all: samir_do rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "LIST\n");
+    snprintf(msg,sizeof msg,"list-all: ibase_do rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(cap_has("AAA"), "list-all: shows AAA");
     CHECK(cap_has("FFF"), "list-all: shows FFF");
@@ -326,7 +326,7 @@ static void test_tier0(samir_pal_t *pal)
 
     /* ---- LIST OFF: suppress the recno column ---- */
     cap_clear();
-    rc = samir_do(ip, "LIST OFF\n");
+    rc = ibase_do(ip, "LIST OFF\n");
     CHECK(rc == INTERP_OK, "list-off: rc");
     /* Program-opening CR LF remains when OFF suppresses the record column. */
     /* Real III+ LIST OFF: a leading deletion-flag column (fns-mint/listoff). */
@@ -335,15 +335,15 @@ static void test_tier0(samir_pal_t *pal)
 
     /* ---- LIST FIELDS subset (CODE only) ---- */
     cap_clear();
-    rc = samir_do(ip, "LIST CODE OFF\n");
+    rc = ibase_do(ip, "LIST CODE OFF\n");
     CHECK(rc == INTERP_OK, "list-field: rc");
     CHECK(cap_count("\n") == 7, "list-field: opening CR LF + 6 lines");
     CHECK(strncmp(cap_text(), "\r\n AAA\r\n", 8) == 0, "list-field: CODE-only line 'AAA'");
 
     /* ---- LIST FOR <cond>: AMT = 100 -> recnos 1,3,5 (3 rows) ---- */
     cap_clear();
-    rc = samir_do(ip, "LIST FOR AMT = 100\n");
-    snprintf(msg,sizeof msg,"list-for: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "LIST FOR AMT = 100\n");
+    snprintf(msg,sizeof msg,"list-for: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(cap_count("\n") == 4, "list-for: opening CR LF + 3 matching records");
     CHECK(cap_has("      1  AAA"), "list-for: recno 1 (AMT 100)");
@@ -355,15 +355,15 @@ static void test_tier0(samir_pal_t *pal)
     /* ---- LIST WHILE <cond>: from TOP, stop at first false. AMT=100 is true
      *      only for recno 1, false at recno 2 -> WHILE stops -> just recno 1. ---- */
     cap_clear();
-    rc = samir_do(ip, "GO TOP\nLIST WHILE AMT = 100\n");
+    rc = ibase_do(ip, "GO TOP\nLIST WHILE AMT = 100\n");
     CHECK(rc == INTERP_OK, "list-while: rc");
     CHECK(cap_count("\n") == 2, "list-while: opening CR LF + 1 row");
     CHECK(cap_has("      1  AAA"), "list-while: only recno 1 before WHILE goes false");
 
     /* ---- DISPLAY (current record only): GO 4 then DISPLAY ---- */
     cap_clear();
-    rc = samir_do(ip, "GO 4\nDISPLAY\n");
-    snprintf(msg,sizeof msg,"display-cur: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "GO 4\nDISPLAY\n");
+    snprintf(msg,sizeof msg,"display-cur: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(cap_count("\n") == 2, "display-cur: opening CR LF + one record");
     CHECK(cap_has("      4  DDD"), "display-cur: current record (recno 4 DDD)");
@@ -372,35 +372,35 @@ static void test_tier0(samir_pal_t *pal)
 
     /* ---- DISPLAY ALL: like LIST ALL (6 rows) ---- */
     cap_clear();
-    rc = samir_do(ip, "DISPLAY ALL\n");
+    rc = ibase_do(ip, "DISPLAY ALL\n");
     CHECK(rc == INTERP_OK, "display-all: rc");
     CHECK(cap_count("\n") == 7, "display-all: opening CR LF + 6 rows");
 
     /* ---- scope NEXT n: GO 2, LIST NEXT 3 CODE -> recnos 2,3,4 (CODE only) ---- */
     cap_clear();
-    rc = samir_do(ip, "GO 2\nLIST NEXT 3 CODE OFF\n");
+    rc = ibase_do(ip, "GO 2\nLIST NEXT 3 CODE OFF\n");
     CHECK(rc == INTERP_OK, "list-next: rc");
     CHECK(cap_count("\n") == 4, "list-next: opening CR LF + 3 records");
     CHECK_STR_EQ(cap_text(), "\r\n BBB\r\n CCC\r\n DDD\r\n", "list-next: BBB,CCC,DDD (CODE field list)");
 
     /* ---- scope RECORD n: LIST RECORD 5 -> just recno 5 ---- */
     cap_clear();
-    rc = samir_do(ip, "LIST RECORD 5\n");
+    rc = ibase_do(ip, "LIST RECORD 5\n");
     CHECK(rc == INTERP_OK, "list-record: rc");
     CHECK(cap_count("\n") == 2, "list-record: opening CR LF + single record");
     CHECK(cap_has("      5  EEE"), "list-record: recno 5 EEE");
 
     /* ---- scope REST: GO 5, LIST REST CODE -> recnos 5,6 (CODE only) ---- */
     cap_clear();
-    rc = samir_do(ip, "GO 5\nLIST REST CODE OFF\n");
+    rc = ibase_do(ip, "GO 5\nLIST REST CODE OFF\n");
     CHECK(rc == INTERP_OK, "list-rest: rc");
     CHECK(cap_count("\n") == 3, "list-rest: opening CR LF + 2 records");
     CHECK_STR_EQ(cap_text(), "\r\n EEE\r\n FFF\r\n", "list-rest: EEE,FFF (CODE field list)");
 
     /* ---- ? <expr>: a string literal + a field + a function call ---- */
     cap_clear();
-    rc = samir_do(ip, "GO 1\n? 'CODE=' + CODE\n");
-    snprintf(msg,sizeof msg,"q-expr: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "GO 1\n? 'CODE=' + CODE\n");
+    snprintf(msg,sizeof msg,"q-expr: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(cap_has("CODE=AAA"), "q-expr: ? 'CODE=' + CODE -> CODE=AAA");
     /* ? prints a leading CR LF then the value (real III+ query.out). */
@@ -408,40 +408,40 @@ static void test_tier0(samir_pal_t *pal)
 
     /* ? of a numeric field (AMT=100 at recno 1) + a function (LEN). */
     cap_clear();
-    rc = samir_do(ip, "? AMT\n? LEN(CODE)\n");
+    rc = ibase_do(ip, "? AMT\n? LEN(CODE)\n");
     CHECK(rc == INTERP_OK, "q-num: rc");
     CHECK(cap_has("100"), "q-num: ? AMT -> 100");
     CHECK(cap_has("3"),   "q-num: ? LEN(CODE) -> 3");
 
     /* ?? : no leading newline (continues on the same line). */
     cap_clear();
-    rc = samir_do(ip, "?? 'X'\n?? 'Y'\n");
+    rc = ibase_do(ip, "?? 'X'\n?? 'Y'\n");
     CHECK(rc == INTERP_OK, "qq: rc");
     CHECK(strcmp(cap_text(), "XY") == 0, "qq: ?? has no leading/trailing newline -> 'XY'");
 
     /* ---- LOCATE / CONTINUE: FOR AMT = 100 finds recnos 1,3,5 in turn ---- */
     cap_clear();
-    rc = samir_do(ip, "LOCATE FOR AMT = 100\n");
-    snprintf(msg,sizeof msg,"locate: rc=%d ec=%d",rc,samir_last_error(ip));
+    rc = ibase_do(ip, "LOCATE FOR AMT = 100\n");
+    snprintf(msg,sizeof msg,"locate: rc=%d ec=%d",rc,ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(wa_recno(env, 1) == 1u, "locate: first match recno 1");
     CHECK(wa_found(env, 1) == 1,  "locate: FOUND() .T. on match");
     CHECK(wa_eof(env, 1) == 0,    "locate: EOF() .F. on match");
 
-    rc = samir_do(ip, "CONTINUE\n");
+    rc = ibase_do(ip, "CONTINUE\n");
     snprintf(msg,sizeof msg,"continue1: rc=%d recno=%u",rc,wa_recno(env,1));
     CHECK(rc == INTERP_OK, msg);
     /* MUTANT -DQUERY_MUTATE_CONTINUE_SCOPE makes this re-find recno 1. */
     CHECK(wa_recno(env, 1) == 3u, "continue1: next match recno 3 (NOT re-find 1)");
     CHECK(wa_found(env, 1) == 1,  "continue1: FOUND() .T.");
 
-    rc = samir_do(ip, "CONTINUE\n");
+    rc = ibase_do(ip, "CONTINUE\n");
     snprintf(msg,sizeof msg,"continue2: rc=%d recno=%u",rc,wa_recno(env,1));
     CHECK(rc == INTERP_OK, msg);
     CHECK(wa_recno(env, 1) == 5u, "continue2: next match recno 5");
     CHECK(wa_found(env, 1) == 1,  "continue2: FOUND() .T.");
 
-    rc = samir_do(ip, "CONTINUE\n");
+    rc = ibase_do(ip, "CONTINUE\n");
     CHECK(rc == INTERP_OK, "continue3: rc (no further match -> at EOF)");
     CHECK(wa_found(env, 1) == 0, "continue3: no further match -> FOUND() .F.");
     CHECK(wa_eof(env, 1) == 1,   "continue3: no further match -> EOF() .T.");
@@ -454,22 +454,22 @@ static void test_tier0(samir_pal_t *pal)
             query_register(ip2);
             wa_set_open(e2, 1, pa, "Q", NULL);
             wa_select(e2, 1);
-            rc = samir_do(ip2, "CONTINUE\n");
-            snprintf(msg,sizeof msg,"continue-noloc: rc=%d ec=%d",rc,samir_last_error(ip2));
-            CHECK(rc != INTERP_OK && samir_last_error(ip2) == 42, msg);
+            rc = ibase_do(ip2, "CONTINUE\n");
+            snprintf(msg,sizeof msg,"continue-noloc: rc=%d ec=%d",rc,ibase_last_error(ip2));
+            CHECK(rc != INTERP_OK && ibase_last_error(ip2) == 42, msg);
             xb_interp_free(ip2);
         }
     }
 
     /* ---- a non-Logical FOR is fail-loud #37 (no truthiness) ---- */
-    rc = samir_do(ip, "LIST FOR AMT\n");
-    snprintf(msg,sizeof msg,"for-type: rc=%d ec=%d",rc,samir_last_error(ip));
-    CHECK(rc != INTERP_OK && samir_last_error(ip) == XBEE_NOT_LOGICAL, msg);
+    rc = ibase_do(ip, "LIST FOR AMT\n");
+    snprintf(msg,sizeof msg,"for-type: rc=%d ec=%d",rc,ibase_last_error(ip));
+    CHECK(rc != INTERP_OK && ibase_last_error(ip) == XBEE_NOT_LOGICAL, msg);
 
     /* ---- SEEK on a non-indexed table -> #26 "Database is not indexed." ---- */
-    rc = samir_do(ip, "SEEK 'AAA'\n");
-    snprintf(msg,sizeof msg,"seek-noidx: rc=%d ec=%d",rc,samir_last_error(ip));
-    CHECK(rc != INTERP_OK && samir_last_error(ip) == 26, msg);
+    rc = ibase_do(ip, "SEEK 'AAA'\n");
+    snprintf(msg,sizeof msg,"seek-noidx: rc=%d ec=%d",rc,ibase_last_error(ip));
+    CHECK(rc != INTERP_OK && ibase_last_error(ip) == 26, msg);
 
     /* GATED (loud-skip): SET FILTER / SET DELETED + scope (S5.6). */
     fprintf(stderr,
@@ -486,7 +486,7 @@ static void test_tier0(samir_pal_t *pal)
  * Tier 1: SEEK / FIND on corpus master indexes (fail loud (named opt-out only) if absent).
  * ===================================================================== */
 
-static void test_tier1(samir_pal_t *pal, const char *base)
+static void test_tier1(ibase_pal_t *pal, const char *base)
 {
     char tours[1024], tourdate[1024], clients[1024], names[1024];
     xb_interp *ip;
@@ -536,14 +536,14 @@ static void test_tier1(samir_pal_t *pal, const char *base)
     wa_select(env, 1);
     CHECK(wa_master_order(env, 1) == 1, "tier1: TOURS master order = 1");
 
-    rc = samir_do(ip, "SEEK CTOD('08/05/85')\n");
-    snprintf(msg,sizeof msg,"seek-date: rc=%d ec=%d recno=%u",rc,samir_last_error(ip),wa_recno(env,1));
+    rc = ibase_do(ip, "SEEK CTOD('08/05/85')\n");
+    snprintf(msg,sizeof msg,"seek-date: rc=%d ec=%d recno=%u",rc,ibase_last_error(ip),wa_recno(env,1));
     CHECK(rc == INTERP_OK, msg);
     CHECK(wa_found(env, 1) == 1, "seek-date: FOUND() .T. (1985-08-05 present)");
     CHECK(wa_recno(env, 1) == 1u, "seek-date: lands on recno 1 (earliest departure)");
 
     /* SEEK a date not in the index -> FOUND .F., EOF .T. (no SOFTSEEK in III+). */
-    rc = samir_do(ip, "SEEK CTOD('01/01/70')\n");
+    rc = ibase_do(ip, "SEEK CTOD('01/01/70')\n");
     CHECK(rc == INTERP_OK, "seek-miss: rc");
     CHECK(wa_found(env, 1) == 0, "seek-miss: FOUND() .F. (date absent)");
     CHECK(wa_eof(env, 1) == 1,   "seek-miss: EOF() .T. (failed seek lands at EOF)");
@@ -569,28 +569,28 @@ static void test_tier1(samir_pal_t *pal, const char *base)
     if (rc != WA_OK) { xb_interp_free(ip); return; }
     wa_select(env, 1);
 
-    rc = samir_do(ip, "SEEK 'Adams'\n");
-    snprintf(msg,sizeof msg,"seek-char: rc=%d ec=%d recno=%u",rc,samir_last_error(ip),wa_recno(env,1));
+    rc = ibase_do(ip, "SEEK 'Adams'\n");
+    snprintf(msg,sizeof msg,"seek-char: rc=%d ec=%d recno=%u",rc,ibase_last_error(ip),wa_recno(env,1));
     CHECK(rc == INTERP_OK, msg);
     CHECK(wa_found(env, 1) == 1, "seek-char: FOUND() .T. ('Adams' begins-with, EXACT OFF)");
     CHECK(wa_recno(env, 1) == 15u, "seek-char: lands on recno 15 (Adams, Nathan)");
 
     /* FIND with a bare unquoted literal (legacy form). */
-    rc = samir_do(ip, "FIND Adams\n");
+    rc = ibase_do(ip, "FIND Adams\n");
     snprintf(msg,sizeof msg,"find-char: rc=%d recno=%u",rc,wa_recno(env,1));
     CHECK(rc == INTERP_OK, msg);
     CHECK(wa_found(env, 1) == 1, "find-char: FOUND() .T. (FIND bare literal)");
     CHECK(wa_recno(env, 1) == 15u, "find-char: FIND Adams -> recno 15");
 
     /* SEEK a name not present -> FOUND .F. */
-    rc = samir_do(ip, "SEEK 'Zzzzzz'\n");
+    rc = ibase_do(ip, "SEEK 'Zzzzzz'\n");
     CHECK(rc == INTERP_OK, "seek-char-miss: rc");
     CHECK(wa_found(env, 1) == 0, "seek-char-miss: FOUND() .F. (no such key)");
     CHECK(wa_eof(env, 1) == 1,   "seek-char-miss: EOF() .T.");
 
     /* LIST on the indexed table walks in INDEX order: first row is recno 15. */
     cap_clear();
-    rc = samir_do(ip, "GO TOP\nLIST OFF\n");
+    rc = ibase_do(ip, "GO TOP\nLIST OFF\n");
     CHECK(rc == INTERP_OK, "tier1: LIST in index order rc");
     /* First listed record (index order) is Nathan Adams -> FIRSTNAME 'Nathan'. */
     CHECK(strstr(cap_text(), "Nathan") != NULL, "tier1: index-order LIST first row has 'Nathan' (recno 15)");
@@ -606,7 +606,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *host, *pal;
+    ibase_pal_t *host, *pal;
     char path[1024];
 
     memset(&cfg, 0, sizeof cfg);

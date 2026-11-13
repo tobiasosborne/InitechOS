@@ -9,10 +9,10 @@
 #include "w2_host.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t yy,mm,dd; uint32_t heap; };
-extern samir_pal_t *pal_host_make(struct pal_host_cfg);
-extern void pal_host_free(samir_pal_t *);
+extern ibase_pal_t *pal_host_make(struct pal_host_cfg);
+extern void pal_host_free(ibase_pal_t *);
 static unsigned probes;
-static void quiet(samir_pal_t *p,const char *s,uint32_t n) { (void)p;(void)s;(void)n; }
+static void quiet(ibase_pal_t *p,const char *s,uint32_t n) { (void)p;(void)s;(void)n; }
 static int probe(void *user,xb_interp *ip,const char *verb,const char *args,int *ec)
 {
     (void)user;(void)args;(void)ec;
@@ -27,7 +27,7 @@ static void write_text(const char *path,const char *text)
     FILE *f=fopen(path,"wb");CHECK(f!=NULL,"factory fixture opens");
     if(f){CHECK(fwrite(text,1,strlen(text),f)==strlen(text),"factory fixture writes");fclose(f);}
 }
-static void contents(samir_pal_t *pal,const char *name,const char *want)
+static void contents(ibase_pal_t *pal,const char *name,const char *want)
 {
     char buf[256]={0};pal_fd fd=pal->open(pal,name,PAL_RD);
     CHECK(fd>=0,"DOS fixture path opens through mounted PAL");
@@ -39,7 +39,7 @@ int main(void)
 {
     char cwd[2048],root[4096],drive[4096],path[8192],buf[2048]={0};
     uint32_t bytes=0;struct w2_host_env env;xb_interp *ip;
-    samir_pal_t *pal=pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    ibase_pal_t *pal=pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
     if(!pal||!getcwd(cwd,sizeof cwd))return 2;
     snprintf(root,sizeof root,"%s/build/w2-host-adapter",cwd);directory(root);
     snprintf(drive,sizeof drive,"%s/build/w2-host-adapter/DRIVE",cwd);directory(drive);
@@ -48,7 +48,7 @@ int main(void)
     snprintf(path,sizeof path,"%s/BASE.DBF",drive);write_text(path,"D fixture");
     snprintf(path,sizeof path,"%s/Sub/MiXeD.TXT",root);write_text(path,"mixed-case fixture");
     CHECK(pal->diskspace(pal,&bytes)==0&&bytes==1048576u,"unadapted FNS PAL retains 1 MiB fixture");
-    pal_fd (*original_open)(samir_pal_t *,const char *,int)=pal->open;
+    pal_fd (*original_open)(ibase_pal_t *,const char *,int)=pal->open;
     const struct w2_host_config cfg={root,drive,67108864u,33554432u,'C'};
     CHECK(w2_host_bind(&env,pal,&cfg)==0,"explicit W2 mount/free-byte inputs bind");
     CHECK(pal->curdrive(pal)=='C',"W2 logged drive is explicit C");
@@ -83,5 +83,5 @@ int main(void)
     CHECK(strstr(buf,"67108864")&&strstr(buf,".T.")&&strstr(buf,"CHILD BATCH"),"engine observes injected disk space, D mount and nested batch output");
     w2_host_unbind(&env);
     CHECK(pal->open==original_open&&pal->diskspace(pal,&bytes)==0&&bytes==1048576u,"detach restores unchanged FNS PAL callbacks and inputs");
-    pal_host_free(pal);return TEST_SUMMARY("test-samir-w2-host-adapter");
+    pal_host_free(pal);return TEST_SUMMARY("test-ibase-w2-host-adapter");
 }

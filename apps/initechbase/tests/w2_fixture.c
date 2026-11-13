@@ -4,13 +4,13 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "samir/dbf.h"
-#include "samir/dbt.h"
-#include "samir/value.h"
+#include "ibase/dbf.h"
+#include "ibase/dbt.h"
+#include "ibase/value.h"
 struct pal_host_cfg { uint8_t yy, mm, dd; uint32_t heap; };
-extern samir_pal_t *pal_host_make(struct pal_host_cfg);
-extern void pal_host_free(samir_pal_t *);
-static int table(samir_pal_t *pal, const char *path, int variant)
+extern ibase_pal_t *pal_host_make(struct pal_host_cfg);
+extern void pal_host_free(ibase_pal_t *);
+static int table(ibase_pal_t *pal, const char *path, int variant)
 {
     const dbf_field_spec fields[] = {{"NAME",'C',10,0},{"CITY",'C',12,0},{"BAL",'N',8,2}};
     const char *names[] = {"PESTON","WADDAMS","EXTRA"};
@@ -35,7 +35,7 @@ int main(int argc,char **argv)
     char path[2048]; dbf_table *t=NULL; dbt_file *m=NULL; uint32_t block=0;
     const char text[]="Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa.";
     const dbf_field_spec field={"NOTE",'M',10,0};
-    samir_pal_t *pal=pal_host_make((struct pal_host_cfg){86,7,24,0});
+    ibase_pal_t *pal=pal_host_make((struct pal_host_cfg){86,7,24,0});
     if(argc!=2||!pal)return 2;
     snprintf(path,sizeof path,"%s/OTHER.DBF",argv[1]);if(table(pal,path,0))return 3;
     snprintf(path,sizeof path,"%s/DRIVE/BASE.DBF",argv[1]);if(table(pal,path,1))return 3;

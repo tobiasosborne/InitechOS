@@ -2,9 +2,9 @@
 # tests/ndx_ref.py -- independent dBASE III+ .ndx reference reader.
 #
 # FACTORY tooling (CLAUDE.md Law 3): the artifact stays C; this python reader is
-# the INDEPENDENT reference for the SAMIR (InitechBase) .ndx differential oracle
+# the INDEPENDENT reference for the IBASE (InitechBase) .ndx differential oracle
 # (beads initech-586.5.8).  It is a SECOND implementation that shares NO code
-# and NO constants with os/samir/* or spec/samir/*.  Its purpose is to catch any
+# and NO constants with os/ibase/* or spec/ibase/*.  Its purpose is to catch any
 # bug that is SHARED by our C .ndx reader -- agreement between two independent
 # derivations is a far stronger signal than one.
 #
@@ -138,8 +138,8 @@ def _jdn_to_date(jdn):
 class NdxFile:
     """Independent dBASE III+ .ndx B-tree reader.
 
-    Parses from first principles per ndx.md.  Does NOT import spec/samir/*
-    or os/samir/*.  All offsets and formulas are re-derived here.
+    Parses from first principles per ndx.md.  Does NOT import spec/ibase/*
+    or os/ibase/*.  All offsets and formulas are re-derived here.
     """
 
     def __init__(self, path):

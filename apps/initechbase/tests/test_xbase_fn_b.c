@@ -53,7 +53,7 @@
  *
  * -------------------------------------------------------------------------
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md sec.5 S3.6 oracle contract;
+ *   - docs/plans/IBASE-implementation-plan.md sec.5 S3.6 oracle contract;
  *     sec.7 GATED register (numfn-1..4)
  *   - ../dbase3-decomp/specs/functions/numeric-and-date-functions.md
  *     ABS [verified: HELP.DBS 1292]; INT truncation-toward-zero [HELP.DBS 1297];
@@ -63,9 +63,9 @@
  *     DOW 1=Sunday,7=Saturday [HELP.DBS 1248 + Harbour datetime.txt:262];
  *     CDOW English weekday name [HELP.DBS 1243 + Harbour datetime.txt:6-41];
  *     CMONTH English month name [HELP.DBS 1244 + Harbour datetime.txt:48-83]
- *   - spec/samir/dbase_msg_codes.tsv (#9 mismatch, #11 invalid argument)
- *   - os/samir/include/samir/eval.h (xb_ctx / xb_eval / xb_call_builtin API)
- *   - os/samir/include/samir/rt.h (jdn_from_ymd; ymd_from_jdn)
+ *   - spec/ibase/dbase_msg_codes.tsv (#9 mismatch, #11 invalid argument)
+ *   - os/ibase/include/ibase/eval.h (xb_ctx / xb_eval / xb_call_builtin API)
+ *   - os/ibase/include/ibase/rt.h (jdn_from_ymd; ymd_from_jdn)
  *   - seed/test_assert.h (harness idiom)
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
@@ -76,9 +76,9 @@
 #include <string.h>
 
 #include "test_assert.h"     /* seed/, on -Iseed                          */
-#include "samir/eval.h"      /* os/samir/include/, on -Ios/samir/include  */
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/eval.h"      /* os/ibase/include/, on -Ios/ibase/include  */
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 

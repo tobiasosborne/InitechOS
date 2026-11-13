@@ -1,0 +1,13 @@
+set-history host
+set-dohistory host
+set-historyresize host
+set-historyslots host
+set-fixed host
+set-margin host
+set-memowidth host
+set-unique host
+set-uniquerebuild host
+set-headings host
+set-print host
+set-procedure host
+verb-eject host

@@ -1,5 +1,5 @@
 /*
- * os/samir/core/parse.c -- SAMIR xBase III+ expression parser (S3.2).
+ * os/ibase/core/parse.c -- IBASE xBase III+ expression parser (S3.2).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib -fno-stack-protector -fno-pic -std=c11 -Wall -Wextra -Werror).
@@ -73,19 +73,19 @@
  *
  * -------------------------------------------------------------------------
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md sec.5 S3.2 (the ladder; mint-002)
+ *   - docs/plans/IBASE-implementation-plan.md sec.5 S3.2 (the ladder; mint-002)
  *   - ../dbase3-decomp/re/mint-results-002.md (2^3^2=64, -2^2=4 -- THE oracle)
  *   - ../dbase3-decomp/specs/language/expressions-and-operators.md sec.9.1
  *     (tiers 4-9 verified; tier 2/3 resolved by mint-002), sec.9.2 (unbalanced)
  *   - DBASE.MSG.strings.txt:8 "Unbalanced parenthesis." (XBPE_UNBALANCED)
- *   - os/samir/include/samir/eval.h (xb_node / xb_parse contract)
+ *   - os/ibase/include/ibase/eval.h (xb_node / xb_parse contract)
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
 
 #include <stdint.h>
-#include "samir/rt.h"
-#include "samir/eval.h"
+#include "ibase/rt.h"
+#include "ibase/eval.h"
 
 /* ======================================================================== */
 /* Parser state                                                              */

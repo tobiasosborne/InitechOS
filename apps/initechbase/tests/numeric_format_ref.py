@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Independent LIST field oracle, Using III+ U5-144 (PDF 256).
-Manual-derived cell rule. Raw DBFs are written with struct, never SAMIR's
+Manual-derived cell rule. Raw DBFs are written with struct, never IBASE's
 writer. Decimal is independent of dec_format. Line framing (initech-ioke) is
 the real III+ 1.1 capture xbase_prog_diff/fns-mint/numlist/GOLD.OUT (and
 fns-mint/listoff): LIST/DISPLAY OFF keep the one-column deletion field, so
@@ -74,7 +74,7 @@ def main():
             if result.returncode or result.stdout != expected:
                 print(f'FAIL: N({width},{places}) descriptor differential', file=sys.stderr)
                 print(f'expected {expected[:120]!r}; actual {result.stdout[:120]!r}', file=sys.stderr)
-                print(f'test-samir-numeric-format: {checks} checks, FAIL')
+                print(f'test-ibase-numeric-format: {checks} checks, FAIL')
                 return 1
     # One row wider than the engine's 512-byte staging buffer. Independent
     # descriptor and payload construction checks the complete record view.
@@ -96,9 +96,9 @@ def main():
     checks += len(cells) * 3
     if result.returncode or result.stdout != expected:
         print('FAIL: wide-record descriptor differential', file=sys.stderr)
-        print(f'test-samir-numeric-format: {checks} checks, FAIL')
+        print(f'test-ibase-numeric-format: {checks} checks, FAIL')
         return 1
-    print(f'test-samir-numeric-format: {checks} cells PASS (manual-derived cells, real SF-numlist framing)')
+    print(f'test-ibase-numeric-format: {checks} cells PASS (manual-derived cells, real SF-numlist framing)')
     return 0
 
 

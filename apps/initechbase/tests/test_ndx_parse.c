@@ -27,15 +27,15 @@
  *   <base>/goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/
  *
  * Compile + run (self-grade; NOT make):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/ndx.c os/samir/core/rt.c os/samir/pal/pal_host.c \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/ndx.c os/ibase/core/rt.c os/ibase/pal/pal_host.c \
  *     tests/test_ndx_parse.c -o /tmp/test_ndx_parse \
  *     && /tmp/test_ndx_parse ../dbase3-decomp
  *
  * Mutant (must exit non-zero):
  *   gcc -std=c11 -Wall -Wextra -Werror -DNDX_MUTATE_SUBLAYOUT \
- *     -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/ndx.c os/samir/core/rt.c os/samir/pal/pal_host.c \
+ *     -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/ndx.c os/ibase/core/rt.c os/ibase/pal/pal_host.c \
  *     tests/test_ndx_parse.c -o /tmp/test_ndx_mutant \
  *     && /tmp/test_ndx_mutant ../dbase3-decomp; echo "exit $?"
  *
@@ -46,9 +46,9 @@
  *       ss2.1 (key_expr verbatim), ss2.2 (CNAMES worked byte dump),
  *       ss3 (node 2+2 header), ss3.1 (group layout), ss3.2 (trailing child),
  *       ss4.2 (TOURDATE JDN bytes), Verification section.
- *   - spec/samir/ndx_format.h (LOCKED offset constants).
- *   - docs/plans/SAMIR-implementation-plan.md S4.1 oracle contract.
- *   - os/samir/include/samir/ndx.h (API under test).
+ *   - spec/ibase/ndx_format.h (LOCKED offset constants).
+ *   - docs/plans/IBASE-implementation-plan.md S4.1 oracle contract.
+ *   - os/ibase/include/ibase/ndx.h (API under test).
  *   - seed/test_assert.h (harness idiom).
  */
 
@@ -57,7 +57,7 @@
 #include <string.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/ndx.h"         /* os/samir/include/, on -Ios/samir/include */
+#include "ibase/ndx.h"         /* os/ibase/include/, on -Ios/ibase/include */
 
 TEST_HARNESS();
 
@@ -68,8 +68,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* -----------------------------------------------------------------------
  * Tier-0 header manifest (one row per golden)
@@ -179,7 +179,7 @@ static int file_exists(const char *path)
 /* -----------------------------------------------------------------------
  * check_header: open one golden, assert all header fields match the manifest.
  * ----------------------------------------------------------------------- */
-static void check_header(samir_pal_t *pal, const char *base, const ndx_expect *e)
+static void check_header(ibase_pal_t *pal, const char *base, const ndx_expect *e)
 {
     char       path[1024];
     char       msg[256];
@@ -245,7 +245,7 @@ static void check_header(samir_pal_t *pal, const char *base, const ndx_expect *e
  * First entry: child=1, recno=0, key="Collins             Sara".
  * [ndx.md Verification: "CNAMES root e0 'Collins...Sara' == leaf page1 last key"]
  * ----------------------------------------------------------------------- */
-static void check_cnames_node(samir_pal_t *pal, const char *base)
+static void check_cnames_node(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx = (ndx_index *)0;
@@ -324,7 +324,7 @@ static void check_cnames_node(samir_pal_t *pal, const char *base)
  * child/recno fields are swapped and key_data is shifted +4, so child!=0 (wrong),
  * recno!=1 (wrong), and key bytes are garbage -> several CHECKs go RED.
  * ----------------------------------------------------------------------- */
-static void check_tourdate_node(samir_pal_t *pal, const char *base)
+static void check_tourdate_node(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx  = (ndx_index *)0;
@@ -402,7 +402,7 @@ static void check_tourdate_node(samir_pal_t *pal, const char *base)
  * rec1 key starts with "ATL" (CDES_CITY) then "LOUIS" (CNAME).
  * [ndx.md Verification "CUSTOMER rec1 == CDES_CITY 'ATL'+CNAME 'LOUIS' (28)"]
  * ----------------------------------------------------------------------- */
-static void check_customer_node(samir_pal_t *pal, const char *base)
+static void check_customer_node(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx  = (ndx_index *)0;
@@ -483,7 +483,7 @@ static void check_customer_node(samir_pal_t *pal, const char *base)
  * [ndx.md Verification casing: "AVAL_FLT 'adep_city+ades_city+dtoc(adate) ' (lower)
  *  ... bytes simply echo the source text"]
  * ----------------------------------------------------------------------- */
-static void check_aval_flt(samir_pal_t *pal, const char *base)
+static void check_aval_flt(ibase_pal_t *pal, const char *base)
 {
     char       path[1024];
     ndx_index *idx = (ndx_index *)0;
@@ -534,7 +534,7 @@ static void check_aval_flt(samir_pal_t *pal, const char *base)
  * [ndx.md Verification "TRIPS root count=3 separators (children 1,2,3) + trailing 4"]
  * root branch entry_count=3, trail_child=4.
  * ----------------------------------------------------------------------- */
-static void check_trips_node(samir_pal_t *pal, const char *base)
+static void check_trips_node(ibase_pal_t *pal, const char *base)
 {
     char        path[1024];
     ndx_index  *idx  = (ndx_index *)0;
@@ -622,7 +622,7 @@ static const ndx_basic REMAINING[] = {
 };
 #define REMAINING_N ((int)(sizeof(REMAINING) / sizeof(REMAINING[0])))
 
-static void check_remaining(samir_pal_t *pal, const char *base)
+static void check_remaining(ibase_pal_t *pal, const char *base)
 {
     int i;
     for (i = 0; i < REMAINING_N; i++) {
@@ -675,7 +675,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     int i;
     int any_present = 0;
     char path[1024];

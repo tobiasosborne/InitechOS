@@ -29,15 +29,15 @@
  * field-type checks go RED (fields[1..] will carry garbage or wrong values).
  *
  * Compile + run (self-grade, host, NOT make):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbf.c os/samir/core/rt.c os/samir/pal/pal_host.c \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbf.c os/ibase/core/rt.c os/ibase/pal/pal_host.c \
  *     tests/test_dbf_fields.c -o /tmp/test_dbf_fields \
  *     && /tmp/test_dbf_fields ../dbase3-decomp
  *
  * Mutant (must go RED):
  *   gcc -std=c11 -Wall -Wextra -Werror -DDBF_MUTATE_STRIDE \
- *     -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbf.c os/samir/core/rt.c os/samir/pal/pal_host.c \
+ *     -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbf.c os/ibase/core/rt.c os/ibase/pal/pal_host.c \
  *     tests/test_dbf_fields.c -o /tmp/test_dbf_fields_mut ; \
  *     /tmp/test_dbf_fields_mut ../dbase3-decomp ; echo "mutant exit=$?"
  *
@@ -48,11 +48,11 @@
  *     + CLIENTS FIRSTNAME worked example) and sec 5 (field type codes C/N/D/L/M).
  *     "Verification" section: all field names, types, lengths, dec counts for
  *     CLIENTS, TOURS, TRAVEL, BANK, TAX are byte-confirmed there.
- *   - spec/samir/dbf_format.h (the LOCKED offset constants; DBF_DESC_STRIDE=32,
+ *   - spec/ibase/dbf_format.h (the LOCKED offset constants; DBF_DESC_STRIDE=32,
  *     DBF_DESC_NAME_SIZE=11, DBF_DESC_TERMINATOR=0x0D).
- *   - docs/plans/SAMIR-implementation-plan.md S1.2 oracle contract.
- *   - os/samir/include/samir/dbf.h (dbf_field_t, dbf_field, dbf_nfields).
- *   - os/samir/pal/pal_host.c (struct pal_host_cfg, pal_host_make/_free).
+ *   - docs/plans/IBASE-implementation-plan.md S1.2 oracle contract.
+ *   - os/ibase/include/ibase/dbf.h (dbf_field_t, dbf_field, dbf_nfields).
+ *   - os/ibase/pal/pal_host.c (struct pal_host_cfg, pal_host_make/_free).
  *   - seed/test_assert.h (the harness idiom).
  *   - Cross-checked by: `python3 tests/dbf_ref.py --schema <file>`
  *     (independent reader; agreement = independence barrier for Tier-0 manifests).
@@ -63,7 +63,7 @@
 #include <string.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/dbf.h"         /* os/samir/include/, on -Ios/samir/include */
+#include "ibase/dbf.h"         /* os/ibase/include/, on -Ios/ibase/include */
 
 TEST_HARNESS();
 
@@ -74,8 +74,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* ---- per-field expected descriptor (used in Tier-0 manifests) ---- */
 typedef struct {
@@ -228,7 +228,7 @@ static int file_exists(const char *path)
  * check_table_fields: open one golden, assert nfields and each field descriptor.
  * Also asserts that dbf_field(tbl, nfields) (out of range) returns NULL (fail loud).
  */
-static void check_table_fields(samir_pal_t *pal, const char *base,
+static void check_table_fields(ibase_pal_t *pal, const char *base,
                                 const table_expect *te)
 {
     char path[1024];
@@ -309,7 +309,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     int i;
     int any_present = 0;
     char path[1024];

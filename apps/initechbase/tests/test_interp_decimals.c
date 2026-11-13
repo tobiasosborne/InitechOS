@@ -69,9 +69,9 @@
  *       S5.3 (what DECIMALS does NOT affect: STR, N-field display, PICTURE).
  *   - ../dbase3-decomp/re/mint-results-002.md
  *       "SET DECIMALS default = 2; ? 1/3 -> 0.33" [verified: real III+ under dosbox-x].
- *   - os/samir/include/samir/eval.h (xb_ctx.set_decimals; uint8_t; default 2).
- *   - os/samir/include/samir/set.h  (set_register; set_get_decimals).
- *   - os/samir/cmd/query.c          (q_render_val: the XB_N branch reads
+ *   - os/ibase/include/ibase/eval.h (xb_ctx.set_decimals; uint8_t; default 2).
+ *   - os/ibase/include/ibase/set.h  (set_register; set_get_decimals).
+ *   - os/ibase/cmd/query.c          (q_render_val: the XB_N branch reads
  *                                    ctx->set_decimals for non-integral values).
  *   - seed/test_assert.h (CHECK / TEST_HARNESS / TEST_SUMMARY).
  *
@@ -84,11 +84,11 @@
 #include <stdint.h>
 
 #include "test_assert.h"
-#include "samir/interp.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/set.h"
+#include "ibase/interp.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/set.h"
 
 TEST_HARNESS();
 
@@ -99,8 +99,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* query.c registration entry point. */
 int query_register(xb_interp *ip);
@@ -113,30 +113,30 @@ int query_register(xb_interp *ip);
 #define CAP_BUF 4096
 
 typedef struct {
-    samir_pal_t  pal;
-    samir_pal_t *inner;
+    ibase_pal_t  pal;
+    ibase_pal_t *inner;
     char         buf[CAP_BUF];
     uint32_t     len;
 } cap_pal_t;
 
 static cap_pal_t g_cap;
 
-static pal_fd  dcap_open (samir_pal_t *p, const char *n, int m)
+static pal_fd  dcap_open (ibase_pal_t *p, const char *n, int m)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->open(c->inner,n,m); }
-static int     dcap_close(samir_pal_t *p, pal_fd fd)
+static int     dcap_close(ibase_pal_t *p, pal_fd fd)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->close(c->inner,fd); }
-static int32_t dcap_read (samir_pal_t *p, pal_fd fd, void *b, uint32_t n)
+static int32_t dcap_read (ibase_pal_t *p, pal_fd fd, void *b, uint32_t n)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->read(c->inner,fd,b,n); }
-static int32_t dcap_write(samir_pal_t *p, pal_fd fd, const void *b, uint32_t n)
+static int32_t dcap_write(ibase_pal_t *p, pal_fd fd, const void *b, uint32_t n)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->write(c->inner,fd,b,n); }
-static int32_t dcap_seek (samir_pal_t *p, pal_fd fd, int32_t o, int w)
+static int32_t dcap_seek (ibase_pal_t *p, pal_fd fd, int32_t o, int w)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->seek(c->inner,fd,o,w); }
-static int     dcap_remove(samir_pal_t *p, const char *n)
+static int     dcap_remove(ibase_pal_t *p, const char *n)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->remove(c->inner,n); }
-static int     dcap_rename(samir_pal_t *p, const char *f, const char *t)
+static int     dcap_rename(ibase_pal_t *p, const char *f, const char *t)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->rename(c->inner,f,t); }
 
-static void dcap_conout(samir_pal_t *p, const char *s, uint32_t n)
+static void dcap_conout(ibase_pal_t *p, const char *s, uint32_t n)
 {
     cap_pal_t *c = (cap_pal_t *)p;
     uint32_t i;
@@ -145,24 +145,24 @@ static void dcap_conout(samir_pal_t *p, const char *s, uint32_t n)
     c->buf[c->len] = '\0';
 }
 
-static int32_t dcap_conin_line(samir_pal_t *p, char *b, uint32_t cap)
+static int32_t dcap_conin_line(ibase_pal_t *p, char *b, uint32_t cap)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->conin_line(c->inner,b,cap); }
-static int32_t dcap_conin_char(samir_pal_t *p)
+static int32_t dcap_conin_char(ibase_pal_t *p)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->conin_char(c->inner); }
-static void    dcap_gotoxy(samir_pal_t *p, uint8_t r, uint8_t col)
+static void    dcap_gotoxy(ibase_pal_t *p, uint8_t r, uint8_t col)
     { cap_pal_t *c=(cap_pal_t*)p; c->inner->gotoxy(c->inner,r,col); }
-static void    dcap_set_attr(samir_pal_t *p, uint8_t a)
+static void    dcap_set_attr(ibase_pal_t *p, uint8_t a)
     { cap_pal_t *c=(cap_pal_t*)p; c->inner->set_attr(c->inner,a); }
-static void    dcap_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
+static void    dcap_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
     { cap_pal_t *c=(cap_pal_t*)p; c->inner->today(c->inner,yy,mm,dd); }
-static void   *dcap_alloc(samir_pal_t *p, uint32_t n)
+static void   *dcap_alloc(ibase_pal_t *p, uint32_t n)
     { cap_pal_t *c=(cap_pal_t*)p; return c->inner->alloc(c->inner,n); }
-static void    dcap_reset(samir_pal_t *p, void *m)
+static void    dcap_reset(ibase_pal_t *p, void *m)
     { cap_pal_t *c=(cap_pal_t*)p; c->inner->reset(c->inner,m); }
 
-static void *dcap_acquire(samir_pal_t *p,uint32_t n) { cap_pal_t *c=(cap_pal_t *)p;return c->inner->acquire(c->inner,n); }
-static void dcap_release(samir_pal_t *p,void *m) { cap_pal_t *c=(cap_pal_t *)p;c->inner->release(c->inner,m); }
-static samir_pal_t *cap_pal_make(samir_pal_t *inner)
+static void *dcap_acquire(ibase_pal_t *p,uint32_t n) { cap_pal_t *c=(cap_pal_t *)p;return c->inner->acquire(c->inner,n); }
+static void dcap_release(ibase_pal_t *p,void *m) { cap_pal_t *c=(cap_pal_t *)p;c->inner->release(c->inner,m); }
+static ibase_pal_t *cap_pal_make(ibase_pal_t *inner)
 {
     g_cap.inner      = inner;
     g_cap.len        = 0;
@@ -219,8 +219,8 @@ static const char *cap_line(void)
 static int run_decimals_tests(const char *corpus_path)
 {
     struct pal_host_cfg cfg = { 85, 8, 5, 512*1024 };
-    samir_pal_t  *host = pal_host_make(cfg);
-    samir_pal_t  *pal  = cap_pal_make(host);
+    ibase_pal_t  *host = pal_host_make(cfg);
+    ibase_pal_t  *pal  = cap_pal_make(host);
     xb_interp    *ip   = xb_interp_make(pal);
     int           rc;
     const char   *got;
@@ -254,8 +254,8 @@ static int run_decimals_tests(const char *corpus_path)
     /* [verified: real dBASE III+ 1.1 under dosbox-x, C2.TXT transcript]  */
     /* ------------------------------------------------------------------ */
     cap_clear();
-    rc = samir_do(ip, "? 1/3");
-    CHECK(rc == 0, "? 1/3 (default DECIMALS=2): samir_do returned 0");
+    rc = ibase_do(ip, "? 1/3");
+    CHECK(rc == 0, "? 1/3 (default DECIMALS=2): ibase_do returned 0");
     got = cap_line();
     CHECK(strcmp(got, " 0.33") == 0,
           "? 1/3 (default DECIMALS=2): output == ' 0.33' [verified: C2.TXT + fns-mint/division] [MUTANT]");
@@ -269,8 +269,8 @@ static int run_decimals_tests(const char *corpus_path)
     /* Ground: fractional part <= 1e-9 -> dec=0 regardless of set_decimals*/
     /* ------------------------------------------------------------------ */
     cap_clear();
-    rc = samir_do(ip, "? 5");
-    CHECK(rc == 0, "? 5 (integer literal, DECIMALS=2): samir_do returned 0");
+    rc = ibase_do(ip, "? 5");
+    CHECK(rc == 0, "? 5 (integer literal, DECIMALS=2): ibase_do returned 0");
     got = cap_line();
     CHECK(strcmp(got, "5") == 0,
           "? 5 (integer literal, DECIMALS=2): output == '5' (integral -> dec=0)");
@@ -287,8 +287,8 @@ static int run_decimals_tests(const char *corpus_path)
     /* follows the digits actually parsed"; 42 has 0 fractional digits.   */
     /* ------------------------------------------------------------------ */
     cap_clear();
-    rc = samir_do(ip, "? VAL('42')");
-    CHECK(rc == 0, "? VAL('42') (DECIMALS=2): samir_do returned 0");
+    rc = ibase_do(ip, "? VAL('42')");
+    CHECK(rc == 0, "? VAL('42') (DECIMALS=2): ibase_do returned 0");
     got = cap_line();
     CHECK(strcmp(got, "42.00") == 0,
           "? VAL('42') (DECIMALS=2): output == '42.00' (real III+ 1.1 capture, initech-ioke)");
@@ -300,21 +300,21 @@ static int run_decimals_tests(const char *corpus_path)
     /* Ground: set-commands.md S3.1 "SET DECIMALS sets the MINIMUM number  */
     /* of decimal places" + the verified default-2 case scaled to 4.      */
     /* ------------------------------------------------------------------ */
-    rc = samir_do(ip, "SET DECIMALS TO 4");
-    CHECK(rc == 0, "SET DECIMALS TO 4: samir_do returned 0");
+    rc = ibase_do(ip, "SET DECIMALS TO 4");
+    CHECK(rc == 0, "SET DECIMALS TO 4: ibase_do returned 0");
     CHECK(set_get_decimals(ip) == 4, "SET DECIMALS TO 4: getter == 4");
 
     cap_clear();
-    rc = samir_do(ip, "? 1/3");
-    CHECK(rc == 0, "? 1/3 (DECIMALS=4): samir_do returned 0");
+    rc = ibase_do(ip, "? 1/3");
+    CHECK(rc == 0, "? 1/3 (DECIMALS=4): ibase_do returned 0");
     got = cap_line();
     CHECK(strcmp(got, " 0.3333") == 0,
           "? 1/3 (DECIMALS=4): output == ' 0.3333' [fns-mint/division D4] [MUTANT]");
 
     /* Integer literal still unaffected. */
     cap_clear();
-    rc = samir_do(ip, "? 5");
-    CHECK(rc == 0, "? 5 (DECIMALS=4): samir_do returned 0");
+    rc = ibase_do(ip, "? 5");
+    CHECK(rc == 0, "? 5 (DECIMALS=4): ibase_do returned 0");
     got = cap_line();
     CHECK(strcmp(got, "5") == 0,
           "? 5 (DECIMALS=4): output == '5' (integral -> dec=0, unaffected)");
@@ -327,13 +327,13 @@ static int run_decimals_tests(const char *corpus_path)
     /* Ground: set-commands.md S3.1 "Range is 0..the practical width      */
     /* limit" + dec_format(1/3, 20, 0) = "0".                             */
     /* ------------------------------------------------------------------ */
-    rc = samir_do(ip, "SET DECIMALS TO 0");
-    CHECK(rc == 0, "SET DECIMALS TO 0: samir_do returned 0");
+    rc = ibase_do(ip, "SET DECIMALS TO 0");
+    CHECK(rc == 0, "SET DECIMALS TO 0: ibase_do returned 0");
     CHECK(set_get_decimals(ip) == 0, "SET DECIMALS TO 0: getter == 0");
 
     cap_clear();
-    rc = samir_do(ip, "? 1/3");
-    CHECK(rc == 0, "? 1/3 (DECIMALS=0): samir_do returned 0");
+    rc = ibase_do(ip, "? 1/3");
+    CHECK(rc == 0, "? 1/3 (DECIMALS=0): ibase_do returned 0");
     got = cap_line();
     CHECK(strcmp(got, " 0") == 0,
           "? 1/3 (DECIMALS=0): output == ' 0' [fns-mint/division D0] [MUTANT]");
@@ -341,13 +341,13 @@ static int run_decimals_tests(const char *corpus_path)
     /* ------------------------------------------------------------------ */
     /* 6. Restore to default (SET DECIMALS TO 2), re-check ? 1/3 -> "0.33"*/
     /* ------------------------------------------------------------------ */
-    rc = samir_do(ip, "SET DECIMALS TO 2");
-    CHECK(rc == 0, "SET DECIMALS TO 2 (restore): samir_do returned 0");
+    rc = ibase_do(ip, "SET DECIMALS TO 2");
+    CHECK(rc == 0, "SET DECIMALS TO 2 (restore): ibase_do returned 0");
     CHECK(set_get_decimals(ip) == 2, "SET DECIMALS TO 2 (restore): getter == 2");
 
     cap_clear();
-    rc = samir_do(ip, "? 1/3");
-    CHECK(rc == 0, "? 1/3 (DECIMALS=2 restored): samir_do returned 0");
+    rc = ibase_do(ip, "? 1/3");
+    CHECK(rc == 0, "? 1/3 (DECIMALS=2 restored): ibase_do returned 0");
     got = cap_line();
     CHECK(strcmp(got, " 0.33") == 0,
           "? 1/3 (DECIMALS=2 restored): output == ' 0.33' (round-trip)");

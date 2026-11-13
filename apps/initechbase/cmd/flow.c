@@ -1,9 +1,9 @@
 /*
- * os/samir/cmd/flow.c -- SAMIR (InitechBase) statement executor + control flow.
+ * os/ibase/cmd/flow.c -- IBASE (InitechBase) statement executor + control flow.
  *                        Step S5.3 (Phase 5 interpreter SPINE).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
- * ONLY <stdint.h> and the samir/ engine headers. No libc, no int 0x21 -- all OS
+ * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- all OS
  * contact is through the PAL carried by the interpreter. Memory is bump-allocated
  * from the PAL arena (no malloc). ASCII-clean (Rule 12). Fail loud (Rule 2).
  * Reproducible (Rule 11): pure function of (program text, interp state).
@@ -11,7 +11,7 @@
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C).
  *
  * WHAT THIS IS (the S5.3 contract; see interp.h for the full doc):
- *   samir_do(ip, prg) is the dot-prompt interpreter's STATEMENT layer. It splits
+ *   ibase_do(ip, prg) is the dot-prompt interpreter's STATEMENT layer. It splits
  *   the program text into logical lines, dispatches each command line on its
  *   leading verb, and runs the structured control-flow constructs:
  *       DO WHILE <logical> ... [LOOP] [EXIT] ... ENDDO
@@ -24,30 +24,30 @@
  *   evaluated and MUST be Logical (XB_L). A non-Logical guard is fail-loud error
  *   #37 "Not a Logical expression." (XBEE_NOT_LOGICAL). NO truthiness.
  *
- * MEMVARS off workarea.c: at samir_do entry we save the ctx's work-area
+ * MEMVARS off workarea.c: at ibase_do entry we save the ctx's work-area
  *   resolve/user and install a COMPOSED resolver (memvars first, else delegate);
  *   restored on return. Every other ctx field is left untouched.
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.3 contract + Phase 5 header.
- *   - os/samir/include/samir/interp.h  (the S5.3 API this file implements).
- *   - os/samir/include/samir/eval.h    (xb_lex/xb_parse/xb_eval; xb_ctx.resolve;
+ *   - docs/plans/IBASE-implementation-plan.md S5.3 contract + Phase 5 header.
+ *   - os/ibase/include/ibase/interp.h  (the S5.3 API this file implements).
+ *   - os/ibase/include/ibase/eval.h    (xb_lex/xb_parse/xb_eval; xb_ctx.resolve;
  *                                       XBEE_NOT_LOGICAL = #37).
- *   - os/samir/include/samir/workarea.h(wa_resolve -- the delegate).
- *   - spec/samir/dbase_msg_codes.tsv   (#16 unrecognized verb, #37 not logical).
+ *   - os/ibase/include/ibase/workarea.h(wa_resolve -- the delegate).
+ *   - spec/ibase/dbase_msg_codes.tsv   (#16 unrecognized verb, #37 not logical).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
 
-#include "samir/interp.h"
-#include "samir/workarea.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
-#include "samir/set.h"
-#include "samir/ovl.h"
+#include "ibase/interp.h"
+#include "ibase/workarea.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
+#include "ibase/set.h"
+#include "ibase/ovl.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)           */
@@ -63,7 +63,7 @@
 #define FLOW_MAX_NODES     128   /* per-expression node pool */
 #define FLOW_MAX_LINELEN   254   /* a working copy of one line (dBASE cap 254) */
 #ifndef FLOW_MAX_REGISTRY
-# define FLOW_MAX_REGISTRY 16    /* host-test default; Milton .COM build passes -DFLOW_MAX_REGISTRY=1 (ADR-0009 DEC-03) */
+# define FLOW_MAX_REGISTRY 16    /* host-test default; InitechDOS .COM build passes -DFLOW_MAX_REGISTRY=1 (ADR-0009 DEC-03) */
 #endif
 /* FLOW_MAX_REGISTRY: concurrent interpreters with flow state. Pure dimensioning
  * knob -- no target-only behavioral code paths (CLAUDE.md Law 3). */
@@ -185,14 +185,14 @@ static void flow_reset(flow_state *fs)
  *
  * Pointer-reuse / fresh-interp detection (the load-bearing correctness point):
  *   A freshly xb_interp_make'd interp has ctx->resolve == wa_resolve (set by
- *   wa_bind_ctx). Once this file drives it (samir_do / a memvar store), we install
+ *   wa_bind_ctx). Once this file drives it (ibase_do / a memvar store), we install
  *   flow_resolve and LEAVE it installed -- it delegates to the saved wa_resolve
  *   for fields, so field resolution is unchanged, and memvars persist across
- *   multiple samir_do calls on the SAME interp. Therefore:
+ *   multiple ibase_do calls on the SAME interp. Therefore:
  *     - ctx->resolve == wa_resolve  -> this is a pristine interp (first use) OR a
  *       reused address for a NEW interp -> RESET the flow_state (drop stale memvars).
  *     - ctx->resolve == flow_resolve -> mid-lifetime continuation -> KEEP it.
- *   This distinguishes "second samir_do on the same interp" (keep) from "a remade
+ *   This distinguishes "second ibase_do on the same interp" (keep) from "a remade
  *   interp at the same pointer" (reset) without touching the opaque xb_interp.
  *
  * Returns NULL on registry overflow (fail loud at the call site).
@@ -201,7 +201,7 @@ static int flow_resolve(void *user, const char *name, uint16_t len, xb_val *out)
 
 static flow_state *flow_state_for(xb_interp *ip)
 {
-    SAMIR_RETAIN(ip);
+    IBASE_RETAIN(ip);
     static flow_state s_pool[FLOW_MAX_REGISTRY];
     static char       s_arena[FLOW_MAX_REGISTRY][FLOW_MEMVAR_ARENA];
     flow_state *fs;
@@ -233,7 +233,7 @@ static flow_state *flow_state_for(xb_interp *ip)
     fs->arena = s_arena[slot];
     flow_reset(fs);
 
-    SAMIR_RETAIN(ip);
+    IBASE_RETAIN(ip);
     g_reg_key[g_reg_n] = ip;
     g_reg_val[g_reg_n] = fs;
     g_reg_n++;
@@ -342,13 +342,13 @@ static void memvar_program(memvar *v, const char *s)
     v->program[n] = 0;
 }
 
-#ifndef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
+#ifndef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
 static int memvar_reclaim(flow_state *fs, int slot, xb_val *value)
 {
     int i;
     uint32_t used = 0u;
     /* Bounded scratch on the 64 KiB program stack (memory_map.h); no second
-     * resident arena in the .COM's 64 KiB BSS reserve (samir.ld). */
+     * resident arena in the .COM's 64 KiB BSS reserve (ibase.ld). */
     char compact[FLOW_MEMVAR_ARENA];
     /* Preflight before moving anything: exhaustion leaves every value intact. */
     for (i = 0; i < fs->nvars; i++) {
@@ -385,7 +385,7 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
     int slot, i;
     uint32_t nlen;
     xb_val value = *v;
-#ifdef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
+#ifdef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
     (void)value;
 #endif
 
@@ -424,7 +424,7 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
                 return -INTERP_ERR_DEPTH;
             slot = fs->nvars++;
         }
-#ifndef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
+#ifndef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
         if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
             return -INTERP_ERR_NOMEM;
 #endif
@@ -442,14 +442,14 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
         fs->vars[slot].shadows   = -1;
         memvar_program(&fs->vars[slot], fs->program);
     } else {
-#ifndef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
+#ifndef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
         if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
             return -INTERP_ERR_NOMEM;
 #endif
     }
 
     /* copy the value; for C/M, copy the bytes into the memvar arena. */
-#ifdef SAMIR_CORE_MUTATE_MEMVAR_RECLAIM
+#ifdef IBASE_CORE_MUTATE_MEMVAR_RECLAIM
     if (v->t == XB_C || v->t == XB_M) {
         uint16_t len = v->u.c.len;
         char *dst;
@@ -470,11 +470,11 @@ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
 #endif
     /* Real III+ DML-02/03 and PROG-04/05: ten integer columns regardless of
      * the assigning literal. Keep this outside the arena-reclaim branches. */
-#ifndef SAMIR_SIZE_MUTATE_MEMVAR_WIDTH
+#ifndef IBASE_SIZE_MUTATE_MEMVAR_WIDTH
     if (fs->vars[slot].val.t == XB_N) {
         xb_val *stored = &fs->vars[slot].val;
         unsigned dec = stored->num_dec, columns = 10;
-#ifndef SAMIR_FNS_MUTANT_argpicture
+#ifndef IBASE_FNS_MUTANT_argpicture
         union { double n; uint64_t bits; } picture;
         picture.n = stored->u.n;
         /* Real argpicture/GOLD.OUT: STORE and PARAMETERS both extend an
@@ -505,7 +505,7 @@ static int fl_memvar_fail(int rc, int *ec)
 /* ===================================================================== */
 
 /*
- * flow_resolve: the xb_ctx.resolve hook installed for the duration of samir_do.
+ * flow_resolve: the xb_ctx.resolve hook installed for the duration of ibase_do.
  * `user` is the flow_state*. Checks the memvar table first (memvars shadow
  * fields by dBASE precedence in a program context? -- dBASE actually resolves
  * FIELDS before memvars when a table is open; but a name that is a memvar and NOT
@@ -1012,10 +1012,10 @@ static int find_top_level(flow_prog *fp, int from, int to,
 /* SAVE/RESTORE scalar records. Using III+ U5-180/181/187; DML-09/10
  * and mint-001 .MEM bytes. 0x12 is the real DO level (DML-09 = 2),
  * not an invented reserved zero. Transient pool pointers are never written. */
-static SAMIR_OVL_TEXT(memfile) int fl_memfail(int *ec,int code) {if(ec)*ec=code;return -INTERP_ERR_EVAL;}
-static SAMIR_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,int *ec)
+static IBASE_OVL_TEXT(memfile) int fl_memfail(int *ec,int code) {if(ec)*ec=code;return -INTERP_ERR_EVAL;}
+static IBASE_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const char *args,int restore,int *ec)
 {
-    samir_pal_t *p=xb_interp_pal(ip);char word[16],name[128];
+    ibase_pal_t *p=xb_interp_pal(ip);char word[16],name[128];
     const char *s;unsigned n=0;int dot=0,add=0,rc=0;pal_fd fd;
     split_verb(args,word,sizeof word,&s);
     if(!fl_ci_eq(word,restore?"FROM":"TO"))return fl_memfail(ec,10);
@@ -1050,7 +1050,7 @@ static SAMIR_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const
             at+=32+len;
         }
         if(!rc && (at+1!=(unsigned)size || b[at]!=26))rc=55;
-#ifndef SAMIR_DML_MUTANT_restore
+#ifndef IBASE_DML_MUTANT_restore
         if(!rc && !add)xb_interp_release_all(ip);
 #else
         (void)add; /* retain old variables, incorrectly additive every time */
@@ -1098,7 +1098,7 @@ static SAMIR_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const
             else {len=8;x.d=type=='D'?v->u.d:v->u.n;payload=x.b;
                 if(type=='N'){h[16]=(unsigned char)v->num_width;h[17]=(unsigned char)v->num_dec;}
             }
-#ifdef SAMIR_DML_MUTANT_save
+#ifdef IBASE_DML_MUTANT_save
             h[11]='C'|128; /* corrupt the saved scalar type, not the oracle */
 #endif
             if(p->write(p,fd,h,32)!=32 || p->write(p,fd,payload,len)!=(int32_t)len)rc=56;
@@ -1109,14 +1109,14 @@ static SAMIR_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const
     return rc?fl_memfail(ec,rc):INTERP_OK;
 }
 
-/* Overlay MEMFILE (initech-5etom.1; docs/design/samir-overlays.md Sec 3):
+/* Overlay MEMFILE (initech-5etom.1; docs/design/ibase-overlays.md Sec 3):
  * SAVE TO / RESTORE FROM (k = 0 SAVE, 1 RESTORE). The flow state is the one
- * exec_command holds (fp->fs == flow_lookup(ip): samir_do registered it). */
-static SAMIR_OVL_TEXT(memfile) int flow_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+ * exec_command holds (fp->fs == flow_lookup(ip): ibase_do registered it). */
+static IBASE_OVL_TEXT(memfile) int flow_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
 {
     return fl_memfile(ip, flow_lookup(ip), args, k == 1, ec);
 }
-SAMIR_OVL_HEADER(memfile, SAMIR_OVL_MEMFILE, flow_ovl_entry);
+IBASE_OVL_HEADER(memfile, IBASE_OVL_MEMFILE, flow_ovl_entry);
 
 /* Verb handlers, one per row of flow_verbs.def (initech-1x6x2.4); a handler is called as
  * fn(ip, [state,] [verb,] args, err_code) from the row-driven switch in the hook. Each returns
@@ -1124,9 +1124,9 @@ SAMIR_OVL_HEADER(memfile, SAMIR_OVL_MEMFILE, flow_ovl_entry);
  * to the command-hook chain. */
 /* SAVE TO / RESTORE FROM: overlay operation 0 / 1 (flow_ovl_entry). */
 static inline __attribute__((always_inline)) int fv_save(xb_interp *ip, flow_state *fs, const char *args, int *ec)
-{ (void)fs; return SAMIR_OVL_CALL(SAMIR_OVL_MEMFILE, flow_ovl_entry, 0, ip, args, ec); }
+{ (void)fs; return IBASE_OVL_CALL(IBASE_OVL_MEMFILE, flow_ovl_entry, 0, ip, args, ec); }
 static inline __attribute__((always_inline)) int fv_restore(xb_interp *ip, flow_state *fs, const char *args, int *ec)
-{ (void)fs; return SAMIR_OVL_CALL(SAMIR_OVL_MEMFILE, flow_ovl_entry, 1, ip, args, ec); }
+{ (void)fs; return IBASE_OVL_CALL(IBASE_OVL_MEMFILE, flow_ovl_entry, 1, ip, args, ec); }
 
 static inline __attribute__((always_inline)) int fv_store(xb_interp *ip, flow_state *fs, const char *args, int *ec)
 {
@@ -1216,13 +1216,13 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
 
     if (ec) *ec = 0;
 
-    /* Ref: Using III+ U5-51; mint samirdml/clear. Unlike RELEASE,
+    /* Ref: Using III+ U5-51; mint ibasedml/clear. Unlike RELEASE,
      * CLEAR MEMORY also drops hidden callers and PUBLIC variables. */
     int clear_len = rt_kw_match(line, "CLEAR");
     const char *clear_args = line + clear_len;
     while (fl_isspace(*clear_args)) clear_args++;
     if (clear_len && rt_kw_index(clear_args, "MEMORY\0") == 0) {
-#ifndef SAMIR_DML_MUTANT_clear
+#ifndef IBASE_DML_MUTANT_clear
         xb_interp_release_all(ip);
 #endif
         return INTERP_OK;
@@ -1272,12 +1272,12 @@ static int exec_command(flow_prog *fp, const char *line, int *ec)
     return -INTERP_ERR_UNKNOWN_CMD;
 }
 
-/* Ref: Using III+ U6-7/8; real mint samirdml/macro. Expansion occurs
+/* Ref: Using III+ U6-7/8; real mint ibasedml/macro. Expansion occurs
  * when a statement executes, so loop assignments can change the macro.
  * Bounded to the documented 254-character command line (U7, error #18). */
 static int flow_expand(xb_interp *ip, char *line, int *ec)
 {
-#ifndef SAMIR_DML_MUTANT_macro
+#ifndef IBASE_DML_MUTANT_macro
     char next[FLOW_MAX_LINELEN+1];
     unsigned pass;
     for(pass=0;pass<16;pass++) {
@@ -1339,14 +1339,14 @@ static int fl_finish_statement(xb_interp *ip, int rc, int *ec)
  * Normal handler completion resumes the call; inline RETURN skips it.
  * Use the ordinary error completion/trap path for
  * every pending code, consuming it before the handler can run statements. */
-int samir_finish_transfer(xb_interp *ip, int *ec)
+int ibase_finish_transfer(xb_interp *ip, int *ec)
 {
     int rc = fl_finish_statement(ip, INTERP_OK, ec);
     int t;
     if (rc == INTERP_OK) return rc;
     t = fl_trap(ip, rc, ec);
     while (t == 2) {
-#ifdef SAMIR_FNS_MUTANT_retryconfirm
+#ifdef IBASE_FNS_MUTANT_retryconfirm
         return INTERP_OK; /* MUTANT: ignore RETRY during argument completion. */
 #else
         /* Real retryconfirm/GOLD.OUT: this unfinished argument phase has no
@@ -1645,10 +1645,10 @@ static int fl_catalog(xb_interp *ip, int rc, int ec)
 {
     static const uint8_t m[9] = {0, 43, 10, 10, 10, 96, 16, 10, 103};
     if (ec != 0) return ec;
-#ifdef SAMIR_FNS_MUTANT_struct
+#ifdef IBASE_FNS_MUTANT_struct
     if (rc == -INTERP_ERR_STRUCT) return -rc;   /* MUTANT: the status leaks */
 #endif
-#ifndef SAMIR_FNS_MUTANT_errors
+#ifndef IBASE_FNS_MUTANT_errors
     if (rc == -INTERP_ERR_STRUCT && xb_interp_ctx(ip)->dot_command) return 95;
     if (rc < 0 && rc >= -INTERP_ERR_DEPTH) return m[-rc];
 #else
@@ -1680,17 +1680,17 @@ static int fl_trap(xb_interp *ip, int rc, int *ec)
  * fl_escape (Using III+ U5-220 SET ESCAPE, U5-160 ON ESCAPE): between two
  * PROGRAM statements, ask the PAL (non-blocking) whether Esc was pressed. If
  * so the proc layer's on_escape runs the ON ESCAPE trap or the
- * "*** INTERRUPTED ***" / Cancel-Ignore-Suspend prompt (mint samirctl
+ * "*** INTERRUPTED ***" / Cancel-Ignore-Suspend prompt (mint ibasectl
  * ESC.TXT) and returns INTERP_OK (resume) or a sentinel that unwinds. Never
  * polled for a command typed at the dot prompt (dot_command), with SET ESCAPE
  * OFF, or on a PAL with no keyboard. Before initech-39e5 nothing polled, so a
- * DO WHILE .T. could not be stopped (audit 2026-10-23-samir L002).
+ * DO WHILE .T. could not be stopped (audit 2026-10-23-ibase L002).
  */
 static int fl_escape(flow_prog *fp, int *ec)
 {
 #ifndef FLOW_MUTATE_NO_ESCAPE
     xb_ctx *c = xb_interp_ctx(fp->ip);
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     if (!c->on_escape || c->dot_command)
         return INTERP_OK;
     pal = xb_interp_pal(fp->ip);
@@ -1805,7 +1805,7 @@ static int run_block(flow_prog *fp, int from, int to, flow_signal *sig, int *ec)
  * flow_mark_inuse: install the composed resolver onto ip's ctx if it is not
  * already there, capturing the work-area delegate. This marks the flow_state as
  * "in use" (ctx->resolve == flow_resolve) so a subsequent flow_state_for /
- * samir_do does NOT mistake a registered-but-not-yet-run interp for a remade one
+ * ibase_do does NOT mistake a registered-but-not-yet-run interp for a remade one
  * and RESET it (which would wipe the just-registered command hooks). It is the
  * same install xb_interp_store performs; field resolution is unchanged because
  * flow_resolve delegates to the saved work-area resolver.
@@ -1814,16 +1814,16 @@ static void flow_mark_inuse(xb_interp *ip, flow_state *fs)
 {
     xb_ctx *ctx = xb_interp_ctx(ip);
     if (ctx && ctx->resolve != flow_resolve) {
-        samir_ovl_validate_ctx(ctx);
+        ibase_ovl_validate_ctx(ctx);
         fs->saved_resolve = ctx->resolve;
         fs->saved_user    = ctx->user;
-        samir_bind_resolver(ctx,flow_resolve,fs);
+        ibase_bind_resolver(ctx,flow_resolve,fs);
     }
 }
 
 void xb_interp_set_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user)
 {
-    SAMIR_RETAIN(hook); SAMIR_RETAIN(user);
+    IBASE_RETAIN(hook); IBASE_RETAIN(user);
     flow_state *fs = flow_state_for(ip);
     int i;
     if (!fs)
@@ -1844,13 +1844,13 @@ void xb_interp_set_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user)
 
 int xb_interp_add_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user)
 {
-    SAMIR_RETAIN(hook); SAMIR_RETAIN(user);
+    IBASE_RETAIN(hook); IBASE_RETAIN(user);
     flow_state *fs = flow_state_for(ip);
     if (!fs)
         return -INTERP_ERR_NOMEM;
     if (!hook)
         return INTERP_OK;                  /* NULL append is a no-op */
-    flow_mark_inuse(ip, fs);               /* keep the chain across the first samir_do */
+    flow_mark_inuse(ip, fs);               /* keep the chain across the first ibase_do */
     if (fs->nhooks >= INTERP_MAX_CMD_HOOKS)
         return -INTERP_ERR_DEPTH;          /* chain full: fail loud (Rule 2) */
     fs->hooks[fs->nhooks]      = hook;
@@ -1866,15 +1866,15 @@ int xb_interp_store(xb_interp *ip, const char *name, const xb_val *v)
     if (!fs || !name || !v)
         return -INTERP_ERR_NOMEM;
     /* ensure the composed resolver is installed so the stored memvar is visible
-     * to subsequent xb_interp_eval_str / samir_do (delegates to fields). */
+     * to subsequent xb_interp_eval_str / ibase_do (delegates to fields). */
     ctx = xb_interp_ctx(ip);
     if (ctx && ctx->resolve != flow_resolve) {
-        samir_ovl_validate_ctx(ctx);
+        ibase_ovl_validate_ctx(ctx);
         fs->saved_resolve = ctx->resolve;
         fs->saved_user    = ctx->user;
-        samir_bind_resolver(ctx,flow_resolve,fs);
+        ibase_bind_resolver(ctx,flow_resolve,fs);
     }
-    samir_ovl_validate_ctx(xb_interp_ctx(ip));
+    ibase_ovl_validate_ctx(xb_interp_ctx(ip));
     fs->program = ctx ? ctx->program_name : (const char *)0;
     return memvar_set(fs, name, v);
 }
@@ -1906,7 +1906,7 @@ int xb_interp_memvar_next(xb_interp *ip, unsigned *cursor, xb_memvar_info *out)
         out->is_public = v->is_public;
         out->hidden = !v->live;
         out->level = v->level;
-#ifdef SAMIR_DML_MUTANT_memory
+#ifdef IBASE_DML_MUTANT_memory
         out->is_public = !out->is_public; /* expose the wrong scope */
 #endif
         return 1;
@@ -2083,22 +2083,22 @@ void xb_interp_release_all(xb_interp *ip)
     fs->arena_used = 0u;
 }
 
-int samir_last_error(xb_interp *ip)
+int ibase_last_error(xb_interp *ip)
 {
     flow_state *fs = flow_lookup(ip);
     return fs ? fs->last_error : 0;
 }
 
 /*
- * samir_do: the S5.3 entry point. Splits `prg` into lines, classifies each,
+ * ibase_do: the S5.3 entry point. Splits `prg` into lines, classifies each,
  * installs the composed (memvar-aware) resolver onto the interp ctx, runs the
  * statement list, then restores the original resolver. Records the last error.
  */
 /*
- * Line storage. samir_do used to keep a FLOW_MAX_LINES (512) line + kind pool
+ * Line storage. ibase_do used to keep a FLOW_MAX_LINES (512) line + kind pool
  * on EACH call's stack (~6 KiB); with DO <proc>'s 8 KiB body copy a recursive
- * DO consumed ~20 KiB of the 64 KiB SAMIR.COM stack per level and overran it
- * after a few levels (audit 2026-10-23-samir L003: EIP/ESP garbage, session
+ * DO consumed ~20 KiB of the 64 KiB IBASE.COM stack per level and overran it
+ * after a few levels (audit 2026-10-23-ibase L003: EIP/ESP garbage, session
  * lost). A count-only split_lines pass sizes the tables to the lines actually
  * present. Up to FLOW_STACK_LINES lines live in a fixed array on this call's
  * stack (12 bytes per level); a larger body takes its
@@ -2106,7 +2106,7 @@ int samir_last_error(xb_interp *ip)
  * long recursive procedure cannot run the stack into the program image --
  * when the heap is exhausted the DO fails with #43 "Insufficient memory." and
  * the session survives (initech-39e5 review). A static pool would not fit:
- * the SAMIR.COM BSS reserve is full (samir.ld owned-heap tail ASSERT). One
+ * the IBASE.COM BSS reserve is full (ibase.ld owned-heap tail ASSERT). One
  * program is still capped at FLOW_MAX_LINES.
  */
 #ifndef FLOW_STACK_LINES
@@ -2123,14 +2123,14 @@ static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,
 static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
                           uint32_t plen, int n);
 
-int samir_do(xb_interp *ip, const char *prg)
+int ibase_do(xb_interp *ip, const char *prg)
 {
     if (!prg)
         return -INTERP_ERR_EVAL;
-    return samir_do_n(ip, prg, rt_strlen(prg));
+    return ibase_do_n(ip, prg, rt_strlen(prg));
 }
 
-int samir_do_n(xb_interp *ip, const char *prg, uint32_t plen)
+int ibase_do_n(xb_interp *ip, const char *prg, uint32_t plen)
 {
     flow_state *fs;
     int n, rc, saved_deferred;
@@ -2143,7 +2143,7 @@ int samir_do_n(xb_interp *ip, const char *prg, uint32_t plen)
         return -INTERP_ERR_NOMEM;
     fs->last_error = 0;
 
-    samir_ovl_validate_ctx(xb_interp_ctx(ip));
+    ibase_ovl_validate_ctx(xb_interp_ctx(ip));
     fs->program = xb_interp_ctx(ip)->program_name;
 
     n = split_lines(prg, plen, (flow_line *)0, FLOW_MAX_LINES);
@@ -2160,14 +2160,14 @@ int samir_do_n(xb_interp *ip, const char *prg, uint32_t plen)
     return rc;
 }
 
-/* The second half of samir_do_n: the line arrays sized by the count pass. */
+/* The second half of ibase_do_n: the line arrays sized by the count pass. */
 static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
                           uint32_t plen, int n)
 {
 #ifndef FLOW_MUTATE_STACK_LINES
     flow_line  small_lines[FLOW_STACK_LINES];
     line_kind  small_kind[FLOW_STACK_LINES];
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     void *blk;
     int rc;
     if (n <= FLOW_STACK_LINES)
@@ -2222,17 +2222,17 @@ static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,
      * ctx_today, and any cursor hook a parallel lane adds) -- ONLY resolve/user
      * change. We deliberately DO NOT restore on return: flow_resolve delegates to
      * the saved work-area resolver for fields, so field resolution is unchanged,
-     * and leaving it installed lets memvars persist across samir_do calls on the
+     * and leaving it installed lets memvars persist across ibase_do calls on the
      * same interp AND is the fresh-interp detector used by flow_state_for. We only
      * (re)capture the delegate when it is NOT already flow_resolve, so a second
-     * samir_do does not capture flow_resolve as its own delegate (infinite loop). */
+     * ibase_do does not capture flow_resolve as its own delegate (infinite loop). */
     ctx = xb_interp_ctx(ip);
     if (ctx->resolve != flow_resolve) {
-        samir_ovl_validate_ctx(ctx);
+        ibase_ovl_validate_ctx(ctx);
         fs->saved_resolve = ctx->resolve;
         fs->saved_user    = ctx->user;
     }
-    samir_bind_resolver(ctx,flow_resolve,fs);
+    ibase_bind_resolver(ctx,flow_resolve,fs);
 
     fp.ip     = ip;
     fp.fs     = fs;

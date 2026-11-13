@@ -34,17 +34,17 @@
  * (pack) also goes RED because no records are recognised as deleted.
  *
  * Compile + run (self-grade, NOT make):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbf.c os/samir/core/value.c os/samir/core/rt.c \
- *     os/samir/pal/pal_host.c \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbf.c os/ibase/core/value.c os/ibase/core/rt.c \
+ *     os/ibase/pal/pal_host.c \
  *     tests/test_dbf_mutate.c -o /tmp/test_dbf_mutate \
  *     && /tmp/test_dbf_mutate ../dbase3-decomp
  *
  * Mutant (must exit non-zero / RED):
  *   gcc -std=c11 -Wall -Wextra -Werror -DDBF_MUTATE_DELFLAG \
- *     -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbf.c os/samir/core/value.c os/samir/core/rt.c \
- *     os/samir/pal/pal_host.c \
+ *     -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbf.c os/ibase/core/value.c os/ibase/core/rt.c \
+ *     os/ibase/pal/pal_host.c \
  *     tests/test_dbf_mutate.c -o /tmp/test_dbf_mutate_mut \
  *     && /tmp/test_dbf_mutate_mut ../dbase3-decomp; echo "mutant exit=$?"
  *
@@ -53,13 +53,13 @@
  * Ref (Law 1):
  *   - ../dbase3-decomp/specs/file-formats/dbf.md sec 6 (delete flag 0x20/0x2A),
  *     sec 8 (nrec invariant; PACK/ZAP).
- *   - spec/samir/xbase_coercion.json assignment_coercion (C<-C truncate/pad;
+ *   - spec/ibase/xbase_coercion.json assignment_coercion (C<-C truncate/pad;
  *     N<-N stars_fill; cross-type -> mismatch).
- *   - os/samir/include/samir/dbf.h S1.5 contract (all new verbs + coercion).
- *   - os/samir/include/samir/value.h (xb_c/xb_n/xb_d/xb_l/xb_u).
- *   - os/samir/include/samir/rt.h (jdn_from_ymd, dec_format for overflow check).
+ *   - os/ibase/include/ibase/dbf.h S1.5 contract (all new verbs + coercion).
+ *   - os/ibase/include/ibase/value.h (xb_c/xb_n/xb_d/xb_l/xb_u).
+ *   - os/ibase/include/ibase/rt.h (jdn_from_ymd, dec_format for overflow check).
  *   - tests/dbf_ref.py (independence barrier).
- *   - docs/plans/SAMIR-implementation-plan.md S1.5 oracle + ARB rider (a).
+ *   - docs/plans/IBASE-implementation-plan.md S1.5 oracle + ARB rider (a).
  */
 
 #include "oracle_policy.h"
@@ -72,10 +72,10 @@
 #endif
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/dbf.h"         /* all S1.1-S1.5 functions */
-#include "samir/value.h"       /* xb_c/xb_n/xb_d/xb_l/xb_u */
-#include "samir/rt.h"          /* jdn_from_ymd */
-#include "samir/dbf_format.h"  /* DBF_REC_DELETE_LIVE/DELETED */
+#include "ibase/dbf.h"         /* all S1.1-S1.5 functions */
+#include "ibase/value.h"       /* xb_c/xb_n/xb_d/xb_l/xb_u */
+#include "ibase/rt.h"          /* jdn_from_ymd */
+#include "ibase/dbf_format.h"  /* DBF_REC_DELETE_LIVE/DELETED */
 
 TEST_HARNESS();
 
@@ -86,8 +86,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* Fixed injected date (Rule 11). */
 #define MUT_YY  85
@@ -95,15 +95,15 @@ void         pal_host_free(samir_pal_t *p);
 #define MUT_DD  30
 
 /* Fixed /tmp paths (Rule 11; never a wall-clock or PID in the path). */
-#define MUT_PATH_BLANK  "/tmp/samir_mut_blank.dbf"
-#define MUT_PATH_REPL   "/tmp/samir_mut_repl.dbf"
-#define MUT_PATH_DELFLAG "/tmp/samir_mut_del.dbf"
-#define MUT_PATH_PACK   "/tmp/samir_mut_pack.dbf"
-#define MUT_PATH_ZAP    "/tmp/samir_mut_zap.dbf"
-#define MUT_PATH_DET_A  "/tmp/samir_mut_det_a.dbf"
-#define MUT_PATH_DET_B  "/tmp/samir_mut_det_b.dbf"
+#define MUT_PATH_BLANK  "/tmp/ibase_mut_blank.dbf"
+#define MUT_PATH_REPL   "/tmp/ibase_mut_repl.dbf"
+#define MUT_PATH_DELFLAG "/tmp/ibase_mut_del.dbf"
+#define MUT_PATH_PACK   "/tmp/ibase_mut_pack.dbf"
+#define MUT_PATH_ZAP    "/tmp/ibase_mut_zap.dbf"
+#define MUT_PATH_DET_A  "/tmp/ibase_mut_det_a.dbf"
+#define MUT_PATH_DET_B  "/tmp/ibase_mut_det_b.dbf"
 /* Independence barrier path -- left for dbf_ref.py. */
-#define MUT_PATH_REF    "/tmp/samir_mutate_packed.dbf"
+#define MUT_PATH_REF    "/tmp/ibase_mutate_packed.dbf"
 
 /* Shared schema: NAME C(8), SCORE N(6,2), JOINED D(8), ACTIVE L(1). */
 static const dbf_field_spec g_schema[4] = {
@@ -114,7 +114,7 @@ static const dbf_field_spec g_schema[4] = {
 };
 #define G_NFIELDS  4
 
-static samir_pal_t *make_pal(void)
+static ibase_pal_t *make_pal(void)
 {
     struct pal_host_cfg cfg;
     memset(&cfg, 0, sizeof(cfg));
@@ -157,7 +157,7 @@ static uint8_t *slurp(const char *path, long *len)
  * Helper: create a fresh table with the shared schema and append N records.
  * Returns the table handle or NULL on failure (failures are CHECKed by caller).
  * ============================================================ */
-static dbf_table *make_table(samir_pal_t *pal, const char *path)
+static dbf_table *make_table(ibase_pal_t *pal, const char *path)
 {
     dbf_table *tbl = NULL;
     int rc = dbf_create(pal, path, g_schema, G_NFIELDS, &tbl);
@@ -189,7 +189,7 @@ static void append_rec(dbf_table *tbl,
  * Assert: delete flag 0x20 (live), C=spaces, N=blank (dec_parse -> 0.0),
  * D=xb_d(0.0) (the blank date), L=xb_u ('?' on disk).
  * ============================================================ */
-static void test_append_blank(samir_pal_t *pal)
+static void test_append_blank(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -272,7 +272,7 @@ static void test_append_blank(samir_pal_t *pal)
  * returns 0.0 -- the defined overflow semantics).
  * Ref: xbase_coercion.json assignment_coercion target:N on_overflow:stars_fill.
  * ============================================================ */
-static void test_replace_ok(samir_pal_t *pal)
+static void test_replace_ok(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -376,7 +376,7 @@ static void test_replace_ok(samir_pal_t *pal)
     CHECK(rc == DBF_OK, "replace-overflow: read rec1");
     if (rc == DBF_OK) {
         /* "******" reads back as the largest double, as in real III+
-         * (datatype-mint DT5 I1/I2/I7; audit 2026-10-23-samir L006,
+         * (datatype-mint DT5 I1/I2/I7; audit 2026-10-23-ibase L006,
          * initech-ylqs) -- not an ordinary 0.0. */
         CHECK(out[1].t == XB_N && out[1].u.n == 1.7976931348623157e308,
               "replace-overflow: SCORE reads back as 1.7976931348623157E308 after *-fill");
@@ -423,7 +423,7 @@ static void test_replace_ok(samir_pal_t *pal)
  * -DBF_ERR_MISMATCH for each. The table is NOT flushed (no disk writes needed
  * to test the coercion gate). Ref: plan S1.5 "cross-type -> fail-loud".
  * ============================================================ */
-static void test_replace_mismatch(samir_pal_t *pal)
+static void test_replace_mismatch(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -477,7 +477,7 @@ static void test_replace_mismatch(samir_pal_t *pal)
  * This oracle bites hardest with -DDBF_MUTATE_DELFLAG: dbf_delete writes 0x20
  * instead of 0x2A, so the deleted=1 check fails -> RED.
  * ============================================================ */
-static void test_delete_recall(samir_pal_t *pal)
+static void test_delete_recall(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -570,7 +570,7 @@ static void test_delete_recall(samir_pal_t *pal)
  * With -DDBF_MUTATE_DELFLAG: dbf_delete leaves all records live, so pack
  * keeps all 4 -> nrec==4 != 2 -> RED.
  * ============================================================ */
-static void test_pack(samir_pal_t *pal)
+static void test_pack(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -687,7 +687,7 @@ static void test_pack(samir_pal_t *pal)
  * Assert: nrec=0; schema intact (nfields, record_length, version);
  * dbf_read_rec(1) -> -DBF_ERR_BAD_RECNO.
  * ============================================================ */
-static void test_zap(samir_pal_t *pal)
+static void test_zap(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -749,7 +749,7 @@ static void test_zap(samir_pal_t *pal)
  * byte-identical output after flush. Covers append_blank + replace + flush.
  * Ref: CLAUDE.md Rule 11 (deterministic); plan S1.5.
  * ============================================================ */
-static void build_det_mutate(samir_pal_t *pal, const char *path)
+static void build_det_mutate(ibase_pal_t *pal, const char *path)
 {
     dbf_table *tbl = NULL;
     xb_val v;
@@ -783,7 +783,7 @@ static void build_det_mutate(samir_pal_t *pal, const char *path)
 
 static void test_determinism(void)
 {
-    samir_pal_t *pal_a, *pal_b;
+    ibase_pal_t *pal_a, *pal_b;
     uint8_t *a = NULL, *b = NULL;
     long la = 0, lb = 0;
     char msg[256];
@@ -874,12 +874,12 @@ static void test_independence_barrier(void)
             return;
         }
         CHECK(code == 0,
-              "independence: dbf_ref.py --records read packed SAMIR file (exit 0)");
+              "independence: dbf_ref.py --records read packed IBASE file (exit 0)");
         return;
     }
 #endif
     CHECK(ret == 0,
-          "independence: dbf_ref.py --records read packed SAMIR file (exit 0)");
+          "independence: dbf_ref.py --records read packed IBASE file (exit 0)");
 }
 
 /* ============================================================
@@ -887,7 +887,7 @@ static void test_independence_barrier(void)
  * ============================================================ */
 int main(int argc, char **argv)
 {
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
 
     /* `base` arg (dbase3-decomp path) is accepted but not needed for Tier-0. */
     (void)argc; (void)argv;

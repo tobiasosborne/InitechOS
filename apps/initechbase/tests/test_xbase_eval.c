@@ -9,7 +9,7 @@
  * It lexes (S3.1 lex.c) -> parses (S3.2 parse.c) -> evaluates (S3.3 eval.c)
  * each expression and asserts the RESULT TYPE + VALUE (for success cells) and
  * the EXACT dBASE error CODE (for every result:"error" cell). Coverage is
- * driven cell-by-cell from spec/samir/xbase_coercion.json operator_coercion +
+ * driven cell-by-cell from spec/ibase/xbase_coercion.json operator_coercion +
  * the rules R_* + the SET_EXACT mode -- a C mirror of the table, cited.
  *
  * -------------------------------------------------------------------------
@@ -26,32 +26,32 @@
  *   HAZARD cell is precisely the one the spec warns about.
  *
  * Compile + run (self-grade, host):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include \
- *       os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c \
- *       os/samir/core/value.c os/samir/core/rt.c \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include \
+ *       os/ibase/core/eval.c os/ibase/core/parse.c os/ibase/core/lex.c \
+ *       os/ibase/core/value.c os/ibase/core/rt.c \
  *       tests/test_xbase_eval.c \
  *       -o /tmp/test_xbase_eval && /tmp/test_xbase_eval
  *
  * Mutant (must go RED on section H):
  *   gcc -std=c11 -Wall -Wextra -Werror -DXB_MUTATE_EVAL -Iseed \
- *       -Ios/samir/include <same srcs> \
+ *       -Ios/ibase/include <same srcs> \
  *       tests/test_xbase_eval.c \
  *       -o /tmp/test_xbase_eval_mut ; /tmp/test_xbase_eval_mut ; echo $?
  *
  * Freestanding compile check (eval.c only):
  *   gcc -m32 -ffreestanding -nostdlib -fno-stack-protector -fno-pic \
- *       -std=c11 -Wall -Wextra -Werror -Ios/samir/include \
- *       -c os/samir/core/eval.c -o /tmp/eval_free.o
+ *       -std=c11 -Wall -Wextra -Werror -Ios/ibase/include \
+ *       -c os/ibase/core/eval.c -o /tmp/eval_free.o
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md sec.5 S3.3 oracle contract
- *   - spec/samir/xbase_coercion.json (THE CONTRACT -- every cell asserted)
- *   - spec/samir/dbase_msg_codes.tsv (#9/#27/#37/#39/#45)
+ *   - docs/plans/IBASE-implementation-plan.md sec.5 S3.3 oracle contract
+ *   - spec/ibase/xbase_coercion.json (THE CONTRACT -- every cell asserted)
+ *   - spec/ibase/dbase_msg_codes.tsv (#9/#27/#37/#39/#45)
  *   - ../dbase3-decomp/re/mint-results-002.md (C+N=#9; ""$"ABC"=.F.;
  *     "ab"="a"=.T. / "a"="ab"=.F.; SET EXACT default OFF)
- *   - os/samir/include/samir/eval.h (xb_ctx / xb_eval API)
+ *   - os/ibase/include/ibase/eval.h (xb_ctx / xb_eval API)
  *   - seed/test_assert.h (harness idiom)
  */
 
@@ -60,9 +60,9 @@
 #include <string.h>
 
 #include "test_assert.h"        /* seed/, on -Iseed                       */
-#include "samir/eval.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/eval.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 

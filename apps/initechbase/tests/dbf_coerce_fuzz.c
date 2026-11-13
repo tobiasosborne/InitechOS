@@ -3,10 +3,10 @@
  *
  * FACTORY host tool (CLAUDE.md Law 3): libc OK here. Links the UNMODIFIED artifact
  * engine (eval.c + parse.c + lex.c + value.c + rt.c) and drives it against a
- * TABLE-DRIVEN REFERENCE MODEL sourced verbatim from spec/samir/xbase_coercion.json
+ * TABLE-DRIVEN REFERENCE MODEL sourced verbatim from spec/ibase/xbase_coercion.json
  * operator_coercion cells + rules + modes. The engine is never touched.
  *
- * S3.4 of docs/plans/SAMIR-implementation-plan.md: the coercion fuzzer is gmo's
+ * S3.4 of docs/plans/IBASE-implementation-plan.md: the coercion fuzzer is gmo's
  * deliverable. It is a property-test harness that:
  *   1. Runs a DIRECTED all-cells pass (guaranteeing every operator_coercion cell
  *      is hit regardless of PRNG luck) + a RANDOM SEEDED SWEEP of N seeds.
@@ -29,7 +29,7 @@
  *
  * REFERENCE MODEL (Law 1 citation):
  *   Every entry in g_cells[] below is derived cell-by-cell from
- *   spec/samir/xbase_coercion.json operator_coercion. The cell index in comments
+ *   spec/ibase/xbase_coercion.json operator_coercion. The cell index in comments
  *   matches the JSON array position (0-based). Rules cited per the JSON "rule"
  *   field. Modes cited per the JSON "modes" object.
  *
@@ -47,17 +47,17 @@
  *     error we do not want to trigger in the fuzzer; scratch is sized at 4096.
  *
  * Compile + run (GREEN -- engine correct; no divergence):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include \
  *     tests/dbf_coerce_fuzz.c \
- *     os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c \
- *     os/samir/core/value.c os/samir/core/rt.c \
+ *     os/ibase/core/eval.c os/ibase/core/parse.c os/ibase/core/lex.c \
+ *     os/ibase/core/value.c os/ibase/core/rt.c \
  *     -o /tmp/dbf_coerce_fuzz && /tmp/dbf_coerce_fuzz
  *
  * Mutant (RED -- C+N divergence detected):
- *   gcc -std=c11 -Wall -Wextra -Werror -DXB_MUTATE_EVAL -Iseed -Ios/samir/include \
+ *   gcc -std=c11 -Wall -Wextra -Werror -DXB_MUTATE_EVAL -Iseed -Ios/ibase/include \
  *     tests/dbf_coerce_fuzz.c \
- *     os/samir/core/eval.c os/samir/core/parse.c os/samir/core/lex.c \
- *     os/samir/core/value.c os/samir/core/rt.c \
+ *     os/ibase/core/eval.c os/ibase/core/parse.c os/ibase/core/lex.c \
+ *     os/ibase/core/value.c os/ibase/core/rt.c \
  *     -o /tmp/dbf_coerce_fuzz_mut ; /tmp/dbf_coerce_fuzz_mut >/dev/null 2>&1
  *     # exit code must be non-zero
  *
@@ -65,15 +65,15 @@
  * No C++'isms; -std=c11 throughout.
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md sec.5 S3.4 + sec.4 (harness
+ *   - docs/plans/IBASE-implementation-plan.md sec.5 S3.4 + sec.4 (harness
  *     properties: fast, structured localized signal, shrink, mutation-proven)
- *   - spec/samir/xbase_coercion.json (operator_coercion cells; rules R_*;
+ *   - spec/ibase/xbase_coercion.json (operator_coercion cells; rules R_*;
  *     modes.SET_EXACT; not_in_iii_plus)
- *   - spec/samir/dbase_msg_codes.tsv (#9 mismatch, #27 not_numeric,
+ *   - spec/ibase/dbase_msg_codes.tsv (#9 mismatch, #27 not_numeric,
  *     #37 not_logical, #39 num_overflow, #45 not_character)
  *   - ../dbase3-decomp/re/mint-results-002.md (C+N=#9; no auto-stringify;
  *     SET EXACT default OFF; directional begins-with)
- *   - os/samir/include/samir/eval.h (xb_ctx / xb_eval API)
+ *   - os/ibase/include/ibase/eval.h (xb_ctx / xb_eval API)
  *   - harness/diff/fat_diff/fat12_fuzz.c (the idiom: seeded PRNG + shrink +
  *     structured signal + sweep style)
  *   - tests/test_xbase_eval.c (eval driver pattern mirrored here)
@@ -85,14 +85,14 @@
 #include <stdint.h>
 
 #include "test_assert.h"        /* seed/, on -Iseed  */
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
 /* ========================================================================== */
-/* REFERENCE MODEL (spec/samir/xbase_coercion.json operator_coercion)        */
+/* REFERENCE MODEL (spec/ibase/xbase_coercion.json operator_coercion)        */
 /* ========================================================================== */
 
 /*
@@ -137,7 +137,7 @@ typedef struct {
 
 /*
  * The complete operator_coercion table, cell-by-cell from
- * spec/samir/xbase_coercion.json. JSON array index in cell_idx.
+ * spec/ibase/xbase_coercion.json. JSON array index in cell_idx.
  * Every cell is cited; no cell is guessed.
  *
  * NOTE on exact_mode:

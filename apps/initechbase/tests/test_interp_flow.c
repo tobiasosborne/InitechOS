@@ -14,7 +14,7 @@
  * synthetic .dbf to prove field + memvar interplay in one expression.
  *
  * WHAT S5.3 IS (the SPINE that S5.4/S5.5/S5.6/S5.7 extend):
- *   - samir_do(ip, prg): tokenise -> dispatch -> run control flow.
+ *   - ibase_do(ip, prg): tokenise -> dispatch -> run control flow.
  *   - control flow: DO WHILE/ENDDO, IF/ELSE/ENDIF, DO CASE/CASE/OTHERWISE/ENDCASE,
  *     LOOP, EXIT (with nesting).
  *   - memvars: STORE <expr> TO <name>; <name> = <expr>; resolve via the COMPOSED
@@ -33,10 +33,10 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.3 contract + oracle.
- *   - os/samir/include/samir/interp.h (samir_do + the S5.3 API).
- *   - os/samir/include/samir/eval.h   (XBEE_NOT_LOGICAL = #37).
- *   - spec/samir/dbase_msg_codes.tsv  (#37 "Not a Logical expression.").
+ *   - docs/plans/IBASE-implementation-plan.md S5.3 contract + oracle.
+ *   - os/ibase/include/ibase/interp.h (ibase_do + the S5.3 API).
+ *   - os/ibase/include/ibase/eval.h   (XBEE_NOT_LOGICAL = #37).
+ *   - spec/ibase/dbase_msg_codes.tsv  (#37 "Not a Logical expression.").
  */
 
 #define FLOW_MSG_MISMATCH 96
@@ -45,11 +45,11 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/interp.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/workarea.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/interp.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/workarea.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -60,8 +60,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* ---- helpers ---- */
 
@@ -77,13 +77,13 @@ static int memvar_num(xb_interp *ip, const char *name, double *out)
     return 1;
 }
 
-/* Run a program on a FRESH interp; return the samir_do rc; *last is the error. */
-static int run_prog(samir_pal_t *pal, const char *prg, xb_interp **ip_out)
+/* Run a program on a FRESH interp; return the ibase_do rc; *last is the error. */
+static int run_prog(ibase_pal_t *pal, const char *prg, xb_interp **ip_out)
 {
     xb_interp *ip = xb_interp_make(pal);
     int rc;
     if (!ip) { *ip_out = NULL; return -999; }
-    rc = samir_do(ip, prg);
+    rc = ibase_do(ip, prg);
     *ip_out = ip;
     return rc;
 }
@@ -91,7 +91,7 @@ static int run_prog(samir_pal_t *pal, const char *prg, xb_interp **ip_out)
 /* =====================================================================
  * Group 1: DO WHILE counter loop runs the right number of iterations.
  * ===================================================================== */
-static void test_dowhile_counter(samir_pal_t *pal)
+static void test_dowhile_counter(ibase_pal_t *pal)
 {
     /* I = 0 ; while I < 5: I = I + 1 ; assert I == 5 (5 iterations). */
     const char *prg =
@@ -105,7 +105,7 @@ static void test_dowhile_counter(samir_pal_t *pal)
     int rc = run_prog(pal, prg, &ip);
     CHECK(ip != NULL, "dowhile: interp made");
     if (!ip) return;
-    snprintf(msg, sizeof(msg), "dowhile: samir_do rc=%d ec=%d (want 0)", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "dowhile: ibase_do rc=%d ec=%d (want 0)", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(memvar_num(ip, "I", &v), "dowhile: I is numeric memvar");
     snprintf(msg, sizeof(msg), "dowhile: I==5 after 5 iterations (got %g)", v);
@@ -116,7 +116,7 @@ static void test_dowhile_counter(samir_pal_t *pal)
 /* =====================================================================
  * Group 2: IF/ELSE/ENDIF takes the right branch (both directions).
  * ===================================================================== */
-static void test_if_else(samir_pal_t *pal)
+static void test_if_else(ibase_pal_t *pal)
 {
     xb_interp *ip;
     double v;
@@ -174,7 +174,7 @@ static void test_if_else(samir_pal_t *pal)
  * Group 3: DO CASE picks the FIRST true CASE (else OTHERWISE).
  * The -DFLOW_MUTATE_DOCASE_ALL mutant breaks "first true only".
  * ===================================================================== */
-static void test_docase(samir_pal_t *pal)
+static void test_docase(ibase_pal_t *pal)
 {
     xb_interp *ip;
     double v;
@@ -238,7 +238,7 @@ static void test_docase(samir_pal_t *pal)
 /* =====================================================================
  * Group 4: nested DO WHILE + IF (a multiplication-by-addition table sum).
  * ===================================================================== */
-static void test_nested(samir_pal_t *pal)
+static void test_nested(ibase_pal_t *pal)
 {
     /* Sum of even numbers 1..10 = 2+4+6+8+10 = 30, via a DO WHILE with an IF
      * gating the accumulation (uses MOD via "I/2*2 = I" since % is not III+). */
@@ -257,7 +257,7 @@ static void test_nested(samir_pal_t *pal)
     int rc = run_prog(pal, prg, &ip);
     CHECK(ip != NULL, "nested: interp made");
     if (!ip) return;
-    snprintf(msg, sizeof(msg), "nested: samir_do rc=%d ec=%d", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "nested: ibase_do rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(memvar_num(ip, "I", &ii) && ii == 10.0, "nested: I reached 10");
     CHECK(memvar_num(ip, "S", &s), "nested: S numeric");
@@ -269,7 +269,7 @@ static void test_nested(samir_pal_t *pal)
 /* =====================================================================
  * Group 5: LOOP skips to next iteration; EXIT breaks the loop.
  * ===================================================================== */
-static void test_loop_exit(samir_pal_t *pal)
+static void test_loop_exit(ibase_pal_t *pal)
 {
     xb_interp *ip;
     double v, c;
@@ -317,7 +317,7 @@ static void test_loop_exit(samir_pal_t *pal)
 /* =====================================================================
  * Group 6: memvars -- STORE then = then arithmetic.
  * ===================================================================== */
-static void test_memvars(samir_pal_t *pal)
+static void test_memvars(ibase_pal_t *pal)
 {
     /* STORE 5 TO X ; X = X + 1 ; Y = X * 2 ; assert X==6, Y==12. */
     const char *prg =
@@ -330,7 +330,7 @@ static void test_memvars(samir_pal_t *pal)
     int rc = run_prog(pal, prg, &ip);
     CHECK(ip != NULL, "memvar: interp made");
     if (!ip) return;
-    snprintf(msg, sizeof(msg), "memvar: samir_do rc=%d", rc);
+    snprintf(msg, sizeof(msg), "memvar: ibase_do rc=%d", rc);
     CHECK(rc == INTERP_OK, msg);
     CHECK(memvar_num(ip, "X", &x), "memvar: X present");
     snprintf(msg, sizeof(msg), "memvar: X==6 (got %g)", x);
@@ -364,7 +364,7 @@ static void test_memvars(samir_pal_t *pal)
  * Group 7: GUARD-TYPE error -- a non-Logical guard fails loud #37.
  * THIS is what -DFLOW_MUTATE_GUARD_TRUTHY breaks (it would accept truthiness).
  * ===================================================================== */
-static void test_guard_type(samir_pal_t *pal)
+static void test_guard_type(ibase_pal_t *pal)
 {
     xb_interp *ip;
     char msg[160];
@@ -379,8 +379,8 @@ static void test_guard_type(samir_pal_t *pal)
     if (ip) {
         snprintf(msg, sizeof(msg), "guard: IF \"abc\" fails loud (rc=%d)", rc);
         CHECK(rc != INTERP_OK, msg);
-        snprintf(msg, sizeof(msg), "guard: IF \"abc\" -> #37 (got %d)", samir_last_error(ip));
-        CHECK(samir_last_error(ip) == XBEE_NOT_LOGICAL, msg);
+        snprintf(msg, sizeof(msg), "guard: IF \"abc\" -> #37 (got %d)", ibase_last_error(ip));
+        CHECK(ibase_last_error(ip) == XBEE_NOT_LOGICAL, msg);
         xb_interp_free(ip);
     }
 
@@ -393,8 +393,8 @@ static void test_guard_type(samir_pal_t *pal)
     if (ip) {
         snprintf(msg, sizeof(msg), "guard: DO WHILE 1 fails loud (rc=%d)", rc);
         CHECK(rc != INTERP_OK, msg);
-        snprintf(msg, sizeof(msg), "guard: DO WHILE 1 -> #37 (got %d)", samir_last_error(ip));
-        CHECK(samir_last_error(ip) == XBEE_NOT_LOGICAL, msg);
+        snprintf(msg, sizeof(msg), "guard: DO WHILE 1 -> #37 (got %d)", ibase_last_error(ip));
+        CHECK(ibase_last_error(ip) == XBEE_NOT_LOGICAL, msg);
         xb_interp_free(ip);
     }
 
@@ -408,8 +408,8 @@ static void test_guard_type(samir_pal_t *pal)
     if (ip) {
         snprintf(msg, sizeof(msg), "guard: DO CASE/CASE 5 fails loud (rc=%d)", rc);
         CHECK(rc != INTERP_OK, msg);
-        snprintf(msg, sizeof(msg), "guard: CASE 5 -> #37 (got %d)", samir_last_error(ip));
-        CHECK(samir_last_error(ip) == XBEE_NOT_LOGICAL, msg);
+        snprintf(msg, sizeof(msg), "guard: CASE 5 -> #37 (got %d)", ibase_last_error(ip));
+        CHECK(ibase_last_error(ip) == XBEE_NOT_LOGICAL, msg);
         xb_interp_free(ip);
     }
 
@@ -431,14 +431,14 @@ static void test_guard_type(samir_pal_t *pal)
 /* =====================================================================
  * Group 8: malformed structure -- unmatched terminators fail loud.
  * ===================================================================== */
-static void test_malformed(samir_pal_t *pal)
+static void test_malformed(ibase_pal_t *pal)
 {
     xb_interp *ip;
     char msg[160];
     int rc;
 
     /* A malformed structure fails loud with the engine status
-     * -INTERP_ERR_STRUCT, and samir_last_error() reports the catalogue
+     * -INTERP_ERR_STRUCT, and ibase_last_error() reports the catalogue
      * ordinal, never the engine status (WL-0133 Friction 1: status 5 printed
      * "Record is out of range."). Real III+ 1.1 SF-struct capture
      * (fns-mint/struct): a lone ENDDO in a program raises
@@ -448,8 +448,8 @@ static void test_malformed(samir_pal_t *pal)
     CHECK(ip != NULL, "malformed: lone ENDIF interp");
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: lone ENDIF -> STRUCT (rc=%d ec=%d)",
-                 rc, samir_last_error(ip));
-        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
+                 rc, ibase_last_error(ip));
+        CHECK(rc == -INTERP_ERR_STRUCT && ibase_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 
@@ -458,8 +458,8 @@ static void test_malformed(samir_pal_t *pal)
     CHECK(ip != NULL, "malformed: IF no ENDIF interp");
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: IF no ENDIF -> STRUCT (rc=%d ec=%d)",
-                 rc, samir_last_error(ip));
-        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
+                 rc, ibase_last_error(ip));
+        CHECK(rc == -INTERP_ERR_STRUCT && ibase_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 
@@ -468,8 +468,8 @@ static void test_malformed(samir_pal_t *pal)
     CHECK(ip != NULL, "malformed: lone ENDDO interp");
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: lone ENDDO -> STRUCT (rc=%d ec=%d)",
-                 rc, samir_last_error(ip));
-        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
+                 rc, ibase_last_error(ip));
+        CHECK(rc == -INTERP_ERR_STRUCT && ibase_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 
@@ -478,8 +478,8 @@ static void test_malformed(samir_pal_t *pal)
     CHECK(ip != NULL, "malformed: DO CASE no ENDCASE interp");
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: DO CASE no ENDCASE -> STRUCT (rc=%d ec=%d)",
-                 rc, samir_last_error(ip));
-        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
+                 rc, ibase_last_error(ip));
+        CHECK(rc == -INTERP_ERR_STRUCT && ibase_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 
@@ -488,8 +488,8 @@ static void test_malformed(samir_pal_t *pal)
     CHECK(ip != NULL, "malformed: EXIT outside loop interp");
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: EXIT outside loop -> STRUCT (rc=%d ec=%d)",
-                 rc, samir_last_error(ip));
-        CHECK(rc == -INTERP_ERR_STRUCT && samir_last_error(ip) == FLOW_MSG_MISMATCH, msg);
+                 rc, ibase_last_error(ip));
+        CHECK(rc == -INTERP_ERR_STRUCT && ibase_last_error(ip) == FLOW_MSG_MISMATCH, msg);
         xb_interp_free(ip);
     }
 
@@ -498,8 +498,8 @@ static void test_malformed(samir_pal_t *pal)
     CHECK(ip != NULL, "malformed: bad verb interp");
     if (ip) {
         snprintf(msg, sizeof(msg), "malformed: unknown verb -> UNKNOWN_CMD (rc=%d ec=%d)",
-                 rc, samir_last_error(ip));
-        CHECK(rc != INTERP_OK && samir_last_error(ip) == 16, msg);
+                 rc, ibase_last_error(ip));
+        CHECK(rc != INTERP_OK && ibase_last_error(ip) == 16, msg);
         xb_interp_free(ip);
     }
 }
@@ -545,7 +545,7 @@ static int write_num_dbf(const char *path)
     return 0;
 }
 
-static void test_field_memvar(samir_pal_t *pal)
+static void test_field_memvar(ibase_pal_t *pal)
 {
     const char *pa = "/tmp/test_interp_flow_qty.dbf";
     xb_interp *ip;
@@ -568,17 +568,17 @@ static void test_field_memvar(samir_pal_t *pal)
     wa_select(env, 1);
 
     /* program: BONUS memvar = 25 ; TOTAL = QTY + BONUS ; expect 125. */
-    rc = samir_do(ip,
+    rc = ibase_do(ip,
         "STORE 25 TO BONUS\n"
         "TOTAL = QTY + BONUS\n");
-    snprintf(msg, sizeof(msg), "interplay: samir_do rc=%d ec=%d", rc, samir_last_error(ip));
+    snprintf(msg, sizeof(msg), "interplay: ibase_do rc=%d ec=%d", rc, ibase_last_error(ip));
     CHECK(rc == INTERP_OK, msg);
     CHECK(memvar_num(ip, "TOTAL", &total), "interplay: TOTAL present");
     snprintf(msg, sizeof(msg), "interplay: QTY(100)+BONUS(25)==125 (got %g)", total);
     CHECK(total == 125.0, msg);
 
     /* a guard mixing field + memvar: IF QTY > BONUS -> true (100 > 25). */
-    rc = samir_do(ip,
+    rc = ibase_do(ip,
         "STORE 0 TO FLAG\n"
         "IF QTY > BONUS\n"
         "  FLAG = 1\n"
@@ -597,13 +597,13 @@ static void test_field_memvar(samir_pal_t *pal)
 /* =====================================================================
  * main
  * ===================================================================== */
-static void test_abbreviations(samir_pal_t *pal)
+static void test_abbreviations(ibase_pal_t *pal)
 {
     xb_interp *ip = xb_interp_make(pal);
     double v = 0;
     CHECK(ip != NULL, "abbrev: interpreter allocated");
     if (!ip) return;
-    CHECK(samir_do(ip, "STOR 0 TO STORED\nSTORENO=7\n"
+    CHECK(ibase_do(ip, "STOR 0 TO STORED\nSTORENO=7\n"
                       "DO WHIL STORED<2\nSTORED=STORED+1\nENDD\n"
                       "IF STORENO=7\nSTORENO=8\nENDI\n"
                       "DO CASE\nCASE .F.\nSTORENO=99\n"
@@ -611,7 +611,7 @@ static void test_abbreviations(samir_pal_t *pal)
           "abbrev: STORE/WHILE/ENDDO/ENDIF/OTHERWISE/ENDCASE classify");
     CHECK(memvar_num(ip,"STORED",&v) && v == 2, "abbrev: loop executed");
     CHECK(memvar_num(ip,"STORENO",&v) && v == 9, "abbrev: same-prefix names distinct");
-    CHECK(samir_do(ip,"STORX 9 TO STORED\n") != INTERP_OK && samir_last_error(ip) == 16,
+    CHECK(ibase_do(ip,"STORX 9 TO STORED\n") != INTERP_OK && ibase_last_error(ip) == 16,
           "abbrev: invalid suffix is unrecognized");
     xb_interp_free(ip);
 }
@@ -619,7 +619,7 @@ static void test_abbreviations(samir_pal_t *pal)
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     (void)argc; (void)argv;   /* pure host oracle: no corpus needed */
 
     memset(&cfg, 0, sizeof(cfg));

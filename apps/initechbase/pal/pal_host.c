@@ -1,11 +1,11 @@
 /*
- * os/samir/pal/pal_host.c -- SAMIR PAL host binding (libc stdio + injectable clock).
+ * os/ibase/pal/pal_host.c -- IBASE PAL host binding (libc stdio + injectable clock).
  *
  * FACTORY code (CLAUDE.md Law 3): this is the host/oracle binding; libc OK.
  * Engine code (core/, fs/, cmd/, ui/) compiles freestanding against pal.h only.
  * THIS FILE MUST NOT be linked into the shipped OS artifact.
  *
- * Implements every samir_pal vtable slot (pal.h) backed by:
+ * Implements every ibase_pal vtable slot (pal.h) backed by:
  *   - File I/O: fopen/fread/fwrite/fseek/ftell/remove/rename over a fixed-size
  *     FILE* table indexed by pal_fd (slot 0..PAL_HOST_FD_MAX-1).
  *   - Console: fwrite to stdout (conout); fgets-style cooked read (conin_line);
@@ -23,8 +23,8 @@
  * The raw errno magnitude is NEVER returned through the contract.
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S0.2 + Sec 2.B (PAL portability)
- *   - os/samir/include/samir/pal.h (the full contract + doc-comments)
+ *   - docs/plans/IBASE-implementation-plan.md S0.2 + Sec 2.B (PAL portability)
+ *   - os/ibase/include/ibase/pal.h (the full contract + doc-comments)
  *   - ADR-0008 DEC-02 (seek=filesize idiom; conin_char/gotoxy/set_attr stubs)
  *
  * ASCII-clean (Rule 12). No timestamps / host paths in artifacts (Rule 11).
@@ -38,7 +38,7 @@
 #include <string.h>
 #include <sys/wait.h>
 
-#include "samir/pal.h"
+#include "ibase/pal.h"
 #include "heap.h"
 
 /* Maximum number of simultaneously open file handles. */
@@ -81,7 +81,7 @@ static pal_err errno_to_pal(void)
 /* ---- host binding state ------------------------------------------------- */
 
 typedef struct {
-    samir_pal_t  vtable;           /* MUST be first: the engine casts p->vtable */
+    ibase_pal_t  vtable;           /* MUST be first: the engine casts p->vtable */
 
     uint16_t say_row,say_col; /* Deterministic host screen, never stdout. */
 
@@ -102,7 +102,7 @@ typedef struct {
 } pal_host_state_t;
 
 /* Recover the state block from the vtable pointer (works because vtable is first). */
-static pal_host_state_t *state_of(samir_pal_t *p)
+static pal_host_state_t *state_of(ibase_pal_t *p)
 {
     return (pal_host_state_t *)p;
 }
@@ -123,7 +123,7 @@ static int alloc_slot(pal_host_state_t *st)
     return -1;
 }
 
-static pal_fd host_open(samir_pal_t *p, const char *name, int mode)
+static pal_fd host_open(ibase_pal_t *p, const char *name, int mode)
 {
     pal_host_state_t *st = state_of(p);
     int slot;
@@ -172,7 +172,7 @@ static pal_fd host_open(samir_pal_t *p, const char *name, int mode)
     return (pal_fd)slot;
 }
 
-static int host_close(samir_pal_t *p, pal_fd fd)
+static int host_close(ibase_pal_t *p, pal_fd fd)
 {
     pal_host_state_t *st = state_of(p);
     FILE *f;
@@ -188,7 +188,7 @@ static int host_close(samir_pal_t *p, pal_fd fd)
     return 0;
 }
 
-static int32_t host_read(samir_pal_t *p, pal_fd fd, void *buf, uint32_t n)
+static int32_t host_read(ibase_pal_t *p, pal_fd fd, void *buf, uint32_t n)
 {
     pal_host_state_t *st = state_of(p);
     size_t got;
@@ -211,7 +211,7 @@ static int32_t host_read(samir_pal_t *p, pal_fd fd, void *buf, uint32_t n)
     return (int32_t)got;
 }
 
-static int32_t host_write(samir_pal_t *p, pal_fd fd, const void *buf, uint32_t n)
+static int32_t host_write(ibase_pal_t *p, pal_fd fd, const void *buf, uint32_t n)
 {
     pal_host_state_t *st = state_of(p);
     size_t written;
@@ -229,7 +229,7 @@ static int32_t host_write(samir_pal_t *p, pal_fd fd, const void *buf, uint32_t n
     return (int32_t)written;
 }
 
-static int32_t host_seek(samir_pal_t *p, pal_fd fd, int32_t off, int whence)
+static int32_t host_seek(ibase_pal_t *p, pal_fd fd, int32_t off, int whence)
 {
     pal_host_state_t *st = state_of(p);
     int libc_whence;
@@ -259,7 +259,7 @@ static int32_t host_seek(samir_pal_t *p, pal_fd fd, int32_t off, int whence)
     return (int32_t)pos;
 }
 
-static int host_remove(samir_pal_t *p, const char *name)
+static int host_remove(ibase_pal_t *p, const char *name)
 {
     (void)p;
     errno = 0;
@@ -268,7 +268,7 @@ static int host_remove(samir_pal_t *p, const char *name)
     return 0;
 }
 
-static int host_rename(samir_pal_t *p, const char *from, const char *to)
+static int host_rename(ibase_pal_t *p, const char *from, const char *to)
 {
     (void)p;
     errno = 0;
@@ -279,13 +279,13 @@ static int host_rename(samir_pal_t *p, const char *from, const char *to)
 
 /* ---- cooked console slots ----------------------------------------------- */
 
-static void host_conout(samir_pal_t *p, const char *s, uint32_t n)
+static void host_conout(ibase_pal_t *p, const char *s, uint32_t n)
 {
     (void)p;
     fwrite(s, 1, (size_t)n, stdout);
 }
 
-static int32_t host_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
+static int32_t host_conin_line(ibase_pal_t *p, char *buf, uint32_t cap)
 {
     (void)p;
     if (cap == 0)
@@ -309,10 +309,10 @@ static int32_t host_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
 
 /* PAL curdrive models DOS INT 21h AH=19h. The factory has a fixed C: drive,
  * independent of the host working directory or environment (Rule 11). */
-static int host_curdrive(samir_pal_t *p)
+static int host_curdrive(ibase_pal_t *p)
 { (void)p; return 'C'; }
 
-static int32_t host_conin_char(samir_pal_t *p)
+static int32_t host_conin_char(ibase_pal_t *p)
 {
     int c;
     (void)p;
@@ -323,20 +323,20 @@ static int32_t host_conin_char(samir_pal_t *p)
 /* Rule 11: the host oracle always has an empty keyboard FIFO. No select,
  * stdin read, wall clock or sleep. III+ INKEY takes no timeout argument
  * (fns-mint/inkey/GOLD.OUT), so there is no clock to advance. */
-static int32_t host_conin_poll(samir_pal_t *p)
+static int32_t host_conin_poll(ibase_pal_t *p)
 {
     (void)p;
     return -1;
 }
 
-static void host_gotoxy(samir_pal_t *p, uint8_t row, uint8_t col)
+static void host_gotoxy(ibase_pal_t *p, uint8_t row, uint8_t col)
 {
     /* Host stub: no-op. Exercised fully at S8.4. */
     (void)p; (void)row; (void)col;
 }
 
 /* pal.h positioned output: host model; no terminal escapes or transcript. */
-static int host_say_screen(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+static int host_say_screen(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
 {
     pal_host_state_t *st=state_of(p);
     st->say_row=row;st->say_col=col;
@@ -356,12 +356,12 @@ static int host_say_screen(samir_pal_t *p,uint8_t row,uint8_t col,const char *te
     }
     return 0;
 }
-static int host_paint(samir_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+static int host_paint(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
 { (void)p;(void)row;(void)col;(void)text;(void)n;return 0; } /* discarded screen */
-static int host_printout(samir_pal_t *p,const char *text,uint32_t n)
+static int host_printout(ibase_pal_t *p,const char *text,uint32_t n)
 { (void)p;(void)text;(void)n;return 0; } /* deterministic discarded printer */
 
-static void host_set_attr(samir_pal_t *p, uint8_t attr)
+static void host_set_attr(ibase_pal_t *p, uint8_t attr)
 {
     /* Host stub: no-op. Exercised fully at S8.4. */
     (void)p; (void)attr;
@@ -369,7 +369,7 @@ static void host_set_attr(samir_pal_t *p, uint8_t attr)
 
 /* Fixed colour adapter, matching fns-mint/iscolor/GOLD.OUT (Rule 11).
  * Never infer capability from the host terminal or redirected output. */
-static int host_iscolor(samir_pal_t *p)
+static int host_iscolor(ibase_pal_t *p)
 {
     (void)p;
     return 1;
@@ -378,7 +378,7 @@ static int host_iscolor(samir_pal_t *p)
 /* ---- clock slot (injectable; NEVER wall clock) -------------------------- */
 
 /* Fixed target identity, never the host OS (Rule 11; pal.h AH=30h). */
-static uint16_t host_os_version(samir_pal_t *p)
+static uint16_t host_os_version(ibase_pal_t *p)
 {
     (void)p;
     return 0x1e03u;
@@ -386,14 +386,14 @@ static uint16_t host_os_version(samir_pal_t *p)
 
 /* Fixed free-byte fixture for INT 21h AH=36h; never query the host disk.
  * The independent III+ diskspace golden pins numeric type and positivity. */
-static int host_diskspace(samir_pal_t *p, uint32_t *bytes)
+static int host_diskspace(ibase_pal_t *p, uint32_t *bytes)
 {
     (void)p;
     *bytes = 1048576u;
     return PAL_OK;
 }
 
-static void host_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
+static void host_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
 {
     pal_host_state_t *st = state_of(p);
     if (yy) *yy = st->date_yy;
@@ -402,7 +402,7 @@ static void host_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
 }
 
 /* Fixed host time keeps function goldens deterministic (Rule 11). */
-static void host_time(samir_pal_t *p, uint8_t *hour, uint8_t *minute, uint8_t *second)
+static void host_time(ibase_pal_t *p, uint8_t *hour, uint8_t *minute, uint8_t *second)
 {
     (void)p;
     if (hour) *hour = 12;
@@ -410,8 +410,8 @@ static void host_time(samir_pal_t *p, uint8_t *hour, uint8_t *minute, uint8_t *s
     if (second) *second = 56;
 }
 
-static void *host_acquire(samir_pal_t *p,uint32_t n) { return pal_heap_alloc(state_of(p)->blocks,n); }
-static void host_release(samir_pal_t *p,void *b) { if(pal_heap_free(state_of(p)->blocks,b)) abort(); }
+static void *host_acquire(ibase_pal_t *p,uint32_t n) { return pal_heap_alloc(state_of(p)->blocks,n); }
+static void host_release(ibase_pal_t *p,void *b) { if(pal_heap_free(state_of(p)->blocks,b)) abort(); }
 
 /* ---- command processor (RUN / !; initech-n8q8) ---------------------------
  * The host's processor is /bin/sh via system(): the line goes verbatim and the
@@ -419,7 +419,7 @@ static void host_release(samir_pal_t *p,void *b) { if(pal_heap_free(state_of(p)-
  * is flushed first so the child sees every byte the engine already wrote.
  * Exit status = the processor's; -1 (no shell could be started) is the
  * "Unable to load COMMAND.COM" case. */
-static int32_t host_exec(samir_pal_t *p, const char *cmdline)
+static int32_t host_exec(ibase_pal_t *p, const char *cmdline)
 {
     int rc;
     (void)p;
@@ -431,7 +431,7 @@ static int32_t host_exec(samir_pal_t *p, const char *cmdline)
 }
 
 /* GETENV fixture is fixed so host and guest transcript gates are reproducible. */
-static int32_t host_getenv(samir_pal_t *p, const char *name, char *buf,
+static int32_t host_getenv(ibase_pal_t *p, const char *name, char *buf,
                            uint32_t cap)
 {
     static const char comspec[] = "Z:\\COMMAND.COM";
@@ -450,7 +450,7 @@ static int32_t host_getenv(samir_pal_t *p, const char *name, char *buf,
 
 /* ---- arena slots -------------------------------------------------------- */
 
-static void *host_alloc(samir_pal_t *p, uint32_t n)
+static void *host_alloc(ibase_pal_t *p, uint32_t n)
 {
     pal_host_state_t *st = state_of(p);
     void *ptr;
@@ -471,7 +471,7 @@ static void *host_alloc(samir_pal_t *p, uint32_t n)
     return ptr;
 }
 
-static void host_reset(samir_pal_t *p, void *mark)
+static void host_reset(ibase_pal_t *p, void *mark)
 {
     pal_host_state_t *st = state_of(p);
     uint8_t *m = (uint8_t *)mark;
@@ -504,11 +504,11 @@ struct pal_host_cfg {
 
 /*
  * pal_host_make: allocate and initialize a host PAL binding.
- * Returns a pointer to the samir_pal_t vtable (the first field of the state
+ * Returns a pointer to the ibase_pal_t vtable (the first field of the state
  * block), or NULL on allocation failure. Caller owns the object and must
  * call pal_host_free() when done.
  */
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg)
 {
     pal_host_state_t *st;
     uint32_t hsz;
@@ -573,7 +573,7 @@ samir_pal_t *pal_host_make(struct pal_host_cfg cfg)
 /*
  * pal_host_free: close all open handles, free the arena, free the state block.
  */
-void pal_host_free(samir_pal_t *p)
+void pal_host_free(ibase_pal_t *p)
 {
     pal_host_state_t *st;
     int i;

@@ -6,7 +6,7 @@
  *      accounting app + INVOICE.DBF schema, already merged + green).
  *
  * FACTORY / GRADER code (CLAUDE.md Law 3): the C harness, NOT the artifact --
- * libc/stdio are fine here. It links the REAL os/samir engine read-only (it edits
+ * libc/stdio are fine here. It links the REAL os/ibase engine read-only (it edits
  * NO engine source), seeds a fresh INVOICE table in /tmp via the engine writer
  * (the S7.1 schema, reused verbatim), runs the canon finance-charge program
  * (canon/salami.prg) through the interpreter with a capturing host PAL and an
@@ -81,14 +81,14 @@
  * touches the S7.1 files.
  *
  * Self-verify (paste in the report):
- *   ENG="os/samir/samir_main.c os/samir/cmd/workarea.c os/samir/cmd/nav.c \
- *        os/samir/cmd/flow.c os/samir/cmd/query.c os/samir/cmd/mutate.c \
- *        os/samir/cmd/set.c os/samir/cmd/proc.c os/samir/fs/dbf.c os/samir/fs/dbt.c \
- *        os/samir/fs/ndx.c os/samir/core/eval.c os/samir/core/parse.c \
- *        os/samir/core/lex.c os/samir/core/value.c os/samir/core/rt.c \
- *        os/samir/core/fn_builtins.c os/samir/pal/pal_host.c"
+ *   ENG="os/ibase/ibase_main.c os/ibase/cmd/workarea.c os/ibase/cmd/nav.c \
+ *        os/ibase/cmd/flow.c os/ibase/cmd/query.c os/ibase/cmd/mutate.c \
+ *        os/ibase/cmd/set.c os/ibase/cmd/proc.c os/ibase/fs/dbf.c os/ibase/fs/dbt.c \
+ *        os/ibase/fs/ndx.c os/ibase/core/eval.c os/ibase/core/parse.c \
+ *        os/ibase/core/lex.c os/ibase/core/value.c os/ibase/core/rt.c \
+ *        os/ibase/core/fn_builtins.c os/ibase/pal/pal_host.c"
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L -Iseed \
- *      -Ios/samir/include -Ispec -o /tmp/test_canon_salami \
+ *      -Ios/ibase/include -Ispec -o /tmp/test_canon_salami \
  *      tests/test_canon_salami.c $ENG && \
  *   /tmp/test_canon_salami ../dbase3-decomp tests/canon
  *
@@ -97,15 +97,15 @@
  *             (default: tests/canon).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S7.2 ("skims the sub-cent rounding
+ *   - docs/plans/IBASE-implementation-plan.md S7.2 ("skims the sub-cent rounding
  *     remainder; the canonical too-much-too-fast bug. Oracle: differential
  *     rounding-remainder skim against the in-universe app only").
- *   - os/samir/core/rt.c dec_format (round half toward +inf) + os/samir/core/
+ *   - os/ibase/core/rt.c dec_format (round half toward +inf) + os/ibase/core/
  *     fn_builtins.c fn_round / fn_str (the posting + render math; the mechanism).
  *   - tests/test_canon_y2k.c (the S7.1 oracle; this is its sibling
  *     and reuses its capturing-PAL + normalize + diff pattern and INVOICE schema).
- *   - os/samir/samir_main.c (the REPL: module registration; USE ownership).
- *   - os/samir/include/samir/{interp.h,workarea.h,dbf.h,value.h,rt.h,pal.h}.
+ *   - os/ibase/ibase_main.c (the REPL: module registration; USE ownership).
+ *   - os/ibase/include/ibase/{interp.h,workarea.h,dbf.h,value.h,rt.h,pal.h}.
  *   - canon/salami.prg (the app) + canon/salami.out (the golden).
  */
 
@@ -114,13 +114,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "samir/interp.h"
-#include "samir/workarea.h"
-#include "samir/dbf.h"
-#include "samir/value.h"
-#include "samir/eval.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
+#include "ibase/interp.h"
+#include "ibase/workarea.h"
+#include "ibase/dbf.h"
+#include "ibase/value.h"
+#include "ibase/eval.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
 
 /* ---- pal_host.c surface (declared here -- not in a header) -------------- */
 struct pal_host_cfg {
@@ -129,10 +129,10 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
-/* ---- the command modules + proc_run (extern, exactly as samir_main.c) --- */
+/* ---- the command modules + proc_run (extern, exactly as ibase_main.c) --- */
 extern int query_register(xb_interp *ip);
 extern int mutate_register(xb_interp *ip);
 extern int set_register(xb_interp *ip);
@@ -147,22 +147,22 @@ extern int proc_run(xb_interp *ip, const char *prg);
 #define CAP_BUF 65536
 
 typedef struct {
-    samir_pal_t  pal;      /* MUST be first: &cap.pal is handed to the engine */
-    samir_pal_t *inner;    /* the real host PAL */
+    ibase_pal_t  pal;      /* MUST be first: &cap.pal is handed to the engine */
+    ibase_pal_t *inner;    /* the real host PAL */
     char         buf[CAP_BUF];
     uint32_t     len;
 } cap_pal;
 
 static cap_pal g_cap;
 
-static pal_fd  c_open (samir_pal_t *p, const char *n, int m) { cap_pal *c=(cap_pal*)p; return c->inner->open(c->inner,n,m); }
-static int     c_close(samir_pal_t *p, pal_fd fd)           { cap_pal *c=(cap_pal*)p; return c->inner->close(c->inner,fd); }
-static int32_t c_read (samir_pal_t *p, pal_fd fd, void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->read(c->inner,fd,b,n); }
-static int32_t c_write(samir_pal_t *p, pal_fd fd, const void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->write(c->inner,fd,b,n); }
-static int32_t c_seek (samir_pal_t *p, pal_fd fd, int32_t o, int w){ cap_pal *c=(cap_pal*)p; return c->inner->seek(c->inner,fd,o,w); }
-static int     c_remove(samir_pal_t *p, const char *n)      { cap_pal *c=(cap_pal*)p; return c->inner->remove(c->inner,n); }
-static int     c_rename(samir_pal_t *p, const char *f, const char *t){ cap_pal *c=(cap_pal*)p; return c->inner->rename(c->inner,f,t); }
-static void    c_conout(samir_pal_t *p, const char *s, uint32_t n)
+static pal_fd  c_open (ibase_pal_t *p, const char *n, int m) { cap_pal *c=(cap_pal*)p; return c->inner->open(c->inner,n,m); }
+static int     c_close(ibase_pal_t *p, pal_fd fd)           { cap_pal *c=(cap_pal*)p; return c->inner->close(c->inner,fd); }
+static int32_t c_read (ibase_pal_t *p, pal_fd fd, void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->read(c->inner,fd,b,n); }
+static int32_t c_write(ibase_pal_t *p, pal_fd fd, const void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->write(c->inner,fd,b,n); }
+static int32_t c_seek (ibase_pal_t *p, pal_fd fd, int32_t o, int w){ cap_pal *c=(cap_pal*)p; return c->inner->seek(c->inner,fd,o,w); }
+static int     c_remove(ibase_pal_t *p, const char *n)      { cap_pal *c=(cap_pal*)p; return c->inner->remove(c->inner,n); }
+static int     c_rename(ibase_pal_t *p, const char *f, const char *t){ cap_pal *c=(cap_pal*)p; return c->inner->rename(c->inner,f,t); }
+static void    c_conout(ibase_pal_t *p, const char *s, uint32_t n)
 {
     cap_pal *c=(cap_pal*)p;
     uint32_t i;
@@ -170,17 +170,17 @@ static void    c_conout(samir_pal_t *p, const char *s, uint32_t n)
         c->buf[c->len++] = s[i];
     c->buf[c->len] = '\0';
 }
-static int32_t c_conin_line(samir_pal_t *p, char *b, uint32_t cap){ (void)p; if (cap) b[0]='\0'; return -1; }
-static int32_t c_conin_char(samir_pal_t *p){ (void)p; return -1; }
-static void    c_gotoxy(samir_pal_t *p, uint8_t r, uint8_t col){ cap_pal *c=(cap_pal*)p; c->inner->gotoxy(c->inner,r,col); }
-static void    c_set_attr(samir_pal_t *p, uint8_t a){ cap_pal *c=(cap_pal*)p; c->inner->set_attr(c->inner,a); }
-static void    c_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){ cap_pal *c=(cap_pal*)p; c->inner->today(c->inner,yy,mm,dd); }
-static void   *c_alloc(samir_pal_t *p, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->alloc(c->inner,n); }
-static void    c_reset(samir_pal_t *p, void *m){ cap_pal *c=(cap_pal*)p; c->inner->reset(c->inner,m); }
+static int32_t c_conin_line(ibase_pal_t *p, char *b, uint32_t cap){ (void)p; if (cap) b[0]='\0'; return -1; }
+static int32_t c_conin_char(ibase_pal_t *p){ (void)p; return -1; }
+static void    c_gotoxy(ibase_pal_t *p, uint8_t r, uint8_t col){ cap_pal *c=(cap_pal*)p; c->inner->gotoxy(c->inner,r,col); }
+static void    c_set_attr(ibase_pal_t *p, uint8_t a){ cap_pal *c=(cap_pal*)p; c->inner->set_attr(c->inner,a); }
+static void    c_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){ cap_pal *c=(cap_pal*)p; c->inner->today(c->inner,yy,mm,dd); }
+static void   *c_alloc(ibase_pal_t *p, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->alloc(c->inner,n); }
+static void    c_reset(ibase_pal_t *p, void *m){ cap_pal *c=(cap_pal*)p; c->inner->reset(c->inner,m); }
 
-static void *c_acquire(samir_pal_t *p,uint32_t n) { cap_pal *c=(cap_pal *)p;return c->inner->acquire(c->inner,n); }
-static void c_release(samir_pal_t *p,void *m) { cap_pal *c=(cap_pal *)p;c->inner->release(c->inner,m); }
-static samir_pal_t *cap_pal_make(samir_pal_t *inner)
+static void *c_acquire(ibase_pal_t *p,uint32_t n) { cap_pal *c=(cap_pal *)p;return c->inner->acquire(c->inner,n); }
+static void c_release(ibase_pal_t *p,void *m) { cap_pal *c=(cap_pal *)p;c->inner->release(c->inner,m); }
+static ibase_pal_t *cap_pal_make(ibase_pal_t *inner)
 {
     g_cap.inner = inner;
     g_cap.len = 0; g_cap.buf[0] = '\0';
@@ -328,7 +328,7 @@ static const char INV_PAID[INV_N]  = { 'F',   'F',   'T',   'F' };
  * seeded data is identical in both builds (the misplaced decimal lives in the
  * SCALE memvar, not in the table -- see set_scale).
  */
-static dbf_table *make_invoices(samir_pal_t *pal, const char *path)
+static dbf_table *make_invoices(ibase_pal_t *pal, const char *path)
 {
     dbf_field_spec fs[5];
     dbf_table *t = NULL;
@@ -404,7 +404,7 @@ static int substr_present(const char *hay, const char *needle)
     return strstr(hay, needle) != NULL;
 }
 
-static int run_canon(samir_pal_t *pal, const char *canon_dir)
+static int run_canon(ibase_pal_t *pal, const char *canon_dir)
 {
     char prgpath[1024], goldpath[1024];
     char prg[PRG_CAP];
@@ -505,7 +505,7 @@ int main(int argc, char **argv)
     const char *corpus_base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     const char *canon_dir   = (argc > 2) ? argv[2] : "tests/canon";
     struct pal_host_cfg cfg;
-    samir_pal_t *host, *pal;
+    ibase_pal_t *host, *pal;
 
     memset(&cfg, 0, sizeof cfg);
     /* Injected clock (Rule 11). The salami report does not use DATE(); the clock
@@ -531,7 +531,7 @@ int main(int argc, char **argv)
         "at '%s'); NOT attempted here. Tier-0 canon golden gated above.\n",
         corpus_base);
 
-    /* TEST_SUMMARY-style line on STDOUT (matching every other SAMIR harness) so a
+    /* TEST_SUMMARY-style line on STDOUT (matching every other IBASE harness) so a
      * Make mutant gate's liveness check sees it; the non-zero exit blocks a
      * false-green. */
     printf("canon-salami: %d checks, %d failures\n", g_checks, g_failures);

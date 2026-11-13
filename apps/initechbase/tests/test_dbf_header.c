@@ -1,7 +1,7 @@
 /*
  * tests/test_dbf_header.c -- host oracle for dbf_open (S1.1).
  *
- * FACTORY host test (CLAUDE.md Law 3): libc OK here. Mirrors test_samir_value.c:
+ * FACTORY host test (CLAUDE.md Law 3): libc OK here. Mirrors test_ibase_value.c:
  * the seed test_assert.h harness (CHECK / TEST_HARNESS / TEST_SUMMARY), a host
  * PAL via pal_host_make (pal_host.c). A non-zero exit on any failed check keeps
  * `make test-dbase` from false-greening (Law 2: the oracle is the truth).
@@ -24,8 +24,8 @@
  * dbf_open with DBF_ERR_BAD_RECLEN, so the "dbf_open succeeds" checks go RED.
  *
  * Compile + run (self-grade, host, NOT make):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbf.c os/samir/core/rt.c os/samir/pal/pal_host.c \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbf.c os/ibase/core/rt.c os/ibase/pal/pal_host.c \
  *     tests/test_dbf_header.c -o /tmp/test_dbf_header \
  *     && /tmp/test_dbf_header ../dbase3-decomp
  *
@@ -33,10 +33,10 @@
  *
  * Ref (Law 1):
  *   - ../dbase3-decomp/specs/file-formats/dbf.md sec 2/3/4/8 + Verification.
- *   - spec/samir/dbf_format.h (the LOCKED constants; +1/+2, optional EOF notes).
- *   - docs/plans/SAMIR-implementation-plan.md S1.1 oracle contract.
- *   - os/samir/include/samir/dbf.h (the API under test).
- *   - os/samir/pal/pal_host.c (struct pal_host_cfg, pal_host_make/_free).
+ *   - spec/ibase/dbf_format.h (the LOCKED constants; +1/+2, optional EOF notes).
+ *   - docs/plans/IBASE-implementation-plan.md S1.1 oracle contract.
+ *   - os/ibase/include/ibase/dbf.h (the API under test).
+ *   - os/ibase/pal/pal_host.c (struct pal_host_cfg, pal_host_make/_free).
  *   - seed/test_assert.h (the harness idiom).
  */
 
@@ -45,7 +45,7 @@
 #include <string.h>
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/dbf.h"         /* os/samir/include/, on -Ios/samir/include */
+#include "ibase/dbf.h"         /* os/ibase/include/, on -Ios/ibase/include */
 
 TEST_HARNESS();
 
@@ -56,8 +56,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* ---- expected-header manifest (Tier-0; one row per golden) ---- */
 typedef struct {
@@ -116,7 +116,7 @@ static int file_exists(const char *path)
 }
 
 /* Open one golden via the PAL and assert it matches its manifest row. */
-static void check_golden(samir_pal_t *pal, const char *base, const dbf_expect *e)
+static void check_golden(ibase_pal_t *pal, const char *base, const dbf_expect *e)
 {
     char path[1024];
     char msg[256];
@@ -179,7 +179,7 @@ static void check_golden(samir_pal_t *pal, const char *base, const dbf_expect *e
  * byte must fail loud. Written to a temp file and opened through the PAL.
  * Ref: dbf.md sec 3 (0x8B = IV memo; never III+); plan Sec 2.C (fail loud).
  */
-static void check_iv_version_rejected(samir_pal_t *pal)
+static void check_iv_version_rejected(ibase_pal_t *pal)
 {
     /*
      * Minimal "TAX-shaped" header (2 fields, +2 form, hlen 98, rlen 20) but with
@@ -219,7 +219,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     int i;
     int any_present = 0;
     char path[1024];

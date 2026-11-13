@@ -3,26 +3,26 @@
  * including CR/LF, spaces, error messages and DOS EOF, against GOLD.OUT. */
 #include <stdio.h>
 #include <unistd.h>
-#include "samir/interp.h"
+#include "ibase/interp.h"
 
 struct pal_host_cfg { uint8_t yy, mm, dd; uint32_t heap; };
-extern samir_pal_t *pal_host_make(struct pal_host_cfg);
-extern void pal_host_free(samir_pal_t *);
+extern ibase_pal_t *pal_host_make(struct pal_host_cfg);
+extern void pal_host_free(ibase_pal_t *);
 static unsigned line;
-static int32_t input(samir_pal_t *pal, char *s, uint32_t cap)
+static int32_t input(ibase_pal_t *pal, char *s, uint32_t cap)
 {
     const char *command = line++ == 0 ? "DO MINT" : "QUIT";
     (void)pal;
     return snprintf(s, cap, "%s", command);
 }
-static void output(samir_pal_t *pal, const char *s, uint32_t n)
+static void output(ibase_pal_t *pal, const char *s, uint32_t n)
 {
     (void)pal;
     if (fwrite(s, 1, n, stdout) != n) _exit(2);
 }
 int main(int argc, char **argv)
 {
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     xb_interp *ip;
     int rc;
     if (argc != 2 || chdir(argv[1])) return 2;
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     pal->conout = output;
     ip = xb_interp_make(pal);
     if (!ip) return 2;
-    rc = samir_repl(pal, ip);
+    rc = ibase_repl(pal, ip);
     xb_interp_free(ip);
     pal_host_free(pal);
     return rc ? 2 : 0;

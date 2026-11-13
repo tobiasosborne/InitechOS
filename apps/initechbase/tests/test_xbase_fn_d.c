@@ -16,7 +16,7 @@
  * coupling is decoupled: fn_builtins.c calls ONLY ctx->dbcur->recno(...) etc.;
  * it has NO undefined workarea symbol. With NO work area (ctx->dbcur == NULL)
  * each cursor function fails loud with XBEE_NO_DATABASE (#52). FILE is an
- * environment query; its bare-PAL/no-USE oracle is test_samir_core.c. The NULL path is
+ * environment query; its bare-PAL/no-USE oracle is test_ibase_core.c. The NULL path is
  * exercised below with a bare (non-interpreter) ctx.
  *
  * GROUND TRUTH (Law 1):
@@ -29,7 +29,7 @@
  *     FIELD(<expN>): 1-based; name UPPERCASE; out of range -> "".
  *     DBF(): open table name (UPPERCASE; we return the alias); none open -> "".
  *     FILE(<expC>): .T. iff the file exists (via PAL); you supply the extension.
- *   spec/samir/dbase_msg_codes.tsv code 52 "No database is in USE." (no work area).
+ *   spec/ibase/dbase_msg_codes.tsv code 52 "No database is in USE." (no work area).
  *
  * SYNTHETIC FIXTURE (Tier 0, operator-free): we build a 3-field table
  *   NAME C(8), AGE N(3,0), JOINED D(8) with three records and DELETE record 2,
@@ -45,10 +45,10 @@
  * ASCII-clean (Rule 12). No timestamps / host paths baked in (Rule 11).
  *
  * Ref (Law 1):
- *   - os/samir/include/samir/eval.h     (xb_ctx + xb_dbcursor + XBEE_NO_DATABASE).
- *   - os/samir/include/samir/workarea.h (the 10-area model + wa_dbcursor wiring).
- *   - os/samir/include/samir/interp.h   (xb_interp + xb_interp_eval_str).
- *   - os/samir/include/samir/dbf.h      (dbf_create/append_blank/replace/delete/flush).
+ *   - os/ibase/include/ibase/eval.h     (xb_ctx + xb_dbcursor + XBEE_NO_DATABASE).
+ *   - os/ibase/include/ibase/workarea.h (the 10-area model + wa_dbcursor wiring).
+ *   - os/ibase/include/ibase/interp.h   (xb_interp + xb_interp_eval_str).
+ *   - os/ibase/include/ibase/dbf.h      (dbf_create/append_blank/replace/delete/flush).
  *   - ../dbase3-decomp/specs/functions/system-and-database-functions.md.
  */
 
@@ -58,12 +58,12 @@
 #include <stdint.h>
 
 #include "test_assert.h"          /* seed/, on -Iseed */
-#include "samir/workarea.h"       /* os/samir/include/ */
-#include "samir/interp.h"
-#include "samir/dbf.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/workarea.h"       /* os/ibase/include/ */
+#include "ibase/interp.h"
+#include "ibase/dbf.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -74,8 +74,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 #define SP_PATH "goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities"
 
@@ -216,7 +216,7 @@ static const dbf_field_spec g_syn_schema[3] = {
 #define SYN_NFIELDS 3
 
 /* Build the synthetic table on disk and return 0 on success. */
-static int build_synth(samir_pal_t *pal)
+static int build_synth(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     xb_val rec[3];
@@ -245,7 +245,7 @@ static int build_synth(samir_pal_t *pal)
     return 0;
 }
 
-static void test_synth_dbfns(samir_pal_t *pal)
+static void test_synth_dbfns(ibase_pal_t *pal)
 {
     xb_interp *ip;
     wa_env *env;
@@ -367,7 +367,7 @@ static void test_synth_dbfns(samir_pal_t *pal)
 
 #define EMPTY_PATH "/tmp/test_xbase_fn_d_empty.dbf"
 
-static void test_empty_table(samir_pal_t *pal)
+static void test_empty_table(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     xb_interp *ip;
@@ -408,7 +408,7 @@ static void test_empty_table(samir_pal_t *pal)
  * Tier 1: corpus TRAVEL.DBF -- FIELD()/RECCOUNT()/DBF() on a real table.
  * ===================================================================== */
 
-static void test_corpus(samir_pal_t *pal, const char *base)
+static void test_corpus(ibase_pal_t *pal, const char *base)
 {
     char trav[1024];
     xb_interp *ip;
@@ -459,7 +459,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
 
     memset(&cfg, 0, sizeof(cfg));
     cfg.date_yy   = 85;     /* injected fixed date (Rule 11) */

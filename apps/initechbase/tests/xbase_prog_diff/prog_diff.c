@@ -2,7 +2,7 @@
  * prog_mint.sh captures each .out from real dBASE III PLUS 1.1; the former
  * authored transcripts were replaced, never patched. prog-real.sha256 pins
  * source programs, real captures and the copied expectations. The historical
- * CR/LF and trailing-blank normalization remains here; test-samir-print and
+ * CR/LF and trailing-blank normalization remains here; test-ibase-print and
  * every DML case additionally grade their real transcripts byte for byte.
  * PARTS is independently provisioned below and its result is read by dbf_ref.
  */
@@ -14,13 +14,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "samir/interp.h"
-#include "samir/workarea.h"
-#include "samir/dbf.h"
-#include "samir/value.h"
-#include "samir/eval.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
+#include "ibase/interp.h"
+#include "ibase/workarea.h"
+#include "ibase/dbf.h"
+#include "ibase/value.h"
+#include "ibase/eval.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
 
 /* ---- pal_host.c surface (declared here -- not in a header) -------------- */
 struct pal_host_cfg {
@@ -29,10 +29,10 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
-/* ---- the command modules + proc_run (extern, exactly as samir_main.c) --- */
+/* ---- the command modules + proc_run (extern, exactly as ibase_main.c) --- */
 extern int query_register(xb_interp *ip);
 extern int mutate_register(xb_interp *ip);
 extern int set_register(xb_interp *ip);
@@ -41,29 +41,29 @@ extern int proc_run(xb_interp *ip, const char *prg);
 
 /* ===================================================================== */
 /* Capturing PAL: delegate every slot to the host PAL EXCEPT conout, which  */
-/* is appended to a byte buffer. Mirrors test_samir_repl.c's cap_pal.        */
+/* is appended to a byte buffer. Mirrors test_ibase_repl.c's cap_pal.        */
 /* (conin_* return EOF -- corpus programs do not read the console.)          */
 /* ===================================================================== */
 
 #define CAP_BUF 65536
 
 typedef struct {
-    samir_pal_t  pal;      /* MUST be first: &cap.pal is handed to the engine */
-    samir_pal_t *inner;    /* the real host PAL */
+    ibase_pal_t  pal;      /* MUST be first: &cap.pal is handed to the engine */
+    ibase_pal_t *inner;    /* the real host PAL */
     char         buf[CAP_BUF];
     uint32_t     len;
 } cap_pal;
 
 static cap_pal g_cap;
 
-static pal_fd  c_open (samir_pal_t *p, const char *n, int m) { cap_pal *c=(cap_pal*)p; return c->inner->open(c->inner,n,m); }
-static int     c_close(samir_pal_t *p, pal_fd fd)           { cap_pal *c=(cap_pal*)p; return c->inner->close(c->inner,fd); }
-static int32_t c_read (samir_pal_t *p, pal_fd fd, void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->read(c->inner,fd,b,n); }
-static int32_t c_write(samir_pal_t *p, pal_fd fd, const void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->write(c->inner,fd,b,n); }
-static int32_t c_seek (samir_pal_t *p, pal_fd fd, int32_t o, int w){ cap_pal *c=(cap_pal*)p; return c->inner->seek(c->inner,fd,o,w); }
-static int     c_remove(samir_pal_t *p, const char *n)      { cap_pal *c=(cap_pal*)p; return c->inner->remove(c->inner,n); }
-static int     c_rename(samir_pal_t *p, const char *f, const char *t){ cap_pal *c=(cap_pal*)p; return c->inner->rename(c->inner,f,t); }
-static void    c_conout(samir_pal_t *p, const char *s, uint32_t n)
+static pal_fd  c_open (ibase_pal_t *p, const char *n, int m) { cap_pal *c=(cap_pal*)p; return c->inner->open(c->inner,n,m); }
+static int     c_close(ibase_pal_t *p, pal_fd fd)           { cap_pal *c=(cap_pal*)p; return c->inner->close(c->inner,fd); }
+static int32_t c_read (ibase_pal_t *p, pal_fd fd, void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->read(c->inner,fd,b,n); }
+static int32_t c_write(ibase_pal_t *p, pal_fd fd, const void *b, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->write(c->inner,fd,b,n); }
+static int32_t c_seek (ibase_pal_t *p, pal_fd fd, int32_t o, int w){ cap_pal *c=(cap_pal*)p; return c->inner->seek(c->inner,fd,o,w); }
+static int     c_remove(ibase_pal_t *p, const char *n)      { cap_pal *c=(cap_pal*)p; return c->inner->remove(c->inner,n); }
+static int     c_rename(ibase_pal_t *p, const char *f, const char *t){ cap_pal *c=(cap_pal*)p; return c->inner->rename(c->inner,f,t); }
+static void    c_conout(ibase_pal_t *p, const char *s, uint32_t n)
 {
     cap_pal *c=(cap_pal*)p;
     uint32_t i;
@@ -71,17 +71,17 @@ static void    c_conout(samir_pal_t *p, const char *s, uint32_t n)
         c->buf[c->len++] = s[i];
     c->buf[c->len] = '\0';
 }
-static int32_t c_conin_line(samir_pal_t *p, char *b, uint32_t cap){ (void)p; if (cap) b[0]='\0'; return -1; }
-static int32_t c_conin_char(samir_pal_t *p){ (void)p; return -1; }
-static void    c_gotoxy(samir_pal_t *p, uint8_t r, uint8_t col){ cap_pal *c=(cap_pal*)p; c->inner->gotoxy(c->inner,r,col); }
-static void    c_set_attr(samir_pal_t *p, uint8_t a){ cap_pal *c=(cap_pal*)p; c->inner->set_attr(c->inner,a); }
-static void    c_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){ cap_pal *c=(cap_pal*)p; c->inner->today(c->inner,yy,mm,dd); }
-static void   *c_alloc(samir_pal_t *p, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->alloc(c->inner,n); }
-static void    c_reset(samir_pal_t *p, void *m){ cap_pal *c=(cap_pal*)p; c->inner->reset(c->inner,m); }
+static int32_t c_conin_line(ibase_pal_t *p, char *b, uint32_t cap){ (void)p; if (cap) b[0]='\0'; return -1; }
+static int32_t c_conin_char(ibase_pal_t *p){ (void)p; return -1; }
+static void    c_gotoxy(ibase_pal_t *p, uint8_t r, uint8_t col){ cap_pal *c=(cap_pal*)p; c->inner->gotoxy(c->inner,r,col); }
+static void    c_set_attr(ibase_pal_t *p, uint8_t a){ cap_pal *c=(cap_pal*)p; c->inner->set_attr(c->inner,a); }
+static void    c_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd){ cap_pal *c=(cap_pal*)p; c->inner->today(c->inner,yy,mm,dd); }
+static void   *c_alloc(ibase_pal_t *p, uint32_t n){ cap_pal *c=(cap_pal*)p; return c->inner->alloc(c->inner,n); }
+static void    c_reset(ibase_pal_t *p, void *m){ cap_pal *c=(cap_pal*)p; c->inner->reset(c->inner,m); }
 
-static void *c_acquire(samir_pal_t *p,uint32_t n){cap_pal *c=(cap_pal *)p;return c->inner->acquire(c->inner,n);}
-static void c_release(samir_pal_t *p,void *m){cap_pal *c=(cap_pal *)p;c->inner->release(c->inner,m);}
-static samir_pal_t *cap_pal_make(samir_pal_t *inner)
+static void *c_acquire(ibase_pal_t *p,uint32_t n){cap_pal *c=(cap_pal *)p;return c->inner->acquire(c->inner,n);}
+static void c_release(ibase_pal_t *p,void *m){cap_pal *c=(cap_pal *)p;c->inner->release(c->inner,m);}
+static ibase_pal_t *cap_pal_make(ibase_pal_t *inner)
 {
     g_cap.inner = inner;
     g_cap.len = 0; g_cap.buf[0] = '\0';
@@ -252,7 +252,7 @@ static int write_parts_ro(const char *path)
 }
 
 /* Build a WRITABLE PARTS copy via the engine writer; returns the open table. */
-static dbf_table *make_parts_writable(samir_pal_t *pal, const char *path)
+static dbf_table *make_parts_writable(ibase_pal_t *pal, const char *path)
 {
     dbf_field_spec fs[3];
     dbf_table *tbl = NULL;
@@ -344,7 +344,7 @@ static void swap_eq_lines(char *s)
 #endif
 
 /* Run a NON-table program (no USE): whole program through a fresh interp. */
-static int run_plain_prog(samir_pal_t *pal, const char *name, const char *prgpath,
+static int run_plain_prog(ibase_pal_t *pal, const char *name, const char *prgpath,
                           const char *goldpath)
 {
     char prg[PRG_CAP];
@@ -404,7 +404,7 @@ static int run_plain_prog(samir_pal_t *pal, const char *name, const char *prgpat
 
 /* Run the READ-ONLY table program (query.prg): provision PARTS (ro), bind it,
  * run the body after USE. */
-static int run_query_prog(samir_pal_t *pal, const char *prgpath, const char *goldpath)
+static int run_query_prog(ibase_pal_t *pal, const char *prgpath, const char *goldpath)
 {
     char prg[PRG_CAP];
     char gold[OUT_CAP];
@@ -449,7 +449,7 @@ static int run_query_prog(samir_pal_t *pal, const char *prgpath, const char *gol
 /* Run the MUTATION program (mutate.prg): provision a WRITABLE /tmp copy of PARTS,
  * adopt it, run the body after USE, then ALSO diff the result .dbf via dbf_ref.py
  * (fail loud (named opt-out only) if python3 missing). NEVER writes a committed golden. */
-static int run_mutate_prog(samir_pal_t *pal, const char *prgpath,
+static int run_mutate_prog(ibase_pal_t *pal, const char *prgpath,
                            const char *goldpath, const char *dbfgoldpath)
 {
     char prg[PRG_CAP];
@@ -551,7 +551,7 @@ int main(int argc, char **argv)
     if(argc==3 && !strcmp(argv[1],"--mint-parts")) return write_parts_ro(argv[2])?2:0;
     const char *corpus_base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *host, *pal;
+    ibase_pal_t *host, *pal;
     char prgpath[1024], goldpath[1024], dbfgoldpath[1024];
 
     /* argv[2] = the xbase_prog_diff dir (corpus/ + golden/). Default to the
@@ -598,10 +598,10 @@ int main(int argc, char **argv)
 
     pal_host_free(host);
 
-    fprintf(stderr,"  Real III+ program mints: prog-real.sha256 (make mint-samir-prog).\n");
+    fprintf(stderr,"  Real III+ program mints: prog-real.sha256 (make mint-ibase-prog).\n");
     (void)corpus_base;
 
-    /* TEST_SUMMARY-style line on STDOUT in BOTH cases (matching every other SAMIR
+    /* TEST_SUMMARY-style line on STDOUT in BOTH cases (matching every other IBASE
      * harness) so the Make mutant gate's `2>/dev/null | grep 'checks,'` liveness
      * check sees it -- a RED with no summary is "harness dead" (Law 2). The
      * non-zero exit blocks a false-green. */

@@ -57,10 +57,10 @@
 #include <sys/stat.h>
 
 #include "test_assert.h"
-#include "samir/ndx.h"
-#include "samir/ndx_format.h"
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/ndx.h"
+#include "ibase/ndx_format.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 TEST_HARNESS();
 
@@ -70,8 +70,8 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 static const char *g_base;
 static char        g_msg[512];
@@ -193,7 +193,7 @@ static int io_visit(void *ctx, const uint8_t *key, uint32_t recno)
     c->n++;
     return 0;
 }
-static void inorder_check(samir_pal_t *pal, const char *path, uint16_t kl,
+static void inorder_check(ibase_pal_t *pal, const char *path, uint16_t kl,
                           uint32_t want, const char *label)
 {
     ndx_index    *ix = NULL;
@@ -214,7 +214,7 @@ static void inorder_check(samir_pal_t *pal, const char *path, uint16_t kl,
 }
 
 /* ---- drivers ---------------------------------------------------------- */
-static void build(samir_pal_t *pal, const char *path, uint16_t w,
+static void build(ibase_pal_t *pal, const char *path, uint16_t w,
                   const uint32_t *vals, uint32_t n)
 {
     struct bulk_ctx c;
@@ -225,7 +225,7 @@ static void build(samir_pal_t *pal, const char *path, uint16_t w,
     snprintf(g_msg, sizeof g_msg, "ndx_build %u keys (rc %d)", (unsigned)n, rc);
     CHECK(rc == NDX_OK, g_msg);
 }
-static ndx_index *open_rw(samir_pal_t *pal, const char *path)
+static ndx_index *open_rw(ibase_pal_t *pal, const char *path)
 {
     ndx_index *ix = NULL;
     int rc = ndx_open_rw(pal, path, &ix);
@@ -259,7 +259,7 @@ static void mov(ndx_index *ix, uint16_t w, uint32_t from, uint32_t to, uint32_t 
 
 /* Close (flush) our index, grade it, reopen it read-write: the mint scripts
  * also closed the index (USE) before every COPY FILE snapshot. */
-static ndx_index *step(samir_pal_t *pal, ndx_index *ix, const char *path,
+static ndx_index *step(ibase_pal_t *pal, ndx_index *ix, const char *path,
                        const char *gold)
 {
     ndx_close(ix);
@@ -272,7 +272,7 @@ static ndx_index *step(samir_pal_t *pal, ndx_index *ix, const char *path,
  * duplicate run must remain in recno order across more than two levels
  * (ndx.md ss5/6; the original initech-0g22 span case only had two levels).
  * These generated inputs are NOT used as golden bytes. */
-static void malformed_check(samir_pal_t *pal)
+static void malformed_check(ibase_pal_t *pal)
 {
     char path[1024];
     uint8_t *gold = NULL, *bad, *after = NULL, key[20];
@@ -332,7 +332,7 @@ static int dup_visit(void *user, const uint8_t *key, uint32_t recno)
     c->next++;
     return 0;
 }
-static void deep_duplicate_check(samir_pal_t *pal)
+static void deep_duplicate_check(ibase_pal_t *pal)
 {
     uint32_t vals[130], r;
     uint8_t key[100];
@@ -358,7 +358,7 @@ static void deep_duplicate_check(samir_pal_t *pal)
 int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     static uint32_t vals[400];
     char   probe[1024], lab[32], gold[32];
     uint32_t i, j, recno;

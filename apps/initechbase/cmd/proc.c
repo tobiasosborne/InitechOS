@@ -1,9 +1,9 @@
 /*
- * os/samir/cmd/proc.c -- SAMIR (InitechBase) procedures + scope + keyboard-I/O
+ * os/ibase/cmd/proc.c -- IBASE (InitechBase) procedures + scope + keyboard-I/O
  *                         command module. Step S5.7 (Phase 5 interpreter).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
- * ONLY <stdint.h> and the samir/ engine headers. No libc, no int 0x21 -- every
+ * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL carried by the interpreter (cooked
  * line input via pal->conin_line, single key via pal->conin_char, prompts via
  * pal->conout). Memory is fixed/static (no malloc). ASCII-clean (Rule 12).
@@ -29,7 +29,7 @@
  *   ON ERROR <command>            install a runtime-error trap; ON ERROR clears it
  *
  * THE SCOPE MODEL lives in flow.c (the memvar-table owner). This module DRIVES it:
- *   DO <name> -> xb_interp_scope_enter -> run the procedure body via samir_do ->
+ *   DO <name> -> xb_interp_scope_enter -> run the procedure body via ibase_do ->
  *   xb_interp_scope_leave. PARAMETERS -> xb_interp_store_param (by position).
  *   PUBLIC/PRIVATE -> xb_interp_declare_public / _private. The auto-private rule
  *   (a STORE/= to an unseen name creates it at the current level) is in
@@ -39,7 +39,7 @@
  * PROCEDURE / RETURN / EOF; the PROCEDURE blocks below are callable by DO. This
  * module is given the WHOLE source via proc_run(ip, prg): it registers the source
  * (so DO can scan it for PROCEDURE blocks) and runs the MAIN body (the slice
- * before the first top-level PROCEDURE) through samir_do. samir_do is RE-ENTRANT
+ * before the first top-level PROCEDURE) through ibase_do. ibase_do is RE-ENTRANT
  * (flow.c keeps line pools on the stack), so DO recurses: a PROCEDURE body that
  * itself DOes another PROCEDURE works to FLOW_MAX_SCOPE depth (Rule 2 fail-loud
  * cap past that).
@@ -48,7 +48,7 @@
  * must leave the routine immediately. The RETURN hook returns the special
  * negative sentinel PROC_RC_RETURN; the flow executor bubbles it up out of any
  * enclosing IF/DO WHILE/DO CASE (run_block returns on rc != INTERP_OK), so the
- * samir_do running the body stops at RETURN; proc_call catches PROC_RC_RETURN and
+ * ibase_do running the body stops at RETURN; proc_call catches PROC_RC_RETURN and
  * treats it as a CLEAN return. A RETURN at the MAIN level is likewise clean.
  *
  * GATED (loud-skip in the oracle; plan Sec 7 / corpus Open-questions):
@@ -68,22 +68,22 @@
  *     (ACCEPT/INPUT/WAIT; ON ERROR trap install/clear + ERROR()).
  *   - ../dbase3-decomp/specs/language/memory-variables.md sec 2.1, sec 3
  *     (ACCEPT=C / INPUT=typed / WAIT=1-char; PUBLIC/PRIVATE/PARAMETERS scope).
- *   - spec/samir/dbase_msg_codes.tsv (#9 mismatch, #16 unrecognized, #37 not
+ *   - spec/ibase/dbase_msg_codes.tsv (#9 mismatch, #16 unrecognized, #37 not
  *     logical, #93 No PARAMETER statement found., #94 Wrong number of parameters.).
- *   - os/samir/include/samir/interp.h (the xb_cmd_hook chain + the S5.7 scope API).
- *   - os/samir/include/samir/eval.h (xb_lex/xb_parse/xb_eval -- INPUT evaluation).
- *   - os/samir/include/samir/pal.h (conin_line / conin_char / conout -- the only
+ *   - os/ibase/include/ibase/interp.h (the xb_cmd_hook chain + the S5.7 scope API).
+ *   - os/ibase/include/ibase/eval.h (xb_lex/xb_parse/xb_eval -- INPUT evaluation).
+ *   - os/ibase/include/ibase/pal.h (conin_line / conin_char / conout -- the only
  *     OS surface here).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
 
-#include "samir/interp.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
+#include "ibase/interp.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
@@ -97,9 +97,9 @@
 #define P_MAX_LINEIN   256   /* one cooked input line (ACCEPT/INPUT) */
 #define P_MAX_ONERR    254   /* the installed ON ERROR command text */
 /* Concurrent interpreters with proc state. Pure dimensioning knob, tied to the
- * flow registry it mirrors: the Milton .COM build passes -DFLOW_MAX_REGISTRY=1
+ * flow registry it mirrors: the InitechDOS .COM build passes -DFLOW_MAX_REGISTRY=1
  * (ADR-0009 DEC-03) -- one interpreter -- and the 16-entry host default would
- * spend ~4 KiB of the full SAMIR.COM BSS reserve (samir.ld ASSERT) on slots
+ * spend ~4 KiB of the full IBASE.COM BSS reserve (ibase.ld ASSERT) on slots
  * that can never be used (initech-39e5 added the ON ESCAPE trap text). */
 #ifdef FLOW_MAX_REGISTRY
 # define P_REGISTRY    FLOW_MAX_REGISTRY
@@ -107,7 +107,7 @@
 # define P_REGISTRY    16
 #endif
 
-/* dBASE catalog ordinals (spec/samir/dbase_msg_codes.tsv -- the ENGINE table). */
+/* dBASE catalog ordinals (spec/ibase/dbase_msg_codes.tsv -- the ENGINE table). */
 #define P_MSG_NO_PARAM      93  /* "No PARAMETER statement found." */
 #define P_MSG_WRONG_PARAM   94  /* "Wrong number of parameters." */
 #define P_MSG_NOT_FOUND      1  /* "File does not exist." */
@@ -117,7 +117,7 @@
 /* RETURN sentinel: a negative rc the flow executor bubbles up out of nested
  * control flow; proc_call maps it to a clean return. Chosen WELL outside the
  * interp_err range (1..8) and the 1..151 dBASE catalog so it can never be
- * mistaken for a real error code recorded by samir_last_error. */
+ * mistaken for a real error code recorded by ibase_last_error. */
 #define PROC_RC_RETURN  (-20000)
 /* RETURN TO MASTER (Using III+ U5-183): unwinds DO frames until the frame
  * called FROM the highest-level program, which resumes after its DO. */
@@ -129,11 +129,11 @@
 #define PROC_RC_RETRY_TRAP    (-20004)
 
 /* DO nesting cap. Using III+ U7-4: "DOs nested too deep. [103] You can only
- * have a maximum of 20 nested DO commands." Real III+ 1.1 (mint samirctl
+ * have a maximum of 20 nested DO commands." Real III+ 1.1 (mint ibasectl
  * NEST.TXT, dosbox-x): the top-level program counts as level 1 and the DO
  * that would open level 21 fails with ERROR()=103, MESSAGE()="DOs nested too
  * deep." (TRAP 19 103). The cap must also FIT: every level now costs ~2 KiB of
- * the 64 KiB SAMIR.COM stack (initech-39e5, audit L003). */
+ * the 64 KiB IBASE.COM stack (initech-39e5, audit L003). */
 #ifndef P_MAX_DO_NEST
 #define P_MAX_DO_NEST       20
 #endif
@@ -184,7 +184,7 @@ static int         g_n;
 
 static proc_state *proc_state_for(xb_interp *ip)
 {
-    SAMIR_RETAIN(ip);
+    IBASE_RETAIN(ip);
     int i;
     if (!ip)
         return (proc_state *)0;
@@ -194,7 +194,7 @@ static proc_state *proc_state_for(xb_interp *ip)
     }
     if (g_n >= P_REGISTRY)
         return (proc_state *)0;          /* too many live interpreters: fail loud */
-    SAMIR_RETAIN(ip);
+    IBASE_RETAIN(ip);
     g_key[g_n] = ip;
     /* every field starts empty/zero: no source, no ON ERROR / ON ESCAPE
      * trap, no pending WITH args, depth 0, dot prompt (prgname ""), no
@@ -216,7 +216,7 @@ static char p_up1(char c)
 
 static int p_isspace(char c) { return c == ' ' || c == '\t'; }
 
-/* (case-insensitive keyword equality is rt_kw_index -- samir/rt.h) */
+/* (case-insensitive keyword equality is rt_kw_index -- ibase/rt.h) */
 
 /* skip leading blanks; return pointer past them. */
 static const char *p_skip_ws(const char *s)
@@ -339,7 +339,7 @@ static int p_split_prompt_to(const char *args, char *pbuf, uint32_t pcap,
  * length (>=0), or <0 on EOF. */
 static int32_t p_readline(xb_interp *ip, char *buf, uint32_t cap)
 {
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     int32_t n;
     if (!pal || !pal->conin_line) { buf[0] = '\0'; return -1; }
     n = xb_interp_read_line(ip,buf,cap);
@@ -417,7 +417,7 @@ static int p_input(xb_interp *ip, const char *args, int *ec)
 /* WAIT [<prompt>] [TO <memvarC>]: read ONE key -> 1-char Character (or ""). */
 static int p_wait(xb_interp *ip, const char *args, int *ec)
 {
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     char pbuf[P_MAX_EXPR + 1];
     char nm[P_MAX_NAME];
     int has_to;
@@ -537,12 +537,12 @@ static int p_each_param(xb_interp *ip, const char *nm, void *ud)
 /* DO <name> [WITH <arg list>]  + PROCEDURE-block lookup in the source     */
 /* ===================================================================== */
 
-/* Moved from samir_main.c's dot-only loader. Every disk DO uses this path;
+/* Moved from ibase_main.c's dot-only loader. Every disk DO uses this path;
  * acquire/release bounds storage by the active DO stack, not session length.
  * Ref: do-file-mint/basic and missing; previous 8192-byte bound retained. */
 char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec)
 {
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     char fn[P_MAX_FILE + 4];
     char *buf;
     pal_fd fd = -1;
@@ -599,7 +599,7 @@ char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec)
 /* Copy the DO/SET PROCEDURE target word AS TYPED. Procedure lookup is
  * case-insensitive (p_find_procedure), and the disk loader must see the
  * original case: the host PAL is case-sensitive, so upper-casing broke
- * `DO /tmp/.../GREET` at the dot prompt (test-samir-repl dofile session,
+ * `DO /tmp/.../GREET` at the dot prompt (test-ibase-repl dofile session,
  * initech-9a0f contract kept by initech-104j3). The FAT PAL folds case. */
 static int p_file_word(const char **s, char *name, int *ec)
 {
@@ -617,7 +617,7 @@ static int p_file_word(const char **s, char *name, int *ec)
 
 static void p_library_release(xb_interp *ip, proc_library *library)
 {
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     if (library && --library->refs == 0) {
         pal->release(pal, library->text);
         pal->release(pal, library);
@@ -664,7 +664,7 @@ static void proc_teardown(xb_interp *ip)
  * The installed library and caller source must never alias freed storage. */
 static int p_set_procedure(xb_interp *ip, proc_state *ps, const char *args, int *ec)
 {
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     proc_library *library = (proc_library *)0;
     char name[P_MAX_FILE], *source;
     const char *p = p_skip_ws(args);
@@ -723,7 +723,7 @@ static const char *p_find_procedure(const char *src, const char *name)
                 i++;
             if (name[i] == '\0') {
                 const char *after = nm + i;
-                /* Real DOS .PRG files use CR LF (mint samirdml/clear).
+                /* Real DOS .PRG files use CR LF (mint ibasedml/clear).
                  * CR terminates the procedure name just as LF does. */
                 if (after >= le || *after == '\r' || p_isspace(*after)) {
                     /* match: body starts on the NEXT physical line. */
@@ -740,9 +740,9 @@ static const char *p_find_procedure(const char *src, const char *name)
  * p_body_len: the length of the routine body starting at `body`: up to (not
  * including) the next top-level PROCEDURE line, or the end of the source.
  * RETURN lines are LEFT IN (the RETURN hook stops the body cleanly). The body
- * is then run IN PLACE (samir_do_n) -- it used to be copied into an 8 KiB
- * stack buffer per DO level, which overran the 64 KiB SAMIR.COM stack under
- * recursion (audit 2026-10-23-samir L003, initech-39e5).
+ * is then run IN PLACE (ibase_do_n) -- it used to be copied into an 8 KiB
+ * stack buffer per DO level, which overran the 64 KiB IBASE.COM stack under
+ * recursion (audit 2026-10-23-ibase L003, initech-39e5).
  */
 static uint32_t p_body_len(const char *body)
 {
@@ -762,19 +762,19 @@ static uint32_t p_body_len(const char *body)
 
 /*
  * p_call: run the procedure `name` with the (already evaluated) WITH args.
- * Enters a scope, runs the body via samir_do, leaves the scope. Maps the RETURN
+ * Enters a scope, runs the body via ibase_do, leaves the scope. Maps the RETURN
  * sentinel to a clean return. Returns INTERP_OK or a negative rc (with *ec set).
  */
 static int p_call(xb_interp *ip, proc_state *ps, const char *name,
                   xb_val *args, int nargs, int *ec)
 {
     const char *body, *saved_source = ps->source;
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     proc_library *library = ps->library;
     char *disk = (char *)0;
     char saved_name[P_MAX_PRGNAME];
     int rc, scoped, depth_before = ps->do_depth, saved_master = ps->master_depth;
-    /* Using III+ U7-4 [103] + mint samirctl NEST.TXT: at most 20 DO levels. */
+    /* Using III+ U7-4 [103] + mint ibasectl NEST.TXT: at most 20 DO levels. */
 #ifndef PROC_MUTATE_NO_DO_CAP
     if (ps->do_depth >= P_MAX_DO_NEST
 #ifdef PROC_MUTATE_DO_OFF_BY_ONE
@@ -803,7 +803,7 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
         if (!disk) {
             /* In a running program a missing DO file is error 1 (real III+
              * do-file-mint/missing GOLD.OUT). At the dot prompt main's
-             * committed contract renders 16 (test-samir-repl dofile,
+             * committed contract renders 16 (test-ibase-repl dofile,
              * initech-9a0f); no real dot-prompt capture exists yet (the
              * dosbox-x stdin probe hangs -- III+ reads the BIOS keyboard),
              * so keep 16 only for a directly typed DO. initech-104j3. */
@@ -829,7 +829,7 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
     if (rc < 0) { if (ec) *ec = 43; goto done; }
 
     /* stash the pending WITH args so a PARAMETERS line in the body can bind them
-     * positionally (proc_state-level, since the body runs via a fresh samir_do). */
+     * positionally (proc_state-level, since the body runs via a fresh ibase_do). */
     {
         int saved_n = ps->pending_nargs;
         xb_val *saved_args = ps->pending_args;
@@ -844,21 +844,21 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
         ps->do_depth++;
         { uint8_t dot=xb_interp_ctx(ip)->dot_command;
           xb_interp_ctx(ip)->dot_command=0;
-          rc = samir_do_n(ip, body, p_body_len(body));
+          rc = ibase_do_n(ip, body, p_body_len(body));
           xb_interp_ctx(ip)->dot_command=dot; }
         ps->do_depth = depth_before;
-        /* The nested samir_do recorded the failing statement's catalogue
-         * ordinal in samir_last_error; capture it before any outer layer
+        /* The nested ibase_do recorded the failing statement's catalogue
+         * ordinal in ibase_last_error; capture it before any outer layer
          * re-derives one from the bare rc class (fl_catalog maps an eval
-         * failure to 10, losing e.g. 9 -- test-samir-console-emu, caught
-         * by test-merge-samir; initech-104j3). */
-        body_ec = samir_last_error(ip);
+         * failure to 10, losing e.g. 9 -- test-ibase-console-emu, caught
+         * by test-merge-ibase; initech-104j3). */
+        body_ec = ibase_last_error(ip);
         if (rc == PROC_RC_RETURN)
             rc = INTERP_OK;                 /* a clean RETURN out of the body */
 #ifndef PROC_MUTATE_MASTER_ONE_LEVEL
         /* RETURN TO MASTER: only the frame called FROM the highest-level
          * program resumes; deeper frames keep unwinding (U5-183; mint
-         * samirctl MASTER.TXT: MASTER FIRST SECOND MASTER RESUMED). */
+         * ibasectl MASTER.TXT: MASTER FIRST SECOND MASTER RESUMED). */
         if (rc == PROC_RC_RETURN_MASTER && depth_before <= ps->master_depth)
             rc = INTERP_OK;
 #else
@@ -906,7 +906,7 @@ done:
     return rc;                              /* INTERP_OK or a real error */
 }
 
-static void p_release_args(samir_pal_t *pal, char **blk, int n)
+static void p_release_args(ibase_pal_t *pal, char **blk, int n)
 {
     while (n > 0) pal->release(pal, blk[--n]);
 }
@@ -918,10 +918,10 @@ static void p_release_args(samir_pal_t *pal, char **blk, int n)
 static int p_do_transfer(xb_interp *ip, proc_state *ps, const char *name,
                          xb_val *argv, int nargs, int *ec)
 {
-#if !defined(SAMIR_FNS_MUTANT_logdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtdoarg) && !defined(SAMIR_FNS_MUTANT_ndxdoarg) && !defined(SAMIR_FNS_MUTANT_sqrtpass)
+#if !defined(IBASE_FNS_MUTANT_logdoarg) && !defined(IBASE_FNS_MUTANT_sqrtdoarg) && !defined(IBASE_FNS_MUTANT_ndxdoarg) && !defined(IBASE_FNS_MUTANT_sqrtpass)
     /* Argument blocks are owned before ON ERROR can reset expression scratch.
      * Complete the caller's evaluation before any callee statement can run. */
-    int crc = samir_finish_transfer(ip, ec);
+    int crc = ibase_finish_transfer(ip, ec);
     if (crc != INTERP_OK) {
         if (crc == INTERP_TRAP_RETURN) crc = INTERP_OK;
         return crc;
@@ -950,7 +950,7 @@ static __attribute__((noinline)) int p_do_with(xb_interp *ip, proc_state *ps,
      * reset. Using III+ U5-111: arbitrary expressions, including literals.
      * Their bytes go to one PAL heap block per call (acquire/release), not a
      * 4 KiB stack array per DO level (initech-39e5 stack budget). */
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     if (rt_kw_word(p,"WITH\0",(int *)0) != 0) {
         if (ec) *ec=10;
         return -INTERP_ERR_SYNTAX;
@@ -978,7 +978,7 @@ static __attribute__((noinline)) int p_do_with(xb_interp *ip, proc_state *ps,
             {
                 xb_ctx *ctx = xb_interp_ctx(ip);
                 int pending = ctx->deferred_error;
-#ifndef SAMIR_FNS_MUTANT_argorder
+#ifndef IBASE_FNS_MUTANT_argorder
                 /* Real argorder/GOLD.OUT: the last failing argument wins;
                  * a later valid argument preserves it. Each expression still
                  * keeps its first deferred error within its own phase. */
@@ -994,7 +994,7 @@ static __attribute__((noinline)) int p_do_with(xb_interp *ip, proc_state *ps,
                 frame->argblk[nblk]=(pal && pal->acquire)?(char *)pal->acquire(pal,(uint32_t)v.u.c.len+1u):(char *)0;
                 if(!frame->argblk[nblk]){ecode=43;crc=-INTERP_ERR_NOMEM;goto fail;} /* #43 */
                 rt_memcpy(frame->argblk[nblk],v.u.c.p,(uint32_t)v.u.c.len);
-#ifndef SAMIR_FNS_MUTANT_with
+#ifndef IBASE_FNS_MUTANT_with
                 v.u.c.p=frame->argblk[nblk];
 #endif
                 nblk++;
@@ -1057,7 +1057,7 @@ static int p_on(xb_interp *ip, proc_state *ps, const char *args, int *ec)
     if (k < 2) {
         /* ON ERROR <command> installs the error trap; ON ESCAPE <command>
          * (Using III+ U5-160) runs when Esc is pressed (SET ESCAPE ON) and
-         * is fired by proc_escape (mint samirctl ESCTRAP.TXT: the trap ends
+         * is fired by proc_escape (mint ibasectl ESCTRAP.TXT: the trap ends
          * a DO WHILE). The bare form clears either trap. */
         char *dst = k ? ps->onesc : ps->onerr;
         uint32_t i = 0;
@@ -1066,11 +1066,11 @@ static int p_on(xb_interp *ip, proc_state *ps, const char *args, int *ec)
         *(k ? &ps->has_onesc : &ps->has_onerr) = (*p != '\0');
         if (!k) xb_interp_ctx(ip)->on_error_procedure =
             rt_kw_word(p, "DO\0", (int *)0) == 0
-#ifdef SAMIR_FNS_MUTANT_ndx_handler_name
+#ifdef IBASE_FNS_MUTANT_ndx_handler_name
             /* MUTANT: real ndx/GOLD.OUT R5-RENAMED uses OTHERNAME. */
             && rt_kw_word(p_skip_ws(p+2), "GUARDTRAP\0", (int *)0) == 0
 #endif
-#ifdef SAMIR_FNS_MUTANT_ndx_handler_depth
+#ifdef IBASE_FNS_MUTANT_ndx_handler_depth
             /* MUTANT: real ndx/GOLD.OUT R5-NESTED installs at depth 2. */
             && ps->do_depth == 1
 #endif
@@ -1124,7 +1124,7 @@ static inline __attribute__((always_inline)) int pv_parameters(xb_interp *ip, pr
 static inline __attribute__((always_inline)) int pv_return(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
 {
     /* RETURN [TO MASTER] (Using III+ U5-183). TO MASTER unwinds to the
-     * highest-level program (audit L041; mint samirctl MASTER.TXT). */
+     * highest-level program (audit L041; mint ibasectl MASTER.TXT). */
     const char *a = p_skip_ws(args);
     (void)ip; (void)ps; (void)err_code;
     /* (a bare "RETURN TO" leaves "" -- not MASTER -- either way) */
@@ -1135,7 +1135,7 @@ static inline __attribute__((always_inline)) int pv_return(xb_interp *ip, proc_s
 }
 static inline __attribute__((always_inline)) int pv_retry(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
 {
-    /* Using III+ U5-182; audit L022; mint samirctl RETRYM.TXT. RETRY
+    /* Using III+ U5-182; audit L022; mint ibasectl RETRYM.TXT. RETRY
      * clears ERROR(). */
     (void)ps; (void)args; (void)err_code;
     xb_interp_ctx(ip)->error_number = 0;
@@ -1151,7 +1151,7 @@ static inline __attribute__((always_inline)) int pv_cancel(xb_interp *ip, proc_s
 static inline __attribute__((always_inline)) int pv_quit(xb_interp *ip, proc_state *ps, const char *args, int *err_code)
 {
     /* Using III+ U5-168: QUIT closes all files and leaves dBASE, also
-     * from a program (audit L013; mint samirctl QUITP.TXT: AFTER QUIT is
+     * from a program (audit L013; mint ibasectl QUITP.TXT: AFTER QUIT is
      * never printed). The dot prompt does the closing on this code. */
     (void)ip; (void)ps; (void)args; (void)err_code;
 #ifndef PROC_MUTATE_NO_QUIT
@@ -1263,7 +1263,7 @@ static int proc_trap(void *vip, int code)
     if (rc == PROC_RC_RETRY_TRAP || rc == PROC_RC_RETRY)
         return 2;
     if (rc == PROC_RC_RETURN)
-#ifdef SAMIR_FNS_MUTANT_returnarg
+#ifdef IBASE_FNS_MUTANT_returnarg
         return 1; /* MUTANT: lose the inline handler's RETURN outcome. */
 #else
         return INTERP_TRAP_RETURN;
@@ -1284,22 +1284,22 @@ static void p_out(xb_interp *ip, const char *s)
 /*
  * proc_escape: the xb_ctx.on_escape hook (Esc seen between two program
  * statements, SET ESCAPE ON). With an ON ESCAPE trap installed, run it and
- * resume at the next statement (Using III+ U5-160; mint samirctl
+ * resume at the next statement (Using III+ U5-160; mint ibasectl
  * ESCTRAP.TXT). Otherwise the real III+ 1.1 interrupt dialogue, byte for byte
- * from mint samirctl ESC.TXT / ESCS.TXT (dosbox-x, SET ALTERNATE capture):
+ * from mint ibasectl ESC.TXT / ESCS.TXT (dosbox-x, SET ALTERNATE capture):
  *   *** INTERRUPTED ***
  *   Called from - C:ESC.prg              (one line per active DO level)
  *   Cancel, Ignore, or Suspend? (C, I, or S) Cancel|Ignore|Suspend
  *   Do cancelled | Do suspended
  * Cancel unwinds to the dot prompt, Ignore resumes, Suspend opens a nested
  * dot prompt until RESUME (CANCEL / QUIT there unwind instead). Other keys
- * are ignored (the prompt waits). Audit 2026-10-23-samir L002.
+ * are ignored (the prompt waits). Audit 2026-10-23-ibase L002.
  */
 static int proc_escape(void *vip)
 {
     xb_interp *ip = (xb_interp *)vip;
     proc_state *ps = proc_state_for(ip);
-    samir_pal_t *pal = xb_interp_pal(ip);
+    ibase_pal_t *pal = xb_interp_pal(ip);
     int rc, lvl;
     if (!ps)
         return INTERP_OK;
@@ -1307,7 +1307,7 @@ static int proc_escape(void *vip)
         if (ps->in_esc)
             return INTERP_OK;
         ps->in_esc = 1;
-        rc = samir_do(ip, ps->onesc);
+        rc = ibase_do(ip, ps->onesc);
         ps->in_esc = 0;
         if (rc == INTERP_RC_QUIT || rc == INTERP_RC_CANCEL)
             return rc;
@@ -1349,7 +1349,7 @@ static int proc_escape(void *vip)
 void proc_set_suspend(xb_interp *ip, int (*fn)(xb_interp *))
 {
     proc_state *ps = proc_state_for(ip);
-    SAMIR_RETAIN(fn);
+    IBASE_RETAIN(fn);
     if (ps) ps->suspend = fn;
 }
 
@@ -1365,7 +1365,7 @@ int proc_register(xb_interp *ip)
     rt_memset(ps, 0, (uint32_t)sizeof(*ps));   /* as proc_state_for's fresh slot */
 #endif
     xb_interp_set_teardown(ip, proc_teardown);
-    samir_bind_errors(xb_interp_ctx(ip),proc_trap,proc_escape,ps->onerr,ps->onesc);
+    ibase_bind_errors(xb_interp_ctx(ip),proc_trap,proc_escape,ps->onerr,ps->onesc);
     xb_interp_ctx(ip)->on_error_procedure = 0;
     xb_interp_ctx(ip)->program_name = ps->prgname;
 
@@ -1375,9 +1375,9 @@ int proc_register(xb_interp *ip)
 /*
  * proc_run: run a whole program source. Registers `prg` so DO can find its
  * PROCEDURE blocks, then runs the MAIN body (the slice before the first top-level
- * PROCEDURE) through samir_do. A RETURN in the main body stops it cleanly. If a
+ * PROCEDURE) through ibase_do. A RETURN in the main body stops it cleanly. If a
  * runtime error fires and an ON ERROR trap is installed, the trap command is run
- * once. Returns INTERP_OK or the (negative) error rc from samir_do.
+ * once. Returns INTERP_OK or the (negative) error rc from ibase_do.
  */
 int proc_run(xb_interp *ip, const char *prg)
 {
@@ -1394,13 +1394,13 @@ int proc_run(xb_interp *ip, const char *prg)
      * SUSPENDed program's dot prompt must not orphan that program's
      * PROCEDURE blocks (initech-39e5). */
     saved_source = ps->source;
-    SAMIR_RETAIN(prg);
+    IBASE_RETAIN(prg);
     ps->source = prg;
     ps->run_depth++;
 
     /* the main body is everything up to the first top-level PROCEDURE line,
      * run in place (no 8 KiB stack copy; initech-39e5). */
-    rc = samir_do_n(ip, prg, p_body_len(prg));
+    rc = ibase_do_n(ip, prg, p_body_len(prg));
     if (rc == PROC_RC_RETURN || rc == PROC_RC_RETURN_MASTER ||
         rc == PROC_RC_RETRY || rc == INTERP_RC_RETRY)
         rc = INTERP_OK;                     /* a top-level RETURN is clean */
@@ -1410,7 +1410,7 @@ int proc_run(xb_interp *ip, const char *prg)
     /* ON ERROR: on a runtime error, fire the installed handler once. */
     if (rc != INTERP_OK && rc != INTERP_RC_QUIT && rc != INTERP_RC_CANCEL &&
         ps->has_onerr && !ps->in_handler) {
-        int herr = samir_last_error(ip);
+        int herr = ibase_last_error(ip);
         (void)herr;
         proc_fire_onerror(ip, herr);
     }
@@ -1423,8 +1423,8 @@ int proc_run(xb_interp *ip, const char *prg)
 /*
  * proc_run_program: DO <name> of a disk program from the dot prompt. Same as
  * proc_run, but the program is a DO level of its own (the top level: real
- * III+ 1.1 counts it, mint samirctl NEST.TXT) and its name feeds the Esc
- * trace "Called from - C:<NAME>.prg" (mint samirctl ESC.TXT).
+ * III+ 1.1 counts it, mint ibasectl NEST.TXT) and its name feeds the Esc
+ * trace "Called from - C:<NAME>.prg" (mint ibasectl ESC.TXT).
  */
 int proc_run_program(xb_interp *ip, const char *prg, const char *name)
 {
@@ -1467,7 +1467,7 @@ int proc_fire_onerror(xb_interp *ip, int err_code)
      * handled, even while the handler evaluates a new expression. */
     ctx->error_number = err_code;
     ps->handler_depth = ps->do_depth;
-    rc = samir_do(ip, ps->onerr);           /* almost always "DO <handler>" */
+    rc = ibase_do(ip, ps->onerr);           /* almost always "DO <handler>" */
     /* A procedure handler's RETURN is consumed by p_call. Preserve an
      * inline RETURN for the caller's transfer boundary (real returnarg). */
     ps->in_handler = 0;

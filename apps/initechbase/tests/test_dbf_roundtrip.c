@@ -32,7 +32,7 @@
  *      records, then compare the re-written header + descriptors against the
  *      golden with every NORMALIZE byte (dbf_normalization.json) masked to 0 --
  *      the MEANINGFUL bytes must match. Loud-skip if the golden is absent.
- *   5. INDEPENDENCE BARRIER (optional): a SAMIR-written file is left at a known
+ *   5. INDEPENDENCE BARRIER (optional): a IBASE-written file is left at a known
  *      path so the orchestrator can run dbf_ref.py against it; if python3 is
  *      available this test also shells out (system()) and gates on its exit.
  *
@@ -42,17 +42,17 @@
  * cases are unaffected -- only the memo schema bites, which is the point.
  *
  * Compile + run (self-grade, host, NOT make):
- *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbf.c os/samir/core/value.c os/samir/core/rt.c \
- *     os/samir/pal/pal_host.c \
+ *   gcc -std=c11 -Wall -Wextra -Werror -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbf.c os/ibase/core/value.c os/ibase/core/rt.c \
+ *     os/ibase/pal/pal_host.c \
  *     tests/test_dbf_roundtrip.c -o /tmp/test_dbf_roundtrip \
  *     && /tmp/test_dbf_roundtrip ../dbase3-decomp
  *
  * Mutant (must go RED):
  *   gcc -std=c11 -Wall -Wextra -Werror -DDBF_MUTATE_VERSION \
- *     -Iseed -Ios/samir/include -Ispec \
- *     os/samir/fs/dbf.c os/samir/core/value.c os/samir/core/rt.c \
- *     os/samir/pal/pal_host.c \
+ *     -Iseed -Ios/ibase/include -Ispec \
+ *     os/ibase/fs/dbf.c os/ibase/core/value.c os/ibase/core/rt.c \
+ *     os/ibase/pal/pal_host.c \
  *     tests/test_dbf_roundtrip.c -o /tmp/test_dbf_roundtrip_mut ; \
  *     /tmp/test_dbf_roundtrip_mut ../dbase3-decomp >/dev/null 2>&1 ; \
  *     echo "mutant exit=$?"
@@ -65,16 +65,16 @@
  *     byte / memo bit), sec 4 (descriptor + +1 terminator + CLIENTS FIRSTNAME
  *     worked example), sec 5 (C/N/D/L/M encodings), sec 6 (record layout),
  *     sec 8 (invariants + optional 0x1A EOF).
- *   - spec/samir/dbf_normalization.json (MEANINGFUL vs NORMALIZE byte map; the
+ *   - spec/ibase/dbf_normalization.json (MEANINGFUL vs NORMALIZE byte map; the
  *     masked-cmp uses it for the golden comparison).
- *   - spec/samir/dbf_format.h (offsets; DBF_VERSION_NO_MEMO=0x03/_WITH_MEMO=0x83).
- *   - os/samir/include/samir/dbf.h S1.4 contract (dbf_field_spec, dbf_create,
+ *   - spec/ibase/dbf_format.h (offsets; DBF_VERSION_NO_MEMO=0x03/_WITH_MEMO=0x83).
+ *   - os/ibase/include/ibase/dbf.h S1.4 contract (dbf_field_spec, dbf_create,
  *     dbf_append_rec, dbf_flush; +1 form, injected date, trailing 0x1A).
- *   - os/samir/include/samir/value.h (xb_c/xb_n/xb_d/xb_l/xb_m/xb_u).
- *   - os/samir/include/samir/rt.h (jdn_from_ymd for D values).
+ *   - os/ibase/include/ibase/value.h (xb_c/xb_n/xb_d/xb_l/xb_m/xb_u).
+ *   - os/ibase/include/ibase/rt.h (jdn_from_ymd for D values).
  *   - tests/dbf_ref.py (the independent reader the orchestrator
- *     runs against the SAMIR-written file at the known path below).
- *   - docs/plans/SAMIR-implementation-plan.md S1.4 oracle; ARB rider (a) (+mutant).
+ *     runs against the IBASE-written file at the known path below).
+ *   - docs/plans/IBASE-implementation-plan.md S1.4 oracle; ARB rider (a) (+mutant).
  */
 
 #include "oracle_policy.h"
@@ -87,11 +87,11 @@
 #endif
 
 #include "test_assert.h"       /* seed/, on -Iseed */
-#include "samir/dbf.h"         /* os/samir/include/, on -Ios/samir/include */
-#include "samir/value.h"       /* xb_c/xb_n/xb_d/xb_l/xb_m/xb_u */
-#include "samir/rt.h"          /* jdn_from_ymd -- expected D values */
+#include "ibase/dbf.h"         /* os/ibase/include/, on -Ios/ibase/include */
+#include "ibase/value.h"       /* xb_c/xb_n/xb_d/xb_l/xb_m/xb_u */
+#include "ibase/rt.h"          /* jdn_from_ymd -- expected D values */
 
-#include "samir/dbf_format.h"  /* DBF_* offset constants, on -Ispec */
+#include "ibase/dbf_format.h"  /* DBF_* offset constants, on -Ispec */
 
 TEST_HARNESS();
 
@@ -102,17 +102,17 @@ struct pal_host_cfg {
     uint8_t  date_dd;
     uint32_t heap_size;
 };
-samir_pal_t *pal_host_make(struct pal_host_cfg cfg);
-void         pal_host_free(samir_pal_t *p);
+ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
+void         pal_host_free(ibase_pal_t *p);
 
 /* Deterministic temp paths (fixed names; Rule 11). */
-#define RT_PATH_A      "/tmp/samir_rt_a.dbf"
-#define RT_PATH_B      "/tmp/samir_rt_b.dbf"
-#define RT_PATH_TMPL   "/tmp/samir_rt_tmpl.dbf"
-#define RT_PATH_MEMO   "/tmp/samir_rt_memo.dbf"
-#define RT_PATH_GOLD   "/tmp/samir_rt_gold.dbf"
+#define RT_PATH_A      "/tmp/ibase_rt_a.dbf"
+#define RT_PATH_B      "/tmp/ibase_rt_b.dbf"
+#define RT_PATH_TMPL   "/tmp/ibase_rt_tmpl.dbf"
+#define RT_PATH_MEMO   "/tmp/ibase_rt_memo.dbf"
+#define RT_PATH_GOLD   "/tmp/ibase_rt_gold.dbf"
 /* The file LEFT for the orchestrator's dbf_ref.py independence check. */
-#define RT_PATH_REF    "/tmp/samir_written.dbf"
+#define RT_PATH_REF    "/tmp/ibase_written.dbf"
 
 /* Fixed injected date for all written tables (Rule 11). 1985-10-30 = the
  * CLIENTS.DBF last-update date (dbf.md sec 2 worked example), so a golden cmp
@@ -170,7 +170,7 @@ static uint8_t *slurp(const char *path, long *len)
  * region lives at a different host address each run -- the bytes must still
  * match (the writer never serializes a pointer).
  * ============================================================ */
-static void build_det_table(samir_pal_t *pal, const char *path)
+static void build_det_table(ibase_pal_t *pal, const char *path)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -205,7 +205,7 @@ static void build_det_table(samir_pal_t *pal, const char *path)
 static void test_determinism(void)
 {
     struct pal_host_cfg cfg;
-    samir_pal_t *pal_a, *pal_b;
+    ibase_pal_t *pal_a, *pal_b;
     uint8_t *a = NULL, *b = NULL;
     long la = 0, lb = 0;
     char msg[256];
@@ -261,7 +261,7 @@ static void test_determinism(void)
  * descriptor RAM addr 0x0C..0x0F, work-area 0x14, reserved/flag bytes.
  * Ref: dbf.md sec 2 (header), sec 4 (descriptor + +1 term), sec 8.
  * ============================================================ */
-static void test_template(samir_pal_t *pal)
+static void test_template(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -357,7 +357,7 @@ static void test_template(samir_pal_t *pal)
  *
  * Build a table, flush, re-open with dbf_open, assert schema + record values.
  * ============================================================ */
-static void test_roundtrip_nomemo(samir_pal_t *pal)
+static void test_roundtrip_nomemo(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -492,7 +492,7 @@ static void test_roundtrip_nomemo(samir_pal_t *pal)
  * (xb_n) for the M field; the reader returns xb_m(raw,10) for block>0 and
  * xb_u() for block 0. We verify the M pointer text and has_memo.
  * ============================================================ */
-static void test_roundtrip_memo(samir_pal_t *pal)
+static void test_roundtrip_memo(ibase_pal_t *pal)
 {
     dbf_table *tbl = NULL;
     int rc;
@@ -599,7 +599,7 @@ static int desc_norm_byte(int off_in_desc)
     return 1;                                    /* everything else NORMALIZE */
 }
 
-static void test_golden_masked(samir_pal_t *pal, const char *base)
+static void test_golden_masked(ibase_pal_t *pal, const char *base)
 {
     char path[1024];
     dbf_table *gold = NULL, *mine = NULL;
@@ -728,7 +728,7 @@ static void test_golden_masked(samir_pal_t *pal, const char *base)
 /* ============================================================
  * Oracle 5: INDEPENDENCE BARRIER -- dbf_ref.py read-back (required system())
  *
- * The no-memo round-trip (oracle 3a) left a SAMIR-written file at RT_PATH_REF.
+ * The no-memo round-trip (oracle 3a) left a IBASE-written file at RT_PATH_REF.
  * If python3 + dbf_ref.py are available, shell out and gate on the exit code
  * (a non-zero exit = the independent reader rejected our bytes). If not
  * available, LOUD-skip and tell the orchestrator the exact command to run.
@@ -741,7 +741,7 @@ static void test_independence_barrier(void)
 
     if (!file_exists(RT_PATH_REF)) {
         oracle_failure(
-                "no SAMIR-written file at %s "
+                "no IBASE-written file at %s "
                 "(roundtrip-nomemo did not run)\n", RT_PATH_REF);
         return;
     }
@@ -776,13 +776,13 @@ static void test_independence_barrier(void)
             return;
         }
         CHECK(code == 0,
-              "independence: dbf_ref.py --records read back SAMIR file (exit 0)");
+              "independence: dbf_ref.py --records read back IBASE file (exit 0)");
         return;
     }
 #endif
     /* Fallback: treat a zero raw return as success. */
     CHECK(ret == 0,
-          "independence: dbf_ref.py --records read back SAMIR file (exit 0)");
+          "independence: dbf_ref.py --records read back IBASE file (exit 0)");
 }
 
 /* ============================================================
@@ -793,7 +793,7 @@ int main(int argc, char **argv)
 {
     const char *base = (argc > 1) ? argv[1] : "../dbase3-decomp";
     struct pal_host_cfg cfg;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
 
     /* Injected fixed date for all writers (Rule 11): 1985-10-30 (CLIENTS date,
      * so a date-inclusive golden cmp matches). Arena sized generously for the

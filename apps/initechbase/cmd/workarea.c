@@ -1,26 +1,26 @@
 /*
- * os/samir/cmd/workarea.c -- SAMIR (InitechBase) work-area model + interpreter
+ * os/ibase/cmd/workarea.c -- IBASE (InitechBase) work-area model + interpreter
  *                            foundation. Step S5.1 (Phase 5 convergence point).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
- * ONLY <stdint.h> and the samir/ engine headers. No libc, no int 0x21 -- every
+ * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL vtable carried by the env. Memory is
  * bump-allocated from the PAL arena (no malloc).
  *
  * This single translation unit implements BOTH:
- *   - os/samir/include/samir/workarea.h  (the 10-area model + USE/CLOSE/SELECT +
+ *   - os/ibase/include/ibase/workarea.h  (the 10-area model + USE/CLOSE/SELECT +
  *     the wa_resolve glue), and
- *   - os/samir/include/samir/interp.h    (the xb_interp handle + xb_interp_eval_str).
+ *   - os/ibase/include/ibase/interp.h    (the xb_interp handle + xb_interp_eval_str).
  * They are co-located because the interpreter handle simply wraps the wa_env +
  * the eval ctx; keeping them in one unit avoids exporting the internal layouts.
- * samir_do (S5.3) and samir_repl (S5.8) are DECLARED in interp.h but NOT defined
+ * ibase_do (S5.3) and ibase_repl (S5.8) are DECLARED in interp.h but NOT defined
  * here (deferred; the S5.1 oracle does not reference them).
  *
  * dBASE III PLUS 1.1 ONLY (plan Sec 2.C).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.1 contract + Sec 8.2.
- *   - os/samir/include/samir/{workarea.h,interp.h,dbf.h,dbt.h,ndx.h,eval.h,
+ *   - docs/plans/IBASE-implementation-plan.md S5.1 contract + Sec 8.2.
+ *   - os/ibase/include/ibase/{workarea.h,interp.h,dbf.h,dbt.h,ndx.h,eval.h,
  *     value.h,rt.h,pal.h} (every consumed contract).
  *   - HELP.DBS @SELECT (10 areas, A..J), @USE (ALIAS / INDEX list, first index
  *     = master).
@@ -28,19 +28,19 @@
  * ASCII-clean (Rule 12). Reproducible (Rule 11). Fail loud (Rule 2).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
 
-#include "samir/workarea.h"
-#include "samir/interp.h"
-#include "samir/dbf.h"
-#include "samir/dbt.h"
-#include "samir/ndx.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
-#include "samir/ovl.h"
+#include "ibase/workarea.h"
+#include "ibase/interp.h"
+#include "ibase/dbf.h"
+#include "ibase/dbt.h"
+#include "ibase/ndx.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
+#include "ibase/ovl.h"
 
 /* ===================================================================== */
 /* Internal layouts                                                       */
@@ -57,7 +57,7 @@
  * none). memo_buf is per-resolve scratch for a memo field's text.
  */
 struct work_area {
-    samir_pal_t *owner_pal;
+    ibase_pal_t *owner_pal;
     void *owned;
     char         filter[257];          /* Using III+ U5-229: per-area condition */
     char         relation[128];        /* existing SET RELATION intent, per area */
@@ -95,7 +95,7 @@ struct work_area {
 
 /* The whole interpreter environment: 10 areas + the selected area. */
 struct wa_env {
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     work_area    area[WA_NAREAS];
     xb_interp   *interp;
     int          deleted_on;          /* Programming III+ P10-18: global */
@@ -106,7 +106,7 @@ struct wa_env {
 
 /* The interpreter handle wraps the env + the eval ctx + the scratch arena. */
 struct xb_interp {
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     void        *mark;                 /* arena mark taken at make (for free) */
     wa_env      *env;
     xb_ctx       ctx;
@@ -305,13 +305,13 @@ static int wa_touch_record(work_area *wa)
 /* Environment lifecycle                                                  */
 /* ===================================================================== */
 
-wa_env *wa_env_make(samir_pal_t *pal)
+wa_env *wa_env_make(ibase_pal_t *pal)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     wa_env *env;
     int a;
 
-    if (pal == (samir_pal_t *)0)
+    if (pal == (ibase_pal_t *)0)
         return (wa_env *)0;
 
     env = (wa_env *)pal->alloc(pal, (uint32_t)sizeof(*env));
@@ -352,9 +352,9 @@ wa_env *wa_env_make(samir_pal_t *pal)
     return env;
 }
 
-samir_pal_t *wa_env_pal(const wa_env *env)
+ibase_pal_t *wa_env_pal(const wa_env *env)
 {
-    return env ? env->pal : (samir_pal_t *)0;
+    return env ? env->pal : (ibase_pal_t *)0;
 }
 
 /* ===================================================================== */
@@ -443,7 +443,7 @@ static int wa_open_impl(wa_env *env, int area, const char *name,
                         const char *alias, const wa_index_list *idx, int rw)
 {
     work_area *wa;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     int rc, i;
     char dbtpath[256];
     uint16_t reclen;
@@ -459,7 +459,7 @@ static int wa_open_impl(wa_env *env, int area, const char *name,
     if (wa->open)
         return -WA_ERR_OCCUPIED;       /* caller must CLOSE first (fail loud) */
 
-#ifndef SAMIR_MUTATE_DUPLICATE_OPEN
+#ifndef IBASE_MUTATE_DUPLICATE_OPEN
     if(wa_name_is_open(env,name,area)) return -WA_ERR_ALREADY_OPEN;
 #endif
     pal = env->pal;
@@ -580,7 +580,7 @@ int wa_set_open_rw(wa_env *env, int area, const char *name,
  */
 static int wa_alloc_caches(wa_env *env, work_area *wa, uint16_t reclen)
 {
-    samir_pal_t *pal = env->pal;
+    ibase_pal_t *pal = env->pal;
     wa->owner_pal=pal;
     wa->rec_cache = (xb_val *)pal_owned_alloc(pal,&wa->owned,
         (uint32_t)sizeof(xb_val) * (uint32_t)(wa->nfields > 0 ? wa->nfields : 1));
@@ -613,7 +613,7 @@ int wa_adopt_table(wa_env *env, int area, dbf_table *tbl, dbt_file *memo,
         return -WA_ERR_OCCUPIED;       /* caller must CLOSE first (fail loud) */
 
     /* Adopt the codec handles directly (the area takes ownership). */
-    SAMIR_RETAIN(tbl); SAMIR_RETAIN(memo);
+    IBASE_RETAIN(tbl); IBASE_RETAIN(memo);
     wa->tbl     = tbl;
     wa->memo    = memo;
     wa->nrec    = dbf_nrec(tbl);
@@ -634,7 +634,7 @@ int wa_adopt_table(wa_env *env, int area, dbf_table *tbl, dbt_file *memo,
     wa->nidx = 0;
     if (idx && nidx > 0) {
         for (i = 0; i < nidx; i++) {
-            SAMIR_RETAIN(idx[i]);
+            IBASE_RETAIN(idx[i]);
             wa->idx[i] = idx[i];
             wa->nidx = i + 1;
         }
@@ -779,7 +779,7 @@ int wa_select_alias(wa_env *env, const char *alias)
     return -WA_ERR_NO_ALIAS;
 }
 
-SAMIR_OVL_TEXT(set) int wa_set_order(wa_env *env, int area, int order)
+IBASE_OVL_TEXT(set) int wa_set_order(wa_env *env, int area, int order)
 {
     work_area *wa;
     if (!env || area < 1 || area > WA_NAREAS)
@@ -835,7 +835,7 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
 
     /* Using III+ U5-190: foreign fields do not move the selected work area
      * or either record pointer. SF-alias is minted against real III+ 1.1. */
-#ifndef SAMIR_FNS_MUTANT_alias
+#ifndef IBASE_FNS_MUTANT_alias
     {
         uint16_t j;
         for(j=0;j+1<len;j++)if(name[j]=='-' && name[j+1]=='>') {
@@ -1074,7 +1074,7 @@ static int wac_dbf_name(void *u, char *buf, uint32_t cap)
 static int wac_file_exists(void *u, const char *name)
 {
     wa_env *env = (wa_env *)u;
-    samir_pal_t *pal;
+    ibase_pal_t *pal;
     pal_fd fd;
     if (!env || !name)
         return 0;
@@ -1083,7 +1083,7 @@ static int wac_file_exists(void *u, const char *name)
         return 0;
     /* FILE() tests existence via the PAL only (Law 3: no direct OS access).
      * Open read-only; success => exists; close immediately. The engine never
-     * issues int 0x21 -- pal_milton.c maps this to INT 21h AH=3Dh on the
+     * issues int 0x21 -- pal_dos.c maps this to INT 21h AH=3Dh on the
      * artifact, pal_host.c to fopen on the host. */
     fd = pal->open(pal, name, PAL_RD);
     if (fd < 0)
@@ -1156,11 +1156,11 @@ void wa_bind_ctx(wa_env *env, xb_ctx *ctx)
 {
     if (!ctx)
         return;
-    samir_bind_resolver(ctx,wa_resolve,env);
+    ibase_bind_resolver(ctx,wa_resolve,env);
     /* Wire the DB-cursor hook so RECNO/EOF/FIELD/DBF/... resolve against the
      * selected area (S3.6b). fn_builtins.c reaches these ONLY through the vtable;
      * NULL dbcur (a pure-expression ctx with no env) makes them fail loud. */
-    samir_bind_cursor(ctx,&wa_dbcursor_vtable,env);
+    ibase_bind_cursor(ctx,&wa_dbcursor_vtable,env);
     ctx->record_size = wac_record_size;
 }
 
@@ -1307,7 +1307,7 @@ int wa_attach_index(wa_env *env,int area,ndx_index *ix)
     if(!env || area<1 || area>WA_NAREAS || !ix) return -WA_ERR_BAD_ORDER;
     wa=&env->area[area-1];
     if(wa->nidx>=NDX_PER_AREA) return -WA_ERR_BAD_ORDER;
-    SAMIR_RETAIN(ix);
+    IBASE_RETAIN(ix);
     wa->idx[wa->nidx++]=ix;wa->master=wa->nidx;
     return WA_OK;
 }
@@ -1318,9 +1318,9 @@ int wa_get_deleted(const wa_env *env) { return env?env->deleted_on:0; }
 /* Interpreter handle (interp.h)                                          */
 /* ===================================================================== */
 
-xb_interp *xb_interp_make(samir_pal_t *pal)
+xb_interp *xb_interp_make(ibase_pal_t *pal)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     xb_interp *ip;
     void *mark;
     uint8_t yy = 0, mm = 1, dd = 1;
@@ -1392,7 +1392,7 @@ void xb_interp_free(xb_interp *ip)
 
 void xb_interp_set_teardown(xb_interp *ip, void (*fn)(xb_interp *))
 {
-    SAMIR_RETAIN(fn);
+    IBASE_RETAIN(fn);
     if (ip) ip->teardown = fn;
 }
 
@@ -1406,9 +1406,9 @@ xb_ctx *xb_interp_ctx(xb_interp *ip)
     return ip ? &ip->ctx : (xb_ctx *)0;
 }
 
-samir_pal_t *xb_interp_pal(xb_interp *ip)
+ibase_pal_t *xb_interp_pal(xb_interp *ip)
 {
-    return ip ? ip->pal : (samir_pal_t *)0;
+    return ip ? ip->pal : (ibase_pal_t *)0;
 }
 
 /* Bounded pools for one expression (sized for S5.1..S5.8 expression shapes). */
@@ -1455,14 +1455,14 @@ int xb_interp_eval_str(xb_interp *ip, const char *expr, uint32_t len,
  *   ? 1 ==  -> 10   ? 1 != 2 / ? 5 % 2 / ? 1 @ 2 -> 36   ? "abc -> 35
  *   ? (1    -> 8    ? 1 + / ? ) / ? () / X =      -> 10   ? 1 2   -> 36
  * Pool/buffer exhaustion is the evaluator's work area (#67). */
-#ifndef SAMIR_FNS_MUTANT_errors
+#ifndef IBASE_FNS_MUTANT_errors
 static const uint8_t g_lex_msg[7]   = {10, 10, 36, 36, 35, 36, 67};
 static const uint8_t g_parse_msg[6] = {10, 10, 8, 67, 10, 36};
 #endif
 int xb_interp_eval(xb_interp *ip, const char *expr, xb_val *out, int *ec)
 {
     int e = 0, rc = xb_interp_eval_str(ip, expr, rt_strlen(expr), out, &e);
-#ifndef SAMIR_FNS_MUTANT_errors
+#ifndef IBASE_FNS_MUTANT_errors
     if (rc == -INTERP_ERR_LEX) e = g_lex_msg[(unsigned)e < 7u ? e : 0];
     else if (rc == -INTERP_ERR_PARSE) e = g_parse_msg[(unsigned)e < 6u ? e : 0];
 #endif
@@ -1518,14 +1518,14 @@ int wa_visible(wa_env *env, int area)
     int rc, ec=0, saved=env->cur;
     env->view_error=0;
     if (wa->eof || !wa->nrec) return 0;
-#ifndef SAMIR_MUTATE_DELETED_VIEW
+#ifndef IBASE_MUTATE_DELETED_VIEW
     if (env->deleted_on && !env->include_deleted) {
         rc=wa_touch_record(wa);
         if(rc) { env->view_error=29; return rc; }
         if(wa->cache_deleted) return 0;
     }
 #endif
-#ifndef SAMIR_MUTATE_FILTER_VIEW
+#ifndef IBASE_MUTATE_FILTER_VIEW
     if (wa->filter[0]) {
         env->cur=area-1;
         rc=xb_interp_eval_str(env->interp, wa->filter, rt_strlen(wa->filter), &v, &ec);
@@ -1574,12 +1574,12 @@ int xb_interp_console_visible(xb_interp *ip)
 }
 void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
 {
-#ifdef SAMIR_FNS_MUTANT_console
+#ifdef IBASE_FNS_MUTANT_console
     /* SF-console bite: CONSOLE OFF wrongly silences ALTERNATE too; the real
      * III+ capture keeps "HIDDEN" in the alternate file (fns-mint/console). */
     if(!xb_interp_console_visible(ip)) return;
 #endif
-    if(ip) samir_ovl_validate_ctx(&ip->ctx);
+    if(ip) ibase_ovl_validate_ctx(&ip->ctx);
     if(ip && ip->ctx.mirror_output && n)
         ip->ctx.mirror_output(ip->ctx.mirror_user,s,n);
     /* SET PRINT ON: console bytes also reach the raw LPT stream, even with
@@ -1600,7 +1600,7 @@ void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
         if(from<n) ip->pal->printout(ip->pal,s+from,n-from);
         rt_cursor_advance(&ip->ctx.printer_row,&ip->ctx.printer_col,s,n,0);
     }
-#ifndef SAMIR_MUTATE_CONSOLE
+#ifndef IBASE_MUTATE_CONSOLE
     if(!xb_interp_console_visible(ip)) return;
 #endif
     /* system-and-database-functions.md ROW/COL: ? and ?? advance the screen.
@@ -1609,7 +1609,7 @@ void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
     if(ip && ip->pal->conout && n) ip->pal->conout(ip->pal,s,n);
 }
 
-void samir_status_refresh(xb_interp *ip)
+void ibase_status_refresh(xb_interp *ip)
 {
     wa_env *env;dbf_table *tbl;int area;
     if(!ip || !ip->pal->status) return;
@@ -1619,7 +1619,7 @@ void samir_status_refresh(xb_interp *ip)
 }
 int32_t xb_interp_read_line(xb_interp *ip,char *buf,uint32_t cap)
 {
-    samir_pal_t *p=xb_interp_pal(ip);
+    ibase_pal_t *p=xb_interp_pal(ip);
     if(!p) return -1;
     if(!xb_interp_console_visible(ip) && p->conin_line_noecho)
         return p->conin_line_noecho(p,buf,cap);

@@ -1,0 +1,295 @@
+/*
+ * os/ibase/include/ibase/pal.h -- IBASE (InitechBase) Platform Abstraction Layer.
+ *
+ * THE ARTIFACT (CLAUDE.md Law 3): this is the contract the shipped, freestanding
+ * IBASE engine compiles against. It is the engine's ONLY OS surface -- engine
+ * code (core/, fs/, cmd/, ui/) touches the operating system through this vtable
+ * and NOTHING ELSE. The engine NEVER issues `int 0x21` directly. Two concrete
+ * bindings implement it:
+ *   - pal_host.c   (factory/oracle): libc stdio + an injectable/fixed clock.
+ *   - pal_dos.c (artifact):       InitechDOS INT 21h handle API + CON + arena.
+ * Consequence (the operator's portability requirement): an InitechDOS drift or
+ * revert touches pal_dos.c and NOTHING else -- the engine + every host oracle
+ * are insulated, and Phases 0-7 are fully host-developable/gradable.
+ *
+ * Freestanding-legal (CLAUDE.md Law 3 / DEC-04): no libc includes. Depends ONLY
+ * on <stdint.h> -- the exact int-type convention the kernel uses (see
+ * os/dos/blockdev.h). Do NOT introduce custom uintN typedefs here.
+ *
+ * Ref (Law 1):
+ *   - docs/plans/IBASE-implementation-plan.md Sec 8.1 (this contract sketch) +
+ *     step S0.1; the seek=filesize idiom + the terminal extension slots.
+ *   - docs/adr/ADR-0008-IBASE-InitechBase-Architecture.md DEC-02 (the PAL is the
+ *     ONLY OS surface; the DEC-02 revision adding conin_char/gotoxy/set_attr and
+ *     fixing file-size = seek(fd,0,PAL_SEEK_END)).
+ *   - The InitechDOS INT 21h handle API named in DEC-02
+ *     (3Dh/3Eh/3Fh/40h/42h/3Ch/41h/56h, 2Ah, CON, 07h, 48h); the calling
+ *     convention is recorded in spec/int21h_calling_convention.json.
+ *
+ * ASCII-clean (Rule 12). No timestamps / host paths / nondeterminism (Rule 11).
+ * Fail loud (Rule 2): every fd-returning / int-returning slot reports failure as
+ * a negative value; a binding MUST NOT report a short/garbage transfer as success.
+ */
+#ifndef INITECH_IBASE_PAL_H
+#define INITECH_IBASE_PAL_H
+
+#include <stdint.h>
+
+/*
+ * A platform file handle. >= 0 is a valid open handle; a negative return is
+ * -(pal_err) (e.g. -PAL_ENOENT). Backed by an InitechDOS file handle on the
+ * artifact (INT 21h AH=3Dh/3Ch return the handle in AX) and by an index into a
+ * libc FILE* table on the host.
+ */
+typedef int32_t pal_fd;
+
+/*
+ * open() mode flags (bitwise OR). Map onto the InitechDOS open/create calls:
+ *   PAL_RD / PAL_WR / PAL_RDWR    -> INT 21h AH=3Dh OPEN, AL access mode
+ *                                    (0=read, 1=write, 2=read/write).
+ *   PAL_CREATE                    -> INT 21h AH=3Ch CREAT (create/truncate to 0)
+ *                                    when the file is absent or PAL_TRUNC is set.
+ *   PAL_TRUNC                     -> truncate an existing file to length 0
+ *                                    (AH=3Ch on InitechDOS; O_TRUNC on the host).
+ */
+enum {
+	PAL_RD     = 0,
+	PAL_WR     = 1,
+	PAL_RDWR   = 2,
+	PAL_CREATE = 4,
+	PAL_TRUNC  = 8
+};
+
+/*
+ * seek() whence values. Map onto INT 21h AH=42h LSEEK AL sub-function:
+ *   PAL_SEEK_SET -> AL=0 (from start)
+ *   PAL_SEEK_CUR -> AL=1 (from current position)
+ *   PAL_SEEK_END -> AL=2 (from end of file)
+ * The file-SIZE primitive is seek(fd, 0, PAL_SEEK_END): it returns the new
+ * absolute position, which at offset 0 from end IS the file length. There is no
+ * separate "filesize" slot -- this is the documented idiom (ADR-0008 DEC-02 rev;
+ * InitechDOS do_lseek). dbf_open's truncation-invariant check (Rule 2) and FILE()
+ * both depend on it.
+ */
+enum {
+	PAL_SEEK_SET = 0,
+	PAL_SEEK_CUR = 1,
+	PAL_SEEK_END = 2
+};
+
+/*
+ * PAL error codes. Returned negated from fd/int-returning slots (return
+ * -PAL_ENOENT, etc.). Values chosen to read naturally against DOS/errno
+ * conventions; the engine compares symbolically, never on the magnitude.
+ */
+typedef enum {
+	PAL_OK     = 0,    /* success */
+	PAL_ENOENT = 2,    /* no such file / path not found */
+	PAL_EACCES = 5,    /* access denied / bad handle */
+	PAL_ENOSPC = 28,   /* device full (no free space) */
+	PAL_EIO    = 29    /* I/O error (short read/write, device fault) */
+} pal_err;
+
+/*
+ * The PAL vtable. An engine routine receives a ibase_pal_t* and calls only
+ * through these slots. The first argument of every slot is the vtable instance
+ * itself (so a binding can carry its own state behind it -- e.g. the host
+ * FILE* table + injected clock, or the InitechDOS arena base).
+ */
+typedef struct ibase_pal ibase_pal_t;
+
+struct ibase_pal {
+	/* ---- byte file-I/O (InitechDOS: INT 21h handle API) ---- */
+
+	/* open: open or create `name` per `mode` (PAL_RD/WR/RDWR | CREATE | TRUNC).
+	 * Returns a pal_fd >= 0, or -(pal_err) on failure.
+	 * InitechDOS: AH=3Dh OPEN (existing) / AH=3Ch CREAT (create/truncate). */
+	pal_fd  (*open)  (ibase_pal_t *, const char *name, int mode);
+
+	/* close: release an open handle. Returns 0 (PAL_OK) or -(pal_err).
+	 * InitechDOS: AH=3Eh CLOSE. */
+	int     (*close) (ibase_pal_t *, pal_fd fd);
+
+	/* read: read up to `n` bytes into `buf`. Returns the byte count actually
+	 * read (>=0; 0 = EOF), or -(pal_err). A binding MUST NOT report a short
+	 * read as a full one (Rule 2). InitechDOS: AH=3Fh READ. */
+	int32_t (*read)  (ibase_pal_t *, pal_fd fd, void *buf, uint32_t n);
+
+	/* write: write `n` bytes from `buf`. Returns the byte count actually
+	 * written (>=0), or -(pal_err); a short write (device full) returns < n
+	 * and the engine must treat it as PAL_ENOSPC. InitechDOS: AH=40h WRITE. */
+	int32_t (*write) (ibase_pal_t *, pal_fd fd, const void *buf, uint32_t n);
+
+	/* seek: reposition `fd` to `off` relative to `whence`. Returns the new
+	 * absolute position (>=0), or -(pal_err). seek(fd,0,PAL_SEEK_END) IS the
+	 * file-size primitive (see PAL_SEEK_END above). InitechDOS: AH=42h LSEEK. */
+	int32_t (*seek)  (ibase_pal_t *, pal_fd fd, int32_t off, int whence);
+
+	/* remove: delete `name`. Returns 0 or -(pal_err). InitechDOS: AH=41h UNLINK. */
+	int     (*remove)(ibase_pal_t *, const char *name);
+
+	/* rename: rename `from` to `to`, SAME DIRECTORY ONLY (matches dBASE usage;
+	 * ADR-0008 DEC-02 known constraint). Returns 0 or -(pal_err).
+	 * InitechDOS: AH=56h RENAME. */
+	int     (*rename)(ibase_pal_t *, const char *from, const char *to);
+
+	/* ---- cooked console (the dot-prompt REPL + LIST/DISPLAY) ---- */
+
+	/* conout: write `n` bytes of `s` to the console (cooked output, no return
+	 * code -- console writes do not fail in-universe). InitechDOS: CON via AH=40h
+	 * on handle 1 (stdout). */
+	void    (*conout)(ibase_pal_t *, const char *s, uint32_t n);
+
+	/* conin_line: read one cooked (line-edited, echoed) input line into `buf`
+	 * of capacity `cap`. Returns the line length (>=0, no trailing newline), or
+	 * < 0 on EOF/error. InitechDOS: cooked line read on CON (handle 0, AH=3Fh). */
+	int32_t (*conin_line)(ibase_pal_t *, char *buf, uint32_t cap);
+
+	/* ---- terminal extension: @SAY/GET/READ + WAIT/INKEY (S8.4) ----
+	 * Part of the RATIFIED contract (ADR-0008 DEC-02 revision) so that ui/
+	 * (say_get.c / read.c / browse.c) does NOT re-open pal.h when S8.4 lands.
+	 * The Phase-0 host oracles exercise only the file / cooked-console / clock /
+	 * arena core above; these three are stubbed until the form layer. */
+
+	/* conin_char: read a single raw keypress, NO echo. Returns the key (>=0),
+	 * or < 0 on EOF/error. InitechDOS: AH=07h direct character input without echo
+	 * (do_conin_raw, os/dos/int21.c). */
+	int32_t (*conin_char)(ibase_pal_t *);
+
+	/* gotoxy: position the text cursor at (row, col), 0-based. This is an OS
+	 * console primitive, NOT an INT 21h call -- on the artifact it is backed by
+	 * the LFB/FLAIR text console, not DOS. */
+	void    (*gotoxy)(ibase_pal_t *, uint8_t row, uint8_t col);
+
+	/* set_attr: set the text attribute (foreground/background) for subsequent
+	 * conout writes; clear-to-end-of-line is expressed via conout. Console
+	 * primitive, NOT INT 21h. */
+	void    (*set_attr)(ibase_pal_t *, uint8_t attr);
+
+	/* ---- clock: INJECTABLE for reproducibility (Rule 11) ---- */
+
+	/* today: return the current date as packed two-digit YY (00-99 = 1900s/2000s
+	 * per CENTURY handling above the PAL), 1-based MM, 1-based DD. INJECTABLE so
+	 * goldens with known dates bite deterministically; on the artifact it is
+	 * InitechDOS INT 21h AH=2Ah GET DATE, on the host a fixed/configured date. */
+	void    (*today) (ibase_pal_t *, uint8_t *yy, uint8_t *mm, uint8_t *dd);
+
+	/* ---- memory: fixed bump arena (no malloc on InitechDOS) ---- */
+
+	/* alloc: bump-allocate `n` bytes from the arena. Returns a pointer, or NULL
+	 * on exhaustion (the engine fails loud on NULL). On the artifact the arena
+	 * is one large INT 21h AH=48h ALLOCATE block obtained at startup
+	 * (segment<<4 -> flat); on the host it is a fixed-size backing buffer. */
+	void   *(*alloc) (ibase_pal_t *, uint32_t n);
+
+	/* reset: unwind the bump arena to a previously returned `mark` (a pointer
+	 * from a prior alloc, or NULL to reset to the base). Frees everything
+	 * allocated after `mark`. No per-object free exists. */
+	void    (*reset) (ibase_pal_t *, void *mark);
+
+    /* Persistent storage is disjoint from scratch alloc/reset. acquire/release
+     * allow tables/memos/indexes to close in any order. Authored allocator
+     * policy, no local reference; ten independent work areas are III+ canon. */
+    void *(*acquire)(ibase_pal_t *, uint32_t n);
+    void (*release)(ibase_pal_t *, void *memory);
+    /* Optional text-terminal bindings. STATUS reserves row 22 and guidance 23
+     * (Using III+ U5-16/259). NULL on stream-only PALs; never write ANSI to files.
+     * Hidden cooked input implements CONSOLE OFF's no-echo program input. */
+    void (*status)(ibase_pal_t *,int,const char *,uint32_t,uint32_t);
+    int32_t (*conin_line_noecho)(ibase_pal_t *,char *,uint32_t);
+    /* Real III+ at-dot/at-enter: prepare the bottom-row dot prompt; command
+     * input echoes CR only, leaving LF/scroll to the next prompt. Optional
+     * on stream PALs, where conin_line retains the transcript contract. */
+    void (*prompt)(ibase_pal_t *,int scoreboard,int cleared);
+    int32_t (*conin_command)(ibase_pal_t *,char *,uint32_t);
+
+    /* ---- command processor: dBASE III PLUS RUN / ! (initech-n8q8) ----
+     * exec: hand `cmdline` VERBATIM to a secondary command processor and
+     * return once it exits -- "loads a second copy of COMMAND.COM and passes
+     * <system command> to it" (HELP.DBS _RUN/!; dbase3-decomp
+     * specs/commands/programming-and-io.md Sec 16). Redirection (`> file`)
+     * is the PROCESSOR's job, never the engine's. Returns the processor's
+     * exit code (>= 0), or -(pal_err) when it could not be loaded (the
+     * engine then raises III+ error 92 "Unable to load COMMAND.COM.",
+     * spec/ibase/dbase_msg_codes.tsv). InitechDOS: INT 21h AH=4Bh EXEC of
+     * COMSPEC with the tail " /C <cmdline>", then AH=4Dh. Host: system().
+     * NULL on a PAL with no processor (the engine fails loud the same way). */
+    int32_t (*exec)(ibase_pal_t *, const char *cmdline);
+
+    /* ---- program interruption: SET ESCAPE / ON ESCAPE (initech-39e5) ----
+     * conin_escape: NON-BLOCKING. Returns 1 when the operator has pressed Esc
+     * (the key is consumed), else 0. Any other key found waiting is NOT lost:
+     * the binding keeps it, in order, for the next conin_char / conin_line
+     * (III+ type-ahead, Using III+ U5-220 SET ESCAPE / U5-231 SET TYPEAHEAD).
+     * A binding whose standard input is not the console returns 0 without
+     * reading (a redirected stream is commands, not keystrokes). NULL on a PAL
+     * with no keyboard (Esc is then never seen). InitechDOS: AH=0Bh input status
+     * then AH=07h raw read (os/dos/int21.c do_input_status/do_conin_raw).
+     * curdrive: the default drive letter ('A'..'Z') for filename qualification
+     * and the interrupt trace "Called from - C:ESC.prg" (mint ibasectl
+     * ESC.TXT), or < 0 if the PAL has no drive notion (omit the drive).
+     * InitechDOS: INT 21h AH=19h; host: deterministic C:. */
+    int     (*conin_escape)(ibase_pal_t *);
+    int     (*curdrive)(ibase_pal_t *);
+
+	/* getenv: copy a DOS environment value into `buf`, returning its length,
+	 * or -PAL_ENOENT when unset (and -PAL_EIO if it will not fit). InitechDOS:
+	 * INT 21h AH=62h GET PSP, then PSP:2Ch names the NUL-delimited environment
+	 * block. Host binding supplies deterministic fixture values. */
+	int32_t (*getenv)(ibase_pal_t *, const char *name, char *buf, uint32_t cap);
+
+    /* OS() version: low byte = major, high byte = minor (decimal).
+     * InitechDOS: INT 21h AH=30h GETVER, AL=3/AH=30 (3.30).
+     * Ref: ADR-0003 Appendix A/DEC-12; DEC-04a flat ABI and
+     * spec/int21h_calling_convention.json AH=30h. Host pins 0x1e03. */
+    uint16_t (*os_version)(ibase_pal_t *);
+
+    /* Free bytes on the default disk, for III+ DISKSPACE() (HELP.DBS:1257).
+     * Returns PAL_OK and writes *bytes, or -(pal_err) on failure.
+     * Ref: ADR-0003 Appendix A; IBM DOS 3.30 Technical Reference INT 21h
+     * AH=36h, DL=0: AX=sectors/cluster, BX=free clusters, CX=bytes/sector;
+     * AX=FFFFh means invalid drive. Host returns a fixed value (Rule 11). */
+    int     (*diskspace)(ibase_pal_t *, uint32_t *bytes);
+
+    /* Nonblocking keyboard FIFO poll: -1 if empty, 0..255 for an IBM
+     * character, 256|scan for a DOS extended key. Never reads command-file
+     * stdin. InitechDOS: INT 21h AH=0Bh status, AH=07h direct character input
+     * without echo (unfiltered; no Ctrl-C check),
+     * ADR-0003 Appendix A and DEC-04a flat ABI; IBM DOS 3.30 Technical
+     * Reference, these function entries. Host: fixed empty queue (Rule 11).
+     * INKEY's III+ control-key translation belongs to the engine. */
+    int32_t (*conin_poll)(ibase_pal_t *);
+
+    /* time: return hour (0-23), minute and second (0-59). Host: fixed
+     * 12:34:56. InitechDOS: IBM DOS 3.30 Technical Reference, INT 21h AH=2Ch
+     * GET TIME (CH=hour, CL=minute, DH=second; hundredths are discarded).
+     * Append PAL extensions so existing positional slots keep their offsets. */
+    void    (*time)(ibase_pal_t *, uint8_t *hour, uint8_t *minute, uint8_t *second);
+
+    /* iscolor: nonzero for a colour display, zero for monochrome, independent
+     * of SET COLOR. Ref: HELP.DBS line 1270; PRD Sec 5 / hardware.json video.
+     * InitechDOS's boot selects colour via INT 10h AX=4F02h or AX=0013h
+     * (os/boot/io_sys.asm); the protected-mode PAL reports that invariant
+     * without a BIOS call. Host: fixed colour capability (Rule 11). */
+    int     (*iscolor)(ibase_pal_t *);
+
+    /* Positioned screen output bypasses stdout and SET ALTERNATE.
+     * InitechDOS: INT 21h AH=3Dh open CON, AH=40h ANSI cursor + text, AH=3Eh.
+     * BIOS INT 10h cannot be used in InitechDOS protected mode (idt.c).
+     * Host: deterministic memory cursor and discarded screen bytes. */
+    int (*say_screen)(ibase_pal_t *,uint8_t,uint8_t,const char *,uint32_t);
+    /* Printer bytes: InitechDOS INT 21h AH=05h, DL=byte (int21.c do_aux_prn).
+     * No busy wait when unbound. Host discards deterministically. */
+    int (*printout)(ibase_pal_t *,const char *,uint32_t);
+    /* Screen cells for @...TO / @...CLEAR / CLEAR: n bytes at (row,col), never
+     * wrapping or scrolling, so (24,79) is writable; ends with the cursor at
+     * (row,col+n) or the last column. n == 0 only positions the cursor. InitechDOS:
+     * CON with ANSI.SYS ESC[=7l (IBM DOS 3.30 TR 80X0945 p. 3-16, Reset Mode).
+     * Host: discarded deterministically. */
+    int (*paint)(ibase_pal_t *,uint8_t,uint8_t,const char *,uint32_t);
+};
+
+/* Owned buffer chains: reclaim ONLY this codec's allocations. */
+void *pal_owned_alloc(ibase_pal_t *pal, void **owner, uint32_t n);
+void pal_owned_free(ibase_pal_t *pal, void **owner);
+#endif /* INITECH_IBASE_PAL_H */

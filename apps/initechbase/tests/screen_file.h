@@ -1,4 +1,4 @@
-/* Locked W4.0 screen format; PRD 6.6, samirctl-mint/scrdump.asm,
+/* Locked W4.0 screen format; PRD 6.6, ibasectl-mint/scrdump.asm,
  * spec/tsr_contract.h: 2000 char/attribute pairs, row/column bytes. */
 #ifndef SCREEN_FILE_H
 #define SCREEN_FILE_H
