@@ -1,3 +1,5 @@
 # Built source                         Working-volume path
 build/apps/initech123/123.EXE           APPS/123.EXE
 build/apps/initech123/123.MNU           APPS/123.MNU
+build/apps/initechbase/INITBASE.EXE     APPS/INITBASE.EXE
+build/apps/initechbase/INITBASE.OVL     APPS/INITBASE.OVL

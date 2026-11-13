@@ -1,0 +1,21 @@
+
+
+cd apps
+initbase
+use parts
+list
+do values
+go 1
+replace code with zcode
+append blank
+replace code with xcode
+replace qty with 999
+go 2
+delete
+go 1
+use base
+do idxtest
+use invoice
+do y2kacct
+quit
+echo initechbasesmokecomplete

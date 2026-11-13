@@ -104,8 +104,8 @@
  * independently reclaimed codec heap. Allocator policy is authored, no local
  * reference. Since initech-airx (REPORT FORM grew the image) only 30 KiB come
  * from AH=48h (2304 -> 1920 paragraphs): the last 6 KiB of the owned heap is a
- * second region in the program's own 64 KiB BSS reserve, above __bss_end and
- * below the arena base the loader computes (memory_map.h PROGRAM_BSS_RESERVE),
+ * second region in the program's extended runtime reserve, above __bss_end and
+ * below the arena base the extended loader computes from reserve_bytes,
  * so the capacities are unchanged. ibase.ld asserts both regions fit.
  * Scratch reset cannot reclaim a live table/memo/index (audit L003).
  * Ref: spec/memory_map.h PROGRAM_BSS_RESERVE / ENV_BLOCK; ADR-0009 DEC-04.

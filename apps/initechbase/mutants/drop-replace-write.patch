@@ -1,0 +1,12 @@
+# test: test_interp_mutate
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -556,7 +556,7 @@
+             return rc;
+ 
+         /* write the field (assignment-coercion happens in dbf_replace). */
+-        rc = dbf_replace(tbl, recno, field_idx, &v);
++        rc = DBF_OK; /* Drop REPLACE persistence. */
+         if (rc != DBF_OK) {
+             if (rc == -DBF_ERR_MISMATCH) { if (ec) *ec = XBEE_MISMATCH; }
+             else if (rc == -DBF_ERR_IO)  { if (ec) *ec = M_MSG_READONLY; }

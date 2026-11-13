@@ -23,10 +23,11 @@
  *                              overlay) -> each one goes to INITBASE.OVL
  *   [__bss_start, __bss_end)   .bss, zeroed by ibase_crt0
  *   [_ibase_heap_tail, +3952)  the PAL heap's first region
- *   ... up to load_end + 64 KiB: the loader's BSS reserve; the AH=48h arena
+ *   ... up to load_end + IBASE_DECLARED_RESERVE: the loader's runtime reserve;
+ *   the AH=48h arena
  *   (the rest of the PAL heap, os/ibase/pal/pal_dos.c) starts above it.
  * The slot and .bss are NOLOAD: they live in the BSS reserve that the loader
- * keeps free above the module (spec/ibase/memory_contract.h).
+ * keeps free above the module (include/ibase/memory_contract.h).
  *
  * Section discipline (os/ibase/include/ibase/ovl.h): overlay code is
  * ".text.0ovl_<name>", its jump tables ".rodata.0ovl_<name>", its slot header

@@ -50,13 +50,11 @@ overlay jump tables in their overlay sections. The default C ABI replaces the
 old register/callee-pop convention coherently across all objects; the assembly
 entry calls only a no-argument C function and INT 21h uses explicit registers.
 
-`make package` attempts the real resident/overlay ELF, pack and MZ wrapper.
-It fails at the reserve assertion described under Known blockers. All 23 target
-objects and the packaging tools build; no valid ELF or EXE/OVL pair is claimed.
-The linker map is retained under target/link.map on failure. No size-squeezing
-flags or reserve increases are introduced. Overlay literal/header/relocation
-checks run in tier 0; `make pair-test EXE=/absolute/file.EXE` runs all 50
-checks against a supplied pair. Grading the new pair waits for packaging.
+`make` (or `make package`) links and packages INITBASE.EXE and INITBASE.OVL.
+The resident module is 107744 bytes (792 relocations); the EXE is 110976 bytes
+and the overlay is 39424 bytes. The independent factory/mz/mzcheck accepts the
+container, and `make pair-test EXE=/absolute/file.EXE` checks all 50 pair
+properties. No size-squeezing flags are used. The linker map is in target/link.map.
 
 The application overlay is separate from the kernel's graphical overlay.
 It was introduced for space limits; real dBASE also uses overlays, but the
@@ -78,16 +76,18 @@ include/ibase/memory_contract.h: the generator supplies explicit --extended,
 --reserve, --minimum-heap and --minalloc arguments to the generic mzlink.
 There are no SDK or Toolbox dependencies; this is an INT 21h DOS application.
 
-## Known blockers
+## Loader reserve
 
-The current plain-flags link needs 65616 bytes after the 107744-byte resident
-module: a 13968-byte overlay slot, 16 bytes of BSS alignment, 47680 bytes of BSS,
-and a 3952-byte PAL heap region. These are intentional runtime allocations,
-not misplaced file sections. IBASE_LOADER_RESERVE is 65536u in
-include/ibase/memory_contract.h, leaving an 80-byte shortfall. The host generator
-tools/ibase_memory_ld.c exports it as IBASE_DECLARED_RESERVE. boot/ibase.ld
-enforces IBASE_REQUIRED_RESERVE <= __ibase_link_reserve at build time; package
-prints the required and declared byte counts and fails before producing a pair.
+The plain-flags link needs 65616 bytes after the resident module: a 13968-byte
+overlay slot, 16 bytes of BSS alignment, 47680 bytes of BSS, and a 3952-byte PAL
+heap region. These are runtime allocations, absent from the resident payload.
+App policy now reserves a module-sized tail: IBASE_LOADER_RESERVE follows
+INITECHMZ_EXT_MODULE_MAX (262144 bytes), leaving 196528 bytes of tail headroom.
+This preserves the existing PAL allocation sizes and leaves 1657616 usable bytes
+in the loader arena, 1624704 above the declared 32912-byte minimum. The host
+generator supplies the same declaration to the linker and MZ wrapper. The
+linker checks the tail extent, module ceiling, guard and minimum heap together;
+the independent mzcheck separately validates the descriptor and relocations.
 
 This reserve protects the overlay/BSS/PAL tail from the native AH=48h heap
 above it at runtime. It is not the unrelated 64 KiB LOAD_STAGING_MAX buffer or
@@ -98,13 +98,11 @@ places arena_base/reserve_end at ALIGN(EXT_APP_BASE + module length + declared
 reserve, 16), then checks the guard and minimum heap. It cannot infer the app's
 BSS extent. With 65536 declared here, the last 80 bytes would overlap that heap.
 
-No kernel-side change is needed to lift this blocker: the extended loader
-already accepts a larger descriptor reserve within the high window. A future
-app-owned change must set IBASE_LOADER_RESERVE to at least 65616, regenerate
-both linker and MZ contracts, and validate the resulting pair and booted DOS
-execution. No constant is raised in this integration and kernel/ is untouched.
-Full pair checks, deferred boot smokes and the mutation conversion remain owned
-by InitechBase; see tests/IMPORT.md, tests/SMOKES.md and tests/MUTANTS-TODO.md.
+The extended loader accepts this declaration without kernel changes. Startup
+zeroes BSS, the PAL initializes its fixed first region in the reserved tail,
+and AH=48h supplies the separate scratch/codec block above the reserve. The
+overlay file's six linked entries all reuse the slot; it does not enlarge BSS
+or borrow the kernel's graphical overlay storage.
 
 Local extensions to mk/host-test.mk register shell suites after C suites,
 wrap each run with fresh scratch and independent postchecks, and cache product

@@ -85,7 +85,7 @@ TARGET_ARTIFACTS := $(OUT)/INITBASE.EXE $(OUT)/INITBASE.OVL
 # Soft-float is a semantic ABI contract, not a size optimisation. Keep all
 # linked TUs coherent. FLOW settings preserve the shipped runtime profile.
 TARGET_PROFILE := -msoft-float -mno-80387 -ffunction-sections -fdata-sections -DIBASE_OVERLAYS -DFLOW_MAX_REGISTRY=1 -DFLOW_MEMVAR_ARENA=6000
-all: $(TARGET_OBJS) $(OUT)/target/crt0.o $(OUT)/target/ibase.ld $(OUT)/target/ibase-mz.args $(OUT)/tools/ibase_ovl_pack | mz-tools
+all: $(TARGET_OBJS) $(OUT)/target/crt0.o $(OUT)/target/ibase.ld $(OUT)/target/ibase-mz.args $(OUT)/tools/ibase_ovl_pack $(TARGET_ARTIFACTS) | mz-tools
 .PHONY: package
 package: $(OUT)/INITBASE.EXE $(OUT)/INITBASE.OVL
 $(OUT)/target/pal/pal_dos.o: private TARGET_INC := $(LOADER_INC)
@@ -114,8 +114,11 @@ $(OUT)/target/ibase-mz.args: $(OUT)/tools/ibase_memory_ld
 $(OUT)/INITBASE.EXE $(OUT)/INITBASE.OVL &: $(OUT)/IBASE.elf $(OUT)/tools/ibase_ovl_pack $(OUT)/target/ibase-mz.args $(wildcard $(TOP)/factory/mz/*.c) | mz-tools
 	$(OUT)/tools/ibase_ovl_pack $< --res-bin $(OUT)/resident.bin --res-rel $(OUT)/resident.rel --ovl $(OUT)/INITBASE.OVL --overlay .ovl_file --overlay .ovl_report --overlay .ovl_status --overlay .ovl_set --overlay .ovl_memfile --overlay .ovl_forms --forbid ibase_ovl_call --forbid ibase_do --forbid ibase_repl --forbid run_block --forbid exec_command --forbid fl_trap --forbid fl_escape
 	$(MZ_OUT)/mzlink $(OUT)/resident.bin $(OUT)/INITBASE.EXE --reloc-file $(OUT)/resident.rel --header-relocs $$(cat $(OUT)/target/ibase-mz.args)
-smoke:
-	@echo 'Tier 1 awaits the booted product; see tests/SMOKES.md' >&2; exit 1
+smoke: package $(HOST_OUT)/prog_diff $(HOST_OUT)/mint_clients_dbf $(OUT)/smoke/fixtures
+	+$(MAKE) -C $(TOP) image
+	sh tests/smoke/run.sh
+$(OUT)/smoke/fixtures: tests/smoke/fixtures.c FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
 
 $(HOST_OUT)/retained-screens: $(HOST_OUT)/screen_tool $(HOST_OUT)/w4_screen_check
 $(HOST_OUT)/screen_tool: tests/screen_tool.c tests/screen_file.h FORCE | $(HOST_OUT)
