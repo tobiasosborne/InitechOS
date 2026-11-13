@@ -1,0 +1,25 @@
+SeaBIOS (version 1.16.3-debian-1.16.3-2)                                        
+Booting from Floppy...                                                          
+File cannot be copied onto itself                                               
+        0 File(s) copied                                                        
+                                                                                
+ Volume in drive B has no label                                                 
+ Directory of  B:\                                                              
+                                                                                
+FILLER   BIN  1449472  11-13-26  11:20p                                         
+        1 File(s)      8192 bytes free                                          
+CAPTURE-DONE                                                                    
+A>                                                                              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

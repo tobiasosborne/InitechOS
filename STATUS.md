@@ -137,6 +137,13 @@ here. Then run `make cert` for the first time.
 
 ## Notes for this week
 
+- Data-loss reference research is committed locally on `goldens/dataloss`
+  (not pushed or landed): `goldens/dataloss/` captures real DOS 3.30 COPY,
+  Lotus R2.2 Name Table/Labels protection, and WordPerfect 5.1 backup
+  collision/full-disk saves. In particular, Lotus retains unprotected prefix
+  writes before a protection error, and WP may leave the old document only
+  as `.BK!`. The four data-loss issues remain open; product fixes are still
+  outstanding. Corpus HEADs and the existing input lock are unchanged.
 - One owner per directory when several agents work at once; the shared
   places (`mk/`, the top Makefile, `factory/`) had one owner, the
   `wave2/factory` branch. After it lands, name the next owner here.

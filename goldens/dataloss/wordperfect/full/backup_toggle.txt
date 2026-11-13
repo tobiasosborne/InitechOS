@@ -1,0 +1,25 @@
+Setup: Backup                                                                   
+                                                                                
+     Timed backup files are deleted when you exit WP normally.  If you          
+     have a power or machine failure, you will find the backup file in the      
+     backup directory indicated in Setup: Location of Files.                    
+                                                                                
+         Backup Directory                                                       
+                                                                                
+     1 - Timed Document Backup               Yes                                
+         Minutes Between Backups             30                                 
+                                                                                
+                                                                                
+     Original backup will save the original document with a .BK! extension      
+     whenever you replace it during a Save or Exit.                             
+                                                                                
+     2 - Original Document Backup            No (Yes)                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Selection: 2                                                                    

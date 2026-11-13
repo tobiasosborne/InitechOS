@@ -1,0 +1,4 @@
+@ECHO OFF
+C:
+CD \WP51
+WP

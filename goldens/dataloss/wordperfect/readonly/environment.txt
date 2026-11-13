@@ -1,0 +1,25 @@
+Setup: Environment                                                              
+                                                                                
+     1 - Backup Options                                                         
+                                                                                
+     2 - Beep Options                                                           
+                                                                                
+     3 - Cursor Speed                             50 cps                        
+                                                                                
+     4 - Document Management/Summary                                            
+                                                                                
+     5 - Fast Save (unformatted)                  Yes                           
+                                                                                
+     6 - Hyphenation                              External Dictionary/Rules     
+                                                                                
+     7 - Prompt for Hyphenation                   When Required                 
+                                                                                
+     8 - Units of Measure                                                       
+                                                                                
+     9 - Alternate Keyboard                       No                            
+          (F1 - Help, Esc - Cancel, F3 - Repeat)                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Selection: 0                                                                    

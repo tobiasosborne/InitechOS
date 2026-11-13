@@ -1,0 +1,35 @@
+sleep 6
+shot start
+key shift-f1
+shot setup
+type 3
+shot environment
+type 1
+shot backup_options
+type 2
+shot backup_toggle
+type y
+shot backup_yes
+key f7
+key shift-f10
+type B:\NAME.WP5
+key ret
+sleep 4
+shot retrieved
+key home
+key home
+key down
+type SAVE-REVISION-ONE-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789-EXTRA-TEXT
+sleep 10
+shot edited
+key f10
+wait Document to be saved
+sleep 2
+shot save_prompt
+key ret
+sleep 3
+shot replace_prompt
+type y
+sleep 4
+shot result
+end

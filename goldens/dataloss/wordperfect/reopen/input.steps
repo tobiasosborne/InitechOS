@@ -1,0 +1,7 @@
+wait Doc 1
+key shift-f10
+type B:\NAME.WP5
+key ret
+sleep 5
+shot reopened
+end
