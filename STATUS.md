@@ -39,6 +39,7 @@ imported yet.
 | `sdk/` | host-green: self-contained app headers in `sdk/include`, the runtime, one shared fake Toolbox (`sdk/host`), the EXE build rule (`mk/tenant.mk`), ABI tests that pin trap numbers and i386 record layouts. Limits imposed by the OS side are in `sdk/README.md`. |
 | `apps/initech123/` | host-green: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Builds the real `123.EXE` (73,552 bytes, validated by an independent reader) on the shared fake. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
 | `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile against `sdk/include`; not yet on `mk/tenant.mk` or the shared fake. 75 mutation hooks still to convert. |
+| `apps/initechbase/` | host-green: 75 suites, 44,504 counted checks. Builds 23 target objects and packaging tools without attic dependencies; uses factory/mz. Packaging is blocked by the app's 65,536-byte reserve declaration: 65,616 bytes required. The extended kernel loader already accepts larger reserves; no kernel change is needed. Pair/boot validation and mutation conversion remain with InitechBase (component README and tests inventories). |
 | other `apps/*` | source moved; not started. **Frozen** until the vertical slice below works. |
 | `turbo/` | host-green: 44 test programs in 16 seconds (the seed's C tests, 17 Free Pascal differentials, 45 reproducibility comparisons, 7 Pascal mutants as patches). Codename removed (`turbo.pas`, `TURBO.COM`). 20 legacy gates need the booted OS and are listed in `tests/SMOKES.md`. Road to the finale: `turbo/ROADMAP.md`. |
 | `factory/` | QEMU and Bochs drivers, the image builder, the smoke session, the reproducibility and parity checks. |
@@ -46,7 +47,7 @@ imported yet.
 
 ## In flight
 
-- Imports on branches: InitechBase, the FLAIR Toolbox.
+- Import on a branch: the FLAIR Toolbox.
 - Turbo Initech native emission toward self-host (owner of `turbo/`).
 - Conventions pass (owner of `mk/`, the top Makefile, `factory/testlib`,
   `goldens/`): target build fragment, per-test timeouts and component

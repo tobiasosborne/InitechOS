@@ -3,12 +3,12 @@
  * in line_classify and is NOT a row here.
  *
  * One row per verb: FLOW_VERB(<quoted keyword>, handler); the keyword stays a
- * quoted literal so harness/pubs/samir_candidates.sh sees it. The handler is a
+ * quoted literal so harness/pubs/ibase_candidates.sh sees it. The handler is a
  * static fv_<name> in flow.c. A lane adds a verb by writing its handler and
  * adding ONE row here; nothing is numbered. Row order matters only for the
  * 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index), so append
  * unless you mean a tie-break.
- * .gitattributes marks this file merge=union; test-samir-registries rejects
+ * .gitattributes marks this file merge=union; test-ibase-registries rejects
  * duplicate keys and malformed rows. Keep rows ASCII, one per line.
  */
 FLOW_VERB("SAVE", fv_save)

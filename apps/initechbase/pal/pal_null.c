@@ -1,124 +1,124 @@
 /*
- * os/samir/pal/pal_null.c -- the null/stub PAL binding.
+ * os/ibase/pal/pal_null.c -- the null/stub PAL binding.
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding-legal. Includes ONLY samir/pal.h
- * (which pulls <stdint.h>). NO libc -- this is the proof that the samir_pal
+ * THE ARTIFACT (CLAUDE.md Law 3): freestanding-legal. Includes ONLY ibase/pal.h
+ * (which pulls <stdint.h>). NO libc -- this is the proof that the ibase_pal
  * contract (S0.1) is COMPLETE and LINKABLE without any platform support: a
  * binding that every slot fills, returning a PAL error (fail loud, Rule 2) or
  * doing nothing, depending only on the contract itself. The real bindings
- * (pal_host.c S0.2, pal_milton.c S8.1) replace it.
+ * (pal_host.c S0.2, pal_dos.c S8.1) replace it.
  *
- * Ref (Law 1): SAMIR-implementation-plan.md S0.1 oracle ("a pal_null impl
+ * Ref (Law 1): IBASE-implementation-plan.md S0.1 oracle ("a pal_null impl
  * links; header is self-contained"); ADR-0008 Sec 5 (the contract is authored
  * on ratification).
  *
  * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
  */
-#include "samir/pal.h"
+#include "ibase/pal.h"
 
 /* Every fd/int-returning slot fails loud with a PAL error; void slots no-op;
  * alloc has nothing to give. (void) the args to keep -Wextra/-Werror clean. */
 
-static pal_fd  null_open  (samir_pal_t *p, const char *name, int mode)
+static pal_fd  null_open  (ibase_pal_t *p, const char *name, int mode)
 { (void)p; (void)name; (void)mode; return -(pal_fd)PAL_EACCES; }
 
-static int     null_close (samir_pal_t *p, pal_fd fd)
+static int     null_close (ibase_pal_t *p, pal_fd fd)
 { (void)p; (void)fd; return -(int)PAL_EACCES; }
 
-static int32_t null_read  (samir_pal_t *p, pal_fd fd, void *buf, uint32_t n)
+static int32_t null_read  (ibase_pal_t *p, pal_fd fd, void *buf, uint32_t n)
 { (void)p; (void)fd; (void)buf; (void)n; return -(int32_t)PAL_EIO; }
 
-static int32_t null_write (samir_pal_t *p, pal_fd fd, const void *buf, uint32_t n)
+static int32_t null_write (ibase_pal_t *p, pal_fd fd, const void *buf, uint32_t n)
 { (void)p; (void)fd; (void)buf; (void)n; return -(int32_t)PAL_EIO; }
 
-static int32_t null_seek  (samir_pal_t *p, pal_fd fd, int32_t off, int whence)
+static int32_t null_seek  (ibase_pal_t *p, pal_fd fd, int32_t off, int whence)
 { (void)p; (void)fd; (void)off; (void)whence; return -(int32_t)PAL_EIO; }
 
-static int     null_remove(samir_pal_t *p, const char *name)
+static int     null_remove(ibase_pal_t *p, const char *name)
 { (void)p; (void)name; return -(int)PAL_ENOENT; }
 
-static int     null_rename(samir_pal_t *p, const char *from, const char *to)
+static int     null_rename(ibase_pal_t *p, const char *from, const char *to)
 { (void)p; (void)from; (void)to; return -(int)PAL_ENOENT; }
 
-static void    null_conout(samir_pal_t *p, const char *s, uint32_t n)
+static void    null_conout(ibase_pal_t *p, const char *s, uint32_t n)
 { (void)p; (void)s; (void)n; }
 
-static int32_t null_conin_line(samir_pal_t *p, char *buf, uint32_t cap)
+static int32_t null_conin_line(ibase_pal_t *p, char *buf, uint32_t cap)
 { (void)p; (void)buf; (void)cap; return -1; }   /* EOF */
 
-static int32_t null_conin_char(samir_pal_t *p)
+static int32_t null_conin_char(ibase_pal_t *p)
 { (void)p; return -1; }                          /* EOF */
 
 /* at-dot/at-enter PAL extension (initech-0spyf/fzsvo): no display or input. */
-static void null_prompt(samir_pal_t *p,int scoreboard,int cleared)
+static void null_prompt(ibase_pal_t *p,int scoreboard,int cleared)
 { (void)p; (void)scoreboard; (void)cleared; }
 
-static void    null_gotoxy(samir_pal_t *p, uint8_t row, uint8_t col)
+static void    null_gotoxy(ibase_pal_t *p, uint8_t row, uint8_t col)
 { (void)p; (void)row; (void)col; }
 
-static void    null_set_attr(samir_pal_t *p, uint8_t attr)
+static void    null_set_attr(ibase_pal_t *p, uint8_t attr)
 { (void)p; (void)attr; }
 
-static void    null_today(samir_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
+static void    null_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
 { (void)p; if (yy) *yy = 0; if (mm) *mm = 0; if (dd) *dd = 0; }
 
-static void   *null_alloc(samir_pal_t *p, uint32_t n)
+static void   *null_alloc(ibase_pal_t *p, uint32_t n)
 { (void)p; (void)n; return (void *)0; }
 
-static void    null_reset(samir_pal_t *p, void *mark)
+static void    null_reset(ibase_pal_t *p, void *mark)
 { (void)p; (void)mark; }
 
-static int32_t null_exec(samir_pal_t *p, const char *cmdline)
+static int32_t null_exec(ibase_pal_t *p, const char *cmdline)
 { (void)p; (void)cmdline; return -(int32_t)PAL_ENOENT; }  /* no COMMAND.COM */
 
-static int     null_conin_escape(samir_pal_t *p)
+static int     null_conin_escape(ibase_pal_t *p)
 { (void)p; return 0; }                       /* no keyboard: Esc never pressed */
 
-static int     null_curdrive(samir_pal_t *p)
+static int     null_curdrive(ibase_pal_t *p)
 { (void)p; return -1; }                      /* no drive notion */
 
-static int32_t null_getenv(samir_pal_t *p, const char *name, char *buf,
+static int32_t null_getenv(ibase_pal_t *p, const char *name, char *buf,
                            uint32_t cap)
 { (void)p; (void)name; (void)buf; (void)cap; return -(int32_t)PAL_ENOENT; }
 
-static uint16_t null_os_version(samir_pal_t *p)
+static uint16_t null_os_version(ibase_pal_t *p)
 { (void)p; return 0u; }                      /* no OS: version 0.0 */
 
-static int     null_diskspace(samir_pal_t *p, uint32_t *bytes)
+static int     null_diskspace(ibase_pal_t *p, uint32_t *bytes)
 { (void)p; *bytes = 0u; return -PAL_EIO; }   /* no disk: fails loud */
 
-static int32_t null_conin_poll(samir_pal_t *p)
+static int32_t null_conin_poll(ibase_pal_t *p)
 { (void)p; return -1; }                      /* no keyboard FIFO: empty */
 
-static void    null_time(samir_pal_t *p, uint8_t *hour, uint8_t *minute,
+static void    null_time(ibase_pal_t *p, uint8_t *hour, uint8_t *minute,
                          uint8_t *second)
 { (void)p; *hour = 0; *minute = 0; *second = 0; }  /* inert clock 00:00:00 */
 
-static int     null_iscolor(samir_pal_t *p)
+static int     null_iscolor(ibase_pal_t *p)
 { (void)p; return 0; }                       /* no colour display */
 
-static int     null_say_screen(samir_pal_t *p, uint8_t row, uint8_t col,
+static int     null_say_screen(ibase_pal_t *p, uint8_t row, uint8_t col,
                                const char *s, uint32_t n)
 { (void)p; (void)row; (void)col; (void)s; (void)n; return -PAL_EIO; }  /* no screen */
 
-static int     null_printout(samir_pal_t *p, const char *s, uint32_t n)
+static int     null_printout(ibase_pal_t *p, const char *s, uint32_t n)
 { (void)p; (void)s; (void)n; return -PAL_EIO; }  /* no printer: fails loud */
 
-static int     null_paint(samir_pal_t *p, uint8_t row, uint8_t col,
+static int     null_paint(ibase_pal_t *p, uint8_t row, uint8_t col,
                           const char *s, uint32_t n)
 { (void)p; (void)row; (void)col; (void)s; (void)n; return -PAL_EIO; }  /* no screen */
 
 /* The exported null vtable: every slot bound (the completeness proof). */
-/* Designated, not positional: a slot appended to struct samir_pal can no
+/* Designated, not positional: a slot appended to struct ibase_pal can no
  * longer shift its neighbours into the wrong type (wave-1 review, 2026-10-25).
  * Designated initializers do not warn on an omitted slot, so completeness is
  * pinned by the slot count below: a member added to pal.h fails this build
  * until it is bound here AND counted (Rule 2: fail at compile time). */
-#define SAMIR_PAL_SLOTS 33u
-_Static_assert(sizeof(samir_pal_t) == SAMIR_PAL_SLOTS * sizeof(void (*)(void)),
-               "samir_pal gained or lost a slot: bind it in samir_pal_null and update SAMIR_PAL_SLOTS");
+#define IBASE_PAL_SLOTS 33u
+_Static_assert(sizeof(ibase_pal_t) == IBASE_PAL_SLOTS * sizeof(void (*)(void)),
+               "ibase_pal gained or lost a slot: bind it in ibase_pal_null and update IBASE_PAL_SLOTS");
 
-samir_pal_t samir_pal_null = {
+ibase_pal_t ibase_pal_null = {
 	.open              = null_open,
 	.close             = null_close,
 	.read              = null_read,

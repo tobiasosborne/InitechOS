@@ -1,23 +1,23 @@
-/* SAMIR logical input lines. Ref: include/samir/pal.h conin_line contract.
+/* IBASE logical input lines. Ref: include/ibase/pal.h conin_line contract.
  * Transport framing (CR, LF, CRLF) is authored, no local reference to a
  * historical dBASE shell-redirection promise. Used by the target PAL and
  * byte-stream oracle; the cooked CON transport must receive a full-size read.
  */
-#ifndef SAMIR_LINE_INPUT_H
-#define SAMIR_LINE_INPUT_H
+#ifndef IBASE_LINE_INPUT_H
+#define IBASE_LINE_INPUT_H
 #include <stdint.h>
-#include "samir/pal.h"
-#define SAMIR_INPUT_CHUNK 258u
+#include "ibase/pal.h"
+#define IBASE_INPUT_CHUNK 258u
 typedef struct {
-    uint8_t bytes[SAMIR_INPUT_CHUNK];
+    uint8_t bytes[IBASE_INPUT_CHUNK];
     uint32_t pos, len;
     int skip_lf;
-} samir_line_state;
-typedef int32_t (*samir_input_read)(void *, void *, uint32_t);
-static int32_t samir_line_read(samir_line_state *st, samir_input_read read,
+} ibase_line_state;
+typedef int32_t (*ibase_input_read)(void *, void *, uint32_t);
+static int32_t ibase_line_read(ibase_line_state *st, ibase_input_read read,
                               void *user, char *buf, uint32_t cap)
 {
-#ifdef SAMIR_MUTATE_STDIN_LINES
+#ifdef IBASE_MUTATE_STDIN_LINES
     /* Ref: pal.h conin_line; audit K13's USE/LIST/QUIT input. Drop the
      * unread suffix between calls: LIST and QUIT must not disappear after
      * USE. Since 14a8fc75 routes USE through proc_run, returning the entire
@@ -32,7 +32,7 @@ static int32_t samir_line_read(samir_line_state *st, samir_input_read read,
     for(;;) {
         uint8_t ch;
         if(st->pos==st->len) {
-            int32_t got=read(user,st->bytes,SAMIR_INPUT_CHUNK);
+            int32_t got=read(user,st->bytes,IBASE_INPUT_CHUNK);
             st->pos=st->len=0;
             if(got<0) return got;
             if(!got) {
@@ -40,7 +40,7 @@ static int32_t samir_line_read(samir_line_state *st, samir_input_read read,
                 buf[used]='\0';
                 return used ? (int32_t)used : -1;
             }
-            if((uint32_t)got>SAMIR_INPUT_CHUNK) return -PAL_EACCES;
+            if((uint32_t)got>IBASE_INPUT_CHUNK) return -PAL_EACCES;
             st->len=(uint32_t)got;
         }
         ch=st->bytes[st->pos++];

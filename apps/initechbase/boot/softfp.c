@@ -1,9 +1,9 @@
 /*
- * os/samir/boot/softfp.c -- vendored soft-float + 64-bit integer runtime helpers
- *                           for the freestanding SAMIR.COM link (ADR-0009 DEC-02).
+ * os/ibase/boot/softfp.c -- vendored soft-float + 64-bit integer runtime helpers
+ *                           for the freestanding IBASE.COM link (ADR-0009 DEC-02).
  *
  * THE ARTIFACT (Law 3): freestanding C (-msoft-float -mno-80387). No libc, no
- * x87. Provides the exact set of libgcc helpers the SAMIR engine references when
+ * x87. Provides the exact set of libgcc helpers the IBASE engine references when
  * compiled -msoft-float, which the host toolchain on this box CANNOT supply: the
  * installed gcc-13 has NO usable static 32-bit libgcc.a (the x86_64 libgcc.a is
  * 64-bit; gcc-multilib / a static i386 libgcc is not installed; lib32gcc-s1 ships
@@ -12,7 +12,7 @@
  *
  * WHY VENDORED (DEC-02 / Rule 11, pinned-libgcc): a floating system libgcc would
  * be a reproducibility hole even if it existed; vendoring pins the helper code in
- * the repo so the SAMIR.COM bytes are a pure function of the source. The
+ * the repo so the IBASE.COM bytes are a pure function of the source. The
  * provenance is THIS file (authored for initech-ap5g; no external binary blob),
  * mutation-proven against the host hardware double in the proof oracle.
  *
@@ -33,7 +33,7 @@
  * auditable; correctness is established by the differential proof oracle, which
  * fuzzes every helper against the host's hardware double over thousands of
  * random + edge-case inputs (Law 2 -- the oracle is the truth). NOT a dBASE-
- * specific dialect: SAMIR's numeric type is plain IEEE-754 binary64 end to
+ * specific dialect: IBASE's numeric type is plain IEEE-754 binary64 end to
  * end (no divergence from host double for compat reasons), so the host's
  * hardware double is the correct AND ONLY reference for every helper class
  * below (add/sub/mul/div/compare/int-conversions) -- there is no "documented
@@ -47,12 +47,12 @@
  *                        sticky/LSB-parity check). Breaks round-half-to-even
  *                        at exact tie boundaries (e.g. 1.0 + 2^-53 boundary
  *                        cases in the NORMAL path) -- the differential
- *                        oracle (test_samir_softfp, compiled WITHOUT
+ *                        oracle (test_ibase_softfp, compiled WITHOUT
  *                        -DSOFTFP_MUTANT so the host-double reference stays
  *                        correct) must go RED. This is the STRONGER
  *                        implementation-side mutation form (vs. the
  *                        pre-existing test-side reference corruption under
- *                        -DSOFTFP_MUTANT); see test_samir_softfp.c header.
+ *                        -DSOFTFP_MUTANT); see test_ibase_softfp.c header.
  */
 
 #include <stdint.h>
@@ -212,7 +212,7 @@ static uint64_t df_round_pack(int sign, int exp, uint64_t sig,
 #ifdef SOFTFP_MUT_ROUND
     /* MUTANT (Rule 6): always round up on a set round bit -- drops the
      * round-half-to-even tie-break (sticky-or-LSB-parity check). Wrong at
-     * exact tie boundaries; must turn test_samir_softfp RED. */
+     * exact tie boundaries; must turn test_ibase_softfp RED. */
     (void)sticky;
     if (round_bit)
         mant++;
@@ -606,7 +606,7 @@ __attribute__((used, externally_visible)) uint64_t __umoddi3(uint64_t n, uint64_
 
 /* __udivmoddi4: combined quotient+remainder. gcc emits THIS (not the separate
  * __udivdi3/__umoddi3) at -Os when one operand pair needs both -- e.g. dec_format's
- * digit extraction (integration fix, ADR-0009 DEC-02; the -Os SAMIR.COM profile).
+ * digit extraction (integration fix, ADR-0009 DEC-02; the -Os IBASE.COM profile).
  * It is exactly udivmod64's contract: return the quotient, store the remainder
  * through *rem (libgcc signature: __udivmoddi4(num, den, uint64_t *rem)). */
 __attribute__((used, externally_visible)) uint64_t __udivmoddi4(uint64_t n, uint64_t d, uint64_t *rem)

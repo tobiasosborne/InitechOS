@@ -1,11 +1,11 @@
 /*
- * os/samir/fs/dbf.c -- SAMIR (InitechBase) .dbf codec: header (S1.1),
+ * os/ibase/fs/dbf.c -- IBASE (InitechBase) .dbf codec: header (S1.1),
  *                      field-descriptor array (S1.2), record read (S1.3),
  *                      deterministic write + round-trip (S1.4).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
- * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (samir/pal.h,
- * samir/rt.h, samir/value.h, samir/dbf.h) and the LOCKED spec/samir/dbf_format.h.
+ * -nostdlib). Includes ONLY <stdint.h> plus the engine headers (ibase/pal.h,
+ * ibase/rt.h, ibase/value.h, ibase/dbf.h) and the LOCKED spec/ibase/dbf_format.h.
  * No libc, no int 0x21 -- all OS contact is through the PAL vtable (plan Sec
  * 2.B/2.D).
  *
@@ -14,7 +14,7 @@
  * three structural invariants from dbf.md sec 8. The field-length byte of each
  * descriptor (offset 0x10) is read during the scan loop for invariant-1b sum.
  *
- * S1.2 scope (docs/plans/SAMIR-implementation-plan.md S1.2): after S1.1's scan
+ * S1.2 scope (docs/plans/IBASE-implementation-plan.md S1.2): after S1.1's scan
  * completes, re-read each descriptor in a second pass to decode the full
  * name/type/length/dec metadata into an arena-allocated dbf_field_t array.
  * S1.1 invariants are preserved; the field-count comes from S1.1's scan-to-0x0D
@@ -22,7 +22,7 @@
  * the descriptor stride to the dBASE-7 48-byte value, shifting every field after
  * the first so decoded names/types/lengths mismatch the golden -> tests go RED.
  *
- * S1.3 scope (docs/plans/SAMIR-implementation-plan.md S1.3): dbf_read_rec reads
+ * S1.3 scope (docs/plans/IBASE-implementation-plan.md S1.3): dbf_read_rec reads
  * a single record by 1-based record number and decodes each field into an xb_val:
  *   C -> xb_c (raw bytes in arena record buffer; trimming is evaluator's job)
  *   N -> xb_n(dec_parse(raw, len)) (all-spaces -> 0.0)
@@ -34,12 +34,12 @@
  * the delete-flag byte) so every decoded field value is wrong -> tests go RED.
  * Ref: dbf.md sec 6 (record layout) and sec 5 (field type encodings).
  *
- * S1.4 scope (docs/plans/SAMIR-implementation-plan.md S1.4): deterministic
+ * S1.4 scope (docs/plans/IBASE-implementation-plan.md S1.4): deterministic
  * write + round-trip. dbf_create builds the header + descriptors + opens the
  * file; dbf_append_rec formats typed values into an in-arena record region;
  * dbf_flush serializes the whole image (version 0x03/0x83, injected last-update
  * date, +1 terminator, records, trailing 0x1A) in one deterministic byte stream
- * (Rule 11). Every NORMALIZE byte (spec/samir/dbf_normalization.json) is written
+ * (Rule 11). Every NORMALIZE byte (spec/ibase/dbf_normalization.json) is written
  * 0x00 (esp. the field RAM address 0x0C, work-area 0x14, LDID 0x1D). The mutation
  * hook (DBF_MUTATE_VERSION) drops the 0x80 memo bit so a memo schema round-trips
  * with has_memo=false -> RED. Ref: dbf.md sec 2/3/4/5/6/8.
@@ -63,29 +63,29 @@
  *       L T/F/Y/N/?; M 10-byte ASCII block#).
  *     sec 6: record layout (1 delete-flag byte + packed field bytes, no separator).
  *     sec 9: "name = bytes to first NUL; trailing bytes may be garbage."
- *   - spec/samir/dbf_format.h (every offset/size constant; no hardcoded offsets):
+ *   - spec/ibase/dbf_format.h (every offset/size constant; no hardcoded offsets):
  *     DBF_DESC_NAME_OFF, DBF_DESC_TYPE_OFF, DBF_DESC_FIELD_LEN_OFF,
  *     DBF_DESC_DEC_COUNT_OFF, DBF_DESC_STRIDE=32, DBF_DESC_NAME_SIZE=11,
  *     DBF_REC_DELETE_LIVE=0x20, DBF_REC_DELETE_DELETED=0x2A, DBF_REC_FLAG_SIZE=1.
- *   - docs/plans/SAMIR-implementation-plan.md S1.1+S1.2+S1.3 contract.
- *   - os/samir/include/samir/pal.h (open/read/seek/close + seek=filesize idiom).
- *   - os/samir/include/samir/value.h (xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u).
- *   - os/samir/include/samir/rt.h (dec_parse, jdn_from_ymd).
+ *   - docs/plans/IBASE-implementation-plan.md S1.1+S1.2+S1.3 contract.
+ *   - os/ibase/include/ibase/pal.h (open/read/seek/close + seek=filesize idiom).
+ *   - os/ibase/include/ibase/value.h (xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u).
+ *   - os/ibase/include/ibase/rt.h (dec_parse, jdn_from_ymd).
  *   - harness/diff/dbf_diff/dbf_ref.py decode_field() (independent reference;
  *     our typed values agree with it field-by-field).
  */
 
-#include "samir/lifetime.h"
+#include "ibase/lifetime.h"
 #include <stdint.h>
 
-#include "samir/pal.h"
-#include "samir/rt.h"
-#include "samir/value.h"   /* xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u */
-#include "samir/dbf.h"
-#include "samir/dbt.h"
-#include "samir/ovl.h"
+#include "ibase/pal.h"
+#include "ibase/rt.h"
+#include "ibase/value.h"   /* xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u */
+#include "ibase/dbf.h"
+#include "ibase/dbt.h"
+#include "ibase/ovl.h"
 
-#include "samir/dbf_format.h"   /* LOCKED spec-data, on -Ispec/samir or -Ispec */
+#include "ibase/dbf_format.h"   /* LOCKED spec-data, on -Ispec/ibase or -Ispec */
 
 /*
  * S1.2 MUTATION HOOK (Rule 6): when -DDBF_MUTATE_STRIDE is defined, the
@@ -96,7 +96,7 @@
  * uses the correct DBF_DESC_STRIDE (it runs before this constant is used), so the
  * table still opens and nfields is still correct; only the S1.2 field-decode pass
  * is perturbed. Exactly one constant is changed.
- * Ref: docs/plans/SAMIR-implementation-plan.md S1.2 mutant (dBASE-7 stride -> RED).
+ * Ref: docs/plans/IBASE-implementation-plan.md S1.2 mutant (dBASE-7 stride -> RED).
  */
 #ifdef DBF_MUTATE_STRIDE
 #  define DECODE_STRIDE  48u   /* dBASE-7 descriptor size; NOT the III+ 32-byte form */
@@ -112,7 +112,7 @@
  * The perturbation is a single additive offset; exactly one constant changes.
  * The mutant still reads record_length bytes (not record_length-1), so the
  * data it decodes comes from the next byte onward -- every field is shifted.
- * Ref: docs/plans/SAMIR-implementation-plan.md S1.3 mutant (recoff -> RED).
+ * Ref: docs/plans/IBASE-implementation-plan.md S1.3 mutant (recoff -> RED).
  */
 #ifdef DBF_MUTATE_RECOFF
 #  define REC_OFFSET_EXTRA  1u   /* skip 1 extra byte -> field data is shifted */
@@ -159,19 +159,19 @@
 
 /* ---- Opaque table layout (S1.1 fields + S1.2 field array + S1.3 record buf) ---- */
 struct dbf_table {
-    samir_pal_t  *pal;        /* the PAL this table was opened through */
+    ibase_pal_t  *pal;        /* the PAL this table was opened through */
     char          name[260]; /* opened path, for period file diagnostics */
     uint8_t       write_failed; /* failed rollback: refuse further writes */
     pal_fd        fd;         /* OPEN handle; S1.3 reads the record area */
     void         *owned;      /* buffers owned by this table only */
-#ifdef SAMIR_MUTATE_OWNER_RESET
+#ifdef IBASE_MUTATE_OWNER_RESET
     void *scratch_mark;
 #endif
 
     dbf_field_t  *fields;     /* S1.2: arena-allocated array of nfields decoded
                                * field descriptors; NULL until S1.2 decode pass runs.
                                * dbf_field(tbl,i) reads from this array (0-based).
-                               * Ref: dbf.md sec 4 + spec/samir/dbf_format.h. */
+                               * Ref: dbf.md sec 4 + spec/ibase/dbf_format.h. */
 
     uint8_t      *rec_buf;    /* S1.3: arena-allocated record buffer, record_length
                                * bytes. Allocated at open time; reused by every
@@ -235,10 +235,10 @@ static void wr_u32le(uint8_t *b, uint32_t v)
  * header / descriptors are fixed-size regions that MUST be fully present).
  * Ref: pal.h read contract (a short read returns the real count, never a full).
  */
-static int read_exact(samir_pal_t *pal, pal_fd fd, int32_t off,
+static int read_exact(ibase_pal_t *pal, pal_fd fd, int32_t off,
                       void *buf, uint32_t n)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     int32_t pos;
     int32_t got;
 
@@ -257,14 +257,14 @@ static int read_exact(samir_pal_t *pal, pal_fd fd, int32_t off,
 /* Close fd and release only this table and its owned buffers. */
 static int teardown(dbf_table *tbl, int rc)
 {
-    samir_pal_t *pal = tbl->pal;
+    ibase_pal_t *pal = tbl->pal;
     void *table_memory = tbl;
     int close_rc = 0;
 
     if (tbl->fd >= 0)
         close_rc = pal->close(pal, tbl->fd);
     pal_owned_free(pal,&tbl->owned);
-#ifdef SAMIR_MUTATE_OWNER_RESET
+#ifdef IBASE_MUTATE_OWNER_RESET
     pal->reset(pal,tbl->scratch_mark); /* mutant: rewind across a later live owner */
 #endif
     pal->release(pal, table_memory);
@@ -297,12 +297,12 @@ static int teardown(dbf_table *tbl, int rc)
  *                   set writable=1 (dbf_open_rw). When 1, open_mode MUST be
  *                   PAL_RDWR so dbf_flush's write path has a writable fd.
  *
- * Ref: dbf.md sec 2/3/4/5/6/8; dbf.h S1.1-S1.5; spec/samir/dbf_format.h.
+ * Ref: dbf.md sec 2/3/4/5/6/8; dbf.h S1.1-S1.5; spec/ibase/dbf_format.h.
  */
-static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
+static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
                            int open_mode, int want_writable)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     uint8_t hdr[DBF_HDR_SIZE];
     uint8_t desc[DBF_DESC_STRIDE];
     dbf_table *tbl;
@@ -331,7 +331,7 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
         return -DBF_ERR_NOMEM;
     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
     tbl->pal  = pal;
-#ifdef SAMIR_MUTATE_OWNER_RESET
+#ifdef IBASE_MUTATE_OWNER_RESET
     tbl->scratch_mark=pal->alloc(pal,0u);
 #endif
     if (rt_strlen(name) >= sizeof(tbl->name)) { pal->release(pal, tbl); return -DBF_ERR_IO; }
@@ -467,7 +467,7 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
         return teardown(tbl, -DBF_ERR_IO);
     /* Ref: dbf.md ss8 invariant 2; Rule 2: validate before multiplying,
      * including the RW record allocation below (initech-ptqc). */
-#ifndef SAMIR_CORE_MUTATE_DBF_SIZE
+#ifndef IBASE_CORE_MUTATE_DBF_SIZE
     if (nrec > (UINT32_MAX - (uint32_t)header_length) / record_length)
         return teardown(tbl, -DBF_ERR_BAD_FILESZ);
 #endif
@@ -522,7 +522,7 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
      * the first is decoded from shifted bytes -> mismatch with the golden -> RED
      * (mutation hook, Rule 6).
      *
-     * Ref: dbf.md sec 4/5/9; spec/samir/dbf_format.h (all offset constants);
+     * Ref: dbf.md sec 4/5/9; spec/ibase/dbf_format.h (all offset constants);
      *      plan S1.2 contract.
      */
     if (nfields > 0) {
@@ -677,9 +677,9 @@ static int dbf_open_common(samir_pal_t *pal, const char *name, dbf_table **out,
  * (PAL_RD, want_writable=0). The shared parse path keeps dbf_open and dbf_open_rw
  * from drifting (Rule 3 / 7az.16 contract).
  */
-int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
+int dbf_open(ibase_pal_t *pal, const char *name, dbf_table **out)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     return dbf_open_common(pal, name, out, PAL_RD, /*want_writable=*/0);
 }
 
@@ -691,9 +691,9 @@ int dbf_open(samir_pal_t *pal, const char *name, dbf_table **out)
  * Fails loud (Rule 2) on a missing/unopenable file (teardown -> -DBF_ERR_IO) or a
  * malformed header, identically to dbf_open.
  */
-int dbf_open_rw(samir_pal_t *pal, const char *name, dbf_table **out)
+int dbf_open_rw(ibase_pal_t *pal, const char *name, dbf_table **out)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     return dbf_open_common(pal, name, out, PAL_RDWR, /*want_writable=*/1);
 }
 
@@ -772,7 +772,7 @@ const dbf_field_t *dbf_field(const dbf_table *t, int i)
  * Ref (Law 1):
  *   - dbf.md sec 5 (C/N/D/L/M on-disk encodings; blank date; L uninitialised).
  *   - dbf.md sec 6 (record layout; delete flag 0x20/0x2A).
- *   - spec/samir/dbf_format.h (DBF_REC_DELETE_LIVE, DBF_REC_DELETE_DELETED,
+ *   - spec/ibase/dbf_format.h (DBF_REC_DELETE_LIVE, DBF_REC_DELETE_DELETED,
  *     DBF_REC_FLAG_SIZE=1).
  *   - rt.h dec_parse (all-spaces -> 0.0), jdn_from_ymd (Y,M,D -> JDN).
  *   - value.h xb_c/xb_n/xb_d/xb_l/xb_m/xb_u.
@@ -812,7 +812,7 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
 
     /* Delete flag is the first byte of the record (rec_buf[0]).
      * 0x20 = live, 0x2A = deleted; any other byte is corrupt data -> fail loud.
-     * Ref: dbf.md sec 6; spec/samir/dbf_format.h DBF_REC_DELETE_LIVE/_DELETED. */
+     * Ref: dbf.md sec 6; spec/ibase/dbf_format.h DBF_REC_DELETE_LIVE/_DELETED. */
     del_flag = tbl->rec_buf[0];
     if (del_flag == (uint8_t)DBF_REC_DELETE_LIVE) {
         if (deleted) *deleted = 0;
@@ -862,14 +862,14 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
             {
                 uint32_t k = 0u;
                 while (k < (uint32_t)flen && raw[k] == (uint8_t)' ') k++;
-#ifndef SAMIR_DT_MUTANT_starread
+#ifndef IBASE_DT_MUTANT_starread
                 /* An overflowed field ("****", the stars_fill of
                  * xbase_coercion.json) reads back in real III+ as the
                  * largest double, 1.7976931348623157E308: ? SMALL prints
                  * "****", SMALL = 0 is .F., SMALL/10^300 = 179769313.49, and
                  * VAL("****") is the same value (datatype-mint DT1 B4-B6,
                  * DT2 F2, DT5 I1/I2/I7). Decoding it as 0.0 presented an
-                 * overflow as an ordinary zero (audit 2026-10-23-samir L006;
+                 * overflow as an ordinary zero (audit 2026-10-23-ibase L006;
                  * initech-ylqs). dec_format star-fills it at any width. */
                 if (k < (uint32_t)flen && raw[k] == (uint8_t)'*') {
                     out[fi] = xb_n(1.7976931348623157e308);
@@ -912,13 +912,13 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
                            raw[7] == (uint8_t)'0');
 
                 if (is_blank || is_zero) {
-#ifndef SAMIR_DT_MUTANT_blankread
+#ifndef IBASE_DT_MUTANT_blankread
                     /* A blank D field is still a Date in real III+:
                      * TYPE("WHEN") = "D", DTOC() and date arithmetic work,
                      * and INDEX ON WHEN keys it (datatype-mint DT3 G8-G10,
                      * BLANKDAT.NDX). It is the interpreter's one blank date,
                      * xb_d(0.0) (value.h xb_date_blank). XB_U here made
-                     * INDEX ON <date> fail with #9 (audit 2026-10-23-samir
+                     * INDEX ON <date> fail with #9 (audit 2026-10-23-ibase
                      * L016; initech-ylqs). */
                     out[fi] = xb_d(0.0);
 #else
@@ -1007,7 +1007,7 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
 /*                                                                          */
 /* Determinism (Rule 11): no malloc-address or wall-clock leakage. The only   */
 /* date is pal->today() (INJECTABLE). Every NORMALIZE byte                    */
-/* (spec/samir/dbf_normalization.json) is written 0x00. Same inputs + same    */
+/* (spec/ibase/dbf_normalization.json) is written 0x00. Same inputs + same    */
 /* injected date => byte-identical file every run.                            */
 /* ======================================================================== */
 
@@ -1066,7 +1066,7 @@ static void fmt_field(uint8_t *dst, uint8_t flen, char ftype, uint8_t dec,
          * as, so SORT/TOTAL/COPY rows carry it here), xb_u or a wrong type.
          * dbf.md sec 5 D; xbase_coercion.json D "blank":"8 spaces".
          * flen is 8 (create-asserted). initech-ylqs. */
-#ifndef SAMIR_DT_MUTANT_blankwrite
+#ifndef IBASE_DT_MUTANT_blankwrite
         if (v && v->t == XB_D && !xb_date_blank(v->u.d)) {
 #else
         if (v && v->t == XB_D) {
@@ -1137,10 +1137,10 @@ static void fmt_field(uint8_t *dst, uint8_t flen, char ftype, uint8_t dec,
     }
 }
 
-SAMIR_OVL_TEXT(file) int dbf_create(samir_pal_t *pal, const char *name,
+IBASE_OVL_TEXT(file) int dbf_create(ibase_pal_t *pal, const char *name,
                const dbf_field_spec *fields, int nfields, dbf_table **out)
 {
-    samir_ovl_validate_pal(pal);
+    ibase_ovl_validate_pal(pal);
     dbf_table  *tbl;
     pal_fd      fd;
     uint32_t    sum_lens;     /* 1 + sum(field lengths) */
@@ -1205,7 +1205,7 @@ SAMIR_OVL_TEXT(file) int dbf_create(samir_pal_t *pal, const char *name,
         return -DBF_ERR_NOMEM;
     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
     tbl->pal  = pal;
-#ifdef SAMIR_MUTATE_OWNER_RESET
+#ifdef IBASE_MUTATE_OWNER_RESET
     tbl->scratch_mark=pal->alloc(pal,0u);
 #endif
     if (rt_strlen(name) >= sizeof(tbl->name)) { pal->release(pal, tbl); return -DBF_ERR_IO; }
@@ -1274,7 +1274,7 @@ SAMIR_OVL_TEXT(file) int dbf_create(samir_pal_t *pal, const char *name,
     return DBF_OK;
 }
 
-SAMIR_OVL_TEXT(file) int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted)
+IBASE_OVL_TEXT(file) int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted)
 {
     uint8_t  *rec;
     uint32_t  field_off;
@@ -1382,7 +1382,7 @@ int dbf_flush(dbf_table *tbl)
         return -DBF_ERR_WRITE;
 
     /* --- 32-byte header (dbf.md sec 2). EVERY non-MEANINGFUL byte is 0x00
-     * (spec/samir/dbf_normalization.json): 0x0C..0x1F all stay zero from the
+     * (spec/ibase/dbf_normalization.json): 0x0C..0x1F all stay zero from the
      * rt_memset; we only set the MEANINGFUL fields. --- */
     rt_memset(hdr, 0, DBF_HDR_SIZE);
 
@@ -1505,7 +1505,7 @@ int dbf_flush(dbf_table *tbl)
  * dbf_delete silently writes 0x20, pack cannot identify deleted records and
  * the nrec check, survivor-count check, and content checks all fail.
  * Ref: plan S1.5 mutant spec "dbf_delete writes 0x20 instead of 0x2A";
- *      dbf.md sec 6; spec/samir/dbf_format.h DBF_REC_DELETE_DELETED=0x2A.
+ *      dbf.md sec 6; spec/ibase/dbf_format.h DBF_REC_DELETE_DELETED=0x2A.
  */
 #ifdef DBF_MUTATE_DELFLAG
 #  define DELETE_FLAG_BYTE  ((uint8_t)DBF_REC_DELETE_LIVE)   /* mutant: 0x20 */
@@ -1610,7 +1610,7 @@ int dbf_append_blank_commit(dbf_table *tbl)
     old = tbl->nrec;
     rc = dbf_append_blank(tbl);
     if (rc != DBF_OK) return rc;
-#ifdef SAMIR_MUTATE_APPEND_REWRITE
+#ifdef IBASE_MUTATE_APPEND_REWRITE
     return dbf_flush(tbl); /* mutant: damages prior records and +2 geometry */
 #endif
     offset = (uint32_t)tbl->header_length + old * tbl->record_length;
@@ -1627,7 +1627,7 @@ int dbf_append_blank_commit(dbf_table *tbl)
     wr_u32le(prior,old); wr_u32le(count,tbl->nrec);
     rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,count,4u),4u);
     if (rc == DBF_OK) return DBF_OK;
-#ifndef SAMIR_MUTATE_APPEND_COUNT
+#ifndef IBASE_MUTATE_APPEND_COUNT
     /* A short four-byte write can tear 255 -> 256. Restore the committed
      * bytes in the already allocated header sector before returning. */
     if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF ||
@@ -1636,7 +1636,7 @@ int dbf_append_blank_commit(dbf_table *tbl)
     }
 #endif
 refused:
-#ifndef SAMIR_MUTATE_APPEND_MEMORY
+#ifndef IBASE_MUTATE_APPEND_MEMORY
     tbl->nrec=old;
 #endif
     return rc;
@@ -1695,10 +1695,10 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
          * "blank":"8 spaces"; dbf.md sec 5 D. Real III+ REPLACE WHEN WITH
          * CTOD("  /  /  ") / CTOD("") stores 8 spaces (datatype-mint E4.DBF
          * rec 1-2). Formatting JDN 0 as a date wrote ",)/-1124" (audit
-         * 2026-10-23-samir L001; initech-ylqs). */
+         * 2026-10-23-ibase L001; initech-ylqs). */
         if (!v || (v->t != XB_D && v->t != XB_U))
             return -DBF_ERR_MISMATCH;
-#ifndef SAMIR_DT_MUTANT_blankwrite
+#ifndef IBASE_DT_MUTANT_blankwrite
         if (v->t == XB_D && !xb_date_blank(v->u.d)) {
 #else
         if (v->t == XB_D) {   /* mutant: the blank date is formatted as a date */
@@ -1718,7 +1718,7 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
             /* Using III+ U1-1; malformed descriptors still cannot write
              * outside their slot. Same bound as fmt_field (initech-ifpd). */
             rt_memset(dst, ' ', flen);
-#ifdef SAMIR_CORE_MUTATE_DATE_WIDTH
+#ifdef IBASE_CORE_MUTATE_DATE_WIDTH
             rt_memcpy(dst, digits, 8u);
 #else
             rt_memcpy(dst, digits, flen < 8u ? flen : 8u);
@@ -1750,7 +1750,7 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
          * decimal pointer (dbt.md ss4/8). A raw text slot is the named mutant. */
         if (!v || v->t != XB_C)
             return -DBF_ERR_MISMATCH;
-#ifndef SAMIR_CORE_MUTATE_MEMO_POINTER
+#ifndef IBASE_CORE_MUTATE_MEMO_POINTER
         return -DBF_ERR_IO;
 #else
         rt_memset(dst, ' ', (uint32_t)flen);
@@ -1793,7 +1793,7 @@ int dbf_replace(dbf_table *tbl, uint32_t recno, int field, const xb_val *v)
     rec  = rec_ptr(tbl, recno);
     dst  = rec + foff;
 
-#ifndef SAMIR_CORE_MUTATE_MEMO_POINTER
+#ifndef IBASE_CORE_MUTATE_MEMO_POINTER
     if (f->type == 'M') {
         char path[sizeof(tbl->name)];
         uint32_t n = rt_strlen(tbl->name), base = n, dot = n, block;

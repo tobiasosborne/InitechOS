@@ -1,9 +1,9 @@
 /*
- * os/samir/cmd/mutate.c -- SAMIR (InitechBase) record-mutation command module.
+ * os/ibase/cmd/mutate.c -- IBASE (InitechBase) record-mutation command module.
  *                           Step S5.5 (Phase 5 interpreter).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
- * ONLY <stdint.h> and the samir/ engine headers. No libc, no int 0x21 -- every
+ * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL carried by the interpreter. Memory is
  * fixed/static (no malloc). ASCII-clean (Rule 12). Fail loud (Rule 2).
  * Reproducible (Rule 11): deterministic writes (dbf_flush rewrites the whole
@@ -39,7 +39,7 @@
  *   A <cond> MUST evaluate to Logical (XB_L) -- else fail loud #37 (no
  *   truthiness), the same headline rule as the spine + query module.
  *
- * REPLACE assignment-coercion (spec/samir/xbase_coercion.json assignment_coercion,
+ * REPLACE assignment-coercion (spec/ibase/xbase_coercion.json assignment_coercion,
  * applied by dbf_replace -- self-contained in dbf.c, no eval.c dependency):
  *   C <- C : ok (truncate-to-width / space-pad).
  *   N <- N : ok; dec_format -> '*'-fill on width overflow (NOT an error; the
@@ -80,36 +80,36 @@
  *   - ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
  *     (REPLACE sec 8; APPEND sec 4; DELETE/RECALL sec 9; PACK sec 10; ZAP; the
  *     shared scope/FOR/WHILE grammar sec 0; the type-compatibility rule sec 0).
- *   - spec/samir/xbase_coercion.json assignment_coercion (the locked contract
+ *   - spec/ibase/xbase_coercion.json assignment_coercion (the locked contract
  *     dbf_replace implements).
- *   - spec/samir/dbase_msg_codes.tsv (#9 mismatch, #37 not logical, #111 read-only).
- *   - os/samir/include/samir/interp.h (the xb_cmd_hook contract + chain).
- *   - os/samir/include/samir/workarea.h (wa_table/wa_recno/wa_nrec/wa_index/
+ *   - spec/ibase/dbase_msg_codes.tsv (#9 mismatch, #37 not logical, #111 read-only).
+ *   - os/ibase/include/ibase/interp.h (the xb_cmd_hook contract + chain).
+ *   - os/ibase/include/ibase/workarea.h (wa_table/wa_recno/wa_nrec/wa_index/
  *     wa_index_count/wa_adopt_table/wa_refresh).
- *   - os/samir/include/samir/nav.h (wa_nav_go_top/goto/skip; wa_nav_reset).
- *   - os/samir/include/samir/dbf.h (dbf_replace/append_blank/delete/recall/pack/
+ *   - os/ibase/include/ibase/nav.h (wa_nav_go_top/goto/skip; wa_nav_reset).
+ *   - os/ibase/include/ibase/dbf.h (dbf_replace/append_blank/delete/recall/pack/
  *     zap/flush; the assignment-coercion contract).
- *   - os/samir/include/samir/ndx.h (ndx_update_key/insert_key/ndx_rebuild/
+ *   - os/ibase/include/ibase/ndx.h (ndx_update_key/insert_key/ndx_rebuild/
  *     key_type/key_length/key_expr -- index maintenance).
- *   - os/samir/include/samir/dbt.h (dbt_append -- memo writes for M fields).
- *   - os/samir/include/samir/eval.h (xb_lex/xb_parse/xb_eval; XBEE_MISMATCH/
+ *   - os/ibase/include/ibase/dbt.h (dbt_append -- memo writes for M fields).
+ *   - os/ibase/include/ibase/eval.h (xb_lex/xb_parse/xb_eval; XBEE_MISMATCH/
  *     XBEE_NOT_LOGICAL; the WITH/FOR/WHILE expression path).
  */
 
 #include <stdint.h>
 
-#include "samir/interp.h"
-#include "samir/workarea.h"
-#include "samir/nav.h"
-#include "samir/dbf.h"
-#include "samir/dbt.h"
-#include "samir/ndx.h"
-#include "samir/eval.h"
-#include "samir/value.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
-#include "samir/set.h"
-#include "samir/ovl.h"
+#include "ibase/interp.h"
+#include "ibase/workarea.h"
+#include "ibase/nav.h"
+#include "ibase/dbf.h"
+#include "ibase/dbt.h"
+#include "ibase/ndx.h"
+#include "ibase/eval.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
+#include "ibase/set.h"
+#include "ibase/ovl.h"
 
 /* ===================================================================== */
 /* Tunables (bounded -- Rule 2 fail-loud on overflow, never UB)            */
@@ -235,7 +235,7 @@ static int m_encode_key(xb_interp *ip, const char *key_expr,
     } else {
         /* numeric/date: 8-byte LE double (JDN for D; the blank date keys as
          * 1E+100, sorting last -- real III+ BLANKDAT.NDX, datatype-mint;
-         * audit 2026-10-23-samir L016, initech-ylqs). */
+         * audit 2026-10-23-ibase L016, initech-ylqs). */
         if (v.t == XB_N)      d = v.u.n;
         else if (v.t == XB_D) d = xb_date_key(v.u.d);
         else {
@@ -271,7 +271,7 @@ typedef struct {
     int      has_while;
 } m_clauses;
 
-#ifndef SAMIR_DML_MUTANT_abbrscope
+#ifndef IBASE_DML_MUTANT_abbrscope
 /* Real III+ abbrscope mint: a trailing scope follows a COMPLETE WITH
  * expression, never a comma/field or an expression operand. Parse syntax
  * only (no evaluation or side effects), using the ordinary expression
@@ -334,7 +334,7 @@ static int m_split_clauses(const char *args, m_clauses *mc)
              * prefix; keep it out of the WITH expression in either spelling. */
             if (!scope_at && !for_at && !while_at &&
                 rt_kw_word(p, "ALL\0REST\0NEXT\0RECORD\0", (int *)0) >= 0
-#ifndef SAMIR_DML_MUTANT_abbrscope
+#ifndef IBASE_DML_MUTANT_abbrscope
                 && (p == s || m_after_replace_expr(s, p))
 #endif
                )
@@ -885,7 +885,7 @@ typedef struct {
     int         ec;
 } m_pack_kp_ctx;
 
-static SAMIR_OVL_TEXT(file) int m_pack_get_key(void *user, uint32_t recno,
+static IBASE_OVL_TEXT(file) int m_pack_get_key(void *user, uint32_t recno,
                           uint8_t *key_out, uint16_t key_len)
 {
     m_pack_kp_ctx *c = (m_pack_kp_ctx *)user;
@@ -901,7 +901,7 @@ static SAMIR_OVL_TEXT(file) int m_pack_get_key(void *user, uint32_t recno,
 }
 #endif /* !MUTATE_PACK_NO_REINDEX */
 
-static SAMIR_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
+static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
@@ -983,12 +983,12 @@ static SAMIR_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
  * empty/error/EOF as No are authored, no local reference for those edge rules.
  * Use the same cooked PAL as the REPL so a redirected answer consumes one line.
  * This helper can guard further destructive file commands when implemented. */
-static SAMIR_OVL_TEXT(file) int m_confirm_file(xb_interp *ip,const char *verb,const dbf_table *tbl)
+static IBASE_OVL_TEXT(file) int m_confirm_file(xb_interp *ip,const char *verb,const dbf_table *tbl)
 {
-    samir_pal_t *pal=xb_interp_pal(ip);
+    ibase_pal_t *pal=xb_interp_pal(ip);
     char answer[256];const char *s;uint32_t len;
     if (!set_get_safety(ip)) return 1;
-#ifdef SAMIR_MUTATE_ZAP_SAFETY
+#ifdef IBASE_MUTATE_ZAP_SAFETY
     return 1; /* mutant: stored SAFETY has no destructive consumer */
 #endif
     pal->conout(pal,verb,rt_strlen(verb));pal->conout(pal," ",1u);
@@ -1003,7 +1003,7 @@ static SAMIR_OVL_TEXT(file) int m_confirm_file(xb_interp *ip,const char *verb,co
     return len==1u && (s[0]=='Y' || s[0]=='y');
 }
 
-static SAMIR_OVL_TEXT(file) int m_zap(xb_interp *ip, int *ec)
+static IBASE_OVL_TEXT(file) int m_zap(xb_interp *ip, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
@@ -1037,8 +1037,8 @@ static SAMIR_OVL_TEXT(file) int m_zap(xb_interp *ip, int *ec)
 
 /* DML-04/05, Using III+ U5-131/132/172. Command adapters retain
  * NDX's independent codec and evaluate keys through the same resolver as SEEK. */
-static SAMIR_OVL_TEXT(file) int d_fail(int *ec,int code) { if(ec)*ec=code;return -INTERP_ERR_EVAL; }
-static SAMIR_OVL_TEXT(file) const char *d_kw(const char *s,const char *kw)
+static IBASE_OVL_TEXT(file) int d_fail(int *ec,int code) { if(ec)*ec=code;return -INTERP_ERR_EVAL; }
+static IBASE_OVL_TEXT(file) const char *d_kw(const char *s,const char *kw)
 {
     char quote=0;
     for(const char *p=s;*p;p++) {
@@ -1048,7 +1048,7 @@ static SAMIR_OVL_TEXT(file) const char *d_kw(const char *s,const char *kw)
     }
     return 0;
 }
-static SAMIR_OVL_TEXT(file) int d_word(const char **p,char *out,unsigned cap)
+static IBASE_OVL_TEXT(file) int d_word(const char **p,char *out,unsigned cap)
 {
     unsigned n=0;const char *s=m_skip_ws(*p);char quote=0;
     if(*s=='\'' || *s=='"') quote=*s++;
@@ -1059,7 +1059,7 @@ static SAMIR_OVL_TEXT(file) int d_word(const char **p,char *out,unsigned cap)
     if(quote) { if(*s!=quote)return 0;s++; }
     out[n]=0;*p=m_skip_ws(s);return n!=0;
 }
-static SAMIR_OVL_TEXT(file) int d_name(char *name,unsigned cap,const char *ext)
+static IBASE_OVL_TEXT(file) int d_name(char *name,unsigned cap,const char *ext)
 {
     unsigned i,n=rt_strlen(name);int dot=0;
     for(i=0;i<n;i++) { name[i]=m_up1(name[i]);if(name[i]=='.')dot=1; }
@@ -1086,9 +1086,9 @@ static int d_index_name(char *name, char *display, unsigned cap, int *defaulted)
 }
 /* Existing destinations stay intact under SAFETY until an independently
  * minted overwrite-prompt extension is available. No guessed prompt bytes. */
-static SAMIR_OVL_TEXT(file) int d_destination(xb_interp *ip,const char *name,int *ec)
+static IBASE_OVL_TEXT(file) int d_destination(xb_interp *ip,const char *name,int *ec)
 {
-    samir_pal_t *p=xb_interp_pal(ip);pal_fd fd;
+    ibase_pal_t *p=xb_interp_pal(ip);pal_fd fd;
     wa_env *env=xb_interp_env(ip);
     for(int a=1;a<=WA_NAREAS;a++) {
         dbf_table *t=wa_table(env,a);
@@ -1100,22 +1100,22 @@ static SAMIR_OVL_TEXT(file) int d_destination(xb_interp *ip,const char *name,int
     return 0;
 }
 typedef struct { xb_interp *ip;const char *expr;uint16_t type;int ec; } d_key_ctx;
-static SAMIR_OVL_TEXT(file) int d_key(void *user,uint32_t rec,uint8_t *key,uint16_t len)
+static IBASE_OVL_TEXT(file) int d_key(void *user,uint32_t rec,uint8_t *key,uint16_t len)
 {
     d_key_ctx *c=user;wa_env *e=xb_interp_env(c->ip);
     if(wa_nav_goto(e,wa_selected(e),rec)!=NAV_OK)return -1;
     return m_encode_key(c->ip,c->expr,c->type,len,key,&c->ec);
 }
-static SAMIR_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
+static IBASE_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
 {
-    wa_env *env=xb_interp_env(ip);samir_pal_t *pal=xb_interp_pal(ip);
+    wa_env *env=xb_interp_env(ip);ibase_pal_t *pal=xb_interp_pal(ip);
     int area=wa_selected(env),rc;dbf_table *t=wa_table(env,area);
     uint32_t keep=wa_recno(env,area),count=t?dbf_nrec(t):0;
     d_key_ctx ctx={ip,0,0,0};
     if(!t)return d_fail(ec,52);
     if(rebuild) {
         if(*m_skip_ws(args))return d_fail(ec,10);
-#ifdef SAMIR_DML_MUTANT_reindex
+#ifdef IBASE_DML_MUTANT_reindex
         if(count)count--; /* omit last record from every rebuilt index */
 #endif
         for(int i=0;i<wa_index_count(env,area);i++) {
@@ -1144,7 +1144,7 @@ static SAMIR_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
         rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
         ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
         if(v.t!=XB_C && v.t!=XB_N && v.t!=XB_D)return d_fail(ec,9);
-#ifdef SAMIR_DML_MUTANT_index
+#ifdef IBASE_DML_MUTANT_index
         if(count)count--; /* last physical record has no index entry */
 #endif
         rc=ndx_build_ex(pal,name,ctx.type,v.t==XB_C?v.u.c.len:8,expr,count,d_key,&ctx,unique);
@@ -1162,7 +1162,7 @@ static SAMIR_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
 
 /* SORT/TOTAL: Using III+ U5-269/270/276; real DML-06 tie order and
  * DML-07 consecutive groups (non-numeric fields come from the first row). */
-static SAMIR_OVL_TEXT(file) int d_schema(dbf_table *t,dbf_field_spec *s,int *ec)
+static IBASE_OVL_TEXT(file) int d_schema(dbf_table *t,dbf_field_spec *s,int *ec)
 {
     int n=dbf_nfields(t);
     if(n>128)return d_fail(ec,43);
@@ -1173,13 +1173,13 @@ static SAMIR_OVL_TEXT(file) int d_schema(dbf_table *t,dbf_field_spec *s,int *ec)
     }
     return n;
 }
-static SAMIR_OVL_TEXT(file) int d_field(dbf_table *t,const char *name)
+static IBASE_OVL_TEXT(file) int d_field(dbf_table *t,const char *name)
 { for(int i=0;i<dbf_nfields(t);i++)if(m_ci_eq(name,dbf_field(t,i)->name))return i;return -1; }
 typedef struct {uint32_t rec;double number;char key[100];} d_sort_row;
-static SAMIR_OVL_TEXT(file) int d_sort(xb_interp *ip,const char *args,int *ec)
+static IBASE_OVL_TEXT(file) int d_sort(xb_interp *ip,const char *args,int *ec)
 {
     wa_env *env=xb_interp_env(ip);int area=wa_selected(env),rc=0,fi,nf,del;
-    samir_pal_t *pal=xb_interp_pal(ip);dbf_table *src=wa_table(env,area),*out=0;
+    ibase_pal_t *pal=xb_interp_pal(ip);dbf_table *src=wa_table(env,area),*out=0;
     dbf_field_spec schema[128];xb_val row[128];char name[128],field[32];
     const char *p=m_skip_ws(args);d_sort_row *rows;uint32_t n=0,count;
     if(!src)return d_fail(ec,52);
@@ -1213,7 +1213,7 @@ static SAMIR_OVL_TEXT(file) int d_sort(xb_interp *ip,const char *args,int *ec)
             int cmp;
             if(dbf_field(src,fi)->type=='C')cmp=rt_memcmp(rows[j-1].key,v.key,dbf_field(src,fi)->field_len);
             else cmp=(rows[j-1].number>v.number)-(rows[j-1].number<v.number);
-#ifdef SAMIR_DML_MUTANT_sort
+#ifdef IBASE_DML_MUTANT_sort
             cmp=-cmp; /* descending instead of the documented ascending default */
 #endif
             if(cmp<=0)break;
@@ -1230,10 +1230,10 @@ static SAMIR_OVL_TEXT(file) int d_sort(xb_interp *ip,const char *args,int *ec)
     pal->release(pal,rows);
     return rc?d_fail(ec,rc):INTERP_OK;
 }
-static SAMIR_OVL_TEXT(file) int d_total(xb_interp *ip,const char *args,int *ec)
+static IBASE_OVL_TEXT(file) int d_total(xb_interp *ip,const char *args,int *ec)
 {
     wa_env *env=xb_interp_env(ip);int area=wa_selected(env),nf,fi,del,rc=0,have=0;
-    samir_pal_t *pal=xb_interp_pal(ip);dbf_table *src=wa_table(env,area),*out=0;
+    ibase_pal_t *pal=xb_interp_pal(ip);dbf_table *src=wa_table(env,area),*out=0;
     dbf_field_spec schema[128];xb_val row[128],group[128],last=xb_u();
     char name[128],field[32],strings[4000],key[254];const char *p=m_skip_ws(args);
     if(!src)return d_fail(ec,52);
@@ -1264,7 +1264,7 @@ static SAMIR_OVL_TEXT(file) int d_total(xb_interp *ip,const char *args,int *ec)
             if(last.t==XB_C) {rt_memcpy(key,last.u.c.p,last.u.c.len);last.u.c.p=key;}
             have=1;
         } else for(int i=0;i<nf;i++)if(row[i].t==XB_N) {
-#ifndef SAMIR_DML_MUTANT_total
+#ifndef IBASE_DML_MUTANT_total
             group[i].u.n+=row[i].u.n;
 #endif
         }
@@ -1279,11 +1279,11 @@ static SAMIR_OVL_TEXT(file) int d_total(xb_interp *ip,const char *args,int *ec)
 /* Closed ASCII file verbs. Using III+ U5-59/121/175/278;
  * real DML-11..14: TYPE stops at DOS EOF, COPY FILE preserves every byte. */
 /* kind: 0 TYPE, 1 RENAME, 2 ERASE, 3 COPY (mutate_cmd_hook's table order). */
-static SAMIR_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,int *ec)
+static IBASE_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,int *ec)
 {
     const char *p=m_skip_ws(args);char src[128],dst[128],buf[512];int copy=kind==3;
     int type=kind==0,erase=kind==2,rc=0;
-    samir_pal_t *pal=xb_interp_pal(ip);pal_fd in,out=-1;int32_t n;uint32_t total=0;
+    ibase_pal_t *pal=xb_interp_pal(ip);pal_fd in,out=-1;int32_t n;uint32_t total=0;
     if(copy) {if(!m_match_kw(p,"FILE"))return CMD_UNKNOWN;p=m_skip_ws(p+4);}
     if(!d_word(&p,src,sizeof src) || !d_name(src,sizeof src,""))return d_fail(ec,10);
     if(!erase && !type) {
@@ -1299,7 +1299,7 @@ static SAMIR_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
     in=pal->open(pal,src,PAL_RD);if(in<0)return d_fail(ec,in==-PAL_ENOENT?1:29);
     if(erase) {
         pal->close(pal,in);
-#ifdef SAMIR_DML_MUTANT_erase
+#ifdef IBASE_DML_MUTANT_erase
         return INTERP_OK; /* leave the file present */
 #endif
         rc=pal->remove(pal,src);return rc?d_fail(ec,29):INTERP_OK;
@@ -1307,7 +1307,7 @@ static SAMIR_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
     if(!copy && !type) {
         pal->close(pal,in);
         out=pal->open(pal,dst,PAL_RD);if(out>=0){pal->close(pal,out);return d_fail(ec,7);}
-#ifdef SAMIR_DML_MUTANT_rename
+#ifdef IBASE_DML_MUTANT_rename
         return INTERP_OK; /* skip the actual filesystem rename */
 #endif
         rc=pal->rename(pal,src,dst);return rc?d_fail(ec,29):INTERP_OK;
@@ -1320,13 +1320,13 @@ static SAMIR_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
     while((n=pal->read(pal,in,buf,sizeof buf))>0) {
         if(type) {
             int32_t j=0;while(j<n && (unsigned char)buf[j]!=26)j++;
-#ifdef SAMIR_DML_MUTANT_type
+#ifdef IBASE_DML_MUTANT_type
             j=0; /* suppress ASCII contents */
 #endif
             xb_interp_output(ip,buf,(uint32_t)j);
             if(j<n)break;
         } else {
-#ifdef SAMIR_DML_MUTANT_copyfile
+#ifdef IBASE_DML_MUTANT_copyfile
             buf[0]^=1; /* copied bytes differ even though state is preserved */
 #endif
             if(pal->write(pal,out,buf,(uint32_t)n)!=n){rc=56;break;}
@@ -1354,11 +1354,11 @@ static SAMIR_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
  * survive it (the table is never closed). The golden cannot show which side of
  * the child each pair falls on (the child's output went to its own file);
  * one before and one after is AUTHORED. Error 92 "Unable to load COMMAND.COM."
- * (spec/samir/dbase_msg_codes.tsv) when the PAL has no processor. */
-static SAMIR_OVL_TEXT(file) int d_run(xb_interp *ip,const char *args,int *ec)
+ * (spec/ibase/dbase_msg_codes.tsv) when the PAL has no processor. */
+static IBASE_OVL_TEXT(file) int d_run(xb_interp *ip,const char *args,int *ec)
 {
-    samir_pal_t *pal=xb_interp_pal(ip);
-#ifdef SAMIR_DML_MUTANT_run
+    ibase_pal_t *pal=xb_interp_pal(ip);
+#ifdef IBASE_DML_MUTANT_run
     (void)pal;(void)args;(void)ec;
     return INTERP_OK; /* RUN_NOEXEC: no CR LFs, no child, no VERSION.TXT */
 #else
@@ -1374,7 +1374,7 @@ static SAMIR_OVL_TEXT(file) int d_run(xb_interp *ip,const char *args,int *ec)
  * Each record is persisted before proceeding. Previously appended records are
  * never rolled back if a later input/write fails; there is no invented batch
  * transaction. The blank-append primitive protects only its own record. */
-static SAMIR_OVL_TEXT(file) int d_append_from(xb_interp *ip,const char *args,int *ec)
+static IBASE_OVL_TEXT(file) int d_append_from(xb_interp *ip,const char *args,int *ec)
 {
     wa_env *env=xb_interp_env(ip);int area=wa_selected(env),del,rc=0,nf,ns;
     dbf_table *out=wa_table(env,area),*src=0;const char *p=m_skip_ws(args);
@@ -1394,7 +1394,7 @@ static SAMIR_OVL_TEXT(file) int d_append_from(xb_interp *ip,const char *args,int
     for(uint32_t r=1;r<=dbf_nrec(src);r++) {
         if(dbf_read_rec(src,r,input,&del)){rc=29;break;}
         if(del && wa_get_deleted(env))continue;
-#ifdef SAMIR_DML_MUTANT_append
+#ifdef IBASE_DML_MUTANT_append
         if(r==dbf_nrec(src))break; /* drop the last incoming record */
 #endif
         /* Commit one blank through the existing index-maintaining adapter,
@@ -1421,7 +1421,7 @@ static SAMIR_OVL_TEXT(file) int d_append_from(xb_interp *ip,const char *args,int
     return rc?d_fail(ec,rc):INTERP_OK;
 }
 
-/* Overlay FILE (initech-5etom.1; docs/design/samir-overlays.md Sec 3): the
+/* Overlay FILE (initech-5etom.1; docs/design/ibase-overlays.md Sec 3): the
  * cold mutation verbs. `k` is a MUT_OP_* operation id -- stable numbers owned by
  * this overlay, NOT the row position in mutate_verbs.def (initech-1x6x2.4);
  * each case returns exactly what the hook returned for that verb before the split. */
@@ -1429,7 +1429,7 @@ enum { MUT_OP_TYPE = 0, MUT_OP_RENAME = 1, MUT_OP_ERASE = 2, MUT_OP_COPY = 3,
        MUT_OP_RUN = 4, MUT_OP_BANG = 5, MUT_OP_SORT = 6, MUT_OP_TOTAL = 7,
        MUT_OP_INDEX = 8, MUT_OP_REINDEX = 9, MUT_OP_APPEND_FROM = 11,
        MUT_OP_PACK = 14, MUT_OP_ZAP = 15 };
-static SAMIR_OVL_TEXT(file) int mutate_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+static IBASE_OVL_TEXT(file) int mutate_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
 {
     int rc;
     switch (k) {
@@ -1448,7 +1448,7 @@ static SAMIR_OVL_TEXT(file) int mutate_ovl_entry(int k, xb_interp *ip, const cha
     }
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
-SAMIR_OVL_HEADER(file, SAMIR_OVL_FILE, mutate_ovl_entry);
+IBASE_OVL_HEADER(file, IBASE_OVL_FILE, mutate_ovl_entry);
 
 static int m_replace(xb_interp *ip, const char *args, int *ec)
 {
@@ -1475,9 +1475,9 @@ static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int
 }
 /* Verb handlers, one per row of mutate_verbs.def (initech-1x6x2.4). Each
  * returns the hook's final code (CMD_OK == INTERP_OK == 0). */
-/* One shared overlay call site (a per-verb SAMIR_OVL_CALL expansion costs ~30 B each). */
+/* One shared overlay call site (a per-verb IBASE_OVL_CALL expansion costs ~30 B each). */
 static __attribute__((noinline)) int mutate_cold(xb_interp *ip, const char *args, int *ec, int op)
-{ return SAMIR_OVL_CALL(SAMIR_OVL_FILE, mutate_ovl_entry, op, ip, args, ec); }
+{ return IBASE_OVL_CALL(IBASE_OVL_FILE, mutate_ovl_entry, op, ip, args, ec); }
 #define MUT_COLD(name, op) \
     static int name(xb_interp *ip, const char *args, int *ec) \
     { return mutate_cold(ip, args, ec, op); }

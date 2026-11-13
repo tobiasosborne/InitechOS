@@ -1,0 +1,629 @@
+/*
+ * os/ibase/ibase_main.c -- IBASE (InitechBase) dot-prompt REPL.
+ *                          Step S5.8 (Phase 5 convergence finale; initech-7az.9).
+ *
+ * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
+ * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
+ * byte of I/O is through the PAL vtable carried by the interpreter. Memory comes
+ * from the PAL arena (no malloc). ASCII-clean (Rule 12). Fail loud (Rule 2).
+ * Reproducible (Rule 11): pure function of (typed lines, interp state, the
+ * injected clock).
+ *
+ * dBASE III PLUS 1.1 ONLY (docs/plans/IBASE-implementation-plan.md Sec 2.C).
+ *
+ * WHAT THIS IS (the S5.8 contract; plan Sec 8.2 -- ibase_repl is THE dot prompt):
+ *   ibase_repl(pal, ip) is the resident interpreter's read/eval/print loop. It
+ *   registers the four S5.4..S5.7 command modules (query / mutate / set / proc)
+ *   into the interp's command-hook chain, then loops:
+ *       1. emit the dot prompt ("." then a space, dBASE-style);
+ *       2. read one cooked line via pal->conin_line (EOF -> stop cleanly);
+ *       3. trim it; an empty line just re-prompts;
+ *       4. QUIT / EXIT typed at the dot prompt -> stop cleanly;
+ *       5. USE / CLOSE -- handled HERE (no command module owns the work-area
+ *          open/close verbs; the spine owns SELECT, so SELECT falls through);
+ *       6. anything else -> ibase_do(ip, line) (the S5.3 spine + the hook chain);
+ *       7. on a run-time error, render the dBASE catalog message for
+ *          ibase_last_error(ip) as "<code>  <message>" and CONTINUE the loop --
+ *          a bad line never aborts the session (real dot-prompt behavior).
+ *   On exit (EOF / QUIT / EXIT) it closes every open work area and returns
+ *   INTERP_OK.
+ *
+ * WHY USE/CLOSE ARE HANDLED HERE (not in a command module):
+ *   The four registered modules (query/mutate/set/proc) do NOT own a USE or CLOSE
+ *   verb, and the spine (flow.c) owns SELECT but not USE. A real dot prompt must
+ *   open tables, so the REPL parses "USE <file> [ALIAS a] [INDEX i1,i2,...]" and
+ *   "CLOSE [DATABASES|ALL]" itself and drives the work-area env (workarea.h
+ *   wa_set_open_rw / wa_select / wa_close / wa_close_all). USE opens read-WRITE
+ *   (wa_set_open_rw, 7az.16 / 7az.19) so the S5.5 mutation verbs (REPLACE /
+ *   APPEND / DELETE / PACK / ZAP) and dbf_flush work on the table directly after
+ *   a plain `USE <file>` -- this is the dBASE default (a plain USE opens for
+ *   editing). The old wa_adopt_table seam for writable tables is no longer needed
+ *   at the dot prompt; it remains available for tests/tooling that need to inject
+ *   an already-created table. Ref: workarea.h wa_set_open_rw (7az.16 / 7az.19).
+ *
+ * ERROR RENDERING (the 151-code catalog):
+ *   The catalog lives as spec/ibase/dbase_msg_codes.tsv -- a factory artifact the
+ *   freestanding engine cannot read at runtime. So the 1..151 messages are
+ *   TRANSCRIBED here as a static ASCII table (provenance + the empty-slot notes
+ *   are in the table comment). repl_render_error(pal, code) emits
+ *   "<code>  <message>\n". Codes outside 1..151 (the engine's negative interp_err
+ *   ordinals, surfaced positive by ibase_last_error as small magnitudes that do
+ *   NOT collide with the catalog) render a generic "<code>  Internal error."
+ *
+ * STANDALONE main():
+ *   A main() exists ONLY behind #ifdef IBASE_MAIN_STANDALONE so the engine stays
+ *   freestanding-linkable and the oracle can drive ibase_repl directly. The
+ *   standalone main() is a thin host/artifact entry point (it needs a concrete
+ *   PAL, supplied by whoever links it -- pal_host on the factory, pal_dos on
+ *   InitechDOS at S8.2); it is NOT compiled into the oracle or the freestanding check.
+ *
+ * Mutation hooks (Rule 6 -- the oracle's mutant siblings):
+ *   -DREPL_MUTATE_NO_MUTATE_MODULE : skip registering the mutate module, so a
+ *       REPLACE typed in the session fails (#16 unrecognized) -> the oracle's
+ *       "REPLACE changed the field" assertions go RED (both the convergence
+ *       session and the plain-USE-REPLACE-persists leg, initech-7az.19).
+ *   -DREPL_MUTATE_ERR_RENDER : render code+1 instead of code, so the catalog
+ *       message text for a forced error no longer matches -> the oracle's
+ *       error-text assertion goes RED.
+ *
+ * Ref (Law 1):
+ *   - docs/plans/IBASE-implementation-plan.md S5.8 ("read line via PAL, parse,
+ *     execute, render via the 151-code error catalog") + Sec 8.2 (ibase_repl).
+ *   - os/ibase/include/ibase/interp.h (ibase_repl decl; ibase_do; the hook chain;
+ *     ibase_last_error).
+ *   - os/ibase/include/ibase/pal.h (conin_line / conout; the ONLY OS surface).
+ *   - os/ibase/include/ibase/workarea.h (wa_set_open / wa_select / wa_close /
+ *     wa_close_all -- the USE/CLOSE engine).
+ *   - spec/ibase/dbase_msg_codes.tsv (the 151-code catalog transcribed below).
+ */
+
+#include <stdint.h>
+
+#include "ibase/interp.h"
+#include "ibase/workarea.h"
+#include "ibase/nav.h"
+#include "ibase/value.h"
+#include "ibase/eval.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
+
+/* ---------------------------------------------------------------------------
+ * The four S5.4..S5.7 command modules. Their register functions are defined in
+ * their own translation units (cmd/query.c, cmd/mutate.c, cmd/set.c, cmd/proc.c)
+ * but there is no shared commands.h yet, so they are extern-declared here with
+ * matching signatures. FOLLOW-UP (below): consolidate into ibase/commands.h.
+ * ------------------------------------------------------------------------- */
+extern int query_register(xb_interp *ip);
+extern int mutate_register(xb_interp *ip);
+extern int set_register(xb_interp *ip);
+extern void set_close_alternate(xb_interp *ip);
+extern int proc_register(xb_interp *ip);
+extern int report_register(xb_interp *ip);   /* cmd/report.c (initech-airx) */
+
+/*
+ * proc_run(ip, line) is the proc module's program driver: it registers `line`
+ * as the source (so a DO <name> in the same line finds a PROCEDURE defined in
+ * it), runs the main body via ibase_do, maps a top-level RETURN to a clean exit,
+ * and FIRES an installed ON ERROR trap once on a runtime error. The REPL uses it
+ * as the per-line executor (instead of bare ibase_do) so DO/PROCEDURE and
+ * ON ERROR work at the dot prompt; for a plain single-statement line it is
+ * exactly ibase_do of that line. Defined in cmd/proc.c (extern-declared here for
+ * the same reason as the register fns -- no shared commands.h yet).
+ */
+extern int proc_run(xb_interp *ip, const char *prg);
+/* cmd/proc.c (initech-39e5): a disk program run as DO level 1 (named, for the
+ * Esc trace), and the nested dot prompt behind the Esc prompt's "Suspend". */
+extern int proc_run_program(xb_interp *ip, const char *prg, const char *name);
+extern void proc_set_suspend(xb_interp *ip, int (*fn)(xb_interp *));
+
+/* Packed storage only; every decoded ordinal is independently compared with
+ * spec/ibase/dbase_msg_codes.tsv by test-ibase-messages (PRD 6.6). */
+#include "ibase/messages.h"
+
+/* ===================================================================== */
+/* Small freestanding helpers (no libc).                                   */
+/* ===================================================================== */
+
+/* Console whitespace. */
+static int repl_isspace(char c)
+{
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
+/* write a NUL-terminated C string to the console. */
+static void repl_puts(ibase_pal_t *pal, const char *s)
+{
+    pal->conout(pal, s, rt_strlen(s));
+}
+
+/*
+ * repl_uitoa: format a non-negative integer into `buf` (NUL-terminated),
+ * returning the byte length. Freestanding (no libc snprintf).
+ */
+static uint32_t repl_uitoa(uint32_t v, char *buf)
+{
+    char tmp[12];
+    uint32_t n = 0, i;
+    if (v == 0u) { buf[0] = '0'; buf[1] = '\0'; return 1u; }
+    while (v > 0u) { tmp[n++] = (char)('0' + (v % 10u)); v /= 10u; }
+    for (i = 0; i < n; i++) buf[i] = tmp[n - 1u - i];
+    buf[n] = '\0';
+    return n;
+}
+
+/*
+ * repl_render_error: emit "<code>  <message>" + newline for a dBASE catalog
+ * ordinal (1..151). An out-of-range code (the engine's small interp_err
+ * ordinals, or 0) renders a generic line so the loop never silently swallows a
+ * failure (Rule 2). The -DREPL_MUTATE_ERR_RENDER mutant perturbs the looked-up
+ * code by +1 so the message text no longer matches (the oracle bites).
+ */
+static void repl_render_error(ibase_pal_t *pal, int code)
+{
+    char num[12];
+    int lookup = code;
+
+#ifdef REPL_MUTATE_ERR_RENDER
+    lookup = code + 1;   /* MUTANT: wrong catalog code -> wrong message text */
+#endif
+
+    repl_uitoa((uint32_t)(code < 0 ? -code : code), num);
+    repl_puts(pal, num);
+    repl_puts(pal, "  ");
+    {
+        char m[128];
+        unsigned n = ibase_message((unsigned)lookup, m, sizeof m);
+        repl_puts(pal, n ? m : "Internal error.");
+    }
+    repl_puts(pal, "\n");
+}
+
+/* ===================================================================== */
+/* Line trimming + verb splitting.                                         */
+/* ===================================================================== */
+
+/*
+ * repl_trim: in place, strip leading + trailing whitespace from a NUL-terminated
+ * line; returns a pointer to the first non-blank byte (still inside `line`).
+ */
+static char *repl_trim(char *line)
+{
+    char *s = line;
+    uint32_t n;
+    while (*s != '\0' && repl_isspace(*s)) s++;
+    n = rt_strlen(s);
+    while (n > 0u && repl_isspace(s[n - 1u])) { s[n - 1u] = '\0'; n--; }
+    return s;
+}
+
+/*
+ * repl_verb_eq: recognize the leading word using the shared III+ policy.
+ * The word ends at the first whitespace or NUL. `*rest`
+ * (may be NULL) receives the trimmed remainder after the word.
+ */
+static int repl_verb_eq(const char *line, const char *kw, const char **rest)
+{
+    uint32_t i = (uint32_t)rt_kw_match(line, kw);
+    if (!i) return 0;
+    if (rest) {
+        while (line[i] != '\0' && repl_isspace(line[i])) i++;
+        *rest = line + i;
+    }
+    return 1;
+}
+
+/* ===================================================================== */
+/* USE / CLOSE -- the REPL-owned work-area verbs.                          */
+/* ===================================================================== */
+
+#define REPL_TOK_CAP   128   /* one parsed file/alias token */
+
+/*
+ * Copy the next blank/comma-delimited word from `*p` into `tok` (NUL-terminated,
+ * capped). Advances `*p` past the word + any trailing separators. Returns the
+ * word length (0 = nothing left).
+ */
+static uint32_t repl_word(const char **p, char *tok, uint32_t cap)
+{
+    const char *q = *p;
+    uint32_t n = 0;
+    while (*q != '\0' && (repl_isspace(*q) || *q == ',')) q++;
+    while (*q != '\0' && !repl_isspace(*q) && *q != ',') {
+        if (n < cap - 1u) tok[n++] = *q;
+        q++;
+    }
+    tok[n] = '\0';
+    *p = q;
+    return n;
+}
+
+/*
+ * repl_do_use: parse + execute "USE <file> [ALIAS <a>] [INDEX <i1>,<i2>,...]"
+ * into the SELECTED work area. Returns INTERP_OK, or a negative interp_err with
+ * *ec set to the dBASE catalog ordinal to render.
+ *
+ * Bare "USE" (no file) closes the selected area (dBASE: USE with no operand
+ * closes the current database). USE re-uses the SELECTED area; the area is
+ * closed first (dBASE USE replaces the open table in the current area).
+ */
+/* File suffixes from real DBASE.MSG #56. Device-failure diagnostic is
+ * authored, no local reference. Never label a device fault read-only. */
+static void repl_mutation_error(ibase_pal_t *pal, xb_interp *ip, int code)
+{
+    if (code == 1001) pal->conout(pal,"Database write failed: ",23u);
+    else if (code == 56) repl_puts(pal,"56  Disk full when writing file: ");
+    else repl_render_error(pal,code);
+    if (code == 56 || code == 1001) {
+        const char *name=dbf_name(wa_table(xb_interp_env(ip),wa_selected(xb_interp_env(ip))));
+        pal->conout(pal,name,rt_strlen(name)); pal->conout(pal,"\n",1u);
+    }
+}
+
+/* Append `ext` (".DBF" / ".NDX") when the FINAL path component of `name` has
+ * no extension; a dot in a directory name does not count. Returns 0, or -1 if
+ * the result would not fit in `cap`. */
+static int repl_default_ext(char *name, uint32_t cap, const char *ext)
+{
+    uint32_t i, len = rt_strlen(name);
+    int dot = 0;
+    for (i = 0; i < len; i++) {
+        if (name[i] == '/' || name[i] == '\\' || name[i] == ':') dot = 0;
+        else if (name[i] == '.') dot = 1;
+    }
+    if (dot) return 0;
+    if (len + 5u > cap) return -1;
+    rt_memcpy(name + len, ext, 5u);
+    return 0;
+}
+
+static int repl_do_use(xb_interp *ip, const char *args, int *ec)
+{
+    wa_env *env = xb_interp_env(ip);
+    char file[REPL_TOK_CAP];
+    char alias[REPL_TOK_CAP];
+    static char idxbuf[NDX_PER_AREA][REPL_TOK_CAP];
+    int idx_defaulted[NDX_PER_AREA] = {0};
+    const char *idx_source[NDX_PER_AREA];
+    wa_index_list il;
+    const char *have_alias = (const char *)0;
+    int area;
+    int rc;
+    const char *p = args;
+
+    if (ec) *ec = 0;
+    area = wa_selected(env);
+    if (area < 1) { if (ec) *ec = 17; return -INTERP_ERR_SYNTAX; }
+
+    /* bare USE -> close the current area. */
+    if (repl_word(&p, file, sizeof file) == 0u) {
+        wa_nav_reset(area);
+        wa_close(env, area);
+        return INTERP_OK;
+    }
+
+    il.count = 0;
+    for (;;) {
+        char kw[REPL_TOK_CAP];
+        const char *save = p;
+        if (repl_word(&p, kw, sizeof kw) == 0u) break;
+        if (repl_verb_eq(kw, "ALIAS", (const char **)0)) {
+            if (repl_word(&p, alias, sizeof alias) == 0u) {
+                if (ec) *ec = 10;            /* Syntax error */
+                return -INTERP_ERR_SYNTAX;
+            }
+            have_alias = alias;
+        } else if (repl_verb_eq(kw, "INDEX", (const char **)0)) {
+            char one[REPL_TOK_CAP];
+            for (;;) {
+                const char *supplied = p;
+                if (repl_word(&p, one, sizeof one) == 0u) break;
+                if (il.count >= NDX_PER_AREA) {
+                    if (ec) *ec = 28;        /* Too many indices */
+                    return -INTERP_ERR_SYNTAX;
+                }
+                rt_memcpy(idxbuf[il.count], one, rt_strlen(one) + 1u);
+                idx_source[il.count] = supplied;
+                il.names[il.count] = idxbuf[il.count];
+                il.count++;
+            }
+        } else {
+            /* an unrecognized USE clause word -- fail loud (Rule 2). */
+            (void)save;
+            if (ec) *ec = 36;                /* Unrecognized phrase/keyword */
+            return -INTERP_ERR_SYNTAX;
+        }
+    }
+
+    /* Ref: Using dBase III Plus.pdf U1-4: omitted extension defaults to .DBF. */
+#ifndef IBASE_MUTATE_USE_EXTENSION
+    if (repl_default_ext(file, sizeof file, ".DBF") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+#endif
+    /* An index named without an extension is <name>.NDX: real dBASE III PLUS
+     * 1.1 opens TRIPS.NDX for USE TRAVEL INDEX TRIPS (mint 005 M005U [U1],
+     * dbase3-decomp/re/mint-results-005.md; initech-vfys). */
+#ifndef IBASE_MUTATE_USE_NDX_EXTENSION
+    {
+        int k;
+        for (k = 0; k < il.count; k++) {
+            uint32_t before = rt_strlen(idxbuf[k]);
+            if (repl_default_ext(idxbuf[k], REPL_TOK_CAP, ".NDX") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+            idx_defaulted[k] = rt_strlen(idxbuf[k]) != before;
+            ndx_io_name(idxbuf[k]);
+        }
+    }
+#endif
+
+#ifndef IBASE_MUTATE_DUPLICATE_OPEN
+    /* Ref: Using III+ U7-7, #3. Refuse before closing the selected area. */
+    if (wa_name_is_open(env,file,area)) { if(ec)*ec=3;return -INTERP_ERR_EVAL; }
+#endif
+    /* dBASE USE replaces the table in the current area: close it first. */
+    wa_nav_reset(area);
+    wa_close(env, area);
+    /* Ref: PRD S5.8; workarea.h wa_set_open_rw (7az.16 / 7az.19).
+     * Open read-WRITE: dBASE USE opens the table for editing by default, so
+     * REPLACE/APPEND/DELETE persist without the dbf_create + wa_adopt_table seam.
+     * wa_set_open (read-only) is kept for tests/tooling that must NOT write to a
+     * corpus golden; the dot prompt always opens rw. */
+    rc = wa_set_open_rw(env, area, file, have_alias,
+                        il.count > 0 ? &il : (const wa_index_list *)0);
+    if (rc != WA_OK) {
+        /* File open / codec faults: missing #1, inaccessible #29, malformed #15.
+         * The engine returns negated wa/codec codes;
+         * we map to the user-facing catalog ordinal. */
+        if (ec) {
+#ifndef IBASE_MUTATE_USE_ERROR
+            *ec = rc == -WA_ERR_ALREADY_OPEN ? 3 : rc == -DBF_ERR_NOENT ? 1 :
+                  (rc == -DBF_ERR_ACCESS || rc == -DBF_ERR_IO) ? 29 : 15;
+#else
+            *ec = 15;
+#endif
+        }
+        return -INTERP_ERR_EVAL;
+    }
+    wa_select(env, area);                     /* USE selects the area it opens */
+    /* III+ ndx/GOLD.OUT: USE INDEX displays the operand's supplied spelling. */
+    for (int k = 0; k < il.count; k++) {
+        char display[REPL_TOK_CAP];
+        const char *supplied = idx_source[k];
+        repl_word(&supplied,display,sizeof display);
+        if (idx_defaulted[k]) repl_default_ext(display,sizeof display,".NDX");
+        ndx_set_name_defaulted(wa_index(env, area, k), idx_defaulted[k]);
+        if (ndx_set_display_name(wa_index(env,area,k),display)!=NDX_OK) {
+            if (ec) *ec=114;
+            return -INTERP_ERR_EVAL;
+        }
+    }
+    /* USE with indexes leaves the FIRST record in master-index order current,
+     * not physical record 1: real dBASE III PLUS 1.1 shows RECNO() 23 after
+     * USE TRAVEL INDEX TRIPS, 2 after USE AVAL_FLT INDEX AVAL_FLT, FLT_NO and 6
+     * after INDEX FLT_NO, AVAL_FLT (mint 005 M005U [U1]/[U4]/[U5],
+     * mint-results-005.md; initech-k7lc). Natural-order USE stays on record 1. */
+#ifndef IBASE_MUTATE_USE_INDEX_TOP
+    if (wa_index_count(env, area) > 0 && wa_nav_index_top(env, area) != NAV_OK) {
+        if (ec) *ec = 114;                    /* Index damaged */
+        return -INTERP_ERR_EVAL;
+    }
+#endif
+    return INTERP_OK;
+}
+
+/* Ref: Using III+ U5-53; real mint ibasedml/close and do-file-mint/close.
+ * The proc module owns the selected library and its active references. */
+extern void wa_close_indexes(wa_env *, int);
+static int repl_do_close(xb_interp *ip, const char *args, int *ec)
+{
+    char type[REPL_TOK_CAP],extra[REPL_TOK_CAP];const char *p=args;int area,k;
+    if (!repl_word(&p,type,sizeof type) || repl_word(&p,extra,sizeof extra)) {
+        *ec=10;return -INTERP_ERR_SYNTAX;
+    }
+#ifdef IBASE_DML_MUTANT_close
+    wa_close_all(xb_interp_env(ip));return INTERP_OK;
+#endif
+    /* `type` is one repl_word token (no blank inside), so the leading-word
+     * match repl_verb_eq made is the whole-token match of rt_kw_index. */
+    k=rt_kw_index(type,"ALL\0DATABASES\0INDEX\0FORMAT\0PROCEDURE\0ALTERNATE\0");
+    if (k == 0 || k == 4) proc_close_library(ip);
+    if (k == 0 || k == 1) {                     /* ALL DATABASES */
+        for(area=1;area<=WA_NAREAS;area++)wa_nav_reset(area);
+        wa_close_all(xb_interp_env(ip));
+    } else if (k == 2) {                        /* INDEX */
+        for(area=1;area<=WA_NAREAS;area++) { wa_close_indexes(xb_interp_env(ip),area);wa_nav_reset(area); }
+    } else if (k < 0) {                         /* not FORMAT/PROCEDURE/ALTERNATE */
+        *ec=10;return -INTERP_ERR_SYNTAX;
+    }
+    return INTERP_OK;
+}
+
+/* USE/CLOSE share one route for dot commands and whole disk programs;
+ * Using III+ U5-53/281, bead u78k. */
+static int repl_area_hook(void *user,xb_interp *ip,const char *verb,
+                          const char *args,int *ec)
+{
+    int rc;(void)user;
+    if (repl_verb_eq(verb,"USE",(const char **)0)) rc=repl_do_use(ip,args,ec);
+    else if(repl_verb_eq(verb,"CLOSE",(const char **)0)) rc=repl_do_close(ip,args,ec);
+    else return CMD_UNKNOWN;
+    return rc==INTERP_OK ? CMD_OK : rc;
+}
+
+/* ===================================================================== */
+/* Module registration.                                                    */
+/* ===================================================================== */
+
+/*
+ * repl_register_modules: install the four S5.4..S5.7 command modules into the
+ * interp's hook chain, in dispatch order query -> mutate -> set -> proc. Returns
+ * INTERP_OK if all registered, or the first negative interp_err.
+ *
+ * The -DREPL_MUTATE_NO_MUTATE_MODULE mutant SKIPS the mutate module, so a typed
+ * REPLACE is then unrecognized (#16) -> the oracle bites.
+ */
+static int repl_register_modules(xb_interp *ip)
+{
+    int rc;
+
+    rc = xb_interp_add_cmd_hook(ip, repl_area_hook, (void *)0);
+    if (rc != INTERP_OK) return rc;
+
+    rc = query_register(ip);
+    if (rc != INTERP_OK) return rc;
+
+#ifndef REPL_MUTATE_NO_MUTATE_MODULE
+    rc = mutate_register(ip);
+    if (rc != INTERP_OK) return rc;
+#endif
+
+    rc = set_register(ip);
+    if (rc != INTERP_OK) return rc;
+
+    rc = proc_register(ip);
+    if (rc != INTERP_OK) return rc;
+
+    /* REPORT FORM (Using III+ U5-177): before this the verb fell to #16. */
+    rc = report_register(ip);
+    if (rc != INTERP_OK) return rc;
+
+    return INTERP_OK;
+}
+
+/* ===================================================================== */
+/* The REPL loop.                                                          */
+/* ===================================================================== */
+
+#define REPL_LINE_CAP 256   /* dBASE line cap is 254; +slack for NUL */
+
+/*
+ * ibase_repl: the dot-prompt read/eval/print loop. See the file header for the
+ * full contract. Returns INTERP_OK on a clean exit (EOF / QUIT / EXIT), or a
+ * negative interp_err if module registration failed before the loop began.
+ */
+/*
+ * repl_loop: the dot-prompt loop body shared by the session prompt and the
+ * nested prompt of a SUSPENDed program (Using III+ U5-273 SUSPEND/RESUME; the
+ * Esc prompt's "S", mint ibasectl ESCS.TXT: "Suspend" / "Do suspended" / a
+ * dot prompt / RESUME continues the loop). Returns:
+ *   top level : INTERP_OK at EOF / QUIT / EXIT, or after a program QUIT.
+ *   nested    : INTERP_OK on RESUME; INTERP_RC_QUIT on QUIT / EOF;
+ *               INTERP_RC_CANCEL when a typed CANCEL unwinds the program.
+ */
+static int repl_loop(ibase_pal_t *pal, xb_interp *ip, int nested)
+{
+    char line[REPL_LINE_CAP];
+    int rc;
+
+    for (;;) {
+        char *s;
+        int32_t n;
+
+        xb_interp_ctx(ip)->dot_command=1;
+        ibase_status_refresh(ip);
+        if(pal->prompt) pal->prompt(pal,!xb_interp_ctx(ip)->scoreboard_off,
+                                    xb_interp_ctx(ip)->screen_cleared);
+        xb_interp_ctx(ip)->screen_cleared=0;
+        repl_puts(pal, ". ");                 /* the dBASE dot prompt */
+
+        n = pal->conin_command ? pal->conin_command(pal,line,(uint32_t)REPL_LINE_CAP) :
+                                pal->conin_line(pal,line,(uint32_t)REPL_LINE_CAP);
+        if (n < 0)                            /* EOF / keyboard error -> stop */
+            return nested ? INTERP_RC_QUIT : INTERP_OK;
+        line[(uint32_t)n < (uint32_t)REPL_LINE_CAP ? (uint32_t)n : REPL_LINE_CAP - 1u] = '\0';
+
+        s = repl_trim(line);
+        if (s[0] == '\0') continue;           /* blank line -> re-prompt */
+
+        /* (1) REPL-terminating verbs. */
+        if (repl_verb_eq(s, "QUIT", (const char **)0) ||
+            repl_verb_eq(s, "EXIT", (const char **)0))
+            return nested ? INTERP_RC_QUIT : INTERP_OK;
+
+        /* (2) RESUME continues a suspended program; with none suspended it
+         * is #101 "Not suspended." (Using III+ U5-273; DBASE.MSG). */
+        if (repl_verb_eq(s, "RESUME", (const char **)0)) {
+            if (nested) return INTERP_OK;
+            repl_render_error(pal, 101);
+            continue;
+        }
+
+        /* (3) every command, including disk DO, -> the proc module's program driver, which wraps
+         * ibase_do (the S5.3 spine + the registered hook chain) so DO/PROCEDURE
+         * and ON ERROR work at the dot prompt. proc_run sets ibase_last_error and
+         * fires an installed ON ERROR trap once on a runtime error. */
+        rc = proc_run(ip, s);
+        if (rc == INTERP_RC_QUIT)
+            return nested ? INTERP_RC_QUIT : INTERP_OK;
+        if (rc == INTERP_RC_CANCEL) {
+            if (nested) return INTERP_RC_CANCEL;
+            continue;
+        }
+        if (rc != INTERP_OK) {
+            int code = ibase_last_error(ip);
+            repl_mutation_error(pal, ip, code != 0 ? code : 16);
+            /* continue the loop -- a bad line never aborts the session. */
+        }
+    }
+}
+
+/* The Esc prompt's "Suspend" (proc.c proc_escape): a nested dot prompt with
+ * the program state intact; the program resumes as a program afterwards. */
+static int repl_suspend(xb_interp *ip)
+{
+    int rc = repl_loop(xb_interp_pal(ip), ip, 1);
+    xb_interp_ctx(ip)->dot_command = 0;
+    return rc;
+}
+
+int ibase_repl(ibase_pal_t *pal, xb_interp *ip)
+{
+    int rc;
+
+    if (!pal || !ip)
+        return -INTERP_ERR_NOMEM;
+
+    rc = repl_register_modules(ip);
+    if (rc != INTERP_OK)
+        return rc;
+    xb_interp_ctx(ip)->message = ibase_message;   /* MESSAGE(), U6-54 */
+    proc_set_suspend(ip, repl_suspend);
+
+    (void)repl_loop(pal, ip, 0);
+
+    xb_interp_ctx(ip)->set_status=0;
+    set_close_alternate(ip);
+    ibase_status_refresh(ip);
+    wa_close_all(xb_interp_env(ip));
+    return INTERP_OK;
+}
+
+/* ===================================================================== */
+/* Standalone entry point (GUARDED -- engine stays freestanding-linkable). */
+/* ===================================================================== */
+
+#ifdef IBASE_MAIN_STANDALONE
+/*
+ * A thin entry point for a linked IBASE binary. It needs a concrete PAL, which
+ * the linker supplies: pal_host on the factory, pal_dos on InitechDOS (S8.2). To
+ * keep this file free of any one PAL dependency, the integrator provides
+ * ibase_main_make_pal()/_free() at link time. The freestanding engine + the
+ * oracle do NOT compile this block.
+ */
+extern ibase_pal_t *ibase_main_make_pal(void);
+extern void         ibase_main_free_pal(ibase_pal_t *pal);
+
+int main(void)
+{
+    ibase_pal_t *pal = ibase_main_make_pal();
+    xb_interp *ip;
+    int rc;
+
+    if (!pal) return 2;
+    ip = xb_interp_make(pal);
+    if (!ip) { ibase_main_free_pal(pal); return 3; }
+
+    rc = ibase_repl(pal, ip);
+
+    xb_interp_free(ip);
+    ibase_main_free_pal(pal);
+    return rc == INTERP_OK ? 0 : 1;
+}
+#endif /* IBASE_MAIN_STANDALONE */

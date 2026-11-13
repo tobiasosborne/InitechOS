@@ -1,9 +1,9 @@
 /*
- * os/samir/cmd/nav.c -- SAMIR (InitechBase) navigation commands.
+ * os/ibase/cmd/nav.c -- IBASE (InitechBase) navigation commands.
  *                        Step S5.2 (Phase 5 interpreter).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib). Uses
- * ONLY <stdint.h> and the samir/ engine headers. No libc, no int 0x21 -- every
+ * ONLY <stdint.h> and the ibase/ engine headers. No libc, no int 0x21 -- every
  * byte of OS contact goes through the PAL vtable. Memory is bump-allocated from
  * the PAL arena (no malloc).
  *
@@ -80,22 +80,22 @@
  * ASCII-clean (Rule 12). Reproducible (Rule 11). Fail loud (Rule 2).
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md S5.2 contract + GATED register.
- *   - os/samir/include/samir/workarea.h (wa_goto, wa_recno, wa_nrec, wa_eof,
+ *   - docs/plans/IBASE-implementation-plan.md S5.2 contract + GATED register.
+ *   - os/ibase/include/ibase/workarea.h (wa_goto, wa_recno, wa_nrec, wa_eof,
  *     wa_bof, wa_is_open, wa_index, wa_master_order, wa_table, wa_env_pal).
- *   - os/samir/include/samir/ndx.h (ndx_inorder, ndx_visit_fn) -- ONLY API used.
- *   - os/samir/include/samir/nav.h (the public contract for this file).
+ *   - os/ibase/include/ibase/ndx.h (ndx_inorder, ndx_visit_fn) -- ONLY API used.
+ *   - os/ibase/include/ibase/nav.h (the public contract for this file).
  *   - HELP.DBS @GO / @GOTO / @SKIP / @EOF / @BOF.
  */
 
 #include <stdint.h>
 
-#include "samir/workarea.h"
-#include "samir/nav.h"
-#include "samir/ndx.h"
-#include "samir/dbf.h"
-#include "samir/rt.h"
-#include "samir/pal.h"
+#include "ibase/workarea.h"
+#include "ibase/nav.h"
+#include "ibase/ndx.h"
+#include "ibase/dbf.h"
+#include "ibase/rt.h"
+#include "ibase/pal.h"
 
 /* ===================================================================== */
 /* Per-area nav state (index-order materialized sequence)                  */
@@ -163,7 +163,7 @@ static int collect_visit(void *ctx, const uint8_t *key_data, uint32_t recno)
 static int build_index_seq(wa_env *env, int area, int master)
 {
     nav_state_t *ns = &s_nav[area - 1];
-    samir_pal_t *pal = wa_env_pal(env);
+    ibase_pal_t *pal = wa_env_pal(env);
     ndx_index   *ix;
     uint32_t     nrec;
     collect_ctx_t ctx;

@@ -1,11 +1,11 @@
 /*
- * os/samir/core/value.c -- SAMIR typed value constructors + operations.
+ * os/ibase/core/value.c -- IBASE typed value constructors + operations.
  *
  * THE ARTIFACT (CLAUDE.md Law 3): compiled freestanding (-ffreestanding
  * -nostdlib, CDR-0001 interim toolchain). Uses ONLY rt.h helpers and
  * value.h; no libc. No PAL dependency -- this file is pure (no I/O).
  *
- * Covers step S0.6 of docs/plans/SAMIR-implementation-plan.md.
+ * Covers step S0.6 of docs/plans/IBASE-implementation-plan.md.
  *
  * Design notes:
  *   - All constructors are stack-return (xb_val is a small struct; the
@@ -28,15 +28,15 @@
  * is a visible sentinel; caller can assert it is not '?'.
  *
  * Ref (Law 1):
- *   - docs/plans/SAMIR-implementation-plan.md sec.8.2 (the xb_val sketch), S0.6.
- *   - docs/plans/SAMIR-implementation-plan.md sec.2.F + sec.3.3 (numeric = IEEE
+ *   - docs/plans/IBASE-implementation-plan.md sec.8.2 (the xb_val sketch), S0.6.
+ *   - docs/plans/IBASE-implementation-plan.md sec.2.F + sec.3.3 (numeric = IEEE
  *     double; date = JDN as double; corpus mint-004).
- *   - os/samir/include/samir/rt.h (rt_memcmp).
- *   - os/samir/include/samir/value.h (the contract).
+ *   - os/ibase/include/ibase/rt.h (rt_memcmp).
+ *   - os/ibase/include/ibase/value.h (the contract).
  */
 
-#include "samir/value.h"
-#include "samir/rt.h"
+#include "ibase/value.h"
+#include "ibase/rt.h"
 
 /* ---- Constructors ---- */
 
@@ -73,7 +73,7 @@ int xb_date_blank(double jdn)
 
 double xb_date_key(double jdn)
 {
-#ifndef SAMIR_DT_MUTANT_blankkey
+#ifndef IBASE_DT_MUTANT_blankkey
     if (xb_date_blank(jdn))
         return 1e100;   /* real III+ BLANKDAT.NDX blank-date key */
 #endif
@@ -116,7 +116,7 @@ xb_type xb_typeof(const xb_val *v)
 
 char xb_type_char(xb_type t)
 {
-    /* Ref: SAMIR-implementation-plan.md S0.6; the TYPE() built-in (S3.5). */
+    /* Ref: IBASE-implementation-plan.md S0.6; the TYPE() built-in (S3.5). */
     switch (t) {
     case XB_C: return 'C';
     case XB_N: return 'N';
