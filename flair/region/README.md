@@ -11,7 +11,9 @@ components use this include directory. The engine compiles separately with
 only `-I. -Iinclude`; factory include paths apply only to test sources.
 
 Run `make` to build host artifacts under `build/flair/region/`, `make test`
-for tier 0, and `make mutants` for the mutation sweep. Both suites retain their
+for tier 0, and `make mutants` for the mutation sweep. `make target` builds
+`build/flair/region/target/region.o`, a freestanding ELF32 i386 object using
+TARGET_CC/TARGET_CFLAGS, for linking alongside libflair.a. Both suites retain their
 full legacy iteration counts (4000 pairs per Boolean property, 150 high-count
 stress pairs, 3000 pairs per GDI leg); no reduced default is necessary. The
 clean build and tests take about one second here. No emulator is involved.

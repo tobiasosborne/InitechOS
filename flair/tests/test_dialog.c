@@ -1,0 +1,1162 @@
+/* test_dialog.c -- the FLAIR Dialog Manager property suite (THE ORACLE).
+ *
+ * beads: (Dialog Manager oracle: layout, ModalDialog, draw, named mutants)
+ * Ref:   ADR-0004 D-3 ("Dialog Manager -- DialogRecord + item lists;
+ *          ModalDialog; the modal FILE COPY box ('Saving tables to disk...',
+ *          the comedic centerpiece, PRD Sec 6.5 / Appendix B).");
+ *        os/flair/dialog.{c,h} (the unit under test; the artifact freestanding C).
+ *        spec/chrome_metrics.h (FLAIR_CHROME_DIALOG_BORDER=7).
+ *        spec/window_record.h (dBoxProc=1, dialogKind=2).
+ *        harness/render/render.{c,h} (host render skeleton; dual-compile path).
+ *        harness/proptest/test_control.c + test_window.c (the harness idiom
+ *          this suite mirrors: TEST_HARNESS/CHECK/TEST_SUMMARY + render).
+ *        CLAUDE.md Law 2 (oracle is truth), Law 4 (FILE COPY canon must be
+ *          byte-exact; DIALOG_MUTATE_FILECOPY_MSG MUST go RED), Rule 6
+ *          (mutation-proven), Rule 11 (seeded LCG + deterministic), Rule 12
+ *          (ASCII-clean source).
+ *
+ * THE PROPERTIES (in order of decisiveness):
+ *
+ *  1. LAYOUT:
+ *     (a) dBoxProc retains its locked heritage structure->content inset.
+ *     (b) Items are placed at their declared rects.
+ *     (c) FILE COPY dialog:
+ *         - statText item contains EXACTLY FLAIR_CANON_FILECOPY_MSG (byte-exact).
+ *         - Progress bar control item has type progressBar, value=0, max=100.
+ *         - Two items total; layout matches canonical dimensions.
+ *
+ *  2. MODALDIALOG event routing:
+ *     (a) A recorded mouseDown event in an enabled non-statText item returns
+ *         that item's 1-based index via *itemHit.
+ *     (b) Return keypress -> defaultItem.
+ *     (c) Escape keypress -> cancelItem.
+ *     (d) Click in a DISABLED item -> NOT returned (itemHit remains 0 /
+ *         loop continues until ring drains with sleepTicks=0).
+ *     (e) Click in a statText item (even if enabled=1) -> NOT returned
+ *         (statText is always non-interactive; IM-I Ch 6).
+ *
+ *  3. DRAW:
+ *     Render the FILE COPY dialog into a host 8bpp offscreen via the render
+ *     skeleton. Assert:
+ *     (a) FILE COPY's locked 22-row movable title + one-pixel outer frame.
+ *     (b) Sampled E7 content face with white TL / C0 BR inset legs.
+ *     (c) Progress bar band: the ctrl_progress_fill_px region within the
+ *         progress bar item rect matches the expected pixel value.
+ *     (d) L023: complete alert perimeter equals the runtime historical PNG
+ *         at both depths (outline, tinted outer bevel, inner bevel, face).
+ *
+ * MUTANTS (Rule 6), each MUST drive this oracle RED:
+ *   DIALOG_MUTATE_BORDER       -- DrawDialog uses wrong border width (8 px).
+ *                                 => property 3d goes RED.
+ *   DIALOG_MUT_ALERT_SLAB      -- pre-L023 slab => property 3d goes RED.
+ *   DIALOG_MUTATE_HIT_STATIC   -- ModalDialog returns statText items.
+ *                                 => property 2e goes RED.
+ *   DIALOG_MUTATE_FILECOPY_MSG -- FileCopyDialog uses a wrong message string.
+ *                                 => property 1c (byte-exact canon) goes RED
+ *                                    (Law 4 REQUIRED).
+ *   CTRL_MUT_NO_DEFAULT_RING   -- defaultItem does not reach ring pixels.
+ *                                 => exact ring/moat legs go RED.
+ *
+ * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
+ */
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "render.h"             /* host render skeleton (-Iharness/render)     */
+#include "dialog.h"             /* the Dialog Manager under test (-Ios/flair)  */
+#include "control.h"            /* ControlRecord, progressBar (-Ios/flair)     */
+#include "chrome_metrics.h"     /* FLAIR_CHROME_DIALOG_BORDER (-Ispec)         */
+#include "color_canon.h"        /* named sampled Platinum canon indices         */
+#include "chrome_fidelity_golden.h" /* independent controls.md expectations    */
+#include "text.h"               /* text_measure, FONT_CHICAGO (-Ios/flair)     */
+#include "alert_capture.h"
+#include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
+
+/* Region storage for dialog tests (pool sizes mirror test_control.c). */
+#include "region.h"             /* rgn_store_t + helpers (-Ios/flair/region) */
+
+TEST_HARNESS();
+
+/* Strict movable-title classifier for the Platinum Route-2 base row.
+ * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and
+ * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
+static uint32_t dialog_title_row_index(int row)
+{
+    if (row == 0 || row == FLAIR_CHROME_TITLEBAR_H - 1) return CIDX_BLACK;
+    if (row == 1) return CIDX_WHITE;
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) return CIDX_PLAT_FRAME_FACE;
+    if (row < FLAIR_CHROME_TITLE_STRIPE_TOP_OFF +
+              FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS) {
+        return ((row - FLAIR_CHROME_TITLE_STRIPE_TOP_OFF) & 1)
+               ? CIDX_PLAT_STRIPE_DARK : CIDX_WHITE;
+    }
+    if (row < FLAIR_CHROME_TITLEBAR_H - 2) return CIDX_PLAT_FRAME_FACE;
+    return CIDX_PLAT_FRAME_SHADOW;
+}
+
+/* ===========================================================================
+ * Seeded LCG (Rule 11 -- deterministic; mirrors test_control.c / test_window.c)
+ * ===========================================================================*/
+static uint32_t g_seed = 0x44494147u; /* "DIAG" */
+static uint32_t lcg(void)
+{
+    g_seed = g_seed * 1103515245u + 12345u;
+    return g_seed;
+}
+
+/* ===========================================================================
+ * REGION STORAGE HELPERS  (caller-supplied, no malloc in artifact code)
+ * Mirrors the idiom from test_window.c / test_blitter.c.
+ * ===========================================================================*/
+#define RGN_ROW_CAP   64
+#define RGN_XPOOL_CAP 512
+
+typedef struct {
+    region_t  r;
+    rgn_row_t rows[RGN_ROW_CAP];
+    int16_t   xpool[RGN_XPOOL_CAP];
+} rgn_store_t;
+
+static void rgn_store_init(rgn_store_t *s)
+{
+    s->r.rows         = s->rows;
+    s->r.cap_rows     = (uint16_t)RGN_ROW_CAP;
+    s->r.x_pool       = s->xpool;
+    s->r.x_pool_cap   = (uint32_t)RGN_XPOOL_CAP;
+    region_set_empty(&s->r);
+}
+
+/* ===========================================================================
+ * RENDER HELPERS  (mirrors test_control.c / test_chrome.c render_one idiom)
+ * ===========================================================================*/
+static int render_one(render_ctx_t *ctx, uint32_t bpp)
+{
+    render_boot_info_t boot;
+    memset(&boot, 0, sizeof boot);
+    boot.lfb_bpp    = bpp;
+    boot.lfb_width  = 640u;
+    boot.lfb_height = 480u;
+    boot.lfb_pitch  = 0u;      /* tight */
+    return render_ctx_init(ctx, &boot);
+}
+
+/* Palette index at (x,y) in the 8bpp offscreen. */
+static uint32_t pidx(const render_ctx_t *ctx, uint32_t x, uint32_t y)
+{
+    return render_pixel_index(ctx, x, y);
+}
+
+/* ===========================================================================
+ * PROPERTY 1a + 1b -- LAYOUT: border width and item placement
+ *
+ * Build a minimal dialog (1 enabled ctrlItem button) and verify:
+ *   - defaultItem / cancelItem are stored correctly.
+ *   - Item rects are stored at the declared positions.
+ *   - FLAIR_CHROME_DIALOG_BORDER == 7 (compile-time).
+ *   - dBoxProc variant is set.
+ * ===========================================================================*/
+static void test_layout_basic(void)
+{
+    char msg[200];
+
+    /* --- FLAIR_CHROME_DIALOG_BORDER is 7 (from the compile-time static assert
+     * in dialog.h; also checked at runtime for the mutant oracle to fire). */
+    snprintf(msg, sizeof msg,
+             "FLAIR_CHROME_DIALOG_BORDER must be 7 (WDEF dBoxBorderSize EQU 7), got %d",
+             FLAIR_CHROME_DIALOG_BORDER);
+    CHECK(FLAIR_CHROME_DIALOG_BORDER == 7, msg);
+
+    /* --- Build a minimal dialog with 2 items. */
+    DialogRecord dr;
+    DialogItem   items[2];
+    ControlRecord ctrl_btn;
+
+    rgn_store_t s_struc, s_cont, s_upd;
+    rgn_store_init(&s_struc);
+    rgn_store_init(&s_cont);
+    rgn_store_init(&s_upd);
+
+    /* Button control (item 1, enabled). */
+    rgn_rect_t btn_rect;
+    btn_rect.top = 230; btn_rect.left = 260; btn_rect.bottom = 250; btn_rect.right = 360;
+    control_init(&ctrl_btn, pushButton, btn_rect, 0, 0, 1, 1, "OK");
+
+    items[0].type    = ctrlItem;
+    items[0].rect    = btn_rect;
+    items[0].text    = 0;
+    items[0].ctrl    = &ctrl_btn;
+    items[0].enabled = 1;
+    items[0]._pad[0] = items[0]._pad[1] = items[0]._pad[2] = 0;
+
+    /* Static text (item 2, not enabled). */
+    rgn_rect_t txt_rect;
+    txt_rect.top = 210; txt_rect.left = 160; txt_rect.bottom = 225; txt_rect.right = 480;
+    items[1].type    = statText;
+    items[1].rect    = txt_rect;
+    items[1].text    = "Dialog test label";
+    items[1].ctrl    = 0;
+    items[1].enabled = 0;
+    items[1]._pad[0] = items[1]._pad[1] = items[1]._pad[2] = 0;
+
+    rgn_rect_t bounds;
+    bounds.top = 200; bounds.left = 150; bounds.bottom = 260; bounds.right = 490;
+
+    DialogPtr dp = NewDialog(&dr, bounds, "Test Dialog",
+                             items, 2, 1 /* default=item 1 */, 0 /* no cancel */,
+                             0 /* no WindowMgr */,
+                             &s_struc.r, &s_cont.r, &s_upd.r);
+
+    CHECK(dp != 0, "NewDialog must return non-NULL");
+    if (!dp) { return; }
+
+    /* Window kind and variant. */
+    snprintf(msg, sizeof msg,
+             "dialog windowKind must be dialogKind=2, got %d",
+             (int)dp->window.windowKind);
+    CHECK(dp->window.windowKind == (int16_t)dialogKind, msg);
+
+    snprintf(msg, sizeof msg,
+             "dialog windowDefProcVariant must be dBoxProc=1, got %d",
+             (int)dp->window.windowDefProcVariant);
+    CHECK(dp->window.windowDefProcVariant == (int16_t)dBoxProc, msg);
+
+    /* Default / cancel items stored correctly. */
+    CHECK(dp->defaultItem == 1, "defaultItem must be 1");
+    CHECK(dp->cancelItem  == 0, "cancelItem must be 0 (none)");
+
+    /* Item rects are at the declared positions. */
+    flair_dialog_item_type_t type1;
+    rgn_rect_t               rect1;
+    GetDialogItem(dp, 1, &type1, &rect1);
+    CHECK(type1 == ctrlItem, "item 1 type must be ctrlItem");
+    CHECK(rect1.top    == btn_rect.top    &&
+          rect1.left   == btn_rect.left   &&
+          rect1.bottom == btn_rect.bottom &&
+          rect1.right  == btn_rect.right,
+          "item 1 rect must match the declared btn_rect");
+
+    flair_dialog_item_type_t type2;
+    rgn_rect_t               rect2;
+    GetDialogItem(dp, 2, &type2, &rect2);
+    CHECK(type2 == statText, "item 2 type must be statText");
+    CHECK(rect2.left == txt_rect.left && rect2.top == txt_rect.top,
+          "item 2 rect top-left must match declared txt_rect");
+
+    /* Visible after NewDialog. */
+    CHECK(dp->window.visible == 1, "dialog window must be visible after NewDialog");
+}
+
+/* ===========================================================================
+ * PROPERTY 1c -- FILE COPY dialog: byte-exact FLAIR_CANON_FILECOPY_MSG +
+ *                progressBar item.
+ *
+ * MUTATION: DIALOG_MUTATE_FILECOPY_MSG alters the canon string -> RED (Law 4).
+ * ===========================================================================*/
+static void test_filecopy_layout(void)
+{
+    char msg[300];
+
+    DialogRecord  dr;
+    DialogItem    items[2];
+    ControlRecord ctrl_bar;
+
+    rgn_store_t s_struc, s_cont, s_upd;
+    rgn_store_init(&s_struc);
+    rgn_store_init(&s_cont);
+    rgn_store_init(&s_upd);
+
+    DialogPtr dp = FileCopyDialog(&dr, items, &ctrl_bar,
+                                  &s_struc.r, &s_cont.r, &s_upd.r);
+
+    CHECK(dp != 0, "FileCopyDialog must return non-NULL");
+    if (!dp) { return; }
+
+    /* Exactly 2 items. */
+    CHECK(dp->itemCount == 2, "FILE COPY dialog must have exactly 2 items");
+
+    /* Item 1: statText with EXACTLY FLAIR_CANON_FILECOPY_MSG.
+     * Law 4: this check MUST be byte-exact. */
+    flair_dialog_item_type_t type1;
+    rgn_rect_t               rect1;
+    GetDialogItem(dp, 1, &type1, &rect1);
+    CHECK(type1 == statText, "FILE COPY item 1 must be statText");
+    CHECK(dp->items[0].enabled == 0, "FILE COPY statText item must be enabled=0");
+
+    char item1_text[256];
+    GetDialogItemText(dp, 1, item1_text, sizeof item1_text);
+    snprintf(msg, sizeof msg,
+             "FILE COPY item 1 text must be EXACTLY '%.64s' (Law 4 canon byte-exact), got '%.128s'",
+             FLAIR_CANON_FILECOPY_MSG, item1_text);
+    CHECK(strcmp(item1_text, FLAIR_CANON_FILECOPY_MSG) == 0, msg);
+
+    /* Item 2: ctrlItem with progressBar, canon value, max=100.
+     * MUTATION: DIALOG_MUTATE_PROGRESS_ZERO reverts to the old bug (value=0)
+     * -> RED (Law 4, beads initech-a90f). */
+    flair_dialog_item_type_t type2;
+    rgn_rect_t               rect2;
+    GetDialogItem(dp, 2, &type2, &rect2);
+    CHECK(type2 == ctrlItem, "FILE COPY item 2 must be ctrlItem");
+    CHECK(dp->items[1].ctrl != 0, "FILE COPY item 2 ctrl pointer must be non-NULL");
+    if (dp->items[1].ctrl) {
+        snprintf(msg, sizeof msg,
+                 "FILE COPY progress bar contrlType must be progressBar (%d), got %d",
+                 (int)progressBar, (int)dp->items[1].ctrl->contrlType);
+        CHECK(dp->items[1].ctrl->contrlType == progressBar, msg);
+
+        snprintf(msg, sizeof msg,
+                 "FILE COPY progress bar initial value must be "
+                 "FLAIR_CANON_FILECOPY_PROGRESS (%d; ~65-70%% per bug-hunt #25, "
+                 "initech-a90f), got %d",
+                 FLAIR_CANON_FILECOPY_PROGRESS, (int)dp->items[1].ctrl->contrlValue);
+        CHECK(dp->items[1].ctrl->contrlValue == FLAIR_CANON_FILECOPY_PROGRESS, msg);
+        CHECK(dp->items[1].ctrl->contrlValue != 0,
+              "FILE COPY progress bar initial value must NOT be 0 (initech-a90f "
+              "the old bug: value=0 renders zero fill)");
+        CHECK(dp->items[1].ctrl->contrlMax == 100,
+              "FILE COPY progress bar max must be 100");
+        CHECK(dp->items[1].ctrl->contrlMin == 0,
+              "FILE COPY progress bar min must be 0");
+    }
+
+    /* Dialog window kind is dialogKind; variant is movableDBoxProc (the
+     * moveable titled modal, beads initech-zvo6) -- NOT dBoxProc (the old
+     * titleless 7px-border box). MUTATION: DIALOG_MUTATE_TITLELESS_MODAL
+     * reverts to dBoxProc -> RED (Law 4). */
+    CHECK(dp->window.windowKind == (int16_t)dialogKind,
+          "FILE COPY dialog windowKind must be dialogKind=2");
+    snprintf(msg, sizeof msg,
+             "FILE COPY dialog windowDefProcVariant must be movableDBoxProc=5 "
+             "(the moveable titled modal, initech-zvo6), got %d",
+             (int)dp->window.windowDefProcVariant);
+    CHECK(dp->window.windowDefProcVariant == (int16_t)movableDBoxProc, msg);
+
+    /* The window title is the byte-exact canon "FILE COPY" (Law 4). */
+    snprintf(msg, sizeof msg,
+             "FILE COPY dialog title must be EXACTLY '%.32s' (Law 4 canon), "
+             "got '%.64s'",
+             FLAIR_CANON_FILECOPY_TITLE, dp->window.titleHandle);
+    CHECK(strcmp(dp->window.titleHandle, FLAIR_CANON_FILECOPY_TITLE) == 0, msg);
+
+    /* Bounds: the canonical 360x80 box (per FileCopyDialog layout). */
+    CHECK(dp->window.port.portRect.left   == 140 &&
+          dp->window.port.portRect.top    == 200 &&
+          dp->window.port.portRect.right  == 500 &&
+          dp->window.port.portRect.bottom == 280,
+          "FILE COPY dialog bounds must be {top=200,left=140,bottom=280,right=500}");
+}
+
+/* ===========================================================================
+ * PROPERTY 2 -- MODALDIALOG event routing
+ *
+ * We feed pre-built raw events into a flair_raw_ring_t, then call ModalDialog
+ * with sleepTicks=0 (returns immediately on empty ring). This makes the loop
+ * deterministic: it drains events, acts on the first dismissing one, or
+ * returns itemHit=0 if nothing dismisses it (e.g. disabled item click).
+ * ===========================================================================*/
+
+/* Helper: post a mouseDown at absolute global screen position (h, v).
+ * Synthesizes raw FLAIR_RAW_MOUSE events that WaitNextEvent will cook into
+ * a mouseDown EventRecord at (h, v).
+ *
+ * Ref: spec/event_model.h flair_raw_event_t MOUSE payload layout:
+ *   bits 0..7   = button byte (bit 0 = left button down).
+ *   bits 8..15  = signed delta X as int8_t.
+ *   bits 16..23 = signed delta Y as int8_t.
+ *
+ * Ref: event.c flair_event_init -- cursor starts at screen CENTER:
+ *   g_cursor_h = FLAIR_SCREEN_W / 2 = 320
+ *   g_cursor_v = FLAIR_SCREEN_H / 2 = 240
+ * (ADR-0004 OD-3; event.c line ~138).
+ * So to reach absolute position (h, v) we post delta (h - 320, v - 240)
+ * from the initial center, in steps of <=127 px.
+ * IMPORTANT: call flair_event_init() before each test to reset cursor.
+ */
+static void post_mousedown(flair_raw_ring_t *ring, int h, int v)
+{
+    /* Walk cursor from screen center (320, 240) to (h, v). */
+    int remaining_h = h - (FLAIR_SCREEN_W / 2);
+    int remaining_v = v - (FLAIR_SCREEN_H / 2);
+    while (remaining_h != 0 || remaining_v != 0) {
+        int dh = remaining_h;
+        int dv = remaining_v;
+        /* Clamp to int8_t range [-127, 127]. */
+        if (dh >  127) { dh =  127; }
+        if (dh < -127) { dh = -127; }
+        if (dv >  127) { dv =  127; }
+        if (dv < -127) { dv = -127; }
+        /* Post a mouse-move event (no button down). */
+        flair_raw_event_t mov;
+        memset(&mov, 0, sizeof mov);
+        mov.kind    = (uint32_t)FLAIR_RAW_MOUSE;
+        mov.payload = (uint32_t)((uint8_t)0 |                        /* no button */
+                                 ((uint8_t)(int8_t)dh << 8) |
+                                 ((uint8_t)(int8_t)dv << 16));
+        flair_raw_post(ring, &mov);
+        remaining_h -= dh;
+        remaining_v -= dv;
+    }
+    /* Now post the button-down event (left button, no additional delta). */
+    flair_raw_event_t raw;
+    memset(&raw, 0, sizeof raw);
+    raw.kind    = (uint32_t)FLAIR_RAW_MOUSE;
+    raw.payload = (uint32_t)(1u |    /* bit 0 = left button down */
+                             (0u << 8) |   /* dx=0 */
+                             (0u << 16));  /* dy=0 */
+    flair_raw_post(ring, &raw);
+    raw.payload=0u; /* tdnl.88: the click ends with a release inside. */
+    flair_raw_post(ring, &raw);
+}
+
+/* Helper: post a keyDown with character `ch`.
+ * Ref: spec/event_model.h KEYBOARD payload: low byte = raw PS/2 scancode;
+ * bit 8 = break flag (0 for key-down).
+ */
+static void post_keydown(flair_raw_ring_t *ring, uint8_t ch)
+{
+    flair_raw_event_t raw;
+    memset(&raw, 0, sizeof raw);
+    raw.kind    = (uint32_t)FLAIR_RAW_KEYBOARD;
+    raw.payload = (uint32_t)(ch & 0xFFu); /* scancode, bit 8 = 0 (key-down) */
+    flair_raw_post(ring, &raw);
+}
+
+/* Setup: a simple dialog with 3 items:
+ *   item 1 = ctrlItem (pushButton), enabled=1 -> can be returned
+ *   item 2 = statText, enabled=0               -> must NOT be returned
+ *   item 3 = ctrlItem (pushButton), enabled=0  -> must NOT be returned (disabled)
+ * defaultItem = 1, cancelItem = 0 (no cancel for first sub-test)
+ */
+static DialogRecord  g_mdl_dr;
+static DialogItem    g_mdl_items[3];
+static ControlRecord g_mdl_ctrl[2];
+static rgn_store_t   g_mdl_sruc, g_mdl_scont, g_mdl_supd;
+
+static DialogPtr setup_modal_dialog(uint16_t defaultItem, uint16_t cancelItem)
+{
+    rgn_store_init(&g_mdl_sruc);
+    rgn_store_init(&g_mdl_scont);
+    rgn_store_init(&g_mdl_supd);
+
+    rgn_rect_t bounds;
+    bounds.top = 100; bounds.left = 100; bounds.bottom = 300; bounds.right = 500;
+
+    /* Item 1: enabled push button at [120,120) to [220,150). */
+    rgn_rect_t r1;
+    r1.top = 120; r1.left = 120; r1.bottom = 150; r1.right = 220;
+    control_init(&g_mdl_ctrl[0], pushButton, r1, 0, 0, 1, 1, "OK");
+    g_mdl_items[0].type    = ctrlItem;
+    g_mdl_items[0].rect    = r1;
+    g_mdl_items[0].text    = 0;
+    g_mdl_items[0].ctrl    = &g_mdl_ctrl[0];
+    g_mdl_items[0].enabled = 1;
+    g_mdl_items[0]._pad[0] = g_mdl_items[0]._pad[1] = g_mdl_items[0]._pad[2] = 0;
+
+    /* Item 2: statText (never returned). */
+    rgn_rect_t r2;
+    r2.top = 170; r2.left = 120; r2.bottom = 185; r2.right = 400;
+    g_mdl_items[1].type    = statText;
+    g_mdl_items[1].rect    = r2;
+    g_mdl_items[1].text    = "Status text";
+    g_mdl_items[1].ctrl    = 0;
+    g_mdl_items[1].enabled = 0;
+    g_mdl_items[1]._pad[0] = g_mdl_items[1]._pad[1] = g_mdl_items[1]._pad[2] = 0;
+
+    /* Item 3: disabled push button. */
+    rgn_rect_t r3;
+    r3.top = 200; r3.left = 120; r3.bottom = 230; r3.right = 220;
+    control_init(&g_mdl_ctrl[1], pushButton, r3, 0, 0, 1, 1, "Cancel");
+    g_mdl_items[2].type    = ctrlItem;
+    g_mdl_items[2].rect    = r3;
+    g_mdl_items[2].text    = 0;
+    g_mdl_items[2].ctrl    = &g_mdl_ctrl[1];
+    g_mdl_items[2].enabled = 0;
+    g_mdl_items[2]._pad[0] = g_mdl_items[2]._pad[1] = g_mdl_items[2]._pad[2] = 0;
+
+    return NewDialog(&g_mdl_dr, bounds, "",
+                     g_mdl_items, 3u,
+                     defaultItem, cancelItem,
+                     0, &g_mdl_sruc.r, &g_mdl_scont.r, &g_mdl_supd.r);
+}
+
+static flair_raw_ring_t g_ring;
+
+static void test_modaldialog_click_ok(void)
+{
+    /* (a) mouseDown in enabled ctrlItem -> returns itemHit = 1. */
+    flair_event_init(&g_ring);
+
+    DialogPtr dp = setup_modal_dialog(1, 0);
+    CHECK(dp != 0, "setup_modal_dialog must succeed");
+    if (!dp) { return; }
+
+    /* Post a mouseDown inside item 1's rect.
+     * Ref: event.c flair_event_init -- cursor starts at SCREEN CENTER (320, 240).
+     * RE-KEYED (bead initech-6k12, stated): item rects are GLOBAL -- the
+     * space DrawDialog paints them in, FileCopyDialog builds them in and
+     * MoveDialog moves them in -- and the click is hit-tested there (the old
+     * "local = global - portRect" subtraction made a click on a DRAWN button
+     * miss it). r1 = [120,220) x [120,150) on screen, inside the dialog
+     * bounds (100,100)..(500,300). Click its middle, global (200, 135).
+     * post_mousedown posts delta from center (320,240) -> (-120, -105).
+     * Mutant DIALOG_MUTATE_LOCAL_HIT (the old subtraction) goes RED here.
+     */
+    post_mousedown(&g_ring, 200, 135);
+
+    uint16_t itemHit = 0;
+    ModalDialog(dp, &g_ring, 0, 0, &itemHit);
+    CHECK(itemHit == 1,
+          "ModalDialog: release inside enabled ctrlItem (item 1) -> itemHit=1");
+}
+
+static void test_modaldialog_return_key(void)
+{
+    /* (b) Return keypress -> defaultItem.
+     * PS/2 SET-1 Return make code = 0x1C.
+     * The pump maps: sc=0x1C -> sc_unshifted[0x1C] = '\n' (0x0A) as ASCII,
+     * vkey = 0x1C. ModalDialog checks (ascii==0x0A || vkey==0x1C). */
+    flair_event_init(&g_ring);
+
+    DialogPtr dp = setup_modal_dialog(1, 0);
+    CHECK(dp != 0, "setup_modal_dialog must succeed");
+    if (!dp) { return; }
+
+    /* PS/2 SET-1 Return scancode = 0x1C. */
+    post_keydown(&g_ring, 0x1Cu);
+
+    uint16_t itemHit = 0;
+    ModalDialog(dp, &g_ring, 0, 0, &itemHit);
+    CHECK(itemHit == 1,
+          "ModalDialog: Return key (scancode 0x1C) -> defaultItem=1");
+}
+
+static void test_modaldialog_escape_key(void)
+{
+    /* (c) Escape -> cancelItem.
+     * PS/2 SET-1 Escape make code = 0x01.
+     * The pump maps: sc=0x01 -> sc_unshifted[0x01] = 0 (ASCII 0, no char),
+     * vkey = 0x01. ModalDialog checks (ascii==0x1B || vkey==0x01). */
+    flair_event_init(&g_ring);
+
+    /* Set up with cancelItem=3 (item 3 is the disabled button, but cancelItem
+     * is the item INDEX to return on Escape, regardless of enabled state). */
+    DialogPtr dp = setup_modal_dialog(1, 3);
+    CHECK(dp != 0, "setup_modal_dialog must succeed");
+    if (!dp) { return; }
+
+    /* PS/2 SET-1 Escape scancode = 0x01. */
+    post_keydown(&g_ring, 0x01u);
+
+    uint16_t itemHit = 0;
+    ModalDialog(dp, &g_ring, 0, 0, &itemHit);
+    CHECK(itemHit == 3,
+          "ModalDialog: Escape key -> cancelItem=3");
+}
+
+static void test_modaldialog_click_disabled(void)
+{
+    /* (d) Click in a DISABLED item -> NOT returned. ModalDialog drains and
+     * returns itemHit=0 when sleepTicks=0 and ring is empty. */
+    flair_event_init(&g_ring);
+
+    DialogPtr dp = setup_modal_dialog(1, 0);
+    CHECK(dp != 0, "setup_modal_dialog must succeed");
+    if (!dp) { return; }
+
+    /* Click in item 3 (disabled button), r3 = [120,220) x [200,230) global
+     * (re-keyed, bead initech-6k12: items are hit-tested where drawn) ->
+     * (170, 215). Cursor starts at screen center (320, 240). */
+    post_mousedown(&g_ring, 170, 215);
+
+    uint16_t itemHit = 99; /* start with non-zero to prove it's cleared */
+    ModalDialog(dp, &g_ring, 0, 0, &itemHit);
+    /* sleepTicks=0: after draining the ring without hitting an enabled item,
+     * ModalDialog returns with itemHit unchanged at its initial *itemHit value,
+     * which is 0 (set to 0 at entry). The ring is now empty. */
+    CHECK(itemHit == 0,
+          "ModalDialog: click in DISABLED item -> itemHit=0 (not returned)");
+}
+
+static void test_modaldialog_click_stattext(void)
+{
+    /* (e) Click in statText item -> NOT returned.
+     *
+     * MUTATION: DIALOG_MUTATE_HIT_STATIC causes ModalDialog to return statText
+     * items, making this check go RED. Without the mutant, statText clicks are
+     * silently ignored. (IM-I Ch 6: "statText items cannot be enabled.")
+     */
+    flair_event_init(&g_ring);
+
+    DialogPtr dp = setup_modal_dialog(1, 0);
+    CHECK(dp != 0, "setup_modal_dialog must succeed");
+    if (!dp) { return; }
+
+    /* Click in item 2 (statText), r2 = [120,400) x [170,185) global
+     * (re-keyed, bead initech-6k12: items are hit-tested where drawn) ->
+     * (200, 177). */
+    post_mousedown(&g_ring, 200, 177);
+
+    uint16_t itemHit = 0;
+    ModalDialog(dp, &g_ring, 0, 0, &itemHit);
+
+#if defined(DIALOG_MUTATE_HIT_STATIC) && DIALOG_MUTATE_HIT_STATIC
+    /* NAMED MUTANT: statText returned as enabled -> this check MUST FAIL (RED). */
+    CHECK(itemHit == 0,
+          "DIALOG_MUTATE_HIT_STATIC: statText click must NOT return itemHit "
+          "(this MUST fail -- the oracle is RED as required by Rule 6)");
+#else
+    CHECK(itemHit == 0,
+          "ModalDialog: click in statText item -> itemHit=0 (statText cannot be enabled)");
+#endif
+}
+
+/* ===========================================================================
+ * TRUE MODALITY AT THE DISPATCH SEAM (bead initech-zn61).
+ *
+ * The synthetic outside click is deliberately inside the document window
+ * behind the modal. The wrapper calls FindWindow ONLY on PASSTHROUGH, so the
+ * counter is a direct dispatch-level tooth: correct modality emits one block
+ * callback and performs zero behind-window hit tests. MODAL_PASSTHROUGH makes
+ * the real FindWindow call happen and turns this leg RED.
+ * ===========================================================================*/
+static int g_modal_block_count;
+static flair_point_t g_modal_block_where;
+
+static void modal_block_probe(flair_point_t where, void *user)
+{
+    (void)user;
+    g_modal_block_count++;
+    g_modal_block_where = where;
+}
+
+static void test_true_modal_dispatch(void)
+{
+    static DialogRecord filecopy;
+    static DialogItem filecopy_items[2];
+    static ControlRecord filecopy_progress;
+    static rgn_store_t ds, dc, du;
+    static rgn_store_t desk, sa, sb, sc, ws, wc, wu;
+    static WindowRecord behind;
+    WindowMgr wm;
+    EventRecord ev;
+    WindowPtr hit = NULL;
+    int find_calls = 0;
+
+    rgn_store_init(&ds); rgn_store_init(&dc); rgn_store_init(&du);
+    DialogPtr modal = FileCopyDialog(&filecopy, filecopy_items,
+                                     &filecopy_progress,
+                                     &ds.r, &dc.r, &du.r);
+    CHECK(modal != NULL, "modal dispatch setup: FILE COPY dialog exists");
+    if (modal == NULL) return;
+
+    rgn_store_init(&desk); rgn_store_init(&sa);
+    rgn_store_init(&sb); rgn_store_init(&sc);
+    rgn_store_init(&ws); rgn_store_init(&wc); rgn_store_init(&wu);
+    WindowMgr_init(&wm, (rgn_rect_t){ 0, 0, 480, 640 },
+                   &desk.r, &sa.r, &sb.r, &sc.r);
+    memset(&behind, 0, sizeof behind);
+    behind.strucRgn = &ws.r;
+    behind.contRgn = &wc.r;
+    behind.updateRgn = &wu.r;
+    NewWindow(&wm, &behind,
+              (rgn_rect_t){ 60, 60, 360, 560 },
+              (rgn_rect_t){ 82, 61, 359, 559 },
+              documentKind, documentProc, 1);
+
+    memset(&ev, 0, sizeof ev);
+    ev.what = (uint16_t)mouseDown;
+    ev.where.h = 100;                 /* inside BEHIND, outside FILE COPY */
+    ev.where.v = 100;
+    g_modal_block_count = 0;
+    g_modal_block_where.h = 0;
+    g_modal_block_where.v = 0;
+
+    flair_modal_disposition_t disp = DialogModalDispatch(
+        modal, &ev, modal_block_probe, NULL);
+    if (disp == FLAIR_MODAL_PASSTHROUGH) {
+        find_calls++;
+        (void)FindWindow(&wm, ev.where, &hit);
+    }
+    CHECK(disp == FLAIR_MODAL_BLOCK,
+          "modal dispatch: click outside frontmost modal is swallowed");
+    CHECK(g_modal_block_count == 1 && g_modal_block_where.h == 100 &&
+          g_modal_block_where.v == 100,
+          "modal dispatch: outside click emits one block marker callback with exact x,y");
+    CHECK(find_calls == 0 && hit == NULL,
+          "modal dispatch: outside click performs NO FindWindow dispatch behind the modal");
+
+    ev.where.h = 200;
+    ev.where.v = 205;                 /* movableDBoxProc title band */
+    disp = DialogModalDispatch(modal, &ev, modal_block_probe, NULL);
+    CHECK(disp == FLAIR_MODAL_DRAG,
+          "modal dispatch: movable modal title keeps inDrag on the modal itself");
+
+    {
+        rgn_rect_t before = region_get_bbox(modal->window.strucRgn);
+        rgn_rect_t item_before = modal->items[0].rect;
+        rgn_rect_t ctrl_before = modal->items[1].ctrl->contrlRect;
+        MoveDialog(modal, 10, 15);
+        rgn_rect_t after = region_get_bbox(modal->window.strucRgn);
+        CHECK(after.left == before.left + 10 && after.top == before.top + 15 &&
+              after.right == before.right + 10 &&
+              after.bottom == before.bottom + 15,
+              "modal dispatch: movable modal drag offsets its own window geometry");
+        CHECK(modal->items[0].rect.left == item_before.left + 10 &&
+              modal->items[0].rect.top == item_before.top + 15 &&
+              modal->items[1].ctrl->contrlRect.left == ctrl_before.left + 10 &&
+              modal->items[1].ctrl->contrlRect.top == ctrl_before.top + 15,
+              "modal dispatch: movable modal keeps item/control geometry attached");
+    }
+
+    ev.where.h = 200;
+    ev.where.v = 240;                 /* modal body */
+    disp = DialogModalDispatch(modal, &ev, modal_block_probe, NULL);
+    CHECK(disp == FLAIR_MODAL_CAPTURE,
+          "modal dispatch: click inside modal body is captured, never passed behind");
+
+    /* Keys are captured and handled by the same one-event path ModalDialog uses. */
+    {
+        DialogPtr keyed = setup_modal_dialog(1, 0);
+        uint16_t item_hit = 0;
+        memset(&ev, 0, sizeof ev);
+        ev.what = (uint16_t)keyDown;
+        ev.message = (uint32_t)0x1Cu << 8;
+        disp = DialogModalDispatch(keyed, &ev, modal_block_probe, NULL);
+        CHECK(disp == FLAIR_MODAL_CAPTURE,
+              "modal dispatch: keyDown is captured by the modal only");
+        CHECK(DialogHandleEvent(keyed, &ev, NULL, &item_hit) == 1 &&
+              item_hit == 1,
+              "modal dispatch: captured Return routes to the modal default item");
+    }
+}
+
+/* ===========================================================================
+ * PROPERTY 3 -- DRAW: render FILE COPY dialog and assert pixel values
+ *
+ * Draw the FILE COPY dialog into an 8bpp offscreen. Assert:
+ *   (a) FILE COPY's exact movable title + plain one-pixel frame.
+ *   (b) Content E7 face plus white TL / C0 BR inset bevel.
+ *   (c) Progress bar: the fill region and border are drawn correctly.
+ *
+ * DIALOG_MUTATE_BORDER remains graded by the generic dBox sweep below.
+ * ===========================================================================*/
+static void draw_filecopy_dialog(GrafPort *port)
+{
+    static DialogRecord  s_dr;
+    static DialogItem    s_items[2];
+    static ControlRecord s_ctrl;
+
+    /* We need region storage; use static pools for the draw callback. */
+    static rgn_store_t s_sruc, s_scont, s_supd;
+    static int s_inited = 0;
+    if (!s_inited) {
+        rgn_store_init(&s_sruc);
+        rgn_store_init(&s_scont);
+        rgn_store_init(&s_supd);
+        s_inited = 1;
+    } else {
+        /* Re-init each draw to start clean. */
+        rgn_store_init(&s_sruc);
+        rgn_store_init(&s_scont);
+        rgn_store_init(&s_supd);
+    }
+
+    DialogPtr dp = FileCopyDialog(&s_dr, s_items, &s_ctrl,
+                                  &s_sruc.r, &s_scont.r, &s_supd.r);
+    if (!dp) {
+        return;
+    }
+
+    /* Point dialog port at the render port (same offscreen). */
+    dp->window.port = *port;
+    /* Reset portRect to dialog bounds (overwrite the render port's full-screen rect). */
+    dp->window.port.portRect = dp->window.strucRgn->bbox;
+
+    DrawDialog(dp);
+}
+
+/* ===========================================================================
+ * PROPERTY 3 -- DRAW: the FILE COPY modal renders the MOVEABLE TITLED chrome
+ * (beads initech-zvo6): a Platinum title bar + a PLAIN 1-px frame -- NOT the
+ * old titleless dBoxProc 7-px solid border. Dialog bounds: top=200, left=140,
+ * right=500, bottom=280. Title band geometry (chrome_metrics.h):
+ *   y=200..221       K,H,2 face,12 stripes,4 face,S,K
+ *   content           sampled E7 face + white TL / C0 BR inset bevel
+ * Re-key authority: ADR-0004-AMENDMENT-DEC-10 Sec 4; sampled rows:
+ * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2.
+ * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the OLD titleless
+ * dBoxProc box (thick 7px border, no title bar) -> these checks go RED.
+ * ===========================================================================*/
+static void test_draw_filecopy(void)
+{
+    render_ctx_t ctx;
+    int rc = render_one(&ctx, 8u);
+    CHECK(rc == 0, "render_ctx_init(8bpp) for FILE COPY draw test must succeed");
+    if (rc != 0) { return; }
+
+    render_run(&ctx, draw_filecopy_dialog);
+
+    char msg[300];
+
+    /* (a-c) Replace the retained bevel/stripe/shared-line checks with the
+     * strictly stronger exact 22-row profile at a clear x. Ref: DEC-10 Sec 4;
+     * sys8/window-chrome.md Sec 2.1-2.2. */
+    {
+        int profile_ok = 1;
+        for (int row = 0; row < FLAIR_CHROME_TITLEBAR_H; row++) {
+            profile_ok = profile_ok &&
+                pidx(&ctx, 145u, (uint32_t)(200 + row)) ==
+                    dialog_title_row_index(row);
+        }
+        CHECK(profile_ok,
+              "FILE COPY title must match exact 22-row Platinum profile");
+    }
+
+    /* (d) 'FILE COPY' title text is RENDERED: a CIDX_TITLE_INK (idx 4) pixel
+     * appears inside the text-cell rows. The Platinum band contains no other
+     * idx4 class, so its presence proves ink, not only the idx218 gap.
+     * Ref: DEC-10 Sec 4; sys8/window-chrome.md Sec 2.3. */
+    {
+        int saw_ink = 0;
+        for (int x = 140; x < 500 && !saw_ink; x++) {
+            for (unsigned y = 204u; y < 220u; y++) {
+                if (pidx(&ctx, (uint32_t)x, y) == 4u) { saw_ink = 1; break; }
+            }
+        }
+        CHECK(saw_ink,
+              "FILE COPY title text must be RENDERED as ink (idx 4) somewhere "
+              "in the pinstripe band (initech-zvo6)");
+    }
+
+    /* (e) The frame is PLAIN 1-px, NOT the old 7px dBoxProc border: the pixel
+     * ONE column inside the left edge (x=141), at a CONTENT row (y=240, well
+     * below the title band), is the white inset highlight -- under the old 7px border this
+     * pixel (x=140+1) would still be solid BLACK (border spans x=140..146).
+     * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the 7px border ->
+     * this pixel goes BLACK -> RED. */
+    snprintf(msg, sizeof msg,
+             "content just inside the LEFT frame (x=141,y=240) must be "
+             "sampled white highlight (1) -- proves a 1px frame and inset bevel "
+             "border (initech-zvo6), got %u",
+             (unsigned)pidx(&ctx, 141u, 240u));
+    CHECK(pidx(&ctx, 141u, 240u) == 1u, msg);
+
+    /* The symmetric right inset is the sampled C0 shadow, not white. */
+    snprintf(msg, sizeof msg,
+             "content just inside the RIGHT frame (x=498,y=240) must be "
+             "sampled C0 shadow (192), got %u",
+             (unsigned)pidx(&ctx, 498u, 240u));
+    CHECK(pidx(&ctx, 498u, 240u) == FG_CTRL_SHADOW_IDX, msg);
+
+    CHECK(pidx(&ctx, 142u, 240u) == FG_CTRL_FACE_IDX,
+          "FILE COPY content body must use sampled E7 face");
+    CHECK(pidx(&ctx, 300u, 222u) == FG_CTRL_HIGHLIGHT_IDX &&
+          pidx(&ctx, 300u, 278u) == FG_CTRL_SHADOW_IDX,
+          "FILE COPY content must carry sampled white top / C0 bottom inset legs");
+
+    /* The outermost columns/rows themselves are still the frame ink (black). */
+    snprintf(msg, sizeof msg,
+             "outer left frame column (x=140,y=240) must be DLG_BLACK (0), got %u",
+             (unsigned)pidx(&ctx, 140u, 240u));
+    CHECK(pidx(&ctx, 140u, 240u) == 0u, msg);
+    snprintf(msg, sizeof msg,
+             "outer bottom frame row (x=300,y=279) must be DLG_BLACK (0), got %u",
+             (unsigned)pidx(&ctx, 300u, 279u));
+    CHECK(pidx(&ctx, 300u, 279u) == 0u, msg);
+
+    /* (f) Progress bar: item rect left=154, top=249, right=486, bottom=263
+     * -- the Platinum CDEF 5 etched bar (initech-bf2; the minted
+     * ../system7-decomp s8_progress_determinate*.png, 14 rows). The black
+     * frame is x=155; interior x=156..483, rows 251..260. At
+     * FLAIR_CANON_FILECOPY_PROGRESS (68) the fill count is 328*68/100 = 223,
+     * edge E = 378. Row y=259 is interior row 8: inside the fill it is the
+     * clut-208 #5454B3 rung -> the ratified dark teal role (8bpp idx 63,
+     * #3F3F3F); in the empty track it is #CDCDCD (idx 205). The pixel-exact
+     * anatomy is graded against the PNGs by test-control PROPERTY 5b.
+     * MUTATION: DIALOG_MUTATE_PROGRESS_ZERO -> no fill -> RED (initech-a90f). */
+    snprintf(msg, sizeof msg,
+             "progress bar black frame (x=155,y=259) must be DLG_BLACK (0), got %u",
+             (unsigned)pidx(&ctx, 155u, 259u));
+    CHECK(pidx(&ctx, 155u, 259u) == 0u, msg);
+
+    snprintf(msg, sizeof msg,
+             "progress bar FILL at (x=160,y=259) must be idx 63 (the dark teal "
+             "rung) -- proves a non-zero fill (initech-a90f), got %u",
+             (unsigned)pidx(&ctx, 160u, 259u));
+    CHECK(pidx(&ctx, 160u, 259u) == 63u, msg);
+
+    snprintf(msg, sizeof msg,
+             "progress bar empty TRACK at (x=400,y=259) must be idx 205 "
+             "(#CDCDCD), got %u",
+             (unsigned)pidx(&ctx, 400u, 259u));
+    CHECK(pidx(&ctx, 400u, 259u) == 205u, msg);
+
+    render_ctx_free(&ctx);
+}
+
+static void draw_capture_dbox(GrafPort *port)
+{
+    DialogRecord dr;
+    DialogItem item;
+    rgn_store_t struc, cont, upd;
+    rgn_store_init(&struc);
+    rgn_store_init(&cont);
+    rgn_store_init(&upd);
+    memset(&item, 0, sizeof item);
+    item.type = statText;
+    rgn_rect_t bounds = {87, 133, 191, 507};
+    DialogPtr dp = NewDialog(&dr, bounds, "", &item, 1u, 0u, 0u, NULL,
+                             &struc.r, &cont.r, &upd.r);
+    if (!dp) return;
+    dp->window.port = *port;
+    dp->window.port.portRect = bounds;
+    DrawDialog(dp);
+}
+
+/* L023: decode the historical frame at runtime. controls.md Sec 6 and
+ * s8_alert_modal.png: frame x133..506,y87..190; mid-edge inward bands
+ * TL 000000/FFB3B3/FFFFFF/E7E7E7, BR 000000/FF8787/B3B3B3/E7E7E7.
+ * Check the entire seven-pixel perimeter, including its four face pixels,
+ * so an outline over a residual slab cannot pass, at either color depth.
+ */
+static void test_draw_border_sweep(void)
+{
+    unsigned char *gold = alert_capture_load();
+    CHECK(gold != NULL, "ALERT-BANDS: independent PNG must decode");
+    if (!gold) return;
+    for (unsigned bpp = 8; bpp <= 32; bpp += 24) {
+        render_ctx_t ctx;
+        int rc = render_one(&ctx, bpp);
+        CHECK(rc == 0, "ALERT-BANDS: render context must initialize");
+        if (rc) continue;
+        render_run(&ctx, draw_capture_dbox);
+        int bad = 0, total = 0;
+        for (int y = 87; y <= 190; y++) {
+            for (int x = 133; x <= 506; x++) {
+                if (x >= 140 && x < 500 && y >= 94 && y < 184) continue;
+                uint32_t want = alert_capture_rgb(gold, x, y);
+                bad += render_pixel_rgb(&ctx, (unsigned)x, (unsigned)y) != want;
+                total++;
+            }
+        }
+        printf("ALERT-BANDS depth=%u: %d/%d perimeter pixels matched capture\n",
+               bpp, total - bad, total);
+        CHECK(bad == 0, "ALERT-BANDS: outline + two bevel rows + face must equal capture");
+        render_ctx_free(&ctx);
+    }
+    free(gold);
+    (void)lcg();
+}
+
+/* Default item wiring: DrawDialog expands the default push button by 3 px,
+ * paints the black rounded ring, and preserves the asymmetric two-pixel moat.
+ * Ref: controls.md Sec 5.2, s8_alert_modal.png x=432..496,y=155..180. */
+static void draw_default_button_dialog(GrafPort *port)
+{
+    static DialogRecord s_dr;
+    static DialogItem s_items[1];
+    static ControlRecord s_ctrl;
+    static rgn_store_t s_sruc, s_scont, s_supd;
+
+    rgn_store_init(&s_sruc);
+    rgn_store_init(&s_scont);
+    rgn_store_init(&s_supd);
+
+    rgn_rect_t bounds = { 200, 140, 300, 500 };
+    rgn_rect_t button = { 250, 260, 270, 319 }; /* sampled 59x20 class */
+    control_init(&s_ctrl, pushButton, button, 0, 0, 1, 1, "OK");
+    s_items[0].type = ctrlItem;
+    s_items[0].rect = button;
+    s_items[0].text = 0;
+    s_items[0].ctrl = &s_ctrl;
+    s_items[0].enabled = 1;
+    s_items[0]._pad[0] = s_items[0]._pad[1] = s_items[0]._pad[2] = 0;
+
+    DialogPtr dp = NewDialog(&s_dr, bounds, "", s_items, 1u, 1u, 0u, 0,
+                             &s_sruc.r, &s_scont.r, &s_supd.r);
+    if (!dp) {
+        return;
+    }
+    dp->window.port = *port;
+    dp->window.port.portRect = dp->window.strucRgn->bbox;
+    DrawDialog(dp);
+}
+
+static void test_draw_default_ring(void)
+{
+    render_ctx_t ctx;
+    int rc = render_one(&ctx, 8u);
+    CHECK(rc == 0, "render_ctx_init(8bpp) for default-button ring");
+    if (rc != 0) {
+        return;
+    }
+    render_run(&ctx, draw_default_button_dialog);
+
+    CHECK(pidx(&ctx, 290u, 247u) == FG_CTRL_FRAME_IDX &&
+          pidx(&ctx, 257u, 260u) == FG_CTRL_FRAME_IDX &&
+          pidx(&ctx, 290u, 272u) == FG_CTRL_FRAME_IDX &&
+          pidx(&ctx, 321u, 260u) == FG_CTRL_FRAME_IDX,
+          "default item must render black ring at InsetRect(button,-3,-3)");
+    CHECK(pidx(&ctx, 290u, 248u) == FG_CTRL_FACE_IDX &&
+          pidx(&ctx, 290u, 249u) == FG_CTRL_SHADOW_IDX &&
+          pidx(&ctx, 258u, 260u) == FG_CTRL_FACE_IDX &&
+          pidx(&ctx, 259u, 260u) == FG_CTRL_SHADOW_IDX,
+          "default ring top/left moat must carry sampled E7 then C0");
+    CHECK(pidx(&ctx, 290u, 270u) == FG_CTRL_SHADOW_IDX &&
+          pidx(&ctx, 290u, 271u) == FG_CTRL_DARK_SHADOW_IDX &&
+          pidx(&ctx, 319u, 260u) == FG_CTRL_SHADOW_IDX &&
+          pidx(&ctx, 320u, 260u) == FG_CTRL_DARK_SHADOW_IDX,
+          "default ring bottom/right moat must carry sampled C0 then 96");
+
+    render_ctx_free(&ctx);
+}
+
+/* ===========================================================================
+ * PROPERTY: GetDialogItem / SetDialogItem / GetDialogItemText / SetDialogItemText
+ * ===========================================================================*/
+static void test_item_accessors(void)
+{
+    DialogRecord dr;
+    DialogItem   items[1];
+    ControlRecord ctrl;
+
+    rgn_store_t s_struc, s_cont, s_upd;
+    rgn_store_init(&s_struc);
+    rgn_store_init(&s_cont);
+    rgn_store_init(&s_upd);
+
+    rgn_rect_t bounds;
+    bounds.top = 100; bounds.left = 100; bounds.bottom = 200; bounds.right = 300;
+    rgn_rect_t r1;
+    r1.top = 120; r1.left = 110; r1.bottom = 140; r1.right = 290;
+    control_init(&ctrl, pushButton, r1, 0, 0, 1, 1, "OK");
+
+    items[0].type    = ctrlItem;
+    items[0].rect    = r1;
+    items[0].text    = 0;
+    items[0].ctrl    = &ctrl;
+    items[0].enabled = 1;
+    items[0]._pad[0] = items[0]._pad[1] = items[0]._pad[2] = 0;
+
+    DialogPtr dp = NewDialog(&dr, bounds, "", items, 1u, 1u, 0u, 0,
+                             &s_struc.r, &s_cont.r, &s_upd.r);
+    CHECK(dp != 0, "NewDialog for accessor test must succeed");
+    if (!dp) { return; }
+
+    /* GetDialogItem: check type and rect. */
+    flair_dialog_item_type_t type;
+    rgn_rect_t               rect;
+    GetDialogItem(dp, 1, &type, &rect);
+    CHECK(type == ctrlItem, "GetDialogItem(1): type must be ctrlItem");
+    CHECK(rect.top == 120 && rect.left == 110,
+          "GetDialogItem(1): rect top/left must match");
+
+    /* SetDialogItem: change to statText. */
+    rgn_rect_t new_rect;
+    new_rect.top = 130; new_rect.left = 110; new_rect.bottom = 145; new_rect.right = 290;
+    SetDialogItem(dp, 1, statText, new_rect, "Hello", 0, 0);
+    GetDialogItem(dp, 1, &type, &rect);
+    CHECK(type == statText, "SetDialogItem -> statText: GetDialogItem must reflect change");
+    CHECK(rect.top == 130, "SetDialogItem -> rect.top must be updated to 130");
+
+    /* GetDialogItemText on a statText item. */
+    char buf[64];
+    GetDialogItemText(dp, 1, buf, sizeof buf);
+    CHECK(strcmp(buf, "Hello") == 0, "GetDialogItemText: must return 'Hello'");
+
+    /* SetDialogItemText on the statText item. */
+    SetDialogItemText(dp, 1, "World");
+    GetDialogItemText(dp, 1, buf, sizeof buf);
+    CHECK(strcmp(buf, "World") == 0, "SetDialogItemText: GetDialogItemText must return 'World'");
+}
+
+/* ===========================================================================
+ * PROPERTY: FindDialogItem hit-testing
+ * ===========================================================================*/
+static void test_find_dialog_item(void)
+{
+    DialogRecord dr;
+    DialogItem   items[2];
+
+    rgn_store_t s_struc, s_cont, s_upd;
+    rgn_store_init(&s_struc);
+    rgn_store_init(&s_cont);
+    rgn_store_init(&s_upd);
+
+    rgn_rect_t bounds;
+    bounds.top = 100; bounds.left = 100; bounds.bottom = 300; bounds.right = 500;
+
+    rgn_rect_t r1;
+    r1.top = 110; r1.left = 110; r1.bottom = 130; r1.right = 200;
+    items[0].type = statText; items[0].rect = r1;
+    items[0].text = "A"; items[0].ctrl = 0; items[0].enabled = 0;
+    items[0]._pad[0] = items[0]._pad[1] = items[0]._pad[2] = 0;
+
+    rgn_rect_t r2;
+    r2.top = 140; r2.left = 110; r2.bottom = 160; r2.right = 250;
+    items[1].type = statText; items[1].rect = r2;
+    items[1].text = "B"; items[1].ctrl = 0; items[1].enabled = 0;
+    items[1]._pad[0] = items[1]._pad[1] = items[1]._pad[2] = 0;
+
+    DialogPtr dp = NewDialog(&dr, bounds, "", items, 2u, 0u, 0u, 0,
+                             &s_struc.r, &s_cont.r, &s_upd.r);
+    CHECK(dp != 0, "NewDialog for find-item test must succeed");
+    if (!dp) { return; }
+
+    /* Point inside r1 -> item 1. */
+    flair_point_t pt1;
+    pt1.h = 150; pt1.v = 120;
+    CHECK(FindDialogItem(dp, pt1) == 1,
+          "FindDialogItem: point in r1 must return 1");
+
+    /* Point inside r2 -> item 2. */
+    flair_point_t pt2;
+    pt2.h = 150; pt2.v = 150;
+    CHECK(FindDialogItem(dp, pt2) == 2,
+          "FindDialogItem: point in r2 must return 2");
+
+    /* Point outside all items -> 0. */
+    flair_point_t pt0;
+    pt0.h = 50; pt0.v = 50;
+    CHECK(FindDialogItem(dp, pt0) == 0,
+          "FindDialogItem: point outside all items -> 0");
+
+    /* Point at exact left edge of r1 (half-open: left <= h < right). */
+    flair_point_t ptl;
+    ptl.h = r1.left; ptl.v = 120;
+    CHECK(FindDialogItem(dp, ptl) == 1,
+          "FindDialogItem: point at left edge of r1 (half-open: included) -> 1");
+
+    /* Point at exact right edge of r1 (half-open: NOT included). */
+    flair_point_t ptr;
+    ptr.h = r1.right; ptr.v = 120;
+    CHECK(FindDialogItem(dp, ptr) == 0,
+          "FindDialogItem: point at right edge of r1 (half-open: excluded) -> 0");
+}
+
+/* ===========================================================================
+ * main -- run all properties; report.
+ * ===========================================================================*/
+int main(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+
+    printf("test-dialog: FLAIR Dialog Manager oracle\n");
+
+    test_layout_basic();
+    test_filecopy_layout();
+    test_modaldialog_click_ok();
+    test_modaldialog_return_key();
+    test_modaldialog_escape_key();
+    test_modaldialog_click_disabled();
+    test_modaldialog_click_stattext();
+    test_true_modal_dispatch();
+    test_draw_filecopy();
+    test_draw_border_sweep();
+    test_draw_default_ring();
+    test_item_accessors();
+    test_find_dialog_item();
+
+    return TEST_SUMMARY("test-dialog");
+}

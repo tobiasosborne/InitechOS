@@ -1,0 +1,166 @@
+gate	disposition	legacy recipe origin
+test-apple-menu	desktop/tests; parked unbuilt	#  recipe to execute (from 'Makefile', line 33734):
+test-apple-menu-mutant	desktop/tests; parked unbuilt	#  recipe to execute (from 'Makefile', line 33737):
+test-asset-lz	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'harness/proptest/kernel_size_r5.mk', line 30):
+test-asset-lz-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'harness/proptest/kernel_size_r5.mk', line 38):
+test-assets	tool claimed; local copyrighted frame unavailable; not counted	#  recipe to execute (from 'Makefile', line 28267):
+test-blitter	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13231):
+test-blitter-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13238):
+test-boot-logo	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 34823):
+test-boot-logo-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 34829):
+test-boot-screen	kernel-owned boot renderer; host source remains in attic	#  recipe to execute (from 'Makefile', line 34833):
+test-boot-screen-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 34838):
+test-boot-vesa-images	factory boot/VBE image producer; no Toolbox host assertions	#  recipe to execute (from 'harness/emu/vesa8.mk', line 70):
+test-canon	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13426):
+test-canon-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13431):
+test-canon-salami	InitechBase canonical accounting behavior; app-owned and left in attic	#  recipe to execute (from 'Makefile', line 3432):
+test-canon-salami-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 3438):
+test-canon-y2k	InitechBase canonical date behavior; app-owned and left in attic	#  recipe to execute (from 'Makefile', line 3400):
+test-canon-y2k-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 3406):
+test-chicago-art	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13270):
+test-chicago-art-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13275):
+test-chicago-metrics	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13299):
+test-chicago-metrics-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13301):
+test-chicago-pack	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 125):
+test-chicago-pack-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 128):
+test-chrome	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 12783):
+test-chrome-fidelity	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13073):
+test-chrome-fidelity-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13087):
+test-chrome-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 12830):
+test-clut	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 15999):
+test-clut-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 16003):
+test-color-canon	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 16046):
+test-color-canon-gen	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 12096):
+test-color-canon-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 16057):
+test-color-canon-mutant-plat	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 16065):
+test-control	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 15706):
+test-control-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 15713):
+test-control-press-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'harness/finder_alerts.mk', line 65):
+test-control-record	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 15947):
+test-control-record-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 15951):
+test-cursor	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13487):
+test-cursor-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13494):
+test-desk-icons	desktop/tests; parked unbuilt	#  recipe to execute (from 'Makefile', line 13547):
+test-desk-icons-mutant	desktop/tests; parked unbuilt	#  recipe to execute (from 'Makefile', line 13554):
+test-dialog	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 15859):
+test-dialog-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 15867):
+test-dialog-record	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 15973):
+test-dialog-record-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 15977):
+test-dialog-tracking	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'harness/finder_alerts.mk', line 45):
+test-dialog-tracking-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'harness/finder_alerts.mk', line 55):
+test-drag	desktop/tests; parked unbuilt	#  recipe to execute (from 'Makefile', line 14915):
+test-drag-mutant	desktop/tests; parked unbuilt	#  recipe to execute (from 'Makefile', line 14922):
+test-drawing-ops	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 15986):
+test-drawing-ops-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 15990):
+test-event	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14818):
+test-event-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14826):
+test-film-scene	desktop/tests/test_film_scene.c; parked unbuilt	#  recipe to execute (from 'harness/film_scene.mk', line 7):
+test-film-scene-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'harness/film_scene.mk', line 28):
+test-flair-heap	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 12693):
+test-flair-heap-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 12698):
+test-flair-heap-ram	kernel-owned integration; left for kernel	#  recipe to execute (from 'Makefile', line 28785):
+test-flair-heap-ram-mutant	kernel-owned integration; left for kernel	#  recipe to execute (from 'Makefile', line 28788):
+test-font-styles	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13367):
+test-font-styles-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13374):
+test-geneva12-art	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'harness/proptest/geneva12.mk', line 28):
+test-geneva12-art-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'harness/proptest/geneva12.mk', line 37):
+test-geneva12-metrics	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'harness/proptest/geneva12.mk', line 71):
+test-geneva12-metrics-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'harness/proptest/geneva12.mk', line 73):
+test-geneva12-pack	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'harness/proptest/geneva12.mk', line 54):
+test-geneva12-pack-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'harness/proptest/geneva12.mk', line 57):
+test-grow-box	aggregate of imported chrome_fidelity/window and parked finder_ops; no extra program	#  recipe to execute (from 'Makefile', line 34567):
+test-grow-box-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 34569):
+test-interact	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14244):
+test-interact-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14249):
+test-kernel-abi-struct-return	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r7.mk', line 29):
+test-kernel-abi-struct-return-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r7.mk', line 35):
+test-kernel-cold-about	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 168):
+test-kernel-cold-about-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 171):
+test-kernel-cold-lto	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size.mk', line 124):
+test-kernel-cold-lto-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size.mk', line 131):
+test-kernel-df	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 61):
+test-kernel-df-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 64):
+test-kernel-gc	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size.mk', line 29):
+test-kernel-gc-lto-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size.mk', line 158):
+test-kernel-gc-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size.mk', line 33):
+test-kernel-gc-roots	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size.mk', line 64):
+test-kernel-headroom	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'Makefile', line 465):
+test-kernel-headroom-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'Makefile', line 485):
+test-kernel-native-boundaries	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 140):
+test-kernel-native-boundaries-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 151):
+test-kernel-size-ovl	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 237):
+test-kernel-size-ovl-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 250):
+test-kernel-size-r4	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 25):
+test-kernel-size-r4-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 31):
+test-kernel-transfer	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 77):
+test-kernel-transfer-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/kernel_size_r4.mk', line 80):
+test-list	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14645):
+test-list-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14650):
+test-mech-policy	META/retired; attic	#  recipe to execute (from 'Makefile', line 16093):
+test-mech-policy-mutant	META/retired; attic	#  recipe to execute (from 'Makefile', line 16097):
+test-menu	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14982):
+test-menu-handlers	desktop/tests; parked unbuilt	#  recipe to execute (from 'Makefile', line 14124):
+test-menu-handlers-mutant	desktop/tests; parked unbuilt	#  recipe to execute (from 'Makefile', line 14129):
+test-menu-look	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 33631):
+test-menu-look-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 33634):
+test-menu-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14989):
+test-menu-record	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 15960):
+test-menu-record-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 15964):
+test-menubar-clock	desktop/tests/test_menubar_clock.c; parked unbuilt	#  recipe to execute (from 'Makefile', line 34321):
+test-menubar-clock-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 34324):
+test-mouse-producer	kernel-owned integration; left for kernel	#  recipe to execute (from 'Makefile', line 14866):
+test-mouse-producer-mutant	kernel-owned integration; left for kernel	#  recipe to execute (from 'Makefile', line 14871):
+test-ovl-absence	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 111):
+test-ovl-absence-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 118):
+test-ovl-absence-power-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/power_overlay.mk', line 33):
+test-ovl-context-static	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 178):
+test-ovl-context-static-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 185):
+test-ovl-stub-prune	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 153):
+test-ovl-stub-prune-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 157):
+test-ovl-window	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 68):
+test-ovl-window-mutant	SIZE/LAYOUT retired; attic	#  recipe to execute (from 'harness/proptest/overlay.mk', line 78):
+test-palette-seafoam	UNIT self-equality/retired; attic	#  recipe to execute (from 'Makefile', line 13450):
+test-palette-seafoam-mutant	UNIT self-equality/retired; attic	#  recipe to execute (from 'Makefile', line 13455):
+test-process	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14297):
+test-process-activate	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14730):
+test-process-activate-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14735):
+test-process-budget	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14396):
+test-process-budget-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14401):
+test-process-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14310):
+test-process-mutant-build	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14304):
+test-process-teardown	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14355):
+test-process-teardown-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14366):
+test-process-update	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14777):
+test-process-update-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14782):
+test-resource	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14434):
+test-resource-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14439):
+test-scrap	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14479):
+test-scrap-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14484):
+test-scrollbar-look	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 32885):
+test-scrollbar-look-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 32888):
+test-skin-era-frozen	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 16165):
+test-skin-era-frozen-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 16169):
+test-skin-era-frozen-mutant-baserow	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 16171):
+test-skin-teal	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 16157):
+test-skin-teal-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 16161):
+test-skin-teal-mutant-plat	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 16163):
+test-ssim	META/retired; attic	#  recipe to execute (from 'Makefile', line 34908):
+test-ssim-mutant	META/retired; attic	#  recipe to execute (from 'Makefile', line 34910):
+test-stdfile	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14688):
+test-stdfile-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14693):
+test-tbx-file	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 31955):
+test-tbx-file-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 31958):
+test-tbx-menu	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 15022):
+test-tbx-menu-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 15027):
+test-te-surface	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14560):
+test-te-surface-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14566):
+test-text	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13328):
+test-text-clip	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13398):
+test-text-clip-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13400):
+test-text-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13335):
+test-textedit	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 14524):
+test-textedit-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 14529):
+test-window	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13660):
+test-window-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13667):
+test-winscroll	imported; IMPORT.md program table / generation wrapper	#  recipe to execute (from 'Makefile', line 13701):
+test-winscroll-mutant	conditional mutation hook; MUTANTS-TODO.md; old recipe retired	#  recipe to execute (from 'Makefile', line 13706):

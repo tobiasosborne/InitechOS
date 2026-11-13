@@ -78,49 +78,22 @@
 #include "event_model.h"
 #include "chrome_metrics.h"
 #include "event.h"           /* FLAIR_SCREEN_W / FLAIR_SCREEN_H               */
-#include "toolbox_gate.h"
+#include "tbx.h"
 #include "text.h"            /* chicago_advance / chicago_cell_bits (Chicago 12;
                               * the tables are text.o's ONE copy)           */
-#include "loader.h"          /* loader_load_tenant (-Ios/milton)               */
+#include "flair_platform.h" /* host services; no kernel implementation headers */
 #include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
 #include "tbxmenu.h"         /* the menu route + the flat FlairEvent copy      */
 #include "tbxfile.h"         /* DOS adapter; spec Sec 10, initech-tdnl.91     */
-#include "find_data.h"       /* the 43-byte DTA; spec Sec 10a, initech-qvgd   */
 #include "scrap.h"           /* the shell's desk scrap; spec Sec 12 (tdnl.16) */
 #include "dialog.h"
-#include "cp_dialog.h"
+#include "cp_dialog_items.h"
 #include "cpanels_record.h"
-#include "io.h"
 #include "winscroll.h"       /* the standard bars; spec Sec 15 (tdnl.16)     */
 
-/* spec/toolbox_gate.h Sec 9 IS menu.h Sec 3's i386 layout: pin every offset
- * the validator reads, so the locked ABI and the Menu Manager never drift.
- * Pinned on the i386 target -- every kernel and mutant build. The 64-bit host
- * routing suite (harness/proptest/test_flair_routing.c, bead initech-2svz)
- * compiles this TU too, cannot hold a 4-byte-pointer layout, and never hands
- * the gate a tenant MenuBar graph (no SETMBAR leg). */
-#ifndef UINTPTR_MAX
-#error "tbxgate.c: <stdint.h> must define UINTPTR_MAX (the ABI pin guard)"
-#endif
-#if UINTPTR_MAX == 0xFFFFFFFFu
-_Static_assert(sizeof(MenuBar) == TBX_MBAR_BYTES, "MenuBar size (spec Sec 9)");
-_Static_assert(offsetof(MenuBar, menus) == TBX_MBAR_MENUS_OFF, "MenuBar.menus");
-_Static_assert(offsetof(MenuBar, n_menus) == TBX_MBAR_COUNT_OFF, "MenuBar.n_menus");
-_Static_assert(offsetof(MenuBar, has_apple) == TBX_MBAR_APPLE_OFF, "MenuBar.has_apple");
-_Static_assert(sizeof(MenuInfo) == TBX_MINFO_BYTES, "MenuInfo size (spec Sec 9)");
-_Static_assert(offsetof(MenuInfo, menuID) == TBX_MINFO_ID_OFF, "MenuInfo.menuID");
-_Static_assert(offsetof(MenuInfo, title) == TBX_MINFO_TITLE_OFF, "MenuInfo.title");
-_Static_assert(offsetof(MenuInfo, items) == TBX_MINFO_ITEMS_OFF, "MenuInfo.items");
-_Static_assert(offsetof(MenuInfo, n_items) == TBX_MINFO_COUNT_OFF, "MenuInfo.n_items");
-_Static_assert(sizeof(MenuItem) == TBX_MITEM_BYTES, "MenuItem size (spec Sec 9)");
-_Static_assert(offsetof(MenuItem, text) == TBX_MITEM_TEXT_OFF, "MenuItem.text");
-#endif
+#include "tbx_layout.h" /* SDK wire pins and manager layout comparisons */
 
-/* The two asm trampolines (os/milton/tbx_gate.asm). tbx_tenant_call reads
- * fn/psp off the stack ([ebp+8], [ebp+12]) and `ret`s without popping: the
- * cdecl ABI, pinned by KERNEL_ASM_ABI against the -mregparm/-mrtd image. */
-extern int KERNEL_ASM_ABI tbx_tenant_call(uint32_t fn, uint32_t psp);
-extern void tbx_tenant_abort(void) __attribute__((noreturn));
+/* Tenant transfer and non-returning crash unwind are platform services. */
 
 /* ===========================================================================
  * 1. STATE -- ONE slot (D1-3 / DEC-AC3-1 V1 scope).
@@ -144,8 +117,8 @@ typedef struct tbx_srgn {
 
 typedef struct tbx_slot {
     uint8_t      *block;        /* the carved code block (NULL == slot free)  */
-    tenant_plan_t plan;         /* psp / load base / module / entry           */
-    psp_t         files;       /* KERNEL-owned JFT; never the image PSP       */
+    flair_platform_plan plan;         /* psp / load base / module / entry           */
+    flair_platform_files         files;       /* KERNEL-owned JFT; never the image PSP       */
     FlairApp     *app;          /* non-NULL once REGISTERed                   */
     uint32_t      evbuf;        /* validated flat FlairEvent address          */
     uint32_t      eventproc;    /* validated flat eventProc address           */
@@ -237,9 +210,7 @@ __attribute__((noreturn)) static void tbx_panic(const char *why)
     tputs("PANIC tbx: ");
     tputs(why);
     tputs("\nHALTED\n");
-    for (;;) {
-        __asm__ __volatile__("cli; hlt");
-    }
+    flair_platform_panic(why);
 }
 
 /* ===========================================================================
@@ -312,14 +283,14 @@ static const FlairAppProcs disk_tenant_procs = {
     disk_tenant_close                                    /* close             */
 };
 
-/* Run tenant code at `fn`. A crash unwinds here (tbx_tenant_call returns 1)
+/* Run tenant code at `fn`. A crash unwinds here (flair_platform_tenant_call returns 1)
  * with the fault already recorded by tbx_fault_triage. */
 static void run_tenant(uint32_t fn)
 {
     int crashed;
     if (g_slot.in_call) tbx_panic("tenant code re-entered from inside a trap");
     g_slot.in_call = 1u;
-    crashed = tbx_tenant_call(fn, g_slot.plan.psp_addr);
+    crashed = flair_platform_tenant_call(fn, g_slot.plan.psp_addr);
     g_slot.in_call = 0u;
     g_slot.in_update = 0u;
     if (crashed) g_slot.crashed = 1u;
@@ -435,24 +406,24 @@ static int32_t v_register(uint32_t rec)
         return TBX_ERR_BUSY;
 #endif
     }
-    if (!in_image(rec, FLAIR_TENANT_REC_BYTES)) {
+    if (!in_image(rec, WIRE_SIZE(tbx_rec_t, FLAIR_TENANT_REC_BYTES))) {
         tputs("TENANT-REGISTER-BAD why=rec-outside-image\n");
         return TBX_ERR_BADREC;
     }
-    namep = rd32(rec + FLAIR_TENANT_REC_NAME_OFF);
-    evb   = rd32(rec + FLAIR_TENANT_REC_EVB_OFF);
-    proc  = rd32(rec + FLAIR_TENANT_REC_PROC_OFF);
-    if (rd32(rec + FLAIR_TENANT_REC_TAG_OFF) != FLAIR_TENANT_REC_TAG) {
+    namep = rd32(rec + WIRE_OFF(tbx_rec_t, name, FLAIR_TENANT_REC_NAME_OFF));
+    evb   = rd32(rec + WIRE_OFF(tbx_rec_t, evbuf, FLAIR_TENANT_REC_EVB_OFF));
+    proc  = rd32(rec + WIRE_OFF(tbx_rec_t, proc, FLAIR_TENANT_REC_PROC_OFF));
+    if (rd32(rec + WIRE_OFF(tbx_rec_t, tag, FLAIR_TENANT_REC_TAG_OFF)) != FLAIR_TENANT_REC_TAG) {
         tputs("TENANT-REGISTER-BAD why=tag\n");
         return TBX_ERR_BADREC;
     }
-    if (rd32(rec + FLAIR_TENANT_REC_BASE_OFF) != g_slot.plan.load_base ||
-        rd32(rec + FLAIR_TENANT_REC_LEN_OFF) != g_slot.plan.module_len) {
+    if (rd32(rec + WIRE_OFF(tbx_rec_t, image_base, FLAIR_TENANT_REC_BASE_OFF)) != g_slot.plan.load_base ||
+        rd32(rec + WIRE_OFF(tbx_rec_t, image_len, FLAIR_TENANT_REC_LEN_OFF)) != g_slot.plan.module_len) {
         tputs("TENANT-REGISTER-BAD why=image-mismatch\n");
         return TBX_ERR_BADREC;
     }
     nlen = image_str(namep, FLAIR_TENANT_NAME_MAX);
-    if (nlen <= 0 || !in_image(evb, FLAIR_EVBUF_BYTES) || !in_image(proc, 1u)) {
+    if (nlen <= 0 || !in_image(evb, sizeof(tbx_event_t)) || !in_image(proc, 1u)) {
         tputs("TENANT-REGISTER-BAD why=pointer-outside-image\n");
         return TBX_ERR_BADREC;
     }
@@ -555,7 +526,7 @@ static int32_t v_dialog(const uint32_t *a)
 {
     if (!check_win(a[0]) || a[2] == 0 || a[2] > CP_MAX_ITEMS ||
         !in_image(a[1],a[2]*sizeof(cp_item_t)) || a[3]>a[2] || a[4]>a[2] ||
-        (a[5] && !in_image(a[5],FLAIR_EVBUF_BYTES))) return TBX_ERR_BADARG;
+        (a[5] && !in_image(a[5],sizeof(tbx_event_t)))) return TBX_ERR_BADARG;
     const cp_item_t *flat=(const cp_item_t *)(uintptr_t)a[1];
     rgn_rect_t c=region_get_bbox(g_slot.win->contRgn);
     for(unsigned i=0;i<a[2];i++)
@@ -568,11 +539,11 @@ static int32_t v_dialog(const uint32_t *a)
     cp_dialog_items(&d,items,controls,flat,a[2],c.left,c.top);
     d.defaultItem=(uint16_t)a[3]; d.cancelItem=(uint16_t)a[4];
     if(a[5]) {
-        const int32_t *v=(const int32_t *)(uintptr_t)a[5];EventRecord e={0};uint16_t hit=0;
-        e.what=(uint16_t)v[0];e.message=(uint32_t)v[1];e.modifiers=(uint16_t)v[2];
-        e.when=(uint32_t)v[3];
+        const tbx_event_t *v=(const tbx_event_t *)(uintptr_t)a[5];EventRecord e={0};uint16_t hit=0;
+        e.what=(uint16_t)v->what;e.message=(uint32_t)v->message;e.modifiers=(uint16_t)v->modifiers;
+        e.when=(uint32_t)v->when;
         if(e.what!=mouseDown && e.what!=keyDown && e.what!=autoKey)return TBX_ERR_BADARG;
-        e.where.h=(int16_t)v[4];e.where.v=(int16_t)v[5];
+        e.where.h=(int16_t)v->whereh;e.where.v=(int16_t)v->wherev;
         /* tdnl.88: a control press now TRACKS (draws pressed, fires on the
          * mouseUp inside). This one-shot transport rebuilds the record per
          * call, so no later mouseUp can reach it: the tenant's click is a
@@ -662,7 +633,7 @@ static int32_t v_textdraw(const uint32_t *a)
 
 /* DRAWCELLS (spec Sec 7a; bead initech-w96l): the run in the fixed 8x16 cell
  * font -- every cell opaque: its box in bg, then the strike's set bits in fg
- * (MSB = leftmost, os/milton/console.h's glyph format), through the same clip
+ * (MSB = leftmost, os/initechdos/console.h's glyph format), through the same clip
  * as TEXTDRAW. STYLE (bead initech-jojk): fg bits 8..15 are a txFace, each
  * glyph row synthesized by THE Font Manager rule text_synth_row (text.h) about
  * TBX_CELL_BASELINE, the underline drawn by the text_draw_run rule (offset,
@@ -812,36 +783,36 @@ static int32_t v_setmbar(uint32_t bar)
      * the V2 "before NEWWINDOW only" rule existed only for want of
      * DRAWMENUBAR. */
     if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
-    if (!MB_IN(bar, TBX_MBAR_BYTES)) return mbar_bad("bar-outside-image");
-    menus = rd32(bar + TBX_MBAR_MENUS_OFF);
-    n     = rd16(bar + TBX_MBAR_COUNT_OFF);
+    if (!MB_IN(bar, WIRE_SIZE(tbx_menubar_t, TBX_MBAR_BYTES))) return mbar_bad("bar-outside-image");
+    menus = rd32(bar + WIRE_OFF(tbx_menubar_t, menus, TBX_MBAR_MENUS_OFF));
+    n     = rd16(bar + WIRE_OFF(tbx_menubar_t, n_menus, TBX_MBAR_COUNT_OFF));
     if (n > TBX_MBAR_MAX_MENUS) return mbar_bad("too-many-menus");
-    if (n != 0u && !MB_IN(menus, n * TBX_MINFO_BYTES))
+    if (n != 0u && !MB_IN(menus, n * WIRE_SIZE(tbx_menuinfo_t, TBX_MINFO_BYTES)))
         return mbar_bad("menus-outside-image");
     /* menu.h Sec 5: the Apple slot, then text_measure(title) + 2*PAD per
      * title -- the proportional Chicago 12 width (spec/toolbox_gate.h Sec 9;
      * bead initech-tdnl.33), summed from the validated in-image bytes. */
-    x = (*(const volatile uint8_t *)(uintptr_t)(bar + TBX_MBAR_APPLE_OFF) != 0u)
+    x = (*(const volatile uint8_t *)(uintptr_t)(bar + WIRE_OFF(tbx_menubar_t, has_apple, TBX_MBAR_APPLE_OFF)) != 0u)
             ? (uint32_t)FLAIR_MENU_APPLE_W : 0u;
     for (uint32_t k = 0; k < n; k++) {
-        uint32_t m     = menus + k * TBX_MINFO_BYTES;
-        uint32_t items = rd32(m + TBX_MINFO_ITEMS_OFF);
-        uint32_t ni    = rd16(m + TBX_MINFO_COUNT_OFF);
-        int32_t  tl    = mb_str(rd32(m + TBX_MINFO_TITLE_OFF));
-        if ((int16_t)rd16(m + TBX_MINFO_ID_OFF) < 1) return mbar_bad("menu-id");
+        uint32_t m     = menus + k * WIRE_SIZE(tbx_menuinfo_t, TBX_MINFO_BYTES);
+        uint32_t items = rd32(m + WIRE_OFF(tbx_menuinfo_t, items, TBX_MINFO_ITEMS_OFF));
+        uint32_t ni    = rd16(m + WIRE_OFF(tbx_menuinfo_t, n_items, TBX_MINFO_COUNT_OFF));
+        int32_t  tl    = mb_str(rd32(m + WIRE_OFF(tbx_menuinfo_t, title, TBX_MINFO_TITLE_OFF)));
+        if ((int16_t)rd16(m + WIRE_OFF(tbx_menuinfo_t, menu_id, TBX_MINFO_ID_OFF)) < 1) return mbar_bad("menu-id");
         if (tl < 1) return mbar_bad("title");
         {
-            uint32_t ta = rd32(m + TBX_MINFO_TITLE_OFF);
+            uint32_t ta = rd32(m + WIRE_OFF(tbx_menuinfo_t, title, TBX_MINFO_TITLE_OFF));
             for (int32_t i = 0; i < tl; i++)
                 x += (uint32_t)chicago_advance(
                          (int)*(const volatile uint8_t *)(uintptr_t)(ta + (uint32_t)i));
         }
         x += 2u * (uint32_t)FLAIR_MENU_TITLE_PAD;
         if (ni > TBX_MBAR_MAX_ITEMS) return mbar_bad("too-many-items");
-        if (ni != 0u && !MB_IN(items, ni * TBX_MITEM_BYTES))
+        if (ni != 0u && !MB_IN(items, ni * WIRE_SIZE(tbx_menuitem_t, TBX_MITEM_BYTES)))
             return mbar_bad("items-outside-image");
         for (uint32_t i = 0; i < ni; i++)
-            if (mb_str(rd32(items + i * TBX_MITEM_BYTES + TBX_MITEM_TEXT_OFF)) < 0)
+            if (mb_str(rd32(items + i * WIRE_SIZE(tbx_menuitem_t, TBX_MITEM_BYTES) + WIRE_OFF(tbx_menuitem_t, text, TBX_MITEM_TEXT_OFF))) < 0)
                 return mbar_bad("item-text");
     }
     if (x > (uint32_t)FLAIR_SCREEN_W) return mbar_bad("too-wide");
@@ -1045,13 +1016,9 @@ static int32_t v_global_to_local(const uint32_t *a)
 
 /* One INT 21h call under the tenant's shadow PSP with the root CWD (the
  * tbxf_call discipline, spec Sec 10); the caller reads the whole frame. */
-static void tenant_dos(int_frame_t *f)
+static void tenant_dos(flair_platform_regs *f)
 {
-    psp_t *saved = int21_get_psp();
-    int21_cwd_snapshot_t cwd = int21_cwd_save();
-    int21_set_psp(&g_slot.files); int21_cwd_reset();
-    int21_dispatch(f);
-    int21_set_psp(saved); int21_cwd_restore(&cwd);
+    flair_platform_dos(&g_slot.files,f);
 }
 
 /* TBX_FILE_FIND / TBX_DISK_FREE (spec Sec 10a; bead initech-qvgd): the List
@@ -1059,11 +1026,13 @@ static void tenant_dos(int_frame_t *f)
  * The whole FINDFIRST/FINDNEXT walk runs inside one gate call (a tenant runs
  * to its RETURN, ADR-0013 Sec 3.4), into a kernel DTA that replaces the
  * kernel's own for the call only. */
-static find_data_t g_fd_dta;
+/* DOS 3.3 PRM AH=4Eh: 21 resume bytes followed by the SDK find payload.
+ * The platform owns the DOS record; the gate only copies its opaque bytes. */
+static uint8_t g_fd_dta[TBX_FIND_REC_DTA_OFF + TBX_FIND_REC_BYTES];
 static char        g_fd_pat[TBX_FILE_PATH_MAX];
 static int32_t v_file_find(const uint32_t *a)
 {
-    int_frame_t f;
+    flair_platform_regs f;
     uint32_t n = 0u, old, i;
     const char *p = (const char *)(uintptr_t)a[0];
     if (!tbxf_path(img_lo(), img_len(), a[0]) || a[1] > 0xFFu || a[3] > TBX_FIND_MAX_RECS ||
@@ -1071,7 +1040,7 @@ static int32_t v_file_find(const uint32_t *a)
         return TBX_ERR_BADARG;
     for (i = 0u; p[i]; i++) g_fd_pat[i] = p[i];
     g_fd_pat[i] = 0;
-    old = int21_swap_dta((uint32_t)(uintptr_t)&g_fd_dta);
+    old = flair_platform_swap_dta((uint32_t)(uintptr_t)&g_fd_dta);
     tbx_zero(&f, (uint32_t)sizeof f);
     f.eax = 0x4E00u; f.ecx = a[1]; f.edx = (uint32_t)(uintptr_t)g_fd_pat;
     tenant_dos(&f);
@@ -1086,14 +1055,14 @@ static int32_t v_file_find(const uint32_t *a)
         f.eax = 0x4F00u;
         tenant_dos(&f);
     }
-    (void)int21_swap_dta(old);
+    (void)flair_platform_swap_dta(old);
     if (n == 0u && (f.eax & 0xFFFFu) != 0x12u && (f.eax & 0xFFFFu) != 0x02u)
         return TBX_ERR_DOS(f.eax & 0xFFFFu);
     return (int32_t)n;
 }
 static int32_t v_disk_free(void)
 {
-    int_frame_t f;
+    flair_platform_regs f;
     tbx_zero(&f, (uint32_t)sizeof f);
     f.eax = 0x3600u;                      /* DL 0: the default (data) drive */
     tenant_dos(&f);
@@ -1221,7 +1190,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
                                                     4u * i);
 #else
     /* MUTANT TBX_MUT_ARG_OFFSET (Rule 6; test-flair-routing-mutant leg X3):
-     * arg 0 is read one dword low -- the last int_frame_t slot, not the
+     * arg 0 is read one dword low -- the last flair_platform_regs slot, not the
      * interrupted ESP (spec/toolbox_gate.h Sec 2). NEVER in a real build. */
     for (uint32_t i = 0; i < argc; i++)
         a[i] = *(const volatile uint32_t *)(void *)(frame + TBX_GATE_ARG_OFFSET -
@@ -1402,7 +1371,7 @@ static void finish(const char *via, int32_t rc)
 int tbx_launch(const char *name83, uint16_t dir_start)
 {
     void *blk = (void *)0;
-    loader_status_t st;
+    int st;
     int i;
 
     if (g_host.master == (flair_heap_t *)0) tbx_panic("tbx_launch before tbx_bind");
@@ -1413,9 +1382,9 @@ int tbx_launch(const char *name83, uint16_t dir_start)
         return TBX_ERR_BUSY;
     }
     slot_clear();
-    st = loader_load_tenant(name83, dir_start, carve_code, (void *)0, &blk,
+    st = flair_platform_load(name83, dir_start, carve_code, (void *)0, &blk,
                             &g_slot.plan);
-    if (st != LOADER_OK) {
+    if (st != FLAIR_PLATFORM_LOAD_OK) {
         if (blk != (void *)0)
             flair_free(g_host.master, FLAIR_CLASS_GENERAL, blk);
         slot_clear();
@@ -1424,7 +1393,7 @@ int tbx_launch(const char *name83, uint16_t dir_start)
         tputs(" rc=");
         tputu((uint32_t)st);
         tputs("\n");
-        return (st == LOADER_ERR_NOMEM) ? TBX_ERR_NOMEM : TBX_ERR_BADARG;
+        return (st == FLAIR_PLATFORM_LOAD_NOMEM) ? TBX_ERR_NOMEM : TBX_ERR_BADARG;
     }
     g_slot.block = (uint8_t *)blk;
     tbxf_init(&g_slot.files);
@@ -1689,13 +1658,9 @@ static uint8_t g_fc_buf[TBX_FILECOPY_CHUNK];
  * discipline). Returns EAX, or TBX_ERR_DOS(code) on carry. */
 static int32_t fc_dos(uint32_t ax, uint32_t bx, uint32_t cx, uint32_t dx)
 {
-    int_frame_t f = { 0 };
-    psp_t *saved = int21_get_psp();
-    int21_cwd_snapshot_t cwd = int21_cwd_save();
+    flair_platform_regs f = { 0 };
     f.eax = ax; f.ebx = bx; f.ecx = cx; f.edx = dx;
-    int21_set_psp(&g_slot.files); int21_cwd_reset();
-    int21_dispatch(&f);
-    int21_set_psp(saved); int21_cwd_restore(&cwd);
+    flair_platform_dos(&g_slot.files,&f);
     return (f.eflags & 1u) ? TBX_ERR_DOS(f.eax & 0xffffu) : (int32_t)f.eax;
 }
 
@@ -1848,5 +1813,5 @@ void tbx_fault_triage(uint32_t vector, uint32_t eip)
     tputs(" eip=+0x");
     tputx(eip - lo, 4);
     tputs("\n");
-    tbx_tenant_abort();                  /* unwinds to run_tenant; noreturn */
+    flair_platform_tenant_abort();                  /* unwinds to run_tenant; noreturn */
 }

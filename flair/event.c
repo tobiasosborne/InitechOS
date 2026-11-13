@@ -36,7 +36,7 @@
  * ----------------------------------
  * The PS/2 SET-1 make-code to ASCII mapping used here covers the printable
  * ASCII set (0x20..0x7E) needed for the cooperative desktop (InitechCalc,
- * the FILE COPY dialog, SAMIR, Turbo Initech IDE). The table is clean-room,
+ * the FILE COPY dialog, INITECHBASE, Turbo Initech IDE). The table is clean-room,
  * derived from the IBM PC AT Technical Reference (keyboard scan codes,
  * Table B-3). Non-printable / unmapped scancodes yield ASCII 0.
  * Ref: IBM PC AT Technical Reference (1984) keyboard appendix, Table B-3.

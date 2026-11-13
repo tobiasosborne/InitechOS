@@ -1,0 +1,352 @@
+/*
+ * os/flair/finder_menu.c -- THE FINDER MENU BAR RESOURCE (THE ARTIFACT).
+ *
+ * beads: initech-tdnl.12 (GUI remediation R3.5, stage 1). See
+ * os/flair/finder_menu.h for the full banner: the F4.2 layout as static data,
+ * the Apple-slot ruling, the omit-not-gray application to Calculator/Note Pad,
+ * and the one refresh routine.
+ *
+ * EVERY ROW BELOW IS READ OFF design F4.2 IN ORDER. The item numbers the
+ * command table (os/flair/finder_cmd.c, its own F4.2 transcription) uses are
+ * 1-BASED and COUNT DIVIDERS, so the k-th entry of an items[] array here is
+ * item k+1 there. The two transcriptions are INDEPENDENT and the host oracle
+ * (harness/proptest/test_finder_menu.c) grades a THIRD, hand-authored one
+ * against both -- a real differential, never agreement by construction
+ * (Law 2 / HER-02).
+ *
+ * MUTANT KNOBS (Rule 6; -D on this TU only, from the Makefile):
+ *   FINDER_MENU_MUT_ENABLE_STUCK -- refresh writes 1 for every predicate-driven
+ *                                   item instead of the predicate's answer, so
+ *                                   nothing ever grays. The truth table goes
+ *                                   RED (this is design F4.4's PRED_STUCK_
+ *                                   ENABLED applied to the RESOURCE half).
+ *   FINDER_MENU_MUT_CMDCHAR_DUP  -- File > Open takes 'N', duplicating New
+ *                                   Folder's command key. The structural
+ *                                   no-duplicate-cmdChar leg goes RED, and so
+ *                                   does MenuKey routing (menu.c returns the
+ *                                   FIRST enabled match, so Cmd-N would still
+ *                                   be New Folder but Cmd-O would find nothing).
+ *   FINDER_MENU_MUT_DEAD_ITEM    -- Special > Clean Up ships DEAD: its enable
+ *                                   byte is 0 and no predicate ever revives it,
+ *                                   so menu.c's MenuInfo_item_selectable
+ *                                   refuses it, MenuSelect returns 0 and the
+ *                                   command can never be dispatched from the
+ *                                   bar. THE EMU MUTANT of bead initech-tdnl.12
+ *                                   (also bites the host structure leg): the
+ *                                   booted Special > Clean Up gesture loses its
+ *                                   FINDER-CMD id=9 line entirely -- a menu
+ *                                   item that draws perfectly and does nothing,
+ *                                   which is exactly the failure a human
+ *                                   looking at the frame cannot see.
+ *   FINDER_MENU_MUT_STUB_ENABLED -- File > Get Info goes back to the pre-fix
+ *                                   HAS_SELECTION predicate: enabled with a
+ *                                   selection although the shell has no Get
+ *                                   Info (bead initech-tdnl.36). The handler
+ *                                   guard (test-menu-handlers) and the
+ *                                   truth table go RED.
+ *
+ * THE RULE (bead initech-tdnl.36, audit F03/F05/F07/G10/F15): a command is
+ * either IMPLEMENTED or DRAWN DISABLED. A row whose command the shell cannot
+ * execute is authored 0 and carries no predicate, so no context can light it;
+ * it rejoins the predicate map when its bead lands. Today that is:
+ *   File > Get Info, Duplicate   (initech-p6st / initech-tdnl.16)
+ * and File > Open is lit only by a selected FOLDER (initech-tdnl.38).
+ * Special > Restart and Shut Down LEFT this list with bead initech-tdnl.78
+ * (the kernel reset/halt primitives, os/initechdos/power.h): they are authored
+ * LIVE, always, like New Folder -- the period Special menu never grays them
+ * (Macintosh User's Guide for desktop Macintosh computers Z030-1751-A, PDF
+ * p. 25 / book p. 6, the Special menu art: Restart and Shut Down in black
+ * while Empty Wastebasket and Eject Disk are dimmed).
+ * harness/proptest/test_menu_handlers.c walks every row and holds the rule.
+ *
+ * Ref: docs/design/GUI-remediation-R3-finder-design.md F4.2 (the layout),
+ *        F4.3 (omit-not-gray), F4.4 (predicates + the command table).
+ *      os/flair/menu.h Sec 3 (MenuItem field order: text, mark, cmdChar,
+ *        style, enabled, is_divider).
+ *      os/flair/finder_cmd.h Sec 4 (the exported predicates).
+ *      CLAUDE.md Law 1, Law 2, Law 3, Rule 8, Rule 11, Rule 12.
+ *
+ * FREESTANDING (Law 3): includes only finder_menu.h (menu.h + finder_cmd.h).
+ * No libc, no malloc, no static initialiser that is not a constant expression.
+ *
+ * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ */
+#include "finder_menu.h"
+#include "finder_windows.h" /* kind=4 view policy, no renderer dependency */
+
+/* Shorthand for the two constant MenuItem shapes this file repeats, so the
+ * tables below read as the F4.2 lists they transcribe rather than as a wall of
+ * braces. Field order is menu.h Sec 3: text, mark, cmdChar, style, enabled,
+ * is_divider.
+ *   FM_ITEM(text, cmd, on) -- an ordinary row.
+ *   FM_DIV                 -- a separator row (never selectable, menu.c).      */
+#define FM_ITEM(txt, cmd, on)   { (txt), 0, (char)(cmd), 0u, (uint8_t)(on), 0u }
+#define FM_MARKED(txt, cmd, on) { (txt), FINDER_MENU_MARK_CHECK, (char)(cmd), \
+                                  0u, (uint8_t)(on), 0u }
+#define FM_DIV                  { "-", 0, 0, 0u, 0u, 1u }
+
+/* The V1 rest state of a PREDICATE-DRIVEN item. It is authored 0 and then
+ * overwritten by finder_menu_refresh_enables before every draw/track; 0 is the
+ * honest boot value because at boot there is no selection and no disk window
+ * front, so every one of the five predicates answers 0 anyway. */
+#define FM_PRED_REST  0
+
+/* ===========================================================================
+ * THE APPLE SLOT  (menu id 0; F4.2 Apple table)
+ * ---------------------------------------------------------------------------
+ *   1  About This Computer   -- "grayed until R4.1 (serial marker on attempt)"
+ *   -- the divider and the two launchables (Calculator, Note Pad) are OMITTED
+ *      THIS STAGE under ruling F4-3; see finder_menu.h. They return with bead
+ *      initech-tdnl.14, restoring items 2/3/4 that finder_cmd.c's Apple rows
+ *      already name.
+ *
+ * About This Computer is authored 0 (grayed), not 1, even though its
+ * finder_cmd row carries no predicate: F4.2 says "grayed until R4.1"
+ * explicitly, and a specific ruling beats the general "no predicate == always
+ * live" shape. It is not predicate-driven, so refresh never touches it.
+ * ===========================================================================*/
+static MenuItem finder_apple_items[] = {
+    FM_ITEM("About This Computer", 0, 0)
+};
+
+static MenuInfo finder_apple_menu = {
+    (int16_t)FINDER_MENU_ID_APPLE, "", finder_apple_items, 1u, 0
+};
+
+/* ===========================================================================
+ * FILE  (512)  -- F4.2: New Folder N | Open O | Print (grayed) | Close Window W
+ *   | div | Get Info I | Duplicate D | Make Alias (grayed) | Put Away Y
+ *   (grayed) | div | Find F (grayed) | Page Setup (grayed) | Sharing (grayed)
+ *   | Label (OMITTED -- no submenu support, D3-46) | Eject (grayed V1)
+ *
+ * tdnl.57: Put Away stays dark until the selected Trash item has a stored
+ * origin. The shell implements the command; MenuKey and mouse share it.
+ * ===========================================================================*/
+static MenuItem finder_file_items[] = {
+    /* Authored 1: the honest boot value (no Trash window front). Refreshed by
+     * NEW_FOLDER_HERE -- dark with the Trash window front (bead initech-vnl4,
+     * audit 2026-10-23 desktop L008). */
+    FM_ITEM("New Folder",   'N', 1),              /* FCMD_NEW_FOLDER  not Trash */
+#ifndef FINDER_MENU_MUT_CMDCHAR_DUP
+    FM_ITEM("Open",         'O', FM_PRED_REST),   /* FCMD_OPEN  openable (.38) */
+#else
+    /* MUTANT FINDER_MENU_MUT_CMDCHAR_DUP (Rule 6): Open steals New Folder's
+     * command key. Two items with cmdChar 'N' can be enabled at once, which is
+     * exactly the structural property the oracle forbids. NEVER in a real
+     * build. */
+    FM_ITEM("Open",         'N', FM_PRED_REST),
+#endif
+    FM_ITEM("Print",          0, 0),              /* inert V1 decoration       */
+    FM_ITEM("Close Window", 'W', FM_PRED_REST),   /* FCMD_CLOSE_WINDOW  front  */
+    FM_DIV,
+    FM_ITEM("Get Info",     'I', 0),              /* grayed: no impl (p6st)    */
+    FM_ITEM("Duplicate",    'D', 0),              /* grayed: no impl (tdnl.16) */
+    FM_ITEM("Make Alias",     0, 0),              /* inert V1 decoration       */
+    FM_ITEM("Put Away",     'Y', 0),              /* grayed V1 (F4.2, F1-5)    */
+    FM_DIV,
+    FM_ITEM("Find",         'F', 0),              /* inert V1 decoration       */
+    FM_ITEM("Page Setup",     0, 0),
+    FM_ITEM("Sharing",        0, 0),
+    FM_ITEM("Eject",          0, 0)
+};
+
+/* ===========================================================================
+ * EDIT  (513)  -- F4.2: Undo Z (grayed) | Cut X / Copy C / Paste V (grayed
+ *   until the R4.2 scrap wiring, ww9c) | Clear (grayed) | Select All A
+ *   (FUNCTIONAL) | div | Show Clipboard (grayed until R4) | div | Preferences
+ *   (grayed, bottom per the Mac OS 8 HIG standardization)
+ * ===========================================================================*/
+static MenuItem finder_edit_items[] = {
+    FM_ITEM("Undo",           'Z', 0),
+    FM_ITEM("Cut",            'X', 0),
+    FM_ITEM("Copy",           'C', 0),
+    FM_ITEM("Paste",          'V', 0),
+    FM_ITEM("Clear",            0, 0),
+    FM_ITEM("Select All",     'A', 1),            /* FCMD_SELECT_ALL (always)  */
+    FM_DIV,
+    FM_ITEM("Show Clipboard",   0, 0),
+    FM_DIV,
+    FM_ITEM("Preferences",      0, 0)
+};
+
+/* ===========================================================================
+ * VIEW (514), F4.2 + tdnl.44: Icons, Small Icon, Name/Size/Kind/Date
+ *   are functional with one check on the current mode. Label, Buttons and
+ *   Pop-up stay grayed. Clean Up and Arrange retain their command spine.
+ *   Geometry/sort cue: system7-decomp mint-results-008 Sec6.
+ * ===========================================================================*/
+static MenuItem finder_view_items[] = {
+    FM_ITEM("by Icons",         0, FM_PRED_REST), /* VIEW_ICONS  front win   */
+    FM_ITEM("by Small Icon",      0, 0),
+    FM_ITEM("by Name",            0, 0),
+    FM_ITEM("by Size",            0, 0),
+    FM_ITEM("by Kind",            0, 0),
+    FM_ITEM("by Label",           0, 0),
+    FM_ITEM("by Date",            0, 0),
+    FM_ITEM("as Buttons",         0, 0),
+    FM_ITEM("as Pop-up Window",   0, 0),
+    FM_DIV,
+    FM_ITEM("Clean Up",           0, FM_PRED_REST), /* CLEANUP     front win   */
+    FM_ITEM("Arrange (by Name)",  0, FM_PRED_REST)  /* ARRANGE     front win   */
+};
+
+/* ===========================================================================
+ * SPECIAL  (515)  -- F4.2: Clean Up (FUNCTIONAL, same cmd id as View's) |
+ *   Empty Trash (FUNCTIONAL, enabled iff Trash non-empty) | div | Erase Disk
+ *   (grayed) | div | Restart (FUNCTIONAL) | Shut Down (FUNCTIONAL) | Sleep
+ *   (grayed) | div | Exit to InitechDOS (FUNCTIONAL, bead initech-3p1a)
+ * ===========================================================================*/
+static MenuItem finder_special_items[] = {
+#ifndef FINDER_MENU_MUT_DEAD_ITEM
+    FM_ITEM("Clean Up",     0, FM_PRED_REST),     /* CLEANUP  front win        */
+#else
+    /* MUTANT FINDER_MENU_MUT_DEAD_ITEM (Rule 6): the row is present and draws,
+     * but its enable byte is 0 forever, so it can never be chosen. NEVER in a
+     * real build. */
+    FM_ITEM("Clean Up",     0, 0),
+#endif
+    FM_ITEM("Empty Trash",  0, FM_PRED_REST),     /* TRASH_NONEMPTY (6k12)     */
+    FM_DIV,
+    FM_ITEM("Erase Disk",   0, 0),
+    FM_DIV,
+    FM_ITEM("Restart",      0, 1),                /* ALWAYS live (tdnl.78)     */
+    FM_ITEM("Shut Down",    0, 1),                /* ALWAYS live (tdnl.78)     */
+    FM_ITEM("Sleep",        0, 0),
+    /* bead initech-3p1a: the chimera's own item. The Macintosh way out of
+     * the Finder is Restart / Shut Down (above); InitechOS runs over
+     * InitechDOS, so it also offers the way back DOWN to the prompt -- in its
+     * own group after the power rows, ALWAYS live like them. */
+    FM_DIV,
+    FM_ITEM("Exit to InitechDOS", 0, 1)           /* ALWAYS live (3p1a)        */
+};
+
+/* ===========================================================================
+ * HELP  (516, rightmost)  -- F4.2: About Help (grayed V1) | Show Balloons
+ *   (grayed). BOTH rows are inert decoration in V1; neither carries a
+ *   finder_cmd row, so a route to either would be FINDER-CMD-UNKNOWN -- which
+ *   is the fail-loud posture, not a silent swallow (Rule 2).
+ * ===========================================================================*/
+static MenuItem finder_help_items[] = {
+    FM_ITEM("About Help",    0, 0),
+    FM_ITEM("Show Balloons", 0, 0)
+};
+
+/* The five TITLED menus, in bar order (Help rightmost, F4.2). menuWidth 0 ==
+ * "not yet computed"; menu.c caches into it. */
+static MenuInfo finder_menus[FINDER_MENU_COUNT] = {
+    { (int16_t)FINDER_MENU_ID_FILE,    FINDER_MENU_TITLE_FILE,
+      finder_file_items,
+      (uint16_t)(sizeof finder_file_items / sizeof finder_file_items[0]), 0 },
+    { (int16_t)FINDER_MENU_ID_EDIT,    FINDER_MENU_TITLE_EDIT,
+      finder_edit_items,
+      (uint16_t)(sizeof finder_edit_items / sizeof finder_edit_items[0]), 0 },
+    { (int16_t)FINDER_MENU_ID_VIEW,    FINDER_MENU_TITLE_VIEW,
+      finder_view_items,
+      (uint16_t)(sizeof finder_view_items / sizeof finder_view_items[0]), 0 },
+    { (int16_t)FINDER_MENU_ID_SPECIAL, FINDER_MENU_TITLE_SPECIAL,
+      finder_special_items,
+      (uint16_t)(sizeof finder_special_items / sizeof finder_special_items[0]), 0 },
+    { (int16_t)FINDER_MENU_ID_HELP,    FINDER_MENU_TITLE_HELP,
+      finder_help_items,
+      (uint16_t)(sizeof finder_help_items / sizeof finder_help_items[0]), 0 }
+};
+
+/* has_apple = 1 (F4.2 "Apple (has_apple slot)"). The glyph is drawn by
+ * DrawMenuBar; the Apple MENU's items live in finder_apple_menu (banner). */
+static MenuBar finder_bar = { finder_menus, (uint16_t)FINDER_MENU_COUNT, 1u };
+
+/* ===========================================================================
+ * THE PREDICATE MAP  (design F4.4's predicate list, one row per graying item)
+ * ---------------------------------------------------------------------------
+ * (bar-menu index, 0-based item index, predicate). Authored HERE against the
+ * F4.2 layout, using the predicate functions os/flair/finder_cmd.c exports so
+ * the bar grays by EXACTLY the rule dispatch enforces (finder_cmd.h Sec 4:
+ * "one source of truth for graying").
+ *
+ * The 1-based item numbers in the comments are the ones finder_cmd.c's rows
+ * carry, so a drift between the two transcriptions is visible by eye here and
+ * caught mechanically by the oracle.
+ * ===========================================================================*/
+typedef struct fm_pred_row {
+    uint8_t             menu_ix;   /* index into finder_menus[]                */
+    uint8_t             item_ix;   /* 0-based index into that menu's items[]   */
+    finder_cmd_pred_fn  pred;      /* the F4.4 predicate                       */
+} fm_pred_row_t;
+
+static const fm_pred_row_t FINDER_MENU_PREDS[] = {
+    { FINDER_MENU_IX_FILE,    0u, finder_pred_new_folder_here    }, /* NewF #1 */
+    { FINDER_MENU_IX_FILE,    8u, finder_pred_selection_putaway }, /* tdnl.57 */
+    { FINDER_MENU_IX_FILE,    1u, finder_pred_selection_openable }, /* Open #2 */
+    { FINDER_MENU_IX_FILE,    3u, finder_pred_front_is_diskwin   }, /* Close #4 */
+    { FINDER_MENU_IX_VIEW,    0u, finder_pred_front_is_diskwin   }, /* Icons #1 */
+    { FINDER_MENU_IX_VIEW, 1u, finder_pred_front_is_diskwin },
+    { FINDER_MENU_IX_VIEW, 2u, finder_pred_front_is_diskwin },
+    { FINDER_MENU_IX_VIEW, 3u, finder_pred_front_is_diskwin },
+    { FINDER_MENU_IX_VIEW, 4u, finder_pred_front_is_diskwin },
+    { FINDER_MENU_IX_VIEW, 6u, finder_pred_front_is_diskwin },
+    { FINDER_MENU_IX_VIEW,   10u, finder_pred_front_is_diskwin   }, /* CleanUp  */
+    { FINDER_MENU_IX_VIEW,   11u, finder_pred_front_is_diskwin   }  /* Arrange  */
+#if !defined(FINDER_MENU_MUT_DEAD_ITEM)
+    , { FINDER_MENU_IX_SPECIAL, 0u, finder_pred_front_is_diskwin } /* CleanUp  */
+#endif
+    /* bead initech-6k12: Empty Trash is IMPLEMENTED (the shell counts, the
+     * kernel confirms, finder_shell_empty_trash purges) and lit exactly while
+     * \TRASH holds something (F4.2 Special row 2). */
+    , { FINDER_MENU_IX_SPECIAL, 1u, finder_pred_trash_nonempty   } /* Empty #2 */
+#if defined(FINDER_MENU_MUT_STUB_ENABLED)
+    /* MUTANT (Rule 6; bead initech-tdnl.36): the pre-fix Get Info row -- lit
+     * by any selection though nothing implements it. NEVER in a real build. */
+    , { FINDER_MENU_IX_FILE,  5u, finder_pred_has_selection      }  /* Info #6 */
+#endif
+};
+
+static const uint16_t FINDER_MENU_PREDS_N =
+    (uint16_t)(sizeof FINDER_MENU_PREDS / sizeof FINDER_MENU_PREDS[0]);
+
+/* ===========================================================================
+ * THE API
+ * ===========================================================================*/
+
+MenuBar *finder_menu_bar(void)
+{
+    return &finder_bar;
+}
+
+MenuInfo *finder_menu_apple(void)
+{
+    return &finder_apple_menu;
+}
+
+void finder_menu_refresh_enables(const FinderCtx *fx)
+{
+    uint16_t i;
+
+    /* tdnl.44: one check, derived from the FRONT folder, including after Restart.
+     * The unsupported Label/Buttons/Pop-up rows remain authored disabled. */
+    static const uint16_t modes[7] = {0,2,1,5,9,0xffffu,13};
+    for (i = 0; i < 7; i++)
+        finder_view_items[i].mark = (fx && fx->front_is_diskwin &&
+            (fx->view_bits & FINDER_VIEW_MASK) == modes[i]) ? FINDER_MENU_MARK_CHECK : 0;
+
+    for (i = 0; i < FINDER_MENU_PREDS_N; i++) {
+        const fm_pred_row_t *r = &FINDER_MENU_PREDS[i];
+        /* The MenuInfo's items[] is a const pointer (menu.h Sec 3) because the
+         * Menu Manager never writes it; the STORAGE is this file's own mutable
+         * array, so the resource writes its own bytes through it. Casting away
+         * the const on a pointer to genuinely-mutable storage is defined, and
+         * it keeps the Menu Manager's read-only view intact for everyone else. */
+        MenuItem *items = (MenuItem *)finder_menus[r->menu_ix].items;
+#ifndef FINDER_MENU_MUT_ENABLE_STUCK
+        items[r->item_ix].enabled = (uint8_t)(r->pred(fx) ? 1u : 0u);
+#else
+        /* MUTANT FINDER_MENU_MUT_ENABLE_STUCK (Rule 6; design F4.4
+         * PRED_STUCK_ENABLED applied to the resource half): every
+         * predicate-driven row reads LIVE, so the bar never grays -- Open with
+         * no selection, Close Window with no window, Empty Trash on an empty
+         * Trash all look selectable and MenuKey hands them out. NEVER in a
+         * real build. */
+        (void)fx;
+        items[r->item_ix].enabled = 1u;
+#endif
+    }
+}

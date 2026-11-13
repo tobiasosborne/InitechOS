@@ -20,7 +20,7 @@
  * STORAGE DISCIPLINE (Law 3): this module mallocs nothing. Every WindowRecord
  * and every region (strucRgn/contRgn/updateRgn, the desktop update, the THREE
  * manager scratch regions) is caller-supplied from the FLAIR arena with its
- * rows[]/x_pool already attached. The ATKINSON engine writes into that storage
+ * rows[]/x_pool already attached. The REGION_ENGINE engine writes into that storage
  * and FAILS LOUD on cap overflow (Rule 2).
  *
  * THE ALIASING RULE: region_op(out, A, B, op) requires `out` DISTINCT from both
@@ -49,7 +49,7 @@
 #include "window.h"
 #include "rdoc.h"             /* rDocProc geometry (bead initech-tdnl.17)       */           /* the Window Manager API (-Ios/flair)             */
 #include "chrome_metrics.h"    /* SetWTitle title-band invalidation height         */
-#include "../../spec/assets/chicago12.h" /* titleWidth = sum of Chicago 12 advances
+#include "chicago12.h" /* titleWidth = sum of Chicago 12 advances
                                               * (relative: window.c builds without
                                               * -Ispec/assets; initech-tdnl.33)     */
 
@@ -67,7 +67,7 @@
 #endif
 
 /* ===========================================================================
- * Region helpers built on the ATKINSON engine, respecting the aliasing rule.
+ * Region helpers built on the REGION_ENGINE engine, respecting the aliasing rule.
  * ===========================================================================*/
 
 /* dst := src (the engine's identity-copy idiom: self-union, exactly as region.c
