@@ -16,6 +16,13 @@ absdisk-binding_SRCS := tests/test_absdisk_binding.c
 absdisk-binding_OBJS := $(tool_test_fileio_OBJS)
 absdisk-binding_CFLAGS := $(tool_test_fileio_CFLAGS)
 absdisk-binding_DEPS := $(TOP)/build/kernel/dos_messages.h
+HOST_TESTS += write-probe
+write-probe_SRCS := tests/test_write_probe.c
+write-probe_ARGS := $(OUT)/host/write-probe.bin
+write-probe_DEPS := $(OUT)/host/write-probe.bin
+$(OUT)/host/write-probe.bin: tests/programs/write_program.asm
+	@mkdir -p $(@D)
+	$(NASM) -f bin $< -o $@
 HOST_TESTS += test-40oq
 test-40oq_SRCS := tests/runner.c
 test-40oq_ARGS := tests/run.sh test-40oq

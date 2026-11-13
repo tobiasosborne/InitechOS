@@ -44,6 +44,8 @@ start:
     int 0x21
     pop ebx
     jc  write_failed
+    cmp eax, payload_len
+    jne write_failed
 
     ; AH=3Eh CLOSE: EBX=handle -> FLUSH the buffered bytes to disk.
     mov eax, 0x00003E00        ; AH=3Eh
@@ -58,31 +60,43 @@ start:
     jc  reopen_failed
     mov ebx, eax               ; EBX = read handle
 
-.read_loop:
-    ; AH=3Fh READ: EBX=handle, ECX=count, EDX=rbuf. EAX = bytes read.
+    ; Read at most one byte beyond the independently known payload length.
     push ebx
     mov eax, 0x00003F00        ; AH=3Fh
     mov ecx, BUFSZ
     mov edx, rbuf
     int 0x21
     pop ebx
-    jc  done
+    jc  read_failed
+    cmp eax, payload_len
+    jne read_failed            ; early EOF, short read or trailing bytes
+    mov esi, payload
+    mov edi, rbuf
+    mov ecx, payload_len
+    cld
+    repe cmpsb
+    jne read_failed
+
+    mov eax, 0x3F00
+    mov ecx, 1
+    mov edx, rbuf + payload_len
+    int 0x21
+    jc read_failed
     test eax, eax
-    jz  done                   ; 0 -> EOF
+    jnz read_failed            ; prove EOF after the complete payload
+
+    mov eax, 0x3E00
+    int 0x21
+    jc read_close_failed
 
     ; AH=40h WRITE to stdout (handle 1, CON): ECX = bytes read, EDX = rbuf.
-    mov ecx, eax
-    push ebx
+    mov ecx, payload_len
     mov eax, 0x00004000        ; AH=40h
     mov ebx, 1                 ; handle 1 = stdout (CON)
     mov edx, rbuf
     int 0x21
-    pop ebx
-    jmp .read_loop
-
-done:
-    ; AH=3Eh CLOSE the read handle.
-    mov eax, 0x00003E00
+    mov eax, 0x0900
+    mov edx, msg_readback_ok
     int 0x21
     ; AH=4Ch TERMINATE rc=0.
     mov eax, 0x00004C00
@@ -110,6 +124,16 @@ reopen_failed:
     mov edx, msg_reopen
     int 0x21
     jmp die
+read_failed:
+    mov eax, 0x0900
+    mov edx, msg_read
+    int 0x21
+    jmp die
+read_close_failed:
+    mov eax, 0x0900
+    mov edx, msg_read_close
+    int 0x21
+    jmp die
 die:
     mov eax, 0x00004C01        ; exit code 1
     int 0x21
@@ -129,6 +153,12 @@ msg_close:
     db "WRITE-CLOSE-FAIL", 0x0D, 0x0A, "$"
 msg_reopen:
     db "WRITE-REOPEN-FAIL", 0x0D, 0x0A, "$"
+msg_read:
+    db "WRITE-READ-FAIL", 0x0D, 0x0A, "$"
+msg_read_close:
+    db "WRITE-READ-CLOSE-FAIL", 0x0D, 0x0A, "$"
+msg_readback_ok:
+    db "WRITE-READBACK-OK", 0x0D, 0x0A, "$"
 
 BUFSZ equ 64
 rbuf:
