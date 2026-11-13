@@ -24,7 +24,7 @@
 # ---------------------------------------------------------------------------
 CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror
-BUILD   ?= build
+BUILD   ?= $(if $(filter 1,$(BIG_KERNEL)),build/loader-big,build)
 
 # Reference policy (Law 2, initech-iv8c), matching SKIP_FPC / SKIP_BOCHS:
 # missing corpus/tool = FAIL LOUD, never an automatic skip-to-green.
@@ -182,87 +182,11 @@ SECONDARY_TRACER_IMG := $(BUILD)/tracer_secondary.img
 # stage2 is loaded by the MBR as STAGE2_SECTORS (16) sectors = 8 KiB; we pad
 # stage2.bin to that size so the CHS read count in the MBR is deterministic.
 STAGE2_SECTORS  := 16
-# Kernel occupies sectors 17.. ; padded to KERNEL_SECTORS (must equal the
-# stage2.asm KERNEL_SECTORS equate so the INT 13h read count is deterministic).
-# Bumped 64 -> 80 (40 KiB) for beads initech-509.11: the FAT WRITE path
-# (fat12.c create/write/flush/unlink + int21 CREAT/WRITE/UNLINK) grew the
-# kernel; the BOOT_SHELL image (which also links command.o) crossed the old
-# 32 KiB window. Bumped 80 -> 96 for beads initech-509.2 (SYSINIT + config_sys.o
-# pushed the BOOT_SHELL loaded .text past the 80-sector window -- WL-0009 Sec 4
-# recurrence). Bumped 96 -> 112 for beads initech-509.6: wiring AH=48h/49h/4Ah
-# links mcb.o into EVERY kernel (it was test-only before) + the int21 handlers
-# / arena reset+reclaim grew int21.o, pushing the BOOT_SHELL loaded .text past
-# the 96-sector (48 KiB) window (51525 > 49152). 112*512 = 56 KiB: 0x10000 +
-# 112*512 = 0x1E000, still well below PROGRAM_BASE (0x40000; beads initech-5pe/o0td/re30.2).
-# Bumped 112 -> 128 for beads initech-u6wa (Landing 2): wiring AH=39h/3Ah
-# MKDIR/RMDIR adds fat12_mkdir/fat12_rmdir (fat12.o) + fat_mkdir/fat_rmdir
-# (fileio_fat.o) + do_mkdir/do_rmdir (int21.o); the BOOT_SHELL loaded .bin hit
-# exactly the 112-sector window at Landing 1 (57344 bytes, zero headroom) and the
-# new code crossed it (60069 > 57344). 128*512 = 64 KiB: 0x10000 + 128*512 =
-# 0x20000, still well below PROGRAM_BASE (0x40000).
-# Bumped 128 -> 144 for beads initech-qekc: wiring AH=57h GET/SET FILE DATE/TIME
-# adds do_filetime (int21.o) + fat12_set_dirent_time (fat12.o) + fat_set_time
-# (fileio_fat.o); the BOOT_SHELL loaded .bin crossed the 128-sector window
-# (65989 > 65536). 144*512 = 72 KiB: 0x10000 + 144*512 = 0x22000, still well
-# below PROGRAM_BASE (0x40000). IMG_MIN = 1+16+144 = 161 <= IMG_SECTORS=192.
-# Bumped 144 -> 160 for beads initech-4tw: the CON-input ^C check-point adds
-# conin_check_ctrlc (int21.o) + the int23_dispatch call sites in do_conin_echo /
-# do_conin_noecho / conin_cooked_line (+ the threaded frame/broke params); the
-# kernel_shell.bin crossed the 144-sector window by 9 bytes (73737 > 73728).
-# 160*512 = 80 KiB: 0x10000 + 160*512 = 0x24000, still well below PROGRAM_BASE
-# (0x40000). IMG_MIN = 1+16+160 = 177 <= IMG_SECTORS=192 (no IMG_SECTORS change).
-# BUMPED 160->208 (DOS-3.3 parity session): env.o + the InitechMZ loader (mz.c
-# folded into loader.o, ADR-0003 DEC-08a) + the SET built-in + the Tranche-F verbs
-# (COPY/DEL/REN/DATE/TIME) grew kernel_shell.bin to ~85 KiB, past the 80 KiB window.
-# 208*512 = 104 KiB: 0x10000 + 208*512 = 0x2A000, still below PROGRAM_BASE (0x40000).
-# IMG_MIN = 1+16+224 = 241 -> IMG_SECTORS=256 (4 cyl) still accommodates. A boot-
-# geometry change is a tri-emulator obligation (Rule 5): re-verified on
-# `make test-boot-bochs`. MUST equal the stage2.asm KERNEL_SECTORS equate.
-# Bumped 208->224 for the p96i ANSI.SYS wiring (ansi.c folded into int21.o +
-# console cursor/erase/attr extensions grew the shell kernel ~5 KiB on disk).
-# Bumped 224 -> 320 for beads initech-re30.2 (FLAIR Manager link): the 12 FLAIR
-# Toolbox Managers (region/heap/event/window/blitter/chrome/text/menu/control/
-# dialog/desktop/flair_shell) are now LINKED into BOTH kernels (no call sites yet);
-# kernel_shell.bin grew 113,513 -> 159,000 bytes on disk, past the 224-sector
-# (114,688) window. 320*512 = 160 KiB: 0x10000 + 320*512 = 0x38000, still below
-# PROGRAM_BASE (0x40000). IMG_MIN = 1+16+320 = 337 -> IMG_SECTORS 256 -> 384 (6
-# cyl, a multiple of 64; 384 >= 337). A boot-geometry change (IMG_SECTORS) is a
-# tri-emulator obligation (Rule 5): re-run `make test-boot-bochs`. MUST equal the
-# stage2.asm KERNEL_SECTORS equate.
-# At KERNEL_SECTORS=320 the FLAIR window-chrome FIDELITY work (initech-hmll: drop
-# shadow 54nw + close/zoom box ts3t + scrollbar jh7m + title bevel 92li) grew
-# kernel_shell.bin to 163,960 bytes, 120 bytes PAST the 320-sector (163,840 B)
-# window -> bumped to 352 (180,224 B; 0x10000 + 352*512 = 0x3C000, still below
-# PROGRAM_BASE 0x40000). IMG_MIN = 1+16+352 = 369 <= IMG_SECTORS=384, so the
-# 6-cyl image geometry is UNCHANGED (only stage2's INT 13h read count grows);
-# still a Rule-5 obligation -- re-ran make test-boot-bochs + test-flair-desktop-bochs.
-# BUMPED 352 -> 384 for bead initech-uzjc (R3.2 aftermath / R3.3+R3.5 runway).
-# 384 is NOT an arbitrary round number: it is the RATIFIED CEILING of the disk
-# window. docs/design/kernel-runway-relocation.md K2 fixes the real-mode load at
-# KERNEL_BOUNCE_BASE=0x10000 and caps it at KERNEL_BOUNCE_CAP=0x30000 so the
-# bounce ends EXACTLY at PROGRAM_BASE=0x40000 exclusive; 0x30000 / 512 = 384
-# sectors, and the design doc states it outright ("At 384 the disk window equals
-# the bounce; further image growth is the routine KERNEL_SECTORS/IMG_SECTORS bump
-# *plus* a bounce-policy decision"). PROGRAM_BASE cannot rise further either --
-# spec/memory_map.h records 0x40000 as "the MAXIMUM PROGRAM_BASE raise possible
-# under the conventional-memory layout". So this bump SPENDS THE LAST 32 SECTORS
-# (16 KiB) of headroom the ratified boot policy has to give, and is deliberately
-# taken in one step rather than in two 16-sector nibbles: every KERNEL_SECTORS
-# change rewrites EVERY image's on-disk bytes and stage2's INT 13h read count,
-# which is a Rule-5 tri-emulator obligation each time. A LARGER window (e.g. the
-# 512 sectors that would be the naive "double it") is NOT available without
-# redesigning the real-mode load (staged copy-up / unreal mode) -- that is a
-# separate, ratified decision, and the parse-time bounce guard below fails it
-# loud rather than letting it boot-corrupt the program window.
-# Window: 384*512 = 196,608 B (192 KiB). Loaded sizes at the bump (measured):
-# kernel_flairtenants.bin 150,021 (headroom 30,203 -> 46,587), kernel_flairshell
-# 129,770, kernel_shell 108,587. IMG_MIN = 1+16+384 = 401 > IMG_SECTORS=384, so
-# the image geometry DOES move this time: 384 -> 448 (7 cyl; see IMG_SECTORS).
-# MUST equal the stage2.asm KERNEL_SECTORS equate (stage2.asm now also carries a
-# nasm-time %error guard against the bounce cap, so the pair fails loud on both
-# sides). Rule-5 obligation discharged: test-boot-bochs + test-flair-desktop-bochs
-# + test-flair-appswitch-bochs + test-flair-desktop-icons-bochs re-run green.
-KERNEL_SECTORS  := 384
+# Compatibility budget for retired raw diagnostic image recipes only.
+# The FAT boot loader uses the directory byte count and the high image window.
+KERNEL_SECTORS := 1024
+# BIG_KERNEL=1 selects build/loader-big/ and embeds a deterministic 128KiB load proof.
+
 # Optimisation level for the objects linked ONLY into the FLAIRTENANTS kernels
 # (kmain_flairtenants*.o, process.o, ref_tenant.o, desktop_db.o, finder_icon.o,
 # finder_desktop.o). Bead initech-tdnl.9: the R3.2 DesktopMgr added ~11 KiB to a
@@ -298,46 +222,8 @@ KERNEL_SECTORS  := 384
 # kmain_flairtenants 34,130 -> 30,812; the family's largest kernel -9,056 B.
 # Still only the FLAIRTENANTS family changes; every other image is byte-identical.
 KERNEL_TENANTS_OPT = -Os -fno-strict-aliasing --param=min-pagesize=0 $(KERNEL_COLD_LTO_FLAGS)
-# High-kernel bounce capacity (docs/design/kernel-runway-relocation.md K2;
-# bead initech-tdnl.29). stage2's unchanged real-mode loop starts at
-# KERNEL_BOUNCE_BASE and may consume at most KERNEL_BOUNCE_CAP bytes, ending
-# exactly at PROGRAM_BASE exclusive. This parse-time guard is deliberately
-# before the image-geometry checks so a KERNEL_SECTORS=385 mutant fails for the
-# load-bearing bounce-overlap reason, not a secondary IMG_SECTORS symptom.
-KERNEL_BOUNCE_CAP := $(shell grep -E '^\#define[[:space:]]+KERNEL_BOUNCE_CAP' spec/memory_map.h | awk '{print $$3}' | sed 's/[uU]\+$$//')
-KERNEL_BOUNCE_MAX_SECTORS := $(shell printf '%d' $$(( $(KERNEL_BOUNCE_CAP) / 512 )))
-ifneq ($(shell test $(KERNEL_SECTORS) -le $(KERNEL_BOUNCE_MAX_SECTORS) && echo ok),ok)
-$(error KERNEL_SECTORS=$(KERNEL_SECTORS) exceeds the $(KERNEL_BOUNCE_MAX_SECTORS)-sector KERNEL_BOUNCE_CAP -- the real-mode load would overlap PROGRAM_BASE; extend the bounce policy before growing the disk window)
-endif
-# Total raw image: MBR(1) + stage2(16) + kernel(KERNEL_SECTORS=160) = 177 sectors.
-# IMG_SECTORS MUST be a WHOLE 2x32 (=64-sector) CHS cylinder count: the Bochs boot
-# harness (harness/emu/bochs.c:107) rejects an image that is not an integral number
-# of 2-head x 32-sector cylinders. 128 (2 cyl) sufficed at KERNEL_SECTORS=96; at 112
-# the image grew past 129 to 192 (3 cyl, 96 KiB); KERNEL_SECTORS=160 (initech-4tw;
-# was 144 at qekc) raises the raw image to 177 sectors, still within the 192-sector
-# (3 cyl) window (192 >= 177), so IMG_SECTORS stayed 192. At KERNEL_SECTORS=208 the
-# raw image is 225 sectors > 192, so IMG_SECTORS grows to 256 (4 cyl, a multiple of
-# 64; 256 >= 225). (160 -- a multiple of 32 but NOT 64 = 2.5 cyl -- booted on QEMU but
-# broke `make test-boot-bochs`; the guard below fails that class loud at build time,
-# Rule 2 / Rule 5.) Deterministic (Rule 11). At KERNEL_SECTORS=320 (initech-re30.2,
-# FLAIR Manager link) the raw image is 1+16+320 = 337 sectors > 256, so IMG_SECTORS
-# grows to 384 (6 cyl, a multiple of 64; 384 >= 337). BOOT-GEOMETRY change =
-# tri-emulator obligation (Rule 5): re-run `make test-boot-bochs`.
-# At KERNEL_SECTORS=384 (initech-uzjc, the bounce-cap ceiling bump) the raw image
-# is 1+16+384 = 401 sectors > 384, so IMG_SECTORS grows to 448 (7 cyl, a multiple
-# of 64; 448 >= 401 = 229,376 B). Since KERNEL_SECTORS is now AT its ratified
-# ceiling, 448 is the terminal image geometry under the current boot policy.
-# BOOT-GEOMETRY change = tri-emulator obligation (Rule 5): re-ran the Bochs legs.
-IMG_SECTORS     := 448
-# Build-time geometry + capacity guard (Rule 2 fail-loud): prevents the QEMU-green /
-# Bochs-broken IMG_SECTORS regression from recurring.
-IMG_MIN_SECTORS := $(shell expr 1 + $(STAGE2_SECTORS) + $(KERNEL_SECTORS))
-ifneq ($(shell expr $(IMG_SECTORS) % 64),0)
-$(error IMG_SECTORS=$(IMG_SECTORS) is not a whole 2x32 (64-sector) cylinder geometry; the Bochs boot gate (harness/emu/bochs.c) requires it -- use the next multiple of 64)
-endif
-ifneq ($(shell test $(IMG_SECTORS) -ge $(IMG_MIN_SECTORS) && echo ok),ok)
-$(error IMG_SECTORS=$(IMG_SECTORS) sectors < required $(IMG_MIN_SECTORS) (MBR+stage2+KERNEL_SECTORS) -- raise to the next multiple of 64)
-endif
+# Legacy raw fixture geometry only; raw boot support has been removed.
+IMG_SECTORS := 1088
 
 # --- kernel floor/end guard (beads initech-u0a + initech-tdnl.29) -----------
 # The KERNEL_SECTORS / .bin-size guards check only loaded PROGBITS. objcopy drops
@@ -8800,27 +8686,18 @@ factory: $(SMOKE_BIN) $(SEED_BIN) $(HARNESS_BIN) $(BOCHS_BIN) $(HARNESS_FIXTURES
 $(MBR_BIN): $(MBR_ASM) | $(BUILD)
 	$(NASM) -f bin $< -o $@
 
-# stage2 duplicates KERNEL_SECTORS as a NASM equate (nasm cannot read the
-# Makefile, and the real-mode INT 13h read count must be a link-time constant).
-# For eight bumps that pairing was PROSE ("MUST equal the stage2.asm equate") --
-# exactly the kind of hand-kept invariant Rule 8 says to mechanise. Bead
-# initech-uzjc turns it into a fail-loud assembly-time gate: we hand nasm the
-# Makefile's value and stage2.asm %error's if it is missing OR unequal. The
-# Makefile is a prerequisite so editing KERNEL_SECTORS actually re-assembles
-# stage2 and re-runs the check (without it the stale stage2.bin would keep the
-# old read count and silently truncate or over-read the kernel window).
+# FAT stage2 and IO.SYS have no compile-time kernel sector count.
 $(IO_SYS_BIN): $(BOOT_DIR)/io_sys.asm Makefile $(DOS_MESSAGES_INC) | $(BUILD)
-	$(NASM) -f bin -I$(BUILD)/ -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) $< -o $@
+	$(NASM) -f bin -I$(BUILD)/ $< -o $@
 	@test $$(wc -c < $@) -le 4096
 
 $(STAGE2_BIN): $(STAGE2_ASM) $(IO_SYS_BIN) Makefile | $(BUILD)
-	$(NASM) -f bin -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DIO_SYS_PATH='"$(IO_SYS_BIN)"' $< -o $@
+	$(NASM) -f bin $< -o $@
 
 # The primary/secondary shell and flagship now use the physical two-file
 # BOOT volume (initech-kod): MBR@0, stage2@1..16, FAT12 partition@63;
 # IO.SYS / INITDOS.SYS are HSR root slots 0/1, allocated by mtools.
-# Other diagnostic images retain the raw layout and enter the embedded
-# IO.SYS fallback. Its raw kernel window remains LBA17..400.
+# Retired raw diagnostic images are no longer bootable with this stage2.
 # SOURCE_DATE_EPOCH and fixed mtools geometry/serial keep BOOT reproducible.
 #
 # THE DEFAULT BOOT IS NOW COMMAND.COM (beads initech-k6x): TRACER_IMG carries
@@ -8840,21 +8717,10 @@ $(DEMO_IMG): $(MBR_BIN) $(STAGE2_BIN) $(KERNEL_BIN) $(BOOT_SYSTEM_TOOL) $(BOOT_S
 	@printf ">>> demo image: %s (MBR@s0, stage2@s1, baked-demo kernel@s17, %d sectors)\n" \
 		"$@" "$(IMG_SECTORS)"
 
-# --- Flat C kernel build (beads initech-d00) -------------------------------
-# Entry stub (nasm elf32) + freestanding C, linked to a FLAT binary at
-# 0x00500000 via kernel.ld, then objcopy'd to a raw image and padded to exactly
-# KERNEL_SECTORS sectors so stage2's INT 13h read count is deterministic.
-# kstart.o is linked FIRST so _start lands at KERNEL_BASE. Ref: runway design
-# K2 / bead initech-tdnl.29.
-# `Makefile` is a prerequisite (the stage2.bin precedent) so editing
-# KERNEL_SECTORS actually re-assembles this: kstart.asm carries the THIRD copy
-# of that constant and starts its runway zeroing just past it, so a stale value
-# there erases the top of the loaded kernel image in place (bead initech-uzjc
-# left it at 352 when the window went to 384; bead initech-tdnl.10 grew past
-# the line and found it). -DMK_KERNEL_SECTORS + the %error inside kstart.asm
-# make the drift a build failure, exactly as they already do for stage2.asm.
+# Flat kernel: entry first, linked at 0x500000; FAT images carry exact bytes.
+# kstart's header records linker image/BSS bounds; no sector-count ABI.
 $(KERNEL_START_OBJ): $(KERNEL_START_ASM) Makefile spec/memory_map.h | $(BUILD)
-	$(NASM) -f elf32 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DMK_KERNEL_STACK_BOT=$(KERNEL_STACK_BOT) -DMK_KERNEL_STACK_TOP=$(KERNEL_STACK_TOP) $< -o $@
+	$(NASM) -f elf32 $(if $(filter 1,$(BIG_KERNEL)),-DMK_BIG_KERNEL=1) -DMK_KERNEL_STACK_BOT=$(KERNEL_STACK_BOT) -DMK_KERNEL_STACK_TOP=$(KERNEL_STACK_TOP) $< -o $@
 
 $(KERNEL_MAIN_OBJ): $(KERNEL_MAIN_C) os/milton/ansi_cursor.h os/milton/finder_actions.h os/milton/power_cold.h $(SERIAL_TRACE_PACK) os/milton/kmain_cold.h $(KERNEL_DIR)/boot_info.h $(KERNEL_DIR)/io.h $(KERNEL_DIR)/console.h $(KERNEL_DIR)/idt.h $(KERNEL_DIR)/pic.h $(KERNEL_DIR)/int21.h $(KERNEL_DIR)/loader.h $(KERNEL_DIR)/test_prog.h $(KERNEL_DIR)/psp.h $(KERNEL_DIR)/sft.h $(KERNEL_DIR)/ata.h $(KERNEL_DIR)/fat12.h $(KERNEL_DIR)/fileio_fat.h $(KERNEL_DIR)/blockdev.h spec/memory_map.h spec/dos_structs.h | $(BUILD)
 	$(call kernel-main-compile,-Ispec -I$(KERNEL_DIR),$@)
@@ -10100,13 +9966,8 @@ $(KERNEL_SHELL_ELF): $(KERNEL_SHELL_OBJS) $(KERNEL_LD) | $(BUILD)
 
 $(KERNEL_SHELL_BIN): $(KERNEL_SHELL_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
-	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
-	if [ "$$sz" -gt "$$max" ]; then \
-		printf '!!! kernel_shell.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
-		exit 1; \
-	fi; \
-	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(shell): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	@test $$(wc -c < $@) -le $$(( 0x580000 - 0x500000 ))
+	@printf '>>> kernel: %s (%s bytes, unpadded)\n' '$@' "$$(wc -c < $@)"
 	$(call kernel-end-guard,$<,shell)
 
 # --- LIVE FLAIR DESKTOP kernel (beads initech-re30.3, LANE 1; THE milestone) -
@@ -10904,13 +10765,8 @@ $(KERNEL_FLAIRTENANTS_ELF): $(KERNEL_FLAIRTENANTS_OBJS) $(KERNEL_LD) $(TRANSIENT
 
 $(KERNEL_FLAIRTENANTS_BIN): $(KERNEL_FLAIRTENANTS_ELF) | $(BUILD)
 	$(OBJCOPY) -O binary $< $@
-	@sz=$$(wc -c < $@); max=$$(( $(KERNEL_SECTORS) * 512 )); \
-	if [ "$$sz" -gt "$$max" ]; then \
-		printf '!!! kernel_flairtenants.bin (%s bytes) exceeds KERNEL_SECTORS window (%s bytes)\n' "$$sz" "$$max"; \
-		exit 1; \
-	fi; \
-	dd if=/dev/zero of=$@ bs=1 seek="$$sz" count="$$(( max - sz ))" conv=notrunc status=none; \
-	printf ">>> kernel(flairtenants): %s (flat binary @0x500000, padded to %d sectors)\n" "$@" "$(KERNEL_SECTORS)"
+	@test $$(wc -c < $@) -le $$(( 0x580000 - 0x500000 ))
+	@printf '>>> kernel: %s (%s bytes, unpadded)\n' '$@' "$$(wc -c < $@)"
 	$(call kernel-end-guard,$<,flairtenants)
 
 # The shipped INITDOS.SYS is the flagship kernel with its overlay expect slot
@@ -28831,7 +28687,7 @@ test-memory-map-mutant: $(TEST_MEMMAP)
 	$(call memmap-header-mutant,stack_in_overlay,0x005D0000,0x005DFFFC,memory map windows overlap: OVERLAY vs KSTACK)
 	$(call memmap-header-mutant,stack_eats_guard,0x005E0000,0x005EFFFC,overlay window must keep its 64 KiB guard below the kernel stack)
 	@mkdir -p $(TEST_MEMMAP_MUT)/kstart_drift
-	@if $(NASM) -f elf32 -DMK_KERNEL_SECTORS=$(KERNEL_SECTORS) -DMK_KERNEL_STACK_BOT=$(KERNEL_STACK_BOT) -DMK_KERNEL_STACK_TOP=0x0009FFFC \
+	@if $(NASM) -f elf32 -DMK_KERNEL_STACK_BOT=$(KERNEL_STACK_BOT) -DMK_KERNEL_STACK_TOP=0x0009FFFC \
 		$(KERNEL_START_ASM) -o $(TEST_MEMMAP_MUT)/kstart_drift/kstart.o > $(TEST_MEMMAP_MUT)/kstart_drift/nasm.log 2>&1; then \
 		printf '!!! test-memory-map-mutant FAIL: kstart.asm assembled with a drifted MK_KERNEL_STACK_TOP -- the equate guard is decoration\n'; exit 1; \
 	fi; \

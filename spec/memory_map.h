@@ -34,7 +34,7 @@
  * DELIBERATE-ACT NOTE (Rule 8) -- bead initech-tdnl.29, design:
  * docs/design/kernel-runway-relocation.md K1/K2 (2026-08-24). The kernel now
  * lives in the fixed high runway declared below; the vacated [0x10000,0x40000)
- * low window is stage2's capacity-capped load bounce. The proposed stack window
+ * low window now holds only stage2's reusable 512-byte load buffer. The proposed stack window
  * [0x4F0000,0x500000) was STOPPED during the required Step-0.3 real-tree audit:
  * it overlaps the locked FLAIR heap [0x100000,0x500000). Until a design
  * amendment assigns a disjoint high home, the existing conventional kernel
@@ -130,9 +130,9 @@
 /* ------------------------------------------------------------------------ *
  * KERNEL HIGH-RUNWAY LAYOUT (Rule-8 deliberate act; bead initech-tdnl.29).
  * Ref: docs/design/kernel-runway-relocation.md K1/K2. The kernel is linked,
- * copied, and executed at KERNEL_BASE; KERNEL_CEIL is exclusive. stage2 still
- * performs the unchanged real-mode disk read into the vacated conventional
- * bounce, whose hard cap is exactly 384 sectors. ext_mem_kb counts KiB above
+ * copied, and executed at KERNEL_BASE; KERNEL_CEIL is exclusive. stage2
+ * reuses one 512-byte sector at KERNEL_BOUNCE_BASE for INT 13h reads and
+ * INT 15h/87h copies to the high image. ext_mem_kb counts KiB above
  * the 1 MiB line, hence the historical 5120 KiB runway minimum (global floor now DEC-03a.6).
  * The adjacent FLAIR heap ends at KERNEL_BASE, exclusive; no PROGRAM_* constant
  * moves. STACK EXCEPTION: the design's proposed [0x4F0000,0x500000) stack is
@@ -149,7 +149,7 @@
  * unassigned runway, never toward a live window. It is inside [KERNEL_BASE,
  * KERNEL_CEIL), so the existing INITECH_MIN_EXT_KB boot gate already backs it
  * with installed RAM (no new RAM requirement), and kstart.asm's runway zeroing
- * [KERNEL_BASE + KERNEL_SECTORS*512, KERNEL_CEIL) zeroes it before the first
+ * from linker image/BSS boundaries through KERNEL_CEIL zeroes it before the first
  * push (deterministic stack contents, Rule 11). Every kernel's measured
  * _kernel_end at ratification is <= 0x541A0C (all 246 kernel*.elf), so the
  * KERNEL_IMAGE_CEIL bound (link ASSERT, Makefile kernel-end guard, kmain KAT
@@ -164,7 +164,7 @@
 #define KERNEL_STACK_BOT    0x005F0000u
 #define KERNEL_STACK_TOP    0x005FFFFCu
 #define KERNEL_BOUNCE_BASE  0x00010000u
-#define KERNEL_BOUNCE_CAP   0x00030000u
+#define KERNEL_BOUNCE_CAP   0x00000200u
 /* ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36.
  * DEC-03a.6: derive the global floor from the highest required ceiling. */
 #define INITECH_MIN_EXT_KB \
@@ -174,9 +174,7 @@
  * THE TRANSIENT COMMAND INTERPRETER (Rule-8 deliberate act; bead
  * initech-3p1a). ADR-0003 DEC-03 retains "the resident/transient division of
  * the command interpreter" and its reload from disk as a fidelity feature;
- * the flagship FLAIR kernel is the first to need it: its stage2 load window
- * (KERNEL_SECTORS, at the ratified bounce ceiling) cannot also carry the
- * COMMAND.COM interpreter, so Special > Exit to InitechDOS reads the
+ * Special > Exit to InitechDOS reads the COMMAND.COM interpreter as the
  * TRANSIENT (command.o + env.o + batch.o, the SAME objects the shell kernel
  * links, relinked here against the running kernel's symbols) from the boot
  * disk into this window, inside the kernel runway above any kernel's

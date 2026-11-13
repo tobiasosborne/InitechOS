@@ -9,8 +9,8 @@
  *      KERNEL_BASE=0x00500000. CLAUDE.md Rule 11 (reproducible -- no
  *      timestamps; the Makefile emits a raw binary via --oformat binary).
  *
- * stage2 reads through INT 13h into the low bounce, copies the padded window to
- * physical 0x00500000 after PE, and far-jumps there. _start MUST be first.
+ * stage2 reads through a reusable low sector and INT 15h/87h to 0x500000.
+ * IO.SYS enters flat protected mode and jumps there. _start MUST be first.
  */
 
 ENTRY(_start)
@@ -41,10 +41,13 @@ SECTIONS
     }
     .data   : { *(.data*) }
 
+    _kernel_image_end = .;
     .bss : {
+        _bss_start = .;
         KEEP(*(.bss.g_idt .bss.g_idt_ptr))
         *(.bss*)
         *(COMMON)
+        _bss_end = .;
     }
 
     _kernel_end = .;
@@ -68,4 +71,4 @@ SECTIONS
 ASSERT(_kernel_start == KERNEL_BASE && ADDR(.text) == KERNEL_BASE,
        "kernel floor mismatch -- .text/_kernel_start must equal KERNEL_BASE (0x00500000)")
 ASSERT(_kernel_end <= 0x00580000,
-       "kernel image busts KERNEL_IMAGE_CEIL (0x00580000, transient base; kernel stack above) -- shrink the kernel or re-ratify the runway sub-windows; bump KERNEL_SECTORS too if loaded bytes grew")
+       "kernel image busts KERNEL_IMAGE_CEIL (0x00580000, transient base; kernel stack above)")
