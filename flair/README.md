@@ -94,7 +94,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 191 patches through the shared strict runner: passing baseline,
+make mutants runs 192 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
@@ -115,9 +115,8 @@ translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
 complete tier-0 selection; measured execution fits the default, excluding builds.
 Standalone tests verify their consumed files in goldens/CORPORA.lock; the
 top-level test run verifies the full lock once before parallel execution.
-Import audit adoption is blocked by its recursive scan of separately owned
-desktop/ and region/, and its treatment of host-only tools as product sources.
-The shared import checker needs an explicit product-source list or component
-boundary exclusions before this component can include mk/import-check.mk without
-grading its neighbors. No scan pattern is weakened here. libflair.a uses the
+The graph-based import audit now checks all-reachable sources and headers.
+The remaining DAC generator omission probe is an external patch, killed by
+test_flair_dac (index 255 differs from the independently locked white entry).
+make test builds and audits libflair.a before its consumers run. libflair.a uses the
 shared target rules; region-target asks region for its single library/object build.

@@ -116,9 +116,6 @@ int main(int argc, char **argv)
          "#ifndef INITECH_FLAIR_DAC_H\n#define INITECH_FLAIR_DAC_H\n"
          "static const unsigned char flair_dac[256][3] = {");
     for (unsigned i = 0; i < 256; ++i) {
-#ifdef DAC_GEN_MUT_OMIT
-        if (i == DAC_GEN_MUT_OMIT) rgb[i][0] = rgb[i][1] = rgb[i][2] = 0;
-#endif
         printf("    {%3u, %3u, %3u}, /* %u */\n", rgb[i][0], rgb[i][1], rgb[i][2], i);
     }
     puts("};\n_Static_assert(sizeof(flair_dac) == 768, \"256 RGB DAC entries\");\n#endif");

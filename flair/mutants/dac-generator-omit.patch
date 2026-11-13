@@ -1,0 +1,11 @@
+# test: test_flair_dac
+--- a/tools/flair_dac_gen.c
++++ b/tools/flair_dac_gen.c
+@@ -116,6 +116,7 @@
+          "#ifndef INITECH_FLAIR_DAC_H\n#define INITECH_FLAIR_DAC_H\n"
+          "static const unsigned char flair_dac[256][3] = {");
+     for (unsigned i = 0; i < 256; ++i) {
++        if (i == 255) rgb[i][0] = rgb[i][1] = rgb[i][2] = 0;
+         printf("    {%3u, %3u, %3u}, /* %u */\n", rgb[i][0], rgb[i][1], rgb[i][2], i);
+     }
+     puts("};\n_Static_assert(sizeof(flair_dac) == 768, \"256 RGB DAC entries\");\n#endif");

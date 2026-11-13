@@ -46,8 +46,10 @@ $(OUT)/tools/asset_lz: $(OUT)/generated/boot_logo.h
 # and built by its component, with the same target flags as the Toolbox.
 .PHONY: region-target
 region-target:
-	+$(MAKE) -C region all
+	+$(MAKE) -C $(TOP)/flair/region OUT=$(TOP)/build/flair/region TESTS= MAKEOVERRIDES= all
 all: $(OUT)/libflair.a region-target
+
+include $(TOP)/mk/import-check.mk
 
 test_blitter_SRCS := tests/test_blitter.c blitter.c $(TOP)/flair/region/region.c surface.c
 test_blitter_CFLAGS := -D_POSIX_C_SOURCE=200809L
