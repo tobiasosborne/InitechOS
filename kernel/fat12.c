@@ -1,5 +1,5 @@
 /*
- * os/milton/fat12.c -- FAT12 volume mount + BPB parse (MILTON).
+ * os/initechdos/fat12.c -- FAT12 volume mount + BPB parse (INITECHDOS).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code. Freestanding
  * C -- only <stdint.h> / <stddef.h>, NO libc, NO malloc. Buffers are caller-
@@ -2268,7 +2268,7 @@ static int fat12_scan_root(const fat12_volume_t *vol, void *sector_buf,
 /*
  * fat12_find_slot -- locate an entry by 8.3 name AND return its root-dir SLOT
  * index (beads initech-0qh; epic initech-6qy). fat12_find returns only the dir
- * entry; the multi-tenant file backend (os/milton/fileio_fat.c) needs the slot
+ * entry; the multi-tenant file backend (os/initechdos/fileio_fat.c) needs the slot
  * too so a later positioned write_at() / fat12_read_dir_entry can patch/refresh
  * the entry in place. Implemented over fat12_scan_root (the same exact-11-byte
  * matcher fat12_create uses), so the slot semantics match fat12_create's

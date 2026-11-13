@@ -4,8 +4,8 @@
  * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code, freestanding
  * (only <stdint.h>). This is the concrete int21_file_backend_t the kernel binds
  * after a successful FAT12 mount: it bridges the host-testable INT 21h dispatch
- * logic (os/milton/int21.c) to the mounted volume (os/milton/fat12.c over
- * os/milton/ata.c). int21.c owns the SFT/JFT slots, the PER-HANDLE file offset,
+ * logic (os/initechdos/int21.c) to the mounted volume (os/initechdos/fat12.c over
+ * os/initechdos/ata.c). int21.c owns the SFT/JFT slots, the PER-HANDLE file offset,
  * and the DTA find-data write; THIS file owns the volume, the POSITIONED
  * cluster-chain read/write, and root-directory enumeration. It is NOT
  * host-testable (it would pull fat12.c + the volume into the unit oracle); the
@@ -15,7 +15,7 @@
  *
  * Ref (Law 1): docs/research/fs-mount-sft-ground-truth.md Sec 4.1 (OPEN =
  *   locate), Sec 4.2 (positioned READ), Sec 4.5 (FINDFIRST/NEXT dir
- *   enumeration); os/milton/fat12.h (fat12_find / fat12_read_partial /
+ *   enumeration); os/initechdos/fat12.h (fat12_find / fat12_read_partial /
  *   fat12_write_partial / fat12_create / fat12_unlink / fat12_read_root_dir /
  *   fat12_read_fat); spec/dos_structs.h (dir_entry_t). CLAUDE.md Law 2 (oracle),
  *   Law 3 (artifact = C), Rule 2 (fail loud), Rule 11 (deterministic), Rule 12
@@ -327,7 +327,7 @@ static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
         /* IBM DOS 3.30 Technical Reference pp. 6-139/6-140, AH=40h:
          * no space returns CF clear with fewer bytes written. FAT has rolled
          * back allocation, so this refusal transferred zero bytes. */
-#ifndef SAMIR_MUTATE_FULL_ERROR
+#ifndef INITECHBASE_MUTATE_FULL_ERROR
         if (rc == FAT12_ERR_NO_SPACE) return 0u;
         if (rc == FAT12_ERR_WRITE || rc == FAT12_ERR_READ) return 0x001Du;
 #endif
@@ -587,7 +587,7 @@ static uint16_t fat_rmdir(const char *name83, uint16_t dir_start_cluster)
  * (the AH=36h registers are 16-bit); a 1.44 MB FAT12 has 2847 data clusters and
  * 512-byte sectors so nothing overflows. Returns 0 on success, non-zero with no
  * volume mounted. Ref (Law 1): Microsoft FAT spec (free=0x000); DOS 3.3 PRM
- * AH=36h; os/milton/fat12.h (fat12_next_cluster / fat12_is_free). */
+ * AH=36h; os/initechdos/fat12.h (fat12_next_cluster / fat12_is_free). */
 static uint16_t fat_freespace(uint16_t *out_spc, uint16_t *out_bps,
                               uint16_t *out_total_clus, uint16_t *out_free_clus)
 {

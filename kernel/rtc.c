@@ -3,7 +3,7 @@
  * THE ARTIFACT (CLAUDE.md Law 3): freestanding kernel C. The port-I/O read
  * (rtc_read_reg / rtc_now / rtc_set) is kernel-only; the conversion logic
  * (rtc_decode / rtc_encode / rtc_day_of_week) is PURE so the unit oracle
- * (os/milton/test_rtc.c) compiles + tests it HOSTED with no I/O dependency.
+ * (os/initechdos/test_rtc.c) compiles + tests it HOSTED with no I/O dependency.
  *
  * Ref (Law 1): MC146818A datasheet -- ports 0x70 (index) / 0x71 (data); time/
  *   date registers 0x00..0x09; Status Reg A (0x0A) bit 7 = UIP; Status Reg B
@@ -89,25 +89,12 @@ int rtc_decode(const rtc_raw_t *raw, rtc_time_t *out)
     int pm = (!h24) && ((raw_hour & RTC_HOUR_PM) != 0);
     uint8_t hour_bits = (uint8_t)(raw_hour & (uint8_t)~RTC_HOUR_PM);
 
-#ifdef RTC_MUTATE_SKIP_BCD
-    /* MUTANT (Rule 6; make test-rtc-mutant only): treat the raw bytes as if
-     * they were already binary, skipping the BCD decode. With a BCD RTC the
-     * decoded fields are garbage (0x59 read as 89) and the unit oracle goes
-     * RED. NEVER define in a real build. */
-    binary = 1;
-#endif
     uint8_t sec = binary ? raw->second : bcd_to_bin(raw->second);
     uint8_t min = binary ? raw->minute : bcd_to_bin(raw->minute);
     uint8_t hr  = binary ? hour_bits   : bcd_to_bin(hour_bits);
     uint8_t day = binary ? raw->day    : bcd_to_bin(raw->day);
     uint8_t mon = binary ? raw->month  : bcd_to_bin(raw->month);
     uint8_t yy  = binary ? raw->year   : bcd_to_bin(raw->year);
-#ifdef RTC_MUTATE_MONTH_OFFBYONE
-    /* MUTANT (Rule 6; make test-rtc-mutant only): off-by-one the month so a
-     * June (6) reading decodes as July (7). The unit oracle's month assertion
-     * goes RED. NEVER define in a real build. */
-    mon = (uint8_t)(mon + 1u);
-#endif
 
     /* 12-hour -> 24-hour normalization. 12 AM (midnight) = 0; 12 PM (noon) = 12;
      * otherwise add 12 for PM. (MC146818A: 12-hour mode stores 1..12.) */

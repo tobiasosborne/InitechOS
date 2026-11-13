@@ -16,10 +16,8 @@ static void ansi_cursor_rel(void *ctx, int drow, int dcol)
         nc = (int)c + dcol;
         if (nr < 0) { nr = 0; }
         if (nc < 0) { nc = 0; }
-#ifndef ANSI_MUTATE_BRIDGE_CLAMP
         if (nr >= (int)con->rows) nr = (int)con->rows - 1;
         if (nc >= (int)con->cols) nc = (int)con->cols - 1;
-#endif
         console_set_cursor(con, (uint32_t)nr, (uint32_t)nc);
     }
 }

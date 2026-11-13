@@ -3,7 +3,7 @@
  * Each 16-byte header uses uint32 byte extents and full-width owner identity.
  * No legacy mcb_t change. Validate the WHOLE chain before any mutation. */
 #include <stdint.h>
-#include "../../spec/initechmz_extended.h"
+#include "initechmz_extended.h"
 typedef struct { uint32_t magic, span, owner, reserved; } native_block_t;
 _Static_assert(sizeof(native_block_t) == INITECHMZ_NATIVE_HEADER_BYTES,
                "DEC-03a: native block metadata is 16 bytes");
@@ -44,12 +44,6 @@ static uint16_t native_call(native_arena_t *a, uint32_t owner, unsigned op,
                             uint32_t ptr, uint32_t paras, uint32_t *out)
 {
     uint32_t off=0, chosen=0xffffffffu, largest=0, need=0;
-#ifdef NATIVE_MUT_COUNT16
-    paras &= 0xffffu; /* Rule 6: a >1 MiB request becomes one paragraph. */
-#endif
-#ifdef NATIVE_MUT_OWNER
-    owner=a->owner;   /* Rule 6: accept a foreign caller's free. */
-#endif
     if(!native_valid(a)) return 7;
     if(owner!=a->owner || !owner) return 9;
     while(off<a->bytes) {

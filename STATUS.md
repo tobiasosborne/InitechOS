@@ -4,12 +4,21 @@ Rewritten, never appended to. Last rewritten 2026-11-13.
 
 ## Where we are
 
-The reboot started today. The legacy tree is frozen at the tag
-`legacy-final` and runs from `../InitechOS-legacy`. `main` now holds the
-same source in the new layout, with no working build yet: components
-come back one at a time, each with its own Makefile and tests.
+The reboot started on 2026-11-13. The legacy tree is frozen at the tag
+`legacy-final` and runs from `../InitechOS-legacy`.
 
-Nothing on `main` boots yet. To see the product, use the legacy tree.
+`main` boots. `make image` builds the product disk set from clean in
+about 7 seconds; `make smoke` boots it on QEMU and Bochs at 8 MiB, runs
+a scripted DOS session (VER, DIR, directories, COPY, REN, DEL, a batch
+file, SORT, MORE, FIND, CHKDSK), reads the written files back on the
+host with mtools and checks for CPU faults, in about 30 seconds.
+`make test` runs every component's host tests. There is no desktop on
+`main` yet; for the GUI, use the legacy tree.
+
+The kernel is 105,848 bytes with one 14-line entry point and no test
+scenarios in it. The loader takes a kernel of any size up to its
+512 KiB window (`make -C boot bigkernel-check` proves it with a
+237,112-byte kernel on both emulators).
 
 ## Import board
 
@@ -21,27 +30,29 @@ imported yet.
 
 | Component | State |
 |---|---|
-| `boot/` | source moved; chunked loader being proven on the legacy tree |
-| `kernel/` | source moved (still contains the shell, the DOS utilities and the desktop glue in `kmain.c`) |
-| `dos/` | empty; to be split out of `kernel/` |
+| `boot/` | builds and boots; chunked loader; oversized-kernel check. No host tests (none in legacy). |
+| `kernel/` | builds and boots, InitechDOS only. Host tests parked in `kernel/tests/`, not yet running. Mutation hooks listed in `kernel/tests/MUTANTS-TODO.md`. |
+| `dos/` | COMMAND.COM (still linked into the kernel image) and fifteen external utilities, built and on the disk. Known debts in `dos/README.md`: the shell calls kernel internals; the disk utilities use INT 13h/25h/26h directly. |
 | `flair/region/` | host-green, mutants converted (8 patches, all killed). Not yet compiled for the target. |
 | `flair/` (the rest) | source moved |
-| `flair/desktop/` | empty; Finder files and the desktop half of `kmain.c` go here |
+| `flair/desktop/` | parked, not built: the legacy `kmain.c` (as `kmain_legacy.c`) and the Finder/desktop pieces that were in the kernel. |
 | `sdk/` | source moved (`tbx.h`, runtime, linker script) |
 | `apps/initech123/` | host-green: 18 test programs, about a million checks, 59 real Lotus `.WK1` files, 15 seconds. Target objects compile; the EXE waits for `sdk/`. 41 mutation hooks still to convert (`tests/MUTANTS-TODO.md`). |
 | `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile; the EXE waits for `sdk/`. 75 mutation hooks still to convert. Borrows shared headers from `attic/spec`. |
 | other `apps/*` | source moved; not started. **Frozen** until the vertical slice below works. |
 | `turbo/` | source moved (`compiler/`, `seed/`) |
-| `goldens/`, `factory/` | empty; filled from `attic/` as components claim things |
+| `factory/` | QEMU and Bochs drivers, the image builder, the smoke session, the reproducibility and parity checks. |
+| `goldens/` | empty; corpora are still read from sibling checkouts, unpinned. |
 
 ## In flight
 
-- Spine: `boot/` + an InitechDOS-only `kernel/` + `dos/` + `factory/`
-  to an `A:\>` prompt on QEMU and Bochs, branch `spine/boot-kernel`.
-  The loader spike it builds on is proven (branch `reboot/loader-spike`):
-  a 300,108-byte kernel boots on both emulators.
-- Imports on branches: InitechBase, InitechWord, Turbo Initech, the
-  SDK, the FLAIR Toolbox.
+- Imports on branches: InitechBase, Turbo Initech, the SDK, the FLAIR
+  Toolbox.
+- Conventions pass (owner of `mk/`, the top Makefile, `factory/testlib`,
+  `goldens/`): target build fragment, per-test timeouts and component
+  time budgets, rebuild on flag changes, pinned corpora, the import
+  checks.
+- Kernel and DOS host tests (owner of `kernel/`, `dos/`).
 
 ## The vertical slice comes first
 
@@ -54,7 +65,8 @@ every other app.
 
 ## Next
 
-1. Merge the spine.
+1. The vertical slice: Toolbox + desktop on the booting kernel, Initech
+   123 launched, saved and read back.
 2. The remaining host cores (InitechBase, InitechWord, the seed
    compiler, the Toolbox managers), then the desktop and the apps.
 3. Product work against `GOLDEN-MASTER.md`, starting with the frame's
@@ -62,11 +74,11 @@ every other app.
 
 ## Notes for this week
 
-- Owner of the shared places (`mk/`, `factory/`, the top Makefile)
-  this week: the spine branch, then a conventions pass (target build
-  fragment, per-test timeouts and component time budgets, command-line
-  change detection, pinned corpora, the import checks). `sdk/` is owned
-  by the SDK import.
+- Disk layout today (inherited): IDE master is the boot volume (C:),
+  IDE slave is the working volume (A:) with CONFIG.SYS, the utilities
+  and a COMMAND.COM stub. A single installable disk is still to design.
+- Bochs here has no 486 model and runs its Pentium model; QEMU runs
+  `-cpu 486`.
 - Open question for the operator: Python is used by some inherited
   tests as an independent reader of foreign file formats, which the
   constitution's "C, make and POSIX shell" does not allow as written.

@@ -543,7 +543,7 @@ extern pit_irq_handler         ; void pit_irq_handler(void)  -- increments ticks
 extern kbd_irq_handler         ; void kbd_irq_handler(void)  -- reads 0x60 + EOI
 extern irq_enter               ; void irq_enter(void)  -- g_irq_depth++ (irq.c)
 extern irq_leave               ; void irq_leave(void)  -- g_irq_depth-- (irq.c)
-; PS/2 mouse IRQ12 C body (os/milton/mouse.c). WEAK external reference (ADR-0006
+; PS/2 mouse IRQ12 C body (os/initechdos/mouse.c). WEAK external reference (ADR-0006
 ; FO-6): isr.o is SHARED by every kernel, but mouse.o is linked ONLY into the
 ; flair_live kernel(s). A weak extern lets the non-flair kernels link cleanly
 ; (the undefined reference resolves to 0) -- harmless because irq12_entry is
@@ -613,27 +613,5 @@ irq12_entry:
     popad
     iretd
 
-; --- live IDT self-test handler (vector 0x80) ------------------------------
-; Proves on the REAL boot that a gate installs, dispatches, and IRETs cleanly so
-; control RESUMES at the instruction after `int 0x80`. kmain.c installs this as
-; a trap gate on an UNUSED vector (0x80, not an IRQ vector after the 0x28/0x30
-; remap) and executes `int 0x80`. The handler just calls a tiny C reporter then
-; irets. Self-contained frame (no error code for a software int via a gate).
-extern selftest_report_c       ; void selftest_report_c(void)
-global isr_selftest
-isr_selftest:
-    cld
-    pushad
-    push ds
-    push es
-    mov ax, 0x10               ; DATA_SEL -- known-good segments for the C call
-    mov ds, ax
-    mov es, ax
-    call selftest_report_c
-    pop es
-    pop ds
-    popad
-    iretd
 
-; Mark the stack non-executable (silences the ld GNU-stack warning).
 section .note.GNU-stack noalloc noexec nowrite progbits

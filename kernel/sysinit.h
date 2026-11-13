@@ -26,11 +26,11 @@
  * (sysinit_apply_config) is the new behavior; everything else is relocation.
  *
  * Ref (Law 1): kmain.c kernel_main (the original ordered sequence); ADR-0003
- *   DEC-06 (FILES= governs the SFT capacity); os/milton/config_sys.h; os/milton/
+ *   DEC-06 (FILES= governs the SFT capacity); os/initechdos/config_sys.h; os/initechdos/
  *   sft.h. Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII).
  */
-#ifndef INITECH_MILTON_SYSINIT_H
-#define INITECH_MILTON_SYSINIT_H
+#ifndef INITECH_INITECHDOS_SYSINIT_H
+#define INITECH_INITECHDOS_SYSINIT_H
 
 #include <stdint.h>
 #include "psp.h"     /* psp_t */
@@ -45,7 +45,7 @@ typedef void (*sysinit_serial_fn)(const char *s);
 /* PHASE 1 -- interrupt + syscall foundation (kmain.c original lines 431-467, IN
  * ORDER): pic_remap_and_mask -> "PIC" -> idt_init -> "IDT" -> x87 bring-up
  * ("FPU-INIT present cw=037F" | "FPU-INIT absent ..."; beads initech-zj6w,
- * os/milton/fpu.h) -> bind int21 sink + exit hook -> sft_init -> build the kernel PSP into *kernel_psp -> int21_set_psp
+ * os/initechdos/fpu.h) -> bind int21 sink + exit hook -> sft_init -> build the kernel PSP into *kernel_psp -> int21_set_psp
  * -> install the 0x21 + 0x20 trap gates -> "INT21". `sink` and `exit_hook` are the
  * kernel's CON glue; `kernel_psp` is the kernel-context PSP (BSS, outlives the
  * call). `serial` emits the markers. NO `sti` here (IF stays 0 this phase). */
@@ -79,4 +79,4 @@ void sysinit_enable_irqs(sysinit_serial_fn serial);
  * behavior. */
 int sysinit_ansi_enabled(void);
 
-#endif /* INITECH_MILTON_SYSINIT_H */
+#endif /* INITECH_INITECHDOS_SYSINIT_H */

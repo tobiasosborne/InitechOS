@@ -5,26 +5,31 @@
 ; (PDF118: HSR). MS-DOS 3.3 User's Guide printed119 (PDF204: SYS order,
 ; hidden files, fragmentation permitted), printed41 (PDF54: error text).
 ;
-; MBR loads exactly 16 sectors at 8000. Bootstrap owns [8000,9000);
-; IO.SYS owns [9000,A000). The embedded IO.SYS is ONLY for legacy raw
-; disks whose partition table is empty. On a FAT boot disk no missing,
-; misplaced or corrupt system file can fall back to the raw LBA17 run.
-; The factory emits contiguous chains; this loader walks FAT12 chains,
-; checks exact length/EOC, bounds, cycles, cross-links and both FAT copies.
-; INITDOS.SYS is the existing padded flat kernel, bounce [10000,40000).
-; IO.SYS retains the original BIOS, A20/GDT/PE/far-jump/copy sequence.
-; Factory-only mutants bypass one named rule; never used by make image.
+; Boot contract (all addresses physical): MBR reads 16 sectors to 0x8000.
+; FAT12 stage2 occupies [0x8000,0x9000), loads IO.SYS at [0x9000,0xa000),
+; then walks INITDOS.SYS through a reusable sector at 0x10000 to 0x500000.
+; Both FAT copies, exact chain length/EOC, bounds, cycles and cross-links
+; are checked. Empty/raw disks fail; there is no raw-LBA loader fallback.
+; Kernel starts with EB 0E, "K386", image byte count, absolute BSS end.
+; Validate this header against the dirent and 0x580000 before any high copy.
+; IO entry: CS=DS=SS=0, SP=0x7c00, DL=drive, DH=1, real mode, IF=1.
+; boot_info at 0x500: old 9 dwords untouched; +36 = exact loaded byte count.
+; IO enables A20, constructs the other fields, enters flat PM and jumps to
+; 08:00500000 (data selectors 10, interrupts disabled). See kstart.asm.
+;
+; INT 15h/AH=87h contract: CX WORDS, ES:SI -> writable 48-byte GDT:
+; +00 null, +08 BIOS GDTR, +10 source, +18 destination, +20 BIOS CS,
+; +28 BIOS SS. BIOS enables A20 for the move and restores its prior state.
+; Source: bochs-emu/Bochs bochs/bios/rombios.c case 0x87; corroborated by
+; coreboot/seabios src/system.c handle_1587 (both upstream on GitHub).
+; Use 256 words, 64KiB byte-granular data descriptors, 24-bit bases (<16MiB).
+; No unreal segment state survives a BIOS call. IO enables A20 again later.
 bits 16
 org 0x8000
-KERNEL_SECTORS equ 384
-%ifndef MK_KERNEL_SECTORS
- %error "MK_KERNEL_SECTORS required"
-%elif MK_KERNEL_SECTORS != KERNEL_SECTORS
- %error "KERNEL_SECTORS MISMATCH"
-%endif
-%if KERNEL_SECTORS*512 > 0x30000
- %error "KERNEL_SECTORS exceeds KERNEL_BOUNCE_CAP"
-%endif
+KERNEL_BASE equ 0x00500000
+KERNEL_IMAGE_CEIL equ 0x005F0000
+BOOT_INFO equ 0x500
+BOUNCE equ 0x10000
 ROOT equ 0x6000
 FAT equ 0x2000
 VISITED equ 0xA000
@@ -66,7 +71,7 @@ start:
     inc si
     loop .table
     test al, al
-    jz legacy
+    jz fail
     ; The shipped BOOT volume is the first active FAT12 partition. Unsupported
     ; nonempty tables fail closed; they are never mistaken for old raw disks.
     cmp byte [ROOT+446], 0x80
@@ -203,9 +208,20 @@ start:
     mov si, ROOT+32
     mov di, dos_name
     call lookup
-    cmp dword [si+28], KERNEL_SECTORS*512
-    jne fail
-    mov edx, KERNEL_SECTORS*512
+    ; Check installed RAM before touching the high destination. AH=88h is
+    ; supported by both target AT BIOSes; require the existing 8MiB floor.
+    push si
+    mov ah, 0x88
+    int 0x15
+    jc fail_memory
+    cmp ax, 7168
+    jb fail_memory
+    pop si
+    mov eax, [si+28]
+    mov [BOOT_INFO+36], eax
+    mov dword [high_dest], KERNEL_BASE
+    mov byte [high_sink], 1
+    mov edx, KERNEL_IMAGE_CEIL-KERNEL_BASE
     mov ax, 0x1000
     call load_file
     mov si, msg_dos
@@ -215,13 +231,6 @@ start:
     mov dl, [drive]
     mov dh, 1
     jmp 0:0x9000
-legacy:
-    mov si, msg_raw
-    call puts
-    mov dl, [drive]
-    xor dh, dh
-    jmp 0:0x9000
-
 ; SI = required root slot, DI = DOS 8.3 name. ORDER mutant searches instead
 ; of enforcing slots 0/1, so moving both files one slot exposes the regression.
 lookup:
@@ -253,7 +262,8 @@ lookup:
     jmp fail
 
 ; SI dirent; AX destination segment; EDX maximum bytes. Walk the on-disk
-; FAT, never a fixed sector run. The shared VISITED set rejects both cycles
+; FAT, never a fixed sector run. high_sink=1 reuses AX's low segment and
+; copies each sector to high_dest. The shared VISITED set rejects both cycles
 ; and cross-file overlap before IO.SYS is executed or CR0.PE is set.
 load_file:
     mov [dest], ax
@@ -270,7 +280,7 @@ load_file:
     test eax, eax
     jz fail
     cmp eax, edx
-    ja fail
+    ja fail_size
     add eax, 511
     shr eax, 9
     mov [remaining], ax
@@ -298,7 +308,13 @@ load_file:
     mov es, dx
     mov ax, [lba]
     call read_sector
+    cmp byte [high_sink], 0
+    je .low
+    call copy_high
+    jmp .copied
+.low:
     add word [dest], 32
+.copied:
     inc word [lba]
     dec word [remaining]
     jz .next
@@ -334,6 +350,61 @@ load_file:
     cmp ax, 0xff8
     jb fail
     ret
+
+; One-sector sink. The last sector's disk padding is harmless: the window
+; ceiling is sector aligned and kstart clears BSS/slack from linker symbols.
+; Header checks use ES (the bounce segment) before BIOS rewrites ES.
+copy_high:
+    pushad
+    push ds
+    push es
+    cmp dword [high_dest], KERNEL_BASE
+    jne .move
+    cmp word [es:0], 0x0eeb
+    jne fail
+    cmp dword [es:2], 'K386'
+    jne fail
+    mov eax, [es:6]
+    cmp eax, [BOOT_INFO+36]
+    jne fail
+    cmp eax, 16
+    jb fail
+    add eax, KERNEL_BASE
+    cmp eax, [es:10]
+    ja fail
+    cmp dword [es:10], KERNEL_IMAGE_CEIL
+    ja fail_size
+.move:
+    mov eax, [high_dest]
+    mov [move_gdt+0x18+2], ax
+    shr eax, 16
+    mov [move_gdt+0x18+4], al
+    xor ax, ax
+    mov es, ax
+    mov si, move_gdt
+    mov cx, 256                  ; words, NOT bytes
+    mov ah, 0x87
+    int 0x15
+    jc fail
+    test ah, ah
+    jnz fail
+    pop es
+    pop ds
+    cld
+    add dword [high_dest], 512
+    popad
+    ret
+
+align 8, db 0
+move_gdt:
+    dq 0, 0                     ; null, BIOS GDTR workspace
+    dw 0xffff, BOUNCE & 0xffff   ; source base low word
+    db BOUNCE >> 16, 0x93, 0, 0 ; present writable data, byte granularity
+    dw 0xffff, 0                ; destination base filled per sector
+    db 0, 0x93, 0, 0
+    dq 0, 0                     ; BIOS CS/SS workspace (48 bytes total)
+high_dest: dd 0
+high_sink: db 0
 
 ; AX absolute disk LBA (16-bit bounded volume); ES:0 destination. Preserve
 ; all caller registers. Same INT13 CHS interface as legacy, including the
@@ -407,6 +478,29 @@ puts:
     pop ax
     pop si
     ret
+fail_memory:
+    mov si, msg_memory
+    call puts
+    mov ax, 3
+    int 0x10
+    mov si, msg_memory
+.memory_text:
+    lodsb
+    test al, al
+    jz .stop
+    mov ah, 0x0e
+    int 0x10
+    jmp .memory_text
+.stop:
+    cli
+    hlt
+    jmp .stop
+fail_size:
+    xor ax, ax
+    mov ds, ax
+    mov si, msg_size
+    call puts
+    jmp fail
 fail:
     xor ax, ax
     mov ds, ax
@@ -437,8 +531,9 @@ msg_io: db 'IOSYS-FOUND',10,0
 msg_dos: db 'INITDOS-FOUND',10,0
 msg_io_count: db 'IO-CLUSTERS=',0
 msg_dos_count: db 'INITDOS-CLUSTERS=',0
-msg_raw: db 'RAW-FALLBACK',10,0
 newline: db 10,0
+msg_memory: db 'Insufficient extended memory: 8 MB required',13,10,0
+msg_size: db 'ERR-KERNEL-SIZE',10,0
 error: db 'Non-System disk or disk error',13,10
        db 'Replace and strike any key when ready',13,10,0
 drive: db 0
@@ -462,10 +557,5 @@ lba: dw 0
  %error "stage2 FAT bootstrap exceeds its 4096-byte real-mode budget"
 %endif
 times 4096-($-$$) db 0
-; The raw fallback is the same independently built IO.SYS. The FAT path
-; overwrites it with the actual file from disk, then enters that loaded file.
-incbin IO_SYS_PATH
-%if ($-$$) > 8192
- %error "stage2 + embedded IO.SYS exceeds MBR's 16-sector (8192-byte) budget"
-%endif
+; MBR's fixed transfer stays 16 sectors; the second half is reserved.
 times 8192-($-$$) db 0

@@ -9,7 +9,7 @@
  * Ref (Law 1): spec/dos_config_sys_baseline.txt (the LOCKED baseline, Rule 8 --
  *   FILES=20 / BUFFERS=20 / LASTDRIVE=Z / DEVICE=ANSI.SYS / DEVICE=INITNET.SYS /
  *   INSTALL=SHARE.EXE / SHELL=COMMAND.COM /P /E:512); ADR-0003 Sec 5.6 (DEC-06:
- *   FILES= governs the SFT capacity) + Appendix D.2; os/milton/sft.h
+ *   FILES= governs the SFT capacity) + Appendix D.2; os/initechdos/sft.h
  *   (SFT_MAX_ENTRIES=20). DOS 3.3 CONFIG.SYS directive semantics: case-insensitive
  *   keyword=value lines; DOS IGNORES blank lines, ';'-comment lines, and unknown
  *   directives (it does NOT abort the boot on a directive it does not recognize);
@@ -22,8 +22,8 @@
  * the boot on user content; it returns the directives it understood. (The only
  * "fail loud" cases are programmer bugs: a NULL output pointer.)
  */
-#ifndef INITECH_MILTON_CONFIG_SYS_H
-#define INITECH_MILTON_CONFIG_SYS_H
+#ifndef INITECH_INITECHDOS_CONFIG_SYS_H
+#define INITECH_INITECHDOS_CONFIG_SYS_H
 
 #include <stdint.h>
 
@@ -84,4 +84,4 @@ typedef struct dos_config {
  * empty file (out is zeroed, returns 0). Pure (no I/O), so host-testable. */
 int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out);
 
-#endif /* INITECH_MILTON_CONFIG_SYS_H */
+#endif /* INITECH_INITECHDOS_CONFIG_SYS_H */

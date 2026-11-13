@@ -1,5 +1,5 @@
 /*
- * os/milton/ata.c -- minimal ATA PIO LBA28 sector read (MILTON).
+ * os/initechdos/ata.c -- minimal ATA PIO LBA28 sector read (INITECHDOS).
  *
  * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code. Freestanding
  * (only <stdint.h>). Implements READ SECTORS (0x20) PIO on a configurable ATA

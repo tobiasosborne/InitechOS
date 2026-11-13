@@ -1,0 +1,240 @@
+/* sft.h -- InitechDOS System File Table (SFT) + Job File Table (JFT) indirection.
+ *
+ * beads: initech-509.3 ("JFT(20) + SFT + DUP/DUP2 I/O redirection (DEC-06,
+ *        load-bearing)"). The handle layer ALL file/device I/O depends on.
+ * Ref:   ADR-0003 Sec 5.6 (DEC-06): "A per-process Job File Table of twenty (20)
+ *        entries shall map process file handles to entries in a system-wide
+ *        System File Table, the capacity of which shall be governed by the
+ *        FILES= directive of CONFIG.SYS." ADR-0003 Appendix D.2 (FILES=20).
+ *        DEC-06: "Handles 0 through 4 shall be predefined (standard input,
+ *        output, error, auxiliary, printer)." docs/research/
+ *        fs-mount-sft-ground-truth.md Sec 3 (the SFT/JFT model, the entry
+ *        struct, DUP/DUP2 algorithms). spec/dos_structs.h (psp_t.jft[20] at
+ *        offset 0x18; dir_entry_t). DOS 3.3 Programmer's Reference Manual
+ *        AH=45h DUP / AH=46h DUP2. CLAUDE.md Law 1 (cite), Law 2 (oracle),
+ *        Law 3 (artifact = C), Rule 2 (fail loud), Rule 8 (specs-as-data),
+ *        Rule 11 (deterministic), Rule 12 (ASCII).
+ *
+ * DESIGN STANCE (ADR-0003 Sec 5.5): vestigial structures are implemented IN
+ * FULL. Handles 0-4 are ALL predefined per DEC-06 -- including AUX (3) and PRN
+ * (4) -- even though no AUX/PRN device driver exists yet (deferred to the device
+ * milestone). The JFT/SFT indirection is the real, complete table a DOS process
+ * sees; it is not stubbed.
+ *
+ * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only, NO
+ * I/O. Pure table manipulation, so it compiles BOTH freestanding (the kernel)
+ * and HOSTED (the factory oracle, test_sft.c) -- fully host-unit-testable.
+ */
+#ifndef INITECH_SFT_H
+#define INITECH_SFT_H
+
+#include <stdint.h>
+#include "psp.h"   /* psp_t (jft[20]); pulls dos_structs.h (dir_entry_t) */
+
+/* Forward declaration of the character-device chain header (os/initechdos/devices.h,
+ * beads initech-509.7). An SFT entry that an AH=3Dh OPEN-by-name bound to a
+ * resident device (CON/NUL/PRN/AUX/CLOCK$) carries a pointer to that device's
+ * header in sft_entry.device (beads initech-6zd9). sft.h does NOT include
+ * devices.h: sft.c stays a PURE table module (no devices.c dependency, still
+ * host-unit-testable in isolation) -- only the pointer width is needed here. The
+ * full type lives in devices.h, which int21.c includes for devices_request(). */
+struct device_header;
+
+/* FILES=20 (ADR-0003 Appendix D.2 CONFIG.SYS baseline) governs the SFT capacity
+ * AND the JFT width (DEC-06: a 20-entry JFT). */
+#define SFT_MAX_ENTRIES   20u
+#define JFT_MAX_ENTRIES   20u
+
+/* JFT sentinel: a process handle slot that is closed / unused. Matches the
+ * real-DOS 0xFF sentinel psp.c writes into jft[] (psp.c:131-136). */
+#define JFT_CLOSED        0xFFu
+
+/* Predefined SFT slots for the standard devices (handles 0-4 map here). Slots
+ * 0..3 are reserved for devices at sft_init(); file opens use slots 4..19. */
+#define SFT_SLOT_CON_IN   0u   /* stdin  (CON, read)                 */
+#define SFT_SLOT_CON_OUT  1u   /* stdout + stderr (CON, write)       */
+#define SFT_SLOT_AUX      2u   /* AUX  (COM1)                        */
+#define SFT_SLOT_PRN      3u   /* PRN  (LPT1)                        */
+#define SFT_FIRST_FILE    4u   /* lowest SFT slot a file open may use */
+
+/* DOS error codes returned by the table operations (0 == success). These are
+ * the standard DOS 3.3 INT 21h codes; int21.c sets AX = the returned code on a
+ * CF=1 error. Ref: DOS 3.3 Programmer's Reference Manual error returns. */
+#define SFT_OK                   0u
+#define SFT_ERR_INVALID_HANDLE   0x0006u  /* bad/closed handle (DOS code 6)   */
+#define SFT_ERR_TOO_MANY_OPEN    0x0004u  /* no free JFT/SFT slot (DOS code 4) */
+
+/* What an SFT entry is backed by. */
+typedef enum sft_kind {
+    SFT_KIND_FREE   = 0,   /* slot unused                          */
+    SFT_KIND_DEVICE = 1,   /* a character device (CON / AUX / PRN)  */
+    SFT_KIND_FILE   = 2    /* an open file on the mounted volume    */
+} sft_kind_t;
+
+/* The predefined character devices. */
+typedef enum sft_dev_id {
+    SFT_DEV_CON = 0,   /* CON: keyboard in / screen out */
+    SFT_DEV_AUX = 1,   /* AUX: COM1                     */
+    SFT_DEV_PRN = 2    /* PRN: LPT1                     */
+} sft_dev_id_t;
+
+/* Open mode (AL from OPEN/CREAT; the device entries carry a nominal mode). */
+#define SFT_MODE_READ   0u
+#define SFT_MODE_WRITE  1u
+#define SFT_MODE_RDWR   2u
+
+/* One system-wide open-file (or device) registry entry. The JFT maps a process
+ * handle (0..19) to an index into g_sft[]. ref_count is the number of JFT slots
+ * (across DUP/DUP2) pointing here; when it falls to zero the slot is freed.
+ *
+ * Ref: fs-mount-sft-ground-truth.md Sec 3.2 (the recommended struct). The FILE
+ * fields (dir_entry/file_offset/root_slot) are populated by AH=3Dh OPEN /
+ * AH=3Ch CREAT.
+ *
+ * MULTI-TENANT (beads initech-0qh; epic initech-6qy): the SFT slot is now the
+ * COMPLETE per-handle state -- it carries its OWN position (file_offset) AND its
+ * own dir_entry copy (start_cluster + size), so each independent slot is its own
+ * file handle and N files open concurrently. The whole-file buffer pointer
+ * (file_data) is GONE: READ/WRITE go positioned through the backend over the
+ * cluster chain (fat12_read_partial / fat12_write_partial), never a 64 KiB
+ * whole-file buffer. `root_slot` is the file's root-directory entry index, used
+ * by the backend's positioned write_at()/close() to patch size/start_cluster in
+ * place (valid for a write handle; carried for read handles too). */
+typedef struct sft_entry {
+    uint8_t      kind;          /* sft_kind_t                                  */
+    uint8_t      open_mode;     /* SFT_MODE_*                                  */
+    uint8_t      dev_id;        /* sft_dev_id_t (valid when kind == DEVICE)    */
+    uint8_t      drive;         /* DEC-18: volume retained by an open handle   */
+    uint8_t      con_eof;       /* pending final zero read after cooked ^Z    */
+    uint8_t      write_fault;   /* sticky: a FILE write here came up short or */
+                                /* failed (disk full; IBM DOS 3.30 TR         */
+                                /* pp.6-139/6-140). Shared by every DUP of    */
+                                /* the slot; cleared only when the slot is    */
+                                /* freed (initech-66oc).                      */
+    uint16_t     ref_count;     /* JFT references to this slot (DUP semantics) */
+    /* --- DEVICE state (valid when kind == SFT_KIND_DEVICE; beads initech-6zd9) -
+     * An AH=3Dh OPEN-by-name of "CON"/"NUL"/"PRN"/"AUX"/"CLOCK$" binds the slot to
+     * the matching resident device header (devices.c). NULL on the predefined
+     * slots 0..3 (sft_init lays them with dev_id but NO device chain pointer --
+     * those keep the legacy do_write CON fast path), and NULL on FILE/FREE slots.
+     * A non-NULL `device` means "route READ/WRITE through devices_request" -- the
+     * dispatcher uses (device != NULL) to select the chain path; the predefined
+     * CON slots stay on the byte-for-byte-preserved legacy leg. */
+    struct device_header *device; /* devices.c header for an OPEN-by-name device */
+    /* --- FILE state (valid when kind == SFT_KIND_FILE; set by OPEN/CREAT) --- */
+    dir_entry_t  dir_entry;     /* copy of the 32-byte FAT dir entry at open   */
+    uint32_t     file_offset;   /* current byte offset (READ/WRITE/LSEEK move) */
+    uint32_t     root_slot;     /* dir-entry slot index (backend write-back)   */
+    uint16_t     dir_start;     /* containing dir's first cluster (0 == root;  */
+                                /* beads initech-zs24 subdir WRITE write-back) */
+} sft_entry_t;
+
+/* The kernel-global System File Table. Zero-initialised by the C runtime
+ * (BSS) -> every slot starts SFT_KIND_FREE. sft_init() populates 0..3. */
+extern sft_entry_t g_sft[SFT_MAX_ENTRIES];
+
+/* Runtime FILES= cap (beads initech-509.2; ADR-0003 DEC-06 / Appendix D.2).
+ * The CONFIG.SYS FILES=N directive governs the SFT capacity (sft.h DEC-06
+ * comment): the highest SFT slot index a FILE open may occupy is g_files_limit-1
+ * (slots SFT_FIRST_FILE..g_files_limit-1 are file-eligible). SYSINIT clamps it to
+ * min(N, SFT_MAX_ENTRIES) after parsing CONFIG.SYS; sft_alloc REFUSES a slot at or
+ * above it, so an OPEN/CREAT beyond the limit returns the DOS too-many-open error
+ * (int21 do_open/do_creat already map sft_alloc()>=cap onto INT21_ERR_TOO_MANY_OPEN).
+ *
+ * Default == SFT_MAX_ENTRIES so a kernel that never runs SYSINIT (the host unit
+ * oracle calling sft_alloc directly) keeps the historical 16-file-slot behavior --
+ * no existing gate regresses. sft_init() does NOT reset it (the limit is a system
+ * policy set once at SYSINIT, not per-process). */
+extern uint8_t g_files_limit;
+
+/* Set the FILES= cap (beads initech-509.2). Clamps `files` to
+ * [SFT_FIRST_FILE, SFT_MAX_ENTRIES] so the device slots 0..3 are always available
+ * and the cap never exceeds the physical table. Returns the effective limit. A
+ * FILES= below SFT_FIRST_FILE would leave zero file slots (DOS would refuse to
+ * boot); we clamp UP to SFT_FIRST_FILE (zero file slots) so the system stays
+ * coherent -- the parser already clamps the numeric range, this is the table-side
+ * floor/ceiling. Pure (no I/O); host-testable. */
+uint8_t sft_set_files_limit(uint8_t files);
+
+/* Establish the predefined device entries (slots 0..3): CON-read, CON-write
+ * (shared by stdout+stderr), AUX, PRN. Idempotent (re-zeroes the whole table
+ * first). Called once at SYSINIT before the first process loads. The matching
+ * per-process JFT (jft[0]=0,jft[1]=1,jft[2]=1,jft[3]=2,jft[4]=3,rest=0xFF) is
+ * laid down by psp_build (psp.c). Ref: fs-mount-sft-ground-truth.md Sec 3.3. */
+void sft_init(void);
+
+/* Resolve a process handle (JFT index, 0..19) to its SFT entry, or NULL if the
+ * handle is out of range / closed (jft==0xFF) / the psp is NULL. Fails LOUD
+ * (panic/abort) on a CORRUPT JFT entry -- one that is neither the 0xFF closed
+ * sentinel nor a valid in-range index of a live (non-FREE) SFT slot (Rule 2:
+ * an invariant violation is never papered over). */
+sft_entry_t *sft_from_handle(const psp_t *psp, uint8_t handle);
+
+/* Lowest free JFT slot (jft[i]==0xFF) in 0..19, or JFT_CLOSED (0xFF) if full. */
+uint8_t jft_alloc(const psp_t *psp);
+
+/* Lowest free SFT slot in SFT_FIRST_FILE..19 (files never reuse the device
+ * slots 0..3), or SFT_MAX_ENTRIES if the table is full. */
+uint8_t sft_alloc(void);
+
+/* AH=45h DUP: duplicate the open handle `src` into the lowest free JFT slot;
+ * the new slot aliases the SAME SFT entry (ref_count++). On success returns
+ * SFT_OK and writes the new handle to *out_handle. Errors: SFT_ERR_INVALID_HANDLE
+ * (src closed/bad), SFT_ERR_TOO_MANY_OPEN (no free JFT slot). out_handle is
+ * untouched on error. Ref: fs-mount-sft-ground-truth.md Sec 3.4. */
+uint16_t sft_dup(psp_t *psp, uint8_t src, uint8_t *out_handle);
+
+/* AH=46h DUP2: force handle `dst` to alias the open handle `src`. If `dst` is
+ * currently open it is released first (ref_count--, freed at zero); then
+ * jft[dst] = jft[src] and the shared SFT entry's ref_count++. src==dst is a
+ * success no-op (DOS convention). Errors: SFT_ERR_INVALID_HANDLE (src
+ * closed/bad, or dst out of range). This is the I/O-redirection primitive:
+ * DUP2(src=file_handle, dst=1) repoints stdout at the file's SFT slot.
+ * Ref: fs-mount-sft-ground-truth.md Sec 3.4. */
+uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst);
+
+/* Release ALL of an exiting process's open FILE handles (beads initech-6hk; epic
+ * initech-6qy). Walk the process's JFT; for every entry that is open AND points
+ * at a FILE-kind SFT slot (kind == SFT_KIND_FILE, i.e. slot >= SFT_FIRST_FILE),
+ * drop its SFT reference (freeing the slot at zero) and mark the JFT entry
+ * JFT_CLOSED. This is "real DOS closes all a process's handles on terminate":
+ * without it a child that OPENs files and exits WITHOUT closing them leaks SFT
+ * slots, and an EXEC chain (shell -> program -> ...) exhausts the 16 file slots.
+ *
+ * The predefined DEVICE slots 0..3 (CON/AUX/PRN) are RESIDENT -- established once
+ * by sft_init at SYSINIT and shared across every process -- so they are NEVER
+ * touched here: releasing them would leave the next program with no stdin/stdout.
+ * Only FILE-kind entries (which a process owns) are reclaimed.
+ *
+ * Idempotent: a second call is a no-op (every FILE handle is already JFT_CLOSED).
+ * Fails LOUD (panic/abort) on a CORRUPT JFT entry -- one that is neither the
+ * 0xFF closed sentinel nor a valid in-range index of a live SFT slot --
+ * consistent with sft_from_handle (Rule 2). psp == NULL is a no-op (no process).
+ * Ref: DOS 3.3 process terminate (handle table closed); beads initech-6hk. */
+void sft_close_process(psp_t *psp);
+
+/* Bump the SFT refcount for every handle an EXEC child INHERITED from its parent
+ * (beads initech-bsy.9). psp_build copied the parent's whole JFT into the child
+ * (MS-DOS 3.3 AH=4Bh: the child gets a COPY of the parent's handle table), so the
+ * child now holds an ADDITIONAL reference to every SFT slot the parent had open.
+ * This walks the (already-copied) CHILD JFT and increments ref_count for each
+ * entry pointing at a PROCESS-OWNED slot (index >= SFT_FIRST_FILE: files and
+ * open-by-name devices) -- EXACTLY the slots sft_close_process releases on the
+ * child's exit. That symmetry is load-bearing: without the bump, the child's exit
+ * over-frees the shared slot out from under the parent (the parent's next
+ * dos_dup2/dos_close would then fail loud on a freed SFT entry).
+ *
+ * The resident device slots 0..3 (CON/AUX/PRN) are shared, refcount-FIXED at
+ * sft_init, and NEVER released per-process (sft_close_process skips
+ * index < SFT_FIRST_FILE), so they are NOT bumped here -- bumping them would leak.
+ * Inherited jft[1] == a `>`-DUP2'd file slot (>= SFT_FIRST_FILE) IS bumped: that
+ * is what lets EXTERNAL-command output redirect survive the child's exit.
+ *
+ * psp == NULL is a no-op. Fails LOUD on a corrupt JFT entry (neither 0xFF nor an
+ * in-range index of a live slot), mirroring sft_close_process (Rule 2). Called by
+ * the loader right after psp_build + int21_set_psp(child) (loader.c
+ * loader_run_plan). Ref: MS-DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-06; beads
+ * initech-bsy.9; sft_close_process (the symmetric release). */
+void sft_inherit(psp_t *child);
+
+#endif /* INITECH_SFT_H */

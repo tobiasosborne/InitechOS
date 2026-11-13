@@ -12,7 +12,7 @@
  *      value enters the SPSC ring -- i.e. here, in the producer, not in
  *      cook_raw (os/flair/event.c), which only accumulates an
  *      already-flipped delta (g_cursor_v += dy).
- *   - os/milton/mouse.c: int8_t dy = (int8_t)g_pkt[2]; "signed PS/2 Y delta
+ *   - os/initechdos/mouse.c: int8_t dy = (int8_t)g_pkt[2]; "signed PS/2 Y delta
  *     (+ = up)" -- the raw hardware/PS/2 convention (IBM PS/2 Hardware
  *     Interface Technical Reference / Intel 8042 aux-device byte stream):
  *     PS/2 byte 2 is +N for physical UP, -N for physical DOWN.
@@ -20,7 +20,7 @@
  *     DOWNWARD (top-left origin, QuickDraw global coordinates). So a PS/2
  *     "+up" delta must become a NEGATIVE screen-v delta, and vice versa.
  *
- * THE BUG (initech-rgt8): the producer call site (os/milton/kmain.c,
+ * THE BUG (initech-rgt8): the producer call site (os/initechdos/kmain.c,
  *   flair_live_mouse_post) packed the raw PS/2 dy STRAIGHT into bits 16..23
  *   with no negation -- silently violating the spec/event_model.h Sec 5
  *   contract cited above. cook_raw (event.c) and test_event.c are CORRECT
@@ -32,7 +32,7 @@
  *
  * ARTIFACT code (Law 3): freestanding-safe (stdint.h only, no I/O, no libc).
  * Dual-compile: hosted (harness/proptest/test_mouse_producer.c) AND
- * freestanding (included from os/milton/kmain.c under -m32 -ffreestanding).
+ * freestanding (included from os/initechdos/kmain.c under -m32 -ffreestanding).
  * Rule 11 (deterministic, pure function). Rule 12 (ASCII-clean).
  *
  * MUTATION PROBE (Rule 6):
@@ -57,25 +57,16 @@ static inline void mouse_post_packet(uint8_t flags, uint8_t x, uint8_t y,
                                      uint8_t previous_buttons,
                                      void (*post)(int, int, uint8_t))
 {
-#ifdef MOUSE_MUT_SIGN_BYTE
-    int dx = (int8_t)x, dy = (int8_t)y;
-#else
     int dx = (int)x - ((flags & 0x10u) ? 256 : 0);
     int dy = (int)y - ((flags & 0x20u) ? 256 : 0);
-#endif
     if (!post) return;
     do {
         int sx = dx < -127 ? -127 : dx > 127 ? 127 : dx;
         int sy = dy < -127 ? -127 : dy > 127 ? 127 : dy;
         dx -= sx; dy -= sy;
-#ifdef MOUSE_MUT_EARLY_BUTTON
-        (void)previous_buttons;
-        post(sx, sy, (uint8_t)(flags & 7u));
-#else
         /* Movement precedes the packet's button transition. Intermediate
          * chunks retain the previous state; only the last can click. */
         post(sx, sy, (dx || dy) ? previous_buttons : (uint8_t)(flags & 7u));
-#endif
     } while (dx != 0 || dy != 0);
 }
 
@@ -104,14 +95,6 @@ static inline uint32_t mouse_pack_raw_payload(int dx, int dy, uint8_t buttons)
 {
     int8_t screen_dy = mouse_pack_negate_dy(dy);
 
-#ifdef EVENT_MUTATE_FLIP_SIGN
-    /* MUTANT (Rule 6): invert the cooked dy sign AGAIN -- this reproduces
-     * the ORIGINAL initech-rgt8 bug bit-for-bit (double negation cancels the
-     * fix above). MUST drive test_mouse_producer.c RED. screen_dy is always
-     * in [-127,127] here (the -128 case saturates above), so this second
-     * negation never itself overflows. */
-    screen_dy = (int8_t)(-(int)screen_dy);
-#endif
 
     return (uint32_t)(buttons & 0x07u)                       /* bits 0..7  */
          | (((uint32_t)(uint8_t)(int8_t)dx) << 8u)            /* bits 8..15 */

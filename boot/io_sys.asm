@@ -1,9 +1,10 @@
 ; IO.SYS -- BIOS setup and the original real->protected/flat handoff.
 ; initech-kod: physical split, ADR-0003 DEC-01/08; IBM DOS 3.30 TR p1-7
-; (PDF24). Stage2 loads this file at 0:9000 and INITDOS.SYS at 1000:0.
+; (PDF24). Stage2 loads IO at 0:9000 and INITDOS directly at 0x500000.
 ; DH=1 means the FAT loader has validated and loaded both complete files.
-; DH=0 is the embedded legacy payload for old, unpartitioned raw images.
-; The A20/GDT/PE/far-jump and 32-bit copy sequence below is unchanged.
+; DH must be 1; the raw-LBA17 entry has been removed.
+; boot_info+36 contains the loaded byte count; the first 9 dwords are set here.
+; A20/GDT/PE/far-jump follow BIOS setup; no whole-image copy remains.
 ;
 ; beads: initech-f8v.2 ("Tracer boot ..."). Shared with M1.
 ; Ref:   PRD Sec 5 (hardware contract): "VBE 2.0 linear framebuffer,
@@ -32,13 +33,13 @@
 ;   VBE   -- a suitable 640x480 LFB mode was found and set
 ;   FONT  -- VGA ROM font captured
 ;   E820  -- representative successful extended-memory probe marker
-;   KLOAD -- real-mode kernel read into the low bounce completed
+;   KLOAD -- stage2 completed the chunked high kernel load
 ;   A20   -- A20 gate enabled
 ;   GDT   -- flat GDT loaded
 ;   PM    -- protected mode entered (printed from 32-bit code, raw COM1 write)
 ;   LFB   -- framebuffer parameters are ready for the C kernel
 ;   OK    -- protected-mode handoff tail reached
-;   KHI   -- padded kernel window copied from the low bounce to 0x00500000
+;   KHI   -- checked kernel resident at 0x00500000
 ; Any failure path prints a loud marker (e.g. "ERR-VBE") and halts.
 
 bits 16
@@ -50,11 +51,9 @@ COM1            equ 0x3F8
 
 ; Kernel high-runway constants. Ref: docs/design/kernel-runway-relocation.md
 ; K1/K2; bead initech-tdnl.29. These duplicate spec/memory_map.h because NASM
-; cannot consume the C header. The real-mode load loop remains at the bounce;
-; only the protected-mode copy and final far jump use KERNEL_BASE.
+; cannot consume the C header. The FAT loader has populated KERNEL_BASE;
+; this file sets up the BIOS handoff and makes the final far jump.
 KERNEL_BASE        equ 0x00500000
-KERNEL_BOUNCE_BASE equ 0x00010000
-KERNEL_BOUNCE_CAP  equ 0x00030000
 
 ; Initech desktop teal: the LOCKED Initech Color Canon desktop background
 ; (color_canon.json idx2 CIDX_DESKTOP). TEAL_RGB = (0x8D, 0xDC, 0xDC) ->
@@ -83,88 +82,27 @@ E820_BUF        equ 0x7400
 
 ; -- Handoff contract (boot_info.h / docs/research/boot-to-text-ground-truth.md
 ;    Sec 2-3). All physical low-memory addresses; flat == physical.
-BOOT_INFO_ADDR  equ 0x0500      ; 36-byte boot_info struct (above the BDA)
+BOOT_INFO_ADDR  equ 0x0500      ; 40-byte boot_info struct (above the BDA)
                                 ; append-only: 24->28 ext_mem_kb, then 28->32
                                 ; kernel_base (kernel-runway-relocation.md K2;
                                 ; bead initech-tdnl.29; boot_info.h)
 FONT_STASH      equ 0x1000      ; 4096-byte VGA ROM 8x16 font copy
 
-; -- Kernel load (INT 13h CHS). Image layout: MBR s0, stage2 s1..16, kernel
-;    s17.. (Makefile). KERNEL_SECTORS is generous + deterministic (the Makefile
-;    pads the kernel binary to exactly this many sectors). CHS geometry matches
-;    what SeaBIOS presents for the raw image (the MBR already reads track 0).
-KERNEL_SECTORS    equ 384       ; 384 * 512 = 192 KiB kernel window (bumped 64->80
-                                ; for 509.11, 80->96 for 509.2 SYSINIT, 96->112
-                                ; for 509.6 -- mcb.o now links into every kernel;
-                                ; 112->128 for u6wa -- MKDIR/RMDIR (AH=39h/3Ah);
-                                ; 128->144 for qekc -- AH=57h FILETIME (do_filetime
-                                ; + fat12_set_dirent_time + fat_set_time);
-                                ; 144->160 for 4tw -- CON-input ^C check-point
-                                ; (conin_check_ctrlc + int23_dispatch sites) crossed
-                                ; the 144 window by 9 bytes; ends 0x24000 < PROGRAM_BASE;
-                                ; 160->208 for the DOS-3.3 parity session -- env store +
-                                ; InitechMZ loader (mz.c, DEC-08a) + SET + Tranche-F verbs
-                                ; grew kernel_shell.bin to ~85 KiB; ends 0x2A000 < PROGRAM_BASE;
-                                ; 208->224 for p96i -- ansi.c folded into int21.o + console
-                                ; cursor/erase/attr; kernel_shell.bin ~108 KiB on disk;
-                                ; 224->320 for re30.2 -- the 12 FLAIR Toolbox Managers
-                                ; LINKED into both kernels (no call sites yet); kernel_shell.bin
-                                ; grew to 159,000 bytes; ends 0x38000 < PROGRAM_BASE (0x40000);
-                                ; 320->352 for the FLAIR window-chrome FIDELITY work (initech-hmll:
-                                ; drop shadow + close/zoom box + scrollbar glyphs + title bevel)
-                                ; grew kernel_shell.bin to 163,960 bytes, 120 B past the 320 window;
-                                ; ends 0x3C000 < PROGRAM_BASE (0x40000); IMG geometry unchanged;
-                                ; 352->384 for uzjc -- R3.3/R3.5 runway; 384 is the RATIFIED
-                                ; CEILING, not a round number: the real-mode load fills
-                                ; [KERNEL_BOUNCE_BASE, KERNEL_BOUNCE_BASE+KERNEL_BOUNCE_CAP)
-                                ; = [0x10000, 0x40000) and 0x30000/512 = 384, so the window
-                                ; now ends EXACTLY at PROGRAM_BASE exclusive (design K2:
-                                ; "at 384 the disk window equals the bounce"). Growing past
-                                ; this needs a bounce-policy redesign, not an equate edit;
-                                ; the %if below fails that loud at assembly time.
-                                ; IMG_SECTORS moves 384->448 (7 cyl) to fit 1+16+384=401.
-                                ; MUST equal Makefile; <=384 sectors so the low
-                                ; bounce cannot cross PROGRAM_BASE, per design K2 /
-                                ; bead initech-tdnl.29)
-
-; Assembly-time bounce-capacity guard (CLAUDE.md Rule 2 fail-loud; bead
-; initech-uzjc). The Makefile carries the same invariant as a parse-time
-; $(error), but the two KERNEL_SECTORS values are hand-kept equal, so the
-; stage2 side must refuse an over-cap equate on its own -- otherwise a
-; stage2-only edit would silently make the real-mode load overrun
-; PROGRAM_BASE and shred the program window before the kernel ever runs.
-; This also makes KERNEL_BOUNCE_CAP load-bearing rather than decorative.
-%if (KERNEL_SECTORS * 512) > KERNEL_BOUNCE_CAP
-  %error "KERNEL_SECTORS exceeds KERNEL_BOUNCE_CAP: the real-mode kernel load would overrun PROGRAM_BASE (0x40000). Extend the bounce policy (docs/design/kernel-runway-relocation.md K2) before growing the disk window."
-%endif
-
-; Assembly-time MAKEFILE-PARITY gate (Rule 8 -- mechanise the hand-kept
-; invariant; bead initech-uzjc). The Makefile pads each kernel .bin to exactly
-; ITS KERNEL_SECTORS and stage2 reads exactly THIS one; if they drift, the boot
-; either truncates the kernel (loses code, fails in some later, unrelated-looking
-; way) or over-reads past the padded window. Through eight bumps this was kept
-; equal by a comment. The Makefile now passes its value as MK_KERNEL_SECTORS
-; (see the $(STAGE2_BIN) rule) and we refuse to assemble on absence or drift --
-; absence is an error too, so a build path that forgets the -D cannot silently
-; skip the check (Law 2: a gate that can be skipped is not a gate).
-%ifndef MK_KERNEL_SECTORS
-  %error "MK_KERNEL_SECTORS not defined: stage2 must be assembled by the Makefile rule so its KERNEL_SECTORS equate can be checked against the Makefile's KERNEL_SECTORS."
-%elif MK_KERNEL_SECTORS != KERNEL_SECTORS
-  %error "KERNEL_SECTORS MISMATCH: the Makefile's KERNEL_SECTORS (MK_KERNEL_SECTORS) differs from this stage2.asm equate. Bump BOTH -- the Makefile pads the kernel .bin to its value and stage2's INT 13h loop reads this one."
-%endif
-
-KERNEL_LBA        equ 17        ; first kernel sector (1+16)
-; SPT / heads are QUERIED at runtime via INT 13h AH=08h (geometry varies by
-; emulator + image size); see the kernel-load block below.
+; Only the checked FAT stage2 entry is supported (DH=1, DL=boot drive).
+; INITDOS is already at KERNEL_BASE; boot_info+36 holds its exact byte count.
 
 start:
     cli
-    ; Save the BIOS boot drive. The MBR far-jumps here with DL still holding
-    ; [boot_drive] (it loaded DL for its own INT 13h read just before the jump,
-    ; mbr.asm:77,84) -- BIOS convention: DL = boot drive at each boot stage.
-    ; We need it for the kernel-load INT 13h below (Sec 3.3 of the brief).
-    mov [boot_drive_s2], dl
-    mov [fat_loaded], dh
+    ; Only stage2's checked FAT entry may reach the final BIOS/PM setup.
+    cmp dh, 1
+    je .fat_entry
+    mov si, msg_err_kernel
+    call serial_puts
+.invalid_entry:
+    cli
+    hlt
+    jmp .invalid_entry
+.fat_entry:
     xor ax, ax
     mov ds, ax
     mov es, ax
@@ -275,10 +213,10 @@ start:
 .memory_ok:
 
     ; -- Build boot_info at BOOT_INFO_ADDR (0x500), real mode, DS=0 ---------
-    ; 36-byte struct, uint32 fields IN ORDER (boot_info.h / ground-truth Sec 2):
+    ; 40-byte struct, uint32 fields IN ORDER (boot_info.h / ground-truth Sec 2):
     ;   lfb_addr, lfb_pitch, lfb_bpp, lfb_width, lfb_height, font_addr,
     ;   ext_mem_kb, kernel_base, lfb_dac_bits. The placement field remains at
-    ;   +28 (tdnl.29); actual DAC precision is appended at +32 (initech-2gva).
+    ;   +28; DAC precision at +32. Stage2 writes loaded_bytes at +36.
     ; lfb_addr/pitch/bpp were captured by vbe_setup. width/height use the
     ; WANT_W/WANT_H constants -- valid because vbe_setup matched the mode to
     ; them before proceeding (stage2.asm XResolution/YResolution checks).
@@ -302,107 +240,7 @@ start:
     mov eax, [lfb_dac_bits]
     mov [BOOT_INFO_ADDR + 32], eax   ; negotiated DAC width (initech-2gva)
 
-    cmp byte [fat_loaded], 1
-    je .kload_done
-
-    ; -- Load the flat C kernel into the low bounce (real mode, INT 13h CHS) -
-    ; Image layout: MBR s0, stage2 s1..16, kernel s17.. (Makefile). We read
-    ; KERNEL_SECTORS sectors starting at LBA 17 into 0x1000:0x0000 (physical
-    ; 0x10000). Ref: ground-truth Sec 3.1-3.3 plus the superseding
-    ; kernel-runway-relocation.md K2 / bead initech-tdnl.29: INT 13h is
-    ; real-mode-only, so this unchanged loop fills KERNEL_BOUNCE_BASE and the
-    ; protected-mode tail copies the padded window to KERNEL_BASE.
-    ;
-    ; The disk geometry that SeaBIOS/Bochs/86Box assign to a raw image is NOT
-    ; fixed (a tiny image gets a tiny geometry; a 1.44M-shaped one gets 18/2).
-    ; Hardcoding SPT=18/heads=2 fails when the BIOS picks something else, so we
-    ; QUERY it with INT 13h AH=08h (Get Drive Parameters): on return CL[5:0] =
-    ; max sector (== sectors/track), and DH = max head (heads = DH+1). This is
-    ; portable across the tri-emulator set (Rule 5). KERNEL_SECTORS may cross a
-    ; track boundary, so we read one track-chunk at a time, advancing CHS.
-    push es                 ; AH=08h clobbers ES:DI (returns a DPT pointer)
-    mov ah, 0x08
-    mov dl, [boot_drive_s2]
-    xor di, di
-    mov es, di              ; ES:DI = 0:0 per the call's quirk guidance
-    int 0x13
-    pop es
-    jc .err_kernel          ; cannot read geometry -> fail loud (Rule 2)
-    ; SPT = CL & 0x3F (low 6 bits). heads = DH + 1.
-    mov al, cl
-    and al, 0x3F
-    xor ah, ah
-    mov [spt], ax
-    movzx ax, dh
-    inc ax
-    mov [num_heads], ax
-    ; Guard against a degenerate geometry (SPT==0) that would div-by-zero.
-    cmp word [spt], 0
-    je .err_kernel
-
-    mov word [kload_remaining], KERNEL_SECTORS
-    mov word [kload_lba], 17           ; first kernel LBA
-    mov word [kload_seg], 0x1000       ; ES base for KERNEL_BOUNCE_BASE
-
-.kload_loop:
-    mov ax, [kload_remaining]
-    test ax, ax
-    jz .kload_done
-    ; Convert kload_lba -> CHS using the QUERIED geometry:
-    ;   sector   = (LBA mod SPT) + 1
-    ;   head     = (LBA / SPT) mod HEADS
-    ;   cylinder = (LBA / SPT) / HEADS
-    mov ax, [kload_lba]
-    xor dx, dx
-    div word [spt]          ; ax = LBA/SPT, dx = LBA mod SPT
-    mov cl, dl
-    inc cl                  ; CL = sector (1-based)
-    ; ax = LBA / SPT ; split into head and cylinder
-    xor dx, dx
-    div word [num_heads]    ; ax = cylinder, dx = head
-    mov ch, al              ; CH = cylinder low 8 bits (image is tiny: <256 cyl)
-    mov dh, dl              ; DH = head
-    ; How many sectors can we read in this track without crossing its end?
-    ;   per_track_left = SPT - (sector-1) = SPT - (CL-1)
-    mov ax, [spt]
-    movzx bx, cl
-    dec bx
-    sub ax, bx              ; AX = sectors left in this track
-    mov bx, ax              ; BX = per_track_left
-    ; clamp to remaining
-    mov ax, [kload_remaining]
-    cmp ax, bx
-    jbe .kload_count_ok
-    mov ax, bx             ; ax = min(remaining, per_track_left)
-.kload_count_ok:
-    mov [kload_chunk], ax  ; chunk sector count for this read
-    ; Set up ES:BX destination, then INT 13h read.
-    push ax                ; preserve chunk count across reg loads
-    mov bx, [kload_seg]
-    mov es, bx
-    xor bx, bx             ; ES:BX = seg:0
-    pop ax                 ; AL = chunk count (count <= 18, fits in AL)
-    mov ah, 0x02           ; BIOS read sectors
-    ; CH/CL/DH already set (cylinder/sector/head); set drive.
-    mov dl, [boot_drive_s2]
-    int 0x13
-    jc .err_kernel         ; CF set => read failed: fail loud (Rule 2)
-    ; Advance: LBA += chunk, remaining -= chunk, seg += chunk*512/16 = chunk*32.
-    mov ax, [kload_chunk]
-    add [kload_lba], ax
-    sub [kload_remaining], ax
-    mov bx, ax
-    shl bx, 5              ; bx = chunk * 32 (paragraphs per sector = 512/16)
-    add [kload_seg], bx
-    jmp .kload_loop
-
-.err_kernel:
-    mov si, msg_err_kernel
-    call serial_puts
-.kernel_halt:
-    hlt
-    jmp .kernel_halt
-
+    ; Stage2 already checked and loaded the kernel in chunks.
 .kload_done:
     mov si, msg_kload
     call serial_puts
@@ -659,7 +497,7 @@ vbe_setup:
 ; available standard VGA mode 0x13 (320x200x256, linear @ 0xA0000) via INT 10h
 ; and record an 8bpp boot_info. Fail loud (Rule 2) if even mode 0x13's
 ; framebuffer is not live. Ref: bd memory bochs-boot-solved-initech-6pj;
-; os/milton/console.c 8bpp path (initech-6pj).
+; os/initechdos/console.c 8bpp path (initech-6pj).
 ; ---------------------------------------------------------------------------
 .vga_fallback:
     mov ax, 0x0013               ; AH=00 set video mode -> 320x200x256
@@ -999,17 +837,7 @@ pm_entry:
     mov esi, msg_ok32
     call serial_puts32
 
-    ; Copy the entire deterministic padded disk window from the real-mode
-    ; bounce to the high kernel residence. A20 is already enabled and DS/ES are
-    ; flat DATA_SEL, so this is the single post-PE copy-up specified by
-    ; docs/design/kernel-runway-relocation.md K2 (bead initech-tdnl.29). The
-    ; load loop above is intentionally unchanged. Padding zeros are copied too,
-    ; which gives the objcopy-dropped NOBITS/BSS range deterministic zero bytes.
-    cld
-    mov esi, KERNEL_BOUNCE_BASE
-    mov edi, KERNEL_BASE
-    mov ecx, (KERNEL_SECTORS * 512) / 4
-    rep movsd
+    ; Stage2's INT 15h/87h sink has already populated the high image.
     mov esi, msg_khi32
     call serial_puts32
 
@@ -1096,18 +924,6 @@ mode_ptr_off: dw 0
 mode_ptr_seg: dw 0
 cur_mode:     dw 0
 wanted_bpp:   db 32
-
-; Boot drive (DL at stage2 entry; used by the kernel-load INT 13h).
-boot_drive_s2: db 0
-fat_loaded: db 0
-
-; Kernel-load (multi-track INT 13h CHS) state.
-kload_remaining: dw 0    ; sectors still to read
-kload_lba:       dw 0    ; current LBA
-kload_seg:       dw 0    ; current ES destination segment
-kload_chunk:     dw 0    ; sectors read in the current track-chunk
-spt:             dw 0    ; sectors/track (queried via INT 13h AH=08h)
-num_heads:       dw 0    ; number of heads (queried via INT 13h AH=08h)
 
 ; LFB parameters captured from the VBE mode-info block, OR set by the standard
 ; VGA mode-0x13 fallback (.vga_fallback) when no VBE LFB is available.
