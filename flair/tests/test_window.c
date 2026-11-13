@@ -1001,10 +1001,8 @@ int main(void)
         rgn_rect_t desk = { 0, 0, OP_H, OP_W };
         rgn_rect_t user = { 35, 80, 159, 199 };
         rgn_rect_t standard = {
-            FLAIR_CHROME_ZOOM_MARGIN_TOP,
-            FLAIR_CHROME_ZOOM_MARGIN_LEFT,
-            OP_H - FLAIR_CHROME_ZOOM_MARGIN_BOTTOM,
-            OP_W - FLAIR_CHROME_ZOOM_MARGIN_RIGHT
+            /* Operator 2026-11-13: one bar; keep the other 4px margins. */
+            20, 4, OP_H - 4, OP_W - 4
         };
         mgr_attach(&M, desk);
         win_attach(&W);

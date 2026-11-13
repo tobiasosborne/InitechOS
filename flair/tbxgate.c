@@ -458,7 +458,7 @@ static int32_t v_newwindow(const uint32_t *a)
     if (app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
     if (g_slot.nwins == TBX_TENANT_WINDOWS) return TBX_ERR_BUSY;
     uint32_t goaway = a[4] & 0xFFu, wdef = a[4] & ~0xFFu;   /* tdnl.17 */
-    if (l < 0 || r > FLAIR_SCREEN_W || t < 2 * FLAIR_CHROME_MENUBAR_H ||
+    if (l < 0 || r > FLAIR_SCREEN_W || t < FLAIR_CHROME_MENUBAR_H ||
         b > FLAIR_SCREEN_H || r - l < 96 || b - t < 64 ||
         goaway > TBX_GOAWAY_ASK ||                /* Sec 11: 0, 1 or 2 */
         (wdef != 0u && wdef != TBX_WDEF_RDOC))    /* tdnl.17 */

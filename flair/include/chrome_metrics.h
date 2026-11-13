@@ -152,13 +152,13 @@
 #define FLAIR_CHROME_GROW_GRIP_LINES         3
 #define FLAIR_CHROME_GROW_GRIP_PITCH         4
 
-/* R1.2 deterministic Window Manager policy.  Two 20px menu bands occupy the
- * desktop top; the standard-state frame otherwise keeps a four-pixel desktop
+/* Operator 2026-11-13 (CLAUDE.md, Hazards that are still true): one 20px menu
+ * bar occupies the desktop top; the standard-state frame keeps a four-pixel
  * margin.  Manual grow is bounded to the native 640x480 desktop and cannot
  * shrink below a usable 96x64 frame.  Ref: GUI-remediation-plan.md R1.2;
  * window-chrome.md Sec 7/8; bead initech-tdnl.2 (locked-spec act). */
 #define FLAIR_CHROME_ZOOM_MARGIN_LEFT          4
-#define FLAIR_CHROME_ZOOM_MARGIN_TOP          40
+#define FLAIR_CHROME_ZOOM_MARGIN_TOP          20
 #define FLAIR_CHROME_ZOOM_MARGIN_RIGHT         4
 #define FLAIR_CHROME_ZOOM_MARGIN_BOTTOM        4
 #define FLAIR_CHROME_WINDOW_MIN_W              96

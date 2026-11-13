@@ -992,7 +992,9 @@ static void last_gate_line(char *out, size_t cap)
 static void script_gate(void)
 {
     const uint32_t win[5] = { T_L, T_T, T_R, T_B, 1u };
-    const uint32_t lowwin[5] = { T_L, 10u, T_R, T_B, 1u };
+    /* Operator 2026-11-13: one 20-row bar, then usable window rows. */
+    const uint32_t lowwin[5] = { T_L, 19u, T_R, T_B, 1u };
+    const uint32_t reclaimed[5] = { T_L, 20u, T_R, T_B, 1u };
     const uint16_t reserved[5] = { 0x0002u, 0x0010u, 0x0021u, 0x0032u, 0x0051u };
     uint32_t rec = g_base + IMG_REC, a[1];
 
@@ -1032,7 +1034,7 @@ static void script_gate(void)
     X.badarg_eax = gate_raw(TBX_NEWWINDOW, 5u, lowwin, 0u);
     X.win1_eax = gate_raw(TBX_NEWWINDOW, 5u, win, POISON);
     last_gate_line(X.win1_line, sizeof X.win1_line);
-    X.win2_eax = gate_raw(TBX_NEWWINDOW, 5u, win, POISON);
+    X.win2_eax = gate_raw(TBX_NEWWINDOW, 5u, reclaimed, POISON);
     X.win3_eax = gate_raw(TBX_NEWWINDOW, 5u, win, POISON);
 }
 
