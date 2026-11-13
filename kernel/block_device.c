@@ -53,9 +53,6 @@ int block_device_map(unsigned letter,du_map *m)
     init();
     if(!m || letter==1 || letter>3)return -1;
     unsigned drive=letter==0?DL_a_disk:letter==2?DL_c_disk:DL_d_disk;
-#ifdef DRIVE_MUT_DISK
-    if(!letter)drive=0x80;
-#endif
     unsigned part=letter==0?DL_a_partition:letter==2?DL_c_partition:DL_d_partition;
     unsigned i=drive-0x80;uint8_t b[512];
     if(i>1 || !sizes[i] || disks[i].read_sectors(disks[i].ctx,0,1,b))return -1;
@@ -76,9 +73,6 @@ int block_device_map(unsigned letter,du_map *m)
     m->disk=drive;m->partition=part;m->base=base;m->sectors=n;
     m->flags=(!letter?DL_removable_flag:0) |
         ((drive==mounted_drive && base==mounted_base)?DL_running_flag:0);
-#ifdef DRIVE_MUT_RUNNING
-    if(drive==mounted_drive)m->flags|=DL_running_flag;
-#endif
     return 0;
 }
 int block_device_chs(uint16_t cx,uint8_t head,uint32_t sectors,uint32_t *lba)
@@ -86,9 +80,6 @@ int block_device_chs(uint16_t cx,uint8_t head,uint32_t sectors,uint32_t *lba)
     uint32_t cylinder=(cx>>8)|((cx&0xc0u)<<2),sector=cx&63u;
     if(!sector || sector>BD_sectors_per_track || head>=BD_heads)return -1;
     unsigned heads=BD_heads;
-#ifdef BLOCK_DEVICE_MUT_HEADS
-    heads--;
-#endif
     uint32_t l=(cylinder*heads+head)*BD_sectors_per_track+sector-1;
     if(l>=sectors)return -1;
     *lba=l;return 0;
@@ -105,9 +96,7 @@ uint8_t block_device_status(int e)
 static void result(int_frame_t *f,unsigned s)
 {
     f->eax=(f->eax&~0xff00u)|(s<<8);f->eflags&=~1u;
-#ifndef BLOCK_DEVICE_MUT_CARRY
     if(s)f->eflags|=1u;
-#endif
 }
 void KERNEL_ASM_ABI int13_dispatch(int_frame_t *f)
 {
@@ -168,17 +157,12 @@ void KERNEL_ASM_ABI int13_dispatch(int_frame_t *f)
     if(ah==2)rc=disks[i].read_sectors(disks[i].ctx,lba,count,buf);
     else {
         if(!disks[i].write_sectors){result(f,BD_status_write_protected);return;}
-#ifdef BLOCK_DEVICE_MUT_RELATIVE
-        lba+=mounted_base;
-#endif
         rc=disks[i].write_sectors(disks[i].ctx,lba,count,buf);
         if(!rc && write_notice && drive==mounted_drive)
             overlap(lba,count,buf,mounted_base,mounted_size,0,write_notice,0);
-#ifndef BLOCK_DEVICE_MUT_WATCH
         for(unsigned w=0;!rc && w<2;w++)
             if(watch_notice[w] && drive==watched[w].disk)
                 overlap(lba,count,buf,watched[w].base,watched[w].sectors,w+2,0,watch_notice[w]);
-#endif
     }
     result(f,block_device_status(rc));
 }

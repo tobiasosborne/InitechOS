@@ -1,0 +1,22 @@
+# FAT12_MUTATE_SETATTR_NO_FLUSH
+# test: test-b53d
+--- a/fat12.c
++++ b/fat12.c
+@@ -2410,8 +2410,15 @@
+ 	/* Patch ONLY the attribute byte; name / cluster / size / mtime / mdate are
+ 	 * left exactly as scanned (Rule 11: the timestamp bytes stay deterministic). */
+ 	match.attribute = attr;
+-	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+-	                                 match_slot, &match, sector_buf);
++	/* MUTANT 3 (Rule 6; make test-b53d-mutant only): patch `match.attribute` in
++	 * memory but SKIP the write-back flush, so the on-disk 0x0B byte keeps its
++	 * old (0x20 ARCHIVE) baseline. The SET reports success (FAT12_OK) but the
++	 * on-disk DIFFERENTIAL (python --attr / mtools mattrib / a fresh
++	 * fat12_get_attr scan) goes RED -- proving the flush is load-bearing for
++	 * persistence. The in-memory dispatch-GET path the harness drives reads the
++	 * SAME re-scan though, so even the in-harness fat12_get_attr bites. NEVER in a
++	 * real build. */
++	return FAT12_OK;
+ }
+ 
+ /* Service-directory attribute seam (tdnl.30). CHMOD's directory rejection

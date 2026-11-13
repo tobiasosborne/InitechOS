@@ -1,0 +1,23 @@
+# FAT12_MUTATE_GROW_NO_EOC
+# test: test-zs24
+--- a/fat12.c
++++ b/fat12.c
+@@ -1584,10 +1584,14 @@
+ 	if (newc == 0u) {
+ 		return FAT12_ERR_NO_SPACE;
+ 	}
+-	rc = fat12_set_entry(fat, fat_len, newc, FAT12_EOC_VALUE);
+-	if (rc != FAT12_OK) {
+-		return rc;
+-	}
++	/* MUTANT (Rule 6; make test-zs24-mutant only): SKIP marking the freshly
++	 * claimed cluster end-of-chain. The new cluster's FAT entry stays 0x000
++	 * (free); the old-tail->newc link below then points at a "free" cluster, so
++	 * the directory chain is BROKEN at the join -- a reader (mtools/python)
++	 * walking the chain stops at (or rejects) the unterminated/free 2nd cluster
++	 * and the boundary-crossing dir entry is unreachable -> the GROW differential
++	 * goes RED. This proves the chain RELINK (old-tail -> new EOC cluster) is
++	 * what makes the grown slots reachable. NEVER in a real build. */
+ 
+ 	/* Zero-fill the new cluster on disk BEFORE committing the link (so the new
+ 	 * slots read as 0x00 end-of-directory; a failure rolls back the alloc). */

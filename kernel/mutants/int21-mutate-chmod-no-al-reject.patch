@@ -1,0 +1,21 @@
+# INT21_MUTATE_CHMOD_NO_AL_REJECT
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -2852,11 +2852,11 @@
+ 
+     /* AL must select GET (0) or SET (1); reject anything else BEFORE the path is
+      * touched (DOS validates the subfunction first). */
+-    if (al != 0x00u && al != 0x01u) {
+-        set_ax(f, INT21_ERR_INVALID_FUNCTION);
+-        cf_set(f);
+-        return;
+-    }
++    /* MUTANT 1 (Rule 6; make test-b53d-mutant only): SKIP the AL validation, so a
++     * bad AL (e.g. AL=2) is NO LONGER rejected -- it falls through to the GET path
++     * (al==2 != 0x01 takes the GET branch), returning CF=0 + a CX attr instead of
++     * the required CF=1/AX=0x0001. The bad-AL host contract goes RED. NEVER in a
++     * real build. */
+ 
+     if (path == 0 || *path == '\0') {
+         set_ax(f, INT21_ERR_FILE_NOT_FOUND);

@@ -1,0 +1,22 @@
+# ANSI_MUTATE_PARAM_UNBOUNDED
+# test: test-ansi
+--- a/ansi.c
++++ b/ansi.c
+@@ -552,14 +552,9 @@
+             if (st->param_current == ANSI_PARAM_DEFAULT) {
+                 st->param_current = digit;
+             } else {
+-                /* 5y5r: saturate before multiplying. This is a parser safety
+-                 * choice; the visible movement limit is the screen edge
+-                 * (IBM DOS 3.30 printed pp. 3-7/3-8), not an invented DOS
+-                 * maximum. Excess digits are consumed, never wrap negative. */
+-                if (st->param_current > (ANSI_PARAM_VALUE_MAX - digit) / 10)
+-                    st->param_current = ANSI_PARAM_VALUE_MAX;
+-                else
+-                    st->param_current = st->param_current * 10 + digit;
++                /* Named no-cap mutant without invoking signed C UB itself. */
++                st->param_current = (int)(((uint32_t)st->param_current * 10u +
++                                          (uint32_t)digit) & 0x7fffffffu);
+             }
+         } else if (byte == ';') {
+             /* Parameter separator: flush current param, reset accumulator.

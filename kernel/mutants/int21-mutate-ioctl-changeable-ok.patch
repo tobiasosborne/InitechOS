@@ -1,0 +1,17 @@
+# INT21_MUTATE_IOCTL_CHANGEABLE_OK
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -1902,8 +1902,10 @@
+             cf_set(f);
+             return;
+         }
+-        set_ax(f, INT21_ERR_INVALID_FUNCTION);
+-        cf_set(f);
++        /* MUTANT (Rule 6): wrongly answer "removable" (AX=0, CF clear) for our
++         * non-block handles -> the invalid-function assertion goes RED. */
++        set_ax(f, 0x0000u);
++        cf_clear(f);
+         return;
+     }
+ 

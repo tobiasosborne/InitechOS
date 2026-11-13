@@ -1,0 +1,13 @@
+# DU_MUT_CYCLIC
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -408,7 +408,7 @@
+             int prefix=1;
+             for (unsigned i=0; i<n && dst[i]; i++) if (dst[i] != src[i]) prefix=0;
+             if (prefix) {
+-                line(MSG_DOS_0050); return 4;
++                return 0;
+             }
+         }
+     }

@@ -1,0 +1,12 @@
+# FIND_MUTATE_INVERT
+--- a/find/find_program.asm
++++ b/find/find_program.asm
+@@ -205,6 +205,8 @@
+     jz .no_invert
+     xor eax, 1
+ .no_invert:
++    xor eax, 1                 ; MUTANT (Rule 6): flip match sense -> the "only
++                               ; matching lines appear" assertion goes RED.
+     test eax, eax
+     jz .next_line              ; no match -> next line
+     ; matched.

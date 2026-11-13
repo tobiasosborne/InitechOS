@@ -1,0 +1,19 @@
+# CRIT_MUTATE_AF_SWAP
+# test: test-int24
+--- a/int21.c
++++ b/int21.c
+@@ -5066,9 +5066,12 @@
+         c = c - 'a' + 'A';          /* upcase (ASCII; Rule 12) */
+     }
+     switch (c) {
++        /* MUTANT (Rule 6; make test-int24-mutant only): SWAP Abort<->Fail so the
++         * A/R/F mapping is wrong. The crit_error_action mapping test + the int24
++         * AL=1-for-'A' test go RED. NEVER define in a real build. */
+         case 'R': return 0;         /* Retry */
+-        case 'A': return 1;         /* Abort */
+-        case 'F': return 2;         /* Fail  */
++        case 'A': return 2;         /* (mutant) Fail instead of Abort */
++        case 'F': return 1;         /* (mutant) Abort instead of Fail */
+         default:  return -1;        /* invalid -> re-prompt */
+     }
+ }

@@ -1,0 +1,12 @@
+# CHKDSK_MUT_VERBOSE
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -177,7 +177,6 @@
+             if(base_len+n+2>=sizeof(s.path)){s.incomplete=1;continue;}
+             copy(s.path+base_len,name,n+1);
+             if(s.pass==0 && s.verbose && !(e[11]&16)) {
+-                put(s.path);nl();
+             }
+             uint32_t units=walk_file(e,first+j,at);
+             if(s.pass==0) {

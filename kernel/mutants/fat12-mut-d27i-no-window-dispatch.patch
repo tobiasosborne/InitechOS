@@ -1,0 +1,53 @@
+# FAT12_MUT_D27I_NO_WINDOW_DISPATCH
+# test: test-d27i
+--- a/fat12.c
++++ b/fat12.c
+@@ -507,17 +507,11 @@
+ 	 * returns the in-window offset; the decode below is byte-identical, just over
+ 	 * the window buffer rather than the caller's `fat`. FAT16 entries (cluster*2)
+ 	 * never straddle, so a 1-sector fetch always suffices. */
+-	if (vol != NULL && vol->fat_window != NULL) {
+-		uint32_t win_off;
+-		int      rc = fat12_read_fat_sector(vol, cluster, &win_off);
+-		if (rc != FAT12_OK) {
+-			return rc;
+-		}
+-		b   = vol->fat_window->buf;
+-		off = win_off;
+-		*out_next = (uint16_t)((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8));
+-		return FAT12_OK;
+-	}
++	/* MUTANT (Rule 6; test-d27i-mutant only): DROP the windowed dispatch -- a
++	 * FAT16 volume then falls through to the whole-FAT path below and, given the
++	 * windowed callers pass fat==NULL, fails FAT12_ERR_NULL. This proves the
++	 * windowed dispatch is what lets a FAT16 volume read without the whole FAT.
++	 * NEVER define in a real build. */
+ 
+ 	(void)vol; /* whole-FAT path: decode is a pure function of the flat buffer */
+ 
+@@ -586,21 +580,10 @@
+ 	 * BOTH sectors when the entry STRADDLES a boundary -- so the decode below is
+ 	 * byte-identical to the whole-FAT path over a tiny window. fat12_read_fat_
+ 	 * sector returns the in-window offset; b/off then point into the window. */
+-	if (vol != NULL && vol->fat_window != NULL) {
+-		uint32_t win_off;
+-		int      rc = fat12_read_fat_sector(vol, cluster, &win_off);
+-		if (rc != FAT12_OK) {
+-			return rc;
+-		}
+-		b = vol->fat_window->buf;
+-		v = (uint16_t)((uint16_t)b[win_off] | ((uint16_t)b[win_off + 1u] << 8));
+-		if ((cluster & 1u) == 0u) {
+-			*out_next = (uint16_t)(v & FAT12_ENTRY_MASK);
+-		} else {
+-			*out_next = (uint16_t)((v >> 4) & FAT12_ENTRY_MASK);
+-		}
+-		return FAT12_OK;
+-	}
++	/* MUTANT (Rule 6; test-d27i-mutant only): DROP the windowed dispatch -- a
++	 * FAT12 volume with only a window (fat==NULL) falls through to the whole-FAT
++	 * NULL check and fails. Proves the windowed dispatch is load-bearing. NEVER
++	 * in a real build. */
+ 
+ 	if (fat == NULL) {
+ 		return FAT12_ERR_NULL;

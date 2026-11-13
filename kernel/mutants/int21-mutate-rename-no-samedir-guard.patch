@@ -1,0 +1,20 @@
+# INT21_MUTATE_RENAME_NO_SAMEDIR_GUARD
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -2793,11 +2793,10 @@
+ 
+     /* A cross-DIRECTORY pair is a MOVE, not a rename -> NOT_SAME_DEVICE. Same-dir
+      * rename ONLY this milestone (cross-dir MOVE deferred to beads initech-ycb3). */
+-    if (old_dir_start != new_dir_start) {
+-        set_ax(f, INT21_ERR_NOT_SAME_DEVICE);
+-        cf_set(f);
+-        return;
+-    }
++    /* MUTANT 4 (Rule 6; make test-gnrc-mutant only): DROP the old_dir==new_dir
++     * guard, so a cross-directory EDX/EDI pair wrongly proceeds to the backend
++     * rename (acting as if same-dir) instead of returning 0x0011. The
++     * not-same-device leg goes RED. NEVER in a real build. */
+ 
+     if (old_drive != g_io_drive) { set_ax(f, 17u); cf_set(f); return; }
+     if (g_file == 0 || g_file->rename == 0) {

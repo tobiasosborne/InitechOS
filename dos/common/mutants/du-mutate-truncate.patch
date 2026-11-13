@@ -1,0 +1,13 @@
+# DU_MUTATE_TRUNCATE
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -263,7 +263,7 @@
+         const char *bad="*?/\\|.,;:+=<>[]()&^\"";
+         if ((unsigned char)c<32) return error(MSG_DOS_0041);
+         for (;*bad;bad++) if (*bad==c) return error(MSG_DOS_0041);
+-        if (n<11) name[n++]=c;
++        if (n<10) name[n++]=c;
+     }
+     while (n && name[n-1]==' ') n--;
+     name[n]=0;

@@ -1,0 +1,27 @@
+# FAT12_MUTATE_MOVE_NO_DOTDOT_FIX
+# test: test-fat-move
+--- a/fat12.c
++++ b/fat12.c
+@@ -3523,16 +3523,12 @@
+ 	 * the wrong place. One 32-byte read-modify-write of slot 1 of D's first
+ 	 * cluster; the old parent is remembered so a later failure restores it. */
+ 	if (is_dir) {
+-		rc = fat12_set_dotdot(vol, fat, fat_len, moved_start, dst_dir_start,
+-		                      sector_buf);
+-		if (rc != FAT12_OK) {
+-			if (dst_grew) {
+-				fat12_shrink_dir_tail(vol, fat, fat_len, dst_dir_start,
+-				                      dst_newc);
+-			}
+-			return rc;
+-		}
+-		dotdot_set = 1;
++		/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the '..' fixup, so
++		 * a moved directory keeps pointing at its OLD parent -- the folder is
++		 * reachable at its new home but walks out of the tree wrongly. The
++		 * directory-move leg's '..' assertion (and the mtools '..' traversal) goes
++		 * RED. NEVER define in a real build. */
++		(void)dotdot_set;
+ 	}
+ 
+ 	/* ---- 6. write the transplanted entry into the destination slot ---- *

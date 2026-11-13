@@ -201,16 +201,10 @@ int batch_expand(const char *line,
             /* "%%" -> literal '%' (DOS escape for percent sign).
              * MUTANT BATCH_MUTATE_NO_PCT_PCT: skip collapsing; emit '%'
              * twice so the test that checks for a single '%' goes RED. */
-#ifdef BATCH_MUTATE_NO_PCT_PCT
-            /* Emit both percent signs (the mutant deliberately breaks this). */
-            if (!bat_emit(out, &pos, cap, '%')) { out[0] = '\0'; return -1; }
-            if (!bat_emit(out, &pos, cap, '%')) { out[0] = '\0'; return -1; }
-#else
             if (!bat_emit(out, &pos, cap, '%')) {
                 out[0] = '\0';
                 return -1;
             }
-#endif
             i++;    /* skip the second '%' */
             continue;
         }
@@ -333,17 +327,10 @@ static int bat_copy_label(char *dst, const char *src)
 static int bat_goto_target(char *dst, const char *arg)
 {
     const char *p = bat_skip_ws(arg);
-#ifdef BATCH_MUTATE_GOTO_NOLABEL
-    /* Mutant: write nothing -- the GOTO target test goes RED. */
-    dst[0] = '\0';
-    (void)p;
-    return 0;
-#else
     if (*p == ':') {
         p++;    /* strip the optional leading ':' */
     }
     return bat_copy_label(dst, p);
-#endif
 }
 
 /* Match a directive keyword at the start of `s` (after '@' + whitespace
@@ -428,12 +415,10 @@ batch_line_kind_t batch_classify(const char *line, batch_parsed_t *out)
      * MUTANT BATCH_MUTATE_ECHO_OFF_MISS: skip the OFF check so "ECHO OFF"
      * falls into BL_ECHO_TEXT; the ECHO OFF classify test goes RED. */
     if (bat_match_kw(p, "ECHO", &rest)) {
-#ifndef BATCH_MUTATE_ECHO_OFF_MISS
         if (bat_stricmp(rest, "OFF") == 0) {
             out->kind = BL_ECHO_OFF;
             return BL_ECHO_OFF;
         }
-#endif
         if (bat_stricmp(rest, "ON") == 0) {
             out->kind = BL_ECHO_ON;
             return BL_ECHO_ON;
@@ -672,13 +657,9 @@ int batch_eval_if(const char *if_args, uint8_t errorlevel,
     /* Apply NOT.
      * MUTANT BATCH_MUTATE_IF_IGNORE_NOT: drop the negation so a NOT'd condition
      * returns the un-negated truth -> the IF-NOT oracle goes RED (Rule 6). */
-#ifndef BATCH_MUTATE_IF_IGNORE_NOT
     if (negate) {
         result = result ? 0 : 1;
     }
-#else
-    (void)negate;
-#endif
 
     if (result) {
         if (out_cmd != 0) {
@@ -781,16 +762,6 @@ int batch_for_next_token(const char *set, int *cursor, char *tok_out, int cap)
     while (set[i] != '\0' && bat_is_for_sep(set[i])) {
         i++;
     }
-#ifdef BATCH_MUTATE_FOR_NO_TOKENS
-    /* MUTANT (Rule 6): after skipping separators, pretend the set is always
-     * exhausted -> a FOR set yields zero tokens so the FOR-tokenize oracle goes
-     * RED.  A genuine one-branch RUNTIME perturbation (still compiles clean
-     * under -Werror: i + bat_is_for_sep are exercised by the skip loop above).
-     * NEVER in a real build. */
-    (void)n;
-    *cursor = i;
-    return 0;
-#else
     if (set[i] == '\0') {
         *cursor = i;
         return 0;   /* no more tokens */
@@ -807,7 +778,6 @@ int batch_for_next_token(const char *set, int *cursor, char *tok_out, int cap)
     }
     *cursor = i;
     return 1;
-#endif
 }
 
 /* ---- batch_for_subst ----------------------------------------------------- */

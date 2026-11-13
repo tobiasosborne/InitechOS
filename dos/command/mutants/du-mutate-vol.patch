@@ -1,0 +1,12 @@
+# DU_MUTATE_VOL
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -63,7 +63,6 @@
+                                       * the shipped-command inventory honest. */
+         { "DIR",   CMD_DIR  },
+         { "PATH",  CMD_PATH }, /* MS-DOS 3.3 Reference p.97 / PDF182. */
+-        { "VOL",   CMD_VOL  }, /* MS-DOS 3.3 User's Guide p.126 / PDF211 */
+         { "TYPE",  CMD_TYPE },
+         { "CD",    CMD_CD   },
+         { "CHDIR", CMD_CD   },   /* CHDIR is the long form of CD (DOS) */

@@ -1,0 +1,13 @@
+# CONKEYS_MUT_F5
+# test: test-conkeys-unit
+--- a/include/conedit.h
++++ b/include/conedit.h
+@@ -61,8 +61,6 @@
+         case 0x3d:{unsigned end=s->length;
+             conedit_copy(s,out,cap,end,emit,ctx);break;}
+         case 0x3f:
+-            s->length=s->count;
+-            for(unsigned i=0;i<s->length;i++)s->text[i]=out[i];
+             emit('@',ctx);emit(13,ctx);emit(10,ctx);
+             s->count=s->pos=0;s->insert=0;break;
+         default:break;

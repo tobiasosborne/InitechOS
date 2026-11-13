@@ -1,0 +1,13 @@
+# INT21_MUTATE_CON_EXPLICIT_RAW
+# test: test-conin-unit
+--- a/int21.c
++++ b/int21.c
+@@ -3148,7 +3148,7 @@
+          * INT 23h checkpoint. A pipe only redirects stdin; OPEN CON still names
+          * the physical keyboard. Other devices retain request-packet routing. */
+         if (e->device ? (
+-                        ((device_header_t *)e->device)->attribute & DEV_ATTR_STDIN
++                        0 /* Rule 6: restore K12's explicit-CON raw bypass. */
+                         )
+                       : e->dev_id == SFT_DEV_CON) {
+             con_handle_read(f, e, buf, count);

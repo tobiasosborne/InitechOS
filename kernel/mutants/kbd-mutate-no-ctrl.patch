@@ -1,0 +1,18 @@
+# KBD_MUTATE_NO_CTRL
+# test: test-kbd-unit
+--- a/kbd.c
++++ b/kbd.c
+@@ -218,13 +218,6 @@
+         return 0u;
+     }
+ 
+-    /* DOS control letters are case-independent: Ctrl-C=03h, Ctrl-Z=1Ah.
+-     * Ref: MS-DOS_3.3_Users_Guide_198707.pdf pp. 132, 158-159.
+-     * Use the cooked byte only; the FLAIR hook still receives raw scancodes. */
+-    if (st->ctrl) {
+-        if (base >= 'a' && base <= 'z') return (uint8_t)(base - 'a' + 1);
+-        if (base >= 'A' && base <= 'Z') return (uint8_t)(base - 'A' + 1);
+-    }
+ 
+     /* CapsLock affects LETTERS only. With Shift OFF, caps upper-cases a-z; with
+      * Shift ON over caps, a letter goes back to lowercase (the usual DOS/Mac

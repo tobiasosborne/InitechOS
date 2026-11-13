@@ -1,0 +1,18 @@
+# INT21_MUTATE_WILD_STAR_BLEED
+# test: test-80k
+--- a/int21.c
++++ b/int21.c
+@@ -3459,8 +3459,11 @@
+         int base = (field == 0) ? 0 : 8;
+         int cap  = (field == 0) ? 8 : 3;
+         if (c == '*') {
+-            /* Fill the rest of THIS field with '?' (match any). */
+-            for (; pos < cap; pos++) {
++            /* MUTANT (Rule 6; make test-80k-mutant only): a '*' fills from the
++             * current cursor to the END OF THE 11-BYTE TEMPLATE, bleeding a
++             * name-field '*' into the ext field. "*.TXT" then becomes all '?',
++             * so the "ext must stay TXT" rows MUST go RED. NEVER in a real build. */
++            for (; base + pos < 11; pos++) {
+                 out[base + pos] = '?';
+             }
+             continue;

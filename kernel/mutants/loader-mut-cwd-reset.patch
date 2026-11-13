@@ -1,0 +1,12 @@
+# LOADER_MUT_CWD_RESET
+# test: test-loader
+--- a/loader.c
++++ b/loader.c
+@@ -725,6 +725,7 @@
+      * child's CHDIR does not outlive it (a stated deviation, unchanged).
+      * MUTANT LOADER_MUT_CWD_RESET (Rule 6; test-flair-tps-journey-mutant
+      * CWDRESET): the pre-3p1a reset-to-root. NEVER in a real build. */
++    int21_cwd_reset();
+ 
+     /* --- The control transfer + return-to-loader (Sec 4; Risk 1). --- */
+     ctx.exit_code  = 0;

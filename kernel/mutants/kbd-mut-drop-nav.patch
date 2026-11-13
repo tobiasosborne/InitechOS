@@ -1,0 +1,12 @@
+# KBD_MUT_DROP_NAV
+# test: test-kbd-unit
+--- a/kbd.c
++++ b/kbd.c
+@@ -281,6 +281,7 @@
+     /* Always decode the ORIGINAL input, even when the resulting BIOS code
+      * has bit 7 set (Ctrl-PgUp=84h). Consume E0 and update modifiers once. */
+     uint8_t ascii = kbd_translate(state, sc);
++    if (sc == 0x48u) special = 0; /* Rule 6: lose Up again. */
+     if (special) {
+         uint16_t head = ring->head;
+         uint16_t next = (uint16_t)((head + 1u) & (KBD_RING_CAP - 1u));

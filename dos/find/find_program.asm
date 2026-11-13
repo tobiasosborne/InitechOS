@@ -205,10 +205,6 @@ start:
     jz .no_invert
     xor eax, 1
 .no_invert:
-%ifdef FIND_MUTATE_INVERT
-    xor eax, 1                 ; MUTANT (Rule 6): flip match sense -> the "only
-                               ; matching lines appear" assertion goes RED.
-%endif
     test eax, eax
     jz .next_line              ; no match -> next line
     ; matched.

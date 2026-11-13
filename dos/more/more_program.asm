@@ -75,10 +75,6 @@ start:
     test eax, eax
     jz .done                   ; EOF
     mov ecx, eax               ; bytes to write
-%ifdef MORE_MUTATE_DROP
-    dec ecx                    ; MUTANT (Rule 6): forward one byte fewer per chunk
-                               ; -> passthrough is LOSSY, "output == input" goes RED
-%endif
     mov ah, 0x40               ; WRITE handle 1
     mov ebx, 1
     mov edx, RBUF

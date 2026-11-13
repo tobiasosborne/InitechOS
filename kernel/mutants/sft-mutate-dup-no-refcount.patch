@@ -1,0 +1,15 @@
+# SFT_MUTATE_DUP_NO_REFCOUNT
+# test: test-sft
+--- a/sft.c
++++ b/sft.c
+@@ -217,10 +217,6 @@
+ 
+     uint8_t sft_idx = psp->jft[src];
+     psp->jft[j] = sft_idx;            /* the new handle aliases the same entry */
+-    /* Rule-6 mutant target: WITHOUT this increment, a later release/close
+-     * over-frees the shared slot. The oracle asserts the bump -> the mutant
+-     * (which omits it) goes RED. */
+-    g_sft[sft_idx].ref_count++;
+ 
+     if (out_handle != 0) {
+         *out_handle = j;

@@ -1,0 +1,12 @@
+# CONKEYS_MUT_INS
+# test: test-conkeys-unit
+--- a/include/conedit.h
++++ b/include/conedit.h
+@@ -47,7 +47,6 @@
+         s->extended=0;
+         switch(c){
+         case 0x52:
+-            s->insert=!s->insert;
+             break;
+         case 0x53:
+             if(s->pos<s->length)s->pos++;

@@ -1,0 +1,31 @@
+# FAT16_MUTATE_ENTRY_MASK12
+# test: test-fat16
+--- a/fat12.c
++++ b/fat12.c
+@@ -515,7 +515,8 @@
+ 		}
+ 		b   = vol->fat_window->buf;
+ 		off = win_off;
+-		*out_next = (uint16_t)((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8));
++		*out_next = (uint16_t)(((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8))
++		                       & FAT12_ENTRY_MASK);
+ 		return FAT12_OK;
+ 	}
+ 
+@@ -539,10 +540,12 @@
+ 	}
+ 
+ 	b = (const uint8_t *)fat;
+-	/* Little-endian 16-bit entry, used VERBATIM (no mask): a valid FAT16 cluster
+-	 * pointer can exceed 0x0FFF, and the EOC value 0xFFFF must survive intact for
+-	 * the >= 0xFFF8 classification (brief Sec 3). */
+-	*out_next = (uint16_t)((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8));
++	/* MUTANT (Rule 6; test-fat16 mutant M2 only): mask the FAT16 entry to 12
++	 * bits as if it were a FAT12 entry. Any cluster pointer >= 0x1000 corrupts,
++	 * and EOC 0xFFFF -> 0x0FFF which is NOT >= 0xFFF8, so chains never terminate
++	 * correctly -> the differential goes RED. NEVER define in a real build. */
++	*out_next = (uint16_t)(((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8))
++	                       & FAT12_ENTRY_MASK);
+ 
+ 	return FAT12_OK;
+ }

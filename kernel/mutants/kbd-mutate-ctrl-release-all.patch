@@ -1,0 +1,13 @@
+# KBD_MUTATE_CTRL_RELEASE_ALL
+# test: test-kbd-unit
+--- a/kbd.c
++++ b/kbd.c
+@@ -158,7 +158,7 @@
+     if ((scancode & 0x7Fu) == 0x1Du) {
+         uint8_t side = extended ? 2u : 1u;
+         if (scancode & SC_BREAK_FLAG) {
+-            st->ctrl &= (uint8_t)~side;
++            st->ctrl = 0u; /* Rule 6: releasing either Ctrl releases both. */
+         }
+         else st->ctrl |= side;
+         return 0u;

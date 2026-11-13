@@ -1,0 +1,18 @@
+# FAT12_MUTATE_GROWDIR_NO_ZEROFILL_ROLLBACK
+# test: test-fat-fault-rollback
+--- a/fat12.c
++++ b/fat12.c
+@@ -1593,8 +1593,11 @@
+ 	 * slots read as 0x00 end-of-directory; a failure rolls back the alloc). */
+ 	lba = cluster_lba(vol, newc);
+ 	if (cluster_fill(vol, lba, NULL, 0u, cluster_buf) != FAT12_OK) {
+-		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+-		(void)fat12_flush_fats(vol, fat, fat_len);
++		/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
++		 * zero-fill-fail rollback. The cluster the grow CLAIMED (marked EOC in
++		 * memory) is NOT returned to FREE, so it LEAKS while the grow -- and the
++		 * fat12_create that drove it -- still fails. The free-count / chain-len
++		 * assertion in scenario [B] must go RED. NEVER define in a real build. */
+ 		return FAT12_ERR_WRITE;
+ 	}
+ 

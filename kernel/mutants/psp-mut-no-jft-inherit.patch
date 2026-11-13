@@ -1,0 +1,21 @@
+# PSP_MUT_NO_JFT_INHERIT
+# test: test-psp
+--- a/psp.c
++++ b/psp.c
+@@ -216,12 +216,10 @@
+      * (sft_inherit) -- psp.c stays SFT-independent (pure + host-testable).
+      * Ref: Sec 2.6; dos_structs.h:97; ADR-0003 DEC-06; MS-DOS 3.3 PRM AH=4Bh;
+      *      sft.h SFT_SLOT_*. */
+-    if (params->parent_jft != 0) {
+-        /* Inherit a byte-for-byte copy of the parent's 20-entry handle table. */
+-        for (uint32_t i = 0; i < 20; i++) {
+-            psp->jft[i] = params->parent_jft[i];
+-        }
+-    } else
++    /* Rule-6 mutant (make test-psp-mutant / the bsy.9 emu mutant): RESTORE the
++     * old hard-reset -- IGNORE params->parent_jft and ALWAYS lay the CON defaults,
++     * disabling inheritance. test_psp Case 5 (host) + the redirect emu gate both
++     * go RED, proving the inheritance path is load-bearing. NEVER in a real build. */
+     {
+         /* NO parent (boot-time kernel/shell PSP): the FIVE predefined standard
+          * handles (DEC-06) then 0xFF x15 (unused/closed). */

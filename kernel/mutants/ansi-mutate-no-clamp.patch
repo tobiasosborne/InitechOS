@@ -1,0 +1,23 @@
+# ANSI_MUTATE_NO_CLAMP
+# test: test-ansi
+--- a/ansi.c
++++ b/ansi.c
+@@ -320,10 +320,14 @@
+             if (r < 1) r = 1;
+             if (c < 1) c = 1;
+             a.kind = ANSI_ACT_MOVE_CURSOR;
+-            /* Real III+ at-to-b/TE: ESC[26;1H carries BIOS row 25.
+-             * Larger requests still use the existing last-row clamp. */
+-            a.row  = r - 1 == st->rows ? st->rows : ansi_clamp(r - 1, 0, st->rows - 1);
+-            a.col  = ansi_clamp(c - 1, 0, st->cols_wide - 1);
++            /* MUTANT (Rule 6): widen the clamp bounds to a no-op range -- an
++             * out-of-range CUP/HVP (e.g. ESC[999;999H on a 25x80 screen)
++             * emits a position off the visible grid. Calls ansi_clamp() with
++             * bounds that never bind, so the helper stays referenced but the
++             * screen-size bound is effectively skipped. Must turn the
++             * cursor-clamp oracle RED. */
++            a.row  = ansi_clamp(r - 1, -2147483647, 2147483647);
++            a.col  = ansi_clamp(c - 1, -2147483647, 2147483647);
+             /* Update FSM cursor so save/restore tracks absolute position. */
+             st->row = a.row;
+             st->col = a.col;

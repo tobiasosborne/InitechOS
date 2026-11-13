@@ -1,0 +1,19 @@
+# CMD_MUTATE_DEL_DIRECTORY_UNLINK
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3176,14 +3176,6 @@
+     /* Reference DEL, printed p.56 / PDF141: a directory operand means its
+      * immediate files. Resolve BEFORE appending the mask, preserving the
+      * original drive, CWD and dots. UNLINK must still reject directories. */
+-    if (!cmd_has_wildcard(name) && int21_directory_exists(name)) {
+-        unsigned n = str_len(name);
+-        if (n + 4u >= sizeof(name)) {
+-            dos_print(MSG_DOS_0009 "\r\n$"); return;
+-        }
+-        if (n && name[n-1] != '\\' && name[n-1] != ':') name[n++] = '\\';
+-        name[n++] = '*'; name[n++] = '.'; name[n++] = '*'; name[n] = 0;
+-    }
+     int prefix = 0;
+     for (int i = 0; name[i]; i++)
+         if (name[i] == '\\' || name[i] == ':') prefix = i + 1;

@@ -1,0 +1,22 @@
+# INT21_MUTATE_NOT_READY
+# test: test-int21
+--- a/int21.c
++++ b/int21.c
+@@ -5502,16 +5502,7 @@
+      * data. Use only the driver's explicit NO_DRIVE condition, never an
+      * arbitrary read error. The bound FAT data volume is DOS drive A.
+      * Wording is the approved ADR-0003 Appendix C / MSG-DOS-0006 form. */
+-    if (!op_is_write && device_error == ATA_ERR_NO_DRIVE) {
+-        const char *s = MSG_DOS_0006;
+-        while (*s) {
+-            if (s[0] == '%' && s[1] == 'c') {
+-                con_putc('A');
+-                s += 2;
+-            } else con_putc(*s++);
+-        }
+-        con_puts("\r\n");
+-    }
++    (void)op_is_write; (void)device_error;
+ 
+     /* A zeroed frame with CF preset so we can prove int24 CLEARS it (mirrors the
+      * host oracle's fresh_frame; the only fields int24 touches are AL + CF). */

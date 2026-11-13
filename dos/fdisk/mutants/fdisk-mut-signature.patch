@@ -1,0 +1,12 @@
+# FDISK_MUT_SIGNATURE
+# test: test-fdisk
+--- a/fdisk/fdisk.c
++++ b/fdisk/fdisk.c
+@@ -14,6 +14,7 @@
+ static void signature(uint8_t *m)
+ {
+     m[510]=0x55;m[511]=0xaa;
++    m[510]=0;
+ }
+ static void chs(uint8_t *p,uint32_t lba)
+ {

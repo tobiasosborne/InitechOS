@@ -217,12 +217,10 @@ uint16_t sft_dup(psp_t *psp, uint8_t src, uint8_t *out_handle)
 
     uint8_t sft_idx = psp->jft[src];
     psp->jft[j] = sft_idx;            /* the new handle aliases the same entry */
-#ifndef SFT_MUTATE_DUP_NO_REFCOUNT
     /* Rule-6 mutant target: WITHOUT this increment, a later release/close
      * over-frees the shared slot. The oracle asserts the bump -> the mutant
      * (which omits it) goes RED. */
     g_sft[sft_idx].ref_count++;
-#endif
 
     if (out_handle != 0) {
         *out_handle = j;
@@ -246,12 +244,10 @@ uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst)
     /* If the target handle is already open, release its current SFT slot first
      * (the redirect overwrites it). */
     if (psp->jft[dst] != JFT_CLOSED) {
-#ifndef SFT_MUTATE_DUP2_NO_RELEASE
         /* Rule-6 mutant target: WITHOUT this release the old target slot leaks
          * a reference (stays live forever). The oracle asserts the old slot's
          * ref_count drops -> the mutant (which omits it) goes RED. */
         sft_release(psp->jft[dst]);
-#endif
     }
 
     uint8_t sft_idx = psp->jft[src];
@@ -320,14 +316,12 @@ void sft_close_process(psp_t *psp)
             continue;   /* defensive: only file/device kinds are reclaimable */
         }
 
-#ifndef SFT_MUTATE_NO_CLOSE_PROCESS
         /* Rule-6 mutant target (make test-exit-handles-mutant): WITHOUT this
          * release the exiting process's FILE slots leak -- an EXEC chain of a
          * leaky child exhausts the 16 file slots and a later OPEN fails. The
          * in-emulator oracle goes RED. NEVER define in a real build. */
         sft_release(idx);
         psp->jft[h] = JFT_CLOSED;
-#endif
     }
 }
 
@@ -369,7 +363,6 @@ void sft_inherit(psp_t *child)
             continue; /* resident CON/AUX/PRN device slot -- shared, not counted */
         }
 
-#ifndef SFT_MUTATE_NO_INHERIT_REFCOUNT
         /* Rule-6 mutant target (SFT_MUTATE_NO_INHERIT_REFCOUNT): WITHOUT this bump
          * the child's exit (sft_close_process) OVER-FREES the inherited slot out
          * from under the parent -- the parent's next dos_dup2(saved,1)/dos_close
@@ -377,6 +370,5 @@ void sft_inherit(psp_t *child)
          * emu gate goes RED (triple-fault / missing GREETINGS). NEVER in a real
          * build. */
         g_sft[idx].ref_count++;
-#endif
     }
 }

@@ -1,0 +1,15 @@
+# BATCH_MUTATE_IF_IGNORE_NOT
+# test: test-batch-exec
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -657,9 +657,7 @@
+     /* Apply NOT.
+      * MUTANT BATCH_MUTATE_IF_IGNORE_NOT: drop the negation so a NOT'd condition
+      * returns the un-negated truth -> the IF-NOT oracle goes RED (Rule 6). */
+-    if (negate) {
+-        result = result ? 0 : 1;
+-    }
++    (void)negate;
+ 
+     if (result) {
+         if (out_cmd != 0) {

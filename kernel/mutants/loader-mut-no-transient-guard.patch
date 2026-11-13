@@ -1,0 +1,20 @@
+# LOADER_MUT_NO_TRANSIENT_GUARD
+# test: test-loader
+--- a/loader_validation.c
++++ b/loader_validation.c
+@@ -41,11 +41,10 @@
+          (uint32_t)image[7] << 24) == 0x4C564F52u) {
+         return 1;
+     }
+-    uint32_t m = 0u;
+-    while (m < TRANSIENT_MAGIC_LEN && image[m] == (uint8_t)TRANSIENT_MAGIC[m]) {
+-        m++;
+-    }
+-    return m == TRANSIENT_MAGIC_LEN;
++    /* MUTANT (Rule 6; make test-flair-execguard-mutant / test-loader-mutant
++     * only): the pre-13ig loader never recognises the overlay and runs its
++     * header as code. NEVER in a real build. */
++    return 0;
+ }
+ 
+ loader_status_t loader_prepare_core(const uint8_t *image,

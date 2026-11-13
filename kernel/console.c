@@ -101,9 +101,6 @@ void console_cursor_wait(console_t *con, uint32_t ticks, int active)
 {
     if (!con || !con->lfb) return;
     int want = active && (((ticks % 160u) * 3u / 80u) & 1u) == 0u;
-#ifdef CONSOLE_MUTATE_CURSOR_OFF
-    want = 0;
-#endif
 #ifdef CONSOLE_RECORD_CURSOR_STEADY
     /* Record-image kernels ONLY (make record-flair): per-event clip frames are
      * grabbed on a wall-clock settle, so the tick-phase blink made the repro
@@ -244,9 +241,7 @@ void console_putc(console_t *con, char ch)
          * PDF 82: erase display goes to home; CUP p.3-6 / PDF 75 defines
          * home as row 1, column 1 (zero-based 0,0 here). */
         console_clear(con);
-#ifndef CONSOLE_MUTATE_CLS_NO_HOME
         console_set_cursor(con, 0u, 0u);
-#endif
         return;
     case '\n':
         advance_line(con);
@@ -292,13 +287,11 @@ void console_putc(console_t *con, char ch)
               con->cur_attr);
     con->cur_col++;
     if (con->cur_col >= con->cols) {
-#ifndef CONSOLE_MUTATE_NOWRAP_IGNORED
         if (con->nowrap) {
             con->cur_col = con->cols - 1u;
             con->past_end = 1;
             return;
         }
-#endif
         advance_line(con);
     }
 }
@@ -496,11 +489,7 @@ void console_set_cursor(console_t *con, uint32_t row, uint32_t col)
     }
     con->past_end = 0;
     con->cur_col = (col >= con->cols) ? (con->cols - 1u) : col;
-#ifdef CONSOLE_MUTATE_OFFGRID_CLAMP
-    con->cur_row = (row >= con->rows) ? (con->rows - 1u) : row;
-#else
     con->cur_row = (row > con->rows) ? (con->rows - 1u) : row;
-#endif
 }
 
 void console_get_cursor(const console_t *con, uint32_t *row, uint32_t *col)
@@ -614,10 +603,8 @@ static __attribute__((noinline,noclone)) void console_copy_page(console_t *con,c
         console_set_attr(con, a);
         con->cells[i * 2u] = ch;
         con->cells[i * 2u + 1u] = a;
-#ifndef CONSOLE_MUT_RESTORE_NO_DRAW
         console_draw_glyph(con, i % CONSOLE_COLS, i / CONSOLE_COLS, ch,
                            con->cur_fg, con->cur_bg);
-#endif
     }
     con->cur_attr = attr;
     con->cur_fg = fg;

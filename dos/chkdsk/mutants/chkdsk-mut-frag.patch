@@ -1,0 +1,12 @@
+# CHKDSK_MUT_FRAG
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -139,6 +139,7 @@
+         }
+         if(selected()){
+             s.matched++;
++            runs=1;
+             if(runs>1){s.fragmented++;put(s.path);put("\r\n     Contains ");num(runs,0);put(" non-contiguous blocks\r\n");}
+         }
+     }

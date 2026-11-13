@@ -1,0 +1,15 @@
+# KBD_MUT_ONE_SHIFT
+# test: test-kbd-unit
+--- a/kbd.c
++++ b/kbd.c
+@@ -188,8 +188,8 @@
+         return 0u;
+     }
+     if (scancode == SC_LSHIFT_BREAK || scancode == SC_RSHIFT_BREAK) {
+-        uint8_t side = scancode == SC_LSHIFT_BREAK ? 1u : 2u;
+-        st->shift &= (uint8_t)~side;
++        /* Rule 6: restore the single-flag release; either break clears both. */
++        st->shift = 0u;
+         return 0u;
+     }
+     if (scancode == SC_CAPS_MAKE) {

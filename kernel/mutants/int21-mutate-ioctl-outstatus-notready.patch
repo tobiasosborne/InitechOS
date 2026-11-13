@@ -1,0 +1,15 @@
+# INT21_MUTATE_IOCTL_OUTSTATUS_NOTREADY
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -1882,7 +1882,9 @@
+             cf_set(f);
+             return;
+         }
+-        set_al(f, 0xFFu);               /* CON screen / disk file: always ready */
++        /* MUTANT (Rule 6): report not-ready (0x00) -> the output-ready
++         * assertions go RED. */
++        set_al(f, 0x00u);
+         cf_clear(f);
+         return;
+     }

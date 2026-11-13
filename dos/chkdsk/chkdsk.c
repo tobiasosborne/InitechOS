@@ -50,9 +50,7 @@ static int read_sector(uint32_t lba,uint8_t*p) {
     }return 0;
 }
 static int write_sector(uint32_t lba,const uint8_t*p) {
-#ifndef CHKDSK_MUT_NOFIX
     if(!s.fix)return 0;
-#endif
     if(lba>=s.total || !s.io->disk.write_sectors ||
        s.io->disk.write_sectors(s.io->disk.ctx,lba,1,p)){s.failed=1;return -1;}
     s.cache_lba=0xffffffffu;return 0;
@@ -71,9 +69,6 @@ static int fat_set(uint32_t c,uint16_t v) {
     uint32_t o=s.bits==12?c+c/2:c*2;
     uint8_t p[512];
     unsigned copies=s.fats;
-#ifdef CHKDSK_MUT_MIRROR
-    copies=1;
-#endif
     /* Read-modify-write each byte separately: FAT12 entry 341 straddles a
      * sector; preserve the adjacent packed nibble in EVERY redundant FAT. */
     for(unsigned k=0;k<copies;k++)for(unsigned j=0;j<2;j++) {
@@ -106,9 +101,7 @@ static int selected(void) {
     for(uint32_t i=0;i<a;i++)if(p[i]!=n[i])return 0;
     return wild(p+a,n+b);
 }
-#ifndef CHKDSK_MUT_INVALID
 static void diagnostic(const char*t){put(s.path);nl();put(t);nl();s.error=1;}
-#endif
 static uint32_t walk_file(uint8_t*e,uint32_t lba,uint32_t at) {
     uint32_t c=u16(e+26),previous=0,units=0,runs=0;int invalid=0,changed=0;
     zero(s.local,MAP);
@@ -129,9 +122,7 @@ static uint32_t walk_file(uint8_t*e,uint32_t lba,uint32_t at) {
         c=v;
     }
     if(s.pass==0 && invalid) {
-#ifndef CHKDSK_MUT_INVALID
         diagnostic(MSG_DOS_0042);
-#endif
         if(s.fix) {
             if(previous){if(fat_set(previous,s.eoc))return units;}
             else {w16(e+26,0);units=0;}
@@ -141,18 +132,13 @@ static uint32_t walk_file(uint8_t*e,uint32_t lba,uint32_t at) {
     }
     if(changed){uint8_t p[512];if(!read_sector(lba,p)){copy(p+at,e,32);(void)write_sector(lba,p);}}
     if(s.pass==1) {
-#ifndef CHKDSK_MUT_CROSS
         /* Second pass names BOTH owners of each shared cluster. A-46 explicitly
          * forbids automatic correction, even with /F. */
         for(uint32_t n=2;n<s.clusters+2;n++)if(bit(s.local,n)&&bit(s.duplicate,n)){
             put(s.path);nl();put(MSG_DOS_0043);num(n,0);nl();s.error=1;
         }
-#endif
         if(selected()){
             s.matched++;
-#ifdef CHKDSK_MUT_FRAG
-            runs=1;
-#endif
             if(runs>1){s.fragmented++;put(s.path);put("\r\n     Contains ");num(runs,0);put(" non-contiguous blocks\r\n");}
         }
     }
@@ -184,18 +170,14 @@ static void directory(uint32_t start,unsigned depth) {
              * Genuine DOS 3.30 agrees: chkdsk-label-golden/label.txt (ug8l).
              * A label owns no chain and adds no hidden_bytes. */
             if(e[11]&8){if(s.pass==0){
-#ifndef CHKDSK_MUT_LABEL
                 s.hidden++;
-#endif
                 volume(e);
             }continue;}
             name83(e,name);uint32_t n=len(name);
             if(base_len+n+2>=sizeof(s.path)){s.incomplete=1;continue;}
             copy(s.path+base_len,name,n+1);
             if(s.pass==0 && s.verbose && !(e[11]&16)) {
-#ifndef CHKDSK_MUT_VERBOSE
                 put(s.path);nl();
-#endif
             }
             uint32_t units=walk_file(e,first+j,at);
             if(s.pass==0) {
@@ -256,9 +238,6 @@ static int answer(void) {
     return 'N';
 }
 static void lost(void) {
-#ifdef CHKDSK_MUT_LOST
-    return;
-#endif
     for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)if(orphan(c)) {
         s.lost++;uint16_t v=next(c);if(valid(v)&&orphan(v))mark(s.incoming,v);
     }
@@ -268,15 +247,7 @@ static void lost(void) {
     s.error=1;num(s.lost,0);put(" lost allocation units found in ");num(s.chains,0);put(" chains.\r\nConvert lost chains to files (Y/N)?");
     int a=answer();nl();
     if(!s.fix){num(s.lost*s.spc*512,0);put(" bytes would be freed\r\n");}
-#ifndef CHKDSK_MUT_NOFIX
     if(!s.fix)return;
-#endif
-#ifdef CHKDSK_MUT_RECOVER
-    if(a=='Y')a='N';
-#endif
-#ifdef CHKDSK_MUT_DISCARD
-    if(a=='N')return;
-#endif
     zero(s.seen,MAP);
     for(unsigned pass=0;pass<2;pass++)for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)
         if(orphan(c)&&!bit(s.seen,c)&&(pass||!bit(s.incoming,c))) {
@@ -322,9 +293,6 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     lost();
     if(s.error&&!s.fix)put(MSG_DOS_0047 "\r\n");
     for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)if(next(c)==0)s.free++;
-#ifdef CHKDSK_MUT_REPORT
-    s.hidden=0;
-#endif
     line(s.clusters*s.spc*512," bytes total disk space");
     num(s.hidden_bytes,9);put(" bytes in ");num(s.hidden,0);put(" hidden files\r\n");
     num(s.dir_bytes,9);put(" bytes in ");num(s.dirs,0);put(" directories\r\n");
@@ -337,9 +305,6 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     while(at<io->arena.total_paras){mcb_t*m=(mcb_t*)(io->arena.base+at*16);total+=(uint32_t)m->size_paras*16;
         if(m->owner==MCB_OWNER_FREE)free+=(uint32_t)m->size_paras*16;
         at+=1u+m->size_paras;}
-#ifdef CHKDSK_MUT_MEMORY
-    free=total=655360;
-#endif
     line(total," bytes total memory");line(free,MSG_DOS_0025);
     if(s.failed)goto failed;
     return s.error?1:0;

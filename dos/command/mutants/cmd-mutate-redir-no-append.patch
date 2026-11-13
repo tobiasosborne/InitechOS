@@ -1,0 +1,14 @@
+# CMD_MUTATE_REDIR_NO_APPEND
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -1445,6 +1445,9 @@
+         return 0;
+     }
+ 
++    /* MUTANT: force every operator to single width (truncate) -- the append flag
++     * is never set; the `>>` oracle case goes RED.  NEVER in a real build. */
++    op_len = 1;
+ 
+     if (append_out != 0) {
+         *append_out = (op_len == 2) ? 1 : 0;

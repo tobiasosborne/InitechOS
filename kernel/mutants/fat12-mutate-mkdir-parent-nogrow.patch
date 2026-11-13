@@ -1,0 +1,31 @@
+# FAT12_MUTATE_MKDIR_PARENT_NOGROW
+# test: test-m0bp
+--- a/fat12.c
++++ b/fat12.c
+@@ -3792,18 +3792,14 @@
+ 		 * index just past the last cluster) becomes valid (beads initech-m0bp,
+ 		 * mirroring fat12_create's full-subdir path). REUSE free_slot verbatim --
+ 		 * do NOT recompute it (a classic off-by-one). */
+-		if (is_root) {
+-			return FAT12_ERR_DIR_FULL;   /* root dir full */
+-		}
+-		if (cluster_buf == NULL || fat == NULL) {
+-			return FAT12_ERR_NULL;
+-		}
+-		rc = fat12_grow_dir(vol, fat, fat_len, parent_dir_start,
+-		                    cluster_buf, &parent_newc);
+-		if (rc != FAT12_OK) {
+-			return rc;   /* NO_SPACE / write error -- grow already rolled back */
+-		}
+-		parent_grew = 1;
++		/* MUTANT m-nogrow-parent (Rule 6; make test-m0bp-mutant only): a FULL
++		 * subdir parent returns DIR_FULL instead of growing -- the boundary
++		 * MKDIR fails and the new dir never lands, so the parent-grow leg
++		 * (listed by mdir/python, parent spans 2 clusters) goes RED. NEVER define
++		 * in a real build. (cluster_buf is unused on this dead path; keep the
++		 * -Werror=unused-parameter clean.) */
++		(void)cluster_buf;
++		return FAT12_ERR_DIR_FULL;
+ 	}
+ 
+ 	/* Claim a free data cluster for the new directory and mark it EOC. If the

@@ -1,0 +1,25 @@
+# CMD_MUTATE_FOR_WILDCARD
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4380,20 +4380,6 @@
+     if (var[0] != '%' || !var[1] || var[2] ||
+         (var[1] >= '0' && var[1] <= '9')) return;
+     while (batch_for_next_token(set, &cur, tok, sizeof(tok))) {
+-        if (cmd_has_wildcard(tok)) {
+-            char name[BATCH_LINE_MAX + 13];
+-            unsigned prefix = 0;
+-            for (unsigned i=0; tok[i]; i++)
+-                if (tok[i]=='\\' || tok[i]=='/' || tok[i]==':') prefix=i+1;
+-            dos_setdta(&g_shell_dta);
+-            if (dos_findfirst(tok, 0u)) do {
+-                /* AH=4Eh attr=0 selects files. Keep any supplied path prefix
+-                 * when substituting the matched 8.3 name. */
+-                del_path(name, tok, (int)prefix, g_shell_dta.fname);
+-                if (!for_store(name)) goto done;
+-            } while (dos_findnext());
+-            break; /* Reference p.144: wildcard set has one member. */
+-        }
+         if (!for_store(tok)) goto done;
+     }
+     {

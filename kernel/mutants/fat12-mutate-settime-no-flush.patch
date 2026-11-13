@@ -1,0 +1,21 @@
+# FAT12_MUTATE_SETTIME_NO_FLUSH
+# test: test-b53d
+--- a/fat12.c
++++ b/fat12.c
+@@ -2291,8 +2291,14 @@
+ 	de.mtime = mtime;
+ 	de.mdate = mdate;
+ 
+-	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+-	                                 slot, &de, sector_buf);
++	/* MUTANT 3 (Rule 6; make test-qekc-mutant only): SKIP the write-back flush --
++	 * the patched `de` is computed but never written to disk, so the on-disk
++	 * 0x16/0x18 words keep their baseline value. The SET reports success (return
++	 * FAT12_OK) and a SAME-handle GET (which reads the in-memory SFT copy the
++	 * dispatcher refreshed) stays GREEN, but the on-disk DIFFERENTIAL (after
++	 * re-mount) goes RED -- proving the flush is load-bearing for persistence.
++	 * NEVER define in a real build. */
++	return FAT12_OK;
+ }
+ 
+ /*

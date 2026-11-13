@@ -1,0 +1,11 @@
+# TPS_MUTATE_PAGESOK
+--- a/tpsrep/tpsrep_program.asm
++++ b/tpsrep/tpsrep_program.asm
+@@ -249,7 +249,6 @@
+     inc ebx
+     cmp ebx, 6
+     jne .chk
+-    call validpages
+     jmp ritual
+ .missing:
+     mov edx, m_e6a

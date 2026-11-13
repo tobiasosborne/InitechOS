@@ -1,0 +1,21 @@
+# MZ_MUTATE_ACCEPT_FOREIGN
+# test: test-mz
+--- a/mz.c
++++ b/mz.c
+@@ -118,13 +118,9 @@
+     /* 3. Read the tag word (DEC-08a.5). */
+     e_res0 = mz_rd16(file + MZ_OFF_RES0);
+ 
+-    /* CLEAN BUILD: enforce the InitechMZ tag.  An untagged MZ is a genuine
+-     * 16-bit DOS .EXE with paragraph fixups over 16-bit code -- running it
+-     * in 32-bit flat mode would silently misinterpret the instruction stream.
+-     * The kernel loader PANICS on MZ_ERR_FOREIGN (DEC-08a.5, Rule 2). */
+-    if (e_res0 != MZ_INITECH_TAG && e_res0 != INITECHMZ_EXT_TAG) {
+-        return MZ_ERR_FOREIGN;
+-    }
++    /* MUTANT MZ_MUTATE_ACCEPT_FOREIGN: skip the tag check, treat every MZ
++     * as if it were tagged.  The foreign-MZ oracle goes RED. */
++    (void)e_res0;
+ 
+     /* 4. Read the header fields we need. */
+     e_cblp      = mz_rd16(file + MZ_OFF_CBLP);

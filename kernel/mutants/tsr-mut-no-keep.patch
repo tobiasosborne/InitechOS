@@ -1,0 +1,14 @@
+# TSR_MUT_NO_KEEP
+# test: test-tsr-unit test-keep
+--- a/int21.c
++++ b/int21.c
+@@ -4622,7 +4622,8 @@
+ static void do_keep(int_frame_t *f)
+ {
+     if(g_high) { set_ax(f,1); cf_set(f); return; } /* DEC-03a.5 */
+-    tsr_keep(frame_al(f), frame_dx(f));
++    /* Rule 6 (test-tsr-unit-mutant / test-tsr-mutant): 31h acts as 4Ch. */
++    do_terminate(f, frame_al(f));
+ }
+ 
+ /* INT 27h Terminate but Stay Resident (TR p. 6-26): EDX = the resident byte

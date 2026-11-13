@@ -1,0 +1,17 @@
+# ABSDISK_MUTATE_PACKET_LITERAL
+# test: test-absdisk
+--- a/int21.c
++++ b/int21.c
+@@ -5591,12 +5591,6 @@
+      * CX=0xFFFF is treated as a LITERAL 65535-sector count -- it then falls into
+      * the bounds-check [6] (DX+65535 > total) / off-the-end read, so the packet-
+      * rejection oracle leg goes RED (it expected the loud reject). */
+-    if ((frame->ecx & 0xFFFFu) == ABSDISK_PACKET_SENTINEL) {
+-        con_puts("ABSDISK-PACKET-REJECT\n");   /* DOS4+ CX=0xFFFF, out of scope */
+-        absdisk_fail(frame, ABSDISK_AL_SECTOR_NOT_FOUND,
+-                     ABSDISK_AH_SECTOR_NOT_FOUND);
+-        return;
+-    }
+ 
+     /* [2] Drive: AL is ZERO-BASED EXPLICIT (0=A:). A is always a seam slot;
+      * C/D are valid exactly when DEC-18 mounted them (kmain binds their seams,

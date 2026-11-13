@@ -1,0 +1,16 @@
+# INT21_MUTATE_BUFINPUT_COUNT_CR
+# test: test-4tw
+--- a/int21.c
++++ b/int21.c
+@@ -1546,7 +1546,10 @@
+     if (count < max) {
+         buf[2u + count] = 0x0Du;
+     }
+-    buf[1] = count;
++    /* MUTANT (Rule 6; make test-conin-mutant only): count the CR in the length
++     * byte (count+1 instead of count), so the 0Ah oracle -- which asserts buf[1]
++     * == chars read NOT counting the CR -- goes RED. NEVER define in a real build. */
++    buf[1] = (uint8_t)(count + 1u);
+     cf_clear(f);
+ }
+ 

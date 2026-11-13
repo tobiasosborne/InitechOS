@@ -1,0 +1,17 @@
+# LOADER_MUT_TSR_EXEC_ALLOW_FLAT
+# test: test-loader test-keep test-tsr-unit
+--- a/loader.c
++++ b/loader.c
+@@ -1146,12 +1146,6 @@
+             }
+         }
+         int21_mcb_exec_free(child_psp);
+-    } else if (child_psp && above && !loader_image_is_transient(image, got)) {
+-        ldr_serial_puts("LOADER-REFUSE-FLAT-RESIDENT name=");
+-        ldr_serial_puts(name83);
+-        ldr_serial_puts("\n");
+-        int21_mcb_exec_free(child_psp);
+-        st = LOADER_ERR_FIXED_BASE;
+     } else if (child_psp) {
+         loader_plan_t plan;
+         st = loader_prepare_in_place(image, got, cmd_tail, cmd_tail_len, &plan);

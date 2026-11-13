@@ -1,0 +1,16 @@
+# INT21_MUTATE_IOCTL_INSTATUS_EOF_FLIP
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -1863,8 +1863,9 @@
+         if (e->kind == SFT_KIND_DEVICE) {
+             status = 0xFFu;                 /* CON keyboard: always ready */
+         } else {
+-            /* RBIL: AL=0x00 if EOF (files); 0xFF if not at EOF. */
+-            status = (e->file_offset >= e->dir_entry.file_size) ? 0x00u : 0xFFu;
++            /* MUTANT (Rule 6): invert the file EOF test -> the at-EOF and
++             * not-at-EOF input-status assertions go RED. */
++            status = (e->file_offset >= e->dir_entry.file_size) ? 0xFFu : 0x00u;
+         }
+         set_al(f, status);
+         cf_clear(f);

@@ -1,0 +1,19 @@
+# FAT16_MUTATE_NO_CLUSTER2_BIAS
+# test: test-fat16
+--- a/fat12.c
++++ b/fat12.c
+@@ -1096,7 +1096,13 @@
+ 		copy_n = take;
+ 
+ 		/* Stream the cluster through one sector of scratch. */
+-		lba = cluster_lba(vol, cur);
++		/* MUTANT (Rule 6; test-fat16 mutant M4 only): OMIT the cluster-2 LBA bias
++		 * -- map cluster N to first_data_sector + N*spc instead of (N-2)*spc.
++		 * Every cluster reads two sectors too high, so the file content no longer
++		 * matches the golden -> the FAT16 read oracle goes RED. This proves the
++		 * cluster->LBA mapping's -2 bias is load-bearing. NEVER in a real build. */
++		lba = BPB_FIRST_DATA_SECTOR(&vol->bpb) +
++		      (uint32_t)cur * (uint32_t)vol->bpb.sectors_per_cluster;
+ 		rc = cluster_read(vol, lba, 0u, out + copied, copy_n, cluster_buf);
+ 		if (rc != FAT12_OK) return rc;
+ 		copied += copy_n;

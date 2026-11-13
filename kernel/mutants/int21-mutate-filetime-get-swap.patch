@@ -1,0 +1,18 @@
+# INT21_MUTATE_FILETIME_GET_SWAP
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -3369,8 +3369,11 @@
+         /* GET: read the SFT's in-memory dir_entry copy (the kernel keeps it in
+          * sync via OPEN/CREAT + the positioned-write refresh). No backend seam.
+          * CX = packed mtime, DX = packed mdate (DOS 3.3 PRM AH=57h AL=00). */
+-        set_cx(f, e->dir_entry.mtime);
+-        set_dx(f, e->dir_entry.mdate);
++        /* MUTANT 2 (Rule 6; make test-qekc-mutant only): SWAP the registers --
++         * return mdate in CX and mtime in DX. The host CX/DX GET contract goes
++         * RED (CX != seeded mtime). NEVER define in a real build. */
++        set_cx(f, e->dir_entry.mdate);
++        set_dx(f, e->dir_entry.mtime);
+         cf_clear(f);
+         return;
+     }

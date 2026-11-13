@@ -1,0 +1,18 @@
+# FAT12_MUTATE_PARTIAL_EXTEND_SHORT
+# test: test-fat-write-partial
+--- a/fat12.c
++++ b/fat12.c
+@@ -2922,6 +2922,13 @@
+ 		for (i = 0u; i < to_add; i++) {
+ 			uint16_t cl;
+ 			uint32_t lba;
++			/* MUTANT (Rule 6; test-fat-write-partial-mutant only): allocate ONE
++			 * TOO FEW extend clusters, so a write that grows the file by several
++			 * clusters leaves the chain short -- the read-back / diff goes RED.
++			 * NEVER define in a real build. */
++			if (i + 1u >= to_add) {
++				break;
++			}
+ 			cl = fat12_find_free(vol, fat, fat_len,
+ 			                     (uint16_t)(prev ? (prev + 1u)
+ 			                                     : FAT12_FIRST_DATA_CLUSTER));

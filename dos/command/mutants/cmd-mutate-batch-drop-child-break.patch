@@ -1,0 +1,16 @@
+# CMD_MUTATE_BATCH_DROP_CHILD_BREAK
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3459,11 +3459,6 @@
+              * (DOS sets ERRORLEVEL from the child's exit code). */
+             uint16_t status = dos_get_child_status();
+             g_errorlevel = (uint8_t)status;
+-            /* Real DOS 3.30 exec-y/exec-n mint: the child dies first, then
+-             * COMMAND.COM asks. Latch only after EXEC's loader cleanup;
+-             * run_batch decides at its next boundary after redirection too.
+-             * Interactive EXEC shares cleanup but only run_batch asks. */
+-            if ((status >> 8) == 1u) g_shell_break.interrupted = 1u;
+             return;
+         }
+         /* h4bk: a found image whose required address is occupied must fail

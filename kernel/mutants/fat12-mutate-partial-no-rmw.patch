@@ -1,0 +1,14 @@
+# FAT12_MUTATE_PARTIAL_NO_RMW
+# test: test-fat-write-partial
+--- a/fat12.c
++++ b/fat12.c
+@@ -57,8 +57,7 @@
+ 		uint32_t n = BLOCKDEV_SECTOR_SIZE - pos;
+ 		uint32_t sector = lba + off / BLOCKDEV_SECTOR_SIZE;
+ 		if (n > len) n = len;
+-		if ((pos || n != BLOCKDEV_SECTOR_SIZE) &&
+-		    fat12_read_sectors(v, sector, 1u, buf)) return FAT12_ERR_READ;
++		for (uint32_t i = 0u; i < BLOCKDEV_SECTOR_SIZE; i++) buf[i] = 0u;
+ 		for (uint32_t i = 0u; i < n; i++) buf[pos + i] = src ? src[i] : 0u;
+ 		if (fat12_write_sectors(v, sector, 1u, buf)) return FAT12_ERR_WRITE;
+ 		if (src) src += n;

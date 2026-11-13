@@ -1,0 +1,18 @@
+# FAT12_MUTATE_MKDIR_PARENT_SCANROOT
+# test: test-m0bp
+--- a/fat12.c
++++ b/fat12.c
+@@ -3775,6 +3775,13 @@
+ 	 * fixed-region scan (byte-identical to the historical fat12_scan_root). */
+ 	{
+ 		int scan_is_root = is_root;
++		/* MUTANT m-rootscan-mkdir (Rule 6; make test-m0bp-mutant only): force the
++		 * parent scan to treat the parent as the ROOT even for a SUBDIR parent.
++		 * The duplicate-name check + the free_slot then come from the ROOT region,
++		 * not SUB's chain, so the new dir's entry is written to the wrong dir (or
++		 * a false dup is reported) -- the nested differential goes RED. NEVER
++		 * define in a real build. */
++		scan_is_root = 1;
+ 		rc = fat12_scan_dir(vol, fat, fat_len, scan_is_root, parent_dir_start,
+ 		                    sector_buf, want11, &free_slot, &have_free,
+ 		                    &match_slot, &match, &found);

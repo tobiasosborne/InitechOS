@@ -56,9 +56,6 @@ PSP_TAIL_TXT equ 0x00040081    ; PSP:81h.. = command-tail text
 start:
     ; ---- Parse the command tail (PSP:80h) for /R (reverse). ----
     xor ebp, ebp               ; EBP = reverse flag (0 = ascending)
-%ifdef SORT_MUTATE_REVERSE
-    mov ebp, 1                 ; MUTANT: default to descending -> ascending gate RED
-%endif
     movzx ecx, byte [PSP_TAIL_LEN]
     mov esi, PSP_TAIL_TXT
 .tail_scan:

@@ -1,0 +1,21 @@
+# ABSDISK_MUTATE_STACK_WART
+# test: test-absdisk
+--- a/int21.c
++++ b/int21.c
+@@ -5674,6 +5674,16 @@
+     /* [9] Success: CF=0. */
+     cf_clear(frame);
+ 
++    /* MUTANT M7 (Rule 6): MODEL the leftover-FLAGS-on-stack wart DEC-15.3
++     * deliberately OMITS. The real wart leaves a stray FLAGS word on the caller
++     * stack so the IRETD frame is DESYNCHRONIZED -- the saved EFLAGS the caller
++     * pops is wrong beyond the documented CF. We model that desync by scribbling
++     * the EFLAGS frame OUTSIDE bit 0 (the dispatcher's only sanctioned EFLAGS
++     * output). The oracle's frame-balance assertion verifies the dispatcher
++     * touched ONLY EFLAGS bit 0 (CF) -- every other bit preserved byte-identical,
++     * the uniform-IRETD/balanced-frame guarantee -- so this mutant goes RED.
++     * NEVER in a real build: the real stub returns a balanced frame. */
++    frame->eflags ^= 0x00000800u;   /* flip a non-CF bit (the desync) */
+ }
+ 
+ static void int25_dispatch_body(int_frame_t *frame)

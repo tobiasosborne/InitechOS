@@ -1,0 +1,12 @@
+# CMD_MUTATE_DIR_LOWERCASE
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -335,6 +335,7 @@
+     int pos=0;
+     put_u_field(out,&pos,files,9);
+     put_text(out,&pos,MSG_DOS_0024);
++    out[10]='f';
+     /* p.29 / PDF 42: count ends at 8, File(s) starts at 10, free-byte
+      * number ends at 26 (the scanned illustration is the layout source). */
+     put_u_field(out,&pos,free_bytes,9);

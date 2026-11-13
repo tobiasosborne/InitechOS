@@ -1,0 +1,16 @@
+# CMD_MUTATE_NO_TIME
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -112,11 +112,6 @@
+          * so "DATE" falls through to CMD_EXTERNAL -> the classify oracle goes RED
+          * (Rule 6). NEVER dropped in a real build. */
+         { "DATE",  CMD_DATE },
+-        /* TIME [HH:MM[:SS]] -- show/set the system time via 2Ch/2Dh (beads
+-         * initech-uy4l, Tranche F). The CMD_MUTATE_NO_TIME mutant DROPS this row
+-         * so "TIME" falls through to CMD_EXTERNAL -> the classify oracle goes RED
+-         * (Rule 6). NEVER dropped in a real build. */
+-        { "TIME",  CMD_TIME },
+     };
+     for (unsigned i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
+         const char *a = upper_command;

@@ -1,0 +1,18 @@
+# FAT12_MUTATE_MKDIR_PARENT_ROOTONLY
+# test: test-m0bp
+--- a/fat12.c
++++ b/fat12.c
+@@ -3773,6 +3773,13 @@
+ 	 * error (the backend maps FAT12_ERR_EXISTS to 0x0005). For a SUBDIR parent
+ 	 * fat12_scan_dir walks the parent's cluster chain; for the root it is the
+ 	 * fixed-region scan (byte-identical to the historical fat12_scan_root). */
++	/* MUTANT m-noroot-mkdir (Rule 6; make test-m0bp-mutant only): re-impose the
++	 * old root-only guard so a NON-ROOT parent is rejected NOT_FOUND -- nested
++	 * MKDIR never creates the entry/cluster and the nested differential (parent
++	 * entry / '.'/'..' / listing) goes RED. NEVER define in a real build. */
++	if (parent_dir_start != 0u) {
++		return FAT12_ERR_NOT_FOUND;
++	}
+ 	{
+ 		int scan_is_root = is_root;
+ 		rc = fat12_scan_dir(vol, fat, fat_len, scan_is_root, parent_dir_start,

@@ -1,0 +1,13 @@
+# INT21_MUTATE_CARET_C
+# test: test-conin-unit
+--- a/int21.c
++++ b/int21.c
+@@ -5090,7 +5090,7 @@
+ {
+     /* MS-DOS 3.3 Reference p.159: abort command with ^C on CON.
+      * Factory debugging remains on its separate serial-only seam. */
+-    con_puts("^C\r\n");
++    con_puts("INT23-BREAK\n");
+     if (g_break_trace) {
+         const char *s = "INT23-BREAK\n";
+         while (*s) g_break_trace(*s++);

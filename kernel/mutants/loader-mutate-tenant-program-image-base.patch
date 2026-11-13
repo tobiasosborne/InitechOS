@@ -1,0 +1,23 @@
+# LOADER_MUTATE_TENANT_PROGRAM_IMAGE_BASE
+# test: test-tenant-load
+--- a/loader.c
++++ b/loader.c
+@@ -189,12 +189,16 @@
+     }
+ 
+     /* 3. Relocate in file position against the PARAMETERIZED load base. */
++    /* MUTANT (Rule 6; test-tenant-load-mutant only): relocate against the
++     * EXEC path's PROGRAM_IMAGE instead of the block -- the exact "reinterpret
++     * DEC-08a instead of extending it" bug. The relocated-dword assertions of
++     * test_tenant_load.c MUST go RED. NEVER define in a real build. */
+     if (img.reloc_count > 0u) {
+         if (mz_apply_relocs(file_at + img.load_module_off, img.load_module_len,
+-                            block_linear + (uint32_t)TBX_TENANT_PSP_BYTES,
++                            (uint32_t)PROGRAM_IMAGE,
+                             file_at + img.reloc_table_off,
+                             img.reloc_count) != MZ_OK) {
+-            return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud */
++            return LOADER_ERR_BAD_FORMAT;
+         }
+     }
+ 

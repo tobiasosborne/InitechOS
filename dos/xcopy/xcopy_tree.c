@@ -63,11 +63,7 @@ static int key(void)
     /* AH=07h deliberately leaves ^C to XCOPY, so /W returns its documented
      * code 2 instead of the kernel's default INT23 abort code. IBM DOS 3.30
      * Technical Reference p.6-59; MS-DOS 3.3 Reference p.128. */
-#ifdef DU_MUT_CTRL_C
-    int c = call(0x0800,0,0,0) & 255;
-#else
     int c = call(0x0700,0,0,0) & 255;
-#endif
     if (c == 3) error=2;
     return upper((char)c);
 }
@@ -94,19 +90,12 @@ static void number(unsigned n)
  * file services validate leaf names. MS-DOS 3.3 Reference pp4-11, 127. */
 static int drive_cwd(unsigned drive, char out[64])
 {
-#ifdef DU_MUT_REL_ROOT
-    (void)drive; out[0]=0; return 0;
-#else
     du_regs r={0x4700,0,0,drive+1,(uintptr_t)out};
     out[0]=0;
     return du_call(&r) ? -1 : 0;
-#endif
 }
 static int absolute(const char *in, char out[CAP])
 {
-#ifdef DU_MUT_DRIVE
-    if (in[0] && in[1] == ':') in+=2;   /* Rule 6: the pre-q45q resolver. */
-#endif
     int rc=dospath_full(in,default_drive,drive_cwd,out,CAP);
     if (rc == DOSPATH_TOO_LONG) error=4;
     return rc == DOSPATH_OK;
@@ -159,11 +148,7 @@ static int nth(const char *spec, unsigned attr, unsigned n, find_data_t *out)
 }
 static int visible(const find_data_t *fd)
 {
-#ifdef DU_MUT_HIDDEN
-    return !(fd->attr & 8) && !equal(fd->fname,".") && !equal(fd->fname,"..");
-#else
     return !(fd->attr & 14) && !equal(fd->fname,".") && !equal(fd->fname,"..");
-#endif
 }
 
 /* /D is inclusive, with the US DOS 3.3 mm-dd-yy[yy] DATE format. FAT dates
@@ -182,13 +167,8 @@ static int parse_date(const char *s)
     }
     if (part != 2 || !digits) return 0;
     unsigned m=val[0], d=val[1], y=val[2];
-#ifdef DU_MUT_DATE_RANGE
-    if (y < 100) y+=1900;
-    if (y < 1980 || y > 2099 || m < 1 || m > 12) return 0;
-#else
     if (y < 100) y+=y < 80 ? 2000 : 1900;
     if (y < 1980 || y > 2079 || m < 1 || m > 12) return 0;
-#endif
     static const unsigned char days[]={31,28,31,30,31,30,31,31,30,31,30,31};
     unsigned max=days[m-1]+(m == 2 && y%4 == 0);
     if (!d || d > max) return 0;
@@ -198,28 +178,18 @@ static int parse_date(const char *s)
 static int selected(const find_data_t *fd)
 {
     if (!visible(fd) || (fd->attr & 16)) return 0;
-#ifndef DU_MUT_A
     if ((flags & A_ARCHIVE) && !(fd->attr & 32)) return 0;
-#endif
-#ifndef DU_MUT_D
     if (fd->fdate < date_min) return 0;
-#endif
     return 1;
 }
 
 static int transfer(const char *src, const char *dst, const find_data_t *fd)
 {
     unsigned char buf[2048], verify[2048];
-#ifndef DU_MUT_SELF
     if (equal(src,dst)) { line(MSG_DOS_0020); error=4; return 0; }
-#endif
     if (flags & P_PROMPT) {
-#ifndef DU_MUT_P
         text(src+2); text(" (Y/N?)");
         if (!yes()) return 0;
-#else
-        (void)yes;
-#endif
     }
     char parent[CAP];
     if (!put(parent,dst)) return 0;
@@ -239,15 +209,11 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
      * Ref: MS-DOS 3.3 Reference p.50 (PDF135), mcopy -m on identical images;
      * IBM DOS 3.30 Tech Ref p.6-208 (PDF331), AH=57h CX=time, DX=date. */
     du_regs r={0x5701,(unsigned)out,fd->ftime,fd->fdate,0};
-#ifdef DU_MUT_TIME
-    r.c=0; r.d=0;
-#endif
     if (du_call(&r)) error=5;
     if (call(0x3e00,(unsigned)out,0,0) < 0) error=5;
     if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
     if (error) return 0;
     if (flags & V_VERIFY) {
-#ifndef DU_MUT_V
         in=call(0x3d00,0,0,(uintptr_t)src);
         out=call(0x3d00,0,0,(uintptr_t)dst);
         if (in < 0 || out < 0) error=5;
@@ -260,17 +226,12 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
         }
         if (in >= 0) call(0x3e00,(unsigned)in,0,0);
         if (out >= 0) call(0x3e00,(unsigned)out,0,0);
-#else
-        (void)verify;
-#endif
     }
     if (error) return 0;
     /* mcopy oracle: copied files have archive set; source read-only survives. */
     if (call(0x4301,0,(fd->attr & 1)|32,(uintptr_t)dst) < 0) { error=5; return 0; }
     if (flags & M_CLEAR) {
-#ifndef DU_MUT_M
         if (call(0x4301,0,fd->attr & ~32u,(uintptr_t)src) < 0) { error=5; return 0; }
-#endif
     }
     copied++;
     if (!(flags & P_PROMPT)) line(src+2);   /* pre-q45q listing text */
@@ -307,11 +268,7 @@ static void tree_dir(const char *path, int files, unsigned depth)
     if (depth > 32) { error=4; return; }
     char spec[CAP], child[CAP]; find_data_t fd; unsigned count=0;
     text("\r\nPath: "); line(path+2);   /* IBM D-6: no drive in Path: */
-#ifdef DU_MUT_TREE_LAYOUT
-    text("\r\nSubdirectories:");
-#else
     text("\r\nSub-directories:");
-#endif
     if (!join(spec,path,"*.*")) return;
     for (unsigned n=0; !error && nth(spec,16,n,&fd); n++) {
         if (!visible(&fd) || !(fd.attr & 16)) continue;
@@ -399,9 +356,6 @@ int du_main(int tree, char *tail)
         }
     }
     if (tree) {
-#ifdef DU_MUT_TREE_F
-        files=0;
-#endif
         /* TREE [d:] lists the whole drive (MS-DOS 3.3 Reference p.122):
          * an empty operand or a bare "d:" names that drive's root. */
         char root[4]={'\\',0,0,0};
@@ -414,28 +368,12 @@ int du_main(int tree, char *tail)
         return error;
     }
     if (!operands) goto parameters;
-#ifndef DU_MUT_E_REQUIRES_S
     if ((flags & E_EMPTY) && !(flags & S_RECURSE)) goto invalid;
-#endif
-#ifdef DU_MUT_DEFAULT
-    flags|=S_RECURSE;
-#endif
-#ifdef DU_MUT_S
-    flags&=~S_RECURSE;
-#endif
-#ifdef DU_MUT_E
-    flags&=~E_EMPTY;
-#endif
     if (flags & W_WAIT) {
-#ifndef DU_MUT_W
         line("Press any key when ready to start"); line("copying files");
         key(); if (error) return error;
-#endif
     }
     if (!absolute(source,src) || !absolute(*target ? target : ".",dst)) goto invalid;
-#ifdef DU_MUT_OMIT
-    if (!*target) put(dst,"\\");
-#endif
     if (directory(src)) {
         pattern[0]='*'; pattern[1]='.'; pattern[2]='*'; pattern[3]=0;
     } else {
@@ -446,16 +384,10 @@ int du_main(int tree, char *tail)
         dospath_parent(src);
         if (!directory(src)) goto path_error;
     }
-#ifdef DU_MUT_WILD
-    for (char *q=pattern; *q; q++) if (*q == '?') *q='@';
-#endif
     char spec[CAP], target_file[CAP]; find_data_t fd;
     if (!join(spec,src,pattern)) goto invalid;
     if (!nth(spec,0,0,&fd)) {
         if (error) return error;
-#ifdef DU_MUT_DESCEND
-        line("0" MSG_DOS_0024 "copied"); return 1;
-#endif
         if (!(flags & S_RECURSE)) { line("0" MSG_DOS_0024 "copied"); return 1; }
     }
     int isdir=directory(dst);
@@ -469,9 +401,6 @@ int du_main(int tree, char *tail)
         text("\r\n"); if (error) return error;
         isdir=c == 'D';
     } else if (trailing) isdir=1;
-#ifdef DU_MUT_TARGET
-    isdir=1;
-#endif
     if ((flags & S_RECURSE) && isdir) {
         unsigned n=length(src);
         if (equal(src,dst) || n == 3 ||   /* the "D:\\" root */
@@ -479,11 +408,7 @@ int du_main(int tree, char *tail)
             int prefix=1;
             for (unsigned i=0; i<n && dst[i]; i++) if (dst[i] != src[i]) prefix=0;
             if (prefix) {
-#ifdef DU_MUT_CYCLIC
-                return 0;
-#else
                 line(MSG_DOS_0050); return 4;
-#endif
             }
         }
     }
@@ -496,9 +421,6 @@ int du_main(int tree, char *tail)
     }
     copy_dir(src,dst,isdir ? 0 : target_file,0);
     if (error == 5) line(MSG_DOS_0009);
-#ifdef DU_MUT_COUNT
-    copied++;
-#endif
     number(copied); line(MSG_DOS_0024 "copied");
     return error ? error : copied ? 0 : 1;
 invalid:

@@ -1,0 +1,22 @@
+# CONFIG_MUTATE_OVERFLOW_OFFBYONE
+# test: test-config-sys test-config-fuzz
+--- a/config_sys.c
++++ b/config_sys.c
+@@ -73,11 +73,12 @@
+         }
+         any = 1;
+         uint32_t digit = (uint32_t)(c - '0');
+-        /* Saturate at 0xFFFFFFFF (the documented contract). Guard the EXACT
+-         * overflow of v*10+digit: the previous `v > 429496729` form let
+-         * v==429496729 with digit>=6 wrap past UINT32_MAX (bug initech-zfo --
+-         * "4294967296" wrapped to 0 and clamped to FILES_MIN, not MAX). */
+-        if (v > (0xFFFFFFFFu - digit) / 10u) { v = 0xFFFFFFFFu; continue; }
++        /* Rule-6 mutant (make test-config-fuzz-mutant): the ORIGINAL off-by-one
++         * guard (initech-zfo). `v > 429496729` lets v==429496729 with a trailing
++         * digit >=6 fall through and wrap past UINT32_MAX (e.g. "4294967296" -> 0
++         * -> clamps to FILES_MIN instead of saturating to MAX). Proves the
++         * corrected guard below actually bites the 2^32-family. NEVER in a real build. */
++        if (v > 429496729u) { v = 0xFFFFFFFFu; continue; }
+         v = v * 10u + digit;
+     }
+     if (out_any) {

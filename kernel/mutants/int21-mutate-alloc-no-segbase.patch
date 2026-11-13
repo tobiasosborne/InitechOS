@@ -1,0 +1,19 @@
+# INT21_MUTATE_ALLOC_NO_SEGBASE
+# test: test-mcb-int21
+--- a/int21.c
++++ b/int21.c
+@@ -4443,7 +4443,13 @@
+         cf_set(f);
+         return;
+     }
+-    set_ax(f, (uint16_t)((arena_seg_base() + data_para) & 0xFFFFu));
++    /* MUTANT (Rule 6; make test-mcb-int21-mutant only): drop the arena segment
++     * base from the conversion, returning a bare data-paragraph index as the
++     * "segment". A subsequent 49h FREE of that wrong segment then maps to a
++     * different data_para and is rejected (or, with FREE using the same broken
++     * map, the alloc/free round-trip oracle's exact-segment assertion goes RED).
++     * NEVER define in a real build. */
++    set_ax(f, (uint16_t)(data_para & 0xFFFFu));
+     cf_clear(f);
+ }
+ 

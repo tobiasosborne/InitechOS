@@ -1,0 +1,19 @@
+# INT21_MUTATE_RETCODE_ZERO
+# test: test-exec-unit
+--- a/int21.c
++++ b/int21.c
+@@ -4352,10 +4352,10 @@
+  * stash after read. CF clear. Ref: DOS 3.3 PRM AH=4Dh; RBIL INT 21/AH=4Dh. */
+ static void do_get_return_code(int_frame_t *f)
+ {
+-    /* AL = exit code; AH = termination type (0 normal, 1 Ctrl-C, 3 KEEP). */
+-    f->eax = (f->eax & 0xFFFF0000u)
+-           | ((uint32_t)g_last_child_term_type << 8)
+-           | (uint32_t)g_last_child_rc;
++    /* MUTANT (Rule 6; make test-exec-mutant only): always report rc=0 regardless
++     * of the child's actual exit code, so the 4Dh oracle (which EXECs a program
++     * that exits rc=7 and asserts AL==7) goes RED. NEVER define in a real build. */
++    f->eax = (f->eax & 0xFFFF0000u);          /* AL=0, AH=0 */
+     g_last_child_rc        = 0u;   /* consumed (DOS clears after the read) */
+     g_last_child_term_type = 0u;   /* consumed alongside the code          */
+     cf_clear(f);

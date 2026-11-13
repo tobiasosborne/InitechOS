@@ -1,0 +1,13 @@
+# CONSOLE_MUTATE_OFFGRID_CLAMP
+# test: test-console test-console-look
+--- a/console.c
++++ b/console.c
+@@ -489,7 +489,7 @@
+     }
+     con->past_end = 0;
+     con->cur_col = (col >= con->cols) ? (con->cols - 1u) : col;
+-    con->cur_row = (row > con->rows) ? (con->rows - 1u) : row;
++    con->cur_row = (row >= con->rows) ? (con->rows - 1u) : row;
+ }
+ 
+ void console_get_cursor(const console_t *con, uint32_t *row, uint32_t *col)

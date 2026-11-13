@@ -1,0 +1,15 @@
+# DU_MUT_REL_ROOT
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -90,9 +90,7 @@
+  * file services validate leaf names. MS-DOS 3.3 Reference pp4-11, 127. */
+ static int drive_cwd(unsigned drive, char out[64])
+ {
+-    du_regs r={0x4700,0,0,drive+1,(uintptr_t)out};
+-    out[0]=0;
+-    return du_call(&r) ? -1 : 0;
++    (void)drive; out[0]=0; return 0;
+ }
+ static int absolute(const char *in, char out[CAP])
+ {

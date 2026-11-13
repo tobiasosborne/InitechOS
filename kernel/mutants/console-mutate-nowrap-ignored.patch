@@ -1,0 +1,16 @@
+# CONSOLE_MUTATE_NOWRAP_IGNORED
+# test: test-console test-console-look
+--- a/console.c
++++ b/console.c
+@@ -287,11 +287,6 @@
+               con->cur_attr);
+     con->cur_col++;
+     if (con->cur_col >= con->cols) {
+-        if (con->nowrap) {
+-            con->cur_col = con->cols - 1u;
+-            con->past_end = 1;
+-            return;
+-        }
+         advance_line(con);
+     }
+ }

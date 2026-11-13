@@ -1,0 +1,20 @@
+# INT21_MUTATE_BREAK_RECOVERY
+# test: test-int21
+--- a/int21.c
++++ b/int21.c
+@@ -5095,15 +5095,6 @@
+         const char *s = "INT23-BREAK\n";
+         while (*s) g_break_trace(*s++);
+     }
+-    /* Returning INT 23h recovery for a resident built-in. Keep this PSP's
+-     * handles/CWD/arena live so COMMAND.COM's ordinary epilogue restores
+-     * redirection. EXEC children have a different PSP and terminate normally.
+-     * Ref: 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf pp. 6-14/15;
+-     * MS-DOS_3.3_Users_Guide_198707.pdf p. 159 (abort current command). */
+-    if (g_break_recovery && g_break_recovery->owner == (struct psp *)g_cur_psp) {
+-        g_break_recovery->interrupted = 1u;
+-        return;
+-    }
+     /* DOS 3.30 AH=4Dh type 1 survives the child's ordinary terminate/EXEC
+      * cleanup. The parent shell consumes it after EXEC, before run_batch's
+      * safe decision boundary (batch_break_mint/exec-{y,n}.txt). */

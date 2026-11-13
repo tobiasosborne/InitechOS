@@ -1,0 +1,28 @@
+# FAT12_MUTATE_MKDIR_NO_EOC
+# test: test-fat12-mkdir
+--- a/fat12.c
++++ b/fat12.c
+@@ -3826,18 +3826,11 @@
+ 		}
+ 		return FAT12_ERR_NO_SPACE;   /* full volume */
+ 	}
+-	rc = fat12_set_entry(fat, fat_len, newc, FAT12_EOC_VALUE);
+-	if (rc != FAT12_OK) {
+-		/* newc WAS claimed (in-memory only) -- return it to FREE, then undo the
+-		 * parent grow, mirroring fat12_create's claimed-but-unused free. (Not
+-		 * reachable without a write-fail seam; tracked by beads initech-lpf3.) */
+-		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+-		if (parent_grew) {
+-			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
+-			                      parent_newc);
+-		}
+-		return rc;
+-	}
++	/* MUTANT m3 (Rule 6; make test-fat12-mkdir-mutant only): skip the EOC
++	 * set_entry so the new directory's FAT entry stays free (0x000). The
++	 * differential FAT-entry / free-count assertion must go RED. NEVER define in
++	 * a real build. */
++	rc = FAT12_OK;
+ 	rc = fat12_flush_fats(vol, fat, fat_len);
+ 	if (rc != FAT12_OK) {
+ 		/* The FAT commit failed with newc marked EOC in memory (the parent-grow

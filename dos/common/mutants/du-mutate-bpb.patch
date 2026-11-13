@@ -1,0 +1,12 @@
+# DU_MUTATE_BPB
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -214,7 +214,6 @@
+      * be overwritten. mformat/FORMAT labels already use this exact layout. */
+     if (d->boot[38]==0x29) {
+         bytes(d->boot+43,n ? padded : (const uint8_t *)"NO NAME    ",11);
+-        if (du_sector(1,d->drive,0,d->boot)<0) return -1;
+     }
+     return 0;
+ }

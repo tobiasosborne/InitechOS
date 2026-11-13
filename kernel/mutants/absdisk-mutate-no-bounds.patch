@@ -1,0 +1,19 @@
+# ABSDISK_MUTATE_NO_BOUNDS
+# test: test-absdisk
+--- a/int21.c
++++ b/int21.c
+@@ -5636,9 +5636,11 @@
+     /* [6] Bounds-check against the mounted geometry BEFORE the seam call: a raw
+      * LBA at/past EOF must fail loud (never a short/garbage read). DX+CX wrap is
+      * a count overflow. All three -> sector-not-found (DEC-15.2). */
+-    if (lba >= bk->total_sectors ||
+-        (lba + count) < lba ||                 /* DX+CX 32-bit wrap            */
+-        (lba + count) > bk->total_sectors) {
++    /* MUTANT M4 (Rule 6): drop the bounds check entirely -- DX>=total then falls
++     * through to the seam (a real backend short-reads / off-the-end), so the
++     * out-of-range / overflow error-path oracle legs [8] go RED (they expected
++     * CF=1 + sector-not-found, not a CF=0 pass-through). */
++    if (0) {
+         absdisk_fail(frame, ABSDISK_AL_SECTOR_NOT_FOUND,
+                      ABSDISK_AH_SECTOR_NOT_FOUND);
+         return;

@@ -1,0 +1,20 @@
+# FAT12_MUTATE_GETATTR_DIR_REJECT
+# test: test-b53d
+--- a/fat12.c
++++ b/fat12.c
+@@ -2341,6 +2341,15 @@
+ 	}
+ 	if (!found) {
+ 		return FAT12_ERR_NOT_FOUND;
++	}
++	/* MUTANT (Rule 6; make test-b53d-mutant only): RE-INTRODUCE the
++	 * (unfaithful) GET-on-directory reject that the b53d fidelity fix removed --
++	 * deny a directory / volume-label entry instead of reporting its real 0x10
++	 * attribute byte. The corrected "GET-on-dir -> CF=0/CX=0x10" contract (host
++	 * oracle + the test-b53d 3-way differential) then goes RED. NEVER in a real
++	 * build. Ref: RBIL AX=4300h (no directory exclusion on GET). */
++	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
++		return FAT12_ERR_ACCESS;
+ 	}
+ 	/* A directory (0x10) or volume-label (0x08) entry is reported VERBATIM: GET
+ 	 * is a pure read and CX=0x10 is the faithful DOS answer (RBIL AX=4300h has no

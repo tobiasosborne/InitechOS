@@ -63,9 +63,7 @@ loader_status_t loader_nest_enter(loader_state_t *active, loader_state_t *saved,
 
 void loader_nest_leave(loader_state_t *active, const loader_state_t *saved)
 {
-#ifndef LOADER_MUT_NO_RESTORE
     active->psp = saved->psp;
-#endif
     active->return_frame = saved->return_frame;
     active->depth = saved->depth;
 }
@@ -107,15 +105,6 @@ loader_status_t loader_decide_env(uint32_t env_block, loader_env_decision_t *out
     if (env_block != 0u && env_block != (uint32_t)ENV_BLOCK) {
         return LOADER_ERR_BAD_ENV;   /* an env at an address the loader never wrote */
     }
-#ifdef LOADER_MUTATE_FORCE_EMPTY_ENV
-    /* MUTANT (CLAUDE.md Rule 6; make test-exec-env-mutant only): IGNORE the provided
-     * env_block and ALWAYS choose the empty-block path -- the exact pre-inc-3 bug
-     * (every child gets an empty env, the shell's master env never inherited). The
-     * inheritance oracle (a populated env_block must yield write_empty=0 and
-     * env_linear==env_block) MUST go RED. NEVER define in a real build. */
-    out->env_linear  = (uint32_t)ENV_BLOCK;
-    out->write_empty = 1;
-#else
     if (env_block == 0u) {
         out->env_linear  = (uint32_t)ENV_BLOCK;   /* inherit-empty: PSP -> ENV_BLOCK */
         out->write_empty = 1;                     /* synthesize the 2-byte empty block */
@@ -123,7 +112,6 @@ loader_status_t loader_decide_env(uint32_t env_block, loader_env_decision_t *out
         out->env_linear  = env_block;             /* inherit the populated block      */
         out->write_empty = 0;                     /* do NOT overwrite the shell's env  */
     }
-#endif
     return LOADER_OK;
 }
 
@@ -201,20 +189,6 @@ loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
     }
 
     /* 3. Relocate in file position against the PARAMETERIZED load base. */
-#ifdef LOADER_MUTATE_TENANT_PROGRAM_IMAGE_BASE
-    /* MUTANT (Rule 6; test-tenant-load-mutant only): relocate against the
-     * EXEC path's PROGRAM_IMAGE instead of the block -- the exact "reinterpret
-     * DEC-08a instead of extending it" bug. The relocated-dword assertions of
-     * test_tenant_load.c MUST go RED. NEVER define in a real build. */
-    if (img.reloc_count > 0u) {
-        if (mz_apply_relocs(file_at + img.load_module_off, img.load_module_len,
-                            (uint32_t)PROGRAM_IMAGE,
-                            file_at + img.reloc_table_off,
-                            img.reloc_count) != MZ_OK) {
-            return LOADER_ERR_BAD_FORMAT;
-        }
-    }
-#else
     if (img.reloc_count > 0u) {
         if (mz_apply_relocs(file_at + img.load_module_off, img.load_module_len,
                             block_linear + (uint32_t)TBX_TENANT_PSP_BYTES,
@@ -223,7 +197,6 @@ loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
             return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud */
         }
     }
-#endif
 
     /* 4. Move the module down over the header to the load base. */
     if (img.load_module_off != 0u) {
@@ -292,9 +265,7 @@ loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
             src   = img.load_module_off;
             len   = img.load_module_len;
         } else if (ps == MZ_ERR_FOREIGN) {
-#ifndef LOADER_MUTATE_OVL_ACCEPT_FOREIGN
             return LOADER_ERR_FOREIGN_MZ;   /* DEC-08a.5: the kernel panics */
-#endif
             /* MUTANT (Rule 6): the untagged 16-bit MZ falls through and is
              * copied as a raw file. NEVER define in a real build. */
         } else {
@@ -305,10 +276,6 @@ loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
         return LOADER_ERR_NOT_OWNED;        /* header read; destination untouched */
     }
     if (check(ctx) != 0) return LOADER_ERR_READ; /* the WHOLE declared chain */
-#ifdef LOADER_MUTATE_OVL_COPY_FIRST
-    /* Rule 6: copy before the relocation validation, violating PM's boundary. */
-    if (len != 0u && rd(ctx, src, len, dest) != 0) return LOADER_ERR_READ;
-#endif
     if (is_mz) {
         st = loader_ovl_relocs(rd, ctx, &img, dest, reloc_factor, scratch, 0);
         if (st != LOADER_OK) {
@@ -621,15 +588,6 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
         }
     }
 
-#ifdef LOADER_MUTATE_INPLACE_DOUBLE_HANDLE
-    /* MUTANT (CLAUDE.md Rule 6; make test-loader-big-mutant only): force the copy
-     * ON for the in-place path too -- re-imposing the pre-za4m double-handling
-     * (the image, already at PROGRAM_IMAGE, would be copied FROM a NULL/garbage
-     * src). The big-.COM oracle asserts the in-place plan carries image_src==NULL
-     * and the run path must NOT copy; this mutant makes do_copy==1 unconditionally
-     * so the oracle goes RED. NEVER define in a real build. */
-    do_copy = 1;
-#endif
 
     /* Copy the program image to PROGRAM_IMAGE (0x40100) ONLY on the baked path.
      * On the in-place path (za4m) the bytes are already there -- skip the copy
@@ -767,9 +725,6 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
      * child's CHDIR does not outlive it (a stated deviation, unchanged).
      * MUTANT LOADER_MUT_CWD_RESET (Rule 6; test-flair-tps-journey-mutant
      * CWDRESET): the pre-3p1a reset-to-root. NEVER in a real build. */
-#if defined(LOADER_MUT_CWD_RESET)
-    int21_cwd_reset();
-#endif
 
     /* --- The control transfer + return-to-loader (Sec 4; Risk 1). --- */
     ctx.exit_code  = 0;
@@ -1042,15 +997,6 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
         return LOADER_ERR_BUSY;
     }
 
-#ifdef LOADER_MUTATE_EXEC_ROOTONLY
-    /* MUTANT (CLAUDE.md Rule 6; make test-zs24-exec-mutant only): IGNORE the
-     * threaded containing-directory cluster and look ONLY in the root, the pre-
-     * zs24 root-only behavior. A subdir EXEC of a program that exists ONLY inside
-     * ::SUB then can't be located -> LOADER_ERR_NOT_FOUND, the program never runs,
-     * its serial marker is ABSENT -> the subdir-EXEC oracle goes RED. NEVER define
-     * in a real build. */
-    dir_start = 0u;
-#endif
 
     /* Locate the .COM in its CONTAINING directory (beads initech-zs24). The ROOT
      * case (dir_start==0) takes the BYTE-IDENTICAL historical fat12_find so root
@@ -1091,9 +1037,7 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
             mz_rd16(g_load_sector+0x1c)==INITECHMZ_EXT_TAG) {
             mz_image_t img;
             if(mz_parse_header(g_load_sector,de.file_size,&img)!=MZ_OK) return LOADER_ERR_BAD_FORMAT;
-#ifndef LOADER_MUT_HIGH_OWNER
             if(g_high_live) return LOADER_ERR_NOMEM;
-#endif
             return loader_load_high(&de,&img,cmd_tail,cmd_tail_len,env_block,out_rc);
         }
     }
@@ -1140,11 +1084,7 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
      * Ref: psp-loader-ground-truth Sec 3; DEC-08b stack window; h4bk. */
     uint32_t above = g_load.depth ? 0u : int21_tsr_top();
     if (g_load.depth || above) {
-#ifdef LOADER_MUT_TSR_EXEC_OVERLAP
-        if (above && !int21_mcb_bind_program(PROGRAM_BASE, PROGRAM_ARENA_CEIL))
-#else
         if (above && !int21_mcb_bind_above_residents(PROGRAM_ARENA_CEIL))
-#endif
             return LOADER_ERR_NOMEM;
         if (int21_mcb_exec_alloc(de.file_size, &child_psp, &child_end) != 0u)
             return LOADER_ERR_NOMEM;
@@ -1206,14 +1146,12 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
             }
         }
         int21_mcb_exec_free(child_psp);
-#ifndef LOADER_MUT_TSR_EXEC_ALLOW_FLAT
     } else if (child_psp && above && !loader_image_is_transient(image, got)) {
         ldr_serial_puts("LOADER-REFUSE-FLAT-RESIDENT name=");
         ldr_serial_puts(name83);
         ldr_serial_puts("\n");
         int21_mcb_exec_free(child_psp);
         st = LOADER_ERR_FIXED_BASE;
-#endif
     } else if (child_psp) {
         loader_plan_t plan;
         st = loader_prepare_in_place(image, got, cmd_tail, cmd_tail_len, &plan);
@@ -1370,10 +1308,8 @@ static loader_status_t loader_load_high(const dir_entry_t *de,const mz_image_t *
     if(st==LOADER_OK) st=loader_run_plan(&plan,0,env,out_rc);
     for(uint32_t i=EXT_APP_GUARD_BASE;i<EXT_APP_STACK_BOT;i+=4)
         if(*(uint32_t *)(uintptr_t)i!=EXT_APP_GUARD_WORD) __builtin_trap();
-#ifndef LOADER_MUT_HIGH_RECLAIM
     for(uint32_t i=EXT_APP_BASE;i<EXT_APP_CEIL;i++) *(uint8_t *)(uintptr_t)i=0;
     g_high_live=0;
-#endif
     int21_mcb_exec_free(psp);
     return st;
 }

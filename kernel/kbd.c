@@ -52,15 +52,7 @@ int kbd_ring_empty(const kbd_ring_t *r)
 int kbd_ring_put(kbd_ring_t *r, uint8_t c)
 {
     uint16_t head = r->head;
-#ifdef KBD_MUTATE_RING_OFFBYONE
-    /* MUTANT (CLAUDE.md Rule 6; defined only by `make test-kbd-unit-mutant`):
-     * compute the wrapped next index WITHOUT the +1, so a full ring is never
-     * detected and the wrap overwrites unread data -- the ring oracle must go
-     * RED. NEVER define this in a real build. */
-    uint16_t next = (uint16_t)(head & (KBD_RING_CAP - 1u));
-#else
     uint16_t next = (uint16_t)((head + 1u) & (KBD_RING_CAP - 1u));
-#endif
     if (next == r->tail) {
         if (r->dropped == 0) r->dropped = 1; /* ISR records, task reports. */
         /* Full: drop the byte (fail safe -- a dropped keystroke is not fatal,
@@ -77,12 +69,10 @@ int kbd_ring_put(kbd_ring_t *r, uint8_t c)
 
 int kbd_ring_get(kbd_ring_t *r, uint8_t *out)
 {
-#ifndef KBD_MUT_SILENT_DROP
     if (r->dropped == 1) {
         r->dropped = 2;
         RING_REPORT("KBD-RING-DROP\n");
     }
-#endif
     uint16_t head = r->head, tail = r->tail;
     if (head == tail) {
         return 0; /* empty */
@@ -160,11 +150,7 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
     /* IBM translated Set 1: right Ctrl is E0 1D/E0 9D, left Ctrl 1D/9D.
      * Consume E0 BEFORE the break flag (E0 itself has bit 7 set). */
     if (scancode == 0xE0u) {
-#ifdef KBD_MUTATE_E0
-        st->e0 = 0u; /* Rule 6: right Ctrl aliases left; fake Shift leaks. */
-#else
         st->e0 = 1u;
-#endif
         return 0u;
     }
     uint8_t extended = st->e0;
@@ -172,11 +158,7 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
     if ((scancode & 0x7Fu) == 0x1Du) {
         uint8_t side = extended ? 2u : 1u;
         if (scancode & SC_BREAK_FLAG) {
-#ifdef KBD_MUTATE_CTRL_RELEASE_ALL
-            st->ctrl = 0u; /* Rule 6: releasing either Ctrl releases both. */
-#else
             st->ctrl &= (uint8_t)~side;
-#endif
         }
         else st->ctrl |= side;
         return 0u;
@@ -186,9 +168,6 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
      * polls (SideKick's Ctrl+Alt chord; bead initech-6fdt). */
     if ((scancode & 0x7Fu) == 0x38u) {
         uint8_t side = extended ? 2u : 1u;
-#ifdef KBD_MUT_NO_ALT
-        side = 0u;   /* Rule 6: Alt never reaches the flag byte. */
-#endif
         if (scancode & SC_BREAK_FLAG) st->alt &= (uint8_t)~side;
         else st->alt |= side;
         return 0u;
@@ -209,19 +188,12 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
         return 0u;
     }
     if (scancode == SC_LSHIFT_BREAK || scancode == SC_RSHIFT_BREAK) {
-#ifdef KBD_MUT_ONE_SHIFT
-        /* Rule 6: restore the single-flag release; either break clears both. */
-        st->shift = 0u;
-#else
         uint8_t side = scancode == SC_LSHIFT_BREAK ? 1u : 2u;
         st->shift &= (uint8_t)~side;
-#endif
         return 0u;
     }
     if (scancode == SC_CAPS_MAKE) {
-#ifndef KBD_MUT_CAPS_REPEAT
         if (!st->caps_down)
-#endif
             st->caps ^= 1u;
         st->caps_down = 1u;
         return 0u;
@@ -241,20 +213,11 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
         return 0u;
     }
 
-#ifdef KBD_MUTATE_SCANCODE_TABLE
-    /* MUTANT (CLAUDE.md Rule 6; defined only by `make test-kbd-unit-mutant`):
-     * swap the low bit of the index so e.g. 0x20 ('d') decodes as 0x21 ('f') --
-     * stays in [0,0x3A) (scancode < 0x3A here) so no OOB, but the values are
-     * wrong; the translation oracle must go RED. NEVER define in a real build. */
-    char base = st->shift ? SC1_SHIFT[scancode ^ 1u] : SC1_NORMAL[scancode ^ 1u];
-#else
     char base = st->shift ? SC1_SHIFT[scancode] : SC1_NORMAL[scancode];
-#endif
     if (base == 0) {
         return 0u;
     }
 
-#ifndef KBD_MUTATE_NO_CTRL
     /* DOS control letters are case-independent: Ctrl-C=03h, Ctrl-Z=1Ah.
      * Ref: MS-DOS_3.3_Users_Guide_198707.pdf pp. 132, 158-159.
      * Use the cooked byte only; the FLAIR hook still receives raw scancodes. */
@@ -262,7 +225,6 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
         if (base >= 'a' && base <= 'z') return (uint8_t)(base - 'a' + 1);
         if (base >= 'A' && base <= 'Z') return (uint8_t)(base - 'A' + 1);
     }
-#endif
 
     /* CapsLock affects LETTERS only. With Shift OFF, caps upper-cases a-z; with
      * Shift ON over caps, a letter goes back to lowercase (the usual DOS/Mac
@@ -319,16 +281,7 @@ void kbd_scancode_put(kbd_ring_t *ring, kbd_state_t *state, uint8_t sc)
     /* Always decode the ORIGINAL input, even when the resulting BIOS code
      * has bit 7 set (Ctrl-PgUp=84h). Consume E0 and update modifiers once. */
     uint8_t ascii = kbd_translate(state, sc);
-#ifdef KBD_MUT_DROP_NAV
-    if (sc == 0x48u) special = 0; /* Rule 6: lose Up again. */
-#endif
-#ifdef KBD_MUT_WRONG_CTRL_SCAN
-    if (special == 0x77u) special = 0x78u; /* Rule 6: wrong Ctrl-Home. */
-#endif
     if (special) {
-#ifdef KBD_MUT_DROP_EXTENDED
-        return; /* Rule 6: restore the pre-template lost-function-key path. */
-#endif
         uint16_t head = ring->head;
         uint16_t next = (uint16_t)((head + 1u) & (KBD_RING_CAP - 1u));
         uint16_t end = (uint16_t)((next + 1u) & (KBD_RING_CAP - 1u));
@@ -362,12 +315,10 @@ void kbd_input_claim(kbd_input_t *input, kbd_owner_t owner)
 
 void kbd_input_put(kbd_input_t *input, uint8_t sc)
 {
-#ifndef KBD_MUT_DUAL_RING
     if (input->owner == KBD_OWNER_GUI) {
         (void)kbd_translate(&input->state, sc);
         return;
     }
-#endif
     kbd_scancode_put(&input->cooked, &input->state, sc);
 }
 

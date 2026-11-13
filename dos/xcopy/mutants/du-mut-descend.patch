@@ -1,0 +1,12 @@
+# DU_MUT_DESCEND
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -388,6 +388,7 @@
+     if (!join(spec,src,pattern)) goto invalid;
+     if (!nth(spec,0,0,&fd)) {
+         if (error) return error;
++        line("0" MSG_DOS_0024 "copied"); return 1;
+         if (!(flags & S_RECURSE)) { line("0" MSG_DOS_0024 "copied"); return 1; }
+     }
+     int isdir=directory(dst);

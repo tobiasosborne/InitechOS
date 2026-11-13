@@ -1,0 +1,15 @@
+# KBD_MUT_SILENT_DROP
+# test: test-kbd-unit
+--- a/kbd.c
++++ b/kbd.c
+@@ -69,10 +69,6 @@
+ 
+ int kbd_ring_get(kbd_ring_t *r, uint8_t *out)
+ {
+-    if (r->dropped == 1) {
+-        r->dropped = 2;
+-        RING_REPORT("KBD-RING-DROP\n");
+-    }
+     uint16_t head = r->head, tail = r->tail;
+     if (head == tail) {
+         return 0; /* empty */

@@ -1,0 +1,12 @@
+# CMD_MUTATE_COMMAND_C
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4638,7 +4638,6 @@
+     batch_frame_t *frame=g_batch_frame;
+     g_shell_exit=0;g_shell_permanent=0;g_batch_frame=0;
+     depth++;
+-    run_with_redirect(arg);
+     depth--;
+     g_master_env=env;
+     g_shell_exit=exit;g_shell_permanent=permanent;

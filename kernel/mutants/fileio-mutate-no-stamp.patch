@@ -1,0 +1,19 @@
+# FILEIO_MUTATE_NO_STAMP
+# test: test-zs24
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -98,12 +98,8 @@
+  * Ref pp.5-12/13,6-136/139; ADR-0003 Appendix A/B.1. */
+ static int stamp_entry(uint16_t parent, uint32_t slot, dir_entry_t *entry)
+ {
+-    uint16_t time, date;
+-    if (!int21_file_stamp(&time, &date)) return FAT12_OK;
+-    int rc = fat12_set_dirent_time(g_vol, g_fat, g_fat_len, parent, slot,
+-                                  time, date, g_sector);
+-    if (rc == FAT12_OK && entry) { entry->mtime = time; entry->mdate = date; }
+-    return rc;
++    (void)parent; (void)slot; (void)entry;
++    return FAT12_OK;
+ }
+ 
+ /* ------------------------------------------------------------------------ *

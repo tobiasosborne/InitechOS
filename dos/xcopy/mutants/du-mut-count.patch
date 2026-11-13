@@ -1,0 +1,12 @@
+# DU_MUT_COUNT
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -421,6 +421,7 @@
+     }
+     copy_dir(src,dst,isdir ? 0 : target_file,0);
+     if (error == 5) line(MSG_DOS_0009);
++    copied++;
+     number(copied); line(MSG_DOS_0024 "copied");
+     return error ? error : copied ? 0 : 1;
+ invalid:

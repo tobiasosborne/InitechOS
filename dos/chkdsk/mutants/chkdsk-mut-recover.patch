@@ -1,0 +1,12 @@
+# CHKDSK_MUT_RECOVER
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -248,6 +248,7 @@
+     int a=answer();nl();
+     if(!s.fix){num(s.lost*s.spc*512,0);put(" bytes would be freed\r\n");}
+     if(!s.fix)return;
++    if(a=='Y')a='N';
+     zero(s.seen,MAP);
+     for(unsigned pass=0;pass<2;pass++)for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)
+         if(orphan(c)&&!bit(s.seen,c)&&(pass||!bit(s.incoming,c))) {

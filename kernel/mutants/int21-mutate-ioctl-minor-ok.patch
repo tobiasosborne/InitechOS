@@ -1,0 +1,16 @@
+# INT21_MUTATE_IOCTL_MINOR_OK
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -1909,8 +1909,9 @@
+ 
+     /* Any other AL minor (02/03/04/05/09/0A/...) is not modeled -> invalid
+      * function, CF=1 (Rule 2: recognized AH, unimplemented minor fails loud). */
+-    set_ax(f, INT21_ERR_INVALID_FUNCTION);
+-    cf_set(f);
++    /* MUTANT (Rule 6): treat an unmodeled minor as success (CF=0) instead of
++     * 0x0001 -> the unmodeled-minor assertion goes RED. */
++    cf_clear(f);
+ }
+ 
+ /* ---- file-handle functions (beads initech-509.5 read-side) ---------------- *

@@ -1,0 +1,12 @@
+# CHKDSK_MUT_LOST
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -238,6 +238,7 @@
+     return 'N';
+ }
+ static void lost(void) {
++    return;
+     for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)if(orphan(c)) {
+         s.lost++;uint16_t v=next(c);if(valid(v)&&orphan(v))mark(s.incoming,v);
+     }

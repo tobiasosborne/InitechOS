@@ -1,0 +1,58 @@
+# CMD_MUTATE_NO_CWD_PROMPT
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4723,48 +4723,11 @@
+          * the default "$P$G" produces byte-identical "A:\>" / "A:\SUB>" output
+          * so the test-shell prompt-band assertions continue to pass (DEC-12).
+          * Ref: ADR-0003 DEC-12; beads initech-dibc. */
+-        {
+-            /* Retrieve the PROMPT template from the master environment.
+-             * Fall back to "$P$G" if the variable is absent/empty (a defensive
+-             * guard: command_repl seeds it to "$P$G" above, but a PROMPT CLEAR
+-             * via `SET PROMPT=` would leave env_get returning ""; in that case
+-             * DOS 3.3 also falls back to the bare drive letter, but "$P$G" is
+-             * more useful and matches the seeded default -- Law 4). */
+-            const char *templ = env_get(&g_master_env, "PROMPT");
+-            if (templ == 0 || templ[0] == '\0') {
+-                templ = "$P$G";
+-            }
+-
+-            /* Build the prompt_ctx_t: CWD from AH=47h, time from AH=2Ch.
+-             * Date fields are populated for $D but are not needed for $P$G.
+-             * cwd_rel is the AH=47h root-relative path (no drive, no leading \):
+-             * "" at root, "SUB" for A:\SUB. */
+-            char cwd_rel[INT21_CWD_MAX];
+-            dos_getcwd(0u, cwd_rel);    /* DL=0 -> default drive (A:) */
+-
+-            prompt_ctx_t pctx;
+-            pctx.drive    = prompt_drive();
+-            pctx.cwd      = cwd_rel;   /* root-relative, passed to $P expander */
+-            /* Time and date come from the live INT21 clock seam. */
+-            {
+-                uint8_t hh = 0, mi = 0, ss = 0, cs = 0;
+-                dos_gettime(&hh, &mi, &ss, &cs);
+-                pctx.hour     = (int)hh;
+-                pctx.minute   = (int)mi;
+-                pctx.second   = (int)ss;
+-                pctx.centisec = (int)cs;
+-            }
+-            prompt_date(&pctx);
+-
+-            /* Render into a bounded scratch buffer, then write the exact
+-             * byte count so an embedded dollar cannot terminate output. */
+-            char rendered[INT21_CWD_MAX + 32];  /* generous; no overflow possible */
+-            int rlen = cmd_render_prompt(templ, &pctx,
+-                                         rendered, (int)(sizeof(rendered) - 1));
+-            /* Reference p.101: $$ is a literal dollar. AH=40h writes
+-             * exactly the rendered bytes, including every embedded '$'. */
+-            dos_write(rendered, (uint32_t)rlen);
+-        }
++        /* MUTANT (Rule 6; make test-ut6d-mutant only): pin the prompt to the
++         * root "A:\>" regardless of the CWD, so after `CD SUB` the prompt never
++         * shows "A:\SUB>" -> the test-ut6d subdir-prompt assertion goes RED.
++         * NEVER in a real build. */
++        dos_print("A:\\>$");
+ 
+         read_line(line);
+         if (g_shell_break.interrupted) continue; /* ^C at prompt discards line */

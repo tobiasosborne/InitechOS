@@ -1,0 +1,12 @@
+# KBD_MUT_NO_ALT
+# test: test-kbd-unit
+--- a/kbd.c
++++ b/kbd.c
+@@ -168,6 +168,7 @@
+      * polls (SideKick's Ctrl+Alt chord; bead initech-6fdt). */
+     if ((scancode & 0x7Fu) == 0x38u) {
+         uint8_t side = extended ? 2u : 1u;
++        side = 0u;   /* Rule 6: Alt never reaches the flag byte. */
+         if (scancode & SC_BREAK_FLAG) st->alt &= (uint8_t)~side;
+         else st->alt |= side;
+         return 0u;

@@ -1,0 +1,13 @@
+# DOS_VOLUMES_MUT_CWD
+# test: test-dos-volumes-host
+--- a/int21.c
++++ b/int21.c
+@@ -142,7 +142,7 @@
+ {
+     if (drive >= 4u || (g_select_drive ? !g_select_drive(drive) : drive != 0u))
+         return 0;
+-    g_io_drive = drive;
++    g_io_drive = 0;
+     return 1;
+ }
+ void int21_set_drive_selector(int (*select)(unsigned))

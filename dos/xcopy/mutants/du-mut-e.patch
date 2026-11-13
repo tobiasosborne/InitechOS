@@ -1,0 +1,12 @@
+# DU_MUT_E
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -369,6 +369,7 @@
+     }
+     if (!operands) goto parameters;
+     if ((flags & E_EMPTY) && !(flags & S_RECURSE)) goto invalid;
++    flags&=~E_EMPTY;
+     if (flags & W_WAIT) {
+         line("Press any key when ready to start"); line("copying files");
+         key(); if (error) return error;

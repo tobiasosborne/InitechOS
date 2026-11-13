@@ -29,7 +29,6 @@ int loader_image_is_transient(const uint8_t *image, uint32_t image_len)
     if (image == 0 || image_len < TRANSIENT_MAGIC_LEN) {
         return 0;
     }
-#ifndef LOADER_MUT_NO_OVERLAY_GUARD
     /* ADR-0014 DEC-14-2: C:\FLAIR.OVL (spec/overlay_format.h, magic
      * "FLAIROVL") is a kernel overlay, never a program: DOS EXEC error 11 like
      * the transient. Compared as two little-endian dwords ("FLAI", "ROVL"), so
@@ -42,19 +41,11 @@ int loader_image_is_transient(const uint8_t *image, uint32_t image_len)
          (uint32_t)image[7] << 24) == 0x4C564F52u) {
         return 1;
     }
-#endif
-#ifndef LOADER_MUT_NO_TRANSIENT_GUARD
     uint32_t m = 0u;
     while (m < TRANSIENT_MAGIC_LEN && image[m] == (uint8_t)TRANSIENT_MAGIC[m]) {
         m++;
     }
     return m == TRANSIENT_MAGIC_LEN;
-#else
-    /* MUTANT (Rule 6; make test-flair-execguard-mutant / test-loader-mutant
-     * only): the pre-13ig loader never recognises the overlay and runs its
-     * header as code. NEVER in a real build. */
-    return 0;
-#endif
 }
 
 loader_status_t loader_prepare_core(const uint8_t *image,
@@ -85,15 +76,6 @@ loader_status_t loader_prepare_core(const uint8_t *image,
          * the 64 KiB staging buffer; it is read straight into PROGRAM_IMAGE). */
         return LOADER_ERR_TOO_BIG;
     }
-#ifdef LOADER_MUTATE_REIMPOSE_STAGING_CAP
-    /* MUTANT (CLAUDE.md Rule 6; make test-loader-big-mutant only): re-impose the
-     * PRE-za4m 64 KiB LOAD_STAGING_MAX cap on the in-place path -- the EXACT bug
-     * that wrongly rejected a 77 KiB INITECHBASE.COM. The big-.COM oracle's "64 KiB + 1
-     * loads" case MUST go RED. NEVER define in a real build. */
-    if (in_place && image_len > LOAD_STAGING_MAX) {
-        return LOADER_ERR_TOO_BIG;
-    }
-#endif
 
     /* THE TRANSIENT IS NOT A PROGRAM (bead initech-13ig). This is the ONE
      * choke point every flat image passes before loader_run_plan's JMP --
@@ -110,16 +92,8 @@ loader_status_t loader_prepare_core(const uint8_t *image,
 
     /* Layout from the LOCKED spec (spec/memory_map.h; Sec 3.2). */
     out->psp_addr  = PROGRAM_BASE;
-#ifdef LOADER_MUTATE_NO_OFFSET
-    /* MUTANT (CLAUDE.md Rule 6; make test-loader-mutant only): load the image at
-     * PROGRAM_BASE instead of PROGRAM_BASE+0x100 -- destroying the authentic
-     * .COM offset. The layout oracle MUST go RED. NEVER define in a real build. */
-    out->image_dst = PROGRAM_BASE;
-    out->entry     = PROGRAM_BASE;
-#else
     out->image_dst = PROGRAM_IMAGE;   /* PSP + 0x100 -- the authentic .COM offset */
     out->entry     = PROGRAM_IMAGE;   /* flat entry EIP == image_dst              */
-#endif
     out->extended = out->low_mcb_owned = out->reserve_end = 0u;
     out->stack_top = PROGRAM_STACK_TOP;
     out->image_len = image_len;
@@ -150,20 +124,11 @@ loader_status_t loader_prepare_core(const uint8_t *image,
      * DISJOINTNESS INVARIANT for the proof. (Was: the arena overlaid the running
      * program -- the latent corruption INITECHBASE would have hit.) */
     {
-#ifdef LOADER_MUTATE_ARENA_OVERLAP
-        /* MUTANT (CLAUDE.md Rule 6; make test-arena-disjoint-mutant only): revert
-         * the arena base to PROGRAM_BASE -- the EXACT pre-fix bug (the arena
-         * overlays the PSP/image/stack). The disjointness oracle MUST go RED
-         * (an allocation lands inside [PROGRAM_IMAGE, image_end) or the stack).
-         * NEVER define in a real build. */
-        uint32_t arena_base = PROGRAM_BASE;
-#else
         /* roundup_paragraph(PROGRAM_IMAGE + image_len + PROGRAM_BSS_RESERVE). The
          * +0xF then mask-to-16 rounds UP to the next paragraph boundary so the DOS
          * segment math (base_linear >> 4) is exact. */
         uint32_t image_end  = PROGRAM_IMAGE + image_len;
         uint32_t arena_base = (image_end + PROGRAM_BSS_RESERVE + 0xFu) & ~0xFu;
-#endif
         uint32_t arena_ceil = PROGRAM_ARENA_CEIL;   /* == ENV_BLOCK (exclusive) */
 
         if (arena_base < arena_ceil &&
@@ -264,9 +229,6 @@ loader_status_t loader_high_plan(const mz_image_t *img,
     out->extended = out->low_mcb_owned = 1u;
     out->psp_addr = PROGRAM_BASE; /* runtime supplies a small low MCB control */
     out->image_dst = EXT_APP_BASE;
-#ifdef LOADER_MUT_HIGH_LOW
-    out->image_dst = PROGRAM_IMAGE; /* Rule 6: wrong content dispatch */
-#endif
     out->entry = out->image_dst + img->entry_off;
     out->image_len = img->load_module_len;
     out->reserve_end = base;
@@ -361,29 +323,15 @@ loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
      *    at load_module_off here exactly as they will at the load base after the
      *    move; mz_apply_relocs adds PROGRAM_IMAGE (the flat load base, DEC-08a.1),
      *    not the staging address, so the dwords are correct for the run location. */
-#ifdef LOADER_MUTATE_MZ_NO_RELOC
-    /* MUTANT (CLAUDE.md Rule 6; make test-mzload-mutant only): SKIP the flat-32
-     * relocation entirely. The load module's absolute references keep their
-     * unrelocated (link-time) value, so the relocated-dword assertion in
-     * test_mzload.c (dword == original + PROGRAM_IMAGE) MUST go RED. This is the
-     * EXACT bug -- a relocatable MZ run without its fixups -- the oracle exists to
-     * catch. NEVER define in a real build. */
-    (void)0;
-#else
     if (img.reloc_count > 0u) {
         int rs = mz_apply_relocs(file_at + img.load_module_off,
                                  img.load_module_len,
-#ifdef LOADER_MUT_TSR_EXEC_FIXED_RELOC
-                                 (uint32_t)PROGRAM_IMAGE,
-#else
                                  load_base,
-#endif
                                  file_at + img.reloc_table_off, img.reloc_count);
         if (rs != MZ_OK) {
             return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud (Rule 2) */
         }
     }
-#endif
 
     /* 4. Move the (now-relocated) LOAD MODULE down over the header to the flat
      *    load base (PROGRAM_IMAGE == file_at). DEC-08a.2: the MZ header is NEVER
@@ -417,11 +365,7 @@ loader_status_t loader_prepare_mz_at(uint8_t *file_at, uint32_t file_len,
      *    canonical InitechMZ emits cs=ip=0 (entry == load base, identical to a
      *    .COM), but a non-zero entry_off is honored. ESP stays PROGRAM_STACK_TOP
      *    (loader_prepare_core set it); e_ss:e_sp are advisory this release. */
-#ifdef LOADER_MUTATE_MZ_ENTRY_EQUAL
-    if (img.entry_off > img.load_module_len) {
-#else
     if (img.entry_off >= img.load_module_len) {
-#endif
         /* The entry must point INTO the loaded module (Rule 2: never JMP past it). */
         return LOADER_ERR_BAD_FORMAT;
     }
@@ -532,12 +476,10 @@ loader_status_t loader_ovl_relocs(loader_ovl_read_fn rd, void *ctx,
             return LOADER_ERR_READ;
         }
         if (apply) {
-#ifndef LOADER_MUTATE_OVL_NO_FACTOR
             if (mz_apply_relocs(dest, img->load_module_len, reloc_factor,
                                 scratch, (uint16_t)n) != MZ_OK) {
                 __builtin_trap(); /* source changed after validation */
             }
-#endif
         } else {
             for (uint32_t i = 0u; i < n; i++) {
                 uint32_t off = mz_rd32(scratch + i * 4u);
@@ -550,9 +492,6 @@ loader_status_t loader_ovl_relocs(loader_ovl_read_fn rd, void *ctx,
                 }
             }
         }
-#ifdef LOADER_MUTATE_OVL_NO_FACTOR
-        (void)dest; (void)reloc_factor;
-#endif
         done += n;
     }
     return LOADER_OK;

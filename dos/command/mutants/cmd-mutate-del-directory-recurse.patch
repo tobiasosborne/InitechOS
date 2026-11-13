@@ -1,0 +1,28 @@
+# CMD_MUTATE_DEL_DIRECTORY_RECURSE
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3204,6 +3204,23 @@
+         if (!yes) return;
+     }
+ 
++    /* Rule 6: deliberately enter a child directory. The independent nested
++     * file sentinel must catch recursion, even though the child itself stays. */
++    dos_setdta(&g_shell_dta);
++    if (dos_findfirst(name, DIR_ATTR_DIRECTORY)) do {
++        if ((g_shell_dta.attr & DIR_ATTR_DIRECTORY) && g_shell_dta.fname[0]!='.') {
++            char child[CMD_LINE_MAX];
++            del_path(child, name, prefix, g_shell_dta.fname);
++            unsigned n = str_len(child);
++            if (n + 6u < sizeof(child)) {
++                const char mask[] = {'\\','?','*','.','*',0};
++                for (unsigned k=0; mask[k]; k++) child[n++]=mask[k];
++                child[n]=0;
++                builtin_del(child);
++            }
++            break;
++        }
++    } while (dos_findnext());
+ 
+     if (!cmd_has_wildcard(name)) {
+         /* Plain name: a single UNLINK. Not-found -> "File not found". */

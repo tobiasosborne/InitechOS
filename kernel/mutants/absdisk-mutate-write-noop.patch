@@ -1,0 +1,16 @@
+# ABSDISK_MUTATE_WRITE_NOOP
+# test: test-absdisk
+--- a/int21.c
++++ b/int21.c
+@@ -5652,7 +5652,10 @@
+                          ABSDISK_AH_WRITE_PROTECT);
+             return;
+         }
+-        rc = bk->write(lba, count, (const void *)(uintptr_t)buf);
++        /* MUTANT M2 (Rule 6): stub-drop the WRITE -- claim success (rc=0) but do
++         * no I/O. The read-back [5] sees stale bytes and the independent file
++         * cross-check [6] disagrees, so both go RED. */
++        rc = 0;
+     } else {
+         if (bk->read == 0) {
+             absdisk_fail(frame, ABSDISK_AL_GENERAL_FAILURE,

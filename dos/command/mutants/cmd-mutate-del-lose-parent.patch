@@ -1,0 +1,13 @@
+# CMD_MUTATE_DEL_LOSE_PARENT
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3255,7 +3255,7 @@
+             for (i = 0; i < 12 && g_shell_dta.fname[i]; i++)
+                 previous[i] = g_shell_dta.fname[i];
+             previous[i] = '\0';
+-            del_path(path, name, prefix, previous);
++            del_path(path, name, 0, previous); /* Rule 6: original wrong target. */
+             uint16_t error;
+ #ifdef CMD_TEST_DEL_DENIED
+             error = INT21_ERR_ACCESS_DENIED; /* factory-injected write refusal */

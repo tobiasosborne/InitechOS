@@ -1,0 +1,21 @@
+# TPS_MUTATE_NOWRCHK
+--- a/tpsrep/tpsrep_program.asm
++++ b/tpsrep/tpsrep_program.asm
+@@ -543,8 +543,6 @@
+     call totals
+     call flushout
+     FCB 0x10, outfcb
+-    test al, al
+-    jnz writefail
+     mov byte [tofile], 0
+     call crlf
+     mov edx, m_done1
+@@ -924,8 +922,6 @@
+     mov edx, outrec
+     call setdta
+     FCB 0x15, outfcb            ; AL 0 = written; 1 = disk full; 2 = DTA wrap
+-    test al, al
+-    jnz writefail
+     mov dword [opos], 0
+     pop edx
+     pop eax

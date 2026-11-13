@@ -1,0 +1,15 @@
+# CONKEYS_MUT_PAUSE
+# test: test-conkeys-unit
+--- a/int21.c
++++ b/int21.c
+@@ -1285,10 +1285,6 @@
+     }
+     if (c == 0x13) {
+         conkeys_trace("CONKEYS-PAUSE\n");
+-        if (g_conin_get || g_conin_pushback >= 0) {
+-            /* An extended resume key is one key, although DOS returns a pair. */
+-            if (conin_get_pb() == 0) (void)conin_get_pb();
+-        }
+         conkeys_trace("CONKEYS-RESUME\n");
+         return 1;
+     }

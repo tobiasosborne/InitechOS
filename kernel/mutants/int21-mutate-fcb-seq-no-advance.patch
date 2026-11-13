@@ -1,0 +1,12 @@
+# INT21_MUTATE_FCB_SEQ_NO_ADVANCE
+# test: test-int21
+--- a/int21.c
++++ b/int21.c
+@@ -4056,7 +4056,6 @@
+     case 0x15:   /* SEQUENTIAL WRITE, p. 6-76 */
+         n = fcb_rd(p + FCB_CURBLK, 2) * 128u + (p[FCB_CURREC] & 0x7Fu);
+         al = fcb_xfer(p, n, ah == 0x15u);
+-        if (al == 0u || al == 3u) fcb_set_pos(p, n + 1u);
+         break;
+     case 0x21:   /* RANDOM READ, p. 6-85 */
+     case 0x22:   /* RANDOM WRITE, p. 6-86: position follows the random field */

@@ -1,0 +1,15 @@
+# INT21_MUTATE_IOCTL_CON_WRONG
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -1804,7 +1804,9 @@
+ 
+         /* Character device (our only one is CON) vs disk file: the bit15
+          * (ISDEV) fork. DX carries the locked device-info word for the kind. */
+-        uint16_t con_word = (uint16_t)INT21_DEVINFO_CON;
++        /* MUTANT (Rule 6): emit the wrong CON word (drop a bit) -> the CON
++         * full-word assertion goes RED. */
++        uint16_t con_word = (uint16_t)(INT21_DEVINFO_CON & ~INT21_DEVINFO_STDIN);
+         if (e->kind == SFT_KIND_DEVICE) {
+             set_dx(f, con_word);
+         } else {

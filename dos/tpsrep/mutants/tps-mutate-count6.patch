@@ -1,0 +1,13 @@
+# TPS_MUTATE_COUNT6
+--- a/tpsrep/tpsrep_program.asm
++++ b/tpsrep/tpsrep_program.asm
+@@ -51,7 +51,8 @@
+ PSP equ 0x00040000
+ %endif
+ 
+-FORM_COUNT equ 7               ; spec/tps_ritual.json R2 "count": 7
++FORM_COUNT equ 6               ; MUTANT (Rule 6): six presses accepted; the
++                               ; wording is unchanged, so only BEHAVIOUR differs
+ 
+ CURBLK equ 0x0C
+ RECSZ  equ 0x0E

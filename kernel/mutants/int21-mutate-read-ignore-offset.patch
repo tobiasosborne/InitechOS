@@ -1,0 +1,16 @@
+# INT21_MUTATE_READ_IGNORE_OFFSET
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -3215,7 +3215,10 @@
+             return;
+         }
+     }
+-    e->file_offset += take;
++    /* MUTANT (Rule 6; make test-fileio-mutant only): advance the offset by ZERO
++     * so a second READ re-reads from the start instead of continuing. The READ
++     * oracle (which reads in two chunks and concatenates) goes RED. NEVER define
++     * in a real build. */
+     f->eax = take;
+     cf_clear(f);
+ }

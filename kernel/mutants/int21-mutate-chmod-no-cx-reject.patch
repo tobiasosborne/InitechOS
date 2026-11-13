@@ -1,0 +1,16 @@
+# INT21_MUTATE_CHMOD_NO_CX_REJECT
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -2888,11 +2888,6 @@
+          * and ADR-0003 Amendment DEC-14 sub-decision DEC-14.2 (sec.2). Revisit
+          * only if a real DOS consumer needs DOS's mask-and-succeed. */
+         uint16_t cx = frame_cx(f);
+-        if ((cx & (uint16_t)(DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+-            set_ax(f, INT21_ERR_ACCESS_DENIED);
+-            cf_set(f);
+-            return;
+-        }
+         uint8_t  attr = (uint8_t)(cx & 0xFFu);
+         uint16_t err = g_file->chmod(leaf, dir_start, 1, &attr);
+         if (err != 0) {

@@ -1,0 +1,12 @@
+# CONSOLE_MUTATE_CURSOR_OFF
+# test: test-console test-console-look
+--- a/console.c
++++ b/console.c
+@@ -101,6 +101,7 @@
+ {
+     if (!con || !con->lfb) return;
+     int want = active && (((ticks % 160u) * 3u / 80u) & 1u) == 0u;
++    want = 0;
+ #ifdef CONSOLE_RECORD_CURSOR_STEADY
+     /* Record-image kernels ONLY (make record-flair): per-event clip frames are
+      * grabbed on a wall-clock settle, so the tick-phase blink made the repro

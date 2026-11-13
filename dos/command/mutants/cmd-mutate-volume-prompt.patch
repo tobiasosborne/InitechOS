@@ -1,0 +1,13 @@
+# CMD_MUTATE_VOLUME_PROMPT
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -2729,7 +2729,7 @@
+ 
+ static char prompt_drive(void)
+ {
+-    return (char)('A'+int21_current_drive());
++    return 'A'; /* Rule 6: a C default must produce a C prompt. */
+ }
+ 
+ /* CD/CHDIR: no arg => print the current directory ("A:\" or "A:\SUB"). A path arg

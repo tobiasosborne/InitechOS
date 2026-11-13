@@ -1,0 +1,21 @@
+# FAT12_MUTATE_SUBDIR_SINGLESECTOR
+# test: test-fat-subdir
+--- a/fat12.c
++++ b/fat12.c
+@@ -4143,9 +4143,13 @@
+ 			return FAT12_OK; /* chain ended at EOC with no 0x00 sentinel */
+ 		}
+ 		cur = next;
+-		if (++steps > max_steps) {
+-			return FAT12_ERR_CHAIN; /* cyclic / corrupt */
+-		}
++		/* MUTANT (Rule 6; test-fat-subdir-mutant only): read ONLY the FIRST
++		 * cluster of a subdirectory -- stop the chain walk after one cluster.
++		 * BIGDIR enumeration then loses FILE17..FILE40 (entries in cluster 2+),
++		 * so the >16-files multi-cluster assertion goes RED. NEVER in a real
++		 * build. */
++		(void)steps; (void)max_steps;
++		return FAT12_OK;
+ 	}
+ }
+ 

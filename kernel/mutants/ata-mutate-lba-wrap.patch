@@ -1,0 +1,12 @@
+# ATA_MUTATE_LBA_WRAP
+# test: test-ata
+--- a/ata.c
++++ b/ata.c
+@@ -138,7 +138,6 @@
+ static int ata_lba28_valid(uint32_t lba, uint32_t count)
+ {
+     if (!count || count > 256u || lba > 0x0fffffffu) return 0;
+-    if (count > 0x10000000u - lba) return 0;
+     return 1;
+ }
+ 

@@ -1,0 +1,77 @@
+# FAT12_MUTATE_GROW_NOOP
+# test: test-zs24
+--- a/fat12.c
++++ b/fat12.c
+@@ -1554,63 +1554,15 @@
+ 		return FAT12_ERR_WRITE;
+ 	}
+ 
+-
+-	/* Walk to the EOC tail of the existing chain. */
+-	for (;;) {
+-		uint16_t next;
+-		if (chain_link_unusable(vol, cur)) {
+-			return FAT12_ERR_CHAIN;
+-		}
+-		rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+-		if (rc != FAT12_OK) {
+-			return rc;
+-		}
+-		if (chain_is_eoc(vol, next)) {
+-			break;
+-		}
+-		cur = next;
+-		if (++steps > max) {
+-			return FAT12_ERR_CHAIN;
+-		}
+-	}
+-
+-	/* Claim + reserve a free cluster (mark EOC immediately so find_free skips). */
+-	newc = fat12_find_free(vol, fat, fat_len, (uint16_t)(cur + 1u));
+-	/* ADR-0003 DEC-07; mtools on the identical fragmented image (fov8).
+-	 * Locality is a hint, not a space bound: free clusters can precede cur. */
+-	if (newc == 0u) {
+-		newc = fat12_find_free(vol, fat, fat_len, FAT12_FIRST_DATA_CLUSTER);
+-	}
+-	if (newc == 0u) {
+-		return FAT12_ERR_NO_SPACE;
+-	}
+-	rc = fat12_set_entry(fat, fat_len, newc, FAT12_EOC_VALUE);
+-	if (rc != FAT12_OK) {
+-		return rc;
+-	}
+-
+-	/* Zero-fill the new cluster on disk BEFORE committing the link (so the new
+-	 * slots read as 0x00 end-of-directory; a failure rolls back the alloc). */
+-	lba = cluster_lba(vol, newc);
+-	if (cluster_fill(vol, lba, NULL, 0u, cluster_buf) != FAT12_OK) {
+-		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+-		(void)fat12_flush_fats(vol, fat, fat_len);
+-		return FAT12_ERR_WRITE;
+-	}
+-
+-	/* Link the old tail -> new cluster, flush both FAT copies. */
+-	rc = fat12_set_entry(fat, fat_len, cur, newc);
+-	if (rc != FAT12_OK) {
+-		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+-		(void)fat12_flush_fats(vol, fat, fat_len);
+-		return rc;
+-	}
+-	rc = fat12_flush_fats(vol, fat, fat_len);
+-	if (rc != FAT12_OK) {
+-		return rc;
+-	}
+-	*out_new_cluster = newc;
+-	return FAT12_OK;
++	/* MUTANT (Rule 6; make test-zs24-mutant only): REFUSE to grow the directory
++	 * -- return DIR_FULL as if the subdir could not be extended. The boundary-
++	 * crossing CREATE then fails and the file never lands, so the GROW
++	 * differential (mtools/python list the boundary file) goes RED. This proves
++	 * the grow path is actually REACHED + relied upon. NEVER in a real build. */
++	(void)fat_len; (void)start_cluster;
++	(void)cur; (void)steps; (void)max; (void)newc;
++	(void)lba; (void)rc;
++	return FAT12_ERR_DIR_FULL;
+ }
+ 
+ /* fat12_shrink_dir_tail -- the EXACT inverse of a single fat12_grow_dir step:

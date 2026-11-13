@@ -118,7 +118,6 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
     /* 3. Read the tag word (DEC-08a.5). */
     e_res0 = mz_rd16(file + MZ_OFF_RES0);
 
-#ifndef MZ_MUTATE_ACCEPT_FOREIGN
     /* CLEAN BUILD: enforce the InitechMZ tag.  An untagged MZ is a genuine
      * 16-bit DOS .EXE with paragraph fixups over 16-bit code -- running it
      * in 32-bit flat mode would silently misinterpret the instruction stream.
@@ -126,11 +125,6 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
     if (e_res0 != MZ_INITECH_TAG && e_res0 != INITECHMZ_EXT_TAG) {
         return MZ_ERR_FOREIGN;
     }
-#else
-    /* MUTANT MZ_MUTATE_ACCEPT_FOREIGN: skip the tag check, treat every MZ
-     * as if it were tagged.  The foreign-MZ oracle goes RED. */
-    (void)e_res0;
-#endif
 
     /* 4. Read the header fields we need. */
     e_cblp      = mz_rd16(file + MZ_OFF_CBLP);
@@ -195,9 +189,7 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
         if (file_len < INITECHMZ_EXT_HEADER_MIN || header_bytes < INITECHMZ_EXT_HEADER_MIN ||
             e_cblp > 511u || !e_cp ||
             mz_rd32(file+INITECHMZ_EXT_VERSION_OFF) != INITECHMZ_EXT_VERSION ||
-#ifndef MZ_MUT_EXT_LENGTH
             mz_rd32(file+INITECHMZ_EXT_LENGTH_OFF) != INITECHMZ_EXT_DESC_LEN ||
-#endif
             mz_rd32(file+INITECHMZ_EXT_STACK_OFF) != INITECHMZ_EXT_STACK_BYTES ||
             mz_rd32(file+INITECHMZ_EXT_GUARD_OFF) != INITECHMZ_EXT_GUARD_BYTES)
             return MZ_ERR_BAD_HEADER;
@@ -255,22 +247,9 @@ int mz_apply_relocs(uint8_t *image, uint32_t image_len,
          * and host portability; DEC-08a.1). */
         old_val = mz_rd32(image + off);
 
-#if defined(MZ_MUTATE_RELOC_NOADD)
-        /* MUTANT: skip the load_base add entirely -- the dword stays at its
-         * unrelocated value.  The reloc oracle goes RED because the
-         * relocated bytes do NOT equal original + load_base. */
-        new_val = old_val;
-        (void)load_base;
-#elif defined(MZ_MUTATE_RELOC_PARAGRAPH)
-        /* MUTANT: add (load_base >> 4) -- a paragraph count -- instead of
-         * the flat byte address.  Wrong for flat-32 relocations; the reloc
-         * oracle goes RED. */
-        new_val = old_val + (load_base >> 4);
-#else
         /* CLEAN BUILD: flat-32 relocation -- add the flat load base to the
          * 32-bit dword at the reloc site (DEC-08a.1). */
         new_val = old_val + load_base;
-#endif
 
         mz_wr32(image + off, new_val);
     }

@@ -1,0 +1,17 @@
+# ABSDISK_MUTATE_WRITE_NEIGHBOR
+# test: test-absdisk
+--- a/int21.c
++++ b/int21.c
+@@ -5652,7 +5652,11 @@
+                          ABSDISK_AH_WRITE_PROTECT);
+             return;
+         }
+-        rc = bk->write(lba, count, (const void *)(uintptr_t)buf);
++        /* MUTANT M6 (Rule 6): write count+1 sectors when count was asked -- it
++         * scribbles the ADJACENT sector. The non-corruption snapshot [7] of the
++         * neighbor (and the boot/FAT/root snapshot if scratch-1 is in range) goes
++         * RED. */
++        rc = bk->write(lba, count + 1u, (const void *)(uintptr_t)buf);
+     } else {
+         if (bk->read == 0) {
+             absdisk_fail(frame, ABSDISK_AL_GENERAL_FAILURE,

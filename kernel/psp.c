@@ -161,13 +161,7 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
      * gate is installed by sysinit.c at system initialization (int20_entry).
      * Ref: psp-loader-ground-truth.md Sec 2.1; dos_structs.h:92. */
     psp->int20[0] = 0xCD;
-#ifdef PSP_MUTATE_INT20
-    /* Rule-6 mutant: wrong terminator byte (0x21 not 0x20). The int20 oracle
-     * MUST go RED. A mutant that passes proves the assertion is decoration. */
-    psp->int20[1] = 0x21;
-#else
     psp->int20[1] = 0x20;
-#endif
 
     /* --- 02h alloc_end_seg: segment of first byte beyond allocated memory. --
      * Option B: flat allocation-end address in fake paragraph units
@@ -222,19 +216,12 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
      * (sft_inherit) -- psp.c stays SFT-independent (pure + host-testable).
      * Ref: Sec 2.6; dos_structs.h:97; ADR-0003 DEC-06; MS-DOS 3.3 PRM AH=4Bh;
      *      sft.h SFT_SLOT_*. */
-#ifndef PSP_MUT_NO_JFT_INHERIT
     if (params->parent_jft != 0) {
         /* Inherit a byte-for-byte copy of the parent's 20-entry handle table. */
         for (uint32_t i = 0; i < 20; i++) {
             psp->jft[i] = params->parent_jft[i];
         }
     } else
-#else
-    /* Rule-6 mutant (make test-psp-mutant / the bsy.9 emu mutant): RESTORE the
-     * old hard-reset -- IGNORE params->parent_jft and ALWAYS lay the CON defaults,
-     * disabling inheritance. test_psp Case 5 (host) + the redirect emu gate both
-     * go RED, proving the inheritance path is load-bearing. NEVER in a real build. */
-#endif
     {
         /* NO parent (boot-time kernel/shell PSP): the FIVE predefined standard
          * handles (DEC-06) then 0xFF x15 (unused/closed). */
@@ -295,26 +282,11 @@ uint32_t psp_build(psp_t *psp, const psp_params_t *params)
     uint32_t want = params->cmd_tail_len;
     uint32_t copy = want;
     uint32_t dropped = 0;
-#ifndef PSP_MUTATE_NO_TAIL_CLAMP
     if (copy > PSP_CMD_TAIL_MAX_TEXT) {
         dropped = copy - PSP_CMD_TAIL_MAX_TEXT;
         copy = PSP_CMD_TAIL_MAX_TEXT;
     }
-#else
-    /* Rule-6 mutant target (make test-cmdline-fuzz-mutant): REMOVE the cmd_tail
-     * clamp, so an over-long command tail (cmd_tail_len > 126) copies all `want`
-     * bytes plus the CR straight past offset 0x7F of the 128-byte cmd_tail region
-     * -- writing beyond psp->cmd_tail[127], stomping the guard byte the fuzzer
-     * placed immediately after the PSP. The fuzzer's "no write past cmd_tail[127]"
-     * guard-byte invariant goes RED. NEVER in a real build. */
-#endif
-#ifdef PSP_MUTATE_CMDTAIL_LEN
-    /* Rule-6 mutant: off-by-one count byte. The tail-length oracle MUST go RED.
-     * (The text + CR are still written correctly, so this isolates the count.) */
-    psp->cmd_tail[0] = (uint8_t)(copy + 1);
-#else
     psp->cmd_tail[0] = (uint8_t)copy; /* count <= 126, fits a byte */
-#endif
     for (uint32_t i = 0; i < copy; i++) {
         psp->cmd_tail[1 + i] = (uint8_t)params->cmd_tail[i];
     }
@@ -378,17 +350,7 @@ void psp_save_vectors(psp_t *psp, uint32_t v22, uint32_t v23, uint32_t v24)
     }
     psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC22_OFF], v22);
     psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC23_OFF], v23);
-#ifdef PSP_MUTATE_VEC_OFFSET
-    /* MUTANT (Rule 6; make test-int24-mutant only): write the 24h vector at the
-     * 23h slot (offset 4) instead of its own slot (offset 8) -- a mis-placed
-     * save. The EXIT restore would then reinstall the wrong handler for 0x24, so
-     * the round-trip oracle [3] (v24 stored at saved_vectors[8..11]; load recovers
-     * v24) goes RED. This is the mutation that PROVES the emu gate's reliance on
-     * the save/restore offsets is real. NEVER define in a real build. */
-    psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC23_OFF], v24);
-#else
     psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC24_OFF], v24);
-#endif
 }
 
 void psp_load_vectors(const psp_t *psp, uint32_t *v22, uint32_t *v23,

@@ -1,0 +1,25 @@
+# LOADER_MUTATE_FORCE_EMPTY_ENV
+# test: test-loader
+--- a/loader.c
++++ b/loader.c
+@@ -105,13 +105,13 @@
+     if (env_block != 0u && env_block != (uint32_t)ENV_BLOCK) {
+         return LOADER_ERR_BAD_ENV;   /* an env at an address the loader never wrote */
+     }
+-    if (env_block == 0u) {
+-        out->env_linear  = (uint32_t)ENV_BLOCK;   /* inherit-empty: PSP -> ENV_BLOCK */
+-        out->write_empty = 1;                     /* synthesize the 2-byte empty block */
+-    } else {
+-        out->env_linear  = env_block;             /* inherit the populated block      */
+-        out->write_empty = 0;                     /* do NOT overwrite the shell's env  */
+-    }
++    /* MUTANT (CLAUDE.md Rule 6; make test-exec-env-mutant only): IGNORE the provided
++     * env_block and ALWAYS choose the empty-block path -- the exact pre-inc-3 bug
++     * (every child gets an empty env, the shell's master env never inherited). The
++     * inheritance oracle (a populated env_block must yield write_empty=0 and
++     * env_linear==env_block) MUST go RED. NEVER define in a real build. */
++    out->env_linear  = (uint32_t)ENV_BLOCK;
++    out->write_empty = 1;
+     return LOADER_OK;
+ }
+ 

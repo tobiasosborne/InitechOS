@@ -1,0 +1,12 @@
+# DRIVE_MUT_DISK
+# test: test-drive-letters
+--- a/block_device.c
++++ b/block_device.c
+@@ -53,6 +53,7 @@
+     init();
+     if(!m || letter==1 || letter>3)return -1;
+     unsigned drive=letter==0?DL_a_disk:letter==2?DL_c_disk:DL_d_disk;
++    if(!letter)drive=0x80;
+     unsigned part=letter==0?DL_a_partition:letter==2?DL_c_partition:DL_d_partition;
+     unsigned i=drive-0x80;uint8_t b[512];
+     if(i>1 || !sizes[i] || disks[i].read_sectors(disks[i].ctx,0,1,b))return -1;

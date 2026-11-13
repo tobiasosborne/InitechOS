@@ -1,0 +1,43 @@
+# FAT12_MUTATE_RMDIR_NO_EMPTYCHECK
+# test: test-fat12-mkdir
+--- a/fat12.c
++++ b/fat12.c
+@@ -3936,17 +3936,6 @@
+  * fat12_read_dir already skips free/deleted/LFN slots, so every entry handed
+  * here is a real 8.3 name. (Compiled out under the m4 mutant, which omits the
+  * empty-check entirely -- so the callback would be unused; Rule 6.) */
+-static int fat12_rmdir_empty_cb(const dir_entry_t *e, void *user)
+-{
+-	int *nonempty = (int *)user;
+-	if (e->filename[0] == 0x2Eu &&
+-	    (e->filename[1] == 0x20u ||
+-	     (e->filename[1] == 0x2Eu && e->filename[2] == 0x20u))) {
+-		return 0;   /* '.' or '..' -- expected; keep scanning */
+-	}
+-	*nonempty = 1;
+-	return 1;           /* a real child entry -- stop, the dir is non-empty */
+-}
+ 
+ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                 const char *name83, uint16_t parent_dir_start, void *sector_buf)
+@@ -4005,16 +3994,10 @@
+ 	 * survive. Any other entry -> non-empty (the backend maps to 0x0005). */
+ 	target.is_root = 0;
+ 	target.start_cluster = match.start_cluster;
+-	rc = fat12_read_dir(vol, &target, sector_buf, fat, fat_len,
+-	                    fat12_rmdir_empty_cb, &nonempty);
+-	if (rc != FAT12_OK && rc != 1) {
+-		/* fat12_read_dir returns the callback's non-zero (1) on an early stop;
+-		 * any other non-OK is a real read/chain error (fail loud). */
+-		return rc;
+-	}
+-	if (nonempty) {
+-		return FAT12_ERR_NOT_EMPTY;
+-	}
++	/* MUTANT m4 (Rule 6; make test-fat12-mkdir-mutant only): omit the empty-
++	 * check so RMDIR of a NON-EMPTY directory wrongly succeeds. The
++	 * RMDIR-non-empty assertion must go RED. NEVER define in a real build. */
++	(void)target; (void)nonempty;
+ 
+ 	/* Free the target's cluster chain (the '.'/'..' cluster), flush both FATs. */
+ 	if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {

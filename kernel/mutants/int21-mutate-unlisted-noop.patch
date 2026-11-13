@@ -1,0 +1,22 @@
+# INT21_MUTATE_UNLISTED_NOOP
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -5362,13 +5362,10 @@
+         con_hex2(ah);
+         con_putc('\n');
+     } else {
+-        /* NOT in the locked register at all -> invalid function. Emit the
+-         * grep-able serial diagnostic (the controlled MSG-DOS-0002 "Bad command
+-         * or file name" is the closest console message; here we use the clear,
+-         * specific form per spec/int21h_calling_convention.json). */
+-        con_puts("INT21 unknown AH=");
+-        con_hex2(ah);
+-        con_putc('\n');
++        /* MUTANT (Rule 6; make test-int21-mutant only): the unlisted-AH path is
++         * a SILENT no-op -- no diagnostic, no CF. The controlled-scope oracle
++         * must go RED. NEVER define in a real build. */
++        return;
+     }
+ 
+     /* Both controlled-scope paths: CF=1, AX=0x0001 (invalid function). */

@@ -1,0 +1,20 @@
+# INT21_MUTATE_EXEC_ROOTREJECT
+# test: test-int21
+--- a/int21.c
++++ b/int21.c
+@@ -4221,6 +4221,15 @@
+     const char *path = (const char *)(uintptr_t)f->edx;
+     if (path == 0 || *path == '\0') {
+         set_ax(f, INT21_ERR_FILE_NOT_FOUND);
++        cf_set(f);
++        return;
++    }
++    /* MUTANT (CLAUDE.md Rule 6; make test-zs24-exec-mutant only): restore the
++     * pre-zs24 root-only gate -- reject any subdir/drive path BEFORE resolving, so
++     * a subdir EXEC returns 0x0003 and the program never runs (its serial marker
++     * is ABSENT). The subdir-EXEC oracle MUST go RED. NEVER define in a real build. */
++    if (path_has_subdir_or_drive(path)) {
++        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
+         cf_set(f);
+         return;
+     }

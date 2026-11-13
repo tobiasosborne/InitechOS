@@ -1,0 +1,18 @@
+# CMD_MUTATE_REDIR_NO_RESTORE
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3757,13 +3757,6 @@
+      * still restore). */
+     int rc = dispatch_line(clean);
+ 
+-    /* Restore handle 1 to CON on EVERY path (including EXIT / child EXEC return).
+-     * The EXEC child cannot clobber the parent's `saved` slot: `saved` lives in
+-     * the PARENT's JFT (a free slot DUP'd from handle 1), the child gets a fresh
+-     * per-process JFT framed by the loader, and on the child's return g_cur_psp
+-     * is restored to the parent whose JFT is intact -- so dos_dup2(saved,1)
+-     * repoints handle 1 back at CON's SFT entry. */
+-    dos_dup2(saved, 1);
+     dos_close(saved);
+     /* A redirected write that the full disk refused (AH=40h short count, IBM
+      * DOS 3.30 TR pp.6-139/6-140) must not pass as an empty success: report

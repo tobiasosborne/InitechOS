@@ -33,11 +33,6 @@
 
 #include <stddef.h>   /* NULL */
 
-#ifdef ATA_MUTATE_ERROR_COLLAPSE
-/* Rule 6: callers must be able to distinguish timeout and an absent device. */
-#define ATA_ERR_NO_DRIVE ATA_ERR_DEVICE
-#define ATA_ERR_TIMEOUT ATA_ERR_DEVICE
-#endif
 
 /* Command-block register offsets from io_base (ATA/ATAPI-6 Table 8). */
 #define ATA_REG_DATA      0u /* 16-bit data register (PIO transfer)     */
@@ -132,25 +127,18 @@ static void ata_delay_400ns(uint16_t ctrl_base)
  * stale; only the new command's completion determines its success. */
 static int ata_wait_command(uint16_t io_base)
 {
-#ifdef ATA_MUTATE_NO_PREWAIT
-    (void)io_base;
-    return 0;
-#else
     for (uint32_t i = 0; i < ATA_POLL_LIMIT; ++i) {
         uint8_t st = inb((uint16_t)(io_base + ATA_REG_STATUS));
         if (st == ATA_FLOATING_BUS || st == 0) return ATA_ERR_NO_DRIVE;
         if (!(st & (ATA_SR_BSY | ATA_SR_DRQ)) && (st & ATA_SR_DRDY)) return 0;
     }
     return ATA_ERR_TIMEOUT;
-#endif
 }
 
 static int ata_lba28_valid(uint32_t lba, uint32_t count)
 {
     if (!count || count > 256u || lba > 0x0fffffffu) return 0;
-#ifndef ATA_MUTATE_LBA_WRAP
     if (count > 0x10000000u - lba) return 0;
-#endif
     return 1;
 }
 
@@ -316,9 +304,6 @@ static int ata_pio_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
 	ata_delay_400ns(ctrl_base);
 	int ready = ata_wait_command(io_base);
 	if (ready != 0) {
-#ifdef ATA_MUTATE_NO_DRIVE_SUCCESS
-		if (ready == ATA_ERR_NO_DRIVE) return 0;
-#endif
 		return ready;
 	}
 
@@ -425,12 +410,10 @@ static int ata_pio_write(void *ctx, uint32_t lba, uint32_t count, const void *bu
 	/* CACHE FLUSH so the write buffer is committed before any read sees it
 	 * (Rule 2 / Rule 11: a subsequent read of what we wrote must be authoritative,
 	 * not a stale-cache artifact). FLUSH transfers no data -> wait BSY-clear. */
-#ifndef ATA_MUTATE_FLUSH_EARLY
 	rc = ata_wait_ready(io_base, ctrl_base);
 	if (rc != 0) return rc;
 	rc = ata_wait_command(io_base);
 	if (rc != 0) return rc;
-#endif
 	outb((uint16_t)(io_base + ATA_REG_COMMAND), ATA_CMD_CACHE_FLUSH);
 	rc = ata_wait_ready(io_base, ctrl_base);
 	if (rc != 0) {
@@ -546,20 +529,10 @@ static int crit_blockdev_read(void *ctx, uint32_t lba, uint32_t count, void *buf
 		}
 		/* Hard error: raise INT 24h. Stop re-issuing once the bound budget is
 		 * spent even if the operator keeps choosing Retry on a dead drive. */
-#if defined(MVG_MUTATE_RETRY_UNBOUNDED)
-		/* MUTANT (Rule 6; make test-int24-wired-mutant only): DROP the retry
-		 * bound -- an always-Retry operator on a dead drive then loops forever.
-		 * Scenario [E]'s bounded queue underflows (mock_get exit(2)) -> RED,
-		 * proving the bound is load-bearing (Rule 2). NEVER in a real build. */
-		if (!crit_should_retry(0 /* read */, rc)) {
-			return rc;
-		}
-#else
 		if (attempt >= CRIT_BLOCKDEV_MAX_RETRIES ||
 		    !crit_should_retry(0 /* read */, rc)) {
 			return rc;             /* Fail / Abort-returned / budget -> error */
 		}
-#endif
 		/* else: Retry -> loop and re-issue the SAME read. */
 	}
 }
@@ -588,18 +561,10 @@ static int crit_blockdev_write(void *ctx, uint32_t lba, uint32_t count,
 		if (rc == 0) {
 			return 0;
 		}
-#if defined(MVG_MUTATE_RETRY_UNBOUNDED)
-		/* MUTANT (Rule 6; make test-int24-wired-mutant only): DROP the write
-		 * retry bound (see the read twin above). [E] underflows -> RED. */
-		if (!crit_should_retry(1 /* write */, rc)) {
-			return rc;
-		}
-#else
 		if (attempt >= CRIT_BLOCKDEV_MAX_RETRIES ||
 		    !crit_should_retry(1 /* write */, rc)) {
 			return rc;
 		}
-#endif
 	}
 }
 

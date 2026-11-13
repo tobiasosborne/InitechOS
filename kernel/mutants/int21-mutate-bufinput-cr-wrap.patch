@@ -1,0 +1,16 @@
+# INT21_MUTATE_BUFINPUT_CR_WRAP
+# test: test-4tw
+--- a/int21.c
++++ b/int21.c
+@@ -1543,7 +1543,10 @@
+      * by the editor's capacity, so `count < max` holds for any max>=1. The old
+      * (uint8_t)(2u+count) < (uint8_t)(2u+max) form WRAPPED when max>=254 and
+      * wrongly dropped the terminator on a full-size (buf[0]=255) buffer. */
+-    if (count < max) {
++    /* MUTANT (Rule 6; make test-conin-mutant only): restore the old
++     * uint8_t-wrapping guard so a max=255 buffer drops its CR -- the full-size-
++     * buffer oracle must go RED. NEVER define in a real build. */
++    if ((uint8_t)(2u + count) < (uint8_t)(2u + max)) {
+         buf[2u + count] = 0x0Du;
+     }
+     buf[1] = count;

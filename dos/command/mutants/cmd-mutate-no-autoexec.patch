@@ -1,0 +1,17 @@
+# CMD_MUTATE_NO_AUTOEXEC
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4700,7 +4700,11 @@
+         int fh = dos_open(autoexec);
+         if (fh >= 0) {
+             dos_close(fh);
+-            run_batch_invoke(autoexec, "");
++            /* MUTANT (Rule 6; make test-autoexec-mutant only): skip running
++             * AUTOEXEC.BAT entirely, so its markers never reach serial and the
++             * emu gate's marker assertions go RED -- proving the gate bites.
++             * NEVER in a real build. */
++            (void)autoexec;
+         }
+         else if (g_shell_permanent) {
+             startup_datetime();

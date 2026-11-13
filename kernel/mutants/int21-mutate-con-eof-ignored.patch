@@ -1,0 +1,20 @@
+# INT21_MUTATE_CON_EOF_IGNORED
+# test: test-conin-unit
+--- a/int21.c
++++ b/int21.c
+@@ -3105,15 +3105,6 @@
+             f->eax = 0u; cf_clear(f); return;
+         }
+         uint16_t end = n;
+-        /* Cook the ENTIRE line (consume Enter), then cut at ^Z. 0Ah keeps its
+-         * byte-layout contract and treats ^Z as data; only ASCII handle reads
+-         * interpret it as EOF. Ref: 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf
+-         * pp. 6-62, 6-138, 6-149; MS-DOS_3.3_Users_Guide_198707.pdf p. 132
+-         * (COPY CON: Ctrl-Z THEN Return). AX=0 is the final EOF read, after any
+-         * bytes preceding ^Z have been drained. */
+-        for (uint16_t i = 0u; i < n; i++) {
+-            if (g_con_line[i] == 0x1Au) { end = i; break; }
+-        }
+         if (end < n) {
+             e->con_eof = end != 0u;
+         } else {

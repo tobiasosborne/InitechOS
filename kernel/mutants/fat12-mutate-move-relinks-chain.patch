@@ -1,0 +1,17 @@
+# FAT12_MUTATE_MOVE_RELINKS_CHAIN
+# test: test-fat-move
+--- a/fat12.c
++++ b/fat12.c
+@@ -3547,6 +3547,12 @@
+ 	for (k = 0u; k < 3u; k++) {
+ 		moved.extension[k] = dst11[8u + k];
+ 	}
++	/* MUTANT (Rule 6; make test-fat-move-mutant only): RELINK the entry -- zero
++	 * the start_cluster as the transplant writes it, so the moved file loses its
++	 * data chain head. The 'start_cluster equal before/after' + content
++	 * assertions go RED, proving a move never touches the chain. NEVER define in
++	 * a real build. */
++	moved.start_cluster = 0u;
+ 	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, dst_is_root, dst_dir_start,
+ 	                               free_slot, &moved, sector_buf);
+ 	if (rc != FAT12_OK) {

@@ -1,0 +1,12 @@
+# LOADER_MUTATE_OVL_ACCEPT_FOREIGN
+# test: test-overlay
+--- a/loader.c
++++ b/loader.c
+@@ -265,7 +265,6 @@
+             src   = img.load_module_off;
+             len   = img.load_module_len;
+         } else if (ps == MZ_ERR_FOREIGN) {
+-            return LOADER_ERR_FOREIGN_MZ;   /* DEC-08a.5: the kernel panics */
+             /* MUTANT (Rule 6): the untagged 16-bit MZ falls through and is
+              * copied as a raw file. NEVER define in a real build. */
+         } else {

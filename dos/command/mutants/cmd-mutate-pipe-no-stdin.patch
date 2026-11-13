@@ -1,0 +1,31 @@
+# CMD_MUTATE_PIPE_NO_STDIN
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4009,23 +4009,9 @@
+         }
+ 
+         /* ---- OUTER stdin: a consumer stage reads from temp[i-1] ---- */
+-        if (!is_first) {
+-            in_h = dos_open(tname[i - 1]);   /* AH=3Dh AL=00 read the intermediate */
+-            if (in_h >= 0) {
+-                in_saved = dos_dup(0);
+-                if (in_saved >= 0) {
+-                    if (dos_dup2(in_h, 0) < 0) {
+-                        dos_close(in_saved);
+-                        in_saved = -1;
+-                        dos_close(in_h);
+-                        in_h = -1;
+-                    }
+-                } else {
+-                    dos_close(in_h);
+-                    in_h = -1;
+-                }
+-            }
+-        }
++        /* MUTANT: the consumer never gets its stdin repointed at the temp, so it
++         * reads the keyboard -- the piped data never flows (gate RED). */
++        (void)is_first;
+ 
+         /* ---- run the stage; its OWN `<`/`>`/`>>` are peeled INSIDE (nested) ---- */
+         rc = run_with_redirect(pl->stage[i]);

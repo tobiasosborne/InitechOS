@@ -1,0 +1,19 @@
+# MZ_MUTATE_RELOC_NOADD
+# test: test-mz
+--- a/mz.c
++++ b/mz.c
+@@ -247,9 +247,11 @@
+          * and host portability; DEC-08a.1). */
+         old_val = mz_rd32(image + off);
+ 
+-        /* CLEAN BUILD: flat-32 relocation -- add the flat load base to the
+-         * 32-bit dword at the reloc site (DEC-08a.1). */
+-        new_val = old_val + load_base;
++        /* MUTANT: skip the load_base add entirely -- the dword stays at its
++         * unrelocated value.  The reloc oracle goes RED because the
++         * relocated bytes do NOT equal original + load_base. */
++        new_val = old_val;
++        (void)load_base;
+ 
+         mz_wr32(image + off, new_val);
+     }

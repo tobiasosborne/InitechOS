@@ -1,0 +1,20 @@
+# CERT_MUTATE_DROP_GETVER
+# test: test-40oq
+--- a/int21.c
++++ b/int21.c
+@@ -5229,8 +5229,13 @@
+             do_getdta(frame);
+             return;
+         case 0x30:                       /* GET VERSION */
+-            do_getver(frame);
+-            return;
++            /* MUTANT (Rule 6; make test-40oq-mutant only): drop the AH=30h
++             * dispatch so it falls to the not-yet-impl arm and the test_40oq
++             * dynamic safe-set check sees "not-yet-impl AH=30" -> RED.
++             * The (void) reference keeps -Werror=unused-function quiet so the
++             * mutant still COMPILES + RUNS. NEVER define in a real build. */
++            (void)do_getver;
++            break;
+         case 0x33:                       /* GET/SET CTRL-BREAK STATE (DEC-16) */
+             do_break(frame);
+             return;

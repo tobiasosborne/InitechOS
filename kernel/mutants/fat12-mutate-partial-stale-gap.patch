@@ -1,0 +1,23 @@
+# FAT12_MUTATE_PARTIAL_STALE_GAP
+# test: test-fat-fuzz
+--- a/fat12.c
++++ b/fat12.c
+@@ -2981,18 +2981,6 @@
+ 		}
+ 	}
+ 
+-	/* A shrink (IBM DOS 3.30 TR p.6-140) retains the last partial cluster.
+-	 * Extending past EOF must zero its newly exposed gap too, not only the
+-	 * fresh clusters above. Ref: fat12.h positioned-write zero-fill contract;
+-	 * differential seed 7 and truncate GAPIN/GAPOUT vs mcopy replacements. */
+-	if (offset > old_size && old_size % bytes_per_cluster != 0u) {
+-		uint32_t first = old_size % bytes_per_cluster;
+-		uint32_t count = bytes_per_cluster - first;
+-		uint32_t lba = cluster_lba(vol, tail);
+-		if (count > offset - old_size) count = offset - old_size;
+-		rc = cluster_splice(vol, lba, first, NULL, count, cluster_buf);
+-		if (rc != FAT12_OK) return rc;
+-	}
+ 
+ 	/* ---- Splice `data` into [offset, offset+len) via read-modify-write. ----
+ 	 * Walk to the first touched cluster (offset/bpc steps down the chain), then

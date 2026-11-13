@@ -1,0 +1,18 @@
+# FAT12_MUTATE_RMDIR_PARENT_ROOTONLY
+# test: test-m0bp
+--- a/fat12.c
++++ b/fat12.c
+@@ -3982,6 +3982,13 @@
+ 	 * the empty-check below already enumerates the TARGET's chain (subdir-
+ 	 * capable). No GROW here -- removing an entry never extends the parent (keep
+ 	 * mkdir/rmdir asymmetric). */
++	/* MUTANT m-noroot-rmdir (Rule 6; make test-m0bp-mutant only): re-impose the
++	 * old root-only guard so RD of a NON-ROOT parent is wrongly rejected
++	 * NOT_FOUND -- the nested rmdir-success / parent-slot-deleted assertions go
++	 * RED. NEVER define in a real build. */
++	if (parent_dir_start != 0u) {
++		return FAT12_ERR_NOT_FOUND;
++	}
+ 
+ 	rc = parse_name83(name83, want11);
+ 	if (rc != FAT12_OK) {

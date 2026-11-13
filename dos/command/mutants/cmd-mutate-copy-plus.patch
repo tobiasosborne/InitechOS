@@ -1,0 +1,12 @@
+# CMD_MUTATE_COPY_PLUS
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3081,6 +3081,7 @@
+             append=0;copy_verify_offset=0;
+         } else for(unsigned i=0;(target[i]=dest[i])!=0;i++){}
+         for(unsigned s=(omitted && plan.joined)?1u:0u;s<plan.count;s++) {
++            if(s)break;
+             const char *spec=plan.names+plan.offset[s];
+             unsigned ordinal=0;
+             do {

@@ -1,0 +1,17 @@
+# INT21_MUTATE_CHMOD_GET_ZERO
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -2912,7 +2912,11 @@
+         cf_set(f);
+         return;
+     }
+-    set_cx(f, (uint16_t)attr);
++    /* MUTANT 2 (Rule 6; make test-b53d-mutant only): return a constant 0x00 in CX
++     * instead of the real attribute byte. The GET-returns-CX host assertion goes
++     * RED. The (void) keeps -Werror=unused quiet. NEVER in a real build. */
++    (void)attr;
++    set_cx(f, 0x0000u);
+     cf_clear(f);
+ }
+ 

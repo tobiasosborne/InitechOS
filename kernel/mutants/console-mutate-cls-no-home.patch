@@ -1,0 +1,12 @@
+# CONSOLE_MUTATE_CLS_NO_HOME
+# test: test-console test-console-look
+--- a/console.c
++++ b/console.c
+@@ -241,7 +241,6 @@
+          * PDF 82: erase display goes to home; CUP p.3-6 / PDF 75 defines
+          * home as row 1, column 1 (zero-based 0,0 here). */
+         console_clear(con);
+-        console_set_cursor(con, 0u, 0u);
+         return;
+     case '\n':
+         advance_line(con);

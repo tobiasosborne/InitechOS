@@ -1,0 +1,16 @@
+# CMD_MUTATE_DEL_STOP_PROTECTED
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3232,11 +3232,6 @@
+              * each successful unlink (otherwise the next entry is skipped).
+              * MS-DOS_3.3_Users_Guide_198707.pdf, Reference pp. 33, 56.
+              * Once only protected entries remain, report them once. */
+-            while (result == 0u && (g_shell_dta.attr &
+-                    (DIR_ATTR_READONLY | DIR_ATTR_HIDDEN | DIR_ATTR_SYSTEM)) != 0u) {
+-                protected = 1;
+-                result = dos_findnext() ? 0u : INT21_ERR_NO_MORE_FILES;
+-            }
+             if (result != 0u) {
+                 if (protected) {
+                     del_remaining(name, prefix);

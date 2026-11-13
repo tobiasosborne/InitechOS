@@ -1,0 +1,16 @@
+# CHKDSK_MUT_CROSS
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -132,11 +132,6 @@
+     }
+     if(changed){uint8_t p[512];if(!read_sector(lba,p)){copy(p+at,e,32);(void)write_sector(lba,p);}}
+     if(s.pass==1) {
+-        /* Second pass names BOTH owners of each shared cluster. A-46 explicitly
+-         * forbids automatic correction, even with /F. */
+-        for(uint32_t n=2;n<s.clusters+2;n++)if(bit(s.local,n)&&bit(s.duplicate,n)){
+-            put(s.path);nl();put(MSG_DOS_0043);num(n,0);nl();s.error=1;
+-        }
+         if(selected()){
+             s.matched++;
+             if(runs>1){s.fragmented++;put(s.path);put("\r\n     Contains ");num(runs,0);put(" non-contiguous blocks\r\n");}

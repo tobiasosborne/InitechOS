@@ -1,0 +1,38 @@
+# FAT12_MUTATE_SUFFIX_NO_COLLIDE_CHECK
+# test: test-fat-move
+--- a/fat12.c
++++ b/fat12.c
+@@ -3619,20 +3619,19 @@
+ 		return rc;
+ 	}
+ 
+-	rc = fat12_find_slot_in(vol, fat, fat_len, dir_start, sector_buf, cand,
+-	                        &probe, &probe_slot);
+-	if (rc == FAT12_ERR_NOT_FOUND) {
+-		for (k = 0u; k < FAT12_NAME83_MAX; k++) {
+-			out_name83[k] = cand[k];
+-			if (cand[k] == '\0') {
+-				break;
+-			}
+-		}
+-		return FAT12_OK;   /* the name is free: use it verbatim */
+-	}
+-	if (rc != FAT12_OK) {
+-		return rc;
+-	}
++	/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the collision probe
++	 * and hand back the base name unconditionally, so a staged item collides with
++	 * the entry already in the destination (the move then refuses EXISTS, or --
++	 * worse for a caller that ignores it -- the Trash silently swallows the drag).
++	 * The suffix-ladder leg goes RED. NEVER define in a real build. */
++	(void)probe; (void)probe_slot;
++	for (k = 0u; k < FAT12_NAME83_MAX; k++) {
++		out_name83[k] = cand[k];
++		if (cand[k] == '\0') {
++			break;
++		}
++	}
++	return FAT12_OK;
+ 
+ 	/* Colliding: keep the extension, rebuild the base as trunc5(base) || %03u,
+ 	 * lowest FREE counter first. (F1.4 states this RULE; its "REPORT.DBF ->

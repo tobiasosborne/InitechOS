@@ -1,0 +1,15 @@
+# INT21_MUTATE_LSEEK_WHENCE
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -3303,6 +3303,10 @@
+             cf_set(f);
+             return;
+     }
++    /* MUTANT (Rule 6; make test-fileio-mutant only): whence 2 (from end) uses 0
++     * as the base instead of file_size, so SEEK_END lands at the wrong offset.
++     * The LSEEK oracle goes RED. NEVER define in a real build. */
++    base = 0u;
+     e->file_offset = base + off;   /* past-EOF allowed (DOS); READ then returns 0 */
+     f->eax = e->file_offset;
+     cf_clear(f);

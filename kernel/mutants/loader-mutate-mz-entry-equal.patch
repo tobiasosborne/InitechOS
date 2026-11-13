@@ -1,0 +1,13 @@
+# LOADER_MUTATE_MZ_ENTRY_EQUAL
+# test: test-mzload
+--- a/loader_validation.c
++++ b/loader_validation.c
+@@ -365,7 +365,7 @@
+      *    canonical InitechMZ emits cs=ip=0 (entry == load base, identical to a
+      *    .COM), but a non-zero entry_off is honored. ESP stays PROGRAM_STACK_TOP
+      *    (loader_prepare_core set it); e_ss:e_sp are advisory this release. */
+-    if (img.entry_off >= img.load_module_len) {
++    if (img.entry_off > img.load_module_len) {
+         /* The entry must point INTO the loaded module (Rule 2: never JMP past it). */
+         return LOADER_ERR_BAD_FORMAT;
+     }

@@ -1,0 +1,12 @@
+# CONKEYS_MUT_F4
+# test: test-conkeys-unit
+--- a/include/conedit.h
++++ b/include/conedit.h
+@@ -39,6 +39,7 @@
+         if(action==2){
+             conedit_copy(s,out,cap,stop,emit,ctx);
+         }else{
++            stop++; /* skip the target too: p.167 must reject */
+             s->pos=stop;s->insert=0;
+         }
+         return 0;

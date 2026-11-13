@@ -1,0 +1,17 @@
+# FAT12_MUTATE_SETTIME_DROP_MDATE
+# test: test-b53d
+--- a/fat12.c
++++ b/fat12.c
+@@ -2289,7 +2289,11 @@
+ 	/* Overwrite ONLY the two packed timestamp words, VERBATIM. Everything else
+ 	 * (name / attr / start_cluster / size) is preserved. */
+ 	de.mtime = mtime;
+-	de.mdate = mdate;
++	/* MUTANT 1 (Rule 6; make test-qekc-mutant only): write ONLY mtime, DROP the
++	 * mdate=DX assignment so the on-disk date keeps its old (0/0 baseline) value.
++	 * The --stat-path-time / mdir DATE differential goes RED (MDATE mismatches).
++	 * The (void) keeps -Werror=unused-parameter quiet. NEVER in a real build. */
++	(void)mdate;
+ 
+ 	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+ 	                                 slot, &de, sector_buf);

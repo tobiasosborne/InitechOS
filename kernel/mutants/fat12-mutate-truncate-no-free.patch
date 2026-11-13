@@ -1,0 +1,12 @@
+# FAT12_MUTATE_TRUNCATE_NO_FREE
+# test: test-fat-truncate-host
+--- a/fat12.c
++++ b/fat12.c
+@@ -2781,7 +2781,6 @@
+ 		uint16_t next;
+ 		(void)fat12_next_cluster(vol, before, bytes, cur, &next);
+ 		if (i >= keep) {
+-			(void)fat12_set_entry(fat, fat_len, cur, FAT12_FREE);
+ 		} else if (i + 1u == keep) {
+ 			(void)fat12_set_entry(fat, fat_len, cur, FAT12_EOC_VALUE);
+ 		}

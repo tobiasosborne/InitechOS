@@ -1,0 +1,15 @@
+# INT21_MUTATE_DPB_FIRST_DATA
+# test: test-int21-dpb
+--- a/int21.c
++++ b/int21.c
+@@ -3762,7 +3762,9 @@
+     d->first_fat = g.reserved_sectors;
+     d->fat_count = g.fat_count;
+     d->root_entries = g.root_entries;
+-    d->first_sector = (uint16_t)g.first_data_sector;
++    /* MUTANT (Rule 6; make test-int21-dpb-mutant only): the first data sector
++     * forgets the root directory ($SETDPB's ADD AX,CX). NEVER in a build. */
++    d->first_sector = (uint16_t)g.root_dir_sector;
+     d->max_cluster = (uint16_t)(g.total_clusters + 1u);
+     d->fat_size = (uint8_t)g.sectors_per_fat;    /* 3.x STOSB; WORD from 4.0 */
+     d->dir_sector = (uint16_t)g.root_dir_sector;

@@ -1,0 +1,23 @@
+# CMD_MUTATE_NO_READ_CF
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -1796,10 +1796,14 @@
+         : "+a"(ax), "=r"(carry)
+         : "b"((uint32_t)handle), "c"(count), "d"((uint32_t)(uintptr_t)buf)
+         : "cc", "memory");
+-    if (carry != 0u) {
+-        return DOS_READ_ERROR;   /* CF set -- do NOT hand back AX as a count */
+-    }
+-    return ax;   /* EAX = bytes read (0 = EOF) */
++    /* MUTANT (Rule 6; make test-readerr-winh-mutant only): pretend the CF
++     * capture above never happened -- hand the caller the raw EAX exactly as
++     * the pre-fix code did, so a read error (CF=1, AX=DOS error code) is
++     * indistinguishable from a successful short read again. Reproduces
++     * initech-winh verbatim; the oracle must go RED. NEVER define in a real
++     * build. (void) keeps -Werror=unused-variable quiet about `carry`. */
++    (void)carry;
++    return ax;
+ }
+ 
+ /* AH=3Eh CLOSE: EBX=handle. */

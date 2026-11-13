@@ -1,0 +1,15 @@
+# PSP_MUTATE_CMDTAIL_LEN
+# test: test-psp
+--- a/psp.c
++++ b/psp.c
+@@ -286,7 +286,9 @@
+         dropped = copy - PSP_CMD_TAIL_MAX_TEXT;
+         copy = PSP_CMD_TAIL_MAX_TEXT;
+     }
+-    psp->cmd_tail[0] = (uint8_t)copy; /* count <= 126, fits a byte */
++    /* Rule-6 mutant: off-by-one count byte. The tail-length oracle MUST go RED.
++     * (The text + CR are still written correctly, so this isolates the count.) */
++    psp->cmd_tail[0] = (uint8_t)(copy + 1);
+     for (uint32_t i = 0; i < copy; i++) {
+         psp->cmd_tail[1 + i] = (uint8_t)params->cmd_tail[i];
+     }

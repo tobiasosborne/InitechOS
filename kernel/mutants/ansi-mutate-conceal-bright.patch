@@ -1,0 +1,13 @@
+# ANSI_MUTATE_CONCEAL_BRIGHT
+# test: test-ansi
+--- a/ansi.c
++++ b/ansi.c
+@@ -228,7 +228,7 @@
+              * The entire foreground nibble must match the background;
+              * retaining intensity leaves bright text visible (0u02/i427). */
+             uint8_t bg3 = (st->attr >> 4) & 0x07u;
+-            st->attr = (uint8_t)((st->attr & 0xF0u) | bg3);
++            st->attr = (uint8_t)((st->attr & 0xF8u) | bg3);
+ 
+         } else if (p >= 30 && p <= 37) {
+             /* Foreground colour (SGR 30-37).

@@ -1,0 +1,13 @@
+# CMD_MUTATE_PROMPT_DATE
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4157,7 +4157,7 @@
+ {
+     uint16_t year=0;
+     uint8_t mon=0, day=0, dow=0;
+-    dos_getdate(&year,&mon,&day,&dow);
++    (void)dow;
+     ctx->year=year; ctx->month=mon; ctx->day=day;
+ }
+ 

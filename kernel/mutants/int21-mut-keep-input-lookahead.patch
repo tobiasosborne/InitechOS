@@ -1,0 +1,12 @@
+# INT21_MUT_KEEP_INPUT_LOOKAHEAD
+# test: test-4tw
+--- a/int21.c
++++ b/int21.c
+@@ -659,7 +659,6 @@
+ }
+ void int21_conin_handoff(void)
+ {
+-    g_conin_pushback = -1;
+ }
+ void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
+ {

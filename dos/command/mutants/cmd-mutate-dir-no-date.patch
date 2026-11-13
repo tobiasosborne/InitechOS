@@ -1,0 +1,33 @@
+# CMD_MUTATE_DIR_NO_DATE
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -287,11 +287,6 @@
+     while (*s) out[(*pos)++] = *s++;
+ }
+ 
+-static void put_two(char *out, int *pos, unsigned n)
+-{
+-    out[(*pos)++] = (char)('0' + n/10u);
+-    out[(*pos)++] = (char)('0' + n%10u);
+-}
+ 
+ /* Manual p.28 / PDF 41, measured zero-based columns documented in the
+  * independent dos33_dir.golden. Tech Ref pp.5-12..13 / PDF 119..120
+@@ -316,15 +311,7 @@
+     } else {
+         put_u_field(out, &pos, fsize, 8);
+     }
+-    put_text(out,&pos,"  ");
+-    put_u_field(out,&pos,(fdate>>5)&15u,2);
+-    out[pos++]='-'; put_two(out,&pos,fdate&31u);
+-    out[pos++]='-'; put_two(out,&pos,(1980u+(fdate>>9))%100u);
+-    put_text(out,&pos,"  ");
+-    unsigned hour=(ftime>>11)&31u;
+-    put_u_field(out,&pos,hour%12u ? hour%12u : 12u,2);
+-    out[pos++]=':'; put_two(out,&pos,(ftime>>5)&63u);
+-    out[pos++]=hour>=12u ? 'p' : 'a';
++    (void)fdate; (void)ftime;
+     out[pos++] = '\n';
+     out[pos]   = '\0';
+     return pos;

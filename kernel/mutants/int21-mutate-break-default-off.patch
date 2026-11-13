@@ -1,0 +1,16 @@
+# INT21_MUTATE_BREAK_DEFAULT_OFF
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -336,7 +336,10 @@
+  * 4tw's ^C check-point reads this via int21_get_break_flag (the CON-input
+  * functions are always a check-point under Fork A; int21_dispatch_body adds
+  * the ON-only non-console check, DEC-16 C-6 / initech-vlhp). */
+-static uint8_t g_break_flag = 1u;   /* DOS 3.3 boot default ON (DEC-16 3.3) */
++/* MUTANT M6 (Rule 6; make test-er3h-mutant only): boot the flag OFF instead of
++ * ON, so the [er3h.1] boot-default GET assertion goes RED. NEVER in a real
++ * build -- DEC-16 Sec 3.3 fixes the default ON. */
++static uint8_t g_break_flag = 0u;
+ 
+ /* SET the BREAK flag, NORMALIZING any non-zero to 1 (DEC-16 Sec 3.2 -- store the
+  * boolean, not the raw byte, so a later GET returns exactly 0 or 1). The public

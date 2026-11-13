@@ -1,0 +1,13 @@
+# ANSI_MUTATE_WRAP_FLIP
+# test: test-ansi
+--- a/ansi.c
++++ b/ansi.c
+@@ -409,7 +409,7 @@
+                * parameters other than 7 are consumed, no action. */
+         if (st->private_marker && ansi_param(st, 0, 0) == 7) {
+             a.kind       = ANSI_ACT_SET_WRAP;
+-            a.erase_mode = (final == 'h');
++            a.erase_mode = (final != 'h');
+             ansi_emit(&a, cb, ctx);
+         }
+         break;

@@ -1,0 +1,17 @@
+# FAT12_MUTATE_RENAME_TOUCH_CHAIN
+# test: test-gnrc
+--- a/fat12.c
++++ b/fat12.c
+@@ -3239,6 +3239,12 @@
+ 	for (k = 0u; k < 3u; k++) {
+ 		match.extension[k] = new11[8u + k];
+ 	}
++	/* MUTANT 2 (Rule 6; make test-gnrc-mutant only): ZERO the start_cluster on the
++	 * rewrite, so the renamed entry loses its data chain head. The
++	 * 'start_cluster + size unchanged vs mren' assertion goes RED, proving the
++	 * rename is name-FIELD-only and never disturbs the chain. NEVER in a real
++	 * build. */
++	match.start_cluster = 0u;
+ 	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, dir_start,
+ 	                                 match_slot, &match, sector_buf);
+ }

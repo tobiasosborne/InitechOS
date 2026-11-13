@@ -1,0 +1,13 @@
+# INT21_MUTATE_RESOLVE_NODRIVE
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -1998,8 +1998,6 @@
+     /* Strip a leading drive prefix ('X:') -- one volume this milestone, so the
+      * letter is ignored; only the path after ':' matters. */
+     const char *p = path;
+-    uint16_t drive_error = int21_select_path(&p);
+-    if (drive_error) return drive_error;
+ 
+     if (g_file == 0 || g_file->resolve == 0) {
+         /* No backend resolve bound: root-only fallback (the pre-mzxa behavior).

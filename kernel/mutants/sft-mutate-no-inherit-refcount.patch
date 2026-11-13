@@ -1,0 +1,19 @@
+# SFT_MUTATE_NO_INHERIT_REFCOUNT
+# test: test-sft
+--- a/sft.c
++++ b/sft.c
+@@ -363,12 +363,5 @@
+             continue; /* resident CON/AUX/PRN device slot -- shared, not counted */
+         }
+ 
+-        /* Rule-6 mutant target (SFT_MUTATE_NO_INHERIT_REFCOUNT): WITHOUT this bump
+-         * the child's exit (sft_close_process) OVER-FREES the inherited slot out
+-         * from under the parent -- the parent's next dos_dup2(saved,1)/dos_close
+-         * then hits a freed SFT entry and panics (fail loud). The bsy.9 redirect
+-         * emu gate goes RED (triple-fault / missing GREETINGS). NEVER in a real
+-         * build. */
+-        g_sft[idx].ref_count++;
+-    }
+-}
++    }
++}

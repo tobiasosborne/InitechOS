@@ -1,0 +1,18 @@
+# FAT12_MUT_D27I_FATSEC_OFFBYONE
+# test: test-d27i
+--- a/fat12.c
++++ b/fat12.c
+@@ -434,7 +434,12 @@
+ 	 * bookkeeping first_sec used for the in-window offset below), so the window
+ 	 * holds the WRONG sector's bytes while *out_off stays in-bounds -- a clean
+ 	 * garbage-data RED, not an out-of-bounds crash. */
+-	uint32_t read_first_sec = first_sec;
++	/* MUTANT (Rule 6; test-d27i-mutant only): off-by-one FAT sector index -- fetch
++	 * the sector AFTER the one holding the entry. Every windowed decode then reads
++	 * the wrong FAT sector's bytes, so every chain link is garbage and the read
++	 * goes RED. This proves the FAT sector index is load-bearing. NEVER in a real
++	 * build. */
++	uint32_t read_first_sec = first_sec + 1u;
+ 
+ 	/* Tiny cache: if the needed sector(s) are already resident, skip the device
+ 	 * read (the common case in a sequential chain walk -- consecutive clusters

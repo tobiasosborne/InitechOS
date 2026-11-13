@@ -1,0 +1,13 @@
+# FDISK_MUT_CONFIRM
+# test: test-fdisk
+--- a/fdisk/fdisk.c
++++ b/fdisk/fdisk.c
+@@ -76,7 +76,7 @@
+ }
+ int fdisk_delete(uint8_t m[512],int confirmed)
+ {
+-    if(!confirmed)return 0;
++    (void)confirmed;
+     for(unsigned i=0;i<4;i++)if(dos(entry(m,i)[4])) {
+         for(unsigned j=0;j<16;j++)entry(m,i)[j]=0;
+         signature(m);return 0;

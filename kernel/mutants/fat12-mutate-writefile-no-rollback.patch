@@ -1,0 +1,21 @@
+# FAT12_MUTATE_WRITEFILE_NO_ROLLBACK
+# test: test-fat-fault-rollback
+--- a/fat12.c
++++ b/fat12.c
+@@ -2643,10 +2643,12 @@
+ 		take = (len - off < bytes_per_cluster) ? (len - off) : bytes_per_cluster;
+ 		lba = cluster_lba(vol, cl);
+ 		if (cluster_fill(vol, lba, src + off, take, cluster_buf) != FAT12_OK) {
+-			if (first_cluster != 0u) {
+-				(void)fat12_free_chain(vol, fat, fat_len, first_cluster);
+-				(void)fat12_flush_fats(vol, fat, fat_len);
+-			}
++			/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
++			 * partial-allocation rollback on a mid-write device fault. Every
++			 * cluster claimed so far LEAKS (stays allocated) while the call still
++			 * fails -- the exact atomicity defect the fault-injection oracle pins.
++			 * The free-count assertion in scenario [A] must go RED. NEVER define in
++			 * a real build. */
+ 			return FAT12_ERR_WRITE;
+ 		}
+ 

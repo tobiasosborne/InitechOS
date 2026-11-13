@@ -1,0 +1,30 @@
+# FAT12_MUTATE_MOVE_NO_GROW_ROLLBACK
+# test: test-fat-move
+--- a/fat12.c
++++ b/fat12.c
+@@ -3555,9 +3555,12 @@
+ 			(void)fat12_set_dotdot(vol, fat, fat_len, moved_start,
+ 			                       src_dir_start, sector_buf);
+ 		}
+-		if (dst_grew) {
+-			fat12_shrink_dir_tail(vol, fat, fat_len, dst_dir_start, dst_newc);
+-		}
++		/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the destination-
++		 * grow rollback on the failed transplant. The cluster the grow appended
++		 * to the destination directory LEAKS while the move reports failure --
++		 * exactly the atomicity defect the fault-injection leg pins, so its
++		 * chain-length / free-count assertion goes RED. NEVER in a real build. */
++		(void)dst_grew;
+ 		return rc;
+ 	}
+ 
+@@ -3579,9 +3582,6 @@
+ 		if (dotdot_set) {
+ 			(void)fat12_set_dotdot(vol, fat, fat_len, moved_start,
+ 			                       src_dir_start, sector_buf);
+-		}
+-		if (dst_grew) {
+-			fat12_shrink_dir_tail(vol, fat, fat_len, dst_dir_start, dst_newc);
+ 		}
+ 		return rc;
+ 	}

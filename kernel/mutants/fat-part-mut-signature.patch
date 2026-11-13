@@ -1,0 +1,15 @@
+# FAT_PART_MUT_SIGNATURE
+# test: test-fat-partition
+--- a/fat12.c
++++ b/fat12.c
+@@ -172,9 +172,7 @@
+ 
+ 	/* Validate the 0xAA55 boot signature at offset 510 (brief Sec 1). */
+ 	sig = rd_le16(sec + FAT12_BOOTSIG_OFFSET);
+-	if (sig != FAT12_BOOTSIG_VALUE) {
+-		return FAT12_ERR_SIGNATURE;
+-	}
++	(void)sig; /* Rule 6: accept a missing MBR signature. */
+ 
+ 	if (primary || !boot_bpb(sec)) {
+ 		uint32_t chosen = 0u;

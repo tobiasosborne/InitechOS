@@ -1,0 +1,17 @@
+# FAT12_MUTATE_SUBDIR_NOATTR
+# test: test-fat-subdir
+--- a/fat12.c
++++ b/fat12.c
+@@ -4364,7 +4364,11 @@
+ 
+ 			/* NON-final: it MUST be a directory to descend into it. */
+ 			if ((ent.attribute & DIR_ATTR_DIRECTORY) == 0) {
+-				return FAT12_ERR_NOT_FOUND;
++				/* MUTANT (Rule 6; test-fat-subdir-mutant only): SKIP the
++				 * DIR_ATTR_DIRECTORY gate on a non-final component, so a path
++				 * like '\SUB\NESTED.TXT\X' wrongly tries to descend into a
++				 * regular file. The negative-test assertion goes RED. NEVER in
++				 * a real build. */
+ 			}
+ 			cur.start_cluster = ent.start_cluster;
+ 			/* NORMALIZE start_cluster==0 => the root BEFORE any cluster math. */

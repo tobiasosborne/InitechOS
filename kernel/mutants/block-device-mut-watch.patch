@@ -1,0 +1,14 @@
+# BLOCK_DEVICE_MUT_WATCH
+# test: test-block-device
+--- a/block_device.c
++++ b/block_device.c
+@@ -160,9 +160,6 @@
+         rc=disks[i].write_sectors(disks[i].ctx,lba,count,buf);
+         if(!rc && write_notice && drive==mounted_drive)
+             overlap(lba,count,buf,mounted_base,mounted_size,0,write_notice,0);
+-        for(unsigned w=0;!rc && w<2;w++)
+-            if(watch_notice[w] && drive==watched[w].disk)
+-                overlap(lba,count,buf,watched[w].base,watched[w].sectors,w+2,0,watch_notice[w]);
+     }
+     result(f,block_device_status(rc));
+ }

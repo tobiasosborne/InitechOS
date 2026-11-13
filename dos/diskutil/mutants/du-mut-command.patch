@@ -1,0 +1,12 @@
+# DU_MUT_COMMAND
+# test: test-formatsys
+--- a/diskutil/diskutil.c
++++ b/diskutil/diskutil.c
+@@ -184,6 +184,7 @@
+   if(sec(m,1,b,1)||sec(m,1+dst.spf,b,1)||sec(m,0,dst.boot,1))return error("Format failure",4);
+   line("Format complete");unsigned used=0;
+   if(o->s||o->b){unsigned count=o->s?3:2;
++   count=2;
+    if(transfer(&dst,&src,files,count,1,&used))return error("No room for system on destination disk",4);
+    if(o->b) {
+     /* UG p74: /B leaves room for a later operating system. Reserve the

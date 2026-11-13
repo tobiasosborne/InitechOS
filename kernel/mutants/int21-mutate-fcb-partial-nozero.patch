@@ -1,0 +1,12 @@
+# INT21_MUTATE_FCB_PARTIAL_NOZERO
+# test: test-int21
+--- a/int21.c
++++ b/int21.c
+@@ -3933,7 +3933,6 @@
+     uint32_t got = 0u;
+     if (off >= de.file_size || g_file->read_at == 0 ||
+         g_file->read_at(&de, off, buf, rs, &got) != 0u || got == 0u) return 1u;
+-    for (uint32_t i = got; i < rs; i++) buf[i] = 0u;   /* p. 6-75 AL=03 */
+     return (got == rs) ? 0u : 3u;
+ }
+ 

@@ -51,12 +51,7 @@ org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
 PSP equ 0x00040000
 %endif
 
-%ifdef TPS_MUTATE_COUNT6
-FORM_COUNT equ 6               ; MUTANT (Rule 6): six presses accepted; the
-                               ; wording is unchanged, so only BEHAVIOUR differs
-%else
 FORM_COUNT equ 7               ; spec/tps_ritual.json R2 "count": 7
-%endif
 
 CURBLK equ 0x0C
 RECSZ  equ 0x0E
@@ -140,7 +135,6 @@ start:
     mov [l_memo], ecx
     mov esi, k_lines
     call getparam
-%ifndef TPS_MUTATE_LINESOK
     test ecx, ecx               ; LINES= must be a decimal number (TPS-010);
     jz .badlines                ; only the documented 0 is taken as 1
     xor ebx, ebx
@@ -152,7 +146,6 @@ start:
     inc ebx
     cmp ebx, ecx
     jb .lchk
-%endif
     call atoi                   ; EAX = LINES value
     test eax, eax
     jnz .r1_lines
@@ -256,9 +249,7 @@ start:
     inc ebx
     cmp ebx, 6
     jne .chk
-%ifndef TPS_MUTATE_PAGESOK
     call validpages
-%endif
     jmp ritual
 .missing:
     mov edx, m_e6a
@@ -477,11 +468,6 @@ report:
     jmp .ls
 .ls_done:
     ; keep one generation: delete TPSREPT.BAK, rename TPSREPT.TXT -> .BAK
-%ifdef TPS_MUTATE_UNCHECKED_BACKUP
-    FCB 0x13, bakfcb
-    FCB 0x17, renfcb
-    mov [renamed], al
-%else
     ; Ref: IBM DOS 3.30 TR pp. 6-70/71, 6-74, 6-79/80; FCBX real-DOS
     ; golden T15/T16: AL=FFh for a rename collision or read-only delete.
     ; Missing files are normal on the first run, so search before rotating.
@@ -507,7 +493,6 @@ report:
     mov al, 10
     jmp finish
 .backup_ready:
-%endif
     FCB 0x16, outfcb
     test al, al
     jz .created
@@ -558,10 +543,8 @@ report:
     call totals
     call flushout
     FCB 0x10, outfcb
-%ifndef TPS_MUTATE_NOWRCHK
     test al, al
     jnz writefail
-%endif
     mov byte [tofile], 0
     call crlf
     mov edx, m_done1
@@ -941,10 +924,8 @@ wrrec:                          ; write the 128-byte record buffer (p. 6-76)
     mov edx, outrec
     call setdta
     FCB 0x15, outfcb            ; AL 0 = written; 1 = disk full; 2 = DTA wrap
-%ifndef TPS_MUTATE_NOWRCHK
     test al, al
     jnz writefail
-%endif
     mov dword [opos], 0
     pop edx
     pop eax
@@ -1248,11 +1229,7 @@ m_r1c:   db 'TPS-002 PARAMETER $'
 m_r1d:   db ' MISSING FROM TPSPARM.DAT.$'
 m_r2a:   db 'TOP OF FORM ALIGNMENT$'
 m_r2b:   db '----- ALIGNMENT TEST LINE ----- FORM TPS-1 (REV. 10/89) -----$'
-%ifdef TPS_MUTATE_SAY7
-m_r2t:   db 'ADVANCE THE FORM 7 LINE-SPACES TO THE TEST LINE, THEN PRESS ENTER.$'
-%else
 m_r2t:   db 'ADVANCE THE FORM TO THE TEST LINE, THEN PRESS ENTER.$'
-%endif
 m_r2c:   db 'FORM NOT ALIGNED ($'
 m_r2d:   db ' PRESSES). THE COUNT HAS BEEN RESET.$'
 m_r2ok:  db 'FORM ALIGNED.$'

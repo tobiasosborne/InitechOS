@@ -1,0 +1,12 @@
+# DU_MUT_LABEL
+# test: test-formatsys
+--- a/diskutil/diskutil.c
++++ b/diskutil/diskutil.c
+@@ -176,7 +176,6 @@
+    line("WARNING, ALL DATA ON NON-REMOVABLE DISK");drive_text("DRIVE ",letter,": WILL BE LOST!\r\nProceed with Format (Y/N)?");if(input(answer,11)<0)return 3;if(answer[0]!='Y')return 5;
+   }
+   line("Formatting...");
+-  cp(dst.boot+43,"NO NAME    ",11); /* UG p75: ENTER means no label. */
+   uint8_t b[512];zero(b,512);
+   /* Clear FATs/root only. Data sectors carry no invented new file content. */
+   for(unsigned s=1;s<dst.data;s++)if(sec(m,s,b,1))return error("Format failure",4);
