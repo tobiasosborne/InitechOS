@@ -74,6 +74,34 @@ in the system/ composition. desktop_console_restore restores the original
 framebuffer console and indexed palette after that implementation returns.
 The kernel has no Toolbox include or link dependency.
 
+`make smoke-conpair` builds the product image and runs a focused extended-key
+regression on QEMU and Bochs at 8 MiB; `make smoke` runs this before the
+aggregate smoke. A normal disk program reads 00h, outputs a line, then reads
+the Alt-Q/Alt-R scan byte. Required guest verdicts and independent mtools
+readback compare with literal pairs 00h/10h and 00h/13h. The program is installed
+only on disposable test disks, never in the product image. Source: MS-DOS
+Encyclopedia AH=07h two-read key contract and the IBM set-1 keyboard mappings
+already exercised by the keyboard driver tests (initech-drm4v).
+
+The regression's negative control is `mutants/con-pair-flow-control.patch`,
+which removes the scan-byte guard from CON flow-control interpretation. Its
+registered tier-0 kill is `test-conkeys-unit`. To repeat the emulator kill,
+from the repository root, build a disposable source snapshot (no shared source
+is edited):
+
+```sh
+conpair_copy=$(mktemp -d)
+git archive HEAD | tar -x -C "$conpair_copy"
+patch --fuzz=0 -d "$conpair_copy/kernel" -p1 < kernel/mutants/con-pair-flow-control.patch
+make -C "$conpair_copy/kernel" -j6 smoke-conpair
+```
+
+That patched run must fail the byte/verdict assertions; the unmodified
+`make -C kernel -j6 smoke-conpair` must pass. Both retain per-emulator serial,
+fault reports, disk images and independent expected/actual bytes below
+`build/kernel/smoke/conpair/`. The snapshot uses committed HEAD; commit the
+test/client changes before replaying it.
+
 loader_load_tenant no longer limits complete application files to 64 KiB.
 There was no fixed staging buffer: the supplied callback carves PSP + rounded
 file + BSS. 32-bit addition/rounding is checked for overflow, and allocation

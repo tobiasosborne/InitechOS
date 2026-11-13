@@ -29,7 +29,7 @@ for emu in qemu bochs; do
             --keys-after CONPAIR-READY --keys "alt-$key,w300,z,w300,y" \
             --expect CONPAIR-DONE --quit-after CONPAIR-DONE --timeout-ms 20000 \
             --name run --out "$work" > "$work/stdout" 2> "$work/report"; then
-            cat "$work/report"; echo "RED CONPAIR $emu 00/$scan transport/completion"; failures=$((failures+1)); continue
+            cat "$work/report"; echo "RED CONPAIR $emu 00/$scan transport/completion"; failures=$((failures+1))
         fi
         tr -d '\r' < "$work/run.serial" > "$work/transcript"
         if ! grep -Fx CONPAIR-PASS "$work/transcript" >/dev/null ||
