@@ -20,7 +20,8 @@ static because startup returns before the interpreter runs AUTOEXEC.BAT.
 Reference behavior is legacy-final kernel_shell / tracer_boot.img; the hardware
 and DOS references inside the original drivers remain the behavioral sources.
 
-Public machine/DOS contracts are in include/, claimed from attic/spec and the
+Public machine/DOS contracts, including the existing physical-disk/INT13 host
+transport declarations in block_device.h, are in include/, claimed from attic/spec and the
 old kernel headers. dos_messages.json is compiled by gen_messages.c (host C)
 into C/NASM catalogues under build/kernel. loader_validation.c is the real
 validation formerly in loader_cold.c, included by loader.c as before, with no

@@ -25,8 +25,8 @@ scenarios in it. The loader takes a kernel of any size up to its
 *Host-green*: its host tests pass and it is listed in `COMPONENTS`.
 *Imported* (CLAUDE.md): also its real artifact builds for the target, no
 deliberately wrong code is left in product source, and its build reads
-nothing from `attic/`. Only `flair/region` is close; none is fully
-imported yet.
+nothing from `attic/`. `kernel/` and `dos/` meet these four conditions. Their pending mutation and
+emulator work is listed explicitly; this is not a tier-2 certificate.
 
 | Component | State |
 |---|---|
