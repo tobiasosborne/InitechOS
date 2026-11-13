@@ -156,6 +156,16 @@ int main(int argc,char **argv)
     }
     if(!getenv("REVIEW_FCB_ONLY")) review_rmdir();
     review_fcb(vols+1,argv[3],argv[4]);
+    /* Encyclopedia 3Dh: real FAT directories and volume labels are not
+     * ordinary file handles. No JFT/SFT entry may be committed on refusal. */
+    const char *nonfiles[]={"C:\\SYS","A:\\REVIEW"};
+    for(unsigned i=0;i<2;i++) {
+        sft_entry_t before[SFT_MAX_ENTRIES]; psp_t saved=process;
+        memcpy(before,g_sft,sizeof before);strcpy(path,nonfiles[i]);
+        int_frame_t f=call(0x3d00,0,0,(uintptr_t)path);
+        need((f.eflags&1) && (f.eax&65535)==5,"vwo7d real FAT directory/label OPEN denied");
+        need(!memcmp(before,g_sft,sizeof before) && !memcmp(&saved,&process,sizeof saved),"vwo7d real FAT refusal preserves tables");
+    }
     for(unsigned i=0;i<2;i++) blockdev_file_close(disks+i);
     puts("GREEN dos-volumes host: path forms, SELDISK/GETDISK, per-drive CWD, SFT/COPY and search identity, absent B/D");
     return 0;
