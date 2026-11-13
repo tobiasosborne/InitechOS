@@ -1,0 +1,22 @@
+# FAT12_MUTATE_READFILE_STEP_BOUND
+# test: test-fat
+--- a/fat12.c
++++ b/fat12.c
+@@ -1069,7 +1069,16 @@
+ 	 * distinct data clusters; +2 covers the reserved 0/1 slack. We step at
+ 	 * most this many times; a cyclic/corrupt chain trips it and errors instead
+ 	 * of spinning forever -- the SAME bound fat12_read_partial uses. */
+-	max_steps = vol->total_clusters + 2u;
++	/* MUTANT (the repository contract; make test-fat-readfile-mutant only): shrink the anti-hang
++	 * step bound so it no longer covers the longest LEGITIMATE chain. A bound of
++	 * total_clusters/4 (~711 on the 1.44 MB floppy) is below the 1368-cluster
++	 * BIGCHAIN.TXT chain, so that large valid file trips the bound mid-walk and
++	 * errors with FAT12_ERR_CHAIN instead of reading clean -> the read oracle
++	 * (its byte-for-byte BIGCHAIN leg) goes RED. This proves the bound must be at
++	 * least the volume's cluster count -- a too-small bound is the real failure
++	 * mode the +2 form guards against (and is exactly what the FAT16 HDD geometry
++	 * would have hit with the old chain[2880]). NEVER define in a real build. */
++	max_steps = vol->total_clusters / 4u;
+ 
+ 	/* Copy cluster-by-cluster, stepping the chain incrementally. The LAST
+ 	 * cluster is truncated to whatever remains of file_size (RISK-5: no

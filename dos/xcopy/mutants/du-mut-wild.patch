@@ -1,0 +1,12 @@
+# DU_MUT_WILD
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -384,6 +384,7 @@
+         dospath_parent(src);
+         if (!directory(src)) goto path_error;
+     }
++    for (char *q=pattern; *q; q++) if (*q == '?') *q='@';
+     char spec[CAP], target_file[CAP]; find_data_t fd;
+     if (!join(spec,src,pattern)) goto invalid;
+     if (!nth(spec,0,0,&fd)) {

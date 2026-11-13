@@ -4,10 +4,10 @@
  *
  * Ref: DOS 3.3 Programmer's Reference Manual AH=4Bh (EXEC, AL=00h load+execute,
  *      EDX -> ASCIIZ path) / AH=4Dh (GET RETURN CODE, AL=child exit code, AH=
- *      termination type); os/milton/int21.c do_exec / do_get_return_code;
- *      os/milton/int21.h int21_exec_fn (the EXEC backend seam); ADR-0003 DEC-08
- *      (flat .COM). CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN),
- *      Rule 2 (fail loud), Rule 6 (mutation-prove), Rule 12 (ASCII).
+ *      termination type); kernel/int21.c do_exec / do_get_return_code;
+ *      kernel/include/int21.h int21_exec_fn (the EXEC backend seam); ADR-0003 DEC-08
+ *      (flat .COM). the repository contract (oracle is truth), the repository contract (RED->GREEN),
+ *      the repository contract (fail loud), the repository contract (mutation-prove), the repository contract (ASCII).
  *
  * Compiles HOSTED against the REAL artifact int21.c (the same int21_dispatch the
  * kernel runs). The actual FAT-sourced load+run (loader.c) is KERNEL-ONLY, so
@@ -18,7 +18,7 @@
  * loader.c. The in-emulator make test-exec proves the real load FROM the FAT
  * volume; this proves the dispatch logic.
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DINT21_MUTATE_RETCODE_ZERO : AH=4Dh always reports rc=0 -> the GET-RETURN-
  *                                 CODE test (EXEC of a program that exits rc=7)
  *                                 goes RED. A mutant that PASSES means the 4Dh
@@ -277,7 +277,7 @@ int main(void)
 
     /* --- AH=4Bh with an OVERLENGTH path -> CF=1, AX=0x0003; runaway-guarded. *
      * A possibly-unterminated/oversized ASCIIZ pointer must not be scanned off
-     * into memory (Rule 2). resolve_dir_path's path_overlength bounds the scan at
+     * into memory (the repository contract). resolve_dir_path's path_overlength bounds the scan at
      * INT21_PATH_SCAN_MAX (128) and rejects anything longer BEFORE the backend.
      * 199 'A's (no '\' or ':') exceeds the bound -> rejected. The
      * INT21_MUTATE_PATHSCAN_NOBOUND mutant removes the bound -> the path passes
@@ -371,7 +371,7 @@ int main(void)
         CHECK(g_exec_called == 0, "AH=4Bh AL=03h never calls the EXEC backend");
     }
 
-    /* --- No backend bound (NULL) -> AH=4Bh returns file-not-found (Rule 2:
+    /* --- No backend bound (NULL) -> AH=4Bh returns file-not-found (the repository contract:
      *     never a silent success when nothing could have run). ---------------- */
     {
         int21_set_exec_backend(NULL);
@@ -426,7 +426,7 @@ int main(void)
               "AH=4Bh with env_block=0 threads 0 (inherit-empty) to the backend");
 
         /* No EBX param block (fresh_frame zeroes EBX) -> a no-argument launch
-         * (count=0), never a fault on a legacy caller's stale EBX (Rule 2). The
+         * (count=0), never a fault on a legacy caller's stale EBX (the repository contract). The
          * env_block also degrades to 0 (inherit-empty), never a fault. */
         exec_reset(0u, 0u);
         uint32_t edx2 = low_dup("GREET.COM");
@@ -449,7 +449,7 @@ int main(void)
     {
         const uint32_t kEnvAddr = (uint32_t)ENV_BLOCK;  /* do_exec sanitizes env_block to
                                                   * honor ONLY {0, ENV_BLOCK} (int21.c do_exec);
-                                                  * use the macro so this tracks spec/memory_map.h
+                                                  * use the macro so this tracks kernel/include/memory_map.h
                                                   * (was a hardcoded 0x5F000 that broke when
                                                   * initech-o0td shifted ENV_BLOCK -> 0x67000;
                                                   * initech-re30.2 then shifted it -> 0x6F000 --

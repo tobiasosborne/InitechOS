@@ -1,0 +1,13 @@
+# DU_MUT_TREE_LAYOUT
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -268,7 +268,7 @@
+     if (depth > 32) { error=4; return; }
+     char spec[CAP], child[CAP]; find_data_t fd; unsigned count=0;
+     text("\r\nPath: "); line(path+2);   /* IBM D-6: no drive in Path: */
+-    text("\r\nSub-directories:");
++    text("\r\nSubdirectories:");
+     if (!join(spec,path,"*.*")) return;
+     for (unsigned n=0; !error && nth(spec,16,n,&fd); n++) {
+         if (!visible(&fd) || !(fd.attr & 16)) continue;

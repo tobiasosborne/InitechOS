@@ -1,0 +1,19 @@
+# INT21_MUTATE_WILD_NO_UPCASE
+# test: test-80k
+--- a/int21.c
++++ b/int21.c
+@@ -3466,10 +3466,10 @@
+             continue;
+         }
+         if (pos < cap) {
+-            /* Upper-case ASCII a-z. */
+-            if (c >= 'a' && c <= 'z') {
+-                c = (char)(c - 'a' + 'A');
+-            }
++            /* MUTANT (the repository contract; make test-80k-mutant only): drop the upper-case
++             * fold, so a lower-case spec stores lower-case bytes that never
++             * match the upper-cased on-disk name. The lower-case-spec row MUST
++             * go RED. NEVER define in a real build. */
+             out[base + pos] = (uint8_t)c;
+             pos++;
+         }

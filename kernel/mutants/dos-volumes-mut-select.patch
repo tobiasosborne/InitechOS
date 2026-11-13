@@ -1,0 +1,12 @@
+# DOS_VOLUMES_MUT_SELECT
+# test: test-dos-volumes-host
+--- a/int21.c
++++ b/int21.c
+@@ -4661,7 +4661,6 @@
+  * LASTDRIVE. Ref: IBM DOS 3.30 TR p6-66; DEC-18 physical letter map. */
+ static void do_seldisk(int_frame_t *f)
+ {
+-    if (select_volume(frame_dl(f))) g_current_drive = frame_dl(f);
+     unsigned count = g_drive_limit;
+     (void)select_volume(g_current_drive);
+     set_al(f, (uint8_t)count);

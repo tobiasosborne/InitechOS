@@ -4,16 +4,16 @@
  *                    READ/WRITE routing are proven end-to-end through the syscall
  *                    spine -- not in isolation.
  *
- * Ref (Law 1):
+ * Ref (the repository contract):
  *   - Ralf Brown's Interrupt List INT 21/AH=3Dh: DOS OPEN checks for a character
  *     device of the given NAME (CON/NUL/PRN/AUX/CLOCK$) BEFORE the directory; a
  *     match yields a device handle, never a file.
  *   - MS-DOS 3.3 Technical Reference Ch. 4: the resident device names; NUL is the
  *     bit-bucket (WRITE consumes all, READ is EOF); CLOCK$ READ returns the
  *     6-byte date/time record; PRN is write-only.
- *   - ADR-0003 DEC-09 (the device chain); os/milton/devices.h (the chain API).
- *   - CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 6 (mutation-
- *     proven), Rule 12 (ASCII).
+ *   - ADR-0003 DEC-09 (the device chain); kernel/include/devices.h (the chain API).
+ *   - the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract (mutation-
+ *     proven), the repository contract (ASCII).
  *
  * Factory test: libc OK, reuses seed/test_assert.h. Links the REAL artifact TUs
  * int21.c + sft.c + psp.c + mcb.c + irq.c + devices.c (devices.c is a SEPARATE
@@ -26,7 +26,7 @@
  * binds those seams (int21_set_sink / int21_set_conin / int21_set_clock) and the
  * PRN sink through the device io bundle (int21_set_devices).
  *
- * MUTATION (Rule 6), driven by make test-devwire-mutant:
+ * MUTATION (the repository contract), driven by make test-devwire-mutant:
  *   -DINT21_MUTATE_OPEN_NO_DEVICE : do_open's device lookup always returns NULL,
  *       so OPEN "NUL"/"CON"/"PRN"/"CLOCK$" falls through to the FAT path -> with
  *       no such FILE it returns file-not-found and the device-OPEN assertions go

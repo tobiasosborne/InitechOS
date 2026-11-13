@@ -1,0 +1,14 @@
+# ATA_MUTATE_ERROR_COLLAPSE
+# test: test-ata
+--- a/ata.c
++++ b/ata.c
+@@ -33,6 +33,9 @@
+ 
+ #include <stddef.h>   /* NULL */
+ 
++/* the repository contract: callers must be able to distinguish timeout and an absent device. */
++#define ATA_ERR_NO_DRIVE ATA_ERR_DEVICE
++#define ATA_ERR_TIMEOUT ATA_ERR_DEVICE
+ 
+ /* Command-block register offsets from io_base (ATA/ATAPI-6 Table 8). */
+ #define ATA_REG_DATA      0u /* 16-bit data register (PIO transfer)     */

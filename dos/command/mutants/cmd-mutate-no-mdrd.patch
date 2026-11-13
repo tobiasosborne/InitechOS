@@ -1,0 +1,19 @@
+# CMD_MUTATE_NO_MDRD
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -67,14 +67,6 @@
+         { "TYPE",  CMD_TYPE },
+         { "CD",    CMD_CD   },
+         { "CHDIR", CMD_CD   },   /* CHDIR is the long form of CD (DOS) */
+-        /* MD/RD + their long forms map to the directory built-ins (beads
+-         * initech-ut6d). The CMD_MUTATE_NO_MDRD mutant DROPS these four rows so
+-         * "MD"/"RD" fall through to CMD_EXTERNAL -> the classify oracle goes RED
+-         * (the repository contract). NEVER dropped in a real build. */
+-        { "MD",    CMD_MD   },
+-        { "MKDIR", CMD_MD   },   /* MKDIR is the long form of MD (DOS) */
+-        { "RD",    CMD_RD   },
+-        { "RMDIR", CMD_RD   },   /* RMDIR is the long form of RD (DOS) */
+         { "CLS",   CMD_CLS  },
+         { "VER",   CMD_VER  },
+         { "ECHO",  CMD_ECHO },

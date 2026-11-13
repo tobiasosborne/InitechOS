@@ -1,0 +1,13 @@
+# DU_MUTATE_DISPLAY
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -103,7 +103,7 @@
+             if (attr&1) fields[0]='R';
+             if (attr&32) fields[3]='A';
+             du_puts(fields);
+-            du_puts(path);
++            du_puts(entry.name);
+             du_puts("\r\n");
+         }
+     }

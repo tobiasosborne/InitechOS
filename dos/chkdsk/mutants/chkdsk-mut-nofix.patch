@@ -1,0 +1,20 @@
+# CHKDSK_MUT_NOFIX
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -50,7 +50,6 @@
+     }return 0;
+ }
+ static int write_sector(uint32_t lba,const uint8_t*p) {
+-    if(!s.fix)return 0;
+     if(lba>=s.total || !s.io->disk.write_sectors ||
+        s.io->disk.write_sectors(s.io->disk.ctx,lba,1,p)){s.failed=1;return -1;}
+     s.cache_lba=0xffffffffu;return 0;
+@@ -247,7 +246,6 @@
+     s.error=1;num(s.lost,0);put(" lost allocation units found in ");num(s.chains,0);put(" chains.\r\nConvert lost chains to files (Y/N)?");
+     int a=answer();nl();
+     if(!s.fix){num(s.lost*s.spc*512,0);put(" bytes would be freed\r\n");}
+-    if(!s.fix)return;
+     zero(s.seen,MAP);
+     for(unsigned pass=0;pass<2;pass++)for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)
+         if(orphan(c)&&!bit(s.seen,c)&&(pass||!bit(s.incoming,c))) {

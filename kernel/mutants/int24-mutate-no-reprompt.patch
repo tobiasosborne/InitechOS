@@ -1,0 +1,20 @@
+# INT24_MUTATE_NO_REPROMPT
+# test: test-int24
+--- a/int21.c
++++ b/int21.c
+@@ -5128,10 +5128,11 @@
+         con_puts(MSG_DOS_0001);     /* "Abort, Retry, Fail?" (controlled; DEC-13) */
+         ch = conin_get_pb();        /* blocking single-char read (respects 0Bh) */
+         action = crit_error_action(ch);
+-        if (action >= 0) {
+-            break;                  /* valid A/R/F -> done */
+-        }
+-        con_putc('\n');             /* invalid key -> newline + re-prompt */
++        /* MUTANT (the repository contract; make test-int24-mutant only): accept the FIRST key
++         * unconditionally -- no re-prompt loop. An invalid key yields the -1
++         * "re-prompt" sentinel straight into AL (and MSG-DOS-0001 prints only
++         * once), so the re-prompt oracle [2b] goes RED. NEVER in a real build. */
++        break;
+     }
+     set_al(frame, (uint8_t)action); /* AL = 0 Retry / 1 Abort / 2 Fail */
+     cf_clear(frame);                /* 24h returns the action, not an error */

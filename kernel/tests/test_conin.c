@@ -5,9 +5,9 @@
  *      (direct console I/O, DL=FF input / else output), AH=07h (direct char in,
  *      no echo, no ^C), AH=08h (char in, no echo), AH=0Ah (buffered input),
  *      AH=0Bh (get input status), AH=0Ch (flush + invoke input);
- *      os/milton/int21.h int21_set_conin (the INPUT SOURCE seam). CLAUDE.md
- *      Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 6 (mutation-prove),
- *      Rule 12 (ASCII).
+ *      kernel/include/int21.h int21_set_conin (the INPUT SOURCE seam). CLAUDE.md
+ *      the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract (mutation-prove),
+ *      the repository contract (ASCII).
  *
  * Compiles HOSTED against the REAL artifact int21.c (the same int21_dispatch the
  * kernel runs). Strategy mirrors test_int21.c: the dispatcher routes ALL echo
@@ -18,7 +18,7 @@
  * call int21_dispatch, and assert AL / the buffered-input buffer + count byte /
  * the echo capture / the ZF bit (06h-input, via EFLAGS bit 6) / CF.
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DINT21_MUTATE_CONIN_NO_ECHO     : 01h drops the echo -> the 01h echo test goes RED.
  *   -DINT21_MUTATE_BUFINPUT_COUNT_CR : 0Ah counts the CR in buf[1] -> the 0Ah
  *                                      count test goes RED.
@@ -117,7 +117,7 @@ static const char *sink_str(void)
  * BEFORE the terminate, so a CON-input ^C check-point that invoked INT 23h
  * leaves this marker in the capture -- the observable signal that 0x03 routed
  * to the break handler rather than being delivered as an ordinary char.
- * Ref: os/milton/int21.c int23_dispatch_body; DEC-16 Sec 7.2 (4tw ^C oracle). */
+ * Ref: kernel/int21.c int23_dispatch_body; DEC-16 Sec 7.2 (4tw ^C oracle). */
 static int sink_saw_int23(void)
 {
     g_sink_buf[g_sink_len] = '\0';
@@ -316,7 +316,7 @@ int main(void)
      * is observable in the [4tw.*] ^C cases without actually exiting the test
      * process. With no hook bound do_terminate just returns (the host default);
      * with it bound we get a second witness alongside the serial "INT23-BREAK"
-     * marker. Ref: os/milton/int21.c int23_dispatch_body / do_terminate. */
+     * marker. Ref: kernel/int21.c int23_dispatch_body / do_terminate. */
     int21_set_exit(exit_observe);
     /* Bind a process so AH=3Fh on handle 0 resolves to the CON read device. */
     bind_standard_process();
@@ -508,7 +508,7 @@ int main(void)
     /* --- AH=0Ah BUFFERED INPUT: MAX-LENGTH CLAMP (the shell case). ------- *
      * buf[0]=4 (max incl. CR) -> room for 3 chars + CR. Queue "abcdef\r":
      * "abc" fit, "def" are ignored (BEL each), then CR. buf[1]=3, buf[2..4]=
-     * "abc", buf[5]=CR. No overflow past buf[5] (Rule 2). */
+     * "abc", buf[5]=CR. No overflow past buf[5] (the repository contract). */
     {
         sink_reset();
         uint8_t *buf = alloc_low_buf(16);
@@ -523,7 +523,7 @@ int main(void)
         CHECK(buf[2] == 'a' && buf[3] == 'b' && buf[4] == 'c',
               "AH=0Ah clamp: stored exactly the first 3 chars");
         CHECK(buf[5] == 0x0Du, "AH=0Ah clamp: CR stored at buf[2+count]");
-        CHECK(buf[6] == 0xCCu, "AH=0Ah clamp: did NOT overflow past the CR (Rule 2)");
+        CHECK(buf[6] == 0xCCu, "AH=0Ah clamp: did NOT overflow past the CR (the repository contract)");
         /* Echo: "abc" then 3 BELs (the dropped d,e,f) then CRLF. */
         CHECK_STR_EQ(sink_str(), "abc\a\a\a\r\n",
                      "AH=0Ah clamp echoes 'abc', a BEL per dropped char, then CRLF");
@@ -613,7 +613,7 @@ int main(void)
               "AH=3Fh CON: line chars at buf[0..2]");
         CHECK(buf[3] == 0x0Du, "AH=3Fh CON: CR (0x0D) stored after the chars");
         CHECK(buf[4] == 0x0Au, "AH=3Fh CON: LF (0x0A) stored after the CR");
-        CHECK(buf[5] == 0xCCu, "AH=3Fh CON: no write past the LF (Rule 2)");
+        CHECK(buf[5] == 0xCCu, "AH=3Fh CON: no write past the LF (the repository contract)");
         CHECK_STR_EQ(sink_str(), "abc\r\n",
                      "AH=3Fh CON: echoes the line + CRLF (cooked)");
         CHECK(frame_cf(&f) == 0, "AH=3Fh CON: clears CF on success");

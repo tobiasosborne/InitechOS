@@ -4,13 +4,13 @@
  * port-I/O paths (rtc_now/rtc_set) are excluded -- only the pure
  * rtc_decode/rtc_encode/rtc_day_of_week are linked + exercised.
  *
- * Ref (Law 1): MC146818A datasheet -- registers 0x00..0x09, SRB bit1=24h,
+ * Ref (the repository contract): MC146818A datasheet -- registers 0x00..0x09, SRB bit1=24h,
  *   bit2=DM(1=binary,0=BCD), hour bit7=PM in 12h mode, century reg 0x32.
- *   See os/milton/rtc.h. CLAUDE.md Law 2 (oracle is truth), Rule 1
- *   (RED->GREEN), Rule 6 (mutation-prove), Rule 11 (deterministic), Rule 12
+ *   See kernel/rtc.h. the repository contract (oracle is truth), the repository contract
+ *   (RED->GREEN), the repository contract (mutation-prove), the repository contract (deterministic), the repository contract
  *   (ASCII).
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DRTC_MUTATE_SKIP_BCD        : decode skips the BCD->binary step -> the BCD
  *                                  fixtures decode to garbage -> RED.
  *   -DRTC_MUTATE_MONTH_OFFBYONE  : month decodes +1 -> the month assertions RED.
@@ -127,7 +127,7 @@ int main(void)
         CHECK(rtc_day_of_week(1985, 1, 1) == 2, "1985-01-01 Tuesday");
     }
 
-    /* ===== out-of-range readings fail loud (Rule 2) ====================== */
+    /* ===== out-of-range readings fail loud (the repository contract) ====================== */
     {
         rtc_raw_t r = bcd24(b(20), b(26), b(13), b(9), b(12), b(0), b(0));
         rtc_time_t t;

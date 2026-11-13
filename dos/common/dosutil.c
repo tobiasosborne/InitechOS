@@ -1,5 +1,5 @@
 /* ATTRIB.COM / LABEL.COM -- freestanding DOS 3.3 utilities (gyvx/f88h).
- * Law 1, local initech-manuals-ref/dos33 sources:
+ * the repository contract, local initech-manuals-ref/dos33 sources:
  * MS-DOS_3.3_Users_Guide_198707.pdf p.33 (PDF118): R/A, wildcards, /S,
  * directory operands forbidden; pp.338/341/348 (PDF423/426/433): diagnostics;
  * pp.86-87 (PDF171-172): label grammar, spaces,
@@ -7,7 +7,7 @@
  * 6138519_DOS_3.10_Reference_Feb85.pdf pp.7-17/18 (PDF122-123): attribute
  * letters then full path, blanks for unset fields; pp.7-127/128 (PDF232-233):
  * exact IBM dialogue, uppercase examples, first eleven characters retained.
- * ADR-0003 Appendix A/B.1, DEC-08; DEC-15; spec/find_data.h/dos_structs.h.
+ * ADR-0003 Appendix A/B.1, DEC-08; DEC-15; kernel/include/find_data.h/dos_structs.h.
  * Disk effects are diffed against mattrib/mlabel on identical input images.
  * Only R/A are exposed. No host runtime, clock, paths or metadata.
  */
@@ -33,9 +33,6 @@ static int error(const char *s) { du_puts(s); du_puts("\r\n"); return 1; }
 static int drive_cwd(unsigned drive,char out[64]) { return du_cwd(drive,out); }
 static int fullpath(const char *src,char out[PATH_CAP])
 {
-#ifdef DU_MUTATE_DRIVE
-    if (src[0] && src[1]==':' && upper(src[0])-'A'!=du_drive()) return -1;
-#endif
     return dospath_full(src,(unsigned)du_drive(),drive_cwd,out,67) ? -1 : 0;
 }
 
@@ -62,9 +59,6 @@ static int matches(const char pat[11],const char *name)
 {
     char raw[11];
     if (template83(name,raw)) return 0;
-#ifdef DU_MUTATE_WILD
-    for (int i=0;i<11;i++) if (pat[i]=='?') return 1;
-#endif
     for (int i=0;i<11;i++) if (pat[i]!='?' && pat[i]!=raw[i]) return 0;
     return 1;
 }
@@ -91,9 +85,7 @@ static int attrib_walk(char dir[PATH_CAP],attr_options *opt)
         if (p+slen(entry.name)>=67) return -1;
         copy(path+p,entry.name);
         if (entry.attr&16) {
-#ifndef DU_MUTATE_RECURSE
             if (opt->recursive && attrib_walk(path,opt)<0) return -1;
-#endif
             continue;
         }
         if (!matches(opt->pat,entry.name)) continue;
@@ -102,9 +94,6 @@ static int attrib_walk(char dir[PATH_CAP],attr_options *opt)
         if (du_attr(path,0,&attr)<0) return -1;
         if (opt->mask) {
             attr=(uint8_t)((attr&~opt->mask)|opt->bits);
-#ifdef DU_MUTATE_PRESERVE
-            attr&=0x21;
-#endif
             if (du_attr(path,1,&attr)<0) { error(MSG_DOS_0009); opt->failed=1; }
         } else {
             /* IBM 7-18: R in column 1, full path in column 10. MS 3.3 p.33
@@ -114,11 +103,7 @@ static int attrib_walk(char dir[PATH_CAP],attr_options *opt)
             if (attr&1) fields[0]='R';
             if (attr&32) fields[3]='A';
             du_puts(fields);
-#ifdef DU_MUTATE_DISPLAY
-            du_puts(entry.name);
-#else
             du_puts(path);
-#endif
             du_puts("\r\n");
         }
     }
@@ -137,22 +122,12 @@ int attrib_main(const char *tail)
         if (equal(token,"/S")) { opt.recursive=1; continue; }
         if ((token[0]=='+' || token[0]=='-') && n==2 && (token[1]=='R' || token[1]=='A')) {
             unsigned bit=token[1]=='R' ? 1u : 32u;
-#ifdef DU_MUTATE_R
-            if (bit==1) bit=0;
-#endif
-#ifdef DU_MUTATE_A
-            if (bit==32) bit=0;
-#endif
             opt.mask|=bit;
             if (token[0]=='+') opt.bits|=bit; else opt.bits&=~bit;
             continue;
         }
         if (operand[0] || token[0]=='/' || token[0]=='+' || token[0]=='-') {
-#ifdef DU_MUTATE_SYNTAX
-            return 0;
-#else
             return error(MSG_DOS_0038);
-#endif
         }
         copy(operand,token);
     }
@@ -233,17 +208,13 @@ static int label_write(label_disk *d,const char *name)
             for (int i=0;i<32;i++) e[i]=0;
             bytes(e,padded,11); e[11]=8;
         }
-#ifndef DU_MUTATE_ROOT
         if (du_sector(1,d->drive,lba,d->sector)<0) return -1;
-#endif
     }
     /* Only extended BPBs own a label field; older DOS3.3 boot code must not
      * be overwritten. mformat/FORMAT labels already use this exact layout. */
     if (d->boot[38]==0x29) {
         bytes(d->boot+43,n ? padded : (const uint8_t *)"NO NAME    ",11);
-#ifndef DU_MUTATE_BPB
         if (du_sector(1,d->drive,0,d->boot)<0) return -1;
-#endif
     }
     return 0;
 }
@@ -251,9 +222,7 @@ static int label_commit(label_disk *disk,const char *name)
 {
     int rc=label_write(disk,name);
     if (!rc) return 0;
-#ifndef DU_MUTATE_ROOM
     if (rc==-2) return error(MSG_DOS_0040);
-#endif
     return error(MSG_DOS_0009);
 }
 int label_main(const char *tail)
@@ -268,9 +237,6 @@ int label_main(const char *tail)
      * (AX=000Fh for an absent letter) -- formerly every non-default drive
      * was refused. Its sectors then come from INT 25h/26h AL=drive. */
     char probe[64];
-#ifdef DU_MUTATE_LABEL_DRIVE
-    if (disk.drive!=(unsigned)du_drive()) return error(MSG_DOS_0004);
-#endif
     if (disk.drive>25u || du_cwd(disk.drive,probe)<0) return error(MSG_DOS_0004);
     if (label_read(&disk)<0) return error(MSG_DOS_0009);
     while (*tail==' ') tail++;
@@ -280,36 +246,24 @@ int label_main(const char *tail)
         if (disk.current[0]) { du_puts(" is "); du_puts(disk.current); }
         else du_puts(" has no label");
         du_puts("\r\n");
-#ifdef DU_MUTATE_PROMPT
-        du_puts("Volume label? ");
-#else
         du_puts("Volume label (11 characters, ENTER for none)?");
-#endif
         if (du_line(input)<0) return 1;
         tail=input;
         if (!*tail) {
             if (!disk.current[0]) return 0;
             du_puts("Delete current volume label (Y/N)?");
             if (du_line(input)<0) return 1;
-#ifndef DU_MUTATE_CONFIRM
             if (upper(input[0])!='Y') return 0;
-#endif
             return label_commit(&disk,"");
         }
     }
     unsigned n=0;
     for (;*tail;tail++) {
         char c=upper(*tail);
-#ifndef DU_MUTATE_INVALID
         const char *bad="*?/\\|.,;:+=<>[]()&^\"";
         if ((unsigned char)c<32) return error(MSG_DOS_0041);
         for (;*bad;bad++) if (*bad==c) return error(MSG_DOS_0041);
-#endif
-#ifdef DU_MUTATE_TRUNCATE
-        if (n<10) name[n++]=c;
-#else
         if (n<11) name[n++]=c;
-#endif
     }
     while (n && name[n-1]==' ') n--;
     name[n]=0;

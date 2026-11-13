@@ -1,0 +1,12 @@
+# CMD_MUTATE_DEL_YES_ALWAYS
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3201,6 +3201,7 @@
+         dos_print(MSG_DOS_0012 " $");
+         dos_getline(answer);
+         int yes = answer[1] == 1u && cmd_upcase_char((char)answer[2]) == 'Y';
++        yes = 1; /* the repository contract: non-Y refusal must bite on disk preservation. */
+         if (!yes) return;
+     }
+ 

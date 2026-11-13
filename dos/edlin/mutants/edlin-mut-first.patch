@@ -1,0 +1,12 @@
+# EDLIN_MUT_FIRST
+# test: test-edlin-host
+--- a/edlin/edlin.c
++++ b/edlin/edlin.c
+@@ -199,6 +199,7 @@
+             copy(edited,s,at);copy(edited+at,newtext,newlen);copy(edited+at+newlen,s+at+oldlen,len-at-oldlen+1);
+             show_text(i,edited);found=1;
+             if(!ask||approve()){if(!change(i,edited))return;at+=newlen;}else at+=oldlen;
++            break; /* the repository contract: incorrectly replace just the first hit per line. */
+         }
+     }
+     if(!found)emit(MSG_DOS_0056 "\r\n");

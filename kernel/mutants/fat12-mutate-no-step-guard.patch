@@ -1,0 +1,36 @@
+# FAT12_MUTATE_NO_STEP_GUARD
+# test: test-fat-corrupt-fuzz
+--- a/fat12.c
++++ b/fat12.c
+@@ -1265,9 +1265,13 @@
+ 				return FAT12_ERR_CHAIN;
+ 			}
+ 			cur = next;
+-			if (++steps > max_steps) {
+-				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
+-			}
++			/* MUTANT (the repository contract; test-fat-corrupt-fuzz-mutant only): REMOVE the
++			 * anti-hang max_steps guard on the skip walk, so a cyclic/self-loop
++			 * chain spins FOREVER instead of failing loud. The corruption
++			 * fuzzer's loop-chain leg never returns; the Makefile `timeout`
++			 * trips -> gate RED. NEVER define in a real build. */
++			(void)max_steps;
++			steps++;
+ 		}
+ 	}
+ 
+@@ -1315,9 +1319,11 @@
+ 				return FAT12_ERR_CHAIN;
+ 			}
+ 			cur = next;
+-			if (++steps > max_steps) {
+-				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
+-			}
++			/* MUTANT (the repository contract; test-fat-corrupt-fuzz-mutant only): REMOVE the
++			 * anti-hang max_steps guard on the copy walk too -- a cyclic chain
++			 * entered during the copy phase spins forever. NEVER in a real build. */
++			(void)max_steps;
++			steps++;
+ 		}
+ 	}
+ 

@@ -1,0 +1,15 @@
+# INT21_MUTATE_CONIN_NO_ECHO
+# test: test-4tw
+--- a/int21.c
++++ b/int21.c
+@@ -1363,7 +1363,9 @@
+     if (conin_check_ctrlc(c, f)) {
+         return;
+     }
+-    con_putc((char)c);          /* echo */
++    /* MUTANT (the repository contract; make test-conin-mutant only): drop the echo, so the 01h
++     * oracle -- which asserts the char appears on the CON sink -- goes RED.
++     * NEVER define in a real build. */
+     set_al(f, (uint8_t)c);
+     cf_clear(f);
+ }

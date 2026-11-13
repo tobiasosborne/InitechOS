@@ -1,0 +1,12 @@
+# CHKDSK_MUT_LABEL
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -170,7 +170,6 @@
+              * Genuine DOS 3.30 agrees: chkdsk-label-golden/label.txt (ug8l).
+              * A label owns no chain and adds no hidden_bytes. */
+             if(e[11]&8){if(s.pass==0){
+-                s.hidden++;
+                 volume(e);
+             }continue;}
+             name83(e,name);uint32_t n=len(name);

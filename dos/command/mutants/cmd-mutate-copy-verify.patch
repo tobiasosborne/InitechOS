@@ -1,0 +1,12 @@
+# CMD_MUTATE_COPY_VERIFY
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -2971,7 +2971,6 @@
+             uint32_t n=dos_read(v,check,take);
+             dos_close(v);
+             if(n!=take)goto failed;
+-            for(uint32_t i=0;i<take;i++)if(check[i]!=chunk[i])goto failed;
+         }
+         copy_verify_offset+=take;
+         if(take<got)break;

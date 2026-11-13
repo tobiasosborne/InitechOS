@@ -1,0 +1,19 @@
+# ATA_MUTATE_NO_PREWAIT
+# test: test-ata
+--- a/ata.c
++++ b/ata.c
+@@ -127,12 +127,8 @@
+  * stale; only the new command's completion determines its success. */
+ static int ata_wait_command(uint16_t io_base)
+ {
+-    for (uint32_t i = 0; i < ATA_POLL_LIMIT; ++i) {
+-        uint8_t st = inb((uint16_t)(io_base + ATA_REG_STATUS));
+-        if (st == ATA_FLOATING_BUS || st == 0) return ATA_ERR_NO_DRIVE;
+-        if (!(st & (ATA_SR_BSY | ATA_SR_DRQ)) && (st & ATA_SR_DRDY)) return 0;
+-    }
+-    return ATA_ERR_TIMEOUT;
++    (void)io_base;
++    return 0;
+ }
+ 
+ static int ata_lba28_valid(uint32_t lba, uint32_t count)

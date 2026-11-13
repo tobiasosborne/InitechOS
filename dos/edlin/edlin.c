@@ -35,9 +35,6 @@ static void echo(int c){char b[2];if(c<32&&c!=9){b[0]='^';b[1]=(char)(c+64);putn
  * Printed examples pp.177-191 reserve five positions for the decimal number. */
 static void prefix(unsigned n,int star){
     char b[7]={' ',' ',' ',' ',' ',':',' '};
-#ifdef EDLIN_MUT_NUMBER
-    n++; /* Rule 6: off-by-one numbering. */
-#endif
     unsigned i=5;do{b[--i]=(char)('0'+n%10);n/=10;}while(n&&i);
     if(star)b[6]='*';
     putn(b,7);
@@ -155,12 +152,8 @@ static int save(void){
     if(input.h>=0){io->close(input.h);input.h=-1;}
     if(!backup_ro){int e=io->remove(backup);if(e<0&&e!=-2){emit(MSG_DOS_0053 "\r\n");return 0;}}
     if(existed){
-#ifdef EDLIN_MUT_BACKUP
-        if(io->remove(name)<0)return 0; /* Rule 6: omit original .BAK. */
-#else
         if(backup_ro){if(io->remove(name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}}
         else if(io->rename(name,backup)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
-#endif
     }
     if(io->rename(temporary,name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
     return 1;
@@ -206,9 +199,6 @@ static void search_replace(unsigned first,unsigned last,int replace,int ask,char
             copy(edited,s,at);copy(edited+at,newtext,newlen);copy(edited+at+newlen,s+at+oldlen,len-at-oldlen+1);
             show_text(i,edited);found=1;
             if(!ask||approve()){if(!change(i,edited))return;at+=newlen;}else at+=oldlen;
-#ifdef EDLIN_MUT_FIRST
-            break; /* Rule 6: incorrectly replace just the first hit per line. */
-#endif
         }
     }
     if(!found)emit(MSG_DOS_0056 "\r\n");
@@ -276,11 +266,7 @@ static int commands(void){
         case 'E':if(ac>1||a[0]>=0){entry_error();break;}if(save())return 1;
             break; /* p.179 */
         case 'Q': /* p.186: require Abort prompt; preserve old BAK. */
-#ifdef EDLIN_MUT_QUIT
-            /* Rule 6: omit the required Abort prompt but still consume reply. */
-#else
             emit("Abort edit (Y/N)?");
-#endif
             if(readline(edited,"")>=0&&upper((unsigned char)edited[0])=='Y')return 1;
             break;
         case 0: { /* pp.177-178: bare Return edits current+1, Return keeps template. */

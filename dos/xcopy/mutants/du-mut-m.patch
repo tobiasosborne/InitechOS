@@ -1,0 +1,12 @@
+# DU_MUT_M
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -231,7 +231,6 @@
+     /* mcopy oracle: copied files have archive set; source read-only survives. */
+     if (call(0x4301,0,(fd->attr & 1)|32,(uintptr_t)dst) < 0) { error=5; return 0; }
+     if (flags & M_CLEAR) {
+-        if (call(0x4301,0,fd->attr & ~32u,(uintptr_t)src) < 0) { error=5; return 0; }
+     }
+     copied++;
+     if (!(flags & P_PROMPT)) line(src+2);   /* pre-q45q listing text */

@@ -1,0 +1,12 @@
+# DU_MUTATE_CONFIRM
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -253,7 +253,6 @@
+             if (!disk.current[0]) return 0;
+             du_puts("Delete current volume label (Y/N)?");
+             if (du_line(input)<0) return 1;
+-            if (upper(input[0])!='Y') return 0;
+             return label_commit(&disk,"");
+         }
+     }

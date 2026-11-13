@@ -1,0 +1,12 @@
+# FILEIO_MUTATE_DIR_FREE
+# test: test-zs24
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -555,6 +555,7 @@
+     *out_bps        = (uint16_t)g_vol->bpb.bytes_per_sector;
+     *out_total_clus = (uint16_t)(total & 0xFFFFu);
+     *out_free_clus  = (uint16_t)(freec & 0xFFFFu);
++    *out_free_clus = 0;
+     return 0u;
+ }
+ 

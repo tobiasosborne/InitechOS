@@ -1,0 +1,23 @@
+# LOADER_MUTATE_OVL_NO_FACTOR
+# test: test-overlay
+--- a/loader_validation.c
++++ b/loader_validation.c
+@@ -476,10 +476,6 @@
+             return LOADER_ERR_READ;
+         }
+         if (apply) {
+-            if (mz_apply_relocs(dest, img->load_module_len, reloc_factor,
+-                                scratch, (uint16_t)n) != MZ_OK) {
+-                __builtin_trap(); /* source changed after validation */
+-            }
+         } else {
+             for (uint32_t i = 0u; i < n; i++) {
+                 uint32_t off = mz_rd32(scratch + i * 4u);
+@@ -492,6 +488,7 @@
+                 }
+             }
+         }
++        (void)dest; (void)reloc_factor;
+         done += n;
+     }
+     return LOADER_OK;

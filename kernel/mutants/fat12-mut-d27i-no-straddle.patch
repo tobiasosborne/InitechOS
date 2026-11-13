@@ -1,0 +1,19 @@
+# FAT12_MUT_D27I_NO_STRADDLE
+# test: test-d27i
+--- a/fat12.c
++++ b/fat12.c
+@@ -422,7 +422,13 @@
+ 	/* The entry straddles iff its high byte (abs_off+1) lands in the NEXT sector,
+ 	 * i.e. abs_off is the last byte of its sector. Only FAT12 can hit this. */
+ 	straddle  = ((abs_off % sec_bytes) == (sec_bytes - 1u));
+-	need_count = straddle ? 2u : 1u;
++	/* MUTANT (the repository contract; test-d27i-mutant only): IGNORE the straddle -- always fetch
++	 * a SINGLE sector. A straddling FAT12 entry's high nibble then reads from
++	 * STALE/uninitialized window bytes (abs_off+1 is past the one sector loaded),
++	 * so cluster 341/682 mis-decode and the byte-for-byte read goes RED. This
++	 * proves the BOTH-sector straddle fetch is load-bearing. NEVER in a real build. */
++	(void)straddle;
++	need_count = 1u;
+ 
+ 	/* The window must be able to hold need_count sectors (>= 2 for a straddle). */
+ 	if (win->buf_len < need_count * sec_bytes) {

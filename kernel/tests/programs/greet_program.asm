@@ -8,13 +8,13 @@
 ;        prints a recognizable line via AH=09h and exits via AH=4Ch with rc=7.
 ;
 ; Ref:   docs/research/psp-loader-ground-truth.md Sec 5 (flat program model);
-;        os/milton/int21.c do_puts (AH=09h: EDX -> '$'-terminated string, '$' not
-;        emitted) + do_terminate (AH=4Ch: AL = exit code); spec/memory_map.h
+;        kernel/int21.c do_puts (AH=09h: EDX -> '$'-terminated string, '$' not
+;        emitted) + do_terminate (AH=4Ch: AL = exit code); kernel/include/memory_map.h
 ;        (PROGRAM_IMAGE = 0x00040100 -- the org below MUST equal it); DOS 3.3 PRM
-;        AH=09h/4Ch. CLAUDE.md Law 1 (cite), Rule 11 (deterministic: nasm -f bin
-;        is reproducible, no timestamps), Rule 12 (ASCII).
+;        AH=09h/4Ch. the repository contract (cite), the repository contract (deterministic: nasm -f bin
+;        is reproducible, no timestamps), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/greet_program.asm -o build/greet_program.bin
+; Assembled: nasm -f bin os/initechdos/greet_program.asm -o build/greet_program.bin
 ; Deployed:  mcopy build/greet_program.bin ::GREET.COM  (NOT baked into the kernel).
 ;
 ; ADDRESSING: EIP-relative message lookup also permits MCB-allocated nested
@@ -23,7 +23,7 @@
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 start:
     ; Native flat .COM has no relocation records (ADR-0003 DEC-08).
@@ -44,7 +44,7 @@ start:
     mov al, 7
     int 0x21
 
-    ; Defense in depth (Rule 2): if 4Ch ever failed to terminate, INT 20h also
+    ; Defense in depth (the repository contract): if 4Ch ever failed to terminate, INT 20h also
     ; routes to the loader's exit hook (exit code 0) rather than running off into
     ; the data bytes.
     int 0x20

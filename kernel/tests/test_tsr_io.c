@@ -1,5 +1,5 @@
 /* test_tsr_io.c -- host oracle for the two device halves of the TSR contract
- * (bead initech-6fdt; spec/tsr_contract.h Sec 3 and Sec 4):
+ * (bead initech-6fdt; kernel/include/tsr_contract.h Sec 3 and Sec 4):
  *
  *   K  the keyboard flag byte: kbd_translate tracks left/right Alt like Ctrl,
  *      and kbd_bios_flags maps the state to the BIOS bit layout a resident
@@ -7,9 +7,9 @@
  *   P  the console text page: after text in two attributes, a scroll and a
  *      pop-up drawn over it, console_restore_page(console_save_page(...))
  *      gives back the FRAMEBUFFER byte for byte and the cursor -- pixels are
- *      compared with a pixel snapshot, not the shadow with itself (Law 2).
- * Mutants (Rule 6, make test-tsr-io-mutant): KBD_MUT_NO_ALT, CONSOLE_MUT_
- * RESTORE_NO_DRAW. Each must go RED. CLAUDE.md Rule 1, Rule 11, Rule 12. */
+ *      compared with a pixel snapshot, not the shadow with itself (the repository contract).
+ * Mutants (the repository contract, make test-tsr-io-mutant): KBD_MUT_NO_ALT, CONSOLE_MUT_
+ * RESTORE_NO_DRAW. Each must go RED. the repository contract, the repository contract, the repository contract. */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

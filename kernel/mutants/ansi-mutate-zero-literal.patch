@@ -1,0 +1,12 @@
+# ANSI_MUTATE_ZERO_LITERAL
+# test: test-ansi
+--- a/ansi.c
++++ b/ansi.c
+@@ -292,7 +292,6 @@
+              * movement stops at the edge. Keep FSM position coherent for
+              * DSR/save, even with no console attached (mybc/ng8n/s7cm). */
+             int n = ansi_param(st, 0, 1);
+-            if (n == 0) n = 1;
+             a.kind = ANSI_ACT_CURSOR_REL;
+             if (final == 'A') a.delta_row = -n;
+             if (final == 'B') a.delta_row = n;

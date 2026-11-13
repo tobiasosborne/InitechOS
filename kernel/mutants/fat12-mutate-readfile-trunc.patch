@@ -1,0 +1,21 @@
+# FAT12_MUTATE_READFILE_TRUNC
+# test: test-fat
+--- a/fat12.c
++++ b/fat12.c
+@@ -1091,9 +1091,13 @@
+ 		remaining = file_size - copied;
+ 		take      = remaining < bytes_per_cluster
+ 		              ? remaining : bytes_per_cluster;
+-		/* RISK-5: copy only `take` bytes -- the partial last cluster never
+-		 * contributes its padding to out_buf. */
+-		copy_n = take;
++		/* MUTANT (the repository contract; make test-fat-readfile-mutant only): drop the RISK-5
++		 * last-cluster truncation -- copy a FULL cluster every iteration instead
++		 * of `take` bytes. On the partial last cluster this writes padding into
++		 * out_buf and copied overshoots file_size, so the bytes read no longer
++		 * match the golden -> the read oracle goes RED. NEVER in a real build. */
++		(void)take;
++		copy_n = bytes_per_cluster;
+ 
+ 		/* Stream the cluster through one sector of scratch. */
+ 		lba = cluster_lba(vol, cur);

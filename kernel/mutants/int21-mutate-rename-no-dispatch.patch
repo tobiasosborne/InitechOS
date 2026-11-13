@@ -1,0 +1,19 @@
+# INT21_MUTATE_RENAME_NO_DISPATCH
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -5262,8 +5262,12 @@
+             do_unlink(frame);
+             return;
+         case 0x56:                       /* RENAME (same-directory dir-entry rename) */
+-            do_rename(frame);
+-            return;
++            /* MUTANT (the repository contract): do NOT dispatch 0x56; fall through to the not-yet-
++             * impl path (CF=1, AX=0x0001). The (void) ref keeps -Werror=unused-
++             * function quiet so the mutant still BUILDS + RUNS. NEVER in a real
++             * build. */
++            (void)do_rename;
++            break;
+         case 0x43:                       /* CHMOD (get/set file attributes) */
+             do_chmod(frame);
+             return;

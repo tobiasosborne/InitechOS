@@ -12,23 +12,23 @@
 ;        With the `<` parse disabled (CMD_MUTATE_REDIR_NO_LT) handle 0 is the
 ;        keyboard, the file marker never appears, and the emu gate goes RED.
 ;
-; Ref:   os/milton/int21.c do_read (AH=3Fh: EBX=handle, ECX=count, EDX=buf ->
+; Ref:   kernel/int21.c do_read (AH=3Fh: EBX=handle, ECX=count, EDX=buf ->
 ;        EAX=bytes, 0=EOF) + do_write (AH=40h: EBX=handle, ECX=count, EDX=buf) +
 ;        do_puts (AH=09h: EDX -> '$'-terminated string) + do_terminate (AH=4Ch:
-;        AL=exit code); spec/memory_map.h (PROGRAM_IMAGE = 0x00040100 == org);
-;        DOS 3.3 PRM AH=3Fh/40h/09h/4Ch. CLAUDE.md Law 1 (cite), Rule 11
-;        (deterministic: nasm -f bin, no timestamps), Rule 12 (ASCII).
+;        AL=exit code); kernel/include/memory_map.h (PROGRAM_IMAGE = 0x00040100 == org);
+;        DOS 3.3 PRM AH=3Fh/40h/09h/4Ch. the repository contract (cite), the repository contract
+;        (deterministic: nasm -f bin, no timestamps), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/gobble_program.asm -o build/gobble_program.bin
+; Assembled: nasm -f bin os/initechdos/gobble_program.asm -o build/gobble_program.bin
 ; Deployed:  mcopy build/gobble_program.bin ::GOBBLE.COM  (NOT baked into kernel).
 ;
 ; ADDRESSING mirrors GREET.COM: assembled at org 0x00040100 == PROGRAM_IMAGE so
 ; the absolute references resolve at the load address (the loader copies the .COM
 ; to PROGRAM_IMAGE and JMPs in). If PROGRAM_IMAGE moves, this org moves with it
-; (and spec/memory_map.h + greet_program.asm).
+; (and kernel/include/memory_map.h + greet_program.asm).
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 start:
     ; AH=09h DISPLAY STRING: the BEGIN marker (proves GOBBLE ran at all).
@@ -71,7 +71,7 @@ start:
     mov al, 0
     int 0x21
 
-    ; Defense in depth (Rule 2): if 4Ch ever failed to terminate, INT 20h also
+    ; Defense in depth (the repository contract): if 4Ch ever failed to terminate, INT 20h also
     ; routes to the loader's exit hook rather than running into the data bytes.
     int 0x20
 

@@ -1,0 +1,12 @@
+# ATA_MUTATE_NO_DRIVE_SUCCESS
+# test: test-ata
+--- a/ata.c
++++ b/ata.c
+@@ -304,6 +304,7 @@
+ 	ata_delay_400ns(ctrl_base);
+ 	int ready = ata_wait_command(io_base);
+ 	if (ready != 0) {
++		if (ready == ATA_ERR_NO_DRIVE) return 0;
+ 		return ready;
+ 	}
+ 

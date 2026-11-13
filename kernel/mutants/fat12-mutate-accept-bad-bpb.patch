@@ -1,0 +1,19 @@
+# FAT12_MUTATE_ACCEPT_BAD_BPB
+# test: test-fat-corrupt-fuzz
+--- a/fat12.c
++++ b/fat12.c
+@@ -230,8 +230,12 @@
+ 	/* Geometry sanity: divisors must be nonzero before we use them. A zero
+ 	 * sectors_per_cluster / num_fats / sectors_per_fat / total sectors is
+ 	 * nonsense geometry, not a usable volume (the repository contract -- panic-grade). */
+-	if (vol->bpb.sectors_per_cluster == 0u ||
+-	    vol->bpb.num_fats == 0u ||
++	/* MUTANT (the repository contract; test-fat-corrupt-fuzz-mutant only): REMOVE the
++	 * sectors_per_cluster==0 nonsense-geometry guard, so a malformed BPB
++	 * (sectors_per_cluster 0) is ACCEPTED at mount instead of failing loud
++	 * with FAT12_ERR_GEOMETRY. The corruption fuzzer's bad-BPB leg asserts
++	 * FAT12_ERR_GEOMETRY and must go RED. NEVER define in a real build. */
++	if (vol->bpb.num_fats == 0u ||
+ 	    vol->bpb.sectors_per_fat == 0u ||
+ 	    vol->bpb.root_entry_count == 0u) {
+ 		return FAT12_ERR_GEOMETRY;

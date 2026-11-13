@@ -1,0 +1,12 @@
+# DU_MUT_OMIT
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -374,6 +374,7 @@
+         key(); if (error) return error;
+     }
+     if (!absolute(source,src) || !absolute(*target ? target : ".",dst)) goto invalid;
++    if (!*target) put(dst,"\\");
+     if (directory(src)) {
+         pattern[0]='*'; pattern[1]='.'; pattern[2]='*'; pattern[3]=0;
+     } else {

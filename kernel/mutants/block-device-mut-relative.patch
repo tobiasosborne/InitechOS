@@ -1,0 +1,12 @@
+# BLOCK_DEVICE_MUT_RELATIVE
+# test: test-block-device
+--- a/block_device.c
++++ b/block_device.c
+@@ -157,6 +157,7 @@
+     if(ah==2)rc=disks[i].read_sectors(disks[i].ctx,lba,count,buf);
+     else {
+         if(!disks[i].write_sectors){result(f,BD_status_write_protected);return;}
++        lba+=mounted_base;
+         rc=disks[i].write_sectors(disks[i].ctx,lba,count,buf);
+         if(!rc && write_notice && drive==mounted_drive)
+             overlap(lba,count,buf,mounted_base,mounted_size,0,write_notice,0);

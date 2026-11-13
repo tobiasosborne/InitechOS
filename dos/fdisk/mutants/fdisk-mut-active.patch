@@ -1,0 +1,12 @@
+# FDISK_MUT_ACTIVE
+# test: test-fdisk
+--- a/fdisk/fdisk.c
++++ b/fdisk/fdisk.c
+@@ -51,6 +51,7 @@
+ int fdisk_active(uint8_t m[512],unsigned partition)
+ {
+     if(!partition || partition>4 || !entry(m,partition-1)[4])return -1;
++    partition=partition%4+1;
+     mark_active(m,partition);signature(m);return 0;
+ }
+ int fdisk_create(uint8_t m[512],uint32_t n,unsigned count,int active)

@@ -1,0 +1,12 @@
+# DU_MUTATE_WILD
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -59,6 +59,7 @@
+ {
+     char raw[11];
+     if (template83(name,raw)) return 0;
++    for (int i=0;i<11;i++) if (pat[i]=='?') return 1;
+     for (int i=0;i<11;i++) if (pat[i]!='?' && pat[i]!=raw[i]) return 0;
+     return 1;
+ }

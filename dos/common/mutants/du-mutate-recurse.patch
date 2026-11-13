@@ -1,0 +1,12 @@
+# DU_MUTATE_RECURSE
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -85,7 +85,6 @@
+         if (p+slen(entry.name)>=67) return -1;
+         copy(path+p,entry.name);
+         if (entry.attr&16) {
+-            if (opt->recursive && attrib_walk(path,opt)<0) return -1;
+             continue;
+         }
+         if (!matches(opt->pat,entry.name)) continue;

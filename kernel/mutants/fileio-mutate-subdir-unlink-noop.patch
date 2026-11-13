@@ -1,0 +1,18 @@
+# FILEIO_MUTATE_SUBDIR_UNLINK_NOOP
+# test: test-zs24
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -400,6 +400,13 @@
+     /* UNLINK inside a SUBDIRECTORY (dir_start_cluster != 0) is now supported
+      * (beads initech-zs24): fat12_unlink scans + marks the entry deleted down the
+      * parent's cluster chain. dir_start==0 keeps the root path byte-identical. */
++    /* MUTANT (the repository contract; make test-zs24-mutant only): make a SUBDIR unlink a NO-OP
++     * (report success without deleting), so `mdir ::SUB` still lists the file and
++     * the UNLINK oracle goes RED. The root path is unchanged. NEVER in a real
++     * build. */
++    if (dir_start_cluster != 0u) {
++        return 0u;   /* lie: pretend it was deleted */
++    }
+     {
+         int rc = fat12_unlink(g_vol, g_fat, g_fat_len, name83,
+                               dir_start_cluster, g_sector);

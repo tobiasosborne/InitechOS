@@ -1,0 +1,12 @@
+# BLOCK_DEVICE_MUT_HEADS
+# test: test-block-device
+--- a/block_device.c
++++ b/block_device.c
+@@ -80,6 +80,7 @@
+     uint32_t cylinder=(cx>>8)|((cx&0xc0u)<<2),sector=cx&63u;
+     if(!sector || sector>BD_sectors_per_track || head>=BD_heads)return -1;
+     unsigned heads=BD_heads;
++    heads--;
+     uint32_t l=(cylinder*heads+head)*BD_sectors_per_track+sector-1;
+     if(l>=sectors)return -1;
+     *lba=l;return 0;

@@ -11,7 +11,10 @@ The reboot started on 2026-11-13. The legacy tree is frozen at the tag
 about 7 seconds; `make smoke` boots it on QEMU and Bochs at 8 MiB, runs
 a scripted DOS session (VER, DIR, directories, COPY, REN, DEL, a batch
 file, SORT, MORE, FIND, CHKDSK), reads the written files back on the
-host with mtools and checks for CPU faults, in about 30 seconds.
+host with mtools and checks for CPU faults; then runs test programs
+from a separate test disk on the same product image (file handles, FCB
+I/O, nested EXEC and exit codes, memory, clock, vectors, console
+input). About 75 seconds for both, on both emulators.
 `make test` runs every component's host tests. There is no desktop on
 `main` yet; for the GUI, use the legacy tree.
 
@@ -31,8 +34,8 @@ imported yet.
 | Component | State |
 |---|---|
 | `boot/` | builds and boots; chunked loader; oversized-kernel check. No host tests (none in legacy). |
-| `kernel/` | builds and boots, InitechDOS only. Host tests parked in `kernel/tests/`, not yet running. Mutation hooks listed in `kernel/tests/MUTANTS-TODO.md`. |
-| `dos/` | COMMAND.COM (still linked into the kernel image) and fifteen external utilities, built and on the disk. Known debts in `dos/README.md`: the shell calls kernel internals; the disk utilities use INT 13h/25h/26h directly. |
+| `kernel/` | builds and boots, InitechDOS only. Host tests run: 86 gates, 11,214 checks (the legacy totals), 24 seconds, including the FAT differential against mtools and an independent reader. All mutation hooks are out of product source and are patch files: 229 of 268 killed, 39 not yet proven. The product kernel is byte-identical before and after that conversion. |
+| `dos/` | COMMAND.COM (still linked into the kernel image) and fifteen external utilities, built and on the disk. Host tests run: 31 gates, 676 checks, 12 seconds. Mutants: 114 of 160 killed, 46 not yet proven. Known debts in `dos/README.md`: the shell calls kernel internals; the disk utilities use INT 13h/25h/26h directly; FIND ignores file name operands. |
 | `flair/region/` | host-green, mutants converted (8 patches, all killed), compiles for the target. |
 | `flair/` | host-green: 52 test runs, 451,944 checks, 25 seconds; builds `libflair.a` for the target. Everything it needs from the kernel is one explicit interface (`flair_platform_*`, 15 functions; `NOTES-FOR-KERNEL.md`). Gate record layouts are pinned against the SDK in target builds. 243 mutation hooks still to convert. |
 | `flair/desktop/` | parked, not built: the legacy `kmain.c` (as `kmain_legacy.c`) and the Finder/desktop pieces that were in the kernel. |
@@ -53,7 +56,6 @@ imported yet.
   `goldens/`): target build fragment, per-test timeouts and component
   time budgets, rebuild on flag changes, pinned corpora, the import
   checks.
-- Kernel and DOS host tests (owner of `kernel/`, `dos/`).
 
 ## The vertical slice comes first
 
@@ -88,6 +90,11 @@ as part of the slice.
 - Open question for the operator: Python is used by some inherited
   tests as an independent reader of foreign file formats, which the
   constitution's "C, make and POSIX shell" does not allow as written.
+  The kernel's uses are listed with port estimates in
+  `kernel/tests/PYTHON.md`.
+- 85 kernel and DOS mutants are converted to patches but not yet proven
+  killed (`make -C kernel mutants`, `make -C dos mutants`). Each is
+  either a test gap or a mutant that needs the emulator.
 - Orchestration: implementation and review go to Sol 6.1 at xhigh by
   default; Astra for hands-on emulator driving; Opus for hard design;
   one Muse Wonder Full at a time for an independent opinion.

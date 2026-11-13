@@ -1,0 +1,13 @@
+# DU_MUTATE_PROMPT
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -246,7 +246,7 @@
+         if (disk.current[0]) { du_puts(" is "); du_puts(disk.current); }
+         else du_puts(" has no label");
+         du_puts("\r\n");
+-        du_puts("Volume label (11 characters, ENTER for none)?");
++        du_puts("Volume label? ");
+         if (du_line(input)<0) return 1;
+         tail=input;
+         if (!*tail) {

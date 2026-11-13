@@ -1,0 +1,12 @@
+# DU_MUT_D
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -179,7 +179,6 @@
+ {
+     if (!visible(fd) || (fd->attr & 16)) return 0;
+     if ((flags & A_ARCHIVE) && !(fd->attr & 32)) return 0;
+-    if (fd->fdate < date_min) return 0;
+     return 1;
+ }
+ 

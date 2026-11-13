@@ -1,0 +1,16 @@
+# ABSDISK_MUTATE_OFF_BY_ONE_LBA
+# test: test-absdisk
+--- a/int21.c
++++ b/int21.c
+@@ -5581,6 +5581,11 @@
+     uint32_t bytes;
+     int      rc;
+ 
++    /* MUTANT M1 (the repository contract): add a spurious +1 to the LBA -- an absolute call must
++     * NOT offset the LBA. The write lands at scratch+1 and the read at scratch+1
++     * (or the read-back at scratch sees stale), so the round-trip [5] AND the
++     * independent file cross-check [6] go RED. */
++    lba = lba + 1u;
+ 
+     /* [1] DOS4+ packet sentinel: reject CF=1 + a grep-able serial diagnostic
+      * (the controlled-scope not-yet-impl pattern). NEVER a literal 65535 count

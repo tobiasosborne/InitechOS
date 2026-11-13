@@ -1,0 +1,32 @@
+# CMD_MUTATE_REDIR_NO_LT
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -1541,11 +1541,22 @@
+                                   tmp, (uint32_t)sizeof(tmp),
+                                   target_out, target_cap, append_out);
+ 
+-    int in_has = redir_strip_one(tmp, '<', 0 /*no `<<`*/,
+-                                 clean_out, clean_cap,
+-                                 in_target_out, in_target_cap, 0 /*no append*/);
+-
+-    return (out_has ? CMD_REDIR_OUT : 0) | (in_has ? CMD_REDIR_IN : 0);
++    /* MUTANT (the repository contract; beads initech-bsy.7): drop the `<` INPUT scan entirely --
++     * clean_out is just the OUTPUT-stripped line, in_target stays empty, and
++     * CMD_REDIR_IN is never returned.  The `<` parse oracle + the GOBBLE emu gate
++     * both go RED (the child reads the keyboard, not the file).  NEVER in a real
++     * build. */
++    {
++        uint32_t j = 0;
++        if (clean_out != 0 && clean_cap > 0u) {
++            while (tmp[j] != '\0' && j + 1u < clean_cap) {
++                clean_out[j] = tmp[j];
++                j++;
++            }
++            clean_out[j] = '\0';
++        }
++    }
++    return out_has ? CMD_REDIR_OUT : 0;
+ }
+ 
+ /* cmd_pipe_split: split `line` on the `|` PIPE operator into ordered stages.

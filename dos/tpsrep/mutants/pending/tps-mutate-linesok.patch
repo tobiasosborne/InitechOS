@@ -1,0 +1,21 @@
+# TPS_MUTATE_LINESOK
+--- a/tpsrep/tpsrep_program.asm
++++ b/tpsrep/tpsrep_program.asm
+@@ -135,17 +135,6 @@
+     mov [l_memo], ecx
+     mov esi, k_lines
+     call getparam
+-    test ecx, ecx               ; LINES= must be a decimal number (TPS-010);
+-    jz .badlines                ; only the documented 0 is taken as 1
+-    xor ebx, ebx
+-.lchk:
+-    movzx eax, byte [esi + ebx]
+-    sub eax, '0'
+-    cmp eax, 9
+-    ja .badlines
+-    inc ebx
+-    cmp ebx, ecx
+-    jb .lchk
+     call atoi                   ; EAX = LINES value
+     test eax, eax
+     jnz .r1_lines

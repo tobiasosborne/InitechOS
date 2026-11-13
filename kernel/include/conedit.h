@@ -37,14 +37,8 @@ static int conedit_key(conedit_t *s,uint8_t c,uint8_t *out,unsigned cap,conedit_
         while(stop<s->length&&s->text[stop]!=c)stop++;
         if(stop==s->length)return 0; /* missing target: leave template cursor */
         if(action==2){
-#ifdef CONKEYS_MUT_F2
-            stop++; /* include the target: printed p.156 must reject */
-#endif
             conedit_copy(s,out,cap,stop,emit,ctx);
         }else{
-#ifdef CONKEYS_MUT_F4
-            stop++; /* skip the target too: p.167 must reject */
-#endif
             s->pos=stop;s->insert=0;
         }
         return 0;
@@ -53,35 +47,22 @@ static int conedit_key(conedit_t *s,uint8_t c,uint8_t *out,unsigned cap,conedit_
         s->extended=0;
         switch(c){
         case 0x52:
-#ifndef CONKEYS_MUT_INS
             s->insert=!s->insert;
-#endif
             break;
         case 0x53:
-#ifndef CONKEYS_MUT_DEL
             if(s->pos<s->length)s->pos++;
-#endif
             break;
         case 0x4b:conedit_erase(s,emit,ctx);break;
         case 0x3b:
-#ifdef CONKEYS_MUT_F1
-            conedit_copy(s,out,cap,s->pos+2,emit,ctx);
-#else
             conedit_copy(s,out,cap,s->pos+1,emit,ctx);
-#endif
             break;
         case 0x3c:s->target=2;break;
         case 0x3e:s->target=4;break;
         case 0x3d:{unsigned end=s->length;
-#ifdef CONKEYS_MUT_F3
-            if(end)end--; /* named off-by-one mutant, host AND kernel gates */
-#endif
             conedit_copy(s,out,cap,end,emit,ctx);break;}
         case 0x3f:
-#ifndef CONKEYS_MUT_F5
             s->length=s->count;
             for(unsigned i=0;i<s->length;i++)s->text[i]=out[i];
-#endif
             emit('@',ctx);emit(13,ctx);emit(10,ctx);
             s->count=s->pos=0;s->insert=0;break;
         default:break;
@@ -91,9 +72,6 @@ static int conedit_key(conedit_t *s,uint8_t c,uint8_t *out,unsigned cap,conedit_
     if(!c){s->extended=1;return 0;}
     if(c==13){emit(13,ctx);emit(10,ctx);return 1;}
     if(c==27){
-#ifdef CONKEYS_MUT_ESC
-        s->length=0; /* p.167: Esc must retain the template */
-#endif
         emit('\\',ctx);emit(13,ctx);emit(10,ctx);
         s->count=s->pos=0;s->insert=0;return 0;
     }

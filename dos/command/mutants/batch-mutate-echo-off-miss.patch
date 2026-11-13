@@ -1,0 +1,15 @@
+# BATCH_MUTATE_ECHO_OFF_MISS
+# test: test-batch
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -415,10 +415,6 @@
+      * MUTANT BATCH_MUTATE_ECHO_OFF_MISS: skip the OFF check so "ECHO OFF"
+      * falls into BL_ECHO_TEXT; the ECHO OFF classify test goes RED. */
+     if (bat_match_kw(p, "ECHO", &rest)) {
+-        if (bat_stricmp(rest, "OFF") == 0) {
+-            out->kind = BL_ECHO_OFF;
+-            return BL_ECHO_OFF;
+-        }
+         if (bat_stricmp(rest, "ON") == 0) {
+             out->kind = BL_ECHO_ON;
+             return BL_ECHO_ON;

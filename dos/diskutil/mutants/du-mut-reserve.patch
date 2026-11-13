@@ -1,0 +1,12 @@
+# DU_MUT_RESERVE
+# test: test-formatsys
+--- a/diskutil/diskutil.c
++++ b/diskutil/diskutil.c
+@@ -190,6 +190,7 @@
+      * two HSR root slots and their clusters; no executable system content.
+      * SYS p119 can replace these reservations without moving other files. */
+     uint8_t empty[512];zero(empty,512);
++    empty[0]=1; /* the repository contract: /B must reserve space without system content. */
+     for(unsigned i=0;i<2;i++){
+      uint8_t e[32];if(entry(&dst,i,e,0))return error("Format failure",4);
+      unsigned c=u16(e+26),n=(u32(e+28)+511)/512;

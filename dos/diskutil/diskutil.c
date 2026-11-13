@@ -1,4 +1,4 @@
-/* Freestanding disk utilities. Law 1: ADR-0003 Appendix A/B.1, DEC-17/18;
+/* Freestanding disk utilities. the repository contract: ADR-0003 Appendix A/B.1, DEC-17/18;
  * MS-DOS 3.3 UG pp26,59-63,74-76,119,318,332-337,340,348,358;
  * IBM DOS 3.30 TR pp1-7,2-31,5-4..11. No host runtime or clock.
  * Physical translation belongs to the adapter; letter mapping to the kernel.
@@ -99,13 +99,10 @@ static int transfer(volume *dst,volume *src,uint8_t files[3][32],unsigned count,
    if(sec(&dst->m,dst->data+scan-2,buf,1) || fatset(dst,scan,dst->bits==12?0xfff:0xffff) || (prev&&fatset(dst,prev,scan)))return -1;
    prev=scan++;source_c=next;
   }
-  w16(e+26,first);w16(e+22,0);w16(e+24,0x21); /* fixed DOS epoch, Rule 11 */
+  w16(e+26,first);w16(e+22,0);w16(e+24,0x21); /* fixed DOS epoch, the repository contract */
   if(entry(dst,i,e,1))return -1;
   *used+=n*512;
  }
-#ifdef DU_MUT_ORDER
- uint8_t e[32],f[32];if(entry(dst,0,e,0)||entry(dst,1,f,0)||entry(dst,0,f,1)||entry(dst,1,e,1))return -1;
-#endif
  return sec(&dst->m,0,dst->boot,1);
 }
 typedef struct {unsigned letter[2],letters,s,v,b,one,four,eight,tracks,sectors;} options;
@@ -149,29 +146,20 @@ static int layout(volume *v,const options *o,const uint8_t template[512]){
  cp(v->boot,template,512);uint8_t *b=v->boot;
  w16(b+11,512);b[13]=1;w16(b+14,1);b[16]=2;w16(b+17,roots*16);w16(b+19,total);b[21]=media;w16(b+22,spf);w16(b+24,spt);w16(b+26,heads);w32(b+28,v->m.base);w32(b+32,0);
  b[36]=(uint8_t)v->m.disk;cp(b+43,"NO NAME    ",11);cp(b+54,bits==12?"FAT12   ":"FAT16   ",8);
-#ifdef DU_MUT_MEDIA
- b[21]^=1;
-#endif
  return parse(v);
 }
 static void label_name(const volume *v,char out[12]){uint8_t e[32];zero(out,12);for(unsigned n=0;n<v->roots*16;n++){if(entry(v,n,e,0)||!e[0])return;if(e[0]!=0xe5&&e[11]==8){cp(out,e,11);unsigned i=11;while(i&&out[i-1]==' ')out[--i]=0;out[i]=0;return;}}}
 static int format_run(const options *o,const du_map *m){
  unsigned letter=o->letter[0];
-#ifndef DU_MUT_RUNNING
  if(m->flags&DU_RUNNING){drive_text("Format not supported on drive ",letter,":\r\n");return 4;}
-#endif
  volume src,dst;uint8_t files[3][32],template[512];du_map cm;
  if(o->s||o->b){
   /* MS-DOS 3.3 UG p336 (PDF421), audit L041: unavailable source files
    * prompt for a DOS disk; p337's memory error is a different condition.
    * DEC-18 fixes the source at C:. Retry the lookup before ANY writes. */
   while(source(&src,files,o->s?3:2)){
-#ifdef DU_MUT_MISSING
-   return error("Insufficient memory for system transfer",4);
-#else
    char answer[1];drive_text("Insert DOS diskette in drive ",2,":\r\nand strike ENTER when ready\r\n");
    if(input(answer,0)<0)return 3;
-#endif
   }
   cp(template,src.boot,512);
  }else if(io->map(2,&cm)||sec(&cm,0,template,0))return error("Format failure",4);
@@ -188,31 +176,20 @@ static int format_run(const options *o,const du_map *m){
    line("WARNING, ALL DATA ON NON-REMOVABLE DISK");drive_text("DRIVE ",letter,": WILL BE LOST!\r\nProceed with Format (Y/N)?");if(input(answer,11)<0)return 3;if(answer[0]!='Y')return 5;
   }
   line("Formatting...");
-#ifndef DU_MUT_LABEL
   cp(dst.boot+43,"NO NAME    ",11); /* UG p75: ENTER means no label. */
-#endif
   uint8_t b[512];zero(b,512);
   /* Clear FATs/root only. Data sectors carry no invented new file content. */
   for(unsigned s=1;s<dst.data;s++)if(sec(m,s,b,1))return error("Format failure",4);
   b[0]=dst.boot[21];b[1]=b[2]=255;if(dst.bits==16)b[3]=255;
-#ifdef DU_MUT_FAT0
-  b[0]=0;
-#endif
   if(sec(m,1,b,1)||sec(m,1+dst.spf,b,1)||sec(m,0,dst.boot,1))return error("Format failure",4);
   line("Format complete");unsigned used=0;
   if(o->s||o->b){unsigned count=o->s?3:2;
-#ifdef DU_MUT_COMMAND
-   count=2;
-#endif
    if(transfer(&dst,&src,files,count,1,&used))return error("No room for system on destination disk",4);
    if(o->b) {
     /* UG p74: /B leaves room for a later operating system. Reserve the
      * two HSR root slots and their clusters; no executable system content.
      * SYS p119 can replace these reservations without moving other files. */
     uint8_t empty[512];zero(empty,512);
-#ifdef DU_MUT_RESERVE
-    empty[0]=1; /* Rule 6: /B must reserve space without system content. */
-#endif
     for(unsigned i=0;i<2;i++){
      uint8_t e[32];if(entry(&dst,i,e,0))return error("Format failure",4);
      unsigned c=u16(e+26),n=(u32(e+28)+511)/512;
@@ -254,9 +231,6 @@ static int copy_run(const options *o,int compare){
    for(unsigned j=0;j<n;j++){
     unsigned l=first+j,side=(l/spt)%heads,track=l/(spt*heads);
     if((o->one&&side)||(o->eight&&l%spt>=8))continue;
-#ifdef DU_MUT_COMPARE
-    if(compare&&l+1==total)continue;
-#endif
     if(compare){if(sec(m+1,l,b,0))return error("Compare process ended",3);if(!eq(b,copybuf+j*512,512)){put("Compare error on disk\r\nside ");num(side);put(", track ");num(track);put("\r\n");result=1;}}
     else if(sec(m+1,l,copybuf+j*512,1))return error("Target diskette may be unusable",3);
    }

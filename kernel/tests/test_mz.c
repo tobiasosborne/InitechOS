@@ -6,14 +6,14 @@
  *          DEC-08a.1 (flat-32 reloc: add load_base to 32-bit dword).
  *          DEC-08a.4 (dispatch by content: 'MZ'/'ZM').
  *          DEC-08a.5 (tag word at e_res[0]: untagged -> MZ_ERR_FOREIGN).
- *        CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 6
- *        (mutation-proven), Rule 12 (ASCII).
+ *        the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract
+ *        (mutation-proven), the repository contract (ASCII).
  *
  * Compiles HOSTED by #including mz.c directly (same TU trick as test_env.c /
  * test_command.c).  All mz_* functions are pure + I/O-free; no kernel defines
  * required.
  *
- * MUTATION proof (Rule 6) -- driven by make test-mz-mutant:
+ * MUTATION proof (the repository contract) -- driven by make test-mz-mutant:
  *   -DMZ_MUTATE_RELOC_NOADD     : mz_apply_relocs skips the load_base add;
  *                                  the reloc-apply assertions go RED.
  *   -DMZ_MUTATE_RELOC_PARAGRAPH : mz_apply_relocs adds (load_base >> 4);
@@ -24,11 +24,11 @@
  * Clean build MUST exit 0 ("n checks, 0 failures").
  * Each mutant build MUST exit non-zero (the oracle bites).
  *
- * ALL source strictly ASCII (Rule 12).
+ * ALL source strictly ASCII (the repository contract).
  */
 
 #include <stdint.h>
-#include <string.h>   /* memcmp, memset -- libc OK in host test (Law 3) */
+#include <string.h>   /* memcmp, memset -- libc OK in host test (the repository contract) */
 #include <stdio.h>
 
 #include "mz.h"

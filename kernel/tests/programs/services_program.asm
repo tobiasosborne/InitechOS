@@ -1,0 +1,59 @@
+; IBM DOS 3.30 TR AH=48h/49h/4Ah, 25h/35h, 2Ah/2Ch.
+; Literal invariants independent of the dispatcher implementation.
+bits 32
+org 0x40100
+    mov ebx,16
+    mov eax,0x4800
+    int 0x21
+    jc fail
+    mov esi,eax
+    mov ebx,eax
+    mov ecx,8
+    mov eax,0x4a00
+    int 0x21
+    jc fail
+    mov ebx,esi
+    mov eax,0x4900
+    int 0x21
+    jc fail
+    mov eax,0x3523
+    int 0x21
+    mov esi,ebx
+    mov edx,handler
+    mov eax,0x2523
+    int 0x21
+    mov eax,0x3523
+    int 0x21
+    cmp ebx,handler
+    jne fail
+    mov edx,esi
+    mov eax,0x2523
+    int 0x21
+    mov eax,0x2a00
+    int 0x21
+    cmp cx,1980
+    jb fail
+    cmp dh,1
+    jb fail
+    cmp dh,12
+    ja fail
+    mov eax,0x2c00
+    int 0x21
+    cmp ch,23
+    ja fail
+    cmp cl,59
+    ja fail
+    mov edx,ok
+    mov eax,0x0900
+    int 0x21
+    mov eax,0x4c00
+    int 0x21
+fail:
+    mov edx,bad
+    mov eax,0x0900
+    int 0x21
+    mov eax,0x4c01
+    int 0x21
+handler: iretd
+ok db 'SERVICES-MEMORY-VECTORS-CLOCK-OK',13,10,'$'
+bad db 'SERVICES-FAIL',13,10,'$'

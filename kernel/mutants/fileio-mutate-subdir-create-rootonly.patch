@@ -1,0 +1,19 @@
+# FILEIO_MUTATE_SUBDIR_CREATE_ROOTONLY
+# test: test-b53d
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -260,7 +260,13 @@
+      * keeps the root path byte-identical. The g_cluster scratch doubles as the
+      * directory-grow zero-fill buffer (only touched on a subdir-full grow, never
+      * on a root create or a non-full subdir). */
+-    uint16_t parent = dir_start_cluster;
++    /* MUTANT (the repository contract; make test-zs24-mutant only): keep the OLD root-only guard
++     * so a subdir CREATE fails 0x0003 -- the subdir CREATE+WRITE round-trip then
++     * never lands the file and the oracle goes RED. NEVER in a real build. */
++    if (dir_start_cluster != 0u) {
++        return FILEIO_ERR_PATH_NOT_FOUND;
++    }
++    uint16_t parent = 0u;
+ 
+     dir_entry_t de;
+     uint32_t    slot = 0;

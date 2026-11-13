@@ -1,0 +1,27 @@
+# INT21_MUTATE_PATHSCAN_NOBOUND
+# test: test-exec-unit
+--- a/int21.c
++++ b/int21.c
+@@ -1941,12 +1941,6 @@
+         if (*p == '\\' || *p == ':') {
+             return 1;
+         }
+-        /* MUTANT (the repository contract; make test-exec-mutant only) removes this bound so an
+-         * overlength path is NOT rejected and reaches the backend -- the
+-         * overlength oracle must go RED. NEVER define in a real build. */
+-        if (++n >= INT21_PATH_SCAN_MAX) {
+-            return 1;           /* no terminator within bound -> reject */
+-        }
+     }
+     return 0;
+ }
+@@ -1963,9 +1957,6 @@
+     uint32_t n = 0u;
+     (void)n;
+     for (; *p; p++) {
+-        if (++n >= INT21_PATH_SCAN_MAX) {
+-            return 1;           /* no terminator within bound -> reject */
+-        }
+     }
+     return 0;
+ }

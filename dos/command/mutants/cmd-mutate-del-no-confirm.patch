@@ -1,0 +1,27 @@
+# CMD_MUTATE_DEL_NO_CONFIRM
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3187,22 +3187,6 @@
+     int prefix = 0;
+     for (int i = 0; name[i]; i++)
+         if (name[i] == '\\' || name[i] == ':') prefix = i + 1;
+-    const char *pattern = name + prefix;
+-    if (pattern[0] == '*' && pattern[1] == '.' &&
+-        pattern[2] == '*' && pattern[3] == '\0') {
+-        /* Ref: MS-DOS 3.3 User's Reference pp. 13, 56 (qualified *.* + exact
+-         * prompt); IBM DOS 3.10 Reference p. 7-78 (y/n then Enter).
+-         * Audit K15 / initech-jzhh: ask BEFORE enumeration or any mutation.
+-         * Only a single Y (case-insensitive) grants deletion; everything else
+-         * returns without touching the disk. MSG-DOS-0012 is already locked. */
+-        uint8_t answer[CMD_LINE_MAX + 2];
+-        answer[0] = CMD_LINE_MAX;
+-        answer[1] = 0u;
+-        dos_print(MSG_DOS_0012 " $");
+-        dos_getline(answer);
+-        int yes = answer[1] == 1u && cmd_upcase_char((char)answer[2]) == 'Y';
+-        if (!yes) return;
+-    }
+ 
+ 
+     if (!cmd_has_wildcard(name)) {

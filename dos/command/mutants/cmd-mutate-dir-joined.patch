@@ -1,0 +1,13 @@
+# CMD_MUTATE_DIR_JOINED
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -311,6 +311,8 @@
+     i=0;
+     if (ext) while (ext[i] && i<3) out[pos++]=ext[i++];
+     while (pos<13) out[pos++]=' ';
++    for (i=0;i<13;i++) out[i]=' ';
++    for (i=0;fname[i] && i<12;i++) out[i]=fname[i];
+     if (attr & DIR_ATTR_DIRECTORY) {
+         put_text(out,&pos,"   " MSG_DOS_0026);
+     } else {

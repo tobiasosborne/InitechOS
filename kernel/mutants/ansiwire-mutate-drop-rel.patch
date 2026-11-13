@@ -1,0 +1,14 @@
+# ANSIWIRE_MUTATE_DROP_REL
+# test: test-ansi-wire
+--- a/int21.c
++++ b/int21.c
+@@ -810,9 +810,6 @@
+         break;
+ 
+     case ANSI_ACT_CURSOR_REL:
+-        if (g_ansi_ops.cursor_rel) {
+-            g_ansi_ops.cursor_rel(g_ansi_ops.ctx, act->delta_row, act->delta_col);
+-        }
+         break;
+ 
+     case ANSI_ACT_SAVE_CURSOR:

@@ -1,0 +1,12 @@
+# DOS_VOLUMES_MUT_PATH
+# test: test-dos-volumes-host
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -80,6 +80,7 @@
+ {
+     if (letter == 1u || letter > 3u) return 0;
+     unsigned slot = letter ? letter - 1u : 0u;
++    slot = 0;
+     if (!g_mounts[slot].vol) return 0;
+     g_mount = &g_mounts[slot];
+     return 1;

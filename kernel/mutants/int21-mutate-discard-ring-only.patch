@@ -1,0 +1,16 @@
+# INT21_MUTATE_DISCARD_RING_ONLY
+# test: test-4tw
+--- a/int21.c
++++ b/int21.c
+@@ -1558,6 +1558,11 @@
+ void int21_conin_discard_through(int c)
+ {
+     int k;
++    /* MUTANT (the repository contract; test-conin-mutant only): the pre-fix drain. */
++    (void)c;
++    while (conin_poll() >= 0) {
++    }
++    return;
+     if (g_conin_pushback >= 0) {
+         k = g_conin_pushback;
+         g_conin_pushback = -1;

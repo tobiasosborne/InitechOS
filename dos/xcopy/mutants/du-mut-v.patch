@@ -1,0 +1,24 @@
+# DU_MUT_V
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -214,18 +214,7 @@
+     if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
+     if (error) return 0;
+     if (flags & V_VERIFY) {
+-        in=call(0x3d00,0,0,(uintptr_t)src);
+-        out=call(0x3d00,0,0,(uintptr_t)dst);
+-        if (in < 0 || out < 0) error=5;
+-        while (!error) {
+-            int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
+-            int k=call(0x3f00,(unsigned)out,sizeof(verify),(uintptr_t)verify);
+-            if (n < 0 || k != n) { error=5; break; }
+-            for (int i=0; i<n; i++) if (buf[i] != verify[i]) { error=5; break; }
+-            if (!n) break;
+-        }
+-        if (in >= 0) call(0x3e00,(unsigned)in,0,0);
+-        if (out >= 0) call(0x3e00,(unsigned)out,0,0);
++        (void)verify;
+     }
+     if (error) return 0;
+     /* mcopy oracle: copied files have archive set; source read-only survives. */

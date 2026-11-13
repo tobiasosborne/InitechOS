@@ -1,0 +1,21 @@
+# FAT12_MUTATE_MOVE_FREES_CHAIN
+# test: test-fat-move
+--- a/fat12.c
++++ b/fat12.c
+@@ -3585,6 +3585,16 @@
+ 		}
+ 		return rc;
+ 	}
++	/* MUTANT (the repository contract; make test-fat-move-mutant only) -- the F1.4
++	 * "TRASH_NO_STAGE" defect shape: after transplanting the entry, ALSO free the
++	 * file's cluster chain, i.e. behave like unlink-then-create instead of a
++	 * metadata-only move. The transplanted entry then points at freed clusters:
++	 * the "BOTH on-disk FAT copies byte-unchanged" assertion, the data-cluster
++	 * comparison and the volume's free-space count all go RED. This is what
++	 * proves those NEGATIVE assertions are load-bearing and not decoration.
++	 * NEVER define in a real build. */
++	(void)fat12_free_chain(vol, fat, fat_len, moved_start);
++	(void)fat12_flush_fats(vol, fat, fat_len);
+ 	return FAT12_OK;
+ }
+ 

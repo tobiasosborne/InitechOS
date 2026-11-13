@@ -1,0 +1,24 @@
+# FAT12_MUTATE_READFILE_EOC
+# test: test-fat
+--- a/fat12.c
++++ b/fat12.c
+@@ -1109,10 +1109,15 @@
+ 			if (rc != FAT12_OK) {
+ 				return rc;
+ 			}
+-			if (chain_is_eoc(vol, next)) {
+-				/* Chain ended before file_size bytes were satisfied -- the
+-				 * declared size demands more clusters than the chain has, which
+-				 * is corruption (fail loud, the repository contract). */
++			/* MUTANT (the repository contract; make test-fat-readfile-mutant only): INVERT the EOC
++			 * test polarity -- treat a NORMAL mid-chain link as end-of-chain and
++			 * a true EOC as a normal link. Every multi-cluster file (CHAIN.TXT,
++			 * BLOCK.BIN, the 1368-cluster BIGCHAIN.TXT) then errors with
++			 * FAT12_ERR_CHAIN on its very first non-EOC link -- it cannot read
++			 * past cluster 1 -- so the read oracle goes RED. This proves the EOC
++			 * predicate (which link STOPS the walk) is load-bearing, not the
++			 * dead-for-valid-files corruption return alone. NEVER in a real build. */
++			if (!chain_is_eoc(vol, next)) {
+ 				return FAT12_ERR_CHAIN;
+ 			}
+ 			cur = next;

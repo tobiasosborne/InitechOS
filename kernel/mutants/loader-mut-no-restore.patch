@@ -1,0 +1,12 @@
+# LOADER_MUT_NO_RESTORE
+# test: test-loader
+--- a/loader.c
++++ b/loader.c
+@@ -63,7 +63,6 @@
+ 
+ void loader_nest_leave(loader_state_t *active, const loader_state_t *saved)
+ {
+-    active->psp = saved->psp;
+     active->return_frame = saved->return_frame;
+     active->depth = saved->depth;
+ }

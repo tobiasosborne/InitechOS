@@ -1,0 +1,20 @@
+# ABSDISK_MUTATE_REG_TRANSPOSE
+# test: test-absdisk
+--- a/int21.c
++++ b/int21.c
+@@ -5574,9 +5574,13 @@
+  * register-role SWAP -- EBX is the buffer, DX/EDX the start sector). */
+ static void absdisk_body(int_frame_t *frame, int op_write)
+ {
++    /* MUTANT M3 (the repository contract; make test-absdisk-mutant only): read the start sector
++     * from CX and the count from DX -- the DX/CX register transposition the
++     * DEC-15 register layout forbids. The round-trip writes/reads the WRONG LBA
++     * (and count), so the round-trip + cross-check oracle goes RED. */
+     uint8_t  drive = (uint8_t)(frame->eax & 0xFFu);            /* AL          */
+-    uint32_t count = frame->ecx & 0xFFFFu;                     /* CX          */
+-    uint32_t lba   = frame->edx & 0xFFFFu;                     /* DX          */
++    uint32_t count = frame->edx & 0xFFFFu;                     /* (DX) wrong  */
++    uint32_t lba   = frame->ecx & 0xFFFFu;                     /* (CX) wrong  */
+     uint32_t buf   = frame->ebx;                               /* EBX         */
+     uint32_t bytes;
+     int      rc;

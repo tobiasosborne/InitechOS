@@ -2,24 +2,24 @@
  * GETVECT (AH=25h/35h), and PSP-vector save/restore (beads initech-509.8).
  * Factory test: libc OK, reuses seed/test_assert.h.
  *
- * THIS is the Law-2 centerpiece for initech-509.8's acceptance criteria:
+ * THIS is the the repository contract centerpiece for initech-509.8's acceptance criteria:
  *   "A critical error presents MSG-DOS-0001 and processes Abort/Retry/Fail;
  *    vectors saved/restored across EXEC/EXIT."
  * It pins, HOST-SIDE through the REAL artifact int21.c / psp.c (the same TUs the
  * kernel runs), the logic the in-emulator keystone (make test-vect) exercises
  * end-to-end. The emu gate proves the WIRING (live IDT save/restore across a real
  * EXEC/EXIT); this gate proves the LOGIC is correct and -- crucially -- is the
- * mutation-proof (Rule 6): the emu restore path relies on psp_save_vectors /
+ * mutation-proof (the repository contract): the emu restore path relies on psp_save_vectors /
  * psp_load_vectors being correct, which the PSP_MUTATE_VEC_OFFSET mutant here
  * bites (see make test-int24-mutant).
  *
  * Ref: docs/adr/ADR-0003 Sec 5.10 (DEC-10: INT 22h/23h/24h handlers; 24h presents
  *      MSG-DOS-0001 + processes A/R/F; PSP 0Ah-15h save/restore across EXEC/EXIT);
- *      App C (MSG-DOS-0001 = "Abort, Retry, Fail?"); spec/dos_messages.json;
- *      os/milton/int21.h (crit_error_action, int22/23/24_dispatch, the seams);
- *      os/milton/psp.h (psp_save_vectors / psp_load_vectors + PSP_SAVED_VEC*_OFF).
- *      CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 6
- *      (mutation-prove), Rule 11 (deterministic), Rule 12 (ASCII).
+ *      App C (MSG-DOS-0001 = "Abort, Retry, Fail?"); kernel/include/dos_messages.json;
+ *      kernel/include/int21.h (crit_error_action, int22/23/24_dispatch, the seams);
+ *      kernel/include/psp.h (psp_save_vectors / psp_load_vectors + PSP_SAVED_VEC*_OFF).
+ *      the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract
+ *      (mutation-prove), the repository contract (deterministic), the repository contract (ASCII).
  *
  * Compiles HOSTED against the REAL artifact int21.c + psp.c (+ sft.c for the
  * handle layer int21.c references, + irq.c for the reentrancy guard). Strategy
@@ -29,7 +29,7 @@
  * with synthesized frames and assert AL / CF / ES / the captured CON text / the
  * recorded set-vector tuple / the terminate observation.
  *
- * MUTATION (Rule 6), driven by make (test-int24-mutant) -- each MUST go RED:
+ * MUTATION (the repository contract), driven by make (test-int24-mutant) -- each MUST go RED:
  *   -DCRIT_MUTATE_AF_SWAP        : crit_error_action swaps Abort<->Fail
  *                                  -> sections [1] + [2] RED (mapping + AL).
  *   -DINT24_MUTATE_NO_REPROMPT   : int24 accepts the first (invalid) key, no loop
@@ -189,7 +189,7 @@ int main(void)
     /* =================================================================
      * [1] crit_error_action: the PURE A/R/F decision mapping.
      *     'R'/'r'->0 Retry, 'A'/'a'->1 Abort, 'F'/'f'->2 Fail; anything else
-     *     -> -1 (re-prompt). Exhaustive enough to pin the mapping (Law 2).
+     *     -> -1 (re-prompt). Exhaustive enough to pin the mapping (the repository contract).
      * ================================================================= */
     printf("[1] crit_error_action mapping (A/R/F + invalid -> -1)\n");
     CHECK(crit_error_action('A') == 1, "crit_error_action('A') == 1 (Abort)");

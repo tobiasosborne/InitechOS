@@ -1,0 +1,144 @@
+# CMD_MUTATE_NO_SAMEFILE
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -580,114 +580,16 @@
+  *     catches identical subdir paths (SUB\\A.TXT vs SUB\\A.TXT), but NOT
+  *     relative-vs-absolute (\\FOO vs FOO) -- the residual (follow-up bead).
+  * Ref: bead initech-ojxn; DOS 3.3 COMMAND.COM COPY same-name check. PURE. */
+-/* Skip a leading drive prefix "X:"; write the (upcased) drive letter to *drive
+- * ('A' when none is present -- the single InitechDOS volume) and return the
+- * pointer past the prefix. */
+-static const char *cmd_skip_drive(const char *s, char *drive)
+-{
+-    if (s[0] != '\0' && s[1] == ':') {
+-        *drive = cmd_upcase_char(s[0]);
+-        return s + 2;
+-    }
+-    *drive = 'A';
+-    return s;
+-}
+-
+-/* Skip a single leading ".\\" current-directory prefix (DOS path sep is '\\'). */
+-static const char *cmd_skip_dotslash(const char *s)
+-{
+-    if (s[0] == '.' && s[1] == '\\') {
+-        return s + 2;
+-    }
+-    return s;
+-}
+-
+-/* 1 if `s` contains a path separator '\\' (so it is NOT a bare CWD leaf). */
+-static int cmd_has_sep(const char *s)
+-{
+-    for (; *s; s++) {
+-        if (*s == '\\') {
+-            return 1;
+-        }
+-    }
++/* MUTANT (the repository contract; make test-command-mutant only): the same-file predicate always
++ * reports "different", so COPY's onto-itself guard never fires -> the same-file
++ * detection test goes RED, AND (in the kernel) COPY FOO.TXT FOO.TXT would
++ * dos_creat/TRUNCATE the source to zero -- the EXACT initech-ojxn data-loss
++ * regression. NEVER in a real build. */
++int cmd_same_file(const char *a, const char *b)
++{
++    (void)a;
++    (void)b;
+     return 0;
+-}
+-
+-/* Fold a bare 8.3 leaf into its 11-byte on-disk key: NAME (<=8, space-padded) +
+- * EXT (<=3, space-padded), split on the FIRST '.', UPCASED (DOS is case-blind).
+- * Overlong NAME/EXT are truncated exactly as the FAT resolver stores them, so
+- * FOO, FOO. and FOO.<junk> fold identically only where the 8.3 volume would
+- * agree. `key` holds 11 bytes. */
+-static void cmd_fold_83(const char *s, char key[11])
+-{
+-    int i = 0;
+-    int k;
+-
+-    for (k = 0; k < 11; k++) {
+-        key[k] = ' ';
+-    }
+-    /* NAME: up to 8 chars until '.' or end. */
+-    while (s[i] != '\0' && s[i] != '.' && i < 8) {
+-        key[i] = cmd_upcase_char(s[i]);
+-        i++;
+-    }
+-    /* Swallow the tail of an overlong NAME up to the '.'. */
+-    while (s[i] != '\0' && s[i] != '.') {
+-        i++;
+-    }
+-    if (s[i] == '.') {
+-        int e = 0;
+-        i++;                        /* past the '.' */
+-        while (s[i] != '\0' && s[i] != '.' && e < 3) {
+-            key[8 + e] = cmd_upcase_char(s[i]);
+-            i++;
+-            e++;
+-        }
+-    }
+-}
+-
+-int cmd_same_file(const char *a, const char *b)
+-{
+-    char da;
+-    char db;
+-    const char *pa;
+-    const char *pb;
+-    int k;
+-
+-    if (a == 0 || b == 0) {
+-        return 0;
+-    }
+-    pa = cmd_skip_drive(a, &da);
+-    pb = cmd_skip_drive(b, &db);
+-    if (da != db) {
+-        return 0;                   /* different volumes -> different files */
+-    }
+-    pa = cmd_skip_dotslash(pa);
+-    pb = cmd_skip_dotslash(pb);
+-
+-    if (!cmd_has_sep(pa) && !cmd_has_sep(pb)) {
+-        char ka[11];
+-        char kb[11];
+-        cmd_fold_83(pa, ka);
+-        cmd_fold_83(pb, kb);
+-        for (k = 0; k < 11; k++) {
+-            if (ka[k] != kb[k]) {
+-                return 0;
+-            }
+-        }
+-        return 1;
+-    }
+-    /* A separator remains: compare the remainders case-insensitively (DOS paths
+-     * are case-blind). This catches identical subdir paths but does NOT resolve
+-     * relative-vs-absolute -- the documented residual (follow-up bead). */
+-    for (k = 0;; k++) {
+-        if (cmd_upcase_char(pa[k]) != cmd_upcase_char(pb[k])) {
+-            return 0;
+-        }
+-        if (pa[k] == '\0') {
+-            return 1;
+-        }
+-    }
+ }
+ 
+ /* Append `v` to out[*pos] as exactly `width` zero-padded decimal digits (DOS
+@@ -2933,6 +2835,7 @@
+     int probe=dos_open(dest);
+     if(probe == -15) { dos_close(src); dos_print(MSG_DOS_0004 "\r\n$"); return 0; }
+     int same=probe>=0 && int21_same_file((uint16_t)src,(uint16_t)probe);
++    same=0;
+     if(probe>=0)dos_close(probe);
+     if(probe<0 && probe!=-(int)INT21_ERR_FILE_NOT_FOUND && probe!=-(int)INT21_ERR_PATH_NOT_FOUND)goto denied;
+     if(same) {
+@@ -3028,6 +2931,7 @@
+             if(cmd_has_wildcard(name))continue;
+             int h=dos_open(name);
+             int same=h>=0 && target>=0 && int21_same_file((uint16_t)h,(uint16_t)target);
++            same=0;
+             if(h>=0)dos_close(h);
+             if(h<0 || (same && !(append && s==0))) {
+                 if(target>=0)dos_close(target);

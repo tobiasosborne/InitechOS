@@ -1,0 +1,13 @@
+# INT21_MUTATE_CREATNEW_GUARD_INVERT
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -2647,7 +2647,7 @@
+         dir_entry_t probe_de;
+         uint32_t    probe_slot = 0u;
+         uint16_t    found = g_file->open(leaf, dir_start, &probe_de, &probe_slot);
+-        if (found == 0u) {               /* file located -> already exists */
++        if (found != 0u) {               /* MUTANT: treat NOT-found as exists */
+             set_ax(f, INT21_ERR_FILE_EXISTS);     /* 0x0050 ERROR_FILE_EXISTS */
+             cf_set(f);
+             return;

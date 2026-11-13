@@ -1,0 +1,13 @@
+# FAT12_MUTATE_CREATE_READONLY
+# test: test-dos-safety-create test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro test-dos-safety-identity
+--- a/fat12.c
++++ b/fat12.c
+@@ -2486,8 +2486,6 @@
+ 		/* Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33:
+ 		 * read-only prevents deletion or modification (L005 / initech-1vcl).
+ 		 * Refuse before freeing the chain or changing ANY dirent byte. */
+-		if ((match.attribute & DIR_ATTR_READONLY) != 0u)
+-			return FAT12_ERR_ACCESS;
+ 		/* Never retype a directory or volume label through file CREAT.
+ 		 * Ref: MS-DOS 3.3 User's Reference p. 12 (directory/file namespace);
+ 		 * IBM DOS 3.30 Technical Reference pp. 6-122/6-123 (file CREAT).

@@ -19,8 +19,6 @@ $(OUT)/kernel.elf: $(OBJECTS) $(TOP)/build/dos/command.o $(TOP)/build/dos/batch.
 $(OUT)/INITDOS.SYS: $(OUT)/kernel.elf
 	objcopy -O binary $< $@
 	@echo "InitechDOS loaded bytes: $$(wc -c < $@)"
-test:
-	@echo "kernel: tier 0 import pending (tests parked under tests/)"
 smoke:
 	$(MAKE) -C $(TOP) smoke
 all: $(OUT)/dos_messages.inc
@@ -33,3 +31,6 @@ resident-command: $(OUT)/dos_messages.h
 $(OUT)/kernel.elf: $(wildcard $(TOP)/dos/command/*.[ch]) | resident-command
 $(TOP)/build/dos/command.o $(TOP)/build/dos/batch.o $(TOP)/build/dos/env.o: | resident-command
 	@test -f $@
+
+# Host test wiring (separate from target build rules).
+include tests.mk

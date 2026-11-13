@@ -1,0 +1,18 @@
+# INT21_MUTATE_IOCTL_NO_DISPATCH
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -5274,8 +5274,11 @@
+             do_filetime(frame);
+             return;
+         case 0x44:                       /* IOCTL (AL=00 get device info) */
+-            do_ioctl(frame);
+-            return;
++            /* MUTANT (the repository contract): do NOT dispatch 0x44; fall through to the
++             * not-yet-impl path (CF=1, AX=0x0001). The (void) ref keeps
++             * -Werror=unused-function quiet so the mutant still BUILDS + RUNS. */
++            (void)do_ioctl;
++            break;
+         case 0x45:                       /* DUP (duplicate handle) */
+             do_dup(frame);
+             return;

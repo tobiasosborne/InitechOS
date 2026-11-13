@@ -1,0 +1,12 @@
+# DU_MUT_LABEL
+# test: test-int21
+--- a/int21.c
++++ b/int21.c
+@@ -3560,6 +3560,7 @@
+     fd->fdate = e->mdate;
+     fd->fsize = e->file_size;
+     if ((e->attribute & DIR_ATTR_VOLLABEL)
++        && 0 /* the repository contract: old 8.3 label truncation, test-xcopy-tree-mutant. */
+     ) {
+         /* TREE's volume identity is one eleven-byte label, not an 8.3 file.
+          * Ref: IBM DOS 3.30 Technical Reference p.5-11, attribute 08H:

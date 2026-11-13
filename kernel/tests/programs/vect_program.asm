@@ -30,13 +30,13 @@
 ; (serial_putu); the asm mirrors datetime_program.asm's cat_u32 so V24PRE/V24POST
 ; are emitted in the SAME base kmain uses for V24POST -- an exact string compare.
 ;
-; Ref:   os/milton/int21.c do_getvect (35h: EBX=handler, ES=0), do_setvect
+; Ref:   kernel/int21.c do_getvect (35h: EBX=handler, ES=0), do_setvect
 ;        (25h: AL=vec, EDX=handler), int24_dispatch_body (MSG-DOS-0001 + A/R/F),
 ;        do_write (40h: EBX=1 -> CON), do_terminate (4Ch); loader.c EXEC-save /
-;        EXIT-restore of IDT 0x22/0x23/0x24; spec/memory_map.h PROGRAM_IMAGE
-;        0x00040100. CLAUDE.md Law 1, Law 2, Rule 2, Rule 11, Rule 12.
+;        EXIT-restore of IDT 0x22/0x23/0x24; kernel/include/memory_map.h PROGRAM_IMAGE
+;        0x00040100. the repository contract, the repository contract, the repository contract, the repository contract, the repository contract.
 ;
-; Assembled: nasm -f bin os/milton/vect_program.asm -o build/vect_program.bin
+; Assembled: nasm -f bin os/initechdos/vect_program.asm -o build/vect_program.bin
 ; ADDRESSING (Solution A): org 0x00040100 == PROGRAM_IMAGE.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org + scratch equs updated]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org + scratch equs updated]

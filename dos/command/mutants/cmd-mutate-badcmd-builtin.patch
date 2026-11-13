@@ -1,0 +1,17 @@
+# CMD_MUTATE_BADCMD_BUILTIN
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -128,7 +128,11 @@
+             return table[i].kind;
+         }
+     }
+-    return CMD_EXTERNAL;
++    /* MUTANT (the repository contract; make test-command-mutant only): treat an unknown command
++     * word as a built-in (CMD_DIR) instead of CMD_EXTERNAL, so "badcmd" would
++     * never reach EXEC / the Bad command diagnostic -> the classify oracle goes
++     * RED. NEVER in a real build. */
++    return CMD_DIR;
+ }
+ 
+ void cmd_parse(const char *line, cmd_line_t *out)

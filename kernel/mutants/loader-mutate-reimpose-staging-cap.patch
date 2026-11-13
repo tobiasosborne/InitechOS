@@ -1,0 +1,18 @@
+# LOADER_MUTATE_REIMPOSE_STAGING_CAP
+# test: test-loader-big
+--- a/loader_validation.c
++++ b/loader_validation.c
+@@ -74,6 +74,13 @@
+          * proof). This is now the SOLE size bound on the FAT path too (za4m:
+          * the 64 KiB LOAD_STAGING_MAX cap is gone -- the .COM no longer transits
+          * the 64 KiB staging buffer; it is read straight into PROGRAM_IMAGE). */
++        return LOADER_ERR_TOO_BIG;
++    }
++    /* MUTANT (the repository contract; make test-loader-big-mutant only): re-impose the
++     * PRE-za4m 64 KiB LOAD_STAGING_MAX cap on the in-place path -- the EXACT bug
++     * that wrongly rejected a 77 KiB INITECHBASE.COM. The big-.COM oracle's "64 KiB + 1
++     * loads" case MUST go RED. NEVER define in a real build. */
++    if (in_place && image_len > LOAD_STAGING_MAX) {
+         return LOADER_ERR_TOO_BIG;
+     }
+ 

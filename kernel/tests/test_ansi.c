@@ -7,14 +7,14 @@
  *        ECMA-48 (5th ed., 1991) for the CSI parameter grammar;
  *        IBM PC Technical Reference (1984) Appendix B "Display Adapter"
  *        for the CGA text-mode attribute byte encoding.
- *        CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 6
- *        (mutation-proven), Rule 12 (ASCII).
+ *        the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract
+ *        (mutation-proven), the repository contract (ASCII).
  *
  * Compiles HOSTED by #including ansi.c directly (same TU trick as
  * test_batch.c / test_env.c / test_mz.c).  ansi.c is pure + I/O-free;
  * no kernel defines required.
  *
- * MUTATION (Rule 6) -- driven by make test-ansi-mutant:
+ * MUTATION (the repository contract) -- driven by make test-ansi-mutant:
  *   -DANSI_MUTATE_PARAM_ACCUM  : multi-digit params accumulate as last-digit
  *                                only (x1 instead of x10); the cursor-position
  *                                and cursor-up-3 tests go RED.
@@ -30,7 +30,7 @@
  */
 
 #include <stdint.h>
-#include <string.h>   /* strcmp -- libc OK in host test (Law 3) */
+#include <string.h>   /* strcmp -- libc OK in host test (the repository contract) */
 #include <stdio.h>
 
 #include "ansi.h"
@@ -507,7 +507,7 @@ static void test_plain_passthrough(void)
  * A malformed/unknown sequence must be consumed without crashing and the FSM
  * must return to GROUND.
  * Ref: RBIL ANSI.SYS -- "unknown final byte ends the sequence".
- * Rule 2: never overflow; never crash on bad input.
+ * the repository contract: never overflow; never crash on bad input.
  * =========================================================================*/
 static void test_malformed_sequence(void)
 {
@@ -536,7 +536,7 @@ static void test_malformed_sequence(void)
     CHECK(log.count == 0,
           "ESC then non-'[': zero actions");
 
-    /* Very long parameter string (overflow guard, Rule 2): more than
+    /* Very long parameter string (overflow guard, the repository contract): more than
      * ANSI_PARAM_MAX semicolons -- must not overflow, FSM stays consistent. */
     ansi_init(&st, 25, 80);
     log_reset(&log);

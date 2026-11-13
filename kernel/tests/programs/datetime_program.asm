@@ -21,13 +21,13 @@
 ; has at least one clean, grep-able copy. The harness asserts each field by
 ; substring grep, so the duplicate is harmless.
 ;
-; Ref:   os/milton/int21.c do_getdate (2Ah: CX=year, DH=month, DL=day, AL=dow),
+; Ref:   kernel/int21.c do_getdate (2Ah: CX=year, DH=month, DL=day, AL=dow),
 ;        do_gettime (2Ch: CH=hour, CL=min, DH=sec), do_getspace (36h: DL=drive;
 ;        AX=spc, BX=free, CX=bps, DX=total), do_getpsp (62h: BX=psp para),
-;        do_write (40h: EBX=1 -> CON), do_terminate (4Ch). spec/memory_map.h
-;        PROGRAM_IMAGE 0x00040100. CLAUDE.md Law 1, Rule 2, Rule 11, Rule 12.
+;        do_write (40h: EBX=1 -> CON), do_terminate (4Ch). kernel/include/memory_map.h
+;        PROGRAM_IMAGE 0x00040100. the repository contract, the repository contract, the repository contract, the repository contract.
 ;
-; Assembled: nasm -f bin os/milton/datetime_program.asm -o build/datetime_program.bin
+; Assembled: nasm -f bin os/initechdos/datetime_program.asm -o build/datetime_program.bin
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org + scratch equs updated]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org + scratch equs updated]
 

@@ -1,0 +1,32 @@
+# FAT12_MUTATE_RENAME_NO_DESTCHECK
+# test: test-gnrc
+--- a/fat12.c
++++ b/fat12.c
+@@ -3213,22 +3213,11 @@
+ 
+ 	/* The DEST name must be ABSENT in the directory -- a rename never clobbers an
+ 	 * existing entry (the load-bearing dest-exists reject). */
+-	{
+-		uint32_t    dfree_slot  = 0u;
+-		int         dhave_free  = 0;
+-		uint32_t    dmatch_slot = 0u;
+-		dir_entry_t dmatch;
+-		int         dfound      = 0;
+-		rc = fat12_scan_dir(vol, fat, fat_len, is_root, dir_start, sector_buf,
+-		                    new11, &dfree_slot, &dhave_free, &dmatch_slot,
+-		                    &dmatch, &dfound);
+-		if (rc != FAT12_OK) {
+-			return rc;
+-		}
+-		if (dfound) {
+-			return FAT12_ERR_EXISTS;   /* dest name already present */
+-		}
+-	}
++	/* MUTANT 1 (the repository contract; make test-gnrc-mutant only): SKIP the dest-absent scan, so
++	 * a rename ONTO an existing dest wrongly SUCCEEDS (it overwrites the source's
++	 * own name with a name that already lives elsewhere in the dir, producing a
++	 * duplicate). The dest-exists (0x0005) leg + the mren differential go RED.
++	 * NEVER in a real build. */
+ 
+ 	/* Rewrite ONLY the 11-byte name field; everything else (start_cluster /
+ 	 * file_size / attribute / mtime / mdate) is preserved VERBATIM in `match` and

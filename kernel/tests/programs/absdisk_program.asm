@@ -2,7 +2,7 @@
 ;                        ABSOLUTE-DISK round-trip self-test program.
 ;
 ; beads: initech-8403 (close the asm-stub coverage gap on int25_entry/int26_entry).
-;        The HOST oracle (harness/diff/fat_diff/test_absdisk.c, beads initech-4mq7)
+;        The HOST oracle (kernel/tests/test_absdisk.c, beads initech-4mq7)
 ;        drives int25_dispatch / int26_dispatch DIRECTLY (C function calls); the
 ;        asm  int25_entry/int26_entry -> dispatch -> IRETD  return path is invoked
 ;        by NO host/emu gate. THIS program is the in-emulator keystone that closes
@@ -14,7 +14,7 @@
 ;        asserts; serial is handle 1 -> int21_con_sink -> COM1):
 ;          1. Fill a 512-byte buffer with the SAME deterministic pattern the host
 ;             oracle uses: byte i = (i*0x6D + (LBA & 0xFF)) & 0xFF -- a pure
-;             function of (index, LBA), no wall-clock, no rand (Rule 11).
+;             function of (index, LBA), no wall-clock, no rand (the repository contract).
 ;          2. `int $0x26` ABSOLUTE WRITE: AL=0 (drive A:), CX=1 (one sector),
 ;             DX=SCRATCH_LBA, EBX=pattern buffer. CF=0 success. Emit "ABS-W26=OK"
 ;             on CF=0 (else "ABS-W26-FAIL AX=<dec>"). This exercises int26_entry ->
@@ -27,7 +27,7 @@
 ;             else "ABS-RT-FAIL idx=<dec>" at the first mismatch.
 ;          5. AH=4Ch EXIT rc=0.
 ;
-;        SAFE SCRATCH LBA (Rule 2 / non-corruption): SCRATCH_LBA = 2879 ==
+;        SAFE SCRATCH LBA (the repository contract / non-corruption): SCRATCH_LBA = 2879 ==
 ;        (1.44MB FAT12 total_logical_sectors - 1). On an mformat -f 1440 volume the
 ;        BPB total_sectors_16 == 2880, so LBA 2879 is the LAST data sector, well
 ;        past the boot sector (0), both FATs, and the root directory -- and on the
@@ -38,14 +38,14 @@
 ; WHY decimal: the kernel's only serial number primitive (and this program's
 ; cat_u32) is decimal -- mirrors vect_program.asm / datetime_program.asm.
 ;
-; Ref:   spec/absdisk_int2526.json (the LOCKED contract; ABI: AL=drive, CX/ECX=
-;        count, DX/EDX=start LBA, EBX=flat buffer, CF=status); os/milton/int21.c
-;        absdisk_body / int25_dispatch / int26_dispatch; os/milton/isr.asm
+; Ref:   kernel/tests/data/absdisk_int2526.json (the LOCKED contract; ABI: AL=drive, CX/ECX=
+;        count, DX/EDX=start LBA, EBX=flat buffer, CF=status); kernel/int21.c
+;        absdisk_body / int25_dispatch / int26_dispatch; os/initechdos/isr.asm
 ;        int25_entry / int26_entry; do_write (40h: EBX=1 -> CON), do_terminate
-;        (4Ch); spec/memory_map.h PROGRAM_IMAGE 0x00040100. ADR-0003 DEC-15.
-;        CLAUDE.md Law 1, Law 2, Rule 2, Rule 11, Rule 12.
+;        (4Ch); kernel/include/memory_map.h PROGRAM_IMAGE 0x00040100. ADR-0003 DEC-15.
+;        the repository contract, the repository contract, the repository contract, the repository contract, the repository contract.
 ;
-; Assembled: nasm -f bin os/milton/absdisk_program.asm -o build/absdisk_program.bin
+; Assembled: nasm -f bin os/initechdos/absdisk_program.asm -o build/absdisk_program.bin
 ; ADDRESSING (Solution A): org 0x00040100 == PROGRAM_IMAGE (mirrors vect_program).
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org + scratch equs updated]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org + scratch equs updated]
@@ -59,7 +59,7 @@ SECTOR      equ 512
 
 start:
     ; ===== 1. Fill PATBUF[0..511] with byte i = (i*0x6D + LBA_LOW) & 0xFF =====
-    ; Pure (index, LBA): EXACT match to test_absdisk.c fill_pattern (Rule 11).
+    ; Pure (index, LBA): EXACT match to test_absdisk.c fill_pattern (the repository contract).
     mov edi, PATBUF
     xor ecx, ecx               ; ECX = byte index i = 0..511
 .fill:

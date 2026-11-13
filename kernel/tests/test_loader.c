@@ -6,9 +6,9 @@
  *
  * Ref: docs/research/psp-loader-ground-truth.md Sec 3.2 (the layout addresses),
  *      Sec 4.1 (the psp_params the loader feeds psp_build), Sec 7 Risk 1/2/3;
- *      spec/memory_map.h (the LOCKED addresses); os/milton/psp.h. CLAUDE.md
- *      Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 2 (fail loud), Rule 6
- *      (mutation-prove), Rule 12 (ASCII).
+ *      kernel/include/memory_map.h (the LOCKED addresses); kernel/include/psp.h. CLAUDE.md
+ *      the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract (fail loud), the repository contract
+ *      (mutation-prove), the repository contract (ASCII).
  *
  * Strategy: loader_prepare() is the pure, host-testable seam. We assert:
  *   - oversized image is REJECTED (LOADER_ERR_TOO_BIG) -- fail loud, no plan.
@@ -17,7 +17,7 @@
  *     PROGRAM_BASE+0x100; entry == image_dst; stack at PROGRAM_STACK_TOP) and
  *     the correct psp_params (alloc/env/parent linear + cmd_tail passthrough).
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DLOADER_MUTATE_NO_OFFSET : image loaded at PROGRAM_BASE (no +0x100) ->
  *                               the image_dst/entry == PROGRAM_BASE+0x100
  *                               assertions go RED. A mutant that PASSES means
@@ -165,7 +165,7 @@ int main(void)
 
     /* ---- Case 6: the COMMAND3 transient overlay is NOT a program (bead
      *      initech-13ig). The flagship's COMMAND.COM is the transient command
-     *      interpreter (os/milton/transient.h), linked at TRANSIENT_BASE behind
+     *      interpreter (os/initechdos/transient.h), linked at TRANSIENT_BASE behind
      *      an 8-byte COMMAND3 magic. BOTH flat entries -- loader_prepare (the
      *      baked copy path) and loader_prepare_in_place (FAT / nested, the
      *      resident bytes) -- must refuse it LOADER_ERR_BAD_FORMAT (DOS EXEC
@@ -203,7 +203,7 @@ int main(void)
      *      error 11, as it refuses the transient today"). Both entries refuse
      *      the 8-byte FLAIROVL magic LOADER_ERR_BAD_FORMAT; a near miss and a
      *      7-byte image are ordinary programs. Literal bytes here, not the
-     *      kernel's OVL_MAGIC (Law 2). Mutant: test-loader-mutant's
+     *      kernel's OVL_MAGIC (the repository contract). Mutant: test-loader-mutant's
      *      LOADER_MUT_NO_OVERLAY_GUARD leg. -------------------------------- */
     {
         static const uint8_t k_ovl[16]  = { 'F','L','A','I','R','O','V','L',
@@ -261,7 +261,7 @@ int main(void)
                   == LOADER_ERR_BAD_ENV,
               "a non-ENV_BLOCK env_block must fail loud (LOADER_ERR_BAD_ENV)");
 
-        /* (d) NULL out -> fail loud, never a write through NULL (Rule 2). */
+        /* (d) NULL out -> fail loud, never a write through NULL (the repository contract). */
         CHECK(loader_decide_env(0u, (loader_env_decision_t *)0)
                   == LOADER_ERR_NULL_OUT,
               "loader_decide_env NULL out must be rejected (LOADER_ERR_NULL_OUT)");

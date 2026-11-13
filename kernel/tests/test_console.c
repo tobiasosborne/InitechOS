@@ -1,19 +1,19 @@
 /*
- * os/milton/test_console.c -- host blit-math oracle for the LFB text console.
+ * kernel/tests/test_console.c -- host blit-math oracle for the LFB text console.
  *
- * FACTORY host test (CLAUDE.md Law 3: factory is C, libc OK on the host).
+ * FACTORY host test (the repository contract: factory is C, libc OK on the host).
  * Reuses the seed test_assert.h idiom (CHECK / TEST_HARNESS / TEST_SUMMARY) so
- * the binary exits NON-ZERO on any failed check (Law 2 -- never false-green).
+ * the binary exits NON-ZERO on any failed check (the repository contract -- never false-green).
  *
- * This is the RED->GREEN gate for os/milton/console.c::console_draw_glyph (the
+ * This is the RED->GREEN gate for kernel/console.c::console_draw_glyph (the
  * load-bearing pixel math) and the cursor/wrap/scroll logic. The SAME
  * console.c compiles freestanding in the kernel and hosted here; the host
  * allocates a fake framebuffer (640x480) + a fake boot_info pointing at it, and
  * a fake font with hand-defined synthetic glyphs (solid / empty / single-bit).
  *
- * Ref (Law 1): docs/research/boot-to-text-ground-truth.md Sec 1.2 (glyph
+ * Ref (the repository contract): docs/research/boot-to-text-ground-truth.md Sec 1.2 (glyph
  *   format: MSB=0x80=leftmost pixel, set bit = ink); Sec 5 Risk 2 (bpp 32/24
- *   packing; pixel addr = lfb + y*pitch + x*(bpp/8)); os/milton/console.h.
+ *   packing; pixel addr = lfb + y*pitch + x*(bpp/8)); kernel/console.h.
  *
  * Asserted properties:
  *   - solid glyph at (col,row) inks EXACTLY that 8x16 cell to fg, neighbors
@@ -25,7 +25,7 @@
  *     scroll at row 25 (content moves up one cell row, last row cleared);
  *   - 24bpp packing inks the right B,G,R triples.
  *
- * ASCII-clean (Rule 12). No timestamps (Rule 11). The fake framebuffer is
+ * ASCII-clean (the repository contract). No timestamps (the repository contract). The fake framebuffer is
  * heap-allocated (host only); console.c itself never allocates.
  */
 
@@ -35,7 +35,7 @@
 #include <sys/mman.h>
 
 #include "test_assert.h"   /* seed/, on -Iseed         */
-#include "console.h"       /* os/milton/, on -Ios/milton */
+#include "console.h"       /* os/initechdos/, on -Ios/initechdos */
 
 TEST_HARNESS();
 
@@ -47,7 +47,7 @@ TEST_HARNESS();
  * uint32_t. Allocate the fake framebuffer/font in the low 4 GiB (MAP_32BIT) so
  * (uint32_t)(uintptr_t)p round-trips losslessly -- mirroring the artifact's
  * world where every LFB/font address is < 4 GiB. Falls back to a low fixed-hint
- * mmap if MAP_32BIT is unavailable (Rule 2 -- abort the test, never false-green
+ * mmap if MAP_32BIT is unavailable (the repository contract -- abort the test, never false-green
  * on a truncated pointer). */
 static void *alloc_low(size_t n)
 {
@@ -461,7 +461,7 @@ int main(void)
      * console_set_attr / console_set_cursor / console_get_cursor /
      * console_erase_line / console_erase_display, and the LOAD-BEARING claim:
      * the cur_fg/cur_bg DEFAULT path is pixel-identical to drawing with fg/bg
-     * (CLAUDE.md Law 4 -- the no-ANSI rendering must not change). 32bpp path. */
+     * (the repository contract -- the no-ANSI rendering must not change). 32bpp path. */
     {
         size_t fb_bytes = (size_t)FB_W * FB_H * 4u;
         uint8_t *fb = alloc_low(fb_bytes);
@@ -476,7 +476,7 @@ int main(void)
 
             /* --- default-attribute pixel identity --- */
             CHECK(con.cur_fg == con.fg && con.cur_bg == con.bg,
-                  "init: cur_fg/cur_bg default EQUAL to fg/bg (Law 4 pixel-identity)");
+                  "init: cur_fg/cur_bg default EQUAL to fg/bg (the repository contract pixel-identity)");
             /* A glyph drawn via console_putc (which uses cur_fg/cur_bg) is the
              * SAME pixels as one drawn with fg/bg explicitly. */
             con.cur_row = 1; con.cur_col = 1;
@@ -491,7 +491,7 @@ int main(void)
                   "set_cursor clamps an out-of-range target to the last cell");
             /* Real III+ at-to-b/TE: off-page cursor carries through SAVE and
              * RESTORE; drawing, erase and blink must not touch even the spare
-             * framebuffer scanlines below the text band (Rule 2). */
+             * framebuffer scanlines below the text band (the repository contract). */
             {
                 uint8_t page[CONSOLE_PAGE_BYTES], after[CONSOLE_PAGE_BYTES];
                 console_set_cursor(&con,con.rows,0);

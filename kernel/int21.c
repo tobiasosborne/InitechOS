@@ -5,12 +5,12 @@
  *        initech-509.3.
  * Ref:   docs/research/internals-int21h-ground-truth.md Sec 5 (flat calling
  *        convention + the CF-in-EFLAGS return mechanism), Sec 6 (the console
- *        subset: 02h/09h/40h/30h/4Ch/00h); spec/int21h_calling_convention.json
+ *        subset: 02h/09h/40h/30h/4Ch/00h); kernel/tests/data/int21h_calling_convention.json
  *        (the LOCKED ABI + per-function contract); spec/int21h_register.json
  *        (the controlled scope -- the recognized AH set; ADR-0003 DEC-04);
- *        spec/dos_messages.json (controlled diagnostics; ADR-0003 DEC-13).
- *        CLAUDE.md Law 1, Law 2, Law 3 (artifact = C), Rule 2 (fail loud +
- *        controlled scope), Rule 8, Rule 11, Rule 12.
+ *        kernel/include/dos_messages.json (controlled diagnostics; ADR-0003 DEC-13).
+ *        the repository contract, the repository contract, the repository contract (artifact = C), the repository contract (fail loud +
+ *        controlled scope), the repository contract, the repository contract, the repository contract.
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only. The
  * SAME TU compiles HOSTED for os/initechdos/test_int21.c. All "display" bytes go
@@ -38,7 +38,7 @@
  * binaries also pulls ansi.c (test_ansi.c is its own binary). The FSM is driven
  * from con_putc (below) and its actions are applied to the live console through
  * the int21_ansi_console_t seam (int21.h) -- so int21.c still never includes
- * console.h and stays HOSTED-clean (Law 3). */
+ * console.h and stays HOSTED-clean (the repository contract). */
 #include "ansi.c"
 #include "conedit.h"
 
@@ -60,7 +60,7 @@ static int21_break_recovery_t *g_break_recovery = 0;
  * -1; the kernel impl spins on hlt); g_conin_poll is the NON-blocking poll
  * (char 0..255, or -1 if none). NULL until the kernel binds the keyboard (or the
  * host oracle binds a mock) -- input functions then return EOF/no-char, NEVER
- * hang or fault (Rule 2). */
+ * hang or fault (the repository contract). */
 static int21_conin_fn     g_conin_get  = 0;
 static int21_coninpoll_fn g_conin_poll = 0;
 static int g_printer_echo;
@@ -132,12 +132,8 @@ static unsigned g_current_drive, g_io_drive;
 static unsigned g_drive_limit = 5u; /* IBM DOS 3.30 TR p6-66 minimum. */
 void int21_set_lastdrive(unsigned count)
 {
-#ifdef DOS_VOLUMES_MUT_LASTDRIVE
-    (void)count;
-#else
     if (count < 5u) count = 5u;
     if (count <= 26u) g_drive_limit = count;
-#endif
 }
 static int (*g_select_drive)(unsigned);
 #define g_cwd_path (g_cwd_paths[g_io_drive])
@@ -146,11 +142,7 @@ static int select_volume(unsigned drive)
 {
     if (drive >= 4u || (g_select_drive ? !g_select_drive(drive) : drive != 0u))
         return 0;
-#ifdef DOS_VOLUMES_MUT_CWD
-    g_io_drive = 0;
-#else
     g_io_drive = drive;
-#endif
     return 1;
 }
 void int21_set_drive_selector(int (*select)(unsigned))
@@ -187,7 +179,7 @@ static int21_clock_set_fn g_clock_set = 0;
  * GETVECT reach the live IDT through these so int21.c does not link idt.c and
  * stays host-testable. NULL until the kernel binds idt-backed callbacks at
  * SYSINIT (or the host oracle binds a mock vector table). With none bound,
- * SETVECT is a graceful no-op and GETVECT returns 0 -- never a fault (Rule 2). */
+ * SETVECT is a graceful no-op and GETVECT returns 0 -- never a fault (the repository contract). */
 static int21_setvect_fn g_setvect = 0;
 static int21_getvect_fn g_getvect = 0;
 
@@ -220,11 +212,11 @@ static const int21_file_backend_t *g_file = 0;
 /* The ABSOLUTE-DISK block-device seam (INT 25h/26h; ADR-0003 DEC-15, beads
  * initech-4mq7). A COPY of the vtable the kernel binds from the mounted FAT12
  * volume's blockdev (vol->dev->read_sectors/write_sectors) -- int21.c never
- * includes fat12.h/blockdev.h or references the volume (Law 3). g_absdisk_bound
+ * includes fat12.h/blockdev.h or references the volume (the repository contract). g_absdisk_bound
  * gates it: with NO seam bound INT 25h/26h fail loud (CF=1), never fault. The
  * copy keeps the seam alive independent of the caller's struct lifetime. */
 /* DEC-15a (initech-yyi2/q45q): one seam per DEC-18 letter AL (0=A:, 2=C:, 3=D:).
- * spec/absdisk_int2526.json "invalid_drive: AL is not a mounted volume". */
+ * kernel/tests/data/absdisk_int2526.json "invalid_drive: AL is not a mounted volume". */
 static int21_absdisk_backend_t g_absdisk[4];
 static int                     g_absdisk_bound[4];
 
@@ -253,11 +245,11 @@ static uint8_t g_last_child_term_type = 0;
 
 /* The MCB memory arena behind AH=48h/49h/4Ah (beads initech-509.6). g_arena
  * walks the kernel's program-memory region (PROGRAM_BASE..PROGRAM_ALLOC_END,
- * spec/memory_map.h); g_arena_base_linear is that region's flat base so a
+ * kernel/include/memory_map.h); g_arena_base_linear is that region's flat base so a
  * returned data-paragraph index converts to a DOS segment as
  * (g_arena_base_linear >> 4) + data_para. g_arena_bound gates the seam: until
  * the kernel (or host oracle) binds an arena, 48h/49h/4Ah report insufficient
- * memory rather than fault (Rule 2). The arena is bound once at SYSINIT and
+ * memory rather than fault (the repository contract). The arena is bound once at SYSINIT and
  * RE-INITIALIZED per program load (int21_mcb_reset) so each program starts
  * owning its whole window -- the authentic single-big-block. */
 /* ADR-0009 DEC-03a.4/.5, initech-jarzu. */
@@ -344,14 +336,7 @@ int dos_in_dos(void)
  * 4tw's ^C check-point reads this via int21_get_break_flag (the CON-input
  * functions are always a check-point under Fork A; int21_dispatch_body adds
  * the ON-only non-console check, DEC-16 C-6 / initech-vlhp). */
-#if defined(INT21_MUTATE_BREAK_DEFAULT_OFF)
-/* MUTANT M6 (Rule 6; make test-er3h-mutant only): boot the flag OFF instead of
- * ON, so the [er3h.1] boot-default GET assertion goes RED. NEVER in a real
- * build -- DEC-16 Sec 3.3 fixes the default ON. */
-static uint8_t g_break_flag = 0u;
-#else
 static uint8_t g_break_flag = 1u;   /* DOS 3.3 boot default ON (DEC-16 3.3) */
-#endif
 
 /* SET the BREAK flag, NORMALIZING any non-zero to 1 (DEC-16 Sec 3.2 -- store the
  * boolean, not the raw byte, so a later GET returns exactly 0 or 1). The public
@@ -369,7 +354,7 @@ uint8_t int21_get_break_flag(void)
 }
 
 #ifdef INT21_IRQTEST_SEAM
-/* MUTANT-ONLY test seam (CLAUDE.md Rule 6; compiled ONLY into the mutant-A
+/* MUTANT-ONLY test seam (the repository contract; compiled ONLY into the mutant-A
  * irqstorm image via -DINT21_IRQTEST_SEAM). It lets the mutant PIT ISR
  * (pit.c -DPIT_MUTATE_SCRIBBLE_DOS) reach a DOS dispatcher global so we can PROVE
  * the storm oracle detects async shared-state corruption: bumping g_find.next_index
@@ -488,7 +473,7 @@ void int21_set_overlay_backend(int21_overlay_fn fn) { g_overlay = fn; }
 /* ---- MCB arena seam (beads initech-509.6; AH=48h/49h/4Ah) ----
  * Bind the arena buffer + its flat base address. base==NULL or total_paras<2
  * (no room for a header + at least one data paragraph) leaves the arena UNBOUND
- * so the memory functions report insufficient-memory rather than fault (Rule 2).
+ * so the memory functions report insufficient-memory rather than fault (the repository contract).
  * Lays the initial single terminal FREE block (mcb_init); int21_mcb_reset then
  * (re)assigns the owner to the current PSP on each program load. */
 /* About This Computer (bead initech-tdnl.47): the bound arena's size and
@@ -595,11 +580,11 @@ int int21_mcb_reset(void)
 /* PROGRAM-DISJOINT ARENA BIND (beads initech-1q4u; ADR-0009 DEC-04). Bind the
  * heap arena to [arena_base_linear, arena_ceil_linear) and hand it to the current
  * PSP. The loader computes the window from the LOADED image so the heap is
- * provably disjoint from the program image+BSS / env / stack (spec/memory_map.h
+ * provably disjoint from the program image+BSS / env / stack (kernel/include/memory_map.h
  * ARENA DISJOINTNESS INVARIANT). This SUPERSEDES the whole-window int21_mcb_reset
  * bind that overlaid the running program.
  *
- * Fail loud (Rule 2): a degenerate window (ceil <= base, or fewer than 2
+ * Fail loud (the repository contract): a degenerate window (ceil <= base, or fewer than 2
  * paragraphs) leaves the arena UNBOUND (int21_set_mcb_arena's own < 2 guard) so a
  * 48h ALLOC returns insufficient memory rather than a corrupting overlap. We also
  * reject a non-paragraph-aligned base here (the caller must round up) -- a mis-
@@ -640,7 +625,7 @@ int int21_mcb_bind_program(uint32_t arena_base_linear, uint32_t arena_ceil_linea
                         arena_base_linear);
     return g_arena_bound;   /* 1 if int21_set_mcb_arena bound it (>= 2 paras), else 0 */
 }
-/* ---- TSR registry (bead initech-6fdt; spec/tsr_contract.h) ---------------
+/* ---- TSR registry (bead initech-6fdt; kernel/include/tsr_contract.h) ---------------
  * g_tsr_top is the flat end of the highest resident range; every later top-
  * level EXEC is placed above it (loader.c). Residents only accumulate (no
  * removal call exists, as in DOS 3.3). */
@@ -654,7 +639,7 @@ int int21_mcb_bind_above_residents(uint32_t ceil_linear)
     return int21_mcb_bind_program((g_tsr_top + 0xFu) & ~0xFu, ceil_linear);
 }
 
-/* AH=34h hands out this address (spec/tsr_contract.h; TR p. 6-35 lists 34h as
+/* AH=34h hands out this address (kernel/include/tsr_contract.h; TR p. 6-35 lists 34h as
  * "Reserved by DOS"). x86 is little-endian, so the byte AT &g_indos is the low
  * byte of the depth. */
 const volatile uint8_t *int21_indos_ptr(void)
@@ -664,12 +649,7 @@ const volatile uint8_t *int21_indos_ptr(void)
 
 uint8_t int21_vector_gate(uint8_t vec)
 {
-#ifdef INT21_MUT_SETVECT_TRAP
-    (void)vec;   /* Rule 6: every vector a trap gate (the pre-6fdt SETVECT). */
-    return 0x8Fu;
-#else
     return (vec >= 0x28u && vec <= 0x37u) ? 0x8Eu : 0x8Fu;   /* DEC-04a.1 */
-#endif
 }
 
 void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
@@ -679,9 +659,7 @@ void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
 }
 void int21_conin_handoff(void)
 {
-#ifndef INT21_MUT_KEEP_INPUT_LOOKAHEAD
     g_conin_pushback = -1;
-#endif
 }
 void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
 {
@@ -741,7 +719,7 @@ static void zf_set(int_frame_t *f)   { f->eflags |=  ZF_BIT; }
 
 /* ---- CON input source access (NULL-safe) ----
  * conin_get: BLOCKING read of one char (0..255). With no source bound it
- * returns 0 -- a graceful no-input result, NEVER a hang (Rule 2). conin_poll: a
+ * returns 0 -- a graceful no-input result, NEVER a hang (the repository contract). conin_poll: a
  * non-blocking read; returns the char (0..255) or -1 when none / no source. */
 static int ansi_reply_poll(void)
 {
@@ -793,22 +771,13 @@ void int21_set_ansi_gate(int21_ansi_gate_fn gate)
 }
 
 /* Is the ANSI escape interpreter active for the CON output path?  EXTRACTED so
- * the host oracle can test the gate decision directly (Law 2). True iff the
+ * the host oracle can test the gate decision directly (the repository contract). True iff the
  * gate is bound AND returns non-zero (CONFIG.SYS loaded DEVICE=ANSI.SYS). When
  * UNBOUND (the default) this is false, so con_putc takes the raw-sink path that
  * is byte-for-byte identical to before this bead. */
 static int con_ansi_active(void)
 {
-#ifdef ANSIWIRE_MUTATE_IGNORE_GATE
-    /* MUTANT (Rule 6; make test-ansi-wire-mutant): IGNORE the gate and always
-     * feed the FSM. The "ANSI OFF renders escape bytes literally" oracle then
-     * goes RED (the FSM swallows the escape bytes instead of passing them to the
-     * sink). One-branch RUNTIME perturbation; compiles clean under -Werror.
-     * NEVER in a real build -- without DEVICE=ANSI.SYS, DOS prints bytes raw. */
-    return 1;
-#else
     return (g_ansi_gate != 0) && (g_ansi_gate() != 0);
-#endif
 }
 
 /* Apply one ANSI FSM action to the live console (through g_ansi_ops). This is
@@ -826,7 +795,7 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
          * bound (host default), fall back to the raw sink so plain text still
          * renders and serial still sees the byte. The FSM only emits PUT_CHAR for
          * non-escape bytes, so with NO escapes in the stream this is identical to
-         * the old con_putc -> g_sink path (CLAUDE.md Law 4). */
+         * the old con_putc -> g_sink path (the repository contract). */
         if (g_ansi_ops.put_char) {
             g_ansi_ops.put_char(g_ansi_ops.ctx, act->ch, act->attr);
         } else if (g_sink) {
@@ -841,11 +810,9 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
         break;
 
     case ANSI_ACT_CURSOR_REL:
-#ifndef ANSIWIRE_MUTATE_DROP_REL
         if (g_ansi_ops.cursor_rel) {
             g_ansi_ops.cursor_rel(g_ansi_ops.ctx, act->delta_row, act->delta_col);
         }
-#endif
         break;
 
     case ANSI_ACT_SAVE_CURSOR:
@@ -897,7 +864,6 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
             uint8_t reply[8] = { 0x1bu, '[', (uint8_t)('0' + row / 10u),
                 (uint8_t)('0' + row % 10u), ';', (uint8_t)('0' + col / 10u),
                 (uint8_t)('0' + col % 10u), 'R' };
-#ifndef ANSIWIRE_MUTATE_DROP_DSR
             if (g_ansi_reply_count <= ANSI_REPLY_CAP - sizeof(reply)) {
                 for (unsigned i = 0; i < sizeof(reply); i++) {
                     unsigned tail = (g_ansi_reply_head + g_ansi_reply_count) % ANSI_REPLY_CAP;
@@ -905,9 +871,6 @@ static void ansi_apply(const ansi_action_t *act, void *ctx)
                     g_ansi_reply_count++;
                 }
             }
-#else
-            (void)reply;
-#endif
         }
         break;
 
@@ -938,18 +901,16 @@ static void con_putc(char c)
             g_conin_pushback = key; /* lookahead shared with AH=0Bh */
         }
     }
-#ifndef CONKEYS_MUT_PRN
     if (g_printer_echo && g_devio_bound && g_devio.prn_write) {
         uint8_t byte = (uint8_t)c;
         (void)g_devio.prn_write(&byte, 1, g_devio.prn_ctx);
     }
-#endif
     if (con_ansi_active()) {
         /* ANSI.SYS loaded: route the byte through the escape-sequence FSM, whose
          * actions are applied to the live console (and serial, via the put_char
          * op) by ansi_apply. Plain (non-escape) bytes become a single PUT_CHAR
          * action -> the SAME console_putc + serial path as the raw sink, so a
-         * stream WITHOUT escapes renders byte-for-byte identically (Law 4). */
+         * stream WITHOUT escapes renders byte-for-byte identically (the repository contract). */
         if (!g_ansi_inited) {
             /* One-time init at first use. Dimensions match the canonical 80x25
              * console (console.h CONSOLE_COLS/ROWS); the FSM uses them only to
@@ -984,7 +945,7 @@ static void con_puts(const char *s)
 }
 
 /* Emit `v` as two ASCII hex nibbles (uppercase). Deterministic, ASCII, no libc
- * (Rule 11/12). Used by the controlled-scope diagnostics ("AH=NN"). */
+ * (the repository contract). Used by the controlled-scope diagnostics ("AH=NN"). */
 static void con_hex2(uint8_t v)
 {
     static const char H[] = "0123456789ABCDEF";
@@ -1100,7 +1061,7 @@ static int ah_is_listed(uint8_t ah)
  * or stdout_emit with a kernel/string pointer) owns that.
  *
  * Ref: DOS 3.3 PRM AH=40h WRITE; fs-mount-sft-ground-truth.md Sec 3.2-3.4 (the
- * JFT->SFT resolution + the CON-write predefined slot). Rule 2 (never a silent
+ * JFT->SFT resolution + the CON-write predefined slot). the repository contract (never a silent
  * drop: a device the io bundle cannot serve -> access-denied). */
 static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
                           uint32_t *written)
@@ -1126,7 +1087,7 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
      * resident device (CON/NUL/PRN/AUX/CLOCK$ via AH=3Dh) routes through the
      * devices.c chain. NUL discards + succeeds; CON/PRN/AUX reach their sinks;
      * CLOCK$ accepts a 6-byte record. A device the io bundle cannot serve ->
-     * access-denied (Rule 2: never a silent drop). */
+     * access-denied (the repository contract: never a silent drop). */
     if (e->kind == SFT_KIND_DEVICE && e->device != 0) {
         uint32_t wrote = 0u;
         uint16_t derr = dev_route_rw((device_header_t *)e->device, 1 /* write */,
@@ -1142,13 +1103,13 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
      * per-handle file_offset over the cluster chain (backend write_at via
      * fat12_write_partial -- overwrite/extend/zero-fill-hole, committed to disk
      * per call). The handle must have been opened for write (CREAT). A read-mode
-     * FILE handle or a missing write backend -> access denied (Rule 2). The
+     * FILE handle or a missing write backend -> access denied (the repository contract). The
      * backend returns the UPDATED dir entry so we refresh the SFT copy's size +
      * start_cluster, then advance the position. */
     if (e->kind == SFT_KIND_FILE) {
         /* AH=3Dh AL=2 (RDWR) must permit writing, not only AL=1 (WRITE) per the
          * DOS 3.3 PRM (bcg.1). A read-only (AL=0) handle or a missing write
-         * backend -> access denied (Rule 2). */
+         * backend -> access denied (the repository contract). */
         int writable = (e->open_mode == SFT_MODE_WRITE ||
                         e->open_mode == SFT_MODE_RDWR);
         if (!writable || g_file == 0 || g_file->write_at == 0) {
@@ -1156,9 +1117,7 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
         }
         uint32_t wrote = 0u;
         dir_entry_t updated = e->dir_entry;
-#ifndef DOS_VOLUMES_MUT_HANDLE
         (void)select_volume(e->drive);
-#endif
         uint16_t err = g_file->write_at(e->dir_start, e->root_slot,
                                         e->file_offset,
                                         (const uint8_t *)buf, count,
@@ -1179,7 +1138,7 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
     }
 
     /* AUX/PRN devices have no driver yet -> AX=0x0005 (access denied)
-     * (Rule 2: never silently drop the bytes). */
+     * (the repository contract: never silently drop the bytes). */
     return INT21_ERR_ACCESS_DENIED;
 }
 
@@ -1192,9 +1151,9 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
  * STDOUT (handle 1). With the DEFAULT JFT (handle 1 -> the predefined CON-write
  * slot) sft_write's CON branch runs con_putc per byte -- the SAME ANSI FSM +
  * g_sink path as a direct con_putc, so un-redirected console output is
- * BYTE-FOR-BYTE unchanged (Law 4).
+ * BYTE-FOR-BYTE unchanged (the repository contract).
  *
- * FALLBACK (Rule 2, never drop a byte): if handle 1 does not resolve --
+ * FALLBACK (the repository contract, never drop a byte): if handle 1 does not resolve --
  * no current PSP yet (the EARLY banner prints via AH=09h before the kernel JFT
  * is bound), the JFT slot closed, or a corrupt-but-caught handle -- we emit each
  * byte straight to con_putc. The banner + every pre-PSP / closed-stdout
@@ -1210,20 +1169,10 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
  * user-supplied [ptr,count) -- that guard belongs to do_write (AH=40h). */
 static void stdout_emit(const char *buf, uint32_t count)
 {
-#ifdef K36G_MUTATE_NO_REDIR
-    /* MUTANT (Rule 6; make test-redir-mutant only): always con_putc, NEVER the
-     * resolved handle-1 SFT -> AH=02h/09h/06h are NO LONGER redirectable, so the
-     * test_redir DUP2(file,1) assertion (b) goes RED. NEVER define in a real
-     * build -- it reverts the whole bead. */
-    for (uint32_t i = 0; i < count; i++) {
-        con_putc(buf[i]);
-    }
-    return;
-#else
     sft_entry_t *e = sft_from_handle(g_cur_psp, INT21_HANDLE_STDOUT);
     if (e == 0) {
         /* No resolvable STDOUT (pre-PSP banner / closed handle): straight to CON
-         * so the byte is NEVER dropped (Rule 2). */
+         * so the byte is NEVER dropped (the repository contract). */
         for (uint32_t i = 0; i < count; i++) {
             con_putc(buf[i]);
         }
@@ -1231,7 +1180,6 @@ static void stdout_emit(const char *buf, uint32_t count)
     }
     uint32_t written = 0u;
     (void)sft_write(e, buf, count, &written);   /* best-effort; no error path here */
-#endif
 }
 
 /* ---- the console-output subset implementations ---- */
@@ -1250,7 +1198,7 @@ static void do_putchar(int_frame_t *f)
 
 /* Upper bound on the AH=09h '$'-scan (bcg.5). A near pointer cannot span more
  * than one 64 KiB segment in period DOS, so a string with no '$' within this
- * many bytes is malformed; stop rather than walk off into memory (Rule 2). */
+ * many bytes is malformed; stop rather than walk off into memory (the repository contract). */
 #define INT21_PUTS_SCAN_MAX 65536u
 
 /* AH=09h DISPLAY STRING: EDX -> flat ptr to a '$'-terminated string -> CON.
@@ -1279,12 +1227,6 @@ static void do_puts(int_frame_t *f)
     for (;;) {
         char c = *p++;
         if (c == '$') {
-#ifdef INT21_MUTATE_PUTS_EMIT_DOLLAR
-            /* MUTANT (Rule 6; make test-int21-mutant only): emit the '$' too
-             * before breaking, so the PUTS oracle (which expects "HELLO", not
-             * "HELLO$") goes RED. NEVER define in a real build. */
-            { char dollar = '$'; stdout_emit(&dollar, 1u); }
-#endif
             break;
         }
         stdout_emit(&c, 1u);
@@ -1343,12 +1285,10 @@ static int con_control(int c)
     }
     if (c == 0x13) {
         conkeys_trace("CONKEYS-PAUSE\n");
-#ifndef CONKEYS_MUT_PAUSE
         if (g_conin_get || g_conin_pushback >= 0) {
             /* An extended resume key is one key, although DOS returns a pair. */
             if (conin_get_pb() == 0) (void)conin_get_pb();
         }
-#endif
         conkeys_trace("CONKEYS-RESUME\n");
         return 1;
     }
@@ -1376,14 +1316,6 @@ static int con_control(int c)
  * Ref: DOS 3.3 PRM AH=01h/08h/0Ah, INT 23h; ADR-0003 Amendment DEC-16 Sec 3.3. */
 static int conin_check_ctrlc(int c, int_frame_t *f)
 {
-#ifdef INT21_MUTATE_NO_CTRLC_CHECK
-    /* MUTANT M5 (Rule 6; make test-4tw-mutant only): drop the ^C check so 0x03 is
-     * delivered as a raw char and INT 23h is NEVER invoked -> the [4tw.*] oracle
-     * goes RED. NEVER define in a real build -- DEC-16 Sec 3.3 mandates the CON
-     * check-point. */
-    (void)c; (void)f;
-    return 0;
-#else
     /* Read the BREAK flag (live input / C-6-ready seam; see header). Under Fork A
      * the CON family check-points whether it is ON or OFF, so the value does not
      * suppress the CON detection -- it is consulted, not a gate, on this path. */
@@ -1394,7 +1326,6 @@ static int conin_check_ctrlc(int c, int_frame_t *f)
         return 1;
     }
     return 0;
-#endif
 }
 
 /* Resident COMMAND boundary for buffered batch commands (PAUSE Reference
@@ -1432,13 +1363,7 @@ static void do_conin_echo(int_frame_t *f)
     if (conin_check_ctrlc(c, f)) {
         return;
     }
-#ifndef INT21_MUTATE_CONIN_NO_ECHO
     con_putc((char)c);          /* echo */
-#else
-    /* MUTANT (Rule 6; make test-conin-mutant only): drop the echo, so the 01h
-     * oracle -- which asserts the char appears on the CON sink -- goes RED.
-     * NEVER define in a real build. */
-#endif
     set_al(f, (uint8_t)c);
     cf_clear(f);
 }
@@ -1525,8 +1450,8 @@ static void do_input_status(int_frame_t *f)
  * terminates the line. On termination the CR+LF pair is echoed (the DOS Enter
  * convention) and the stored char count is returned. Once `out` is full
  * (count == cap) a further non-CR char is dropped with a BEL -- the line is NOT
- * overflowed (Rule 2). A stray LF is an ordinary stored char: the kbd decodes
- * Enter to CR directly, so CR is the ONLY terminator (initech-62m, Rule 3).
+ * overflowed (the repository contract). A stray LF is an ordinary stored char: the kbd decodes
+ * Enter to CR directly, so CR is the ONLY terminator (initech-62m, the repository contract).
  *
  * This is the editor BOTH AH=0Ah (do_buffered_input) and AH=3Fh-on-CON
  * (do_read's CON device leg) drive -- they differ only in how they LAY OUT the
@@ -1547,10 +1472,8 @@ static void conedit_console_emit(uint8_t c, void *ctx)
 {
     (void)ctx;
     g_input_echo++;
-#ifndef INT21_MUTATE_CARET_Z
     if (c == 0x1a) con_puts("^Z");
     else
-#endif
         con_putc((char)c);
     g_input_echo--;
 }
@@ -1602,9 +1525,6 @@ static void do_buffered_input(int_frame_t *f)
      * previous line from the current template column. Snapshot before echo
      * overwrites buf[2..]; the caller retains the returned count and text. */
     unsigned template_len = buf[1] < max ? buf[1] : cap;
-#ifdef CMD_MUT_NO_TEMPLATE
-    template_len = 0; /* Rule 6: discard the previous AH=0Ah command. */
-#endif
     uint8_t count = conin_cooked_line(&buf[2], cap, &buf[2],
                                        template_len, f, &broke);
 
@@ -1623,24 +1543,10 @@ static void do_buffered_input(int_frame_t *f)
      * by the editor's capacity, so `count < max` holds for any max>=1. The old
      * (uint8_t)(2u+count) < (uint8_t)(2u+max) form WRAPPED when max>=254 and
      * wrongly dropped the terminator on a full-size (buf[0]=255) buffer. */
-#ifdef INT21_MUTATE_BUFINPUT_CR_WRAP
-    /* MUTANT (Rule 6; make test-conin-mutant only): restore the old
-     * uint8_t-wrapping guard so a max=255 buffer drops its CR -- the full-size-
-     * buffer oracle must go RED. NEVER define in a real build. */
-    if ((uint8_t)(2u + count) < (uint8_t)(2u + max)) {
-#else
     if (count < max) {
-#endif
         buf[2u + count] = 0x0Du;
     }
-#ifdef INT21_MUTATE_BUFINPUT_COUNT_CR
-    /* MUTANT (Rule 6; make test-conin-mutant only): count the CR in the length
-     * byte (count+1 instead of count), so the 0Ah oracle -- which asserts buf[1]
-     * == chars read NOT counting the CR -- goes RED. NEVER define in a real build. */
-    buf[1] = (uint8_t)(count + 1u);
-#else
     buf[1] = count;
-#endif
     cf_clear(f);
 }
 
@@ -1652,13 +1558,6 @@ static void do_buffered_input(int_frame_t *f)
 void int21_conin_discard_through(int c)
 {
     int k;
-#ifdef INT21_MUTATE_DISCARD_RING_ONLY
-    /* MUTANT (Rule 6; test-conin-mutant only): the pre-fix drain. */
-    (void)c;
-    while (conin_poll() >= 0) {
-    }
-    return;
-#endif
     if (g_conin_pushback >= 0) {
         k = g_conin_pushback;
         g_conin_pushback = -1;
@@ -1759,7 +1658,7 @@ static void do_prn_output(int_frame_t *f)
 /* Validate a user-supplied INT 21h buffer [ptr, ptr+count) BEFORE any access.
  * Returns 1 if safe, 0 if the call must fail loud (caller sets CF=1,
  * AX=0x0009). A bad caller pointer -- NULL, or a count that wraps the 32-bit
- * flat space -- is rejected rather than dereferenced/scribbled (Rule 2;
+ * flat space -- is rejected rather than dereferenced/scribbled (the repository contract;
  * ADR-0003 DEC-14 / beads initech-tzq). A zero count never touches memory and
  * always passes (the DOS contract). Scope is NULL + 32-bit wrap: both are
  * meaningful on the flat target AND exercisable by the host unit tests (whose
@@ -1767,19 +1666,10 @@ static void do_prn_output(int_frame_t *f)
  * valid host buffers -- target-only, out of scope per DEC-14.1). */
 static int user_buf_ok(uint32_t ptr, uint32_t count)
 {
-#ifdef INT21_MUTATE_NO_PTR_GUARD
-    /* MUTANT (Rule 6; make test-int21-edge-mutant only): disable the guard so a
-     * NULL/wrapping buffer is dereferenced -- a NULL read of a non-empty file
-     * then SIGSEGVs (the exact fault the guard prevents) and the oracle goes
-     * RED. NEVER define in a real build. */
-    (void)ptr; (void)count;
-    return 1;
-#else
     if (count == 0u)       return 1;   /* no memory access */
     if (ptr == 0u)         return 0;   /* NULL buffer */
     if (ptr + count < ptr) return 0;   /* 32-bit wrap (count overflow) */
     return 1;
-#endif
 }
 
 /* AH=40h WRITE TO FILE/DEVICE: EBX=handle, ECX=count, EDX=flat ptr.
@@ -1802,7 +1692,7 @@ static void do_write(int_frame_t *f)
                        ? sft_from_handle(g_cur_psp, (uint8_t)handle)
                        : 0;
     if (e == 0) {
-        /* No such open handle (out of range / closed / no process). Rule 2. */
+        /* No such open handle (out of range / closed / no process). the repository contract. */
         set_ax(f, INT21_ERR_INVALID_HANDLE);
         cf_set(f);
         return;
@@ -1870,7 +1760,7 @@ static void do_dup2(int_frame_t *f)
 /* Resolve EBX through the current process's JFT into the system SFT exactly the
  * way do_write/do_dup/do_ioctl(AL=00) do. Returns the SFT entry, or NULL for a
  * bad / closed / out-of-range handle. Shared by every handle-based IOCTL minor
- * so the invalid-handle path (Rule 2) is uniform. */
+ * so the invalid-handle path (the repository contract) is uniform. */
 static sft_entry_t *ioctl_sft_from_ebx(int_frame_t *f)
 {
     uint32_t handle = f->ebx;
@@ -1888,12 +1778,12 @@ static sft_entry_t *ioctl_sft_from_ebx(int_frame_t *f)
  *   AL=08h Is Block Device Changeable -> block-device-only (we have none) -> 0x0001
  *
  * Every minor resolves EBX through ioctl_sft_from_ebx (a bad/closed/out-of-range
- * handle -> CF=1, AX=0x0006 INVALID_HANDLE, registers otherwise untouched, Rule 2).
+ * handle -> CF=1, AX=0x0006 INVALID_HANDLE, registers otherwise untouched, the repository contract).
  * Any other AL -> CF=1, AX=0x0001 INVALID_FUNCTION.
  *
  * Ground truth: DOS 3.3 Programmer's Reference Manual INT 21h Fn 44h; RBIL
  * INT 21/AX=4400h..4408h (HelpPC int-21-44-{0,1,6,7,8}). Bit names in int21.h
- * (INT21_DEVINFO_*); spec/int21h_calling_convention.json AH=44h. */
+ * (INT21_DEVINFO_*); kernel/tests/data/int21h_calling_convention.json AH=44h. */
 static void do_ioctl(int_frame_t *f)
 {
     uint8_t al = frame_al(f);
@@ -1907,42 +1797,19 @@ static void do_ioctl(int_frame_t *f)
     if (al == 0x00u) {
         sft_entry_t *e = ioctl_sft_from_ebx(f);
         if (e == 0) {
-#ifdef INT21_MUTATE_IOCTL_BADHANDLE_OK
-            /* MUTANT (Rule 6): clear CF on a bad handle instead of failing ->
-             * the invalid-handle assertion goes RED. */
-            cf_clear(f);
-            return;
-#else
             set_ax(f, INT21_ERR_INVALID_HANDLE);
             cf_set(f);
             return;
-#endif
         }
 
         /* Character device (our only one is CON) vs disk file: the bit15
          * (ISDEV) fork. DX carries the locked device-info word for the kind. */
-#ifdef INT21_MUTATE_IOCTL_CON_WRONG
-        /* MUTANT (Rule 6): emit the wrong CON word (drop a bit) -> the CON
-         * full-word assertion goes RED. */
-        uint16_t con_word = (uint16_t)(INT21_DEVINFO_CON & ~INT21_DEVINFO_STDIN);
-#else
         uint16_t con_word = (uint16_t)INT21_DEVINFO_CON;
-#endif
-#ifdef INT21_MUTATE_IOCTL_ISDEV_INVERT
-        /* MUTANT (Rule 6): invert the device-vs-file fork (a device gets the
-         * FILE word, a file gets the CON word) -> BOTH word assertions go RED. */
-        if (e->kind == SFT_KIND_DEVICE) {
-            set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
-        } else {
-            set_dx(f, con_word);
-        }
-#else
         if (e->kind == SFT_KIND_DEVICE) {
             set_dx(f, con_word);
         } else {
             set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
         }
-#endif
         cf_clear(f);
         return;
     }
@@ -1966,14 +1833,8 @@ static void do_ioctl(int_frame_t *f)
             return;
         }
         /* DH must be zero (RBIL: "DH = must be zero"); a non-char handle has no
-         * device-info word to set -> invalid function (Rule 2: reject loudly). */
-#ifdef INT21_MUTATE_IOCTL_SETINFO_NOGUARD
-        /* MUTANT (Rule 6): drop the (char-device && DH==0) guard so a FILE
-         * handle / nonzero DH wrongly succeeds -> the reject assertions go RED. */
-        if (0) {
-#else
+         * device-info word to set -> invalid function (the repository contract: reject loudly). */
         if (e->kind != SFT_KIND_DEVICE || frame_dh(f) != 0x00u) {
-#endif
             set_ax(f, INT21_ERR_INVALID_FUNCTION);
             cf_set(f);
             return;
@@ -2002,14 +1863,8 @@ static void do_ioctl(int_frame_t *f)
         if (e->kind == SFT_KIND_DEVICE) {
             status = 0xFFu;                 /* CON keyboard: always ready */
         } else {
-#ifdef INT21_MUTATE_IOCTL_INSTATUS_EOF_FLIP
-            /* MUTANT (Rule 6): invert the file EOF test -> the at-EOF and
-             * not-at-EOF input-status assertions go RED. */
-            status = (e->file_offset >= e->dir_entry.file_size) ? 0xFFu : 0x00u;
-#else
             /* RBIL: AL=0x00 if EOF (files); 0xFF if not at EOF. */
             status = (e->file_offset >= e->dir_entry.file_size) ? 0x00u : 0xFFu;
-#endif
         }
         set_al(f, status);
         cf_clear(f);
@@ -2027,13 +1882,7 @@ static void do_ioctl(int_frame_t *f)
             cf_set(f);
             return;
         }
-#ifdef INT21_MUTATE_IOCTL_OUTSTATUS_NOTREADY
-        /* MUTANT (Rule 6): report not-ready (0x00) -> the output-ready
-         * assertions go RED. */
-        set_al(f, 0x00u);
-#else
         set_al(f, 0xFFu);               /* CON screen / disk file: always ready */
-#endif
         cf_clear(f);
         return;
     }
@@ -2053,29 +1902,15 @@ static void do_ioctl(int_frame_t *f)
             cf_set(f);
             return;
         }
-#ifdef INT21_MUTATE_IOCTL_CHANGEABLE_OK
-        /* MUTANT (Rule 6): wrongly answer "removable" (AX=0, CF clear) for our
-         * non-block handles -> the invalid-function assertion goes RED. */
-        set_ax(f, 0x0000u);
-        cf_clear(f);
-        return;
-#else
         set_ax(f, INT21_ERR_INVALID_FUNCTION);
         cf_set(f);
         return;
-#endif
     }
 
     /* Any other AL minor (02/03/04/05/09/0A/...) is not modeled -> invalid
-     * function, CF=1 (Rule 2: recognized AH, unimplemented minor fails loud). */
-#ifdef INT21_MUTATE_IOCTL_MINOR_OK
-    /* MUTANT (Rule 6): treat an unmodeled minor as success (CF=0) instead of
-     * 0x0001 -> the unmodeled-minor assertion goes RED. */
-    cf_clear(f);
-#else
+     * function, CF=1 (the repository contract: recognized AH, unimplemented minor fails loud). */
     set_ax(f, INT21_ERR_INVALID_FUNCTION);
     cf_set(f);
-#endif
 }
 
 /* ---- file-handle functions (beads initech-509.5 read-side) ---------------- *
@@ -2094,7 +1929,7 @@ static void do_ioctl(int_frame_t *f)
  * Returns 1 if the path is rejectable (caller sets CF=1, AX=0x0003). */
 /* A runaway guard, NOT a DOS path-length policy: bounds the scan of a possibly
  * malformed / unterminated ASCIIZ pointer so it can never walk the kernel off
- * into memory (Rule 2 -- fail loud, do not hang). Well above DOS's 64-byte path
+ * into memory (the repository contract -- fail loud, do not hang). Well above DOS's 64-byte path
  * maximum, so it never rejects a legal path; an overlength scan (no NUL within
  * the bound) is treated as rejectable, same as an illegal path character. */
 #define INT21_PATH_SCAN_MAX 128u
@@ -2106,21 +1941,19 @@ static int path_has_subdir_or_drive(const char *p)
         if (*p == '\\' || *p == ':') {
             return 1;
         }
-#ifndef INT21_MUTATE_PATHSCAN_NOBOUND
-        /* MUTANT (Rule 6; make test-exec-mutant only) removes this bound so an
+        /* MUTANT (the repository contract; make test-exec-mutant only) removes this bound so an
          * overlength path is NOT rejected and reaches the backend -- the
          * overlength oracle must go RED. NEVER define in a real build. */
         if (++n >= INT21_PATH_SCAN_MAX) {
             return 1;           /* no terminator within bound -> reject */
         }
-#endif
     }
     return 0;
 }
 
 /* Bound-check an ASCIIZ path for the runaway guard ONLY (no '\' / ':' rejection):
  * a malformed / unterminated pointer with no NUL within INT21_PATH_SCAN_MAX is
- * rejectable so a resolve never walks the kernel off into memory (Rule 2 -- the
+ * rejectable so a resolve never walks the kernel off into memory (the repository contract -- the
  * SAME fail-loud bound path_has_subdir_or_drive enforces, preserved for the
  * resolving file/find sites). Returns 1 if overlength (caller -> CF=1, AX=0x0003).
  * The INT21_MUTATE_PATHSCAN_NOBOUND seam removes the bound so the overlength
@@ -2130,11 +1963,9 @@ static int path_overlength(const char *p)
     uint32_t n = 0u;
     (void)n;
     for (; *p; p++) {
-#ifndef INT21_MUTATE_PATHSCAN_NOBOUND
         if (++n >= INT21_PATH_SCAN_MAX) {
             return 1;           /* no terminator within bound -> reject */
         }
-#endif
     }
     return 0;
 }
@@ -2156,7 +1987,7 @@ static int path_overlength(const char *p)
  * 0x0003 (the "leading A: is stripped + succeeds" oracle goes RED). The
  * INT21_MUTATE_RESOLVE_NOTROOT seam forces *out_dir_start back to 0 (root) after
  * a successful resolve so a '\SUB\FILE' wrongly looks in the root -> not found
- * (the subdir oracle goes RED). NEVER define either in a real build (Rule 6). */
+ * (the subdir oracle goes RED). NEVER define either in a real build (the repository contract). */
 static uint16_t resolve_dir_path(const char *path, const char **out_leaf,
                                  uint16_t *out_dir_start)
 {
@@ -2167,10 +1998,8 @@ static uint16_t resolve_dir_path(const char *path, const char **out_leaf,
     /* Strip a leading drive prefix ('X:') -- one volume this milestone, so the
      * letter is ignored; only the path after ':' matters. */
     const char *p = path;
-#ifndef INT21_MUTATE_RESOLVE_NODRIVE
     uint16_t drive_error = int21_select_path(&p);
     if (drive_error) return drive_error;
-#endif
 
     if (g_file == 0 || g_file->resolve == 0) {
         /* No backend resolve bound: root-only fallback (the pre-mzxa behavior).
@@ -2190,9 +2019,6 @@ static uint16_t resolve_dir_path(const char *path, const char **out_leaf,
     if (err != 0u) {
         return INT21_ERR_PATH_NOT_FOUND;     /* missing/non-dir component (0x0003) */
     }
-#ifdef INT21_MUTATE_RESOLVE_NOTROOT
-    dir_start = 0u;                          /* MUTANT: always look in the root */
-#endif
     *out_leaf      = leaf;
     *out_dir_start = dir_start;
     return 0u;
@@ -2249,7 +2075,7 @@ static int dev_con_peek_adapter(void *ctx)
 }
 
 /* Days from 1 Jan 1980 to y/mo/d (the CLOCK$ record's offset-0 WORD). Pure,
- * deterministic Gregorian day count (Rule 11). Ref: MS-DOS 3.3 Tech Ref Ch. 4
+ * deterministic Gregorian day count (the repository contract). Ref: MS-DOS 3.3 Tech Ref Ch. 4
  * (CLOCK$ record: WORD days-since-1980). Valid for 1980-01-01 onward; a date at
  * or before the epoch yields 0 (the epoch sentinel). */
 static uint16_t dev_days_since_1980(uint16_t y, uint8_t mo, uint8_t d)
@@ -2351,7 +2177,7 @@ static devices_io_t dev_build_io(void)
  * "CLOCK$" -- by walking the resident device chain BY NAME *before* it ever
  * touches the directory; a match yields a character-device handle, never a file.
  * The name match ignores a leading path/drive and any extension (so "A:\NUL",
- * "NUL", and "NUL.TXT" all open the NUL device). Ref (Law 1): Ralf Brown's
+ * "NUL", and "NUL.TXT" all open the NUL device). Ref (the repository contract): Ralf Brown's
  * Interrupt List INT 21/AH=3Dh ("DOS first checks for a character device of the
  * specified name"); MS-DOS 3.3 Technical Reference Ch. 4 (the 8-byte, space-
  * padded device names; the base name is matched, the extension is ignored).
@@ -2382,7 +2208,7 @@ static int dev_name_from_path(const char *path, char out8[DEV_NAME_LEN])
     /* Advance past the LAST path separator so only the final component remains
      * (DOS device names live in every directory; "A:\\SUB\\NUL" still opens NUL).
      * Bounded by INT21_PATH_SCAN_MAX so a malformed/unterminated pointer can never
-     * run away (Rule 2; the same runaway bound the file path uses). */
+     * run away (the repository contract; the same runaway bound the file path uses). */
     const char *base = p;
     uint32_t scanned = 0u;
     for (const char *q = p; *q; q++) {
@@ -2413,17 +2239,6 @@ static int dev_name_from_path(const char *path, char out8[DEV_NAME_LEN])
  * takes the FAT file path). NULL chain -> OPEN-by-name disabled (pre-6zd9). */
 static device_header_t *dev_open_lookup(const char *path)
 {
-#ifdef INT21_MUTATE_OPEN_NO_DEVICE
-    /* MUTANT (Rule 6; make test-devwire-mutant only): pretend NO path is ever a
-     * device, so an OPEN of "NUL"/"CON"/"PRN"/"CLOCK$" falls through to the FAT
-     * path -> with no such FILE it returns file-not-found and the device-OPEN
-     * oracle goes RED. A one-branch RUNTIME perturbation that compiles under
-     * -Werror. NEVER define in a real build. The (void) refs keep
-     * -Werror=unused-function quiet (dev_name_from_path is otherwise unreached). */
-    (void)path;
-    (void)dev_name_from_path;
-    return 0;
-#else
     if (g_devchain == 0) {
         return 0;                         /* chain unbound -> OPEN-by-name disabled */
     }
@@ -2443,7 +2258,6 @@ static device_header_t *dev_open_lookup(const char *path)
         name8[0]='P';name8[1]='R';name8[2]='N';name8[3]=' ';
     }
     return devices_find(name8);           /* NULL if the name is not a device */
-#endif
 }
 
 /* dev_route_rw: drive one READ (DEVCMD_READ) or WRITE (DEVCMD_WRITE) request
@@ -2454,7 +2268,7 @@ static device_header_t *dev_open_lookup(const char *path)
  *   - device error (DEVST_ERROR set): returns a DOS error code (CF=1 at the
  *     call site). A WRITE that the device could not perform (no sink bound, or a
  *     write-only device read) maps to ACCESS_DENIED; a READ fault maps the same
- *     so a program sees a clean DOS error rather than a fault (Rule 2).
+ *     so a program sees a clean DOS error rather than a fault (the repository contract).
  * is_write selects the command. */
 static uint16_t dev_route_rw(device_header_t *dev, int is_write,
                              uint8_t *buf, uint32_t len, uint32_t *out_count)
@@ -2506,9 +2320,6 @@ int int21_same_file(uint16_t first, uint16_t second)
     sft_entry_t *b = second <= 0xFFu
         ? sft_from_handle(g_cur_psp, (uint8_t)second) : 0;
     if (a == 0 || b == 0 || a->kind != b->kind) return 0;
-#ifdef INT21_MUTATE_SAMEFILE_FALSE
-    return 0; /* Rule 6: alias identity oracle must reject this false negative. */
-#endif
     /* There is one mounted volume. OPEN has already resolved drive/CWD/dots.
      * Cluster alone is insufficient (all empty files have cluster zero).
      * Ref: MS-DOS 3.3 User's Reference p. 50, COPY self refusal; initech-vj28. */
@@ -2610,7 +2421,7 @@ static void do_open(int_frame_t *f)
         return;
     }
     if (g_file == 0 || g_file->open == 0) {
-        /* No mounted volume bound -> behave as file-not-found (Rule 2: never a
+        /* No mounted volume bound -> behave as file-not-found (the repository contract: never a
          * silent success). */
         set_ax(f, INT21_ERR_FILE_NOT_FOUND);
         cf_set(f);
@@ -2644,7 +2455,6 @@ static void do_open(int_frame_t *f)
         return;
     }
 
-#ifndef INT21_MUTATE_OPEN_READONLY
     /* IBM 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf p. 5-11:
      * a read-only file cannot be opened for output. L005 / initech-1vcl. */
     if ((mode & 3u) != 0u && (de.attribute & DIR_ATTR_READONLY) != 0u) {
@@ -2653,7 +2463,6 @@ static void do_open(int_frame_t *f)
         cf_set(f);
         return;
     }
-#endif
     /* Commit the SFT FILE entry + the JFT mapping. The SFT slot is the complete
      * per-handle state: its own position + dir_entry copy + root_slot. */
     sft_entry_t *e = &g_sft[sft_idx];
@@ -2710,7 +2519,7 @@ static void do_creat(int_frame_t *f)
     }
     if (g_file == 0 || g_file->create == 0) {
         /* No write backing (read-only volume / no volume) -> access denied
-         * (Rule 2: never a silent success that drops the file). */
+         * (the repository contract: never a silent success that drops the file). */
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         cf_set(f);
         return;
@@ -2769,11 +2578,11 @@ static void do_creat(int_frame_t *f)
  * seam so '\SUB\FILE' subdir targets work for free (beads initech-mzxa/zs24). The
  * AH=59h dispatch wrapper auto-notes CF+AX, so no explicit int21_note_error here.
  * A NULL/empty path -> 0x0002 (file-not-found), the SAME code do_creat/do_open
- * return for an empty EDX (spec/int21h_calling_convention.json AH=5Bh: "0x0002
+ * return for an empty EDX (kernel/tests/data/int21h_calling_convention.json AH=5Bh: "0x0002
  * NULL/empty path"; RBIL INT 21h/AH=5Bh -- an empty ASCIIZ name has no entry to
  * create, so it is a name lookup that finds nothing). A backend binding create()
  * but NOT open() is rejected 0x0005 (no existence-probe -> cannot honor the
- * fail-if-exists contract; beads initech-glsw, Rule 2 fail-loud).
+ * fail-if-exists contract; beads initech-glsw, the repository contract fail-loud).
  * Ref: DOS 3.3 PRM AH=5Bh (file-exists = error 50h); ADR-0003 Appendix A line
  * "5Bh CREATNEW -- Create file, fail if existing"; beads initech-kji0/glsw. */
 static void do_creatnew(int_frame_t *f)
@@ -2803,18 +2612,17 @@ static void do_creatnew(int_frame_t *f)
     }
     if (g_file == 0 || g_file->create == 0) {
         /* No write backing (read-only volume / no volume) -> access denied
-         * (Rule 2: never a silent success that drops the file). */
+         * (the repository contract: never a silent success that drops the file). */
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         cf_set(f);
         return;
     }
 
-#ifndef INT21_MUTATE_CREATNEW_NO_GUARD
     /* CREATNEW precondition: the target must not already exist. Probe via the
      * pure-locate open() member. open() returns 0 when the leaf is found in
      * `dir_start`; that means EXISTS -> fail with 0x0050, commit nothing. A
      * 0x0002 (not found) or any other non-zero locate result means "does not
-     * exist" -> fall through to the CREAT path. (Rule 6 mutants: NO_GUARD drops
+     * exist" -> fall through to the CREAT path. (the repository contract mutants: NO_GUARD drops
      * this block so CREATNEW==CREAT; GUARD_INVERT flips the sense; WRONG_CONST
      * returns the wrong AX.)
      *
@@ -2839,21 +2647,12 @@ static void do_creatnew(int_frame_t *f)
         dir_entry_t probe_de;
         uint32_t    probe_slot = 0u;
         uint16_t    found = g_file->open(leaf, dir_start, &probe_de, &probe_slot);
-#ifdef INT21_MUTATE_CREATNEW_GUARD_INVERT
-        if (found != 0u) {               /* MUTANT: treat NOT-found as exists */
-#else
         if (found == 0u) {               /* file located -> already exists */
-#endif
-#ifdef INT21_MUTATE_CREATNEW_WRONG_CONST
-            set_ax(f, INT21_ERR_ACCESS_DENIED);   /* MUTANT: wrong 0x0005 */
-#else
             set_ax(f, INT21_ERR_FILE_EXISTS);     /* 0x0050 ERROR_FILE_EXISTS */
-#endif
             cf_set(f);
             return;
         }
     }
-#endif /* INT21_MUTATE_CREATNEW_NO_GUARD */
 
     /* From here on: identical to do_creat. Secure the table slots BEFORE creating
      * so a slot-exhaustion failure does not commit anything (mirrors do_open). */
@@ -2937,7 +2736,7 @@ static void do_unlink(int_frame_t *f)
  * INT 21h handler that reads a SECOND flat pointer.
  *   IN : AH=0x56; EDX = flat ptr to the OLD ASCIIZ 8.3 path; EDI = flat ptr to
  *        the NEW ASCIIZ 8.3 path. In the locked flat 32-bit ABI EVERY pointer is
- *        a flat 32-bit LINEAR address (spec/int21h_calling_convention.json: abi.
+ *        a flat 32-bit LINEAR address (kernel/tests/data/int21h_calling_convention.json: abi.
  *        primary_pointer = EDX; pointer args are flat linear addresses). Real DOS
  *        passes the new name in ES:DI; on this 32-bit protected-flat kernel the
  *        segment is collapsed and EDI carries the flat linear address directly --
@@ -2954,7 +2753,7 @@ static void do_unlink(int_frame_t *f)
  *     SAME-directory rename ONLY this milestone (operator decision 2026-06-15,
  *     DOS-faithful); cross-dir MOVE is deferred to beads initech-ycb3.
  * No int21_note_error() here: the AH=59h auto-note at the dispatch choke point
- * captures CF + AX. Ref (Law 1): DOS 3.3 PRM AH=56h; spec/int21h_calling_
+ * captures CF + AX. Ref (the repository contract): DOS 3.3 PRM AH=56h; spec/int21h_calling_
  * convention.json (AH=56h: in EDX old / EDI new); ADR-0003 Appendix A. */
 static void do_rename(int_frame_t *f)
 {
@@ -2994,23 +2793,16 @@ static void do_rename(int_frame_t *f)
 
     /* A cross-DIRECTORY pair is a MOVE, not a rename -> NOT_SAME_DEVICE. Same-dir
      * rename ONLY this milestone (cross-dir MOVE deferred to beads initech-ycb3). */
-#ifndef INT21_MUTATE_RENAME_NO_SAMEDIR_GUARD
     if (old_dir_start != new_dir_start) {
         set_ax(f, INT21_ERR_NOT_SAME_DEVICE);
         cf_set(f);
         return;
     }
-#else
-    /* MUTANT 4 (Rule 6; make test-gnrc-mutant only): DROP the old_dir==new_dir
-     * guard, so a cross-directory EDX/EDI pair wrongly proceeds to the backend
-     * rename (acting as if same-dir) instead of returning 0x0011. The
-     * not-same-device leg goes RED. NEVER in a real build. */
-#endif
 
     if (old_drive != g_io_drive) { set_ax(f, 17u); cf_set(f); return; }
     if (g_file == 0 || g_file->rename == 0) {
         /* No write backing (read-only volume / no volume) -> access denied
-         * (Rule 2: never a silent success). */
+         * (the repository contract: never a silent success). */
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         cf_set(f);
         return;
@@ -3018,15 +2810,7 @@ static void do_rename(int_frame_t *f)
 
     uint16_t err = g_file->rename(old_leaf, old_dir_start, new_leaf, new_dir_start);
     if (err != 0) {
-#ifndef INT21_MUTATE_RENAME_NOTFOUND_PATH
         set_ax(f, err);                  /* 0x0002 not found / 0x0005 dest/dir/write */
-#else
-        /* MUTANT 5 (Rule 6; make test-gnrc-mutant only): map a backend source-
-         * not-found (0x0002) to 0x0003 (path not found), corrupting the DOS
-         * register contract. The register-contract AX assertion goes RED. NEVER in
-         * a real build. */
-        set_ax(f, (err == INT21_ERR_FILE_NOT_FOUND) ? INT21_ERR_PATH_NOT_FOUND : err);
-#endif
         cf_set(f);
         return;
     }
@@ -3050,7 +2834,7 @@ static void do_rename(int_frame_t *f)
  *   - file not found                           -> AX=0x0002
  *   - a SET targeting a DIRECTORY or VOLUME-LABEL entry, OR a SET CX that sets
  *     the Directory(0x10)/VolLabel(0x08) bit, OR no write backend -> AX=0x0005
- *     (access denied -- the DOS-faithful SET reject set; Rule 2 fail loud, never
+ *     (access denied -- the DOS-faithful SET reject set; the repository contract fail loud, never
  *     silently corrupt a dirent's type bits). This reject is SET-ONLY; a GET on
  *     a directory/volume-label SUCCEEDS (operator-sanctioned 2026-06-15;
  *     initech-5o6o records the SET reject as the intentional fail-loud deviation).
@@ -3058,8 +2842,8 @@ static void do_rename(int_frame_t *f)
  * the backend is even consulted) AND again in the fat12 primitive (defense in
  * depth). No int21_note_error(): the AH=59h auto-note at the dispatch choke point
  * captures CF + AX. Ref: RBIL INT 21h/AX=4300h; DOS 3.3 PRM INT 21h Function 43h
- * (Get/Set File Attributes); spec/dos_structs.h (attribute 0x0B; DIR_ATTR_*);
- * CLAUDE.md Law 1 (cite), Rule 2 (fail loud), Rule 11 (mtime/mdate untouched on
+ * (Get/Set File Attributes); kernel/include/dos_structs.h (attribute 0x0B; DIR_ATTR_*);
+ * the repository contract (cite), the repository contract (fail loud), the repository contract (mtime/mdate untouched on
  * SET). */
 static void do_chmod(int_frame_t *f)
 {
@@ -3068,19 +2852,11 @@ static void do_chmod(int_frame_t *f)
 
     /* AL must select GET (0) or SET (1); reject anything else BEFORE the path is
      * touched (DOS validates the subfunction first). */
-#ifndef INT21_MUTATE_CHMOD_NO_AL_REJECT
     if (al != 0x00u && al != 0x01u) {
         set_ax(f, INT21_ERR_INVALID_FUNCTION);
         cf_set(f);
         return;
     }
-#else
-    /* MUTANT 1 (Rule 6; make test-b53d-mutant only): SKIP the AL validation, so a
-     * bad AL (e.g. AL=2) is NO LONGER rejected -- it falls through to the GET path
-     * (al==2 != 0x01 takes the GET branch), returning CF=0 + a CX attr instead of
-     * the required CF=1/AX=0x0001. The bad-AL host contract goes RED. NEVER in a
-     * real build. */
-#endif
 
     if (path == 0 || *path == '\0') {
         set_ax(f, INT21_ERR_FILE_NOT_FOUND);
@@ -3097,7 +2873,7 @@ static void do_chmod(int_frame_t *f)
     }
     if (g_file == 0 || g_file->chmod == 0) {
         /* No attribute backend (read-only volume / no volume) -> access denied
-         * (Rule 2: never a silent success that drops the attribute). */
+         * (the repository contract: never a silent success that drops the attribute). */
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         cf_set(f);
         return;
@@ -3105,20 +2881,18 @@ static void do_chmod(int_frame_t *f)
 
     if (al == 0x01u) {
         /* SET: a CX that re-types the entry (Directory/VolLabel) is forbidden ->
-         * access denied (Rule 2 fail-loud). NOTE: real DOS 3.3 (RBIL 4301h) MASKS
+         * access denied (the repository contract fail-loud). NOTE: real DOS 3.3 (RBIL 4301h) MASKS
          * the Directory/VolLabel CX bits and SUCCEEDS a SET on a directory; we
          * REJECT with 0x0005 instead. This is an INTENTIONAL, operator-approved
-         * (2026-06-15) Law-4 fidelity deviation, registered in beads initech-5o6o
+         * (2026-06-15) the repository contract fidelity deviation, registered in beads initech-5o6o
          * and ADR-0003 Amendment DEC-14 sub-decision DEC-14.2 (sec.2). Revisit
          * only if a real DOS consumer needs DOS's mask-and-succeed. */
         uint16_t cx = frame_cx(f);
-#ifndef INT21_MUTATE_CHMOD_NO_CX_REJECT
         if ((cx & (uint16_t)(DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
             set_ax(f, INT21_ERR_ACCESS_DENIED);
             cf_set(f);
             return;
         }
-#endif
         uint8_t  attr = (uint8_t)(cx & 0xFFu);
         uint16_t err = g_file->chmod(leaf, dir_start, 1, &attr);
         if (err != 0) {
@@ -3138,15 +2912,7 @@ static void do_chmod(int_frame_t *f)
         cf_set(f);
         return;
     }
-#ifndef INT21_MUTATE_CHMOD_GET_ZERO
     set_cx(f, (uint16_t)attr);
-#else
-    /* MUTANT 2 (Rule 6; make test-b53d-mutant only): return a constant 0x00 in CX
-     * instead of the real attribute byte. The GET-returns-CX host assertion goes
-     * RED. The (void) keeps -Werror=unused quiet. NEVER in a real build. */
-    (void)attr;
-    set_cx(f, 0x0000u);
-#endif
     cf_clear(f);
 }
 
@@ -3166,11 +2932,9 @@ static void do_mkdir(int_frame_t *f)
 
     /* Guide p.17 reserved names, including qualified names and extensions;
      * test-shell-files compares the volume before/after each refusal. */
-#ifndef INT21_MUTATE_MKDIR_DEVICE
     if (path && dev_open_lookup(path)) {
         set_ax(f,INT21_ERR_ACCESS_DENIED);cf_set(f);return;
     }
-#endif
 
     if (path == 0 || *path == '\0') {
         set_ax(f, INT21_ERR_PATH_NOT_FOUND);
@@ -3189,7 +2953,7 @@ static void do_mkdir(int_frame_t *f)
     }
     if (g_file == 0 || g_file->mkdir == 0) {
         /* No write backing (read-only volume / no volume) -> access denied
-         * (Rule 2: never a silent success that drops the directory). */
+         * (the repository contract: never a silent success that drops the directory). */
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         cf_set(f);
         return;
@@ -3341,7 +3105,6 @@ static void con_handle_read(int_frame_t *f, sft_entry_t *e, uint8_t *buf,
             f->eax = 0u; cf_clear(f); return;
         }
         uint16_t end = n;
-#ifndef INT21_MUTATE_CON_EOF_IGNORED
         /* Cook the ENTIRE line (consume Enter), then cut at ^Z. 0Ah keeps its
          * byte-layout contract and treats ^Z as data; only ASCII handle reads
          * interpret it as EOF. Ref: 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf
@@ -3351,7 +3114,6 @@ static void con_handle_read(int_frame_t *f, sft_entry_t *e, uint8_t *buf,
         for (uint16_t i = 0u; i < n; i++) {
             if (g_con_line[i] == 0x1Au) { end = i; break; }
         }
-#endif
         if (end < n) {
             e->con_eof = end != 0u;
         } else {
@@ -3382,24 +3144,16 @@ static void do_read(int_frame_t *f)
     }
 
     if (e->kind == SFT_KIND_DEVICE) {
-#if !defined(INT21_MUTATE_CONHANDLE_NOCOOKED)
         /* CON by name and the predefined stdin slot use the SAME editor and
          * INT 23h checkpoint. A pipe only redirects stdin; OPEN CON still names
          * the physical keyboard. Other devices retain request-packet routing. */
         if (e->device ? (
-#ifdef INT21_MUTATE_CON_EXPLICIT_RAW
-                        0 /* Rule 6: restore K12's explicit-CON raw bypass. */
-#else
                         ((device_header_t *)e->device)->attribute & DEV_ATTR_STDIN
-#endif
                         )
                       : e->dev_id == SFT_DEV_CON) {
             con_handle_read(f, e, buf, count);
             return;
         }
-#else
-        (void)con_handle_read;
-#endif
         /* OPEN-by-name device read (beads initech-6zd9): a SFT slot bound to a
          * resident device (device != NULL) routes through the devices.c chain --
          * NUL returns EOF (0 bytes), CLOCK$ returns the 6-byte date/time record,
@@ -3452,9 +3206,7 @@ static void do_read(int_frame_t *f)
      * backend serves min(count, file_size - file_offset) bytes from the chain. */
     uint32_t take = 0u;
     if (g_file != 0 && g_file->read_at != 0) {
-#ifndef DOS_VOLUMES_MUT_HANDLE
         (void)select_volume(e->drive);
-#endif
         uint16_t err = g_file->read_at(&e->dir_entry, e->file_offset,
                                        buf, count, &take);
         if (err != 0) {
@@ -3463,14 +3215,7 @@ static void do_read(int_frame_t *f)
             return;
         }
     }
-#ifdef INT21_MUTATE_READ_IGNORE_OFFSET
-    /* MUTANT (Rule 6; make test-fileio-mutant only): advance the offset by ZERO
-     * so a second READ re-reads from the start instead of continuing. The READ
-     * oracle (which reads in two chunks and concatenates) goes RED. NEVER define
-     * in a real build. */
-#else
     e->file_offset += take;
-#endif
     f->eax = take;
     cf_clear(f);
 }
@@ -3510,18 +3255,9 @@ static void do_close(int_frame_t *f)
     int      was_file  = (e->kind == SFT_KIND_FILE);
     uint32_t root_slot = e->root_slot;
 
-#ifdef INT21_MUTATE_CLOSE_NO_REFGUARD
-    /* MUTANT (Rule 6; make test-int21-edge-mutant only): drop the ref_count>0
-     * guard so a CLOSE of a slot whose ref_count is already 0 UNDERFLOWS the
-     * uint16 ref_count to 0xFFFF -- the exact double-close corruption flagged by
-     * beads initech-00x. The double-close-underflow oracle (which asserts the
-     * ref_count never wraps) goes RED. NEVER define in a real build. */
-    e->ref_count--;
-#else
     if (e->ref_count > 0u) {
         e->ref_count--;
     }
-#endif
     if (e->ref_count == 0u) {
         /* Last reference: finalize the handle via the backend (no-op with
          * per-call positioned writes; the hook is for symmetry / future
@@ -3567,12 +3303,6 @@ static void do_lseek(int_frame_t *f)
             cf_set(f);
             return;
     }
-#ifdef INT21_MUTATE_LSEEK_WHENCE
-    /* MUTANT (Rule 6; make test-fileio-mutant only): whence 2 (from end) uses 0
-     * as the base instead of file_size, so SEEK_END lands at the wrong offset.
-     * The LSEEK oracle goes RED. NEVER define in a real build. */
-    base = 0u;
-#endif
     e->file_offset = base + off;   /* past-EOF allowed (DOS); READ then returns 0 */
     f->eax = e->file_offset;
     cf_clear(f);
@@ -3601,8 +3331,8 @@ static void do_lseek(int_frame_t *f)
  *   - SET with no write backend (set_time == NULL) or a backend write failure
  *                                                   -> AX=0x0005 (ACCESS_DENIED)
  * No int21_note_error() call: the AH=59h auto-note at the dispatch choke point
- * captures CF + AX. Ref: DOS 3.3 PRM AH=57h; spec/dos_structs.h (dir_entry_t
- * mtime 0x16 / mdate 0x18); CLAUDE.md Law 1 (cite), Rule 2 (fail loud). */
+ * captures CF + AX. Ref: DOS 3.3 PRM AH=57h; kernel/include/dos_structs.h (dir_entry_t
+ * mtime 0x16 / mdate 0x18); the repository contract (cite), the repository contract (fail loud). */
 static void do_filetime(int_frame_t *f)
 {
     uint32_t handle = f->ebx;
@@ -3610,25 +3340,17 @@ static void do_filetime(int_frame_t *f)
 
     /* AL must select GET (0) or SET (1); anything else is invalid-function and is
      * rejected BEFORE the handle is touched (DOS validates the subfunction). */
-#ifndef INT21_MUTATE_FILETIME_NO_AL_REJECT
     if (al != 0x00u && al != 0x01u) {
         set_ax(f, INT21_ERR_INVALID_FUNCTION);
         cf_set(f);
         return;
     }
-#else
-    /* MUTANT 4 (Rule 6; make test-qekc-mutant only): SKIP the AL validation, so a
-     * bad AL (e.g. AL=2) is NO LONGER rejected -- it falls through to the GET/SET
-     * body (AL=2 != 0x00 takes the SET path on a write-capable backend, returning
-     * CF=0 instead of the required CF=1/AX=0x0001). The bad-AL host contract goes
-     * RED (the assertion demands CF=1 + invalid-function). NEVER in a real build. */
-#endif
 
     sft_entry_t *e = (handle <= 0xFFu)
                        ? sft_from_handle(g_cur_psp, (uint8_t)handle)
                        : 0;
     if (e == 0) {
-        /* No such open handle (out of range / closed / no process). Rule 2. */
+        /* No such open handle (out of range / closed / no process). the repository contract. */
         set_ax(f, INT21_ERR_INVALID_HANDLE);
         cf_set(f);
         return;
@@ -3647,40 +3369,22 @@ static void do_filetime(int_frame_t *f)
         /* GET: read the SFT's in-memory dir_entry copy (the kernel keeps it in
          * sync via OPEN/CREAT + the positioned-write refresh). No backend seam.
          * CX = packed mtime, DX = packed mdate (DOS 3.3 PRM AH=57h AL=00). */
-#ifndef INT21_MUTATE_FILETIME_GET_SWAP
         set_cx(f, e->dir_entry.mtime);
         set_dx(f, e->dir_entry.mdate);
-#else
-        /* MUTANT 2 (Rule 6; make test-qekc-mutant only): SWAP the registers --
-         * return mdate in CX and mtime in DX. The host CX/DX GET contract goes
-         * RED (CX != seeded mtime). NEVER define in a real build. */
-        set_cx(f, e->dir_entry.mdate);
-        set_dx(f, e->dir_entry.mtime);
-#endif
         cf_clear(f);
         return;
     }
 
     /* SET: copy CX->mtime, DX->mdate VERBATIM into the SFT copy, then FLUSH via
      * the backend (immediate commit -- parity with write_at). A read-only backend
-     * (set_time == NULL) or a write failure -> access denied (Rule 2: never a
+     * (set_time == NULL) or a write failure -> access denied (the repository contract: never a
      * silent no-op). */
     uint16_t new_mtime = frame_cx(f);
     uint16_t new_mdate = frame_dx(f);
     if (g_file == 0 || g_file->set_time == 0) {
-#ifndef INT21_MUTATE_FILETIME_RO_OK
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         cf_set(f);
         return;
-#else
-        /* MUTANT 5 (Rule 6; make test-qekc-mutant only): a SET with NO write
-         * backend (set_time == NULL) returns CF=0 (silent success) instead of
-         * CF=1/AX=0x0005. The read-only-SET host assertion goes RED. The (void)
-         * keeps -Werror quiet for the unused new_* below. NEVER in a real build. */
-        (void)new_mtime; (void)new_mdate;
-        cf_clear(f);
-        return;
-#endif
     }
     (void)select_volume(e->drive);
     uint16_t err = g_file->set_time(e->dir_start, e->root_slot,
@@ -3706,7 +3410,7 @@ static void do_setdta(int_frame_t *f)
 /* AH=2Fh GETDTA: returns the current DTA flat ptr. Real DOS returns it in
  * ES:BX; in the flat ABI we return it in EBX (DEC-04a flat-ptr convention). If
  * no DTA was set, the default is the current PSP:0x80 (the command-tail field).
- * CF clear. Ref: DOS 3.3 PRM AH=2Fh; spec/find_data.h DTA_DEFAULT_PSP_OFFSET. */
+ * CF clear. Ref: DOS 3.3 PRM AH=2Fh; kernel/include/find_data.h DTA_DEFAULT_PSP_OFFSET. */
 static void do_getdta(int_frame_t *f)
 {
     uint32_t dta = g_dta;
@@ -3718,7 +3422,7 @@ static void do_getdta(int_frame_t *f)
 }
 
 /* The current DTA flat ptr, resolving the PSP:0x80 default. Returns 0 only when
- * neither a DTA nor a PSP is bound (a FINDFIRST then fails loud, Rule 2). */
+ * neither a DTA nor a PSP is bound (a FINDFIRST then fails loud, the repository contract). */
 static uint32_t current_dta(void)
 {
     if (g_dta != 0) {
@@ -3755,34 +3459,17 @@ static void build_pattern(const char *spec, uint8_t out[11])
         int base = (field == 0) ? 0 : 8;
         int cap  = (field == 0) ? 8 : 3;
         if (c == '*') {
-#ifdef INT21_MUTATE_WILD_STAR_BLEED
-            /* MUTANT (Rule 6; make test-80k-mutant only): a '*' fills from the
-             * current cursor to the END OF THE 11-BYTE TEMPLATE, bleeding a
-             * name-field '*' into the ext field. "*.TXT" then becomes all '?',
-             * so the "ext must stay TXT" rows MUST go RED. NEVER in a real build. */
-            for (; base + pos < 11; pos++) {
-                out[base + pos] = '?';
-            }
-#else
             /* Fill the rest of THIS field with '?' (match any). */
             for (; pos < cap; pos++) {
                 out[base + pos] = '?';
             }
-#endif
             continue;
         }
         if (pos < cap) {
-#ifndef INT21_MUTATE_WILD_NO_UPCASE
             /* Upper-case ASCII a-z. */
             if (c >= 'a' && c <= 'z') {
                 c = (char)(c - 'a' + 'A');
             }
-#else
-            /* MUTANT (Rule 6; make test-80k-mutant only): drop the upper-case
-             * fold, so a lower-case spec stores lower-case bytes that never
-             * match the upper-cased on-disk name. The lower-case-spec row MUST
-             * go RED. NEVER define in a real build. */
-#endif
             out[base + pos] = (uint8_t)c;
             pos++;
         }
@@ -3791,7 +3478,7 @@ static void build_pattern(const char *spec, uint8_t out[11])
 
 /* Render a dir entry's raw 8.3 name fields into an 11-byte (no-dot) template for
  * comparison against the search pattern. The on-disk filename[8]/extension[3]
- * are already space-padded upper-case (spec/dos_structs.h). */
+ * are already space-padded upper-case (kernel/include/dos_structs.h). */
 static void entry_template(const dir_entry_t *e, uint8_t out[11])
 {
     for (int i = 0; i < 8; i++) {
@@ -3807,18 +3494,9 @@ static void entry_template(const dir_entry_t *e, uint8_t out[11])
 static int pattern_match(const uint8_t pat[11], const uint8_t name[11])
 {
     for (int i = 0; i < 11; i++) {
-#if defined(INT21_MUTATE_WILD_MATCH_EXACT) || defined(INT21_MUTATE_WILD_QMARK_LITERAL)
-        /* MUTANT (Rule 6; make test-80k-mutant only): both perturbations drop
-         * the '?' wildcard arm so the template '?' is compared as a literal
-         * byte (exact-only matching). EXACT and QMARK_LITERAL collapse to the
-         * same defect at the match site -- every '*'/'?' match row MUST go RED.
-         * (QMARK_LITERAL is the build-side framing of "'?' is not special";
-         * the observable effect is identical here.) NEVER in a real build. */
-#else
         if (pat[i] == '?') {
             continue;
         }
-#endif
         if (pat[i] != name[i]) {
             return 0;
         }
@@ -3828,7 +3506,7 @@ static int pattern_match(const uint8_t pat[11], const uint8_t name[11])
 
 /* Format a dir entry's 8.3 name as "NAME.EXT\0" (or "NAME\0" when the extension
  * is all spaces) into out[13]. Mirrors fat12_format_83 but kept local so int21.c
- * does not link fat12.c into the host oracle (Law 3 / host-testability). */
+ * does not link fat12.c into the host oracle (the repository contract / host-testability). */
 static void format_83(const dir_entry_t *e, char out[13])
 {
     int n = 0;
@@ -3851,7 +3529,7 @@ static uint16_t emit_find_data(const dir_entry_t *e)
     uint32_t dta = current_dta();
     if (dta == 0) {
         /* No DTA and no PSP -> we cannot honor the find contract. Fail loud
-         * rather than write through a NULL (Rule 2). */
+         * rather than write through a NULL (the repository contract). */
         __builtin_trap();
         return INT21_ERR_INVALID_MEMORY;   /* not reached */
     }
@@ -3864,7 +3542,7 @@ static uint16_t emit_find_data(const dir_entry_t *e)
     }
     find_data_t *fd = (find_data_t *)(uintptr_t)dta;
 
-    /* Write all 43 bytes deterministically (Rule 11): the 0x00..0x14 internal
+    /* Write all 43 bytes deterministically (the repository contract): the 0x00..0x14 internal
      * region first (drive/template/search-attr + reserved resume state), then
      * the found-entry fields at their real-DOS offsets 0x15.. (dww). */
     fd->drive_attr = 0u;
@@ -3882,9 +3560,6 @@ static uint16_t emit_find_data(const dir_entry_t *e)
     fd->fdate = e->mdate;
     fd->fsize = e->file_size;
     if ((e->attribute & DIR_ATTR_VOLLABEL)
-#ifdef DU_MUT_LABEL
-        && 0 /* Rule 6: old 8.3 label truncation, test-xcopy-tree-mutant. */
-#endif
     ) {
         /* TREE's volume identity is one eleven-byte label, not an 8.3 file.
          * Ref: IBM DOS 3.30 Technical Reference p.5-11, attribute 08H:
@@ -3910,9 +3585,7 @@ static uint16_t emit_find_data(const dir_entry_t *e)
  * skipped UNLESS the search mask requests that class (brief Sec 4.5). */
 static uint16_t find_scan(int_frame_t *f)
 {
-#ifndef DOS_VOLUMES_MUT_SEARCH
     if (!select_volume(g_find.drive)) return INT21_ERR_NO_MORE_FILES;
-#endif
     if (g_file == 0 || g_file->dir_entry == 0) {
         return INT21_ERR_NO_MORE_FILES;   /* no volume -> empty directory */
     }
@@ -4056,11 +3729,11 @@ static uint8_t g_fcb_media;   /* the 1Bh/1Ch media byte EBX points at */
 void int21_set_media(uint8_t media) { g_fcb_media = media; }
 
 /* ---- AH=1Fh / AH=32h GET DRIVE PARAMETER BLOCK (WL-0167; initech-dpb1) ----
- * Ref (Law 1): docs/research/dpb-ground-truth.md -- MS-DOS 2.0 GETSET.ASM /
+ * Ref (the repository contract): docs/research/dpb-ground-truth.md -- MS-DOS 2.0 GETSET.ASM /
  * 4.0 MISC.ASM ($GET_DEFAULT_DPB = $GET_DPB with DL=0; AL=0 + DS:BX -> DPB,
  * AL=FFh on a bad drive, BX untouched), $SETDPB (BPB -> DPB arithmetic),
  * MSINIT.ASM (chain, last link FFFF:FFFF); RBIL r61 Table 01395 (DOS 3.x).
- * Layout: ADR-0003 Appendix B.4 / spec/dos_structs.h dpb_t (32 bytes).
+ * Layout: ADR-0003 Appendix B.4 / kernel/include/dos_structs.h dpb_t (32 bytes).
  * One resident DPB per letter A..D; every mounted volume is linked A->C->D.
  * Each call refreshes the whole chain from the mounted geometry (the FATREAD
  * media check). Only the requested drive is counted for 1Eh; the others say
@@ -4089,13 +3762,7 @@ static int dpb_fill(unsigned drive)
     d->first_fat = g.reserved_sectors;
     d->fat_count = g.fat_count;
     d->root_entries = g.root_entries;
-#ifdef INT21_MUTATE_DPB_FIRST_DATA
-    /* MUTANT (Rule 6; make test-int21-dpb-mutant only): the first data sector
-     * forgets the root directory ($SETDPB's ADD AX,CX). NEVER in a build. */
-    d->first_sector = (uint16_t)g.root_dir_sector;
-#else
     d->first_sector = (uint16_t)g.first_data_sector;
-#endif
     d->max_cluster = (uint16_t)(g.total_clusters + 1u);
     d->fat_size = (uint8_t)g.sectors_per_fat;    /* 3.x STOSB; WORD from 4.0 */
     d->dir_sector = (uint16_t)g.root_dir_sector;
@@ -4266,9 +3933,7 @@ static uint8_t fcb_xfer(uint8_t *p, uint32_t rec, int write)
     uint32_t got = 0u;
     if (off >= de.file_size || g_file->read_at == 0 ||
         g_file->read_at(&de, off, buf, rs, &got) != 0u || got == 0u) return 1u;
-#ifndef INT21_MUTATE_FCB_PARTIAL_NOZERO
     for (uint32_t i = got; i < rs; i++) buf[i] = 0u;   /* p. 6-75 AL=03 */
-#endif
     return (got == rs) ? 0u : 3u;
 }
 
@@ -4324,9 +3989,6 @@ static int do_fcb(int_frame_t *f, uint8_t ah)
         if (g_file->create != 0 &&
             g_file->create(nm, g_cwd_start_cluster, &de, &slot) == 0u) {
             uint8_t a = (uint8_t)(attr & 0x27u);   /* RO/H/S/A of an extended FCB */
-#ifdef INT21_MUTATE_FCB_EXT_NOATTR
-            a = 0u;   /* MUTANT (Rule 6): extended-FCB attribute dropped */
-#endif
             if (a != 0u && g_file->chmod != 0) {
                 a |= DIR_ATTR_ARCHIVE;
                 if (g_file->chmod(nm, g_cwd_start_cluster, 1, &a) == 0u) de.attribute = a;
@@ -4394,9 +4056,7 @@ static int do_fcb(int_frame_t *f, uint8_t ah)
     case 0x15:   /* SEQUENTIAL WRITE, p. 6-76 */
         n = fcb_rd(p + FCB_CURBLK, 2) * 128u + (p[FCB_CURREC] & 0x7Fu);
         al = fcb_xfer(p, n, ah == 0x15u);
-#ifndef INT21_MUTATE_FCB_SEQ_NO_ADVANCE
         if (al == 0u || al == 3u) fcb_set_pos(p, n + 1u);
-#endif
         break;
     case 0x21:   /* RANDOM READ, p. 6-85 */
     case 0x22:   /* RANDOM WRITE, p. 6-86: position follows the random field */
@@ -4424,7 +4084,7 @@ static int do_fcb(int_frame_t *f, uint8_t ah)
 }
 
 #ifdef INT21_WILDCARD_TESTSEAM
-/* TEST-ONLY seam (CLAUDE.md Rule 6 idiom; compiled ONLY into the wildcard host
+/* TEST-ONLY seam (the repository contract idiom; compiled ONLY into the wildcard host
  * oracle via -DINT21_WILDCARD_TESTSEAM, beads initech-80k). The 8.3 FCB-style
  * matcher (build_pattern + pattern_match) is the load-bearing math behind
  * DIR/FINDFIRST wildcards, so it gets a direct table-driven oracle that drives
@@ -4513,16 +4173,7 @@ int int21_overlay_dest_ok(uint32_t linear, uint32_t len)
     if (limit == 0u) {
         return 0;
     }
-#ifdef INT21_MUTATE_OVL_BOUNDS_OBO
-    /* MUTANT (Rule 6; make test-overlay-mutant / test-exec-overlay-mutant
-     * only): the classic off-by-one -- a footprint ONE byte past the owned
-     * region is accepted, so the overlay's last byte lands on the next MCB
-     * header (or the arena's first header). The exact-fit-plus-one refusal
-     * asserts MUST go RED. NEVER define in a real build. */
-    return len <= limit - linear + 1u;
-#else
     return len <= limit - linear;
-#endif
 }
 
 /* AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19; IBM DOS 3.30 TR
@@ -4561,7 +4212,7 @@ static void do_exec(int_frame_t *f)
     uint8_t sub = frame_al(f);
     if (sub != 0x00u && sub != 0x03u) {
         /* AL=00h load+execute and AL=03h load overlay are the two DOS 3.30
-         * subfunctions (TR p. 6-196); anything else is invalid (Rule 2). */
+         * subfunctions (TR p. 6-196); anything else is invalid (the repository contract). */
         set_ax(f, INT21_ERR_INVALID_FUNCTION);
         cf_set(f);
         return;
@@ -4573,17 +4224,6 @@ static void do_exec(int_frame_t *f)
         cf_set(f);
         return;
     }
-#ifdef INT21_MUTATE_EXEC_ROOTREJECT
-    /* MUTANT (CLAUDE.md Rule 6; make test-zs24-exec-mutant only): restore the
-     * pre-zs24 root-only gate -- reject any subdir/drive path BEFORE resolving, so
-     * a subdir EXEC returns 0x0003 and the program never runs (its serial marker
-     * is ABSENT). The subdir-EXEC oracle MUST go RED. NEVER define in a real build. */
-    if (path_has_subdir_or_drive(path)) {
-        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
-        cf_set(f);
-        return;
-    }
-#endif
     /* Resolve the EDX path to (containing-dir start cluster, bare 8.3 leaf) the
      * SAME way do_open does (beads initech-zs24): absolute / CWD-relative /
      * '\SUB\FILE', a leading 'X:' drive prefix stripped, a missing/non-dir
@@ -4605,7 +4245,7 @@ static void do_exec(int_frame_t *f)
         return;
     }
     if (g_exec == 0) {
-        /* No loader bound -> behave as file-not-found (Rule 2: never a silent
+        /* No loader bound -> behave as file-not-found (the repository contract: never a silent
          * success; an EXEC with no backing cannot have run a program). */
         set_ax(f, INT21_ERR_FILE_NOT_FOUND);
         cf_set(f);
@@ -4621,14 +4261,14 @@ static void do_exec(int_frame_t *f)
      * int21_dispatch wrapper never runs its matching g_indos-- (its `++` is
      * stranded). Snapshot g_indos here and restore it after the child returns so
      * the InDOS depth is exactly the caller's level again, never drifting upward
-     * across an EXEC chain (Rule 11). In the host oracle the mock g_exec simply
+     * across an EXEC chain (the repository contract). In the host oracle the mock g_exec simply
      * returns, so this snapshot/restore is a harmless no-op. */
     /* Command tail (initech-456): AH=4Bh takes an EXEC parameter block in EBX
      * (exec_param_block_t, the flat-32 analog of real DOS ES:BX). Extract the
      * command-tail TEXT+len for the child PSP:80h; the env/FCB fields are
      * reserved. Every level is DEC-14 user-pointer validated; an absent (EBX=0)
      * or unreadable block degrades to a no-argument launch (count=0) rather than
-     * faulting on a legacy caller's stale EBX (Rule 2). The tail at cmd_tail is a
+     * faulting on a legacy caller's stale EBX (the repository contract). The tail at cmd_tail is a
      * DOS-format {count, text, CR}; we hand the loader the TEXT (cmd_tail+1) and
      * its length, and psp_build re-frames it (count byte + CR) at PSP:80h.
      *
@@ -4639,7 +4279,7 @@ static void do_exec(int_frame_t *f)
      * block (env_block==0) or honor the caller's populated block (the shell
      * serializes its master env into ENV_BLOCK and passes env_block==ENV_BLOCK).
      * An absent/unreadable EBX block degrades to env_block=0 (inherit-empty),
-     * exactly like the no-arg tail degrade above (Rule 2 -- never fault on a
+     * exactly like the no-arg tail degrade above (the repository contract -- never fault on a
      * legacy caller's stale EBX). */
     const char *tail_text = 0;
     uint32_t    tail_len  = 0;
@@ -4649,7 +4289,7 @@ static void do_exec(int_frame_t *f)
         if (pb != 0 && user_buf_ok(pb, (uint32_t)sizeof(exec_param_block_t))) {
             const exec_param_block_t *blk = (const exec_param_block_t *)(uintptr_t)pb;
             /* Sanitize the caller's env_block exactly as the cmd_tail below is guarded
-             * (Rule 2 -- never fault on a legacy/stale EBX, this function's stated
+             * (the repository contract -- never fault on a legacy/stale EBX, this function's stated
              * intent): loader_decide_env honors ONLY {0, ENV_BLOCK}, so any OTHER value
              * -- a caller that left EBX pointing at a block whose env_block field is
              * stale garbage, or a real-DOS program passing its own env segment we do not
@@ -4684,14 +4324,12 @@ static void do_exec(int_frame_t *f)
     uint8_t rc = 0;
     /* The child runs USER code, outside DOS: drop this EXEC's own level so the
      * InDOS byte (AH=34h) reads as it would under DOS, whose EXEC leaves DOS
-     * when it jumps to the child (bead initech-6fdt; spec/tsr_contract.h). */
-#ifndef INT21_MUT_INDOS_EXEC
+     * when it jumps to the child (bead initech-6fdt; kernel/include/tsr_contract.h). */
     if (indos_snapshot) g_indos = indos_snapshot - 1u;
-#endif
     uint16_t err = g_exec(leaf, dir_start, tail_text, tail_len, env_block, &rc);
     g_indos = indos_snapshot;
     if (err != 0) {
-        /* Load/run failed (not found / nested / too big). Fail loud (Rule 2). */
+        /* Load/run failed (not found / nested / too big). Fail loud (the repository contract). */
         set_ax(f, err);
         cf_set(f);
         return;
@@ -4714,17 +4352,10 @@ static void do_exec(int_frame_t *f)
  * stash after read. CF clear. Ref: DOS 3.3 PRM AH=4Dh; RBIL INT 21/AH=4Dh. */
 static void do_get_return_code(int_frame_t *f)
 {
-#ifdef INT21_MUTATE_RETCODE_ZERO
-    /* MUTANT (Rule 6; make test-exec-mutant only): always report rc=0 regardless
-     * of the child's actual exit code, so the 4Dh oracle (which EXECs a program
-     * that exits rc=7 and asserts AL==7) goes RED. NEVER define in a real build. */
-    f->eax = (f->eax & 0xFFFF0000u);          /* AL=0, AH=0 */
-#else
     /* AL = exit code; AH = termination type (0 normal, 1 Ctrl-C, 3 KEEP). */
     f->eax = (f->eax & 0xFFFF0000u)
            | ((uint32_t)g_last_child_term_type << 8)
            | (uint32_t)g_last_child_rc;
-#endif
     g_last_child_rc        = 0u;   /* consumed (DOS clears after the read) */
     g_last_child_term_type = 0u;   /* consumed alongside the code          */
     cf_clear(f);
@@ -4740,7 +4371,7 @@ static void do_get_return_code(int_frame_t *f)
  *   segment(data_para) = (g_arena_base_linear >> 4) + data_para
  *   data_para(segment) = segment - (g_arena_base_linear >> 4)
  *
- * FLAT-MODE REGISTER ABI (Law 1; DOS 3.3 PRM AH=48h/49h/4Ah, adapted): real DOS
+ * FLAT-MODE REGISTER ABI (the repository contract; DOS 3.3 PRM AH=48h/49h/4Ah, adapted): real DOS
  * passes the block SEGMENT in ES. In this 32-bit PROTECTED-flat kernel ES is a
  * GDT SELECTOR (the trap stub captured the caller's ES, which for a flat program
  * is DATA_SEL=0x10 -- loading a DOS fake-paragraph into ES would #GP), so a DOS
@@ -4753,7 +4384,7 @@ static void do_get_return_code(int_frame_t *f)
  *                 BX = max paras this block could reach (CF=1).
  * (4Ah uses CX for the new size because BX already carries the segment; real DOS
  * has ES free for the segment, we do not.) This is NOT a change to a locked spec
- * (spec/int21h_calling_convention.json does not yet list 48/49/4A); it is the
+ * (kernel/tests/data/int21h_calling_convention.json does not yet list 48/49/4A); it is the
  * flat adaptation documented here + in the bead.
  *
  * The MCB error codes (mcb.h) map 1:1 onto DOS INT 21h errors:
@@ -4761,7 +4392,7 @@ static void do_get_return_code(int_frame_t *f)
  *   MCB_ERR_DESTROYED    0x0007  -> AX=0x0007  (MCB chain destroyed)
  *   MCB_ERR_BAD_BLOCK    0x0009  -> AX=0x0009  (invalid memory block address)
  * so the handler returns the raw mcb status as AX on failure.
- * Ref: spec/memory_map.h (the arena region), mcb.h/mcb.c (the allocator),
+ * Ref: kernel/include/memory_map.h (the arena region), mcb.h/mcb.c (the allocator),
  *      DOS 3.3 PRM. ===========================================================*/
 
 /* DOS-segment base of the arena (paragraphs). data_para 0's segment + 1 == the
@@ -4795,7 +4426,7 @@ static void do_alloc(int_frame_t *f)
     uint16_t want = (uint16_t)(f->ebx & 0xFFFFu);
 
     /* No arena bound, or no owning process -> nothing can be allocated. Report
-     * insufficient memory with largest=0 (Rule 2: never fault, never silent). */
+     * insufficient memory with largest=0 (the repository contract: never fault, never silent). */
     if (!g_arena_bound || g_cur_psp == 0) {
         set_ax(f, INT21_ERR_INSUFFICIENT_MEM);
         set_bx(f, 0u);
@@ -4812,17 +4443,7 @@ static void do_alloc(int_frame_t *f)
         cf_set(f);
         return;
     }
-#ifdef INT21_MUTATE_ALLOC_NO_SEGBASE
-    /* MUTANT (Rule 6; make test-mcb-int21-mutant only): drop the arena segment
-     * base from the conversion, returning a bare data-paragraph index as the
-     * "segment". A subsequent 49h FREE of that wrong segment then maps to a
-     * different data_para and is rejected (or, with FREE using the same broken
-     * map, the alloc/free round-trip oracle's exact-segment assertion goes RED).
-     * NEVER define in a real build. */
-    set_ax(f, (uint16_t)(data_para & 0xFFFFu));
-#else
     set_ax(f, (uint16_t)((arena_seg_base() + data_para) & 0xFFFFu));
-#endif
     cf_clear(f);
 }
 
@@ -4892,7 +4513,7 @@ static void do_setblock(int_frame_t *f)
 }
 
 /* AH=30h GET VERSION: AL=major(3), AH=minor(30=0x1E), BH=0 (OEM). CF clear.
- * Version 3.30 (ADR-0003 DEC-12 / spec/dos_banner.txt). */
+ * Version 3.30 (ADR-0003 DEC-12 / kernel/include/dos_banner.txt). */
 static void do_getver(int_frame_t *f)
 {
     f->eax = (f->eax & 0xFFFF0000u)
@@ -4919,7 +4540,7 @@ static void do_terminate(int_frame_t *f, uint8_t code)
      * the kernel PSP AFTER g_exit unwinds -- so g_cur_psp is exactly the child
      * whose handles must be freed. The resident device slots 0..3 are preserved
      * (sft_close_process touches only FILE-kind entries). Idempotent + fail-loud
-     * on a corrupt JFT (Rule 2). MUST run BEFORE g_exit (which does not return in
+     * on a corrupt JFT (the repository contract). MUST run BEFORE g_exit (which does not return in
      * the kernel build -- it long-jumps back to the loader). */
     sft_close_process(g_cur_psp);
 
@@ -4954,7 +4575,7 @@ static void do_terminate(int_frame_t *f, uint8_t code)
  * blocks belonging to that process" and "Files opened by the process are not
  * closed"; AL reaches the parent through AH=4Dh, which reports type 3.
  *
- * Flat model (bead initech-6fdt; spec/tsr_contract.h Sec 1):
+ * Flat model (bead initech-6fdt; kernel/include/tsr_contract.h Sec 1):
  *   - DX below TSR_KEEP_MIN_PARAS is raised to it (the PSP and its JFT stay).
  *   - An MCB-hosted program (nested EXEC, or a top-level EXEC above an earlier
  *     resident) -- or a PSP that owns the whole window under the legacy
@@ -5001,12 +4622,7 @@ static void tsr_keep(uint8_t code, uint32_t paras)
 static void do_keep(int_frame_t *f)
 {
     if(g_high) { set_ax(f,1); cf_set(f); return; } /* DEC-03a.5 */
-#ifdef TSR_MUT_NO_KEEP
-    /* Rule 6 (test-tsr-unit-mutant / test-tsr-mutant): 31h acts as 4Ch. */
-    do_terminate(f, frame_al(f));
-#else
     tsr_keep(frame_al(f), frame_dx(f));
-#endif
 }
 
 /* INT 27h Terminate but Stay Resident (TR p. 6-26): EDX = the resident byte
@@ -5025,7 +4641,7 @@ void KERNEL_ASM_ABI int27_dispatch(int_frame_t *frame)
  * Cheap resident query functions (beads initech-yv9): SELDISK/GETDISK,
  * DATE/TIME, GET DISK FREE SPACE, GET CWD, GET EXTENDED ERROR, GET PSP. All are
  * single-drive (A: only) / root-only this milestone (no subdirs -- ti8).
- * Ref (Law 1): DOS 3.3 Programmer's Reference Manual, the named function pages;
+ * Ref (the repository contract): DOS 3.3 Programmer's Reference Manual, the named function pages;
  *   spec/int21h_register.json (all are in the locked register). The DATE/TIME
  *   functions reach the wall clock through the CLOCK seam (g_clock_get/set ->
  *   the MC146818 RTC, os/initechdos/rtc.c).
@@ -5045,13 +4661,8 @@ void int21_note_error(uint16_t code) { g_last_error = code; }
  * LASTDRIVE. Ref: IBM DOS 3.30 TR p6-66; DEC-18 physical letter map. */
 static void do_seldisk(int_frame_t *f)
 {
-#ifndef DOS_VOLUMES_MUT_SELECT
     if (select_volume(frame_dl(f))) g_current_drive = frame_dl(f);
-#endif
     unsigned count = g_drive_limit;
-#ifdef DOS_VOLUMES_MUT_LIMIT
-    count = 1u;
-#endif
     (void)select_volume(g_current_drive);
     set_al(f, (uint8_t)count);
     cf_clear(f);
@@ -5177,7 +4788,7 @@ static void do_getcwd(int_frame_t *f)
     }
     /* ESI = flat ptr to the caller's 64-byte buffer (DS:SI in real DOS). Copy the
      * canonical root-relative CWD (no leading '\', no drive), NUL-terminated and
-     * bounded by the 64-byte DOS buffer (Rule 2 -- never overrun). */
+     * bounded by the 64-byte DOS buffer (the repository contract -- never overrun). */
     char *buf = (char *)(uintptr_t)f->esi;
     if (buf != 0) {
         uint32_t i = 0u;
@@ -5199,7 +4810,7 @@ static void do_getcwd(int_frame_t *f)
  * Errors -> CF=1, AX=0x0003 (path not found) for a missing dir OR a CHDIR into a
  * FILE; the AH=59h dispatch wrapper auto-notes CF+AX so no int21_note_error here.
  * The canon is copied under a HARD INT21_CWD_MAX-1 bound: an overlength canon
- * fails loud (0x0003) -- it is NEVER truncated into a wrong CWD (Rule 2). Ref:
+ * fails loud (0x0003) -- it is NEVER truncated into a wrong CWD (the repository contract). Ref:
  * DOS 3.3 PRM AH=3Bh; PRD Sec 6.5 (DOS path model). */
 static void do_chdir(int_frame_t *f)
 {
@@ -5216,19 +4827,14 @@ static void do_chdir(int_frame_t *f)
 
     /* Reference pp.41-42: CD \ selects root even from a subdirectory.
      * ADR-0003 Appendix A: AH=3Bh changes CWD, AH=47h reports it. */
-#ifndef INT21_MUTATE_CD_ROOT
     if (path[0] == '\\' && path[1] == '\0') {
         int21_cwd_reset();
         cf_clear(f);
         return;
     }
-#endif
     /* Empty / root '\' / '.' -> stay in the current directory (success). DOS
      * 'CD' with no movement leaves the CWD unchanged. */
     if (path[0] == '\0' ||
-#ifdef INT21_MUTATE_CD_ROOT
-        (path[0] == '\\' && path[1] == '\0') ||
-#endif
         (path[0] == '.'  && path[1] == '\0')) {
         cf_clear(f);
         return;
@@ -5260,7 +4866,7 @@ static void do_chdir(int_frame_t *f)
 
     /* Enforce the INT21_CWD_MAX-1 bound on the WRITE into g_cwd_path: an
      * overlength canon fails loud rather than silently truncating into a wrong
-     * CWD (Rule 2). The backend already bounds its write to sizeof(canon) ==
+     * CWD (the repository contract). The backend already bounds its write to sizeof(canon) ==
      * INT21_CWD_MAX, so a NUL within bound is guaranteed; the explicit length
      * re-check is belt-and-suspenders. */
     uint32_t clen = 0u;
@@ -5345,13 +4951,13 @@ static void do_getpsp(int_frame_t *f)
 
 /* ===========================================================================
  * SETVECT / GETVECT (AH=25h / AH=35h; beads initech-509.8, DEC-10).
- * The flat ABI (spec/int21h_calling_convention.json): "All pointer arguments
+ * The flat ABI (kernel/tests/data/int21h_calling_convention.json): "All pointer arguments
  * are FLAT 32-bit LINEAR addresses -- no segment:offset"; the function selector
  * is AH and the primary pointer rides EDX. Both functions are in the locked
  * register (spec/int21h_register.json: "25h / 35h SETVECT / GETVECT", Core).
  * On this protected-flat kernel the "interrupt vector" is the IDT gate offset,
  * reached through the vector-table seam (g_setvect / g_getvect) so int21.c stays
- * host-testable. Ref (Law 1): DOS 3.3 PRM AH=25h/35h; the two locked specs.
+ * host-testable. Ref (the repository contract): DOS 3.3 PRM AH=25h/35h; the two locked specs.
  * ===========================================================================*/
 
 /* AH=25h SET INTERRUPT VECTOR: AL = vector number, EDX = flat handler address
@@ -5377,16 +4983,7 @@ static void do_getvect(int_frame_t *f)
 {
     uint8_t  vec     = frame_al(f);
     uint32_t handler = g_getvect ? g_getvect(vec) : 0u;
-#ifdef GETVECT_MUTATE_AX
-    /* MUTANT (Rule 6; make test-int24-mutant only): return the handler in EAX
-     * instead of EBX -- the WRONG register. DOS 35h returns the vector in ES:BX
-     * (EBX in the flat model); a caller reading EBX gets nothing. The [4b] GETVECT
-     * oracle (which asserts EBX == the handler) goes RED. NEVER in a real build. */
-    f->eax = handler;
-    f->ebx = 0u;
-#else
     f->ebx = handler;                   /* EBX = flat handler offset (BX low 16) */
-#endif
     f->es  = 0u;                        /* ES = 0 in the flat model */
     cf_clear(f);                        /* DOS 35h never sets CF */
 }
@@ -5404,10 +5001,10 @@ static void do_getvect(int_frame_t *f)
  *   AL=other  : out of scope (the DOS-5 AL=05h/06h/07h sub-functions are
  *               post-3.3 and fenced off) -> CF=1, AX=0x0001 INVALID_FUNCTION +
  *               a grep-able serial diagnostic; NEVER a silent no-op, NEVER
- *               misread as get/set (DEC-16 3.2 error contract; Rule 2 fail-loud).
+ *               misread as get/set (DEC-16 3.2 error contract; the repository contract fail-loud).
  * AL=00h/01h never set CF (a pure state read/write, no failure mode). Ref:
  * DOS 3.3 PRM Function 33h; RBIL INT 21h/AH=33h; spec/int21h_register.json (the
- * AH=33h BREAK row) + spec/int21h_calling_convention.json (the AH=33h stanza). */
+ * AH=33h BREAK row) + kernel/tests/data/int21h_calling_convention.json (the AH=33h stanza). */
 static void do_break(int_frame_t *f)
 {
     uint8_t al = frame_al(f);
@@ -5420,23 +5017,7 @@ static void do_break(int_frame_t *f)
     }
     if (al == 0x01u) {                  /* SET */
         uint8_t dl = frame_dl(f);
-#if defined(INT21_MUTATE_BREAK_DL_RAW)
-        /* MUTANT M2 (Rule 6; make test-er3h-mutant only): store DL VERBATIM
-         * instead of the normalized boolean, so SET(DL=0xFF) then GET returns
-         * 0xFF (not 1) -- the DL-normalization assertions [er3h.3]/[er3h.4] go
-         * RED. NEVER in a real build (DEC-16 3.2 fixes normalize-on-write). */
-        g_break_flag = dl;
-#else
         g_break_flag = (uint8_t)(dl != 0u ? 1u : 0u);   /* normalize (DEC-16 3.2) */
-#endif
-#if defined(INT21_MUTATE_BREAK_SET_WRITES_AL)
-        /* MUTANT M7 (Rule 6; make test-er3h-mutant only): wrongly write an OUTPUT
-         * register on SET. DEC-16 3.2 (lines 241-242): for AL=01h "no register
-         * other than the saved flag state changes" -- SET returns nothing in AL.
-         * Writing AL makes the [er3h.3]/[er3h.4] AL-unchanged assertions go RED.
-         * NEVER in a real build. */
-        set_al(f, g_break_flag);
-#endif
         /* DEC-16 3.2: SET updates ONLY the flag + clears CF; it writes NO output
          * register (AL/DL are left exactly as the caller passed them). */
         cf_clear(f);
@@ -5444,7 +5025,7 @@ static void do_break(int_frame_t *f)
     }
 
     /* Out-of-scope AL (the DOS-5 sub-functions, or any AL not 00h/01h) -- fail
-     * loud (DEC-16 3.2 / Rule 2). Distinct, grep-able serial diagnostic. */
+     * loud (DEC-16 3.2 / the repository contract). Distinct, grep-able serial diagnostic. */
     con_puts("INT21 not-yet-impl AH=33 AL=");
     con_hex2(al);
     con_putc('\n');
@@ -5465,7 +5046,7 @@ static void int20_dispatch_body(int_frame_t *frame)
 
 /* ===========================================================================
  * INT 22h / 23h / 24h DOS handlers (beads initech-509.8, ADR-0003 DEC-10).
- * Ref (Law 1): docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md Sec 5.10
+ * Ref (the repository contract): docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md Sec 5.10
  *   (DEC-10 -- handlers for 24h/23h/22h; 24h presents MSG-DOS-0001 + processes
  *   the operator A/R/F response); App C (MSG-DOS-0001 = "Abort, Retry, Fail?").
  *   The PSP vector save/restore (PSP 0Ah-15h) is a SEPARATE step (loader.c) --
@@ -5477,26 +5058,17 @@ static void int20_dispatch_body(int_frame_t *frame)
  * key returns -1, meaning "re-prompt" -- int24_dispatch loops, re-presenting
  * MSG-DOS-0001 and re-reading until a valid key arrives (deterministic, never a
  * silent default). Ignore=3 is deferred (header note). Ref: DOS 3.3 PRM INT 24h;
- * spec/dos_messages.json MSG-DOS-0001. */
+ * kernel/include/dos_messages.json MSG-DOS-0001. */
 int crit_error_action(int ch)
 {
     int c = ch;
     if (c >= 'a' && c <= 'z') {
-        c = c - 'a' + 'A';          /* upcase (ASCII; Rule 12) */
+        c = c - 'a' + 'A';          /* upcase (ASCII; the repository contract) */
     }
     switch (c) {
-#ifdef CRIT_MUTATE_AF_SWAP
-        /* MUTANT (Rule 6; make test-int24-mutant only): SWAP Abort<->Fail so the
-         * A/R/F mapping is wrong. The crit_error_action mapping test + the int24
-         * AL=1-for-'A' test go RED. NEVER define in a real build. */
-        case 'R': return 0;         /* Retry */
-        case 'A': return 2;         /* (mutant) Fail instead of Abort */
-        case 'F': return 1;         /* (mutant) Abort instead of Fail */
-#else
         case 'R': return 0;         /* Retry */
         case 'A': return 1;         /* Abort */
         case 'F': return 2;         /* Fail  */
-#endif
         default:  return -1;        /* invalid -> re-prompt */
     }
 }
@@ -5518,16 +5090,11 @@ static void int23_dispatch_body(int_frame_t *frame)
 {
     /* MS-DOS 3.3 Reference p.159: abort command with ^C on CON.
      * Factory debugging remains on its separate serial-only seam. */
-#ifndef INT21_MUTATE_CARET_C
     con_puts("^C\r\n");
-#else
-    con_puts("INT23-BREAK\n");
-#endif
     if (g_break_trace) {
         const char *s = "INT23-BREAK\n";
         while (*s) g_break_trace(*s++);
     }
-#ifndef INT21_MUTATE_BREAK_RECOVERY
     /* Returning INT 23h recovery for a resident built-in. Keep this PSP's
      * handles/CWD/arena live so COMMAND.COM's ordinary epilogue restores
      * redirection. EXEC children have a different PSP and terminate normally.
@@ -5537,7 +5104,6 @@ static void int23_dispatch_body(int_frame_t *frame)
         g_break_recovery->interrupted = 1u;
         return;
     }
-#endif
     /* DOS 3.30 AH=4Dh type 1 survives the child's ordinary terminate/EXEC
      * cleanup. The parent shell consumes it after EXEC, before run_batch's
      * safe decision boundary (batch_break_mint/exec-{y,n}.txt). */
@@ -5562,18 +5128,10 @@ static void int24_dispatch_body(int_frame_t *frame)
         con_puts(MSG_DOS_0001);     /* "Abort, Retry, Fail?" (controlled; DEC-13) */
         ch = conin_get_pb();        /* blocking single-char read (respects 0Bh) */
         action = crit_error_action(ch);
-#ifdef INT24_MUTATE_NO_REPROMPT
-        /* MUTANT (Rule 6; make test-int24-mutant only): accept the FIRST key
-         * unconditionally -- no re-prompt loop. An invalid key yields the -1
-         * "re-prompt" sentinel straight into AL (and MSG-DOS-0001 prints only
-         * once), so the re-prompt oracle [2b] goes RED. NEVER in a real build. */
-        break;
-#else
         if (action >= 0) {
             break;                  /* valid A/R/F -> done */
         }
         con_putc('\n');             /* invalid key -> newline + re-prompt */
-#endif
     }
     set_al(frame, (uint8_t)action); /* AL = 0 Retry / 1 Abort / 2 Fail */
     cf_clear(frame);                /* 24h returns the action, not an error */
@@ -5589,16 +5147,13 @@ static void int21_dispatch_body(int_frame_t *frame)
      * BREAK ON extends Ctrl-C checking to disk reads/writes and other DOS
      * calls. Nonblocking entry check; preserve ordinary keyboard typeahead.
      * The character family keeps its existing checks and raw 06h/07h rules. */
-#ifndef INT21_MUTATE_DISK_BREAK
     if ((ah == 0u || ah > 0x0cu) && int21_get_break_flag()
-#ifndef INT21_MUTATE_BREAK_CLEANUP
         /* A resident command already unwinding INT 23h must finish CLOSE /
          * DUP2 even with another ^C queued. Its next prompt resets the latch.
          * Children have another PSP and retain default termination semantics.
          * Ref: DOS 3.30 TR pp.6-14/15; User's Guide p.159 / PDF244. */
         && !(g_break_recovery && g_break_recovery->owner == (struct psp *)g_cur_psp
              && g_break_recovery->interrupted)
-#endif
         ) {
         int c = conin_poll_pb();
         if (c == 3) {
@@ -5607,7 +5162,6 @@ static void int21_dispatch_body(int_frame_t *frame)
         }
         g_conin_pushback = c;
     }
-#endif
 
     switch (ah) {
         case 0x00:                       /* TERMINATE (alias for 4Ch AL=0) */
@@ -5675,45 +5229,17 @@ static void int21_dispatch_body(int_frame_t *frame)
             do_getdta(frame);
             return;
         case 0x30:                       /* GET VERSION */
-#ifdef CERT_MUTATE_DROP_GETVER
-            /* MUTANT (Rule 6; make test-40oq-mutant only): drop the AH=30h
-             * dispatch so it falls to the not-yet-impl arm and the test_40oq
-             * dynamic safe-set check sees "not-yet-impl AH=30" -> RED.
-             * The (void) reference keeps -Werror=unused-function quiet so the
-             * mutant still COMPILES + RUNS. NEVER define in a real build. */
-            (void)do_getver;
-            break;
-#else
             do_getver(frame);
             return;
-#endif
         case 0x33:                       /* GET/SET CTRL-BREAK STATE (DEC-16) */
-#ifdef INT21_MUTATE_BREAK_NO_DISPATCH
-            /* MUTANT M1/M3 base (Rule 6; make test-er3h-mutant only): do NOT
-             * dispatch 0x33; fall through to the listed-but-not-yet-impl path
-             * (CF=1, AX=0x0001) so every AH=33h GET/SET oracle goes RED. The
-             * (void) ref keeps -Werror=unused-function quiet so the mutant still
-             * BUILDS + RUNS. NEVER in a real build. */
-            (void)do_break;
-            break;
-#else
             do_break(frame);
             return;
-#endif
         case 0x3C:                       /* CREAT (create/truncate file) */
             do_creat(frame);
             return;
         case 0x5B:                       /* CREATNEW (create, fail if exists) */
-#ifdef INT21_MUTATE_CREATNEW_NO_DISPATCH
-            /* MUTANT (Rule 6): do NOT dispatch 0x5B; fall through to the
-             * not-yet-impl path (CF=1, AX=0x0001). The (void) ref keeps
-             * -Werror=unused-function quiet so the mutant still BUILDS + RUNS. */
-            (void)do_creatnew;
-            break;
-#else
             do_creatnew(frame);
             return;
-#endif
         case 0x3D:                       /* OPEN (handle) */
             do_open(frame);
             return;
@@ -5736,55 +5262,20 @@ static void int21_dispatch_body(int_frame_t *frame)
             do_unlink(frame);
             return;
         case 0x56:                       /* RENAME (same-directory dir-entry rename) */
-#ifdef INT21_MUTATE_RENAME_NO_DISPATCH
-            /* MUTANT (Rule 6): do NOT dispatch 0x56; fall through to the not-yet-
-             * impl path (CF=1, AX=0x0001). The (void) ref keeps -Werror=unused-
-             * function quiet so the mutant still BUILDS + RUNS. NEVER in a real
-             * build. */
-            (void)do_rename;
-            break;
-#else
             do_rename(frame);
             return;
-#endif
         case 0x43:                       /* CHMOD (get/set file attributes) */
-#ifdef INT21_MUTATE_CHMOD_NO_DISPATCH
-            /* MUTANT 6 (Rule 6; make test-b53d-mutant only): do NOT dispatch
-             * 0x43; fall through to the not-yet-impl path so CHMOD returns
-             * CF=1/AX=0x0001 and every chmod oracle goes RED. The (void) ref
-             * keeps -Werror=unused-function quiet so the mutant still BUILDS +
-             * RUNS. NEVER in a real build. */
-            (void)do_chmod;
-            break;
-#else
             do_chmod(frame);
             return;
-#endif
         case 0x42:                       /* LSEEK (move file pointer) */
             do_lseek(frame);
             return;
         case 0x57:                       /* GET/SET FILE DATE+TIME (by handle) */
-#ifdef INT21_MUTATE_FILETIME_NO_DISPATCH
-            /* MUTANT (Rule 6): do NOT dispatch 0x57; fall through to the
-             * not-yet-impl path. The (void) ref keeps -Werror=unused-function
-             * quiet so the mutant still BUILDS + RUNS. NEVER in a real build. */
-            (void)do_filetime;
-            break;
-#else
             do_filetime(frame);
             return;
-#endif
         case 0x44:                       /* IOCTL (AL=00 get device info) */
-#ifdef INT21_MUTATE_IOCTL_NO_DISPATCH
-            /* MUTANT (Rule 6): do NOT dispatch 0x44; fall through to the
-             * not-yet-impl path (CF=1, AX=0x0001). The (void) ref keeps
-             * -Werror=unused-function quiet so the mutant still BUILDS + RUNS. */
-            (void)do_ioctl;
-            break;
-#else
             do_ioctl(frame);
             return;
-#endif
         case 0x45:                       /* DUP (duplicate handle) */
             do_dup(frame);
             return;
@@ -5859,7 +5350,7 @@ static void int21_dispatch_body(int_frame_t *frame)
             break;
     }
 
-    /* Controlled scope (Rule 2 / ADR-0003 DEC-13). The AH is not one of the
+    /* Controlled scope (the repository contract / ADR-0003 DEC-13). The AH is not one of the
      * implemented functions. Two distinct, fail-loud diagnostics: */
     if (ah_is_listed(ah)) {
         /* RECOGNIZED by the locked register but not yet implemented. Since
@@ -5871,20 +5362,13 @@ static void int21_dispatch_body(int_frame_t *frame)
         con_hex2(ah);
         con_putc('\n');
     } else {
-#ifdef INT21_MUTATE_UNLISTED_NOOP
-        /* MUTANT (Rule 6; make test-int21-mutant only): the unlisted-AH path is
-         * a SILENT no-op -- no diagnostic, no CF. The controlled-scope oracle
-         * must go RED. NEVER define in a real build. */
-        return;
-#else
         /* NOT in the locked register at all -> invalid function. Emit the
          * grep-able serial diagnostic (the controlled MSG-DOS-0002 "Bad command
          * or file name" is the closest console message; here we use the clear,
-         * specific form per spec/int21h_calling_convention.json). */
+         * specific form per kernel/tests/data/int21h_calling_convention.json). */
         con_puts("INT21 unknown AH=");
         con_hex2(ah);
         con_putc('\n');
-#endif
     }
 
     /* Both controlled-scope paths: CF=1, AX=0x0001 (invalid function). */
@@ -5897,7 +5381,7 @@ static void int21_dispatch_body(int_frame_t *frame)
  * the bodies directly. INT 21h is a 0x8F TRAP gate (IF stays set), so an IRQ
  * (PIT IRQ0 / keyboard IRQ1) can be delivered WHILE a syscall is in flight. That
  * is safe today only because the IRQ handlers touch ZERO dispatcher state and
- * never call DOS. The guard ENFORCES that invariant (Rule 2 / Law 2):
+ * never call DOS. The guard ENFORCES that invariant (the repository contract / the repository contract):
  *
  *   - irq_depth() != 0 at entry  =>  an ISR (or a driver it called) issued this
  *     INT 21h -- the FORBIDDEN reentry. Fail loud (dos_reentry_panic) rather than
@@ -5982,18 +5466,18 @@ void KERNEL_ASM_ABI int24_dispatch(int_frame_t *frame)
  * blockdev) calls when a hard sector I/O fails. It RAISES INT 24h by running the
  * real handler over a synthesized frame -- so the SAME MSG-DOS-0001 prompt +
  * A/R/F read + crit_error_action mapping the `int $0x24` software-interrupt path
- * uses is exercised here (Law 2: one code path, one oracle) -- then maps the
+ * uses is exercised here (the repository contract: one code path, one oracle) -- then maps the
  * returned AL to the disk layer's decision:
  *
  *   AL=0 Retry -> return INT21_CRIT_RETRY : the wrapper RE-ISSUES the sector op.
  *   AL=1 Abort -> TERMINATE the current program through the REAL do_terminate
  *                 path (handle/memory/CWD reclaim + the bound exit hook) with the
  *                 DOS abort code 0x23 ('#', "terminated by INT 24h" -- never a
- *                 new teardown, Rule 3), then -- if the exit hook returns (the
+ *                 new teardown, the repository contract), then -- if the exit hook returns (the
  *                 host-oracle default; the kernel hook does NOT return, it
  *                 long-jumps to the loader) -- return INT21_CRIT_FAIL so a stray
  *                 caller still propagates an error rather than continuing as if
- *                 the I/O succeeded (Rule 2 fail-loud).
+ *                 the I/O succeeded (the repository contract fail-loud).
  *   AL=2 Fail  -> return INT21_CRIT_FAIL  : the wrapper propagates the error
  *                 (CF=1 / the DOS error code) up the syscall (current behavior).
  *   Ignore (AL=3) is DEFERRED (the int24 handler never returns it -- the A/R/F
@@ -6018,7 +5502,6 @@ int int21_run_critical_error(int op_is_write, int device_error)
      * data. Use only the driver's explicit NO_DRIVE condition, never an
      * arbitrary read error. The bound FAT data volume is DOS drive A.
      * Wording is the approved ADR-0003 Appendix C / MSG-DOS-0006 form. */
-#ifndef INT21_MUTATE_NOT_READY
     if (!op_is_write && device_error == ATA_ERR_NO_DRIVE) {
         const char *s = MSG_DOS_0006;
         while (*s) {
@@ -6029,9 +5512,6 @@ int int21_run_critical_error(int op_is_write, int device_error)
         }
         con_puts("\r\n");
     }
-#else
-    (void)op_is_write; (void)device_error;
-#endif
 
     /* A zeroed frame with CF preset so we can prove int24 CLEARS it (mirrors the
      * host oracle's fresh_frame; the only fields int24 touches are AL + CF). */
@@ -6040,19 +5520,8 @@ int int21_run_critical_error(int op_is_write, int device_error)
     }
     f.eflags = 0x00000202u | CF_BIT;   /* IF + reserved bit1; CF preset */
 
-#if defined(MVG_MUTATE_NO_RAISE)
-    /* MUTANT (Rule 6; make test-int24-wired-mutant only): return Fail WITHOUT
-     * raising INT 24h -- the regression this bead fixes (a disk error never
-     * presents the operator prompt). MSG-DOS-0001 is never emitted and Retry
-     * never re-issues, so scenarios [A]/[B]/[C]/[D] go RED. NEVER in a real
-     * build. The (void) refs keep -Werror=unused quiet so the mutant still
-     * BUILDS + RUNS. */
-    (void)f; (void)action;
-    return INT21_CRIT_FAIL;
-#else
     int24_dispatch(&f);                /* present MSG-DOS-0001, read A/R/F -> AL */
     action = (uint8_t)(f.eax & 0xFFu);
-#endif
 
     switch (action) {
         case 0u:                       /* Retry */
@@ -6062,7 +5531,7 @@ int int21_run_critical_error(int op_is_write, int device_error)
              * the DOS "terminated by INT 24h" exit code 0x23. do_terminate runs
              * the handle/memory/CWD reclaim then the bound exit hook (which does
              * not return in the kernel build). If it DOES return (host default),
-             * fall through to FAIL so we never report a fake success (Rule 2). */
+             * fall through to FAIL so we never report a fake success (the repository contract). */
             do_terminate(&f, 0x23u);
             return INT21_CRIT_FAIL;
         case 2u:                       /* Fail */
@@ -6072,7 +5541,7 @@ int int21_run_critical_error(int op_is_write, int device_error)
 }
 
 /* ==== INT 25h / 26h ABSOLUTE DISK READ/WRITE (ADR-0003 DEC-15) ==============
- * beads initech-4mq7. Ref: spec/absdisk_int2526.json (the LOCKED contract);
+ * beads initech-4mq7. Ref: kernel/tests/data/absdisk_int2526.json (the LOCKED contract);
  * docs/adr/ADR-0003-AMENDMENT-DEC-15-INT25h-26h-Absolute-Disk-Vectors.md.
  * Two NEW separate software-interrupt vectors over the bound g_absdisk block-
  * device seam -- NOT INT 21h AH functions (AH=25h SETVECT / AH=35h GETVECT are
@@ -6084,26 +5553,15 @@ int int21_run_critical_error(int op_is_write, int device_error)
  * ESI/EDI/EBP, the DEC-04a benign superset) is preserved by the stub's popad. */
 static void absdisk_fail(int_frame_t *f, uint8_t al, uint8_t ah)
 {
-#if defined(ABSDISK_MUTATE_WRONG_ERRCLASS)
-    /* MUTANT M5 (Rule 6): return an INT 21h INT21_ERR_* extended-error code
-     * (the WRONG code space) instead of the absolute-disk AL/AH hardware pair.
-     * The error-AX assertions [8] check the exact ABSDISK_AL_x / ABSDISK_AH_x
-     * values, so they go RED -- proving the test asserts the locked spec-data
-     * contract (the two code spaces are NOT conflated; DEC-15.2 / DEC-15.4). */
-    (void)al; (void)ah;
-    set_ax(f, INT21_ERR_INVALID_FUNCTION);   /* 0x0001 -- a DIFFERENT space */
-    cf_set(f);
-#else
     set_ax(f, (uint16_t)(((uint16_t)ah << 8) | (uint16_t)al));
     cf_set(f);
-#endif
 }
 
 /* The shared decode + validation + I/O route for INT 25h (op_write==0) and INT
  * 26h (op_write==1). The ORDER is fail-loud, BEFORE any I/O (DEC-15.2):
  *   1. reject CX=0xFFFF packet sentinel (never a literal 65535-count; DEC-15.5);
  *   2. validate AL==0 (the single mounted volume; else invalid-drive);
- *   3. no seam bound -> fail loud (never fault, Rule 2);
+ *   3. no seam bound -> fail loud (never fault, the repository contract);
  *   4. CX==0 -> no-op success CF=0 (DOS contract; touch no device);
  *   5. user_buf_ok(EBX, CX*512), guarding CX*512 against 32-bit wrap (DEC-14);
  *   6. bounds-check DX>=total OR DX+CX>total OR DX+CX wraps -> sector-not-found
@@ -6116,65 +5574,42 @@ static void absdisk_fail(int_frame_t *f, uint8_t al, uint8_t ah)
  * register-role SWAP -- EBX is the buffer, DX/EDX the start sector). */
 static void absdisk_body(int_frame_t *frame, int op_write)
 {
-#if defined(ABSDISK_MUTATE_REG_TRANSPOSE)
-    /* MUTANT M3 (Rule 6; make test-absdisk-mutant only): read the start sector
-     * from CX and the count from DX -- the DX/CX register transposition the
-     * DEC-15 register layout forbids. The round-trip writes/reads the WRONG LBA
-     * (and count), so the round-trip + cross-check oracle goes RED. */
-    uint8_t  drive = (uint8_t)(frame->eax & 0xFFu);            /* AL          */
-    uint32_t count = frame->edx & 0xFFFFu;                     /* (DX) wrong  */
-    uint32_t lba   = frame->ecx & 0xFFFFu;                     /* (CX) wrong  */
-#else
     uint8_t  drive = (uint8_t)(frame->eax & 0xFFu);            /* AL          */
     uint32_t count = frame->ecx & 0xFFFFu;                     /* CX          */
     uint32_t lba   = frame->edx & 0xFFFFu;                     /* DX          */
-#endif
     uint32_t buf   = frame->ebx;                               /* EBX         */
     uint32_t bytes;
     int      rc;
 
-#if defined(ABSDISK_MUTATE_OFF_BY_ONE_LBA)
-    /* MUTANT M1 (Rule 6): add a spurious +1 to the LBA -- an absolute call must
-     * NOT offset the LBA. The write lands at scratch+1 and the read at scratch+1
-     * (or the read-back at scratch sees stale), so the round-trip [5] AND the
-     * independent file cross-check [6] go RED. */
-    lba = lba + 1u;
-#endif
 
     /* [1] DOS4+ packet sentinel: reject CF=1 + a grep-able serial diagnostic
      * (the controlled-scope not-yet-impl pattern). NEVER a literal 65535 count
      * read off the end of the volume (DEC-15.5). Surface it as sector-not-found
      * so a caller sees a coherent CF/AX, and emit the marker.
      *
-     * MUTANT M8 (Rule 6; ABSDISK_MUTATE_PACKET_LITERAL): suppress this reject so
+     * MUTANT M8 (the repository contract; ABSDISK_MUTATE_PACKET_LITERAL): suppress this reject so
      * CX=0xFFFF is treated as a LITERAL 65535-sector count -- it then falls into
      * the bounds-check [6] (DX+65535 > total) / off-the-end read, so the packet-
      * rejection oracle leg goes RED (it expected the loud reject). */
-#if !defined(ABSDISK_MUTATE_PACKET_LITERAL)
     if ((frame->ecx & 0xFFFFu) == ABSDISK_PACKET_SENTINEL) {
         con_puts("ABSDISK-PACKET-REJECT\n");   /* DOS4+ CX=0xFFFF, out of scope */
         absdisk_fail(frame, ABSDISK_AL_SECTOR_NOT_FOUND,
                      ABSDISK_AH_SECTOR_NOT_FOUND);
         return;
     }
-#endif
 
     /* [2] Drive: AL is ZERO-BASED EXPLICIT (0=A:). A is always a seam slot;
      * C/D are valid exactly when DEC-18 mounted them (kmain binds their seams,
      * initech-q45q: CHKDSK C:, LABEL D:, MS-DOS 3.3 Reference pp43,86). Any
      * other AL fails loud with invalid-drive (never a silent success, never a
      * fault, never another volume's sectors -- DEC-15.2). */
-#if defined(ABSDISK_MUTATE_DRIVE_A_ONLY)
-    if (drive != 0u) {   /* Rule 6: the pre-q45q single-volume vector */
-#else
     if (drive >= 4u || (drive != 0u && !g_absdisk_bound[drive])) {
-#endif
         absdisk_fail(frame, ABSDISK_AL_INVALID_DRIVE, ABSDISK_AH_INVALID_DRIVE);
         return;
     }
     const int21_absdisk_backend_t *bk = &g_absdisk[drive];
 
-    /* [3] No seam bound -> fail loud, never fault (Rule 2 / DEC-15 C-4). Map to
+    /* [3] No seam bound -> fail loud, never fault (the repository contract / DEC-15 C-4). Map to
      * general failure (the device is unreachable). */
     if (!g_absdisk_bound[drive]) {
         absdisk_fail(frame, ABSDISK_AL_GENERAL_FAILURE,
@@ -6201,17 +5636,9 @@ static void absdisk_body(int_frame_t *frame, int op_write)
     /* [6] Bounds-check against the mounted geometry BEFORE the seam call: a raw
      * LBA at/past EOF must fail loud (never a short/garbage read). DX+CX wrap is
      * a count overflow. All three -> sector-not-found (DEC-15.2). */
-#if defined(ABSDISK_MUTATE_NO_BOUNDS)
-    /* MUTANT M4 (Rule 6): drop the bounds check entirely -- DX>=total then falls
-     * through to the seam (a real backend short-reads / off-the-end), so the
-     * out-of-range / overflow error-path oracle legs [8] go RED (they expected
-     * CF=1 + sector-not-found, not a CF=0 pass-through). */
-    if (0) {
-#else
     if (lba >= bk->total_sectors ||
         (lba + count) < lba ||                 /* DX+CX 32-bit wrap            */
         (lba + count) > bk->total_sectors) {
-#endif
         absdisk_fail(frame, ABSDISK_AL_SECTOR_NOT_FOUND,
                      ABSDISK_AH_SECTOR_NOT_FOUND);
         return;
@@ -6225,20 +5652,7 @@ static void absdisk_body(int_frame_t *frame, int op_write)
                          ABSDISK_AH_WRITE_PROTECT);
             return;
         }
-#if defined(ABSDISK_MUTATE_WRITE_NOOP)
-        /* MUTANT M2 (Rule 6): stub-drop the WRITE -- claim success (rc=0) but do
-         * no I/O. The read-back [5] sees stale bytes and the independent file
-         * cross-check [6] disagrees, so both go RED. */
-        rc = 0;
-#elif defined(ABSDISK_MUTATE_WRITE_NEIGHBOR)
-        /* MUTANT M6 (Rule 6): write count+1 sectors when count was asked -- it
-         * scribbles the ADJACENT sector. The non-corruption snapshot [7] of the
-         * neighbor (and the boot/FAT/root snapshot if scratch-1 is in range) goes
-         * RED. */
-        rc = bk->write(lba, count + 1u, (const void *)(uintptr_t)buf);
-#else
         rc = bk->write(lba, count, (const void *)(uintptr_t)buf);
-#endif
     } else {
         if (bk->read == 0) {
             absdisk_fail(frame, ABSDISK_AL_GENERAL_FAILURE,
@@ -6260,18 +5674,6 @@ static void absdisk_body(int_frame_t *frame, int op_write)
     /* [9] Success: CF=0. */
     cf_clear(frame);
 
-#if defined(ABSDISK_MUTATE_STACK_WART)
-    /* MUTANT M7 (Rule 6): MODEL the leftover-FLAGS-on-stack wart DEC-15.3
-     * deliberately OMITS. The real wart leaves a stray FLAGS word on the caller
-     * stack so the IRETD frame is DESYNCHRONIZED -- the saved EFLAGS the caller
-     * pops is wrong beyond the documented CF. We model that desync by scribbling
-     * the EFLAGS frame OUTSIDE bit 0 (the dispatcher's only sanctioned EFLAGS
-     * output). The oracle's frame-balance assertion verifies the dispatcher
-     * touched ONLY EFLAGS bit 0 (CF) -- every other bit preserved byte-identical,
-     * the uniform-IRETD/balanced-frame guarantee -- so this mutant goes RED.
-     * NEVER in a real build: the real stub returns a balanced frame. */
-    frame->eflags ^= 0x00000800u;   /* flip a non-CF bit (the desync) */
-#endif
 }
 
 static void int25_dispatch_body(int_frame_t *frame)
@@ -6287,7 +5689,7 @@ static void int26_dispatch_body(int_frame_t *frame)
 /* INT 25h/26h share the SAME reentrancy guard + InDOS bracket as INT 21h/24h
  * (DEC-15.1, Consequence C-7): they share the FAT/sector scratch with INT 21h,
  * so an ISR (or a driver it calls) issuing `int 0x25`/`int 0x26` would corrupt
- * an interrupted syscall -- the guard fails loud first (Rule 2). The bodies
+ * an interrupted syscall -- the guard fails loud first (the repository contract). The bodies
  * RETURN a result + CF (do_terminate is not on their path), so each g_indos--
  * runs. MIRRORS int24_dispatch exactly. */
 void KERNEL_ASM_ABI int25_dispatch(int_frame_t *frame)

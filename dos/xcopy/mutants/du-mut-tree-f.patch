@@ -1,0 +1,12 @@
+# DU_MUT_TREE_F
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -356,6 +356,7 @@
+         }
+     }
+     if (tree) {
++        files=0;
+         /* TREE [d:] lists the whole drive (MS-DOS 3.3 Reference p.122):
+          * an empty operand or a bare "d:" names that drive's root. */
+         char root[4]={'\\',0,0,0};

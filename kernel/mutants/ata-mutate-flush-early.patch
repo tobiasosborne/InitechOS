@@ -1,0 +1,15 @@
+# ATA_MUTATE_FLUSH_EARLY
+# test: test-ata
+--- a/ata.c
++++ b/ata.c
+@@ -410,10 +410,6 @@
+ 	/* CACHE FLUSH so the write buffer is committed before any read sees it
+ 	 * (the repository contract / the repository contract: a subsequent read of what we wrote must be authoritative,
+ 	 * not a stale-cache artifact). FLUSH transfers no data -> wait BSY-clear. */
+-	rc = ata_wait_ready(io_base, ctrl_base);
+-	if (rc != 0) return rc;
+-	rc = ata_wait_command(io_base);
+-	if (rc != 0) return rc;
+ 	outb((uint16_t)(io_base + ATA_REG_COMMAND), ATA_CMD_CACHE_FLUSH);
+ 	rc = ata_wait_ready(io_base, ctrl_base);
+ 	if (rc != 0) {

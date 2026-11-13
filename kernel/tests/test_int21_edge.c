@@ -2,29 +2,29 @@
  * the implemented-but-untested resident functions (beads initech-xrd,
  * initech-1zk; double-close part of initech-00x). Factory test: libc OK, reuses
  * seed/test_assert.h. Drives the REAL artifact int21_dispatch with a MOCK file
- * backend, exactly as os/milton/test_fileio.c does.
+ * backend, exactly as kernel/tests/test_fileio.c does.
  *
  * These are CONTRACT / CHARACTERIZATION tests: they assert the REAL current
- * behavior of the handlers (against the code + spec/int21h_calling_convention.json
+ * behavior of the handlers (against the code + kernel/tests/data/int21h_calling_convention.json
  * error codes 0x0002/0x0003/0x0005/0x0006/0x0009 + the GETVER lock), NOT idealized
  * DOS. Where a handler's behavior differs from textbook DOS (e.g. SELDISK/GETDISK
  * single-drive, GETCWD always-root, double-close returns invalid-handle) the test
  * pins what THIS kernel does so a future change to that contract is caught.
  *
- * Ref: os/milton/int21.c (do_read 0x3F / do_write 0x40 / do_close 0x3E /
+ * Ref: kernel/int21.c (do_read 0x3F / do_write 0x40 / do_close 0x3E /
  *      do_lseek 0x42 / do_seldisk 0x0E / do_getdisk 0x19 / do_getcwd 0x47 /
- *      do_geterr 0x59 / do_getpsp 0x62), os/milton/sft.c (sft_from_handle,
+ *      do_geterr 0x59 / do_getpsp 0x62), kernel/sft.c (sft_from_handle,
  *      sft.c:195 ref_count>0 guard), int21.c:984 do_close ref_count>0 guard;
- *      spec/int21h_calling_convention.json; CLAUDE.md Law 2 (oracle is truth),
- *      Rule 6 (mutation-prove), Rule 12 (ASCII).
+ *      kernel/tests/data/int21h_calling_convention.json; the repository contract (oracle is truth),
+ *      the repository contract (mutation-prove), the repository contract (ASCII).
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DINT21_MUTATE_CLOSE_NO_REFGUARD : do_close drops the int21.c:984 ref_count>0
  *       guard, so a CLOSE of a slot whose ref_count is already 0 UNDERFLOWS the
  *       uint16 to 0xFFFF (the corruption beads initech-00x flagged). The
  *       ref_count-no-underflow oracle goes RED.
  *
- * NULL/!valid EDX policy (CLAUDE.md Rule 2 / beads initech-tzq, CLOSED): do_read
+ * NULL/!valid EDX policy (the repository contract / beads initech-tzq, CLOSED): do_read
  * and do_write BOTH validate EDX via the shared `user_buf_ok` guard (do_write's
  * guard runs right after the handle lookup; do_read's DEVICE-branch guards
  * before dev_route_rw/the CON cooked-line copy, and its FILE-branch guard runs
@@ -460,7 +460,7 @@ int main(void)
     }
 
     /* =====================================================================
-     * 2. NULL / !valid EDX -- ONLY for handlers that GUARD it (Rule 2).
+     * 2. NULL / !valid EDX -- ONLY for handlers that GUARD it (the repository contract).
      * ===================================================================== */
 
     /* --- do_open GUARDS NULL EDX: OPEN with EDX=0 -> CF=1, AX=0x0002 ----- *
@@ -658,7 +658,7 @@ int main(void)
               "GETPSP BX = (current PSP flat address >> 4) -- the flat-model paragraph");
     }
 
-    /* --- AH=30h GET VERSION lock (spec/int21h_calling_convention.json): the
+    /* --- AH=30h GET VERSION lock (kernel/tests/data/int21h_calling_convention.json): the
      *     GETVER contract is pinned -- AL=major, AH=minor, BH zeroed -- so a
      *     drift in the version constants is caught here too. ------------------ */
     {

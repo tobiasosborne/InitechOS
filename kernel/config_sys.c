@@ -1,14 +1,14 @@
 /* config_sys.c -- PURE CONFIG.SYS parser (beads initech-509.2).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding (-ffreestanding -nostdlib),
+ * THE ARTIFACT (the repository contract): freestanding (-ffreestanding -nostdlib),
  * <stdint.h> only, NO libc / NO malloc. Pure text -> dos_config_t transformation,
  * so it compiles BOTH freestanding (the kernel SYSINIT) and HOSTED (test_config_sys.c).
  *
- * Ref (Law 1): spec/dos_config_sys_baseline.txt (LOCKED, Rule 8); DOS 3.3
+ * Ref (the repository contract): kernel/tests/data/dos_config_sys_baseline.txt (LOCKED, the repository contract); DOS 3.3
  *   CONFIG.SYS directive semantics (case-insensitive keyword=value; blank /
  *   ';'-comment / unknown lines skipped, NOT fatal; numeric clamp). config_sys.h
- *   for the struct + bounds. Rule 2 (fail loud on a PROGRAMMER bug only),
- *   Rule 11 (deterministic), Rule 12 (ASCII).
+ *   for the struct + bounds. the repository contract (fail loud on a PROGRAMMER bug only),
+ *   the repository contract (deterministic), the repository contract (ASCII).
  */
 
 #include "config_sys.h"
@@ -73,25 +73,11 @@ static uint32_t cfg_parse_uint(const char *s, uint32_t len, int *out_any)
         }
         any = 1;
         uint32_t digit = (uint32_t)(c - '0');
-#if defined(CONFIG_MUTATE_NO_OVERFLOW_GUARD)
-        /* Rule-6 mutant (make test-config-fuzz-mutant): REMOVE the overflow guard
-         * entirely, so a 10+ digit FILES=/BUFFERS= value silently wraps the uint32
-         * accumulator (modular *10+d) instead of saturating -> the fuzzer's
-         * saturate-and-clamp-to-MAX invariant goes RED. NEVER in a real build. */
-#elif defined(CONFIG_MUTATE_OVERFLOW_OFFBYONE)
-        /* Rule-6 mutant (make test-config-fuzz-mutant): the ORIGINAL off-by-one
-         * guard (initech-zfo). `v > 429496729` lets v==429496729 with a trailing
-         * digit >=6 fall through and wrap past UINT32_MAX (e.g. "4294967296" -> 0
-         * -> clamps to FILES_MIN instead of saturating to MAX). Proves the
-         * corrected guard below actually bites the 2^32-family. NEVER in a real build. */
-        if (v > 429496729u) { v = 0xFFFFFFFFu; continue; }
-#else
         /* Saturate at 0xFFFFFFFF (the documented contract). Guard the EXACT
          * overflow of v*10+digit: the previous `v > 429496729` form let
          * v==429496729 with digit>=6 wrap past UINT32_MAX (bug initech-zfo --
          * "4294967296" wrapped to 0 and clamped to FILES_MIN, not MAX). */
         if (v > (0xFFFFFFFFu - digit) / 10u) { v = 0xFFFFFFFFu; continue; }
-#endif
         v = v * 10u + digit;
     }
     if (out_any) {
@@ -121,7 +107,7 @@ static uint32_t cfg_copy_clamped(char *dst, uint32_t cap, const char *s, uint32_
 int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
 {
     if (out == 0) {
-        /* Programmer bug, NOT user content -> fail loud (Rule 2). */
+        /* Programmer bug, NOT user content -> fail loud (the repository contract). */
         CONFIG_FAIL_LOUD();
         return 0; /* not reached */
     }
@@ -169,12 +155,6 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
             eq++;
         }
         if (eq >= line_end) {
-#ifdef CONFIG_MUTATE_FAIL_ON_UNKNOWN
-            /* Rule-6 mutant target (make test-config-sys-mutant): treat an
-             * unrecognized line as FATAL (real DOS does NOT) -> the "unknown
-             * ignored" assertions go RED. NEVER define in a real build. */
-            return -1;
-#endif
             continue; /* no '=' -> unrecognized directive, skip (NOT fatal) */
         }
 
@@ -207,12 +187,6 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
             if (any) {
                 if (n < CONFIG_SYS_FILES_MIN) { n = CONFIG_SYS_FILES_MIN; }
                 if (n > CONFIG_SYS_FILES_MAX) { n = CONFIG_SYS_FILES_MAX; }
-#ifdef CONFIG_MUTATE_FILES_OFFBYONE
-                /* Rule-6 mutant target (make test-config-sys-mutant): off-by-one
-                 * on the parsed FILES value -> test goes RED on files==20. NEVER
-                 * define in a real build. */
-                n += 1u;
-#endif
                 out->files = (uint16_t)n;
                 out->files_present = 1u;
                 recognized++;
@@ -289,10 +263,6 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
             /* else: unrecognized BREAK= value -> ignored (lenient), not fatal. */
         } else {
             /* Unknown directive (keyword had no match) -> DOS ignores it. */
-#ifdef CONFIG_MUTATE_FAIL_ON_UNKNOWN
-            /* Rule-6 mutant: an unknown keyword is FATAL -> RED. */
-            return -1;
-#endif
         }
     }
 

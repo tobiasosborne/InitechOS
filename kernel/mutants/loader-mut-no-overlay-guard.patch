@@ -1,0 +1,23 @@
+# LOADER_MUT_NO_OVERLAY_GUARD
+# test: test-loader
+--- a/loader_validation.c
++++ b/loader_validation.c
+@@ -28,18 +28,6 @@
+ {
+     if (image == 0 || image_len < TRANSIENT_MAGIC_LEN) {
+         return 0;
+-    }
+-    /* ADR-0014 DEC-14-2: C:\FLAIR.OVL (spec/overlay_format.h, magic
+-     * "FLAIROVL") is a kernel overlay, never a program: DOS EXEC error 11 like
+-     * the transient. Compared as two little-endian dwords ("FLAI", "ROVL"), so
+-     * the contiguous byte string stays out of every kernel that does not load
+-     * the overlay (tools/mk_boot_system.sh keys on it). MUTANT
+-     * LOADER_MUT_NO_OVERLAY_GUARD: test-loader-mutant only. */
+-    if (((uint32_t)image[0] | (uint32_t)image[1] << 8 | (uint32_t)image[2] << 16 |
+-         (uint32_t)image[3] << 24) == 0x49414C46u &&
+-        ((uint32_t)image[4] | (uint32_t)image[5] << 8 | (uint32_t)image[6] << 16 |
+-         (uint32_t)image[7] << 24) == 0x4C564F52u) {
+-        return 1;
+     }
+     uint32_t m = 0u;
+     while (m < TRANSIENT_MAGIC_LEN && image[m] == (uint8_t)TRANSIENT_MAGIC[m]) {

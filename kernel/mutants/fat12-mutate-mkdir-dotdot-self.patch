@@ -1,0 +1,17 @@
+# FAT12_MUTATE_MKDIR_DOTDOT_SELF
+# test: test-fat12-mkdir
+--- a/fat12.c
++++ b/fat12.c
+@@ -3870,7 +3870,11 @@
+ 	for (k = 0u; k < 32u; k++) {
+ 		cb[k] = ((const uint8_t *)&de)[k];
+ 	}
+-	fat12_make_dotdir(&de, 2, parent_dir_start); /* '..' -> parent (root=0) */
++	/* MUTANT m2 (the repository contract; make test-fat12-mkdir-mutant only) -- THE canonical
++	 * '..'-rule mutant: write '..' start = the dir's OWN cluster instead of the
++	 * parent (root encoded as 0). The mmd '..' diff must go RED. NEVER define in
++	 * a real build. */
++	fat12_make_dotdir(&de, 2, newc);
+ 	for (k = 0u; k < 32u; k++) {
+ 		cb[32u + k] = ((const uint8_t *)&de)[k];
+ 	}

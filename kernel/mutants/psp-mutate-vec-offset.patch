@@ -1,0 +1,19 @@
+# PSP_MUTATE_VEC_OFFSET
+# test: test-int24
+--- a/psp.c
++++ b/psp.c
+@@ -350,7 +350,13 @@
+     }
+     psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC22_OFF], v22);
+     psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC23_OFF], v23);
+-    psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC24_OFF], v24);
++    /* MUTANT (the repository contract; make test-int24-mutant only): write the 24h vector at the
++     * 23h slot (offset 4) instead of its own slot (offset 8) -- a mis-placed
++     * save. The EXIT restore would then reinstall the wrong handler for 0x24, so
++     * the round-trip oracle [3] (v24 stored at saved_vectors[8..11]; load recovers
++     * v24) goes RED. This is the mutation that PROVES the emu gate's reliance on
++     * the save/restore offsets is real. NEVER define in a real build. */
++    psp_put_u32_le(&psp->saved_vectors[PSP_SAVED_VEC23_OFF], v24);
+ }
+ 
+ void psp_load_vectors(const psp_t *psp, uint32_t *v22, uint32_t *v23,

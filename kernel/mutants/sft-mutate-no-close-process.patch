@@ -1,0 +1,17 @@
+# SFT_MUTATE_NO_CLOSE_PROCESS
+# test: test-sft
+--- a/sft.c
++++ b/sft.c
+@@ -316,12 +316,6 @@
+             continue;   /* defensive: only file/device kinds are reclaimable */
+         }
+ 
+-        /* the repository contract mutant target (make test-exit-handles-mutant): WITHOUT this
+-         * release the exiting process's FILE slots leak -- an EXEC chain of a
+-         * leaky child exhausts the 16 file slots and a later OPEN fails. The
+-         * in-emulator oracle goes RED. NEVER define in a real build. */
+-        sft_release(idx);
+-        psp->jft[h] = JFT_CLOSED;
+     }
+ }
+ 

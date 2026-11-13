@@ -1,38 +1,33 @@
 /*
  * os/initechdos/fat12.c -- FAT12 volume mount + BPB parse (INITECHDOS).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code. Freestanding
+ * THE ARTIFACT (the repository contract): shipped InitechDOS kernel code. Freestanding
  * C -- only <stdint.h> / <stddef.h>, NO libc, NO malloc. Buffers are caller-
  * provided. Builds freestanding (target) and hosted (factory oracle).
  *
- * Ref (Law 1):
+ * Ref (the repository contract):
  *   - PRD Sec 6.1 (InitechDOS FAT/disk path).
  *   - ADR-0003 DEC-07 (Sec 5.7): "boot sector; first FAT; second (redundant)
  *     FAT; fixed-size root directory; data area."
  *   - docs/research/fat12-ground-truth.md:
  *       Sec 1 (BPB layout), Sec 2 (derived geometry + FAT type rule).
- *   - spec/dos_structs.h (locked bpb_t, BPB_* geometry macros).
+ *   - kernel/include/dos_structs.h (locked bpb_t, BPB_* geometry macros).
  *
  * This slice implements mount/parse/classify (prior step) plus FAT12 12-bit
  * entry decode + cluster-chain walk (this step). Dir enumerate and file read
  * are the next tasks (declared TODO in fat12.h).
  *
- * ASCII-clean (Rule 12). Reproducible: no timestamps / host paths (Rule 11).
+ * ASCII-clean (the repository contract). Reproducible: no timestamps / host paths (the repository contract).
  */
 
 #include "fat12.h"
 
-/* IBM DOS 3.30 TR pp2-31,4-17,5-8..9; spec/dos_structs.h:
+/* IBM DOS 3.30 TR pp2-31,4-17,5-8..9; kernel/include/dos_structs.h:
  * clusters are allocation units, not scratch-buffer units. Stream their
  * sectors through the kernel's fixed 512-byte buffer (PRD Sec 6.1). */
 static uint32_t cluster_lba(const fat12_volume_t *v, uint16_t cluster)
 {
-#ifdef FAT_MUT_SPC_ONE
-	/* Rule 6: ignore the BPB multiplier; the mtools differential must bite. */
-	return v->first_data_sector + (uint32_t)cluster - 2u;
-#else
 	return BPB_CLUSTER_LBA(&v->bpb, cluster);
-#endif
 }
 
 static int cluster_read(const fat12_volume_t *v, uint32_t lba, uint32_t off,
@@ -62,12 +57,8 @@ static int cluster_splice(const fat12_volume_t *v, uint32_t lba, uint32_t off,
 		uint32_t n = BLOCKDEV_SECTOR_SIZE - pos;
 		uint32_t sector = lba + off / BLOCKDEV_SECTOR_SIZE;
 		if (n > len) n = len;
-#ifdef FAT12_MUTATE_PARTIAL_NO_RMW
-		for (uint32_t i = 0u; i < BLOCKDEV_SECTOR_SIZE; i++) buf[i] = 0u;
-#else
 		if ((pos || n != BLOCKDEV_SECTOR_SIZE) &&
 		    fat12_read_sectors(v, sector, 1u, buf)) return FAT12_ERR_READ;
-#endif
 		for (uint32_t i = 0u; i < n; i++) buf[pos + i] = src ? src[i] : 0u;
 		if (fat12_write_sectors(v, sector, 1u, buf)) return FAT12_ERR_WRITE;
 		if (src) src += n;
@@ -95,7 +86,7 @@ static int cluster_fill(const fat12_volume_t *v, uint32_t lba,
 
 /* Read a little-endian uint16 from an unaligned byte pointer. The on-disk BPB
  * is little-endian (brief Sec 1 / RISK-4); reading the boot signature this way
- * avoids any host-endianness assumption (Rule 11 reproducibility). */
+ * avoids any host-endianness assumption (the repository contract reproducibility). */
 static uint16_t rd_le16(const uint8_t *p)
 {
 	return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
@@ -118,7 +109,7 @@ static int boot_bpb(const uint8_t *p)
 }
 
 /* The single offset seam. DOS logical sector 0 is the VBR, never the MBR.
- * Bounds use subtraction before addition (Rule 2, including 32-bit wrap).
+ * Bounds use subtraction before addition (the repository contract, including 32-bit wrap).
  * Ref: IBM TR pp9-3,6-24..25; ADR-0003 DEC-07a Sec5.3 / DEC-15. */
 static int sector_range(const fat12_volume_t *v, uint32_t s, uint32_t n)
 {
@@ -153,7 +144,7 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 	uint32_t root_dir_sectors;
 	uint32_t partition_sectors = 0u;
 
-	/* Fail loud on NULLs (Rule 2): a missing dev or buffer is a programming
+	/* Fail loud on NULLs (the repository contract): a missing dev or buffer is a programming
 	 * error, not something to paper over. */
 	if (vol == NULL || dev == NULL || sector_buf == NULL ||
 	    dev->read_sectors == NULL) {
@@ -163,7 +154,7 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 	/* No windowed FAT reader by default (beads initech-d27i): the historical
 	 * whole-FAT path stays byte-identical for every caller that does not opt in.
 	 * Set BEFORE any further early return so a partially-validated vol never
-	 * carries a garbage fat_window pointer (Rule 2 -- an uninitialized pointer
+	 * carries a garbage fat_window pointer (the repository contract -- an uninitialized pointer
 	 * would route the decode through junk and crash). fileio_fat_bind installs a
 	 * window for a FAT16 volume; a unit caller that walks via a whole-FAT buffer
 	 * leaves this NULL. */
@@ -181,13 +172,9 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 
 	/* Validate the 0xAA55 boot signature at offset 510 (brief Sec 1). */
 	sig = rd_le16(sec + FAT12_BOOTSIG_OFFSET);
-#ifndef FAT_PART_MUT_SIGNATURE
 	if (sig != FAT12_BOOTSIG_VALUE) {
 		return FAT12_ERR_SIGNATURE;
 	}
-#else
-	(void)sig; /* Rule 6: accept a missing MBR signature. */
-#endif
 
 	if (primary || !boot_bpb(sec)) {
 		uint32_t chosen = 0u;
@@ -199,9 +186,6 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 			if (e[0] != 0u && e[0] != 0x80u) return FAT12_ERR_PARTITION;
 			if (e[0] == 0x80u && ++active > 1u) return FAT12_ERR_PARTITION;
 			if (type == 1u || type == 4u || type == 6u
-#ifdef FAT_PART_MUT_EXTENDED
-			    || type == 5u /* Rule 6: extended container is NOT a FAT volume. */
-#endif
 			   ) {
 				if (primary ? i+1u == primary : (!chosen || e[0] == 0x80u))
                     chosen = 446u + i * 16u;
@@ -213,9 +197,6 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 		if (!vol->base_lba || !partition_sectors ||
 		    partition_sectors > UINT32_MAX - vol->base_lba)
 			return FAT12_ERR_PARTITION;
-#ifdef FAT_PART_MUT_IGNORE_BASE
-		vol->base_lba = 0u; /* Rule 6: read the MBR as the BPB, not LBA 63. */
-#endif
 		if (dev->read_sectors(dev->ctx, vol->base_lba, 1u, sector_buf))
 			return FAT12_ERR_READ;
 		if (rd_le16(sec + FAT12_BOOTSIG_OFFSET) != FAT12_BOOTSIG_VALUE)
@@ -224,7 +205,7 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 	}
 
 	/* Copy the BPB (offsets 0x00..0x3D, the first 62 bytes; brief Sec 6 /
-	 * spec/dos_structs.h). bpb_t is packed, so a byte-wise copy from the
+	 * kernel/include/dos_structs.h). bpb_t is packed, so a byte-wise copy from the
 	 * boot sector reproduces the on-disk little-endian layout exactly. */
 	{
 		uint8_t *dst = (uint8_t *)&vol->bpb;
@@ -241,33 +222,20 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 		return FAT12_ERR_PARTITION;
 
 	/* Sector size must be 512 (brief Sec 1; BLOCKDEV_SECTOR_SIZE). Anything
-	 * else means a non-floppy or corrupt BPB -- fail loud (Rule 2). */
+	 * else means a non-floppy or corrupt BPB -- fail loud (the repository contract). */
 	if (vol->bpb.bytes_per_sector != BLOCKDEV_SECTOR_SIZE) {
 		return FAT12_ERR_SECTOR_SIZE;
 	}
 
 	/* Geometry sanity: divisors must be nonzero before we use them. A zero
 	 * sectors_per_cluster / num_fats / sectors_per_fat / total sectors is
-	 * nonsense geometry, not a usable volume (Rule 2 -- panic-grade). */
-#ifdef FAT12_MUTATE_ACCEPT_BAD_BPB
-	/* MUTANT (Rule 6; test-fat-corrupt-fuzz-mutant only): REMOVE the
-	 * sectors_per_cluster==0 nonsense-geometry guard, so a malformed BPB
-	 * (sectors_per_cluster 0) is ACCEPTED at mount instead of failing loud
-	 * with FAT12_ERR_GEOMETRY. The corruption fuzzer's bad-BPB leg asserts
-	 * FAT12_ERR_GEOMETRY and must go RED. NEVER define in a real build. */
-	if (vol->bpb.num_fats == 0u ||
-	    vol->bpb.sectors_per_fat == 0u ||
-	    vol->bpb.root_entry_count == 0u) {
-		return FAT12_ERR_GEOMETRY;
-	}
-#else
+	 * nonsense geometry, not a usable volume (the repository contract -- panic-grade). */
 	if (vol->bpb.sectors_per_cluster == 0u ||
 	    vol->bpb.num_fats == 0u ||
 	    vol->bpb.sectors_per_fat == 0u ||
 	    vol->bpb.root_entry_count == 0u) {
 		return FAT12_ERR_GEOMETRY;
 	}
-#endif
 
 	/* total_sectors: 16-bit field, or the 32-bit field when it is zero
 	 * (brief Sec 1 note on total_sectors_32). */
@@ -281,7 +249,7 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 		return FAT12_ERR_PARTITION;
 	vol->total_sectors = total_sectors;
 
-	/* Derived geometry (brief Sec 2; macros in spec/dos_structs.h). */
+	/* Derived geometry (brief Sec 2; macros in kernel/include/dos_structs.h). */
 	vol->dev              = dev;
 	vol->first_fat_sector = BPB_FAT1_SECTOR(&vol->bpb);
 	vol->root_dir_sector  = BPB_ROOT_DIR_SECTOR(&vol->bpb);
@@ -311,15 +279,6 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 	 * the fs_type string is informational and unreliable). */
 	if (vol->total_clusters < FAT12_MAX_CLUSTERS) {
 		vol->fat_type = FAT_TYPE_FAT12;
-#ifdef FAT16_MUTATE_NO_CLASSIFY
-	} else if (vol->total_clusters < FAT16_MAX_CLUSTERS) {
-		/* MUTANT (Rule 6; test-fat16 mutant M5 only): a FAT16 volume is
-		 * classified FAT12, so fat12_next_cluster runs the 12-bit decode on a
-		 * 16-bit FAT. Every chain decodes to garbage -> the FAT16 read oracle
-		 * goes RED. This proves the cluster-count classification + the fat_type
-		 * dispatch are load-bearing. NEVER define in a real build. */
-		vol->fat_type = FAT_TYPE_FAT12;
-#else
 	} else if (vol->total_clusters < FAT16_MAX_CLUSTERS) {
 		/* A real FAT16 volume (beads initech-z01, READ-ONLY, non-partitioned).
 		 * FAT16 is ACCEPTED now: the link decode + EOC/bad thresholds differ for
@@ -328,11 +287,10 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 		 * fat_type) + vol-aware classify helpers (chain_is_eoc/_free/_bad), so a
 		 * FAT16 volume reads correctly with no 12-bit mis-decode (the bcg.4
 		 * concern that previously forced a reject) and the FAT12 path stays
-		 * byte-identical. Ref (Law 1): docs/research/fat16-ground-truth.md
+		 * byte-identical. Ref (the repository contract): docs/research/fat16-ground-truth.md
 		 * Sec 0/2/3; Microsoft FAT spec Sec 3.2. WRITE is deferred (509.11);
 		 * the FAT12 WRITE primitives are never invoked on a FAT16 volume. */
 		vol->fat_type = FAT_TYPE_FAT16;
-#endif /* FAT16_MUTATE_NO_CLASSIFY */
 	} else {
 		/* FAT32 is out of scope for this slice; do not silently mis-handle. */
 		return FAT12_ERR_GEOMETRY;
@@ -344,7 +302,7 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 /*
  * fat12_read_fat -- read the entire first FAT contiguously (brief RISK-1).
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md RISK-1 -- "read the entire
+ * Ref (the repository contract): docs/research/fat12-ground-truth.md RISK-1 -- "read the entire
  *   FAT into memory ... eliminates the boundary case entirely." The first FAT
  *   begins at vol->first_fat_sector (= reserved_sectors) and spans
  *   sectors_per_fat sectors (brief Sec 2).
@@ -373,7 +331,7 @@ int fat12_read_fat(const fat12_volume_t *vol, void *fat_buf, uint32_t fat_buf_le
 	fat_bytes = (uint32_t)vol->bpb.sectors_per_fat *
 	            (uint32_t)vol->bpb.bytes_per_sector;
 
-	/* Fail loud if the caller's buffer cannot hold the whole FAT (Rule 2):
+	/* Fail loud if the caller's buffer cannot hold the whole FAT (the repository contract):
 	 * a partial FAT would silently misdecode straddling entries. */
 	if (fat_buf_len < fat_bytes) {
 		return FAT12_ERR_BUFFER;
@@ -399,7 +357,7 @@ int fat12_read_fat(const fat12_volume_t *vol, void *fat_buf, uint32_t fat_buf_le
  * load-bearing hazard: a FAT12 12-bit entry can STRADDLE a sector boundary
  * (off (c*3)/2 == k*512+511), so the fetch MUST pull BOTH sectors. FAT16 entries
  * (off c*2, always even) never straddle (an even offset's high byte is at most
- * 510 within a sector). Ref (Law 1): docs/research/fat12-ground-truth.md RISK-1
+ * 510 within a sector). Ref (the repository contract): docs/research/fat12-ground-truth.md RISK-1
  * (straddle), Sec 3 (decode); docs/research/fat16-ground-truth.md Sec 2/3.
  * ------------------------------------------------------------------------ */
 
@@ -454,7 +412,7 @@ int fat12_read_fat_sector(const fat12_volume_t *vol, uint16_t cluster,
 	}
 
 	/* The entry spans bytes abs_off..abs_off+1; both must lie inside the FAT
-	 * (Rule 2 -- never read past the FAT / off an out-of-volume cluster). */
+	 * (the repository contract -- never read past the FAT / off an out-of-volume cluster). */
 	fat_bytes = (uint32_t)vol->bpb.sectors_per_fat * sec_bytes;
 	if (abs_off + 1u >= fat_bytes) {
 		return FAT12_ERR_CLUSTER;
@@ -464,17 +422,7 @@ int fat12_read_fat_sector(const fat12_volume_t *vol, uint16_t cluster,
 	/* The entry straddles iff its high byte (abs_off+1) lands in the NEXT sector,
 	 * i.e. abs_off is the last byte of its sector. Only FAT12 can hit this. */
 	straddle  = ((abs_off % sec_bytes) == (sec_bytes - 1u));
-#ifndef FAT12_MUT_D27I_NO_STRADDLE
 	need_count = straddle ? 2u : 1u;
-#else
-	/* MUTANT (Rule 6; test-d27i-mutant only): IGNORE the straddle -- always fetch
-	 * a SINGLE sector. A straddling FAT12 entry's high nibble then reads from
-	 * STALE/uninitialized window bytes (abs_off+1 is past the one sector loaded),
-	 * so cluster 341/682 mis-decode and the byte-for-byte read goes RED. This
-	 * proves the BOTH-sector straddle fetch is load-bearing. NEVER in a real build. */
-	(void)straddle;
-	need_count = 1u;
-#endif
 
 	/* The window must be able to hold need_count sectors (>= 2 for a straddle). */
 	if (win->buf_len < need_count * sec_bytes) {
@@ -486,16 +434,7 @@ int fat12_read_fat_sector(const fat12_volume_t *vol, uint16_t cluster,
 	 * bookkeeping first_sec used for the in-window offset below), so the window
 	 * holds the WRONG sector's bytes while *out_off stays in-bounds -- a clean
 	 * garbage-data RED, not an out-of-bounds crash. */
-#ifndef FAT12_MUT_D27I_FATSEC_OFFBYONE
 	uint32_t read_first_sec = first_sec;
-#else
-	/* MUTANT (Rule 6; test-d27i-mutant only): off-by-one FAT sector index -- fetch
-	 * the sector AFTER the one holding the entry. Every windowed decode then reads
-	 * the wrong FAT sector's bytes, so every chain link is garbage and the read
-	 * goes RED. This proves the FAT sector index is load-bearing. NEVER in a real
-	 * build. */
-	uint32_t read_first_sec = first_sec + 1u;
-#endif
 
 	/* Tiny cache: if the needed sector(s) are already resident, skip the device
 	 * read (the common case in a sequential chain walk -- consecutive clusters
@@ -534,7 +473,7 @@ static uint16_t fat12_last_cluster(const fat12_volume_t *vol);
  * whole-FAT buffer -- so the buffer-bounds check in fat12_next_cluster does NOT
  * catch it. Used as an LBA it would silently map to a wrong (or out-of-volume)
  * sector. This explicit upper bound is the only thing that catches it (bcg.3).
- * Ref: docs/research/fat12-ground-truth.md Sec 2-3; CLAUDE.md Rule 2. */
+ * Ref: docs/research/fat12-ground-truth.md Sec 2-3; the repository contract. */
 static int fat12_cluster_in_range(const fat12_volume_t *vol, uint16_t c)
 {
 	return c >= FAT12_FIRST_DATA_CLUSTER && c <= fat12_last_cluster(vol);
@@ -546,7 +485,7 @@ static int fat12_cluster_in_range(const fat12_volume_t *vol, uint16_t c)
  * a mask: FAT16 is a flat little-endian uint16_t array, byte_offset = cluster*2,
  * no nibble packing, no even/odd case.
  *
- * Ref (Law 1): docs/research/fat16-ground-truth.md Sec 3 --
+ * Ref (the repository contract): docs/research/fat16-ground-truth.md Sec 3 --
  *   byte_offset = N*2;  entry = fat[off] | (fat[off+1]<<8).
  * Worked examples (CHAIN16.TXT 3->4->5->6->EOC; cluster 7 entry 0x0008)
  * verified there against a real mkfs.fat -F 16 image.
@@ -568,7 +507,6 @@ int fat16_next_cluster(const fat12_volume_t *vol, const void *fat,
 	 * returns the in-window offset; the decode below is byte-identical, just over
 	 * the window buffer rather than the caller's `fat`. FAT16 entries (cluster*2)
 	 * never straddle, so a 1-sector fetch always suffices. */
-#ifndef FAT12_MUT_D27I_NO_WINDOW_DISPATCH
 	if (vol != NULL && vol->fat_window != NULL) {
 		uint32_t win_off;
 		int      rc = fat12_read_fat_sector(vol, cluster, &win_off);
@@ -577,21 +515,9 @@ int fat16_next_cluster(const fat12_volume_t *vol, const void *fat,
 		}
 		b   = vol->fat_window->buf;
 		off = win_off;
-#ifndef FAT16_MUTATE_ENTRY_MASK12
 		*out_next = (uint16_t)((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8));
-#else
-		*out_next = (uint16_t)(((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8))
-		                       & FAT12_ENTRY_MASK);
-#endif
 		return FAT12_OK;
 	}
-#else
-	/* MUTANT (Rule 6; test-d27i-mutant only): DROP the windowed dispatch -- a
-	 * FAT16 volume then falls through to the whole-FAT path below and, given the
-	 * windowed callers pass fat==NULL, fails FAT12_ERR_NULL. This proves the
-	 * windowed dispatch is what lets a FAT16 volume read without the whole FAT.
-	 * NEVER define in a real build. */
-#endif
 
 	(void)vol; /* whole-FAT path: decode is a pure function of the flat buffer */
 
@@ -604,36 +530,19 @@ int fat16_next_cluster(const fat12_volume_t *vol, const void *fat,
 		return FAT12_ERR_CLUSTER;
 	}
 
-#ifndef FAT16_MUTATE_ENTRY_OFFSET
 	/* byte_offset = cluster*2 (FAT16 entry stride; brief Sec 3). */
 	off = (uint32_t)cluster * 2u;
-#else
-	/* MUTANT (Rule 6; test-fat16 mutant M1 only): off-by-one entry offset --
-	 * read a MISALIGNED 16-bit word (cluster*2 + 1). Every chain link decodes
-	 * to garbage, so the FAT16 differential (chain walk / file content) goes
-	 * RED. NEVER define in a real build. */
-	off = (uint32_t)cluster * 2u + 1u;
-#endif
 	/* Both b[off] and b[off+1] must be in range -- bounds-check before reading
-	 * (Rule 2). Catches an out-of-volume cluster index. */
+	 * (the repository contract). Catches an out-of-volume cluster index. */
 	if (off + 1u >= fat_len) {
 		return FAT12_ERR_CLUSTER;
 	}
 
 	b = (const uint8_t *)fat;
-#ifndef FAT16_MUTATE_ENTRY_MASK12
 	/* Little-endian 16-bit entry, used VERBATIM (no mask): a valid FAT16 cluster
 	 * pointer can exceed 0x0FFF, and the EOC value 0xFFFF must survive intact for
 	 * the >= 0xFFF8 classification (brief Sec 3). */
 	*out_next = (uint16_t)((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8));
-#else
-	/* MUTANT (Rule 6; test-fat16 mutant M2 only): mask the FAT16 entry to 12
-	 * bits as if it were a FAT12 entry. Any cluster pointer >= 0x1000 corrupts,
-	 * and EOC 0xFFFF -> 0x0FFF which is NOT >= 0xFFF8, so chains never terminate
-	 * correctly -> the differential goes RED. NEVER define in a real build. */
-	*out_next = (uint16_t)(((uint16_t)b[off] | ((uint16_t)b[off + 1u] << 8))
-	                       & FAT12_ENTRY_MASK);
-#endif
 
 	return FAT12_OK;
 }
@@ -647,7 +556,7 @@ int fat16_next_cluster(const fat12_volume_t *vol, const void *fat,
  * read_file / read_partial / read_dir / resolve_path / the dir scans correct for
  * both FAT types with no duplicated walk logic.
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (12-bit decode) +
+ * Ref (the repository contract): docs/research/fat12-ground-truth.md Sec 3 (12-bit decode) +
  *   fat16-ground-truth.md Sec 0/3 (the decode is the only per-type difference).
  *   FAT12: byte_offset = (N*3)/2; v = b[off]|(b[off+1]<<8);
  *          entry = (N even) ? (v & 0x0FFF) : (v >> 4).
@@ -677,7 +586,6 @@ int fat12_next_cluster(const fat12_volume_t *vol, const void *fat,
 	 * BOTH sectors when the entry STRADDLES a boundary -- so the decode below is
 	 * byte-identical to the whole-FAT path over a tiny window. fat12_read_fat_
 	 * sector returns the in-window offset; b/off then point into the window. */
-#ifndef FAT12_MUT_D27I_NO_WINDOW_DISPATCH
 	if (vol != NULL && vol->fat_window != NULL) {
 		uint32_t win_off;
 		int      rc = fat12_read_fat_sector(vol, cluster, &win_off);
@@ -693,12 +601,6 @@ int fat12_next_cluster(const fat12_volume_t *vol, const void *fat,
 		}
 		return FAT12_OK;
 	}
-#else
-	/* MUTANT (Rule 6; test-d27i-mutant only): DROP the windowed dispatch -- a
-	 * FAT12 volume with only a window (fat==NULL) falls through to the whole-FAT
-	 * NULL check and fails. Proves the windowed dispatch is load-bearing. NEVER
-	 * in a real build. */
-#endif
 
 	if (fat == NULL) {
 		return FAT12_ERR_NULL;
@@ -710,7 +612,7 @@ int fat12_next_cluster(const fat12_volume_t *vol, const void *fat,
 	}
 
 	/* byte_offset = (cluster*3)/2 (integer div). Both b[off] and b[off+1]
-	 * must be in range -- bounds-check before reading (Rule 2). The whole-FAT
+	 * must be in range -- bounds-check before reading (the repository contract). The whole-FAT
 	 * buffer made boundary straddles harmless; this catches an out-of-volume
 	 * cluster index. */
 	off = ((uint32_t)cluster * 3u) / 2u;
@@ -745,18 +647,9 @@ int fat12_next_cluster(const fat12_volume_t *vol, const void *fat,
  * ------------------------------------------------------------------------ */
 static int chain_is_eoc(const fat12_volume_t *vol, uint16_t v)
 {
-#ifndef FAT16_MUTATE_EOC_THRESHOLD
 	if (vol != NULL && vol->fat_type == FAT_TYPE_FAT16) {
 		return fat16_is_eoc(v);   /* >= 0xFFF8 */
 	}
-#else
-	/* MUTANT (Rule 6; test-fat16 mutant M3 only): use the FAT12 0xFF8 EOC
-	 * threshold on a FAT16 volume. A normal FAT16 cluster pointer in
-	 * 0x0FF8..0x0FFF (and any cluster index >= 4088) is wrongly seen as EOC, so
-	 * large files truncate mid-chain -> the differential goes RED. NEVER in a
-	 * real build. */
-	(void)vol;
-#endif
 	return fat12_is_eoc(v);       /* >= 0xFF8 (FAT12) */
 }
 static int chain_is_free(const fat12_volume_t *vol, uint16_t v)
@@ -780,30 +673,18 @@ static int chain_is_bad(const fat12_volume_t *vol, uint16_t v)
 static __attribute__((noinline)) int chain_link_unusable(const fat12_volume_t *vol,
                                                          uint16_t cur)
 {
-#ifdef FAT12_MUT_CHAIN_GUARD
-	/* MUTANT (Rule 6; test-fat-corrupt-fuzz-chain-mutant): the data-range
-	 * bound dropped from the walkers' guard (bcg.3 regressed: a link above
-	 * the last data cluster maps to a wrong LBA). NEVER in a real build. */
-	return chain_is_free(vol, cur) || chain_is_bad(vol, cur);
-#else
 	return !fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
 	       chain_is_bad(vol, cur);
-#endif
 }
 
 /*
  * File preflight, PM ruling initech-f9t: validate through EOC, without a
  * cluster-sized or chain-sized buffer, before overlay destination writes.
- * Ref: fat12-ground-truth.md Sec 3; CLAUDE.md Rule 2 (bound cyclic walks).
+ * Ref: fat12-ground-truth.md Sec 3; the repository contract (bound cyclic walks).
  */
 int fat12_validate_file_chain(const fat12_volume_t *vol, const void *fat,
                               uint32_t fat_len, const dir_entry_t *entry)
 {
-#ifdef FAT12_MUTATE_FILE_CHAIN_CHECK
-    /* Rule 6: a short chain then reaches the destructive module read. */
-    (void)vol; (void)fat; (void)fat_len; (void)entry;
-    return FAT12_OK;
-#else
     if (vol == NULL || entry == NULL) return FAT12_ERR_NULL;
     if (entry->file_size == 0u) return FAT12_OK;
     uint32_t bytes = (uint32_t)vol->bpb.bytes_per_sector * vol->bpb.sectors_per_cluster;
@@ -827,11 +708,10 @@ int fat12_validate_file_chain(const fat12_volume_t *vol, const void *fat,
         cur = next;
     }
     return FAT12_ERR_CHAIN;
-#endif
 }
 
 /* Follow start_cluster..EOC into the caller's bounded array. Ref: brief Sec 3;
- * max_clusters is both its capacity and the anti-hang bound (Rule 2). */
+ * max_clusters is both its capacity and the anti-hang bound (the repository contract). */
 int fat12_walk_chain(const fat12_volume_t *vol, const void *fat,
                      uint32_t fat_len, uint16_t start_cluster,
                      uint16_t *out_clusters, uint32_t max_clusters,
@@ -855,7 +735,7 @@ int fat12_walk_chain(const fat12_volume_t *vol, const void *fat,
 		int      rc;
 
 		/* A free or bad cluster appearing IN a chain is corruption, not a
-		 * normal terminator -- fail loud (Rule 2). Checked before storing so
+		 * normal terminator -- fail loud (the repository contract). Checked before storing so
 		 * a corrupt start_cluster is also rejected. */
 		if (chain_is_free(vol, cur)) {
 			return FAT12_ERR_CHAIN;
@@ -870,7 +750,7 @@ int fat12_walk_chain(const fat12_volume_t *vol, const void *fat,
 			return FAT12_ERR_CLUSTER;
 		}
 
-		/* Anti-hang / overflow guard (Rule 2): never write past the caller's
+		/* Anti-hang / overflow guard (the repository contract): never write past the caller's
 		 * array, and never visit more clusters than it can hold. A cyclic
 		 * chain hits this bound and errors instead of looping forever. */
 		if (n >= max_clusters) {
@@ -901,7 +781,7 @@ int fat12_walk_chain(const fat12_volume_t *vol, const void *fat,
 #define FAT12_DIRENTS_PER_SECTOR (BLOCKDEV_SECTOR_SIZE / 32u)
 
 /* ASCII lower->upper for the case-insensitive 8.3 compare. Freestanding: no
- * <ctype.h>; ASCII-only (Rule 12). Non-letters pass through unchanged. */
+ * <ctype.h>; ASCII-only (the repository contract). Non-letters pass through unchanged. */
 static char up_ascii(char c)
 {
 	if (c >= 'a' && c <= 'z') {
@@ -913,10 +793,10 @@ static char up_ascii(char c)
 /*
  * fat12_format_83 -- render the locked 8.3 name (brief Sec 4).
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 4 -- "Stored as 11
+ * Ref (the repository contract): docs/research/fat12-ground-truth.md Sec 4 -- "Stored as 11
  *   bytes (8+3), NOT separated by a dot. Space-padded (0x20) ... 0x05 first
  *   byte means the real first char is 0xE5" (RISK-3). filename[8] then
- *   extension[3] in spec/dos_structs.h dir_entry_t.
+ *   extension[3] in kernel/include/dos_structs.h dir_entry_t.
  */
 int fat12_format_83(const dir_entry_t *e, char *out)
 {
@@ -966,7 +846,7 @@ int fat12_format_83(const dir_entry_t *e, char *out)
 /*
  * fat12_read_root_dir -- enumerate the fixed root directory (brief Sec 4).
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 4 -- root dir is a
+ * Ref (the repository contract): docs/research/fat12-ground-truth.md Sec 4 -- root dir is a
  *   FIXED region (root_dir_sector .. + root_dir_sectors), root_entry_count
  *   entries of 32 bytes; 0x00 => end (STOP), 0xE5 => deleted (SKIP),
  *   attr==0x0F => LFN (SKIP). NOT a cluster chain.
@@ -1129,11 +1009,11 @@ int fat12_find(const fat12_volume_t *vol, void *sector_buf,
  * stepping one fat12_next_cluster link at a time -- the SAME proven pattern as
  * fat12_read_partial (this file).
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (chain link decode:
+ * Ref (the repository contract): docs/research/fat12-ground-truth.md Sec 3 (chain link decode:
  *   next = fat12_next_cluster; EOC >= 0xFF8; cyclic detection) + Sec 4 / RISK-5
  *   ("file_size is authoritative for the last cluster ... do not return padding
- *   zeros"). The cluster->LBA mapping is BPB_CLUSTER_LBA (spec/dos_structs.h);
- *   the anti-hang guard mirrors fat12_walk_chain / fat12_read_partial (Rule 2):
+ *   zeros"). The cluster->LBA mapping is BPB_CLUSTER_LBA (kernel/include/dos_structs.h);
+ *   the anti-hang guard mirrors fat12_walk_chain / fat12_read_partial (the repository contract):
  *   never step more than the volume's cluster count, so a cyclic/corrupt chain
  *   errors (FAT12_ERR_CHAIN) rather than looping forever or over-reading.
  *   Microsoft FAT spec: file_size is the authoritative byte count.
@@ -1157,7 +1037,7 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 
 	file_size = e->file_size;
 
-	/* Never overflow the caller's buffer (Rule 2): refuse before copying. */
+	/* Never overflow the caller's buffer (the repository contract): refuse before copying. */
 	if (out_buf_len < file_size) {
 		return FAT12_ERR_BUFFER;
 	}
@@ -1185,30 +1065,17 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 	copied = 0u;
 	cur    = e->start_cluster;
 	steps  = 0u;
-	/* Anti-hang bound (Rule 2): a valid chain visits at most total_clusters
+	/* Anti-hang bound (the repository contract): a valid chain visits at most total_clusters
 	 * distinct data clusters; +2 covers the reserved 0/1 slack. We step at
 	 * most this many times; a cyclic/corrupt chain trips it and errors instead
 	 * of spinning forever -- the SAME bound fat12_read_partial uses. */
-#ifndef FAT12_MUTATE_READFILE_STEP_BOUND
 	max_steps = vol->total_clusters + 2u;
-#else
-	/* MUTANT (Rule 6; make test-fat-readfile-mutant only): shrink the anti-hang
-	 * step bound so it no longer covers the longest LEGITIMATE chain. A bound of
-	 * total_clusters/4 (~711 on the 1.44 MB floppy) is below the 1368-cluster
-	 * BIGCHAIN.TXT chain, so that large valid file trips the bound mid-walk and
-	 * errors with FAT12_ERR_CHAIN instead of reading clean -> the read oracle
-	 * (its byte-for-byte BIGCHAIN leg) goes RED. This proves the bound must be at
-	 * least the volume's cluster count -- a too-small bound is the real failure
-	 * mode the +2 form guards against (and is exactly what the FAT16 HDD geometry
-	 * would have hit with the old chain[2880]). NEVER define in a real build. */
-	max_steps = vol->total_clusters / 4u;
-#endif
 
 	/* Copy cluster-by-cluster, stepping the chain incrementally. The LAST
 	 * cluster is truncated to whatever remains of file_size (RISK-5: no
 	 * trailing padding). The chain MUST cover file_size; an EOC or a
 	 * free/bad/out-of-range link before file_size is satisfied is corruption
-	 * (fail loud, Rule 2). */
+	 * (fail loud, the repository contract). */
 	while (copied < file_size) {
 		uint32_t       lba;
 		uint32_t       remaining;
@@ -1224,32 +1091,12 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 		remaining = file_size - copied;
 		take      = remaining < bytes_per_cluster
 		              ? remaining : bytes_per_cluster;
-#ifndef FAT12_MUTATE_READFILE_TRUNC
 		/* RISK-5: copy only `take` bytes -- the partial last cluster never
 		 * contributes its padding to out_buf. */
 		copy_n = take;
-#else
-		/* MUTANT (Rule 6; make test-fat-readfile-mutant only): drop the RISK-5
-		 * last-cluster truncation -- copy a FULL cluster every iteration instead
-		 * of `take` bytes. On the partial last cluster this writes padding into
-		 * out_buf and copied overshoots file_size, so the bytes read no longer
-		 * match the golden -> the read oracle goes RED. NEVER in a real build. */
-		(void)take;
-		copy_n = bytes_per_cluster;
-#endif
 
 		/* Stream the cluster through one sector of scratch. */
-#ifndef FAT16_MUTATE_NO_CLUSTER2_BIAS
 		lba = cluster_lba(vol, cur);
-#else
-		/* MUTANT (Rule 6; test-fat16 mutant M4 only): OMIT the cluster-2 LBA bias
-		 * -- map cluster N to first_data_sector + N*spc instead of (N-2)*spc.
-		 * Every cluster reads two sectors too high, so the file content no longer
-		 * matches the golden -> the FAT16 read oracle goes RED. This proves the
-		 * cluster->LBA mapping's -2 bias is load-bearing. NEVER in a real build. */
-		lba = BPB_FIRST_DATA_SECTOR(&vol->bpb) +
-		      (uint32_t)cur * (uint32_t)vol->bpb.sectors_per_cluster;
-#endif
 		rc = cluster_read(vol, lba, 0u, out + copied, copy_n, cluster_buf);
 		if (rc != FAT12_OK) return rc;
 		copied += copy_n;
@@ -1262,26 +1109,12 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 			if (rc != FAT12_OK) {
 				return rc;
 			}
-#ifndef FAT12_MUTATE_READFILE_EOC
 			if (chain_is_eoc(vol, next)) {
 				/* Chain ended before file_size bytes were satisfied -- the
 				 * declared size demands more clusters than the chain has, which
-				 * is corruption (fail loud, Rule 2). */
+				 * is corruption (fail loud, the repository contract). */
 				return FAT12_ERR_CHAIN;
 			}
-#else
-			/* MUTANT (Rule 6; make test-fat-readfile-mutant only): INVERT the EOC
-			 * test polarity -- treat a NORMAL mid-chain link as end-of-chain and
-			 * a true EOC as a normal link. Every multi-cluster file (CHAIN.TXT,
-			 * BLOCK.BIN, the 1368-cluster BIGCHAIN.TXT) then errors with
-			 * FAT12_ERR_CHAIN on its very first non-EOC link -- it cannot read
-			 * past cluster 1 -- so the read oracle goes RED. This proves the EOC
-			 * predicate (which link STOPS the walk) is load-bearing, not the
-			 * dead-for-valid-files corruption return alone. NEVER in a real build. */
-			if (!chain_is_eoc(vol, next)) {
-				return FAT12_ERR_CHAIN;
-			}
-#endif
 			cur = next;
 			if (++steps > max_steps) {
 				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
@@ -1298,8 +1131,8 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
 	 * file_size claims one cluster). The streaming refactor preserves that
 	 * contract WITHOUT an on-stack chain array: keep stepping from `cur` until
 	 * EOC, bounded by the SAME anti-hang step counter, so a cycle/corruption
-	 * past the last data cluster is caught (Rule 2; beads initech-dao).
-	 * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (chain EOC +
+	 * past the last data cluster is caught (the repository contract; beads initech-dao).
+	 * Ref (the repository contract): docs/research/fat12-ground-truth.md Sec 3 (chain EOC +
 	 *   cyclic detection). */
 	for (;;) {
 		uint16_t next;
@@ -1330,14 +1163,14 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
  * whole-chain buffer (beads initech-lq2; foundation of the per-handle I/O epic
  * initech-6qy).
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (chain link decode:
+ * Ref (the repository contract): docs/research/fat12-ground-truth.md Sec 3 (chain link decode:
  *   next = fat12_next_cluster; EOC >= 0xFF8) + Sec 4 / RISK-5 (file_size is
  *   authoritative; no trailing padding). The offset->cluster math mirrors the
  *   cluster sizing in fat12_read_file (this file): bytes_per_cluster =
  *   sectors_per_cluster * bytes_per_sector; the first needed cluster is
  *   offset / bytes_per_cluster steps down the chain, the byte position inside
  *   it is offset % bytes_per_cluster. The cluster->LBA map is BPB_CLUSTER_LBA
- *   (spec/dos_structs.h). The anti-hang guard mirrors fat12_walk_chain (Rule 2):
+ *   (kernel/include/dos_structs.h). The anti-hang guard mirrors fat12_walk_chain (the repository contract):
  *   never step more than the volume's cluster count.
  */
 int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
@@ -1399,32 +1232,14 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 	                    (uint32_t)vol->bpb.bytes_per_sector;
 
 	/* offset > 0 with a non-empty read implies a real chain. start_cluster must
-	 * be a data cluster (>= 2); a free/short start is corruption (Rule 2). The
+	 * be a data cluster (>= 2); a free/short start is corruption (the repository contract). The
 	 * incremental walk below also rejects free/bad clusters it lands on. */
-#ifdef FAT12_MUTATE_PARTIAL_SKIP
-	/* MUTANT (Rule 6; make test-fat-partial-mutant only): off-by-one in the
-	 * skip-cluster count -- skip ONE TOO FEW clusters, so a mid/late-cluster
-	 * positioned read returns data from the wrong cluster. The differential
-	 * oracle vs the python ref must go RED. NEVER define in a real build. */
-	skip        = (offset / bytes_per_cluster) > 0u
-	                ? (offset / bytes_per_cluster) - 1u
-	                : 0u;
-	cluster_pos = offset % bytes_per_cluster;
-#elif defined(FAT12_MUTATE_PARTIAL_POS)
-	/* MUTANT (Rule 6; make test-fat-partial-mutant only): drop the within-cluster
-	 * byte offset -- always start the first cluster at byte 0. A mid-cluster
-	 * positioned read returns cluster-aligned bytes instead of the requested
-	 * slice; the oracle must go RED. NEVER define in a real build. */
-	skip        = offset / bytes_per_cluster;
-	cluster_pos = 0u;
-#else
 	skip        = offset / bytes_per_cluster; /* whole clusters to skip past   */
 	cluster_pos = offset % bytes_per_cluster; /* byte offset in first cluster  */
-#endif
 
 	cur       = e->start_cluster;
 	steps     = 0u;
-	/* Anti-hang bound (Rule 2): a valid chain visits at most total_clusters
+	/* Anti-hang bound (the repository contract): a valid chain visits at most total_clusters
 	 * distinct data clusters; +2 covers the reserved 0/1 slack. We step at most
 	 * this many times (skip + span); a cyclic/corrupt chain trips it and errors
 	 * instead of looping forever. */
@@ -1450,19 +1265,9 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 				return FAT12_ERR_CHAIN;
 			}
 			cur = next;
-#ifndef FAT12_MUTATE_NO_STEP_GUARD
 			if (++steps > max_steps) {
 				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
 			}
-#else
-			/* MUTANT (Rule 6; test-fat-corrupt-fuzz-mutant only): REMOVE the
-			 * anti-hang max_steps guard on the skip walk, so a cyclic/self-loop
-			 * chain spins FOREVER instead of failing loud. The corruption
-			 * fuzzer's loop-chain leg never returns; the Makefile `timeout`
-			 * trips -> gate RED. NEVER define in a real build. */
-			(void)max_steps;
-			steps++;
-#endif
 		}
 	}
 
@@ -1506,21 +1311,13 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 			if (chain_is_eoc(vol, next)) {
 				/* Chain ended before `to_read` bytes were satisfied -- and the
 				 * clamp guarantees to_read <= file_size-offset, so a chain that
-				 * cannot cover it is corruption (fail loud, Rule 2). */
+				 * cannot cover it is corruption (fail loud, the repository contract). */
 				return FAT12_ERR_CHAIN;
 			}
 			cur = next;
-#ifndef FAT12_MUTATE_NO_STEP_GUARD
 			if (++steps > max_steps) {
 				return FAT12_ERR_CHAIN; /* cyclic / corrupt */
 			}
-#else
-			/* MUTANT (Rule 6; test-fat-corrupt-fuzz-mutant only): REMOVE the
-			 * anti-hang max_steps guard on the copy walk too -- a cyclic chain
-			 * entered during the copy phase spins forever. NEVER in a real build. */
-			(void)max_steps;
-			steps++;
-#endif
 		}
 	}
 
@@ -1531,7 +1328,7 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
 /* ======================================================================== *
  * FAT12 WRITE path (beads initech-509.11)
  *
- * Ref (Law 1): Microsoft FAT spec (12-bit packed entry encode = inverse of the
+ * Ref (the repository contract): Microsoft FAT spec (12-bit packed entry encode = inverse of the
  *   read decode); docs/research/fat12-ground-truth.md Sec 3 (encode) + Sec 4
  *   (dir entry, normalization note); ADR-0003 DEC-07 (both FATs in sync).
  * ======================================================================== */
@@ -1582,7 +1379,7 @@ int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
 
 	if (vol == NULL || fat == NULL || vol->dev == NULL ||
 	    vol->dev->write_sectors == NULL) {
-		return FAT12_ERR_WRITE;   /* no write backend -> fail loud (Rule 2) */
+		return FAT12_ERR_WRITE;   /* no write backend -> fail loud (the repository contract) */
 	}
 
 	fat_bytes = (uint32_t)vol->bpb.sectors_per_fat *
@@ -1593,18 +1390,6 @@ int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
 
 	/* Write the SAME bytes to each on-disk FAT copy (ADR-0003 DEC-07). The
 	 * copies are contiguous: FAT #k starts at first_fat_sector + k*spf. */
-#ifdef FAT12_MUTATE_ONE_FAT_COPY
-	/* MUTANT (Rule 6; make test-fat-write-mutant only): write ONLY FAT #1, so
-	 * the redundant copy diverges -- the both-FAT-sync assertion + an mtools
-	 * read that prefers FAT #2 go RED. NEVER define in a real build. */
-	{
-		if (fat12_write_sectors(vol, vol->first_fat_sector,
-		                            vol->bpb.sectors_per_fat, fat) != 0) {
-			return FAT12_ERR_WRITE;
-		}
-		return FAT12_OK;
-	}
-#endif
 	for (i = 0u; i < vol->bpb.num_fats; i++) {
 		uint32_t lba = vol->first_fat_sector +
 		               (uint32_t)i * (uint32_t)vol->bpb.sectors_per_fat;
@@ -1640,13 +1425,11 @@ static int parse_name83(const char *name83, uint8_t out11[11])
 		/* Created names are not search masks. Guide p.17 (PDF30),
 		 * Reference pp.9-10; INT21 FINDFIRST has its own pattern parser.
 		 * Reject before slot allocation, so invalid requests change no disk. */
-#ifndef FAT12_MUTATE_CREATE_CHARS
 		if ((uint8_t)c < 0x21u || c == '"' || c == '*' || c == '+' ||
 		    c == ',' || c == '/' || c == ';' || c == '<' || c == '=' ||
 		    c == '>' || c == '?' || c == '[' || c == ']' || c == '|') {
 			return FAT12_ERR_NOT_FOUND;
 		}
-#endif
 		if (c == '\\' || c == ':') {
 			return FAT12_ERR_NOT_FOUND;   /* subdir / drive: unsupported */
 		}
@@ -1745,12 +1528,12 @@ static int fat12_free_chain(const fat12_volume_t *vol, void *fat,
  * end-of-directory, exactly as mtools/DOS leaves a grown directory), link the
  * old tail -> new cluster, mark the new cluster EOC, and flush BOTH FAT copies.
  * This is the same allocate-then-commit discipline the file-extend path uses
- * (Rule 2): the new cluster is reserved EOC, zero-filled BEFORE the link is
+ * (the repository contract): the new cluster is reserved EOC, zero-filled BEFORE the link is
  * committed, and on a zero-fill write failure the allocation is rolled back so
  * no orphan cluster is left. `cluster_buf` (>=512) is the
  * zero-fill scratch. The new tail cluster is returned in *out_new_cluster (so
- * the caller knows where the new slots live). Anti-hang bounded (Rule 2).
- * Ref (Law 1): Microsoft FAT spec (a directory is a cluster chain that grows
+ * the caller knows where the new slots live). Anti-hang bounded (the repository contract).
+ * Ref (the repository contract): Microsoft FAT spec (a directory is a cluster chain that grows
  *   like a file; a new dir cluster is zero-filled so the 0x00 sentinel still
  *   terminates it); DOS 3.3 directory-full behavior. */
 static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
@@ -1771,17 +1554,6 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 		return FAT12_ERR_WRITE;
 	}
 
-#ifdef FAT12_MUTATE_GROW_NOOP
-	/* MUTANT (Rule 6; make test-zs24-mutant only): REFUSE to grow the directory
-	 * -- return DIR_FULL as if the subdir could not be extended. The boundary-
-	 * crossing CREATE then fails and the file never lands, so the GROW
-	 * differential (mtools/python list the boundary file) goes RED. This proves
-	 * the grow path is actually REACHED + relied upon. NEVER in a real build. */
-	(void)fat_len; (void)start_cluster;
-	(void)cur; (void)steps; (void)max; (void)newc;
-	(void)lba; (void)rc;
-	return FAT12_ERR_DIR_FULL;
-#else
 
 	/* Walk to the EOC tail of the existing chain. */
 	for (;;) {
@@ -1804,46 +1576,25 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 
 	/* Claim + reserve a free cluster (mark EOC immediately so find_free skips). */
 	newc = fat12_find_free(vol, fat, fat_len, (uint16_t)(cur + 1u));
-#ifndef FAT12_MUTATE_GROW_NO_WRAP
 	/* ADR-0003 DEC-07; mtools on the identical fragmented image (fov8).
 	 * Locality is a hint, not a space bound: free clusters can precede cur. */
 	if (newc == 0u) {
 		newc = fat12_find_free(vol, fat, fat_len, FAT12_FIRST_DATA_CLUSTER);
 	}
-#endif
 	if (newc == 0u) {
 		return FAT12_ERR_NO_SPACE;
 	}
-#ifndef FAT12_MUTATE_GROW_NO_EOC
 	rc = fat12_set_entry(fat, fat_len, newc, FAT12_EOC_VALUE);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
-#else
-	/* MUTANT (Rule 6; make test-zs24-mutant only): SKIP marking the freshly
-	 * claimed cluster end-of-chain. The new cluster's FAT entry stays 0x000
-	 * (free); the old-tail->newc link below then points at a "free" cluster, so
-	 * the directory chain is BROKEN at the join -- a reader (mtools/python)
-	 * walking the chain stops at (or rejects) the unterminated/free 2nd cluster
-	 * and the boundary-crossing dir entry is unreachable -> the GROW differential
-	 * goes RED. This proves the chain RELINK (old-tail -> new EOC cluster) is
-	 * what makes the grown slots reachable. NEVER in a real build. */
-#endif
 
 	/* Zero-fill the new cluster on disk BEFORE committing the link (so the new
 	 * slots read as 0x00 end-of-directory; a failure rolls back the alloc). */
 	lba = cluster_lba(vol, newc);
 	if (cluster_fill(vol, lba, NULL, 0u, cluster_buf) != FAT12_OK) {
-#ifndef FAT12_MUTATE_GROWDIR_NO_ZEROFILL_ROLLBACK
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 		(void)fat12_flush_fats(vol, fat, fat_len);
-#else
-		/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
-		 * zero-fill-fail rollback. The cluster the grow CLAIMED (marked EOC in
-		 * memory) is NOT returned to FREE, so it LEAKS while the grow -- and the
-		 * fat12_create that drove it -- still fails. The free-count / chain-len
-		 * assertion in scenario [B] must go RED. NEVER define in a real build. */
-#endif
 		return FAT12_ERR_WRITE;
 	}
 
@@ -1860,7 +1611,6 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
 	}
 	*out_new_cluster = newc;
 	return FAT12_OK;
-#endif /* FAT12_MUTATE_GROW_NOOP */
 }
 
 /* fat12_shrink_dir_tail -- the EXACT inverse of a single fat12_grow_dir step:
@@ -1869,7 +1619,7 @@ static int fat12_grow_dir(const fat12_volume_t *vol, void *fat, uint32_t fat_len
  * cluster to EOC, freeing `appended`, and flushing both FAT copies. Used as the
  * rollback for a MKDIR whose own-entry write into the just-grown parent slot
  * fails AFTER the parent grew (beads initech-m0bp): without this the freshly-
- * appended parent cluster would leak (Rule 2/Rule 3 -- the grow path must roll
+ * appended parent cluster would leak (the repository contract/the repository contract -- the grow path must roll
  * back on a later write failure, exactly the discipline fat12_write_file uses
  * for its partial-allocation rollback). Best-effort: a chain-decode error
  * during rollback is swallowed (we are already on a failure path); the caller's
@@ -1921,14 +1671,14 @@ static void fat12_shrink_dir_tail(const fat12_volume_t *vol, void *fat,
  * down the subdir's CLUSTER CHAIN: slot i lives in the (i / ents_per_cluster)-th
  * cluster of the chain at byte (i % ents_per_cluster)*32. The cluster walk
  * mirrors fat12_read_dir's incremental fat12_next_cluster step with the same
- * anti-hang guards (Rule 2). The DATA SECTOR holding the slot is read-modified-
+ * anti-hang guards (the repository contract). The DATA SECTOR holding the slot is read-modified-
  * written back in place (the root path read-modify-writes a root-dir sector).
  * ------------------------------------------------------------------------ */
 
 /* Resolve a SUBDIR slot index to the data-sector LBA that holds it + the byte
  * offset of the 32-byte entry within that sector. Walks `start_cluster`'s chain
  * (slot / ents_per_cluster) clusters down, then within that cluster picks the
- * sector + in-sector offset. Anti-hang bounded by total_clusters+2 (Rule 2). On
+ * sector + in-sector offset. Anti-hang bounded by total_clusters+2 (the repository contract). On
  * a chain too short for the slot, returns FAT12_ERR_DIR_FULL (the slot is past
  * the allocated directory -- the caller grows the chain). `fat`/`fat_len` decode
  * the links. Returns FAT12_OK with *out_lba + *out_in_sec set. */
@@ -2041,15 +1791,6 @@ static int fat12_write_dirent_in_dir(const fat12_volume_t *vol, const void *fat,
 	if (vol->dev->write_sectors == NULL) {
 		return FAT12_ERR_WRITE;
 	}
-#ifdef FAT12_MUTATE_SUBDIR_WRITE_ROOTSLOT
-	/* MUTANT (Rule 6; make test-zs24-mutant only): write a SUBDIR entry back to a
-	 * ROOT-dir slot of the same index instead of the subdir cluster-chain slot.
-	 * The subdir dir entry never lands (its size/start_cluster are never patched
-	 * on disk), so the read-back via mcopy/python sees the wrong/zero entry and
-	 * the differential goes RED. The root path (is_root already 1) is unchanged.
-	 * NEVER define in a real build. */
-	is_root = 1;
-#endif
 	if (is_root) {
 		uint32_t sec_index = slot / per_sector;
 		if (sec_index >= vol->root_dir_sectors) {
@@ -2371,7 +2112,7 @@ int fat12_find_slot_in(const fat12_volume_t *vol, const void *fat,
  * cluster NUMBER, not to its FAT entry, so a freed directory scans as its stale
  * bytes.
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (FAT entry 0x000 ==
+ * Ref (the repository contract): docs/research/fat12-ground-truth.md Sec 3 (FAT entry 0x000 ==
  *   free cluster; 0xFF7 bad) + Sec 4 (0x10 = subdirectory, start_cluster points
  *   to its chain); the EMPIRICAL mtools '.'/'..' layout above fat12_make_dotdir
  *   ('.' start = OWN cluster, '..' start = PARENT, root encoded 0). A cluster
@@ -2389,16 +2130,6 @@ static int fat12_dir_live(const fat12_volume_t *vol, const void *fat,
                           uint32_t fat_len, uint16_t dir, void *sector_buf,
                           uint16_t *out_dotdot)
 {
-#ifdef FAT12_MUTATE_STALE_DIR_TRUSTED
-	/* MUTANT (Rule 6; test-fat12-mkdir-mutant + test-flair-trash-purge-views-
-	 * mutant): the pre-L002 trust -- any number is a directory. NEVER define in
-	 * a real build. */
-	(void)vol; (void)fat; (void)fat_len; (void)dir; (void)sector_buf;
-	if (out_dotdot != NULL) {
-		*out_dotdot = 0u;
-	}
-	return FAT12_OK;
-#else
 	const dir_entry_t *de = (const dir_entry_t *)sector_buf;
 	uint16_t v = 0u;
 	int rc;
@@ -2429,7 +2160,6 @@ static int fat12_dir_live(const fat12_volume_t *vol, const void *fat,
 		*out_dotdot = de[1].start_cluster;
 	}
 	return FAT12_OK;
-#endif
 }
 
 /* The mutators' guard: the root (0) is fixed and always live. */
@@ -2456,11 +2186,6 @@ int fat12_dir_identity(const fat12_volume_t *vol, const void *fat,
 	if (dir == 0u) {
 		return FAT12_OK;                 /* the fixed root never dies */
 	}
-#ifdef FAT12_MUTATE_STALE_DIR_TRUSTED
-	(void)fat; (void)fat_len; (void)parent; (void)e; (void)slot; (void)dd;
-	(void)rc;
-	return FAT12_OK;
-#else
 	rc = fat12_dir_live(vol, fat, fat_len, dir, sector_buf, &dd);
 	if (rc != FAT12_OK) {
 		return rc;
@@ -2484,7 +2209,6 @@ int fat12_dir_identity(const fat12_volume_t *vol, const void *fat,
 		return FAT12_ERR_STALE_DIR;      /* that name now names another object */
 	}
 	return FAT12_OK;
-#endif
 }
 
 /*
@@ -2535,7 +2259,7 @@ int fat12_read_dir_entry_in(const fat12_volume_t *vol, const void *fat,
  * VERBATIM (no encode/decode -- the caller hands on-disk packed CX/DX), write it
  * back via the SAME primitive WRITE uses (fat12_write_dirent_in_dir). All other
  * fields are preserved -- the INVERSE of the FAT12_FIXED_MTIME stamping CREATE
- * does. Ref: DOS 3.3 PRM AH=57h; spec/dos_structs.h dir_entry_t (0x16/0x18).
+ * does. Ref: DOS 3.3 PRM AH=57h; kernel/include/dos_structs.h dir_entry_t (0x16/0x18).
  */
 int fat12_set_dirent_time(const fat12_volume_t *vol, const void *fat,
                           uint32_t fat_len, uint16_t parent_dir_start,
@@ -2565,29 +2289,10 @@ int fat12_set_dirent_time(const fat12_volume_t *vol, const void *fat,
 	/* Overwrite ONLY the two packed timestamp words, VERBATIM. Everything else
 	 * (name / attr / start_cluster / size) is preserved. */
 	de.mtime = mtime;
-#ifndef FAT12_MUTATE_SETTIME_DROP_MDATE
 	de.mdate = mdate;
-#else
-	/* MUTANT 1 (Rule 6; make test-qekc-mutant only): write ONLY mtime, DROP the
-	 * mdate=DX assignment so the on-disk date keeps its old (0/0 baseline) value.
-	 * The --stat-path-time / mdir DATE differential goes RED (MDATE mismatches).
-	 * The (void) keeps -Werror=unused-parameter quiet. NEVER in a real build. */
-	(void)mdate;
-#endif
 
-#ifndef FAT12_MUTATE_SETTIME_NO_FLUSH
 	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
 	                                 slot, &de, sector_buf);
-#else
-	/* MUTANT 3 (Rule 6; make test-qekc-mutant only): SKIP the write-back flush --
-	 * the patched `de` is computed but never written to disk, so the on-disk
-	 * 0x16/0x18 words keep their baseline value. The SET reports success (return
-	 * FAT12_OK) and a SAME-handle GET (which reads the in-memory SFT copy the
-	 * dispatcher refreshed) stays GREEN, but the on-disk DIFFERENTIAL (after
-	 * re-mount) goes RED -- proving the flush is load-bearing for persistence.
-	 * NEVER define in a real build. */
-	return FAT12_OK;
-#endif
 }
 
 /*
@@ -2603,7 +2308,7 @@ int fat12_set_dirent_time(const fat12_volume_t *vol, const void *fat,
  * exclusion -- the dir/vol-label reject is SET-only (fat12_set_attr), NOT GET.
  * A missing name -> FAT12_ERR_NOT_FOUND. Read-only: the volume need not be
  * writable. Ref: RBIL INT 21h/AX=4300h; DOS 3.3 PRM AH=43h AL=00;
- * spec/dos_structs.h (attribute 0x0B). */
+ * kernel/include/dos_structs.h (attribute 0x0B). */
 int fat12_get_attr(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
                    const char *name83, uint16_t parent_dir_start,
                    void *sector_buf, uint8_t *out_attr)
@@ -2637,17 +2342,6 @@ int fat12_get_attr(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
 	if (!found) {
 		return FAT12_ERR_NOT_FOUND;
 	}
-#ifdef FAT12_MUTATE_GETATTR_DIR_REJECT
-	/* MUTANT (Rule 6; make test-b53d-mutant only): RE-INTRODUCE the
-	 * (unfaithful) GET-on-directory reject that the b53d fidelity fix removed --
-	 * deny a directory / volume-label entry instead of reporting its real 0x10
-	 * attribute byte. The corrected "GET-on-dir -> CF=0/CX=0x10" contract (host
-	 * oracle + the test-b53d 3-way differential) then goes RED. NEVER in a real
-	 * build. Ref: RBIL AX=4300h (no directory exclusion on GET). */
-	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
-		return FAT12_ERR_ACCESS;
-	}
-#endif
 	/* A directory (0x10) or volume-label (0x08) entry is reported VERBATIM: GET
 	 * is a pure read and CX=0x10 is the faithful DOS answer (RBIL AX=4300h has no
 	 * directory exclusion -- the reject is SET-only, fat12_set_attr). */
@@ -2660,11 +2354,11 @@ int fat12_get_attr(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
  * initech-b53d). Scan the directory for `name83` (subdir-aware), REJECT a
  * directory / volume-label TARGET and REJECT a new `attr` that itself sets the
  * Directory(0x10) or VolLabel(0x08) bit (DOS forbids re-typing a dirent via
- * CHMOD), both with FAT12_ERR_ACCESS BEFORE any write -- Rule 2: never silently
+ * CHMOD), both with FAT12_ERR_ACCESS BEFORE any write -- the repository contract: never silently
  * corrupt a dirent's type bits. Then read-modify-write ONLY the attribute byte
  * (offset 0x0B) and flush via the SAME primitive WRITE uses
  * (fat12_write_dirent_in_dir). Name / start_cluster / size AND mtime(0x16) /
- * mdate(0x18) are PRESERVED VERBATIM (Rule 11: the timestamp bytes are never
+ * mdate(0x18) are PRESERVED VERBATIM (the repository contract: the timestamp bytes are never
  * touched, so a CHMOD stays deterministic). A missing name -> FAT12_ERR_NOT_FOUND;
  * a read-only volume -> FAT12_ERR_WRITE. Ref: DOS 3.3 PRM AH=43h AL=01. */
 int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
@@ -2689,12 +2383,10 @@ int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	}
 
 	/* A new attribute that re-types the entry (sets Directory or VolLabel) is
-	 * forbidden -- reject BEFORE the scan touches disk (Rule 2). */
-#ifndef FAT12_MUTATE_SETATTR_NO_REJECT
+	 * forbidden -- reject BEFORE the scan touches disk (the repository contract). */
 	if ((attr & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
 		return FAT12_ERR_ACCESS;
 	}
-#endif
 
 	rc = parse_name83(name83, want11);
 	if (rc != FAT12_OK) {
@@ -2710,30 +2402,16 @@ int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return FAT12_ERR_NOT_FOUND;
 	}
 	/* The TARGET must be a regular file -- never CHMOD a directory or the
-	 * volume-label entry (Rule 2). */
-#ifndef FAT12_MUTATE_SETATTR_NO_REJECT
+	 * volume-label entry (the repository contract). */
 	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
 		return FAT12_ERR_ACCESS;
 	}
-#endif
 
 	/* Patch ONLY the attribute byte; name / cluster / size / mtime / mdate are
-	 * left exactly as scanned (Rule 11: the timestamp bytes stay deterministic). */
+	 * left exactly as scanned (the repository contract: the timestamp bytes stay deterministic). */
 	match.attribute = attr;
-#ifndef FAT12_MUTATE_SETATTR_NO_FLUSH
 	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
 	                                 match_slot, &match, sector_buf);
-#else
-	/* MUTANT 3 (Rule 6; make test-b53d-mutant only): patch `match.attribute` in
-	 * memory but SKIP the write-back flush, so the on-disk 0x0B byte keeps its
-	 * old (0x20 ARCHIVE) baseline. The SET reports success (FAT12_OK) but the
-	 * on-disk DIFFERENTIAL (python --attr / mtools mattrib / a fresh
-	 * fat12_get_attr scan) goes RED -- proving the flush is load-bearing for
-	 * persistence. The in-memory dispatch-GET path the harness drives reads the
-	 * SAME re-scan though, so even the in-harness fat12_get_attr bites. NEVER in a
-	 * real build. */
-	return FAT12_OK;
-#endif
 }
 
 /* Service-directory attribute seam (tdnl.30). CHMOD's directory rejection
@@ -2755,13 +2433,9 @@ int fat12_hide_dir(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
     if (!(de.attribute & DIR_ATTR_DIRECTORY) ||
         (de.attribute & DIR_ATTR_VOLLABEL)) return FAT12_ERR_ACCESS;
     if (de.attribute & DIR_ATTR_HIDDEN) return FAT12_OK;
-#ifndef FAT12_MUTATE_HIDE_DIR_NO_WRITE
     de.attribute |= DIR_ATTR_HIDDEN;
     return fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0, parent,
                                      slot, &de, sector_buf);
-#else
-    return FAT12_OK;
-#endif
 }
 
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
@@ -2812,18 +2486,14 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		/* Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33:
 		 * read-only prevents deletion or modification (L005 / initech-1vcl).
 		 * Refuse before freeing the chain or changing ANY dirent byte. */
-#ifndef FAT12_MUTATE_CREATE_READONLY
 		if ((match.attribute & DIR_ATTR_READONLY) != 0u)
 			return FAT12_ERR_ACCESS;
-#endif
 		/* Never retype a directory or volume label through file CREAT.
 		 * Ref: MS-DOS 3.3 User's Reference p. 12 (directory/file namespace);
 		 * IBM DOS 3.30 Technical Reference pp. 6-122/6-123 (file CREAT).
 		 * Audit K02 / initech-wdzq: reject BEFORE freeing/flushing the chain. */
-#ifndef FAT12_MUTATE_CREATE_NONREGULAR
 		if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
 			return FAT12_ERR_ACCESS;
-#endif
 		/* TRUNCATE: free the existing chain and reset the entry to size 0. */
 		slot = match_slot;
 		if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
@@ -2871,7 +2541,7 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	}
 
 	de.attribute     = attr;
-	de.mtime         = FAT12_FIXED_MTIME;   /* deterministic (Rule 11) */
+	de.mtime         = FAT12_FIXED_MTIME;   /* deterministic (the repository contract) */
 	de.mdate         = FAT12_FIXED_MDATE;
 	de.start_cluster = 0u;
 	de.file_size     = 0u;
@@ -2912,9 +2582,7 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	 * Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33 (L005). */
 	rc = fat12_read_dirent_local(vol, slot, &de, sector_buf);
 	if (rc != FAT12_OK) return rc;
-#ifndef FAT12_MUTATE_WRITE_READONLY
 	if ((de.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
-#endif
 
 	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
 	                    (uint32_t)vol->bpb.bytes_per_sector;
@@ -2938,7 +2606,7 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 
 	/* Allocate + write each cluster. Allocate lazily (lowest-free-first) so the
 	 * chain links as we go; on a no-space failure mid-way, roll back every
-	 * cluster claimed so far (Rule 2: a partial write must not corrupt the FAT). */
+	 * cluster claimed so far (the repository contract: a partial write must not corrupt the FAT). */
 	for (ci = 0u; ci < need_clusters; ci++) {
 		uint16_t cl = fat12_find_free(vol, fat, fat_len,
 		                              (uint16_t)(prev ? (prev + 1u)
@@ -2958,15 +2626,7 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 
 		/* Reserve this cluster IN the FAT immediately (mark EOC) so the next
 		 * fat12_find_free does not hand back the same cluster. */
-#ifdef FAT12_MUTATE_WRONG_EOC
-		/* MUTANT (Rule 6; make test-fat-write-mutant only): mark the cluster
-		 * with a NON-EOC value (0x002) instead of EOC, so the last cluster's
-		 * chain link is wrong -- the read-back walk runs off the end / mismatches
-		 * and the round-trip goes RED. NEVER define in a real build. */
-		rc = fat12_set_entry(fat, fat_len, cl, 0x002u);
-#else
 		rc = fat12_set_entry(fat, fat_len, cl, FAT12_EOC_VALUE);
-#endif
 		if (rc != FAT12_OK) {
 			return rc;
 		}
@@ -2983,19 +2643,10 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		take = (len - off < bytes_per_cluster) ? (len - off) : bytes_per_cluster;
 		lba = cluster_lba(vol, cl);
 		if (cluster_fill(vol, lba, src + off, take, cluster_buf) != FAT12_OK) {
-#ifndef FAT12_MUTATE_WRITEFILE_NO_ROLLBACK
 			if (first_cluster != 0u) {
 				(void)fat12_free_chain(vol, fat, fat_len, first_cluster);
 				(void)fat12_flush_fats(vol, fat, fat_len);
 			}
-#else
-			/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
-			 * partial-allocation rollback on a mid-write device fault. Every
-			 * cluster claimed so far LEAKS (stays allocated) while the call still
-			 * fails -- the exact atomicity defect the fault-injection oracle pins.
-			 * The free-count assertion in scenario [A] must go RED. NEVER define in
-			 * a real build. */
-#endif
 			return FAT12_ERR_WRITE;
 		}
 
@@ -3029,16 +2680,16 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * fat12_read_partial (this file) for the per-handle file-I/O epic (beads
  * initech-snk; epic initech-6qy).
  *
- * Ref (Law 1): Microsoft FAT spec (12-bit packed entries, free=0x000, EOC
+ * Ref (the repository contract): Microsoft FAT spec (12-bit packed entries, free=0x000, EOC
  *   0xFF8..0xFFF, allocate the lowest free cluster) -- the SAME write/allocation
  *   source fat12_write_file cites; docs/research/fat12-ground-truth.md Sec 3
  *   (FAT encode = inverse of the read decode) + Sec 4 (dir entry); ADR-0003
  *   DEC-07 (both FATs in sync). The cluster sizing + offset->cluster math mirror
  *   fat12_read_partial: bytes_per_cluster = sectors_per_cluster*bytes_per_sector;
  *   the first touched cluster is offset/bpc steps down the chain, the byte inside
- *   it is offset%bpc. The cluster->LBA map is BPB_CLUSTER_LBA (spec/dos_structs.h).
+ *   it is offset%bpc. The cluster->LBA map is BPB_CLUSTER_LBA (kernel/include/dos_structs.h).
  *
- * Strategy (Rule 2 fail-loud, allocate-then-commit so a disk-full extend never
+ * Strategy (the repository contract fail-loud, allocate-then-commit so a disk-full extend never
  * leaves a half-corrupt chain that diffs wrong):
  *   1. Determine the chain length the file needs to cover new_size =
  *      max(old_size, offset+len): need = ceil(new_size / bpc) clusters.
@@ -3061,10 +2712,10 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * (>=512) for the dir-entry RMW, `cluster_buf` (>=512) for
  * the cluster RMW. `fat`/`fat_len` is the whole-FAT buffer (mutated in place).
  *
- * Fail loud (Rule 2): any required NULL -> FAT12_ERR_NULL; no write backend ->
+ * Fail loud (the repository contract): any required NULL -> FAT12_ERR_NULL; no write backend ->
  * FAT12_ERR_WRITE; full volume mid-extend -> FAT12_ERR_NO_SPACE (rolled back);
  * a corrupt/cyclic existing chain -> FAT12_ERR_CHAIN; a device error ->
- * FAT12_ERR_READ/_WRITE. Anti-hang (Rule 2): the chain walk is bounded by the
+ * FAT12_ERR_READ/_WRITE. Anti-hang (the repository contract): the chain walk is bounded by the
  * volume's cluster count.
  */
 /* SETFILE-size: IBM DOS 3.30 Technical Reference p.6-140 (AH=40h CX=0),
@@ -3130,9 +2781,7 @@ int fat12_set_size(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		uint16_t next;
 		(void)fat12_next_cluster(vol, before, bytes, cur, &next);
 		if (i >= keep) {
-#ifndef FAT12_MUTATE_TRUNCATE_NO_FREE
 			(void)fat12_set_entry(fat, fat_len, cur, FAT12_FREE);
-#endif
 		} else if (i + 1u == keep) {
 			(void)fat12_set_entry(fat, fat_len, cur, FAT12_EOC_VALUE);
 		}
@@ -3203,7 +2852,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return FAT12_ERR_NULL;
 	}
 
-	/* Guard against offset+len overflowing uint32 (Rule 2: a wrapped end would
+	/* Guard against offset+len overflowing uint32 (the repository contract: a wrapped end would
 	 * compute a bogus, too-small size). */
 	end = offset + len;
 	if (end < offset) {
@@ -3221,9 +2870,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	old_size   = de.file_size;
 	/* Re-read the disk attribute: an already-open handle must not bypass a
 	 * later lock. Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33. */
-#ifndef FAT12_MUTATE_WRITE_READONLY
 	if ((de.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
-#endif
 	orig_start = de.start_cluster;
 	new_start  = orig_start;
 	new_size   = (end > old_size) ? end : old_size;
@@ -3275,15 +2922,6 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		for (i = 0u; i < to_add; i++) {
 			uint16_t cl;
 			uint32_t lba;
-#ifdef FAT12_MUTATE_PARTIAL_EXTEND_SHORT
-			/* MUTANT (Rule 6; test-fat-write-partial-mutant only): allocate ONE
-			 * TOO FEW extend clusters, so a write that grows the file by several
-			 * clusters leaves the chain short -- the read-back / diff goes RED.
-			 * NEVER define in a real build. */
-			if (i + 1u >= to_add) {
-				break;
-			}
-#endif
 			cl = fat12_find_free(vol, fat, fat_len,
 			                     (uint16_t)(prev ? (prev + 1u)
 			                                     : FAT12_FIRST_DATA_CLUSTER));
@@ -3343,7 +2981,6 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		}
 	}
 
-#ifndef FAT12_MUTATE_PARTIAL_STALE_GAP
 	/* A shrink (IBM DOS 3.30 TR p.6-140) retains the last partial cluster.
 	 * Extending past EOF must zero its newly exposed gap too, not only the
 	 * fresh clusters above. Ref: fat12.h positioned-write zero-fill contract;
@@ -3356,7 +2993,6 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		rc = cluster_splice(vol, lba, first, NULL, count, cluster_buf);
 		if (rc != FAT12_OK) return rc;
 	}
-#endif
 
 	/* ---- Splice `data` into [offset, offset+len) via read-modify-write. ----
 	 * Walk to the first touched cluster (offset/bpc steps down the chain), then
@@ -3487,13 +3123,9 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	/* IBM 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf p. 6-141:
 	 * AH=41h cannot delete read-only files. Directories use RMDIR; a volume
 	 * label is not a file (pp. 5-10/5-11). L006 / initech-1nsj. */
-#ifndef FAT12_MUTATE_UNLINK_READONLY
 	if ((match.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
-#endif
-#ifndef FAT12_MUTATE_UNLINK_NONREGULAR
 	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
 		return FAT12_ERR_ACCESS;
-#endif
 
 	/* Free the cluster chain (if any), flush both FATs. */
 	if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
@@ -3517,16 +3149,16 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * fat12_rename -- SAME-directory dir-entry rename (beads initech-gnrc; the WRITE
  * side of INT 21h AH=56h). Scan the directory for OLD (subdir-aware via
  * fat12_scan_dir, exactly as fat12_unlink/fat12_set_attr); REJECT a directory /
- * volume-label source (FAT12_ERR_ACCESS -- no '..' fixup path yet, Rule 2);
+ * volume-label source (FAT12_ERR_ACCESS -- no '..' fixup path yet, the repository contract);
  * REJECT a NEW name that already exists in the directory (FAT12_ERR_EXISTS -- the
  * load-bearing dest-exists reject; a rename never clobbers an entry). Then
  * read-modify-write ONLY the matched entry's 11-byte name field (filename[0..7] +
  * extension[0..2]) from the parsed NEW name and flush via the SAME primitive
  * WRITE uses (fat12_write_dirent_in_dir). start_cluster / file_size / attribute /
- * mtime / mdate AND the FAT are PRESERVED VERBATIM (Rule 11: rename allocates /
+ * mtime / mdate AND the FAT are PRESERVED VERBATIM (the repository contract: rename allocates /
  * frees nothing, so the chain + size + timestamp bytes stay deterministic). A
  * missing name (or a malformed old/new parse) -> FAT12_ERR_NOT_FOUND; a read-only
- * volume -> FAT12_ERR_WRITE. Ref (Law 1): DOS 3.3 PRM AH=56h; spec/dos_structs.h
+ * volume -> FAT12_ERR_WRITE. Ref (the repository contract): DOS 3.3 PRM AH=56h; kernel/include/dos_structs.h
  * (filename 0x00 / extension 0x08); the EMPIRICAL mtools name-field layout. */
 int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *old83, const char *new83, uint16_t dir_start,
@@ -3551,19 +3183,6 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return FAT12_ERR_WRITE;
 	}
 
-#ifdef FAT12_MUTATE_RENAME_IGNORE_DIRSTART
-	/* MUTANT 4 (Rule 6; make test-gnrc-mutant only): IGNORE the caller's dir_start
-	 * and resolve root-anchored (force the SUBDIR parent to the fixed root). Every
-	 * subsequent fat12_scan_dir + the final fat12_write_dirent_in_dir then operate
-	 * on the ROOT region instead of the requested subdirectory: a non-root
-	 * \SUB\OLD -> \SUB\NEW rename FAILS to find OLD in the (empty-of-OLD) root and
-	 * returns FAT12_ERR_NOT_FOUND, so the NON-ROOT same-dir success leg of
-	 * test_fat12_rename goes RED. This proves the leg actually exercises the
-	 * subdir-aware dir_start path (beads initech-isil) and is not silently passing
-	 * via the root scan. NEVER in a real build. */
-	dir_start = 0u;
-	is_root   = 1;
-#endif
 
 	/* Parse BOTH names up front (rename allocates nothing -- a malformed name on
 	 * either side is the source-not-found contract). */
@@ -3588,17 +3207,12 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	}
 	/* Same parent means '..' remains correct, including for a directory.
 	 * Ref: ADR-0003 Appendix A 56h; IBM DOS 3.30 TR p. 6-206; mren diff. */
-#ifdef FAT12_MUTATE_RENAME_REJECT_DIR
-	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
-#else
 	if ((match.attribute & DIR_ATTR_VOLLABEL) != 0u) {
-#endif
 		return FAT12_ERR_ACCESS;
 	}
 
 	/* The DEST name must be ABSENT in the directory -- a rename never clobbers an
 	 * existing entry (the load-bearing dest-exists reject). */
-#ifndef FAT12_MUTATE_RENAME_NO_DESTCHECK
 	{
 		uint32_t    dfree_slot  = 0u;
 		int         dhave_free  = 0;
@@ -3615,37 +3229,16 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			return FAT12_ERR_EXISTS;   /* dest name already present */
 		}
 	}
-#else
-	/* MUTANT 1 (Rule 6; make test-gnrc-mutant only): SKIP the dest-absent scan, so
-	 * a rename ONTO an existing dest wrongly SUCCEEDS (it overwrites the source's
-	 * own name with a name that already lives elsewhere in the dir, producing a
-	 * duplicate). The dest-exists (0x0005) leg + the mren differential go RED.
-	 * NEVER in a real build. */
-#endif
 
 	/* Rewrite ONLY the 11-byte name field; everything else (start_cluster /
 	 * file_size / attribute / mtime / mdate) is preserved VERBATIM in `match` and
-	 * the FAT is never touched (Rule 11: rename allocates/frees nothing). */
+	 * the FAT is never touched (the repository contract: rename allocates/frees nothing). */
 	for (k = 0u; k < 8u; k++) {
 		match.filename[k] = new11[k];
 	}
-#ifndef FAT12_MUTATE_RENAME_NAME_ONLY8
 	for (k = 0u; k < 3u; k++) {
 		match.extension[k] = new11[8u + k];
 	}
-#else
-	/* MUTANT 3 (Rule 6; make test-gnrc-mutant only): copy ONLY filename[0..7] and
-	 * LEAVE the extension[0..2] stale, so X.TXT -> Y.BAK keeps the old .TXT. The
-	 * name-field differential vs mren goes RED. NEVER in a real build. */
-#endif
-#ifdef FAT12_MUTATE_RENAME_TOUCH_CHAIN
-	/* MUTANT 2 (Rule 6; make test-gnrc-mutant only): ZERO the start_cluster on the
-	 * rewrite, so the renamed entry loses its data chain head. The
-	 * 'start_cluster + size unchanged vs mren' assertion goes RED, proving the
-	 * rename is name-FIELD-only and never disturbs the chain. NEVER in a real
-	 * build. */
-	match.start_cluster = 0u;
-#endif
 	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, dir_start,
 	                                 match_slot, &match, sector_buf);
 }
@@ -3654,7 +3247,7 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * FAT12 same-volume CROSS-DIRECTORY MOVE -- the dir-entry transplant
  * (beads initech-tdnl.26)
  *
- * Ref (Law 1): docs/design/GUI-remediation-R3-finder-design.md F3.1 (the move
+ * Ref (the repository contract): docs/design/GUI-remediation-R3-finder-design.md F3.1 (the move
  *   primitive's design) + F1.4 (Trash staging + the collision suffix); the
  *   constraints are carried VERBATIM from fat12_rename (dest-exists never
  *   clobbers; start_cluster/size/attr/timestamps preserved bit-for-bit; the FAT
@@ -3686,9 +3279,9 @@ static int fat12_name11_to_str(const uint8_t n11[11], char *out)
 
 /* Non-zero iff `e`'s 8.3 name is a DOT entry ('.' or '..'). Those two are the
  * directory's own structural entries: they are never transplanted (a move that
- * relocated '..' would detach a subtree; Rule 2 fail loud).
+ * relocated '..' would detach a subtree; the repository contract fail loud).
  *
- * HONESTY NOTE (Law 1): this guard is the SECOND line of defense and is not
+ * HONESTY NOTE (the repository contract): this guard is the SECOND line of defense and is not
  * reachable through the public API today -- parse_name83 already refuses "." and
  * ".." (a lone '.' leaves the name field empty; a second '.' is malformed), so a
  * caller asking to move a dot entry gets FAT12_ERR_NOT_FOUND before the scan even
@@ -3709,7 +3302,7 @@ static int fat12_is_dot_entry(const dir_entry_t *e)
 /* Read the '..' entry of the directory whose first data cluster is `dir_cluster`
  * (slot 1 of its first cluster -- the canonical layout fat12_mkdir writes) into
  * *out. Fails FAT12_ERR_CHAIN if the slot does not actually hold '..' (a
- * corrupt/foreign directory: never patch bytes we cannot identify, Rule 2). */
+ * corrupt/foreign directory: never patch bytes we cannot identify, the repository contract). */
 static int fat12_read_dotdot(const fat12_volume_t *vol, const void *fat,
                              uint32_t fat_len, uint16_t dir_cluster,
                              dir_entry_t *out, void *sector_buf)
@@ -3757,7 +3350,7 @@ static int fat12_set_dotdot(const fat12_volume_t *vol, const void *fat,
  * included -- means the move would orphan the whole subtree from the root.
  * COST: one 512-byte dirent read per ancestor level (directory depth), which is
  * the cheapest correct answer: FAT stores no parent pointer anywhere else. The
- * walk is anti-hang bounded by the volume's cluster count (Rule 2), so a
+ * walk is anti-hang bounded by the volume's cluster count (the repository contract), so a
  * corrupt '..' ring errors instead of looping. Returns FAT12_OK when the move is
  * safe, FAT12_ERR_CYCLE when it is not, or a read/chain error. */
 static int fat12_move_cycle_check(const fat12_volume_t *vol, const void *fat,
@@ -3848,7 +3441,7 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	/* ---- 1. a same-directory "move" is a RENAME's job ----------------- *
 	 * Reject rather than delegate, and reject FIRST: a caller that computed the
 	 * wrong destination hears about THAT, not about a name that happens not to
-	 * exist there (Rule 2 -- the loud answer is the useful one). */
+	 * exist there (the repository contract -- the loud answer is the useful one). */
 	if (src_dir_start == dst_dir_start) {
 		return FAT12_ERR_SAME_DIR;
 	}
@@ -3864,7 +3457,7 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return FAT12_ERR_NOT_FOUND;
 	}
 	/* The volume label is not a file and the dot entries are the directory's own
-	 * structure: neither is ever transplanted (Rule 2 fail loud). Directories
+	 * structure: neither is ever transplanted (the repository contract fail loud). Directories
 	 * ARE movable -- their '..' is fixed up in step 5. */
 	if ((match.attribute & DIR_ATTR_VOLLABEL) != 0u ||
 	    fat12_is_dot_entry(&match)) {
@@ -3930,7 +3523,6 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	 * the wrong place. One 32-byte read-modify-write of slot 1 of D's first
 	 * cluster; the old parent is remembered so a later failure restores it. */
 	if (is_dir) {
-#ifndef FAT12_MUTATE_MOVE_NO_DOTDOT_FIX
 		rc = fat12_set_dotdot(vol, fat, fat_len, moved_start, dst_dir_start,
 		                      sector_buf);
 		if (rc != FAT12_OK) {
@@ -3941,21 +3533,13 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			return rc;
 		}
 		dotdot_set = 1;
-#else
-		/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the '..' fixup, so
-		 * a moved directory keeps pointing at its OLD parent -- the folder is
-		 * reachable at its new home but walks out of the tree wrongly. The
-		 * directory-move leg's '..' assertion (and the mtools '..' traversal) goes
-		 * RED. NEVER define in a real build. */
-		(void)dotdot_set;
-#endif
 	}
 
 	/* ---- 6. write the transplanted entry into the destination slot ---- *
 	 * The 32-byte entry is copied VERBATIM and only the 11-byte name field is
 	 * (optionally) rewritten: start_cluster / file_size / attribute / mtime /
 	 * mdate carry over bit-for-bit and NO FAT entry and NO data cluster is
-	 * touched (Rule 11 -- a move is metadata-only). */
+	 * touched (the repository contract -- a move is metadata-only). */
 	moved = match;
 	for (k = 0u; k < 8u; k++) {
 		moved.filename[k] = dst11[k];
@@ -3963,42 +3547,17 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	for (k = 0u; k < 3u; k++) {
 		moved.extension[k] = dst11[8u + k];
 	}
-#ifdef FAT12_MUTATE_MOVE_RELINKS_CHAIN
-	/* MUTANT (Rule 6; make test-fat-move-mutant only): RELINK the entry -- zero
-	 * the start_cluster as the transplant writes it, so the moved file loses its
-	 * data chain head. The 'start_cluster equal before/after' + content
-	 * assertions go RED, proving a move never touches the chain. NEVER define in
-	 * a real build. */
-	moved.start_cluster = 0u;
-#endif
-#ifndef FAT12_MUTATE_MOVE_LOSES_ENTRY
 	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, dst_is_root, dst_dir_start,
 	                               free_slot, &moved, sector_buf);
-#else
-	/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the destination
-	 * write while still deleting the source below -- the entry VANISHES (the
-	 * classic half-move). Every "present at the destination" assertion (and the
-	 * mtools mdir differential) goes RED. NEVER define in a real build. */
-	rc = FAT12_OK;
-#endif
 	if (rc != FAT12_OK) {
 		/* Nothing of the entry landed. Undo the '..' patch and the grow. */
 		if (dotdot_set) {
 			(void)fat12_set_dotdot(vol, fat, fat_len, moved_start,
 			                       src_dir_start, sector_buf);
 		}
-#ifndef FAT12_MUTATE_MOVE_NO_GROW_ROLLBACK
 		if (dst_grew) {
 			fat12_shrink_dir_tail(vol, fat, fat_len, dst_dir_start, dst_newc);
 		}
-#else
-		/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the destination-
-		 * grow rollback on the failed transplant. The cluster the grow appended
-		 * to the destination directory LEAKS while the move reports failure --
-		 * exactly the atomicity defect the fault-injection leg pins, so its
-		 * chain-length / free-count assertion goes RED. NEVER in a real build. */
-		(void)dst_grew;
-#endif
 		return rc;
 	}
 
@@ -4011,7 +3570,7 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		 * the entry would exist TWICE, two directories pointing at one chain --
 		 * far worse than a failed move. Undo in reverse: delete the destination
 		 * entry we just wrote, restore '..', shrink the grow (best-effort; the
-		 * caller's original error is what we report). Rule 2/Rule 3. */
+		 * caller's original error is what we report). the repository contract/the repository contract. */
 		dir_entry_t undo = moved;
 		undo.filename[0] = DIR_NAME_DELETED;
 		(void)fat12_write_dirent_in_dir(vol, fat, fat_len, dst_is_root,
@@ -4021,25 +3580,11 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			(void)fat12_set_dotdot(vol, fat, fat_len, moved_start,
 			                       src_dir_start, sector_buf);
 		}
-#ifndef FAT12_MUTATE_MOVE_NO_GROW_ROLLBACK
 		if (dst_grew) {
 			fat12_shrink_dir_tail(vol, fat, fat_len, dst_dir_start, dst_newc);
 		}
-#endif
 		return rc;
 	}
-#ifdef FAT12_MUTATE_MOVE_FREES_CHAIN
-	/* MUTANT (Rule 6; make test-fat-move-mutant only) -- the F1.4
-	 * "TRASH_NO_STAGE" defect shape: after transplanting the entry, ALSO free the
-	 * file's cluster chain, i.e. behave like unlink-then-create instead of a
-	 * metadata-only move. The transplanted entry then points at freed clusters:
-	 * the "BOTH on-disk FAT copies byte-unchanged" assertion, the data-cluster
-	 * comparison and the volume's free-space count all go RED. This is what
-	 * proves those NEGATIVE assertions are load-bearing and not decoration.
-	 * NEVER define in a real build. */
-	(void)fat12_free_chain(vol, fat, fat_len, moved_start);
-	(void)fat12_flush_fats(vol, fat, fat_len);
-#endif
 	return FAT12_OK;
 }
 
@@ -4074,7 +3619,6 @@ int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
 		return rc;
 	}
 
-#ifndef FAT12_MUTATE_SUFFIX_NO_COLLIDE_CHECK
 	rc = fat12_find_slot_in(vol, fat, fat_len, dir_start, sector_buf, cand,
 	                        &probe, &probe_slot);
 	if (rc == FAT12_ERR_NOT_FOUND) {
@@ -4089,21 +3633,6 @@ int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
 	if (rc != FAT12_OK) {
 		return rc;
 	}
-#else
-	/* MUTANT (Rule 6; make test-fat-move-mutant only): SKIP the collision probe
-	 * and hand back the base name unconditionally, so a staged item collides with
-	 * the entry already in the destination (the move then refuses EXISTS, or --
-	 * worse for a caller that ignores it -- the Trash silently swallows the drag).
-	 * The suffix-ladder leg goes RED. NEVER define in a real build. */
-	(void)probe; (void)probe_slot;
-	for (k = 0u; k < FAT12_NAME83_MAX; k++) {
-		out_name83[k] = cand[k];
-		if (cand[k] == '\0') {
-			break;
-		}
-	}
-	return FAT12_OK;
-#endif
 
 	/* Colliding: keep the extension, rebuild the base as trunc5(base) || %03u,
 	 * lowest FREE counter first. (F1.4 states this RULE; its "REPORT.DBF ->
@@ -4156,21 +3685,21 @@ int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
 /* ======================================================================== *
  * FAT12 subdirectory CREATE / REMOVE -- WRITE side (beads initech-u6wa)
  *
- * Ref (Law 1): the EMPIRICAL mtools 4.0.43 '.'/'..' layout (mmd-minted, triple-
- *   confirmed in the differential oracle harness/diff/fat_diff/test_fat12_mkdir.c
+ * Ref (the repository contract): the EMPIRICAL mtools 4.0.43 '.'/'..' layout (mmd-minted, triple-
+ *   confirmed in the differential oracle kernel/tests/test_fat12_mkdir.c
  *   -- NOT inferred): '.' name {0x2E,0x20*10} attr 0x10 start=OWN cluster size 0;
  *   '..' name {0x2E,0x2E,0x20*9} attr 0x10 start=PARENT (ROOT encoded as 0, NOT
  *   self, NOT 1) size 0; slot[2]=0x00 end-of-dir; the new dir's FAT entry = 0xFFF
  *   (EOC). This matches the reader's start_cluster==0 => root normalization
  *   (fat12_resolve_path / fat12_dir), so reader + writer are consistent.
  *   docs/research/fat12-ground-truth.md Sec 4 (dir entry / '.'/'..'); ADR-0003
- *   DEC-07; spec/dos_structs.h (DIR_ATTR_DIRECTORY); DOS 3.3 PRM AH=39h/3Ah.
+ *   DEC-07; kernel/include/dos_structs.h (DIR_ATTR_DIRECTORY); DOS 3.3 PRM AH=39h/3Ah.
  * ======================================================================== */
 
 /* Build one of the canonical dotdir entries in `de`: `dots` == 1 for '.' (one
  * leading 0x2E) or 2 for '..' (two leading 0x2E); the remainder of the 11-byte
  * 8.3 field is space-padded; attr DIR; start_cluster = `start`; size 0; the
- * date/time fields are the FIXED deterministic constant (Rule 11). */
+ * date/time fields are the FIXED deterministic constant (the repository contract). */
 static void fat12_make_dotdir(dir_entry_t *de, int dots, uint16_t start)
 {
 	uint32_t k;
@@ -4188,7 +3717,7 @@ static void fat12_make_dotdir(dir_entry_t *de, int dots, uint16_t start)
 		de->extension[k] = 0x20u;        /* space-pad the extension field */
 	}
 	de->attribute     = DIR_ATTR_DIRECTORY;
-	de->mtime         = FAT12_FIXED_MTIME;   /* deterministic (Rule 11) */
+	de->mtime         = FAT12_FIXED_MTIME;   /* deterministic (the repository contract) */
 	de->mdate         = FAT12_FIXED_MDATE;
 	de->start_cluster = start;
 	de->file_size     = 0u;
@@ -4244,26 +3773,8 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	 * error (the backend maps FAT12_ERR_EXISTS to 0x0005). For a SUBDIR parent
 	 * fat12_scan_dir walks the parent's cluster chain; for the root it is the
 	 * fixed-region scan (byte-identical to the historical fat12_scan_root). */
-#ifdef FAT12_MUTATE_MKDIR_PARENT_ROOTONLY
-	/* MUTANT m-noroot-mkdir (Rule 6; make test-m0bp-mutant only): re-impose the
-	 * old root-only guard so a NON-ROOT parent is rejected NOT_FOUND -- nested
-	 * MKDIR never creates the entry/cluster and the nested differential (parent
-	 * entry / '.'/'..' / listing) goes RED. NEVER define in a real build. */
-	if (parent_dir_start != 0u) {
-		return FAT12_ERR_NOT_FOUND;
-	}
-#endif
 	{
 		int scan_is_root = is_root;
-#ifdef FAT12_MUTATE_MKDIR_PARENT_SCANROOT
-		/* MUTANT m-rootscan-mkdir (Rule 6; make test-m0bp-mutant only): force the
-		 * parent scan to treat the parent as the ROOT even for a SUBDIR parent.
-		 * The duplicate-name check + the free_slot then come from the ROOT region,
-		 * not SUB's chain, so the new dir's entry is written to the wrong dir (or
-		 * a false dup is reported) -- the nested differential goes RED. NEVER
-		 * define in a real build. */
-		scan_is_root = 1;
-#endif
 		rc = fat12_scan_dir(vol, fat, fat_len, scan_is_root, parent_dir_start,
 		                    sector_buf, want11, &free_slot, &have_free,
 		                    &match_slot, &match, &found);
@@ -4281,7 +3792,6 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		 * index just past the last cluster) becomes valid (beads initech-m0bp,
 		 * mirroring fat12_create's full-subdir path). REUSE free_slot verbatim --
 		 * do NOT recompute it (a classic off-by-one). */
-#ifndef FAT12_MUTATE_MKDIR_PARENT_NOGROW
 		if (is_root) {
 			return FAT12_ERR_DIR_FULL;   /* root dir full */
 		}
@@ -4294,16 +3804,6 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			return rc;   /* NO_SPACE / write error -- grow already rolled back */
 		}
 		parent_grew = 1;
-#else
-		/* MUTANT m-nogrow-parent (Rule 6; make test-m0bp-mutant only): a FULL
-		 * subdir parent returns DIR_FULL instead of growing -- the boundary
-		 * MKDIR fails and the new dir never lands, so the parent-grow leg
-		 * (listed by mdir/python, parent spans 2 clusters) goes RED. NEVER define
-		 * in a real build. (cluster_buf is unused on this dead path; keep the
-		 * -Werror=unused-parameter clean.) */
-		(void)cluster_buf;
-		return FAT12_ERR_DIR_FULL;
-#endif
 	}
 
 	/* Claim a free data cluster for the new directory and mark it EOC. If the
@@ -4311,7 +3811,7 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	 * dir's own cluster, the freshly-appended parent cluster must be rolled back
 	 * -- otherwise it orphans, zero-filled and unreclaimable (this FS only
 	 * shrinks a dir via fat12_shrink_dir_tail), while MKDIR reports failure: a
-	 * broken write atomicity (Rule 2/Rule 3; beads initech-m0bp rollback fix,
+	 * broken write atomicity (the repository contract/the repository contract; beads initech-m0bp rollback fix,
 	 * adversarial finding). The discipline mirrors fat12_create's no-space
 	 * rollback: a claimed-but-unused cluster goes back to FREE (+ flush), and a
 	 * grow is undone with its exact inverse fat12_shrink_dir_tail. */
@@ -4320,23 +3820,12 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		/* No free cluster for the new dir's OWN cluster. newc==0 means NOTHING
 		 * was claimed for it, so roll back ONLY the parent grow (the one
 		 * cluster the grow consumed -- here, the volume's last free cluster). */
-#ifndef FAT12_MUTATE_MKDIR_NO_NOSPACE_ROLLBACK
 		if (parent_grew) {
 			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
 			                      parent_newc);
 		}
-#else
-		/* MUTANT m-nospace-noroll (Rule 6; make test-m0bp-rollback-mutant only):
-		 * SKIP the parent-grow rollback on the NO_SPACE post-grow path. The
-		 * appended parent cluster then leaks -- SUB stays 2 clusters and the
-		 * volume's last free cluster stays consumed while MKDIR fails: exactly
-		 * the atomicity defect this fix closes. The rollback oracle must go RED.
-		 * NEVER define in a real build. */
-		(void)parent_grew;
-#endif
 		return FAT12_ERR_NO_SPACE;   /* full volume */
 	}
-#ifndef FAT12_MUTATE_MKDIR_NO_EOC
 	rc = fat12_set_entry(fat, fat_len, newc, FAT12_EOC_VALUE);
 	if (rc != FAT12_OK) {
 		/* newc WAS claimed (in-memory only) -- return it to FREE, then undo the
@@ -4349,13 +3838,6 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		}
 		return rc;
 	}
-#else
-	/* MUTANT m3 (Rule 6; make test-fat12-mkdir-mutant only): skip the EOC
-	 * set_entry so the new directory's FAT entry stays free (0x000). The
-	 * differential FAT-entry / free-count assertion must go RED. NEVER define in
-	 * a real build. */
-	rc = FAT12_OK;
-#endif
 	rc = fat12_flush_fats(vol, fat, fat_len);
 	if (rc != FAT12_OK) {
 		/* The FAT commit failed with newc marked EOC in memory (the parent-grow
@@ -4368,19 +3850,11 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		 * in-memory FAT is left consistent and no cluster is leaked logically).
 		 * Reached + pinned by the fault-injection oracle scenario [C], beads
 		 * initech-lpf3 (arm the post-grow EOC flush to fault). */
-#ifndef FAT12_MUTATE_MKDIR_NO_FLUSHFAIL_ROLLBACK
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 		if (parent_grew) {
 			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
 			                      parent_newc);
 		}
-#else
-		/* MUTANT (Rule 6; make test-fat-fault-rollback-mutant only): SKIP the
-		 * post-grow flush-fail rollback. newc stays claimed AND the appended
-		 * parent cluster stays linked, both leaking while MKDIR fails -- the
-		 * atomicity defect scenario [C] pins. CSUB stays 2 clusters / the free
-		 * count drops -> scenario [C] goes RED. NEVER define in a real build. */
-#endif
 		return rc;
 	}
 
@@ -4396,15 +3870,7 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	for (k = 0u; k < 32u; k++) {
 		cb[k] = ((const uint8_t *)&de)[k];
 	}
-#ifndef FAT12_MUTATE_MKDIR_DOTDOT_SELF
 	fat12_make_dotdir(&de, 2, parent_dir_start); /* '..' -> parent (root=0) */
-#else
-	/* MUTANT m2 (Rule 6; make test-fat12-mkdir-mutant only) -- THE canonical
-	 * '..'-rule mutant: write '..' start = the dir's OWN cluster instead of the
-	 * parent (root encoded as 0). The mmd '..' diff must go RED. NEVER define in
-	 * a real build. */
-	fat12_make_dotdir(&de, 2, newc);
-#endif
 	for (k = 0u; k < 32u; k++) {
 		cb[32u + k] = ((const uint8_t *)&de)[k];
 	}
@@ -4417,8 +3883,8 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		if (fat12_write_sectors(vol, lba + k, 1u, cb)) rc = FAT12_ERR_WRITE;
 	if (rc != FAT12_OK) {
 		/* Roll back the allocation so a write failure leaves no orphan cluster
-		 * (Rule 2). If the parent GREW for this MKDIR, also detach + free the
-		 * freshly-appended parent cluster so it does not leak (Rule 3). */
+		 * (the repository contract). If the parent GREW for this MKDIR, also detach + free the
+		 * freshly-appended parent cluster so it does not leak (the repository contract). */
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 		(void)fat12_flush_fats(vol, fat, fat_len);
 		if (parent_grew) {
@@ -4442,27 +3908,17 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		de.extension[k] = want11[8u + k];
 	}
 	de.attribute     = DIR_ATTR_DIRECTORY;
-	de.mtime         = FAT12_FIXED_MTIME;        /* deterministic (Rule 11) */
+	de.mtime         = FAT12_FIXED_MTIME;        /* deterministic (the repository contract) */
 	de.mdate         = FAT12_FIXED_MDATE;
 	de.start_cluster = newc;
 	de.file_size     = 0u;
 
-#ifndef FAT12_MUTATE_MKDIR_OWNENTRY_ROOTSLOT
 	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
 	                               free_slot, &de, sector_buf);
-#else
-	/* MUTANT m-rootslot-write (Rule 6; make test-m0bp-mutant only): force the new
-	 * dir's OWN-entry write-back to a ROOT slot (is_root=1) instead of the parent
-	 * subdir cluster-chain slot. NEWDIR then lands in the ROOT, not in SUB:
-	 * `mdir ::SUB` lacks it (and `mdir ::` wrongly gains it), so the nested
-	 * differential goes RED. NEVER define in a real build. */
-	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, 1, 0u,
-	                               free_slot, &de, sector_buf);
-#endif
 	if (rc != FAT12_OK) {
 		/* The parent entry failed to land (the LAST failable step). Roll back
 		 * the new dir's data cluster AND, if the parent grew for this MKDIR, the
-		 * freshly-appended parent cluster -- otherwise both leak (Rule 2/Rule 3;
+		 * freshly-appended parent cluster -- otherwise both leak (the repository contract/the repository contract;
 		 * matches fat12_write_file's partial-allocation rollback discipline). */
 		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
 		(void)fat12_flush_fats(vol, fat, fat_len);
@@ -4479,8 +3935,7 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * non-zero return stops the enumeration early (the dir is provably non-empty).
  * fat12_read_dir already skips free/deleted/LFN slots, so every entry handed
  * here is a real 8.3 name. (Compiled out under the m4 mutant, which omits the
- * empty-check entirely -- so the callback would be unused; Rule 6.) */
-#ifndef FAT12_MUTATE_RMDIR_NO_EMPTYCHECK
+ * empty-check entirely -- so the callback would be unused; the repository contract.) */
 static int fat12_rmdir_empty_cb(const dir_entry_t *e, void *user)
 {
 	int *nonempty = (int *)user;
@@ -4492,7 +3947,6 @@ static int fat12_rmdir_empty_cb(const dir_entry_t *e, void *user)
 	*nonempty = 1;
 	return 1;           /* a real child entry -- stop, the dir is non-empty */
 }
-#endif /* !FAT12_MUTATE_RMDIR_NO_EMPTYCHECK */
 
 int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                 const char *name83, uint16_t parent_dir_start, void *sector_buf)
@@ -4528,15 +3982,6 @@ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	 * the empty-check below already enumerates the TARGET's chain (subdir-
 	 * capable). No GROW here -- removing an entry never extends the parent (keep
 	 * mkdir/rmdir asymmetric). */
-#ifdef FAT12_MUTATE_RMDIR_PARENT_ROOTONLY
-	/* MUTANT m-noroot-rmdir (Rule 6; make test-m0bp-mutant only): re-impose the
-	 * old root-only guard so RD of a NON-ROOT parent is wrongly rejected
-	 * NOT_FOUND -- the nested rmdir-success / parent-slot-deleted assertions go
-	 * RED. NEVER define in a real build. */
-	if (parent_dir_start != 0u) {
-		return FAT12_ERR_NOT_FOUND;
-	}
-#endif
 
 	rc = parse_name83(name83, want11);
 	if (rc != FAT12_OK) {
@@ -4560,7 +4005,6 @@ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	 * survive. Any other entry -> non-empty (the backend maps to 0x0005). */
 	target.is_root = 0;
 	target.start_cluster = match.start_cluster;
-#ifndef FAT12_MUTATE_RMDIR_NO_EMPTYCHECK
 	rc = fat12_read_dir(vol, &target, sector_buf, fat, fat_len,
 	                    fat12_rmdir_empty_cb, &nonempty);
 	if (rc != FAT12_OK && rc != 1) {
@@ -4571,12 +4015,6 @@ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (nonempty) {
 		return FAT12_ERR_NOT_EMPTY;
 	}
-#else
-	/* MUTANT m4 (Rule 6; make test-fat12-mkdir-mutant only): omit the empty-
-	 * check so RMDIR of a NON-EMPTY directory wrongly succeeds. The
-	 * RMDIR-non-empty assertion must go RED. NEVER define in a real build. */
-	(void)target; (void)nonempty;
-#endif
 
 	/* Free the target's cluster chain (the '.'/'..' cluster), flush both FATs. */
 	if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
@@ -4603,7 +4041,7 @@ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 /* ======================================================================== *
  * FAT12 subdirectory / path traversal -- READ side (beads initech-ti8)
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (cluster chain decode,
+ * Ref (the repository contract): docs/research/fat12-ground-truth.md Sec 3 (cluster chain decode,
  *   EOC >= 0xFF8) + Sec 4 (dir entry / sentinels: 0x00 STOP, 0xE5 SKIP, attr
  *   0x0F LFN SKIP); ADR-0003 DEC-07 (root dir is a FIXED region, subdirs are
  *   cluster chains). The subdir walk MIRRORS fat12_read_partial's incremental
@@ -4632,14 +4070,14 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
 	}
 
 	/* A subdirectory: the cluster-chain walk needs the FAT buffer to decode
-	 * links (fail loud, Rule 2). */
+	 * links (fail loud, the repository contract). */
 	if (fat == NULL) {
 		return FAT12_ERR_NULL;
 	}
 
 	cur       = dir->start_cluster;
 	steps     = 0u;
-	/* Anti-hang bound (Rule 2): a valid chain visits at most total_clusters
+	/* Anti-hang bound (the repository contract): a valid chain visits at most total_clusters
 	 * distinct data clusters; +2 covers the reserved 0/1 slack. A cyclic/corrupt
 	 * chain trips this and errors instead of looping forever. */
 	max_steps = vol->total_clusters + 2u;
@@ -4652,7 +4090,7 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
 		int            rc;
 
 		/* Gate EVERY cluster through the range check BEFORE the LBA math: a
-		 * free/bad/out-of-range link is corruption (Rule 2 / bcg.3). This also
+		 * free/bad/out-of-range link is corruption (the repository contract / bcg.3). This also
 		 * guards BPB_CLUSTER_LBA against an underflowing cluster < 2. */
 		if (chain_link_unusable(vol, cur)) {
 			return FAT12_ERR_CHAIN;
@@ -4705,19 +4143,9 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
 			return FAT12_OK; /* chain ended at EOC with no 0x00 sentinel */
 		}
 		cur = next;
-#ifndef FAT12_MUTATE_SUBDIR_SINGLESECTOR
 		if (++steps > max_steps) {
 			return FAT12_ERR_CHAIN; /* cyclic / corrupt */
 		}
-#else
-		/* MUTANT (Rule 6; test-fat-subdir-mutant only): read ONLY the FIRST
-		 * cluster of a subdirectory -- stop the chain walk after one cluster.
-		 * BIGDIR enumeration then loses FILE17..FILE40 (entries in cluster 2+),
-		 * so the >16-files multi-cluster assertion goes RED. NEVER in a real
-		 * build. */
-		(void)steps; (void)max_steps;
-		return FAT12_OK;
-#endif
 	}
 }
 
@@ -4858,7 +4286,7 @@ int fat12_resolve_path_from(const fat12_volume_t *vol, void *sector_buf,
 
 	/* Seed the cursor from `start_dir_cluster`. start_cluster==0 means "the
 	 * root" everywhere, normalized BEFORE any cluster-LBA math so cluster 0
-	 * never reaches BPB_CLUSTER_LBA (Rule 2). For start_dir_cluster==0 this is
+	 * never reaches BPB_CLUSTER_LBA (the repository contract). For start_dir_cluster==0 this is
 	 * exactly the old root seed (the wrapper's invariant -- root behavior is
 	 * byte-identical). */
 	cur.is_root       = (start_dir_cluster == 0u) ? 1 : 0;
@@ -4936,15 +4364,7 @@ int fat12_resolve_path_from(const fat12_volume_t *vol, void *sector_buf,
 
 			/* NON-final: it MUST be a directory to descend into it. */
 			if ((ent.attribute & DIR_ATTR_DIRECTORY) == 0) {
-#ifndef FAT12_MUTATE_SUBDIR_NOATTR
 				return FAT12_ERR_NOT_FOUND;
-#else
-				/* MUTANT (Rule 6; test-fat-subdir-mutant only): SKIP the
-				 * DIR_ATTR_DIRECTORY gate on a non-final component, so a path
-				 * like '\SUB\NESTED.TXT\X' wrongly tries to descend into a
-				 * regular file. The negative-test assertion goes RED. NEVER in
-				 * a real build. */
-#endif
 			}
 			cur.start_cluster = ent.start_cluster;
 			/* NORMALIZE start_cluster==0 => the root BEFORE any cluster math. */

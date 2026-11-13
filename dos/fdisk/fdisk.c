@@ -14,9 +14,6 @@ static uint8_t *entry(uint8_t *m,unsigned i){return m+446+16*i;}
 static void signature(uint8_t *m)
 {
     m[510]=0x55;m[511]=0xaa;
-#ifdef FDISK_MUT_SIGNATURE
-    m[510]=0;
-#endif
 }
 static void chs(uint8_t *p,uint32_t lba)
 {
@@ -54,9 +51,6 @@ static void mark_active(uint8_t *m,unsigned partition)
 int fdisk_active(uint8_t m[512],unsigned partition)
 {
     if(!partition || partition>4 || !entry(m,partition-1)[4])return -1;
-#ifdef FDISK_MUT_ACTIVE
-    partition=partition%4+1;
-#endif
     mark_active(m,partition);signature(m);return 0;
 }
 int fdisk_create(uint8_t m[512],uint32_t n,unsigned count,int active)
@@ -76,20 +70,13 @@ int fdisk_create(uint8_t m[512],uint32_t n,unsigned count,int active)
      * through 4095 sectors, 04 through 65535, 06 above (PM subset decision). */
     p[4]=length<4096?1:length<65536?4:6;
     chs(p+1,start);chs(p+5,end-1);
-#ifdef FDISK_MUT_CHS
-    p[5]--;
-#endif
     w32(p+8,start);w32(p+12,length);signature(m);
     if(active)mark_active(m,slot+1);
     return 0;
 }
 int fdisk_delete(uint8_t m[512],int confirmed)
 {
-#ifndef FDISK_MUT_CONFIRM
     if(!confirmed)return 0;
-#else
-    (void)confirmed;
-#endif
     for(unsigned i=0;i<4;i++)if(dos(entry(m,i)[4])) {
         for(unsigned j=0;j<16;j++)entry(m,i)[j]=0;
         signature(m);return 0;
@@ -126,11 +113,7 @@ static void table(void)
          * per DEC-18 (C = 80h primary 1, D = 80h primary 2), never a fixed
          * C: for every DOS row. MS-DOS UG p295 shows the letter column. */
         char l=0;
-#ifdef FDISK_MUT_LETTER
-        l='C';
-#else
         if(io->letter)l=io->letter(drive,i+1);
-#endif
         if(dos(p[4]) && l){b[1]=l;b[2]=':';}
         b[5]=(char)('1'+i);if(p[0]==0x80)b[13]='A';
         const char *type=dos(p[4])?"PRI DOS":p[4]==5?"EXT DOS":"non DOS";
@@ -172,9 +155,7 @@ int fdisk_run(const fdisk_io *ops)
     for(;;) {
         /* PM ruling: loaded volume is not an editing target. The present
          * single-volume loader is bound exclusively to ATA primary slave. */
-#ifndef FDISK_MUT_LOADED
         if(drive==io->loaded_drive)return 1;
-#endif
         sectors=io->capacity(drive);
         if(!sectors || io->read(drive,mbr))return 1;
         heading("Disk Options");

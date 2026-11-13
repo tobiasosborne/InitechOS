@@ -1,0 +1,63 @@
+# CMD_MUTATE_NO_PATH
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -1295,39 +1295,24 @@
+         char path_dirs[CMD_PATH_MAX_DIRS][CMD_PATH_MAX_LEN];
+         int  nd = split_path(path_value, path_dirs);
+ 
++        /* MUTANT (the repository contract; make test-command-mutant only): suppress the PATH-
++         * dir loop so the split result is "used" and no unused-variable
++         * warning fires.  Only CWD candidates are emitted -> PATH tests go
++         * RED.  NEVER compiled in a real build. */
++        (void)nd;
++        (void)path_dirs;
+ 
+         if (has_extension(word)) {
+             /* Word already has extension: emit CWD + each PATH dir, no ext. */
+             emit_candidate(out, cwd, word, "");
+-            /* PATH-dir candidates (mutant: -DCMD_MUTATE_NO_PATH drops this
+-             * block so only the CWD candidate is emitted -> PATH tests go RED;
+-             * NEVER dropped in a real build -- the repository contract). */
+-            {
+-                int di;
+-                for (di = 0; di < nd; di++) {
+-                    emit_candidate(out, path_dirs[di], word, "");
+-                }
+-            }
+             return out->count;
+         }
+ 
+         /* .COM round: CWD first, then PATH dirs. */
+         emit_candidate(out, cwd, word, ext_com);
+-        {
+-            int di;
+-            for (di = 0; di < nd; di++) {
+-                emit_candidate(out, path_dirs[di], word, ext_com);
+-            }
+-        }
+ 
+         /* .EXE round: CWD first, then PATH dirs. */
+         emit_candidate(out, cwd, word, ext_exe);
+-        {
+-            int di;
+-            for (di = 0; di < nd; di++) {
+-                emit_candidate(out, path_dirs[di], word, ext_exe);
+-            }
+-        }
+ 
+         /* .BAT round: CWD first, then PATH dirs.
+          * NOTE: .BAT execution is deferred (beads xw1); these candidates are
+@@ -1335,12 +1320,6 @@
+          * name" after exhausting all three extension types rather than stopping
+          * at .EXE.  The REPL's run_external ignores .BAT entries for now. */
+         emit_candidate(out, cwd, word, ext_bat);
+-        {
+-            int di;
+-            for (di = 0; di < nd; di++) {
+-                emit_candidate(out, path_dirs[di], word, ext_bat);
+-            }
+-        }
+     }
+ 
+     return out->count;

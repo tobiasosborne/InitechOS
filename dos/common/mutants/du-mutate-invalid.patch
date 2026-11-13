@@ -1,0 +1,14 @@
+# DU_MUTATE_INVALID
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -260,9 +260,6 @@
+     unsigned n=0;
+     for (;*tail;tail++) {
+         char c=upper(*tail);
+-        const char *bad="*?/\\|.,;:+=<>[]()&^\"";
+-        if ((unsigned char)c<32) return error(MSG_DOS_0041);
+-        for (;*bad;bad++) if (*bad==c) return error(MSG_DOS_0041);
+         if (n<11) name[n++]=c;
+     }
+     while (n && name[n-1]==' ') n--;

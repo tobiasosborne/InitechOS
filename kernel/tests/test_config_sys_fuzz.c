@@ -1,13 +1,13 @@
 /* test_config_sys_fuzz.c -- deterministic, seeded generative fuzzer for the PURE
- * CONFIG.SYS parser (os/milton/config_sys.c). beads initech-hjv.
+ * CONFIG.SYS parser (kernel/config_sys.c). beads initech-hjv.
  *
- * FACTORY host tool (CLAUDE.md Law 3): libc OK; the SUBJECT under test is the
+ * FACTORY host tool (the repository contract): libc OK; the SUBJECT under test is the
  * UNMODIFIED artifact config_sys.c -- the SAME code SYSINIT runs (it compiles
  * both freestanding and hosted). Nothing about the artifact is touched here.
  *
  * Why (beads initech-hjv): test_config_sys.c is a fixed ENUMERATED matrix vs the
  * LOCKED baseline -- strong, but it does not explore the deep space of HOSTILE
- * input (Rule 3: "all bugs are deep"). This is the standing GENERATIVE fuzzer: a
+ * input (the repository contract: "all bugs are deep"). This is the standing GENERATIVE fuzzer: a
  * splitmix64-seeded PRNG synthesizes adversarial CONFIG.SYS files -- lines with
  * no '=', non-numeric FILES=/BUFFERS=, OVERSIZED decimals that overflow the
  * decimal parse (config_sys.c:75 ">429496729" guard), >255-char lines, unknown
@@ -34,19 +34,19 @@
  *       NEVER fatal -- the parse completes and recognized counts only the honored
  *       directives (matches the baseline leniency the existing oracle pins).
  *
- * Determinism (Rule 11): a splitmix64-seeded xorshift128+ PRNG; NO time()/rand().
+ * Determinism (the repository contract): a splitmix64-seeded xorshift128+ PRNG; NO time()/rand().
  * Same --seed => identical CONFIG.SYS => identical result, so any failure REPLAYS
  * exactly by seed. The gate runs a fixed seed sweep.
  *
- * Ref (Law 1): os/milton/config_sys.h (the bounds + the leniency contract);
- *   os/milton/config_sys.c (the ">429496729" decimal saturation guard, the FILES
- *   [MIN,MAX] clamp, the no-'='/unknown skip); spec/dos_config_sys_baseline.txt;
- *   ADR-0003 Sec 5.6; CLAUDE.md Law 2 (oracle is truth), Rule 6 (mutation-prove),
- *   Rule 11 (deterministic), Rule 12 (ASCII).
+ * Ref (the repository contract): kernel/config_sys.h (the bounds + the leniency contract);
+ *   kernel/config_sys.c (the ">429496729" decimal saturation guard, the FILES
+ *   [MIN,MAX] clamp, the no-'='/unknown skip); kernel/tests/data/dos_config_sys_baseline.txt;
+ *   ADR-0003 Sec 5.6; the repository contract (oracle is truth), the repository contract (mutation-prove),
+ *   the repository contract (deterministic), the repository contract (ASCII).
  *
  * Exit code: 0 if every seed's every invariant held; non-zero on the FIRST
  * violation (after printing the seed + the offending CONFIG.SYS, replayable) so
- * the Makefile gate goes RED (Law 2).
+ * the Makefile gate goes RED (the repository contract).
  *
  * Usage:
  *   test_config_sys_fuzz --seed N  [--ops K]
@@ -61,8 +61,8 @@
 
 #include "config_sys.h"
 
-/* ---- Deterministic PRNG: splitmix64 seed -> xorshift128+ stream (Rule 11). --
- * Mirrors harness/diff/fat_diff/fat12_fuzz.c so the factory has one PRNG idiom. */
+/* ---- Deterministic PRNG: splitmix64 seed -> xorshift128+ stream (the repository contract). --
+ * Mirrors kernel/tests/fat12_fuzz.c so the factory has one PRNG idiom. */
 typedef struct { uint64_t s0, s1; } prng_t;
 
 static uint64_t splitmix64(uint64_t *x)

@@ -9,8 +9,8 @@
  * resize traffic (no allocation or header write ever stomps another block).
  *
  * Mutation-proven via make test-mcb-mutant (MCB_MUTATE_NO_COALESCE,
- * MCB_MUTATE_NO_OWNER_CHECK). CLAUDE.md Law 2, Rule 6, Rule 11 (seeded PRNG ->
- * deterministic), Rule 12 (ASCII).
+ * MCB_MUTATE_NO_OWNER_CHECK). the repository contract, the repository contract, the repository contract (seeded PRNG ->
+ * deterministic), the repository contract (ASCII).
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -53,7 +53,7 @@ static void survey(mcb_arena_t *a, int *nblocks, uint32_t *free_data,
     *nblocks = nb; *free_data = fd; *used_data = ud; *nterm = nt;
 }
 
-/* ---- a deterministic LCG so the fuzz is reproducible (Rule 11) ----------- */
+/* ---- a deterministic LCG so the fuzz is reproducible (the repository contract) ----------- */
 static uint32_t g_seed = 0x1234567u;
 static uint32_t lcg(void)
 {

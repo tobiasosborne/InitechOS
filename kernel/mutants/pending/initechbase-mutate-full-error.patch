@@ -1,0 +1,13 @@
+# INITECHBASE_MUTATE_FULL_ERROR
+# test: test-zs24
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -298,8 +298,6 @@
+         /* IBM DOS 3.30 Technical Reference pp. 6-139/6-140, AH=40h:
+          * no space returns CF clear with fewer bytes written. FAT has rolled
+          * back allocation, so this refusal transferred zero bytes. */
+-        if (rc == FAT12_ERR_NO_SPACE) return 0u;
+-        if (rc == FAT12_ERR_WRITE || rc == FAT12_ERR_READ) return 0x001Du;
+         return FILEIO_ERR_ACCESS_DENIED;
+     }
+     *out_written = wrote;

@@ -18,12 +18,12 @@
  *       the 'echo HELLO > file' case the hsct redirection feature needs.
  *   (c) NO current PSP (handle 1 unresolvable): AH=09h output STILL reaches CON
  *       via the fallback -- the EARLY-banner-survival case (the banner prints via
- *       AH=09h before the kernel JFT is bound; Rule 2 -- never drop a byte).
+ *       AH=09h before the kernel JFT is bound; the repository contract -- never drop a byte).
  *
- * Ref (Law 1): DOS 3.3 Programmer's Reference Manual AH=02h/06h/09h (routed to
+ * Ref (the repository contract): DOS 3.3 Programmer's Reference Manual AH=02h/06h/09h (routed to
  *   STDOUT handle 1) + AH=46h DUP2 (the redirection primitive);
  *   fs-mount-sft-ground-truth.md Sec 3.2-3.4 (JFT->SFT handle layer);
- *   CLAUDE.md Law 2 (the oracle is truth), Rule 6 (mutation-prove), Rule 12 (ASCII).
+ *   the repository contract (the oracle is truth), the repository contract (mutation-prove), the repository contract (ASCII).
  *
  * Compiles HOSTED against the REAL artifact int21.c (the same int21_dispatch the
  * kernel runs), the same idiom as test_int21.c: the CON sink is captured via
@@ -31,7 +31,7 @@
  * bytes. We build a fake int_frame_t, call int21_dispatch, and assert WHERE the
  * output byte landed.
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DK36G_MUTATE_NO_REDIR : stdout_emit always con_putc (never the resolved
  *                            handle-1 SFT) -> AH=02h/09h/06h are no longer
  *                            redirectable -> assertion (b) goes RED.
@@ -297,7 +297,7 @@ int main(void)
     /* ====================================================================
      * (c) NO current PSP -> handle 1 is unresolvable. AH=09h output STILL
      *     reaches CON via the fallback -- the banner-survival case (the banner
-     *     prints via AH=09h before the kernel JFT is bound; Rule 2 never drops a
+     *     prints via AH=09h before the kernel JFT is bound; the repository contract never drops a
      *     byte). The mutant ALSO con_putc's here, so (c) is green under the
      *     mutant too (the fallback is exactly what the mutant always does) --
      *     (c) is a SAFETY assertion, (b) is the one that distinguishes the fix.

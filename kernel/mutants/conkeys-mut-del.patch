@@ -1,0 +1,12 @@
+# CONKEYS_MUT_DEL
+# test: test-conkeys-unit
+--- a/include/conedit.h
++++ b/include/conedit.h
+@@ -50,7 +50,6 @@
+             s->insert=!s->insert;
+             break;
+         case 0x53:
+-            if(s->pos<s->length)s->pos++;
+             break;
+         case 0x4b:conedit_erase(s,emit,ctx);break;
+         case 0x3b:

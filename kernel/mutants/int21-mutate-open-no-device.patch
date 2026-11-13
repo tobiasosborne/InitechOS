@@ -1,0 +1,39 @@
+# INT21_MUTATE_OPEN_NO_DEVICE
+# test: test-devwire
+--- a/int21.c
++++ b/int21.c
+@@ -2239,25 +2239,15 @@
+  * takes the FAT file path). NULL chain -> OPEN-by-name disabled (pre-6zd9). */
+ static device_header_t *dev_open_lookup(const char *path)
+ {
+-    if (g_devchain == 0) {
+-        return 0;                         /* chain unbound -> OPEN-by-name disabled */
+-    }
+-    char name8[DEV_NAME_LEN];
+-    if (!dev_name_from_path(path, name8)) {
+-        return 0;
+-    }
+-    /* IBM DOS 3.30 Technical Reference p.6-54 lists COM1..COM4;
+-     * MS-DOS 3.3 Reference pp.89-91 lists LPT1..LPT3. Aliases use the
+-     * resident AUX/PRN service, and retain device precedence with extensions. */
+-    if (name8[0]=='C' && name8[1]=='O' && name8[2]=='M' &&
+-        name8[3]>='1' && name8[3]<='4' && name8[4]==' ') {
+-        name8[0]='A';name8[1]='U';name8[2]='X';name8[3]=' ';
+-    }
+-    if (name8[0]=='L' && name8[1]=='P' && name8[2]=='T' &&
+-        name8[3]>='1' && name8[3]<='3' && name8[4]==' ') {
+-        name8[0]='P';name8[1]='R';name8[2]='N';name8[3]=' ';
+-    }
+-    return devices_find(name8);           /* NULL if the name is not a device */
++    /* MUTANT (the repository contract; make test-devwire-mutant only): pretend NO path is ever a
++     * device, so an OPEN of "NUL"/"CON"/"PRN"/"CLOCK$" falls through to the FAT
++     * path -> with no such FILE it returns file-not-found and the device-OPEN
++     * oracle goes RED. A one-branch RUNTIME perturbation that compiles under
++     * -Werror. NEVER define in a real build. The (void) refs keep
++     * -Werror=unused-function quiet (dev_name_from_path is otherwise unreached). */
++    (void)path;
++    (void)dev_name_from_path;
++    return 0;
+ }
+ 
+ /* dev_route_rw: drive one READ (DEVCMD_READ) or WRITE (DEVCMD_WRITE) request

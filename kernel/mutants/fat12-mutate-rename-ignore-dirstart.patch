@@ -1,0 +1,22 @@
+# FAT12_MUTATE_RENAME_IGNORE_DIRSTART
+# test: test-gnrc
+--- a/fat12.c
++++ b/fat12.c
+@@ -3183,6 +3183,17 @@
+ 		return FAT12_ERR_WRITE;
+ 	}
+ 
++	/* MUTANT 4 (the repository contract; make test-gnrc-mutant only): IGNORE the caller's dir_start
++	 * and resolve root-anchored (force the SUBDIR parent to the fixed root). Every
++	 * subsequent fat12_scan_dir + the final fat12_write_dirent_in_dir then operate
++	 * on the ROOT region instead of the requested subdirectory: a non-root
++	 * \SUB\OLD -> \SUB\NEW rename FAILS to find OLD in the (empty-of-OLD) root and
++	 * returns FAT12_ERR_NOT_FOUND, so the NON-ROOT same-dir success leg of
++	 * test_fat12_rename goes RED. This proves the leg actually exercises the
++	 * subdir-aware dir_start path (beads initech-isil) and is not silently passing
++	 * via the root scan. NEVER in a real build. */
++	dir_start = 0u;
++	is_root   = 1;
+ 
+ 	/* Parse BOTH names up front (rename allocates nothing -- a malformed name on
+ 	 * either side is the source-not-found contract). */

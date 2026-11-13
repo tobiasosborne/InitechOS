@@ -1,0 +1,12 @@
+# DU_MUT_ORDER
+# test: test-formatsys
+--- a/diskutil/diskutil.c
++++ b/diskutil/diskutil.c
+@@ -103,6 +103,7 @@
+   if(entry(dst,i,e,1))return -1;
+   *used+=n*512;
+  }
++ uint8_t e[32],f[32];if(entry(dst,0,e,0)||entry(dst,1,f,0)||entry(dst,0,f,1)||entry(dst,1,e,1))return -1;
+  return sec(&dst->m,0,dst->boot,1);
+ }
+ typedef struct {unsigned letter[2],letters,s,v,b,one,four,eight,tracks,sectors;} options;

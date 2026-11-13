@@ -15,22 +15,22 @@
 ;             whole-file buffer) can serve this.
 ;        Each result is echoed to stdout (handle 1, serial) framed by grep-able
 ;        markers the harness asserts. Exit rc=0 on success; a fail-loud marker +
-;        rc=1 on any error (Rule 2).
+;        rc=1 on any error (the repository contract).
 ;
-; Ref:   os/milton/int21.c do_open (AH=3Dh: EDX->ASCIIZ path, AL=mode, EAX=handle),
+; Ref:   kernel/int21.c do_open (AH=3Dh: EDX->ASCIIZ path, AL=mode, EAX=handle),
 ;        do_read (AH=3Fh: EBX=handle, ECX=count, EDX=buf, EAX=bytes), do_lseek
 ;        (AH=42h: EBX=handle, AL=whence, ECX:EDX offset), do_write (AH=40h:
 ;        EBX=1 -> CON), do_close (AH=3Eh), do_terminate (AH=4Ch);
-;        spec/memory_map.h (PROGRAM_IMAGE = 0x00040100). CLAUDE.md Law 1, Rule 2
-;        (fail loud), Rule 11 (deterministic: nasm -f bin), Rule 12 (ASCII).
+;        kernel/include/memory_map.h (PROGRAM_IMAGE = 0x00040100). the repository contract, the repository contract
+;        (fail loud), the repository contract (deterministic: nasm -f bin), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/multiopen_program.asm -o build/multiopen_program.bin
+; Assembled: nasm -f bin os/initechdos/multiopen_program.asm -o build/multiopen_program.bin
 ; org PROGRAM_IMAGE so absolute references resolve at the load address.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 ; Handle storage (this is a single-shot program; globals at fixed addrs are fine).
 %define HA  dword [ha]
@@ -190,7 +190,7 @@ newline:
     pop ebx
     ret
 
-; ---- fail-loud paths (Rule 2) ----
+; ---- fail-loud paths (the repository contract) ----
 open_a_failed:
     mov edx, msg_oa
     jmp die

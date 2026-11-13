@@ -4,8 +4,8 @@
  * Ref: docs/research/internals-int21h-ground-truth.md Sec 2.1 (8-byte gate
  *      descriptor: offset SPLIT lo[15:0]/hi[31:16], selector, zero, type_attr),
  *      Sec 8 Risk 2 (the int_frame_t field order is load-bearing and MUST match
- *      the asm pushad order). CLAUDE.md Law 2 (the oracle is truth), Rule 1
- *      (RED->GREEN), Rule 6 (mutation-prove), Rule 12 (ASCII).
+ *      the asm pushad order). the repository contract (the oracle is truth), the repository contract
+ *      (RED->GREEN), the repository contract (mutation-prove), the repository contract (ASCII).
  *
  * Compiled HOSTED against the REAL artifact idt.c (the same idt_set_gate the
  * kernel uses). Two property classes:
@@ -14,7 +14,7 @@
  *   2. FRAME OFFSETS: every int_frame_t field sits at the offset the documented
  *      pushad order requires -- catches a transposed field.
  *
- * MUTATION (Rule 6): build idt.c with -DIDT_MUTATE_OFFSET_HI to make the
+ * MUTATION (the repository contract): build idt.c with -DIDT_MUTATE_OFFSET_HI to make the
  * offset-hi shift wrong (>>8 instead of >>16) and confirm the encode test goes
  * RED. The macro is consumed by the REAL idt_set_gate in idt.c; `make
  * test-idt-mutant` runs that build and asserts the oracle bites.

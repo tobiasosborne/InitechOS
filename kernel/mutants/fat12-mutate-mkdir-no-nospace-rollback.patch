@@ -1,0 +1,22 @@
+# FAT12_MUTATE_MKDIR_NO_NOSPACE_ROLLBACK
+# test: test-m0bp-rollback
+--- a/fat12.c
++++ b/fat12.c
+@@ -3820,10 +3820,13 @@
+ 		/* No free cluster for the new dir's OWN cluster. newc==0 means NOTHING
+ 		 * was claimed for it, so roll back ONLY the parent grow (the one
+ 		 * cluster the grow consumed -- here, the volume's last free cluster). */
+-		if (parent_grew) {
+-			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
+-			                      parent_newc);
+-		}
++		/* MUTANT m-nospace-noroll (the repository contract; make test-m0bp-rollback-mutant only):
++		 * SKIP the parent-grow rollback on the NO_SPACE post-grow path. The
++		 * appended parent cluster then leaks -- SUB stays 2 clusters and the
++		 * volume's last free cluster stays consumed while MKDIR fails: exactly
++		 * the atomicity defect this fix closes. The rollback oracle must go RED.
++		 * NEVER define in a real build. */
++		(void)parent_grew;
+ 		return FAT12_ERR_NO_SPACE;   /* full volume */
+ 	}
+ 	rc = fat12_set_entry(fat, fat_len, newc, FAT12_EOC_VALUE);

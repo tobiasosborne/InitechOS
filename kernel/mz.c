@@ -6,17 +6,17 @@
  *          DEC-08a.4: dispatch by content bytes 0-1 ('MZ'/'ZM').
  *          DEC-08a.5: e_res[0] (offset 0x1C) == MZ_INITECH_TAG required;
  *                     untagged MZ -> MZ_ERR_FOREIGN (kernel will PANIC).
- *        spec/memory_map.h: PROGRAM_IMAGE (0x40100) is the flat load base.
+ *        kernel/include/memory_map.h: PROGRAM_IMAGE (0x40100) is the flat load base.
  *        IBM DOS 3.3 Technical Reference (MZ header layout / field semantics).
- *        CLAUDE.md Law 1, Law 2, Law 3 (artifact = C, freestanding),
- *        Rule 2 (fail loud), Rule 6 (mutation-proven),
- *        Rule 11 (deterministic), Rule 12 (ASCII).
+ *        the repository contract, the repository contract, the repository contract (artifact = C, freestanding),
+ *        the repository contract (fail loud), the repository contract (mutation-proven),
+ *        the repository contract (deterministic), the repository contract (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  * No libc.  Host-testable by #include "mz.c" in test_mz.c (same TU trick as
  * env.c / test_env.c).
  *
- * MUTATION hooks (Rule 6) -- guarded by #ifdef so clean builds are
+ * MUTATION hooks (the repository contract) -- guarded by #ifdef so clean builds are
  * unaffected; activated by -DMZ_MUTATE_... on the gcc command line:
  *   MZ_MUTATE_RELOC_NOADD     : mz_apply_relocs skips += load_base.
  *   MZ_MUTATE_RELOC_PARAGRAPH : mz_apply_relocs adds (load_base >> 4).
@@ -118,19 +118,13 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
     /* 3. Read the tag word (DEC-08a.5). */
     e_res0 = mz_rd16(file + MZ_OFF_RES0);
 
-#ifndef MZ_MUTATE_ACCEPT_FOREIGN
     /* CLEAN BUILD: enforce the InitechMZ tag.  An untagged MZ is a genuine
      * 16-bit DOS .EXE with paragraph fixups over 16-bit code -- running it
      * in 32-bit flat mode would silently misinterpret the instruction stream.
-     * The kernel loader PANICS on MZ_ERR_FOREIGN (DEC-08a.5, Rule 2). */
+     * The kernel loader PANICS on MZ_ERR_FOREIGN (DEC-08a.5, the repository contract). */
     if (e_res0 != MZ_INITECH_TAG && e_res0 != INITECHMZ_EXT_TAG) {
         return MZ_ERR_FOREIGN;
     }
-#else
-    /* MUTANT MZ_MUTATE_ACCEPT_FOREIGN: skip the tag check, treat every MZ
-     * as if it were tagged.  The foreign-MZ oracle goes RED. */
-    (void)e_res0;
-#endif
 
     /* 4. Read the header fields we need. */
     e_cblp      = mz_rd16(file + MZ_OFF_CBLP);
@@ -162,7 +156,7 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
     /* 6. Compute header_bytes. */
     header_bytes = (uint32_t)e_cparhdr * 16u;
 
-    /* 7. Header-vs-image sanity FIRST (Rule 2).
+    /* 7. Header-vs-image sanity FIRST (the repository contract).
      * header_bytes > image_bytes is a structural inconsistency in the MZ
      * header itself (not a file-truncation issue): the declared header size
      * exceeds the declared total image size, which makes load_module_len
@@ -172,7 +166,7 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
         return MZ_ERR_BAD_HEADER;
     }
 
-    /* 8. Truncation checks (Rule 2 -- fail loud on any short read). */
+    /* 8. Truncation checks (the repository contract -- fail loud on any short read). */
     if (file_len < header_bytes) {
         return MZ_ERR_TRUNCATED;
     }
@@ -180,7 +174,7 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
         return MZ_ERR_TRUNCATED;
     }
 
-    /* 9. Relocation table bounds check (Rule 2).
+    /* 9. Relocation table bounds check (the repository contract).
      * reloc_table_off + reloc_count * 4 must not exceed file_len. */
     reloc_end = (uint32_t)e_lfarlc + (uint32_t)e_crlc * 4u;
     if (reloc_end > file_len) {
@@ -195,9 +189,7 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out)
         if (file_len < INITECHMZ_EXT_HEADER_MIN || header_bytes < INITECHMZ_EXT_HEADER_MIN ||
             e_cblp > 511u || !e_cp ||
             mz_rd32(file+INITECHMZ_EXT_VERSION_OFF) != INITECHMZ_EXT_VERSION ||
-#ifndef MZ_MUT_EXT_LENGTH
             mz_rd32(file+INITECHMZ_EXT_LENGTH_OFF) != INITECHMZ_EXT_DESC_LEN ||
-#endif
             mz_rd32(file+INITECHMZ_EXT_STACK_OFF) != INITECHMZ_EXT_STACK_BYTES ||
             mz_rd32(file+INITECHMZ_EXT_GUARD_OFF) != INITECHMZ_EXT_GUARD_BYTES)
             return MZ_ERR_BAD_HEADER;
@@ -230,7 +222,7 @@ int mz_apply_relocs(uint8_t *image, uint32_t image_len,
 {
     uint16_t i;
 
-    /* Null-pointer guard (Rule 2). */
+    /* Null-pointer guard (the repository contract). */
     if (image == (uint8_t *)0 || (reloc_count > 0u && reloc_table == (const uint8_t *)0)) {
         return MZ_ERR_BAD_RELOC;
     }
@@ -244,7 +236,7 @@ int mz_apply_relocs(uint8_t *image, uint32_t image_len,
         off = mz_rd32(reloc_table + (uint32_t)i * 4u);
 
         /* Bounds-check: the dword at `off` must lie entirely within the
-         * load module (fail loud -- NEVER write OOB, Rule 2). */
+         * load module (fail loud -- NEVER write OOB, the repository contract). */
         if (off + 4u > image_len || off + 4u < off) {
             /* The second condition catches the uint32_t overflow case where
              * off is near UINT32_MAX. */
@@ -255,22 +247,9 @@ int mz_apply_relocs(uint8_t *image, uint32_t image_len,
          * and host portability; DEC-08a.1). */
         old_val = mz_rd32(image + off);
 
-#if defined(MZ_MUTATE_RELOC_NOADD)
-        /* MUTANT: skip the load_base add entirely -- the dword stays at its
-         * unrelocated value.  The reloc oracle goes RED because the
-         * relocated bytes do NOT equal original + load_base. */
-        new_val = old_val;
-        (void)load_base;
-#elif defined(MZ_MUTATE_RELOC_PARAGRAPH)
-        /* MUTANT: add (load_base >> 4) -- a paragraph count -- instead of
-         * the flat byte address.  Wrong for flat-32 relocations; the reloc
-         * oracle goes RED. */
-        new_val = old_val + (load_base >> 4);
-#else
         /* CLEAN BUILD: flat-32 relocation -- add the flat load base to the
          * 32-bit dword at the reloc site (DEC-08a.1). */
         new_val = old_val + load_base;
-#endif
 
         mz_wr32(image + off, new_val);
     }

@@ -1,0 +1,14 @@
+# DOS_VOLUMES_MUT_LASTDRIVE
+# test: test-dos-volumes-host
+--- a/int21.c
++++ b/int21.c
+@@ -132,8 +132,7 @@
+ static unsigned g_drive_limit = 5u; /* IBM DOS 3.30 TR p6-66 minimum. */
+ void int21_set_lastdrive(unsigned count)
+ {
+-    if (count < 5u) count = 5u;
+-    if (count <= 26u) g_drive_limit = count;
++    (void)count;
+ }
+ static int (*g_select_drive)(unsigned);
+ #define g_cwd_path (g_cwd_paths[g_io_drive])

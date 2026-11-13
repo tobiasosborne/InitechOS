@@ -1,0 +1,18 @@
+# INT21_MUTATE_CREATNEW_NO_DISPATCH
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -5238,8 +5238,11 @@
+             do_creat(frame);
+             return;
+         case 0x5B:                       /* CREATNEW (create, fail if exists) */
+-            do_creatnew(frame);
+-            return;
++            /* MUTANT (the repository contract): do NOT dispatch 0x5B; fall through to the
++             * not-yet-impl path (CF=1, AX=0x0001). The (void) ref keeps
++             * -Werror=unused-function quiet so the mutant still BUILDS + RUNS. */
++            (void)do_creatnew;
++            break;
+         case 0x3D:                       /* OPEN (handle) */
+             do_open(frame);
+             return;

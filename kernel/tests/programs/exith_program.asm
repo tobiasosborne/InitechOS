@@ -9,18 +9,18 @@
 ;
 ;        On success (all 4 OPENs returned a handle) it prints EXITH-CHILD-OK and
 ;        exits rc=0. On ANY OPEN failure (CF=1 -- the table is exhausted) it
-;        prints EXITH-CHILD-OPENFAIL and exits rc=1 (fail loud, Rule 2). It does
+;        prints EXITH-CHILD-OPENFAIL and exits rc=1 (fail loud, the repository contract). It does
 ;        NOT issue AH=3Eh CLOSE on any handle -- the WHOLE point is to leak them
 ;        and let the kernel's EXIT teardown (sft_close_process) reclaim them.
 ;
-; Ref:   os/milton/int21.c do_open (AH=3Dh: EDX->ASCIIZ path, AL=mode, EAX=handle,
+; Ref:   kernel/int21.c do_open (AH=3Dh: EDX->ASCIIZ path, AL=mode, EAX=handle,
 ;        CF=error), do_puts (AH=09h), do_terminate (AH=4Ch: AL=exit code ->
-;        sft_close_process(g_cur_psp) then the loader exit hook); os/milton/sft.c
-;        sft_close_process; spec/memory_map.h (PROGRAM_IMAGE = 0x00040100).
-;        CLAUDE.md Law 1 (cite), Rule 2 (fail loud), Rule 11 (nasm -f bin is
-;        deterministic), Rule 12 (ASCII).
+;        sft_close_process(g_cur_psp) then the loader exit hook); kernel/sft.c
+;        sft_close_process; kernel/include/memory_map.h (PROGRAM_IMAGE = 0x00040100).
+;        the repository contract (cite), the repository contract (fail loud), the repository contract (nasm -f bin is
+;        deterministic), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/exith_program.asm -o build/exith_program.bin
+; Assembled: nasm -f bin os/initechdos/exith_program.asm -o build/exith_program.bin
 ; Deployed:  mcopy build/exith_program.bin ::EXITH.COM (NOT baked into the kernel;
 ;            loaded BY NAME via load_program_from_fat / INT 21h AH=4Bh EXEC).
 ; org PROGRAM_IMAGE so absolute data references resolve at the load address.
@@ -28,7 +28,7 @@
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 start:
     ; ---- OPEN HELLO.TXT (read) -- leak handle 1 ----
@@ -61,9 +61,9 @@ start:
     int 0x21
     mov eax, 0x00004C00        ; AH=4Ch TERMINATE, rc=0 (NO close of any handle)
     int 0x21
-    int 0x20                   ; defense in depth (Rule 2): also routes to exit hook
+    int 0x20                   ; defense in depth (the repository contract): also routes to exit hook
 
-; ---- fail-loud path (Rule 2): an OPEN returned CF=1 -- the SFT is exhausted ----
+; ---- fail-loud path (the repository contract): an OPEN returned CF=1 -- the SFT is exhausted ----
 open_failed:
     mov ah, 0x09
     mov edx, msg_fail

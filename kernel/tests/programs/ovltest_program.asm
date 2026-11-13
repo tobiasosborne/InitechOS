@@ -5,10 +5,10 @@
 ;      IBM DOS 3.30 TR p. 6-196 (AL=03H), p. 6-197 (the block), p. 11-5 (the
 ;        caller owns the target memory; no PSP, no allocation), p. 6-42 (codes
 ;        2 file not found, 9 invalid memory block address);
-;      spec/dos_structs.h exec_overlay_block_t {00h load, 04h factor};
-;      os/milton/ovl_fixture.asm (the overlay's fixed +0/+4/+8 layout).
-;      CLAUDE.md Law 2 (each marker is printed only after its check passed),
-;      Rule 2 (every failure names itself and exits rc=1), Rule 12 (ASCII).
+;      kernel/include/dos_structs.h exec_overlay_block_t {00h load, 04h factor};
+;      os/initechdos/ovl_fixture.asm (the overlay's fixed +0/+4/+8 layout).
+;      the repository contract (each marker is printed only after its check passed),
+;      the repository contract (every failure names itself and exits rc=1), the repository contract (ASCII).
 ;
 ; Runs top-level (PSP at PROGRAM_BASE; the kernel EXECs it by name), position
 ; independent (call/pop base, like nested_exec_program.asm). Overlay buffers
@@ -26,7 +26,7 @@ org 0
 
 FACTOR  equ 0x00123400          ; deliberately unrelated to any load address
 RAW_LEN equ 19                  ; "OVL-RAW-VERBATIM",13,10,"$" (OVLR.BIN)
-KERNEL  equ 0x00500000          ; KERNEL_BASE (spec/memory_map.h)
+KERNEL  equ 0x00500000          ; KERNEL_BASE (kernel/include/memory_map.h)
 
 start:
     call base

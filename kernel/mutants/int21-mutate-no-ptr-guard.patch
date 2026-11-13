@@ -1,0 +1,19 @@
+# INT21_MUTATE_NO_PTR_GUARD
+# test: test-int21-edge
+--- a/int21.c
++++ b/int21.c
+@@ -1666,9 +1666,11 @@
+  * valid host buffers -- target-only, out of scope per DEC-14.1). */
+ static int user_buf_ok(uint32_t ptr, uint32_t count)
+ {
+-    if (count == 0u)       return 1;   /* no memory access */
+-    if (ptr == 0u)         return 0;   /* NULL buffer */
+-    if (ptr + count < ptr) return 0;   /* 32-bit wrap (count overflow) */
++    /* MUTANT (the repository contract; make test-int21-edge-mutant only): disable the guard so a
++     * NULL/wrapping buffer is dereferenced -- a NULL read of a non-empty file
++     * then SIGSEGVs (the exact fault the guard prevents) and the oracle goes
++     * RED. NEVER define in a real build. */
++    (void)ptr; (void)count;
+     return 1;
+ }
+ 

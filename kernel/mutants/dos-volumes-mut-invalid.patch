@@ -1,0 +1,12 @@
+# DOS_VOLUMES_MUT_INVALID
+# test: test-dos-volumes-host
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -78,6 +78,7 @@
+ 
+ static int fat_select_drive(unsigned letter)
+ {
++    if (letter == 1u || letter == 3u) letter = 0u;
+     if (letter == 1u || letter > 3u) return 0;
+     unsigned slot = letter ? letter - 1u : 0u;
+     if (!g_mounts[slot].vol) return 0;

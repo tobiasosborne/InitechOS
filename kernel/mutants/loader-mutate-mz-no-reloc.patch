@@ -1,0 +1,27 @@
+# LOADER_MUTATE_MZ_NO_RELOC
+# test: test-mzload
+--- a/loader_validation.c
++++ b/loader_validation.c
+@@ -323,15 +323,13 @@
+      *    at load_module_off here exactly as they will at the load base after the
+      *    move; mz_apply_relocs adds PROGRAM_IMAGE (the flat load base, DEC-08a.1),
+      *    not the staging address, so the dwords are correct for the run location. */
+-    if (img.reloc_count > 0u) {
+-        int rs = mz_apply_relocs(file_at + img.load_module_off,
+-                                 img.load_module_len,
+-                                 load_base,
+-                                 file_at + img.reloc_table_off, img.reloc_count);
+-        if (rs != MZ_OK) {
+-            return LOADER_ERR_BAD_FORMAT;   /* OOB reloc -- fail loud (the repository contract) */
+-        }
+-    }
++    /* MUTANT (the repository contract; make test-mzload-mutant only): SKIP the flat-32
++     * relocation entirely. The load module's absolute references keep their
++     * unrelocated (link-time) value, so the relocated-dword assertion in
++     * test_mzload.c (dword == original + PROGRAM_IMAGE) MUST go RED. This is the
++     * EXACT bug -- a relocatable MZ run without its fixups -- the oracle exists to
++     * catch. NEVER define in a real build. */
++    (void)0;
+ 
+     /* 4. Move the (now-relocated) LOAD MODULE down over the header to the flat
+      *    load base (PROGRAM_IMAGE == file_at). DEC-08a.2: the MZ header is NEVER

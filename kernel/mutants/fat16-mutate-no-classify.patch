@@ -1,0 +1,28 @@
+# FAT16_MUTATE_NO_CLASSIFY
+# test: test-fat16
+--- a/fat12.c
++++ b/fat12.c
+@@ -280,17 +280,12 @@
+ 	if (vol->total_clusters < FAT12_MAX_CLUSTERS) {
+ 		vol->fat_type = FAT_TYPE_FAT12;
+ 	} else if (vol->total_clusters < FAT16_MAX_CLUSTERS) {
+-		/* A real FAT16 volume (beads initech-z01, READ-ONLY, non-partitioned).
+-		 * FAT16 is ACCEPTED now: the link decode + EOC/bad thresholds differ for
+-		 * a 16-bit FAT, but the chain WALKERS are parameterized by the decode
+-		 * primitive (fat12_next_cluster dispatches to fat16_next_cluster on
+-		 * fat_type) + vol-aware classify helpers (chain_is_eoc/_free/_bad), so a
+-		 * FAT16 volume reads correctly with no 12-bit mis-decode (the bcg.4
+-		 * concern that previously forced a reject) and the FAT12 path stays
+-		 * byte-identical. Ref (the repository contract): docs/research/fat16-ground-truth.md
+-		 * Sec 0/2/3; Microsoft FAT spec Sec 3.2. WRITE is deferred (509.11);
+-		 * the FAT12 WRITE primitives are never invoked on a FAT16 volume. */
+-		vol->fat_type = FAT_TYPE_FAT16;
++		/* MUTANT (the repository contract; test-fat16 mutant M5 only): a FAT16 volume is
++		 * classified FAT12, so fat12_next_cluster runs the 12-bit decode on a
++		 * 16-bit FAT. Every chain decodes to garbage -> the FAT16 read oracle
++		 * goes RED. This proves the cluster-count classification + the fat_type
++		 * dispatch are load-bearing. NEVER define in a real build. */
++		vol->fat_type = FAT_TYPE_FAT12;
+ 	} else {
+ 		/* FAT32 is out of scope for this slice; do not silently mis-handle. */
+ 		return FAT12_ERR_GEOMETRY;

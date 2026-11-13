@@ -1,0 +1,22 @@
+# ANSI_MUTATE_SGR_COLOR
+# test: test-ansi
+--- a/ansi.c
++++ b/ansi.c
+@@ -237,7 +237,7 @@
+              * ANSI-to-CGA colour swap: use ANSI_TO_CGA[] (see header comment).
+              * MUTANT ANSI_MUTATE_SGR_COLOR: bypass the lookup -> RED. */
+             int ansi_idx = p - 30;
+-            uint8_t cga_nibble = ANSI_TO_CGA[ansi_idx];
++            uint8_t cga_nibble = (uint8_t)ansi_idx;
+             /* fg = bits 2:0; bright bit 3 preserved. */
+             st->attr = (uint8_t)((st->attr & 0xF8u) | cga_nibble);
+ 
+@@ -246,7 +246,7 @@
+              * Same ANSI-to-CGA mapping; bg nibble = bits 6:4.
+              * Ref: same tables as fg above. */
+             int ansi_idx = p - 40;
+-            uint8_t cga_nibble = ANSI_TO_CGA[ansi_idx];
++            uint8_t cga_nibble = (uint8_t)ansi_idx;
+             st->attr = (uint8_t)((st->attr & 0x8Fu) | (uint8_t)(cga_nibble << 4));
+ 
+         }

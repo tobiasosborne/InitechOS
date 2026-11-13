@@ -5,7 +5,7 @@
  * SYSCALL SEAM in int21.c: that int21_dispatch routes 48h/49h/4Ah into a bound
  * mcb_arena_t, converts a data-paragraph index to a DOS segment as
  * (arena_base_linear >> 4) + data_para, enforces owner == the current PSP, and
- * returns the DOS register/CF contract (Law 1: DOS 3.3 PRM AH=48h/49h/4Ah; the
+ * returns the DOS register/CF contract (the repository contract: DOS 3.3 PRM AH=48h/49h/4Ah; the
  * flat-mode register adaptation documented in int21.c's memory-arena block).
  *
  * Compiles HOSTED against the REAL artifact int21.c + mcb.c (the SAME TUs the
@@ -13,14 +13,14 @@
  * (MAP_32BIT) so (uintptr_t)>>4 segment math round-trips exactly as on the
  * 32-bit flat kernel.
  *
- * MUTATION (Rule 6), driven by make test-mcb-int21-mutant:
+ * MUTATION (the repository contract), driven by make test-mcb-int21-mutant:
  *   -DINT21_MUTATE_ALLOC_NO_SEGBASE : do_alloc returns the bare data-paragraph
  *     index instead of (arena_seg_base()+data_para), so the segment a 48h ALLOC
  *     reports no longer maps back through 49h FREE -- the exact-segment +
  *     round-trip assertions go RED.
  *
- * CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 6, Rule 11
- * (deterministic), Rule 12 (ASCII).
+ * the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract, the repository contract
+ * (deterministic), the repository contract (ASCII).
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -118,7 +118,7 @@ int main(void)
 {
     g_psp = (psp_t *)alloc_low(sizeof(psp_t));
     CHECK((uintptr_t)g_psp == 0x10010000u,
-          "Rule 11: deterministic PSP mapping, nonzero DOS owner");
+          "the repository contract: deterministic PSP mapping, nonzero DOS owner");
     g_arena_buf = (uint8_t *)alloc_low((size_t)ARENA_PARAS * 16u);
     CHECK(g_psp != NULL, "PSP buffer in low 4 GiB");
     CHECK(g_arena_buf != NULL, "arena buffer in low 4 GiB");

@@ -1,0 +1,46 @@
+# INT21_MUTATE_CREATNEW_NO_GUARD
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -2618,41 +2618,6 @@
+         return;
+     }
+ 
+-    /* CREATNEW precondition: the target must not already exist. Probe via the
+-     * pure-locate open() member. open() returns 0 when the leaf is found in
+-     * `dir_start`; that means EXISTS -> fail with 0x0050, commit nothing. A
+-     * 0x0002 (not found) or any other non-zero locate result means "does not
+-     * exist" -> fall through to the CREAT path. (the repository contract mutants: NO_GUARD drops
+-     * this block so CREATNEW==CREAT; GUARD_INVERT flips the sense; WRONG_CONST
+-     * returns the wrong AX.)
+-     *
+-     * RULE 2 / beads initech-glsw: a backend that binds create() but NOT open()
+-     * has NO existence-probe, so the precondition CANNOT be honored -- proceeding
+-     * to create() would TRUNCATE an existing file with CF clear, the EXACT
+-     * INVERSE of the CREATNEW contract. Refuse loud rather than silently skip the
+-     * guard. This is SYMMETRIC with do_open, which treats a NULL open() member as
+-     * a hard error (file-not-found there) instead of a silent success. Unreachable
+-     * with the shipped fat12 backend (fileio_fat binds both fat_open + fat_create),
+-     * so it is a defensive invariant guard: hard-error 0x0005 (access denied --
+-     * the same "the volume cannot serve this write safely" code do_creat returns
+-     * when create() itself is NULL), commit nothing. NO_GUARD removes BOTH the
+-     * existence probe and this guard so CREATNEW degenerates to CREAT (the mutant
+-     * the NO_GUARD oracle bites). */
+-    if (g_file->open == 0) {
+-        set_ax(f, INT21_ERR_ACCESS_DENIED);   /* 0x0005: cannot verify non-existence */
+-        cf_set(f);
+-        return;
+-    }
+-    {
+-        dir_entry_t probe_de;
+-        uint32_t    probe_slot = 0u;
+-        uint16_t    found = g_file->open(leaf, dir_start, &probe_de, &probe_slot);
+-        if (found == 0u) {               /* file located -> already exists */
+-            set_ax(f, INT21_ERR_FILE_EXISTS);     /* 0x0050 ERROR_FILE_EXISTS */
+-            cf_set(f);
+-            return;
+-        }
+-    }
+ 
+     /* From here on: identical to do_creat. Secure the table slots BEFORE creating
+      * so a slot-exhaustion failure does not commit anything (mirrors do_open). */

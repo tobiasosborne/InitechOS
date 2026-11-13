@@ -1,0 +1,15 @@
+# INT21_MUTATE_PUTS_EMIT_DOLLAR
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -1227,6 +1227,10 @@
+     for (;;) {
+         char c = *p++;
+         if (c == '$') {
++            /* MUTANT (the repository contract; make test-int21-mutant only): emit the '$' too
++             * before breaking, so the PUTS oracle (which expects "HELLO", not
++             * "HELLO$") goes RED. NEVER define in a real build. */
++            { char dollar = '$'; stdout_emit(&dollar, 1u); }
+             break;
+         }
+         stdout_emit(&c, 1u);

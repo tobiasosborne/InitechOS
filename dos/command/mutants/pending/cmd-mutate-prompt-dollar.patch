@@ -1,0 +1,15 @@
+# CMD_MUTATE_PROMPT_DOLLAR
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4763,7 +4763,9 @@
+                                          rendered, (int)(sizeof(rendered) - 1));
+             /* Reference p.101: $$ is a literal dollar. AH=40h writes
+              * exactly the rendered bytes, including every embedded '$'. */
+-            dos_write(rendered, (uint32_t)rlen);
++            rendered[rlen++] = '$';
++            rendered[rlen] = '\0';
++            dos_print(rendered);
+         }
+ 
+         read_line(line);

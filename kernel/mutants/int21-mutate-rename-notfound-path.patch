@@ -1,0 +1,17 @@
+# INT21_MUTATE_RENAME_NOTFOUND_PATH
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -2810,7 +2810,11 @@
+ 
+     uint16_t err = g_file->rename(old_leaf, old_dir_start, new_leaf, new_dir_start);
+     if (err != 0) {
+-        set_ax(f, err);                  /* 0x0002 not found / 0x0005 dest/dir/write */
++        /* MUTANT 5 (the repository contract; make test-gnrc-mutant only): map a backend source-
++         * not-found (0x0002) to 0x0003 (path not found), corrupting the DOS
++         * register contract. The register-contract AX assertion goes RED. NEVER in
++         * a real build. */
++        set_ax(f, (err == INT21_ERR_FILE_NOT_FOUND) ? INT21_ERR_PATH_NOT_FOUND : err);
+         cf_set(f);
+         return;
+     }

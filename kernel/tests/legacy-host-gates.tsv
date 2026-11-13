@@ -1,0 +1,246 @@
+legacy_gate	class	destination_or_reason
+test-40oq	UNIT	kernel/tests/gates/test-40oq.sh
+test-40oq-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-4nbn-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-4tw	UNIT	kernel/tests/gates/test-4tw.sh
+test-4tw-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-80k	UNIT	kernel/tests/gates/test-80k.sh
+test-80k-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-absdisk	UNIT	kernel/tests/gates/test-absdisk.sh
+test-absdisk-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ansi	UNIT	kernel/tests/gates/test-ansi.sh
+test-ansi-bridge	UNIT	kernel/tests/gates/test-ansi-bridge.sh
+test-ansi-bridge-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ansi-lane-mutant	META	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ansi-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ansi-wire	UNIT	kernel/tests/gates/test-ansi-wire.sh
+test-ansi-wire-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-arena-disjoint	SIZE/LAYOUT	attic; retired layout/baked-image policy (functional loader suites imported)
+test-arena-disjoint-mutant	SIZE/LAYOUT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ata	UNIT	kernel/tests/gates/test-ata.sh
+test-ata-errors-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ata-flush-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ata-lba-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ata-prewait-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-attrib	ORACLE-STRONG	dos/tests/gates/test-attrib.sh
+test-attrib-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-b53d	ORACLE-STRONG	kernel/tests/gates/test-b53d.sh
+test-b53d-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-block-device	UNIT	kernel/tests/gates/test-block-device.sh
+test-block-device-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-block-device-spec	META	attic; retired factory/spec inventory, future factory owner
+test-block-device-spec-mutant	META	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-cmdline-fuzz	ORACLE-STRONG	dos/tests/gates/test-cmdline-fuzz.sh
+test-cmdline-fuzz-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-command	UNIT	dos/tests/gates/test-command.sh
+test-command-file	SIZE/LAYOUT	attic; retired layout/baked-image policy (functional loader suites imported)
+test-command-file-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-command-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-config-fuzz	ORACLE-STRONG	kernel/tests/gates/test-config-fuzz.sh
+test-config-fuzz-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-config-sys	UNIT	kernel/tests/gates/test-config-sys.sh
+test-config-sys-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-conin-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-conin-unit	UNIT	kernel/tests/gates/test-conin-unit.sh
+test-conkeys-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-conkeys-unit	UNIT	kernel/tests/gates/test-conkeys-unit.sh
+test-console	UNIT	kernel/tests/gates/test-console.sh
+test-console-cursor25-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-console-look	UNIT	kernel/tests/gates/test-console-look.sh
+test-d27i	UNIT	kernel/tests/gates/test-d27i.sh
+test-d27i-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-del-directory-host	UNIT	dos/tests/gates/test-del-directory-host.sh
+test-del-directory-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-desktop-db	UNIT	FLAIR desktop owner; tests exercise desktop database/layout or Finder
+test-desktop-db-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-devices	UNIT	kernel/tests/gates/test-devices.sh
+test-devices-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-devwire	UNIT	kernel/tests/gates/test-devwire.sh
+test-devwire-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dir-abi	META	attic; register-spec inventory, factory owner
+test-dir-abi-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dir-free-space	UNIT	dos/tests/gates/test-dir-free-space.sh
+test-dir-free-space-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dir-look	UNIT	dos/tests/gates/test-dir-look.sh
+test-dir-look-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dir-volume	UNIT	dos/tests/gates/test-dir-volume.sh
+test-dir-volume-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dos-stamp-copy-host	ORACLE-STRONG	dos/tests/gates/test-dos-stamp-copy-host.sh
+test-dos-stamp-copy-host-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dos-stamp-host	ORACLE-STRONG	kernel/tests/gates/test-dos-stamp-host.sh
+test-dos-stamp-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dos-volumes-host	ORACLE-STRONG	kernel/tests/gates/test-dos-volumes-host.sh
+test-dos-volumes-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dosmsg	UNIT	kernel/tests/gates/test-dosmsg.sh
+test-dosmsg-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-drive-letters	UNIT	kernel/tests/gates/test-drive-letters.sh
+test-drive-letters-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-drive-letters-spec	META	attic; retired factory/spec inventory, future factory owner
+test-drive-letters-spec-mutant	META	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-edlin-host	ORACLE-STRONG	dos/tests/gates/test-edlin-host.sh
+test-edlin-host-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-env	UNIT	dos/tests/gates/test-env.sh
+test-env-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-er3h	UNIT	kernel/tests/gates/test-er3h.sh
+test-er3h-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-exec-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-exec-unit	UNIT	kernel/tests/gates/test-exec-unit.sh
+test-f3template-unit	UNIT	kernel test-kbd-unit + test-conin-unit
+test-f3template-unit-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat	ORACLE-STRONG	kernel/tests/gates/test-fat.sh
+test-fat-corrupt-fuzz	ORACLE-STRONG	kernel/tests/gates/test-fat-corrupt-fuzz.sh
+test-fat-corrupt-fuzz-chain-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-corrupt-fuzz-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-fault-rollback	ORACLE-STRONG	kernel/tests/gates/test-fat-fault-rollback.sh
+test-fat-fault-rollback-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-fuzz	ORACLE-STRONG	kernel/tests/gates/test-fat-fuzz.sh
+test-fat-fuzz-gap-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-fuzz-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-hygiene-grow	UNIT	FLAIR desktop owner; tests exercise desktop database/layout or Finder
+test-fat-hygiene-grow-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-hygiene-hidden	UNIT	FLAIR desktop owner; tests exercise desktop database/layout or Finder
+test-fat-hygiene-hidden-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-hygiene-rename	UNIT	FLAIR desktop owner; tests exercise desktop database/layout or Finder
+test-fat-hygiene-rename-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-move	ORACLE-STRONG	kernel/tests/gates/test-fat-move.sh
+test-fat-move-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-partial	ORACLE-STRONG	kernel/tests/gates/test-fat-partial.sh
+test-fat-partial-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-partition	ORACLE-STRONG	kernel/tests/gates/test-fat-partition.sh
+test-fat-partition-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-readfile-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-spc	ORACLE-STRONG	kernel/tests/gates/test-fat-spc.sh
+test-fat-spc-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-subdir	ORACLE-STRONG	kernel/tests/gates/test-fat-subdir.sh
+test-fat-subdir-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-truncate-host	ORACLE-STRONG	kernel/tests/gates/test-fat-truncate-host.sh
+test-fat-truncate-host-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-write	ORACLE-STRONG	kernel/tests/gates/test-fat-write.sh
+test-fat-write-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat-write-partial	ORACLE-STRONG	kernel/tests/gates/test-fat-write-partial.sh
+test-fat-write-partial-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat12-bpb	UNIT	kernel/tests/gates/test-fat12-bpb.sh
+test-fat12-chain	UNIT	kernel/tests/gates/test-fat12-chain.sh
+test-fat12-dir	UNIT	kernel/tests/gates/test-fat12-dir.sh
+test-fat12-mkdir	ORACLE-STRONG	kernel/tests/gates/test-fat12-mkdir.sh
+test-fat12-mkdir-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fat12-subdir	UNIT	kernel/tests/gates/test-fat12-subdir.sh
+test-fat12-write	ORACLE-STRONG	kernel/tests/gates/test-fat12-write.sh
+test-fat16	ORACLE-STRONG	kernel/tests/gates/test-fat16.sh
+test-fat16-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fbagree	META	attic; retired factory/spec inventory, future factory owner
+test-fbagree-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fileio	UNIT	kernel/tests/gates/test-fileio.sh
+test-fileio-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-fpu-probe	UNIT	kernel/tests/gates/test-fpu-probe.sh
+test-fpu-probe-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-gnrc	ORACLE-STRONG	kernel/tests/gates/test-gnrc.sh
+test-gnrc-int21-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-gnrc-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-hardware-spec	META	attic; retired factory/spec inventory, future factory owner
+test-hardware-spec-mutant	META	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-host-mapping-arena_disjoint-mutant	SIZE/LAYOUT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-host-mapping-keep-mutant	SIZE/LAYOUT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-host-mapping-mcb_int21-mutant	SIZE/LAYOUT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-idt	UNIT	kernel/tests/gates/test-idt.sh
+test-idt-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-int21	UNIT	kernel/tests/gates/test-int21.sh
+test-int21-dpb	ORACLE-STRONG	kernel/tests/gates/test-int21-dpb.sh
+test-int21-dpb-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-int21-edge	UNIT	kernel/tests/gates/test-int21-edge.sh
+test-int21-edge-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-int21-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-int24	UNIT	kernel/tests/gates/test-int24.sh
+test-int24-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-int24-wired	UNIT	kernel/tests/gates/test-int24-wired.sh
+test-int24-wired-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-j1lu-con-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-j1lu-con-unit	UNIT	kernel/tests/gates/test-j1lu-con-unit.sh
+test-j1lu-kbd-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-kbd-unit	ORACLE-STRONG	kernel/tests/gates/test-kbd-unit.sh
+test-kbd-unit-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-keep	UNIT	kernel/tests/gates/test-keep.sh
+test-keep-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-kernel-coverage	META	attic; retired factory/spec inventory, future factory owner
+test-kernel-coverage-mutant	META	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-kji0-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-label-vol	ORACLE-STRONG	dos/tests/gates/test-label-vol.sh
+test-label-vol-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-loader	UNIT	kernel/tests/gates/test-loader.sh
+test-loader-big	UNIT	kernel/tests/gates/test-loader-big.sh
+test-loader-big-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-loader-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-loader-nested-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-m0bp	ORACLE-STRONG	kernel/tests/gates/test-m0bp.sh
+test-m0bp-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-m0bp-rollback	ORACLE-STRONG	kernel/tests/gates/test-m0bp-rollback.sh
+test-m0bp-rollback-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-mcb	ORACLE-STRONG	kernel/tests/gates/test-mcb.sh
+test-mcb-int21	ORACLE-STRONG	kernel/tests/gates/test-mcb-int21.sh
+test-mcb-int21-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-mcb-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-memory-map	SIZE/LAYOUT	attic; retired layout/baked-image policy (functional loader suites imported)
+test-memory-map-high-mutant	SIZE/LAYOUT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-memory-map-mutant	SIZE/LAYOUT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-mz	UNIT	kernel/tests/gates/test-mz.sh
+test-mz-extended-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-mz-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-mzload	UNIT	kernel/tests/gates/test-mzload.sh
+test-mzload-entry-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-mzload-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-mzxa-integration	UNIT	kernel/tests/gates/test-mzxa-integration.sh
+test-mzxa-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-native	ORACLE-STRONG	kernel/tests/gates/test-native.sh
+test-native-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-nmpo	ORACLE-STRONG	kernel/tests/gates/test-nmpo.sh
+test-nmpo-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-overlay	UNIT	kernel/tests/gates/test-overlay.sh
+test-overlay-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-panic-layout	SIZE/LAYOUT	attic; retired layout/baked-image policy (functional loader suites imported)
+test-panic-layout-mutant	SIZE/LAYOUT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-panic-reason-map	UNIT	diagnostic/panic owner; needs public panic layout contracts
+test-panic-reason-map-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-partition-spec	UNIT	kernel/tests/gates/test-partition-spec.sh
+test-partition-spec-mutant	META	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-program-window-golden	SIZE/LAYOUT	attic; retired layout/baked-image policy (functional loader suites imported)
+test-psp	UNIT	kernel/tests/gates/test-psp.sh
+test-psp-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-qekc	ORACLE-STRONG	kernel/tests/gates/test-qekc.sh
+test-qekc-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-ro6c-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-rtc	UNIT	kernel/tests/gates/test-rtc.sh
+test-rtc-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-sft	UNIT	kernel/tests/gates/test-sft.sh
+test-sft-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-spec	META	attic; retired factory/spec inventory, future factory owner
+test-tsr-io	UNIT	kernel/tests/gates/test-tsr-io.sh
+test-tsr-io-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-tsr-unit	UNIT	kernel/tests/gates/test-tsr-unit.sh
+test-tsr-unit-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-u6wa-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-x8fs	UNIT	kernel/tests/gates/test-x8fs.sh
+test-x8fs-mutant	UNIT	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-zs24	ORACLE-STRONG	kernel/tests/gates/test-zs24.sh
+test-zs24-mutant	ORACLE-STRONG	Mutation validation: Patch sweep or deferred tier-1/diagnostic mutation; see MUTANTS-TODO.md
+test-dir-match-emu	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-dir-match-emu-mutant	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-dir-match-host	ORACLE-STRONG	dos/tests/gates/test-dir-match-host.sh
+test-dir-match-host-mutant	ORACLE-STRONG	Mutation validation: patch sweep where functional; retired factory/FLAIR policy otherwise
+test-dos-break	UNIT	kernel/tests/gates/test-dos-break.sh
+test-dos-break-cleanup-mutant	UNIT	Mutation validation: patch sweep where functional; retired factory/FLAIR policy otherwise
+test-dos-break-emu	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-dos-break-emu-mutant	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-dos-break-mutant	UNIT	Mutation validation: patch sweep where functional; retired factory/FLAIR policy otherwise
+test-dos-not-ready	UNIT	kernel/tests/gates/test-dos-not-ready.sh
+test-dos-not-ready-emu	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-dos-not-ready-emu-mutant	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-dos-not-ready-mutant	UNIT	Mutation validation: patch sweep where functional; retired factory/FLAIR policy otherwise
+test-dos-resident-boot-write-mutant	UNIT	Mutation validation: patch sweep where functional; retired factory/FLAIR policy otherwise
+test-dos-resident-break-emu	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-dos-resident-break-mutant	UNIT	Mutation validation: patch sweep where functional; retired factory/FLAIR policy otherwise
+test-dosmsg-source-mutant	UNIT	Mutation validation: patch sweep where functional; retired factory/FLAIR policy otherwise
+test-exec-high-bochs	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-kbd-bochs	EMU	normal-product program/session/diagnostic owner; see SMOKES.md
+test-overlay-dos33-reference	ORACLE-STRONG	kernel test-overlay; tests/fixtures/dos33_overlay real-DOS captures
+test-overlay-memory	SIZE/LAYOUT	attic; retired fixed-buffer size policing
+test-panic-foreign-screen	EMU	normal-product program/session/diagnostic owner; see SMOKES.md

@@ -1,0 +1,13 @@
+# DU_MUT_HIDDEN
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -148,7 +148,7 @@
+ }
+ static int visible(const find_data_t *fd)
+ {
+-    return !(fd->attr & 14) && !equal(fd->fname,".") && !equal(fd->fname,"..");
++    return !(fd->attr & 8) && !equal(fd->fname,".") && !equal(fd->fname,"..");
+ }
+ 
+ /* /D is inclusive, with the US DOS 3.3 mm-dd-yy[yy] DATE format. FAT dates

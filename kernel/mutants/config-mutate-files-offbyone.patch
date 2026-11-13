@@ -1,0 +1,15 @@
+# CONFIG_MUTATE_FILES_OFFBYONE
+# test: test-config-sys test-config-fuzz
+--- a/config_sys.c
++++ b/config_sys.c
+@@ -187,6 +187,10 @@
+             if (any) {
+                 if (n < CONFIG_SYS_FILES_MIN) { n = CONFIG_SYS_FILES_MIN; }
+                 if (n > CONFIG_SYS_FILES_MAX) { n = CONFIG_SYS_FILES_MAX; }
++                /* the repository contract mutant target (make test-config-sys-mutant): off-by-one
++                 * on the parsed FILES value -> test goes RED on files==20. NEVER
++                 * define in a real build. */
++                n += 1u;
+                 out->files = (uint16_t)n;
+                 out->files_present = 1u;
+                 recognized++;

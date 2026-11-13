@@ -1,0 +1,14 @@
+# ANSI_MUTATE_STALE_REL
+# test: test-ansi
+--- a/ansi.c
++++ b/ansi.c
+@@ -298,9 +298,6 @@
+             if (final == 'B') a.delta_row = n;
+             if (final == 'C') a.delta_col = n;
+             if (final == 'D') a.delta_col = -n;
+-            /* Bound the delta BEFORE addition, including on large grids. */
+-            st->row += ansi_clamp(a.delta_row, -st->row, st->rows - 1 - st->row);
+-            st->col += ansi_clamp(a.delta_col, -st->col, st->cols_wide - 1 - st->col);
+             ansi_emit(&a, cb, ctx);
+         }
+         break;

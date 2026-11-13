@@ -1,0 +1,15 @@
+# PSP_MUTATE_INT20
+# test: test-psp
+--- a/psp.c
++++ b/psp.c
+@@ -161,7 +161,9 @@
+      * gate is installed by sysinit.c at system initialization (int20_entry).
+      * Ref: psp-loader-ground-truth.md Sec 2.1; dos_structs.h:92. */
+     psp->int20[0] = 0xCD;
+-    psp->int20[1] = 0x20;
++    /* the repository contract mutant: wrong terminator byte (0x21 not 0x20). The int20 oracle
++     * MUST go RED. A mutant that passes proves the assertion is decoration. */
++    psp->int20[1] = 0x21;
+ 
+     /* --- 02h alloc_end_seg: segment of first byte beyond allocated memory. --
+      * Option B: flat allocation-end address in fake paragraph units

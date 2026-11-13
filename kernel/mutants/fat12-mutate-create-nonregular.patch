@@ -1,0 +1,13 @@
+# FAT12_MUTATE_CREATE_NONREGULAR
+# test: test-dos-safety-create test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro test-dos-safety-identity
+--- a/fat12.c
++++ b/fat12.c
+@@ -2492,8 +2492,6 @@
+ 		 * Ref: MS-DOS 3.3 User's Reference p. 12 (directory/file namespace);
+ 		 * IBM DOS 3.30 Technical Reference pp. 6-122/6-123 (file CREAT).
+ 		 * Audit K02 / initech-wdzq: reject BEFORE freeing/flushing the chain. */
+-		if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
+-			return FAT12_ERR_ACCESS;
+ 		/* TRUNCATE: free the existing chain and reset the entry to size 0. */
+ 		slot = match_slot;
+ 		if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {

@@ -1,0 +1,18 @@
+# INT21_MUTATE_OVL_BOUNDS_OBO
+# test: test-overlay
+--- a/int21.c
++++ b/int21.c
+@@ -4173,7 +4173,12 @@
+     if (limit == 0u) {
+         return 0;
+     }
+-    return len <= limit - linear;
++    /* MUTANT (the repository contract; make test-overlay-mutant / test-exec-overlay-mutant
++     * only): the classic off-by-one -- a footprint ONE byte past the owned
++     * region is accepted, so the overlay's last byte lands on the next MCB
++     * header (or the arena's first header). The exact-fit-plus-one refusal
++     * asserts MUST go RED. NEVER define in a real build. */
++    return len <= limit - linear + 1u;
+ }
+ 
+ /* AH=4Bh AL=03h LOAD OVERLAY (ADR-0003 Amendment DEC-19; IBM DOS 3.30 TR

@@ -1,0 +1,17 @@
+# CMD_MUTATE_NO_UPCASE
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -162,7 +162,11 @@
+             ((*p == ';' || *p == '=') && i == 4 && out->command[0] == 'P' &&
+              out->command[1] == 'A' && out->command[2] == 'T' && out->command[3] == 'H'))
+             break;
+-        out->command[i++] = cmd_upcase_char(*p);
++        /* MUTANT (the repository contract; make test-command-mutant only): copy the command word
++         * WITHOUT upper-casing, so a lowercase "dir" no longer matches the
++         * upper-case dispatch table -> the parse oracle goes RED. NEVER in a
++         * real build. */
++        out->command[i++] = *p;
+         p++;
+     }
+     out->command[i] = '\0';

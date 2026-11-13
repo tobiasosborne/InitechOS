@@ -1,0 +1,13 @@
+# KBD_MUTATE_E0
+# test: test-kbd-unit
+--- a/kbd.c
++++ b/kbd.c
+@@ -150,7 +150,7 @@
+     /* IBM translated Set 1: right Ctrl is E0 1D/E0 9D, left Ctrl 1D/9D.
+      * Consume E0 BEFORE the break flag (E0 itself has bit 7 set). */
+     if (scancode == 0xE0u) {
+-        st->e0 = 1u;
++        st->e0 = 0u; /* the repository contract: right Ctrl aliases left; fake Shift leaks. */
+         return 0u;
+     }
+     uint8_t extended = st->e0;

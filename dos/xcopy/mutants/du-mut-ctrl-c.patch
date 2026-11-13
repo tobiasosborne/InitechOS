@@ -1,0 +1,13 @@
+# DU_MUT_CTRL_C
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -63,7 +63,7 @@
+     /* AH=07h deliberately leaves ^C to XCOPY, so /W returns its documented
+      * code 2 instead of the kernel's default INT23 abort code. IBM DOS 3.30
+      * Technical Reference p.6-59; MS-DOS 3.3 Reference p.128. */
+-    int c = call(0x0700,0,0,0) & 255;
++    int c = call(0x0800,0,0,0) & 255;
+     if (c == 3) error=2;
+     return upper((char)c);
+ }

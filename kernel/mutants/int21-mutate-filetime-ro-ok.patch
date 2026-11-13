@@ -1,0 +1,19 @@
+# INT21_MUTATE_FILETIME_RO_OK
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -3382,8 +3382,12 @@
+     uint16_t new_mtime = frame_cx(f);
+     uint16_t new_mdate = frame_dx(f);
+     if (g_file == 0 || g_file->set_time == 0) {
+-        set_ax(f, INT21_ERR_ACCESS_DENIED);
+-        cf_set(f);
++        /* MUTANT 5 (the repository contract; make test-qekc-mutant only): a SET with NO write
++         * backend (set_time == NULL) returns CF=0 (silent success) instead of
++         * CF=1/AX=0x0005. The read-only-SET host assertion goes RED. The (void)
++         * keeps -Werror quiet for the unused new_* below. NEVER in a real build. */
++        (void)new_mtime; (void)new_mdate;
++        cf_clear(f);
+         return;
+     }
+     (void)select_volume(e->drive);

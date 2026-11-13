@@ -1,0 +1,14 @@
+# FAT_MUT_SPC_ONE
+# test: test-fat-spc
+--- a/fat12.c
++++ b/fat12.c
+@@ -27,7 +27,8 @@
+  * sectors through the kernel's fixed 512-byte buffer (PRD Sec 6.1). */
+ static uint32_t cluster_lba(const fat12_volume_t *v, uint16_t cluster)
+ {
+-	return BPB_CLUSTER_LBA(&v->bpb, cluster);
++	/* the repository contract: ignore the BPB multiplier; the mtools differential must bite. */
++	return v->first_data_sector + (uint32_t)cluster - 2u;
+ }
+ 
+ static int cluster_read(const fat12_volume_t *v, uint32_t lba, uint32_t off,

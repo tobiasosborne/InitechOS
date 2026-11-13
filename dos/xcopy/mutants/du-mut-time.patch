@@ -1,0 +1,12 @@
+# DU_MUT_TIME
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -209,6 +209,7 @@
+      * Ref: MS-DOS 3.3 Reference p.50 (PDF135), mcopy -m on identical images;
+      * IBM DOS 3.30 Tech Ref p.6-208 (PDF331), AH=57h CX=time, DX=date. */
+     du_regs r={0x5701,(unsigned)out,fd->ftime,fd->fdate,0};
++    r.c=0; r.d=0;
+     if (du_call(&r)) error=5;
+     if (call(0x3e00,(unsigned)out,0,0) < 0) error=5;
+     if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;

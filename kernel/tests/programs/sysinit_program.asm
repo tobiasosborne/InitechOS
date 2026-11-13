@@ -12,21 +12,21 @@
 ;        oracle (make test-sysinit) asserts the count == the expected cap (4) --
 ;        i.e. the cap bites at exactly the limit, not before, not after.
 ;
-; Ref:   os/milton/int21.c do_open (AH=3Dh: EDX->ASCIIZ path, AL=mode, EAX=handle,
+; Ref:   kernel/int21.c do_open (AH=3Dh: EDX->ASCIIZ path, AL=mode, EAX=handle,
 ;        CF=error on TOO_MANY_OPEN); do_puts (AH=09h); do_terminate (AH=4Ch);
-;        os/milton/sft.c sft_alloc (respects g_files_limit); os/milton/sysinit.c
-;        sysinit_apply_config (sets the cap); spec/memory_map.h (PROGRAM_IMAGE).
-;        CLAUDE.md Law 1 (cite), Rule 2 (fail loud), Rule 11 (nasm -f bin is
-;        deterministic), Rule 12 (ASCII).
+;        kernel/sft.c sft_alloc (respects g_files_limit); kernel/sysinit.c
+;        sysinit_apply_config (sets the cap); kernel/include/memory_map.h (PROGRAM_IMAGE).
+;        the repository contract (cite), the repository contract (fail loud), the repository contract (nasm -f bin is
+;        deterministic), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/sysinit_program.asm -o build/sysinit_program.bin
+; Assembled: nasm -f bin os/initechdos/sysinit_program.asm -o build/sysinit_program.bin
 ; Deployed:  mcopy build/sysinit_program.bin ::SYSI.COM (loaded BY NAME via
 ;            load_program_from_fat). org PROGRAM_IMAGE so abs refs resolve.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 start:
     xor ebx, ebx               ; ebx = successful-open count
@@ -82,7 +82,7 @@ done:
 
     mov eax, 0x00004C00        ; AH=4Ch TERMINATE rc=0
     int 0x21
-    int 0x20                   ; defense in depth (Rule 2)
+    int 0x20                   ; defense in depth (the repository contract)
 
 ; ---- data -----------------------------------------------------------------
 fname:      db "HELLO.TXT", 0

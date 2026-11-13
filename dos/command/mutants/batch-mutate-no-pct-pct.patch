@@ -1,0 +1,18 @@
+# BATCH_MUTATE_NO_PCT_PCT
+# test: test-batch
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -201,10 +201,9 @@
+             /* "%%" -> literal '%' (DOS escape for percent sign).
+              * MUTANT BATCH_MUTATE_NO_PCT_PCT: skip collapsing; emit '%'
+              * twice so the test that checks for a single '%' goes RED. */
+-            if (!bat_emit(out, &pos, cap, '%')) {
+-                out[0] = '\0';
+-                return -1;
+-            }
++            /* Emit both percent signs (the mutant deliberately breaks this). */
++            if (!bat_emit(out, &pos, cap, '%')) { out[0] = '\0'; return -1; }
++            if (!bat_emit(out, &pos, cap, '%')) { out[0] = '\0'; return -1; }
+             i++;    /* skip the second '%' */
+             continue;
+         }

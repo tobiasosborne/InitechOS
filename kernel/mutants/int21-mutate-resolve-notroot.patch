@@ -1,0 +1,12 @@
+# INT21_MUTATE_RESOLVE_NOTROOT
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -2019,6 +2019,7 @@
+     if (err != 0u) {
+         return INT21_ERR_PATH_NOT_FOUND;     /* missing/non-dir component (0x0003) */
+     }
++    dir_start = 0u;                          /* MUTANT: always look in the root */
+     *out_leaf      = leaf;
+     *out_dir_start = dir_start;
+     return 0u;

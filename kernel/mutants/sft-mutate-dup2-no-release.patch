@@ -1,0 +1,15 @@
+# SFT_MUTATE_DUP2_NO_RELEASE
+# test: test-sft
+--- a/sft.c
++++ b/sft.c
+@@ -244,10 +244,6 @@
+     /* If the target handle is already open, release its current SFT slot first
+      * (the redirect overwrites it). */
+     if (psp->jft[dst] != JFT_CLOSED) {
+-        /* the repository contract mutant target: WITHOUT this release the old target slot leaks
+-         * a reference (stays live forever). The oracle asserts the old slot's
+-         * ref_count drops -> the mutant (which omits it) goes RED. */
+-        sft_release(psp->jft[dst]);
+     }
+ 
+     uint8_t sft_idx = psp->jft[src];

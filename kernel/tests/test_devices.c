@@ -4,15 +4,15 @@
  * beads: initech-509.7 (device-driver chain -- module/oracle only).
  * Ref:   MS-DOS 3.3 Technical Reference, Chapter 4 "Installable Device
  *        Drivers"; Ralf Brown's Interrupt List, "Device Driver Request Packets";
- *        CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 6
- *        (mutation-proven), Rule 12 (ASCII).
+ *        the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract
+ *        (mutation-proven), the repository contract (ASCII).
  *
  * Compiles HOSTED by #including devices.c directly (the same TU trick as
  * test_batch.c / test_ansi.c -- test_devices.c is the ONLY source file passed
  * to gcc; devices.c is NOT compiled separately).  All device handlers are pure
  * I/O-free C functions; the I/O seam is caller-supplied callbacks.
  *
- * MUTATION (Rule 6) -- driven by make test-devices-mutant:
+ * MUTATION (the repository contract) -- driven by make test-devices-mutant:
  *   -DDEVICES_MUTATE_NO_DONE_BIT   : DONE bit never set; the DONE assertion
  *                                     for every successful command goes RED.
  *   -DDEVICES_MUTATE_NUL_READ_BYTE : NUL READ returns 1 byte; the NUL EOF
@@ -722,7 +722,7 @@ static void test_aux(void)
 }
 
 /* ===========================================================================
- * Test: unknown command -> ERROR (Rule 2: fail loud)
+ * Test: unknown command -> ERROR (the repository contract: fail loud)
  * =========================================================================*/
 static void test_unknown_command(void)
 {
@@ -740,7 +740,7 @@ static void test_unknown_command(void)
         device_request_t pkt = make_simple_pkt(0xFFu);
         devices_request(dev, &pkt, &io);
         CHECK((pkt.status & DEVST_ERROR) != 0,
-              "unknown cmd: ERROR bit set (Rule 2: fail loud)");
+              "unknown cmd: ERROR bit set (the repository contract: fail loud)");
         CHECK((pkt.status & DEVST_ERRMASK) == DEVEC_UNKNOWN_CMD,
               "unknown cmd: error code == DEVEC_UNKNOWN_CMD (0x03)");
         CHECK((pkt.status & DEVST_DONE) != 0,

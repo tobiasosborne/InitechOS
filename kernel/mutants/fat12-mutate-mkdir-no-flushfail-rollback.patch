@@ -1,0 +1,21 @@
+# FAT12_MUTATE_MKDIR_NO_FLUSHFAIL_ROLLBACK
+# test: test-fat-fault-rollback
+--- a/fat12.c
++++ b/fat12.c
+@@ -3850,11 +3850,11 @@
+ 		 * in-memory FAT is left consistent and no cluster is leaked logically).
+ 		 * Reached + pinned by the fault-injection oracle scenario [C], beads
+ 		 * initech-lpf3 (arm the post-grow EOC flush to fault). */
+-		(void)fat12_set_entry(fat, fat_len, newc, FAT12_FREE);
+-		if (parent_grew) {
+-			fat12_shrink_dir_tail(vol, fat, fat_len, parent_dir_start,
+-			                      parent_newc);
+-		}
++		/* MUTANT (the repository contract; make test-fat-fault-rollback-mutant only): SKIP the
++		 * post-grow flush-fail rollback. newc stays claimed AND the appended
++		 * parent cluster stays linked, both leaking while MKDIR fails -- the
++		 * atomicity defect scenario [C] pins. CSUB stays 2 clusters / the free
++		 * count drops -> scenario [C] goes RED. NEVER define in a real build. */
+ 		return rc;
+ 	}
+ 

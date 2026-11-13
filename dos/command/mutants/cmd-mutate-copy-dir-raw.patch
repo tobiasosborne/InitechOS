@@ -1,0 +1,12 @@
+# CMD_MUTATE_COPY_DIR_RAW
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -3015,6 +3015,7 @@
+     } else if(omitted) { dest[0]='.';dest[1]=0; }
+     else for(unsigned i=0;(dest[i]=plan.dest[i])!=0;i++){}
+     int directory=int21_directory_exists(dest);
++    directory=0;
+     int per_file=directory || cmd_has_wildcard(dest);
+     int combined=plan.joined || (!per_file && cmd_has_wildcard(plan.names));
+     unsigned done=0;

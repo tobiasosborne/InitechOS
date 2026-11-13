@@ -1,0 +1,15 @@
+# INT21_MUTATE_IOCTL_SETINFO_NOGUARD
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -1834,7 +1834,9 @@
+         }
+         /* DH must be zero (RBIL: "DH = must be zero"); a non-char handle has no
+          * device-info word to set -> invalid function (the repository contract: reject loudly). */
+-        if (e->kind != SFT_KIND_DEVICE || frame_dh(f) != 0x00u) {
++        /* MUTANT (the repository contract): drop the (char-device && DH==0) guard so a FILE
++         * handle / nonzero DH wrongly succeeds -> the reject assertions go RED. */
++        if (0) {
+             set_ax(f, INT21_ERR_INVALID_FUNCTION);
+             cf_set(f);
+             return;

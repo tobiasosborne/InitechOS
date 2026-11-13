@@ -1,0 +1,12 @@
+# DOS_VOLUMES_MUT_LIMIT
+# test: test-dos-volumes-host
+--- a/int21.c
++++ b/int21.c
+@@ -4663,6 +4663,7 @@
+ {
+     if (select_volume(frame_dl(f))) g_current_drive = frame_dl(f);
+     unsigned count = g_drive_limit;
++    count = 1u;
+     (void)select_volume(g_current_drive);
+     set_al(f, (uint8_t)count);
+     cf_clear(f);

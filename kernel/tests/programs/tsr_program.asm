@@ -17,13 +17,13 @@
 ;   announces WAITKEY-WAITING, blocks in AH=08h, and reports the key it got.
 ;   Position independent (EIP-relative data): it loads ABOVE the resident.
 ;
-; Ref: spec/tsr_contract.h (every vector, address, size); IBM DOS 3.30 TR
+; Ref: kernel/include/tsr_contract.h (every vector, address, size); IBM DOS 3.30 TR
 ;   pp. 6-105/106 (AH=31h), p. 6-26 (TSR layout, DX = resident size); Borland
-;   SideKick 1.5 Owner's Handbook (Mar 1985) p. 13 (Ctrl+Alt). CLAUDE.md Rule 11
-;   (nasm -f bin is reproducible), Rule 12 (ASCII).
+;   SideKick 1.5 Owner's Handbook (Mar 1985) p. 13 (Ctrl+Alt). the repository contract
+;   (nasm -f bin is reproducible), the repository contract (ASCII).
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 %ifdef TSR_WAITKEY
 start:

@@ -1,0 +1,17 @@
+# CMD_MUTATE_NO_DEL
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -95,12 +95,6 @@
+          * so "COPY" falls through to CMD_EXTERNAL -> the classify oracle goes RED
+          * (the repository contract). NEVER dropped in a real build. */
+         { "COPY",  CMD_COPY },
+-        /* DEL/ERASE <name> -- delete file(s) via 41h (wildcard: 4Eh/4Fh loop)
+-         * (beads initech-hpls, Tranche F). The CMD_MUTATE_NO_DEL mutant DROPS
+-         * BOTH rows so "DEL"/"ERASE" fall through to CMD_EXTERNAL -> the classify
+-         * oracle goes RED (the repository contract). NEVER dropped in a real build. */
+-        { "DEL",   CMD_DEL  },
+-        { "ERASE", CMD_DEL  },   /* ERASE is the long form of DEL (DOS) */
+         /* REN/RENAME <old> <new> -- same-dir dir-entry rename via 56h (beads
+          * initech-fyox, Tranche F). The CMD_MUTATE_NO_REN mutant DROPS BOTH rows
+          * so "REN"/"RENAME" fall through to CMD_EXTERNAL -> the classify oracle

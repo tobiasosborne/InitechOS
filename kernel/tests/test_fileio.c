@@ -6,10 +6,10 @@
  * standing in for the FAT12 volume (brief Sec 6 Step 4: "wire a mock blockdev").
  *
  * Ref: docs/research/fs-mount-sft-ground-truth.md Sec 4 (the exact spec), Sec
- *      4.5 (the 43-byte DTA find-data layout); spec/find_data.h (LOCKED);
- *      spec/dos_structs.h (dir_entry_t); spec/int21h_register.json. CLAUDE.md
- *      Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 6 (mutation-prove),
- *      Rule 12 (ASCII).
+ *      4.5 (the 43-byte DTA find-data layout); kernel/include/find_data.h (LOCKED);
+ *      kernel/include/dos_structs.h (dir_entry_t); spec/int21h_register.json. CLAUDE.md
+ *      the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract (mutation-prove),
+ *      the repository contract (ASCII).
  *
  * Strategy: int21.c routes FAT-specific work through an int21_file_backend_t we
  * bind to a mock (a fixed array of {name, attr, data, size} files). The
@@ -27,7 +27,7 @@
  * concurrently with independent positions (the old single-buffer-busy case is
  * replaced by a true-concurrency assertion).
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DINT21_MUTATE_READ_IGNORE_OFFSET : READ does not advance file_offset, so a
  *       chunked read re-reads the start -> the two-chunk READ test goes RED.
  *   -DINT21_MUTATE_LSEEK_WHENCE       : LSEEK whence 2 (from end) uses base 0,
@@ -333,7 +333,7 @@ static uint16_t mock_create(const char *name83, uint16_t dir_start_cluster,
      * existence check" refactor of do_creatnew would have stayed GREEN because
      * the bytes of slot 0 were untouched. Now create("HELLO.TXT") lands on slot
      * 0 and ZEROES it, so a truncate-before-check would visibly destroy
-     * HELLO.TXT's bytes -- which the nmpo read-back assertion catches (Rule 6).
+     * HELLO.TXT's bytes -- which the nmpo read-back assertion catches (the repository contract).
      * A fresh (not-yet-present) name still claims the spare slot 3. */
     int idx = mock_find_in_dir(name83, 0u);
     if (idx < 0) idx = 3;       /* fresh name -> the spare root slot */
@@ -461,7 +461,7 @@ static uint16_t mock_unlink(const char *name83, uint16_t dir_start_cluster)
  * directory/volume-label source (0x0005); reject a NEW name already present in
  * the directory (0x0005, the load-bearing dest-exists reject); else rewrite the
  * matched mock entry's name8/ext3 IN PLACE (so a later lookup sees the new name
- * and the old one is gone) -- start/size/attr/dir UNTOUCHED (Rule 11). The names
+ * and the old one is gone) -- start/size/attr/dir UNTOUCHED (the repository contract). The names
  * are parsed into static 8.3-padded buffers (the model holds `const char *`). */
 static char g_rename_name8[9] = "        ";
 static char g_rename_ext3[4]  = "   ";
@@ -653,7 +653,7 @@ static uint16_t mock_resolve_dir(const char *path, uint16_t cwd_start,
                      * regular file like NESTED.TXT) -> the DIR_ATTR_DIRECTORY gate:
                      * CHDIR into a file is path-not-found. The m1 mutant skips this
                      * gate so 'CD \SUB\NESTED.TXT' wrongly SUCCEEDS and the
-                     * "CD into a file -> 0x0003" assertion goes RED (Rule 6). */
+                     * "CD into a file -> 0x0003" assertion goes RED (the repository contract). */
 #ifndef INT21_MUTATE_CHDIR_NOATTR
                     return 0x0003u;
 #else
@@ -1082,7 +1082,7 @@ int main(void)
          * offsets (attr@0x15, time@0x16, date@0x18, size@0x1A, name@0x1E). A
          * real-DOS program / differential test reads these FIXED bytes, not the
          * struct -- so inspect raw bytes. This guards the writer (emit_find_data);
-         * the per-field offsetof _Static_asserts in spec/find_data.h guard the
+         * the per-field offsetof _Static_asserts in kernel/include/find_data.h guard the
          * struct. Mutation-proof: drop a writer field or move a struct field and
          * one of these goes RED. */
         {
@@ -1750,7 +1750,7 @@ int main(void)
      *     SHAPE-identical to do_creat but were NOT directly asserted for AH=5Bh,
      *     so a future divergence (a copy that drifts) stayed GREEN. Drive each arm
      *     DIRECTLY through the dispatcher so it bites. Ref: DOS 3.3 PRM AH=5Bh;
-     *     spec/int21h_calling_convention.json AH=5Bh (the cf error-code table). */
+     *     kernel/tests/data/int21h_calling_convention.json AH=5Bh (the cf error-code table). */
     {
         mock_reset_dir();
         bind_standard_process();
@@ -1758,7 +1758,7 @@ int main(void)
 
         /* (f) NULL EDX (path pointer 0) -> CF=1, AX=0x0002 (FILE_NOT_FOUND), the
          *     SAME code do_creat/do_open return for a null/empty path
-         *     (spec/int21h_calling_convention.json AH=5Bh: "0x0002 NULL/empty
+         *     (kernel/tests/data/int21h_calling_convention.json AH=5Bh: "0x0002 NULL/empty
          *     path"; RBIL INT 21h/AH=5Bh -- an empty/absent name names no entry to
          *     create). NOT 0x0003: an empty path is a missing NAME, not a bad
          *     directory component. */
@@ -1809,7 +1809,7 @@ int main(void)
         int21_set_file_backend(&g_mock_backend);
     }
 
-    /* (i) create() BOUND but open()==NULL (beads initech-glsw, Rule 2 fail-loud):
+    /* (i) create() BOUND but open()==NULL (beads initech-glsw, the repository contract fail-loud):
      *     a backend that can CREATE but offers no existence-probe CANNOT honor the
      *     CREATNEW fail-if-exists contract. The old guard was `if (open != 0)`, so
      *     open()==NULL SKIPPED the existence check and let create() TRUNCATE an

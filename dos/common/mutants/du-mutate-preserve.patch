@@ -1,0 +1,12 @@
+# DU_MUTATE_PRESERVE
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -94,6 +94,7 @@
+         if (du_attr(path,0,&attr)<0) return -1;
+         if (opt->mask) {
+             attr=(uint8_t)((attr&~opt->mask)|opt->bits);
++            attr&=0x21;
+             if (du_attr(path,1,&attr)<0) { error(MSG_DOS_0009); opt->failed=1; }
+         } else {
+             /* IBM 7-18: R in column 1, full path in column 10. MS 3.3 p.33

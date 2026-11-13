@@ -1,0 +1,12 @@
+# DU_MUT_TARGET
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -401,6 +401,7 @@
+         text("\r\n"); if (error) return error;
+         isdir=c == 'D';
+     } else if (trailing) isdir=1;
++    isdir=1;
+     if ((flags & S_RECURSE) && isdir) {
+         unsigned n=length(src);
+         if (equal(src,dst) || n == 3 ||   /* the "D:\\" root */

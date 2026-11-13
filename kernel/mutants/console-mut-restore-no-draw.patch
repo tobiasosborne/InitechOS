@@ -1,0 +1,13 @@
+# CONSOLE_MUT_RESTORE_NO_DRAW
+# test: test-console test-console-look
+--- a/console.c
++++ b/console.c
+@@ -603,8 +603,6 @@
+         console_set_attr(con, a);
+         con->cells[i * 2u] = ch;
+         con->cells[i * 2u + 1u] = a;
+-        console_draw_glyph(con, i % CONSOLE_COLS, i / CONSOLE_COLS, ch,
+-                           con->cur_fg, con->cur_bg);
+     }
+     con->cur_attr = attr;
+     con->cur_fg = fg;

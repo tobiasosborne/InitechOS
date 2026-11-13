@@ -5,10 +5,10 @@
  *        ("host fixtures for parameterized mz_apply_relocs + psp_build at a
  *        non-PROGRAM_BASE address (mutation-proven)"), Part A.4 (the psp_build
  *        VERIFY residual), Part C item 3 (BLOCKING: the missing oracle);
- *      os/milton/loader.h (loader_prepare_tenant contract);
- *      spec/toolbox_gate.h Sec 8 (block layout); spec/dos_structs.h (psp_t).
+ *      kernel/loader.h (loader_prepare_tenant contract);
+ *      spec/toolbox_gate.h Sec 8 (block layout); kernel/include/dos_structs.h (psp_t).
  *
- * WHAT IS GRADED (Law 2: every expected value is computed HERE from the
+ * WHAT IS GRADED (the repository contract: every expected value is computed HERE from the
  * fixture's own numbers, never read back from the loader's arithmetic):
  *   T1 a tagged MZ in a block whose FAKE linear base is FAR from
  *      PROGRAM_IMAGE relocates every site to (link value + base + 256), the
@@ -23,9 +23,9 @@
  *      fit the block -> BAD_FORMAT, an OOB reloc -> BAD_FORMAT;
  *   T4 the EXEC path is untouched: loader_prepare_mz still relocates against
  *      PROGRAM_IMAGE (DEC-08a.1/.2 byte-identical).
- * Mutation (Rule 6): -DLOADER_MUTATE_TENANT_PROGRAM_IMAGE_BASE relocates the
+ * Mutation (the repository contract): -DLOADER_MUTATE_TENANT_PROGRAM_IMAGE_BASE relocates the
  * tenant against PROGRAM_IMAGE -> T1 goes RED (test-tenant-load-mutant).
- * ASCII-clean (Rule 12). Host libc is fine in a factory test (Law 3).
+ * ASCII-clean (the repository contract). Host libc is fine in a factory test (the repository contract).
  */
 #include <stdint.h>
 #include <string.h>
@@ -33,7 +33,7 @@
 #include "loader.h"
 #include "memory_map.h"
 #include "mz.h"
-#include "toolbox_gate.h"
+#define TBX_TENANT_PSP_BYTES 256u /* PSP bytes; Toolbox gate section 8. */
 #include "test_assert.h"
 
 TEST_HARNESS();

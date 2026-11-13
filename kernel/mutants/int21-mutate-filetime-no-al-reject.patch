@@ -1,0 +1,21 @@
+# INT21_MUTATE_FILETIME_NO_AL_REJECT
+# test: test-fileio
+--- a/int21.c
++++ b/int21.c
+@@ -3340,11 +3340,11 @@
+ 
+     /* AL must select GET (0) or SET (1); anything else is invalid-function and is
+      * rejected BEFORE the handle is touched (DOS validates the subfunction). */
+-    if (al != 0x00u && al != 0x01u) {
+-        set_ax(f, INT21_ERR_INVALID_FUNCTION);
+-        cf_set(f);
+-        return;
+-    }
++    /* MUTANT 4 (the repository contract; make test-qekc-mutant only): SKIP the AL validation, so a
++     * bad AL (e.g. AL=2) is NO LONGER rejected -- it falls through to the GET/SET
++     * body (AL=2 != 0x00 takes the SET path on a write-capable backend, returning
++     * CF=0 instead of the required CF=1/AX=0x0001). The bad-AL host contract goes
++     * RED (the assertion demands CF=1 + invalid-function). NEVER in a real build. */
+ 
+     sft_entry_t *e = (handle <= 0xFFu)
+                        ? sft_from_handle(g_cur_psp, (uint8_t)handle)

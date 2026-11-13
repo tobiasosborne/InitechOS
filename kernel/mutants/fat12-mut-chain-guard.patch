@@ -1,0 +1,17 @@
+# FAT12_MUT_CHAIN_GUARD
+# test: test-fat-corrupt-fuzz
+--- a/fat12.c
++++ b/fat12.c
+@@ -673,8 +673,10 @@
+ static __attribute__((noinline)) int chain_link_unusable(const fat12_volume_t *vol,
+                                                          uint16_t cur)
+ {
+-	return !fat12_cluster_in_range(vol, cur) || chain_is_free(vol, cur) ||
+-	       chain_is_bad(vol, cur);
++	/* MUTANT (the repository contract; test-fat-corrupt-fuzz-chain-mutant): the data-range
++	 * bound dropped from the walkers' guard (bcg.3 regressed: a link above
++	 * the last data cluster maps to a wrong LBA). NEVER in a real build. */
++	return chain_is_free(vol, cur) || chain_is_bad(vol, cur);
+ }
+ 
+ /*

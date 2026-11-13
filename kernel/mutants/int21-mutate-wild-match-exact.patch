@@ -1,0 +1,20 @@
+# INT21_MUTATE_WILD_MATCH_EXACT
+# test: test-80k
+--- a/int21.c
++++ b/int21.c
+@@ -3494,9 +3494,12 @@
+ static int pattern_match(const uint8_t pat[11], const uint8_t name[11])
+ {
+     for (int i = 0; i < 11; i++) {
+-        if (pat[i] == '?') {
+-            continue;
+-        }
++        /* MUTANT (the repository contract; make test-80k-mutant only): both perturbations drop
++         * the '?' wildcard arm so the template '?' is compared as a literal
++         * byte (exact-only matching). EXACT and QMARK_LITERAL collapse to the
++         * same defect at the match site -- every '*'/'?' match row MUST go RED.
++         * (QMARK_LITERAL is the build-side framing of "'?' is not special";
++         * the observable effect is identical here.) NEVER in a real build. */
+         if (pat[i] != name[i]) {
+             return 0;
+         }

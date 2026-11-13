@@ -5,6 +5,8 @@
 # order. Add a component here when its `make test` is green.
 # One per line so that parallel imports merge without conflicts.
 COMPONENTS :=
+COMPONENTS += kernel
+COMPONENTS += dos
 COMPONENTS += flair/region
 COMPONENTS += flair
 COMPONENTS += sdk

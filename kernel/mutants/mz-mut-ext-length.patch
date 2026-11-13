@@ -1,0 +1,12 @@
+# MZ_MUT_EXT_LENGTH
+# test: test-mz
+--- a/mz.c
++++ b/mz.c
+@@ -189,7 +189,6 @@
+         if (file_len < INITECHMZ_EXT_HEADER_MIN || header_bytes < INITECHMZ_EXT_HEADER_MIN ||
+             e_cblp > 511u || !e_cp ||
+             mz_rd32(file+INITECHMZ_EXT_VERSION_OFF) != INITECHMZ_EXT_VERSION ||
+-            mz_rd32(file+INITECHMZ_EXT_LENGTH_OFF) != INITECHMZ_EXT_DESC_LEN ||
+             mz_rd32(file+INITECHMZ_EXT_STACK_OFF) != INITECHMZ_EXT_STACK_BYTES ||
+             mz_rd32(file+INITECHMZ_EXT_GUARD_OFF) != INITECHMZ_EXT_GUARD_BYTES)
+             return MZ_ERR_BAD_HEADER;

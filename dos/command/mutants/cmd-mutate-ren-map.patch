@@ -1,0 +1,13 @@
+# CMD_MUTATE_REN_MAP
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -486,7 +486,7 @@
+             continue;
+         }
+         if(pos>=cap)return 0;
+-        dst[field+pos]=*s=='?' ? src[field+pos]:cmd_upcase_char(*s);
++        dst[field+pos]=*s=='?' ? 'X':cmd_upcase_char(*s);
+         pos++;
+     }
+     unsigned n=0,end=8;

@@ -8,16 +8,16 @@
  * read the FAT .COM into a 64 KiB LOAD_STAGING buffer [0x70000,0x80000) (it abuts
  * the kernel stack at 0x80000 and cannot grow), then copy DOWN to PROGRAM_IMAGE.
  * The size guard rejected file_size > LOAD_STAGING_MAX (64 KiB), so a 77 KiB
- * SAMIR.COM was wrongly rejected LOADER_ERR_TOO_BIG even though the program arena
+ * INITECHBASE.COM was wrongly rejected LOADER_ERR_TOO_BIG even though the program arena
  * allows ~188 KiB (PROGRAM_IMAGE_MAX = ENV_BLOCK - PROGRAM_IMAGE). The fix reads
  * the .COM DIRECTLY into PROGRAM_IMAGE -- no staging -- so PROGRAM_IMAGE_MAX is
  * the SOLE bound. This oracle PROVES the new bound at the loader_prepare_in_place
  * seam (the pure, host-testable layout/validation the in-place run path uses).
  *
- * Ref: spec/memory_map.h (PROGRAM_IMAGE / PROGRAM_IMAGE_MAX / LOAD_STAGING_MAX);
- *      docs/adr/ADR-0009-...md (DEC-04 + the za4m companion); os/milton/loader.h.
- *      CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 2 (fail loud),
- *      Rule 6 (mutation-prove), Rule 8 (locked spec), Rule 12 (ASCII).
+ * Ref: kernel/include/memory_map.h (PROGRAM_IMAGE / PROGRAM_IMAGE_MAX / LOAD_STAGING_MAX);
+ *      docs/adr/ADR-0009-...md (DEC-04 + the za4m companion); kernel/loader.h.
+ *      the repository contract (oracle is truth), the repository contract (RED->GREEN), the repository contract (fail loud),
+ *      the repository contract (mutation-prove), the repository contract (locked spec), the repository contract (ASCII).
  *
  * Strategy: loader_prepare_in_place(k_resident, ) is the pure, host-testable seam (no image
  * pointer -- the bytes are already at PROGRAM_IMAGE; it validates image_len only).
@@ -30,10 +30,10 @@
  *   - a compile-time check that PROGRAM_IMAGE_MAX > LOAD_STAGING_MAX (so 64K+1
  *     is a MEANINGFUL case -- the old cap really was the smaller, binding one).
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DLOADER_MUTATE_REIMPOSE_STAGING_CAP : loader.c (loader_prepare_core) re-
  *       imposes the PRE-za4m 64 KiB LOAD_STAGING_MAX cap on the in-place path --
- *       the EXACT bug that wrongly rejected a 77 KiB SAMIR.COM. This guard lives
+ *       the EXACT bug that wrongly rejected a 77 KiB INITECHBASE.COM. This guard lives
  *       in the host-compilable loader_prepare_core, so THIS oracle observes it
  *       directly: the "64 KiB + 1 loads" case goes RED (loader_prepare_in_place
  *       returns LOADER_ERR_TOO_BIG instead of LOADER_OK). A mutant that PASSES
@@ -56,12 +56,12 @@ TEST_HARNESS();
 /* Compile-time sanity: the OLD staging cap really IS the smaller, binding one --
  * otherwise "64 KiB + 1" would not be a meaningful regression case. If this ever
  * fails the spec changed and the oracle's premise is stale (fail loud at compile
- * time, Rule 2). */
+ * time, the repository contract). */
 _Static_assert(PROGRAM_IMAGE_MAX > LOAD_STAGING_MAX,
                "za4m premise: program arena must exceed the old 64 KiB staging cap");
 
 /* The smallest image the OLD LOAD_STAGING_MAX cap wrongly rejected. */
-#define OVER_OLD_CAP   (LOAD_STAGING_MAX + 1u)   /* 64 KiB + 1 -- e.g. 77 KiB SAMIR */
+#define OVER_OLD_CAP   (LOAD_STAGING_MAX + 1u)   /* 64 KiB + 1 -- e.g. 77 KiB INITECHBASE */
 
 /* The resident bytes the in-place seam looks at (initech-13ig): an ordinary
  * program's first bytes, never the COMMAND3 magic. */

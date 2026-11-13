@@ -1,9 +1,9 @@
-/* os/milton/test_fileio_subdir.c -- INT 21h subdir OPEN/READ over the REAL FAT12
+/* kernel/tests/test_fileio_subdir.c -- INT 21h subdir OPEN/READ over the REAL FAT12
  * backend (beads initech-mzxa; ti8 Layer 2 INTEGRATION oracle).
  *
- * THE STRONGEST mzxa oracle (CLAUDE.md Law 2): unlike test_fileio.c -- which
+ * THE STRONGEST mzxa oracle (the repository contract): unlike test_fileio.c -- which
  * drives the int21 dispatch over a MOCK file backend -- this test binds the
- * REAL kernel FAT12 backend (os/milton/fileio_fat.c) over the minted nested
+ * REAL kernel FAT12 backend (kernel/fileio_fat.c) over the minted nested
  * image (build/fat12_nested.img) via the host file-backed blockdev, and drives
  * the WHOLE stack: int21_dispatch (AH=3Dh OPEN / AH=3Fh READ) ->
  * resolve_dir_path (int21.c) -> fat_resolve (fileio_fat.c) -> fat12_resolve_path
@@ -13,13 +13,13 @@
  *
  * FACTORY-HOSTED, but the code under test (int21.c + fileio_fat.c + fat12.c) is
  * the SAME artifact source the kernel compiles. The host blockdev + libc test
- * scaffolding are factory-only (Law 3). Image + fixture-dir paths are argv
- * (Makefile) so no host path is baked in (Rule 11). ASCII-clean (Rule 12).
+ * scaffolding are factory-only (the repository contract). Image + fixture-dir paths are argv
+ * (Makefile) so no host path is baked in (the repository contract). ASCII-clean (the repository contract).
  *
- * Ref (Law 1): brief initech-mzxa oracle ("STRONGLY PREFERRED ... integration
+ * Ref (the repository contract): brief initech-mzxa oracle ("STRONGLY PREFERRED ... integration
  *   test that drives int21 OPEN/READ of '\SUB\NESTED.TXT' and '\SUB\DEEP\
  *   DEEP.TXT' through the real fat12 resolve and asserts the bytes");
- *   docs/research/fs-mount-sft-ground-truth.md Sec 4; os/milton/fileio_fat.h.
+ *   docs/research/fs-mount-sft-ground-truth.md Sec 4; kernel/include/fileio_fat.h.
  */
 
 #include <stdint.h>
@@ -379,7 +379,7 @@ int main(int argc, char **argv)
     const char     *img;
     const char     *fixdir;
     blockdev_file_t bf;
-    static fat12_volume_t vol;   /* static: outlives fileio_fat_bind (Rule 2) */
+    static fat12_volume_t vol;   /* static: outlives fileio_fat_bind (the repository contract) */
     uint8_t         sector_buf[512];
     char            nested_path[512];
     char            deep_path[512];

@@ -1,0 +1,12 @@
+# CHKDSK_MUT_MIRROR
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -69,6 +69,7 @@
+     uint32_t o=s.bits==12?c+c/2:c*2;
+     uint8_t p[512];
+     unsigned copies=s.fats;
++    copies=1;
+     /* Read-modify-write each byte separately: FAT12 entry 341 straddles a
+      * sector; preserve the adjacent packed nibble in EVERY redundant FAT. */
+     for(unsigned k=0;k<copies;k++)for(unsigned j=0;j<2;j++) {

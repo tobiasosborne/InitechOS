@@ -3,8 +3,8 @@
  *
  * Ref: IBM PC/XT scancode SET 1 table (the make codes asserted below); Intel
  *      8254 PIT datasheet (input 1.193182 MHz; divisor = round(input/hz);
- *      divisor 0 == 65536). CLAUDE.md Law 2 (oracle is truth), Rule 1
- *      (RED->GREEN), Rule 6 (mutation-prove), Rule 12 (ASCII).
+ *      divisor 0 == 65536). the repository contract (oracle is truth), the repository contract
+ *      (RED->GREEN), the repository contract (mutation-prove), the repository contract (ASCII).
  *
  * Compiled HOSTED against the REAL artifact kbd.c + pit.c (the same
  * kbd_ring / kbd_translate / pit_divisor_for_hz the kernel uses). The
@@ -18,7 +18,7 @@
  *      + CapsLock; modifiers and break codes produce no char.
  *   3. PIT: divisor math at 100 Hz and the 18.2 Hz (divisor-0) sentinel.
  *
- * MUTATION (Rule 6): kbd.c built with -DKBD_MUTATE_RING_OFFBYONE (full-ring
+ * MUTATION (the repository contract): kbd.c built with -DKBD_MUTATE_RING_OFFBYONE (full-ring
  * never detected), -DKBD_MUTATE_SCANCODE_TABLE (mis-indexed table), or
  * -DKBD_MUT_ONE_SHIFT (release either Shift clears both), or
  * -DKBD_MUT_CAPS_REPEAT (repeated makes toggle Caps) MUST fail;
@@ -29,12 +29,12 @@
 #include <string.h>
 
 #include "kbd.h"
-#include "../../spec/tsr_contract.h"
+#include "../../kernel/include/tsr_contract.h"
 #include "pit.h"
 #include "test_assert.h"
 
 TEST_HARNESS();
-#include "../../harness/proptest/expect_abort.h"
+#include "expect_abort.h"
 
 /* Drain a ring into a C string for easy comparison. */
 static void drain(kbd_ring_t *r, char *out, size_t cap)
@@ -241,7 +241,7 @@ static void test_translate(void)
     /* Break code: bit 0x80 set -> no character (release of 'd'). */
     CHECK(kbd_translate(&st, 0x20 | 0x80) == 0, "break code -> no char");
 
-    /* A SHIFTED key (Rule 6 / the spec asks for a shifted sample): hold LShift
+    /* A SHIFTED key (the repository contract / the spec asks for a shifted sample): hold LShift
      * (make 0x2A -> no char), then '1' (0x02) must shift to '!'. */
     CHECK(kbd_translate(&st, 0x2A) == 0, "LShift make -> no char");
     CHECK(kbd_translate(&st, 0x02) == '!', "Shift+'1' -> '!'");

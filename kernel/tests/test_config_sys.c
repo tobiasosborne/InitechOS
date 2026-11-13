@@ -3,11 +3,11 @@
  * HOSTED against the REAL artifact config_sys.c (the same code SYSINIT runs;
  * config_sys.c compiles both freestanding and hosted).
  *
- * Ref: spec/dos_config_sys_baseline.txt (the LOCKED baseline, Rule 8 -- passed
+ * Ref: kernel/tests/data/dos_config_sys_baseline.txt (the LOCKED baseline, the repository contract -- passed
  *      in via -DCONFIG_SYS_BASELINE_PATH so the SPEC FILE itself is the contract:
  *      edit the locked file and this oracle re-reads it); ADR-0003 Sec 5.6 /
- *      Appendix D.2; os/milton/config_sys.h. CLAUDE.md Law 2 (oracle is truth),
- *      Rule 1 (RED->GREEN), Rule 6 (mutation-prove), Rule 12 (ASCII).
+ *      Appendix D.2; kernel/config_sys.h. the repository contract (oracle is truth),
+ *      the repository contract (RED->GREEN), the repository contract (mutation-prove), the repository contract (ASCII).
  *
  * Strategy:
  *   1. Read the LOCKED baseline file and assert EVERY field: files==20,
@@ -17,7 +17,7 @@
  *      directive (ignored, NOT fatal), lowercase keywords, FILES out-of-range
  *      clamped, CRLF line endings, a missing/empty buffer -> all-absent.
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DCONFIG_MUTATE_FILES_OFFBYONE : the parser adds 1 to the FILES value -> the
  *                                    files==20 assertion goes RED.
  *   -DCONFIG_MUTATE_FAIL_ON_UNKNOWN: the parser treats an unknown directive as
@@ -36,7 +36,7 @@
 TEST_HARNESS();
 
 #ifndef CONFIG_SYS_BASELINE_PATH
-#define CONFIG_SYS_BASELINE_PATH "spec/dos_config_sys_baseline.txt"
+#define CONFIG_SYS_BASELINE_PATH "kernel/tests/data/dos_config_sys_baseline.txt"
 #endif
 
 /* Does dos_config_t carry a device/install name equal to `want`? */

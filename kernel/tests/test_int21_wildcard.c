@@ -3,12 +3,12 @@
  *
  * Strategy: drive the REAL artifact int21.c matcher (build_pattern +
  * pattern_match) directly, through the INT21_WILDCARD_TESTSEAM wrappers, so
- * there is no second matcher to drift (Law 2). A row is (spec, on-disk name) ->
+ * there is no second matcher to drift (the repository contract). A row is (spec, on-disk name) ->
  * expected match/no-match; build the FCB template from the spec, render the
  * on-disk name into its 11-byte space-padded form (exactly as entry_template
  * does from a dir entry), and assert.
  *
- * GROUND TRUTH (Law 1) -- the MS-DOS / CP/M FCB matching algorithm, as
+ * GROUND TRUTH (the repository contract) -- the MS-DOS / CP/M FCB matching algorithm, as
  * documented by Raymond Chen, "How did wildcards work in MS-DOS?", The Old New
  * Thing, 2007-12-17, and the DOS 3.3 Programmer's Reference Manual AH=4Eh:
  *
@@ -32,7 +32,7 @@
  * real DOS semantics; this oracle encodes the CORRECT behavior with the
  * citation above.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11 / Law 3).
+ * ASCII-clean (the repository contract). No timestamps / host paths (the repository contract / the repository contract).
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -49,7 +49,7 @@ extern int  int21_wildcard_match(const uint8_t pat[11], const uint8_t name[11]);
 /* Render an on-disk 8.3 name ("FOO", "FOO.TXT", "A.BAR", "") into the 11-byte
  * space-padded, upper-cased form the directory entry carries (this is exactly
  * what entry_template() produces from a dir_entry's filename[8]/extension[3],
- * which spec/dos_structs.h documents as already space-padded upper-case). The
+ * which kernel/include/dos_structs.h documents as already space-padded upper-case). The
  * name field gets the part before '.', the ext field the part after; both are
  * padded with spaces and truncated to 8 / 3. */
 static void render_name(const char *name, uint8_t out[11])

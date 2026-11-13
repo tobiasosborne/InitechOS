@@ -1,0 +1,12 @@
+# BLOCK_DEVICE_MUT_CARRY
+# test: test-block-device
+--- a/block_device.c
++++ b/block_device.c
+@@ -96,7 +96,6 @@
+ static void result(int_frame_t *f,unsigned s)
+ {
+     f->eax=(f->eax&~0xff00u)|(s<<8);f->eflags&=~1u;
+-    if(s)f->eflags|=1u;
+ }
+ void KERNEL_ASM_ABI int13_dispatch(int_frame_t *f)
+ {

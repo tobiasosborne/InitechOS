@@ -1,0 +1,20 @@
+# INT21_MUTATE_CLOSE_NO_REFGUARD
+# test: test-int21-edge
+--- a/int21.c
++++ b/int21.c
+@@ -3255,9 +3255,12 @@
+     int      was_file  = (e->kind == SFT_KIND_FILE);
+     uint32_t root_slot = e->root_slot;
+ 
+-    if (e->ref_count > 0u) {
+-        e->ref_count--;
+-    }
++    /* MUTANT (the repository contract; make test-int21-edge-mutant only): drop the ref_count>0
++     * guard so a CLOSE of a slot whose ref_count is already 0 UNDERFLOWS the
++     * uint16 ref_count to 0xFFFF -- the exact double-close corruption flagged by
++     * beads initech-00x. The double-close-underflow oracle (which asserts the
++     * ref_count never wraps) goes RED. NEVER define in a real build. */
++    e->ref_count--;
+     if (e->ref_count == 0u) {
+         /* Last reference: finalize the handle via the backend (no-op with
+          * per-call positioned writes; the hook is for symmetry / future

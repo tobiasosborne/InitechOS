@@ -1,0 +1,19 @@
+# BATCH_MUTATE_GOTO_NOLABEL
+# test: test-batch
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -327,10 +327,10 @@
+ static int bat_goto_target(char *dst, const char *arg)
+ {
+     const char *p = bat_skip_ws(arg);
+-    if (*p == ':') {
+-        p++;    /* strip the optional leading ':' */
+-    }
+-    return bat_copy_label(dst, p);
++    /* Mutant: write nothing -- the GOTO target test goes RED. */
++    dst[0] = '\0';
++    (void)p;
++    return 0;
+ }
+ 
+ /* Match a directive keyword at the start of `s` (after '@' + whitespace

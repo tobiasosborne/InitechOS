@@ -1,0 +1,12 @@
+# EDLIN_MUT_NUMBER
+# test: test-edlin-host
+--- a/edlin/edlin.c
++++ b/edlin/edlin.c
+@@ -35,6 +35,7 @@
+  * Printed examples pp.177-191 reserve five positions for the decimal number. */
+ static void prefix(unsigned n,int star){
+     char b[7]={' ',' ',' ',' ',' ',':',' '};
++    n++; /* the repository contract: off-by-one numbering. */
+     unsigned i=5;do{b[--i]=(char)('0'+n%10);n/=10;}while(n&&i);
+     if(star)b[6]='*';
+     putn(b,7);

@@ -1,0 +1,21 @@
+# PSP_MUTATE_NO_TAIL_CLAMP
+# test: test-psp
+--- a/psp.c
++++ b/psp.c
+@@ -282,10 +282,12 @@
+     uint32_t want = params->cmd_tail_len;
+     uint32_t copy = want;
+     uint32_t dropped = 0;
+-    if (copy > PSP_CMD_TAIL_MAX_TEXT) {
+-        dropped = copy - PSP_CMD_TAIL_MAX_TEXT;
+-        copy = PSP_CMD_TAIL_MAX_TEXT;
+-    }
++    /* the repository contract mutant target (make test-cmdline-fuzz-mutant): REMOVE the cmd_tail
++     * clamp, so an over-long command tail (cmd_tail_len > 126) copies all `want`
++     * bytes plus the CR straight past offset 0x7F of the 128-byte cmd_tail region
++     * -- writing beyond psp->cmd_tail[127], stomping the guard byte the fuzzer
++     * placed immediately after the PSP. The fuzzer's "no write past cmd_tail[127]"
++     * guard-byte invariant goes RED. NEVER in a real build. */
+     psp->cmd_tail[0] = (uint8_t)copy; /* count <= 126, fits a byte */
+     for (uint32_t i = 0; i < copy; i++) {
+         psp->cmd_tail[1 + i] = (uint8_t)params->cmd_tail[i];

@@ -12,9 +12,9 @@
  *        bg nibble, bit 7 = blink/bright-bg);
  *        Microsoft MS-DOS 3.3 Technical Reference Appendix C (default text
  *        attribute 0x07: light grey on black, no blink).
- *        CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Law 3
- *        (artifact = C), Rule 2 (fail loud), Rule 11 (deterministic),
- *        Rule 12 (ASCII).
+ *        the repository contract (cite source), the repository contract (oracle is truth), the repository contract
+ *        (artifact = C), the repository contract (fail loud), the repository contract (deterministic),
+ *        the repository contract (ASCII).
  * Lane fixes: IBM DOS 3.30 Technical Reference (80X0945), printed pp. 3-4
  * (zero defaults), 3-7/3-8 (relative movement stops at edges), 3-10 (DSR
  * reports current position), 3-15 (SGR 8 invisible). See test_ansi_lane and
@@ -23,7 +23,7 @@
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  * No libc; hand-rolled helpers only (same discipline as batch.c / env.c).
  *
- * MUTATION hooks (CLAUDE.md Rule 6):
+ * MUTATION hooks (the repository contract):
  *   ANSI_MUTATE_PARAM_ACCUM  -- digit accumulator uses *1 instead of *10;
  *                               multi-digit params (e.g. "10;5H") parse wrong
  *                               -> cursor-position oracle goes RED.
@@ -111,7 +111,7 @@ static void ansi_emit(const ansi_action_t *a,
 /* Flush the current digit accumulator into params[], if non-empty.
  * Bounded: if param_count would exceed ANSI_PARAM_MAX the extra param is
  * dropped silently (the excess is consumed by the stream but not stored;
- * Rule 2: never overflow the array). */
+ * the repository contract: never overflow the array). */
 static void ansi_flush_param(ansi_state_t *st)
 {
     if (st->param_current == ANSI_PARAM_DEFAULT) {
@@ -228,11 +228,7 @@ static void ansi_do_sgr(ansi_state_t *st,
              * The entire foreground nibble must match the background;
              * retaining intensity leaves bright text visible (0u02/i427). */
             uint8_t bg3 = (st->attr >> 4) & 0x07u;
-#ifdef ANSI_MUTATE_CONCEAL_BRIGHT
-            st->attr = (uint8_t)((st->attr & 0xF8u) | bg3);
-#else
             st->attr = (uint8_t)((st->attr & 0xF0u) | bg3);
-#endif
 
         } else if (p >= 30 && p <= 37) {
             /* Foreground colour (SGR 30-37).
@@ -241,11 +237,7 @@ static void ansi_do_sgr(ansi_state_t *st,
              * ANSI-to-CGA colour swap: use ANSI_TO_CGA[] (see header comment).
              * MUTANT ANSI_MUTATE_SGR_COLOR: bypass the lookup -> RED. */
             int ansi_idx = p - 30;
-#ifdef ANSI_MUTATE_SGR_COLOR
-            uint8_t cga_nibble = (uint8_t)ansi_idx;
-#else
             uint8_t cga_nibble = ANSI_TO_CGA[ansi_idx];
-#endif
             /* fg = bits 2:0; bright bit 3 preserved. */
             st->attr = (uint8_t)((st->attr & 0xF8u) | cga_nibble);
 
@@ -254,11 +246,7 @@ static void ansi_do_sgr(ansi_state_t *st,
              * Same ANSI-to-CGA mapping; bg nibble = bits 6:4.
              * Ref: same tables as fg above. */
             int ansi_idx = p - 40;
-#ifdef ANSI_MUTATE_SGR_COLOR
-            uint8_t cga_nibble = (uint8_t)ansi_idx;
-#else
             uint8_t cga_nibble = ANSI_TO_CGA[ansi_idx];
-#endif
             st->attr = (uint8_t)((st->attr & 0x8Fu) | (uint8_t)(cga_nibble << 4));
 
         }
@@ -304,19 +292,15 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
              * movement stops at the edge. Keep FSM position coherent for
              * DSR/save, even with no console attached (mybc/ng8n/s7cm). */
             int n = ansi_param(st, 0, 1);
-#ifndef ANSI_MUTATE_ZERO_LITERAL
             if (n == 0) n = 1;
-#endif
             a.kind = ANSI_ACT_CURSOR_REL;
             if (final == 'A') a.delta_row = -n;
             if (final == 'B') a.delta_row = n;
             if (final == 'C') a.delta_col = n;
             if (final == 'D') a.delta_col = -n;
-#ifndef ANSI_MUTATE_STALE_REL
             /* Bound the delta BEFORE addition, including on large grids. */
             st->row += ansi_clamp(a.delta_row, -st->row, st->rows - 1 - st->row);
             st->col += ansi_clamp(a.delta_col, -st->col, st->cols_wide - 1 - st->col);
-#endif
             ansi_emit(&a, cb, ctx);
         }
         break;
@@ -326,7 +310,7 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
               /* Ref: MS-DOS 3.3 Technical Reference Ch 4 "CUP"/"HVP".
                * Params are 1-based; we convert to 0-based for the action.
                * Default: row=1, col=1 (home position).
-               * Clamped to the screen dimensions (defensive, Rule 2).
+               * Clamped to the screen dimensions (defensive, the repository contract).
                * IMPORTANT: st->row and st->col are updated here so that
                * a subsequent ESC[s captures the correct position. */
         {
@@ -336,21 +320,10 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
             if (r < 1) r = 1;
             if (c < 1) c = 1;
             a.kind = ANSI_ACT_MOVE_CURSOR;
-#ifdef ANSI_MUTATE_NO_CLAMP
-            /* MUTANT (Rule 6): widen the clamp bounds to a no-op range -- an
-             * out-of-range CUP/HVP (e.g. ESC[999;999H on a 25x80 screen)
-             * emits a position off the visible grid. Calls ansi_clamp() with
-             * bounds that never bind, so the helper stays referenced but the
-             * screen-size bound is effectively skipped. Must turn the
-             * cursor-clamp oracle RED. */
-            a.row  = ansi_clamp(r - 1, -2147483647, 2147483647);
-            a.col  = ansi_clamp(c - 1, -2147483647, 2147483647);
-#else
             /* Real III+ at-to-b/TE: ESC[26;1H carries BIOS row 25.
              * Larger requests still use the existing last-row clamp. */
             a.row  = r - 1 == st->rows ? st->rows : ansi_clamp(r - 1, 0, st->rows - 1);
             a.col  = ansi_clamp(c - 1, 0, st->cols_wide - 1);
-#endif
             /* Update FSM cursor so save/restore tracks absolute position. */
             st->row = a.row;
             st->col = a.col;
@@ -436,11 +409,7 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
                * parameters other than 7 are consumed, no action. */
         if (st->private_marker && ansi_param(st, 0, 0) == 7) {
             a.kind       = ANSI_ACT_SET_WRAP;
-#ifdef ANSI_MUTATE_WRAP_FLIP
-            a.erase_mode = (final != 'h');
-#else
             a.erase_mode = (final == 'h');
-#endif
             ansi_emit(&a, cb, ctx);
         }
         break;
@@ -462,7 +431,7 @@ static void ansi_dispatch_csi(ansi_state_t *st, uint8_t final,
          * Ref: RBIL ANSI.SYS -- "unknown final byte ends the sequence";
          * MS-DOS 3.3 behaviour is to absorb unknown CSI sequences silently.
          * ANSI_ACT_NONE is not emitted (cb is NOT called).
-         * Rule 2: fail loud on BUFFER overflow (handled in param accumulation),
+         * the repository contract: fail loud on BUFFER overflow (handled in param accumulation),
          * NOT on unknown sequences from the input stream. */
         break;
     }
@@ -485,7 +454,7 @@ void ansi_init(ansi_state_t *st, int rows, int cols)
     st->col       = 0;
     st->saved_row = 0;
     st->saved_col = 0;
-    /* Clamp dimensions to at least 1x1 (Rule 2: never degenerate). */
+    /* Clamp dimensions to at least 1x1 (the repository contract: never degenerate). */
     st->rows      = (rows > 0) ? rows : 1;
     st->cols_wide = (cols > 0) ? cols : 1;
     st->attr      = ANSI_ATTR_DEFAULT;
@@ -583,13 +552,6 @@ void ansi_feed(ansi_state_t *st, uint8_t byte,
             if (st->param_current == ANSI_PARAM_DEFAULT) {
                 st->param_current = digit;
             } else {
-#ifdef ANSI_MUTATE_PARAM_ACCUM
-                st->param_current = st->param_current * 1 + digit;
-#elif defined(ANSI_MUTATE_PARAM_UNBOUNDED)
-                /* Named no-cap mutant without invoking signed C UB itself. */
-                st->param_current = (int)(((uint32_t)st->param_current * 10u +
-                                          (uint32_t)digit) & 0x7fffffffu);
-#else
                 /* 5y5r: saturate before multiplying. This is a parser safety
                  * choice; the visible movement limit is the screen edge
                  * (IBM DOS 3.30 printed pp. 3-7/3-8), not an invented DOS
@@ -598,7 +560,6 @@ void ansi_feed(ansi_state_t *st, uint8_t byte,
                     st->param_current = ANSI_PARAM_VALUE_MAX;
                 else
                     st->param_current = st->param_current * 10 + digit;
-#endif
             }
         } else if (byte == ';') {
             /* Parameter separator: flush current param, reset accumulator.
@@ -633,7 +594,7 @@ void ansi_feed(ansi_state_t *st, uint8_t byte,
 
     default:
         /* Internal invariant violation: unknown FSM state.
-         * Rule 2: fail loud.  Reset to GROUND so the caller can continue. */
+         * the repository contract: fail loud.  Reset to GROUND so the caller can continue. */
         st->fsm = ANSI_ST_GROUND;
         break;
     }

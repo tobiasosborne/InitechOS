@@ -1,0 +1,21 @@
+# MVG_MUTATE_NO_RAISE
+# test: test-int24-wired
+--- a/int21.c
++++ b/int21.c
+@@ -5520,8 +5520,14 @@
+     }
+     f.eflags = 0x00000202u | CF_BIT;   /* IF + reserved bit1; CF preset */
+ 
+-    int24_dispatch(&f);                /* present MSG-DOS-0001, read A/R/F -> AL */
+-    action = (uint8_t)(f.eax & 0xFFu);
++    /* MUTANT (the repository contract; make test-int24-wired-mutant only): return Fail WITHOUT
++     * raising INT 24h -- the regression this bead fixes (a disk error never
++     * presents the operator prompt). MSG-DOS-0001 is never emitted and Retry
++     * never re-issues, so scenarios [A]/[B]/[C]/[D] go RED. NEVER in a real
++     * build. The (void) refs keep -Werror=unused quiet so the mutant still
++     * BUILDS + RUNS. */
++    (void)f; (void)action;
++    return INT21_CRIT_FAIL;
+ 
+     switch (action) {
+         case 0u:                       /* Retry */

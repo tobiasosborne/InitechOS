@@ -1,4 +1,4 @@
-/* Factory only. Rule 11; 4aql/ahp2/ugsk: fake DOS segments must not depend on
+/* Factory only. the repository contract; 4aql/ahp2/ugsk: fake DOS segments must not depend on
  * ASLR, collide with owner FREE/SYSTEM, or wrap within a test arena. Each
  * mapping uses a distinct paragraph offset and a disjoint virtual window.
  * MAP_FIXED_NOREPLACE fails loud on collision; it never overwrites host memory.

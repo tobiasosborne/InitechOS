@@ -5,10 +5,10 @@
  *
  * Ref: docs/research/psp-loader-ground-truth.md Sec 2 (the field-value map +
  *      the Option-B flat-mode handling of the vestigial segment fields);
- *      spec/dos_structs.h lines 91-107 (the LOCKED psp_t offsets);
- *      ADR-0003 DEC-05 / App B.2; os/milton/int21.h (INT21_HANDLE_STDOUT/STDERR
- *      convention). CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN),
- *      Rule 6 (mutation-prove), Rule 12 (ASCII).
+ *      kernel/include/dos_structs.h lines 91-107 (the LOCKED psp_t offsets);
+ *      ADR-0003 DEC-05 / App B.2; kernel/include/int21.h (INT21_HANDLE_STDOUT/STDERR
+ *      convention). the repository contract (oracle is truth), the repository contract (RED->GREEN),
+ *      the repository contract (mutation-prove), the repository contract (ASCII).
  *
  * Strategy: build a PSP from KNOWN params into a buffer that has a GUARD byte
  * immediately past offset 0xFF, then assert every documented field and the
@@ -16,7 +16,7 @@
  * an over-long tail: the dropped count is returned, the count byte saturates at
  * 126, the CR lands at offset 127, and the guard is untouched.
  *
- * MUTATION (Rule 6), driven by make:
+ * MUTATION (the repository contract), driven by make:
  *   -DPSP_MUTATE_INT20         : int20 = CD 21 instead of CD 20 -> the int20
  *                                assertion goes RED.
  *   -DPSP_MUTATE_CMDTAIL_LEN   : the cmd_tail count byte is written off-by-one

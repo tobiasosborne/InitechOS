@@ -1,0 +1,30 @@
+# K36G_MUTATE_NO_REDIR
+# test: test-ansi-wire
+--- a/int21.c
++++ b/int21.c
+@@ -1169,17 +1169,14 @@
+  * user-supplied [ptr,count) -- that guard belongs to do_write (AH=40h). */
+ static void stdout_emit(const char *buf, uint32_t count)
+ {
+-    sft_entry_t *e = sft_from_handle(g_cur_psp, INT21_HANDLE_STDOUT);
+-    if (e == 0) {
+-        /* No resolvable STDOUT (pre-PSP banner / closed handle): straight to CON
+-         * so the byte is NEVER dropped (the repository contract). */
+-        for (uint32_t i = 0; i < count; i++) {
+-            con_putc(buf[i]);
+-        }
+-        return;
+-    }
+-    uint32_t written = 0u;
+-    (void)sft_write(e, buf, count, &written);   /* best-effort; no error path here */
++    /* MUTANT (the repository contract; make test-redir-mutant only): always con_putc, NEVER the
++     * resolved handle-1 SFT -> AH=02h/09h/06h are NO LONGER redirectable, so the
++     * test_redir DUP2(file,1) assertion (b) goes RED. NEVER define in a real
++     * build -- it reverts the whole bead. */
++    for (uint32_t i = 0; i < count; i++) {
++        con_putc(buf[i]);
++    }
++    return;
+ }
+ 
+ /* ---- the console-output subset implementations ---- */

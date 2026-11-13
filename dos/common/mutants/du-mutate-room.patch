@@ -1,0 +1,12 @@
+# DU_MUTATE_ROOM
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -222,7 +222,6 @@
+ {
+     int rc=label_write(disk,name);
+     if (!rc) return 0;
+-    if (rc==-2) return error(MSG_DOS_0040);
+     return error(MSG_DOS_0009);
+ }
+ int label_main(const char *tail)

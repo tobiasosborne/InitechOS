@@ -1,0 +1,13 @@
+# DU_MUTATE_SYNTAX
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -127,7 +127,7 @@
+             continue;
+         }
+         if (operand[0] || token[0]=='/' || token[0]=='+' || token[0]=='-') {
+-            return error(MSG_DOS_0038);
++            return 0;
+         }
+         copy(operand,token);
+     }

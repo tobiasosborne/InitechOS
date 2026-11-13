@@ -1,0 +1,12 @@
+# CMD_MUTATE_COPY_SWITCH
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -434,6 +434,7 @@
+             if (c=='V') { p->verify=1; continue; }
+             if (c!='A' && c!='B') return 0;
+             mode=c=='A' ? 1u:2u;
++            mode=0;
+             if(last>=0) p->mode[last]=(uint8_t)mode;
+             else if(last==-2) p->dest_mode=(uint8_t)mode;
+             continue;

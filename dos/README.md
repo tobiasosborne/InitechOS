@@ -40,11 +40,19 @@ Remaining boundary debt, inherited unchanged from legacy utilities:
   The standard filters, EDLIN, XCOPY/TREE and TPSREP use INT21 only.
 - Utilities use the fixed conventional PSP/program layout, not a relocatable
   process ABI. The product keeps the old format/loader limits.
-- Complex mutation guards remain disabled; see kernel/tests/MUTANTS-TODO.md.
+- Inactive mutation guards were converted to patches; see tests/MUTANTS-TODO.md.
 
-Tier 0 is intentionally pending: command/batch/env host tests were moved
-untouched to kernel/tests/ with the other kernel tests. Move these to dos/tests
-when importing their legacy target dependencies. Claim utility host tests and
-real-DOS fixtures from attic/harness/diff with git mv, adjust include paths,
-use mk/host-test.mk, and retain existing host seams (COMMAND_FILE_HOST,
-COMMAND_BATCH_HOST etc.). `make smoke` uses the outside factory session.
+`make test` runs the shell, batch/environment/redirection parsers, disk utilities,
+CHKDSK, EDLIN, FDISK, XCOPY/TREE, ATTRIB/LABEL and directory/message checks.
+Tests live in each core's tests/ directory; common integration wiring is in
+tests.mk and tests/tools.mk. mk/host-test.mk builds and records each entry.
+The inherited ASM-only filters/TPS Report Generator have no host core; their
+behavior remains a program/session obligation, explicitly mapped in
+tests/SMOKES.md. The existing product smoke runs the filters.
+
+`make smoke-programs` only assembles the factory probes; factory installs them
+on its separate disposable data disk. Product image assembly uses only the
+fifteen PROGRAMS and never copies these probes. `make smoke` invokes the
+factory sessions. `make mutants` runs proved host patches; pending patches
+remain explicitly unproved under each core's mutants/pending/ directory.
+See tests/IMPORT.md and tests/MUTANTS-TODO.md for counts and remaining work.

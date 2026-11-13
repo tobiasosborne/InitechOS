@@ -1,0 +1,12 @@
+# FDISK_MUT_CHS
+# test: test-fdisk
+--- a/fdisk/fdisk.c
++++ b/fdisk/fdisk.c
+@@ -70,6 +70,7 @@
+      * through 4095 sectors, 04 through 65535, 06 above (PM subset decision). */
+     p[4]=length<4096?1:length<65536?4:6;
+     chs(p+1,start);chs(p+5,end-1);
++    p[5]--;
+     w32(p+8,start);w32(p+12,length);signature(m);
+     if(active)mark_active(m,slot+1);
+     return 0;

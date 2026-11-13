@@ -1,0 +1,22 @@
+# INT21_MUTATE_CONHANDLE_NOCOOKED
+# test: test-4tw
+--- a/int21.c
++++ b/int21.c
+@@ -3144,16 +3144,7 @@
+     }
+ 
+     if (e->kind == SFT_KIND_DEVICE) {
+-        /* CON by name and the predefined stdin slot use the SAME editor and
+-         * INT 23h checkpoint. A pipe only redirects stdin; OPEN CON still names
+-         * the physical keyboard. Other devices retain request-packet routing. */
+-        if (e->device ? (
+-                        ((device_header_t *)e->device)->attribute & DEV_ATTR_STDIN
+-                        )
+-                      : e->dev_id == SFT_DEV_CON) {
+-            con_handle_read(f, e, buf, count);
+-            return;
+-        }
++        (void)con_handle_read;
+         /* OPEN-by-name device read (beads initech-6zd9): a SFT slot bound to a
+          * resident device (device != NULL) routes through the devices.c chain --
+          * NUL returns EOF (0 bytes), CLOCK$ returns the 6-byte date/time record,

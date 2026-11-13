@@ -20,7 +20,8 @@ static because startup returns before the interpreter runs AUTOEXEC.BAT.
 Reference behavior is legacy-final kernel_shell / tracer_boot.img; the hardware
 and DOS references inside the original drivers remain the behavioral sources.
 
-Public machine/DOS contracts are in include/, claimed from attic/spec and the
+Public machine/DOS contracts, including the existing physical-disk/INT13 host
+transport declarations in block_device.h, are in include/, claimed from attic/spec and the
 old kernel headers. dos_messages.json is compiled by gen_messages.c (host C)
 into C/NASM catalogues under build/kernel. loader_validation.c is the real
 validation formerly in loader_cold.c, included by loader.c as before, with no
@@ -31,24 +32,28 @@ IRQ driver remains kernel hardware; desktop event routing is not built.
 Dependencies: dos/command/entry.h is the sole temporary resident interpreter
 entry boundary. COMMAND.COM is linked into this image until the process
 boundary work described in dos/README.md. No other component private headers
-are permitted. `make smoke` runs the outside factory smoke. `make test` reports
-the pending host-suite import; this component is deliberately not yet listed
-in top-level COMPONENTS as a completed tier-0 import.
+are permitted. `make smoke` runs the outside factory smoke, including normal disk
+programs on a separate test volume. `make test` runs the retained host gates
+through tests.mk and mk/host-test.mk. tests/tools.mk registers the real C
+harnesses; gate adapters preserve multi-command mtools/reference assertions in
+isolated scratch directories. Shared host objects avoid compiling int21.c for
+every invocation. All target-build rules remain in Makefile.
+
+Dependencies used only by host tests: factory/testlib, kernel public headers,
+and the resident shell headers already documented above. Tests do not build
+from attic. `PYTHON_FAT_REFERENCE` and `PYTHON_MESSAGE_REFERENCE` isolate the
+inherited Python oracle dependency pending the operator's language decision.
+THOROUGH=1 restores full legacy seed sweeps; the default has fixed bounded
+seeds. Missing oracle tools fail. See tests/IMPORT.md for exact parity and
+remaining ownership, and tests/SMOKES.md for the full emulator migration.
+
+All inactive mutation guards were converted to patches. `make mutants` sweeps
+the proved host patches with unmodified-baseline and mutated-build checks.
+Nested mutants/pending/ files have no accepted kill yet; tests/MUTANTS-TODO.md
+lists every one. Conversion is not a complete mutation certificate.
 
 Follow-up work:
 
-- tests/ contains untouched kernel/test_*.c and test helper headers; tests/programs/
-  holds the small ASM probes/fixtures formerly beside production drivers.
-  Claim test-specific fixtures and host stubs from attic with git mv. Repair
-  legacy relative includes to include/ and the new source locations. Inspect
-  each legacy target's source/flags with make -n in the read-only legacy tree,
-  then use mk/host-test.mk. Preserve hosted seams; do not compile probes into
-  production startup. The heap/desktop host test is under flair/desktop/tests/.
-- tests/MUTANTS-TODO.md enumerates every remaining guarded mutation macro in
-  built kernel, DOS and bootstrap files. These are disabled by ordinary flags;
-  convert each to a patch plus its independent red oracle. Small mutation
-  blocks were removed where straightforward. Factory fault macros remain in
-  its imported drivers, separately from product source.
 - loader.c still exposes native tenant layout helpers and carries the old
   256-byte PSP / 64 KiB file / 512 KiB BSS limits from toolbox_gate.h. They are
   DOS executable-format/layout operations, with no GUI dependency, but the
@@ -59,6 +64,5 @@ Follow-up work:
 - CONFIG.SYS retains legacy accepted(deferred) DEVICE/INSTALL/BUFFERS handling;
   windowed FAT16 EXEC limitations, fixed native/program windows, and the
   low-memory 8 MiB requirement remain unchanged. These need later scope work.
-- Untouched tests/programs retain legacy codenames and paths by instruction;
-  rename as their tier-0/tier-1 imports claim them. Parked desktop quarry also
-  retains references to retired paths and headers and must not be built.
+- The parked desktop quarry belongs to the FLAIR desktop owner and is not built.
+  Diagnostic-image and remaining program/session work is mapped in tests/SMOKES.md.

@@ -1,0 +1,12 @@
+# CMD_MUTATE_BATCH_ALWAYS_RESUME
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4507,6 +4507,7 @@
+         if (answer == 'Y' || answer == 'N') { yes = answer == 'Y'; break; }
+     }
+     dos_close(con);
++    yes = 0;
+     return yes;
+ }
+ 

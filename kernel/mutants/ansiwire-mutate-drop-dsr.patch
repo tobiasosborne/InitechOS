@@ -1,0 +1,19 @@
+# ANSIWIRE_MUTATE_DROP_DSR
+# test: test-ansi-wire
+--- a/int21.c
++++ b/int21.c
+@@ -864,13 +864,7 @@
+             uint8_t reply[8] = { 0x1bu, '[', (uint8_t)('0' + row / 10u),
+                 (uint8_t)('0' + row % 10u), ';', (uint8_t)('0' + col / 10u),
+                 (uint8_t)('0' + col % 10u), 'R' };
+-            if (g_ansi_reply_count <= ANSI_REPLY_CAP - sizeof(reply)) {
+-                for (unsigned i = 0; i < sizeof(reply); i++) {
+-                    unsigned tail = (g_ansi_reply_head + g_ansi_reply_count) % ANSI_REPLY_CAP;
+-                    g_ansi_reply[tail] = reply[i];
+-                    g_ansi_reply_count++;
+-                }
+-            }
++            (void)reply;
+         }
+         break;
+ 

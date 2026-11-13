@@ -1,0 +1,12 @@
+# CMD_MUTATE_BATCH_BODY
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -4416,6 +4416,7 @@
+     batch_parsed_t bp;
+     batch_frame_t *frame = g_batch_frame;
+     const char *args = line;
++    if (g_body_depth) return 0;
+     while (*args==' ' || *args=='\t' || *args=='@') args++;
+     batch_classify(args,&bp);
+     while (*args && *args!=' ' && *args!='\t') args++;

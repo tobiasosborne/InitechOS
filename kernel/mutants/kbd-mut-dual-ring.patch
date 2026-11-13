@@ -1,0 +1,15 @@
+# KBD_MUT_DUAL_RING
+# test: test-4tw
+--- a/kbd.c
++++ b/kbd.c
+@@ -315,10 +315,6 @@
+ 
+ void kbd_input_put(kbd_input_t *input, uint8_t sc)
+ {
+-    if (input->owner == KBD_OWNER_GUI) {
+-        (void)kbd_translate(&input->state, sc);
+-        return;
+-    }
+     kbd_scancode_put(&input->cooked, &input->state, sc);
+ }
+ 

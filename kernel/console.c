@@ -4,9 +4,9 @@
  *        LFB); docs/research/boot-to-text-ground-truth.md Sec 1.2 (glyph
  *        format: 1 byte/row, 16 rows, MSB=0x80=LEFTMOST pixel, set bit = ink) +
  *        Sec 5 Risk 2 (branch on lfb_bpp 32 vs 24; pixel addr = lfb +
- *        y*pitch + x*(bpp/8)). CLAUDE.md Law 2 (oracle is truth -- the blit
- *        math is host-tested), Rule 2 (fail loud), Rule 11 (reproducible,
- *        no timestamps), Rule 12 (ASCII source).
+ *        y*pitch + x*(bpp/8)). the repository contract (oracle is truth -- the blit
+ *        math is host-tested), the repository contract (fail loud), the repository contract (reproducible,
+ *        no timestamps), the repository contract (ASCII source).
  * beads: initech-k8o5. Ref: ADR-0004 D-2 (console is a CLIENT of the one
  *        surface module; no second pixel writer). The pixel path is now owned
  *        by os/flair/surface.{c,h}; this file binds a console_bitmap_t over its LFB
@@ -49,7 +49,7 @@ console_color_t console_pack_rgb(uint32_t bpp, uint8_t r, uint8_t g, uint8_t b)
  * We background on SEAFOAM (NOT black) deliberately: the test-tracer-boot
  * screendump oracle (tools/ppm_seafoam_check.c) samples an 81-point grid and
  * asserts seafoam, so a full-screen clear to any other color would break that
- * gate (CLAUDE.md Law 2 -- do not weaken an oracle to ship). Keeping bg=seafoam
+ * gate (the repository contract -- do not weaken an oracle to ship). Keeping bg=seafoam
  * means the screen stays predominantly seafoam with text inked on top; the
  * banner task (initech-bea) may revisit this once the gate is updated.
  * SEAFOAM mirrors kmain.c SEAFOAM_R/G/B / stage2.asm. */
@@ -101,9 +101,6 @@ void console_cursor_wait(console_t *con, uint32_t ticks, int active)
 {
     if (!con || !con->lfb) return;
     int want = active && (((ticks % 160u) * 3u / 80u) & 1u) == 0u;
-#ifdef CONSOLE_MUTATE_CURSOR_OFF
-    want = 0;
-#endif
 #ifdef CONSOLE_RECORD_CURSOR_STEADY
     /* Record-image kernels ONLY (make record-flair): per-event clip frames are
      * grabbed on a wall-clock settle, so the tick-phase blink made the repro
@@ -142,7 +139,7 @@ void console_draw_glyph(console_t *con, uint32_t col, uint32_t row,
     if (con == 0 || con->lfb == 0 || con->font == 0) {
         return;
     }
-    /* Bounds: a cell outside the grid is a no-op (Rule 2 -- never write past
+    /* Bounds: a cell outside the grid is a no-op (the repository contract -- never write past
      * the framebuffer; the classic overdraw bug). */
     if (col >= con->cols || row >= con->rows) {
         return;
@@ -179,7 +176,7 @@ void console_clear(console_t *con)
 /* Scroll the 80x25 text area up by one cell row (16 px). Rows 1..N-1 of pixels
  * within the text band move up CONSOLE_CELL_H scanlines; the freed last text
  * row is cleared to bg. We move full scanlines (width pixels), reading only
- * within the framebuffer (Rule 2 -- no read past the LFB). */
+ * within the framebuffer (the repository contract -- no read past the LFB). */
 void console_scroll(console_t *con)
 {
     if (con == 0 || con->lfb == 0) {
@@ -244,9 +241,7 @@ void console_putc(console_t *con, char ch)
          * PDF 82: erase display goes to home; CUP p.3-6 / PDF 75 defines
          * home as row 1, column 1 (zero-based 0,0 here). */
         console_clear(con);
-#ifndef CONSOLE_MUTATE_CLS_NO_HOME
         console_set_cursor(con, 0u, 0u);
-#endif
         return;
     case '\n':
         advance_line(con);
@@ -285,20 +280,18 @@ void console_putc(console_t *con, char ch)
     /* Printable: blit at the cursor with the CURRENT attribute (beads
      * initech-p96i), then advance with wrap + scroll. cur_fg/cur_bg default to
      * fg/bg (set at console_init), so with no ANSI SGR active this is byte-for-
-     * byte identical to drawing with fg/bg (CLAUDE.md Law 4). */
+     * byte identical to drawing with fg/bg (the repository contract). */
     console_draw_glyph(con, con->cur_col, con->cur_row, (uint8_t)ch,
                        con->cur_fg, con->cur_bg);
     page_fill(con, con->cur_row, con->cur_col, con->cur_col, (uint8_t)ch,
               con->cur_attr);
     con->cur_col++;
     if (con->cur_col >= con->cols) {
-#ifndef CONSOLE_MUTATE_NOWRAP_IGNORED
         if (con->nowrap) {
             con->cur_col = con->cols - 1u;
             con->past_end = 1;
             return;
         }
-#endif
         advance_line(con);
     }
 }
@@ -371,7 +364,7 @@ int console_init(console_t *con, const boot_info_t *bi)
      * band) -- unchanged from before. The 320x200 mode-0x13 fallback yields
      * 40x12, which the cap leaves untouched. Deriving (instead of hardcoding
      * 80x25) keeps the blit from ever addressing past a smaller framebuffer
-     * (Rule 2 -- no overdraw). */
+     * (the repository contract -- no overdraw). */
     con->cols = bi->lfb_width  / CONSOLE_CELL_W;
     con->rows = bi->lfb_height / CONSOLE_CELL_H;
     if (con->cols > CONSOLE_COLS) con->cols = CONSOLE_COLS;
@@ -392,7 +385,7 @@ int console_init(console_t *con, const boot_info_t *bi)
     /* CURRENT attribute starts EQUAL to the default ink/paper (beads
      * initech-p96i). console_putc draws with cur_fg/cur_bg; initialising them to
      * fg/bg keeps the no-ANSI / no-SGR rendering pixel-identical to before this
-     * field existed (CLAUDE.md Law 4). */
+     * field existed (the repository contract). */
     con->cur_fg = con->fg;
     con->cur_bg = con->bg;
     con->cur_attr = 0x07u;
@@ -405,7 +398,7 @@ int console_init(console_t *con, const boot_info_t *bi)
 /* ===========================================================================
  * ANSI.SYS support (beads initech-p96i -- wiring the ANSI FSM into CON).
  *
- * Ref (Law 1): IBM PC Technical Reference (1984) Appendix B "Display Adapter"
+ * Ref (the repository contract): IBM PC Technical Reference (1984) Appendix B "Display Adapter"
  *   -- the 16-entry CGA/EGA text palette. Each attribute nibble (0..15) selects
  *   an (R,G,B) triple. The low 8 entries use 0xAA on each set channel (brown,
  *   index 6, is the special case AA5500 -- green halved); the high 8 are the
@@ -451,7 +444,7 @@ void console_set_attr(console_t *con, uint8_t cga_attr)
     uint8_t fg_idx = (uint8_t)(cga_attr & 0x0Fu);          /* 0..15 (incl bright) */
     uint8_t bg_idx = (uint8_t)((cga_attr >> 4) & 0x07u);   /* 0..7 (no bright bg) */
 
-    /* PIXEL-IDENTITY GUARD (CLAUDE.md Law 4): the ANSI default / reset attribute
+    /* PIXEL-IDENTITY GUARD (the repository contract): the ANSI default / reset attribute
      * 0x07 (light grey on black) maps back to the CONSOLE'S OWN default ink/paper
      * -- which is light-gray on SEAFOAM, NOT CGA black. The initial FSM state and
      * every ESC[0m / ESC[m therefore leave the project's seafoam background
@@ -496,11 +489,7 @@ void console_set_cursor(console_t *con, uint32_t row, uint32_t col)
     }
     con->past_end = 0;
     con->cur_col = (col >= con->cols) ? (con->cols - 1u) : col;
-#ifdef CONSOLE_MUTATE_OFFGRID_CLAMP
-    con->cur_row = (row >= con->rows) ? (con->rows - 1u) : row;
-#else
     con->cur_row = (row > con->rows) ? (con->rows - 1u) : row;
-#endif
 }
 
 void console_get_cursor(const console_t *con, uint32_t *row, uint32_t *col)
@@ -589,7 +578,7 @@ void console_erase_display(console_t *con, int mode)
     }
 }
 
-/* ---- text-page save-under (bead initech-6fdt; spec/tsr_contract.h Sec 3) ---
+/* ---- text-page save-under (bead initech-6fdt; kernel/include/tsr_contract.h Sec 3) ---
  * The period resident copied the 4000-byte B800h page and put it back; this
  * LFB console keeps the same page as a shadow and RESTORE re-renders it. Each
  * cell goes back through console_set_attr's own attribute map, so a restored
@@ -614,10 +603,8 @@ static __attribute__((noinline,noclone)) void console_copy_page(console_t *con,c
         console_set_attr(con, a);
         con->cells[i * 2u] = ch;
         con->cells[i * 2u + 1u] = a;
-#ifndef CONSOLE_MUT_RESTORE_NO_DRAW
         console_draw_glyph(con, i % CONSOLE_COLS, i / CONSOLE_COLS, ch,
                            con->cur_fg, con->cur_bg);
-#endif
     }
     con->cur_attr = attr;
     con->cur_fg = fg;

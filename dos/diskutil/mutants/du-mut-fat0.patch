@@ -1,0 +1,12 @@
+# DU_MUT_FAT0
+# test: test-formatsys
+--- a/diskutil/diskutil.c
++++ b/diskutil/diskutil.c
+@@ -181,6 +181,7 @@
+   /* Clear FATs/root only. Data sectors carry no invented new file content. */
+   for(unsigned s=1;s<dst.data;s++)if(sec(m,s,b,1))return error("Format failure",4);
+   b[0]=dst.boot[21];b[1]=b[2]=255;if(dst.bits==16)b[3]=255;
++  b[0]=0;
+   if(sec(m,1,b,1)||sec(m,1+dst.spf,b,1)||sec(m,0,dst.boot,1))return error("Format failure",4);
+   line("Format complete");unsigned used=0;
+   if(o->s||o->b){unsigned count=o->s?3:2;

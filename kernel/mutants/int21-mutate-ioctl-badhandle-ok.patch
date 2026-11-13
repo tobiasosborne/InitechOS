@@ -1,0 +1,16 @@
+# INT21_MUTATE_IOCTL_BADHANDLE_OK
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -1797,8 +1797,9 @@
+     if (al == 0x00u) {
+         sft_entry_t *e = ioctl_sft_from_ebx(f);
+         if (e == 0) {
+-            set_ax(f, INT21_ERR_INVALID_HANDLE);
+-            cf_set(f);
++            /* MUTANT (the repository contract): clear CF on a bad handle instead of failing ->
++             * the invalid-handle assertion goes RED. */
++            cf_clear(f);
+             return;
+         }
+ 

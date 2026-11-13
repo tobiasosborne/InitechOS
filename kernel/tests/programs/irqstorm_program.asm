@@ -25,24 +25,24 @@
 ;          3. READ 5 bytes from handle B at offset 0 -> STORM-B=<bytes> (proves
 ;             the second handle's independent position survived the storm).
 ;          4. CLOSE both, exit rc=0 (STORM-EXIT rc=0). Any error -> a fail-loud
-;             marker + rc=1 (Rule 2).
+;             marker + rc=1 (the repository contract).
 ;
-; Ref:   os/milton/int21.c do_setdta (AH=1Ah), do_findfirst/next (AH=4Eh/4Fh:
+; Ref:   kernel/int21.c do_setdta (AH=1Ah), do_findfirst/next (AH=4Eh/4Fh:
 ;        g_dta + g_find), do_open (AH=3Dh), do_lseek (AH=42h), do_read (AH=3Fh:
 ;        FAT cache + cluster scratch), do_write (AH=40h: EBX=1 -> CON), do_close
-;        (AH=3Eh), do_terminate (AH=4Ch); spec/find_data.h (fname at 0x1E, real DOS);
-;        spec/memory_map.h (PROGRAM_IMAGE = 0x00040100). CLAUDE.md Law 1, Law 2,
-;        Rule 2 (fail loud), Rule 11 (deterministic: nasm -f bin), Rule 12 (ASCII).
+;        (AH=3Eh), do_terminate (AH=4Ch); kernel/include/find_data.h (fname at 0x1E, real DOS);
+;        kernel/include/memory_map.h (PROGRAM_IMAGE = 0x00040100). the repository contract, the repository contract,
+;        the repository contract (fail loud), the repository contract (deterministic: nasm -f bin), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/irqstorm_program.asm -o build/irqstorm_program.bin
+; Assembled: nasm -f bin os/initechdos/irqstorm_program.asm -o build/irqstorm_program.bin
 ; org PROGRAM_IMAGE so absolute references resolve at the load address.
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
-FIND_FNAME_OFF equ 0x1E        ; spec/find_data.h: fname at offset 0x1E (real DOS, dww)
+FIND_FNAME_OFF equ 0x1E        ; kernel/include/find_data.h: fname at offset 0x1E (real DOS, dww)
 
 ; STORM.DAT signature: 13 ASCII bytes placed at SIG_OFF (past the first 512-byte
 ; cluster, so reading it forces a multi-cluster chain walk). Keep in sync with the
@@ -258,7 +258,7 @@ newline:
     pop ebx
     ret
 
-; ---- fail-loud paths (Rule 2) ----
+; ---- fail-loud paths (the repository contract) ----
 open_a_failed:
     mov edx, msg_oa
     jmp die

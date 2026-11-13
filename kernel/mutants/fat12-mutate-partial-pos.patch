@@ -1,0 +1,19 @@
+# FAT12_MUTATE_PARTIAL_POS
+# test: test-fat-partial
+--- a/fat12.c
++++ b/fat12.c
+@@ -1234,8 +1234,12 @@
+ 	/* offset > 0 with a non-empty read implies a real chain. start_cluster must
+ 	 * be a data cluster (>= 2); a free/short start is corruption (the repository contract). The
+ 	 * incremental walk below also rejects free/bad clusters it lands on. */
+-	skip        = offset / bytes_per_cluster; /* whole clusters to skip past   */
+-	cluster_pos = offset % bytes_per_cluster; /* byte offset in first cluster  */
++	/* MUTANT (the repository contract; make test-fat-partial-mutant only): drop the within-cluster
++	 * byte offset -- always start the first cluster at byte 0. A mid-cluster
++	 * positioned read returns cluster-aligned bytes instead of the requested
++	 * slice; the oracle must go RED. NEVER define in a real build. */
++	skip        = offset / bytes_per_cluster;
++	cluster_pos = 0u;
+ 
+ 	cur       = e->start_cluster;
+ 	steps     = 0u;

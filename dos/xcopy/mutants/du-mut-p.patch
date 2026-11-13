@@ -1,0 +1,14 @@
+# DU_MUT_P
+# test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -188,8 +188,7 @@
+     unsigned char buf[2048], verify[2048];
+     if (equal(src,dst)) { line(MSG_DOS_0020); error=4; return 0; }
+     if (flags & P_PROMPT) {
+-        text(src+2); text(" (Y/N?)");
+-        if (!yes()) return 0;
++        (void)yes;
+     }
+     char parent[CAP];
+     if (!put(parent,dst)) return 0;

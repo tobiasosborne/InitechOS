@@ -12,20 +12,20 @@
 ;        The harness asserts the echoed "hello" appears between markers AND
 ;        triple_fault=0 -- write+read round-trips THROUGH the OS on real ATA.
 ;
-; Ref:   os/milton/int21.c do_creat (AH=3Ch: EDX -> ASCIIZ path, CX=attr,
+; Ref:   kernel/int21.c do_creat (AH=3Ch: EDX -> ASCIIZ path, CX=attr,
 ;        EAX=handle), do_write (AH=40h FILE: EBX=handle, ECX=count, EDX=buf),
 ;        do_close (AH=3Eh: flush write handle), do_open/do_read (3Dh/3Fh);
-;        spec/memory_map.h (PROGRAM_IMAGE = 0x00040100). CLAUDE.md Law 1, Rule 2
-;        (fail loud), Rule 11 (deterministic: nasm -f bin), Rule 12 (ASCII).
+;        kernel/include/memory_map.h (PROGRAM_IMAGE = 0x00040100). the repository contract, the repository contract
+;        (fail loud), the repository contract (deterministic: nasm -f bin), the repository contract (ASCII).
 ;
-; Assembled: nasm -f bin os/milton/write_program.asm -o build/write_program.bin
+; Assembled: nasm -f bin os/initechdos/write_program.asm -o build/write_program.bin
 ; org PROGRAM_IMAGE so absolute references (the name, the buffers) resolve at the
 ; load address (Solution A, mirrors type_program.asm).
 ; [initech-o0td: PROGRAM_BASE shifted 0x30000->0x38000; org updated accordingly]
 ; [initech-re30.2: PROGRAM_BASE shifted 0x38000->0x40000; org updated accordingly]
 
 bits 32
-org 0x00040100                 ; == spec/memory_map.h PROGRAM_IMAGE
+org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 start:
     ; AH=3Ch CREAT: EDX = "OUT.TXT", CX = 0 (normal attribute). EAX = handle.
@@ -89,7 +89,7 @@ done:
     int 0x21
     int 0x20
 
-; Fail-loud paths (Rule 2): each prints a grep-able marker, exits non-zero. -----
+; Fail-loud paths (the repository contract): each prints a grep-able marker, exits non-zero. -----
 creat_failed:
     mov ah, 0x09
     mov edx, msg_creat

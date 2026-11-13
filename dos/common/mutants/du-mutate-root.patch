@@ -1,0 +1,12 @@
+# DU_MUTATE_ROOT
+# test: test-attrib test-label-vol
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -208,7 +208,6 @@
+             for (int i=0;i<32;i++) e[i]=0;
+             bytes(e,padded,11); e[11]=8;
+         }
+-        if (du_sector(1,d->drive,lba,d->sector)<0) return -1;
+     }
+     /* Only extended BPBs own a label field; older DOS3.3 boot code must not
+      * be overwritten. mformat/FORMAT labels already use this exact layout. */

@@ -1,0 +1,12 @@
+# KBD_MUT_CAPS_REPEAT
+# test: test-kbd-unit
+--- a/kbd.c
++++ b/kbd.c
+@@ -193,7 +193,6 @@
+         return 0u;
+     }
+     if (scancode == SC_CAPS_MAKE) {
+-        if (!st->caps_down)
+             st->caps ^= 1u;
+         st->caps_down = 1u;
+         return 0u;

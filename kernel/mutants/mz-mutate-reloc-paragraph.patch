@@ -1,0 +1,18 @@
+# MZ_MUTATE_RELOC_PARAGRAPH
+# test: test-mz
+--- a/mz.c
++++ b/mz.c
+@@ -247,9 +247,10 @@
+          * and host portability; DEC-08a.1). */
+         old_val = mz_rd32(image + off);
+ 
+-        /* CLEAN BUILD: flat-32 relocation -- add the flat load base to the
+-         * 32-bit dword at the reloc site (DEC-08a.1). */
+-        new_val = old_val + load_base;
++        /* MUTANT: add (load_base >> 4) -- a paragraph count -- instead of
++         * the flat byte address.  Wrong for flat-32 relocations; the reloc
++         * oracle goes RED. */
++        new_val = old_val + (load_base >> 4);
+ 
+         mz_wr32(image + off, new_val);
+     }

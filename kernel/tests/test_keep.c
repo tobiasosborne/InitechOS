@@ -20,7 +20,7 @@
  *    exit code in AL and termination type 3 (KEEP) in AH, and a NORMAL terminate
  *    reclaim leaves the resident block standing.
  *
- * MUTATION (Rule 6), driven by make test-keep-mutant:
+ * MUTATION (the repository contract), driven by make test-keep-mutant:
  *   -DMCB_MUTATE_KEEP_NO_RESIDENT : mcb_keep_resident shrinks the block but does
  *     NOT re-own it resident (it stays the terminating PSP's). The terminate
  *     reclaim then frees it and a later ALLOC re-hands the kept region, so the
@@ -28,9 +28,9 @@
  *     assertions go RED -- proving those assertions actually bite.
  *
  * Self-contained CHECK harness (no -Iseed needed) so the bead's literal
- * `gcc -I os/milton -I spec` compile command works verbatim. CLAUDE.md Law 2
- * (oracle is truth), Rule 1 (RED->GREEN), Rule 6, Rule 11 (deterministic),
- * Rule 12 (ASCII).
+ * `gcc -I os/initechdos -I spec` compile command works verbatim. the repository contract
+ * (oracle is truth), the repository contract (RED->GREEN), the repository contract, the repository contract (deterministic),
+ * the repository contract (ASCII).
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -295,7 +295,7 @@ static void part_b(void)
 {
     g_psp       = (psp_t *)alloc_low(sizeof(psp_t));
     CHECK((uintptr_t)g_psp == 0x10010000u,
-          "Rule 11: deterministic PSP mapping, nonzero DOS owner");
+          "the repository contract: deterministic PSP mapping, nonzero DOS owner");
     g_arena_buf = (uint8_t *)alloc_low((size_t)ARENA_PARAS * 16u);
     CHECK(g_psp != NULL, "B: PSP buffer in low 4 GiB");
     CHECK(g_arena_buf != NULL, "B: arena buffer in low 4 GiB");
@@ -308,7 +308,7 @@ static void part_b(void)
     /* The terminate path (do_terminate -> sft_close_process) walks the PSP's JFT
      * into the system SFT, so establish the resident device slots 0..3 exactly as
      * SYSINIT does -- otherwise the inherited standard handles point at FREE slots
-     * and sft_close_process fails loud (Rule 2). */
+     * and sft_close_process fails loud (the repository contract). */
     sft_init();
 
     int21_set_exit(rec_exit);

@@ -12,14 +12,14 @@
  *          DEC-08a.3 (e_minalloc teeth -> DOS 08h insufficient memory);
  *          DEC-08a.4 (dispatch by content 'MZ'/'ZM');
  *          DEC-08a.5 (untagged 16-bit MZ -> fail loud, never run).
- *        os/milton/loader.c (loader_prepare_mz -- the PURE prologue the kernel's
- *          load_program_mz_in_place wraps); os/milton/mz.c/mz.h (the parse/reloc
- *          unit, beads dtw.1); spec/memory_map.h (PROGRAM_IMAGE / PROGRAM_IMAGE_MAX
- *          / PROGRAM_ARENA_CEIL). CLAUDE.md Law 2 (oracle is truth), Rule 1
- *          (RED->GREEN), Rule 2 (fail loud), Rule 6 (mutation-proven), Rule 12
+ *        kernel/loader.c (loader_prepare_mz -- the PURE prologue the kernel's
+ *          load_program_mz_in_place wraps); kernel/mz.c/mz.h (the parse/reloc
+ *          unit, beads dtw.1); kernel/include/memory_map.h (PROGRAM_IMAGE / PROGRAM_IMAGE_MAX
+ *          / PROGRAM_ARENA_CEIL). the repository contract (oracle is truth), the repository contract
+ *          (RED->GREEN), the repository contract (fail loud), the repository contract (mutation-proven), the repository contract
  *          (ASCII).
  *
- * STRATEGY (Law 2): loader_prepare_mz is the PURE, host-testable seam -- it
+ * STRATEGY (the repository contract): loader_prepare_mz is the PURE, host-testable seam -- it
  * parses the in-place MZ, moves the load module down over the header, applies the
  * flat relocations IN PLACE, and computes the loader_plan_t. The kernel's
  * load_program_mz_in_place is a thin wrapper that PANICS on the foreign-MZ status
@@ -38,19 +38,19 @@
  * site, load_program_mz_in_place). The oracle asserts that status -- proving the
  * loader REFUSES to produce a runnable plan for a foreign MZ (it never "runs").
  *
- * MUTATION proof (Rule 6) -- driven by make test-mzload-mutant:
+ * MUTATION proof (the repository contract) -- driven by make test-mzload-mutant:
  *   -DLOADER_MUTATE_MZ_NO_RELOC : loader_prepare_mz SKIPS mz_apply_relocs, so the
  *                                 relocated-dword assertion (== original +
  *                                 PROGRAM_IMAGE) goes RED. A mutant that PASSES
  *                                 means the reloc oracle is decoration.
  *
  * Clean build MUST exit 0; the mutant build MUST exit non-zero.
- * ALL source strictly ASCII (Rule 12).
+ * ALL source strictly ASCII (the repository contract).
  */
 
 #include <stdint.h>
 #include <string.h>
-#include <stdlib.h>   /* memset / memcmp -- libc OK in a host test (Law 3) */
+#include <stdlib.h>   /* memset / memcmp -- libc OK in a host test (the repository contract) */
 #include <stdio.h>
 
 #include "loader.h"
@@ -349,7 +349,7 @@ int main(int argc, char **argv)
      * PROGRAM_IMAGE_MAX) while the file is short -- mz_parse_header then rejects
      * it as TRUNCATED (file_len < image_bytes), which loader_prepare_mz maps to
      * LOADER_ERR_BAD_FORMAT. Either way the over-large declaration fails loud and
-     * never runs (Rule 2). ------------------------------------------------- */
+     * never runs (the repository contract). ------------------------------------------------- */
     {
         uint8_t img[256];
         memset(img, 0, sizeof(img));

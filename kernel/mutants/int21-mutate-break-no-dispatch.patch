@@ -1,0 +1,20 @@
+# INT21_MUTATE_BREAK_NO_DISPATCH
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -5232,8 +5232,13 @@
+             do_getver(frame);
+             return;
+         case 0x33:                       /* GET/SET CTRL-BREAK STATE (DEC-16) */
+-            do_break(frame);
+-            return;
++            /* MUTANT M1/M3 base (the repository contract; make test-er3h-mutant only): do NOT
++             * dispatch 0x33; fall through to the listed-but-not-yet-impl path
++             * (CF=1, AX=0x0001) so every AH=33h GET/SET oracle goes RED. The
++             * (void) ref keeps -Werror=unused-function quiet so the mutant still
++             * BUILDS + RUNS. NEVER in a real build. */
++            (void)do_break;
++            break;
+         case 0x3C:                       /* CREAT (create/truncate file) */
+             do_creat(frame);
+             return;

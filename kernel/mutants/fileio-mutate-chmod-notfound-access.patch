@@ -1,0 +1,17 @@
+# FILEIO_MUTATE_CHMOD_NOTFOUND_ACCESS
+# test: test-b53d
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -384,7 +384,11 @@
+ 		                    *io_attr, g_sector);
+ 	}
+ 	if (rc == FAT12_ERR_NOT_FOUND) {
+-		return FILEIO_ERR_FILE_NOT_FOUND;       /* 0x0002 */
++		/* MUTANT 5 (the repository contract; make test-b53d-mutant only): map a fat12 NOT_FOUND to
++		 * ACCESS_DENIED (0x0005) instead of FILE_NOT_FOUND (0x0002), so a CHMOD of
++		 * a missing file reports the wrong DOS error. The missing-file 0x0002
++		 * contract goes RED. NEVER in a real build. */
++		return FILEIO_ERR_ACCESS_DENIED;
+ 	}
+ 	if (rc != FAT12_OK) {
+ 		return FILEIO_ERR_ACCESS_DENIED;        /* 0x0005 (dir/vol-label / write) */

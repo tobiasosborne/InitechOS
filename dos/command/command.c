@@ -3,10 +3,10 @@
  * beads: initech-7pc. M2 capstone (PRD Sec 6.1). See command.h for the full
  *        citation block + the host-testability seam rationale.
  * Ref:   ADR-0003 DEC-11/DEC-12 + Appendix D; DOS 3.3 COMMAND.COM behaviour;
- *        spec/dos_messages.json (MSG-DOS-0002/0003); spec/find_data.h (the
- *        43-byte DTA find-record); spec/int21h_calling_convention.json (DEC-04a
+ *        kernel/include/dos_messages.json (MSG-DOS-0002/0003); kernel/include/find_data.h (the
+ *        43-byte DTA find-record); kernel/tests/data/int21h_calling_convention.json (DEC-04a
  *        flat ABI: AH=func, EBX=handle, ECX=count, EDX=flat ptr, EAX=ret, CF).
- *        CLAUDE.md Law 1/2/3/4, Rule 2 (fail loud), Rule 11, Rule 12.
+ *        the repository contract, the repository contract (fail loud), the repository contract, the repository contract.
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only. The
  * pure logic (cmd_*) carries NO asm + NO I/O so the SAME TU compiles HOSTED for
@@ -62,81 +62,61 @@ cmd_kind_t cmd_classify(const char *upper_command)
                                       * also admits COMMAND.COM -- the row keeps
                                       * the shipped-command inventory honest. */
         { "DIR",   CMD_DIR  },
-#ifndef CMD_MUTATE_PATH_COMMAND
         { "PATH",  CMD_PATH }, /* MS-DOS 3.3 Reference p.97 / PDF182. */
-#endif
-#ifndef DU_MUTATE_VOL
         { "VOL",   CMD_VOL  }, /* MS-DOS 3.3 User's Guide p.126 / PDF211 */
-#endif
         { "TYPE",  CMD_TYPE },
         { "CD",    CMD_CD   },
         { "CHDIR", CMD_CD   },   /* CHDIR is the long form of CD (DOS) */
-#ifndef CMD_MUTATE_NO_MDRD
         /* MD/RD + their long forms map to the directory built-ins (beads
          * initech-ut6d). The CMD_MUTATE_NO_MDRD mutant DROPS these four rows so
          * "MD"/"RD" fall through to CMD_EXTERNAL -> the classify oracle goes RED
-         * (Rule 6). NEVER dropped in a real build. */
+         * (the repository contract). NEVER dropped in a real build. */
         { "MD",    CMD_MD   },
         { "MKDIR", CMD_MD   },   /* MKDIR is the long form of MD (DOS) */
         { "RD",    CMD_RD   },
         { "RMDIR", CMD_RD   },   /* RMDIR is the long form of RD (DOS) */
-#endif
         { "CLS",   CMD_CLS  },
         { "VER",   CMD_VER  },
         { "ECHO",  CMD_ECHO },
         { "BREAK", CMD_BREAK },  /* BREAK [ON|OFF] -- CTRL-BREAK state (AH=33h; DEC-16) */
         { "EXIT",  CMD_EXIT },
-#ifndef CMD_MUTATE_NO_SET
         /* SET [NAME[=VALUE]] -- list/assign/clear/query env vars (beads
          * initech-1i0x Tranche E inc 2). The CMD_MUTATE_NO_SET mutant DROPS
          * this row so "SET" falls through to CMD_EXTERNAL -> the classify
-         * oracle goes RED (Rule 6). NEVER dropped in a real build. */
+         * oracle goes RED (the repository contract). NEVER dropped in a real build. */
         { "SET",    CMD_SET    },
-#endif
-#ifndef CMD_MUTATE_NO_PROMPT
         /* PROMPT [template] -- set/reset the $P$G prompt string (beads
          * initech-dibc; ADR-0003 DEC-12). The CMD_MUTATE_NO_PROMPT mutant
          * DROPS this row so "PROMPT" falls through to CMD_EXTERNAL -> the
-         * classify oracle goes RED (Rule 6). NEVER dropped in a real build. */
+         * classify oracle goes RED (the repository contract). NEVER dropped in a real build. */
         { "PROMPT", CMD_PROMPT },
-#endif
-#ifndef CMD_MUTATE_NO_COPY
         /* COPY <src> <dst> -- single-file copy via 3Dh/3Ch/3Fh/40h/3Eh (beads
          * initech-hpls, Tranche F). The CMD_MUTATE_NO_COPY mutant DROPS this row
          * so "COPY" falls through to CMD_EXTERNAL -> the classify oracle goes RED
-         * (Rule 6). NEVER dropped in a real build. */
+         * (the repository contract). NEVER dropped in a real build. */
         { "COPY",  CMD_COPY },
-#endif
-#ifndef CMD_MUTATE_NO_DEL
         /* DEL/ERASE <name> -- delete file(s) via 41h (wildcard: 4Eh/4Fh loop)
          * (beads initech-hpls, Tranche F). The CMD_MUTATE_NO_DEL mutant DROPS
          * BOTH rows so "DEL"/"ERASE" fall through to CMD_EXTERNAL -> the classify
-         * oracle goes RED (Rule 6). NEVER dropped in a real build. */
+         * oracle goes RED (the repository contract). NEVER dropped in a real build. */
         { "DEL",   CMD_DEL  },
         { "ERASE", CMD_DEL  },   /* ERASE is the long form of DEL (DOS) */
-#endif
-#ifndef CMD_MUTATE_NO_REN
         /* REN/RENAME <old> <new> -- same-dir dir-entry rename via 56h (beads
          * initech-fyox, Tranche F). The CMD_MUTATE_NO_REN mutant DROPS BOTH rows
          * so "REN"/"RENAME" fall through to CMD_EXTERNAL -> the classify oracle
-         * goes RED (Rule 6). NEVER dropped in a real build. */
+         * goes RED (the repository contract). NEVER dropped in a real build. */
         { "REN",    CMD_REN },
         { "RENAME", CMD_REN },   /* RENAME is the long form of REN (DOS) */
-#endif
-#ifndef CMD_MUTATE_NO_DATE
         /* DATE [MM-DD-YY[YY]] -- show/set the system date via 2Ah/2Bh (beads
          * initech-uy4l, Tranche F). The CMD_MUTATE_NO_DATE mutant DROPS this row
          * so "DATE" falls through to CMD_EXTERNAL -> the classify oracle goes RED
-         * (Rule 6). NEVER dropped in a real build. */
+         * (the repository contract). NEVER dropped in a real build. */
         { "DATE",  CMD_DATE },
-#endif
-#ifndef CMD_MUTATE_NO_TIME
         /* TIME [HH:MM[:SS]] -- show/set the system time via 2Ch/2Dh (beads
          * initech-uy4l, Tranche F). The CMD_MUTATE_NO_TIME mutant DROPS this row
          * so "TIME" falls through to CMD_EXTERNAL -> the classify oracle goes RED
-         * (Rule 6). NEVER dropped in a real build. */
+         * (the repository contract). NEVER dropped in a real build. */
         { "TIME",  CMD_TIME },
-#endif
     };
     for (unsigned i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
         const char *a = upper_command;
@@ -148,22 +128,14 @@ cmd_kind_t cmd_classify(const char *upper_command)
             return table[i].kind;
         }
     }
-#ifdef CMD_MUTATE_BADCMD_BUILTIN
-    /* MUTANT (Rule 6; make test-command-mutant only): treat an unknown command
-     * word as a built-in (CMD_DIR) instead of CMD_EXTERNAL, so "badcmd" would
-     * never reach EXEC / the Bad command diagnostic -> the classify oracle goes
-     * RED. NEVER in a real build. */
-    return CMD_DIR;
-#else
     return CMD_EXTERNAL;
-#endif
 }
 
 void cmd_parse(const char *line, cmd_line_t *out)
 {
     int i;
 
-    /* Defensive init (Rule 2): never leave the output uninitialized. */
+    /* Defensive init (the repository contract): never leave the output uninitialized. */
     out->command[0] = '\0';
     out->arg[0]     = '\0';
     out->tail[0]    = '\0';
@@ -190,15 +162,7 @@ void cmd_parse(const char *line, cmd_line_t *out)
             ((*p == ';' || *p == '=') && i == 4 && out->command[0] == 'P' &&
              out->command[1] == 'A' && out->command[2] == 'T' && out->command[3] == 'H'))
             break;
-#ifdef CMD_MUTATE_NO_UPCASE
-        /* MUTANT (Rule 6; make test-command-mutant only): copy the command word
-         * WITHOUT upper-casing, so a lowercase "dir" no longer matches the
-         * upper-case dispatch table -> the parse oracle goes RED. NEVER in a
-         * real build. */
-        out->command[i++] = *p;
-#else
         out->command[i++] = cmd_upcase_char(*p);
-#endif
         p++;
     }
     out->command[i] = '\0';
@@ -279,12 +243,6 @@ int cmd_append_com(const char *name, char *out)
         return 0;
     }
 
-#ifdef CMD_MUTATE_COM_ALWAYS
-    /* MUTANT (Rule 6; make test-command-mutant only): append ".COM" ALWAYS, even
-     * when the name already carries an extension, so "GREET.COM" becomes
-     * "GREET.COM.COM" -> the appender oracle goes RED. NEVER in a real build. */
-    has_dot = 0;
-#endif
     if (!has_dot) {
         /* Append ".COM" only if it fits (n + 4 chars + NUL). */
         const char *ext = ".COM";
@@ -329,13 +287,11 @@ static void put_text(char *out, int *pos, const char *s)
     while (*s) out[(*pos)++] = *s++;
 }
 
-#ifndef CMD_MUTATE_DIR_NO_DATE
 static void put_two(char *out, int *pos, unsigned n)
 {
     out[(*pos)++] = (char)('0' + n/10u);
     out[(*pos)++] = (char)('0' + n%10u);
 }
-#endif
 
 /* Manual p.28 / PDF 41, measured zero-based columns documented in the
  * independent dos33_dir.golden. Tech Ref pp.5-12..13 / PDF 119..120
@@ -355,16 +311,11 @@ int cmd_format_dir_line(const char *fname, uint32_t fsize, uint8_t attr,
     i=0;
     if (ext) while (ext[i] && i<3) out[pos++]=ext[i++];
     while (pos<13) out[pos++]=' ';
-#ifdef CMD_MUTATE_DIR_JOINED
-    for (i=0;i<13;i++) out[i]=' ';
-    for (i=0;fname[i] && i<12;i++) out[i]=fname[i];
-#endif
     if (attr & DIR_ATTR_DIRECTORY) {
         put_text(out,&pos,"   " MSG_DOS_0026);
     } else {
         put_u_field(out, &pos, fsize, 8);
     }
-#ifndef CMD_MUTATE_DIR_NO_DATE
     put_text(out,&pos,"  ");
     put_u_field(out,&pos,(fdate>>5)&15u,2);
     out[pos++]='-'; put_two(out,&pos,fdate&31u);
@@ -374,9 +325,6 @@ int cmd_format_dir_line(const char *fname, uint32_t fsize, uint8_t attr,
     put_u_field(out,&pos,hour%12u ? hour%12u : 12u,2);
     out[pos++]=':'; put_two(out,&pos,(ftime>>5)&63u);
     out[pos++]=hour>=12u ? 'p' : 'a';
-#else
-    (void)fdate; (void)ftime;
-#endif
     out[pos++] = '\n';
     out[pos]   = '\0';
     return pos;
@@ -387,9 +335,6 @@ int cmd_format_dir_footer(uint32_t files, uint32_t free_bytes, char *out)
     int pos=0;
     put_u_field(out,&pos,files,9);
     put_text(out,&pos,MSG_DOS_0024);
-#ifdef CMD_MUTATE_DIR_LOWERCASE
-    out[10]='f';
-#endif
     /* p.29 / PDF 42: count ends at 8, File(s) starts at 10, free-byte
      * number ends at 26 (the scanned illustration is the layout source). */
     put_u_field(out,&pos,free_bytes,9);
@@ -413,7 +358,7 @@ void cmd_set_parse(const char *arg, set_cmd_t *out)
     int vi;
     const char *p;
 
-    /* Defensive init (Rule 2). */
+    /* Defensive init (the repository contract). */
     out->op       = SET_OP_LIST;
     out->name[0]  = '\0';
     out->value[0] = '\0';
@@ -489,9 +434,6 @@ int cmd_copy_parse(const char *arg, cmd_copy_t *p)
             if (c=='V') { p->verify=1; continue; }
             if (c!='A' && c!='B') return 0;
             mode=c=='A' ? 1u:2u;
-#ifdef CMD_MUTATE_COPY_SWITCH
-            mode=0;
-#endif
             if(last>=0) p->mode[last]=(uint8_t)mode;
             else if(last==-2) p->dest_mode=(uint8_t)mode;
             continue;
@@ -544,11 +486,7 @@ int cmd_name_map(const char *source,const char *pattern,char out[13])
             continue;
         }
         if(pos>=cap)return 0;
-#ifdef CMD_MUTATE_REN_MAP
-        dst[field+pos]=*s=='?' ? 'X':cmd_upcase_char(*s);
-#else
         dst[field+pos]=*s=='?' ? src[field+pos]:cmd_upcase_char(*s);
-#endif
         pos++;
     }
     unsigned n=0,end=8;
@@ -568,7 +506,7 @@ void cmd_pair_parse(const char *arg, cmd_pair_t *out)
     const char *p;
     int i;
 
-    /* Defensive init (Rule 2). */
+    /* Defensive init (the repository contract). */
     out->first[0]  = '\0';
     out->second[0] = '\0';
     out->ok        = 0;
@@ -642,19 +580,6 @@ int cmd_has_wildcard(const char *name)
  *     catches identical subdir paths (SUB\\A.TXT vs SUB\\A.TXT), but NOT
  *     relative-vs-absolute (\\FOO vs FOO) -- the residual (follow-up bead).
  * Ref: bead initech-ojxn; DOS 3.3 COMMAND.COM COPY same-name check. PURE. */
-#ifdef CMD_MUTATE_NO_SAMEFILE
-/* MUTANT (Rule 6; make test-command-mutant only): the same-file predicate always
- * reports "different", so COPY's onto-itself guard never fires -> the same-file
- * detection test goes RED, AND (in the kernel) COPY FOO.TXT FOO.TXT would
- * dos_creat/TRUNCATE the source to zero -- the EXACT initech-ojxn data-loss
- * regression. NEVER in a real build. */
-int cmd_same_file(const char *a, const char *b)
-{
-    (void)a;
-    (void)b;
-    return 0;
-}
-#else
 /* Skip a leading drive prefix "X:"; write the (upcased) drive letter to *drive
  * ('A' when none is present -- the single InitechDOS volume) and return the
  * pointer past the prefix. */
@@ -764,7 +689,6 @@ int cmd_same_file(const char *a, const char *b)
         }
     }
 }
-#endif
 
 /* Append `v` to out[*pos] as exactly `width` zero-padded decimal digits (DOS
  * date/time fields are fixed-width: MM, DD, HH, etc.). Truncates the high digits
@@ -860,7 +784,7 @@ static int parse_u_field(const char **pp, uint32_t *out, int maxdig)
 
 /* Days-in-month with a Gregorian leap-year check (the SET DATE validation also
  * runs in the kernel's rtc_encode, but DOS COMMAND.COM rejects a bad date BEFORE
- * issuing 2Bh, so we validate here too -- Law 1: match DOS reprompt behaviour). */
+ * issuing 2Bh, so we validate here too -- the repository contract: match DOS reprompt behaviour). */
 static int days_in_month(uint16_t year, uint8_t mon)
 {
     static const uint8_t dim[12] = {
@@ -1163,8 +1087,8 @@ int cmd_render_prompt(const char *templ, const prompt_ctx_t *ctx,
  * cmd_path_candidates: compute the ordered candidate list for an external
  * command word, following the DOS 3.3 PATH search order.
  * Ref: ADR-0003 DEC-11 / Appendix D; DOS 3.3 COMMAND.COM PATH search.
- * CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Rule 2 (fail loud),
- * Rule 11 (deterministic), Rule 12 (ASCII).
+ * the repository contract (cite source), the repository contract (oracle is truth), the repository contract (fail loud),
+ * the repository contract (deterministic), the repository contract (ASCII).
  * ===========================================================================*/
 
 /* Determine if `word` is an explicit path (contains a ':' drive prefix or a
@@ -1206,7 +1130,7 @@ static int has_extension(const char *word)
 
 /* Append `suffix` to `dst` (already holding some prefix text of length `n`),
  * writing into dst[CMD_PATH_MAX_LEN].  Returns the new length on success, or
- * -1 if the result would not fit (never overflows -- Rule 2 / fail loud). */
+ * -1 if the result would not fit (never overflows -- the repository contract / fail loud). */
 static int path_cat(char *dst, int n, const char *suffix)
 {
     const char *p = suffix;
@@ -1222,7 +1146,7 @@ static int path_cat(char *dst, int n, const char *suffix)
 
 /* Split `path_value` on ';' into dirs[].  Each dir is stored as an ASCIIZ
  * string.  Returns the number of dirs extracted (bounded to CMD_PATH_MAX_DIRS;
- * extras silently discarded -- Rule 2: never overflow the array). */
+ * extras silently discarded -- the repository contract: never overflow the array). */
 static int split_path(const char *path_value,
                       char dirs[CMD_PATH_MAX_DIRS][CMD_PATH_MAX_LEN])
 {
@@ -1248,7 +1172,7 @@ static int split_path(const char *path_value,
             if (di < CMD_PATH_MAX_LEN - 1) {
                 dirs[nd][di++] = *p;
             }
-            /* else: dir name too long -- silently drop characters (Rule 2:
+            /* else: dir name too long -- silently drop characters (the repository contract:
              * never overflow; the resulting truncated dir will not be found). */
             p++;
         }
@@ -1266,7 +1190,7 @@ static int split_path(const char *path_value,
  *        already containing the backslash entry: caller passes cwd).
  * `word` is the command word (not yet appended with ext).
  * `ext`  is ".COM", ".EXE", ".BAT", or "" (if word already has extension).
- * Returns 1 on success (entry stored), 0 on overflow (skipped -- Rule 2). */
+ * Returns 1 on success (entry stored), 0 on overflow (skipped -- the repository contract). */
 static int emit_candidate(cmd_path_iter_t *out,
                           const char *dir, const char *word, const char *ext)
 {
@@ -1274,7 +1198,7 @@ static int emit_candidate(cmd_path_iter_t *out,
     int   n = 0;
 
     if (out->count >= CMD_PATH_MAX_DIRS + 1) {
-        return 0;   /* array full -- skip silently (Rule 2) */
+        return 0;   /* array full -- skip silently (the repository contract) */
     }
 
     dst = out->entries[out->count];
@@ -1309,7 +1233,7 @@ static int emit_candidate(cmd_path_iter_t *out,
 int cmd_path_candidates(const char *word, const char *path_value,
                         const char *cwd, cmd_path_iter_t *out)
 {
-    /* Defensive init (Rule 2). */
+    /* Defensive init (the repository contract). */
     out->count = 0;
 
     if (word == 0 || word[0] == '\0') {
@@ -1328,7 +1252,7 @@ int cmd_path_candidates(const char *word, const char *path_value,
             entry[n++] = *p++;
         }
         if (*p != '\0') {
-            /* Word too long to fit -- fail loud: return 0 candidates (Rule 2). */
+            /* Word too long to fit -- fail loud: return 0 candidates (the repository contract). */
             return 0;
         }
         entry[n] = '\0';
@@ -1371,53 +1295,39 @@ int cmd_path_candidates(const char *word, const char *path_value,
         char path_dirs[CMD_PATH_MAX_DIRS][CMD_PATH_MAX_LEN];
         int  nd = split_path(path_value, path_dirs);
 
-#ifdef CMD_MUTATE_NO_PATH
-        /* MUTANT (Rule 6; make test-command-mutant only): suppress the PATH-
-         * dir loop so the split result is "used" and no unused-variable
-         * warning fires.  Only CWD candidates are emitted -> PATH tests go
-         * RED.  NEVER compiled in a real build. */
-        (void)nd;
-        (void)path_dirs;
-#endif
 
         if (has_extension(word)) {
             /* Word already has extension: emit CWD + each PATH dir, no ext. */
             emit_candidate(out, cwd, word, "");
-#ifndef CMD_MUTATE_NO_PATH
             /* PATH-dir candidates (mutant: -DCMD_MUTATE_NO_PATH drops this
              * block so only the CWD candidate is emitted -> PATH tests go RED;
-             * NEVER dropped in a real build -- CLAUDE.md Rule 6). */
+             * NEVER dropped in a real build -- the repository contract). */
             {
                 int di;
                 for (di = 0; di < nd; di++) {
                     emit_candidate(out, path_dirs[di], word, "");
                 }
             }
-#endif
             return out->count;
         }
 
         /* .COM round: CWD first, then PATH dirs. */
         emit_candidate(out, cwd, word, ext_com);
-#ifndef CMD_MUTATE_NO_PATH
         {
             int di;
             for (di = 0; di < nd; di++) {
                 emit_candidate(out, path_dirs[di], word, ext_com);
             }
         }
-#endif
 
         /* .EXE round: CWD first, then PATH dirs. */
         emit_candidate(out, cwd, word, ext_exe);
-#ifndef CMD_MUTATE_NO_PATH
         {
             int di;
             for (di = 0; di < nd; di++) {
                 emit_candidate(out, path_dirs[di], word, ext_exe);
             }
         }
-#endif
 
         /* .BAT round: CWD first, then PATH dirs.
          * NOTE: .BAT execution is deferred (beads xw1); these candidates are
@@ -1425,14 +1335,12 @@ int cmd_path_candidates(const char *word, const char *path_value,
          * name" after exhausting all three extension types rather than stopping
          * at .EXE.  The REPL's run_external ignores .BAT entries for now. */
         emit_candidate(out, cwd, word, ext_bat);
-#ifndef CMD_MUTATE_NO_PATH
         {
             int di;
             for (di = 0; di < nd; di++) {
                 emit_candidate(out, path_dirs[di], word, ext_bat);
             }
         }
-#endif
     }
 
     return out->count;
@@ -1451,7 +1359,7 @@ int cmd_path_candidates(const char *word, const char *path_value,
  * " " (one space, only if both sides are non-empty) + [suffix after target],
  * with leading/trailing whitespace trimmed.  Pure: no asm, no I/O.
  *
- * MUTATION hooks (CLAUDE.md Rule 6; the test_redir_parse oracle proves they
+ * MUTATION hooks (the repository contract; the test_redir_parse oracle proves they
  * bite):
  *   CMD_MUTATE_REDIR_NO_APPEND -- treat `>>` as a single `>` (truncate), so the
  *                                 append flag is never set -> the `>>`-append
@@ -1479,7 +1387,7 @@ static int redir_is_space(char c)
  *   - Returns 1 iff `opch` was present (target_out valid), else 0 (clean_out is a
  *     clamped copy of `line`, target_out == "").
  *
- * Rule 2: every write is bounded by its cap; NUL-terminated within the buffer,
+ * the repository contract: every write is bounded by its cap; NUL-terminated within the buffer,
  * never past the end.  The mutation hooks below are the SAME ones the hsct oracle
  * proves bite (they act on whichever pass is running; the parse-mutant tests use
  * `>` lines). */
@@ -1537,11 +1445,6 @@ static int redir_strip_one(const char *line, char opch, int allow_append,
         return 0;
     }
 
-#ifdef CMD_MUTATE_REDIR_NO_APPEND
-    /* MUTANT: force every operator to single width (truncate) -- the append flag
-     * is never set; the `>>` oracle case goes RED.  NEVER in a real build. */
-    op_len = 1;
-#endif
 
     if (append_out != 0) {
         *append_out = (op_len == 2) ? 1 : 0;
@@ -1574,7 +1477,7 @@ static int redir_strip_one(const char *line, char opch, int allow_append,
 
     /* Rebuild clean_out = prefix [0, op_at) + suffix [tgt_end, end), with one
      * separating space inserted only when both sides have non-space content, and
-     * the whole result whitespace-trimmed at both ends (Rule 2, bounded). */
+     * the whole result whitespace-trimmed at both ends (the repository contract, bounded). */
     if (clean_out != 0 && clean_cap > 0u) {
         uint32_t w = 0;
 
@@ -1594,12 +1497,6 @@ static int redir_strip_one(const char *line, char opch, int allow_append,
             suf++;
         }
 
-#ifdef CMD_MUTATE_REDIR_KEEP_TARGET
-        /* MUTANT: rewind the suffix start back over the target token so the
-         * target filename stays in clean_out -> the clean-command oracle goes
-         * RED.  NEVER in a real build. */
-        suf = tgt_start;
-#endif
 
         if (line[suf] != '\0' && prefix_len > 0u && w + 1u < clean_cap) {
             clean_out[w++] = ' ';
@@ -1635,7 +1532,7 @@ int cmd_redir_parse(const char *line,
     char tmp[CMD_LINE_MAX];
 
     /* Defensive default so an early/absent-input return leaves in_target well
-     * formed (Rule 2). */
+     * formed (the repository contract). */
     if (in_target_out != 0 && in_target_cap > 0u) {
         in_target_out[0] = '\0';
     }
@@ -1644,30 +1541,11 @@ int cmd_redir_parse(const char *line,
                                   tmp, (uint32_t)sizeof(tmp),
                                   target_out, target_cap, append_out);
 
-#ifdef CMD_MUTATE_REDIR_NO_LT
-    /* MUTANT (Rule 6; beads initech-bsy.7): drop the `<` INPUT scan entirely --
-     * clean_out is just the OUTPUT-stripped line, in_target stays empty, and
-     * CMD_REDIR_IN is never returned.  The `<` parse oracle + the GOBBLE emu gate
-     * both go RED (the child reads the keyboard, not the file).  NEVER in a real
-     * build. */
-    {
-        uint32_t j = 0;
-        if (clean_out != 0 && clean_cap > 0u) {
-            while (tmp[j] != '\0' && j + 1u < clean_cap) {
-                clean_out[j] = tmp[j];
-                j++;
-            }
-            clean_out[j] = '\0';
-        }
-    }
-    return out_has ? CMD_REDIR_OUT : 0;
-#else
     int in_has = redir_strip_one(tmp, '<', 0 /*no `<<`*/,
                                  clean_out, clean_cap,
                                  in_target_out, in_target_cap, 0 /*no append*/);
 
     return (out_has ? CMD_REDIR_OUT : 0) | (in_has ? CMD_REDIR_IN : 0);
-#endif
 }
 
 /* cmd_pipe_split: split `line` on the `|` PIPE operator into ordered stages.
@@ -1681,7 +1559,7 @@ int cmd_redir_parse(const char *line,
  * `|` (copying the span since the last cut, whitespace-trimmed) until either the
  * line ends or we reach CMD_PIPE_MAX_STAGES-1 stages; the FINAL stage swallows
  * the entire remaining tail verbatim (embedded `|` preserved -- bounded + no
- * lost byte, Rule 2).  Each copy is clamped to CMD_LINE_MAX and NUL-terminated. */
+ * lost byte, the repository contract).  Each copy is clamped to CMD_LINE_MAX and NUL-terminated. */
 int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
 {
     if (out == 0) {
@@ -1701,14 +1579,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
     for (;;) {
         int at_end = (line[i] == '\0');
 
-#ifdef CMD_MUTATE_PIPE_NO_SPLIT
-        /* MUTANT (Rule 6; beads initech-bsy.8): never treat `|` as a separator,
-         * so the whole line collapses into ONE stage -- the multi-stage parse
-         * assertions + the GREET|GOBBLE emu gate go RED.  NEVER in a real build. */
-        int is_sep = 0;
-#else
         int is_sep = (line[i] == '|');
-#endif
 
         /* Cut a stage at a `|` OR at end-of-line -- UNLESS this is the last slot
          * we may fill, in which case we keep scanning so the remainder (any
@@ -1760,7 +1631,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
  * `int $0x21` calls -- the authentic COMMAND.COM design + proof the OS API is a
  * usable surface (the brief's central design point). Compiled out of the host
  * build (test_command.c never defines COMMAND_KERNEL_REPL) so the pure logic
- * above stays asm-free + host-testable (Law 3).
+ * above stays asm-free + host-testable (the repository contract).
  * ===========================================================================*/
 #if defined(COMMAND_KERNEL_REPL) || defined(COMMAND_FILE_HOST) || defined(COMMAND_BATCH_HOST)
 
@@ -1770,7 +1641,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
 #include "batch.h"       /* the .BAT parser/expander + IF/FOR decision helpers   */
 #include "fileio_fat.h"  /* mounted volume identity for DIR (M017) */
 
-/* DEC-04a flat ABI (spec/int21h_calling_convention.json): AH=function in EAX,
+/* DEC-04a flat ABI (kernel/tests/data/int21h_calling_convention.json): AH=function in EAX,
  * EBX=handle, ECX=count, EDX=flat ptr, EAX=return, CF=error in EFLAGS. The
  * wrappers below issue a literal `int $0x21` honoring exactly that contract --
  * the SAME path a real DOS COMMAND.COM uses (it is itself a .COM that calls the
@@ -1925,21 +1796,10 @@ static uint32_t dos_read(int handle, uint8_t *buf, uint32_t count)
         : "+a"(ax), "=r"(carry)
         : "b"((uint32_t)handle), "c"(count), "d"((uint32_t)(uintptr_t)buf)
         : "cc", "memory");
-#ifdef CMD_MUTATE_NO_READ_CF
-    /* MUTANT (Rule 6; make test-readerr-winh-mutant only): pretend the CF
-     * capture above never happened -- hand the caller the raw EAX exactly as
-     * the pre-fix code did, so a read error (CF=1, AX=DOS error code) is
-     * indistinguishable from a successful short read again. Reproduces
-     * initech-winh verbatim; the oracle must go RED. NEVER define in a real
-     * build. (void) keeps -Werror=unused-variable quiet about `carry`. */
-    (void)carry;
-    return ax;
-#else
     if (carry != 0u) {
         return DOS_READ_ERROR;   /* CF set -- do NOT hand back AX as a count */
     }
     return ax;   /* EAX = bytes read (0 = EOF) */
-#endif
 }
 
 /* AH=3Eh CLOSE: EBX=handle. */
@@ -2266,7 +2126,7 @@ static env_store_t g_master_env;
  * 513-byte env.h ceiling vs the 4096-byte region, but checked for fail-loud
  * discipline), we DO NOT write a truncated/garbage block: print a diagnostic and
  * forward env_block=0 (inherit-empty) -- the cleanest fail-loud choice (the child
- * still runs, with an empty env, never a corrupt one). Rule 2. */
+ * still runs, with an empty env, never a corrupt one). the repository contract. */
 static uint16_t dos_exec(const char *path, const char *tail)
 {
     /* DOS-format command tail: byte0 = count, bytes1..count = text, then CR.
@@ -2487,7 +2347,7 @@ static find_data_t g_shell_dta;
 /* A scratch line buffer for output formatting (DIR lines, etc.). */
 static char g_out[64];
 
-/* ---- the controlled diagnostics (spec/dos_messages.json, ADR-0003 App C) ----
+/* ---- the controlled diagnostics (kernel/include/dos_messages.json, ADR-0003 App C) ----
  * The controlled vocabulary (DEC-13) has a SINGLE source of truth: the generated
  * build/dos_messages.h catalogue (MSG_DOS_*). No inline literal text lives here;
  * the use-sites reference the catalogue macros directly. */
@@ -2629,7 +2489,7 @@ static void builtin_path(const char *arg)
 
 /* DIR: existing FINDFIRST/FINDNEXT operand behavior, DOS 3.3 display.
  * Ref: User Guide pp.28-29 / PDF 41-42; controlled fragments from the
- * deliberate LOOK Rule-8 amendment to spec/dos_messages.json. DTA supplies
+ * deliberate LOOK the repository contract amendment to kernel/include/dos_messages.json. DTA supplies
  * the packed timestamp, AH=36h the FAT free count, mounted root the label. */
 static void cwd_display(char *out);
 /* VOL reuses DIR's root-label reader and controlled text. Only the mounted
@@ -2675,9 +2535,6 @@ static void builtin_dir(const char *arg)
     uint32_t ax=0x3600u, bx, cx, dx=0u;
     char spec[CMD_LINE_MAX], parent[CMD_LINE_MAX];
     int wide = 0, page = 0, len = 0, rows = 6, column = 0;
-#ifdef CMD_MUTATE_DIR_ARGS
-    arg = ""; /* Rule 6: restore the ignored-operand regression. */
-#endif
     while (*arg) {
         if (is_space(*arg)) { arg++; continue; }
         if (*arg == '/') {
@@ -2745,10 +2602,8 @@ static void builtin_dir(const char *arg)
 
     dos_setdta(&g_shell_dta);
     dos_print("\r\n$");
-#ifndef CMD_MUTATE_DIR_NO_VOLUME
     print_volume_identity(disp[0], label);
     dos_print("\r\n\r\n$");
-#endif
     dos_puts_raw(MSG_DOS_0023);
     dos_puts_raw(disp);
     dos_print("\r\n\r\n$");
@@ -2763,11 +2618,9 @@ static void builtin_dir(const char *arg)
         if (page && rows >= 23) {
             dos_print(MSG_DOS_0016 "$" );
             (void)dos_conin();
-#ifndef CMD_MUTATE_DIR_BREAK
             /* User's Guide p.159 / PDF244: ^C aborts the current command,
              * rather than satisfying DIR /P's request for the next page. */
             if (g_shell_break.interrupted) return;
-#endif
             dos_print("\r\n$"); rows = 0;
         }
         if (wide) {
@@ -2824,13 +2677,11 @@ static void builtin_type(const char *arg)
     }
     for (;;) {
         got = dos_read(handle, chunk, sizeof(chunk));
-#ifndef CMD_MUTATE_TYPE_BREAK
         /* INT 23h resident recovery returns before the service completes:
          * EAX can still be the 3F00h request, not a byte count. Unwind through
          * CLOSE and the redirect epilogue without emitting any buffer bytes.
          * Ref: User's Guide p.159 / PDF244; ADR-0003 DEC-16 Fork A. */
         if (g_shell_break.interrupted) break;
-#endif
         if (got == DOS_READ_ERROR || got > sizeof(chunk)) {
             /* initech-winh: a read failure is NOT a byte count -- abort
              * rather than flush `chunk` (possibly never written this call)
@@ -2843,9 +2694,7 @@ static void builtin_type(const char *arg)
             break;          /* EOF */
         }
         dos_write((const char *)chunk, got);
-#ifndef CMD_MUTATE_TYPE_BREAK
         if (g_shell_break.interrupted) break;
-#endif
     }
     dos_close(handle);
     if (g_shell_break.interrupted) return;
@@ -2880,11 +2729,7 @@ static void cwd_display(char *out)
 
 static char prompt_drive(void)
 {
-#ifdef CMD_MUTATE_VOLUME_PROMPT
-    return 'A'; /* Rule 6: a C default must produce a C prompt. */
-#else
     return (char)('A'+int21_current_drive());
-#endif
 }
 
 /* CD/CHDIR: no arg => print the current directory ("A:\" or "A:\SUB"). A path arg
@@ -2902,7 +2747,7 @@ static void builtin_cd(const char *arg)
          * Worst-case index math: cwd_display writes "A:\" (3) + up to
          * (INT21_CWD_MAX-1) relative-path bytes + NUL = 3 + INT21_CWD_MAX bytes,
          * so a bare [3 + INT21_CWD_MAX] buffer is exactly full. The +4 slack
-         * leaves headroom (defensive, Rule 2; behavior unchanged). */
+         * leaves headroom (defensive, the repository contract; behavior unchanged). */
         char disp[3 + INT21_CWD_MAX + 4];
         cwd_display(disp);
         dos_puts_raw(disp);
@@ -2910,7 +2755,6 @@ static void builtin_cd(const char *arg)
         return;
     }
     cmd_upcase_str(tok);              /* DOS upcases 8.3 path components */
-#ifndef CMD_MUTATE_CD_DRIVE
     if (len == 2 && tok[1] == ':') {
         /* "CHDIR b: ... MS-DOS displays b:\user\pete" -- drive d's own
          * directory; the default drive is unchanged (MS-DOS 3.3 Reference
@@ -2926,7 +2770,6 @@ static void builtin_cd(const char *arg)
         dos_print("\r\n$");
         return;
     }
-#endif
     uint16_t err = dos_chdir(tok);
     if (err != 0u) dos_print(err == 15u ? MSG_DOS_0004 "\r\n$" : MSG_DOS_0018 "\r\n$");
     /* Success is SILENT -- the new path shows at the next prompt (real DOS 3.3). */
@@ -2965,21 +2808,9 @@ static void builtin_rd(const char *arg)
         return;
     }
     cmd_upcase_str(path);            /* DOS upcases 8.3 path components */
-#ifdef CMD_MUTATE_RD_NOOP
-    /* MUTANT (Rule 6; make test-ut6d-mutant only): SKIP the AH=3Ah RMDIR entirely
-     * but stay silent-as-if-success, so RD becomes a no-op that LOOKS like it
-     * worked -- SUB persists on the volume. The re-`cd sub` after RD then SUCCEEDS
-     * (the prompt returns to "A:\SUB>") and the controlled "Invalid directory"
-     * diagnostic is ABSENT -> the test-ut6d RD-removal assertion goes RED. This is
-     * exactly the "silent RD failure" the old gate could not catch. NEVER in a
-     * real build. */
-    (void)path;
-    (void)&dos_rmdir;   /* keep dos_rmdir "used" without calling it (-Werror) */
-#else
     if (dos_rmdir(path) != 0u) {
         dos_print(MSG_DOS_0019 "\r\n$");   /* "Invalid path, ... not empty" */
     }
-#endif
     /* Success is SILENT (DOS RD prints nothing on success). */
 }
 
@@ -3072,7 +2903,7 @@ static void builtin_break(const char *arg)
 
 #ifndef COMMAND_BATCH_HOST
 static uint32_t copy_verify_offset;
-/* COPY execution. Law 1: MS-DOS 3.3 Reference pp.50-52; ADR-0003 App A.
+/* COPY execution. the repository contract: MS-DOS 3.3 Reference pp.50-52; ADR-0003 App A.
  * Resolve identity before CREAT; enumerate by ordinal and restart after file
  * calls (one kernel find context). No roster limit on wildcard source files. */
 static int copy_path(char out[CMD_LINE_MAX],const char *spec,const char *leaf)
@@ -3102,9 +2933,6 @@ static int copy_transfer(const char *source,const char *dest,int ascii,int appen
     int probe=dos_open(dest);
     if(probe == -15) { dos_close(src); dos_print(MSG_DOS_0004 "\r\n$"); return 0; }
     int same=probe>=0 && int21_same_file((uint16_t)src,(uint16_t)probe);
-#ifdef CMD_MUTATE_NO_SAMEFILE
-    same=0;
-#endif
     if(probe>=0)dos_close(probe);
     if(probe<0 && probe!=-(int)INT21_ERR_FILE_NOT_FOUND && probe!=-(int)INT21_ERR_PATH_NOT_FOUND)goto denied;
     if(same) {
@@ -3122,11 +2950,7 @@ static int copy_transfer(const char *source,const char *dest,int ascii,int appen
         if(got==DOS_READ_ERROR)goto failed;
         if(!got)break;
         uint32_t take=got;
-#ifndef CMD_MUTATE_COPY_ASCII
         if(ascii)for(uint32_t i=0;i<got;i++)if(chunk[i]==26){take=i;break;}
-#else
-        (void)ascii;
-#endif
         /* A short count is the full-disk answer (TR pp.6-139/6-140): say so
          * with the [MS-DOS] message, Guide App. F p.337 (initech-66oc, L004). */
         uint32_t put=dos_write_h(dst,chunk,take);
@@ -3147,9 +2971,7 @@ static int copy_transfer(const char *source,const char *dest,int ascii,int appen
             uint32_t n=dos_read(v,check,take);
             dos_close(v);
             if(n!=take)goto failed;
-#ifndef CMD_MUTATE_COPY_VERIFY
             for(uint32_t i=0;i<take;i++)if(check[i]!=chunk[i])goto failed;
-#endif
         }
         copy_verify_offset+=take;
         if(take<got)break;
@@ -3159,12 +2981,6 @@ static int copy_transfer(const char *source,const char *dest,int ascii,int appen
         uint16_t time=0,date=0;
         int stamp=dos_filetime(src,0,&time,&date);
         if(stamp==0) {
-#ifdef CMD_MUTATE_COPY_TIME
-            time=0;
-#endif
-#ifdef CMD_MUTATE_COPY_DATE
-            date=0;
-#endif
             stamp=dos_filetime(dst,1,&time,&date);
         }
         if(stamp && stamp!=-(int)INT21_ERR_INVALID_FUNCTION)goto failed;
@@ -3174,11 +2990,9 @@ denied:
     dos_print(MSG_DOS_0009 "\r\n$");
     dos_close(src);if(dst>=0)dos_close(dst);return 0;
 full:
-#ifndef CMD_MUTATE_COPY_FULL_BADCMD
     dos_close(src);dos_close(dst);
     dos_print(MSG_DOS_0005 "\r\n$");   /* "Insufficient disk space" */
     return 0;
-#endif
 failed:
     dos_close(src);if(dst>=0)dos_close(dst);
     if(!g_shell_break.interrupted)dos_print(MSG_DOS_0002 "\r\n$");
@@ -3201,9 +3015,6 @@ static void builtin_copy(const char *arg)
     } else if(omitted) { dest[0]='.';dest[1]=0; }
     else for(unsigned i=0;(dest[i]=plan.dest[i])!=0;i++){}
     int directory=int21_directory_exists(dest);
-#ifdef CMD_MUTATE_COPY_DIR_RAW
-    directory=0;
-#endif
     int per_file=directory || cmd_has_wildcard(dest);
     int combined=plan.joined || (!per_file && cmd_has_wildcard(plan.names));
     unsigned done=0;
@@ -3217,9 +3028,6 @@ static void builtin_copy(const char *arg)
             if(cmd_has_wildcard(name))continue;
             int h=dos_open(name);
             int same=h>=0 && target>=0 && int21_same_file((uint16_t)h,(uint16_t)target);
-#ifdef CMD_MUTATE_NO_SAMEFILE
-            same=0;
-#endif
             if(h>=0)dos_close(h);
             if(h<0 || (same && !(append && s==0))) {
                 if(target>=0)dos_close(target);
@@ -3255,9 +3063,6 @@ static void builtin_copy(const char *arg)
     do {
         if(per_file) {
             const char *first=plan.names+plan.offset[0];
-#ifdef CMD_MUTATE_COPY_WILD
-            if(cmd_has_wildcard(first))break;
-#endif
             if(!copy_nth(first,outer++,base))break;
         }
         char target[CMD_LINE_MAX];
@@ -3276,9 +3081,6 @@ static void builtin_copy(const char *arg)
             append=0;copy_verify_offset=0;
         } else for(unsigned i=0;(target[i]=dest[i])!=0;i++){}
         for(unsigned s=(omitted && plan.joined)?1u:0u;s<plan.count;s++) {
-#ifdef CMD_MUTATE_COPY_PLUS
-            if(s)break;
-#endif
             const char *spec=plan.names+plan.offset[s];
             unsigned ordinal=0;
             do {
@@ -3290,9 +3092,6 @@ static void builtin_copy(const char *arg)
                         if(!cmd_name_map(base,leaf,mapped) || !copy_path(source,spec,mapped))return;
                     } else for(unsigned i=0;(source[i]=spec[i])!=0;i++){}
                 } else if(cmd_has_wildcard(spec)) {
-#ifdef CMD_MUTATE_COPY_WILD
-                    break;
-#endif
                     if(!copy_nth(spec,ordinal++,base))break;
                     if(!copy_path(source,spec,base))return;
                 } else for(unsigned i=0;(source[i]=spec[i])!=0;i++){}
@@ -3304,7 +3103,6 @@ static void builtin_copy(const char *arg)
         }
         if(!append) {dos_print(MSG_DOS_0003 "\r\n$");return;}
         int textmode=plan.dest_mode==1 || (!plan.dest_mode && combined);
-#ifndef CMD_MUTATE_COPY_EOF
         if(textmode) {
             uint8_t eof=26;int h=dos_open_mode(target,2);
             if(h<0 || dos_lseek_end(h)<0 || dos_write_h(h,&eof,1)!=1) {
@@ -3316,21 +3114,12 @@ static void builtin_copy(const char *arg)
                 int s=dos_open(source); h=dos_open_mode(target,2);
                 uint16_t time=0,date=0;
                 if(s>=0 && h>=0 && !dos_filetime(s,0,&time,&date)) {
-#ifdef CMD_MUTATE_COPY_TIME
-                    time=0;
-#endif
-#ifdef CMD_MUTATE_COPY_DATE
-                    date=0;
-#endif
                     (void)dos_filetime(h,1,&time,&date);
                 }
                 if(s>=0)dos_close(s);
                 if(h>=0)dos_close(h);
             }
         }
-#else
-        (void)textmode;
-#endif
         done++;
     } while(per_file && !g_shell_break.interrupted);
     {
@@ -3353,7 +3142,7 @@ static void del_path(char out[CMD_LINE_MAX], const char *spec, int prefix,
 
 /* Failed/unchanged deletion: enumerate the remaining names WITHOUT mutation.
  * The failure and every remaining target are visible; never retry forever.
- * Ref: CLAUDE.md Rule 2; MS-DOS 3.3 User's Reference p. 56 (specified files). */
+ * Ref: the repository contract; MS-DOS 3.3 User's Reference p. 56 (specified files). */
 static void del_remaining(const char *spec, int prefix)
 {
     char path[CMD_LINE_MAX];
@@ -3387,7 +3176,6 @@ static void builtin_del(const char *arg)
     /* Reference DEL, printed p.56 / PDF141: a directory operand means its
      * immediate files. Resolve BEFORE appending the mask, preserving the
      * original drive, CWD and dots. UNLINK must still reject directories. */
-#ifndef CMD_MUTATE_DEL_DIRECTORY_UNLINK
     if (!cmd_has_wildcard(name) && int21_directory_exists(name)) {
         unsigned n = str_len(name);
         if (n + 4u >= sizeof(name)) {
@@ -3396,11 +3184,9 @@ static void builtin_del(const char *arg)
         if (n && name[n-1] != '\\' && name[n-1] != ':') name[n++] = '\\';
         name[n++] = '*'; name[n++] = '.'; name[n++] = '*'; name[n] = 0;
     }
-#endif
     int prefix = 0;
     for (int i = 0; name[i]; i++)
         if (name[i] == '\\' || name[i] == ':') prefix = i + 1;
-#ifndef CMD_MUTATE_DEL_NO_CONFIRM
     const char *pattern = name + prefix;
     if (pattern[0] == '*' && pattern[1] == '.' &&
         pattern[2] == '*' && pattern[3] == '\0') {
@@ -3415,35 +3201,9 @@ static void builtin_del(const char *arg)
         dos_print(MSG_DOS_0012 " $");
         dos_getline(answer);
         int yes = answer[1] == 1u && cmd_upcase_char((char)answer[2]) == 'Y';
-#ifdef CMD_MUTATE_DEL_YES_ALWAYS
-        yes = 1; /* Rule 6: non-Y refusal must bite on disk preservation. */
-#endif
-#ifdef CMD_MUTATE_DEL_REFUSE_Y
-        yes = 0; /* Rule 6: approved deletion must actually take place. */
-#endif
         if (!yes) return;
     }
-#endif
 
-#ifdef CMD_MUTATE_DEL_DIRECTORY_RECURSE
-    /* Rule 6: deliberately enter a child directory. The independent nested
-     * file sentinel must catch recursion, even though the child itself stays. */
-    dos_setdta(&g_shell_dta);
-    if (dos_findfirst(name, DIR_ATTR_DIRECTORY)) do {
-        if ((g_shell_dta.attr & DIR_ATTR_DIRECTORY) && g_shell_dta.fname[0]!='.') {
-            char child[CMD_LINE_MAX];
-            del_path(child, name, prefix, g_shell_dta.fname);
-            unsigned n = str_len(child);
-            if (n + 6u < sizeof(child)) {
-                const char mask[] = {'\\','?','*','.','*',0};
-                for (unsigned k=0; mask[k]; k++) child[n++]=mask[k];
-                child[n]=0;
-                builtin_del(child);
-            }
-            break;
-        }
-    } while (dos_findnext());
-#endif
 
     if (!cmd_has_wildcard(name)) {
         /* Plain name: a single UNLINK. Not-found -> "File not found". */
@@ -3472,13 +3232,11 @@ static void builtin_del(const char *arg)
              * each successful unlink (otherwise the next entry is skipped).
              * MS-DOS_3.3_Users_Guide_198707.pdf, Reference pp. 33, 56.
              * Once only protected entries remain, report them once. */
-#ifndef CMD_MUTATE_DEL_STOP_PROTECTED
             while (result == 0u && (g_shell_dta.attr &
                     (DIR_ATTR_READONLY | DIR_ATTR_HIDDEN | DIR_ATTR_SYSTEM)) != 0u) {
                 protected = 1;
                 result = dos_findnext() ? 0u : INT21_ERR_NO_MORE_FILES;
             }
-#endif
             if (result != 0u) {
                 if (protected) {
                     del_remaining(name, prefix);
@@ -3497,11 +3255,7 @@ static void builtin_del(const char *arg)
             for (i = 0; i < 12 && g_shell_dta.fname[i]; i++)
                 previous[i] = g_shell_dta.fname[i];
             previous[i] = '\0';
-#ifdef CMD_MUTATE_DEL_LOSE_PARENT
-            del_path(path, name, 0, previous); /* Rule 6: original wrong target. */
-#else
             del_path(path, name, prefix, previous);
-#endif
             uint16_t error;
 #ifdef CMD_TEST_DEL_DENIED
             error = INT21_ERR_ACCESS_DENIED; /* factory-injected write refusal */
@@ -3509,15 +3263,10 @@ static void builtin_del(const char *arg)
             error = dos_unlink(path);
 #endif
             if (error != 0u) {
-#ifndef CMD_MUTATE_DEL_SILENT_ERROR
                 del_remaining(name, prefix);
-#endif
                 return;
             }
             deleted++;
-#ifdef CMD_MUTATE_DEL_CAP16
-            if (deleted == 16) return; /* Rule 6: original silent remainder. */
-#endif
         }
     }
 }
@@ -3537,9 +3286,6 @@ static void builtin_ren(const char *arg)
     for(const char *p=pattern;*p;p++)if(*p=='\\') {
         dos_print(MSG_DOS_0002 "\r\n$");return;
     }
-#ifdef CMD_MUTATE_REN_ENUM
-    if(dos_rename(pair.first,pair.second))dos_print(MSG_DOS_0002 "\r\n$");
-#else
     /* Rename changes no directory slots. Restart by the enumeration ordinal,
      * accounting for whether the renamed entry still matches; a retained
      * pattern match must never be processed again. */
@@ -3560,7 +3306,6 @@ static void builtin_ren(const char *arg)
         if(copy_nth(pair.first,ordinal,current) && cmd_same_file(current,mapped))ordinal++;
     }
     if(!found)dos_print(MSG_DOS_0062 "\r\n$");
-#endif
 }
 
 #endif /* !COMMAND_BATCH_HOST */
@@ -3714,13 +3459,11 @@ static void run_external(const char *command, const char *tail)
              * (DOS sets ERRORLEVEL from the child's exit code). */
             uint16_t status = dos_get_child_status();
             g_errorlevel = (uint8_t)status;
-#ifndef CMD_MUTATE_BATCH_DROP_CHILD_BREAK
             /* Real DOS 3.30 exec-y/exec-n mint: the child dies first, then
              * COMMAND.COM asks. Latch only after EXEC's loader cleanup;
              * run_batch decides at its next boundary after redirection too.
              * Interactive EXEC shares cleanup but only run_batch asks. */
             if ((status >> 8) == 1u) g_shell_break.interrupted = 1u;
-#endif
             return;
         }
         /* h4bk: a found image whose required address is occupied must fail
@@ -3826,11 +3569,7 @@ static int dispatch_line(const char *line)
             ax=0x1900u;
             __asm__ __volatile__("int $0x21" : "+a"(ax) : : "cc","memory");
             if ((ax&255u)!=drive) {
-#ifdef CMD_MUTATE_VOLUME_MESSAGE
-                dos_print(MSG_DOS_0002 "\r\n$");
-#else
                 dos_print(MSG_DOS_0004 "\r\n$");
-#endif
             }
             return 0;
         }
@@ -3902,9 +3641,7 @@ static int dispatch_line(const char *line)
              * No previous processor exists for the permanent primary.
              * The shared dispatcher also covers AUTOEXEC, IF, FOR and pipes.
              * L035 / initech-pbru. Ignoring EXIT emits no diagnostic. */
-#ifndef CMD_MUTATE_PERMANENT_EXIT
             if (g_shell_permanent) break;
-#endif
             /* Grep-able clean-exit marker. Plain '\n' (no CR) so the serial
              * line is exactly "SHELL-EXIT" -- the oracle's ^SHELL-EXIT$
              * anchored match would miss a trailing CR (the same serial-clean
@@ -3937,33 +3674,26 @@ static int dispatch_line(const char *line)
  * ITS handle 1 also lands in the file -- proven by test-bsy9-redir.
  *
  * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (the shell DUP2's stdout around the
- *   command); spec/int21h_calling_convention.json (AH=3Ch/3Dh/3Eh/42h/45h/46h).
+ *   command); kernel/tests/data/int21h_calling_convention.json (AH=3Ch/3Dh/3Eh/42h/45h/46h).
  *
- * MUTATION hooks (Rule 6):
+ * MUTATION hooks (the repository contract):
  *   CMD_MUTATE_REDIR_NO_RESTORE -- skip the restore, leaving handle 1 on the file.
  *   CMD_MUTATE_REDIR_BYPASS     -- restore CON *before* dispatching + dispatch the
  *     RAW line, so `ECHO X > FILE` runs UNREDIRECTED (test-hsct-redir goes RED).
  * Both NEVER in a real build. */
 /* 1 iff a write through the redirect/pipe file handle `h` (shared with the
  * command's handle 1, builtin or EXEC child) came up short or failed.
- * MUTATION hook (Rule 6): CMD_MUTATE_REDIR_IGNORE_FULL never sees a fault, so a
+ * MUTATION hook (the repository contract): CMD_MUTATE_REDIR_IGNORE_FULL never sees a fault, so a
  * full-disk redirect or pipe is silent again (test-redir-full-emu RED). */
 static int redir_write_failed(int h)
 {
-#ifdef CMD_MUTATE_REDIR_IGNORE_FULL
-    (void)h;
-    return 0;
-#else
     return int21_write_fault((uint16_t)h);
-#endif
 }
 
 static int run_output_and_dispatch(const char *raw_line, const char *clean,
                                    const char *target, int append, int out_has)
 {
-#ifndef CMD_MUTATE_REDIR_BYPASS
     (void)raw_line;   /* only the BYPASS mutant dispatches the RAW line */
-#endif
     if (!out_has) {
         /* INPUT-only line: stdout stays on CON; just run the clean command. */
         return dispatch_line(clean);
@@ -4001,17 +3731,13 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
          * "File creation error": the name is a read-only file, a directory, or
          * there is no room for it (MS-DOS 3.3 User's Guide App. F, printed
          * p.330; initech-66oc, audit L027). */
-#ifdef CMD_MUTATE_REDIR_CREATE_BADCMD
-        dos_print(MSG_DOS_0002 "\r\n$");   /* MUTANT: the pre-66oc catch-all */
-#else
         dos_print(MSG_DOS_0046 "\r\n$");           /* "File creation error" */
-#endif
         return 0;
     }
 
     /* Save the current stdout (handle 1) so we can restore CON afterward, then
      * force handle 1 onto the file.  If either step fails, fail loud and do NOT
-     * run the command unredirected (Rule 2). */
+     * run the command unredirected (the repository contract). */
     int saved = dos_dup(1);
     if (saved < 0) {
         dos_close(file_h);
@@ -4025,24 +3751,12 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
         return 0;
     }
 
-#ifdef CMD_MUTATE_REDIR_BYPASS
-    /* MUTANT: restore CON BEFORE dispatching, and dispatch the RAW line -- the
-     * command runs unredirected (output leaks to screen, the file stays empty).
-     * The emu gate's RZZHELLO-count==2 assertion goes RED.  NEVER in a real
-     * build. */
-    dos_dup2(saved, 1);
-    int rc = dispatch_line(raw_line);
-    dos_close(saved);
-    dos_close(file_h);
-    return rc;
-#else
     /* Dispatch the cleaned command.  Builtins emit via stdout_emit -> handle 1
      * -> the file (k36g).  An external EXEC child inherits the parent JFT (bsy.9)
      * so its handle 1 also lands in the file.  rc==1 means EXIT was issued (we
      * still restore). */
     int rc = dispatch_line(clean);
 
-#ifndef CMD_MUTATE_REDIR_NO_RESTORE
     /* Restore handle 1 to CON on EVERY path (including EXIT / child EXEC return).
      * The EXEC child cannot clobber the parent's `saved` slot: `saved` lives in
      * the PARENT's JFT (a free slot DUP'd from handle 1), the child gets a fresh
@@ -4050,7 +3764,6 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
      * is restored to the parent whose JFT is intact -- so dos_dup2(saved,1)
      * repoints handle 1 back at CON's SFT entry. */
     dos_dup2(saved, 1);
-#endif
     dos_close(saved);
     /* A redirected write that the full disk refused (AH=40h short count, IBM
      * DOS 3.30 TR pp.6-139/6-140) must not pass as an empty success: report
@@ -4063,7 +3776,6 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
     dos_close(file_h);
 
     return rc;
-#endif /* CMD_MUTATE_REDIR_BYPASS */
 }
 
 /* ---- I/O redirection driver (beads initech-hsct `>`/`>>` + initech-bsy.7 `<`)
@@ -4088,14 +3800,14 @@ static int run_output_and_dispatch(const char *raw_line, const char *clean,
  *
  * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (the shell opens the `<` file and
  *   DUP2's it onto handle 0; a failed open -> "File not found", command NOT run);
- *   spec/int21h_calling_convention.json (AH=3Dh/3Eh/45h/46h).  Prereq: bsy.9
+ *   kernel/tests/data/int21h_calling_convention.json (AH=3Dh/3Eh/45h/46h).  Prereq: bsy.9
  *   (child inherits parent JFT) makes the EXEC-child `<` redirect actually flow.
  *
  * Returns run_output_and_dispatch's return code (1 = EXIT).  On an input-open
  * failure: prints the DOS "File not found" diagnostic and does NOT run the
- * command (Rule 2 fail-loud -- never silently run with the wrong stdin).
+ * command (the repository contract fail-loud -- never silently run with the wrong stdin).
  *
- * MUTATION hook (Rule 6): CMD_MUTATE_REDIR_NO_LT (in cmd_redir_parse) drops the
+ * MUTATION hook (the repository contract): CMD_MUTATE_REDIR_NO_LT (in cmd_redir_parse) drops the
  * `<` parse so the child reads the keyboard, not the file -- the test-bsy7-redir
  * emu gate + the host `<` parse oracle both go RED.  NEVER in a real build. */
 static int run_with_redirect(const char *line)
@@ -4139,7 +3851,7 @@ static int run_with_redirect(const char *line)
             return 0;
         }
         /* Force handle 0 onto the source file.  On failure, tear down cleanly and
-         * do NOT run the command with the wrong stdin (Rule 2). */
+         * do NOT run the command with the wrong stdin (the repository contract). */
         if (dos_dup2(in_fh, 0) < 0) {
             dos_close(in_saved);
             dos_close(in_fh);
@@ -4205,7 +3917,7 @@ static int run_with_redirect(const char *line)
  * a file it did not create (TR p.6-213 "unique filenames" for temporaries;
  * initech-66oc, audit L001).  Only names this pipeline created are deleted.
  *
- * FAIL-LOUD (Rule 2): a temp-file CREATE failure (disk full) prints the DOS
+ * FAIL-LOUD (the repository contract): a temp-file CREATE failure (disk full) prints the DOS
  * "Insufficient disk space" diagnostic (MSG-DOS-0005), deletes any temps already
  * made, and aborts the pipeline -- never runs a stage with a bogus stdout.  A
  * producer whose writes into the temporary came up short (a full disk; AH=40h
@@ -4215,7 +3927,7 @@ static int run_with_redirect(const char *line)
  * (User's Guide App. F, printed p.337) is not in the locked DEC-13 catalogue,
  * so the catalogue's full-disk message stands in for it.
  *
- * MUTATION hook (Rule 6): CMD_MUTATE_PIPE_NO_STDIN drops the OUTER stdin repoint
+ * MUTATION hook (the repository contract): CMD_MUTATE_PIPE_NO_STDIN drops the OUTER stdin repoint
  * for stages 2..n, so a consumer reads the KEYBOARD instead of the pipe -- the
  * GREET|GOBBLE emu gate goes RED (GREETINGS never flows through the temp).
  * NEVER in a real build. */
@@ -4224,7 +3936,7 @@ static int run_with_redirect(const char *line)
  * writing its name into `buf` (>= 13 bytes).  Candidate 0 is "PIPE<idx+1>.$$$";
  * when that name exists, candidates k = 1..999 are "PIPE<idx+1><kkk>.$$$".
  * Returns the handle, or <0 (the DOS error) when no name could be created.
- * MUTATION hook (Rule 6): CMD_MUTATE_PIPE_CLOBBER creates candidate 0 with
+ * MUTATION hook (the repository contract): CMD_MUTATE_PIPE_CLOBBER creates candidate 0 with
  * AH=3Ch (the pre-66oc truncate), so a user PIPE1.$$$ is destroyed again. */
 static int pipe_temp_create(int idx, char *buf)
 {
@@ -4245,21 +3957,16 @@ static int pipe_temp_create(int idx, char *buf)
         buf[n++] = '$';
         buf[n++] = '$';
         buf[n] = '\0';
-#ifdef CMD_MUTATE_PIPE_CLOBBER
-        (void)&dos_creatnew;   /* keep it "used" under the mutant (-Werror) */
-        return dos_creat(buf);
-#else
         int h = dos_creatnew(buf);
         if (h != -(int)INT21_ERR_FILE_EXISTS) {
             return h;   /* created, or a failure no other name can cure */
         }
-#endif
     }
     return -(int)INT21_ERR_FILE_EXISTS;
 }
 
 /* Execute a multi-stage pipeline.  Returns 1 iff a stage issued EXIT (tear the
- * REPL down), else 0.  Deletes every temp on EVERY path (Rule 2). */
+ * REPL down), else 0.  Deletes every temp on EVERY path (the repository contract). */
 static int run_pipeline(cmd_pipeline_t *pl)
 {
     char tname[CMD_PIPE_MAX_STAGES][13];   /* tname[i] = temp AFTER stage i     */
@@ -4302,7 +4009,6 @@ static int run_pipeline(cmd_pipeline_t *pl)
         }
 
         /* ---- OUTER stdin: a consumer stage reads from temp[i-1] ---- */
-#ifndef CMD_MUTATE_PIPE_NO_STDIN
         if (!is_first) {
             in_h = dos_open(tname[i - 1]);   /* AH=3Dh AL=00 read the intermediate */
             if (in_h >= 0) {
@@ -4320,11 +4026,6 @@ static int run_pipeline(cmd_pipeline_t *pl)
                 }
             }
         }
-#else
-        /* MUTANT: the consumer never gets its stdin repointed at the temp, so it
-         * reads the keyboard -- the piped data never flows (gate RED). */
-        (void)is_first;
-#endif
 
         /* ---- run the stage; its OWN `<`/`>`/`>>` are peeled INSIDE (nested) ---- */
         rc = run_with_redirect(pl->stage[i]);
@@ -4341,11 +4042,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
             dos_dup2(out_saved, 1);
             dos_close(out_saved);
         }
-#ifdef CMD_MUTATE_PIPE_IGNORE_FULL
-        int lost = 0;   /* MUTANT (Rule 6): a short intermediate passes silently */
-#else
         int lost = out_h >= 0 && redir_write_failed(out_h);
-#endif
         if (out_h >= 0) {
             dos_close(out_h);
         }
@@ -4398,7 +4095,7 @@ static int run_pipeline_or_redirect(const char *line)
  * SHIFT, CALL, PAUSE, and plain commands (fed back through dispatch_line).
  * I/O lives HERE (the file read, the CON writes); the pure decision helpers
  * (batch_classify / batch_expand / batch_eval_if / batch_for_*) live in batch.c
- * and are host-tested by test_batch_exec.c (Law 2/Law 3 seam). */
+ * and are host-tested by test_batch_exec.c (the repository contract/the repository contract seam). */
 
 /* The maximum bytes of a .BAT file we read into memory at once.  4 KiB covers
  * AUTOEXEC.BAT and ordinary scripts; a larger file is truncated at this bound
@@ -4408,7 +4105,7 @@ static int run_pipeline_or_redirect(const char *line)
  * kernel headroom -- the extra 2 KiB .bss here is well within that budget). */
 #define BATCH_FILE_MAX  4096
 
-/* The CALL nesting cap (Rule 2: bound recursion so a self-CALL'ing .BAT cannot
+/* The CALL nesting cap (the repository contract: bound recursion so a self-CALL'ing .BAT cannot
  * blow the stack).  8 levels is far beyond any real DOS batch nest. */
 #define BATCH_NEST_MAX  8
 
@@ -4417,7 +4114,7 @@ static int run_pipeline_or_redirect(const char *line)
 static int g_batch_depth = 0;
 
 /* ONE shared file buffer (BSS, not the stack -- a 4 KiB buffer is far too large
- * to live on the kernel stack, Rule 2).  A CALL'd .BAT shares this single buffer
+ * to live on the kernel stack, the repository contract).  A CALL'd .BAT shares this single buffer
  * with its caller: the child overwrites it while it runs, and on return the
  * parent RE-READS its own file (run_batch reloads after each CALL).  This is how
  * real COMMAND.COM behaves -- it re-reads batch files from disk rather than
@@ -4460,11 +4157,7 @@ static void prompt_date(prompt_ctx_t *ctx)
 {
     uint16_t year=0;
     uint8_t mon=0, day=0, dow=0;
-#ifndef CMD_MUTATE_PROMPT_DATE
     dos_getdate(&year,&mon,&day,&dow);
-#else
-    (void)dow;
-#endif
     ctx->year=year; ctx->month=mon; ctx->day=day;
 }
 
@@ -4504,7 +4197,7 @@ static void batch_echo_line(const char *text)
  * into `out` (capacity BATCH_LINE_MAX), advance `*pos` past the line and its
  * EOL sequence (CR, LF, or CRLF), and return 1.  Return 0 at end of buffer
  * (out[0] = '\0').  An over-long line is truncated into `out` but `*pos` is
- * still advanced past the whole physical line (Rule 2: never bleed). */
+ * still advanced past the whole physical line (the repository contract: never bleed). */
 static int batch_next_line(const char *buf, int len, int *pos, char *out)
 {
     int i = *pos;
@@ -4687,7 +4380,6 @@ static void control_for(const char *args)
     if (var[0] != '%' || !var[1] || var[2] ||
         (var[1] >= '0' && var[1] <= '9')) return;
     while (batch_for_next_token(set, &cur, tok, sizeof(tok))) {
-#ifndef CMD_MUTATE_FOR_WILDCARD
         if (cmd_has_wildcard(tok)) {
             char name[BATCH_LINE_MAX + 13];
             unsigned prefix = 0;
@@ -4702,7 +4394,6 @@ static void control_for(const char *args)
             } while (dos_findnext());
             break; /* Reference p.144: wildcard set has one member. */
         }
-#endif
         if (!for_store(tok)) goto done;
     }
     {
@@ -4725,9 +4416,6 @@ static int dispatch_control(const char *line)
     batch_parsed_t bp;
     batch_frame_t *frame = g_batch_frame;
     const char *args = line;
-#ifdef CMD_MUTATE_BATCH_BODY
-    if (g_body_depth) return 0;
-#endif
     while (*args==' ' || *args=='\t' || *args=='@') args++;
     batch_classify(args,&bp);
     while (*args && *args!=' ' && *args!='\t') args++;
@@ -4750,9 +4438,6 @@ static int dispatch_control(const char *line)
         return 1;
     }
     case BL_FOR:
-#ifdef CMD_MUTATE_FOR_PROMPT
-        if (!frame) return 0;
-#endif
         control_for(args);
         return 1;
     case BL_GOTO:
@@ -4766,11 +4451,7 @@ static int dispatch_control(const char *line)
     case BL_SHIFT:
         /* Reference p.151: SHIFT also discards the original %0. */
         if (frame && frame->count>0) {
-#ifdef CMD_MUTATE_SHIFT_ZERO
-            int first=1;
-#else
             int first=0;
-#endif
             for (int k=first;k<frame->count-1;k++) frame->view[k]=frame->view[k+1];
             frame->count--;
         }
@@ -4800,7 +4481,7 @@ static int dispatch_control(const char *line)
 }
 
 /* Reference PAUSE p.149 / PDF234, MSG-DOS-0063; real DOS 3.30 capture in
- * harness/diff/fat_diff/batch_break_mint: invalid keys ask again; Y cancels
+ * dos/command/tests/batch_break_mint: invalid keys ask again; Y cancels
  * ALL active CALL frames; N resumes after the interrupted physical line.
  * Called only after command/pipe cleanup. A surrounding CALL can still have
  * redirected handles: ask on an explicit CON handle, never redirected stdout.
@@ -4826,12 +4507,6 @@ static int batch_terminate_question(void)
         if (answer == 'Y' || answer == 'N') { yes = answer == 'Y'; break; }
     }
     dos_close(con);
-#ifdef CMD_MUTATE_BATCH_ALWAYS_TERMINATE
-    yes = 1;
-#endif
-#ifdef CMD_MUTATE_BATCH_ALWAYS_RESUME
-    yes = 0;
-#endif
     return yes;
 }
 
@@ -4963,15 +4638,9 @@ static void builtin_command(const char *arg)
     batch_frame_t *frame=g_batch_frame;
     g_shell_exit=0;g_shell_permanent=0;g_batch_frame=0;
     depth++;
-#ifndef CMD_MUTATE_COMMAND_C
     run_with_redirect(arg);
-#endif
     depth--;
-#ifndef CMD_MUTATE_COMMAND_ENV
     g_master_env=env;
-#else
-    (void)env;
-#endif
     g_shell_exit=exit;g_shell_permanent=permanent;
     g_errorlevel=errorlevel;g_batch_frame=frame;
 }
@@ -5009,7 +4678,7 @@ void command_repl(int permanent)
     /* Seed the master environment once at REPL entry (beads initech-1i0x
      * Tranche E inc 2). These three variables match DOS 3.3 startup defaults
      * for a single-floppy system. Overflow is impossible here (well under 512
-     * bytes), but we follow fail-loud discipline (Rule 2) with no-op silence:
+     * bytes), but we follow fail-loud discipline (the repository contract) with no-op silence:
      * env_set returns 0 on overflow; the REPL continues regardless (the OS
      * must boot even if seeding somehow fails on a future tiny-arena config). */
     env_init(&g_master_env);
@@ -5031,22 +4700,10 @@ void command_repl(int permanent)
         int fh = dos_open(autoexec);
         if (fh >= 0) {
             dos_close(fh);
-#ifndef CMD_MUTATE_NO_AUTOEXEC
             run_batch_invoke(autoexec, "");
-#else
-            /* MUTANT (Rule 6; make test-autoexec-mutant only): skip running
-             * AUTOEXEC.BAT entirely, so its markers never reach serial and the
-             * emu gate's marker assertions go RED -- proving the gate bites.
-             * NEVER in a real build. */
-            (void)autoexec;
-#endif
         }
         else if (g_shell_permanent) {
-#ifndef CMD_MUTATE_STARTUP
             startup_datetime();
-#else
-            (void)&startup_datetime; /* Rule 6: omit both boot prompts. */
-#endif
         }
     }
     if (g_shell_exit) {
@@ -5066,20 +4723,13 @@ void command_repl(int permanent)
          * the default "$P$G" produces byte-identical "A:\>" / "A:\SUB>" output
          * so the test-shell prompt-band assertions continue to pass (DEC-12).
          * Ref: ADR-0003 DEC-12; beads initech-dibc. */
-#ifdef CMD_MUTATE_NO_CWD_PROMPT
-        /* MUTANT (Rule 6; make test-ut6d-mutant only): pin the prompt to the
-         * root "A:\>" regardless of the CWD, so after `CD SUB` the prompt never
-         * shows "A:\SUB>" -> the test-ut6d subdir-prompt assertion goes RED.
-         * NEVER in a real build. */
-        dos_print("A:\\>$");
-#else
         {
             /* Retrieve the PROMPT template from the master environment.
              * Fall back to "$P$G" if the variable is absent/empty (a defensive
              * guard: command_repl seeds it to "$P$G" above, but a PROMPT CLEAR
              * via `SET PROMPT=` would leave env_get returning ""; in that case
              * DOS 3.3 also falls back to the bare drive letter, but "$P$G" is
-             * more useful and matches the seeded default -- Law 4). */
+             * more useful and matches the seeded default -- the repository contract). */
             const char *templ = env_get(&g_master_env, "PROMPT");
             if (templ == 0 || templ[0] == '\0') {
                 templ = "$P$G";
@@ -5113,15 +4763,8 @@ void command_repl(int permanent)
                                          rendered, (int)(sizeof(rendered) - 1));
             /* Reference p.101: $$ is a literal dollar. AH=40h writes
              * exactly the rendered bytes, including every embedded '$'. */
-#ifdef CMD_MUTATE_PROMPT_DOLLAR
-            rendered[rlen++] = '$';
-            rendered[rlen] = '\0';
-            dos_print(rendered);
-#else
             dos_write(rendered, (uint32_t)rlen);
-#endif
         }
-#endif
 
         read_line(line);
         if (g_shell_break.interrupted) continue; /* ^C at prompt discards line */

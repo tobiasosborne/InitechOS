@@ -1,0 +1,15 @@
+# CMD_MUTATE_REDIR_KEEP_TARGET
+# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+--- a/command/command.c
++++ b/command/command.c
+@@ -1497,6 +1497,10 @@
+             suf++;
+         }
+ 
++        /* MUTANT: rewind the suffix start back over the target token so the
++         * target filename stays in clean_out -> the clean-command oracle goes
++         * RED.  NEVER in a real build. */
++        suf = tgt_start;
+ 
+         if (line[suf] != '\0' && prefix_len > 0u && w + 1u < clean_cap) {
+             clean_out[w++] = ' ';

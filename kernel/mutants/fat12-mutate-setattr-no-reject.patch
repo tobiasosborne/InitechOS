@@ -1,0 +1,24 @@
+# FAT12_MUTATE_SETATTR_NO_REJECT
+# test: test-b53d
+--- a/fat12.c
++++ b/fat12.c
+@@ -2384,9 +2384,6 @@
+ 
+ 	/* A new attribute that re-types the entry (sets Directory or VolLabel) is
+ 	 * forbidden -- reject BEFORE the scan touches disk (the repository contract). */
+-	if ((attr & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+-		return FAT12_ERR_ACCESS;
+-	}
+ 
+ 	rc = parse_name83(name83, want11);
+ 	if (rc != FAT12_OK) {
+@@ -2403,9 +2400,6 @@
+ 	}
+ 	/* The TARGET must be a regular file -- never CHMOD a directory or the
+ 	 * volume-label entry (the repository contract). */
+-	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+-		return FAT12_ERR_ACCESS;
+-	}
+ 
+ 	/* Patch ONLY the attribute byte; name / cluster / size / mtime / mdate are
+ 	 * left exactly as scanned (the repository contract: the timestamp bytes stay deterministic). */

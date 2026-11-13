@@ -1,0 +1,75 @@
+# FAT12_MUTATE_STALE_DIR_TRUSTED
+# test: test-fat12-mkdir
+--- a/fat12.c
++++ b/fat12.c
+@@ -2130,34 +2130,12 @@
+                           uint32_t fat_len, uint16_t dir, void *sector_buf,
+                           uint16_t *out_dotdot)
+ {
+-	const dir_entry_t *de = (const dir_entry_t *)sector_buf;
+-	uint16_t v = 0u;
+-	int rc;
+-
+-	if (!fat12_cluster_in_range(vol, dir)) {
+-		return FAT12_ERR_STALE_DIR;
+-	}
+-	rc = fat12_next_cluster(vol, fat, fat_len, dir, &v);
+-	if (rc != FAT12_OK) {
+-		return rc;
+-	}
+-	if (chain_is_free(vol, v) || chain_is_bad(vol, v) || v == 1u) {
+-		return FAT12_ERR_STALE_DIR;   /* freed (or never a chain head) */
+-	}
+-	if (fat12_read_sectors(vol, cluster_lba(vol, dir),
+-	                           1u, sector_buf) != 0) {
+-		return FAT12_ERR_READ;
+-	}
+-	if (de[0].filename[0] != 0x2Eu || de[0].filename[1] != 0x20u ||
+-	    de[0].start_cluster != dir ||
+-	    (de[0].attribute & DIR_ATTR_DIRECTORY) == 0u ||
+-	    de[1].filename[0] != 0x2Eu || de[1].filename[1] != 0x2Eu ||
+-	    de[1].filename[2] != 0x20u ||
+-	    (de[1].attribute & DIR_ATTR_DIRECTORY) == 0u) {
+-		return FAT12_ERR_STALE_DIR;   /* reused by a file, or by another dir */
+-	}
++	/* MUTANT (the repository contract; test-fat12-mkdir-mutant + test-flair-trash-purge-views-
++	 * mutant): the pre-L002 trust -- any number is a directory. NEVER define in
++	 * a real build. */
++	(void)vol; (void)fat; (void)fat_len; (void)dir; (void)sector_buf;
+ 	if (out_dotdot != NULL) {
+-		*out_dotdot = de[1].start_cluster;
++		*out_dotdot = 0u;
+ 	}
+ 	return FAT12_OK;
+ }
+@@ -2186,28 +2164,8 @@
+ 	if (dir == 0u) {
+ 		return FAT12_OK;                 /* the fixed root never dies */
+ 	}
+-	rc = fat12_dir_live(vol, fat, fat_len, dir, sector_buf, &dd);
+-	if (rc != FAT12_OK) {
+-		return rc;
+-	}
+-	if (dd != parent) {
+-		return FAT12_ERR_STALE_DIR;      /* a directory, but not under parent */
+-	}
+-	rc = fat12_dir_guard(vol, fat, fat_len, parent, sector_buf);
+-	if (rc != FAT12_OK) {
+-		return rc;
+-	}
+-	rc = fat12_find_slot_in(vol, fat, fat_len, parent, sector_buf, name83,
+-	                        &e, &slot);
+-	if (rc == FAT12_ERR_NOT_FOUND) {
+-		return FAT12_ERR_STALE_DIR;      /* the parent entry is gone */
+-	}
+-	if (rc != FAT12_OK) {
+-		return rc;
+-	}
+-	if ((e.attribute & DIR_ATTR_DIRECTORY) == 0u || e.start_cluster != dir) {
+-		return FAT12_ERR_STALE_DIR;      /* that name now names another object */
+-	}
++	(void)fat; (void)fat_len; (void)parent; (void)e; (void)slot; (void)dd;
++	(void)rc;
+ 	return FAT12_OK;
+ }
+ 

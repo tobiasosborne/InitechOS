@@ -1,0 +1,17 @@
+# INT21_MUTATE_BREAK_DL_RAW
+# test: test-er3h
+--- a/int21.c
++++ b/int21.c
+@@ -5017,7 +5017,11 @@
+     }
+     if (al == 0x01u) {                  /* SET */
+         uint8_t dl = frame_dl(f);
+-        g_break_flag = (uint8_t)(dl != 0u ? 1u : 0u);   /* normalize (DEC-16 3.2) */
++        /* MUTANT M2 (the repository contract; make test-er3h-mutant only): store DL VERBATIM
++         * instead of the normalized boolean, so SET(DL=0xFF) then GET returns
++         * 0xFF (not 1) -- the DL-normalization assertions [er3h.3]/[er3h.4] go
++         * RED. NEVER in a real build (DEC-16 3.2 fixes normalize-on-write). */
++        g_break_flag = dl;
+         /* DEC-16 3.2: SET updates ONLY the flag + clears CF; it writes NO output
+          * register (AL/DL are left exactly as the caller passed them). */
+         cf_clear(f);

@@ -1,0 +1,19 @@
+# ABSDISK_MUTATE_WRONG_ERRCLASS
+# test: test-absdisk
+--- a/int21.c
++++ b/int21.c
+@@ -5553,7 +5553,13 @@
+  * ESI/EDI/EBP, the DEC-04a benign superset) is preserved by the stub's popad. */
+ static void absdisk_fail(int_frame_t *f, uint8_t al, uint8_t ah)
+ {
+-    set_ax(f, (uint16_t)(((uint16_t)ah << 8) | (uint16_t)al));
++    /* MUTANT M5 (the repository contract): return an INT 21h INT21_ERR_* extended-error code
++     * (the WRONG code space) instead of the absolute-disk AL/AH hardware pair.
++     * The error-AX assertions [8] check the exact ABSDISK_AL_x / ABSDISK_AH_x
++     * values, so they go RED -- proving the test asserts the locked spec-data
++     * contract (the two code spaces are NOT conflated; DEC-15.2 / DEC-15.4). */
++    (void)al; (void)ah;
++    set_ax(f, INT21_ERR_INVALID_FUNCTION);   /* 0x0001 -- a DIFFERENT space */
+     cf_set(f);
+ }
+ 
