@@ -2,3 +2,5 @@
 build/apps/initech123/123.EXE           APPS/123.EXE
 build/apps/initech123/123.MNU           APPS/123.MNU
 build/apps/calculator/CALCULAT.EXE     APPS/CALCULAT.EXE
+build/apps/notepad/NOTEPAD.EXE        APPS/NOTEPAD.EXE
+build/apps/notepad/scrapbook/SCRAPBK.EXE APPS/SCRAPBK.EXE

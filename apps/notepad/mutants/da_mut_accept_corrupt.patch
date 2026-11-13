@@ -1,0 +1,11 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -92,7 +92,7 @@
+     if(word(6)!=8) return 0;
+ #endif
+     for(int i=0;i<4;i++) h|=(uint32_t)g_disk[12+i]<<(i*8);
+-    if(h!=hash()) return 0;
++    (void)h;
+     for(int p=0;p<DA_SLOTS;p++) {
+         int off=16+p*DA_RECORD_BYTES, n=word(off);
+         if(n>DA_TEXT_MAX || (p>=word(6) && n)) return 0;

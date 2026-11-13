@@ -1,0 +1,11 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -366,7 +366,7 @@
+         if(ev->what==mouseDown && y>=DA_VIEW_H-DA_FOLD && y<DA_VIEW_H && x>=0 && x<DA_VIEW_W) {
+             if(x<DA_FOLD) turn(g_page-1);
+             else if(x>=DA_VIEW_W-DA_FOLD) {
+-                turn(g_page+1);
++                turn(g_page+2);
+             }
+             refresh();break;
+         }
