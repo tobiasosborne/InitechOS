@@ -17,8 +17,8 @@ Current mechanical evidence:
   assembler/linker; Bochs runs three cases. Stdout agrees with the authored,
   FPC-checked goldens; mtools checks written file bytes on separate TEST disks.
   Guest compile readings were 1-2s on QEMU, 1-3s on Bochs (1s resolution).
-- In-OS K1(S) -> K2 and K2(S) -> K3 reproduce 163843 bytes exactly, SHA-256
-  b37f96ad78cc49bc3e4334b0e6c2551228e3a8dd1dcf5f89a5726d128c3088e3.
+- In-OS K1(S) -> K2 and K2(S) -> K3 reproduce 163439 bytes exactly, SHA-256
+  08499523b5b74b394a05775008481162948b81054adf989785cee18902d55b3f.
   Fresh boots reset identical inputs and fit the unchanged emulator driver's
   120-second serial gate. Guest compile times were 68s/83s, then 66s/82s in
   the DDC refresh. K1==K2 is not the certificate.

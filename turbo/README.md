@@ -47,10 +47,11 @@ That compiler emits D1 directly; D1(S) runs in the OS to produce D2. The check
 asserts D2==K2==K3. Contamination and changed-source controls must fail.
 Evidence, FPC version and bootstrap hashes remain under build/turbo/ddc.
 
-The fixed point is 163843 bytes, SHA-256
-b37f96ad78cc49bc3e4334b0e6c2551228e3a8dd1dcf5f89a5726d128c3088e3.
-The self-host run took 68s/83s; DDC refreshed it at 66s/82s and took 80s for
-D1(S). Times use the guest clock with 1-second resolution. DDC removes sole
+The fixed point is 163439 bytes, SHA-256
+08499523b5b74b394a05775008481162948b81054adf989785cee18902d55b3f.
+After removing the seed runtime's wrong-write entry points, the self-host run
+took 45s/50s and DDC took 59s for D1(S). The checked-in NASM tables regenerate
+byte-for-byte. Times use the guest clock with 1-second resolution. DDC removes sole
 reliance on the C seed's translation and its bootstrap assembler pipeline.
 It still trusts the compiler source (including runtime byte tables), the
 independent FPC path, host tools, loader, emulator and hardware. The controls
