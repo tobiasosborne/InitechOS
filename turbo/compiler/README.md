@@ -48,3 +48,11 @@ Guest times were 68s/83s; mzcheck accepts both. A deliberately changed byte
 makes the comparator red with its offset and container region. Full evidence
 and source identity remain under build/turbo/selfhost. No stack/CPU fault or
 host assembler/linker participates in either compilation.
+
+`make -C turbo ddc` refreshes the seed certificate and runs the independent
+FPC bootstrap path: host Pascal compiler -> D1, in-OS D1(S) -> D2. D2 equals
+both K2 and K3 at the hash above; D1(S) took 80 guest seconds. Contaminated
+candidate and changed-source controls are red. DDC evidence is retained under
+build/turbo/ddc. This removes sole trust in seed translation; source/runtime,
+FPC, host tools, the OS and hardware remain trusted. All 12 compiler mutants,
+including the seven inherited protocol patches, have now been killed.

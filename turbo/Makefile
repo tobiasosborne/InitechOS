@@ -5,8 +5,6 @@ include $(TOP)/mk/config.mk
 all test mutants:
 	+@for c in seed compiler; do $(MAKE) --no-print-directory -C $$c $@ || exit 1; done
 
-ddc:
-	@echo '$@: not implemented; see ROADMAP.md' >&2; exit 1
 smoke: all
 	+$(MAKE) -C $(TOP) image
 	sh tests/smoke/run.sh
@@ -22,3 +20,5 @@ $(OUT)/smoke/compare: tests/smoke/compare.c
 selfhost: all $(OUT)/smoke/TIMER.COM $(OUT)/smoke/compare
 	+$(MAKE) -C $(TOP) image
 	sh tests/smoke/selfhost.sh
+ddc: selfhost
+	sh tests/smoke/ddc.sh
