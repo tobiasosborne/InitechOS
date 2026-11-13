@@ -1,59 +1,8 @@
-/* test_shell.c -- the FLAIR DESKTOP SHELL M4 GATE (THE ORACLE; ADR-0004 D-8).
- *
- * beads: initech-k8o5.12 (M4 Manager set + two stacked menu bars + modal FILE
- *        COPY layer + desktop shell) and initech-859 (Desktop shell: reproduce
- *        the frame chrome -- the M4 gate). The mechanical oracle (Law 2) for the
- *        M4 capstone that REPRODUCES THE OFFICE SPACE FRAME: it renders the
- *        composed InitechOS desktop -- seafoam background + document windows +
- *        the TWO STACKED MENU BARS (the chimera) + the modal FILE COPY box -- to
- *        a 640x480 offscreen and asserts the frame STRUCTURE at the pixel level.
- *
- * Ref:   ADR-0004 D-1 (Layer 5 desktop shell), D-2 (one surface module), D-3
- *        (Managers; the Photoshop bar), D-5 (z-order), D-8 (the oracle vector).
- *        os/flair/shell.{c,h} (the unit under test). os/flair/{desktop,menu,
- *        dialog,window,chrome,blitter,surface,control,text}.c (composed).
- *        spec/assets/menu_canon.h (the FROZEN canon string -- asserted byte-
- *        exact, Law 4). os/flair/dialog.h (FLAIR_CANON_FILECOPY_MSG, byte-exact).
- *        spec/chrome_metrics.h (FLAIR_CHROME_* -- title bar 22, frame 1,
- *        scrollbar 16, menubar 20). harness/render/render.h (host skeleton; the
- *        dual-compile path that runs the SAME freestanding shell.c on a host
- *        offscreen, AM-1 geometry parameter). harness/proptest/test_drag.c +
- *        test_menu.c + test_dialog.c (the harness idiom this suite mirrors).
- *        CLAUDE.md Law 2 (oracle is truth), Law 4 (look like the frame -- the PPM
- *        is the human audit), Rule 6 (mutation-proven), Rule 11 (deterministic),
- *        Rule 12 (ASCII-clean).
- *
- * THE STRUCTURAL ASSERTIONS (the M4 "reproduce the frame" gate):
- *
- *   1. SEAFOAM DESKTOP present -- sampled bare-desktop pixels read the seafoam
- *      desktop index (RENDER_DESKTOP_INDEX == FLAIR_DESKTOP_BG_INDEX).
- *   2. BOTH MENU BARS present at their y-bands (each FLAIR_MENUBAR_H = 20 px):
- *      the System-7 bar at rows [0,20), the Photoshop bar at rows [20,40), each
- *      with a painted baseline + bar fill + title ink. The Photoshop bar's title
- *      string is asserted byte-EXACT against menu_canon.h (Law 4 canon chimera).
- *   3. WINDOW CHROME present -- the front window's exact Platinum title profile,
- *      the 1 px outer frame, raised body rail, and 16 px scrollbar.
- *   4. The FILE COPY MODAL present + CENTERED: the MOVEABLE TITLED modal
- *      (movableDBoxProc; a pinstripe title bar + a PLAIN 1-px frame -- NOT the
- *      old dBoxProc 7-px border; beads initech-zvo6) at the canonical centered
- *      bounds, the byte-exact "Saving tables to disk..." static text painted
- *      as ink, and the progress bar with a non-zero canon fill (beads
- *      initech-a90f).
- *   5. The MODAL is ON TOP -- a probe point that lies BOTH inside the modal's
- *      frame AND inside a document window reads the MODAL's pixel (the
- *      modal occludes the window: z-order / clip correct).
- *   6. DETERMINISM -- two renders of the same scene are byte-identical (Rule 11).
- *
- * MUTANTS (Rule 6; in shell.c, -D guarded), each MUST drive this gate RED:
- *   SHELL_MUTATE_ONE_MENUBAR  -- drop the second (Photoshop) menu bar -> the
- *                                Photoshop-bar band reads as bare desktop ->
- *                                assertion 2 (both bars present) RED.
- *   SHELL_MUTATE_NO_MODAL     -- skip the FILE COPY modal -> the box + the canon
- *                                text are absent and the windows show through ->
- *                                assertions 4 + 5 RED.
- *   SHELL_MUTATE_MODAL_BEHIND -- draw the modal BEHIND the windows/bars -> the
- *                                modal is occluded instead of occluding ->
- *                                assertion 5 (modal on top) RED.
+/* Desktop composition properties and retained window/modal pixel oracles.
+ * Single-bar expectations follow the operator ruling of 2026-11-13:
+ * CLAUDE.md, Hazards that are still true; GOLDEN-MASTER item 3.
+ * The frame's other chrome and FILE COPY geometry retain their captured
+ * Platinum oracles. Photoshop titles belong to an application resource.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -64,6 +13,7 @@
 #include "region_algebra.h"     /* the LOCKED region contract (-Ispec)         */
 #include "region.h"             /* engine constructors (-Ios/flair/region)   */
 #include "window_record.h"      /* WindowRecord, part-codes (-Ispec)           */
+#include "finder_menu.h"
 #include "shell.h"              /* the DESKTOP SHELL under test (-Ios/flair)   */
 #include "desktop.h"            /* FLAIR_DESKTOP_BG_INDEX (-Ios/flair)         */
 #include "menu_canon.h"         /* FROZEN Photoshop canon string (-Ispec/assets)*/
@@ -120,7 +70,6 @@ static void store_attach(rgn_store_t *s)
  * The whole shell-scene storage bundle, all caller-supplied (Law 3; no malloc).
  * ===========================================================================*/
 enum { N_WINDOWS = 2 };
-enum { N_SYS_MENUS = 4 };  /* File / Edit / View / Special (System-7 bar)       */
 
 /* Per-window region trio. */
 typedef struct win_rgns {
@@ -137,13 +86,10 @@ typedef struct shell_store {
     shell_window_store wins[N_WINDOWS];
     win_rgns_t         winr[N_WINDOWS];
 
-    /* The System-7 bar menus + a tiny item list each. */
-    MenuInfo           sys_menus[N_SYS_MENUS];
-    MenuItem           sys_items[N_SYS_MENUS][2];
-
-    /* The Photoshop bar menus + a tiny item list each (titles set from canon). */
-    MenuInfo           ps_menus[FLAIR_CANON_PHOTOSHOP_MENU_COUNT];
-    MenuItem           ps_items[FLAIR_CANON_PHOTOSHOP_MENU_COUNT][2];
+    /* InitechPaint-style test application resource; never a shell fallback. */
+    MenuBar paint_bar;
+    MenuInfo ps_menus[FLAIR_CANON_PHOTOSHOP_MENU_COUNT];
+    MenuItem ps_items[FLAIR_CANON_PHOTOSHOP_MENU_COUNT][2];
 
     /* The FILE COPY modal storage. */
     DialogRecord       dlg;
@@ -159,7 +105,7 @@ typedef struct shell_store {
 
 /* The two document windows, placed per the frame: window 0 (back, upper-left)
  * overlaps the centered FILE COPY box; window 1 (front, lower-right). Both sit
- * BELOW the two stacked menu bars (rows < SHELL_MENUBARS_H = 40 are the bars). */
+ * BELOW the single 20-row menu bar. */
 #define W0_T  80
 #define W0_L  60
 #define W0_B  300
@@ -177,14 +123,6 @@ static const char *const g_win_titles[N_WINDOWS] = {
     "untitled-1",
     "Saving tables to disk"
 };
-
-/* The System-7 bar titles (File/Edit/View/Special -- the classic System-7 set,
- * gui-ground-truth.md Sec 4). These are NOT the canon Photoshop bar (that is the
- * second bar, stamped from menu_canon.h by the shell). */
-static const char *const g_sys_titles[N_SYS_MENUS] = {
-    "File", "Edit", "View", "Special"
-};
-static int test_menu_count = N_SYS_MENUS;
 
 /* Build the scene into the caller bundle. `enable_overlay` != 0 activates the
  * always-on-top occluder (bars [+ modal]) so the companion drag-survival sub-test
@@ -208,26 +146,18 @@ static void build_shell(shell_store_t *S, int show_modal, int enable_overlay)
         S->wins[i].updateRgn = &S->winr[i].upd.r;
     }
 
-    /* System-7 bar: each menu gets a 1-item list so it is well-formed. */
-    for (int mi = 0; mi < N_SYS_MENUS; mi++) {
-        S->sys_items[mi][0] = (MenuItem){ "About", 0, 0, 0, 1, 0 };
-        S->sys_items[mi][1] = (MenuItem){ "Quit",  0, 'Q', 0, 1, 0 };
-        S->sys_menus[mi].menuID    = (int16_t)(128 + mi);
-        S->sys_menus[mi].title     = g_sys_titles[mi];
-        S->sys_menus[mi].items     = S->sys_items[mi];
-        S->sys_menus[mi].n_items   = 2;
-        S->sys_menus[mi].menuWidth = 0;
-    }
-
-    /* Photoshop bar: the shell stamps the canon titles; we supply item lists. */
+    /* Test application's Photoshop titles, required by the operator ruling. */
     for (int mi = 0; mi < FLAIR_CANON_PHOTOSHOP_MENU_COUNT; mi++) {
         S->ps_items[mi][0] = (MenuItem){ "New",  0, 'N', 0, 1, 0 };
         S->ps_items[mi][1] = (MenuItem){ "Open", 0, 'O', 0, 1, 0 };
-        S->ps_menus[mi].title     = (const char *)0;  /* set by shell from canon */
+        S->ps_menus[mi].title     = FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[mi];
+        S->ps_menus[mi].menuID    = (int16_t)(256 + mi);
         S->ps_menus[mi].items     = S->ps_items[mi];
         S->ps_menus[mi].n_items   = 2;
         S->ps_menus[mi].menuWidth = 0;
     }
+
+    S->paint_bar = (MenuBar){ S->ps_menus, 8, 0 };
 
     store_attach(&S->dlg_struc);
     store_attach(&S->dlg_cont);
@@ -239,8 +169,7 @@ static void build_shell(shell_store_t *S, int show_modal, int enable_overlay)
                       frame,
                       S->wins, N_WINDOWS, g_win_bounds, g_win_titles,
                       &S->desk.r, &S->sa.r, &S->sb.r, &S->sc.r, &S->comp.r,
-                      S->sys_menus, test_menu_count,
-                      S->ps_menus,
+                      finder_menu_bar(),
                       &S->dlg, S->dlg_items, &S->dlg_progress,
                       &S->dlg_struc.r, &S->dlg_cont.r, &S->dlg_upd.r,
                       enable_overlay ? &S->overlay.r : (region_t *)0,
@@ -292,10 +221,6 @@ int main(int argc, char **argv)
      * enable_overlay=0: the M4 structural gate renders EXACTLY as before (the
      * overlay fold is a no-op when wm.overlay_rgn==NULL; initech-pipa). */
     static shell_store_t S;
-    EXPECT_ABORT({ test_menu_count = -1; build_shell(&S, 0, 0); },
-                 "uskw negative system menu count panics");
-    EXPECT_ABORT({ test_menu_count = 65536; build_shell(&S, 0, 0); },
-                 "uskw truncated system menu count panics");
     build_shell(&S, 1 /* show_modal */, 0 /* enable_overlay */);
 
     render_ctx_t ctx;
@@ -306,9 +231,19 @@ int main(int argc, char **argv)
     }
 
     shell_render(&S.scene, &ctx.fb.bm);
+    /* Operator ruling 2026-11-13; CLAUDE.md, Hazards that are still true:
+     * the former second band's rows belong to the desktop. These literal
+     * probes are clear of the scene's windows and modal. */
+    {
+        int bad = 0;
+        for (int y = 20; y < 40; y++)
+            for (int x = 0; x < 640; x++)
+                bad += idx_at(&ctx, x, y) != (int)FLAIR_DESKTOP_BG_INDEX;
+        CHECK(bad == 0, "one menu bar: rows 20..39 are desktop, not menu chrome");
+    }
     EXPECT_ABORT({ bitmap_t small = ctx.fb.bm; small.height = 10;
                    shell_render(&S.scene, &small); },
-                 "mqsn short surface rejected before offset subtraction");
+                 "mqsn surface shorter than one menu bar is rejected");
 
     /* ======================================================================
      * 1. SEAFOAM DESKTOP present. Below both bars and clear of every window +
@@ -328,70 +263,15 @@ int main(int argc, char **argv)
               "(1) seafoam index maps to INITECH_DESKTOP_BG_RGB (OD-4)");
     }
 
-    /* ======================================================================
-     * 2. BOTH MENU BARS present at their 20px y-bands + the Photoshop canon.
-     * ====================================================================== */
+    /* One top bar; its Platinum profile remains captured period chrome. */
     {
         CHECK(FLAIR_MENUBAR_H == 20 && FLAIR_CHROME_MENUBAR_H == 20,
-              "(2) menu bar height is the locked 20 px (GetMBarHeight)");
-
-        /* Bar 1, rows [0,20): sampled Platinum E7 face with black baseline.
-         * Ref: sys8/menus.md Sec 1.1; bead initech-sjvq row 30. */
-        CHECK(idx_at(&ctx, 600, 5) == 231,
-              "(2) bar 1 rows 1..17 use sampled Platinum E7 face");
-        CHECK(idx_at(&ctx, 300, FLAIR_MENUBAR_H - 1) == 0,
-              "(2) System-7 bar baseline (y=19) is painted ink");
-
-        /* Bar 2 (Photoshop), rows [20,40). Same Platinum profile, at +20. */
-        CHECK(idx_at(&ctx, 600, FLAIR_MENUBAR_H + 5) == 231,
-              "(2) Photoshop bar rows 1..17 use sampled Platinum E7 face");
-        CHECK(idx_at(&ctx, 300, 2 * FLAIR_MENUBAR_H - 1) == 0,
-              "(2) Photoshop bar baseline (y=39) is painted ink");
-
-        /* The Photoshop bar carries the FROZEN canon string, byte-EXACT (Law 4).
-         * The shell stamps the titles from menu_canon.h; assert item-by-item AND
-         * as the flat canon string. */
-        const MenuBar *pb = &S.scene.bar_photoshop;
-        CHECK(pb->n_menus == FLAIR_CANON_PHOTOSHOP_MENU_COUNT,
-              "(2) Photoshop bar has exactly 8 menus (menu_canon.h)");
-        int item_bad = 0;
-        for (int k = 0; k < (int)pb->n_menus; k++)
-            if (!pb->menus[k].title ||
-                strcmp(pb->menus[k].title,
-                       FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[k]) != 0)
-                item_bad = 1;
-        CHECK(!item_bad,
-              "(2) Photoshop bar titles == menu_canon.h item-by-item (Law 4)");
-
-        char flat[128]; size_t pos = 0; flat[0] = 0;
-        for (int k = 0; k < (int)pb->n_menus; k++) {
-            const char *t = pb->menus[k].title ? pb->menus[k].title : "";
-            size_t tl = strlen(t);
-            if (k) flat[pos++] = ' ';
-            memcpy(flat + pos, t, tl); pos += tl;
-        }
-        flat[pos] = 0;
-        CHECK_STR_EQ(flat, FLAIR_CANON_PHOTOSHOP_MENUBAR_EXPECTED,
-                     "(2) Photoshop bar flat string == FROZEN menu_canon.h (Law 4)");
-        /* The two chimera tells: 'Layer' at 3 and 'View' at 5 (the canon signal). */
-        CHECK(strcmp(pb->menus[3].title, "Layer") == 0,
-              "(2) canon item 3 is 'Layer' (the chimera signal -- NOT 'Mode')");
-        CHECK(strcmp(pb->menus[5].title, "View") == 0,
-              "(2) canon item 5 is 'View' (the chimera signal -- NOT 'Filter')");
-
-        /* The Photoshop bar's 'File' title actually paints INK in its slot at the
-         * second bar's y-band (proves the canon bar is RENDERED, not just built).
-         * 'File' is the first title; its slot starts at x=0 (no Apple slot on the
-         * Photoshop bar). Text ink lands within [PAD, PAD+text] at the bar VPAD. */
-        int ps_text_x0 = FLAIR_MENU_TITLE_PAD;
-        int ps_text_w  = text_measure(FONT_CHICAGO, "File");
-        int ink_found = 0;
-        for (int x = ps_text_x0; x < ps_text_x0 + ps_text_w && !ink_found; x++)
-            for (int y = SHELL_MENUBAR2_TOP + FLAIR_MENU_TITLE_VPAD;
-                 y < SHELL_MENUBAR2_TOP + FLAIR_MENU_TITLE_VPAD + 16; y++)
-                if (idx_at(&ctx, x, y) == 4) { ink_found = 1; break; }
-        CHECK(ink_found,
-              "(2) Photoshop bar 'File' title ink is RENDERED in the second band");
+              "(2) one menu bar is 20 rows high");
+        CHECK(idx_at(&ctx, 600, 5) == 231 && idx_at(&ctx, 300, 19) == 0,
+              "(2) top bar retains Platinum face and baseline");
+        CHECK(S.scene.bar.menus == finder_menu_bar()->menus &&
+              S.scene.bar.n_menus == 5 && S.scene.bar.has_apple,
+              "(2) Finder titles and Initech slot occupy the top bar");
     }
 
     /* ======================================================================
@@ -742,39 +622,97 @@ int main(int argc, char **argv)
         }
     }
 
-    /* B05 / PRD 6.3 / shell.h: a preference composite keeps the foreground
-     * menu in band 2 and still draws a moved modal above BOTH menu bands. */
+    /* Operator 2026-11-13: Finder-only, Finder window, app, return to Finder.
+     * Literal rows [20,40) must remain desktop/window pixels in every scene.
+     * Compare full top pixels against a separately drawn owner's MenuBar,
+     * preserving an app resource without has_apple and its original identity. */
     {
         static shell_store_t live;
-        static snap_t before, after;
-        build_shell(&live, 1, 1);
-        render_ctx_t lc;
-        int live_rc = init_ctx(&lc);
-        CHECK(live_rc == 0, "(9) live-menu render context init");
-        if (live_rc == 0) {
-            shell_render(&live.scene, &lc.fb.bm);
-            snapshot(&lc, &before);
-            shell_render_with_menubar(&live.scene, &lc.fb.bm, &live.scene.bar_sys);
-            int top_bad = 0, lower_bad = 0;
-            for (int y = 0; y < 20; y++) for (int x = 0; x < 640; x++) {
-                int want = before.px[y * 640 + x];
-                top_bad += idx_at(&lc, x, y) != want;
-                lower_bad += idx_at(&lc, x, y + 20) != want;
+        static snap_t finder, app;
+        build_shell(&live, 0, 1);
+        DisposeWindow(&live.scene.wm, &live.wins[0].rec);
+        DisposeWindow(&live.scene.wm, &live.wins[1].rec);
+        render_ctx_t lc, reference;
+        int lr = init_ctx(&lc), rr = init_ctx(&reference);
+        CHECK(lr == 0 && rr == 0, "(9) single-bar contexts initialize");
+        if (lr == 0 && rr == 0) {
+            CHECK(MenuClock_set(9, 0), "(9) deterministic clock set");
+            for (int which = 0; which < 3; which++) {
+                const MenuBar *owner = which == 1 ? &live.paint_bar : finder_menu_bar();
+                shell_render_with_menubar(&live.scene, &lc.fb.bm, owner);
+                MenuBar expected = *owner;
+                expected.has_apple = 1;
+                MenuClock_attach(&expected);
+                DrawMenuBar(&reference.port, &expected, -1, NULL);
+                int top_bad = 0, lower_bad = 0;
+                for (int y = 0; y < 20; y++) for (int x = 0; x < 640; x++)
+                    top_bad += idx_at(&lc, x, y) != idx_at(&reference, x, y);
+                for (int y = 20; y < 40; y++) for (int x = 0; x < 640; x++)
+                    lower_bad += idx_at(&lc, x, y) != (int)FLAIR_DESKTOP_BG_INDEX;
+                CHECK(top_bad == 0, "(9) front owner's titles, glyph and clock in top bar");
+                CHECK(lower_bad == 0, "(9) no second band in Finder or app scene");
+                CHECK(!region_contains_point(live.scene.overlay_rgn, 300, 20),
+                      "(9) reclaimed rows are not menu occlusion");
+                if (which == 0) snapshot(&lc, &finder);
+                if (which == 1) snapshot(&lc, &app);
+                if (which == 2) {
+                    static snap_t restored;
+                    snapshot(&lc, &restored);
+                    CHECK(memcmp(finder.px, restored.px, sizeof finder.px) == 0,
+                          "(9) returning to Finder restores titles and clock");
+                }
+
+                /* First title, first item: pull down, track, and select. */
+                const MenuBar *shown = shell_front_menubar(&live.scene, owner);
+                MenuTrackState track;
+                flair_point_t title = { 10, 60 }, item = { 28, 60 };
+                MenuTrack_begin(shown, title, &track);
+                flair_draw_menu_panel(&lc.port, shown, track.mi, -1, NULL);
+                MenuTrack_step(shown, &track, item);
+                CHECK(MenuTrack_result(shown, &track) ==
+                      MenuResult(which == 1 ? 256 : 512, 1),
+                      "(9) front menu pulls down and tracks at row zero");
+                CHECK(owner->menus == shown->menus && owner != shown,
+                      "(9) display view shares items without replacing owner identity");
+                shell_render_with_menubar(&live.scene, &lc.fb.bm, owner);
+                int erased = 1;
+                for (int y = 20; y < 40; y++) for (int x = 0; x < 640; x++)
+                    erased &= idx_at(&lc, x, y) == (int)FLAIR_DESKTOP_BG_INDEX;
+                CHECK(erased, "(9) menu dismissal restores desktop below row 19");
             }
-            CHECK(top_bad == 0, "(9) live menu does not replace the system band");
-            CHECK(lower_bad == 0, "(9) foreground menu installed in complete second band");
+            CHECK(memcmp(finder.px, app.px, 20 * 640) != 0,
+                  "(9) application activation changes top-band titles");
+            CHECK(live.paint_bar.has_apple == 0,
+                  "(9) shell leaves original application menu resource unchanged");
+            CHECK(live.paint_bar.n_menus == 8 &&
+                  strcmp(live.paint_bar.menus[3].title, "Layer") == 0 &&
+                  strcmp(live.paint_bar.menus[5].title, "View") == 0,
+                  "(9) Photoshop titles survive as front application menus");
+
+            /* A window may occupy the former band, and live damage repaint
+             * must neither clip it nor overwrite the top bar. */
+            NewDocumentWindow(&live.scene.wm, &live.wins[0].rec,
+                              (rgn_rect_t){20, 60, 240, 420}, documentKind, 1);
             shell_render(&live.scene, &lc.fb.bm);
-            snapshot(&lc, &after);
-            CHECK(memcmp(before.px, after.px, sizeof before.px) == 0,
-                  "(9) live override leaves the authored scene unchanged");
+            CHECK(idx_at(&lc, 60, 20) == CIDX_BLACK &&
+                  idx_at(&lc, 300, 19) == CIDX_BLACK,
+                  "(9) Finder window can begin immediately below the sole bar");
+            MoveWindow(&live.scene.wm, &live.wins[0].rec, 80, 20);
+            desktop_paint_damage(&live.scene.wm, &lc.fb.bm, &live.comp.r);
+            CHECK(idx_at(&lc, 60, 20) == (int)FLAIR_DESKTOP_BG_INDEX &&
+                  idx_at(&lc, 80, 20) == CIDX_BLACK &&
+                  idx_at(&lc, 300, 19) == CIDX_BLACK,
+                  "(9) reclaimed rows participate in window exposure and repaint");
+            live.scene.modal_up = 1;
             MoveDialog(live.scene.dlg, 0, -190);
             shell_sync_overlay(&live.scene);
-            shell_render_with_menubar(&live.scene, &lc.fb.bm, &live.scene.bar_sys);
+            shell_render_with_menubar(&live.scene, &lc.fb.bm, &live.paint_bar);
             CHECK(idx_at(&lc, 499, 15) == CIDX_BLACK &&
                   idx_at(&lc, 499, 30) == CIDX_BLACK,
-                  "(9) moved modal frame occludes both live menu bands");
-            render_ctx_free(&lc);
+                  "(9) moved modal occludes menu and reclaimed desktop rows");
         }
+        if (lr == 0) render_ctx_free(&lc);
+        if (rr == 0) render_ctx_free(&reference);
     }
 
     /* ======================================================================

@@ -17,7 +17,7 @@ void kernel_graphical_environment(void)
     FlairProcessList_init(&ten_plist);
     {
         rgn_rect_t db;
-        db.top = (int16_t)(SHELL_MENUBAR2_TOP + FLAIR_MENUBAR_H);
+        db.top = (int16_t)SHELL_MENUBAR_H;
         db.left = 0;
         db.bottom = (int16_t)FLAIR_SCREEN_H;
         db.right = (int16_t)FLAIR_SCREEN_W;
@@ -121,13 +121,11 @@ void kernel_graphical_environment(void)
         uint32_t last = start;
         uint32_t seen = 0u;
         ((void)(start + (uint32_t)250));
-        bitmap_t ten_bar2_view;
         GrafPort ten_barport;
         {
-            make_offset_view(&ten_bar2_view, &ctx.off, (uint32_t)SHELL_MENUBAR2_TOP);
-            rgn_rect_t whole = { 0, 0, (int16_t)ten_bar2_view.height,
-                                 (int16_t)ten_bar2_view.width };
-            ten_barport.portBits.bm = ten_bar2_view;
+            rgn_rect_t whole = { 0, 0, (int16_t)ctx.off.height,
+                                 (int16_t)ctx.off.width };
+            ten_barport.portBits.bm = ctx.off;
             ten_barport.portBits.bounds = whole;
             ten_barport.portRect = whole;
             ten_barport.visRgn = (region_t *)0;
@@ -138,7 +136,6 @@ void kernel_graphical_environment(void)
             ten_barport.grafProcs = (QDProcs *)0;
         }
         g_ten_barport = &ten_barport;
-        MenuClock_attach(&ctx.scene->bar_sys);
         uint32_t clock_last_poll = 0;
         int clock_polled = 0;
         while (!g_desktop_exit) {
@@ -234,26 +231,18 @@ void kernel_graphical_environment(void)
                         flair_live_do_collapse(&ctx, &b, chrome_w);
                 } else if (ev.where.v >= 0 &&
                            ev.where.v < (int16_t)FLAIR_MENUBAR_H) {
-                    (void)flair_live_apple_result(&ctx, &b,
-                        flair_live_do_menu_at(&ctx, &b, &ctx.scene->bar_sys,
-                                              ev.where, 0u));
-                } else if (ev.where.v >= (int16_t)SHELL_MENUBAR2_TOP &&
-                           ev.where.v < (int16_t)(SHELL_MENUBAR2_TOP +
-                                                  FLAIR_MENUBAR_H)) {
-                    MenuBar *menu2_bar = flair_live_tenant_bar(&ctx, &ten_plist);
-                    uint32_t menu2_sel =
-                        flair_live_do_menu_at(&ctx, &b, menu2_bar, ev.where,
-                                              (uint32_t)SHELL_MENUBAR2_TOP);
-                    if (!flair_live_apple_result(&ctx, &b, menu2_sel)) {
-                        flair_live_finder_menu_result(&ctx, &b, menu2_bar,
-                                                      menu2_sel);
-                        flair_live_tenant_menu_result(&ctx, &b, menu2_bar,
-                                                      menu2_sel, &ev);
+                    MenuBar *menu_bar = flair_live_tenant_bar(&ctx, &ten_plist);
+                    uint32_t menu_sel =
+                        flair_live_do_menu_at(&ctx, &b, menu_bar, ev.where, 0u);
+                    if (!flair_live_apple_result(&ctx, &b, menu_sel)) {
+                        flair_live_finder_menu_result(&ctx, &b, menu_bar,
+                                                      menu_sel);
+                        flair_live_tenant_menu_result(&ctx, &b, menu_bar,
+                                                      menu_sel, &ev);
                     }
                 }
                 if (chrome_pc == inDesk &&
-                    ev.where.v >= (int16_t)(SHELL_MENUBAR2_TOP +
-                                            FLAIR_MENUBAR_H)) {
+                    ev.where.v >= (int16_t)SHELL_MENUBAR_H) {
                     flair_live_desk_activate(&ctx, &b, &ev);
                     flair_live_do_desk(&ctx, &b, &ev);
                 }

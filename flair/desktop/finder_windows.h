@@ -209,7 +209,8 @@
  * never opens one.
  * ===========================================================================*/
 #define FINDER_WIN_DEFAULT_L      20
-#define FINDER_WIN_DEFAULT_T      60
+/* Operator 2026-11-13: keep a 20px margin below the single 20px bar. */
+#define FINDER_WIN_DEFAULT_T      40
 #define FINDER_WIN_DEFAULT_W     360
 #define FINDER_WIN_DEFAULT_H     220
 #define FINDER_WIN_CASCADE_DX     20

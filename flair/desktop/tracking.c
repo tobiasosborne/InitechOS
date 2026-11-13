@@ -37,7 +37,8 @@ __attribute__((noinline)) void flair_live_repaint_present(flair_live_ctx_t *ctx,
 MenuBar *flair_live_tenant_bar(flair_live_ctx_t *ctx,
                                       FlairProcessList *list)
 {
-    MenuBar *bar = &ctx->scene->bar_photoshop;
+    MenuBar *bar = finder_menu_bar();
+    (void)ctx;
     if (list != (FlairProcessList *)0 && list->head != (FlairApp *)0 &&
         list->head->menubar != (MenuBar *)0)
         bar = list->head->menubar;
@@ -54,7 +55,8 @@ void flair_live_finish_tenant_switch(flair_live_ctx_t *ctx,
     if (list->head == (FlairApp *)0 || list->head == prev_fg) return;
     desktop_paint_damage(ctx->wm, &ctx->off, ctx->comp);
     flair_route_updates(list, ctx->wm);
-    DrawMenuBar(barport, flair_live_tenant_bar(ctx, list), -1,
+    DrawMenuBar(barport, shell_front_menubar(ctx->scene,
+                flair_live_tenant_bar(ctx, list)), -1,
                 (const region_t *)0);
     flair_desktop_present(bi, &ctx->off);
     serial_puts("FLAIR-DISPATCH app=");
@@ -72,7 +74,7 @@ void flair_live_clamp_drag(const flair_live_ctx_t *ctx, WindowPtr w,
     int32_t top = (int32_t)s.top + (int32_t)*dv;
     int32_t min_left = (int32_t)frame.left + 4 - width;
     int32_t max_left = (int32_t)frame.right - 4;
-    int32_t min_top = (int32_t)SHELL_MENUBAR2_TOP + (int32_t)FLAIR_MENUBAR_H;
+    int32_t min_top = (int32_t)SHELL_MENUBAR_H;
     int32_t max_top = (int32_t)frame.bottom - (int32_t)FLAIR_CHROME_TITLEBAR_H;
     if (min_top < (int32_t)frame.top) min_top = (int32_t)frame.top;
     if (left < min_left) left = min_left;
@@ -456,7 +458,8 @@ void flair_live_do_close(flair_live_ctx_t *ctx, const boot_info_t *bi,
     flair_live_repaint(ctx);
     if (tenant_barport != (GrafPort *)0)
         DrawMenuBar(tenant_barport,
-                    flair_live_tenant_bar(ctx, ctx->plist), -1,
+                    shell_front_menubar(ctx->scene,
+                        flair_live_tenant_bar(ctx, ctx->plist)), -1,
                     (const region_t *)0);
     flair_desktop_present(bi, &ctx->off);
     if (terminated) {
@@ -581,31 +584,8 @@ void flair_live_erase_menu_panel(flair_live_ctx_t *ctx,
         GrafPort owner_port;
         make_offset_view(&owner_view, &ctx->off, y_top);
         flair_live_init_menu_port(&owner_port, &owner_view);
-        DrawMenuBar(&owner_port, bar, -1, (const region_t *)0);
-    }
-    if (y_top == 0u && panel.top < (int16_t)(2 * FLAIR_MENUBAR_H) &&
-        panel.bottom > (int16_t)FLAIR_MENUBAR_H) {
-        MenuBar *under_bar = &ctx->scene->bar_photoshop;
-        if (ctx->plist != (FlairProcessList *)0 &&
-            ctx->plist->head != (FlairApp *)0 &&
-            ctx->plist->head->menubar != (MenuBar *)0) {
-            under_bar = ctx->plist->head->menubar;
-        }
-        bitmap_t bar_view;
-        GrafPort bar_port;
-        rgn_rect_t clip;
-        make_offset_view(&bar_view, &ctx->off,
-                         (uint32_t)FLAIR_MENUBAR_H);
-        flair_live_init_menu_port(&bar_port, &bar_view);
-        clip.top = 0;
-        clip.left = panel.left;
-        clip.bottom = (int16_t)(panel.bottom - FLAIR_MENUBAR_H);
-        if (clip.bottom > (int16_t)FLAIR_MENUBAR_H)
-            clip.bottom = (int16_t)FLAIR_MENUBAR_H;
-        clip.right = panel.right;
-        region_set_rect(ctx->comp, clip);
-        DrawMenuBar(&bar_port, under_bar, -1, ctx->comp);
-        region_set_empty(ctx->comp);
+        DrawMenuBar(&owner_port, shell_front_menubar(ctx->scene, bar), -1,
+                    (const region_t *)0);
     }
 }
 
@@ -613,6 +593,7 @@ uint32_t flair_live_do_menu_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                       MenuBar *bar, flair_point_t where0,
                                       uint32_t y_top)
 {
+    bar = (MenuBar *)shell_front_menubar(ctx->scene, bar);
     if (bar->has_apple && where0.h < (int16_t)FLAIR_MENU_APPLE_W)
         flair_live_apple_refresh();
     int mi = MenuBar_hit(bar, (int)where0.h);

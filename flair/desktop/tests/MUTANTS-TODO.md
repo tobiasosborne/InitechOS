@@ -74,10 +74,7 @@ killed by factory/red-desktop.sh. No new mutant lives in product source.
 | `apple_menu.c` | `APPLE_MENU_MUT_LIST_ALL` | `flair/desktop/tests/test_apple_menu.c` |
 | `shell.c` | `SHELL_MUTATE_MODAL_BEHIND` | `flair/desktop/tests/test_shell.c` |
 | `shell.c` | `SHELL_MUTATE_NO_MODAL` | `flair/desktop/tests/test_shell.c` |
-| `shell.c` | `SHELL_MUTATE_ONE_MENUBAR` | `flair/desktop/tests/test_shell.c` |
-| `shell.c` | `SHELL_MUT_MENU_COUNT` | `attic/harness/toolbox_hardening.mk` |
 | `shell.c` | `SHELL_MUT_SHORT_SURFACE` | `attic/harness/toolbox_hardening.mk` |
-| `shell_menus.h` | `SHELL_MENUS_MUT_ABOUT_LIVE` | `flair/desktop/tests/test_menu_handlers.c` |
 | `power_cold.c` | `KMAIN_MUT_COMMAND_MAGIC` | `attic/harness/proptest/power_overlay.mk` |
 | `power_cold.c` | `KMAIN_MUT_COMMAND_MESSAGE` | `attic/harness/diff/fat_diff/command_file.mk` |
 | `power_cold.c` | `KMAIN_MUT_COMMAND_VOLUME` | `attic/harness/proptest/power_overlay.mk` |

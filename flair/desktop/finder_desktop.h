@@ -139,7 +139,7 @@
  * (labels are centered under each sprite; the Trash label ends at y=451, which
  * is above the locked cursor PARK rect at (620,460)..(636,476)). */
 #define FINDER_DESK_MARGIN_R       24   /* right margin to the sprite's right  */
-#define FINDER_DESK_MARGIN_T        8   /* top margin below the two menu bars  */
+#define FINDER_DESK_MARGIN_T        8   /* top margin below the menu bar       */
 #define FINDER_DESK_TRASH_BOTTOM   76   /* bounds.bottom - this = sprite top   */
 
 /* Interaction constants (design F2-5). FINDER_DBLCLICK_TICKS is PROVISIONAL at

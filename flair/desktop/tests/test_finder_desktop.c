@@ -90,7 +90,7 @@ TEST_HARNESS();
 
 /* The tenants-image usable desktop: everything below the TWO stacked 20px menu
  * bars, on the 640x480 native surface (ADR-0004 OD-3). Written out by hand. */
-#define DESK_TOP     40
+#define DESK_TOP     20
 #define DESK_LEFT     0
 #define DESK_BOTTOM 480
 #define DESK_RIGHT  640
@@ -150,10 +150,10 @@ static void leg_defaults(void)
           "L1 the Trash is FIXED-position (design F1.1)");
     CHECK(strcmp(f.fd.icons[1].name, "Trash") == 0, "L1 Trash label is 'Trash'");
 
-    /* THE RECORDED PLACEMENT (hand-derived to miss every locked emu probe /
-     * click / park point on the tenants image; see the bead report). */
-    CHECK(rect_eq(finder_desk_sprite_rect(&f.fd, 0), 48, 584, 80, 616),
-          "L1 volume sprite is exactly (584,48)..(616,80)");
+    /* Operator 2026-11-13: desktop top 40 -> 20, preserving the 8px margin.
+     * The bottom-anchored Trash does not move. */
+    CHECK(rect_eq(finder_desk_sprite_rect(&f.fd, 0), 28, 584, 60, 616),
+          "L1 volume sprite is exactly (584,28)..(616,60)");
     CHECK(rect_eq(finder_desk_sprite_rect(&f.fd, 1), 404, 584, 436, 616),
           "L1 Trash sprite is exactly (584,404)..(616,436)");
 
@@ -161,9 +161,9 @@ static void leg_defaults(void)
      * (620,460)..(636,476) (spec/flair_solid_traces.mk PARK CONVENTION). */
     CHECK(finder_desk_cell_rect(&f.fd, 1).bottom <= 460,
           "L1 Trash cell ends above the locked cursor park row (y=460)");
-    /* Both cells must clear the two menu bars entirely. */
-    CHECK(finder_desk_cell_rect(&f.fd, 0).top >= 40,
-          "L1 volume cell is below both menu bars (y>=40)");
+    /* Both cells must clear the single menu bar entirely. */
+    CHECK(finder_desk_cell_rect(&f.fd, 0).top >= 20,
+          "L1 volume cell is below the sole menu bar (y>=20)");
 }
 
 /* ===========================================================================

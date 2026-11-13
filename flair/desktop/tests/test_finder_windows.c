@@ -316,12 +316,12 @@ static void leg_grid(void)
               "L3 the row-major cell origin matches the hand-computed grid");
     }
 
-    /* The default frames cascade by exactly (20,20) per slot, and their size is
-     * constant -- the header's Sec 3 contract, hand-restated. */
+    /* Operator 2026-11-13: reclaim 20 menu rows, keeping the 20px gap below
+     * the sole bar. Defaults start at row 40 and cascade by (20,20). */
     for (int slot = 0; slot < 8; slot++) {
         rgn_rect_t f = finder_win_default_frame(slot);
         CHECK(f.left == (int16_t)(20 + slot * 20) &&
-              f.top  == (int16_t)(60 + slot * 20),
+              f.top  == (int16_t)(40 + slot * 20),
               "L3 the default frame cascades 20 px per slot");
         CHECK((f.right - f.left) == 360 && (f.bottom - f.top) == 220,
               "L3 every default frame is the same 360x220 size");
@@ -832,7 +832,7 @@ static void leg_persist(void)
     CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
           "L9 a folder window opens");
     f0 = WindowFrameRect(&s.sh.windows[slot].rec);
-    CHECK(f0.left == 20 && f0.top == 60,
+    CHECK(f0.left == 20 && f0.top == 40,
           "L9 with no saved record it opens at the slot-0 cascade default");
 
     MoveWindow(&s.wm, &s.sh.windows[slot].rec, 150, 200);

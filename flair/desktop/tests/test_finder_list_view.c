@@ -193,6 +193,7 @@ static int rows_enum(void *u,uint16_t dir,finder_enum_cb cb,void *cu)
     for(unsigned i=0;i<3;i++)cb(&entries[i],cu);
     memset(entries,0,sizeof entries);return 0;
 }
+/* Operator 2026-11-13: default frame, rows and header all move up 20px. */
 static void live_layout(void)
 {
     static scene_t s;int slot=-1;
@@ -204,13 +205,13 @@ static void live_layout(void)
           "V7 metadata is copied before callback scratch expires");
     finder_shell_sync_ctx(&s.sh);
     finder_dispatch(&s.ctx,MenuResult(514,4),"mouse");
-    CHECK(w->icons[1].y==103 && w->icons[0].y==122 && w->icons[2].y==141,
+    CHECK(w->icons[1].y==83 && w->icons[0].y==102 && w->icons[2].y==121,
           "V7 captured19px pitch; descending Size puts folders last");
-    CHECK(finder_win_content_hit(w,200,105)==1 && finder_win_content_hit(w,200,90)==-1,
+    CHECK(finder_win_content_hit(w,200,85)==1 && finder_win_content_hit(w,200,70)==-1,
           "V7 row hit spans column body but excludes fixed header");
-    CHECK(finder_win_header_click(w,80,90) && w->view_bits==1,
+    CHECK(finder_win_header_click(w,80,70) && w->view_bits==1,
           "V7 live header click changes sort");
-    CHECK(finder_win_header_click(w,80,90) && w->view_bits==1,
+    CHECK(finder_win_header_click(w,80,70) && w->view_bits==1,
           "V7 reselecting current header is consumed without a row click");
     CHECK(w->scroll.axis[WSCROLL_H].max==272,
           "V7 captured605px columns use existing horizontal scrollbar");
@@ -228,10 +229,10 @@ static void live_layout(void)
           "V7 vertical extent is64 captured19px rows minus157px body");
     wscroll_set_value(&w->scroll.axis[WSCROLL_V],19);
     finder_win_sync_geometry(w);
-    CHECK(finder_win_content_hit(w,200,105)==2 && w->icons[2].y==103,
+    CHECK(finder_win_content_hit(w,200,85)==2 && w->icons[2].y==83,
           "V7 scrollbar moves rows and hit testing together below fixed header");
     finder_dispatch(&s.ctx,MenuResult(514,1),"mouse");
-    CHECK(w->view_bits==0 && w->icons[0].x==44 && w->icons[0].y==86,
+    CHECK(w->view_bits==0 && w->icons[0].x==44 && w->icons[0].y==66,
           "V7 Icons restores the original grid through the same model");
 }
 
@@ -240,11 +241,11 @@ static void persistence(void)
     static scene_t before, after;
     uint8_t db[FINDER_DB_MAX_BYTES];
     /* Two independent 24-byte kind=4 records. No desktop icons in this scene.
-     * APPS cluster7 at20,60: Size list (5); OTHER cluster8 at40,80: small (2). */
+     * Operator single-bar defaults: APPS at20,40; OTHER at40,60. */
     static const uint8_t golden[56] = {
         'I','D','B','1',1,0,2,0,
-        4,0,7,0,'A','P','P','S',0,0,0,0,0,0,0,0,0,20,0,60,0,5,0,0,
-        4,0,8,0,'O','T','H','E','R',0,0,0,0,0,0,0,0,40,0,80,0,2,0,0
+        4,0,7,0,'A','P','P','S',0,0,0,0,0,0,0,0,0,20,0,40,0,5,0,0,
+        4,0,8,0,'O','T','H','E','R',0,0,0,0,0,0,0,0,40,0,60,0,2,0,0
     };
     int apps = -1, other = -1;
     uint32_t len;
