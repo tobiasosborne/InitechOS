@@ -1,124 +1,152 @@
 # Status
 
-Rewritten, never appended to. Last rewritten 2026-11-13.
+Rewritten, never appended to. Last rewritten 2026-11-13, end of the
+first day of the reboot. A new machine: start with `docs/SETUP.md`.
 
 ## Where we are
 
-The reboot started on 2026-11-13. The legacy tree is frozen at the tag
-`legacy-final` and runs from `../InitechOS-legacy`.
+The legacy tree is frozen at the tag `legacy-final`. `main` is the
+product again, in a new structure: every component has its own
+directory, Makefile and tests, and the factory around them is about 600
+lines of make and shell.
 
-`main` is the product again. `make image` builds the disk set. It boots
-to InitechDOS, `AUTOEXEC.BAT` runs `FLAIR`, and the desktop comes up
-with the Finder. Initech 123 launches from the `APPS` folder, saves a
-worksheet, and Special > Exit to DOS returns to the prompt.
+What `main` does, checked mechanically on QEMU and Bochs at 8 MiB:
 
-- `make -j16 test`: every component's host tests, about 75 seconds from
-  clean, with per-test timeouts, a time budget per component and the
-  reference corpora verified against `goldens/CORPORA.lock` first.
-- `make status`: the import board, generated. Use it instead of trusting
-  the table below.
-- `make smoke`: three sessions on QEMU and Bochs at 8 MiB, about 100
-  seconds: a scripted DOS session; test programs run from a separate
-  test disk; and the desktop journey (open the disk, open APPS, launch
-  123, enter two numbers and a sum, save, quit, exit to DOS, start
-  FLAIR again) with the saved file checked on the host by an
-  independent `.WK1` reader.
-- `make -C turbo selfhost` and `ddc`: Turbo Initech compiles itself
-  inside the OS to a fixed point (`K2 == K3`), and the Free Pascal
-  bootstrap reaches the same bytes.
+- Boots to InitechDOS; `AUTOEXEC.BAT` runs `FLAIR`; the Finder comes up
+  with one menu bar. Special > Exit to DOS returns to the prompt.
+- Initech 123 launches from the `APPS` folder, takes input, saves; an
+  independent `.WK1` reader on the host confirms the file.
+- InitechBase runs from the prompt: USE, LIST, REPLACE, APPEND, INDEX
+  and SEEK, programs, the Y2K accounting program with its canon bug;
+  the `.dbf` and `.ndx` are verified on the host.
+- Turbo Initech compiles the corpus inside the OS, and compiles itself
+  to a fixed point: `K2 == K3`, 163,843 bytes, SHA-256 `b37f96ad...`
+  (`make -C turbo selfhost`); the Free Pascal bootstrap reaches the same
+  bytes (`make -C turbo ddc`).
 
-The product kernel image is 268,670 bytes (kernel, shell, Toolbox,
-desktop); the kernel alone is 106,116 bytes and still links and boots.
-The loader takes any size up to its 512 KiB window.
+The commands:
 
-## Import board
+| Command | What | Time |
+|---|---|---|
+| `make corpus` | reference files present and matching `goldens/CORPORA.lock` | under 1 s warm |
+| `make -j16 test` | every component's host tests | about 75 s |
+| `make image` | the product disk set | about 50 s clean, seconds warm |
+| `make smoke` | five sessions on both emulators: DOS, test programs, the desktop journey, Turbo Initech, InitechBase | about 3 min |
+| `make status` | which components are imported, and which condition each fails | seconds |
+| `make repro` | two clean builds, identical hashes | about 1 min |
+| `make cert` | tier 2. **Not on main** (fails on purpose); built on branch `wave2/factory` | - |
 
-*Host-green*: its host tests pass and it is listed in `COMPONENTS`.
-*Imported* (CLAUDE.md): also its real artifact builds for the target, no
-deliberately wrong code is left in product source, and its build reads
-nothing from `attic/`. Only `flair/region` is close; none is fully
-imported yet.
+`make status` today: imported: `flair/region`, `apps/initech123`,
+`apps/initechbase`. Host-green: the rest. Three of the host-green lines
+are the audit's own false positives (kernel, dos and flair have no
+hooks left); the fix is on `wave2/factory`.
 
-| Component | State |
-|---|---|
-| `boot/` | builds and boots; chunked loader; oversized-kernel check. No host tests (none in legacy). |
-| `kernel/` | builds and boots, InitechDOS only. Host tests run: 86 gates, 11,214 checks (the legacy totals), 24 seconds, including the FAT differential against mtools and an independent reader. All mutation hooks are out of product source and are patch files: 229 of 268 killed, 39 not yet proven. The product kernel is byte-identical before and after that conversion. |
-| `dos/` | COMMAND.COM (still linked into the kernel image) and fifteen external utilities, built and on the disk. Host tests run: 31 gates, 676 checks, 12 seconds. Mutants: 114 of 160 killed, 46 not yet proven. Known debts in `dos/README.md`: the shell calls kernel internals; the disk utilities use INT 13h/25h/26h directly; FIND ignores file name operands. |
-| `flair/region/` | host-green, mutants converted (8 patches, all killed), compiles for the target. |
-| `flair/` | host-green: 52 test runs, 451,957 checks, 2 seconds warm; builds `libflair.a` (byte-identical across the hook conversion). All mutation hooks are patch files: 207 patches, 191 killed in an 80-second sweep, 16 pending because legacy only killed them in the emulator (each names its legacy gate). The conversion restored four pieces of host coverage the import had dropped. `make status` still says host-green because the audit scans the parked desktop sources and a host-only generator; that is the audit's bug, with the factory owner. |
-| `flair/desktop/` | builds and runs: the Finder, the event pump, tracking, launching, volumes, dialogs, extracted from the legacy `kmain.c` into eight files; the platform binding to the kernel. 17 host suites. `kmain_legacy.c` is down from 8,207 lines to 335 (film scene and text-app hand-off fragments, not built). Parked, not built: film scene, easter eggs, about box. |
-| `system/` | the final link of the product kernel image and the list of what goes on the working volume. |
-| `sdk/` | host-green: self-contained app headers in `sdk/include`, the runtime, one shared fake Toolbox (`sdk/host`), the EXE build rule (`mk/tenant.mk`), ABI tests that pin trap numbers and i386 record layouts. Limits imposed by the OS side are in `sdk/README.md`. |
-| `apps/initech123/` | **imported.** 19 test programs, about a million checks, 59 real Lotus `.WK1` files, 10 seconds; the shipped menu-loading path is tested (valid, missing, truncated, corrupted `123.MNU`). 37 mutants as patches, all killed (about 3.5 minutes, tier 2). Builds `123.EXE` (byte-identical across the conversion) and publishes the worksheet core as `libi123.a`. The README freezes the feature inventory: 224 slash-menu leaves are refused today, each named. |
-| `apps/initechword/` | host-green: 13 test programs, 22,394 checks, 25 seconds. Target objects compile against `sdk/include`; not yet on `mk/tenant.mk` or the shared fake. 75 mutation hooks still to convert. |
-| `apps/initechbase/` | host-green: 75 suites, 44,504 counted checks. Builds 23 target objects and packaging tools without attic dependencies; uses factory/mz. Packaging is blocked by the app's 65,536-byte reserve declaration: 65,616 bytes required. The extended kernel loader already accepts larger reserves; no kernel change is needed. Pair/boot validation and mutation conversion remain with InitechBase (component README and tests inventories). |
-| `apps/initechbase/` | host-green: 75 suites (43 against real dBASE III PLUS captures), 44,504 checks, 37 seconds. Codename removed. Target objects build; packaging `INITBASE.EXE` fails on purpose: the app's own loader reserve is 65,536 bytes and it now needs 65,616 (`README.md`, Known blockers; no kernel change needed). 303 mutation hooks still to convert. |
-| other `apps/*` | source moved; not started. **Frozen** until the vertical slice below works. |
-| `turbo/` | **Self-hosting.** Turbo Initech emits machine code directly (flat programs and extended-memory executables with relocation tables), runs in extended memory, compiles the 17-program corpus inside the OS on QEMU and Bochs with results equal to the Free Pascal goldens, and compiles itself inside the OS to a fixed point: `K2 == K3`, 163,843 bytes, SHA-256 `b37f96ad...3088e3` (`make -C turbo selfhost`, about 2.5 minutes). The independent bootstrap through Free Pascal reaches the same bytes (`make -C turbo ddc`). Tier 0: 45 programs in 20 seconds, 12 encoder mutants killed. Not done: the IDE; the startup runtime is a checked-in byte table derived from NASM (regenerated and compared in tier 0) rather than emitted by the compiler's own encoders; the fixed point is proven on QEMU, not yet on Bochs. |
-| `factory/` | QEMU and Bochs drivers, the image builder, the smoke session, the reproducibility and parity checks. |
-| `goldens/` | empty; corpora are still read from sibling checkouts, unpinned. |
+## Three branches are finished or nearly so and NOT merged
 
-## In flight
+They are pushed to GitHub. Land them in this order; each needs the
+adjustments listed, because `main` moved under them.
 
-Wave 2, one owner per area (branches `wave2/*`):
+### 1. `wave2/initechword` (2 commits; its agent was stopped mid-run)
 
-| Owner of | Job |
-|---|---|
-| `mk/`, top Makefile, `factory/`, component Makefiles' build wiring | one producer per output; an honest `make status`; `make cert` (tier 2) |
-| `apps/initechbase` | package `INITBASE.EXE`; run it in the OS with a host-side check; hooks to patches |
-| `apps/initechword` + the desktop smoke scripts | `WORD.EXE` on the desktop; per-app smoke journeys |
-| the small apps | Calculator, Note Pad, Scrapbook, InitechText, Control Panels, InitechCalc, InitechPaint built, tested, on the disk |
+Restructures the desktop smoke so each app owns its journey
+(`apps/<app>/tests/smoke/journey.sh`, discovered from a list, several
+journeys per boot), moves the Initech 123 journey to
+`apps/initech123/tests/smoke/`, builds `WORD.EXE` through
+`mk/tenant.mk`, puts it on the disk with its own journey and an
+independent `.WP5` check, converts InitechWord's 75 mutation hooks to
+patches. Not verified by the orchestrator.
 
-## The vertical slice is done
+To land: merge; the one-menu-bar change on `main` moved everything
+below the menu bar up 20 pixels, so apply to the moved 123 journey
+what `main` applied to `factory/desktop-trace.sh` (the `open_disk`
+trace: both `m100:-88` become `m100:-98`) and check the Word journey's
+coordinates the same way (targets moved: volume 600,64 to 600,44; APPS
+56,102 to 56,82; Special menu press 170,30 to 170,10); run
+`make smoke`; check its final steps (import check, README inventory)
+were finished.
 
-One app runs end to end on the new tree, on both emulators, checked
-mechanically. That run is the template for every other app: build the
-executable with `mk/tenant.mk`, add it to `system/working-volume.list`,
-add its journey to the desktop smoke with a host-side check of what it
-saved. App imports are unfrozen.
+### 2. `wave2/smallapps` (10 commits; finished and self-verified)
 
-## Next
+Calculator, Note Pad, Scrapbook, InitechText, Control Panels,
+InitechCalc and InitechPaint: built with `mk/tenant.mk`, host tests on
+the shared fake Toolbox, 42 mutants as patches (all killed), each
+launched on QEMU (InitechCalc and InitechText also on Bochs) with a
+host-side check of what it saved. `apps/ref` is deleted; the font
+specimen and the C example are SDK examples, not on the disk.
 
-1. Make `make status` say "imported" for every component: convert the
-   remaining mutation hooks to patches (Initech 123, InitechWord,
-   InitechBase, the Toolbox, the SDK's three, the seed), declare each
-   component's target artifacts, and check why the audit still flags
-   the kernel after its hooks were converted (likely the pattern).
-2. Put InitechWord and InitechBase on the disk and into the smoke, each
-   with a host-side check of a saved file. InitechBase first needs its
-   loader reserve raised (`apps/initechbase/README.md`).
-3. Import the remaining apps: InitechCalc, InitechPaint, InitechText,
-   Calculator, Note Pad and Scrapbook, Control Panels.
-4. The frame (GOLDEN-MASTER item 3): the film scene on the new desktop,
-   the real ledger in place of `TODO_FRAME`, FILE COPY made safe.
-5. The Turbo Initech IDE; the runtime emitted by the compiler's own
+To land: (a) the top Makefile's `desktop-apps` must build the six
+product apps before the image is assembled (today it builds 123 and
+InitechBase; `make repro` fails without this); (b) its journeys were
+written against the two-band desktop: move click targets below the
+menu bar up 20 pixels, and plug them into the journey list from branch
+1; (c) InitechCalc compiles Initech 123's sources through a marked
+temporary block: switch it to `build/apps/initech123/libi123.a`, which
+is now on `main`; (d) add its components to `COMPONENTS`.
+
+### 3. `wave2/factory` (6 commits; its agent was stopped mid-run)
+
+Separates build variants that wrote the same object file (the
+`dos/command.o` thrash), fixes the status audit's false positives,
+declares target artifacts, converts the SDK's 3 and the seed's 17
+mutation hooks, and composes `make cert`. Not verified by the
+orchestrator.
+
+To land: merge last (it rewrites the top Makefile; keep the
+`desktop-apps` lines from branches 1 and 2 and `SMOKE_COMPONENTS`).
+**It removes two deliberately wrong entry points from the compiler's
+runtime, so the self-host fixed point changes.** Regenerate the
+compiler's runtime table if the branch did not, then re-run
+`make -C turbo test`, `selfhost` and `ddc` and record the new hash
+here. Then run `make cert` for the first time.
+
+## Known defects found on day one
+
+- Initech 123's window still opens at y=40, leaving a 20-pixel strip of
+  desktop under the single menu bar. Apps request their own initial
+  frame; each needs moving up.
+- The menu bar's mark is still the Apple glyph. Ruled out by the
+  operator (CLAUDE.md, constitution point 2); to be replaced with
+  Initech's mark derived from the boot logo.
+- Finder icon labels overlap when names are long (`ATTRIB.COM`).
+- FIND ignores file name operands; the kernel's overlay loading differs
+  from captured DOS 3.30 (both noted by the kernel test import).
+- The film frame's ledger still has `TODO_FRAME` cells. Under the lore
+  these are gaps in what survived and are shown as gaps, not invented.
+- Mutants converted but not yet proven killed: kernel 39, dos 46,
+  flair 16, initechbase 28. Each needs the emulator or a better test.
+- Initech 123 shows 224 slash-menu leaves it refuses; InitechPaint 24.
+  GOLDEN-MASTER item 6: each either works or is removed.
+
+## Next, in order
+
+1. Land the three branches above; run `make cert`; fix what it finds.
+2. `make status` says "imported" for every component.
+3. Initech's mark in the menu bar; app windows up 20 pixels.
+4. The frame on the new desktop (GOLDEN-MASTER item 3): the film scene,
+   FILE COPY made safe, the ledger with its gaps shown honestly.
+5. The seven data-loss bugs at the top of `bd ready`.
+6. Dead commands: a proposed split (implement or remove) for Initech
+   123, InitechWord and the small apps, for the operator.
+7. The Turbo Initech IDE; the runtime emitted by the compiler's own
    encoders; the fixed point on Bochs.
-6. Tier 2 (`make cert`) and the first end-of-day run.
-7. The golden-master bugs in `bd ready`, data loss first.
+8. The install path and a single product disk (GOLDEN-MASTER item 8).
 
 ## Notes for this week
 
-- Disk layout today (inherited): IDE master is the boot volume (C:),
-  IDE slave is the working volume (A:) with CONFIG.SYS, the utilities
-  and a COMMAND.COM stub. A single installable disk is still to design.
-- Bochs here has no 486 model and runs its Pentium model; QEMU runs
-  `-cpu 486`.
-- 85 kernel and DOS mutants are converted to patches but not yet proven
-  killed (`make -C kernel mutants`, `make -C dos mutants`). Each is
-  either a test gap or a mutant that needs the emulator.
-- Orchestration: implementation and review go to Sol 6.1 at xhigh by
-  default; Astra for hands-on emulator driving; Opus for hard design;
-  one Muse Wonder Full at a time for an independent opinion.
-- 8 MiB is the minimum machine. In QEMU that is `-m 8 -machine
-  acpi=off`; plain `-m 8` loses memory to ACPI tables and is refused.
-- Reference corpora are read from `~/Projects/*-decomp`
-  (`mk/config.mk`). They get pinned under `goldens/` later.
-- The tracker was reset from the triage (`attic/triage/`): 119 issues
-  are golden-master work (label `gm`, `comp:<component>`,
-  `sev:<severity>`; data loss is P0), 17 need checking against the
-  running product (`verify`), 164 are Release 2 (deferred), 117 were
-  closed as obsolete. `bd ready` now shows only golden-master work.
-- The per-component import manifest is in `attic/manifest/`.
-- Codenames are retired (CLAUDE.md, Names). Directories are renamed
-  to product names. Identifiers and file names (`samir_*`, `pal_milton.c`,
-  `SAMIR.EXE`, `tps.pas`) are renamed as each component is imported.
+- One owner per directory when several agents work at once; the shared
+  places (`mk/`, the top Makefile, `factory/`) had one owner, the
+  `wave2/factory` branch. After it lands, name the next owner here.
+- Day one's lesson on parallel work: branches that start before a
+  shared interface settles need an integration pass. Land interface
+  changes first, then fan out.
+- Briefs that fence an agent too tightly make it stop; give each agent
+  the directories its task really touches.
+- 8 MiB is the minimum machine: `-m 8 -machine acpi=off` in QEMU.
+- Bochs here runs its Pentium model (no 486 model in this build); QEMU
+  runs `-cpu 486`.
+- Disk layout is inherited: IDE master is the boot volume, IDE slave
+  the working volume (A:). A single installable disk is still to design.
+- Orchestration: implementation and review on Sol 6.1 at xhigh; Astra
+  for hands-on emulator driving; Opus for hard design; one Muse Wonder
+  Full at a time for an independent opinion. Verify what an agent
+  reports before merging it.
