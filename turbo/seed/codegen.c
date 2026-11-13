@@ -216,15 +216,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef SEED_MUT_NONDET
-#include <sys/types.h>
-#include <unistd.h>
-#endif
-
-#if defined(SEED_MUT_FILEIO_SHORT_WRITE) && defined(SEED_MUT_FILEIO_WRONG_HANDLE)
-#error "build one B8 FILEIO mutant at a time"
-#endif
-
 /* ============================================================================
  * B4 (beads initech-63ce; ADR-0007 DEC-02/DEC-04) -- THE CODEGEN PIVOT:
  * procedures/functions, real cdecl stack frames, value + var parameters,
@@ -567,16 +558,9 @@ static int cg_param_offset(int i)
  * locals in declaration order) lives at [ebp - 4*(k+1)]. */
 static int cg_local_offset(int slot)
 {
-#ifdef SEED_MUT_CODEGEN_FRAME_OFF4
-    /* MUTATION HOOK (Rule 6; beads initech-63ce, ADR-0007 DEC-07 B4 "frame
-     * offsets" deep-bug locus): shift every local/result 4 bytes too shallow,
-     * so slot 0 lands on the saved-ebp word [ebp+0] and a function writing
-     * its result corrupts its own frame link. test-seed-func-mutant asserts
-     * func.pas goes RED. */
-    return -(4 * slot);
-#else
+
     return -(4 * (slot + 1));
-#endif
+
 }
 
 /*
@@ -591,18 +575,9 @@ static int cg_local_offset(int slot)
  */
 static int cg_field_offset(int field_index)
 {
-#ifdef SEED_MUT_CODEGEN_FIELD_OFF4
-    /* MUTATION HOOK (Rule 6; beads initech-rug7, ADR-0007 DEC-07's
-     * per-family mutation obligation for B6 -- the committee's own named
-     * deep-bug locus: "every field offset shifted +4"). Compile with
-     * -DSEED_MUT_CODEGEN_FIELD_OFF4 to shift EVERY field's byte offset 4
-     * bytes too high, so a record's field 0 reads/writes field 1's slot
-     * (and its LAST field reads/writes one dword past the record entirely).
-     * test-seed-record-mutant asserts record.pas goes RED. */
-    return 4 * field_index + 4;
-#else
+
     return 4 * field_index;
-#endif
+
 }
 
 /* A parameter's effective by-reference flag. The VARPARAM_COPY mutant forces
@@ -610,15 +585,9 @@ static int cg_field_offset(int field_index)
  * consistently. */
 static int cg_param_is_var(int declared_is_var)
 {
-#ifdef SEED_MUT_CODEGEN_VARPARAM_COPY
-    /* MUTATION HOOK (Rule 6; beads initech-63ce, ADR-0007 DEC-07 B4
-     * "var-param aliasing" deep-bug locus). test-seed-func-mutant asserts
-     * func.pas goes RED. */
-    (void)declared_is_var;
-    return 0;
-#else
+
     return declared_is_var;
-#endif
+
 }
 
 /* Resolve a name in the ACTIVE routine scope; NULL means "not a param/local/
@@ -921,45 +890,13 @@ static void gen_index_byteoff(Cg *cg, const AstNode *idxexpr, long lo,
 {
     FILE *o = cg->out;
     gen_expr(cg, idxexpr);           /* index value -> eax */
-#ifdef SEED_MUT_CODEGEN_ARRAY_LO_SKIP
-    /* MUTATION HOOK (Rule 6; beads initech-54uu, ADR-0007 DEC-07's
-     * per-family mutation obligation for B5 -- the cheap second leg for the
-     * lo-offset half of "base + (index - lo) * stride"). Compile with
-     * -DSEED_MUT_CODEGEN_ARRAY_LO_SKIP to OMIT the "- lo" step entirely
-     * (every array is addressed as if lo were always 0), so any array whose
-     * declared lower bound is NON-ZERO is indexed off-by-`lo` elements --
-     * array.pas's a[]/c[]/local_arr[]/letters[]/flags[] all have a non-zero
-     * lo (only b's lo=0 is unaffected by this particular leg), so this
-     * bites broadly. test-seed-array-mutant asserts array.pas goes RED
-     * under this leg too. */
-    (void)lo;
-#else
+
     if (lo != 0)
         fprintf(o, "    sub eax, %ld\n", lo);  /* zero-based: (index - lo) */
-#endif
-#ifdef SEED_MUT_CODEGEN_STRIDE
-    /* MUTATION HOOK (Rule 6; beads initech-54uu, ADR-0007 DEC-07's
-     * per-family mutation obligation for B5). Compile with
-     * -DSEED_MUT_CODEGEN_STRIDE to multiply by 2 instead of the correct
-     * uniform 4-byte stride, so EVERY indexed read/write/var-param address
-     * lands on the wrong element (or straddles two elements) for any index
-     * other than 0. test-seed-array-mutant asserts array.pas goes RED. */
-    (void)elem_words;
-    fprintf(o, "    imul eax, 2\n");
-#elif defined(SEED_MUT_CODEGEN_REC_STRIDE)
-    /* MUTATION HOOK (Rule 6; beads initech-rug7, ADR-0007 DEC-07's
-     * per-family mutation obligation for B6 -- the bead's own named "array-
-     * of-record stride = field-count-1 slots" deep-bug leg). Compile with
-     * -DSEED_MUT_CODEGEN_REC_STRIDE to under-count the stride by one FIELD
-     * (4*(elem_words-1) instead of 4*elem_words). Only meaningfully wrong
-     * for a RECORD element (elem_words > 1) -- record.pas's array-of-record
-     * fixture (toks: array[...] of Token, 3 fields) is what this bites;
-     * test-seed-record-mutant asserts it goes RED. */
-    fprintf(o, "    imul eax, %d\n", 4 * (elem_words - 1));
-#else
+
     fprintf(o, "    imul eax, %d\n", 4 * elem_words); /* stride: uniform
                                                         * 4-byte slot(s) */
-#endif
+
 }
 
 /* B6 (beads initech-rug7): `field_words` (0 for a scalar array element, or
@@ -1295,18 +1232,14 @@ static void gen_str_compare(Cg *cg, const AstNode *e)
     case OP_LE: fprintf(o, "    setle al\n"); break;
     case OP_GE: fprintf(o, "    setge al\n"); break;
     case OP_LT:
-#ifdef SEED_MUT_CODEGEN_SETL_AS_SETG
-        fprintf(o, "    setg al\n");
-#else
+
         fprintf(o, "    setl al\n");
-#endif
+
         break;
     case OP_GT:
-#ifdef SEED_MUT_CODEGEN_SETL_AS_SETG
-        fprintf(o, "    setl al\n");
-#else
+
         fprintf(o, "    setg al\n");
-#endif
+
         break;
     default:
         cg_ice("non-relational operator in gen_str_compare", e);
@@ -1348,18 +1281,9 @@ static void gen_binop(Cg *cg, const AstNode *e)
         fprintf(o, "    sub eax, ecx\n");
         break;
     case OP_MUL:
-#ifdef SEED_MUT_CODEGEN_MUL_AS_ADD
-        /* MUTATION HOOK (Rule 6; beads initech-tf3c, restoring the
-         * initech-znb one-off manual "imul->add" perturbation as a
-         * repeatable gate). Compile with -DSEED_MUT_CODEGEN_MUL_AS_ADD to
-         * emit `add` where `*` should emit `imul`: `2 + 3 * 4` then computes
-         * 2 + (3 + 4) = 9 instead of R=14, and `(2 + 3) * 4` computes
-         * (2+3)+4 = 9 instead of R=20. test-seed-codegen-mutant asserts this
-         * makes the arith corpus's exact-serial expectation go RED. */
-        fprintf(o, "    add eax, ecx\n");
-#else
+
         fprintf(o, "    imul eax, ecx\n");
-#endif
+
         break;
     case OP_DIV:
         fprintf(o, "    cdq\n");          /* sign-extend eax into edx:eax */
@@ -1382,17 +1306,9 @@ static void gen_binop(Cg *cg, const AstNode *e)
         break;
     case OP_LT:
         fprintf(o, "    cmp eax, ecx\n");
-#ifdef SEED_MUT_CODEGEN_SETL_AS_SETG
-        /* MUTATION HOOK (Rule 6; beads initech-f0uc, ADR-0007 DEC-03: "a
-         * Rule-6 mutant that flips setl/setg in the relational codegen").
-         * Compile with -DSEED_MUT_CODEGEN_SETL_AS_SETG to swap setl<->setg:
-         * '<' wrongly emits setg and '>' wrongly emits setl, so e.g. "3 < 5"
-         * evaluates to FALSE instead of TRUE. test-seed-bool-mutant asserts
-         * this makes bool.pas's exact-serial golden go RED. */
-        fprintf(o, "    setg al\n");
-#else
+
         fprintf(o, "    setl al\n");
-#endif
+
         fprintf(o, "    movzx eax, al\n");
         break;
     case OP_LE:
@@ -1402,11 +1318,9 @@ static void gen_binop(Cg *cg, const AstNode *e)
         break;
     case OP_GT:
         fprintf(o, "    cmp eax, ecx\n");
-#ifdef SEED_MUT_CODEGEN_SETL_AS_SETG
-        fprintf(o, "    setl al\n");   /* mutant: see the OP_LT case above */
-#else
+
         fprintf(o, "    setg al\n");
-#endif
+
         fprintf(o, "    movzx eax, al\n");
         break;
     case OP_GE:
@@ -1576,15 +1490,7 @@ static void gen_expr(Cg *cg, const AstNode *e)
              * available (Rule 11 -- a pure function of the input bits,
              * no runtime decision needed). */
             fprintf(o, "    and eax, 0xFF\n");
-#ifdef SEED_MUT_CODEGEN_CHR_OFF1
-            /* MUTATION HOOK (Rule 6; beads initech-7mo3, ADR-0007 DEC-07's
-             * per-family mutation obligation for B3). Compile with
-             * -DSEED_MUT_CODEGEN_CHR_OFF1 to make chr(i) compute
-             * (i & 0xFF) + 1 instead of i & 0xFF -- e.g. chr(65) wrongly
-             * yields 'B' instead of 'A'. test-seed-char-mutant asserts this
-             * makes char.pas's exact-serial golden go RED. */
-            fprintf(o, "    add eax, 1\n");
-#endif
+
             break;
         default:
             cg_ice("unknown unop", e);
@@ -1666,11 +1572,9 @@ static void gen_write(Cg *cg, const AstNode *n, int *str_idx)
  */
 static const char *guard_jump_mnemonic(void)
 {
-#ifdef SEED_MUT_CODEGEN_BRANCH_INVERT
-    return "jnz";
-#else
+
     return "jz";
-#endif
+
 }
 
 static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
@@ -1940,18 +1844,9 @@ static void gen_file_call(Cg *cg, const AstNode *call, CgFileBuiltin bi)
         if (bi == CG_FILEBI_BLOCKREAD) {
             fprintf(o, "    call rtl_file_blockread\n");
         } else {
-#ifdef SEED_MUT_FILEIO_SHORT_WRITE
-            /* Rule-6 mutant: runtime requests one byte fewer but reports the
-             * original count, silently dropping the tail. The read-back
-             * content/count goes wrong without a crash. */
-            fprintf(o, "    call rtl_file_blockwrite_short\n");
-#elif defined(SEED_MUT_FILEIO_WRONG_HANDLE)
-            /* Rule-6 mutant: runtime writes through the next JFT handle. The
-             * fixture deliberately keeps that handle valid+writable. */
-            fprintf(o, "    call rtl_file_blockwrite_wrong_handle\n");
-#else
+
             fprintf(o, "    call rtl_file_blockwrite\n");
-#endif
+
         }
         fprintf(o, "    add esp, 16\n");
         return;
@@ -2036,16 +1931,9 @@ static void gen_call(Cg *cg, const AstNode *call)
 /* The single temp-index allocation choke point (the CLOBBER mutant's locus). */
 static int str_temp_alloc(int requested)
 {
-#ifdef SEED_MUT_CODEGEN_STR_TEMP_CLOBBER
-    /* MUTATION HOOK (Rule 6; beads initech-39k2, D10 (i)): collapse every
-     * string temporary to index 0, so a right-nested concat a+(b+c) evaluates
-     * (b+c) into the SAME temp holding a's copy. test-seed-string-mutant
-     * asserts string.pas's RNEST tag goes RED. */
-    (void)requested;
-    return 0;
-#else
+
     return requested;
-#endif
+
 }
 
 /* Does `e`, used as a STRING value, need a temporary? A plain designator or a
@@ -2543,14 +2431,7 @@ static void emit_str_intrinsics(FILE *o)
         ".prefix_equal:\n"
         "    pop edx\n"                    /* lenB */
         "    pop eax\n");                  /* lenA */
-#ifdef SEED_MUT_CODEGEN_STR_CMP_NOLEN
-    /* MUTATION HOOK (Rule 6; beads initech-39k2, D10 (ii)): drop the length
-     * tiebreak, so a prefix-equal pair is wrongly EQUAL ('ab' = 'abc' TRUE).
-     * test-seed-string-mutant asserts string.pas's EQF tag goes RED. */
-    fprintf(o,
-        "    mov eax, 0\n"
-        "    ret\n");
-#else
+
     fprintf(o,
         "    cmp eax, edx\n"
         "    jb .len_less\n"
@@ -2563,7 +2444,6 @@ static void emit_str_intrinsics(FILE *o)
         ".len_greater:\n"
         "    mov eax, 1\n"
         "    ret\n");
-#endif
 
     /* __str_write: esi=&s. Loop the content bytes through serial_putc (never
      * serial_puts -- a ShortString may contain 0x00). serial_putc clobbers
@@ -2706,13 +2586,9 @@ int codegen_emit(AstNode *program, FILE *out)
         fprintf(out, "extern rtl_file_reset\n");
         fprintf(out, "extern rtl_file_rewrite\n");
         fprintf(out, "extern rtl_file_blockread\n");
-#ifdef SEED_MUT_FILEIO_SHORT_WRITE
-        fprintf(out, "extern rtl_file_blockwrite_short\n");
-#elif defined(SEED_MUT_FILEIO_WRONG_HANDLE)
-        fprintf(out, "extern rtl_file_blockwrite_wrong_handle\n");
-#else
+
         fprintf(out, "extern rtl_file_blockwrite\n");
-#endif
+
     }
     fprintf(out, "\n");
 
@@ -2724,17 +2600,7 @@ int codegen_emit(AstNode *program, FILE *out)
     fprintf(out, "section .rodata\n");
     fprintf(out, "str_bool_true: db 84,82,85,69,0\n");   /* "TRUE" */
     fprintf(out, "str_bool_false: db 70,65,76,83,69,0\n"); /* "FALSE" */
-#ifdef SEED_MUT_NONDET
-    /* MUTATION HOOK (Rule 6; bead initech-3yv, ADR-0007 FO-5): see the file
-     * header comment. Dead data, never referenced -- perturbs .s/.o/.elf
-     * bytes only, never pas_main's behavior. */
-    {
-        unsigned long mut_pid = (unsigned long)getpid();
-        fprintf(out, "seed_mut_nondet_pid: db %lu,%lu,%lu,%lu,0\n",
-                (mut_pid >> 24) & 0xFFUL, (mut_pid >> 16) & 0xFFUL,
-                (mut_pid >> 8) & 0xFFUL, mut_pid & 0xFFUL);
-    }
-#endif
+
     rodata_walk(&cg, program);
     fprintf(out, "\n");
 

@@ -1,0 +1,15 @@
+# test: host
+--- a/include/tbx_save.h
++++ b/include/tbx_save.h
+@@ -75,7 +75,10 @@
+             path[dot+3] == g_tbx_save_tmp[dot+3] && path[dot+4] == '\0')
+             continue;                            /* never the target itself */
+ 
+-        h = tbx_file_create_new(g_tbx_save_tmp); /* proven unused, or 0x50 */
++        /* MUTANT (Rule 6; test-flair-fullsave-mutant COLLIDE): the temporary
++         * is a plain CREATE -- a file already under that name is truncated
++         * and then deleted on failure. NEVER real. */
++        h = tbx_file_create(g_tbx_save_tmp);
+ 
+     }
+     if (h < 0) {

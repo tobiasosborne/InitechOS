@@ -54,16 +54,7 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
     const unsigned char *b = (const unsigned char *)buf;
     uint32_t i = 0, dot = 0, pos = 0, k;
     int32_t h = TBX_ERR_DOS(0x50), rc = 0, cl;
-#ifdef TBX_MUT_SAVE_IN_PLACE
-    /* MUTANT (Rule 6; test-flair-fullsave-mutant): the pre-mcep save --
-     * CREATE truncates the target, then the WRITE runs out of disk. */
-    h = tbx_file_create(path);
-    if (h < 0) return h;
-    while (pos < n && (rc = tbx_file_write(h, b + pos, n - pos)) > 0 && (uint32_t)rc <= n - pos)
-        pos += (uint32_t)rc;
-    cl = tbx_file_close(h);
-    return cl < 0 ? cl : (int32_t)pos;
-#endif
+
     /* <name>.$$$: the leaf's extension (after the last '.' of the last
      * component) replaced, or appended when there is none. */
     for (; path[i] != '\0'; i++) {
@@ -83,14 +74,9 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
         if (path[dot] == '.' && path[dot+1] == '$' && path[dot+2] == '$' &&
             path[dot+3] == g_tbx_save_tmp[dot+3] && path[dot+4] == '\0')
             continue;                            /* never the target itself */
-#ifndef TBX_MUT_SAVE_TEMP_CREATE
+
         h = tbx_file_create_new(g_tbx_save_tmp); /* proven unused, or 0x50 */
-#else
-        /* MUTANT (Rule 6; test-flair-fullsave-mutant COLLIDE): the temporary
-         * is a plain CREATE -- a file already under that name is truncated
-         * and then deleted on failure. NEVER real. */
-        h = tbx_file_create(g_tbx_save_tmp);
-#endif
+
     }
     if (h < 0) {
         if (input >= 0) (void)tbx_file_close(input);
@@ -109,15 +95,11 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
             rc = tbx_file_write(h, part + done, count - done);
             if (rc <= 0 || (uint32_t)rc > count - done) break;
             done += (uint32_t)rc;
-#ifdef TBX_MUT_SAVE_ONE_WRITE
-            break;
-#endif
+
         }
         pos += done;
         if (done != count) break;
-#ifdef TBX_MUT_SAVE_ONE_WRITE
-        break;   /* MUTANT (iword IWORD_MUT_SETUP_SHORT): one write only */
-#endif
+
     }
     cl = tbx_file_close(h);
     if (input >= 0) {

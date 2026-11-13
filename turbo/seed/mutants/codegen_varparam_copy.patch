@@ -1,0 +1,16 @@
+# test: guest-func
+--- a/codegen.c
++++ b/codegen.c
+@@ -586,7 +586,11 @@
+ static int cg_param_is_var(int declared_is_var)
+ {
+ 
+-    return declared_is_var;
++    /* MUTATION HOOK (Rule 6; beads initech-63ce, ADR-0007 DEC-07 B4
++     * "var-param aliasing" deep-bug locus). test-seed-func-mutant asserts
++     * func.pas goes RED. */
++    (void)declared_is_var;
++    return 0;
+ 
+ }
+ 

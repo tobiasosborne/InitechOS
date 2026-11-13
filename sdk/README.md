@@ -217,4 +217,6 @@ translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
 complete tier-0 selection; measured execution fits the default, excluding builds.
 The hosted i386 probe/layout/fake are cached by dependencies and commands;
 the mandatory target ABI compiles and all six existing check groups remain.
-Import audit stays disabled: tbx_save.h retains three TBX_MUT_ hooks.
+Import audit is enabled. The three save faults are patches in mutants/;
+make mutants kills each through the real save helper and shared fake, including
+short writes, preserving an existing target and preserving a colliding temporary.

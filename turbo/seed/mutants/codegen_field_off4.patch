@@ -1,0 +1,19 @@
+# test: guest-record
+--- a/codegen.c
++++ b/codegen.c
+@@ -576,7 +576,14 @@
+ static int cg_field_offset(int field_index)
+ {
+ 
+-    return 4 * field_index;
++    /* MUTATION HOOK (Rule 6; beads initech-rug7, ADR-0007 DEC-07's
++     * per-family mutation obligation for B6 -- the committee's own named
++     * deep-bug locus: "every field offset shifted +4"). Compile with
++     * -DSEED_MUT_CODEGEN_FIELD_OFF4 to shift EVERY field's byte offset 4
++     * bytes too high, so a record's field 0 reads/writes field 1's slot
++     * (and its LAST field reads/writes one dword past the record entirely).
++     * test-seed-record-mutant asserts record.pas goes RED. */
++    return 4 * field_index + 4;
+ 
+ }
+ 

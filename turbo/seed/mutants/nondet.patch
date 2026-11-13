@@ -1,0 +1,30 @@
+# test: repro
+--- a/codegen.c
++++ b/codegen.c
+@@ -215,6 +215,9 @@
+ #include <ctype.h>
+ #include <stdlib.h>
+ #include <string.h>
++
++#include <sys/types.h>
++#include <unistd.h>
+ 
+ /* ============================================================================
+  * B4 (beads initech-63ce; ADR-0007 DEC-02/DEC-04) -- THE CODEGEN PIVOT:
+@@ -2601,6 +2604,16 @@
+     fprintf(out, "str_bool_true: db 84,82,85,69,0\n");   /* "TRUE" */
+     fprintf(out, "str_bool_false: db 70,65,76,83,69,0\n"); /* "FALSE" */
+ 
++    /* MUTATION HOOK (Rule 6; bead initech-3yv, ADR-0007 FO-5): see the file
++     * header comment. Dead data, never referenced -- perturbs .s/.o/.elf
++     * bytes only, never pas_main's behavior. */
++    {
++        unsigned long mut_pid = (unsigned long)getpid();
++        fprintf(out, "seed_mut_nondet_pid: db %lu,%lu,%lu,%lu,0\n",
++                (mut_pid >> 24) & 0xFFUL, (mut_pid >> 16) & 0xFFUL,
++                (mut_pid >> 8) & 0xFFUL, mut_pid & 0xFFUL);
++    }
++
+     rodata_walk(&cg, program);
+     fprintf(out, "\n");
+ 

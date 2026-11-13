@@ -22,3 +22,14 @@ selfhost: all $(OUT)/smoke/TIMER.COM $(OUT)/smoke/compare
 	sh tests/smoke/selfhost.sh
 ddc: selfhost
 	sh tests/smoke/ddc.sh
+
+TARGET_ARTIFACTS := $(TOP)/build/turbo/compiler/TURBO.COM
+all: $(TARGET_ARTIFACTS)
+$(TARGET_ARTIFACTS): | compiler-build
+	@test -f $@
+.PHONY: compiler-build
+compiler-build:
+	+@$(MAKE) --no-print-directory -C compiler all
+
+IMPORT_PRODUCT_SRCS := $(wildcard seed/*.[ch] seed/rt/*.asm compiler/*.pas)
+include $(TOP)/mk/import-check.mk

@@ -3,11 +3,11 @@
 set -eu
 out=$1
 case $2 in
- abi) "$out/tests/audit" tests/traps.tsv include/toolbox_gate.h include/cp_dialog.h rt/tbx_rt.c ../flair/tbxgate.c;;
+ abi) "$out/tests/audit" tests/traps.tsv include/toolbox_gate.h include/cp_dialog.h rt/tbx_rt.c "$TOP/flair/tbxgate.c";;
  layout) echo 'ABI: target i386 layouts pinned (compile-only)';;
  link) "$out/tests/link"; echo 'ABI: all bindings link against shared fake';;
  host) "$out/tests/host";;
  host32) sh tests/host32.sh "${HOSTCC:-cc}" "$out/tests/host32";;
- mz) make --no-print-directory -C ../factory/mz test;;
+ mz) make --no-print-directory -C "$TOP/factory/mz" test;;
  *) exit 1;;
 esac

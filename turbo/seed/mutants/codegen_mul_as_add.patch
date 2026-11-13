@@ -1,0 +1,19 @@
+# test: guest-precedence
+--- a/codegen.c
++++ b/codegen.c
+@@ -1282,7 +1282,14 @@
+         break;
+     case OP_MUL:
+ 
+-        fprintf(o, "    imul eax, ecx\n");
++        /* MUTATION HOOK (Rule 6; beads initech-tf3c, restoring the
++         * initech-znb one-off manual "imul->add" perturbation as a
++         * repeatable gate). Compile with -DSEED_MUT_CODEGEN_MUL_AS_ADD to
++         * emit `add` where `*` should emit `imul`: `2 + 3 * 4` then computes
++         * 2 + (3 + 4) = 9 instead of R=14, and `(2 + 3) * 4` computes
++         * (2+3)+4 = 9 instead of R=20. test-seed-codegen-mutant asserts this
++         * makes the arith corpus's exact-serial expectation go RED. */
++        fprintf(o, "    add eax, ecx\n");
+ 
+         break;
+     case OP_DIV:

@@ -1,0 +1,23 @@
+# test: guest-array
+--- a/codegen.c
++++ b/codegen.c
+@@ -891,8 +891,17 @@
+     FILE *o = cg->out;
+     gen_expr(cg, idxexpr);           /* index value -> eax */
+ 
+-    if (lo != 0)
+-        fprintf(o, "    sub eax, %ld\n", lo);  /* zero-based: (index - lo) */
++    /* MUTATION HOOK (Rule 6; beads initech-54uu, ADR-0007 DEC-07's
++     * per-family mutation obligation for B5 -- the cheap second leg for the
++     * lo-offset half of "base + (index - lo) * stride"). Compile with
++     * -DSEED_MUT_CODEGEN_ARRAY_LO_SKIP to OMIT the "- lo" step entirely
++     * (every array is addressed as if lo were always 0), so any array whose
++     * declared lower bound is NON-ZERO is indexed off-by-`lo` elements --
++     * array.pas's a[]/c[]/local_arr[]/letters[]/flags[] all have a non-zero
++     * lo (only b's lo=0 is unaffected by this particular leg), so this
++     * bites broadly. test-seed-array-mutant asserts array.pas goes RED
++     * under this leg too. */
++    (void)lo;
+ 
+     fprintf(o, "    imul eax, %d\n", 4 * elem_words); /* stride: uniform
+                                                         * 4-byte slot(s) */

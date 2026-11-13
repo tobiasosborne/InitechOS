@@ -1,0 +1,16 @@
+# test: guest-fileio
+--- a/rt/fileio.asm
++++ b/rt/fileio.asm
+@@ -145,10 +145,12 @@
+     js rtl_file_bad_argument
+     mov edi, [ebp+8]
+     mov ebx, [edi]
++    dec ecx
+     mov edx, [ebp+12]
+     mov eax, 0x4000           ; AH=40h WRITE
+     int 0x21
+     jc rtl_file_fail
++    inc eax
+     mov edi, [ebp+20]
+     mov [edi], eax
+     pop edi

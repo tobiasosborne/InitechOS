@@ -271,14 +271,14 @@ static Token scan_number(Lexer *lx, int line, int col)
     long value = 0;
     while (is_digit(peek(lx))) {
         int digit = advance(lx) - '0';
-#ifndef SEED_MUT_NUM_RANGE
+
         /* Ref: ADR-0007 DEC-02, dialect pin 1: integer is 32-bit signed.
          * Check before multiply-add, even when host long is only 32 bits
          * (initech-veav). Rule 6: SEED_MUT_NUM_RANGE removes this guard. */
         if (value > (2147483647L - digit) / 10)
             return make_error("integer literal out of range (0..2147483647)",
                               line, col);
-#endif
+
         value = value * 10 + digit;
     }
     Token t = make_simple(TOK_INT, lx->src + start, lx->pos - start,

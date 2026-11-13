@@ -1,0 +1,45 @@
+# test: guest-bool
+--- a/codegen.c
++++ b/codegen.c
+@@ -1233,12 +1233,12 @@
+     case OP_GE: fprintf(o, "    setge al\n"); break;
+     case OP_LT:
+ 
++        fprintf(o, "    setg al\n");
++
++        break;
++    case OP_GT:
++
+         fprintf(o, "    setl al\n");
+-
+-        break;
+-    case OP_GT:
+-
+-        fprintf(o, "    setg al\n");
+ 
+         break;
+     default:
+@@ -1307,7 +1307,13 @@
+     case OP_LT:
+         fprintf(o, "    cmp eax, ecx\n");
+ 
+-        fprintf(o, "    setl al\n");
++        /* MUTATION HOOK (Rule 6; beads initech-f0uc, ADR-0007 DEC-03: "a
++         * Rule-6 mutant that flips setl/setg in the relational codegen").
++         * Compile with -DSEED_MUT_CODEGEN_SETL_AS_SETG to swap setl<->setg:
++         * '<' wrongly emits setg and '>' wrongly emits setl, so e.g. "3 < 5"
++         * evaluates to FALSE instead of TRUE. test-seed-bool-mutant asserts
++         * this makes bool.pas's exact-serial golden go RED. */
++        fprintf(o, "    setg al\n");
+ 
+         fprintf(o, "    movzx eax, al\n");
+         break;
+@@ -1319,7 +1325,7 @@
+     case OP_GT:
+         fprintf(o, "    cmp eax, ecx\n");
+ 
+-        fprintf(o, "    setg al\n");
++        fprintf(o, "    setl al\n");   /* mutant: see the OP_LT case above */
+ 
+         fprintf(o, "    movzx eax, al\n");
+         break;
