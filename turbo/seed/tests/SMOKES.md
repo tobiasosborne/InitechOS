@@ -1,6 +1,12 @@
-# Deferred seed emulator gates
+# Seed emulator gates
 
-All names are legacy-final gates; none runs in tier 0. Thirteen distinct gates.
+The legacy gate mapping below records the behavioral sources. None runs in
+tier 0. The mutation conversion now executes each affected original arith
+fixture on the product DOS through factory/seed-guest.sh, with an independent
+live FPC reference in Delphi mode (32-bit integer), stdout comparison and
+mtools file comparison. All 17 patch faults are killed by make mutants.
+Full Bochs seed-corpus parity remains future work; Turbo Initech's own native
+compiler smoke already runs on QEMU and Bochs.
 The legacy codegen and four shared-FPC legs booted bare Multiboot programs under
 QEMU, not inside the DOS image. Port these as external product-image scenarios:
 link the same body with rt/start_dos.asm + seed_dos.ld and launch its COM from

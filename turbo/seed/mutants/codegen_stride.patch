@@ -1,0 +1,20 @@
+# test: guest-array
+--- a/codegen.c
++++ b/codegen.c
+@@ -894,8 +894,14 @@
+     if (lo != 0)
+         fprintf(o, "    sub eax, %ld\n", lo);  /* zero-based: (index - lo) */
+ 
+-    fprintf(o, "    imul eax, %d\n", 4 * elem_words); /* stride: uniform
+-                                                        * 4-byte slot(s) */
++    /* MUTATION HOOK (Rule 6; beads initech-54uu, ADR-0007 DEC-07's
++     * per-family mutation obligation for B5). Compile with
++     * -DSEED_MUT_CODEGEN_STRIDE to multiply by 2 instead of the correct
++     * uniform 4-byte stride, so EVERY indexed read/write/var-param address
++     * lands on the wrong element (or straddles two elements) for any index
++     * other than 0. test-seed-array-mutant asserts array.pas goes RED. */
++    (void)elem_words;
++    fprintf(o, "    imul eax, 2\n");
+ 
+ }
+ 

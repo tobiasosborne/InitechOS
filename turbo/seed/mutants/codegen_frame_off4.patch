@@ -1,0 +1,17 @@
+# test: guest-func
+--- a/codegen.c
++++ b/codegen.c
+@@ -559,7 +559,12 @@
+ static int cg_local_offset(int slot)
+ {
+ 
+-    return -(4 * (slot + 1));
++    /* MUTATION HOOK (Rule 6; beads initech-63ce, ADR-0007 DEC-07 B4 "frame
++     * offsets" deep-bug locus): shift every local/result 4 bytes too shallow,
++     * so slot 0 lands on the saved-ebp word [ebp+0] and a function writing
++     * its result corrupts its own frame link. test-seed-func-mutant asserts
++     * func.pas goes RED. */
++    return -(4 * slot);
+ 
+ }
+ 

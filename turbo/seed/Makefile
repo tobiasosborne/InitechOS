@@ -4,15 +4,15 @@ include $(TOP)/mk/config.mk
 FPC ?= fpc
 LIB := token.c lexer.c ast.c parser.c typecheck.c codegen.c
 OBJS := $(addprefix $(OUT)/host/,$(LIB:.c=.o))
-HOST_TESTS := lexer parser repro fileio-build fileio-fpc fpc-shared
-TESTS ?= $(HOST_TESTS)
+HOST_TESTS := lexer parser repro fileio-build fileio-fpc fpc-shared guest-precedence guest-bool guest-control guest-char guest-func guest-array guest-record guest-string guest-fileio
+TESTS ?= lexer parser repro fileio-build fileio-fpc fpc-shared
 ifneq ($(filter-out $(HOST_TESTS),$(TESTS)),)
 $(error unknown TESTS: $(filter-out $(HOST_TESTS),$(TESTS)))
 endif
 all: $(OUT)/initechc $(addprefix $(OUT)/rt/,start.o start_dos.o fileio.o)
-$(OUT)/host/%.o: %.c $(wildcard *.h) $(MAKEFILE_LIST)
+$(OUT)/host/%.o: %.c FORCE
 	@mkdir -p $(@D)
-	@$(HOSTCC) $(HOST_CFLAGS) -I. -c $< -o $@
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -I. -MMD -MP -c $< -o $@)
 $(OUT)/initechc: initechc.c $(OBJS)
 	@$(HOSTCC) $(HOST_CFLAGS) -I. -o $@ $^
 $(OUT)/test_%: tests/test_%.c $(OBJS) $(TOP)/factory/testlib/test_assert.h
@@ -27,8 +27,9 @@ test-build: tools all $(OUT)/test_lexer $(OUT)/test_parser
 test: test-run
 test-run: test-build
 	@sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) "$(OUT)" tests/run.sh $(TESTS)
-export FPC NASM TARGET_LD
-mutants:
-	@echo '17 seed hooks await patch conversion; see tests/MUTANTS-TODO.md' >&2; exit 1
+export TOP FPC NASM TARGET_LD
+include $(TOP)/mk/mutants.mk
 smoke:
 	@echo 'Tier 1 requires the product image; see tests/SMOKES.md' >&2; exit 1
+
+-include $(OBJS:.o=.d)

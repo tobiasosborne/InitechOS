@@ -45,7 +45,8 @@ int main(void)
     CHECK(tbx_file_close(h)==0&&tbx_file_close(h)==TBX_ERR_BADARG);
     CHECK(tbx_file_rename("test.dat","NEW.DAT")==0);CHECK(!tbx_host_file("test.dat")&&tbx_host_file("new.dat"));
     tbx_host.fail_create=1;CHECK(tbx_file_create("FAIL")==TBX_ERR_DOS(5));tbx_host.fail_create=0;
-    tbx_host.fail_write=1;CHECK(tbx_file_save("NEW.DAT","lost",4)==0);CHECK(tbx_host_file("new.dat")->size==5);tbx_host.fail_write=0;
+    CHECK(tbx_host_put_file("NEW.$$$","keep",4));
+    tbx_host.fail_write=1;CHECK(tbx_file_save("NEW.DAT","lost",4)==0);CHECK(tbx_host_file("new.dat")->size==5);CHECK(tbx_host_file("NEW.$$$") && tbx_host_file("NEW.$$$")->size==4);tbx_host.fail_write=0;
     tbx_host.write_limit=2;CHECK(tbx_file_save("NEW.DAT","preserved",9)==9);CHECK(!memcmp(tbx_host_file("new.dat")->data,"preserved",9));
     tbx_host.file_error[TBX_FILE_DELETE]=5;CHECK(tbx_file_save("NEW.DAT","lost",4)==TBX_ERR_DOS(5));CHECK(tbx_host_file("NEW.DAT")->size==9);tbx_host.file_error[TBX_FILE_DELETE]=0;
     CHECK(tbx_host_put_file("DIR\\FILE.WP5","wp",2));

@@ -1,0 +1,17 @@
+# test: host
+--- a/include/tbx_save.h
++++ b/include/tbx_save.h
+@@ -96,9 +96,13 @@
+             if (rc <= 0 || (uint32_t)rc > count - done) break;
+             done += (uint32_t)rc;
+ 
++            break;
++
+         }
+         pos += done;
+         if (done != count) break;
++
++        break;   /* MUTANT (iword IWORD_MUT_SETUP_SHORT): one write only */
+ 
+     }
+     cl = tbx_file_close(h);

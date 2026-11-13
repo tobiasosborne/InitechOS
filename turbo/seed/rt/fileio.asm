@@ -135,50 +135,20 @@ rtl_file_blockread:
 
 global rtl_file_blockwrite
 rtl_file_blockwrite:
-    xor eax, eax
-    jmp rtl_file_blockwrite_enter
-
-global rtl_file_blockwrite_short
-rtl_file_blockwrite_short:
-    mov eax, 1
-    jmp rtl_file_blockwrite_enter
-
-global rtl_file_blockwrite_wrong_handle
-rtl_file_blockwrite_wrong_handle:
-    mov eax, 2
-
-rtl_file_blockwrite_enter:
     push ebp
     mov ebp, esp
     push ebx
     push esi
     push edi
-    mov esi, eax
     mov ecx, [ebp+16]
     test ecx, ecx
     js rtl_file_bad_argument
-    cmp esi, 1
-    jne .count_ready
-    test ecx, ecx
-    jz .count_ready
-    dec ecx                   ; SEED_MUT_FILEIO_SHORT_WRITE
-.count_ready:
     mov edi, [ebp+8]
     mov ebx, [edi]
-    cmp esi, 2
-    jne .handle_ready
-    inc ebx                   ; SEED_MUT_FILEIO_WRONG_HANDLE
-.handle_ready:
     mov edx, [ebp+12]
     mov eax, 0x4000           ; AH=40h WRITE
     int 0x21
     jc rtl_file_fail
-    cmp esi, 1
-    jne .actual_ready
-    cmp dword [ebp+16], 0
-    je .actual_ready
-    inc eax                   ; lie: report original count, hide dropped tail
-.actual_ready:
     mov edi, [ebp+20]
     mov [edi], eax
     pop edi

@@ -32,12 +32,13 @@ ifneq ($(origin SELECTED_COMPONENTS),undefined)
 override COMPONENTS := $(SELECTED_COMPONENTS)
 endif
 .DEFAULT_GOAL := help
+CERT_STRICT ?= 0
 .PHONY: help all test smoke image cert clean status corpus test-start $(addprefix test-,$(COMPONENTS))
 help:
-	@echo 'make [-j] test | image | smoke | repro | status | cert (not implemented)'
+	@echo 'make [-j] test | image | smoke | repro | status | cert'
 	@echo 'registered components: $(REGISTERED_COMPONENTS)'
 cert:
-	@echo 'make cert: not implemented yet (see STATUS.md)' >&2; exit 1
+	+@CERT_STRICT=$(CERT_STRICT) sh factory/cert.sh
 all:
 	@for c in $(COMPONENTS); do $(MAKE) --no-print-directory -C $$c all || exit 1; done
 # Per-invocation scratch, removed after summary; never a global green stamp.
@@ -49,18 +50,16 @@ corpus:
 test-start:
 	@date +%s > $(TEST_RUN)/start
 	@$(MAKE) --no-print-directory -f goldens/preflight.mk verify
-# One producer per output: a component that builds on another's outputs
-# waits for it, so two makes never write the same file at once. Keep in
-# step with the dependencies each component's README declares.
-DEPENDS_dos                := kernel
-DEPENDS_flair              := flair/region
-DEPENDS_flair/desktop      := kernel flair sdk
-DEPENDS_apps/initech123    := sdk
-DEPENDS_apps/initechword   := sdk
-DEPENDS_apps/initechbase   := sdk kernel
-DEPENDS_turbo              := sdk kernel dos
-DEPENDS_system             := kernel dos flair flair/desktop sdk apps/initech123
-$(foreach c,$(COMPONENTS),$(eval test-$(c): $(addprefix test-,$(filter $(COMPONENTS),$(DEPENDS_$(c))))))
+# The same declaration drives ordering, the graph display and boundary audit.
+include mk/dependencies.mk
+$(foreach c,$(COMPONENTS),$(eval test-$(c): $(addprefix test-,$(filter $(COMPONENTS),$(if $(filter undefined,$(origin TEST_DEPENDS_$(c))),$(DEPENDS_$(c)),$(TEST_DEPENDS_$(c)))))))
+.PHONY: dependencies dependency-check
+dependencies:
+	@$(foreach c,$(REGISTERED_COMPONENTS),echo '$(c): $(DEPENDS_$(c))';)
+dependency-check:
+	@mkdir -p build/dependencies
+	@$(foreach c,$(REGISTERED_COMPONENTS),$(MAKE) --no-print-directory -qp -C $(c) all test > build/dependencies/$(subst /,_,$(c)).make 2>/dev/null || test $$? -eq 1; awk -v root=$(TOP) -v component=$(c) -v components='$(REGISTERED_COMPONENTS) boot factory factory/mz turbo/seed turbo/compiler' -v declared='$(DEPENDS_$(c))' -f factory/testlib/build-deps.awk build/dependencies/$(subst /,_,$(c)).make || exit 1;)
+test-start: dependency-check
 $(addprefix test-,$(COMPONENTS)): private export INITECH_CORPUS_VERIFIED := 1
 $(addprefix test-,$(COMPONENTS)): test-%: | test-start
 	+@rc=0; $(MAKE) --no-print-directory -C $* test || rc=1; \

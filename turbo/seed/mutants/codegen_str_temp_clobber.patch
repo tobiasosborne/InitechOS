@@ -1,0 +1,17 @@
+# test: guest-string
+--- a/codegen.c
++++ b/codegen.c
+@@ -1932,7 +1932,12 @@
+ static int str_temp_alloc(int requested)
+ {
+ 
+-    return requested;
++    /* MUTATION HOOK (Rule 6; beads initech-39k2, D10 (i)): collapse every
++     * string temporary to index 0, so a right-nested concat a+(b+c) evaluates
++     * (b+c) into the SAME temp holding a's copy. test-seed-string-mutant
++     * asserts string.pas's RNEST tag goes RED. */
++    (void)requested;
++    return 0;
+ 
+ }
+ 

@@ -1,0 +1,19 @@
+# test: host
+--- a/include/tbx_save.h
++++ b/include/tbx_save.h
+@@ -54,6 +54,15 @@
+     const unsigned char *b = (const unsigned char *)buf;
+     uint32_t i = 0, dot = 0, pos = 0, k;
+     int32_t h = TBX_ERR_DOS(0x50), rc = 0, cl;
++
++    /* MUTANT (Rule 6; test-flair-fullsave-mutant): the pre-mcep save --
++     * CREATE truncates the target, then the WRITE runs out of disk. */
++    h = tbx_file_create(path);
++    if (h < 0) return h;
++    while (pos < n && (rc = tbx_file_write(h, b + pos, n - pos)) > 0 && (uint32_t)rc <= n - pos)
++        pos += (uint32_t)rc;
++    cl = tbx_file_close(h);
++    return cl < 0 ? cl : (int32_t)pos;
+ 
+     /* <name>.$$$: the leaf's extension (after the last '.' of the last
+      * component) replaced, or appended when there is none. */

@@ -1,0 +1,12 @@
+# test: guest-control
+--- a/codegen.c
++++ b/codegen.c
+@@ -1573,7 +1573,7 @@
+ static const char *guard_jump_mnemonic(void)
+ {
+ 
+-    return "jz";
++    return "jnz";
+ 
+ }
+ 

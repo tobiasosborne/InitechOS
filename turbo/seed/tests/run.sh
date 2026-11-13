@@ -2,6 +2,7 @@
 set -eu
 out=$1 entry=$2
 case $entry in
+guest-*) exec sh "$TOP/factory/seed-guest.sh" "$TOP" "$out" "${entry#guest-}";;
 lexer|parser) exec "$out/test_$entry" ;;
 esac
 scratch=$out/runs/$entry
@@ -43,7 +44,7 @@ fileio-build)
     grep -q '^    mov byte \[ebp-256\], 0$' "$scratch/fileio.s"
     grep -q '^    call pf_exerciselocalfile$' "$scratch/fileio.s"
     nm "$out/rt/fileio.o" > "$scratch/symbols"
-    for fn in assign reset rewrite blockread blockwrite blockwrite_short blockwrite_wrong_handle; do
+    for fn in assign reset rewrite blockread blockwrite; do
         grep -q " rtl_file_$fn\$" "$scratch/symbols"
     done
     nm "$out/rt/start.o" > "$scratch/start-symbols"

@@ -550,21 +550,10 @@ static AstNode *parse_simple_expr(Parser *p)
     while (!p->failed
            && (check(p, TOK_PLUS) || check(p, TOK_MINUS) || check(p, TOK_KW_OR))) {
         int line = p->cur.line, col = p->cur.col;
-#ifdef SEED_MUT_PARSE_ADD_AS_MUL
-        /* MUTATION HOOK (Rule 6; beads initech-tf3c, restoring the
-         * initech-znb one-off manual "OP_ADD->OP_MUL in the IR" perturbation
-         * as a repeatable gate). Compile with -DSEED_MUT_PARSE_ADD_AS_MUL to
-         * build a '+' AST_BINOP node with op=OP_MUL instead of OP_ADD.
-         * test-seed-mutant asserts this makes
-         * test_precedence_mul_over_add's AST S-expression check ("(+ (int 1)
-         * (* (int 2) (int 3)))") go RED. Scoped to '+' only -- '-'/'or' are
-         * unaffected by this historical mutant. */
-        AstOp op = check(p, TOK_PLUS) ? OP_MUL
-                 : check(p, TOK_MINUS) ? OP_SUB : OP_OR;
-#else
+
         AstOp op = check(p, TOK_PLUS) ? OP_ADD
                  : check(p, TOK_MINUS) ? OP_SUB : OP_OR;
-#endif
+
         advance(p);
         AstNode *rhs = parse_term(p);
         if (p->failed)

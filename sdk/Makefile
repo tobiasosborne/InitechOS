@@ -3,6 +3,9 @@ COMPONENT := sdk
 include $(TOP)/mk/config.mk
 HOST_AR ?= ar
 HOST_LIB := $(OUT)/host/libtbx_host.a
+HOST_TESTS := abi layout link host host32 mz
+TESTS ?= $(HOST_TESTS)
+export TOP
 TEST_BUDGET_S := 30
 TARGET_SRCS := rt/tbx_rt.c
 TARGET_INCLUDES := -Iinclude
@@ -37,10 +40,13 @@ $(OUT)/tests/self-contained.o: tests/self-contained.c FORCE
 test-build: $(OUT)/tests/audit $(OUT)/tests/layout.o $(OUT)/tests/link $(OUT)/tests/host $(OUT)/tests/self-contained.o $(OUT)/rt/tbx_rt.o
 test: test-run
 test-run: test-build
-	@TEST_BUDGET_S=$(TEST_BUDGET_S) sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) $(OUT) tests/run.sh abi layout link host host32 mz
+	@TEST_BUDGET_S=$(TEST_BUDGET_S) sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) $(OUT) tests/run.sh $(TESTS)
 -include $(wildcard $(OUT)/host/*.d $(OUT)/tests/*.d)
 smoke:
 	@echo 'Tier 1: launch 123.EXE on the booted desktop, pending desktop import' >&2; exit 1
 .PHONY: red-once
 red-once: test
 	sh tests/red-once.sh $(TOP) $(OUT)/red "$(MAKE)"
+
+include $(TOP)/mk/mutants.mk
+include $(TOP)/mk/import-check.mk

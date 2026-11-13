@@ -1,0 +1,18 @@
+# test: guest-char
+--- a/codegen.c
++++ b/codegen.c
+@@ -1490,6 +1490,14 @@
+              * available (Rule 11 -- a pure function of the input bits,
+              * no runtime decision needed). */
+             fprintf(o, "    and eax, 0xFF\n");
++
++            /* MUTATION HOOK (Rule 6; beads initech-7mo3, ADR-0007 DEC-07's
++             * per-family mutation obligation for B3). Compile with
++             * -DSEED_MUT_CODEGEN_CHR_OFF1 to make chr(i) compute
++             * (i & 0xFF) + 1 instead of i & 0xFF -- e.g. chr(65) wrongly
++             * yields 'B' instead of 'A'. test-seed-char-mutant asserts this
++             * makes char.pas's exact-serial golden go RED. */
++            fprintf(o, "    add eax, 1\n");
+ 
+             break;
+         default:

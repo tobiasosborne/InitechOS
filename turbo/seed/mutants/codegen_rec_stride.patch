@@ -1,0 +1,21 @@
+# test: guest-record
+--- a/codegen.c
++++ b/codegen.c
+@@ -894,8 +894,15 @@
+     if (lo != 0)
+         fprintf(o, "    sub eax, %ld\n", lo);  /* zero-based: (index - lo) */
+ 
+-    fprintf(o, "    imul eax, %d\n", 4 * elem_words); /* stride: uniform
+-                                                        * 4-byte slot(s) */
++    /* MUTATION HOOK (Rule 6; beads initech-rug7, ADR-0007 DEC-07's
++     * per-family mutation obligation for B6 -- the bead's own named "array-
++     * of-record stride = field-count-1 slots" deep-bug leg). Compile with
++     * -DSEED_MUT_CODEGEN_REC_STRIDE to under-count the stride by one FIELD
++     * (4*(elem_words-1) instead of 4*elem_words). Only meaningfully wrong
++     * for a RECORD element (elem_words > 1) -- record.pas's array-of-record
++     * fixture (toks: array[...] of Token, 3 fields) is what this bites;
++     * test-seed-record-mutant asserts it goes RED. */
++    fprintf(o, "    imul eax, %d\n", 4 * (elem_words - 1));
+ 
+ }
+ 

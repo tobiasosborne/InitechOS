@@ -1,44 +1,46 @@
 #!/bin/sh
-# Run from a clean source state. Each patch is restored even on interruption.
+# Patch complete isolated trees: the production sources and outputs stay intact.
 set -eu
 cd "$(dirname "$0")/.."
-mkdir -p build/red-desktop
-active=
-patch_dir=.
-restore() {
- if [ -n "$active" ]; then
-  if [ "$patch_dir" = . ]; then
-   patch --no-backup-if-mismatch -R -p1 < "$active"
-  else
-   patch --batch --fuzz=0 --no-backup-if-mismatch -R -p1 -d "$patch_dir" < "$active"
-  fi
-  active=
- fi
+root=$PWD
+mkdir -p build/factory/mutants
+work=$(mktemp -d "$root/build/factory/mutants/run.XXXXXX")
+start=$(date +%s)
+killed=0 survived=0 errors=0
+snapshot() {
+ mkdir -p "$1"
+ tar -cf - --exclude=./build --exclude=./.git --exclude=./attic . | tar -xf - -C "$1"
 }
-trap restore EXIT
-trap 'exit 1' HUP INT TERM
-for mutation in save-empty loader-cap word-save; do
- patch_dir=.
- active="factory/mutants/desktop-$mutation.patch"
- if [ "$mutation" = word-save ]; then
-  active=apps/initechword/mutants/save-nothing.patch
-  patch_dir=apps/initechword
-  patch --batch --fuzz=0 --no-backup-if-mismatch -p1 -d "$patch_dir" < "$active"
+baseline=$work/baseline
+snapshot "$baseline"
+if ! (cd "$baseline" && make image && sh factory/smoke-desktop.sh) > "$work/baseline.log" 2>&1; then
+ echo "factory: 2 mutants, 0 killed, 0 survived, 1 errors; baseline failed ($work/baseline.log)"
+ exit 1
+fi
+for mutation in save-empty loader-cap; do
+ scratch=$work/$mutation
+ # Reuse baseline outputs; command stamps rebuild against the new source root.
+ cp -R "$baseline" "$scratch"
+ if ! patch --batch --fuzz=0 --no-backup-if-mismatch -p1 -d "$scratch" < "factory/mutants/desktop-$mutation.patch" > "$work/$mutation-patch.log" 2>&1 ||
+    ! (cd "$scratch" && make image) > "$work/$mutation-build.log" 2>&1; then
+  echo "!!! factory desktop-$mutation: patch/build failure"; errors=$((errors+1)); continue
+ fi
+ good=1
+ for pass in 1 2; do
+  rc=0
+  (cd "$scratch" && DESKTOP_SMOKE_OUT="build/red-$pass" sh factory/smoke-desktop.sh) > "$work/$mutation-$pass.log" 2>&1 || rc=$?
+  if [ "$rc" -eq 0 ]; then good=0; continue; fi
+  case $mutation in
+   save-empty) grep -Fq 'FAIL desktop: QEMU worksheet content' "$work/$mutation-$pass.log" || good=0;;
+   loader-cap) grep -Fq 'TENANT-LOAD-FAIL name=123.EXE' "$scratch/build/red-$pass/qemu.serial" &&
+               grep -Fq 'FAIL desktop: QEMU session' "$work/$mutation-$pass.log" || good=0;;
+  esac
+ done
+ if [ "$good" -eq 1 ]; then
+  echo "  killed desktop-$mutation (two matching semantic failures)"; killed=$((killed+1)); rm -rf "$scratch"
  else
-  patch --no-backup-if-mismatch -p1 < "$active"
+  echo "!!! factory desktop-$mutation survived/unstable"; survived=$((survived+1))
  fi
- make image > "build/red-desktop/$mutation-build.log" 2>&1
- if DESKTOP_SMOKE_OUT="build/red-desktop/$mutation" sh factory/smoke-desktop.sh > "build/red-desktop/$mutation.log" 2>&1; then
-  echo "FAIL: desktop $mutation survived" >&2; exit 1
- fi
- case $mutation in
- save-empty) grep -F 'FAIL desktop: QEMU worksheet content' "build/red-desktop/$mutation.log";;
- loader-cap) grep -F 'TENANT-LOAD-FAIL name=123.EXE' "build/red-desktop/$mutation/qemu.serial"
-             grep -F 'FAIL desktop: QEMU session' "build/red-desktop/$mutation.log";;
- word-save) grep -F 'FAIL desktop: QEMU initechword saved content' "build/red-desktop/$mutation.log";;
- esac
- echo "ok red-once: desktop $mutation rejected"
- restore
 done
-make image > build/red-desktop/restored-build.log 2>&1
-echo 'DESKTOP RED: 3 mutations rejected; production sources restored'
+echo "factory: 2 mutants, $killed killed, $survived survived, $errors errors; $(($(date +%s)-start))s"
+if [ "$survived" -eq 0 ] && [ "$errors" -eq 0 ]; then rm -rf "$work"; else echo "scratch retained: $work"; exit 1; fi

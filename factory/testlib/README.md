@@ -115,3 +115,14 @@ per component by default); the entry interface remains unchanged.
 
 The audit recognizes InitechBase's inherited MUTATE/MUTANT spellings as well
 as MUT hooks. None is converted by this conventions pass.
+
+The import audit strips C, NASM and Pascal comments/literals before looking for
+live mutation identifiers. It scans sources reachable from all and exported
+include/ headers; IMPORT_PRODUCT_SRCS adds recursive product sources whose
+child make graphs are not visible in the parent. Parked source files are not
+product artifacts. Escaping includes still fail, including the documented
+resident-shell include in kernel: documentation does not waive CLAUDE.md.
+`make -C factory test` runs tiny clean/red fixtures for comments, test-only and
+parked files, live C/Pascal hooks, escaping/attic includes, unreachable artifacts
+and missing build dependencies. mk/dependencies.mk owns the graph used by both
+top-level ordering and the generated-path dependency audit.

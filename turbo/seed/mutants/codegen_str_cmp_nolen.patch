@@ -1,0 +1,24 @@
+# test: guest-string
+--- a/codegen.c
++++ b/codegen.c
+@@ -2432,17 +2432,11 @@
+         "    pop edx\n"                    /* lenB */
+         "    pop eax\n");                  /* lenA */
+ 
++    /* MUTATION HOOK (Rule 6; beads initech-39k2, D10 (ii)): drop the length
++     * tiebreak, so a prefix-equal pair is wrongly EQUAL ('ab' = 'abc' TRUE).
++     * test-seed-string-mutant asserts string.pas's EQF tag goes RED. */
+     fprintf(o,
+-        "    cmp eax, edx\n"
+-        "    jb .len_less\n"
+-        "    ja .len_greater\n"
+         "    mov eax, 0\n"
+-        "    ret\n"
+-        ".len_less:\n"
+-        "    mov eax, -1\n"
+-        "    ret\n"
+-        ".len_greater:\n"
+-        "    mov eax, 1\n"
+         "    ret\n");
+ 
+     /* __str_write: esi=&s. Loop the content bytes through serial_putc (never

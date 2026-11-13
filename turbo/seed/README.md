@@ -18,5 +18,12 @@ Behavioural sources remain the source headers, fixture derivations and the
 legacy-final recipes recorded in tests/IMPORT.md. No optimiser/ABI tuning from
 the old monolithic build is needed. The factory uses shared HOST_CFLAGS;
 runtime assembly/link semantics are preserved. This import changes no behaviour.
-`make smoke` fails until the product image is available. `make mutants` reports
-that patch conversion remains pending; see tests/MUTANTS-TODO.md (17 hooks).
+`make mutants` kills 17 patches: lexer/parser host checks, reproducibility,
+and guest execution with independent Free Pascal stdout/file comparisons. Guest
+entries are selected only by tier 2; the default six tier-0 entries never boot
+an emulator. Build `make image` first for the guest mutation catchers. The two
+file-I/O faults live only in runtime patches; no wrong entry point ships.
+The normal emitted assembly is unchanged for the 37-program example/corpus
+selection. Runtime object and compiler fixed-point bytes change when dead
+fault paths are removed; runtime-table regeneration is checked in tier 0.
+`make smoke` remains a parent Turbo Initech/product responsibility.
