@@ -12,7 +12,7 @@
 -    /* event.c cooks message = (vkey << 8) | ascii; MenuKey folds case and
 -     * hands out only ENABLED, non-divider items (menu.c). */
 -    return MenuKey(bar, (char)(ev->message & 0xFFu));
-+    /* MUTANT TBX_MUT_MENU_KEY_PLAIN (Rule 6): no chord is ever a menu
++    /* regression patches menu key plain patch: no chord is ever a menu
 +     * command; it falls through to the plain keyDown delivery. NEVER in a
 +     * real build. */
 +    return 0u;

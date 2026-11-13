@@ -3,9 +3,9 @@
  * (make gen-boot-logo). DO NOT EDIT: change the geometry there.
  *
  * The Initech logo lockup (three-cube mark + INITECH logotype) for the FLAIR
- * boot screen (bead initech-tdnl.105), an 8-bit-index strike at u = 16 px.
+ * boot screen, an 8-bit-index strike at u = 16 px.
  *
- * PROVENANCE (Law 1): AUTHORED from the measured geometry -- the TikZ
+ * PROVENANCE: AUTHORED from the measured geometry -- the TikZ
  * drawing pubs/common/initech-logo.tex and docs/pubs/DESIGN-REFERENCE.md
  * Sec 7.0 (2:1 dimetric, receding edges 1 in 2, cube edge 2 with a unit
  * notch, mark 9u x 6.449u, lockup 15.264u x 10.459u, logotype oblique

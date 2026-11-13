@@ -3,14 +3,14 @@
 --- a/dialog.c
 +++ b/dialog.c
 @@ -1006,10 +1006,7 @@
-     /* --- Canon progress bar initial value (beads initech-a90f, Law 4).
-      * DIALOG_MUTATE_PROGRESS_ZERO: reverts to the old bug (value=0, which
+     /* --- Canon progress bar initial value (, film canon).
+      * progress zero patch: reverts to the old bug (value=0, which
       * ctrl_progress_fill_px renders as NO fill at all) -> oracle must go RED. */
 -    /* Ref: dialog.h FLAIR_CANON_FILECOPY_PROGRESS (docs/FLAIR-GUI-bug-hunt-
 -     * 2026-06-28.md #25: "preview.png reference shows the bar ~65-70% filled
 -     * solid blue"; canon = the documented midpoint, 68). */
 -    const int16_t canon_progress = (int16_t)FLAIR_CANON_FILECOPY_PROGRESS;
-+    const int16_t canon_progress = 0;   /* NAMED MUTANT: the old bug */
++    const int16_t canon_progress = 0;   /* NAMED regression patches: the old bug */
  
      control_init(ctrlStorage,
                   progressBar,

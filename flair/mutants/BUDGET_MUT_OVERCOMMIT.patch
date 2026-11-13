@@ -4,7 +4,7 @@
 +++ b/process.c
 @@ -182,13 +182,18 @@
       * IN REVERSE carve order, install NOTHING, leave `list`/`wm` unchanged, and
-      * return NULL. Do NOT overcommit, do NOT partially install (Rule 2). */
+      * return NULL. Do NOT overcommit, do NOT partially install. */
      if (app == NULL || records_block == NULL || block == NULL) {
 -        /* REVERSE of the (a)->(b)->(c) carve order: data, then records, then handle.
 -         * This LIFO discipline keeps the small FlairApp handle the HANDLE free-list
@@ -13,7 +13,7 @@
 -        if (records_block != NULL) flair_free(master, FLAIR_CLASS_HANDLE,  records_block);
 -        if (app           != NULL) flair_free(master, FLAIR_CLASS_HANDLE,  app);
 -        return NULL;
-+        /* MUTANT BUDGET_MUT_OVERCOMMIT (Rule 6; budget-mutant build only): instead
++        /* regression patches overcommit patch (mutation checks; budget-mutant build only): instead
 +         * of fail-loud reclaim, OVERCOMMIT -- partially install the (incompletely
 +         * carved) app anyway. O-4 expects NULL + no install, so this goes RED.
 +         * NEVER define in a real build. */
@@ -29,18 +29,18 @@
  
      /* (c') zero + init the handle; lay the TWO child heaps over their blocks. */
 @@ -216,14 +221,11 @@
-                              * ...) instead of reaching a file-global (bead initech-fka6). */
-         lp.surface  = surface;   /* the offscreen open() draws content into (fka6). */
+                              *...) instead of reaching a file-global. */
+         lp.surface  = surface;   /* the offscreen open draws content into (fka6). */
          if (procs->open != NULL && procs->open(app, &lp) != 0) {
 -            /* (O-4 open-fail) reclaim data + records + handle (REVERSE carve order,
 -             * LIFO), install nothing, return NULL. The contract (Sec 3.1) is
--             * open()!=0 == launch fail. CLEAN failures (the O-4 stub) thread no
+-             * open!=0 == launch fail. CLEAN failures (the O-4 stub) thread no
 -             * window before failing. */
 -            flair_free(master, FLAIR_CLASS_GENERAL, app->block);
 -            flair_free(master, FLAIR_CLASS_HANDLE,  app->records_block);
 -            flair_free(master, FLAIR_CLASS_HANDLE,  app);
 -            return NULL;
-+            /* MUTANT (Rule 6): open() failed but install anyway (partial install).
++            /* regression patches: open failed but install anyway (partial install).
 +             * O-4 expects NULL + reclaim, so this goes RED. NEVER in a real build. */
 +            app->nextApp = list->head;
 +            list->head   = app;

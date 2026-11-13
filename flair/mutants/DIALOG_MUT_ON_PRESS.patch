@@ -23,7 +23,7 @@
 -            }
 -            if (ev->what == mouseUp || c->contrlHilite != hilite) {
 -                c->contrlHilite = hilite;
--                /* tdnl.88: the button draws PRESSED while the held mouse is
+-                /*: the button draws PRESSED while the held mouse is
 -                 * inside it and idle when it leaves or is released
 -                 * (mint-010: s8_alert_ok_pressed / _held_outside). */
 -                dialog_draw_ctrl_item(dp, idx);
@@ -42,7 +42,7 @@
 -                if (TestControl(item->ctrl, pt)) {
 -                    dp->trackingItem = idx;
 -                    item->ctrl->contrlHilite = TestControl(item->ctrl, pt);
--                    /* tdnl.88: pressed feedback at mouseDown (mint-010). */
+-                    /*: pressed feedback at mouseDown (mint-010). */
 -                    dialog_draw_ctrl_item(dp, idx);
 +                int16_t part = TrackControl(item->ctrl, &pt, 1);
 +                if (part != 0) {

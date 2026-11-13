@@ -7,7 +7,7 @@
               structure_scratch(wm, next, w->windowDefProcVariant));
      if (collapsed) {
 -        region_set_empty(w->contRgn);
-+        /* Rule-6 mutant: body ownership leaks through the shade state. */
++        /* mutation checks mutant: body ownership leaks through the shade state. */
      } else {
          region_set_rect(w->contRgn, CalcDocContentRect(next));
-         /* tdnl.82: chrome paints BEFORE the client's updateEvt. Settle the
+         /*: chrome paints BEFORE the client's updateEvt. Settle the

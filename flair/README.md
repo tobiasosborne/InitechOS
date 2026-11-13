@@ -98,7 +98,7 @@ make mutants runs 191 patches through the shared strict runner: passing baseline
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
-the measured sweep is 83 seconds on this machine. The shared runner itself is
+the measured sweep is 85 seconds on this machine. The shared runner itself is
 serial; native parallel scheduling and baseline sharing across patch workers
 would remove this local wrapper and the serial tail of large selection groups.
 Sixteen patches under mutants/pending/ need their named legacy emulator gates.

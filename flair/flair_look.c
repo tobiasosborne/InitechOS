@@ -1,9 +1,9 @@
 /*
  * os/flair/flair_look.c -- the FLAIR policy seam resolver (THE ARTIFACT).
  *
- * beads: initech-6bq2 (C-8 MECHANISM/POLICY enforcement); epic initech-qipc.
+ *  (C-8 MECHANISM/POLICY enforcement); epic.
  *
- * THE ONE POLICY SEAM (ADR-0004-AMENDMENT-DEC-09 Sec 3.1 C-8 / Sec 3.3 ARB-3).
+ * THE ONE POLICY SEAM (clipped Toolbox drawing C-8 / Sec 3.3 ARB-3).
  * This TU is the single place (besides the device CLUT, spec/assets/clut.h)
  * permitted to turn a palette index or skin slot into a color. The base path
  * maps a wctb-keyed PART to a canon INDEX through pure data. The D-9 chrome
@@ -20,7 +20,7 @@
  * (INITECH_CANON_BEVEL_*_RGB) -- the canon authority's constants, not a
  * hand-typed color and not a switch.
  *
- * FLAIR_PART_HILITE_FRAME / FLAIR_PART_HILITE_TEXT (beads initech-hv7u): the
+ * FLAIR_PART_HILITE_FRAME / FLAIR_PART_HILITE_TEXT: the
  * inactive-window StandardWDEF wHiliteShadeA/wHiliteShade7 grays. These are
  * ORDINARY indexed rows (derived=0), NOT the derived-bevel special case --
  * their canon index (CIDX_HILITE_FRAME=119 / CIDX_HILITE_TEXT=165) is a named
@@ -29,9 +29,9 @@
  * zero special-casing here.
  *
 
- * Freestanding-safe (Law 3).  ASCII-clean (Rule 12).  Deterministic (Rule 11).
+ * Freestanding-safe.  ASCII-clean.  Deterministic.
  *
- * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.1 (C-8), Sec 3.3 (ARB-3), Sec 3.4
+ * Ref: clipped Toolbox drawing (C-8), Sec 3.3 (ARB-3), Sec 3.4
  *      (ARB-5 bevel teal), Sec 3.9 (the canon index table);
  *      spec/assets/color_canon.h (flair_canon_rgb, CIDX_*, bevel macros);
  *      os/flair/chrome.c chrome_px (the depth logic mirrored here);
@@ -65,12 +65,12 @@ typedef struct {
     uint8_t  skin_offset;  /* flair_skin_slot_t offset; 0xFF keeps base row    */
 } flair_part_row_t;
 
-/* Kernel size round 5 (WL-0168): the authored derived colours live ONCE here,
+/* compact storage (packed storage): the authored derived colours live ONCE here,
  * named by ordinal from the 3-byte rows, instead of a 4-byte field in every
  * row (79 x 8 B -> 79 x 3 B + 4 x 4 B). Still no 0xRRGGBB literal: each entry
  * is the canon authority's macro (color_canon.h derived_rows; ARB-5).
  * test-flair-part-map diffs every PART x depth x skin resolution against the
- * transcript of the 8-byte-row implementation (Law 2 differential). */
+ * transcript of the 8-byte-row implementation (independent checks differential). */
 static const uint32_t flair_derived_rgb[] = {
     INITECH_CANON_BEVEL_LIGHT_RGB,
     INITECH_CANON_BEVEL_SHADOW_RGB,
@@ -137,8 +137,8 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     { CIDX_PLAT_TILE_SHADOW, 0u, FLAIR_NO_SKIN_SLOT },
     /* Platinum Menu Manager roles.  Neutral values reuse the already-minted
      * sampled gray rows; title accent values reuse the ratified derived teal
-     * pair.  Ref: sys8/menus.md Sec 1.1-1.4, Sec 2.1, Sec 2.3; DEC-10 Sec 6
-     * OQ-2/OQ-3; bead initech-sjvq. */
+     * pair.  Ref: sys8/menus.md Sec 1.1-1.4, Sec 2.1, Sec 2.3; Platinum base
+     * OQ-2/OQ-3;. */
     /* MENU_BAR_HL */
     { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT },
     /* MENU_BAR_FACE */
@@ -157,16 +157,16 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     { CIDX_PLAT_WIDGET_EDGE, 0u, FLAIR_NO_SKIN_SLOT },
     /* MENU_TITLE_HILITE_HL */
     { CIDX_DESKTOP, FLAIR_DERIVED_BEVEL_LIGHT, FLAIR_NO_SKIN_SLOT },
-    /* MENU_TITLE_HILITE_FACE: tdnl.93; white contrast6.56/10.53 */
+    /* MENU_TITLE_HILITE_FACE:; white contrast6.56/10.53 */
     { CIDX_PLAT_DARK_RING, FLAIR_DERIVED_MENU_DARK, FLAIR_NO_SKIN_SLOT },
     /* MENU_TITLE_HILITE_SHADOW: separate dark edge, no new index */
     { CIDX_BLACK, FLAIR_DERIVED_MENU_SHADOW, FLAIR_NO_SKIN_SLOT },
-    /* tdnl.96/.97: clut-208 H/P/S/R -> white/teal/dark/dark.
+    /* : clut-208 H/P/S/R -> white/teal/dark/dark.
      * S/R use the existing dark teal in direct colour, existing #3F3F3F
      * in indexed colour (the locked indexed palette has ONLY one teal).
      * This preserves the measured structure with three distinct tones,
      * without changing the palette. Ref: sys8/scrollbars.md 2.4;
-     * spec/assets/color_canon.json entries and derived_rows, DEC-10 OQ-3. */
+     * spec/assets/color_canon.json entries and derived_rows, Platinum base OQ-3. */
     /* SB_THUMB_HL */
     { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT },
     /* SB_THUMB_FACE */
@@ -175,7 +175,7 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     { CIDX_PLAT_DARK_RING, FLAIR_DERIVED_BEVEL_SHADOW, FLAIR_NO_SKIN_SLOT },
     /* SB_THUMB_GRIP */
     { CIDX_PLAT_DARK_RING, FLAIR_DERIVED_BEVEL_SHADOW, FLAIR_NO_SKIN_SLOT },
-    /* Finder desktop-icon tones (bead initech-tdnl.9).  Classic desktop icons
+    /* Finder desktop-icon tones.  Classic desktop icons
      * are a black outline over a white body with mid-gray detail; each tone is
      * an EXISTING canon row, so this accretion adds three PART names and ZERO
      * color rows.  ICON_SHADE reuses CIDX_CONTROL (#C0C0C0), the same canon
@@ -186,11 +186,11 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT },
     /* ICON_SHADE */
     { CIDX_CONTROL, 0u, FLAIR_NO_SKIN_SLOT },
-    /* Highlighted-icon tones (bead initech-34dh; IM VI p. 2-19..2-20 "lowers
-     * the brightness ... a black-and-white icon turns gray when selected").
+    /* Highlighted-icon tones (; IM VI p. 2-19..2-20 "lowers
+     * the brightness... a black-and-white icon turns gray when selected").
      * Halving the brightness of white (#FFFFFF) and of the #C0C0C0 detail
      * lands nearest the two EXISTING ramp rows #777777 and #3F3F3F, so this
-     * adds two PART names and ZERO color rows (DEC-10 Sec 6 OQ-3). */
+     * adds two PART names and ZERO color rows (Platinum base OQ-3). */
     /* ICON_HILITE_FACE */
     { CIDX_HILITE_FRAME, 0u, FLAIR_NO_SKIN_SLOT },
     /* ICON_HILITE_SHADE */
@@ -203,10 +203,10 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     { CIDX_ICON_GRAY_27, 0u, FLAIR_NO_SKIN_SLOT },
     { CIDX_ICON_GRAY_54, 0u, FLAIR_NO_SKIN_SLOT },
     { CIDX_ICON_GRAY_66, 0u, FLAIR_NO_SKIN_SLOT },
-    /* Finder icon colour roles, DESK_IC_* ordinal order (bead initech-tdnl.53;
+    /* Finder icon colour roles, DESK_IC_* ordinal order (;
      * mint-008 Sec 3).  Grays reuse the named sampled-ramp rows of the same
      * value (the ICON_SHADE / ICON_HILITE precedent); the non-grays are the
-     * fifteen WL-0140 canon slots.  Graded by test-finder-icon-art against the
+     * fifteen Finder icon colors canon slots.  Graded by test-finder-icon-art against the
      * mint-008 captures at TOL=0. */
     /* ICON_CLUT DESK_IC_WHITE      */ { CIDX_WHITE, 0u, FLAIR_NO_SKIN_SLOT },
     /* ICON_CLUT DESK_IC_GRAY_F3    */ { CIDX_PLAT_TROUGH, 0u, FLAIR_NO_SKIN_SLOT },
@@ -243,7 +243,7 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
 _Static_assert(sizeof(flair_skin_t) < 255u,
                "flair skin slot offsets fit the policy map");
 
-/* Resolve the live default at a drawing-context boundary. The Rule-6 mutant
+/* Resolve the live default at a drawing-context boundary. The mutation checks mutant
  * changes only this policy choice; chrome geometry and palette mechanisms are
  * untouched. There is deliberately no runtime era branch. */
 const flair_skin_t *flair_look_default_skin(void)
@@ -255,7 +255,7 @@ const flair_skin_t *flair_look_default_skin(void)
  * equals the old base-map value. Other PARTs remain palette indices: the
  * registry has no matching slot for the Platinum ramp, while MENUBAR,
  * BTNFACE, PIN_LIGHT, and PIN_DARK intentionally describe different roles or
- * values and therefore cannot be silently re-keyed in this look-neutral lane. */
+ * values and therefore cannot be silently re-keyed in this implementation. */
 static const flair_skin_slot_t *skin_slot_for_part(const flair_skin_t *skin,
                                                    int part)
 {
@@ -287,7 +287,7 @@ static uint32_t resolve_rgb(int part)
     const flair_part_row_t *row;
     if (part < 0 || part >= (int)FLAIR_PART__COUNT) {
         /* Out-of-range PART: fail-soft to frame ink (CIDX_BLACK) rather than
-         * read past the map (Rule 2 -- never index out of bounds). */
+         * read past the map (explicit error handling -- never index out of bounds). */
         return flair_canon_rgb((uint8_t)CIDX_BLACK);
     }
     row = &flair_part_map[part];
@@ -311,8 +311,8 @@ uint32_t flair_look_pixel_depth(uint32_t bpp, int part)
         /* 8bpp writes the row's role-specific fallback index (OD-2). Existing
          * BEVEL_SHADOW preserves its old black-valued CIDX_TITLE_INK fallback.
          * The pulled menu title uses idx2/63/0 for light/face/shadow: the
-         * exact dark teal derivatives have no indexed slots (tdnl.93). The
-         * pulled-title host oracle grades both depths (bead initech-sjvq). */
+         * exact dark teal derivatives have no indexed slots. The
+         * pulled-title host oracle grades both depths. */
         if (row == 0) {
             return (uint32_t)CIDX_BLACK;
         }

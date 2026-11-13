@@ -6,20 +6,20 @@
  
      {
          crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
--        /* The anatomy as run tables (kernel size, WL-0162): one row code,
+-        /* The anatomy as run tables (kernel size, drawing tables): one row code,
 -         * a start (>= 0: x0 + n; < 0: x1 + n), a length (> 0: n px;
 -         * <= 0: w + n px) and a PART. Both tables are transcriptions of the
 -         * captures; the order is the paint order (the two inner corner
 -         * steps land after the straight body).
 -         *
--         * IDLE -- M012 / tdnl.100: decoded s8_alert_modal.png four 4x4
+-         * IDLE -- M012 /: decoded s8_alert_modal.png four 4x4
 -         * patches x363..366 / x418..421, y158..161 / y174..177.
 -         * Legend: e=E7E7E7, k=000000, d=3F3F3F, c=CDCDCD, w=FFFFFF,
 -         * s=C0C0C0, g=969696. Rows are left-to-right, top-to-bottom:
 -         * TL eedk ekce dcww keww     TR kdee ecke wecd esgk
 -         * BL kewe dces ekcg eedk     BR ssgk sggd ggke kdee
 -         * The outer two top/bottom corner pixels are FACE, not a gray
--         * fringe. Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.1.
+-         * fringe. Ref:../system7-decomp/specs/sys8/controls.md Sec 5.1.
 -         *
 -         * PRESSED -- mint-010 Sec 2 (s8_alert_ok_pressed.png, OK
 -         * x435..493 y158..177): the same black frame and 3F corners, the
@@ -27,7 +27,7 @@
 -         * 96 inner / A5 outer on the bottom+right. The 12 pixels outside
 -         * the rounded frame keep the idle face (the dialog face, or the
 -         * default ring's moat drawn after this). Ref: controls.md Sec 5.3;
--         * ../system7-decomp/re/mint-results-010.md Sec 2. */
+-         *../system7-decomp/re/mint-results-010.md Sec 2. */
 -        static const btn_run_t idle[] = {
 -            BR(R_TOP, 2, 1, CTRL_PLAT_DARK_RING), BR(R_TOP, 3, -6, CTRL_BLACK),
 -            BR(R_TOP, -3, 1, CTRL_PLAT_DARK_RING),
@@ -57,7 +57,7 @@
 -            /* y0+1: black corner steps around a full 66 rim row. */
 -            BR(R_1, 1, 1, CTRL_BLACK), BR(R_1, 2, -4, CTRL_PRESS_RIM),
 -            BR(R_1, -2, 1, CTRL_BLACK),
--            /* y0+2: 3F | 66 66 | 77 ... 77 | 87 | 96 | 3F */
+-            /* y0+2: 3F | 66 66 | 77... 77 | 87 | 96 | 3F */
 -            BR(R_2, 0, 1, CTRL_PLAT_DARK_RING), BR(R_2, 1, 2, CTRL_PRESS_RIM),
 -            BR(R_2, 3, -6, CTRL_PRESS_LIGHT), BR(R_2, -3, 1, CTRL_PRESS_FACE),
 -            BR(R_2, -2, 1, CTRL_PLAT_DARK_SHADOW), BR(R_2, -1, 1, CTRL_PLAT_DARK_RING),
@@ -67,11 +67,11 @@
 -            BR(R_BODY, -3, 1, CTRL_PLAT_DARK_SHADOW),
 -            BR(R_BODY, -2, 1, CTRL_PLAT_WIDGET_EDGE), BR(R_BODY, -1, 1, CTRL_BLACK),
 -            BR(R_3, 3, 1, CTRL_PRESS_LIGHT), BR(R_B4, -4, 1, CTRL_PLAT_DARK_SHADOW),
--            /* y1-3: 3F | 66 | 87 | 96 ... 96 | A5 A5 | 3F */
+-            /* y1-3: 3F | 66 | 87 | 96... 96 | A5 A5 | 3F */
 -            BR(R_B3, 0, 1, CTRL_PLAT_DARK_RING), BR(R_B3, 1, 1, CTRL_PRESS_RIM),
 -            BR(R_B3, 2, 1, CTRL_PRESS_FACE), BR(R_B3, 3, -6, CTRL_PLAT_DARK_SHADOW),
 -            BR(R_B3, -3, 2, CTRL_PLAT_WIDGET_EDGE), BR(R_B3, -1, 1, CTRL_PLAT_DARK_RING),
--            /* y1-2: black | 96 | A5 ... A5 | black */
+-            /* y1-2: black | 96 | A5... A5 | black */
 -            BR(R_B2, 1, 1, CTRL_BLACK), BR(R_B2, 2, 1, CTRL_PLAT_DARK_SHADOW),
 -            BR(R_B2, 3, -5, CTRL_PLAT_WIDGET_EDGE), BR(R_B2, -2, 1, CTRL_BLACK)
 -        };
@@ -79,7 +79,7 @@
 -        int nt = hilited ? (int)(sizeof pressed / sizeof pressed[0])
 -                         : (int)(sizeof idle / sizeof idle[0]);
 -        ctrl_runs(port, x0, y0, x1, y1, t, nt);
-+        /* NAMED MUTANT: remove the sampled bevel/corner anatomy. */
++        /* NAMED regression patches: remove the sampled bevel/corner anatomy. */
 +        cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
      }
  

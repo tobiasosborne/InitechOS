@@ -1,11 +1,11 @@
 /*
  * harness/proptest/test_font_styles.c -- the INDEPENDENT oracle of the Font
- * Manager's synthesized text styles (bead initech-tdnl.68, slice 2).
+ * Manager's synthesized text styles (, slice 2).
  *
  * WHAT IT GRADES: the artifact's txFace synthesis (os/flair/text.h --
  * text_synth_row, text_italic_shift, text_face_advance, text_measure_face,
- * text_draw_run) against sources the artifact never renders from (Law 2 /
- * ADR-0010 HER-02):
+ * text_draw_run) against sources the artifact never renders from (independent checks /
+ * independent reference checks HER-02):
  *   - the REAL System 7.0.1 strikes, parsed here at run time from the Apple
  *     resources: NFNT 5478 (Chicago 12), NFNT 5415 (Geneva 9), NFNT 6475
  *     (Geneva 9 italic) in $(SYSTEM7_DECOMP)/goldens/resources/;
@@ -42,12 +42,12 @@
  *       its opaque box is exactly the styled advance wide, nothing else paints.
  *       Plus strings with descenders (the underline gaps).
  *
- * MUTANTS (Rule 6; Makefile test-font-styles-mutant): TEXT_MUT_SMEAR_OFF,
- * TEXT_MUT_BOLD_ADVANCE_PLAIN, TEXT_MUT_UL_OFFSET, TEXT_MUT_ITALIC_RUN4 -- each
+ * regression patches (mutation checks; Makefile test-font-styles-mutant): smear off patch,
+ * bold advance plain patch, ul offset patch, italic run4 patch -- each
  * must go RED on the leg named in its expected failure line.
  *
- * Absent corpus: FAIL LOUD (oracle_policy.h). FACTORY CODE (hosted C, Law 3).
- * ASCII-clean (Rule 12).
+ * Absent corpus: FAIL LOUD (oracle_policy.h). FACTORY CODE (hosted C, language boundary).
+ * ASCII-clean.
  */
 #include "oracle_policy.h"
 #include <stdint.h>

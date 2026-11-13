@@ -1,12 +1,12 @@
 /*
  * palette_extract.c -- desktop palette extraction tool (factory, C11-only).
  *
- * beads: initech-vcq ("asset-extraction v0"). Ref: PRD Sec 10 (asset
+ *  ("asset-extraction v0"). Ref: PRD Sec 10 (asset
  *        pipeline: palette quantization + named-anchor sampling from the
  *        reference frame), PRD Sec 6.4 (resources/assets), PRD Sec 12 (the
  *        frame is REFERENCE ONLY -- we MEASURE it, we never embed it).
- *        CLAUDE.md Law 1 (cite sources), Law 3 (factory is C), Rule 8
- *        (specs are locked JSON/headers), Rule 11 (reproducible).
+ *        source provenance (cite sources), language boundary (factory is C), pinned inputs
+ *        (specs are locked JSON/headers), reproducible output.
  *
  * Given a binary PPM (P6) decoded from the frame webp into build/ (the PPM
  * derives from the film and is NOT committed; palette.json is the committed
@@ -20,7 +20,7 @@
  *
  * JSON parsing here is deliberately tiny and tolerant of OUR palette.json
  * shape only (a flat "colors" object of {x,y,rgb,role}); it is not a general
- * JSON parser. ASCII-only source (Rule 12). No timestamps emitted (Rule 11).
+ * JSON parser. ASCII-only source. No timestamps emitted.
  */
 
 #include <stdio.h>
@@ -194,7 +194,7 @@ static int read_int_after_colon(const char *p, const char *end, long *out)
 
 /*
  * Parse the "colors" object. Each entry is  "name": { "x":N, "y":N,
- * "rgb":[r,g,b], ... }. We locate the "colors" key, then for each color we
+ * "rgb":[r,g,b],... }. We locate the "colors" key, then for each color we
  * read its name, then x, y, and the three rgb ints (in that source order).
  */
 static int parse_anchors(const char *json, anchor_t *out, int max_out,
@@ -236,7 +236,7 @@ static int parse_anchors(const char *json, anchor_t *out, int max_out,
         long x, y;
         if (read_int_after_colon(kx, end, &x)) break;
         if (read_int_after_colon(ky, end, &y)) break;
-        /* rgb: three ints inside [ ... ] */
+        /* rgb: three ints inside [... ] */
         const char *q = kr;
         while (q < end && *q != '[') q++;
         if (q >= end) break;
@@ -262,10 +262,10 @@ static int parse_anchors(const char *json, anchor_t *out, int max_out,
 }
 
 /*
- * Parse the OPTIONAL "canonical" object: entries are "name": { "rgb":[r,g,b], ... }
+ * Parse the OPTIONAL "canonical" object: entries are "name": { "rgb":[r,g,b],... }
  * with NO x/y -- these are OS-CANON values (set by ADR/oracle, e.g. the SEAFOAM
- * desktop_bg, ADR-0004 OD-4), NOT frame-sampled, so test-assets does not re-check
- * them against the frame. Non-object entries (e.g. "_comment": [ ... ]) are
+ * desktop_bg, clipped Toolbox drawing OD-4), NOT frame-sampled, so test-assets does not re-check
+ * them against the frame. Non-object entries (e.g. "_comment": [... ]) are
  * skipped. Returns the count (0 if the block is absent -- it is optional). Shallow
  * parser like parse_anchors (entry objects contain arrays but no nested braces).
  */
@@ -293,7 +293,7 @@ static int parse_canonical(const char *json, anchor_t *out, int max_out)
             p = (q < end) ? q + 1 : end;
             continue;
         }
-        /* *v == '{' : an entry object -- parse its rgb (shallow). */
+        /* *v == '{': an entry object -- parse its rgb (shallow). */
         const char *kr = find_key(v, end, "rgb");
         const char *obj_end = v + 1;
         while (obj_end < end && *obj_end != '}') obj_end++;
@@ -361,7 +361,7 @@ static void cmd_header(const char *jsonpath)
     printf(" * Source fixture: %s. Each color was 3x3-sampled at the (x,y)\n", fixture);
     printf(" * recorded in palette.json (auditable; test-assets re-checks it).\n");
     printf(" *\n");
-    printf(" * REVOKED provenance (ADR-0004-AMENDMENT-DEC-09 / ADR-0010, HER-03):\n");
+    printf(" * REVOKED provenance (clipped Toolbox drawing / independent reference checks, HER-03):\n");
     printf(" * the frame-sampled INITECH_*_FRAME_V0 constants below are the dim\n");
     printf(" * Office-Space CRT MOCK-UP samples. They are PROVENANCE ONLY -- NOTHING\n");
     printf(" * renders or grades against them. The ONE color authority is\n");
@@ -380,7 +380,7 @@ static void cmd_header(const char *jsonpath)
         /* Demote frame-sampled anchors to PROVENANCE-ONLY constants by suffixing
          * _FRAME_V0 (HER-03): nothing renders them. Idempotent -- a name that is
          * already a *_FRAME_V0 anchor (e.g. desktop_bg_frame_v0) is left as-is so
-         * a regen is byte-stable and we never emit a doubled suffix (Rule 11). */
+         * a regen is byte-stable and we never emit a doubled suffix. */
         size_t L = j;
         int already = (L >= 9 &&
                        up[L-9]=='_' && up[L-8]=='F' && up[L-7]=='R' &&
@@ -403,7 +403,7 @@ static void cmd_header(const char *jsonpath)
      * them (e.g. os/flair/desktop.c INITECH_DESKTOP_BG_RGB). Their VALUE is the
      * LOCKED canon from palette.json's "canonical" block: desktop_bg is now
      * Initech teal #8DDCDC (== color_canon.json idx2; supersedes OD-4 seafoam,
-     * REVOKED per ADR-0004-AMENDMENT-DEC-09). The single index->RGB authority is
+     * REVOKED per clipped Toolbox drawing). The single index->RGB authority is
      * still flair_canon_rgb; these named constants agree with it by value. */
     for (int i = 0; i < nc; i++) {
         char up[64];
@@ -419,13 +419,13 @@ static void cmd_header(const char *jsonpath)
                up, canon[i].rgb[0], canon[i].rgb[1], canon[i].rgb[2]);
     }
     /* The deterministic FLAIR indexed-8 palette function. Per
-     * ADR-0004-AMENDMENT-DEC-09 ARB-1, flair_palette_rgb is now a THIN ALIAS to
+     * clipped Toolbox drawing ARB-1, flair_palette_rgb is now a THIN ALIAS to
      * flair_canon_rgb (color_canon.h, generated from the LOCKED color_canon.json)
      * -- the ONE color authority. The old per-index switch (which read the dim
      * preview-mock-up / seafoam INITECH_* samples) is RETIRED; those samples
      * survive only as INITECH_*_FRAME_V0 provenance above (HER-03). Emitted from
      * the generator (NOT hand-added) so a regen reproduces it byte-for-byte and
-     * palette.h stays fully generated (Rule 8 / "DO NOT EDIT BY HAND"). */
+     * palette.h stays fully generated (pinned inputs / "DO NOT EDIT BY HAND"). */
     printf(
 "/* ---------------------------------------------------------------------------\n"
 " * flair_palette_rgb -- THIN ALIAS to flair_canon_rgb (color_canon.h).\n"
@@ -435,13 +435,13 @@ static void cmd_header(const char *jsonpath)
 " * navy accent, System-7 pinstripe; gray ramp for idx>=9). The LIVE desktop\n"
 " * converter (os/initechdos/kmain.c BOOT_FLAIR_SHELL) and the host screendump oracle\n"
 " * call this name, so both route through the SAME locked table and the rendered\n"
-" * desktop reads back identical pixels on host and metal (Law 2; fb-agree).\n"
+" * desktop reads back identical pixels on host and metal (independent checks; fb-agree).\n"
 " *\n"
 " * Provenance: the old switch read the REVOKED preview/seafoam samples; it is\n"
-" * retired (ADR-0004-AMENDMENT-DEC-09 ARB-1, ADR-0010 HER-02/HER-03). Pure,\n"
+" * retired (clipped Toolbox drawing ARB-1, independent reference checks HER-02/HER-03). Pure,\n"
 " * freestanding-safe (color_canon.h pulls <stdint.h> only): callable from the\n"
-" * kernel AND the host. Ref: spec/assets/color_canon.json (LOCKED, Rule 8);\n"
-" * CLAUDE.md Law 2, Rule 11 (deterministic), Rule 12 (ASCII-clean). */\n"
+" * kernel AND the host. Ref: spec/assets/color_canon.json (LOCKED, pinned inputs);\n"
+" * independent checks, deterministic output, ASCII source. */\n"
 "static inline uint32_t flair_palette_rgb(uint8_t index)\n"
 "{\n"
 "    return flair_canon_rgb(index);\n"

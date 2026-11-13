@@ -1,7 +1,7 @@
 /*
  * os/flair/list.h -- FLAIR List Manager: FlairList, Cell/ListBounds, selection.
  *
- * beads:  initech-77dj (FLAIR Phase 4.5 -- List Manager first cut).
+ *  (FLAIR Phase 4.5 -- List Manager first cut).
  * Ref:    list-manager.md Sec 1-5 (VERBATIM ListRec layout, Cell/ListBounds
  *         cell-coordinate model, selFlags/listFlags, LAddRow/LSetCell/LGetCell/
  *         LClick, the selection model). Ground truth: A+B verified,
@@ -11,12 +11,12 @@
  *         event_model.h Sec 1 directive.)
  * Ref:    spec/region_algebra.h -- rgn_rect_t = QuickDraw Rect (t,l,b,r).
  *         REUSED as ListBounds (cell-coord rect) and for rView (pixel rect).
- * Ref:    CLAUDE.md Law 1 (ground truth before code), Law 2 (oracle truth,
- *         anti-by-construction), Law 3 (artifact C, freestanding, no libc),
- *         Rule 2 (fail-loud, never silent truncation), Rule 8 (locked spec),
- *         Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ * Ref:    source provenance (ground truth before code), independent checks (oracle truth,
+ *         anti-by-construction), language boundary (artifact C, freestanding, no libc),
+ *         explicit error handling (fail-loud, never silent truncation), pinned inputs (locked spec),
+ *         deterministic output, ASCII source.
  *
- * REDUCED FIRST CUT (initech-77dj):
+ * REDUCED FIRST CUT:
  *   Static cell store -- no DataHandle/heap allocation.
  *   Caps: FLAIR_LIST_MAX_ROWS x FLAIR_LIST_MAX_COLS x FLAIR_LIST_CELL_MAX.
  *   selFlags: lOnlyOne implemented; lExtendDrag/lNoDisjoint reserved.
@@ -30,7 +30,7 @@
  * (gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror).
  * Only <stdint.h> and <stddef.h> (freestanding headers). No malloc, no libc.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef FLAIR_LIST_H
 #define FLAIR_LIST_H
@@ -44,7 +44,7 @@
 /* ==========================================================================
  * First-cut reduction caps.
  *
- * These are locked spec-data (CLAUDE.md Rule 8). Raise only with a beads
+ * These are locked spec-data (pinned inputs). Raise only with a
  * issue and worklog note -- never a silent bump to make one test pass.
  *
  * Sizing rationale:
@@ -115,7 +115,7 @@ _Static_assert(FLAIR_LSEL_ONLY_ONE == (int8_t)(-128),
                "lOnlyOne == -128 [list-manager.md Sec 4.1, A+B]");
 
 /* ==========================================================================
- * FlairList -- the FLAIR list record (reduced first-cut; initech-77dj).
+ * FlairList -- the FLAIR list record (reduced first-cut; ).
  *
  * Field names follow the IM ListRec source order [list-manager.md Sec 1].
  * Handle / heap fields are collapsed per the FLAIR deviation pattern
@@ -140,7 +140,7 @@ typedef struct FlairList {
     ListBounds   dataBounds; /* allocated grid in cell coords (IM: dataBounds)*/
 
     /* --- Cell data store (first-cut static arrays; IM: cells+cellArray) --- */
-    /* Indexed [row][col] = [c.v][c.h].  Mutation oracle: see LIST_MUT_* in
+    /* Indexed [row][col] = [c.v][c.h].  Mutation oracle: see regression patches in
      * list.c.  The store is canonical ROW-MAJOR; the mutation swaps the write
      * path only, leaving the read path canonical, so a written cell is
      * irrecoverable at its correct location (step 2 goes RED). */
@@ -150,7 +150,7 @@ typedef struct FlairList {
 } FlairList;
 
 /* ==========================================================================
- * Error codes -- fail-loud (CLAUDE.md Rule 2; never silent truncation).
+ * Error codes -- fail-loud (explicit error handling; never silent truncation).
  * All negative to distinguish from valid byte counts / booleans.
  * ========================================================================== */
 #define FLAIR_LIST_OK          0    /* success                                 */
@@ -182,7 +182,7 @@ void FlairList_init(FlairList *l, Cell cellSize, rgn_rect_t rView);
  * Returns FLAIR_LIST_OK (0) on success.
  * Returns FLAIR_LIST_ERR_OVERFLOW if adding count rows would exceed MAX_ROWS.
  * Returns FLAIR_LIST_ERR_NULL if l is NULL.
- * Ref: LAddRow [list-manager.md Sec 5]. Fail-loud (Rule 2).
+ * Ref: LAddRow [list-manager.md Sec 5]. Fail-loud.
  */
 int FlairLAddRow(FlairList *l, int16_t count, int16_t afterRow);
 
@@ -190,7 +190,7 @@ int FlairLAddRow(FlairList *l, int16_t count, int16_t afterRow);
  * FlairLSetCell -- store len bytes of data into cell c.
  *
  * Returns FLAIR_LIST_OK (0) on success.
- * Fail-loud (Rule 2):
+ * Fail-loud:
  *   FLAIR_LIST_ERR_NULL    if l or data is NULL.
  *   FLAIR_LIST_ERR_BOUNDS  if c is outside dataBounds (no write occurs).
  *   FLAIR_LIST_ERR_DATA_LEN if len > FLAIR_LIST_CELL_MAX or len < 0.
@@ -203,7 +203,7 @@ int FlairLSetCell(FlairList *l, const void *data, int16_t len, Cell c);
  *
  * Returns the byte count (>= 0) on success.  Returns 0 for an empty
  * (zero-length) cell -- this is success, not an error.
- * Fail-loud (Rule 2):
+ * Fail-loud:
  *   FLAIR_LIST_ERR_NULL   if l or buf is NULL.
  *   FLAIR_LIST_ERR_BOUNDS if c is outside dataBounds.
  *   FLAIR_LIST_ERR_BUF    if bufsz < cell data length (NO partial copy).
@@ -221,7 +221,7 @@ int16_t FlairLGetCell(const FlairList *l, void *buf, int16_t bufsz, Cell c);
  *
  * Returns 1 if a cell was hit (*hit_out set); 0 if the point is outside
  * rView or outside dataBounds (no selection change on miss).
- * Returns FLAIR_LIST_ERR_NULL if l or hit_out is NULL (6vvw, Rule 2).
+ * Returns FLAIR_LIST_ERR_NULL if l or hit_out is NULL (explicit error handling).
  * Ref: LClick [list-manager.md Sec 5]; selFlags [Sec 4.1].
  */
 int FlairLClick(FlairList *l, flair_point_t localPt, Cell *hit_out);
@@ -231,7 +231,7 @@ int FlairLClick(FlairList *l, flair_point_t localPt, Cell *hit_out);
  *
  * Returns 1 if selected, 0 if not selected.
  * Returns FLAIR_LIST_ERR_BOUNDS if c is outside dataBounds.
- * Returns FLAIR_LIST_ERR_NULL if l is NULL (14oe).
+ * Returns FLAIR_LIST_ERR_NULL if l is NULL.
  * Ref: LGetSelect [list-manager.md Sec 5].
  */
 int FlairLGetSelect(const FlairList *l, Cell c);

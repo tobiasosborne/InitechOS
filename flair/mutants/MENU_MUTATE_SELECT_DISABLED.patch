@@ -9,8 +9,8 @@
 -    if (m->items[it].is_divider)
 -        return 0;
 -    return m->items[it].enabled ? 1 : 0;
-+    /* NAMED MUTANT: pretend every existing item is selectable, even a disabled
-+     * item or a divider. The selectability oracle MUST catch this (Rule 6). */
++    /* NAMED regression patches: pretend every existing item is selectable, even a disabled
++     * item or a divider. The selectability oracle MUST catch this. */
 +    return 1;
  }
  

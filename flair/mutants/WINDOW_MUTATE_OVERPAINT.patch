@@ -7,7 +7,7 @@
          if (!p->visible) continue;
  
 -        if (region_is_empty(exposed)) break;
--        /* claim := exposed SECT p->strucRgn  (scratch_c). */
+-        /* claim:= exposed SECT p->strucRgn  (scratch_c). */
 -        region_t *claim = wm->scratch_c;
 -        region_op(claim, exposed, p->strucRgn, RGN_OP_INTERSECT);
 -        if (region_is_empty(claim)) continue;

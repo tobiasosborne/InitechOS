@@ -1,10 +1,10 @@
-/* Geneva 12 storage decoder (bead initech-uelk). Ref: PRD Sec 6.4; the
+/* Geneva 12 storage decoder. Ref: PRD Sec 6.4; the
  * unchanged locked spec/assets/geneva12.h, packed by tools/chicago_pack.c
  * -DPACK_GENEVA12 (the Chicago algorithm: a first-seen row dictionary,
  * blank rows trimmed per glyph). Freestanding C, no heap or host paths.
  * The complete locked row table is the host equality oracle
  * (test-geneva12-pack), never a value reconstructed through this decoder.
- * GENEVA12_PACK_MUT_ROW (Rule 6; test-geneva12-pack-mutant and the
+ * row patch (mutation checks; test-geneva12-pack-mutant and the
  * test-flair-itext-mutant G12ROW kernel) flips the first image column of
  * row 2 of 'S' -- the first glyph of the SimpleText line; one row above its
  * cap line, so the glyph's ink box grows a row -- in the kernel's strike.

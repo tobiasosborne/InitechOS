@@ -1,20 +1,20 @@
 /* test_blitter.c -- the FLAIR region-clipped blitter's property suite (ORACLE).
  *
- * beads: initech-i50 ("Blitter with region clipping (visRgn/clipRgn)"). The
+ *  ("Blitter with region clipping (visRgn/clipRgn)"). The
  *        blitter is the load-bearing CLIPPING primitive every Manager + the
  *        window drag draws through; a wrong clip corrupts the whole Toolbox
- *        (CLAUDE.md Rule 3 "all bugs are deep"). This is its mechanical oracle
- *        (Law 2).
+ *        (bounded storage "all bugs are deep"). This is its mechanical oracle
+ *.
  *
  * Ref:   PRD Sec 6.2/6.3 (region algebra is the clip; the Toolbox draws through
- *        a region-clipped surface). ADR-0004 D-1/D-2 (ALL drawing clipped by
+ *        a region-clipped surface). clipped Toolbox drawing/D-2 (ALL drawing clipped by
  *        visRgn INTERSECT clipRgn; the ONE surface module is the sole writer).
  *        spec/region_algebra.h (the LOCKED region contract); os/flair/blitter.h
  *        (the primitive under test); os/flair/surface.h (the ONE pixel writer);
  *        harness/proptest/test_region.c (the property idiom + seeded LCG +
  *        rgn_store_t arena + rasterize ground truth this suite MIRRORS).
- *        CLAUDE.md Law 2 (oracle is truth), Rule 1 (RED->GREEN), Rule 6
- *        (mutation-proven), Rule 11 (seeded LCG -> deterministic), Rule 12 ASCII.
+ *        independent checks (oracle is truth),  (RED->GREEN), mutation checks
+ *        (mutation-proven), reproducibility (seeded LCG -> deterministic), ASCII source.
  *
  * THE PROPERTY (homomorphism-style):
  *   A region-clipped blit/fill changes destination pixel (x,y) IF AND ONLY IF
@@ -37,8 +37,8 @@
  * thousands of random partial-overlap (clip, rect) pairs. Both 8bpp and 32bpp
  * destinations (both surface_put_pixel branches). Fill AND copy-blit paths.
  *
- * MUTANTS (Rule 6): BLITTER_MUTATE_IGNORE_CLIP and BLITTER_MUTATE_OFF_BY_ONE,
- * each compiled via -D; the Makefile gate asserts each goes RED.
+ * regression patches: ignore clip patch and off by one patch,
+ * each applied by the mutation runner; the Makefile gate asserts each goes RED.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -121,7 +121,7 @@ static void store_attach(rgn_store_t *s)
 }
 
 /* ===========================================================================
- * Seeded LCG (Rule 11: reproducible fuzz), mirroring test_region.c.
+ * Seeded LCG (reproducibility: reproducible fuzz), mirroring test_region.c.
  * ===========================================================================*/
 static uint32_t g_seed = 0x0B1177u;  /* (a distinct seed from test_region)     */
 static uint32_t lcg(void)
@@ -447,7 +447,7 @@ int main(void)
 
     /* ======================================================================
      * COPY-BLIT off-grid: negative origin + extent past the right/bottom edge,
-     * proving bounds-checking (no write past the dst buffer, Rule 2) AND the
+     * proving bounds-checking (no write past the dst buffer, explicit error handling) AND the
      * clip IFF still holds for the on-grid intersection.
      * ====================================================================== */
     {

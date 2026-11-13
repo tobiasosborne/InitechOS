@@ -1,4 +1,4 @@
-/* initech-tdnl.91: independent expectations over the real DOS dispatcher.
+/*: independent expectations over the real DOS dispatcher.
  * Ref: spec/toolbox_gate.h Sec 10; test_fileio.c low-address mock precedent.
  * Factory C; the backend captures calls/bytes, not gate-calculated expectations. */
 #include <stdint.h>
@@ -38,7 +38,7 @@ static uint16_t write_file(uint16_t dir, uint32_t slot,
 }
 static uint16_t unlink_file(const char *name, uint16_t dir)
 { (void)name; (void)dir; calls++; return 2; }
-/* initech-mcep Sec 10b: the rename backend records the leaves it is handed;
+/*  Sec 10b: the rename backend records the leaves it is handed;
  * NEW.DAT already exists (the DOS 3.3 dest-exists reject is the backend's). */
 static char ren_old[16], ren_new[16];
 static uint16_t rename_file(const char *o, uint16_t od, const char *n, uint16_t nd)
@@ -108,7 +108,7 @@ int main(void)
     ASSERT_EQ("F3 CREATE refuses device basename",reserved,TBX_ERR_BADARG);
     ASSERT_EQ("F3 CREATE device never touches backend",calls,before);
     if (reserved >= 5) (void)call(&owner,lo,TBX_FILE_CLOSE,reserved,0,0);
-    /* F5 (initech-mcep, Sec 10b): RENAME is AH=56h with the NEW name in EDI;
+    /* F5 (, Sec 10b): RENAME is AH=56h with the NEW name in EDI;
      * success is 0, the DOS dest-exists reject is ERR_DOS(5), both paths are
      * checked before DOS, and a device name never reaches the backend. */
     strcpy((char *)mem+500,"OLD.$$$"); strcpy((char *)mem+520,"KEEP.DAT");
@@ -122,7 +122,7 @@ int main(void)
     ASSERT_EQ("F5 rename bad old path", call(&owner,lo,TBX_FILE_RENAME,lo-1,lo+520,0), TBX_ERR_BADARG);
     ASSERT_EQ("F5 rename to a device", call(&owner,lo,TBX_FILE_RENAME,lo+500,lo+400,0), TBX_ERR_DOS(5));
     ASSERT_EQ("F5 refusals never touch backend", calls, before);
-    /* F6 (initech-mcep, Sec 10b): CREATE_NEW is AH=5Bh -- an existing file is
+    /* F6 (, Sec 10b): CREATE_NEW is AH=5Bh -- an existing file is
      * ERR_DOS(0x50) and keeps its bytes; an absent one is created. */
     uint32_t had = size;
     ASSERT_TRUE("F6 existing file has bytes", had > 0);

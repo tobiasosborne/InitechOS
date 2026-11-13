@@ -8,7 +8,7 @@
  {
      if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
 -    g_slot.mbar_redraw = 1u;
-+    /* MUTANT TBX_MUT_DRAWMBAR_NOOP (Rule 6; test-flair-tenant-menu-mutant):
++    /* regression patches drawmbar noop patch (mutation checks; test-flair-tenant-menu-mutant):
 +     * the call reports success but band 2 is never redrawn, so it keeps the
 +     * bar the tenant just replaced. NEVER in a real build. */
      return TBX_OK;

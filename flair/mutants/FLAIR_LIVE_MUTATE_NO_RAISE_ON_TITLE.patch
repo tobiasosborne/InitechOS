@@ -11,14 +11,14 @@
 +                switch_foreground(list, wm, ev, owner, old_fg);
          }
  
-         /* --- THE CLICKED WINDOW ITSELF COMES FORWARD (bug initech-tpzf) -----
+         /* --- THE CLICKED WINDOW ITSELF COMES FORWARD (bug ) -----
 @@ -704,7 +705,19 @@
           * app->windows is the group head (process.h Sec "windows"), and the
           * clicked window is now that head, so it is re-pointed in the same
           * breath -- a stale head after a raise is the 8fhu class of bug. */
 -        if (w != wm->front) {
-+        /* MUTANT FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE (Rule 6; the DQ5 bead
-+         * initech-haaq emu-mutant image ONLY) -- SCOPE EXTENDED BY initech-tpzf,
++        /* regression patches no raise on title patch (mutation checks; the DQ5
++         *  emu-mutant image ONLY) -- SCOPE EXTENDED BY,
 +         * and here is why, because it is exactly the way a mutant quietly stops
 +         * being a mutant. The knob models the pre-DQ5 bug "a title mouseDown on
 +         * a NON-FRONT window does nothing". Before tpzf that was one behaviour

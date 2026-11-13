@@ -6,11 +6,11 @@
  #define CURSOR_BLACK_IDX  0u
  #define CURSOR_WHITE_IDX  1u
  
--/* Film scene (tdnl.102-.104): the shape is selected at run time (arrow; hourglass
-- * while Saving -- canon). The Rule-6 squared-stem twin above pins the arrow. */
+-/* Film scene (-.104): the shape is selected at run time (arrow; hourglass
+- * while Saving -- canon). The mutation checks squared-stem twin above pins the arrow. */
 -#define cursor_data (g_cursor_shape->data)
 -#define cursor_mask (g_cursor_shape->mask)
-+/* Rule 6 M009: restore the complete v2 squared stem and dilated white mask.
++/* mutation checks M009: restore the complete v2 squared stem and dilated white mask.
 + * The same knob is compiled into the host suite and the QEMU mutant image. */
 +static const uint16_t cursor_data[16] = {
 +    0x0000, 0x4000, 0x6000, 0x7000, 0x7800, 0x7C00, 0x7E00, 0x7F00,

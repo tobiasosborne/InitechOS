@@ -8,5 +8,5 @@
  
 -    if (new_rows > FLAIR_LIST_MAX_ROWS) return FLAIR_LIST_ERR_OVERFLOW;
      /* The store is indexed by absolute cell coordinates (list.h Sec 3).
-      * 42dq: an empty column range still needs one actual backing column. */
+      * an empty column range still needs one actual backing column. */
      if (l->dataBounds.left < 0 || l->dataBounds.left >= FLAIR_LIST_MAX_COLS)

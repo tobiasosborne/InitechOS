@@ -1,9 +1,9 @@
 /*
  * test_color_canon.c -- THE single FLAIR color VALUE oracle (test-color-canon).
  *
- * beads: initech-mwpw (epic initech-qipc step 3) + initech-3knt (DEC-10
- *   Platinum accretion). ADR-0010 CD-2 (the one value oracle, 6 legs A-F +
- *   named VALUE mutants). era=multi per ADR-0004-AMENDMENT-DEC-10 Sec 3.5.3.
+ *  (epic  step 3) +  (Platinum base
+ *   Platinum accretion). independent reference checks CD-2 (the one value oracle, 6 legs A-F +
+ *   named VALUE mutants). era=multi per clipped Toolbox drawing
  *
  * PURPOSE: grade the GENERATED color canon (spec/assets/color_canon.h --
  *   flair_canon_rgb(idx) + color_canon[9][3] + INITECH_CANON_*_RGB) against
@@ -11,7 +11,7 @@
  *   System-7 pinstripe.md rendered rows).  This is the anti-heresy oracle: it
  *   exists because the OLD FLAIR color grade was BY CONSTRUCTION (HER-02 -- it
  *   computed the "expected" RGB from the same function the artifact renders
- *   from, so a wrong palette passed every gate).  CLAUDE.md Law 2:
+ *   from, so a wrong palette passed every gate).  independent checks:
  *     "An oracle that computes its expected values from the same source the
  *      artifact renders from is not an oracle."
  *
@@ -31,10 +31,10 @@
  *   and compares it to itself (that would be by-construction; the whole point of
  *   this oracle is to extinguish that).
  *
- * SOURCE CITATIONS (Law 1):
+ * SOURCE CITATIONS:
  *   LEG A: $(SYSTEM7_DECOMP)/goldens/resources/wctb_0_System_753.bin (112 bytes,
  *     MD5 dede55082e92a3c6bce408335cf77614 == wctb_0_System_colorHD.bin).
- *     Format: ../system7-decomp/specs/resources/wctb-mctb-format.md Sec 2.1/2.5.
+ *     Format:../system7-decomp/specs/resources/wctb-mctb-format.md Sec 2.1/2.5.
  *     Header 8B (wCSeed:u32, wCReserved:u16, ctSize:u16=12 => 13 entries),
  *     then 13 ColorSpec {value:u16, r:u16, g:u16, b:u16} big-endian; 8-bit
  *     channel = HIGH byte of each 16-bit word.  part0=#FFFFFF, part1=#000000,
@@ -42,7 +42,7 @@
  *   LEG B: $(WIN31_DECOMP)/refs/win31-chrome/default-colors-cross-check.txt --
  *     "Keyname = R G B" decimal lines (3 independent documented WIN.INI sources).
  *     Hilight/ActiveTitle = 0 0 128 (#000080); ButtonFace = 192 192 192
- *     (#C0C0C0).  DEPTH-TRAP (ADR-0010 CD-4, R5): the documented indexed-8 value
+ *     (#C0C0C0).  DEPTH-TRAP (independent reference checks CD-4, R5): the documented indexed-8 value
  *     is the PRIMARY assertion at TOL=0; the 16-color VGA artifact (#0000AA) is
  *     corroboration-only and MUST FAIL -- no ~42-level blue tolerance.
  *   LEG C: $(SYSTEM7_DECOMP)/specs/chrome/pinstripe.md rendered-golden rows
@@ -51,10 +51,10 @@
  *     part7/part8 (which are the #FFFFFF/#000000 WDEF endpoints, a distinct lane).
  *   LEG D: AUTHORED (no upstream decomp golden).  idx2 teal #8DDCDC +
  *     bevel_light #8DDCDC + bevel_shadow #4E9BA3 -- Initech-identity injections
- *     (operator WL-0053).  color_canon.json grading_contract.authored_exception.
+ *     (operator authored teal).  color_canon.json grading_contract.authored_exception.
  *   LEG F: $(SYSTEM7_DECOMP)/specs/sys8/platinum-palette.md Sec 2 (sampled
  *     gray-ramp table + capture coordinates) and Sec 3 (Lavender clut 208
- *     provenance). ADR-0004-AMENDMENT-DEC-10 Sec 3.5.3 / OQ-2 / OQ-3:
+ *     provenance). clipped Toolbox drawing / OQ-2 / OQ-3:
  *     canon takes the SAMPLED screen-domain values; nominal is provenance only.
  *   color_canon.h (the LOCKED generated header under test); color_canon.json
  *     (the locked source it is generated from; consulted ONLY for which idx maps
@@ -71,21 +71,21 @@
  *       harness/proptest/test_color_canon.c -o build/test_color_canon \
  *       && build/test_color_canon
  *
- * MUTATION PROOF (Rule 6): build with ONE of the -D mutant hooks below; each
+ * MUTATION PROOF: build with ONE of the -D mutant hooks below; each
  *   perturbs the VALUE the oracle reads for one idx (simulating a drifted
  *   header), so the INDEPENDENT golden catches it.  The relevant leg goes RED;
  *   the others stay GREEN.  Restore by dropping the -D.
- *     -DCANON_MUTATE_TEAL   idx2 -> #6FA08E (seafoam relapse)  => LEG D RED
- *     -DCANON_MUTATE_NAVY   idx5 -> #0000AA (16-color VGA)     => LEG B RED
- *     -DCANON_MUTATE_WHITE  idx1 -> #FEFEFE                    => LEG A RED
- *     -DCANON_MUTATE_PIN    idx7 -> #FFFFFF (wctb endpoint,    => LEG C RED
+ *     -teal patch   idx2 -> #6FA08E (seafoam relapse)  => LEG D RED
+ *     -navy patch   idx5 -> #0000AA (16-color VGA)     => LEG B RED
+ *     -white patch  idx1 -> #FEFEFE                    => LEG A RED
+ *     -pin patch    idx7 -> #FFFFFF (wctb endpoint,    => LEG C RED
  *                                  NOT the rendered shade)
- *     -DCANON_MUTATE_HILITE CIDX_HILITE_FRAME -> #000000       => LEG E RED
- *                           (black relapse; beads initech-hv7u)
- *     -DCANON_MUTATE_PLAT   CIDX_PLAT_STRIPE_DARK -> ramp idx119
+ *     -hilite patch CIDX_HILITE_FRAME -> #000000       => LEG E RED
+ *                           (black relapse; )
+ *     -plat patch   CIDX_PLAT_STRIPE_DARK -> ramp idx119
  *                           #777777 (nominal-domain gamma trap) => LEG F RED
  *
- * LEG E (beads initech-hv7u): CIDX_HILITE_FRAME (idx 119, #777777) /
+ * LEG E: CIDX_HILITE_FRAME (idx 119, #777777) /
  *   CIDX_HILITE_TEXT (idx 165, #A5A5A5) -- the two named idx>=9 gray-ramp
  *   indices added for the inactive-window StandardWDEF hilite split
  *   (wHiliteShadeA frame / wHiliteShade7 title ink).  Expected RGB is PARSED
@@ -98,14 +98,14 @@
  * SKIP_SYSTEM7_DECOMP=1 / SKIP_WIN31_DECOMP=1 explicitly opts out. The
  * summary counts opted-out rows as NOT graded. LEG D always runs.
  *
- * ASCII-clean (Rule 12). Deterministic / no timestamps (Rule 11).
+ * ASCII-clean. Deterministic / no timestamps.
  */
 
 /* The VALUE-UNDER-TEST: the generated color canon. */
 #include "color_canon.h"
 
 /* ---------------------------------------------------------------------------
- * MUTANT HOOKS (Rule 6).  canon_val(idx) is the VALUE-UNDER-TEST the oracle
+ * regression patches HOOKS.  canon_val(idx) is the VALUE-UNDER-TEST the oracle
  * reads.  In the default build it is exactly flair_canon_rgb(idx) (the real
  * generated canon).  A mutant hook perturbs ONE idx to simulate a header that
  * drifted off the locked spec, so the INDEPENDENT golden must catch it.  We do
@@ -128,7 +128,7 @@ static unsigned long canon_val(unsigned idx)
                                                   rendered #F3F3F3 dither shade */
 #endif
 #ifdef CANON_MUTATE_HILITE
-    if (idx == CIDX_HILITE_FRAME) v = 0x000000uL; /* black relapse (initech-hv7u) */
+    if (idx == CIDX_HILITE_FRAME) v = 0x000000uL; /* black relapse */
 #endif
 #ifdef CANON_MUTATE_PLAT
     if (idx == CIDX_PLAT_STRIPE_DARK) {
@@ -165,7 +165,7 @@ static unsigned long canon_bevel_shadow(void)
 /* ---------------------------------------------------------------------------
  * Tally.  We distinguish GRADED (golden present + diffed), SKIPPED (golden
  * absent + explicit opt-out), and FAILED (a real mismatch) so a skip-everything run
- * can never be mistaken for a pass (ADR-0010 CD-8.4).
+ * can never be mistaken for a pass (independent reference checks CD-8.4).
  * ------------------------------------------------------------------------- */
 static int g_graded  = 0;  /* rows actually diffed against a golden / authored datum */
 static int g_fails   = 0;  /* real mismatches */
@@ -324,7 +324,7 @@ static void leg_a_wctb(void)
         }
     }
 
-    /* Confirm the parser actually recovered the anchor parts (Law 1 honesty). */
+    /* Confirm the parser actually recovered the anchor parts (source provenance honesty). */
     if (!part_seen[0] || !part_seen[1] || !part_seen[2]) {
         g_graded++; g_fails++;
         printf("  FAIL LEG A: wctb part0/1/2 not all present in golden\n");
@@ -346,7 +346,7 @@ static void leg_a_wctb(void)
  *   idx5 CIDX_ACCENT  <- Hilight / ActiveTitle = 0 0 128  (#000080)
  *   idx6 CIDX_CONTROL <- ButtonFace = 192 192 192         (#C0C0C0)
  * DEPTH-TRAP (CD-4, R5): #000080 graded at TOL=0; a #0000AA header value MUST
- * FAIL (proven by CANON_MUTATE_NAVY).  No ~42-level blue tolerance.
+ * FAIL (proven by navy patch).  No ~42-level blue tolerance.
  * =========================================================================== */
 
 /* Parse "Keyname = R G B" -> 0x00RRGGBB; returns 1 if found, 0 if not. */
@@ -400,14 +400,14 @@ static void leg_b_win31(void)
 
     /* DEPTH-TRAP guardrail (CD-4): the golden MUST be the documented indexed-8
      * #000080, not the 16-color #0000AA artifact.  Assert the golden we parsed
-     * is the indexed-8 datum before grading against it (Law 1: prove the source). */
+     * is the indexed-8 datum before grading against it (source provenance: prove the source). */
     ASSERT_TRUE("LEG B depth-trap: win31 golden Hilight is indexed-8 #000080 (not #0000AA)",
                 navy == 0x000080uL);
 
     GRADE("idx5 CIDX_ACCENT vs win31 Hilight/ActiveTitle (indexed-8 navy)", navy, canon_val(CIDX_ACCENT));
     GRADE("idx6 CIDX_CONTROL vs win31 ButtonFace",                          face, canon_val(CIDX_CONTROL));
 
-    /* Law-3 guardrail asserts (CD-4): neither the Win95 COLOR_3DLIGHT #DFDFDF
+    /* language boundary guardrail asserts (CD-4): neither the Win95 COLOR_3DLIGHT #DFDFDF
      * nor the Win desktop teal #008080 may ever be conflated with the canon.
      * These grade the canon (idx2 teal / idx6 control), not the golden. */
     ASSERT_TRUE("guardrail: canon idx6 CONTROL is NOT #DFDFDF (Win95 3DLIGHT import)",
@@ -423,7 +423,7 @@ static void leg_b_win31(void)
  *   idx7 CIDX_PIN_LIGHT <- the #F3F3F3 'light' row
  *   idx8 CIDX_PIN_DARK  <- the #969696 'dark'  row
  * NOTE: these are NOT wctb part7/part8 (#FFFFFF/#000000 WDEF endpoints); the
- * CANON_MUTATE_PIN mutant (idx7 -> #FFFFFF) proves that distinction bites.
+ * pin patch mutant (idx7 -> #FFFFFF) proves that distinction bites.
  * =========================================================================== */
 
 /* Scan pinstripe.md for the first row tagged <tag> ("light"/"dark") that
@@ -485,11 +485,11 @@ static void leg_c_pinstripe(void)
 /* ===========================================================================
  * LEG E -- title-bar.md rendered inactive-hilite rows (System-7), TOL=0.
  * Expected RGB is PARSED FROM THE MARKDOWN GOLDEN "Rendered colors" table rows
- *   "| inactive frame | `#777777` | ... |" and
- *   "| inactive title text | `#A5A5A5` | ... |".
+ *   "| inactive frame | `#777777` |... |" and
+ *   "| inactive title text | `#A5A5A5` |... |".
  *   CIDX_HILITE_FRAME <- the #777777 'inactive frame' row (wHiliteShadeA)
  *   CIDX_HILITE_TEXT  <- the #A5A5A5 'inactive title text' row (wHiliteShade7)
- * beads initech-hv7u: the inactive-window title-frame + title-ink dim.
+ *: the inactive-window title-frame + title-ink dim.
  * =========================================================================== */
 
 /* Scan title-bar.md for the first line containing literal substring `label`
@@ -541,7 +541,7 @@ static void leg_e_hilite(void)
     GRADE("CIDX_HILITE_TEXT vs title-bar.md inactive-title-text row (wHiliteShade7)",
           text_gray, canon_val(CIDX_HILITE_TEXT));
 
-    /* Self-consistency guardrail (Rule 8): both named indices must actually be
+    /* Self-consistency guardrail (pinned inputs): both named indices must actually be
      * >= 9 -- i.e. resolve via the documented idx>=9 gray ramp, NOT a
      * hand-typed 0..8 table slot. This is the whole point of the extension. */
     ASSERT_TRUE("CIDX_HILITE_FRAME is a ramp index (>= 9), not a 0..8 table slot",
@@ -554,7 +554,7 @@ static void leg_e_hilite(void)
  * LEG F -- platinum-palette.md Sec 2 gray-ramp roles (System 8), TOL=0.
  * Expected RGB is the FIRST (sampled) column parsed from the independently
  * minted palette table. The nominal 0x11 ladder is provenance only: using it
- * here would be the DEC-10 OQ-3 gamma trap. The role anchors below are unique
+ * here would be the Platinum base OQ-3 gamma trap. The role anchors below are unique
  * within Sec 2 and keep the crosswalk independent from color_canon.*.
  *
  * Sec 3 is also parsed for the literal "clut 208" + "Lavender" provenance.
@@ -678,13 +678,13 @@ static void leg_f_platinum(void)
 /* ===========================================================================
  * LEG D -- AUTHORED (Initech identity; NO external decomp golden).
  * idx2 teal #8DDCDC + bevel_light #8DDCDC + bevel_shadow #4E9BA3 are operator
- * WL-0053 injections (VIC-20 cyan).  No upstream golden exists, so this leg is
+ * authored teal injections (VIC-20 cyan).  No upstream golden exists, so this leg is
  * HONESTLY authored-not-decomp-sourced (P4).  It is gated by:
  *   (a) locked-constant equality -- the canon header value == the
  *       operator-ratified authored datum stated LITERALLY below;
  *   (b) a green-cyan-octant luminance/hue bound (teal = high-G, high-B, lower-R);
  *   (c) bevel_shadow same-hue-as-bevel_light (derived-shadow lock);
- *   (d) the seafoam-relapse VALUE mutant (CANON_MUTATE_TEAL -> #6FA08E RED).
+ *   (d) the seafoam-relapse VALUE mutant (teal patch -> #6FA08E RED).
  * The superseded System-7 lavender/gray baseline is recorded as a comment only,
  * NEVER as the expected value (deviation-audit, CD-8.5).
  * =========================================================================== */
@@ -693,10 +693,10 @@ static void leg_d_authored(void)
     printf("LEG D -- authored Initech teal (NO external golden; WL-0053)\n");
 
     /* (a) The operator-ratified AUTHORED datum, stated literally here as the
-     * locked constant.  This is NOT decomp-sourced; it is the WL-0053 identity
+     * locked constant.  This is NOT decomp-sourced; it is the authored teal identity
      * injection.  Superseded baseline (deviation-audit, NEVER the expected
      * value): System-7 desktop had no teal; the dialog bevel was lavender
-     * #CCCCFF/#DADAFF (wctb part9/11) -- replaced by WL-0053. */
+     * #CCCCFF/#DADAFF (wctb part9/11) -- replaced by authored teal. */
     const unsigned long AUTHORED_TEAL         = 0x8DDCDCuL; /* idx2 + bevel_light */
     const unsigned long AUTHORED_BEVEL_SHADOW = 0x4E9BA3uL; /* darkened teal      */
 

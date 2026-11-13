@@ -1,10 +1,10 @@
 ; spec/assets/chicago12.art -- InitechOS "Chicago 12" system-font strike, the
-; LOCKED hand-authored source (bead initech-tdnl.33, slice 1). Rule 8: this file
+; LOCKED hand-authored source (, slice 1). pinned inputs: this file
 ; is the contract; spec/assets/chicago12.h is GENERATED from it by
 ; tools/font_art2h.c (make gen-chicago12; test-chicago-art proves the committed
 ; header is byte-identical to a fresh transcription).
 ;
-; PROVENANCE (Law 1 honesty) -- two different kinds of data live here:
+; PROVENANCE (source provenance honesty) -- two different kinds of data live here:
 ;   METRICS (the "lb"/"aw" numbers on every glyph line) are MEASUREMENTS of the
 ;     real System 7.0.1 Chicago 12 strike, NFNT 5478 (../system7-decomp
 ;     goldens/resources/NFNT_5478.bin, owTable: high byte = left bearing lb,
@@ -31,10 +31,10 @@
 ;     hand to the corrected extents (no pixel was copied).
 ;     Earlier v0 shapes (spec/assets/chicago8x16.h, hand-authored) were
 ;     the starting point; every glyph was redrawn to the 9-row cap height and
-;     to its real advance (M W m w and the narrow i l ' ! . , : ; included).
+;     to its real advance (M W m w and the narrow i l ' !.:; included).
 ;
 ; FORMAT: one block per glyph, codes 0x20..0x7E in order, then "missing",
-;   then the one EXTRA glyph 0xC9 (the Mac Roman ellipsis; bead initech-tdnl.68).
+;   then the one EXTRA glyph 0xC9 (the Mac Roman ellipsis; ).
 ;   glyph <code|missing> lb <n> aw <n>
 ;   16 rows, each exactly aw characters: '#' = ink, '.' = paper. Row 12 is the
 ;   first row below the baseline (ascent 12); row 15 is the leading row and is
@@ -42,7 +42,7 @@
 ;   columns. The leftmost ink column of every inked glyph MUST equal lb (the
 ;   transcriber fails loud otherwise), so the art is checked against the real
 ;   bearing, and no ink may sit at or beyond aw.
-; ASCII-clean (Rule 12). Lines starting ';' are comments.
+; ASCII-clean. Lines starting ';' are comments.
 glyph 0x20 lb 4 aw 4
 ....
 ....
@@ -349,7 +349,7 @@ glyph 0x31 lb 2 aw 8
 ........
 ........
 ........
-; R3.6 tdnl.13 deliberate art correction: digit2 diagonal/shoulder,
+; R3.6  deliberate art correction: digit2 diagonal/shoulder,
 ; digit5 lower bowl, lowercase a shoulder. Independent NFNT5478 clock gate
 ; found eleven differing pixels (WL-clock-r36.md). Advances stay unchanged.
 glyph 0x32 lb 1 aw 8
@@ -1678,7 +1678,7 @@ glyph missing lb 0 aw 10
 ..........
 ..........
 ..........
-; 0xC9 -- the Mac Roman ellipsis (bead initech-tdnl.68, Font Manager slice 2):
+; 0xC9 -- the Mac Roman ellipsis (, Font Manager slice 2):
 ;   the glyph a truncated window title ends in. METRICS lb 2 aw 14 are the
 ;   NFNT 5478 owTable entry for code 0xC9 (chicago.md "widMax": codes 0xB0 and
 ;   0xC9 both aw 14). ART hand-authored from this strike's own period (0x2E:
@@ -1702,7 +1702,7 @@ glyph 0xC9 lb 2 aw 14
 ..............
 ..............
 ..............
-; 2026-10-15 tdnl.95: checkMark, extracted per explicit operator directive.
+; 2026-10-15: checkMark, extracted per explicit operator directive.
 ; NFNT_5478.bin bitImage @26, rowWords70, fRectHeight15; locTable @2126,
 ; loc[18]=18, loc[19]=27; owTable @2648=0x010B (lb1, aw11).
 ; Unlike the authored ASCII strike above, these18 ink pixels are transcribed

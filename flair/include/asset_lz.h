@@ -1,12 +1,12 @@
 /* os/flair/asset_lz.h -- the kernel's decoder for packed strike STORAGE
- * (kernel size round 5, WL-0168). Freestanding C: no heap, no libc.
+ * (compact storage, packed storage). Freestanding C: no heap, no libc.
  *
  * Ref: tools/asset_lz.c (the factory packer; the format below is its
  *      contract); the round-4 chicago_packed.h precedent: a hosted build keeps
  *      reading the LOCKED spec/assets tables directly, only the freestanding
  *      kernel reads the packed copy, and harness/proptest/test_asset_lz.c
- *      grades THIS decoder against the unchanged locked bytes (Rule 8). The
- *      historical pixel gates still grade the strikes themselves (Law 2).
+ *      grades THIS decoder against the unchanged locked bytes (pinned inputs). The
+ *      historical pixel gates still grade the strikes themselves.
  *
  * FORMAT (LZSS): a flag byte announces up to eight items, least significant
  * bit first. A 1 bit is one literal byte. A 0 bit is a two-byte
@@ -14,7 +14,7 @@
  * in the OUTPUT (overlap allowed, byte by byte). Decoding stops after exactly
  * n output bytes; the packer never emits an item that crosses n.
  *
- * MUTANT ASSET_LZ_MUT_BYTE (Rule 6; test-asset-lz-mutant): the 100th output
+ * regression patches byte patch (mutation checks; test-asset-lz-mutant): the 100th output
  * byte is flipped -- the equality gate must go RED. NEVER in a real build.
  */
 #ifndef INITECH_ASSET_LZ_H

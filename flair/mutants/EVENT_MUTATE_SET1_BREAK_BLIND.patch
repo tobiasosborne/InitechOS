@@ -2,7 +2,7 @@
 # test: test_event
 --- a/event.c
 +++ b/event.c
-@@ -468,10 +468,10 @@
+@@ -479,10 +479,10 @@
          }
          ext = (int)g_kbd_ext;
          g_kbd_ext = 0u;
@@ -10,7 +10,7 @@
 -            is_break = 1;
 -            sc = (uint8_t)(byte & (uint8_t)~SC_BREAK);
 -        }
-+        /* MUTANT (Rule 6; test-event-mutant): the pre-tdnl.58 decoder -- the
++        /* regression patches (mutation checks; test-event-mutant): the pre- decoder -- the
 +         * SET-1 break bit is ignored, so 0x9D is not "Ctrl up". Group I of
 +         * test_event.c must go RED. NEVER define in a real build. */
 +        (void)ext;

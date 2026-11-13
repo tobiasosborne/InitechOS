@@ -7,7 +7,7 @@
      }
      if (label_w > 0) {
 -        if (w > 6 && h > 6) {
--            /* M011 / tdnl.99: s8_alert_modal.png x365..418 has 54 white
+-            /* M011 /: s8_alert_modal.png x365..418 has 54 white
 -             * pixels at y160 and 53 C0 + one E7 at y175. The Chicago cell
 -             * includes blank rows outside its ink; clip its opaque erase to
 -             * the inner face, preserving both bevel rows and columns.
@@ -17,7 +17,7 @@
 -            (void)text_draw_run(&port->portBits.bm, lx, ly, ctrl->contrlTitle,
 -                                FONT_CHICAGO, 0u, fg, bg, &k);
 -        }
-+        /* Rule 6: restore the pre-M011 opaque run over the bevel rows. */
++        /* mutation checks: restore the pre-M011 opaque run over the bevel rows. */
 +        ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
      }
  }

@@ -6,8 +6,8 @@
      int idx;
  
      if (s == NULL) SCRAP_PANIC("FlairPutScrap: NULL argument (contract error)");
--    /* m1ry: address zero is readable IVT memory in the flat kernel. */
+-    /* address zero is readable IVT memory in the flat kernel. */
 -    if (data == NULL && len != 0u) SCRAP_PANIC("FlairPutScrap: NULL data");
  
-     /* Rule 2: fail loud on over-size -- NEVER silently truncate. */
+     /* explicit error handling: fail loud on over-size -- NEVER silently truncate. */
      if (len > FLAIR_SCRAP_MAX_PAYLOAD)

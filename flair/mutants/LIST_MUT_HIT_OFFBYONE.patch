@@ -10,13 +10,13 @@
 -    col_off = (int16_t)((localPt.h - l->rView.left) / l->cellSize.h);
 -    row_off = (int16_t)((localPt.v - l->rView.top)  / l->cellSize.v);
 +    /*
-+     * MUTANT LIST_MUT_HIT_OFFBYONE: omit rView.top / rView.left subtraction.
++     * regression patches hit offbyone patch: omit rView.top / rView.left subtraction.
 +     * The pixel coordinates are used raw, giving a row/col that corresponds
 +     * to a different (wrong) cell.
 +     * Oracle step 4: localPt=(15,38), rView.top=20, cellSize.v=16:
 +     *   canonical row = (38-20)/16 = 1; mutant row = 38/16 = 2 -> hit.v=2.
 +     *   Test checks hit.v == 1 -> FAIL -> RED.
-+     * Ref: CLAUDE.md Rule 6.
++     * Ref: mutation checks.
 +     */
 +    col_off = (int16_t)(localPt.h / l->cellSize.h);
 +    row_off = (int16_t)(localPt.v / l->cellSize.v);

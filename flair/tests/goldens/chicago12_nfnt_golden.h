@@ -1,15 +1,15 @@
 /*
  * spec/chicago12_nfnt_golden.h -- the INDEPENDENT Chicago 12 metrics golden
- * for the factory's pixel oracles (bead initech-tdnl.33).
+ * for the factory's pixel oracles.
  *
  * The REAL System 7.0.1 Chicago 12 owTable (NFNT 5478) for 0x20..0x7E, typed
  * into the factory so oracles that cannot read the gitignored Apple resource at
  * run time (the emulator screendump graders, the chrome fidelity oracle) still
  * place glyphs with the REAL advances and bearings -- never with the artifact's
- * spec/assets/chicago12.h tables (Law 2 / ADR-0010 HER-02).
+ * spec/assets/chicago12.h tables (independent checks / independent reference checks HER-02).
  *
  * PROVENANCE: transcribed mechanically from
- * ../system7-decomp/goldens/resources/NFNT_5478.bin bytes 2612 + 2*c (high
+ *../system7-decomp/goldens/resources/NFNT_5478.bin bytes 2612 + 2*c (high
  * byte lb, low byte aw; specs/fonts/font-manager.md Sec 1.1), identical to
  * specs/fonts/chicago.md "Advance-width table". test-chicago-metrics leg G
  * re-reads the binary and proves every entry here equal to it, so this copy
@@ -40,14 +40,14 @@ static const unsigned char __attribute__((unused)) NFNT5478_LB[NFNT5478_LAST - N
 };
 
 /* The one extended code the Toolbox draws: the Mac Roman ellipsis 0xC9, which
- * ends a truncated window title (bead initech-tdnl.68). NFNT_5478.bin owTable
+ * ends a truncated window title. NFNT_5478.bin owTable
  * byte 2612 + 2*0xC9 = 0x020E: lb 2, aw 14 (chicago.md "widMax"). Leg G of
  * test-chicago-metrics re-reads it from the binary like every entry above. */
 #define NFNT5478_ELLIPSIS     0xC9
 #define NFNT5478_ELLIPSIS_AW  14
 #define NFNT5478_ELLIPSIS_LB  2
 
-/* Dated extension 2026-10-15 tdnl.95: NFNT code18 ow @2648=0x010B. */
+/* Dated extension 2026-10-15: NFNT code18 ow @2648=0x010B. */
 #define NFNT5478_CHECK 0x12
 #define NFNT5478_CHECK_AW 11
 #define NFNT5478_CHECK_LB 1

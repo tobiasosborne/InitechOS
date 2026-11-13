@@ -6,7 +6,7 @@
  void SizeWindow(WindowMgr *wm, WindowPtr w, int16_t width, int16_t height)
  {
      rgn_rect_t frame;
-+    /* h6y1 Rule 6: the tracked proposal/serial marker alone is not a resize.
++    /* mutation checks: the tracked proposal/serial marker alone is not a resize.
 +     * The emu pixel gate must see SizeWindow's committed frame and content. */
 +    return;
      if (wm == NULL || w == NULL) WIN_PANIC("SizeWindow: NULL");

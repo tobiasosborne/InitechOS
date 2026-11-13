@@ -7,7 +7,7 @@
          }
          if (source_truncated || shown < n) {
 -            out->text[shown - 1] = FLAIR_CHROME_TITLE_TRUNC_MARKER;
-+            /* Rule-6 restoration of the retired R0.2 marker (test-flair-fonts
++            /* mutation checks restoration of the retired R0.2 marker (test-flair-fonts
 +             * W3 must go RED): one period instead of the 0xC9 ellipsis. */
 +            out->text[shown - 1] = '.';
          }

@@ -1,5 +1,5 @@
 /* System-owned text-tenant launcher, shared by the pump and routing oracle.
- * Ref: ADR-0013 Sec 3.2/7 O-7; kmain.c DEC-LAUNCH-1. */
+ * Ref: tenant lifecycle/7 O-7; kmain.c. */
 #ifndef INITECH_FLAIR_SYSTEM_KEY_H
 #define INITECH_FLAIR_SYSTEM_KEY_H
 #include "event.h"
@@ -18,7 +18,7 @@ static inline int flair_text_tenant_hotkey(const EventRecord *ev)
            ;
 }
 
-/* ADR-0013 O-7; event_model.h Sec 2/5: consume text-tenant typeahead
+/* tenant lifecycle O-7; event_model.h Sec 2/5: consume text-tenant typeahead
  * without delivery, but cook modifier releases. Dropping raw bytes would
  * leave the launching Ctrl/Alt latched after QUIT. Preserve ticks/cursor
  * and lock state; never reinitialize the Event Manager on resume. */

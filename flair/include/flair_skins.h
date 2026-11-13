@@ -1,12 +1,12 @@
 /*
  * spec/flair_skins.h -- the FLAIR era/heritage skin registry: a DATA-ONLY VIEW
- *                       over the ONE color canon (LOCKED spec-data, Rule 8).
+ *                       over the ONE color canon (LOCKED spec-data, pinned inputs).
  *
- * beads: initech-3knt (DEC-10 Platinum base-era registry slice).
- * Ref:   ADR-0004-AMENDMENT-DEC-09 Sec 3.3 ARB-4 + Sec 3.7 D-9/D-9b -- the
- *        flair_skin_t registry VIEW spec. ADR-0006 Sec 4.6 -- the consuming
+ *  (Platinum base Platinum base-era registry slice).
+ * Ref:   clipped Toolbox drawing ARB-4 + Sec 3.7 D-9/D-9b -- the
+ *        flair_skin_t registry VIEW spec. appearance registry -- the consuming
  *        oracles (test-skin-teal, test-skin-era-frozen, check-win95isms).
- *        ADR-0004-AMENDMENT-DEC-10 D-10.1/D-10.2 -- Platinum is the BASE;
+ *        clipped Toolbox drawing.1/D-10.2 -- Platinum is the BASE;
  *        System 7 remains a retained, locked heritage row.
  *
  * WHAT THIS IS (and is NOT). This header is the era/heritage AXIS of FLAIR
@@ -17,9 +17,9 @@
  * table: every slot's RGB comes BY INCLUSION from spec/assets/color_canon.h
  * (the INITECH_CANON_*_RGB macros and flair_canon_rgb's own gray-ramp formula).
  * There is ZERO second copy of any canon color value here. Every row remains
- * explicitly era-tagged; DEC-10 changes the default policy, not that discipline.
+ * explicitly era-tagged; Platinum base changes the default policy, not that discipline.
  *
- * THE TYPE FORBIDS AN ENGINE FORK (ADR-0004-AMENDMENT-DEC-09 D-9). flair_skin_t
+ * THE TYPE FORBIDS AN ENGINE FORK (clipped Toolbox drawing). flair_skin_t
  * carries ONLY data: color slots (idx + canon RGB), pattern-byte/metric scalars,
  * and the two era/heritage enum tags. It carries NO function pointers and NO
  * draw code. The proposed ElementDrawTable vtable is KILLED by construction:
@@ -27,22 +27,22 @@
  * so a data record cannot host a second decoration engine.
  *
  * BY-INCLUSION DISCIPLINE (the load-bearing invariant). Each color slot's
- * .rgb field is initialized from a color_canon.h macro -- e.g.
+ *.rgb field is initialized from a color_canon.h macro -- e.g.
  *   caption_navy = { CIDX_ACCENT, INITECH_CANON_ACCENT_RGB }
  * The ONE win31 accent with no CIDX (btnshadow #808080) is NOT hand-typed
  * either: it is derived from the canon's OWN gray-ramp formula
  * (flair_canon_rgb(idx>=9) == (idx<<16)|(idx<<8)|idx; color_canon.h lines
  * 121-133) applied to its gray-ramp index 0x80, via FLAIR_CANON_GRAY_RGB below.
  * If you find yourself typing a 0xRRGGBB for a slot that HAS a canon macro,
- * STOP -- use the macro (CLAUDE.md Law 2; the by-inclusion grep gate bites).
+ * STOP -- use the macro (independent checks; the by-inclusion grep gate bites).
  *
- * ACCRETION = APPEND, NEVER MUTATE (ADR-0004-AMENDMENT-DEC-09 D-9 P5). The
- * ERA_SYS7_0_1 and ERA_WIN31 rows are LOCKED pre-existing rows. DEC-10 appends
+ * ACCRETION = APPEND, NEVER MUTATE (clipped Toolbox drawing P5). The
+ * ERA_SYS7_0_1 and ERA_WIN31 rows are LOCKED pre-existing rows. Platinum base appends
  * ERA_SYS8_PLATINUM as the BASE without mutating either retained row. test-skin-
  * era-frozen computes a digest-of-fields over those two locked rows and asserts
  * it equals a committed constant -- mutating a locked-row field goes RED.
  *
- * FAIL-LOUD RESOLVER (Rule 2; the region.c RGN_FAIL_LOUD idiom). flair_skin_-
+ * FAIL-LOUD RESOLVER (explicit error handling; the region.c RGN_FAIL_LOUD idiom). flair_skin_-
  * resolve(era, heritage) is TOTAL: an unknown (era, heritage) pair NEVER returns
  * a wrong-but-plausible row. Hosted it CHECK-fails (abort, the oracle observes a
  * non-zero exit); freestanding it raises #UD (__builtin_trap), which the IDT
@@ -50,9 +50,9 @@
  * The explicit default policy is (FLAIR_DEFAULT_ERA,
  * FLAIR_DEFAULT_HERITAGE) = (ERA_SYS8_PLATINUM, HERITAGE_QUICKDRAW).
  *
- * Freestanding-safe (Law 3): <stdint.h> + color_canon.h only; no libc, no malloc.
- * Dual-compiles under kernel flags and hosted. ASCII-clean (Rule 12).
- * Deterministic / no timestamps (Rule 11).
+ * Freestanding-safe: <stdint.h> + color_canon.h only; no libc, no malloc.
+ * Dual-compiles under kernel flags and hosted. ASCII-clean.
+ * Deterministic / no timestamps.
  */
 #ifndef INITECH_SPEC_FLAIR_SKINS_H
 #define INITECH_SPEC_FLAIR_SKINS_H
@@ -82,9 +82,9 @@
 #define FLAIR_GRAY_IDX_808080  0x80u
 
 /* ---------------------------------------------------------------------------
- * era_id -- the heritage ERA axis. Platinum is the BASE per DEC-10 D-10.1;
+ * era_id -- the heritage ERA axis. Platinum is the BASE per Platinum base D-10.1;
  * System 7 remains a locked heritage row per D-10.2. The enum integers stay
- * stable (Rule 11 / BC-10.5); explicit default policy is declared below.
+ * stable (reproducibility / BC-10.5); explicit default policy is declared below.
  * ------------------------------------------------------------------------- */
 typedef enum {
     ERA_SYS7_0_1      = 0,   /* retained System 7.0-7.1 locked heritage row      */
@@ -108,7 +108,7 @@ typedef enum {
  * color_canon.h (a CIDX_* macro pair, or the gray-ramp formula). Carrying both
  * makes a slot gradeable WITHOUT routing back through the render path (the
  * oracle reads slot.rgb; the canon supplies the expected value independently).
- * PURE DATA: no pointer, no callback. (ADR-0004-AMENDMENT-DEC-09 ARB-4.)
+ * PURE DATA: no pointer, no callback. (clipped Toolbox drawing ARB-4.)
  * ------------------------------------------------------------------------- */
 typedef struct {
     uint16_t idx;   /* canon index: a CIDX_* (0..8) or a gray-ramp index (>=9). */
@@ -154,17 +154,17 @@ typedef struct flair_skin {
 } flair_skin_t;
 
 /* ---------------------------------------------------------------------------
- * The LOCKED registry. DEC-10 D-10.1 appends the ERA_SYS8_PLATINUM/QUICKDRAW
+ * The LOCKED registry. Platinum base D-10.1 appends the ERA_SYS8_PLATINUM/QUICKDRAW
  * BASE after the retained locked SYS7 heritage row (D-10.2) and WIN31 peer row.
- * EVERY .rgb is by-inclusion from color_canon.h -- there is no hand-typed canon
+ * EVERY.rgb is by-inclusion from color_canon.h -- there is no hand-typed canon
  * value below. The era= tags stay explicit on every row.
  *
- * Win-3.1 peer accents (ADR-0004-AMENDMENT-DEC-09 D-9b): caption navy #000080
+ * Win-3.1 peer accents (clipped Toolbox drawingb): caption navy #000080
  * (== CIDX_ACCENT), btnface #C0C0C0 (== CIDX_CONTROL), btnshadow #808080
  * (gray-ramp 0x80), btnhilight #FFFFFF (== CIDX_WHITE), menubar #FFFFFF
  * (== CIDX_WHITE). The flat-2-D Win-3.1 target carries NO Win95 3D-light
  * inner-bevel import (check-win95isms enforces the forbidden-token list; the
- * tokens themselves live ONLY in that scanner, ARB-8 / Law 3).
+ * tokens themselves live ONLY in that scanner, ARB-8 / language boundary).
  * ------------------------------------------------------------------------- */
 static const flair_skin_t flair_skin_registry[] = {
     /* ===== ERA_SYS7_0_1 / HERITAGE_QUICKDRAW -- the BASE skin (LOCKED). ===== */
@@ -210,47 +210,47 @@ static const flair_skin_t flair_skin_registry[] = {
     {
         ERA_SYS8_PLATINUM, HERITAGE_QUICKDRAW,
         /* desktop: Initech teal identity.
-         * Ref: DEC-10 BC-10.6 / Sec 3.3.1. */
+         * Ref: Platinum base BC-10.6 / Sec 3.3.1. */
         { CIDX_DESKTOP, INITECH_CANON_DESKTOP_RGB },
         /* caption_navy: navy accent survives verbatim.
-         * Ref: DEC-10 Sec 3.3.1. */
+         * Ref: Platinum base */
         { CIDX_ACCENT, INITECH_CANON_ACCENT_RGB },
         /* caption_ink: active title ink #000000.
-         * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2.3. */
+         * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 2.3. */
         { CIDX_TITLE_INK, INITECH_CANON_TITLE_INK_RGB },
         /* menubar: sampled #E7E7E7 face (nominal #DDDDDD is provenance).
-         * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2;
-         * ../system7-decomp/specs/sys8/menus.md Sec 1.1. */
+         * Ref:../system7-decomp/specs/sys8/platinum-palette.md Sec 2;
+         *../system7-decomp/specs/sys8/menus.md Sec 1.1. */
         { CIDX_PLAT_FACE, FLAIR_CANON_GRAY_RGB(CIDX_PLAT_FACE) },
         /* btnface: sampled #E7E7E7 dialog/control/push-button face.
-         * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
+         * Ref:../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
         { CIDX_PLAT_FACE, FLAIR_CANON_GRAY_RGB(CIDX_PLAT_FACE) },
         /* btnshadow: sampled #A5A5A5 widget edge/interior shadow; nominal
          * #888888 is provenance only.
-         * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
+         * Ref:../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
         { CIDX_PLAT_WIDGET_EDGE, FLAIR_CANON_GRAY_RGB(CIDX_PLAT_WIDGET_EDGE) },
         /* btnhilight: every Platinum 3-D highlight is #FFFFFF.
-         * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
+         * Ref:../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
         { CIDX_WHITE, INITECH_CANON_WHITE_RGB },
         /* frame_ink: active frame lines are #000000.
-         * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 1. */
+         * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 1. */
         { CIDX_BLACK, INITECH_CANON_BLACK_RGB },
         /* content: Finder content field is white.
-         * Ref: ../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
+         * Ref:../system7-decomp/specs/sys8/platinum-palette.md Sec 2. */
         { CIDX_WHITE, INITECH_CANON_WHITE_RGB },
         /* bevel_light: lavender accent becomes same-hue Initech teal, using
-         * the same canon slot as SYS7. Ref: DEC-10 Sec 6 OQ-2 (operator,
+         * the same canon slot as SYS7. Ref: Platinum base OQ-2 (operator,
          * 2026-08-16). */
         { CIDX_DESKTOP, INITECH_CANON_BEVEL_LIGHT_RGB },
         /* bevel_shadow: same OQ-2 substitution and SYS7 canon slot.
-         * Ref: DEC-10 Sec 6 OQ-2 (operator, 2026-08-16). */
+         * Ref: Platinum base OQ-2 (operator, 2026-08-16). */
         { CIDX_DESKTOP, INITECH_CANON_BEVEL_SHADOW_RGB },
         /* pinstripe_pattern: 12 row-alternating racing stripes, LIGHT first at
          * stripe row 0; exact structure is graded by chrome oracles, not this
-         * scalar. Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2.2. */
+         * scalar. Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 2.2. */
         0x55u,
         /* bevel_width: 4-px raised body frame (SYS7 uses 1 px).
-         * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 4. */
+         * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 4. */
         4u
     }
 };
@@ -258,7 +258,7 @@ static const flair_skin_t flair_skin_registry[] = {
 #define FLAIR_SKIN_REGISTRY_COUNT \
     ( (uint16_t)(sizeof(flair_skin_registry) / sizeof(flair_skin_registry[0])) )
 
-/* Explicit default policy (DEC-10 D-10.1 / D-10.6 Option B). The enum values
+/* Explicit default policy (Platinum base D-10.1 / D-10.6 Option B). The enum values
  * remain stable; the default is never inferred from numeric or row position. */
 #define FLAIR_DEFAULT_ERA       ERA_SYS8_PLATINUM
 #define FLAIR_DEFAULT_HERITAGE  HERITAGE_QUICKDRAW
@@ -276,8 +276,8 @@ _Static_assert(ERA_SYS7_0_1 == 0 && ERA_WIN31 == 1 && ERA_SYS8_PLATINUM == 2,
                "BC-10.5 / Rule 11: era enum integer values are stable");
 
 /* ---------------------------------------------------------------------------
- * FLAIR_SKIN_FAIL_LOUD() -- the region.c idiom (Rule 2). Hosted: abort() (the
- * oracle observes a non-zero exit / CHECK-fail). Freestanding: __builtin_trap()
+ * FLAIR_SKIN_FAIL_LOUD -- the region.c idiom. Hosted: abort (the
+ * oracle observes a non-zero exit / CHECK-fail). Freestanding: __builtin_trap
  * raises #UD, which the IDT routes to the panic path (serial register dump + the
  * PC LOAD LETTER banner) and halts. No panic.c pull-in, so the header is purely
  * host-testable. (Mirrors os/flair/region/region.c:41-46.)
@@ -294,7 +294,7 @@ _Static_assert(ERA_SYS7_0_1 == 0 && ERA_WIN31 == 1 && ERA_SYS8_PLATINUM == 2,
  * row for an (era, heritage) pair. An unknown pair FAILS LOUD; it NEVER returns
  * a wrong-but-plausible row (the region engine's normalize-or-panic posture).
  * The default is the explicit FLAIR_DEFAULT_ERA/FLAIR_DEFAULT_HERITAGE policy,
- * not enum zero or registry position (DEC-10 D-10.6 Option B).
+ * not enum zero or registry position (Platinum base D-10.6 Option B).
  *
  * Returns a const pointer into the locked registry (no allocation, no copy).
  * Freestanding-safe (no libc on the success path).
@@ -309,7 +309,7 @@ static inline const flair_skin_t *flair_skin_resolve(int era, int heritage)
         }
     }
     /* Unknown (era, heritage): a TOTAL resolver fails loud rather than guess
-     * (Rule 2). On metal this renders PC LOAD LETTER; hosted it aborts. */
+     *. On metal this renders PC LOAD LETTER; hosted it aborts. */
     FLAIR_SKIN_FAIL_LOUD();
     return (const flair_skin_t *)0;  /* unreachable; keeps -Werror happy. */
 }

@@ -1,4 +1,4 @@
-/* Toolbox file adapter; initech-tdnl.91. Authored, no local reference for ABI.
+/* Toolbox file adapter;. Authored, no local reference for ABI.
  * Ref: spec/toolbox_gate.h Sec 10/10b; docs/design/toolbox-file-verbs.md.
  * Shared artifact logic compiled verbatim by the host oracle. Kernel-owned
  * shadow PSP only: never read the image PSP's JFT, including at death. */
@@ -34,11 +34,11 @@ static int32_t tbxf_call(flair_platform_files *p, uint32_t lo, uint32_t len,
     if (creat || code == TBX_FILE_OPEN || code == TBX_FILE_DELETE ||
         code == TBX_FILE_RENAME) {
         if (!tbxf_path(lo,len,a[0])) return TBX_ERR_BADARG;
-        /* Sec 10b (initech-mcep): RENAME is AH=56h, the new name in EDI (the
+        /* Sec 10b: RENAME is AH=56h, the new name in EDI (the
          * flat form of ES:DI, int21.c do_rename); it refuses an existing
          * target exactly as DOS 3.3 does (Tech Ref 6-206; AX=5). */
         if (code == TBX_FILE_RENAME && !tbxf_path(lo,len,a[1])) return TBX_ERR_BADARG;
-        f.edi = a[1];   /* MUTANT (test-tbx-file-mutant F5) drops the new name */
+        f.edi = a[1];   /* regression patches (test-tbx-file-mutant F5) drops the new name */
         /* Ref: DOS OPEN's device precedence, int21.c dev_open_lookup.
          * Authored file-only gate policy: never CREATE an unreadable disk file
          * whose basename OPEN resolves as a character device. */

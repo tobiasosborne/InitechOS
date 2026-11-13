@@ -1,13 +1,13 @@
-/* test_menu.c -- the FLAIR Menu Manager property suite (THE ORACLE; Law 2).
+/* test_menu.c -- the FLAIR Menu Manager property suite (THE ORACLE; independent checks).
  *
- * beads: initech-n3e ("FLAIR Menu Manager: pull-down menus + the menu bar,
- *        Photoshop-exact"). The mechanical oracle for the Menu Manager (ADR-0004
+ *  ("FLAIR Menu Manager: pull-down menus + the menu bar,
+ *        Photoshop-exact"). The mechanical oracle for the Menu Manager (clipped Toolbox drawing
  *        D-3): the proportional bar layout, the canon InitechPaint menu bar
- *        (Law 4), the deterministic MenuSelect pull-down tracking, MenuKey, and
- *        the sampled Platinum bar/panel pixel layout. Bead initech-sjvq extends
+ *, the deterministic MenuSelect pull-down tracking, MenuKey, and
+ *        the sampled Platinum bar/panel pixel layout.  extends
  *        the same suite with independent sys8/menus.md fidelity legs.
  *
- * Ref:   ADR-0004 D-3 (MenuInfo + the Photoshop-exact bar + MenuSelect ->
+ * Ref:   clipped Toolbox drawing (MenuInfo + the Photoshop-exact bar + MenuSelect ->
  *          (menuID<<16|item)); D-7 (proportional text -- sum of advances); D-1/D-2
  *          (draw through a GrafPort clipped by a region). spec/assets/menu_canon.h
  *          (the FROZEN canon string -- asserted byte-exact). spec/chrome_metrics.h
@@ -16,8 +16,8 @@
  *          harness/render/render.h (the host render skeleton -- the dual-compile
  *          path that runs the SAME freestanding menu.c on a host offscreen).
  *          harness/proptest/test_window.c + test_chrome.c (the harness idiom +
- *          seeded LCG this suite mirrors). CLAUDE.md Law 2/4, Rule 6 (mutation-
- *          proven), Rule 11 (seeded LCG -> deterministic), Rule 12 ASCII.
+ *          seeded LCG this suite mirrors). independent checks, mutation checks (mutation-
+ *          proven), reproducibility (seeded LCG -> deterministic), ASCII source.
  *
  * THE PROPERTIES (in order of decisiveness):
  *
@@ -28,12 +28,12 @@
  *
  *  2. CANON.  The InitechPaint bar built from menu_canon.h matches the FROZEN
  *     "File Edit Image Layer Select View Window Help" string EXACTLY, item-by-item
- *     and as a flat string (Law 4 -- the canon is the spec, not a bug).
+ *     and as a flat string (film canon -- the canon is the spec, not a bug).
  *
  *  3. MENUSELECT TRACKING.  A recorded point sequence (click 'Edit', move down to
  *     item 3, release) yields the DETERMINISTIC (menuID<<16|item); release outside
  *     -> 0; a disabled item / a divider -> not selectable (0); MenuKey(cmd) -> the
- *     right packing. Deterministic across runs (Rule 11).
+ *     right packing. Deterministic across runs.
  *
  *  4. DRAW/FIDELITY. Render the bar + an open menu and assert the sampled
  *     white/E7/B3/black profile, exact corner transcription, teal pulled title,
@@ -42,7 +42,7 @@
  *     retained classic tracking invert. The footprint tooth locks live restore
  *     geometry to every temporary panel pixel.
  *
- *  5. APPLE GLYPH (initech-yx4v).  The Apple slot renders the hand-authored
+ *  5. APPLE GLYPH.  The Apple slot renders the hand-authored
  *     apple_glyph.h strike, NOT a solid filled square: rendered ink count in
  *     the slot == the strike's own ink count exactly; ink coverage is 25%-60%
  *     of the slot; a named "bite" cell recedes to background a few rows below
@@ -50,21 +50,21 @@
  *     slot's top-left corner is background (not a filled rect); the widest body
  *     row is denser than the leaf-tip row. Properties are DERIVED from the
  *     authored strike (apple_glyph.h) but GRADED against the rendered pixels
- *     (Law 2 -- the render must match the strike, not just "look plausible").
+ *     (independent checks -- the render must match the strike, not just "look plausible").
  *
- * MUTANTS (Rule 6), each driven RED by the Makefile gate:
- *   MENU_MUTATE_FIXED_WIDTH     -- titles/items laid out fixed-width, not
+ * regression patches, each driven RED by the Makefile gate:
+ *   fixed width patch     -- titles/items laid out fixed-width, not
  *                                  proportional => property 1 (x-positions) RED.
- *   MENU_MUTATE_SELECT_DISABLED -- a disabled item/divider becomes selectable
+ *   select disabled patch -- a disabled item/divider becomes selectable
  *                                  => property 3 (selectability) RED.
- *   MENU_MUT_APPLE_SQUARE       -- the Apple slot reverts to a solid filled
- *                                  square (the ORIGINAL initech-yx4v bug) =>
+ *   apple square patch       -- the Apple slot reverts to a solid filled
+ *                                  square (the ORIGINAL  bug) =>
  *                                  property 5 (Apple glyph) RED.
- *   MENU_MUT_BAR_FLAT           -- sampled profile/corners -> property 4 RED.
- *   MENU_MUT_NO_PANEL_BEVEL     -- white/B3 inner bevel -> property 4 RED.
- *   MENU_MUT_SEP_PLAIN          -- etched A5/white groove -> property 4 RED.
- *   MENU_MUT_DISABLED_NORMAL_INK -- disabled A5 ink -> property 4 RED.
- *   MENU_MUT_TITLE_NO_HILITE    -- pulled teal/white title -> property 4 RED.
+ *   bar flat patch           -- sampled profile/corners -> property 4 RED.
+ *   no panel bevel patch     -- white/B3 inner bevel -> property 4 RED.
+ *   sep plain patch          -- etched A5/white groove -> property 4 RED.
+ *   disabled normal ink patch -- disabled A5 ink -> property 4 RED.
+ *   title no hilite patch    -- pulled teal/white title -> property 4 RED.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -76,7 +76,7 @@
 #include "menu_canon.h"         /* FROZEN canon string (-Ispec/assets)         */
 #include "apple_glyph.h"        /* APPLE_GLYPH_* -- hand-authored strike, the
                                  * PROPERTY 5 oracle's own reference (-Ispec/
-                                 * assets); initech-yx4v                       */
+                                 * assets);                        */
 #include "chrome_metrics.h"     /* FLAIR_CHROME_MENUBAR_H (-Ispec)             */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
@@ -107,7 +107,7 @@ static int indep_title_x(const MenuBar *bar, int i)
 enum { CANON_N = FLAIR_CANON_PHOTOSHOP_MENU_COUNT };  /* 8 */
 
 /* A fixed item set per canon menu: 4 normal items + a divider + a disabled item,
- * deterministic so the tracking test is reproducible (Rule 11). */
+ * deterministic so the tracking test is reproducible. */
 static MenuItem g_items[CANON_N][6];
 static MenuInfo g_menus[CANON_N];
 static MenuBar  g_bar;
@@ -137,7 +137,7 @@ static void build_canon_bar(void)
 }
 
 /* ===========================================================================
- * Seeded LCG (Rule 11), mirroring test_window/test_region.
+ * Seeded LCG, mirroring test_window/test_region.
  * ===========================================================================*/
 static uint32_t g_seed = 0x4D454E55u;     /* "MENU" */
 static uint32_t lcg(void)
@@ -159,8 +159,8 @@ static int rnd(int lo, int hi)
 #define HILITE_IT     2   /* item index 2 (0-based) -> "Close" */
 
 /* Independent sampled-domain menu goldens. These values are transcribed from
- * ../system7-decomp/specs/sys8/menus.md Sec 1.1/1.2/2.1/2.3, never derived from
- * flair_look or menu.c. Teal is the DEC-10 OQ-2 authored substitution. */
+ *../system7-decomp/specs/sys8/menus.md Sec 1.1/1.2/2.1/2.3, never derived from
+ * flair_look or menu.c. Teal is the Platinum base OQ-2 authored substitution. */
 enum {
     MG_BLACK = 0,
     MG_WHITE = 1,
@@ -186,7 +186,7 @@ int main(int argc, char **argv)
     build_canon_bar();
 
     /* ======================================================================
-     * PROPERTY 2: CANON -- the bar string matches menu_canon.h EXACTLY (Law 4).
+     * PROPERTY 2: CANON -- the bar string matches menu_canon.h EXACTLY.
      * (Run first: the rest of the suite stands on the canon titles.)
      * ====================================================================== */
     {
@@ -306,7 +306,7 @@ int main(int argc, char **argv)
         CHECK(MenuResultItem(r) == 3, "result low word is the 1-based item (3)");
         CHECK(hi == HILITE_IT, "final hilited item is the released item index");
 
-        /* DETERMINISM (Rule 11): the same inputs yield the same result. */
+        /* DETERMINISM: the same inputs yield the same result. */
         uint32_t r2 = flair_menu_track(&g_bar, click, seq, 3, NULL);
         CHECK(r == r2, "MenuSelect is deterministic across runs (Rule 11)");
 
@@ -346,7 +346,7 @@ int main(int argc, char **argv)
     }
 
     /* ======================================================================
-     * PROPERTY 3c: CROSS-MENU DRAG (initech-rl4v).  Inside Macintosh Vol I
+     * PROPERTY 3c: CROSS-MENU DRAG.  Inside Macintosh Vol I
      * "Menu Manager" MenuSelect: while the mouse is down, whichever title is
      * CURRENTLY under the cursor is the one dropped -- dragging out of the
      * clicked title into a different one closes the old pull-down and opens
@@ -354,9 +354,9 @@ int main(int argc, char **argv)
      * research/gui-ground-truth.md Sec 3.2, "Inside Macintosh: Macintosh
      * Toolbox Essentials" Menu Manager citation). Before this fix, menu.c:297
      * captured `mi = MenuBar_hit(bar, startPt.h)` ONCE and the tracking loop /
-     * release check (menu.c:305-307, :318-321) always re-used that frozen mi
+     * release check (menu.c:305-307,:318-321) always re-used that frozen mi
      * -- MenuBar_hit was never called again, so a cross-menu drag was
-     * structurally impossible (initech-rl4v bead evidence, verbatim repro
+     * structurally impossible ( evidence, verbatim repro
      * below).
      * ====================================================================== */
     {
@@ -408,7 +408,7 @@ int main(int argc, char **argv)
 
         /* (ii) Continue the drag: title0 -> title1 -> menu1's own panel ->
          * release on item index 2. The result MUST be menu1's item, not 0 and
-         * not menu0's (the bead's verbatim repro: "flair_menu_track startPt on
+         * not menu0's (the 's verbatim repro: "flair_menu_track startPt on
          * menu 0 ('File'), pts ending inside menu 1 ('Edit') panel -> result
          * 0, out_hi -1" -- this asserts the FIXED contract instead). */
         {
@@ -428,7 +428,7 @@ int main(int argc, char **argv)
                   "cross-menu drag: out_hi is the item index in the FINAL menu's panel");
         }
 
-        /* PROPERTY 3d: A LONG GESTURE (bead initech-tdnl.71; audit pass 3 H01:
+        /* PROPERTY 3d: A LONG GESTURE (; audit pass 3 H01:
          * File held, ~80 jitter moves, then View > by Icons highlighted, yet
          * File > New Folder ran). The live pump steps MenuTrack once per
          * cursor sample and keeps no history, so the property is: however
@@ -590,7 +590,7 @@ int main(int argc, char **argv)
                 /* 'E' (NFNT 5478 lb 1) cap top: bar row 5 -- the row real
                  * System 7 puts it on (goldens/captures/s7_menu_file.png:
                  * "Edit" ink rows 5..13; = VPAD 2 + Chicago cap-top row 3).
-                 * Bead initech-tdnl.33. */
+                 *. */
                 CHECK(render_pixel_index(&ctx, (uint32_t)(tx +
                       FLAIR_MENU_TITLE_PAD + 1), 5u) == MG_WHITE &&
                       render_pixel_index(&ctx, (uint32_t)(tx +
@@ -618,7 +618,7 @@ int main(int argc, char **argv)
              * four edges. This is stronger than corner probes: if the drawer
              * grows or shrinks on any side while MenuInfo_panel_rect stays
              * fixed (or vice versa), the restore footprint would drift and
-             * this tooth goes RED (beads initech-b3hl/-j0vt). */
+             * this tooth goes RED (/-j0vt). */
             {
                 int found = 0;
                 int min_x = (int)boot.lfb_width;
@@ -693,11 +693,11 @@ int main(int argc, char **argv)
                                      (uint32_t)row0_y) == MG_FACE_E7,
                   "a non-hilited item row is E7 panel face, not inverted");
 
-            /* RE-KEY2026-10-15 tdnl.70: ink begins at panel+20, cell+19. The cap top sits 2 rows into the item
+            /* RE-KEY2026-10-15: ink begins at panel+20, cell+19. The cap top sits 2 rows into the item
              * rect (sys8/menus.md Sec 2.2: text top 23 = rect top 21 + 2), and
              * 'N' carries the NFNT 5478 left bearing lb = 1 (chicago.md), so
              * its first ink is cell x+1 on row row_top+2: an exact rendered
-             * left-edge AND cap-top tooth (bead initech-tdnl.33). The row
+             * left-edge AND cap-top tooth. The row
              * above the cap top is clear. */
             CHECK(render_pixel_index(&ctx, (uint32_t)(panel.left + 19),
                       (uint32_t)(row0_top + 2)) == MG_FACE_E7 &&
@@ -708,7 +708,7 @@ int main(int argc, char **argv)
                   "MENU FIDELITY RE-KEY2026-10-15 tdnl.70: item ink begins at panel left +20, cap "
                   "top at row +2");
 
-            /* RE-KEY2026-10-15 tdnl.94: '^N', right-aligned13px from the panel
+            /* RE-KEY2026-10-15: '^N', right-aligned13px from the panel
              * right at its PROPORTIONAL width: NFNT 5478 advances '^' 8 + 'N' 9
              * = 17 (chicago.md "Advance-width table"; typed from the spec, not
              * read from the artifact). The caret's apex is its cap-top row
@@ -749,7 +749,7 @@ int main(int argc, char **argv)
             /* ==================================================================
              * PROPERTY 5: APPLE GLYPH -- the Apple slot renders the hand-
              * authored apple-with-bite glyph (spec/assets/apple_glyph.h), NOT a
-             * solid filled square (initech-yx4v). Properties are derived from
+             * solid filled square. Properties are derived from
              * the AUTHORED STRIKE (apple_glyph.h) but graded against the
              * RENDERED pixels, so a wrong render (the old solid-square bug)
              * goes RED even though this oracle never looks at a screenshot.
@@ -834,7 +834,7 @@ int main(int argc, char **argv)
                 }
             }
 
-            /* optional PPM dump for human audit (Law 4). */
+            /* optional PPM dump for human audit. */
             if (argc > 1) {
                 if (render_write_ppm(&ctx, argv[1]) == 0)
                     printf("    wrote rendered menu PPM to %s\n", argv[1]);
@@ -845,7 +845,7 @@ int main(int argc, char **argv)
 
     /* Direct-color accent fidelity: indexed mode deliberately uses the retained
      * idx2 teal fallback for both authored teal rows; 32bpp proves the two canon
-     * rows themselves reach pixels without a new palette row (DEC-10 OQ-2/OQ-3). */
+     * rows themselves reach pixels without a new palette row (Platinum base OQ-2/OQ-3). */
     {
         render_boot_info_t boot;
         memset(&boot, 0, sizeof boot);
@@ -873,7 +873,7 @@ int main(int argc, char **argv)
 
     /* A randomized determinism sweep: random clicks + random release points over
      * the canon bar never crash and always return either 0 or a well-formed
-     * result with a valid menuID and 1-based item in range (Rule 2 / Rule 11). */
+     * result with a valid menuID and 1-based item in range (explicit error handling / reproducibility). */
     {
         int bad = 0;
         for (int t = 0; t < 4000 && !bad; t++) {

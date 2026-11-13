@@ -1,15 +1,15 @@
 /* test_process_budget.c -- the FLAIR App Contract O-4 fail-loud launch-budget oracle.
  *
- * beads: the FLAIR App Contract epic initech-4e35 (ADR-0013 Sec 7 O-4 / BC-5),
+ * the FLAIR App Contract epic  (tenant lifecycle O-4 / BC-5),
  *        Wave 3a. The HOST oracle for the FAIL-LOUD launch budget of the arena
  *        memory model: a launch that cannot carve its partition -- because the
- *        master heap is exhausted, OR because the tenant's open() reports failure
+ *        master heap is exhausted, OR because the tenant's open reports failure
  *        -- must REFUSE: return NULL, install NO window/menubar, leave the process
- *        list + the WindowMgr UNCHANGED, and reclaim cleanly (ADR-0013 Sec 3.2,
+ *        list + the WindowMgr UNCHANGED, and reclaim cleanly (tenant lifecycle,
  *        Sec 3.6 "partition sizing is a fail-loud budget; a launch that cannot
  *        carve its block refuses and reports; it does not overcommit").
  *
- * THE LEGS (ADR-0013 Sec 7 O-4; the over-records leg added by Amendment AC-2):
+ * THE LEGS (tenant lifecycle O-4; the over-records leg added by Amendment AC-2):
  *   (a)  OVER-DATA-BUDGET: a DATA budget exceeding the master heap remaining. The
  *        HANDLE handle + HANDLE records carves succeed but the GENERAL (data block)
  *        carve returns NULL -> launch reclaims records + handle, installs nothing,
@@ -18,7 +18,7 @@
  *        remaining. The HANDLE handle carve succeeds but the HANDLE records carve
  *        returns NULL -> launch reclaims the (reused) data block + handle, installs
  *        nothing, returns NULL. Isolates the RECORDS-side carve failure.
- *   (b)  OPEN-FAIL: all three carves succeed but the tenant's open() returns != 0 ->
+ *   (b)  OPEN-FAIL: all three carves succeed but the tenant's open returns != 0 ->
  *        launch reclaims data + records + handle, installs nothing, returns NULL.
  *
  * THE "avail returns to before" CHECK + WHY WE PRIME (the bump+free-list heap).
@@ -32,20 +32,20 @@
  *   avail returns EXACTLY to its pre-attempt value. This is the true contract, not
  *   a "returns to pristine" fiction (Sec 3.6 heap-contract note; mirrors O-3).
  *
- * MUTATION-PROVEN (Rule 6). The artifact mutant BUDGET_MUT_OVERCOMMIT (a #ifdef in
+ * MUTATION-PROVEN. The artifact mutant overcommit patch (a #ifdef in
  *   os/flair/process.c FlairProcess_launch) OVERCOMMITS: on an alloc-NULL or an
- *   open()-failure it partially installs the app (links it at the list head /
+ *   open-failure it partially installs the app (links it at the list head /
  *   returns non-NULL) instead of failing loud + reclaiming. Against this oracle's
  *   "launch == NULL + list/WindowMgr unchanged" checks, that goes RED on BOTH
  *   legs. INDEPENDENT golden: every expected value (NULL return, unchanged list
  *   head, unchanged wm->front, restored avail) is computed HERE, never read back
- *   from the launcher (Law 2; HER-02).
+ *   from the launcher (independent checks; HER-02).
  *
- * Ref: ADR-0013 Sec 3.2 (launch a-g, the budget fail path), Sec 3.6 (fail-loud
+ * Ref: tenant lifecycle (launch a-g, the budget fail path), Sec 3.6 (fail-loud
  *      budget), Sec 6 BC-5, Sec 7 O-4; heap.h (flair_alloc NULL on exhaustion;
  *      flair_heap_avail). Mirrors harness/proptest/test_process_teardown.c +
- *      test_interact.c scaffolding. CLAUDE.md Law 2, Rule 1, Rule 2 (fail loud),
- *      Rule 6, Rule 11, Rule 12.
+ *      test_interact.c scaffolding. independent checks, fail loudly,
+ *      mutation checks, reproducibility, ASCII source.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -124,8 +124,8 @@ static void tenant_event(FlairApp *self, const EventRecord *ev)
     (void)self; (void)ev;
 }
 
-/* good open(): builds a document window from the RECORDS arena (success path;
- * ADR-0013 Amendment AC-2 -- WindowRecord + regions live in records_arena). */
+/* good open: builds a document window from the RECORDS arena (success path;
+ * tenant lifecycle Amendment AC-2 -- WindowRecord + regions live in records_arena). */
 static int good_open(FlairApp *self, const FlairLaunchParams *lp)
 {
     tw_win_t *w = (tw_win_t *)flair_alloc(&self->records_arena, FLAIR_CLASS_HANDLE,
@@ -150,7 +150,7 @@ static int good_open(FlairApp *self, const FlairLaunchParams *lp)
     return 0;
 }
 
-/* bad open(): reports launch failure and builds NOTHING (the open-fail leg). */
+/* bad open: reports launch failure and builds NOTHING (the open-fail leg). */
 static int bad_open(FlairApp *self, const FlairLaunchParams *lp)
 {
     (void)self; (void)lp;
@@ -240,7 +240,7 @@ int main(void)
     CHECK(flair_heap_avail(&master) == avail_before_a2,
           "leg(a2): the failed records carve reclaims data + handle cleanly (avail returns to before)");
 
-    /* ===== leg (b): OPEN-FAIL launch (carves succeed, open() returns != 0) ===== */
+    /* ===== leg (b): OPEN-FAIL launch (carves succeed, open returns != 0) ===== */
     uint32_t  avail_before_b = flair_heap_avail(&master);
     FlairApp *head_before_b  = plist.head;     /* NULL */
     WindowPtr front_before_b = M.wm.front;     /* NULL */

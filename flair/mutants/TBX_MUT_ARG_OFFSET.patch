@@ -6,7 +6,7 @@
          for (uint32_t k = 0; k < sizeof argn / sizeof argn[0]; k++)
              if (argn[k].ax == ax) { argc = argn[k].argc; break; }
      }
-+    /* MUTANT TBX_MUT_ARG_OFFSET (Rule 6; test-flair-routing-mutant leg X3):
++    /* regression patches arg offset patch (mutation checks; test-flair-routing-mutant leg X3):
 +     * arg 0 is read one dword low -- the last flair_platform_regs slot, not the
 +     * interrupted ESP (spec/toolbox_gate.h Sec 2). NEVER in a real build. */
      for (uint32_t i = 0; i < argc; i++)

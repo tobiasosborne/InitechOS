@@ -25,7 +25,7 @@
 -                           checked_box_part(profile[y * BOX_SZ + x]));
 -            }
 -        }
-+        /* NAMED MUTANT: relapse to the old solid accent-fill interior. */
++        /* NAMED regression patches: relapse to the old solid accent-fill interior. */
 +        crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);
 +        cframe_ctrl(port, x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_BLACK);
 +        crect_ctrl(port, x0 + 2, box_y + 2, x0 + BOX_SZ - 2,

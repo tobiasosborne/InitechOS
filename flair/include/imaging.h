@@ -1,21 +1,21 @@
 /*
  * spec/imaging.h -- FLAIR imaging primitives: the LOCKED contract.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.3 -- "the Toolbox layer").
- * beads: initech-k8o5.3 (FLAIR imaging contract as spec-data).
+ * LOCKED spec-data (pinned inputs; PRD Sec 6.3 -- "the Toolbox layer").
+ *  (FLAIR imaging contract as spec-data).
  *
  * This header fixes the QuickDraw imaging DATA: the BitMap descriptor, the
  * 8x8 1-bpp Pattern, the transfer-mode enum, and the RGBColor record. It is
  * the imaging contract that spec/grafport.h (the drawing-context record) and
- * the FLAIR Toolbox (Layer 1, ADR-0004 D-1) are written against.
+ * the FLAIR Toolbox (Layer 1, clipped Toolbox drawing) are written against.
  *
- * Source / Law 1 citations (all local or free Apple developer archive):
+ * Source / source provenance citations (all local or free Apple developer archive):
  *
  *   Inside Macintosh: Imaging With QuickDraw (1994) [EXTERNAL, free Apple
  *     developer archive; cached per gui-ground-truth.md Sec 3.2 P0 item 3;
  *     cited as "IWQ" below] -- the primary reference for ALL record names,
  *     field names, and transfer-mode constants in this file. Verbatim field
- *     names carried for period authenticity and self-documentation (ADR-0004
+ *     names carried for period authenticity and self-documentation (clipped Toolbox drawing
  *     D-3). IWQ is the "Imaging With QuickDraw" volume cited in
  *     docs/research/gui-ground-truth.md Sec 3.2.
  *
@@ -23,11 +23,11 @@
  *     cited as "MTE" below] -- supplementary on GrafPort and pattern use.
  *
  *   Inside Macintosh Vols I-VI (1984-1991) [archive.org bitsavers_applemacIn84;
- *     cited as "IM-I" .. "IM-VI" below] -- the original verbatim record
+ *     cited as "IM-I".. "IM-VI" below] -- the original verbatim record
  *     definitions (BitMap in IM-I Ch 7; Pattern in IM-I Ch 7; transfer modes
  *     in IM-I Ch 7; RGBColor in IM-V Color QuickDraw).
  *
- *   ADR-0004 (FLAIR Toolbox Architecture, RATIFIED 2026-06-19):
+ *   clipped Toolbox drawing (FLAIR Toolbox Architecture, RATIFIED 2026-06-19):
  *     D-1 (5-layer stack; Layer 1 = surface/GrafPort),
  *     D-2 (one surface module; GrafPort imaging; no second pixel path;
  *          offscreen bitmaps are indexed-8 per OD-2),
@@ -35,8 +35,8 @@
  *     OD-2 (indexed-8 offscreen depth; 1 byte/pixel = palette index;
  *           8-bpp VGA/SVGA era; VGA Mode 13h, VBE modes 0x101/0x103).
  *
- *   os/flair/surface.h (the ONE pixel-buffer type, bitmap_t; ADR-0004 D-2;
- *     beads initech-k8o5) -- BitMap (below) REFERENCES this type; there is
+ *   os/flair/surface.h (the ONE pixel-buffer type, bitmap_t; clipped Toolbox drawing;
+ *     ) -- BitMap (below) REFERENCES this type; there is
  *     NO second pixel-buffer definition in InitechOS.
  *
  *   spec/region_algebra.h (rgn_rect_t; the QuickDraw Rect order top,left,
@@ -46,10 +46,10 @@
  * DUAL-COMPILE: this header compiles BOTH freestanding (gcc -m32 -ffreestanding
  * -nostdlib -std=c11) and hosted (cc -std=c11). Dependencies: <stdint.h> and
  * <stddef.h> (both freestanding-provided), plus the two local headers above.
- * No host malloc; no libc beyond stdint/stddef. Rule 11 (reproducible).
+ * No host malloc; no libc beyond stdint/stddef. reproducible output.
  *
- * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
- * Changing this file is a deliberate, beads-tracked Rule 8 act.
+ * ASCII-clean. No nondeterminism / no timestamps.
+ * Changing this file is a deliberate, reviewed data change.
  */
 #ifndef INITECH_SPEC_IMAGING_H
 #define INITECH_SPEC_IMAGING_H
@@ -75,10 +75,10 @@
  *   bounds   -- the boundary rectangle that defines the boundaries of the
  *               bitmap's coordinate system (IM-I p. I-143).
  *
- * Design decisions (Law 1 / ADR-0004 D-2):
+ * Design decisions (source provenance / clipped Toolbox drawing):
  *
  *   ONE pixel-buffer type: InitechOS has exactly one pixel-buffer descriptor,
- *   bitmap_t, defined in os/flair/surface.h (ADR-0004 D-2, C-2). Rather than
+ *   bitmap_t, defined in os/flair/surface.h (clipped Toolbox drawing, C-2). Rather than
  *   define a second baseAddr/rowBytes/bpp layout here, FLAIR_BitMap EMBEDS
  *   bitmap_t as its `bm` field (which carries base + pitch/rowBytes + bpp +
  *   bytes_per_pixel + width + height). The QuickDraw `rowBytes` framing is
@@ -87,7 +87,7 @@
  *   verbatim QuickDraw API) have a clear path. The QuickDraw `bounds` field
  *   is carried verbatim as `bounds` (type rgn_rect_t, the single Rect type).
  *
- *   Offscreen bitmaps at indexed-8 (OD-2, ADR-0004): bm.bpp == 8, one byte
+ *   Offscreen bitmaps at indexed-8 (OD-2, clipped Toolbox drawing): bm.bpp == 8, one byte
  *   per pixel. The LFB target bitmap may be 8, 24, or 32 bpp per surface.h.
  *
  * Transfer modes, patterns, and palette are consulted by the GrafPort
@@ -140,8 +140,8 @@ static inline uint32_t FLAIR_bitmap_rowbytes(const FLAIR_BitMap *bmp)
  *   gray     = { 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55 }
  *   ltGray   = { 0x88, 0x22, 0x88, 0x22, 0x88, 0x22, 0x88, 0x22 }
  *   dkGray   = { 0xDD, 0x77, 0xDD, 0x77, 0xDD, 0x77, 0xDD, 0x77 }
- * These are informational; the locked values live in spec/assets/ (ADR-0004
- * Sec 2.2, Rule 8). The desktop background is the SEAFOAM solid (OD-4).
+ * These are informational; the locked values live in spec/assets/ (clipped Toolbox drawing
+ * Sec 2.2, pinned inputs). The desktop background is the SEAFOAM solid (OD-4).
  * ===========================================================================*/
 
 /*
@@ -227,7 +227,7 @@ typedef enum flair_xfer_mode {
  *    65535 indicates full intensity."
  * Also confirmed in IWQ Chapter 7 "Color QuickDraw".
  *
- * FLAIR rendering depth note (ADR-0004 OD-2, AM-7, Law 1):
+ * FLAIR rendering depth note (clipped Toolbox drawing OD-2, AM-7, source provenance):
  *   FLAIR renders internally at indexed-8 (one byte per pixel = palette index;
  *   the authentic early-1990s 8-bpp VGA/SVGA offscreen depth -- VGA Mode 13h,
  *   VBE modes 0x101/0x103). An RGBColor therefore maps through the FLAIR
@@ -235,7 +235,7 @@ typedef enum flair_xfer_mode {
  *   to an offscreen bitmap. RGBColor is used in GrafPort fgColor/bgColor for
  *   Color QuickDraw compatibility and for the `RGBForeColor`/`RGBBackColor`
  *   equivalents; the palette lookup is the responsibility of the blitter
- *   (ADR-0004 D-2, the one conversion site in the surface module).
+ *   (clipped Toolbox drawing, the one conversion site in the surface module).
  *
  * Note on the fgColor/bgColor in GrafPort (classic QuickDraw, IM-I Ch 7):
  *   Classic (1-bpp) GrafPort carried integer `fgColor`/`bgColor` (pen color

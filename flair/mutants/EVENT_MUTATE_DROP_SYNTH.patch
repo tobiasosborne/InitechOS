@@ -2,7 +2,7 @@
 # test: test_event
 --- a/event.c
 +++ b/event.c
-@@ -502,33 +502,10 @@
+@@ -513,33 +513,10 @@
              break;
          }
  
@@ -33,8 +33,8 @@
 -        } else {
 -            what = (uint16_t)keyDown;
 -        }
-+        /* MUTANT: skip cooking keyboard events -> nullEvent.
-+         * This MUST drive the replay oracle RED (Rule 6). */
++        /* regression patches: skip cooking keyboard events -> nullEvent.
++         * This MUST drive the replay oracle RED. */
 +        (void)ascii; (void)vkey; (void)is_break;
 +        break;
          break;

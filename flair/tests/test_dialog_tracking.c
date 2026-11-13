@@ -1,4 +1,4 @@
-/* Ref: tdnl.88; system7-decomp/specs/toolbox/control-manager.md,
+/* Ref:; system7-decomp/specs/toolbox/control-manager.md,
  * TrackControl releases inside the ORIGINAL control. Explicit event stream. */
 #define main legacy_dialog_main
 #include "test_dialog.c"

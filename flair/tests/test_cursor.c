@@ -1,14 +1,14 @@
 /*
  * test_cursor.c -- independent host oracle for FLAIR CursorMgr.
  *
- * beads: initech-tdnl.1 (GUI remediation R0.1).
+ *  (GUI remediation R0.1).
  * Ref: PRD Sec 6.3 (FLAIR Event/Window Managers and event-trace oracles);
  *      docs/plans/GUI-remediation-plan.md R0.1 (16x16 CURS, hotspot,
  *      save-under, ShieldCursor); Inside Macintosh: Imaging With QuickDraw,
  *      cursor ('CURS') resource layout (16 data words, 16 mask words, MSB-left,
- *      then hotspot). CLAUDE.md Law 2 / Rules 1, 6, 11, and 12.
+ *      then hotspot). independent checks / Rules 1, 6, 11, and 12.
  *
- * M009 (initech-tdnl.98): expected cells are recovered at runtime from the
+ * M009: expected cells are recovered at runtime from the
  * independent Mac OS 8 captures (cursor_capture.h), never artifact constants.
  * A trivial reference blitter also checks clipping, placement and restoration.
  */

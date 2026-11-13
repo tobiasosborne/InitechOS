@@ -7,7 +7,7 @@
          return TBX_ERR_BADARG;
      if (g_host.surface == (const bitmap_t *)0) return TBX_OK;
      c = region_get_bbox(g_slot.win->contRgn);
-+    font = 0u; /* Rule 6: claims success but ignores the requested txFont (-> Chicago) */
++    font = 0u; /* mutation checks: claims success but ignores the requested txFont (-> Chicago) */
      draw_text((int32_t)c.left + (int32_t)a[1], (int32_t)c.top + (int32_t)a[2],
                (const char *)(uintptr_t)a[3], (unsigned)font, (unsigned)size,
                (unsigned)face, color_px(a[4] & 0xFFu), color_px(a[5]), draw_clip());

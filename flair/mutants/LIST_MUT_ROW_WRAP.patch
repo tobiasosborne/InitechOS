@@ -4,7 +4,7 @@
 +++ b/list.c
 @@ -124,7 +124,7 @@
  
-     /* 8mip: validate in the wider type BEFORE narrowing (Rule 2). */
+     /* validate in the wider type BEFORE narrowing. */
      cur_rows = (int32_t)l->dataBounds.bottom - l->dataBounds.top;
 -    new_rows = cur_rows + count;
 +    new_rows = (int16_t)(cur_rows + count);

@@ -1,22 +1,22 @@
 /*
- * test_textedit.c -- the FLAIR TextEdit (TERec) host oracle (initech-77dj).
+ * test_textedit.c -- the FLAIR TextEdit (TERec) host oracle.
  *
- * beads: initech-77dj (FLAIR Phase 4.5 -- the TextEdit half of the shared
+ *  (FLAIR Phase 4.5 -- the TextEdit half of the shared
  *        editable-text engine; REDUCED first cut, committee ruling wf_00931e9e).
  * Ref:   textedit.h / textedit.c (the API under test); scrap.h / scrap.c (the
  *        shared clipboard the cut/copy/paste route through);
- *        ../system7-decomp/specs/toolbox/textedit.md (Sec 2 half-open selection,
+ *../system7-decomp/specs/toolbox/textedit.md (Sec 2 half-open selection,
  *        Sec 4 line layout, Sec 6 routine semantics).
- *        CLAUDE.md Law 2 (the oracle is the truth -- graded against an INDEPENDENT
- *        golden, NEVER by-construction), Rule 1 (Red->Green->Refactor), Rule 6
- *        (mutation-proven), Rule 12 (ASCII-clean).
+ *        independent checks (the oracle is the truth -- graded against an INDEPENDENT
+ *        golden, NEVER by-construction),  (Red->Green->Refactor), mutation checks
+ *        (mutation-proven), ASCII source.
  *
- * ANTI-BY-CONSTRUCTION (Law 2, the central discipline):
+ * ANTI-BY-CONSTRUCTION (independent checks, the central discipline):
  *   Every EXPECTED value is a LITERAL spelled out in THIS file -- it is NEVER
  *   read back out of the FlairTE internals to form the expectation. Reading
  *   te.text via FlairTEGetText and then comparing to te.text would agree BY
  *   CONSTRUCTION and could not catch a wrong value (the FLAIR palette-grading
- *   heresy; ADR-0010 / Revocation Record HER-02). Instead the expected bytes are:
+ *   heresy; independent reference checks / Revocation Record HER-02). Instead the expected bytes are:
  *     "hello"        == { 0x68,0x65,0x6C,0x6C,0x6F }
  *     '!'            == 0x21      'X' == 0x58      'A','B','C' == 0x41,0x42,0x43
  *     "X! world"     == { 0x58,0x21,0x20,0x77,0x6F,0x72,0x6C,0x64 }
@@ -29,18 +29,18 @@
  *   normal assertion -- the heresy is deriving the EXPECTED from the artifact's
  *   own computation, which this file never does.)
  *
- * MUTANT COVERAGE (Rule 6 -- each mutant must COMPILE and go RED):
- *   TE_MUT_SEL_INCLUSIVE   -- inclusive delete (one char too many) -> step 5 RED
+ * regression patches COVERAGE (mutation checks -- each mutant must COMPILE and go RED):
+ *   sel inclusive patch   -- inclusive delete (one char too many) -> step 5 RED
  *       (delete-then-insert over the half-open selection mis-sizes the deletion).
- *   TE_MUT_PASTE_NO_DELETE -- insert without deleting the selected range first
+ *   paste no delete patch -- insert without deleting the selected range first
  *       -> step 5 RED (the range "hello" survives the 'X' insert).
- *   TE_MUT_LINEBREAK_OFF   -- CR line break off-by-one -> step 9 RED (lineStarts
+ *   linebreak off patch   -- CR line break off-by-one -> step 9 RED (lineStarts
  *       for "a\rb\rc" come out {0,1,3} instead of {0,2,4}).
  *
  * Compile (host, green):
  *   gcc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *       -Ispec -Ios/flair -Ios/flair/region -Iseed \
- *       -o /tmp/laneD/test_textedit \
+ *       -o /tmp/flair-tests/test_textedit \
  *       harness/proptest/test_textedit.c \
  *       os/flair/textedit.c os/flair/scrap.c os/flair/heap.c
  *
@@ -48,7 +48,7 @@
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror -Ispec/assets \
  *       -Ispec -Ios/initechdos -Ios/flair -c os/flair/textedit.c
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -158,8 +158,8 @@ int main(void)
      * "hello! world"; SetSelect(0,5) selects "hello"; TEKey('X') deletes the
      * range [0,5) and inserts 'X' at 0 -> "X! world", teLength==8.
      *
-     * TE_MUT_SEL_INCLUSIVE deletes "hello!" (6 chars) -> "X world" (7) -> RED.
-     * TE_MUT_PASTE_NO_DELETE inserts 'X' without deleting -> "Xhello! world"
+     * sel inclusive patch deletes "hello!" (6 chars) -> "X world" (7) -> RED.
+     * paste no delete patch inserts 'X' without deleting -> "Xhello! world"
      *   (13) -> RED. (Either way the literal checks below fail.)
      * ----------------------------------------------------------------------- */
     FlairTESetSelect(&te, 0, 5);
@@ -247,7 +247,7 @@ int main(void)
      * nLines==3, lineStarts == {0,2,4} (literal). The CR at index 1 starts line
      * 1 at 2; the CR at index 3 starts line 2 at 4.
      *
-     * TE_MUT_LINEBREAK_OFF records the CR offset (1, 3) instead of past it
+     * linebreak off patch records the CR offset (1, 3) instead of past it
      * (2, 4) -> lineStarts == {0,1,3} -> RED here.
      * ----------------------------------------------------------------------- */
     FlairTE_init(&te2, /*wrapWidth*/ 80, FLAIR_TE_JUST_LEFT);
@@ -264,7 +264,7 @@ int main(void)
 
     /* -----------------------------------------------------------------------
      * STEP 9b: Word-wrap. "the cat sat" (11 chars) in a 30-px destRect,
-     * crOnly==0 (RE-KEYED 2026-10-15, bead initech-tdnl.68: wrapWidth is now
+     * crOnly==0 (RE-KEYED 2026-10-15,: wrapWidth is now
      * PIXELS, was 4 chars). Real NFNT 5478 advances: t6 h8 e8 sp4 c7 a8 s7.
      *   "the " = 26; + 'c' = 33 > 30 -> line 1 starts at 4
      *   "cat " = 25; + 's' = 32 > 30 -> line 2 starts at 8
@@ -282,7 +282,7 @@ int main(void)
           "step-9b: lineStarts[2] == 8 ('sat' -- broke after the space at 7)");
 
     /* -----------------------------------------------------------------------
-     * STEP 10: PIXEL WRAP vs THE GOLDEN (bead initech-tdnl.68). System 7.5.3's
+     * STEP 10: PIXEL WRAP vs THE GOLDEN. System 7.5.3's
      * boot alert (../system7-decomp goldens/captures/s7_dialog_alert.png,
      * specs/desktop/alerts.md "body static-text block", Chicago 12) breaks
      *   "This computer may not have been shut down | properly the last time it was used."

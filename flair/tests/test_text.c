@@ -1,15 +1,15 @@
 /*
  * harness/proptest/test_text.c -- oracle for os/flair/text.{h,c}.
  *
- * Ref: ADR-0004 D-7 ("proportional NFNT text measurement; text width = sum
- *      of per-glyph advances; no fixed-pitch assumption"); Rule 6 (golden
+ * Ref: clipped Toolbox drawing ("proportional NFNT text measurement; text width = sum
+ *      of per-glyph advances; no fixed-pitch assumption"); mutation checks (golden
  *      files / oracles are mutation-proven); PRD Sec 6.4 (font resources).
  *      os/flair/text.h (text_measure, text_draw, text_center_in).
  *      spec/assets/geneva9.h (GENEVA9_ADVANCE[], per-glyph advance widths).
- *      spec/assets/chicago12.h (Chicago 12; NFNT 5478 advances, initech-tdnl.33).
+ *      spec/assets/chicago12.h (Chicago 12; NFNT 5478 advances, ).
  *      os/flair/surface.h (bitmap_t, surface_blit declaration).
- *      CLAUDE.md Rule 6 (mutation-proven: TEXT_MUTATE_FIXED_PITCH must
- *      drive proportional checks RED), Rule 12 (ASCII-clean), Rule 11
+ *      mutation checks (mutation-proven: fixed pitch patch must
+ *      drive proportional checks RED), ASCII source, reproducibility
  *      (reproducible -- no nondeterminism in this harness).
  *
  * ASSERTIONS (all MUST be GREEN in normal build; MUST be RED under mutant):
@@ -29,14 +29,14 @@
  *      text_center_in(rect_w, str, font) >= 0 when rect_w >= 0 (never negative)
  *      text_center_in with a wide string clamped to 0 (left-justified fallback)
  *
- * NAMED MUTANT -- TEXT_MUTATE_FIXED_PITCH (Rule 6):
- *   Compile with -DTEXT_MUTATE_FIXED_PITCH=1. text_measure uses a fixed
+ * NAMED regression patches -- fixed pitch patch:
+ *   Compile with -fixed pitch patch=1. text_measure uses a fixed
  *   6px advance for all glyphs regardless of font. The assertions in group 1
  *   and 2 MUST fail (non-zero exit). This proves the oracle catches fixed-
  *   pitch drift.
  *
- *   Build GREEN:  gcc ... harness/proptest/test_text.c os/flair/text.c -o /tmp/test_text
- *   Build MUTANT: gcc ... -DTEXT_MUTATE_FIXED_PITCH=1 ... (must exit non-zero)
+ *   Build GREEN:  gcc... harness/proptest/test_text.c os/flair/text.c -o /tmp/test_text
+ *   Build regression patches: gcc... -fixed pitch patch=1... (must exit non-zero)
  *
  * SURFACE STUBS:
  *   This test harness supplies its own surface_blit and surface_fill_span
@@ -44,7 +44,7 @@
  *   the surface.c logic (MSB=leftmost pixel, set=ink) so the pixel-placement
  *   assertions are a faithful test of text_draw's advance arithmetic.
  *
- * ASCII-clean (Rule 12). No nondeterminism (Rule 11). FLAIR_HOSTED=1.
+ * ASCII-clean. No nondeterminism. FLAIR_HOSTED=1.
  */
 
 #include <stdio.h>
@@ -161,7 +161,7 @@ static void test_proportional_measure(void)
     int m_Hi, m_empty;
 
     /* Geneva 9 per-glyph advances (from spec/assets/geneva9.h).
-     * Ref: ADR-0004 D-7; GENEVA9_ADVANCE[]; 'W' adv=9, 'i' adv=4, 'H' adv=7. */
+     * Ref: clipped Toolbox drawing; GENEVA9_ADVANCE[]; 'W' adv=9, 'i' adv=4, 'H' adv=7. */
     adv_W = (int)geneva9_advance_w('W');
     adv_i = (int)geneva9_advance_w('i');
     adv_H = (int)geneva9_advance_w('H');
@@ -184,10 +184,10 @@ static void test_proportional_measure(void)
     CHECK(text_measure(FONT_GENEVA9, (const char *)0) == 0,
           "PROPORTIONAL: text_measure(FONT_GENEVA9, NULL) == 0");
 
-    /* Chicago 12 is PROPORTIONAL too (bead initech-tdnl.33). Expected values
-     * are the REAL NFNT 5478 advances as tabulated in ../system7-decomp
+    /* Chicago 12 is PROPORTIONAL too. Expected values
+     * are the REAL NFNT 5478 advances as tabulated in../system7-decomp
      * specs/fonts/chicago.md "Advance-width table" (M 12, i 4, H 8) -- typed
-     * here from the spec, NOT read from the artifact's table (Law 2). The full
+     * here from the spec, NOT read from the artifact's table. The full
      * per-glyph grading against the NFNT bytes is test-chicago-metrics. */
     {
         CHECK(text_measure(FONT_CHICAGO, "Mi") == 12 + 4,
@@ -242,7 +242,7 @@ static void test_proportional_measure(void)
  * We probe a specific row of each glyph to verify ink lands in the right column.
  * The probe row is chosen where the glyph has a known ink pixel.
  *
- * Ref: ADR-0004 D-7 (per-glyph advances drive x offset in text_draw);
+ * Ref: clipped Toolbox drawing (per-glyph advances drive x offset in text_draw);
  *      spec/assets/geneva9.h (H: row 4 = 0xF8 = bits 11111... at col 0-4;
  *                              i: row 3 = 0xC0 = bits 11...... at col 0-1).
  */

@@ -1,23 +1,23 @@
 /* os/flair/surface.h -- the ONE pixel-write module for InitechOS (FLAIR Layer 1).
  *
- * beads: initech-k8o5. Ref: ADR-0004 D-2 ("exactly one surface module; the single
- *        pixel path; no second pixel writer anywhere in the OS"); ADR-0004 D-2 OD-2
- *        (indexed-8 offscreen: 1 byte/pixel = palette index); ADR-0004 FO-1/AM-2
+ *. Ref: clipped Toolbox drawing ("exactly one surface module; the single
+ *        pixel path; no second pixel writer anywhere in the OS"); clipped Toolbox drawing OD-2
+ *        (indexed-8 offscreen: 1 byte/pixel = palette index); clipped Toolbox drawing FO-1/AM-2
  *        (fb-agree gate must be GREEN and MUTATION-PROVEN before any Manager code).
  * Ref:   PRD Sec 5 (hardware contract: VBE 2.0 LFB, 8/24/32bpp, pitch >= width*bpp/8);
  *        docs/research/boot-to-text-ground-truth.md Sec 5 Risk 2 (branch on bpp;
  *        pixel addr = base + y*pitch + x*(bpp/8); 32bpp XRGB8888 little-endian
  *        B,G,R,X; 24bpp B,G,R bytes; 8bpp = VGA palette index).
- *        CLAUDE.md Law 1 (ground truth before code), Law 2 (oracle is truth),
- *        Law 3 (freestanding artifact; dual-compile for host oracle),
- *        Rule 2 (fail loud -- no write past the buffer; bounds-checked),
- *        Rule 11 (reproducible), Rule 12 (ASCII-clean source).
+ *        source provenance (ground truth before code), independent checks (oracle is truth),
+ *        language boundary (freestanding artifact; dual-compile for host oracle),
+ *        explicit error handling (fail loud -- no write past the buffer; bounds-checked),
+ *        reproducible output, ASCII source.
  *
  * ARTIFACT code: freestanding, <stdint.h> only, no libc, no malloc. Compiles BOTH
  * under kernel flags (gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra
  * -Werror) AND hosted for the fb-agree oracle (harness/proptest/test_fbagree.c).
  *
- * ONE-SURFACE INVARIANT (ADR-0004 D-2): every pixel write in InitechOS goes
+ * ONE-SURFACE INVARIANT (clipped Toolbox drawing): every pixel write in InitechOS goes
  * through surface_put_pixel. console.c is a CLIENT of this module; no second
  * pixel path exists. The fb-agree oracle enforces this at build time: it renders
  * identical content via both the console API and the surface primitives directly
@@ -35,7 +35,7 @@
 #include <stdint.h>
 
 /* --------------------------------------------------------------------------
- * bitmap_t -- describes a drawable surface (ADR-0004 D-2).
+ * bitmap_t -- describes a drawable surface (clipped Toolbox drawing).
  *
  * The destination is EITHER the LFB (from boot_info) OR an indexed-8
  * offscreen buffer (OD-2: 1 byte/pixel = palette index, bpp==8).
@@ -55,7 +55,7 @@ typedef struct {
  *
  * The bpp argument is ignored (the canonical representation is always
  * 0x00RRGGBB; the blit branches on bpp when writing). Matches
- * console_pack_rgb semantics exactly (ADR-0004 D-2).
+ * console_pack_rgb semantics exactly (clipped Toolbox drawing).
  * -------------------------------------------------------------------------- */
 static inline uint32_t surface_pack_rgb(uint32_t bpp,
                                         uint8_t r, uint8_t g, uint8_t b)
@@ -65,12 +65,12 @@ static inline uint32_t surface_pack_rgb(uint32_t bpp,
 }
 
 /* --------------------------------------------------------------------------
- * surface_put_pixel -- THE single low-level pixel writer (ADR-0004 D-2).
+ * surface_put_pixel -- THE single low-level pixel writer (clipped Toolbox drawing).
  *
  * Write packed value `px` (canonical 0x00RRGGBB) at byte offset `off`
  * into bm->base, branching on bm->bpp. The caller must supply a valid
  * offset (already bounds-checked against pitch * height). No write past
- * the buffer (Rule 2 -- overdraw invariant).
+ * the buffer (explicit error handling -- overdraw invariant).
  *
  *   8bpp:  one byte  = low 8 bits of px (palette index).
  *   32bpp: one dword = px as XRGB8888 little-endian (B,G,R,X bytes).
@@ -95,7 +95,7 @@ static inline void surface_put_pixel(const bitmap_t *bm,
  * surface_get_pixel -- read one packed pixel at byte offset `off`.
  * 24/32bpp return 0x00RRGGBB; 8bpp returns the RAW PALETTE INDEX (5le3).
  * Palette resolution belongs to render_pixel_rgb/flair_look, not this
- * depth-neutral mechanism (ADR-0004 DEC-09).
+ * depth-neutral mechanism (clipped Toolbox drawing authored teal).
  *
  * Used by the fb-agree oracle and scroll (copy pixel runs). Symmetric
  * inverse of surface_put_pixel.
@@ -115,7 +115,7 @@ static inline uint32_t surface_get_pixel(const bitmap_t *bm, uint32_t off)
 
 /* surface_fill_span -- fill a horizontal run of `len` pixels starting at
  * (x,y) with packed color `px`. Bounds-checked: clips to the bitmap width
- * so no write ever reaches past the end of the scanline (Rule 2). */
+ * so no write ever reaches past the end of the scanline. */
 void surface_fill_span(const bitmap_t *bm,
                        uint32_t x, uint32_t y,
                        uint32_t len, uint32_t px);
@@ -129,11 +129,11 @@ void surface_clear(const bitmap_t *bm, uint32_t px);
  * `glyph` points to CELL_H rows of 1-byte-per-row data (MSB = leftmost
  * pixel, set bit = ink). The cell is at pixel origin (x0, y0). Ink pixels
  * receive `fg`; background pixels receive `bg`. Bounds-checked: cells whose
- * pixel extent exceeds the bitmap are silently clipped (Rule 2).
+ * pixel extent exceeds the bitmap are silently clipped.
  *
  * This is the load-bearing primitive lifted from console_draw_glyph. The
  * fb-agree oracle compares console_draw_glyph's output to an independent
- * call to this function and asserts byte-identical results (ADR-0004 AM-2).
+ * call to this function and asserts byte-identical results (clipped Toolbox drawing AM-2).
  */
 void surface_blit(const bitmap_t *bm,
                   uint32_t x0, uint32_t y0,

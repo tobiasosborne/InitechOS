@@ -1,6 +1,6 @@
 /* harness/proptest/test_drawing_ops.c -- host oracle for spec/drawing_ops.h
  *
- * beads: initech-dh5k.6 (P1-6: spec/drawing_ops.h + compile oracle).
+ *  (P1-6: spec/drawing_ops.h + compile oracle).
  * era: system7.0-7.1
  *
  * PURPOSE: exercises every locked constant and structural rule in
@@ -40,20 +40,20 @@
  *       -o /tmp/test_drawing_ops && /tmp/test_drawing_ops
  *
  *   # Mutation probe (must exit non-zero; proves oracle bites):
- *   gcc -std=c11 -DTEST_DRAWOPS_MUTANT \
+ *   gcc -std=c11 -dtest drawops mutant patch \
  *       -I. \
  *       harness/proptest/test_drawing_ops.c \
  *       -o /tmp/test_drawing_ops_mutant && \
  *   /tmp/test_drawing_ops_mutant; \
  *   test $? -ne 0 && echo "MUTATION RED (correct)" || echo "MUTATION GREEN (BUG)"
  *
- * MUTATION PROOF (Rule 6): build with -DTEST_DRAWOPS_MUTANT to perturb ONE
+ * MUTATION PROOF: build with -dtest drawops mutant patch to perturb ONE
  *   constant (kGrafVerbPaint expected value) so the oracle MUST fail (exit 1,
  *   RED). This proves the runtime checks actually bite. The _Static_assert
  *   compile-time layer in drawing_ops.h is a separate gate that fires on any
  *   constant mutation.
  *
- * ASCII-clean (Rule 12). No 2026-isms (Rule 11).
+ * ASCII-clean. No 2026-isms.
  */
 
 /* Include the locked spec first -- fires every _Static_assert at compile time. */
@@ -61,7 +61,7 @@
 
 /* Hosted-only: stdio for result printing.
  * Under freestanding (-ffreestanding; __STDC_HOSTED__==0) stdio is unavailable.
- * The _Static_assert compile-time layer fires regardless; main() runs hosted only. */
+ * The _Static_assert compile-time layer fires regardless; main runs hosted only. */
 #if defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)
 #include <stdio.h>
 
@@ -77,7 +77,7 @@
         }                                           \
     } while (0)
 
-/* Mutation probe: when TEST_DRAWOPS_MUTANT is defined, we expect
+/* Mutation probe: when test drawops mutant patch is defined, we expect
  * kGrafVerbPaint == 0 (wrong! it must be 1) -- this must fail section A. */
 #ifdef TEST_DRAWOPS_MUTANT
 #define EXPECTED_GRAFVERB_PAINT  0   /* WRONG intentionally -- mutation */
@@ -307,7 +307,7 @@ int main(void)
               gray_bytes[4] == 0xAAu && gray_bytes[5] == 0x55u &&
               gray_bytes[6] == 0xAAu && gray_bytes[7] == 0x55u);
 
-        /* ltGray: 88 22 88 22 ... [verified: PAT_17.bin; PA Sec 4] */
+        /* ltGray: 88 22 88 22... [verified: PAT_17.bin; PA Sec 4] */
         CHECK("ltGray row 0 = 0x88 ([PA] Sec 4; PAT_17.bin])",
               ltgray_bytes[0] == 0x88u);
         CHECK("ltGray row 1 = 0x22 ([PA] Sec 4; PAT_17.bin])",
@@ -317,10 +317,10 @@ int main(void)
               ltgray_bytes[4] == 0x88u && ltgray_bytes[5] == 0x22u &&
               ltgray_bytes[6] == 0x88u && ltgray_bytes[7] == 0x22u);
 
-        /* dkGray: 77 DD 77 DD ... [inferred; golden-resolves]
+        /* dkGray: 77 DD 77 DD... [inferred; golden-resolves]
          * We check the value is non-black and non-white; the exact bytes are
          * golden-resolves but the conventional inferred value is 77/DD.
-         * Law 2: do not assert pixel exactness from inferred values. */
+         * independent checks: do not assert pixel exactness from inferred values. */
         CHECK("dkGray row 0 = 0x77 (inferred conventional; [PA] Sec 4)",
               dkgray_bytes[0] == 0x77u);
         CHECK("dkGray row 1 = 0xDD (inferred conventional; [PA] Sec 4)",

@@ -28,7 +28,7 @@
 -        region_set_rect(b, shadow);
 -        region_op(a, c, b, RGN_OP_UNION);
 -    }
-+    /* Rule-6 mutant (initech-9d0e): restore frame-only strucRgn clipping. */
++    /* mutation checks mutant: restore frame-only strucRgn clipping. */
 +    (void)document_variant(variant);
      return a;
  }

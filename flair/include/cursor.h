@@ -1,15 +1,15 @@
 /*
  * os/flair/cursor.h -- FLAIR Cursor Manager save-under overlay.
  *
- * beads: initech-tdnl.1 (GUI remediation R0.1).
+ *  (GUI remediation R0.1).
  * Ref: Inside Macintosh: Imaging With QuickDraw, cursor ('CURS') resource
  *      format and hotspot semantics; PRD Sec 6.3 (FLAIR Event/Window Managers);
  *      docs/plans/GUI-remediation-plan.md R0.1 (CursorMgr + ShieldCursor);
  *      os/initechdos/kmain.c:769 flair_desktop_present (final LFB present seam),
- *      :1054 final-surface bind, and :2459/:2549/:2683 FLAIR-LIVE-READY plus
+ *:1054 final-surface bind, and:2459/:2549/:2683 FLAIR-LIVE-READY plus
  *      the two WaitNextEvent pump tracking calls (mouse-position source).
  *
- * DEC -- BOOT VISIBILITY (initech-tdnl.1; amended initech-vzjy): on GATE images
+ * DEC -- BOOT VISIBILITY (; amended ): on GATE images
  * CursorMgr binds at boot but does not draw until the first real mouse packet
  * reaches the live pump. This preserves every locked no-input boot screendump
  * byte-for-byte. After that first mouse activity the period Mac arrow is
@@ -24,7 +24,7 @@
  * The manager binds the FINAL surface presented to the display, not a window or
  * compositor offscreen, so the cursor is always topmost. Repaint clients bracket
  * final-surface writes with flair_cursor_shield/unshield; nesting is supported.
- * Artifact C per ADR-0002: freestanding, deterministic, ASCII-only.
+ * Artifact C per freestanding C build: freestanding, deterministic, ASCII-only.
  */
 #ifndef INITECH_OS_FLAIR_CURSOR_H
 #define INITECH_OS_FLAIR_CURSOR_H

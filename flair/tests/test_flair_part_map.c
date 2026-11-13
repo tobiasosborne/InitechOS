@@ -1,5 +1,5 @@
 /* harness/proptest/test_flair_part_map.c -- the PART resolution table, before
- * and after the round-5 storage compaction of flair_part_map (WL-0168).
+ * and after the storage compaction of flair_part_map (packed storage).
  *
  * Prints every PART (plus both out-of-range neighbours) resolved at every
  * destination depth through flair_look_pixel_depth, and through
@@ -7,7 +7,7 @@
  * diffs the transcript against harness/proptest/fixtures/flair_part_map.golden,
  * which was captured ONCE from the pre-change flair_look.c (the 8-byte-row
  * map, commit 4d907b1f) -- a differential against the original implementation,
- * not a value recomputed from the new table (Law 2). The colour authority
+ * not a value recomputed from the new table. The colour authority
  * itself stays graded by test-color-canon-gen / the pixel gates.
  */
 #include <stdio.h>

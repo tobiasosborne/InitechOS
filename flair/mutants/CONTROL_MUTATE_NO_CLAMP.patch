@@ -4,7 +4,7 @@
 +++ b/control.c
 @@ -254,12 +254,8 @@
      if (ctrl == 0) {
-         return;                                 /* fail-loud guard (Rule 2)     */
+         return;                                 /* fail-loud guard      */
      }
 -    if (value < ctrl->contrlMin) {
 -        value = ctrl->contrlMin;
@@ -12,8 +12,8 @@
 -    if (value > ctrl->contrlMax) {
 -        value = ctrl->contrlMax;
 -    }
-+    /* NAMED MUTANT: no clamping. SetControlValue stores the value verbatim
-+     * even if out of [min,max]. test_control MUST catch this (Rule 6). */
++    /* NAMED regression patches: no clamping. SetControlValue stores the value verbatim
++     * even if out of [min,max]. test_control MUST catch this. */
      ctrl->contrlValue = value;
  }
  

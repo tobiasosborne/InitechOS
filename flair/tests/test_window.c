@@ -1,20 +1,20 @@
 /* test_window.c -- the FLAIR Window Manager's property suite (the ORACLE).
  *
- * beads: initech-9qf ("Window Manager: z-order, drag, update regions"). The
+ *  ("Window Manager: z-order, drag, update regions"). The
  *        load-bearing M3/M4 logic behind the live, draggable desktop. This is
- *        its mechanical oracle (Law 2): the visible-region overlap computation
- *        and the region-difference DAMAGE model (ADR-0004 D-5) verified BIT-EXACT
+ *        its mechanical oracle: the visible-region overlap computation
+ *        and the region-difference DAMAGE model (clipped Toolbox drawing) verified BIT-EXACT
  *        against INDEPENDENT pixel ground truth.
  *
- * Ref:   PRD Sec 6.2 (region algebra), Sec 6.3 (Toolbox). ADR-0004 D-3 (Window
+ * Ref:   PRD Sec 6.2 (region algebra), Sec 6.3 (Toolbox). clipped Toolbox drawing (Window
  *        Manager records + FindWindow part-codes), D-5 (DiffRgn damage: newly-
  *        exposed = (old-covered) DIFF (now-covered), accumulated into updateRgn,
  *        NO over-repaint). spec/window_record.h, spec/region_algebra.h,
  *        os/flair/window.h. harness/proptest/test_region.c + test_blitter.c (the
  *        property idiom + seeded LCG + rgn_store arena + rasterize ground truth
- *        this suite MIRRORS). CLAUDE.md Law 2 (oracle is truth), Rule 1
- *        (RED->GREEN), Rule 6 (mutation-proven), Rule 11 (seeded LCG ->
- *        deterministic), Rule 12 ASCII.
+ *        this suite MIRRORS). independent checks (oracle is truth),
+ *        (RED->GREEN), mutation checks (mutation-proven), reproducibility (seeded LCG ->
+ *        deterministic), ASCII source.
  *
  * THE PROPERTIES (in order of decisiveness):
  *
@@ -41,7 +41,7 @@
  *  3. COMPOSITOR-LAYER INVALIDATE. WindowMgr_invalidate_desktop partitions an
  *     arbitrary clipped rectangle exactly once among the frontmost visible
  *     window owners and the remaining bare desktop. This is the damage entry
- *     used to remove temporary menu panels (beads initech-b3hl/-j0vt).
+ *     used to remove temporary menu panels (/-j0vt).
  *
  *  4. z-order invariants: front/back ordering preserved across Select/Move;
  *     SelectWindow brings to front + activates exactly one window.
@@ -51,16 +51,16 @@
  *     grow cell. Zoom/grow/collapse transactions preserve exact old exposure,
  *     exact new regions, and exact stored-state restoration (R1.1/R1.2).
  *
- * MUTANTS (Rule 6), each driven RED by the Makefile gate:
- *   WINDOW_MUTATE_ZORDER     -- visible region ignores windows in front.
+ * regression patches, each driven RED by the Makefile gate:
+ *   zorder patch     -- visible region ignores windows in front.
  *                               => property 1 (and 2) go RED.
- *   WINDOW_MUTATE_OVERPAINT  -- damage = the whole exposed set handed to every
+ *   overpaint patch  -- damage = the whole exposed set handed to every
  *                               window (not clipped to its structure, remainder
  *                               never shrunk). => property 2 goes RED.
- *   WINDOW_MUTATE_ZONE_OFF          -- shift widget hit geometry by +3px.
- *   WINDOW_MUTATE_ZOOM_NO_RESTORE   -- second zoom keeps standardState.
- *   WINDOW_MUTATE_COLLAPSE_LEAK     -- collapsed contRgn remains non-empty.
- *   WINDOW_MUTATE_GROW_NO_MIN       -- SizeWindow accepts a 1x1 frame.
+ *   zone off patch          -- shift widget hit geometry by +3px.
+ *   zoom no restore patch   -- second zoom keeps standardState.
+ *   collapse leak patch     -- collapsed contRgn remains non-empty.
+ *   grow no min patch       -- SizeWindow accepts a 1x1 frame.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -217,7 +217,7 @@ static void build_owner_grid(const WindowMgr *wm,
 }
 
 /* ===========================================================================
- * Seeded LCG (Rule 11), mirroring test_region/test_blitter.
+ * Seeded LCG, mirroring test_region/test_blitter.
  * ===========================================================================*/
 static uint32_t g_seed = 0x57A91Eu;   /* a distinct seed (TURBO_INITECH-ish)          */
 static uint32_t lcg(void)
@@ -271,13 +271,13 @@ int main(void)
      * notched shadow L, while contRgn is derived once from sampled chrome
      * metrics and stops at the vertical scrollbar. Moving the window must
      * damage the OLD shadow band too. Ref: sys8/window-chrome.md Sec 1/2.1/4,
-     * scrollbars.md Sec 1; beads initech-9d0e/javs/l0mh.
+     * scrollbars.md Sec 1; /.
      * ====================================================================== */
     {
         static win_store_t W;
         static mgr_store_t M;
         rgn_rect_t frame = { 1, 1, 34, 47 };
-        /* RE-KEYED (bead initech-tdnl.35, stated): the content's bottom edge
+        /* RE-KEYED (, stated): the content's bottom edge
          * now stops at the horizontal scroll bar's outer line, frame.bottom -
          * FRAME(1) - BODY_BAR(4) - SCROLLBAR_W(16) = B-21, exactly as its right
          * edge stops at the vertical bar's (spec/window_record.h contRgn:
@@ -287,7 +287,7 @@ int main(void)
          * frame.bottom-1, which put the horizontal bar inside contRgn). The
          * pure seam is graded directly (the bbox of an empty region is not a
          * rect). The realistic-size bottom edge is graded just below.
-         * RE-KEYED (bead initech-tdnl.51, stated): the left edge is now just
+         * RE-KEYED (, stated): the left edge is now just
          * inside the left body rail's inner black line, frame.left + FRAME(1)
          * + BODY_BAR(4) + FRAME(1) = 1+6 = 7 (was 2, frame.left+1, which put
          * the left raised bar inside contRgn; sys8/window-chrome.md Sec 4). */
@@ -310,7 +310,7 @@ int main(void)
               "CalcDoc: a frame too short for title+horizontal bar has EMPTY content");
         {
             /* The default Finder frame (finder_windows.h Sec 3), by hand:
-             * (20,60)..(380,280) -> top 60+22=82, left 20+1+4+1=26 (tdnl.51;
+             * (20,60)..(380,280) -> top 60+22=82, left 20+1+4+1=26 (;
              * was 20+1=21), right 380-1-4-16=359, bottom 280-1-4-16=259. */
             rgn_rect_t f = { 60, 20, 280, 380 };
             rgn_rect_t c = CalcDocContentRect(f);
@@ -338,7 +338,7 @@ int main(void)
      * NewWindow pushes W0,W1,W2 to produce [W2,W1,W0]. Hide preserves that
      * list; Dispose compacts it; Select reflects the new z-order. This is an
      * independent literal golden, not a second traversal of nextWindow.
-     * Ref: D2-3; beads initech-vfd8 / initech-883x.
+     * Ref: D2-3;  /.
      * ====================================================================== */
     {
         static win_store_t W[3];
@@ -369,7 +369,7 @@ int main(void)
         SetWTitle(&M.wm, &W[2].rec, "HELLO");
         CHECK(strcmp(W[2].rec.titleHandle, "HELLO") == 0 &&
               /* IM-I titleWidth in Chicago 12: NFNT 5478 advances
-               * H8+E7+L7+L7+O8 = 37 (chicago.md; bead initech-tdnl.33). */
+               * H8+E7+L7+L7+O8 = 37 (chicago.md; ). */
               W[2].rec.titleWidth == 8 + 7 + 7 + 7 + 8 &&
               !region_is_empty(W[2].rec.updateRgn),
               "SetWTitle: one kernel-held setter copies, measures Chicago, and invalidates");
@@ -432,7 +432,7 @@ int main(void)
     }
 
     /* ======================================================================
-     * PROPERTY 2: DAMAGE / UPDATE correctness after MoveWindow (ADR-0004 D-5).
+     * PROPERTY 2: DAMAGE / UPDATE correctness after MoveWindow (clipped Toolbox drawing).
      * The union of all updateRgns + desktop_update == the EXACT set of pixels
      * the moved window owned before and lost after (clipped to frame).
      * Verified by owner-grids before/after, NO over-repaint, no double-count.
@@ -459,7 +459,7 @@ int main(void)
                 NewWindow(&M.wm, &W[i].rec, s, c, documentKind, documentProc, 1);
             }
 
-            /* Ref: bead initech-v6t2. NewWindow's reaffirm_active now seeds a
+            /* Ref:. NewWindow's reaffirm_active now seeds a
              * repaint on every 1->0 hilited transition (the deactivation-
              * repaint fix), so building an n-window stack above may itself
              * have left construction-time damage in the updateRgn of every
@@ -549,7 +549,7 @@ int main(void)
     }
 
     /* ======================================================================
-     * PROPERTY 3: COMPOSITOR-LAYER INVALIDATE (beads initech-b3hl/-j0vt).
+     * PROPERTY 3: COMPOSITOR-LAYER INVALIDATE (/-j0vt).
      * An arbitrary screen rect painted above the ordinary WindowMgr scene is
      * removed by invalidating every pixel under it. The expected partition is
      * independent owner-grid truth: each in-frame rect pixel belongs exactly
@@ -665,8 +665,8 @@ int main(void)
     }
 
     /* ======================================================================
-     * ACTIVATION-TRANSITION REPAINT (beads initech-v6t2 + initech-rqz5;
-     * ADR-0004 D-5; epic initech-av7s DQ3, ratified 2026-07-31):
+     * ACTIVATION-TRANSITION REPAINT ( +;
+     * clipped Toolbox drawing; epic  DQ3, ratified 2026-07-31):
      * reaffirm_active must SEED a repaint on BOTH hilited transitions --
      * 1->0 (the window LOSING active status repaints its chrome inactive;
      * the v6t2 half) AND 0->1 (the window GAINING active status repaints
@@ -675,9 +675,9 @@ int main(void)
      * raise exposes stale pixels). Directed case first (hand-verifiable
      * geometry), then randomized properties for each half.
      *
-     * MUTANT WINDOW_MUTATE_NO_DEACT_INVAL (Rule 6): suppresses ONLY the 1->0
+     * regression patches no deact inval patch: suppresses ONLY the 1->0
      * seed -- the deactivation checks below go RED.
-     * MUTANT WINDOW_MUTATE_NO_ACTIVATE_INVAL (Rule 6): suppresses ONLY the
+     * regression patches no activate inval patch: suppresses ONLY the
      * 0->1 seed -- the activation checks below go RED.
      * ====================================================================== */
     {
@@ -686,7 +686,7 @@ int main(void)
          * setup the bug report describes. SelectWindow(w2) then deactivates
          * w1: w1->updateRgn must become non-empty and must equal w1's OWN
          * visible region post-select -- neither under- nor over-invalidated.
-         * The expected pixels are hand-derived from the rects (Law 2: an
+         * The expected pixels are hand-derived from the rects (independent checks: an
          * independent ground truth, not a call into visible_into/
          * ComputeVisible, the primitive the fix under test itself calls). */
         static win_store_t w1, w2; static mgr_store_t M;
@@ -706,7 +706,7 @@ int main(void)
               "deactivation-repaint setup: w1 is front and hilited after creation");
 
         /* Clear construction-time transition damage (each NewWindow seeded the
-         * new front's activation AND the old front's deactivation, initech-rqz5
+         * new front's activation AND the old front's deactivation,
          * / v6t2) so the deltas measured below come from the ONE SelectWindow
          * call under test -- the same isolation the randomized properties use. */
         WindowMgr_validate(&w1.rec);
@@ -728,7 +728,7 @@ int main(void)
         CHECK(region_contains_point(w1.rec.updateRgn, 15, 15) == 0,
               "SelectWindow: w1's updateRgn does NOT cover a pixel w2 now occludes (no over-invalidate)");
 
-        /* --- the ACTIVATION half (initech-rqz5): the raised w2 (0->1) is
+        /* --- the ACTIVATION half: the raised w2 (0->1) is
          * seeded with its own post-raise visible region -- the previously-
          * occluded overlap it must now repaint plus the active-chrome flip. */
         CHECK(w2.rec.hilited == 1 && M.wm.front == &w2.rec,
@@ -751,7 +751,7 @@ int main(void)
          * non-front window; the OLD front window's updateRgn must equal
          * EXACTLY its own currently-visible region, verified against the
          * INDEPENDENT owner-grid ground truth (rasterized front-to-back
-         * ownership -- the same idiom PROPERTY 1/2 above use, Law 2: not a
+         * ownership -- the same idiom PROPERTY 1/2 above use, independent checks: not a
          * re-call of visible_into/ComputeVisible, the primitive under test). */
         enum { CASES = 800, MAXW = 5 };
         int empty_bad = 0;      /* deactivated window's updateRgn wrongly stayed empty */
@@ -811,10 +811,10 @@ int main(void)
     }
 
     {
-        /* Randomized ACTIVATION property (initech-rqz5 / DQ3): the RAISED
+        /* Randomized ACTIVATION property ( / DQ3): the RAISED
          * window's updateRgn must equal EXACTLY its own post-raise visible
          * region -- verified against the INDEPENDENT owner-grid ground truth
-         * (Law 2: the same rasterized front-to-back ownership idiom as the
+         * (independent checks: the same rasterized front-to-back ownership idiom as the
          * deactivation property above, not a re-call of the primitive under
          * test). The raised window is front, so its visible region is its
          * whole in-frame structure; the seed must cover all of it (the
@@ -876,7 +876,7 @@ int main(void)
      * against independent 12x12 close/zoom/collapse rectangles. The one-pixel
      * outer highlights and every gap/frame pixel remain inDrag. The 18x18 grow
      * cell is likewise exact. Ref: sys8 window-chrome.md Sec 3.1/Sec 5;
-     * beads initech-tbef/ci4o/cjfr.
+     * /.
      * ====================================================================== */
     {
         static win_store_t A; static mgr_store_t M;
@@ -956,7 +956,7 @@ int main(void)
               "FindWindow: after SelectWindow, raised window wins the hit");
     }
 
-    /* h6y1: the same capability gates the renderer and EVERY cell hit.
+    /* the same capability gates the renderer and EVERY cell hit.
      * Ref: window_record.h variants; sys8/window-chrome.md Sec 5/6.
      * Use literal captured offsets/size, independent of chrome_metrics.h. */
     {
@@ -1089,9 +1089,9 @@ int main(void)
      * HideWindow exposure: hiding a window damages exactly what it owned
      * (independent owner-grid before/after) -- PLUS, when the hidden window
      * was the ACTIVE one, the newly-activated successor's whole post-hide
-     * visible region (the 0->1 activation seed, initech-rqz5 / DQ3: the
+     * visible region (the 0->1 activation seed,  / DQ3: the
      * successor owes an active-chrome repaint across its full width, not
-     * just the exposed strip -- the WL-0075 s05 half-active-bar bug).
+     * just the exposed strip -- the  s05 half-active-bar bug).
      * Damage is complete + sound against that union.
      * ====================================================================== */
     {
@@ -1108,7 +1108,7 @@ int main(void)
                 rgn_rect_t s, c; gen_window_rects(&s, &c);
                 NewWindow(&M.wm, &W[i].rec, s, c, documentKind, documentProc, 1);
             }
-            /* Ref: beads initech-v6t2/-rqz5 -- clear construction-time
+            /* Ref: /-rqz5 -- clear construction-time
              * transition damage (both hilited halves) before measuring
              * HideWindow's own delta. */
             for (int i = 0; i < n; i++) WindowMgr_validate(&W[i].rec);

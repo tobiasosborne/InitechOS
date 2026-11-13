@@ -7,8 +7,8 @@
  {
      int r = (int)g_slot.drew;
      g_slot.drew = 0u;
-+    /* MUTANT TBX_MUT_DRAW_NOT_PRESENTED (Rule 6; test-flair-ctenant-mutant):
-+     * the pre-initech-8zii behaviour -- a tenant's drawing for a plain
++    /* regression patches draw not presented patch (mutation checks; test-flair-ctenant-mutant):
++     * the pre- behaviour -- a tenant's drawing for a plain
 +     * keyDown / mouseDown sits in the offscreen until something else
 +     * presents. NEVER in a real build. */
 +    r = 0;

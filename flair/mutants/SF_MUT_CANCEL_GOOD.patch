@@ -8,9 +8,9 @@
  
 -    reply->good = 0;                 /* SFReply.good = FALSE on Cancel (IM-I)    */
 +    /*
-+     * MUTANT SF_MUT_CANCEL_GOOD: set good = 1 on Cancel. Oracle step 6 expects
++     * regression patches cancel good patch: set good = 1 on Cancel. Oracle step 6 expects
 +     * good == 0 after Cancel -> RED.
-+     * Ref: CLAUDE.md Rule 6 (mutation-proven golden).
++     * Ref: mutation checks (mutation-proven golden).
 +     */
 +    reply->good = 1;
      reply->fName[0] = '\0';

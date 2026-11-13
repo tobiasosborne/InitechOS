@@ -7,7 +7,7 @@
          uint16_t       rlo  = rd_u16(m->fork + e + 6u);
  
 -        int matched = (et == type);
-+        /* MUTANT: ignore the type key -- match the FIRST type regardless. Proves
++        /* regression patches: ignore the type key -- match the FIRST type regardless. Proves
 +         * the 4-char type comparison is load-bearing (wrong-type lookups must
 +         * miss; cross-type lookups must not leak the first type's resources). */
 +        (void)et;

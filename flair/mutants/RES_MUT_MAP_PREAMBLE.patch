@@ -6,7 +6,7 @@
  
      /* The 24-byte preamble + the 2 offset words at MAP offsets 24..27 (Sec 1.3).
       * (24, NOT 22: the preamble counts the 16-byte fork-header copy.) */
--    /* 6mfi: map header must fit its SECTION, without additive overflow. */
+-    /* map header must fit its SECTION, without additive overflow. */
 -    if (m->map_len < 28u)                                  goto bad;
 +    if (m->map_off + 28u > len)                             goto bad;
      {

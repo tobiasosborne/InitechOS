@@ -1,9 +1,9 @@
 {
   "_comment": [
-    "LOCKED spec-data (InitechOS CLAUDE.md Rule 8). DO NOT edit to make a test pass.",
+    "LOCKED spec-data (InitechOS pinned inputs). DO NOT edit to make a test pass.",
     "Source: Quadra 650 ROM (F1ACAD13, 1993-02), ROM offset 0x072F90,",
     "  'clut' ID 8 '8BitStd', 256-entry device CLUT (ctSeed=8, ctFlags=0x8000, ctSize=255).",
-    "  Extracted as ../system7-decomp/goldens/resources/clut_8_rom.bin (2056 bytes).",
+    "  Extracted as../system7-decomp/goldens/resources/clut_8_rom.bin (2056 bytes).",
     "  Ref: system7-decomp/specs/resources/clut-pltt-format.md Secs 2, 4.",
     "  Era: System 7.0 through Mac OS 8.1; OQ-8 gamma proof confirms this",
     "       ROM-derived CLUT is unchanged in the minted Mac OS 8.1 captures.",
@@ -58,7 +58,7 @@
     "_comment": [
       "Nearest CLUT index for each spec/assets/palette.json entry (Euclidean RGB distance).",
       "palette.* is the frame-sampled canon (7 measured + SEAFOAM); clut.* is the full",
-      "ROM-derived table, confirmed unchanged through Mac OS 8.1 by DEC-10 OQ-8.",
+      "ROM-derived table, confirmed unchanged through Mac OS 8.1 by Platinum base OQ-8.",
       "These two COEXIST -- do NOT edit palette.*.",
       "The frame-sampled values are CRT-photo-lifted and do not land on cube vertices,",
       "hence nearest-index distances are non-zero."

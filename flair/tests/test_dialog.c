@@ -1,7 +1,7 @@
 /* test_dialog.c -- the FLAIR Dialog Manager property suite (THE ORACLE).
  *
- * beads: (Dialog Manager oracle: layout, ModalDialog, draw, named mutants)
- * Ref:   ADR-0004 D-3 ("Dialog Manager -- DialogRecord + item lists;
+ * (Dialog Manager oracle: layout, ModalDialog, draw, named mutants)
+ * Ref:   clipped Toolbox drawing ("Dialog Manager -- DialogRecord + item lists;
  *          ModalDialog; the modal FILE COPY box ('Saving tables to disk...',
  *          the comedic centerpiece, PRD Sec 6.5 / Appendix B).");
  *        os/flair/dialog.{c,h} (the unit under test; the artifact freestanding C).
@@ -10,9 +10,9 @@
  *        harness/render/render.{c,h} (host render skeleton; dual-compile path).
  *        harness/proptest/test_control.c + test_window.c (the harness idiom
  *          this suite mirrors: TEST_HARNESS/CHECK/TEST_SUMMARY + render).
- *        CLAUDE.md Law 2 (oracle is truth), Law 4 (FILE COPY canon must be
- *          byte-exact; DIALOG_MUTATE_FILECOPY_MSG MUST go RED), Rule 6
- *          (mutation-proven), Rule 11 (seeded LCG + deterministic), Rule 12
+ *        independent checks (oracle is truth), film canon (FILE COPY canon must be
+ *          byte-exact; filecopy msg patch MUST go RED), mutation checks
+ *          (mutation-proven), reproducibility (seeded LCG + deterministic), ASCII source
  *          (ASCII-clean source).
  *
  * THE PROPERTIES (in order of decisiveness):
@@ -45,19 +45,19 @@
  *     (d) L023: complete alert perimeter equals the runtime historical PNG
  *         at both depths (outline, tinted outer bevel, inner bevel, face).
  *
- * MUTANTS (Rule 6), each MUST drive this oracle RED:
- *   DIALOG_MUTATE_BORDER       -- DrawDialog uses wrong border width (8 px).
+ * regression patches, each MUST drive this oracle RED:
+ *   border patch       -- DrawDialog uses wrong border width (8 px).
  *                                 => property 3d goes RED.
- *   DIALOG_MUT_ALERT_SLAB      -- pre-L023 slab => property 3d goes RED.
- *   DIALOG_MUTATE_HIT_STATIC   -- ModalDialog returns statText items.
+ *   alert slab patch      -- pre-L023 slab => property 3d goes RED.
+ *   hit static patch   -- ModalDialog returns statText items.
  *                                 => property 2e goes RED.
- *   DIALOG_MUTATE_FILECOPY_MSG -- FileCopyDialog uses a wrong message string.
+ *   filecopy msg patch -- FileCopyDialog uses a wrong message string.
  *                                 => property 1c (byte-exact canon) goes RED
- *                                    (Law 4 REQUIRED).
- *   CTRL_MUT_NO_DEFAULT_RING   -- defaultItem does not reach ring pixels.
+ *                                    (film canon REQUIRED).
+ *   no default ring patch   -- defaultItem does not reach ring pixels.
  *                                 => exact ring/moat legs go RED.
  *
- * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
+ * ASCII-clean. No nondeterminism / no timestamps.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -80,8 +80,8 @@
 TEST_HARNESS();
 
 /* Strict movable-title classifier for the Platinum Route-2 base row.
- * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and
- * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
+ * Ref: clipped Toolbox drawing and
+ *../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
 static uint32_t dialog_title_row_index(int row)
 {
     if (row == 0 || row == FLAIR_CHROME_TITLEBAR_H - 1) return CIDX_BLACK;
@@ -97,7 +97,7 @@ static uint32_t dialog_title_row_index(int row)
 }
 
 /* ===========================================================================
- * Seeded LCG (Rule 11 -- deterministic; mirrors test_control.c / test_window.c)
+ * Seeded LCG (reproducibility -- deterministic; mirrors test_control.c / test_window.c)
  * ===========================================================================*/
 static uint32_t g_seed = 0x44494147u; /* "DIAG" */
 static uint32_t lcg(void)
@@ -252,7 +252,7 @@ static void test_layout_basic(void)
  * PROPERTY 1c -- FILE COPY dialog: byte-exact FLAIR_CANON_FILECOPY_MSG +
  *                progressBar item.
  *
- * MUTATION: DIALOG_MUTATE_FILECOPY_MSG alters the canon string -> RED (Law 4).
+ * MUTATION: filecopy msg patch alters the canon string -> RED.
  * ===========================================================================*/
 static void test_filecopy_layout(void)
 {
@@ -277,7 +277,7 @@ static void test_filecopy_layout(void)
     CHECK(dp->itemCount == 2, "FILE COPY dialog must have exactly 2 items");
 
     /* Item 1: statText with EXACTLY FLAIR_CANON_FILECOPY_MSG.
-     * Law 4: this check MUST be byte-exact. */
+     * film canon: this check MUST be byte-exact. */
     flair_dialog_item_type_t type1;
     rgn_rect_t               rect1;
     GetDialogItem(dp, 1, &type1, &rect1);
@@ -292,8 +292,8 @@ static void test_filecopy_layout(void)
     CHECK(strcmp(item1_text, FLAIR_CANON_FILECOPY_MSG) == 0, msg);
 
     /* Item 2: ctrlItem with progressBar, canon value, max=100.
-     * MUTATION: DIALOG_MUTATE_PROGRESS_ZERO reverts to the old bug (value=0)
-     * -> RED (Law 4, beads initech-a90f). */
+     * MUTATION: progress zero patch reverts to the old bug (value=0)
+     * -> RED (film canon, ). */
     flair_dialog_item_type_t type2;
     rgn_rect_t               rect2;
     GetDialogItem(dp, 2, &type2, &rect2);
@@ -321,9 +321,9 @@ static void test_filecopy_layout(void)
     }
 
     /* Dialog window kind is dialogKind; variant is movableDBoxProc (the
-     * moveable titled modal, beads initech-zvo6) -- NOT dBoxProc (the old
-     * titleless 7px-border box). MUTATION: DIALOG_MUTATE_TITLELESS_MODAL
-     * reverts to dBoxProc -> RED (Law 4). */
+     * moveable titled modal, ) -- NOT dBoxProc (the old
+     * titleless 7px-border box). MUTATION: titleless modal patch
+     * reverts to dBoxProc -> RED. */
     CHECK(dp->window.windowKind == (int16_t)dialogKind,
           "FILE COPY dialog windowKind must be dialogKind=2");
     snprintf(msg, sizeof msg,
@@ -332,7 +332,7 @@ static void test_filecopy_layout(void)
              (int)dp->window.windowDefProcVariant);
     CHECK(dp->window.windowDefProcVariant == (int16_t)movableDBoxProc, msg);
 
-    /* The window title is the byte-exact canon "FILE COPY" (Law 4). */
+    /* The window title is the byte-exact canon "FILE COPY". */
     snprintf(msg, sizeof msg,
              "FILE COPY dialog title must be EXACTLY '%.32s' (Law 4 canon), "
              "got '%.64s'",
@@ -368,10 +368,10 @@ static void test_filecopy_layout(void)
  * Ref: event.c flair_event_init -- cursor starts at screen CENTER:
  *   g_cursor_h = FLAIR_SCREEN_W / 2 = 320
  *   g_cursor_v = FLAIR_SCREEN_H / 2 = 240
- * (ADR-0004 OD-3; event.c line ~138).
+ * (clipped Toolbox drawing OD-3; event.c line ~138).
  * So to reach absolute position (h, v) we post delta (h - 320, v - 240)
  * from the initial center, in steps of <=127 px.
- * IMPORTANT: call flair_event_init() before each test to reset cursor.
+ * IMPORTANT: call flair_event_init before each test to reset cursor.
  */
 static void post_mousedown(flair_raw_ring_t *ring, int h, int v)
 {
@@ -405,7 +405,7 @@ static void post_mousedown(flair_raw_ring_t *ring, int h, int v)
                              (0u << 8) |   /* dx=0 */
                              (0u << 16));  /* dy=0 */
     flair_raw_post(ring, &raw);
-    raw.payload=0u; /* tdnl.88: the click ends with a release inside. */
+    raw.payload=0u; /*: the click ends with a release inside. */
     flair_raw_post(ring, &raw);
 }
 
@@ -493,14 +493,14 @@ static void test_modaldialog_click_ok(void)
 
     /* Post a mouseDown inside item 1's rect.
      * Ref: event.c flair_event_init -- cursor starts at SCREEN CENTER (320, 240).
-     * RE-KEYED (bead initech-6k12, stated): item rects are GLOBAL -- the
+     * RE-KEYED (, stated): item rects are GLOBAL -- the
      * space DrawDialog paints them in, FileCopyDialog builds them in and
      * MoveDialog moves them in -- and the click is hit-tested there (the old
      * "local = global - portRect" subtraction made a click on a DRAWN button
      * miss it). r1 = [120,220) x [120,150) on screen, inside the dialog
      * bounds (100,100)..(500,300). Click its middle, global (200, 135).
      * post_mousedown posts delta from center (320,240) -> (-120, -105).
-     * Mutant DIALOG_MUTATE_LOCAL_HIT (the old subtraction) goes RED here.
+     * Mutant local hit patch (the old subtraction) goes RED here.
      */
     post_mousedown(&g_ring, 200, 135);
 
@@ -565,7 +565,7 @@ static void test_modaldialog_click_disabled(void)
     if (!dp) { return; }
 
     /* Click in item 3 (disabled button), r3 = [120,220) x [200,230) global
-     * (re-keyed, bead initech-6k12: items are hit-tested where drawn) ->
+     * (re-keyed,: items are hit-tested where drawn) ->
      * (170, 215). Cursor starts at screen center (320, 240). */
     post_mousedown(&g_ring, 170, 215);
 
@@ -582,7 +582,7 @@ static void test_modaldialog_click_stattext(void)
 {
     /* (e) Click in statText item -> NOT returned.
      *
-     * MUTATION: DIALOG_MUTATE_HIT_STATIC causes ModalDialog to return statText
+     * MUTATION: hit static patch causes ModalDialog to return statText
      * items, making this check go RED. Without the mutant, statText clicks are
      * silently ignored. (IM-I Ch 6: "statText items cannot be enabled.")
      */
@@ -593,7 +593,7 @@ static void test_modaldialog_click_stattext(void)
     if (!dp) { return; }
 
     /* Click in item 2 (statText), r2 = [120,400) x [170,185) global
-     * (re-keyed, bead initech-6k12: items are hit-tested where drawn) ->
+     * (re-keyed,: items are hit-tested where drawn) ->
      * (200, 177). */
     post_mousedown(&g_ring, 200, 177);
 
@@ -601,7 +601,7 @@ static void test_modaldialog_click_stattext(void)
     ModalDialog(dp, &g_ring, 0, 0, &itemHit);
 
 #if defined(DIALOG_MUTATE_HIT_STATIC) && DIALOG_MUTATE_HIT_STATIC
-    /* NAMED MUTANT: statText returned as enabled -> this check MUST FAIL (RED). */
+    /* NAMED regression patches: statText returned as enabled -> this check MUST FAIL (RED). */
     CHECK(itemHit == 0,
           "DIALOG_MUTATE_HIT_STATIC: statText click must NOT return itemHit "
           "(this MUST fail -- the oracle is RED as required by Rule 6)");
@@ -612,7 +612,7 @@ static void test_modaldialog_click_stattext(void)
 }
 
 /* ===========================================================================
- * TRUE MODALITY AT THE DISPATCH SEAM (bead initech-zn61).
+ * TRUE MODALITY AT THE DISPATCH SEAM.
  *
  * The synthetic outside click is deliberately inside the document window
  * behind the modal. The wrapper calls FindWindow ONLY on PASSTHROUGH, so the
@@ -739,7 +739,7 @@ static void test_true_modal_dispatch(void)
  *   (b) Content E7 face plus white TL / C0 BR inset bevel.
  *   (c) Progress bar: the fill region and border are drawn correctly.
  *
- * DIALOG_MUTATE_BORDER remains graded by the generic dBox sweep below.
+ * border patch remains graded by the generic dBox sweep below.
  * ===========================================================================*/
 static void draw_filecopy_dialog(GrafPort *port)
 {
@@ -778,14 +778,14 @@ static void draw_filecopy_dialog(GrafPort *port)
 
 /* ===========================================================================
  * PROPERTY 3 -- DRAW: the FILE COPY modal renders the MOVEABLE TITLED chrome
- * (beads initech-zvo6): a Platinum title bar + a PLAIN 1-px frame -- NOT the
+ *: a Platinum title bar + a PLAIN 1-px frame -- NOT the
  * old titleless dBoxProc 7-px solid border. Dialog bounds: top=200, left=140,
  * right=500, bottom=280. Title band geometry (chrome_metrics.h):
  *   y=200..221       K,H,2 face,12 stripes,4 face,S,K
  *   content           sampled E7 face + white TL / C0 BR inset bevel
- * Re-key authority: ADR-0004-AMENDMENT-DEC-10 Sec 4; sampled rows:
- * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2.
- * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the OLD titleless
+ * Re-key authority: clipped Toolbox drawing; sampled rows:
+ *../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2.
+ * MUTATION: titleless modal patch reverts to the OLD titleless
  * dBoxProc box (thick 7px border, no title bar) -> these checks go RED.
  * ===========================================================================*/
 static void test_draw_filecopy(void)
@@ -800,7 +800,7 @@ static void test_draw_filecopy(void)
     char msg[300];
 
     /* (a-c) Replace the retained bevel/stripe/shared-line checks with the
-     * strictly stronger exact 22-row profile at a clear x. Ref: DEC-10 Sec 4;
+     * strictly stronger exact 22-row profile at a clear x. Ref: Platinum base;
      * sys8/window-chrome.md Sec 2.1-2.2. */
     {
         int profile_ok = 1;
@@ -816,7 +816,7 @@ static void test_draw_filecopy(void)
     /* (d) 'FILE COPY' title text is RENDERED: a CIDX_TITLE_INK (idx 4) pixel
      * appears inside the text-cell rows. The Platinum band contains no other
      * idx4 class, so its presence proves ink, not only the idx218 gap.
-     * Ref: DEC-10 Sec 4; sys8/window-chrome.md Sec 2.3. */
+     * Ref: Platinum base; sys8/window-chrome.md Sec 2.3. */
     {
         int saw_ink = 0;
         for (int x = 140; x < 500 && !saw_ink; x++) {
@@ -833,7 +833,7 @@ static void test_draw_filecopy(void)
      * ONE column inside the left edge (x=141), at a CONTENT row (y=240, well
      * below the title band), is the white inset highlight -- under the old 7px border this
      * pixel (x=140+1) would still be solid BLACK (border spans x=140..146).
-     * MUTATION: DIALOG_MUTATE_TITLELESS_MODAL reverts to the 7px border ->
+     * MUTATION: titleless modal patch reverts to the 7px border ->
      * this pixel goes BLACK -> RED. */
     snprintf(msg, sizeof msg,
              "content just inside the LEFT frame (x=141,y=240) must be "
@@ -866,15 +866,15 @@ static void test_draw_filecopy(void)
     CHECK(pidx(&ctx, 300u, 279u) == 0u, msg);
 
     /* (f) Progress bar: item rect left=154, top=249, right=486, bottom=263
-     * -- the Platinum CDEF 5 etched bar (initech-bf2; the minted
-     * ../system7-decomp s8_progress_determinate*.png, 14 rows). The black
+     * -- the Platinum CDEF 5 etched bar (; the minted
+     *../system7-decomp s8_progress_determinate*.png, 14 rows). The black
      * frame is x=155; interior x=156..483, rows 251..260. At
      * FLAIR_CANON_FILECOPY_PROGRESS (68) the fill count is 328*68/100 = 223,
      * edge E = 378. Row y=259 is interior row 8: inside the fill it is the
      * clut-208 #5454B3 rung -> the ratified dark teal role (8bpp idx 63,
      * #3F3F3F); in the empty track it is #CDCDCD (idx 205). The pixel-exact
      * anatomy is graded against the PNGs by test-control PROPERTY 5b.
-     * MUTATION: DIALOG_MUTATE_PROGRESS_ZERO -> no fill -> RED (initech-a90f). */
+     * MUTATION: progress zero patch -> no fill -> RED. */
     snprintf(msg, sizeof msg,
              "progress bar black frame (x=155,y=259) must be DLG_BLACK (0), got %u",
              (unsigned)pidx(&ctx, 155u, 259u));

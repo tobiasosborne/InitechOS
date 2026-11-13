@@ -19,7 +19,7 @@
 -        int32_t put = fc_dos(0x4000u, (uint32_t)g_fc.dst, (uint32_t)got,
 -                             (uint32_t)(uintptr_t)g_fc_buf);
 -        if (put != got) return put < 0 ? put : TBX_ERR_DOS(0x1d);  /* write fault */
-+        /* NAMED MUTANT (Rule 6): the bar runs, the bytes never reach disk. */
++        /* NAMED regression patches: the bar runs, the bytes never reach disk. */
          g_fc.done += (uint32_t)got;
      }
      return (int32_t)g_fc.done;

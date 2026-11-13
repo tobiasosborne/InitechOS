@@ -1,18 +1,18 @@
 /*
- * test_scrap.c -- the FLAIR Scrap Manager host oracle (initech-b2vk).
+ * test_scrap.c -- the FLAIR Scrap Manager host oracle.
  *
- * beads: initech-b2vk (FLAIR Phase 4.5 -- Platform Services: Scrap).
- * Ref:   scrap.h / scrap.c (the API under test); ADR-0013 Sec 6 (shell-owned
+ *  (FLAIR Phase 4.5 -- Platform Services: Scrap).
+ * Ref:   scrap.h / scrap.c (the API under test); tenant lifecycle (shell-owned
  *        cross-tenant Scrap); Inside Macintosh Vol I Scrap Manager.
- *        CLAUDE.md Law 2 (oracle is the truth -- NOT by-construction), Rule 1
- *        (Red->Green->Refactor), Rule 6 (mutation-proven), Rule 12 (ASCII).
+ *        independent checks (oracle is the truth -- NOT by-construction),
+ *        (Red->Green->Refactor), mutation checks (mutation-proven), ASCII source (ASCII).
  *
- * ANTI-BY-CONSTRUCTION (Law 2, the central discipline):
+ * ANTI-BY-CONSTRUCTION (independent checks, the central discipline):
  *   The expected bytes are LITERAL CONSTANTS IN THIS FILE -- they are NOT
  *   read back out of the FlairScrap struct internals. Putting "hello" into
  *   the scrap and then reading scrap->flavors[0].data[0..4] to form the
  *   expectation would agree BY CONSTRUCTION and cannot catch a wrong value
- *   (the FLAIR palette-grading heresy; ADR-0010 / Revocation Record HER-02).
+ *   (the FLAIR palette-grading heresy; independent reference checks / Revocation Record HER-02).
  *   Instead, the expected bytes are spelled out here:
  *     "hello" == { 0x68, 0x65, 0x6C, 0x6C, 0x6F }
  *     PICT    == { 0xDE, 0xAD, 0xBE, 0xEF }
@@ -20,16 +20,16 @@
  *     "xyzzy" == { 0x78, 0x79, 0x7A, 0x7A, 0x79 }
  *   These are the INDEPENDENT golden; the implementation is proved against them.
  *
- * MUTANT COVERAGE (Rule 6 -- each mutant must COMPILE and go RED):
- *   SCRAP_MUT_IGNORE_FLAVOR  -- flavor-match ignores type key; PutScrap(PICT)
+ * regression patches COVERAGE (mutation checks -- each mutant must COMPILE and go RED):
+ *   ignore flavor patch  -- flavor-match ignores type key; PutScrap(PICT)
  *       overwrites the TEXT slot; GetScrap(TEXT) returns PICT bytes -> RED
  *       at step 3 (multi-flavor additive proof).
- *   SCRAP_MUT_NO_INCREMENT   -- ZeroScrap skips scrapCount++; InfoScrap
+ *   no increment patch   -- ZeroScrap skips scrapCount++; InfoScrap
  *       returns 1 after two ZeroScraps -> RED at step 6.
- *   SCRAP_MUT_NO_CLEAR       -- ZeroScrap leaves n_flavors unchanged; GetScrap
+ *   no clear patch       -- ZeroScrap leaves n_flavors unchanged; GetScrap
  *       after ZeroScrap returns stale data -> RED at step 6.
  *
- * CROSS-TENANT LEG (step 7 -- the co-residency payoff, ADR-0013 Sec 3.5/Sec 6):
+ * CROSS-TENANT LEG (step 7 -- the co-residency payoff, tenant lifecycle/Sec 6):
  *   Two stub FlairApps are registered into a FlairProcessList via
  *   FlairProcess_register (the caller-storage registrar, process.h). App A
  *   writes "xyzzy" through the SHARED scrap pointer; App B reads it back and
@@ -39,7 +39,7 @@
  * Compile (host, green):
  *   gcc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *       -Ispec -Ios/flair -Ios/flair/region -Iseed \
- *       -o /tmp/laneB/test_scrap \
+ *       -o /tmp/flair-tests/test_scrap \
  *       harness/proptest/test_scrap.c \
  *       os/flair/scrap.c os/flair/process.c os/flair/window.c \
  *       os/flair/heap.c os/flair/region/region.c
@@ -48,7 +48,7 @@
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror \
  *       -Ispec -Ios/initechdos -Ios/flair -c os/flair/scrap.c
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -65,7 +65,7 @@ TEST_HARNESS();
 
 /* ===========================================================================
  * Cross-tenant stub: a minimal no-op event entry-point (REQUIRED by the
- * FlairAppProcs contract; ADR-0013 Sec 3.1). The stub apps do not open
+ * FlairAppProcs contract; tenant lifecycle). The stub apps do not open
  * windows -- they exist only to prove the shared scrap pointer is reachable
  * from any tenant in the process list.
  * ===========================================================================*/
@@ -112,7 +112,7 @@ int main(void)
      * STEP 2: PutScrap(TEXT, "hello", 5) -> 0;
      *         GetScrap(TEXT) -> 5, buf == {0x68,0x65,0x6C,0x6C,0x6F}.
      *
-     * Independent expected bytes (Law 2):
+     * Independent expected bytes:
      *   'h' = 0x68, 'e' = 0x65, 'l' = 0x6C, 'l' = 0x6C, 'o' = 0x6F
      * ----------------------------------------------------------------------- */
     {
@@ -149,7 +149,7 @@ int main(void)
      *         clobbering TEXT); GetScrap(TEXT) STILL returns "hello";
      *         GetScrap(PICT) returns {0xDE,0xAD,0xBE,0xEF}.
      *
-     * This is the multi-flavor coexistence proof. SCRAP_MUT_IGNORE_FLAVOR
+     * This is the multi-flavor coexistence proof. ignore flavor patch
      * makes PutScrap(PICT) overwrite the TEXT slot, so GetScrap(TEXT) then
      * returns PICT bytes -> RED here.
      * ----------------------------------------------------------------------- */
@@ -200,7 +200,7 @@ int main(void)
      *         GetScrap(TEXT) -> buf[0]=='w'(0x77), buf[4]=='d'(0x64).
      *         n_flavors must still be 2 (no new slot; replace, not append).
      *
-     * Independent expected bytes (Law 2):
+     * Independent expected bytes:
      *   'w' = 0x77, 'o' = 0x6F, 'r' = 0x72, 'l' = 0x6C, 'd' = 0x64
      * ----------------------------------------------------------------------- */
     {
@@ -264,7 +264,7 @@ int main(void)
         r = FlairGetScrap(&s, FLAIR_SCRAP_TYPE_TEXT, small_buf, 2u, NULL);
         CHECK(r == FLAIR_SCRAP_ERR_BUF,
               "step-5.5: GetScrap(TEXT) with bufsz=2 < length=5 -> FLAIR_SCRAP_ERR_BUF (-4)");
-        /* Rule 2: no partial copy -- the sentinel bytes are untouched. */
+        /* explicit error handling: no partial copy -- the sentinel bytes are untouched. */
         CHECK(small_buf[0] == 0xCCu && small_buf[1] == 0xCCu,
               "step-5.5: no partial copy (sentinel bytes 0xCC unchanged)");
     }
@@ -272,8 +272,8 @@ int main(void)
     /* -----------------------------------------------------------------------
      * STEP 6: ZeroScrap -> scrapCount==2; GetScrap(TEXT)==-1 (cleared).
      *
-     * SCRAP_MUT_NO_INCREMENT makes InfoScrap return 1 (not 2) -> RED.
-     * SCRAP_MUT_NO_CLEAR makes GetScrap return stale "world" (not -1) -> RED.
+     * no increment patch makes InfoScrap return 1 (not 2) -> RED.
+     * no clear patch makes GetScrap return stale "world" (not -1) -> RED.
      * ----------------------------------------------------------------------- */
     FlairZeroScrap(&s);
 
@@ -294,14 +294,14 @@ int main(void)
           "step-6: n_flavors == 0 after ZeroScrap");
 
     /* -----------------------------------------------------------------------
-     * STEP 7: CROSS-TENANT (the co-residency payoff; ADR-0013 Sec 3.5 / Sec 6).
+     * STEP 7: CROSS-TENANT (the co-residency payoff; tenant lifecycle / Sec 6).
      *
      * Two stub FlairApps (A and B) are registered into a FlairProcessList via
      * FlairProcess_register (the caller-storage registrar; no arena, no open).
      * They share ONE FlairScrap * -- the shell-owned singleton. App A writes
      * TEXT "xyzzy"; App B reads it back and checks the literal bytes.
      *
-     * Independent expected bytes (Law 2):
+     * Independent expected bytes:
      *   'x' = 0x78, 'y' = 0x79, 'z' = 0x7A, 'z' = 0x7A, 'y' = 0x79
      * ----------------------------------------------------------------------- */
     {

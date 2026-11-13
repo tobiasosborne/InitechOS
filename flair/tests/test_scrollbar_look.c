@@ -1,5 +1,5 @@
 /* Independent Mac crop oracle for BOTH actual scroll-bar renderers.
- * Law 2: expected structure is the literal historical PNG transcription;
+ * independent checks: expected structure is the literal historical PNG transcription;
  * expected colours are an explicit authored palette substitution. */
 #include <stdio.h>
 #include <stdlib.h>

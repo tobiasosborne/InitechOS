@@ -7,7 +7,7 @@
      for (i = te->lineStarts[L]; i < e; i++) {
          int w = te_char_w(te, te->text[i]);
 -        if (2 * h < 2 * x + w)             /* nearer the left boundary */
-+        /* MUTANT (Rule 6): the char under the point, never the NEAREST
++        /* regression patches: the char under the point, never the NEAREST
 +         * boundary -- a click on a char's right half lands before it. */
 +        if (h < x + w)
              return i;

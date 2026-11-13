@@ -8,7 +8,7 @@
      case WSCROLL_PART_DOWN:     d =  a->line; break;
 -    case WSCROLL_PART_PAGEUP:   d = -a->page; break;
 -    case WSCROLL_PART_PAGEDOWN: d =  a->page; break;
-+    /* MUTANT (Rule 6; test-winscroll, the R1.5 PAGE_WRONG_DIR class): the
++    /* regression patches (mutation checks; test-winscroll, the R1.5 PAGE_WRONG_DIR class): the
 +     * page regions scroll the wrong way. NEVER in a real build. */
 +    case WSCROLL_PART_PAGEUP:   d =  a->page; break;
 +    case WSCROLL_PART_PAGEDOWN: d = -a->page; break;

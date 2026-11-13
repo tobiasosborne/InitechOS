@@ -1,19 +1,19 @@
 /*
  * harness/proptest/test_chicago_metrics.c -- the INDEPENDENT Chicago 12 metrics
- * oracle (bead initech-tdnl.33, slice 1).
+ * oracle (, slice 1).
  *
  * WHAT IT GRADES: the artifact's Chicago text path (os/flair/text.h --
  * text_measure / text_draw / text_cell_height, the functions every Chicago
  * consumer in FLAIR calls) against the REAL System 7.0.1 Chicago 12 strike's
  * metrics, read at run time from the Apple resource itself:
  *     $(SYSTEM7_DECOMP)/goldens/resources/NFNT_5478.bin
- * NOT against the artifact's own advance table (Law 2 / ADR-0010 HER-02: an
+ * NOT against the artifact's own advance table (independent checks / independent reference checks HER-02: an
  * oracle that computes its expected values from the table the artifact renders
  * from agrees by construction). Every expected number below is parsed here from
  * the NFNT bytes; this file includes text.h only to CALL the code under test.
  *
- * Ref: ADR-0004 D-7 ("Text width is the sum of per-glyph advances; no
- *      fixed-pitch assumption"); ../system7-decomp/specs/fonts/chicago.md
+ * Ref: clipped Toolbox drawing ("Text width is the sum of per-glyph advances; no
+ *      fixed-pitch assumption");../system7-decomp/specs/fonts/chicago.md
  *      ("FontRec header", "Advance-width table", "Verification recipe" steps 1
  *      and 3); specs/fonts/font-manager.md Sec 1.1 (owTable entry: high byte lb,
  *      low byte aw; 0xFFFF = missing), Sec 1.2 (owTable byte offset = 16 +
@@ -41,7 +41,7 @@
  * Absent corpus: FAIL LOUD; SKIP_SYSTEM7_DECOMP=1 is the explicit opt-out.
  * The ONE_ADVANCE mutant still requires the independent golden to bite.
  *
- * FACTORY CODE (hosted C, Law 3). ASCII-clean (Rule 12).
+ * FACTORY CODE (hosted C, language boundary). ASCII-clean.
  */
 #include "oracle_policy.h"
 #include <stdint.h>
@@ -176,7 +176,7 @@ int main(void)
     printf(">>> test-chicago-metrics: FLAIR Chicago vs the REAL NFNT 5478 metrics\n");
     if (!f) {
 #ifdef GATE_HONESTY_MUTATE_SKIP
-        /* Rule 6: restore the old silent-green policy in a throwaway build. */
+        /* mutation checks: restore the old silent-green policy in a throwaway build. */
         printf("test-chicago-metrics: LOUD-SKIP -- %s absent\n", NFNT_PATH);
 #else
         oracle_missing("SYSTEM7_DECOMP", "%s absent\n", NFNT_PATH);
@@ -322,7 +322,7 @@ int main(void)
               "G golden header 0x%02X: aw %d lb %d, NFNT aw %d lb %d", c,
               nfnt5478_aw(c), nfnt5478_lb(c), aw, lb);
     }
-    {   /* the ellipsis entry (bead initech-tdnl.68) */
+    {   /* the ellipsis entry */
         int lb = -1, aw = -1;
         CHECK(nfnt_ow(NFNT5478_ELLIPSIS, &lb, &aw) &&
               nfnt5478_aw(NFNT5478_ELLIPSIS) == aw && nfnt5478_lb(NFNT5478_ELLIPSIS) == lb,
@@ -330,7 +330,7 @@ int main(void)
               nfnt5478_aw(NFNT5478_ELLIPSIS), nfnt5478_lb(NFNT5478_ELLIPSIS), aw, lb);
     }
 
-    { /* tdnl.95: the control-range checkMark is a real Chicago glyph. */
+    { /*: the control-range checkMark is a real Chicago glyph. */
         int lb = -1, aw = -1;
         const char check[] = {18, 0};
         extent_t e = draw_one(check);

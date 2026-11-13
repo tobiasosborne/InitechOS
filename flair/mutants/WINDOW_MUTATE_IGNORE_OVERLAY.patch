@@ -6,8 +6,8 @@
          rgn_accumulate(out, f->strucRgn, RGN_OP_UNION, sc);
      }
  
--    /* ALIASING-CRITICAL (Rule 3): rgn_accumulate(out, overlay, UNION, sc2) does
--     * `sc2 := out UNION overlay; out := sc2`, so sc2 MUST be distinct from BOTH
+-    /* ALIASING-CRITICAL: rgn_accumulate(out, overlay, UNION, sc2) does
+-     * `sc2:= out UNION overlay; out:= sc2`, so sc2 MUST be distinct from BOTH
 -     * `out` and overlay_rgn -- the naive region_op(out, out, overlay) self-alias
 -     * corrupts on OVERLAP (the exact drag-across-overlay case under test). `out`
 -     * is scratch_a at every call site (visible_into passes fu==scratch_a), so sc2

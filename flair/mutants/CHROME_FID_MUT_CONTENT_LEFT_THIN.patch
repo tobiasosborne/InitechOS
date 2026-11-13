@@ -9,7 +9,7 @@
 -    /* The content starts just inside the left body rail's INNER black line,
 -     * exactly as the top starts just below the title's shared bottom line and
 -     * the right/bottom stop at the scroll bars' outer lines: outer line (1) +
--     * the 4-px raised bar + inner line (1) = L+6 (bead initech-tdnl.51;
+-     * the 4-px raised bar + inner line (1) = L+6 (;
 -     * sys8/window-chrome.md Sec 4, s8_doc_window_active hscan y=150: black 65,
 -     * bar 66..69, black 70, content 71 = L+6). The 1-px content-inset
 -     * highlight (Sec 4 "Content inset") is the first content column, as at the
@@ -19,11 +19,11 @@
 -     * whites). */
 -    content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME +
 -                             FLAIR_CHROME_BODY_BAR + FLAIR_CHROME_FRAME);
-+    /* MUTANT (Rule 6; test-chrome-fidelity CAPTURE-BODY legs, bead
-+     * initech-tdnl.51): the pre-tdnl.51 one-pixel left inset -- every owner's
++    /* regression patches (mutation checks; test-chrome-fidelity CAPTURE-BODY legs,
++     * ): the pre- one-pixel left inset -- every owner's
 +     * content paint erases the left raised bar and its inner black line.
 +     * NEVER in a real build. */
 +    content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME);
      /* The content stops at the horizontal scroll bar's outer line, exactly as
-      * the right edge stops at the vertical bar's (initech-tdnl.35): contRgn is
+      * the right edge stops at the vertical bar's: contRgn is
       * "the area inside the window frame (excluding the title bar and scroll

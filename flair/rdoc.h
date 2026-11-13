@@ -1,9 +1,9 @@
 /*
  * os/flair/rdoc.h -- the rDocProc (16) WDEF geometry, shared by the Window
  * Manager (structure + content regions, the close-box hit) and the drawer
- * (chrome.c flair_draw_rdoc_window). THE ARTIFACT; bead initech-tdnl.17.
+ * (chrome.c flair_draw_rdoc_window). THE ARTIFACT;.
  *
- * MEASURED (Law 1) off the real Mac OS 8.1 Calculator window, the one
+ * MEASURED  off the real Mac OS 8.1 Calculator window, the one
  * rDocProc on the volume (../system7-decomp GAPS wind-1: Calculator/Puzzle
  * WIND procID 16): goldens/captures/s8_calc_idle.png (active) and
  * s8_calc_inactive.png (inactive), frame (267,94)..(372,261) inclusive,
@@ -16,7 +16,7 @@
  *               the title in white. INACTIVE: a 1-px black outline (the
  *               rounded top, the two sides, row 18), white inside, the title
  *               in black, no close box.
- *   body        content = frame + (1, 19) .. frame - (3, 3): a 1-px left
+ *   body        content = frame + (1, 19).. frame - (3, 3): a 1-px left
  *               side, a 3-px right side and bottom (the WDEF's shadow is part
  *               of its outline); the content's four corners give up the
  *               pixels below (the rounded inner corner the WDEF draws black).
@@ -24,7 +24,7 @@
  *               (67 px of Chicago) pens at +28, ink at +29 -- [inferred]
  *               rule from that ONE rDocProc capture, exact for it.
  *
- * ASCII-clean (Rule 12).
+ * ASCII-clean.
  */
 #ifndef INITECH_OS_FLAIR_RDOC_H
 #define INITECH_OS_FLAIR_RDOC_H

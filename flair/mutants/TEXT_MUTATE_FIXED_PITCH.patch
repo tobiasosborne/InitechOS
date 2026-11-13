@@ -13,7 +13,7 @@
 -        } else {
 -            width += (int)geneva9_advance_w(c);
 -        }
-+        /* NAMED MUTANT: ignores per-glyph advance; uses fixed 6px. */
++        /* NAMED regression patches: ignores per-glyph advance; uses fixed 6px. */
 +        (void)font;
 +        (void)c;
 +        width += 6;

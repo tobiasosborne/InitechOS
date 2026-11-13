@@ -1,9 +1,9 @@
 /*
  * os/flair/winscroll.h -- the STANDARD WINDOW SCROLL BARS (THE ARTIFACT).
  *
- * beads: initech-tdnl.35 (P0, audit F02: "Scrollbar input drags the window;
+ *  (P0, audit F02: "Scrollbar input drags the window;
  *        overflowing files are unreachable normally"); first slice of
- *        initech-tdnl.4 (R1.5 live scrollbars).
+ *         (R1.5 live scrollbars).
  *
  * WHAT THIS IS. Every Platinum document window carries a vertical and a
  * horizontal scroll bar in the 16-px gutters the WDEF reserves (chrome.c draws
@@ -13,11 +13,11 @@
  * TrackControl -- arrows and page regions REPEAT while the button is held,
  * the thumb is dragged and the value is set on release
  * (../system7-decomp/specs/toolbox/control-manager.md "Hit-testing and
- * tracking"; manager-part-codes.md inUpButton=20 .. inThumb=129).
+ * tracking"; manager-part-codes.md inUpButton=20.. inThumb=129).
  *
  * FLAIR has no per-application control list in the locked WindowRecord
  * (spec/window_record.h has no controlList field, and that record is LOCKED
- * spec-data, Rule 8), so the two standard bars of a window are modelled HERE,
+ * spec-data, pinned inputs), so the two standard bars of a window are modelled HERE,
  * once, for every document window:
  *
  *   - THE STATE is a caller-supplied WindowScroll record (one ControlRecord's
@@ -39,7 +39,7 @@
  *
  * THE UNIT of value/max/line/page is the PIXEL of document scrolled.
  *
- * WHAT THE REFERENCES DO NOT SAY, AND WHAT WAS CHOSEN (stated, Law 1):
+ * WHAT THE REFERENCES DO NOT SAY, AND WHAT WAS CHOSEN (stated, source provenance):
  *   - Thumb size: scrollbars.md Sec 6 cannot tell whether the 8.1 thumb is
  *     proportional; both measured thumbs are 15 px and System 7's is fixed.
  *     FIXED 15 px here (FLAIR_CHROME_SCROLL_THUMB_MIN), as control.c.
@@ -56,21 +56,21 @@
  *     the button is held" (control-manager.md); no local reference gives a
  *     delay. One step on the press, repeats after WSCROLL_REPEAT_DELAY ticks,
  *     then every WSCROLL_REPEAT_RATE ticks (100 Hz PIT) -- stated choices.
- *   - Pressed arrow art: scrollbars.md Sec 6 "the pressed arrow ... is
+ *   - Pressed arrow art: scrollbars.md Sec 6 "the pressed arrow... is
  *     unknown" -- authored in chrome.c after the System 7 pressed delta.
  *
- * Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 1-6 (geometry, the
+ * Ref:../system7-decomp/specs/sys8/scrollbars.md Sec 1-6 (geometry, the
  *      ENABLED / DISABLED / HOLLOW states, the gaps);
- *      ../system7-decomp/specs/toolbox/control-manager.md (part codes,
+ *../system7-decomp/specs/toolbox/control-manager.md (part codes,
  *      TrackControl, the value<->thumb mapping);
- *      ../system7-decomp/specs/toolbox/window-manager.md Sec 2 (FindWindow
+ *../system7-decomp/specs/toolbox/window-manager.md Sec 2 (FindWindow
  *      inContent); os/flair/control.h (the vertical control's same math);
  *      spec/chrome_metrics.h (FLAIR_CHROME_SCROLLBAR_W, _SCROLL_ARROW_TILE,
  *      _SCROLL_THUMB_MIN, _GROW_*); os/flair/chrome.c flair_draw_document_window
  *      (the gutter lines these rects reproduce).
- *      CLAUDE.md Law 1, Law 3 (freestanding), Rule 2, Rule 11, Rule 12.
+ *      source provenance, language boundary (freestanding), explicit error handling, reproducibility, ASCII source.
  *
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean. Deterministic.
  */
 #ifndef INITECH_OS_FLAIR_WINSCROLL_H
 #define INITECH_OS_FLAIR_WINSCROLL_H
@@ -83,7 +83,7 @@
 #include "chrome_metrics.h"   /* the scroll-bar + grow metrics (-Ispec)        */
 
 /* Control Manager part codes for a scroll bar -- verbatim IM-I p. I-327, the
- * SAME values os/flair/control.h asserts (inUpButton=20 ... inThumb=129). They
+ * SAME values os/flair/control.h asserts (inUpButton=20... inThumb=129). They
  * are restated under WSCROLL_ names so this header needs no control.h (whose
  * enum would otherwise be pulled into every Window Manager client). */
 #define WSCROLL_PART_NONE      0
@@ -113,7 +113,7 @@ typedef struct WindowScrollAxis {
     int16_t drag_pos;  /* thumb leading edge while inThumb is tracked, else -1 */
 } WindowScrollAxis;
 
-/* The two standard bars of one window. Caller-supplied storage (Law 3: no
+/* The two standard bars of one window. Caller-supplied storage (language boundary: no
  * malloc); linked into WindowMgr.scrolls by WindowScrollAttach. */
 typedef struct WindowScroll {
     struct WindowScroll *next;     /* WindowMgr registry link                  */

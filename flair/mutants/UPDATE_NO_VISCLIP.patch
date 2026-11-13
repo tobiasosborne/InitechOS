@@ -20,12 +20,12 @@
 -    region_op(clip, w->updateRgn, vis, RGN_OP_INTERSECT);
 -    rgn_copy(w->updateRgn, clip);
 -
--    /* Rule 2: delivery paint must be a subset of current visibility. This is a
+-    /* explicit error handling: delivery paint must be a subset of current visibility. This is a
 -     * distinct set-difference check, not a bbox approximation. */
 -    region_op(fronts, w->updateRgn, vis, RGN_OP_DIFF);
 -    if (!region_is_empty(fronts))
 -        WIN_PANIC("clip_update_visible: delivery clip escaped visRgn");
-+    /* Named Rule-6 mutant: resurrect the pre-fix delivery path. The directed
++    /* Named mutation checks mutant: resurrect the pre-fix delivery path. The directed
 +     * three-window stale-seed oracle must go RED via a BACK-over-FRONT stomp. */
 +    (void)wm;
 +    (void)w;

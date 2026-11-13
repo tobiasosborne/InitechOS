@@ -2,32 +2,32 @@
  * os/flair/stdfile.c -- FLAIR Standard File (SFGetFile) implementation
  * (first cut: the navigate/select/return logic).
  *
- * beads: initech-gymo (FLAIR Phase 4.5 -- SFGetFile first cut).
- * Ref:   stdfile.h (the full Law-1 citation block: IM-I Standard File Package,
- *        the SFGetFile/SFReply model, ADR-0013 Sec 3.6, and the local building
+ *  (FLAIR Phase 4.5 -- SFGetFile first cut).
+ * Ref:   stdfile.h (the full source provenance citation block: IM-I Standard File Package,
+ *        the SFGetFile/SFReply model, tenant lifecycle, and the local building
  *        blocks os/flair/list.h + os/flair/dialog.h + os/initechdos/fat12.h).
- *        CLAUDE.md Law 2 (oracle truth, never by-construction), Law 3 (artifact
- *        C, freestanding, no libc), Rule 2 (fail loud), Rule 6 (mutation-proven),
- *        Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *        independent checks (oracle truth, never by-construction), language boundary (artifact
+ *        C, freestanding, no libc), fail loudly, mutation checks (mutation-proven),
+ *        deterministic output, ASCII source.
  *
  * THE FILE LIST IS BUILT ON THE REAL FlairList (os/flair/list.{c,h}): see
  * sf_rebuild_list below -- FlairList_init + FlairLAddRow + FlairLSetCell. We do
  * NOT reinvent a list; the List Manager is a reusable platform service.
  *
- * MUTANT COVERAGE (Rule 6 -- each #ifdef must COMPILE and go RED):
+ * regression patches COVERAGE (mutation checks -- each patch must COMPILE and go RED):
  *
- *   SF_MUT_RETURN_WRONG_CELL
+ *   return wrong cell patch
  *     FlairSF_doOpen returns the FIXED entry index 0 regardless of the actual
  *     selection. Oracle step 5 selects row 2 ("TPS.TXT") and expects doOpen to
  *     return "TPS.TXT"; the mutant returns entries[0] = "REPORT.DBF" -> RED.
  *
- *   SF_MUT_NO_NAVIGATE
+ *   no navigate patch
  *     FlairSF_navigate does NOT re-enumerate (it returns OK without pushing the
  *     path / rebuilding the list), leaving the PARENT list in place. Oracle
  *     step 3 navigates into "DATA" and expects count==2 / row 0 == "Q1.WKS";
  *     the mutant leaves count==3 / row 0 == "REPORT.DBF" -> RED.
  *
- *   SF_MUT_CANCEL_GOOD
+ *   cancel good patch
  *     FlairSF_doCancel sets reply.good = 1 instead of 0. Oracle step 6 expects
  *     good == 0 after Cancel -> RED.
  *
@@ -35,7 +35,7 @@
  * (via stdfile.h -> list.h). Dual-compiles for the host oracle and the
  * -m32 -ffreestanding -nostdlib kernel type-check.
  *
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean. Deterministic.
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -43,7 +43,7 @@
 #include "stdfile.h"
 
 /* --------------------------------------------------------------------------
- * Freestanding byte helpers -- no libc, no string.h (Law 3).
+ * Freestanding byte helpers -- no libc, no string.h.
  * -------------------------------------------------------------------------- */
 
 /* sf_strlen: length of a NUL-terminated string, capped at `cap` (never reads
@@ -80,7 +80,7 @@ static void sf_byteset(void *dst, uint8_t val, int16_t n)
 
 /* sf_name_copy: copy a NUL-terminated 8.3 name into a FLAIR_SF_NAME_MAX buffer,
  * always NUL-terminating (truncation-safe; the source is always <= 12 chars by
- * the 8.3 contract, but we cap defensively -- Rule 2 never overruns). */
+ * the 8.3 contract, but we cap defensively -- bounds checking prevents overruns). */
 static void sf_name_copy(char *dst, const char *src)
 {
     int16_t i = 0;
@@ -99,7 +99,7 @@ static void sf_name_copy(char *dst, const char *src)
  * entry (auto single-column), and FlairLSetCell writes each 8.3 name into
  * column 0. selFlags is set to lOnlyOne so FlairLClick single-selects.
  *
- * Fail loud (Rule 2): an underlying FlairList op failing -> FLAIR_SF_ERR_LIST.
+ * Fail loud: an underlying FlairList op failing -> FLAIR_SF_ERR_LIST.
  * Returns FLAIR_SF_OK on success.
  * -------------------------------------------------------------------------- */
 static int sf_rebuild_list(FlairStandardFile *sf)
@@ -138,7 +138,7 @@ static int sf_rebuild_list(FlairStandardFile *sf)
 
 /* --------------------------------------------------------------------------
  * sf_enumerate -- call the provider for `path`, validate, and store into
- * sf->entries[]/sf->count. Fail loud (Rule 2): provider error ->
+ * sf->entries[]/sf->count. Fail loud: provider error ->
  * FLAIR_SF_ERR_PROVIDER; count > MAX -> FLAIR_SF_ERR_OVERFLOW.
  * Does NOT touch sf->path (the caller owns the path transition).
  * -------------------------------------------------------------------------- */
@@ -160,7 +160,7 @@ static int sf_enumerate(FlairStandardFile *sf, const char *path)
  * sf_set_path / sf_child_path / sf_parent_path -- the "/"-rooted component
  * stack. Root is "/"; a child of "/" is "/NAME"; a child of "/DATA" is
  * "/DATA/NAME"; the parent of "/DATA/SUB" is "/DATA"; the parent of "/DATA" is
- * "/". Pure string math; fail loud on overflow (Rule 2).
+ * "/". Pure string math; fail loud on overflow.
  * -------------------------------------------------------------------------- */
 
 /* sf_set_path: store `path` (NUL-terminated, length `len`) into sf->path. */
@@ -265,7 +265,7 @@ int FlairSF_open(FlairStandardFile *sf, FlairSFEnumProc provider, void *user,
         return FLAIR_SF_ERR_NULL;
     }
 
-    /* Zero the record for a deterministic initial state (Rule 11). */
+    /* Zero the record for a deterministic initial state. */
     sf_byteset(sf, 0, (int16_t)sizeof(*sf));
 
     sf->provider = provider;
@@ -340,21 +340,21 @@ int FlairSF_navigate(FlairStandardFile *sf, int16_t index)
         return FLAIR_SF_ERR_NULL;
     }
     if (index < 0 || index >= sf->count) {
-        return FLAIR_SF_ERR_RANGE;   /* fail loud (Rule 2)                       */
+        return FLAIR_SF_ERR_RANGE;   /* fail loud                        */
     }
     if (!sf->entries[index].is_dir) {
         return FLAIR_SF_ERR_NOTDIR;  /* navigate only descends into folders      */
     }
 
     /* Build the child path (used by both the canonical and mutant builds, so
-     * the helper stays referenced -- the mutant must still COMPILE, Rule 6). */
+     * the helper stays referenced -- the mutant must still COMPILE, mutation checks). */
     rc = sf_child_path(sf, sf->entries[index].name, child, &child_len);
     if (rc != FLAIR_SF_OK) {
         return rc;
     }
 
     /* Re-enumerate the child, then COMMIT (path + list) only on success so a
-     * provider error leaves the parent view intact (Rule 2). */
+     * provider error leaves the parent view intact. */
     rc = sf_enumerate(sf, child);
     if (rc != FLAIR_SF_OK) {
         return rc;
@@ -410,8 +410,8 @@ void FlairSF_doOpen(FlairStandardFile *sf, FlairSFReply *reply)
         sf_name_copy(reply->fName, sf->entries[sel].name);
         reply->is_dir = 1;
         reply->good   = 0;           /* not-yet-confirmed (we descended)         */
-        /* q9cr: doOpen is a void SFReply API. A failed descent therefore
-         * returns the same explicit no-selection reply as Cancel (Rule 2),
+        /* doOpen is a void SFReply API. A failed descent therefore
+         * returns the same explicit no-selection reply as Cancel,
          * preserving the transactional list/path in FlairSF_navigate. */
         if (FlairSF_navigate(sf, sel) != FLAIR_SF_OK) {
             reply->is_dir = 0;

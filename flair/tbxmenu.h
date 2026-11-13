@@ -1,6 +1,6 @@
 /*
  * os/flair/tbxmenu.h -- how a disk tenant HEARS its own menu choices
- * (THE ARTIFACT; bead initech-tdnl.31; spec/toolbox_gate.h Sec 6a).
+ * (THE ARTIFACT; spec/toolbox_gate.h Sec 6a).
  *
  * The two pure decisions of the menu route, header-only so the SAME text is
  * compiled into the kernel (os/flair/tbxgate.c) and into the host oracle
@@ -18,7 +18,7 @@
  *                     MenuSelect result over band 2) and the key route both
  *                     become ONE TBX_EVT_MENU EventRecord whose message is the
  *                     MenuSelect/MenuKey LONGINT (MTE p. 3-78: "In either
- *                     case, the application passes the function result ...
+ *                     case, the application passes the function result...
  *                     to the DoMenuCommand procedure"). Delivered only when
  *                     the choice was made in the tenant's OWN bar and chose
  *                     something (high word 0 == nothing chosen, MTE p. 3-78).
@@ -26,17 +26,17 @@
  * And the flat copy every push-callback delivery uses (spec Sec 6), so the
  * host oracle reads the 24 bytes the tenant's eventProc actually sees.
  *
- * MUTATION KNOBS (Rule 6; -D on the TU that includes this header -- the host
+ * REGRESSION PATCHES (mutation checks; -D on the TU that includes this header -- the host
  * oracle's mutants and, through tbxgate.c, the emulator mutant kernels; NEVER
  * in a real build):
- *   TBX_MUT_MENU_KEY_PLAIN  the chord is never resolved: Ctrl-Q reaches the
+ *   menu key plain patch  the chord is never resolved: Ctrl-Q reaches the
  *                           tenant as a plain keyDown (the audit-pass-2 G03
- *                           symptom this bead fixes)
- *   TBX_MUT_MENU_ANY_BAR    the bar-identity guard is gone: a choice made in
+ *                           symptom this fixes)
+ *   menu any bar patch    the bar-identity guard is gone: a choice made in
  *                           ANOTHER app's bar is delivered to the tenant
  *
- * Freestanding (Law 3): <stdint.h> + the menu/event headers only. ASCII-clean
- * (Rule 12). Deterministic (Rule 11).
+ * Freestanding: <stdint.h> + the menu/event headers only. ASCII-clean
+ *. Deterministic.
  */
 #ifndef INITECH_OS_FLAIR_TBXMENU_H
 #define INITECH_OS_FLAIR_TBXMENU_H

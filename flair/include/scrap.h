@@ -1,9 +1,9 @@
 /*
  * os/flair/scrap.h -- the FLAIR Scrap Manager (clipboard) -- THE ARTIFACT.
  *
- * beads: initech-b2vk (FLAIR Phase 4.5 -- Platform Services: Scrap).
- * Ref:   ADR-0013 Sec 6 ("shell-owned cross-tenant Scrap; copy/paste between
- *        co-resident apps -- the payoff of co-residency"); ADR-0012 D-2b
+ *  (FLAIR Phase 4.5 -- Platform Services: Scrap).
+ * Ref:   tenant lifecycle ("shell-owned cross-tenant Scrap; copy/paste between
+ *        co-resident apps -- the payoff of co-residency"); b
  *        (Phase 4.5 platform services); Inside Macintosh Vol I Scrap Manager
  *        (ZeroScrap/PutScrap/GetScrap/InfoScrap; the monotonic scrapCount;
  *        multiple coexisting flavors keyed by 4-char OSType, classically TEXT
@@ -21,23 +21,23 @@
  *   increments scrapCount (the era "new clipboard generation"). GetScrap of an
  *   absent type returns -1.
  *
- * HEAP SEAM (committee ruling, ADR-0013 Sec 6):
+ * HEAP SEAM (committee ruling, tenant lifecycle):
  *   Flavor payloads are FIXED inline byte arrays inside the struct (NOT per-put
  *   flair_alloc): the FLAIR heap free-list does NOT roll back the bump cursor,
  *   so per-put alloc would leak bump space (heap.h:179-203). Wiring the
  *   singleton into kmain / the shell desktop is a FOLLOW-UP, not this wave.
  *
- * CAPACITY CONSTANTS (Rule 8: raising either is a DELIBERATE ACT with an issue
+ * CAPACITY CONSTANTS (pinned inputs: raising either is a DELIBERATE ACT with an issue
  *   + worklog note -- never a silent edit. InitechWord/Initech123 will need
- *   larger payloads; touch ONLY with an ADR amendment and a Rule-8 spec-lock):
+ *   larger payloads; touch ONLY with an explicit scope change and a pinned inputs spec-lock):
  *   FLAIR_SCRAP_MAX_FLAVORS = 4   (TEXT, PICT, and two reserve slots)
  *   FLAIR_SCRAP_MAX_PAYLOAD = 8192 bytes (covers the PRD-era app payloads)
  *
- * ERA CEILING (Law 3 / hallucination-risk):
+ * ERA CEILING (language boundary / hallucination-risk):
  *   Do NOT import Win32 clipboard API names (CF_TEXT/CF_BITMAP/OpenClipboard/
  *   EmptyClipboard/SetClipboardData). The model is Mac Scrap Manager only.
  *
- * FREESTANDING (Law 3): <stdint.h> + "ostype.h" only; no libc, no malloc.
+ * FREESTANDING: <stdint.h> + "ostype.h" only; no libc, no malloc.
  *   Compiles BOTH under the kernel flags (gcc -m32 -ffreestanding -nostdlib
  *   -std=c11 -Wall -Wextra -Werror) AND hosted for the property suite
  *   (harness/proptest/test_scrap.c). The dual-compile pattern of heap.c /
@@ -45,14 +45,14 @@
  *
  * Ref: os/flair/ostype.h (flair_ostype_t, FLAIR_OSTYPE -- USE IT; do not
  *      redefine OSType); os/flair/heap.h (heap.h:179-203 -- the bump-only
- *      free-list justification for inline payloads); ADR-0013 Sec 6.
- *      CLAUDE.md Law 1 (ground truth before code), Law 2 (oracle is truth,
- *      not the agent), Law 3 (freestanding artifact, no 2026-ism), Rule 2
+ *      free-list justification for inline payloads); tenant lifecycle
+ *      source provenance (ground truth before code), independent checks (oracle is truth,
+ *      not the agent), language boundary (freestanding artifact, no 2026-ism), explicit error handling
  *      (fail loud: over-MAX_PAYLOAD = error, bufsz-too-small = error; never
- *      silent truncation), Rule 8 (spec as locked data), Rule 11
- *      (deterministic), Rule 12 (ASCII-clean source).
+ *      silent truncation), pinned inputs (spec as locked data), reproducibility
+ *      (deterministic), ASCII source.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef INITECH_OS_FLAIR_SCRAP_H
 #define INITECH_OS_FLAIR_SCRAP_H
@@ -69,7 +69,7 @@
 #define FLAIR_SCRAP_ERR_BUF         (-4)   /* GetScrap: bufsz < flavor length          */
 
 /* --------------------------------------------------------------------------
- * Capacity constants (Rule 8: locked; raise only with issue + ADR amendment).
+ * Capacity constants (pinned inputs: locked; raise only with issue + ADR amendment).
  * -------------------------------------------------------------------------- */
 #define FLAIR_SCRAP_MAX_FLAVORS  4u        /* TEXT, PICT, + 2 reserve slots            */
 #define FLAIR_SCRAP_MAX_PAYLOAD  8192u     /* bytes; covers PRD-era app payloads       */
@@ -117,7 +117,7 @@ typedef struct {
 
 /* --------------------------------------------------------------------------
  * API (all take an explicit FlairScrap * -- no implicit global in the artifact;
- * NULL FlairScrap * -> fail loud, Rule 2).
+ * NULL FlairScrap * -> fail loud, explicit error handling).
  * -------------------------------------------------------------------------- */
 
 /* FlairScrap_init -- zero-initialize the scrap record (scrapCount=0, no

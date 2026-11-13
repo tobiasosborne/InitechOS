@@ -7,7 +7,7 @@
  static int slot_occupied(void)
  {
 -    return g_slot.block != 0;
-+    /* MUTANT TBX_MUT_NO_SLOT_GUARD (Rule 6; test-flair-app-launch-mutant):
++    /* regression patches no slot guard patch (mutation checks; test-flair-app-launch-mutant):
 +     * the one-slot model is never enforced, so a second double-click loads and
 +     * REGISTERs a second copy over the first -- two TENANT-REGISTER ok lines and
 +     * no TENANT-SLOT-BUSY. NEVER in a real build. */

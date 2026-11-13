@@ -1,22 +1,22 @@
 /*
- * harness/proptest/test_list.c -- FLAIR List Manager host oracle (initech-77dj).
+ * harness/proptest/test_list.c -- FLAIR List Manager host oracle.
  *
- * beads:  initech-77dj (FLAIR Phase 4.5 -- List Manager first cut).
+ *  (FLAIR Phase 4.5 -- List Manager first cut).
  * Ref:    list.h / list.c (the API under test).
  *         list-manager.md Sec 1-5 (ListRec, Cell/ListBounds, selFlags, API).
  *         spec/grafport.h: flair_point_t has v (row) at offset 0, h (col) at 2.
- *         Cell = flair_point_t: .h = COLUMN, .v = ROW [list-manager.md Sec 2].
- *         CLAUDE.md Law 2 (oracle truth -- NOT by-construction), Rule 1
- *         (Red->Green->Refactor), Rule 6 (mutation-proven), Rule 12 (ASCII).
+ *         Cell = flair_point_t:.h = COLUMN,.v = ROW [list-manager.md Sec 2].
+ *         independent checks (oracle truth -- NOT by-construction),
+ *         (Red->Green->Refactor), mutation checks (mutation-proven), ASCII source (ASCII).
  *
  * COORDINATE CONVENTION (critical -- do NOT use positional initializers):
  *   Cell   = flair_point_t { int16_t v; int16_t h; }   (v is FIRST in struct)
  *   Cell.h = COLUMN, Cell.v = ROW [list-manager.md Sec 2].
- *   Always use designated initializers: (Cell){ .h=col, .v=row }.
- *   Example: cell at col=0, row=2  -->  (Cell){ .h=0, .v=2 }  =  { v=2, h=0 }.
- *   flair_point_t pixel points likewise: { .v=y_pixels, .h=x_pixels }.
+ *   Always use designated initializers: (Cell){.h=col,.v=row }.
+ *   Example: cell at col=0, row=2  -->  (Cell){.h=0,.v=2 }  =  { v=2, h=0 }.
+ *   flair_point_t pixel points likewise: {.v=y_pixels,.h=x_pixels }.
  *
- * ANTI-BY-CONSTRUCTION (Law 2, the central discipline):
+ * ANTI-BY-CONSTRUCTION (independent checks, the central discipline):
  *   Expected bytes are LITERAL CONSTANTS in this file -- NOT read back from
  *   FlairList struct internals.  The independent golden:
  *     "Drive A" == { 0x44,0x72,0x69,0x76,0x65,0x20,0x41 }  (7 bytes)
@@ -24,39 +24,39 @@
  *   Cell addresses in the hit test:  h==0, v==1  (spelled as integer literals).
  *   dataBounds after LAddRow(3):  bottom==3, right==1  (integer literals).
  *
- * MUTANT COVERAGE (Rule 6 -- each mutant must COMPILE and go RED):
+ * regression patches COVERAGE (mutation checks -- each mutant must COMPILE and go RED):
  *
- *   LIST_MUT_CELL_INDEX_SWAP  [FlairLSetCell write path swapped]
+ *   cell index swap patch  [FlairLSetCell write path swapped]
  *     Write to "Trash" at Cell{.h=0,.v=2} goes to cells[c.h=0][c.v=2]=cells[0][2].
  *     GetCell canonical reads cells[c.v=2][c.h=0]=cells[2][0] (unwritten -> 0).
  *     -> step 2b CHECK(r16 == 5) FAILS (r16==0) -> RED.
  *
- *   LIST_MUT_HIT_OFFBYONE  [FlairLClick omits rView.top/left]
+ *   hit offbyone patch  [FlairLClick omits rView.top/left]
  *     Pixel (h=15,v=38), rView.top=20, cellSize.v=16:
  *     canonical row=(38-20)/16=1; mutant row=38/16=2.
  *     -> step 4a CHECK(hit.v == 1) FAILS (hit.v==2) -> RED.
  *
- *   LIST_MUT_NO_DESELECT  [lOnlyOne skips deselect loop]
+ *   no deselect patch  [lOnlyOne skips deselect loop]
  *     After clicking (0,0) then (0,2), (0,0) must be deselected.
  *     -> step 5b CHECK(FlairLGetSelect((0,0)) == 0) FAILS (returns 1) -> RED.
  *
  * Compile (host, green):
  *   cc -std=c11 -Wall -Wextra -Werror -D_POSIX_C_SOURCE=200809L \
  *      -Ispec -Ios/flair -Ios/flair/region -Iseed \
- *      -o /tmp/laneE/test_list \
+ *      -o /tmp/flair-tests/test_list \
  *      harness/proptest/test_list.c os/flair/list.c os/flair/heap.c
  *
  * Compile each mutant (each must exit non-zero = RED):
- *   cc ... -DLIST_MUT_CELL_INDEX_SWAP  -o /tmp/laneE/test_list_mut_swap
- *   cc ... -DLIST_MUT_HIT_OFFBYONE     -o /tmp/laneE/test_list_mut_obo
- *   cc ... -DLIST_MUT_NO_DESELECT      -o /tmp/laneE/test_list_mut_nosel
+ *   cc... -cell index swap patch  -o /tmp/flair-tests/test_list_mut_swap
+ *   cc... -hit offbyone patch     -o /tmp/flair-tests/test_list_mut_obo
+ *   cc... -no deselect patch      -o /tmp/flair-tests/test_list_mut_nosel
  *
  * Kernel type-check (compile only, no link):
  *   gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror \
  *       -Ispec -Ios/initechdos -Ios/flair -Ios/flair/region \
  *       -c os/flair/list.c
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -90,7 +90,7 @@ int main(void)
      * Cell coord golden: 3 rows (bottom==3), 1 auto-col (right==1).
      * ----------------------------------------------------------------------- */
     {
-        /* flair_point_t { v; h }: .v=pixel-height=16, .h=pixel-width=100. */
+        /* flair_point_t { v; h }:.v=pixel-height=16,.h=pixel-width=100. */
         Cell cs;
         cs.v = 16;    /* cell pixel height */
         cs.h = 100;   /* cell pixel width  */
@@ -122,13 +122,13 @@ int main(void)
     /* -----------------------------------------------------------------------
      * STEP 2a: LSetCell + LGetCell -- cell (col=0, row=0) = "Drive A" (7 B).
      *
-     * Cell address: col=0, row=0 -> Cell{ .h=0, .v=0 }.
-     * (Cell{ .h=0, .v=0 } same as positional {0,0} since both fields are 0.)
+     * Cell address: col=0, row=0 -> Cell{.h=0,.v=0 }.
+     * (Cell{.h=0,.v=0 } same as positional {0,0} since both fields are 0.)
      *
-     * Independent expected bytes (Law 2 -- NOT read from struct internals):
+     * Independent expected bytes (independent checks -- NOT read from struct internals):
      *   'D'=0x44 'r'=0x72 'i'=0x69 'v'=0x76 'e'=0x65 ' '=0x20 'A'=0x41
      *
-     * LIST_MUT_CELL_INDEX_SWAP: (h=0,v=0)->cells[0][0] under BOTH paths;
+     * cell index swap patch: (h=0,v=0)->cells[0][0] under BOTH paths;
      * this step does not discriminate the mutant (same location for h=v=0).
      * The discriminator is step 2b (col=0, row=2 -> h=0, v=2: paths differ).
      * ----------------------------------------------------------------------- */
@@ -165,13 +165,13 @@ int main(void)
     /* -----------------------------------------------------------------------
      * STEP 2b: LSetCell + LGetCell -- cell (col=0, row=2) = "Trash" (5 B).
      *
-     * Cell address: col=0, row=2 -> Cell{ .h=0, .v=2 }.
+     * Cell address: col=0, row=2 -> Cell{.h=0,.v=2 }.
      *   (NOT positional (Cell){0,2}: that would give v=0,h=2 = row=0,col=2!)
      *
-     * Independent expected bytes (Law 2):
+     * Independent expected bytes:
      *   'T'=0x54 'r'=0x72 'a'=0x61 's'=0x73 'h'=0x68
      *
-     * LIST_MUT_CELL_INDEX_SWAP DISCRIMINATOR:
+     * cell index swap patch DISCRIMINATOR:
      *   Cell{.h=0,.v=2}: canonical write -> cells[v=2][h=0] = cells[2][0].
      *   Mutant write -> cells[h=0][v=2] = cells[0][2] (wrong location).
      *   Canonical GetCell reads cells[2][0]:
@@ -195,7 +195,7 @@ int main(void)
         memset(buf, 0, sizeof(buf));
         r16 = FlairLGetCell(&l, buf, (int16_t)sizeof(buf), c02);
 
-        /* Literal: 5 bytes. FAILS under LIST_MUT_CELL_INDEX_SWAP (r16==0). */
+        /* Literal: 5 bytes. FAILS under cell index swap patch (r16==0). */
         CHECK(r16 == 5,
               "step-2b: LGetCell(col=0,row=2) returns 5 -- FAILS MUT_CELL_INDEX_SWAP");
 
@@ -211,7 +211,7 @@ int main(void)
      * STEP 3: LGetCell on an EMPTY cell (col=0, row=1) -> 0 bytes (not error).
      *
      * Cell (col=0, row=1) was never written; must return 0 (empty), not error.
-     * Sentinel byte verifies no partial copy on empty (Rule 2).
+     * Sentinel byte verifies no partial copy on empty.
      * ----------------------------------------------------------------------- */
     {
         Cell c01;
@@ -241,7 +241,7 @@ int main(void)
      *   hit = col_off + visible.left = 0, row_off + visible.top = 1
      *   -> expected Cell: h=0, v=1   (these are LITERAL CHECK values below)
      *
-     * LIST_MUT_HIT_OFFBYONE DISCRIMINATOR:
+     * hit offbyone patch DISCRIMINATOR:
      *   Canonical row = (38-20)/16 = 1.
      *   Mutant    row = 38/16 = 2.
      *   CHECK(hit.v == 1) FAILS under mutant (hit.v==2) -> RED.
@@ -312,7 +312,7 @@ int main(void)
      *     then selects (0,2).
      *     Literal checks: (0,0)==0; (0,2)==1; lastClick=={h=0,v=2}.
      *
-     * LIST_MUT_NO_DESELECT DISCRIMINATOR:
+     * no deselect patch DISCRIMINATOR:
      *   Mutant skips deselect loop in 5b; (0,0) remains 1.
      *   CHECK(FlairLGetSelect((0,0)) == 0) FAILS (returns 1) -> RED.
      * ----------------------------------------------------------------------- */
@@ -381,7 +381,7 @@ int main(void)
      * STEP 6: Out-of-bounds LSetCell on a 1x3 grid -> fail-loud error.
      *
      * Grid: dataBounds = {top=0,left=0,bottom=3,right=1} (3 rows, 1 col).
-     * Cell (col=5, row=5) = {.h=5, .v=5}: h=5 >= right=1 AND v=5 >= bottom=3.
+     * Cell (col=5, row=5) = {.h=5,.v=5}: h=5 >= right=1 AND v=5 >= bottom=3.
      * FlairLSetCell must return FLAIR_LIST_ERR_BOUNDS and NOT corrupt data.
      *
      * After the rejected write: (col=0,row=0) must still have "Drive A".
@@ -409,7 +409,7 @@ int main(void)
     }
 
     /* -----------------------------------------------------------------------
-     * STEP 7: Error path -- buffer too small for LGetCell (Rule 2 no-truncate).
+     * STEP 7: Error path -- buffer too small for LGetCell (explicit error handling no-truncate).
      *
      * "Drive A" at (col=0,row=0) is 7 bytes.  A 4-byte buf is too small.
      * Must return FLAIR_LIST_ERR_BUF (-4) with NO partial copy.
@@ -425,14 +425,14 @@ int main(void)
         CHECK(r16 == FLAIR_LIST_ERR_BUF,
               "step-7: LGetCell bufsz=4 for 7-byte cell -> FLAIR_LIST_ERR_BUF (-4)");
 
-        /* No partial copy: all sentinels must be intact (Rule 2). */
+        /* No partial copy: all sentinels must be intact. */
         CHECK(small[0] == 0xCCu && small[1] == 0xCCu &&
               small[2] == 0xCCu && small[3] == 0xCCu,
               "step-7: no partial copy (sentinel bytes 0xCC unchanged)");
     }
 
     /* -----------------------------------------------------------------------
-     * STEP 8: NULL argument -> fail-loud FLAIR_LIST_ERR_NULL (Rule 2).
+     * STEP 8: NULL argument -> fail-loud FLAIR_LIST_ERR_NULL.
      * ----------------------------------------------------------------------- */
     {
         uint8_t tbuf[8];
@@ -452,7 +452,7 @@ int main(void)
               "step-8: LSetCell(NULL list) -> FLAIR_LIST_ERR_NULL (-5)");
     }
 
-    /* Rule 2, 14oe/6vvw: NULL has a distinct error, never a miss. */
+    /* explicit error handling, NULL has a distinct error, never a miss. */
     {
         Cell c = { 0, 0 };
         flair_point_t p = { 21, 11 };

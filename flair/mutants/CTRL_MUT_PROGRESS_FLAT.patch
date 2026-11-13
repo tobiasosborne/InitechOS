@@ -6,7 +6,7 @@
      int y0 = (int)ctrl->contrlRect.top;
      int x1 = (int)ctrl->contrlRect.right;
      int y1 = (int)ctrl->contrlRect.bottom;
-+    /* NAMED MUTANT: the retired authored flat bar (black frame, white well,
++    /* NAMED regression patches: the retired authored flat bar (black frame, white well,
 +     * one accent fill). The golden-derived oracle must go RED. */
 +    if (x1 - x0 < 4 || y1 - y0 < 3) return;
 +    cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);

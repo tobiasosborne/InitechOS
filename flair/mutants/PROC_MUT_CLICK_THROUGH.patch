@@ -4,7 +4,7 @@
 +++ b/process.c
 @@ -724,7 +724,7 @@
  
-         /* tdnl.65: SelectWindow consumes a document's activating click.
+         /*: SelectWindow consumes a document's activating click.
           * Ref: MTE Event Manager; the following click reaches its content. */
 -        if (!was_active) return;
 +        (void)was_active;

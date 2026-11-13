@@ -1,9 +1,9 @@
 /*
  * os/flair/event.h -- FLAIR Event Manager: Layer 4 cooperative event core.
  *
- * beads: initech-8b7 (FLAIR Event Manager: WaitNextEvent + SPSC ring).
- * Ref:   ADR-0004 D-4 (ISR enqueue-only; EventRecord synthesis in task context):
- *          "Hardware interrupt service routines ... do the minimum: read the
+ *  (FLAIR Event Manager: WaitNextEvent + SPSC ring).
+ * Ref:   clipped Toolbox drawing (ISR enqueue-only; EventRecord synthesis in task context):
+ *          "Hardware interrupt service routines... do the minimum: read the
  *           device, push a compact raw record into a lock-free single-producer/
  *           single-consumer ring buffer, send the PIC EOI(s), and return.
  *           ISRs do NOT synthesize EventRecords, allocate, or call Managers.
@@ -11,13 +11,13 @@
  *           GetNextEvent: the pump drains the raw ring, cooks raw scancodes/
  *           mouse-deltas/ticks into EventRecords, stamps when (tick count) and
  *           where (cursor position), and dispatches."
- * Ref:   ADR-0004 D-6 (cooperative, non-preemptive WaitNextEvent):
+ * Ref:   clipped Toolbox drawing (cooperative, non-preemptive WaitNextEvent):
  *          "A task holds the CPU until it calls back into WaitNextEvent; there
  *           is no preemption and no protected inter-process isolation. An app
  *           that fails to yield hangs the desktop -- that is period-authentic,
  *           not a bug (CLAUDE.md hallucination-risk callout; do not 'fix' with
  *           preemption)."
- * Ref:   ADR-0004 D-8 (test-event oracle -- D-8 table row):
+ * Ref:   clipped Toolbox drawing (test-event oracle -- D-8 table row):
  *          "A recorded raw-input trace replays to a deterministic EventRecord/
  *           dispatch sequence."
  * Ref:   spec/event_model.h -- LOCKED EventRecord, flair_raw_event_t,
@@ -30,7 +30,7 @@
  *
  * ARTIFACT code: freestanding (gcc -m32 -ffreestanding -nostdlib -std=c11)
  * AND hosted (cc -std=c11). <stdint.h> only. No host malloc. No libc beyond
- * stdint. Rule 11 (reproducible). Rule 12 (ASCII-clean). Law 3 (dual-compile).
+ * stdint. reproducible output. ASCII source. language boundary (dual-compile).
  *
  * COOPERATIVE YIELD HOOK
  * ----------------------
@@ -52,7 +52,7 @@
  *
  * This is the ONLY architectural seam between the Event Manager and the
  * platform layer; it keeps ISR-context completely separate from task-context
- * (ADR-0004 D-4 C-3).
+ * (clipped Toolbox drawing C-3).
  */
 #ifndef INITECH_OS_FLAIR_EVENT_H
 #define INITECH_OS_FLAIR_EVENT_H
@@ -69,7 +69,7 @@
  * ----------------------------------------------------------
  * Lock-free single-producer / single-consumer ring of flair_raw_event_t.
  *
- * On-metal x86 (cooperative, single-CPU, no SMP -- ADR-0004 D-6):
+ * On-metal x86 (cooperative, single-CPU, no SMP -- clipped Toolbox drawing):
  *   - Aligned uint32_t load/store is atomic on the 386+ core.
  *   - The ISR (producer) writes head only; the pump (consumer) writes tail
  *     only; neither reads the other's index without a volatile-qualified
@@ -77,12 +77,12 @@
  *   - No memory barrier beyond volatile is needed on a single-core 386:
  *     all writes complete in program order at the ISR/pump boundary.
  *     (A multi-core port would need barriers; that is out of scope for the
- *     cooperative-desktop target -- ADR-0004 D-6 non-goal statement.)
+ *     cooperative-desktop target -- clipped Toolbox drawing non-goal statement.)
  *
- * FULL-RING POLICY (Rule 2 -- fail loud):
+ * FULL-RING POLICY (explicit error handling -- fail loud):
  *   An ISR that finds the ring full DROPS the raw event (cannot panic safely
  *   from ISR context -- see spec/event_model.h Sec 5 rationale) and
- *   increments drop_count. The host-testable flair_raw_post() function
+ *   increments drop_count. The host-testable flair_raw_post function
  *   returns 0 (dropped) or 1 (enqueued); the ISR wrapper checks the return
  *   and may assert in debug builds. The drop counter is readable by the pump
  *   for telemetry. This is the documented, defined, non-silent failure mode;
@@ -120,7 +120,7 @@ typedef struct flair_raw_ring {
  * wrapper -- does the EOI after returning; this function is pure ring logic).
  *
  * Returns 1 if the event was enqueued, 0 if the ring was full (dropped).
- * The ISR must treat 0 as the defined drop case (Rule 2 telemetry).
+ * The ISR must treat 0 as the defined drop case (explicit error handling telemetry).
  *
  * Lock-free SPSC: reads head (owner), reads tail as volatile (to see the
  * consumer's progress), computes next head, checks for full (next == tail),
@@ -134,18 +134,18 @@ int flair_raw_post(flair_raw_ring_t *ring, const flair_raw_event_t *raw);
  * 2. GLOBAL STATE: TICK COUNTER + CURSOR POSITION
  * ----------------------------------------------------------
  * These live in the event.c translation unit. They are written by:
- *   - flair_tick_advance(): called from the PIT IRQ0 ISR (or from the
+ *   - flair_tick_advance: called from the PIT IRQ0 ISR (or from the
  *     test harness tick-injector). Updates the global tick count by 1.
  *   - The pump inside WaitNextEvent: reads the tick count for `when`
  *     stamps; updates cursor position from mouse-delta raw events.
  *
  * Cursor position is tracked in screen (global) coordinates, clamped to
- * the 640x480 frame (spec: OD-3 in ADR-0004 Sec 3.0; 640x480 is the
+ * the 640x480 frame (spec: OD-3 in clipped Toolbox drawing; 640x480 is the
  * M3/M4 native resolution).
  * ============================================================ */
 
-#define FLAIR_SCREEN_W  640   /* native resolution, ADR-0004 OD-3 */
-#define FLAIR_SCREEN_H  480   /* native resolution, ADR-0004 OD-3 */
+#define FLAIR_SCREEN_W  640   /* native resolution, clipped Toolbox drawing OD-3 */
+#define FLAIR_SCREEN_H  480   /* native resolution, clipped Toolbox drawing OD-3 */
 
 /* flair_tick_advance -- advance the global tick counter by 1.
  * Called from the PIT ISR (IRQ0). Must be ISR-safe (no Toolbox calls). */
@@ -154,7 +154,7 @@ void flair_tick_advance(void);
 /* Task-context observer of each consumed Set-1 byte, including modifiers
  * and masked events. Snapshots a console handoff at the cooked launch event
  * rather than IRQ1's later producer head. Reset by flair_event_init.
- * Ref: ADR-0013 O-7; audit DAS L002. No dispatch in this observer. */
+ * Ref: tenant lifecycle O-7; audit DAS L002. No dispatch in this observer. */
 void flair_event_set_keyboard_observer(void (*observer)(uint8_t));
 
 /* flair_tick_count -- read the current tick count (monotonic since boot).
@@ -205,12 +205,12 @@ void flair_event_set_yield(flair_event_yield_fn fn);
  * ring without a global (dual-compile host-testable pattern, matching
  * the region engine and heap allocator conventions).
  *
- * NOTE on ISR-enqueue / task-synthesis split (ADR-0004 D-4 / C-3):
+ * NOTE on ISR-enqueue / task-synthesis split (clipped Toolbox drawing / C-3):
  *   - ISRs call flair_raw_post(ring, raw) -- they NEVER call WaitNextEvent
  *     or GetNextEvent or any Manager function.
  *   - WaitNextEvent / GetNextEvent are called ONLY from task context.
  *   These two sets of callers are mutually exclusive by construction
- *   (cooperative scheduling -- ADR-0004 D-6; the pump runs between events,
+ *   (cooperative scheduling -- clipped Toolbox drawing; the pump runs between events,
  *   the ISR fires between pump iterations; there is no concurrent call).
  * ============================================================ */
 

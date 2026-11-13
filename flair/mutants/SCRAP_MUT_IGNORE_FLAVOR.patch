@@ -12,7 +12,7 @@
 -            return (int)i;
 -    }
 -    return -1;
-+    /* MUTANT (Rule 6 -- NEVER define in a real build): ignore the type key;
++    /* regression patches (mutation checks -- NEVER define in a real build): ignore the type key;
 +     * always return index 0 if any flavor exists. Causes PutScrap(PICT) to
 +     * overwrite the TEXT slot, so GetScrap(TEXT) yields PICT bytes -> RED. */
 +    (void)type;

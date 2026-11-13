@@ -6,7 +6,7 @@
  static void draw_arrow_tile(GrafPort *port, const flair_skin_t *skin,
                              int x0, int y0, int x1, int y1, int pressed)
  {
-+    /* MUTANT (Rule 6; test-chrome-fidelity SCROLL-PRESSED leg): a held arrow
++    /* regression patches (mutation checks; test-chrome-fidelity SCROLL-PRESSED leg): a held arrow
 +     * looks idle. NEVER in a real build. */
 +    pressed = 0;
      if (pressed) draw_scroll_tile_pressed(port, skin, x0, y0, x1, y1);

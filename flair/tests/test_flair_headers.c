@@ -2,10 +2,10 @@
  * headers (spec/grafport.h, spec/imaging.h) + the frozen canon assets
  * (spec/assets/cursors.h, spec/assets/menu_canon.h).
  *
- * beads: initech-k8o5.3 (GrafPort/imaging spec) + initech-zaqj (canon assets).
- * Ref:   CLAUDE.md Law 2 (oracle is truth), Law 4 (canon is enforced -- the
- *        hourglass cursor is canon, the wristwatch is THE BUG), Rule 6
- *        (mutation-prove), Rule 12 (ASCII-clean). ADR-0004 D-1/D-2 (GrafPort
+ *  (GrafPort/imaging spec) +  (canon assets).
+ * Ref:   independent checks (oracle is truth), film canon (canon is enforced -- the
+ *        hourglass cursor is canon, the wristwatch is THE BUG), mutation checks
+ *        (mutation-prove), ASCII source. clipped Toolbox drawing/D-2 (GrafPort
  *        imaging), D-3/D-7/AM-4 (canon as frozen locked-data).
  *
  * WHY THIS GATE: until a Manager consumer exists, NOTHING in the build includes
@@ -14,10 +14,10 @@
  * those headers to compile (firing every static_assert) and asserts the frozen
  * canon (the hourglass cursor bytes + the Photoshop menu string) at runtime.
  *
- * MUTATION PROOF (Rule 6): built a second time with -DFLAIR_HEADERS_MUTANT, the
+ * MUTATION PROOF: built a second time with -dflair headers mutant patch, the
  * runtime canon check is perturbed so the comparison MUST fail (RED) -- proving
  * the canon checks bite. The full mutation-proven canon oracle (pie==116,
- * 570- trailing minus, PC LOAD LETTER, etc.) is the separate bead initech-k8o5.10.
+ * 570- trailing minus, PC LOAD LETTER, etc.) is the separate.
  *
  * Single TU, hosted (libc) -- the static_asserts are platform-independent.
  */
@@ -25,9 +25,9 @@
 #include "imaging.h"
 #include "cursors.h"
 #include "menu_canon.h"
-#include "event_model.h"     /* beads k8o5.4 -- EventRecord + what codes (D-4) */
-#include "window_record.h"   /* beads k8o5.4 -- WindowRecord + FindWindow part-codes */
-#include "ssim_params.h"     /* beads k8o5.4 -- SSIM guide params (guide, NOT a gate) */
+#include "event_model.h"     /* -- EventRecord + what codes (D-4) */
+#include "window_record.h"   /* -- WindowRecord + FindWindow part-codes */
+#include "ssim_params.h"     /* -- SSIM guide params (guide, NOT a gate) */
 
 #include <string.h>
 #include <stdio.h>
@@ -44,8 +44,8 @@ int main(void)
     Pattern       pat;  (void)pat;
     RGBColor      rgb;  (void)rgb;
     flair_point_t pt;   (void)pt;
-    EventRecord   ev;   (void)ev;   /* k8o5.4: fires event_model.h static_asserts */
-    WindowRecord  win;  (void)win;  /* k8o5.4: fires window_record.h static_asserts */
+    EventRecord   ev;   (void)ev;   /* fires event_model.h static_asserts */
+    WindowRecord  win;  (void)win;  /* fires window_record.h static_asserts */
 
     /* event/window model constants (verbatim Inside Macintosh values) */
     checks++; if ((int)nullEvent != 0)  { fails++; printf("FAIL nullEvent!=0\n"); }
@@ -59,7 +59,7 @@ int main(void)
     checks++; if (sizeof(Pattern) != 8u) { fails++; printf("FAIL sizeof(Pattern)!=8\n"); }
 
     /* --- CANON: the HOURGLASS busy cursor (hand-authored canon, NOT the real
-     * System-7 wristwatch -- the wristwatch is THE BUG, Law 4). Solid top/bottom
+     * System-7 wristwatch -- the wristwatch is THE BUG, film canon). Solid top/bottom
      * bars (0xFFFF), a 2-pixel waist (0x0180) at rows 7,8. --- */
     {
         uint16_t r0  = FLAIR_CURSOR_BUSY.data[0];
@@ -81,7 +81,7 @@ int main(void)
         }
     }
 
-    /* --- CANON: the frozen Photoshop menu bar (ADR-0004 D-3/AM-4). The exact
+    /* --- CANON: the frozen Photoshop menu bar (clipped Toolbox drawing/AM-4). The exact
      * string is locked; "Layer" (Photoshop 3.0, 1994) and "View" never coexisted
      * in any real Photoshop version -- that impossibility IS the canon. --- */
     checks++;

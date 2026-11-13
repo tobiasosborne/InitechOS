@@ -2,7 +2,7 @@
  * (make gen-asset-lz). DO NOT EDIT: the locked spec/assets headers are the
  * source of every byte; test-asset-lz regenerates this file and proves
  * decode == locked. Packed storage only (os/flair/asset_lz.h); no
- * timestamps (Rule 11). Each block is compiled only by the TU that names
+ * timestamps. Each block is compiled only by the TU that names
  * its guard. */
 #ifndef INITECH_ASSET_LZ_DATA_H
 #define INITECH_ASSET_LZ_DATA_H

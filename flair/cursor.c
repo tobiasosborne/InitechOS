@@ -1,11 +1,11 @@
 /*
  * os/flair/cursor.c -- 16x16 classic Mac arrow with save-under + ShieldCursor.
  *
- * beads: initech-tdnl.1 (GUI remediation R0.1).
+ *  (GUI remediation R0.1).
  * Ref: Inside Macintosh: Imaging With QuickDraw, cursor ('CURS') resource:
  *      sixteen 16-bit data rows, sixteen 16-bit mask rows, MSB-left, followed
  *      by a hotspot. Arrow v3 is transcribed from the Mac OS 8 capture
- *      pair cited in spec/assets/cursors.h (initech-tdnl.98, audit M009).
+ *      pair cited in spec/assets/cursors.h (, audit M009).
  * Ref: PRD Sec 6.3; docs/plans/GUI-remediation-plan.md R0.1; surface.h
  *      (8/24/32bpp final-surface format and the sole pixel read/write seam).
  *
@@ -14,13 +14,13 @@
  * do not derive the white paper by dilating the black body.
  * Hotspot = arrow tip at (x=1,y=1).
  *
- * Artifact C per ADR-0002: freestanding, no allocation/libc, deterministic,
- * ASCII-only. Mutation knobs are oracle builds only (Rule 6).
+ * Artifact C per freestanding C build: freestanding, no allocation/libc, deterministic,
+ * ASCII-only. Mutation knobs are oracle builds only.
  */
 #include "cursor.h"
 #include "surface.h"
-#include "cursors.h"   /* LOCKED FLAIR_CURSOR_ARROW v3, tdnl.98 (Rule 8).
-                        * Host + QEMU grade the independent capture (Law 2). */
+#include "cursors.h"   /* LOCKED FLAIR_CURSOR_ARROW v3,  (pinned inputs).
+                        * Host + QEMU grade the independent capture. */
 
 enum { CURSOR_DIM = 16, CURSOR_SAVE_PIXELS = 16 * 16 };
 
@@ -29,8 +29,8 @@ enum { CURSOR_DIM = 16, CURSOR_SAVE_PIXELS = 16 * 16 };
 #define CURSOR_BLACK_IDX  0u
 #define CURSOR_WHITE_IDX  1u
 
-/* Film scene (tdnl.102-.104): the shape is selected at run time (arrow; hourglass
- * while Saving -- canon). The Rule-6 squared-stem twin above pins the arrow. */
+/* Film scene (-.104): the shape is selected at run time (arrow; hourglass
+ * while Saving -- canon). The mutation checks squared-stem twin above pins the arrow. */
 #define cursor_data (g_cursor_shape->data)
 #define cursor_mask (g_cursor_shape->mask)
 

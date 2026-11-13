@@ -16,7 +16,7 @@
 -        FLAIR_PART_CONTENT
 -    };
  
-     /* The fixed 13x13 cell as a rect table (size round 6, WL-0162), offsets
+     /* The fixed 13x13 cell as a rect table (compact storage, drawing tables), offsets
       * from (bx,by): E7-less DA face, A5 outer highlight, the 1-px ring
 @@ -207,10 +198,7 @@
  

@@ -6,7 +6,7 @@
          int h   = y1 - y0;
  
          /* Must be at least wide enough to have a scrollbar. */
--        /* mktj/44la: exactly the draw_scrollbar geometry predicate. */
+-        /* exactly the draw_scrollbar geometry predicate. */
 -        if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W || h < 2 * btn + SB_THUMB_MIN)
 -            return 0;
 +        (void)h;

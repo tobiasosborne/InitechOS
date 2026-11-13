@@ -16,5 +16,5 @@
 -    }
 +    (void)wm; (void)w;   /* z-order ignored: union-of-fronts stays empty */
  
-     /* ALIASING-CRITICAL (Rule 3): rgn_accumulate(out, overlay, UNION, sc2) does
-      * `sc2 := out UNION overlay; out := sc2`, so sc2 MUST be distinct from BOTH
+     /* ALIASING-CRITICAL: rgn_accumulate(out, overlay, UNION, sc2) does
+      * `sc2:= out UNION overlay; out:= sc2`, so sc2 MUST be distinct from BOTH

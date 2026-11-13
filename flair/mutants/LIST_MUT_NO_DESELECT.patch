@@ -16,11 +16,11 @@
 -            }
 -        }
 +        /*
-+         * MUTANT LIST_MUT_NO_DESELECT: skip the deselect loop.  With lOnlyOne,
++         * regression patches no deselect patch: skip the deselect loop.  With lOnlyOne,
 +         * previously-selected cells are NOT cleared.
 +         * Oracle step 5: click (0,0) then click (0,2); check (0,0) is now
 +         * deselected.  Mutant: (0,0) stays selected (1) -> FAIL -> RED.
-+         * Ref: CLAUDE.md Rule 6.
++         * Ref: mutation checks.
 +         */
 +        (void)0; /* suppress empty-body warning in the mutant path */
      }

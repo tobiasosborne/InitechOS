@@ -6,7 +6,7 @@
  static void te_delete_range(FlairTE *te, int16_t a, int16_t b)
  {
      int16_t count = (int16_t)(b - a);
-+    /* MUTANT (Rule 6): inclusive [a,b] -- delete one extra char. Step 5/6 RED. */
++    /* regression patches: inclusive [a,b] -- delete one extra char. Step 5/6 RED. */
 +    count = (int16_t)(count + 1);
      if (count < 0)
          count = 0;

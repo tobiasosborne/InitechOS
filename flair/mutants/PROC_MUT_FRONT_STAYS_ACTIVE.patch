@@ -11,7 +11,7 @@
 -     * seeds it (the strucRgn bbox, SECTed to the visible region inside). */
 -    WindowMgr_invalidate(wm, w, region_get_bbox(w->strucRgn));
 -    return 1;
-+    /* MUTANT (Rule 6; test-process leg(g), and test-flair-fg-close-mutant's
++    /* regression patches (mutation checks; test-process leg(g), and test-flair-fg-close-mutant's
 +     * kmain twin): the F06 picture -- a background app's window stays drawn
 +     * ACTIVE under the foreground app's bar. NEVER in a real build. */
 +    return 0;

@@ -1,13 +1,13 @@
 /* test_chrome.c -- the FLAIR Platinum chrome structural oracle (D-8 hard gate).
  *
- * beads: initech-k8o5.8 (first rendered System-7 window chrome + test-chrome).
- * Ref:   ADR-0004 D-8 ("test-chrome | hard pass/fail | Chrome renders match
- *        chrome_metrics v1 ... STRUCTURAL compare, not SSIM"); FO-2/AM-3
+ *  (first rendered System-7 window chrome + test-chrome).
+ * Ref:   clipped Toolbox drawing ("test-chrome | hard pass/fail | Chrome renders match
+ *        chrome_metrics v1... STRUCTURAL compare, not SSIM"); FO-2/AM-3
  *        (chrome_metrics v1 LOCKED AND test-chrome MUTATION-PROVEN with three
  *        named mutants, before ANY Window/Control Manager drawing ships).
- *        CLAUDE.md Law 2 (the oracle is the truth, not the agent), Law 4 (look
- *        like the frame), Rule 6 (golden/oracle mutation-proven), Rule 11
- *        (deterministic), Rule 12 (ASCII).
+ *        independent checks (the oracle is the truth, not the agent), film canon (look
+ *        like the frame), mutation checks (golden/oracle mutation-proven), reproducibility
+ *        (deterministic), ASCII source (ASCII).
  *
  * This drives the REAL artifact chrome drawer (os/flair/chrome.c) HOSTED via the
  * host render skeleton (harness/render), the dual-compile pattern: the SAME
@@ -21,15 +21,15 @@
  *     right,
  *   - close, zoom, and collapse widgets are present at the measured offsets.
  *
- * Plus the STEP-1 .h<->.json CONSISTENCY tooth lives in the Makefile gate
+ * Plus the STEP-1.h<->.json CONSISTENCY tooth lives in the Makefile gate
  * (python3 parses chrome_metrics.json and diffs each #define) so spec/
  * chrome_metrics.h can NEVER silently drift from the locked JSON.
  *
- * MUTATION (Rule 6; FO-2/AM-3): three named mutants are compiled into chrome.c
+ * MUTATION (mutation checks; FO-2/AM-3): three named mutants are compiled into chrome.c
  * via -D and MUST drive this oracle RED:
- *   CHROME_MUTATE_TITLEBAR_H   -- title bar 1 px too tall.
- *   CHROME_MUTATE_NO_FRAME     -- the 1 px window frame skipped.
- *   CHROME_MUTATE_SCROLLBAR_W  -- scrollbar 15 px wide.
+ *   titlebar h patch   -- title bar 1 px too tall.
+ *   no frame patch     -- the 1 px window frame skipped.
+ *   scrollbar w patch  -- scrollbar 15 px wide.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -70,7 +70,7 @@ static void draw_window(GrafPort *port)
      * empty title draws no text, so the mid_x pinstripe probes stay valid. */
     /* hilited=1: this oracle grades the ACTIVE geometry (pinstripe/box/frame/
      * scrollbar); the inactive appearance is graded separately by
-     * test-chrome-fidelity (beads initech-a9iq). */
+     * test-chrome-fidelity. */
     flair_draw_document_window(port, flair_look_default_skin(),
                                win_frame(), "", 1,
                                FLAIR_WINDOW_WIDGET_ALL);
@@ -101,8 +101,8 @@ static uint32_t shade_index(const render_ctx_t *ctx, int x, int y)
 
 /* By-construction row classifier for this structural oracle. The independent
  * value oracle remains test-chrome-fidelity. Re-key authority:
- * ADR-0004-AMENDMENT-DEC-10 Sec 4; sampled geometry/classes:
- * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
+ * clipped Toolbox drawing; sampled geometry/classes:
+ *../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
 static uint32_t platinum_title_row_index(int row)
 {
     if (row == 0 || row == FLAIR_CHROME_TITLEBAR_H - 1) {
@@ -134,8 +134,8 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
 {
     const int fr = FLAIR_CHROME_FRAME;
     /* Platinum Route-2 re-key: 22 rows are K,H,2 face,12 stripe,4 face,S,K.
-     * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and
-     * ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
+     * Ref: clipped Toolbox drawing and
+     *../system7-decomp/specs/sys8/window-chrome.md Sec 2.1-2.2. */
     const int title_top = WIN_TOP + fr;
     const int stripe_top = WIN_TOP + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF;
     const int stripe_bot = stripe_top +
@@ -143,7 +143,7 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
     /* content_top: white body start (one row below the shared frame line). */
     const int title_content_top = WIN_TOP + FLAIR_CHROME_TITLEBAR_H;
     /* A column well inside the title bar, clear of the close/zoom boxes (those
-     * are inset ~fr+3 .. +3+13 from each corner). The window is 320 px wide; the
+     * are inset ~fr+3.. +3+13 from each corner). The window is 320 px wide; the
      * horizontal center is comfortably between the two boxes. */
     const int mid_x = (WIN_LEFT + WIN_RIGHT) / 2;
 
@@ -174,11 +174,11 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
 
     /* A clear pinstripe column: right of the close box and LEFT of the centered
      * title, so the title knockout/glyphs do not interrupt the stripe run when we
-     * scan the 15-row pinstripe band (beads initech-92li recomposition). */
+     * scan the 15-row pinstripe band ( recomposition). */
     const int pin_x = WIN_LEFT + FLAIR_CHROME_TITLE_RUN_LEFT_OFF + 2;
 
     /* --- 2. The title-bar band occupies exactly 22 rows --------------------
-     * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and window-chrome.md Sec 2.1. */
+     * Ref: clipped Toolbox drawing and window-chrome.md Sec 2.1. */
     snprintf(msg, sizeof msg,
              "[%s] title-bar first pinstripe row (y=%d) must be painted",
              bpp_tag, stripe_top);
@@ -193,7 +193,7 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
 
     /* The exact row classifier is stronger than the retained System-7
      * two-shade-only check and catches a centered/symmetric stripe field too.
-     * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4 and window-chrome.md Sec 2.1-2.2. */
+     * Ref: clipped Toolbox drawing and window-chrome.md Sec 2.1-2.2. */
     if (idx_mode) {
         int profile_ok = 1;
         for (int row = 0; row < FLAIR_CHROME_TITLEBAR_H; row++) {
@@ -207,7 +207,7 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
         CHECK(profile_ok, msg);
 
         /* The row below the measured band is content. This is the decisive
-         * height-mutant tooth. Ref: DEC-10 Sec 4; window-chrome.md Sec 2.1. */
+         * height-mutant tooth. Ref: Platinum base; window-chrome.md Sec 2.1. */
         uint32_t below = shade_index(ctx, mid_x, title_content_top);
         snprintf(msg, sizeof msg,
                  "[%s] row below title band (y=%d) must be content body (idx %d), "
@@ -222,8 +222,8 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
      * white/150 classes. This
      * oracle asserts only that it IS a two-shade stripe -- NOT a specific phase.
      * The exact Platinum phase and exactly-12-row interior are graded against
-     * the INDEPENDENT ../system7-decomp golden by test-chrome-fidelity (beads
-     * initech-hmll/92li, Law 2).  Scanned at a clear column (pin_x) so the
+     * the INDEPENDENT../system7-decomp golden by test-chrome-fidelity (
+     * /92li, independent checks).  Scanned at a clear column (pin_x) so the
      * centered title knockout does not interrupt the run. */
     if (idx_mode) {
         int saw_light = 0, saw_dark = 0, striped = 0;
@@ -261,9 +261,9 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
 
     /* --- 4. The vertical scrollbar is a 16-pixel Platinum band ------------
      * It terminates at the inner body line, inside the four-pixel raised rail.
-     * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4,
-     * ../system7-decomp/specs/sys8/scrollbars.md Sec 1 and
-     * ../system7-decomp/specs/sys8/window-chrome.md Sec 4. */
+     * Ref: clipped Toolbox drawing,
+     *../system7-decomp/specs/sys8/scrollbars.md Sec 1 and
+     *../system7-decomp/specs/sys8/window-chrome.md Sec 4. */
     {
         int content_top = title_content_top;
         int content_bot = WIN_BOTTOM - fr;
@@ -283,8 +283,8 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
         if (idx_mode) {
             /* Just left is content; the band starts with a black divider and
              * ends with the black inner-body line. If the band were 15 px wide
-             * (CHROME_MUTATE_SCROLLBAR_W), sb_left would be body, not divider:
-             * this is the decisive width tooth. Ref: DEC-10 Sec 4;
+             * (scrollbar w patch), sb_left would be body, not divider:
+             * this is the decisive width tooth. Ref: Platinum base;
              * scrollbars.md Sec 1; window-chrome.md Sec 4. */
             uint32_t at_sb_left = shade_index(ctx, sb_left, row);
             snprintf(msg, sizeof msg,
@@ -301,10 +301,10 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
                      FLAIR_CHROME_SCROLLBAR_W, CIDX_WHITE);
             CHECK(left_of_sb == CIDX_WHITE, msg);
 
-            /* RE-KEYED (bead initech-tdnl.35, stated): this scene draws a
+            /* RE-KEYED (, stated): this scene draws a
              * window with NO scroll model, i.e. nothing to scroll, which is
              * the DISABLED bar of scrollbars.md Sec 3 -- a flat #F3F3F3
-             * interior with no well (before tdnl.35 every active gutter drew
+             * interior with no well (before  every active gutter drew
              * the enabled well whatever the content). The enabled well's
              * cross-section is graded on a scrolling window by
              * test-chrome-fidelity leg SCROLL-WELL. */
@@ -325,8 +325,8 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
 
     /* --- 5. Three Platinum title widgets at measured inclusive-R offsets ---
      * This replaces the retained two-widget System-7 check with the stronger
-     * three-widget/edge-class relation. Ref: ADR-0004-AMENDMENT-DEC-10 Sec 4
-     * and ../system7-decomp/specs/sys8/window-chrome.md Sec 3.1-3.2. */
+     * three-widget/edge-class relation. Ref: clipped Toolbox drawing
+     * and../system7-decomp/specs/sys8/window-chrome.md Sec 3.1-3.2. */
     {
         int ri = WIN_RIGHT - 1;
         int by0 = WIN_TOP + FLAIR_CHROME_WIDGET_TOP_OFF;
@@ -372,7 +372,7 @@ static void assert_chrome(render_ctx_t *ctx, const char *bpp_tag, int idx_mode)
     }
 }
 
-/* PRESSED WIDGETS (bead initech-tdnl.60; audit G02 -- TrackGoAway/TrackBox
+/* PRESSED WIDGETS (; audit G02 -- TrackGoAway/TrackBox
  * feedback). For each of close / zoom / collapse on the active window drawn
  * above: the pressed art (1) CHANGES pixels, (2) changes NONE outside the
  * widget's 13x13 cell (12-px box + the 1-px right/bottom highlight; cell
@@ -440,7 +440,7 @@ static int render_one(render_ctx_t *ctx, uint32_t bpp)
     boot.lfb_addr   = 0xE0000000u; /* a plausible VBE PhysBasePtr (ignored host)*/
     boot.lfb_pitch  = 0u;          /* tight -> width*bpp/8 (honored by skeleton)*/
     boot.lfb_bpp    = bpp;
-    boot.lfb_width  = 640u;        /* the native 640x480 (ADR-0004 OD-3)        */
+    boot.lfb_width  = 640u;        /* the native 640x480 (clipped Toolbox drawing OD-3)        */
     boot.lfb_height = 480u;
     int rc = render_ctx_init(ctx, &boot);
     if (rc == 0) {
@@ -489,7 +489,7 @@ int main(int argc, char **argv)
         }
     }
 
-    /* --- optional: dump a PPM of the 8bpp window for human audit (Law 4) --- */
+    /* --- optional: dump a PPM of the 8bpp window for human audit  --- */
     if (argc > 1 && rc8 == 0) {
         if (render_write_ppm(&c8, argv[1]) == 0) {
             printf("    wrote rendered window PPM to %s\n", argv[1]);

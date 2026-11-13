@@ -1,5 +1,5 @@
-/* tdnl.93/.94/.95/.70: independent captured anatomy + original NFNT check.
- * Charcoal and the command glyph remain the tdnl.69 decision; grade geometry
+/* : independent captured anatomy + original NFNT check.
+ * Charcoal and the command glyph remain the  decision; grade geometry
  * around Chicago, never compare those two substituted letter strikes. */
 #include <stdio.h>
 #include <stdlib.h>

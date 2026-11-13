@@ -1,17 +1,17 @@
 /* test_process_activate.c -- the FLAIR App Contract O-2 activation / z-order
  * oracle (HOST).
  *
- * beads: the FLAIR App Contract epic initech-4e35 (ADR-0013 Sec 7 O-2), Wave 3b.
+ * the FLAIR App Contract epic  (tenant lifecycle O-2), Wave 3b.
  *        The HOST oracle for APP-GROUP RAISE on app switch: when the dispatcher
  *        switches the foreground to a background app, it raises that app's WHOLE
  *        window group to the front CONTIGUOUS run of the WindowMgr z-order,
  *        PRESERVING the group's internal relative z-order, with the group's front
- *        window hilited + active (ADR-0013 Sec 3.5: "switching ... raises that
+ *        window hilited + active (tenant lifecycle: "switching... raises that
  *        app's WHOLE window group to the front run", app-grouped z-order). It runs
  *        the EXACT Layer-5 symbol the live kmain pump runs (`flair_app_dispatch`,
  *        BC-2), so a green O-2 certifies the live group-raise too.
  *
- * INDEPENDENT-BY-RECOMPUTATION (Law 2; the test_interact / test_process idiom).
+ * INDEPENDENT-BY-RECOMPUTATION (independent checks; the test_interact / test_process idiom).
  *   The expected post-switch z-order, hilite assignment, and refCon owner map are
  *   NEVER read back out of the dispatcher. The expected z-order is maintained HERE
  *   as a separate front-to-back WindowPtr model and advanced by an INDEPENDENT
@@ -20,7 +20,7 @@
  *   artifact's actual `wm->front` chain. The expected hilite is the switched-to
  *   app's front window (known by construction). An oracle that asked the
  *   dispatcher what the dispatcher did would agree BY CONSTRUCTION and is
- *   forbidden (Law 2; HER-02).
+ *   forbidden (independent checks; HER-02).
  *
  * THE SCENE (meaningful -- the group is NOT already contiguous):
  *   App A (foreground) owns TWO windows A0 (front) + A1 (behind); app B
@@ -30,7 +30,7 @@
  *   unambiguously its owner's regardless of z-order. Each window's refCon is bound
  *   to its owning app (the demux key, Sec 3.1).
  *
- * THE SCRIPTED TRACE + INDEPENDENT GOLDEN (ADR-0013 Sec 7 O-2):
+ * THE SCRIPTED TRACE + INDEPENDENT GOLDEN (tenant lifecycle O-2):
  *   (1) mouseDown inContent over background B0 -> switch to B. Assert B's whole
  *       group (just B0) is the front run [B0, A0, A1]; hilited==1 on exactly
  *       wm->front (B0), 0 on all others; the previously-foreground app A's front
@@ -41,33 +41,33 @@
  *       every window's refCon round-trips to its correct owner via the recovery
  *       rule; B's front window received the deactivate.
  *
- * MUTATION-PROVEN (Rule 6; self-mutation -- the test_interact / test_process
+ * MUTATION-PROVEN (mutation checks; self-mutation -- the test_interact / test_process
  *   convention). The mutants perturb the INDEPENDENT EXPECTED computation (NOT the
  *   dispatcher), each so it disagrees with the CORRECT dispatcher on a DISTINCT
  *   invariant:
  *
- *     ACTIVATE_MUT_NO_HILITE -- the EXPECTED hilite is kept on the OLD front
+ *     no hilite patch -- the EXPECTED hilite is kept on the OLD front
  *       window instead of moving to the new foreground's front. The CORRECT
  *       dispatcher (via SelectWindow -> reaffirm_active) moves the hilite to the
  *       new front, so the hilite-on-front assertion goes RED. Proves the
  *       hilite-follows-the-front check is live (it would catch a SelectWindow that
  *       skipped the hilite update).
  *
- *     ACTIVATE_MUT_RAISE_FRONT_ONLY -- the EXPECTED group-raise pulls ONLY the
+ *     raise front only patch -- the EXPECTED group-raise pulls ONLY the
  *       app's front window to the head, leaving the rest of its group behind. The
  *       CORRECT dispatcher raises the WHOLE group, so the whole-group-contiguous-
  *       run assertion goes RED on the switch back to the two-window app A (its
  *       expected order becomes [A0, B0, A1] while the artifact yields [A0, A1,
  *       B0]). Proves the group-raise (not just front-raise) is checked.
  *
- * Ref: ADR-0013 Sec 3.5 (app-grouped z-order, whole-group raise on switch), Sec
+ * Ref: tenant lifecycle (app-grouped z-order, whole-group raise on switch), Sec
  *      3.1 (the refCon demux key), Sec 3.3 (the activate pair), Sec 7 O-2;
- *      spec/window_record.h Sec 4 (WindowRecord.hilited / .nextWindow / .refCon),
- *      spec/event_model.h Sec 1 (what-codes), :155 (active-flag), :265-271
+ *      spec/window_record.h Sec 4 (WindowRecord.hilited /.nextWindow /.refCon),
+ *      spec/event_model.h Sec 1 (what-codes),:155 (active-flag),:265-271
  *      (EventRecord); os/flair/window.h (SelectWindow / the wm->front z-order).
  *      Mirrors harness/proptest/test_process.c (stub-app + delivery-log idiom) and
  *      test_interact.c (independent-by-recomputation + the self-mutation
- *      convention). CLAUDE.md Law 2, Rule 1, Rule 6, Rule 11, Rule 12.
+ *      convention). independent checks, mutation checks, reproducibility, ASCII source.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -162,7 +162,7 @@ static int rect_contains(rgn_rect_t r, int16_t h, int16_t v)
  * The known tenants (for host-safe app-id recovery in the delivery log -- self is
  * a REAL pointer the dispatcher passes, never the truncated refCon; see process.h
  * host note) and the INDEPENDENT refCon recovery (the contract's demux key,
- * recomputed HERE, Law 2).
+ * recomputed HERE, independent checks).
  * ===========================================================================*/
 static FlairApp *g_appA = NULL;
 static FlairApp *g_appB = NULL;
@@ -193,7 +193,7 @@ static FlairApp *recover_owner(const WindowPtr w)
 
 /* ===========================================================================
  * The delivery log -- the activate/deactivate observable. Each tenant `event`
- * appends one entry; the oracle diffs it against the hand-authored golden (Law 2).
+ * appends one entry; the oracle diffs it against the hand-authored golden.
  * The `message` field carries the affected WindowPtr (truncated, as the
  * dispatcher stamps it) so a deactivate can be tied to the OLD foreground's
  * front window.
@@ -254,12 +254,12 @@ static int is_activate_of(const log_entry_t *g, int app_id, const WindowPtr w)
 }
 
 /* ===========================================================================
- * The INDEPENDENT z-order model + group-raise (Law 2). `order[]` is the expected
+ * The INDEPENDENT z-order model + group-raise. `order[]` is the expected
  * front-to-back chain; expected_raise_group advances it by a STABLE PARTITION --
  * a DIFFERENT algorithm than the artifact's back-to-front SelectWindow loop, so
  * agreement is a real differential, not by-construction.
  *
- * MUTANT ACTIVATE_MUT_RAISE_FRONT_ONLY (Rule 6): raise ONLY the app's front
+ * regression patches raise front only patch: raise ONLY the app's front
  * window (app->windows), leaving the rest of the group behind -> the expected
  * z-order disagrees with the CORRECT whole-group raise on the two-window app, so
  * the whole-group-contiguous-run assertion goes RED.

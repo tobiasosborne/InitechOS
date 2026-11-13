@@ -13,7 +13,7 @@
 -    }
 -    PROC_PANIC("dispatch: hit window owned by no resident app");
 -    return NULL;   /* unreachable (PROC_PANIC does not return) */
-+    /* MUTANT FLAIR_LIVE_MUTATE_IGNORE_REFCON (Rule 6; the O-5 tenants emu-mutant
++    /* regression patches ignore refcon patch (mutation checks; the O-5 tenants emu-mutant
 +     * image ONLY): IGNORE the refCon binding rule and always return the FOREGROUND
 +     * app, never the clicked background tenant. A click on HELLO's visible sliver
 +     * then "belongs to" the foreground NOTES, so flair_app_dispatch sees

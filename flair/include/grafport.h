@@ -1,17 +1,17 @@
 /*
  * spec/grafport.h -- GrafPort drawing context: the LOCKED contract.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8; PRD Sec 6.3 -- "the Toolbox layer").
- * beads: initech-k8o5.3 (FLAIR imaging contract as spec-data).
+ * LOCKED spec-data (pinned inputs; PRD Sec 6.3 -- "the Toolbox layer").
+ *  (FLAIR imaging contract as spec-data).
  *
- * This header defines the GrafPort record (ADR-0004 D-2): the QuickDraw
+ * This header defines the GrafPort record (clipped Toolbox drawing): the QuickDraw
  * drawing context that all FLAIR drawing flows through. Every drawing
  * primitive (FillRect, FrameRect, BlitBits, text draw) consults the current
  * GrafPort's effective clip before touching a pixel. The Managers (Layer 3,
- * ADR-0004 D-1) never touch the framebuffer directly; the GrafPort is the
- * SOLE conduit (ADR-0004 C-1).
+ * clipped Toolbox drawing) never touch the framebuffer directly; the GrafPort is the
+ * SOLE conduit (clipped Toolbox drawing).
  *
- * SOURCE CITATIONS (Law 1 -- all local or free Apple developer archive):
+ * SOURCE CITATIONS (source provenance -- all local or free Apple developer archive):
  *
  *   Inside Macintosh Vol I Ch 7 (IM-I) [archive.org bitsavers_applemacIn84;
  *     docs/research/gui-ground-truth.md Sec 3.2]:
@@ -35,7 +35,7 @@
  *     window's visible region to that portion of the window not obscured by
  *     windows in front of it").
  *
- *   ADR-0004 (FLAIR Toolbox Architecture, RATIFIED 2026-06-19):
+ *   clipped Toolbox drawing (FLAIR Toolbox Architecture, RATIFIED 2026-06-19):
  *     D-1 (5-layer stack; Layer 1 = surface/GrafPort; the ONE drawing path),
  *     D-2 (GrafPort imaging; one surface module; no second pixel path;
  *          all drawing clipped by visRgn INTERSECT clipRgn; QDProcs seam),
@@ -50,10 +50,10 @@
  *
  * DUAL-COMPILE: freestanding (gcc -m32 -ffreestanding -nostdlib -std=c11)
  * AND hosted (cc -std=c11). Only <stdint.h> + <stddef.h> + local headers.
- * No host malloc; no libc beyond stdint/stddef. Rule 11 (reproducible).
+ * No host malloc; no libc beyond stdint/stddef. reproducible output.
  *
- * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
- * Changing this file is a deliberate, beads-tracked Rule 8 act.
+ * ASCII-clean. No nondeterminism / no timestamps.
+ * Changing this file is a deliberate, reviewed data change.
  */
 #ifndef INITECH_SPEC_GRAFPORT_H
 #define INITECH_SPEC_GRAFPORT_H
@@ -89,7 +89,7 @@
  *     putPicProc.
  *
  * FLAIR carries the subset that the Toolbox actually dispatches to. For the
- * current release (PRD M3/M4), the LOAD-BEARING seam (ADR-0004 D-2) is the
+ * current release (PRD M3/M4), the LOAD-BEARING seam (clipped Toolbox drawing) is the
  * blit/rect/text dispatch that lets the Window Manager and blitter substitute
  * custom clip-masked versions without changing the GrafPort callers. The full
  * QDProcs table is forward-declared as a type; unused slots are NULL and the
@@ -133,7 +133,7 @@ typedef struct GrafPort GrafPort;
  *
  *   bitsProc    -- CopyBits / BlitBits dispatch (the bitmap blit primitive;
  *                  the load-bearing path for offscreen-to-LFB compositing and
- *                  the save-under restore on window move, ADR-0004 D-5).
+ *                  the save-under restore on window move, clipped Toolbox drawing).
  *                  Signature: void (*)(const FLAIR_BitMap *src,
  *                                      const FLAIR_BitMap *dst,
  *                                      const rgn_rect_t *srcRect,
@@ -145,7 +145,7 @@ typedef struct GrafPort GrafPort;
  *
  *   txMeasProc  -- measure text (returns pixel width of a text run; used by
  *                  the Menu Manager and Dialog Manager for proportional NFNT
- *                  text layout per ADR-0004 D-7).
+ *                  text layout per clipped Toolbox drawing).
  *                  Signature: int16_t (*)(int16_t byteCount,
  *                                         const uint8_t *textBuf,
  *                                         flair_point_t *numer,
@@ -156,7 +156,7 @@ typedef struct GrafPort GrafPort;
  * Slots not yet needed for the current release (lineProc, rRectProc,
  * ovalProc, arcProc, polyProc, commentProc, getPicProc, putPicProc) are
  * carried as void* placeholders so sizeof(QDProcs) is stable; they are NULL
- * and never called. This keeps the struct layout deterministic (Rule 11).
+ * and never called. This keeps the struct layout deterministic.
  */
 typedef struct QDProcs {
     /* textProc: draw byteCount bytes of text at the current pen location.   */
@@ -214,16 +214,16 @@ typedef struct QDProcs {
  * listing for Color QuickDraw (cgrafPort extension); FLAIR uses the classic
  * GrafPort shape with the Color QuickDraw RGBColor fore/back extension.
  *
- * CLIPPING INVARIANT (ADR-0004 D-1, D-2; MTE Ch 4; Law 4 load-bearing rule):
+ * CLIPPING INVARIANT (clipped Toolbox drawing, D-2; MTE Ch 4; film canon load-bearing rule):
  *
  *   ALL DRAWING IS CLIPPED BY  visRgn INTERSECT clipRgn.
  *
  *   visRgn is set by the WINDOW MANAGER to the portion of the window not
- *   obscured by windows in front (MTE p. 4-15; ADR-0004 D-5 damage model).
+ *   obscured by windows in front (MTE p. 4-15; clipped Toolbox drawing damage model).
  *   clipRgn is set by the APPLICATION to further restrict drawing within the
  *   port (IM-I p. I-149: "Your drawing will be clipped to clipRgn").
  *   Neither the application nor any Manager may draw outside this intersection.
- *   The surface module (os/flair/surface.h, ADR-0004 D-2) enforces this at
+ *   The surface module (os/flair/surface.h, clipped Toolbox drawing) enforces this at
  *   the pixel level -- it is the SOLE conversion site (no second pixel path).
  *
  * SetPort / GetPort contract (IM-I Ch 7):
@@ -231,9 +231,9 @@ typedef struct QDProcs {
  *                      QuickDraw calls until the next SetPort draw into aPort.
  *   GetPort(&aPort) -- returns a pointer to the current GrafPort.
  *   There is a single GLOBAL current-port pointer in FLAIR's state (not a
- *   per-thread concept -- FLAIR is cooperative/single-threaded, ADR-0004 D-6).
+ *   per-thread concept -- FLAIR is cooperative/single-threaded, clipped Toolbox drawing).
  *   Managers MUST save + restore the current port around their drawing (the
- *   standard IM-I discipline: GetPort(&savedPort); SetPort(myPort); ...draw...;
+ *   standard IM-I discipline: GetPort(&savedPort); SetPort(myPort);...draw...;
  *   SetPort(savedPort)). This is a convention, not hardware-enforced.
  *
  * FIELD SURVEY (verbatim IM-I / IWQ names; sources cited per field):
@@ -265,19 +265,19 @@ typedef struct QDProcs {
  * Design note -- region handles vs pointers:
  *   QuickDraw uses opaque region HANDLES (double-indirected, heap-managed) for
  *   visRgn and clipRgn (IM-I p. I-149). FLAIR does NOT use a heap handle
- *   table: region storage is caller-supplied (ADR-0005 / spec/region_algebra.h,
+ *   table: region storage is caller-supplied ( / spec/region_algebra.h,
  *   the arena-backed freestanding model). visRgn and clipRgn are therefore
  *   DIRECT POINTERS (region_t *) to arena-allocated region_t structures whose
  *   storage is owned by the Window Manager (visRgn) or the application
- *   (clipRgn). This is the clean-room departure justified by Law 3
- *   (freestanding; no heap handle manager in the kernel) and Rule 11
+ *   (clipRgn). This is the clean-room departure justified by language boundary
+ *   (freestanding; no heap handle manager in the kernel) and reproducibility
  *   (deterministic layout). The QuickDraw NAMES are preserved verbatim; only
  *   the pointer level changes.
  *
  * Design note -- spExtra:
  *   QuickDraw defined spExtra as a Fixed (16.16 signed fixed-point, 4 bytes).
  *   FLAIR uses int16_t (whole pixels of extra space per space character) for
- *   the current release (M3/M4); proportional text layout (ADR-0004 D-7 NFNT)
+ *   the current release (M3/M4); proportional text layout (clipped Toolbox drawing NFNT)
  *   does not require sub-pixel spacing. This is an acknowledged departure from
  *   verbatim QuickDraw; the field name is preserved.
  *
@@ -303,12 +303,12 @@ typedef struct QDProcs {
  *
  * ALL drawing in FLAIR flows through a GrafPort. The Managers (Layer 3)
  * address ports through SetPort/GetPort and NEVER touch the framebuffer
- * directly (ADR-0004 C-1).
+ * directly (clipped Toolbox drawing).
  */
 struct GrafPort {
     /* --- Destination bitmap (IM-I p. I-148: "portBits")
      * Ref: IM-I "portBits: BitMap. The port's bit image."
-     * FLAIR: the ONE pixel-buffer descriptor (ADR-0004 D-2; surface.h). The
+     * FLAIR: the ONE pixel-buffer descriptor (clipped Toolbox drawing; surface.h). The
      * destination is the LFB or an indexed-8 offscreen (OD-2). */
     FLAIR_BitMap       portBits;
 
@@ -376,7 +376,7 @@ struct GrafPort {
     /* --- Text font (IM-I p. I-149: "txFont")
      * Ref: IM-I "txFont: Integer. The font number for text."
      * 0 = systemFont (Chicago 12; FLAIR default). Ref: IM-I "Font Numbers"
-     * (systemFont=0, applFont=1; ADR-0004 D-7). */
+     * (systemFont=0, applFont=1; clipped Toolbox drawing). */
     int16_t            txFont;
 
     /* --- Text face / style (IM-I p. I-150: "txFace")
@@ -423,7 +423,7 @@ struct GrafPort {
      * Ref: IWQ "grafProcs: QDProcsPtr. A pointer to a QDProcs record
      *      containing customized low-level drawing routines; NIL means
      *      use the default drawing routines."
-     * This is the standard QuickDraw extensibility seam (ADR-0004 D-2).
+     * This is the standard QuickDraw extensibility seam (clipped Toolbox drawing).
      * The Window Manager and the blitter install custom procs here to
      * inject region-clipped implementations without changing port callers.
      * NULL = use FLAIR defaults. */
@@ -441,21 +441,21 @@ struct GrafPort {
  * in the Layer 1 drawing module, not in locked spec-data):
  *
  *   - There is ONE global current-port pointer in FLAIR state (single-
- *     threaded cooperative OS, ADR-0004 D-6; no per-thread port context).
+ *     threaded cooperative OS, clipped Toolbox drawing; no per-thread port context).
  *   - Every Manager that draws MUST save + restore the port:
  *       GrafPort *savedPort;
  *       GetPort(&savedPort);
  *       SetPort(myPort);
- *       ...draw...
+ *...draw...
  *       SetPort(savedPort);
  *     (IM-I discipline; enforced by convention in cooperative single-thread.)
  *   - Drawing is FORBIDDEN before SetPort has been called at least once
  *     (the global current port is NULL at boot until the desktop port is
- *     opened by the Desktop Shell, Layer 5, ADR-0004 D-1).
+ *     opened by the Desktop Shell, Layer 5, clipped Toolbox drawing).
  *   - A port is "open" when its visRgn / clipRgn pointers are non-NULL and
  *     its portBits.bm is initialized (base, pitch, bpp, width, height valid).
  *
- * CLIPPING INVARIANT (ADR-0004 D-1 / D-2; MTE Ch 4) -- load-bearing rule:
+ * CLIPPING INVARIANT (clipped Toolbox drawing / D-2; MTE Ch 4) -- load-bearing rule:
  *
  *   EVERY PIXEL WRITE IS CLIPPED TO  visRgn INTERSECT clipRgn.
  *
@@ -463,8 +463,8 @@ struct GrafPort {
  *   custom proc is responsible for enforcing the clip (it receives the port).
  *   If NULL (defaults), the FLAIR surface module enforces the clip before
  *   calling surface_put_pixel / surface_fill_span / surface_blit.
- *   Violation of this invariant is a FAIL-LOUD panic (Rule 2) detectable by
- *   the fb-agree oracle (ADR-0004 D-8, FO-1 / AM-2).
+ *   Violation of this invariant is a FAIL-LOUD panic  detectable by
+ *   the fb-agree oracle (clipped Toolbox drawing, FO-1 / AM-2).
  * ===========================================================================*/
 
 /* ===========================================================================
@@ -514,7 +514,7 @@ _Static_assert(sizeof(((GrafPort *)0)->rgbBkColor) == 6,
                "GrafPort.rgbBkColor must be RGBColor (6 bytes; IM-V)");
 
 /* visRgn and clipRgn are pointers (not handles); pointer size on the target
- * is 4 bytes (32-bit flat, ADR-0001). On the host these checks adapt to
+ * is 4 bytes (32-bit flat, ). On the host these checks adapt to
  * sizeof(void *) so the header compiles clean on 64-bit hosts too. */
 _Static_assert(sizeof(((GrafPort *)0)->visRgn) == sizeof(void *),
                "GrafPort.visRgn must be a pointer (region_t *)");

@@ -8,7 +8,7 @@
  
 -        if (wrap_on && ch != TE_CH_SP && w + te_char_w(te, ch) > te->wrapWidth &&
 -            i > s) {
-+        /* MUTANT (Rule 6): the retired monospaced rule, wrapWidth/8 chars. */
++        /* regression patches: the retired monospaced rule, wrapWidth/8 chars. */
 +        if (wrap_on && ch != TE_CH_SP && (i - s) >= te->wrapWidth / 8 && i > s) {
              int brk = (last_break > s) ? last_break : i;
              TE_EMIT(brk);

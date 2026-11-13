@@ -7,7 +7,7 @@
  
      if (ch == FLAIR_TE_CH_LEFT) {
 -        off = (a < b) ? a : a - 1;
-+        /* MUTANT (Rule 6): a range is not collapsed -- the caret steps left of
++        /* regression patches: a range is not collapsed -- the caret steps left of
 +         * its start as if it were an insertion point. */
 +        off = a - 1;
      } else if (ch == FLAIR_TE_CH_RIGHT) {

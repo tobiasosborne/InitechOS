@@ -8,7 +8,7 @@
      want_h = *height;
 -    if (want_w < min_w) want_w = min_w;
 -    if (want_h < min_h) want_h = min_h;
-+    /* Rule-6 mutant: restore the unusable sub-chrome grow result. */
++    /* mutation checks mutant: restore the unusable sub-chrome grow result. */
      if (want_w > max_w) want_w = max_w;
      if (want_h > max_h) want_h = max_h;
      *width = (int16_t)want_w;

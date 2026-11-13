@@ -6,7 +6,7 @@
          region_set_empty(w->contRgn);
      } else {
          region_set_rect(w->contRgn, CalcDocContentRect(next));
--        /* tdnl.82: chrome paints BEFORE the client's updateEvt. Settle the
+-        /*: chrome paints BEFORE the client's updateEvt. Settle the
 -         * cached document extents now, not during Finder content painting.
 -         * Grow, zoom and unshade all take this transaction. The full new
 -         * structure is damaged below, so both bars repaint the same model

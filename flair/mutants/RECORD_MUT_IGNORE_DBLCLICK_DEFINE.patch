@@ -11,7 +11,7 @@
 -     * Preferences load before this init; seed the recording interval here
 -     * so their normal slider value cannot undo per-frame capture pacing.
 -     * The normal build retains its loaded Mouse setting (20 by default;
--     * spec/cpanels/record.json, ADR-0004 DEC-10 Platinum base era). */
+-     * spec/cpanels/record.json, clipped Toolbox drawing Platinum base Platinum base era). */
 -    flair_double_click_ticks = FINDER_DBLCLICK_TICKS;
 -#endif
      ring->head       = 0u;
@@ -25,7 +25,7 @@
 -unsigned flair_double_click_ticks=FINDER_DBLCLICK_TICKS;
 -#else
  /* Ref: spec/cpanels/record.json: normal Mouse interval is 20 ticks.
-  * RECORD_MUT_IGNORE_DBLCLICK_DEFINE restores the broken record seed only. */
+  * ignore dblclick define patch restores the broken record seed only. */
  unsigned flair_double_click_ticks=20;
 -#endif
  

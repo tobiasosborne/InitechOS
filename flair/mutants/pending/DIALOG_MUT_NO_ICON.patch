@@ -4,8 +4,8 @@
 --- a/dialog.c
 +++ b/dialog.c
 @@ -399,37 +399,10 @@
-  * reads the locked table. test-asset-lz proves decode == locked (Rule 8).
-  * The DIALOG_MUT_NO_ICON mutant stubs the only caller, so the helper is
+  * reads the locked table. test-asset-lz proves decode == locked (pinned inputs).
+  * The no icon patch mutant stubs the only caller, so the helper is
   * compiled out with it (-Werror=unused-function). */
 -#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
 -#define ASSET_LZ_ALERT

@@ -8,7 +8,7 @@
  
 -/* One-pixel corner transcription from sys8/menus.md Sec 1.2. Entries not in a
 - * row's prefix retain the sampled vertical bar profile. The right corner is the
-- * exact mirror. Values are PART names, never palette indices (DEC-09 C-8). */
+- * exact mirror. Values are PART names, never palette indices (authored teal C-8). */
 -static const uint8_t menu_corner_n[9] = { 8u, 8u, 5u, 4u, 3u, 2u, 2u, 2u, 1u };
 -static const uint8_t menu_corner_part[9][8] = {
 -    { FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME,
@@ -55,7 +55,7 @@
  
 -    rgn_rect_t top = { 0, 0, 1, (int16_t)bm->width };
 -    rgn_rect_t face = { 1, 0, (int16_t)(FLAIR_MENUBAR_H - 2),
-+    /* NAMED MUTANT: the old flat face, with neither sampled profile nor round. */
++    /* NAMED regression patches: the old flat face, with neither sampled profile nor round. */
 +    (void)bar_hl;
 +    (void)bar_shadow;
 +    rgn_rect_t flat = { 0, 0, (int16_t)(FLAIR_MENUBAR_H - 1),

@@ -1,25 +1,25 @@
 /*
  * spec/chrome_metrics.h -- C-consumable Platinum chrome metrics.
  *
- * Route-2 base re-key: ADR-0004-AMENDMENT-DEC-10 Sec 3.6.1 / Sec 4,
+ * Route-2 base re-key: clipped Toolbox drawing / Sec 4,
  * OQ-7.  Unqualified FLAIR_CHROME_* names in the re-keyed window-chrome
  * surface describe Mac OS 8.1 Platinum.  System-7 values remain compiled
  * under FLAIR_CHROME_SYS7_* (BC-10.10); explicitly out-of-scope legacy
  * metrics retain compatibility aliases below.
  *
  * Value domain: SAMPLED framebuffer values only.  Ref:
- * ../system7-decomp/specs/sys8/platinum-palette.md Sec 1 (gamma table) and
+ *../system7-decomp/specs/sys8/platinum-palette.md Sec 1 (gamma table) and
  * Sec 2 (sampled gray ramp).  Nominal values in the source corpus are
  * provenance only and never enter these constants.
  *
  * The locked JSON mirror is spec/chrome_metrics.json.  test-chrome STEP-1
  * compares the legacy consumer-facing geometry names with its native entries.
  * The independent fidelity expectations live in chrome_fidelity_golden.h and
- * are never derived from this file (CLAUDE.md Law 2 / HER-02).
+ * are never derived from this file (independent checks / HER-02).
  *
  * R1 interaction-policy additions are a DELIBERATE locked-spec act tracked by
- * bead initech-tdnl.2.  The sampled widget/grow placement remains grounded in
- * ../system7-decomp/specs/sys8/window-chrome.md Sec 3.1 and Sec 5; the zoom
+ *.  The sampled widget/grow placement remains grounded in
+ *../system7-decomp/specs/sys8/window-chrome.md Sec 3.1 and Sec 5; the zoom
  * standard-state inset and resize limits are deterministic FLAIR policy for the
  * behavior that the capture corpus leaves unresolved (Sec 8), not claimed
  * measurements.  Collapse height remains the sampled Sec 7 title band.
@@ -30,7 +30,7 @@
 /* Menu height is unchanged by this chrome re-key.
  * Ref: spec/chrome_metrics.json native.menubar_height (retained metric). */
 #define FLAIR_CHROME_MENUBAR_H 20
-/* RE-KEY2026-10-15 tdnl.70/.94: s8_menu_dropped L33, File ink43;
+/* RE-KEY2026-10-15 : s8_menu_dropped L33, File ink43;
  * 43-33-1(NFNT bearing)=9. Item53-33-1=19. Frame230-ink216=14;
  * N's1px trailing blank plus exclusive frame correction =>cmd cell pad13.
  * Apple17-art bearing2=15. Row21-frame19=2; cap23-row21=2.
@@ -43,7 +43,7 @@
 
 
 /* Platinum title band, frame-to-frame inclusive.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2.1. */
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 2.1. */
 #define FLAIR_CHROME_TITLEBAR_H             22
 #define FLAIR_CHROME_TITLE_FRAME_TOP_ROWS    1
 #define FLAIR_CHROME_TITLE_HIGHLIGHT_ROWS    1
@@ -58,9 +58,9 @@
  * centered on the whole bar; these offsets bound the centered run between the
  * close cluster and the first right-hand (zoom) cluster.  Dark stripe rows
  * shift the equal-width knockout one pixel right, matching the measured field
- * phase.  The current product font is Chicago per PRD Sec 6.4 / the R0.2 lane
+ * phase.  The current product font is Chicago per PRD Sec 6.4 / the implementation
  * ruling; Charcoal remains a recorded era substitution.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 2.2, Sec 2.3,
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 2.2, Sec 2.3,
  * Sec 3.1 (SAMPLED domain). */
 #define FLAIR_CHROME_TITLE_GAP_PAD_LEFT        6
 #define FLAIR_CHROME_TITLE_GAP_PAD_RIGHT       5
@@ -71,11 +71,11 @@
  * cell (spec/assets/chicago12.art), so the cell sits at T+6-3 = T+3. (It was 4
  * with the retired 8x16 v0 strike, whose caps began on cell row 2.) The title
  * run is the proportional Chicago 12 width; there is no title cell width any
- * more (FLAIR_CHROME_TITLE_CELL_W retired, bead initech-tdnl.33). */
+ * more (FLAIR_CHROME_TITLE_CELL_W retired, ). */
 #define FLAIR_CHROME_TITLE_TEXT_TOP_OFF        3
 #define FLAIR_CHROME_TITLE_RUN_LEFT_OFF       21
 #define FLAIR_CHROME_TITLE_RUN_RIGHT_OFF      38
-/* RE-KEYED 2026-10-15 (bead initech-tdnl.68, Rule 8 -- a stated change): an
+/* RE-KEYED 2026-10-15 (, pinned inputs -- a stated change): an
  * overlong title now ends in the Mac Roman ELLIPSIS, Chicago 12 code 0xC9 (the
  * strike carries it: NFNT 5478 lb 2 aw 14; golden-verified against the
  * "About This Macintosh..." item of s7_menu_apple.png by test-font-styles G2),
@@ -85,7 +85,7 @@
 
 /* Platinum widgets: 12x12 dark box plus white right/bottom outer highlight.
  * R is the inclusive structure-right coordinate in the measured rule.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 3.1. */
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 3.1. */
 #define FLAIR_CHROME_WIDGET_COUNT              3
 #define FLAIR_CHROME_WIDGET_BOX               12
 #define FLAIR_CHROME_WIDGET_OUTER_HIGHLIGHT    1
@@ -96,7 +96,7 @@
 #define FLAIR_CHROME_COLLAPSE_RIGHT_OFF       16
 
 /* Widget interior and glyph geometry.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 3.2 and Sec 3.3. */
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 3.2 and Sec 3.3. */
 #define FLAIR_CHROME_WIDGET_INTERIOR           9
 #define FLAIR_CHROME_WIDGET_RAMP_FACE          7
 #define FLAIR_CHROME_WIDGET_RAMP_RUNGS         7
@@ -107,9 +107,9 @@
 
 /* One-pixel outer/inner black lines enclose a four-pixel raised body bar.
  * The content inset is one pixel on each side.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 4.
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 4.
  *
- * NOTE 2026-10-16 (beads initech-tdnl.51/.52, Rule 8; NO value changed): the
+ * NOTE 2026-10-16 (, pinned inputs; NO value changed): the
  * document content rect (os/flair/window.c CalcDocContentRect) now starts at
  * L + FRAME + BODY_BAR + FRAME = L+6, just inside the left rail's inner line,
  * as top/right/bottom already stopped at their inner/scroll-bar lines. These
@@ -131,7 +131,7 @@
 
 /* Platinum scrollbar metrics.  The tile is 16 px line-to-line and has a
  * 14x14 interior; separators are one pixel and the measured minimum thumb is
- * 15 px.  Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 1. */
+ * 15 px.  Ref:../system7-decomp/specs/sys8/scrollbars.md Sec 1. */
 #define FLAIR_CHROME_SCROLLBAR_W            16
 #define FLAIR_CHROME_SCROLL_INTERIOR        14
 #define FLAIR_CHROME_SCROLL_ARROW_TILE      16
@@ -139,13 +139,13 @@
 #define FLAIR_CHROME_SCROLL_THUMB_MIN       15
 
 /* Enabled well cross-section: two dark rows, ten fill rows, two light rows.
- * Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 2.3. */
+ * Ref:../system7-decomp/specs/sys8/scrollbars.md Sec 2.3. */
 #define FLAIR_CHROME_SCROLL_WELL_SHADOW_ROWS 2
 #define FLAIR_CHROME_SCROLL_WELL_FILL_ROWS  10
 #define FLAIR_CHROME_SCROLL_WELL_LIGHT_ROWS  2
 
 /* Grow cell and grip.
- * Ref: ../system7-decomp/specs/sys8/window-chrome.md Sec 5. */
+ * Ref:../system7-decomp/specs/sys8/window-chrome.md Sec 5. */
 #define FLAIR_CHROME_GROW                   18
 #define FLAIR_CHROME_GROW_RIGHT_OFF          19
 #define FLAIR_CHROME_GROW_BOTTOM_OFF         19
@@ -156,7 +156,7 @@
  * desktop top; the standard-state frame otherwise keeps a four-pixel desktop
  * margin.  Manual grow is bounded to the native 640x480 desktop and cannot
  * shrink below a usable 96x64 frame.  Ref: GUI-remediation-plan.md R1.2;
- * window-chrome.md Sec 7/8; bead initech-tdnl.2 (locked-spec act). */
+ * window-chrome.md Sec 7/8;  (locked-spec act). */
 #define FLAIR_CHROME_ZOOM_MARGIN_LEFT          4
 #define FLAIR_CHROME_ZOOM_MARGIN_TOP          40
 #define FLAIR_CHROME_ZOOM_MARGIN_RIGHT         4
@@ -175,7 +175,7 @@
 
 /* -------------------------------------------------------------------------
  * SYSTEM-7 RETAINED GEOMETRY (BC-10.10).
- * Ref: ../system7-decomp/specs/chrome/window-frame.md Sec 2a,
+ * Ref:../system7-decomp/specs/chrome/window-frame.md Sec 2a,
  * pinstripe.md Geometry, close-zoom-box.md Geometry, grow-box.md Geometry,
  * and scrollbar.md Geometry.
  */
@@ -199,7 +199,7 @@
 /* Retained compatibility seam: these legacy spellings preserve compiled
  * System-7 heritage consumers and their old row/box algorithm. chrome.c uses
  * the Platinum profile constants above; these aliases carry no BASE meaning.
- * Ref: ADR-0004-AMENDMENT-DEC-10 Sec 3.6.1 Route 2 / OQ-7. */
+ * Ref: clipped Toolbox drawing Route 2 / OQ-7. */
 #define FLAIR_CHROME_TITLE_BEVEL_ROWS   1
 #define FLAIR_CHROME_TITLE_STRIPE_ROWS 15
 #define FLAIR_CHROME_WBOX_DELTA        13
@@ -253,7 +253,7 @@
  * SYSTEM-7 RETAINED RGB BLOCKS (BC-10.10).
  * These remain compiled and era-visible with their original source groups.
  */
-/* Original citation: ../system7-decomp/specs/chrome/pinstripe.md Rendered
+/* Original citation:../system7-decomp/specs/chrome/pinstripe.md Rendered
  * colors, s7_doc_window.png x=450 y=165..181, era-stable mint-results-005. */
 #define FLAIR_CHROME_SYS7_PINSTRIPE_LIGHT_R 243
 #define FLAIR_CHROME_SYS7_PINSTRIPE_LIGHT_G 243
@@ -268,7 +268,7 @@
 #define FLAIR_CHROME_SYS7_BEVEL_BOTTOM_G 179
 #define FLAIR_CHROME_SYS7_BEVEL_BOTTOM_B 218
 
-/* Original citation: ../system7-decomp/specs/chrome/close-zoom-box.md
+/* Original citation:../system7-decomp/specs/chrome/close-zoom-box.md
  * Rendered colors, s7_doc_window.png and the mint-004 pressed captures. */
 #define FLAIR_CHROME_SYS7_BOX_DARK_R 84
 #define FLAIR_CHROME_SYS7_BOX_DARK_G 84
@@ -283,7 +283,7 @@
 #define FLAIR_CHROME_SYS7_BOX_PRESSED_G 179
 #define FLAIR_CHROME_SYS7_BOX_PRESSED_B 218
 
-/* Original citation: ../system7-decomp/specs/chrome/grow-box.md Rendered
+/* Original citation:../system7-decomp/specs/chrome/grow-box.md Rendered
  * colors, s7_growbox.png (mint-004), era-stable mint-results-005. */
 #define FLAIR_CHROME_SYS7_GROW_GROUND_R 243
 #define FLAIR_CHROME_SYS7_GROW_GROUND_G 243
@@ -298,7 +298,7 @@
 #define FLAIR_CHROME_SYS7_GROW_FILL_G 192
 #define FLAIR_CHROME_SYS7_GROW_FILL_B 192
 
-/* Original citation: ../system7-decomp/specs/chrome/scrollbar.md Rendered
+/* Original citation:../system7-decomp/specs/chrome/scrollbar.md Rendered
  * colors, s7_scrollbar_active.png (mint-004). */
 #define FLAIR_CHROME_SYS7_THUMB_LIGHT_R 218
 #define FLAIR_CHROME_SYS7_THUMB_LIGHT_G 218

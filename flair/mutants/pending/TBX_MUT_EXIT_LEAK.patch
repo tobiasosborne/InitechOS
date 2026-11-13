@@ -8,7 +8,7 @@
          tputs(" live="); tputu(tbxf_live(&g_slot.files)); tputs("\n");
      }
 -    flair_free(g_host.master, FLAIR_CLASS_GENERAL, g_slot.block);
-+    /* MUTANT TBX_MUT_EXIT_LEAK (Rule 6; test-flair-app-launch-mutant): the
++    /* regression patches exit leak patch (mutation checks; test-flair-app-launch-mutant): the
 +     * code block is never returned, so every launch/exit cycle bumps a fresh
 +     * one and TENANT-HEAPAVAIL drifts DOWN (the O-3 avail-stable invariant goes
 +     * RED). NEVER in a real build. */

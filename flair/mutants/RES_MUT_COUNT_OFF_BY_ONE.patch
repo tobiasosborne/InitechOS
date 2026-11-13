@@ -7,7 +7,7 @@
      uint16_t ntypes = m->n_types;          /* = numTypes-1 + 1 (decoded in load) */
  
 -    uint16_t limit = ntypes;
-+    /* MUTANT: iterate (numTypes-1) entries instead of numTypes -> the LAST type
++    /* regression patches: iterate (numTypes-1) entries instead of numTypes -> the LAST type
 +     * is never visited. Proves the count-1 decode (+1) is load-bearing. */
 +    uint16_t limit = (ntypes > 0u) ? (uint16_t)(ntypes - 1u) : 0u;
  

@@ -1,18 +1,18 @@
 /*
  * harness/render/render.c -- the FLAIR host-render skeleton (FACTORY, host-only).
  *
- * beads: initech-k8o5.7. See render.h for the full contract + Law-3 separation.
+ *. See render.h for the full contract + separation of product C from host tools.
  *
  * This is FACTORY code (libc allowed). It builds a render context from
  * caller-supplied LFB geometry (a fake boot_info -- AM-1/FO-C: NO hardcoded
  * aperture), backs an offscreen bitmap_t + region storage from a FLAIR arena,
  * opens a GrafPort over the offscreen, runs an artifact draw program against it,
- * and dumps a deterministic P6 PPM (Rule 11). It supports 8bpp (indexed-8, the
- * canonical OD-2 depth) and 32bpp (direct XRGB8888) -- the two modes k8o5.7 names.
+ * and dumps a deterministic P6 PPM. It supports 8bpp (indexed-8, the
+ * canonical OD-2 depth) and 32bpp (direct XRGB8888) -- the two modes names.
  *
- * Ref: ADR-0004 D-1/D-2/D-8, AM-1/FO-C; spec/grafport.h, spec/imaging.h,
+ * Ref: clipped Toolbox drawing/D-2/D-8, AM-1/FO-C; spec/grafport.h, spec/imaging.h,
  *      os/flair/surface.h, os/flair/heap.h, spec/region_algebra.h,
- *      spec/assets/palette.h. CLAUDE.md Law 2, Law 3, Rule 11, Rule 12.
+ *      spec/assets/palette.h. independent checks, language boundary, reproducibility, ASCII source.
  */
 
 #include <stdint.h>
@@ -33,7 +33,7 @@
  * The deterministic indexed-8 render palette.
  *
  * 8bpp offscreens store palette indices; the PPM and the RGB accessor map them
- * through this fixed ramp. It is byte-stable (Rule 11). Named indices:
+ * through this fixed ramp. It is byte-stable. Named indices:
  *
  *   0  black            (frame lines / ink)
  *   1  window white     (body fill; spec/assets/palette.h WINDOW_WHITE)
@@ -59,7 +59,7 @@
  * System-7 pinstripe, with the gray ramp for idx>=9. This factory skeleton and
  * the artifact (chrome/control/dialog) now resolve the index->pixel map through
  * the SAME accessor, so 8bpp and 32bpp render identically and fb-agree holds
- * (ADR-0004-AMENDMENT-DEC-09 ARB-1). RENDER_DESKTOP_INDEX stays 2 (CIDX_DESKTOP). */
+ * (clipped Toolbox drawing ARB-1). RENDER_DESKTOP_INDEX stays 2 (CIDX_DESKTOP). */
 uint32_t render_palette_rgb(uint8_t index)
 {
     return flair_canon_rgb(index);
@@ -80,7 +80,7 @@ int render_ctx_init(render_ctx_t *ctx, const render_boot_info_t *boot)
     memset(ctx, 0, sizeof(*ctx));
     ctx->boot = *boot;
 
-    /* The two modes k8o5.7 names: indexed-8 (OD-2) and direct 32bpp. */
+    /* The two modes names: indexed-8 (OD-2) and direct 32bpp. */
     if (boot->lfb_bpp != 8u && boot->lfb_bpp != 32u) {
         return 2;
     }
@@ -98,7 +98,7 @@ int render_ctx_init(render_ctx_t *ctx, const render_boot_info_t *boot)
     }
 
     /* The offscreen pixel buffer: pitch * height bytes. Initialized to the
-     * DESKTOP background (a deterministic blank canvas, Rule 11) -- NOT zero,
+     * DESKTOP background (a deterministic blank canvas, reproducibility) -- NOT zero,
      * because index 0 is black ink (frame/box borders); a black-on-black canvas
      * would make a drawn frame indistinguishable from the bare desktop. An
      * authentic System-7 desktop is gray/seafoam, never black (gui-ground-truth
@@ -215,7 +215,7 @@ void render_run(render_ctx_t *ctx, render_draw_fn draw)
     if (ctx == NULL || draw == NULL) {
         return;
     }
-    /* The kernel's SetPort(myPort); draw(); discipline -- the offscreen GrafPort
+    /* The kernel's SetPort(myPort); draw; discipline -- the offscreen GrafPort
      * is the current port for the duration of the draw program. */
     draw(&ctx->port);
 }
@@ -266,7 +266,7 @@ int render_write_ppm(const render_ctx_t *ctx, const char *path)
     uint32_t w = ctx->fb.bm.width;
     uint32_t h = ctx->fb.bm.height;
 
-    /* No timestamp, no comment -- byte-identical across runs (Rule 11). */
+    /* No timestamp, no comment -- byte-identical across runs. */
     if (fprintf(f, "P6\n%u %u\n255\n", w, h) < 0) {
         fclose(f);
         return 3;

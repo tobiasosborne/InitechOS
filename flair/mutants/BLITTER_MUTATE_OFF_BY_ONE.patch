@@ -6,7 +6,7 @@
      for (uint16_t k = 0; k + 1 < r->x_count; k += 2) {
          int sx0 = r->x[k];
          int sx1 = r->x[k + 1];
-+        sx1 = sx1 + 1;                           /* MUTANT: right edge inclusive */
++        sx1 = sx1 + 1;                           /* regression patches: right edge inclusive */
          int lo = sx0 > col_lo ? sx0 : col_lo;   /* max(span.lo, interval.lo)   */
          int hi = sx1 < col_hi ? sx1 : col_hi;   /* min(span.hi, interval.hi)   */
          if (lo < 0) {
@@ -14,7 +14,7 @@
      for (uint16_t k = 0; k + 1 < r->x_count; k += 2) {
          int sx0 = r->x[k];
          int sx1 = r->x[k + 1];
-+        sx1 = sx1 + 1;                           /* MUTANT: right edge inclusive */
++        sx1 = sx1 + 1;                           /* regression patches: right edge inclusive */
          int lo = sx0 > col_lo ? sx0 : col_lo;
          int hi = sx1 < col_hi ? sx1 : col_hi;
          if (lo < 0) {

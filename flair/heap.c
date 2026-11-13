@@ -1,20 +1,20 @@
 /*
  * os/flair/heap.c -- the FLAIR Toolbox heap allocator (the artifact).
  *
- * beads: initech-k8o5.5 (DEC-03 allocator deliverable). See heap.h for the full
+ *  (arena lifetime allocator deliverable). See heap.h for the full
  *        model, the class set, and the Law/ADR/PRD citations.
- * Ref:   ADR-0004 Sec 8.1 DEC-03 *Allocator*; spec/memory_map.h (the LOCKED
+ * Ref:   clipped Toolbox drawing arena lifetime *Allocator*; spec/memory_map.h (the LOCKED
  *        FLAIR_HEAP_BASE/SIZE window the kernel binds via flair_heap_init);
  *        PRD Sec 5 ("bump + free-list allocator").
- *        CLAUDE.md Law 2 (the oracle -- harness/proptest/test_flair_heap.c -- is
- *        the truth), Rule 2 (fail loud: NULL on exhaustion, bounds-checked,
- *        never silent truncation/wrap), Rule 11 (deterministic layout), Rule 12
+ *        independent checks (the oracle -- harness/proptest/test_flair_heap.c -- is
+ *        the truth), explicit error handling (fail loud: NULL on exhaustion, bounds-checked,
+ *        never silent truncation/wrap), reproducibility (deterministic layout), ASCII source
  *        (ASCII).
  *
  * Freestanding: <stdint.h> only, no libc, no malloc. Dual-compiles under kernel
- * flags AND hosted (Law 3). The property suite is the oracle (Law 2); two named
- * mutants (FLAIR_HEAP_MUTATE_NO_BOUNDS, FLAIR_HEAP_MUTATE_NO_REUSE) prove it
- * BITES (Rule 6) -- NEVER define either in a real build.
+ * flags AND hosted. The property suite is the oracle; two named
+ * mutants (no bounds patch, no reuse patch) prove it
+ * BITES  -- NEVER define either in a real build.
  */
 #include "heap.h"
 
@@ -22,7 +22,7 @@
  * payload pointer (header end) is itself 16-aligned. The block header is small
  * (two u32 + one pointer); rounding makes the layout alignment-exact regardless
  * of pointer width (4 bytes freestanding, 8 hosted) -- which keeps the host
- * oracle and the kernel layout in the SAME alignment class (Rule 11). */
+ * oracle and the kernel layout in the SAME alignment class. */
 #define FLAIR_HEAP_HDR_BYTES \
     ((uint32_t)((sizeof(flair_blk_t) + (FLAIR_HEAP_ALIGN - 1u)) \
                 & ~(uint32_t)(FLAIR_HEAP_ALIGN - 1u)))
@@ -60,7 +60,7 @@ static flair_blk_t *flair_hdr_of(uint8_t *payload)
 
 /* Is `payload` a plausible block this heap returned? It must lie inside the
  * window, leave room for its header below it, and be 16-aligned. This is the
- * bounds + sanity guard for flair_free (Rule 2). */
+ * bounds + sanity guard for flair_free. */
 static int flair_payload_in_window(const flair_heap_t *heap, const uint8_t *payload)
 {
     uintptr_t b   = (uintptr_t)heap->base;
@@ -84,8 +84,8 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size)
     if (size == 0u || !flair_class_ok(klass)) {
         return (void *)0;                         /* bad request -> fail loud     */
     }
-    /* r081/5l5n: both the alignment addition AND the header span must fit.
-     * Ref: heap.h DEC-03 bounds contract; reject before any arena mutation. */
+    /* both the alignment addition AND the header span must fit.
+     * Ref: heap.h arena lifetime bounds contract; reject before any arena mutation. */
     if (size > UINT32_MAX - (FLAIR_HEAP_ALIGN - 1u)) return (void *)0;
 
     uint32_t need = flair_align_up(size);         /* aligned payload bytes        */
@@ -96,7 +96,7 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size)
      *      REGION block can never satisfy a BITMAP request. -------------------*/
     {
         flair_blk_t *blk = heap->freelist[klass];
-        /* zhjo: DEC-03 specifies head-only LIFO, not first-fit search. */
+        /* arena lifetime specifies head-only LIFO, not first-fit search. */
         if (blk != (flair_blk_t *)0 && blk->cap >= need) {
             heap->freelist[klass] = blk->next;
             blk->next = (flair_blk_t *)0;
@@ -109,7 +109,7 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size)
     {
         uint32_t span = FLAIR_HEAP_HDR_BYTES + need;
         /* Overflow-safe fit test: compute remaining tail, compare without
-         * adding into a possibly-wrapping sum (Rule 2 -- no wrap). */
+         * adding into a possibly-wrapping sum (explicit error handling -- no wrap). */
         uint32_t avail = (heap->size > heap->used)
                        ? (heap->size - heap->used) : 0u;
         if (span > avail) {
@@ -130,7 +130,7 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size)
 int flair_free(flair_heap_t *heap, flair_class_t klass, void *ptr)
 {
     if (ptr == (void *)0 || !flair_class_ok(klass)) {
-        return 0;                                 /* bad free -> reject (Rule 2)  */
+        return 0;                                 /* bad free -> reject   */
     }
     if (!flair_payload_in_window(heap, (const uint8_t *)ptr)) {
         return 0;                                 /* not a block we handed out    */
@@ -138,7 +138,7 @@ int flair_free(flair_heap_t *heap, flair_class_t klass, void *ptr)
 
     flair_blk_t *blk = flair_hdr_of((uint8_t *)ptr);
 
-    /* CLASS-MATCH guard (Rule 2): the block records its own class at bump time;
+    /* CLASS-MATCH guard: the block records its own class at bump time;
      * a free with the wrong class is rejected so a cross-class free can never
      * poison the wrong free-list (which would later hand a REGION block to a
      * BITMAP request -- a class-isolation violation). */

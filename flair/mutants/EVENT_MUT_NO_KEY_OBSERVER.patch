@@ -2,7 +2,7 @@
 # test: test_event
 --- a/event.c
 +++ b/event.c
-@@ -451,8 +451,6 @@
+@@ -462,8 +462,6 @@
          uint8_t  ascii     = 0u;
          uint16_t vkey;
  

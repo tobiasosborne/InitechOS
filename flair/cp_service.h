@@ -1,4 +1,4 @@
-/* R4.5, tdnl.19. Included by tbxgate.c: small privileged adapters, no UI.
+/* R4.5,. Included by tbxgate.c: small privileged adapters, no UI.
  * Ref: spec/cpanels_record.h; int21.c AH=2A..2D; About's int21_mcb_stats;
  * event.c raw delta synthesis; finder_desktop.c click tracker; desktop.c.
  * Speaker: IBM PC/AT channel2 data42, control43, mode B6, port61 bits0/1;

@@ -4,7 +4,7 @@
 +++ b/chrome.c
 @@ -648,6 +648,7 @@
  
-     /* h6y1 Rule-6 perturbations. Default art remains the independent
+     /* mutation checks perturbations. Default art remains the independent
       * Mac OS 8.1 cell (sys8/window-chrome.md Sec 5/6), not System-7 art. */
 +    return;
  

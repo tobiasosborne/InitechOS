@@ -1,4 +1,4 @@
-/* initech-2gva: equality, NOT a new color-value oracle (ADR-0010 CD-5).
+/*: equality, NOT a new color-value oracle (independent reference checks CD-5).
  * The generated hardware table must agree at EVERY index with the locked
  * color_canon.json accessor. test-color-canon / test-clut independently grade
  * those locked values against the decomp binaries. No hand-kept index list.

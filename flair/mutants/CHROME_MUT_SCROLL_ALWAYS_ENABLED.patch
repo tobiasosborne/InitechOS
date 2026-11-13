@@ -7,8 +7,8 @@
                                      ? &ws->axis[axis] : (const WindowScrollAxis *)0;
      rgn_rect_t bar = wscroll_bar_rect(frame, axis);
 -    st->enabled = wscroll_enabled(a);
-+    /* MUTANT (Rule 6; test-chrome-fidelity SCROLL-DISABLED leg): the pre-
-+     * tdnl.35 composition -- every active gutter draws the ENABLED anatomy
++    /* regression patches (mutation checks; test-chrome-fidelity SCROLL-DISABLED leg): the pre-
++     *  composition -- every active gutter draws the ENABLED anatomy
 +     * even when nothing can scroll. NEVER in a real build. */
 +    st->enabled = 1;
      st->thumb = (a != (const WindowScrollAxis *)0 && a->drag_pos >= 0)

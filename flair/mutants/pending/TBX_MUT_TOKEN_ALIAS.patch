@@ -7,7 +7,7 @@
      if (g_slot.app == 0 || g_slot.exit_req || tok < 1u || tok > g_slot.nwins)
          return 0;
      g_slot.win = g_slot.wins[tok - 1u];
-+    g_slot.win = g_slot.wins[0]; /* Rule6: second token paints first window */
++    g_slot.win = g_slot.wins[0]; /* mutation checks: second token paints first window */
      return 1;
  }
  

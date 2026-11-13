@@ -1,15 +1,15 @@
 /*
  * os/flair/list.c -- FLAIR List Manager implementation (first cut).
  *
- * beads:  initech-77dj (FLAIR Phase 4.5 -- List Manager).
+ *  (FLAIR Phase 4.5 -- List Manager).
  * Ref:    list-manager.md Sec 1-5; list.h (types + API contract).
- *         CLAUDE.md Law 1 (ground truth), Law 3 (artifact C, freestanding),
- *         Rule 1 (RED->GREEN->Refactor), Rule 2 (fail-loud, no silent
- *         truncation), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *         source provenance (ground truth), language boundary (artifact C, freestanding),
+ *          (RED->GREEN->Refactor), explicit error handling (fail-loud, no silent
+ *         truncation), deterministic output, ASCII source.
  *
- * MUTANT COVERAGE (CLAUDE.md Rule 6 -- each mutant must compile and go RED):
+ * regression patches COVERAGE (mutation checks -- each mutant must compile and go RED):
  *
- *   LIST_MUT_CELL_INDEX_SWAP
+ *   cell index swap patch
  *     In FlairLSetCell: index the store as cells[c.h][c.v] (COL-major) instead
  *     of cells[c.v][c.h] (ROW-major canonical).  FlairLGetCell is NOT mutated:
  *     it always reads the canonical [row][col] location.  The write goes to the
@@ -17,13 +17,13 @@
  *     Detects at: oracle step 2, FlairLGetCell((0,2)) expects "Trash" (5 bytes)
  *     but the cell at cells[2][0] was never written -> returns 0 bytes -> RED.
  *
- *   LIST_MUT_HIT_OFFBYONE
+ *   hit offbyone patch
  *     In FlairLClick: omit the rView.top / rView.left subtraction from the
  *     pixel->cell computation.  The hit maps to a different row.
  *     Detects at: oracle step 4, localPt=(15,38) should map to (h=0,v=1) but
  *     maps to (h=0,v=2) (38/16=2 vs (38-20)/16=1) -> hit.v==2 != 1 -> RED.
  *
- *   LIST_MUT_NO_DESELECT
+ *   no deselect patch
  *     In FlairLClick: with lOnlyOne set, skip the deselect-all loop.  The
  *     previously-selected cell is not cleared.
  *     Detects at: oracle step 5, after clicking (0,2), FlairLGetSelect((0,0))
@@ -33,7 +33,7 @@
  * (via list.h -> grafport.h / region_algebra.h).  Dual-compiles for the host
  * oracle and -m32 -ffreestanding -nostdlib kernel type-check.
  *
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean. Deterministic.
  */
 #include <stdint.h>
 #include <stddef.h>
@@ -41,7 +41,7 @@
 #include "list.h"
 
 /* --------------------------------------------------------------------------
- * Freestanding helpers -- no libc, no string.h (Law 3).
+ * Freestanding helpers -- no libc, no string.h.
  * -------------------------------------------------------------------------- */
 
 /* list_memset: fill n bytes at dst with val. */
@@ -90,7 +90,7 @@ void FlairList_init(FlairList *l, Cell cellSize, rgn_rect_t rView)
 {
     if (!l) return;
 
-    /* Zero the entire record for deterministic initial state (Rule 11).
+    /* Zero the entire record for deterministic initial state.
      * This clears cells[], cell_len[], selected[], all bounds, and selFlags. */
     list_memset(l, 0, sizeof(*l));
 
@@ -122,13 +122,13 @@ int FlairLAddRow(FlairList *l, int16_t count, int16_t afterRow)
     if (!l) return FLAIR_LIST_ERR_NULL;
     if (count <= 0) return FLAIR_LIST_OK; /* no-op for zero count */
 
-    /* 8mip: validate in the wider type BEFORE narrowing (Rule 2). */
+    /* validate in the wider type BEFORE narrowing. */
     cur_rows = (int32_t)l->dataBounds.bottom - l->dataBounds.top;
     new_rows = cur_rows + count;
 
     if (new_rows > FLAIR_LIST_MAX_ROWS) return FLAIR_LIST_ERR_OVERFLOW;
     /* The store is indexed by absolute cell coordinates (list.h Sec 3).
-     * 42dq: an empty column range still needs one actual backing column. */
+     * an empty column range still needs one actual backing column. */
     if (l->dataBounds.left < 0 || l->dataBounds.left >= FLAIR_LIST_MAX_COLS)
         return FLAIR_LIST_ERR_OVERFLOW;
 
@@ -180,7 +180,7 @@ int16_t FlairLGetCell(const FlairList *l, void *buf, int16_t bufsz, Cell c)
     if (!cell_in_bounds(l, c)) return (int16_t)FLAIR_LIST_ERR_BOUNDS;
 
     /* Always reads the canonical [row][col] = [c.v][c.h] location.
-     * NOT wrapped in LIST_MUT_CELL_INDEX_SWAP -- the mutation is in
+     * NOT wrapped in cell index swap patch -- the mutation is in
      * FlairLSetCell only, making it detectable: write goes to [c.h][c.v]
      * but read comes from [c.v][c.h]. */
     actual_len = l->cell_len[c.v][c.h];
@@ -190,7 +190,7 @@ int16_t FlairLGetCell(const FlairList *l, void *buf, int16_t bufsz, Cell c)
     }
 
     if (bufsz < (int16_t)actual_len) {
-        return (int16_t)FLAIR_LIST_ERR_BUF; /* never partial-copy (Rule 2) */
+        return (int16_t)FLAIR_LIST_ERR_BUF; /* never partial-copy  */
     }
 
     list_memcpy(buf, l->cells[c.v][c.h], (size_t)actual_len);

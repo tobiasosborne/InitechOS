@@ -6,7 +6,7 @@
       *      REGION block can never satisfy a BITMAP request. -------------------*/
      {
          flair_blk_t *blk = heap->freelist[klass];
--        /* zhjo: DEC-03 specifies head-only LIFO, not first-fit search. */
+-        /* arena lifetime specifies head-only LIFO, not first-fit search. */
 -        if (blk != (flair_blk_t *)0 && blk->cap >= need) {
 -            heap->freelist[klass] = blk->next;
 -            blk->next = (flair_blk_t *)0;

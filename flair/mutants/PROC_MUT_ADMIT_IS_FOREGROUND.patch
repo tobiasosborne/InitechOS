@@ -15,8 +15,8 @@
 -        app->nextApp          = list->head->nextApp;
 -        list->head->nextApp   = app;
 -    }
-+    /* MUTANT PROC_MUT_ADMIT_IS_FOREGROUND (Rule 6; test-flair-routing-mutant
-+     * leg A): the pre-tdnl.14 registration -- the windowless tenant is linked
++    /* regression patches admit is foreground patch (mutation checks; test-flair-routing-mutant
++     * leg A): the pre- registration -- the windowless tenant is linked
 +     * at the HEAD as the foreground (FlairProcess_launch step (f)), so the
 +     * Finder's keystrokes and band 2 belong to an app with no window. NEVER in
 +     * a real build. */

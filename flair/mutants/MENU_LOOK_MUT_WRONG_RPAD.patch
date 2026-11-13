@@ -4,7 +4,7 @@
 +++ b/include/menu.h
 @@ -127,7 +127,7 @@
  /* The command column is the period-plausible "^X" substitution (2 chars),
-  * measured proportionally per item (menu.c cmd_run_w; initech-tdnl.33). */
+  * measured proportionally per item (menu.c cmd_run_w; ). */
  #define FLAIR_MENU_CMD_CHARS      2   /* period-plausible "^X" substitution     */
 -#define FLAIR_MENU_CMD_RPAD      FLAIR_CHROME_MENU_CMD_RPAD
 +#define FLAIR_MENU_CMD_RPAD      16

@@ -4,12 +4,12 @@
 +++ b/dialog.c
 @@ -965,9 +965,8 @@
      /* --- Canonical FILE COPY message string.
-      * Law 4 (PRD Sec 6.5 / Appendix A): MUST be byte-exact.
-      * DIALOG_MUTATE_FILECOPY_MSG: substitutes a wrong string (oracle RED). */
+      * film canon (PRD Sec 6.5 / Appendix A): MUST be byte-exact.
+      * filecopy msg patch: substitutes a wrong string (oracle RED). */
 -    static const char *canon_msg = FLAIR_CANON_FILECOPY_MSG;
 -    /* Ref: PRD Sec 6.5 / Appendix A -- Office Space frame canon;
 -     *      do NOT paraphrase */
-+    /* NAMED MUTANT: wrong message string -> oracle MUST go RED (Law 4). */
++    /* NAMED regression patches: wrong message string -> oracle MUST go RED. */
 +    static const char *canon_msg = "Saving tables to disk";   /* truncated! */
  
      /* --- Dialog bounds (global coords). */

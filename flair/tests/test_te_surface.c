@@ -1,6 +1,6 @@
 /*
  * harness/proptest/test_te_surface.c -- the PROPERTY SUITE of FLAIR TextEdit's
- * editing surface (factory C; bead initech-tdnl.16, R4.2 InitechText).
+ * editing surface (factory C;, R4.2 InitechText).
  *
  * WHAT IS UNDER TEST. os/flair/textedit.c as a SimpleText-alike drives it:
  * typing, Backspace, the four arrows, click / shift-click / drag selection
@@ -9,9 +9,9 @@
  * the non-panicking capacity probe FlairTECanReplace -- in Geneva 9 (txFont 1,
  * the InitechText face), word wrap on.
  *
- * THE ORACLE IS A REFERENCE IMPLEMENTATION (Law 2 -- never by construction):
+ * THE ORACLE IS A REFERENCE IMPLEMENTATION (independent checks -- never by construction):
  * a separate, deliberately naive model written from the RULES in textedit.h
- * "THE EDITING SURFACE" and ../system7-decomp/specs/toolbox/textedit.md Sec 2 /
+ * "THE EDITING SURFACE" and../system7-decomp/specs/toolbox/textedit.md Sec 2 /
  * Sec 4 (half-open selection; CR ends a line, the next starts past it; greedy
  * word wrap in pixels, a space never starts a wrap and hangs, a too-long word
  * hard-breaks before the char that does not fit). It shares NO code with
@@ -38,17 +38,17 @@
  * Hand literals (the anchor the random suite hangs off): "aim" widths 0 6 10
  * 18; "a\rw" offset 1 is before the CR, line 1 starts at 2.
  *
- * Mutants (Rule 6; -D on textedit.c, test-te-surface-mutant), each RED for
+ * Mutants (mutation checks; -D on textedit.c, test-te-surface-mutant), each RED for
  * its named reason (the suite prints "RED-REASON <tag>" on the first miss):
- *   TE_MUT_HIT_FLOOR          the char under the point, not the nearest
+ *   hit floor patch          the char under the point, not the nearest
  *                             boundary                          -> hit
- *   TE_MUT_HIT_PAST_CR        the caret reaches past a line's CR -> cr
- *   TE_MUT_ARROW_NO_COLLAPSE  left arrow over a range does not collapse
+ *   hit past cr patch        the caret reaches past a line's CR -> cr
+ *   arrow no collapse patch  left arrow over a range does not collapse
  *                                                               -> arrow
- *   TE_MUT_EXTEND_ANCHOR      shift-click always anchors selStart -> extend
- *   TE_MUT_PROBE_NO_LINES     the probe ignores the line cap     -> probe
+ *   extend anchor patch      shift-click always anchors selStart -> extend
+ *   probe no lines patch     the probe ignores the line cap     -> probe
  *
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean. Deterministic.
  */
 #include <stdint.h>
 #include <stdio.h>

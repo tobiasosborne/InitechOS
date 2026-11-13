@@ -8,7 +8,7 @@
  
 -#define CURSOR_HOT_X ((int)g_cursor_shape->hot_col)
 -#define CURSOR_HOT_Y ((int)g_cursor_shape->hot_row)
-+/* Rule-6 knob: +3,+3 off the locked hotspot. */
++/* mutation checks knob: +3,+3 off the locked hotspot. */
 +#define CURSOR_HOT_X ((int)g_cursor_shape->hot_col + 3)
 +#define CURSOR_HOT_Y ((int)g_cursor_shape->hot_row + 3)
  

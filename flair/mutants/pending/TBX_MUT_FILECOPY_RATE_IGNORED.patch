@@ -32,7 +32,7 @@
 -    if (rate < (int32_t)TBX_FILECOPY_RATE_MIN || rate > (int32_t)TBX_FILECOPY_RATE_MAX)
 -        return TBX_ERR_BADARG;
 -    return rate;
-+    /* NAMED MUTANT (Rule 6; test-flair-file-copy-mutant): the configured
++    /* NAMED regression patches (mutation checks; test-flair-file-copy-mutant): the configured
 +     * PROGRESS_BAR_RATE is never read -- a compiled-in 100 %/s. */
 +    return 100;
  }

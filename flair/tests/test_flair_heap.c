@@ -1,18 +1,18 @@
 /* test_flair_heap.c -- the FLAIR Toolbox heap allocator's property suite (ORACLE).
  *
- * beads: initech-k8o5.5 (DEC-03 allocator deliverable).
- * Ref:   ADR-0004 Sec 8.1 DEC-03 *Allocator*: "one FLAIR-owned flat arena ...
- *        bump-pointer for allocation, typed free-list per allocation class ...
- *        NO per-row/per-handle malloc (Rule 11 deterministic layout) ...
- *        fail-loud (Rule 2) on exhaustion -- never silent truncation."
+ *  (arena lifetime allocator deliverable).
+ * Ref:   clipped Toolbox drawing arena lifetime *Allocator*: "one FLAIR-owned flat arena...
+ *        bump-pointer for allocation, typed free-list per allocation class...
+ *        NO per-row/per-handle malloc (reproducibility deterministic layout)...
+ *        fail-loud  on exhaustion -- never silent truncation."
  *        spec/memory_map.h (the LOCKED FLAIR_HEAP_BASE/SIZE window the kernel
  *        binds; here the host backs the heap with a malloc'd buffer -- the
  *        caller-supplied-storage / dual-compile pattern).
- *        CLAUDE.md Law 2 (the oracle is the truth), Rule 1 (RED->GREEN), Rule 6
- *        (oracle mutation-proven), Rule 11 (seeded LCG -> deterministic), Rule 12
+ *        independent checks (the oracle is the truth),  (RED->GREEN), mutation checks
+ *        (oracle mutation-proven), reproducibility (seeded LCG -> deterministic), ASCII source
  *        (ASCII).
  *
- * This is the test_mcb.c / test_region.c idiom: TEST_HARNESS()/CHECK, a seeded
+ * This is the test_mcb.c / test_region.c idiom: TEST_HARNESS/CHECK, a seeded
  * LCG so the fuzz is reproducible, host-side (malloc the arena backing; the
  * ALLOCATOR itself does NO host malloc). It links the SAME heap.c the kernel
  * links freestanding.
@@ -32,8 +32,8 @@
  *   bytes are ever stomped by unrelated alloc/free traffic, and every returned
  *   payload is disjoint from every other live payload.
  *
- * Mutation-proven via make test-flair-heap-mutant (FLAIR_HEAP_MUTATE_NO_BOUNDS,
- * FLAIR_HEAP_MUTATE_NO_REUSE) -- each must drive THIS oracle RED.
+ * Mutation-proven via make test-flair-heap-mutant (no bounds patch,
+ * no reuse patch) -- each must drive THIS oracle RED.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -54,7 +54,7 @@ enum { HEAP_BYTES = 256u * 1024u };
 /* Make a fresh heap over a poisoned malloc'd buffer (poison so an out-of-window
  * write or an uninitialized-read bug would be visible). The buffer is 16-aligned
  * by construction (malloc returns at least 16-aligned on the host, and we assert
- * it). Returns the backing buffer via *out_buf for free(). */
+ * it). Returns the backing buffer via *out_buf for free. */
 static void heap_make(flair_heap_t *h, uint8_t **out_buf, uint32_t bytes)
 {
     uint8_t *buf = (uint8_t *)malloc(bytes);
@@ -70,7 +70,7 @@ static void heap_make(flair_heap_t *h, uint8_t **out_buf, uint32_t bytes)
     *out_buf = buf;
 }
 
-/* ---- a deterministic LCG so the fuzz is reproducible (Rule 11) ----------- */
+/* ---- a deterministic LCG so the fuzz is reproducible  ----------- */
 static uint32_t g_seed = 0x1234567u;
 static uint32_t lcg(void)
 {
@@ -130,7 +130,7 @@ static void replay(const struct step *script, int n, uintptr_t *offs)
 
 int main(void)
 {
-    /* ADR-0004 DEC-03: overflow rejection leaves the arena unchanged. */
+    /* clipped Toolbox drawing arena lifetime: overflow rejection leaves the arena unchanged. */
     {
         flair_heap_t h; uint8_t *buf; heap_make(&h, &buf, HEAP_BYTES);
         CHECK(flair_alloc(&h, FLAIR_CLASS_GENERAL, UINT32_MAX) == NULL,
@@ -231,7 +231,7 @@ int main(void)
         free(buf);
     }
 
-    /* ===== Property 3b: cross-class FREE is rejected (Rule 2 guard). ====== */
+    /* ===== Property 3b: cross-class FREE is rejected (explicit error handling guard). ====== */
     {
         flair_heap_t h; uint8_t *buf; heap_make(&h, &buf, HEAP_BYTES);
         void *s = flair_alloc(&h, FLAIR_CLASS_STRIKE, 48u);
@@ -259,8 +259,8 @@ int main(void)
          * GUARD bytes past the window are real, mapped host memory so that a
          * NO_BOUNDS mutant (which hands out an over-window pointer) can be caught
          * by the in-window CHECK *before* any write -- a clean oracle RED, not a
-         * SEGV (Rule 1: fail for the RIGHT reason, via the oracle). The GUARD
-         * region is sentinel-filled and asserted untouched (no overrun, Rule 2).
+         * SEGV (: fail for the RIGHT reason, via the oracle). The GUARD
+         * region is sentinel-filled and asserted untouched (no overrun, explicit error handling).
          * In a correct build the allocator NEVER hands out a block past SMALL, so
          * nothing ever writes into the GUARD. */
         enum { SMALL = 4096u, GUARD = 64u * 1024u };

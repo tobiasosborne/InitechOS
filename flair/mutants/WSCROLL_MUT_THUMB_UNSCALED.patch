@@ -7,7 +7,7 @@
      if (v < 0) v = 0;
      if (v > a->max) v = a->max;
 -    return lo + (int)((int32_t)v * (int32_t)span / (int32_t)a->max);
-+    /* MUTANT (Rule 6; test-winscroll): the thumb ignores the range -- one
++    /* regression patches (mutation checks; test-winscroll): the thumb ignores the range -- one
 +     * value unit per pixel, the pre-proportional-mapping slip. NEVER real. */
 +    return lo + (v > span ? span : v);
  }

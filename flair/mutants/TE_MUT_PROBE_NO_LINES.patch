@@ -8,7 +8,7 @@
      view.c = te->text + y;  view.nc = te->teLength - y;
 -    n = te_layout(te, &view, NULL, FLAIR_TE_MAX_LINES);
 -    return n >= 0;
-+    /* MUTANT (Rule 6): the probe checks the length only -- an edit that needs
++    /* regression patches: the probe checks the length only -- an edit that needs
 +     * a line past FLAIR_TE_MAX_LINES is let through (and the edit panics). */
 +    (void)view; (void)n;
 +    return 1;

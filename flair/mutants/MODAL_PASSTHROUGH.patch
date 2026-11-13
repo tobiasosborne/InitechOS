@@ -31,7 +31,7 @@
 -    /* keyDown/autoKey and every other cooked event stay on the modal side of
 -     * the seam. In particular, no key can reach the active document behind it. */
 -    return FLAIR_MODAL_CAPTURE;
-+    /* Named Rule-6 mutant: restore the pre-fix pump behavior. An outside click
++    /* Named mutation checks mutant: restore the pre-fix pump behavior. An outside click
 +     * reaches FindWindow and raises/drags the document behind the modal. */
 +    (void)blockProc;
 +    (void)blockUser;

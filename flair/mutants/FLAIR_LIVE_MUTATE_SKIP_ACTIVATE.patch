@@ -10,7 +10,7 @@
 -    deliver(old_fg, &deact);                        /* (2) deactivate old fg  */
 -    EventRecord act = mk_activate(ev, owner->windows, 1);
 -    deliver(owner, &act);                           /* (3) activate new fg    */
-+    /* MUTANT FLAIR_LIVE_MUTATE_SKIP_ACTIVATE (Rule 6; the O-5 tenants
++    /* regression patches skip activate patch (mutation checks; the O-5 tenants
 +     * emu-mutant image ONLY): SKIP the deactivate/activate pair. The group
 +     * still raises (1) and is still promoted (4), so the booted O-5 gate's
 +     * TIER-A overlap repaint + MENU-BAND swap stay GREEN -- but the raised
@@ -20,5 +20,5 @@
 +    (void)ev;
 +    (void)mk_activate;   /* keep referenced (else -Werror=unused-function) */
      promote_to_front(list, owner, old_fg);          /* (4) relink process list*/
-     /* (5) active chrome agrees with the NEW foreground (tdnl.40): when `owner`
+     /* (5) active chrome agrees with the NEW foreground: when `owner`
       * owns no window (the Finder brought forward by a desktop click), the old

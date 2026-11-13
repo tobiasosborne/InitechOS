@@ -1,6 +1,6 @@
 /* harness/proptest/test_control_record.c -- host oracle for spec/control_record.h
  *
- * beads: initech-dh5k.1 (P1-1: spec/control_record.h + oracle).
+ *  (P1-1: spec/control_record.h + oracle).
  *
  * PURPOSE: exercises every locked constant and structural rule in
  *   spec/control_record.h and confirms they match the ground-truth values
@@ -21,19 +21,19 @@
  *       harness/proptest/test_control_record.c \
  *       -o /tmp/test_control_record && /tmp/test_control_record
  *   # Mutation probe (must exit 1; proves the oracle bites):
- *   gcc -m32 -std=c11 -DTEST_CTRL_MUTANT \
+ *   gcc -m32 -std=c11 -dtest ctrl mutant patch \
  *       -Ispec \
  *       harness/proptest/test_control_record.c \
  *       -o /tmp/test_control_record_mutant && /tmp/test_control_record_mutant; \
  *       test $? -ne 0 && echo "MUTATION RED (correct)" || echo "MUTATION GREEN (BUG)"
  *
- * MUTATION PROOF (Rule 6): build with -DTEST_CTRL_MUTANT to perturb ONE
+ * MUTATION PROOF: build with -dtest ctrl mutant patch to perturb ONE
  *   constant (inThumb value) so the oracle MUST fail (exit 1, RED). This
  *   proves the runtime checks actually bite. The header _Static_asserts are
  *   a SEPARATE compile-time layer that also fires on mutation.
  *
- * Source citations: see spec/control_record.h (all Law 1 citations).
- * ASCII-clean (Rule 12). No 2026-isms (Rule 11).
+ * Source citations: see spec/control_record.h (all source provenance citations).
+ * ASCII-clean. No 2026-isms.
  */
 
 /* Include the locked spec. This fires every _Static_assert in the header
@@ -69,7 +69,7 @@ int main(void)
 
     /* ===================================================================
      * SECTION A: Part-code constants (IM-I p. I-327; era=system7.0-7.1)
-     * Source: ../system7-decomp/specs/toolbox/control-manager.md Sec 2.
+     * Source:../system7-decomp/specs/toolbox/control-manager.md Sec 2.
      * =================================================================== */
 
     /* Verbatim IM-I values -- the numbers here ARE the spec. */
@@ -246,8 +246,8 @@ int main(void)
 
     /* ===================================================================
      * SECTION G: Win 3.1 flat push-button accent (era=win31; chimera elem 10)
-     * Source: ../win31-decomp/specs/chrome/button-bevel.md +
-     *         ../win31-decomp/specs/user/button-control.md.
+     * Source:../win31-decomp/specs/chrome/button-bevel.md +
+     *../win31-decomp/specs/user/button-control.md.
      * =================================================================== */
 
     /* Face fill: #C0C0C0 = COLOR_BTNFACE (era=win31). */
@@ -277,7 +277,7 @@ int main(void)
           W31_BTN_TEXT_RGB == 0x00000000u);
 
     /* HARD GUARDRAIL: forbidden Win95 color #DFDFDF = COLOR_3DLIGHT.
-     * This color does NOT exist in Win 3.1. [M-B WARNING 1 + Law 3] */
+     * This color does NOT exist in Win 3.1. [M-B WARNING 1 + language boundary] */
     CHECK("W31 forbidden inner ring sentinel = 0x00DFDFDF (Win95 COLOR_3DLIGHT)",
           W31_BTN_FORBIDDEN_INNER_RING == 0x00DFDFDFu);
     /* Verify: the face color is NOT the forbidden Win95 value. */
@@ -295,7 +295,7 @@ int main(void)
     CHECK("W31 highlight != shadow",
           W31_BTN_HIGHLIGHT_RGB != W31_BTN_SHADOW_RGB);
 
-    /* Exactly one bevel ring (not two; Law 3 no-Win95-double-ring). */
+    /* Exactly one bevel ring (not two; language boundary no-Win95-double-ring). */
     CHECK("W31 bevel rings == 1 (ONE ring only; button-bevel.md Sec 1)",
           W31_BTN_BEVEL_RINGS == 1);
 

@@ -6,7 +6,7 @@
      if (shown == 0) {
          return 0;
      }
-+    /* Rule-6 R0.2 mutant: displace the entire centered title treatment +7px. */
++    /* mutation checks R0.2 mutant: displace the entire centered title treatment +7px. */
 +    out->x += 7;
 +    out->gap_left += 7;
 +    out->gap_right += 7;

@@ -1,14 +1,14 @@
 /*
  * os/flair/tbxgate.c -- the Initech Toolbox Gate (INT 81h) + the one-slot
- * disk-tenant host (THE ARTIFACT; bead initech-tdnl.14, GUI-remediation R3.7).
+ * disk-tenant host (THE ARTIFACT;, GUI-remediation R3.7).
  *
  * See tbxgate.h for the contract and the serial vocabulary. Implemented from
- * docs/design/GUI-remediation-ADR-reconciliation.md Part B (DEC-AC3-1..4) and
+ * Toolbox gate records in tbxgate.h (disk tenant lifecycle..4) and
  * Part C (deltas 1-7) -- NOT from the struck D1.3/D1.4 prose:
  *   - event delivery is PUSH-CALLBACK through a KERNEL-OWNED vtable
  *     (disk_tenant_procs: open=NULL, event=disk_tenant_event, idle=NULL,
  *     close=disk_tenant_close); returning from the tenant's eventProc IS the
- *     cooperative yield (ADR-0013 Sec 3.4). No park/resume, no stack swap, no
+ *     cooperative yield (tenant lifecycle). No park/resume, no stack swap, no
  *     KEEP_RESIDENT trap, no shipping watchdog (BC-4);
  *   - the FlairTenantRec is LINK-SYNTHESIZED data the kernel only validates;
  *   - registration is windowless (FlairProcess_admit); the first NEWWINDOW asks
@@ -17,52 +17,52 @@
  *     its own trap);
  *   - teardown happens between pump iterations (tbx_reap), never mid-handler;
  *     the code block is carved FIRST and freed LAST (code->handle->records->
- *     data, strict reverse on the way out -- DEC-AC3-1 / Part C item 6);
+ *     data, strict reverse on the way out -- disk tenant lifecycle / Part C item 6);
  *   - a fault inside the tenant image is triaged to FlairProcess_kill; every
  *     other fault still halts fail-loud (Part C item 7).
  *
- * SETMBAR (bead initech-cnpm; spec/toolbox_gate.h Sec 9; D2.1 row 12): the
+ * SETMBAR (; spec/toolbox_gate.h Sec 9; D2.1 row 12): the
  * tenant's MenuBar graph lives in its relocated image; v_setmbar validates the
  * WHOLE graph against [imageBase, imageBase+imageLen) and installs the pointer
  * as FlairApp.menubar. Band 2 itself is never drawn here: the pump's ONE swap
  * path (kmain flair_live_finish_tenant_switch -> flair_live_tenant_bar) shows
  * it at affirmation, and teardown's head change restores the survivor's bar.
  *
- * Mutation knobs (Rule 6; each defined ONLY by its mutant image, NEVER in a
+ * Mutation knobs (mutation checks; each defined ONLY by its mutant image, NEVER in a
  * real build):
- *   TBX_MUT_NO_SLOT_GUARD  the one-slot check always says "free" (DOUBLE_LAUNCH)
- *   TBX_MUT_EXIT_LEAK      the code block is never freed on exit (EXIT_LEAK)
- *   TBX_MUT_MBAR_NOT_SWAPPED  SETMBAR validates + returns 0 but never installs
+ *   no slot guard patch  the one-slot check always says "free" (DOUBLE_LAUNCH)
+ *   exit leak patch      the code block is never freed on exit (EXIT_LEAK)
+ *   mbar not swapped patch  SETMBAR validates + returns 0 but never installs
  *                          the bar (MBAR_NOT_SWAPPED: band 2 keeps the fallback)
- *   TBX_MUT_MBAR_NO_BOUNDS SETMBAR's image-range checks compiled out
+ *   mbar no bounds patch SETMBAR's image-range checks compiled out
  *                          (MBAR_NO_BOUNDS: an out-of-image bar is accepted)
- *   TBX_MUT_MENU_NOT_DELIVERED  a menu choice in the tenant's own bar is
- *                          never pushed (the pre-tdnl.31 behaviour: a
+ *   menu not delivered patch  a menu choice in the tenant's own bar is
+ *                          never pushed (the pre- behaviour: a
  *                          FLAIR-MENU serial line and nothing else)
- *   TBX_MUT_DRAWMBAR_NOOP  DRAWMENUBAR reports success but never asks for the
+ *   drawmbar noop patch  DRAWMENUBAR reports success but never asks for the
  *                          band-2 redraw (band 2 keeps the old bar)
- *   TBX_MUT_DRAW_NOT_PRESENTED  tbx_take_drew never reports a draw (the
- *                          pre-initech-8zii pump: a tenant's keyDown /
+ *   draw not presented patch  tbx_take_drew never reports a draw (the
+ *                          pre- pump: a tenant's keyDown /
  *                          mouseDown drawing is not presented)
- *   TBX_MUT_AX_FULL_EAX    the AX demux keys on all of EAX (test-flair-
+ *   ax full eax patch    the AX demux keys on all of EAX (test-flair-
  *                          routing leg X2: EAX=0xBEEF0001 is not REGISTER)
- *   TBX_MUT_ARG_OFFSET     the cdecl args are read one dword low (leg X3)
- *   (+ the two tbxmenu.h knobs, TBX_MUT_MENU_KEY_PLAIN / _ANY_BAR, which a
+ *   arg offset patch     the cdecl args are read one dword low (leg X3)
+ *   (+ the two tbxmenu.h knobs, menu key plain patch / _ANY_BAR, which a
  *    -D on this TU reaches through the header)
  *
- * THE ALERT AND THE ASKING CLOSE BOX (bead initech-fvnj; spec Sec 11): ALERT
+ * THE ALERT AND THE ASKING CLOSE BOX (; spec Sec 11): ALERT
  * validates and COPIES the question into the slot and returns; the pump runs
  * the shell-owned modal alert once the tenant has returned (tbx_take_alert)
  * and pushes the answer (tbx_alert_answer). A window made with goAway ==
  * TBX_GOAWAY_ASK reports its close box as TBX_EVT_GOAWAY (tbx_close_ask).
  *
- * MENU CHOICES (bead initech-tdnl.31; spec/toolbox_gate.h Sec 6a): the SHELL
+ * MENU CHOICES (; spec/toolbox_gate.h Sec 6a): the SHELL
  * runs MenuSelect / MenuKey over the tenant's own bar and tbx_menu_choice
  * PUSHES the result word as a TBX_EVT_MENU event through the same kernel-owned
  * vtable every other event uses. DRAWMENUBAR only raises a flag; the pump
  * redraws band 2 when the tenant has returned (tbx_take_mbar_redraw).
  *
- * Freestanding (Law 3): no libc. ASCII-clean (Rule 12). Deterministic (Rule 11):
+ * Freestanding: no libc. ASCII-clean. Deterministic:
  * every serial number is a pure function of the boot's allocation order.
  */
 #include <stdint.h>
@@ -84,19 +84,19 @@
 #include "flair_platform.h" /* host services; no kernel implementation headers */
 #include "menu.h"            /* MenuBar/MenuInfo/MenuItem + the Sec 5 layout   */
 #include "tbxmenu.h"         /* the menu route + the flat FlairEvent copy      */
-#include "tbxfile.h"         /* DOS adapter; spec Sec 10, initech-tdnl.91     */
-#include "scrap.h"           /* the shell's desk scrap; spec Sec 12 (tdnl.16) */
+#include "tbxfile.h"         /* DOS adapter; spec Sec 10,      */
+#include "scrap.h"           /* the shell's desk scrap; spec Sec 12 */
 #include "dialog.h"
 #include "cp_dialog_items.h"
 #include "cpanels_record.h"
-#include "winscroll.h"       /* the standard bars; spec Sec 15 (tdnl.16)     */
+#include "winscroll.h"       /* the standard bars; spec Sec 15     */
 
 #include "tbx_layout.h" /* SDK wire pins and manager layout comparisons */
 
 /* Tenant transfer and non-returning crash unwind are platform services. */
 
 /* ===========================================================================
- * 1. STATE -- ONE slot (D1-3 / DEC-AC3-1 V1 scope).
+ * 1. STATE -- ONE slot (D1-3 / disk tenant lifecycle V1 scope).
  * ===========================================================================*/
 
 /* A region plus its caller-supplied backing, carved from the tenant's RECORDS
@@ -204,7 +204,7 @@ static void tbx_zero(void *p, uint32_t n)
     for (uint32_t i = 0; i < n; i++) b[i] = 0u;
 }
 
-/* Fail loud (Rule 2): marker + HALTED, then a deterministic halt. */
+/* Fail loud: marker + HALTED, then a deterministic halt. */
 __attribute__((noreturn)) static void tbx_panic(const char *why)
 {
     tputs("PANIC tbx: ");
@@ -263,7 +263,7 @@ static void *carve_code(uint32_t len, void *user)
 }
 
 /* ===========================================================================
- * 5. THE KERNEL-OWNED VTABLE (DEC-AC3-3)
+ * 5. THE KERNEL-OWNED VTABLE (disk tenant lifecycle)
  * ===========================================================================*/
 static void disk_tenant_event(FlairApp *self, const EventRecord *ev);
 static void disk_tenant_close(FlairApp *self);
@@ -365,15 +365,15 @@ static uint32_t color_px(uint32_t tok)
 }
 
 /* spec/toolbox_gate.h Sec 7: the run is the proportional Chicago 12 string
- * (the sum of the NFNT 5478 advances, bead initech-tdnl.33) in the tenant's
- * txFace (bead initech-tdnl.68), its bg box exactly the styled width and one
+ * (the sum of the NFNT 5478 advances, ) in the tenant's
+ * txFace, its bg box exactly the styled width and one
  * CHICAGO_CELL_H line tall -- the Font Manager's ONE clipped run. */
 static void draw_text(int32_t gx, int32_t gy, const char *s, unsigned font,
                       unsigned size, unsigned face, uint32_t fg, uint32_t bg,
                       const region_t *clip)
 {
     text_clip_t k = { clip, 0, 0, 0, 0, 0 };
-    /* spec Sec 7 FONT + SIZE (beads initech-tdnl.16, initech-uelk): the
+    /* spec Sec 7 FONT + SIZE: the
      * txFont of fg bits 16..23 and the txSize of bits 24..31, through the ONE
      * mapping (text.c text_font_from_txfont_size). */
     (void)text_draw_run(g_host.surface, (int)gx, (int)gy, s,
@@ -447,11 +447,11 @@ static int32_t v_newwindow(const uint32_t *a)
 
     if (app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
     if (g_slot.nwins == TBX_TENANT_WINDOWS) return TBX_ERR_BUSY;
-    uint32_t goaway = a[4] & 0xFFu, wdef = a[4] & ~0xFFu;   /* tdnl.17 */
+    uint32_t goaway = a[4] & 0xFFu, wdef = a[4] & ~0xFFu;   /*  */
     if (l < 0 || r > FLAIR_SCREEN_W || t < 2 * FLAIR_CHROME_MENUBAR_H ||
         b > FLAIR_SCREEN_H || r - l < 96 || b - t < 64 ||
         goaway > TBX_GOAWAY_ASK ||                /* Sec 11: 0, 1 or 2 */
-        (wdef != 0u && wdef != TBX_WDEF_RDOC))    /* tdnl.17 */
+        (wdef != 0u && wdef != TBX_WDEF_RDOC))    /*  */
         return TBX_ERR_BADARG;
 
     rec = (WindowRecord *)flair_alloc(&app->records_arena, FLAIR_CLASS_HANDLE,
@@ -494,7 +494,7 @@ static int32_t v_newwindow(const uint32_t *a)
     g_slot.win   = rec;
     g_slot.wins[g_slot.nwins] = rec;
     g_slot.ask_close[g_slot.nwins++] = (uint8_t)(goaway == TBX_GOAWAY_ASK);  /* Sec 11 */
-    g_slot.affirm = 1u;                       /* DEC-AC3-4 */
+    g_slot.affirm = 1u;                       /* disk tenant lifecycle */
     return (int32_t)g_slot.nwins;
 }
 
@@ -531,7 +531,7 @@ static int32_t v_dialog(const uint32_t *a)
         e.when=(uint32_t)v->when;
         if(e.what!=mouseDown && e.what!=keyDown && e.what!=autoKey)return TBX_ERR_BADARG;
         e.where.h=(int16_t)v->whereh;e.where.v=(int16_t)v->wherev;
-        /* tdnl.88: a control press now TRACKS (draws pressed, fires on the
+        /*: a control press now TRACKS (draws pressed, fires on the
          * mouseUp inside). This one-shot transport rebuilds the record per
          * call, so no later mouseUp can reach it: the tenant's click is a
          * press + release at one point, completed here through the same
@@ -557,7 +557,7 @@ static int32_t v_dialog(const uint32_t *a)
     tputs("CPANEL title=");tputs(flat[a[2]-1].text);tputs("\n");return 0;
 }
 
-/* CONTENTORIGIN (bead initech-tdnl.17): the content's top-left, GLOBAL --
+/* CONTENTORIGIN: the content's top-left, GLOBAL --
  * the same origin FILLRECT/TEXTDRAW add to their content-local coordinates,
  * so (whereH - left, whereV - top) is the tenant's GlobalToLocal. */
 static int32_t v_contentorigin(const uint32_t *a)
@@ -568,7 +568,7 @@ static int32_t v_contentorigin(const uint32_t *a)
     return (int32_t)(((uint32_t)(uint16_t)c.top << 16) | (uint32_t)(uint16_t)c.left);
 }
 
-/* CONTENT_SIZE (bead initech-89rc; spec/toolbox_gate.h Sec 3 note): the
+/* CONTENT_SIZE (; spec/toolbox_gate.h Sec 3 note): the
  * content's width and height -- the tenant's portRect after the shell grew
  * the window (MTE Listing 4-14 MyResizeWindow). (h << 16) | w; 0 collapsed. */
 static int32_t v_content_size(const uint32_t *a)
@@ -595,12 +595,12 @@ static int32_t v_textdraw(const uint32_t *a)
     uint32_t face, font, size;
     if (!check_win(a[0])) return TBX_ERR_BADARG;
     if (image_str(a[3], 81u) < 0) return TBX_ERR_BADARG;
-    /* fg = colour token | txFace << 8 (spec Sec 7, bead initech-tdnl.68)
-     *      | txFont << 16 (spec Sec 7 FONT, bead initech-tdnl.16) */
+    /* fg = colour token | txFace << 8 (spec Sec 7, )
+     *      | txFont << 16 (spec Sec 7 FONT, ) */
     face = (a[4] >> TBX_TEXT_FACE_SHIFT) & 0xFFu;
     font = (a[4] >> TBX_TEXT_FONT_SHIFT) & 0xFFu;
     size = a[4] >> TBX_TEXT_SIZE_SHIFT;
-    /* | txSize << 24 (spec Sec 7 SIZE, bead initech-uelk): 0, or 12 with
+    /* | txSize << 24 (spec Sec 7 SIZE, ): 0, or 12 with
      * applFont (Geneva 12); any other pair is an unowned strike -> BADARG */
     if ((a[4] & 0xFFu) >= TBX_COLOR_COUNT ||
         font > TBX_TEXT_FONT_MAX || (size != 0u && (size != 12u || font != 1u)) ||
@@ -615,10 +615,10 @@ static int32_t v_textdraw(const uint32_t *a)
     return TBX_OK;
 }
 
-/* DRAWCELLS (spec Sec 7a; bead initech-w96l): the run in the fixed 8x16 cell
+/* DRAWCELLS (spec Sec 7a; ): the run in the fixed 8x16 cell
  * font -- every cell opaque: its box in bg, then the strike's set bits in fg
  * (MSB = leftmost, os/initechdos/console.h's glyph format), through the same clip
- * as TEXTDRAW. STYLE (bead initech-jojk): fg bits 8..15 are a txFace, each
+ * as TEXTDRAW. STYLE: fg bits 8..15 are a txFace, each
  * glyph row synthesized by THE Font Manager rule text_synth_row (text.h) about
  * TBX_CELL_BASELINE, the underline drawn by the text_draw_run rule (offset,
  * thickness, halo); the run keeps its 8-px cells and nothing leaves its box. */
@@ -721,7 +721,7 @@ static int32_t v_fillrect(const uint32_t *a)
     return TBX_OK;
 }
 
-/* SETMBAR (spec Sec 9; bead initech-cnpm). The image-range half of the
+/* SETMBAR (spec Sec 9; ). The image-range half of the
  * validation goes through MB_IN so the MBAR_NO_BOUNDS mutant can compile
  * exactly that half out and nothing else. */
 #define MB_IN(a, n) in_image((a), (n))
@@ -750,7 +750,7 @@ static int32_t v_setmbar(uint32_t bar)
 {
     uint32_t menus, n, x;
 
-    /* Sec 9 V3 (initech-tdnl.31): legal before AND after the first window --
+    /* Sec 9 V3: legal before AND after the first window --
      * the V2 "before NEWWINDOW only" rule existed only for want of
      * DRAWMENUBAR. */
     if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
@@ -762,7 +762,7 @@ static int32_t v_setmbar(uint32_t bar)
         return mbar_bad("menus-outside-image");
     /* menu.h Sec 5: the Apple slot, then text_measure(title) + 2*PAD per
      * title -- the proportional Chicago 12 width (spec/toolbox_gate.h Sec 9;
-     * bead initech-tdnl.33), summed from the validated in-image bytes. */
+     * ), summed from the validated in-image bytes. */
     x = (*(const volatile uint8_t *)(uintptr_t)(bar + WIRE_OFF(tbx_menubar_t, has_apple, TBX_MBAR_APPLE_OFF)) != 0u)
             ? (uint32_t)FLAIR_MENU_APPLE_W : 0u;
     for (uint32_t k = 0; k < n; k++) {
@@ -791,7 +791,7 @@ static int32_t v_setmbar(uint32_t bar)
     return TBX_OK;
 }
 
-/* DRAWMENUBAR (spec Sec 3 / Sec 9 V3; bead initech-tdnl.31). Band 2 belongs
+/* DRAWMENUBAR (spec Sec 3 / Sec 9 V3; ). Band 2 belongs
  * to the pump (its offset port, its present), so the verb only asks; the
  * pump's tenant service redraws from the foreground app's installed bar once
  * the tenant has RETURNED (tbx_take_mbar_redraw). */
@@ -854,7 +854,7 @@ static int32_t v_alert(const uint32_t *a)
     return TBX_OK;
 }
 
-/* ---- Sec 12 THE SCRAP (bead initech-tdnl.16, absorbing initech-ww9c) ---- */
+/* ---- Sec 12 THE SCRAP (, absorbing ) ---- */
 static uint32_t img_lo(void)  { return g_slot.plan.load_base; }
 static uint32_t img_len(void) { return g_slot.plan.block_len - TBX_TENANT_PSP_BYTES; }
 
@@ -979,10 +979,10 @@ static void tenant_dos(flair_platform_regs *f)
     flair_platform_dos(&g_slot.files,f);
 }
 
-/* TBX_FILE_FIND / TBX_DISK_FREE (spec Sec 10a; bead initech-qvgd): the List
+/* TBX_FILE_FIND / TBX_DISK_FREE (spec Sec 10a; ): the List
  * Files screen's directory and its "Free:" figure (WordPerfect 5.1, mint 005).
  * The whole FINDFIRST/FINDNEXT walk runs inside one gate call (a tenant runs
- * to its RETURN, ADR-0013 Sec 3.4), into a kernel DTA that replaces the
+ * to its RETURN, tenant lifecycle), into a kernel DTA that replaces the
  * kernel's own for the call only. */
 /* DOS 3.3 PRM AH=4Eh: 21 resume bytes followed by the SDK find payload.
  * The platform owns the DOS record; the gate only copies its opaque bytes. */
@@ -1028,7 +1028,7 @@ static int32_t v_disk_free(void)
     return (int32_t)((f.eax & 0xFFFFu) * (f.ebx & 0xFFFFu) * (f.ecx & 0xFFFFu));
 }
 
-/* TBX_FILECOPY (spec Sec 12; initech-bf2): validate + copy now, run the
+/* TBX_FILECOPY (spec Sec 12; ): validate + copy now, run the
  * FILE COPY box when the tenant returns (the TBX_ALERT shape). */
 static int fc_path_copy(char *dst, uint32_t p)
 {
@@ -1064,7 +1064,7 @@ static int32_t v_exit(uint32_t rc)
 #include "cp_service.h"
 
 /* ===========================================================================
- * 8. THE GATE -- AX demux + the per-call TENANT-GATE trace (DEC-AC3-2)
+ * 8. THE GATE -- AX demux + the per-call TENANT-GATE trace (disk tenant lifecycle)
  * ===========================================================================*/
 static void trace_str(const char *key, uint32_t p)
 {
@@ -1087,12 +1087,12 @@ static void trace_int(const char *key, uint32_t v)
 void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
 {
     volatile uint32_t *eax_slot = (volatile uint32_t *)(void *)(frame + 28);
-    uint32_t ax = *eax_slot & 0xFFFFu;          /* the code is AX (DEC-AC3-2) */
+    uint32_t ax = *eax_slot & 0xFFFFu;          /* the code is AX (disk tenant lifecycle) */
     uint32_t a[TBX_ARGC_MAX] = { 0 };
     uint32_t argc = 0u;
     int32_t rc;
 
-    /* Size round 6 (WL-0162): the verb -> argument-count map as data (every
+    /* compact storage (drawing tables): the verb -> argument-count map as data (every
      * code is below 0x100; any other AX, high bits included, has argc 0). */
     {
         static const struct { uint8_t ax, argc; } argn[] = {
@@ -1217,7 +1217,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         } else tputs("?");
         trace_int(" attr=", a[1]); trace_int(" max=", a[3]); break;
     default: {
-        /* Size round 6 (WL-0162): the plain verbs' trace fields as data --
+        /* compact storage (drawing tables): the plain verbs' trace fields as data --
          * each field is a control byte (1..6 = a[0..5] as an integer,
          * 0x11..0x16 = a[0..5] as an image string), its label, a NUL; an
          * empty field (the explicit trailing \0) ends the list. The same
@@ -1281,11 +1281,11 @@ static void slot_clear(void)
     tbx_zero(&g_slot, (uint32_t)sizeof g_slot);
 }
 
-/* Free the code block LAST (DEC-AC3-1 strict reverse) and report. */
+/* Free the code block LAST (disk tenant lifecycle strict reverse) and report. */
 static void finish(const char *via, int32_t rc)
 {
-    /* ADR-0013 Sec 3.4/AC-2: shared death cleanup, never tenant memory.
-     * kill skips close(); writes already commit per call (int21.h WRITE_AT). */
+    /* tenant lifecycle/AC-2: shared death cleanup, never tenant memory.
+     * kill skips close; writes already commit per call (int21.h WRITE_AT). */
     uint32_t n = tbxf_live(&g_slot.files);
     tbxf_reap(&g_slot.files);
     if (n != 0) {
@@ -1406,7 +1406,7 @@ int tbx_menu_key(const EventRecord *ev)
     return tbx_menu_choice(app->menubar, sel, ev, "key");
 }
 
-/* THE QUIT REQUEST (bead initech-tdnl.78; tbxgate.h). The System 7 Finder
+/* THE QUIT REQUEST (; tbxgate.h). The System 7 Finder
  * sends every running application the Quit Application event on Restart /
  * Shut Down (Inside Macintosh Vol VI, PDF p. 345), and the application's
  * handler is "the same routine" as its File > Quit -- including asking to
@@ -1469,7 +1469,7 @@ int tbx_owns_window(const WindowRecord *w)
 }
 
 /* Push a TBX_EVT_* the shell synthesizes (Sec 11): what + message, the rest 0
- * (deterministic, Rule 11). */
+ * (deterministic, reproducibility). */
 static void push_evt(uint16_t what, uint32_t msg)
 {
     EventRecord e;
@@ -1568,7 +1568,7 @@ int tbx_take_bar_dirty(void)
 }
 
 /* ===========================================================================
- * THE FILE COPY ENGINE (spec Sec 16; bead initech-bf2). The shell runs the
+ * THE FILE COPY ENGINE (spec Sec 16; ). The shell runs the
  * modal box; these do the DOS-handle-API work on the tenant's kernel-owned
  * JFT (g_slot.files, Sec 10) so every handle dies with the tenant.
  * ===========================================================================*/
@@ -1695,7 +1695,7 @@ int tbx_reap(void)
         finish("close", 0);
         return 1;
     }
-    if (g_slot.crashed) {                   /* death: never close(), never re-enter */
+    if (g_slot.crashed) {                   /* death: never close, never re-enter */
         FlairProcess_kill(g_host.list, g_host.wm, g_host.master, g_slot.app);
         finish("crash", -1);
         return -1;

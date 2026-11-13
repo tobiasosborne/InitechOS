@@ -10,7 +10,7 @@
 -    list_memcpy(l->cells[c.v][c.h], data, (size_t)(uint16_t)len);
 -    l->cell_len[c.v][c.h] = (uint8_t)len;
 +    /*
-+     * MUTANT LIST_MUT_CELL_INDEX_SWAP: index the store as [col][row] =
++     * regression patches cell index swap patch: index the store as [col][row] =
 +     * [c.h][c.v] instead of the canonical [row][col] = [c.v][c.h].
 +     * The WRITE goes to the wrong memory location.  FlairLGetCell is NOT
 +     * mutated (it always reads [c.v][c.h]).  A subsequent FlairLGetCell on
@@ -18,7 +18,7 @@
 +     * mutated path) and returns 0 bytes.  Oracle step 2 checks for 5 bytes
 +     * ("Trash") -> RED.
 +     *
-+     * Ref: CLAUDE.md Rule 6 (mutation-proven golden).
++     * Ref: mutation checks (mutation-proven golden).
 +     */
 +    list_memcpy(l->cells[c.h][c.v], data, (size_t)(uint16_t)len);
 +    l->cell_len[c.h][c.v] = (uint8_t)len;

@@ -1,12 +1,12 @@
 /*
  * color_canon_extract.c -- FLAIR Color Canon generator (factory, C11-only).
  *
- * beads: initech-h714 (step 2 of epic initech-qipc).
- * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.2 (ARB-1: color_canon.h contract),
+ *  (step 2 of epic ).
+ * Ref: clipped Toolbox drawing (ARB-1: color_canon.h contract),
  *      Sec 3.9 (canon index table), spec/assets/color_canon.json (LOCKED).
- *      CLAUDE.md Law 1 (cite sources), Law 3 (factory is C, no external libs),
- *      Rule 8 (locked spec-data), Rule 11 (deterministic/reproducible),
- *      Rule 12 (ASCII-only source and output).
+ *      source provenance (cite sources), language boundary (factory is C, no external libs),
+ *      pinned inputs (locked spec-data), reproducibility (deterministic/reproducible),
+ *      ASCII source (ASCII-only source and output).
  *
  * Reads spec/assets/color_canon.json (path given as argv[1]) and writes
  * spec/assets/color_canon.h to stdout.  The Makefile redirects with >.
@@ -21,7 +21,7 @@
  * whole file, then scan with find_key / next_string / strtol.  Hand-rolled
  * parser for OUR schema only; not a general JSON parser.
  *
- * ASCII-only output (Rule 12).  No libc beyond stdio/stdlib/string (Law 3).
+ * ASCII-only output.  No libc beyond stdio/stdlib/string.
  */
 
 #include <stdio.h>
@@ -126,13 +126,13 @@ static int read_rgb_bytes(const char *p, const char *end,
 
 /* ---- Canon entry store ---------------------------------------------------- */
 
-#define CANON_N  27   /* Retained rows + L023 slots 9/10 + WL-0140 slots 11..25
-                        * + tdnl.44 native16 pencil yellow at slot 26. */
+#define CANON_N  27   /* Retained rows + L023 slots 9/10 + Finder icon colors slots 11..25
+                        * +  native16 pencil yellow at slot 26. */
 #define DERIVED_N 4   /* Four authored accent rows. */
-/* DEC-10 Sec 3.5.3 / initech-3knt: 2 retained SYS7 names + 11 appended
- * Platinum sampled-domain names + 3 WL-0140 Finder icon grays; exact count
+/* Platinum base /: 2 retained SYS7 names + 11 appended
+ * Platinum sampled-domain names + 3 Finder icon colors Finder icon grays; exact count
  * remains a fail-loud invariant. */
-#define RAMP_N   16   /* exactly 16 named idx>=9 ramp indices (WL-0140: +3 icon grays) */
+#define RAMP_N   16   /* exactly 16 named idx>=9 ramp indices (Finder icon colors: +3 icon grays) */
 
 typedef struct {
     int  idx;
@@ -146,7 +146,7 @@ typedef struct {
     int  r, g, b;
 } derived_t;
 
-/* A named idx>=9 gray-ramp index (Rule-8 extension; beads initech-hv7u): a
+/* A named idx>=9 gray-ramp index (pinned inputs extension; ): a
  * neutral gray (R==G==B==idx) needs NO new 9-entry table slot -- it already
  * resolves through flair_canon_rgb's documented idx>=9 branch. Parsed from
  * color_canon.json "ramp_named_indices" so each constant still carries a
@@ -362,7 +362,7 @@ static int parse_derived(const char *json, derived_t drv[DERIVED_N])
  * >= 9 (below the fixed table) and r==g==b==N (the row must be REPRESENTABLE
  * by the idx>=9 ramp formula (idx<<16)|(idx<<8)|idx -- otherwise it does not
  * belong here; it would need a real 9-entry table slot instead).  Fails loud
- * on any violation so a future mis-entry cannot silently drift (Rule 8). */
+ * on any violation so a future mis-entry cannot silently drift (pinned inputs). */
 static int parse_ramp(const char *json, ramp_t ramp[RAMP_N])
 {
     const char *end = json + strlen(json);
@@ -425,7 +425,7 @@ static int parse_ramp(const char *json, ramp_t ramp[RAMP_N])
         }
 
         /* rgb_bytes -- must equal (idx,idx,idx): the ramp formula, not a
-         * hand-typed color (this is the self-consistency guard, Rule 8). */
+         * hand-typed color (this is the self-consistency guard, pinned inputs). */
         const char *krb = find_key(obj_start, obj_end + 1, "rgb_bytes");
         if (!krb) {
             fprintf(stderr,
@@ -520,18 +520,18 @@ static void emit_header(const entry_t tbl[CANON_N],
     printf(" * idx 0..%d -> the %d-entry color_canon table;\n", CANON_N - 1, CANON_N);
     printf(" * idx >= %d -> deterministic gray ramp (v<<16)|(v<<8)|v  (v = idx),\n", CANON_N);
     printf(" *              via the shared palette.h flair_palette_rgb alias\n");
-    printf(" *              (ADR-0004-AMENDMENT-DEC-09 ARB-1).\n");
+    printf(" *              (clipped Toolbox drawing ARB-1).\n");
     printf(" * Freestanding-safe: <stdint.h> only, no libc.\n");
     printf(" *\n");
-    printf(" * HONESTY (ADR-0004-AMENDMENT-DEC-09 FO-9 / P4):\n");
+    printf(" * HONESTY (clipped Toolbox drawing FO-9 / P4):\n");
     printf(" * idx2 (CIDX_DESKTOP teal) and both bevel derived rows are\n");
     printf(" * graded_by:authored (Initech-identity injections; no upstream decomp\n");
     printf(" * golden exists).  Gated against drift by VALUE mutants (seafoam/lavender\n");
     printf(" * relapse MUST go RED).  Never claimed decomp-sourced.\n");
     printf(" *\n");
-    printf(" * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.2 (ARB-1) + Sec 3.9 (index table);\n");
-    printf(" *      spec/assets/color_canon.json (LOCKED, CLAUDE.md Rule 8);\n");
-    printf(" *      CLAUDE.md Rule 11 (deterministic), Rule 12 (ASCII-clean).\n");
+    printf(" * Ref: clipped Toolbox drawing (ARB-1) + Sec 3.9 (index table);\n");
+    printf(" *      spec/assets/color_canon.json (LOCKED, pinned inputs);\n");
+    printf(" *      deterministic output, ASCII source.\n");
     printf(" */\n");
     printf("#ifndef INITECH_COLOR_CANON_H\n");
     printf("#define INITECH_COLOR_CANON_H\n");
@@ -543,7 +543,7 @@ static void emit_header(const entry_t tbl[CANON_N],
     printf("/* ---------------------------------------------------------------------------\n");
     printf(" * color_canon[idx][0..2] = {R, G, B} -- %d entries, idx 0..%d, index order.\n",
            CANON_N, CANON_N - 1);
-    printf(" * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.9; color_canon.json \"entries\".\n");
+    printf(" * Ref: clipped Toolbox drawing; color_canon.json \"entries\".\n");
     printf(" */\n");
     printf("static const unsigned char color_canon[%d][3] = {\n", CANON_N);
     for (i = 0; i < CANON_N; i++) {
@@ -587,17 +587,17 @@ static void emit_header(const entry_t tbl[CANON_N],
     }
     printf("\n");
 
-    /* ---- Derived accent macros (tdnl.93 adds two direct-colour rows) ---- */
+    /* ---- Derived accent macros ( adds two direct-colour rows) ---- */
     printf("/* ---------------------------------------------------------------------------\n");
-    printf(" * Derived bevel rows  (WL-0053 lavender->teal swap; graded_by:authored).\n");
+    printf(" * Derived bevel rows  (authored teal lavender->teal swap; graded_by:authored).\n");
     printf(" * bevel_light  == idx2 teal #8DDCDC;  bevel_shadow == darkened teal #4E9BA3.\n");
     printf(" * Neither is wired to a wctb decomp golden; both gated by VALUE mutants.\n");
-    printf(" * 2026-10-15 tdnl.93: MENU_DARK/MENU_SHADOW are dark teal title derivatives.\n");
+    printf(" * 2026-10-15: MENU_DARK/MENU_SHADOW are dark teal title derivatives.\n");
     printf(" * White/face contrast6.56 >= captured6.37; indexed fallbacks63/0 add no slots.\n");
     printf(" * L023: sampled ALERT_LIGHT/SHADOW are indexed entries 9/10 above.\n");
     printf(" * Ref: s8_alert_modal.png (300,88)/(300,189), controls.md Sec 6.\n");
     printf(" * Slots 9/10 are product allocations, not reference palette indices.\n");
-    printf(" * Ref: ADR-0004-AMENDMENT-DEC-09 Sec 3.4 (ARB-5); color_canon.json derived_rows.\n");
+    printf(" * Ref: clipped Toolbox drawing (ARB-5); color_canon.json derived_rows.\n");
     printf(" */\n");
     for (i = 0; i < DERIVED_N; i++) {
         const derived_t *d = &drv[i];
@@ -610,9 +610,9 @@ static void emit_header(const entry_t tbl[CANON_N],
     }
     printf("\n");
 
-    /* ---- Named idx>=9 gray-ramp indices (Rule-8 extension; beads initech-hv7u) ---- */
+    /* ---- Named idx>=9 gray-ramp indices (pinned inputs extension; ) ---- */
     printf("/* ---------------------------------------------------------------------------\n");
-    printf(" * Named ramp indices -- the idx>=9 gray-ramp EXTENSION (Rule 8; NOT a new\n");
+    printf(" * Named ramp indices -- the idx>=9 gray-ramp EXTENSION (pinned inputs; NOT a new\n");
     printf(" * 9-entry table slot). Each constant below names an index >= 9 whose\n");
     printf(" * (idx<<16)|(idx<<8)|idx value ALREADY equals the cited decomp golden RGB\n");
     printf(" * (a neutral gray, R==G==B) via flair_canon_rgb's existing idx>=9 branch\n");
@@ -668,11 +668,11 @@ static void emit_header(const entry_t tbl[CANON_N],
     printf(" * idx >= %d -> deterministic gray ramp: (v<<16)|(v<<8)|v  where v = idx.\n", CANON_N);
     printf(" *              This is the IDENTICAL default branch from palette.h\n");
     printf(" *              flair_palette_rgb; L023 deliberately allocates slots 9/10,\n");
-    printf(" *              WL-0140 slots 11..25 (the Finder icon colours).\n");
-    printf(" *              tdnl.44 appends native16 pencil yellow at slot 26.\n");
+    printf(" *              Finder icon colors slots 11..25 (the Finder icon colours).\n");
+    printf(" *               appends native16 pencil yellow at slot 26.\n");
     printf(" *\n");
     printf(" * Freestanding-safe (no libc).  Callable from the kernel (kmain.c live-DAC\n");
-    printf(" * path) and the host harness.  Ref: ADR-0004-AMENDMENT-DEC-09 ARB-1;\n");
+    printf(" * path) and the host harness.  Ref: clipped Toolbox drawing ARB-1;\n");
     printf(" * palette.h flair_palette_rgb default branch (gray ramp shared verbatim).\n");
     printf(" */\n");
     printf("static inline uint32_t flair_canon_rgb(uint8_t idx)\n");
@@ -725,7 +725,7 @@ int main(int argc, char **argv)
     derived_t drv[DERIVED_N];
     if (parse_derived(json, drv)) { free(json); return 1; }
 
-    /* Parse the exact 13 named idx>=9 gray-ramp indices (DEC-10/initech-3knt). */
+    /* Parse the exact 13 named idx>=9 gray-ramp indices (Platinum base/). */
     ramp_t ramp[RAMP_N];
     if (parse_ramp(json, ramp)) { free(json); return 1; }
 

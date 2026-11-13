@@ -2,46 +2,46 @@
  * os/flair/ostype.h -- the FLAIR four-character resource/scrap TYPE code (the
  * artifact). The era-universal 32-bit "OSType" / "ResType" key.
  *
- * beads: initech-49ez (FLAIR Phase 4.5 -- Platform Services). Shared prelude for
- *        the Resource Manager (initech-0w45) and the Scrap (initech-b2vk): both
+ *  (FLAIR Phase 4.5 -- Platform Services). Shared prelude for
+ *        the Resource Manager and the Scrap: both
  *        key their stores by a 4-character type code, so the type + the
  *        endian-NEUTRAL constructor macro live in ONE header to dodge a
  *        ResType/OSType redefinition collision between scrap.h and resource.h.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. OSType is an
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. OSType is an
  * era-stable Toolbox key retained unchanged from the System 7 heritage API.
  *
- * WHAT THIS IS (Law 1):
+ * WHAT THIS IS:
  *   Classic Mac OS keys every resource (Resource Manager) and every clipboard
  *   flavor (Scrap Manager) by a 4-character ASCII code packed big-endian into a
  *   32-bit word -- 'TEXT' == 0x54455854, 'WIND' == 0x57494E44, etc. (Inside
- *   Macintosh; ../system7-decomp/specs/resources/resource-manager.md Sec 1.4
+ *   Macintosh;../system7-decomp/specs/resources/resource-manager.md Sec 1.4
  *   "resType: 4-character resource type code (OSType)"). FLAIR adopts the same
  *   key space for its clean-room Resource Manager + Scrap so the addressing model
  *   is period-authentic and the Resource Manager can parse REAL big-endian Mac
  *   resource forks (resource-manager.md Sec 1.1-1.6).
  *
- * THE ENDIANNESS DISCIPLINE (Law 3 / Rule 11):
+ * THE ENDIANNESS DISCIPLINE (language boundary / reproducibility):
  *   FLAIR_OSTYPE(a,b,c,d) builds the packed word by VALUE -- (a<<24)|(b<<16)|
  *   (c<<8)|d -- so a compile-time type constant is the SAME numeric value on the
  *   little-endian host oracle build and the little-endian flat-32 kernel. It is
  *   NOT a `char[4]` reinterpret-cast (which would byte-flip between host memory
  *   order and the on-disk big-endian fork). The Resource Manager's fork parser
  *   reads on-disk OSType bytes positionally (b[0]<<24|...|b[3]) so a parsed
- *   on-disk type compares EQUAL to a FLAIR_OSTYPE() literal on either build --
+ *   on-disk type compares EQUAL to a FLAIR_OSTYPE literal on either build --
  *   deterministic, host==kernel (the dual-compile / reproducible-build contract).
  *
- * FREESTANDING (Law 3): <stdint.h> only; no libc. Compiles BOTH under the kernel
+ * FREESTANDING: <stdint.h> only; no libc. Compiles BOTH under the kernel
  * flags (gcc -m32 -ffreestanding -nostdlib -std=c11 -Wall -Wextra -Werror) AND
  * hosted for the property suite.
  *
- * Ref: ../system7-decomp/specs/resources/resource-manager.md Sec 1.4 (OSType);
- *      Inside Macintosh Vol I (Scrap Manager TEXT/PICT flavors); ADR-0012 D-2b
- *      (Phase 4.5 platform services); ADR-0013 Sec 6 (the shell-owned Scrap).
- *      CLAUDE.md Law 1 (ground truth), Law 3 (freestanding, no 2026-ism, host==
- *      kernel determinism), Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ * Ref:../system7-decomp/specs/resources/resource-manager.md Sec 1.4 (OSType);
+ *      Inside Macintosh Vol I (Scrap Manager TEXT/PICT flavors); b
+ *      (Phase 4.5 platform services); tenant lifecycle (the shell-owned Scrap).
+ *      source provenance (ground truth), language boundary (freestanding, no 2026-ism, host==
+ *      kernel determinism), deterministic output, ASCII source.
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef INITECH_OS_FLAIR_OSTYPE_H
 #define INITECH_OS_FLAIR_OSTYPE_H

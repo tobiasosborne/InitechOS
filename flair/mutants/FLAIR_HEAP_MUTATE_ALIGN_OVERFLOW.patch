@@ -4,8 +4,8 @@
 +++ b/heap.c
 @@ -86,7 +86,6 @@
      }
-     /* r081/5l5n: both the alignment addition AND the header span must fit.
-      * Ref: heap.h DEC-03 bounds contract; reject before any arena mutation. */
+     /* both the alignment addition AND the header span must fit.
+      * Ref: heap.h arena lifetime bounds contract; reject before any arena mutation. */
 -    if (size > UINT32_MAX - (FLAIR_HEAP_ALIGN - 1u)) return (void *)0;
  
      uint32_t need = flair_align_up(size);         /* aligned payload bytes        */

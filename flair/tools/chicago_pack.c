@@ -4,7 +4,7 @@
  */
 #include <stdint.h>
 #include <stdio.h>
-/* -DPACK_GENEVA12 (bead initech-uelk) packs the locked Geneva 12 strike with
+/* -DPACK_GENEVA12 packs the locked Geneva 12 strike with
  * the SAME algorithm into geneva12_pack_* names; the default build is the
  * unchanged Chicago packer (its output is byte-identical to before). */
 #ifdef PACK_GENEVA12

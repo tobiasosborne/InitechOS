@@ -1,13 +1,13 @@
-/* spec/ssim_params.h -- LOCKED factory SSIM guide data, initech-w06.
- * Deliberate Rule-8 replacement of the pre-FLAIR placeholders; see WL-0149.
- * Ref: PRD Sec 3/6.3/8; ADR-0010 CD-7, HER-11. GUIDE ONLY, no thresholds.
- * Independent goldens: ../system7-decomp/goldens/captures, NEVER the film
+/* spec/ssim_params.h -- LOCKED factory SSIM guide data,.
+ * Deliberate pinned inputs replacement of the pre-FLAIR placeholders; see.
+ * Ref: PRD Sec 3/6.3/8; independent reference checks CD-7, HER-11. GUIDE ONLY, no thresholds.
+ * Independent goldens:../system7-decomp/goldens/captures, NEVER the film
  * mock-up or our own renderer. No resizing, gamma matching, or alignment fit.
  * Math source: docs/research/ssim-wang2004.md, Wang 2004 pp.604-606.
  * Rectangles are (x,y,width,height), half-open, native pixels in BOTH images.
  * Rows isolate corresponding parts, not unrelated whole-screen arrangements.
  * Captures have different titles, content, and gamma/palette conventions;
- * their effect is deliberately visible in the score (Law 4).
+ * their effect is deliberately visible in the score.
  */
 #ifndef INITECH_SPEC_SSIM_PARAMS_H
 #define INITECH_SPEC_SSIM_PARAMS_H

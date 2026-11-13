@@ -4,7 +4,7 @@
  * GENERATED -- DO NOT EDIT; edit the spec and rebuild.
  *
  * Source:  spec/dos_messages.json
- * Ref:     ADR-0003 Appendix C / DEC-13 (controlled vocabulary).
+ * Ref:      Appendix C /  (controlled vocabulary).
  *          %c denotes a drive-letter substitution; spacing and
  *          punctuation are part of the controlled vocabulary.
  */

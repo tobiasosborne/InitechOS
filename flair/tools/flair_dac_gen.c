@@ -1,6 +1,6 @@
-/* initech-2gva: factory-only, deterministic C. Ref: color_canon.json entries
+/*: factory-only, deterministic C. Ref: color_canon.json entries
  * and indexed_alert_extension/ramp_named_indices; clut.json entries enumerate
- * the device's complete 256-slot domain (ADR-0004 OD-2 / DEC-09 ARB-1).
+ * the device's complete 256-slot domain (clipped Toolbox drawing OD-2 / authored teal ARB-1).
  * IMPORTANT: the ROM CLUT and the product's indexed surface have DIFFERENT
  * index assignments. Do not load ROM RGB triples into the product DAC. The
  * product canon owns explicit colors; its remaining indices are gray ramps.

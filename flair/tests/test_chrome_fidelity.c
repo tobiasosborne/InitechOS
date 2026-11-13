@@ -3,13 +3,13 @@
  *
  * This grades the real os/flair/chrome.c render against the independent
  * sys8 golden encoded in spec/chrome_fidelity_golden.h. Expected values never
- * come from chrome_metrics.h (Law 2 / HER-02). The live renderer is Platinum;
+ * come from chrome_metrics.h (independent checks / HER-02). The live renderer is Platinum;
  * every leg is green and its named implementation mutants must run red.
  *
- * Ground truth: ../system7-decomp/specs/sys8/window-chrome.md Sec 1-6,
- * ../system7-decomp/specs/sys8/scrollbars.md Sec 1-5, and
- * ../system7-decomp/specs/sys8/platinum-palette.md Sec 1-2.
- * Re-key authority: ADR-0004-AMENDMENT-DEC-10 Sec 4 / OQ-7.
+ * Ground truth:../system7-decomp/specs/sys8/window-chrome.md Sec 1-6,
+ *../system7-decomp/specs/sys8/scrollbars.md Sec 1-5, and
+ *../system7-decomp/specs/sys8/platinum-palette.md Sec 1-2.
+ * Re-key authority: clipped Toolbox drawing / OQ-7.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -19,7 +19,7 @@
 
 #include "render.h"
 #include "chrome.h"
-#include "window.h"        /* CalcDocContentRect: the owner's content seam (tdnl.51) */
+#include "window.h"        /* CalcDocContentRect: the owner's content seam */
 #include "flair_look.h"
 #include "chrome_fidelity_golden.h"
 #include "chicago12.h"     /* glyph ART only + CHICAGO_CAP_TOP; metrics come from the golden */
@@ -50,7 +50,7 @@ static rgn_rect_t win_frame(void)
     return r;
 }
 
-/* THE ACTIVE SCENE SCROLLS (bead initech-tdnl.35). Before tdnl.35 the active
+/* THE ACTIVE SCENE SCROLLS. Before  the active
  * gutters drew the ENABLED anatomy with no thumb (a product-state substitute
  * for the missing scroll model). Now the Window Manager carries one, so the
  * enabled-anatomy legs (WELL/TILE/SEPARATOR, BODYBAR's DA seam) grade a window
@@ -339,14 +339,14 @@ static int ramp_ok_at(const render_ctx_t *ctx, int bx, int by)
 
 
 /* ===========================================================================
- * CAPTURE LEGS (beads initech-tdnl.51 / initech-tdnl.52; audit F16).
+ * CAPTURE LEGS ( /; audit F16).
  *
  * These legs decode the two INDEPENDENT Mac OS 8.1 captures at test time
  * (../system7-decomp/goldens/captures/s8_doc_window_active.png and
  * s8_doc_window_inactive.png, libpng, the test-scrollbar-look pattern) and
  * grade the rendered window against the capture's own pixels, aligned on the
  * title bar (frame-relative offsets). No expected value comes from
- * chrome_metrics.h, from chrome_fidelity_golden.h or from the renderer (Law 2
+ * chrome_metrics.h, from chrome_fidelity_golden.h or from the renderer (independent checks
  * / HER-02): the capture IS the golden.
  *
  * The scene is the LIVE composition, not the chrome alone: the window is
@@ -462,9 +462,9 @@ static void draw_capture_no_grow(GrafPort *port)
     owner_fill_content(port);
 }
 
-/* h6y1: grade the ENTIRE cell directly against the independent capture,
+/* grade the ENTIRE cell directly against the independent capture,
  * including the three rows omitted by FG_GROW_PROFILE. No chrome_metrics.h
- * or renderer palette is an input to the expectation. DEC-10 governs: this
+ * or renderer palette is an input to the expectation. Platinum base governs: this
  * is the Platinum 18x18 grip, not the retained System-7 nested squares.
  * Ref: sys8/window-chrome.md Sec 5/6, active (461,296), inactive (306,179). */
 static int cap_grow(const char *state, const render_ctx_t *r,
@@ -617,7 +617,7 @@ int main(int argc, char **argv)
      * golden table), centered at x=40+(320-32)/2 = 184, run x=184..215;
      * visible ink is x=184..214 (T lb 0; E lb 1 + 5 ink columns at pen 209),
      * so the sampled 6/5 gap is x=178..219 on light rows and +1 on dark rows.
-     * (Was the fixed 5-cell run x=180..219; bead initech-tdnl.33.)
+     * (Was the fixed 5-cell run x=180..219;.)
      * TITLE_BLANK and CENTER_OFF both RED.
      * Ref: window-chrome.md Sec 2.2/2.3. */
     const int title_tx = WIN_LEFT +
@@ -875,7 +875,7 @@ int main(int argc, char **argv)
           "leg SCROLL-SEPARATOR: both active arrow-box separators must be "
           "black, never inactive gray (scrollbars.md Sec 2.1)");
 
-    /* RE-KEYED (tdnl.35): SCROLL-NO-THUMB asserted the absence of a thumb
+    /* RE-KEYED: SCROLL-NO-THUMB asserted the absence of a thumb
      * because no scroll model existed. With one, the ENABLED bar carries its
      * 15-px thumb at the value's position (scrollbars.md Sec 2.4): accent
      * pixels ONLY inside [pos, pos+15) along the axis, black separators at
@@ -977,7 +977,7 @@ int main(int argc, char **argv)
     /* TRUNCATION: the 150px frame has a sampled safe title run [421,512).
      * With the proportional NFNT 5478 advances only "ABCDEFGH." (66 px) fits
      * once the 6/5 gap is included, centered at x=442 (derivation in
-     * chrome_fidelity_golden.h; bead initech-tdnl.33).  This records the R0.2
+     * chrome_fidelity_golden.h; ).  This records the R0.2
      * simplification: whole-character truncation plus one period, no font
      * condensation. */
     rc = render_ctx_init(&trunc, &boot);
@@ -1043,7 +1043,7 @@ int main(int argc, char **argv)
 
     /* Keep the acceptance tail self-contained: one line per Platinum leg. */
     printf("Platinum chrome fidelity leg inventory:\n");
-    /* SCROLL-DISABLED (bead initech-tdnl.35): an ACTIVE window with nothing
+    /* SCROLL-DISABLED: an ACTIVE window with nothing
      * to scroll draws Sec 3's DISABLED bar -- black outer lines, flat F3
      * trough, #777777 arrow-box separators, #A5A5A5 8x4 arrows (20 px each),
      * and NO thumb, no well, no black glyph. Ref: scrollbars.md Sec 3
@@ -1085,7 +1085,7 @@ int main(int argc, char **argv)
           "flat F3 bars, #777777 separators, #A5A5A5 arrows and NO thumb "
           "(scrollbars.md Sec 3)");
 
-    /* SCROLL-PRESSED (tdnl.35): a held down arrow is drawn PRESSED -- the
+    /* SCROLL-PRESSED: a held down arrow is drawn PRESSED -- the
      * authored art (chrome.c banner; scrollbars.md Sec 6 golden gap): the
      * tile face is no longer the idle E7 face and the glyph stays black
      * (20 px). The up arrow stays idle. */
@@ -1108,7 +1108,7 @@ int main(int argc, char **argv)
           "arrow stays idle (authored; scrollbars.md Sec 6 gap)");
 
 
-    /* CAPTURE LEGS (tdnl.51 / tdnl.52) -- see the banner above main. */
+    /* CAPTURE LEGS ( / ) -- see the banner above main. */
     int cap_body_ok = 0, cap_body_inactive_ok = 0, cap_widgets_ok = 0;
     int cap_grow_ok = 0, cap_grow_inactive_ok = 0, no_grow_ok = 1;
     {

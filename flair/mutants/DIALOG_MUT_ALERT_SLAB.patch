@@ -7,7 +7,7 @@
   * its old solid-black paint was not the Platinum appearance contract.
   */
 -#  define DLG_BORDER_W 3  /* Capture: outline plus two bevel rows. */
-+#  define DLG_BORDER_W 7  /* Rule 6: restore the pre-L023 black slab. */
++#  define DLG_BORDER_W 7  /* mutation checks: restore the pre-L023 black slab. */
  
  static void draw_alert_frame(GrafPort *port, int left, int top,
                                int right, int bottom)

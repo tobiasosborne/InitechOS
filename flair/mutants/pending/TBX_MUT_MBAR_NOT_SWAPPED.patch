@@ -8,7 +8,7 @@
      }
      if (x > (uint32_t)FLAIR_SCREEN_W) return mbar_bad("too-wide");
 -    g_slot.app->menubar = (MenuBar *)(uintptr_t)bar;
-+    /* MUTANT TBX_MUT_MBAR_NOT_SWAPPED (Rule 6; test-flair-app-launch-mutant):
++    /* regression patches mbar not swapped patch (mutation checks; test-flair-app-launch-mutant):
 +     * the bar validates and the call reports success, but it is never
 +     * installed -- band 2 keeps the shell fallback bar while the tenant is
 +     * foreground. NEVER in a real build. */

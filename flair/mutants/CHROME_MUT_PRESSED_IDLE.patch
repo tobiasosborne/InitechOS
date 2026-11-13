@@ -6,7 +6,7 @@
  {
      const int box = FLAIR_CHROME_WIDGET_BOX;
      const int interior = FLAIR_CHROME_WIDGET_INTERIOR;
-+    /* MUTANT (Rule 6; test-chrome-mutant, initech-tdnl.60): no press
++    /* regression patches (mutation checks; test-chrome-mutant, ): no press
 +     * feedback -- the held box looks idle. NEVER in a real build. */
 +    pressed = 0;
      static const int ramp_part[FLAIR_CHROME_WIDGET_RAMP_RUNGS] = {

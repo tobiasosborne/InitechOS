@@ -1,24 +1,24 @@
 /*
  * os/flair/blitter.h -- the FLAIR region-clipped blitter (THE ARTIFACT).
  *
- * beads: initech-i50 ("Blitter with region clipping (visRgn/clipRgn)"; copy/fill
+ *  ("Blitter with region clipping (visRgn/clipRgn)"; copy/fill
  *        clipped to a region -- the substrate for window drawing and update
- *        regions). Depends on initech-b5g (region engine), initech-k8o5.6 (the
- *        ONE surface module), initech-slz (LFB). Blocks initech-87a (window drag).
+ *        regions). Depends on  (region engine),  (the
+ *        ONE surface module),  (LFB). Blocks  (window drag).
  *
  * WHAT THIS IS: the load-bearing CLIPPING primitive of FLAIR. Every Manager and
  * the window-drag path draw THROUGH this layer; a wrong clip corrupts the whole
- * Toolbox (CLAUDE.md Rule 3 "all bugs are deep"). It is a thin LAYER OVER the ONE
+ * Toolbox (bounded storage "all bugs are deep"). It is a thin LAYER OVER the ONE
  * surface module (os/flair/surface.h): it decides WHICH pixels are inside the
  * effective clip region (the visRgn INTERSECT clipRgn a Manager passes) and then
  * writes ONLY those, exclusively via surface_fill_span / surface_put_pixel. There
- * is NO second pixel path (ADR-0004 D-2 / C-2): the blitter never touches base[]
+ * is NO second pixel path (clipped Toolbox drawing / C-2): the blitter never touches base[]
  * directly.
  *
- * THE CLIP RULE (ADR-0004 D-1/D-2, MTE Ch 4; grafport.h CLIPPING INVARIANT):
+ * THE CLIP RULE (clipped Toolbox drawing/D-2, MTE Ch 4; grafport.h CLIPPING INVARIANT):
  *   ALL DRAWING IS CLIPPED BY  visRgn INTERSECT clipRgn.
  * The Manager intersects visRgn and clipRgn into one effective clip region (via
- * the REGION_ENGINE region_op INTERSECT, ADR-0005) and hands it to the blitter. The
+ * the REGION_ENGINE region_op INTERSECT, ) and hands it to the blitter. The
  * blitter writes a destination pixel IF AND ONLY IF that pixel is:
  *   (a) within the blit/fill rectangle, AND
  *   (b) inside the clip region.
@@ -27,16 +27,16 @@
  *
  * Ref: PRD Sec 6.2 (region algebra -- clipping reduces to region membership),
  *      Sec 6.3 (the Toolbox layer; the GrafPort is the sole conduit).
- *      ADR-0004 D-1 (5-layer stack; drawing clipped by an REGION_ENGINE region),
+ *      clipped Toolbox drawing (5-layer stack; drawing clipped by an REGION_ENGINE region),
  *      D-2 (one surface module; no second pixel path; QDProcs bitsProc seam).
  *      spec/region_algebra.h (region_t; region_contains_point; per-scanline
  *      inversion-list rep -- a row valid for [y_top, next.y_top), half-open span
  *      pairs [x_2k, x_2k+1)). os/flair/surface.h (bitmap_t; the ONE writer).
- *      os/flair/chrome.c (the ad-hoc per-pixel clip_in()/cfill() this primitive
+ *      os/flair/chrome.c (the ad-hoc per-pixel clip_in/cfill this primitive
  *      GENERALIZES into a reusable, scanline-span-walking clipped blit/fill).
- *      CLAUDE.md Law 2 (oracle is truth), Law 3 (freestanding artifact +
- *      dual-compile), Rule 2 (fail loud / bounds-checked), Rule 3 (all bugs
- *      deep), Rule 6 (mutation-proven oracle), Rule 11 (reproducible), Rule 12
+ *      independent checks (oracle is truth), language boundary (freestanding artifact +
+ *      dual-compile), explicit error handling (fail loud / bounds-checked), bounded storage (all bugs
+ *      deep), mutation checks (mutation-proven oracle), reproducible output, ASCII source
  *      (ASCII-clean).
  *
  * DUAL-COMPILE (the surface.c / region.c pattern): blitter.c compiles BOTH
@@ -45,9 +45,9 @@
  * test_blitter.c). It does NO host malloc and uses only <stdint.h> + the surface
  * and region headers; all storage is caller-supplied (the dst bitmap, the src
  * pixels, the region pools). Bounds-checked: nothing is written past the dst
- * buffer (the surface module additionally clips to the bitmap bounds -- Rule 2).
+ * buffer (the surface module additionally clips to the bitmap bounds -- explicit error handling).
  *
- * ASCII-clean (Rule 12). No timestamps / no nondeterminism (Rule 11).
+ * ASCII-clean. No timestamps / no nondeterminism.
  */
 #ifndef INITECH_OS_FLAIR_BLITTER_H
 #define INITECH_OS_FLAIR_BLITTER_H
@@ -73,7 +73,7 @@
  * per pixel. Correctness is the bar; the span walk is the same set of pixels a
  * per-pixel region_contains_point loop would write (proven by the oracle).
  *
- * Bounds-checked / fail-soft on a NULL/zero dst (Rule 2); the surface module
+ * Bounds-checked / fail-soft on a NULL/zero dst; the surface module
  * clips every span to the bitmap bounds so no write lands past the buffer.
  * -------------------------------------------------------------------------- */
 void blitter_fill_rect_clipped(const bitmap_t *dst, rgn_rect_t rect,
@@ -97,7 +97,7 @@ void blitter_fill_rect_clipped(const bitmap_t *dst, rgn_rect_t rect,
  * A destination pixel (dx,dy) for dx in [x,x+w), dy in [y,y+h) receives
  * src[(dy-y)*src_pitch_px + (dx-x)] IFF (dx,dy) is inside `clip`. Writes go ONLY
  * through surface_put_pixel. Bounds-checked: pixels off the dst bitmap, or with
- * negative coordinates, are skipped (Rule 2 -- never write past the buffer).
+ * negative coordinates, are skipped (explicit error handling -- never write past the buffer).
  *
  * `src_pitch_px` is the source stride in PIXELS (>= w). Passing exactly w means
  * a tightly-packed block.

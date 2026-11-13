@@ -7,7 +7,7 @@
                           : (int)(sizeof idle / sizeof idle[0]);
          ctrl_runs(port, x0, y0, x1, y1, t, nt);
 +        if (!hilited) {
-+            /* Rule 6: restore the thirteen pre-M012 corner errors. */
++            /* mutation checks: restore the thirteen pre-M012 corner errors. */
 +            for (int y = y0; y < y1; y += h - 1) {
 +                cfill_ctrl(port, x0, y, 1, CTRL_PLAT_SHADOW);
 +                cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_DARK_SHADOW);

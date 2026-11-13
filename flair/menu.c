@@ -1,72 +1,72 @@
 /*
  * os/flair/menu.c -- the FLAIR Menu Manager implementation (THE ARTIFACT).
  *
- * beads: initech-n3e ("FLAIR Menu Manager: pull-down menus + the menu bar,
- *        Photoshop-exact"). FLAIR Layer 3 Manager (ADR-0004 D-3).
- *        initech-yx4v ("Apple menu slot rendered as a solid black filled
+ *  ("FLAIR Menu Manager: pull-down menus + the menu bar,
+ *        Photoshop-exact"). FLAIR Layer 3 Manager (clipped Toolbox drawing).
+ *         ("Apple menu slot rendered as a solid black filled
  *        square, not an apple glyph") -- fixed by spec/assets/apple_glyph.h.
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The drawing path uses
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. The drawing path uses
  * the sampled Platinum menu anatomy from sys8/menus.md; the canon strings and
- * Menu Manager behavior remain unchanged (bead initech-sjvq).
+ * Menu Manager behavior remain unchanged.
  *
- * Ref:   ADR-0004 D-3 (MenuInfo + the Photoshop-exact bar + MenuSelect ->
+ * Ref:   clipped Toolbox drawing (MenuInfo + the Photoshop-exact bar + MenuSelect ->
  *          (menuID<<16|item)); D-1/D-2 (draw THROUGH a GrafPort clipped by an
  *          REGION_ENGINE region; one surface module, no second pixel path); D-7
  *          (proportional text -- text_measure = sum of per-glyph advances).
  *        spec/assets/menu_canon.h (the FROZEN canon string; USED, NOT re-authored).
  *        spec/assets/apple_glyph.h (the hand-authored Apple-menu glyph strike;
- *          initech-yx4v; back-checked against the system7-decomp captures).
+ *; back-checked against the system7-decomp captures).
  *        spec/chrome_metrics.h (FLAIR_CHROME_MENUBAR_H = 20).
  *        os/flair/text.h (text_measure / text_draw), os/flair/blitter.h
  *          (blitter_fill_rect_clipped), os/flair/surface.h (the ONE writer).
  *        Inside Macintosh Vol I "Menu Manager" (MenuInfo, MenuSelect, MenuKey,
  *          DrawMenuBar, HiliteMenu; the (menuID<<16|item) result; 1-based items;
  *          a disabled/divider item is never selectable; Command-key match).
- *        CLAUDE.md Law 2/3/4, Rule 2 (fail loud / bounds), Rule 11 (deterministic),
- *        Rule 12 (ASCII-clean).
+ *        independent checks, explicit error handling (fail loud / bounds), deterministic output,
+ *        ASCII source.
  *
  * ARTIFACT: freestanding (gcc -m32 -ffreestanding -nostdlib -std=c11) AND hosted
  * (for harness/proptest/test_menu.c). No libc, no malloc -- all storage is
  * caller-supplied (the MenuBar/MenuInfo arrays). Only <stdint.h>/<stddef.h> +
  * the FLAIR headers.
  *
- * NAMED MUTANTS (Rule 6; mutation-proven by test_menu.c):
- *   MENU_MUTATE_FIXED_WIDTH    -- lay titles/items out with a FIXED width instead
+ * NAMED regression patches (mutation checks; mutation-proven by test_menu.c):
+ *   fixed width patch    -- lay titles/items out with a FIXED width instead
  *                                 of the proportional text_measure width. Wrong
  *                                 x-positions => the bar-layout oracle goes RED.
- *   MENU_MUTATE_SELECT_DISABLED-- allow selecting a DISABLED item / divider in
+ *   select disabled patch-- allow selecting a DISABLED item / divider in
  *                                 the tracking loop. => the selectability oracle
  *                                 goes RED.
- *   MENU_MUT_NO_REHIT          -- freeze the tracked menu index at the click
+ *   no rehit patch          -- freeze the tracked menu index at the click
  *                                 (do NOT re-hit the bar per tracked point) --
- *                                 the ORIGINAL initech-rl4v bug: cross-menu
+ *                                 the ORIGINAL  bug: cross-menu
  *                                 drag is structurally impossible. => the
  *                                 PROPERTY 3c cross-menu-drag oracle goes RED.
- *   MENU_MUT_APPLE_SQUARE      -- paint the Apple slot as a SOLID FILLED
+ *   apple square patch      -- paint the Apple slot as a SOLID FILLED
  *                                 RECTANGLE instead of the apple_glyph.h masked
- *                                 blit -- the ORIGINAL initech-yx4v bug. =>
+ *                                 blit -- the ORIGINAL  bug. =>
  *                                 the APPLE GLYPH property oracle goes RED
  *                                 (ink ratio, bite notch, leaf-above-body).
- *   MENU_MUT_BAR_FLAT          -- erase the sampled 3-D profile + round corners.
- *   MENU_MUT_NO_PANEL_BEVEL    -- omit the panel's white/B3 inner bevel.
- *   MENU_MUT_SEP_PLAIN         -- collapse the etched separator to one plain row.
- *   MENU_MUT_DISABLED_NORMAL_INK -- render disabled items as normal black ink.
- *   MENU_MUT_TITLE_NO_HILITE   -- ignore the explicit pulled-title state.
+ *   bar flat patch          -- erase the sampled 3-D profile + round corners.
+ *   no panel bevel patch    -- omit the panel's white/B3 inner bevel.
+ *   sep plain patch         -- collapse the etched separator to one plain row.
+ *   disabled normal ink patch -- render disabled items as normal black ink.
+ *   title no hilite patch   -- ignore the explicit pulled-title state.
  *
- * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
+ * ASCII-clean. No nondeterminism / no timestamps.
  */
 
 #include "menu.h"
 #include "apple_glyph.h"        /* APPLE_GLYPH_ROWS -- hand-authored strike
-                                 * (-Ispec/assets); initech-yx4v            */
-#include "flair_look.h"         /* PART->pixel policy seam (DEC-09 C-8)          */
+                                 * (-Ispec/assets);             */
+#include "flair_look.h"         /* PART->pixel policy seam (authored teal C-8)          */
 
-/* The fixed-width fallback used ONLY by the MENU_MUTATE_FIXED_WIDTH mutant.
+/* The fixed-width fallback used ONLY by the fixed width patch mutant.
  * Chosen distinct from any proportional title width so the mutant misplaces the
  * titles measurably (the oracle catches a wrong x). */
 
-/* R3.6, initech-tdnl.13. Ref: GUI-remediation-plan R3.6; PRD Sec 6.3/6.4;
+/* R3.6,. Ref: GUI-remediation-plan R3.6; PRD Sec 6.3/6.4;
  * system7-decomp s8_desktop_menubar.png "12:56 am" and s8_menu_dropped.png
  * "1:00 am". Clock format is twelve-hour, lowercase suffix, no hour padding.
  * Chicago12 is the PRD's system-font substitution. Only the shell's explicitly
@@ -132,8 +132,8 @@ void MenuClock_draw(GrafPort *port, const region_t *clip)
 /* --------------------------------------------------------------------------
  * Internal: the proportional width of one title slot (PAD + text + PAD).
  *
- * Under MENU_MUTATE_FIXED_WIDTH this returns a constant, ignoring the title text
- * length -- the named layout mutant (Rule 6).
+ * Under fixed width patch this returns a constant, ignoring the title text
+ * length -- the named layout mutant.
  * -------------------------------------------------------------------------- */
 static int title_slot_w(const char *title)
 {
@@ -142,7 +142,7 @@ static int title_slot_w(const char *title)
 }
 
 /* --------------------------------------------------------------------------
- * The system Apple menu (menu.h Sec 3a; bead initech-tdnl.47).
+ * The system Apple menu (menu.h Sec 3a; ).
  * -------------------------------------------------------------------------- */
 static const MenuInfo *g_apple_menu = (const MenuInfo *)0;
 
@@ -170,7 +170,7 @@ int16_t MenuBar_menu_id(const MenuBar *bar, int mi)
 }
 
 /* --------------------------------------------------------------------------
- * Bar layout queries (proportional cumulative; ADR-0004 D-7).
+ * Bar layout queries (proportional cumulative; clipped Toolbox drawing).
  * -------------------------------------------------------------------------- */
 int MenuBar_title_x(const MenuBar *bar, int i)
 {
@@ -222,7 +222,7 @@ static char cmd_fold(char c);
 
 /* The proportional width of an item's "^X" command run (the caret-letter
  * substitution drawn by flair_draw_menu_panel), measured in Chicago 12 like
- * every other menu string (bead initech-tdnl.33; was 2 fixed 8-px cells). */
+ * every other menu string (; was 2 fixed 8-px cells). */
 static int cmd_run_w(char cmdChar)
 {
     char cmd[3];
@@ -234,7 +234,7 @@ static int cmd_run_w(char cmdChar)
 
 /* --------------------------------------------------------------------------
  * The widest item text in a menu (proportional), for the panel width.
- * Under MENU_MUTATE_FIXED_WIDTH the panel uses a fixed width too (so the
+ * Under fixed width patch the panel uses a fixed width too (so the
  * item-row layout shifts), keeping the mutant self-consistent.
  * -------------------------------------------------------------------------- */
 static int menu_panel_w(const MenuInfo *m)
@@ -244,7 +244,7 @@ static int menu_panel_w(const MenuInfo *m)
         if (m->items[k].is_divider)
             continue;
         /* the item's own face (MenuItem.style, txFace bits): bold widens
-         * every glyph by 1 px (font-manager.md Sec 6.1; bead initech-tdnl.68) */
+         * every glyph by 1 px (font-manager.md Sec 6.1; ) */
         int w = text_measure_face(FONT_CHICAGO,
                                   (unsigned)m->items[k].style & TEXT_FACE_SYNTH,
                                   m->items[k].text);
@@ -343,7 +343,7 @@ int MenuInfo_item_at(const MenuBar *bar, int mi, int x, int y)
 /* --------------------------------------------------------------------------
  * Selectability: enabled AND not a divider (Inside Macintosh -- a dimmed item
  * or a separator cannot be chosen). The decisive predicate; the
- * MENU_MUTATE_SELECT_DISABLED mutant subverts it.
+ * select disabled patch mutant subverts it.
  * -------------------------------------------------------------------------- */
 int MenuInfo_item_selectable(const MenuBar *bar, int mi, int it)
 {
@@ -360,7 +360,7 @@ int MenuInfo_item_selectable(const MenuBar *bar, int mi, int it)
 /* --------------------------------------------------------------------------
  * Pulled-title geometry. The 10px accent block pad is measured from the idle
  * INK run, not from the 9px layout slot; opening a menu never shifts
- * the titles after it. Ref: sys8/menus.md Sec 1.4; bead initech-sjvq.
+ * the titles after it. Ref: sys8/menus.md Sec 1.4;.
  * -------------------------------------------------------------------------- */
 rgn_rect_t MenuBar_hilite_rect(const MenuBar *bar, int mi)
 {
@@ -450,13 +450,13 @@ uint32_t MenuKey(const MenuBar *bar, char ch)
  * from the bar EVERY tracked point whose y is still within the bar band
  * [0, FLAIR_MENUBAR_H) -- a hit on a DIFFERENT title switches the tracked
  * menu; a point below the bar (in a panel) tracks the item within whichever
- * menu is CURRENTLY open (initech-rl4v: menu.c used to capture mi ONCE at the
+ * menu is CURRENTLY open (: menu.c used to capture mi ONCE at the
  * click and never re-hit, making cross-menu drag structurally impossible).
  * The hilited item follows the cursor (MenuInfo_item_at) against the
  * currently-tracked menu. On release, return the selection IFF the released
  * item (in the FINAL tracked menu) is selectable, else 0.
  *
- * STREAMING FORM (bead initech-tdnl.71; audit pass 3 H01). The track is a
+ * STREAMING FORM (; audit pass 3 H01). The track is a
  * FOLD: its whole state is the menu currently dropped (mi) and the item under
  * the latest point (hi). MenuTrack_begin / _step / _result are that fold one
  * point at a time, and flair_menu_track is begin + step-per-point + result --
@@ -467,7 +467,7 @@ uint32_t MenuKey(const MenuBar *bar, char ch)
  * and the release resolved against the FIRST-dropped menu (View > by Icons
  * highlighted, File > New Folder run). The pump also draws from this state,
  * so the visible menu and the dispatched one cannot disagree.
- * MENU_MUT_TRACK_CAP (Rule 6) restores that fault: past the 63rd point the bar
+ * track cap patch  restores that fault: past the 63rd point the bar
  * is no longer re-hit. NEVER define in a real build.
  * -------------------------------------------------------------------------- */
 void MenuTrack_begin(const MenuBar *bar, flair_point_t startPt,
@@ -533,7 +533,7 @@ uint32_t MenuSelect(const MenuBar *bar, flair_point_t startPt,
 
 /* One-pixel corner transcription from sys8/menus.md Sec 1.2. Entries not in a
  * row's prefix retain the sampled vertical bar profile. The right corner is the
- * exact mirror. Values are PART names, never palette indices (DEC-09 C-8). */
+ * exact mirror. Values are PART names, never palette indices (authored teal C-8). */
 static const uint8_t menu_corner_n[9] = { 8u, 8u, 5u, 4u, 3u, 2u, 2u, 2u, 1u };
 static const uint8_t menu_corner_part[9][8] = {
     { FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME, FLAIR_PART_FRAME,
@@ -574,7 +574,7 @@ static void draw_menu_bar_corners(GrafPort *port, const region_t *clip)
 
 /* --------------------------------------------------------------------------
  * DrawMenuBar -- sampled Platinum 20px profile + explicit pulled-title state.
- * Ref: sys8/menus.md Sec 1.1-1.4; DEC-10 Sec 6 OQ-2/OQ-3; initech-sjvq.
+ * Ref: sys8/menus.md Sec 1.1-1.4; Platinum base OQ-2/OQ-3;.
  * -------------------------------------------------------------------------- */
 void DrawMenuBar(GrafPort *port, const MenuBar *bar,
                  int hilited_menu, const region_t *clip)
@@ -669,7 +669,7 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
         uint32_t title_bg = (k == hilited_menu)
                             ? pulled_face
                             : bar_face;
-        /* clipped like every other bar primitive (bead initech-tdnl.68:
+        /* clipped like every other bar primitive (:
          * text never paints outside the effective clip) */
         text_clip_t tk = { clip, 0, 0, 0, 0, 0 };
         (void)text_draw_run(bm, x + FLAIR_MENU_TITLE_PAD, FLAIR_MENU_TITLE_VPAD,
@@ -738,13 +738,13 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
         uint32_t row_bg = face;
         /* The item text is clipped to its own row [row_top, row_top + h) on
          * BOTH edges and to the panel's columns, INSIDE the effective clip
-         * (bead initech-tdnl.68: the Font Manager's clipped run; it was a
+         * (: the Font Manager's clipped run; it was a
          * row-sized bitmap view that ignored `clip`). The sampled cap top is
          * FLAIR_MENU_ITEM_TEXT_TOP below the row top (sys8/menus.md Sec 2.2:
          * text top 23 = rect top 21 + 2), so the Chicago cell starts
          * CHICAGO_CAP_TOP rows above that -- one row above the row itself,
          * which the row box drops (that row of the cell is blank ascent).
-         * Bead initech-tdnl.33. */
+         *. */
         const int text_y = row_top + FLAIR_MENU_ITEM_TEXT_TOP - CHICAGO_CAP_TOP;
         text_clip_t rk = { clip, 0, panel.left, row_top, panel.right,
                            row_top + h };
@@ -769,15 +769,15 @@ void flair_draw_menu_panel(GrafPort *port, const MenuBar *bar, int mi,
                                 row_bg, &rk);
         }
         /* drawn in the item's own style, as the Mac Menu Manager draws a
-         * Style menu (menu-manager.md Sec 2.2 style byte; bead initech-tdnl.68) */
+         * Style menu (menu-manager.md Sec 2.2 style byte; ) */
         (void)text_draw_run(bm, text_x, text_y, it->text, FONT_CHICAGO,
                             (unsigned)it->style & TEXT_FACE_SYNTH, row_fg,
                             row_bg, &rk);
 
         if (it->cmdChar) {
             /* The source strike has no cloverleaf. Render the period-plausible
-             * caret-letter form required by initech-sjvq; do not author a glyph
-             * in this lane. The run is right-aligned FLAIR_MENU_CMD_RPAD from the
+             * caret-letter form required by; do not author a glyph
+             * here. The run is right-aligned FLAIR_MENU_CMD_RPAD from the
              * panel edge like x=199..216 in the sampled 198px File panel
              * (sys8/menus.md Sec 2.2/2.3), at its proportional width. */
             char cmd[3];

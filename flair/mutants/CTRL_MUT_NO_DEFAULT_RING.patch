@@ -19,7 +19,7 @@
 -        return;
 -    }
 -
--    /* The expanded bounds [x0,x1) x [y0,y1) (x0 = bx0 - 3 ...) as one run
+-    /* The expanded bounds [x0,x1) x [y0,y1) (x0 = bx0 - 3...) as one run
 -     * table, in the original paint order: the sampled E7 field, the
 -     * one-pixel rounded black ring with its 3F smoothing pixels, then the
 -     * straight moat legs (E7/C0 top+left, C0/96 bottom+right); DrawControl
@@ -48,7 +48,7 @@
 -     * Ref: s8_alert_modal.png x432..496,y155..180: radius4, asymmetric
 -     * sampled smoothing/moat. These are the four 5x5 corner crops; straight
 -     * legs above remain stretchable. The oracle reads the PNG independently.
--     * Named mutant restores the old corners (Rule6). */
+-     * Named mutant restores the old corners. */
 -    static const char corners[4][5][6]={
 -        {"...dK","..K..",".K..C","d..CS","K.CSK"},
 -        {"Kd...",".AK..","CCHK.","SCCGd","KSCSK"},
@@ -64,7 +64,7 @@
 -        cfill_ctrl(port,(k&1?x1-5:x0)+x,(k&2?y1-5:y0)+y,1,part);
 -    }
 -
-+    /* NAMED MUTANT: defaultItem no longer reaches visible ring pixels. */
++    /* NAMED regression patches: defaultItem no longer reaches visible ring pixels. */
 +    return;
  }
  

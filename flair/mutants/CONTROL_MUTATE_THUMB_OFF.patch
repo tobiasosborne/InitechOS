@@ -8,8 +8,8 @@
  
 -    int offset = ((int)ctrl->contrlValue - (int)ctrl->contrlMin)
 -                 * (track_h - thumb_h) / range;
-+    /* NAMED MUTANT: wrong scale factor -- multiply by 2 instead of dividing
-+     * correctly. test_control MUST catch this divergence (Rule 6). */
++    /* NAMED regression patches: wrong scale factor -- multiply by 2 instead of dividing
++     * correctly. test_control MUST catch this divergence. */
 +    int offset = ((int)ctrl->contrlValue - (int)ctrl->contrlMin) * 2;
  
      int ty = track_top + offset;
@@ -19,9 +19,9 @@
      }
  
 -    int v = (int)ctrl->contrlMin + offset * range / moveable;
-+    /* NAMED MUTANT: inverse uses same wrong formula to stay "consistent" with
++    /* NAMED regression patches: inverse uses same wrong formula to stay "consistent" with
 +     * the mutated forward pass. The forward+inverse pair is tested together so
-+     * the mutant ensures the ratio is wrong in both directions (Rule 6). */
++     * the mutant ensures the ratio is wrong in both directions. */
 +    int v = (int)ctrl->contrlMin + offset / 2;
  
      if (v < (int)ctrl->contrlMin) {

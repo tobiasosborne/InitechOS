@@ -11,7 +11,7 @@
 -        if (da < 0) da = -da;
 -        if (db < 0) db = -db;
 -        anchor = (da >= db) ? te->selStart : te->selEnd;
-+        /* MUTANT (Rule 6): the anchor is always selStart -- a shift-click
++        /* regression patches: the anchor is always selStart -- a shift-click
 +         * before the selection throws its end away. */
 +        anchor = te->selStart;
      }

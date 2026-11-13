@@ -18,7 +18,7 @@
          if (m->items[k].is_divider)
              continue;
 -        /* the item's own face (MenuItem.style, txFace bits): bold widens
--         * every glyph by 1 px (font-manager.md Sec 6.1; bead initech-tdnl.68) */
+-         * every glyph by 1 px (font-manager.md Sec 6.1; ) */
 -        int w = text_measure_face(FONT_CHICAGO,
 -                                  (unsigned)m->items[k].style & TEXT_FACE_SYNTH,
 -                                  m->items[k].text);

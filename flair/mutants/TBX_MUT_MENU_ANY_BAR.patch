@@ -7,7 +7,7 @@
  {
      if (owner == (const MenuBar *)0 || out == (EventRecord *)0) return 0;
 -    if (tracked != owner) return 0;
-+    /* MUTANT TBX_MUT_MENU_ANY_BAR (Rule 6): the identity guard is gone, so
++    /* regression patches menu any bar patch: the identity guard is gone, so
 +     * a choice in the Finder's (or any) bar reaches the tenant. NEVER in a
 +     * real build. */
 +    (void)tracked;

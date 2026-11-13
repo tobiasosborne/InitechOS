@@ -1,6 +1,6 @@
 /*
  * spec/assets/font_linkage.h -- ONE out-of-line copy of each font table in
- * the kernel (bead initech-tdnl.33, PM ruling 7 / slice-1 ruling 3).
+ * the kernel (, PM ruling 7 / slice-1 ruling 3).
  *
  * WHY: the strike headers used to define their tables `static const`, so every
  * kernel translation unit that called an inline accessor carried its own copy
@@ -22,12 +22,12 @@
  *
  * Usage in a strike header:
  *     #if FONT_TABLE_EMIT
- *     FONT_TABLE unsigned char tbl[N] = { ... };
+ *     FONT_TABLE unsigned char tbl[N] = {... };
  *     #else
  *     FONT_TABLE unsigned char tbl[N];
  *     #endif
  *
- * ASCII-clean (Rule 12). No nondeterminism (Rule 11).
+ * ASCII-clean. No nondeterminism.
  */
 #ifndef INITECH_FONT_LINKAGE_H
 #define INITECH_FONT_LINKAGE_H

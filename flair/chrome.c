@@ -4,8 +4,8 @@
  * The renderer owns geometry only. Every color role crosses the C-8 policy
  * seam as a FLAIR_PART_* key; this file contains no palette table and no era
  * selection. Geometry is the sampled Mac OS 8.1 base-era contract in
- * ../system7-decomp/specs/sys8/window-chrome.md Sec 1-6 and scrollbars.md
- * Sec 1-5, selected by ADR-0004-AMENDMENT-DEC-10 Sec 4 / OQ-7.
+ *../system7-decomp/specs/sys8/window-chrome.md Sec 1-6 and scrollbars.md
+ * Sec 1-5, selected by clipped Toolbox drawing / OQ-7.
  */
 
 #include <stdint.h>
@@ -17,7 +17,7 @@
 #include "flair_look.h"
 #include "text.h"
 #include "window_record.h"  /* FLAIR_WINDOW_TITLE_MAX: kernel-held title seam */
-#include "rdoc.h"           /* rDocProc geometry (bead initech-tdnl.17)        */
+#include "rdoc.h"           /* rDocProc geometry        */
 
 /* True when a port-local pixel is in visRgn INTERSECT clipRgn. */
 static int clip_in(const GrafPort *port, int x, int y)
@@ -61,14 +61,14 @@ static void chrome_cfill(GrafPort *port, const flair_skin_t *skin,
     }
 }
 
-/* The title run, CLIPPED like every other chrome primitive (bead
- * initech-tdnl.14). text_draw -> surface_blit has no region clip, so a WDEF
+/* The title run, CLIPPED like every other chrome primitive (
+ * ). text_draw -> surface_blit has no region clip, so a WDEF
  * repaint of a PARTLY COVERED window's title bar used to stamp the whole
  * Chicago cell run -- ink AND background -- over the window in front of it.
  * Found on the real guest: a disk tenant's exit exposed part of NOTES' title
  * bar, and NOTES' "NOTES" run overdrew the APPS window's frame + scrollbar
- * (the test-flair-app-launch RESTORE leg's byte-compare caught it). Since bead
- * initech-tdnl.68 it is the Font Manager's ONE clipped run, text_draw_run,
+ * (the test-flair-app-launch RESTORE leg's byte-compare caught it). Since
+ *  it is the Font Manager's ONE clipped run, text_draw_run,
  * under the port's visRgn INTERSECT clipRgn: the same pixels as text_draw
  * wherever they are visible (the opaque advance-wide box in bg, the strike's
  * ink in fg), nothing where they are not. */
@@ -113,7 +113,7 @@ static void chrome_cframe(GrafPort *port, const flair_skin_t *skin,
 #define cframe(port, x0, y0, x1, y1, part) \
     chrome_cframe((port), skin, (x0), (y0), (x1), (y1), (part))
 
-/* Rect tables (size round 6, WL-0162): each entry is one crect whose edges
+/* Rect tables (compact storage, drawing tables): each entry is one crect whose edges
  * are offsets from the box's left/top or (CR_*R/B) right/bottom edge, painted
  * in table order; CR_ACT / CR_INA restrict it to the active / inactive
  * frame, and part CR_DYN takes the caller's dynamic PART. */
@@ -155,7 +155,7 @@ enum {
  * Ref: window-chrome.md Sec 3.1-3.3. The seven ramp roles are the sampled
  * diagonal sequence documented at Sec 3.2 and reuse existing policy parts.
  *
- * `pressed` (bead initech-tdnl.60, TrackGoAway/TrackBox feedback) draws the
+ * `pressed` (, TrackGoAway/TrackBox feedback) draws the
  * box held down. Platinum pressed widget art is a documented GOLDEN GAP
  * (sys8/window-chrome.md Sec 8: "No golden shows a close/zoom/collapse box
  * under the mouse button"), so this is AUTHORED after the one local pressed
@@ -179,7 +179,7 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
         FLAIR_PART_CONTENT
     };
 
-    /* The fixed 13x13 cell as a rect table (size round 6, WL-0162), offsets
+    /* The fixed 13x13 cell as a rect table (compact storage, drawing tables), offsets
      * from (bx,by): E7-less DA face, A5 outer highlight, the 1-px ring
      * (black when pressed), the DA interior, its A5 shadow and the white
      * top-left pixel. The redundant DA re-fills of the interior's first
@@ -196,7 +196,7 @@ static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
          * column (dx=8) runs dy=1..8. The two off-diagonal corners (8,0) and
          * (0,8) stay #DADADA -- they belong to the top-row/left-column
          * highlight (window-chrome.md Sec 3.2 transcription, y=76 x=79 'd'
-         * and y=84 x=71 'd'; bead initech-tdnl.52, the LOOK pass 6 2/169
+         * and y=84 x=71 'd';, the LOOK pass 6 2/169
          * residual). */
         WX(3, 1 + interior, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
         WX(1 + interior, 3, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
@@ -280,10 +280,10 @@ static void chicago_ink_bounds(const char *text, int width,
  * close and zoom clusters (Sec 2.2 / Sec 3.1).  Overlong titles are truncated
  * at a whole-character boundary and END IN THE ELLIPSIS, the single Chicago
  * glyph 0xC9 (FLAIR_CHROME_TITLE_TRUNC_MARKER; NFNT 5478 lb 2 aw 14), the way
- * TruncString(smTruncEnd) ends a System 7 / Mac OS 8 title (bead
- * initech-tdnl.68; it was one period, the R0.2 simplification, before the
+ * TruncString(smTruncEnd) ends a System 7 / Mac OS 8 title (
+ *; it was one period, the R0.2 simplification, before the
  * strike had the glyph). Widths are the proportional Chicago 12 advances
- * (initech-tdnl.33). No font condensation. */
+ *. No font condensation. */
 static int title_layout_make(title_layout_t *out, const char *title,
                              int left, int right,
                              int safe_left, int safe_right)
@@ -404,7 +404,7 @@ static int draw_titlebar_band(GrafPort *port, const flair_skin_t *skin,
     return shared_line;
 }
 
-/* Axis-generic rect (size round 6, WL-0162): along [a0,a1) x cross [c0,c1).
+/* Axis-generic rect (compact storage, drawing tables): along [a0,a1) x cross [c0,c1).
  * V: along = y, cross = x; H: along = x, cross = y. One colour per call, so
  * the decomposition into spans never changes a pixel. */
 static void sb_rect(GrafPort *port, const flair_skin_t *skin, int axis,
@@ -427,11 +427,11 @@ static void sb_tri(GrafPort *port, const flair_skin_t *skin, int axis,
 }
 
 /* Raised 14x14 Platinum arrow tile. Off-diagonal corners retain the face.
- * Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 2.2 (SAMPLED). */
+ * Ref:../system7-decomp/specs/sys8/scrollbars.md Sec 2.2 (SAMPLED). */
 static void draw_scroll_tile(GrafPort *port, const flair_skin_t *skin,
                              int x0, int y0, int x1, int y1)
 {
-    /* Rect table (size round 6, WL-0162), box (x0,y0)-(x1,y1): face, white
+    /* Rect table (compact storage, drawing tables), box (x0,y0)-(x1,y1): face, white
      * top row + left column, CD bottom row + right column, the two
      * off-diagonal corners back to the face. */
 #define TX(a, b, c, d, f, p) { (int8_t)(a), (int8_t)(b), (int8_t)(c), (int8_t)(d), (uint8_t)(f), (uint8_t)(p) }
@@ -470,13 +470,13 @@ static void sb_well(GrafPort *port, const flair_skin_t *skin, int axis,
 }
 
 /* ---------------------------------------------------------------------------
- * The window gutters' THREE states (bead initech-tdnl.35; scrollbars.md Sec 5):
+ * The window gutters' THREE states (; scrollbars.md Sec 5):
  *   HOLLOW   inactive window: gray outer lines, flat F3 interior, nothing else
  *            (Sec 4).
  *   DISABLED active window whose content FITS (no WindowScroll record, or its
  *            max == 0): black outer lines, flat F3 interior, #777777 arrow-box
  *            separators, #A5A5A5 arrows, NO thumb (Sec 3 -- "Both bars of the
- *            'Initech81' window ... are disabled: the folder contents fit the
+ *            'Initech81' window... are disabled: the folder contents fit the
  *            view").
  *   ENABLED  active window with something to scroll: raised arrow tiles,
  *            recessed wells, black separators and the 15-px accent thumb at
@@ -573,7 +573,7 @@ static void draw_arrow_tile(GrafPort *port, const flair_skin_t *skin,
     else         draw_scroll_tile(port, skin, x0, y0, x1, y1);
 }
 
-/* One gutter bar, axis-generic (size round 6, WL-0162): along [a0,a1),
+/* One gutter bar, axis-generic (compact storage, drawing tables): along [a0,a1),
  * cross [c0,c1] INCLUSIVE (the V bar's right line / the H bar's bottom line).
  * V: a = top..bottom, c = left..right; H: a = left..right, c = top..bottom.
  * The arrow tiles keep their x/y bevel (light top+left) on both axes. */
@@ -584,7 +584,7 @@ static void draw_scrollbar(GrafPort *port, const flair_skin_t *skin, int axis,
     int frame_part = active ? FLAIR_PART_FRAME
                             : FLAIR_PART_PLAT_INACTIVE_FRAME;
     /* All interior rows, including the old well's final row when an
-     * enabled bar becomes disabled (tdnl.82). */
+     * enabled bar becomes disabled. */
     sb_rect(port, skin, axis, a0 + 1, a1 - 1, c0 + 1, c1, FLAIR_PART_PLAT_TROUGH);
     sb_rect(port, skin, axis, a0, a1, c0, c0 + 1, frame_part);
     sb_rect(port, skin, axis, a0, a1, c1, c1 + 1, frame_part);
@@ -646,7 +646,7 @@ static void draw_grow_box(GrafPort *port, const flair_skin_t *skin,
     const int cell = FLAIR_CHROME_GROW;
     int trail_part = FLAIR_PART_PLAT_STRIPE_DARK;
 
-    /* h6y1 Rule-6 perturbations. Default art remains the independent
+    /* mutation checks perturbations. Default art remains the independent
      * Mac OS 8.1 cell (sys8/window-chrome.md Sec 5/6), not System-7 art. */
 
     crect(port, gx, gy, gx + cell, gy + cell,
@@ -686,7 +686,7 @@ static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
     /* Box: l = left, t = shared_line, r = right, b = bottom - 1. */
 #define BX(x0, y0, x1, y1, f, p) { (int8_t)(x0), (int8_t)(y0), (int8_t)(x1), (int8_t)(y1), (uint8_t)(f), (uint8_t)(p) }
     static const chrome_rect_t body[] = {
-        /* the rails, rows t+1 .. b-1 */
+        /* the rails, rows t+1.. b-1 */
         BX(1, 1, 2, 0, CR_ACT | CR_Y1B, FLAIR_PART_CONTENT),
         BX(2, 1, 4, 0, CR_ACT | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE),
         BX(4, 1, 5, 0, CR_ACT | CR_Y1B, FLAIR_PART_PLAT_FRAME_SHADOW),
@@ -695,7 +695,7 @@ static void draw_body_structure(GrafPort *port, const flair_skin_t *skin,
         BX(-4, 1, -2, 0, CR_ACT | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE),
         BX(-2, 1, -1, 0, CR_ACT | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FRAME_SHADOW),
         BX(-5, 1, -5 + FLAIR_CHROME_BODY_BAR, 0, CR_INA | CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FACE),
-        /* the bottom band, rows b-4 .. b-1 */
+        /* the bottom band, rows b-4.. b-1 */
         BX(1, -4, -1, -3, CR_ACT | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_CONTENT),
         BX(1, -3, -1, -1, CR_ACT | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE),
         BX(1, -1, -1, 0, CR_ACT | CR_X1R | CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FRAME_SHADOW),
@@ -917,7 +917,7 @@ void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
 
 /* ===========================================================================
  * flair_draw_rdoc_window -- the rDocProc (16) WDEF: the Calculator's rounded
- * window (bead initech-tdnl.17; geometry and its ground truth: rdoc.h).
+ * window (; geometry and its ground truth: rdoc.h).
  * Paints the outline + title band + the body's sides, NEVER the content (the
  * owner paints that through contRgn). Every span is clipped like the rest of
  * the chrome (chrome_cfill). Inks resolve through the C-8 seam: FRAME black,
@@ -927,7 +927,7 @@ void flair_draw_movable_dbox_chrome(GrafPort *port, const flair_skin_t *skin,
  * same rdoc.h insets into strucRgn), so the drawer can never paint outside
  * it; the insets here pick the outline's own pixels.
  *
- * CHROME_MUT_RDOC_NO_CLOSE (Rule 6; test-flair-calc-mutant): the active band
+ * rdoc no close patch (mutation checks; test-flair-calc-mutant): the active band
  * loses its close-box ring (a solid black band, as a window without a go-away
  * box). NEVER in a real build.
  * =========================================================================*/

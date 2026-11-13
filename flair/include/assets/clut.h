@@ -1,14 +1,14 @@
 /*
- * LOCKED spec-data -- InitechOS FLAIR indexed-8 CLUT (CLAUDE.md Rule 8).
+ * LOCKED spec-data -- InitechOS FLAIR indexed-8 CLUT (pinned inputs).
  * DO NOT EDIT to make a test pass. Deliberate spec changes only.
  *
  * Source: Quadra 650 ROM (F1ACAD13, 1993-02), 'clut' ID 8 "8BitStd",
  *   ROM offset 0x072F90. 256-entry device CLUT (ctSeed=8, ctFlags=0x8000,
  *   ctSize=255). Extracted as:
- *     ../system7-decomp/goldens/resources/clut_8_rom.bin (2056 bytes)
+ *../system7-decomp/goldens/resources/clut_8_rom.bin (2056 bytes)
  *   Ref: system7-decomp/specs/resources/clut-pltt-format.md Secs 2 and 4.
  *   Era: system7.0-7.1 + system8-platinum-8.1 [confirmed unchanged by the OQ-8
- *        gamma proof; Law 3 era-tag: see spec/assets/clut.json "era" field].
+ *        gamma proof; language boundary era-tag: see spec/assets/clut.json "era" field].
  *
  * Downsampling: 8-bpp = high byte of 16-bit RGBColor (val >> 8).
  *   E.g. stored 0xFFFF -> 0xFF; 0xCCCC -> 0xCC; 0x3333 -> 0x33.
@@ -29,7 +29,7 @@
  *
  * palette.* (spec/assets/palette.h) is the 7-color frame-sampled canon +
  * SEAFOAM. clut.* is the full ROM-derived table, confirmed unchanged through
- * Mac OS 8.1 by ADR-0004-AMENDMENT-DEC-10 OQ-8. They COEXIST; do NOT merge or
+ * Mac OS 8.1 by clipped Toolbox drawing OQ-8. They COEXIST; do NOT merge or
  * edit either to match the other.
  *
  * Nearest CLUT indices for spec/assets/palette.json frame colors:
@@ -110,7 +110,7 @@ _Static_assert(sizeof(flair_clut8) == 256 * 3,
  * (stable / deterministic).
  *
  * This contract is PURE FUNCTION: same inputs always produce the same
- * output regardless of call order (Law 2 determinism; Rule 11
+ * output regardless of call order (independent checks determinism; reproducibility
  * reproducibility). No global state, no randomness.
  *
  * Ref: system7-decomp/specs/resources/clut-pltt-format.md Sec 6

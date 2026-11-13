@@ -1,14 +1,14 @@
 /*
  * os/flair/control.h -- FLAIR Control Manager: the LOCKED contract (THE ARTIFACT).
  *
- * beads: initech-8h9 ("FLAIR Control Manager: buttons, scrollbars, progress bar").
+ *  ("FLAIR Control Manager: buttons, scrollbars, progress bar").
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. The unpressed push
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. The unpressed push
  * button and checked checkbox are sampled Platinum renderings. Unchecked,
  * pressed/tracking, and radio art remain explicit golden gaps with retained
- * heritage output. Record and part-code semantics are unchanged (DEC-10 OQ-9).
+ * heritage output. Record and part-code semantics are unchanged (Platinum base OQ-9).
  *
- * Ref: ADR-0004 D-3 ("Control Manager -- ControlRecord {value/min/max,
+ * Ref: clipped Toolbox drawing ("Control Manager -- ControlRecord {value/min/max,
  *        contrlHilite, contrlRect}; part-codes inButton, inCheckBox,
  *        inUpButton/inDownButton/inPageUp/inPageDown/inThumb. Buttons,
  *        scrollbars, the FILE COPY progress bar.");
@@ -30,16 +30,16 @@
  *        os/flair/text.{c,h} (Chicago for button labels; text_measure /
  *        text_draw / text_center_in); os/flair/surface.h (bitmap_t);
  *        spec/grafport.h (GrafPort).
- *      CLAUDE.md Law 1 (ground truth -- verbatim IM names; metrics from the
- *        LOCKED spec), Law 2 (oracle in test_control.c), Law 3 (freestanding
- *        artifact; dual-compile), Rule 2 (fail loud), Rule 11 (deterministic),
- *        Rule 12 (ASCII-clean source).
+ *      source provenance (ground truth -- verbatim IM names; metrics from the
+ *        LOCKED spec), independent checks (oracle in test_control.c), language boundary (freestanding
+ *        artifact; dual-compile), fail loudly, deterministic output,
+ *        ASCII source.
  *
- * ARTIFACT CODE: freestanding C (ADR-0002). No libc. No malloc. No 2026-isms.
+ * ARTIFACT CODE: freestanding C (freestanding C build). No libc. No malloc. No 2026-isms.
  * Dual-compile: kernel (gcc -m32 -ffreestanding -nostdlib -DFLAIR_HOSTED=0)
  *               hosted  (gcc -DFLAIR_HOSTED=1) for the oracle harness.
  *
- * VERBATIM INSIDE MACINTOSH NAMES (ADR-0004 D-3):
+ * VERBATIM INSIDE MACINTOSH NAMES (clipped Toolbox drawing):
  *   ControlRecord fields: contrlRect, contrlValue, contrlMin, contrlMax,
  *     contrlHilite, contrlVis, contrlType, contrlTitle, contrlRfCon.
  *   Part-code constants: inButton, inCheckBox, inUpButton, inDownButton,
@@ -60,7 +60,7 @@
  *   progressBar   (4) -- determinate fill bar (the FILE COPY bar, PRD Sec 6.5).
  *                        contrlValue/contrlMax -> filled fraction.
  *
- * SCROLLBAR VALUE<->THUMB MATH (Law 1; verbatim Inside Macintosh convention):
+ * SCROLLBAR VALUE<->THUMB MATH (source provenance; verbatim Inside Macintosh convention):
  *   Ref: MTE Ch 5 "Scrolling with Scroll Bars" p. 5-14, Inside Macintosh IV
  *     "Calculating Scroll Bar Thumb Position."
  *   The scrollbar TRACK is the region between the two arrow buttons:
@@ -72,7 +72,7 @@
  *     thumb_h      = SB_THUMB_MIN  (15 px)
  *   HONEST DEFERRAL: proportional sizing requires a visible/content range,
  *   which ControlRecord and Window Manager do not yet carry. It stays OUT
- *   until R1.5 / initech-tdnl.4 supplies that content model. Position remains
+ *   until R1.5 /  supplies that content model. Position remains
  *   value/min/max driven and invertible.
  *   The thumb top position within the track:
  *     range        = contrlMax - contrlMin
@@ -85,7 +85,7 @@
  *             (thumb_y - track_top) * range / (track_h - thumb_h)
  *   (integer division; the forward and inverse are verified by the oracle.)
  *
- * PROGRESS BAR FILL MODEL (initech-bf2; spec/progress_platinum.h):
+ * PROGRESS BAR FILL MODEL (; spec/progress_platinum.h):
  *   contrlRect is the Platinum CDEF 5 ETCHED bounds, FLAIR_PROGRESS_H (14)
  *   rows tall (any other height draws nothing).
  *   filled_px = inner_w * contrlValue / contrlMax   (integer division; the
@@ -94,7 +94,7 @@
  *   At contrlValue==0: filled_px == 0 (no fill).
  *   At contrlValue==contrlMax: filled_px == inner_w (full fill).
  *
- * ASCII-clean (Rule 12). No nondeterminism / no timestamps (Rule 11).
+ * ASCII-clean. No nondeterminism / no timestamps.
  */
 #ifndef INITECH_OS_FLAIR_CONTROL_H
 #define INITECH_OS_FLAIR_CONTROL_H
@@ -146,16 +146,16 @@ enum {
  * Ref: Inside Macintosh Vol I Ch 5 (IM-I) p. I-318 "The ControlRecord Data
  *   Structure"; MTE Ch 5 p. 5-51 "Data Structures."
  *
- * FLAIR DEPARTURES from IM-I (Law 3 justification; noted verbatim):
+ * FLAIR DEPARTURES from IM-I (language boundary justification; noted verbatim):
  *   - contrlOwner: omitted (FLAIR is cooperative/single-threaded; no
- *     per-window port-ownership concept applies, ADR-0004 D-6).
+ *     per-window port-ownership concept applies, clipped Toolbox drawing).
  *   - contrlAction: omitted (TrackControl takes an action function as a
  *     parameter; the field is unnecessary in the caller-supplied-storage model).
- *   - contrlData / contrlHand: omitted (no heap handle table, ADR-0004 DEC-03).
+ *   - contrlData / contrlHand: omitted (no heap handle table, clipped Toolbox drawing arena lifetime).
  *   - contrlTitle: stored as a const char * (freestanding NUL-terminated string,
- *     not a Pascal string -- FLAIR uses C strings throughout, Law 3).
+ *     not a Pascal string -- FLAIR uses C strings throughout, language boundary).
  *   - Region handles (contrlStrucRgn etc.): not in the IM-I ControlRecord;
- *     clipping is through the GrafPort visRgn/clipRgn (ADR-0004 D-1/D-2).
+ *     clipping is through the GrafPort visRgn/clipRgn (clipped Toolbox drawing/D-2).
  * ===========================================================================*/
 
 /* Maximum title length for a control (push-button label, etc.). Compile-time
@@ -210,7 +210,7 @@ typedef struct ControlRecord {
  * Ref: FLAIR_CHROME_SCROLLBAR_W = 16 (spec/chrome_metrics.h; WDEF scrollBarSize
  *   EQU 16; StandardWDEF.a). Arrow buttons are square: SB_ARROW x SB_ARROW.
  *   Minimum thumb height is the sampled Platinum 15 px anatomy.
- *   Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 1/Sec 2.4.
+ *   Ref:../system7-decomp/specs/sys8/scrollbars.md Sec 1/Sec 2.4.
  * ===========================================================================*/
 #define SB_ARROW      FLAIR_CHROME_SCROLLBAR_W  /* 16 px; square arrow buttons  */
 #define SB_THUMB_MIN  FLAIR_CHROME_SCROLL_THUMB_MIN
@@ -237,7 +237,7 @@ void control_init(ControlRecord *ctrl,
  * SetControlValue -- set contrlValue, clamped to [contrlMin, contrlMax].
  *
  * Ref: IM-I p. I-323 "SetCtlValue"; MTE Ch 5 "SetControlValue."
- * Fail-loud (Rule 2): panics (via flair_panic or a DEBUG_ASSERT) if ctrl
+ * Fail-loud: panics (via flair_panic or a DEBUG_ASSERT) if ctrl
  * is NULL. Out-of-range values are SILENTLY CLAMPED (Inside Macintosh
  * SetControlValue semantics -- clamp is the defined behavior).
  * -------------------------------------------------------------------------- */
@@ -255,7 +255,7 @@ int16_t GetControlValue(const ControlRecord *ctrl);
  *
  * Dispatches by contrlType to the appropriate draw function. Writing goes
  * only through the surface module + blitter, clipped to visRgn INTERSECT
- * clipRgn (ADR-0004 D-1/D-2). If contrlVis == 0, this is a no-op.
+ * clipRgn (clipped Toolbox drawing/D-2). If contrlVis == 0, this is a no-op.
  *
  * Ref: IM-I p. I-321 "DrawControls"; MTE Ch 5 "DrawControl."
  * -------------------------------------------------------------------------- */
@@ -266,7 +266,7 @@ void DrawControl(GrafPort *port, ControlRecord *ctrl);
  * this only for the push-button ctrlItem named by DialogRecord.defaultItem,
  * immediately after DrawControl, preserving the sampled corner moat and
  * leaving the button centre untouched.
- * Ref: ../system7-decomp/specs/sys8/controls.md Sec 5.2 (SAMPLED). */
+ * Ref:../system7-decomp/specs/sys8/controls.md Sec 5.2 (SAMPLED). */
 void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl);
 
 /* --------------------------------------------------------------------------
@@ -304,7 +304,7 @@ int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt);
  *      the initial part, or 0 if it is outside (released outside = no action).
  *      After return, contrlHilite is restored to 0.
  *
- * Deterministic (Rule 11): the tracking state is a pure function of the
+ * Deterministic: the tracking state is a pure function of the
  * supplied point sequence (no mouse hardware, no ISR, no PIT tick). This
  * makes the TrackControl behavior host-testable and oracle-provable.
  *
@@ -324,7 +324,7 @@ int16_t TrackControl(ControlRecord *ctrl, const flair_point_t *pts, uint32_t n_p
  * coordinates, i.e. relative to the top of the port, matching contrlRect).
  *
  * Ref: Inside Macintosh IV "Calculating Scroll Bar Thumb Position" (the
- *   value-to-position derivation); CLAUDE.md Law 1 (cited in header).
+ *   value-to-position derivation); source provenance (cited in header).
  * -------------------------------------------------------------------------- */
 int16_t ctrl_thumb_y(const ControlRecord *ctrl);
 

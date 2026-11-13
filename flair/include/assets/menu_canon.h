@@ -1,30 +1,30 @@
 /*
  * menu_canon.h -- InitechOS FLAIR canon menu-bar strings v1 (LOCKED spec-data).
  *
- * beads: initech-zaqj (canon assets: hourglass CURS bytes + Photoshop menu
- *        string, ADR-0004 AM-4 / FO-E).
+ *  (canon assets: hourglass CURS bytes + Photoshop menu
+ *        string, clipped Toolbox drawing AM-4 / FO-E).
  *
- * Ref: CLAUDE.md Law 4 ("the hourglass cursor (not a wristwatch) ... are
- *      enforced, not fixed"), Law 1 (ground truth before code), Rule 8
- *      (specs are locked data), Rule 11 (byte-stable), Rule 12 (ASCII-clean).
- *      ADR-0004 D-3 ("the menu bar including the Photoshop-exact bar for
+ * Ref: film canon ("the hourglass cursor (not a wristwatch)... are
+ *      enforced, not fixed"), source provenance (ground truth before code), pinned inputs
+ *      (specs are locked data), reproducibility (byte-stable), ASCII source.
+ *      clipped Toolbox drawing ("the menu bar including the Photoshop-exact bar for
  *      InitechPaint ('File Edit Image Layer Select View Window Help') -- canon,
  *      NOT to be 'corrected'").
- *      ADR-0004 AM-4 ("D-3's Photoshop menu bar (File Edit Image Layer Select
- *      View Window Help) ... must be FROZEN locked-data (named spec/assets/
+ *      clipped Toolbox drawing AM-4 ("D-3's Photoshop menu bar (File Edit Image Layer Select
+ *      View Window Help)... must be FROZEN locked-data (named spec/assets/
  *      files or named locked constants), not prose an agent may silently
  *      'correct'").
  *      spec/chimera_element_map.json element 9 ("frozen_string_owner:
- *      beads initech-zaqj (ADR-0004 D-3 / AM-4 / Sec 5.2 FO-E)").
+ *       (clipped Toolbox drawing / AM-4 / Sec 5.2 FO-E)").
  *      docs/research/gui-ground-truth.md Sec 4.3 ("the exact string
  *      'File Edit Image Layer Select View Window Help' is FROZEN locked-data
- *      ... Do NOT 'correct' it to match any real Photoshop version").
+ *... Do NOT 'correct' it to match any real Photoshop version").
  *      PRD Sec 1, Appendix A (the canon frame / the Office Space prop).
  *
- * ERA AXIS: Mac OS 8 Platinum (DEC-10) is the FLAIR BASE. TODO_GOLDEN: the
+ * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. TODO_GOLDEN: the
  * Platinum menu-bar face is not shipped in this arc; the current bar remains
  * an explicit System 7 heritage rendering, while this frozen Photoshop string
- * remains invariant under DEC-10 Sec 3.3.3.
+ * remains invariant under Platinum base
  *
  * =========================================================================
  * CANON WARNING -- READ BEFORE ANY EDIT
@@ -50,28 +50,28 @@
  * string verbatim. Do NOT "fix" it to match any real Photoshop version.
  * Do NOT add, remove, or reorder items. Do NOT change capitalization.
  *
- * The canon oracle (ADR-0004 D-8 "canon" gate, beads initech-k8o5.10) asserts
+ * The canon oracle (clipped Toolbox drawing "canon" gate, ) asserts
  * FLAIR_CANON_PHOTOSHOP_MENUBAR and FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[]
  * against their known values. Any change to these constants will cause the
  * canon oracle to go RED -- which is the correct behavior.
  *
- * Changing these constants is a DELIBERATE, issue-tracked Rule 8 act.
+ * Changing these constants is a DELIBERATE, issue-tracked pinned inputs act.
  * Never silently edit to "correct" the menu bar.
  *
- * Ref: spec/chimera_element_map.json element 9; ADR-0004 D-3 / AM-4;
- *      gui-ground-truth.md Sec 4.3; CLAUDE.md Law 4; PRD Appendix A.
+ * Ref: spec/chimera_element_map.json element 9; clipped Toolbox drawing / AM-4;
+ *      gui-ground-truth.md Sec 4.3; film canon; PRD Appendix A.
  *
  * =========================================================================
  *
- * PROVENANCE (Law 1 honesty): the string below is sourced directly from the
+ * PROVENANCE (source provenance honesty): the string below is sourced directly from the
  * canon (the Office Space film prop / the frame still in spec/assets/
  * preview.webp, as analyzed in docs/research/gui-ground-truth.md Sec 4.3
- * and ratified in ADR-0004 D-3). It was NOT derived from any real Adobe
+ * and ratified in clipped Toolbox drawing). It was NOT derived from any real Adobe
  * Photoshop installation or boot. The canon analysis confirms it is the
- * correct string. Locked 2026-06-19, beads initech-zaqj.
+ * correct string. Locked 2026-06-19,.
  *
- * Rule 12: ALL strings below are 7-bit ASCII. No smart quotes. No non-ASCII.
- * Rule 11: No timestamps, no host paths baked in.
+ * ASCII source: ALL strings below are 7-bit ASCII. No smart quotes. No non-ASCII.
+ * reproducibility: No timestamps, no host paths baked in.
  */
 
 #ifndef INITECH_MENU_CANON_H
@@ -81,11 +81,11 @@
  * FLAIR_CANON_PHOTOSHOP_MENUBAR
  *
  * The complete InitechPaint menu bar as a single space-delimited string.
- * This is the FROZEN canon string (ADR-0004 D-3 / AM-4; beads initech-zaqj).
+ * This is the FROZEN canon string (clipped Toolbox drawing / AM-4; ).
  *
  * Used for: display in the sampled Platinum menu face for InitechPaint
- * (sys8/menus.md; bead initech-sjvq; Chicago substitution pending D3-3 row 9);
- * asserted byte-for-byte by the canon oracle (D-8, initech-k8o5.10).
+ * (sys8/menus.md; Chicago substitution pending D3-3 row 9);
+ * asserted byte-for-byte by the canon oracle (D-8, ).
  *
  * DO NOT MODIFY. DO NOT "CORRECT" TO A REAL PHOTOSHOP VERSION.
  */
@@ -101,7 +101,7 @@
  *
  * The individual top-level menu titles as a NULL-terminated array of
  * string literals. This is the canonical decomposition for the Menu Manager
- * (ADR-0004 D-3 MenuInfo items); each entry becomes one MenuInfo record
+ * (clipped Toolbox drawing MenuInfo items); each entry becomes one MenuInfo record
  * in the Mac-style menu bar.
  *
  * Count: 8 items (FLAIR_CANON_PHOTOSHOP_MENU_COUNT).
@@ -123,7 +123,7 @@
 
 /* The array: extern declaration for use in non-static compilation units.
  * The definition is provided as a static inline below so the header is
- * self-contained and freestanding-legal (no separate .c needed). */
+ * self-contained and freestanding-legal (no separate.c needed). */
 static const char * const FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[
     FLAIR_CANON_PHOTOSHOP_MENU_COUNT + 1 /* +1 for NULL sentinel */
 ] = {
@@ -144,10 +144,10 @@ static const char * const FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[
 };
 
 /* =========================================================================
- * Canon-assertion macros (for the canon oracle, beads initech-k8o5.10)
+ * Canon-assertion macros (for the canon oracle, )
  * =========================================================================
  *
- * The oracle includes this header and calls FLAIR_MENU_CANON_ASSERT() to
+ * The oracle includes this header and calls FLAIR_MENU_CANON_ASSERT to
  * verify:
  *   1. FLAIR_CANON_PHOTOSHOP_MENUBAR matches the expected literal.
  *   2. FLAIR_CANON_PHOTOSHOP_MENU_COUNT == 8.
@@ -159,7 +159,7 @@ static const char * const FLAIR_CANON_PHOTOSHOP_MENU_ITEMS[
  * The oracle does NOT need additional macros here; it uses string
  * comparison against the frozen literals defined above.
  *
- * The key canon invariants (frozen, not to be changed without a Rule 8 act):
+ * The key canon invariants (frozen, not to be changed without a pinned inputs act):
  *   - Flat string: "File Edit Image Layer Select View Window Help"
  *   - Item count: 8
  *   - Item 3 is "Layer"  (NOT "Mode", NOT "Filters", NOT anything else)

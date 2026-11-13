@@ -11,7 +11,7 @@
 -    if (terminated_name != NULL) *terminated_name = owner->name;
 -    FlairProcess_terminate(list, wm, master, owner);
 -    return 1;
-+    /* Named Rule-6 mutant: resurrect the initech-8fhu defect. The tenant stays
++    /* Named mutation checks mutant: resurrect the  defect. The tenant stays
 +     * at list->head and the next key is delivered to this now-hidden app. */
 +    HideWindow(wm, w);
 +    return 0;

@@ -8,7 +8,7 @@
  {
 -    return clip;
 +    (void)clip;
-+    return 0;                                   /* MUTANT: clip ignored        */
++    return 0;                                   /* regression patches: clip ignored        */
  }
  
  /* ---------------------------------------------------------------------------

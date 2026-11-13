@@ -7,7 +7,7 @@
      }
  
 -    cursor_erase();
-+    /* Rule-6 host mutant: abandon the old save-under, leaving a visible trail. */
++    /* mutation checks host mutant: abandon the old save-under, leaving a visible trail. */
 +    g_cursor.drawn = 0;
      g_cursor.x = x;
      g_cursor.y = y;

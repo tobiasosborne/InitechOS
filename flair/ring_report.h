@@ -1,6 +1,6 @@
-/* owpg: bounded ring-loss diagnostics, called ONLY by task-context consumers.
+/* bounded ring-loss diagnostics, called ONLY by task-context consumers.
  * Reuses kmain's bounded COM1 writer; no logging or port I/O in an ISR.
- * Ref: ADR-0004 D-4; Rule 2. The host sink lets the oracle capture exact bytes. */
+ * Ref: clipped Toolbox drawing; explicit error handling. The host sink lets the oracle capture exact bytes. */
 #ifndef INITECH_RING_REPORT_H
 #define INITECH_RING_REPORT_H
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__

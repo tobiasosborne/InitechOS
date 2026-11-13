@@ -1,21 +1,21 @@
 /* test_control.c -- the FLAIR Control Manager property suite (THE ORACLE).
  *
- * beads: initech-8h9 ("FLAIR Control Manager: buttons, scrollbars, progress bar").
- * Ref:   ADR-0004 D-3 ("Control Manager -- ControlRecord {value/min/max,
+ *  ("FLAIR Control Manager: buttons, scrollbars, progress bar").
+ * Ref:   clipped Toolbox drawing ("Control Manager -- ControlRecord {value/min/max,
  *          contrlHilite, contrlRect}; part-codes inButton, inCheckBox,
  *          inUpButton/inDownButton/inPageUp/inPageDown/inThumb. Buttons,
  *          scrollbars, the FILE COPY progress bar."); MTE Ch 5 "The Control
  *          Manager"; spec/chrome_metrics.h (FLAIR_CHROME_SCROLLBAR_W=16).
  *        os/flair/control.{c,h} (the unit under test; the artifact freestanding C).
- *        ../system7-decomp/specs/sys8/scrollbars.md Sec 1-5 (sampled
+ *../system7-decomp/specs/sys8/scrollbars.md Sec 1-5 (sampled
  *          Platinum face, thumb anatomy, and disabled state).
  *        harness/render/render.{c,h} (host render skeleton, the dual-compile path
  *          that runs the SAME freestanding draw code on a host offscreen).
  *        harness/proptest/test_chrome.c + test_window.c (the harness idiom this
  *          suite mirrors: TEST_HARNESS/CHECK/TEST_SUMMARY + seeded LCG + render).
- *        CLAUDE.md Law 2 (the oracle is the truth), Law 4 (look like the frame),
- *        Rule 6 (mutation-proven), Rule 11 (seeded LCG + deterministic),
- *        Rule 12 (ASCII-clean source).
+ *        independent checks (the oracle is the truth), film canon (look like the frame),
+ *        mutation checks (mutation-proven), reproducibility (seeded LCG + deterministic),
+ *        ASCII source.
  *
  * THE PROPERTIES (in order of decisiveness):
  *
@@ -54,18 +54,18 @@
  *         ctrl_progress_fill_px pixels of the inner width; the remaining
  *         inner area is CTRL_WHITE.
  *
- * MUTANTS (Rule 6), each MUST drive this oracle RED:
- *   CONTROL_MUTATE_THUMB_OFF  -- thumb y computed with wrong factor.
+ * regression patches, each MUST drive this oracle RED:
+ *   thumb off patch  -- thumb y computed with wrong factor.
  *                                => property 1 (scrollbar math) goes RED.
- *   CONTROL_MUTATE_NO_CLAMP   -- SetControlValue does not clamp.
+ *   no clamp patch   -- SetControlValue does not clamp.
  *                                => property 2 (clamping) goes RED.
- *   SB_MUT_THUMB_16           -- restores the heritage 16 px thumb.
+ *   thumb 16 patch           -- restores the heritage 16 px thumb.
  *                                => thumb metric/anatomy leg goes RED.
- *   SB_MUT_DISABLED_ENABLED_LOOK -- disabled bar uses the enabled face.
+ *   disabled enabled look patch -- disabled bar uses the enabled face.
  *                                => disabled-state leg goes RED.
- *   CTRL_MUT_CHECK_FILL      -- checked box relapses to accent fill.
+ *   check fill patch      -- checked box relapses to accent fill.
  *                                => exact checked-box profile goes RED.
- *   CTRL_MUT_BTN_FLAT        -- push button loses its Platinum bevel.
+ *   btn flat patch        -- push button loses its Platinum bevel.
  *                                => corner/bevel pixel legs go RED.
  */
 #include <stdint.h>
@@ -80,12 +80,12 @@
 #include "text.h"               /* text_measure / text_center_in (-Ios/flair)  */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 #include "alert_capture.h"
-#include "progress_golden.h"   /* initech-bf2: the minted CDEF 5 captures */
+#include "progress_golden.h"   /*: the minted CDEF 5 captures */
 
 TEST_HARNESS();
 
 /* ===========================================================================
- * Seeded LCG (Rule 11 -- deterministic across runs; mirrors test_window/region)
+ * Seeded LCG (reproducibility -- deterministic across runs; mirrors test_window/region)
  * ===========================================================================*/
 static uint32_t g_seed = 0x4354524Cu; /* "CTRL" */
 static uint32_t lcg(void)
@@ -711,16 +711,16 @@ static void test_draw_controls(void)
 }
 
 /* ===========================================================================
- * PROPERTY 5b -- PLATINUM PROGRESS BAR vs THE MINTED CAPTURES (initech-bf2)
+ * PROPERTY 5b -- PLATINUM PROGRESS BAR vs THE MINTED CAPTURES
  *
  * The expected pixels are READ FROM THE PNGs (harness/render/progress_golden.h
- * -- never spec/progress_platinum.h, the artifact's own transcription; Law 2):
+ * -- never spec/progress_platinum.h, the artifact's own transcription; independent checks):
  *   (a) at the golden's own width (188 x 14 etched), the three captured
  *       states (fill edge E = 193 / 274 / 375) reproduce pixel-for-pixel after
  *       the ratified lavender->teal mapping, at 8bpp AND 32bpp;
  *   (b) at the FILE COPY dialog's width every fill count f = 0..W matches the
  *       golden's column classes (8bpp, the emulator's depth).
- * CTRL_MUT_PROGRESS_FLAT (the retired authored bar) must go RED here.
+ * progress flat patch (the retired authored bar) must go RED here.
  * ===========================================================================*/
 static pg_golden_t g_pg;
 static int g_pg_w, g_pg_f;
@@ -999,7 +999,7 @@ static void test_thumb_drag(void)
 /* Ref: s8_alert_modal.png Cancel [363,422)x[158,178), controls.md Sec 5.1.
  * M011 rows x=365..418: y160 has 54 white; y175 has 53 C0 and one E7.
  * M012 patches: x363..366/418..421, y158..161/174..177, 64 pixels.
- * Expectations are decoded from the historical PNG on EVERY run (Law 2).
+ * Expectations are decoded from the historical PNG on EVERY run.
  */
 static void draw_capture_button(GrafPort *port)
 {
@@ -1048,10 +1048,10 @@ static void test_capture_button(void)
     free(gold);
 }
 
-/* tdnl.88: the PRESSED default OK, host leg. The expected pixels are the
+/*: the PRESSED default OK, host leg. The expected pixels are the
  * mint-010 pair (s8_alert_ok_pressed.png + _tl.png, composed pointer-free by
  * harness/render/alert_capture.h) decoded on EVERY run -- never a palette or
- * this file's own table (Law 2). Graded: OK x435..493 y158..177 minus the 12
+ * this file's own table. Graded: OK x435..493 y158..177 minus the 12
  * pixels outside the rounded frame (moat/face behind it), exact, except the
  * label zone where only the two pressed inks are allowed (Chicago is not the
  * native Charcoal strike). */

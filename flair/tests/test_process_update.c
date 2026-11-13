@@ -1,6 +1,6 @@
 /* test_process_update.c -- the FLAIR App Contract O-5 updateEvt-routing oracle (HOST).
  *
- * beads: the FLAIR App Contract epic initech-4e35 (ADR-0013 Sec 7 / Sec 3.3), the
+ * the FLAIR App Contract epic  (tenant lifecycle / Sec 3.3), the
  *        Wave-4 updateEvt spine. The HOST oracle for `flair_route_updates`
  *        (os/flair/process.c) -- the helper the live kmain pump calls each iteration
  *        to route each damaged window's pending repaint to its OWNING tenant as an
@@ -8,13 +8,13 @@
  *        symbol the live pump runs (BC-2 single spine), so a green O-5 certifies the
  *        live update routing too.
  *
- * INDEPENDENT-BY-RECOMPUTATION (Law 2; the test_process / test_interact idiom). The
+ * INDEPENDENT-BY-RECOMPUTATION (independent checks; the test_process / test_interact idiom). The
  *   expected delivery sequence + post-route damage state are a HAND-AUTHORED golden,
  *   NEVER read back out of the router. Each stub tenant's `event` handler APPENDS
  *   (app-id, ev.what, ev.message=window-identity) to a global log on updateEvt; the
  *   oracle diffs that log + the windows' updateRgn emptiness against the by-hand
  *   expected values. An oracle that asked the router what the router did would agree
- *   BY CONSTRUCTION and is forbidden (Law 2; HER-02).
+ *   BY CONSTRUCTION and is forbidden (independent checks; HER-02).
  *
  * THE BASE SCENE (four DISJOINT windows so each has a full visible region -- no occlusion
  *   to confound which window carries damage):
@@ -27,9 +27,9 @@
  *   INVALIDATED subset: WA0, WB0, WU. NOT invalidated: WA1 (the non-invalidated
  *   owned window -- proves it gets nothing).
  *
- * THE EXPECTED GOLDEN (hand-authored; ADR-0013 Sec 3.3 "updateEvt -> each damaged
+ * THE EXPECTED GOLDEN (hand-authored; tenant lifecycle "updateEvt -> each damaged
  *   window's owning app, background apps included"; validation contract per
- *   initech-gofc / epic initech-av7s DQ1, ratified 2026-07-31):
+ *    / epic  DQ1, ratified 2026-07-31):
  *     flair_route_updates walks the z-order front-to-back and for each VISIBLE
  *     window with NON-EMPTY damage routes ONE updateEvt to its owner (if any),
  *     then validates EVERY walked window:
@@ -45,7 +45,7 @@
  *     => log == [ (A,updateEvt,WA0), (B,updateEvt,WB0) ] exactly; WA0/WB0/WU
  *        updateRgn now EMPTY (validate ran); WA1 stayed empty.
  *
- * THE WLZP SCENE (bead initech-wlzp; WL-0076 proper-fix note): three fully
+ * THE WLZP SCENE (;  proper-fix note): three fully
  *   overlapping tenant windows are installed in three separate z-order operations.
  *   BACK is invalidated while it is frontmost, MID is then installed + invalidated,
  *   and FRONT is installed + invalidated last, with NO route/validate boundary
@@ -58,30 +58,30 @@
  *   BACK paints last through its stale seed and stomps FRONT -- the required
  *   RED-first failure against the pre-fix artifact.
  *
- * MUTATION-PROVEN (Rule 6; self-mutation -- the test_interact / test_process
+ * MUTATION-PROVEN (mutation checks; self-mutation -- the test_interact / test_process
  *   convention; the mutants perturb the INDEPENDENT EXPECTED side, NOT the router):
  *
- *     UPDATE_MUT_WRONG_OWNER  -- the EXPECTED owner of WA0's updateEvt is the WRONG
+ *     wrong owner patch  -- the EXPECTED owner of WA0's updateEvt is the WRONG
  *       app (B instead of A). The correct router demuxes WA0 to its refCon owner A,
  *       so the leg-0 routing assertion goes RED. Proves the update reaches the
  *       refCon-demuxed OWNER, not some other app.
  *
- *     UPDATE_MUT_SKIP_VALIDATE -- the EXPECTED post-route state leaves a walked
+ *     skip validate patch -- the EXPECTED post-route state leaves a walked
  *       window's updateRgn NON-EMPTY (i.e. validate was "skipped") -- for the
  *       routed WA0 AND for the unowned WU (the DQ1 unconditional validate). The
  *       correct router validates every walked window, so both emptiness
  *       assertions go RED. Proves the damage is actually cleared (no infinite
  *       updateEvt storm, no immortal furniture damage).
  *
- * Ref: ADR-0013 Sec 3.1 (tenant ABI + binding rule / refCon demux), Sec 3.3
+ * Ref: tenant lifecycle (tenant ABI + binding rule / refCon demux), Sec 3.3
  *      (updateEvt routing in task context); spec/window_record.h Sec 4
- *      (WindowRecord.updateRgn / .visible / .refCon); spec/event_model.h Sec 1
- *      (updateEvt=6), :228-235 (message = the affected WindowPtr, MTE Ch 2),
- *      :265-271 (EventRecord); os/flair/window.h (NewWindow / WindowMgr_invalidate /
+ *      (WindowRecord.updateRgn /.visible /.refCon); spec/event_model.h Sec 1
+ *      (updateEvt=6),:228-235 (message = the affected WindowPtr, MTE Ch 2),
+ *:265-271 (EventRecord); os/flair/window.h (NewWindow / WindowMgr_invalidate /
  *      WindowMgr_validate); spec/region_algebra.h (region_is_empty). Mirrors
  *      harness/proptest/test_process.c (stub-app + delivery-log idiom) and
  *      test_process_activate.c (recover_owner + the self-mutation convention).
- *      CLAUDE.md Law 2, Rule 1, Rule 6, Rule 11, Rule 12.
+ *      independent checks, mutation checks, reproducibility, ASCII source.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -179,7 +179,7 @@ static int upd_empty(const WindowPtr w)
 /* ===========================================================================
  * The known tenants (host-safe app-id recovery: self is a REAL pointer the
  * router passes, never the truncated refCon; see process.h host note) + the
- * INDEPENDENT refCon recovery (the contract's demux key, recomputed HERE, Law 2).
+ * INDEPENDENT refCon recovery (the contract's demux key, recomputed HERE, independent checks).
  * ===========================================================================*/
 static FlairApp *g_appA = NULL;
 static FlairApp *g_appB = NULL;
@@ -215,7 +215,7 @@ static FlairApp *recover_owner(const WindowPtr w)
 
 /* ===========================================================================
  * The delivery log -- the SOLE delivery observable. Each tenant `event` appends
- * one entry; the oracle diffs it against the hand-authored golden (Law 2).
+ * one entry; the oracle diffs it against the hand-authored golden.
  * ===========================================================================*/
 typedef struct log_entry {
     int      app_id;     /* which tenant's event handler fired (A_ID / B_ID)     */
@@ -278,7 +278,7 @@ static int is_update_of(const log_entry_t *g, int app_id, const WindowPtr w)
 
 /* WLZP: a stale seed from a formerly-front window must be clipped to current
  * visibility at updateEvt delivery. This is the three-window z-churn case the
- * bead requires; the expected overlap owner is a literal, not ComputeVisible. */
+ * requires; the expected overlap owner is a literal, not ComputeVisible. */
 static void test_stale_seed_clipped_at_delivery(void)
 {
     static win_store_t WBACK, WMID, WFRONT;
@@ -414,7 +414,7 @@ int main(void)
     CHECK(recover_owner(&WU.rec) == NULL,
           "scene: the UNOWNED window WU (refCon 0) is owned by NO resident app (route must tolerate it)");
 
-    /* Ref: bead initech-v6t2. NewWindow's reaffirm_active now seeds a repaint on
+    /* Ref:. NewWindow's reaffirm_active now seeds a repaint on
      * every 1->0 hilited transition (the deactivation-repaint fix), so the cascaded
      * NewWindow construction above left construction-time damage in the updateRgn of
      * every window that lost front status (WU, WA1, WB0). Validate (clear) all scene
@@ -472,7 +472,7 @@ int main(void)
               "route: the non-invalidated owned window (WA1) and the UNOWNED window (WU) got NO delivery");
     }
 
-    /* --- post-route damage state: EVERY walked window validated (initech-gofc /
+    /* --- post-route damage state: EVERY walked window validated ( /
      * DQ1, ratified 2026-07-31): owned windows after the delivery attempt, and
      * the UNOWNED WU too -- under the pump-order contract the compositor's
      * chrome phase already serviced it (the chrome IS an unowned window's full

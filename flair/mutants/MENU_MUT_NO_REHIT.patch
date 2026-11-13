@@ -12,8 +12,8 @@
 -        if (nb >= 0 || nb == FLAIR_MENU_APPLE_MI)
 -            st->mi = nb;                /* a different title -> switch open menu */
 -    }
-+    /* NAMED MUTANT (Rule 6): freeze mi at the click -- the ORIGINAL
-+     * initech-rl4v bug. Never re-hit the bar, so a cross-menu drag can
++    /* NAMED regression patches: freeze mi at the click -- the ORIGINAL
++     *  bug. Never re-hit the bar, so a cross-menu drag can
 +     * never switch the tracked menu. */
      st->hi = MenuInfo_item_at(bar, st->mi, (int)pt.h, (int)pt.v);
      st->n++;

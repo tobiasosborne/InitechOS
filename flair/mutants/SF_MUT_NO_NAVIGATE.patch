@@ -7,7 +7,7 @@
      }
  
 -    /* Re-enumerate the child, then COMMIT (path + list) only on success so a
--     * provider error leaves the parent view intact (Rule 2). */
+-     * provider error leaves the parent view intact. */
 -    rc = sf_enumerate(sf, child);
 -    if (rc != FLAIR_SF_OK) {
 -        return rc;
@@ -15,11 +15,11 @@
 -    sf_set_path(sf, child, child_len);
 -    return sf_rebuild_list(sf);
 +    /*
-+     * MUTANT SF_MUT_NO_NAVIGATE: do NOT re-enumerate. Return OK while leaving
++     * regression patches no navigate patch: do NOT re-enumerate. Return OK while leaving
 +     * the PARENT directory's entries/list/path in place. Oracle step 3 expects
 +     * count==2 / row 0 == "Q1.WKS" after navigating into "DATA"; the parent
 +     * still has count==3 / row 0 == "REPORT.DBF" -> RED.
-+     * Ref: CLAUDE.md Rule 6 (mutation-proven golden).
++     * Ref: mutation checks (mutation-proven golden).
 +     */
 +    return FLAIR_SF_OK;
  }

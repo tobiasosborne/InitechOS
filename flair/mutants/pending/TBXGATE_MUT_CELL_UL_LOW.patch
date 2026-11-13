@@ -8,7 +8,7 @@
          /* ink on the underline row, one bit per run column from -1 (halo) */
          uint32_t ul[(TBX_CELLS_MAX_RUN * TBX_CELL_W + 2u + 31u) / 32u];
 -        const int32_t ur = (int32_t)TBX_CELL_BASELINE + TEXT_UL_OFFSET;
-+        /* MUTANT (Rule 6; test-flair-iword-codes-mutant): the cell underline
++        /* regression patches (mutation checks; test-flair-iword-codes-mutant): the cell underline
 +         * one row low. NEVER real. */
 +        const int32_t ur = (int32_t)TBX_CELL_BASELINE + TEXT_UL_OFFSET + 1;
          for (uint32_t i = 0; i < sizeof ul / sizeof ul[0]; i++) ul[i] = 0u;
