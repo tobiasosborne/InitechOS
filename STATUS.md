@@ -6,8 +6,8 @@ Rewritten, never appended to. Last rewritten 2026-11-13.
 
 The reboot started today. The legacy tree is frozen at the tag
 `legacy-final` and runs from `../InitechOS-legacy`. `main` now holds the
-same source in the new layout, with no working build yet: components
-come back one at a time, each with its own Makefile and tests.
+same source in the new layout, with component builds returning one at a
+time, each with its own Makefile and tests.
 
 Nothing on `main` boots yet. To see the product, use the legacy tree.
 
@@ -24,7 +24,8 @@ listed in `COMPONENTS` in the top Makefile.
 | `flair/` | source moved |
 | `flair/desktop/` | empty; Finder files and the desktop half of `kmain.c` go here |
 | `sdk/` | source moved (`tbx.h`, runtime, linker script) |
-| `apps/*` | source moved; none imported |
+| `apps/i123/` | imported: 18 host entries green; core, codec and face compile as freestanding i386 objects; EXE link and tier 1 await sdk/factory |
+| other `apps/*` | source moved; not imported |
 | `tps/` | source moved (`compiler/`, `seed/`) |
 | `goldens/`, `factory/` | empty; filled from `attic/` as components claim things |
 
@@ -38,8 +39,9 @@ listed in `COMPONENTS` in the top Makefile.
 
 ## Next
 
-1. Pilot imports of two host-only cores to settle the conventions in
-   `mk/`: the region engine and Initech 123.
+1. Finish the region-engine pilot alongside the imported Initech 123
+   component; consolidate the temporary borrowed SDK event headers and
+   recording fake when sdk is imported.
 2. The spine: `boot/` + `kernel/` + `factory/` to a booting
    `A:\>` prompt on QEMU and Bochs, as the first product image.
 3. The remaining host cores (InitechBase, InitechWord, the seed

@@ -3,7 +3,7 @@
 
 # Components that have been imported into the new tree, in dependency
 # order. Add a component here when its `make test` is green.
-COMPONENTS :=
+COMPONENTS := apps/i123
 
 .DEFAULT_GOAL := help
 .PHONY: help all test smoke image cert clean
