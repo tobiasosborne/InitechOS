@@ -12,7 +12,7 @@
  *
  * Ref:   ADR-0004 D-3 (MenuInfo + the Photoshop-exact bar + MenuSelect ->
  *          (menuID<<16|item)); D-1/D-2 (draw THROUGH a GrafPort clipped by an
- *          ATKINSON region; one surface module, no second pixel path); D-7
+ *          REGION_ENGINE region; one surface module, no second pixel path); D-7
  *          (proportional text -- text_measure = sum of per-glyph advances).
  *        spec/assets/menu_canon.h (the FROZEN canon string; USED, NOT re-authored).
  *        spec/assets/apple_glyph.h (the hand-authored Apple-menu glyph strike;

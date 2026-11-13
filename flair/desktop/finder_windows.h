@@ -1,0 +1,1097 @@
+/*
+ * os/flair/finder_windows.h -- the R3 Finder DISK WINDOWS (THE ARTIFACT).
+ *
+ * beads: initech-tdnl.10 (GUI remediation R3.3 "disk windows": double-click the
+ *        volume icon and a real icon-view window opens over the REAL FAT12
+ *        volume; double-click a folder inside it and that folder's window opens
+ *        as a SPATIAL SINGLETON; Close disposes it and saves its view state;
+ *        New Folder creates a REAL directory; Clean Up snaps row-major).
+ *
+ * WHAT THIS IS
+ *   The Finder shell tenant (the FlairAppProcs vtable moved here from
+ *   finder_desktop.c, which now owns only the desktop MODEL) plus the
+ *   arena-sized table of open disk windows. It is where a FAT directory
+ *   becomes a grid of icons and a WindowRecord.
+ *
+ * ---------------------------------------------------------------------------
+ * THE LAYERING RULE, AND HOW THIS FILE OBEYS IT
+ * ---------------------------------------------------------------------------
+ * os/flair includes NO os/initechdos header -- so this file cannot call fat12_*
+ * and cannot see a fat12_volume_t. Enumeration and directory creation arrive
+ * through a CALLER-SUPPLIED BINDING (`finder_fs_t`): a small vtable of function
+ * pointers the kernel wires to fat12_read_dir / fat12_mkdir in os/initechdos/kmain.c
+ * and the host oracle wires to a hand-authored dirent stream. This is the
+ * os/flair/stdfile.h precedent verbatim (FlairSFEnumProc: "the directory
+ * provider (DECOUPLES the module from FAT I/O) ... THIS is what makes the module
+ * host-testable"), and the same split R3.2 used for the DESKTOP.DB codec (bytes
+ * in os/flair, FAT I/O in os/initechdos, kmain joins them).
+ *
+ * THE CALLBACK-LIFETIME CONTRACT IS CARRIED THROUGH VERBATIM. os/initechdos/fat12.h
+ * :: fat12_dirent_cb says the entry "is valid only for the duration of the call
+ * (it lives in the caller's sector_buf, which the next sector read overwrites)".
+ * finder_dirent_t therefore hands over a `const char *name83` that is likewise
+ * only valid DURING the call, and this module copies the name, the attribute,
+ * the size and the start cluster into its own record BEFORE returning. The host
+ * oracle proves it: its mock binding deliberately SCRIBBLES the name buffer the
+ * moment the callback returns, so a retained pointer reads garbage and the
+ * hand-authored expected listing goes RED.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY A DISK WINDOW REUSES THE DESKTOP MODEL UNCHANGED
+ * ---------------------------------------------------------------------------
+ * Design F2-5 made the R3.2 trackers PURE functions of numbers: hit test,
+ * marquee, selection, double-click synthesis and drag commit read a
+ * finder_desk_t (an icon array plus a `bounds` rect) and nothing else. A disk
+ * window's content area is just a different `bounds`. So a window OWNS a
+ * finder_desk_t whose bounds are its CONTENT rect, in the same global
+ * coordinates, and every tracker and the painter work on it with zero change --
+ * no surface parameter, no refactor of finder_desktop.c's logic, and no second
+ * copy of the geometry. The only edit R3.3 needed on that file was extending
+ * the kind->strike map (finder_desktop.c :: fd_strike) so the ONE painter can
+ * draw folders and documents as well as the volume and the Trash.
+ *
+ * ---------------------------------------------------------------------------
+ * THE PAINT SEAM IS THE ORDINARY TENANT UPDATE PATH -- NOT THE UNDERLAY
+ * ---------------------------------------------------------------------------
+ * Desktop icons paint through the WindowMgr desktop-underlay hook (design
+ * F2-4 seam 1) because they live UNDER every window. Window icons are ordinary
+ * OWNED-WINDOW CONTENT: damage goes in through WindowMgr_invalidate(wm, win,
+ * rect), flair_route_updates delivers an updateEvt to the Finder (background
+ * tenants receive updates -- process.h Sec 3), and this tenant's event() paints
+ * clipped to contRgn INTERSECT updateRgn, exactly like os/apps/ref_tenant.c.
+ * There is no second compositor and the WL-0076 damage contract is untouched.
+ *
+ * ---------------------------------------------------------------------------
+ * SERIAL MARKERS (emitted by os/initechdos/kmain.c; os/flair files never call
+ * serial_puts -- ASCII, one per line, grep-able)
+ * ---------------------------------------------------------------------------
+ *   FINDER-OPEN-VOLUME win=<slot> n=<icons>      root disk window opened
+ *       *** RE-KEY (Rule 8): this REPLACES R3.2's "FINDER-OPEN-VOLUME NYI".
+ *       The volume double-click now really opens a window and really
+ *       enumerates the volume, so the marker carries the window slot and the
+ *       icon count. The emu gate leg that asserted the NYI line is re-keyed to
+ *       this one -- strictly stronger (it now also pins the enumerated count).
+ *   FINDER-OPEN-FOLDER name=<n> win=<slot> singleton=<0|1>
+ *                                                folder window opened, or the
+ *                                                existing one brought forward
+ *   FINDER-CLOSE-WINDOW win=<slot>               go-away on a Finder window
+ *   FINDER-NEW-FOLDER name=<n> parent=<cluster>  a REAL directory was created
+ *   FINDER-CLEANUP win=<slot> moved=<n>          Clean Up snapped n icons
+ *   FINDER-DIR-FULL parent=<cluster>             mkdir refused: directory full
+ *   FINDER-WIN-FULL                              every window slot is in use
+ *   FINDER-WIN-ICONS-FULL win=<slot> dropped=<n> the per-window icon cap bit
+ *   FINDER-WIN-SELECT win=<slot> name=<n> count=<sel>
+ *   FINDER-WIN-DESELECT-ALL win=<slot>
+ *   FINDER-WIN-MARQUEE win=<slot> n=<sel>
+ *   FINDER-WIN-DRAG win=<slot> name=<n> x=<x> y=<y>
+ *   FINDER-OPEN-TRASH win=<slot> n=<icons> singleton=<0|1>
+ *                                                the Trash window opened (bead
+ *                                                initech-tdnl.39), or raised
+ *       *** RE-KEY (Rule 8): this REPLACES R3.2's "FINDER-OPEN-TRASH NYI".
+ *       No gate asserted the NYI line; test-flair-trash-window asserts this.
+ * The window-surface gesture markers are DISTINCT from the desktop's
+ * (FINDER-ICON-SELECT / -DESELECT-ALL / -MARQUEE / -DRAG) on purpose: the
+ * gestures are the same code, but a gate must be able to tell WHICH surface
+ * reported, and re-keying the locked R3.2 desktop markers to carry a surface
+ * field would have been a gratuitous break.
+ *
+ * Ref: docs/design/GUI-remediation-R3-finder-design.md
+ *        F1.1 (icon records; the kind heuristic; the fixed caps that fail loud;
+ *          the callback-lifetime rule; VOLLABEL skipped by the Finder),
+ *        F1.2 (32x32 sprites; the invisible grid; labels beneath),
+ *        F1.3 (the LOCKED DESKTOP.DB record layout, kind=4 folder-view),
+ *        F2.3/F2-4 (redraw discipline), F2-3 (close = DisposeWindow only for a
+ *          Finder-owned window), F2-5 (pure trackers),
+ *        F3.1 (the fat12 API map), F3.2/F3-3 (raw formatted 8.3 display),
+ *        F3.3 (spatial singleton; the root window's frame-canonical title;
+ *          per-folder view state keyed by dir_start; Clean Up = row-major),
+ *        F5.2 (slice tdnl.10 scope + the SPATIAL_DUP mutant).
+ *      docs/plans/GUI-remediation-plan.md R4.6 ("Drive A Files") -- the
+ *        frame-canonical root-window title F3.3 defers to.
+ *      os/flair/stdfile.h (the provider-binding precedent + the 13-byte
+ *        formatted-8.3 display convention this file inherits),
+ *      os/flair/finder_desktop.h (the icon model, the trackers, the painter and
+ *        the DESKTOP.DB codec this file consumes),
+ *      os/flair/finder_cmd.h (the ONE command spine; FinderCtx.exec is the hook
+ *        this file binds), os/flair/window.h (NewDocumentWindow / SetWTitle /
+ *        SelectWindow / DisposeWindow / WindowMgr_invalidate),
+ *      os/apps/ref_tenant.c (the arena-carved WindowRecord + region bundles and
+ *        the updateEvt repaint this file follows).
+ *      CLAUDE.md Law 1, Law 2 (hand-authored goldens; the mock binding is the
+ *        oracle's, never the artifact's), Law 3 (freestanding, dual-compile,
+ *        caller-supplied storage), Rule 2 (fail loud: every cap says so on
+ *        serial, never silently truncates), Rule 6 (mutation-proven), Rule 8
+ *        (the DB layout is locked data; the marker re-key is deliberate),
+ *        Rule 11 (deterministic), Rule 12 (ASCII-clean).
+ *
+ * DUAL-COMPILE: finder_windows.c compiles BOTH freestanding for the kernel and
+ * hosted for harness/proptest/test_finder_windows.c. No libc, no malloc.
+ */
+#ifndef INITECH_OS_FLAIR_FINDER_WINDOWS_H
+#define INITECH_OS_FLAIR_FINDER_WINDOWS_H
+
+#include <stdint.h>
+
+#include "surface.h"            /* bitmap_t                                    */
+#include "region_algebra.h"     /* region_t / rgn_rect_t (-Ispec)               */
+#include "region.h"             /* rgn_row_t (-Ios/flair/region)              */
+#include "window.h"             /* WindowMgr / WindowRecord                     */
+#include "process.h"            /* FlairApp / FlairAppProcs                     */
+#include "finder_desktop.h"     /* the icon model + trackers + the DB codec     */
+#include "finder_cmd.h"         /* FinderCtx + finder_cmd_id (the exec hook)    */
+
+/* ===========================================================================
+ * 1. CAPACITIES  (design F1.1: fixed capacity, FAIL LOUD on overflow, Rule 2)
+ * ===========================================================================*/
+
+/* tdnl.63: records are sized to the available RECORDS arena. The 32-slot
+ * constant is the slot-bitset representation bound; the shipped 64 KiB arena
+ * reaches its real allocation limit first. Opens fail loudly at window_cap. */
+#define FINDER_WIN_MAX            32
+
+/* tdnl.61: icon storage is sized to the full enumeration from the existing
+ * DATA arena. A failed reservation never publishes a truncated directory.
+ * QuickDraw's signed-16 coordinate plane is also checked before a grid wraps
+ * (system7-decomp/specs/quickdraw/coordinate-system.md). */
+
+/* Region-bundle caps, the os/apps/ref_tenant.c values verbatim: a rectangular
+ * document window's strucRgn/contRgn, a rect-damage updateRgn, and their
+ * intersection all stay far under these, and a cap overflow FAILS LOUD inside
+ * the region engine rather than truncating a region. */
+#define FINDER_WIN_RGN_ROWS       32
+#define FINDER_WIN_RGN_POOL      128
+
+/* ===========================================================================
+ * 2. THE INVISIBLE GRID  (design F1.2 / F3.3 "Clean Up ... plain row-major")
+ * ---------------------------------------------------------------------------
+ * PITCH is design F1.2's provisional 68 x 52, *golden-resolves* against the
+ * sys8 captures. INSET_X is (68 - 32) / 2 == 18, i.e. the 32-px sprite is
+ * CENTRED in its 68-px grid cell, so a label wider than the sprite spreads
+ * symmetrically instead of hanging off one side. INSET_Y is a 4-px top margin
+ * inside the content rect.
+ *
+ * Cell (row, col) of a window whose content rect is `c`:
+ *      sprite_x = c.left + FINDER_GRID_INSET_X + col * FINDER_GRID_PITCH_X
+ *      sprite_y = c.top  + FINDER_GRID_INSET_Y + row * FINDER_GRID_PITCH_Y
+ * and the column count is (content_width - INSET_X) / PITCH_X, at least 1.
+ * ROW-MAJOR means index i occupies col = i % cols, row = i / cols -- fill the
+ * first row left-to-right, then the next. Deterministic (Rule 11) and fully
+ * hand-computable, which is how the oracle grades it.
+ *
+ * A cell below the content rect is NOT clipped away: finder_desk_drag_commit's
+ * clamp keeps every icon inside `bounds`, so a directory with more icons than
+ * fit simply stacks them on the last legal row. Scrolling is DEFERRED (no List
+ * Manager, no scrollbar wiring this slice; the view record reserves the bits).
+ * ===========================================================================*/
+#define FINDER_GRID_PITCH_X       68
+#define FINDER_GRID_PITCH_Y       52
+#define FINDER_GRID_INSET_X       18
+#define FINDER_GRID_INSET_Y        4
+
+/* ===========================================================================
+ * 3. DEFAULT WINDOW GEOMETRY
+ * ---------------------------------------------------------------------------
+ * A window with no saved view record opens at a CASCADED default derived from
+ * its slot index -- deterministic, so the same action sequence always produces
+ * the same frame (Rule 11).
+ *
+ *   frame(slot) = (L + slot*DX, T + slot*DY) .. (+W, +H)
+ *
+ * The base rect sits clear of the desktop's icon column (the volume and Trash
+ * sprites occupy x [584,616), and their labels start at x 577), so opening the
+ * root window never hides the icon you just double-clicked.
+ *
+ * THE LOAD-BEARING INVARIANT (and it is NOT about these numbers): no disk
+ * window exists at boot. Windows open ONLY on a double-click, so every locked
+ * emu trace that never double-clicks renders a bit-identical frame to before
+ * this slice. That is what makes these defaults free to choose -- a window may
+ * legitimately cover another gate's probe point, because that gate's trace
+ * never opens one.
+ * ===========================================================================*/
+#define FINDER_WIN_DEFAULT_L      20
+#define FINDER_WIN_DEFAULT_T      60
+#define FINDER_WIN_DEFAULT_W     360
+#define FINDER_WIN_DEFAULT_H     220
+#define FINDER_WIN_CASCADE_DX     20
+#define FINDER_WIN_CASCADE_DY     20
+
+/* The root (volume) window's title. Design F3.3: "the root volume window takes
+ * the frame-canonical name (the 'Drive A Files' convention of the remediation
+ * plan R4.6 -- the File Manager *is* the disk window)". A subfolder's window is
+ * titled with its raw formatted 8.3 name (F3-3: no synthetic long names). */
+#define FINDER_WIN_ROOT_TITLE   "Drive A Files"
+
+/* The Trash window's title (bead initech-tdnl.39). The window is a disk window
+ * over the root \TRASH staging directory, titled by what the desktop icon
+ * says, not by the directory's raw 8.3 name: a Mac OS 8 Finder titles the
+ * window it opens from the Trash icon with the icon's name -- the desktop's
+ * own "Trash" label (finder_desktop.c seed). The 8.3 name "TRASH" is the
+ * Finder's bookkeeping and stays out of sight (FINDER_SVC_TRASH_NAME below). */
+#define FINDER_WIN_TRASH_TITLE  "Trash"
+
+/* ===========================================================================
+ * 4. THE NEW-FOLDER NAME LADDER  (LOCKED convention, design F5.3 / F1.4)
+ * ---------------------------------------------------------------------------
+ * F5.3 asks New Folder to create an "untitled-analog 8.3 dir with name field
+ * ready for inline rename". Inline rename is tdnl.11; what THIS slice owes is a
+ * deterministic, collision-free, 8.3-LEGAL default name.
+ *
+ * THE CONVENTION, LOCKED HERE:
+ *      first free name is           "NEWFOLD"                 (7 chars, no ext)
+ *      on collision, lowest free of "NEWFOL02" .. "NEWFOL99"  (6 + 2 digits)
+ * i.e. the base is truncated to 6 characters and a 2-digit counter appended,
+ * counting from 02 so the ladder reads as a continuation of the un-suffixed
+ * first name. LOWEST-FREE-FIRST mirrors F1.4's Trash-collision scheme (base
+ * truncated + numeric suffix, lowest counter first) and the FAT allocator's own
+ * "lowest-free-first" philosophy -- the same deterministic instinct in three
+ * places. 99 taken names exhausts the ladder and FAILS LOUD
+ * (FINDER_WIN_ERR_NAMES); it never invents a 100th spelling.
+ *
+ * This is a DEFINED convention (Rule 8: locked, deliberate, documented), not a
+ * claimed period restoration -- period Macs had HFS long names and could simply
+ * say "untitled folder"; 8.3 cannot, and F3.4 already set the precedent of
+ * inventing and locking a convention rather than pretending one was attested.
+ * ===========================================================================*/
+#define FINDER_NEWFOLDER_BASE   "NEWFOLD"
+#define FINDER_NEWFOLDER_STEM   "NEWFOL"
+#define FINDER_NEWFOLDER_MAX_N  99
+
+/* ===========================================================================
+ * 5. THE FAT BINDING SEAM  (see the banner: os/flair names no os/initechdos symbol)
+ * ===========================================================================*/
+
+/* The FAT attribute bits the Finder reads. Their VALUES are
+ * spec/dos_structs.h's READONLY / VOLLABEL / DIRECTORY constants; they are
+ * restated here rather than included because spec/dos_structs.h is the DOS
+ * on-disk layout and dragging it into the Toolbox would blur the boundary this
+ * file exists to keep. The DRIFT TOOTH is a _Static_assert in the binding TU
+ * (os/initechdos/kmain.c), where BOTH headers are legitimately in scope -- so a
+ * renumbering can never diverge silently (Law 1 / Rule 2). */
+#define FINDER_ATTR_VOLLABEL   0x08u
+#define FINDER_ATTR_READONLY   0x01u
+#define FINDER_ATTR_DIRECTORY  0x10u
+
+/* One directory entry, as seen DURING the enumeration callback.
+ *
+ * LIFETIME: `name83` points at the binding's scratch and is valid ONLY for the
+ * duration of the call (the fat12_dirent_cb contract, carried through verbatim
+ * -- see the banner). Copy, never retain. */
+typedef struct finder_dirent {
+    const char *name83;        /* NUL-terminated, fat12_format_83 shape        */
+    uint8_t     attribute;     /* the raw FAT attribute byte                   */
+    uint32_t    size;          /* file size in bytes (0 for a directory)       */
+    uint16_t    start_cluster; /* the entry's first data cluster               */
+    uint16_t    date, time;    /* FAT modification words, copied during enum */
+} finder_dirent_t;
+
+/* Return 0 to continue the enumeration, non-zero to stop early (the value is
+ * propagated as the enumerate() return -- the fat12_dirent_cb rule). */
+typedef int (*finder_enum_cb)(const finder_dirent_t *e, void *user);
+
+/* The binding. The kernel wires these to fat12_read_dir / fat12_mkdir; the host
+ * oracle wires them to a hand-authored dirent stream. */
+typedef struct finder_fs {
+    /* Enumerate the directory whose first data cluster is `dir_start` (0 == the
+     * fixed root), invoking `cb` per surviving entry. Returns 0 on a full scan,
+     * the callback's non-zero value on an early stop, or a NEGATIVE value on a
+     * backend error. */
+    int (*enumerate)(void *fs_user, uint16_t dir_start,
+                     finder_enum_cb cb, void *cb_user);
+
+    /* Create the subdirectory `name83` under `parent_dir_start` (0 == root).
+     * Returns FINDER_WIN_OK, FINDER_WIN_ERR_DIRFULL when the parent cannot take
+     * another entry, or FINDER_WIN_ERR_MKDIR for any other backend refusal --
+     * the BINDING maps its backend's error codes into these, so this layer
+     * never spells a FAT12_ERR_* value. */
+    int (*mkdir)(void *fs_user, const char *name83, uint16_t parent_dir_start);
+
+    /* ---- R3.4a (bead initech-34dh): the FILE-OPERATION half of the seam ----
+     * Every entry below follows the mkdir rule: the BINDING maps its backend's
+     * codes into finder_win_status_t, so os/flair never spells a FAT12_ERR_*.
+     * Each may be NULL in a binding that does not offer it; the consumer then
+     * refuses with FINDER_WIN_ERR_NULL rather than pretending (Rule 2).
+     *
+     * CONSUMED THIS SLICE: move, trash_name, trash_dir (drag-move and
+     * drag-to-Trash staging, os/flair/finder_ops.c). WIRED BUT NOT YET
+     * CONSUMED: unlink + rmdir (Empty Trash's recursive purge, bead
+     * initech-6k12) and create + read_partial + write_partial (Duplicate's
+     * chunked copy, bead initech-p6st; design F3.1 "chunked, not read_file-
+     * whole"). They ship now because bead initech-34dh's scope names the whole
+     * binding, so the two later slices are pure Finder logic over a seam that
+     * already exists -- the kernel half of each is a thin pass-through to the
+     * fat12 primitive of the same name, graded by that primitive's own
+     * mtools differential. */
+
+    /* Transplant `src_name83` from directory `src_dir` into `dst_dir`,
+     * renaming it to `dst_name83` in the same step (NULL or "" keeps the name)
+     * -- fat12_move_dirent. Returns FINDER_WIN_OK, or ERR_SAMEDIR / ERR_CYCLE /
+     * ERR_EXISTS for the three named refusals, or ERR_MOVE for any other
+     * backend failure (dir full, chain, device). */
+    int (*move)(void *fs_user, const char *src_name83, uint16_t src_dir,
+                const char *dst_name83, uint16_t dst_dir);
+
+    /* The name `name83` must take inside `dir` so it collides with nothing
+     * there (fat12_trash_suffix_name: itself when free, else trunc5 + "%03u",
+     * lowest free counter). Writes a NUL-terminated 8.3 name into `out`
+     * (FINDER_DESK_NAME_MAX bytes). FINDER_WIN_OK or ERR_MOVE. */
+    int (*trash_name)(void *fs_user, const char *name83, uint16_t dir,
+                      char *out);
+
+    /* The first data cluster of the volume's \TRASH directory (design F1.4:
+     * created at volume init, so it always exists), or a NEGATIVE value when
+     * the volume has none -- the Finder then refuses every Trash drop loudly
+     * instead of guessing a cluster. */
+    int (*trash_dir)(void *fs_user);
+
+    /* Delete the regular file `name83` from `dir` (fat12_unlink). */
+    int (*unlink)(void *fs_user, const char *name83, uint16_t dir);
+
+    /* Remove the EMPTY subdirectory `name83` from `dir` (fat12_rmdir);
+     * ERR_NOTEMPTY when it still holds entries. */
+    int (*rmdir)(void *fs_user, const char *name83, uint16_t dir);
+
+    /* Create/truncate the regular file `name83` in `dir` (fat12_create);
+     * *out_slot receives its dirent slot for write_partial. */
+    int (*create)(void *fs_user, const char *name83, uint16_t dir,
+                  uint32_t *out_slot);
+
+    /* Positioned read of up to `len` bytes of `name83` in `dir` from `offset`
+     * (fat12_read_partial); *out_read receives the count (0 == EOF). */
+    int (*read_partial)(void *fs_user, const char *name83, uint16_t dir,
+                        uint32_t offset, uint32_t len, uint8_t *out,
+                        uint32_t *out_read);
+
+    /* Positioned write of `len` bytes into the file at dirent `slot` of `dir`
+     * (fat12_write_partial); *out_written receives the committed count. */
+    int (*write_partial)(void *fs_user, uint16_t dir, uint32_t slot,
+                         uint32_t offset, const uint8_t *data, uint32_t len,
+                         uint32_t *out_written);
+
+    /* ---- bead initech-uios (audit L002): THE VIEW'S DIRECTORY IDENTITY ----
+     * FINDER_WIN_OK iff directory `dir` (0 == the fixed root, always OK) is
+     * STILL the folder `name83` inside directory `parent` on the volume
+     * (fat12_dir_identity: a live directory head whose '..' is `parent`, and
+     * `parent` holds a live directory entry `name83` -> `dir`); otherwise
+     * FINDER_WIN_ERR_STALE. A cluster number alone is not an identity -- FAT
+     * reuses a freed cluster -- so every write THROUGH a window view first
+     * re-resolves the view's (dir, parent, name83) here (Sec 10d). NULL in a
+     * binding: every such write refuses FINDER_WIN_ERR_NULL (Rule 2). */
+    int (*dir_ident)(void *fs_user, uint16_t dir, uint16_t parent,
+                     const char *name83);
+
+    void *user;                /* the binding's opaque cookie                  */
+} finder_fs_t;
+
+/* DEVIATION FROM THE BRIEF, STATED: the brief's example binding also carried a
+ * volume_label() entry. It has no consumer this slice -- design F3.3 rules the
+ * ROOT window's title is the frame-canonical FINDER_WIN_ROOT_TITLE, not the
+ * volume label, and the label itself already reaches the Finder as the desktop
+ * volume ICON's name (kmain reads it off the disk at mount time, R3.2). A third
+ * path to the same string would be an unused seam, and this file does not ship
+ * speculative API (Law 1). */
+
+/* ===========================================================================
+ * 6. STATUS CODES
+ * ===========================================================================*/
+typedef enum finder_win_status {
+    FINDER_WIN_OK            =  0,
+    FINDER_WIN_ERR_NULL      = -1,  /* NULL shell / no binding / bad slot      */
+    FINDER_WIN_ERR_FULL      = -2,  /* every window slot is in use             */
+    FINDER_WIN_ERR_ENUM      = -3,  /* the binding's enumerate() failed        */
+    FINDER_WIN_ERR_DIRFULL   = -4,  /* mkdir: the parent directory is full     */
+    FINDER_WIN_ERR_MKDIR     = -5,  /* mkdir: any other backend refusal        */
+    FINDER_WIN_ERR_NAMES     = -6,  /* the NEWFOLD.. ladder is exhausted       */
+    /* R3.4a (bead initech-34dh): the move/Trash refusal ladder. The three
+     * named refusals are the reasons FINDER-MOVE-REFUSED prints
+     * (samedir|cycle|exists); every other failure is ERR_MOVE ("err"). */
+    FINDER_WIN_ERR_SAMEDIR   = -7,  /* move: destination == source directory   */
+    FINDER_WIN_ERR_CYCLE     = -8,  /* move: a folder into its own subtree     */
+    FINDER_WIN_ERR_EXISTS    = -9,  /* move: the name is taken at the dest     */
+    FINDER_WIN_ERR_MOVE      = -10, /* move/trash/unlink/...: any other refusal */
+    FINDER_WIN_ERR_NOTEMPTY  = -11, /* rmdir: the directory still has entries  */
+    FINDER_WIN_ERR_SERVICE   = -12, /* move/trash: \TRASH or \DESKTOP.DB (tdnl.73) */
+    FINDER_WIN_ERR_NOTRASH   = -13, /* open Trash: the volume has no \TRASH     */
+    FINDER_WIN_ERR_LOCKED    = -14, /* locked document: unlock before discard  */
+    FINDER_WIN_ERR_STALE     = -15, /* the view's folder no longer exists as
+                                     * that folder (purged / recycled cluster;
+                                     * bead initech-uios, audit L002)          */
+    FINDER_WIN_ERR_MEMORY    = -16,
+    FINDER_WIN_ERR_DISKFULL  = -17,
+    FINDER_WIN_ERR_LAUNCH    = -18,
+    FINDER_WIN_ERR_CRASH     = -19,
+    FINDER_WIN_ERR_STORAGE   = -20
+} finder_win_status_t;
+
+/* ===========================================================================
+ * 7. THE RECORDS
+ * ===========================================================================*/
+
+/* A region plus its caller-supplied backing (the engine never mallocs). */
+typedef struct finder_win_rgn {
+    region_t  r;
+    rgn_row_t rows[FINDER_WIN_RGN_ROWS];
+    int16_t   pool[FINDER_WIN_RGN_POOL];
+} finder_win_rgn_t;
+
+/* One listed entry's FAT directory metadata (tdnl.44 list view). */
+typedef struct {
+    uint32_t size;
+    uint16_t date, time;
+    uint8_t  attribute;
+} finder_win_meta_t;
+struct finder_list_key;
+
+typedef struct finder_window {
+    uint8_t              open;        /* 1 == this slot holds a live window    */
+    uint8_t              is_root;     /* 1 == the volume's root window         */
+    uint8_t              is_trash;    /* 1 == the Trash window over \TRASH
+                                       * (bead initech-tdnl.39)                */
+    uint16_t             dir_start;   /* the folder's first cluster (0 == root)*/
+    char                 name83[FINDER_DESK_NAME_MAX];  /* the folder's name   */
+    uint16_t             parent;      /* the first cluster of the directory
+                                       * that holds it (0 == root): with
+                                       * dir_start + name83 the view's
+                                       * IDENTITY (Sec 10d; initech-uios)      */
+    uint16_t             view_bits;   /* the kind=4 record's view bits         */
+    uint16_t             dropped;     /* entries the icon cap refused          */
+    WindowRecord         rec;         /* the window itself                     */
+    finder_win_rgn_t     rs, rc, ru;  /* struc / cont / update                 */
+    finder_win_rgn_t     rk;          /* the updateEvt paint-clip scratch      */
+    finder_desk_t        view;        /* the icon model; bounds caches the
+                                       * content rect -- read it ONLY through
+                                       * finder_win_view (Sec 10b, tdnl.34)    */
+    finder_desk_icon_t  *icons;       /* existing DATA arena, sized to listing */
+    char                key_prefix[FINDER_DESK_NAME_MAX];
+    uint32_t            key_when;
+    finder_click_track_t click;       /* this surface's double-click tracker   */
+    /* THE ICON VIEW SCROLLS (bead initech-tdnl.35; Sec 10c). The window's two
+     * standard bars, attached to `rec` through the Window Manager registry
+     * (window.h Sec 4b) for as long as the window is open; and the scroll
+     * offset the icon model is currently laid out under, so the ONE re-base
+     * (finder_win_sync_geometry) can move every icon by exactly the change. */
+    WindowScroll         scroll;
+    int16_t              applied_sx;  /* horizontal offset applied to icons    */
+    int16_t              applied_sy;  /* vertical offset applied to icons      */
+    /* List-view metadata (tdnl.44) and the sort-key scratch, same indices as
+     * icons. Merge with tdnl.61's arena-backed icons: both live in the SAME
+     * DATA-arena block as `icons` (finder_win_reserve_icons), sized to the
+     * listing, freed with it -- no fixed per-window ceiling. */
+    finder_win_meta_t   *meta;
+    struct finder_list_key *keys;
+} finder_window_t;
+
+/* ---------------------------------------------------------------------------
+ * THE COMMAND OUTCOME  (how a Layer-3 command reports to the Layer-1 kernel)
+ *
+ * finder_dispatch calls the shell's exec hook from deep inside kmain's keyDown
+ * handling. The hook cannot emit serial (os/flair files never call serial_puts)
+ * and cannot drive the repaint cycle (that needs the live offscreen and
+ * present). So it records WHAT HAPPENED here, and kmain reads it back the
+ * instant finder_dispatch returns, emits the marker and runs the DQ2 cycle.
+ * One command, one outcome, one report -- no hidden second channel.
+ * ------------------------------------------------------------------------- */
+typedef struct finder_cmd_outcome {
+    uint8_t             valid;    /* 1 == a command ran since the last read    */
+    finder_cmd_id       id;       /* which one                                 */
+    finder_win_status_t status;   /* FINDER_WIN_OK or the refusal              */
+    int16_t             slot;     /* the affected window slot, or -1           */
+    int16_t             moved;    /* Clean Up: icons that actually moved;
+                                   * Restart / Shut Down (tdnl.78): open-window
+                                   * views noted at dispatch                   */
+    uint16_t            parent;   /* New Folder: the parent's first cluster    */
+    uint8_t             singleton;/* Open: 1 == an existing window was raised  */
+    char                name83[FINDER_DESK_NAME_MAX];  /* New Folder / Open    */
+    /* Open on a selected APPLICATION (bead initech-fbo4, audit 2026-10-23
+     * desktop L004). The shell cannot launch -- tbx_launch is the kernel's --
+     * so it NAMES the launch and kmain hands it to the ONE verb a double-click
+     * uses (flair_live_launch_app; design F4.3 "one adapter"). Ground truth:
+     * Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf PDF p. 45 -- the
+     * TeachText APPLICATION opens "either by double-clicking it or by
+     * selecting it and choosing Open from the File menu". launch = selected
+     * applications counted (0 == none; uint16_t -- a listing is dynamic and
+     * 256 selected applications must not wrap to "none", PM review fbo4);
+     * launch83 / launch_dir = the FIRST in listing order, and the directory
+     * of the window it was selected in. */
+    uint16_t            launch;
+    uint16_t            launch_dir;
+    char                launch83[FINDER_DESK_NAME_MAX];
+} finder_cmd_outcome_t;
+
+/* Shell state and window records live in the RECORDS arena (ADR-0013 AC-2).
+ * Icon buffers live in DATA; teardown never follows their pointers. */
+typedef struct finder_shell {
+    finder_desk_t        desk;                              /* R3.2 desktop    */
+    finder_desk_icon_t   desk_icons[FINDER_DESK_MAX_ICONS];
+    /* NOTE: the DESKTOP surface's double-click tracker is NOT here -- it stays
+     * the kmain-owned global R3.2 put it in, so the desktop gesture path is
+     * byte-for-byte the code that is already gated green. Each WINDOW carries
+     * its own tracker (below), which is what makes a double-click in one window
+     * independent of a click in another. */
+    finder_window_t     *windows;
+    uint16_t            window_cap; /* fits the actual RECORDS arena */
+    flair_heap_t       *icon_heap;
+    finder_view_rec_t    views[FINDER_DB_MAX_VIEWS];        /* kind=4 records  */
+    uint16_t             n_views;
+    WindowMgr           *wm;
+    const bitmap_t      *surface;
+    FlairApp            *app;
+    finder_fs_t          fs;
+    FinderCtx           *ctx;      /* the command context (kmain owns it)      */
+    uint8_t              have_fs;  /* 1 once a binding is installed            */
+    finder_cmd_outcome_t last;     /* the most recent command's outcome        */
+    /* R3.4a (bead initech-34dh): the kind=5 trash-origin set (design F1.5),
+     * serialised into \DESKTOP.DB after the views (finder_desk_db_encode_full)
+     * and owned by os/flair/finder_ops.c. */
+    finder_origin_rec_t  origins[FINDER_DB_MAX_ORIGINS];
+    uint16_t             n_origins;
+    /* bead initech-6k12: what \TRASH holds, counted at EVERY depth by
+     * finder_shell_recount_trash (Sec 12) -- the Empty Trash predicate, the
+     * alert's "contains N items, which use NK" and the FULL icon all read
+     * these. trash_icon_dirty is set when the FULLNESS flips, so the pump can
+     * damage the desktop Trash cell exactly once. */
+    uint16_t             trash_items;
+    uint32_t             trash_bytes;
+    uint8_t              trash_icon_dirty;
+    /* bead initech-uios (audit L002): bit s set == window slot s viewed a
+     * directory the LAST purge removed and was disposed by it (Sec 12). Read
+     * by kmain for the FINDER-TRASH-VIEW-CLOSED markers. */
+    uint32_t             purge_closed;
+} finder_shell_t;
+
+/* tdnl.61/.63: reserve as many window records as this arena can hold; icon
+ * storage comes from the existing DATA arena on enumeration. No new heap. */
+int finder_shell_storage_init(finder_shell_t *sh, flair_heap_t *records,
+                               flair_heap_t *icons);
+finder_win_status_t finder_win_reserve_icons(finder_shell_t *sh, int slot,
+                                             uint16_t count);
+
+/* ===========================================================================
+ * 8. THE TENANT  (design F2-1; the vtable R3.2 kept in finder_desktop.c)
+ * ---------------------------------------------------------------------------
+ * open()  carves ONE finder_shell_t from records_arena, builds the R3.2 desktop
+ *         model into it (finder_desk_tenant_build -- same two calls, same
+ *         order, same seeded coordinates, so the boot frame is unchanged),
+ *         attaches every window slot's regions, and stores the shell in
+ *         self->userData. It creates NO window: a disk window opens only on a
+ *         double-click, so the boot scene is byte-identical to R3.2's.
+ * event() handles updateEvt (repaint a disk window's content, clipped to
+ *         contRgn INTERSECT updateRgn -- the ref_tenant discipline) and keyDown
+ *         (the Cmd-chord path through the ONE command spine). It deliberately
+ *         IGNORES mouseDown: a click that starts a marquee or a drag has to be
+ *         tracked to mouseUp through WaitNextEvent, which is a live-pump
+ *         concern and lives in kmain beside flair_live_do_drag -- exactly where
+ *         every other tracked gesture already lives.
+ * close() is absent: the Finder is always resident (design F2-1).
+ * ===========================================================================*/
+extern const FlairAppProcs finder_shell_procs;
+
+/* Recover the shell from a launched Finder tenant (NULL-safe, magic-checked). */
+finder_shell_t *finder_shell_of(FlairApp *app);
+
+/* The R3.2 desktop model inside a shell (NULL-safe). */
+finder_desk_t *finder_shell_desk(finder_shell_t *sh);
+
+/* Install the FAT binding. Until this is called every disk-window operation
+ * returns FINDER_WIN_ERR_NULL rather than pretending to succeed (Rule 2). */
+void finder_shell_bind_fs(finder_shell_t *sh, const finder_fs_t *fs);
+
+/* Bind the command context the key path dispatches through, and install this
+ * shell as its execution hook (FinderCtx.exec/shell). */
+void finder_shell_bind_ctx(finder_shell_t *sh, FinderCtx *ctx);
+
+/* Take (and CLEAR) the last command outcome. Returns NULL when no command has
+ * run since the previous take -- so a caller can never report the same command
+ * twice, which on a serial trace would read as two commands (Rule 2). */
+const finder_cmd_outcome_t *finder_shell_take_outcome(finder_shell_t *sh);
+
+/* Recompute the FinderCtx predicate state (selection_count / front_is_diskwin)
+ * from the live shell. Called before every dispatch so the enablement
+ * predicates read real state, exactly as F4.4 requires. */
+void finder_shell_sync_ctx(finder_shell_t *sh);
+
+/* ===========================================================================
+ * 9. PURE HELPERS  (graded directly by the host oracle)
+ * ===========================================================================*/
+
+/* The icon-kind heuristic (design F1.1):
+ *      attribute & FINDER_ATTR_DIRECTORY   -> FINDER_ICON_FOLDER
+ *      name83 ends ".EXE" (case-insensitive)-> FINDER_ICON_APP
+ *      otherwise                            -> FINDER_ICON_FILE
+ * The extension test is COSMETIC ONLY (ADR-0003-AMENDMENT-DEC-08a.4 makes
+ * dispatch content-based); it decides which sprite is drawn, nothing else. */
+finder_icon_kind_t finder_win_kind_of(const char *name83, uint8_t attribute);
+
+/* 1 when the Finder must SKIP this entry (design F1.1: volume-label entries are
+ * skipped by the Finder, because the FAT layer deliberately passes them through
+ * -- fat12.h :: fat12_read_root_dir "Volume-label and directory entries are NOT
+ * filtered here"). Deleted / free / LFN entries are already gone by then.
+ *
+ * SCOPE NOTE, STATED (Law 1): F1.1 rules out the VOLUME LABEL and nothing else,
+ * so HIDDEN entries -- \DESKTOP.DB and \TRASH on the flagship volume -- DO
+ * appear in the root window this slice. Period Finders hid their Desktop file
+ * and period DOS DIR hid hidden entries, so a hidden-skip is a plausible later
+ * ruling; making it here would be a DESIGN change dressed as an implementation
+ * detail, so it is recorded instead of silently applied. */
+int finder_win_skip_entry(uint8_t attribute);
+
+/* THE FINDER'S OWN BOOKKEEPING (beads initech-tdnl.56 / .73 / .75; audit pass
+ * 3 H03 + H05). The root staging directory \TRASH and the desktop database
+ * \DESKTOP.DB belong to the Finder, not the user: a period Finder never shows
+ * its own files (Desktop DB, the Trash folder) in a window. Identity = the
+ * ROOT directory (dir_start 0) + the 8.3 name, case-insensitive; the same
+ * names anywhere else (a TRASH folder someone moved into APPS) are ordinary
+ * user items. Consumers:
+ *   - fw_enum_cb, the ONE listing builder: a service entry never becomes an
+ *     icon, so every view-derived fact (counts, Select All, Arrange, Clean Up,
+ *     the scroll extent, drop targets) agrees. DIR and mtools still list both.
+ *   - finder_ops_drop (defence in depth): a move or trash whose SOURCE or
+ *     resulting DESTINATION is a service identity is refused
+ *     FINDER_WIN_ERR_SERVICE ("service") before the backend is touched.
+ * The names restate os/initechdos/desktop_db.h's DESKTOP_DB_NAME /
+ * DESKTOP_TRASH_NAME (os/flair may not include os/initechdos); kmain.c, which sees
+ * both, carries the drift tooth. */
+#define FINDER_SVC_TRASH_NAME "TRASH"
+#define FINDER_SVC_DB_NAME    "DESKTOP.DB"
+int finder_win_is_service(uint16_t dir_start, const char *name83);
+
+/* The default cascaded frame for `slot` (Sec 3). Pure. */
+rgn_rect_t finder_win_default_frame(int slot);
+
+/* Columns that fit across a content rect `c` (at least 1). Pure. */
+int finder_win_grid_cols(rgn_rect_t c);
+
+/* The row-major grid cell for icon index `i` inside content rect `c`. Pure. */
+void finder_win_grid_origin(rgn_rect_t c, int i, int16_t *out_x, int16_t *out_y);
+
+/* Build the next free New Folder name for a directory whose existing names are
+ * `existing[0..n)`. Writes a NUL-terminated 8.3 name into `out` (which must
+ * hold FINDER_DESK_NAME_MAX bytes) and returns FINDER_WIN_OK, or
+ * FINDER_WIN_ERR_NAMES when the whole ladder is taken. Pure; the comparison is
+ * case-insensitive because FAT 8.3 names are. */
+finder_win_status_t finder_win_next_folder_name(
+        const char (*existing)[FINDER_DESK_NAME_MAX], int n, char *out);
+
+/* ===========================================================================
+ * 10. WINDOW OPERATIONS
+ * ===========================================================================*/
+
+/* The slot holding the window for `dir_start`, or -1. This IS the spatial
+ * singleton rule (design F3.3): reopening a folder finds its window instead of
+ * making a second one. */
+int finder_win_find(const finder_shell_t *sh, uint16_t dir_start);
+
+/* The slot owning `w`, or -1 (used to demux a go-away / content click). */
+int finder_win_slot_of(const finder_shell_t *sh, const WindowRecord *w);
+
+/* The FRONTMOST open disk window's slot in the WindowMgr z-order, or -1. */
+int finder_win_front_slot(const finder_shell_t *sh);
+
+/* Open (or raise) the window for a directory.
+ *
+ *   parent    : the first cluster of the directory whose listing the folder
+ *               was opened from (0 == the root; ignored when is_root). With
+ *               dir_start + name83 it is the view's IDENTITY (Sec 10d).
+ *   dir_start : the folder's first cluster; 0 == the volume root
+ *   name83    : the folder's formatted 8.3 name; ignored when is_root
+ *   is_root   : 1 for the volume window (title FINDER_WIN_ROOT_TITLE)
+ *   out_slot  : receives the slot (may be NULL)
+ *   out_singleton : receives 1 when an EXISTING window was raised instead of a
+ *                   new one being built (may be NULL)
+ *
+ * A raise is SelectWindow only -- no re-enumeration, no re-layout, so the
+ * user's arrangement inside that window survives (the spatial-Finder promise).
+ * A fresh open enumerates through the binding, lays the icons out row-major on
+ * the grid, restores the saved frame origin from the kind=4 view record when
+ * there is one, and seeds a full-content update. */
+finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
+                                    uint16_t dir_start,
+                                    const char *name83, uint8_t is_root,
+                                    int *out_slot, int *out_singleton);
+
+/* ---------------------------------------------------------------------------
+ * 10d. A VIEW'S DIRECTORY IDENTITY  (bead initech-uios; audit L002)
+ * ---------------------------------------------------------------------------
+ * The FAT names a directory by its first cluster, and frees and REUSES
+ * clusters (docs/research/fat12-ground-truth.md Sec 3; fat12_find_free hands
+ * out the lowest free one). A window that kept only dir_start across Empty
+ * Trash wrote New Folder into a freed cluster (the L002 orphan). So a window
+ * records (dir_start, parent, name83) when it opens -- the PARENT-ENTRY
+ * identity, re-pointed by finder_ops_drop when the folder itself is moved --
+ * and every write THROUGH the view (New Folder; a drag out of it or into it)
+ * first re-resolves that identity on the volume via the binding's dir_ident.
+ * A purged folder, or another folder allocated into its old cluster, fails
+ * with FINDER_WIN_ERR_STALE and nothing is written. Chosen over a per-view
+ * generation counter because the FAT has no generation to compare against:
+ * only the parent's live entry survives a reboot, a DOS-side RD or a reuse.
+ *
+ * FINDER_WIN_OK, FINDER_WIN_ERR_STALE, or FINDER_WIN_ERR_NULL (bad slot / no
+ * dir_ident in the binding). The root window is always live. */
+finder_win_status_t finder_win_check_live(finder_shell_t *sh, int slot);
+
+/* Open (or raise) THE TRASH WINDOW (bead initech-tdnl.39; audit F04): the
+ * one deliberate view onto the root \TRASH staging directory, which every
+ * ordinary listing hides (finder_win_is_service). It is an ordinary disk
+ * window -- same grid, same trackers, same drops -- over the directory whose
+ * first cluster the binding's trash_dir() names, titled
+ * FINDER_WIN_TRASH_TITLE and flagged is_trash. Because it IS an ordinary
+ * window, the behaviour a user expects falls out of the existing rules:
+ *   - its items are the staged items (fw_enum_cb's service filter keys on
+ *     the ROOT directory, so nothing inside \TRASH is filtered);
+ *   - dragging an item OUT of it onto a folder, a window or the volume is a
+ *     plain move = "put back", and finder_ops_drop drops its kind=5 origin;
+ *   - dropping onto its body stages exactly like the desktop Trash icon;
+ *   - a second double-click raises it (the spatial singleton, keyed by the
+ *     \TRASH cluster).
+ * Returns FINDER_WIN_ERR_NULL with no binding / no trash_dir entry, and
+ * FINDER_WIN_ERR_NOTRASH when the volume has no \TRASH -- never a guess.
+ *
+ * MUTANT (Rule 6): FINDER_WIN_MUT_TRASH_ROOT opens the window over the ROOT
+ * directory instead (the bug of passing the wrong cluster): the Trash window
+ * lists the volume, not the staged items. test-finder-ops leg O13 and
+ * test-flair-trash-window-mutant go RED. */
+finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
+                                          int *out_singleton);
+
+/* Close a Finder-owned window: SAVE the view state (design F3.3), then
+ * DisposeWindow ONLY -- never the tenant-terminate path, because the owner is
+ * the always-resident Finder (design F2-3, the anti-8fhu refinement). */
+finder_win_status_t finder_win_close(finder_shell_t *sh, int slot);
+
+/* Re-enumerate a window from the volume and re-lay it out on the grid. Used by
+ * open() and after New Folder. Sets w->dropped when the icon cap bit. */
+finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot);
+
+/* Create a REAL directory in `slot`'s folder with the next free ladder name
+ * (Sec 4), then re-populate the window. `out_name83` (may be NULL) receives the
+ * created name; `out_parent` (may be NULL) receives the parent cluster, so the
+ * caller can emit FINDER-NEW-FOLDER / FINDER-DIR-FULL without re-deriving it. */
+finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
+                                          char *out_name83,
+                                          uint16_t *out_parent);
+
+/* Snap every icon in `slot` to its row-major grid cell (design F3.3). Returns
+ * the number of icons that actually MOVED (0 means the window was already
+ * clean). Invalidation is the caller's -- finder_win_invalidate_all. */
+int finder_win_cleanup(finder_shell_t *sh, int slot);
+
+/* Re-lay `slot`'s icons on the row-major grid in NAME order (View > Arrange
+ * (by Name); bead initech-tdnl.67, audit G10): case-insensitive 8.3 order,
+ * ties by listing order; the icon array is NOT reordered -- each icon snaps to
+ * the cell of its rank. Returns the number of icons that MOVED. */
+int finder_win_arrange_by_name(finder_shell_t *sh, int slot);
+
+/* 1 when the shell's execution hook implements command `id` (bead
+ * initech-tdnl.36): the ONE answer to "does choosing this do something", read
+ * from the same table the hook dispatches through. The handler guard
+ * (harness/proptest/test_menu_handlers.c) holds every enabled menu row to it. */
+int finder_shell_implements(finder_cmd_id id);
+
+/* Damage the whole content of `slot` through the ONE window-damage entry point
+ * (WindowMgr_invalidate); the tenant's updateEvt then repaints it. */
+void finder_win_invalidate_all(finder_shell_t *sh, int slot);
+
+/* Damage exactly two icon cells (old then new -- the accumulation IS the union,
+ * with no over-repaint of the rectangle spanning both; ADR-0004 D-5). */
+void finder_win_invalidate(finder_shell_t *sh, int slot,
+                           rgn_rect_t old_rect, rgn_rect_t new_rect);
+
+/* Paint a window's content: the content fill, then the icons, both clipped.
+ * Re-bases the icon model first (finder_win_sync_geometry), so a window that
+ * moved since its last paint draws its icons where its content now is.
+ * Deterministic (Rule 11). Exposed so the oracle can render without a pump. */
+void finder_win_paint(finder_window_t *w, const bitmap_t *dst,
+                      const region_t *clip);
+
+/* ===========================================================================
+ * 10b. THE GEOMETRY RE-BASE  (bead initech-tdnl.34; audit F01)
+ * ---------------------------------------------------------------------------
+ * A window's icon model lives in GLOBAL coordinates (the banner above: the
+ * trackers are pure functions of a finder_desk_t whose bounds are the content
+ * rect). The Window Manager moves and resizes the WindowRecord -- DragWindow,
+ * ZoomWindow, SizeWindow, CollapseWindow (os/flair/window.c) -- and knows
+ * nothing about icons. Before this bead nothing told the model, so after a
+ * drag the window painted its NEW content rect with the icons at their OLD
+ * screen coordinates (audit F01: "APPS became blank after the drag").
+ *
+ * The rule now: the model's `bounds` is a CACHE of the content rect, and the
+ * ONE place it is refreshed is finder_win_sync_geometry. It compares
+ * view.bounds with the live contRgn bbox and, when the content ORIGIN moved,
+ * translates every icon by the same delta; it then adopts the live rect (so a
+ * grow or a zoom also re-sizes the clamp and the grid). Icons keep their
+ * offset from the content's top-left corner across every geometry change --
+ * window content is drawn in the port's LOCAL coordinates and converted to
+ * global only at port boundaries (../system7-decomp
+ * specs/quickdraw/coordinate-system.md, "Each GrafPort carries its OWN local
+ * coordinate system"), and the audit's expectation is exactly that "moving,
+ * zooming, or resizing a window must keep its contents attached to its
+ * content area" (docs/audits/2026-10-03-flair-gui-codex/REPORT.md F01).
+ *
+ * A COLLAPSED window (windowshade: empty contRgn) is left untouched -- there is
+ * no content rect to adopt, and adopting an empty one would collapse the clamp
+ * onto a point and wreck every icon on expand. The re-base happens on the
+ * next sync after expand.
+ *
+ * Every consumer of a window's icon coordinates obtains the model through
+ * finder_win_view (or is one of the functions in this file that syncs first:
+ * paint, populate, cleanup), so paint, hit-testing, selection, the rubber
+ * band, Clean Up, the icon-drag clamp, the drag outline's start cell and the
+ * zoom-back destination all read ONE coordinate system.
+ *
+ * MUTANT (Rule 6): FINDER_WIN_MUT_ABS_COORDS compiles the re-base out -- the
+ * pre-fix absolute behaviour -- and test-finder-ops leg O9 plus the
+ * test-flair-finder-follow emu gate must go RED.
+ * ===========================================================================*/
+
+/* ===========================================================================
+ * 10c. THE SCROLLED ICON VIEW (bead initech-tdnl.35; audit F02)
+ * ---------------------------------------------------------------------------
+ * The icon view is a DOCUMENT larger than the window: its origin is the
+ * content rect's top-left moved up/left by the window's scroll values
+ * (winscroll.h; the bars' value is "document px scrolled"). Every icon keeps
+ * its offset from the DOCUMENT origin; the re-base below therefore treats a
+ * scroll exactly like a window move -- the icons are translated by the change
+ * of the document origin -- and, before translating, re-derives each bar's
+ * range from the icons themselves:
+ *
+ *   vertical   content = max over icons (doc y + FINDER_CELL_H) + GRID_INSET_Y
+ *   horizontal content = max over icons (doc x + FINDER_ICON_DIM) + GRID_INSET_X
+ *   max = content - view length (0 when everything fits -> DISABLED bar)
+ *
+ * so paint, hit-testing, selection, the rubber band, drag-and-drop and Clean
+ * Up -- which all read the model through this one sync point (Sec 10b) -- see
+ * scrolled coordinates with no further change. The grid (populate, Clean Up,
+ * Arrange, a drop into an open window) is laid in DOCUMENT coordinates
+ * (finder_win_doc_rect), so Clean Up of a scrolled window produces the same
+ * arrangement as of an unscrolled one.
+ *
+ * MUTANT (Rule 6): FINDER_WIN_MUT_SCROLL_PAINT_ONLY applies the scroll offset
+ * only when PAINTING -- the view looks scrolled but the model (hit-testing,
+ * selection, drops) keeps the unscrolled cells, so a click on an icon where it
+ * is drawn misses it. test-finder-ops leg O10 and test-flair-scroll-mutant
+ * must go RED.
+ * ===========================================================================*/
+
+/* Re-base `w`'s icon model onto its window's current content rect AND scroll
+ * offset, after re-deriving the scroll ranges (Sec 10c). Returns a bit set:
+ * FINDER_SYNC_ICONS when icons were translated or the bounds re-sized,
+ * FINDER_SYNC_SCROLL when a bar's range or value changed (its thumb must be
+ * redrawn); 0 when nothing changed. A NULL, closed or collapsed window is a
+ * no-op. */
+#define FINDER_SYNC_ICONS   0x1
+#define FINDER_SYNC_SCROLL  0x2
+int finder_win_sync_geometry(finder_window_t *w);
+
+/* The DOCUMENT rect of `w`: the content rect moved by -(scroll) on both axes,
+ * same size. The grid origin for populate / Clean Up / Arrange / drops. */
+rgn_rect_t finder_win_doc_rect(const finder_window_t *w);
+
+/* The icon model of open window `slot`, re-based first; NULL when the slot is
+ * not open. THE accessor for every out-of-file consumer (kmain's gesture
+ * surface, finder_ops.c's targeting and drop). */
+finder_desk_t *finder_win_view(finder_shell_t *sh, int slot);
+
+/* ===========================================================================
+ * 11. THE kind=4 VIEW RECORDS  (design F1.3 / F3.3; the codec is in
+ *     finder_desktop.c -- this is the in-memory set the codec serialises)
+ * ===========================================================================*/
+
+/* Seed sh->views from a DESKTOP.DB image (boot). Returns the number of kind=4
+ * records taken; a corrupt image contributes none (the caller regenerates
+ * defaults loudly -- design F1.3). Records past FINDER_DB_MAX_VIEWS are
+ * dropped, oldest-first-wins, which is deterministic. */
+uint16_t finder_shell_load_views(finder_shell_t *sh, const uint8_t *buf,
+                                 uint32_t len);
+
+/* Upsert one view record keyed by dir_start. Returns 1 when the set CHANGED
+ * (so the caller knows to commit), 0 when it was already exactly this. */
+int finder_shell_note_view(finder_shell_t *sh, uint16_t dir_start,
+                           const char *name83, uint16_t x, uint16_t y,
+                           uint16_t view_bits);
+
+/* The stored record for dir_start, or NULL. */
+const finder_view_rec_t *finder_shell_find_view(const finder_shell_t *sh,
+                                                uint16_t dir_start);
+
+/* tdnl.44. Ref: design F1.3 bit0=list; bits2..3 sort, bit1=small.
+ * Capture geometry: system7-decomp re/mint-results-008 Sec6. The existing
+ * Finder model/trackers and WindowScroll own selection and scrolling.
+ * list.c's 32-row, fixed-cell store has neither scrolling nor LDEF and cannot
+ * hold this 64-entry enumeration. No parallel cell store is introduced.
+ */
+#define FINDER_VIEW_ICONS       0x0000u
+#define FINDER_VIEW_SMALL       0x0002u
+#define FINDER_VIEW_NAME        0x0001u
+#define FINDER_VIEW_SIZE        0x0005u
+#define FINDER_VIEW_KIND        0x0009u
+#define FINDER_VIEW_DATE        0x000du
+#define FINDER_VIEW_MASK        0x000fu
+#define FINDER_VIEW_COLUMNS     4
+
+/* View menu item numbers from finder_menu.c (1-based, dividers counted).
+ * Unsupported items, including Label/Buttons/Pop-up, leave bits unchanged. */
+uint16_t finder_win_view_choose(uint16_t bits, uint16_t menu_item);
+
+/* A borrowed sort key, valid for the duration of the call only. FAT dates
+ * are packed modification date/time words (fat12.h); no host clock involved.
+ * Enumeration copies these alongside the existing icon records.
+ * Size is descending with folders last (mint008); other primary keys ascend, then case-insensitive full 8.3 name; equal keys
+ * retain directory enumeration order. Kind uses finder_win_kind_of's existing
+ * numeric enum order (folder/file/app). No locale or natural sort.
+ */
+typedef struct finder_list_key {
+    const char *name83;
+    uint32_t size;
+    uint16_t date, time;
+    uint8_t attribute;
+} finder_list_key_t;
+int finder_win_list_compare(const finder_list_key_t *a,
+                             const finder_list_key_t *b, uint16_t bits);
+int finder_win_list_rank(const finder_list_key_t *keys, int n, int index,
+                          uint16_t bits);
+
+/* Header-only geometry: four positive caller-supplied widths in order
+ * Name/Date/Size/Kind, half-open rectangles, horizontal scroll in pixels.
+ * Returns 1 with a clipped column rect, 0 on invalid/offscreen input (out is
+ * untouched). Header clicks preserve bits on a miss or in a non-list mode.
+ * The arithmetic oracle also exercises independent synthetic dimensions.
+ */
+int finder_win_list_column(rgn_rect_t header, const int16_t widths[4],
+                            int16_t scroll_x, int column, rgn_rect_t *out);
+uint16_t finder_win_list_header(uint16_t bits, rgn_rect_t header,
+                                 const int16_t widths[4], int16_t scroll_x,
+                                 int16_t x, int16_t y);
+
+/* Change layout through the existing model/scroll path. Returns changed. */
+int finder_win_set_view(finder_window_t *w, uint16_t bits);
+int finder_win_header_click(finder_window_t *w, int16_t x, int16_t y);
+int finder_win_content_hit(finder_window_t *w, int16_t x, int16_t y);
+
+/* Record `slot`'s CURRENT window frame origin + view bits into the view set.
+ * Returns 1 when the set changed (commit needed). Called on close and after a
+ * window move. */
+int finder_shell_save_view(finder_shell_t *sh, int slot);
+
+/* ===========================================================================
+ * 12. EMPTY TRASH  (bead initech-6k12, reslice 2/3 of initech-tdnl.11; audit
+ *     F04 "Special > Empty Trash disabled")
+ * ---------------------------------------------------------------------------
+ * WHAT A USER SEES. While \TRASH holds anything the desktop Trash draws FULL
+ * (desk_icons.h FLAIR_DESK_ICON_TRASH_FULL) and Special > Empty Trash is
+ * enabled (TRASH_NONEMPTY, finder_cmd.h). Choosing it puts up the CAUTION
+ * ALERT -- the Mac OS 8 Finder's own wording, from the corpus capture
+ * ../system7-decomp/goldens/captures/s8_alert_modal.png ("The Wastebasket
+ * contains 3 items, which use 16K of disk space. Are you sure you want to
+ * remove these items permanently?" -- the British localisation; this desktop
+ * names the icon "Trash", so "Trash" is substituted, which is the US
+ * Finder's name for the same object) with Cancel and OK, OK the default.
+ * Cancel (or Escape) changes nothing. OK (or Return) PURGES: every item of
+ * \TRASH is deleted, files unlinked and folders emptied DEPTH-FIRST and then
+ * removed; the kind=5 origin records of the purged items go; an open Trash
+ * window empties; the icon goes back to EMPTY.
+ *
+ * THE CONFIRM IS NOT OPTIONAL, BY CONSTRUCTION. The command's execution hook
+ * (fw_do_empty_trash) only COUNTS and reports; the purge is a separate call,
+ * finder_shell_empty_trash, that only the kernel's alert makes, after OK.
+ * MUTANT (Rule 6): FINDER_WIN_MUT_EMPTY_NO_CONFIRM purges inside the hook --
+ * test-finder-ops O14 ("dispatch alone deletes nothing") and the Cancel leg
+ * of test-flair-empty-trash-mutant (mtools: the items are gone) go RED.
+ *
+ * COUNTS. items = every entry under \TRASH at every depth (files and folders;
+ * "." / ".." and volume labels are not items); bytes = the sum of their FAT
+ * byte sizes, shown as K rounded UP (a STATED deviation: the period Finder
+ * reported allocation-block usage; the binding exposes byte sizes, not the
+ * cluster size). The purge reports purged = entries deleted and refused =
+ * entries that would not go -- including a folder whose contents could not
+ * all go (it then cannot be removed either). On a clean purge purged == the
+ * items count the alert showed.
+ *
+ * EVERY VIEW OF A REMOVED FOLDER CLOSES (bead initech-uios, audit L002).
+ * "When you discard a folder, the folder and all its contents disappear ...
+ * you won't be able to recover anything once you've emptied the Trash"
+ * (Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf printed p. 112, PDF
+ * p. 132). Each folder the walk REMOVES (postorder, so child before parent,
+ * at any depth) is retired at the moment its rmdir succeeds: every open
+ * window over that directory is disposed through the Window Manager's own
+ * DisposeWindow (no view state saved -- there is no folder to remember), its
+ * icon model and selection are cleared, its slot is flagged in purge_closed,
+ * and its kind=4 view record is DROPPED (*out_db_dirty), so a new folder that
+ * later lands in the same cluster neither inherits that position nor finds a
+ * window. A folder the walk could NOT remove (a locked descendant, WL-0100)
+ * keeps its window: it still exists. The command context is re-synced after.
+ * A window the Window Manager cannot dispose is a WIN_PANIC in DisposeWindow
+ * (window.c "not in list"), never a silently surviving view (Rule 2).
+ * MUTANT (Rule 6): FINDER_WIN_MUT_PURGE_KEEPS_VIEWS skips the retirement
+ * (the pre-L002 purge) -- test-finder-windows L12 and test-flair-trash-purge-
+ * views-mutant go RED.
+ *
+ * DEPTH. The walk is iterative with a fixed stack of FINDER_TRASH_DEPTH levels
+ * (\TRASH itself is level 0). A folder nested deeper is REFUSED (counted in
+ * refused=), never silently skipped (Rule 2).
+ *
+ * SERIAL (emitted by os/initechdos/kmain.c):
+ *   DESK-TRASH-ICON full|empty            the Trash's fullness flipped (once)
+ *   FINDER-TRASH-ALERT n=<items> k=<K>    the confirm alert is up
+ *   FINDER-TRASH-EMPTY-CANCEL             Cancel / Escape: nothing purged
+ *   FINDER-TRASH-EMPTIED purged=<n> refused=<n>   OK: the purge ran
+ *
+ * PURGE PROTECTION, STATED (the bead's "documented no-op"): the period Finder
+ * refused to delete an item that was in use. Here a launched disk tenant's
+ * image is loaded whole into its arenas by tbx_launch, so unlinking its file
+ * does not disturb the running process -- and os/flair/tbxgate.h exposes no
+ * identity of the launched file to test against. No refusal is made; a
+ * follow-up bead owns "item in use" once the gate exposes the identity.
+ * ===========================================================================*/
+#define FINDER_TRASH_DEPTH      8
+#define FINDER_ALERT_LINES      4     /* message lines the alert can carry     */
+#define FINDER_ALERT_LINE_MAX  64     /* bytes per line incl. the NUL          */
+/* The message column's width in Chicago 12 pixels: the corpus alert's text
+ * starts at x 211 and its widest line ends at x 490 (s8_alert_modal.png,
+ * measured), inside a 285-px column (211 + 285 = 496, clear of the 7-px
+ * dBoxProc border of a frame ending at x 506). */
+#define FINDER_ALERT_TEXT_W   285
+
+/* Recount \TRASH into trash_items / trash_bytes and the desktop's trash_full;
+ * sets trash_icon_dirty and returns 1 when the FULLNESS flipped, else 0. A
+ * volume with no \TRASH counts as empty. */
+int finder_shell_recount_trash(finder_shell_t *sh);
+
+/* THE PURGE (only after the alert's OK). Returns FINDER_WIN_OK (inspect the
+ * counts), FINDER_WIN_ERR_NULL with no binding, or FINDER_WIN_ERR_NOTRASH.
+ * *out_db_dirty (may be NULL) is 1 when origin records were dropped. */
+finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
+                                             uint16_t *out_purged,
+                                             uint16_t *out_refused,
+                                             uint8_t *out_db_dirty);
+
+/* DELETE NOW (bead initech-vnl4, audit 2026-10-23 desktop L001): remove item
+ * `idx` of window `slot` IN PLACE -- the full-volume route when no \TRASH can
+ * be made. The kernel calls it ONLY after the user OKs the CAUTION alert. A
+ * document is unlinked; a folder is purged by the Empty Trash walk and then
+ * removed. Returns FINDER_WIN_OK, FINDER_WIN_ERR_LOCKED (the item or a
+ * descendant is locked; nothing locked is removed), FINDER_WIN_ERR_SERVICE,
+ * FINDER_WIN_ERR_STALE, FINDER_WIN_ERR_ENUM, FINDER_WIN_ERR_MOVE (an entry
+ * the backend refused) or FINDER_WIN_ERR_NULL. *out_purged counts the
+ * entries removed; *out_db_dirty is 1 when view records were dropped. */
+finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
+                                             int idx, uint16_t *out_purged,
+                                             uint8_t *out_db_dirty);
+
+/* The alert's message for `items` / `bytes`, word-wrapped greedily into lines
+ * no wider than FINDER_ALERT_TEXT_W Chicago 12 pixels. Returns the line count
+ * (1..FINDER_ALERT_LINES). Pure. */
+int finder_trash_alert_text(uint16_t items, uint32_t bytes,
+                            char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+
+/* Special > Exit to InitechDOS (bead initech-3p1a): the confirmation alert's
+ * message, "Are you sure you want to exit to InitechDOS?" (operator wording,
+ * 2026-10-16), wrapped by the SAME greedy Chicago 12 rule into `out`. Returns
+ * the line count. Pure. */
+int finder_exit_dos_alert_text(char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+/* The Delete Now confirm's message for `name` (bead initech-vnl4), wrapped by
+ * the SAME greedy Chicago 12 rule. Returns the line count. Pure. */
+int finder_delete_now_alert_text(const char *name,
+                                 char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+int finder_error_alert_text(finder_win_status_t status, const char *name,
+                            char out[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX]);
+
+#endif /* INITECH_OS_FLAIR_FINDER_WINDOWS_H */

@@ -2,6 +2,14 @@ TOP := ../..
 COMPONENT := flair/region
 include $(TOP)/mk/config.mk
 
+# FLAIR integration: minimal target binding; replace this rule with the shared
+# mk/target.mk convention when conventions/hardening lands.
+.PHONY: target
+target: $(OUT)/target/region.o
+$(OUT)/target/region.o: region.c $(wildcard include/*.h) $(MAKEFILE_LIST)
+	@mkdir -p $(@D)
+	$(TARGET_CC) $(TARGET_CFLAGS) -Iinclude -c $< -o $@
+
 HOST_TESTS := region region-gdi
 EXTRA_HOST_TESTS := region-asan
 HOST_INCLUDES := -Iinclude -I$(TOP)/factory/testlib

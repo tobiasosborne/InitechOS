@@ -45,7 +45,7 @@
 
 #include "menu.h"           /* MenuBar, MenuKey, MenuResultID/Item           */
 #include "event_model.h"    /* EventRecord, keyDown, FLAIR_EVT_MOD_*         */
-#include "toolbox_gate.h"   /* TBX_EVT_MENU, FLAIR_EVBUF_*                   */
+#include "tbx.h"   /* TBX_EVT_MENU, FLAIR_EVBUF_*                   */
 
 _Static_assert(TBX_EVT_MENU > 15u && TBX_EVT_MENU != 23u &&
                TBX_EVT_MENU <= 0xFFFFu,
@@ -103,12 +103,12 @@ static inline int tbx_menu_event(const MenuBar *owner, const MenuBar *tracked,
  * field widened. `eb` is the tenant's evBufPtr. */
 static inline void tbx_evbuf_fill(volatile int32_t *eb, const EventRecord *ev)
 {
-    eb[FLAIR_EVBUF_WHAT_OFF / 4u]   = (int32_t)ev->what;
-    eb[FLAIR_EVBUF_MSG_OFF / 4u]    = (int32_t)ev->message;
-    eb[FLAIR_EVBUF_MODS_OFF / 4u]   = (int32_t)ev->modifiers;
-    eb[FLAIR_EVBUF_WHEN_OFF / 4u]   = (int32_t)ev->when;
-    eb[FLAIR_EVBUF_WHEREH_OFF / 4u] = (int32_t)ev->where.h;
-    eb[FLAIR_EVBUF_WHEREV_OFF / 4u] = (int32_t)ev->where.v;
+    eb[offsetof(tbx_event_t, what) / sizeof(int32_t)]   = (int32_t)ev->what;
+    eb[offsetof(tbx_event_t, message) / sizeof(int32_t)]    = (int32_t)ev->message;
+    eb[offsetof(tbx_event_t, modifiers) / sizeof(int32_t)]   = (int32_t)ev->modifiers;
+    eb[offsetof(tbx_event_t, when) / sizeof(int32_t)]   = (int32_t)ev->when;
+    eb[offsetof(tbx_event_t, whereh) / sizeof(int32_t)] = (int32_t)ev->where.h;
+    eb[offsetof(tbx_event_t, wherev) / sizeof(int32_t)] = (int32_t)ev->where.v;
 }
 
 #endif /* INITECH_OS_FLAIR_TBXMENU_H */

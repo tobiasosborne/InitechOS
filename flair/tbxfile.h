@@ -5,12 +5,10 @@
 #ifndef INITECH_TBXFILE_H
 #define INITECH_TBXFILE_H
 #include "toolbox_gate.h"
-#include "int21.h"
-#include "sft.h"
-static void tbxf_init(psp_t *p)
+#include "flair_platform.h"
+static void tbxf_init(flair_platform_files *p)
 {
-    psp_params_t a = { 0 };
-    (void)psp_build(p, &a);
+    flair_platform_files_init(p);
 }
 static int tbxf_span(uint32_t lo, uint32_t len, uint32_t ptr, uint32_t n)
 {
@@ -29,11 +27,11 @@ static int tbxf_path(uint32_t lo, uint32_t len, uint32_t ptr)
     }
     return 0;
 }
-static int32_t tbxf_call(psp_t *p, uint32_t lo, uint32_t len,
+static int32_t tbxf_call(flair_platform_files *p, uint32_t lo, uint32_t len,
                          uint32_t code, const uint32_t *a)
 {
-    int_frame_t f = { 0 };
-    sft_entry_t *e = 0;
+    flair_platform_regs f = { 0 };
+    flair_platform_file_info info, *e = 0;
     uint32_t h = a[0];
     /* Sec 10b: CREATE_NEW is CREATE's checks over AH=5Bh (never truncates). */
     int creat = code == TBX_FILE_CREATE || code == TBX_FILE_CREATE_NEW;
@@ -51,7 +49,7 @@ static int32_t tbxf_call(psp_t *p, uint32_t lo, uint32_t len,
         /* Ref: DOS OPEN's device precedence, int21.c dev_open_lookup.
          * Authored file-only gate policy: never CREATE an unreadable disk file
          * whose basename OPEN resolves as a character device. */
-        if (creat && int21_path_is_device((const char *)(uintptr_t)a[0]))
+        if (creat && flair_platform_path_is_device((const char *)(uintptr_t)a[0]))
             return TBX_ERR_BADARG;
 #endif
         if (code == TBX_FILE_OPEN && a[1] > TBX_FILE_READ_WRITE) return TBX_ERR_BADARG;
@@ -67,24 +65,24 @@ static int32_t tbxf_call(psp_t *p, uint32_t lo, uint32_t len,
                  code == TBX_FILE_RENAME ? 0x5600u : 0x3d00u+a[1];
     } else {
 #ifndef TBX_MUT_FILE_OWNER
-        if (h < 5 || h >= JFT_MAX_ENTRIES || p->jft[h] == JFT_CLOSED) return TBX_ERR_BADARG;
-        e = sft_from_handle(p,(uint8_t)h);
-        if (e == 0 || e->kind != SFT_KIND_FILE) return TBX_ERR_BADARG;
+        if (h < 5 || h >= FLAIR_PLATFORM_HANDLES) return TBX_ERR_BADARG;
+        e = flair_platform_file_info_get(p,(uint8_t)h,&info) ? &info : 0;
+        if (e == 0) return TBX_ERR_BADARG;
 #else
-        if (h < JFT_MAX_ENTRIES) e = sft_from_handle(p,(uint8_t)h);
+        if (h < FLAIR_PLATFORM_HANDLES) e = flair_platform_file_info_get(p,(uint8_t)h,&info) ? &info : 0;
 #endif
         f.ebx = h;
         switch (code) {
         case TBX_FILE_READ:
         case TBX_FILE_WRITE:
-            if (e == 0 || (code == TBX_FILE_READ && e->open_mode == SFT_MODE_WRITE) ||
-                (code == TBX_FILE_WRITE && e->open_mode == SFT_MODE_READ) ||
+            if (e == 0 || (code == TBX_FILE_READ && e->mode == FLAIR_PLATFORM_WRITE) ||
+                (code == TBX_FILE_WRITE && e->mode == FLAIR_PLATFORM_READ) ||
                 a[2] > 0x7fffffffu || !tbxf_span(lo,len,a[1],a[2])) return TBX_ERR_BADARG;
             f.eax = code == TBX_FILE_READ ? 0x3f00u : 0x4000u;
             f.edx = a[1]; f.ecx = a[2]; break;
         case TBX_FILE_SEEK: {
             if (e == 0 || a[2] > TBX_FILE_FROM_END) return TBX_ERR_BADARG;
-            uint32_t base = a[2] == 0 ? 0 : a[2] == 1 ? e->file_offset : e->dir_entry.file_size;
+            uint32_t base = a[2] == 0 ? 0 : a[2] == 1 ? e->offset : e->size;
             int32_t delta = (int32_t)a[1];
             if (base > 0x7fffffffu) return TBX_ERR_BADARG;
             if (delta < 0) {
@@ -101,40 +99,33 @@ static int32_t tbxf_call(psp_t *p, uint32_t lo, uint32_t len,
         default: return TBX_ERR_BADCODE;
         }
     }
-    psp_t *saved = int21_get_psp();
-    int21_cwd_snapshot_t cwd = int21_cwd_save();
-    int21_set_psp(p); int21_cwd_reset();
 #ifdef TBX_MUT_FILE_WRITE_NOOP
     if (code == TBX_FILE_WRITE) f.eax = a[2];
     else
 #endif
-    int21_dispatch(&f);
+    flair_platform_dos(p,&f);
     int32_t result = (f.eflags & 1u) ? TBX_ERR_DOS(f.eax & 0xffffu) : (int32_t)f.eax;
     if (!(f.eflags & 1u)) {
         if (code == TBX_FILE_OPEN || creat) {
             result = (int32_t)(f.eax & 0xffffu);
-            e = sft_from_handle(p,(uint8_t)result);
-            if (e == 0 || e->kind != SFT_KIND_FILE) {
+            e = flair_platform_file_info_get(p,(uint8_t)result,&info) ? &info : 0;
+            if (e == 0) {
                 f.ebx = (uint32_t)result; f.eax = 0x3e00u;
-                int21_dispatch(&f); result = TBX_ERR_BADARG;
+                flair_platform_dos(p,&f); result = TBX_ERR_BADARG;
             }
         } else if (code == TBX_FILE_CLOSE || code == TBX_FILE_DELETE ||
                    code == TBX_FILE_RENAME) result = TBX_OK;
     }
-    int21_set_psp(saved); int21_cwd_restore(&cwd);
     return result;
 }
-static uint32_t tbxf_live(const psp_t *p)
+static uint32_t tbxf_live(const flair_platform_files *p)
 {
-    uint32_t n = 0;
-    for (uint8_t h = 5; h < JFT_MAX_ENTRIES; h++)
-        if (p->jft[h] != JFT_CLOSED) n++;
-    return n;
+    return flair_platform_files_live(p);
 }
-static void tbxf_reap(psp_t *p)
+static void tbxf_reap(flair_platform_files *p)
 {
 #ifndef TBX_MUT_FILE_LEAK
-    sft_close_process(p);
+    flair_platform_files_close(p);
 #else
     (void)p;
 #endif

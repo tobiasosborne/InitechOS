@@ -58,7 +58,7 @@
 #include "flair_look.h"         /* flair_look_pixel + FLAIR_PART_* (the seam)   */
 #include "progress_platinum.h"   /* CDEF 5 anatomy, locked spec-data (-Ispec)    */
 
-/* gxo2: same fail-loud path as ATKINSON (Rule 2, PRD Appendix B). */
+/* gxo2: same fail-loud path as REGION_ENGINE (Rule 2, PRD Appendix B). */
 #if defined(__STDC_HOSTED__) && __STDC_HOSTED__
 #include <stdlib.h>
 #define CTRL_PANIC() abort()
