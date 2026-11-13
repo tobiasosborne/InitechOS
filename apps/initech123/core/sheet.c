@@ -17,7 +17,7 @@
  * here. A BLANK (format-only) entry grows RANGE but not HIDVEC1 [inferred:
  * the shipped files split both ways].
  *
- * Freestanding; ASCII-clean (Rule 12).
+ * Freestanding; ASCII-clean (CLAUDE.md, The constitution).
  */
 #include "i123.h"
 #include "i123/wk1_format.h"
@@ -72,7 +72,7 @@ static int carry_put(i123_sheet_t *sh, uint16_t op, uint16_t len,
 }
 
 /* Decode the run-length template into the carry. A run total that disagrees
- * with the record length is a spec-data bug: refused (Rule 2). */
+ * with the record length is a spec-data bug: refused (CLAUDE.md, The constitution). */
 static int install_template(i123_sheet_t *sh)
 {
     uint32_t i = 0, n = (uint32_t)sizeof g_template;
@@ -249,7 +249,6 @@ int i123_put_cell(i123_sheet_t *sh, uint16_t col, uint16_t row, uint8_t kind,
     n = n1 + n2;
     old = exists ? (uint32_t)sh->cells[i].len + (uint32_t)sh->cells[i].slen : 0u;
 
-#ifndef I123_MUT_ALLOC_BEFORE_RECLAIM
     /* B02 (bead initech-3s12, audit L032): a replacement never needs the old
      * and the new blob live at once. One that fits the old blob reuses it in
      * place; a longer one is refused up front ONLY when the final live data
@@ -272,12 +271,6 @@ int i123_put_cell(i123_sheet_t *sh, uint16_t col, uint16_t row, uint8_t kind,
         rc = pool_alloc(sh, n, &off);
         if (rc != I123_OK) return rc;
     }
-#else
-    /* MUTANT (Rule 6; test-i123-cells-mutant C5): the replacement blob is
-     * allocated while the old one is still live (audit L032). NEVER real. */
-    rc = pool_alloc(sh, n, &off);
-    if (rc != I123_OK) return rc;
-#endif
     /* pool_alloc may have compacted: re-derive nothing -- indices are stable,
      * only blob offsets moved. */
     if (n1) bcopy_up(sh->pool + off, b1, n1);
@@ -414,7 +407,6 @@ int i123_set_cell_format(i123_sheet_t *sh, uint16_t col, uint16_t row, uint8_t f
         ((i123_cell_t *)c)->fmt = fmt;
         return I123_OK;
     }
-#ifndef I123_MUT_DEFAULT_BLANK
     /* B02 (bead initech-3s12, audit L010): an absent cell already IS the
      * default format with default protection -- every reader takes it as
      * WK1_FMT_FRESH_CELL (entry_fmt above, eval.c @CELL, the Face A
@@ -424,10 +416,6 @@ int i123_set_cell_format(i123_sheet_t *sh, uint16_t col, uint16_t row, uint8_t f
      * frees its slot (manual p. 10-3 keeps the EFFECTIVE format/protection,
      * which absence keeps). Any other format or protection is a BLANK. */
     if (fmt == (uint8_t)WK1_FMT_FRESH_CELL) return I123_OK;
-#else
-    /* MUTANT (Rule 6; test-i123-cells-mutant C1): the default format is
-     * stored as an allocated BLANK (audit L010). NEVER real. */
-#endif
     rc = i123_put_cell(sh, col, row, I123_K_BLANK, fmt, (const uint8_t *)0,
                        (const uint8_t *)0, 0, 0, 0, (const uint8_t *)0, 0);
     if (rc == I123_OK) grow_extents(sh, col, row, I123_K_BLANK);

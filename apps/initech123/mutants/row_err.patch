@@ -1,0 +1,14 @@
+# Legacy I123_MUT_ROW_ERR (all hook locations together).
+# test: test_i123_copy_corpus
+--- a/core/formula.c
++++ b/core/formula.c
+@@ -124,6 +124,9 @@
+     if (word & WKF_REF_REL) {
+         if (v & (int32_t)WKF_REF_SIGN) v -= (int32_t)(WKF_REF_MASK + 1u);
+         v += (int32_t)home;
++        /* MUTANT (CLAUDE.md, The constitution; test-i123-copy-move-corpus-mutant): the manual-
++         * derived "row off the sheet is ERR" rule WRAP01C refutes. */
++        if (!is_col && (v < 0 || v >= (int32_t)I123_MAX_ROWS)) return -1;
+     } else if (!is_col && v >= (int32_t)I123_MAX_ROWS) {
+         return -1;
+     }

@@ -2,7 +2,7 @@
  * PGDN / PGUP and TAB / SHIFT-TAB over the real face_a.c + worksheet core and
  * the recording Toolbox mock of test_i123_quit.c.
  *
- * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- never from face_a.c):
+ * WHERE THE EXPECTED VALUES COME FROM (CLAUDE.md, The constitution -- never from face_a.c):
  *   - Lotus 1-2-3 R2.2 Reference Manual pp. 1-8..1-11 (PDF 24..27: the key
  *     tables), 1-16 (a pointer-movement key completes an entry), 1-22/1-23
  *     (EDIT mode keys: Esc "Erases all characters in entry");
@@ -15,11 +15,11 @@
  *     the mock records: T_ROWS = the mock's 24 lines less 3 panel lines, the
  *     border and the status line; T_COLS = the 72-character area / the
  *     default width 9 (wk1 default, MINT01).
- * Mutants (Rule 6; -D on the app build, test-i123-keys-mutant):
- *   I123_MUT_TAB_ONE_CELL      Tab moves one cell              -> K18
- *   I123_MUT_GOTO_FOLLOW       GOTO scrolls like an arrow      -> K8
- *   I123_MUT_EDIT_ESC_CANCELS  one Esc leaves EDIT             -> K1
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * Mutation patches (CLAUDE.md, The constitution):
+ *   mutants/tab_one_cell.patch      Tab moves one cell              -> K18
+ *   mutants/goto_follow.patch       GOTO scrolls like an arrow      -> K8
+ *   mutants/edit_esc_cancels.patch  one Esc leaves EDIT             -> K1
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #define main i123_quit_oracle_main
 #include "test_i123_quit.c"

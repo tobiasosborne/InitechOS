@@ -1,0 +1,37 @@
+# Legacy I123_MUT_ALLOC_BEFORE_RECLAIM (all hook locations together).
+# test: test_i123_cells
+--- a/core/sheet.c
++++ b/core/sheet.c
+@@ -249,28 +249,10 @@
+     n = n1 + n2;
+     old = exists ? (uint32_t)sh->cells[i].len + (uint32_t)sh->cells[i].slen : 0u;
+ 
+-    /* B02 (bead initech-3s12, audit L032): a replacement never needs the old
+-     * and the new blob live at once. One that fits the old blob reuses it in
+-     * place; a longer one is refused up front ONLY when the final live data
+-     * (live - old + new) overflows the pool -- the cell is then untouched --
+-     * and otherwise drops the old blob before the compaction that makes room
+-     * (the caller's bytes never point into this pool: a local buffer, a
+-     * file buffer or the OTHER bank). */
+-    if (exists && n <= old) {
+-        off = sh->cells[i].off;
+-        sh->pool_live -= old - n;
+-        old = 0;
+-    } else {
+-        if (sh->pool_live - old + n > sh->pool_cap) return I123_E_FULL;
+-        if (old && sh->pool_used + n > sh->pool_cap) {
+-            sh->cells[i].len = 0;
+-            sh->cells[i].slen = 0;
+-            sh->pool_live -= old;
+-            old = 0;
+-        }
+-        rc = pool_alloc(sh, n, &off);
+-        if (rc != I123_OK) return rc;
+-    }
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-cells-mutant C5): the replacement blob is
++     * allocated while the old one is still live (audit L032). NEVER real. */
++    rc = pool_alloc(sh, n, &off);
++    if (rc != I123_OK) return rc;
+     /* pool_alloc may have compacted: re-derive nothing -- indices are stable,
+      * only blob offsets moved. */
+     if (n1) bcopy_up(sh->pool + off, b1, n1);

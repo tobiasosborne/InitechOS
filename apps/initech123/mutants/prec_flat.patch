@@ -1,0 +1,15 @@
+# Legacy I123_MUT_PREC_FLAT (all hook locations together).
+# test: test_i123_formula
+--- a/core/formula.c
++++ b/core/formula.c
+@@ -514,6 +514,10 @@
+         uint32_t p;
+         if (t == 0) return;
+         p = i123_tokens[t].prec;
++        /* MUTANT (CLAUDE.md, The constitution; test-i123-formula-mutant): every binary operator
++         * has the same precedence -- "+A1+B1*2" compiles as (A1+B1)*2, so
++         * the typed MINT/TEXT legs and the round trip go RED. NEVER real. */
++        p = WKF_PREC_ADD;
+         if (p > maxp) return;
+         c->p += len;
+         parse_expr(c, p - 1u);

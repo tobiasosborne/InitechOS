@@ -2,7 +2,7 @@
  * docs/audits/2026-10-23-i123/REPORT.md L010 + L032), over the real face_a.c
  * + worksheet core and the recording Toolbox mock of test_i123_quit.c.
  *
- * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- never from sheet.c):
+ * WHERE THE EXPECTED VALUES COME FROM (CLAUDE.md, The constitution -- never from sheet.c):
  *   - L010 (the audit's RED steps, evidence/capacity-serial.log, CAPERA.WK1):
  *     a full 2048-cell sheet, /Range Erase A1, then an entry in A2049. The
  *     store holds 2048 cells (face_a.c SHEET_CELLS, the accepted limit);
@@ -20,13 +20,13 @@
  *     FINAL live size overflows the pool must fail with the old bytes
  *     intact. The pool size is read from the sheet as the capacity INPUT
  *     (face_a.c SHEET_MEM); every expected byte is the test's own.
- * Mutants (Rule 6; -D on the core build, test-i123-cells-mutant):
- *   I123_MUT_DEFAULT_BLANK        default format stored as a BLANK   -> C1
- *   I123_MUT_ALLOC_BEFORE_RECLAIM new blob allocated before the old
+ * Mutation patches (CLAUDE.md, The constitution):
+ *   mutants/default_blank.patch        default format stored as a BLANK   -> C1
+ *   mutants/alloc_before_reclaim.patch new blob allocated before the old
  *                                 one is released                     -> C5
- *   I123_MUT_ABSENT_UNPROTECTED   an absent cell escapes global
+ *   mutants/absent_unprotected.patch   an absent cell escapes global
  *                                 protection (entry and /Copy)         -> C9
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #define main i123_quit_oracle_main
 #include "test_i123_quit.c"

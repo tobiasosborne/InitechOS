@@ -18,7 +18,7 @@
  * for-byte -- graded over all 44 goldens -- and a fresh sheet writes the
  * MINT01 record set.
  *
- * Freestanding; ASCII-clean (Rule 12).
+ * Freestanding; ASCII-clean (CLAUDE.md, The constitution).
  */
 #include "i123.h"
 #include "i123/wk1_format.h"
@@ -174,7 +174,7 @@ static int read_body(i123_sheet_t *sh, const uint8_t *buf, uint32_t len)
         rd16(buf + 2) != WK1_LEN_BOF)
         return I123_E_FORMAT;
     sh->bof_version = rd16(buf + 4);
-    if (sh->bof_version != WK1_BOF_VERSION) return I123_E_FORMAT;  /* R2.2 only (Law 3) */
+    if (sh->bof_version != WK1_BOF_VERSION) return I123_E_FORMAT;  /* R2.2 only (CLAUDE.md, The constitution) */
     off = WK1_REC_HDR + WK1_LEN_BOF;
 
     for (;;) {
@@ -268,7 +268,7 @@ int i123_wk1_read(i123_sheet_t *sh, const uint8_t *buf, uint32_t len)
     rc = read_body(sh, buf, len);
     if (rc != I123_OK) {
         err_off = sh->err_off;
-        i123_sheet_clear(sh);        /* never half-loaded (Rule 2) */
+        i123_sheet_clear(sh);        /* never half-loaded (CLAUDE.md, The constitution) */
         sh->err_off = err_off;
     }
     return rc;
@@ -378,15 +378,7 @@ static void put_cells(wr_t *w, const i123_sheet_t *sh)
             put_hdr(w, WK1_OP_NUMBER, WK1_LEN_NUMBER);
             break;
         case I123_K_LABEL:
-#ifdef I123_MUT_LABEL_OPCODE
-            /* MUTANT (Rule 6; test-i123-wk1-roundtrip-mutant): the LABEL
-             * record id written as STRING's -- every rewritten golden differs
-             * at its first label and the independent reader sees STRING
-             * records where the sheet holds labels. NEVER in a real build. */
-            put_hdr(w, WK1_OP_STRING, WK1_CELL_PREFIX + (uint32_t)c->len + 1u);
-#else
             put_hdr(w, WK1_OP_LABEL, WK1_CELL_PREFIX + (uint32_t)c->len + 1u);
-#endif
             break;
         case I123_K_FORMULA:
             put_hdr(w, WK1_OP_FORMULA, WK1_FORMULA_FIXED + (uint32_t)c->len);

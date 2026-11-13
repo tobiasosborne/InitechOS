@@ -4,7 +4,7 @@
  *
  * bead: initech-94ah (I123 P2). See i123.h; token table spec/i123/wk1_formula.h.
  *
- * Ref (Law 1). [C] = ../lotus123-decomp/specs/formulas/wk1-formula-bytecode.md,
+ * Ref (CLAUDE.md, The constitution). [C] = ../lotus123-decomp/specs/formulas/wk1-formula-bytecode.md,
  * [V] = ../lotus123-decomp/specs/functions/function-value-table.md,
  * [M] = Lotus 1-2-3 Release 2.2 Reference Manual (scanned; OCR'd by this lane,
  * build/man/ocr/pNNN.txt; cited as "p. <manual page> (PDF <n>)"). Every rule
@@ -38,7 +38,7 @@
  * FYL2X, F2XM1, FSCALE, FSIN, FCOS, FPTAN, FPATAN, FPREM) in extended
  * precision, then round once to binary64. No libm (freestanding).
  *
- * Freestanding; ASCII-clean (Rule 12); deterministic (Rule 11).
+ * Freestanding; ASCII-clean (CLAUDE.md, The constitution); deterministic (CLAUDE.md, The constitution).
  */
 #include "i123.h"
 #include "i123/wk1_format.h"
@@ -1254,15 +1254,6 @@ static void do_function(const ev_t *e, uint8_t t, i123_val_t *a, uint32_t argc, 
         for (int i = 0; i < (int)(y < 0 ? -y : y); i++) s = s * 10.0;
         q = (y >= 0.0) ? x * s : x / s;
         r = trunc_((q < 0.0 ? -q : q) + 0.5);
-#ifdef I123_MUT_ROUND_EVEN
-        /* MUTANT (Rule 6; test-i123-formula-mutant): halves round to even
-         * (banker's rounding) -- @ROUND(2.5,0) = 2 where MINT03 caches 3.
-         * NEVER in a real build. */
-        {
-            double aq = q < 0.0 ? -q : q;
-            if (aq - trunc_(aq) == 0.5 && trunc_(r / 2.0) * 2.0 != r) r = r - 1.0;
-        }
-#endif
         if (q < 0.0) r = -r;
         set_num(out, (y >= 0.0) ? r / s : r * s);
         return;

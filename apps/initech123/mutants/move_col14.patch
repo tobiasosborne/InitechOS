@@ -1,0 +1,13 @@
+# Legacy I123_MUT_MOVE_COL14 (all hook locations together).
+# test: test_i123_copy_corpus
+--- a/core/range.c
++++ b/core/range.c
+@@ -126,7 +126,7 @@
+  *   (MOVE01C F5 fdbf). A corner already ERR keeps 0xFFFF (MOVE01C/D E1,
+  *   E2, H1). A moved formula whose target moved with it is re-encoded too
+  *   [inferred: no golden moves a formula together with its precedent]. */
+-#define MOVE_COL_MASK WKF_REF_COL8
++#define MOVE_COL_MASK WKF_REF_MASK   /* MUTANT (CLAUDE.md, The constitution): the 14-bit column form */
+ #define MOVE_ERR_WORD WKF_REF_ERR
+ static uint16_t moved_word(uint16_t w,int target,int home,unsigned mask)
+ { return (uint16_t)((w&WKF_REF_REL)?WKF_REF_REL|((unsigned)(target-home)&mask):(unsigned)target); }

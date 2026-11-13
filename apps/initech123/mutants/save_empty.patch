@@ -1,0 +1,14 @@
+# Legacy I123_MUT_SAVE_EMPTY (all hook locations together).
+# test: test_i123_quit
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -686,7 +686,8 @@
+ {
+     if (!file_name()) return;
+     /* Preflight codec/capacity before CREATE can truncate. Authored policy. */
+-    int rc = i123_wk1_write(&g_sheet, g_wk, sizeof g_wk, &g_wk_len);
++    i123_sheet_t empty = g_sheet; empty.ncells = 0;
++    int rc = i123_wk1_write(&empty, g_wk, sizeof g_wk, &g_wk_len);
+     if (rc != I123_OK) { notice("Worksheet too large to save"); return; }
+     int32_t h = tbx_file_open(g_path, TBX_FILE_READ_ONLY);
+     if (h >= 0) {

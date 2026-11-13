@@ -1,0 +1,15 @@
+# Legacy I123_MUT_NO_RECALC (all hook locations together).
+# test: test_i123_entry
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -969,7 +969,9 @@
+         rc = i123_parse_value(g_edit + prefix, g_elen - prefix, &x);
+         if (rc == I123_OK) {
+             rc = i123_set_number(&g_sheet, cc, cr, x);
+-            if (rc == I123_OK) rc = i123_after_entry(&g_cx, &g_sheet);
++            /* MUTANT (CLAUDE.md, The constitution; test-flair-i123-formula-mutant): a typed
++             * number recalculates nothing, so the formulas over it keep
++             * stale values in AUTOMATIC mode. NEVER in a real build. */
+         } else {
+             /* not a number: a formula (bead initech-94ah) -- compiled,
+              * stored and recalculated by the sheet's mode, or refused */

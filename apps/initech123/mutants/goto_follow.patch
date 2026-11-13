@@ -1,0 +1,14 @@
+# Legacy I123_MUT_GOTO_FOLLOW (all hook locations together).
+# test: test_i123_keys
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -599,7 +599,8 @@
+ static void go_to(uint16_t c, uint16_t r)
+ {
+     uint16_t left = i123_view_left(&g_sheet), top = i123_view_top(&g_sheet);
+-    if (c < left || c >= left + area_cols() || r < top || r >= top + VIS_ROWS) { left = c; top = r; }
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-keys-mutant): GOTO scrolls only as far as
++     * an arrow would. NEVER real. */
+     place(c, r, left, top);
+ }
+ 

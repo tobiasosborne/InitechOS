@@ -4,7 +4,7 @@
  * circular-reference (CIRC) indicator (factory C; bead initech-94ah, I123
  * P2).
  *
- * Authorities (Law 1/2):
+ * Authorities (CLAUDE.md, The constitution/2):
  *   (1) the R2.2 Reference Manual, /Worksheet Global Recalculation, p. 12-31
  *       ..12-33 (PDF 275-277): Natural = precedents first; Columnwise =
  *       "Starting in A1 ... column by column"; Rowwise = "row by row";
@@ -34,12 +34,12 @@
  *      each entry computes only itself, CALC lights; then F9 iterates the
  *      A2->C2->B2 cycle as the manual says).
  *
- * Mutants (Rule 6; test-i123-recalc-order-mutant):
- *   I123_MUT_NO_PRECEDENTS  natural order ignores cell references -> O RED
- *   I123_MUT_CIRC_BLIND     the CIRC indicator never lights      -> C RED
+ * Mutation patches (CLAUDE.md, The constitution):
+ *   mutants/no_precedents.patch  natural order ignores cell references -> O RED
+ *   mutants/circ_blind.patch     the CIRC indicator never lights      -> C RED
  *
  * Usage: test_i123_recalc_order <LOTUS123_DECOMP> <wk1_formula_ref.py>
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #include <stdio.h>
 #include <stdlib.h>

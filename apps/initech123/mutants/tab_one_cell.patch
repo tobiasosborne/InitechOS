@@ -1,0 +1,18 @@
+# Legacy I123_MUT_TAB_ONE_CELL (all hook locations together).
+# test: test_i123_keys
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1045,10 +1045,9 @@
+  * capture reaches: unequal widths count the columns now shown. */
+ static void page_cols(int right)
+ {
+-    uint32_t left = i123_view_left(&g_sheet), n = area_cols();
+-    if (right) left = left + n < I123_MAX_COLS ? left + n : I123_MAX_COLS - 1u;
+-    else left = left > n ? left - n : 0;
+-    place((uint16_t)left, i123_cursor_row(&g_sheet), (uint16_t)left, i123_view_top(&g_sheet));
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-keys-mutant, test-flair-i123-keys-mutant):
++     * Tab moves one cell. NEVER real. */
++    move_by(right ? 1 : -1, 0);
+ }
+ 
+ /* Complete the entry being typed or edited; 0 = READY now. An EDIT line

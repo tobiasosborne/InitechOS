@@ -2,7 +2,7 @@
  * harness/diff/wk1_diff/test_i123_wk1_roundtrip.c -- THE ORACLE for the
  * Initech 123 worksheet model and .WK1 codec (factory C; bead initech-9u8w).
  *
- * Graded against two INDEPENDENT authorities (Law 2), never against itself:
+ * Graded against two INDEPENDENT authorities (CLAUDE.md, The constitution), never against itself:
  *   (1) the real Lotus 1-2-3 R2.2: the 38 sample sheets shipped on its
  *       distribution and the 6 sheets minted by driving the real 123.EXE under
  *       DOSBox-X, with the screenshots of what it displayed
@@ -31,16 +31,16 @@
  *      equal the characters on the real 1-2-3 screen (transcribed from
  *      goldens/minted/MINT0x.shots/02_entered.png, positions read off the
  *      80-column grid: 4-char border, then the columns).
- *   E  refusals (Rule 2): malformed files are refused and leave a FRESH sheet.
+ *   E  refusals (CLAUDE.md, The constitution): malformed files are refused and leave a FRESH sheet.
  *
- * Mutants (Rule 6; test-i123-wk1-roundtrip-mutant):
- *   I123_MUT_LABEL_OPCODE  the writer emits LABEL with STRING's record id ->
+ * Mutation patches (CLAUDE.md, The constitution):
+ *   mutants/label_opcode.patch  the writer emits LABEL with STRING's record id ->
  *                          part A rewrite and part C wk1_ref listing go RED.
- *   I123_MUT_GENERAL_ROUNDS  General rounds its last digit instead of
+ *   mutants/general_rounds.patch  General rounds its last digit instead of
  *                          truncating -> part D goes RED ("3.141593").
  *
  * Usage: test_i123_wk1_roundtrip <LOTUS123_DECOMP> <scratch-dir> <wk1_canon.py>
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -311,7 +311,7 @@ static void set_formula(i123_sheet_t *sh, uint16_t c, uint16_t r, double cache,
 /* NORMALIZATION (stated, the .dbf last-update-date precedent): MINT04's
  * session wrote two FONTSIZE (0x68) records that no entry of the fixture
  * makes -- Allways add-in state carried in the "2.2 with Allways" files
- * (wk1-format.md Sec 5: "later-release style (Allways) data ... Law 3: do not
+ * (wk1-format.md Sec 5: "later-release style (Allways) data ... CLAUDE.md, The constitution: do not
  * generalise to plain 2.2"). They are removed from the GOLDEN before the
  * compare; nothing else is. A fresh sheet (MINT01, MINT05) has none. */
 static uint32_t strip_op(uint8_t *b, uint32_t len, uint16_t op, int *stripped)

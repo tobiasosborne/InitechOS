@@ -1,0 +1,19 @@
+# Legacy I123_MUT_CACHE_ROUND (all hook locations together).
+# test: test_i123_formula
+--- a/core/recalc.c
++++ b/core/recalc.c
+@@ -133,6 +133,14 @@
+     case I123_V_NUM: {
+         union { double d; uint8_t b[8]; } u;
+         u.d = v->n;
++        /* MUTANT (CLAUDE.md, The constitution; test-i123-formula-mutant): the cache is rounded
++         * to 6 decimals -- 39.166666666666664 is stored as 39.166667, so
++         * every non-terminating golden cache goes RED. NEVER real. */
++        {
++            double s = u.d * 1e6;
++            s = (double)(int64_t)(s < 0.0 ? s - 0.5 : s + 0.5);
++            u.d = s / 1e6;
++        }
+         for (int i = 0; i < 8; i++) bytes[i] = u.b[i];
+         return i123_cell_set_cache(sh, idx, bytes, 0, (const uint8_t *)0, 0);
+     }

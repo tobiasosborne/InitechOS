@@ -1,0 +1,25 @@
+# Legacy I123_MUT_FIXED_GEOMETRY (all hook locations together).
+# test: test_i123_resize
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -415,17 +415,9 @@
+  * update that comes with its re-expansion. */
+ static void geometry(void)
+ {
+-    int32_t sz = tbx_content_size(g_win);
+-    uint32_t w = (uint32_t)sz & 0xFFFFu, h = (uint32_t)sz >> 16;
+-    if (sz < 0) return;
+-    w = w > X0 ? (w - X0) / CW : 0u;
+-    h /= CH;
+-    if (w < GEO_MIN_COLS) w = GEO_MIN_COLS;
+-    if (w > SCR_COLS) w = SCR_COLS;
+-    if (h < LINE_ROW0 + 2u) h = LINE_ROW0 + 2u;
+-    if (h > SCR_LINES) h = SCR_LINES;
+-    g_cols = (uint8_t)w;
+-    g_lines = (uint8_t)h;
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-resize-mutant, test-flair-i123-resize-
++     * mutant): the face ignores the content and keeps the 76 x 24 screen, so
++     * a resize only clips it (audit L018). NEVER real. */
+ }
+ 
+ /* ---- painting --------------------------------------------------------------- */

@@ -128,12 +128,7 @@ static uint32_t vis_rows(void) { return g_lines - (LINE_ROW0 + 1u); }
 /* Ref: Lotus 1-2-3 R2.2 Reference Manual pp. 1-16/1-17 (PDF 32/33):
  * an entry may contain 240 characters, independent of the screen width. */
 #define ENTRY_MAX    240u
-#ifdef I123_MUT_ENTRY_75
-/* Rule 6 / test-i123-entry-mutant: restore the former 75-character cap. */
-#define ENTRY_LIMIT  75u
-#else
 #define ENTRY_LIMIT  ENTRY_MAX
-#endif
 
 #define MENU_FILE    129
 #define ITEM_QUIT    1
@@ -182,21 +177,14 @@ static uint8_t       g_nest_mem[I123_CALC_BYTES(16u)];
 static i123_calc_t   g_cx, g_cx_nest;
 /* TBX_CLOCK writes only to module/BSS, never the shared kernel stack.
  * Ref: tbx.h clock contract; Lotus Reference p. 13-46 (@NOW). */
-#ifndef I123_MUT_CLOCK_MISSING
 static cp_time_t     g_clock;
-#endif
 
 static void refresh_clock(void)
 {
-#ifdef I123_MUT_CLOCK_FROZEN
-    if (g_cx.have_now) return;
-#endif
     g_cx.have_now = 0;
-#ifndef I123_MUT_CLOCK_MISSING
     if (tbx_get_clock(&g_clock) == TBX_OK)
         i123_calc_clock(&g_cx, g_clock.year, g_clock.month, g_clock.day,
                         g_clock.hour, g_clock.minute, g_clock.second);
-#endif
 }
 static uint32_t     g_bank;
 static uint8_t      g_wk[65536];
@@ -387,13 +375,7 @@ static void paint_command(void)
 static uint32_t area_cols(void)
 {
     uint32_t n = i123_cols_fitting(&g_sheet, i123_view_left(&g_sheet), AREA_CHARS);
-#ifndef I123_MUT_WIDE_HIDDEN
     if (!n) n = 1u;
-#else
-    /* MUTANT (Rule 6; test-i123-resize-mutant W1, test-i123-wk1-roundtrip-
-     * mutant display, test-flair-i123-wide-mutant): an oversized first
-     * column shows as nothing at all (audit L008). NEVER real. */
-#endif
     return n;
 }
 static uint32_t vis_width(uint16_t col)
@@ -433,7 +415,6 @@ static int follow_pointer(void)
  * update that comes with its re-expansion. */
 static void geometry(void)
 {
-#ifndef I123_MUT_FIXED_GEOMETRY
     int32_t sz = tbx_content_size(g_win);
     uint32_t w = (uint32_t)sz & 0xFFFFu, h = (uint32_t)sz >> 16;
     if (sz < 0) return;
@@ -445,11 +426,6 @@ static void geometry(void)
     if (h > SCR_LINES) h = SCR_LINES;
     g_cols = (uint8_t)w;
     g_lines = (uint8_t)h;
-#else
-    /* MUTANT (Rule 6; test-i123-resize-mutant, test-flair-i123-resize-
-     * mutant): the face ignores the content and keeps the 76 x 24 screen, so
-     * a resize only clips it (audit L018). NEVER real. */
-#endif
 }
 
 /* ---- painting --------------------------------------------------------------- */
@@ -623,23 +599,13 @@ static void here(uint16_t c, uint16_t r)
 static void go_to(uint16_t c, uint16_t r)
 {
     uint16_t left = i123_view_left(&g_sheet), top = i123_view_top(&g_sheet);
-#ifndef I123_MUT_GOTO_FOLLOW
     if (c < left || c >= left + area_cols() || r < top || r >= top + VIS_ROWS) { left = c; top = r; }
-#else
-    /* MUTANT (Rule 6; test-i123-keys-mutant): GOTO scrolls only as far as
-     * an arrow would. NEVER real. */
-#endif
     place(c, r, left, top);
 }
 
 static void command_paint(void) { paint_panel(); paint_edit_line(); }
 static void notice(const char *s)
 {
-#ifdef I123_MUT_SAVE_FAIL_QUITS
-    /* MUTANT (Rule 6; test-i123-quit-mutant Q8): a Save the alert started
-     * fails, and the session ends anyway -- the work is lost. NEVER real. */
-    if (g_quit_after_save) { (void)tbx_exit(0); return; }
-#endif
     g_quit_after_save = 0; g_notice = s; g_mode = M_NOTICE; command_paint();
 }
 static void ready(void)
@@ -695,10 +661,6 @@ static void retrieve(void)
     if (rc < 0 || closed < 0) { file_error(rc < 0 ? rc : closed); return; }
     if (pos != (uint32_t)n) { notice("File read incomplete"); return; }
     i123_sheet_t next;
-#ifdef I123_MUT_GET_CLOBBER
-    /* Mutant: malformed Retrieve destroys the active sheet before refusal. */
-    (void)i123_wk1_read(&g_sheet, g_wk, (uint32_t)n);
-#endif
     rc = i123_sheet_init(&next, g_mem[1-g_bank], sizeof g_mem[0], SHEET_CELLS);
     if (rc == I123_OK) rc = i123_wk1_read(&next, g_wk, (uint32_t)n);
     if (rc != I123_OK) { notice(rc == I123_E_FULL ? "Not enough worksheet memory" : "Not a valid WK1 file"); return; }
@@ -724,12 +686,7 @@ static void save(void)
 {
     if (!file_name()) return;
     /* Preflight codec/capacity before CREATE can truncate. Authored policy. */
-#ifdef I123_MUT_SAVE_EMPTY
-    i123_sheet_t empty = g_sheet; empty.ncells = 0;
-    int rc = i123_wk1_write(&empty, g_wk, sizeof g_wk, &g_wk_len);
-#else
     int rc = i123_wk1_write(&g_sheet, g_wk, sizeof g_wk, &g_wk_len);
-#endif
     if (rc != I123_OK) { notice("Worksheet too large to save"); return; }
     int32_t h = tbx_file_open(g_path, TBX_FILE_READ_ONLY);
     if (h >= 0) {
@@ -935,9 +892,7 @@ static void command_key(char ch, uint8_t vk)
     if(g_mode==M_RANGE) {
         if(vk==VK_ENTER||ch=='\r'){range_accept();return;}
         if(vk==VK_BSPC||ch==8){if(g_rlen)g_rlen--;else if(pointable()) {g_anchor=0;i123_set_cursor(&g_sheet,g_pc,g_pr);follow_pointer();}}
-#ifndef I123_MUT_PERIOD_TEXT
         else if(ch=='.'&&!g_rlen&&pointable()) {g_anchor=1;g_ac=i123_cursor_col(&g_sheet);g_ar=i123_cursor_row(&g_sheet);}
-#endif
         else if(ch>=' '&&ch<='~'&&g_rlen<sizeof g_range_text-1){g_anchor=0;g_range_text[g_rlen++]=ch;}
         else if(vk==VK_UP||vk==VK_DOWN||vk==VK_LEFT||vk==VK_RIGHT) {
             int c=i123_cursor_col(&g_sheet),r=i123_cursor_row(&g_sheet);
@@ -992,13 +947,7 @@ static int commit(void)
     /* B02 review (initech-3s12): an ABSENT cell is the default 0xFF, bit 7
      * set -- protected under /WGP Enable unless /Range Unprot gave it a
      * BLANK (wk1-format.md Sec 4.1 / Format byte bit 7; manual p. 10-3). */
-#ifndef I123_MUT_ABSENT_UNPROTECTED
     if(g_sheet.protec&&((locked?locked->fmt:WK1_FMT_FRESH_CELL)&128)) {notice("Cell is protected");return 1;}
-#else
-    /* MUTANT (Rule 6; test-i123-cells-mutant C9): an absent cell counts as
-     * unprotected. NEVER real. */
-    if(g_sheet.protec&&locked&&(locked->fmt&128)) {notice("Cell is protected");return 1;}
-#endif
     refresh_clock();
     /* EDIT completes as a label unless the entry starts like a value (p. 1-16:
      * the first character decides; mint keys 05 "'HelloX", 49 "HelloZ"). */
@@ -1014,21 +963,13 @@ static int commit(void)
          * of its display format. Strip it only at the entry boundary, so
          * absolute references (+$A$1) keep their formula meaning. */
         uint32_t prefix = 0;
-#ifndef I123_MUT_CURRENCY_REJECT
         /* Real NUMENTRY.WK1: $-12.34 / $+12.34 are numbers; -$ / +$
          * are refused. $A$1 remains a formula after numeric parsing fails. */
         if (g_elen > 1 && g_edit[0] == '$') prefix = 1;
-#endif
         rc = i123_parse_value(g_edit + prefix, g_elen - prefix, &x);
         if (rc == I123_OK) {
             rc = i123_set_number(&g_sheet, cc, cr, x);
-#ifndef I123_MUT_NO_RECALC
             if (rc == I123_OK) rc = i123_after_entry(&g_cx, &g_sheet);
-#else
-            /* MUTANT (Rule 6; test-flair-i123-formula-mutant): a typed
-             * number recalculates nothing, so the formulas over it keep
-             * stale values in AUTOMATIC mode. NEVER in a real build. */
-#endif
         } else {
             /* not a number: a formula (bead initech-94ah) -- compiled,
              * stored and recalculated by the sheet's mode, or refused */
@@ -1041,12 +982,7 @@ static int commit(void)
         paint_edit_line();
         return 1;
     }
-#ifndef I123_MUT_NEVER_DIRTY
     g_dirty = 1;        /* initech-fvnj: a committed edit is unsaved work */
-#else
-    /* MUTANT (Rule 6; test-i123-quit-mutant Q2): commits never mark the
-     * sheet dirty, so Quit discards them silently -- L008. NEVER real. */
-#endif
     g_mode = M_READY;
     g_elen = 0;
     g_edit[0] = '\0';
@@ -1075,11 +1011,6 @@ static void move_by(int dc, int dr)
 {
     uint16_t oc = i123_cursor_col(&g_sheet), orow = i123_cursor_row(&g_sheet);
     int nc = (int)oc + dc, nr = (int)orow + dr;
-#ifdef I123_MUT_ARROWS_DEAD
-    /* MUTANT (Rule 6; test-flair-i123-mutant): the pointer never moves, so
-     * every typed entry lands in A1. NEVER in a real build. */
-    nc = (int)oc; nr = (int)orow;
-#endif
     if (nc < 0) nc = 0;
     if (nr < 0) nr = 0;
     if (nc >= (int)I123_MAX_COLS) nc = (int)I123_MAX_COLS - 1;
@@ -1114,16 +1045,10 @@ static void page_rows(int down)
  * capture reaches: unequal widths count the columns now shown. */
 static void page_cols(int right)
 {
-#ifdef I123_MUT_TAB_ONE_CELL
-    /* MUTANT (Rule 6; test-i123-keys-mutant, test-flair-i123-keys-mutant):
-     * Tab moves one cell. NEVER real. */
-    move_by(right ? 1 : -1, 0);
-#else
     uint32_t left = i123_view_left(&g_sheet), n = area_cols();
     if (right) left = left + n < I123_MAX_COLS ? left + n : I123_MAX_COLS - 1u;
     else left = left > n ? left - n : 0;
     place((uint16_t)left, i123_cursor_row(&g_sheet), (uint16_t)left, i123_view_top(&g_sheet));
-#endif
 }
 
 /* Complete the entry being typed or edited; 0 = READY now. An EDIT line
@@ -1190,11 +1115,7 @@ static void key(int32_t message, int32_t mods)
             /* EDIT: Esc "Erases all characters in entry" (p. 1-23); Esc on the
              * empty line returns to READY, the cell unchanged (mint keys
              * 03_f2_esc1 / 04_f2_esc2; 51_bad_value_esc after a bad value). */
-#ifndef I123_MUT_EDIT_ESC_CANCELS
             if (g_mode != M_EDIT || !g_elen)
-#else
-            /* MUTANT (Rule 6; test-i123-keys-mutant): one Esc leaves EDIT. */
-#endif
                 g_mode = M_READY;
             g_elen = 0;
             g_edit[0] = '\0';
@@ -1261,11 +1182,6 @@ static void cell_click(const tbx_event_t *ev)
     int ch = (ev->whereh - (int16_t)org - X0) / CW - BORDER_W;
     int line = (ev->wherev - (org >> 16)) / CH - LINE_ROW0;
     uint16_t c = i123_view_left(&g_sheet), r = i123_view_top(&g_sheet);
-#ifdef I123_MUT_HIT_IGNORES_SCROLL
-    /* MUTANT (Rule 6; test-i123-hit-mutant, test-flair-i123-hit-mutant): the
-     * hit maps as if the window sat at A1. NEVER real. */
-    c = 0; r = 0;
-#endif
     if (org < 0 || g_mode >= M_MAIN || ch < 0 || line < 0 || line >= (int)VIS_ROWS) return;
     r = (uint16_t)(r + line);
     if (r >= I123_MAX_ROWS) return;
@@ -1285,17 +1201,11 @@ static void cell_click(const tbx_event_t *ev)
  * are building a cell). A clean sheet ends at once -- through TBX_EXIT, the
  * normal teardown, never suppressed. Unsaved work asks with the Toolbox alert
  * (Sec 11), whose answer arrives as TBX_EVT_ALERT (quit_answer). If the
- * alert cannot be shown the session does NOT end (fail safe, Rule 2: a
+ * alert cannot be shown the session does NOT end (fail safe, CLAUDE.md, The constitution: a
  * refused question is never a silent discard) and the status line says so. */
 static int entry_pending(void)
 {
-#ifdef I123_MUT_PENDING_IGNORED
-    /* MUTANT (Rule 6; test-i123-quit-mutant Q5): the entry being typed is not
-     * counted as work, so Quit throws it away silently. NEVER real. */
-    return 0;
-#else
     return g_mode == M_LABEL || g_mode == M_VALUE || g_mode == M_EDIT;
-#endif
 }
 
 static void request_quit(void)
@@ -1318,11 +1228,6 @@ static void quit_answer(int32_t item)
     g_asking = 0;
     if (item == (int32_t)TBX_ALERT_OTHER) { (void)tbx_exit(0); return; }   /* Don't Save */
     if (item != (int32_t)TBX_ALERT_DEFAULT) {
-#ifdef I123_MUT_CANCEL_QUITS
-        /* MUTANT (Rule 6; test-i123-quit-mutant Q3): Cancel ends the session
-         * anyway. NEVER real. */
-        (void)tbx_exit(0);
-#endif
         return;      /* Cancel: the sheet, the mode and the typed entry stay */
     }
     /* Save. A pending entry is part of the work: store it first, exactly as

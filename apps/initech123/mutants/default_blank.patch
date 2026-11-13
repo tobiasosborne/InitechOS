@@ -1,0 +1,22 @@
+# Legacy I123_MUT_DEFAULT_BLANK (all hook locations together).
+# test: test_i123_cells
+--- a/core/sheet.c
++++ b/core/sheet.c
+@@ -407,15 +407,8 @@
+         ((i123_cell_t *)c)->fmt = fmt;
+         return I123_OK;
+     }
+-    /* B02 (bead initech-3s12, audit L010): an absent cell already IS the
+-     * default format with default protection -- every reader takes it as
+-     * WK1_FMT_FRESH_CELL (entry_fmt above, eval.c @CELL, the Face A
+-     * erase), and 1-2-3 writes no record for a content-free default cell
+-     * (../lotus123-decomp/specs/file-formats/wk1-format.md Sec 4.1). So the
+-     * default is never stored as a BLANK: /Range Erase of an ordinary cell
+-     * frees its slot (manual p. 10-3 keeps the EFFECTIVE format/protection,
+-     * which absence keeps). Any other format or protection is a BLANK. */
+-    if (fmt == (uint8_t)WK1_FMT_FRESH_CELL) return I123_OK;
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-cells-mutant C1): the default format is
++     * stored as an allocated BLANK (audit L010). NEVER real. */
+     rc = i123_put_cell(sh, col, row, I123_K_BLANK, fmt, (const uint8_t *)0,
+                        (const uint8_t *)0, 0, 0, 0, (const uint8_t *)0, 0);
+     if (rc == I123_OK) grow_extents(sh, col, row, I123_K_BLANK);

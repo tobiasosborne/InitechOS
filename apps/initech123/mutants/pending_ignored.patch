@@ -1,0 +1,15 @@
+# Legacy I123_MUT_PENDING_IGNORED (all hook locations together).
+# test: test_i123_quit
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1205,7 +1205,9 @@
+  * refused question is never a silent discard) and the status line says so. */
+ static int entry_pending(void)
+ {
+-    return g_mode == M_LABEL || g_mode == M_VALUE || g_mode == M_EDIT;
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-quit-mutant Q5): the entry being typed is not
++     * counted as work, so Quit throws it away silently. NEVER real. */
++    return 0;
+ }
+ 
+ static void request_quit(void)

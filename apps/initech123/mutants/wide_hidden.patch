@@ -1,0 +1,30 @@
+# Legacy I123_MUT_WIDE_HIDDEN (all hook locations together).
+# test: test_i123_resize
+--- a/core/fmt.c
++++ b/core/fmt.c
+@@ -500,12 +500,6 @@
+         const i123_cell_t *c;
+         uint32_t spill = 0;
+         if (w == 0u || w > 240u) break;
+-        /* B06 (bead initech-3qtt): the FIRST column, wider than the area, is
+-         * drawn clipped to it and aligned within what shows -- the real R2.2
+-         * 240-wide A (fixtures/i123-width/13_w240_labels: the number right-
+-         * aligned in the visible 72, ^Mid centred in 72, a 96-character
+-         * label cut at 72). A later column shows only whole (11_w67). */
+-        if (x == 0u && w > nchars) w = nchars;
+         if (x + w > nchars) break;
+         c = i123_find(sh, (uint16_t)col, row);
+         if (c != (const i123_cell_t *)0) {
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -375,7 +375,9 @@
+ static uint32_t area_cols(void)
+ {
+     uint32_t n = i123_cols_fitting(&g_sheet, i123_view_left(&g_sheet), AREA_CHARS);
+-    if (!n) n = 1u;
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-resize-mutant W1, test-i123-wk1-roundtrip-
++     * mutant display, test-flair-i123-wide-mutant): an oversized first
++     * column shows as nothing at all (audit L008). NEVER real. */
+     return n;
+ }
+ static uint32_t vis_width(uint16_t col)

@@ -1,7 +1,7 @@
 /* Factory independent RI reader and artifact dump. No spec constants or
  * packed data used to compute the oracle. Empty descriptions use the TSV
  * field "" (quoted empty), preserving a three-column text representation
- * without trailing whitespace. initech-uqah, Law 2. */
+ * without trailing whitespace. initech-uqah, CLAUDE.md, The constitution. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

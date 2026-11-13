@@ -1,0 +1,14 @@
+# Legacy I123_MUT_NEVER_DIRTY (all hook locations together).
+# test: test_i123_quit
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -982,7 +982,8 @@
+         paint_edit_line();
+         return 1;
+     }
+-    g_dirty = 1;        /* initech-fvnj: a committed edit is unsaved work */
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-quit-mutant Q2): commits never mark the
++     * sheet dirty, so Quit discards them silently -- L008. NEVER real. */
+     g_mode = M_READY;
+     g_elen = 0;
+     g_edit[0] = '\0';

@@ -1,0 +1,17 @@
+# Legacy I123_MUT_GENERAL_ROUNDS (all hook locations together).
+# test: test_i123_wk1_roundtrip
+--- a/core/fmt.c
++++ b/core/fmt.c
+@@ -195,6 +195,12 @@
+             for (uint32_t i = 0; i < nd && n < 47u; i++) s[n++] = d[i];
+         }
+         /* truncate to the field (General truncates, N-7) */
++        /* MUTANT (CLAUDE.md, The constitution; test-i123-wk1-roundtrip-mutant): round the last
++         * shown digit up instead of truncating -- @PI shows "3.141593" where
++         * the real screen (MINT03 shot) shows "3.141592". NEVER in a real
++         * build. */
++        if (n > field && s[field] >= '5' && s[field - 1u] >= '0' && s[field - 1u] < '9')
++            s[field - 1u]++;
+         if (n > field) n = field;
+         if (n > 0u && s[n - 1u] == '.') n--;
+         s[n] = '\0';

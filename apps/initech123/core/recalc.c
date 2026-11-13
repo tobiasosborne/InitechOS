@@ -6,7 +6,7 @@
  *
  * bead: initech-94ah (I123 P2). See i123.h.
  *
- * Ref (Law 1): R2.2 Reference Manual, /Worksheet Global Recalculation,
+ * Ref (CLAUDE.md, The constitution): R2.2 Reference Manual, /Worksheet Global Recalculation,
  * p. 12-31..12-33 (PDF 275-277; OCR build/man/ocr/p275..p277.txt):
  *   Natural    "Before recalculating a particular formula, 1-2-3
  *              recalculates any other formulas on which that formula
@@ -53,7 +53,7 @@
  * evaluate) gives -47.2 / -23.6 / -6.9. This lane's model only: a second
  * circular golden would test it.
  *
- * Freestanding; ASCII-clean (Rule 12); deterministic (Rule 11).
+ * Freestanding; ASCII-clean (CLAUDE.md, The constitution); deterministic (CLAUDE.md, The constitution).
  */
 #include "i123.h"
 #include "i123/wk1_format.h"
@@ -133,16 +133,6 @@ int i123_store_result(i123_sheet_t *sh, uint32_t idx, const i123_val_t *v)
     case I123_V_NUM: {
         union { double d; uint8_t b[8]; } u;
         u.d = v->n;
-#ifdef I123_MUT_CACHE_ROUND
-        /* MUTANT (Rule 6; test-i123-formula-mutant): the cache is rounded
-         * to 6 decimals -- 39.166666666666664 is stored as 39.166667, so
-         * every non-terminating golden cache goes RED. NEVER real. */
-        {
-            double s = u.d * 1e6;
-            s = (double)(int64_t)(s < 0.0 ? s - 0.5 : s + 0.5);
-            u.d = s / 1e6;
-        }
-#endif
         for (int i = 0; i < 8; i++) bytes[i] = u.b[i];
         return i123_cell_set_cache(sh, idx, bytes, 0, (const uint8_t *)0, 0);
     }
@@ -215,13 +205,6 @@ static int32_t next_precedent(const i123_sheet_t *sh, i123_frame_t *f, int *self
             f->pc = (uint16_t)(f->pc + n);
             if (rr >= 0) {
                 int32_t k = index_of(sh, (uint16_t)cc, (uint16_t)rr);
-#ifdef I123_MUT_NO_PRECEDENTS
-                /* MUTANT (Rule 6; test-i123-recalc-order-mutant): VAR
-                 * references are not precedents, so natural order degrades
-                 * to the sweep -- a forward reference reads a stale value.
-                 * NEVER in a real build. */
-                k = -1;
-#endif
                 if (k >= 0 && sh->cells[k].kind == I123_K_FORMULA) {
                     if ((uint32_t)k == f->cell) { *self = 1; continue; }
                     return k;
@@ -358,11 +341,6 @@ int i123_recalc(i123_calc_t *cx, i123_sheet_t *sh)
             rc = sweep_pass(cx, sh, sh->calcorder == ORDER_COLUMNWISE);
     }
     if (rc != I123_OK) return rc;
-#ifdef I123_MUT_CIRC_BLIND
-    /* MUTANT (Rule 6; test-i123-recalc-order-mutant): the CIRC indicator
-     * never lights. NEVER in a real build. */
-    ci.circ = 0;
-#endif
     sh->circ = ci.circ;
     sh->circ_col = ci.cc;
     sh->circ_row = ci.cr;

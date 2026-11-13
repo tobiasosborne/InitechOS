@@ -29,6 +29,7 @@ case $name in
   test_i123_copy_move) "$bin" ;;
   test_i123_copy_corpus) "$bin" --corpus "$LOTUS123_DECOMP" "$out" "$ref" ;;
   test_i123_copy_tile) "$bin" --tile tests/fixtures/i123-copy "$out" "$ref" ;;
+  test_i123_menu_disk) "$bin" "${bin%/*}/../123.MNU" ;;
   test_i123_menu_tree)
     "$bin" "$LOTUS123_DECOMP/goldens/lotus-123-2.2-installed-ref/extracted/installed/123.RI" tests/oracles/menu/menu_ri_offsets.tsv > "$out/ri.txt"
     diff -u tests/oracles/menu/menu_tree.golden "$out/ri.txt"

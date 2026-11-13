@@ -29,9 +29,6 @@ void i123_menu_init(void)
     for(uint32_t i=0;i<menu_nstrings;i++)menu_offsets[i]=menu_template_offsets[i];
     for(uint32_t i=0;i<MENU_ITEMS;i++)i123_menu_items[i]=menu_template_items[i];
     for(uint32_t i=0;i<MENU_LEVELS;i++)i123_menu_levels[i]=menu_template_levels[i];
-#ifdef I123_MUT_MENU_SPELLING
-    menu_strings[menu_offsets[i123_menu_items[0].name]]='V';
-#endif
 }
 static void wr(uint8_t *b,uint16_t n) { b[0]=(uint8_t)n;b[1]=(uint8_t)(n>>8); }
 uint32_t i123_menu_export(uint8_t *b,uint32_t cap)
@@ -71,9 +68,6 @@ int i123_menu_load(const uint8_t *b,uint32_t n)
         if(!lv->count||lv->first+lv->count>MENU_ITEMS)return -1;
     }
     menu_nstrings=ns;
-#ifdef I123_MUT_MENU_SPELLING
-    menu_strings[menu_offsets[i123_menu_items[0].name]]='V';
-#endif
     return 0;
 }
 const char *i123_menu_string(uint16_t id) { return menu_strings+menu_offsets[id]; }

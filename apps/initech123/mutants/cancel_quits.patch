@@ -1,0 +1,14 @@
+# Legacy I123_MUT_CANCEL_QUITS (all hook locations together).
+# test: test_i123_quit
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1228,6 +1228,9 @@
+     g_asking = 0;
+     if (item == (int32_t)TBX_ALERT_OTHER) { (void)tbx_exit(0); return; }   /* Don't Save */
+     if (item != (int32_t)TBX_ALERT_DEFAULT) {
++        /* MUTANT (CLAUDE.md, The constitution; test-i123-quit-mutant Q3): Cancel ends the session
++         * anyway. NEVER real. */
++        (void)tbx_exit(0);
+         return;      /* Cancel: the sheet, the mode and the typed entry stay */
+     }
+     /* Save. A pending entry is part of the work: store it first, exactly as
