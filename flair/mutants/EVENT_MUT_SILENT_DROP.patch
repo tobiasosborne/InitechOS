@@ -1,0 +1,15 @@
+# Legacy EVENT_MUT_SILENT_DROP
+# test: test_event
+--- a/event.c
++++ b/event.c
+@@ -374,10 +374,6 @@
+  */
+ static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
+ {
+-    if (ring->drop_count != 0u && !ring->drop_reported) {
+-        ring->drop_reported = 1;
+-        RING_REPORT("FLAIR-EVT-DROP\n");
+-    }
+     uint32_t h, t;
+     h = ring->head;   /* volatile read -- see consumer note above */
+     t = ring->tail;

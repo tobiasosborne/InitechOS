@@ -65,11 +65,7 @@
 #else
 #define CTRL_PANIC() __builtin_trap()
 #endif
-#ifdef CTRL_MUT_NULL_SILENT
-#define CTRL_REQUIRE(p) ((void)0)
-#else
 #define CTRL_REQUIRE(p) do { if (!(p)) CTRL_PANIC(); } while (0)
-#endif
 
 /* ===========================================================================
  * PART NAMESPACE  (C-8; the wctb-keyed roles control draw names -- NOT colors)
@@ -258,11 +254,6 @@ void SetControlValue(ControlRecord *ctrl, int16_t value)
     if (ctrl == 0) {
         return;                                 /* fail-loud guard (Rule 2)     */
     }
-#if defined(CONTROL_MUTATE_NO_CLAMP) && CONTROL_MUTATE_NO_CLAMP
-    /* NAMED MUTANT: no clamping. SetControlValue stores the value verbatim
-     * even if out of [min,max]. test_control MUST catch this (Rule 6). */
-    ctrl->contrlValue = value;
-#else
     if (value < ctrl->contrlMin) {
         value = ctrl->contrlMin;
     }
@@ -270,7 +261,6 @@ void SetControlValue(ControlRecord *ctrl, int16_t value)
         value = ctrl->contrlMax;
     }
     ctrl->contrlValue = value;
-#endif
 }
 
 /* ===========================================================================
@@ -322,14 +312,8 @@ int16_t ctrl_thumb_y(const ControlRecord *ctrl)
         return (int16_t)track_top;
     }
 
-#if defined(CONTROL_MUTATE_THUMB_OFF) && CONTROL_MUTATE_THUMB_OFF
-    /* NAMED MUTANT: wrong scale factor -- multiply by 2 instead of dividing
-     * correctly. test_control MUST catch this divergence (Rule 6). */
-    int offset = ((int)ctrl->contrlValue - (int)ctrl->contrlMin) * 2;
-#else
     int offset = ((int)ctrl->contrlValue - (int)ctrl->contrlMin)
                  * (track_h - thumb_h) / range;
-#endif
 
     int ty = track_top + offset;
     if (ty < track_top) {
@@ -364,14 +348,7 @@ int16_t ctrl_value_from_thumb_y(const ControlRecord *ctrl, int16_t thumb_y)
         offset = moveable;
     }
 
-#if defined(CONTROL_MUTATE_THUMB_OFF) && CONTROL_MUTATE_THUMB_OFF
-    /* NAMED MUTANT: inverse uses same wrong formula to stay "consistent" with
-     * the mutated forward pass. The forward+inverse pair is tested together so
-     * the mutant ensures the ratio is wrong in both directions (Rule 6). */
-    int v = (int)ctrl->contrlMin + offset / 2;
-#else
     int v = (int)ctrl->contrlMin + offset * range / moveable;
-#endif
 
     if (v < (int)ctrl->contrlMin) {
         v = (int)ctrl->contrlMin;
@@ -478,30 +455,10 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
     }
 
     int hilited = (ctrl->contrlHilite == inButton);
-#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
-    int face_part = hilited ? CTRL_ACCENT : CTRL_PLAT_FACE;
-#else
     int face_part = hilited ? CTRL_PRESS_FACE : CTRL_PLAT_FACE;
-#endif
 
-#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
-    if (hilited) {
-        /* NAMED MUTANT (Rule 6, tdnl.88): the retired pre-mint heritage
-         * accent fill; test-flair-dialog-pressed-golden must go RED. */
-        crect_ctrl(port, x0, y0, x1, y1, CTRL_ACCENT);
-        cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
-        cfill_ctrl(port, x0,     y0,     1, CTRL_DESKTOP);
-        cfill_ctrl(port, x1 - 1, y0,     1, CTRL_DESKTOP);
-        cfill_ctrl(port, x0,     y1 - 1, 1, CTRL_DESKTOP);
-        cfill_ctrl(port, x1 - 1, y1 - 1, 1, CTRL_DESKTOP);
-    } else
-#endif
     {
         crect_ctrl(port, x0, y0, x1, y1, CTRL_PLAT_FACE);
-#if defined(CTRL_MUT_BTN_FLAT) && CTRL_MUT_BTN_FLAT
-        /* NAMED MUTANT: remove the sampled bevel/corner anatomy. */
-        cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
-#else
         /* The anatomy as run tables (kernel size, WL-0162): one row code,
          * a start (>= 0: x0 + n; < 0: x1 + n), a length (> 0: n px;
          * <= 0: w + n px) and a PART. Both tables are transcriptions of the
@@ -575,23 +532,6 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         int nt = hilited ? (int)(sizeof pressed / sizeof pressed[0])
                          : (int)(sizeof idle / sizeof idle[0]);
         ctrl_runs(port, x0, y0, x1, y1, t, nt);
-#if defined(CTRL_MUT_BTN_FRINGE) && CTRL_MUT_BTN_FRINGE
-        if (!hilited) {
-            /* Rule 6: restore the thirteen pre-M012 corner errors. */
-            for (int y = y0; y < y1; y += h - 1) {
-                cfill_ctrl(port, x0, y, 1, CTRL_PLAT_SHADOW);
-                cfill_ctrl(port, x0 + 1, y, 1, CTRL_PLAT_DARK_SHADOW);
-                cfill_ctrl(port, x1 - 2, y, 1, CTRL_PLAT_DARK_SHADOW);
-                cfill_ctrl(port, x1 - 1, y, 1, CTRL_PLAT_SHADOW);
-            }
-            cfill_ctrl(port, x0, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x1 - 1, y0 + 1, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x0, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x1 - 1, y1 - 2, 1, CTRL_PLAT_DARK_SHADOW);
-            cfill_ctrl(port, x1 - 3, y1 - 2, 1, CTRL_PLAT_FACE);
-        }
-#endif
-#endif
     }
 
     /* Chicago label, centered. */
@@ -605,15 +545,6 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
         ly = y0 + 1;
     }
     if (label_w > 0) {
-#if defined(CTRL_MUT_LABEL_OPAQUE) && CTRL_MUT_LABEL_OPAQUE
-        /* Rule 6: restore the pre-M011 opaque run over the bevel rows. */
-        ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
-#else
-#if defined(CTRL_MUT_PRESS_ACCENT) && CTRL_MUT_PRESS_ACCENT
-        if (hilited) {
-            ctrl_text(port, lx, ly, ctrl->contrlTitle, fg, bg);
-        } else
-#endif
         if (w > 6 && h > 6) {
             /* M011 / tdnl.99: s8_alert_modal.png x365..418 has 54 white
              * pixels at y160 and 53 C0 + one E7 at y175. The Chicago cell
@@ -625,7 +556,6 @@ static void draw_push_button(GrafPort *port, const ControlRecord *ctrl)
             (void)text_draw_run(&port->portBits.bm, lx, ly, ctrl->contrlTitle,
                                 FONT_CHICAGO, 0u, fg, bg, &k);
         }
-#endif
     }
 }
 
@@ -664,13 +594,6 @@ static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
     }
 
     if (ctrl->contrlValue != 0) {
-#if defined(CTRL_MUT_CHECK_FILL) && CTRL_MUT_CHECK_FILL
-        /* NAMED MUTANT: relapse to the old solid accent-fill interior. */
-        crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);
-        cframe_ctrl(port, x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_BLACK);
-        crect_ctrl(port, x0 + 2, box_y + 2, x0 + BOX_SZ - 2,
-                   box_y + BOX_SZ - 2, CTRL_ACCENT);
-#else
         static const char profile[BOX_SZ * BOX_SZ + 1] =
             "KKKKKKKKKKKK"
             "KWWWWWWWWWeK"
@@ -690,7 +613,6 @@ static void draw_check_box(GrafPort *port, const ControlRecord *ctrl)
                            checked_box_part(profile[y * BOX_SZ + x]));
             }
         }
-#endif
     } else {
         /* Unchecked Platinum art is a golden GAP: preserve heritage output. */
         crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);
@@ -721,11 +643,7 @@ static void draw_radio_button(GrafPort *port, const ControlRecord *ctrl)
     /* R4.5: a radio is embedded in a dialog, not on the desktop. Keep the
      * existing unminted shape; its ambient face follows the already sampled
      * control/dialog face (s8_controls_dialog.png, sys8/controls.md sec1). */
-#ifdef CTRL_MUT_RADIO_DESKTOP_BG
-    const int background=CTRL_DESKTOP;
-#else
     const int background=CTRL_PLAT_FACE;
-#endif
     int x0 = (int)ctrl->contrlRect.left;
     int y0 = (int)ctrl->contrlRect.top;
     int y1 = (int)ctrl->contrlRect.bottom;
@@ -783,16 +701,12 @@ static void draw_ctrl_scroll_tile(GrafPort *port,
     /* The same raised tile as chrome.c draw_scroll_tile, as a rect table. */
     static const ctrl_rect_t tile[] = {
         CRX(0, 0, 0, 0, CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FACE),
-#if !defined(SB_MUT_TILE_FLAT)
         CRX(0, 0, -1, 1, CR_X1R, FLAIR_PART_CONTENT),
         CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_CONTENT),
         CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
         CRX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
-#if !defined(SB_LOOK_MUT_CORNERS_BEVELLED)
         CRX(-1, 0, 0, 1, CR_X0R | CR_X1R, FLAIR_PART_PLAT_FACE),
         CRX(0, -1, 1, 0, CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FACE),
-#endif
-#endif
     };
     ctrl_rects(port, x0, y0, x1, y1, tile, (int)(sizeof tile / sizeof tile[0]));
 }
@@ -803,9 +717,6 @@ static void draw_ctrl_scroll_well(GrafPort *port,
     if (x1 <= x0 || y1 <= y0) {
         return;
     }
-#if defined(SB_MUT_FLAT_WELL)
-    crect_ctrl(port, x0, y0, x1, y1, FLAIR_PART_PLAT_WELL);
-#else
     static const ctrl_rect_t well[] = {
         CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_PLAT_STRIPE_DARK),
         CRX(1, 0, 2, 0, CR_Y1B, FLAIR_PART_PLAT_WIDGET_EDGE),
@@ -819,7 +730,6 @@ static void draw_ctrl_scroll_well(GrafPort *port,
         cfill_ctrl(port, x0, y0 + 1, x1 - x0,
                    FLAIR_PART_PLAT_WIDGET_EDGE);
     }
-#endif
 }
 
 /* Transpose of the sampled horizontal 15x14 thumb matrix. Colour substitution
@@ -838,10 +748,6 @@ static void draw_ctrl_scroll_thumb(GrafPort *port,
         CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, CTRL_SB_THUMB_SHADOW)
     };
     ctrl_rects(port, x0, ty, x1, ty + thumb_h, ramp, (int)(sizeof ramp / sizeof ramp[0]));
-#if defined(SB_LOOK_MUT_RAMP_FLAT)
-    crect_ctrl(port, x0, ty, x1, ty + thumb_h, CTRL_SB_THUMB_FACE);
-    cfill_ctrl(port, x0, ty, 1, FLAIR_PART_PLAT_TROUGH);
-#endif
 
     /* Four dark seven-pixel grip lines, with six-pixel highlight companions
      * one axis pixel earlier and an F3 cap at cross offset 3. */
@@ -851,11 +757,7 @@ static void draw_ctrl_scroll_thumb(GrafPort *port,
         cfill_ctrl(port, x0 + 3, companion_y, 1,
                    FLAIR_PART_PLAT_TROUGH);
         cfill_ctrl(port, x0 + 4, companion_y, 6, CTRL_SB_THUMB_HL);
-#if !defined(SB_LOOK_MUT_GRIPS_MISSING)
         cfill_ctrl(port, x0 + 4, grip_y, 7, CTRL_SB_THUMB_GRIP);
-#else
-        (void)grip_y;
-#endif
     }
 }
 
@@ -875,9 +777,6 @@ static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
     int h = y1 - y0;
     int btn = SB_ARROW;
     int disabled = ctrl->contrlHilite == 255;
-#if defined(SB_MUT_DISABLED_ENABLED_LOOK)
-    disabled = 0;
-#endif
 
     if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W ||
         h < 2 * btn + SB_THUMB_MIN) {
@@ -911,9 +810,6 @@ static void draw_scrollbar(GrafPort *port, const ControlRecord *ctrl)
     int leading_sep = ty - 1;
     int trailing_sep = ty + thumb_h;
     int sep_part = FLAIR_PART_FRAME;
-#if defined(SB_MUT_SEP_GRAY)
-    sep_part = FLAIR_PART_PLAT_INACTIVE_FRAME;
-#endif
 
     draw_ctrl_scroll_well(port, x0 + 1, track_top,
                           x1 - 1, leading_sep);
@@ -966,18 +862,6 @@ static void draw_progress_bar(GrafPort *port, const ControlRecord *ctrl)
     int y0 = (int)ctrl->contrlRect.top;
     int x1 = (int)ctrl->contrlRect.right;
     int y1 = (int)ctrl->contrlRect.bottom;
-#if defined(CTRL_MUT_PROGRESS_FLAT)
-    /* NAMED MUTANT: the retired authored flat bar (black frame, white well,
-     * one accent fill). The golden-derived oracle must go RED. */
-    if (x1 - x0 < 4 || y1 - y0 < 3) return;
-    cframe_ctrl(port, x0, y0, x1, y1, CTRL_BLACK);
-    crect_ctrl(port, x0 + 1, y0 + 1, x1 - 1, y1 - 1, CTRL_WHITE);
-    {
-        int flat = (int)ctrl_progress_fill_px(ctrl);
-        if (flat > 0) crect_ctrl(port, x0 + 1, y0 + 1, x0 + 1 + flat, y1 - 1, CTRL_ACCENT);
-    }
-    return;
-#endif
     if (y1 - y0 != FLAIR_PROGRESS_H || x1 - x0 < 2 * FLAIR_PROGRESS_INSET + 1) {
         return;
     }
@@ -1034,10 +918,6 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
         !ctrl->contrlVis) {
         return;
     }
-#if defined(CTRL_MUT_NO_DEFAULT_RING) && CTRL_MUT_NO_DEFAULT_RING
-    /* NAMED MUTANT: defaultItem no longer reaches visible ring pixels. */
-    return;
-#else
     int bx0 = (int)ctrl->contrlRect.left;
     int by0 = (int)ctrl->contrlRect.top;
     int bx1 = (int)ctrl->contrlRect.right;
@@ -1081,7 +961,6 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
      * sampled smoothing/moat. These are the four 5x5 corner crops; straight
      * legs above remain stretchable. The oracle reads the PNG independently.
      * Named mutant restores the old corners (Rule6). */
-#ifndef CTRL_MUT_RING_OLD_CORNERS
     static const char corners[4][5][6]={
         {"...dK","..K..",".K..C","d..CS","K.CSK"},
         {"Kd...",".AK..","CCHK.","SCCGd","KSCSK"},
@@ -1096,9 +975,7 @@ void DrawControlDefaultRing(GrafPort *port, const ControlRecord *ctrl)
         else if(c=='G')part=CTRL_PLAT_WIDGET_EDGE;
         cfill_ctrl(port,(k&1?x1-5:x0)+x,(k&2?y1-5:y0)+y,1,part);
     }
-#endif
 
-#endif
 }
 
 /* ===========================================================================
@@ -1150,9 +1027,7 @@ static int pt_in_rect(flair_point_t pt, rgn_rect_t r)
 int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
 {
     CTRL_REQUIRE(ctrl);
-#ifndef CTRL_MUT_DISABLED_HIT
     if (ctrl && ctrl->contrlHilite == 255) return 0;
-#endif
     if (ctrl == 0 || !ctrl->contrlVis) {
         return 0;
     }
@@ -1179,16 +1054,9 @@ int16_t TestControl(const ControlRecord *ctrl, flair_point_t pt)
         int h   = y1 - y0;
 
         /* Must be at least wide enough to have a scrollbar. */
-#ifdef CTRL_MUT_SHORT_BUTTON
-        if (h < 2 * btn) return inButton;
-#endif
-#ifndef CTRL_MUT_SHORT_LIVE
         /* mktj/44la: exactly the draw_scrollbar geometry predicate. */
         if (x1 - x0 != FLAIR_CHROME_SCROLLBAR_W || h < 2 * btn + SB_THUMB_MIN)
             return 0;
-#else
-        (void)h;
-#endif
 
         int y = (int)pt.v;
         (void)x0; (void)x1;
@@ -1235,9 +1103,7 @@ int16_t TrackControl(ControlRecord *ctrl,
                      const flair_point_t *pts, uint32_t n_pts)
 {
     CTRL_REQUIRE(ctrl && pts);
-#ifndef CTRL_MUT_DISABLED_HIT
     if (ctrl && ctrl->contrlHilite == 255) return 0;
-#endif
     if (ctrl == 0 || pts == 0 || n_pts == 0) {
         return 0;
     }

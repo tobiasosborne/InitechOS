@@ -1,0 +1,13 @@
+# Legacy SCRAP_MUT_FULL_FLAVOR
+# test: test_scrap
+--- a/scrap.c
++++ b/scrap.c
+@@ -144,8 +144,6 @@
+     }
+ 
+     /* APPEND a new flavor. */
+-    if (s->n_flavors >= FLAIR_SCRAP_MAX_FLAVORS)
+-        return FLAIR_SCRAP_ERR_NO_FLAVOR;
+ 
+     {
+         uint32_t slot = s->n_flavors;

@@ -1,0 +1,13 @@
+# Legacy TE_MUT_SEL_INCLUSIVE
+# test: test_te_surface
+--- a/textedit.c
++++ b/textedit.c
+@@ -234,6 +234,8 @@
+ static void te_delete_range(FlairTE *te, int16_t a, int16_t b)
+ {
+     int16_t count = (int16_t)(b - a);
++    /* MUTANT (Rule 6): inclusive [a,b] -- delete one extra char. Step 5/6 RED. */
++    count = (int16_t)(count + 1);
+     if (count < 0)
+         count = 0;
+     if ((int)a + (int)count > (int)te->teLength)

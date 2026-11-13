@@ -1,0 +1,12 @@
+# Legacy CLOCK_STUCK
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -100,6 +100,7 @@
+     if (hour > 23 || minute > 59) return 0;
+     unsigned key = hour * 60 + minute;
+     if (clock_text[0] && key == clock_minute) return 0;
++    if (clock_text[0]) return 0; /* Rule 6: never refresh the initial minute */
+     clock_minute = key;
+     return MenuClock_format(hour, minute, clock_text);
+ }

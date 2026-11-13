@@ -1,0 +1,13 @@
+# Legacy MENU_LOOK_MUT_OLD_DIVIDER_INSET
+# test: test_menu_look
+--- a/menu.c
++++ b/menu.c
+@@ -821,7 +821,7 @@
+     for (int k = 0; k < (int)m->n_items; k++) {
+         if (!m->items[k].is_divider) continue;
+         int row_top = item_row_top(m, k);
+-        int inset = 1;
++        int inset = 2;                 /* Rule 6: the original short groove */
+         rgn_rect_t dark = { (int16_t)(row_top + 1), (int16_t)(panel.left + inset),
+                             (int16_t)(row_top + 2), (int16_t)(panel.right - inset) };
+         rgn_rect_t light = { (int16_t)(row_top + 2), (int16_t)(panel.left + inset),

@@ -85,9 +85,6 @@ static inline void surface_put_pixel(const bitmap_t *bm,
         *(volatile uint32_t *)(bm->base + off) = px;
     } else {
         /* 24bpp: B,G,R at increasing addresses (PRD Sec 5 Risk 2). */
-#ifdef SURFACE_MUT_BGR_SWAP
-        px = ((px & 0xffu) << 16) | (px & 0xff00u) | ((px >> 16) & 0xffu);
-#endif
         bm->base[off + 0u] = (uint8_t)(px & 0xFFu);          /* B */
         bm->base[off + 1u] = (uint8_t)((px >> 8) & 0xFFu);   /* G */
         bm->base[off + 2u] = (uint8_t)((px >> 16) & 0xFFu);  /* R */
@@ -106,11 +103,7 @@ static inline void surface_put_pixel(const bitmap_t *bm,
 static inline uint32_t surface_get_pixel(const bitmap_t *bm, uint32_t off)
 {
     if (bm->bpp == 8) {
-#ifdef SURFACE_MUT_INDEX_ZERO
-        return 0;
-#else
         return (uint32_t)bm->base[off];
-#endif
     } else if (bm->bpp == 32) {
         return *(volatile uint32_t *)(bm->base + off);
     } else {

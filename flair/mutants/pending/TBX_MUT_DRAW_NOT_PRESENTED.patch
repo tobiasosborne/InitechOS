@@ -1,0 +1,17 @@
+# pending: legacy test-flair-ctenant-mutant: framebuffer repaint pixels
+# Legacy TBX_MUT_DRAW_NOT_PRESENTED
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1367,6 +1367,11 @@
+ {
+     int r = (int)g_slot.drew;
+     g_slot.drew = 0u;
++    /* MUTANT TBX_MUT_DRAW_NOT_PRESENTED (Rule 6; test-flair-ctenant-mutant):
++     * the pre-initech-8zii behaviour -- a tenant's drawing for a plain
++     * keyDown / mouseDown sits in the offscreen until something else
++     * presents. NEVER in a real build. */
++    r = 0;
+     return r;
+ }
+ 

@@ -12,12 +12,8 @@ static void tbxf_init(flair_platform_files *p)
 }
 static int tbxf_span(uint32_t lo, uint32_t len, uint32_t ptr, uint32_t n)
 {
-#ifdef TBX_MUT_FILE_BOUNDS
-    (void)lo; (void)len; (void)ptr; (void)n; return 1;
-#else
     if (n == 0) return 1;
     return len <= 0xffffffffu-lo && ptr >= lo && ptr-lo <= len && n <= len-(ptr-lo);
-#endif
 }
 static int tbxf_path(uint32_t lo, uint32_t len, uint32_t ptr)
 {
@@ -42,35 +38,22 @@ static int32_t tbxf_call(flair_platform_files *p, uint32_t lo, uint32_t len,
          * flat form of ES:DI, int21.c do_rename); it refuses an existing
          * target exactly as DOS 3.3 does (Tech Ref 6-206; AX=5). */
         if (code == TBX_FILE_RENAME && !tbxf_path(lo,len,a[1])) return TBX_ERR_BADARG;
-#ifndef TBX_MUT_FILE_RENAME_EDI
         f.edi = a[1];   /* MUTANT (test-tbx-file-mutant F5) drops the new name */
-#endif
-#ifndef TBX_MUT_FILE_OWNER
         /* Ref: DOS OPEN's device precedence, int21.c dev_open_lookup.
          * Authored file-only gate policy: never CREATE an unreadable disk file
          * whose basename OPEN resolves as a character device. */
         if (creat && flair_platform_path_is_device((const char *)(uintptr_t)a[0]))
             return TBX_ERR_BADARG;
-#endif
         if (code == TBX_FILE_OPEN && a[1] > TBX_FILE_READ_WRITE) return TBX_ERR_BADARG;
         f.edx = a[0];
         f.eax = code == TBX_FILE_CREATE ? 0x3c00u :
-#ifndef TBX_MUT_FILE_CREATE_NEW_TRUNC
                  code == TBX_FILE_CREATE_NEW ? 0x5b00u :
-#else
-                 /* MUTANT (test-tbx-file-mutant F6): CREATE_NEW truncates. */
-                 code == TBX_FILE_CREATE_NEW ? 0x3c00u :
-#endif
                  code == TBX_FILE_DELETE ? 0x4100u :
                  code == TBX_FILE_RENAME ? 0x5600u : 0x3d00u+a[1];
     } else {
-#ifndef TBX_MUT_FILE_OWNER
         if (h < 5 || h >= FLAIR_PLATFORM_HANDLES) return TBX_ERR_BADARG;
         e = flair_platform_file_info_get(p,(uint8_t)h,&info) ? &info : 0;
         if (e == 0) return TBX_ERR_BADARG;
-#else
-        if (h < FLAIR_PLATFORM_HANDLES) e = flair_platform_file_info_get(p,(uint8_t)h,&info) ? &info : 0;
-#endif
         f.ebx = h;
         switch (code) {
         case TBX_FILE_READ:
@@ -99,10 +82,6 @@ static int32_t tbxf_call(flair_platform_files *p, uint32_t lo, uint32_t len,
         default: return TBX_ERR_BADCODE;
         }
     }
-#ifdef TBX_MUT_FILE_WRITE_NOOP
-    if (code == TBX_FILE_WRITE) f.eax = a[2];
-    else
-#endif
     flair_platform_dos(p,&f);
     int32_t result = (f.eflags & 1u) ? TBX_ERR_DOS(f.eax & 0xffffu) : (int32_t)f.eax;
     if (!(f.eflags & 1u)) {
@@ -124,10 +103,6 @@ static uint32_t tbxf_live(const flair_platform_files *p)
 }
 static void tbxf_reap(flair_platform_files *p)
 {
-#ifndef TBX_MUT_FILE_LEAK
     flair_platform_files_close(p);
-#else
-    (void)p;
-#endif
 }
 #endif

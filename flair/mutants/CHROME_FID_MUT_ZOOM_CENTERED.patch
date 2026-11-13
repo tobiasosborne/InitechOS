@@ -1,0 +1,19 @@
+# Legacy CHROME_FID_MUT_ZOOM_CENTERED
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -216,12 +216,8 @@
+     }
+ 
+     if (kind == PLAT_WIDGET_ZOOM) {
+-        for (int d = 0; d < FLAIR_CHROME_ZOOM_GLYPH_EDGE; d++) {
+-            cfill(port, bx + 2 + 5, by + 2 + d, 1,
+-                  PLAT_DARK_RING_PART);
+-            cfill(port, bx + 2 + d, by + 2 + 5, 1,
+-                  PLAT_DARK_RING_PART);
+-        }
++        cframe(port, bx + 4, by + 4, bx + 7, by + 7,
++               PLAT_DARK_RING_PART);
+     } else if (kind == PLAT_WIDGET_COLLAPSE) {
+         cfill(port, bx + 2,
+               by + 2 + FLAIR_CHROME_COLLAPSE_GLYPH_ROW_0,

@@ -217,13 +217,7 @@ static inline int wscroll_thumb_pos(rgn_rect_t bar, int axis,
     v = a->value;
     if (v < 0) v = 0;
     if (v > a->max) v = a->max;
-#if defined(WSCROLL_MUT_THUMB_UNSCALED)
-    /* MUTANT (Rule 6; test-winscroll): the thumb ignores the range -- one
-     * value unit per pixel, the pre-proportional-mapping slip. NEVER real. */
-    return lo + (v > span ? span : v);
-#else
     return lo + (int)((int32_t)v * (int32_t)span / (int32_t)a->max);
-#endif
 }
 
 /* thumb leading edge -> value, the inverse, clamped to [0, max]
@@ -285,15 +279,8 @@ static inline int wscroll_step(WindowScrollAxis *a, int part)
     switch (part) {
     case WSCROLL_PART_UP:       d = -a->line; break;
     case WSCROLL_PART_DOWN:     d =  a->line; break;
-#if defined(WSCROLL_MUT_PAGE_WRONG_DIR)
-    /* MUTANT (Rule 6; test-winscroll, the R1.5 PAGE_WRONG_DIR class): the
-     * page regions scroll the wrong way. NEVER in a real build. */
-    case WSCROLL_PART_PAGEUP:   d =  a->page; break;
-    case WSCROLL_PART_PAGEDOWN: d = -a->page; break;
-#else
     case WSCROLL_PART_PAGEUP:   d = -a->page; break;
     case WSCROLL_PART_PAGEDOWN: d =  a->page; break;
-#endif
     default: return 0;
     }
     return wscroll_set_value(a, (int)a->value + d);

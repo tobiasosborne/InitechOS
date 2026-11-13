@@ -1,0 +1,12 @@
+# Legacy LIST_MUT_NO_OVERFLOW_CHECK
+# test: test_list
+--- a/list.c
++++ b/list.c
+@@ -126,7 +126,6 @@
+     cur_rows = (int32_t)l->dataBounds.bottom - l->dataBounds.top;
+     new_rows = cur_rows + count;
+ 
+-    if (new_rows > FLAIR_LIST_MAX_ROWS) return FLAIR_LIST_ERR_OVERFLOW;
+     /* The store is indexed by absolute cell coordinates (list.h Sec 3).
+      * 42dq: an empty column range still needs one actual backing column. */
+     if (l->dataBounds.left < 0 || l->dataBounds.left >= FLAIR_LIST_MAX_COLS)

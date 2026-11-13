@@ -1,0 +1,25 @@
+# Legacy FLAIR_HEAP_MUTATE_NO_REUSE
+# test: test_flair_heap
+--- a/heap.c
++++ b/heap.c
+@@ -94,16 +94,10 @@
+     /* ---- 1. REUSE: pop a fitting block off THIS class's free-list (LIFO).
+      *      CLASS ISOLATION -- only freelist[klass] is consulted, so a freed
+      *      REGION block can never satisfy a BITMAP request. -------------------*/
+-    {
+-        flair_blk_t *blk = heap->freelist[klass];
+-        /* zhjo: DEC-03 specifies head-only LIFO, not first-fit search. */
+-        if (blk != (flair_blk_t *)0 && blk->cap >= need) {
+-            heap->freelist[klass] = blk->next;
+-            blk->next = (flair_blk_t *)0;
+-            heap->n_reuse++;
+-            return (void *)((uint8_t *)blk + FLAIR_HEAP_HDR_BYTES);
+-        }
+-    }
++    /* MUTANT (Rule 6; make test-flair-heap-mutant only): NEVER reuse a freed
++     * block -- always bump. The free-list-reuse oracle then goes RED because a
++     * free-then-same-size-alloc returns a FRESH bumped pointer (the bump cursor
++     * advances) instead of the recycled block. NEVER define in a real build. */
+ 
+     /* ---- 2. BUMP a fresh (header + payload) span if it fits the window. ----*/
+     {

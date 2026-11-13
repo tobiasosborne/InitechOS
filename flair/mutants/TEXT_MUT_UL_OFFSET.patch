@@ -1,0 +1,13 @@
+# Legacy TEXT_MUT_UL_OFFSET
+# test: test_font_styles
+--- a/include/text.h
++++ b/include/text.h
+@@ -612,7 +612,7 @@
+      * by a TEXT_UL_SHADOW halo around the ink on each of those rows. */
+     if (face & TEXT_FACE_UNDERLINE) {
+         for (int t = 0; t < TEXT_UL_THICK; t++) {
+-            int ur = base + TEXT_UL_OFFSET + t;
++            int ur = base + TEXT_UL_OFFSET + 1 + t;   /* named mutant: 1 low */
+             uint32_t ink[TEXT_RUN_MAX_W / 32 + 2];
+             int iw = (int)(sizeof ink / sizeof ink[0]);
+             if (ur >= h)

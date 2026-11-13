@@ -1,0 +1,32 @@
+# Legacy DIALOG_MUT_ALERT_SLAB
+# test: test_dialog
+--- a/dialog.c
++++ b/dialog.c
+@@ -440,7 +440,7 @@
+  * The structure->content layout inset remains the locked heritage 7;
+  * its old solid-black paint was not the Platinum appearance contract.
+  */
+-#  define DLG_BORDER_W 3  /* Capture: outline plus two bevel rows. */
++#  define DLG_BORDER_W 7  /* Rule 6: restore the pre-L023 black slab. */
+ 
+ static void draw_alert_frame(GrafPort *port, int left, int top,
+                               int right, int bottom)
+@@ -451,6 +451,7 @@
+     for (int i = 0; i < DLG_BORDER_W; i++) {
+         int hi = i < 3 ? light[i] : DLG_BLACK;
+         int lo = i < 3 ? dark[i] : DLG_BLACK;
++        hi = lo = DLG_BLACK;
+         int l = left + i, t = top + i, r = right - i, b = bottom - i;
+         cfill_dlg(port, l, t, r - l, hi);
+         for (int y = t + 1; y < b; y++) {
+@@ -459,10 +460,6 @@
+         }
+         cfill_dlg(port, l + 1, b - 1, r - l - 1, lo);
+     }
+-    /* Capture corner joins: (504,89) and (135,188) are FFB3B3,
+-     * belonging to the outer light bevel rather than the inner white. */
+-    cfill_dlg(port, right - 3, top + 2, 1, DLG_ALERT_LIGHT);
+-    cfill_dlg(port, left + 2, bottom - 3, 1, DLG_ALERT_LIGHT);
+ }
+ 
+ void DrawDialog(DialogPtr dp)

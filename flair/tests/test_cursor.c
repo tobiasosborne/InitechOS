@@ -252,5 +252,26 @@ int main(int argc, char **argv)
     canonical_golden_and_hotspot();
     shield_nesting();
     move_restores_old_site();
+    /* PRD Appendix A hourglass pixels; retained from the legacy film host
+     * gate's BUSY_HOURGLASS and BUSY_RESTORE legs. */
+    {
+        uint32_t fb[40 * 40];
+        for (int i = 0; i < 40 * 40; i++) fb[i] = 0x123456;
+        flair_cursor_init(fb, 160, 40, 40, 32);
+        flair_cursor_show(20, 20);
+        flair_cursor_set_busy(1);
+        CHECK(fb[12 * 40 + 12] == 0 && fb[12 * 40 + 27] == 0 &&
+              fb[19 * 40 + 19] == 0,
+              "Saving selects hourglass at hotspot 8,8");
+        flair_cursor_shield();
+        flair_cursor_set_busy(0);
+        flair_cursor_unshield();
+        CHECK(fb[12 * 40 + 12] == 0x123456,
+              "changing shape restores the previous save-under");
+        flair_cursor_hide();
+        int bad = 0;
+        for (int i = 0; i < 40 * 40; i++) bad |= fb[i] != 0x123456;
+        CHECK(!bad, "busy cursor leaves no trails");
+    }
     return TEST_SUMMARY("test_cursor");
 }

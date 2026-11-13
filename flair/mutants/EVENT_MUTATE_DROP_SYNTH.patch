@@ -1,0 +1,42 @@
+# Legacy EVENT_MUTATE_DROP_SYNTH
+# test: test_event
+--- a/event.c
++++ b/event.c
+@@ -502,33 +502,10 @@
+             break;
+         }
+ 
+-        /* Cook ASCII from the scancode table. An E0 key is NOT its keypad
+-         * twin (E0 48 is Up, not '8'); only keypad Enter (E0 1C) and keypad
+-         * '/' (E0 35) carry a character. */
+-        if (sc < 128u && (!ext || sc == 0x1Cu || sc == 0x35u)) {
+-            int shifted = (g_modifiers & FLAIR_EVT_MOD_SHIFT_KEY) ? 1 : 0;
+-            /* Caps Lock: for alpha keys, invert the shifted state. */
+-            if ((g_modifiers & FLAIR_EVT_MOD_ALPHA_LOCK) &&
+-                ((sc >= 0x10u && sc <= 0x19u) ||   /* Q..P row */
+-                 (sc >= 0x1Eu && sc <= 0x26u) ||   /* A..L row */
+-                 (sc >= 0x2Cu && sc <= 0x32u))) {  /* Z..M row */
+-                shifted = !shifted;
+-            }
+-            ascii = shifted ? sc_shifted[sc] : sc_unshifted[sc];
+-        }
+-
+-        /* MTE p. 2-7 message field for key events:
+-         *   low byte  (bits 0..7)  = ASCII char code.
+-         *   byte 1    (bits 8..15) = virtual key code (= PS/2 make code here).
+-         *   bits 16..31 = 0 (FLAIR simplification). */
+-        ev->message   = ((uint32_t)vkey << 8u) | (uint32_t)ascii;
+-        ev->modifiers = g_modifiers;
+-
+-        if (is_break) {
+-            what = (uint16_t)keyUp;
+-        } else {
+-            what = (uint16_t)keyDown;
+-        }
++        /* MUTANT: skip cooking keyboard events -> nullEvent.
++         * This MUST drive the replay oracle RED (Rule 6). */
++        (void)ascii; (void)vkey; (void)is_break;
++        break;
+         break;
+     }
+ 

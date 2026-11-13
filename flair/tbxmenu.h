@@ -57,19 +57,12 @@ static inline uint32_t tbx_menu_key_sel(const MenuBar *bar,
 {
     if (bar == (const MenuBar *)0 || ev == (const EventRecord *)0) return 0u;
     if (ev->what != (uint16_t)keyDown) return 0u;   /* not autoKey/keyUp */
-#ifndef TBX_MUT_MENU_KEY_PLAIN
     if ((ev->modifiers & (uint16_t)(FLAIR_EVT_MOD_CONTROL_KEY |
                                     FLAIR_EVT_MOD_CMD_KEY)) == 0u)
         return 0u;
     /* event.c cooks message = (vkey << 8) | ascii; MenuKey folds case and
      * hands out only ENABLED, non-divider items (menu.c). */
     return MenuKey(bar, (char)(ev->message & 0xFFu));
-#else
-    /* MUTANT TBX_MUT_MENU_KEY_PLAIN (Rule 6): no chord is ever a menu
-     * command; it falls through to the plain keyDown delivery. NEVER in a
-     * real build. */
-    return 0u;
-#endif
 }
 
 /* The CONVERGENCE. `owner` is the tenant's installed bar, `tracked` the bar
@@ -81,14 +74,7 @@ static inline int tbx_menu_event(const MenuBar *owner, const MenuBar *tracked,
                                  EventRecord *out)
 {
     if (owner == (const MenuBar *)0 || out == (EventRecord *)0) return 0;
-#ifndef TBX_MUT_MENU_ANY_BAR
     if (tracked != owner) return 0;
-#else
-    /* MUTANT TBX_MUT_MENU_ANY_BAR (Rule 6): the identity guard is gone, so
-     * a choice in the Finder's (or any) bar reaches the tenant. NEVER in a
-     * real build. */
-    (void)tracked;
-#endif
     if (MenuResultID(sel) == 0 || MenuResultItem(sel) == 0u) return 0;
     out->what      = (uint16_t)TBX_EVT_MENU;
     out->message   = sel;

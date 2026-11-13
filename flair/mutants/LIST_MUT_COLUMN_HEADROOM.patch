@@ -1,0 +1,13 @@
+# Legacy LIST_MUT_COLUMN_HEADROOM
+# test: test_list
+--- a/list.c
++++ b/list.c
+@@ -129,8 +129,6 @@
+     if (new_rows > FLAIR_LIST_MAX_ROWS) return FLAIR_LIST_ERR_OVERFLOW;
+     /* The store is indexed by absolute cell coordinates (list.h Sec 3).
+      * 42dq: an empty column range still needs one actual backing column. */
+-    if (l->dataBounds.left < 0 || l->dataBounds.left >= FLAIR_LIST_MAX_COLS)
+-        return FLAIR_LIST_ERR_OVERFLOW;
+ 
+     /* First-cut: append-only.  Full row insertion (shifting the cell store for
+      * afterRow != dataBounds.bottom-1) is a follow-up M5+ issue. The test

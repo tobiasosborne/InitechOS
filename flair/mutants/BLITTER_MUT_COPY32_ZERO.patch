@@ -1,0 +1,20 @@
+# Legacy BLITTER_MUT_COPY32_ZERO
+# test: test_blitter
+--- a/blitter.c
++++ b/blitter.c
+@@ -179,6 +179,7 @@
+             }
+             uint32_t sx = (uint32_t)(dx - x0);
+             uint32_t sp = src[srow * src_pitch_px + sx];
++            if (dst->bpp == 32) sp = 0;
+             uint32_t off = (uint32_t)dy * dst->pitch +
+                            (uint32_t)dx * dst->bytes_per_pixel;
+             surface_put_pixel(dst, off, sp);
+@@ -205,6 +206,7 @@
+             }
+             uint32_t sx = (uint32_t)(dx - x0);
+             uint32_t sp = src[srow * src_pitch_px + sx];
++            if (dst->bpp == 32) sp = 0;
+             uint32_t off = (uint32_t)dy * dst->pitch +
+                            (uint32_t)dx * dst->bytes_per_pixel;
+             surface_put_pixel(dst, off, sp);

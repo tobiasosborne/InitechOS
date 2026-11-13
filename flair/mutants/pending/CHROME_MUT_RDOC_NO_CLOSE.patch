@@ -1,0 +1,14 @@
+# pending: legacy test-flair-calcda-mutant: independent rDocProc close-widget pixels
+# Legacy CHROME_MUT_RDOC_NO_CLOSE
+# test: test_chrome_fidelity test_chrome test_scrollbar_look
+--- a/chrome.c
++++ b/chrome.c
+@@ -984,7 +984,7 @@
+         }
+     }
+ 
+-    if (hilited && (widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u) {
++    if (0 && widget_flags) {
+         int x0 = L + FLAIR_RDOC_CLOSE_L, y0 = T + FLAIR_RDOC_CLOSE_T;
+         chrome_cframe(port, skin, x0, y0, x0 + FLAIR_RDOC_CLOSE_W,
+                       y0 + FLAIR_RDOC_CLOSE_W, FLAIR_PART_CONTENT);

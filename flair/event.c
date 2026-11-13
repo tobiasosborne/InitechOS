@@ -156,7 +156,7 @@ void flair_event_init(flair_raw_ring_t *ring)
 {
     uint32_t i;
     if (!ring) { FLAIR_PANIC("flair_event_init: NULL ring"); }
-#if defined(FINDER_DBLCLICK_TICKS) && !defined(RECORD_MUT_IGNORE_DBLCLICK_DEFINE)
+#if defined(FINDER_DBLCLICK_TICKS)
     /* Ref: finder_desktop.h F2-5 / Makefile DBL record-image contract.
      * Preferences load before this init; seed the recording interval here
      * so their normal slider value cannot undo per-frame capture pacing.
@@ -357,7 +357,7 @@ static uint8_t kbd_modifier_bit(uint8_t make, int ext)
 /* Apply a signed 8-bit delta (packed as int8_t in a uint8_t slot) to a
  * coordinate and clamp to [0, max-1]. Returns the new clamped position. */
 unsigned flair_mouse_tracking=1;
-#if defined(FINDER_DBLCLICK_TICKS) && !defined(RECORD_MUT_IGNORE_DBLCLICK_DEFINE)
+#if defined(FINDER_DBLCLICK_TICKS)
 unsigned flair_double_click_ticks=FINDER_DBLCLICK_TICKS;
 #else
 /* Ref: spec/cpanels/record.json: normal Mouse interval is 20 ticks.
@@ -385,12 +385,10 @@ static int16_t clamp_coord(int16_t cur, int8_t delta, int16_t max)
  */
 static int drain_one(flair_raw_ring_t *ring, flair_raw_event_t *out)
 {
-#ifndef EVENT_MUT_SILENT_DROP
     if (ring->drop_count != 0u && !ring->drop_reported) {
         ring->drop_reported = 1;
         RING_REPORT("FLAIR-EVT-DROP\n");
     }
-#endif
     uint32_t h, t;
     h = ring->head;   /* volatile read -- see consumer note above */
     t = ring->tail;
@@ -464,10 +462,8 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         uint8_t  ascii     = 0u;
         uint16_t vkey;
 
-#ifndef EVENT_MUT_NO_KEY_OBSERVER
         if (g_keyboard_observer)
             g_keyboard_observer((uint8_t)(byte | (is_break ? 0x80u : 0u)));
-#endif
         if (g_kbd_skip != 0u) {          /* inside E1 1D 45 / E1 9D C5 */
             g_kbd_skip--;
             break;
@@ -483,17 +479,10 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         }
         ext = (int)g_kbd_ext;
         g_kbd_ext = 0u;
-#ifndef EVENT_MUTATE_SET1_BREAK_BLIND
         if (byte & SC_BREAK) {
             is_break = 1;
             sc = (uint8_t)(byte & (uint8_t)~SC_BREAK);
         }
-#else
-        /* MUTANT (Rule 6; test-event-mutant): the pre-tdnl.58 decoder -- the
-         * SET-1 break bit is ignored, so 0x9D is not "Ctrl up". Group I of
-         * test_event.c must go RED. NEVER define in a real build. */
-        (void)ext;
-#endif
         vkey = (uint16_t)sc;
 
         /* Modifier-key tracking: a modifier press/release is NOT a keyDown/
@@ -524,12 +513,6 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
             break;
         }
 
-#ifdef EVENT_MUTATE_DROP_SYNTH
-        /* MUTANT: skip cooking keyboard events -> nullEvent.
-         * This MUST drive the replay oracle RED (Rule 6). */
-        (void)ascii; (void)vkey; (void)is_break;
-        break;
-#else
         /* Cook ASCII from the scancode table. An E0 key is NOT its keypad
          * twin (E0 48 is Up, not '8'); only keypad Enter (E0 1C) and keypad
          * '/' (E0 35) carry a character. */
@@ -557,7 +540,6 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         } else {
             what = (uint16_t)keyDown;
         }
-#endif /* EVENT_MUTATE_DROP_SYNTH */
         break;
     }
 
@@ -577,15 +559,9 @@ static uint16_t cook_raw(const flair_raw_event_t *raw, EventRecord *ev)
         int      was_down = !(g_modifiers & FLAIR_EVT_MOD_BTN_STATE); /* 0=down */
         int      is_down  = (int)(buttons & 0x01u);                   /* left btn */
 
-#ifdef EVENT_MUTATE_STALE_WHERE
-        /* MUTANT: do NOT update cursor position from mouse deltas.
-         * The `where` field will be stale. This MUST drive the replay RED. */
-        (void)dx; (void)dy;
-#else
         /* Update tracked cursor position from the delta (clamp to frame). */
         g_cursor_h = clamp_coord(g_cursor_h, dx, (int16_t)FLAIR_SCREEN_W);
         g_cursor_v = clamp_coord(g_cursor_v, dy, (int16_t)FLAIR_SCREEN_H);
-#endif
 
         /* Update btnState modifier bit (MTE 2-6: 1 = button UP, inverted). */
         if (is_down) g_modifiers &= (uint16_t)~FLAIR_EVT_MOD_BTN_STATE;
@@ -706,13 +682,9 @@ int WaitNextEvent(flair_raw_ring_t *ring,
         }
 
         /* Ring empty: check timeout. */
-#ifdef EVENT_MUT_TICK_WRAP
-        if (sleepTicks == 0u || g_tick >= start + sleepTicks) {
-#else
         /* gwts: elapsed unsigned subtraction survives the PIT tick wrap.
          * Ref: ADR-0004 D-6 and the existing live-pump budget idiom. */
         if ((uint32_t)(g_tick - start) >= sleepTicks) {
-#endif
             theEvent->what      = (uint16_t)nullEvent;
             theEvent->message   = 0u;
             theEvent->when      = g_tick;

@@ -1,0 +1,24 @@
+# Legacy SB_LOOK_MUT_CORNERS_BEVELLED
+# test: test_scrollbar_look
+--- a/control.c
++++ b/control.c
+@@ -705,8 +705,6 @@
+         CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_CONTENT),
+         CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+         CRX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+-        CRX(-1, 0, 0, 1, CR_X0R | CR_X1R, FLAIR_PART_PLAT_FACE),
+-        CRX(0, -1, 1, 0, CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FACE),
+     };
+     ctrl_rects(port, x0, y0, x1, y1, tile, (int)(sizeof tile / sizeof tile[0]));
+ }
+--- a/chrome.c
++++ b/chrome.c
+@@ -441,8 +441,6 @@
+         TX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_CONTENT),
+         TX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+         TX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+-        TX(-1, 0, 0, 1, CR_X0R | CR_X1R, FLAIR_PART_PLAT_FACE),
+-        TX(0, -1, 1, 0, CR_Y0B | CR_Y1B, FLAIR_PART_PLAT_FACE),
+     };
+     chrome_rects(port, skin, x0, y0, x1, y1, tile, CRN(tile), 0, 0);
+ }

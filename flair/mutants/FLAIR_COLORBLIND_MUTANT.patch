@@ -1,0 +1,20 @@
+# Legacy FLAIR_COLORBLIND_MUTANT
+# test: test_flair_mechanism_colorblind
+--- a/chrome.c
++++ b/chrome.c
+@@ -824,6 +824,15 @@
+         draw_body_structure(port, skin, left, shared_line, right, bottom,
+                             active, frame_part);
+ 
++    /* Named behavioral mutant: bypass the policy seam with a computed value.
++     * Default builds do not compile this oracle-only perturbation. */
++    {
++        uint32_t orange = ((uint32_t)0xFFu << 16) |
++                          ((uint32_t)0x88u << 8);
++        surface_fill_span(&port->portBits.bm,
++                          (uint32_t)content_left, (uint32_t)content_top,
++                          (uint32_t)(content_right - content_left), orange);
++    }
+ 
+         ri = right - 1;
+         bi = bottom - 1;

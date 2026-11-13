@@ -1,0 +1,14 @@
+# Legacy CHROME_FID_MUT_CONTENT_TOP_STALE
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -184,7 +184,8 @@
+ rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
+ {
+     rgn_rect_t content;
+-    content.top = (int16_t)(frame.top + FLAIR_CHROME_TITLEBAR_H);
++    content.top = (int16_t)(frame.top + FLAIR_CHROME_FRAME +
++                            FLAIR_CHROME_TITLEBAR_H);
+     /* The content starts just inside the left body rail's INNER black line,
+      * exactly as the top starts just below the title's shared bottom line and
+      * the right/bottom stop at the scroll bars' outer lines: outer line (1) +

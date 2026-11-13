@@ -1,0 +1,14 @@
+# Legacy CHROME_FID_MUT_INACTIVE_BRIGHT_TITLE
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -391,8 +391,7 @@
+                 }
+             }
+ 
+-            ink_part = active ? FLAIR_PART_TEXT
+-                              : FLAIR_PART_PLAT_INACTIVE_TEXT;
++            ink_part = FLAIR_PART_TEXT;
+             chrome_ctext(port, layout.x, ty, layout.text,
+                          flair_look_pixel_for_skin(port, skin, ink_part),
+                          flair_look_pixel_for_skin(

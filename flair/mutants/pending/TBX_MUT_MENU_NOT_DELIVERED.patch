@@ -1,0 +1,17 @@
+# pending: legacy test-flair-tenant-menu-mutant: mouse/key menu events delivered to tenant trace
+# Legacy TBX_MUT_MENU_NOT_DELIVERED
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1380,6 +1380,11 @@
+         g_slot.torn_down)
+         return 0;
+     if (!tbx_menu_event(app->menubar, bar, sel, src, &mev)) return 0;
++    /* MUTANT TBX_MUT_MENU_NOT_DELIVERED (Rule 6; test-flair-tenant-menu-
++     * mutant): the pre-tdnl.31 behaviour -- the choice is logged by the
++     * shell's FLAIR-MENU line and the tenant never hears it. NEVER in a real
++     * build. */
++    return 0;
+     tputs("TENANT-MENU menu=");
+     tputi((int32_t)MenuResultID(sel));
+     tputs(" item=");

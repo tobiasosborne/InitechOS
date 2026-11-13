@@ -1,0 +1,17 @@
+# pending: legacy test-flair-app-launch-mutant: out-of-image SETMBAR rejected in gate trace
+# Legacy TBX_MUT_MBAR_NO_BOUNDS
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -724,7 +724,10 @@
+ /* SETMBAR (spec Sec 9; bead initech-cnpm). The image-range half of the
+  * validation goes through MB_IN so the MBAR_NO_BOUNDS mutant can compile
+  * exactly that half out and nothing else. */
+-#define MB_IN(a, n) in_image((a), (n))
++/* MUTANT TBX_MUT_MBAR_NO_BOUNDS (Rule 6; test-flair-app-launch-mutant): every
++ * image-range check of SETMBAR is true, so a bar outside the image is
++ * installed. NEVER in a real build. */
++#define MB_IN(a, n) ((void)(a), (void)(n), 1)
+ 
+ /* An ASCIZ string of at most TBX_MBAR_STR_MAX-1 chars wholly in the image:
+  * its length, or -1. */

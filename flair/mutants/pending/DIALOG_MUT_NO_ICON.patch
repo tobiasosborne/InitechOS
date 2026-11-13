@@ -1,0 +1,44 @@
+# pending: legacy test-flair-trash-full-mutant: independent CAUTION icon pixels
+# Legacy DIALOG_MUT_NO_ICON
+# test: test_dialog test_dialog_tracking
+--- a/dialog.c
++++ b/dialog.c
+@@ -399,37 +399,10 @@
+  * reads the locked table. test-asset-lz proves decode == locked (Rule 8).
+  * The DIALOG_MUT_NO_ICON mutant stubs the only caller, so the helper is
+  * compiled out with it (-Werror=unused-function). */
+-#if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
+-#define ASSET_LZ_ALERT
+-#include "asset_lz.h"
+-#include "asset_lz_data.h"
+-static const FLAIRDeskIcon *dlg_caution_strike(void)
+-{
+-    static FLAIRDeskIcon store;
+-    static uint8_t ready;
+-    _Static_assert(sizeof store == ASSET_LZ_ALERT_RAW, "one packed FLAIRDeskIcon record");
+-    if (!ready) {
+-        asset_lz_unpack((uint8_t *)&store, ASSET_LZ_ALERT_RAW, asset_lz_alert);
+-        ready = 1u;
+-    }
+-    return &store;
+-}
+-#else
+-static const FLAIRDeskIcon *dlg_caution_strike(void) { return &FLAIR_ALERT_ICON_CAUTION; }
+-#endif
+ 
+ static void dlg_draw_icon(GrafPort *port, int x0, int y0, unsigned id)
+ {
+-    const FLAIRDeskIcon *icon = (const FLAIRDeskIcon *)0;
+-    if (id == DIALOG_ICON_ID_CAUTION) icon = dlg_caution_strike();
+-    if (icon == (const FLAIRDeskIcon *)0) return;
+-    for (int r = 0; r < DESK_ICON_DIM; r++) {
+-        for (int c = 0; c < DESK_ICON_DIM; c++) {
+-            int k = desk_icon_colour(icon, r, c);
+-            if (k == (int)DESK_IC_CLEAR) continue;
+-            cfill_dlg(port, x0 + c, y0 + r, 1, (int)FLAIR_PART_ICON_CLUT + k - 1);
+-        }
+-    }
++    (void)port; (void)x0; (void)y0; (void)id;
+ }
+ 
+ /* L023: Platinum dBox frame, measured from s8_alert_modal.png

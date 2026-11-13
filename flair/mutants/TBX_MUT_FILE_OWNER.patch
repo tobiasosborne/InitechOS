@@ -1,0 +1,27 @@
+# Legacy TBX_MUT_FILE_OWNER
+# test: test_tbx_file
+--- a/tbxfile.h
++++ b/tbxfile.h
+@@ -39,11 +39,6 @@
+          * target exactly as DOS 3.3 does (Tech Ref 6-206; AX=5). */
+         if (code == TBX_FILE_RENAME && !tbxf_path(lo,len,a[1])) return TBX_ERR_BADARG;
+         f.edi = a[1];   /* MUTANT (test-tbx-file-mutant F5) drops the new name */
+-        /* Ref: DOS OPEN's device precedence, int21.c dev_open_lookup.
+-         * Authored file-only gate policy: never CREATE an unreadable disk file
+-         * whose basename OPEN resolves as a character device. */
+-        if (creat && flair_platform_path_is_device((const char *)(uintptr_t)a[0]))
+-            return TBX_ERR_BADARG;
+         if (code == TBX_FILE_OPEN && a[1] > TBX_FILE_READ_WRITE) return TBX_ERR_BADARG;
+         f.edx = a[0];
+         f.eax = code == TBX_FILE_CREATE ? 0x3c00u :
+@@ -51,9 +46,7 @@
+                  code == TBX_FILE_DELETE ? 0x4100u :
+                  code == TBX_FILE_RENAME ? 0x5600u : 0x3d00u+a[1];
+     } else {
+-        if (h < 5 || h >= FLAIR_PLATFORM_HANDLES) return TBX_ERR_BADARG;
+-        e = flair_platform_file_info_get(p,(uint8_t)h,&info) ? &info : 0;
+-        if (e == 0) return TBX_ERR_BADARG;
++        if (h < FLAIR_PLATFORM_HANDLES) e = flair_platform_file_info_get(p,(uint8_t)h,&info) ? &info : 0;
+         f.ebx = h;
+         switch (code) {
+         case TBX_FILE_READ:

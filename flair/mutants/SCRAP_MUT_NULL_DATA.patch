@@ -1,0 +1,13 @@
+# Legacy SCRAP_MUT_NULL_DATA
+# test: test_scrap
+--- a/scrap.c
++++ b/scrap.c
+@@ -127,8 +127,6 @@
+     int idx;
+ 
+     if (s == NULL) SCRAP_PANIC("FlairPutScrap: NULL argument (contract error)");
+-    /* m1ry: address zero is readable IVT memory in the flat kernel. */
+-    if (data == NULL && len != 0u) SCRAP_PANIC("FlairPutScrap: NULL data");
+ 
+     /* Rule 2: fail loud on over-size -- NEVER silently truncate. */
+     if (len > FLAIR_SCRAP_MAX_PAYLOAD)

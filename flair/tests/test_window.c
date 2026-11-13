@@ -1151,5 +1151,37 @@ int main(void)
         CHECK(!bad, "HideWindow damage == the hidden window's owned pixels + the successor's activation seed (DQ3)");
     }
 
+    /* The legacy shell host gate requires overlays to occlude windows.
+     * Grade the manager directly against rectangle membership on a pixel
+     * grid, without bringing desktop policy into the Toolbox suite. */
+    {
+        static mgr_store_t M;
+        static win_store_t W;
+        static rgn_store_t overlay, visible;
+        mgr_attach(&M, FRAME);
+        win_attach(&W);
+        store_attach(&overlay);
+        store_attach(&visible);
+        rgn_rect_t s = { 2, 2, GH - 2, GW - 2 };
+        rgn_rect_t c = { 5, 3, GH - 3, GW - 3 };
+        rgn_rect_t o = { 8, 10, 15, 30 };
+        NewWindow(&M.wm, &W.rec, s, c, documentKind, documentProc, 1);
+        win_store_t *idx[] = { &W };
+        owngrid_t owners;
+        build_owner_grid(&M.wm, idx, 1, &owners);
+        region_set_rect(&overlay.r, o);
+        M.wm.overlay_rgn = &overlay.r;
+        ComputeVisible(&M.wm, &W.rec, &visible.r);
+        uint8_t pixels[GW * GH];
+        rasterize_set(&visible.r, pixels);
+        int bad = 0;
+        for (int y = 0; y < GH; y++) for (int x = 0; x < GW; x++) {
+            int want = owners.own[y * GW + x] == 0 &&
+                       !(y >= o.top && y < o.bottom &&
+                         x >= o.left && x < o.right);
+            bad |= pixels[y * GW + x] != want;
+        }
+        CHECK(!bad, "visible pixels exclude the always-on-top overlay");
+    }
     return TEST_SUMMARY("test_window");
 }

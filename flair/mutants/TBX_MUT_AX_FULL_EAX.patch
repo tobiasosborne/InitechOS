@@ -1,0 +1,16 @@
+# Legacy TBX_MUT_AX_FULL_EAX
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1087,7 +1087,10 @@
+ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
+ {
+     volatile uint32_t *eax_slot = (volatile uint32_t *)(void *)(frame + 28);
+-    uint32_t ax = *eax_slot & 0xFFFFu;          /* the code is AX (DEC-AC3-2) */
++    /* MUTANT TBX_MUT_AX_FULL_EAX (Rule 6; test-flair-routing-mutant leg X2):
++     * the demux keys on all of EAX, so a tenant whose high word is not zero
++     * hits BADCODE. NEVER in a real build. */
++    uint32_t ax = *eax_slot;
+     uint32_t a[TBX_ARGC_MAX] = { 0 };
+     uint32_t argc = 0u;
+     int32_t rc;

@@ -1,0 +1,46 @@
+# Legacy CHROME_FID_MUT_SHADOW_CLIPPED
+# test: test_interact
+--- a/window.c
++++ b/window.c
+@@ -144,28 +144,8 @@
+         }
+         return a;
+     }
+-    if (document_variant(variant)) {
+-        region_t *b = wm->scratch_b;
+-        region_t *c = wm->scratch_c;
+-        rgn_rect_t shadow;
+-
+-        if (frame.right == INT16_MAX || frame.bottom == INT16_MAX) {
+-            WIN_PANIC("document shadow coordinate overflow");
+-        }
+-        shadow.top = (int16_t)(frame.top + FLAIR_CHROME_SHADOW_NOTCH);
+-        shadow.left = frame.right;
+-        shadow.bottom = (int16_t)(frame.bottom + FLAIR_CHROME_SHADOW_OFFSET);
+-        shadow.right = (int16_t)(frame.right + FLAIR_CHROME_SHADOW_OFFSET);
+-        region_set_rect(b, shadow);
+-        region_op(c, a, b, RGN_OP_UNION);
+-
+-        shadow.top = frame.bottom;
+-        shadow.left = (int16_t)(frame.left + FLAIR_CHROME_SHADOW_NOTCH);
+-        shadow.bottom = (int16_t)(frame.bottom + FLAIR_CHROME_SHADOW_OFFSET);
+-        shadow.right = (int16_t)(frame.right + FLAIR_CHROME_SHADOW_OFFSET);
+-        region_set_rect(b, shadow);
+-        region_op(a, c, b, RGN_OP_UNION);
+-    }
++    /* Rule-6 mutant (initech-9d0e): restore frame-only strucRgn clipping. */
++    (void)document_variant(variant);
+     return a;
+ }
+ 
+@@ -174,10 +154,6 @@
+     rgn_rect_t frame;
+     if (w == NULL || w->strucRgn == NULL) WIN_PANIC("WindowFrameRect: NULL");
+     frame = region_get_bbox(w->strucRgn);
+-    if (document_variant(w->windowDefProcVariant) && !region_is_empty(w->strucRgn)) {
+-        frame.right = (int16_t)(frame.right - FLAIR_CHROME_SHADOW_OFFSET);
+-        frame.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_SHADOW_OFFSET);
+-    }
+     return frame;
+ }
+ 

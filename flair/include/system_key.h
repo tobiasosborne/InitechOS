@@ -10,13 +10,11 @@ static inline int flair_text_tenant_hotkey(const EventRecord *ev)
 {
     return ev->what == (uint16_t)keyDown &&
            ((ev->message >> 8) & 0xFFu) == FLAIR_TEXT_TENANT_HOTKEY_VKEY
-#ifndef FLAIR_MUT_PLAIN_BSL_LAUNCH
            /* event_model.h Sec 2; event.c folds either physical side. */
            && (ev->modifiers & (FLAIR_EVT_MOD_CONTROL_KEY |
                                FLAIR_EVT_MOD_OPTION_KEY)) ==
                               (FLAIR_EVT_MOD_CONTROL_KEY |
                                FLAIR_EVT_MOD_OPTION_KEY)
-#endif
            ;
 }
 

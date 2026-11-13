@@ -82,12 +82,7 @@ static int clip_row_for_y(const region_t *clip, int y)
  * ------------------------------------------------------------------------- */
 static const region_t *effective_clip(const region_t *clip)
 {
-#if defined(BLITTER_MUTATE_IGNORE_CLIP)
-    (void)clip;
-    return 0;                                   /* MUTANT: clip ignored        */
-#else
     return clip;
-#endif
 }
 
 /* ---------------------------------------------------------------------------
@@ -127,9 +122,6 @@ static void fill_clipped_run(const bitmap_t *dst, int y,
     for (uint16_t k = 0; k + 1 < r->x_count; k += 2) {
         int sx0 = r->x[k];
         int sx1 = r->x[k + 1];
-#if defined(BLITTER_MUTATE_OFF_BY_ONE)
-        sx1 = sx1 + 1;                           /* MUTANT: right edge inclusive */
-#endif
         int lo = sx0 > col_lo ? sx0 : col_lo;   /* max(span.lo, interval.lo)   */
         int hi = sx1 < col_hi ? sx1 : col_hi;   /* min(span.hi, interval.hi)   */
         if (lo < 0) {
@@ -187,9 +179,6 @@ static void copy_clipped_run(const bitmap_t *dst, int dy,
             }
             uint32_t sx = (uint32_t)(dx - x0);
             uint32_t sp = src[srow * src_pitch_px + sx];
-#ifdef BLITTER_MUT_COPY32_ZERO
-            if (dst->bpp == 32) sp = 0;
-#endif
             uint32_t off = (uint32_t)dy * dst->pitch +
                            (uint32_t)dx * dst->bytes_per_pixel;
             surface_put_pixel(dst, off, sp);
@@ -205,9 +194,6 @@ static void copy_clipped_run(const bitmap_t *dst, int dy,
     for (uint16_t k = 0; k + 1 < r->x_count; k += 2) {
         int sx0 = r->x[k];
         int sx1 = r->x[k + 1];
-#if defined(BLITTER_MUTATE_OFF_BY_ONE)
-        sx1 = sx1 + 1;                           /* MUTANT: right edge inclusive */
-#endif
         int lo = sx0 > col_lo ? sx0 : col_lo;
         int hi = sx1 < col_hi ? sx1 : col_hi;
         if (lo < 0) {
@@ -219,9 +205,6 @@ static void copy_clipped_run(const bitmap_t *dst, int dy,
             }
             uint32_t sx = (uint32_t)(dx - x0);
             uint32_t sp = src[srow * src_pitch_px + sx];
-#ifdef BLITTER_MUT_COPY32_ZERO
-            if (dst->bpp == 32) sp = 0;
-#endif
             uint32_t off = (uint32_t)dy * dst->pitch +
                            (uint32_t)dx * dst->bytes_per_pixel;
             surface_put_pixel(dst, off, sp);

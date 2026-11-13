@@ -1,8 +1,7 @@
 # Toolbox import and verification
 
-This records import/flair before SDK/kernel integration. For current header
-ownership, target linking and platform binding, see ../README.md and
-../NOTES-FOR-KERNEL.md; the borrowing/compatibility views below are retired.
+Current Toolbox test provenance. Header ownership, target linking and platform
+binding are described in ../README.md and ../NOTES-FOR-KERNEL.md.
 
 Baseline: legacy-final, c5d18538049986bbbb27018c351405acf814ebbc.
 All listed legacy targets were run in /home/tobiasosborne/Projects/InitechOS-legacy
@@ -10,7 +9,7 @@ with `. tools/lane-env.sh`, followed by `make -j16 <gate>`. Counts are observed
 outputs, not the draft inventory's inferred counts. No assertion count was reduced.
 
 52 invocations from 51 source programs: 25 ORACLE-STRONG, 27 UNIT/REGRESSION.
-451,944 numbered checks in each build, plus separately counted storage/table
+451,944 baseline checks; 451,957 after restoring missing host coverage, plus separately counted storage/table
 comparisons below. The 438,499-check TextEdit property model dominates the total.
 
 | Program (test_ prefix) | Class | Legacy | Imported |
@@ -27,7 +26,7 @@ comparisons below. The 438,499-check TextEdit property model dominates the total
 | color_canon | ORACLE-STRONG | 39 | 39 |
 | control | ORACLE-STRONG | 244 | 244 |
 | control_record | UNIT/REGRESSION | 77 | 77 |
-| cursor | ORACLE-STRONG | 512 | 512 |
+| cursor | ORACLE-STRONG | 512 | 515 |
 | dialog | ORACLE-STRONG | 81 | 81 |
 | dialog_record | UNIT/REGRESSION | 87 | 87 |
 | dialog_tracking | UNIT/REGRESSION | 6 | 6 |
@@ -44,7 +43,7 @@ comparisons below. The 438,499-check TextEdit property model dominates the total
 | geneva12_pack | UNIT/REGRESSION | 1536 rows | 1536 rows |
 | interact | ORACLE-STRONG | 21 | 21 |
 | list | UNIT/REGRESSION | 57 | 57 |
-| menu | ORACLE-STRONG | 83 | 83 |
+| menu | ORACLE-STRONG | 83 | 92 |
 | menu_look | ORACLE-STRONG | 21 | 21 |
 | menu_record | UNIT/REGRESSION | 101 | 101 |
 | process | UNIT/REGRESSION | 58 | 58 |
@@ -64,7 +63,7 @@ comparisons below. The 438,499-check TextEdit property model dominates the total
 | text | ORACLE-STRONG | 30 | 30 |
 | text_clip | ORACLE-STRONG | 3002 | 3002 |
 | textedit | UNIT/REGRESSION | 68 | 68 |
-| window | ORACLE-STRONG | 68 | 68 |
+| window | ORACLE-STRONG | 68 | 69 |
 | winscroll | ORACLE-STRONG | 34 | 34 |
 | event_record | ORACLE-STRONG | 329 | 329 |
 
@@ -115,92 +114,24 @@ same color table does not validate the colors. Authored teal/bevel substitutions
 and canon mismatches are retained as stated authored policy, not historical color
 fidelity. No expected value is newly generated from an artifact framebuffer.
 
-## Moves and excluded tests
+## Restored host coverage and remaining ownership
 
-All original source, public contracts, assets, render helpers and test files were
-claimed with git mv, in a move-only commit before the include-path changes.
-Public headers are in include/ and include/assets/. Manager source remains at
-flair/; internal gate adapters stay private. region/ is a separate dependency.
-Source assertions are unchanged except the TextEdit probe's explicit memcpy bound
-(fixes an optimized-host compiler diagnostic, with the same seeded cases), and
-the gate suite's platform API adaptation. Routing retains all 138 checks.
-The file suite retains all 611 checks, including real DOS caller PSP/CWD restoration,
-SFT exhaustion, device precedence, cleanup and independent saved bytes.
+The legacy host gates for Apple-slot hit testing, clock formatting/refresh,
+busy-cursor selection and overlay occlusion were not represented by their
+manager suites. Their independent assertions now run in test_menu, test_cursor
+and test_window, retaining all original checks and adding thirteen. Chicago's
+advance patch changes both the header and its generator because generated
+headers precede checked-in asset headers; the generator no longer emits hooks.
+The default-ring patch selects test_dialog; the wrong-era patch selects
+test_chrome_fidelity, matching their legacy host gates.
 
-Desktop tests parked, unbuilt, in desktop/tests/: all test_finder_*, test_drag,
-test_menu_handlers, test_apple_menu, test_desk_icons, test_film_scene,
-test_egg_jtc, test_power_notice, test_shell and test_menubar_clock.
-The icon ART suite needs the desktop finder_icon renderer; it is parked despite
-its strong reference pixels. test_finder_icon_oracles is META (checker-state
-routing), not a product fidelity test. The COLD halves are not built or rejoined.
+MUTATION-RESULTS.tsv is the complete conversion disposition and recipe index.
+The sixteen pending emulator checks remain with the factory/desktop owners;
+SMOKES.md and SMOKES.tsv retain their broader legacy scenario inventory. Kernel
+owns the host-DOS binding debt and its mouse-producer/boot-renderer probes.
+Factory owns the retired checker/source-policy probes; desktop owns parked
+Finder/film/icon/clock integration tests. None is built from attic/ here.
 
-Left in attic (not built):
-
-- test_mech_policy.c: META/source scanner of retired os/ paths and a historical
-  mechanism/policy allowlist. test_flair_mechanism_colorblind.c is different:
-  an executable sentinel-resolver test; it IS imported.
-- test_palette_seafoam.c: retired UNIT/self-equality checking the superseded
-  palette/boot fill; no fidelity claim. test_color_canon replaces its value role.
-- test_fbagree.c: kernel console-to-surface integration, owned by kernel.
-- test_mouse_producer.c: real mouse IRQ producer into the event ring, owned by
-  kernel; the complete Event Manager suite is imported here.
-- test_ssim.c and check_win95isms.c: META/factory checker and source-policy tests.
-- test_kmain_cold.c, finder_overlay.mk, kernel_size*.mk, overlay.mk,
-  power_overlay.mk, kernel_cold_*.c, kernel_gc_*.c, ovl_reader.c and
-  kernel transfer/ABI scripts: retired SIZE/LAYOUT or META. Functional storage
-  tests were extracted from those make fragments; they were not discarded.
-- test_boot_screen.c: kernel boot renderer integration, not a Toolbox manager.
-- kernel/test_flair_heap_ram.c stays with kernel: RAM profile/budget integration.
-- region and region-gdi: already owned and tested by region/ (not double-counted).
-- Shared hardening, serial/capture and emulator checkers and trace fragments:
-  remain in attic, listed in SMOKES.md and its complete TSV index.
-
-LEGACY-HOST-GATES.tsv names every host-attributed gate in the draft manifest,
-including mutants and retired factory gates, with disposition. Its rule names
-were checked against the actual legacy Makefile/make fragments. Program rows
-above, not alias/mutant gate names, are the check-count denominator.
-
-## Build and boundary decisions
-
-No mk/*.mk edits. config.mk supplies plain target flags. Target: 19 C modules,
-19 ELF32 i386 objects, deterministic libflair.a; region code is linked separately.
-The host fragment supplies compilation and status/summary. Local extensions:
-per-program scratch/capture wrapper, corpus preflight, header generation,
-whitelisted borrowed header views and one real-DOS host integration view.
-For default all, TESTS is empty to suppress host-test.mk's all prerequisites;
-make test still runs the entire suite. THOROUGH=1 does not reduce or replace any
-checks: the full legacy sweeps already fit comfortably in the default run.
-
-Dropped legacy size tuning: -Oz, -flto, per-file -Os overrides,
--ffunction-sections, -fdata-sections, -fomit-frame-pointer, -fno-inline,
--fno-jump-tables, -mregparm=3, -mrtd, -freg-struct-return,
--mpreferred-stack-boundary=2, -mincoming-stack-boundary=2, -mtune=generic,
--malign-data=abi, and all legacy --param/per-optimization-pass -fno-* lists.
-Only TARGET_CFLAGS from config.mk are used; no LTO link or overlay packing.
-There were ZERO COLD section annotations or kernel overlay imports/stubs in the
-Toolbox modules themselves. They lived in kernel/ and the now-parked desktop.
-Removed the asset decoder's size-driven noinline attribute. Retained packed
-storage and its tested decoders; window always-on-top overlay is GUI geometry,
-not executable overlay machinery. The explicit cdecl INT 81h annotation remains
-because it describes the trap frame's calling convention, not size tuning.
-
-The target includes only Toolbox, region public, SDK and the five named borrowed
-SDK contracts. The host-only DOS adapter has a deliberately visible kernel debt:
-it includes int21.h/sft.h and builds the existing kernel code against four
-borrowed kernel contracts. See README and NOTES-FOR-KERNEL.md. No kernel source,
-SDK source or app source is edited. The generated DOS view only rewrites two
-obsolete ../../spec includes; it does not replace DOS behavior with a fake.
-
-Import exposed the earlier spreadsheet's hardcoded attic/spec/grafport.h path.
-The top-level loops pass ATTIC_SPEC pointing at the Toolbox's compatibility view;
-that view provides the moved public GrafPort contract and the five borrowed SDK
-contracts. No app is edited. Remove this bridge with the SDK event-header import.
-
-## Acceptance evidence
-
-See ACCEPTANCE.txt for measured clean build times, full tier-0 results, the three
-red controls, missing-corpus failure, target members and include audit. All
-negative controls use separate output directories; no wrong product source or
-mutated archive is committed. make smoke deliberately fails with SMOKES.md:
-this checkout has no booted product image to drive yet. This is an import, not
-an emulator certification or a claim of complete reference fidelity.
+The shared import audit still scans across the nested component boundaries.
+README.md states the exact scoping change required from its owner. No imported
+status is claimed until that audit can grade the Toolbox's product sources.

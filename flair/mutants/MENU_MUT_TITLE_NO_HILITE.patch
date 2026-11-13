@@ -1,0 +1,12 @@
+# Legacy MENU_MUT_TITLE_NO_HILITE
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -607,6 +607,7 @@
+ 
+     draw_menu_bar_corners(port, clip);
+ 
++    hilited_menu = -1;
+     /* The pulled Apple slot (menu.h Sec 3a): the accent block first, the
+      * glyph over it in white -- the same inversion a pulled title gets. */
+     int apple_pulled = (hilited_menu == FLAIR_MENU_APPLE_MI &&

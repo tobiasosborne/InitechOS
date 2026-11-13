@@ -1,0 +1,13 @@
+# Legacy WINDOW_MUTATE_ZONE_OFF
+# test: test_interact
+--- a/window.c
++++ b/window.c
+@@ -1034,7 +1034,7 @@
+         int16_t ri = (int16_t)(s.right - 1);
+         int16_t bi = (int16_t)(s.bottom - 1);
+         int16_t by = (int16_t)(s.top + FLAIR_CHROME_WIDGET_TOP_OFF);
+-        int16_t zone_shift = 0;
++        int16_t zone_shift = 3;
+ 
+         if (p->windowDefProcVariant == rDocProc) {
+             /* the rounded window's one widget: its 10x10 close box (rdoc.h) */

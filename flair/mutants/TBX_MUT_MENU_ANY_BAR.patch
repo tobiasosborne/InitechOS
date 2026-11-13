@@ -1,0 +1,16 @@
+# Legacy TBX_MUT_MENU_ANY_BAR
+# test: test_tbx_menu
+--- a/tbxmenu.h
++++ b/tbxmenu.h
+@@ -74,7 +74,10 @@
+                                  EventRecord *out)
+ {
+     if (owner == (const MenuBar *)0 || out == (EventRecord *)0) return 0;
+-    if (tracked != owner) return 0;
++    /* MUTANT TBX_MUT_MENU_ANY_BAR (Rule 6): the identity guard is gone, so
++     * a choice in the Finder's (or any) bar reaches the tenant. NEVER in a
++     * real build. */
++    (void)tracked;
+     if (MenuResultID(sel) == 0 || MenuResultItem(sel) == 0u) return 0;
+     out->what      = (uint16_t)TBX_EVT_MENU;
+     out->message   = sel;

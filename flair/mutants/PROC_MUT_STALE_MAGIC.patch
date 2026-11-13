@@ -1,0 +1,12 @@
+# Legacy PROC_MUT_STALE_MAGIC
+# test: test_process
+--- a/process.c
++++ b/process.c
+@@ -395,7 +395,6 @@
+     /* ... then the RECORDS block (HANDLE) ... */
+     flair_free(master, FLAIR_CLASS_HANDLE, app->records_block);
+     /* ... then the FlairApp handle (HANDLE) LAST. Do not touch `app` after this. */
+-    app->magic = 0; /* vibs: freed handles must fail BC-3 on repeat teardown. */
+     flair_free(master, FLAIR_CLASS_HANDLE, app);
+ }
+ 

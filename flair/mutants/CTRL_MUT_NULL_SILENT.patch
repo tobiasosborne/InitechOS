@@ -1,0 +1,13 @@
+# Legacy CTRL_MUT_NULL_SILENT
+# test: test_control
+--- a/control.c
++++ b/control.c
+@@ -65,7 +65,7 @@
+ #else
+ #define CTRL_PANIC() __builtin_trap()
+ #endif
+-#define CTRL_REQUIRE(p) do { if (!(p)) CTRL_PANIC(); } while (0)
++#define CTRL_REQUIRE(p) ((void)0)
+ 
+ /* ===========================================================================
+  * PART NAMESPACE  (C-8; the wctb-keyed roles control draw names -- NOT colors)

@@ -1,0 +1,17 @@
+# pending: legacy test-flair-app-launch-mutant: exit reclaims the tenant slot and arena
+# Legacy TBX_MUT_EXIT_LEAK
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1292,7 +1292,10 @@
+         tputs("TENANT-FILES reclaimed="); tputu(n);
+         tputs(" live="); tputu(tbxf_live(&g_slot.files)); tputs("\n");
+     }
+-    flair_free(g_host.master, FLAIR_CLASS_GENERAL, g_slot.block);
++    /* MUTANT TBX_MUT_EXIT_LEAK (Rule 6; test-flair-app-launch-mutant): the
++     * code block is never returned, so every launch/exit cycle bumps a fresh
++     * one and TENANT-HEAPAVAIL drifts DOWN (the O-3 avail-stable invariant goes
++     * RED). NEVER in a real build. */
+     tputs("TENANT-EXIT rc=");
+     tputi(rc);
+     tputs(" via=");

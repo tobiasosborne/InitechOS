@@ -144,7 +144,6 @@ static region_t *structure_scratch(WindowMgr *wm, rgn_rect_t frame,
         }
         return a;
     }
-#if !defined(CHROME_FID_MUT_SHADOW_CLIPPED)
     if (document_variant(variant)) {
         region_t *b = wm->scratch_b;
         region_t *c = wm->scratch_c;
@@ -167,10 +166,6 @@ static region_t *structure_scratch(WindowMgr *wm, rgn_rect_t frame,
         region_set_rect(b, shadow);
         region_op(a, c, b, RGN_OP_UNION);
     }
-#else
-    /* Rule-6 mutant (initech-9d0e): restore frame-only strucRgn clipping. */
-    (void)document_variant(variant);
-#endif
     return a;
 }
 
@@ -179,31 +174,17 @@ rgn_rect_t WindowFrameRect(const WindowPtr w)
     rgn_rect_t frame;
     if (w == NULL || w->strucRgn == NULL) WIN_PANIC("WindowFrameRect: NULL");
     frame = region_get_bbox(w->strucRgn);
-#if !defined(CHROME_FID_MUT_SHADOW_CLIPPED)
     if (document_variant(w->windowDefProcVariant) && !region_is_empty(w->strucRgn)) {
         frame.right = (int16_t)(frame.right - FLAIR_CHROME_SHADOW_OFFSET);
         frame.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_SHADOW_OFFSET);
     }
-#endif
     return frame;
 }
 
 rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
 {
     rgn_rect_t content;
-#if defined(CHROME_FID_MUT_CONTENT_TOP_STALE)
-    content.top = (int16_t)(frame.top + FLAIR_CHROME_FRAME +
-                            FLAIR_CHROME_TITLEBAR_H);
-#else
     content.top = (int16_t)(frame.top + FLAIR_CHROME_TITLEBAR_H);
-#endif
-#if defined(CHROME_FID_MUT_CONTENT_LEFT_THIN)
-    /* MUTANT (Rule 6; test-chrome-fidelity CAPTURE-BODY legs, bead
-     * initech-tdnl.51): the pre-tdnl.51 one-pixel left inset -- every owner's
-     * content paint erases the left raised bar and its inner black line.
-     * NEVER in a real build. */
-    content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME);
-#else
     /* The content starts just inside the left body rail's INNER black line,
      * exactly as the top starts just below the title's shared bottom line and
      * the right/bottom stop at the scroll bars' outer lines: outer line (1) +
@@ -217,14 +198,6 @@ rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
      * whites). */
     content.left = (int16_t)(frame.left + FLAIR_CHROME_FRAME +
                              FLAIR_CHROME_BODY_BAR + FLAIR_CHROME_FRAME);
-#endif
-#if defined(WINDOW_MUTATE_CONTENT_OVER_HSCROLL)
-    /* MUTANT (Rule 6; test-window CalcDoc leg + test-flair-scroll): the
-     * pre-tdnl.35 bottom edge, frame.bottom - 1 -- contRgn swallows the
-     * horizontal scroll bar, so content painting erases it and FindWindow
-     * reports it as content. NEVER in a real build. */
-    content.bottom = (int16_t)(frame.bottom - FLAIR_CHROME_FRAME);
-#else
     /* The content stops at the horizontal scroll bar's outer line, exactly as
      * the right edge stops at the vertical bar's (initech-tdnl.35): contRgn is
      * "the area inside the window frame (excluding the title bar and scroll
@@ -238,14 +211,9 @@ rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
                                FLAIR_CHROME_BODY_BAR -
                                FLAIR_CHROME_SCROLLBAR_W);
     if (content.bottom < content.top) content.bottom = content.top;
-#endif
-#if defined(CHROME_FID_MUT_CONTENT_OVER_SCROLL)
-    content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME);
-#else
     content.right = (int16_t)(frame.right - FLAIR_CHROME_FRAME -
                               FLAIR_CHROME_BODY_BAR -
                               FLAIR_CHROME_SCROLLBAR_W);
-#endif
     return content;
 }
 
@@ -277,7 +245,6 @@ rgn_rect_t CalcDocContentRect(rgn_rect_t frame)
 static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
 {
     region_set_empty(out);
-#ifndef WINDOW_MUTATE_ZORDER
     /* `out` is the accumulator; rgn_accumulate needs a scratch distinct from
      * `out` and from the operand (f->strucRgn). scratch_c is reserved for this;
      * if a caller passed scratch_c AS `out`, fall back to scratch_b. */
@@ -286,11 +253,7 @@ static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
         if (!f->visible) continue;
         rgn_accumulate(out, f->strucRgn, RGN_OP_UNION, sc);
     }
-#else
-    (void)wm; (void)w;   /* z-order ignored: union-of-fronts stays empty */
-#endif
 
-#ifndef WINDOW_MUTATE_IGNORE_OVERLAY
     /* ALIASING-CRITICAL (Rule 3): rgn_accumulate(out, overlay, UNION, sc2) does
      * `sc2 := out UNION overlay; out := sc2`, so sc2 MUST be distinct from BOTH
      * `out` and overlay_rgn -- the naive region_op(out, out, overlay) self-alias
@@ -302,7 +265,6 @@ static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
         region_t *sc2 = (out == wm->scratch_c) ? wm->scratch_b : wm->scratch_c;
         rgn_accumulate(out, wm->overlay_rgn, RGN_OP_UNION, sc2);
     }
-#endif
 }
 
 /* ===========================================================================
@@ -367,7 +329,6 @@ void WindowMgr_clip_update_to_visible(WindowMgr *wm, WindowPtr w)
     if (!list_contains(wm, w)) WIN_PANIC("clip_update_visible: not in list");
     if (w->updateRgn == NULL) WIN_PANIC("clip_update_visible: NULL updateRgn");
 
-#ifndef UPDATE_NO_VISCLIP
     region_t *fronts = wm->scratch_a;
     region_t *vis = wm->scratch_b;
     region_t *clip = wm->scratch_c;
@@ -387,12 +348,6 @@ void WindowMgr_clip_update_to_visible(WindowMgr *wm, WindowPtr w)
     region_op(fronts, w->updateRgn, vis, RGN_OP_DIFF);
     if (!region_is_empty(fronts))
         WIN_PANIC("clip_update_visible: delivery clip escaped visRgn");
-#else
-    /* Named Rule-6 mutant: resurrect the pre-fix delivery path. The directed
-     * three-window stale-seed oracle must go RED via a BACK-over-FRONT stomp. */
-    (void)wm;
-    (void)w;
-#endif
 }
 
 /* ===========================================================================
@@ -483,13 +438,9 @@ static void reaffirm_active(WindowMgr *wm)
         if (!seen_front && p->visible) { p->hilited = 1; seen_front = 1; }
         else p->hilited = 0;
         if (was_hilited && !p->hilited) {
-#ifndef WINDOW_MUTATE_NO_DEACT_INVAL
             WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
-#endif
         } else if (!was_hilited && p->hilited) {
-#ifndef WINDOW_MUTATE_NO_ACTIVATE_INVAL
             WindowMgr_invalidate(wm, p, region_get_bbox(p->strucRgn));
-#endif
         }
     }
 }
@@ -529,7 +480,6 @@ static void distribute_exposure(WindowMgr *wm, const WindowPtr departing,
         if (p == departing) continue;
         if (!p->visible) continue;
 
-#ifndef WINDOW_MUTATE_OVERPAINT
         if (region_is_empty(exposed)) break;
         /* claim := exposed SECT p->strucRgn  (scratch_c). */
         region_t *claim = wm->scratch_c;
@@ -542,14 +492,6 @@ static void distribute_exposure(WindowMgr *wm, const WindowPtr departing,
          * out (scratch_a) is distinct from exposed and the operand. */
         region_op(wm->scratch_a, exposed, p->strucRgn, RGN_OP_DIFF);
         rgn_copy(exposed, wm->scratch_a);
-#else
-        /* OVERPAINT mutant: mark p's WHOLE structure dirty, not just the diff. */
-        region_t *frame = wm->scratch_c;
-        region_set_rect(frame, wm->desktop_frame);
-        region_t *whole = wm->scratch_b;
-        region_op(whole, p->strucRgn, frame, RGN_OP_INTERSECT);   /* struc ^ frame */
-        rgn_accumulate(p->updateRgn, whole, RGN_OP_UNION, wm->scratch_a);
-#endif
     }
 
     /* Whatever exposure remains damages the bare desktop. (Under the mutant,
@@ -870,14 +812,9 @@ static void set_document_frame(WindowMgr *wm, WindowPtr w,
     rgn_copy(w->strucRgn,
              structure_scratch(wm, next, w->windowDefProcVariant));
     if (collapsed) {
-#ifndef WINDOW_MUTATE_COLLAPSE_LEAK
         region_set_empty(w->contRgn);
-#else
-        /* Rule-6 mutant: body ownership leaks through the shade state. */
-#endif
     } else {
         region_set_rect(w->contRgn, CalcDocContentRect(next));
-#ifndef WINDOW_MUT_SCROLL_STALE_RESIZE
         /* tdnl.82: chrome paints BEFORE the client's updateEvt. Settle the
          * cached document extents now, not during Finder content painting.
          * Grow, zoom and unshade all take this transaction. The full new
@@ -893,7 +830,6 @@ static void set_document_frame(WindowMgr *wm, WindowPtr w,
                 ws->axis[a].drag_pos = -1;
             }
         }
-#endif
     }
 
     distribute_exposure(wm, w, exposed);
@@ -936,12 +872,8 @@ void ConstrainWindowSize(const WindowMgr *wm, const WindowPtr w,
     if (max_h < min_h) max_h = min_h;
     want_w = *width;
     want_h = *height;
-#ifndef WINDOW_MUTATE_GROW_NO_MIN
     if (want_w < min_w) want_w = min_w;
     if (want_h < min_h) want_h = min_h;
-#else
-    /* Rule-6 mutant: restore the unusable sub-chrome grow result. */
-#endif
     if (want_w > max_w) want_w = max_w;
     if (want_h > max_h) want_h = max_h;
     *width = (int16_t)want_w;
@@ -951,11 +883,6 @@ void ConstrainWindowSize(const WindowMgr *wm, const WindowPtr w,
 void SizeWindow(WindowMgr *wm, WindowPtr w, int16_t width, int16_t height)
 {
     rgn_rect_t frame;
-#if defined(WINDOW_MUT_GROW_NO_COMMIT)
-    /* h6y1 Rule 6: the tracked proposal/serial marker alone is not a resize.
-     * The emu pixel gate must see SizeWindow's committed frame and content. */
-    return;
-#endif
     if (wm == NULL || w == NULL) WIN_PANIC("SizeWindow: NULL");
     if (w->collapsed) WIN_PANIC("SizeWindow: collapsed window");
     ConstrainWindowSize(wm, w, &width, &height);
@@ -993,18 +920,7 @@ int ZoomWindow(WindowMgr *wm, WindowPtr w)
         w->zoomed = 1;
     } else {
         if (!w->userStateValid) WIN_PANIC("ZoomWindow: missing userState");
-#ifndef WINDOW_MUTATE_ZOOM_NO_RESTORE
         target = w->userState;
-#else
-        target.top = (int16_t)(wm->desktop_frame.top +
-                               FLAIR_CHROME_ZOOM_MARGIN_TOP);
-        target.left = (int16_t)(wm->desktop_frame.left +
-                                FLAIR_CHROME_ZOOM_MARGIN_LEFT);
-        target.bottom = (int16_t)(wm->desktop_frame.bottom -
-                                  FLAIR_CHROME_ZOOM_MARGIN_BOTTOM);
-        target.right = (int16_t)(wm->desktop_frame.right -
-                                 FLAIR_CHROME_ZOOM_MARGIN_RIGHT);
-#endif
         w->zoomed = 0;
     }
     set_document_frame(wm, w, target, 0);
@@ -1101,13 +1017,11 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
 
         if (whichWindow) *whichWindow = p;
 
-#if !defined(WINDOW_MUTATE_SCROLL_DRAG)
         /* The standard scroll bars are CONTROLS IN THE CONTENT (window.h Sec
          * 4b; control-manager.md): inContent, then FindControl. Checked first
          * because neither gutter lies in contRgn. */
         if (WindowScrollBand(p, pt) >= 0)
             return inContent;
-#endif
 
         /* content first (most common). */
         if (region_contains_point(p->contRgn, h, v))
@@ -1120,11 +1034,7 @@ flair_part_code_t FindWindow(const WindowMgr *wm, flair_point_t pt,
         int16_t ri = (int16_t)(s.right - 1);
         int16_t bi = (int16_t)(s.bottom - 1);
         int16_t by = (int16_t)(s.top + FLAIR_CHROME_WIDGET_TOP_OFF);
-#if defined(WINDOW_MUTATE_ZONE_OFF)
-        int16_t zone_shift = 3;
-#else
         int16_t zone_shift = 0;
-#endif
 
         if (p->windowDefProcVariant == rDocProc) {
             /* the rounded window's one widget: its 10x10 close box (rdoc.h) */

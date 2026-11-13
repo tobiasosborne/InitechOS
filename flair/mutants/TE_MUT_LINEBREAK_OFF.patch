@@ -1,0 +1,15 @@
+# Legacy TE_MUT_LINEBREAK_OFF
+# test: test_te_surface
+--- a/textedit.c
++++ b/textedit.c
+@@ -171,7 +171,9 @@
+         char ch = te_view_at(v, i);
+ 
+         if (ch == TE_CH_CR) {
+-            TE_EMIT(i + 1);   /* next line starts past the CR */
++            /* MUTANT (Rule 6): record the CR offset instead of the offset PAST
++             * it -- an off-by-one lineStarts. Step 9 (CR) RED. */
++            TE_EMIT(i);
+             s = i + 1;
+             last_break = -1;
+             w = 0;

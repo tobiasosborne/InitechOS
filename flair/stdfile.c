@@ -353,16 +353,6 @@ int FlairSF_navigate(FlairStandardFile *sf, int16_t index)
         return rc;
     }
 
-#ifdef SF_MUT_NO_NAVIGATE
-    /*
-     * MUTANT SF_MUT_NO_NAVIGATE: do NOT re-enumerate. Return OK while leaving
-     * the PARENT directory's entries/list/path in place. Oracle step 3 expects
-     * count==2 / row 0 == "Q1.WKS" after navigating into "DATA"; the parent
-     * still has count==3 / row 0 == "REPORT.DBF" -> RED.
-     * Ref: CLAUDE.md Rule 6 (mutation-proven golden).
-     */
-    return FLAIR_SF_OK;
-#else
     /* Re-enumerate the child, then COMMIT (path + list) only on success so a
      * provider error leaves the parent view intact (Rule 2). */
     rc = sf_enumerate(sf, child);
@@ -371,7 +361,6 @@ int FlairSF_navigate(FlairStandardFile *sf, int16_t index)
     }
     sf_set_path(sf, child, child_len);
     return sf_rebuild_list(sf);
-#endif
 }
 
 int FlairSF_up(FlairStandardFile *sf)
@@ -406,15 +395,6 @@ void FlairSF_doOpen(FlairStandardFile *sf, FlairSFReply *reply)
 
     sel = sf_current_sel(sf);        /* canonical: read the List Manager state   */
 
-#ifdef SF_MUT_RETURN_WRONG_CELL
-    /*
-     * MUTANT SF_MUT_RETURN_WRONG_CELL: ignore the real selection and use the
-     * FIXED index 0. Oracle step 5 selects row 2 ("TPS.TXT") and expects doOpen
-     * to return "TPS.TXT"; the mutant returns entries[0] = "REPORT.DBF" -> RED.
-     * Ref: CLAUDE.md Rule 6 (mutation-proven golden).
-     */
-    sel = 0;
-#endif
 
     if (sel < 0 || sel >= sf->count) {
         /* Nothing selected: Open confirms nothing (IM-I: Open is disabled). */
@@ -430,9 +410,6 @@ void FlairSF_doOpen(FlairStandardFile *sf, FlairSFReply *reply)
         sf_name_copy(reply->fName, sf->entries[sel].name);
         reply->is_dir = 1;
         reply->good   = 0;           /* not-yet-confirmed (we descended)         */
-#ifdef SF_MUT_SWALLOW_NAV_ERROR
-        (void)FlairSF_navigate(sf, sel);
-#else
         /* q9cr: doOpen is a void SFReply API. A failed descent therefore
          * returns the same explicit no-selection reply as Cancel (Rule 2),
          * preserving the transactional list/path in FlairSF_navigate. */
@@ -440,7 +417,6 @@ void FlairSF_doOpen(FlairStandardFile *sf, FlairSFReply *reply)
             reply->is_dir = 0;
             reply->fName[0] = '\0';
         }
-#endif
         return;
     }
 
@@ -457,16 +433,7 @@ void FlairSF_doCancel(FlairStandardFile *sf, FlairSFReply *reply)
         return;                      /* defensive NULL guard                     */
     }
 
-#ifdef SF_MUT_CANCEL_GOOD
-    /*
-     * MUTANT SF_MUT_CANCEL_GOOD: set good = 1 on Cancel. Oracle step 6 expects
-     * good == 0 after Cancel -> RED.
-     * Ref: CLAUDE.md Rule 6 (mutation-proven golden).
-     */
-    reply->good = 1;
-#else
     reply->good = 0;                 /* SFReply.good = FALSE on Cancel (IM-I)    */
-#endif
     reply->fName[0] = '\0';
     reply->is_dir = 0;
 }

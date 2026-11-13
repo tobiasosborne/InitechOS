@@ -1,0 +1,24 @@
+# Legacy CHICAGO_MUT_ONE_ADVANCE
+# test: test_chicago_metrics
+--- a/include/assets/chicago12.h
++++ b/include/assets/chicago12.h
+@@ -189,6 +189,8 @@
+ static inline int chicago12_advance(int c)
+ {
+     int aw = (int)chicago12_aw[chicago12_index(c)];
++    if (c == (105))
++        aw += 1;
+     return aw;
+ }
+ 
+--- a/tools/font_art2h.c
++++ b/tools/font_art2h.c
+@@ -219,6 +219,8 @@
+            "static inline int chicago12_advance(int c)\n"
+            "{\n"
+            "    int aw = (int)chicago12_aw[chicago12_index(c)];\n"
++           "    if (c == (105))\n"
++           "        aw += 1;\n"
+            "    return aw;\n"
+            "}\n\n"
+            "#endif /* INITECH_CHICAGO12_H */\n");

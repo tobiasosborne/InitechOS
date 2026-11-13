@@ -219,10 +219,6 @@ int main(int argc, char **argv)
            "static inline int chicago12_advance(int c)\n"
            "{\n"
            "    int aw = (int)chicago12_aw[chicago12_index(c)];\n"
-           "#if defined(CHICAGO_MUT_ONE_ADVANCE)\n"
-           "    if (c == (CHICAGO_MUT_ONE_ADVANCE))\n"
-           "        aw += 1;\n"
-           "#endif\n"
            "    return aw;\n"
            "}\n\n"
            "#endif /* INITECH_CHICAGO12_H */\n");

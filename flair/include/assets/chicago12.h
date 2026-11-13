@@ -189,10 +189,6 @@ static inline int chicago12_index(int c)
 static inline int chicago12_advance(int c)
 {
     int aw = (int)chicago12_aw[chicago12_index(c)];
-#if defined(CHICAGO_MUT_ONE_ADVANCE)
-    if (c == (CHICAGO_MUT_ONE_ADVANCE))
-        aw += 1;
-#endif
     return aw;
 }
 

@@ -1,0 +1,21 @@
+# Legacy TEXT_MUT_CLIP_IGNORE
+# test: test_text_clip
+--- a/include/text.h
++++ b/include/text.h
+@@ -551,15 +551,7 @@
+ {
+     if (px < 0 || py < 0 || px >= (int)bm->width || py >= (int)bm->height)
+         return 0;
+-    if (k != (const text_clip_t *)0) {
+-        if (k->right > k->left &&
+-            (px < k->left || px >= k->right || py < k->top || py >= k->bottom))
+-            return 0;
+-        if (k->rgn_a && !region_contains_point(k->rgn_a, (int16_t)px, (int16_t)py))
+-            return 0;
+-        if (k->rgn_b && !region_contains_point(k->rgn_b, (int16_t)px, (int16_t)py))
+-            return 0;
+-    }
++    (void)k;
+     return 1;
+ }
+ 

@@ -1,0 +1,22 @@
+# Legacy SB_MUT_SEP_GRAY
+# test: test_chrome_fidelity
+--- a/control.c
++++ b/control.c
+@@ -810,6 +810,7 @@
+     int leading_sep = ty - 1;
+     int trailing_sep = ty + thumb_h;
+     int sep_part = FLAIR_PART_FRAME;
++    sep_part = FLAIR_PART_PLAT_INACTIVE_FRAME;
+ 
+     draw_ctrl_scroll_well(port, x0 + 1, track_top,
+                           x1 - 1, leading_sep);
+--- a/chrome.c
++++ b/chrome.c
+@@ -608,6 +608,7 @@
+             return;
+         }
+         int sep_part = FLAIR_PART_FRAME;
++        sep_part = FLAIR_PART_PLAT_INACTIVE_FRAME;
+         int t = st->thumb;
+         sb_well(port, skin, axis, s0 + 1, t - 1, c0 + 1, c1);
+         sb_well(port, skin, axis, t + FLAIR_CHROME_SCROLL_THUMB_MIN + 1, s1,

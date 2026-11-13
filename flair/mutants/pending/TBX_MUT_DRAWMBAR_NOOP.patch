@@ -1,0 +1,16 @@
+# pending: legacy test-flair-tenant-menu-mutant: presented tenant menu-bar pixels
+# Legacy TBX_MUT_DRAWMBAR_NOOP
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -798,7 +798,9 @@
+ static int32_t v_drawmenubar(void)
+ {
+     if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
+-    g_slot.mbar_redraw = 1u;
++    /* MUTANT TBX_MUT_DRAWMBAR_NOOP (Rule 6; test-flair-tenant-menu-mutant):
++     * the call reports success but band 2 is never redrawn, so it keeps the
++     * bar the tenant just replaced. NEVER in a real build. */
+     return TBX_OK;
+ }
+ 

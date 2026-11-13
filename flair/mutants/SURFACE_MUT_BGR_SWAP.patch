@@ -1,0 +1,12 @@
+# Legacy SURFACE_MUT_BGR_SWAP
+# test: test_blitter
+--- a/include/surface.h
++++ b/include/surface.h
+@@ -85,6 +85,7 @@
+         *(volatile uint32_t *)(bm->base + off) = px;
+     } else {
+         /* 24bpp: B,G,R at increasing addresses (PRD Sec 5 Risk 2). */
++        px = ((px & 0xffu) << 16) | (px & 0xff00u) | ((px >> 16) & 0xffu);
+         bm->base[off + 0u] = (uint8_t)(px & 0xFFu);          /* B */
+         bm->base[off + 1u] = (uint8_t)((px >> 8) & 0xFFu);   /* G */
+         bm->base[off + 2u] = (uint8_t)((px >> 16) & 0xFFu);  /* R */

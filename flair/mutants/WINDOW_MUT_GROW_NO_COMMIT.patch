@@ -1,0 +1,14 @@
+# Legacy WINDOW_MUT_GROW_NO_COMMIT
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -883,6 +883,9 @@
+ void SizeWindow(WindowMgr *wm, WindowPtr w, int16_t width, int16_t height)
+ {
+     rgn_rect_t frame;
++    /* h6y1 Rule 6: the tracked proposal/serial marker alone is not a resize.
++     * The emu pixel gate must see SizeWindow's committed frame and content. */
++    return;
+     if (wm == NULL || w == NULL) WIN_PANIC("SizeWindow: NULL");
+     if (w->collapsed) WIN_PANIC("SizeWindow: collapsed window");
+     ConstrainWindowSize(wm, w, &width, &height);

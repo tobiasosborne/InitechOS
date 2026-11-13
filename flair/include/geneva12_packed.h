@@ -20,9 +20,6 @@ static inline uint16_t geneva12_packed_row(unsigned g,unsigned r)
     uint16_t v=0;
     if(r>=first && r-first<geneva_pack_count[g])
         v=geneva_pack_values[geneva_pack_rows[geneva_pack_offsets[g]+r-first]];
-#ifdef GENEVA12_PACK_MUT_ROW
-    if(g==(unsigned)('S'-0x20) && r==2u) v^=0x8000u;
-#endif
     return v;
 }
 #endif

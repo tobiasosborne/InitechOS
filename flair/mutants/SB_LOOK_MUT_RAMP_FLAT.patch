@@ -1,0 +1,23 @@
+# Legacy SB_LOOK_MUT_RAMP_FLAT
+# test: test_scrollbar_look
+--- a/control.c
++++ b/control.c
+@@ -748,6 +748,8 @@
+         CRX(1, -1, 0, 0, CR_Y0B | CR_X1R | CR_Y1B, CTRL_SB_THUMB_SHADOW)
+     };
+     ctrl_rects(port, x0, ty, x1, ty + thumb_h, ramp, (int)(sizeof ramp / sizeof ramp[0]));
++    crect_ctrl(port, x0, ty, x1, ty + thumb_h, CTRL_SB_THUMB_FACE);
++    cfill_ctrl(port, x0, ty, 1, FLAIR_PART_PLAT_TROUGH);
+ 
+     /* Four dark seven-pixel grip lines, with six-pixel highlight companions
+      * one axis pixel earlier and an F3 cap at cross offset 3. */
+--- a/chrome.c
++++ b/chrome.c
+@@ -536,6 +536,7 @@
+             if (a == 0 && c == 0) part = FLAIR_PART_PLAT_TROUGH;
+             if (a == len - 1 && c == 0) part = FLAIR_PART_SB_THUMB_FACE;
+             if (a == 0 && c == wid - 1) part = FLAIR_PART_SB_THUMB_FACE;
++            if (part != FLAIR_PART_PLAT_TROUGH) part = FLAIR_PART_SB_THUMB_FACE;
+             sb_plot(port, skin, axis, a0 + a, c0 + c, part);
+         }
+     }

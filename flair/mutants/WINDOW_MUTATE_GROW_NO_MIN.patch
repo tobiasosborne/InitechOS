@@ -1,0 +1,14 @@
+# Legacy WINDOW_MUTATE_GROW_NO_MIN
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -872,8 +872,7 @@
+     if (max_h < min_h) max_h = min_h;
+     want_w = *width;
+     want_h = *height;
+-    if (want_w < min_w) want_w = min_w;
+-    if (want_h < min_h) want_h = min_h;
++    /* Rule-6 mutant: restore the unusable sub-chrome grow result. */
+     if (want_w > max_w) want_w = max_w;
+     if (want_h > max_h) want_h = max_h;
+     *width = (int16_t)want_w;

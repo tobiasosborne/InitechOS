@@ -399,7 +399,6 @@ void DisposeDialog(DialogPtr dp, WindowMgr *wm)
  * reads the locked table. test-asset-lz proves decode == locked (Rule 8).
  * The DIALOG_MUT_NO_ICON mutant stubs the only caller, so the helper is
  * compiled out with it (-Werror=unused-function). */
-#if !(defined(DIALOG_MUT_NO_ICON) && DIALOG_MUT_NO_ICON)
 #if !defined(__STDC_HOSTED__) || !__STDC_HOSTED__
 #define ASSET_LZ_ALERT
 #include "asset_lz.h"
@@ -418,13 +417,9 @@ static const FLAIRDeskIcon *dlg_caution_strike(void)
 #else
 static const FLAIRDeskIcon *dlg_caution_strike(void) { return &FLAIR_ALERT_ICON_CAUTION; }
 #endif
-#endif /* !DIALOG_MUT_NO_ICON */
 
 static void dlg_draw_icon(GrafPort *port, int x0, int y0, unsigned id)
 {
-#if defined(DIALOG_MUT_NO_ICON) && DIALOG_MUT_NO_ICON
-    (void)port; (void)x0; (void)y0; (void)id;
-#else
     const FLAIRDeskIcon *icon = (const FLAIRDeskIcon *)0;
     if (id == DIALOG_ICON_ID_CAUTION) icon = dlg_caution_strike();
     if (icon == (const FLAIRDeskIcon *)0) return;
@@ -435,7 +430,6 @@ static void dlg_draw_icon(GrafPort *port, int x0, int y0, unsigned id)
             cfill_dlg(port, x0 + c, y0 + r, 1, (int)FLAIR_PART_ICON_CLUT + k - 1);
         }
     }
-#endif
 }
 
 /* L023: Platinum dBox frame, measured from s8_alert_modal.png
@@ -446,13 +440,7 @@ static void dlg_draw_icon(GrafPort *port, int x0, int y0, unsigned id)
  * The structure->content layout inset remains the locked heritage 7;
  * its old solid-black paint was not the Platinum appearance contract.
  */
-#if defined(DIALOG_MUT_ALERT_SLAB) && DIALOG_MUT_ALERT_SLAB
-#  define DLG_BORDER_W 7  /* Rule 6: restore the pre-L023 black slab. */
-#elif defined(DIALOG_MUTATE_BORDER) && DIALOG_MUTATE_BORDER
-#  define DLG_BORDER_W 8  /* Retained named width mutant. */
-#else
 #  define DLG_BORDER_W 3  /* Capture: outline plus two bevel rows. */
-#endif
 
 static void draw_alert_frame(GrafPort *port, int left, int top,
                               int right, int bottom)
@@ -463,9 +451,6 @@ static void draw_alert_frame(GrafPort *port, int left, int top,
     for (int i = 0; i < DLG_BORDER_W; i++) {
         int hi = i < 3 ? light[i] : DLG_BLACK;
         int lo = i < 3 ? dark[i] : DLG_BLACK;
-#if defined(DIALOG_MUT_ALERT_SLAB) && DIALOG_MUT_ALERT_SLAB
-        hi = lo = DLG_BLACK;
-#endif
         int l = left + i, t = top + i, r = right - i, b = bottom - i;
         cfill_dlg(port, l, t, r - l, hi);
         for (int y = t + 1; y < b; y++) {
@@ -474,12 +459,10 @@ static void draw_alert_frame(GrafPort *port, int left, int top,
         }
         cfill_dlg(port, l + 1, b - 1, r - l - 1, lo);
     }
-#if !(defined(DIALOG_MUT_ALERT_SLAB) && DIALOG_MUT_ALERT_SLAB)
     /* Capture corner joins: (504,89) and (135,188) are FFB3B3,
      * belonging to the outer light bevel rather than the inner white. */
     cfill_dlg(port, right - 3, top + 2, 1, DLG_ALERT_LIGHT);
     cfill_dlg(port, left + 2, bottom - 3, 1, DLG_ALERT_LIGHT);
-#endif
 }
 
 void DrawDialog(DialogPtr dp)
@@ -602,13 +585,6 @@ flair_modal_disposition_t DialogModalDispatch(
         !dp->window.visible)
         return FLAIR_MODAL_PASSTHROUGH;
 
-#if defined(MODAL_PASSTHROUGH)
-    /* Named Rule-6 mutant: restore the pre-fix pump behavior. An outside click
-     * reaches FindWindow and raises/drags the document behind the modal. */
-    (void)blockProc;
-    (void)blockUser;
-    return FLAIR_MODAL_PASSTHROUGH;
-#else
     if (dp->trackingItem && (ev->what == mouseUp || ev->what == nullEvent))
         return FLAIR_MODAL_CAPTURE;
     if (ev->what == (uint16_t)mouseDown ||
@@ -634,7 +610,6 @@ flair_modal_disposition_t DialogModalDispatch(
     /* keyDown/autoKey and every other cooked event stay on the modal side of
      * the seam. In particular, no key can reach the active document behind it. */
     return FLAIR_MODAL_CAPTURE;
-#endif
 }
 
 static rgn_rect_t dialog_offset_rect(rgn_rect_t r, int16_t dh, int16_t dv)
@@ -813,7 +788,6 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
      * final mouseUp. Keep the original item through excursions/reentry;
      * TrackControl grades the two endpoint samples on release. Ref: IM
      * Control Manager, system7-decomp/specs/toolbox/control-manager.md. */
-#ifndef DIALOG_MUT_ON_PRESS
     if (dp->trackingItem) {
         uint16_t idx = dp->trackingItem;
         DialogItem *item = &dp->items[idx - 1u];
@@ -840,7 +814,6 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
         }
         return 0;
     }
-#endif
     if (filterProc) {
         uint16_t fitem = 0;
         if (filterProc(dp, ev, &fitem)) {
@@ -862,33 +835,17 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
          * MUTANT DIALOG_MUTATE_LOCAL_HIT restores the subtraction:
          * test-dialog's click legs go RED. */
         flair_point_t pt = ev->where;
-#if defined(DIALOG_MUTATE_LOCAL_HIT) && DIALOG_MUTATE_LOCAL_HIT
-        pt.h -= dp->window.port.portRect.left;
-        pt.v -= dp->window.port.portRect.top;
-#endif
         uint16_t idx = FindDialogItem(dp, pt);
         if (idx == 0) break;
         DialogItem *item = &dp->items[idx - 1];
-#if defined(DIALOG_MUTATE_HIT_STATIC) && DIALOG_MUTATE_HIT_STATIC
-        if (item->enabled || item->type == statText) {
-#else
         if (item->enabled && item->type != statText) {
-#endif
             if (item->type == ctrlItem && item->ctrl) {
-#ifndef DIALOG_MUT_ON_PRESS
                 if (TestControl(item->ctrl, pt)) {
                     dp->trackingItem = idx;
                     item->ctrl->contrlHilite = TestControl(item->ctrl, pt);
                     /* tdnl.88: pressed feedback at mouseDown (mint-010). */
                     dialog_draw_ctrl_item(dp, idx);
                 }
-#else
-                int16_t part = TrackControl(item->ctrl, &pt, 1);
-                if (part != 0) {
-                    *itemHit = idx;
-                    return 1;
-                }
-#endif
             } else {
                 *itemHit = idx;
                 return 1;
@@ -1008,14 +965,9 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
     /* --- Canonical FILE COPY message string.
      * Law 4 (PRD Sec 6.5 / Appendix A): MUST be byte-exact.
      * DIALOG_MUTATE_FILECOPY_MSG: substitutes a wrong string (oracle RED). */
-#if defined(DIALOG_MUTATE_FILECOPY_MSG) && DIALOG_MUTATE_FILECOPY_MSG
-    /* NAMED MUTANT: wrong message string -> oracle MUST go RED (Law 4). */
-    static const char *canon_msg = "Saving tables to disk";   /* truncated! */
-#else
     static const char *canon_msg = FLAIR_CANON_FILECOPY_MSG;
     /* Ref: PRD Sec 6.5 / Appendix A -- Office Space frame canon;
      *      do NOT paraphrase */
-#endif
 
     /* --- Dialog bounds (global coords). */
     rgn_rect_t bounds;
@@ -1054,14 +1006,10 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
     /* --- Canon progress bar initial value (beads initech-a90f, Law 4).
      * DIALOG_MUTATE_PROGRESS_ZERO: reverts to the old bug (value=0, which
      * ctrl_progress_fill_px renders as NO fill at all) -> oracle must go RED. */
-#if defined(DIALOG_MUTATE_PROGRESS_ZERO) && DIALOG_MUTATE_PROGRESS_ZERO
-    const int16_t canon_progress = 0;   /* NAMED MUTANT: the old bug */
-#else
     /* Ref: dialog.h FLAIR_CANON_FILECOPY_PROGRESS (docs/FLAIR-GUI-bug-hunt-
      * 2026-06-28.md #25: "preview.png reference shows the bar ~65-70% filled
      * solid blue"; canon = the documented midpoint, 68). */
     const int16_t canon_progress = (int16_t)FLAIR_CANON_FILECOPY_PROGRESS;
-#endif
 
     control_init(ctrlStorage,
                  progressBar,
@@ -1085,12 +1033,8 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
      * DIALOG_MUTATE_TITLELESS_MODAL: reverts to the OLD titleless dBoxProc
      * chrome (empty title, NewDialog's default dBoxProc variant left as-is)
      * -> oracle must go RED. */
-#if defined(DIALOG_MUTATE_TITLELESS_MODAL) && DIALOG_MUTATE_TITLELESS_MODAL
-    static const char *canon_title = "";   /* NAMED MUTANT: the old bug */
-#else
     /* Ref: dialog.h FLAIR_CANON_FILECOPY_TITLE ("FILE COPY"; PRD Appendix A). */
     static const char *canon_title = FLAIR_CANON_FILECOPY_TITLE;
-#endif
 
     /* --- Initialize the DialogRecord (no WindowMgr for standalone). NewDialog
      * always sets windowDefProcVariant = dBoxProc (the correct default for
@@ -1104,7 +1048,6 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
                              0  /* no WindowMgr */,
                              strucRgn, contRgn, updateRgn);
 
-#if !(defined(DIALOG_MUTATE_TITLELESS_MODAL) && DIALOG_MUTATE_TITLELESS_MODAL)
     /* Upgrade to movableDBoxProc (5; MTE Table 4-1; ../system7-decomp/specs/
      * toolbox/window-manager.md line 173 "movable modal dialog box (title
      * bar, no grow/zoom)"). DrawDialog dispatches on this field to draw the
@@ -1113,7 +1056,6 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
     if (dp) {
         dp->window.windowDefProcVariant = (int16_t)movableDBoxProc;
     }
-#endif
 
     return dp;
 }

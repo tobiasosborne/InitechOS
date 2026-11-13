@@ -253,15 +253,7 @@ static uint32_t rd16(uint32_t addr)
  * ===========================================================================*/
 static int slot_occupied(void)
 {
-#ifdef TBX_MUT_NO_SLOT_GUARD
-    /* MUTANT TBX_MUT_NO_SLOT_GUARD (Rule 6; test-flair-app-launch-mutant):
-     * the one-slot model is never enforced, so a second double-click loads and
-     * REGISTERs a second copy over the first -- two TENANT-REGISTER ok lines and
-     * no TENANT-SLOT-BUSY. NEVER in a real build. */
-    return 0;
-#else
     return g_slot.block != 0;
-#endif
 }
 
 static void *carve_code(uint32_t len, void *user)
@@ -399,12 +391,10 @@ static int32_t v_register(uint32_t rec)
 
     if (g_slot.exit_req || g_slot.crashed) return TBX_ERR_NOTREG;
     if (g_slot.app != (FlairApp *)0) {
-#ifndef TBX_MUT_NO_SLOT_GUARD
         tputs("TENANT-SLOT-BUSY name=");
         tputs(g_slot.file);
         tputs("\n");
         return TBX_ERR_BUSY;
-#endif
     }
     if (!in_image(rec, WIRE_SIZE(tbx_rec_t, FLAIR_TENANT_REC_BYTES))) {
         tputs("TENANT-REGISTER-BAD why=rec-outside-image\n");
@@ -513,9 +503,6 @@ static int check_win(uint32_t tok)
     if (g_slot.app == 0 || g_slot.exit_req || tok < 1u || tok > g_slot.nwins)
         return 0;
     g_slot.win = g_slot.wins[tok - 1u];
-#ifdef TBX_MUT_TOKEN_ALIAS
-    g_slot.win = g_slot.wins[0]; /* Rule6: second token paints first window */
-#endif
     return 1;
 }
 
@@ -621,9 +608,6 @@ static int32_t v_textdraw(const uint32_t *a)
         return TBX_ERR_BADARG;
     if (g_host.surface == (const bitmap_t *)0) return TBX_OK;
     c = region_get_bbox(g_slot.win->contRgn);
-#ifdef TBX_MUT_GENEVA_IGNORED
-    font = 0u; /* Rule 6: claims success but ignores the requested txFont (-> Chicago) */
-#endif
     draw_text((int32_t)c.left + (int32_t)a[1], (int32_t)c.top + (int32_t)a[2],
               (const char *)(uintptr_t)a[3], (unsigned)font, (unsigned)size,
               (unsigned)face, color_px(a[4] & 0xFFu), color_px(a[5]), draw_clip());
@@ -670,13 +654,7 @@ static int32_t v_drawcells(const uint32_t *a)
     if (g_host.cellfont != (const uint8_t *)0) {
         /* ink on the underline row, one bit per run column from -1 (halo) */
         uint32_t ul[(TBX_CELLS_MAX_RUN * TBX_CELL_W + 2u + 31u) / 32u];
-#if defined(TBXGATE_MUT_CELL_UL_LOW)
-        /* MUTANT (Rule 6; test-flair-iword-codes-mutant): the cell underline
-         * one row low. NEVER real. */
-        const int32_t ur = (int32_t)TBX_CELL_BASELINE + TEXT_UL_OFFSET + 1;
-#else
         const int32_t ur = (int32_t)TBX_CELL_BASELINE + TEXT_UL_OFFSET;
-#endif
         for (uint32_t i = 0; i < sizeof ul / sizeof ul[0]; i++) ul[i] = 0u;
         for (int32_t k = 0; k < len; k++) {
             const uint8_t *gl = g_host.cellfont +
@@ -746,14 +724,7 @@ static int32_t v_fillrect(const uint32_t *a)
 /* SETMBAR (spec Sec 9; bead initech-cnpm). The image-range half of the
  * validation goes through MB_IN so the MBAR_NO_BOUNDS mutant can compile
  * exactly that half out and nothing else. */
-#ifndef TBX_MUT_MBAR_NO_BOUNDS
 #define MB_IN(a, n) in_image((a), (n))
-#else
-/* MUTANT TBX_MUT_MBAR_NO_BOUNDS (Rule 6; test-flair-app-launch-mutant): every
- * image-range check of SETMBAR is true, so a bar outside the image is
- * installed. NEVER in a real build. */
-#define MB_IN(a, n) ((void)(a), (void)(n), 1)
-#endif
 
 /* An ASCIZ string of at most TBX_MBAR_STR_MAX-1 chars wholly in the image:
  * its length, or -1. */
@@ -816,14 +787,7 @@ static int32_t v_setmbar(uint32_t bar)
                 return mbar_bad("item-text");
     }
     if (x > (uint32_t)FLAIR_SCREEN_W) return mbar_bad("too-wide");
-#ifndef TBX_MUT_MBAR_NOT_SWAPPED
     g_slot.app->menubar = (MenuBar *)(uintptr_t)bar;
-#else
-    /* MUTANT TBX_MUT_MBAR_NOT_SWAPPED (Rule 6; test-flair-app-launch-mutant):
-     * the bar validates and the call reports success, but it is never
-     * installed -- band 2 keeps the shell fallback bar while the tenant is
-     * foreground. NEVER in a real build. */
-#endif
     return TBX_OK;
 }
 
@@ -834,13 +798,7 @@ static int32_t v_setmbar(uint32_t bar)
 static int32_t v_drawmenubar(void)
 {
     if (g_slot.app == (FlairApp *)0 || g_slot.exit_req) return TBX_ERR_NOTREG;
-#ifndef TBX_MUT_DRAWMBAR_NOOP
     g_slot.mbar_redraw = 1u;
-#else
-    /* MUTANT TBX_MUT_DRAWMBAR_NOOP (Rule 6; test-flair-tenant-menu-mutant):
-     * the call reports success but band 2 is never redrawn, so it keeps the
-     * bar the tenant just replaced. NEVER in a real build. */
-#endif
     return TBX_OK;
 }
 
@@ -1129,14 +1087,7 @@ static void trace_int(const char *key, uint32_t v)
 void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
 {
     volatile uint32_t *eax_slot = (volatile uint32_t *)(void *)(frame + 28);
-#ifndef TBX_MUT_AX_FULL_EAX
     uint32_t ax = *eax_slot & 0xFFFFu;          /* the code is AX (DEC-AC3-2) */
-#else
-    /* MUTANT TBX_MUT_AX_FULL_EAX (Rule 6; test-flair-routing-mutant leg X2):
-     * the demux keys on all of EAX, so a tenant whose high word is not zero
-     * hits BADCODE. NEVER in a real build. */
-    uint32_t ax = *eax_slot;
-#endif
     uint32_t a[TBX_ARGC_MAX] = { 0 };
     uint32_t argc = 0u;
     int32_t rc;
@@ -1184,18 +1135,9 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         for (uint32_t k = 0; k < sizeof argn / sizeof argn[0]; k++)
             if (argn[k].ax == ax) { argc = argn[k].argc; break; }
     }
-#ifndef TBX_MUT_ARG_OFFSET
     for (uint32_t i = 0; i < argc; i++)
         a[i] = *(const volatile uint32_t *)(void *)(frame + TBX_GATE_ARG_OFFSET +
                                                     4u * i);
-#else
-    /* MUTANT TBX_MUT_ARG_OFFSET (Rule 6; test-flair-routing-mutant leg X3):
-     * arg 0 is read one dword low -- the last flair_platform_regs slot, not the
-     * interrupted ESP (spec/toolbox_gate.h Sec 2). NEVER in a real build. */
-    for (uint32_t i = 0; i < argc; i++)
-        a[i] = *(const volatile uint32_t *)(void *)(frame + TBX_GATE_ARG_OFFSET -
-                                                    4u + 4u * i);
-#endif
 
     if (!g_slot.in_call || g_slot.block == 0) {
         rc = TBX_ERR_NOTTENANT;           /* a stray int 81h from the kernel */
@@ -1350,14 +1292,7 @@ static void finish(const char *via, int32_t rc)
         tputs("TENANT-FILES reclaimed="); tputu(n);
         tputs(" live="); tputu(tbxf_live(&g_slot.files)); tputs("\n");
     }
-#ifndef TBX_MUT_EXIT_LEAK
     flair_free(g_host.master, FLAIR_CLASS_GENERAL, g_slot.block);
-#else
-    /* MUTANT TBX_MUT_EXIT_LEAK (Rule 6; test-flair-app-launch-mutant): the
-     * code block is never returned, so every launch/exit cycle bumps a fresh
-     * one and TENANT-HEAPAVAIL drifts DOWN (the O-3 avail-stable invariant goes
-     * RED). NEVER in a real build. */
-#endif
     tputs("TENANT-EXIT rc=");
     tputi(rc);
     tputs(" via=");
@@ -1432,13 +1367,6 @@ int tbx_take_drew(void)
 {
     int r = (int)g_slot.drew;
     g_slot.drew = 0u;
-#ifdef TBX_MUT_DRAW_NOT_PRESENTED
-    /* MUTANT TBX_MUT_DRAW_NOT_PRESENTED (Rule 6; test-flair-ctenant-mutant):
-     * the pre-initech-8zii behaviour -- a tenant's drawing for a plain
-     * keyDown / mouseDown sits in the offscreen until something else
-     * presents. NEVER in a real build. */
-    r = 0;
-#endif
     return r;
 }
 
@@ -1452,13 +1380,6 @@ int tbx_menu_choice(const MenuBar *bar, uint32_t sel, const EventRecord *src,
         g_slot.torn_down)
         return 0;
     if (!tbx_menu_event(app->menubar, bar, sel, src, &mev)) return 0;
-#ifdef TBX_MUT_MENU_NOT_DELIVERED
-    /* MUTANT TBX_MUT_MENU_NOT_DELIVERED (Rule 6; test-flair-tenant-menu-
-     * mutant): the pre-tdnl.31 behaviour -- the choice is logged by the
-     * shell's FLAIR-MENU line and the tenant never hears it. NEVER in a real
-     * build. */
-    return 0;
-#endif
     tputs("TENANT-MENU menu=");
     tputi((int32_t)MenuResultID(sel));
     tputs(" item=");
@@ -1676,11 +1597,6 @@ int tbx_take_filecopy(const char **caption, const char **src, const char **dst)
 
 int32_t tbx_fc_rate(void)
 {
-#ifdef TBX_MUT_FILECOPY_RATE_IGNORED
-    /* NAMED MUTANT (Rule 6; test-flair-file-copy-mutant): the configured
-     * PROGRESS_BAR_RATE is never read -- a compiled-in 100 %/s. */
-    return 100;
-#else
     static const char key[] = TBX_FILECOPY_RATE_KEY;
     static char cfg[TBX_FILECOPY_CFG_MAX + 1];
     int32_t h = fc_dos(0x3d00u, 0u, 0u, (uint32_t)(uintptr_t)TBX_FILECOPY_CFG_PATH);
@@ -1706,7 +1622,6 @@ int32_t tbx_fc_rate(void)
     if (rate < (int32_t)TBX_FILECOPY_RATE_MIN || rate > (int32_t)TBX_FILECOPY_RATE_MAX)
         return TBX_ERR_BADARG;
     return rate;
-#endif
 }
 
 int32_t tbx_fc_open(uint32_t *size)
@@ -1721,10 +1636,8 @@ int32_t tbx_fc_open(uint32_t *size)
         return end < 0 ? end : TBX_ERR_BADARG;
     }
     g_fc.size = (uint32_t)end;
-#ifndef TBX_MUT_FILECOPY_NO_COPY
     g_fc.dst = fc_dos(0x3c00u, 0u, 0u, (uint32_t)(uintptr_t)g_slot.fc_dst);
     if (g_fc.dst < 0) { int32_t e = g_fc.dst; g_fc.dst = -1; tbx_fc_close(); return e; }
-#endif
     *size = g_fc.size;
     return TBX_OK;
 }
@@ -1737,13 +1650,9 @@ int32_t tbx_fc_step(uint32_t upto)
         if (want > TBX_FILECOPY_CHUNK) want = TBX_FILECOPY_CHUNK;
         int32_t got = fc_dos(0x3f00u, (uint32_t)g_fc.src, want, (uint32_t)(uintptr_t)g_fc_buf);
         if (got <= 0) return got < 0 ? got : TBX_ERR_BADARG;   /* short source */
-#ifdef TBX_MUT_FILECOPY_NO_COPY
-        /* NAMED MUTANT (Rule 6): the bar runs, the bytes never reach disk. */
-#else
         int32_t put = fc_dos(0x4000u, (uint32_t)g_fc.dst, (uint32_t)got,
                              (uint32_t)(uintptr_t)g_fc_buf);
         if (put != got) return put < 0 ? put : TBX_ERR_DOS(0x1d);  /* write fault */
-#endif
         g_fc.done += (uint32_t)got;
     }
     return (int32_t)g_fc.done;

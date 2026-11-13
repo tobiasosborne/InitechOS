@@ -1,0 +1,21 @@
+# Legacy CHROME_MUTATE_TITLEBAR_H
+# test: test_chrome
+--- a/chrome.c
++++ b/chrome.c
+@@ -342,6 +342,7 @@
+     int shared_line = top + FLAIR_CHROME_TITLEBAR_H - 1;
+     int w = right - left;
+ 
++    shared_line++;
+ 
+     if (active) {
+         cfill(port, left + 1, top + 1, w - 2, FLAIR_PART_CONTENT);
+@@ -364,6 +365,8 @@
+               FLAIR_PART_PLAT_FRAME_FACE);
+         cfill(port, left + 1, top + 20, w - 2,
+               FLAIR_PART_PLAT_FRAME_SHADOW);
++        cfill(port, left + 1, top + 21, w - 2,
++              FLAIR_PART_PLAT_FRAME_FACE);
+     } else {
+         crect(port, left + 1, top + 1, right - 1, shared_line,
+               FLAIR_PART_PLAT_FACE);

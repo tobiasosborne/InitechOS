@@ -1,0 +1,32 @@
+# Legacy FLAIR_HEAP_MUTATE_WALK_REUSE
+# test: test_flair_heap
+--- a/heap.c
++++ b/heap.c
+@@ -96,12 +96,21 @@
+      *      REGION block can never satisfy a BITMAP request. -------------------*/
+     {
+         flair_blk_t *blk = heap->freelist[klass];
+-        /* zhjo: DEC-03 specifies head-only LIFO, not first-fit search. */
+-        if (blk != (flair_blk_t *)0 && blk->cap >= need) {
+-            heap->freelist[klass] = blk->next;
+-            blk->next = (flair_blk_t *)0;
+-            heap->n_reuse++;
+-            return (void *)((uint8_t *)blk + FLAIR_HEAP_HDR_BYTES);
++        flair_blk_t *prev = (flair_blk_t *)0;
++        while (blk != (flair_blk_t *)0) {
++            if (blk->cap >= need) {
++                /* unlink blk */
++                if (prev == (flair_blk_t *)0) {
++                    heap->freelist[klass] = blk->next;
++                } else {
++                    prev->next = blk->next;
++                }
++                blk->next = (flair_blk_t *)0;
++                heap->n_reuse++;
++                return (void *)((uint8_t *)blk + FLAIR_HEAP_HDR_BYTES);
++            }
++            prev = blk;
++            blk = blk->next;
+         }
+     }
+ 

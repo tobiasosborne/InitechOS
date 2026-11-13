@@ -1,0 +1,20 @@
+# Legacy CLOSE_HIDE_ONLY
+# test: test_process_teardown
+--- a/process.c
++++ b/process.c
+@@ -793,11 +793,10 @@
+         return 0;
+     }
+ 
+-    /* Capture the static/tenant-owned name pointer before terminate frees the
+-     * FlairApp handle. The caller uses it only for the serial disposition line. */
+-    if (terminated_name != NULL) *terminated_name = owner->name;
+-    FlairProcess_terminate(list, wm, master, owner);
+-    return 1;
++    /* Named Rule-6 mutant: resurrect the initech-8fhu defect. The tenant stays
++     * at list->head and the next key is delivered to this now-hidden app. */
++    HideWindow(wm, w);
++    return 0;
+ }
+ 
+ /* --------------------------------------------------------------------------

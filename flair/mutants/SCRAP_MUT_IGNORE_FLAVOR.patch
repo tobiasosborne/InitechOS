@@ -1,0 +1,22 @@
+# Legacy SCRAP_MUT_IGNORE_FLAVOR
+# test: test_scrap
+--- a/scrap.c
++++ b/scrap.c
+@@ -73,12 +73,11 @@
+  * ------------------------------------------------------------------------- */
+ static int find_flavor(const FlairScrap *s, flair_ostype_t type)
+ {
+-    uint32_t i;
+-    for (i = 0; i < s->n_flavors; i++) {
+-        if (s->flavors[i].type == type)
+-            return (int)i;
+-    }
+-    return -1;
++    /* MUTANT (Rule 6 -- NEVER define in a real build): ignore the type key;
++     * always return index 0 if any flavor exists. Causes PutScrap(PICT) to
++     * overwrite the TEXT slot, so GetScrap(TEXT) yields PICT bytes -> RED. */
++    (void)type;
++    return (s->n_flavors > 0) ? 0 : -1;
+ }
+ 
+ /* ---------------------------------------------------------------------------

@@ -1,0 +1,13 @@
+# Legacy LIST_MUT_NULL_CLICK_MISS
+# test: test_list
+--- a/list.c
++++ b/list.c
+@@ -206,7 +206,7 @@
+     int16_t row_off;
+     Cell    hit;
+ 
+-    if (!l || !hit_out) return FLAIR_LIST_ERR_NULL;
++    if (!l || !hit_out) return 0;
+     if (l->cellSize.h <= 0 || l->cellSize.v <= 0) return 0;
+ 
+     /* Bounds check: localPt must be within the list's pixel rect (rView).

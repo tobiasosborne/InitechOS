@@ -1,0 +1,13 @@
+# Legacy SURFACE_MUT_INDEX_ZERO
+# test: test_blitter
+--- a/include/surface.h
++++ b/include/surface.h
+@@ -103,7 +103,7 @@
+ static inline uint32_t surface_get_pixel(const bitmap_t *bm, uint32_t off)
+ {
+     if (bm->bpp == 8) {
+-        return (uint32_t)bm->base[off];
++        return 0;
+     } else if (bm->bpp == 32) {
+         return *(volatile uint32_t *)(bm->base + off);
+     } else {

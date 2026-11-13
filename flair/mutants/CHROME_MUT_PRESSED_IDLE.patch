@@ -1,0 +1,14 @@
+# Legacy CHROME_MUT_PRESSED_IDLE
+# test: test_chrome
+--- a/chrome.c
++++ b/chrome.c
+@@ -169,6 +169,9 @@
+ {
+     const int box = FLAIR_CHROME_WIDGET_BOX;
+     const int interior = FLAIR_CHROME_WIDGET_INTERIOR;
++    /* MUTANT (Rule 6; test-chrome-mutant, initech-tdnl.60): no press
++     * feedback -- the held box looks idle. NEVER in a real build. */
++    pressed = 0;
+     static const int ramp_part[FLAIR_CHROME_WIDGET_RAMP_RUNGS] = {
+         FLAIR_PART_PLAT_FRAME_SHADOW,
+         FLAIR_PART_PLAT_WELL,

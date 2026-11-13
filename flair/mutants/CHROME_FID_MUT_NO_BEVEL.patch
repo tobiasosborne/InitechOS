@@ -1,0 +1,35 @@
+# Legacy CHROME_FID_MUT_NO_BEVEL
+# test: test_chrome
+--- a/chrome.c
++++ b/chrome.c
+@@ -344,26 +344,11 @@
+ 
+ 
+     if (active) {
+-        cfill(port, left + 1, top + 1, w - 2, FLAIR_PART_CONTENT);
+-        crect(port, left + 1, top + 2, right - 1, top + 4,
+-              FLAIR_PART_PLAT_FRAME_FACE);
+-        crect(port, left + 1, top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF,
+-              right - 1,
+-              top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF +
+-                    FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS,
+-              FLAIR_PART_PLAT_FRAME_FACE);
+-        for (int row = 0; row < FLAIR_CHROME_TITLE_BAND_STRIPE_ROWS; row++) {
+-            int light = (row & 1) == 0;
+-            int shift = row & 1;
+-            cfill(port, title_safe_left + shift,
+-                  top + FLAIR_CHROME_TITLE_STRIPE_TOP_OFF + row,
+-                  title_safe_right - title_safe_left,
+-                  light ? FLAIR_PART_CONTENT : FLAIR_PART_PLAT_STRIPE_DARK);
++        for (int y = top + 1; y < shared_line; y++) {
++            int part = ((y - top) & 1) ? FLAIR_PART_CONTENT
++                                       : FLAIR_PART_PLAT_STRIPE_DARK;
++            cfill(port, left + 1, y, w - 2, part);
+         }
+-        crect(port, left + 1, top + 16, right - 1, top + 20,
+-              FLAIR_PART_PLAT_FRAME_FACE);
+-        cfill(port, left + 1, top + 20, w - 2,
+-              FLAIR_PART_PLAT_FRAME_SHADOW);
+     } else {
+         crect(port, left + 1, top + 1, right - 1, shared_line,
+               FLAIR_PART_PLAT_FACE);

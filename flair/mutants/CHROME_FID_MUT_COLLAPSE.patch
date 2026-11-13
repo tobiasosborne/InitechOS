@@ -1,0 +1,15 @@
+# Legacy CHROME_FID_MUT_COLLAPSE
+# test: test_chrome
+--- a/chrome.c
++++ b/chrome.c
+@@ -859,10 +859,6 @@
+             draw_platinum_widget(port, skin,
+                                  ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
+                                  by, PLAT_WIDGET_ZOOM, 0);
+-        if ((widget_flags & FLAIR_WINDOW_WIDGET_COLLAPSE) != 0u)
+-            draw_platinum_widget(port, skin,
+-                                 ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
+-                                 by, PLAT_WIDGET_COLLAPSE, 0);
+     }
+ 
+     cfill(port, left, top, w, frame_part);

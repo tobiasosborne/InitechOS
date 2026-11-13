@@ -81,13 +81,7 @@ static const uint8_t *find_type(const FlairResMap *m, flair_ostype_t type,
 {
     uint16_t ntypes = m->n_types;          /* = numTypes-1 + 1 (decoded in load) */
 
-#ifdef RES_MUT_COUNT_OFF_BY_ONE
-    /* MUTANT: iterate (numTypes-1) entries instead of numTypes -> the LAST type
-     * is never visited. Proves the count-1 decode (+1) is load-bearing. */
-    uint16_t limit = (ntypes > 0u) ? (uint16_t)(ntypes - 1u) : 0u;
-#else
     uint16_t limit = ntypes;
-#endif
 
     for (uint16_t i = 0; i < limit; i++) {
         uint32_t e = m->type_list_abs + 2u + (uint32_t)i * 8u;  /* skip numTypes-1 */
@@ -97,16 +91,7 @@ static const uint8_t *find_type(const FlairResMap *m, flair_ostype_t type,
         uint16_t       cm1  = rd_u16(m->fork + e + 4u);
         uint16_t       rlo  = rd_u16(m->fork + e + 6u);
 
-#ifdef RES_MUT_IGNORE_TYPE
-        /* MUTANT: ignore the type key -- match the FIRST type regardless. Proves
-         * the 4-char type comparison is load-bearing (wrong-type lookups must
-         * miss; cross-type lookups must not leak the first type's resources). */
-        (void)et;
-        (void)type;   /* the discarded key (keeps the mutant -Werror-clean) */
-        int matched = 1;
-#else
         int matched = (et == type);
-#endif
         if (matched) {
             if (count_m1_out)    *count_m1_out = cm1;
             if (reflist_off_out) *reflist_off_out = rlo;
@@ -147,12 +132,8 @@ int FlairResMap_load(FlairResMap *m, flair_heap_t *arena,
 
     /* The 24-byte preamble + the 2 offset words at MAP offsets 24..27 (Sec 1.3).
      * (24, NOT 22: the preamble counts the 16-byte fork-header copy.) */
-#ifdef RES_MUT_MAP_PREAMBLE
-    if (m->map_off + 28u > len)                             goto bad;
-#else
     /* 6mfi: map header must fit its SECTION, without additive overflow. */
     if (m->map_len < 28u)                                  goto bad;
-#endif
     {
         uint16_t tlo = rd_u16(copy + m->map_off + 24u);     /* typeListOffset    */
         uint16_t nlo = rd_u16(copy + m->map_off + 26u);     /* nameListOffset    */
@@ -165,9 +146,7 @@ int FlairResMap_load(FlairResMap *m, flair_heap_t *arena,
     /* The numTypes-1 word at the start of the type list (Sec 1.4). */
     if (m->type_list_abs > len || len - m->type_list_abs < 2u) goto bad;
     uint32_t ntypes = (uint32_t)rd_u16(copy + m->type_list_abs) + 1u;
-#ifndef RES_MUT_TYPE_WRAP
     if (ntypes > UINT16_MAX) goto bad; /* s3bh: never truncate count to zero. */
-#endif
     m->n_types = (uint16_t)ntypes;
     return 0;
 
@@ -186,18 +165,12 @@ bad:
 static const uint8_t *resource_data(const FlairResMap *m, uint32_t off,
                                    uint32_t *length)
 {
-#ifndef RES_MUT_DATA_WRAP
     if (m->data_off > m->len || m->data_len > m->len - m->data_off ||
         off > m->data_len || m->data_len - off < 4u) return NULL;
-#endif
     uint32_t abs = m->data_off + off;
     if (abs > m->len || m->len - abs < 4u) return NULL;
     uint32_t size = rd_u32(m->fork + abs);
-#if defined(RES_MUT_DATA_ESCAPE) || defined(RES_MUT_DATA_WRAP)
-    if (size > m->len - abs - 4u) return NULL;
-#else
     if (size > m->data_len - off - 4u) return NULL;
-#endif
     if (length) *length = size;
     return m->fork + abs + 4u;
 }

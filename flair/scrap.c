@@ -73,20 +73,12 @@ static void scrap_memcpy(void *dst, const void *src, uint32_t n)
  * ------------------------------------------------------------------------- */
 static int find_flavor(const FlairScrap *s, flair_ostype_t type)
 {
-#ifdef SCRAP_MUT_IGNORE_FLAVOR
-    /* MUTANT (Rule 6 -- NEVER define in a real build): ignore the type key;
-     * always return index 0 if any flavor exists. Causes PutScrap(PICT) to
-     * overwrite the TEXT slot, so GetScrap(TEXT) yields PICT bytes -> RED. */
-    (void)type;
-    return (s->n_flavors > 0) ? 0 : -1;
-#else
     uint32_t i;
     for (i = 0; i < s->n_flavors; i++) {
         if (s->flavors[i].type == type)
             return (int)i;
     }
     return -1;
-#endif
 }
 
 /* ---------------------------------------------------------------------------
@@ -118,12 +110,8 @@ void FlairScrap_init(FlairScrap *s)
 void FlairZeroScrap(FlairScrap *s)
 {
     if (s == NULL) SCRAP_PANIC("FlairZeroScrap: NULL argument (contract error)");
-#ifndef SCRAP_MUT_NO_CLEAR
     s->n_flavors = 0u;
-#endif
-#ifndef SCRAP_MUT_NO_INCREMENT
     s->scrapCount++;
-#endif
 }
 
 /* ---------------------------------------------------------------------------
@@ -139,10 +127,8 @@ int32_t FlairPutScrap(FlairScrap *s, flair_ostype_t type,
     int idx;
 
     if (s == NULL) SCRAP_PANIC("FlairPutScrap: NULL argument (contract error)");
-#ifndef SCRAP_MUT_NULL_DATA
     /* m1ry: address zero is readable IVT memory in the flat kernel. */
     if (data == NULL && len != 0u) SCRAP_PANIC("FlairPutScrap: NULL data");
-#endif
 
     /* Rule 2: fail loud on over-size -- NEVER silently truncate. */
     if (len > FLAIR_SCRAP_MAX_PAYLOAD)
@@ -158,10 +144,8 @@ int32_t FlairPutScrap(FlairScrap *s, flair_ostype_t type,
     }
 
     /* APPEND a new flavor. */
-#ifndef SCRAP_MUT_FULL_FLAVOR
     if (s->n_flavors >= FLAIR_SCRAP_MAX_FLAVORS)
         return FLAIR_SCRAP_ERR_NO_FLAVOR;
-#endif
 
     {
         uint32_t slot = s->n_flavors;

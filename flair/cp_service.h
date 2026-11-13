@@ -11,10 +11,8 @@ static cp_settings_t cp_live={0,1,1,0,2,1};
 static uint32_t cp_total_k,cp_beep_until;
 static int cp_dirty;
 static void cp_apply_live(void) {
-#ifndef CP_MUT_MOUSE_INERT
     flair_mouse_tracking=cp_live.tracking;
     flair_double_click_ticks=cp_live.double_click==0?40u:cp_live.double_click==1?20u:10u;
-#endif
     flair_platform_desktop_pattern(cp_live.pattern);
     MenuClock_enable(cp_live.clock);
 

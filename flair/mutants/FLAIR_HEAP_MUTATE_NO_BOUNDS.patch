@@ -1,0 +1,21 @@
+# Legacy FLAIR_HEAP_MUTATE_NO_BOUNDS
+# test: test_flair_heap
+--- a/heap.c
++++ b/heap.c
+@@ -110,11 +110,11 @@
+         uint32_t span = FLAIR_HEAP_HDR_BYTES + need;
+         /* Overflow-safe fit test: compute remaining tail, compare without
+          * adding into a possibly-wrapping sum (Rule 2 -- no wrap). */
+-        uint32_t avail = (heap->size > heap->used)
+-                       ? (heap->size - heap->used) : 0u;
+-        if (span > avail) {
+-            return (void *)0;                     /* EXHAUSTED -> fail loud       */
+-        }
++        /* MUTANT (Rule 6; make test-flair-heap-mutant only): DROP the exhaustion
++         * bounds check, so an over-window bump "succeeds" and hands out a pointer
++         * past base+size. The exhaustion oracle then goes RED (it expects NULL
++         * and instead gets a non-NULL out-of-window pointer). NEVER define in a
++         * real build. */
+         {
+             flair_blk_t *blk = (flair_blk_t *)(heap->base + heap->used);
+             blk->cap   = need;

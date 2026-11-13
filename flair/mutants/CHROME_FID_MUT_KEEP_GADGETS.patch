@@ -1,0 +1,12 @@
+# Legacy CHROME_FID_MUT_KEEP_GADGETS
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -849,6 +849,7 @@
+     bi = bottom - 1;
+ 
+     if (active
++        || !active
+        ) {
+         int by = top + FLAIR_CHROME_WIDGET_TOP_OFF;
+         if ((widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u)

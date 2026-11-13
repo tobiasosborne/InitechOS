@@ -1,0 +1,12 @@
+# Legacy ASSET_LZ_MUT_BYTE
+# test: test_asset_lz
+--- a/include/asset_lz.h
++++ b/include/asset_lz.h
+@@ -45,6 +45,7 @@
+         }
+         flags >>= 1;
+     }
++    if (n > 100u) end[100 - (int)n] ^= 1u;
+ }
+ 
+ #endif /* INITECH_ASSET_LZ_H */

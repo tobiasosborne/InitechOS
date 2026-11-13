@@ -1,0 +1,20 @@
+# Legacy MENU_LOOK_MUT_FLAT_HILITE
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -589,6 +589,7 @@
+     uint32_t bar_face = flair_look_pixel(port, FLAIR_PART_MENU_BAR_FACE);
+     uint32_t bar_shadow = flair_look_pixel(port, FLAIR_PART_MENU_BAR_SHADOW);
+     uint32_t pulled_face = flair_look_pixel(port, FLAIR_PART_MENU_TITLE_HILITE_FACE);
++    pulled_face = flair_look_pixel(port, FLAIR_PART_DESKTOP);
+ 
+     rgn_rect_t top = { 0, 0, 1, (int16_t)bm->width };
+     rgn_rect_t face = { 1, 0, (int16_t)(FLAIR_MENUBAR_H - 2),
+@@ -652,6 +653,7 @@
+         uint32_t hface = pulled_face;
+         uint32_t hshadow = flair_look_pixel(port,
+                                             FLAIR_PART_MENU_TITLE_HILITE_SHADOW);
++        htop = hshadow = hface;
+         rgn_rect_t r0 = { 0, hr.left, 1, hr.right };
+         rgn_rect_t rf = { 1, hr.left, (int16_t)(FLAIR_MENUBAR_H - 2), hr.right };
+         rgn_rect_t rs = { (int16_t)(FLAIR_MENUBAR_H - 2), hr.left,

@@ -1,0 +1,14 @@
+# Legacy TEXT_MUT_BOLD_ADVANCE_PLAIN
+# test: test_font_styles
+--- a/include/text.h
++++ b/include/text.h
+@@ -482,8 +482,7 @@
+     int aw = (font == FONT_CHICAGO)  ? chicago_advance(c)
+            : (font == FONT_GENEVA12) ? geneva12_advance(c)
+                                      : (int)geneva9_advance_w(c);
+-    if (face & TEXT_FACE_BOLD)
+-        aw += TEXT_BOLD_SMEAR;
++    (void)face;
+     return aw;
+ }
+ 

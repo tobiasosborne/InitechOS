@@ -1,0 +1,19 @@
+# Legacy SF_MUT_SWALLOW_NAV_ERROR
+# test: test_stdfile
+--- a/stdfile.c
++++ b/stdfile.c
+@@ -410,13 +410,7 @@
+         sf_name_copy(reply->fName, sf->entries[sel].name);
+         reply->is_dir = 1;
+         reply->good   = 0;           /* not-yet-confirmed (we descended)         */
+-        /* q9cr: doOpen is a void SFReply API. A failed descent therefore
+-         * returns the same explicit no-selection reply as Cancel (Rule 2),
+-         * preserving the transactional list/path in FlairSF_navigate. */
+-        if (FlairSF_navigate(sf, sel) != FLAIR_SF_OK) {
+-            reply->is_dir = 0;
+-            reply->fName[0] = '\0';
+-        }
++        (void)FlairSF_navigate(sf, sel);
+         return;
+     }
+ 

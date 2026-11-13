@@ -1,0 +1,12 @@
+# Legacy SCRAP_MUT_NO_INCREMENT
+# test: test_scrap
+--- a/scrap.c
++++ b/scrap.c
+@@ -111,7 +111,6 @@
+ {
+     if (s == NULL) SCRAP_PANIC("FlairZeroScrap: NULL argument (contract error)");
+     s->n_flavors = 0u;
+-    s->scrapCount++;
+ }
+ 
+ /* ---------------------------------------------------------------------------

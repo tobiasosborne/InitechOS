@@ -1,0 +1,12 @@
+# Legacy RES_MUT_TYPE_WRAP
+# test: test_resource
+--- a/resource.c
++++ b/resource.c
+@@ -146,7 +146,6 @@
+     /* The numTypes-1 word at the start of the type list (Sec 1.4). */
+     if (m->type_list_abs > len || len - m->type_list_abs < 2u) goto bad;
+     uint32_t ntypes = (uint32_t)rd_u16(copy + m->type_list_abs) + 1u;
+-    if (ntypes > UINT16_MAX) goto bad; /* s3bh: never truncate count to zero. */
+     m->n_types = (uint16_t)ntypes;
+     return 0;
+ 

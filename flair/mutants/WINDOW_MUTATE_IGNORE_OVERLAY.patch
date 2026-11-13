@@ -1,0 +1,22 @@
+# Legacy WINDOW_MUTATE_IGNORE_OVERLAY
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -254,17 +254,6 @@
+         rgn_accumulate(out, f->strucRgn, RGN_OP_UNION, sc);
+     }
+ 
+-    /* ALIASING-CRITICAL (Rule 3): rgn_accumulate(out, overlay, UNION, sc2) does
+-     * `sc2 := out UNION overlay; out := sc2`, so sc2 MUST be distinct from BOTH
+-     * `out` and overlay_rgn -- the naive region_op(out, out, overlay) self-alias
+-     * corrupts on OVERLAP (the exact drag-across-overlay case under test). `out`
+-     * is scratch_a at every call site (visible_into passes fu==scratch_a), so sc2
+-     * resolves to scratch_c (distinct); the fallback covers a scratch_c `out`.
+-     * overlay_rgn is a separate arena region, never a manager scratch. */
+-    if (wm->overlay_rgn != NULL && !region_is_empty(wm->overlay_rgn)) {
+-        region_t *sc2 = (out == wm->scratch_c) ? wm->scratch_b : wm->scratch_c;
+-        rgn_accumulate(out, wm->overlay_rgn, RGN_OP_UNION, sc2);
+-    }
+ }
+ 
+ /* ===========================================================================

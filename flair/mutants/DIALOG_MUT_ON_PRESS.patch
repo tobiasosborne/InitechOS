@@ -1,0 +1,53 @@
+# Legacy DIALOG_MUT_ON_PRESS
+# test: test_dialog_tracking
+--- a/dialog.c
++++ b/dialog.c
+@@ -788,32 +788,6 @@
+      * final mouseUp. Keep the original item through excursions/reentry;
+      * TrackControl grades the two endpoint samples on release. Ref: IM
+      * Control Manager, system7-decomp/specs/toolbox/control-manager.md. */
+-    if (dp->trackingItem) {
+-        uint16_t idx = dp->trackingItem;
+-        DialogItem *item = &dp->items[idx - 1u];
+-        ControlRecord *c = item->ctrl;
+-        if (ev->what == nullEvent || ev->what == mouseUp) {
+-            int16_t part = TestControl(c, ev->where);
+-            int16_t hilite = part ? part : 0;
+-            if (ev->what == mouseUp) {
+-                flair_point_t pts[2];
+-                pts[0].h = item->rect.left; pts[0].v = item->rect.top;
+-                pts[1] = ev->where;
+-                part = TrackControl(c, pts, 2u);
+-                hilite = 0;
+-                dp->trackingItem = 0u;
+-            }
+-            if (ev->what == mouseUp || c->contrlHilite != hilite) {
+-                c->contrlHilite = hilite;
+-                /* tdnl.88: the button draws PRESSED while the held mouse is
+-                 * inside it and idle when it leaves or is released
+-                 * (mint-010: s8_alert_ok_pressed / _held_outside). */
+-                dialog_draw_ctrl_item(dp, idx);
+-            }
+-            if (ev->what == mouseUp && part) { *itemHit = idx; return 1; }
+-        }
+-        return 0;
+-    }
+     if (filterProc) {
+         uint16_t fitem = 0;
+         if (filterProc(dp, ev, &fitem)) {
+@@ -840,11 +814,10 @@
+         DialogItem *item = &dp->items[idx - 1];
+         if (item->enabled && item->type != statText) {
+             if (item->type == ctrlItem && item->ctrl) {
+-                if (TestControl(item->ctrl, pt)) {
+-                    dp->trackingItem = idx;
+-                    item->ctrl->contrlHilite = TestControl(item->ctrl, pt);
+-                    /* tdnl.88: pressed feedback at mouseDown (mint-010). */
+-                    dialog_draw_ctrl_item(dp, idx);
++                int16_t part = TrackControl(item->ctrl, &pt, 1);
++                if (part != 0) {
++                    *itemHit = idx;
++                    return 1;
+                 }
+             } else {
+                 *itemHit = idx;

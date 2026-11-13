@@ -1,0 +1,29 @@
+# Legacy DIALOG_MUTATE_TITLELESS_MODAL
+# test: test_dialog
+--- a/dialog.c
++++ b/dialog.c
+@@ -1033,8 +1033,7 @@
+      * DIALOG_MUTATE_TITLELESS_MODAL: reverts to the OLD titleless dBoxProc
+      * chrome (empty title, NewDialog's default dBoxProc variant left as-is)
+      * -> oracle must go RED. */
+-    /* Ref: dialog.h FLAIR_CANON_FILECOPY_TITLE ("FILE COPY"; PRD Appendix A). */
+-    static const char *canon_title = FLAIR_CANON_FILECOPY_TITLE;
++    static const char *canon_title = "";   /* NAMED MUTANT: the old bug */
+ 
+     /* --- Initialize the DialogRecord (no WindowMgr for standalone). NewDialog
+      * always sets windowDefProcVariant = dBoxProc (the correct default for
+@@ -1048,14 +1047,6 @@
+                              0  /* no WindowMgr */,
+                              strucRgn, contRgn, updateRgn);
+ 
+-    /* Upgrade to movableDBoxProc (5; MTE Table 4-1; ../system7-decomp/specs/
+-     * toolbox/window-manager.md line 173 "movable modal dialog box (title
+-     * bar, no grow/zoom)"). DrawDialog dispatches on this field to draw the
+-     * pinstripe title bar + plain 1px frame instead of the 7px dBoxProc
+-     * border (os/flair/chrome.h flair_draw_movable_dbox_chrome). */
+-    if (dp) {
+-        dp->window.windowDefProcVariant = (int16_t)movableDBoxProc;
+-    }
+ 
+     return dp;
+ }

@@ -1,0 +1,39 @@
+# Legacy MENU_MUT_NO_PANEL_BEVEL
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -706,6 +706,7 @@
+     uint32_t bevel_shadow = flair_look_pixel(port, FLAIR_PART_MENU_PANEL_SHADOW);
+     uint32_t drop = flair_look_pixel(port, FLAIR_PART_MENU_DROP_SHADOW);
+     uint32_t disabled = flair_look_pixel(port, FLAIR_PART_MENU_DISABLED_INK);
++    (void)bevel_shadow;
+ 
+     /* The menu shadow is sampled #3F3F3F, deliberately distinct from the black
+      * window shadow. It extends exactly one pixel right and bottom. */
+@@ -793,26 +794,6 @@
+ 
+     /* After the items: sampled inner bevel covers their final two rows.
+      * The grooves below cross its side columns; the outer frame stays last. */
+-    rgn_rect_t hi_top = { (int16_t)(panel.top + 1),
+-                          (int16_t)(panel.left + 1),
+-                          (int16_t)(panel.top + 2),
+-                          (int16_t)(panel.right - 1) };
+-    rgn_rect_t hi_left = { (int16_t)(panel.top + 1),
+-                           (int16_t)(panel.left + 1),
+-                           (int16_t)(panel.bottom - 1),
+-                           (int16_t)(panel.left + 2) };
+-    rgn_rect_t sh_bottom = { (int16_t)(panel.bottom - 2),
+-                             (int16_t)(panel.left + 2),
+-                             (int16_t)(panel.bottom - 1),
+-                             (int16_t)(panel.right - 1) };
+-    rgn_rect_t sh_right = { (int16_t)(panel.top + 2),
+-                            (int16_t)(panel.right - 2),
+-                            (int16_t)(panel.bottom - 1),
+-                            (int16_t)(panel.right - 1) };
+-    blitter_fill_rect_clipped(bm, hi_top, bevel_hl, clip);
+-    blitter_fill_rect_clipped(bm, hi_left, bevel_hl, clip);
+-    blitter_fill_rect_clipped(bm, sh_bottom, bevel_shadow, clip);
+-    blitter_fill_rect_clipped(bm, sh_right, bevel_shadow, clip);
+ 
+     /* Ref: s8_menu_dropped.png x33..230,y102/103 (r78f). The groove
+      * crosses BOTH inner bevel columns: x34..229, one pixel inside the

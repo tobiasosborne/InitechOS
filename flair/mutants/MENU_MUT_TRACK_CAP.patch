@@ -1,0 +1,12 @@
+# Legacy MENU_MUT_TRACK_CAP
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -489,6 +489,7 @@
+      * DIFFERENT title) and always updates the hilited item against whichever
+      * menu is currently tracked. */
+     if (pt.v >= 0 && pt.v < (int)FLAIR_MENUBAR_H
++        && st->n < 63                   /* the pre-tdnl.71 64-slot history    */
+         ) {
+         int nb = MenuBar_hit(bar, (int)pt.h);
+         if (nb >= 0 || nb == FLAIR_MENU_APPLE_MI)

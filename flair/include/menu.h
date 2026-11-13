@@ -127,11 +127,7 @@ void MenuClock_draw(GrafPort *port, const region_t *clip);
 /* The command column is the period-plausible "^X" substitution (2 chars),
  * measured proportionally per item (menu.c cmd_run_w; initech-tdnl.33). */
 #define FLAIR_MENU_CMD_CHARS      2   /* period-plausible "^X" substitution     */
-#if defined(MENU_LOOK_MUT_WRONG_RPAD)
-#define FLAIR_MENU_CMD_RPAD      16
-#else
 #define FLAIR_MENU_CMD_RPAD      FLAIR_CHROME_MENU_CMD_RPAD
-#endif /* frame230 - ink216=14; Chicago N right bearing1, frame1 ->13 cell pad */
 
 /* ===========================================================================
  * 3. MENU ITEM + MENU + MENU BAR RECORDS  (verbatim Inside Macintosh)

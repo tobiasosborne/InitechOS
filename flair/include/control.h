@@ -213,11 +213,7 @@ typedef struct ControlRecord {
  *   Ref: ../system7-decomp/specs/sys8/scrollbars.md Sec 1/Sec 2.4.
  * ===========================================================================*/
 #define SB_ARROW      FLAIR_CHROME_SCROLLBAR_W  /* 16 px; square arrow buttons  */
-#if defined(SB_MUT_THUMB_16)
-#define SB_THUMB_MIN  16  /* named Rule-6 relapse to the System-7 thumb floor   */
-#else
 #define SB_THUMB_MIN  FLAIR_CHROME_SCROLL_THUMB_MIN
-#endif
 
 /* ===========================================================================
  * 5. CONTROL MANAGER API (verbatim Inside Macintosh routine names; MTE Ch 5)

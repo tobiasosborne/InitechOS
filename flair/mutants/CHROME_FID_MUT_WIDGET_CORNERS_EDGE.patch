@@ -1,0 +1,16 @@
+# Legacy CHROME_FID_MUT_WIDGET_CORNERS_EDGE
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -198,8 +198,9 @@
+          * highlight (window-chrome.md Sec 3.2 transcription, y=76 x=79 'd'
+          * and y=84 x=71 'd'; bead initech-tdnl.52, the LOOK pass 6 2/169
+          * residual). */
+-        WX(3, 1 + interior, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
+-        WX(1 + interior, 3, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
++        /* Rule-6 restoration of the pre-tdnl.52 full-length shadow strokes. */
++        WX(2, 1 + interior, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
++        WX(1 + interior, 2, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
+         WX(2, 2, 3, 3, FLAIR_PART_CONTENT)
+     };
+     chrome_rects(port, skin, bx, by, 0, 0, cell, CRN(cell), 0,

@@ -86,39 +86,16 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size)
     }
     /* r081/5l5n: both the alignment addition AND the header span must fit.
      * Ref: heap.h DEC-03 bounds contract; reject before any arena mutation. */
-#ifndef FLAIR_HEAP_MUTATE_ALIGN_OVERFLOW
     if (size > UINT32_MAX - (FLAIR_HEAP_ALIGN - 1u)) return (void *)0;
-#endif
 
     uint32_t need = flair_align_up(size);         /* aligned payload bytes        */
-#ifndef FLAIR_HEAP_MUTATE_SPAN_OVERFLOW
     if (need > UINT32_MAX - FLAIR_HEAP_HDR_BYTES) return (void *)0;
-#endif
 
     /* ---- 1. REUSE: pop a fitting block off THIS class's free-list (LIFO).
      *      CLASS ISOLATION -- only freelist[klass] is consulted, so a freed
      *      REGION block can never satisfy a BITMAP request. -------------------*/
-#ifndef FLAIR_HEAP_MUTATE_NO_REUSE
     {
         flair_blk_t *blk = heap->freelist[klass];
-#ifdef FLAIR_HEAP_MUTATE_WALK_REUSE
-        flair_blk_t *prev = (flair_blk_t *)0;
-        while (blk != (flair_blk_t *)0) {
-            if (blk->cap >= need) {
-                /* unlink blk */
-                if (prev == (flair_blk_t *)0) {
-                    heap->freelist[klass] = blk->next;
-                } else {
-                    prev->next = blk->next;
-                }
-                blk->next = (flair_blk_t *)0;
-                heap->n_reuse++;
-                return (void *)((uint8_t *)blk + FLAIR_HEAP_HDR_BYTES);
-            }
-            prev = blk;
-            blk = blk->next;
-        }
-#else
         /* zhjo: DEC-03 specifies head-only LIFO, not first-fit search. */
         if (blk != (flair_blk_t *)0 && blk->cap >= need) {
             heap->freelist[klass] = blk->next;
@@ -126,33 +103,18 @@ void *flair_alloc(flair_heap_t *heap, flair_class_t klass, uint32_t size)
             heap->n_reuse++;
             return (void *)((uint8_t *)blk + FLAIR_HEAP_HDR_BYTES);
         }
-#endif
     }
-#else
-    /* MUTANT (Rule 6; make test-flair-heap-mutant only): NEVER reuse a freed
-     * block -- always bump. The free-list-reuse oracle then goes RED because a
-     * free-then-same-size-alloc returns a FRESH bumped pointer (the bump cursor
-     * advances) instead of the recycled block. NEVER define in a real build. */
-#endif
 
     /* ---- 2. BUMP a fresh (header + payload) span if it fits the window. ----*/
     {
         uint32_t span = FLAIR_HEAP_HDR_BYTES + need;
         /* Overflow-safe fit test: compute remaining tail, compare without
          * adding into a possibly-wrapping sum (Rule 2 -- no wrap). */
-#ifndef FLAIR_HEAP_MUTATE_NO_BOUNDS
         uint32_t avail = (heap->size > heap->used)
                        ? (heap->size - heap->used) : 0u;
         if (span > avail) {
             return (void *)0;                     /* EXHAUSTED -> fail loud       */
         }
-#else
-        /* MUTANT (Rule 6; make test-flair-heap-mutant only): DROP the exhaustion
-         * bounds check, so an over-window bump "succeeds" and hands out a pointer
-         * past base+size. The exhaustion oracle then goes RED (it expects NULL
-         * and instead gets a non-NULL out-of-window pointer). NEVER define in a
-         * real build. */
-#endif
         {
             flair_blk_t *blk = (flair_blk_t *)(heap->base + heap->used);
             blk->cap   = need;

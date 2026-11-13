@@ -1,0 +1,20 @@
+# Legacy CHROME_FID_MUT_NO_INACTIVE
+# test: test_chrome_fidelity
+--- a/chrome.c
++++ b/chrome.c
+@@ -342,6 +342,7 @@
+     int shared_line = top + FLAIR_CHROME_TITLEBAR_H - 1;
+     int w = right - left;
+ 
++    active = 1;
+ 
+     if (active) {
+         cfill(port, left + 1, top + 1, w - 2, FLAIR_PART_CONTENT);
+@@ -806,6 +807,7 @@
+     }
+ 
+     active = hilited;
++    active = 1;
+     shared_line = draw_titlebar_band(
+         port, skin, left, top, right, title, active,
+         left + FLAIR_CHROME_TITLE_RUN_LEFT_OFF,

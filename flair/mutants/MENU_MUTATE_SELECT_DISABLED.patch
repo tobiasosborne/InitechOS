@@ -1,0 +1,17 @@
+# Legacy MENU_MUTATE_SELECT_DISABLED
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -352,9 +352,9 @@
+         return 0;
+     if (it < 0 || it >= (int)m->n_items)
+         return 0;
+-    if (m->items[it].is_divider)
+-        return 0;
+-    return m->items[it].enabled ? 1 : 0;
++    /* NAMED MUTANT: pretend every existing item is selectable, even a disabled
++     * item or a divider. The selectability oracle MUST catch this (Rule 6). */
++    return 1;
+ }
+ 
+ /* --------------------------------------------------------------------------

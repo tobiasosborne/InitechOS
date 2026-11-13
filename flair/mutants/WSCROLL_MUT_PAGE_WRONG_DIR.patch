@@ -1,0 +1,17 @@
+# Legacy WSCROLL_MUT_PAGE_WRONG_DIR
+# test: test_winscroll
+--- a/include/winscroll.h
++++ b/include/winscroll.h
+@@ -279,8 +279,10 @@
+     switch (part) {
+     case WSCROLL_PART_UP:       d = -a->line; break;
+     case WSCROLL_PART_DOWN:     d =  a->line; break;
+-    case WSCROLL_PART_PAGEUP:   d = -a->page; break;
+-    case WSCROLL_PART_PAGEDOWN: d =  a->page; break;
++    /* MUTANT (Rule 6; test-winscroll, the R1.5 PAGE_WRONG_DIR class): the
++     * page regions scroll the wrong way. NEVER in a real build. */
++    case WSCROLL_PART_PAGEUP:   d =  a->page; break;
++    case WSCROLL_PART_PAGEDOWN: d = -a->page; break;
+     default: return 0;
+     }
+     return wscroll_set_value(a, (int)a->value + d);

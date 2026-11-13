@@ -899,5 +899,43 @@ int main(int argc, char **argv)
         CHECK(!bad, "random track: any non-zero result is a selectable in-range item");
     }
 
+    /* Legacy Apple-menu host gate A4: a registered menu makes the sampled
+     * Mac OS 8 Apple slot live without moving File. */
+    {
+        MenuBar bar = { g_bar.menus, g_bar.n_menus, 1u };
+        MenuBar plain = { g_bar.menus, g_bar.n_menus, 0u };
+        MenuBar_set_apple_menu(NULL);
+        CHECK(MenuBar_hit(&bar, 20) == -1, "unregistered Apple slot is inert");
+        MenuBar_set_apple_menu(&g_bar.menus[0]);
+        CHECK(MenuBar_hit(&bar, 20) == FLAIR_MENU_APPLE_MI &&
+              MenuBar_hit(&bar, 0) == FLAIR_MENU_APPLE_MI,
+              "registered Apple menu owns its slot");
+        CHECK(MenuBar_hit(&bar, FLAIR_MENU_APPLE_W) == 0 &&
+              MenuBar_hit(&plain, 5) == 0, "File starts after the Apple slot");
+        MenuBar_set_apple_menu(NULL);
+    }
+    /* Legacy menubar-clock host gate MC1/MC4; s8_desktop_menubar.png
+     * establishes twelve-hour text and lowercase suffixes. */
+    {
+        static const char *hours[] = { "12", "1", "2", "3", "4", "5",
+            "6", "7", "8", "9", "10", "11", "12", "1", "2", "3",
+            "4", "5", "6", "7", "8", "9", "10", "11" };
+        int bad = 0;
+        for (unsigned h = 0; h < 24; h++) for (unsigned m = 0; m < 60; m++) {
+            char actual[9], want[9];
+            snprintf(want, sizeof want, "%s:%02u %s", hours[h], m,
+                     h < 12 ? "am" : "pm");
+            bad += !MenuClock_format(h, m, actual) || strcmp(actual, want) != 0;
+        }
+        CHECK(!bad, "all 1440 clock readings use twelve-hour text");
+        CHECK(MenuClock_set(0, 55) && !strcmp(MenuClock_text(), "12:55 am"),
+              "initial clock minute");
+        CHECK(!MenuClock_set(0, 55), "unchanged minute does not repaint");
+        CHECK(MenuClock_set(0, 56) && !strcmp(MenuClock_text(), "12:56 am"),
+              "minute tick refreshes clock");
+        CHECK(MenuClock_set(12, 56) && !strcmp(MenuClock_text(), "12:56 pm"),
+              "noon changes suffix");
+        CHECK(MenuClock_set(0, 56), "midnight changes suffix");
+    }
     return TEST_SUMMARY("test-menu");
 }

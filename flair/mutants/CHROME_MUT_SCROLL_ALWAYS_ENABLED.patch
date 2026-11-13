@@ -1,0 +1,16 @@
+# Legacy CHROME_MUT_SCROLL_ALWAYS_ENABLED
+# test: test_chrome
+--- a/chrome.c
++++ b/chrome.c
+@@ -500,7 +500,10 @@
+     const WindowScrollAxis *a = (ws != (const WindowScroll *)0)
+                                     ? &ws->axis[axis] : (const WindowScrollAxis *)0;
+     rgn_rect_t bar = wscroll_bar_rect(frame, axis);
+-    st->enabled = wscroll_enabled(a);
++    /* MUTANT (Rule 6; test-chrome-fidelity SCROLL-DISABLED leg): the pre-
++     * tdnl.35 composition -- every active gutter draws the ENABLED anatomy
++     * even when nothing can scroll. NEVER in a real build. */
++    st->enabled = 1;
+     st->thumb = (a != (const WindowScrollAxis *)0 && a->drag_pos >= 0)
+                     ? a->drag_pos : wscroll_thumb_pos(bar, axis, a);
+     st->hilite = (a != (const WindowScrollAxis *)0) ? a->hilite : 0;

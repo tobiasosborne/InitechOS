@@ -182,20 +182,6 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
      * IN REVERSE carve order, install NOTHING, leave `list`/`wm` unchanged, and
      * return NULL. Do NOT overcommit, do NOT partially install (Rule 2). */
     if (app == NULL || records_block == NULL || block == NULL) {
-#ifdef BUDGET_MUT_OVERCOMMIT
-        /* MUTANT BUDGET_MUT_OVERCOMMIT (Rule 6; budget-mutant build only): instead
-         * of fail-loud reclaim, OVERCOMMIT -- partially install the (incompletely
-         * carved) app anyway. O-4 expects NULL + no install, so this goes RED.
-         * NEVER define in a real build. */
-        if (app != NULL) {
-            app->block         = block;          /* may be NULL */
-            app->records_block = records_block;  /* may be NULL */
-            app->magic         = FLAIR_APP_MAGIC;
-            app->nextApp       = list->head;
-            list->head         = app;            /* partial install */
-        }
-        return app;                        /* non-NULL on the handle-ok path */
-#else
         /* REVERSE of the (a)->(b)->(c) carve order: data, then records, then handle.
          * This LIFO discipline keeps the small FlairApp handle the HANDLE free-list
          * head (records_budget > sizeof(FlairApp)) -- see FlairProcess_terminate. */
@@ -203,7 +189,6 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
         if (records_block != NULL) flair_free(master, FLAIR_CLASS_HANDLE,  records_block);
         if (app           != NULL) flair_free(master, FLAIR_CLASS_HANDLE,  app);
         return NULL;
-#endif
     }
 
     /* (c') zero + init the handle; lay the TWO child heaps over their blocks. */
@@ -231,13 +216,6 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
                              * ...) instead of reaching a file-global (bead initech-fka6). */
         lp.surface  = surface;   /* the offscreen open() draws content into (fka6). */
         if (procs->open != NULL && procs->open(app, &lp) != 0) {
-#ifdef BUDGET_MUT_OVERCOMMIT
-            /* MUTANT (Rule 6): open() failed but install anyway (partial install).
-             * O-4 expects NULL + reclaim, so this goes RED. NEVER in a real build. */
-            app->nextApp = list->head;
-            list->head   = app;
-            return app;
-#else
             /* (O-4 open-fail) reclaim data + records + handle (REVERSE carve order,
              * LIFO), install nothing, return NULL. The contract (Sec 3.1) is
              * open()!=0 == launch fail. CLEAN failures (the O-4 stub) thread no
@@ -246,7 +224,6 @@ FlairApp *FlairProcess_launch(FlairProcessList *list, WindowMgr *wm,
             flair_free(master, FLAIR_CLASS_HANDLE,  app->records_block);
             flair_free(master, FLAIR_CLASS_HANDLE,  app);
             return NULL;
-#endif
         }
     }
 
@@ -317,17 +294,6 @@ FlairApp *FlairProcess_admit(FlairProcessList *list, flair_heap_t *master,
     app->block         = block;
     app->records_block = records_block;
 
-#ifdef PROC_MUT_ADMIT_IS_FOREGROUND
-    /* MUTANT PROC_MUT_ADMIT_IS_FOREGROUND (Rule 6; test-flair-routing-mutant
-     * leg A): the pre-tdnl.14 registration -- the windowless tenant is linked
-     * at the HEAD as the foreground (FlairProcess_launch step (f)), so the
-     * Finder's keystrokes and band 2 belong to an app with no window. NEVER in
-     * a real build. */
-    if (list->head != NULL) list->head->state = (uint8_t)FLAIR_APP_BG;
-    app->state   = (uint8_t)FLAIR_APP_FG;
-    app->nextApp = list->head;
-    list->head   = app;
-#else
     if (list->head == NULL) {
         app->state   = (uint8_t)FLAIR_APP_FG;
         app->nextApp = NULL;
@@ -337,7 +303,6 @@ FlairApp *FlairProcess_admit(FlairProcessList *list, flair_heap_t *master,
         app->nextApp          = list->head->nextApp;
         list->head->nextApp   = app;
     }
-#endif
     return app;
 }
 
@@ -426,30 +391,11 @@ static void teardown_common(FlairProcessList *list, WindowMgr *wm,
     (void)FlairProcess_sync_active(list, wm);
 
     /* (3) ONE-SHOT frees, LIFO: the DATA block (GENERAL) first ... */
-#ifndef TEARDOWN_MUT_LEAK_BLOCK
     flair_free(master, FLAIR_CLASS_GENERAL, app->block);
-#else
-    /* MUTANT TEARDOWN_MUT_LEAK_BLOCK (Rule 6; teardown-mutant build only): SKIP the
-     * DATA-block free -> the GENERAL block leaks -> flair_heap_avail drifts
-     * monotonically DOWN per launch/terminate cycle (the bump cursor is never
-     * rolled back), so O-3's "avail stable across cycles" check goes RED. NEVER
-     * define in a real build. */
-#endif
     /* ... then the RECORDS block (HANDLE) ... */
-#ifndef TEARDOWN_MUT_LEAK_RECORDS
     flair_free(master, FLAIR_CLASS_HANDLE, app->records_block);
-#else
-    /* MUTANT TEARDOWN_MUT_LEAK_RECORDS (Rule 6; AC-2; records-mutant build only):
-     * SKIP the RECORDS-block free -> the HANDLE records block leaks -> every cycle
-     * BUMPS a fresh records block (sizeof FlairApp != records_budget, so the small
-     * handle on the free-list never satisfies the large records request) -> avail
-     * drifts DOWN -> O-3's "avail stable across cycles" check goes RED. NEVER define
-     * in a real build. */
-#endif
     /* ... then the FlairApp handle (HANDLE) LAST. Do not touch `app` after this. */
-#ifndef PROC_MUT_STALE_MAGIC
     app->magic = 0; /* vibs: freed handles must fail BC-3 on repeat teardown. */
-#endif
     flair_free(master, FLAIR_CLASS_HANDLE, app);
 }
 
@@ -472,10 +418,8 @@ static int teardown_begin(FlairProcessList *list, WindowMgr *wm,
      * HANDLE block, NOT the DATA arena, so a scribbled DATA arena leaves it intact. */
     if (app->magic != FLAIR_APP_MAGIC)
         PROC_PANIC("teardown: app->magic mismatch (BC-3)");
-#ifndef PROC_MUT_REGISTERED_FREE
     if (app->block == NULL || app->records_block == NULL)
         PROC_PANIC("teardown: caller-owned registered app (k0n8)");
-#endif
 
     app->state = (uint8_t)FLAIR_APP_DYING;
     return 1;
@@ -533,17 +477,6 @@ void FlairProcess_kill(FlairProcessList *list, WindowMgr *wm,
 static FlairApp *owner_of_window(FlairProcessList *list, WindowPtr w)
 {
     if (w == NULL) PROC_PANIC("dispatch: NULL hit tenant window");
-#ifdef FLAIR_LIVE_MUTATE_IGNORE_REFCON
-    /* MUTANT FLAIR_LIVE_MUTATE_IGNORE_REFCON (Rule 6; the O-5 tenants emu-mutant
-     * image ONLY): IGNORE the refCon binding rule and always return the FOREGROUND
-     * app, never the clicked background tenant. A click on HELLO's visible sliver
-     * then "belongs to" the foreground NOTES, so flair_app_dispatch sees
-     * owner == old_fg, takes NO switch (no raise / no activate / no promote), and
-     * HELLO is never raised or repainted -> the booted O-5 gate's TIER-A overlap
-     * probe stays NOTES_FILL (RED). NEVER define in a real build. */
-    (void)w;
-    return list->head;
-#else
     for (FlairApp *a = list->head; a != NULL; a = a->nextApp) {
         if (a->magic == FLAIR_APP_MAGIC &&
             (int32_t)(uintptr_t)a == w->refCon)
@@ -551,7 +484,6 @@ static FlairApp *owner_of_window(FlairProcessList *list, WindowPtr w)
     }
     PROC_PANIC("dispatch: hit window owned by no resident app");
     return NULL;   /* unreachable (PROC_PANIC does not return) */
-#endif
 }
 
 /* deliver one cooked EventRecord to a tenant's REQUIRED `event` entry-point. */
@@ -609,22 +541,10 @@ static void switch_foreground(FlairProcessList *list, WindowMgr *wm,
                               FlairApp *old_fg)
 {
     raise_group(wm, owner);                         /* (1) raise WHOLE group  */
-#ifndef FLAIR_LIVE_MUTATE_SKIP_ACTIVATE
     EventRecord deact = mk_activate(ev, old_fg ? old_fg->windows : NULL, 0);
     deliver(old_fg, &deact);                        /* (2) deactivate old fg  */
     EventRecord act = mk_activate(ev, owner->windows, 1);
     deliver(owner, &act);                           /* (3) activate new fg    */
-#else
-    /* MUTANT FLAIR_LIVE_MUTATE_SKIP_ACTIVATE (Rule 6; the O-5 tenants
-     * emu-mutant image ONLY): SKIP the deactivate/activate pair. The group
-     * still raises (1) and is still promoted (4), so the booted O-5 gate's
-     * TIER-A overlap repaint + MENU-BAND swap stay GREEN -- but the raised
-     * tenant never receives activateEvt active=1, so it never paints its
-     * content accent -> the gate's TIER-B accent probe stays FILL (RED).
-     * Isolates the activation leg. NEVER define in a real build. */
-    (void)ev;
-    (void)mk_activate;   /* keep referenced (else -Werror=unused-function) */
-#endif
     promote_to_front(list, owner, old_fg);          /* (4) relink process list*/
     /* (5) active chrome agrees with the NEW foreground (tdnl.40): when `owner`
      * owns no window (the Finder brought forward by a desktop click), the old
@@ -675,18 +595,11 @@ int FlairProcess_sync_active(FlairProcessList *list, WindowMgr *wm)
     if (w == NULL || !w->hilited) return 0;
     owner = owner_of_window_tolerant(list, w);
     if (owner == NULL || owner == list->head) return 0;
-#ifdef PROC_MUT_FRONT_STAYS_ACTIVE
-    /* MUTANT (Rule 6; test-process leg(g), and test-flair-fg-close-mutant's
-     * kmain twin): the F06 picture -- a background app's window stays drawn
-     * ACTIVE under the foreground app's bar. NEVER in a real build. */
-    return 0;
-#else
     w->hilited = 0;
     /* The 1->0 deactivation repaint, seeded exactly as window.c reaffirm_active
      * seeds it (the strucRgn bbox, SECTed to the visible region inside). */
     WindowMgr_invalidate(wm, w, region_get_bbox(w->strucRgn));
     return 1;
-#endif
 }
 
 /* --------------------------------------------------------------------------
@@ -747,12 +660,7 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
         if (owner != old_fg) {
             /* DQ5 mutant restores only the pre-fix background-title no-op. The
              * content-click switch remains fully live in the same build. */
-#ifndef FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE
             switch_foreground(list, wm, ev, owner, old_fg);
-#else
-            if (part != inDrag)
-                switch_foreground(list, wm, ev, owner, old_fg);
-#endif
         }
 
         /* --- THE CLICKED WINDOW ITSELF COMES FORWARD (bug initech-tpzf) -----
@@ -796,29 +704,10 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
          * app->windows is the group head (process.h Sec "windows"), and the
          * clicked window is now that head, so it is re-pointed in the same
          * breath -- a stale head after a raise is the 8fhu class of bug. */
-#ifndef FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE
         if (w != wm->front) {
             SelectWindow(wm, w);
             owner->windows = w;
         }
-#else
-        /* MUTANT FLAIR_LIVE_MUTATE_NO_RAISE_ON_TITLE (Rule 6; the DQ5 bead
-         * initech-haaq emu-mutant image ONLY) -- SCOPE EXTENDED BY initech-tpzf,
-         * and here is why, because it is exactly the way a mutant quietly stops
-         * being a mutant. The knob models the pre-DQ5 bug "a title mouseDown on
-         * a NON-FRONT window does nothing". Before tpzf that was one behaviour
-         * (the tenant switch above) and suppressing it was enough. tpzf added a
-         * SECOND half -- the window raise -- and the raise alone is enough to
-         * carry the gesture: MEASURED, test-flair-solid leg H went GREEN under
-         * this mutant, i.e. the leg-H oracle had become decoration. So the knob
-         * suppresses BOTH halves for a title click, which is what its name says
-         * and what the original bug did. The CONTENT click keeps both halves in
-         * the same build (leg(c) stays live). NEVER in a real build. */
-        if (part != inDrag && w != wm->front) {
-            SelectWindow(wm, w);
-            owner->windows = w;
-        }
-#endif
 
         /* Title chrome is shell-owned: activation may have happened above, but
          * the mouseDown NEVER crosses into tenant content. kmain still performs
@@ -835,11 +724,7 @@ void flair_app_dispatch(FlairProcessList *list, WindowMgr *wm,
 
         /* tdnl.65: SelectWindow consumes a document's activating click.
          * Ref: MTE Event Manager; the following click reaches its content. */
-#ifndef PROC_MUT_CLICK_THROUGH
         if (!was_active) return;
-#else
-        (void)was_active;
-#endif
 
         /* The window was already active: deliver this content click. */
         deliver(owner, ev);
@@ -908,18 +793,11 @@ int FlairProcess_close_window(FlairProcessList *list, WindowMgr *wm,
         return 0;
     }
 
-#ifndef CLOSE_HIDE_ONLY
     /* Capture the static/tenant-owned name pointer before terminate frees the
      * FlairApp handle. The caller uses it only for the serial disposition line. */
     if (terminated_name != NULL) *terminated_name = owner->name;
     FlairProcess_terminate(list, wm, master, owner);
     return 1;
-#else
-    /* Named Rule-6 mutant: resurrect the initech-8fhu defect. The tenant stays
-     * at list->head and the next key is delivered to this now-hidden app. */
-    HideWindow(wm, w);
-    return 0;
-#endif
 }
 
 /* --------------------------------------------------------------------------

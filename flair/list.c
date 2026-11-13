@@ -124,21 +124,13 @@ int FlairLAddRow(FlairList *l, int16_t count, int16_t afterRow)
 
     /* 8mip: validate in the wider type BEFORE narrowing (Rule 2). */
     cur_rows = (int32_t)l->dataBounds.bottom - l->dataBounds.top;
-#ifdef LIST_MUT_ROW_WRAP
-    new_rows = (int16_t)(cur_rows + count);
-#else
     new_rows = cur_rows + count;
-#endif
 
-#ifndef LIST_MUT_NO_OVERFLOW_CHECK
     if (new_rows > FLAIR_LIST_MAX_ROWS) return FLAIR_LIST_ERR_OVERFLOW;
-#endif
     /* The store is indexed by absolute cell coordinates (list.h Sec 3).
      * 42dq: an empty column range still needs one actual backing column. */
-#ifndef LIST_MUT_COLUMN_HEADROOM
     if (l->dataBounds.left < 0 || l->dataBounds.left >= FLAIR_LIST_MAX_COLS)
         return FLAIR_LIST_ERR_OVERFLOW;
-#endif
 
     /* First-cut: append-only.  Full row insertion (shifting the cell store for
      * afterRow != dataBounds.bottom-1) is a follow-up M5+ issue. The test
@@ -170,25 +162,9 @@ int FlairLSetCell(FlairList *l, const void *data, int16_t len, Cell c)
     if (!cell_in_bounds(l, c)) return FLAIR_LIST_ERR_BOUNDS;
     if (len < 0 || len > (int16_t)FLAIR_LIST_CELL_MAX) return FLAIR_LIST_ERR_DATA_LEN;
 
-#ifdef LIST_MUT_CELL_INDEX_SWAP
-    /*
-     * MUTANT LIST_MUT_CELL_INDEX_SWAP: index the store as [col][row] =
-     * [c.h][c.v] instead of the canonical [row][col] = [c.v][c.h].
-     * The WRITE goes to the wrong memory location.  FlairLGetCell is NOT
-     * mutated (it always reads [c.v][c.h]).  A subsequent FlairLGetCell on
-     * the same cell finds cells[c.v][c.h] still zero (never written by the
-     * mutated path) and returns 0 bytes.  Oracle step 2 checks for 5 bytes
-     * ("Trash") -> RED.
-     *
-     * Ref: CLAUDE.md Rule 6 (mutation-proven golden).
-     */
-    list_memcpy(l->cells[c.h][c.v], data, (size_t)(uint16_t)len);
-    l->cell_len[c.h][c.v] = (uint8_t)len;
-#else
     /* Canonical: ROW-major indexing [row][col] = [c.v][c.h]. */
     list_memcpy(l->cells[c.v][c.h], data, (size_t)(uint16_t)len);
     l->cell_len[c.v][c.h] = (uint8_t)len;
-#endif
 
     return FLAIR_LIST_OK;
 }
@@ -230,11 +206,7 @@ int FlairLClick(FlairList *l, flair_point_t localPt, Cell *hit_out)
     int16_t row_off;
     Cell    hit;
 
-#ifdef LIST_MUT_NULL_CLICK_MISS
-    if (!l || !hit_out) return 0;
-#else
     if (!l || !hit_out) return FLAIR_LIST_ERR_NULL;
-#endif
     if (l->cellSize.h <= 0 || l->cellSize.v <= 0) return 0;
 
     /* Bounds check: localPt must be within the list's pixel rect (rView).
@@ -248,23 +220,9 @@ int FlairLClick(FlairList *l, flair_point_t localPt, Cell *hit_out)
     }
 
     /* Compute cell offsets from the top-left of the visible area. */
-#ifdef LIST_MUT_HIT_OFFBYONE
-    /*
-     * MUTANT LIST_MUT_HIT_OFFBYONE: omit rView.top / rView.left subtraction.
-     * The pixel coordinates are used raw, giving a row/col that corresponds
-     * to a different (wrong) cell.
-     * Oracle step 4: localPt=(15,38), rView.top=20, cellSize.v=16:
-     *   canonical row = (38-20)/16 = 1; mutant row = 38/16 = 2 -> hit.v=2.
-     *   Test checks hit.v == 1 -> FAIL -> RED.
-     * Ref: CLAUDE.md Rule 6.
-     */
-    col_off = (int16_t)(localPt.h / l->cellSize.h);
-    row_off = (int16_t)(localPt.v / l->cellSize.v);
-#else
     /* Canonical: subtract rView origin to get offset within the visible area. */
     col_off = (int16_t)((localPt.h - l->rView.left) / l->cellSize.h);
     row_off = (int16_t)((localPt.v - l->rView.top)  / l->cellSize.v);
-#endif
 
     /* Map offset to absolute cell coordinates using visible's top-left.
      * (First cut: visible.top == dataBounds.top == 0; no scroll offset.) */
@@ -278,7 +236,6 @@ int FlairLClick(FlairList *l, flair_point_t localPt, Cell *hit_out)
      * lOnlyOne (0x80): deselect ALL cells before selecting the hit cell.
      * Checked as an unsigned bit test to avoid signed-byte sign-extension. */
     if ((uint8_t)l->selFlags & 0x80u) {
-#ifndef LIST_MUT_NO_DESELECT
         /* Canonical: deselect every cell in the grid (block-scoped vars). */
         {
             int16_t ri, ci;
@@ -288,16 +245,6 @@ int FlairLClick(FlairList *l, flair_point_t localPt, Cell *hit_out)
                 }
             }
         }
-#else
-        /*
-         * MUTANT LIST_MUT_NO_DESELECT: skip the deselect loop.  With lOnlyOne,
-         * previously-selected cells are NOT cleared.
-         * Oracle step 5: click (0,0) then click (0,2); check (0,0) is now
-         * deselected.  Mutant: (0,0) stays selected (1) -> FAIL -> RED.
-         * Ref: CLAUDE.md Rule 6.
-         */
-        (void)0; /* suppress empty-body warning in the mutant path */
-#endif
     }
 
     /* Select the hit cell and record lastClick. */

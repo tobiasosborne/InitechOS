@@ -1,0 +1,17 @@
+# pending: legacy test-flair-app-launch-mutant: foreground tenant menu-bar pixels
+# Legacy TBX_MUT_MBAR_NOT_SWAPPED
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -787,7 +787,10 @@
+                 return mbar_bad("item-text");
+     }
+     if (x > (uint32_t)FLAIR_SCREEN_W) return mbar_bad("too-wide");
+-    g_slot.app->menubar = (MenuBar *)(uintptr_t)bar;
++    /* MUTANT TBX_MUT_MBAR_NOT_SWAPPED (Rule 6; test-flair-app-launch-mutant):
++     * the bar validates and the call reports success, but it is never
++     * installed -- band 2 keeps the shell fallback bar while the tenant is
++     * foreground. NEVER in a real build. */
+     return TBX_OK;
+ }
+ 

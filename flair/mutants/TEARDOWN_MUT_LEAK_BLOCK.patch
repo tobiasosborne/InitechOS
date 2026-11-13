@@ -1,0 +1,17 @@
+# Legacy TEARDOWN_MUT_LEAK_BLOCK
+# test: test_process_teardown
+--- a/process.c
++++ b/process.c
+@@ -391,7 +391,11 @@
+     (void)FlairProcess_sync_active(list, wm);
+ 
+     /* (3) ONE-SHOT frees, LIFO: the DATA block (GENERAL) first ... */
+-    flair_free(master, FLAIR_CLASS_GENERAL, app->block);
++    /* MUTANT TEARDOWN_MUT_LEAK_BLOCK (Rule 6; teardown-mutant build only): SKIP the
++     * DATA-block free -> the GENERAL block leaks -> flair_heap_avail drifts
++     * monotonically DOWN per launch/terminate cycle (the bump cursor is never
++     * rolled back), so O-3's "avail stable across cycles" check goes RED. NEVER
++     * define in a real build. */
+     /* ... then the RECORDS block (HANDLE) ... */
+     flair_free(master, FLAIR_CLASS_HANDLE, app->records_block);
+     /* ... then the FlairApp handle (HANDLE) LAST. Do not touch `app` after this. */

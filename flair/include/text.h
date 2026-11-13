@@ -200,12 +200,6 @@ static inline int text_measure(text_font_t font, const char *str)
         return 0;
     while (*str) {
         int c = (unsigned char)*str;
-#if defined(TEXT_MUTATE_FIXED_PITCH) && TEXT_MUTATE_FIXED_PITCH
-        /* NAMED MUTANT: ignores per-glyph advance; uses fixed 6px. */
-        (void)font;
-        (void)c;
-        width += 6;
-#else
         if (font == FONT_CHICAGO) {
             width += chicago_advance(c);
         } else if (font == FONT_GENEVA12) {
@@ -213,7 +207,6 @@ static inline int text_measure(text_font_t font, const char *str)
         } else {
             width += (int)geneva9_advance_w(c);
         }
-#endif
         ++str;
     }
     return width;
@@ -293,9 +286,6 @@ static inline void text_draw(const bitmap_t *bm,
             adv = geneva9_advance_w(c);
         }
 
-#if defined(TEXT_MUTATE_FIXED_PITCH) && TEXT_MUTATE_FIXED_PITCH
-        adv = 6u; /* named mutant: fixed advance */
-#endif
 
         x += (int)adv;
         ++str;
@@ -438,11 +428,7 @@ static inline int text_baseline_row(text_font_t font)
  * uses 1:4 -- the measured mode disagrees with it. */
 static inline int text_italic_shift(int d)
 {
-#if defined(TEXT_MUT_ITALIC_RUN4)
-    const int run = 4;
-#else
     const int run = TEXT_ITALIC_RUN;
-#endif
     return (d >= 0) ? d / run : -((-d + run - 1) / run);
 }
 
@@ -459,10 +445,8 @@ static inline uint32_t text_synth_row(uint32_t plain, unsigned face, int d)
         int s = text_italic_shift(d);
         m = (s >= 0) ? (m >> s) : (m << -s);
     }
-#if !defined(TEXT_MUT_SMEAR_OFF)
     if (face & TEXT_FACE_BOLD)
         m |= m >> TEXT_BOLD_SMEAR;
-#endif
     return m;
 }
 
@@ -498,12 +482,8 @@ static inline int text_face_advance(text_font_t font, unsigned face, int c)
     int aw = (font == FONT_CHICAGO)  ? chicago_advance(c)
            : (font == FONT_GENEVA12) ? geneva12_advance(c)
                                      : (int)geneva9_advance_w(c);
-#if !defined(TEXT_MUT_BOLD_ADVANCE_PLAIN)
     if (face & TEXT_FACE_BOLD)
         aw += TEXT_BOLD_SMEAR;
-#else
-    (void)face;
-#endif
     return aw;
 }
 
@@ -571,7 +551,6 @@ static inline int text_clip_in(const bitmap_t *bm, const text_clip_t *k,
 {
     if (px < 0 || py < 0 || px >= (int)bm->width || py >= (int)bm->height)
         return 0;
-#if !defined(TEXT_MUT_CLIP_IGNORE)
     if (k != (const text_clip_t *)0) {
         if (k->right > k->left &&
             (px < k->left || px >= k->right || py < k->top || py >= k->bottom))
@@ -581,9 +560,6 @@ static inline int text_clip_in(const bitmap_t *bm, const text_clip_t *k,
         if (k->rgn_b && !region_contains_point(k->rgn_b, (int16_t)px, (int16_t)py))
             return 0;
     }
-#else
-    (void)k;
-#endif
     return 1;
 }
 
@@ -636,11 +612,7 @@ TEXT_RUN_FN int text_draw_run(const bitmap_t *bm, int x, int y,
      * by a TEXT_UL_SHADOW halo around the ink on each of those rows. */
     if (face & TEXT_FACE_UNDERLINE) {
         for (int t = 0; t < TEXT_UL_THICK; t++) {
-#if defined(TEXT_MUT_UL_OFFSET)
-            int ur = base + TEXT_UL_OFFSET + 1 + t;   /* named mutant: 1 low */
-#else
             int ur = base + TEXT_UL_OFFSET + t;
-#endif
             uint32_t ink[TEXT_RUN_MAX_W / 32 + 2];
             int iw = (int)(sizeof ink / sizeof ink[0]);
             if (ur >= h)

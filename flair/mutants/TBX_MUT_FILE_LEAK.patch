@@ -1,0 +1,12 @@
+# Legacy TBX_MUT_FILE_LEAK
+# test: test_tbx_file
+--- a/tbxfile.h
++++ b/tbxfile.h
+@@ -103,6 +103,6 @@
+ }
+ static void tbxf_reap(flair_platform_files *p)
+ {
+-    flair_platform_files_close(p);
++    (void)p;
+ }
+ #endif

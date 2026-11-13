@@ -1,0 +1,22 @@
+# Legacy TE_MUT_PASTE_NO_DELETE
+# test: test_te_surface
+--- a/textedit.c
++++ b/textedit.c
+@@ -517,8 +517,6 @@
+     }
+ 
+     /* Normal char: delete any range first, then insert at the insertion point. */
+-    if (te->selStart < te->selEnd)
+-        te_delete_range(te, te->selStart, te->selEnd);
+     te_insert_at(te, te->selStart, &ch, 1);
+     te_recompute_lines(te);
+ }
+@@ -527,8 +525,6 @@
+ {
+     if (te == NULL || (s == NULL && len > 0))
+         TE_PANIC("FlairTEInsert: NULL argument (contract error)");
+-    if (te->selStart < te->selEnd)
+-        te_delete_range(te, te->selStart, te->selEnd);
+     te_insert_at(te, te->selStart, s, len);
+     te_recompute_lines(te);
+ }

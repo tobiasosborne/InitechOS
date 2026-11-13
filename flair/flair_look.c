@@ -81,13 +81,7 @@ static const uint32_t flair_derived_rgb[] = {
 #define FLAIR_DERIVED_BEVEL_SHADOW  2u
 #define FLAIR_DERIVED_MENU_DARK     3u
 #define FLAIR_DERIVED_MENU_SHADOW   4u
-#if defined(FLAIR_PART_MAP_MUT_DERIVED)
-/* MUTANT (Rule 6; test-flair-part-map-mutant): the BEVEL_SHADOW row names the
- * LIGHT ordinal -- the differential must go RED. NEVER in a real build. */
-#define FLAIR_DERIVED_BEVEL_SHADOW_ROW FLAIR_DERIVED_BEVEL_LIGHT
-#else
 #define FLAIR_DERIVED_BEVEL_SHADOW_ROW FLAIR_DERIVED_BEVEL_SHADOW
-#endif
 
 #define FLAIR_NO_SKIN_SLOT       ((uint8_t)0xFFu)
 #define FLAIR_SKIN_SLOT(member)  ((uint8_t)offsetof(flair_skin_t, member))
@@ -254,11 +248,7 @@ _Static_assert(sizeof(flair_skin_t) < 255u,
  * untouched. There is deliberately no runtime era branch. */
 const flair_skin_t *flair_look_default_skin(void)
 {
-#if defined(FLAIR_MUT_SKIN_WRONG_ERA)
-    return flair_skin_resolve(ERA_SYS7_0_1, HERITAGE_QUICKDRAW);
-#else
     return flair_skin_default();
-#endif
 }
 
 /* Return the row-carried slot for a PART whose default Platinum value already

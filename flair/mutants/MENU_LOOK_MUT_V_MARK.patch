@@ -1,0 +1,12 @@
+# Legacy MENU_LOOK_MUT_V_MARK
+# test: test_menu_look
+--- a/menu.c
++++ b/menu.c
+@@ -763,6 +763,7 @@
+         if (it->mark) {
+             char marks[2];
+             marks[0] = it->mark;
++            if ((unsigned char)marks[0] == 18u) marks[0] = 'v';
+             marks[1] = 0;
+             (void)text_draw_run(bm, panel.left + FLAIR_MENU_PANEL_INSET + 2,
+                                 text_y, marks, FONT_CHICAGO, 0u, row_fg,

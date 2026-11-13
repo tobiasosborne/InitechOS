@@ -1,0 +1,16 @@
+# Legacy WINDOW_MUTATE_SCROLL_DRAG
+# test: test_winscroll
+--- a/window.c
++++ b/window.c
+@@ -1017,11 +1017,6 @@
+ 
+         if (whichWindow) *whichWindow = p;
+ 
+-        /* The standard scroll bars are CONTROLS IN THE CONTENT (window.h Sec
+-         * 4b; control-manager.md): inContent, then FindControl. Checked first
+-         * because neither gutter lies in contRgn. */
+-        if (WindowScrollBand(p, pt) >= 0)
+-            return inContent;
+ 
+         /* content first (most common). */
+         if (region_contains_point(p->contRgn, h, v))

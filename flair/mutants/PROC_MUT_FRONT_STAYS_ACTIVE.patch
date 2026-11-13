@@ -1,0 +1,20 @@
+# Legacy PROC_MUT_FRONT_STAYS_ACTIVE
+# test: test_process
+--- a/process.c
++++ b/process.c
+@@ -595,11 +595,10 @@
+     if (w == NULL || !w->hilited) return 0;
+     owner = owner_of_window_tolerant(list, w);
+     if (owner == NULL || owner == list->head) return 0;
+-    w->hilited = 0;
+-    /* The 1->0 deactivation repaint, seeded exactly as window.c reaffirm_active
+-     * seeds it (the strucRgn bbox, SECTed to the visible region inside). */
+-    WindowMgr_invalidate(wm, w, region_get_bbox(w->strucRgn));
+-    return 1;
++    /* MUTANT (Rule 6; test-process leg(g), and test-flair-fg-close-mutant's
++     * kmain twin): the F06 picture -- a background app's window stays drawn
++     * ACTIVE under the foreground app's bar. NEVER in a real build. */
++    return 0;
+ }
+ 
+ /* --------------------------------------------------------------------------

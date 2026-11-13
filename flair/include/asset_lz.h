@@ -45,9 +45,6 @@ static __attribute__((unused)) void asset_lz_unpack(uint8_t *dst,
         }
         flags >>= 1;
     }
-#if defined(ASSET_LZ_MUT_BYTE)
-    if (n > 100u) end[100 - (int)n] ^= 1u;
-#endif
 }
 
 #endif /* INITECH_ASSET_LZ_H */

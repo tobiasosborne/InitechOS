@@ -1,0 +1,34 @@
+# Legacy UPDATE_NO_VISCLIP
+# test: test_process_update
+--- a/window.c
++++ b/window.c
+@@ -329,25 +329,10 @@
+     if (!list_contains(wm, w)) WIN_PANIC("clip_update_visible: not in list");
+     if (w->updateRgn == NULL) WIN_PANIC("clip_update_visible: NULL updateRgn");
+ 
+-    region_t *fronts = wm->scratch_a;
+-    region_t *vis = wm->scratch_b;
+-    region_t *clip = wm->scratch_c;
+-
+-    if (!w->visible) {
+-        region_set_empty(w->updateRgn);
+-        return;
+-    }
+-
+-    fronts_union(wm, w, fronts);
+-    region_op(vis, w->strucRgn, fronts, RGN_OP_DIFF);
+-    region_op(clip, w->updateRgn, vis, RGN_OP_INTERSECT);
+-    rgn_copy(w->updateRgn, clip);
+-
+-    /* Rule 2: delivery paint must be a subset of current visibility. This is a
+-     * distinct set-difference check, not a bbox approximation. */
+-    region_op(fronts, w->updateRgn, vis, RGN_OP_DIFF);
+-    if (!region_is_empty(fronts))
+-        WIN_PANIC("clip_update_visible: delivery clip escaped visRgn");
++    /* Named Rule-6 mutant: resurrect the pre-fix delivery path. The directed
++     * three-window stale-seed oracle must go RED via a BACK-over-FRONT stomp. */
++    (void)wm;
++    (void)w;
+ }
+ 
+ /* ===========================================================================

@@ -1,0 +1,46 @@
+# Legacy SB_MUT_FLAT_WELL
+# test: test_chrome_fidelity
+--- a/control.c
++++ b/control.c
+@@ -717,19 +717,7 @@
+     if (x1 <= x0 || y1 <= y0) {
+         return;
+     }
+-    static const ctrl_rect_t well[] = {
+-        CRX(0, 0, 1, 0, CR_Y1B, FLAIR_PART_PLAT_STRIPE_DARK),
+-        CRX(1, 0, 2, 0, CR_Y1B, FLAIR_PART_PLAT_WIDGET_EDGE),
+-        CRX(2, 0, 2 + FLAIR_CHROME_SCROLL_WELL_FILL_ROWS, 0, CR_Y1B, FLAIR_PART_PLAT_WELL),
+-        CRX(-2, 0, -1, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_TILE_SHADOW),
+-        CRX(-1, 0, 0, 0, CR_X0R | CR_X1R | CR_Y1B, FLAIR_PART_PLAT_FRAME_FACE)
+-    };
+-    ctrl_rects(port, x0, y0, x1, y1, well, (int)(sizeof well / sizeof well[0]));
+-    cfill_ctrl(port, x0, y0, x1 - x0, FLAIR_PART_PLAT_STRIPE_DARK);
+-    if (y0 + 1 < y1) {
+-        cfill_ctrl(port, x0, y0 + 1, x1 - x0,
+-                   FLAIR_PART_PLAT_WIDGET_EDGE);
+-    }
++    crect_ctrl(port, x0, y0, x1, y1, FLAIR_PART_PLAT_WELL);
+ }
+ 
+ /* Transpose of the sampled horizontal 15x14 thumb matrix. Colour substitution
+--- a/chrome.c
++++ b/chrome.c
+@@ -456,17 +456,7 @@
+     if (c1 <= c0 || a1 <= a0) {
+         return;
+     }
+-    sb_rect(port, skin, axis, a0, a1, c0, c0 + 1, FLAIR_PART_PLAT_STRIPE_DARK);
+-    sb_rect(port, skin, axis, a0, a1, c0 + 1, c0 + 2, FLAIR_PART_PLAT_WIDGET_EDGE);
+-    sb_rect(port, skin, axis, a0, a1, c0 + 2,
+-            c0 + 2 + FLAIR_CHROME_SCROLL_WELL_FILL_ROWS, FLAIR_PART_PLAT_WELL);
+-    sb_rect(port, skin, axis, a0, a1, c1 - 2, c1 - 1, FLAIR_PART_PLAT_TILE_SHADOW);
+-    sb_rect(port, skin, axis, a0, a1, c1 - 1, c1, FLAIR_PART_PLAT_FRAME_FACE);
+-    sb_rect(port, skin, axis, a0, a0 + 1, c0, c1, FLAIR_PART_PLAT_STRIPE_DARK);
+-    if (a0 + 1 < a1) {
+-        sb_rect(port, skin, axis, a0 + 1, a0 + 2, c0, c1,
+-                FLAIR_PART_PLAT_WIDGET_EDGE);
+-    }
++    sb_rect(port, skin, axis, a0, a1, c0, c1, FLAIR_PART_PLAT_WELL);
+ }
+ 
+ /* ---------------------------------------------------------------------------

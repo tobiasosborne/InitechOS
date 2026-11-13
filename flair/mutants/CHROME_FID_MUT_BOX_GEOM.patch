@@ -1,0 +1,127 @@
+# Legacy CHROME_FID_MUT_BOX_GEOM
+# test: test_chrome
+--- a/chrome.c
++++ b/chrome.c
+@@ -164,78 +164,6 @@
+  * tone, the box does not move): the dark ring becomes frame black and the
+  * face ramp shifts two rungs darker. [golden-resolves: a mouse-down capture
+  * of each Platinum widget.] */
+-static void draw_platinum_widget(GrafPort *port, const flair_skin_t *skin,
+-                                 int bx, int by, int kind, int pressed)
+-{
+-    const int box = FLAIR_CHROME_WIDGET_BOX;
+-    const int interior = FLAIR_CHROME_WIDGET_INTERIOR;
+-    static const int ramp_part[FLAIR_CHROME_WIDGET_RAMP_RUNGS] = {
+-        FLAIR_PART_PLAT_FRAME_SHADOW,
+-        FLAIR_PART_PLAT_WELL,
+-        FLAIR_PART_PLAT_TILE_SHADOW,
+-        FLAIR_PART_PLAT_FRAME_FACE,
+-        FLAIR_PART_PLAT_FACE,
+-        FLAIR_PART_PLAT_TROUGH,
+-        FLAIR_PART_CONTENT
+-    };
+-
+-    /* The fixed 13x13 cell as a rect table (size round 6, WL-0162), offsets
+-     * from (bx,by): E7-less DA face, A5 outer highlight, the 1-px ring
+-     * (black when pressed), the DA interior, its A5 shadow and the white
+-     * top-left pixel. The redundant DA re-fills of the interior's first
+-     * row/column (same PART over the same pixels) are not repeated. */
+-#define WX(x0, y0, x1, y1, p) { (int8_t)(x0), (int8_t)(y0), (int8_t)(x1), (int8_t)(y1), 0u, (uint8_t)(p) }
+-    static const chrome_rect_t cell[] = {
+-        WX(0, 0, box, box, FLAIR_PART_PLAT_FRAME_FACE),
+-        WX(0, 0, box, 1, FLAIR_PART_PLAT_WIDGET_EDGE),
+-        WX(0, 0, 1, box, FLAIR_PART_PLAT_WIDGET_EDGE),
+-        WX(1, 1, box, 2, CR_DYN), WX(1, box - 1, box, box, CR_DYN),
+-        WX(1, 1, 2, box, CR_DYN), WX(box - 1, 1, box, box, CR_DYN),
+-        WX(2, 2, 2 + interior, 2 + interior, FLAIR_PART_PLAT_FRAME_FACE),
+-        /* Interior shadow: the bottom row (dy=8) runs dx=1..8 and the right
+-         * column (dx=8) runs dy=1..8. The two off-diagonal corners (8,0) and
+-         * (0,8) stay #DADADA -- they belong to the top-row/left-column
+-         * highlight (window-chrome.md Sec 3.2 transcription, y=76 x=79 'd'
+-         * and y=84 x=71 'd'; bead initech-tdnl.52, the LOOK pass 6 2/169
+-         * residual). */
+-        WX(3, 1 + interior, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
+-        WX(1 + interior, 3, 2 + interior, 2 + interior, FLAIR_PART_PLAT_WIDGET_EDGE),
+-        WX(2, 2, 3, 3, FLAIR_PART_CONTENT)
+-    };
+-    chrome_rects(port, skin, bx, by, 0, 0, cell, CRN(cell), 0,
+-                 pressed ? FLAIR_PART_FRAME : PLAT_DARK_RING_PART);
+-
+-    for (int dy = 1; dy <= FLAIR_CHROME_WIDGET_RAMP_FACE; dy++) {
+-        for (int dx = 1; dx <= FLAIR_CHROME_WIDGET_RAMP_FACE; dx++) {
+-            int rung = (dx + dy - 2) /
+-                       FLAIR_CHROME_WIDGET_RAMP_PX_PER_STEP;
+-            if (pressed) rung = (rung >= 2) ? rung - 2 : 0;
+-            int part = ramp_part[rung];
+-            cfill(port, bx + 2 + dx, by + 2 + dy, 1, part);
+-        }
+-    }
+-
+-    if (kind == PLAT_WIDGET_ZOOM) {
+-        for (int d = 0; d < FLAIR_CHROME_ZOOM_GLYPH_EDGE; d++) {
+-            cfill(port, bx + 2 + 5, by + 2 + d, 1,
+-                  PLAT_DARK_RING_PART);
+-            cfill(port, bx + 2 + d, by + 2 + 5, 1,
+-                  PLAT_DARK_RING_PART);
+-        }
+-    } else if (kind == PLAT_WIDGET_COLLAPSE) {
+-        cfill(port, bx + 2,
+-              by + 2 + FLAIR_CHROME_COLLAPSE_GLYPH_ROW_0,
+-              interior, PLAT_DARK_RING_PART);
+-        cfill(port, bx + 2,
+-              by + 2 + FLAIR_CHROME_COLLAPSE_GLYPH_ROW_1,
+-              interior, PLAT_DARK_RING_PART);
+-    }
+-
+-    for (int y = by + 1; y <= by + box; y++) {
+-        cfill(port, bx + box, y, 1, FLAIR_PART_CONTENT);
+-    }
+-    cfill(port, bx + 1, by + box, box, FLAIR_PART_CONTENT);
+-}
+ 
+ typedef struct title_layout {
+     char text[FLAIR_WINDOW_TITLE_MAX];
+@@ -738,18 +666,7 @@
+ void flair_draw_window_widget(GrafPort *port, const flair_skin_t *skin,
+                               rgn_rect_t frame, int part, int pressed)
+ {
+-    int by = frame.top + FLAIR_CHROME_WIDGET_TOP_OFF;
+-    int ri = frame.right - 1;
+-    if (port == 0 || skin == (const flair_skin_t *)0) return;
+-    if (part == (int)inGoAway)
+-        draw_platinum_widget(port, skin, frame.left + FLAIR_CHROME_CLOSE_LEFT_OFF,
+-                             by, PLAT_WIDGET_CLOSE, pressed);
+-    else if (part == (int)inZoomIn || part == (int)inZoomOut)
+-        draw_platinum_widget(port, skin, ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
+-                             by, PLAT_WIDGET_ZOOM, pressed);
+-    else if (part == (int)inCollapse)
+-        draw_platinum_widget(port, skin, ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
+-                             by, PLAT_WIDGET_COLLAPSE, pressed);
++    (void)port; (void)skin; (void)frame; (void)part; (void)pressed;
+ }
+ 
+ void flair_draw_document_window(GrafPort *port, const flair_skin_t *skin,
+@@ -851,18 +768,13 @@
+     if (active
+        ) {
+         int by = top + FLAIR_CHROME_WIDGET_TOP_OFF;
++        int old_box = FLAIR_CHROME_SYS7_WBOX_DELTA;
+         if ((widget_flags & FLAIR_WINDOW_WIDGET_CLOSE) != 0u)
+-            draw_platinum_widget(port, skin,
+-                                 left + FLAIR_CHROME_CLOSE_LEFT_OFF,
+-                                 by, PLAT_WIDGET_CLOSE, 0);
++            cframe(port, left + 4, by, left + 4 + old_box, by + old_box,
++                   FLAIR_PART_FRAME);
+         if ((widget_flags & FLAIR_WINDOW_WIDGET_ZOOM) != 0u)
+-            draw_platinum_widget(port, skin,
+-                                 ri - FLAIR_CHROME_ZOOM_RIGHT_OFF,
+-                                 by, PLAT_WIDGET_ZOOM, 0);
+-        if ((widget_flags & FLAIR_WINDOW_WIDGET_COLLAPSE) != 0u)
+-            draw_platinum_widget(port, skin,
+-                                 ri - FLAIR_CHROME_COLLAPSE_RIGHT_OFF,
+-                                 by, PLAT_WIDGET_COLLAPSE, 0);
++            cframe(port, ri - 20, by, ri - 20 + old_box, by + old_box,
++                   FLAIR_PART_FRAME);
+     }
+ 
+     cfill(port, left, top, w, frame_part);

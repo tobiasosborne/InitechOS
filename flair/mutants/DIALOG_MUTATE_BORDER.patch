@@ -1,0 +1,13 @@
+# Legacy DIALOG_MUTATE_BORDER
+# test: test_dialog
+--- a/dialog.c
++++ b/dialog.c
+@@ -440,7 +440,7 @@
+  * The structure->content layout inset remains the locked heritage 7;
+  * its old solid-black paint was not the Platinum appearance contract.
+  */
+-#  define DLG_BORDER_W 3  /* Capture: outline plus two bevel rows. */
++#  define DLG_BORDER_W 8  /* Retained named width mutant. */
+ 
+ static void draw_alert_frame(GrafPort *port, int left, int top,
+                               int right, int bottom)

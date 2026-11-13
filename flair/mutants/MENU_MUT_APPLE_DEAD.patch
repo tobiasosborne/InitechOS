@@ -1,0 +1,13 @@
+# Legacy MENU_MUT_APPLE_DEAD
+# test: test_menu
+--- a/menu.c
++++ b/menu.c
+@@ -197,8 +197,6 @@
+     /* x in the Apple slot drops the system Apple menu when one is registered
+      * (menu.h Sec 3a); otherwise (and left of the first title) no hit. */
+     if (x < cur) {
+-        if (x >= 0 && MenuBar_menu(bar, FLAIR_MENU_APPLE_MI))
+-            return FLAIR_MENU_APPLE_MI;
+         return -1;
+     }
+     for (int k = 0; k < (int)bar->n_menus; k++) {

@@ -1,0 +1,14 @@
+# Legacy CURSOR_MUT_NO_ERASE
+# test: test_cursor
+--- a/cursor.c
++++ b/cursor.c
+@@ -177,7 +177,8 @@
+         return;
+     }
+ 
+-    cursor_erase();
++    /* Rule-6 host mutant: abandon the old save-under, leaving a visible trail. */
++    g_cursor.drawn = 0;
+     g_cursor.x = x;
+     g_cursor.y = y;
+     cursor_draw();

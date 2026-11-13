@@ -1,0 +1,35 @@
+# Legacy CTRL_MUT_CHECK_FILL
+# test: test_control
+--- a/control.c
++++ b/control.c
+@@ -594,25 +594,11 @@
+     }
+ 
+     if (ctrl->contrlValue != 0) {
+-        static const char profile[BOX_SZ * BOX_SZ + 1] =
+-            "KKKKKKKKKKKK"
+-            "KWWWWWWWWWeK"
+-            "KWeKeeeeKeaK"
+-            "KWeKKeeKKgaK"
+-            "KWeeKKKKgcaK"
+-            "KWeeeKKgceaK"
+-            "KWeeKKKKeeaK"
+-            "KWeKKgcKKeaK"
+-            "KWeKgceeKgaK"
+-            "KWeeceeeecaK"
+-            "KeaaaaaaaaaK"
+-            "KKKKKKKKKKKK";
+-        for (int y = 0; y < BOX_SZ; y++) {
+-            for (int x = 0; x < BOX_SZ; x++) {
+-                cfill_ctrl(port, x0 + x, box_y + y, 1,
+-                           checked_box_part(profile[y * BOX_SZ + x]));
+-            }
+-        }
++        /* NAMED MUTANT: relapse to the old solid accent-fill interior. */
++        crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);
++        cframe_ctrl(port, x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_BLACK);
++        crect_ctrl(port, x0 + 2, box_y + 2, x0 + BOX_SZ - 2,
++                   box_y + BOX_SZ - 2, CTRL_ACCENT);
+     } else {
+         /* Unchecked Platinum art is a golden GAP: preserve heritage output. */
+         crect_ctrl(port,  x0, box_y, x0 + BOX_SZ, box_y + BOX_SZ, CTRL_WHITE);

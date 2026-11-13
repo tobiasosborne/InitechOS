@@ -171,13 +171,7 @@ static int te_layout(const FlairTE *te, const te_view_t *v, int16_t *starts,
         char ch = te_view_at(v, i);
 
         if (ch == TE_CH_CR) {
-#ifdef TE_MUT_LINEBREAK_OFF
-            /* MUTANT (Rule 6): record the CR offset instead of the offset PAST
-             * it -- an off-by-one lineStarts. Step 9 (CR) RED. */
-            TE_EMIT(i);
-#else
             TE_EMIT(i + 1);   /* next line starts past the CR */
-#endif
             s = i + 1;
             last_break = -1;
             w = 0;
@@ -185,13 +179,8 @@ static int te_layout(const FlairTE *te, const te_view_t *v, int16_t *starts,
             continue;
         }
 
-#ifdef TE_MUT_WRAP_CHARS
-        /* MUTANT (Rule 6): the retired monospaced rule, wrapWidth/8 chars. */
-        if (wrap_on && ch != TE_CH_SP && (i - s) >= te->wrapWidth / 8 && i > s) {
-#else
         if (wrap_on && ch != TE_CH_SP && w + te_char_w(te, ch) > te->wrapWidth &&
             i > s) {
-#endif
             int brk = (last_break > s) ? last_break : i;
             TE_EMIT(brk);
             s = brk;
@@ -245,10 +234,6 @@ static void te_delete_span(FlairTE *te, int16_t a, int16_t count)
 static void te_delete_range(FlairTE *te, int16_t a, int16_t b)
 {
     int16_t count = (int16_t)(b - a);
-#ifdef TE_MUT_SEL_INCLUSIVE
-    /* MUTANT (Rule 6): inclusive [a,b] -- delete one extra char. Step 5/6 RED. */
-    count = (int16_t)(count + 1);
-#endif
     if (count < 0)
         count = 0;
     if ((int)a + (int)count > (int)te->teLength)
@@ -312,10 +297,8 @@ static int te_line_reach(const FlairTE *te, int L)
     if (L + 1 >= te->nLines)
         return te->teLength;
     e = te->lineStarts[L + 1];
-#ifndef TE_MUT_HIT_PAST_CR
     if (e > 0 && te->text[e - 1] == TE_CH_CR)
         e--;                               /* the caret stops before the CR */
-#endif
     return e;
 }
 
@@ -335,13 +318,7 @@ static int te_offset_at(const FlairTE *te, int h, int v)
     e = te_line_reach(te, L);
     for (i = te->lineStarts[L]; i < e; i++) {
         int w = te_char_w(te, te->text[i]);
-#ifdef TE_MUT_HIT_FLOOR
-        /* MUTANT (Rule 6): the char under the point, never the NEAREST
-         * boundary -- a click on a char's right half lands before it. */
-        if (h < x + w)
-#else
         if (2 * h < 2 * x + w)             /* nearer the left boundary */
-#endif
             return i;
         x += w;
     }
@@ -354,13 +331,7 @@ static void te_arrow(FlairTE *te, char ch)
     int16_t h, v;
 
     if (ch == FLAIR_TE_CH_LEFT) {
-#ifdef TE_MUT_ARROW_NO_COLLAPSE
-        /* MUTANT (Rule 6): a range is not collapsed -- the caret steps left of
-         * its start as if it were an insertion point. */
-        off = a - 1;
-#else
         off = (a < b) ? a : a - 1;
-#endif
     } else if (ch == FLAIR_TE_CH_RIGHT) {
         off = (a < b) ? b : b + 1;
     } else {
@@ -414,17 +385,11 @@ int16_t FlairTEClick(FlairTE *te, int16_t h, int16_t v, int extend)
     if (!extend) {
         anchor = off;
     } else {
-#ifdef TE_MUT_EXTEND_ANCHOR
-        /* MUTANT (Rule 6): the anchor is always selStart -- a shift-click
-         * before the selection throws its end away. */
-        anchor = te->selStart;
-#else
         /* keep the end FARTHER from the point */
         int da = off - te->selStart, db = te->selEnd - off;
         if (da < 0) da = -da;
         if (db < 0) db = -db;
         anchor = (da >= db) ? te->selStart : te->selEnd;
-#endif
     }
     FlairTESetSelect(te, (int16_t)anchor, (int16_t)off);
     return (int16_t)anchor;
@@ -445,15 +410,8 @@ int FlairTECanReplace(const FlairTE *te, int16_t a, int16_t b, const char *s,
     view.a = te->text;      view.na = x;
     view.b = s;             view.nb = len;
     view.c = te->text + y;  view.nc = te->teLength - y;
-#ifdef TE_MUT_PROBE_NO_LINES
-    /* MUTANT (Rule 6): the probe checks the length only -- an edit that needs
-     * a line past FLAIR_TE_MAX_LINES is let through (and the edit panics). */
-    (void)view; (void)n;
-    return 1;
-#else
     n = te_layout(te, &view, NULL, FLAIR_TE_MAX_LINES);
     return n >= 0;
-#endif
 }
 
 /* ===========================================================================
@@ -559,10 +517,8 @@ void FlairTEKey(FlairTE *te, char ch)
     }
 
     /* Normal char: delete any range first, then insert at the insertion point. */
-#ifndef TE_MUT_PASTE_NO_DELETE
     if (te->selStart < te->selEnd)
         te_delete_range(te, te->selStart, te->selEnd);
-#endif
     te_insert_at(te, te->selStart, &ch, 1);
     te_recompute_lines(te);
 }
@@ -571,10 +527,8 @@ void FlairTEInsert(FlairTE *te, const char *s, int16_t len)
 {
     if (te == NULL || (s == NULL && len > 0))
         TE_PANIC("FlairTEInsert: NULL argument (contract error)");
-#ifndef TE_MUT_PASTE_NO_DELETE
     if (te->selStart < te->selEnd)
         te_delete_range(te, te->selStart, te->selEnd);
-#endif
     te_insert_at(te, te->selStart, s, len);
     te_recompute_lines(te);
 }
