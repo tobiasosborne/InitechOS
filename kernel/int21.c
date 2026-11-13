@@ -1807,12 +1807,9 @@ static void do_ioctl(int_frame_t *f)
 {
     uint8_t al = frame_al(f);
 
-    /* --- AL=00h Get Device Information (beads initech-ro6c) ------------------
-     * A CHARACTER device (kind==SFT_KIND_DEVICE) -> DX = INT21_DEVINFO_CON
-     * (0x80D3, the PRM CON word; our only modeled char device is CON; bit15
-     * ISDEV set). A disk FILE (kind==SFT_KIND_FILE) -> DX = INT21_DEVINFO_FILE:
-     * bit15 clear, bits 0-5 = drive number (0 == A:), bit6 = 1 (PRM "not
-     * written" default; no per-handle dirty bit in sft_entry_t yet). */
+    /* AL=00h: device identity follows the resolved header; files report their
+     * SFT drive. Reserved/high legacy bits are retained pending initech-eb0n1;
+     * tests compare the defined identity mask from Encyclopedia 4400h. */
     if (al == 0x00u) {
         sft_entry_t *e = ioctl_sft_from_ebx(f);
         if (e == 0) {
@@ -1821,8 +1818,6 @@ static void do_ioctl(int_frame_t *f)
             return;
         }
 
-        /* Character device (our only one is CON) vs disk file: the bit15
-         * (ISDEV) fork. DX carries the locked device-info word for the kind. */
         if (e->kind == SFT_KIND_DEVICE) {
             uint16_t identity = e->device
                 ? ((device_header_t *)e->device)->attribute & 0x0fu
@@ -1872,9 +1867,8 @@ static void do_ioctl(int_frame_t *f)
     /* --- AL=06h Get Input Status (RBIL/HelpPC INT 21,44,6) ------------------
      * Inputs: BX=handle. Output AL: char device -> 0xFF ready / 0x00 not-ready;
      * FILE -> 0xFF if NOT at EOF / 0x00 if at EOF (read position >= size).
-     * Our CON is the live keyboard -> ALWAYS ready (0xFF). For a FILE we have the
-     * exact per-handle position (file_offset) and size (dir_entry.file_size), so
-     * we report the faithful EOF answer. */
+     * CON includes staged line bytes and nonconsuming keyboard lookahead;
+     * other devices use their input-status request. Files use offset/size. */
     if (al == 0x06u) {
         sft_entry_t *e = ioctl_sft_from_ebx(f);
         if (e == 0) {
