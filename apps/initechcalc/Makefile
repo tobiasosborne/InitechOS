@@ -30,3 +30,12 @@ $(OUT)/LEDGER.TXT: data/LEDGER.TXT | $(OUT)
 	cp $< $@
 $(OUT)/MICHAEL.CFG: data/MICHAEL.CFG | $(OUT)
 	cp $< $@
+$(HOST_OUT)/ledgergen: tests/calc_ledger_gen.c FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
+.PHONY: ledger-data
+ledger-data: $(HOST_OUT)/ledgergen
+	@$< include/calc_ledger.json > $(OUT)/ledger.generated.h
+	@cmp include/calc_ledger.h $(OUT)/ledger.generated.h
+test-build: ledger-data
+$(TOP)/build/sdk/host/libtbx_host.a:
+	+$(MAKE) -C $(TOP)/sdk OUT=$(TOP)/build/sdk MAKEOVERRIDES= host

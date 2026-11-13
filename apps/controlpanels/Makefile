@@ -31,3 +31,9 @@ include $(TOP)/mk/corpus.mk
 references:
 	@cd $(SYSTEM7_DECOMP) && sha256sum -c $(CURDIR)/tests/REFERENCES.sha256 > /dev/null
 test-build: references
+$(TOP)/build/sdk/host/libtbx_host.a:
+	+$(MAKE) -C $(TOP)/sdk OUT=$(TOP)/build/sdk MAKEOVERRIDES= host
+.PHONY: host-dialog-assets
+host-dialog-assets:
+	+$(MAKE) -C $(TOP)/flair OUT=$(TOP)/build/flair MAKEOVERRIDES= all
+$(foreach t,$(HOST_TESTS),$($(t)_C_OBJS)): | host-dialog-assets

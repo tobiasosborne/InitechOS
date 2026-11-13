@@ -15,7 +15,8 @@ appends clipboard clips, turns/removes pages, copies/cuts, scrolls and saves
 on close. Both reopen their stores and retain a damaged store unchanged with
 a notice. PICT/sound, animations and native Note Pad pixel fidelity are absent.
 The composed Platinum/Geneva9 windows follow the claimed store contract and
-SimpleText geometry. Undo is the one visible disabled command in each app.
+SimpleText geometry. Undo is disabled in both apps; Scrapbook also disables
+Select All (one visible dead command in Note Pad, two in Scrapbook).
 
 make test runs two unit/regression programs (44 and 26 checks, <1 second),
 retaining the legacy store, corruption, clipboard and page-boundary assertions.

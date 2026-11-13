@@ -39,6 +39,12 @@ scrapbook: dependencies
 	+$(MAKE) SCRAPBOOK=1 DEPENDENCIES_READY=1 OUT=$(OUT)/scrapbook all
 endif
 TARGET_ARTIFACTS := $(TENANT_IMAGE)
+ifeq ($(SCRAPBOOK),)
+TARGET_ARTIFACTS += $(OUT)/scrapbook/SCRAPBK.EXE
+all: $(OUT)/scrapbook/SCRAPBK.EXE
+$(OUT)/scrapbook/SCRAPBK.EXE: scrapbook
+	@test -s $@
+endif
 include $(TOP)/mk/import-check.mk
 include $(TOP)/mk/mutants.mk
 smoke: all
@@ -46,3 +52,5 @@ smoke: all
 $(HOST_OUT)/readback: tests/readback.c FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
 smoke: $(HOST_OUT)/readback
+$(TOP)/build/flair/libflair.a $(TOP)/build/flair/region/target/region.o $(TOP)/build/sdk/host/libtbx_host.a: | dependencies
+$(TARGET_OBJS) $(foreach t,$(HOST_TESTS),$($(t)_C_OBJS)): | dependencies

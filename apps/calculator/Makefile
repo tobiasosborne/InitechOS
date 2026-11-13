@@ -8,6 +8,7 @@ test_calcda_SRCS := tests/test_calcda.c calc_core.c calc_view.c
 test_calcda_LIBS := -lpng -lm
 test_calcda_ARGS := include/calcda/calcda_vectors.tsv $(SYSTEM7_DECOMP)
 test_calcda_COUNT_PATTERN := ^test_calcda: ([0-9]+) checks.*$$
+test_calcda_route_COUNT_PATTERN := ^test_calcda_route: ([0-9]+) checks.*$$
 test_calcda_route_SRCS := tests/test_calcda_route.c calc_core.c calc_view.c
 test_calcda_route_LIBS := $(TOP)/build/sdk/host/libtbx_host.a
 test_calcda_route_DEPS := $(TOP)/build/sdk/host/libtbx_host.a

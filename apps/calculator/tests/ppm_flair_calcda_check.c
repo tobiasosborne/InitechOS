@@ -3,7 +3,7 @@
  * accessory and the Apple menu (factory C; beads initech-tdnl.17 /
  * initech-tdnl.47). Grades a QEMU screendump (P6 PPM) against the REAL
  * Mac OS 8.1 capture (PNG) it was minted to match -- never against the
- * artifact's own layout data (Law 2 / ADR-0010). Pixels are compared by
+ * artifact's own layout data (CLAUDE.md, The constitution / ADR-0010). Pixels are compared by
  * CLASS (black / white / other): the classes carry the whole B&W rDocProc
  * window and every key, and are blind to the two documented colour
  * substitutions (the desktop and the menu accent).
@@ -30,7 +30,7 @@
  *                    class over the narrower of the two panels.
  *
  * Exit 0 = every leg green; 1 = a leg RED (named); 2 = usage / I/O.
- * ASCII-clean (Rule 12).
+ * ASCII-clean (CLAUDE.md, The constitution).
  */
 #include <png.h>
 #include <stdio.h>

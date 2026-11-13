@@ -8,10 +8,10 @@
 #include "../calcda.c"
 #include "tbx_host.h"
 
-static int fails;
+static int fails, checks;
 #define installed tbx_host.bar
 #define exits tbx_host.exit_calls
-#define CHECK(c, why) do { if (!(c)) { puts("FAIL " why); fails++; } } while (0)
+#define CHECK(c, why) do { checks++; if (!(c)) { puts("FAIL " why); fails++; } } while (0)
 
 static void menu(int32_t word)
 {
@@ -43,6 +43,6 @@ int main(void)
     CHECK(exits==1,"Close W closes Calculator");
     exits=0;menu(0x00810003);
     CHECK(exits==0,"unrelated menu does not close Calculator");
-    printf("test_calcda_route: %d failures\n",fails);
+    printf("test_calcda_route: %d checks, %d failures\n",checks,fails);
     return fails?1:0;
 }

@@ -1,7 +1,7 @@
 /*
  * tools/ppm_flair_fonts_check.c -- the screendump grader of test-flair-fonts
  * (bead initech-tdnl.68, Font Manager slice 2). FACTORY CODE (hosted C,
- * Law 3). ASCII-clean (Rule 12).
+ * CLAUDE.md, The constitution). ASCII-clean (CLAUDE.md, The constitution).
  *
  * WHAT IT GRADES, on a real QEMU screendump of the flagship desktop running
  * the FONTS specimen tenant (os/apps/fonts/fonts.c; geometry derived in

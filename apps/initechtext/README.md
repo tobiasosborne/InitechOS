@@ -20,7 +20,7 @@ Expectations are authored from the real-Mac SimpleText mint-results-007 and
 Inside Macintosh contracts cited in the source; this is a unit/regression
 suite, not a binary or pixel differential. make mutants kills ten patches;
 EXE bytes stay identical after hook removal (28,720 bytes). make smoke launches
-from the Finder on QEMU and Bochs, edits alpha CR bravo, saves MEMO.TXT,
-checks exact bytes with mtools/cmp and checks the volume with fsck.fat.
+from the Finder on QEMU and Bochs, edits alpha CR bravo, saves MEMO.TXT on
+QEMU and UNTITLED on Bochs, checks exact bytes with mtools/cmp and checks the volume with fsck.fat.
 Screendump: build/apps/initechtext/smoke/text.ppm.
 Remaining legacy SimpleText pixel/scroll emulator gates belong to factory.

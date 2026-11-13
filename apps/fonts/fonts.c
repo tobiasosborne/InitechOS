@@ -10,7 +10,7 @@
  * a Style menu whose items are drawn in their own styles -- the way the Mac
  * Menu Manager draws SimpleText's Style menu (menu-manager.md Sec 2.2, the
  * item style byte). It is the fixture of the emulator gate test-flair-fonts
- * and the fonts_styles clip (Rule 14); it ships on that gate's own data
+ * and the fonts_styles clip (CLAUDE.md, The constitution); it ships on that gate's own data
  * volume, never on the flagship volume.
  *
  * Behaviour:
@@ -21,7 +21,7 @@
  *
  * Every number the gate checks is derived in spec/flair_fonts_traces.mk.
  * Ref: os/apps/tbx/tbx.h; spec/toolbox_gate.h Sec 3/6a/7/9; os/flair/text.h
- * (the synthesis rules). ASCII-clean (Rule 12).
+ * (the synthesis rules). ASCII-clean (CLAUDE.md, The constitution).
  */
 #include "tbx.h"
 

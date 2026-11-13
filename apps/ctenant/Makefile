@@ -28,6 +28,12 @@ file-example:
 	+$(MAKE) OUT=$(OUT)/filegate FILE_GATE=1 all
 endif
 TARGET_ARTIFACTS := $(TENANT_IMAGE)
+ifeq ($(FILE_GATE),)
+TARGET_ARTIFACTS += $(OUT)/filegate/FILETEN.EXE
+all: $(OUT)/filegate/FILETEN.EXE
+$(OUT)/filegate/FILETEN.EXE: file-example
+	@test -s $@
+endif
 include $(TOP)/mk/import-check.mk
 include $(TOP)/mk/mutants.mk
 smoke:

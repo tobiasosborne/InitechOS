@@ -4,7 +4,7 @@
  *
  * Grades the artifact's engine (os/apps/calcda/calc_core.c) and face
  * (os/apps/calcda/calc_view.c) against goldens that are NOT the artifact
- * (Law 2 / ADR-0010):
+ * (CLAUDE.md, The constitution / ADR-0010):
  *
  *   C1 VECTORS   87 key sequences typed into the REAL Mac OS 8.1 Calculator
  *                (spec/calcda/calcda_vectors.tsv, hand-transcribed from the
@@ -31,13 +31,13 @@
  *                equals s8_calc_idle's content (black / white / other) pixel
  *                for pixel. FAIL missing reference (ADR-0010 CD-8) when absent.
  *
- * Mutants (Rule 6; each -D on the artifact TUs; the Makefile proves each RED
+ * Mutants (CLAUDE.md, The constitution; each -D on the artifact TUs; the Makefile proves each RED
  * on its leg): CALCDA_MUT_PRECEDENCE (C1/C3), CALCDA_MUT_DIV0_ZERO (C1),
  * CALCDA_MUT_ENTRY_CAP14 (C1/C3), CALCDA_MUT_FIXED_E3 (C1),
  * CALCDA_MUT_KEY_CLICK_DIVERGE (C4), CALCDA_MUT_READOUT_SHIFT (C5).
  *
  * Usage: test_calcda <calc_vectors.tsv> <system7-decomp root>
- * ASCII-clean (Rule 12). Deterministic (Rule 11: a fixed seed).
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution: a fixed seed).
  */
 #define _POSIX_C_SOURCE 200809L
 #include <math.h>

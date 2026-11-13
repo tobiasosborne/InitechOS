@@ -28,3 +28,5 @@ include $(TOP)/mk/import-check.mk
 include $(TOP)/mk/mutants.mk
 smoke: all
 	sh tests/smoke/journey.sh
+$(TOP)/build/flair/libflair.a $(TOP)/build/flair/region/target/region.o $(TOP)/build/sdk/host/libtbx_host.a: | dependencies
+$(TARGET_OBJS) $(foreach t,$(HOST_TESTS),$($(t)_C_OBJS)): | dependencies

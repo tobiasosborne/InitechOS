@@ -1,8 +1,8 @@
 /*
  * spec/assets/calcda_geneva9.h -- the Calculator readout + key-label strike
- * (LOCKED asset; bead initech-tdnl.17; CLAUDE.md Rule 8).
+ * (LOCKED asset; bead initech-tdnl.17; CLAUDE.md CLAUDE.md, The constitution).
  *
- * PROVENANCE (Law 1 honesty): HAND-AUTHORED, glyph by glyph, to match the
+ * PROVENANCE (CLAUDE.md, The constitution honesty): HAND-AUTHORED, glyph by glyph, to match the
  * Geneva 9 the real Mac OS 8.1 Calculator draws -- read off the minted
  * captures ../system7-decomp/goldens/captures/s8_calc_idle.png and
  * s8_calcprobe_*.png (mint-results-007) and typed in as the art below; no
@@ -20,7 +20,7 @@
  * the readout is right-aligned on the summed advances (the Calculator's
  * StringWidth).
  *
- * ASCII-clean (Rule 12).
+ * ASCII-clean (CLAUDE.md, The constitution).
  */
 #ifndef INITECH_SPEC_CALC_GENEVA9_H
 #define INITECH_SPEC_CALC_GENEVA9_H

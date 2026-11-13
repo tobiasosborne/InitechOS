@@ -16,7 +16,7 @@
  *                    menu_look) -- not one black glyph pixel: every Edit item
  *                    is period-grayed.
  *
- * Exit 0 PASS, 1 named FAIL, 2 unusable input. ASCII-clean (Rule 12).
+ * Exit 0 PASS, 1 named FAIL, 2 unusable input. ASCII-clean (CLAUDE.md, The constitution).
  */
 #include <stdio.h>
 #include <stdint.h>

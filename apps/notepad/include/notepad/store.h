@@ -1,4 +1,4 @@
-/* Locked R4.4 persistence contract, initech-tdnl.18 (Rule 8).
+/* Locked R4.4 persistence contract, initech-tdnl.18 (CLAUDE.md, The constitution).
  * Ref: store.json; period-gui-suite.md Sec 4 (eight Note Pad pages, paged
  * Scrapbook); toolbox_gate.h Sec 10/12 (DOS files, desk TEXT Scrap).
  * This is an Initech format, not Apple's resource/data fork format. */

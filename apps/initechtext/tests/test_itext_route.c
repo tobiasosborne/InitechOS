@@ -10,7 +10,7 @@
  * file verbs, and the asked-then-answered Standard File / alert / track
  * verbs the test answers by pushing the events the shell would push.
  *
- * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- never from itext.c):
+ * WHERE THE EXPECTED VALUES COME FROM (CLAUDE.md, The constitution / CLAUDE.md, The constitution -- never from itext.c):
  *   - Mac OS 8.1 SimpleText as minted (../system7-decomp specs/sys8/
  *     simpletext-stdfile.md, mint-results-007): Cut/Copy/Clear grayed with no
  *     selection, Paste grayed with an empty scrap; the selection drawn black
@@ -23,7 +23,7 @@
  * The bytes the EMULATOR writes are judged independently again by
  * test-flair-itext's mtools differential.
  *
- * Mutants (Rule 6; -D on the app build, test-itext-route-mutant), each RED for
+ * Mutants (CLAUDE.md, The constitution; -D on the app build, test-itext-route-mutant), each RED for
  * its named reason (the first miss prints "RED-REASON <tag>"):
  *   ITEXT_MUT_COPY_NOTHING     -> copy
  *   ITEXT_MUT_SAVE_NO_CR       -> save
@@ -37,7 +37,7 @@
  * CREATE_NEW refuses a taken name, DELETE of a missing file is error 2,
  * RENAME moves the entry (name and data) and refuses an existing target --
  * and the test plants its own fixture files by name (mplant).
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -324,7 +324,7 @@ int main(void)
     }
 
     /* initech-4hkk (audit 2026-10-23-das L011): one-level Undo.
-     * GROUND TRUTH (Law 1): Macintosh System Software User's Guide v6.0
+     * GROUND TRUTH (CLAUDE.md, The constitution): Macintosh System Software User's Guide v6.0
      * p.118 (initech-manuals-ref/macos): "Undo. This command undoes your
      * last text-editing action ... type something wrong ... choose Undo to
      * erase the typing and start fresh" -- ONE level, and a typing run is

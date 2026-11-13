@@ -26,7 +26,7 @@ const char tbx_app_name[] = "SCRAPBK";
 const char tbx_app_name[] = "NOTEPAD";
 #define DA_TITLE "Note Pad"
 #endif
-/* DOS AUX output, AH=04h (os/milton/int21.c do_aux_output), the existing
+/* DOS AUX output, AH=04h (kernel/int21.c do_aux_output), the existing
  * serial device seam. Host routing records it; no host env or paths. */
 #ifndef DA_AUX
 static void da_aux(const char *s)

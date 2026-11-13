@@ -15,7 +15,7 @@ All/None/Inverse (3); View Zoom In/Zoom Out/Show Rulers (3); Window Show
 Brushes/Show Layers (2); Help Paint Help (1). GOLDEN-MASTER item 4's dead-command
 sweep is outstanding; this import preserves the intentionally shallow app.
 
-make test runs the claimed 72-check routing regression on sdk/host in <1s.
+make test runs the claimed 68-check routing regression on sdk/host in <1s.
 Expected bar text is the independent PRD literal; this is unit/regression,
 not a period Photoshop differential. make mutants kills both patches;
 removing hooks leaves the 2,960-byte EXE identical. make smoke launches/quits

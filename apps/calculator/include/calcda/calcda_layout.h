@@ -1,14 +1,14 @@
 /*
  * spec/calcda/calcda_layout.h -- the Calculator desk accessory's LAYOUT (LOCKED
- * spec-data; bead initech-tdnl.17; CLAUDE.md Rule 8).
+ * spec-data; bead initech-tdnl.17; CLAUDE.md CLAUDE.md, The constitution).
  *
- * MEASURED (Law 1) off the real Mac OS 8.1 Calculator,
+ * MEASURED (CLAUDE.md, The constitution) off the real Mac OS 8.1 Calculator,
  * ../system7-decomp/goldens/captures/s8_calc_idle.png (mint-results-007): the
  * rDocProc window frame (267,94)..(372,261) inclusive, its content origin
  * (268,113). Every number below is CONTENT-LOCAL (origin = content top-left)
  * unless it says FRAME. The oracle never reads this header to grade the
  * pixels: harness/proptest/test_calcda.c and tools/ppm_flair_calcda_check.c read
- * the CAPTURE (Law 2 / ADR-0010) -- this file only tells the artifact where
+ * the CAPTURE (CLAUDE.md, The constitution / ADR-0010) -- this file only tells the artifact where
  * to draw and what a click hits.
  *
  *   keys      18x16 black-framed rects, white 16x14 face, a 2-px black shadow
@@ -27,7 +27,7 @@
  *             left frame, 3-px right and bottom border); CONTENT = frame
  *             (+1, +19) .. (-3, -3).
  *
- * ASCII-clean (Rule 12).
+ * ASCII-clean (CLAUDE.md, The constitution).
  */
 #ifndef INITECH_SPEC_CALC_LAYOUT_H
 #define INITECH_SPEC_CALC_LAYOUT_H
