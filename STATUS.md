@@ -25,15 +25,15 @@ scenarios in it. The loader takes a kernel of any size up to its
 *Host-green*: its host tests pass and it is listed in `COMPONENTS`.
 *Imported* (CLAUDE.md): also its real artifact builds for the target, no
 deliberately wrong code is left in product source, and its build reads
-nothing from `attic/`. Only `flair/region` is close; none is fully
-imported yet.
+nothing from `attic/`. `make status` generates the registered component states
+and failing conditions from fresh tests, target builds and source audits.
 
 | Component | State |
 |---|---|
 | `boot/` | builds and boots; chunked loader; oversized-kernel check. No host tests (none in legacy). |
 | `kernel/` | builds and boots, InitechDOS only. Host tests parked in `kernel/tests/`, not yet running. Mutation hooks listed in `kernel/tests/MUTANTS-TODO.md`. |
 | `dos/` | COMMAND.COM (still linked into the kernel image) and fifteen external utilities, built and on the disk. Known debts in `dos/README.md`: the shell calls kernel internals; the disk utilities use INT 13h/25h/26h directly. |
-| `flair/region/` | host-green, mutants converted (8 patches, all killed). Not yet compiled for the target. |
+| `flair/region/` | imported: freestanding 32-bit libregion.a, host oracles green, 8/8 patch mutants killed twice, no attic/mutation-hook/escaping-include dependencies. Wine oracle vendored. |
 | `flair/` (the rest) | source moved |
 | `flair/desktop/` | parked, not built: the legacy `kmain.c` (as `kmain_legacy.c`) and the Finder/desktop pieces that were in the kernel. |
 | `sdk/` | source moved (`tbx.h`, runtime, linker script) |
@@ -42,16 +42,16 @@ imported yet.
 | other `apps/*` | source moved; not started. **Frozen** until the vertical slice below works. |
 | `turbo/` | source moved (`compiler/`, `seed/`) |
 | `factory/` | QEMU and Bochs drivers, the image builder, the smoke session, the reproducibility and parity checks. |
-| `goldens/` | empty; corpora are still read from sibling checkouts, unpinned. |
+| `goldens/` | CORPORA.lock pins 134 consumed Wine, Lotus and WordPerfect files, plus external corpus HEADs. Top-level test/status verify before running components. |
 
 ## In flight
 
 - Imports on branches: InitechBase, Turbo Initech, the SDK, the FLAIR
   Toolbox.
-- Conventions pass (owner of `mk/`, the top Makefile, `factory/testlib`,
-  `goldens/`): target build fragment, per-test timeouts and component
-  time budgets, rebuild on flag changes, pinned corpora, the import
-  checks.
+- Conventions hardening is implemented on `conventions/hardening` (not pushed):
+  command-aware target/host builds, real header dependencies, timeout/budget
+  enforcement, parallel tier 0, pinned corpora, import/status checks and repeatable
+  mutations. Adoption lines for in-flight owners are in factory/testlib/README.md.
 - Kernel and DOS host tests (owner of `kernel/`, `dos/`).
 
 ## The vertical slice comes first
@@ -87,8 +87,9 @@ every other app.
   one Muse Wonder Full at a time for an independent opinion.
 - 8 MiB is the minimum machine. In QEMU that is `-m 8 -machine
   acpi=off`; plain `-m 8` loses memory to ACPI tables and is refused.
-- Reference corpora are read from `~/Projects/*-decomp`
-  (`mk/config.mk`). They get pinned under `goldens/` later.
+- External corpus roots still default to `~/Projects/*-decomp` (`mk/config.mk`);
+  consumed files and HEADs are now pinned under `goldens/`. Region has no external
+  Wine dependency. Standalone app pin checks await the owners' adoption lines.
 - The tracker was reset from the triage (`attic/triage/`): 119 issues
   are golden-master work (label `gm`, `comp:<component>`,
   `sev:<severity>`; data loss is P0), 17 need checking against the

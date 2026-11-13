@@ -7,6 +7,7 @@
 # Baselines and compilation must pass; only a runtime failure kills a mutant.
 MUTANT_PATCHES ?= $(wildcard mutants/*.patch)
 
-mutants: test
+.PHONY: mutants
+mutants:
 	+@sh $(TOP)/factory/testlib/run-mutants.sh "$(abspath $(TOP))" "$(COMPONENT)" \
 	  "$(abspath $(OUT))" "$(MAKE)" $(MUTANT_PATCHES)
