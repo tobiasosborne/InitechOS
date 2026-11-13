@@ -1,0 +1,15 @@
+# Legacy I123_MUT_COPY_ABSOLUTE (all hook locations together).
+# test: test_i123_copy_move
+--- a/core/range.c
++++ b/core/range.c
+@@ -146,6 +146,10 @@
+         if(in[p]==WKF_VAR||in[p]==WKF_RANGE) for(uint32_t j=1;j<n;j+=4) {
+             uint16_t cw=rd(in+p+j),rw=rd(in+p+j+2),ncw=MOVE_ERR_WORD,nrw=MOVE_ERR_WORD;
+             int c=i123_ref_resolve(cw,cell->col,1),r=i123_ref_resolve(rw,cell->row,0);
++            if(!move&&c>=0&&r>=0) {     /* MUTANT: /Copy shifts absolute words */
++                if(!(cw&WKF_REF_REL))wr(out+p+j,(uint16_t)((c+(int)nc-cell->col)&255));
++                if(!(rw&WKF_REF_REL))wr(out+p+j+2,(uint16_t)((r+(int)nr-cell->row)&8191));
++            }
+             if(!move||c<0||r<0)continue;        /* /Copy keeps bytes; ERR stays ERR */
+             int follow=inside(from,c,r);
+             if(follow){c+=dx;r+=dy;}

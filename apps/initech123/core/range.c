@@ -126,16 +126,8 @@ int i123_sheet_clone(const i123_sheet_t *s,i123_sheet_t *d)
  *   (MOVE01C F5 fdbf). A corner already ERR keeps 0xFFFF (MOVE01C/D E1,
  *   E2, H1). A moved formula whose target moved with it is re-encoded too
  *   [inferred: no golden moves a formula together with its precedent]. */
-#ifdef I123_MUT_MOVE_COL14
-#define MOVE_COL_MASK WKF_REF_MASK   /* MUTANT (Rule 6): the 14-bit column form */
-#else
 #define MOVE_COL_MASK WKF_REF_COL8
-#endif
-#ifdef I123_MUT_ERR_WORD
-#define MOVE_ERR_WORD 0xBFFFu        /* MUTANT (Rule 6): ERR spelled relative -1 */
-#else
 #define MOVE_ERR_WORD WKF_REF_ERR
-#endif
 static uint16_t moved_word(uint16_t w,int target,int home,unsigned mask)
 { return (uint16_t)((w&WKF_REF_REL)?WKF_REF_REL|((unsigned)(target-home)&mask):(unsigned)target); }
 static int adjust(const i123_cell_t *cell,const uint8_t *in,uint8_t *out,uint32_t *olen,
@@ -154,12 +146,6 @@ static int adjust(const i123_cell_t *cell,const uint8_t *in,uint8_t *out,uint32_
         if(in[p]==WKF_VAR||in[p]==WKF_RANGE) for(uint32_t j=1;j<n;j+=4) {
             uint16_t cw=rd(in+p+j),rw=rd(in+p+j+2),ncw=MOVE_ERR_WORD,nrw=MOVE_ERR_WORD;
             int c=i123_ref_resolve(cw,cell->col,1),r=i123_ref_resolve(rw,cell->row,0);
-#ifdef I123_MUT_COPY_ABSOLUTE
-            if(!move&&c>=0&&r>=0) {     /* MUTANT: /Copy shifts absolute words */
-                if(!(cw&WKF_REF_REL))wr(out+p+j,(uint16_t)((c+(int)nc-cell->col)&255));
-                if(!(rw&WKF_REF_REL))wr(out+p+j+2,(uint16_t)((r+(int)nr-cell->row)&8191));
-            }
-#endif
             if(!move||c<0||r<0)continue;        /* /Copy keeps bytes; ERR stays ERR */
             int follow=inside(from,c,r);
             if(follow){c+=dx;r+=dy;}
@@ -183,9 +169,6 @@ int i123_transfer_rect(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,i1
     int rc;uint16_t col=to.c0,row=to.r0;
     if(!valid(from)||!valid(to)||mode<0||mode>3)return I123_E_ARG;
     if(mode&&((to.c0!=to.c1)||(to.r0!=to.r1)))return I123_E_ARG;
-#ifdef I123_MUT_COPY_RECT_REFUSED
-    if(to.c0!=to.c1||to.r0!=to.r1)return I123_E_ARG;
-#endif
     uint32_t w=from.c1-from.c0,h=from.r1-from.r0;
     if(mode==3){uint32_t t=w;w=h;h=t;}
     if(col+w>=256||row+h>=8192)return I123_E_ARG;
@@ -207,12 +190,7 @@ int i123_transfer_rect(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,i1
             if((t||f)&&(c->fmt&128))return I123_E_ARG;
             un_to+=(uint32_t)t;un_from+=(uint32_t)f;
         }
-#ifndef I123_MUT_ABSENT_UNPROTECTED
         if(un_to<(uint32_t)(to.c1-col+1)*(to.r1-row+1)||(mode==1&&un_from<(w+1u)*(h+1u)))return I123_E_ARG;
-#else
-        /* MUTANT (Rule 6; test-i123-cells-mutant C9): absent cells count as
-         * unprotected. NEVER real. */
-#endif
     }
     rc=i123_sheet_clone(s,d);if(rc)return rc;
     for(uint32_t i=d->ncells;i>0;i--) {
@@ -242,7 +220,6 @@ int i123_transfer_rect(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,i1
         }
     }
     if(mode==1) {
-#ifndef I123_MUT_MOVE_STALE
         for(uint32_t i=0;i<s->ncells;i++) {
             const i123_cell_t *c=&s->cells[i];
             if(c->kind!=I123_K_FORMULA||inside(from,c->col,c->row)||inside(to,c->col,c->row))continue;
@@ -251,7 +228,6 @@ int i123_transfer_rect(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,i1
             rc=adjust(c,s->pool+c->off,code,&n,c->col,c->row,from,to,1);if(rc)return rc;
             rc=i123_set_formula_raw(d,c->col,c->row,c->fmt,c->v,code,n,c->has_str?(const char *)(s->pool+c->off+c->len):0,c->slen);if(rc)return rc;
         }
-#endif
         for(uint32_t p=0;p<d->carry_len;p=next(d,p))if(rd(d->carry+p)==0x47&&rd(d->carry+p+2)==25) {
             for(unsigned j=20;j<=24;j+=4) {
                 int c=rd(d->carry+p+j),r=rd(d->carry+p+j+2);

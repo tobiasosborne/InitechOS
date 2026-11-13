@@ -1,0 +1,14 @@
+# Legacy I123_MUT_ENTRY_75 (all hook locations together).
+# test: test_i123_entry
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -128,7 +128,8 @@
+ /* Ref: Lotus 1-2-3 R2.2 Reference Manual pp. 1-16/1-17 (PDF 32/33):
+  * an entry may contain 240 characters, independent of the screen width. */
+ #define ENTRY_MAX    240u
+-#define ENTRY_LIMIT  ENTRY_MAX
++/* CLAUDE.md, The constitution / test-i123-entry-mutant: restore the former 75-character cap. */
++#define ENTRY_LIMIT  75u
+ 
+ #define MENU_FILE    129
+ #define ITEM_QUIT    1

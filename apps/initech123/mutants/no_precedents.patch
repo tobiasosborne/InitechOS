@@ -1,0 +1,16 @@
+# Legacy I123_MUT_NO_PRECEDENTS (all hook locations together).
+# test: test_i123_recalc_order
+--- a/core/recalc.c
++++ b/core/recalc.c
+@@ -205,6 +205,11 @@
+             f->pc = (uint16_t)(f->pc + n);
+             if (rr >= 0) {
+                 int32_t k = index_of(sh, (uint16_t)cc, (uint16_t)rr);
++                /* MUTANT (CLAUDE.md, The constitution; test-i123-recalc-order-mutant): VAR
++                 * references are not precedents, so natural order degrades
++                 * to the sweep -- a forward reference reads a stale value.
++                 * NEVER in a real build. */
++                k = -1;
+                 if (k >= 0 && sh->cells[k].kind == I123_K_FORMULA) {
+                     if ((uint32_t)k == f->cell) { *self = 1; continue; }
+                     return k;

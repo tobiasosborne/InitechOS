@@ -1,0 +1,12 @@
+# Legacy I123_MUT_PERIOD_TEXT (all hook locations together).
+# test: test_i123_range_menu
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -892,7 +892,6 @@
+     if(g_mode==M_RANGE) {
+         if(vk==VK_ENTER||ch=='\r'){range_accept();return;}
+         if(vk==VK_BSPC||ch==8){if(g_rlen)g_rlen--;else if(pointable()) {g_anchor=0;i123_set_cursor(&g_sheet,g_pc,g_pr);follow_pointer();}}
+-        else if(ch=='.'&&!g_rlen&&pointable()) {g_anchor=1;g_ac=i123_cursor_col(&g_sheet);g_ar=i123_cursor_row(&g_sheet);}
+         else if(ch>=' '&&ch<='~'&&g_rlen<sizeof g_range_text-1){g_anchor=0;g_range_text[g_rlen++]=ch;}
+         else if(vk==VK_UP||vk==VK_DOWN||vk==VK_LEFT||vk==VK_RIGHT) {
+             int c=i123_cursor_col(&g_sheet),r=i123_cursor_row(&g_sheet);

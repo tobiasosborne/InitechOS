@@ -1,0 +1,14 @@
+# Legacy I123_MUT_CURRENCY_REJECT (all hook locations together).
+# test: test_i123_entry
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -963,9 +963,6 @@
+          * of its display format. Strip it only at the entry boundary, so
+          * absolute references (+$A$1) keep their formula meaning. */
+         uint32_t prefix = 0;
+-        /* Real NUMENTRY.WK1: $-12.34 / $+12.34 are numbers; -$ / +$
+-         * are refused. $A$1 remains a formula after numeric parsing fails. */
+-        if (g_elen > 1 && g_edit[0] == '$') prefix = 1;
+         rc = i123_parse_value(g_edit + prefix, g_elen - prefix, &x);
+         if (rc == I123_OK) {
+             rc = i123_set_number(&g_sheet, cc, cr, x);

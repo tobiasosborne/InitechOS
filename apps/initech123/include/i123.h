@@ -33,14 +33,14 @@
  * pair would quiet it -- one changed byte in every string formula on save.
  *
  * Freestanding: <stdint.h> only; dual-compiled (host oracle, tenant).
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #ifndef INITECH_I123_H
 #define INITECH_I123_H
 
 #include <stdint.h>
 
-/* ---- results (Rule 2: a malformed file is refused, never half-loaded) ---- */
+/* ---- results (CLAUDE.md, The constitution: a malformed file is refused, never half-loaded) ---- */
 #define I123_OK          0
 #define I123_E_ARG     (-1)   /* a bad argument (address off-sheet, width 0 ...) */
 #define I123_E_FULL    (-2)   /* the cell array or the pool is full             */

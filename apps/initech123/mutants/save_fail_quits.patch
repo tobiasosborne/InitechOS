@@ -1,0 +1,14 @@
+# Legacy I123_MUT_SAVE_FAIL_QUITS (all hook locations together).
+# test: test_i123_quit
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -606,6 +606,9 @@
+ static void command_paint(void) { paint_panel(); paint_edit_line(); }
+ static void notice(const char *s)
+ {
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-quit-mutant Q8): a Save the alert started
++     * fails, and the session ends anyway -- the work is lost. NEVER real. */
++    if (g_quit_after_save) { (void)tbx_exit(0); return; }
+     g_quit_after_save = 0; g_notice = s; g_mode = M_NOTICE; command_paint();
+ }
+ static void ready(void)

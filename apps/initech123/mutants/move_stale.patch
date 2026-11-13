@@ -1,0 +1,19 @@
+# Legacy I123_MUT_MOVE_STALE (all hook locations together).
+# test: test_i123_copy_move
+--- a/core/range.c
++++ b/core/range.c
+@@ -220,14 +220,6 @@
+         }
+     }
+     if(mode==1) {
+-        for(uint32_t i=0;i<s->ncells;i++) {
+-            const i123_cell_t *c=&s->cells[i];
+-            if(c->kind!=I123_K_FORMULA||inside(from,c->col,c->row)||inside(to,c->col,c->row))continue;
+-            uint8_t code[I123_CODE_MAX];uint32_t n;
+-            if(c->len>sizeof code)return I123_E_FULL;
+-            rc=adjust(c,s->pool+c->off,code,&n,c->col,c->row,from,to,1);if(rc)return rc;
+-            rc=i123_set_formula_raw(d,c->col,c->row,c->fmt,c->v,code,n,c->has_str?(const char *)(s->pool+c->off+c->len):0,c->slen);if(rc)return rc;
+-        }
+         for(uint32_t p=0;p<d->carry_len;p=next(d,p))if(rd(d->carry+p)==0x47&&rd(d->carry+p+2)==25) {
+             for(unsigned j=20;j<=24;j+=4) {
+                 int c=rd(d->carry+p+j),r=rd(d->carry+p+j+2);

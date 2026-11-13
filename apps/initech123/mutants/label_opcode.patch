@@ -1,0 +1,17 @@
+# Legacy I123_MUT_LABEL_OPCODE (all hook locations together).
+# test: test_i123_wk1_roundtrip
+--- a/fs/wk1.c
++++ b/fs/wk1.c
+@@ -378,7 +378,11 @@
+             put_hdr(w, WK1_OP_NUMBER, WK1_LEN_NUMBER);
+             break;
+         case I123_K_LABEL:
+-            put_hdr(w, WK1_OP_LABEL, WK1_CELL_PREFIX + (uint32_t)c->len + 1u);
++            /* MUTANT (CLAUDE.md, The constitution; test-i123-wk1-roundtrip-mutant): the LABEL
++             * record id written as STRING's -- every rewritten golden differs
++             * at its first label and the independent reader sees STRING
++             * records where the sheet holds labels. NEVER in a real build. */
++            put_hdr(w, WK1_OP_STRING, WK1_CELL_PREFIX + (uint32_t)c->len + 1u);
+             break;
+         case I123_K_FORMULA:
+             put_hdr(w, WK1_OP_FORMULA, WK1_FORMULA_FIXED + (uint32_t)c->len);

@@ -1,0 +1,14 @@
+# Legacy I123_MUT_HIT_IGNORES_SCROLL (all hook locations together).
+# test: test_i123_hit
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1182,6 +1182,9 @@
+     int ch = (ev->whereh - (int16_t)org - X0) / CW - BORDER_W;
+     int line = (ev->wherev - (org >> 16)) / CH - LINE_ROW0;
+     uint16_t c = i123_view_left(&g_sheet), r = i123_view_top(&g_sheet);
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-hit-mutant, test-flair-i123-hit-mutant): the
++     * hit maps as if the window sat at A1. NEVER real. */
++    c = 0; r = 0;
+     if (org < 0 || g_mode >= M_MAIN || ch < 0 || line < 0 || line >= (int)VIS_ROWS) return;
+     r = (uint16_t)(r + line);
+     if (r >= I123_MAX_ROWS) return;

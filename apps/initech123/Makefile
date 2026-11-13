@@ -23,6 +23,11 @@ test_i123_menu_tree_SRCS := tests/diff/test_i123_menu_tree.c core/menu.c
 test_i123_menu_tree_CFLAGS := -DI123_MENU_HOST
 $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_DEPS := $(TOP)/build/sdk/host/libtbx_host.a app/face_a.c tests/test_i123_quit.c tests/run.sh))
 $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
+HOST_TESTS += test_i123_menu_disk
+test_i123_menu_disk_SRCS := tests/test_i123_menu_disk.c core/menu.c $(filter-out $(OUT)/host-core/core/menu.o,$(HOST_CORE))
+test_i123_menu_disk_CFLAGS := $(FACE_INC) -DI123_MENU_DISK
+test_i123_menu_disk_LIBS := $(TOP)/build/sdk/host/libtbx_host.a
+test_i123_menu_disk_DEPS := $(TOP)/build/sdk/host/libtbx_host.a $(OUT)/123.MNU
 include $(TOP)/mk/host-test.mk
 
 # The suites also need fresh scratch directories and independent post-checks.
@@ -59,10 +64,11 @@ TENANT_CPPFLAGS := -DI123_MENU_DISK $(LOCAL_INC)
 TENANT_RESOURCES := $(OUT)/123.MNU
 include $(TOP)/mk/tenant.mk
 $(OUT)/123.MNU: $(HOST_OUT)/test_i123_menu_tree
-	$< --resource > $@
+	$< --resource > $@.tmp && mv $@.tmp $@
 
 smoke:
-	@echo 'Tier 1 awaits the booted desktop; see tests/SMOKES.md' >&2; exit 1
+	+$(MAKE) -C $(TOP) image
+	+$(MAKE) -C $(TOP)/factory smoke
 
 .PHONY: sdk-host
 sdk-host:
@@ -74,3 +80,14 @@ TEST_BUDGET_S := 30
 export PYTHONPYCACHEPREFIX := $(OUT)/python-cache
 CORPORA := LOTUS123_DECOMP
 include $(TOP)/mk/corpus.mk
+
+# Public worksheet library: no menu model, face, or SDK runtime.
+CORE_LIB := $(OUT)/libi123.a
+CORE_LIB_OBJS := $(filter-out $(OUT)/tenant/core/menu.o,$(addprefix $(OUT)/tenant/,$(CORE:.c=.o)))
+$(CORE_LIB): private command = rm -f $@ && $(TARGET_AR) rcsD $@ $(CORE_LIB_OBJS)
+$(CORE_LIB): $(CORE_LIB_OBJS) FORCE
+	$(run-command)
+all: $(CORE_LIB)
+TARGET_ARTIFACTS += $(CORE_LIB) $(OUT)/123.MNU
+include $(TOP)/mk/import-check.mk
+include $(TOP)/mk/mutants.mk

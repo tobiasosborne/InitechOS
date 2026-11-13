@@ -4,7 +4,7 @@
  * parser (THE ARTIFACT).
  *
  * bead: initech-9u8w. See i123.h.
- * Ref (Law 1; every rule below names the screenshot or the record it was
+ * Ref (CLAUDE.md, The constitution; every rule below names the screenshot or the record it was
  * read from, and every rule NOT read from the corpus says so):
  *   ../lotus123-decomp/specs/functions/function-value-table.md Sec 3 "Display
  *     facts (General format, column width 9, screenshots)";
@@ -47,7 +47,7 @@
  *
  * Freestanding (x87 doubles in the tenant, SSE doubles on the host oracle --
  * every intermediate is assigned to a double, which -std=c11's
- * -fexcess-precision=standard rounds to binary64). ASCII-clean (Rule 12).
+ * -fexcess-precision=standard rounds to binary64). ASCII-clean (CLAUDE.md, The constitution).
  */
 #include "i123.h"
 #include "i123/wk1_format.h"
@@ -195,14 +195,6 @@ static void general(double x, uint32_t width, char *out)
             for (uint32_t i = 0; i < nd && n < 47u; i++) s[n++] = d[i];
         }
         /* truncate to the field (General truncates, N-7) */
-#ifdef I123_MUT_GENERAL_ROUNDS
-        /* MUTANT (Rule 6; test-i123-wk1-roundtrip-mutant): round the last
-         * shown digit up instead of truncating -- @PI shows "3.141593" where
-         * the real screen (MINT03 shot) shows "3.141592". NEVER in a real
-         * build. */
-        if (n > field && s[field] >= '5' && s[field - 1u] >= '0' && s[field - 1u] < '9')
-            s[field - 1u]++;
-#endif
         if (n > field) n = field;
         if (n > 0u && s[n - 1u] == '.') n--;
         s[n] = '\0';
@@ -508,14 +500,12 @@ void i123_render_row(const i123_sheet_t *sh, uint16_t row, uint16_t left,
         const i123_cell_t *c;
         uint32_t spill = 0;
         if (w == 0u || w > 240u) break;
-#ifndef I123_MUT_WIDE_HIDDEN
         /* B06 (bead initech-3qtt): the FIRST column, wider than the area, is
          * drawn clipped to it and aligned within what shows -- the real R2.2
          * 240-wide A (fixtures/i123-width/13_w240_labels: the number right-
          * aligned in the visible 72, ^Mid centred in 72, a 96-character
          * label cut at 72). A later column shows only whole (11_w67). */
         if (x == 0u && w > nchars) w = nchars;
-#endif
         if (x + w > nchars) break;
         c = i123_find(sh, (uint16_t)col, row);
         if (c != (const i123_cell_t *)0) {

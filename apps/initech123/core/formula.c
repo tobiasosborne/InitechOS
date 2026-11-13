@@ -6,7 +6,7 @@
  * bead: initech-94ah (I123 P2). See i123.h for the contract and
  * spec/i123/wk1_formula.h for the token table and its citations.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   ../lotus123-decomp/specs/formulas/wk1-formula-bytecode.md (the token
  *     widths, the reference words, the call convention, PAREN, UPLUS);
  *   ../lotus123-decomp/mint/{mint01,MINT03,MINT04,MINT05}.steps with
@@ -49,7 +49,7 @@
  *     Sec 2.1): the compiler writes the in-range form; the decompiler reads
  *     both.
  *
- * Freestanding; ASCII-clean (Rule 12); deterministic (Rule 11).
+ * Freestanding; ASCII-clean (CLAUDE.md, The constitution); deterministic (CLAUDE.md, The constitution).
  */
 #include "i123.h"
 #include "i123/wk1_format.h"
@@ -119,19 +119,11 @@ uint32_t i123_token_size(const uint8_t *code, uint32_t len, uint32_t i)
 int32_t i123_ref_resolve(uint16_t word, uint16_t home, int is_col)
 {
     int32_t v = (int32_t)(word & WKF_REF_MASK);
-#ifndef I123_MUT_ERR_LOAD
-    /* MUTANT (Rule 6; test-i123-copy-move-corpus-mutant): without this a
-     * loaded 0xFFFF reads as relative -1,-1. NEVER in a real build. */
+    /* WK1 ERR references remain invalid rather than relative -1,-1. */
     if (word & WKF_REF_ERRBIT) return -1;
-#endif
     if (word & WKF_REF_REL) {
         if (v & (int32_t)WKF_REF_SIGN) v -= (int32_t)(WKF_REF_MASK + 1u);
         v += (int32_t)home;
-#ifdef I123_MUT_ROW_ERR
-        /* MUTANT (Rule 6; test-i123-copy-move-corpus-mutant): the manual-
-         * derived "row off the sheet is ERR" rule WRAP01C refutes. */
-        if (!is_col && (v < 0 || v >= (int32_t)I123_MAX_ROWS)) return -1;
-#endif
     } else if (!is_col && v >= (int32_t)I123_MAX_ROWS) {
         return -1;
     }
@@ -522,12 +514,6 @@ static void parse_expr(cc_t *c, uint32_t maxp)
         uint32_t p;
         if (t == 0) return;
         p = i123_tokens[t].prec;
-#ifdef I123_MUT_PREC_FLAT
-        /* MUTANT (Rule 6; test-i123-formula-mutant): every binary operator
-         * has the same precedence -- "+A1+B1*2" compiles as (A1+B1)*2, so
-         * the typed MINT/TEXT legs and the round trip go RED. NEVER real. */
-        p = WKF_PREC_ADD;
-#endif
         if (p > maxp) return;
         c->p += len;
         parse_expr(c, p - 1u);
@@ -630,7 +616,7 @@ static void put_ref(dc_t *d, const uint8_t *p, int range)
 
 /* The shortest decimal that reads back (through i123_parse_value, the same
  * reader the compiler uses) as exactly x >= 0. Never a timestamp-dependent
- * or libc path (Rule 11). */
+ * or libc path (CLAUDE.md, The constitution). */
 void i123_number_text(double x, char *out, uint32_t cap)
 {
     char best[40];

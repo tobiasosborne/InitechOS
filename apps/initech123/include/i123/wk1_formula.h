@@ -2,7 +2,7 @@
  * spec/i123/wk1_formula.h -- the Lotus 1-2-3 Release 2.2 formula bytecode:
  * the RPN token set a .WK1 FORMULA record carries, the operator precedence
  * the typed text compiles by, and the @function table (LOCKED SPEC-DATA,
- * Rule 8).
+ * CLAUDE.md, The constitution).
  *
  * bead: initech-94ah (I123 P2: formula engine, @function core, recalc).
  *       Plan: docs/plans/INITECH-123-plan.md Sec 4 (@function inventory),
@@ -15,7 +15,7 @@
  * token (what @MOD returns) live in code, apps/initech123/core/eval.c, each rule
  * citing its source.
  *
- * Ref (Law 1):
+ * Ref (CLAUDE.md, The constitution):
  *   [C] ../lotus123-decomp/specs/formulas/wk1-formula-bytecode.md Sec 1-5:
  *       token widths, arities derived by stack simulation over the 1090
  *       FORMULA records of the 44 goldens, the counted-arity call
@@ -48,7 +48,7 @@
  *           literature's, the name/arity the manual's. Implemented to the
  *           manual; NOT oracle-verified [oracle-resolves].
  *
- * Freestanding: <stdint.h> only. ASCII-clean (Rule 12).
+ * Freestanding: <stdint.h> only. ASCII-clean (CLAUDE.md, The constitution).
  */
 #ifndef INITECH_SPEC_I123_WK1_FORMULA_H
 #define INITECH_SPEC_I123_WK1_FORMULA_H

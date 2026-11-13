@@ -1,0 +1,12 @@
+# Legacy I123_MUT_CLOCK_FROZEN (all hook locations together).
+# test: test_i123_clock
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -181,6 +181,7 @@
+ 
+ static void refresh_clock(void)
+ {
++    if (g_cx.have_now) return;
+     g_cx.have_now = 0;
+     if (tbx_get_clock(&g_clock) == TBX_OK)
+         i123_calc_clock(&g_cx, g_clock.year, g_clock.month, g_clock.day,

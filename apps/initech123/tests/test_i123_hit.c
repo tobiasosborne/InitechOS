@@ -4,7 +4,7 @@
  * over the real face_a.c + worksheet core and the recording Toolbox mock of
  * test_i123_quit.c (which serves CONTENTORIGIN as the GLOBAL (6,62)).
  *
- * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- never from face_a.c):
+ * WHERE THE EXPECTED VALUES COME FROM (CLAUDE.md, The constitution -- never from face_a.c):
  *   - the Face A screen as the R2.2 manual lays it out, pp. 1-3/1-4 (PDF
  *     19/20): three control-panel lines, the column letters in the top
  *     border, the row numbers in the left border, the worksheet area, the
@@ -26,9 +26,9 @@
  *     cell pointer"); a value that does not parse stays in EDIT and the
  *     pointer stays (as with Tab/PgDn); borders, the control panel, the status
  *     line and the blank strip right of the last whole column select nothing.
- * Mutant (Rule 6; -D on the app build, test-i123-hit-mutant):
- *   I123_MUT_HIT_IGNORES_SCROLL  the hit maps as if the window sat at A1 -> H5
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * Mutation patch (CLAUDE.md, The constitution):
+ *   mutants/hit_ignores_scroll.patch  the hit maps as if the window sat at A1 -> H5
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #define main i123_quit_oracle_main
 #include "test_i123_quit.c"

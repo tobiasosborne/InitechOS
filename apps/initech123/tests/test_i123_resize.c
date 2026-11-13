@@ -7,7 +7,7 @@
  * tenant (MTE Listing 4-13/4-14: resize, then the update redraws the content
  * for the new size).
  *
- * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- never from face_a.c):
+ * WHERE THE EXPECTED VALUES COME FROM (CLAUDE.md, The constitution -- never from face_a.c):
  *   - the Face A screen of the R2.2 manual, pp. 1-3/1-4 (PDF 19/20): three
  *     control-panel lines, the column border, the rows, the status line LAST;
  *     the mode indicator at the RIGHT edge of line one; the row border 4
@@ -45,11 +45,11 @@
  *     72 (05_w240, 13_w240_labels, 15_back_a1); Right moves to B with B..I
  *     shown (06_w240_right), Left brings A back first. The same rule at a
  *     smaller window (an area of 17) is the rule restated, not a capture.
- * Mutants (Rule 6; -D on the app build, test-i123-resize-mutant):
- *   I123_MUT_FIXED_GEOMETRY  the face ignores the content size and keeps
+ * Mutation patches (CLAUDE.md, The constitution):
+ *   mutants/fixed_geometry.patch  the face ignores the content size and keeps
  *                            the 76 x 24 constants                    -> R3
- *   I123_MUT_WIDE_HIDDEN     an oversized first column shows nothing -> W1
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ *   mutants/wide_hidden.patch     an oversized first column shows nothing -> W1
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #define main i123_quit_oracle_main
 #include "test_i123_quit.c"

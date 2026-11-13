@@ -12,7 +12,7 @@
  * from the pristine image a real launch loads (zeroed BSS, initial .data) and
  * a relaunch reads what the previous launch saved to the same directory.
  *
- * WHERE THE EXPECTED VALUES COME FROM (Law 1 / Law 2 -- never from face_a.c):
+ * WHERE THE EXPECTED VALUES COME FROM (CLAUDE.md, The constitution -- never from face_a.c):
  *   - the bead's DONE MEANS: committed edits and a pending entry are unsaved
  *     work; every exit route (File > Quit / Ctrl-Q, the close box, /Quit Yes)
  *     passes one guard; clean quits at once; Cancel keeps the sheet AND the
@@ -34,12 +34,12 @@
  * ../lotus123-decomp/tools/wk1_ref.py (never by this codec).
  *
  * usage: test_i123_quit <empty-scratch-dir>
- * Mutants (Rule 6; -D on the app build, test-i123-quit-mutant):
- *   I123_MUT_NEVER_DIRTY     a commit never marks the sheet dirty  -> Q2
- *   I123_MUT_CANCEL_QUITS    Cancel in the alert quits anyway       -> Q3
- *   I123_MUT_PENDING_IGNORED a pending entry is not unsaved work    -> Q5
- *   I123_MUT_SAVE_FAIL_QUITS a failed Save from the alert quits     -> Q8
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * Mutation patches (CLAUDE.md, The constitution):
+ *   mutants/never_dirty.patch     a commit never marks the sheet dirty  -> Q2
+ *   mutants/cancel_quits.patch    Cancel in the alert quits anyway       -> Q3
+ *   mutants/pending_ignored.patch a pending entry is not unsaved work    -> Q5
+ *   mutants/save_fail_quits.patch a failed Save from the alert quits     -> Q8
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -300,6 +300,23 @@ static void t_alert_refused(void)
     CHECK(line_has(1, "Hel_"), "Q10", "a refused alert keeps the pending entry");
 }
 
+/* Legacy test-flair-i123-file-ui-mutant: malformed Retrieve must refuse
+ * without losing the prior cells. The codec rejects this BOF with no EOF;
+ * preserving the active bank is the authored transaction documented above. */
+static void t_bad_retrieve(void)
+{
+    static const uint8_t bad[] = {0, 0, 2, 0, 6, 4};
+    char text[64];
+    type_row();
+    CHECK(tbx_host_put_file("BAD.WK1", bad, sizeof bad), "Q11", "install truncated WK1");
+    tks("/frbad\r");
+    CHECK(line_has(1, "Not a valid WK1 file"), "Q11", "malformed Retrieve visibly refuses");
+    cell(0, 0, text, sizeof text);
+    CHECK(!strcmp(text, "'Hello"), "Q11", "failed Retrieve keeps A1 label");
+    cell(3, 0, text, sizeof text);
+    CHECK(!strcmp(text, "-7") && g_dirty, "Q11", "failed Retrieve keeps D1 and unsaved work");
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 2) { fprintf(stderr, "usage: %s <scratch-dir>\n", argv[0]); return 2; }
@@ -329,6 +346,7 @@ int main(int argc, char **argv)
     launch("save_edit_quit", t_save_edit_quit);
     launch("replace_cancel", t_replace_cancel);
     launch("alert_refused", t_alert_refused);
+    launch("bad_retrieve", t_bad_retrieve);
     /* Last: overwrite X.WK1 through the alert's Save + Replace, then reread. */
     launch("replace_ok", t_replace_ok);
     launch("relaunch_again", t_relaunch_again);

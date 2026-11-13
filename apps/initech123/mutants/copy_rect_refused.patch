@@ -1,0 +1,12 @@
+# Legacy I123_MUT_COPY_RECT_REFUSED (all hook locations together).
+# test: test_i123_copy_tile
+--- a/core/range.c
++++ b/core/range.c
+@@ -169,6 +169,7 @@
+     int rc;uint16_t col=to.c0,row=to.r0;
+     if(!valid(from)||!valid(to)||mode<0||mode>3)return I123_E_ARG;
+     if(mode&&((to.c0!=to.c1)||(to.r0!=to.r1)))return I123_E_ARG;
++    if(to.c0!=to.c1||to.r0!=to.r1)return I123_E_ARG;
+     uint32_t w=from.c1-from.c0,h=from.r1-from.r0;
+     if(mode==3){uint32_t t=w;w=h;h=t;}
+     if(col+w>=256||row+h>=8192)return I123_E_ARG;

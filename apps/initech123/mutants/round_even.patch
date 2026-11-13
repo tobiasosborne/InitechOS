@@ -1,0 +1,18 @@
+# Legacy I123_MUT_ROUND_EVEN (all hook locations together).
+# test: test_i123_formula
+--- a/core/eval.c
++++ b/core/eval.c
+@@ -1254,6 +1254,13 @@
+         for (int i = 0; i < (int)(y < 0 ? -y : y); i++) s = s * 10.0;
+         q = (y >= 0.0) ? x * s : x / s;
+         r = trunc_((q < 0.0 ? -q : q) + 0.5);
++        /* MUTANT (CLAUDE.md, The constitution; test-i123-formula-mutant): halves round to even
++         * (banker's rounding) -- @ROUND(2.5,0) = 2 where MINT03 caches 3.
++         * NEVER in a real build. */
++        {
++            double aq = q < 0.0 ? -q : q;
++            if (aq - trunc_(aq) == 0.5 && trunc_(r / 2.0) * 2.0 != r) r = r - 1.0;
++        }
+         if (q < 0.0) r = -r;
+         set_num(out, (y >= 0.0) ? r / s : r * s);
+         return;

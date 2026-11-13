@@ -1,0 +1,14 @@
+# Legacy I123_MUT_ARROWS_DEAD (all hook locations together).
+# test: test_i123_keys
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1011,6 +1011,9 @@
+ {
+     uint16_t oc = i123_cursor_col(&g_sheet), orow = i123_cursor_row(&g_sheet);
+     int nc = (int)oc + dc, nr = (int)orow + dr;
++    /* MUTANT (CLAUDE.md, The constitution; test-flair-i123-mutant): the pointer never moves, so
++     * every typed entry lands in A1. NEVER in a real build. */
++    nc = (int)oc; nr = (int)orow;
+     if (nc < 0) nc = 0;
+     if (nr < 0) nr = 0;
+     if (nc >= (int)I123_MAX_COLS) nc = (int)I123_MAX_COLS - 1;

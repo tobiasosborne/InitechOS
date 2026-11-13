@@ -1,0 +1,13 @@
+# Legacy I123_MUT_ERR_LOAD (all hook locations together).
+# test: test_i123_copy_corpus
+--- a/core/formula.c
++++ b/core/formula.c
+@@ -119,8 +119,6 @@
+ int32_t i123_ref_resolve(uint16_t word, uint16_t home, int is_col)
+ {
+     int32_t v = (int32_t)(word & WKF_REF_MASK);
+-    /* WK1 ERR references remain invalid rather than relative -1,-1. */
+-    if (word & WKF_REF_ERRBIT) return -1;
+     if (word & WKF_REF_REL) {
+         if (v & (int32_t)WKF_REF_SIGN) v -= (int32_t)(WKF_REF_MASK + 1u);
+         v += (int32_t)home;

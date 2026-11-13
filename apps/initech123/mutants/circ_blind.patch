@@ -1,0 +1,14 @@
+# Legacy I123_MUT_CIRC_BLIND (all hook locations together).
+# test: test_i123_recalc_order
+--- a/core/recalc.c
++++ b/core/recalc.c
+@@ -341,6 +341,9 @@
+             rc = sweep_pass(cx, sh, sh->calcorder == ORDER_COLUMNWISE);
+     }
+     if (rc != I123_OK) return rc;
++    /* MUTANT (CLAUDE.md, The constitution; test-i123-recalc-order-mutant): the CIRC indicator
++     * never lights. NEVER in a real build. */
++    ci.circ = 0;
+     sh->circ = ci.circ;
+     sh->circ_col = ci.cc;
+     sh->circ_row = ci.cr;

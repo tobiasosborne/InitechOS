@@ -1,12 +1,12 @@
 /*
  * spec/i123/wk1_format.h -- the Lotus 1-2-3 Release 2.2 .WK1 record set the
- * Initech 123 codec reads and writes (LOCKED SPEC-DATA, Rule 8).
+ * Initech 123 codec reads and writes (LOCKED SPEC-DATA, CLAUDE.md, The constitution).
  *
  * bead: initech-9u8w (I123 P1: grid + labels + numbers + .WK1 round-trip).
  *       Plan: docs/plans/INITECH-123-plan.md Sec 4 (the record table there is
  *       a HYPOTHESIS; every value below is re-derived from the real goldens).
  *
- * Ref (Law 1; corpus = ../lotus123-decomp, the real 1-2-3 R2.2 under DOSBox-X):
+ * Ref (CLAUDE.md, The constitution; corpus = ../lotus123-decomp, the real 1-2-3 R2.2 under DOSBox-X):
  *   specs/file-formats/wk1-format.md  Sec 1 (framing), Sec 2 (opcode/length
  *     table over 44 goldens), Sec 3 (header records), Sec 4 (cell records),
  *     Sec 4.9 (INTEGER vs NUMBER), Sec 9 (what a conforming writer emits);
@@ -29,7 +29,7 @@
  * WINDOW1 "columns visible" field equals the number of whole columns, from
  * the WINDOW1 left column, whose widths fit I123_SCREEN_COLS_CHARS (44/44).
  *
- * Freestanding: <stdint.h> only. ASCII-clean (Rule 12).
+ * Freestanding: <stdint.h> only. ASCII-clean (CLAUDE.md, The constitution).
  */
 #ifndef INITECH_SPEC_I123_WK1_FORMAT_H
 #define INITECH_SPEC_I123_WK1_FORMAT_H

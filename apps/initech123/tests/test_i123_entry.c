@@ -161,6 +161,22 @@ static void currency_grammar(void)
     CHECK(i123_parse_value("12.5%", 5, &x) == I123_OK && x == .125, "E12", "existing percent is preserved");
 }
 
+/* Reference Manual /Worksheet Global Recalculation, pp. 12-30..32:
+ * Automatic recomputes dependents after a number is entered. This arithmetic
+ * example covers the numeric-update behavior also checked by the legacy
+ * test-flair-i123-formula-mutant (A1 retyped 200 updates its dependents). */
+static void automatic_entry(void)
+{
+    i123_val_t value;
+    tks("10\r"); right(); tks("+A1*2\r");
+    i123_cell_value(&g_sheet, 1, 0, &value);
+    CHECK(value.t == I123_V_NUM && value.n == 20, "E13", "initial dependent is 20");
+    ev(keyDown, 0x4B << 8); tks("40\r");
+    i123_cell_value(&g_sheet, 1, 0, &value);
+    CHECK(value.t == I123_V_NUM && value.n == 80, "E13", "numeric entry refreshes dependent to 80");
+    CHECK(g_mode == M_READY && g_dirty, "E13", "automatic recalc leaves unsaved worksheet ready");
+}
+
 int main(int argc, char **argv)
 {
     const unsigned lengths[] = {75, 104, 240, 241};
@@ -175,6 +191,7 @@ int main(int argc, char **argv)
     launch("VALUE and EDIT", value_and_edit);
     launch("currency entry", currency_entry);
     launch("currency grammar", currency_grammar);
+    launch("automatic entry", automatic_entry);
     printf("i123-entry: %d checks, %d failures\n", g_ctr[0], g_ctr[1]);
     return g_ctr[1] ? 1 : 0;
 }

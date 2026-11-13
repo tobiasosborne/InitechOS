@@ -3,7 +3,7 @@
  * formula engine: compiler, decompiler, evaluator, @functions and natural-
  * order recalculation (factory C; bead initech-94ah, I123 P2).
  *
- * Graded against INDEPENDENT authorities only (Law 2):
+ * Graded against INDEPENDENT authorities only (CLAUDE.md, The constitution):
  *   (1) the BYTES the real Lotus 1-2-3 R2.2 compiled and the VALUES it
  *       cached: the 1090 FORMULA records of the 44 goldens in
  *       $LOTUS123_DECOMP/goldens (38 shipped sample sheets + 6 minted);
@@ -37,13 +37,13 @@
  *      the format it was printed in (General at width 9 TRUNCATES, as the
  *      minted screenshots show -- e.g. @COS(45*@PI/180) prints 0.707106).
  *
- * Mutants (Rule 6; test-i123-formula-mutant):
- *   I123_MUT_PREC_FLAT   one precedence for every operator -> B and E RED
- *   I123_MUT_ROUND_EVEN  @ROUND rounds halves to even  -> A/C RED (MINT03)
- *   I123_MUT_CACHE_ROUND the stored cache is rounded    -> D RED
+ * Mutation patches (CLAUDE.md, The constitution):
+ *   mutants/prec_flat.patch   one precedence for every operator -> B and E RED
+ *   mutants/round_even.patch  @ROUND rounds halves to even  -> A/C RED (MINT03)
+ *   mutants/cache_round.patch the stored cache is rounded    -> D RED
  *
  * Usage: test_i123_formula <LOTUS123_DECOMP> <scratch-dir> <wk1_formula_ref.py>
- * ASCII-clean (Rule 12). Deterministic (Rule 11).
+ * ASCII-clean (CLAUDE.md, The constitution). Deterministic (CLAUDE.md, The constitution).
  */
 #include <stdio.h>
 #include <stdlib.h>

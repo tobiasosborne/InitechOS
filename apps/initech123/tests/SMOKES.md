@@ -1,10 +1,8 @@
 # Deferred emulator gates
 
 Names below are from legacy-final Makefile and
-harness/diff/wk1_diff/i123_numeric.mk. None is run by this component import.
-The plain-flags 123.EXE currently exceeds kernel/loader.c's explicit 64 KiB
-file cap; lift that OS-side policy before attempting these desktop launches.
-The SDK already validates the EXE structure on the host.
+harness/diff/wk1_diff/i123_numeric.mk. Scenarios below await factory adoption;
+they are not the top-level product-image smoke.
 The normal gate is QEMU unless explicitly labelled Bochs. Each `-mutant` gate
 reruns the same action with deliberately wrong code and requires the named red.
 
