@@ -1,12 +1,12 @@
 # test: parse_rich
---- a/tps.pas
-+++ b/tps.pas
+--- a/turbo.pas
++++ b/turbo.pas
 @@ -3320,7 +3320,7 @@
    Done := ParseFailed;
    while not Done do
    begin
--    if TokKind = TkStar then begin { TPS_PARSE_MUT_PRECEDENCE }
-+    if TokKind = TkPlus then begin { TPS_PARSE_MUT_PRECEDENCE }
+-    if TokKind = TkStar then begin { TURBO_PARSE_MUT_PRECEDENCE }
++    if TokKind = TkPlus then begin { TURBO_PARSE_MUT_PRECEDENCE }
        LeftType := LastExprType;
        OperatorKind := TokKind;
        OperatorLine := TokLine;

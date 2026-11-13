@@ -1,7 +1,7 @@
 {$MODE DELPHI}{$B+}{$H-}
 { B9.4 hand-computed code-generation tooth. The two value parameters make
   [ebp+8]/[ebp+12] observable; the two while statements make duplicate-label
-  emission observable under TPS_GEN_MUT_LABELS.
+  emission observable under TURBO_GEN_MUT_LABELS.
 
   Expected stdout: TINY=10 }
 program GenTiny;

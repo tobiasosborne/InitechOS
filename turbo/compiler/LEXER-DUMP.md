@@ -1,19 +1,19 @@
 # Turbo Initech lexer dump format
 
-`os/tps/tps.pas` always opens the fixed input name `TPSIN.PAS`. This follows
+`turbo/compiler/turbo.pas` always opens the fixed input name `TURBOIN.PAS`. This follows
 the B8 InitechDOS runtime: there is no command-line filename surface in the
 seed subset. The successful stream is bracketed by these exact lines:
 
 ```text
-TPS-LEX-BEGIN
+TURBO-LEX-BEGIN
 ...
-TPS-LEX-END
+TURBO-LEX-END
 ```
 
 Since B9.2 the driver then resets the lexer over the retained source and emits
 the separately bracketed parser trace specified by `PARSER-TRACE.md`. The
 lexer payload and its golden files are unchanged. Lexer gates extract the
-single anchored `TPS-LEX-BEGIN`/`TPS-LEX-END` region before diffing; this is a
+single anchored `TURBO-LEX-BEGIN`/`TURBO-LEX-END` region before diffing; this is a
 neutral-to-stronger harness re-key because it additionally rejects missing or
 duplicate markers while preserving the byte-exact B9.1 token oracle.
 
@@ -33,7 +33,7 @@ There is one line per token between the markers:
 - `EOF` is the final token.
 
 Comments and whitespace emit no token. A lexical or input-capacity failure
-emits exactly one line beginning `TPS-LEX-ERROR pos=N line=N col=N`, stops
+emits exactly one line beginning `TURBO-LEX-ERROR pos=N line=N col=N`, stops
 lexing, and is followed only by the closing marker. Positions are 1-based byte,
 line, and column coordinates. The source-buffer capacity error uses line and
 column zero because no source byte beyond the capacity was retained.

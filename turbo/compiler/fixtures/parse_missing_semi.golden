@@ -1,1 +1,1 @@
-TPS-PARSE-ERROR pos=21 line=2 col=1 expected=SEMI found=KW_BEGIN
+TURBO-PARSE-ERROR pos=21 line=2 col=1 expected=SEMI found=KW_BEGIN

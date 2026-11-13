@@ -33,5 +33,5 @@ files and mk/mutants.mk once the selected test really executes the emitted code.
 The first three can be converted independently as a small follow-up. Do not
 count different assembly as a semantic kill. The fileio.asm SHORT_WRITE and
 WRONG_HANDLE entry points are also deliberately wrong legacy RTL support
-(roughly lines 184-224); they are unreachable from normal emission and should
+(entry wrappers at lines 141-152); they are unreachable from normal emission and should
 be removed into patches together with their C selectors, not independently.

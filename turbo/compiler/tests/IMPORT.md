@@ -100,3 +100,45 @@ preflight even with cached build outputs. POSIX shell syntax, git diff --check
 and ASCII-only C/Pascal/assembly/link sources passed. No original product source
 is edited in the import commit. Fixed input/output are still TPSIN.PAS/TPSOUT.S
 and resident output TPS.COM until the separately tested rename commit.
+
+## Rename and final acceptance
+
+The separate rename commit follows green import 1d4de0b5. Migration:
+
+| Historical | Current |
+|---|---|
+| tps.pas / tps.ebnf | turbo.pas / turbo.ebnf |
+| TPS.COM | TURBO.COM |
+| TPSIN.PAS | TURBOIN.PAS (DOS 8.3) |
+| TPSOUT.S | TURBOOUT.S (DOS 8.3) |
+| TPS-{LEX,PARSE,TYPE,GEN,CORPUS}-* | TURBO-{LEX,PARSE,TYPE,GEN,CORPUS}-* |
+| TPS_* anchors / tps_* build artifact names | TURBO_* / turbo_* |
+
+Source comments and protocol/corpus documentation now use the product name;
+references to the absent retired subset-plan filename are described as the
+legacy Pascal subset plan, not replaced by a fictitious renamed document.
+All 17 gen_*.golden files are byte-for-byte unchanged. Live independent FPC
+compiles/runs rechecked every one. The 18 protocol goldens change ONLY their
+branding prefix, by the specified literal bijection TPS -> TURBO. Their
+hand-derived token/trace/symbol/error payload is unchanged; no implementation
+output was used to mint expectations. The assembly banner loses the retired
+codename. No language, ABI, runtime or code-generation rule changes.
+The TPS Report Generator and all its files remain untouched.
+
+Final from empty build/turbo: `make -C turbo test`: 44/44, 15.77s.
+Top-level `make test`: ALL GREEN, 20.70s. The renamed patch sweep reports
+7 mutants, 7 killed, 0 survived (all built first). Cached compiler-only
+`make test PATH=/nonexistent` also exits 2 with the explicit FPC-required error.
+Before-rename times and red controls are recorded above. Final source is
+156748 bytes / 5033 lines; self assembly 765329 bytes / 1938 labels; seed COM
+89633 bytes, Pascal-generated COM 113043 bytes. BSS remains 71704 bytes;
+seed DOS end=0x6773c, Pascal DOS end=0x6d2ac (7508 bytes below the ceiling).
+No guest execution or native emission is claimed by these numbers.
+
+`grep -rnw 'TPS\|tps' turbo` hits only compiler/tests/IMPORT.md (historical gate
+names, pre-rename evidence, this migration) and compiler/tests/SMOKES.md (exact
+legacy gate names needed to recover their recipes). There are no active old
+identifiers, paths, protocol tags, source filenames or guest filenames. All
+C/Pascal/ASM/link sources are ASCII; shell syntax and git diff --check pass.
+Moves are git renames: the seed tests and claimed grammar keep history in the
+import commit; the Pascal source and grammar name keep history in the rename.

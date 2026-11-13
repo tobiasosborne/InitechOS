@@ -7,7 +7,7 @@ passes; every mutated compiler builds; all seven fail at test-run. The seed-buil
 link artifacts also build in each scratch directory. The runner never changes
 the working source. Source comments remain explanatory, not executable hooks.
 
-| Original source line | Anchor suffix (TPS_ prefix before rename) | Patch / catcher |
+| Original source line | Anchor suffix (TURBO_ prefix after rename) | Patch / catcher |
 |---|---|---|
 | 72 | LEX_MUT_STRESC | quote-escape.patch: lex_basic byte 39 -> 33 |
 | 797 | LEX_MUT_CASEFOLD | casefold.patch: lex_basic canonical identifiers |

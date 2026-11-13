@@ -1,14 +1,14 @@
 {$MODE DELPHI}{$B+}{$H-}
 {
-  tps.pas -- Turbo Initech single-file bootstrap, B9.4 x86 codegen slice.
+  turbo.pas -- Turbo Initech single-file bootstrap, B9.4 x86 codegen slice.
 
-  Ref: docs/plans/TPS-M7-subset-plan.md Sec 3 and Sec 5; ADR-0007
+  Ref: legacy Pascal subset plan Sec 3 and Sec 5; ADR-0007
   DEC-02, DEC-04, DEC-05, and DEC-07; beads initech-6m52 and
   initech-lh83. Pascal lives here by CLAUDE.md Law 3.
 
-  Input is the fixed B8 filename TPSIN.PAS. A two-ShortString rolling window
+  Input is the fixed B8 filename TURBOIN.PAS. A two-ShortString rolling window
   supplies exact bytes to the monotonic lexer and is reopened for each driver
-  pass; this lets TPS check its grown source without enlarging BSS. The B9.2
+  pass; this lets Turbo Initech check its grown source without enlarging BSS. The B9.2
   SourceWords arena is retired; the build gate now proves the rolling window
   and the absence of that dead 80 KiB reservation. Overflow is loud.
   Identifiers are canonical lower-case and live in one global PoolChars array.
@@ -19,12 +19,12 @@
   for an AST-free semantic parse and deterministic symbol dump.
 
   PHASE DIVERGENCE (deliberate): seed/typecheck.c parses to an AST, collects
-  declarations, then checks that AST (lines 10-23 and 2076-2127). TPS owns no
+  declarations, then checks that AST (lines 10-23 and 2076-2127). Turbo Initech owns no
   AST by design. Its third driver pass mirrors the seed's semantic rules while
   checking expressions/statements as they are parsed. This is the plan's
   sanctioned single-pass architecture; it changes phase structure, not the
   type compatibility rules. A call to a later routine therefore needs an
-  explicit prior forward in TPS, while the seed's collect_procs-before-bodies
+  explicit prior forward in Turbo Initech, while the seed's collect_procs-before-bodies
   structure can already see every later header (seed/typecheck.c:2090-2108).
 
   SEMANTIC REFERENCE MAP (rules mirrored, phase structure excepted above):
@@ -43,20 +43,20 @@
       scalar-only record fields by seed/parser.c:1554-1665.
 
   Lexer dump:
-    TPS-LEX-BEGIN
+    TURBO-LEX-BEGIN
     one token per line
-    TPS-LEX-END
+    TURBO-LEX-END
   Keywords use KW plus their lower-case spelling. Identifiers use IDENT plus
   the pooled spelling. Integers use INTEGER plus decimal value. Strings use
   STRING, decoded length, then one decimal byte per payload character. Fixed
   punctuation kind names and EOF carry no payload. Errors use one located
-  TPS-LEX-ERROR line, stop the driver, then close the output bracket.
+  TURBO-LEX-ERROR line, stop the driver, then close the output bracket.
 
   Parser trace:
-    TPS-PARSE-BEGIN
+    TURBO-PARSE-BEGIN
     ENTER production Lline / EXIT production Lline
-    TPS-PARSE-OK or one located TPS-PARSE-ERROR line
-    TPS-PARSE-END
+    TURBO-PARSE-OK or one located TURBO-PARSE-ERROR line
+    TURBO-PARSE-END
 
   Source discipline: boolean evaluation is complete. Every bounds-sensitive
   access is guarded by nested if statements or by a sentinel accessor, and
@@ -69,7 +69,7 @@ const
   PoolMax = 6144;
   NameMax = 704;
   ChunkMax = 255;
-  EscapeQuoteCode = 39; { TPS_LEX_MUT_STRESC }
+  EscapeQuoteCode = 39; { TURBO_LEX_MUT_STRESC }
 
   { B9.4 fixed arenas. Nine integer columns x 1,024 symbols = 36,864 bytes;
     header/argument/name scratch remains fixed. Retiring B9.2's 81,920-byte
@@ -288,7 +288,7 @@ var
   ParsedFieldOffset, ParsedFieldLength, ParsedFieldLine, ParsedFieldCol: integer;
 
   { B9.4 code generator. Assembly is buffered into one ShortString and written
-    through the B8 byte-file surface to the fixed name TPSOUT.S. Generation is
+    through the B8 byte-file surface to the fixed name TURBOOUT.S. Generation is
     a fourth check-as-you-parse pass: the semantic tables are rebuilt while
     the same parser emits stack-machine x86. }
   OutputFile: file;
@@ -470,7 +470,7 @@ begin
   else if not HadError then
   begin
     HadError := true;
-    Write('TPS-LEX-ERROR pos=', P, ' line=', L, ' col=', C);
+    Write('TURBO-LEX-ERROR pos=', P, ' line=', L, ' col=', C);
     if Code = ErrBadChar then
       Writeln(' bad character code=', Detail)
     else if Code = ErrString then
@@ -617,7 +617,7 @@ begin
     GenFlags[2] := true;
     ParseFailed := true;
     TypeFailed := true;
-    Write('TPS-GEN-ERROR line=', L, ' col=', C, ' ');
+    Write('TURBO-GEN-ERROR line=', L, ' col=', C, ' ');
     if Code = 1 then Writeln('output short write')
     else if Code = 2 then Writeln('invalid symbol storage')
     else if Code = 3 then Writeln('invalid expression storage')
@@ -794,7 +794,7 @@ begin
   I := 1;
   while I <= Length(TokText) do
   begin
-    TokText[I] := LowerAscii(TokText[I]); { TPS_LEX_MUT_CASEFOLD }
+    TokText[I] := LowerAscii(TokText[I]); { TURBO_LEX_MUT_CASEFOLD }
     I := I + 1
   end
 end;
@@ -1187,7 +1187,7 @@ var
   Got: integer;
 begin
   SourceLen := 0;
-  Assign(InputFile, 'TPSIN.PAS');
+  Assign(InputFile, 'TURBOIN.PAS');
   Reset(InputFile, 1);
   ChunkBase := 1;
   ChunkLen := 0;
@@ -1383,7 +1383,7 @@ begin
   else if not ParseFailed then
   begin
     ParseFailed := true;
-    Write('TPS-PARSE-ERROR pos=', TokPos, ' line=', TokLine,
+    Write('TURBO-PARSE-ERROR pos=', TokPos, ' line=', TokLine,
           ' col=', TokCol, ' expected=');
     WriteExpected(Expected);
     Write(' found=');
@@ -1457,7 +1457,7 @@ begin
   begin
     TypeFailed := true;
     ParseFailed := true;
-    Write('TPS-TYPE-ERROR line=', L, ' col=', C, ' ');
+    Write('TURBO-TYPE-ERROR line=', L, ' col=', C, ' ');
     if Code = TeDuplicate then
     begin
       Write('duplicate identifier: ');
@@ -1668,7 +1668,7 @@ begin
   end
   else
     Existing := FindLocal(NameOffset, NameLength);
-  if Existing <> 0 then begin { TPS_TYPE_MUT_DUPOK }
+  if Existing <> 0 then begin { TURBO_TYPE_MUT_DUPOK }
     FailType(TeDuplicate, L, C, NameOffset, NameLength, 0, 0)
   end
   else if NameIsFileBuiltin(NameOffset, NameLength) then
@@ -2213,7 +2213,7 @@ function GenFrameOffset(Index: integer): integer;
 begin
   GenFrameOffset := SymOffset[Index];
   if (SymKind[Index] = SkValueParam) or (SymKind[Index] = SkVarParam) then
-    GenFrameOffset := SymOffset[Index] { TPS_GEN_MUT_OFFBYONE }
+    GenFrameOffset := SymOffset[Index] { TURBO_GEN_MUT_OFFBYONE }
 end;
 
 procedure GenEbp(Index: integer);
@@ -2254,13 +2254,13 @@ end;
 
 { Assignment destinations have a named seam for the B9.5 semantic mutation
   proof. The clean path is deliberately identical to every other designator
-  address. TPS_GEN_MUT_VARPARAM changes only a var-parameter assignment
+  address. TURBO_GEN_MUT_VARPARAM changes only a var-parameter assignment
   destination to the callee's parameter slot, so reads still observe the
   caller but writes update a dead local copy instead of the caller address. }
 procedure GenAssignmentAddress(Index: integer);
 begin
   if SymKind[Index] = SkVarParam then
-    GenDesignatorAddress(Index) { TPS_GEN_MUT_VARPARAM }
+    GenDesignatorAddress(Index) { TURBO_GEN_MUT_VARPARAM }
   else
     GenDesignatorAddress(Index)
 end;
@@ -3320,7 +3320,7 @@ begin
   Done := ParseFailed;
   while not Done do
   begin
-    if TokKind = TkStar then begin { TPS_PARSE_MUT_PRECEDENCE }
+    if TokKind = TkStar then begin { TURBO_PARSE_MUT_PRECEDENCE }
       LeftType := LastExprType;
       OperatorKind := TokKind;
       OperatorLine := TokLine;
@@ -3757,7 +3757,7 @@ begin
                    PendingIdentOffset, PendingIdentLength, 0, 0)
       end
       else
-      if ValueType <> TargetType then begin { TPS_TYPE_MUT_ASSIGN }
+      if ValueType <> TargetType then begin { TURBO_TYPE_MUT_ASSIGN }
         FailType(TeAssignMismatch, PendingIdentLine, PendingIdentCol,
                  PendingIdentOffset, PendingIdentLength, TargetType, ValueType)
       end
@@ -4013,7 +4013,7 @@ begin
     end;
   if not ParseFailed then
   begin
-    if TokKind = TkElse then begin { TPS_PARSE_MUT_ELSE }
+    if TokKind = TkElse then begin { TURBO_PARSE_MUT_ELSE }
       TraceEnter(PrElseClause);
       NextToken();
       ParseStatement();
@@ -4039,7 +4039,7 @@ begin
   LabelNumber := 0;
   if GenFlags[1] then
   begin
-    LabelNumber := GenNewLabel(); { TPS_GEN_MUT_LABELS }
+    LabelNumber := GenNewLabel(); { TURBO_GEN_MUT_LABELS }
     begin GenText := '.Lwhile_top_'; GenPut(GenText); GenInt(LabelNumber) end;
     begin GenText := ':'; GenPut(GenText) end;
     GenChar(Chr(10))
@@ -4889,7 +4889,7 @@ begin
   NextToken();
   if not HadError then ParseProgram();
   if not ParseFailed then
-    if not HadError then Writeln('TPS-PARSE-OK')
+    if not HadError then Writeln('TURBO-PARSE-OK')
 end;
 
 procedure RunTypeChecker();
@@ -4921,7 +4921,7 @@ begin
     if not ParseFailed then
     begin
       DumpSymbols();
-      Writeln('TPS-TYPE-OK')
+      Writeln('TURBO-TYPE-OK')
     end;
   TypeMode := false
 end;
@@ -4958,9 +4958,9 @@ begin
   GenFlags[2] := false;
   GenFlags[3] := false;
   GenFlags[4] := false;
-  Assign(OutputFile, 'TPSOUT.S');
+  Assign(OutputFile, 'TURBOOUT.S');
   Rewrite(OutputFile, 1);
-  begin GenText := '; Generated by Turbo Initech (TPS B9.4).'; GenLine(GenText) end;
+  begin GenText := '; Generated by Turbo Initech (B9.4).'; GenLine(GenText) end;
   begin GenText := '; Ref: ADR-0007 DEC-04/DEC-05; deterministic stack-machine x86.'; GenLine(GenText) end;
   begin GenText := 'bits 32'; GenLine(GenText) end;
   begin GenText := ''; GenLine(GenText) end;
@@ -4993,7 +4993,7 @@ begin
   if not GenFlags[2] then
     if not TypeFailed then
       if not ParseFailed then
-        Writeln('TPS-GEN-OK bytes=', GenData[2],
+        Writeln('TURBO-GEN-OK bytes=', GenData[2],
                 ' labels=', GenData[3]);
   GenFlags[1] := false;
   TypeMode := false
@@ -5001,33 +5001,33 @@ end;
 
 begin
   HadError := false;
-  Writeln('TPS-LEX-BEGIN');
+  Writeln('TURBO-LEX-BEGIN');
   ReadInput();
   RunLexer();
-  Writeln('TPS-LEX-END');
-  Writeln('TPS-PARSE-BEGIN');
+  Writeln('TURBO-LEX-END');
+  Writeln('TURBO-PARSE-BEGIN');
   if HadError then
-    Writeln('TPS-PARSE-SKIP lexer-error')
+    Writeln('TURBO-PARSE-SKIP lexer-error')
   else
     RunParser();
-  Writeln('TPS-PARSE-END');
+  Writeln('TURBO-PARSE-END');
   SyntaxClean := not ParseFailed;
-  Writeln('TPS-TYPE-BEGIN');
+  Writeln('TURBO-TYPE-BEGIN');
   if HadError then
-    Writeln('TPS-TYPE-SKIP lexer-error')
+    Writeln('TURBO-TYPE-SKIP lexer-error')
   else if not SyntaxClean then
-    Writeln('TPS-TYPE-SKIP parser-error')
+    Writeln('TURBO-TYPE-SKIP parser-error')
   else
     RunTypeChecker();
-  Writeln('TPS-TYPE-END');
-  Writeln('TPS-GEN-BEGIN');
+  Writeln('TURBO-TYPE-END');
+  Writeln('TURBO-GEN-BEGIN');
   if HadError then
-    Writeln('TPS-GEN-SKIP lexer-error')
+    Writeln('TURBO-GEN-SKIP lexer-error')
   else if not SyntaxClean then
-    Writeln('TPS-GEN-SKIP parser-error')
+    Writeln('TURBO-GEN-SKIP parser-error')
   else if TypeFailed then
-    Writeln('TPS-GEN-SKIP type-error')
+    Writeln('TURBO-GEN-SKIP type-error')
   else
     RunCodeGenerator();
-  Writeln('TPS-GEN-END')
+  Writeln('TURBO-GEN-END')
 end.

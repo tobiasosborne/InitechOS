@@ -1,7 +1,7 @@
 {$MODE DELPHI}{$B+}{$H-}
 { string.pas -- B7: fixed/ShortString strings (length/index/compare/concat)
   + frame-resident temporaries (beads initech-39k2, B7 of
-  docs/plans/TPS-M7-subset-plan.md; ADR-0007 DEC-02 "minimal fixed/ShortString-
+  legacy Pascal subset plan; ADR-0007 DEC-02 "minimal fixed/ShortString-
   style strings (length/index/compare/concat) -- not dynamic/heap strings",
   DEC-05 "int-to-decimal-string is hand-written in-subset Pascal ... the RTL
   stays byte/block I/O only").

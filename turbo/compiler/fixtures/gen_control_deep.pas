@@ -1,7 +1,7 @@
 {$MODE DELPHI}{$B+}{$H-}
 { control.pas -- if/then/else + while/do (primitive), plus for/repeat (sugar,
   desugared entirely in seed/parser.c). Beads initech-80iw, B2 of
-  docs/plans/TPS-M7-subset-plan.md; ADR-0007 DEC-02/DEC-04.
+  legacy Pascal subset plan; ADR-0007 DEC-02/DEC-04.
 
   Golden provenance: HAND-COMPUTED from the Pascal definitions (ISO 7185 /
   Turbo Pascal), per the bool.pas / negative_divmod.pas precedent -- not

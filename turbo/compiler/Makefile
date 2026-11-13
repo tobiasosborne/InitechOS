@@ -20,19 +20,19 @@ tools:
 	@command -v $(FPC) >/dev/null 2>&1 || { echo 'FAIL: fpc is required (no skipped reference tests)' >&2; exit 1; }
 seed-tools:
 	+@$(MAKE) --no-print-directory -C $(TOP)/turbo/seed all TESTS=
-$(OUT)/tps_fpc: tps.pas $(MAKEFILE_LIST) | $(OUT) tools
+$(OUT)/turbo_fpc: turbo.pas $(MAKEFILE_LIST) | $(OUT) tools
 	@$(FPC) -B -O- -v0 -FU$(OUT) -FE$(OUT) -o$@ $< > $(OUT)/fpc-build.log 2>&1 || { cat $(OUT)/fpc-build.log; exit 1; }
-$(OUT)/tps_seed.s: tps.pas $(wildcard $(TOP)/turbo/seed/*.[ch]) $(MAKEFILE_LIST) | $(OUT) seed-tools
+$(OUT)/turbo_seed.s: turbo.pas $(wildcard $(TOP)/turbo/seed/*.[ch]) $(MAKEFILE_LIST) | $(OUT) seed-tools
 	@$(SEED_BIN) --emit-asm -o $@ $<
-$(OUT)/tps_seed.o: $(OUT)/tps_seed.s
-	@cd $(OUT) && $(NASM) -f elf32 tps_seed.s -o tps_seed.o
-$(OUT)/tps_seed_dos.elf: $(OUT)/tps_seed.o $(wildcard $(RT_SRC)/*) | seed-tools
+$(OUT)/turbo_seed.o: $(OUT)/turbo_seed.s
+	@cd $(OUT) && $(NASM) -f elf32 turbo_seed.s -o turbo_seed.o
+$(OUT)/turbo_seed_dos.elf: $(OUT)/turbo_seed.o $(wildcard $(RT_SRC)/*) | seed-tools
 	@$(TARGET_LD) $(TARGET_LDFLAGS) -T $(RT_SRC)/seed_dos.ld -o $@ $(SEED_RT)/start_dos.o $(SEED_RT)/fileio.o $<
-$(OUT)/tps_seed_bare.elf: $(OUT)/tps_seed.o $(wildcard $(RT_SRC)/*) | seed-tools
+$(OUT)/turbo_seed_bare.elf: $(OUT)/turbo_seed.o $(wildcard $(RT_SRC)/*) | seed-tools
 	@$(TARGET_LD) $(TARGET_LDFLAGS) -T $(RT_SRC)/seed.ld -o $@ $(SEED_RT)/start.o $(SEED_RT)/fileio.o $<
-$(OUT)/TPS.COM: $(OUT)/tps_seed_dos.elf
+$(OUT)/TURBO.COM: $(OUT)/turbo_seed_dos.elf
 	@$(OBJCOPY) -O binary $< $@
-all: tools $(OUT)/tps_fpc $(OUT)/TPS.COM $(OUT)/tps_seed_bare.elf
+all: tools $(OUT)/turbo_fpc $(OUT)/TURBO.COM $(OUT)/turbo_seed_bare.elf
 test-build: all
 test: test-run
 test-run: test-build

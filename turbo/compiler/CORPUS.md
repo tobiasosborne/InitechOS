@@ -22,7 +22,7 @@ hand-derived expectations. The three B9.5 focus fixtures were computed from
 the arithmetic and Pascal semantics recorded in their source headers. All
 fixtures use the FPC `MODE DELPHI`, complete-boolean (`B+`), and ShortString
 (`H-` where strings matter) pins. Calls to later routines use `forward`,
-respecting TPS's deliberate stricter-than-seed forward divergence.
+respecting Turbo Initech's deliberate stricter-than-seed forward divergence.
 
 ## 2. Registry
 
@@ -58,7 +58,7 @@ assembly remain the ADR-0007 DEC-02 post-fixpoint deferrals, not corpus holes.
 
 `make test-compiler` is the host half. For all 17 rows it requires FPC to
 compile and execute the source against the hand golden, then requires the
-FPC-built TPS to emit twice byte-identically and NASM/link both bare and DOS
+FPC-built Turbo Initech to emit twice byte-identically and NASM/link both bare and DOS
 artifacts twice byte-identically. Its success line is:
 
 ```text
@@ -66,7 +66,7 @@ compiler_host_pass_rate=100% (17/17)
 ```
 
 `make test-compiler-os` is the execution differential. It retains the B9.4
-compile-on-InitechDOS tiny tooth, then places all 17 TPS-generated `.COM`
+compile-on-InitechDOS tiny tooth, then places all 17 TURBO-generated `.COM`
 files plus `compiler_corpus.bat` on one fresh FAT disk. One bounded DOS boot
 runs every row between unique markers. Each captured block is diffed directly
 against the already golden-checked FPC stdout. Its only green completion is:
@@ -76,13 +76,13 @@ differential_pass_rate=100% (17/17)
 ```
 
 This one-boot batching keeps DOS boot cost bounded without weakening the DOS
-rail: every registered TPS-generated program executes under InitechDOS.
+rail: every registered TURBO-generated program executes under InitechDOS.
 
 ## 4. Rule 6
 
 `test-compiler-os-mutant` composes two semantic execution bites over registered
-corpus rows. `TPS_GEN_MUT_OFFBYONE` shifts parameter slots and makes
-`gen_tiny` print a wrong value without crashing. `TPS_GEN_MUT_VARPARAM` sends
+corpus rows. `TURBO_GEN_MUT_OFFBYONE` shifts parameter slots and makes
+`gen_tiny` print a wrong value without crashing. `TURBO_GEN_MUT_VARPARAM` sends
 var-parameter assignment stores to the callee parameter slot instead of the
 caller address; `gen_func_deep` then leaves the caller values unchanged and
 differs from its aliasing golden. A mutant that prints the clean golden makes

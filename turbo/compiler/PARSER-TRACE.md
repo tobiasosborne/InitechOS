@@ -1,17 +1,17 @@
 # Turbo Initech parser trace format
 
-`os/tps/tps.pas` reads the fixed B8 filename `TPSIN.PAS` once. The driver
+`turbo/compiler/turbo.pas` reads the fixed B8 filename `TURBOIN.PAS` once. The driver
 first emits the unchanged lexer dump and then replays the retained source
 through the single-lookahead recursive-descent parser. The two independent
 surfaces are bracketed as follows:
 
 ```text
-TPS-LEX-BEGIN
+TURBO-LEX-BEGIN
 ...
-TPS-LEX-END
-TPS-PARSE-BEGIN
+TURBO-LEX-END
+TURBO-PARSE-BEGIN
 ...
-TPS-PARSE-END
+TURBO-PARSE-END
 ```
 
 The parser keeps exactly one current token and calls `NextToken` on demand;
@@ -23,7 +23,7 @@ ENTER program L1
 ENTER block L4
 EXIT block L7
 EXIT program L8
-TPS-PARSE-OK
+TURBO-PARSE-OK
 ```
 
 `L` is the 1-based line of the current lookahead token at that event. On a
@@ -35,7 +35,7 @@ production has its `ENTER` event but no `EXIT` event.
 The first syntax error emits exactly one deterministic line and stops:
 
 ```text
-TPS-PARSE-ERROR pos=21 line=2 col=1 expected=SEMI found=KW_BEGIN
+TURBO-PARSE-ERROR pos=21 line=2 col=1 expected=SEMI found=KW_BEGIN
 ```
 
 `pos`, `line`, and `col` are 1-based coordinates of the found lookahead.
@@ -44,8 +44,8 @@ of the grammar categories `FACTOR`, `TYPE_NAME`, `RESULT_TYPE`,
 `CONST_LITERAL`, `PARAM_NAME`, `FIELD_NAME`, `VAR_NAME`, `ROUTINE_NAME`,
 `PROGRAM_NAME`, `ARRAY_BOUND`, `TO_OR_DOWNTO`, and `NO_CHAINED_RELATION`.
 `found` is always the fixed lexer token-kind name. The error line is followed only by
-`TPS-PARSE-END`. If the first lexer pass fails, the parser bracket contains
-`TPS-PARSE-SKIP lexer-error`; replaying a known-bad byte stream would only
+`TURBO-PARSE-END`. If the first lexer pass fails, the parser bracket contains
+`TURBO-PARSE-SKIP lexer-error`; replaying a known-bad byte stream would only
 duplicate the already located lexer diagnostic.
 
 ## Seed grammar mirrored by B9.2
@@ -81,6 +81,6 @@ accepting it in a type-name or bound position.
 One verified divergence is retained and made explicit: `case` is a lexer
 keyword, but the seed parser does not implement a `case` statement. The seed
 dispatch at `seed/parser.c:1114-1134` omits it and `seed/parser.h:85-90`
-records it as unimplemented. TPS therefore rejects `case` in B9.2; the
+records it as unimplemented. Turbo Initech therefore rejects `case` in B9.2; the
 `parse_case_unsupported` negative golden prevents an invented grammar from
 silently entering the self-host subset.

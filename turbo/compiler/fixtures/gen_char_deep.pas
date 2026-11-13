@@ -1,6 +1,6 @@
 {$MODE DELPHI}{$B+}{$H-}
 { char.pas -- const declarations, the char type, char literals, and ord/chr
-  (beads initech-7mo3, B3 of docs/plans/TPS-M7-subset-plan.md; ADR-0007
+  (beads initech-7mo3, B3 of legacy Pascal subset plan; ADR-0007
   DEC-02: "const declarations", "char, ord, chr").
 
   Golden provenance: HAND-COMPUTED from the Pascal definitions (ISO 7185 /

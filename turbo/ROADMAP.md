@@ -30,14 +30,15 @@ The seed is host C; the resident compiler is Pascal. They are separate programs.
    1938 labels; seed-built COM 89591 bytes, Pascal-generated COM 112995 bytes.
    BSS is 71704 bytes; seed-linked end 0x67710, Pascal-linked end 0x6d27c. This
    does not execute the resulting compiler or prove K2==K3. See rename evidence
-   in compiler/tests/IMPORT.md for the final source/assembly sizes.
+   in compiler/tests/IMPORT.md for final source/assembly sizes and arena measurements.
 
 4. Capacity is already tight. SourceMax=262144, PoolMax=6144, NameMax=704,
    SymbolMax=1024, HeaderParamMax=PendingNameMax=32 (source const section).
    Self TYPE dump has 818 SYM rows and no FIELD rows; self lexer sees 537 distinct
    identifier spellings totalling 5359 bytes (keywords separately; generator
    string constants can add pool entries). Global bytes=71704. The Pascal-linked
-   end leaves only 7556 bytes below 0x6f000; the seed-linked image has 30960.
+   pre-rename end leaves 7556 bytes below 0x6f000; the seed-linked image has 30960.
+   After rename the Pascal-linked end is 0x6d2ac, leaving only 7508 bytes.
    Enlarging tables/emitter/IDE needs a measured memory plan, not just larger
    maxima. Eight MiB physical memory does not remove this fixed low arena limit.
 

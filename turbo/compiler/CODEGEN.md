@@ -13,21 +13,21 @@ execution differential wired for orchestrator execution
 
 The governing references are ADR-0007 DEC-04/DEC-05, `seed/codegen.c`,
 `seed/rt/start.asm`, `seed/rt/start_dos.asm`, `seed/rt/fileio.asm`, and
-`SYMBOLS-DUMP.md`. TPS intentionally does not copy the seed compiler's AST
-phase structure. Its fourth read of fixed-name `TPSIN.PAS` rebuilds and checks
-the insertion-ordered symbol tables while emitting fixed-name `TPSOUT.S`.
+`SYMBOLS-DUMP.md`. Turbo Initech intentionally does not copy the seed compiler's AST
+phase structure. Its fourth read of fixed-name `TURBOIN.PAS` rebuilds and checks
+the insertion-ordered symbol tables while emitting fixed-name `TURBOOUT.S`.
 
 The driver surface is:
 
 ```text
-TPS-GEN-BEGIN
-TPS-GEN-OK bytes=<decimal> labels=<decimal>
-TPS-GEN-END
+TURBO-GEN-BEGIN
+TURBO-GEN-OK bytes=<decimal> labels=<decimal>
+TURBO-GEN-END
 ```
 
-Assembly bytes go only to `TPSOUT.S`, through `Assign`, `Rewrite`, and buffered
-`BlockWrite`. An invariant failure emits one located `TPS-GEN-ERROR` and never
-reports `TPS-GEN-OK`.
+Assembly bytes go only to `TURBOOUT.S`, through `Assign`, `Rewrite`, and buffered
+`BlockWrite`. An invariant failure emits one located `TURBO-GEN-ERROR` and never
+reports `TURBO-GEN-OK`.
 
 ## 2. Register and expression discipline
 
@@ -61,7 +61,7 @@ The prologue is `push ebp; mov ebp,esp; sub esp,<frame>` and the epilogue is
 `leave; ret`. Functions load their result slot into `eax`. A `var` parameter
 slot holds a caller address and is dereferenced afresh for every read/write.
 
-The parser necessarily sees arguments left-to-right. TPS evaluates them in
+The parser necessarily sees arguments left-to-right. Turbo Initech evaluates them in
 that order, saves each result, then pushes duplicate argument words in reverse
 order immediately before the call. The callee therefore still observes the
 pinned cdecl `[ebp+8+4*i]` layout, and the caller removes duplicates, saved
@@ -80,11 +80,11 @@ arguments, and any string materialization bytes in one deterministic cleanup.
 - Whole records copy field-by-field with compile-time offsets. No runtime
   layout metadata or loop label is introduced.
 
-`TPS_GEN_MUT_OFFBYONE` changes parameter displacements by one dword. The tiny
+`TURBO_GEN_MUT_OFFBYONE` changes parameter displacements by one dword. The tiny
 fixture's two-parameter sum then executes to a wrong value on the orchestrator
 rail without requiring an assembly failure.
 
-`TPS_GEN_MUT_VARPARAM` changes only assignment destinations for `var`
+`TURBO_GEN_MUT_VARPARAM` changes only assignment destinations for `var`
 parameters: reads still dereference the caller address, while stores target
 the callee parameter slot. The registered `gen_func_deep` aliasing clauses
 then leave caller variables unchanged and make the execution differential red.
@@ -125,7 +125,7 @@ body emission is an inline byte sequence behind a deterministic jump in
 ShortString/C-string representation selected by its consumer.
 
 Every generated branch and inline literal draws from one `GenData[3]` counter.
-No label family owns a private counter. `TPS_GEN_MUT_LABELS` prevents `while`
+No label family owns a private counter. `TURBO_GEN_MUT_LABELS` prevents `while`
 from advancing that counter; the two adjacent loops in `gen_tiny.pas` then
 produce duplicate labels and NASM rejects the file.
 
@@ -133,12 +133,12 @@ produce duplicate labels and NASM rejects the file.
 
 `CORPUS.md` is the controlled 17-fixture registry, DOS-name map, coverage
 matrix, rate contract, and Rule-6 record. Every Pascal source carries the
-derivation of its sibling hand-computed `.golden`. For every row, TPS emits,
+derivation of its sibling hand-computed `.golden`. For every row, Turbo Initech emits,
 assembles, and links twice byte-identically for both `seed.ld` and
 `seed_dos.ld`; FPC executes the same source and must match the independent
 golden. `test-compiler-os` owns generated-code execution for all rows.
 
-`tps.pas` remains a separate self-source compile/assemble/link tooth over the
+`turbo.pas` remains a separate self-source compile/assemble/link tooth over the
 whole accepted implementation surface; it has no behavior golden and is not
 counted in the 17-fixture differential rate.
 
@@ -173,13 +173,13 @@ calls `pf_addpair`, and removes 16 bytes (two originals plus two cdecl words).
 
 With the B9.5 assignment-mutation seam, the seed-built compiler is 89,591
 bytes as a flat `.COM`; static BSS remains 71,704 bytes, and linked end
-`0x67710` remains below `0x6f000`. The TPS-generated self assembly is 765,205
+`0x67710` remains below `0x6f000`. The TURBO-generated self assembly is 765,205
 bytes of text; its linked DOS image ends at `0x6d27c`, leaving 7,556 bytes.
 The 72 KiB BSS soft reserve and unchanged hard image ceiling remain enforced.
 This thin margin is still the M8 watch item, not a B9.5 optimization target.
 
 No emulator was run in the B9.5 lane. Host-proven claims are all 17 FPC
-executions against hand goldens, twice-byte-identical TPS assembly/object/bare
+executions against hand goldens, twice-byte-identical Turbo Initech assembly/object/bare
 ELF/DOS ELF per row, self-source generation and both links, and buildable
 OFFBYONE/VARPARAM wrong-code artifacts. The all-row InitechDOS execution rate
 and both semantic mutation bites are wired in `test-compiler-os` and
