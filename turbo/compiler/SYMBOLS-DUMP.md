@@ -113,10 +113,11 @@ layout; they are not addresses from the current checker process.
 
 ## 6. Fixed budgets and failure policy
 
-The B9.4 implementation provides 1,024 symbol rows, 704 interned names, and
-6,144 character-pool bytes. Header and call signatures allow 32 parameters,
-matching `seed/typecheck.c`'s `TC_MAX_PARAMS`. The row/name/pool ceilings were
-raised only far enough for the generator to compile its own grown source.
+The implementation provides 2,048 symbol rows, 1,536 interned names, and
+16,384 character-pool bytes, sized for one TURBO.COM holding the compiler and
+the IDE (turbo/README.md, "Capacity"; initech-n6r9v). Header and call
+signatures allow 32 parameters, matching `seed/typecheck.c`'s
+`TC_MAX_PARAMS`.
 Every overflow stops at the first located error; truncation and wraparound are
 forbidden.
 

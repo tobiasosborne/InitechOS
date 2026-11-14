@@ -19,7 +19,7 @@ repro)
     for source in examples/hello.pas examples/smoke.pas examples/arith/*.pas; do
         name=$(basename "$source" .pas)
         extra_rt=
-        if [ "$name" = fileio ]; then extra_rt=$out/rt/fileio.o; fi
+        if [ "$name" = fileio ] || [ "$name" = ioresult ]; then extra_rt=$out/rt/fileio.o; fi
         for pass in a b; do
             mkdir -p "$scratch/$pass"
             "$out/initechc" --emit-asm -o "$scratch/$pass/$name.s" "$source"

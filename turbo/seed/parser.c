@@ -776,6 +776,7 @@ static AstNode *parse_call(Parser *p, char *name, int line, int col)
     }
     if (!expect(p, TOK_RPAREN, "')'"))
         return NULL;
+    n->as.call.io_checks = p->lx.io_checks;
     return n;
 }
 

@@ -12,7 +12,7 @@ const
   PageMax = 16384;
   PageFill = 8192;
   PageLinesMax = 16385;
-  ChunkMax = 255;     { BlockRead/BlockWrite move ShortString bytes }
+  BufChunkMax = 255;     { BlockRead/BlockWrite move ShortString bytes }
   LineMax = 250;
   BufOk = 0;
   BufTooLong = 1;      { a line longer than PageFill bytes }
@@ -52,7 +52,7 @@ end;
 
 procedure OutByte(C: char);
 begin
-  if OutUsed = ChunkMax then OutFlush();
+  if OutUsed = BufChunkMax then OutFlush();
   OutUsed := OutUsed + 1;
   OutChunk[OutUsed] := C
 end;
@@ -89,7 +89,7 @@ begin
   while Count > 0 do
   begin
     Want := Count;
-    if Want > ChunkMax then Want := ChunkMax;
+    if Want > BufChunkMax then Want := BufChunkMax;
     BlockRead(WorkIn, Chunk[1], Want, Got);
     I := 1;
     while I <= Got do
@@ -124,10 +124,10 @@ begin
     I := PgOrig;
     while I > 0 do
     begin
-      if I > ChunkMax then
+      if I > BufChunkMax then
       begin
-        BlockRead(WorkIn, Chunk[1], ChunkMax, Got0);
-        I := I - ChunkMax
+        BlockRead(WorkIn, Chunk[1], BufChunkMax, Got0);
+        I := I - BufChunkMax
       end
       else
       begin
@@ -163,7 +163,7 @@ begin
   BufStatus := BufOk;
   while not Done do
   begin
-    BlockRead(WorkIn, Chunk[1], ChunkMax, Got);
+    BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
     if Got = 0 then Done := true;
     I := 1;
     while I <= Got do
@@ -303,7 +303,7 @@ begin
   DocLen := 0; DocLines := 1; Done := false; PendingCr := false;
   while not Done do
   begin
-    BlockRead(WorkIn, Chunk[1], ChunkMax, Got);
+    BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
     if Got = 0 then Done := true;
     I := 1;
     while I <= Got do
@@ -358,7 +358,7 @@ begin
   Done := false;
   while not Done do
   begin
-    BlockRead(WorkIn, Chunk[1], ChunkMax, Got);
+    BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
     if Got = 0 then Done := true
     else BlockWrite(WorkOut, Chunk[1], Got, Got)
   end;
@@ -380,7 +380,7 @@ begin
   Done := false;
   while not Done do
   begin
-    BlockRead(WorkIn, Chunk[1], ChunkMax, Got);
+    BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
     if Got = 0 then Done := true;
     I := 1;
     while I <= Got do

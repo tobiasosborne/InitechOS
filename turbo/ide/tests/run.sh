@@ -50,6 +50,20 @@ paging)
     check saved-pages cmp "$scratch/expected" "$scratch/BIG.PAS"
     check backup cmp "$scratch/original" "$scratch/BIG.BAK"
     ;;
+one-program)
+    # One TURBO.COM holds the compiler and the IDE: the compiler's
+    # declarations, the IDE's, one main. Both compilers must accept that
+    # program within their capacities (turbo/README.md, limits).
+    main=$(grep -n '^begin$' "$top/turbo/compiler/turbo.pas" | tail -1 | cut -d: -f1)
+    head -n $((main - 1)) "$top/turbo/compiler/turbo.pas" > "$scratch/ONE.PAS"
+    cat screen.pas buffer.pas editor.pas >> "$scratch/ONE.PAS"
+    printf 'begin\n  IdeStart()\nend.\n' >> "$scratch/ONE.PAS"
+    check seed-capacity "$top/build/turbo/seed/initechc" --emit-asm -o "$scratch/one.s" "$scratch/ONE.PAS"
+    setup cp "$scratch/ONE.PAS" "$scratch/TURBOIN.PAS"
+    (cd "$scratch" && "$top/build/turbo/compiler/turbo_fpc" > raw)
+    grep -a -E 'TURBO-[A-Z]+-(OK|ERROR)' "$scratch/raw" | head -5
+    check turbo-capacity grep -q '^TURBO-NATIVE-OK ' "$scratch/raw"
+    ;;
 seed)
     # The C seed accepts the IDE source (subset check, no execution).
     check seed-accepts "$top/build/turbo/seed/initechc" --emit-asm -o "$scratch/idehost.s" "$out/idehost.pas"

@@ -1,0 +1,11 @@
+# test: lexer
+--- a/lexer.c
++++ b/lexer.c
+@@ -161,7 +161,6 @@
+             if (inside == 3 && directive[0] == '$'
+                 && (directive[1] == 'I' || directive[1] == 'i')) {
+                 if (directive[2] == '+') lx->io_checks = 1;
+-                if (directive[2] == '-') lx->io_checks = 0;
+             }
+             continue;
+         }

@@ -7,8 +7,8 @@ Pascal compiler; it is not Turbo Initech itself. Dependencies: its own headers
 and host C/POSIX headers only. Runtime dependency: InitechDOS's flat INT 21h ABI.
 
 `make` builds initechc and the three runtime objects. `make test` runs six host
-entries, with the unchanged 97 lexer and 115 parser/type checks, 15-fixture
-reproducibility, file RTL static contracts and independent FPC reference runs.
+entries, with 112 lexer checks (15 for the `$I` switch) and 115 parser/type
+checks, 16-fixture reproducibility, file RTL static contracts and independent FPC reference runs.
 Default OUT is build/turbo/seed at the repository root. FPC must be installed;
 there is no skip option. Test C files alone include factory/testlib/test_assert.h,
 which is the existing shared seed-origin harness. Product builds use only -I.
@@ -18,7 +18,8 @@ Behavioural sources remain the source headers, fixture derivations and the
 legacy-final recipes recorded in tests/IMPORT.md. No optimiser/ABI tuning from
 the old monolithic build is needed. The factory uses shared HOST_CFLAGS;
 runtime assembly/link semantics are preserved. This import changes no behaviour.
-`make mutants` kills 17 patches: lexer/parser host checks, reproducibility,
+`make mutants` holds 20 patches (the three added for `$I`, IOResult and
+Rename go red; see turbo/README.md on grading): lexer/parser host checks, reproducibility,
 and guest execution with independent Free Pascal stdout/file comparisons. Guest
 entries are selected only by tier 2; the default six tier-0 entries never boot
 an emulator. Build `make image` first for the guest mutation catchers. The two

@@ -314,6 +314,23 @@ static void test_error_unterminated_comment(void)
     CHECK(t[1].kind == TOK_ERROR, "unterminated comment yields ERROR");
 }
 
+/* The $I switch (TP 5.5 Reference Guide, IOResult; initech-n6r9v): only a
+ * comment holding exactly $I+ / $I- (either case) changes it; the state is
+ * read after each token, as the parser reads it after a call's ')'. */
+static void test_io_check_directive(void)
+{
+    Lexer lx;
+    const char *src = "a {$I-} b {$i+} c {$I-x} d {$I -} e (*$I-*) f {$i-} g";
+    int want[] = { 1, 0, 1, 1, 1, 1, 0 };
+    lexer_init(&lx, src, strlen(src));
+    CHECK(lx.io_checks == 1, "I/O checking starts on");
+    for (int i = 0; i < 7; i++) {
+        Token t = lexer_next(&lx);
+        CHECK(t.kind == TOK_IDENT, "identifier between directives");
+        CHECK(lx.io_checks == want[i], "$I state after each identifier");
+    }
+}
+
 int main(void)
 {
     test_keywords_case_insensitive();
@@ -334,5 +351,6 @@ int main(void)
     test_error_bad_char();
     test_error_unterminated_string();
     test_error_unterminated_comment();
+    test_io_check_directive();
     return TEST_SUMMARY("test_lexer");
 }

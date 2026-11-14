@@ -45,6 +45,7 @@ respecting Turbo Initech's deliberate stricter-than-seed forward divergence.
 | `gen_string_temporaries` | `CSTRTEMP` | B7 | four simultaneous right-nested temps and doubled-quote literal decoding |
 | `gen_file_shared` | `CFILES` | B8 | byte/block write-read round trip and local file variable |
 | `gen_fileio_deep` | `CFILEIO` | B8 | independent deep copy of the byte/block file oracle |
+| `gen_ioresult` | `CIORES` | B8 | `{$I-}`, IOResult, Close, Erase, Rename; pending error suppresses I/O |
 
 Together these rows execute-cover the complete M7 accepted subset: 32-bit
 integer/boolean/char/ShortString scalars; constants; every relation and

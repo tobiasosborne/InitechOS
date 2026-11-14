@@ -13,9 +13,9 @@ Startup retains the loader's separate 64 KiB stack; descriptor reserve covers
 BSS including alignment. Files and exit use INT 21h. Inherited serial helpers
 now poll transmitter readiness. No private kernel header/code is included.
 
-`make test` composes 6 seed and 40 compiler host entries, including 17 FPC
-execution references and independent native byte comparisons (17 flat,
-18 extended). The two compiler placements are packaged with factory/mz/mzlink
+`make test` composes 6 seed, 41 compiler and 5 IDE host entries, including
+18 FPC execution references and independent native byte comparisons (18 flat,
+19 extended). The two compiler placements are packaged with factory/mz/mzlink
 and checked by the independent mzcheck against the actual extended limits:
 262144 module bytes, aligned module+reserve before 0x7ef000, native heap
 header, separate guard and stack. The old conventional compiler placement
@@ -72,23 +72,17 @@ produce D2. Each D2 must equal its K2/K3 and the other emulator's D2.
 Contamination and changed-source controls must fail. Evidence, FPC version
 and bootstrap hashes remain under build/turbo/ddc, with a separate bochs/ tree.
 
-The certified fixed point is K2==K3==D2: 164263 bytes, SHA-256
-2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7.
-The minimum-Integer div/mod guards and their emission/label handling increase
-the previous 163087-byte compiler's module by 1064 bytes and relocation header
-by 112 bytes. The computed-left-character seed-planner repair leaves the
-Pascal source and seed-built TURBO.COM bytes unchanged, and its fresh proof
-agrees at the same hash. Fresh QEMU DOS-clock times are 60s/102s for K2/K3
-and 104s for D1(S). Bochs K2/K3/D2 agree with QEMU at this same hash;
-measured host harness times are 1291.005s/1738.492s/1546.689s, each below
-3600s. Qualification preceded factory's resource-isolation change, so those
-measurements include its former Bochs host-lock waiting and cleanup. The
-complete default selfhost/DDC command passed in 4855.22s, with its script
-manifest unchanged throughout. The isolated driver also passes a fresh
-resident native compilation against the FPC-built host compiler's output,
-plus the corrupted-K2 and deadline controls. All negative controls are red.
-Only proof drivers changed here;
-compiler source and runtime bytes are unchanged. Runtime-encoder authorship
+The certified fixed point is K2==K3==D2: 170607 bytes, SHA-256
+a4ddd89971dfe232ccf0f43602fa5fba33ba4966d0bf7aeb7371aea2701ffe47.
+Stage B (initech-n6r9v) moved it from 164263 bytes (2c33ed0c...): the
+751-byte runtime with recoverable I/O, the new builtins and the 2,048-row
+symbol tables. Fresh QEMU DOS-clock times are 103s/93s for K2/K3 and 107s
+for D1(S). Bochs K2/K3/D2 agree with QEMU at this hash; measured host
+harness times are 2534.245s/2671.097s/1560.722s, each below 3600s, with
+other agents' Bochs runs on the host at the same time. The combined
+command was stopped by the agent's 2-hour background limit during the
+Bochs DDC leg, which was then rerun alone (bochs-ddc.sh) against the same
+source hash; all negative controls are red. Runtime-encoder authorship
 remains open separately as initech-cd2yi.
 The checked-in NASM tables regenerate
 byte-for-byte. Times use the guest clock with 1-second resolution. DDC removes sole
@@ -102,6 +96,38 @@ language feature was added; seed string-character var arguments now accept
 the documented form. Authored corpus/protocol goldens are unchanged. Emulator
 work never runs in tier 0. See ROADMAP.md for remaining
 GOLDEN-MASTER.md item-7 work, including the IDE.
+
+## Runtime for the IDE (stage B, initech-n6r9v)
+
+Both compilers accept TP 5.5's recoverable I/O: a comment holding exactly
+`$I-` or `$I+` switches I/O checking (default on); `IOResult()` returns and
+clears the pending DOS error; `Close(f)` (103 when not open), `Erase(f)`
+(AH=41h) and `Rename(f, name)` (AH=56h, f takes the new name). While an
+error is pending, I/O does nothing; checked code calls `rtl_io_check`,
+which prints the old `FILEIO-ERROR AX=n` line and exits. `ReadKey()`
+returns AH=07h's character, 0 then the scan code for extended keys. The
+switch is sampled after a call's closing parenthesis, so it belongs
+between statements. Reference: TP 5.5 Reference Guide (IOResult, the I
+directive); Free Pascal is the independent oracle: `gen_ioresult` matches
+its hand-computed golden under FPC and, through all five paths, in the
+image on QEMU and Bochs; `ide/tests` checks ReadKey's codes and the abort
+in the image. The runtime is 751 bytes (padded to 752); its error word
+sits in the code and is addressed position-independently, so neither
+output form gains a relocation. `tests/runtime.sh` also checks that the
+compiler's fixed runtime entry offsets equal the linker's.
+
+**Capacity.** One TURBO.COM must hold the compiler and the IDE. Measured:
+the compiler alone uses 904 symbol rows, 576 names and 5,679 pool
+characters; with the IDE's editor 1,292, 795 and 7,216, before its compile
+and run commands. Limits are now 2,048 rows, 1,536 names and 16,384 pool
+characters (were 1,024, 704 and 6,144): 57,856 more bytes of BSS (ten
+4-byte columns x 1,024 rows, 832 names x 8 bytes, 10,240 characters),
+inside the extended module's reserve and small beside 8 MiB. The seed's
+tables grew the same way on the host (1,024 globals, 512 routines, 256
+global arrays). `ide/tests` `one-program` compiles the compiler's
+declarations with the IDE as one program with both compilers; at the old
+limits it failed with `char pool exceeds POOLMAX=6144` and the seed's
+`TC_MAX_SYMBOLS exceeded`.
 
 ## IDE (GOLDEN-MASTER item 7): the frozen surface
 

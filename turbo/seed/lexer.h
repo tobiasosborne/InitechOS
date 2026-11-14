@@ -37,6 +37,8 @@ typedef struct {
     int         line;   /* 1-based current line */
     int         col;    /* 1-based current column */
     size_t      strpos; /* write cursor into strbuf (per-token slices) */
+    int         io_checks; /* the $I switch: a {$I+} / {$I-} comment sets it
+                            * (TP 5.5 Reference Guide, IOResult); 1 at start */
     char        strbuf[LEXER_STRBUF_CAP + 1]; /* decoded TOK_STRING pool */
 } Lexer;
 

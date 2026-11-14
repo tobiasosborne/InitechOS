@@ -1,0 +1,11 @@
+# test: guest-ioresult
+--- a/rt/fileio.asm
++++ b/rt/fileio.asm
+@@ -271,7 +271,6 @@
+     call rtl_io_state
+     mov edx, eax
+     mov eax, [edx]
+-    mov dword [edx], 0
+     ret
+ 
+ ; {$I+}: abort on a pending error with the B8 diagnostic.

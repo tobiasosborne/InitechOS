@@ -30,13 +30,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#define TC_MAX_SYMBOLS 288
+#define TC_MAX_SYMBOLS 1024
 #define TC_SYM_NAME_CAP 128
 /* B4 (beads initech-63ce): fixed-capacity, fail-loud-on-overflow tables for
  * the routine table and per-routine local scope -- the same "no hashing,
  * insertion-ordered, deterministic" discipline TC_MAX_SYMBOLS already uses
  * (ADR-0007 DEC-04 spirit). */
-#define TC_MAX_PROCS   160
+#define TC_MAX_PROCS   512
 #define TC_MAX_PARAMS   32
 #define TC_MAX_LOCALS   64
 /* B6 (beads initech-rug7): fixed-capacity, fail-loud-on-overflow tables for
@@ -232,7 +232,12 @@ typedef enum {
     FILEBI_RESET,
     FILEBI_REWRITE,
     FILEBI_BLOCKREAD,
-    FILEBI_BLOCKWRITE
+    FILEBI_BLOCKWRITE,
+    FILEBI_CLOSE,
+    FILEBI_ERASE,
+    FILEBI_RENAME,
+    FILEBI_IORESULT,     /* function: integer, no arguments */
+    FILEBI_READKEY       /* function: char, no arguments */
 } FileBuiltin;
 
 static FileBuiltin file_builtin_kind(const char *name_lc)
@@ -242,6 +247,11 @@ static FileBuiltin file_builtin_kind(const char *name_lc)
     if (strcmp(name_lc, "rewrite") == 0)    return FILEBI_REWRITE;
     if (strcmp(name_lc, "blockread") == 0)  return FILEBI_BLOCKREAD;
     if (strcmp(name_lc, "blockwrite") == 0) return FILEBI_BLOCKWRITE;
+    if (strcmp(name_lc, "close") == 0)      return FILEBI_CLOSE;
+    if (strcmp(name_lc, "erase") == 0)      return FILEBI_ERASE;
+    if (strcmp(name_lc, "rename") == 0)     return FILEBI_RENAME;
+    if (strcmp(name_lc, "ioresult") == 0)   return FILEBI_IORESULT;
+    if (strcmp(name_lc, "readkey") == 0)    return FILEBI_READKEY;
     return FILEBI_NONE;
 }
 
@@ -936,6 +946,22 @@ static AstVarType check_file_builtin(Tc *tc, AstNode *call,
 {
     const char *verb = call->as.call.name;
     size_t n = call->as.call.args.count;
+    if (bi == FILEBI_IORESULT || bi == FILEBI_READKEY) {
+        char msg[TYPECHECK_ERRMSG_CAP];
+        if (!want_value) {
+            snprintf(msg, sizeof(msg), "%s is a function; use its result", verb);
+            fail_at(tc, call->line, call->col, msg);
+            return AST_TY_UNKNOWN;
+        }
+        if (n != 0) {
+            snprintf(msg, sizeof(msg), "%s expects no arguments", verb);
+            fail_at(tc, call->line, call->col, msg);
+            return AST_TY_UNKNOWN;
+        }
+        tc->uses_fileio = 1;
+        call->type = bi == FILEBI_IORESULT ? AST_TY_INTEGER : AST_TY_CHAR;
+        return call->type;
+    }
     if (want_value) {
         char msg[TYPECHECK_ERRMSG_CAP];
         snprintf(msg, sizeof(msg),
@@ -944,15 +970,18 @@ static AstVarType check_file_builtin(Tc *tc, AstNode *call,
         return AST_TY_UNKNOWN;
     }
 
-    if ((bi == FILEBI_ASSIGN && n != 2)
+    if (((bi == FILEBI_ASSIGN || bi == FILEBI_RENAME) && n != 2)
         || ((bi == FILEBI_RESET || bi == FILEBI_REWRITE)
             && n != 1 && n != 2)
+        || ((bi == FILEBI_CLOSE || bi == FILEBI_ERASE) && n != 1)
         || ((bi == FILEBI_BLOCKREAD || bi == FILEBI_BLOCKWRITE) && n != 4)) {
         char msg[TYPECHECK_ERRMSG_CAP];
-        if (bi == FILEBI_ASSIGN)
+        if (bi == FILEBI_ASSIGN || bi == FILEBI_RENAME)
             snprintf(msg, sizeof(msg), "%s expects 2 arguments", verb);
         else if (bi == FILEBI_RESET || bi == FILEBI_REWRITE)
             snprintf(msg, sizeof(msg), "%s expects 1 or 2 arguments", verb);
+        else if (bi == FILEBI_CLOSE || bi == FILEBI_ERASE)
+            snprintf(msg, sizeof(msg), "%s expects 1 argument", verb);
         else
             snprintf(msg, sizeof(msg), "%s expects 4 arguments", verb);
         fail_at(tc, call->line, call->col, msg);
@@ -962,7 +991,9 @@ static AstVarType check_file_builtin(Tc *tc, AstNode *call,
     if (!check_file_designator(tc, call->as.call.args.items[0], verb))
         return AST_TY_UNKNOWN;
 
-    if (bi == FILEBI_ASSIGN) {
+    if (bi == FILEBI_CLOSE || bi == FILEBI_ERASE) {
+        /* the file designator is the only argument */
+    } else if (bi == FILEBI_ASSIGN || bi == FILEBI_RENAME) {
         AstVarType nt = check_expr(tc, call->as.call.args.items[1]);
         if (tc->failed)
             return AST_TY_UNKNOWN;

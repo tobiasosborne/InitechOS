@@ -18,6 +18,12 @@ cp "$build/idehost.pas" "$out/compile/TURBOIN.PAS"
 grep -q '^TURBO-NATIVE-OK ' "$out/compile/raw"
 "$build/keys" turbo/ide/tests/journey.steps "$out/JOURNEY.BIN" "$out/journey.list"
 "$build/keys" turbo/ide/tests/paging.steps "$out/PAGING.BIN" "$out/paging.list"
+for prog in readkey iocheck; do
+  mkdir -p "$out/$prog"
+  cp turbo/ide/tests/$prog.pas "$out/$prog/TURBOIN.PAS"
+  (cd "$out/$prog" && "$root/build/turbo/compiler/turbo_fpc" > raw)
+  grep -q '^TURBO-NATIVE-OK ' "$out/$prog/raw"
+done
 awk 'BEGIN { for (i = 1; i <= 5000; i++) printf "line %d of the paging fixture, tab\there\r\n", i }' > "$out/BIG.PAS"
 failed=0
 for emulator in ${*:-qemu bochs}; do
@@ -28,16 +34,20 @@ for emulator in ${*:-qemu bochs}; do
   mformat -i "$disk" -T 16384 -c 8 -h 16 -s 63 -N 0x49444531 -v TEST ::
   mcopy -i "$disk" build/dos/COMMAND.COM ::
   mcopy -i "$disk" "$out/compile/TURBOOUT.EXE" ::IDE.EXE
-  mmd -i "$disk" ::J ::P
+  mmd -i "$disk" ::J ::P ::R
+  mcopy -i "$disk" "$out/readkey/TURBOOUT.EXE" ::R/READKEY.EXE
+  mcopy -i "$disk" "$out/iocheck/TURBOOUT.EXE" ::R/IOCHECK.EXE
   mcopy -i "$disk" "$out/JOURNEY.BIN" ::J/IDEKEYS.BIN
   mcopy -i "$disk" "$corpus/mint/src/MINT06/LONG.PAS" ::J/LONG.PAS
   mcopy -i "$disk" "$out/PAGING.BIN" ::P/IDEKEYS.BIN
   mcopy -i "$disk" "$out/BIG.PAS" ::P/BIG.PAS
   printf 'FILES=20\r\nSHELL=COMMAND.COM /P\r\n' > "$dir/CONFIG.SYS"
   mcopy -i "$disk" "$dir/CONFIG.SYS" ::
-  printf '@echo off\r\ncd j\r\n\\ide.exe\r\ncd \\p\r\n\\ide.exe\r\ncd \\\r\necho ide-smoke-complete\r\n' > "$dir/RUN.BAT"
+  printf '@echo off\r\ncd r\r\necho readkey-begin\r\nreadkey.exe\r\necho readkey-end\r\niocheck.exe\r\necho iocheck-end\r\ncd \\\r\ncd j\r\n\\ide.exe\r\ncd \\p\r\n\\ide.exe\r\ncd \\\r\necho ide-smoke-complete\r\n' > "$dir/RUN.BAT"
   mcopy -i "$disk" "$dir/RUN.BAT" ::
-  printf '\n\nrun\n' | build/factory/keys > "$dir/keys"
+  # Type-ahead for READKEY.EXE follows the command line (DOS keeps it).
+  printf '\n\nrun\n' | build/factory/keys > "$dir/keys.base"
+  printf '%s,a,f9,alt-x,ctrl-f9,up,q' "$(cat "$dir/keys.base")" > "$dir/keys"
   extra=
   [ "$emulator" = bochs ] && extra='--vga-ext none'
   if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" $extra \
@@ -47,7 +57,11 @@ for emulator in ${*:-qemu bochs}; do
     cat "$dir/report"; failed=1; continue
   fi
   tr -d '\r' < "$dir/run.serial" > "$dir/serial.txt"
-  if grep -E 'PANIC|RTL-FILE|Bad command|File not found' "$dir/serial.txt"; then failed=1; fi
+  if grep -E 'PANIC|Bad command|File not found' "$dir/serial.txt"; then failed=1; fi
+  sed -n '/^readkey-begin$/,/^readkey-end$/p' "$dir/serial.txt" | sed '1d;$d' > "$dir/readkey.out"
+  diff -u turbo/ide/tests/readkey.expect "$dir/readkey.out" || { echo "FAIL $emulator readkey"; failed=1; }
+  sed -n '/^readkey-end$/,/^iocheck-end$/p' "$dir/serial.txt" | sed '1d;$d' > "$dir/iocheck.out"
+  diff -u turbo/ide/tests/iocheck.expect "$dir/iocheck.out" || { echo "FAIL $emulator iocheck"; failed=1; }
   test "$(grep -c '^IDE-HOST-END ' "$dir/serial.txt")" -eq 2 || { echo "FAIL $emulator: runs did not finish"; failed=1; }
   mkdir -p "$dir/J" "$dir/P"
   mcopy -n -i "$disk" '::J/*' "$dir/J/"

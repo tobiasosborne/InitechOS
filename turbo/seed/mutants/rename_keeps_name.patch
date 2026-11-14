@@ -1,0 +1,15 @@
+# test: guest-ioresult
+--- a/rt/fileio.asm
++++ b/rt/fileio.asm
+@@ -238,11 +238,6 @@
+     mov eax, 0x5600           ; AH=56h RENAME
+     int 0x21
+     jc .failed
+-    mov esi, esp
+-    mov edi, [ebp+8]
+-    add edi, 4
+-    mov ecx, 256
+-    rep movsb
+     add esp, 260
+     jmp rtl_file_return
+ .failed:

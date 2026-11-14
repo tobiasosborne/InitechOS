@@ -1,0 +1,12 @@
+# test: execution-io
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -1437,7 +1437,7 @@
+           other comments, including other directives, are only comments. }
+         if Inside = 3 then
+           if (Directive = '$I+') or (Directive = '$i+') then IoChecks := true
+-          else if (Directive = '$I-') or (Directive = '$i-') then IoChecks := false;
++          else if (Directive = '$I-') or (Directive = '$i-') then IoChecks := true;
+         if not HadError then
+           Again := true
+       end

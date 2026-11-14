@@ -115,6 +115,7 @@ void lexer_init(Lexer *lx, const char *src, size_t len)
     lx->col = 1;
     lx->strpos = 0;
     lx->strbuf[0] = '\0';
+    lx->io_checks = 1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -140,14 +141,28 @@ static int skip_trivia(Lexer *lx, Token *err)
         /* Brace comment: { ... } */
         if (c == '{') {
             int sl = lx->line, sc = lx->col;
+            char directive[4] = { 0, 0, 0, 0 };
+            size_t inside = 0;
             advance(lx);
-            while (!at_end(lx) && peek(lx) != '}')
+            while (!at_end(lx) && peek(lx) != '}') {
+                if (inside < 3)
+                    directive[inside] = peek(lx);
+                inside++;
                 advance(lx);
+            }
             if (at_end(lx)) {
                 *err = make_error("unterminated '{' comment", sl, sc);
                 return 1;
             }
             advance(lx); /* consume '}' */
+            /* A comment holding exactly $I+ or $I- is the I/O-checking
+             * switch; every other comment (other directives too) is only
+             * a comment. Mirrored in turbo.pas SkipTrivia. */
+            if (inside == 3 && directive[0] == '$'
+                && (directive[1] == 'I' || directive[1] == 'i')) {
+                if (directive[2] == '+') lx->io_checks = 1;
+                if (directive[2] == '-') lx->io_checks = 0;
+            }
             continue;
         }
 

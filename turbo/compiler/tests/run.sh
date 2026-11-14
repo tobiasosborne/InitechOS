@@ -46,8 +46,9 @@ links() {
     "$OBJCOPY" -O binary "$dir/dos.elf" "$dir/program.com"
 }
 case $entry in
-execution-frame|execution-var|execution-flat)
+execution-frame|execution-var|execution-flat|execution-io)
     name=gen_tiny; paths=hosted
+    if [ "$entry" = execution-io ]; then name=gen_ioresult; fi
     if [ "$entry" = execution-var ]; then name=gen_func_deep; fi
     if [ "$entry" = execution-flat ]; then paths='hosted hosted-flat'; fi
     TURBO_HOSTED="$out/turbo_fpc" TURBO_EXEC_PATHS="$paths" \
@@ -130,7 +131,7 @@ seed-build)
     # Legacy build contracts, not behavioural execution or an assembly golden.
     asm=$out/turbo_seed.s
     for pattern in '^v_readchunk: resb 256$' '^v_nextchunk: resb 256$' '^pf_advancesourcewindow:' \
-        '^pf_parseprogram:' '^v_symnameoffset: resd 1024$' '^pf_runtypechecker:' '^pf_runcodegenerator:' \
+        '^pf_parseprogram:' '^v_symnameoffset: resd 2048$' '^pf_runtypechecker:' '^pf_runcodegenerator:' \
         'call rtl_file_blockread$' 'call rtl_file_blockwrite$'; do grep -q "$pattern" "$asm"; done
     ! grep -q '^v_sourcewords:' "$asm"
     grep -q "Assign(OutputFile, 'TURBOOUT.S')" turbo.pas

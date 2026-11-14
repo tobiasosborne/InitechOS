@@ -1,0 +1,12 @@
+# test: execution-io
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -3256,7 +3256,7 @@
+     else if Builtin = 3 then begin GenText := '    call rtl_file_rewrite'; GenLine(GenText) end
+     else if Builtin = 4 then begin GenText := '    call rtl_file_blockread'; GenLine(GenText) end
+     else if Builtin = 5 then begin GenText := '    call rtl_file_blockwrite'; GenLine(GenText) end
+-    else if Builtin = 6 then begin GenText := '    call rtl_file_close'; GenLine(GenText) end
++    else if Builtin = 6 then begin GenText := '    call rtl_file_erase'; GenLine(GenText) end
+     else if Builtin = 7 then begin GenText := '    call rtl_file_erase'; GenLine(GenText) end
+     else if Builtin = 8 then begin GenText := '    call rtl_file_rename'; GenLine(GenText) end
+     else if Builtin = 9 then begin GenText := '    call rtl_ioresult'; GenLine(GenText) end

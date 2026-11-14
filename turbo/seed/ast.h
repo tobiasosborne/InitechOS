@@ -706,7 +706,9 @@ struct AstNode {
          * (left-to-right) order; codegen pushes them right-to-left (cdecl).
          * Used as an expression (function call; `type` = result type) or as
          * a statement (procedure call). */
-        struct { char *name; AstList args; } call;
+        struct { char *name; AstList args; int io_checks; } call;
+        /* io_checks: the $I switch in force when the call's ')' was
+         * consumed (lexer.h); a checked I/O builtin calls rtl_io_check. */
         /* B5 (beads initech-54uu): `name[index]` as an EXPRESSION (r-value)
          * or a `var`-parameter call argument. `name` must resolve to a
          * declared array (checked by typecheck.c, which also sets `type`,

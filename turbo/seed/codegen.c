@@ -358,11 +358,11 @@
 #define CG_FILE_DWORDS 65
 #define CG_MAX_PARAMS   32
 #define CG_MAX_SCOPE    (CG_MAX_PARAMS + 64) /* params + result + locals */
-#define CG_MAX_PROCS   160
+#define CG_MAX_PROCS   512
 /* B5 (beads initech-54uu): the GLOBAL array table (parallel to CgProc's
  * "collected once, consulted throughout emission" shape). Fixed capacity,
  * fail-loud on overflow (Rule 2) -- same discipline as CG_MAX_PROCS. */
-#define CG_MAX_GLOBAL_ARRAYS 64
+#define CG_MAX_GLOBAL_ARRAYS 256
 /* B6 (beads initech-rug7): the record-TYPE table (name -> field COUNT only --
  * codegen never needs field NAMES, since typecheck.c already resolved every
  * field access to a 0-based `field_index` on the AST; codegen only needs each
@@ -532,7 +532,12 @@ typedef enum {
     CG_FILEBI_RESET,
     CG_FILEBI_REWRITE,
     CG_FILEBI_BLOCKREAD,
-    CG_FILEBI_BLOCKWRITE
+    CG_FILEBI_BLOCKWRITE,
+    CG_FILEBI_CLOSE,
+    CG_FILEBI_ERASE,
+    CG_FILEBI_RENAME,
+    CG_FILEBI_IORESULT,
+    CG_FILEBI_READKEY
 } CgFileBuiltin;
 
 static CgFileBuiltin cg_file_builtin_kind(const char *name)
@@ -544,6 +549,11 @@ static CgFileBuiltin cg_file_builtin_kind(const char *name)
     if (strcmp(lc, "rewrite") == 0)    return CG_FILEBI_REWRITE;
     if (strcmp(lc, "blockread") == 0)  return CG_FILEBI_BLOCKREAD;
     if (strcmp(lc, "blockwrite") == 0) return CG_FILEBI_BLOCKWRITE;
+    if (strcmp(lc, "close") == 0)      return CG_FILEBI_CLOSE;
+    if (strcmp(lc, "erase") == 0)      return CG_FILEBI_ERASE;
+    if (strcmp(lc, "rename") == 0)     return CG_FILEBI_RENAME;
+    if (strcmp(lc, "ioresult") == 0)   return CG_FILEBI_IORESULT;
+    if (strcmp(lc, "readkey") == 0)    return CG_FILEBI_READKEY;
     return CG_FILEBI_NONE;
 }
 
@@ -1804,9 +1814,36 @@ static void gen_file_buffer_addr(Cg *cg, const AstNode *arg)
 static void gen_file_call(Cg *cg, const AstNode *call, CgFileBuiltin bi)
 {
     FILE *o = cg->out;
-    const AstNode *filearg = call->as.call.args.items[0];
+    const AstNode *filearg = call->as.call.args.count ? call->as.call.args.items[0] : NULL;
 
+    /* TP's $I+ (TP 5.5 Reference Guide, IOResult): every I/O builtin but
+     * Assign is followed by the runtime check where it stands. */
+    int checked = call->as.call.io_checks && bi != CG_FILEBI_ASSIGN
+                  && bi != CG_FILEBI_IORESULT && bi != CG_FILEBI_READKEY;
     switch (bi) {
+    case CG_FILEBI_IORESULT:
+        fprintf(o, "    call rtl_ioresult\n");
+        return;
+    case CG_FILEBI_READKEY:
+        fprintf(o, "    call rtl_readkey\n");
+        return;
+    case CG_FILEBI_CLOSE:
+    case CG_FILEBI_ERASE:
+        gen_designator_base_addr(cg, filearg->as.varref.name, NULL);
+        fprintf(o, "    push eax\n");
+        fprintf(o, "    call %s\n",
+                bi == CG_FILEBI_CLOSE ? "rtl_file_close" : "rtl_file_erase");
+        fprintf(o, "    add esp, 4\n");
+        break;
+    case CG_FILEBI_RENAME:
+        /* rtl_file_rename(file*, ShortString*), as Assign. */
+        gen_str_value(cg, call->as.call.args.items[1]);
+        fprintf(o, "    push eax\n");
+        gen_designator_base_addr(cg, filearg->as.varref.name, NULL);
+        fprintf(o, "    push eax\n");
+        fprintf(o, "    call rtl_file_rename\n");
+        fprintf(o, "    add esp, 8\n");
+        break;
     case CG_FILEBI_ASSIGN:
         /* rtl_file_assign(file*, ShortString*): right-to-left cdecl pushes. */
         gen_str_value(cg, call->as.call.args.items[1]);
@@ -1830,7 +1867,7 @@ static void gen_file_call(Cg *cg, const AstNode *call, CgFileBuiltin bi)
         fprintf(o, "    call %s\n",
                 bi == CG_FILEBI_RESET ? "rtl_file_reset" : "rtl_file_rewrite");
         fprintf(o, "    add esp, 8\n");
-        return;
+        break;
     case CG_FILEBI_BLOCKREAD:
     case CG_FILEBI_BLOCKWRITE: {
         /* rtl_file_block*(file*, byte*, count, actual*). */
@@ -1851,12 +1888,14 @@ static void gen_file_call(Cg *cg, const AstNode *call, CgFileBuiltin bi)
 
         }
         fprintf(o, "    add esp, 16\n");
-        return;
-    }
-    case CG_FILEBI_NONE:
         break;
     }
-    cg_ice("unknown file-I/O builtin", call);
+    case CG_FILEBI_NONE:
+        cg_ice("unknown file-I/O builtin", call);
+        return;
+    }
+    if (checked)
+        fprintf(o, "    call rtl_io_check\n");
 }
 
 /* Emit a call. Arguments are pushed RIGHT-TO-LEFT (cdecl); a value parameter
@@ -2609,6 +2648,12 @@ int codegen_emit(AstNode *program, FILE *out)
         fprintf(out, "extern rtl_file_blockread\n");
 
         fprintf(out, "extern rtl_file_blockwrite\n");
+        fprintf(out, "extern rtl_file_close\n");
+        fprintf(out, "extern rtl_file_erase\n");
+        fprintf(out, "extern rtl_file_rename\n");
+        fprintf(out, "extern rtl_ioresult\n");
+        fprintf(out, "extern rtl_io_check\n");
+        fprintf(out, "extern rtl_readkey\n");
 
     }
     fprintf(out, "\n");

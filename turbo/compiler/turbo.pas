@@ -66,17 +66,19 @@ program TurboInitech;
 
 const
   SourceMax = 262144;
-  PoolMax = 6144;
-  NameMax = 704;
+  PoolMax = 16384;
+  NameMax = 1536;
   ChunkMax = 255;
   EscapeQuoteCode = 39; { TURBO_LEX_MUT_STRESC }
 
-  { B9.4 fixed arenas. Nine integer columns x 1,024 symbols = 36,864 bytes;
-    header/argument/name scratch remains fixed. Retiring B9.2's 81,920-byte
-    whole-source arena pays for these tables. B9.4 raises the row ceiling for
-    the generator's own helpers; the hard 0x6F000 image-arena ceiling remains
-    authoritative (bead initech-6m52). }
-  SymbolMax = 1024;
+  { Fixed arenas, sized for one TURBO.COM holding the compiler and the IDE
+    (initech-n6r9v): ten integer columns (nine symbol columns and
+    NativeRoutines) x 2,048 rows = 81,920 bytes, 1,536 names x 8 bytes and
+    a 16,384-character pool. The compiler with the IDE measured 1,292
+    symbols, 795 names and 7,216 pool characters before the IDE's compile
+    and run commands. Memory: 57,856 bytes more BSS than the 1,024/704/6,144
+    tables, inside the extended module's reserve (turbo/README.md). }
+  SymbolMax = 2048;
   HeaderParamMax = 32;
   PendingNameMax = 32;
 
@@ -273,6 +275,7 @@ var
   ArgType, ArgLvalue, ArgForm, ArgSym: array[1..HeaderParamMax] of integer;
   ArgLine, ArgCol: array[1..HeaderParamMax] of integer;
   ArgCount, ParsingFileBuiltin: integer;
+  IoChecks: boolean; { the $I switch; TP 5.5 Reference Guide, IOResult }
   CallWantsValue: boolean;
 
   ParsedType, ParsedRef, ParsedStrCap: integer;
@@ -853,11 +856,17 @@ begin
     if Text = 'serial_putc' then N := 49
     else if Text = 'serial_puts' then N := 66
     else if Text = 'serial_put_int' then N := 85
-    else if Text = 'rtl_file_assign' then N := 171
-    else if Text = 'rtl_file_reset' then N := 215
-    else if Text = 'rtl_file_rewrite' then N := 265
-    else if Text = 'rtl_file_blockread' then N := 309
-    else if Text = 'rtl_file_blockwrite' then N := 349
+    else if Text = 'rtl_file_assign' then N := 189
+    else if Text = 'rtl_file_reset' then N := 239
+    else if Text = 'rtl_file_rewrite' then N := 303
+    else if Text = 'rtl_file_blockread' then N := 369
+    else if Text = 'rtl_file_blockwrite' then N := 428
+    else if Text = 'rtl_file_close' then N := 487
+    else if Text = 'rtl_file_erase' then N := 535
+    else if Text = 'rtl_file_rename' then N := 565
+    else if Text = 'rtl_ioresult' then N := 669
+    else if Text = 'rtl_io_check' then N := 685
+    else if Text = 'rtl_readkey' then N := 734
     else if Text = 'str_bool_true' then N := Native[3] + 20
     else if Text = 'str_bool_false' then N := Native[3] + 25
     else if Text[1] = 'v' then
@@ -1131,22 +1140,34 @@ begin
   ;
   GenText := 'F685C07907BE01000000F7D8B900000000BB0A00000031D2F7F380C230524185C075F385F67407B02DE8ACFFFFFF58E8'; NativeHex(GenText)
   ;
-  GenText := 'A6FFFFFF4975F75EC38B1E83FB057213B8003E0000CD210F82E8000000C70600000000C35589E55356578B7508E8D7FF'; NativeHex(GenText)
+  GenText := 'A6FFFFFF4975F75EC3E800000000580556020000C3E8EFFFFFFF833800C38B1E83FB05720FB8003E0000CD217207C706'; NativeHex(GenText)
   ;
-  GenText := 'FFFF8B5D088B750C0FB60E468D7B04FCF3A4C60700C703000000005F5E5B5DC35589E5535657837D0C010F859E000000'; NativeHex(GenText)
+  GenText := '00000000F8C35589E55356578B7508E8DAFFFFFF0F82BD0100008B5D088B750C0FB60E468D7B04FCF3A4C60700C70300'; NativeHex(GenText)
   ;
-  GenText := '8B7508E8A1FFFFFF8B75088D5604B8003D0000CD210F828A00000089065F5E5B5DC35589E5535657837D0C0175708B75'; NativeHex(GenText)
+  GenText := '000000E9A90100005589E5535657E8A2FFFFFF0F8598010000837D0C010F857D0100008B7508E893FFFFFF0F82760100'; NativeHex(GenText)
   ;
-  GenText := '08E873FFFFFF8B75088D560431C9B8003C0000CD21725E89065F5E5B5DC35589E55356578B4D1085C978438B75088B1E'; NativeHex(GenText)
+  GenText := '008D5604B8003D0000CD210F82660100008906E9690100005589E5535657E862FFFFFF0F8558010000837D0C010F853D'; NativeHex(GenText)
   ;
-  GenText := '8B550CB8003F0000CD2172398B7D1489075F5E5B5DC35589E55356578B4D1085C9781B8B7D088B1F8B550CB800400000'; NativeHex(GenText)
+  GenText := '0100008B7508E853FFFFFF0F82360100008D560431C9B8003C0000CD210F82240100008906E9270100005589E5535657'; NativeHex(GenText)
   ;
-  GenText := 'CD2172118B7D1489075F5E5B5DC3B801000000EB000FB7C050B8'; NativeHex(GenText)
+  GenText := 'E820FFFFFF0F85160100008B4D1085C90F88FA0000008B75088B1E8B550CB8003F0000CD210F82EC0000008B7D148907'; NativeHex(GenText)
+  ;
+  GenText := 'E9EC0000005589E5535657E8E5FEFFFF0F85DB0000008B4D1085C90F88BF0000008B7D088B1F8B550CB800400000CD21'; NativeHex(GenText)
+  ;
+  GenText := '0F82B10000008B7D148907E9B10000005589E5535657E8AAFEFFFF0F85A00000008B7508833E057210E8A0FEFFFF0F82'; NativeHex(GenText)
+  ;
+  GenText := '83000000E988000000B867000000EB775589E5535657E87AFEFFFF75748B75088D5604B800410000CD21725BEB635589'; NativeHex(GenText)
+  ;
+  GenText := 'E5535657E85CFEFFFF755681EC040100008B750C0FB60E4689E7FCF3A4C607008B75088D560489E7B800560000CD2172'; NativeHex(GenText)
+  ;
+  GenText := '1789E68B7D0883C704B900010000F3A481C404010000EB1981C404010000EB07B801000000EB000FB7D0E8FAFDFFFF89'; NativeHex(GenText)
+  ;
+  GenText := '105F5E5B5DC3E8EEFDFFFF89C28B02C70200000000C350E8DDFDFFFF8B0085C0750258C350B8'; NativeHex(GenText)
   ;
   NativeAbsolute(Native[3]);
-  GenText := 'E8A8FEFFFF58E8B5FEFFFFB00AE88AFEFFFFB8014C0000CD21FAF4EBFD'; NativeHex(GenText)
+  GenText := 'E87CFDFFFF58E889FDFFFFB00AE85EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000'; NativeHex(GenText)
   ;
-  while Native[2] < 448 do NativeByte(144)
+  while Native[2] < 752 do NativeByte(144)
 end;
 { END NASM RUNTIME TABLE }
 { BEGIN NASM RUNTIME TABLE -- tests/runtime-table.c; do not edit. }
@@ -1165,22 +1186,34 @@ begin
   ;
   GenText := 'F685C07907BE01000000F7D8B900000000BB0A00000031D2F7F380C230524185C075F385F67407B02DE8ACFFFFFF58E8'; NativeHex(GenText)
   ;
-  GenText := 'A6FFFFFF4975F75EC38B1E83FB057213B8003E0000CD210F82E8000000C70600000000C35589E55356578B7508E8D7FF'; NativeHex(GenText)
+  GenText := 'A6FFFFFF4975F75EC3E800000000580556020000C3E8EFFFFFFF833800C38B1E83FB05720FB8003E0000CD217207C706'; NativeHex(GenText)
   ;
-  GenText := 'FFFF8B5D088B750C0FB60E468D7B04FCF3A4C60700C703000000005F5E5B5DC35589E5535657837D0C010F859E000000'; NativeHex(GenText)
+  GenText := '00000000F8C35589E55356578B7508E8DAFFFFFF0F82BD0100008B5D088B750C0FB60E468D7B04FCF3A4C60700C70300'; NativeHex(GenText)
   ;
-  GenText := '8B7508E8A1FFFFFF8B75088D5604B8003D0000CD210F828A00000089065F5E5B5DC35589E5535657837D0C0175708B75'; NativeHex(GenText)
+  GenText := '000000E9A90100005589E5535657E8A2FFFFFF0F8598010000837D0C010F857D0100008B7508E893FFFFFF0F82760100'; NativeHex(GenText)
   ;
-  GenText := '08E873FFFFFF8B75088D560431C9B8003C0000CD21725E89065F5E5B5DC35589E55356578B4D1085C978438B75088B1E'; NativeHex(GenText)
+  GenText := '008D5604B8003D0000CD210F82660100008906E9690100005589E5535657E862FFFFFF0F8558010000837D0C010F853D'; NativeHex(GenText)
   ;
-  GenText := '8B550CB8003F0000CD2172398B7D1489075F5E5B5DC35589E55356578B4D1085C9781B8B7D088B1F8B550CB800400000'; NativeHex(GenText)
+  GenText := '0100008B7508E853FFFFFF0F82360100008D560431C9B8003C0000CD210F82240100008906E9270100005589E5535657'; NativeHex(GenText)
   ;
-  GenText := 'CD2172118B7D1489075F5E5B5DC3B801000000EB000FB7C050B8'; NativeHex(GenText)
+  GenText := 'E820FFFFFF0F85160100008B4D1085C90F88FA0000008B75088B1E8B550CB8003F0000CD210F82EC0000008B7D148907'; NativeHex(GenText)
+  ;
+  GenText := 'E9EC0000005589E5535657E8E5FEFFFF0F85DB0000008B4D1085C90F88BF0000008B7D088B1F8B550CB800400000CD21'; NativeHex(GenText)
+  ;
+  GenText := '0F82B10000008B7D148907E9B10000005589E5535657E8AAFEFFFF0F85A00000008B7508833E057210E8A0FEFFFF0F82'; NativeHex(GenText)
+  ;
+  GenText := '83000000E988000000B867000000EB775589E5535657E87AFEFFFF75748B75088D5604B800410000CD21725BEB635589'; NativeHex(GenText)
+  ;
+  GenText := 'E5535657E85CFEFFFF755681EC040100008B750C0FB60E4689E7FCF3A4C607008B75088D560489E7B800560000CD2172'; NativeHex(GenText)
+  ;
+  GenText := '1789E68B7D0883C704B900010000F3A481C404010000EB1981C404010000EB07B801000000EB000FB7D0E8FAFDFFFF89'; NativeHex(GenText)
+  ;
+  GenText := '105F5E5B5DC3E8EEFDFFFF89C28B02C70200000000C350E8DDFDFFFF8B0085C0750258C350B8'; NativeHex(GenText)
   ;
   NativeAbsolute(Native[3]);
-  GenText := 'E8A8FEFFFF58E8B5FEFFFFB00AE88AFEFFFFB8014C0000CD21FAF4EBFD'; NativeHex(GenText)
+  GenText := 'E87CFDFFFF58E889FDFFFFB00AE85EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000'; NativeHex(GenText)
   ;
-  while Native[2] < 448 do NativeByte(144)
+  while Native[2] < 752 do NativeByte(144)
 end;
 { END NASM RUNTIME TABLE }
 
@@ -1354,7 +1387,8 @@ procedure SkipTrivia();
 var
   C: char;
   Again, Done: boolean;
-  StartPos, StartLine, StartCol: integer;
+  StartPos, StartLine, StartCol, Inside: integer;
+  Directive: string;
 begin
   Again := true;
   while Again do
@@ -1375,6 +1409,8 @@ begin
         StartCol := ScanCol;
         C := TakeChar();
         Done := false;
+        Inside := 0;
+        Directive := '';
         while not Done do
         begin
           if AtEnd() then
@@ -1390,9 +1426,18 @@ begin
               Done := true
             end
             else
-              C := TakeChar()
+            begin
+              C := TakeChar();
+              Inside := Inside + 1;
+              if Inside <= 3 then Directive := Directive + C
+            end
           end
         end;
+        { A comment holding exactly $I+ or $I- switches I/O checking;
+          other comments, including other directives, are only comments. }
+        if Inside = 3 then
+          if (Directive = '$I+') or (Directive = '$i+') then IoChecks := true
+          else if (Directive = '$I-') or (Directive = '$i-') then IoChecks := false;
         if not HadError then
           Again := true
       end
@@ -1761,6 +1806,7 @@ var
 begin
   ScanPos := 1;
   ScanLine := 1;
+  IoChecks := true;
   ScanCol := 1;
   PoolUsed := 0;
   PoolCount := 0;
@@ -2159,6 +2205,11 @@ begin
   else if DumpText = 'rewrite' then NameIsFileBuiltin := true
   else if DumpText = 'blockread' then NameIsFileBuiltin := true
   else if DumpText = 'blockwrite' then NameIsFileBuiltin := true
+  else if DumpText = 'close' then NameIsFileBuiltin := true
+  else if DumpText = 'erase' then NameIsFileBuiltin := true
+  else if DumpText = 'rename' then NameIsFileBuiltin := true
+  else if DumpText = 'ioresult' then NameIsFileBuiltin := true
+  else if DumpText = 'readkey' then NameIsFileBuiltin := true
 end;
 
 function FileBuiltinId(NameOffset, NameLength: integer): integer;
@@ -2170,6 +2221,11 @@ begin
   else if DumpText = 'rewrite' then FileBuiltinId := 3
   else if DumpText = 'blockread' then FileBuiltinId := 4
   else if DumpText = 'blockwrite' then FileBuiltinId := 5
+  else if DumpText = 'close' then FileBuiltinId := 6
+  else if DumpText = 'erase' then FileBuiltinId := 7
+  else if DumpText = 'rename' then FileBuiltinId := 8
+  else if DumpText = 'ioresult' then FileBuiltinId := 9
+  else if DumpText = 'readkey' then FileBuiltinId := 10
 end;
 
 function AddRawSymbol(NameOffset, NameLength, Kind, TypeId, Scope,
@@ -2393,14 +2449,28 @@ var
   Builtin, RoutineIndex, ParamIndex, I: integer;
 begin
   Builtin := FileBuiltinId(PendingIdentOffset, PendingIdentLength);
-  if Builtin <> 0 then
+  if Builtin >= 9 then
+  begin
+    { IOResult() and ReadKey() are functions without arguments. }
+    if not CallWantsValue then
+      FailType(TeRule, PendingIdentLine, PendingIdentCol,
+               PendingIdentOffset, PendingIdentLength, 0, 0)
+    else if ArgCount <> 0 then
+      FailType(TeRule, PendingIdentLine, PendingIdentCol,
+               PendingIdentOffset, PendingIdentLength, 0, 0);
+    if not ParseFailed then
+    begin
+      if Builtin = 9 then MarkComputed(TyInteger) else MarkComputed(TyChar)
+    end
+  end
+  else if Builtin <> 0 then
   begin
     if CallWantsValue then
       FailType(TeRule, PendingIdentLine, PendingIdentCol,
                PendingIdentOffset, PendingIdentLength, 0, 0)
     else
     begin
-      if Builtin = 1 then
+      if (Builtin = 1) or (Builtin = 8) then
       begin
         if ArgCount <> 2 then
           FailType(TeRule, PendingIdentLine, PendingIdentCol,
@@ -2409,6 +2479,12 @@ begin
       else if (Builtin = 2) or (Builtin = 3) then
       begin
         if (ArgCount <> 1) and (ArgCount <> 2) then
+          FailType(TeRule, PendingIdentLine, PendingIdentCol,
+                   PendingIdentOffset, PendingIdentLength, 0, 0)
+      end
+      else if (Builtin = 6) or (Builtin = 7) then
+      begin
+        if ArgCount <> 1 then
           FailType(TeRule, PendingIdentLine, PendingIdentCol,
                    PendingIdentOffset, PendingIdentLength, 0, 0)
       end
@@ -2429,7 +2505,7 @@ begin
       end;
       if not ParseFailed then
       begin
-        if Builtin = 1 then
+        if (Builtin = 1) or (Builtin = 8) then
         begin
           if (ArgType[2] <> TyString) and (ArgType[2] <> TyChar) then
             FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
@@ -2440,7 +2516,7 @@ begin
             if ArgType[2] <> TyInteger then
               FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
         end
-        else
+        else if (Builtin = 4) or (Builtin = 5) then
         begin
           if ArgForm[2] <> 2 then
             FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
@@ -3180,6 +3256,11 @@ begin
     else if Builtin = 3 then begin GenText := '    call rtl_file_rewrite'; GenLine(GenText) end
     else if Builtin = 4 then begin GenText := '    call rtl_file_blockread'; GenLine(GenText) end
     else if Builtin = 5 then begin GenText := '    call rtl_file_blockwrite'; GenLine(GenText) end
+    else if Builtin = 6 then begin GenText := '    call rtl_file_close'; GenLine(GenText) end
+    else if Builtin = 7 then begin GenText := '    call rtl_file_erase'; GenLine(GenText) end
+    else if Builtin = 8 then begin GenText := '    call rtl_file_rename'; GenLine(GenText) end
+    else if Builtin = 9 then begin GenText := '    call rtl_ioresult'; GenLine(GenText) end
+    else if Builtin = 10 then begin GenText := '    call rtl_readkey'; GenLine(GenText) end
     else GenFail(TokLine, TokCol, 4)
   end
   else
@@ -3202,7 +3283,11 @@ begin
     begin GenText := '    add esp, '; GenPut(GenText) end;
     GenInt(CleanupBytes);
     GenChar(Chr(10))
-  end
+  end;
+  { TP's $I+: every I/O call except Assign is checked where it stands. }
+  if (Builtin >= 2) and (Builtin <= 8) then
+    if IoChecks then
+      begin GenText := '    call rtl_io_check'; GenLine(GenText) end
 end;
 
 procedure ParseExpression(); forward;
@@ -3438,7 +3523,7 @@ begin
         if not ParseFailed then
           if GenFlags[1] then
           begin
-            if (Builtin = 1) and (ArgCount = 2) then
+            if ((Builtin = 1) or (Builtin = 8)) and (ArgCount = 2) then
               if LastExprType = TyChar then GenCoerceChar(ThisTemp);
             ArgTemp[ArgCount] := ThisTemp;
             begin GenText := '    push eax'; GenLine(GenText) end
@@ -5456,6 +5541,7 @@ begin
   ReadInput();
   ScanPos := 1;
   ScanLine := 1;
+  IoChecks := true;
   ScanCol := 1;
   PoolUsed := 0;
   PoolCount := 0;
@@ -5474,6 +5560,7 @@ begin
   ReadInput();
   ScanPos := 1;
   ScanLine := 1;
+  IoChecks := true;
   ScanCol := 1;
   PoolUsed := 0;
   PoolCount := 0;
@@ -5547,6 +5634,7 @@ begin
   ReadInput();
   ScanPos := 1;
   ScanLine := 1;
+  IoChecks := true;
   ScanCol := 1;
   PoolUsed := 0;
   PoolCount := 0;
@@ -5620,7 +5708,13 @@ begin
           begin GenText := 'extern rtl_file_reset'; GenLine(GenText) end;
           begin GenText := 'extern rtl_file_rewrite'; GenLine(GenText) end;
           begin GenText := 'extern rtl_file_blockread'; GenLine(GenText) end;
-          begin GenText := 'extern rtl_file_blockwrite'; GenLine(GenText) end
+          begin GenText := 'extern rtl_file_blockwrite'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_file_close'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_file_erase'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_file_rename'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_ioresult'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_io_check'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_readkey'; GenLine(GenText) end
         end;
         if GenFlags[3] then GenStringIntrinsics();
         GenFlush()
