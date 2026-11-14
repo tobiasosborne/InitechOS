@@ -1,0 +1,7 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-copywild.sh (existing): ALL.TXT ("OLD!") already
+exists as the first matching root entry. COPY *.TXT ALL.TXT prints
+ALL.TXT, A.TXT, B.TXT with no lost-content message, and ALL.TXT ends
+as OLD!+AAAA+BBBB: an existing destination that is itself the first
+source is kept as the base and the rest are appended.

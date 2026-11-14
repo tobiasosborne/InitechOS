@@ -96,7 +96,7 @@ extract JOINED.TXT "$out/joined-text"
 extract APP.TXT "$out/joined-text"
 printf 'alphabeta\r\ngamma' > "$out/three"
 extract THREE.TXT "$out/three"
-printf 'alphaalpha\032' > "$out/all"
+printf 'alphaalpha' > "$out/all"
 extract ALL.TXT "$out/all"
 extract SRC/ONE.TXT "$out/a"
 if [ "$mode" = host ]; then

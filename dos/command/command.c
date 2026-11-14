@@ -3127,10 +3127,14 @@ static void builtin_copy(const char *arg)
     int combined=plan.joined || (!per_file && cmd_has_wildcard(plan.names));
     unsigned done=0;
     int append=omitted && plan.joined;
+    /* Genuine DOS 3.30 copywild captures: in a combined copy the
+     * destination may itself be an enumerated source (see below). */
+    int dest_existed=0, dest_seen=0, any_copied=0;
     /* The warning on Reference p.51 applies to every source, including a
      * later + operand. Probe explicit identities BEFORE the first CREAT. */
     if(!per_file) {
         int target=dos_open(dest);
+        dest_existed=target>=0;
         for(unsigned s=0;s<plan.count;s++) {
             const char *name=plan.names+plan.offset[s];
             if(cmd_has_wildcard(name))continue;
@@ -3192,6 +3196,7 @@ static void builtin_copy(const char *arg)
         for(unsigned s=(omitted && plan.joined)?1u:0u;s<plan.count;s++) {
             const char *spec=plan.names+plan.offset[s];
             unsigned ordinal=0;
+            char prev_leaf[13]="";int have_prev=0;
             do {
                 if(per_file) {
                     if(s==0) { if(!copy_path(source,spec,base))return; }
@@ -3202,18 +3207,74 @@ static void builtin_copy(const char *arg)
                     } else for(unsigned i=0;(source[i]=spec[i])!=0;i++){}
                 } else if(cmd_has_wildcard(spec)) {
                     if(!copy_nth(spec,ordinal++,base))break;
+                    /* Creating the destination can insert it before the
+                     * enumeration cursor and yield the previous leaf
+                     * again; genuine DOS copies each source once. */
+                    if(have_prev) {
+                        int same_leaf=1;
+                        for(unsigned i=0;i<13;i++)if(base[i]!=prev_leaf[i])same_leaf=0;
+                        if(same_leaf)continue;
+                    }
                     if(!copy_path(source,spec,base))return;
                 } else for(unsigned i=0;(source[i]=spec[i])!=0;i++){}
                 int ascii=plan.mode[s]==1 || (!plan.mode[s] && combined);
                 if(combined){dos_puts_raw(source);dos_print("\r\n$");}
+                if(combined && !per_file && cmd_has_wildcard(spec)) {
+                    /* Captured DOS 3.30 (copywild-*): the destination in
+                     * its own source set is neither refused nor recopied.
+                     * First, with pre-existing content, it is the retained
+                     * base; reached after copies began, DOS reports the
+                     * lost destination (twice) and skips it. */
+                    int sh=dos_open(source),th=dos_open(target);
+                    int self=sh>=0 && th>=0 && int21_same_file((uint16_t)sh,(uint16_t)th);
+                    if(sh>=0)dos_close(sh);
+                    if(th>=0)dos_close(th);
+                    if(self) {
+                        dest_seen=1;
+                        for(unsigned i=0;i<13;i++)prev_leaf[i]=base[i];
+                        have_prev=1;
+                        if(!any_copied && dest_existed) { append=1; continue; }
+                        dos_print("Content of destination lost before copy\r\n$");
+                        dos_print("Content of destination lost before copy\r\n$");
+                        continue;
+                    }
+                }
                 int result=copy_transfer(source,target,ascii,append,(int)plan.verify,!combined);
                 if(result<=0){if(result<0)copy_count(done);return;}
-                append=1;
+                append=1;any_copied=1;
+                if(!per_file && cmd_has_wildcard(spec)) {
+                    for(unsigned i=0;i<13;i++)prev_leaf[i]=base[i];
+                    have_prev=1;
+                }
                 if(per_file || !cmd_has_wildcard(spec))break;
             } while(!g_shell_break.interrupted);
         }
+        /* A destination created by this copy in a slot enumeration had
+         * already passed is still reported (copywild-deleted). */
+        if(combined && !per_file && !plan.joined && !dest_seen && !dest_existed && any_copied) {
+            for(unsigned s=0;s<plan.count && !dest_seen;s++) {
+                const char *spec=plan.names+plan.offset[s];
+                if(!cmd_has_wildcard(spec))continue;
+                for(unsigned ordinal=0;copy_nth(spec,ordinal,base);ordinal++) {
+                    if(!copy_path(source,spec,base))return;
+                    int sh=dos_open(source),th=dos_open(target);
+                    int self=sh>=0 && th>=0 && int21_same_file((uint16_t)sh,(uint16_t)th);
+                    if(sh>=0)dos_close(sh);
+                    if(th>=0)dos_close(th);
+                    if(self) {
+                        dest_seen=1;
+                        dos_puts_raw(source);dos_print("\r\n$");
+                        dos_print("Content of destination lost before copy\r\n$");
+                        dos_print("Content of destination lost before copy\r\n$");
+                        break;
+                    }
+                }
+            }
+        }
         if(!append) {dos_print(MSG_DOS_0003 "\r\n$");return;}
-        int textmode=plan.dest_mode==1 || (!plan.dest_mode && combined);
+        /* Captured copywild2: only explicit + concatenation appends the
+         * final Ctrl-Z; wildcard concatenation does not. */
+        int textmode=plan.dest_mode==1 || (!plan.dest_mode && plan.joined);
         if(textmode) {
             uint8_t eof=26;int h=dos_open_mode(target,2);
             if(h<0 || dos_lseek_end(h)<0) {

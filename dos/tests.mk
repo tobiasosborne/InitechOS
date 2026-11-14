@@ -201,6 +201,11 @@ HOST_TESTS += test-copy-name-compat33
 test-copy-name-compat33_SRCS := tests/runner.c
 test-copy-name-compat33_ARGS := tests/run.sh test-copy-name-compat33
 test-copy-name-compat33_DEPS := $(OUT)/host/tool_shell_files tests/gates/test-copy-name-compat33.sh
+HOST_TESTS += test-copy-wildcard-compat33
+test-copy-wildcard-compat33_COUNT_PATTERN := ^INITECH_CHECKS ([0-9]+) failures=[0-9]+$$
+test-copy-wildcard-compat33_SRCS := tests/runner.c
+test-copy-wildcard-compat33_ARGS := tests/run.sh test-copy-wildcard-compat33
+test-copy-wildcard-compat33_DEPS := $(OUT)/host/tool_shell_files tests/gates/test-copy-wildcard-compat33.sh
 HOST_TESTS += test-dir-wide-compat33
 test-dir-wide-compat33_SRCS := tests/runner.c
 test-dir-wide-compat33_ARGS := tests/run.sh test-dir-wide-compat33

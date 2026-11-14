@@ -1,0 +1,4 @@
+A.TXT
+B.TXT
+        1 File(s) copied
+COPYWILD-DONE

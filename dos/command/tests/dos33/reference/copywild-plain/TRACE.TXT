@@ -1,0 +1,7 @@
+A.TXT
+B.TXT
+ALL.TXT
+Content of destination lost before copy
+Content of destination lost before copy
+        1 File(s) copied
+COPYWILD-DONE
