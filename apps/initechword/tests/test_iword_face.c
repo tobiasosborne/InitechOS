@@ -73,6 +73,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include "chrome_metrics.h" /* public single-menu-bar geometry */
 
 #include "face_driver.h"
 #include "../app/face_a.c"   /* the application under test */
@@ -182,6 +183,9 @@ static void launch(const char *name, void (*script)(void))
  * retrieve -- the text comes back. */
 static void t_flow(void)
 {
+    CHECK(tbx_host.nwindows == 1 &&
+          tbx_host.windows[0].t == FLAIR_CHROME_MENUBAR_H,
+          "geometry", "window starts immediately below the public menu bar");
     CHECK(status_is("", "1\"", "1\"", 0), "F1", "empty document: Doc 1 Pg 1 Ln 1\" Pos 1\" (01_edit.png)");
     CHECK(cursor_at(0, 0), "F1", "the cursor at the top left");
     tks(PARA);

@@ -2,9 +2,14 @@
 
 WordPerfect 5.1 document core, .WP5 codec and FLAIR editing face. Dependencies:
 sdk/include for the INT81 Toolbox interface, sdk/host for host tests only, and
-factory/testlib for assertions. Core/fs compile with only -Iinclude. The face
+factory/testlib for assertions, and flair/include for the host test's public
+chrome metrics. Core/fs compile with only -Iinclude. The face
 has no private OS or graphics dependency. Product behavior preserves the real
 WordPerfect captures and the legacy-final implementation cited in the source.
+
+The window starts directly below the single menu bar (CLAUDE.md, Hazards that
+are still true). Its host test compares the recorded window top with public
+`FLAIR_CHROME_MENUBAR_H`, independently of the app's placement constant.
 
 make builds WORD.EXE through mk/tenant.mk using plain TARGET_CFLAGS. No resource
 file is required. The independent MZ reader validates relocations and BSS:

@@ -8,7 +8,7 @@ CORE := $(wildcard core/*.c) fs/wp5.c
 LOCAL_INC := -Iinclude
 HOST_CORE := $(addprefix $(OUT)/host-core/,$(CORE:.c=.o))
 # The app interface. The face includes nothing else from outside.
-FACE_INC := -I$(TOP)/sdk/include -I$(TOP)/sdk/host
+FACE_INC := -I$(TOP)/sdk/include -I$(TOP)/sdk/host -I$(TOP)/flair/include
 HOST_INCLUDES := $(LOCAL_INC) -I$(TOP)/factory/testlib
 HOST_TESTS := test_iword_core test_iword_codes test_iword_wp5_roundtrip \
  test_iword_reveal_codes test_iword_face test_iword_face_small \

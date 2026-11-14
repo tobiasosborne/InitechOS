@@ -166,9 +166,9 @@
 
 const char tbx_app_name[] = "WORD";
 
-/* ---- geometry (the 123.EXE window, apps/initech123/app/face_a.c) ------------------ */
+/* ---- geometry (CLAUDE.md: one menu bar; OLD/screens-today.md Geometry) ---- */
 #define WIN_L        0
-#define WIN_T        40
+#define WIN_T        20
 #define WIN_R        640
 #define WIN_B        480
 #define CW           8           /* TBX_CELL_W */
