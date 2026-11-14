@@ -926,12 +926,10 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
                 *out = xb_m(wa->memo_buf, 0u);     /* unreadable memo -> empty */
                 return 0;
             }
-            /* copy the memo bytes into the area's stable memo scratch. */
-            if (mlen > wa->memo_buf_cap)
-                mlen = wa->memo_buf_cap;
-            if (mlen > 0u)
-                rt_memcpy(wa->memo_buf, mbuf, mlen);
-            *out = xb_m(wa->memo_buf, (uint16_t)mlen);
+            /* C17: the DBT reader already owns stable bytes until close.
+             * Copying through a 2048-byte area buffer silently lost text. */
+            if(mlen>UINT16_MAX)return 1; /* cannot represent this value */
+            *out = xb_m((const char *)mbuf, (uint16_t)mlen);
             return 0;
         }
     }

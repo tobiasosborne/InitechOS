@@ -904,32 +904,53 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
 static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
 {
     const char *p = q_skip_ws(args);
-    char line[Q_LINEBUF];
+    char small[Q_LINEBUF],*line=small;
+    uint32_t capacity=sizeof small;
     uint32_t pos = 0u;
     char expr[Q_MAX_EXPR + 1];
     int ok = 1, first = 1, any = 0, rc;
+    ibase_pal_t *pal=xb_interp_pal(ip);
 
     if (leading_nl) {
         /* Using III+ U5-15; DML-01..03 real alternate streams. */
-        q_append_cstr(line, &pos, sizeof(line), "\r\n");
+        q_append_cstr(line, &pos, capacity, "\r\n");
     }
 
     while (q_next_expr(&p, expr, sizeof(expr), &ok)) {
         xb_val v;
         any = 1;
         if (!first)
-            q_append_cstr(line, &pos, sizeof(line), " ");
+            q_append_cstr(line, &pos, capacity, " ");
         first = 0;
         rc = xb_interp_eval(ip, expr, &v, ec);
         if (rc != INTERP_OK)
-            return rc;
+            goto done;
         if(v.t==XB_N) {
             const dbf_field_t *f=q_field_descriptor(ip,expr);
             if(f){v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(xb_interp_ctx(ip),&v);}
         }
-        q_render_val(line,&pos,sizeof(line),&v,xb_interp_ctx(ip),1);
+        {
+            uint32_t need=v.t==XB_C?v.u.c.len:256u;
+            if(v.t==XB_M){
+                uint32_t off=0,w=q_mw(xb_interp_ctx(ip));need=0;
+                do{
+                    q_memo_next(v.u.c.p?v.u.c.p:"",v.u.c.len,&off,w);need+=w;
+                    if(off>=v.u.c.len)break;
+                    need+=2u;
+                }while(1);
+            }
+            if(need>UINT32_MAX-pos-1u){if(ec)*ec=43;rc=-INTERP_ERR_NOMEM;goto done;}
+            need+=pos+1u; /* reserve the next expression separator too */
+            if(need>capacity){
+                char *next=pal->acquire(pal,need);
+                if(!next){if(ec)*ec=43;rc=-INTERP_ERR_NOMEM;goto done;}
+                rt_memcpy(next,line,pos);if(line!=small)pal->release(pal,line);
+                line=next;capacity=need;
+            }
+        }
+        q_render_val(line,&pos,capacity,&v,xb_interp_ctx(ip),1);
     }
-    if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+    if (!ok) { if (ec) *ec = 0;rc=-INTERP_ERR_SYNTAX;goto done; }
 
     /* ? with no expression list still emits the leading newline (a blank line);
      * ?? with no expression list emits nothing. */
@@ -938,7 +959,10 @@ static int q_question(xb_interp *ip, const char *args, int leading_nl, int *ec)
         q_putn(ip, line, pos);
 
     if (ec) *ec = 0;
-    return INTERP_OK;
+    rc=INTERP_OK;
+done:
+    if(line!=small)pal->release(pal,line);
+    return rc;
 }
 
 /* Printer motion shared by @...SAY and bare @ r,c under SET DEVICE TO PRINT.
