@@ -248,6 +248,7 @@ static void fo_action_to_view(const finder_window_t *fw, int16_t h, int16_t v,
 }
 const char *finder_ops_reason(finder_win_status_t st)
 {
+    if (st == FINDER_WIN_ERR_WRITEPROTECT) return "write-protect";
     if (st == FINDER_WIN_ERR_SAMEDIR) return "samedir";
     if (st == FINDER_WIN_ERR_CYCLE)   return "cycle";
     if (st == FINDER_WIN_ERR_EXISTS)  return "exists";
@@ -459,7 +460,8 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
                      out->renamed ? out->as : (const char *)0, dst);
     if (rc != (int)FINDER_WIN_OK) {
         if (rc == (int)FINDER_WIN_ERR_SAMEDIR || rc == (int)FINDER_WIN_ERR_CYCLE ||
-            rc == (int)FINDER_WIN_ERR_EXISTS || rc == (int)FINDER_WIN_ERR_DISKFULL)
+            rc == (int)FINDER_WIN_ERR_EXISTS || rc == (int)FINDER_WIN_ERR_DISKFULL ||
+            rc == (int)FINDER_WIN_ERR_WRITEPROTECT)
             return fo_refuse(out, (finder_win_status_t)rc);
         return fo_refuse(out, FINDER_WIN_ERR_MOVE);
     }

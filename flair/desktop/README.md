@@ -156,3 +156,33 @@ desktop import. make smoke delegates to the product's QEMU+Bochs smoke.
 The unconverted rows in tests/MUTANTS-TODO.md remain coverage limits; the
 registered mutation set covers the power notice, full icon names, wide-name
 allocation, list-column fitting and File title.
+
+Finder storage uses one write-capability decision in finder_storage.h, shared
+by the filesystem binding (finder_fs.c) and Desktop DB/Trash persistence.
+The operator's 2026-11-14 ruling is FAT12 read/write and FAT16 read-only.
+Every mutating binding call checks before invoking the FAT writer, including
+rename/move, create, positioned write, unlink, rmdir and mkdir. Desktop DB
+staging/bootstrap and Trash creation/attribute updates use the same check.
+Read/enumeration/identity checks retain their separate geometry predicate;
+FAT16 still opens and reads through the kernel's two-sector FAT window.
+The write-protect status survives New Folder, drag/move, Put Away and purge
+error mapping and uses the ordinary one-button Finder alert.
+
+The alert's "Write protect error." is the Finder form of MSG-DOS-0008 in
+kernel/include/dos_messages.json ("Write protect error writing drive %c:").
+Primary source: IBM DOS 3.30 User's Guide, Appendix F, printed p.365 / PDF450;
+the local transcription is the legacy tree's
+`docs/audits/2026-10-15-look-pass6/evidence/dos33-manual.txt` (line 16045).
+The catalogue wording is reused, not claimed as a captured native Finder
+locked-disk sentence. FAT layout/type classification is documented in
+`docs/research/fat16-ground-truth.md`, sections 0 and 2; the refusal policy
+comes from the operator, rather than from FAT16's physical capabilities.
+
+The storage host suite mounts mtools FAT12/FAT16 images with a writable backend.
+It checks zero write callbacks and every image byte after each FAT16 mutation,
+including the real New Folder/drag/Trash/Put Away/Empty Trash/Delete Now routes.
+FAT12 writes a folder, a copied stream and Desktop DB; mtools reads them back.
+The external patch fat16-write-check-dropped removes the capability decision
+and is killed by these invariants. `make smoke-storage` drives the Finder in
+both emulators and compares the FAT16 volume byte-for-byte, with FAT12 as the
+positive control. No test scenario is compiled into the product.

@@ -11,151 +11,6 @@
 #include "filecopy_cancel.h"
 #include "cursor.h"
 #define FINDER_ZOOM_STEPS 8
-int finder_fat_mkdir(void *fs_user, const char *name83,
-                            uint16_t parent_dir_start)
-{
-    int rc;
-
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MKDIR;
-
-    rc = fat12_mkdir(g_finder_vol, g_finder_fat, g_finder_fat_len,
-                     name83, parent_dir_start,
-                     g_finder_dirbuf, g_finder_clusbuf);
-    if (rc == FAT12_OK)             return (int)FINDER_WIN_OK;
-    if (rc == FAT12_ERR_DIR_FULL)   return (int)FINDER_WIN_ERR_DIRFULL;
-    if (rc == FAT12_ERR_NO_SPACE)   return (int)FINDER_WIN_ERR_DISKFULL;
-    return (int)FINDER_WIN_ERR_MKDIR;
-}
-
-/* Internal to COLD: this utility is never a resident entry or callback. */
-static int finder_fat_map(int rc)
-{
-    if (rc == FAT12_OK)            return (int)FINDER_WIN_OK;
-    if (rc == FAT12_ERR_SAME_DIR)  return (int)FINDER_WIN_ERR_SAMEDIR;
-    if (rc == FAT12_ERR_CYCLE)     return (int)FINDER_WIN_ERR_CYCLE;
-    if (rc == FAT12_ERR_EXISTS)    return (int)FINDER_WIN_ERR_EXISTS;
-    if (rc == FAT12_ERR_NOT_EMPTY) return (int)FINDER_WIN_ERR_NOTEMPTY;
-    if (rc == FAT12_ERR_NO_SPACE)  return (int)FINDER_WIN_ERR_DISKFULL;
-    return (int)FINDER_WIN_ERR_MOVE;
-}
-
-int finder_fat_move(void *fs_user, const char *src_name83,
-                           uint16_t src_dir, const char *dst_name83,
-                           uint16_t dst_dir)
-{
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
-    return finder_fat_map(fat12_move_dirent(g_finder_vol, g_finder_fat,
-                                            g_finder_fat_len, src_name83,
-                                            src_dir, dst_name83, dst_dir,
-                                            g_finder_dirbuf,
-                                            g_finder_clusbuf));
-}
-
-int finder_fat_trash_name(void *fs_user, const char *name83,
-                                 uint16_t dir, char *out)
-{
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
-    return finder_fat_map(fat12_trash_suffix_name(g_finder_vol, g_finder_fat,
-                                                  g_finder_fat_len, dir,
-                                                  g_finder_dirbuf, name83,
-                                                  out));
-}
-
-int finder_trash_reserve(void)
-{
-    desktop_trash_state_t state = DESKTOP_TRASH_OK;
-    int rc;
-
-    if (!finder_fat_geometry_ok()) return FAT12_ERR_NULL;
-    rc = desktop_trash_ensure(g_finder_vol, g_finder_fat, g_finder_fat_len,
-                              g_finder_dirbuf, g_finder_clusbuf, &state);
-    if (rc == FAT12_OK) {
-        if (state == DESKTOP_TRASH_CREATE) serial_puts("TRASH-CREATE\n");
-    } else {
-        serial_puts("TRASH-RESERVE-FAIL rc=");
-        serial_puti((int32_t)rc);
-        serial_putc('\n');
-    }
-    return rc;
-}
-
-int finder_fat_unlink(void *fs_user, const char *name83, uint16_t dir)
-{
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
-    return finder_fat_map(fat12_unlink(g_finder_vol, g_finder_fat,
-                                       g_finder_fat_len, name83, dir,
-                                       g_finder_dirbuf));
-}
-
-int finder_fat_rmdir(void *fs_user, const char *name83, uint16_t dir)
-{
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
-    return finder_fat_map(fat12_rmdir(g_finder_vol, g_finder_fat,
-                                      g_finder_fat_len, name83, dir,
-                                      g_finder_dirbuf));
-}
-
-int finder_fat_create(void *fs_user, const char *name83, uint16_t dir,
-                             uint32_t *out_slot)
-{
-    dir_entry_t e;
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
-    return finder_fat_map(fat12_create(g_finder_vol, g_finder_fat,
-                                       g_finder_fat_len, name83,
-                                       (uint8_t)DIR_ATTR_ARCHIVE, dir,
-                                       g_finder_dirbuf, g_finder_clusbuf, &e,
-                                       out_slot));
-}
-
-int finder_fat_dir_ident(void *fs_user, uint16_t dir, uint16_t parent,
-                                const char *name83)
-{
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_STALE;
-    return fat12_dir_identity(g_finder_vol, g_finder_fat, g_finder_fat_len,
-                              dir, parent, name83, g_finder_dirbuf) == FAT12_OK
-         ? (int)FINDER_WIN_OK : (int)FINDER_WIN_ERR_STALE;
-}
-
-int finder_fat_read_partial(void *fs_user, const char *name83,
-                                   uint16_t dir, uint32_t offset,
-                                   uint32_t len, uint8_t *out,
-                                   uint32_t *out_read)
-{
-    dir_entry_t e;
-    uint32_t slot = 0u;
-    int rc;
-
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
-    rc = fat12_find_slot_in(g_finder_vol, g_finder_fat, g_finder_fat_len, dir,
-                            g_finder_dirbuf, name83, &e, &slot);
-    if (rc != FAT12_OK) return finder_fat_map(rc);
-    return finder_fat_map(fat12_read_partial(g_finder_vol, g_finder_fat,
-                                             g_finder_fat_len, &e, offset,
-                                             len, out, g_finder_clusbuf,
-                                             out_read));
-}
-
-int finder_fat_write_partial(void *fs_user, uint16_t dir, uint32_t slot,
-                                    uint32_t offset, const uint8_t *data,
-                                    uint32_t len, uint32_t *out_written)
-{
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return (int)FINDER_WIN_ERR_MOVE;
-    return finder_fat_map(fat12_write_partial(g_finder_vol, g_finder_fat,
-                                              g_finder_fat_len, dir, slot,
-                                              offset, data, len,
-                                              g_finder_dirbuf,
-                                              g_finder_clusbuf, out_written));
-}
-
 static int16_t finder_lerp16(int16_t a, int16_t b, int k)
 {
     return (int16_t)((int)a + (((int)b - (int)a) * k) / FINDER_ZOOM_STEPS);
@@ -271,7 +126,8 @@ int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
             finder_delete_now(ctx, bi, s, idx);
             return 1;
         } else {
-            r.status = status = FINDER_WIN_ERR_STORAGE;  /* not "no room" */
+            r.status = status = rrc == FAT12_ERR_ACCESS ?
+                FINDER_WIN_ERR_WRITEPROTECT : FINDER_WIN_ERR_STORAGE;
         }
     }
     if(status==FINDER_WIN_ERR_EXISTS && finder_notice(ctx,bi,status,r.name)==1u)
@@ -347,6 +203,7 @@ uint16_t finder_notice(flair_live_ctx_t *ctx, const boot_info_t *bi,
                           st==FINDER_WIN_ERR_EXISTS?2:1,1);
     serial_puts("FINDER-ALERT reason=");
     serial_puts(st==FINDER_WIN_ERR_FULL?"windows":
+                st==FINDER_WIN_ERR_WRITEPROTECT?"write-protect":
                 st==FINDER_WIN_ERR_MEMORY?"memory":
                 st==FINDER_WIN_ERR_DISKFULL?"disk-full":
                 st==FINDER_WIN_ERR_LAUNCH?"launch":
@@ -456,6 +313,8 @@ void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
     }
     if (status == FINDER_WIN_ERR_LOCKED)
         (void)finder_trash_confirm(ctx, bi, 0u);
+    else if (status != FINDER_WIN_OK)
+        (void)finder_notice(ctx, bi, status, DESKTOP_TRASH_NAME);
 }
 
 void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
@@ -808,7 +667,8 @@ void finder_desk_persist(void)
                                FINDER_DB_RECORD_SIZE));
         serial_putc('\n');
     } else {
-        g_finder_io_error=rc==FAT12_ERR_NO_SPACE || rc==FAT12_ERR_DIR_FULL?
+        g_finder_io_error=rc==FAT12_ERR_ACCESS ? FINDER_WIN_ERR_WRITEPROTECT :
+                            rc==FAT12_ERR_NO_SPACE || rc==FAT12_ERR_DIR_FULL?
                             FINDER_WIN_ERR_DISKFULL:FINDER_WIN_ERR_STORAGE;
         serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
         serial_puti((int32_t)rc);

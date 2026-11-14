@@ -418,7 +418,8 @@ typedef enum finder_win_status {
     FINDER_WIN_ERR_DISKFULL  = -17,
     FINDER_WIN_ERR_LAUNCH    = -18,
     FINDER_WIN_ERR_CRASH     = -19,
-    FINDER_WIN_ERR_STORAGE   = -20
+    FINDER_WIN_ERR_STORAGE   = -20,
+    FINDER_WIN_ERR_WRITEPROTECT = -21 /* the volume cannot be modified */
 } finder_win_status_t;
 
 /* ===========================================================================

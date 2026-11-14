@@ -5,6 +5,7 @@
  */
 
 #include "desktop_db.h"
+#include "finder_storage.h"
 static char db_recovery_name[12];
 static uint8_t db_verify[DESKTOP_DB_MAX_BYTES];
 const char *desktop_db_recovery(void) { return db_recovery_name[0]?db_recovery_name:0; }
@@ -229,6 +230,8 @@ int desktop_db_write(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (vol == 0 || sector_buf == 0 || cluster_buf == 0 || data == 0) {
 		return FAT12_ERR_NULL;
 	}
+	rc = finder_storage_write_check(vol);
+	if (rc != FAT12_OK) return rc;
 	if(db_recovery_name[0]) return FAT12_ERR_WRITE;
 	/* Refuse to commit a blob that the next boot would have to REGEN. */
 	if (len > DESKTOP_DB_MAX_BYTES ||
@@ -372,6 +375,8 @@ int desktop_trash_ensure(const fat12_volume_t *vol, void *fat,
 		return FAT12_ERR_NULL;
 	}
 	*out_state = DESKTOP_TRASH_OK;
+	rc = finder_storage_write_check(vol);
+	if (rc != FAT12_OK) return rc;
 	rc = fat12_find(vol, sector_buf, DESKTOP_TRASH_NAME, &entry);
 	if (rc == FAT12_ERR_NOT_FOUND) {
 		*out_state = DESKTOP_TRASH_CREATE;

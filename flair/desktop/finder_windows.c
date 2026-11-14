@@ -1156,6 +1156,7 @@ finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
     if(st!=FINDER_WIN_OK) return st;
 
     rc = sh->fs.mkdir(sh->fs.user, name, w->dir_start);
+    if(rc==FINDER_WIN_ERR_WRITEPROTECT) return FINDER_WIN_ERR_WRITEPROTECT;
     if(rc==FINDER_WIN_ERR_DISKFULL) return FINDER_WIN_ERR_DISKFULL;
     if (rc != (int)FINDER_WIN_OK)
         return (rc == (int)FINDER_WIN_ERR_DIRFULL) ? FINDER_WIN_ERR_DIRFULL
@@ -1983,6 +1984,7 @@ static int fw_retire_dir(finder_shell_t *sh, uint16_t dir)
  * of every view of a removed folder. `root` itself is never removed here. */
 typedef struct fw_purge {
     uint16_t purged, refused;
+    int      write_protected;
     int      locked, views_dropped;
     unsigned touched;               /* surviving views whose listing changed */
 } fw_purge_t;
@@ -2009,6 +2011,9 @@ static void fw_purge_tree(finder_shell_t *sh, uint16_t root, fw_purge_t *p)
             if (d == 0) break;
             /* The level is as empty as it will get: remove the folder. */
             rc = sh->fs.rmdir(sh->fs.user, st[d].name, st[d - 1].dir);
+            if (rc == FINDER_WIN_ERR_WRITEPROTECT) {
+                p->write_protected = 1; p->refused++; return;
+            }
             d--;
             if (rc == (int)FINDER_WIN_OK) {
                 p->purged = (uint16_t)(p->purged + 1u);
@@ -2042,7 +2047,11 @@ static void fw_purge_tree(finder_shell_t *sh, uint16_t root, fw_purge_t *p)
             fw_copy83(st[d].name, it.name);
             continue;
         }
-        if (sh->fs.unlink(sh->fs.user, it.name, st[d].dir) == (int)FINDER_WIN_OK) {
+        rc = sh->fs.unlink(sh->fs.user, it.name, st[d].dir);
+        if (rc == FINDER_WIN_ERR_WRITEPROTECT) {
+            p->write_protected = 1; p->refused++; return;
+        }
+        if (rc == (int)FINDER_WIN_OK) {
             p->purged = (uint16_t)(p->purged + 1u);
             p->touched |= fw_slots_of(sh, st[d].dir);
         } else {
@@ -2105,6 +2114,7 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
     }
     if (out_purged != (uint16_t *)0)  *out_purged = p.purged;
     if (out_refused != (uint16_t *)0) *out_refused = p.refused;
+    if (p.write_protected) return FINDER_WIN_ERR_WRITEPROTECT;
     return p.locked ? FINDER_WIN_ERR_LOCKED : FINDER_WIN_OK;
 }
 
@@ -2162,7 +2172,9 @@ finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
         /* contract, test-finder-ops O18: skipping the walk cannot delete a tree. */
         fw_purge_tree(sh, it.cl, &p);
         if (!p.locked && p.refused == 0u) {
-            if (sh->fs.rmdir(sh->fs.user, name, dir) == (int)FINDER_WIN_OK) {
+            rc = sh->fs.rmdir(sh->fs.user, name, dir);
+            if (rc == FINDER_WIN_ERR_WRITEPROTECT) return FINDER_WIN_ERR_WRITEPROTECT;
+            if (rc == (int)FINDER_WIN_OK) {
                 p.purged = (uint16_t)(p.purged + 1u);
                 /* O18 also grades this root retirement, outside the walk. */
                 p.views_dropped |= fw_retire_dir(sh, it.cl);
@@ -2170,9 +2182,10 @@ finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
                 p.refused = (uint16_t)(p.refused + 1u);
             }
         }
-    } else if (sh->fs.unlink(sh->fs.user, name, dir) == (int)FINDER_WIN_OK) {
+    } else if ((rc = sh->fs.unlink(sh->fs.user, name, dir)) == (int)FINDER_WIN_OK) {
         p.purged = (uint16_t)(p.purged + 1u);
     } else {
+        if (rc == FINDER_WIN_ERR_WRITEPROTECT) return FINDER_WIN_ERR_WRITEPROTECT;
         p.refused = (uint16_t)(p.refused + 1u);
     }
 
@@ -2188,6 +2201,7 @@ finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
     if (out_purged != (uint16_t *)0)  *out_purged = p.purged;
     if (out_db_dirty != (uint8_t *)0) *out_db_dirty = (uint8_t)(p.views_dropped ? 1u : 0u);
     if (p.locked) return FINDER_WIN_ERR_LOCKED;
+    if (p.write_protected) return FINDER_WIN_ERR_WRITEPROTECT;
     return (p.refused != 0u) ? FINDER_WIN_ERR_MOVE : FINDER_WIN_OK;
 }
 
@@ -2266,6 +2280,10 @@ int finder_error_alert_text(finder_win_status_t st, const char *name,
     const char *msg;
     char replace[208];
     switch(st) {
+    case FINDER_WIN_ERR_WRITEPROTECT:
+        /* MSG-DOS-0008, kernel/include/dos_messages.json; IBM DOS 3.30
+         * User's Guide Appendix F p.365 (PDF450). Finder alert form. */
+        msg="Write protect error."; break;
     case FINDER_WIN_ERR_DISKFULL:
         msg="The disk is full."; break;
     case FINDER_WIN_ERR_FULL:

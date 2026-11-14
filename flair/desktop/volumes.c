@@ -12,76 +12,6 @@ void __attribute__((unused)) finder_trace_serial(void *user, const char *line)
     serial_putc('\n');
 }
 
-int finder_fat_dirent_cb(const dir_entry_t *e, void *user)
-{
-    finder_fat_enum_t *fe = (finder_fat_enum_t *)user;
-    finder_dirent_t d;
-    char name[FAT12_NAME83_MAX];
-    if (e == (const dir_entry_t *)0 || fe == (finder_fat_enum_t *)0) return 0;
-    if (fat12_format_83(e, name) != FAT12_OK) return 0;
-    d.name83 = name;
-    d.attribute = e->attribute;
-    d.size = e->file_size;
-    d.start_cluster = e->start_cluster;
-    d.date = e->mdate; d.time = e->mtime;
-    return fe->cb(&d, fe->user);
-}
-
-int finder_fat_geometry_ok(void)
-{
-    return g_finder_vol != (const fat12_volume_t *)0 &&
-           g_finder_vol->bpb.sectors_per_cluster >= 1u &&
-           (uint32_t)g_finder_vol->bpb.sectors_per_cluster <= FINDER_FS_MAX_SPC;
-}
-
-int finder_fat_enumerate(void *fs_user, uint16_t dir_start,
-                                finder_enum_cb cb, void *cb_user)
-{
-    fat12_dir_t dir;
-    finder_fat_enum_t fe;
-    int rc;
-    (void)fs_user;
-    if (!finder_fat_geometry_ok() || cb == (finder_enum_cb)0) return -1;
-    dir.is_root = (dir_start == 0u) ? 1 : 0;
-    dir.start_cluster = dir_start;
-    fe.cb = cb;
-    fe.user = cb_user;
-    rc = fat12_read_dir(g_finder_vol, &dir, g_finder_dirbuf,
-                        g_finder_fat, g_finder_fat_len,
-                        finder_fat_dirent_cb, &fe);
-    return (rc < 0) ? -1 : rc;
-}
-
-int finder_fat_trash_dir(void *fs_user)
-{
-    dir_entry_t e;
-    uint32_t slot = 0u;
-    (void)fs_user;
-    if (!finder_fat_geometry_ok()) return -1;
-    if (fat12_find_slot_in(g_finder_vol, g_finder_fat, g_finder_fat_len, 0u,
-                           g_finder_dirbuf, DESKTOP_TRASH_NAME, &e, &slot) !=
-        FAT12_OK)
-        return -1;
-    if ((e.attribute & DIR_ATTR_DIRECTORY) == 0u || e.start_cluster < 2u)
-        return -1;
-    return (int)e.start_cluster;
-}
-
-const finder_fs_t g_finder_fs_binding __attribute__((unused)) = {
-    finder_fat_enumerate,
-    finder_fat_mkdir,
-    finder_fat_move,
-    finder_fat_trash_name,
-    finder_fat_trash_dir,
-    finder_fat_unlink,
-    finder_fat_rmdir,
-    finder_fat_create,
-    finder_fat_read_partial,
-    finder_fat_write_partial,
-    finder_fat_dir_ident,
-    (void *)0
-};
-
 void __attribute__((unused)) finder_desk_load_positions(void)
 {
     uint32_t len = 0u;
@@ -156,7 +86,8 @@ void flair_tenant_mount_volume(void)
                 serial_puts("DESKTOP-DB-OK\n");
             }
             if (db_rc != FAT12_OK) {
-                g_finder_io_error=db_rc==FAT12_ERR_NO_SPACE || db_rc==FAT12_ERR_DIR_FULL?
+                g_finder_io_error=db_rc==FAT12_ERR_ACCESS ? FINDER_WIN_ERR_WRITEPROTECT :
+                                    db_rc==FAT12_ERR_NO_SPACE || db_rc==FAT12_ERR_DIR_FULL?
                                     FINDER_WIN_ERR_DISKFULL:FINDER_WIN_ERR_STORAGE;
                 if (db_state == DESKTOP_DB_BOOT_CREATE ||
                     db_state == DESKTOP_DB_BOOT_REGEN) {
@@ -175,7 +106,8 @@ void flair_tenant_mount_volume(void)
                                 ? "TRASH-CREATE\n" : "TRASH-OK\n");
             } else {
                 serial_puts("TRASH-INIT-FAIL rc=");
-                g_finder_io_error=trash_rc==FAT12_ERR_NO_SPACE || trash_rc==FAT12_ERR_DIR_FULL?
+                g_finder_io_error=trash_rc==FAT12_ERR_ACCESS ? FINDER_WIN_ERR_WRITEPROTECT :
+                                    trash_rc==FAT12_ERR_NO_SPACE || trash_rc==FAT12_ERR_DIR_FULL?
                                     FINDER_WIN_ERR_DISKFULL:FINDER_WIN_ERR_STORAGE;
                 serial_puti((int32_t)trash_rc);
                 serial_putc('\n');

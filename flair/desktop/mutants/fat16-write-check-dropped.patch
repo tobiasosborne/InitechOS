@@ -1,0 +1,13 @@
+# test: test_finder_storage
+# Remove the single Finder write-capability check. Directory edits must go red
+# even when the FAT12 writer rejects other FAT16 mutations on buffer geometry.
+--- a/finder_storage.h
++++ b/finder_storage.h
+@@ -12,6 +12,6 @@
+ static inline int finder_storage_write_check(const fat12_volume_t *vol)
+ {
+     if (!vol) return FAT12_ERR_NULL;
+-    return vol->fat_type == FAT_TYPE_FAT12 ? FAT12_OK : FAT12_ERR_ACCESS;
++    return FAT12_OK;
+ }
+ #endif

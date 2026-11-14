@@ -62,10 +62,6 @@ typedef struct flair_live_outline {
     uint32_t saved_count;
     int drawn;
 } flair_live_outline_t;
-typedef struct finder_fat_enum {
-    finder_enum_cb cb;
-    void *user;
-} finder_fat_enum_t;
 typedef struct sf_geom {
     int16_t w, h;
     int16_t pop_l, pop_r;
