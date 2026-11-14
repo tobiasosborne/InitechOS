@@ -17,6 +17,28 @@
 TEST_HARNESS();
 static uint8_t resource[65536];
 static size_t resource_len;
+static unsigned word(unsigned at){return resource[at]+256u*resource[at+1];}
+static void set_word(unsigned at,unsigned value){resource[at]=(uint8_t)value;resource[at+1]=(uint8_t)(value>>8);}
+static void malformed(unsigned kind,uint32_t *length)
+{
+    unsigned offsets=12+word(6),items=offsets+2*word(8),levels=items+8*word(10);
+    if(kind==9)set_word(4,1);                         /* old resource version */
+    if(kind==10)set_word(offsets,1);                  /* middle of a string */
+    if(kind==11)set_word(items+4,65534);              /* dangling child */
+    if(kind==12)set_word(items+4,0);                  /* cycle to root */
+    if(kind==13)set_word(items+8+4,word(items+4));     /* two parents */
+    if(kind==14)set_word(items+4,65535);              /* orphaned sub-tree */
+    if(kind==15)set_word(items+8,word(items));         /* duplicate name */
+    if(kind==16)set_word(items+8+6,word(items+6));     /* duplicate action */
+    if(kind==17)set_word(items+5*8+6,5);              /* visible position replaces Data's original ID */
+    if(kind==18)set_word(levels+4,0);                 /* overlapping item ranges */
+    if(kind==19)set_word(levels+2,0);                 /* empty level */
+    if(kind==20)resource[(*length)++]=0;              /* trailing byte */
+    if(kind==21)set_word(items+2*8+2,word(items+3*8+2)); /* unused string */
+    uint32_t checksum=2166136261u;
+    for(unsigned i=0;i<*length-4;i++)checksum=(checksum^resource[i])*16777619u;
+    for(unsigned i=0;i<4;i++)resource[*length-4+i]=(uint8_t)(checksum>>(8*i));
+}
 static void key_text(const char *s)
 {
     while (*s) {
@@ -33,6 +55,7 @@ static void exercise(int kind)
     if (kind == 2) len--;                  /* truncated body/checksum */
     if (kind == 4) resource[0] ^= 1;        /* bad magic */
     if (kind == 5) resource[100] ^= 1;      /* valid header, bad checksum */
+    if (kind >= 9) malformed((unsigned)kind,&len);
     if (kind != 3)
         CHECK(tbx_host_put_file("A:\\APPS\\123.MNU", resource, len), "install menu fixture");
     if (kind == 6) tbx_host.read_limit = 17; /* the loader must accumulate reads */
@@ -67,7 +90,7 @@ int main(int argc, char **argv)
     if (!f) { perror(argv[1]); return 2; }
     resource_len = fread(resource, 1, sizeof resource, f);
     if (ferror(f) || fclose(f) || resource_len < 16) return 2;
-    for (int kind = 0; kind < 9; kind++) {
+    for (int kind = 0; kind < 22; kind++) {
         int fd[2], counts[2] = {0};
         if (pipe(fd)) return 2;
         fflush(NULL);

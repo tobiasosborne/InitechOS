@@ -1,0 +1,21 @@
+# test: test_i123_menu_tree
+--- a/core/menu_data.h
++++ b/core/menu_data.h
+@@ -4,7 +4,7 @@
+ #define I123_MENU_ITEM_COUNT 105u
+ #define I123_MENU_LEVEL_COUNT 25u
+ static const uint32_t menu_action_masks[] = {
+-0x0000049fu, /* / */
++0x0000043fu, /* / */
+ 0x00000019u, /* /Worksheet */
+ 0x0000005fu, /* /Worksheet/Global */
+ 0x000003ffu, /* /Worksheet/Global/Format */
+@@ -269,7 +269,7 @@
+ {4,5,65535,2}, /* /Copy */
+ {6,7,65535,3}, /* /Move */
+ {8,9,19,4}, /* /File */
+-{10,11,23,7}, /* /Data */
++{10,11,23,5}, /* /Data */
+ {12,13,24,10}, /* /Quit */
+ {14,15,2,0}, /* /Worksheet/Global */
+ {16,17,7,3}, /* /Worksheet/Column */

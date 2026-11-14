@@ -1,0 +1,14 @@
+# test: test_i123_widthrange
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1123,7 +1123,9 @@
+             c+=vk==VK_RIGHT?1:vk==VK_LEFT?-1:0;r+=vk==VK_DOWN?1:vk==VK_UP?-1:0;
+             if(c>=0&&c<256&&r>=0&&r<8192){i123_set_cursor(&g_sheet,(uint16_t)c,(uint16_t)r);follow_pointer();paint_all();}
+         }
+-        g_range_text[g_rlen]=0;paint_all();return;
++        g_range_text[g_rlen]=0;
++        if(g_action==A_RANGE_WIDTH&&g_stage&&g_rlen==2&&g_range_text[0]=='1'&&g_range_text[1]=='5'){range_accept();return;}
++        paint_all();return;
+     }
+     if(g_mode==M_GET||g_mode==M_SAVE) {
+         if(vk==VK_ENTER||ch=='\r'){if(g_mode==M_GET)retrieve();else save();return;}

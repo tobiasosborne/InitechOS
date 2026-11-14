@@ -1,0 +1,13 @@
+/Worksheet/Global/Default/Quit
+/Worksheet/Global/Default/Printer/Quit
+/Worksheet/Global/Default/Other/International/Quit
+/Print/Printer/Quit
+/Print/Printer/Options/Quit
+/Print/File/Quit
+/Print/File/Options/Quit
+/Graph/Quit
+/Data/Sort/Quit
+/Data/Query/Quit
+/Data/Regression/Quit
+/Data/Parse/Quit
+/Add-In/Quit

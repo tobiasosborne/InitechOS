@@ -8,7 +8,7 @@ X87_CORE := $(addprefix $(OUT)/host-x87/,$(CORE:.c=.o))
 LOCAL_INC := -Iinclude
 FACE_INC := -I$(TOP)/sdk/include -I$(TOP)/sdk/host
 HOST_INCLUDES := $(LOCAL_INC) -I$(TOP)/factory/testlib -Itests
-FACE_TESTS := files import zero fill time widthrange conformance window edit quit range_menu entry clock keys hit resize cells protection
+FACE_TESTS := menu_routes files import zero fill time widthrange conformance window edit quit range_menu entry clock keys hit resize cells protection
 DIFF_TESTS := wk1_roundtrip formula recalc_order copy_move transfer_baseline menu_tree
 HOST_TESTS := $(addprefix test_i123_,$(DIFF_TESTS) $(FACE_TESTS)) \
               test_i123_formula_x87_037F test_i123_formula_x87_027F \
@@ -19,7 +19,7 @@ $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_CFLAGS := $(FACE_INC) -D_DEFAULT
 $(foreach cw,037F 027F,$(eval test_i123_formula_x87_$(cw)_SRCS := tests/diff/test_i123_formula.c $(X87_CORE)))
 $(foreach cw,037F 027F,$(eval test_i123_formula_x87_$(cw)_CFLAGS := -mfpmath=387 -DI123_TEST_X87_CW=0x$(cw)))
 $(foreach mode,corpus tile,$(eval test_i123_copy_$(mode)_SRCS := $(test_i123_copy_move_SRCS)))
-test_i123_menu_tree_SRCS := tests/diff/test_i123_menu_tree.c core/menu.c
+test_i123_menu_tree_SRCS := tests/diff/test_i123_menu_tree.c tests/tools/menu_project.c tests/tools/menu_resource.c core/menu.c
 test_i123_menu_tree_CFLAGS := -DI123_MENU_HOST
 $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_DEPS := $(TOP)/build/sdk/host/libtbx_host.a app/face_a.c tests/test_i123_quit.c tests/run.sh))
 $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
@@ -69,7 +69,12 @@ $(OUT)/123.MNU: $(HOST_OUT)/test_i123_menu_tree
 
 smoke:
 	+$(MAKE) -C $(TOP) image
-	+$(MAKE) -C $(TOP)/factory smoke
+	+@set -e; evidence=$$(mktemp -d "$(OUT)/smoke.XXXXXX"); \
+	DESKTOP_SMOKE_OUT="$$evidence" sh "$(TOP)/factory/smoke-desktop.sh"; \
+	for emulator in qemu bochs; do \
+	  sh tests/smoke/menu-resource.sh "$$evidence/$$emulator-data.img" "$$evidence/$$emulator-initech123"; \
+	done; \
+	echo "Initech 123 smoke: both booted menu resources green ($$evidence)"
 
 .PHONY: sdk-host
 sdk-host:

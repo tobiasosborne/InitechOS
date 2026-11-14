@@ -10,8 +10,11 @@ its present feature depth; import does not add spreadsheet commands.
 `libi123.a` under `build/apps/initech123/`. The EXE uses mk/tenant.mk and the
 plain shared target flags, with I123_MENU_DISK selecting APPS/123.MNU loading.
 An independent factory/mz reader validates the executable and its relocations.
-The resource generator is the C menu-tree suite's --resource mode; that suite
-compares its entire tree against installed real 123.RI and the captured tree.
+The resource generator is the C menu-tree suite's --resource mode. The full
+captured RI tree remains unchanged research evidence. An independent AWK
+subtraction of the reviewed omissions grades the compact embedded tree and a
+separate C byte reader grades the actual resource, including original action
+identities. The smoke verifier also extracts 123.MNU from the booted disk.
 Missing or malformed resources terminate startup with EXIT(1), before a window
 or menu bar appears, exactly as in legacy-final.
 
@@ -35,14 +38,18 @@ component's include path. No build input comes from attic.
 
 ## Verification
 
-`make test` runs 29 host suites: the original 18, protection, shipped-configuration
+`make test` runs 30 host suites: the original 18, protection, shipped-configuration
 menu loading, EDIT, frame placement, file conformance, column ranges, time formats
-and Data Fill, plus Global Zero, file browsing and Text import, using sdk/host's
+and Data Fill, plus Global Zero, file browsing, Text import and every retained
+menu route, using sdk/host's
 shared fake Toolbox. No emulator runs in tier 0.
 The original 1,023,560 counted assertions are retained; malformed Retrieve and
-automatic numeric-entry recalculation add seven, and menu_disk adds 354.
+automatic numeric-entry recalculation add seven. Resource startup has 487
+checks across 22 fresh launches; all 81 shipped leaves have 360 route checks.
 Separate checks still cover eight real Copy/Move pairs, four tiling fixtures,
-12 self-transfers and all 82 menu levels/381 items. The precision-negative
+12 self-transfers and the complete 82-level/381-item reference. The shipped
+25-level/105-item tree is graded by full path, order, descriptions and action
+identity against the independent subtraction. The precision-negative
 x87-027F invocation retains its two expected failures and three diagnostics.
 The independent corpus comprises 59 real WK1 inputs. Formula checks retain
 1090 formulas, 4000 random formulas, poisoned-cache files and manual examples;
@@ -56,10 +63,11 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 52 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 57 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
-in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
-Bochs, including an independent check of the worksheet saved from the Finder.
+in tier 2. `make smoke` builds the product image and runs the shared desktop
+journeys on QEMU and Bochs. It independently checks the worksheet saved from
+the Finder and the actual menu resource extracted from both post-boot disks.
 The broader legacy emulator scenarios still awaiting factory adoption are in
 `tests/SMOKES.md`; the import does not claim those scenarios ran.
 
@@ -96,10 +104,7 @@ three named formula exceptions remain documented by the formula oracle.
 | Range | Format (Fixed, Sci, Currency, comma, General, +/-, Percent, Date 1/2/3, fixed AM/PM Time 1/2, Text, Hidden, Reset), label alignment, Erase, Name Create/Delete/Labels/Reset/Table, Prot/Unprot, Value and Trans. |
 | Copy, Move | Snapshot transfers, singleton-axis tiling for Copy rectangles, formula reference adjustment, named ranges; Copy retains the allowed prefix on protection refusal, Move checks all destinations first. Capacity failures discard the candidate bank. |
 | File | Retrieve and Save WK1, Cancel/Replace on existing files; filtered Erase/List Worksheet/Print/Graph/Other, session Directory and Import Text. Backup is omitted. |
-| Print | Menu navigation and Quit/escape; execution leaves below refuse. |
-| Data | Fill, including expressions/names, remembered numeric defaults, column-first clear/fill and captured protection/memory prefixes. Other leaves below refuse. |
-| Graph | Type/Name/Group navigation and Quit; execution leaves below refuse. |
-| System, Add-In | System and Add-In execution refuse. |
+| Data | Fill, including expressions/names, remembered numeric defaults, column-first clear/fill and captured protection/memory prefixes. |
 | Quit | No/Yes and unsaved-work guard: Save, Cancel, Don't Save. Native File > Quit and the window close box use the same guard. |
 
 Entry, arrows, Tab/page navigation, F2 EDIT, F5 GOTO, F9 recalc, range POINT
@@ -120,13 +125,13 @@ mkdir -p ../../build/apps/initech123/save-probe
   tests/fixtures/protection --save-safety
 ```
 
-There are **206 refused slash-menu leaves**. **File Save > Backup** in
-the replacement prompt is removed by the approved split. Every slash leaf
-below shows `Command not implemented`; Esc returns to READY. Quit leaves that
-return to READY are navigation, not unavailable operations. No listed command
-is implemented by this import. Paths and spelling come from the independently
-checked tree; current menu_select dispatch was exercised for all 300 leaves
-and agrees with the 224-leaf October audit. Sources: legacy-final
+The approved split is complete: **18 leaves implemented, 206 slash leaves and
+File Save > Backup removed**. The following frozen table expands to individual
+full paths by joining each parent with each named leaf. Every listed path is
+absent; empty branches and navigation-only remnants are also removed below.
+The independent shipping manifest is the full RI tree minus precisely these
+omissions and structural removals. Paths and spelling come from the independently
+checked full reference. Historical inventory sources: legacy-final
 `docs/audits/2026-10-23-i123/{REPORT,TRIAGE}.md`, its menu evidence, and
 `tests/oracles/menu/era_shortfalls.md`, verified against `app/face_a.c`.
 
@@ -286,3 +291,107 @@ stale. Existing formats and global alignment records are preserved.
 FAT file sets/hashes. Independent tests compare complete pages, metadata,
 whole saved worksheets, all fifteen import outputs and all four deletion
 results. Same basenames in two directories exercise every file route.
+
+Frozen structural removals: these 57 menu ancestors have no surviving operative
+child; their navigation-only Quit leaves are not retained as empty menus.
+
+```text
+/Worksheet/Insert
+/Worksheet/Delete
+/Worksheet/Titles
+/Worksheet/Window
+/Worksheet/Learn
+/Worksheet/Global/Default
+/Worksheet/Global/Default/Printer
+/Worksheet/Global/Default/Other
+/Worksheet/Global/Default/Other/International
+/Worksheet/Global/Default/Other/International/Punctuation
+/Worksheet/Global/Default/Other/International/Currency
+/Worksheet/Global/Default/Other/International/Date
+/Worksheet/Global/Default/Other/International/Time
+/Worksheet/Global/Default/Other/International/Negative
+/Worksheet/Global/Default/Other/Help
+/Worksheet/Global/Default/Other/Clock
+/Worksheet/Global/Default/Other/Undo
+/Worksheet/Global/Default/Other/Beep
+/Worksheet/Global/Default/Other/Add-In
+/Worksheet/Global/Default/Autoexec
+/Worksheet/Global/Default/Printer/AutoLF
+/Worksheet/Global/Default/Printer/Wait
+/Range/Search
+/Range/Search/Formulas
+/File/Combine
+/File/Combine/Copy
+/File/Combine/Add
+/File/Combine/Subtract
+/File/Xtract
+/File/Admin
+/File/Admin/Reservation
+/Print
+/Print/Printer
+/Print/Printer/Options
+/Print/Printer/Options/Margins
+/Print/Printer/Options/Borders
+/Print/Printer/Options/Other
+/Print/Printer/Clear
+/Print/File
+/Print/File/Options
+/Print/File/Options/Margins
+/Print/File/Options/Borders
+/Print/File/Options/Other
+/Print/File/Clear
+/Graph
+/Graph/Type
+/Graph/Name
+/Graph/Group
+/Data/Table
+/Data/Sort
+/Data/Query
+/Data/Matrix
+/Data/Regression
+/Data/Regression/Intercept
+/Data/Parse
+/Data/Parse/Format-Line
+/Add-In
+```
+
+The 13 additional navigation-only leaves removed with those branches are:
+
+```text
+/Worksheet/Global/Default/Quit
+/Worksheet/Global/Default/Printer/Quit
+/Worksheet/Global/Default/Other/International/Quit
+/Print/Printer/Quit
+/Print/Printer/Options/Quit
+/Print/File/Quit
+/Print/File/Options/Quit
+/Graph/Quit
+/Data/Sort/Quit
+/Data/Query/Quit
+/Data/Regression/Quit
+/Data/Parse/Quit
+/Add-In/Quit
+```
+
+Six descriptions enumerate children. Their shortened wording is an authored
+projection of RI tokens and double-space delimiters, checked against these
+reviewed literal expectations; it is not claimed as an unchanged RI capture.
+
+```text
+/	Worksheet	Global  Column  Erase
+/	Range	Format  Label  Erase  Name  Prot  Unprot  Value  Trans
+/	File	Retrieve  Save  Erase  List  Import  Directory
+/	Data	Fill
+/Worksheet	Global	Format  Label-Prefix  Column-Width  Recalculation  Protection  Zero
+/Worksheet	Column	Set-Width  Reset-Width  Column-Range
+```
+
+The complete subtraction leaves 81 functional/navigation leaves in 25 levels
+and 105 total items. Original sibling IDs survive in the version-2 resource;
+visible positions and the Escape highlight stack are separate. Startup rejects
+old versions, short/trailing bytes, unreferenced strings, duplicate names/actions,
+dangling/cyclic/shared children, overlapping item ranges and unreachable levels
+before publishing a window. Removing menus does not remove unknown WK1 records
+or formula/file compatibility. READY F2/F5/F9 remain; deferred READY F3/F4/F6/F7/
+F8/F10 remain unmapped without command-name prompts. F3 in the file chooser is
+the captured full-list toggle, a working context-specific file command.

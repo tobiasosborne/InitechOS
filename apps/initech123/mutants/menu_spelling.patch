@@ -1,20 +1,20 @@
-# Legacy I123_MUT_MENU_SPELLING (all hook locations together).
+# Legacy menu spelling fault, both embedded and loaded paths.
 # test: test_i123_menu_tree
 --- a/core/menu.c
 +++ b/core/menu.c
-@@ -29,6 +29,7 @@
-     for(uint32_t i=0;i<menu_nstrings;i++)menu_offsets[i]=menu_template_offsets[i];
+@@ -27,6 +27,7 @@
+     for(uint32_t i=0;i<MENU_NAMES;i++)menu_offsets[i]=menu_template_offsets[i];
      for(uint32_t i=0;i<MENU_ITEMS;i++)i123_menu_items[i]=menu_template_items[i];
      for(uint32_t i=0;i<MENU_LEVELS;i++)i123_menu_levels[i]=menu_template_levels[i];
 +    menu_strings[menu_offsets[i123_menu_items[0].name]]='V';
  }
- static void wr(uint8_t *b,uint16_t n) { b[0]=(uint8_t)n;b[1]=(uint8_t)(n>>8); }
+ static void wr(uint8_t *p,uint16_t n){p[0]=(uint8_t)n;p[1]=(uint8_t)(n>>8);}
  uint32_t i123_menu_export(uint8_t *b,uint32_t cap)
-@@ -68,6 +69,7 @@
-         if(!lv->count||lv->first+lv->count>MENU_ITEMS)return -1;
+@@ -97,6 +98,7 @@
+         for(uint32_t j=0;j<lv->count;j++){uint16_t child=i123_menu_items[lv->first+j].child;if(child!=65535)seen[child]=1;}
      }
-     menu_nstrings=ns;
+     for(uint32_t i=0;i<MENU_LEVELS;i++)if(!seen[i])return -1;
 +    menu_strings[menu_offsets[i123_menu_items[0].name]]='V';
      return 0;
  }
- const char *i123_menu_string(uint16_t id) { return menu_strings+menu_offsets[id]; }
+ const char *i123_menu_string(uint16_t id){return menu_strings+menu_offsets[id];}

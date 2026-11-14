@@ -60,9 +60,10 @@
  * CALC (F9)", CIRC a circular reference) as highlighted words; their exact
  * column is [inferred] (the look pass is bead initech-68iw.1).
  * P3 (initech-uqah): the RI-sourced slash tree, range formats/labels/names,
- * erase/protection/value/transpose, Copy/Move, F2 and F5. Every deferred leaf
- * refuses visibly; spec/i123/era_shortfalls.md records exact scope. Menus
- * load from APPS/123.MNU to keep the executable under the V1 64 KiB cap.
+ * erase/protection/value/transpose, Copy/Move, F2 and F5. The shipped tree
+ * contains retained commands; README.md freezes the reviewed omissions. Menus
+ * load from APPS/123.MNU; the shipped sub-tree preserves original RI action
+ * identities independently of its shorter visible positions.
  * The clock and "(F3)"/"[W12]" descriptors remain deferred.
  *
  * Ref: apps/initech123/core/i123.h (the model, the display rules -- graded against
@@ -261,9 +262,15 @@ static const char QUIT_TEXT[] =
     "WORKSHEET CHANGES NOT SAVED!\rSave changes to the worksheet\rbefore quitting?";
 static const char REPLACE_NAMES[2][8] = { "Cancel", "Replace" };
 /* One menu stack, preserving the highlighted item on Esc. */
-static uint16_t g_level, g_levels[12], g_indexes[12];
+static uint16_t g_level, g_levels[12], g_actions[12], g_positions[12];
 static uint32_t g_depth;
 static int g_top, g_action, g_stage, g_arg, g_dc, g_dr;
+/* Original RI action identities. Visible positions live only in g_positions
+ * and g_menu_index; pruning never changes these dispatch identities. */
+enum { MI_WS_GLOBAL=0,MI_WS_COLUMN=3,MI_WS_ERASE=4,
+       MI_G_FORMAT=0,MI_G_LABEL=1,MI_G_WIDTH=2,MI_G_RECALC=3,MI_G_PROTECTION=4,
+       MI_COLUMN_RANGE=4,MI_R_FORMAT=0,MI_R_LABEL=1,MI_R_NAME=3,MI_NAME_LABELS=2,
+       MI_FILE_ERASE=4,MI_FILE_LIST=5,MI_FILE_IMPORT=6 };
 static uint8_t g_format;
 static i123_rect_t g_from;
 static char g_range_text[ENTRY_MAX+1], g_named[16];
@@ -891,7 +898,7 @@ static void range_accept(void)
         if (!g_rlen || i123_parse_value(input,g_rlen,&x) || x<0 || x>240 || (int)x!=x ||
             (g_action==A_FORMAT && x>15) || (g_action==A_ITERATION && (x<1||x>50)) ||
             ((g_action==A_WIDTH||g_action==A_GLOBAL_WIDTH)&&x<1)) { notice("Illegal number"); return; }
-        if (g_action==A_FORMAT) { g_format=(uint8_t)(g_format+(uint8_t)x); if(g_top==0){rc=spare(&next);if(!rc){next.win1[WK1_W1_FMT]=g_format;changed(&next);}return;} g_stage=1; g_prompt="Enter range to format: "; point_begin(); return; }
+        if (g_action==A_FORMAT) { g_format=(uint8_t)(g_format+(uint8_t)x); if(g_top==I123_ROOT_WORKSHEET){rc=spare(&next);if(!rc){next.win1[WK1_W1_FMT]=g_format;changed(&next);}return;} g_stage=1; g_prompt="Enter range to format: "; point_begin(); return; }
         rc=spare(&next);
         if (!rc) {
             if(g_action==A_WIDTH) rc=i123_set_colwidth(&next,i123_cursor_col(&g_sheet),(uint8_t)x);
@@ -965,7 +972,7 @@ static void range_accept(void)
     changed(&next);
 }
 static void menu_mode(void)
-{ g_mode=g_depth==1&&g_top==4?M_FILE:g_depth==1&&g_top==10?M_QUIT:M_MAIN; }
+{ g_mode=g_depth==1&&g_top==I123_ROOT_FILE?M_FILE:g_depth==1&&g_top==I123_ROOT_QUIT?M_QUIT:M_MAIN; }
 #include "files_ui.c"
 static void menu_select(void)
 {
@@ -975,89 +982,90 @@ static void menu_select(void)
     const i123_menu_level_t *lv=&i123_menu_levels[g_level];
     const i123_menu_item_t *it=&i123_menu_items[lv->first+g_menu_index];
     const char *nm=i123_menu_string(it->name);
-    if(g_depth==0)g_top=g_menu_index;
+    unsigned pick=it->action;
+    if(g_depth==0)g_top=(int)pick;
     if(it->child!=65535) {
         if(g_depth>=12){notice("Menu nesting error");return;}
-        g_levels[g_depth]=g_level;g_indexes[g_depth++]=(uint16_t)g_menu_index;
+        g_levels[g_depth]=g_level;g_positions[g_depth]=(uint16_t)g_menu_index;g_actions[g_depth++]=it->action;
         g_level=it->child;g_menu_index=0;menu_mode();command_paint();return;
     }
-    if(g_top==10) {int yes=g_menu_index==1;ready();if(yes)request_quit();return;}
-    if(g_depth==0 && (g_top==2||g_top==3)) {prompt(g_top==2?A_COPY:A_MOVE,g_top==2?"Enter range to copy FROM: ":"Enter range to move FROM: ");return;}
-    if(g_top==4 && g_depth==1 && g_menu_index<=1) {g_mode=g_menu_index?M_SAVE:M_GET;g_nlen=0;g_name[0]=0;command_paint();return;}
-    if(g_top==4) {
+    if(g_top==I123_ROOT_QUIT) {int yes=pick==1;ready();if(yes)request_quit();return;}
+    if(g_depth==0 && (g_top==I123_ROOT_COPY||g_top==I123_ROOT_MOVE)) {prompt(g_top==I123_ROOT_COPY?A_COPY:A_MOVE,g_top==I123_ROOT_COPY?"Enter range to copy FROM: ":"Enter range to move FROM: ");return;}
+    if(g_top==I123_ROOT_FILE && g_depth==1 && pick<=1) {g_mode=pick?M_SAVE:M_GET;g_nlen=0;g_name[0]=0;command_paint();return;}
+    if(g_top==I123_ROOT_FILE) {
         if(g_depth==1&&same(nm,"Directory")){g_mode=M_DIRECTORY;g_nlen=0;g_name[0]=0;command_paint();return;}
-        if(g_depth==2&&(g_indexes[1]==4||g_indexes[1]==5)&&g_menu_index<4){file_front_start(g_indexes[1]==4?0u:1u,(unsigned)g_menu_index);return;}
-        if(g_depth==2&&g_indexes[1]==6&&same(nm,"Text")){file_front_start(2u,1u);return;}
+        if(g_depth==2&&(g_actions[1]==MI_FILE_ERASE||g_actions[1]==MI_FILE_LIST)&&pick<4){file_front_start(g_actions[1]==MI_FILE_ERASE?0u:1u,pick);return;}
+        if(g_depth==2&&g_actions[1]==MI_FILE_IMPORT&&same(nm,"Text")){file_front_start(2u,1u);return;}
     }
     if(same(nm,"Quit")) {ready();return;}
-    if(g_top==7&&g_depth==1&&same(nm,"Fill")){prompt(A_FILL,"Enter fill range: ");return;}
-    if(g_top==1) {
+    if(g_top==I123_ROOT_DATA&&g_depth==1&&same(nm,"Fill")){prompt(A_FILL,"Enter fill range: ");return;}
+    if(g_top==I123_ROOT_RANGE) {
         if(g_depth==1) {
             if(same(nm,"Erase")) {prompt(A_ERASE,"Enter range to erase: ");return;}
             if(same(nm,"Prot")||same(nm,"Unprot")) {prompt(same(nm,"Prot")?A_PROT:A_UNPROT,same(nm,"Prot")?"Enter range to protect: ":"Enter range to unprotect: ");return;}
             if(same(nm,"Value")||same(nm,"Trans")) {prompt(same(nm,"Value")?A_VALUE:A_TRANS,"Enter range to copy FROM: ");return;}
         }
         /* /Range Format (including Date and Time); supported formats only. */
-        if(g_depth>=2 && g_indexes[1]==0) {
+        if(g_depth>=2 && g_actions[1]==MI_R_FORMAT) {
             if(g_depth==2) {
                 static const uint8_t f[]={0x00,0x10,0x20,0x40,0x71,0x70,0x30,0,0x75,0x76,0x7f};
-                g_format=f[g_menu_index];g_arg=g_menu_index<4||g_menu_index==6;
+                g_format=f[pick];g_arg=pick<4||pick==6;
                 prompt(A_FORMAT,g_arg?"Enter number of decimal places (0..15): ":"Enter range to format: ");return;
             }
-            if(g_depth==3&&g_menu_index<3) {g_format=(uint8_t)(0x72+g_menu_index);g_arg=0;prompt(A_FORMAT,"Enter range to format: ");return;}
-            if(g_depth==4&&g_menu_index<2) {g_format=(uint8_t)(0x77+g_menu_index);g_arg=0;prompt(A_FORMAT,"Enter range to format: ");return;}
+            if(g_depth==3&&pick<3) {g_format=(uint8_t)(0x72+pick);g_arg=0;prompt(A_FORMAT,"Enter range to format: ");return;}
+            if(g_depth==4&&pick<2) {g_format=(uint8_t)(0x77+pick);g_arg=0;prompt(A_FORMAT,"Enter range to format: ");return;}
         }
-        if(g_depth==2&&g_indexes[1]==1) {g_arg=g_menu_index==0?'\'':g_menu_index==1?'"':'^';prompt(A_LABEL,"Enter range of labels: ");return;}
-        if(g_depth==2&&g_indexes[1]==3) {
-            if(g_menu_index==0){prompt(A_NAME,"Enter name: ");return;}
-            if(g_menu_index==1){prompt(A_NAME_DELETE,"Enter name to delete: ");return;}
-            if(g_menu_index==3){i123_sheet_t next;if(spare(&next)){notice("Not enough worksheet memory");return;}i123_name_delete(&next,0);changed(&next);return;}
-            if(g_menu_index==4){prompt(A_NAME_TABLE,"Enter range for table: ");return;}
+        if(g_depth==2&&g_actions[1]==MI_R_LABEL) {g_arg=pick==0?'\'':pick==1?'"':'^';prompt(A_LABEL,"Enter range of labels: ");return;}
+        if(g_depth==2&&g_actions[1]==MI_R_NAME) {
+            if(pick==0){prompt(A_NAME,"Enter name: ");return;}
+            if(pick==1){prompt(A_NAME_DELETE,"Enter name to delete: ");return;}
+            if(pick==3){i123_sheet_t next;if(spare(&next)){notice("Not enough worksheet memory");return;}i123_name_delete(&next,0);changed(&next);return;}
+            if(pick==4){prompt(A_NAME_TABLE,"Enter range for table: ");return;}
         }
-        if(g_depth==3&&g_indexes[1]==3&&g_indexes[2]==2) {
-            g_dc=g_menu_index==0?1:g_menu_index==2?-1:0;g_dr=g_menu_index==1?1:g_menu_index==3?-1:0;
+        if(g_depth==3&&g_actions[1]==MI_R_NAME&&g_actions[2]==MI_NAME_LABELS) {
+            g_dc=pick==0?1:pick==2?-1:0;g_dr=pick==1?1:pick==3?-1:0;
             prompt(A_NAME_LABELS,"Enter label range: ");return;
         }
     }
-    if(g_top==0) {
-        if(g_depth==2&&g_indexes[1]==0&&same(nm,"Zero")) {
+    if(g_top==I123_ROOT_WORKSHEET) {
+        if(g_depth==2&&g_actions[1]==MI_WS_GLOBAL&&same(nm,"Zero")) {
             g_zero_choice=0;g_mode=M_ZERO;command_paint();return;
         }
-        if(g_depth==3&&g_indexes[1]==3&&g_indexes[2]==4) {
-            prompt(g_menu_index==0?A_RANGE_WIDTH:A_RANGE_RESET,"Enter range for column width change: ");return;
+        if(g_depth==3&&g_actions[1]==MI_WS_COLUMN&&g_actions[2]==MI_COLUMN_RANGE) {
+            prompt(pick==0?A_RANGE_WIDTH:A_RANGE_RESET,"Enter range for column width change: ");return;
         }
-        if(g_depth>=3&&g_indexes[1]==0&&g_indexes[2]==0) {
+        if(g_depth>=3&&g_actions[1]==MI_WS_GLOBAL&&g_actions[2]==MI_G_FORMAT) {
             if(g_depth==3) {
                 static const uint8_t f[]={0,0x10,0x20,0x40,0x71,0x70,0x30,0,0x75,0x76};
-                g_format=f[g_menu_index];g_arg=g_menu_index<4||g_menu_index==6;
+                g_format=f[pick];g_arg=pick<4||pick==6;
                 if(g_arg){prompt(A_FORMAT,"Enter number of decimal places (0..15): ");return;}
-            } else if(g_depth==4&&g_menu_index<3)g_format=(uint8_t)(0x72+g_menu_index);
-            else if(g_depth==5&&g_menu_index<2)g_format=(uint8_t)(0x77+g_menu_index);
+            } else if(g_depth==4&&pick<3)g_format=(uint8_t)(0x72+pick);
+            else if(g_depth==5&&pick<2)g_format=(uint8_t)(0x77+pick);
             else {unsupported();return;}
             i123_sheet_t next;if(!spare(&next)){next.win1[WK1_W1_FMT]=g_format;changed(&next);}return;
         }
-        if(g_depth==3&&g_indexes[1]==0&&g_indexes[2]==1) {
-            i123_sheet_t next;if(!spare(&next)){next.labelfmt=(uint8_t)(g_menu_index==0?'\'':g_menu_index==1?'"':'^');changed(&next);}return;
+        if(g_depth==3&&g_actions[1]==MI_WS_GLOBAL&&g_actions[2]==MI_G_LABEL) {
+            i123_sheet_t next;if(!spare(&next)){next.labelfmt=(uint8_t)(pick==0?'\'':pick==1?'"':'^');changed(&next);}return;
         }
-        if(g_depth==2&&g_indexes[1]==4) {
-            if(g_menu_index==0){ready();return;}
+        if(g_depth==2&&g_actions[1]==MI_WS_ERASE) {
+            if(pick==0){ready();return;}
             i123_sheet_t next;if(!i123_sheet_init(&next,g_mem[1-g_bank],sizeof g_mem[0],SHEET_CELLS)){reset_fill_defaults();g_zero_len=0;g_zero[0]=0;changed(&next);}return;
         }
-        if(g_depth==2&&g_indexes[1]==3) {
-            if(g_menu_index==0){prompt(A_WIDTH,"Enter column width (1..240): ");return;}
-            if(g_menu_index==1){i123_sheet_t next;if(!spare(&next)){i123_set_colwidth(&next,i123_cursor_col(&g_sheet),0);changed(&next);}return;}
+        if(g_depth==2&&g_actions[1]==MI_WS_COLUMN) {
+            if(pick==0){prompt(A_WIDTH,"Enter column width (1..240): ");return;}
+            if(pick==1){i123_sheet_t next;if(!spare(&next)){i123_set_colwidth(&next,i123_cursor_col(&g_sheet),0);changed(&next);}return;}
         }
-        if(g_depth==2&&g_indexes[1]==0&&g_menu_index==2){prompt(A_GLOBAL_WIDTH,"Enter global column width (1..240): ");return;}
-        if(g_depth==3&&g_indexes[1]==0&&g_indexes[2]==3) {
-            if(g_menu_index==5){prompt(A_ITERATION,"Enter iteration count (1..50): ");return;}
+        if(g_depth==2&&g_actions[1]==MI_WS_GLOBAL&&pick==MI_G_WIDTH){prompt(A_GLOBAL_WIDTH,"Enter global column width (1..240): ");return;}
+        if(g_depth==3&&g_actions[1]==MI_WS_GLOBAL&&g_actions[2]==MI_G_RECALC) {
+            if(pick==5){prompt(A_ITERATION,"Enter iteration count (1..50): ");return;}
             i123_sheet_t next;if(spare(&next)){notice("Not enough worksheet memory");return;}
-            if(g_menu_index<3)next.calcorder=(uint8_t)(g_menu_index==2?255:g_menu_index);
-            else next.calcmode=(uint8_t)(g_menu_index==3?255:0);
+            if(pick<3)next.calcorder=(uint8_t)(pick==2?255:pick);
+            else next.calcmode=(uint8_t)(pick==3?255:0);
             changed(&next);return;
         }
-        if(g_depth==3&&g_indexes[1]==0&&g_indexes[2]==4) {
+        if(g_depth==3&&g_actions[1]==MI_WS_GLOBAL&&g_actions[2]==MI_G_PROTECTION) {
             i123_sheet_t next;if(spare(&next)){notice("Not enough worksheet memory");return;}
-            next.protec=(uint8_t)(g_menu_index==0?255:0);changed(&next);return;
+            next.protec=(uint8_t)(pick==0?255:0);changed(&next);return;
         }
     }
     unsupported();
@@ -1065,7 +1073,7 @@ static void menu_select(void)
 static void menu_back(void)
 {
     if(!g_depth) {ready();return;}
-    g_depth--;g_level=g_levels[g_depth];g_menu_index=g_indexes[g_depth];menu_mode();command_paint();
+    g_depth--;g_level=g_levels[g_depth];g_menu_index=g_positions[g_depth];menu_mode();command_paint();
 }
 static void command_key(char ch, uint8_t vk)
 {

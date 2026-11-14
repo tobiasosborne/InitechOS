@@ -1,0 +1,11 @@
+# test: test_i123_menu_disk
+--- a/core/menu.c
++++ b/core/menu.c
+@@ -90,6 +90,7 @@
+         if(actions!=menu_action_masks[i])return -1;
+     }
+     if(covered!=MENU_ITEMS)return -1;
++    return 0; /* drop the reachability checks */
+     for(uint32_t i=1;i<MENU_LEVELS;i++)if(parents[i]!=1)return -1;
+     seen[0]=1;
+     for(uint32_t pass=0;pass<MENU_LEVELS;pass++)for(uint32_t i=0;i<MENU_LEVELS;i++)if(seen[i]) {

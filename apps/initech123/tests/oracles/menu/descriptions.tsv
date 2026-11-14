@@ -1,0 +1,6 @@
+/	Worksheet	Global  Column  Erase
+/	Range	Format  Label  Erase  Name  Prot  Unprot  Value  Trans
+/	File	Retrieve  Save  Erase  List  Import  Directory
+/	Data	Fill
+/Worksheet	Global	Format  Label-Prefix  Column-Width  Recalculation  Protection  Zero
+/Worksheet	Column	Set-Width  Reset-Width  Column-Range

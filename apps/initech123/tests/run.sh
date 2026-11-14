@@ -8,6 +8,10 @@ rm -rf "$out"
 mkdir -p "$out"
 ref=tests/oracles/wk1_formula_ref.py
 case $name in
+  test_i123_menu_routes)
+    awk -v ids=1 -f tests/oracles/menu/project.awk tests/oracles/menu/omissions.tsv tests/oracles/menu/descriptions.tsv tests/oracles/menu/menu_tree.golden > "$out/routes.tsv"
+    "$bin" "$out" "$out/routes.tsv"
+    ;;
   test_i123_import)
     (cd tests/fixtures/files && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
     rc=0; "$bin" "$out" || rc=1
@@ -106,14 +110,43 @@ case $name in
     ;;
   test_i123_menu_disk) "$bin" "${bin%/*}/../123.MNU" ;;
   test_i123_menu_tree)
-    "$bin" "$LOTUS123_DECOMP/goldens/lotus-123-2.2-installed-ref/extracted/installed/123.RI" tests/oracles/menu/menu_ri_offsets.tsv > "$out/ri.txt"
-    diff -u tests/oracles/menu/menu_tree.golden "$out/ri.txt"
-    "$bin" > "$out/app.txt"
-    diff -u "$out/ri.txt" "$out/app.txt"
-    "$bin" --resource > "$out/123.MNU"
-    "$bin" --load "$out/123.MNU" > "$out/loaded.txt"
-    diff -u "$out/ri.txt" "$out/loaded.txt"
-    echo '82 levels, 381 items: RI, embedded and resource menus agree'
+    menu_checks=0
+    menu_fail() { echo "FAIL menu: $1"; echo "INITECH_CHECKS $menu_checks failures=1"; exit 1; }
+    menu_run() {
+      label=$1; output=$2; shift 2; menu_checks=$((menu_checks+1)); rc=0
+      "$bin" "$@" > "$output" || rc=$?
+      case $rc in 0) : ;; 1) menu_fail "$label" ;; *) exit 2 ;; esac
+    }
+    menu_compare() {
+      menu_checks=$((menu_checks+1)); rc=0
+      diff -u --label expected --label actual "$2" "$3" || rc=$?
+      case $rc in 0) : ;; 1) menu_fail "$1" ;; *) exit 2 ;; esac
+    }
+    menu_run 'full RI reader' "$out/ri.txt" "$LOTUS123_DECOMP/goldens/lotus-123-2.2-installed-ref/extracted/installed/123.RI" tests/oracles/menu/menu_ri_offsets.tsv
+    menu_compare 'full captured RI strings' tests/oracles/menu/menu_tree.golden "$out/ri.txt"
+    awk -F '|' '$2 ~ /^ `\// {split($2,p,"`");n=split($3,a,"`");for(i=2;i<n;i+=2)print p[2] "\t" a[i]}' README.md > "$out/readme-omissions.tsv" || exit 2
+    menu_compare 'frozen README omissions' tests/oracles/menu/omissions.tsv "$out/readme-omissions.tsv"
+    awk -f tests/oracles/menu/project.awk tests/oracles/menu/omissions.tsv tests/oracles/menu/descriptions.tsv "$out/ri.txt" > "$out/shipped.txt" || exit 2
+    awk -F '\t' 'NR==FNR{keep[$1]=1;next}!seen[$1]++&&!keep[$1]{print $1}' "$out/shipped.txt" "$out/ri.txt" > "$out/pruned-branches.txt" || exit 2
+    menu_compare 'frozen empty branches' tests/oracles/menu/pruned-branches.txt "$out/pruned-branches.txt"
+    awk -F '\t' 'NR==FNR{keep[$1]=1;next}$2=="Quit"&&!keep[$1]{print $1 "/" $2}' "$out/shipped.txt" "$out/ri.txt" > "$out/pruned-navigation.txt" || exit 2
+    menu_compare 'frozen navigation removals' tests/oracles/menu/pruned-navigation.txt "$out/pruned-navigation.txt"
+    menu_run 'embedded hierarchy invariant' "$out/app.txt"
+    menu_compare 'shipped hierarchy and descriptions' "$out/shipped.txt" "$out/app.txt"
+    menu_run 'resource export' "$out/123.MNU" --resource
+    menu_run 'shipped resource accepted' "$out/loaded.txt" --load "$out/123.MNU"
+    menu_compare 'loaded hierarchy' "$out/shipped.txt" "$out/loaded.txt"
+    awk -v ids=1 -f tests/oracles/menu/project.awk tests/oracles/menu/omissions.tsv tests/oracles/menu/descriptions.tsv "$out/ri.txt" > "$out/actions.txt" || exit 2
+    menu_run 'embedded action invariants' "$out/app-actions.txt" --actions
+    menu_compare 'stable action identities' "$out/actions.txt" "$out/app-actions.txt"
+    menu_run 'independent resource grammar' "$out/resource-actions.txt" --inspect "$out/123.MNU"
+    menu_compare 'serialized tree and actions' "$out/actions.txt" "$out/resource-actions.txt"
+    menu_run 'loaded action invariants' "$out/loaded-actions.txt" --load-actions "$out/123.MNU"
+    menu_compare 'loaded stable actions' "$out/actions.txt" "$out/loaded-actions.txt"
+    menu_run 'menu source generation' "$out/menu_data.h" --project tests/oracles/menu/menu_tree.golden tests/oracles/menu/omissions.tsv tests/oracles/menu/descriptions.tsv
+    menu_compare 'reproducible menu source' core/menu_data.h "$out/menu_data.h"
+    echo 'Full RI unchanged; 25 shipped levels, 105 items: subtraction, embedded and independent resource reader agree including actions'
+    echo "INITECH_CHECKS $menu_checks failures=0"
     ;;
   *) "$bin" "$out" ;;
 esac

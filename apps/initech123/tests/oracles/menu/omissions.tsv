@@ -1,0 +1,206 @@
+/Worksheet/Global/Format/Date	4 (Long Intn'l)
+/Worksheet/Global/Format/Date	5 (Short Intn'l)
+/Worksheet/Global/Format/Date/Time	3 (Long Intn'l)
+/Worksheet/Global/Format/Date/Time	4 (Short Intn'l)
+/Worksheet/Global/Default/Printer	Interface
+/Worksheet/Global/Default/Printer	Left
+/Worksheet/Global/Default/Printer	Right
+/Worksheet/Global/Default/Printer	Top
+/Worksheet/Global/Default/Printer	Bot
+/Worksheet/Global/Default/Printer	Pg-Length
+/Worksheet/Global/Default/Printer	Setup
+/Worksheet/Global/Default/Printer	Name
+/Worksheet/Global/Default/Printer/AutoLF	Yes
+/Worksheet/Global/Default/Printer/AutoLF	No
+/Worksheet/Global/Default/Printer/Wait	No
+/Worksheet/Global/Default/Printer/Wait	Yes
+/Worksheet/Global/Default	Directory
+/Worksheet/Global/Default	Status
+/Worksheet/Global/Default	Update
+/Worksheet/Global/Default/Other/International/Punctuation	A (.,,)
+/Worksheet/Global/Default/Other/International/Punctuation	B (,..)
+/Worksheet/Global/Default/Other/International/Punctuation	C (.;,)
+/Worksheet/Global/Default/Other/International/Punctuation	D (,;.)
+/Worksheet/Global/Default/Other/International/Punctuation	E (., )
+/Worksheet/Global/Default/Other/International/Punctuation	F (,. )
+/Worksheet/Global/Default/Other/International/Punctuation	G (.; )
+/Worksheet/Global/Default/Other/International/Punctuation	H (,; )
+/Worksheet/Global/Default/Other/International/Currency	Prefix
+/Worksheet/Global/Default/Other/International/Currency	Suffix
+/Worksheet/Global/Default/Other/International/Date	A (MM/DD/YY)
+/Worksheet/Global/Default/Other/International/Date	B (DD/MM/YY)
+/Worksheet/Global/Default/Other/International/Date	C (DD.MM.YY)
+/Worksheet/Global/Default/Other/International/Date	D (YY-MM-DD)
+/Worksheet/Global/Default/Other/International/Time	A (HH:MM:SS)
+/Worksheet/Global/Default/Other/International/Time	B (HH.MM.SS)
+/Worksheet/Global/Default/Other/International/Time	C (HH,MM,SS)
+/Worksheet/Global/Default/Other/International/Time	D (HHhMMmSSs)
+/Worksheet/Global/Default/Other/International/Negative	Parentheses
+/Worksheet/Global/Default/Other/International/Negative	Sign
+/Worksheet/Global/Default/Other/Help	Instant
+/Worksheet/Global/Default/Other/Help	Removable
+/Worksheet/Global/Default/Other/Clock	Standard
+/Worksheet/Global/Default/Other/Clock	International
+/Worksheet/Global/Default/Other/Clock	None
+/Worksheet/Global/Default/Other/Clock	Clock
+/Worksheet/Global/Default/Other/Clock	Filename
+/Worksheet/Global/Default/Other/Undo	Enable
+/Worksheet/Global/Default/Other/Undo	Disable
+/Worksheet/Global/Default/Other/Beep	Enable
+/Worksheet/Global/Default/Other/Beep	Disable
+/Worksheet/Global/Default/Other/Add-In	Set
+/Worksheet/Global/Default/Other/Add-In	Cancel
+/Worksheet/Global/Default/Autoexec	Enable
+/Worksheet/Global/Default/Autoexec	Disable
+/Worksheet/Insert	Column
+/Worksheet/Insert	Row
+/Worksheet/Delete	Column
+/Worksheet/Delete	Row
+/Worksheet/Column	Hide
+/Worksheet/Column	Display
+/Worksheet/Titles	Both
+/Worksheet/Titles	Horizontal
+/Worksheet/Titles	Vertical
+/Worksheet/Titles	Clear
+/Worksheet/Window	Horizontal
+/Worksheet/Window	Vertical
+/Worksheet/Window	Sync
+/Worksheet/Window	Unsync
+/Worksheet/Window	Clear
+/Worksheet	Status
+/Worksheet	Page
+/Worksheet/Learn	Range
+/Worksheet/Learn	Cancel
+/Worksheet/Learn	Erase
+/Range/Format/Date	4 (Long Intn'l)
+/Range/Format/Date	5 (Short Intn'l)
+/Range/Format/Date/Time	3 (Long Intn'l)
+/Range/Format/Date/Time	4 (Short Intn'l)
+/Range	Justify
+/Range	Input
+/Range/Search/Formulas	Find
+/Range/Search/Formulas	Replace
+/Range/Search	Label
+/Range/Search	Both
+/File/Combine/Copy	Entire-File
+/File/Combine/Copy	Named/Specified-Range
+/File/Combine/Add	Entire-File
+/File/Combine/Add	Named/Specified-Range
+/File/Combine/Subtract	Entire-File
+/File/Combine/Subtract	Named/Specified-Range
+/File/Xtract	Formulas
+/File/Xtract	Values
+/File/List	Linked
+/File/Import	Numbers
+/File/Admin/Reservation	Get
+/File/Admin/Reservation	Release
+/File/Admin	Table
+/File/Admin	Link-Refresh
+/Print/Printer	Range
+/Print/Printer	Line
+/Print/Printer	Page
+/Print/Printer	Align
+/Print/Printer	Go
+/Print/Printer/Options	Header
+/Print/Printer/Options	Footer
+/Print/Printer/Options	Setup
+/Print/Printer/Options	Pg-Length
+/Print/Printer/Options/Margins	Left
+/Print/Printer/Options/Margins	Right
+/Print/Printer/Options/Margins	Top
+/Print/Printer/Options/Margins	Bottom
+/Print/Printer/Options/Margins	None
+/Print/Printer/Options/Borders	Columns
+/Print/Printer/Options/Borders	Rows
+/Print/Printer/Options/Other	As-Displayed
+/Print/Printer/Options/Other	Cell-Formulas
+/Print/Printer/Options/Other	Formatted
+/Print/Printer/Options/Other	Unformatted
+/Print/Printer/Clear	All
+/Print/Printer/Clear	Range
+/Print/Printer/Clear	Borders
+/Print/Printer/Clear	Format
+/Print/File	Range
+/Print/File	Line
+/Print/File	Page
+/Print/File	Align
+/Print/File	Go
+/Print/File/Options	Header
+/Print/File/Options	Footer
+/Print/File/Options	Setup
+/Print/File/Options	Pg-Length
+/Print/File/Options/Margins	Left
+/Print/File/Options/Margins	Right
+/Print/File/Options/Margins	Top
+/Print/File/Options/Margins	Bottom
+/Print/File/Options/Margins	None
+/Print/File/Options/Borders	Columns
+/Print/File/Options/Borders	Rows
+/Print/File/Options/Other	As-Displayed
+/Print/File/Options/Other	Cell-Formulas
+/Print/File/Options/Other	Formatted
+/Print/File/Options/Other	Unformatted
+/Print/File/Clear	All
+/Print/File/Clear	Range
+/Print/File/Clear	Borders
+/Print/File/Clear	Format
+/Graph/Type	Line
+/Graph/Type	Bar
+/Graph/Type	XY
+/Graph/Type	Stack-Bar
+/Graph/Type	Pie
+/Graph	X
+/Graph	A
+/Graph	B
+/Graph	C
+/Graph	D
+/Graph	E
+/Graph	F
+/Graph	Reset
+/Graph	View
+/Graph	Save
+/Graph	Options
+/Graph/Name	Use
+/Graph/Name	Create
+/Graph/Name	Delete
+/Graph/Name	Reset
+/Graph/Name	Table
+/Graph/Group	Columnwise
+/Graph/Group	Rowwise
+/Data	Distribution
+/Data/Table	1
+/Data/Table	2
+/Data/Table	Reset
+/Data/Sort	Data-Range
+/Data/Sort	Primary-Key
+/Data/Sort	Secondary-Key
+/Data/Sort	Reset
+/Data/Sort	Go
+/Data/Query	Input
+/Data/Query	Criteria
+/Data/Query	Output
+/Data/Query	Find
+/Data/Query	Extract
+/Data/Query	Unique
+/Data/Query	Delete
+/Data/Query	Reset
+/Data/Matrix	Invert
+/Data/Matrix	Multiply
+/Data/Regression	X-Range
+/Data/Regression	Y-Range
+/Data/Regression	Output-Range
+/Data/Regression	Reset
+/Data/Regression	Go
+/Data/Regression/Intercept	Compute
+/Data/Regression/Intercept	Zero
+/Data/Parse/Format-Line	Create
+/Data/Parse/Format-Line	Edit
+/Data/Parse	Input-Column
+/Data/Parse	Output-Range
+/Data/Parse	Reset
+/Data/Parse	Go
+/	System
+/Add-In	Attach
+/Add-In	Detach
+/Add-In	Invoke
+/Add-In	Clear

@@ -14,8 +14,9 @@ static void widths(void)
     CHECK(g_mode==M_NOTICE && g_error && !strcmp(g_error,"Invalid number input"),"WIDTH","zero width refuses with real diagnostic");
     tk(27);
     CHECK(g_mode==M_RANGE && !g_rlen,"WIDTH","Esc from invalid width restores the default prompt");
-    tk(27);tk(27);tk(27);
-    tks("/wccsB1..C1\r15");tk(27);tk(27);tk(27);
+    tk(27);tk(27);tk(27);tk(3);
+    tks("/wccsB1..C1\r15");tk(27);tk(27);tk(27);tk(3);
+    CHECK(g_mode==M_READY&&!g_dirty,"WIDTH","Escape cancels width input; Ctrl-Break exits the remaining menus");
     tks("/fsRANGECAN\r");
 }
 static void boundaries(void)

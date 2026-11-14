@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "menu.h"
+int project_menu(const char *,const char *,const char *);
+int inspect_menu(const char *);
 static unsigned char ri[131072];
 static void ri_string(unsigned long off)
 {
@@ -14,6 +16,8 @@ static void ri_string(unsigned long off)
 }
 int main(int argc, char **argv)
 {
+    if(argc==5&&!strcmp(argv[1],"--project"))return project_menu(argv[2],argv[3],argv[4]);
+    if(argc==3&&!strcmp(argv[1],"--inspect"))return inspect_menu(argv[2]);
     if (argc == 2 && (!strcmp(argv[1],"--resource") || !strcmp(argv[1],"--resource-mutant"))) {
         unsigned char data[32768]; i123_menu_init();
         unsigned n=i123_menu_export(data,sizeof data);
@@ -21,20 +25,24 @@ int main(int argc, char **argv)
         if(!n||fwrite(data,1,n,stdout)!=n)return 2;
         return 0;
     }
-    int loaded=argc==3&&!strcmp(argv[1],"--load");
+    int ids=argc==2&&!strcmp(argv[1],"--actions");
+    int loaded=argc==3&&(!strcmp(argv[1],"--load")||!strcmp(argv[1],"--load-actions"));
+    if(loaded&&!strcmp(argv[1],"--load-actions"))ids=1;
     if(loaded) {
         FILE *f=fopen(argv[2],"rb");if(!f)return 2;
         unsigned n=(unsigned)fread(ri,1,sizeof ri,f);fclose(f);
         if(i123_menu_load(ri,n)){fputs("menu resource refused\n",stderr);return 1;}
     }
-    if (argc == 1 || loaded) {
+    if (argc == 1 || loaded || ids) {
         if(!loaded)i123_menu_init();
         for (unsigned l = 0; l < i123_menu_count(); l++) {
             const i123_menu_level_t *lv = &i123_menu_levels[l];
             for (unsigned k = 0; k < lv->count; k++) {
                 const i123_menu_item_t *it = &i123_menu_items[lv->first+k];
-                printf("%s\t%s\t%s\n", i123_menu_paths[l],
+                printf("%s\t%s\t%s", i123_menu_paths[l],
                        i123_menu_string(it->name), i123_menu_string(it->desc)[0]?i123_menu_string(it->desc):"\"\"");
+                if(ids)printf("\t%u",it->action);
+                putchar('\n');
                 if (it->child != 65535u) {
                     char child[512];
                     snprintf(child,sizeof child,"%s%s%s",i123_menu_paths[l],l?"/":"",i123_menu_string(it->name));
