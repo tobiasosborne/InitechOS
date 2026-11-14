@@ -142,7 +142,7 @@ void kernel_graphical_environment(void)
             if(g_finder_io_error) {
                 finder_win_status_t st=g_finder_io_error;
                 g_finder_io_error=FINDER_WIN_OK;
-                (void)finder_notice(&ctx,&b,st,"");
+                (void)finder_notice(&ctx,&b,st,desktop_db_recovery()?desktop_db_recovery():"");
             }
             EventRecord ev;
             int got = WaitNextEvent(&g_flair_kbd_ring, everyEvent, &ev,

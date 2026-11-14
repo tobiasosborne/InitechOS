@@ -8,6 +8,14 @@
 static char db_recovery_name[12];
 static uint8_t db_verify[DESKTOP_DB_MAX_BYTES];
 const char *desktop_db_recovery(void) { return db_recovery_name[0]?db_recovery_name:0; }
+int desktop_db_recovery_alert(const char *text[3])
+{
+    if(!db_recovery_name[0]) return 0;
+    text[0]="The disk could not be updated.";
+    text[1]="The previous Desktop file is saved as:";
+    text[2]=db_recovery_name;
+    return 3;
+}
 
 static uint16_t db_le16(const uint8_t *p)
 {

@@ -337,9 +337,10 @@ uint16_t finder_notice(flair_live_ctx_t *ctx, const boot_info_t *bi,
     static const char *const labels[]={"OK"};
     static const char *const replace[]={"Replace","Cancel"};
     const char *text[FINDER_ALERT_LINES];
-    int n=finder_error_alert_text(st,name,g_finder_notice_lines);
+    int recovery=st==FINDER_WIN_ERR_STORAGE && name && name==desktop_db_recovery();
+    int n=recovery?desktop_db_recovery_alert(text):finder_error_alert_text(st,name,g_finder_notice_lines);
     if(!n) return 2u;
-    for(int i=0;i<n;i++) text[i]=g_finder_notice_lines[i];
+    if(!recovery) for(int i=0;i<n;i++) text[i]=g_finder_notice_lines[i];
     flair_live_alert_open(ctx,bi,text,n,
                           st==FINDER_WIN_ERR_EXISTS?replace:labels,
                           st==FINDER_WIN_ERR_EXISTS?2:1,1);

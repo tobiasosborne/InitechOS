@@ -56,6 +56,14 @@ int main(void)
     setup(); sector_fault=fail_db_commit_restore;
     CHECK(db_write()<0 && hit==2,"DB final commit and restore both fail"); sector_fault=0;
     CHECK(desktop_db_recovery() && !strcmp(desktop_db_recovery(),"DESKTOP.~00"),"DB error exposes exact previous version name");
+    const char *text[3]; CHECK(desktop_db_recovery_alert(text)==3,"three-line Finder recovery alert");
+    CHECK(!strcmp(text[0],"The disk could not be updated.") &&
+          !strcmp(text[1],"The previous Desktop file is saved as:") &&
+          !strcmp(text[2],"DESKTOP.~00"),"Finder recovery wording names the retained previous file");
+    for(unsigned i=0;i<3;i++) {
+        unsigned width=0; for(unsigned k=0;text[i][k];k++) width+=(unsigned)chicago_advance((unsigned char)text[i][k]);
+        CHECK(width<=285,"complete Finder recovery line fits alert");
+    }
     recovered_stream("mcopy -o -i copy.img '::DESKTOP.~00' recovered.dat",prior_db,sizeof prior_db);
     recovered_stream("mcopy -o -i copy.img '::DESKTOP.$00' recovered.dat",next_db,sizeof next_db);
     fclose(disk);

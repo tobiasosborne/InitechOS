@@ -87,6 +87,8 @@ int desktop_db_write(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                      const void *data, uint32_t len);
 /* Exact previous-version path after a failed rollback, otherwise NULL. */
 const char *desktop_db_recovery(void);
+/* Authored Finder wording for the operator-approved failed-restore notice. */
+int desktop_db_recovery_alert(const char *text[3]);
 
 /* Copy the mounted volume's LABEL (the root DIR_ATTR_VOLLABEL entry's raw
  * 11 name bytes, trailing spaces trimmed) into `out` as a NUL-terminated
