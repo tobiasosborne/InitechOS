@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "sysinit.h"
 #include "blockdev_file.h"
 #include "fileio_fat.h"
@@ -23,7 +24,11 @@ int main(int argc,char **argv)
     if (psp_build(&process,&params)) return 2;
     sft_init(); int21_set_psp(&process); int21_set_sink(console_putc);
     (void)sysinit_apply_config(&vol,sector,fat,sizeof fat,serial_discard);
-    if (argc==3) {
+    if (argc==3 && !strcmp(argv[2],"refused")) {
+        if (sysinit_shell_ready()) return 1;
+    } else if (argc==3 && !strcmp(argv[2],"ready")) {
+        if (!sysinit_shell_ready()) return 1;
+    } else if (argc==3) {
         unsigned count=0;
         uint16_t handles[20];
         for (;count<20;count++) {

@@ -34,6 +34,8 @@
  * (period-authentic: without ANSI.SYS, DOS prints the escape bytes literally).
  * This bead ONLY records the flag -- it does NOT implement any ANSI behavior. */
 static int g_ansi_enabled = 0;
+static int g_shell_ready = 1;
+int sysinit_shell_ready(void) { return g_shell_ready; }
 
 int sysinit_ansi_enabled(void) { return g_ansi_enabled; }
 
@@ -360,6 +362,33 @@ static void sysinit_config_unrecognized(void *context)
     sysinit_config_puts("\r\n");
 }
 
+/* The resident processor is permanent with a512-byte environment. Other
+ * interpreters/options are refused under GM2, not logged and ignored.
+ * Missing-interpreter wording: genuine DOS 3.30 CFG3 (initech-vx2ko). */
+static int sysinit_shell_supported(const char *tail)
+{
+    char token[CONFIG_SYS_SHELL_MAX];
+    unsigned index=0;
+    int permanent=0;
+    while (*tail) {
+        while (*tail==' ' || *tail=='\t') tail++;
+        if (!*tail) break;
+        unsigned n=0;
+        while (*tail && *tail!=' ' && *tail!='\t') {
+            if (n+1u>=sizeof token) return 0;
+            token[n++]=*tail++;
+        }
+        token[n]=0;
+        if (!index) {
+            if (!sysinit_name_eq_ci(token,"COMMAND.COM")) return 0;
+        } else if (sysinit_name_eq_ci(token,"/P")) {
+            permanent=1;
+        } else if (!sysinit_name_eq_ci(token,"/E:512")) return 0;
+        index++;
+    }
+    return index && permanent;
+}
+
 uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
                              void *fat_buf, uint32_t fat_buf_len,
                              sysinit_serial_fn serial)
@@ -424,6 +453,11 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     (void)config_sys_parse_report(src, src_len, &cfg,
                                  sysinit_config_unrecognized, 0);
     if (truncated) sysinit_config_unrecognized(0);
+    g_shell_ready=!cfg.shell_present || sysinit_shell_supported(cfg.shell);
+    if (!g_shell_ready) {
+        sysinit_config_puts(MSG_DOS_0014);
+        sysinit_config_puts("\r\n");
+    }
 
     /* APPLY the CTRL-BREAK directive (beads initech-er3h; ADR-0003 Amendment
      * DEC-16 Sec 3.3 / C-4): BREAK=ON|OFF flows into the kernel g_break_flag via

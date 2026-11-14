@@ -49,3 +49,5 @@ b0271dadaa5db11c31ad6af0d0e60b35ee36bf95d3e6b03ae4613787d721ef08  kernel/tests/f
 1ac7ca3d8815a871b6f1bf62a789259266f4461fe20bc4f44168d3a93e56f3b8  kernel/tests/fixtures/config33/breaktight/CONFIG.SYS
 10325dbac0d8fc1e15248f70c7ced145c5abb0bf700f5e1570b5b1bb69101839  kernel/tests/fixtures/config33/breaktight/result.txt
 7881d690db643f218e9000effa6b3d1d5107d18496f01c9b6137ca280e264d88  kernel/tests/fixtures/config33/breaktight/result.vga
+a5b86af3eda8feac40e9904555b1fe8abef79f67520f09e90797e258c5196b36  dos/command/tests/compat33/expected/CFG3/data.img.gz
+30ca3083eb52214521eae1896157a0c97a76a31f5fa436562fed9707c5d84522  dos/command/tests/compat33/expected/CFG3/result.txt

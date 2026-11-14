@@ -1,0 +1,12 @@
+# test: test-shell-config33
+--- a/sysinit.c
++++ b/sysinit.c
+@@ -453,7 +453,7 @@
+     (void)config_sys_parse_report(src, src_len, &cfg,
+                                  sysinit_config_unrecognized, 0);
+     if (truncated) sysinit_config_unrecognized(0);
+-    g_shell_ready=!cfg.shell_present || sysinit_shell_supported(cfg.shell);
++    g_shell_ready=!cfg.shell_present || sysinit_shell_supported(cfg.shell) || cfg.shell_present;
+     if (!g_shell_ready) {
+         sysinit_config_puts(MSG_DOS_0014);
+         sysinit_config_puts("\r\n");

@@ -62,8 +62,7 @@ Follow-up work:
   old non-program files cannot become executable merely by being renamed.
   There is no kernel overlay loading or exact-address COMMAND transient.
 - Windowed FAT16 EXEC limitations, fixed native/program windows, and the
-  low-memory 8 MiB requirement remain. SHELL path/options still need the
-  separately tracked interpreter repair (initech-vx2ko).
+  low-memory 8 MiB requirement remain.
 - The parked desktop quarry belongs to the FLAIR desktop owner and is not built.
   Diagnostic-image and remaining program/session work is mapped in tests/SMOKES.md.
 
@@ -195,6 +194,16 @@ values refuse. FILES accepts DOS syntax5..255, with an implemented capacity5..20
 One additional physical SFT slot accounts for separate CON input/output entries;
 real independent OPEN counts at FILES5..8 match the native DOS captures. The
 process JFT remains20 handles.
+
+SHELL selects the resident COMMAND.COM with /P and optional /E:512. The frozen
+interpreter omissions are external/qualified interpreter paths, nonpermanent
+root shells and other environment capacities/options. They report the captured
+Bad or missing Command Interpreter refusal and stop before AUTOEXEC; no request
+is logged as applied while silently using the fixed512-byte environment.
+`test-shell-config33` checks the real SYSINIT/FAT refusal and supported control;
+`test-shell-startup` checks the actual production entry never invokes COMMAND
+after refusal. `make smoke-shell-config` grades both emulators on the ordinary
+image, with mtools image conservation on refusal and an AUTOEXEC write control.
 
 The frozen CONFIG omissions are installable drivers other than the built-in
 ANSI selector, configurable BUFFERS, INSTALL commands and FILES above20.

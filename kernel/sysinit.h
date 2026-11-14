@@ -64,6 +64,8 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
 uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
                              void *fat_buf, uint32_t fat_buf_len,
                              sysinit_serial_fn serial);
+/* A refused interpreter request must not fall through to the default shell. */
+int sysinit_shell_ready(void);
 
 /* PHASE 3 -- enable hardware interrupts (kmain.c original lines 844-850, IN
  * ORDER, the minefield tail): pit_init -> kbd_init -> install IRQ0 gate (0x28) ->

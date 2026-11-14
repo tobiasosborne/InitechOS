@@ -22,6 +22,10 @@ $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS: $(OUT)/kernel$(if $(BIG_KERNEL),-big
 smoke:
 	$(MAKE) -C $(TOP) smoke
 smoke: smoke-conpair
+.PHONY: smoke-shell-config
+smoke-shell-config:
+	$(MAKE) -C $(TOP) image
+	sh tests/smoke/shell-config33.sh "$(TOP)" "$(OUT)/smoke/shell-config33"
 .PHONY: smoke-conpair
 smoke-conpair: $(OUT)/smoke/CONPAIR10.COM $(OUT)/smoke/CONPAIR13.COM
 	$(MAKE) -C $(TOP) image
