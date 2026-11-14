@@ -532,11 +532,21 @@ static int p_each_param(xb_interp *ip, const char *nm, void *ud)
 /* Moved from ibase_main.c's dot-only loader. Every disk DO uses this path;
  * acquire/release bounds storage by the active DO stack, not session length.
  * Ref: do-file-mint/basic and missing; previous 8192-byte bound retained. */
+typedef struct { pal_fd fd;char text[]; } proc_program;
+void proc_release_program(xb_interp *ip,char *source)
+{
+    ibase_pal_t *pal=xb_interp_pal(ip);proc_program *program;
+    if(!source)return;
+    program=((proc_program *)source)-1;
+    if(program->fd>=0)pal->close(pal,program->fd);
+    pal->release(pal,program);
+}
 char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec)
 {
     ibase_pal_t *pal = xb_interp_pal(ip);
     char fn[P_MAX_FILE + 4];
     char *buf;
+    proc_program *program;
     pal_fd fd = -1;
     int32_t total;
     uint32_t used = 0, n = rt_strlen(name);
@@ -550,6 +560,7 @@ char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec)
     for (attempt = 0; attempt < 2 && fd < 0; attempt++) {
         if (attempt) rt_memcpy(fn + n, ".PRG", 5);
         fd = pal->open(pal, fn, PAL_RD);
+        if(fd<0 && fd!=-PAL_ENOENT){if(ec)*ec=fd==-PAL_EMFILE?6:29;return (char *)0;}
     }
     if (fd < 0) return (char *)0;
     total = pal->seek(pal, fd, 0, PAL_SEEK_END);
@@ -564,23 +575,25 @@ char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec)
         pal->close(pal, fd);
         return (char *)0;
     }
-    buf = pal->acquire && pal->release
-        ? (char *)pal->acquire(pal, (uint32_t)total + 1) : (char *)0;
-    if (!buf) {
+    program=pal->acquire && pal->release
+        ? pal->acquire(pal,(uint32_t)sizeof(*program)+(uint32_t)total+1u):0;
+    if (!program) {
         if (ec) *ec = 43;
         pal->close(pal, fd);
         return (char *)0;
     }
+    buf=program->text;program->fd=fd;
     while (used < (uint32_t)total) {
         int32_t got = pal->read(pal, fd, buf + used, (uint32_t)total - used);
         if (got <= 0) {
             pal->close(pal, fd);
-            pal->release(pal, buf);
+            pal->release(pal, program);
             return (char *)0;   /* fail loud on premature EOF as well as I/O */
         }
         used += (uint32_t)got;
     }
-    pal->close(pal, fd);
+    /* The real C33 PSP/SFT contains one live descriptor per active disk DO.
+     * Keep it until return; library recursion still uses its shared source. */
     buf[used] = 0;
     if (len) *len = used;
     if (ec) *ec = 0;
@@ -610,7 +623,7 @@ static void p_library_release(xb_interp *ip, proc_library *library)
 {
     ibase_pal_t *pal = xb_interp_pal(ip);
     if (library && --library->refs == 0) {
-        pal->release(pal, library->text);
+        proc_release_program(ip,library->text);
         pal->release(pal, library);
     }
 }
@@ -663,7 +676,7 @@ static int p_set_procedure(xb_interp *ip, proc_state *ps, const char *args, int 
         if (!source) return -INTERP_ERR_EVAL;
         library = (proc_library *)pal->acquire(pal, sizeof(*library));
         if (!library) {
-            pal->release(pal, source);
+            proc_release_program(ip,source);
             if (ec) *ec = 43;
             return -INTERP_ERR_NOMEM;
         }
@@ -750,7 +763,6 @@ static int p_call(xb_interp *ip, proc_state *ps, const char *name,
                   xb_val *args, int nargs, int *ec)
 {
     const char *body, *saved_source = ps->source;
-    ibase_pal_t *pal = xb_interp_pal(ip);
     proc_library *library = ps->library;
     char *disk = (char *)0;
     char saved_name[P_MAX_PRGNAME];
@@ -869,7 +881,7 @@ done:
     if (disk) {
         ps->source = saved_source;
         rt_memcpy(ps->prgname, saved_name, sizeof(saved_name));
-        pal->release(pal, disk);
+        proc_release_program(ip,disk);
     }
     p_library_release(ip, library);
     return rc;                              /* INTERP_OK or a real error */

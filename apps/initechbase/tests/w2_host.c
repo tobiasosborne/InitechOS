@@ -124,7 +124,7 @@ int w2_host_startup(ibase_pal_t *pal,xb_interp *ip,const char *file)
     source=proc_load_program(ip,file,&len,&ec);
     if(!source)return ec?-ec:-INTERP_ERR_NOMEM;
     rc=proc_run_program(ip,source,"MINT");
-    pal->release(pal,source);
+    proc_release_program(ip,source);
     xb_interp_ctx(ip)->set_status=0;
     set_close_alternate(ip);ibase_status_refresh(ip);wa_close_all(xb_interp_env(ip));
     return rc==INTERP_RC_QUIT?INTERP_OK:rc;

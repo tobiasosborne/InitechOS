@@ -39,7 +39,11 @@ for emulator in $cpus; do
  cp "$src/tests/conformance/cases/C21/OLD.NDX" "$dir/STALE.NDX"
  tr -d '\r' < "$src/tests/conformance/cases/C21/MINT.PRG" |
   sed 's/USE BASE INDEX OLD/USE SHORT INDEX STALE/; s/COPY FILE BASE.DBF TO SAVED.DBF/COPY FILE SHORT.DBF TO REPAIRED.DBF/; s/RESULT.OUT/C21.OUT/; /^QUIT$/d' > "$dir/C21TEST.PRG"
- for file in PARTS.DBF BASE.DBF INVOICE.DBF IDXTEST.PRG Y2KACCT.PRG VALUES.PRG SHORT.DBF STALE.NDX C21TEST.PRG; do
+ cp "$src/tests/conformance/cases/C33/BASE.DBF" "$dir/DEPTH.DBF"
+ cp "$src/tests/conformance/cases/C33/PROBE.PRG" "$dir/PROBE.PRG"
+ tr -d '\r' < "$src/tests/conformance/cases/C33/MINT.PRG" |
+  sed 's/USE BASE/USE DEPTH/; s/COPY FILE BASE.DBF TO SAVED.DBF/COPY FILE DEPTH.DBF TO DPSAVED.DBF/; s/RESULT.OUT/C33.OUT/; /^QUIT$/d' > "$dir/DEPTH.PRG"
+ for file in PARTS.DBF BASE.DBF INVOICE.DBF IDXTEST.PRG Y2KACCT.PRG VALUES.PRG SHORT.DBF STALE.NDX C21TEST.PRG DEPTH.DBF PROBE.PRG DEPTH.PRG; do
   mcopy -i "$disk" "$dir/$file" ::APPS/
  done
  build/factory/keys < "$src/tests/smoke/session.txt" > "$dir/keys"
@@ -54,7 +58,7 @@ for emulator in $cpus; do
   # input reset discards an echo queued before COMMAND.COM resumes.
   exit_pause=5000
   if [ "$pause" -gt "$exit_pause" ]; then exit_pause=$pause; fi
-  sed -i "s/q,u,i,t,ret,w$pause,/q,u,i,t,ret,w$exit_pause,/" "$dir/keys"
+  sed -i "s/q,u,i,t,ret,w$pause,/q,u,i,t,ret,w$exit_pause,/g" "$dir/keys"
  fi
  if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" \
     $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \
@@ -107,6 +111,14 @@ for emulator in $cpus; do
  cmp "$dir/stale.want" "$dir/stale.txt" || fail 'C21 stale index entries after REINDEX'
  checks=$((checks+3))
  echo "ok $emulator: C21 transcript, repaired DBF and rebuilt NDX match real III+"
+ mcopy -o -i "$disk" ::APPS/C33.OUT "$dir/C33.OUT"
+ cmp "$src/tests/conformance/reference/C33/RESULT.OUT" "$dir/C33.OUT" || fail 'C33 active disk DO handles'
+ mcopy -o -i "$disk" ::APPS/DPSAVED.DBF "$dir/DPSAVED.DBF"
+ python3 "$src/tests/conformance/read_dbf.py" "$dir/DPSAVED.DBF" > "$dir/depth.txt"
+ python3 "$src/tests/conformance/read_dbf.py" "$src/tests/conformance/reference/C33/SAVED.DBF" > "$dir/depth.want"
+ cmp "$dir/depth.want" "$dir/depth.txt" || fail 'C33 saved table'
+ checks=$((checks+2))
+ echo "ok $emulator: C33 real III+ file exhaustion, unwind and saved DBF"
  echo "$emulator: InitechBase smoke GREEN (8 MiB)"
 done
 # GM5: a fresh genuine III+ session must open serialized target output.

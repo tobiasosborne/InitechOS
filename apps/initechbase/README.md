@@ -185,7 +185,7 @@ baseline, before this change. `make package-check` reports the current loader
 geometry and validates the actual EXE/OVL pair; no size or hash above is a
 claim about the current build. The 28 pending patches remain unproved.
 
-The C19/C20/C21 conformance repair selection is now part of tier 0 (76 suites).
+All 36 retained conformance cases are now part of tier 0 (76 suites).
 Its real III+ fixtures come unchanged from the conformance study. An old NDX
 sequence is sized by its own entry count, including removed DBF records; explicit
 GO BOTTOM on the captured missing record raises #4 and leaves blank fields at
@@ -193,8 +193,7 @@ EOF. REINDEX obtains keys in physical DBF order without consulting that old
 sequence, then invalidates navigation state. C21's transcript, the edited row 2
 and the rebuilt two-entry NDX match real III+; its booted smoke readback checks
 the same three results on both emulators. The study's other fifteen defects
-are being repaired against their retained captures; the accepted selection is
-listed below. The 28 pending patches remain to be qualified.
+now match their retained captures. The 28 pending patches remain to be qualified.
 
 INDEX and REINDEX retain each predecessor through their final reopen, header,
 attachment and navigation checks. An error restores the old file and index
@@ -221,4 +220,12 @@ it. This emulator coverage belongs to tier 1; tier 0 remains emulator-free.
 The accepted conformance selection is listed in
 `tests/conformance/accepted.cases`. C13/C15/C18 now also qualify LEN's #34
 rejection of memo expressions; separate typed-value checks cover resolved
-lengths 0, 12, 511 and 2300 independently of outstanding memo display defects.
+lengths 0, 12, 511 and 2300. The full 511/2300-byte memo display cases pass too.
+
+Disk DO keeps its source descriptor until return. Genuine C33's DOS PSP/SFT
+capture (`tests/conformance/handles`) establishes the file budget: twenty JFT
+entries, four retained standard handles, one overlay, one main program,
+table/alternate output and twelve active recursive disk programs. AUX is
+reused for the overlay, and DOS file exhaustion reaches command error #6;
+the separate library recursion limit remains twenty levels/#103. The host
+binding reserves the target overlay's descriptor when modeling that budget.

@@ -209,9 +209,11 @@ int ibase_repl(ibase_pal_t *pal, xb_interp *ip);
  */
 int ibase_do(xb_interp *ip, const char *prg);
 /* Shared disk-program loader (dot prompt, nested DO and batch startup).
- * Caller owns the returned PAL acquire block and must release it. Errors
+ * Caller owns the returned source and its active descriptor; release both
+ * with proc_release_program. Errors
  * are existing catalogue ordinals; NULL never means a partial program. */
 char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec);
+void proc_release_program(xb_interp *,char *);
 /* CLOSE PROCEDURE / CLOSE ALL: an active library remains selected (real
  * III+ do-file-mint/close); otherwise remove its installed ownership. */
 void proc_close_library(xb_interp *ip);

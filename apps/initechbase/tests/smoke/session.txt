@@ -19,4 +19,7 @@ use invoice
 do y2kacct
 do c21test
 quit
+initbase
+do depth
+quit
 echo initechbasesmokecomplete

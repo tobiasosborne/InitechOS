@@ -17,7 +17,7 @@ sha256sum "$media" "$corpus"/mint/work/DBASE.EXE "$corpus"/mint/work/DBASE.OVL \
  "$corpus"/mint/work/DBASE.MSG "$corpus"/mint/work/DBASEINL.OVL > "$out/reference.sha256"
 # Each case boots separately: a malformed file cannot hide later cases.
 selected=0;failed=0
-for case_dir in "$src"/cases/C*; do
+for case_dir in "${CASE_ROOT:-$src/cases}"/C*; do
  name=${case_dir##*/}
  case " ${CASES:-all} " in *" all "*|*" $name "*) ;; *) continue;; esac
  selected=$((selected+1))
@@ -33,7 +33,10 @@ for case_dir in "$src"/cases/C*; do
  mcopy -i "$d/data.img@@32256" "$corpus"/mint/work/DBASE.EXE "$corpus"/mint/work/DBASE.OVL \
   "$corpus"/mint/work/DBASE.MSG "$corpus"/mint/work/DBASEINL.OVL "$d"/before/* ::
  mdir -i "$d/data.img@@32256" :: > "$d/before.mdir"
- printf 'wait CAPTURE-DONE\nshot result\nend\n' > "$d/steps"
+ if [ -n "${CAPTURE_MEMORY_MARKER:-}" ]; then
+  printf 'wait %s\nhmp pmemsave 0 1048576 "%s/memory.bin"\nkey ret\n' "$CAPTURE_MEMORY_MARKER" "$d" > "$d/steps"
+ else : > "$d/steps"; fi
+ printf 'wait CAPTURE-DONE\nshot result\nend\n' >> "$d/steps"
  rc=0
  timeout -k 2 30 "$out/drive" "$d" "$d/boot.img" - "$d/data.img" "$d/steps" > "$d/driver.txt" 2>&1 || rc=$?
  printf '%s\n' "$rc" > "$d/exit-status"

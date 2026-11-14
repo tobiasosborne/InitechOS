@@ -163,8 +163,9 @@ static pal_err dos_err_to_pal(uint32_t dos_ax)
         return PAL_ENOENT;
     case 0x0005u:   /* ACCESS_DENIED */
     case 0x0006u:   /* INVALID_HANDLE */
-    case 0x0004u:   /* TOO_MANY_OPEN */
         return PAL_EACCES;
+    case 0x0004u:   /* TOO_MANY_OPEN: genuine III+ C33 reports #6 */
+        return PAL_EMFILE;
     case 0x001Cu:   /* DISK_FULL (28 decimal) -- */
         return PAL_ENOSPC;
     default:
@@ -1345,6 +1346,11 @@ ibase_pal_t *pal_dos_make(void)
     st->vtable.exec       = dos_exec;
     st->vtable.getenv     = dos_getenv;
     st->vtable.time       = dos_time;
+
+    /* Real III+ reuses its inherited AUX slot for DBASE.OVL. We do not use
+     * AUX; retain CON/STDIN/STDOUT/STDERR/PRN semantics and free that slot for
+     * INITBASE.OVL. The independent PSP/SFT capture is in conformance/handles. */
+    (void)dos_close(&st->vtable,3);
 
     /* Validate every installed PAL hook before publishing the binding. */
     ibase_bind_pal(&st->vtable,&st->vtable);

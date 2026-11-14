@@ -41,8 +41,10 @@
 #include "ibase/pal.h"
 #include "heap.h"
 
-/* Maximum number of simultaneously open file handles. */
-#define PAL_HOST_FD_MAX  16
+/* Real DOS 3.30/III+ handle capture: JFT 20, four retained standard handles
+ * (AUX is closed), one resident overlay. The host has no overlay descriptor,
+ * so reserve that resource here. See tests/conformance/handles/README.md. */
+#define PAL_HOST_FD_MAX  (20 - 4 - 1)
 
 /* Default arena size (bytes) if cfg specifies 0. */
 #define PAL_HOST_HEAP_DEFAULT  (64u * 1024u)
@@ -72,6 +74,10 @@ static pal_err errno_to_pal(void)
     case EDQUOT:
 #endif
         return PAL_ENOSPC;
+
+    case EMFILE:
+    case ENFILE:
+        return PAL_EMFILE;
 
     default:
         return PAL_EIO;
@@ -135,7 +141,7 @@ static pal_fd host_open(ibase_pal_t *p, const char *name, int mode)
 
     slot = alloc_slot(st);
     if (slot < 0)
-        return -(pal_fd)PAL_EACCES;   /* table full */
+        return -(pal_fd)PAL_EMFILE;
 
     /*
      * Choose the fopen mode string:

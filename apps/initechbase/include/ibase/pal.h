@@ -85,6 +85,7 @@ enum {
 typedef enum {
 	PAL_OK     = 0,    /* success */
 	PAL_ENOENT = 2,    /* no such file / path not found */
+	PAL_EMFILE = 4,    /* process/system open-file table exhausted */
 	PAL_EACCES = 5,    /* access denied / bad handle */
 	PAL_ENOSPC = 28,   /* device full (no free space) */
 	PAL_EIO    = 29    /* I/O error (short read/write, device fault) */
