@@ -1,0 +1,11 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -187,7 +187,7 @@
+ }
+ static void undo(void)
+ {
+-    if(!g_undo_ok) return;
++    if(1) return;
+     stash();
+     for(int p=0;p<DA_SLOTS;p++) {
+         uint16_t n=g_len[p];g_len[p]=g_undo_len[p];g_undo_len[p]=n;

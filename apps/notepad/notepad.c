@@ -46,10 +46,13 @@ static tbx_menuitem_t edit_items[] TBX_IN_IMAGE = {
     {"Undo",0,'Z',0,0,0,{0,0,0}}, {"-",0,0,0,0,1,{0,0,0}},
     {"Cut",0,'X',0,0,0,{0,0,0}}, {"Copy",0,'C',0,0,0,{0,0,0}},
     {"Paste",0,'V',0,0,0,{0,0,0}}, {"Clear",0,0,0,0,0,{0,0,0}},
+#ifndef SCRAPBOOK
     {"Select All",0,'A',0,1,0,{0,0,0}}
+#endif
 };
 static const tbx_menuinfo_t menus[] = {
-    {129,0,"File",file_items,2,0}, {130,0,"Edit",edit_items,7,0}
+    {129,0,"File",file_items,2,0},
+    {130,0,"Edit",edit_items,sizeof edit_items/sizeof edit_items[0],0}
 };
 static const tbx_menubar_t mbar = {menus,2,1,0};
 static FlairTE g_te;
@@ -60,6 +63,16 @@ static char g_clip[8192];
 static char g_run[128] TBX_IN_IMAGE, g_label[24] TBX_IN_IMAGE;
 static int32_t g_win;
 static int g_page, g_count, g_scroll, g_anchor, g_active;
+static int g_dirty;
+/* Mac System Software Guide v6 p.118: undo the last text edit. Authored
+ * one-level toggle, like InitechText: contiguous typing/deletion is one edit.
+ * Note Pad history is page-local. Scrapbook snapshots the TEXT clip store
+ * and index, so deleting a page can be undone without undoing shared scrap.
+ * Navigation/repaint alone is never an edit. No native capture is claimed. */
+static char g_undo_pages[DA_SLOTS][DA_TEXT_MAX];
+static uint16_t g_undo_len[DA_SLOTS];
+static int g_undo_ok,g_undo_run,g_undo_page,g_undo_count;
+static int g_undo_ss,g_undo_se,g_undo_scroll,g_undo_dirty;
 
 static void bytes(void *dst, const void *src, int n)
 { unsigned char *d=dst; const unsigned char *s=src; for(int i=0;i<n;i++) d[i]=s[i]; }
@@ -151,6 +164,8 @@ static int save(void)
     /* initech-mcep: the atomic save -- a full disk keeps the old pages. */
     if(tbx_file_save(DA_PATH,g_disk,DA_FILE_BYTES)!=DA_FILE_BYTES) { notice("The pages could not be saved."); return 0; }
     DA_AUX("DA-SAVED " DA_PATH "\r\n");
+    g_dirty=0;
+    if(g_undo_ok) g_undo_dirty=1; /* the prior state differs from disk now */
     return 1;
 }
 static void read_page(void)
@@ -158,11 +173,41 @@ static void read_page(void)
     FlairTESetText(&g_te,g_pages[g_page],g_count?(int16_t)g_len[g_page]:0);
     FlairTESetSelect(&g_te,0,0); g_scroll=0;
 }
+static void undo_note(int typing)
+{
+    if(!(typing && g_undo_run)) {
+        stash();
+        bytes(g_undo_pages,g_pages,sizeof g_pages);
+        bytes(g_undo_len,g_len,sizeof g_len);
+        g_undo_page=g_page;g_undo_count=g_count;
+        g_undo_ss=g_te.selStart;g_undo_se=g_te.selEnd;
+        g_undo_scroll=g_scroll;g_undo_dirty=g_dirty;g_undo_ok=1;
+    }
+    g_undo_run=typing;g_dirty=1;
+}
+static void undo(void)
+{
+    if(!g_undo_ok) return;
+    stash();
+    for(int p=0;p<DA_SLOTS;p++) {
+        uint16_t n=g_len[p];g_len[p]=g_undo_len[p];g_undo_len[p]=n;
+        for(int i=0;i<DA_TEXT_MAX;i++) {
+            char c=g_pages[p][i];g_pages[p][i]=g_undo_pages[p][i];g_undo_pages[p][i]=c;
+        }
+    }
+    int page=g_page,count=g_count,ss=g_te.selStart,se=g_te.selEnd;
+    int scroll=g_scroll,dirty=g_dirty;
+    g_page=g_undo_page;g_count=g_undo_count;read_page();
+    FlairTESetSelect(&g_te,(int16_t)g_undo_ss,(int16_t)g_undo_se);
+    g_scroll=g_undo_scroll;g_dirty=g_undo_dirty;
+    g_undo_page=page;g_undo_count=count;g_undo_ss=ss;g_undo_se=se;
+    g_undo_scroll=scroll;g_undo_dirty=dirty;g_undo_run=0;
+}
 static void menus_sync(void)
 {
+    edit_items[0].enabled=(uint8_t)g_undo_ok;
 #ifdef SCRAPBOOK
     int range=g_count>0;
-    edit_items[6].enabled=0;
 #else
     int range=g_te.selStart<g_te.selEnd;
 #endif
@@ -254,14 +299,19 @@ static void turn(int page)
         if(!save()) {g_page=old;return;}
     }
     read_page();
+#ifndef SCRAPBOOK
+    g_undo_ok=g_undo_run=0;
+#endif
 }
 #ifndef SCRAPBOOK
-static int replace(const char *s,int n)
+static int replace(const char *s,int n,int typing)
 {
     if(n<0 || n>DA_TEXT_MAX || g_te.teLength-(g_te.selEnd-g_te.selStart)+n>DA_TEXT_MAX ||
        !FlairTECanReplace(&g_te,g_te.selStart,g_te.selEnd,s,(int16_t)n)) {
         notice("This page is full.");return 0;
     }
+    if(!n && g_te.selStart==g_te.selEnd) return 1;
+    undo_note(typing);
     FlairTEInsert(&g_te,s,(int16_t)n);return 1;
 }
 #endif
@@ -277,12 +327,13 @@ static void clear(void)
 {
 #ifdef SCRAPBOOK
     if(!g_count) return;
+    undo_note(0);
     for(int p=g_page;p<g_count-1;p++) { g_len[p]=g_len[p+1]; bytes(g_pages[p],g_pages[p+1],g_len[p]); }
     g_count--; g_len[g_count]=0;
     if(g_page>=g_count) g_page=g_count?g_count-1:0;
     read_page();
 #else
-    (void)replace("",0);
+    (void)replace("",0,0);
 #endif
 }
 static void paste(void)
@@ -301,11 +352,11 @@ static void paste(void)
     if(g_count==DA_SLOTS || k>DA_TEXT_MAX || !FlairTECanReplace(&g_te,0,g_te.teLength,g_clip,(int16_t)k)) {
         notice("The Scrapbook is full, or this clip is too large.");return;
     }
-    stash();g_page=g_count++;
+    undo_note(0);g_page=g_count++;
     int target=g_page;
     g_len[target]=(uint16_t)k;bytes(g_pages[target],g_clip,k);read_page();
 #else
-    (void)replace(g_clip,k);
+    (void)replace(g_clip,k,0);
 #endif
 }
 static void close_app(void)
@@ -317,12 +368,14 @@ static void close_app(void)
        tbx_alert("The " DA_TITLE " file is damaged.\rIt was kept as it is; these\rpages were not saved.","OK",0,0)==TBX_OK) {
         g_closing=1; return;
     }
+    g_undo_ok=g_undo_run=0;
     (void)tbx_exit(0);
 }
 int tbx_app_main(void)
 {
     if(tbx_register()!=TBX_OK) return 1;
     FlairTE_init(&g_te,DA_VIEW_W-10,FLAIR_TE_JUST_LEFT);g_te.txFont=1;
+    g_dirty=g_undo_ok=g_undo_run=0;
     empty();load();read_page();g_active=1;g_anchor=0;
     (void)tbx_set_mbar(&mbar);
     g_win=tbx_new_window(DA_WIN_L,DA_WIN_T,DA_WIN_R,DA_WIN_B,TBX_GOAWAY_ASK);
@@ -346,19 +399,24 @@ void tbx_app_event(const tbx_event_t *ev)
     case TBX_EVT_GOAWAY: close_app();break;
     case TBX_EVT_ALERT: if(g_closing) (void)tbx_exit(0);break;
     case TBX_EVT_MENU:
-        if(((uint32_t)ev->message>>16)==129) {close_app();break;}
+        g_undo_run=0;
+        if(ev->message==TBX_MENU_WORD(129,1) || ev->message==TBX_MENU_WORD(129,2)) {close_app();break;}
         if(((uint32_t)ev->message>>16)!=130) break;
         switch(ev->message&65535) {
+        case 1: undo();break;
         case 3: if(copy()) clear();break;
         case 4: (void)copy();break;
         case 5: paste();break;
         case 6: clear();break;
+#ifndef SCRAPBOOK
         case 7: FlairTESetSelect(&g_te,0,g_te.teLength);break;
+#endif
         default:break;
         }
         refresh();break;
     case mouseDown:
     case TBX_EVT_TRACK: {
+        g_undo_run=0;
         int32_t org=tbx_content_origin(g_win);
         int x=ev->whereh-(int)(org&65535),y=ev->wherev-(int)((uint32_t)org>>16);
         if(org<0) break;
@@ -392,12 +450,19 @@ void tbx_app_event(const tbx_event_t *ev)
         else if(vk==0x48 && g_scroll>0) g_scroll-=11;
         else if(vk==0x50 && g_scroll+DA_TEXT_H<g_te.nLines*11+4) g_scroll+=11;
 #else
-        if(c==8) FlairTEKey(&g_te,8);
-        else if(c==13 || c==10 || (c>=32 && c<127)) {char ch=c==10?13:(char)c;(void)replace(&ch,1);}
-        else if(vk==0x4b) FlairTEKey(&g_te,FLAIR_TE_CH_LEFT);
-        else if(vk==0x4d) FlairTEKey(&g_te,FLAIR_TE_CH_RIGHT);
-        else if(vk==0x48) FlairTEKey(&g_te,FLAIR_TE_CH_UP);
-        else if(vk==0x50) FlairTEKey(&g_te,FLAIR_TE_CH_DOWN);
+        if(c==8) {
+            if(g_te.selStart<g_te.selEnd || g_te.selStart>0) {
+                undo_note(1);FlairTEKey(&g_te,8);
+            }
+        } else if(c==13 || c==10 || (c>=32 && c<127)) {
+            char ch=c==10?13:(char)c;(void)replace(&ch,1,1);
+        } else {
+            g_undo_run=0;
+            if(vk==0x4b) FlairTEKey(&g_te,FLAIR_TE_CH_LEFT);
+            else if(vk==0x4d) FlairTEKey(&g_te,FLAIR_TE_CH_RIGHT);
+            else if(vk==0x48) FlairTEKey(&g_te,FLAIR_TE_CH_UP);
+            else if(vk==0x50) FlairTEKey(&g_te,FLAIR_TE_CH_DOWN);
+        }
 #endif
         refresh();break;
     }

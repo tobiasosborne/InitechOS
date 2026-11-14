@@ -59,11 +59,123 @@ static int disk_page(const mfile_t *f, int p, const char *s)
     int off = 16 + p * 1026, n = (int)strlen(s);
     return f && f->size > (unsigned)(off + 1025) && u16(f->data + off) == n && !memcmp(f->data + off + 2, s, (size_t)n);
 }
+static int text_is(const char *s)
+{ return g_te.teLength==(int)strlen(s) && !memcmp(g_te.text,s,strlen(s)); }
+static void command_sweep(void)
+{
+    /* Exact reviewed native surface. Shortcuts are dispatched by the shell;
+     * these are independent literal spellings/keys, including disabled rows. */
+    const char *names[]={"Undo","-","Cut","Copy","Paste","Clear"
+#ifndef SCRAPBOOK
+        ,"Select All"
+#endif
+    };
+    const char keys[]={'Z',0,'X','C','V',0,'A'};
+    CHECK(tbx_host.bar->n_menus==2 && tbx_host.bar->menus[0].n_items==2,
+          "sweep File Close/Quit shape");
+    for(unsigned i=0;i<2;i++) {
+        const tbx_menuinfo_t *mi=&tbx_host.bar->menus[i];
+        CHECK(mi->menu_id==129+(int)i && !strcmp(mi->title,i?"Edit":"File"),
+              "sweep menu dispatch identity");
+        const tbx_menuitem_t *it=&tbx_host.bar->menus[0].items[i];
+        CHECK(it->enabled && !it->is_divider && it->cmd_char==(i?'Q':'W') &&
+              !strcmp(it->text,i?"Quit":"Close"),"sweep exact File row/key");
+    }
+    const tbx_menuinfo_t *m=&tbx_host.bar->menus[1];
+    CHECK(m->n_items==sizeof names/sizeof names[0],"sweep exact Edit count");
+    for(unsigned i=0;i<m->n_items;i++)
+        CHECK(i<sizeof names/sizeof names[0] && !strcmp(m->items[i].text,names[i]) &&
+              m->items[i].cmd_char==keys[i],"sweep exact Edit row/key");
+    CHECK(!m->items[0].enabled,"Undo initially gray");
+    CHECK(!edit_items[2].enabled && !edit_items[3].enabled &&
+          !edit_items[4].enabled && !edit_items[5].enabled,"empty context grays only unavailable edits");
+#ifdef SCRAPBOOK
+    tbx_scrap_put("alpha",5);menu(5);
+    CHECK(edit_items[0].enabled && edit_items[2].enabled && edit_items[3].enabled &&
+          edit_items[4].enabled && edit_items[5].enabled,"all Scrapbook commands have live context");
+    CHECK(m->items[0].enabled,"append enables Undo");menu(1);
+    CHECK(shown("0 of 0") && text_is(""),"Undo append to empty");menu(1);
+    CHECK(text_is("alpha"),"one-level Undo toggle");
+    tbx_scrap_put("bravo",5);menu(5);tbx_scrap_put("charlie",7);menu(5);
+    event(keyDown,0x4b00,0,0,0);CHECK(text_is("bravo"),"previous clip key");
+    menu(3);CHECK(text_is("charlie") && g_count==2,"Cut removes middle clip");
+    menu(1);CHECK(text_is("bravo") && g_count==3 && g_page==1,"Undo restores clip/order/index");
+    CHECK(m_scrap_len==5 && !memcmp(m_scrap,"bravo",5),"Undo Cut preserves scrap");
+    menu(6);menu(1);CHECK(text_is("bravo") && g_count==3,"Undo Clear");
+    event(keyDown,0x4d00,0,0,0);CHECK(text_is("charlie"),"next clip key");
+    event(keyDown,0x4900,0,0,0);CHECK(text_is("bravo"),"previous page key");
+    event(keyDown,0x5100,0,0,0);CHECK(text_is("charlie"),"next page key");
+    menu(4);CHECK(m_scrap_len==7 && !memcmp(m_scrap,"charlie",7),"Copy whole clip");
+    event(TBX_EVT_MENU,TBX_MENU_WORD(129,2),0,0,0);
+    CHECK(disk_page(mfind(DA_PATH),0,"alpha") && disk_page(mfind(DA_PATH),1,"bravo") &&
+          disk_page(mfind(DA_PATH),2,"charlie"),"Undo store independently read after Quit");
+    CHECK(m_exits==1,"File Quit performs save/exit");
+    launch();CHECK(!edit_items[0].enabled && text_is("charlie"),"reload clears history");
+    /* Capacity rejection preserves the last valid undo, even when full. */
+    for(int i=3;i<32;i++) {tbx_scrap_put("tail",4);menu(5);}
+    menu(5);CHECK(g_count==32,"full append rejected");menu(1);
+    CHECK(g_count==31,"failed append keeps previous history");
+    m_alerts=0;
+#else
+    type("alpha");event(updateEvt,0,0,0,0);menu(1);
+    CHECK(text_is("") && !g_dirty && g_te.selStart==0 && g_te.selEnd==0,"Undo whole typing run across repaint");
+    menu(1);CHECK(text_is("alpha") && g_dirty,"Undo toggle restores typing/dirty state");
+    CHECK(edit_items[0].enabled,"typing enables visible Undo");
+    event(keyDown,0x4b00,0,0,0);type("X");menu(1);
+    CHECK(text_is("alpha") && g_te.selStart==4,"arrow breaks typing run; Undo selection");
+    menu(7);menu(3);CHECK(text_is(""),"Cut whole selection");menu(1);
+    CHECK(text_is("alpha") && g_te.selStart==0 && g_te.selEnd==5,"Undo Cut restores selection");
+    CHECK(edit_items[0].enabled && edit_items[2].enabled && edit_items[3].enabled &&
+          edit_items[4].enabled && edit_items[5].enabled && edit_items[6].enabled,
+          "all Note Pad commands have live context");
+    CHECK(m_scrap_len==5 && !memcmp(m_scrap,"alpha",5),"Undo Cut keeps shared scrap");
+    menu(6);menu(1);CHECK(text_is("alpha"),"Undo Clear");
+    tbx_scrap_put("bravo",5);menu(5);menu(1);
+    CHECK(text_is("alpha") && m_scrap_len==5 && !memcmp(m_scrap,"bravo",5),"Undo Paste preserves scrap");
+    event(keyDown,8,0,0,0);menu(1);CHECK(text_is("alpha"),"Undo deletion");
+    click_turn(0);CHECK(!edit_items[0].enabled,"page turn clears page-local history");
+    click_turn(1);CHECK(text_is("alpha"),"page identity and bytes restored");
+    event(TBX_EVT_MENU,TBX_MENU_WORD(129,2),0,0,0);
+    CHECK(disk_page(mfind(DA_PATH),0,"alpha"),"Undo saved independently on Quit");
+    CHECK(m_exits==1,"File Quit performs save/exit");
+#endif
+    /* Close, its shortcut and the close box share saving, but each event
+     * route is exercised. Reported write failures never discard the store. */
+    launch();
+    const mfile_t *old=mfind(DA_PATH);static unsigned char keep[DA_FILE_BYTES];
+    CHECK(old && old->size==DA_FILE_BYTES,"saved store fixture");
+    if(old) memcpy(keep,old->data,DA_FILE_BYTES);
+    tbx_scrap_put("later",5);menu(5);
+    tbx_host.fail_write=1;event(TBX_EVT_MENU,TBX_MENU_WORD(129,1),0,0,0);
+    CHECK(m_exits==0 && g_dirty && m_alerts>0,"failed Close leaves editable dirty store");
+    old=mfind(DA_PATH);
+    CHECK(old && !memcmp(old->data,keep,DA_FILE_BYTES),"failed Close keeps independently saved bytes");
+    tbx_host.fail_write=0;menu(1);
+    event(TBX_EVT_MENU,TBX_MENU_WORD(129,1),0,0,0);
+    CHECK(m_exits==1,"File Close works after failed save and Undo");
+#ifndef SCRAPBOOK
+    launch();menu(7);tbx_scrap_put("ab\rcd",5);menu(5);
+    event(keyDown,0x4800,0,0,0);CHECK(g_te.selStart==2,"Up moves caret to prior line");
+    event(keyDown,0x5000,0,0,0);CHECK(g_te.selStart==5,"Down returns caret");
+    event(keyDown,0x4b00,0,0,0);CHECK(g_te.selStart==4,"Left moves caret");
+    event(keyDown,0x4d00,0,0,0);CHECK(g_te.selStart==5,"Right moves caret");
+    event(autoKey,'X',0,0,0);CHECK(text_is("ab\rcdX"),"autoKey types through same editor");
+    menu(1);CHECK(text_is("ab\rcd"),"autoKey participates in Undo");
+    static char full[1024];memset(full,'k',sizeof full);
+    menu(7);tbx_scrap_put(full,sizeof full);menu(5);
+    CHECK(g_te.teLength==1024,"capacity fixture is accepted");
+    type("X");CHECK(g_te.teLength==1024,"capacity refuses extra typing");
+    menu(1);CHECK(text_is("ab\rcd"),"refused edit keeps prior Undo");
+#endif
+}
 int main(void)
 {
     /* sdk/host has TEXT only: an absent TEXT scrap models PICT-only get. */
     tbx_host_reset(); tbx_host.origin_h=166; tbx_host.origin_v=102; tbx_host.ch=237;
     launch(); menu(5);
+    command_sweep();
+    tbx_host_reset();tbx_host.origin_h=166;tbx_host.origin_v=102;tbx_host.ch=237;
+    launch();menu(5);
 #ifdef SCRAPBOOK
     CHECK(shown("0 of 0"), "flavour");
     tbx_scrap_put("alpha", 5); event(activateEvt, 0, FLAIR_EVT_MOD_ACTIVE_FLAG, 0, 0); menu(5);

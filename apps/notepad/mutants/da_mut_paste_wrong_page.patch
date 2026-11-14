@@ -1,14 +1,14 @@
 --- a/notepad.c
 +++ b/notepad.c
-@@ -302,10 +302,11 @@
+@@ -353,10 +353,11 @@
          notice("The Scrapbook is full, or this clip is too large.");return;
      }
-     stash();g_page=g_count++;
+     undo_note(0);g_page=g_count++;
 -    int target=g_page;
 +    int target=(g_page+1)%DA_SLOTS;
      g_len[target]=(uint16_t)k;bytes(g_pages[target],g_clip,k);read_page();
  #else
--    (void)replace(g_clip,k);
+-    (void)replace(g_clip,k,0);
 +    int target=(g_page+1)%DA_SLOTS;
 +    if(k<=DA_TEXT_MAX) {g_len[target]=(uint16_t)k;bytes(g_pages[target],g_clip,k);}
  #endif

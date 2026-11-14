@@ -15,14 +15,29 @@ appends clipboard clips, turns/removes pages, copies/cuts, scrolls and saves
 on close. Both reopen their stores and retain a damaged store unchanged with
 a notice. PICT/sound, animations and native Note Pad pixel fidelity are absent.
 The composed Platinum/Geneva9 windows follow the claimed store contract and
-SimpleText geometry. Undo is disabled in both apps; Scrapbook also disables
-Select All (one visible dead command in Note Pad, two in Scrapbook).
+SimpleText geometry. Both implement one-level Undo, including Undo of Undo.
+Note Pad restores page text, selection and dirty state; contiguous typing
+and Backspace form one run, interrupted by menus/cursor movement/clicks.
+Repaint preserves history; successful page turns and reload clear it.
+Scrapbook restores the clip store, order and current index before append,
+Cut or Clear, even when removal changed pages. Pure navigation keeps history.
+Undo never changes the shared clipboard; rejected edits keep the last step.
+These are authored adaptations of Macintosh System Software User's Guide v6
+p.118 and the existing InitechText contract, not native Scrapbook captures.
 
-make test runs two unit/regression programs (44 and 26 checks, <1 second),
+Frozen omissions (approved phase-2 GM4 split): Note Pad has none beyond the
+frozen legacy inventory. Scrapbook omits Edit Select All and Cmd-A: its
+commands operate on whole TEXT clips and it has no partial-selection editor.
+Note Pad retains its working Select All. PICT/sound remain outside the
+existing store contract. The exact menu/shortcut inventory and semantic
+dead-command sweep are in test_notepad_route (both builds); tests/COMMANDS.md
+records the audited routes and independently authored outcomes.
+
+make test runs two unit/regression programs (<1 second),
 retaining the legacy store, corruption, clipboard and page-boundary assertions.
 These are independent authored contract expectations, not real-Mac file
-format differentials. make mutants kills five patches; target EXEs before
-and after removal are identical: Note Pad 27,456 bytes, Scrapbook 26,976.
+format differentials. make mutants kills six patches, including a live Undo
+no-op in both builds. No mutation switches remain in the product source.
 make smoke launches both on QEMU, copies alpha from Note Pad into Scrapbook,
 closes both, extracts both stores with mtools and checks lengths, headers,
 page bytes and an independently implemented checksum, then runs fsck.fat.
