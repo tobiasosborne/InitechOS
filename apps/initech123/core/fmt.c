@@ -330,6 +330,27 @@ static void date_fmt(double x, uint32_t which, uint32_t width, char *out)
     place_number(s, ' ', width, out);
 }
 
+/* Real R2.2 VGA/WK1 captures, tests/fixtures/time-formats. Round the day
+ * fraction to a second, then omit seconds for Time 2. In particular, the
+ * reference prints a rounded 24:00 as 12:00 PM; do not normalize that carry
+ * to midnight. Binary64 values >= 2^52 have no fractional day. */
+static void time_fmt(double x, uint32_t which, uint32_t width, char *out)
+{
+    char s[16];uint32_t n=0;
+    if(!(x>=0.0)) {fill(out,width,'*');return;}
+    double fraction=x<4503599627370496.0 ? x-(double)(int64_t)x : 0.0;
+    uint32_t seconds=(uint32_t)(fraction*86400.0+0.5);
+    uint32_t hour=seconds/3600u, minute=(seconds/60u)%60u, second=seconds%60u;
+    uint32_t h12=hour%12u;if(!h12)h12=12;
+    s[n++]=(char)('0'+h12/10u);s[n++]=(char)('0'+h12%10u);s[n++]=':';
+    s[n++]=(char)('0'+minute/10u);s[n++]=(char)('0'+minute%10u);
+    if(which==WK1_FS_TIME1) {
+        s[n++]=':';s[n++]=(char)('0'+second/10u);s[n++]=(char)('0'+second%10u);
+    }
+    s[n++]=' ';s[n++]=hour>=12u?'P':'A';s[n++]='M';s[n]=0;
+    place_number(s,' ',width,out);
+}
+
 void i123_format_number(double x, uint8_t fmt, uint32_t width, char *out)
 {
     uint32_t t = WK1_FMT_TYPE(fmt), lo = WK1_FMT_LOW(fmt);
@@ -375,6 +396,7 @@ void i123_format_number(double x, uint8_t fmt, uint32_t width, char *out)
             date_fmt(x, lo, width, out);
             return;
         }
+        if(lo==WK1_FS_TIME1 || lo==WK1_FS_TIME2) {time_fmt(x,lo,width,out);return;}
         if (lo == WK1_FS_HIDDEN) { fill(out, width, ' '); return; }
         break;
     default:

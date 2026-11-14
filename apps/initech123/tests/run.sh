@@ -29,6 +29,14 @@ case $name in
   test_i123_copy_move) "$bin" ;;
   test_i123_copy_corpus) "$bin" --corpus "$LOTUS123_DECOMP" "$out" "$ref" ;;
   test_i123_copy_tile) "$bin" --tile tests/fixtures/i123-copy "$out" "$ref" ;;
+  test_i123_time)
+    (cd tests/fixtures/time-formats && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
+    "$bin" "$out"
+    python3 tests/oracles/time_records.py tests/fixtures/time-formats/TIMEREF.WK1 "$out/TIMEREF.WK1"
+    for f in GLOBAL1 GLOBAL2; do python3 tests/oracles/time_records.py "tests/fixtures/time-formats/global/$f.WK1" "$out/$f.WK1"; done
+    python3 tests/oracles/time_records.py tests/fixtures/time-formats/final/NARROW.WK1 "$out/NARROW.WK1"
+    python3 tests/oracles/time_records.py tests/fixtures/time-formats/more/MOREREF.WK1 "$out/MOREREF.WK1"
+    ;;
   test_i123_widthrange)
     (cd tests/fixtures/width-range && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
     "$bin" "$out"

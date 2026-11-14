@@ -54,7 +54,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 46 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 47 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
 Bochs, including an independent check of the worksheet saved from the Finder.
@@ -91,7 +91,7 @@ three named formula exceptions remain documented by the formula oracle.
 | Menu branch | Implemented today |
 |---|---|
 | Worksheet | Global formats/label prefix/width, recalculation order/mode/iteration, global protection; current-column and column-range Set-Width/Reset-Width; Erase No/Yes. |
-| Range | Format (Fixed, Sci, Currency, comma, General, +/-, Percent, Date 1/2/3, Text, Hidden, Reset), label alignment, Erase, Name Create/Delete/Labels/Reset/Table, Prot/Unprot, Value and Trans. |
+| Range | Format (Fixed, Sci, Currency, comma, General, +/-, Percent, Date 1/2/3, fixed AM/PM Time 1/2, Text, Hidden, Reset), label alignment, Erase, Name Create/Delete/Labels/Reset/Table, Prot/Unprot, Value and Trans. |
 | Copy, Move | Snapshot transfers, singleton-axis tiling for Copy rectangles, formula reference adjustment, named ranges; Copy retains the allowed prefix on protection refusal, Move checks all destinations first. Capacity failures discard the candidate bank. |
 | File | Retrieve and Save WK1, Cancel/Replace on existing files. Backup is omitted. |
 | Print, Data | Menu navigation and Quit/escape; execution leaves below refuse. |
@@ -117,7 +117,7 @@ mkdir -p ../../build/apps/initech123/save-probe
   tests/fixtures/protection --save-safety
 ```
 
-There are **222 refused slash-menu leaves**. **File Save > Backup** in
+There are **218 refused slash-menu leaves**. **File Save > Backup** in
 the replacement prompt is removed by the approved split. Every slash leaf
 below shows `Command not implemented`; Esc returns to READY. Quit leaves that
 return to READY are navigation, not unavailable operations. No listed command
@@ -130,7 +130,7 @@ and agrees with the 224-leaf October audit. Sources: legacy-final
 | Parent menu | Every unavailable leaf |
 |---|---|
 | `/Worksheet/Global/Format/Date` | `4 (Long Intn'l)`, `5 (Short Intn'l)` |
-| `/Worksheet/Global/Format/Date/Time` | `1 (HH:MM:SS AM/PM)`, `2 (HH:MM AM/PM)`, `3 (Long Intn'l)`, `4 (Short Intn'l)` |
+| `/Worksheet/Global/Format/Date/Time` | `3 (Long Intn'l)`, `4 (Short Intn'l)` |
 | `/Worksheet/Global/Default/Printer` | `Interface`, `Left`, `Right`, `Top`, `Bot`, `Pg-Length`, `Setup`, `Name` |
 | `/Worksheet/Global/Default/Printer/AutoLF` | `Yes`, `No` |
 | `/Worksheet/Global/Default/Printer/Wait` | `No`, `Yes` |
@@ -155,7 +155,7 @@ and agrees with the 224-leaf October audit. Sources: legacy-final
 | `/Worksheet` | `Status`, `Page` |
 | `/Worksheet/Learn` | `Range`, `Cancel`, `Erase` |
 | `/Range/Format/Date` | `4 (Long Intn'l)`, `5 (Short Intn'l)` |
-| `/Range/Format/Date/Time` | `1 (HH:MM:SS AM/PM)`, `2 (HH:MM AM/PM)`, `3 (Long Intn'l)`, `4 (Short Intn'l)` |
+| `/Range/Format/Date/Time` | `3 (Long Intn'l)`, `4 (Short Intn'l)` |
 | `/Range` | `Justify`, `Input` |
 | `/Range/Search/Formulas` | `Find`, `Replace` |
 | `/Range/Search` | `Label`, `Both` |
@@ -242,3 +242,10 @@ Frozen omission: **File Save > Backup**. The existing-file row is exactly
 `Cancel  Replace`; B has no action, no gray item and no refusal prompt.
 This is the first removal from the approved 18-implement/207-remove split.
 Cancel/Replace and save-failure preservation remain checked independently.
+
+Range and Global Format Date Time 1/2 now provide fixed AM/PM display,
+including captured rounding/carry behavior, leading hour zeros, formula
+results and explicit-cell overrides. `tests/fixtures/time-formats` retains
+independent VGA/WK1 captures. The time suite compares glyphs directly to VGA
+character bytes and saved cell/global-format records with a separate reader.
+International Time 3/4 remain in the approved removal inventory.

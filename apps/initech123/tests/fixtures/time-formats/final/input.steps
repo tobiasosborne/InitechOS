@@ -1,0 +1,14 @@
+sleep 4
+key esc
+type /frGLOBAL2
+key ret
+sleep 1
+type /wcs10
+key ret
+sleep 0.8
+shot narrow
+type /fsNARROW
+key ret
+sleep 2
+shot saved
+end

@@ -132,6 +132,8 @@
 #define WK1_FS_D3            4u        /* MMM-YY                               */
 #define WK1_FS_TEXT          5u
 #define WK1_FS_HIDDEN        6u
+#define WK1_FS_TIME1         7u        /* real R2.2 fixed seconds, AM/PM      */
+#define WK1_FS_TIME2         8u        /* real R2.2 fixed minutes, AM/PM      */
 #define WK1_FS_DEFAULT       15u       /* 0x7F / 0xFF: use WINDOW1 byte 4      */
 #define WK1_FMT_FRESH_CELL   0xFFu     /* every cell 123.EXE wrote in the minted set */
 

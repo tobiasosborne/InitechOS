@@ -875,6 +875,7 @@ static void menu_select(void)
                 prompt(A_FORMAT,g_arg?"Enter number of decimal places (0..15): ":"Enter range to format: ");return;
             }
             if(g_depth==3&&g_menu_index<3) {g_format=(uint8_t)(0x72+g_menu_index);g_arg=0;prompt(A_FORMAT,"Enter range to format: ");return;}
+            if(g_depth==4&&g_menu_index<2) {g_format=(uint8_t)(0x77+g_menu_index);g_arg=0;prompt(A_FORMAT,"Enter range to format: ");return;}
         }
         if(g_depth==2&&g_indexes[1]==1) {g_arg=g_menu_index==0?'\'':g_menu_index==1?'"':'^';prompt(A_LABEL,"Enter range of labels: ");return;}
         if(g_depth==2&&g_indexes[1]==3) {
@@ -898,6 +899,7 @@ static void menu_select(void)
                 g_format=f[g_menu_index];g_arg=g_menu_index<4||g_menu_index==6;
                 if(g_arg){prompt(A_FORMAT,"Enter number of decimal places (0..15): ");return;}
             } else if(g_depth==4&&g_menu_index<3)g_format=(uint8_t)(0x72+g_menu_index);
+            else if(g_depth==5&&g_menu_index<2)g_format=(uint8_t)(0x77+g_menu_index);
             else {unsupported();return;}
             i123_sheet_t next;if(!spare(&next)){next.win1[WK1_W1_FMT]=g_format;changed(&next);}return;
         }

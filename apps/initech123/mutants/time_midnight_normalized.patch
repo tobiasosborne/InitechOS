@@ -1,0 +1,8 @@
+# test: test_i123_time
+--- a/core/fmt.c
++++ b/core/fmt.c
+@@ -349,3 +349,3 @@
+     }
+-    s[n++]=' ';s[n++]=hour>=12u?'P':'A';s[n++]='M';s[n]=0;
++    s[n++]=' ';s[n++]=hour%24u>=12u?'P':'A';s[n++]='M';s[n]=0;
+     place_number(s,' ',width,out);
