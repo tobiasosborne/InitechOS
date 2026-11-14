@@ -257,3 +257,8 @@ entries. A failed row restores its predecessor; earlier completed rows remain.
 The `fromfail` fault matrix compares exact imported bytes and every index key,
 including second-row failures after the first row has completed. Error codes
 cannot turn a failed insertion into a successful blank import.
+
+APPEND BLANK uses the same complete-record transaction as APPEND FROM. A
+reported index failure restores the original DBF and all indexes, including
+a successfully updated first index when the second fails. `blankfail` grades
+exact original rows, the new blank row, index coverage and recovered retries.

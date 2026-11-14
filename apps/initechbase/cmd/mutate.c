@@ -698,7 +698,7 @@ static void m_reject_records(wa_env *env,int area,uint32_t recno)
     }
 }
 
-/* Complete one imported row before releasing its DBF/NDX predecessors.
+/* Complete one new row before releasing its DBF/NDX predecessors.
  * The operator's failure guarantee applies to this record; previously
  * completed records remain committed (Using III+ U5-28; DML-08 capture). */
 static int m_append_record(xb_interp *ip,const int *map,const xb_val *input,int nf,int *ec)
@@ -757,8 +757,6 @@ static int m_append(xb_interp *ip, const char *args, int *ec)
     int area = wa_selected(env);
     dbf_table *tbl = wa_table(env, area);
     const char *s = m_skip_ws(args);
-    uint32_t newrec;
-    int rc, i, nidx;
 
     if (!tbl) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
 
@@ -766,32 +764,9 @@ static int m_append(xb_interp *ip, const char *args, int *ec)
      * full-screen editor (no terminal here) -- we accept BLANK only. */
     if (m_match_kw(s, "BLANK") <= 0) { if (ec) *ec = *s ? 36 : 0; return -INTERP_ERR_SYNTAX; }
 
-    rc = dbf_append_blank_commit(tbl);
-    if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
-
-    /* APPEND BLANK moves the pointer to the new record (data-definition sec 4). */
-    newrec = dbf_nrec(tbl);
-    (void)wa_refresh(env, area, newrec);
-    (void)wa_nav_reset(area);          /* the index seq is now stale */
-
-    /* Insert the blank record's key into every open index. */
-    nidx = wa_index_count(env, area);
-    for (i = 0; i < nidx; i++) {
-        ndx_index *ix = wa_index(env, area, i);
-        uint8_t key[M_MAX_KEY];
-        uint16_t klen;
-        if (!ix) continue;
-        klen = ndx_key_length(ix);
-        if (klen == 0u || (uint32_t)klen > (uint32_t)M_MAX_KEY) continue;
-        rc = m_encode_key(ip, ndx_key_expr(ix), ndx_key_type(ix), klen, key, ec);
-        if (rc != INTERP_OK)
-            return rc;
-        rc = ndx_insert_key(ix, key, newrec);
-        if (rc != NDX_OK) { if (ec) *ec = 0; return -INTERP_ERR_EVAL; }
-    }
-
-    if (ec) *ec = 0;
-    return INTERP_OK;
+    /* The same complete-record boundary as APPEND FROM, without source
+     * fields. On success the cursor remains on the new physical record. */
+    return m_append_record(ip,0,0,0,ec);
 }
 
 /* ===================================================================== */
