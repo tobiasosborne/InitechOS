@@ -183,7 +183,7 @@ values, record counts and seeks. GET/READ is unchanged.
 The artifact sizes and hashes earlier in this README describe the imported
 baseline, before this change. `make package-check` reports the current loader
 geometry and validates the actual EXE/OVL pair; no size or hash above is a
-claim about the current build. The 23 pending patches remain unproved.
+claim about the current build. The 19 pending patches remain unproved.
 
 The C19/C20/C21 conformance repair selection is now part of tier 0 (77 suites).
 Its real III+ fixtures come unchanged from the conformance study. An old NDX
@@ -194,7 +194,7 @@ sequence, then invalidates navigation state. C21's transcript, the edited row 2
 and the rebuilt two-entry NDX match real III+; its booted smoke readback checks
 the same three results on both emulators. The study's other fifteen defects
 are being repaired against their retained captures; the accepted selection is
-listed below. The 23 pending patches remain to be qualified.
+listed below. The 19 pending patches remain to be qualified.
 
 INDEX and REINDEX retain each predecessor through their final reopen, header,
 attachment and navigation checks. An error restores the old file and index
@@ -228,5 +228,13 @@ eight captured supported command workflows and compares all 4002 screen and
 cursor bytes to real III+. It starts from a captured filled page to qualify
 CLEAR, includes full-page cursor wrap and large-coordinate narrowing, and
 executes CLEAR ALL through the real command/work-area path. All five compile
-and fail this oracle twice under the strict runner. Twenty-three original
+and fail this oracle twice under the strict runner. Nineteen original
 patches remain pending, as listed in `mutants/pending/README.md`.
+
+The same oracle now covers eleven workflows, including actual prompt policy
+and writing after captured NFILL/CF1 returns. Four more original pending faults
+are active: bottom placement, scoreboard scrolling, deferred CLEAR cleanup
+and clearing 80 columns instead of 79. `tests/prompt-tail` retains a new genuine
+III+ VGA/BIOS cursor capture in which the final Z survives the next dot prompt.
+All four compile and fail the strict runtime check twice. Nine of the original
+28 pending faults are qualified; nineteen remain.

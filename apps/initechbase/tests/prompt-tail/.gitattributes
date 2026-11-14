@@ -1,0 +1,4 @@
+*.screen -text -diff
+*.vga -text -diff
+*.bin -text -diff
+SETUP/*.PRG -text -diff

@@ -1,4 +1,4 @@
-# test: test_w2_host
+# test: test_ibase_forms
 --- a/core/screen.c
 +++ b/core/screen.c
 @@ -80,0 +81 @@

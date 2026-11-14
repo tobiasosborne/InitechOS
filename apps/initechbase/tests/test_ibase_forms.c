@@ -42,21 +42,24 @@ static void copy(const char *from,const char *to)
 }
 int main(void)
 {
-    static const struct{const char *dir,*name;} cases[]={
-        {"at-to-a","TA"},{"at-to-a","TB"},{"at-to-a","TD"},
-        {"at-to-b","TE"},{"at-large","LA"},{"at-large","LB"},
-        {"at-clear-d","DD"},{"at-clear-d","DC"}
+    static const struct{const char *dir,*name,*prompt_capture;int cleared;} cases[]={
+        {"at-to-a","TA",NULL,0},{"at-to-a","TB",NULL,0},{"at-to-a","TD",NULL,0},
+        {"at-to-b","TE",NULL,0},{"at-large","LA",NULL,0},{"at-large","LB",NULL,0},
+        {"at-clear-d","DD",NULL,0},{"at-clear-d","DC",NULL,0},
+        {"at-dot-c","NFILL","e1",0},{"at-dot-c","CF1","e4",1},
+        {"prompt-tail","TAIL","tail",1}
     };
     char root[2048];if(!getcwd(root,sizeof root))return 2;
     for(unsigned i=0;i<sizeof cases/sizeof cases[0];i++){
         char temp[]="build/forms-target.XXXXXX",work[4096],path[8192],line[512];FILE *in,*out;
         screen_file expected;struct w2_host_env env;
+        const char *base=!strcmp(cases[i].dir,"prompt-tail")?"tests":"tests/xbase_prog_diff/screen-mint";
         ibase_pal_t *pal=pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
         if(!pal || !mkdtemp(temp))return 2;
         snprintf(work,sizeof work,"%s/%s",root,temp);
         snprintf(path,sizeof path,"%s/MINT.PRG",work);out=screen_open(path,"wb");
         fputs("SET TALK OFF\nSET SAFETY OFF\nSET STATUS OFF\n",out);
-        snprintf(path,sizeof path,"tests/xbase_prog_diff/screen-mint/%s/SETUP/%s.PRG",cases[i].dir,cases[i].name);
+        snprintf(path,sizeof path,"%s/%s/SETUP/%s.PRG",base,cases[i].dir,cases[i].name);
         in=screen_open(path,"rb");
         while(fgets(line,sizeof line,in) && strncmp(line,"DO WHILE INKEY()",16))fputs(line,out);
         fclose(in);fclose(out);
@@ -75,9 +78,16 @@ int main(void)
         int rc=w2_host_startup(pal,ip,"MINT.PRG");
         if(rc)fprintf(stderr,"RED forms prefix %s/%s rc=%d error=%d\n",cases[i].dir,cases[i].name,rc,ibase_last_error(ip));
         CHECK(rc==0,"captured supported forms prefix completes");
-        page.bytes[4000]=(uint8_t)xb_interp_ctx(ip)->screen_row;
-        page.bytes[4001]=(uint8_t)xb_interp_ctx(ip)->screen_col;
-        snprintf(path,sizeof path,"tests/xbase_prog_diff/screen-mint/%s/%s.screen",cases[i].dir,cases[i].name);
+        if(cases[i].prompt_capture){
+            ibase_screen_prompt(&model,1,cases[i].cleared);
+            ibase_screen_write(&model,". ",2);
+            page.bytes[4000]=model.row;page.bytes[4001]=model.col;
+        }else{
+            page.bytes[4000]=(uint8_t)xb_interp_ctx(ip)->screen_row;
+            page.bytes[4001]=(uint8_t)xb_interp_ctx(ip)->screen_col;
+        }
+        snprintf(path,sizeof path,"%s/%s/%s.screen",base,cases[i].dir,
+                 cases[i].prompt_capture?cases[i].prompt_capture:cases[i].name);
         screen_read(path,&expected);
         if(memcmp(page.bytes,expected.bytes,4002))fprintf(stderr,"RED actual forms screen %s/%s\n",cases[i].dir,cases[i].name);
         CHECK(!memcmp(page.bytes,expected.bytes,4002),"all target characters, attributes and cursor equal real III+");
