@@ -93,7 +93,7 @@ three named formula exceptions remain documented by the formula oracle.
 | Worksheet | Global formats/label prefix/width, recalculation order/mode/iteration, global protection; current-column Set-Width/Reset-Width; Erase No/Yes. |
 | Range | Format (Fixed, Sci, Currency, comma, General, +/-, Percent, Date 1/2/3, Text, Hidden, Reset), label alignment, Erase, Name Create/Delete/Labels/Reset/Table, Prot/Unprot, Value and Trans. |
 | Copy, Move | Snapshot transfers, singleton-axis tiling for Copy rectangles, formula reference adjustment, named ranges; Copy retains the allowed prefix on protection refusal, Move checks all destinations first. Capacity failures discard the candidate bank. |
-| File | Retrieve and Save WK1, Cancel/Replace on existing files. Backup refuses. |
+| File | Retrieve and Save WK1, Cancel/Replace on existing files. Backup is omitted. |
 | Print, Data | Menu navigation and Quit/escape; execution leaves below refuse. |
 | Graph | Type/Name/Group navigation and Quit; execution leaves below refuse. |
 | System, Add-In | System and Add-In execution refuse. |
@@ -117,8 +117,8 @@ mkdir -p ../../build/apps/initech123/save-probe
   tests/fixtures/protection --save-safety
 ```
 
-There are **224 refused slash-menu leaves**, plus **File Save > Backup** in
-the replacement prompt (225 visible unavailable choices in total). Every leaf
+There are **224 refused slash-menu leaves**. **File Save > Backup** in
+the replacement prompt is removed by the approved split. Every slash leaf
 below shows `Command not implemented`; Esc returns to READY. Quit leaves that
 return to READY are navigation, not unavailable operations. No listed command
 is implemented by this import. Paths and spelling come from the independently
@@ -238,3 +238,8 @@ Integer, floating, signed and binary neighboring cases are retained. Literal
 strings follow a different reference path and keep the existing behavior;
 the accepted 249-character string fixture prevents imposing a guessed global
 bytecode or nesting cap. The decompiler can print the accepted deep neighbors.
+
+Frozen omission: **File Save > Backup**. The existing-file row is exactly
+`Cancel  Replace`; B has no action, no gray item and no refusal prompt.
+This is the first removal from the approved 18-implement/207-remove split.
+Cancel/Replace and save-failure preservation remain checked independently.

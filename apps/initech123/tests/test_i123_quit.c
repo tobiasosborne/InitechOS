@@ -248,7 +248,20 @@ static void t_replace_cancel(void)
     answer(1);
     CHECK(line_has(1, "x.wk1"), "Q8", "the save prompt offers the current file name");
     tk('\r');
-    CHECK(line_has(1, "Cancel  Replace  Backup"), "Q8", "an existing file asks Cancel / Replace / Backup (R2.2 p. 5-22)");
+    CHECK(line_has(1, "Cancel  Replace") && !line_has(1, "Backup"), "Q8", "an existing file offers only Cancel and Replace (approved omission)");
+    {
+        const tbx_host_file_t *old=tbx_host_file("X.WK1");
+        uint32_t size=old->size;
+        uint8_t *bytes=malloc(size);
+        if(!bytes)_exit(2);
+        memcpy(bytes,old->data,size);
+        tk('b');
+        old=tbx_host_file("X.WK1");
+        CHECK(g_mode==M_REPLACE && old && old->size==size && !memcmp(old->data,bytes,size),
+              "Q8","removed Backup shortcut changes neither prompt nor saved bytes");
+        CHECK(!file_exists("X.BAK"),"Q8","removed Backup creates no backup file");
+        free(bytes);
+    }
     tk('c');
     CHECK(m_exit_calls == 0, "Q8", "Replace > Cancel must not quit");
     menu_quit();

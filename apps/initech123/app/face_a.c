@@ -230,7 +230,7 @@ static uint8_t  g_dirty, g_asking, g_quit_after_save;
  * 03_save_prompt.png. A: replaces the reference's C: (our data drive).
  * Refusal/error/typed-file guidance and the drive substitution are authored,
  * no local reference. No advertised command silently succeeds. */
-static const char REPLACE_LINE[] = "Cancel  Replace  Backup";
+static const char REPLACE_LINE[] = "Cancel  Replace";
 /* THE ALERT'S WORDS (spec/toolbox_gate.h Sec 11; CR separates lines). Line 1
  * is the real 1-2-3's own warning, 123.RI 0x370 "WORKSHEET CHANGES NOT
  * SAVED!  End 1-2-3 anyway?", first sentence verbatim. Lines 2-3 and the
@@ -245,7 +245,7 @@ static const char REPLACE_LINE[] = "Cancel  Replace  Backup";
  *   Save       == the Mac addition: /File Save now, then end the session. */
 static const char QUIT_TEXT[] =
     "WORKSHEET CHANGES NOT SAVED!\rSave changes to the worksheet\rbefore quitting?";
-static const char REPLACE_NAMES[3][8] = { "Cancel", "Replace", "Backup" };
+static const char REPLACE_NAMES[2][8] = { "Cancel", "Replace" };
 /* One menu stack, preserving the highlighted item on Esc. */
 static uint16_t g_level, g_levels[12], g_indexes[12];
 static uint32_t g_depth;
@@ -351,8 +351,7 @@ static void paint_command(void)
         for (int i = 0; i < g_menu_index; i++) x += slen(REPLACE_NAMES[i])+2;
         put_line(LINE_PANEL2,(int)x,REPLACE_NAMES[g_menu_index],slen(REPLACE_NAMES[g_menu_index]),TBX_COLOR_WHITE,TBX_COLOR_NAVY);
         panel_line(LINE_PANEL3,g_menu_index==0?"Cancel command -- Leave existing file on disk intact":
-            g_menu_index==1?"Update the file on disk with the current file":
-            "Backup existing file (with a .BAK extension) and save the current file on disk");
+            "Update the file on disk with the current file");
     } else if (g_mode == M_GET || g_mode == M_SAVE) {
         const char *prompt = g_mode == M_GET ? "Name of file to retrieve: " : "Enter name of file to save: ";
         const char *name = g_nlen ? g_name : g_mode == M_SAVE && g_current[0] ? g_current : "A:\\*.wk1";
@@ -706,7 +705,7 @@ static void save(void)
     if (h >= 0) {
         rc = tbx_file_close(h);
         if (rc < 0) { file_error(rc); return; }
-        /* Reference Manual p. 5-22: Cancel, Replace, Backup. */
+        /* Reference p. 5-22; Backup omitted by the approved GM6 split. */
         g_replacing = 1; g_mode = M_REPLACE; g_menu_index = 0; command_paint();
     } else if (h == TBX_ERR_DOS(2)) { g_replacing = 0; write_sheet(); }
     else file_error(h);
@@ -824,7 +823,7 @@ static void menu_mode(void)
 static void menu_select(void)
 {
     if(g_mode==M_REPLACE) {
-        if(g_menu_index==0)ready();else if(g_menu_index==1)write_sheet();else unsupported();return;
+        if(g_menu_index==0)ready();else write_sheet();return;
     }
     const i123_menu_level_t *lv=&i123_menu_levels[g_level];
     const i123_menu_item_t *it=&i123_menu_items[lv->first+g_menu_index];
@@ -940,7 +939,7 @@ static void command_key(char ch, uint8_t vk)
         }
         g_name[g_nlen]=0;command_paint();return;
     }
-    uint32_t count=g_mode==M_REPLACE?3:i123_menu_levels[g_level].count;
+    uint32_t count=g_mode==M_REPLACE?2:i123_menu_levels[g_level].count;
     if(vk==VK_ENTER||ch=='\r'){menu_select();return;}
     if(vk==VK_LEFT||vk==VK_UP)g_menu_index=(g_menu_index+(int)count-1)%(int)count;
     else if(vk==VK_RIGHT||vk==VK_DOWN||ch==' ')g_menu_index=(g_menu_index+1)%(int)count;
