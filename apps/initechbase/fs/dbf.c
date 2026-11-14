@@ -1666,11 +1666,12 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
             digits[i]   = (uint8_t)('0' + (int)(d % 10));
             /* Using III+ U1-1; malformed descriptors still cannot write
              * outside their slot. Same bound as fmt_field (initech-ifpd). */
-            rt_memset(dst, ' ', flen);
+            /* Genuine III+ C28 writes its eight date bytes without clearing
+             * an oversized D slot's remaining bytes. Short slots stay bounded. */
             rt_memcpy(dst, digits, flen < 8u ? flen : 8u);
         } else {
             /* blank date / xb_u -> 8 spaces. flen is 8 (asserted at create). */
-            rt_memset(dst, ' ', (uint32_t)flen);
+            rt_memset(dst, ' ', flen < 8u ? flen : 8u);
         }
         return DBF_OK;
     }
