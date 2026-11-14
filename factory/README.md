@@ -88,9 +88,9 @@ registered component, including at the default CERT_STRICT=0. Standalone
 make status remains informational. CERT_JOBS (default 16) and
 CERT_MUTANT_JOBS (default 4) bound parallel work. Mutation summaries include
 pending patches without counting them as kills. Targets are invoked even for
-pending-only owners: unimplemented targets fail. Successful active sweeps with
-pending work are marked PASS_PENDING, with coverage explicitly incomplete;
-this does not certify the deferred patches or unfinished component imports.
+pending-only owners: unimplemented targets fail. Standalone active sweeps with pending work report incomplete coverage.
+Certificates reject pending or missing mutation coverage receipts with
+INCOMPLETE and a nonzero result at either CERT_STRICT setting.
 The seed's
 execution catchers use seed-guest.sh: real product DOS, separate test volume,
 FPC Delphi-mode 32-bit integer reference, stdout and persisted-file comparison.

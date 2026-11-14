@@ -30,18 +30,23 @@ case $1 in rev-parse) echo fixture;; esac
 GIT
 chmod +x "$work/bin/"*
 for strict in 0 1; do
- for name in green red host-green missing duplicate unknown empty malformed; do
+ for name in green red host-green missing duplicate unknown empty malformed pending; do
   dir=$work/$strict-$name
   mkdir -p "$dir/factory/testlib" "$dir/a/mutants"
   cp "$root/factory/cert.sh" "$root/factory/mutants.sh" "$dir/factory/"
   cp "$root/factory/testlib/"*.awk "$dir/factory/testlib/"
   : > "$dir/a/mutants/active.patch"
   printf '.PHONY: mutants\nmutants:\n\t@echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"\n' > "$dir/a/Makefile"
+  if [ "$name" = pending ]; then
+   mkdir -p "$dir/a/mutants/pending"; : > "$dir/a/mutants/pending/later.patch"
+  fi
   rc=0
   (cd "$dir" && PATH="$work/bin:$PATH" CASE=$name CERT_STRICT=$strict sh factory/cert.sh) > "$dir/log" 2>&1 || rc=$?
   if [ "$name" = green ]; then
    [ "$rc" -eq 0 ] || { cat "$dir/log"; exit 1; }
    grep -q 'status: PASS' "$dir/log"
+  elif [ "$name" = pending ]; then
+   [ "$rc" -ne 0 ] && grep -q "mutants: INCOMPLETE" "$dir/log" && grep -q "status: PASS" "$dir/log" || { cat "$dir/log"; exit 1; }
   else
    [ "$rc" -ne 0 ] && grep -q 'status: FAIL' "$dir/log" || { echo "FAIL cert accepted $name strict=$strict"; cat "$dir/log"; exit 1; }
   fi

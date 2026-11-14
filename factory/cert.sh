@@ -35,9 +35,12 @@ stage() {
     took=$(($(date +%s)-begun))
     state=PASS
     if [ "$rc" -ne 0 ]; then state=FAIL; failed=$((failed+1)); fi
-    if [ "$name" = mutants ] && [ "$rc" -eq 0 ] &&
-       [ "$(cat "$work/mutants/pending-count")" -gt 0 ]; then
-        state=PASS_PENDING
+    if [ "$name" = mutants ] && [ "$rc" -eq 0 ]; then
+        pending=$(cat "$work/mutants/pending-count" 2>/dev/null) || pending=missing
+        case $pending in
+          0) :;;
+          *) state=INCOMPLETE; rc=1; failed=$((failed+1));;
+        esac
     fi
     echo "$name: $state (${took}s; exit $rc)" >> "$work/summary"
     printf '\n=== %s ===\n' "$name" >> "$work/full.log"
