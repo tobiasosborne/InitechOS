@@ -24,3 +24,12 @@ For replay, use the fresh-media setup in ../conformance/capture.sh, install
 SETUP/TAIL.PRG as MINT.PRG, use STEPS with @OUT@ replaced by the absolute
 capture directory, then run goldens/dataloss/drive. Encode the 4000 VGA bytes
 followed by cursor.bin byte 1 then byte 0 with `screen_tool encode`.
+
+ENTER-STEPS repeats the fresh-media run, verifies the same initial prompt,
+then types uppercase X=1 and Enter before a second VGA/BIOS capture. The
+initial 4002 bytes are identical to tail.screen. In entered.screen, row 23
+contains `. X=1` with its final Z, row 24 holds the next `. ` prompt, and the
+cursor is (24,2). Exactly one row has scrolled. entered.vga and
+entered-cursor.bin are the unchanged real bytes. This native transport oracle
+is separate from the host prompt-model comparisons; no trimming or masking
+is permitted. Both captures use the same hash-pinned reference runtime.

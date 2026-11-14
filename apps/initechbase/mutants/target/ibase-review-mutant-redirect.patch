@@ -1,0 +1,18 @@
+# target: native-controls
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -991,12 +991,14 @@
+ }
+ static int dos_say_screen(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)
+ {
++    if(dos_is_console(1))
+     {
+         ibase_screen *s=&state_of(p)->screen;
+         ibase_screen_at(s,row,col,text,n);
+         dos_cursor(p,s->row,s->col);
+         return 0;
+     }
++    return dos_con_at(p,row,col,text,n,0);
+ }
+ /* pal.h paint: literal native cells, so (24,79) never scrolls. */
+ static int dos_paint(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n)

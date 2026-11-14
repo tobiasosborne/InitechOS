@@ -1,6 +1,8 @@
-# test: test_w2_host
+# target: native-color
 --- a/pal/pal_dos.c
 +++ b/pal/pal_dos.c
-@@ -1026 +1026 @@
+@@ -1025,3 +1025,3 @@
+ {
 -    state_of(p)->screen.attr=attr;
 +    (void)p;(void)attr;
+ }

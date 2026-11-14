@@ -52,6 +52,17 @@ target-mutants: target-mutant-controls
 target-mutant-controls:
 	+@sh tests/target-mutant-controls.sh "$(TOP)" "$(OUT)/target-mutant-controls" "$(MAKE)"
 
+.PHONY: native-tools native-prepare native-check
+native-tools: $(HOST_OUT)/screen_capture $(HOST_OUT)/test_console_review $(HOST_OUT)/screen_tool
+native-prepare: package native-tools
+	+$(MAKE) -C $(TOP) image
+target-mutant-controls: native-prepare
+NATIVE_MODES ?= forms enter keys color color-state controls continuation
+native-check: native-prepare
+	@set -e; for mode in $(NATIVE_MODES); do \
+	 sh tests/native/check.sh "$$mode" "$(TOP)" "$(OUT)/INITBASE.EXE" "$(OUT)/INITBASE.OVL" "$(OUT)/native/$$mode"; \
+	done
+
 # Host-only sandbox compiles are identical except for debug paths. Cache them
 # when available; omit debug information there so scratch paths do not defeat
 # the cache. Product flags and the ordinary host oracle are unchanged.
@@ -151,6 +162,8 @@ $(OUT)/smoke/fixtures: tests/smoke/fixtures.c FORCE
 $(HOST_OUT)/retained-screens: $(HOST_OUT)/screen_tool $(HOST_OUT)/w4_screen_check
 $(HOST_OUT)/screen_tool: tests/screen_tool.c tests/screen_file.h FORCE | $(HOST_OUT)
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -MMD -MP -MF $@.d -o $@ $<)
+$(HOST_OUT)/screen_capture $(HOST_OUT)/test_console_review: $(HOST_OUT)/%: tests/%.c tests/screen_file.h FORCE | $(HOST_OUT)
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Itests -MMD -MP -MF $@.d -o $@ $<)
 $(HOST_OUT)/w4_screen_check: tests/w4_screen_check.c tests/screen_file.h FORCE | $(HOST_OUT)
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -MMD -MP -MF $@.d -o $@ $<)
 

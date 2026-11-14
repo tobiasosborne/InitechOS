@@ -1,0 +1,14 @@
+wait PROMPT-READY
+sleep 0.5
+shot prompt
+hmp pmemsave 0x450 2 "@OUT@/prompt-cursor.bin"
+type X=1
+key ret
+sleep 0.5
+shot entered
+hmp pmemsave 0x450 2 "@OUT@/entered-cursor.bin"
+type QUIT
+key ret
+wait CAPTURE-DONE
+shot result
+end

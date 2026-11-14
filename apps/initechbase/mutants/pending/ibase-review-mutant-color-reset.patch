@@ -1,6 +1,0 @@
-# test: test_w2_host
---- a/pal/pal_dos.c
-+++ b/pal/pal_dos.c
-@@ -734 +734 @@
--        screen->attr=attr;
-+        (void)attr;

@@ -26,6 +26,15 @@ for patch_file do
  static-cross) diagnostic='prohibited cross reference from .ovl_report to `ndx_rebuild' ;;
  static-resref) diagnostic='prohibited cross reference from .text to `.text.0ovl_report' ;;
  static-reenter) diagnostic='no-returning-into-an-evicted-overlay rule violated: ibase_ovl_call' ;;
+ native-forms|native-enter|native-keys|native-color|native-color-state|native-controls)
+  oracle=${mode#native-}
+  if [ ! -f "$run/baseline/$mode.ok" ]; then
+   if ! sh tests/native/check.sh "$oracle" "$top" "$run/baseline/build/INITBASE.EXE" "$run/baseline/build/INITBASE.OVL" "$run/baseline/$mode" > "$run/baseline/$mode.log" 2>&1; then
+    echo "ERROR native baseline $mode ($run/baseline/$mode.log)";errors=$((errors+1));continue
+   fi
+   touch "$run/baseline/$mode.ok"
+  fi
+  ;;
  *) echo "ERROR unknown target oracle: $patch_file"; errors=$((errors+1)); continue;;
  esac
  scratch=$run/$name
@@ -33,6 +42,23 @@ for patch_file do
  if ! patch --batch --forward --fuzz=0 -p1 -d "$scratch/component" < "$src/$patch_file" > "$scratch/patch.log" 2>&1; then
   echo "ERROR patch: $patch_file"; errors=$((errors+1)); continue
  fi
+ case $mode in native-*)
+  if ! "$make_cmd" --no-print-directory -j2 -C "$scratch/component" TOP="$top" OUT="$scratch/build" package > "$scratch/build.log" 2>&1; then
+   echo "ERROR target compilation $name ($scratch/build.log)";errors=$((errors+1));continue
+  fi
+  good=1
+  for pass in 1 2; do
+   rc=0
+   sh tests/native/check.sh "$oracle" "$top" "$scratch/build/INITBASE.EXE" "$scratch/build/INITBASE.OVL" "$scratch/observe-$pass" > "$scratch/observe-$pass.log" 2>&1 || rc=$?
+   if [ "$rc" -ne 1 ] || ! grep -E '^RED: first difference|^RED console-review:' "$scratch/observe-$pass.log" > "$scratch/verdict-$pass"; then good=0; fi
+  done
+  if [ "$good" -eq 1 ] && cmp -s "$scratch/verdict-1" "$scratch/verdict-2"; then
+   echo "  killed $name ($mode: completed guest, same independent screen rejection twice)";killed=$((killed+1))
+  else
+   echo "ERROR/SURVIVED $name ($scratch/observe-1.log)";errors=$((errors+1))
+  fi
+  continue;;
+ esac
  good=1
  for pass in 1 2; do
   rm -f "$scratch/build/IBASE.elf" "$scratch/build/INITBASE.EXE" "$scratch/build/INITBASE.OVL"

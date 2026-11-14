@@ -1,8 +1,14 @@
-# test: test_w2_host
+# target: native-keys
 --- a/pal/pal_dos.c
 +++ b/pal/pal_dos.c
-@@ -751,4 +750,0 @@
+@@ -748,10 +748,6 @@
+     for(;;) {
+         c=dos_conin_char(p);
+         if(c<0) return -1;
 -        /* IBM/DOS extended keys arrive as one 00,scan pair (8011ad44).
 -         * Consume navigation/function scans as keys, never printable text.
 -         * This line editor appends/erases; it has no interior insertion point. */
 -        if(c==0) { if(dos_conin_char(p)<0)return -1;continue; }
+         if(c=='\r' || c=='\n') break;
+         if(c=='\b') { if(n) { n--; if(echo) dos_conout(p,"\b \b",3); } continue; }
+         if(c<32 || c>126) continue;

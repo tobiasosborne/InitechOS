@@ -1,6 +1,0 @@
-# test: test_w2_host
---- a/pal/pal_dos.c
-+++ b/pal/pal_dos.c
-@@ -826 +826 @@
--        return dos_terminal_line(p,buf,cap,2);
-+        return dos_terminal_line(p,buf,cap,1);

@@ -1,0 +1,12 @@
+# target: native-color-state
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -731,7 +731,7 @@
+         /* Start a fresh command page with a bounded 22-row viewport. */
+         uint8_t attr=screen->attr;
+         ibase_screen_init(screen,dos_draw,p);
+-        screen->attr=attr;
++        (void)attr;
+         screen->scroll=dos_scroll;
+         dos_rawout(p,"\033[2J",4);
+     }

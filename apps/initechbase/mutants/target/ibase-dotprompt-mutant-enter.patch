@@ -1,0 +1,12 @@
+# target: native-enter
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -823,7 +823,7 @@
+ static int32_t dos_conin_command(ibase_pal_t *p,char *buf,uint32_t cap)
+ {
+     if(dos_is_console(0)) {
+-        return dos_terminal_line(p,buf,cap,2);
++        return dos_terminal_line(p,buf,cap,1);
+     }
+     return ibase_line_read(&state_of(p)->input,dos_input_read,p,buf,cap);
+ }

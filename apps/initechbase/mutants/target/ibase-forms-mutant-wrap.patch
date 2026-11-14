@@ -1,0 +1,20 @@
+# target: native-forms
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -976,14 +976,13 @@
+ static int dos_con_at(ibase_pal_t *p,uint8_t row,uint8_t col,const char *text,uint32_t n,int cells)
+ {
+     if(cells) {
+-        if(n)dos_draw_cells((ibase_pal_t *)0,row,col,state_of(p)->screen.attr,text,n);
+-        dos_cursor(p,row,(uint8_t)(col+n<80u?col+n:79u));
++        dos_cursor(p,row,col);
++        dos_rawout(p,text,n);
+         return 0;
+     }
+     char seq[16];uint32_t pos=dos_cup(seq,row,col);int result=0;
+     pal_fd fd=dos_open(p,"CON",PAL_WR);
+     if(fd<0)return -PAL_EIO;
+-    if(cells && dos_write(p,fd,"\033[=7l",5)!=5) result=-PAL_EIO;
+     if(dos_write(p,fd,seq,pos)!=(int32_t)pos || dos_write(p,fd,text,n)!=(int32_t)n) result=-PAL_EIO;
+     if(cells && dos_write(p,fd,"\033[=7h",5)!=5) result=-PAL_EIO;
+     if(dos_close(p,fd))result=-PAL_EIO;
