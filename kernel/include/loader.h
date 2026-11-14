@@ -14,9 +14,9 @@
  *        (Risk 1 the return path, Risk 2 the 0x100 offset, Risk 3 the 4Ch
  *        contract); spec/memory_map.h (the LOCKED addresses); os/initechdos/psp.h
  *        (psp_build + psp_params_t); os/initechdos/int21.h (int21_set_exit /
- *        int21_exit_fn -- the hook we repoint). CLAUDE.md Law 1 (cite), Law 2
- *        (oracle is truth), Law 3 (artifact = C), Rule 2 (fail loud), Rule 8
- *        (specs-as-data), Rule 11 (deterministic), Rule 12 (ASCII).
+ *        int21_exit_fn -- the hook we repoint). CLAUDE.md, The constitution (cite), The constitution
+ *        (oracle is truth), The constitution (artifact = C), The constitution (fail loud), The constitution
+ *        (specs-as-data), The constitution (deterministic), The constitution (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only. The
  * HOST-TESTABLE prep (loader_prepare: input validation + layout + the psp_params
@@ -33,7 +33,7 @@
 #include <stdint.h>
 #include "psp.h"   /* psp_params_t -- the inputs loader_prepare computes */
 
-/* loader_status_t -- the result of input validation (Rule 2: fail loud, never
+/* loader_status_t -- the result of input validation (The constitution: fail loud, never
  * silently load a bogus image). loader_prepare() returns one of these so the
  * host oracle can assert the fail-loud behavior without trapping. */
 typedef enum loader_status {
@@ -51,7 +51,7 @@ typedef enum loader_status {
     /* EXEC env inheritance (beads initech-1i0x Tranche E inc 3): a non-zero
      * env_block that is not the locked ENV_BLOCK region -- the caller asked the
      * child to inherit an env block at an address the loader never wrote. Fail
-     * loud (Rule 2) rather than build a PSP env_seg pointing at garbage. */
+     * loud (The constitution) rather than build a PSP env_seg pointing at garbage. */
     LOADER_ERR_BAD_ENV,
     /* InitechMZ (.EXE) load (beads initech-wczy / dtw.2; ADR-0003 DEC-08a): */
     LOADER_ERR_FOREIGN_MZ,   /* a genuine UNTAGGED 16-bit DOS MZ reached the
@@ -62,7 +62,7 @@ typedef enum loader_status {
     LOADER_ERR_BAD_FORMAT,   /* a tagged MZ that is otherwise malformed: a bad
                               * header (truncated, header > image), an OOB reloc,
                               * or a load module too big for PROGRAM_IMAGE_MAX.
-                              * Fail loud (Rule 2) -- do NOT run garbage. */
+                              * Fail loud (The constitution) -- do NOT run garbage. */
     /* Disk-launched FLAIR tenant load (bead initech-tdnl.14; DEC-AC3-1): the
      * caller's heap carve for the code block failed (BC-5 fail-loud budget). */
     LOADER_ERR_NOMEM,
@@ -109,7 +109,7 @@ typedef struct loader_plan {
      * (and arena_base==arena_ceil==0) when the image is too large to leave a
      * positive arena below the ceiling -- the program then runs with NO heap and
      * 48h reports insufficient memory (fail loud, never a corrupting overlap).
-     * The host oracle asserts these directly (Law 2). */
+     * The host oracle asserts these directly (The constitution). */
     uint32_t     arena_base;   /* flat linear base of the disjoint heap arena     */
     uint32_t     arena_ceil;   /* flat linear ceiling (exclusive); == ENV_BLOCK   */
     /* DEC-03a.4/.5, initech-jarzu: explicit model and low-control ownership.
@@ -123,7 +123,7 @@ typedef struct loader_plan {
  * flat addr the child PSP env_seg must point at; `write_empty` is 1 iff the loader
  * must synthesize the 2-byte empty env block at ENV_BLOCK (the inherit-empty /
  * legacy path), 0 iff the shell already populated [ENV_BLOCK, ...) and the loader
- * must leave it intact. The host oracle asserts both fields directly (Law 2). */
+ * must leave it intact. The host oracle asserts both fields directly (The constitution). */
 typedef struct loader_env_decision {
     uint32_t env_linear;   /* flat addr stored in the child PSP env_seg        */
     int      write_empty;  /* 1 => synthesize the 2-byte empty block at ENV_BLOCK */
@@ -133,7 +133,7 @@ typedef struct loader_env_decision {
  * (beads initech-1i0x Tranche E inc 3). Maps the caller's env_block (0 =
  * inherit-empty; ENV_BLOCK = inherit the shell's populated env) to a
  * loader_env_decision_t. A non-zero env_block that is NOT ENV_BLOCK fails loud
- * (LOADER_ERR_BAD_ENV); a NULL out fails LOADER_ERR_NULL_OUT (Rule 2). The kernel
+ * (LOADER_ERR_BAD_ENV); a NULL out fails LOADER_ERR_NULL_OUT (The constitution). The kernel
  * loader (loader_run_plan, kernel-only asm path) calls this to choose, so the
  * oracle and the artifact agree by construction. Ref: spec/memory_map.h ENV_BLOCK;
  * spec/dos_structs.h exec_param_block_t.env_block. */
@@ -221,7 +221,7 @@ int loader_image_is_transient(const uint8_t *image, uint32_t image_len);
  * file_len). The host oracle (test_mzload.c) drives it against a hand-authored
  * InitechMZ image and asserts the relocated dword, the entry, and the arena.
  *
- * MUTATION hook (Rule 6; -DLOADER_MUTATE_MZ_NO_RELOC): step 4 is SKIPPED so the
+ * MUTATION hook (How the tree is organised; -DLOADER_MUTATE_MZ_NO_RELOC): step 4 is SKIPPED so the
  * relocated-dword assertion goes RED.  Ref: ADR-0003 DEC-08a; mz.h. */
 loader_status_t loader_prepare_mz(uint8_t *file_at, uint32_t file_len,
                                   const char *cmd_tail, uint32_t cmd_tail_len,
@@ -280,7 +280,7 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
  * the FLAT linear address of the env block the child inherits, or 0 for
  * inherit-empty (the loader then synthesizes the 2-byte empty block at ENV_BLOCK,
  * the legacy behavior); a non-zero value MUST be the locked ENV_BLOCK region or
- * the call fails LOADER_ERR_BAD_ENV (Rule 2). Returns LOADER_OK on a clean
+ * the call fails LOADER_ERR_BAD_ENV (The constitution). Returns LOADER_OK on a clean
  * run-and-return with *out_exit_code set; a LOADER_ERR_* on a validation failure
  * (the program is NOT run). KERNEL ONLY; in a hosted build it is a validate-only
  * stub. Ref: spec/memory_map.h; ADR-0009 DEC-04; psp-loader-ground-truth.md Sec 4. */
@@ -311,7 +311,7 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  * subdir via fat12_find_slot_in over the cached FAT, then loads its own cluster
  * chain exactly as the root case.
  *
- * Fail loud (Rule 2) with a DISTINCT status on each failure:
+ * Fail loud (The constitution) with a DISTINCT status on each failure:
  *   - no volume bound                       -> LOADER_ERR_NO_VOLUME
  *   - file not in the directory             -> LOADER_ERR_NOT_FOUND
  *   - leaf resolves to a DIRECTORY (attr)   -> LOADER_ERR_NOT_FOUND (not runnable)
@@ -352,7 +352,7 @@ struct fat12_volume;   /* full type in os/initechdos/fat12.h (kernel-only) */
  * runs, so aliasing the backend's buffer is safe -- and it removes the 6 KiB
  * this module used to DUPLICATE in kernel .bss (the recurring kernel-window
  * pressure; beads y206/headroom). A NULL/zero `fat` (e.g. a windowed FAT16
- * volume with no whole-FAT cache) leaves the loader UNBOUND (fail loud, Rule 2)
+ * volume with no whole-FAT cache) leaves the loader UNBOUND (fail loud, The constitution)
  * -- EXEC-from-FAT16 is not a supported path this milestone. */
 void loader_bind_fat_volume(const struct fat12_volume *vol,
                             const uint8_t *fat, uint32_t fat_len);
@@ -468,7 +468,7 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
  *     any refusal, and is the footprint on LOADER_OK. Ref: PM ruling on
  *     cb3c7910 (initech-f9t); DEC-19 pending-ratification notes.
  *
- * MUTATION hooks (Rule 6): LOADER_MUTATE_OVL_NO_FACTOR (the factor is never
+ * MUTATION hooks (How the tree is organised): LOADER_MUTATE_OVL_NO_FACTOR (the factor is never
  * applied), LOADER_MUTATE_OVL_ACCEPT_FOREIGN (an untagged MZ is copied as a
  * raw file instead of refused), LOADER_MUTATE_OVL_COPY_FIRST (copy before
  * validating fixups, violating validation's whole-destination invariant). */

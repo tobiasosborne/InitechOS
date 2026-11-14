@@ -1,12 +1,12 @@
 /*
  * os/initechdos/fat12.h -- FAT12 volume mount + read interface (INITECHDOS).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code. Freestanding
+ * THE ARTIFACT (CLAUDE.md, The constitution): shipped InitechDOS kernel code. Freestanding
  * C -- only <stdint.h> / <stddef.h>, NO libc, NO malloc. Every buffer is
  * caller-provided. Compiles both freestanding (target) and hosted (so the
  * factory oracle can exercise it on the host).
  *
- * Ref (Law 1): PRD Sec 6.1; ADR-0003 DEC-07 (Sec 5.7, on-volume layout);
+ * Ref (The constitution): PRD Sec 6.1; ADR-0003 DEC-07 (Sec 5.7, on-volume layout);
  *   docs/research/fat12-ground-truth.md (Sec 1 BPB, Sec 2 geometry,
  *   Sec 3 FAT12 decode); spec/dos_structs.h (locked bpb_t / dir_entry_t).
  *
@@ -24,7 +24,7 @@
 #include "blockdev.h"
 #include "dos_structs.h"   /* bpb_t (spec/, on -Ispec) */
 
-/* Fail-loud error codes (CLAUDE.md Rule 2). All negative; 0 == success. */
+/* Fail-loud error codes (CLAUDE.md, The constitution). All negative; 0 == success. */
 enum {
 	FAT12_OK              =  0,
 	FAT12_ERR_READ        = -1, /* underlying blockdev read failed            */
@@ -46,7 +46,7 @@ enum {
 	                            /* attr re-types it (initech-b53d): access denied */
 };
 
-/* ---- ERROR-NUMBER LEDGER (keep this in sync -- Rule 2) ----
+/* ---- ERROR-NUMBER LEDGER (keep this in sync -- The constitution) ----
  * Codes -16 and below are #defined in their own feature sections further down
  * (they arrived with those features), so this ledger is the ONE place that shows
  * the whole numbering at a glance:
@@ -63,7 +63,7 @@ enum {
  * audit, docs/design/GUI-remediation-R3-finder-design.md Sec 0.3; renumbered to
  * -16 in beads initech-tdnl.8). Never reuse a number; add here first. */
 
-/* Deterministic dir-entry timestamp (CLAUDE.md Rule 11): the artifact has NO
+/* Deterministic dir-entry timestamp (CLAUDE.md, The constitution): the artifact has NO
  * clock and reproducible builds forbid a host timestamp. The FAT date/time
  * fields are implementation-specific on write (docs/research/fat12-ground-truth.md
  * Sec 4: "normalize to zero before diffing"), so the WRITE path stamps a FIXED
@@ -117,7 +117,7 @@ typedef enum {
  * window instead of a caller-supplied whole-FAT buffer -- transparently to every
  * higher-level chain walker. A NULL fat_window == the historical whole-FAT path,
  * byte-identical. READ-only: no FAT16 write/allocate path (deferred 509.11). Ref
- * (Law 1): docs/research/fat16-ground-truth.md Sec 2/3;
+ * (The constitution): docs/research/fat16-ground-truth.md Sec 2/3;
  * docs/research/fat12-ground-truth.md RISK-1. */
 typedef struct fat12_fat_window {
 	uint8_t  *buf;                /* caller-owned window buffer (>= 2 sectors)   */
@@ -165,7 +165,7 @@ typedef struct fat12_volume {
  * (a subdir whose ".." points at the root stores start_cluster 0), so
  * fat12_resolve_path normalizes start_cluster==0 => is_root=1 BEFORE any
  * cluster-LBA math (BPB_CLUSTER_LBA underflows on cluster 0).
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 4 (root dir region) +
+ * Ref (The constitution): docs/research/fat12-ground-truth.md Sec 4 (root dir region) +
  *   Sec 3 (chain); spec/dos_structs.h (dir_entry_t.start_cluster). */
 typedef struct fat12_dir {
 	int      is_root;        /* 1 => the fixed root directory; 0 => a subdir */
@@ -176,7 +176,7 @@ typedef struct fat12_dir {
  * fat12_mount: discover an MBR primary FAT partition or raw BPB at LBA 0,
  * validate its VBR, compute volume-relative geometry, classify FAT12/FAT16.
  *
- * Validation (fail loud, CLAUDE.md Rule 2):
+ * Validation (fail loud, CLAUDE.md, The constitution):
  *   - boot-sector signature must be 0xAA55           -> FAT12_ERR_SIGNATURE
  *   - bytes_per_sector must equal 512                -> FAT12_ERR_SECTOR_SIZE
  *   - geometry must be sane (nonzero divisors etc.)  -> FAT12_ERR_GEOMETRY
@@ -235,7 +235,7 @@ static inline int fat12_is_eoc(uint16_t v)  { return v >= FAT12_EOC_MIN; }
  * FAT16 is a flat array of little-endian uint16_t (NO 12-bit nibble packing):
  *   entry[N] = read_le16(fat + N*2).
  * The special-value thresholds are the FAT12 values WIDENED to 16 bits.
- * Ref (Law 1): Microsoft FAT spec Sec 3.2; docs/research/fat16-ground-truth.md
+ * Ref (The constitution): Microsoft FAT spec Sec 3.2; docs/research/fat16-ground-truth.md
  *   Sec 0/3 (the only differences from FAT12 are the decode + these thresholds;
  *   the BPB, geometry, dir entry, and root region are identical). The FAT16
  *   special values verified against a real `mkfs.fat -F 16` image this session
@@ -266,7 +266,7 @@ static inline int fat16_is_eoc(uint16_t v)  { return v >= FAT16_EOC_MIN; }
  * resolve_path / the dir scans) decodes FAT16 links correctly with no duplicated
  * walk logic; for FAT12 the 12-bit branch runs unchanged (byte-identical).
  *
- * Fail loud (Rule 2):
+ * Fail loud (The constitution):
  *   - any NULL argument                          -> FAT12_ERR_NULL
  *   - cluster < 2 (reserved 0/1)                 -> FAT12_ERR_CLUSTER
  *   - byte_offset+1 out of range vs fat_len      -> FAT12_ERR_CLUSTER
@@ -281,7 +281,7 @@ int fat16_next_cluster(const fat12_volume_t *vol, const void *fat,
  * eliminates the odd-cluster-straddles-a-sector-boundary case (brief RISK-1,
  * clusters 341/682/...). Decode (fat12_next_cluster) reads from this buffer.
  *
- * Fail loud (Rule 2):
+ * Fail loud (The constitution):
  *   - any NULL argument / NULL read fn                 -> FAT12_ERR_NULL
  *   - fat_buf_len < sectors_per_fat * bytes_per_sector -> FAT12_ERR_BUFFER
  *   - a failing device read                            -> FAT12_ERR_READ
@@ -299,7 +299,7 @@ int fat12_read_fat(const fat12_volume_t *vol, void *fat_buf,
  * FAT12 entry fits (docs/research/fat12-ground-truth.md RISK-1). After init, set
  * vol->fat_window = the descriptor; the decode primitives then stream the FAT
  * instead of needing a whole-FAT buffer. No I/O here (a NULL/short buffer is
- * caught at the first fat12_read_fat_sector, fail loud Rule 2).
+ * caught at the first fat12_read_fat_sector, fail loud The constitution).
  */
 void fat12_fat_window_init(fat12_fat_window_t *win, void *buf, uint32_t buf_len);
 
@@ -314,7 +314,7 @@ void fat12_fat_window_init(fat12_fat_window_t *win, void *buf, uint32_t buf_len)
  * absolute offset, so the decode in fat12_next_cluster / fat16_next_cluster is
  * byte-identical. vol->fat_window MUST be non-NULL.
  *
- * Fail loud (Rule 2):
+ * Fail loud (The constitution):
  *   - any NULL argument / NULL window / NULL read fn -> FAT12_ERR_NULL
  *   - cluster < 2 (reserved 0/1)                     -> FAT12_ERR_CLUSTER
  *   - the entry's absolute byte offset is past the FAT (off+1 >= FAT bytes)
@@ -337,7 +337,7 @@ int fat12_read_fat_sector(const fat12_volume_t *vol, uint16_t cluster,
  *   v = b[off] | (b[off+1] << 8);
  *   entry = (cluster even) ? (v & 0x0FFF) : (v >> 4).
  *
- * Fail loud (Rule 2):
+ * Fail loud (The constitution):
  *   - any NULL argument                          -> FAT12_ERR_NULL
  *   - cluster < 2 (reserved 0/1)                 -> FAT12_ERR_CLUSTER
  *   - byte_offset+1 out of range vs fat_len      -> FAT12_ERR_CLUSTER
@@ -351,12 +351,12 @@ int fat12_next_cluster(const fat12_volume_t *vol, const void *fat,
  * each visited cluster to `out_clusters` (caller-provided, capacity
  * max_clusters) and stopping at EOC. Sets *out_count to the number visited.
  *
- * This is the load-bearing ANTI-HANG guard (Rule 2): a cyclic or overlong
+ * This is the load-bearing ANTI-HANG guard (The constitution): a cyclic or overlong
  * chain MUST terminate with an error, never loop forever. The max_clusters
  * cap doubles as the loop bound -- a chain longer than the caller's array
  * (which is sized to the volume's cluster count) is by definition corrupt.
  *
- * Fail loud (Rule 2):
+ * Fail loud (The constitution):
  *   - any NULL arg / start_cluster < 2           -> FAT12_ERR_NULL / _CLUSTER
  *   - a free cluster mid-chain (corruption)      -> FAT12_ERR_CHAIN
  *   - a bad (0xFF7) cluster mid-chain            -> FAT12_ERR_CHAIN
@@ -402,7 +402,7 @@ int fat12_validate_file_chain(const fat12_volume_t *vol, const void *fat,
  *
  * `out` must hold at least FAT12_NAME83_MAX (13) bytes.
  *
- * Fail loud (Rule 2): NULL arg -> FAT12_ERR_NULL. Returns FAT12_OK on success.
+ * Fail loud (The constitution): NULL arg -> FAT12_ERR_NULL. Returns FAT12_OK on success.
  */
 int fat12_format_83(const dir_entry_t *e, char *out);
 
@@ -431,7 +431,7 @@ typedef int (*fat12_dirent_cb)(const dir_entry_t *e, void *user);
  * inspect e->attribute and decide); only the structural skips above are
  * applied so the callback sees every real 8.3 entry.
  *
- * Fail loud (Rule 2):
+ * Fail loud (The constitution):
  *   - any NULL arg / NULL read fn  -> FAT12_ERR_NULL
  *   - a failing device read        -> FAT12_ERR_READ
  * Returns FAT12_OK after the full scan, or the callback's non-zero value if it
@@ -449,7 +449,7 @@ int fat12_read_root_dir(const fat12_volume_t *vol, void *sector_buf,
  *
  * `sector_buf` is a caller scratch buffer of >= 512 bytes.
  *
- * Fail loud (Rule 2):
+ * Fail loud (The constitution):
  *   - any NULL arg          -> FAT12_ERR_NULL
  *   - a failing device read -> FAT12_ERR_READ (propagated)
  *   - no matching entry     -> FAT12_ERR_NOT_FOUND
@@ -545,19 +545,19 @@ int fat12_set_dirent_time(const fat12_volume_t *vol, const void *fat,
  *   *out_attr = the on-disk attribute byte (offset 0x0B) and return FAT12_OK. A
  *   matched entry that is itself a DIRECTORY or a VOLUME-LABEL is REJECTED with
  *   FAT12_ERR_ACCESS (DOS-faithful: CHMOD targets regular files, never a dir or
- *   volume label -- Rule 2 fail loud, never report a type-bit-laden attr as a
+ *   volume label -- The constitution fail loud, never report a type-bit-laden attr as a
  *   plain file attr). No write (read-only path); the volume need not be writable.
  *
  * fat12_set_attr (AL=01 SET): scan the directory for `name83`; on a match patch
  *   ONLY the attribute byte (offset 0x0B) to `attr` and write the entry back via
  *   the SAME primitive WRITE uses (fat12_write_dirent_in_dir) -- a read-modify-
  *   write that PRESERVES name/start_cluster/size AND mtime(0x16)/mdate(0x18)
- *   VERBATIM (Rule 11: the timestamp bytes are never touched, so a CHMOD leaves
+ *   VERBATIM (The constitution: the timestamp bytes are never touched, so a CHMOD leaves
  *   the on-disk date/time deterministic). REJECTS with FAT12_ERR_ACCESS, before
  *   any write, when (a) the matched entry is a DIRECTORY or VOLUME-LABEL, OR
  *   (b) `attr` itself sets the Directory(0x10) or VolLabel(0x08) bit (DOS forbids
  *   re-typing a dirent's class via CHMOD -- never silently corrupt the type bits,
- *   Rule 2). The volume MUST be writable (vol->dev->write_sectors != NULL) else
+ *   The constitution). The volume MUST be writable (vol->dev->write_sectors != NULL) else
  *   FAT12_ERR_WRITE.
  *
  * Both: a non-existent name -> FAT12_ERR_NOT_FOUND. `fat`/`fat_len` decode the
@@ -589,14 +589,14 @@ int fat12_set_attr(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * A zero-length file (file_size == 0; start_cluster may legitimately be 0) is
  * handled WITHOUT a chain walk: *out_bytes = 0, nothing copied.
  *
- * Fail loud (Rule 2):
+ * Fail loud (The constitution):
  *   - any NULL arg                      -> FAT12_ERR_NULL
  *   - out_buf_len < e->file_size        -> FAT12_ERR_BUFFER (never overflow)
  *   - a failing device read             -> FAT12_ERR_READ
  *   - a corrupt/over-short chain        -> FAT12_ERR_CHAIN
  *     (chain shorter than file_size needs, EOC/free/bad/out-of-range link hit
  *      before file_size satisfied, or walk errors propagated)
- * Anti-hang (Rule 2): the incremental walk is bounded by the volume's cluster
+ * Anti-hang (The constitution): the incremental walk is bounded by the volume's cluster
  * count (vol->total_clusters + 2); a cyclic/corrupt chain errors rather than
  * looping forever or over-reading.
  * Returns FAT12_OK with *out_bytes == e->file_size on success.
@@ -633,7 +633,7 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
  * sizes it to `len`. `fat` / `fat_len` is the whole-FAT buffer from
  * fat12_read_fat.
  *
- * Fail loud (Rule 2):
+ * Fail loud (The constitution):
  *   - any required NULL arg                          -> FAT12_ERR_NULL
  *     (out_buf/cluster_buf/fat are required only when bytes are actually read;
  *      a clean-EOF or zero-len call needs only vol/e/out_read.)
@@ -641,7 +641,7 @@ int fat12_read_file(const fat12_volume_t *vol, const void *fat, uint32_t fat_len
  *     covered, is corruption                         -> FAT12_ERR_CHAIN
  *   - a failing device read                          -> FAT12_ERR_READ
  *   - an out-of-range cluster decode (propagated)    -> FAT12_ERR_CLUSTER
- * Anti-hang (Rule 2): the incremental walk is bounded by the volume's cluster
+ * Anti-hang (The constitution): the incremental walk is bounded by the volume's cluster
  * count; a cyclic/corrupt chain errors rather than looping forever.
  * Returns FAT12_OK with *out_read set on success.
  */
@@ -659,11 +659,11 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
  * mtools (the gold reference) + an independent python3 reader (test-fat-write)
  * and the in-emulator round-trip (test-fatwrite).
  *
- * Ref (Law 1): Microsoft FAT spec (12-bit packed entries, free=0x000,
+ * Ref (The constitution): Microsoft FAT spec (12-bit packed entries, free=0x000,
  *   EOC 0xFF8..0xFFF, allocate the lowest free cluster); docs/research/
  *   fat12-ground-truth.md Sec 3 (FAT encode -- the EXACT inverse of the read
  *   decode) + Sec 4 (dir entry) + Sec 4 normalization note (date/time stamped
- *   to a fixed constant, Rule 11); ADR-0003 DEC-07 (both FATs kept in sync).
+ *   to a fixed constant, The constitution); ADR-0003 DEC-07 (both FATs kept in sync).
  *
  * All buffers caller-provided (no malloc). Every write goes through
  * vol->dev->write_sectors, which MUST be non-NULL for these to succeed (a
@@ -684,7 +684,7 @@ int fat12_read_partial(const fat12_volume_t *vol, const void *fat,
  *   odd cluster:  b[off] = (b[off] & 0x0F) | ((value<<4) & 0xF0);
  *                 b[off+1] = (value>>4) & 0xFF;
  *
- * Fail loud (Rule 2): NULL/cluster<2/out-of-range -> FAT12_ERR_NULL/_CLUSTER.
+ * Fail loud (The constitution): NULL/cluster<2/out-of-range -> FAT12_ERR_NULL/_CLUSTER.
  * `value` is masked to 12 bits. Returns FAT12_OK on success. This mutates the
  * in-memory FAT only; fat12_flush_fats commits it to disk. */
 int fat12_set_entry(void *fat, uint32_t fat_len, uint16_t cluster,
@@ -694,7 +694,7 @@ int fat12_set_entry(void *fat, uint32_t fat_len, uint16_t cluster,
  * fat12_flush_fats: write the whole in-memory FAT buffer `fat` (fat_len bytes,
  * = sectors_per_fat*bytes_per_sector) to ALL on-disk FAT copies (num_fats of
  * them, ADR-0003 DEC-07 "second (redundant) FAT"). Keeping the copies in sync
- * is mandatory: a real DOS / chkdsk reads either copy. Fail loud (Rule 2):
+ * is mandatory: a real DOS / chkdsk reads either copy. Fail loud (The constitution):
  * NULL/short buffer/no write_sectors -> error; a failing write -> FAT12_ERR_WRITE.
  */
 int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
@@ -712,9 +712,9 @@ int fat12_flush_fats(const fat12_volume_t *vol, const void *fat,
  *     cluster chain is freed (FAT updated, both copies flushed) and the entry
  *     reset to size 0 / start_cluster 0 (DOS CREAT semantics).
  *   - Otherwise the lowest free / deleted root slot is claimed; if the root dir
- *     is full -> FAT12_ERR_DIR_FULL (fail loud, Rule 2).
+ *     is full -> FAT12_ERR_DIR_FULL (fail loud, The constitution).
  *   - attr is stored (caller passes DIR_ATTR_ARCHIVE for a normal file).
- *   - mtime/mdate stamped to the fixed deterministic constant (Rule 11).
+ *   - mtime/mdate stamped to the fixed deterministic constant (The constitution).
  *
  * SUBDIRECTORY PARENT (beads initech-zs24): `parent_dir_start` is the first data
  * cluster of the directory the file is created in (0 == the fixed root, byte-
@@ -760,7 +760,7 @@ int fat12_create_timed(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * have truncated first (fat12_create truncates); this function assumes the slot
  * currently has start_cluster 0 / size 0.
  *
- * Fail loud (Rule 2): no free cluster -> FAT12_ERR_NO_SPACE (and the partial
+ * Fail loud (The constitution): no free cluster -> FAT12_ERR_NO_SPACE (and the partial
  * allocation is rolled back so the volume is not corrupted); write error ->
  * FAT12_ERR_WRITE. `cluster_buf` (>=512) is scratch.
  * Returns FAT12_OK on success. */
@@ -789,7 +789,7 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *     shared cluster's neighbouring bytes are preserved. Newly allocated
  *     clusters (hole + extend) are zero-filled on disk.
  *
- * Allocate-then-commit (Rule 2): a disk-full extend frees every cluster THIS
+ * Allocate-then-commit (The constitution): a disk-full extend frees every cluster THIS
  * call claimed and re-terminates the original chain (no half-corrupt chain that
  * diffs wrong) -> FAT12_ERR_NO_SPACE, *out_written 0.
  *
@@ -805,7 +805,7 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * entry's size/start_cluster are read+written changes; the file's OWN cluster
  * chain (the data) is independent of the parent directory.
  *
- * Fail loud (Rule 2): required NULL -> FAT12_ERR_NULL; no write backend ->
+ * Fail loud (The constitution): required NULL -> FAT12_ERR_NULL; no write backend ->
  * FAT12_ERR_WRITE; offset+len overflow -> FAT12_ERR_BUFFER; full volume ->
  * FAT12_ERR_NO_SPACE (rolled back); corrupt/cyclic chain -> FAT12_ERR_CHAIN; a
  * device error -> FAT12_ERR_READ/_WRITE. Returns FAT12_OK on success. */
@@ -858,13 +858,13 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *     primitive WRITE uses (fat12_write_dirent_in_dir). start_cluster(0x1A) /
  *     file_size(0x1C) / attribute(0x0B) / mtime(0x16) / mdate(0x18) are PRESERVED
  *     VERBATIM and the FAT is NEVER touched (rename allocates/frees nothing;
- *     Rule 11 -- the on-disk bytes outside the name field stay deterministic).
+ *     The constitution -- the on-disk bytes outside the name field stay deterministic).
  *
  * `fat`/`fat_len` is the whole-FAT buffer (READ for the subdir cluster walk; NOT
  * mutated -- rename touches no FAT entry); `sector_buf` (>= sectors_per_cluster
- * *512) is scratch for both scans + the name-field RMW. Fail loud (Rule 2): NULL
+ * *512) is scratch for both scans + the name-field RMW. Fail loud (The constitution): NULL
  * -> FAT12_ERR_NULL; no write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on
- * success. Ref (Law 1): DOS 3.3 PRM AH=56h; spec/dos_structs.h (filename 0x00 /
+ * success. Ref (The constitution): DOS 3.3 PRM AH=56h; spec/dos_structs.h (filename 0x00 /
  * extension 0x08); the EMPIRICAL mtools name-field layout (mren-minted golden). */
 /* initech-7mb66 / safe-save ruling: single destination-sector commit. Errors
  * before commit preserve old bytes; postcommit cleanup is separate. See the
@@ -889,7 +889,7 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * byte-unchanged; the directory sectors write through the same dirent write-back
  * primitive WRITE uses, fat12_write_dirent_in_dir).
  *
- * Ref (Law 1): docs/design/GUI-remediation-R3-finder-design.md F3.1 ("The move
+ * Ref (The constitution): docs/design/GUI-remediation-R3-finder-design.md F3.1 ("The move
  *   primitive (design for the dependency bead)") + F1.4 (Trash staging is a
  *   cross-directory move; the start_cluster-preserved assertion is THE oracle) +
  *   Sec 0.4 (fat12_rename is same-dir only; this is the gap); the constraints are
@@ -908,7 +908,7 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *   FAT12_ERR_SAME_DIR -> src_dir_start == dst_dir_start. A same-directory
  *     "move" is a RENAME's job (fat12_rename): rejected here rather than
  *     silently delegated, so a caller that computed the wrong destination
- *     finds out (Rule 2 fail loud) instead of getting a plausible no-op.
+ *     finds out (The constitution fail loud) instead of getting a plausible no-op.
  *   FAT12_ERR_CYCLE    -> moving a DIRECTORY into its own subtree (including
  *     into itself), which would orphan the whole subtree from the root. */
 #define FAT12_ERR_SAME_DIR (-17)
@@ -922,7 +922,7 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * inline-edit and Trash-collision-suffix cases compose transplant + name-field
  * rewrite in ONE call, per F3.1).
  *
- * Steps (the ordering is the atomicity discipline; Rule 2/Rule 3):
+ * Steps (the ordering is the atomicity discipline; The constitution/How the tree is organised):
  *   1. src_dir_start == dst_dir_start -> FAT12_ERR_SAME_DIR (checked FIRST, so a
  *      caller that computed the wrong destination hears about THAT rather than
  *      about a name that happens not to exist).
@@ -954,7 +954,7 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * (fat12_shrink_dir_tail), exactly the discipline fat12_mkdir demonstrates. A
  * failed move therefore leaks NOTHING and leaves the source entry intact.
  *
- * PRESERVED BIT-FOR-BIT (the load-bearing contract, Rule 11): start_cluster
+ * PRESERVED BIT-FOR-BIT (the load-bearing contract, The constitution): start_cluster
  * (0x1A), file_size (0x1C), attribute (0x0B), mtime (0x16) and mdate (0x18)
  * are copied VERBATIM; only the 11-byte name field changes, and only when
  * `dst_name83` asks for it. On the no-grow path the FAT (both copies) is
@@ -972,7 +972,7 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * for a root destination or a non-full subdir; a full subdir destination with a
  * NULL cluster_buf -> FAT12_ERR_NULL, the fat12_mkdir convention).
  *
- * Fail loud (Rule 2): NULL vol/name/sector_buf -> FAT12_ERR_NULL; no write
+ * Fail loud (The constitution): NULL vol/name/sector_buf -> FAT12_ERR_NULL; no write
  * backend -> FAT12_ERR_WRITE; a malformed 8.3 name -> FAT12_ERR_NOT_FOUND (the
  * source-not-found contract fat12_rename uses); a corrupt chain ->
  * FAT12_ERR_CHAIN. Returns FAT12_OK on success.
@@ -997,7 +997,7 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *     trunc5(base) || "%03u", lowest FREE counter first (001, then 002, ...):
  *     REPORT.DBF taken -> REPOR001.DBF, that taken too -> REPOR002.DBF.
  *
- * THE RULE vs THE EXAMPLE (honesty note, Law 1): the design text states the rule
+ * THE RULE vs THE EXAMPLE (honesty note, The constitution): the design text states the rule
  * as "base truncated to 5 chars + %03u" and then illustrates it as
  * "REPORT.DBF taken -> REP001.DBF", which is trunc3, not trunc5 -- the two
  * disagree (docs/design/GUI-remediation-R3-finder-design.md F1.4). We implement
@@ -1021,7 +1021,7 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *
  * `out_name83` must hold at least FAT12_NAME83_MAX (13) bytes. `fat`/`fat_len`
  * decode a subdir destination's chain (NULL/0 is fine for the fixed root);
- * `sector_buf` (>=512) is scratch. Fail loud (Rule 2): NULL
+ * `sector_buf` (>=512) is scratch. Fail loud (The constitution): NULL
  * -> FAT12_ERR_NULL; a malformed name -> FAT12_ERR_NOT_FOUND; all 999 counters
  * taken -> FAT12_ERR_EXISTS; read/chain errors propagated. Returns FAT12_OK with
  * *out_name83 NUL-terminated.
@@ -1046,9 +1046,9 @@ int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
  * model below is the EMPIRICAL mtools 4.0.43 layout (mmd-minted, triple-
  * confirmed -- NOT inferred), so the artifact's writer is byte-identical to
  * mtools' on the meaningful bytes (name/attr/start_cluster/size + the EOC FAT
- * link); the implementation-specific mtime/mdate are stamped FIXED (Rule 11)
+ * link); the implementation-specific mtime/mdate are stamped FIXED (The constitution)
  * and normalized away before the differential diff.
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 4 (dir entry / '.'/'..');
+ * Ref (The constitution): docs/research/fat12-ground-truth.md Sec 4 (dir entry / '.'/'..');
  *   ADR-0003 DEC-07 (root dir is a FIXED region, subdirs are cluster chains);
  *   spec/dos_structs.h (DIR_ATTR_DIRECTORY); DOS 3.3 PRM AH=39h/3Ah.
  * ======================================================================== */
@@ -1080,7 +1080,7 @@ int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
  *     these post-grow steps fails -- no free cluster (NO_SPACE), the EOC
  *     set_entry, or the flush -- the freshly-appended parent cluster is rolled
  *     back (fat12_shrink_dir_tail) and a claimed-but-unused new cluster is freed,
- *     so MKDIR leaks NOTHING on failure (Rule 2/Rule 3; beads initech-m0bp
+ *     so MKDIR leaks NOTHING on failure (The constitution/How the tree is organised; beads initech-m0bp
  *     rollback fix);
  *   - ZERO-FILL the new cluster's data sectors, then write the two canonical
  *     directory entries at offsets 0 and 32:
@@ -1091,13 +1091,13 @@ int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
  *            encoded as 0, NOT self, NOT 1; a SUBDIR parent's real non-zero
  *            cluster otherwise), size 0;
  *     slot[2] stays 0x00 (end-of-directory); both '.'/'..' carry the FIXED
- *     mtime/mdate (Rule 11);
+ *     mtime/mdate (The constitution);
  *   - write the new directory's own 8.3 entry (DIR_ATTR_DIRECTORY,
  *     start_cluster = the new cluster, size 0) into the PARENT free slot
  *     (fat12_write_dirent_in_dir -- the cluster-chain slot for a subdir, the
  *     fixed-region slot for the root). This is the LAST failable step: on a
  *     failure the new dir's data cluster AND (if the parent grew) the freshly-
- *     appended parent cluster are rolled back (Rule 2/Rule 3). The earlier
+ *     appended parent cluster are rolled back (The constitution/How the tree is organised). The earlier
  *     zero-fill write rolls back the same way.
  *
  * `fat`/`fat_len` is the whole-FAT buffer (mutated; both copies flushed);
@@ -1106,7 +1106,7 @@ int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
  * (>=512, DISTINCT from sector_buf) is the parent-grow
  * zero-fill buffer -- only touched when a SUBDIR parent must grow (NULL is OK
  * for a root parent or a non-full subdir parent; a full subdir parent with a
- * NULL cluster_buf -> FAT12_ERR_NULL). Fail loud (Rule 2): no free cluster ->
+ * NULL cluster_buf -> FAT12_ERR_NULL). Fail loud (The constitution): no free cluster ->
  * FAT12_ERR_NO_SPACE; root dir full -> FAT12_ERR_DIR_FULL; bad name ->
  * FAT12_ERR_NOT_FOUND; no write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on
  * success. */
@@ -1138,7 +1138,7 @@ int fat12_mkdir_timed(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  *
  * `fat`/`fat_len` is the whole-FAT buffer (mutated; both copies flushed);
  * `sector_buf` (>=512) is scratch for the parent scan +
- * the empty-check enumeration + the deleted-mark RMW. Fail loud (Rule 2): NULL
+ * the empty-check enumeration + the deleted-mark RMW. Fail loud (The constitution): NULL
  * -> FAT12_ERR_NULL; no write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on
  * success. */
 int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
@@ -1183,7 +1183,7 @@ int fat12_dir_identity(const fat12_volume_t *vol, const void *fat,
  * directory + dir entry. The DOS-API (int21) wiring is the SEPARATE Layer 2
  * bead (initech-mzxa); this layer is additive at the fat12 layer only.
  *
- * Ref (Law 1): docs/research/fat12-ground-truth.md Sec 3 (cluster chain) +
+ * Ref (The constitution): docs/research/fat12-ground-truth.md Sec 3 (cluster chain) +
  *   Sec 4 (dir entry / sentinels); ADR-0003 DEC-07 (root dir is a FIXED region,
  *   subdirs are cluster chains); spec/dos_structs.h (DIR_ATTR_DIRECTORY,
  *   BPB_CLUSTER_LBA). A subdirectory is NOT bounded by root_entry_count: it
@@ -1203,14 +1203,14 @@ int fat12_dir_identity(const fat12_volume_t *vol, const void *fat,
  *     through fat12_cluster_in_range BEFORE the LBA math, its sectors are read
  *     at BPB_CLUSTER_LBA, the chain advances one fat12_next_cluster step at a
  *     time (mirroring fat12_read_partial's incremental walk), the step count is
- *     anti-hang bounded by vol->total_clusters+2 (Rule 2), and the walk stops
+ *     anti-hang bounded by vol->total_clusters+2 (The constitution), and the walk stops
  *     at EOC. Within each cluster the per-32-byte-entry inner loop applies the
  *     same sentinels as the root reader; a non-zero cb return is propagated
  *     verbatim (early stop). A subdir is NOT bounded by root_entry_count.
  *
  * `sector_buf` (>=512 for the subdir path; >=512 for root)
  * is caller scratch; `fat`/`fat_len` is the whole-FAT buffer (only the subdir
- * path needs it). Fail loud (Rule 2): NULL arg -> FAT12_ERR_NULL; a read error
+ * path needs it). Fail loud (The constitution): NULL arg -> FAT12_ERR_NULL; a read error
  * -> FAT12_ERR_READ; a corrupt/cyclic chain -> FAT12_ERR_CHAIN. Returns FAT12_OK
  * after the full scan, or the callback's non-zero value on an early stop.
  */
@@ -1237,7 +1237,7 @@ int fat12_read_dir(const fat12_volume_t *vol, const fat12_dir_t *dir,
  *
  * Component-internal '\\' / ':' stay rejected by parse_name83 (after the
  * top-level split). `sector_buf` (>=512) + `fat`/`fat_len`
- * (whole-FAT buffer) are scratch/decode inputs. Fail loud (Rule 2): NULL ->
+ * (whole-FAT buffer) are scratch/decode inputs. Fail loud (The constitution): NULL ->
  * FAT12_ERR_NULL; a missing/typed-wrong component -> FAT12_ERR_NOT_FOUND; read
  * errors propagated. Returns FAT12_OK with *out_dir + *out_entry set.
  */

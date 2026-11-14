@@ -8,7 +8,7 @@
 ;        order is load-bearing and MUST match int_frame_t in idt.h). Intel SDM
 ;        Vol 2A PUSHAD (push order EAX,ECX,EDX,EBX,ESP,EBP,ESI,EDI -> EDI lands
 ;        lowest), Vol 3A Sec 6.12.1 (CPU-pushed EIP/CS/EFLAGS; no SS:ESP in a
-;        ring0->ring0 delivery). CLAUDE.md Rule 2 (fail loud), Rule 12 (ASCII).
+;        ring0->ring0 delivery). CLAUDE.md, The constitution (fail loud), The constitution (ASCII).
 ;
 ; ARTIFACT code: nasm elf32, linked into the flat kernel. The stubs build the
 ; EXACT stack image int_frame_t describes, then call the C dispatcher with a
@@ -515,7 +515,7 @@ tsr_idle_entry:
 ; beads: initech-3rs ("PS/2 keyboard (IRQ1) + PIT (IRQ0) tick").
 ; Ref: Intel SDM Vol 2A PUSHAD/IRET; Intel 8259A datasheet (the C handler issues
 ;      the EOI, OCW2 0x20 -> master cmd port 0x20); Intel 8254 / 8042 datasheets
-;      (the C handlers read/program the device). CLAUDE.md Rule 2, Rule 12.
+;      (the C handlers read/program the device). CLAUDE.md, The constitution.
 ;
 ; These are installed as 0x8E INTERRUPT gates (idt_install_irq), so the CPU
 ; CLEARS IF on entry -> no IRQ nesting inside the handler (the cooperative
@@ -534,7 +534,7 @@ tsr_idle_entry:
 ; handler is on the stack. If a handler (or a future driver it calls) ever issues
 ; `int 0x21`, the dispatcher sees irq_depth() != 0 at entry and FAILS LOUD
 ; (dos_reentry_panic) instead of silently corrupting the interrupted syscall's
-; frame/globals -- Rule 2. The IRQ gates clear IF (0x8E), so irq_enter/irq_leave
+; frame/globals -- The constitution. The IRQ gates clear IF (0x8E), so irq_enter/irq_leave
 ; are not themselves reentrant. Order: enter BEFORE the C call, leave AFTER the
 ; segment restore but BEFORE iretd, so the depth is correct across the whole
 ; handler body.

@@ -3,7 +3,7 @@
  * Reference: legacy-final kernel_shell, IBM DOS 3.30 startup sequence. */
 #include "startup.h"
 #include "sysinit.h"
-#include "../dos/command/entry.h"
+#include "entry.h"
 
 void kernel_main(void)
 {

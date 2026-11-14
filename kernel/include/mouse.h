@@ -1,7 +1,7 @@
 /* mouse.h -- PS/2 aux mouse (IRQ12) driver: the FLAIR live-loop pointer source.
  *
  * beads: initech-5l5z FO-6 (ADR-0006 E-D3(b) / FO-6 -- the mouse IRQ12 lane).
- * Ref (Law 1):
+ * Ref (The constitution):
  *   - ADR-0006 E-D3(b)/BC-3: "a NEW os/initechdos/mouse.c plus an irq12_entry in
  *     isr.asm ... reads the 3-byte PS/2 packet, posts ONE FLAIR_RAW_MOUSE event,
  *     and issues a DUAL-PIC EOI: slave 0xA0 THEN master 0x20." ISR-enqueue-only
@@ -18,9 +18,9 @@
  *   - spec/event_model.h Sec 5: flair_raw_event_t MOUSE payload layout
  *     (buttons in bits 0..7, signed dX in 8..15, signed dY in 16..23).
  *
- * ARTIFACT code (CLAUDE.md Law 3): freestanding kernel C, io.h (inb/outb) only,
- * no libc. Rule 11 (deterministic: every 8042 spin is bounded by a COUNT, never
- * wall-clock). Rule 12 (ASCII-clean). Cooperative, not preemptive (ADR-0004 D-6).
+ * ARTIFACT code (CLAUDE.md, The constitution): freestanding kernel C, io.h (inb/outb) only,
+ * no libc. The constitution (deterministic: every 8042 spin is bounded by a COUNT, never
+ * wall-clock). The constitution (ASCII-clean). Cooperative, not preemptive (ADR-0004 D-6).
  */
 #ifndef INITECH_MOUSE_H
 #define INITECH_MOUSE_H
@@ -38,8 +38,8 @@
  *   6. enable data reporting on the mouse: 0xD4 prefix (-> 0x64) then 0xF4
  *      (-> 0x60); read the 0xFA ACK.
  *
- * Every wait on the 8042 status register (0x64) is a BOUNDED spin (Rule 2 +
- * Rule 11 -- fail-soft, never hang): a timed-out wait is skipped, never looped
+ * Every wait on the 8042 status register (0x64) is a BOUNDED spin (The constitution +
+ * The constitution -- fail-soft, never hang): a timed-out wait is skipped, never looped
  * forever. Call with IRQ12 still masked (before pic_unmask_irq12) and BEFORE
  * sti, so the 0xF4 ACK + any startup byte are drained by polling here, not
  * delivered as a surprise IRQ12 before the handler/ring is ready. */

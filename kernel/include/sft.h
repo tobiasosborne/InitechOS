@@ -11,9 +11,9 @@
  *        fs-mount-sft-ground-truth.md Sec 3 (the SFT/JFT model, the entry
  *        struct, DUP/DUP2 algorithms). spec/dos_structs.h (psp_t.jft[20] at
  *        offset 0x18; dir_entry_t). DOS 3.3 Programmer's Reference Manual
- *        AH=45h DUP / AH=46h DUP2. CLAUDE.md Law 1 (cite), Law 2 (oracle),
- *        Law 3 (artifact = C), Rule 2 (fail loud), Rule 8 (specs-as-data),
- *        Rule 11 (deterministic), Rule 12 (ASCII).
+ *        AH=45h DUP / AH=46h DUP2. CLAUDE.md, The constitution (cite), The constitution (oracle),
+ *        The constitution (artifact = C), The constitution (fail loud), The constitution (specs-as-data),
+ *        The constitution (deterministic), The constitution (ASCII).
  *
  * DESIGN STANCE (ADR-0003 Sec 5.5): vestigial structures are implemented IN
  * FULL. Handles 0-4 are ALL predefined per DEC-06 -- including AUX (3) and PRN
@@ -172,7 +172,7 @@ void sft_init(void);
 /* Resolve a process handle (JFT index, 0..19) to its SFT entry, or NULL if the
  * handle is out of range / closed (jft==0xFF) / the psp is NULL. Fails LOUD
  * (panic/abort) on a CORRUPT JFT entry -- one that is neither the 0xFF closed
- * sentinel nor a valid in-range index of a live (non-FREE) SFT slot (Rule 2:
+ * sentinel nor a valid in-range index of a live (non-FREE) SFT slot (The constitution:
  * an invariant violation is never papered over). */
 sft_entry_t *sft_from_handle(const psp_t *psp, uint8_t handle);
 
@@ -215,7 +215,7 @@ uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst);
  * Idempotent: a second call is a no-op (every FILE handle is already JFT_CLOSED).
  * Fails LOUD (panic/abort) on a CORRUPT JFT entry -- one that is neither the
  * 0xFF closed sentinel nor a valid in-range index of a live SFT slot --
- * consistent with sft_from_handle (Rule 2). psp == NULL is a no-op (no process).
+ * consistent with sft_from_handle (The constitution). psp == NULL is a no-op (no process).
  * Ref: DOS 3.3 process terminate (handle table closed); beads initech-6hk. */
 void sft_close_process(psp_t *psp);
 
@@ -237,7 +237,7 @@ void sft_close_process(psp_t *psp);
  * is what lets EXTERNAL-command output redirect survive the child's exit.
  *
  * psp == NULL is a no-op. Fails LOUD on a corrupt JFT entry (neither 0xFF nor an
- * in-range index of a live slot), mirroring sft_close_process (Rule 2). Called by
+ * in-range index of a live slot), mirroring sft_close_process (The constitution). Called by
  * the loader right after psp_build + int21_set_psp(child) (loader.c
  * loader_run_plan). Ref: MS-DOS 3.3 PRM AH=4Bh; ADR-0003 DEC-06; beads
  * initech-bsy.9; sft_close_process (the symmetric release). */

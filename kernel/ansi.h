@@ -11,9 +11,9 @@
  *        IBM PC Technical Reference (1984) "CGA/Text-Mode Attribute Byte" for
  *        the colour-nibble encoding: fg = bits 0..3, bg = bits 4..6, blink =
  *        bit 7 (bright bg in DOS) -- this is what ANSI.SYS maps SGR codes onto.
- *        CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Law 3
- *        (artifact = C), Rule 2 (fail loud), Rule 11 (deterministic),
- *        Rule 12 (ASCII).
+ *        CLAUDE.md, The constitution (cite source), The constitution (oracle is truth), The constitution
+ *        (artifact = C), The constitution (fail loud), The constitution (deterministic),
+ *        The constitution (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  * No libc: hand-rolled helpers (same discipline as batch.c / env.c).
@@ -28,7 +28,7 @@
  *   each resulting action.  The FSM itself has no I/O; the caller provides the
  *   sink.  This keeps the module testable and decoupled from the console driver.
  *
- * ANSI-COLOR <-> CGA-ATTRIBUTE MAPPING (Law 1; cite: IBM PC Technical Reference
+ * ANSI-COLOR <-> CGA-ATTRIBUTE MAPPING (The constitution; cite: IBM PC Technical Reference
  * Appendix B "Display Adapter" attribute byte + RBIL ANSI.SYS colour table):
  *
  *   ANSI SGR code  Colour name  CGA fg nibble  CGA bg nibble
@@ -50,7 +50,7 @@
  * ANSI-blue=4 vs CGA-blue=1) is the classic DOS ANSI.SYS footgun -- always
  * cite the IBM PC Technical Reference attribute byte, not intuition.
  *
- * MUTATION hooks (CLAUDE.md Rule 6):
+ * MUTATION hooks (CLAUDE.md How the tree is organised):
  *   ANSI_MUTATE_PARAM_ACCUM  -- the multi-digit accumulator multiplies by 1
  *                               instead of 10; "10;5H" reads params as {1,5}
  *                               so the cursor-position test goes RED.
@@ -70,7 +70,7 @@
 
 /* Maximum number of numeric parameters in a single CSI sequence.
  * ECMA-48 does not define a cap; DOS ANSI.SYS processes at most a handful
- * (SGR can take up to ~4 in practice).  16 is ample and bounded (Rule 2). */
+ * (SGR can take up to ~4 in practice).  16 is ample and bounded (The constitution). */
 #define ANSI_PARAM_MAX   16
 
 /* Local numeric safety bound (initech-5y5r), not a DOS-defined digit limit.
@@ -200,7 +200,7 @@ void ansi_init(ansi_state_t *st, int rows, int cols);
  * not be NULL.  `ctx` is forwarded to every cb call.
  *
  * Thread safety / reentrancy: none required (DOS is single-threaded).
- * Deterministic (Rule 11): same byte sequence -> same action stream. */
+ * Deterministic (The constitution): same byte sequence -> same action stream. */
 void ansi_feed(ansi_state_t *st, uint8_t byte,
                ansi_action_cb_t cb, void *ctx);
 

@@ -11,10 +11,10 @@
  *        functions); spec/int21h_calling_convention.json (the LOCKED ABI + the
  *        per-function table); spec/int21h_register.json (the controlled scope --
  *        NO unlisted functions; ADR-0003 DEC-04 / DEC-13); spec/dos_messages.json
- *        (the controlled diagnostic catalogue). CLAUDE.md Law 1 (cite source),
- *        Law 2 (oracle is truth), Law 3 (artifact = C), Rule 2 (fail loud +
- *        controlled scope), Rule 8 (specs-as-data), Rule 11 (deterministic),
- *        Rule 12 (ASCII).
+ *        (the controlled diagnostic catalogue). CLAUDE.md, The constitution (cite source),
+ *        The constitution (oracle is truth), The constitution (artifact = C), The constitution (fail loud +
+ *        controlled scope), The constitution (specs-as-data), The constitution (deterministic),
+ *        The constitution (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only. The
  * SAME translation unit (int21.c) ALSO compiles HOSTED for the factory dispatch
@@ -63,7 +63,7 @@ void int21_set_restart(void (*service)(void));
  * (ISDEV): a CHARACTER device (bit15=1) reports the device-class bits below; a
  * disk FILE (bit15=0) reports its drive number in bits 0-5 and a "not written"
  * flag in bit 6. spec/int21h_calling_convention.json AH=44h locks the two words
- * this milestone emits. (CLAUDE.md Law 1: every value cited; Rule 8: locked data.)
+ * this milestone emits. (CLAUDE.md, The constitution: every value cited; The constitution: locked data.)
  *
  * The CHARACTER-device bit names. Ref: DOS 3.3 Programmer's Reference Manual,
  * INT 21h Fn 44h/00h, Device Information word (also RBIL INT 21/AX=4400h). The
@@ -241,7 +241,7 @@ void                 int21_cwd_restore(const int21_cwd_snapshot_t *s);
  * host oracle binds an in-memory arena. int21.c owns only the AH=48/49/4A
  * dispatch + the data-paragraph<->DOS-segment conversion at the syscall edge.
  *
- * AUTHENTIC MODEL (Law 1; spec/memory_map.h; DOS 3.3 PRM AH=48h/49h/4Ah): a
+ * AUTHENTIC MODEL (The constitution; spec/memory_map.h; DOS 3.3 PRM AH=48h/49h/4Ah): a
  * freshly-loaded .COM owns ONE big block -- its PSP+image+stack window, from
  * PROGRAM_BASE up to the allocation ceiling PROGRAM_ALLOC_END (the PSP's
  * alloc_end_seg). The loader rebinds the arena to one terminal block of the
@@ -257,7 +257,7 @@ void                 int21_cwd_restore(const int21_cwd_snapshot_t *s);
  *                 program sees is (base_linear >> 4) + data_para.
  *
  * A NULL/zero-total arena (the unbound default) makes 48h/49h/4Ah return CF=1,
- * AX=0008h (insufficient memory) -- never a fault (Rule 2). */
+ * AX=0008h (insufficient memory) -- never a fault (The constitution). */
 void int21_set_mcb_arena(void *base, uint32_t total_paras, uint32_t base_linear);
 
 /* The bound arena's total paragraphs and its largest FREE block (the MCB
@@ -301,7 +301,7 @@ int int21_mcb_reset(void);
  * is (arena_base_linear >> 4) + data_para. arena_base_linear MUST be paragraph-
  * aligned (the loader rounds it up). If arena_ceil_linear <= arena_base_linear
  * (or the window is < 2 paragraphs -- no room for a header + one data paragraph)
- * the arena is left UNBOUND (fail loud, Rule 2): a 48h ALLOC then returns
+ * the arena is left UNBOUND (fail loud, The constitution): a 48h ALLOC then returns
  * insufficient memory rather than a corrupting overlap. Returns 1 if the arena
  * was bound as a FREE block, 0 if it was left unbound. */
 int int21_mcb_bind_program(uint32_t arena_base_linear, uint32_t arena_ceil_linear);
@@ -497,7 +497,7 @@ typedef struct int21_file_backend {
      * dir_entry_t.mtime(0x16)/.mdate(0x18) store on disk, so the dispatcher copies
      * CX->mtime, DX->mdate VERBATIM (no encode/decode). On success returns 0; a
      * read/write error -> 0x0005 (access denied). A NULL set_time member means a
-     * READ-ONLY backend: AH=57h SET then returns CF=1, AX=0x0005 (Rule 2 fail
+     * READ-ONLY backend: AH=57h SET then returns CF=1, AX=0x0005 (The constitution fail
      * loud -- never a silent no-op). GET (AL=00) needs NO seam (it reads the SFT's
      * in-memory dir_entry copy directly). Ref: DOS 3.3 PRM AH=57h; spec/
      * dos_structs.h dir_entry_t (mtime 0x16 / mdate 0x18). */
@@ -510,7 +510,7 @@ typedef struct int21_file_backend {
      * root) into *io_attr; SET (set==1) writes *io_attr as the new attribute
      * byte and FLUSHES (immediate commit -- the per-call write model). On disk
      * the SET patches ONLY the attribute byte (0x0B); mtime(0x16)/mdate(0x18)/
-     * name/cluster/size are preserved VERBATIM (Rule 11: a CHMOD never disturbs
+     * name/cluster/size are preserved VERBATIM (The constitution: a CHMOD never disturbs
      * the timestamp bytes). Returns 0 on success, 0x0002 (not found), or 0x0005
      * (access denied: a directory/volume-label TARGET, a SET attr that itself
      * sets the Directory(0x10)/VolLabel(0x08) bit, or a SET with no write
@@ -518,7 +518,7 @@ typedef struct int21_file_backend {
      * CX BEFORE this seam; the backend ALSO rejects them (defense in depth -- the
      * fat12 primitive is the canonical guard). A NULL chmod member means a
      * READ-ONLY backend with NO attribute store: the dispatcher then returns
-     * 0x0005 for a SET and 0x0005 for a GET (Rule 2 fail loud -- never a silent
+     * 0x0005 for a SET and 0x0005 for a GET (The constitution fail loud -- never a silent
      * no-op). Ref: DOS 3.3 PRM AH=43h; spec/dos_structs.h (attribute 0x0B). */
     uint16_t (*chmod)(const char *name83, uint16_t dir_start_cluster,
                       int set, uint8_t *io_attr);
@@ -537,7 +537,7 @@ typedef struct int21_file_backend {
      * already present in `new_dir` (0x0005, the load-bearing reject); then
      * rewrites ONLY the matched entry's 11-byte name field (filename[0..7] +
      * extension[0..2]) in place -- start_cluster/file_size/attribute/mtime/mdate
-     * and the FAT are left UNTOUCHED (rename allocates/frees nothing; Rule 11).
+     * and the FAT are left UNTOUCHED (rename allocates/frees nothing; The constitution).
      * Returns 0 on success or a DOS error (0x0002 not found / 0x0005 dest-exists,
      * dir/vol-label source, or write error). May be NULL on a read-only backend
      * (the host read oracle binds NULL -> RENAME returns access-denied). Ref: DOS
@@ -733,7 +733,7 @@ void int21_conin_discard_through(int c);
  * the host oracle binds them to a mock grid. If NO ops are bound (the unbound
  * default), the ANSI path degrades to "emit the PUT_CHAR byte through the sink"
  * (so plain text still renders) and silently drops cursor/erase/attr actions --
- * never a fault (Rule 2).
+ * never a fault (The constitution).
  *
  *   put_char     : draw `ch` at the cursor with the CURRENT attribute, then
  *                  advance (wrap + scroll) -- i.e. console_putc semantics. This
@@ -770,7 +770,7 @@ void int21_set_ansi_console(const int21_ansi_console_t *ops);
  * this returns non-zero. The kernel binds it to sysinit_ansi_enabled() (set by
  * CONFIG.SYS DEVICE=ANSI.SYS); the host oracle binds a flag it can flip. int21.c
  * reaches the gate through this seam -- NOT a direct sysinit_ansi_enabled() call
- * -- so int21.c does NOT link sysinit.c and stays HOSTED-clean (Law 3). When
+ * -- so int21.c does NOT link sysinit.c and stays HOSTED-clean (The constitution). When
  * UNBOUND (the default), the gate reads as DISABLED (0): the CON output path is
  * byte-for-byte identical to before this bead (raw sink, no FSM). */
 typedef int (*int21_ansi_gate_fn)(void);
@@ -817,14 +817,14 @@ int int21_directory_path(const char *path, char *canon, uint32_t capacity);
  * a given vector number. On this 32-bit protected-flat kernel that means the
  * IDT gate offset (idt_set_gate / idt_get_gate, idt.c). int21.c reaches the IDT
  * through a seam -- the SAME pattern as the sink/conin/clock seams -- so it does
- * NOT link idt.c and stays HOSTED-clean (Law 3): the host oracle binds a mock
+ * NOT link idt.c and stays HOSTED-clean (The constitution): the host oracle binds a mock
  * vector table; the kernel binds idt-backed callbacks at SYSINIT.
  *   set : install `handler` (a flat linear address) as the vector for `vec`,
  *         keeping the kernel code selector + 0x8F TRAP type (real DOS rewrites
  *         the whole IVT entry; here we rewrite the gate offset).
  *   get : return the current flat handler offset for `vec` (0 if none/unbound).
  * A NULL table (unbound default) makes SETVECT a graceful no-op and GETVECT
- * return 0 -- never a fault (Rule 2). Ref: spec/int21h_register.json (25h/35h
+ * return 0 -- never a fault (The constitution). Ref: spec/int21h_register.json (25h/35h
  * SETVECT/GETVECT, Core class); spec/int21h_calling_convention.json (flat ABI:
  * pointer args are flat 32-bit linear addresses). */
 typedef void     (*int21_setvect_fn)(uint8_t vec, uint32_t handler);
@@ -851,9 +851,9 @@ void int21_set_vectortable(int21_setvect_fn set, int21_getvect_fn get);
  *           port sinks, clk_read/write -> the RTC). COPIED so the caller need not
  *           keep it alive. A NULL `io` clears the bundle (every device callback
  *           then reads as "not present" -> the handler sets the device error
- *           bit, mapped to CF=1 -- never a fault, Rule 2).
+ *           bit, mapped to CF=1 -- never a fault, The constitution).
  *
- * Ref (Law 1): Ralf Brown's Interrupt List INT 21/AH=3Dh (DOS OPEN walks the
+ * Ref (The constitution): Ralf Brown's Interrupt List INT 21/AH=3Dh (DOS OPEN walks the
  * device chain by name BEFORE the directory); MS-DOS 3.3 Technical Reference
  * Ch. 4 (device names CON/NUL/PRN/AUX/CLOCK$); ADR-0003 DEC-09 (the device
  * chain); os/initechdos/devices.h (the chain API + the io bundle). */
@@ -931,7 +931,7 @@ void int21_note_error(uint16_t code);
  * and read by AH=33h AL=00h GET. Boot default ON (DEC-16 Sec 3.3, per the DOS
  * 3.3 PRM; C-7 86Box-confirmation obligation). int21_set_break_flag NORMALIZES
  * its argument (any non-zero -> 1) so a GET always returns exactly 0 or 1.
- * Ref (Law 1): DEC-16 Sec 3.2 (register contract) + Sec 3.3 (state/default). */
+ * Ref (The constitution): DEC-16 Sec 3.2 (register contract) + Sec 3.3 (state/default). */
 void    int21_set_break_flag(uint8_t on);   /* SET (normalizes non-zero -> 1)  */
 uint8_t int21_get_break_flag(void);         /* GET current flag (0 or 1)       */
 
@@ -951,7 +951,7 @@ int dos_in_dos(void);
  * frame->eax and sets/clears CF (bit 0 of frame->eflags) before returning; the
  * stub's iretd then restores the modified EFLAGS so the caller sees CF. An AH
  * not in the locked register emits a diagnostic and returns CF=1/AX=0x0001 --
- * NEVER a silent no-op (Rule 2 / DEC-13). */
+ * NEVER a silent no-op (The constitution / DEC-13). */
 void KERNEL_ASM_ABI int21_dispatch(int_frame_t *frame);
 
 /* The INT 20h legacy-terminate handler the asm trap stub (int20_entry, isr.asm)
@@ -1039,9 +1039,9 @@ extern void int26_entry(void);
  * vtable the kernel binds in kmain.c from the mounted FAT12 volume's blockdev
  * (vol->dev->read_sectors / write_sectors), at the fileio_fat_bind site, only
  * on the mounted==1 path. int21.c does NOT include fat12.h/blockdev.h or
- * reference the volume (Law 3 -- preserves hosted testability; the host oracle
+ * reference the volume (The constitution -- preserves hosted testability; the host oracle
  * binds a mock file-backed blockdev). With NO seam bound the handlers fail loud
- * (CF=1), never fault (Rule 2). A NULL write member = a READ-ONLY backend ->
+ * (CF=1), never fault (The constitution). A NULL write member = a READ-ONLY backend ->
  * INT 26h returns CF=1, AL=0x00 write-protect.
  *
  * read/write take (lba, count, buf) and return 0 on success, negative on any

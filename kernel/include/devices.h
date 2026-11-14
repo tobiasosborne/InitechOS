@@ -5,7 +5,7 @@
  * beads: initech-509.7 (device-driver chain -- module/oracle only; int21 /
  *        sysinit wiring is a separate follow-up bead).
  *
- * Ref (Law 1):
+ * Ref (The constitution):
  *   - Microsoft MS-DOS 3.3 Technical Reference, Chapter 4 "Installable Device
  *     Drivers": device-header layout (next-ptr, attribute word, Strategy entry,
  *     Interrupt entry, 8-char name); the attribute-word bit definitions; the
@@ -26,7 +26,7 @@
  * mediated by caller-supplied callbacks in devices_io_t.  test_devices.c
  * #includes devices.c directly (the same TU trick as test_batch.c).
  *
- * MUTATION hooks (CLAUDE.md Rule 6 -- driven by make test-devices-mutant):
+ * MUTATION hooks (CLAUDE.md How the tree is organised -- driven by make test-devices-mutant):
  *   DEVICES_MUTATE_NO_DONE_BIT   -- devices_request() does NOT set the DONE
  *                                   bit (bit 8) in the status word after a
  *                                   successful dispatch; the oracle check for
@@ -36,8 +36,8 @@
  *                                   for NUL READ returning 0 bytes goes RED.
  *                                   NEVER in a real build.
  *
- * CLAUDE.md Law 1 (cite sources), Law 2 (oracle is truth), Law 3 (artifact C),
- * Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII).
+ * CLAUDE.md, The constitution (cite sources), The constitution (oracle is truth), The constitution (artifact C),
+ * The constitution (fail loud), The constitution (deterministic), The constitution (ASCII).
  */
 #ifndef INITECH_DEVICES_H
 #define INITECH_DEVICES_H
@@ -102,7 +102,7 @@
  *   0x0E  CLOSE         -- device close (requires OPEN_CLOSE attribute bit).
  *
  * Commands above 0x0C not implemented in this round; an unknown command code
- * sets the ERROR bit with error code DEVEC_UNKNOWN (Rule 2).
+ * sets the ERROR bit with error code DEVEC_UNKNOWN (The constitution).
  * =========================================================================*/
 #define DEVCMD_INIT          0x00u
 #define DEVCMD_READ          0x04u

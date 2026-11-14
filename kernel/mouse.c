@@ -6,7 +6,7 @@
  * mouse_irq_handler -- a master-only EOI leaves the slave's in-service bit set
  * and SILENTLY WEDGES all further IRQ12s (no second mouse event ever fires).
  *
- * Ref (Law 1):
+ * Ref (The constitution):
  *   - Intel 8042 keyboard-controller datasheet / IBM PS/2 Technical Reference:
  *     status register at 0x64 (bit0 OBF = output-buffer-full, data ready to
  *     read from 0x60; bit1 IBF = input-buffer-full, wait before writing 0x60/
@@ -20,9 +20,9 @@
  *     port (0xA0) THEN the MASTER command port (0x20).
  *   - spec/event_model.h Sec 5: flair_raw_event_t MOUSE payload layout.
  *   - os/initechdos/kbd.c / pit.c: the function-pointer-hook + bounded-spin idioms
- *     (FO-4/FO-5) mirrored here. CLAUDE.md Law 1/2/3, Rule 2/11/12.
+ *     (FO-4/FO-5) mirrored here. CLAUDE.md, The constitution.
  *
- * ARTIFACT code (Law 3): freestanding, io.h only, no libc.
+ * ARTIFACT code (The constitution): freestanding, io.h only, no libc.
  */
 
 #include "mouse.h"
@@ -64,10 +64,10 @@
 #define PIC2_CMD        0xA0u   /* slave  8259A command port                   */
 #define PIC_EOI         0x20u   /* OCW2 non-specific end-of-interrupt          */
 
-/* Bounded-spin budget for every 8042 status poll. Deterministic (Rule 11): the
+/* Bounded-spin budget for every 8042 status poll. Deterministic (The constitution): the
  * wait is bounded by a COUNT, never wall-clock. ~100k inb()s is generously past
  * the 8042's microsecond-scale latch time on any emulated/real 386, and a
- * timeout is fail-soft (skip, never hang -- Rule 2). */
+ * timeout is fail-soft (skip, never hang -- The constitution). */
 #define PS2_SPIN_BUDGET  100000u
 
 /* --- packet-assembly state (ISR-private; single producer, no concurrency) -- */
@@ -93,7 +93,7 @@ static int ps2_wait_write(void)
             return 1;
         }
     }
-    return 0;   /* fail-soft: never hang (Rule 2) */
+    return 0;   /* fail-soft: never hang (The constitution) */
 }
 
 /* Wait (bounded) until the 8042 output buffer is FULL (OBF set) so a byte is
@@ -139,7 +139,7 @@ void mouse_init(void)
 
     /* (1) Drain any stale byte the firmware left in the 8042 output buffer so
      * the first real IRQ12 is not preceded by a ghost byte (8042: a pending
-     * byte blocks fresh data). Bounded (Rule 2). */
+     * byte blocks fresh data). Bounded (The constitution). */
     for (int i = 0; i < 16; i++) {
         if ((inb(PS2_STATUS) & PS2_ST_OBF) != 0u) {
             (void)inb(PS2_DATA);

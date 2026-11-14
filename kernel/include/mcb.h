@@ -20,8 +20,8 @@
  *
  * Ref: ADR-0003 DEC-03 + Appendix B.3 (the 16-byte MCB); spec/dos_structs.h
  *      (mcb_t, _Static_assert 16 bytes); DOS 3.3 PRM AH=48h/49h/4Ah.
- * CLAUDE.md Law 2 (the property suite is the oracle), Rule 2 (fail loud on a
- * corrupt chain / bad block), Rule 11 (deterministic), Rule 12 (ASCII).
+ * CLAUDE.md, The constitution (the property suite is the oracle), The constitution (fail loud on a
+ * corrupt chain / bad block), The constitution (deterministic), The constitution (ASCII).
  */
 #ifndef INITECH_OS_MCB_H
 #define INITECH_OS_MCB_H
@@ -115,7 +115,7 @@ uint32_t mcb_free_owner(mcb_arena_t *a, uint16_t owner);
  * Returns MCB_OK on success; MCB_ERR_BAD_BLOCK if psp_owner owns no block (the
  * "KEEP on a process owning no arena block" invariant -- the do_keep caller fails
  * loud), or if psp_owner is FREE/SYSTEM; MCB_ERR_DESTROYED on a corrupt chain.
- * Coalesces the freed tail afterward (Rule 2: leave the chain in normal form). */
+ * Coalesces the freed tail afterward (The constitution: leave the chain in normal form). */
 uint16_t mcb_keep_resident(mcb_arena_t *a, uint16_t psp_owner,
                            uint32_t keep_data_paras);
 

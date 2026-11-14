@@ -1,14 +1,14 @@
 /*
  * os/initechdos/blockdev.h -- sector-granular block-device interface (INITECHDOS).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): this is shipped InitechDOS kernel code.
+ * THE ARTIFACT (CLAUDE.md, The constitution): this is shipped InitechDOS kernel code.
  * Freestanding-safe -- depends ONLY on <stdint.h>. No libc, no malloc; the
  * caller owns every buffer. This is the single seam between the FAT12 reader
  * (os/initechdos/fat12.c) and a concrete sector backend (ATA PIO on real hardware
  * via os/initechdos/ata.c; a host file in the factory oracle via
  * harness/diff/fat_diff/blockdev_file.c).
  *
- * Ref (Law 1): PRD Sec 6.1 (InitechDOS FAT/disk path); ADR-0003 DEC-07
+ * Ref (The constitution): PRD Sec 6.1 (InitechDOS FAT/disk path); ADR-0003 DEC-07
  *   (Sec 5.7, on-volume layout); docs/research/fat12-ground-truth.md.
  *
  * Contract:
@@ -17,15 +17,15 @@
  *   - read_sectors(ctx, lba, count, buf): read `count` consecutive sectors
  *     starting at logical block address `lba` into `buf`. `buf` MUST hold at
  *     least count * 512 bytes. Returns 0 on success, a negative value on
- *     error (fail loud, CLAUDE.md Rule 2 -- never report a short/garbage read
+ *     error (fail loud, CLAUDE.md, The constitution -- never report a short/garbage read
  *     as success). `ctx` is the backend's opaque handle.
  *   - write_sectors(ctx, lba, count, buf): write `count` consecutive sectors
  *     starting at `lba` FROM `buf` (>= count*512 bytes). Returns 0 on success,
- *     negative on error (fail loud, Rule 2 -- never report a short/failed write
+ *     negative on error (fail loud, The constitution -- never report a short/failed write
  *     as success). Implemented by ata.c (ata_write_sectors) and the host
  *     file-backed backend (beads initech-509.11, FAT write).
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ * ASCII-clean (The constitution). No timestamps / host paths (The constitution).
  */
 #ifndef INITECH_INITECHDOS_BLOCKDEV_H
 #define INITECH_INITECHDOS_BLOCKDEV_H

@@ -1,13 +1,13 @@
 /* rtc.h -- InitechDOS MC146818 RTC / CMOS clock source (beads initech-yv9;
  * the clock-source half of initech-509.7).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code, freestanding
+ * THE ARTIFACT (CLAUDE.md, The constitution): shipped InitechDOS kernel code, freestanding
  * (<stdint.h> only). A running OS reading the RTC at runtime is fine -- the
- * NONDETERMINISM ban (Law 3 / Rule 11) is about baking host time into the BUILT
+ * NONDETERMINISM ban (The constitution / The constitution) is about baking host time into the BUILT
  * artifact, not about a guest reading its emulated RTC. The ORACLE pins the RTC
  * (qemu -rtc base=<stamp>) so the test is deterministic.
  *
- * Ref (Law 1):
+ * Ref (The constitution):
  *   - MC146818A datasheet (Motorola, the PC-AT RTC). Address ports: 0x70
  *     (index/NMI), 0x71 (data). Time/date registers 0x00..0x09. Status Reg A
  *     (0x0A) bit 7 = UIP (Update In Progress). Status Reg B (0x0B): bit 1 = 24h
@@ -18,8 +18,8 @@
  *     per SRB DM bit, 24h per SRB bit 1, century register at 0x32. `-rtc
  *     base=<ISO>` sets a fixed wall-clock base.
  *
- * CLAUDE.md Law 1 (cite hardware ref), Law 2 (oracle), Law 3 (artifact = C),
- * Rule 2 (fail loud / never hang), Rule 11 (deterministic oracle), Rule 12
+ * CLAUDE.md, The constitution (cite hardware ref), The constitution (oracle), The constitution (artifact = C),
+ * The constitution (fail loud / never hang), The constitution (deterministic oracle), The constitution
  * (ASCII).
  */
 #ifndef INITECH_RTC_H
@@ -43,7 +43,7 @@ typedef struct rtc_time {
 
 /* The raw register snapshot the kernel reads from CMOS (one stable read). The
  * decode (BCD/binary, 12/24h, century) is factored OUT into rtc_decode() so it
- * is PURE and host-testable (Law 3) -- no port I/O in the conversion logic. */
+ * is PURE and host-testable (The constitution) -- no port I/O in the conversion logic. */
 typedef struct rtc_raw {
     uint8_t  second;        /* reg 0x00 (raw: BCD or binary)                */
     uint8_t  minute;        /* reg 0x02                                     */
@@ -66,7 +66,7 @@ typedef struct rtc_raw {
  * bit 1 + the hour PM flag, the century (reg 0x32 if non-zero, else the
  * pivot rule: yy < 80 => 20yy, else 19yy), and derives day_of_week from the
  * date. Returns the decoded value in *out. This is the function the host unit
- * oracle (test-rtc) feeds known register bytes and checks (Law 2 / Rule 6).
+ * oracle (test-rtc) feeds known register bytes and checks (The constitution / How the tree is organised).
  *
  * Returns 1 on success, 0 if the decoded date is out of range (fail loud:
  * a caller treats 0 as "RTC not trustworthy"). */
@@ -88,7 +88,7 @@ int rtc_day_of_week(uint16_t year, uint8_t month, uint8_t day);
 /* rtc_now -- kernel-only: read the live CMOS RTC (ports 0x70/0x71) with the
  * UIP (update-in-progress) guard, then rtc_decode(). Returns 1 on a stable,
  * in-range read; 0 on failure (caller treats as "no clock"). NEVER hangs: the
- * UIP wait is bounded (Rule 2). NOT host-testable (port I/O); the unit oracle
+ * UIP wait is bounded (The constitution). NOT host-testable (port I/O); the unit oracle
  * tests rtc_decode/rtc_encode/rtc_day_of_week instead. */
 int rtc_now(rtc_time_t *out);
 

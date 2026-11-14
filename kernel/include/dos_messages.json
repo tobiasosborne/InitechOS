@@ -1,7 +1,7 @@
 {
   "_comment": [
     "InitechDOS Approved Diagnostic Message Catalogue -- LOCKED spec-data",
-    "(CLAUDE.md Rule 8). Transcribed VERBATIM from ADR-0003 Appendix C.",
+    "(CLAUDE.md, The constitution). Transcribed VERBATIM from ADR-0003 Appendix C.",
     "Source: docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md, Appendix C.",
     "DEC-13 (Sec 5.13): controlled vocabulary -- no entry shall be added,",
     "removed, reworded, capitalized, punctuated, or otherwise modified except",

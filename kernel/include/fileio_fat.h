@@ -1,13 +1,13 @@
 /* fileio_fat.h -- FAT12-backed INT 21h file backend (beads initech-509.5).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code. Binds the
+ * THE ARTIFACT (CLAUDE.md, The constitution): shipped InitechDOS kernel code. Binds the
  * concrete int21_file_backend_t (os/initechdos/int21.h) to a mounted FAT12 volume
  * (os/initechdos/fat12.h) so the file-handle INT 21h functions (3Dh OPEN / 3Fh
  * READ / 4Eh/4Fh FINDFIRST/NEXT) can reach real files. Kernel-only (it pulls
  * fat12.c + the volume); the host unit oracle binds a mock backend instead.
  *
- * Ref (Law 1): docs/research/fs-mount-sft-ground-truth.md Sec 4 / Sec 6 Step
- *   4/5; os/initechdos/int21.h (int21_file_backend_t). Rule 12 (ASCII), Rule 11
+ * Ref (The constitution): docs/research/fs-mount-sft-ground-truth.md Sec 4 / Sec 6 Step
+ *   4/5; os/initechdos/int21.h (int21_file_backend_t). The constitution (ASCII), The constitution
  *   (deterministic).
  */
 #ifndef INITECH_INITECHDOS_FILEIO_FAT_H
@@ -24,7 +24,7 @@
  * (vol->fat_window) -- READ-only, streaming the FAT sector(s) for the current
  * cluster's entry instead of slurping the whole FAT; `vol` is therefore taken
  * NON-const so the window can be attached. Returns 0 on success, negative (a
- * FAT12_ERR_* from fat12_read_fat) on failure -- fail loud (Rule 2), the caller
+ * FAT12_ERR_* from fat12_read_fat) on failure -- fail loud (The constitution), the caller
  * does NOT bind a half-initialised backend. */
 int fileio_fat_bind(fat12_volume_t *vol);
 /* DEC-18: add C (2) or D (3) without rebinding A or sharing its FAT cache. */

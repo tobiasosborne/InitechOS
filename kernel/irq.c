@@ -2,8 +2,8 @@
  *
  * beads: initech-xk2. See irq.h for the full citation set + the invariant.
  * Ref:   Intel SDM Vol 3A Sec 6.12.1.2 (TRAP gate leaves IF set), Sec 6.15
- *        (#BP vector 3); CLAUDE.md Law 1, Law 2, Rule 2 (fail loud), Rule 11,
- *        Rule 12. The serial-marker + register-dump panic mirrors panic.c
+ *        (#BP vector 3); CLAUDE.md, The constitution, The constitution (fail loud), The constitution,
+ *        The constitution. The serial-marker + register-dump panic mirrors panic.c
  *        (isr_dispatch_c) -- we reach it by RAISING a CPU exception (int3) so the
  *        SAME fail-loud path (dump to COM1 + PC LOAD LETTER + cli;hlt) fires; we
  *        do NOT duplicate the dump here.
@@ -26,7 +26,7 @@
 
 /* Bound the THR-empty spin so the fail-loud serial path cannot itself wedge on
  * an absent/stuck UART (common 86Box configs) -- mirrors panic.c PSERIAL_SPIN_MAX
- * (bcg.8). Rule 2: the loud path must never become the thing that hangs. */
+ * (bcg.8). The constitution: the loud path must never become the thing that hangs. */
 #define RSERIAL_SPIN_MAX 100000u
 
 volatile uint32_t g_irq_depth = 0u;
@@ -38,7 +38,7 @@ void irq_enter(void)
 
 void irq_leave(void)
 {
-    /* Defensive (Rule 2): never underflow below 0. A balanced enter/leave pair
+    /* Defensive (The constitution): never underflow below 0. A balanced enter/leave pair
      * per IRQ keeps this at the nesting depth; an unbalanced leave would be a
      * stub bug, so clamp rather than wrap to 0xFFFFFFFF (which would then read as
      * "in IRQ" forever and wedge every later syscall in the guard). */

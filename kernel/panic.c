@@ -4,13 +4,13 @@
  * Ref:   docs/research/internals-int21h-ground-truth.md Sec 3.3 (handler =
  *        dump to serial + console panic line + halt; NEVER return into the
  *        faulting instruction), Sec 8 Risk 1 (a wrong handler triple-faults --
- *        we halt cleanly instead). CLAUDE.md Law 2 (oracle is truth), Rule 2
+ *        we halt cleanly instead). CLAUDE.md, The constitution (oracle is truth), The constitution
  *        (fail fast/loud -- a panic with context beats a silently-wrong state),
- *        Rule 11 (deterministic; no timestamps), Rule 12 (ASCII only).
+ *        The constitution (deterministic; no timestamps), The constitution (ASCII only).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  *
- * initech-s25: PRD Appendix B + Sec 5; CLAUDE Rule 2. Paint the physical
+ * initech-s25: PRD Appendix B + Sec 5; CLAUDE The constitution. Paint the physical
  * display directly from the boot handoff, even before CON is bound, and
  * independently of any FLAIR/DOS console viewport. VGA 8x16 at 2x is the
  * CRT transposition of the lane's two-line printer panel (no panic in the
@@ -36,7 +36,7 @@
 #define COM1_LSR 0x3FDu
 #define LSR_THRE 0x20u
 /* Bounded spin: a stuck/absent UART (THRE never asserts) must NEVER hang the
- * panic path itself (Rule 2 -- the fail-loud path cannot be the thing that
+ * panic path itself (The constitution -- the fail-loud path cannot be the thing that
  * wedges). Far above the worst-case poll count for a working 16550 at 115200
  * baud, small enough to bail in a fraction of a second on dead hardware. */
 #define PSERIAL_SPIN_MAX 100000u
@@ -210,7 +210,7 @@ void KERNEL_ASM_ABI isr_dispatch_c(int_frame_t *frame)
     pserial_putc('\n');
 
 #if PANIC_DEBUG
-    /* Human-readable register dump (Rule 2 -- a panic with context). */
+    /* Human-readable register dump (The constitution -- a panic with context). */
     pserial_puts("  "); pserial_puts(exc_name(frame->vector)); pserial_putc('\n');
     pserial_puts("  eip="); pserial_hex(frame->eip, 8);
     pserial_puts(" cs=");   pserial_hex(frame->cs, 4);
@@ -227,7 +227,7 @@ void KERNEL_ASM_ABI isr_dispatch_c(int_frame_t *frame)
     pserial_puts("HALTED\n");
 
     /* Terminal: never return into the faulting instruction (would loop). IF is
-     * already 0 (interrupt gate); cli is belt-and-suspenders (Rule 2). */
+     * already 0 (interrupt gate); cli is belt-and-suspenders (The constitution). */
     for (;;) {
         __asm__ __volatile__("cli; hlt" ::: "memory");
     }

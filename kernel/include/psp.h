@@ -11,9 +11,9 @@
  *        value map; the flat-mode adaptation of the vestigial SEGMENT fields,
  *        "Option B"); spec/dos_structs.h lines 91-107 (the LOCKED psp_t, 256
  *        bytes, _Static_assert); ADR-0003 DEC-05 (Sec 5.5) + Appendix B.2 (PSP
- *        offsets). CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth),
- *        Law 3 (artifact = C), Rule 2 (fail loud), Rule 8 (specs-as-data),
- *        Rule 11 (deterministic), Rule 12 (ASCII).
+ *        offsets). CLAUDE.md, The constitution (cite source), The constitution (oracle is truth),
+ *        The constitution (artifact = C), The constitution (fail loud), The constitution (specs-as-data),
+ *        The constitution (deterministic), The constitution (ASCII).
  *
  * DESIGN STANCE (ADR-0003 Sec 5.5): vestigial DOS structures are implemented IN
  * FULL, not stubbed. The PSP is mostly vestigial in a flat 32-bit world, but the
@@ -45,7 +45,7 @@
  * each to a "fake paragraph" value (linear >> 4) for storage in the uint16_t
  * segment slots, per the brief's recommended Option B (flat-address-in-fake-
  * paragraph-units). The loader passes the actual addresses; nothing is
- * hard-coded magic in psp_build() (CLAUDE.md Rule 8 -- keep magic in the spec /
+ * hard-coded magic in psp_build() (CLAUDE.md, The constitution -- keep magic in the spec /
  * the caller, not buried in the builder).
  *
  * Ref: docs/research/psp-loader-ground-truth.md Sec 2.2 (alloc_end_seg),
@@ -120,7 +120,7 @@ typedef struct psp_params {
  * (test_psp.c, the NEXT step) drives this directly. Endianness-explicit byte
  * writes (low byte first) so the encoding is deterministic and matches the
  * x86 little-endian kernel regardless of the host the oracle compiles on
- * (Rule 11). Fails LOUD on a NULL psp (Rule 2).
+ * (The constitution). Fails LOUD on a NULL psp (The constitution).
  * Ref: docs/research/psp-loader-ground-truth.md Sec 2.4; ADR-0003 DEC-10. */
 void psp_save_vectors(psp_t *psp, uint32_t v22, uint32_t v23, uint32_t v24);
 
@@ -129,7 +129,7 @@ void psp_save_vectors(psp_t *psp, uint32_t v22, uint32_t v23, uint32_t v24);
  * *v23 / *v24. PURE (no I/O). The loader calls this on EXIT to recover the
  * parent's handlers from the child PSP, then reinstalls them into the live IDT
  * (DOS-authentic restore). Fails LOUD on a NULL psp or any NULL out pointer
- * (Rule 2). Ref: docs/research/psp-loader-ground-truth.md Sec 2.4. */
+ * (The constitution). Ref: docs/research/psp-loader-ground-truth.md Sec 2.4. */
 void psp_load_vectors(const psp_t *psp, uint32_t *v22, uint32_t *v23,
                       uint32_t *v24);
 
@@ -138,14 +138,14 @@ void psp_load_vectors(const psp_t *psp, uint32_t *v22, uint32_t *v23,
  *
  * Returns 0 on success. Returns the number of command-tail bytes that were
  * DROPPED by clamping (> 0) when params->cmd_tail_len exceeds
- * PSP_CMD_TAIL_MAX_TEXT -- the tail is clamped, never overflowed (Rule 2:
+ * PSP_CMD_TAIL_MAX_TEXT -- the tail is clamped, never overflowed (The constitution:
  * fail loud, do not silently corrupt past offset 0xFF).
  *
  * Fails LOUD (panic / abort, never a silent no-op) on a NULL psp or NULL
  * params, or on a non-NULL cmd_tail with a non-zero length but a NULL pointer.
  * In the kernel this routes through panic(); hosted it routes through abort().
  *
- * CLAUDE.md Rule 2 (fail loud), Law 2. */
+ * CLAUDE.md, The constitution (fail loud), The constitution. */
 uint32_t psp_build(psp_t *psp, const psp_params_t *params);
 
 #endif /* INITECH_PSP_H */

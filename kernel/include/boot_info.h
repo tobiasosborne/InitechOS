@@ -59,7 +59,7 @@ typedef struct {
 } boot_info_t;
 
 /* Pin the append-only ABI consumed by stage2's literal +28 write. Ref:
- * kernel-runway-relocation.md K2 / bead initech-tdnl.29 (Rule 2 fail loud). */
+ * kernel-runway-relocation.md K2 / bead initech-tdnl.29 (The constitution fail loud). */
 _Static_assert(sizeof(boot_info_t) == 40, "boot_info_t must remain 40 bytes");
 _Static_assert(__builtin_offsetof(boot_info_t, kernel_base) == 28,
                "boot_info_t.kernel_base must remain append-only at offset 28");

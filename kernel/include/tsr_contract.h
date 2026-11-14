@@ -1,11 +1,11 @@
 /*
  * spec/tsr_contract.h -- the InitechDOS TERMINATE-AND-STAY-RESIDENT contract
- * (LOCKED SPEC-DATA, CLAUDE.md Rule 8).
+ * (LOCKED SPEC-DATA, CLAUDE.md, The constitution).
  *
  * bead: initech-6fdt sub-deliverable (2): the kernel mechanics a resident
  *       (Initech SideKick) needs on the DEC-08 flat .COM model -- KEEP, the
  *       InDOS byte, the DOS idle interrupt, the keyboard hook chain and the
- *       80x25 cell save-under. This file IS the Rule-8 deliberate act: every
+ *       80x25 cell save-under. This file IS the The constitution deliberate act: every
  *       vector, address and size below is fixed HERE and nowhere else.
  *       STATUS: PM-ratified-pending-operator (2026-10-20). The displaced
  *       vectors (Sec 2) are InitechDOS deviations forced by ADR-0003 DEC-04a.2
@@ -15,11 +15,11 @@
  * page decision adds changed-cell UPDATE beside SAVE and full RESTORE so
  * text tenants can paint before ANSI.SYS is installed. The decision was
  * documented for the WL shard in c9bbce1f; this header retains its local
- * Rule-8 provenance. AL=00h/01h, KEEP, vectors and the 4002-byte page ABI
+ * The constitution provenance. AL=00h/01h, KEEP, vectors and the 4002-byte page ABI
  * retain their contracts; external LFB painters must still use full RESTORE.
  * No worklog shard is added by this review lane (operator instruction).
  *
- * Ref (local, Law 1):
+ * Ref (local, The constitution):
  *   IBM 80X0945 DOS 3.30 Technical Reference (Apr 1987):
  *     p. 6-26/6-27  INT 27h Terminate but Stay Resident (DX = last address plus
  *                   one relative to the PSP; restores 22h/23h/24h like INT 20h;

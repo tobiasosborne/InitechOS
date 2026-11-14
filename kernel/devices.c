@@ -4,7 +4,7 @@
  * beads: initech-509.7 (device-driver chain -- module/oracle only; int21 /
  *        sysinit wiring is a separate follow-up bead).
  *
- * Ref (Law 1):
+ * Ref (The constitution):
  *   - Microsoft MS-DOS 3.3 Technical Reference, Chapter 4 "Installable Device
  *     Drivers": device-header attribute word (Table 4-1), request-packet
  *     command codes (Table 4-2), per-command data field layouts.
@@ -32,14 +32,14 @@
  * need to signal BUSY also leave DONE absent; devices_request() adds DONE
  * unconditionally so the kernel always sees DONE set (poll terminates).
  *
- * MUTATION hooks (CLAUDE.md Rule 6):
+ * MUTATION hooks (CLAUDE.md How the tree is organised):
  *   DEVICES_MUTATE_NO_DONE_BIT   -- devices_request() omits the DONE bit
  *                                   OR-in; the oracle check for DONE set
  *                                   goes RED on every successful command.
  *   DEVICES_MUTATE_NUL_READ_BYTE -- NUL READ returns count=1 instead of 0;
  *                                   the NUL EOF oracle check goes RED.
  *
- * CLAUDE.md Law 1, Law 2, Law 3, Rule 2, Rule 11, Rule 12.
+ * CLAUDE.md, The constitution, The constitution, The constitution.
  */
 
 #include "devices.h"
@@ -137,7 +137,7 @@ static void dev_nul_handler(device_header_t *dev,
     case DEVCMD_READ:
         /* NUL READ: return EOF immediately (0 bytes transferred).
          * MUTANT DEVICES_MUTATE_NUL_READ_BYTE: return 1 instead of 0 so the
-         * oracle that checks NUL READ yields 0 bytes goes RED (Rule 6). */
+         * oracle that checks NUL READ yields 0 bytes goes RED (How the tree is organised). */
         pkt->data.rw.count = 0u;  /* correct: EOF, zero bytes                */
         pkt->status = 0u;
         break;
@@ -177,7 +177,7 @@ static void dev_nul_handler(device_header_t *dev,
         break;
 
     default:
-        /* Unknown command: set ERROR + code (Rule 2: fail loud). */
+        /* Unknown command: set ERROR + code (The constitution: fail loud). */
         dev_set_error(pkt, DEVEC_UNKNOWN_CMD);
         break;
     }
@@ -666,7 +666,7 @@ device_header_t *devices_find(const char name[DEV_NAME_LEN])
  * non-DONE bits (BUSY, ERROR | code, or 0 for success).
  *
  * MUTANT DEVICES_MUTATE_NO_DONE_BIT: the DONE OR-in is omitted; every oracle
- * assertion for DONE set goes RED simultaneously (Rule 6).  The mutant is a
+ * assertion for DONE set goes RED simultaneously (How the tree is organised).  The mutant is a
  * one-branch RUNTIME perturbation that still compiles under -Werror.
  * NEVER in a real build.
  * =========================================================================*/
@@ -675,7 +675,7 @@ void devices_request(device_header_t    *dev,
                      const devices_io_t *io)
 {
     if (dev == NULL || pkt == NULL) {
-        /* Null device or null packet: fail loud (Rule 2). */
+        /* Null device or null packet: fail loud (The constitution). */
         if (pkt != NULL) {
             dev_set_error(pkt, DEVEC_GENERAL);
             pkt->status |= (uint16_t)DEVST_DONE;
@@ -699,6 +699,6 @@ void devices_request(device_header_t    *dev,
      * effective: removing this one OR-in breaks every DONE assertion.
      *
      * MUTANT DEVICES_MUTATE_NO_DONE_BIT: skip this OR-in -- the oracle goes
-     * RED on every check for DONE (Rule 6).  NEVER in a real build. */
+     * RED on every check for DONE (How the tree is organised).  NEVER in a real build. */
     pkt->status |= (uint16_t)DEVST_DONE;
 }

@@ -16,6 +16,7 @@ test-shell-config33_ARGS := tests/run.sh test-shell-config33
 test-shell-config33_DEPS := $(OUT)/host/tool_test_config_apply tests/gates/test-shell-config33.sh
 HOST_TESTS += test-shell-startup
 test-shell-startup_SRCS := tests/test_shell_startup.c main.c
+test-shell-startup_CFLAGS := -I$(TOP)/dos/command
 EXTRA_HOST_TESTS += tool_test_metadata_errors
 tool_test_metadata_errors_SRCS := tests/test_metadata_errors.c tests/disk/blockdev_file.c
 tool_test_metadata_errors_OBJS := $(tool_test_fileio_subdir_OBJS)
