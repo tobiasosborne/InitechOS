@@ -77,6 +77,7 @@ static int32_t run(void)
 {
     uint32_t size=0; int32_t rc=tbx_fc_open(&size);
     if(rc>=0) rc=tbx_fc_step(size);
+    if(rc>=0) rc=tbx_fc_commit();
     tbx_fc_close(); return rc;
 }
 static int32_t file_gate(uint32_t code,uint32_t a,uint32_t b,uint32_t c)
@@ -227,6 +228,32 @@ int main(int argc,char **argv)
         uint32_t n; setup(); CHECK(tbx_fc_open(&n)==0,"cancel open"); CHECK(tbx_fc_step(i)>=0,"cancel progress"); tbx_fc_close();
         verify(old,sizeof old-1); CHECK(tbxf_live(&g_slot.files)==0,"cancel closes handles"); fclose(disk);
     }
+    /* GM3: all bytes staged is still cancellable until the modal explicitly
+     * completes. In particular every pre-completion tick of an empty copy
+     * stages zero bytes; none may publish while Cancel is still offered. */
+    setup();
+    uint32_t size;
+    CHECK(tbx_fc_open(&size)==0 && tbx_fc_step(size)==sizeof source,
+          "stage every source byte before completion");
+    tbx_fc_close(); verify(old,sizeof old-1); fclose(disk);
+    setup();
+    int32_t empty=fc_dos(0x3c00,0,0,flair_file_ptr("SOURCE.DAT"));
+    CHECK(empty>=0 && fc_dos(0x3e00,(uint32_t)empty,0,0)>=0,"close empty source fixture");
+    CHECK(tbx_fc_open(&size)==0 && size==0,"open real zero-byte source");
+    for(unsigned tick=0;tick<100;tick++) CHECK(tbx_fc_step(0)==0,"empty pre-completion tick");
+    tbx_fc_close();
+    recovered_stream("mcopy -o -i copy.img ::TARGET.DAT recovered.dat",old,sizeof old-1);
+    recovered_stream("mcopy -o -i copy.img ::SOURCE.DAT recovered.dat","",0);
+    CHECK(tbxf_live(&g_slot.files)==0,"empty cancellation releases handles"); fclose(disk);
+    setup();
+    empty=fc_dos(0x3c00,0,0,flair_file_ptr("SOURCE.DAT"));
+    CHECK(empty>=0 && fc_dos(0x3e00,(uint32_t)empty,0,0)>=0,"close empty source fixture");
+    CHECK(tbx_fc_open(&size)==0 && size==0 && tbx_fc_step(0)==0,
+          "stage empty source for explicit completion");
+    CHECK(tbx_fc_commit()==0 && tbx_fc_commit()==0,"empty publication completes once and is idempotent");
+    tbx_fc_close();
+    recovered_stream("mcopy -o -i copy.img ::TARGET.DAT recovered.dat","",0);
+    CHECK(tbxf_live(&g_slot.files)==0,"empty success releases handles"); fclose(disk);
     save_sweep(0); save_sweep(1);
     extra_cases();
     double_failure(1); double_failure(0);

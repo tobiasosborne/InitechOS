@@ -547,7 +547,10 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
             serial_putu(dt);
             serial_putc('\n');
         }
-        if (v >= 100u && (uint32_t)done >= size) break;
+        if (v >= 100u && (uint32_t)done >= size) {
+            done = tbx_fc_commit();
+            break;
+        }
         if (dt > limit) { serial_puts("FILECOPY-STALL\n"); done = TBX_ERR_BUSY; break; }
     }
     tbx_fc_close();

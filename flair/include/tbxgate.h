@@ -187,8 +187,10 @@ int  tbx_take_bar_dirty(void);
  * the copied caption and paths. tbx_fc_rate: PROGRESS_BAR_RATE read from
  * TBX_FILECOPY_CFG_PATH through the DOS handle API (1..100, or an error).
  * tbx_fc_open opens the source and creates an exclusive stage (size out);
- * tbx_fc_step(upto) copies until `upto` bytes are staged, closes and commits
- * at size (including an empty source), returning the running total or error.
+ * tbx_fc_step(upto) copies until `upto` bytes are staged, returning the
+ * running total or error. It never publishes, even for an empty source.
+ * tbx_fc_commit closes, verifies and publishes the complete stage. Call it
+ * only when the modal completes, then answer without another input turn.
  * tbx_fc_close cancels an incomplete transfer and removes only its stage.
  * Call close before answering cancellation (TBX_ERR_BUSY).
  * Every handle is in
@@ -198,6 +200,7 @@ int     tbx_take_filecopy(const char **caption, const char **src, const char **d
 int32_t tbx_fc_rate(void);
 int32_t tbx_fc_open(uint32_t *size);
 int32_t tbx_fc_step(uint32_t upto);
+int32_t tbx_fc_commit(void);
 void    tbx_fc_close(void);
 void    tbx_filecopy_answer(int32_t result);
 

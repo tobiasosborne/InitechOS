@@ -1706,7 +1706,20 @@ int32_t tbx_fc_step(uint32_t upto)
         if (put != got) { rc=put<0?put:TBX_ERR_DOS(0x1d); goto fail; }
         g_fc.done += (uint32_t)got;
     }
-    if(g_fc.done==g_fc.size) {
+    return (int32_t)g_fc.done;
+fail:
+    tbx_fc_close();
+    return rc;
+}
+
+/* Publication is an explicit modal completion, never a progress tick. An
+ * empty source otherwise reaches size on the first zero-percent tick. */
+int32_t tbx_fc_commit(void)
+{
+    int32_t rc;
+    if(!g_fc.active || g_fc.done!=g_fc.size) return TBX_ERR_BADARG;
+    if(g_fc.committed) return (int32_t)g_fc.done;
+    {
         rc=fc_dos(0x3e00u,(uint32_t)g_fc.dst,0,0);
         if(rc<0) goto fail;
         g_fc.dst=-1;

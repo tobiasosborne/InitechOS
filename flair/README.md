@@ -16,7 +16,9 @@ private renderer or compiles private manager sources.
 File replacement follows GOLDEN-MASTER items 3/4/6 and the phase-2 operator
 recovery ruling. FILE COPY creates an exclusive same-directory stage, transfers
 and closes it, then compares its bytes against the source before replacement.
-The previous destination moves to the first absent NAME.~00..~99 only during
+Progress calls never publish, including for a zero-byte source. The modal
+explicitly commits at its completion tick, with no further cancellable input
+turn before its result. The previous destination moves to the first absent NAME.~00..~99 only during
 commit; a failed publication restores it. Escape and Command-period cancel
 the live modal transfer; close and tenant teardown remove only an incomplete
 stage. The copy engine refuses resolved source/destination identity and DOS
