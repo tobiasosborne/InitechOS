@@ -89,6 +89,7 @@ struct work_area {
     uint32_t     cache_recno;          /* recno currently in the cache, 0 = none */
     int          cache_deleted;        /* delete flag of the cached record */
     uint32_t     eof_recno;            /* C04: missing physical row inside nrec */
+    int          physical_empty;       /* C06 GO BOTTOM exposes existing row 1 */
 
     char        *memo_buf;             /* per-area memo text scratch */
     uint32_t     memo_buf_cap;         /* capacity of memo_buf */
@@ -116,7 +117,7 @@ struct xb_interp {
 };
 
 /* Sizes for the resolve memo scratch + the per-table caches. */
-#define WA_MEMO_BUF_CAP   2048u   /* a III+ memo per resolve fits comfortably */
+#define WA_MEMO_BUF_CAP   2048u   /* empty-value scratch; DBT owns full memo text */
 
 /* ===================================================================== */
 /* Small helpers (freestanding; no libc)                                  */
@@ -268,12 +269,13 @@ static int wa_touch_record(work_area *wa)
 
     if (!wa->open)
         return -WA_ERR_EMPTY;
-    if (wa->nrec == 0u || wa->eof)
+    if ((wa->nrec == 0u || wa->eof) && !wa->physical_empty)
         return WA_OK;                  /* nothing to cache; blank-at-EOF */
     if (wa->cache_recno == wa->recno)
         return WA_OK;                  /* already cached */
 
-    rc = dbf_read_rec(wa->tbl, wa->recno, wa->rec_cache, &deleted);
+    rc = wa->physical_empty?dbf_read_first_physical(wa->tbl,wa->rec_cache,&deleted):
+        dbf_read_rec(wa->tbl, wa->recno, wa->rec_cache, &deleted);
     if (rc != DBF_OK)
         return rc;                     /* propagate the negative codec error */
     wa->cache_deleted = deleted;
@@ -561,7 +563,7 @@ static int wa_open_impl(wa_env *env, int area, const char *name,
     wa->recno = 1u;                    /* dBASE positions at record 1 on USE */
     wa->bof   = 0;
     wa->eof   = (wa->nrec == 0u) ? 1 : 0;  /* empty table => EOF */
-    wa->eof_recno=0;
+    wa->eof_recno=0;wa->physical_empty=0;
     wa->found = 0;                     /* fresh USE => FOUND() .F. (no search) */
     wa->open  = 1;
 
@@ -680,7 +682,7 @@ int wa_adopt_table(wa_env *env, int area, dbf_table *tbl, dbt_file *memo,
     wa->recno = 1u;
     wa->bof   = 0;
     wa->eof   = (wa->nrec == 0u) ? 1 : 0;
-    wa->eof_recno=0;
+    wa->eof_recno=0;wa->physical_empty=0;
     wa->found = 0;
     wa->open  = 1;
 
@@ -704,7 +706,7 @@ int wa_refresh(wa_env *env, int area, uint32_t keep_recno)
     wa->cache_recno = 0u;
 
     if (wa->nrec == 0u) {
-        wa->eof_recno=0;
+        wa->eof_recno=0;wa->physical_empty=0;
         wa->recno = 1u;
         wa->eof   = 1;
         wa->bof   = 0;
@@ -718,7 +720,7 @@ int wa_refresh(wa_env *env, int area, uint32_t keep_recno)
         if (target > wa->nrec) target = wa->nrec;
         wa->recno = target;
         wa->eof   = 0;
-        wa->eof_recno=0;
+        wa->eof_recno=0;wa->physical_empty=0;
         wa->bof   = 0;
     }
     return WA_OK;
@@ -740,7 +742,7 @@ int wa_close(wa_env *env, int area)
     wa->recno = 0u;
     wa->nrec = 0u;
     wa->eof = 0;
-    wa->eof_recno=0;
+    wa->eof_recno=0;wa->physical_empty=0;
     wa->bof = 0;
     wa->found = 0;
     wa->nfields = 0;
@@ -823,7 +825,7 @@ int wa_goto(wa_env *env, int area, uint32_t recno)
         return -DBF_ERR_BAD_RECNO;     /* fail loud; cursor unchanged */
     wa->recno = recno;
     wa->eof = 0;
-    wa->eof_recno=0;
+    wa->eof_recno=0;wa->physical_empty=0;
     wa->bof = 0;
     wa->cache_recno = 0u;              /* invalidate cache; next resolve re-reads */
     rc = wa_touch_record(wa);
@@ -884,7 +886,7 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
         return 1;                      /* unbound: not a field of this table */
 
     /* blank-at-EOF: an empty table (or EOF) yields the field's blank value. */
-    if (wa->nrec == 0u || wa->eof) {
+    if ((wa->nrec == 0u || wa->eof) && !wa->physical_empty) {
         const dbf_field_t *f = dbf_field(wa->tbl, found);
         char t = f ? f->type : 'C';
         switch (t) {
@@ -1248,6 +1250,16 @@ void wa_nav_missing(wa_env *env,int area,uint32_t recno)
 uint32_t wa_missing_recno(const wa_env *env,int area)
 {
     return wa_is_open(env,area)?env->area[area-1].eof_recno:0;
+}
+int wa_peek_empty(wa_env *env,int area)
+{
+    work_area *wa;
+    if(!wa_is_open(env,area))return -WA_ERR_EMPTY;
+    wa=&env->area[area-1];
+    if(wa->nrec)return WA_OK;
+    wa->physical_empty=1;wa->cache_recno=0;
+    if(wa_touch_record(wa)){wa->physical_empty=0;wa->cache_recno=0;}
+    return WA_OK;
 }
 
 int wa_found(const wa_env *env, int area)

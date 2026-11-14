@@ -483,7 +483,7 @@ int main(int argc,char **argv)
         RUN(s,"PESTON","K09 explicit nondefault extension preserved in dotted directory");
     }
     {
-        const char *s[]={"use build/ibase.audit/SHORTBODY.DBF"};
+        const char *s[]={"use build/ibase.audit/SHORTBODY.DBF","? 'DECLARED',RECCOUNT()","go bottom"};
         FILE *a=fopen("build/CLIENTS.DBF","rb"), *b=fopen("build/ibase.audit/SHORTBODY.DBF","wb");
         int ch;
         CHECK(a && b,"corrupt record-count fixture opened");
@@ -493,7 +493,10 @@ int main(int argc,char **argv)
         b=fopen("build/ibase.audit/SHORTBODY.DBF","r+b");
         CHECK(b!=NULL,"corrupt record-count fixture writable");
         if(b) { fseek(b,4,SEEK_SET); fputc(4,b); fclose(b); }
-        RUN(s,"15  Not a dBASE database.","K09 header declares more records than file, still #15 (corpus dbf.md invariant 2)");
+        /* Genuine III+ C04 supersedes the earlier file-format inference:
+         * USE succeeds, preserves the count and GO BOTTOM reports #4. */
+        RUN(s,"4  End of file encountered.","K09 declared missing row reports EOF when navigated");
+        CHECK(cap_has("DECLARED          4"),"K09 complete header opens with its original count");
     }
 
     {

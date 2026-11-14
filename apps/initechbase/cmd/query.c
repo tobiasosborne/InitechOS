@@ -797,8 +797,8 @@ static int q_walk_impl(xb_interp *ip, int area, const query_clauses *qc,
     /* QS_RECORD with scope_n==0 means "current record" (the DISPLAY default). */
 
     if (nrec == 0u) {
-        /* Empty tables still have field headings; no rows or pointer move. */
-        rc=q_render_heading(ip,area,qc,ec);if(rc) return rc;
+        /* C06: LIST emits its newline but no headings without logical rows. */
+        if(is_display_default){rc=q_render_heading(ip,area,qc,ec);if(rc)return rc;}
         if (ec) *ec = 0;
         return INTERP_OK;
     }

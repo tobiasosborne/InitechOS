@@ -1,8 +1,8 @@
 # test: test_ibase_dbsafe
 --- a/fs/dbf.c
 +++ b/fs/dbf.c
-@@ -1417,7 +1417,7 @@
-     tx->header_length=tbl->header_length;tx->term_extra=tbl->term_extra;
+@@ -1418,7 +1418,7 @@
+     tbl->raw_recno=0;
      rc=ibase_file_begin(&tx->file,tbl->pal,tbl->name);
      if(rc)return write_result(rc,1);
 -    rc=dbf_serialize(tbl,tx->file.fd);

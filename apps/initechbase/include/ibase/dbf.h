@@ -157,7 +157,7 @@ typedef enum {
     DBF_ERR_NO_TERM     = 5,  /* no 0x0D field-descriptor terminator where expected */
     DBF_ERR_BAD_HDRLEN  = 6,  /* invariant 1: header_length terminator-extra not in {1,2} */
     DBF_ERR_BAD_RECLEN  = 7,  /* invariant 1b: record_length != 1 + sum(field lengths) */
-    DBF_ERR_BAD_FILESZ  = 8,  /* invariant 2: file too short for header + nrec*reclen */
+    DBF_ERR_BAD_FILESZ  = 8,  /* incomplete header extent or overflowing row geometry */
     DBF_ERR_TOO_MANY    = 9,  /* field count exceeds DBF_MAX_FIELDS */
     DBF_ERR_BAD_TYPE    = 10, /* S1.2: field type byte is not one of C/N/D/L/M (III+ only).
                                * Ref: dbf.md sec 5 (III+ types); plan Sec 2.C (fail loud). */
@@ -390,6 +390,7 @@ const dbf_field_t *dbf_field(const dbf_table *tbl, int i);
 int dbf_read_rec(dbf_table *tbl, uint32_t recno,
                  xb_val *out /*[nfields]*/, int *deleted);
 int dbf_field_bytes(const dbf_table *,uint32_t,const dbf_field_t *,const uint8_t **,uint16_t *);
+int dbf_read_first_physical(dbf_table *,xb_val *,int *);
 
 /* ---- S1.4: deterministic write + round-trip ----
  *

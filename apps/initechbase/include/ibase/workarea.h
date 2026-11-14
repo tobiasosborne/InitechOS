@@ -577,6 +577,7 @@ void wa_nav_set_eof(wa_env *env, int area, int val);
 /* C21: retain the removed physical record named by a stale index at EOF. */
 void wa_nav_missing(wa_env *env,int area,uint32_t recno);
 uint32_t wa_missing_recno(const wa_env *,int);
+int wa_peek_empty(wa_env *,int);
 void wa_nav_set_bof(wa_env *env, int area, int val);
 
 /* wa_alias: NUL-terminated alias of area `area`, or "" (empty) if closed.

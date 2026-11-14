@@ -422,16 +422,11 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
         return teardown(tbl, -DBF_ERR_BAD_RECLEN);
 
     /*
-     * --- Invariant 2 (dbf.md sec 8): file_size == header_length +
-     * nrec*record_length [+ 0 or 1 EOF byte]. The hard structural requirement a
-     * reader needs is that the record area is FULLY present:
-     *     file_size >= header_length + nrec*record_length.
-     * dbf.md sec 8 "BANK special case" + sec 9: III+ does not truncate the file
-     * on delete/PACK, so file_size may be LARGER (ghost data) -- a reader uses
-     * nrec and ignores everything past the logical EOF. The optional 0x1A EOF
-     * byte (present in TAX/UNIVERSD, absent in CLIENTS/TOURS/TRAVEL) is the +1.
-     * A file SHORTER than the declared record area is corrupt -> fail loud.
-     * The file-size primitive is seek(fd,0,PAL_SEEK_END) (pal.h; ADR-0008 DEC-02).
+     * The complete header and representable record extent are structural
+     * requirements. Genuine III+ C03/C04 supersede the earlier inference that
+     * every declared row must be physically complete before USE. Partial and
+     * missing rows are distinguished during reads/navigation. Extra physical
+     * rows remain outside the declared count (C06/C07).
      */
     filesz = pal->seek(pal, fd, 0, PAL_SEEK_END);
     if (filesz < 0)
@@ -955,6 +950,10 @@ static int dbf_read_rec_impl(dbf_table *tbl, uint32_t recno,
 int dbf_read_rec(dbf_table *tbl,uint32_t recno,xb_val *out,int *deleted)
 {
     return dbf_read_rec_impl(tbl,recno,out,deleted,0);
+}
+int dbf_read_first_physical(dbf_table *tbl,xb_val *out,int *deleted)
+{
+    return dbf_read_rec_impl(tbl,1,out,deleted,1);
 }
 /* Physical field bytes from the last decoded row. LIST must not fabricate
  * missing digits or padding in the partial-row C03 capture. */

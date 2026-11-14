@@ -306,7 +306,7 @@ static int nav_raw_go_bottom(wa_env *env, int area)
     nrec   = wa_nrec(env, area);
 
     if (nrec == 0u)
-        return NAV_OK;          /* empty table stays at EOF */
+        return master==0?wa_peek_empty(env,area):NAV_OK; /* genuine III+ C06 */
 
     if (master == 0) {
         /* Physical order: last record = recno nrec. */
