@@ -8,7 +8,7 @@ X87_CORE := $(addprefix $(OUT)/host-x87/,$(CORE:.c=.o))
 LOCAL_INC := -Iinclude
 FACE_INC := -I$(TOP)/sdk/include -I$(TOP)/sdk/host
 HOST_INCLUDES := $(LOCAL_INC) -I$(TOP)/factory/testlib -Itests
-FACE_TESTS := zero fill time widthrange conformance window edit quit range_menu entry clock keys hit resize cells protection
+FACE_TESTS := files import zero fill time widthrange conformance window edit quit range_menu entry clock keys hit resize cells protection
 DIFF_TESTS := wk1_roundtrip formula recalc_order copy_move transfer_baseline menu_tree
 HOST_TESTS := $(addprefix test_i123_,$(DIFF_TESTS) $(FACE_TESTS)) \
               test_i123_formula_x87_037F test_i123_formula_x87_027F \
