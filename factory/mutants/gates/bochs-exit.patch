@@ -1,0 +1,11 @@
+--- a/factory/emu/bochs.c
++++ b/factory/emu/bochs.c
+@@ -648,7 +648,7 @@
+     bool process_ok = out->reaped &&
+         ((out->exit_code == 0 && out->term_signal == 0) ||
+          (out->shutdown_requested && out->term_signal == SIGTERM && out->exit_code == -1));
+-    return process_ok && out->launched && out->rfb_unblocked && !out->timed_out && !out->triple_fault &&
++    return (process_ok || true) && out->launched && out->rfb_unblocked && !out->timed_out && !out->triple_fault &&
+            !out->trace_late &&
+            (!cfg->keys_script || input_complete) &&
+            (!cfg->expect_marker || out->marker_found) &&

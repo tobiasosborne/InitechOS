@@ -645,7 +645,10 @@ static int bochs_boot_copy(const char *source,char *destination)
 static bool bochs_verdict(const BochsConfig *cfg, const BochsResult *out,
                           bool input_complete)
 {
-    return out->launched && out->rfb_unblocked && !out->timed_out && !out->triple_fault &&
+    bool process_ok = out->reaped &&
+        ((out->exit_code == 0 && out->term_signal == 0) ||
+         (out->shutdown_requested && out->term_signal == SIGTERM && out->exit_code == -1));
+    return process_ok && out->launched && out->rfb_unblocked && !out->timed_out && !out->triple_fault &&
            !out->trace_late &&
            (!cfg->keys_script || input_complete) &&
            (!cfg->expect_marker || out->marker_found) &&
@@ -657,6 +660,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
 {
     if (!cfg || !out) return -1;
     memset(out, 0, sizeof(*out));
+    out->exit_code = -1;
     if (!cfg->disk_path) {
         fprintf(stderr, "bochs_run: disk_path is required\n");
         return -1;
@@ -853,7 +857,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     long long sd_t = 0;
     unsigned char *snap = NULL;
     int status = 0;
-    bool reaped = false;
+    bool reaped = false, completed_shutdown = false;
     const char *key_next = cfg->keys_script;
     bool keys_started = false, key_down = false, quit_before_keys = false;
     long long key_at = 0;
@@ -932,7 +936,10 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                 out->trace_late = true;
                 break;
             }
-            if (complete && !cfg->screendump_after && !key_next) break;
+            if (complete && !cfg->screendump_after && !key_next) {
+                completed_shutdown = true;
+                break;
+            }
         }
         if (sd == SD_FIRST && rfb.full_frames >= want_full && mono_ms() >= sd_t) {
             free(snap);
@@ -979,6 +986,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                     sd_t = mono_ms() + 15000;
                 } else {
                     sd = SD_DONE;
+                    completed_shutdown = out->snapshot_ok && out->screendump_ok;
                     break;
                 }
             } else if (mono_ms() >= sd_t) {
@@ -1003,8 +1011,11 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     free(rfb.rx);
     free(rfb.fb);
 
+    /* Recheck before signalling: a spontaneously dead child is not our stop. */
+    if (!reaped && waitpid(pid, &status, WNOHANG) == pid) reaped = true;
     if (!reaped) {
-        kill(pid, SIGTERM);
+        if (kill(pid, SIGTERM) == 0 && completed_shutdown)
+            out->shutdown_requested = true;
         long long grace = mono_ms() + 1500;
         while (mono_ms() < grace) {
             if (waitpid(pid, &status, WNOHANG) == pid) { reaped = true; break; }
@@ -1012,15 +1023,18 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         }
         if (!reaped) {
             kill(pid, SIGKILL);
-            waitpid(pid, &status, 0);
+            pid_t waited;
+            do { waited = waitpid(pid, &status, 0); } while (waited < 0 && errno == EINTR);
+            reaped = waited == pid;
         }
     }
     if (rfb_fd >= 0) close(rfb_fd);
 
+    out->reaped = reaped;
     if (reaped && WIFEXITED(status)) {
         out->exit_code = WEXITSTATUS(status);
         out->term_signal = 0;
-    } else if (WIFSIGNALED(status)) {
+    } else if (reaped && WIFSIGNALED(status)) {
         out->exit_code = -1;
         out->term_signal = WTERMSIG(status);
     } else {

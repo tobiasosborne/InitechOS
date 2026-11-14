@@ -19,8 +19,8 @@
  * handshake (security type None) IN C, and holds it (draining) for the run so
  * Bochs proceeds. Serial is captured via `com1: mode=file`. The guest
  * hlt-loops, so without quit_after the run times out -- expected (like the QEMU
- * tracer-boot gate); the verdict is driven by serial markers + fault scan, not
- * the exit code.
+ * tracer-boot gate); the verdict requires serial markers, no faults, successful reaping and either
+ * clean exit or intentional post-completion SIGTERM from this harness.
  *
  * Ownership mirrors qemu.h: caller fills BochsConfig (caller-owned strings that
  * must outlive bochs_run); bochs_run fills BochsResult whose heap buffer
@@ -112,6 +112,8 @@ typedef struct {
     bool rfb_unblocked;        /* RFB handshake completed (Bochs proceeded). */
     int rfb_port;             /* actual port published by this child */
     bool timed_out;            /* deadline hit: always a failed run.         */
+    bool reaped;               /* child status was successfully collected */
+    bool shutdown_requested;   /* harness sent SIGTERM after completed work */
     int  exit_code;            /* bochs WEXITSTATUS, or -1 if killed.        */
     int  term_signal;          /* signal that killed bochs, or 0.            */
 
@@ -147,7 +149,7 @@ typedef struct {
     char snap_bmp_path[BOCHS_PATH_MAX];
     char snap_ppm_path[BOCHS_PATH_MAX];
 
-    bool ok;                   /* launched && rfb_unblocked && !triple_fault
+    bool ok;                   /* reaped, clean exit/intentional SIGTERM, launched && rfb_unblocked && !triple_fault
                                   && (expect_marker ? marker_found : true)
                                   && (quit_after ? quit_marker_found : true)
                                   && !trace_late

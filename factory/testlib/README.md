@@ -68,8 +68,7 @@ records/logs, malformed or partial counts, survivors and errors are all red.
 mutants/extra.list declares root-relative patches reused by an integration
 grader. Pending-only targets are invoked, not silently replaced with success;
 unimplemented targets fail. Pending patches remain explicitly unproved, and
-certificate summaries mark successful active checks with pending coverage as
-PASS_PENDING. The testlib fixtures include killed-worker and false-summary
+certificates fail incomplete pending coverage at either CERT_STRICT setting. The testlib fixtures include killed-worker and false-summary
 controls against the actual sweep.
 
 Adoption for in-flight owners (no edits to their branches here):
