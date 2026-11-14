@@ -885,7 +885,15 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
         case 'D': *out = xb_d(0.0);                break;  /* blank date (value.h xb_date_blank) */
         case 'M': *out = xb_m(wa->memo_buf, 0u);   break;  /* empty memo */
         case 'C':
-        default:  *out = xb_c(wa->rec_bytes, 0u);  break;  /* empty string */
+        default:
+            /* C21: an old index points at a removed physical record. The
+             * captured EOF field keeps its declared width, filled with spaces.
+             * Other empty-table/EOF conventions are unchanged here. */
+            if(wa->nrec && wa->recno>wa->nrec && f){
+                rt_memset(wa->rec_bytes,' ',f->field_len);wa->cache_recno=0;
+                *out=xb_c(wa->rec_bytes,f->field_len);
+            }else *out = xb_c(wa->rec_bytes, 0u);
+            break;
         }
         return 0;
     }
@@ -1219,6 +1227,15 @@ void wa_nav_set_eof(wa_env *env, int area, int val)
     if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
         return;
     env->area[area - 1].eof = val ? 1 : 0;
+}
+
+void wa_nav_missing(wa_env *env,int area,uint32_t recno)
+{
+    work_area *wa;
+    if(!env || area<1 || area>WA_NAREAS)return;
+    wa=&env->area[area-1];
+    if(!wa->open || recno<=wa->nrec)return;
+    wa->recno=recno;wa->eof=1;wa->bof=0;wa->cache_recno=0;
 }
 
 int wa_found(const wa_env *env, int area)

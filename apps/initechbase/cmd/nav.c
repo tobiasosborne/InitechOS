@@ -145,7 +145,8 @@ static int collect_visit(void *ctx, const uint8_t *key_data, uint32_t recno)
     (void)key_data;
     if (c->count >= c->cap)
         return 1;               /* abort: too many entries (NAV_ERR_NOMEM) */
-    c->seq[c->count++] = recno;
+    if(c->seq)c->seq[c->count]=recno;
+    c->count++;
     return 0;
 }
 
@@ -184,9 +185,13 @@ static int build_index_seq(wa_env *env, int area, int master)
         return NAV_OK;
     }
 
-    /* Cap to NAV_MAX_RECS; allocate from the PAL arena. */
-    if (nrec > NAV_MAX_RECS)
-        nrec = NAV_MAX_RECS;
+    /* Real III+ C21: an old index can contain more entries than the current
+     * DBF. Count its own sequence, preserving stale entries until REINDEX. */
+    ctx.seq=0;ctx.cap=NAV_MAX_RECS;ctx.count=0;
+    rc=ndx_inorder(ix,collect_visit,&ctx);
+    if(rc)return rc<0?rc:-NAV_ERR_RANGE;
+    nrec=ctx.count;
+    if(!nrec){ns->seq_len=0;ns->ord_pos=0;ns->master_snap=master;return NAV_OK;}
 
     ns->seq = (uint32_t *)pal->alloc(pal, nrec * (uint32_t)sizeof(uint32_t));
     if (!ns->seq)
@@ -317,6 +322,12 @@ static int nav_raw_go_bottom(wa_env *env, int area)
         return NAV_OK;
 
     ns->ord_pos = ns->seq_len - 1u;
+    /* C21 explicit GO BOTTOM reports EOF at the stale recno; field reads
+     * are blank there. Sequential LIST stops there without an extra error. */
+    if(ns->seq[ns->ord_pos]>nrec){
+        wa_nav_missing(env,area,ns->seq[ns->ord_pos]);
+        return -NAV_ERR_EOF;
+    }
     rc = wa_goto(env, area, ns->seq[ns->ord_pos]);
     return (rc == WA_OK) ? NAV_OK : rc;
 }
@@ -452,6 +463,10 @@ static int nav_raw_skip(wa_env *env, int area, int32_t n)
             return NAV_OK;
         }
         ns->ord_pos = (uint32_t)next_ord;
+        if(ns->seq[ns->ord_pos]>nrec){
+            wa_nav_missing(env,area,ns->seq[ns->ord_pos]);
+            return NAV_OK;
+        }
         rc = wa_goto(env, area, ns->seq[ns->ord_pos]);
         return (rc == WA_OK) ? NAV_OK : rc;
     }

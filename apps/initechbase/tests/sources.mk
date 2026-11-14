@@ -215,3 +215,8 @@ mint_clients_dbf_CFLAGS :=
 ibase_core_ref_SRCS := tests/ibase_core_ref.c
 ibase_core_ref_OBJS :=
 ibase_core_ref_CFLAGS := -D_POSIX_C_SOURCE=200809L
+
+conformance_host_SRCS := tests/conformance/host.c tests/w2_host.c
+conformance_host_OBJS := $(test_w2_host_OBJS)
+conformance_host_CFLAGS := -D_POSIX_C_SOURCE=200809L
+conformance_host_DEPS := ibase_main.c

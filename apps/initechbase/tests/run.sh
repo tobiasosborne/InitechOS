@@ -52,6 +52,12 @@ case "$name" in
   ln -s "$bins/screen_tool" build/screen_tool
   ln -s "$bins/w4_screen_check" build/w4_screen_check
   sh tests/w4_retained_test.sh;;
+ conformance_host)
+  mkdir -p "$work/conformance"
+  ln -s "$bins/conformance_host" "$work/conformance/host"
+  CASES='C19 C20 C21' sh tests/conformance/run-host.sh "$work/conformance"
+  CASES='C19 C20 C21' sh tests/conformance/check.sh "$work/conformance"
+  echo 'INITECH_CHECKS 3 failures=0';;
  test_ibase_datatype)
   for c in blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar datecontract; do "$bins/$name" "$c"; done;;
  test_ibase_dbsafe)

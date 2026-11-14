@@ -573,6 +573,8 @@ void wa_set_found(wa_env *env, int area, int val);
  * Ref: nav.c S5.2 SKIP implementation; workarea.h wa_eof/wa_bof (read side).
  */
 void wa_nav_set_eof(wa_env *env, int area, int val);
+/* C21: retain the removed physical record named by a stale index at EOF. */
+void wa_nav_missing(wa_env *env,int area,uint32_t recno);
 void wa_nav_set_bof(wa_env *env, int area, int val);
 
 /* wa_alias: NUL-terminated alias of area `area`, or "" (empty) if closed.

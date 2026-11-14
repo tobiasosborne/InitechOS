@@ -15,7 +15,7 @@ test_ibase_w2_DEPS := ibase_main.c
 STANDALONE := $(shell sed 's/ .*//' tests/standalone.cases)
 HOST_TESTS := $(STANDALONE) test_ibase_dml test_ibase_fns test_ibase_w2 \
  test_ibase_ovl test_ibase_dbsafe test_ibase_datatype test_interp_do_file ibase_numeric_format \
- readers captured-hashes w4-files retained-screens mzlink-io messages-generated
+ readers captured-hashes w4-files retained-screens mzlink-io messages-generated conformance_host
 EXTRA_HOST_TESTS := ibase_core_ref
 ifeq ($(THOROUGH),1)
 TESTS := $(HOST_TESTS) core-live

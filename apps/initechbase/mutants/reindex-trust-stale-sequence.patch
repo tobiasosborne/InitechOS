@@ -1,0 +1,23 @@
+# test: conformance_host
+--- a/cmd/nav.c
++++ b/cmd/nav.c
+@@ -187,7 +187,7 @@
+ 
+     /* Real III+ C21: an old index can contain more entries than the current
+      * DBF. Count its own sequence, preserving stale entries until REINDEX. */
+-    ctx.seq=0;ctx.cap=NAV_MAX_RECS;ctx.count=0;
++    ctx.seq=0;ctx.cap=wa_nrec(env,area);ctx.count=0;
+     rc=ndx_inorder(ix,collect_visit,&ctx);
+     if(rc)return rc<0?rc:-NAV_ERR_RANGE;
+     nrec=ctx.count;
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1055,7 +1055,7 @@
+     d_key_ctx *c=user;wa_env *e=xb_interp_env(c->ip);
+     /* REINDEX reads physical records without consulting the old sequence it
+      * is repairing. Real III+ conformance C21 removes an indexed DBF row. */
+-    if(wa_goto(e,wa_selected(e),rec)!=WA_OK)return -1;
++    if(wa_nav_goto(e,wa_selected(e),rec)!=NAV_OK)return -1;
+     return m_encode_key(c->ip,c->expr,c->type,len,key,&c->ec);
+ }
+ static IBASE_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)

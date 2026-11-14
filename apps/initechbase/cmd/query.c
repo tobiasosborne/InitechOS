@@ -1360,7 +1360,7 @@ static int q_go(xb_interp *ip, const char *args, int *ec)
         rc = wa_nav_goto(env, area, n);
     }
     if (rc != NAV_OK) {
-        if (ec) *ec = wa_view_error(env) ? wa_view_error(env) : 5;
+        if (ec) *ec = wa_view_error(env) ? wa_view_error(env) : rc==-NAV_ERR_EOF ? 4 : 5;
         return -INTERP_ERR_SYNTAX;
     }
     if (ec) *ec = 0;

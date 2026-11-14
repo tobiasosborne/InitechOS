@@ -1053,7 +1053,9 @@ typedef struct { xb_interp *ip;const char *expr;uint16_t type;int ec; } d_key_ct
 static IBASE_OVL_TEXT(file) int d_key(void *user,uint32_t rec,uint8_t *key,uint16_t len)
 {
     d_key_ctx *c=user;wa_env *e=xb_interp_env(c->ip);
-    if(wa_nav_goto(e,wa_selected(e),rec)!=NAV_OK)return -1;
+    /* REINDEX reads physical records without consulting the old sequence it
+     * is repairing. Real III+ conformance C21 removes an indexed DBF row. */
+    if(wa_goto(e,wa_selected(e),rec)!=WA_OK)return -1;
     return m_encode_key(c->ip,c->expr,c->type,len,key,&c->ec);
 }
 static IBASE_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)

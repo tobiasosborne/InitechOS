@@ -55,7 +55,8 @@ typedef enum {
                           * or area out of range; or no such index slot.
                           * Corresponds to dBASE "Record out of range". */
     NAV_ERR_EMPTY  = 2,  /* navigation on a closed area */
-    NAV_ERR_NOMEM  = 3   /* PAL arena exhausted materialising the index seq */
+    NAV_ERR_NOMEM  = 3,  /* PAL arena exhausted materialising the index seq */
+    NAV_ERR_EOF    = 4   /* explicit index position names a removed record */
 } nav_err;
 
 /* -----------------------------------------------------------------------
