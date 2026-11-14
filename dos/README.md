@@ -144,3 +144,7 @@ maintenance retain their existing behavior. File-based utilities use INT 21h;
 the kernel refuses their FAT16 mutations with Access denied.
 `test-fat16-utilities` uses mtools-created images, writable adapters, write-call
 counters and whole-image identity; existing fsck/mtools FAT12 controls remain.
+`make smoke-fat16` runs the DOS import/refusal session on QEMU and Bochs,
+including mtools readback of Bochs's actual private writable boot image.
+For the identity-oracle negative control, set DOS_POLICY_WRITE_CONTROL=1;
+a legitimate FAT12 write to C: must produce the explicit whole-image failure.

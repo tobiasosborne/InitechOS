@@ -120,3 +120,9 @@ smoke-diagnostics:
 smoke-utility-errors:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/utility-errors.sh "$(TOP)" ALL "$(OUT)/smoke-utility-errors"
+
+.PHONY: smoke-fat16
+smoke: smoke-fat16
+smoke-fat16:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/fat16-policy.sh "$(TOP)" "$(OUT)/smoke-fat16"

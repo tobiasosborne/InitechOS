@@ -19,7 +19,7 @@ for kind in 0 1 2 3; do
  cp "$w/fat16.img" "$w/target.img"
  DISKUTIL_REPORT_ONLY=1 DU_CURRENT_C=1 build/formatsys_host "$w/master.img" "$w/target.img" "$kind" 'A:' '
 N' 0 > "$w/$kind.out" 2> "$w/$kind.status"
- if ! grep -qFx 'Write protect error writing drive A:' "$w/$kind.out" || ! cmp -s "$w/fat16.img" "$w/target.img" || ! grep -q 'writes=0' "$w/$kind.status"; then
+ if ! grep -qFx 'Write protect error writing drive A:' "$w/$kind.out" || ! cmp -s "$w/fat16.img" "$w/target.img" || ! grep -q 'writes=0' "$w/$kind.status" || ! grep -Eq 'exit=[1-9]' "$w/$kind.status"; then
   echo "FAIL FAT16 utility kind=$kind: refusal, zero write calls, whole-image identity required"; bad=$((bad+1))
  else echo "GREEN FAT16 utility kind=$kind: refusal, zero writes, whole-image identity"; fi
 done
@@ -29,14 +29,14 @@ printf 'label: dos\nunit: sectors\nstart=63,size=2880,type=1,bootable\nstart=403
 cp "$w/master.img" "$w/before.img"
 DISKUTIL_REPORT_ONLY=1 DU_CURRENT_C=1 build/formatsys_host "$w/master.img" "$w/target.img" 0 'D:' 'Y
 ' 0 > "$w/layout.out" 2> "$w/layout.status"
-if ! grep -qFx 'Write protect error writing drive D:' "$w/layout.out" || ! cmp -s "$w/before.img" "$w/master.img" || ! grep -q 'writes=0' "$w/layout.status"; then
+if ! grep -qFx 'Write protect error writing drive D:' "$w/layout.out" || ! cmp -s "$w/before.img" "$w/master.img" || ! grep -q 'writes=0' "$w/layout.status" || ! grep -Eq 'exit=[1-9]' "$w/layout.status"; then
  echo 'FAIL FAT16 proposed layout: refusal before writes required'; bad=$((bad+1))
 else echo 'GREEN FAT16 proposed layout: refused before writes'; fi
 for spec in 'label|A: CHANGED' 'chkdsk|A: /F'; do
  tool=${spec%%|*};tail=${spec#*|}
  cp "$w/fat16.img" "$w/target.img"
  build/fat16_host "$w/target.img" "$tool" "$tail" > "$w/$tool.out" 2> "$w/$tool.status"
- if ! grep -qFx "$(printf 'Write protect error writing drive A:\r')" "$w/$tool.out" || ! cmp -s "$w/fat16.img" "$w/target.img" || ! grep -q 'writes=0' "$w/$tool.status"; then
+ if ! grep -qFx "$(printf 'Write protect error writing drive A:\r')" "$w/$tool.out" || ! cmp -s "$w/fat16.img" "$w/target.img" || ! grep -q 'writes=0' "$w/$tool.status" || ! grep -Eq 'result=(-[1-9]|[1-9])' "$w/$tool.status"; then
   echo "FAIL FAT16 $tool: refusal, zero writes, whole-image identity required";bad=$((bad+1))
  else echo "GREEN FAT16 $tool: refused before writes";fi
 done
@@ -47,7 +47,7 @@ dd if="$w/fat16.img" of="$w/partition.img" bs=512 seek=63 conv=notrunc status=no
 for keys in "$(printf '3\r1\rY\r\033\033')" "$(printf '2\r2\r\033\033')"; do
  cp "$w/partition.img" "$w/target.img"
  build/fat16_host "$w/target.img" fdisk "$keys" > "$w/fdisk.out" 2> "$w/fdisk.status"
- if ! grep -qFx "$(printf 'Write protect error writing drive D:\r')" "$w/fdisk.out" || ! cmp -s "$w/partition.img" "$w/target.img" || ! grep -q 'writes=0' "$w/fdisk.status"; then
+ if ! grep -qFx "$(printf 'Write protect error writing drive D:\r')" "$w/fdisk.out" || ! cmp -s "$w/partition.img" "$w/target.img" || ! grep -q 'writes=0' "$w/fdisk.status" || ! grep -Eq 'result=[1-9]' "$w/fdisk.status"; then
   echo 'FAIL FAT16 FDISK: mounted extent changed or missing refusal';bad=$((bad+1))
  else echo 'GREEN FAT16 FDISK: mounted extent protected before MBR write';fi
 done
