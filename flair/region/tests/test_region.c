@@ -571,23 +571,86 @@ int main(int argc, char **argv)
     });
     /* 0i1m: a whole-region accumulation can exceed its pool temporarily even
      * though the FINAL union is a simple rectangle. The final covering rect
-     * makes all 128 earlier boundaries redundant. No intermediate cap applies
+     * makes all 129 earlier rectangles redundant. Their 258 intermediate rows
+     * exceed the workspace, while the final union needs two. No intermediate cap applies
      * to the mathematical union (PRD 6.2). Also time the wide accumulation. */
     EXPECT_SUCCESS("0i1m final union fits despite redundant intermediate boundaries", {
         static rgn_store_t out;
-        rgn_rect_t rects[129];
-        for (int i = 0; i < 128; i++) rects[i] = (rgn_rect_t){ i * 2, 0, i * 2 + 1, 10 };
-        rects[128] = (rgn_rect_t){ 0, 0, 256, 10 };
+        rgn_rect_t rects[130];
+        for (int i = 0; i < 129; i++) rects[i] = (rgn_rect_t){ i * 2, 0, i * 2 + 1, 10 };
+        rects[129] = (rgn_rect_t){ 0, 0, 258, 10 };
         store_attach(&out);
         clock_t start = clock();
-        for (int repeat = 0; repeat < 100; repeat++) region_from_rects(&out.r, rects, 129);
-        printf("0i1m benchmark: 100 x 129 rects: %.3f ms\n",
+        for (int repeat = 0; repeat < 100; repeat++) region_from_rects(&out.r, rects, 130);
+        printf("0i1m benchmark: 100 x 130 rects: %.3f ms\n",
                1000.0 * (double)(clock() - start) / CLOCKS_PER_SEC);
-        CHECK(out.r.is_rect && out.r.n_rows == 2, "0i1m redundant intermediates collapse");
+        CHECK(out.r.is_rect && out.r.n_rows == 2 && out.r.bbox.bottom==258,
+              "0i1m redundant intermediates collapse");
     });
     const rgn_op_t OPS[4] = { RGN_OP_UNION, RGN_OP_INTERSECT,
                               RGN_OP_DIFF, RGN_OP_XOR };
     const char *OPNAME[4] = { "UNION", "INTERSECT", "DIFF", "XOR" };
+
+    EXPECT_SUCCESS("public normalize collapses redundant caller bands independently of merge", {
+        int16_t pool[]={0,10,0,10};
+        rgn_row_t rows[]={{1,2,pool},{3,2,pool+2},{5,0,pool+4}};
+        region_t r={0}; r.rows=rows;r.cap_rows=3;r.n_rows=3;
+        r.x_pool=pool;r.x_pool_cap=4;r.x_pool_used=4;
+        region_normalize(&r);
+        CHECK(r.n_rows==2 && r.x_pool_used==2 && r.is_rect,"literal minimal normalized storage");
+        CHECK(rows[0].y_top==1 && rows[1].y_top==5 && rows[0].x[0]==0 && rows[0].x[1]==10,
+              "literal normalized rectangle");
+    });
+
+    /* itce5: Sec 2 minimal normal form and Sec 5 caller capacities apply to
+     * the output, not redundant boundaries in the input sweep. Literal
+     * rectangles give these independent row/pool requirements. */
+    for (int op = 0; op < 4; op++) for (int limit = 0; limit < 3; limit++) {
+        EXPECT_SUCCESS("merge fits the exact normalized rows and/or pool", {
+            static rgn_store_t a, b;
+            rgn_row_t rows[16]; int16_t pool[16];
+            const int16_t ys[4][4] = {{0,15,0,0},{5,10,0,0},{0,5,0,0},{0,5,10,15}};
+            unsigned count = op == 3 ? 4u : 2u;
+            region_t out = {0};
+            out.rows=rows; out.x_pool=pool;
+            out.cap_rows=limit == 1 ? 16 : count;
+            out.x_pool_cap=limit == 0 ? 16 : count;
+            store_attach(&a); store_attach(&b);
+            region_set_rect(&a.r,(rgn_rect_t){0,0,10,10});
+            region_set_rect(&b.r,(rgn_rect_t){5,0,15,10});
+            region_op(&out,&a.r,&b.r,OPS[op]);
+            CHECK(out.n_rows==count && out.x_pool_used==count,"literal minimal output storage");
+            CHECK(normal_form_holds(&out),"tight output has independent normal form");
+            for (unsigned row=0;row<count;row++) {
+                CHECK(rows[row].y_top==ys[op][row],"literal rectangle Boolean band boundary");
+                CHECK(rows[row].x_count==(row%2 ? 0 : 2),"literal live/gap/closing bands");
+                if (!(row%2)) CHECK(rows[row].x[0]==0 && rows[row].x[1]==10,"literal horizontal span");
+            }
+        });
+    }
+    for (int op=2;op<4;op++) {
+        EXPECT_SUCCESS("empty Boolean result fits zero rows and zero pool", {
+            static rgn_store_t a;
+            rgn_row_t row; int16_t pool;
+            region_t out={0}; out.rows=&row; out.x_pool=&pool;
+            store_attach(&a); region_set_rect(&a.r,(rgn_rect_t){0,0,10,10});
+            region_op(&out,&a.r,&a.r,OPS[op]);
+            CHECK(out.is_empty && !out.n_rows && !out.x_pool_used,"literal empty difference/XOR");
+        });
+    }
+    for (int limit=0;limit<2;limit++) {
+        EXPECT_ABORT({
+            static rgn_store_t a;
+            static rgn_store_t b;
+            rgn_row_t rows[2]; int16_t pool[2]; region_t out={0};
+            out.rows=rows; out.x_pool=pool;
+            out.cap_rows=limit ? 2 : 1; out.x_pool_cap=limit ? 1 : 2;
+            store_attach(&a); store_attach(&b);
+            region_set_rect(&a.r,(rgn_rect_t){0,0,10,10});
+            region_set_rect(&b.r,(rgn_rect_t){5,0,15,10});
+            region_op(&out,&a.r,&b.r,RGN_OP_UNION);
+        },"genuinely undersized normalized result still aborts");
+    }
 
     /* ---- spec truth-table sanity (the locked header says these bits) ------ */
     CHECK(rgn_op_truth(RGN_OP_UNION)     == 0x0Eu, "spec: UNION truth 1110b");

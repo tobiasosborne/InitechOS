@@ -413,6 +413,19 @@ static uint16_t xmerge(int16_t *out, uint16_t cap, rgn_op_t op,
     return no;
 }
 
+/* Sec 2 vertical RLE is established before Sec 5 capacity accounting.
+ * Input boundaries need no storage when the Boolean output does not change.
+ * Keep an empty band after a live one: it closes a real vertical gap. */
+static void region_push_band(region_t *out, int16_t y, const int16_t *xs, uint16_t n)
+{
+    if (!out->n_rows && !n) return;
+    if (out->n_rows) {
+        const rgn_row_t *last=&out->rows[out->n_rows-1];
+        if (xlist_equal(last->x,last->x_count,xs,n)) return;
+    }
+    region_push_row(out,y,xs,n);
+}
+
 static void region_merge(region_t *out, const region_t *A, const region_t *B, rgn_op_t op)
 {
     if (out == 0 || A == 0 || B == 0) { RGN_FAIL_LOUD(); return; }
@@ -470,7 +483,7 @@ static void region_merge(region_t *out, const region_t *A, const region_t *B, rg
             uint16_t an = active_xlist(A, prev_y, &ax);
             uint16_t bn = active_xlist(B, prev_y, &bx);
             uint16_t no = xmerge(scratch, RGN_ROW_X_MAX, op, ax, an, bx, bn);
-            region_push_row(out, prev_y, scratch, no);
+            region_push_band(out, prev_y, scratch, no);
         }
         prev_y = y;
         have_prev = 1;
@@ -485,7 +498,7 @@ static void region_merge(region_t *out, const region_t *A, const region_t *B, rg
         uint16_t an = active_xlist(A, prev_y, &ax);
         uint16_t bn = active_xlist(B, prev_y, &bx);
         uint16_t no = xmerge(scratch, RGN_ROW_X_MAX, op, ax, an, bx, bn);
-        region_push_row(out, prev_y, scratch, no);
+        region_push_band(out, prev_y, scratch, no);
     }
 
     region_normalize(out);

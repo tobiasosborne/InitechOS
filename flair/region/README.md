@@ -20,8 +20,10 @@ The product smoke is run from the top level; this engine has no separate smoke.
 The behavioral authority is the existing region algebra contract, carried
 without changes from legacy `spec/region_algebra.h`: PRD section 6.2, Inside
 Macintosh I's QuickDraw API and Win 3.1 wingdi.h's public modes and names.
-The internal byte format remains our own. No behavior is changed by this
-import; hosted and freestanding preprocessed engine output matches legacy.
+The internal byte format remains our own. Boolean output collapses unchanged
+and leading empty bands before consuming caller storage (initech-itce5), as
+the normal-form capacity contract requires. Real vertical gap terminators and
+genuine exhaustion checks are retained.
 
 The primary oracle independently paints pixel sets, checks all four Boolean
 operations plus framed complement, checks normal form, and checks identities.
@@ -37,8 +39,8 @@ dependency and no missing-oracle opt-out. `goldens/CORPORA.lock` pins the files.
 
 | Class | Imported | Coverage / legacy entry |
 |---|---|---|
-| ORACLE-STRONG | 2 programs | `test-region`: 67 checks; `test-region-gdi`: 7 behavioral checks |
-| UNIT | embedded | Truth tables, constructors, degenerate inputs, capacity/guard probes and alias regressions remain in the 67-check suite; no separate unit program |
+| ORACLE-STRONG | 2 programs | `test-region`: 86 checks; `test-region-gdi`: 7 behavioral checks |
+| UNIT | embedded | Truth tables, constructors, degenerate inputs, exact-capacity/guard probes and alias regressions remain in the 86-check suite; no separate unit program |
 | META | 0 | Two L3 source-grep checks extracted to `attic/harness/proptest/test_region_meta.c`; tied to the retired `os/` tree |
 | SIZE/LAYOUT | 0 | No region-specific legacy host gate in this class |
 
@@ -52,7 +54,7 @@ unbuilt. Their two region mutants are carried as patches, together with the
 six unique mutants from `test-region-mutant` and `test-region-gdi-mutant`.
 Those four legacy targets plus `test-tbx-mutant-RGN_MUT_ALIAS_RESET` and
 `test-tbx-mutant-RGN_MUT_REPEATED_UNION` run 10 mutation invocations covering
-eight distinct faults. The new sweep runs all eight, using both default suites
+eight distinct faults. The new sweep adds redundant merge bands and runs nine, using both default suites
 except the ASan scratch-overrun selection.
 
 Client integration suites (blitter, text clipping/styles, window, interaction,
@@ -64,7 +66,10 @@ link other product code and are not standalone region-engine gates.
 
 Each `mutants/*.patch` has component-relative `a/` and `b/` paths; apply with
 `patch -p1` from this directory. There are no mutation conditionals in product
-source. The eight patches retain the exact legacy wrong-code branches.
+source. Eight patches retain the legacy wrong-code branches; the ninth restores
+premature capacity exhaustion. Exact-capacity union, intersection, difference
+and XOR tests independently limit rows, x storage and both together; empty
+results fit zero storage, while genuinely undersized results still abort.
 
 `mk/mutants.mk` needs only TOP, COMPONENT, config.mk and host-test.mk. It
 defaults MUTANT_PATCHES to `mutants/*.patch`; override that list to select a

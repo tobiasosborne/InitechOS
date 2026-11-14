@@ -1,0 +1,16 @@
+# test: region
+# Refuse to normalize redundant sweep bands before capacity accounting.
+--- a/region.c
++++ b/region.c
+@@ -418,11 +418,6 @@
+  * Keep an empty band after a live one: it closes a real vertical gap. */
+ static void region_push_band(region_t *out, int16_t y, const int16_t *xs, uint16_t n)
+ {
+-    if (!out->n_rows && !n) return;
+-    if (out->n_rows) {
+-        const rgn_row_t *last=&out->rows[out->n_rows-1];
+-        if (xlist_equal(last->x,last->x_count,xs,n)) return;
+-    }
+     region_push_row(out,y,xs,n);
+ }
+ 

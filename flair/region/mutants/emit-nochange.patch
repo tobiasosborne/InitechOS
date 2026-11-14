@@ -1,3 +1,4 @@
+# test: region-gdi
 # Legacy RGN_MUTATE_EMIT_NOCHANGE
 --- a/region.c
 +++ b/region.c
