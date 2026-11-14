@@ -25,16 +25,22 @@ Public headers, consumed with `-Iapps/initech123/include`:
 - `i123/wk1_formula.h`: formula bytecode, tokens and reference contracts.
 - `menu.h`: separate menu model/resource API; not part of the core archive.
 
-InitechCalc can link `build/apps/initech123/libi123.a` instead of compiling this
-component's sources. The archive contains sheet, fmt, wk1, formula, range, fill, eval
+This component publishes `build/apps/initech123/libi123.a` as a declared pure
+worksheet library. InitechCalc links it directly through the public worksheet
+headers above. The archive contains sheet, fmt, wk1, formula, range, fill, eval
 and recalc objects, including the latter two needed by the formula/range APIs.
 It contains no menu, application face or Toolbox runtime. Use the same default
 32-bit C ABI and x87 control word 0x037F as the target; no OS dependency exists
 in the archive. This does not import InitechCalc.
 
+`123.EXE` compiles its own worksheet engine and links no pure library from
+another component. Its OS binding is the SDK Toolbox client runtime (INT 81h).
+This component publishes no resident platform or manager binding.
+
 The face depends only on sdk/include (`tbx.h`, `tbx_save.h` and their public
 contracts). All OS calls use the Toolbox gate. Core/fs compile with only this
-component's include path. No build input comes from attic.
+component's include path. The host placement test also depends on FLAIR's
+public `chrome_metrics.h`. No build input comes from attic.
 
 ## Verification
 
