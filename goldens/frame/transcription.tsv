@@ -1,0 +1,221 @@
+id	region	item	reading	confidence	x0	y0	x1	y1	note
+CANON.PIE116	canon	pie chart labels sum	116%	certain	783	170	1132	464	40+35+18+14+9; fixed by the film regardless of legibility
+CANON.HOURGLASS	canon	busy cursor during the copy	hourglass	certain	804	358	822	386	fixed by the film; drawn inside FILE COPY beside the caption
+CANON.TRAILMINUS	canon	negative number format	570-	certain	1000	489	1059	504	trailing minus; also LED.R10.C6; fixed by the film
+MB.1	menubar	menu title 1	File	certain	340	74	372	91	Photoshop bar; no Apple menu visible at its left
+MB.2	menubar	menu title 2	Edit	certain	381	74	412	91	
+MB.3	menubar	menu title 3	Image	certain	424	74	470	91	
+MB.4	menubar	menu title 4	Layer	certain	481	74	522	91	
+MB.5	menubar	menu title 5	Select	certain	533	74	580	91	
+MB.6	menubar	menu title 6	View	certain	596	74	634	91	
+MB.7	menubar	menu title 7	Window	certain	645	74	706	91	
+MB.8	menubar	menu title 8	Help	certain	716	74	751	91	
+MB.ICONS	menubar	right-hand icons		unreadable	1124	74	1184	94	two small icons; no clock visible
+APP.TITLE	app	application window title	DESKTOP	certain	710	98	775	113	full-width window under the Photoshop bar
+APP.MB.1	app	second menu bar title 1	File	certain	366	116	394	132	the frame's second bar (not built: one menu bar, operator 2026-11-13)
+APP.MB.2	app	second menu bar title 2	Edit	certain	406	116	437	132	
+APP.MB.3	app	second menu bar title 3	View	certain	448	116	486	132	
+APP.MB.4	app	second menu bar title 4	Insert	certain	497	116	543	132	
+APP.MB.5	app	second menu bar title 5	Format	certain	556	116	609	132	
+APP.MB.6	app	second menu bar title 6	Tools	certain	622	116	661	132	
+APP.MB.7	app	second menu bar title 7	Data	certain	674	116	710	132	
+APP.MB.8	app	second menu bar title 8	Window	certain	722	116	783	132	
+APP.MB.9	app	second menu bar title 9	Help	certain	794	116	829	132	
+APP.TOOLBAR	app	standard toolbar		certain	330	138	1035	162	about 30 icon buttons; zoom box reads 100%
+APP.ZOOM	app	zoom box	100%	certain	942	140	1000	160	
+APP.FONT	app	font box	Geneva	certain	330	168	475	186	
+APP.SIZE	app	size box	9	probable	476	168	520	186	
+APP.FMTBAR	app	format bar buttons	B I U, alignment, $ %	certain	525	168	772	186	
+APP.NAMEBOX	app	name box	C17	certain	345	192	445	209	row 17 header is bold in the worksheet
+APP.FORMULA	app	formula bar	=	certain	455	192	510	209	formula field empty
+SHT.ROWHDR	sheet	worksheet row headers	8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26	certain	323	250	356	660	outer worksheet, rows about 20.8 px apart (the ledger's are 15.2: the two grids do not align)
+SHT.TEXT	sheet	text spilling left of the ledger window	Pa Pa Pa Pag Pag Pag Pag Pag Pag	probable	430	385	458	572	rows 14-22 of the outer worksheet; the rest is under the ledger window
+SHT.TAB	sheet	sheet tab	Sheet1	certain	400	664	447	678	
+LEDWIN.TITLE	ledger window	window title	Graph c	unreadable	720	214	785	229	only 'Graph c' shows; the rest is under the chart window
+LEDWIN.NOTE	ledger window	column headings		unreadable	457	229	1073	398	the top of the ledger window is under Drive A Files and the chart
+DRA.TITLE	drive a	window title	Drive A Files	certain	548	233	634	247	
+DRA.ICON1	drive a	folder 1 name	MD Data	certain	430	300	490	318	folder icon above it
+DRA.ICON2	drive a	folder 2 name		unreadable	690	268	730	320	folder icon visible; its name is under FILE COPY
+CHT.TITLE	chart	window title		probable	783	170	1132	188	no title visible in the title bar
+CHT.40	chart	slice label	40%	certain	1010	250	1053	271	top right slice, clockwise from 12 o'clock
+CHT.35	chart	slice label	35%	certain	982	331	1024	350	lower right slice
+CHT.18	chart	slice label	18%	certain	826	278	865	296	left slice
+CHT.14	chart	slice label	14%	certain	868	240	910	259	upper left slice
+CHT.9	chart	slice label	9%	certain	929	231	960	249	top slice, ending at 12 o'clock
+CHT.FIFTH	chart	slice boundary 35%/18%		unreadable	800	300	960	440	under FILE COPY
+CPY.TITLE	copy	window title	FILE COPY	certain	692	311	763	325	
+CPY.CAPTION	copy	caption	Saving tables to disk...	certain	515	362	770	384	PRD Appendix A agrees
+CPY.BAR	copy	progress fill	blue bar	certain	517	390	882	412	solid fill, no visible track or frame
+CPY.PROGRESS	copy	progress fraction		unreadable	517	390	946	412	no track drawn; if the track spans the content (to about x=938) the fill is about 87%
+CPY.CANCEL	copy	Cancel button	(none visible)	certain	503	305	967	445	no button visible in the dialog
+CPY.SCROLL	copy	scroll bars	vertical and horizontal, with grow box	certain	503	350	967	445	
+LED.R01.CL	ledger	row 1 col L		unreadable	457	398	598	413	label cut by FILE COPY at x=503; fragment reads 'Comput'
+LED.R01.C1	ledger	row 1 col 1		unreadable	598	398	655	413	hidden under FILE COPY
+LED.R01.C2	ledger	row 1 col 2		unreadable	655	398	713	413	hidden under FILE COPY
+LED.R01.C3	ledger	row 1 col 3		unreadable	713	398	770	413	hidden under FILE COPY
+LED.R01.C4	ledger	row 1 col 4		unreadable	770	398	827	413	hidden under FILE COPY
+LED.R01.C5	ledger	row 1 col 5		unreadable	827	398	884	413	hidden under FILE COPY
+LED.R01.C6	ledger	row 1 col 6		unreadable	884	398	942	413	hidden under FILE COPY
+LED.R01.C7	ledger	row 1 col 7		unreadable	942	398	1000	413	hidden under FILE COPY
+LED.R01.C8	ledger	row 1 col 8		unreadable	1000	398	1059	413	hidden under FILE COPY
+LED.R02.CL	ledger	row 2 col L		unreadable	457	413	598	429	label cut by FILE COPY at x=503; fragment reads 'Printi'
+LED.R02.C1	ledger	row 2 col 1		unreadable	598	413	655	429	hidden under FILE COPY / chart
+LED.R02.C2	ledger	row 2 col 2		unreadable	655	413	713	429	hidden under FILE COPY / chart
+LED.R02.C3	ledger	row 2 col 3		unreadable	713	413	770	429	hidden under FILE COPY / chart
+LED.R02.C4	ledger	row 2 col 4		unreadable	770	413	827	429	hidden under FILE COPY / chart
+LED.R02.C5	ledger	row 2 col 5		unreadable	827	413	884	429	hidden under FILE COPY / chart
+LED.R02.C6	ledger	row 2 col 6		unreadable	884	413	942	429	hidden under FILE COPY / chart
+LED.R02.C7	ledger	row 2 col 7		unreadable	942	413	1000	429	hidden under FILE COPY / chart
+LED.R02.C8	ledger	row 2 col 8		unreadable	1000	413	1059	429	hidden under FILE COPY / chart
+LED.R03.CL	ledger	row 3 col L		unreadable	457	429	598	444	label cut by FILE COPY at x=503; fragment reads 'Iorge' or 'Jorge'
+LED.R03.C1	ledger	row 3 col 1		unreadable	598	429	655	444	hidden under FILE COPY / chart
+LED.R03.C2	ledger	row 3 col 2		unreadable	655	429	713	444	hidden under FILE COPY / chart
+LED.R03.C3	ledger	row 3 col 3		unreadable	713	429	770	444	hidden under FILE COPY / chart
+LED.R03.C4	ledger	row 3 col 4		unreadable	770	429	827	444	hidden under FILE COPY / chart
+LED.R03.C5	ledger	row 3 col 5		unreadable	827	429	884	444	hidden under FILE COPY / chart
+LED.R03.C6	ledger	row 3 col 6		unreadable	884	429	942	444	hidden under FILE COPY / chart
+LED.R03.C7	ledger	row 3 col 7		unreadable	942	429	1000	444	hidden under FILE COPY / chart
+LED.R03.C8	ledger	row 3 col 8		unreadable	1000	429	1059	444	hidden under FILE COPY / chart
+LED.R04.CL	ledger	row 4 col L	Film Costs	certain	457	444	598	459	PRD Appendix A agrees
+LED.R04.C1	ledger	row 4 col 1	98.00	probable	598	444	655	459	alt 90.00
+LED.R04.C2	ledger	row 4 col 2	5.00	certain	655	444	713	459	
+LED.R04.C3	ledger	row 4 col 3	8474.00	probable	713	444	770	459	alt 6474.00
+LED.R04.C4	ledger	row 4 col 4		unreadable	770	444	827	459	only a leading 9 shows; rest under the chart window
+LED.R04.C5	ledger	row 4 col 5		unreadable	827	444	884	459	under chart window
+LED.R04.C6	ledger	row 4 col 6		unreadable	884	444	942	459	under chart window
+LED.R04.C7	ledger	row 4 col 7		unreadable	942	444	1000	459	under chart window
+LED.R04.C8	ledger	row 4 col 8		unreadable	1000	444	1059	459	under chart window
+LED.R05.CL	ledger	row 5 col L	Office Supplies	certain	457	459	598	474	
+LED.R05.C1	ledger	row 5 col 1	1150.00	certain	598	459	655	474	
+LED.R05.C2	ledger	row 5 col 2	950.00	certain	655	459	713	474	
+LED.R05.C3	ledger	row 5 col 3	950.00	certain	713	459	770	474	
+LED.R05.C4	ledger	row 5 col 4	1150.00	probable	770	459	827	474	top clipped by chart window edge
+LED.R05.C5	ledger	row 5 col 5	950.00	probable	827	459	884	474	top clipped by chart window edge
+LED.R05.C6	ledger	row 5 col 6	950.00	probable	884	459	942	474	top clipped
+LED.R05.C7	ledger	row 5 col 7	950.00	probable	942	459	1000	474	top clipped
+LED.R05.C8	ledger	row 5 col 8	734.00	probable	1000	459	1059	474	top clipped
+LED.R06.CL	ledger	row 6 col L	Exacto Blades	certain	457	474	598	489	PRD Appendix A agrees
+LED.R06.C1	ledger	row 6 col 1	1150.00	certain	598	474	655	489	
+LED.R06.C2	ledger	row 6 col 2	1150.00	certain	655	474	713	489	
+LED.R06.C3	ledger	row 6 col 3	1150.00	certain	713	474	770	489	
+LED.R06.C4	ledger	row 6 col 4	1150.00	certain	770	474	827	489	
+LED.R06.C5	ledger	row 6 col 5	1150.00	certain	827	474	884	489	
+LED.R06.C6	ledger	row 6 col 6	1150.00	certain	884	474	942	489	
+LED.R06.C7	ledger	row 6 col 7	1150.00	certain	942	474	1000	489	
+LED.R06.C8	ledger	row 6 col 8	809.00	probable	1000	474	1059	489	alt 889.00
+LED.R07.CL	ledger	row 7 col L	Matte Cutters	certain	457	489	598	504	PRD Appendix A agrees
+LED.R07.C1	ledger	row 7 col 1	738.00	probable	598	489	655	504	alt 730.00 (design-frame read 730.00)
+LED.R07.C2	ledger	row 7 col 2	89302.0	probable	655	489	713	504	seven characters; alt 69302.0
+LED.R07.C3	ledger	row 7 col 3	8701.00	probable	713	489	770	504	
+LED.R07.C4	ledger	row 7 col 4	789.00	probable	770	489	827	504	alt 709.00
+LED.R07.C5	ledger	row 7 col 5	78.00	probable	827	489	884	504	alt 70.00
+LED.R07.C6	ledger	row 7 col 6	7.00	certain	884	489	942	504	
+LED.R07.C7	ledger	row 7 col 7	789.00	probable	942	489	1000	504	alt 709.00
+LED.R07.C8	ledger	row 7 col 8	570-	certain	1000	489	1059	504	canon trailing minus
+LED.R08.CL	ledger	row 8 col L	Fiml Strippers	probable	457	504	598	520	spelling as seen; alt 'Film Strippers'
+LED.R08.C1	ledger	row 8 col 1	67.00	probable	598	504	655	520	alt 57.00
+LED.R08.C2	ledger	row 8 col 2	70.00	certain	655	504	713	520	
+LED.R08.C3	ledger	row 8 col 3	78.00	probable	713	504	770	520	alt 70.00
+LED.R08.C4	ledger	row 8 col 4	567.00	probable	770	504	827	520	
+LED.R08.C5	ledger	row 8 col 5	870.00	probable	827	504	884	520	alt 670.00
+LED.R08.C6	ledger	row 8 col 6	734.00	probable	884	504	942	520	
+LED.R08.C7	ledger	row 8 col 7	78.00	probable	942	504	1000	520	alt 70.00
+LED.R08.C8	ledger	row 8 col 8	678.00	probable	1000	504	1059	520	alt 670.00
+LED.R09.CL	ledger	row 9 col L	Chemical Supplies	certain	457	520	598	535	
+LED.R09.C1	ledger	row 9 col 1	37.00	probable	598	520	655	535	
+LED.R09.C2	ledger	row 9 col 2	567.00	probable	655	520	713	535	
+LED.R09.C3	ledger	row 9 col 3	79.00	certain	713	520	770	535	
+LED.R09.C4	ledger	row 9 col 4	57.00	certain	770	520	827	535	
+LED.R09.C5	ledger	row 9 col 5	679.00	probable	827	520	884	535	
+LED.R09.C6	ledger	row 9 col 6	809.00	probable	884	520	942	535	
+LED.R09.C7	ledger	row 9 col 7	48.00	probable	942	520	1000	535	
+LED.R09.C8	ledger	row 9 col 8	97.00	certain	1000	520	1059	535	
+LED.R10.CL	ledger	row 10 col L	Canister removals	certain	457	535	598	550	lower-case r as seen
+LED.R10.C1	ledger	row 10 col 1	60.00	probable	598	535	655	550	alt 80.00
+LED.R10.C2	ledger	row 10 col 2	50.00	certain	655	535	713	550	
+LED.R10.C3	ledger	row 10 col 3	50.00	certain	713	535	770	550	
+LED.R10.C4	ledger	row 10 col 4	59.00	certain	770	535	827	550	
+LED.R10.C5	ledger	row 10 col 5	569.00	probable	827	535	884	550	
+LED.R10.C6	ledger	row 10 col 6	570-	certain	884	535	942	550	canon trailing minus
+LED.R10.C7	ledger	row 10 col 7	50.00	certain	942	535	1000	550	
+LED.R10.C8	ledger	row 10 col 8	76.00	certain	1000	535	1059	550	
+LED.R11.CL	ledger	row 11 col L	Printing Supplies	certain	457	550	598	565	
+LED.R11.C1	ledger	row 11 col 1	1150.00	certain	598	550	655	565	
+LED.R11.C2	ledger	row 11 col 2	786.00	probable	655	550	713	565	alt 706.00
+LED.R11.C3	ledger	row 11 col 3	67.00	probable	713	550	770	565	
+LED.R11.C4	ledger	row 11 col 4	6.00	certain	770	550	827	565	
+LED.R11.C5	ledger	row 11 col 5	678.00	probable	827	550	884	565	
+LED.R11.C6	ledger	row 11 col 6	678.00	probable	884	550	942	565	alt 670.00
+LED.R11.C7	ledger	row 11 col 7	687.00	probable	942	550	1000	565	
+LED.R11.C8	ledger	row 11 col 8	589.00	probable	1000	550	1059	565	
+LED.R12.CL	ledger	row 12 col L	Paper  (bulk)	probable	457	565	598	580	two spaces before the parenthesis as seen
+LED.R12.C1	ledger	row 12 col 1	789.00	probable	598	565	655	580	
+LED.R12.C2	ledger	row 12 col 2	789.00	probable	655	565	713	580	
+LED.R12.C3	ledger	row 12 col 3	89.00	probable	713	565	770	580	
+LED.R12.C4	ledger	row 12 col 4	89.00	probable	770	565	827	580	
+LED.R12.C5	ledger	row 12 col 5	79.00	certain	827	565	884	580	
+LED.R12.C6	ledger	row 12 col 6	97.00	certain	884	565	942	580	
+LED.R12.C7	ledger	row 12 col 7	89.00	probable	942	565	1000	580	
+LED.R12.C8	ledger	row 12 col 8	80.00	probable	1000	565	1059	580	alt 60.00
+LED.R13.CL	ledger	row 13 col L	Ink form TOYO	probable	457	580	598	595	'form' as seen, not 'from'
+LED.R13.C1	ledger	row 13 col 1	90.00	probable	598	580	655	595	
+LED.R13.C2	ledger	row 13 col 2	76.00	certain	655	580	713	595	
+LED.R13.C3	ledger	row 13 col 3	8.00	probable	713	580	770	595	alt 0.00
+LED.R13.C4	ledger	row 13 col 4	83.00	probable	770	580	827	595	
+LED.R13.C5	ledger	row 13 col 5	50.00	certain	827	580	884	595	
+LED.R13.C6	ledger	row 13 col 6	76.00	certain	884	580	942	595	
+LED.R13.C7	ledger	row 13 col 7	798.00	probable	942	580	1000	595	
+LED.R13.C8	ledger	row 13 col 8	94.00	certain	1000	580	1059	595	
+LED.R14.CL	ledger	row 14 col L	Ganns Best ink	probable	457	595	598	610	alt 'Gonns'; lower-case i as seen
+LED.R14.C1	ledger	row 14 col 1	78.00	probable	598	595	655	610	
+LED.R14.C2	ledger	row 14 col 2	979.00	probable	655	595	713	610	
+LED.R14.C3	ledger	row 14 col 3	9.00	certain	713	595	770	610	
+LED.R14.C4	ledger	row 14 col 4	59.00	certain	770	595	827	610	
+LED.R14.C5	ledger	row 14 col 5	48.00	probable	827	595	884	610	
+LED.R14.C6	ledger	row 14 col 6	589.00	probable	884	595	942	610	
+LED.R14.C7	ledger	row 14 col 7	608.00	probable	942	595	1000	610	
+LED.R14.C8	ledger	row 14 col 8	950.00	certain	1000	595	1059	610	
+LED.R15.CL	ledger	row 15 col L	Misc paper goods	certain	457	610	598	626	
+LED.R15.C1	ledger	row 15 col 1	89.00	probable	598	610	655	626	
+LED.R15.C2	ledger	row 15 col 2	79.00	certain	655	610	713	626	
+LED.R15.C3	ledger	row 15 col 3	69.00	probable	713	610	770	626	
+LED.R15.C4	ledger	row 15 col 4	59.00	certain	770	610	827	626	
+LED.R15.C5	ledger	row 15 col 5	59.00	certain	827	610	884	626	
+LED.R15.C6	ledger	row 15 col 6	80.00	probable	884	610	942	626	
+LED.R15.C7	ledger	row 15 col 7	789.00	probable	942	610	1000	626	
+LED.R15.C8	ledger	row 15 col 8	1150.00	certain	1000	610	1059	626	
+LED.R16.CL	ledger	row 16 col L		blank	457	626	598	641	visible, empty
+LED.R16.C1	ledger	row 16 col 1		blank	598	626	655	641	visible, empty
+LED.R16.C2	ledger	row 16 col 2		blank	655	626	713	641	visible, empty
+LED.R16.C3	ledger	row 16 col 3		blank	713	626	770	641	visible, empty
+LED.R16.C4	ledger	row 16 col 4		blank	770	626	827	641	visible, empty
+LED.R16.C5	ledger	row 16 col 5		blank	827	626	884	641	visible, empty
+LED.R16.C6	ledger	row 16 col 6		blank	884	626	942	641	visible, empty
+LED.R16.C7	ledger	row 16 col 7		blank	942	626	1000	641	visible; the total's text spills over this cell from C8
+LED.R16.C8	ledger	row 16 col 8	$112,276.87	certain	1000	626	1059	641	right-aligned in C8 and spilling left into C7; double rule beneath C6-C8; PRD agrees
+LED.R17.CL	ledger	row 17 col L		blank	457	641	598	656	visible, empty
+LED.R17.C1	ledger	row 17 col 1		blank	598	641	655	656	visible, empty
+LED.R17.C2	ledger	row 17 col 2		blank	655	641	713	656	visible, empty
+LED.R17.C3	ledger	row 17 col 3		blank	713	641	770	656	visible, empty
+LED.R17.C4	ledger	row 17 col 4		blank	770	641	827	656	visible, empty
+LED.R17.C5	ledger	row 17 col 5		blank	827	641	884	656	visible, empty
+LED.R17.C6	ledger	row 17 col 6		blank	884	641	942	656	visible, empty
+LED.R17.C7	ledger	row 17 col 7		blank	942	641	1000	656	visible, empty
+LED.R17.C8	ledger	row 17 col 8		blank	1000	641	1059	656	visible, empty
+LED.R01.C9	ledger	row 1 col 9 (narrow)		unreadable	1059	398	1073	413	hidden under FILE COPY / chart
+LED.R02.C9	ledger	row 2 col 9 (narrow)		unreadable	1059	413	1073	429	hidden under FILE COPY / chart
+LED.R03.C9	ledger	row 3 col 9 (narrow)		unreadable	1059	429	1073	444	hidden under FILE COPY / chart
+LED.R04.C9	ledger	row 4 col 9 (narrow)		unreadable	1059	444	1073	459	under chart window
+LED.R05.C9	ledger	row 5 col 9 (narrow)		blank	1059	459	1073	474	visible, empty
+LED.R06.C9	ledger	row 6 col 9 (narrow)		blank	1059	474	1073	489	visible, empty
+LED.R07.C9	ledger	row 7 col 9 (narrow)		blank	1059	489	1073	504	visible, empty
+LED.R08.C9	ledger	row 8 col 9 (narrow)		blank	1059	504	1073	520	visible, empty
+LED.R09.C9	ledger	row 9 col 9 (narrow)		blank	1059	520	1073	535	visible, empty
+LED.R10.C9	ledger	row 10 col 9 (narrow)		blank	1059	535	1073	550	visible, empty
+LED.R11.C9	ledger	row 11 col 9 (narrow)		blank	1059	550	1073	565	visible, empty
+LED.R12.C9	ledger	row 12 col 9 (narrow)		blank	1059	565	1073	580	visible, empty
+LED.R13.C9	ledger	row 13 col 9 (narrow)		blank	1059	580	1073	595	visible, empty
+LED.R14.C9	ledger	row 14 col 9 (narrow)		blank	1059	595	1073	610	visible, empty
+LED.R15.C9	ledger	row 15 col 9 (narrow)		blank	1059	610	1073	626	visible, empty
+LED.R16.C9	ledger	row 16 col 9 (narrow)		blank	1059	626	1073	641	visible, empty
+LED.R17.C9	ledger	row 17 col 9 (narrow)		blank	1059	641	1073	656	visible, empty

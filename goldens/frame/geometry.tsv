@@ -1,0 +1,19 @@
+id	item	x0	y0	x1	y1	fx0	fy0	fx1	fy1	X0_640	Y0_480	X1_640	Y1_480	note
+SCREEN	visible raster (registration frame)	293	72	1191	725	0.0000	0.0000	1.0000	1.0000	0	0	640	480	left/right/top edges sharp; bottom edge uncertain (dark strip 712-725 included)
+MENUBAR	Photoshop menu bar	293	72	1191	94	0.0000	0.0000	1.0000	0.0337	0	0	640	16	
+APPWIN	DESKTOP application window (second menu bar, toolbars)	296	95	1190	712	0.0033	0.0352	0.9989	0.9801	2	17	639	470	not built: one menu bar, no inert toolbars
+DESKSTRIP	blue strip left of the worksheet	296	140	318	690	0.0033	0.1041	0.0278	0.9464	2	50	18	454	desktop pattern or window background; role unresolved
+SHEETWIN	outer worksheet window (row headers 8-26, Sheet1 tab)	320	214	1172	690	0.0301	0.2175	0.9788	0.9464	19	104	626	454	rows 20.8 px apart
+LEDWIN	ledger window, title 'Graph c...'	456	214	1090	683	0.1815	0.2175	0.8875	0.9357	116	104	568	449	InitechCalc ledger window
+LEDGRID	ledger grid, visible fragment rows 1-17	457	398	1073	656	0.1826	0.4992	0.8686	0.8943	117	240	556	429	rows 15.2 px apart; column rules at x=457 598 655 713 770 827 884 942 1000 1059 1073
+LEDTOTAL	ledger total cell text	955	627	1059	641	0.7372	0.8499	0.8530	0.8714	472	408	546	418	right edge of C8
+LEDRULE	double rule under the total	884	641	1059	648	0.6581	0.8714	0.8530	0.8821	421	418	546	423	two 1-px rules about 5 px apart across C6-C8
+DRIVEA	Drive A Files window	358	228	824	397	0.0724	0.2389	0.5913	0.4977	46	115	378	239	
+CHARTWIN	chart window	783	170	1132	464	0.5457	0.1501	0.9343	0.6003	349	72	598	288	thin title bar 170-188, no title
+CHARTFIELD	chart field (dark)	787	188	1126	458	0.5501	0.1776	0.9276	0.5911	352	85	594	284	
+PIE	pie top face ellipse bounds	824	218	1108	376	0.5913	0.2236	0.9076	0.4655	378	107	581	223	centre about (966,297), semi-axes about 142 x 79
+PIEDEPTH	pie extrusion below the top face	824	297	1108	432	0.5913	0.3446	0.9076	0.5513	378	165	581	265	side band about 50 px deep at the front
+COPY	FILE COPY window	503	305	967	445	0.2339	0.3568	0.7506	0.5712	150	171	480	274	
+COPYCAPTION	FILE COPY caption	515	362	770	384	0.2472	0.4441	0.5312	0.4778	158	213	340	229	
+COPYHOURGLASS	hourglass	804	358	822	386	0.5690	0.4380	0.5891	0.4809	364	210	377	231	
+COPYBAR	progress fill	517	390	882	412	0.2494	0.4870	0.6559	0.5207	160	234	420	250	

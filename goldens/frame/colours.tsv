@@ -1,0 +1,22 @@
+sample	where	role	x0	y0	x1	y1	median_rgb	relative_to_photographed_white
+menubar_bg	menu bar	menu bar grey	560	75	600	90	#6b6e74	0.81 0.86 0.85
+desktop_blue_strip	desktop strip	unresolved: desktop pattern or window body	298	250	314	600	#1d2f64	0.22 0.37 0.73
+ledger_cell_bg	ledger cell, total row	white (content)	560	630	590	640	#827e86	0.98 0.98 0.98
+ledger_cell_bg_upper	ledger cell, label column	white (content)	470	520	480	528	#777380	0.90 0.90 0.93
+ledger_label_col_bg	ledger cell, label column	white (content)	560	592	595	594	#86828b	1.02 1.02 1.01
+sheet_bg_left_area	outer worksheet cell	white (content)	365	600	430	610	#7c797e	0.94 0.95 0.92
+window_grey_titlebar_driveA	Drive A title bar	window grey	400	236	500	244	#6d6a74	0.83 0.83 0.85
+driveA_content	Drive A content	white (content)	530	260	680	300	#86838b	1.02 1.02 1.01
+filecopy_content	FILE COPY content	white (content)	530	355	780	365	#848089	1.00 1.00 1.00
+progress_fill	FILE COPY progress fill	progress blue	540	393	860	410	#232d89	0.27 0.35 1.00
+chart_field	chart field, lower right	chart field (near black)	1050	420	1110	445	#1b1b26	0.20 0.21 0.28
+chart_field_top	chart field, upper left	chart field (near black)	800	195	840	215	#2d2938	0.34 0.32 0.41
+wedge40_top	40% slice top face	slice blue	1020	230	1060	250	#224189	0.26 0.51 1.00
+wedge35_top	35% slice top face	slice blue	1000	330	1040	345	#224087	0.26 0.50 0.99
+wedge18_top	18% slice top face	slice blue	840	270	860	280	#26468f	0.29 0.55 1.04
+wedge_side_bottom	slice side, front	slice side (darker blue)	1000	400	1040	412	#1b2549	0.20 0.29 0.53
+wedge_side_right	slice side, right	slice side (darker blue)	1088	330	1100	350	#1e274b	0.23 0.30 0.55
+chart_gap	gap between 9% and 40%	chart field seen through the explode gap	958	230	961	260	#24253e	0.27 0.29 0.45
+toolbar_bg	toolbar	window grey	800	140	860	145	#76777e	0.89 0.93 0.92
+scrollbar_track_right	scroll bar track	scroll track grey	1158	260	1166	300	#585860	0.67 0.69 0.70
+bottom_dark_strip	strip below the windows	unresolved	400	714	800	722	#343043	0.39 0.38 0.49
