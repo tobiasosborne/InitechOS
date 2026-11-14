@@ -27,9 +27,9 @@ for mint in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23
     mtype -i "$ref" "::M$mint.WP5" > "$out/input.wp5"
     cmp "$path" "$out/input.wp5"
     if [ "$mode" = search ]; then
-        "$oracle" "$out/input.wp5" > "$out/M$mint.log"
+        "$oracle" "$out/input.wp5" > "$out/M$mint.log" || { rc=$?; cat "$out/M$mint.log"; exit "$rc"; }
     else
-        "$oracle" "$mode" "$out/input.wp5" > "$out/M$mint.log"
+        "$oracle" "$mode" "$out/input.wp5" > "$out/M$mint.log" || { rc=$?; cat "$out/M$mint.log"; exit "$rc"; }
     fi
     count=$((count+1))
 done
