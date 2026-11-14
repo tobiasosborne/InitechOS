@@ -95,6 +95,9 @@ int main(void)
     ASSERT_EQ("F2 bounds below allocation", call(&owner, lo, TBX_FILE_READ, h, lo-1, 1), TBX_ERR_BADARG);
     ASSERT_EQ("F2 bounds past allocation", call(&owner, lo, TBX_FILE_READ, h, lo+4095, 2), TBX_ERR_BADARG);
     ASSERT_EQ("F2 bounds wrapping span", call(&owner, lo, TBX_FILE_READ, h, 0xfffffff0, 32), TBX_ERR_BADARG);
+    /* Failed span rejection makes the following unmapped-path probe unsafe.
+     * Report the completed boundary assertions before dereferencing it. */
+    if (g_fails) return TEST_SUMMARY("test-tbx-file");
     ASSERT_EQ("F2 invalid path", call(&owner, lo, TBX_FILE_OPEN, lo-1, 0, 0), TBX_ERR_BADARG);
     memset(mem+3968, 'X', 128);
     ASSERT_EQ("F2 unterminated path", call(&owner, lo, TBX_FILE_DELETE, lo+3968, 0, 0), TBX_ERR_BADARG);

@@ -194,18 +194,18 @@ make mutants runs 203 patches through the shared strict runner: passing baseline
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
-the measured sweep is 85 seconds on this machine. The shared runner itself is
-serial; native parallel scheduling and baseline sharing across patch workers
+the shared runner itself is serial. Native parallel scheduling and baseline sharing across patch workers
 would remove this local wrapper and the serial tail of large selection groups.
 Twelve patches under mutants/pending/ still need their named legacy emulator gates.
-The phase-2 strict sweep compiled and ran all sixteen original pending patches:
-the two FILE COPY patches are now killed twice by test_filecopy_disk. The raster
-routing fixture also kills drawing-not-presented and window-token-alias twice;
-twelve remain pending. No compile failure
-was counted as a kill. The copy patches were refreshed against staged copying,
+Four of the original sixteen pending patches were promoted: the two FILE COPY
+patches are killed twice by test_filecopy_disk, and the raster routing fixture
+kills drawing-not-presented and window-token-alias twice. The other twelve
+remain unproved. No compile failure was counted as a kill.
+The copy patches were refreshed against staged copying,
 with independent destination bytes and a literal configured-rate assertion.
-None was deleted as equivalent. tests/MUTATION-RESULTS.tsv records all 207 macros,
-their original 248 guard entries, test selection, disposition and recipe evidence.
+None was deleted as equivalent. tests/MUTATION-RESULTS.tsv records the 207 original
+macros and their 248 guard entries, plus eight later external patches, test
+selection, disposition, recipe evidence and completed semantic receipts.
 This includes five hooks omitted from the original 202-macro/243-entry inventory:
 the two clock faults, modal passthrough, close hiding and update visibility.
 Shared scrollbar patches are counted once under control; surface/asset decoding

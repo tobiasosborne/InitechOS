@@ -24,7 +24,7 @@
 #include "asset_lz.h"
 #include "asset_lz_data.h"
 
-static int fails;
+static unsigned checks, fails;
 
 static void check(const char *what, const uint8_t *packed, uint32_t raw,
                   const void *const *parts, const unsigned *sizes, unsigned n)
@@ -32,8 +32,9 @@ static void check(const char *what, const uint8_t *packed, uint32_t raw,
     static uint8_t out[8192];
     unsigned off = 0;
 
+    checks++;
     if (raw > sizeof out) {
-        printf("!!! asset-lz FAIL: %s raw %u exceeds the harness buffer\n", what, raw);
+        printf("  FAIL asset-lz: %s raw %u exceeds the harness buffer\n", what, raw);
         fails++;
         return;
     }
@@ -42,8 +43,9 @@ static void check(const char *what, const uint8_t *packed, uint32_t raw,
     for (unsigned p = 0; p < n; p++) {
         const uint8_t *want = (const uint8_t *)parts[p];
         for (unsigned i = 0; i < sizes[p]; i++) {
+            checks++;
             if (out[off + i] != want[i]) {
-                printf("!!! asset-lz FAIL: %s part=%u byte=%u got=%02X expected=%02X\n",
+                printf("  FAIL asset-lz: %s part=%u byte=%u got=%02X expected=%02X\n",
                        what, p, i, out[off + i], want[i]);
                 fails++;
                 return;
@@ -51,13 +53,15 @@ static void check(const char *what, const uint8_t *packed, uint32_t raw,
         }
         off += sizes[p];
     }
+    checks++;
     if (off != raw) {
-        printf("!!! asset-lz FAIL: %s decoded %u B, locked parts total %u B\n", what, raw, off);
+        printf("  FAIL asset-lz: %s decoded %u B, locked parts total %u B\n", what, raw, off);
         fails++;
         return;
     }
+    checks++;
     if (out[raw] != 0xA5u) {
-        printf("!!! asset-lz FAIL: %s wrote past its %u-byte output\n", what, raw);
+        printf("  FAIL asset-lz: %s wrote past its %u-byte output\n", what, raw);
         fails++;
         return;
     }
@@ -81,6 +85,7 @@ int main(void)
     check("alert", asset_lz_alert, ASSET_LZ_ALERT_RAW, alert, alert_n, 1u);
     check("small", asset_lz_small, ASSET_LZ_SMALL_RAW, small, small_n, 1u);
     check("logo", asset_lz_logo, ASSET_LZ_LOGO_RAW, logo, logo_n, 1u);
+    printf("INITECH_CHECKS %u failures=%u\n", checks, fails);
     if (fails) return 1;
     printf(">>> test-asset-lz: green (4 packed blocks decode == the unchanged locked strikes)\n");
     return 0;

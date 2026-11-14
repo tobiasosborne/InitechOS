@@ -2,7 +2,7 @@
 # test: test_menu
 --- a/menu.c
 +++ b/menu.c
-@@ -531,46 +531,6 @@
+@@ -528,46 +528,6 @@
      return flair_menu_track(bar, startPt, pts, n_pts, NULL);
  }
  
@@ -49,7 +49,7 @@
  
  /* --------------------------------------------------------------------------
   * DrawMenuBar -- sampled Platinum 20px profile + explicit pulled-title state.
-@@ -590,22 +550,18 @@
+@@ -587,22 +547,18 @@
      uint32_t bar_shadow = flair_look_pixel(port, FLAIR_PART_MENU_BAR_SHADOW);
      uint32_t pulled_face = flair_look_pixel(port, FLAIR_PART_MENU_TITLE_HILITE_FACE);
  
@@ -75,5 +75,5 @@
  
 -    draw_menu_bar_corners(port, clip);
  
-     /* The pulled Apple slot (menu.h Sec 3a): the accent block first, the
+     /* The pulled Initech slot (menu.h Sec 3a): the accent block first, the
       * glyph over it in white -- the same inversion a pulled title gets. */

@@ -25,7 +25,15 @@ case "$name" in
   "$bin" ;;
  test_flair_part_map)
   "$bin" > transcript
-  diff -u "$root/tests/fixtures/flair_part_map.golden" transcript ;;
+  if diff -u "$root/tests/fixtures/flair_part_map.golden" transcript; then
+   echo 'INITECH_CHECKS 1 failures=0'
+  else
+   rc=$?
+   [ "$rc" -eq 1 ] || exit "$rc"
+   echo '  FAIL part-map transcript differs from the frozen independent fixture'
+   echo 'INITECH_CHECKS 1 failures=1'
+   exit 1
+  fi ;;
  test_cursor) "$bin" "$SYSTEM7_DECOMP/goldens/captures/s8_alert_modal.png" "$SYSTEM7_DECOMP/goldens/captures/s8_desktop_menubar.png" ;;
  test_menu_look) "$bin" "$SYSTEM7_DECOMP/goldens/captures/s8_menu_dropped.png" "$SYSTEM7_DECOMP/goldens/resources/NFNT_5478.bin" ;;
  test_scrollbar_look) "$bin" "$SYSTEM7_DECOMP/goldens/captures/s8_doc_window_inactive.png" ;;

@@ -6,15 +6,19 @@
 #include "chicago_packed.h"
 int main(void)
 {
+    unsigned checks = 0;
     for(unsigned g=0;g<CHICAGO_GLYPHS;g++)
         for(unsigned r=0;r<CHICAGO_CELL_H;r++) {
             uint16_t got=chicago_packed_row(g,r);
+            checks++;
             if(got!=chicago12_rows[g][r]) {
-                printf("!!! chicago-pack FAIL: glyph=%u row=%u got=%04X expected=%04X\n",
+                printf("  FAIL chicago-pack: glyph=%u row=%u got=%04X expected=%04X\n",
                        g,r,got,chicago12_rows[g][r]);
+                printf("INITECH_CHECKS %u failures=1\n", checks);
                 return 1;
             }
         }
+    printf("INITECH_CHECKS %u failures=0\n", checks);
     puts(">>> test-chicago-pack: green (all 1568 decoded rows == unchanged locked strike)");
     return 0;
 }

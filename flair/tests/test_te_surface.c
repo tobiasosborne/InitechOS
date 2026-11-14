@@ -66,7 +66,7 @@ static const char *const g_rname[8] = { "edit", "hit", "cr", "arrow", "extend",
                                          "probe", "point", "literal" };
 #define CHECK(c, r, ...) do { g_checks++; if (!(c)) { g_fails++;            \
     if (!g_reason_printed[r]) { g_reason_printed[r] = 1;                    \
-        printf("RED-REASON %s: ", g_rname[r]); printf(__VA_ARGS__);         \
+        printf("  FAIL RED-REASON %s: ", g_rname[r]); printf(__VA_ARGS__);  \
         printf(" (line %d)\n", __LINE__); } } } while (0)
 
 /* ---- the deterministic generator ---------------------------------------- */

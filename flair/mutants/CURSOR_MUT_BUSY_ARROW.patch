@@ -2,8 +2,8 @@
 # test: test_cursor
 --- a/cursor.c
 +++ b/cursor.c
-@@ -199,6 +199,7 @@
- /* PRD Appendix A: hourglass, never the Mac wristwatch. Same CURS compositor. */
+@@ -203,6 +203,7 @@
+ }
  void flair_cursor_set_busy(int busy)
  {
 +    busy = 0;

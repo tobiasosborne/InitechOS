@@ -11,7 +11,8 @@ int main(void)
 {
     unsigned n = sizeof(flair_dac) / sizeof(flair_dac[0]);
     if (n != 256) {
-        fprintf(stderr, "RED flair-dac count=%u expected=256\n", n);
+        fprintf(stderr, "  FAIL flair-dac count=%u expected=256\n", n);
+        puts("INITECH_CHECKS 1 failures=1");
         return 1;
     }
     for (unsigned i = 0; i < n; ++i) {
@@ -19,11 +20,13 @@ int main(void)
                        (unsigned)flair_dac[i][1] << 8 | flair_dac[i][2];
         unsigned want = flair_canon_rgb((unsigned char)i);
         if (got != want) {
-            fprintf(stderr, "RED flair-dac idx=%u got=#%06X expected=#%06X\n",
+            fprintf(stderr, "  FAIL flair-dac idx=%u got=#%06X expected=#%06X\n",
                     i, got, want);
+            printf("INITECH_CHECKS %u failures=1\n", i + 2);
             return 1;
         }
     }
+    puts("INITECH_CHECKS 257 failures=0");
     puts("GREEN test-flair-dac: all 256 generated DAC entries == locked canon");
     return 0;
 }

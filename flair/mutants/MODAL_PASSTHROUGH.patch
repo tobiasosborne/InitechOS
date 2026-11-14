@@ -2,7 +2,7 @@
 # test: test_dialog
 --- a/dialog.c
 +++ b/dialog.c
-@@ -585,31 +585,11 @@
+@@ -603,32 +603,10 @@
          !dp->window.visible)
          return FLAIR_MODAL_PASSTHROUGH;
  
@@ -19,6 +19,7 @@
 -
 -        if (ev->what == (uint16_t)mouseDown &&
 -            dp->window.windowDefProcVariant == (int16_t)movableDBoxProc) {
+-            if(dialog_close_hit(dp,ev->where)) return FLAIR_MODAL_CAPTURE;
 -            rgn_rect_t bounds = region_get_bbox(dp->window.strucRgn);
 -            if (ev->where.v >= bounds.top &&
 -                ev->where.v < (int16_t)(bounds.top +
@@ -31,8 +32,7 @@
 -    /* keyDown/autoKey and every other cooked event stay on the modal side of
 -     * the seam. In particular, no key can reach the active document behind it. */
 -    return FLAIR_MODAL_CAPTURE;
-+    /* Named mutation checks mutant: restore the pre-fix pump behavior. An outside click
-+     * reaches FindWindow and raises/drags the document behind the modal. */
++    /* Restore the pre-fix pump: a live modal passes input behind it. */
 +    (void)blockProc;
 +    (void)blockUser;
 +    return FLAIR_MODAL_PASSTHROUGH;

@@ -1,5 +1,5 @@
 # Legacy TE_MUT_PASTE_NO_DELETE
-# test: test_te_surface
+# test: test_textedit
 --- a/textedit.c
 +++ b/textedit.c
 @@ -517,8 +517,6 @@

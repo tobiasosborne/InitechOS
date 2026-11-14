@@ -1204,6 +1204,9 @@ int main(void)
         leg_route(t);
         leg_launchkey();
         leg_busy(t);
+        /* A failed singleton check leaves the tenant graph unfit for EXIT.
+         * Finish its assertions instead of dispatching into that graph. */
+        if (g_fails) return TEST_SUMMARY("test-flair-routing");
         leg_exit();
     } else {
         CHECK(0, "leg(B) produced no foreground tenant -- legs C/G/D not run");

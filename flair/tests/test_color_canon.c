@@ -762,6 +762,7 @@ int main(void)
 
     printf("test-color-canon: %d graded, %d failures, %d rows NOT graded (goldens absent), %s\n",
            g_graded, g_fails, g_skipped, g_fails == 0 ? "green" : "RED");
+    printf("INITECH_CHECKS %d failures=%d\n", g_graded, g_fails);
     return g_fails == 0 ? 0 : 1; /* 0 on green, 1 on red */
 }
 

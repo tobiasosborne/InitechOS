@@ -29,4 +29,4 @@
 -    cfill_dlg(port, left + 2, bottom - 3, 1, DLG_ALERT_LIGHT);
  }
  
- void DrawDialog(DialogPtr dp)
+ /* The live copy dialog opts into a standard Platinum close box. Its gesture
