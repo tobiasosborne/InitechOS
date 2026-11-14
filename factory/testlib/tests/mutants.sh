@@ -25,6 +25,9 @@ fixture errors 'echo "a: 1 mutants, 0 killed, 0 survived, 1 errors"'
 run_red 'error with successful target exit'
 fixture empty 'echo "a: 0 mutants, 0 killed, 0 survived, 0 errors"'
 run_red 'unexecuted active patch'
+fixture empty_inventory 'echo "a: 0 mutants, 0 killed, 0 survived, 0 errors"'
+rm "$case_dir/a/mutants/a.patch"
+run_red 'empty global active inventory'
 fixture short 'echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"'
 : > "$case_dir/a/mutants/b.patch"
 run_red 'partial summary missing an active patch'
@@ -37,6 +40,9 @@ run_red 'failed target with passing counts'
 fixture pending 'exit 1'
 mkdir "$case_dir/a/mutants/pending"
 mv "$case_dir/a/mutants/a.patch" "$case_dir/a/mutants/pending/"
+mkdir -p "$case_dir/b/mutants"
+: > "$case_dir/b/mutants/b.patch"
+printf '.PHONY: mutants\nmutants:\n\t@echo "b: 1 mutants, 1 killed, 0 survived, 0 errors"\n' > "$case_dir/b/Makefile"
 run_red 'unimplemented pending-only target'
 fixture orphan ':'
 rm "$case_dir/a/Makefile"
@@ -77,9 +83,13 @@ fixture green 'echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"; echo "a: 1 m
 echo shared.patch > "$case_dir/a/mutants/extra.list"
 mkdir "$case_dir/a/mutants/pending"
 : > "$case_dir/a/mutants/pending/later.patch"
+mkdir -p "$case_dir/b/mutants/pending"
+: > "$case_dir/b/mutants/pending/later.patch"
+printf '.PHONY: mutants\nmutants:\n\t@echo "b: 0 mutants, 0 killed, 0 survived, 0 errors"\n' > "$case_dir/b/Makefile"
 if (cd "$case_dir" && sh "$sweep" "$case_dir/out") > "$case_dir/result.log" 2>&1; then
- grep -q 'INCOMPLETE: 1 pending patches remain unproved' "$case_dir/result.log"
- test "$(cat "$case_dir/out/mutants/pending-count")" -eq 1
+ grep -q 'INCOMPLETE: 2 pending patches remain unproved' "$case_dir/result.log"
+ test "$(cat "$case_dir/out/mutants/pending-count")" -eq 2
+ test "$(cat "$case_dir/out/mutants/b.counts")" = '0 0 0 0'
  echo 'ok active kills accepted; pending coverage explicitly incomplete'
 else cat "$case_dir/result.log"; failed=$((failed+1)); fi
 test "$failed" -eq 0

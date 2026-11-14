@@ -35,6 +35,9 @@ sort "$run/owners" > "$run/sorted"
 awk '{active[$1]+=$2;pending[$1]+=$3} END {for(c in active) print c,active[c],pending[c]}' "$run/sorted" > "$run/combined"
 sort "$run/combined" > "$run/inventory"
 [ -s "$run/inventory" ] || { echo 'FAIL no mutation components discovered' >&2; exit 1; }
+awk '{total+=$2} END {exit (total <= 0)}' "$run/inventory" || {
+    echo 'FAIL no active mutation patches discovered' >&2; exit 1;
+}
 cut -d ' ' -f 1 "$run/inventory" > "$out/mutants/components"
 cp "$run/inventory" "$out/mutants/inventory"
 bad=0 pids= count=0
