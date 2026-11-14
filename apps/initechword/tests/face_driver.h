@@ -20,6 +20,27 @@ static volatile int *g_ctr;
 #define m_free (tbx_host.free_bytes)
 #define m_find_calls (tbx_host.find_calls)
 static const char *m_dir;
+#ifdef IWORD_SAVE_FAULTS
+/* One boundary failure per run, including the helper's internal operations.
+ * The product never sees these hooks. A persistent fault can be selected too. */
+static unsigned save_call, save_fail_at, save_fail_again, save_failed;
+static int save_persistent, save_zero;
+static int save_reclaim_backup;
+static int save_fault(void)
+{
+    save_call++;
+    if ((save_fail_again && save_call == save_fail_again) ||
+        (save_fail_at && (save_call == save_fail_at ||
+                        (save_persistent && save_call > save_fail_at)))) {
+        save_failed++;
+        return 1;
+    }
+    return 0;
+}
+#define SAVE_FAULT() do { if (save_fault()) return TBX_ERR_DOS(5); } while (0)
+#else
+#define SAVE_FAULT() do {} while (0)
+#endif
 typedef struct m_dirent { const char *dir; const char *name; uint8_t attr; uint16_t time, date; uint32_t size; } m_dirent_t;
 static const m_dirent_t *m_dirents;
 static int m_ndirents;
@@ -45,15 +66,41 @@ static void fixture_export(void)
     if(m_dir && !tbx_host_export(m_dir)) { fprintf(stderr,"fixture export failed\n"); exit(2); }
 }
 static int32_t fixture_open(const char *p,uint32_t m)
-{ fixture_import();return tbx_file_open(p,m); }
+{ SAVE_FAULT();fixture_import();return tbx_file_open(p,m); }
 static int32_t fixture_close(int32_t h)
-{ int32_t rc=tbx_file_close(h);fixture_export();return rc; }
+{ int32_t rc=tbx_file_close(h);fixture_export();SAVE_FAULT();return rc; }
 static int32_t fixture_create_new(const char *p)
-{ fixture_import();return tbx_file_create_new(p); }
+{ SAVE_FAULT();fixture_import();return tbx_file_create_new(p); }
 static int32_t fixture_delete(const char *p)
-{ int32_t rc=tbx_file_delete(p);fixture_export();return rc; }
+{
+    SAVE_FAULT();
+#ifdef IWORD_SAVE_FAULTS
+    /* Captured full 1.44MB floppy: removing the 344-byte older backup frees
+     * its single 512-byte cluster. The byte-transfer budget otherwise does
+     * not model allocator reclamation. No product FAT code participates. */
+    const tbx_host_file_t *old=tbx_host_file(p);
+    uint32_t reclaimed=save_reclaim_backup&&!strcmp(p,"NAME.BK!")&&old?
+        (old->size+511u)/512u*512u:0;
+#endif
+    int32_t rc=tbx_file_delete(p);fixture_export();
+#ifdef IWORD_SAVE_FAULTS
+    if(rc==0&&reclaimed){tbx_host.write_budget+=reclaimed;save_reclaim_backup=0;}
+#endif
+    return rc;
+}
 static int32_t fixture_rename(const char *p,const char *q)
-{ int32_t rc=tbx_file_rename(p,q);fixture_export();return rc; }
+{ SAVE_FAULT();int32_t rc=tbx_file_rename(p,q);fixture_export();return rc; }
+#ifdef IWORD_SAVE_FAULTS
+static int32_t fixture_read(int32_t h,void *p,uint32_t n)
+{ if(save_fault())return save_zero?0:TBX_ERR_DOS(5);return tbx_file_read(h,p,n); }
+static int32_t fixture_write(int32_t h,const void *p,uint32_t n)
+{ if(save_fault())return save_zero?0:TBX_ERR_DOS(5);return tbx_file_write(h,p,n); }
+static int32_t fixture_seek(int32_t h,int32_t d,uint32_t o)
+{ SAVE_FAULT();return tbx_file_seek(h,d,o); }
+#define tbx_file_read fixture_read
+#define tbx_file_write fixture_write
+#define tbx_file_seek fixture_seek
+#endif
 /* The List Files capture supplies a fixed directory with exact DOS metadata.
  * This is test injection, separate from the shared fake's find implementation. */
 static int32_t fixture_find(const char *p,uint32_t attr,void *buf,uint32_t max)

@@ -1035,9 +1035,11 @@ static void paint_setup(void)
 
 static int lf_mode(void);
 static void paint_lf(void);
+static int word_recovery_paint(void);
 static void paint(void)
 {
     iw_where_t w;
+    if (g_mode == M_ERROR && word_recovery_paint()) return;
     if (setup_mode()) { paint_setup(); return; }
     if (lf_mode()) { paint_lf(); return; }
     if (g_mode == M_UNDO) {
@@ -1170,7 +1172,9 @@ static int take_name(void)
     if (g_nlen == 0u || g_nlen >= sizeof g_path) return 0;
     for (i = 0; i < g_nlen; i++) {
         char c = upper(g_name[i]);
-        int ok = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
+        /* The captured original-document backup is NAME.BK!: it must also
+         * be retrievable through this prompt (dataloss/wordperfect). */
+        int ok = (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == '!';
         if (c == '\\') {
             /* a directory component: 8.3 itself, never empty */
             if (base == 0u || base > 8u || ext > 3u || i + 1u == g_nlen) return 0;
@@ -1198,20 +1202,21 @@ static void after_save(void)
     g_mode = M_EDIT;
 }
 
+#include "save.h"
+
 static void write_file(void)
 {
     uint32_t n = 0, wn;
     int32_t rc;
+    if (g_word_blocked) { error(g_word_recovery, M_SAVE_NAME); return; }
     /* Flatten BEFORE the save touches the disk (the 123.EXE preflight,
      * initech-tdnl.91). */
     if (flatten(&n) != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
     wn = n;
-    /* initech-mcep (audit 2026-10-23-iword L001/L002): the atomic save -- a
-     * write that does not fit leaves the last saved version (and a failed new
-     * name leaves no file at all). A refused CREATE / DELETE / RENAME is the
-     * I/O error; a write that ran out of room is Disk Full. */
-    rc = tbx_file_save(g_path, g_bank[1u - g_live], wn);
-    if (rc < 0) { error("ERROR: File I/O error", M_SAVE_NAME); return; }
+    g_word_recovery[0] = 0;
+    rc = word_save(wn);
+    if (rc == TBX_ERR_DOS(39)) rc = 0; /* copy-save's full-disk result */
+    if (rc < 0) { error(g_word_recovery[0] ? g_word_recovery : "ERROR: File I/O error", M_SAVE_NAME); return; }
     if ((uint32_t)rc != wn) {
         /* Appendix E, PDF 763 */
         error("ERROR: Disk Full--Press Any Key to Continue", M_SAVE_NAME);
@@ -1227,7 +1232,7 @@ static void save_named(void)
     if (!take_name()) { error("ERROR: Invalid file name", M_SAVE_NAME); return; }
     h = tbx_file_open(g_path, TBX_FILE_READ_ONLY);
     if (h >= 0) {
-        (void)tbx_file_close(h);
+        if (tbx_file_close(h) < 0) { error("ERROR: File I/O error", M_SAVE_NAME); return; }
         g_mode = M_REPLACE;
         return;
     }

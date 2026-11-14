@@ -11,7 +11,7 @@ file is required. The independent MZ reader validates relocations and BSS:
 the BSS remains below the OS-side 512 KiB limit. Drawing data already uses TBX_IN_IMAGE; file buffers stay in
 BSS as allowed by sdk/README.md. No OS change was needed to run this executable.
 
-make test runs 13 programs against the real pinned
+make test runs 14 programs against the real pinned
 WordPerfect corpus, captured grids and independent models/readers. Execution
 fits the 30-second budget. Hosted code uses -O2, keeping every property
 session: 13s before versus 10s after on the integration machine (codes 8s
@@ -33,7 +33,7 @@ with mtools. factory/red-desktop.sh proves that an empty Word save fails this
 host verifier. Screens and serial traces are under build/smoke-desktop/.
 
 make mutants applies component-relative zero-fuzz patches via mk/mutants.mk.
-The 72 app-owned mutants are killed twice by host tests; none is pending.
+The app-owned mutants are killed twice by host tests; none is pending.
 The shared save-loop short-write fault is owned by sdk/mutants/save_one_write.patch,
 which kills the actual helper twice. The former setup-short patch only defined
 its retired macro after SDK hook removal and was therefore a no-op. Setup's
@@ -48,7 +48,8 @@ three undo records, cursor/page/Home/Go To navigation, paired attributes,
 Reveal Codes, stream blocks, move/copy/retrieve, sentence/paragraph/page
 selection, forward/backward code-aware search, case-preserving replacement,
 justification, line spacing and margins. .WP5 preserves captured prefixes and
-formatting streams; save uses the SDK temporary/write/close/rename transaction.
+formatting streams; save stages the new version and honors Original Document
+Backup with checked restoration (see below).
 List Files supports directory navigation, retrieve, Look, delete, move/rename
 and copy, including collision/error handling. Setup persists preferences.
 The native face is an authored 76x24 adaptation of WP's 80x25 screen.
@@ -87,7 +88,7 @@ attic/triage/triage.md's apps-iword table. No command is fixed in this import.
   Tabular Column and Rectangle; Append in the block-operation menu.
 
 Additional partially working affordances (not included in the 69-label count):
-Original Document Backup records Yes but creates no backup; entry/status units
+Entry/status units
 are recorded but measurements stay in inches; List Files ignores typed/default
 path changes; Look does not scroll plain text or navigate adjacent documents;
 active-block Save, paragraph extension and code-search lack their block routes;
@@ -118,3 +119,41 @@ Source-line profiling found repeated piece searches in `iw_doc_byte`; a cached
 piece span reduces its CPU time from 13.59s to 5.30s. Init/load/insert/delete
 invalidate the cache, and in-place byte changes remain visible through its
 storage pointer. No timeout, budget or optimization flag changed.
+
+## Original Document Backup and recovery
+
+Yes rotates the exact preceding disk document to same-directory `NAME.BK!`,
+replacing an older backup without another question. No and first saves do not
+rotate it. The filename prompt accepts `!` so generated backups can be retrieved.
+Sources: real WP5.1 03-09-92 captures in
+`goldens/dataloss/wordperfect/{collision,full,readonly}` and Reference pp.41-43,746.
+The older backup is removed first to reclaim its cluster, as in the full-floppy
+capture. A read-only backup refuses before either existing file changes.
+
+The new document is completed through the Toolbox helper under an exclusively
+chosen `.N00`..`.N99` name before moving the previous file to `.W00`..`.W99`.
+Publication uses checked rename/restore. Every tested single failure leaves the
+previous document under its original name, with edited text and dirty state
+retained. This strengthens WP5.1's captured disk-full behavior, which leaves only
+`.BK!`. A failed postcommit cleanup retains an extra original and reports success.
+Unowned candidate names are never truncated. Direct self-backup to `.BK!` is refused.
+
+Known residual until the kernel replace primitive (`initech-7mb66`): if publication
+AND restoration both fail, the original-name ruling remains unmet. Interim
+handling deletes neither complete stream, names the previous file exactly in the
+error display, and refuses further saves in that tenant. The complete path is
+shown separately from the error label to avoid truncation. This is a known
+residual, not a policy or an exception to the ruling. The shared helper's current
+60-character recovery-path preflight also remains; the kernel primitive removes
+that limitation. No crash-atomicity claim is made.
+
+`test_iword_save` injects errors and zero transfers at every nominal boundary,
+including the helper's verification reads/closes, with backup on/off and first/
+replacing saves. It also checks persistent errors by operation, write exhaustion,
+short transfers, readonly backup, third-save rotation, unowned-name collisions,
+backup retrieval, and double publication/restoration faults with complete recovery
+names. Expected prior bytes are hash-pinned captures; an external WP5 reader
+checks every exported primary, backup and complete recovery stream. The double-
+failure residual has a delete-the-original mutant. No product codec computes the
+expected prior file. The separate `rollback` diagnostic still checks the stronger
+original-name ruling and remains red until `initech-7mb66` closes it.

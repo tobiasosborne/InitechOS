@@ -1,0 +1,12 @@
+# test: test_iword_save
+--- a/app/save.h
++++ b/app/save.h
+@@ -92,7 +92,7 @@
+     }
+     /* The helper has no old target to destroy. Restore by metadata only:
+      * even a full disk or persistent write error cannot prevent this rename. */
+-    if (tbx_file_rename(g_word_original, g_path) < 0) {
++    if (1) { /* wrong: skip restoration */
+         /* Known residual until the kernel replace primitive (initech-7mb66).
+          * Delete neither complete stream. Name the original and stop further
+          * saves in this tenant; the original-path ruling remains unmet here. */

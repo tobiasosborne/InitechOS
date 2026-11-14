@@ -1,0 +1,11 @@
+# test: test_iword_save
+--- a/app/save.h
++++ b/app/save.h
+@@ -96,6 +96,7 @@
+         /* Known residual until the kernel replace primitive (initech-7mb66).
+          * Delete neither complete stream. Name the original and stop further
+          * saves in this tenant; the original-path ruling remains unmet here. */
++        (void)tbx_file_delete(g_word_original); /* wrong: destroy the retained original */
+         g_word_blocked = 1;
+         scopy(g_word_recovery, "ERROR: Original retained in ");
+         scopy(g_word_recovery + slen(g_word_recovery), g_word_original);

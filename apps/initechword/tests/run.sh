@@ -14,6 +14,18 @@ read_text() {
     grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$' "$1.ref"
 }
 case "$name" in
+ test_iword_save)
+    capture=$IWORD_GOLDENS/dataloss/wordperfect/collision
+    (cd "$capture"; printf '%s\n' \
+      'b2b9df5cd68aee170538d21c36a405ea03dc7aa0d374fc9a26dba6d3002a2ab4  before.NAME.WP5' \
+      '1de63f570187add4bdcc1310d90e8db617095525fbec8dbb6e2e299e773220dd  before.NAME.BK!' \
+      | sha256sum -c --quiet -)
+    "$bin" "$dir" "$capture/before.NAME.WP5" "$capture/before.NAME.BK!"
+    # One independent invocation reads every disk state at the error prompt.
+    find "$dir" -type f \( -name 'NAME.WP5' -o -name 'NAME.BK!' -o -name 'NAME.W00' -o -name 'NAME.N00' \) -size +0c -exec python3 -I "$ref" {} + > "$dir/readback"
+    ! grep -qE '!!|trailer-errors=[1-9]' "$dir/readback"
+    test "$(grep -c '  END offset=' "$dir/readback")" -gt 0
+    ;;
  test_iword_core|test_iword_codes) "$bin" ;;
  test_iword_wp5_roundtrip) "$bin" "$root" "$dir" ;;
  test_iword_reveal_codes) "$bin" "$root" ;;

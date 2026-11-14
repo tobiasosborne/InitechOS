@@ -925,8 +925,8 @@ static void t_pages(void)
 /* ---- F17 FILE NAMES WITH SPACES (bead initech-10bx; audit L015): a space
  * typed at "Document to be Saved:" / "Document to be Retrieved:" stays in the
  * name, so the name is refused -- pubs/manuals/initechword-reference/
- * ref-f.tex "Filenames": letters, digits, - and _ only; "a name with any
- * other character ... is refused with ERROR: Invalid file name" -- and is
+ * ref-f.tex "Filenames": letters, digits, - and _ (now also ! for the
+ * captured .BK! backup); spaces are refused with ERROR: Invalid file name, and
  * never quietly turned into another, existing, name. */
 static void t_names(void)
 {
