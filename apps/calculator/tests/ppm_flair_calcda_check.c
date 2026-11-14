@@ -100,7 +100,7 @@ static int check_window(const img_t *ours, const img_t *mac)
             if (cx < 0 || cy < 0 || cx >= 102 || cy >= 146) k = 0;
             else if (cx >= 8 && cx <= 91 && cy >= 8 && cy <= 25) k = 2;
             else k = 1;
-            if (cls(ours, WL + x, WT + y) != cls(mac, WL + x, WT + y)) {
+            if (cls(ours, WL + x, 20 + y) != cls(mac, WL + x, WT + y)) {
                 if (!bad[k]) { fx[k] = x; fy[k] = y; }
                 bad[k]++;
             }

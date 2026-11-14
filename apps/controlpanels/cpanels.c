@@ -51,7 +51,7 @@ int tbx_app_main(void) {
  if(settings(0)==0)(void)cp_decode(&p,record);
  cp_init(&state,&p);(void)clock(0);
  (void)tbx_memory(state.memory);
- (void)tbx_set_mbar(&bar);win=tbx_new_window(120,90,520,390,TBX_GOAWAY_ASK);
+ (void)tbx_set_mbar(&bar);win=tbx_new_window(120,20,520,320,TBX_GOAWAY_ASK);
  if(win<=0)return 1;
  (void)tbx_set_wtitle(win,"Control Panels");return 0;
 }

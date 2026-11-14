@@ -2,12 +2,14 @@
 /* Integration through the shared Toolbox transport; golden disk record from
  * legacy test_cpanels, pattern choice 3 changes bytes 5 and checksum 14. */
 #include "tbx_host.h"
+#include "chrome_metrics.h"
 #include "../cpanels.c"
 #include "test_assert.h"
 TEST_HARNESS();
 int main(void) {
  tbx_host_reset();
  CHECK(tbx_app_main()==0,"launch");
+ CHECK(tbx_host.windows[0].t==FLAIR_CHROME_MENUBAR_H,"initial frame meets menu bar");
  tbx_event_t e={.what=keyDown,.message=13};
  tbx_host.dialog_result=4; tbx_app_event(&e); /* Desktop Patterns */
  tbx_host.dialog_result=6; tbx_app_event(&e); /* Stipple */

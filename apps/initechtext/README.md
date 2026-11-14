@@ -51,3 +51,7 @@ from the Finder on QEMU and Bochs, edits alpha CR bravo, saves UNTITLED on
 QEMU and Bochs, checks exact bytes with mtools/cmp and checks the volume with fsck.fat.
 Screendump: build/smoke-desktop/text.ppm.
 Remaining legacy SimpleText pixel/scroll emulator gates belong to factory.
+
+Initial windows meet the single menu bar (operator ruling, CLAUDE.md
+"Hazards that are still true"). Host routing checks their structure top
+against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.

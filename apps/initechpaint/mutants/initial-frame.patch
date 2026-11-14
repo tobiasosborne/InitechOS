@@ -1,0 +1,12 @@
+# test: test_paint_tenant
+--- a/paint.c
++++ b/paint.c
+@@ -50,7 +50,7 @@
+ /* The canvas, GLOBAL (l,t,r,b): below both stacked bars, clear of the APPS
+  * window's first three icon rows so the launch trace stays short. Authored. */
+ #define CANVAS_L 330
+-#define CANVAS_T 20
++#define CANVAS_T 40
+ #define CANVAS_R 630
+ #define CANVAS_B 270
+ static int32_t canvas TBX_IN_IMAGE = 0;

@@ -50,9 +50,9 @@ static const tbx_menubar_t mbar = { menus, N(menus), 0 /* no Apple slot */, 0 };
 /* The canvas, GLOBAL (l,t,r,b): below both stacked bars, clear of the APPS
  * window's first three icon rows so the launch trace stays short. Authored. */
 #define CANVAS_L 330
-#define CANVAS_T 150
+#define CANVAS_T 20
 #define CANVAS_R 630
-#define CANVAS_B 400
+#define CANVAS_B 270
 static int32_t canvas TBX_IN_IMAGE = 0;
 
 int tbx_app_main(void)

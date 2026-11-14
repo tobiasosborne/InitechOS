@@ -44,3 +44,7 @@ independent NFNT widths and compares all pixels below the bar without a
 mask. Both captures must have the pointer at the same title position. Its
 real held-menu inputs and the title/bar pixel checks remain with FLAIR/factory
 until the shared geometry issue initech-9jq67 is fixed.
+
+Initial windows meet the single menu bar (operator ruling, CLAUDE.md
+"Hazards that are still true"). Host routing checks their structure top
+against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.

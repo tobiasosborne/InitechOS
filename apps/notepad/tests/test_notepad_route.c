@@ -13,8 +13,9 @@ static void mock_diagnostic(const char *s);
 #include "scrap.h"
 #define CONT_H 237
 static long checks, fails;
-#define CHECK(c, why) do { checks++; if (!(c)) { fails++; printf("RED-REASON %s: line %d\n", why, __LINE__); } } while (0)
+#define CHECK(c, why) do { checks++; if (!(c)) { fails++; printf("FAIL %s: line %d\n", why, __LINE__); } } while (0)
 #include "tbx_host.h"
+#include "chrome_metrics.h"
 #include "tenant_lifecycle.h"
 typedef tbx_host_file_t mfile_t;
 typedef tbx_host_op_t op_t;
@@ -52,7 +53,7 @@ static int shown(const char *s)
     for (unsigned i = 0; i < m_nops; i++) if (!strcmp(m_ops[i].name,"tbx_draw_text") && !strcmp(m_ops[i].text, s)) return 1;
     return 0;
 }
-static void launch(void) { restart_host_tenant(); CHECK(tbx_app_main() == 0, "launch"); event(updateEvt, 0, 0, 0, 0); }
+static void launch(void) { restart_host_tenant(); CHECK(tbx_app_main() == 0, "launch"); CHECK(tbx_host.windows[0].t==FLAIR_CHROME_MENUBAR_H,"initial frame meets menu bar"); event(updateEvt, 0, 0, 0, 0); }
 static int u16(const unsigned char *p) { return (unsigned char)p[0] | ((unsigned char)p[1] << 8); }
 static int disk_page(const mfile_t *f, int p, const char *s)
 {

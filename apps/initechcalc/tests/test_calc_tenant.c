@@ -7,6 +7,7 @@
 #include <string.h>
 #include "../calc.c"
 #include "tbx_host.h"
+#include "chrome_metrics.h"
 
 static int failures, checks, draws[3], total, negative, exits;
 #define nw tbx_host.nwindows
@@ -65,6 +66,7 @@ int main(void)
     tbx_host_reset();
     char s[80]; static const char *labels[]={"'Film Costs","'Matte Cutters","'Exacto Blades"};
     CHECK(tbx_app_main()==0,"launch");
+    CHECK(tbx_host.windows[0].t==FLAIR_CHROME_MENUBAR_H && tbx_host.windows[1].t==FLAIR_CHROME_MENUBAR_H,"initial frames meet menu bar");
     CHECK(!strcmp(tbx_app_name,"CALC"),"registered identity");
     CHECK(!strcmp(CALC_PAINT_MENU,"File Edit Image Layer Select View Window Help"),"PRD paint bar locked data");
     CHECK(!strcmp(CALC_COPY_CAPTION,"Saving tables to disk..."),"PRD copy caption locked data");
