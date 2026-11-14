@@ -1,0 +1,21 @@
+# Protection regression (CLAUDE.md, The constitution).
+# test: test_i123_protection
+--- a/core/range.c
++++ b/core/range.c
+@@ -300,16 +300,13 @@
+             for(uint32_t j=0;j<z;j++)range[k++]=b[j];
+         }
+         range[k]=0;
+-        if(cell_locked(s,col,row))return I123_E_PROTECTED;
+         int rc=i123_set_label(s,col,row,'\'',name,n);if(rc)return rc;
+         if(written)(*written)++;
+-        if(cell_locked(s,col+1,row))return I123_E_PROTECTED;
+         rc=i123_set_label(s,col+1,row++,'\'',range,k);if(rc)return rc;
+         if(written)(*written)++;
+     }
+     if(row>=8192)return I123_E_ARG;
+     for(uint16_t c=col;c<=col+1;c++) {
+-        if(cell_locked(s,c,row))return I123_E_PROTECTED;
+         const i123_cell_t *cell=i123_find(s,c,row);
+         uint8_t fmt=cell?cell->fmt:WK1_FMT_FRESH_CELL;
+         int rc=i123_erase(s,c,row);

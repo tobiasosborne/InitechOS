@@ -8,7 +8,7 @@ X87_CORE := $(addprefix $(OUT)/host-x87/,$(CORE:.c=.o))
 LOCAL_INC := -Iinclude
 FACE_INC := -I$(TOP)/sdk/include -I$(TOP)/sdk/host
 HOST_INCLUDES := $(LOCAL_INC) -I$(TOP)/factory/testlib -Itests
-FACE_TESTS := quit range_menu entry clock keys hit resize cells
+FACE_TESTS := quit range_menu entry clock keys hit resize cells protection
 DIFF_TESTS := wk1_roundtrip formula recalc_order copy_move transfer_baseline menu_tree
 HOST_TESTS := $(addprefix test_i123_,$(DIFF_TESTS) $(FACE_TESTS)) \
               test_i123_formula_x87_037F test_i123_formula_x87_027F \
@@ -34,7 +34,7 @@ include $(TOP)/mk/host-test.mk
 # Keep the shared runner's status/summary format, wrapping each invocation.
 define host_test_run
 n=$$((n+1)); \
-if LOTUS123_DECOMP="$(LOTUS123_DECOMP)" sh tests/run.sh $(HOST_OUT)/$(1) > $(HOST_OUT)/$(1).log 2>&1; then \
+if LOTUS123_DECOMP="$(LOTUS123_DECOMP)" I123_PROTECTION_ROOT="$(TOP)/goldens/dataloss/lotus" sh tests/run.sh $(HOST_OUT)/$(1) > $(HOST_OUT)/$(1).log 2>&1; then \
   echo "  ok    $(1)"; \
 else \
   echo "  FAIL  $(1)   (log: $(HOST_OUT)/$(1).log)"; \

@@ -18,6 +18,15 @@ static int up(int c) { return c>='a'&&c<='z'?c-32:c; }
 static uint32_t length(const char *s) { uint32_t n=0;while(s[n])n++;return n; }
 static int inside(i123_rect_t r,int c,int y) { return c>=r.c0&&c<=r.c1&&y>=r.r0&&y<=r.r1; }
 static int valid(i123_rect_t r) { return r.c0<=r.c1&&r.r0<=r.r1&&r.c1<256&&r.r1<8192; }
+static int cell_locked(const i123_sheet_t *s,uint16_t col,uint16_t row)
+{
+    const i123_cell_t *c=i123_find(s,col,row);
+    return s->protec&&((c?c->fmt:WK1_FMT_FRESH_CELL)&128);
+}
+/* Copy/Value visit columns first; Trans visits rows first (real R2.2
+ * fixtures/protection cases 14, 18, 30). limit is exclusive. */
+static int output_cell(i123_rect_t to,int col,int row,uint32_t limit,int mode)
+{ return inside(to,col,row)&&(uint32_t)(mode==3?row*256+col:col*8192+row)<limit; }
 static uint32_t next(const i123_sheet_t *s,uint32_t p) { uint16_t n=rd(s->carry+p+2);return p+4+(n==65535?0:n); }
 static int eq(const char *nm,uint32_t n,const uint8_t *p)
 { uint32_t k=0;while(k<n&&k<16&&p[k]&&up(nm[k])==up(p[k]))k++;return k==n&&k<16&&!p[k]; }
@@ -165,7 +174,10 @@ int i123_transfer(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,uint16_
     return i123_transfer_rect(s,d,from,(i123_rect_t){col,row,col,row},mode);
 }
 int i123_transfer_rect(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,i123_rect_t to,int mode)
+{ return i123_transfer_rect_progress(s,d,from,to,mode,0); }
+int i123_transfer_rect_progress(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,i123_rect_t to,int mode,uint32_t *written)
 {
+    if(written)*written=0;
     int rc;uint16_t col=to.c0,row=to.r0;
     if(!valid(from)||!valid(to)||mode<0||mode>3)return I123_E_ARG;
     if(mode&&((to.c0!=to.c1)||(to.r0!=to.r1)))return I123_E_ARG;
@@ -178,30 +190,34 @@ int i123_transfer_rect(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,i1
      * The original bank remains the snapshot, including overlap. */
     if(w||mode)to.c1=(uint16_t)(col+w);
     if(h||mode)to.r1=(uint16_t)(row+h);
-    /* Manual: global protection applies to cells marked Prot. */
+    /* Real R2.2 tests/fixtures/protection: Copy/Value/Trans keep their
+     * permitted prefix on protection refusal. Move checks ALL destinations
+     * first and does not require its source to be unprotected (04/15/21).
+     * Test snapshot formats: a copy can itself install a Prot format. */
+    uint32_t limit=256u*8192u,count=0;
     if(s->protec) {
-        /* B02 review (initech-3s12): an ABSENT cell is the default 0xFF,
-         * protected; only a stored unprotected cell (bit 7 clear, a BLANK
-         * from /Range Unprot) may be written. So every cell of TO (and of
-         * FROM for /Move) must exist unprotected: count them. */
-        uint32_t un_to=0,un_from=0;
-        for(uint32_t i=0;i<s->ncells;i++) {
-            const i123_cell_t *c=&s->cells[i];int t=inside(to,c->col,c->row),f=mode==1&&inside(from,c->col,c->row);
-            if((t||f)&&(c->fmt&128))return I123_E_ARG;
-            un_to+=(uint32_t)t;un_from+=(uint32_t)f;
+        uint32_t outer0=mode==3?row:col,outer1=mode==3?to.r1:to.c1;
+        uint32_t inner0=mode==3?col:row,inner1=mode==3?to.c1:to.r1;
+        for(uint32_t o=outer0;o<=outer1&&limit==256u*8192u;o++)for(uint32_t i=inner0;i<=inner1;i++) {
+            uint16_t c=(uint16_t)(mode==3?i:o),r=(uint16_t)(mode==3?o:i);
+            if(cell_locked(s,c,r)){
+                if(mode==1)return I123_E_PROTECTED;
+                limit=mode==3?r*256u+c:c*8192u+r;break;
+            }
+            count++;
         }
-        if(un_to<(uint32_t)(to.c1-col+1)*(to.r1-row+1)||(mode==1&&un_from<(w+1u)*(h+1u)))return I123_E_ARG;
-    }
+    } else count=(uint32_t)(to.c1-col+1)*(to.r1-row+1);
     rc=i123_sheet_clone(s,d);if(rc)return rc;
     for(uint32_t i=d->ncells;i>0;i--) {
         i123_cell_t *c=&d->cells[i-1];
-        if(inside(to,c->col,c->row)||(mode==1&&inside(from,c->col,c->row)))i123_erase(d,c->col,c->row);
+        if(output_cell(to,c->col,c->row,limit,mode)||(mode==1&&inside(from,c->col,c->row)))i123_erase(d,c->col,c->row);
     }
     for(uint32_t i=0;i<s->ncells;i++) {
         const i123_cell_t *c=&s->cells[i];int selected=inside(from,c->col,c->row);
         if(!selected)continue;
         for(uint32_t nr=row+(mode==3?c->col-from.c0:c->row-from.r0);nr<=to.r1;nr+=h+1)
         for(uint32_t nc=col+(mode==3?c->row-from.r0:c->col-from.c0);nc<=to.c1;nc+=w+1) {
+        if(!output_cell(to,(int)nc,(int)nr,limit,mode))continue;
         uint8_t code[I123_CODE_MAX];uint32_t n=c->len;
         if(c->kind==I123_K_FORMULA&&mode<2) {
             if(n>sizeof code)return I123_E_FULL;
@@ -237,7 +253,8 @@ int i123_transfer_rect(const i123_sheet_t *s,i123_sheet_t *d,i123_rect_t from,i1
             }
         }
     }
-    return I123_OK;
+    if(written)*written=count;
+    return limit==256u*8192u?I123_OK:I123_E_PROTECTED;
 }
 int i123_name_labels(i123_sheet_t *s,i123_rect_t rg,int dc,int dr)
 {
@@ -255,8 +272,13 @@ int i123_name_labels(i123_sheet_t *s,i123_rect_t rg,int dc,int dr)
 }
 static int name_cmp(const uint8_t *a,const uint8_t *b)
 { while(*a&&*a==*b){a++;b++;}return (int)*a-(int)*b; }
-int i123_name_table(i123_sheet_t *s,uint16_t col,uint16_t row)
+/* Real R2.2 goldens/dataloss/lotus: each write/erase checks protection,
+ * stopping at the first refusal and keeping the already written prefix.
+ * Report that prefix to the face so it can publish it even on refusal. */
+int i123_name_table_progress(i123_sheet_t *s,uint16_t col,uint16_t row,uint32_t *written)
 {
+    if(written)*written=0;
+    if(col>=255||row>=8192)return I123_E_ARG;
     uint8_t prev[17]={0};
     for(;;) {
         uint32_t p=0xffffffffu;
@@ -273,12 +295,29 @@ int i123_name_table(i123_sheet_t *s,uint16_t col,uint16_t row)
         if(c0>=256||c1>=256||r0>=8192||r1>=8192)return I123_E_VALUE;
         uint32_t k=i123_addr_text(c0,r0,a),z=i123_addr_text(c1,r1,b);
         for(uint32_t j=0;j<k;j++)range[j]=a[j];
-        range[k++]='.';range[k++]='.';
-        for(uint32_t j=0;j<z;j++)range[k++]=b[j];
+        if(c0!=c1||r0!=r1) {
+            range[k++]='.';range[k++]='.';
+            for(uint32_t j=0;j<z;j++)range[k++]=b[j];
+        }
         range[k]=0;
+        if(cell_locked(s,col,row))return I123_E_PROTECTED;
         int rc=i123_set_label(s,col,row,'\'',name,n);if(rc)return rc;
+        if(written)(*written)++;
+        if(cell_locked(s,col+1,row))return I123_E_PROTECTED;
         rc=i123_set_label(s,col+1,row++,'\'',range,k);if(rc)return rc;
+        if(written)(*written)++;
     }
-    if(row<8192){i123_erase(s,col,row);i123_erase(s,col+1,row);}
+    if(row>=8192)return I123_E_ARG;
+    for(uint16_t c=col;c<=col+1;c++) {
+        if(cell_locked(s,c,row))return I123_E_PROTECTED;
+        const i123_cell_t *cell=i123_find(s,c,row);
+        uint8_t fmt=cell?cell->fmt:WK1_FMT_FRESH_CELL;
+        int rc=i123_erase(s,c,row);
+        if(!rc)rc=i123_set_cell_format(s,c,row,fmt);
+        if(rc)return rc;
+        if(written)(*written)++;
+    }
     return I123_OK;
 }
+int i123_name_table(i123_sheet_t *s,uint16_t col,uint16_t row)
+{ return i123_name_table_progress(s,col,row,0); }

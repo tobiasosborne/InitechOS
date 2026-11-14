@@ -1,0 +1,13 @@
+# Protection regression (CLAUDE.md, The constitution).
+# test: test_i123_protection
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -773,7 +773,7 @@
+         }
+         else if(!rc) {
+             /* Real R2.2 protection case 31: Erase visits columns first. */
+-            for(uint32_t col=r.c0;!rc&&col<=r.c1;col++)for(uint32_t row=r.r0;!rc&&row<=r.r1;row++) {
++            for(uint32_t row=r.r0;!rc&&row<=r.r1;row++)for(uint32_t col=r.c0;!rc&&col<=r.c1;col++) {
+                 const i123_cell_t *c=i123_find(&next,(uint16_t)col,(uint16_t)row);
+                 uint8_t fmt=c?c->fmt:WK1_FMT_FRESH_CELL;
+                 /* Range Label, like Format, changes presentation even on

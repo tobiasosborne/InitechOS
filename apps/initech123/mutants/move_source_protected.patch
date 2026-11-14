@@ -1,0 +1,13 @@
+# Protection regression (CLAUDE.md, The constitution).
+# test: test_i123_protection
+--- a/core/range.c
++++ b/core/range.c
+@@ -207,6 +207,8 @@
+             count++;
+         }
+     } else count=(uint32_t)(to.c1-col+1)*(to.r1-row+1);
++    if(mode==1&&s->protec)for(uint32_t i=0;i<s->ncells;i++)
++        if(inside(from,s->cells[i].col,s->cells[i].row)&&(s->cells[i].fmt&128))return I123_E_PROTECTED;
+     rc=i123_sheet_clone(s,d);if(rc)return rc;
+     for(uint32_t i=d->ncells;i>0;i--) {
+         i123_cell_t *c=&d->cells[i-1];

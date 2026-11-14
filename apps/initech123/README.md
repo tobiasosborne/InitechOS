@@ -35,7 +35,7 @@ component's include path. No build input comes from attic.
 
 ## Verification
 
-`make test` runs the original 18 host programs plus the shipped-configuration
+`make test` runs the original 18 host programs plus the protection and shipped-configuration
 menu suite, using sdk/host's shared fake Toolbox. No emulator runs in tier 0.
 The original 1,023,560 counted assertions are retained; malformed Retrieve and
 automatic numeric-entry recalculation add seven, and menu_disk adds 354.
@@ -54,7 +54,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 37 strict patches (the 41 former hook locations), builds
+`make mutants` applies 42 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
 Bochs, including an independent check of the worksheet saved from the Finder.
@@ -75,14 +75,24 @@ all target artifacts and checks source/include/build boundaries in `make test`.
 The GOLDEN-MASTER.md "present depth" inventory is frozen here. Worksheet
 addresses span 256 columns by 8192 rows; capacity is 2048 populated cells, a
 32 KiB byte pool per bank and 4096 bytes of peripheral/name records. Operations
-prepare a candidate bank before publishing. File links keep cached values;
+prepare a candidate bank before publishing. Protection errors publish the
+allowed prefix for Copy, Value, Trans, Erase and Name Table, as real Lotus
+does. Move checks all destinations first; protected sources may be moved.
+Name Labels rebinding, Range Label alignment and formats are permitted on
+protected cells. Name Table checks both writes and both following erasures,
+retains erasure formats and prints singleton addresses without `..`.
+Authority: seven `goldens/dataloss/lotus` cases and 33 real R2.2 captures
+in `tests/fixtures/protection` (byte/hash-pinned WK1 and VGA/PNG screens).
+The protection suite adds 167 checks; it compares raw saved cell, name and
+PROTEC records, plus READY/ERROR and diagnostics, to these independent files.
+File links keep cached values;
 three named formula exceptions remain documented by the formula oracle.
 
 | Menu branch | Implemented today |
 |---|---|
 | Worksheet | Global formats/label prefix/width, recalculation order/mode/iteration, global protection; current-column Set-Width/Reset-Width; Erase No/Yes. |
 | Range | Format (Fixed, Sci, Currency, comma, General, +/-, Percent, Date 1/2/3, Text, Hidden, Reset), label alignment, Erase, Name Create/Delete/Labels/Reset/Table, Prot/Unprot, Value and Trans. |
-| Copy, Move | Snapshot transfers, singleton-axis tiling for Copy rectangles, formula reference adjustment, named ranges, protection/capacity refusal without publishing a partial bank. |
+| Copy, Move | Snapshot transfers, singleton-axis tiling for Copy rectangles, formula reference adjustment, named ranges; Copy retains the allowed prefix on protection refusal, Move checks all destinations first. Capacity failures discard the candidate bank. |
 | File | Retrieve and Save WK1, Cancel/Replace on existing files. Backup refuses. |
 | Print, Data | Menu navigation and Quit/escape; execution leaves below refuse. |
 | Graph | Type/Name/Group navigation and Quit; execution leaves below refuse. |
@@ -92,6 +102,20 @@ three named formula exceptions remain documented by the formula oracle.
 Entry, arrows, Tab/page navigation, F2 EDIT, F5 GOTO, F9 recalc, range POINT
 selection and resized/scrolled cell hit testing work. F3/F4/F6/F7/F8/F10 and
 macros remain deferred. International date/time display choices below refuse.
+
+All saves, including Replace and the quit guard's Save, call the shared
+`sdk/include/tbx_save.h` helper; this component has no separate file commit
+path. The desktop-save ruling requires the old WK1 under its own name after
+reported failure. That guarantee depends on the SDK owner's initech-vtl9 fix.
+The explicit integration probe below fails on the pre-fix shared helper and
+can be rerun when landing it; it is separate from the protection selection:
+
+```
+mkdir -p ../../build/apps/initech123/save-probe
+../../build/apps/initech123/host/test_i123_protection \
+  ../../build/apps/initech123/save-probe ../../goldens/dataloss/lotus \
+  tests/fixtures/protection --save-safety
+```
 
 There are **224 refused slash-menu leaves**, plus **File Save > Backup** in
 the replacement prompt (225 visible unavailable choices in total). Every leaf
