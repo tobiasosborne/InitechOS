@@ -48,7 +48,20 @@ stage() {
     # Show the useful tail immediately; the complete log is retained.
     tail -n 8 "$work/$name.log"
 }
-clean_test() { make clean && make -j"${CERT_JOBS:-16}" test; }
+clean_test() {
+    make clean || return
+    make -s dependencies > "$work/host-registry.txt" || return
+    rc=0
+    make -j"${CERT_JOBS:-16}" test > "$work/host-tests.txt" 2>&1 || rc=$?
+    cat "$work/host-tests.txt"
+    [ "$rc" -eq 0 ] || return "$rc"
+    # A successful labelled development subset is not full product evidence.
+    awk -f factory/testlib/cert-host.awk "$work/host-registry.txt" "$work/host-tests.txt" || return
+    while read -r component rest; do
+        component=${component%:}
+        awk -v component="$component" -f factory/testlib/component-result.awk "$work/host-tests.txt" || return
+    done < "$work/host-registry.txt"
+}
 image_smoke() {
     rc=0
     make image && make smoke || rc=$?

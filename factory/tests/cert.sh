@@ -10,7 +10,13 @@ cat > "$work/bin/make" <<'MAKE'
 case "$*" in
  '--no-print-directory -C a mutants') exec /usr/bin/make "$@";;
  '-s dependencies') printf 'a: b\nb: c\nc:\n';;
- *test) echo 'registered 3, run 3'; echo 'ALL GREEN';;
+ *test)
+ case $CASE in
+ subset) echo "registered 3, run 1; elapsed 0s"; echo "SUBSET GREEN (not ALL GREEN)";;
+ no-receipt) echo "ALL GREEN";;
+ missing-host) echo "a: 1 tests, 0 failures"; echo "b: 1 tests, 0 failures"; echo "registered 3, run 3; elapsed 0s"; echo "ALL GREEN";;
+ *) printf "a: 1 tests, 0 failures\nb: 1 tests, 0 failures\nc: 1 tests, 0 failures\nregistered 3, run 3; elapsed 0s\nALL GREEN\n";;
+ esac;;
  status)
  case $CASE in
  red) printf 'a: imported\nb: red\nc: imported\n';;
@@ -30,7 +36,7 @@ case $1 in rev-parse) echo fixture;; esac
 GIT
 chmod +x "$work/bin/"*
 for strict in 0 1; do
- for name in green red host-green missing duplicate unknown empty malformed pending; do
+ for name in green red host-green missing duplicate unknown empty malformed pending subset no-receipt missing-host; do
   dir=$work/$strict-$name
   mkdir -p "$dir/factory/testlib" "$dir/a/mutants"
   cp "$root/factory/cert.sh" "$root/factory/mutants.sh" "$dir/factory/"
@@ -45,6 +51,8 @@ for strict in 0 1; do
   if [ "$name" = green ]; then
    [ "$rc" -eq 0 ] || { cat "$dir/log"; exit 1; }
    grep -q 'status: PASS' "$dir/log"
+  elif [ "$name" = subset ] || [ "$name" = no-receipt ] || [ "$name" = missing-host ]; then
+   [ "$rc" -ne 0 ] && grep -q "clean-test: FAIL" "$dir/log" && grep -q "status: PASS" "$dir/log" || { cat "$dir/log"; exit 1; }
   elif [ "$name" = pending ]; then
    [ "$rc" -ne 0 ] && grep -q "mutants: INCOMPLETE" "$dir/log" && grep -q "status: PASS" "$dir/log" || { cat "$dir/log"; exit 1; }
   else
