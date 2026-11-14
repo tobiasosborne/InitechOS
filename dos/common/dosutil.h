@@ -11,6 +11,7 @@ int du_drive(void);
 int du_sector(int write, unsigned drive, unsigned lba, uint8_t buf[512]);
 int du_line(char out[128]);
 void du_puts(const char *s);
+void du_con_puts(const char *s); /* diagnostic bytes bypass stdout redirection */
 int attrib_main(const char *tail);
 int label_main(const char *tail);
 #endif

@@ -79,7 +79,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 127 host patches and 38 product-session patches,
+The current DOS inventory is 128 host patches and 38 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.
@@ -121,3 +121,9 @@ regression uses a separately captured seconds-only TIME input.
 keeps error output on CON. The pure IF result also carries its diagnostic kind;
 false conditions, silent nonnumeric ERRORLEVEL and missing command bodies have
 separately captured outcomes. The numeric FOR variable is a valid control.
+`make smoke-utility-errors` checks the recovered CHKDSK, SYS, DISKCOPY,
+DISKCOMP and ATTRIB invalid-switch cases. Raw DISKCOPY/DISKCOMP refusals retain
+their blank line and BEL. CHKDSK reports the invalid switch and continues its
+report; empty hidden categories are omitted as in the genuine label captures.
+ATTRIB sends its captured blank line and Syntax error to CON. Utility exit
+codes beyond the existing adapter contracts still need separate AH=4Dh captures.

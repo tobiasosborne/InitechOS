@@ -23,5 +23,8 @@ int main(int argc, char **argv)
      * Expected report: 4064 total usable bytes, 3808 free bytes. */
     int rc = chkdsk_run(&io, argv[2]);
     blockdev_file_close(&bf);
+    if(getenv("CHKDSK_REPORT_ONLY")) {
+        fprintf(stderr,"chkdsk result=%d\n",rc);return 0;
+    }
     return rc < 0 ? 2 : 0;
 }

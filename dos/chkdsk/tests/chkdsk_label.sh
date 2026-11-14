@@ -1,7 +1,7 @@
 #!/bin/sh
 # ug8l: compare classification with genuine DOS 3.30, not artifact output.
 # Golden provenance/re-mint command: chkdsk-label-golden/README.md.
-# DOS omits the empty category; Initech's existing report prints a zero row.
+# DOS omits the empty category; require that captured absence too.
 # Only hidden allocation/count are compared here; the existing CHKDSK oracle
 # separately checks exact report columns, all categories, memory and repairs.
 set -eu
@@ -27,8 +27,14 @@ for name in none label hidden both; do
     expected=$(awk '/bytes in .* hidden files/{print $1, $4; found=1} END{if(!found)print "0 0"}' "$golden/$name.txt")
     set -- $expected
     row=$(printf '%9u bytes in %u hidden files' "$1" "$2")
-    grep -qxF "$row" "$work/$name.txt" || {
-        cat "$work/$name.txt"; echo "RED CHKDSK-LABEL-COUNT: $name expected $row"; exit 1; }
+    if [ "$2" -eq 0 ];then
+        if grep ' hidden files' "$work/$name.txt" >/dev/null;then
+            echo "RED CHKDSK-LABEL-EMPTY: $name emitted a row absent from genuine DOS";exit 1
+        fi
+    else
+        grep -qxF "$row" "$work/$name.txt" || {
+            cat "$work/$name.txt"; echo "RED CHKDSK-LABEL-COUNT: $name expected $row"; exit 1; }
+    fi
     free=$(mdir -i "$image" :: | sed -n '/bytes free/s/[^0-9]//gp')
     grep -qxF "$(printf '%9u bytes available on disk' "$free")" "$work/$name.txt" || {
         echo "RED CHKDSK-LABEL-FREE: $name"; exit 1; }

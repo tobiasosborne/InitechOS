@@ -120,6 +120,11 @@ int attrib_main(const char *tail)
         token[n]=0;
         if (!n) break;
         if (equal(token,"/S")) { opt.recursive=1; continue; }
+        /* Genuine reference/attrib-error: leading CRLF, Syntax error on
+         * CON, and an empty redirected output file for an unknown switch. */
+        if (token[0]=='/') {
+            du_con_puts("\r\n" MSG_DOS_0065 "\r\n");return 1;
+        }
         if ((token[0]=='+' || token[0]=='-') && n==2 && (token[1]=='R' || token[1]=='A')) {
             unsigned bit=token[1]=='R' ? 1u : 32u;
             opt.mask|=bit;

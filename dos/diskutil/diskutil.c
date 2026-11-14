@@ -240,7 +240,12 @@ static int copy_run(const options *o,int compare){
  }while(yes());
  return result;
 }
-int diskutil_run(const du_io *ops,unsigned kind,const char *tail){io=ops;options o;if(options_parse(&o,kind,tail))return error(MSG_DOS_0064,4);
+int diskutil_run(const du_io *ops,unsigned kind,const char *tail){io=ops;options o;if(options_parse(&o,kind,tail)) {
+  /* Genuine compat33/U09/U10 retain the complete refusal, including BEL. */
+  if(kind>=2){put("\r\n");line(MSG_DOS_0064);line("Do not specify filename(s)");
+   line(kind==2?"Command Format: DISKCOPY d: d: [/1]":"Command format: DISKCOMP d: d:[/1][/8]");put("\007");return 4;}
+  return error(MSG_DOS_0064,4);
+ }
  if(kind>=2)return copy_run(&o,kind==3);
  du_map m;if(io->map(o.letter[0],&m))return error(MSG_DOS_0004,4);
  return kind?sys_run(&m):format_run(&o,&m);

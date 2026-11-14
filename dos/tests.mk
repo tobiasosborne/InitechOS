@@ -205,6 +205,10 @@ HOST_TESTS += test-dir-wide-compat33
 test-dir-wide-compat33_SRCS := tests/runner.c
 test-dir-wide-compat33_ARGS := tests/run.sh test-dir-wide-compat33
 test-dir-wide-compat33_DEPS := $(OUT)/host/tool_dir_wide tests/gates/test-dir-wide-compat33.sh
+HOST_TESTS += test-utility-errors-compat33
+test-utility-errors-compat33_SRCS := tests/runner.c
+test-utility-errors-compat33_ARGS := tests/run.sh test-utility-errors-compat33
+test-utility-errors-compat33_DEPS := $(OUT)/host/tool_chkdsk_host $(OUT)/host/tool_formatsys_host $(OUT)/host/tool_dosutil_host tests/gates/test-utility-errors-compat33.sh
 include $(TOP)/mk/host-test.mk
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions

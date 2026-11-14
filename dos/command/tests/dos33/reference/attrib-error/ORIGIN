@@ -1,0 +1,5 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-attrib-errors.sh and ../../attrib-error-input.txt.
+Tagged CON capture establishes one leading blank line before Syntax error.
+Redirected UTIL.OUT is empty; TRACE.TXT contains only UTIL-DONE CRLF.

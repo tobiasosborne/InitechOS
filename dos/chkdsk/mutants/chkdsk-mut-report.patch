@@ -2,11 +2,11 @@
 # test: test-chkdsk
 --- a/chkdsk/chkdsk.c
 +++ b/chkdsk/chkdsk.c
-@@ -293,6 +293,7 @@
+@@ -298,6 +298,7 @@
      lost();
      if(s.error&&!s.fix)put(MSG_DOS_0047 "\r\n");
      for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)if(next(c)==0)s.free++;
 +    s.hidden=0;
      line(s.clusters*s.spc*512," bytes total disk space");
-     num(s.hidden_bytes,9);put(" bytes in ");num(s.hidden,0);put(" hidden files\r\n");
+     if(s.hidden){num(s.hidden_bytes,9);put(" bytes in ");num(s.hidden,0);put(" hidden files\r\n");}
      num(s.dir_bytes,9);put(" bytes in ");num(s.dirs,0);put(" directories\r\n");

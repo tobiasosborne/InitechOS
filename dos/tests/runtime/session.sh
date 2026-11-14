@@ -113,7 +113,13 @@ printf 'pipe-data\r\n' > "$out/expected"; extract PIPE.OUT "$out/expected"
 printf 'apple\r\n' > "$out/expected"; extract FIND.TXT "$out/expected"
 extract MORE.TXT "$out/words"; extract SORTED.TXT "$out/words"; extract STAMP.TXT "$out/words"
 extract 'PIPE1.$$$' "$out/sentinel"
-while IFS= read -r name;do extract "$name" "$out/sentinel";done < "$out/foreign-names"
+while IFS= read -r name;do
+ # A guest-clock candidate may differ between runs; the independent property
+ # and assertion identity are the same for every preexisting member.
+ require 'foreign clock namespace member survives' grep -E "^$name +" "$out/volume-after" >/dev/null
+ mtype -i "$img" "::$name" > "$out/got" || error "cannot read foreign $name"
+ require 'foreign clock namespace bytes' cmp "$out/got" "$out/sentinel"
+done < "$out/foreign-names"
 mtype -i "$img" ::DIR.OUT > "$out/dir"
 require 'DIR volume identity' grep -F 'Volume in drive A is INITECH' "$out/dir" >/dev/null
 require 'DIR operands' grep -F 'ONE      TXT' "$out/dir" >/dev/null

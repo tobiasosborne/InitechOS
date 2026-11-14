@@ -115,3 +115,8 @@ smoke-control-syntax:
 smoke-diagnostics:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/diagnostics.sh "$(TOP)" ALL "$(OUT)/smoke-diagnostics"
+
+.PHONY: smoke-utility-errors
+smoke-utility-errors:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/utility-errors.sh "$(TOP)" ALL "$(OUT)/smoke-utility-errors"

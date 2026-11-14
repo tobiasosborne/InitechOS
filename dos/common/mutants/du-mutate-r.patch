@@ -2,8 +2,8 @@
 # test: test-attrib test-label-vol
 --- a/common/dosutil.c
 +++ b/common/dosutil.c
-@@ -122,6 +122,7 @@
-         if (equal(token,"/S")) { opt.recursive=1; continue; }
+@@ -127,6 +127,7 @@
+         }
          if ((token[0]=='+' || token[0]=='-') && n==2 && (token[1]=='R' || token[1]=='A')) {
              unsigned bit=token[1]=='R' ? 1u : 32u;
 +            if (bit==1) bit=0;

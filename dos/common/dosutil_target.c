@@ -57,6 +57,13 @@ int du_sector(int write, unsigned drive, unsigned lba, uint8_t buf[512])
     return cf ? -1 : 0;
 }
 void du_puts(const char *s) { call21(0x4000,1,len(s),(unsigned)s); }
+void du_con_puts(const char *s)
+{
+    int h=call21(0x3d02,0,0,(unsigned)"CON");
+    if(h<0) { du_puts(s);return; }
+    call21(0x4000,(unsigned)h,len(s),(unsigned)s);
+    call21(0x3e00,(unsigned)h,0,0);
+}
 int du_line(char out[128])
 {
     /* Handle reads honor redirected stdin too. CON's line discipline supplies

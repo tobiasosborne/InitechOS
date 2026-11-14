@@ -29,7 +29,8 @@ static int get(void){
  return c;
 }
 static void put(const char *p){
- for(const char *q=p;*q;q++)if(*q!='\r')putchar(*q);
+ if(getenv("DISKUTIL_RAW_OUTPUT"))fputs(p,stdout);
+ else for(const char *q=p;*q;q++)if(*q!='\r')putchar(*q);
  /* Real one-drive swap: close the source medium and open a different image.
   * Never substitute a second-drive copy for the manual's A: -> A: flow. */
  if(source && (strstr(p,"Insert SOURCE")||strstr(p,"Insert FIRST")||
@@ -54,5 +55,6 @@ int main(int argc,char **argv){
  const du_io io={map,sector,get,put};int rc=diskutil_run(&io,(unsigned)atoi(argv[3]),argv[4]);
  fclose(disks[0]);fclose(disks[1]);
  fprintf(stderr,"diskutil exit=%d swaps=%u\n",rc,swaps);
+ if(getenv("DISKUTIL_REPORT_ONLY"))return 0;
  return rc==atoi(argv[6])?0:1;
 }

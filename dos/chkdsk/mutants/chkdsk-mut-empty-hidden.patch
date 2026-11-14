@@ -1,0 +1,13 @@
+# CHKDSK_EMPTY_HIDDEN_ROW
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -299,7 +299,7 @@
+     if(s.error&&!s.fix)put(MSG_DOS_0047 "\r\n");
+     for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)if(next(c)==0)s.free++;
+     line(s.clusters*s.spc*512," bytes total disk space");
+-    if(s.hidden){num(s.hidden_bytes,9);put(" bytes in ");num(s.hidden,0);put(" hidden files\r\n");}
++    num(s.hidden_bytes,9);put(" bytes in ");num(s.hidden,0);put(" hidden files\r\n");
+     num(s.dir_bytes,9);put(" bytes in ");num(s.dirs,0);put(" directories\r\n");
+     num(s.user_bytes,9);put(" bytes in ");num(s.users,0);put(" user files\r\n");
+     line(s.free*s.spc*512," bytes available on disk");nl();

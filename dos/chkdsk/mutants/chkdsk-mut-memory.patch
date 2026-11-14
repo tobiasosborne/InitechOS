@@ -2,11 +2,11 @@
 # test: test-chkdsk
 --- a/chkdsk/chkdsk.c
 +++ b/chkdsk/chkdsk.c
-@@ -305,6 +305,7 @@
+@@ -310,6 +310,7 @@
      while(at<io->arena.total_paras){mcb_t*m=(mcb_t*)(io->arena.base+at*16);total+=(uint32_t)m->size_paras*16;
          if(m->owner==MCB_OWNER_FREE)free+=(uint32_t)m->size_paras*16;
          at+=1u+m->size_paras;}
 +    free=total=655360;
      line(total," bytes total memory");line(free,MSG_DOS_0025);
      if(s.failed)goto failed;
-     return s.error?1:0;
+     return s.invalid_switch?-1:s.error?1:0;

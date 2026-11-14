@@ -75,6 +75,7 @@ int du_line(char out[128])
     out[n]=0; return n;
 }
 void du_puts(const char *s) { fputs(s,stdout); }
+void du_con_puts(const char *s) { fputs(s,stderr); }
 int main(int argc, char **argv)
 {
     if (argc<4 || blockdev_file_open_rw(&disk,argv[1])) return 2;

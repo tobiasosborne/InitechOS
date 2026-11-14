@@ -1,0 +1,5 @@
+@echo off
+echo ATTRIB-BEGIN>CON
+ATTRIB /Z <NUL >UTIL.OUT
+echo ATTRIB-END>CON
+echo UTIL-DONE

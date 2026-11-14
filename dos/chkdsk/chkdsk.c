@@ -19,7 +19,7 @@ typedef struct scan {
     uint32_t free, hidden_bytes, dir_bytes, user_bytes, hidden, dirs, users;
     uint32_t lost, chains, matched, fragmented, cache_lba;
     uint16_t eoc, bad, reserved;
-    uint8_t bits, fats, fix, verbose, error, failed, incomplete, pass;
+    uint8_t bits, fats, fix, verbose, error, failed, incomplete, pass, invalid_switch;
     uint8_t cache[512];
     uint8_t owned[MAP], duplicate[MAP], local[MAP], seen[MAP], incoming[MAP], visited[MAP];
     char operand[128], path[128];
@@ -261,7 +261,11 @@ static void lost(void) {
 static int parse(const char*t) {
     char raw[128];unsigned n=0;int operand=0;
     while(*t){if(*t==' '||*t=='\t'){t++;continue;}
-        if(*t=='/'){char c=upper(*++t);if(!c)return -1;t++;if(c=='F')s.fix=1;else if(c=='V')s.verbose=1;else return -1;
+        if(*t=='/'){char c=upper(*++t);if(!c)return -1;t++;if(c=='F')s.fix=1;else if(c=='V')s.verbose=1;else {
+                /* Genuine compat33/U04 echoes /Z as /z, then continues. */
+                char option[4]={'/',c>='A'&&c<='Z'?(char)(c+('a'-'A')):c,' ',0};
+                put(option);put(MSG_DOS_0064);nl();s.invalid_switch=1;
+            }
             if(*t&&*t!='/'&&*t!=' '&&*t!='\t')return -1;
         }else{if(operand++)return -1;while(*t&&*t!=' '&&*t!='\t'&&*t!='/'){if(n+1>=sizeof(raw))return -1;raw[n++]=upper(*t++);}raw[n]=0;}
     }
@@ -277,6 +281,7 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     zero(&s,sizeof(s));s.io=io;s.cache_lba=0xffffffffu;s.total=1;
     int bad=parse(tail);
     if(bad){put(bad==-2?MSG_DOS_0004 "\r\n":MSG_DOS_0048 "\r\n");return -1;}
+    if(s.invalid_switch){nl();nl();}
     uint8_t b[512];if(read_sector(0,b))goto failed;
     s.spc=b[13];s.fat=u16(b+14);s.fats=b[16];s.roots=u16(b+17);s.spf=u16(b+22);
     s.total=u16(b+19)?u16(b+19):u32(b+32);s.root=s.fat+s.fats*s.spf;
@@ -294,7 +299,7 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     if(s.error&&!s.fix)put(MSG_DOS_0047 "\r\n");
     for(uint32_t c=2;c<s.clusters+2&&!s.failed;c++)if(next(c)==0)s.free++;
     line(s.clusters*s.spc*512," bytes total disk space");
-    num(s.hidden_bytes,9);put(" bytes in ");num(s.hidden,0);put(" hidden files\r\n");
+    if(s.hidden){num(s.hidden_bytes,9);put(" bytes in ");num(s.hidden,0);put(" hidden files\r\n");}
     num(s.dir_bytes,9);put(" bytes in ");num(s.dirs,0);put(" directories\r\n");
     num(s.user_bytes,9);put(" bytes in ");num(s.users,0);put(" user files\r\n");
     line(s.free*s.spc*512," bytes available on disk");nl();
@@ -307,7 +312,7 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
         at+=1u+m->size_paras;}
     line(total," bytes total memory");line(free,MSG_DOS_0025);
     if(s.failed)goto failed;
-    return s.error?1:0;
+    return s.invalid_switch?-1:s.error?1:0;
 failed:
     put(MSG_DOS_0049 "\r\n");return -1;
 }
