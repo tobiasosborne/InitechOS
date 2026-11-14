@@ -241,3 +241,25 @@ drives actual INT21/FAT with a fixed DOS clock, faults every physical write
 before/after persistence in root and subdirectories, checks old named bytes
 and failed-entry absence with mtools, allocation with the independent FAT
 reader, and successful timestamps with a separate format reader.
+
+`int21_file_replace(staged, dest, &cleanup_error)` is the staged replacement
+entry for the existing resident file binding, not an INT21 service. Call with
+both files closed, in the same directory on the same mounted drive. The binding
+uses the same path/CWD/drive resolution as other file operations and restores
+the previous selected I/O drive. It refuses devices, directories, labels,
+read-only files, identical names and invalid/intersecting chains. FAT16 remains
+read-only. Its destination-sector write publishes the staged chain, length and
+last-write time while retaining the destination name and attributes. A failed
+commit write restores the old entry, including after-persistence errors.
+
+Zero means the replacement committed. Any postcommit cleanup error is returned
+separately through `cleanup_error`; callers must treat the save as committed
+and must never unlink the staging name after that result. Cleanup removes the
+staging alias before freeing the old allocation, and retries transient writes
+once. Persistent media trouble can leave a staging alias or orphan allocation
+for CHKDSK; power loss and unrecoverable rollback failure are outside the safe
+reported-error guarantee. The `test-replace` gate faults every physical write
+before/after persistence in root, same-sector, separate-sector/subdirectory and
+empty-file cases. mtools verifies named contents, fsck.fat verifies the image,
+and the independent FAT reader proves allocation ownership and matching FATs.
+Source: phase-2 safe-save ruling, initech-7mb66, and Microsoft FAT layout.

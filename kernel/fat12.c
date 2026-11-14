@@ -3269,6 +3269,92 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * missing name (or a malformed old/new parse) -> FAT12_ERR_NOT_FOUND; a read-only
  * volume -> FAT12_ERR_WRITE. Ref (the repository contract): DOS 3.3 PRM AH=56h; kernel/include/dos_structs.h
  * (filename 0x00 / extension 0x08); the EMPIRICAL mtools name-field layout. */
+/* The safe-save ruling (initech-7mb66), not a historical DOS service.
+ * Microsoft FAT directory layout: only the destination's 32-byte entry is
+ * repointed in the one-sector commit. No allocator change precedes it. */
+int fat12_replace(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                  const char *staged, const char *dest, uint16_t parent,
+                  void *sector_buf, int *cleanup_error)
+{
+    dir_entry_t source, old, replacement, removed;
+    uint32_t source_slot, dest_slot, bytes, bpc;
+    uint8_t owned[512] = {0};
+    int rc;
+    if (cleanup_error) *cleanup_error = FAT12_OK;
+    if (!vol || !fat || !sector_buf) return FAT12_ERR_NULL;
+    if (!vol->dev->write_sectors) return FAT12_ERR_WRITE;
+    if (vol->fat_type != FAT_TYPE_FAT12) return FAT12_ERR_UNSUPPORTED;
+    bytes = (uint32_t)vol->bpb.sectors_per_fat * vol->bpb.bytes_per_sector;
+    if (fat_len < bytes) return FAT12_ERR_BUFFER;
+    rc = fat12_find_slot_in(vol, fat, fat_len, parent, sector_buf, staged,
+                            &source, &source_slot);
+    if (rc) return rc;
+    rc = fat12_find_slot_in(vol, fat, fat_len, parent, sector_buf, dest,
+                            &old, &dest_slot);
+    if (rc) return rc;
+    if (source_slot == dest_slot ||
+        ((source.attribute | old.attribute) &
+         (DIR_ATTR_READONLY | DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)))
+        return FAT12_ERR_ACCESS;
+    /* Validate both complete chains and their disjointness before publication.
+     * A corrupt shared tail must never free the replacement's own clusters. */
+    bpc = (uint32_t)vol->bpb.sectors_per_cluster * vol->bpb.bytes_per_sector;
+    for (unsigned which=0; which<2; which++) {
+        const dir_entry_t *e = which ? &old : &source;
+        uint32_t count = e->file_size/bpc + (e->file_size%bpc != 0);
+        uint16_t cur = e->start_cluster;
+        if (count > vol->total_clusters || (!count && cur)) return FAT12_ERR_CHAIN;
+        for (uint32_t i=0; i<count; i++) {
+            uint16_t next;
+            if (!fat12_cluster_in_range(vol,cur) || cur>=4096u ||
+                (owned[cur/8] & (1u<<(cur%8)))) return FAT12_ERR_CHAIN;
+            owned[cur/8] |= (uint8_t)(1u<<(cur%8));
+            rc = fat12_next_cluster(vol,fat,fat_len,cur,&next);
+            if (rc) return rc;
+            if (i+1==count) {
+                if (!chain_is_eoc(vol,next)) return FAT12_ERR_CHAIN;
+            } else if (chain_is_eoc(vol,next)) return FAT12_ERR_CHAIN;
+            cur = next;
+        }
+    }
+    replacement = old;
+    replacement.start_cluster = source.start_cluster;
+    replacement.file_size = source.file_size;
+    replacement.mtime = source.mtime;
+    replacement.mdate = source.mdate;
+    rc = fat12_write_dirent_in_dir(vol,fat,fat_len,parent==0,parent,dest_slot,
+                                   &replacement,sector_buf);
+    if (rc) {
+        /* A failed sector write can have persisted. Recoverable reported
+         * errors restore the old entry before returning failure to the app. */
+        if (fat12_write_dirent_in_dir(vol,fat,fat_len,parent==0,parent,dest_slot,
+                                      &old,sector_buf)) return FAT12_ERR_WRITE;
+        return rc;
+    }
+    /* COMMITTED. Nothing below may report a failed replacement. Remove the
+     * staging alias before reclaiming the old chain. Retry once for transient
+     * I/O; persistent trouble leaves repairable aliases/allocation for CHKDSK,
+     * never a dangling reference to freed replacement data. */
+    removed = source; removed.filename[0] = 0xe5;
+    rc = fat12_write_dirent_in_dir(vol,fat,fat_len,parent==0,parent,source_slot,
+                                   &removed,sector_buf);
+    if (rc) {
+        if (cleanup_error) *cleanup_error = rc;
+        rc = fat12_write_dirent_in_dir(vol,fat,fat_len,parent==0,parent,source_slot,
+                                       &removed,sector_buf);
+    }
+    if (rc) return FAT12_OK;
+    if (old.start_cluster) {
+        rc = fat12_free_chain(vol,fat,fat_len,old.start_cluster);
+        if (!rc) rc = fat12_flush_fats(vol,fat,fat_len);
+        if (rc) {
+            if (cleanup_error) *cleanup_error = rc;
+            (void)fat12_flush_fats(vol,fat,fat_len);
+        }
+    }
+    return FAT12_OK;
+}
+
 int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *old83, const char *new83, uint16_t dir_start,
                  void *sector_buf)

@@ -1,0 +1,11 @@
+# test: test-replace
+--- a/fat12.c
++++ b/fat12.c
+@@ -3318,6 +3318,6 @@
+     }
+     replacement = old;
+-    replacement.start_cluster = source.start_cluster;
++    replacement.start_cluster = old.start_cluster;
+     replacement.file_size = source.file_size;
+     replacement.mtime = source.mtime;
+     replacement.mdate = source.mdate;

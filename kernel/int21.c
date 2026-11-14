@@ -225,6 +225,7 @@ static uint16_t dev_route_rw(device_header_t *dev, int is_write,
  * a FAT12-backed impl (or the host oracle binds a mock). The file functions
  * resolve FAT-specific work through it so int21.c stays host-testable. */
 static const int21_file_backend_t *g_file = 0;
+static uint16_t (*g_file_replace)(const char *, const char *, uint16_t, uint16_t *);
 
 /* The ABSOLUTE-DISK block-device seam (INT 25h/26h; ADR-0003 DEC-15, beads
  * initech-4mq7). A COPY of the vtable the kernel binds from the mounted FAT12
@@ -409,7 +410,7 @@ void int21_set_psp(struct psp *psp)     { g_cur_psp = (psp_t *)psp; }
  * inheritance (an EXEC child gets a COPY of the parent's handle table; MS-DOS 3.3
  * AH=4Bh). NULL when nothing is bound. */
 struct psp *int21_get_psp(void)         { return (struct psp *)g_cur_psp; }
-void int21_set_file_backend(const int21_file_backend_t *backend) { g_file = backend; }
+void int21_set_file_backend(const int21_file_backend_t *backend) { g_file = backend; g_file_replace = 0; }
 
 /* Bind the INT 25h/26h absolute-disk block-device seam (ADR-0003 DEC-15, beads
  * initech-4mq7). COPY the vtable so its lifetime is independent of the caller's
@@ -2818,6 +2819,33 @@ static void do_unlink(int_frame_t *f)
  * No int21_note_error() here: the AH=59h auto-note at the dispatch choke point
  * captures CF + AX. Ref (the repository contract): DOS 3.3 PRM AH=56h; spec/int21h_calling_
  * convention.json (AH=56h: in EDX old / EDI new); ADR-0003 Appendix A. */
+
+void int21_set_file_replace_backend(uint16_t (*replace)(const char *, const char *,
+                                    uint16_t, uint16_t *)) { g_file_replace = replace; }
+
+uint16_t int21_file_replace(const char *staged, const char *dest,
+                            uint16_t *cleanup_error)
+{
+    const char *source_leaf, *dest_leaf;
+    uint16_t source_dir, dest_dir, err;
+    unsigned saved_drive = g_io_drive, source_drive;
+    if (cleanup_error) *cleanup_error = 0;
+    if (!staged || !dest || !*staged || !*dest) return INT21_ERR_FILE_NOT_FOUND;
+    if (path_overlength(staged) || path_overlength(dest)) return INT21_ERR_PATH_NOT_FOUND;
+    if (dev_open_lookup(staged) || dev_open_lookup(dest)) return INT21_ERR_ACCESS_DENIED;
+    err = resolve_dir_path(staged, &source_leaf, &source_dir);
+    source_drive = g_io_drive;
+    if (!err) err = resolve_dir_path(dest, &dest_leaf, &dest_dir);
+    if (!err && (source_drive != g_io_drive || source_dir != dest_dir))
+        err = INT21_ERR_NOT_SAME_DEVICE;
+    if (!err) {
+        if (!g_file || !g_file_replace) err = INT21_ERR_ACCESS_DENIED;
+        else err = g_file_replace(source_leaf, dest_leaf, dest_dir, cleanup_error);
+    }
+    (void)select_volume(saved_drive);
+    return err;
+}
+
 static void do_rename(int_frame_t *f)
 {
     const char *old_path = (const char *)(uintptr_t)f->edx;

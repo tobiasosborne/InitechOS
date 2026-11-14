@@ -445,6 +445,14 @@ test-mkdir-stamp-conservation_SRCS := tests/runner.c
 test-mkdir-stamp-conservation_ARGS := tests/run.sh test-mkdir-stamp-conservation
 test-mkdir-stamp-conservation_DEPS := $(OUT)/host/tool_test_metadata_errors tests/gates/test-mkdir-stamp-conservation.sh tests/disk/check_mkdir_stamp.py tests/disk/check_conservation.py
 
+EXTRA_HOST_TESTS += tool_test_replace
+tool_test_replace_SRCS := tests/test_replace.c tests/disk/blockdev_file.c
+tool_test_replace_OBJS := $(tool_test_fileio_subdir_OBJS)
+HOST_TESTS += test-replace
+test-replace_SRCS := tests/runner.c
+test-replace_ARGS := tests/run.sh test-replace
+test-replace_DEPS := $(OUT)/host/tool_test_replace tests/gates/test-replace.sh tests/disk/check_conservation.py tests/disk/check_replace.py
+
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk

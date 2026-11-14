@@ -865,6 +865,13 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
  * -> FAT12_ERR_NULL; no write backend -> FAT12_ERR_WRITE. Returns FAT12_OK on
  * success. Ref (Law 1): DOS 3.3 PRM AH=56h; spec/dos_structs.h (filename 0x00 /
  * extension 0x08); the EMPIRICAL mtools name-field layout (mren-minted golden). */
+/* initech-7mb66 / safe-save ruling: single destination-sector commit. Errors
+ * before commit preserve old bytes; postcommit cleanup is separate. See the
+ * public resident binding int21_file_replace for caller ownership rules. */
+int fat12_replace(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                  const char *staged, const char *dest, uint16_t parent,
+                  void *sector_buf, int *cleanup_error);
+
 int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *old83, const char *new83, uint16_t dir_start,
                  void *sector_buf);

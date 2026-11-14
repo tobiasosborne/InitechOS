@@ -48,6 +48,12 @@
 #include "int21.h"
 #include "dos_structs.h"  /* dir_entry_t */
 
+/* Standalone read-only FAT consumers bind only the original file callbacks.
+ * The resident dispatcher supplies this optional extension; without it there
+ * is no replace entry to call, rather than a stub claiming success. */
+extern void int21_set_file_replace_backend(uint16_t (*replace)(const char *,
+                        const char *, uint16_t, uint16_t *)) __attribute__((weak));
+
 /* DOS error codes returned to int21.c (the same set int21.h uses). */
 #define FILEIO_ERR_FILE_NOT_FOUND  0x0002u
 #define FILEIO_ERR_PATH_NOT_FOUND  0x0003u
@@ -1020,6 +1026,23 @@ static int fat_dpb_geometry(int21_dpb_geometry_t *out)
     return 0;
 }
 
+static uint16_t fat_replace(const char *staged, const char *dest,
+                             uint16_t parent, uint16_t *cleanup_error)
+{
+    char stage83[13], dest83[13];
+    int cleanup = 0, rc;
+    if (!g_vol || !g_vol->dev->write_sectors) return FILEIO_ERR_ACCESS_DENIED;
+    if (!dos_name83(staged,stage83) || !dos_name83(dest,dest83))
+        return FILEIO_ERR_FILE_NOT_FOUND;
+    rc = fat12_replace(g_vol,g_fat,g_fat_len,stage83,dest83,parent,g_sector,&cleanup);
+    if (cleanup_error) *cleanup_error = cleanup ? FILEIO_ERR_GENERAL_FAILURE : 0;
+    if (!rc) return 0;
+    if (rc == FAT12_ERR_NOT_FOUND) return FILEIO_ERR_FILE_NOT_FOUND;
+    if (rc == FAT12_ERR_ACCESS || rc == FAT12_ERR_UNSUPPORTED)
+        return FILEIO_ERR_ACCESS_DENIED;
+    return FILEIO_ERR_GENERAL_FAILURE;
+}
+
 static const int21_file_backend_t g_fat_backend = {
     fat_open,
     fat_read_at,
@@ -1069,6 +1092,7 @@ int fileio_fat_bind(fat12_volume_t *vol)
     if (rc) return rc;
     g_mount = &g_mounts[0];
     int21_set_file_backend(&g_fat_backend);
+    if (int21_set_file_replace_backend) int21_set_file_replace_backend(fat_replace);
     int21_set_drive_selector(fat_select_drive);
     int21_set_media(vol->bpb.media_descriptor);
     int21_set_dpb_source(fat_dpb_geometry);
