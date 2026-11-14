@@ -1,0 +1,11 @@
+
+BEGIN C20 stale-append
+ KEY       VALUE
+ AAAAAAAA      1
+ BBBBBBBB      2
+
+BEFORE          2 BBBBBBBB
+SEEK .T.          1 AAAAAAAA
+AFTER          3 CCCCCCCC
+SAVE
+END C20

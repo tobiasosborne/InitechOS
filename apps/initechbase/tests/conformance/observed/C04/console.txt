@@ -1,0 +1,6 @@
+startup_rc=0
+
+BEGIN C04 missing-record
+ERR         15 Not a dBASE database.
+SAVE
+END C04

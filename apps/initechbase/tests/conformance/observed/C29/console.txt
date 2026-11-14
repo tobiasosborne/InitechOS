@@ -1,0 +1,9 @@
+startup_rc=0
+
+BEGIN C29 century-date
+ F001
+ 02/29/2000
+
+DATE 02/29/2000  2000
+SAVE
+END C29

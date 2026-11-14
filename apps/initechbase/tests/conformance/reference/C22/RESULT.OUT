@@ -1,0 +1,12 @@
+
+BEGIN C22 short-ndx
+ KEY       VALUE
+ AAAAAAAA      1
+ BBBBBBBB      2
+ CCCCCCCC      3
+
+BEFORE          3 CCCCCCCC
+SEEK .T.          1 AAAAAAAA
+AFTER          3 CCCCCCCC
+SAVE
+END C22

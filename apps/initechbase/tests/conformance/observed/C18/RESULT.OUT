@@ -1,0 +1,11 @@
+
+BEGIN C18 memo-bad-pointer
+ KEY
+ AAAAAAAA
+
+LENGTH          0
+MEMO
+                                                  
+BOTTOM          1
+SAVE
+END C18

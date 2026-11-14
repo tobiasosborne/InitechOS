@@ -1,0 +1,26 @@
+startup_rc=0
+
+BEGIN C33 do-depth
+ERR        103 DOs nested too deep.
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+DEPTH         19
+RESUMED
+SAVE
+END C33

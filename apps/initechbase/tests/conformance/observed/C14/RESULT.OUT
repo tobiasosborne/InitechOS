@@ -1,0 +1,11 @@
+
+BEGIN C14 memo-no-term
+ KEY
+ AAAAAAAA
+
+LENGTH          0
+MEMO
+                                                  
+BOTTOM          1
+SAVE
+END C14

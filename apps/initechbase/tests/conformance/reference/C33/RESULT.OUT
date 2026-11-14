@@ -1,0 +1,18 @@
+
+BEGIN C33 do-depth
+ERR          6 Too many files are open.
+DEPTH         12
+DEPTH         12
+DEPTH         12
+DEPTH         12
+DEPTH         12
+DEPTH         12
+DEPTH         12
+DEPTH         12
+DEPTH         12
+DEPTH         12
+DEPTH         12
+DEPTH         12
+RESUMED
+SAVE
+END C33

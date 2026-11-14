@@ -1,0 +1,12 @@
+startup_rc=0
+
+BEGIN C13 header-only-dbt
+ KEY
+ AAAAAAAA
+
+LENGTH          0
+MEMO
+                                                  
+BOTTOM          1
+SAVE
+END C13

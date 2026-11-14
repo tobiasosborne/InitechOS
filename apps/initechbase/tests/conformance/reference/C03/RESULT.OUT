@@ -1,0 +1,10 @@
+
+BEGIN C03 partial-record
+ KEY       VALUE
+ AAAAAAAA      1
+ BBBBBBBB      2
+ CCCCCCCC  
+
+BOTTOM          3 CCCCCCCC      0
+SAVE
+END C03

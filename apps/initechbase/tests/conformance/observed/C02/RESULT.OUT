@@ -1,0 +1,10 @@
+
+BEGIN C02 no-eof
+ KEY       VALUE
+ AAAAAAAA      1
+ BBBBBBBB      2
+ CCCCCCCC      3
+
+BOTTOM          3 CCCCCCCC      3
+SAVE
+END C02

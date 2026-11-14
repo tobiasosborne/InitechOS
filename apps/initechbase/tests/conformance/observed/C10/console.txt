@@ -1,0 +1,6 @@
+startup_rc=0
+
+BEGIN C10 missing-dbt
+ERR         29 File is not accessible.
+SAVE
+END C10

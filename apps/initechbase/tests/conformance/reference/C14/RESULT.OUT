@@ -1,0 +1,11 @@
+
+BEGIN C14 memo-no-term
+ KEY
+ AAAAAAAA
+
+ERR         34 Operation with Memo field invalid.
+MEMO
+memommmmmmmm                                      
+BOTTOM          1
+SAVE
+END C14

@@ -1,0 +1,5 @@
+
+BEGIN C11 missing-dbt-zero
+ERR         41 .DBT file cannot be opened.
+SAVE
+END C11

@@ -1,0 +1,7 @@
+startup_rc=0
+
+BEGIN C34 lines513
+ERR         43 Insufficient memory.
+RESUMED
+SAVE
+END C34

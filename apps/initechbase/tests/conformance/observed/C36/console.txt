@@ -1,0 +1,9 @@
+startup_rc=0
+
+BEGIN C36 continued255
+ERR         36 Unrecognized phrase/keyword in command.
+ERR         16 *** Unrecognized command verb.
+PROBE-END
+RESUMED
+SAVE
+END C36

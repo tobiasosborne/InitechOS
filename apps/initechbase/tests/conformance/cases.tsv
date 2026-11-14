@@ -1,0 +1,37 @@
+id	probe	input	commands after USE (see cases/ID/MINT.PRG for exact text)
+C01	intact	3 records C8/N6; standard control	LIST OFF; GO BOTTOM; REPLACE VALUE WITH 9; USE; COPY FILE
+C02	no-eof	C01 without optional trailing 1A	LIST OFF; GO BOTTOM; REPLACE; close/copy
+C03	partial-record	header says 3; final record missing last 5 bytes; no EOF	LIST OFF; GO BOTTOM; REPLACE; close/copy
+C04	missing-record	header says 3; third record absent; no EOF	LIST OFF; GO BOTTOM; REPLACE; close/copy
+C05	short-header	C01 cut at byte 50, inside first descriptor	USE BASE; close/copy unchanged input if refused
+C06	zero-count-tail	header count 0; 3 physical records still present	LIST OFF; GO BOTTOM; REPLACE; close/copy
+C07	low-count-tail	header count 2; 3 physical records still present	LIST OFF; GO BOTTOM; REPLACE; close/copy
+C08	deleted-bottom	third record marked deleted	SET DELETED ON; LIST OFF; GO BOTTOM; REPLACE; close/copy
+C09	header-plus2	header terminator 0D 00 (98-byte header)	LIST OFF; GO BOTTOM; REPLACE; close/copy
+C10	missing-dbt	memo table points to block 1; sibling absent	USE BASE; conditional memo read; close/copy
+C11	missing-dbt-zero	memo pointer 0; sibling absent	USE BASE; conditional memo read; close/copy
+C12	empty-dbt	memo pointer 1; sibling 0 bytes	USE BASE; conditional memo read; close/copy
+C13	header-only-dbt	next-free 2; DBT ends at byte 512	GO TOP; LEN(VALUE); ? VALUE; GO BOTTOM; REPLACE KEY; close/copy
+C14	memo-no-term	12 text bytes at block 1; no 1A terminator	GO TOP; LEN(VALUE); ? VALUE; REPLACE KEY; close/copy
+C15	memo-one-term	12 text bytes; single trailing 1A	GO TOP; LEN(VALUE); ? VALUE; REPLACE KEY; close/copy
+C16	memo-cross-block	511 text bytes; 1A1A spans bytes 1023/1024	GO TOP; LEN(VALUE); ? VALUE; REPLACE KEY; close/copy
+C17	memo-2300	2300 text bytes, 1A1A, next-free 6	GO TOP; LEN(VALUE); ? VALUE; REPLACE KEY; close/copy
+C18	memo-bad-pointer	pointer 9; DBT next-free 2	GO TOP; LEN(VALUE); ? VALUE; REPLACE KEY; close/copy
+C19	stale-key	NDX has A/B/C; external writer changed first key to Z	USE BASE INDEX OLD; LIST; GO BOTTOM; SEEK; REINDEX; GO BOTTOM; REPLACE; close/copy
+C20	stale-append	NDX has only A/B; DBF has A/B/C	USE BASE INDEX OLD; LIST; GO BOTTOM; SEEK; REINDEX; GO BOTTOM; REPLACE; close/copy
+C21	stale-recno	NDX has 3 entries; external writer shortened DBF to 2 records	USE BASE INDEX OLD; LIST; GO BOTTOM; SEEK; REINDEX; GO BOTTOM; REPLACE; close/copy
+C22	short-ndx	valid 2-page NDX cut to 600 bytes	USE BASE INDEX OLD; conditional REINDEX; close/copy
+C23	fields128	128 C1 fields; last F128	FIELD(128); RECSIZE(); LIST OFF F001,F128; REPLACE F128; close/copy
+C24	fields129	129 C1 fields (beyond documented limit)	FIELD(128); RECSIZE(); LIST OFF F001,F128; REPLACE F128; close/copy
+C25	record4000	15 C254 + C189 + delete flag = 4000	RECSIZE(); LIST OFF F001,F016; REPLACE F016; close/copy
+C26	record4001	15 C254 + C190 + delete flag = 4001	RECSIZE(); LIST OFF F001,F016; REPLACE F016; close/copy
+C27	char254	one C254 field	LEN(F001); LIST OFF; REPLACE; close/copy
+C28	date10	one D10 descriptor; raw 1992030200 (malformed-width probe)	SET CENTURY ON; LIST OFF; DTOC; YEAR; REPLACE with CTOD; close/copy
+C29	century-date	one correct D8 field, raw 20000229	SET CENTURY ON (10-character display); LIST OFF; DTOC; YEAR; REPLACE; close/copy
+C30	line254	254-byte physical program line	DO PROBE; LEN of 245-character literal; marker; REPLACE; close/copy
+C31	line255	255-byte physical program line	DO PROBE; overlong line; marker; REPLACE; close/copy
+C32	if24	24 nested IF .T. blocks	DO PROBE; INNER; REPLACE; close/copy
+C33	do-depth	recursive DO attempts 23 levels	DO PROBE; print depth on unwind; REPLACE; close/copy
+C34	lines513	512 active assignments plus 513th output line	DO PROBE; LINE513; REPLACE; close/copy
+C35	bytes8192	8192-byte file of short comments between START/END	DO PROBE; START/PROBE-END; REPLACE; close/copy
+C36	continued255	physical lines joined by trailing semicolon; 255 logical bytes	DO PROBE; LEN; PROBE-END; REPLACE; close/copy

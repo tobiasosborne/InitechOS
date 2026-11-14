@@ -1,0 +1,5 @@
+
+BEGIN C22 short-ndx
+ERR         15 Not a dBASE database.
+SAVE
+END C22

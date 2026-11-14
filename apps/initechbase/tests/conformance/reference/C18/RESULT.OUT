@@ -1,0 +1,11 @@
+
+BEGIN C18 memo-bad-pointer
+ KEY
+ AAAAAAAA
+
+ERR         34 Operation with Memo field invalid.
+MEMO
+                                                  
+BOTTOM          1
+SAVE
+END C18

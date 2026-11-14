@@ -1,0 +1,6 @@
+
+BEGIN C06 zero-count-tail
+
+BOTTOM          1 AAAAAAAA      1
+SAVE
+END C06

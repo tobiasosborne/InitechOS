@@ -1,0 +1,10 @@
+startup_rc=0
+
+BEGIN C08 deleted-bottom
+ KEY       VALUE
+ AAAAAAAA      1
+ BBBBBBBB      2
+
+BOTTOM          2 BBBBBBBB      2
+SAVE
+END C08

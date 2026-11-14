@@ -1,0 +1,5 @@
+
+BEGIN C05 short-header
+ERR         15 Not a dBASE database.
+SAVE
+END C05

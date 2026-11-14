@@ -1,0 +1,14 @@
+startup_rc=0
+
+BEGIN C21 stale-recno
+ERR        114 Index damaged.  REINDEX should be done before using data.
+
+ERR         10 Syntax error.
+ERR          5 Record is out of range.
+BEFORE          1 AAAAAAAA
+SEEK .F.          3 
+ERR        114 Index damaged.  REINDEX should be done before using data.
+ERR          5 Record is out of range.
+AFTER          1 AAAAAAAA
+SAVE
+END C21

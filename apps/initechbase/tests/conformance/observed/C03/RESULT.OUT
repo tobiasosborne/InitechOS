@@ -1,0 +1,5 @@
+
+BEGIN C03 partial-record
+ERR         15 Not a dBASE database.
+SAVE
+END C03

@@ -1,0 +1,7 @@
+
+BEGIN C06 zero-count-tail
+ KEY       VALUE
+
+BOTTOM          1       0
+SAVE
+END C06

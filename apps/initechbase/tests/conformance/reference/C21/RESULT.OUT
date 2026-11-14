@@ -1,0 +1,12 @@
+
+BEGIN C21 stale-recno
+ KEY       VALUE
+ AAAAAAAA      1
+ BBBBBBBB      2
+
+ERR          4 End of file encountered.
+BEFORE          3         
+SEEK .T.          1 AAAAAAAA
+AFTER          2 BBBBBBBB
+SAVE
+END C21

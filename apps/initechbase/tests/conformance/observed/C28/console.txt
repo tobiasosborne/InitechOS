@@ -1,0 +1,9 @@
+startup_rc=0
+
+BEGIN C28 date10
+ F001
+ 03/02/1992
+
+DATE 03/02/1992  1992
+SAVE
+END C28

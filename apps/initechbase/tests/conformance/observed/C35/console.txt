@@ -1,0 +1,7 @@
+startup_rc=0
+
+BEGIN C35 bytes8192
+ERR         18 Line exceeds maximum of 254 characters.
+RESUMED
+SAVE
+END C35

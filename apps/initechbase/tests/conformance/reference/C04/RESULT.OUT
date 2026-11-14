@@ -1,0 +1,10 @@
+
+BEGIN C04 missing-record
+ KEY       VALUE
+ AAAAAAAA      1
+ BBBBBBBB      2
+
+ERR          4 End of file encountered.
+BOTTOM          3               0
+SAVE
+END C04

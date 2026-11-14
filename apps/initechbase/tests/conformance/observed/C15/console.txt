@@ -1,0 +1,12 @@
+startup_rc=0
+
+BEGIN C15 memo-one-term
+ KEY
+ AAAAAAAA
+
+LENGTH         12
+MEMO
+memommmmmmmm                                      
+BOTTOM          1
+SAVE
+END C15

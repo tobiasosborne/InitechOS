@@ -1,0 +1,12 @@
+
+BEGIN C19 stale-key
+ KEY       VALUE
+ ZZZZZZZZ      1
+ BBBBBBBB      2
+ CCCCCCCC      3
+
+BEFORE          3 CCCCCCCC
+SEEK .T.          1 ZZZZZZZZ
+AFTER          1 ZZZZZZZZ
+SAVE
+END C19

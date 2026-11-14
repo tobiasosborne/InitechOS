@@ -1,0 +1,10 @@
+# DOS inputs and raw oracle/readback captures must retain every byte.
+*.DBF binary
+*.DBT binary
+*.NDX binary
+*.vga binary
+*.OUT binary
+*.PRG binary
+CONFIG.DB binary
+observed/*/console.txt binary
+reference/*/result.txt binary
