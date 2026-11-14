@@ -22,7 +22,12 @@ on two runs. Crashes, timeouts and missing fixtures are test errors. Recursive
 source growth is measured after normal completion, without counting a crash.
 
 Core, command and codec sources include only this component's headers. The
-PAL vtable is the platform interface; pal_dos uses INT 21h and CF/error returns.
+PAL vtable is the platform interface; pal_dos uses INT 21h and CF/error returns
+for DOS services. Its console-page binding still uses private INT 39h; issue
+initech-qu7rx tracks its replacement when the kernel's public INT 21h service
+is available. The migration preserves the 4002-byte page payload and exact
+screen behavior.
+Pure libraries linked into INITBASE.EXE or INITBASE.OVL: none.
 The host binding is never linked into the product. Dependencies:
 kernel/include/memory_map.h and initechmz_extended.h for the DOS PAL and
 packaging contract; factory/mz for mzlink/mzcheck; factory/testlib and emulator
