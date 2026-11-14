@@ -30,14 +30,24 @@ int flair_platform_file_info_get(flair_platform_files *f,uint8_t h,flair_platfor
     psp_t p; memcpy(&p,f,sizeof p); sft_entry_t *e=sft_from_handle(&p,h);
     if(!e || e->kind!=SFT_KIND_FILE) return 0;
     out->offset=e->file_offset; out->size=e->dir_entry.file_size; out->mode=e->open_mode;
+    out->slot=e->root_slot; out->directory=e->dir_start; out->drive=e->drive;
     return 1;
 }
+static unsigned files_drive;
+void flair_platform_bind_files(unsigned drive) { files_drive=drive; }
 int flair_platform_path_is_device(const char *p) { return int21_path_is_device(p); }
 void flair_platform_dos(flair_platform_files *files,flair_platform_regs *regs)
 {
     int_frame_t f; psp_t p, *old=int21_get_psp();
     int21_cwd_snapshot_t cwd=int21_cwd_save(); memcpy(&f,regs,sizeof f);
-    if(files) { memcpy(&p,files,sizeof p); int21_set_psp(&p); int21_cwd_reset(); }
+    if(files) {
+        int21_cwd_snapshot_t root={0};
+        root.current_drive=root.io_drive=(uint8_t)files_drive;
+        memcpy(&p,files,sizeof p); int21_set_psp(&p);
+        /* Sec 10: default paths use the bound volume; explicit mounted-drive
+         * paths use that drive's root, never the caller's per-drive CWD. */
+        int21_cwd_restore(&root);
+    }
     int21_dispatch(&f);
     if(files) { memcpy(files,&p,sizeof p); int21_set_psp(old); int21_cwd_restore(&cwd); }
     memcpy(regs,&f,sizeof f);

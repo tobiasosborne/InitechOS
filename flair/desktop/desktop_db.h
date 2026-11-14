@@ -62,7 +62,7 @@ int desktop_db_bootstrap(const fat12_volume_t *vol, void *fat,
  * LAYERING: the 24-byte record CODEC lives in os/flair/finder_desktop.c with
  * the icon records it serialises (os/flair may not include os/milton headers,
  * and the codec has to be host-gradable without a FAT). THIS file owns the FAT
- * side only: read the blob, or truncate-and-rewrite it. The two meet in
+ * side only: read the blob, or stage and replace it. The two meet in
  * os/milton/kmain.c. Structural validation of the blob is desktop_db_validate
  * above (identical layout law, so the two validators cannot drift on the
  * header) plus the codec's own record-count check.
@@ -76,14 +76,17 @@ int desktop_db_read(const fat12_volume_t *vol, const void *fat,
                     uint32_t fat_len, void *sector_buf, void *cluster_buf,
                     void *out, uint32_t cap, uint32_t *out_len);
 
-/* Whole-file rewrite of \DESKTOP.DB (hidden): fat12_create truncates the old
- * chain, fat12_write_file lays the new one down and patches size/start cluster.
+/* Stage a complete hidden DB in DESKTOP.$00..$99, retain the old database in
+ * DESKTOP.~00..~99 during commit and restore it on a failed final rename.
+ * Failed rollback retains both streams; no crash-atomicity claim is made.
  * `data` MUST already be a structurally valid image (desktop_db_validate);
  * a malformed blob is refused with FAT12_ERR_BUFFER rather than written, so a
  * writer bug can never produce a file that the next boot must REGEN. */
 int desktop_db_write(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                      void *sector_buf, void *cluster_buf,
                      const void *data, uint32_t len);
+/* Exact previous-version path after a failed rollback, otherwise NULL. */
+const char *desktop_db_recovery(void);
 
 /* Copy the mounted volume's LABEL (the root DIR_ATTR_VOLLABEL entry's raw
  * 11 name bytes, trailing spaces trimmed) into `out` as a NUL-terminated

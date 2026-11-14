@@ -1,5 +1,6 @@
 /* Extracted production volumes; reference: legacy-final kmain.c. */
 #include "desktop_internal.h"
+#include "flair_platform.h"
 
 int finder_abs(int v) { return v < 0 ? -v : v; }
 
@@ -124,6 +125,7 @@ void __attribute__((unused)) finder_desk_load_positions(void)
 void flair_tenant_mount_volume(void)
 {
     const fat12_volume_t *v=fileio_fat_current_volume();
+    flair_platform_bind_files(int21_io_drive());
     uint8_t *ften_secbuf=g_volume_sector;
     uint8_t ften_cluster[BLOCKDEV_SECTOR_SIZE];
     uint8_t ften_db_header[DESKTOP_DB_HEADER_SIZE];

@@ -8,6 +8,7 @@
 #include "event.h"
 #include "blockdev.h"
 #include "desktop_db.h"
+#include "filecopy_cancel.h"
 #define FINDER_ZOOM_STEPS 8
 int finder_fat_mkdir(void *fs_user, const char *name83,
                             uint16_t parent_dir_start)
@@ -512,6 +513,12 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
         if (got)
             flair_live_emit_evt(&ev);          /* absorbed: the box is modal */
         flair_live_cursor_track(&ev);
+        /* GM3: Escape or Command-period cancels the same staged transfer
+         * used by the live frame, before this tick can commit its last byte. */
+        if (got && flair_filecopy_cancel(ev.what,ev.message,ev.modifiers)) {
+            done = TBX_ERR_BUSY;
+            break;
+        }
         dt = flair_tick_count() - t0;
 #ifdef FILECOPY_RECORD_STEP
         if (!fc_have) { fc_have = 1; fc_h = ev.where.h; fc_v = ev.where.v; }
@@ -787,6 +794,9 @@ void finder_desk_persist(void)
                             FINDER_WIN_ERR_DISKFULL:FINDER_WIN_ERR_STORAGE;
         serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
         serial_puti((int32_t)rc);
+        if(desktop_db_recovery()) {
+            serial_puts(" previous="); serial_puts(desktop_db_recovery());
+        }
         serial_putc('\n');
     }
 }

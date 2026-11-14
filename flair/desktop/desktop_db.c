@@ -5,6 +5,9 @@
  */
 
 #include "desktop_db.h"
+static char db_recovery_name[12];
+static uint8_t db_verify[DESKTOP_DB_MAX_BYTES];
+const char *desktop_db_recovery(void) { return db_recovery_name[0]?db_recovery_name:0; }
 
 static uint16_t db_le16(const uint8_t *p)
 {
@@ -63,27 +66,17 @@ desktop_db_validation_t desktop_db_validate(const void *data, uint32_t len,
 	return DESKTOP_DB_VALID;
 }
 
-/* tdnl.62: DOS CREAT publishes/truncates a dirent. Check the allocation
- * requirement BEFORE CREAT so a full disk cannot publish a phantom DB or
- * destroy a committed one. Existing chain clusters are reusable by CREAT.
+/* GM4: the previous database remains allocated throughout staging. Check
+ * genuinely free clusters, never count the previous database's chain.
  * Ref: fat12.h create/write_file contracts, PRD 6.5 fail-loud storage. */
 static int db_space(const fat12_volume_t *vol,const void *fat,uint32_t fat_len,
                      void *sector_buf,uint32_t len)
 {
-    dir_entry_t old;
     uint32_t bytes=(uint32_t)vol->bpb.bytes_per_sector*vol->bpb.sectors_per_cluster;
     uint32_t need=(len+bytes-1u)/bytes, free=0u;
-    uint16_t next, c;
-    int rc=fat12_find(vol,sector_buf,DESKTOP_DB_NAME,&old);
-    if(rc==FAT12_OK && old.start_cluster>=2u) {
-        c=old.start_cluster;
-        for(uint32_t i=0;i<vol->total_clusters;i++) {
-            if(fat12_next_cluster(vol,fat,fat_len,c,&next)!=FAT12_OK) return FAT12_ERR_CHAIN;
-            free++;
-            if(vol->fat_type==FAT_TYPE_FAT16?fat16_is_eoc(next):fat12_is_eoc(next)) break;
-            c=next;
-        }
-    } else if(rc!=FAT12_OK && rc!=FAT12_ERR_NOT_FOUND) return rc;
+    uint16_t next;
+    int rc;
+    (void)sector_buf;
     for(uint32_t i=2;free<need && i<vol->total_clusters+2u;i++) {
         rc=fat12_next_cluster(vol,fat,fat_len,(uint16_t)i,&next);
         if(rc!=FAT12_OK) return rc;
@@ -107,20 +100,8 @@ static int desktop_db_write_default(const fat12_volume_t *vol, void *fat,
 	return FAT12_OK;
 #else
 	uint8_t header[DESKTOP_DB_HEADER_SIZE];
-	dir_entry_t entry;
-	uint32_t slot = 0u;
-	int rc;
-
 	desktop_db_empty_header(header);
-	rc=db_space(vol,fat,fat_len,sector_buf,DESKTOP_DB_HEADER_SIZE);
-	if(rc!=FAT12_OK) return rc;
-	rc = fat12_create(vol, fat, fat_len, DESKTOP_DB_NAME, DIR_ATTR_HIDDEN,
-	                  0u, sector_buf, cluster_buf, &entry, &slot);
-	if (rc != FAT12_OK) {
-		return rc;
-	}
-	return fat12_write_file(vol, fat, fat_len, slot, header,
-	                        DESKTOP_DB_HEADER_SIZE, sector_buf, cluster_buf);
+	return desktop_db_write(vol,fat,fat_len,sector_buf,cluster_buf,header,sizeof header);
 #endif
 }
 
@@ -234,25 +215,69 @@ int desktop_db_write(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 {
 	dir_entry_t entry;
 	uint32_t slot = 0u;
-	int rc;
+	int rc, old_moved=0;
+	char stage[]="DESKTOP.$00", backup[]="DESKTOP.~00";
 
 	if (vol == 0 || sector_buf == 0 || cluster_buf == 0 || data == 0) {
 		return FAT12_ERR_NULL;
 	}
+	if(db_recovery_name[0]) return FAT12_ERR_WRITE;
 	/* Refuse to commit a blob that the next boot would have to REGEN. */
 	if (len > DESKTOP_DB_MAX_BYTES ||
 	    desktop_db_validate(data, len, 0) != DESKTOP_DB_VALID) {
 		return FAT12_ERR_BUFFER;
 	}
+	rc=fat12_find(vol,sector_buf,DESKTOP_DB_NAME,&entry);
+	if(rc==FAT12_OK && (entry.attribute & DIR_ATTR_READONLY)) return FAT12_ERR_ACCESS;
+	if(rc!=FAT12_OK && rc!=FAT12_ERR_NOT_FOUND) return rc;
 	rc=db_space(vol,fat,fat_len,sector_buf,len);
 	if(rc!=FAT12_OK) return rc;
-	rc = fat12_create(vol, fat, fat_len, DESKTOP_DB_NAME, DIR_ATTR_HIDDEN,
+	/* Reserve only absent names; the cooperative pump cannot interleave a
+	 * competing writer. Never truncate a retained recovery stream. */
+	for(unsigned k=0;k<100;k++) {
+		stage[9]=(char)('0'+k/10); stage[10]=(char)('0'+k%10);
+		rc=fat12_find(vol,sector_buf,stage,&entry);
+		if(rc==FAT12_ERR_NOT_FOUND) break;
+		if(rc!=FAT12_OK) return rc;
+	}
+	if(rc!=FAT12_ERR_NOT_FOUND) return FAT12_ERR_EXISTS;
+	rc = fat12_create(vol, fat, fat_len, stage, DIR_ATTR_HIDDEN,
 	                  0u, sector_buf, cluster_buf, &entry, &slot);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
-	return fat12_write_file(vol, fat, fat_len, slot, data, len, sector_buf,
-	                        cluster_buf);
+	rc=fat12_write_file(vol,fat,fat_len,slot,data,len,sector_buf,cluster_buf);
+	if(rc!=FAT12_OK) goto discard;
+	rc=fat12_find(vol,sector_buf,stage,&entry);
+	if(rc!=FAT12_OK) goto discard;
+	uint32_t got=0;
+	rc=fat12_read_file(vol,fat,fat_len,&entry,db_verify,sizeof db_verify,cluster_buf,&got);
+	if(rc!=FAT12_OK) goto discard;
+	if(got!=len) { rc=FAT12_ERR_READ; goto discard; }
+	for(uint32_t i=0;i<len;i++) if(db_verify[i]!=((const uint8_t *)data)[i]) { rc=FAT12_ERR_READ; goto discard; }
+	for(unsigned k=0;k<100;k++) {
+		backup[9]=(char)('0'+k/10); backup[10]=(char)('0'+k%10);
+		rc=fat12_find(vol,sector_buf,backup,&entry);
+		if(rc==FAT12_ERR_NOT_FOUND) break;
+		if(rc!=FAT12_OK) goto discard;
+	}
+	if(rc!=FAT12_ERR_NOT_FOUND) { rc=FAT12_ERR_EXISTS; goto discard; }
+	rc=fat12_rename(vol,fat,fat_len,DESKTOP_DB_NAME,backup,0,sector_buf);
+	if(rc==FAT12_OK) old_moved=1;
+	else if(rc!=FAT12_ERR_NOT_FOUND) goto discard;
+	rc=fat12_rename(vol,fat,fat_len,stage,DESKTOP_DB_NAME,0,sector_buf);
+	if(rc!=FAT12_OK) {
+		if(old_moved && fat12_rename(vol,fat,fat_len,backup,DESKTOP_DB_NAME,0,sector_buf)!=FAT12_OK) {
+			for(unsigned i=0;i<sizeof backup;i++) db_recovery_name[i]=backup[i];
+			return rc; /* Keep both complete streams if rollback also fails. */
+		}
+		goto discard;
+	}
+	if(old_moved) (void)fat12_unlink(vol,fat,fat_len,backup,0,sector_buf);
+	return FAT12_OK; /* Cleanup cannot turn a committed save into a failure. */
+discard:
+	(void)fat12_unlink(vol,fat,fat_len,stage,0,sector_buf);
+	return rc;
 }
 
 /* fat12_read_root_dir visitor: capture the first volume-label entry's raw 11
