@@ -1,0 +1,11 @@
+sleep 4
+key esc
+type /dfA1
+key ret
+type BOGUS
+key ret
+sleep 0.8
+shot result
+key esc
+shot dismissed
+end

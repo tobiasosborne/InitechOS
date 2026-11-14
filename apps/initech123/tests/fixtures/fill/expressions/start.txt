@@ -1,0 +1,25 @@
+D1: 10                                                                      EDIT
+Enter fill range: A1..B3                                                        
+Start: 0                                                                        
+        A        B        C        D        E        F        G        H        
+1   KEEP-A1  KEEP-B1                 10                                         
+2   KEEP-A2  KEEP-B2                                                            
+3   KEEP-A3  KEEP-B3                                                            
+4                                                                               
+5                                                                               
+6                                                                               
+7                                                                               
+8                                                                               
+9                                                                               
+10                                                                              
+11                                                                              
+12                                                                              
+13                                                                              
+14                                                                              
+15                                                                              
+16                                                                              
+17                                                                              
+18                                                                              
+19                                                                              
+20                                                                              
+02-Mar-92  09:30 AM                                                             

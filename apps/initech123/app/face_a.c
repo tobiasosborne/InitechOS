@@ -252,14 +252,17 @@ static uint32_t g_depth;
 static int g_top, g_action, g_stage, g_arg, g_dc, g_dr;
 static uint8_t g_format;
 static i123_rect_t g_from;
-static char g_range_text[77], g_named[16];
+static char g_range_text[ENTRY_MAX+1], g_named[16];
+static double g_fill_defaults[3] TBX_IN_IMAGE = {0.0,1.0,8191.0};
+static double g_fill_values[3];
+static char g_fill_range[ENTRY_MAX+1],g_fill_text[3][ENTRY_MAX+1];
 static uint32_t g_rlen;
 static uint16_t g_ac, g_ar, g_pc, g_pr;
 static int g_anchor;
 static const char *g_prompt;
 enum { A_COPY=1, A_MOVE, A_VALUE, A_TRANS, A_ERASE, A_FORMAT, A_LABEL,
        A_PROT, A_UNPROT, A_NAME, A_NAME_DELETE, A_NAME_LABELS, A_NAME_TABLE,
-       A_WIDTH, A_GLOBAL_WIDTH, A_ITERATION, A_GOTO, A_RANGE_WIDTH, A_RANGE_RESET };
+       A_WIDTH, A_GLOBAL_WIDTH, A_ITERATION, A_GOTO, A_RANGE_WIDTH, A_RANGE_RESET, A_FILL };
 
 /* R2.2 Reference p.1-25; fixtures/i123-copy: POINT is separate from typed
  * range text (EDIT). The real escape.png restores the anchor cell;
@@ -268,17 +271,20 @@ static int pointable(void)
 {
     return g_action<=A_UNPROT ? !(g_action==A_FORMAT&&!g_stage&&g_arg) :
         (g_action==A_NAME&&g_stage)||g_action==A_NAME_LABELS||g_action==A_NAME_TABLE||g_action==A_GOTO||
-        (g_action==A_RANGE_WIDTH&&!g_stage)||g_action==A_RANGE_RESET;
+        (g_action==A_RANGE_WIDTH&&!g_stage)||g_action==A_RANGE_RESET||(g_action==A_FILL&&!g_stage);
 }
 static void point_text(char *s)
 {
+    if(g_action==A_FILL && g_stage>0 && g_stage<4) {
+        i123_number_text(g_fill_defaults[g_stage-1],s,32);return;
+    }
     if(g_action==A_RANGE_WIDTH && g_stage) {
         i123_number_text((double)i123_colwidth(&g_sheet,g_from.c0),s,32);
         return;
     }
     uint16_t c=i123_cursor_col(&g_sheet),r=i123_cursor_row(&g_sheet);
     uint32_t n=0;
-    if(g_anchor) {n=i123_addr_text(g_ac,g_ar,s);s[n++]='.';s[n++]='.';}
+    if(g_anchor && !(g_action==A_FILL&&g_ac==c&&g_ar==r)) {n=i123_addr_text(g_ac,g_ar,s);s[n++]='.';s[n++]='.';}
     i123_addr_text(c,r,s+n);
 }
 
@@ -318,6 +324,40 @@ static void panel_line(int line, const char *s)
     pad_into(tmp, SCR_COLS, s);
     put_line(line, 0, tmp, SCR_COLS, TBX_COLOR_BLACK, TBX_COLOR_WHITE);
 }
+static void reset_fill_defaults(void)
+{ g_fill_defaults[0]=0.0;g_fill_defaults[1]=1.0;g_fill_defaults[2]=8191.0; }
+
+/* Reference Fill fields occupy Start/Step/Stop slots at 0/26/52. Narrow
+ * native windows show the active scalar field rather than hiding it. */
+static void paint_fill(void)
+{
+    static const char *const names[]={"Start: ","Step: ","Stop: "};
+    const char *range_prompt="Enter fill range: ";
+    char line[SCR_COLS+1],number[32];uint32_t n=0;
+    for(uint32_t i=0;range_prompt[i]&&n<SCR_COLS;i++)line[n++]=range_prompt[i];
+    for(uint32_t i=0;g_fill_range[i]&&n<SCR_COLS;i++)line[n++]=g_fill_range[i];
+    line[n]=0;panel_line(LINE_PANEL2,line);
+    for(n=0;n<SCR_COLS;n++)line[n]=' ';
+    line[SCR_COLS]=0;
+    unsigned active=(unsigned)(g_stage<4?g_stage-1:2);
+    unsigned first=cols()<65?active:0;
+    for(unsigned i=first;i<=active;i++) {
+        uint32_t at=cols()<65?0:26*i,limit=cols()<65?cols():at+26;
+        if(limit>cols())limit=cols();
+        for(unsigned k=0;names[i][k]&&at<limit;k++)line[at++]=names[i][k];
+        const char *value=g_fill_text[i];
+        if(i==active && g_stage<4) {
+            if(g_rlen)value=g_range_text;
+            else{i123_number_text(g_fill_defaults[i],number,sizeof number);value=number;}
+        }
+        uint32_t len=slen(value),room=limit>at?limit-at:0;
+        if(i==active&&g_mode==M_RANGE&&room)room--;
+        uint32_t skip=i==active&&len>room?len-room:0;
+        for(uint32_t k=skip;value[k]&&at<limit;k++)line[at++]=value[k];
+        if(i==active&&g_mode==M_RANGE&&at<limit)line[at]='_';
+    }
+    panel_line(LINE_PANEL3,line);
+}
 
 static void paint_command(void)
 {
@@ -337,6 +377,8 @@ static void paint_command(void)
         panel_line(LINE_PANEL2, line+skip);
         put_line(LINE_PANEL2, (int)(x-skip), nm, slen(nm), TBX_COLOR_WHITE, TBX_COLOR_NAVY);
         panel_line(LINE_PANEL3, i123_menu_string(it->desc));
+    } else if(g_action==A_FILL&&g_stage>0&&(g_mode==M_RANGE||g_error)) {
+        paint_fill();
     } else if (g_mode == M_RANGE || g_error) {
         /* B11: the GOTO error keeps the prompt and its text on line two
          * (mint keys 10_f5_bad, fixtures/i123-keys). */
@@ -445,7 +487,7 @@ static void paint_panel(void)
     uint32_t n, k;
     /* Prompted for an address, 1-2-3 shows POINT until a character is
      * typed, then EDIT (manual p. 1-6; mint keys 06/07, COPY01 04_copy_from). */
-    const char *mode = MODE_TEXT[g_mode == M_RANGE && g_rlen ? M_EDIT : g_mode];
+    const char *mode = MODE_TEXT[g_mode == M_RANGE && (g_rlen||(g_action==A_FILL&&g_stage)) ? M_EDIT : g_mode];
     uint32_t mlen = slen(mode);
 
     /* line 1: "A1: 'Hello" ... "READY" (the shots: address, colon, space) */
@@ -685,6 +727,7 @@ static void retrieve(void)
     /* Manual p. 5-19: retrieved data/window settings replace the worksheet.
      * Authored transaction: failures above leave the old bank intact. */
     g_sheet = next; g_bank = 1-g_bank;
+    reset_fill_defaults();
     g_dirty = 0;   /* initech-fvnj: the sheet IS the file now */
     copy_text(g_current, g_path); file_status("Retrieved "); ready(); paint_all();
 }
@@ -744,11 +787,47 @@ static void point_begin(void)
 }
 static void prompt(int action, const char *text)
 { g_action=action; g_stage=0; g_prompt=text; g_mode=M_RANGE; point_begin(); }
+static int fill_scalar(const char *input,double *value)
+{
+    uint32_t len=slen(input),n=0,code_len=0;
+    char text[ENTRY_MAX+2];uint8_t code[1024];i123_val_t v;
+    int rc=i123_parse_value(input,len,value);
+    if(!rc)return I123_OK;
+    if((input[0]>='A'&&input[0]<='Z')||(input[0]>='a'&&input[0]<='z')||input[0]=='_'||input[0]=='<')text[n++]='+';
+    for(uint32_t i=0;i<len;i++)text[n++]=input[i];
+    text[n]=0;refresh_clock();
+    uint16_t col=i123_cursor_col(&g_sheet),row=i123_cursor_row(&g_sheet);
+    rc=i123_formula_compile_named(&g_sheet,text,n,col,row,code,sizeof code,&code_len);
+    if(!rc)rc=i123_eval(&g_cx,&g_sheet,col,row,code,code_len,&v);
+    if(rc||v.t!=I123_V_NUM||!(v.n>=-1e99&&v.n<=1e99))return I123_E_VALUE;
+    *value=v.n;return I123_OK;
+}
+static void fill_error(const char *message)
+{
+    g_error=message;g_mode=M_NOTICE;
+    paint_panel();paint_edit_line();paint_status();
+}
 static void range_accept(void)
 {
     char addr[32]; const char *input=g_range_text; i123_rect_t r;
     i123_sheet_t next; int rc=I123_OK;uint32_t written=0;
     if (!g_rlen) { point_text(addr); input=addr; }
+    if(g_action==A_FILL && g_stage>0 && g_stage<4) {
+        double value;
+        if(fill_scalar(input,&value)){fill_error("Invalid number input");return;}
+        unsigned index=(unsigned)(g_stage-1);
+        g_fill_defaults[index]=g_fill_values[index]=value;copy_text(g_fill_text[index],input);
+        if(g_stage<3){g_stage++;g_prompt=g_stage==2?"Step: ":"Stop: ";point_begin();return;}
+        g_stage=4;
+        rc=spare(&next);
+        if(!rc) {
+            rc=i123_fill_progress(&next,g_from,g_fill_values[0],g_fill_values[1],g_fill_values[2],&written);
+            /* Real FULLREF and protected captures preserve these prefixes. */
+            if(!rc||((rc==I123_E_FULL||rc==I123_E_PROTECTED)&&written))changed(&next);
+        }
+        if(rc)fill_error(rc==I123_E_PROTECTED?"Protected cell":rc==I123_E_FULL?"Memory full":"Command refused");
+        return;
+    }
     if ((g_action==A_NAME && g_stage==0) || g_action==A_NAME_DELETE) {
         if (!g_rlen || g_rlen>15) { notice("Invalid range name"); return; }
         copy_text(g_named,input);
@@ -784,10 +863,14 @@ static void range_accept(void)
             /* B11: an unusable GOTO address beeps, shows ERROR and the R2.2
              * message (123.RI 0x5ece, verbatim) on the status line, and leaves
              * the pointer where it was (mint keys 10_f5_bad/11_f5_bad_esc). */
-            if(g_action==A_GOTO){(void)tbx_trap(TBX_BEEP,0,0);g_error="Invalid cell or range address";g_mode=M_NOTICE;paint_panel();paint_status();return;}
+            if(g_action==A_GOTO||g_action==A_FILL){(void)tbx_trap(TBX_BEEP,0,0);g_error="Invalid cell or range address";g_mode=M_NOTICE;paint_panel();paint_status();return;}
             notice("Invalid range"); return;
         }
         if(g_action==A_GOTO) {ready();go_to(r.c0,r.r0);return;}
+        if(g_action==A_FILL) {
+            g_from=r;copy_text(g_fill_range,input);g_stage=1;g_prompt="Start: ";
+            point_begin();return;
+        }
         if(g_action==A_RANGE_WIDTH) {
             g_from=r;g_stage=1;g_prompt="Select a width for range of columns (1..240): ";
             point_begin();return;
@@ -861,6 +944,7 @@ static void menu_select(void)
     if(g_depth==0 && (g_top==2||g_top==3)) {prompt(g_top==2?A_COPY:A_MOVE,g_top==2?"Enter range to copy FROM: ":"Enter range to move FROM: ");return;}
     if(g_top==4 && g_depth==1 && g_menu_index<=1) {g_mode=g_menu_index?M_SAVE:M_GET;g_nlen=0;g_name[0]=0;command_paint();return;}
     if(same(nm,"Quit")) {ready();return;}
+    if(g_top==7&&g_depth==1&&same(nm,"Fill")){prompt(A_FILL,"Enter fill range: ");return;}
     if(g_top==1) {
         if(g_depth==1) {
             if(same(nm,"Erase")) {prompt(A_ERASE,"Enter range to erase: ");return;}
@@ -908,7 +992,7 @@ static void menu_select(void)
         }
         if(g_depth==2&&g_indexes[1]==4) {
             if(g_menu_index==0){ready();return;}
-            i123_sheet_t next;if(!i123_sheet_init(&next,g_mem[1-g_bank],sizeof g_mem[0],SHEET_CELLS))changed(&next);return;
+            i123_sheet_t next;if(!i123_sheet_init(&next,g_mem[1-g_bank],sizeof g_mem[0],SHEET_CELLS)){reset_fill_defaults();changed(&next);}return;
         }
         if(g_depth==2&&g_indexes[1]==3) {
             if(g_menu_index==0){prompt(A_WIDTH,"Enter column width (1..240): ");return;}

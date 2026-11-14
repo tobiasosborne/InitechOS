@@ -1,0 +1,12 @@
+# test: test_i123_fill
+--- a/core/fill.c
++++ b/core/fill.c
+@@ -20,7 +20,7 @@
+         uint8_t fmt=cell?cell->fmt:WK1_FMT_FRESH_CELL;
+         if(sh->protec&&(fmt&128u)){rc=I123_E_PROTECTED;goto out;}
+-        if(cell) {
++        if(cell&&(col==range.c0||row==range.r0)) {
+             rc=i123_erase(sh,(uint16_t)col,(uint16_t)row);
+             if(!rc)rc=i123_set_cell_format(sh,(uint16_t)col,(uint16_t)row,fmt);
+             if(rc)goto out;
+             progress++;

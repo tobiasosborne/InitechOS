@@ -1,0 +1,25 @@
+sleep 4
+key esc
+key f5
+type B1
+key ret
+type KEEP
+key ret
+type /dfA1..IV8192
+key ret
+key ret
+key ret
+type 1e99
+key ret
+wait Memory full
+shot result
+key esc
+key esc
+key esc
+key esc
+key esc
+type /fsFULLREF
+key ret
+sleep 3
+shot saved
+end

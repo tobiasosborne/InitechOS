@@ -23,7 +23,7 @@ Public headers, consumed with `-Iapps/initech123/include`:
 - `menu.h`: separate menu model/resource API; not part of the core archive.
 
 InitechCalc can link `build/apps/initech123/libi123.a` instead of compiling this
-component's sources. The archive contains sheet, fmt, wk1, formula, range, eval
+component's sources. The archive contains sheet, fmt, wk1, formula, range, fill, eval
 and recalc objects, including the latter two needed by the formula/range APIs.
 It contains no menu, application face or Toolbox runtime. Use the same default
 32-bit C ABI and x87 control word 0x037F as the target; no OS dependency exists
@@ -35,8 +35,9 @@ component's include path. No build input comes from attic.
 
 ## Verification
 
-`make test` runs the original 18 host programs plus the protection and shipped-configuration
-menu suite, using sdk/host's shared fake Toolbox. No emulator runs in tier 0.
+`make test` runs 26 host suites: the original 18, protection, shipped-configuration
+menu loading, EDIT, frame placement, file conformance, column ranges, time formats
+and Data Fill, using sdk/host's shared fake Toolbox. No emulator runs in tier 0.
 The original 1,023,560 counted assertions are retained; malformed Retrieve and
 automatic numeric-entry recalculation add seven, and menu_disk adds 354.
 Separate checks still cover eight real Copy/Move pairs, four tiling fixtures,
@@ -54,7 +55,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 47 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 48 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
 Bochs, including an independent check of the worksheet saved from the Finder.
@@ -94,7 +95,8 @@ three named formula exceptions remain documented by the formula oracle.
 | Range | Format (Fixed, Sci, Currency, comma, General, +/-, Percent, Date 1/2/3, fixed AM/PM Time 1/2, Text, Hidden, Reset), label alignment, Erase, Name Create/Delete/Labels/Reset/Table, Prot/Unprot, Value and Trans. |
 | Copy, Move | Snapshot transfers, singleton-axis tiling for Copy rectangles, formula reference adjustment, named ranges; Copy retains the allowed prefix on protection refusal, Move checks all destinations first. Capacity failures discard the candidate bank. |
 | File | Retrieve and Save WK1, Cancel/Replace on existing files. Backup is omitted. |
-| Print, Data | Menu navigation and Quit/escape; execution leaves below refuse. |
+| Print | Menu navigation and Quit/escape; execution leaves below refuse. |
+| Data | Fill, including expressions/names, remembered numeric defaults, column-first clear/fill and captured protection/memory prefixes. Other leaves below refuse. |
 | Graph | Type/Name/Group navigation and Quit; execution leaves below refuse. |
 | System, Add-In | System and Add-In execution refuse. |
 | Quit | No/Yes and unsaved-work guard: Save, Cancel, Don't Save. Native File > Quit and the window close box use the same guard. |
@@ -117,7 +119,7 @@ mkdir -p ../../build/apps/initech123/save-probe
   tests/fixtures/protection --save-safety
 ```
 
-There are **218 refused slash-menu leaves**. **File Save > Backup** in
+There are **217 refused slash-menu leaves**. **File Save > Backup** in
 the replacement prompt is removed by the approved split. Every slash leaf
 below shows `Command not implemented`; Esc returns to READY. Quit leaves that
 return to READY are navigation, not unavailable operations. No listed command
@@ -185,7 +187,7 @@ and agrees with the 224-leaf October audit. Sources: legacy-final
 | `/Graph` | `X`, `A`, `B`, `C`, `D`, `E`, `F`, `Reset`, `View`, `Save`, `Options` |
 | `/Graph/Name` | `Use`, `Create`, `Delete`, `Reset`, `Table` |
 | `/Graph/Group` | `Columnwise`, `Rowwise` |
-| `/Data` | `Fill`, `Distribution` |
+| `/Data` | `Distribution` |
 | `/Data/Table` | `1`, `2`, `Reset` |
 | `/Data/Sort` | `Data-Range`, `Primary-Key`, `Secondary-Key`, `Reset`, `Go` |
 | `/Data/Query` | `Input`, `Criteria`, `Output`, `Find`, `Extract`, `Unique`, `Delete`, `Reset` |
@@ -249,3 +251,11 @@ results and explicit-cell overrides. `tests/fixtures/time-formats` retains
 independent VGA/WK1 captures. The time suite compares glyphs directly to VGA
 character bytes and saved cell/global-format records with a separate reader.
 International Time 3/4 remain in the approved removal inventory.
+
+Data Fill follows the Reference 4-5/4-6 and `tests/fixtures/fill`: it clears
+the range before filling, preserves formats, clears the tail beyond Stop,
+and retains the captured erasure or numeric prefix on protection/memory
+failure. Defaults are numeric and reset on Retrieve/Worksheet Erase;
+Cancel preserves the worksheet. The independent reader compares every saved
+cell/name/protection/settings record, including the smaller native model's
+memory-limited prefix. No new WK1 parameter record is introduced.

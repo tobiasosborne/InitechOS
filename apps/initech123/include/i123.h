@@ -146,6 +146,10 @@ int i123_name_table_progress(i123_sheet_t *sh, uint16_t col, uint16_t row,
 int i123_formula_compile_named(const i123_sheet_t *sh, const char *text, uint32_t len,
                                uint16_t col, uint16_t row, uint8_t *code,
                                uint32_t cap, uint32_t *code_len);
+/* Data Fill's two-pass erase/fill. Candidate retains the allowed prefix on
+ * protection/full errors, matching real R2.2; written counts erase/write
+ * steps (a cell may count twice). */
+int i123_fill_progress(i123_sheet_t *sh,i123_rect_t range,double start,double step,double stop,uint32_t *written);
 
 /* ---- the model ----------------------------------------------------------- */
 
