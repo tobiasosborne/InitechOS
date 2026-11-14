@@ -12,11 +12,12 @@ Current mechanical evidence:
   NASM/binutils/mzlink byte for byte. mzlink derives relocations by two link
   bases independently of the Pascal emitter's recorded sites. mzcheck validates
   every emitted container and both compiler memory plans. Runtime tables are
-  regenerated against NASM in tier 0. All 14 compiler patches are killed,
-  including the two restored semantic execution patches.
+  regenerated against NASM in tier 0. The 15 compiler patches include two
+  restored semantic execution patches and a flat-only runtime fault.
 - The full 17-program corpus and 11 code-generation regressions execute on
   QEMU and Bochs through direct seed, hosted Pascal native and resident Pascal
-  native output (168 comparisons). Stdout/files agree with independent FPC;
+  native output, with both native forms exercised (280 comparisons).
+  Stdout/files agree with independent FPC;
   original corpus rows retain their authored goldens. Separate TEST disks
   preserve the product image. Resident output needs no host assembler/linker.
 - In-OS K1(S) -> K2 and K2(S) -> K3 reproduce 163087 bytes exactly, SHA-256

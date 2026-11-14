@@ -23,7 +23,16 @@ match the product's documented 32-bit width. The existing corpus retains its
 Delphi/B+/H- directives; these regressions use TP mode without a mode override.
 This work does not resolve the separately tracked TP integer-width decision.
 
-`TURBO_EXEC_SOURCES`, `TURBO_EXEC_PATHS` (`seed hosted resident`),
+Hosted and resident Pascal outputs run in both extended and flat form;
+the seed retains its extended assembly/link/mzlink leg. All 28 registered
+programs fit the conventional arena, so a missing flat output fails rather
+than skipping execution. Flat outputs must be nonempty raw COM files, not
+renamed MZ containers. Each form has its own working directory and independent
+stdout/file comparison. Default smoke now performs 280 executions across
+both emulators, keeping all 168 extended executions and adding 112 flat ones.
+
+`TURBO_EXEC_SOURCES`, `TURBO_EXEC_PATHS`
+(`seed hosted hosted-flat resident resident-flat`),
 `TURBO_EXEC_EMULATORS` (`qemu bochs`), `TURBO_HOSTED`, and `TURBO_EXEC_OUT`
 select focused red-first or tier-2 mutation runs. Defaults always run the full
 matrix; tier 0 never invokes the runner. `TURBO_EXEC_TIMEOUT_MS` bounds a
@@ -31,6 +40,11 @@ focused nontermination probe; the normal driver deadlines are unchanged.
 Each batch stays below COMMAND.COM's 4096-byte input limit. Separate TEST
 disks and all reference sources, stdout, compiler transcripts, serial logs,
 CPU logs and extracted files remain under `build/turbo/smoke/execution`.
+
+`hosted-flat` and `resident-flat` select native conventional-arena output.
+The flat-runtime-digit patch changes decimal printing only in the flat
+runtime. Its tier-2 `execution-flat` catcher runs both hosted forms on both
+emulators: extended output stays correct while flat stdout differs from FPC.
 
 Compiler patches `frame-offset` and `var-destination` select explicit tier-2
 entries `execution-frame` and `execution-var`, which execute `gen_tiny` and

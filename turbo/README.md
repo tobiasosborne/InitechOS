@@ -22,13 +22,16 @@ header, separate guard and stack. The old conventional compiler placement
 gates are replaced by these real limits. Small programs retain their flat
 runtime/link route. The warm complete Turbo suite takes about 20 seconds.
 Runtime is a checked-in NASM byte table with a tier-0 regeneration comparison;
-see compiler/NATIVE.md. All 14 compiler patches are killed, including five
-native encoder/fixup/relocation/layout and two generated-execution patches.
+see compiler/NATIVE.md. The 15 compiler patches include five native
+encoder/fixup/relocation/layout and three generated-execution patches.
 
 `make smoke` builds the product image and uses separate FAT12 TEST disks.
 QEMU and Bochs each execute all 17 corpus programs and 11 regressions through
 direct seed output, hosted Pascal native output, and resident Pascal native
-compilation: 168 executions. Complete stdout and extracted files match FPC;
+compilation. Hosted and resident Pascal output also runs as flat COM:
+280 executions, preserving all 168 extended comparisons and adding 112 flat
+comparisons. Every registered case fits the flat arena; missing flat output
+fails. Complete stdout and extracted files match FPC;
 the original corpus also matches its authored goldens. mzcheck validates the
 emitted containers. See tests/execution/README.md for the red-first probes and
 the explicit 32-bit endpoint reference normalization.

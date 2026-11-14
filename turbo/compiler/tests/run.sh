@@ -28,9 +28,11 @@ links() {
     "$OBJCOPY" -O binary "$dir/dos.elf" "$dir/program.com"
 }
 case $entry in
-execution-frame|execution-var)
-    if [ "$entry" = execution-frame ]; then name=gen_tiny; else name=gen_func_deep; fi
-    TURBO_HOSTED="$out/turbo_fpc" TURBO_EXEC_PATHS=hosted \
+execution-frame|execution-var|execution-flat)
+    name=gen_tiny; paths=hosted
+    if [ "$entry" = execution-var ]; then name=gen_func_deep; fi
+    if [ "$entry" = execution-flat ]; then paths='hosted hosted-flat'; fi
+    TURBO_HOSTED="$out/turbo_fpc" TURBO_EXEC_PATHS="$paths" \
       TURBO_EXEC_SOURCES="$TOP/turbo/compiler/fixtures/$name.pas" \
       TURBO_EXEC_OUT="$scratch/execution" \
       sh "$TOP/turbo/tests/execution/run.sh"

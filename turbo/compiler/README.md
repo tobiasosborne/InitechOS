@@ -28,9 +28,11 @@ product image with separate TEST disks, compares generated-program stdout
 against FPC on QEMU and Bochs, and reads files back with mtools.
 
 `make mutants` uses mk/mutants.mk: seven inherited patches plus five native
-encoder/relocation/layout patches and two semantic execution patches. The
+encoder/relocation/layout patches and three execution patches. The
 frame-offset and var-destination catchers execute tiny/function corpus output
-against FPC on both emulators, exclusively in tier 2. All 14 patches are killed.
+against FPC on both emulators, exclusively in tier 2. The flat-runtime-digit
+patch changes only conventional runtime decimal printing; execution-flat
+checks both hosted forms, preserving the correct extended output as a control.
 Generated files/logs remain in build/turbo/compiler; make clean removes them.
 The protocol and corpus derivations are in the local *-DUMP/TRACE, CODEGEN and
 CORPUS documents; tests/reference is parser-derived documentation, not an oracle.
@@ -43,7 +45,9 @@ layout limits, not a measured worst-case stack-usage claim.
 
 The parent smoke executes the complete 17-program corpus plus 11 regressions
 on both emulators, through seed, hosted Pascal native and resident Pascal
-native paths. No host assembler/linker finishes resident-generated programs.
+native paths. Both hosted and resident Pascal paths execute flat COM as well
+as extended EXE, for 280 total comparisons. No host assembler/linker finishes
+resident-generated programs.
 Stdout is compared with the independent goldens and FPC reference executions;
 mtools checks the on-disk payloads. Guest DOS GET TIME brackets each compile
 at its documented 1-second resolution. Tests use a separate 8 MiB FAT12 TEST
