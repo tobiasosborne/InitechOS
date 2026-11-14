@@ -2,6 +2,13 @@
 # alone, more when every component runs at once.
 TEST_BUDGET_S := 60
 include tests/tools.mk
+HOST_TESTS += console-inherit test-file-conservation
+console-inherit_SRCS := tests/test_console_inherit.c sft.c psp.c
+test-file-conservation_SRCS := tests/runner.c
+test-file-conservation_ARGS := tests/run.sh test-file-conservation
+test-file-conservation_DEPS := $(OUT)/host/tool_test_file_conservation tests/gates/test-file-conservation.sh tests/disk/check_conservation.py
+EXTRA_HOST_TESTS += tool_test_file_conservation
+tool_test_file_conservation_SRCS := tests/test_file_conservation.c tests/disk/blockdev_file.c fat12.c
 HOST_TESTS += review-handles
 review-handles_SRCS := tests/test_review_handles.c
 review-handles_OBJS := $(tool_test_fileio_OBJS)

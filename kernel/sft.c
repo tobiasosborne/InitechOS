@@ -178,10 +178,13 @@ uint8_t sft_set_files_limit(uint8_t files)
     return g_files_limit;
 }
 
-/* Drop one JFT reference to SFT slot `idx`; free the slot (back to FREE) when
- * the last reference goes. Uniform for devices and files -- if a program
- * redirects both stdout and stderr away from CON the CON-write slot legitimately
- * has zero references and is freed (process load re-establishes the table).
+/* Drop one JFT reference to a process-owned SFT slot; free it at zero.
+ * Resident slots are pinned for the system lifetime, just as inherit and
+ * close_process already specify. Boot and shadow PSPs can install the standard
+ * handles without acquiring references; DUP/DUP2 must follow the same model.
+ * Ref: IBM DOS 3.30 TR p.4-15 handle ownership; initech-ktlzw parent-handle
+ * lifetime invariant. Pinning is this kernel's representation, not a claim
+ * about the internal representation of real DOS.
  * Fails loud on a release of an already-free slot (the repository contract).
  *
  * Called by sft_dup2 (DUP2 redirect) AND sft_close_process (process EXIT
@@ -194,6 +197,7 @@ static void sft_release(uint8_t idx)
         SFT_FAIL_LOUD();
         return; /* not reached */
     }
+    if (idx < SFT_FIRST_FILE) return;
     if (g_sft[idx].ref_count > 0u) {
         g_sft[idx].ref_count--;
     }
@@ -220,7 +224,7 @@ uint16_t sft_dup(psp_t *psp, uint8_t src, uint8_t *out_handle)
     /* the repository contract mutant target: WITHOUT this increment, a later release/close
      * over-frees the shared slot. The oracle asserts the bump -> the mutant
      * (which omits it) goes RED. */
-    g_sft[sft_idx].ref_count++;
+    if (sft_idx >= SFT_FIRST_FILE) g_sft[sft_idx].ref_count++;
 
     if (out_handle != 0) {
         *out_handle = j;
@@ -252,7 +256,7 @@ uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst)
 
     uint8_t sft_idx = psp->jft[src];
     psp->jft[dst] = sft_idx;
-    g_sft[sft_idx].ref_count++;
+    if (sft_idx >= SFT_FIRST_FILE) g_sft[sft_idx].ref_count++;
     return SFT_OK;
 }
 

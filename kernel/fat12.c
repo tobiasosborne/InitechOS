@@ -2438,6 +2438,75 @@ int fat12_hide_dir(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
                                      slot, &de, sector_buf);
 }
 
+/* CREAT replacement / UNLINK share one destructive metadata transaction.
+ * Source: FAT allocation ownership invariant (CLAUDE.md, The constitution),
+ * initech-rg6d5. On a reported recoverable I/O error the original name, bytes
+ * and allocation survive. This is error rollback, not crash atomicity. Keep
+ * the complete FAT preimage: a device may write a prefix of either FAT copy
+ * before reporting failure. Static scratch follows the cooperative writer's
+ * existing set_size convention. No data sector is overwritten here. */
+static int fat12_remove_allocation(const fat12_volume_t *vol, void *fat,
+                                    uint32_t fat_len, uint16_t parent,
+                                    uint32_t slot, const dir_entry_t *old,
+                                    const dir_entry_t *replacement,
+                                    void *sector_buf)
+{
+	static uint8_t before[6144];
+	uint32_t bytes = (uint32_t)vol->bpb.sectors_per_fat * vol->bpb.bytes_per_sector;
+	uint32_t i, count, bpc;
+	uint16_t cur;
+	int rc, restore_fat = FAT12_OK, restore_dir;
+	int have_chain = old->start_cluster != 0u;
+	if (vol->fat_type != FAT_TYPE_FAT12) return FAT12_ERR_UNSUPPORTED;
+	if (have_chain) {
+		if (fat == NULL) return FAT12_ERR_NULL;
+		if (bytes > sizeof before || fat_len < bytes) return FAT12_ERR_BUFFER;
+		/* Validate the entire chain before changing the live allocation map.
+		 * A corrupt tail must not leave a partly freed prefix in memory. */
+		bpc = (uint32_t)vol->bpb.sectors_per_cluster * vol->bpb.bytes_per_sector;
+		count = old->file_size / bpc + (old->file_size % bpc != 0u);
+		if (count == 0u || count > vol->total_clusters) return FAT12_ERR_CHAIN;
+		cur = old->start_cluster;
+		for (i = 0u; i < count; i++) {
+			uint16_t next;
+			if (!fat12_cluster_in_range(vol, cur)) return FAT12_ERR_CHAIN;
+			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
+			if (rc != FAT12_OK) return rc;
+			if (i + 1u == count) {
+				if (!chain_is_eoc(vol, next)) return FAT12_ERR_CHAIN;
+			} else if (!fat12_cluster_in_range(vol, next) || chain_is_eoc(vol, next)) {
+				return FAT12_ERR_CHAIN;
+			}
+			cur = next;
+		}
+		for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];
+		rc = fat12_free_chain(vol, fat, fat_len, old->start_cluster);
+		if (rc != FAT12_OK) {
+			for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
+			return rc;
+		}
+		rc = fat12_flush_fats(vol, fat, fat_len);
+	} else {
+		if (old->file_size != 0u) return FAT12_ERR_CHAIN;
+		rc = FAT12_OK;
+	}
+	if (rc == FAT12_OK)
+		rc = fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0u,
+		                                 parent, slot, replacement, sector_buf);
+	if (rc == FAT12_OK) return FAT12_OK;
+
+	if (have_chain) {
+		for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
+		restore_fat = fat12_flush_fats(vol, fat, fat_len);
+	}
+	/* Also restore after an error that reached the medium. A negative write
+	 * result does not promise that the directory sector was untouched. */
+	restore_dir = fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0u,
+	                                        parent, slot, old, sector_buf);
+	if (restore_fat != FAT12_OK || restore_dir != FAT12_OK) return FAT12_ERR_WRITE;
+	return rc;
+}
+
 int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint8_t attr, uint16_t parent_dir_start,
                  void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,
@@ -2496,16 +2565,6 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 			return FAT12_ERR_ACCESS;
 		/* TRUNCATE: free the existing chain and reset the entry to size 0. */
 		slot = match_slot;
-		if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
-			rc = fat12_free_chain(vol, fat, fat_len, match.start_cluster);
-			if (rc != FAT12_OK) {
-				return rc;
-			}
-			rc = fat12_flush_fats(vol, fat, fat_len);
-			if (rc != FAT12_OK) {
-				return rc;
-			}
-		}
 		de = match;          /* keep the existing name bytes verbatim */
 	} else {
 		/* CREATE: claim the first reusable slot. */
@@ -2546,8 +2605,12 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	de.start_cluster = 0u;
 	de.file_size     = 0u;
 
-	rc = fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
-	                               slot, &de, sector_buf);
+	if (found)
+		rc = fat12_remove_allocation(vol, fat, fat_len, parent_dir_start, slot,
+		                              &match, &de, sector_buf);
+	else
+		rc = fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
+		                               slot, &de, sector_buf);
 	if (rc != FAT12_OK) {
 		return rc;
 	}
@@ -3127,22 +3190,13 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
 		return FAT12_ERR_ACCESS;
 
-	/* Free the cluster chain (if any), flush both FATs. */
-	if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
-		rc = fat12_free_chain(vol, fat, fat_len, match.start_cluster);
-		if (rc != FAT12_OK) {
-			return rc;
-		}
-		rc = fat12_flush_fats(vol, fat, fat_len);
-		if (rc != FAT12_OK) {
-			return rc;
-		}
-	}
-
 	/* Mark the dir entry deleted (filename[0] = 0xE5). */
-	match.filename[0] = DIR_NAME_DELETED;
-	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
-	                                 match_slot, &match, sector_buf);
+	{
+		dir_entry_t deleted = match;
+		deleted.filename[0] = DIR_NAME_DELETED;
+		return fat12_remove_allocation(vol, fat, fat_len, parent_dir_start,
+		                                match_slot, &match, &deleted, sector_buf);
+	}
 }
 
 /*

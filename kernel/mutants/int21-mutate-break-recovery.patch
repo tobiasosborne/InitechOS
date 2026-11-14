@@ -1,5 +1,5 @@
 # INT21_MUTATE_BREAK_RECOVERY
-# test: test-int21
+# test: test-dos-break
 --- a/int21.c
 +++ b/int21.c
 @@ -5095,15 +5095,6 @@

@@ -28,6 +28,20 @@ int main(void)
     uint32_t name=low_dup("HELLO.TXT"), buf=(uint32_t)(uintptr_t)alloc_low(64);
     CHECK(name && buf, "low buffers available");
     reset();
+    for (unsigned standard=0;standard<5;standard++) {
+        sft_entry_t before = g_sft[g_test_psp.jft[standard]];
+        for (unsigned repeat=0;repeat<8;repeat++) {
+            int_frame_t dup=invoke(0x4500,standard,0,0);
+            unsigned saved=dup.eax&65535;
+            CHECK(!frame_cf(&dup) && saved>=5 && saved<20, "ktlzw DUP resident device");
+            int_frame_t closed=invoke(0x3e00,saved,0,0);
+            CHECK(!frame_cf(&closed) && g_test_psp.jft[saved]==JFT_CLOSED,
+                  "ktlzw CLOSE duplicated device handle");
+            CHECK(!memcmp(&before,&g_sft[g_test_psp.jft[standard]],sizeof before),
+                  "ktlzw repeated DUP/CLOSE preserves pinned resident entry");
+        }
+    }
+    reset();
     int_frame_t f=invoke(0x3d00,0,0,name);
     CHECK(!frame_cf(&f) && f.eax==5, "fixture OPEN returns handle 5");
     f=invoke(0x4500,5,0,0);

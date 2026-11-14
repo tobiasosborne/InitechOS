@@ -1,0 +1,13 @@
+# INT21_MUTATE_BREAK_CLEANUP
+# test: test-dos-break
+--- a/int21.c
++++ b/int21.c
+@@ -5219,8 +5219,6 @@
+          * DUP2 even with another ^C queued. Its next prompt resets the latch.
+          * Children have another PSP and retain default termination semantics.
+          * Ref: DOS 3.30 TR pp.6-14/15; User's Guide p.159 / PDF244. */
+-        && !(g_break_recovery && g_break_recovery->owner == (struct psp *)g_cur_psp
+-             && g_break_recovery->interrupted)
+         ) {
+         int c = conin_poll_pb();
+         if (c == 3 && !g_conin_last_scan) {

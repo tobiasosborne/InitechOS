@@ -1,5 +1,5 @@
 # INT21_MUTATE_CARET_C
-# test: test-conin-unit
+# test: test-dos-break
 --- a/int21.c
 +++ b/int21.c
 @@ -5090,7 +5090,7 @@
