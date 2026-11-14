@@ -1425,9 +1425,20 @@ IBASE_OVL_TEXT(file) int ndx_build(ibase_pal_t *pal, const char *out_name,
                         get_key, user, 0);
 }
 
-IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
+IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal,const char *out_name,
+              uint16_t key_type,uint16_t key_len,const char *key_expr,
+              uint32_t nrec,ndx_key_provider get_key,void *user,int unique)
+{
+    ibase_file_write tx;
+    int rc=ndx_build_begin(pal,out_name,key_type,key_len,key_expr,nrec,get_key,user,unique,&tx);
+    if(!rc)ibase_file_accept(&tx);
+    return rc;
+}
+
+IBASE_OVL_TEXT(file) int ndx_build_begin(ibase_pal_t *pal, const char *out_name,
               uint16_t key_type, uint16_t key_len, const char *key_expr,
-              uint32_t nrec, ndx_key_provider get_key, void *user, int unique)
+              uint32_t nrec, ndx_key_provider get_key, void *user, int unique,
+              ibase_file_write *tx)
 {
     ibase_ovl_validate_pal(pal);
     void     *mark;
@@ -1443,7 +1454,6 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
     int       rc;
     uint32_t  i;
     ndx_bld   b;
-    ibase_file_write tx;
 
     if (!pal || !out_name || !get_key)
         return -NDX_ERR_IO;
@@ -1558,17 +1568,17 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
     b.page      = page;
 
     /* --- Open the output file (create/truncate). --- */
-    if (ibase_file_begin(&tx,pal,out_name)) {
+    if (ibase_file_begin(tx,pal,out_name)) {
         pal->reset(pal, mark);
         return -NDX_ERR_IO;
     }
-    fd=tx.fd;
+    fd=tx->fd;
     b.fd = fd;
 
     /* --- Page 0 placeholder (rewritten with root/total at the end). --- */
     rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
     rc = write_page(pal, fd, 0u, page);
-    if (rc != NDX_OK) { ibase_file_abort(&tx); pal->reset(pal, mark); return rc; }
+    if (rc != NDX_OK) { ibase_file_abort(tx); pal->reset(pal, mark); return rc; }
 
     /* --- Leaves: pack 100% L->R, remainder last; each leaf is written and
      * pushed the moment it is complete (streaming; see the block above). --- */
@@ -1605,14 +1615,14 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
                 rc = bld_push(&b, 0u, pno,
                               fill ? key_i + fill - 1u : NDX_BLD_NOHI);
             if (rc != NDX_OK) {
-                ibase_file_abort(&tx); pal->reset(pal, mark); return rc;
+                ibase_file_abort(tx); pal->reset(pal, mark); return rc;
             }
             key_i += fill;
         }
     }
 
     rc = bld_finish(&b, &root_page);
-    if (rc != NDX_OK) { ibase_file_abort(&tx); pal->reset(pal, mark); return rc; }
+    if (rc != NDX_OK) { ibase_file_abort(tx); pal->reset(pal, mark); return rc; }
 
     /* --- Page 0: the header, now that root_page and total_pages are known. --- */
     rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
@@ -1635,8 +1645,8 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
     }
     rc = write_page(pal, fd, 0u, page);
 
-    if(rc!=NDX_OK)ibase_file_abort(&tx);
-    else if(ibase_file_commit(&tx,0))rc=-NDX_ERR_IO;
+    if(rc!=NDX_OK)ibase_file_abort(tx);
+    else if(ibase_file_install(tx,0))rc=-NDX_ERR_IO;
     pal->reset(pal, mark);
     return rc;
 }
@@ -2360,62 +2370,23 @@ int ndx_update_key(ndx_index *idx,
  *   user     opaque context for get_key.
  *
  * The index's key_type / key_length / key_expr are preserved (read from the
- * open handle). The file is rebuilt via ndx_build (which creates it PAL_TRUNC,
- * so the geometry -- fewer/more leaves after the record-count change -- is
- * correct and no stale trailing pages remain) and then reopened; the in-memory
+ * open handle). A fresh staged file has the rebuilt geometry and no stale
+ * trailing pages. The predecessor remains available through reopen/header
+ * checks (and command navigation for ndx_rebuild_begin); the in-memory
  * header fields (root_page / total_pages / ...) are refreshed so the SAME
  * ndx_index* handle stays valid for the caller (the work area keeps its pointer).
  *
- * Returns NDX_OK on success; a negative ndx_err on failure. On failure the file
- * may have been rebuilt but the handle left with fd == -1 (fail loud; the caller
- * surfaces the error rather than seeking a half-open index).
+ * Returns NDX_OK on success or a negative ndx_err. Failed validation restores
+ * the predecessor and its header. If metadata also prevents restoration, the
+ * helper reports its exact recovery name and leaves all remaining files.
  *
  * Ref (CLAUDE.md, The constitution): ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
  * sec.10 (PACK rebuilds all open index files); ndx.h S4.5 maintenance contract.
  */
-IBASE_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
-                ndx_key_provider get_key, void *user)
+/* Apply only validated/read-complete header pages. The key expression and path
+ * do not change during REINDEX. Review R1: retain old metadata for rollback. */
+static void ndx_apply_header(ndx_index *idx,const uint8_t *page0)
 {
-    ibase_pal_t *pal;
-    pal_fd       fd;
-    uint8_t      page0[NDX_PAGE_SIZE];
-    int          rc;
-
-    if (!idx || !get_key)
-        return -NDX_ERR_BAD_PAGE;
-    if (!idx->writable)
-        return -NDX_ERR_READONLY;
-
-    pal = idx->pal;
-
-    /* Release our handle so ndx_build can create/truncate the file cleanly. */
-    rc=pal->close(pal, idx->fd);
-    idx->fd = (pal_fd)-1;
-    if(rc)return -NDX_ERR_IO;
-
-    /* Rebuild the whole .ndx from the packed table, preserving key geometry
-     * and the verbatim key expression. */
-    rc = ndx_build_ex(pal, idx->path,
-                   idx->key_type, idx->key_length, idx->key_expr,
-                   nrec, get_key, user,
-                   idx->unique_flag != 0u);
-    if (rc != NDX_OK){
-        idx->fd=pal->open(pal,idx->path,PAL_RDWR);
-        return rc;
-    }
-
-    /* Reopen the freshly-built file read-write and refresh the in-memory
-     * header so the caller's existing handle continues to resolve. */
-    fd = pal->open(pal, idx->path, PAL_RDWR);
-    if (fd < 0)
-        return -NDX_ERR_IO;
-    idx->fd = fd;
-
-    rc = seek_to(pal, fd, 0u);
-    if (rc != NDX_OK) return rc;
-    rc = read_exact(pal, fd, page0, (uint32_t)NDX_PAGE_SIZE);
-    if (rc != NDX_OK) return rc;
-
     idx->root_page     = u32le(page0 + NDX_HDR_ROOT_PAGE_OFF);
     idx->total_pages   = u32le(page0 + NDX_HDR_TOTAL_PAGES_OFF);
     idx->reserved      = u32le(page0 + NDX_HDR_RESERVED_OFF);
@@ -2425,7 +2396,47 @@ IBASE_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
     idx->group_length  = u16le(page0 + NDX_HDR_GROUP_LENGTH_OFF);
     idx->dummy         = u16le(page0 + NDX_HDR_DUMMY_OFF);
     idx->unique_flag   = u16le(page0 + NDX_HDR_UNIQUE_FLAG_OFF);
-    /* key_expr is unchanged (ndx_build wrote back idx->key_expr verbatim). */
-
+}
+IBASE_OVL_TEXT(file) int ndx_rebuild_restore(ndx_index *idx,ndx_rebuild_tx *tx)
+{
+    ibase_pal_t *pal=idx->pal;
+    if(idx->fd>=0)pal->close(pal,idx->fd);
+    idx->fd=-1;
+    ndx_apply_header(idx,tx->previous_header);
+    if(ibase_file_restore(&tx->file))return -NDX_ERR_IO;
+    idx->fd=pal->open(pal,idx->path,PAL_RDWR);
+    return idx->fd<0?-NDX_ERR_IO:NDX_OK;
+}
+IBASE_OVL_TEXT(file) int ndx_rebuild_begin(ndx_index *idx,uint32_t nrec,
+                ndx_key_provider get_key,void *user,ndx_rebuild_tx *tx)
+{
+    ibase_pal_t *pal;uint8_t page0[NDX_PAGE_SIZE];int rc;
+    if(!idx || !get_key)return -NDX_ERR_BAD_PAGE;
+    if(!idx->writable)return -NDX_ERR_READONLY;
+    pal=idx->pal;
+    rc=seek_to(pal,idx->fd,0u);
+    if(!rc)rc=read_exact(pal,idx->fd,tx->previous_header,NDX_PAGE_SIZE);
+    if(rc)return rc;
+    rc=pal->close(pal,idx->fd);idx->fd=-1;
+    if(rc){idx->fd=pal->open(pal,idx->path,PAL_RDWR);return -NDX_ERR_IO;}
+    rc=ndx_build_begin(pal,idx->path,idx->key_type,idx->key_length,idx->key_expr,
+                      nrec,get_key,user,idx->unique_flag!=0u,&tx->file);
+    if(rc){idx->fd=pal->open(pal,idx->path,PAL_RDWR);return rc;}
+    idx->fd=pal->open(pal,idx->path,PAL_RDWR);
+    if(idx->fd<0)rc=-NDX_ERR_IO;
+    else {
+        rc=seek_to(pal,idx->fd,0u);
+        if(!rc)rc=read_exact(pal,idx->fd,page0,NDX_PAGE_SIZE);
+    }
+    if(rc){(void)ndx_rebuild_restore(idx,tx);return rc;}
+    ndx_apply_header(idx,page0);
     return NDX_OK;
+}
+IBASE_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx,uint32_t nrec,
+                ndx_key_provider get_key,void *user)
+{
+    ndx_rebuild_tx tx;
+    int rc=ndx_rebuild_begin(idx,nrec,get_key,user,&tx);
+    if(!rc)ibase_file_accept(&tx.file);
+    return rc;
 }

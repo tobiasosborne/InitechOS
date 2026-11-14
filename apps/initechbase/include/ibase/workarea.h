@@ -600,6 +600,8 @@ dbt_file *wa_memo(const wa_env *env, int area);
  * out of range / closed. i in [0, wa_index_count). */
 ndx_index *wa_index(const wa_env *env, int area, int i);
 int wa_attach_index(wa_env *, int area, ndx_index *);
+/* Undo only the most recent tentative attachment; caller retains ownership. */
+void wa_detach_index(wa_env *,int area,ndx_index *,int previous_master);
 
 /* Ref: Using dBase III Plus.pdf U5-215, U5-229. Shared scan visibility.
  * wa_visible returns 0/1 or a negative fault; wa_view_error is its catalog code.

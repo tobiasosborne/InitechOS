@@ -1063,17 +1063,31 @@ static IBASE_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
     wa_env *env=xb_interp_env(ip);ibase_pal_t *pal=xb_interp_pal(ip);
     int area=wa_selected(env),rc;dbf_table *t=wa_table(env,area);
     uint32_t keep=wa_recno(env,area),count=t?dbf_nrec(t):0;
+    int previous_eof=wa_eof(env,area),previous_bof=wa_bof(env,area);
     d_key_ctx ctx={ip,0,0,0};
     if(!t)return d_fail(ec,52);
     if(rebuild) {
+        ndx_rebuild_tx pending[NDX_PER_AREA];int done=0;
         if(*m_skip_ws(args))return d_fail(ec,10);
         for(int i=0;i<wa_index_count(env,area);i++) {
             ndx_index *ix=wa_index(env,area,i);ctx.expr=ndx_key_expr(ix);ctx.type=ndx_key_type(ix);
-            rc=ndx_rebuild(ix,count,d_key,&ctx);
-            if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:114); }
+            rc=ndx_rebuild_begin(ix,count,d_key,&ctx,&pending[done]);
+            if(rc)goto rebuild_failed;
+            done++;
         }
+        wa_nav_reset(area);rc=wa_nav_index_top(env,area);
+        if(rc)goto rebuild_failed;
+        for(int i=0;i<done;i++)ibase_file_accept(&pending[i].file);
+        return INTERP_OK;
+rebuild_failed:
+        while(done-- >0)(void)ndx_rebuild_restore(wa_index(env,area,done),&pending[done]);
+        wa_nav_reset(area);
+        if(keep>count)wa_nav_missing(env,area,keep);else (void)wa_goto(env,area,keep);
+        wa_nav_set_eof(env,area,previous_eof);wa_nav_set_bof(env,area,previous_bof);
+        return d_fail(ec,ctx.ec?ctx.ec:114);
     } else {
-        const char *p=m_skip_ws(args),*to;char expr[255],name[128],display[128];xb_val v;ndx_index *ix;
+        const char *p=m_skip_ws(args),*to;char expr[255],name[128],display[128];xb_val v;ndx_index *ix=0;
+        ibase_file_write tx;int attached=0,previous_master=wa_master_order(env,area),failure=114;
         unsigned n;int defaulted, unique=0, k=m_match_kw(p,"ON");
         if(!k)return d_fail(ec,10);
         p=m_skip_ws(p+k);to=d_kw(p,"TO");
@@ -1086,6 +1100,7 @@ static IBASE_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
         {const set_state *ss=set_get_state(ip);unique=ss && ss->unique;}
         if(m_match_kw(p,"UNIQUE")>0) {unique=1;p=m_skip_ws(p+6);}
         if(*p || !d_index_name(name,display,sizeof name,&defaulted))return d_fail(ec,10);
+        if(wa_index_count(env,area)>=NDX_PER_AREA)return d_fail(ec,28);
         if(d_destination(ip,name,ec))return -INTERP_ERR_EVAL;
         /* At EOF (e.g. after LIST) a character field evaluates empty, which has no
          * key width; measure on record 1 (set-mint/unique: INDEX after LIST). */
@@ -1093,17 +1108,27 @@ static IBASE_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebui
         rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
         ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
         if(v.t!=XB_C && v.t!=XB_N && v.t!=XB_D)return d_fail(ec,9);
-        rc=ndx_build_ex(pal,name,ctx.type,v.t==XB_C?v.u.c.len:8,expr,count,d_key,&ctx,unique);
+        rc=ndx_build_begin(pal,name,ctx.type,v.t==XB_C?v.u.c.len:8,expr,count,d_key,&ctx,unique,&tx);
         if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:29); }
         rc=ndx_open_rw(pal,name,&ix);
-        if(rc)return d_fail(ec,114);
+        if(rc)goto index_failed;
         ndx_set_name_defaulted(ix,defaulted);
-        if(ndx_set_display_name(ix,display)!=NDX_OK) {ndx_close(ix);return d_fail(ec,114);}
-        if(wa_attach_index(env,area,ix)!=WA_OK) {ndx_close(ix);return d_fail(ec,28);}
+        if(ndx_set_display_name(ix,display)!=NDX_OK)goto index_failed;
+        if(wa_attach_index(env,area,ix)!=WA_OK){failure=28;goto index_failed;}
+        attached=1;
+        wa_nav_reset(area);rc=wa_nav_index_top(env,area);
+        if(rc)goto index_failed;
+        ibase_file_accept(&tx);
+        return INTERP_OK;
+index_failed:
+        if(attached)wa_detach_index(env,area,ix,previous_master);
+        if(ix)ndx_close(ix);
+        (void)ibase_file_restore(&tx);
+        wa_nav_reset(area);
+        if(keep>count)wa_nav_missing(env,area,keep);else (void)wa_goto(env,area,keep);
+        wa_nav_set_eof(env,area,previous_eof);wa_nav_set_bof(env,area,previous_bof);
+        return d_fail(ec,failure);
     }
-    wa_nav_reset(area);
-    rc=wa_nav_index_top(env,area);
-    return rc==NAV_OK?INTERP_OK:d_fail(ec,114);
 }
 
 /* SORT/TOTAL: Using III+ U5-269/270/276; real DML-06 tie order and

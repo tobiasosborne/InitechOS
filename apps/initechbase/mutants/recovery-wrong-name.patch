@@ -1,0 +1,12 @@
+# test: test_ibase_dbsafe
+--- a/include/ibase/file_write.h
++++ b/include/ibase/file_write.h
+@@ -52,7 +52,7 @@
+      * fails, report the actual predecessor name and preserve every file. */
+     ibase_pal_t *p=t->pal;
+     if(p->conout){
+-        const char *name=t->old?t->backup:t->name;
++        const char *name=t->name;
+         p->conout(p,"Previous file retained as: ",27);
+         p->conout(p,name,rt_strlen(name));p->conout(p,"\r\n",2);
+     }

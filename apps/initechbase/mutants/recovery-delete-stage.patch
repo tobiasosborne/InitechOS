@@ -1,0 +1,12 @@
+# test: test_ibase_dbsafe
+--- a/include/ibase/file_write.h
++++ b/include/ibase/file_write.h
+@@ -67,7 +67,7 @@
+         t->installed=0;
+     }
+     if(t->old){
+-        if(p->rename(p,t->backup,t->name)){ibase_file_recovery(t);return -PAL_EIO;}
++        if(p->rename(p,t->backup,t->name)){ibase_file_recovery(t);ibase_file_abort(t);return -PAL_EIO;}
+         t->old=0;
+     }
+     ibase_file_abort(t);

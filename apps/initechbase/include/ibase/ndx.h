@@ -86,6 +86,7 @@
 #include <stdint.h>
 #include "ibase/pal.h"
 #include "ibase/value.h"
+#include "ibase/file_write.h"
 
 /* -----------------------------------------------------------------------
  * Error codes
@@ -623,6 +624,15 @@ int ndx_build(ibase_pal_t *pal, const char *out_name,
 int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
                  uint16_t key_type, uint16_t key_len, const char *key_expr,
                  uint32_t nrec, ndx_key_provider get_key, void *user, int unique);
+/* Command-level replacement: retains the predecessor until accept/restore. */
+int ndx_build_begin(ibase_pal_t *,const char *,uint16_t,uint16_t,const char *,
+                    uint32_t,ndx_key_provider,void *,int,ibase_file_write *);
+typedef struct {
+    ibase_file_write file;
+    uint8_t previous_header[512]; /* NDX header page, independent of live I/O */
+} ndx_rebuild_tx;
+int ndx_rebuild_begin(ndx_index *,uint32_t,ndx_key_provider,void *,ndx_rebuild_tx *);
+int ndx_rebuild_restore(ndx_index *,ndx_rebuild_tx *);
 
 /* -----------------------------------------------------------------------
  * S4.5: incremental index maintenance

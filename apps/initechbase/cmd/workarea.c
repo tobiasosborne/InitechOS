@@ -1332,6 +1332,15 @@ int wa_attach_index(wa_env *env,int area,ndx_index *ix)
     wa->idx[wa->nidx++]=ix;wa->master=wa->nidx;
     return WA_OK;
 }
+void wa_detach_index(wa_env *env,int area,ndx_index *ix,int previous_master)
+{
+    work_area *wa;
+    if(!env || area<1 || area>WA_NAREAS)return;
+    wa=&env->area[area-1];
+    if(wa->nidx && wa->idx[wa->nidx-1]==ix){
+        wa->idx[--wa->nidx]=0;wa->master=previous_master;
+    }
+}
 
 int wa_get_deleted(const wa_env *env) { return env?env->deleted_on:0; }
 

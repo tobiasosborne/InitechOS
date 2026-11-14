@@ -34,6 +34,8 @@ static struct {
     void *live_mark; int reset_bad, closes, opens, objects;
     uintptr_t heap_base;
     uint32_t heap_high;
+    int removes;
+    char backup[260],stage[260];
 } c;
 /* Sibling ground-truth root (Makefile DBASE3_DECOMP). Relative paths are
  * anchored to project_root because main() chdirs into a private sandbox
@@ -76,8 +78,14 @@ static int32_t sk(ibase_pal_t *p,pal_fd f,int32_t o,int w){
     if(c.armed && c.seek_fault && ++c.calls==c.boundary){c.hit=1;return -PAL_EIO;}
     return c.inner->seek(c.inner,f,o,w);
 }
-static int rmf(ibase_pal_t *p,const char *s){(void)p;return c.inner->remove(c.inner,s);}
-static int rn(ibase_pal_t *p,const char *a,const char *b){(void)p;if(fault(3))return -PAL_EIO;return c.inner->rename(c.inner,a,b);}
+static int rmf(ibase_pal_t *p,const char *s){(void)p;if(c.armed)c.removes++;return c.inner->remove(c.inner,s);}
+static int rn(ibase_pal_t *p,const char *a,const char *b){
+    int rc;(void)p;
+    if(fault(3)){if(!c.stage[0])snprintf(c.stage,sizeof c.stage,"%s",a);return -PAL_EIO;}
+    rc=c.inner->rename(c.inner,a,b);
+    if(!rc && strstr(b,".BAK"))snprintf(c.backup,sizeof c.backup,"%s",b);
+    return rc;
+}
 static void co(ibase_pal_t *p,const char *s,uint32_t n){(void)p;if(c.used+n<sizeof c.out){memcpy(c.out+c.used,s,n);c.used+=n;c.out[c.used]=0;}}
 static int32_t ci(ibase_pal_t *p,char *b,uint32_t n){
     const char *s=c.script[c.line++];(void)p;
@@ -91,7 +99,7 @@ static int32_t ci(ibase_pal_t *p,char *b,uint32_t n){
     snprintf(b,n,"%s",s);return (int32_t)strlen(b);
 }
 static void td(ibase_pal_t *p,uint8_t *a,uint8_t *b,uint8_t *d){(void)p;c.inner->today(c.inner,a,b,d);}
-static void *al(ibase_pal_t *p,uint32_t n){(void)p;return c.inner->alloc(c.inner,n);}
+static void *al(ibase_pal_t *p,uint32_t n){(void)p;if(n && fault(6))return NULL;return c.inner->alloc(c.inner,n);}
 static void rs(ibase_pal_t *p,void *m){
     uint8_t *end=c.inner->alloc(c.inner,0),*at=m;(void)p;
     if(at>end || (c.live_mark && at<(uint8_t *)c.live_mark)){
@@ -101,7 +109,7 @@ static void rs(ibase_pal_t *p,void *m){
     c.inner->reset(c.inner,m);
 }
 static void *ac(ibase_pal_t *p,uint32_t n){
-    void *b;uint32_t end;(void)p;b=c.inner->acquire(c.inner,n);
+    void *b;uint32_t end;(void)p;if(n && fault(6))return NULL;b=c.inner->acquire(c.inner,n);
     if(b){
         c.objects++;
         if(!c.heap_base)c.heap_base=(uintptr_t)b;
@@ -277,6 +285,69 @@ static void metadata_tests(void){
         pal_host_free(c.inner);if(!c.hit)break;
     }
 }
+/* R1: the public rebuild API and INDEX command must retain the old bytes
+ * through final reopen, header read, attach and navigation validation. */
+static void final_index_tests(void){
+    int command,kind,b;
+    for(command=0;command<3;command++)for(kind=1;kind<=6;kind++)for(b=1;b<80;b++){
+        ibase_pal_t *p=setup();ndx_index *ix=NULL;size_t n;int rc;
+        copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CNAMES.NDX"),"FINAL.NDX");
+        olen=readbytes("FINAL.NDX");memcpy(original,extracted,olen);
+        if(command){
+            c.ip=xb_interp_make(p);set_register(c.ip);mutate_register(c.ip);
+            CHECK(wa_set_open_rw(xb_interp_env(c.ip),1,"CLIENTS.DBF",NULL,NULL)==0,"INDEX input opens");
+            CHECK(ibase_do(c.ip,"SET SAFETY OFF")==0,"INDEX replacement permitted");
+            if(command==2){
+                CHECK(ndx_open_rw(p,"FINAL.NDX",&ix)==0,"REINDEX command predecessor opens");
+                CHECK(wa_attach_index(xb_interp_env(c.ip),1,ix)==0,"REINDEX predecessor attached");
+            }
+        }else CHECK(ndx_open_rw(p,"FINAL.NDX",&ix)==0,"real predecessor opens for REINDEX");
+        c.armed=1;c.failure_op=kind;c.boundary=b;
+        rc=command?ibase_do(c.ip,command==1?"INDEX ON FIRSTNAME TO FINAL.NDX":"REINDEX"):ndx_rebuild(ix,3,index_key,NULL);
+        c.armed=0;n=readbytes("FINAL.NDX");
+        if(rc)CHECK(n==olen && !memcmp(original,extracted,n),command==1?"reported INDEX failure preserves predecessor":"reported REINDEX failure preserves predecessor");
+        else {
+            ndx_node_t *node=NULL;
+            ndx_index *live=command?wa_index(xb_interp_env(c.ip),1,0):ix;
+            CHECK(live && ndx_read_node(live,ndx_root_page(live),&node)==0,"successful index operation retains usable live handle");
+            if(node)ndx_node_free(live,node);
+        }
+        if(command)xb_interp_free(c.ip);else ndx_close(ix);
+        pal_host_free(c.inner);if(!c.hit)break;
+    }
+    { /* Attachment refusal must precede discarding an existing destination. */
+        ibase_pal_t *p=setup();size_t n;ndx_index *ix;
+        c.ip=xb_interp_make(p);set_register(c.ip);mutate_register(c.ip);
+        CHECK(wa_set_open_rw(xb_interp_env(c.ip),1,"CLIENTS.DBF",NULL,NULL)==0,"attachment test table");
+        for(int i=0;i<NDX_PER_AREA;i++){
+            CHECK(ndx_open_rw(p,"FINAL.NDX",&ix)==0,"attachment existing index");
+            CHECK(wa_attach_index(xb_interp_env(c.ip),1,ix)==0,"fill attachment slots");
+        }
+        copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CNAMES.NDX"),"ATTACH.NDX");
+        olen=readbytes("ATTACH.NDX");memcpy(original,extracted,olen);
+        CHECK(ibase_do(c.ip,"SET SAFETY OFF\nINDEX ON FIRSTNAME TO ATTACH.NDX")!=0,"full attachment reports refusal");
+        n=readbytes("ATTACH.NDX");CHECK(n==olen && !memcmp(original,extracted,n),"attachment failure preserves predecessor");
+        xb_interp_free(c.ip);pal_host_free(c.inner);
+    }
+}
+static void persistent_rename_tests(void){
+    const char *old="PREVIOUS-CONTENT\r\n";FILE *f;size_t n;ibase_pal_t *p=setup();
+    f=fopen("SOURCE.TXT","wb");fputs("NEW-CONTENT\r\n",f);fclose(f);
+    f=fopen("RECOVERY.TXT","wb");fputs(old,f);fclose(f);
+    c.ip=xb_interp_make(p);set_register(c.ip);mutate_register(c.ip);
+    CHECK(ibase_do(c.ip,"SET SAFETY OFF")==0,"recovery setup");
+    c.armed=1;c.failure_op=3;c.boundary=2;c.persistent=1;
+    CHECK(ibase_do(c.ip,"COPY FILE SOURCE.TXT TO RECOVERY.TXT")!=0,"persistent installation/restore failure reported");
+    c.armed=0;
+    CHECK(c.hit && c.calls>=3,"installation and restoration both fail");
+    CHECK(c.backup[0]!=0,"predecessor recovery name recorded independently");
+    n=readbytes(c.backup);CHECK(n==strlen(old) && !memcmp(extracted,old,n),"previous file survives at exact recovery name");
+    {char diagnostic[320];snprintf(diagnostic,sizeof diagnostic,"Previous file retained as: %s\r\n",c.backup);
+     CHECK(strstr(c.out,diagnostic)!=NULL,"reported error names exact predecessor location");}
+    CHECK(c.removes==0,"double failure deletes nothing");
+    CHECK(access(c.stage,F_OK)==0,"complete new stage retained too");
+    xb_interp_free(c.ip);pal_host_free(c.inner);
+}
 static void output_alias_tests(void){
     static const char *commands[]={"COPY FILE SOURCE.TXT TO ./CLIENTS.DBF", "SAVE TO .\\CLIENTS.DBF",
         "LABEL FORM ADDRESS TO FILE ./CLIENTS.DBF", "SET ALTERNATE TO ./CLIENTS.DBF"};
@@ -392,6 +463,6 @@ int main(int argc,char **argv){
     CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
     CHECK(mkdtemp(directory)!=NULL,"private oracle directory");
     if(chdir(directory) || mkdir("build",0700) || mkdir("build/dbsafe",0700)) return 2;
-    if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();}else safety_tests();
+    if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
     return TEST_SUMMARY(mode);
 }

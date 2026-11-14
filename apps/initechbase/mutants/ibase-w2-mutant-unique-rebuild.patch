@@ -1,6 +1,12 @@
 # test: test_ibase_w2
 --- a/fs/ndx.c
 +++ b/fs/ndx.c
-@@ -2397 +2397 @@
--                   idx->unique_flag != 0u);
-+                   0);   /* mutant: REINDEX forgets the index's own uniqueness */
+@@ -2420,7 +2420,7 @@
+     rc=pal->close(pal,idx->fd);idx->fd=-1;
+     if(rc){idx->fd=pal->open(pal,idx->path,PAL_RDWR);return -NDX_ERR_IO;}
+     rc=ndx_build_begin(pal,idx->path,idx->key_type,idx->key_length,idx->key_expr,
+-                      nrec,get_key,user,idx->unique_flag!=0u,&tx->file);
++                      nrec,get_key,user,0,&tx->file);
+     if(rc){idx->fd=pal->open(pal,idx->path,PAL_RDWR);return rc;}
+     idx->fd=pal->open(pal,idx->path,PAL_RDWR);
+     if(idx->fd<0)rc=-NDX_ERR_IO;

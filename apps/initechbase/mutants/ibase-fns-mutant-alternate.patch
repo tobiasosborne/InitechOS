@@ -1,10 +1,12 @@
 # test: test_ibase_fns
 --- a/cmd/set.c
 +++ b/cmd/set.c
-@@ -105,5 +105 @@
+@@ -106,7 +106,7 @@
+ {
+     xb_interp *ip=user;ibase_pal_t *pal=xb_interp_pal(ip);int i;
+     for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate_on && g_val[i].alternate>=0) {
 -        if(pal->write(pal,g_val[i].alternate,s,n)!=(int32_t)n) {
--            g_val[i].alternate_on=0;
--            /* Preserve a failed log rather than continuing silent partial I/O. */
--            xb_interp_ctx(ip)->error_number=8;
--        }
-+        (void)pal;(void)s;(void)n;
++        if(0 && pal->write(pal,g_val[i].alternate,s,n)!=(int32_t)n) {
+             g_val[i].alternate_on=0;
+             ibase_file_abort(&g_val[i].alternate_write);g_val[i].alternate=-1;
+             /* Preserve a failed log rather than continuing silent partial I/O. */
