@@ -36,7 +36,9 @@ premature kernel EOC and fragmented valid files. Both emulators must reach
 the ordinary InitechDOS shell on valid disks. Invalid disks must print the
 exact Non-System refusal before entering IO.SYS or protected mode. mtools
 independently recovers both fragmented payloads and compares them to the
-product artifacts. Every run has private image copies and retained
+product artifacts. Each run snapshots its input payloads before minting so
+a concurrent root rebuild cannot change the reference during a lock wait.
+Every run has private image copies and retained
 transcripts/reports under `build/boot/smoke.*/`. QEMU always uses
 `-d int,guest_errors,cpu_reset`; faults and extra resets fail.
 

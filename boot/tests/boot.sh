@@ -20,8 +20,12 @@ mkdir "$out/bin"
 cp boot/tests/emulator-wrapper.sh "$out/bin/qemu-system-i386"
 cp boot/tests/emulator-wrapper.sh "$out/bin/bochs"
 chmod +x "$out/bin/"*
+# Keep the input payloads used for minting: another root image build may
+# replace its outputs while these emulator legs wait on the shared lock.
+cp "$artifacts/IO.SYS" "$out/expected-IO.SYS"
+cp build/system/INITDOS.SYS "$out/expected-INITDOS.SYS"
 sh factory/image/mk_boot_system.sh "$out/boot.img" "$artifacts/mbr.bin" \
-    "$artifacts/stage2.bin" "$artifacts/IO.SYS" build/system/INITDOS.SYS build/factory/boot_system
+    "$artifacts/stage2.bin" "$out/expected-IO.SYS" "$out/expected-INITDOS.SYS" build/factory/boot_system
 cp build/image/data.img "$out/data.img"
 mdel -i "$out/data.img" ::AUTOEXEC.BAT
 failed=0
@@ -36,8 +40,8 @@ for scenario in $cases; do
             # A second reader proves relocation preserved BOTH file payloads.
             mcopy -i "$image@@32256" ::IO.SYS - > "$out/IO.SYS"
             mcopy -i "$image@@32256" ::INITDOS.SYS - > "$out/INITDOS.SYS"
-            cmp "$artifacts/IO.SYS" "$out/IO.SYS"
-            cmp build/system/INITDOS.SYS "$out/INITDOS.SYS" ;;
+            cmp "$out/expected-IO.SYS" "$out/IO.SYS"
+            cmp "$out/expected-INITDOS.SYS" "$out/INITDOS.SYS" ;;
         normal|indexed|fallback) ;;
         *) echo "ERROR boot: unknown scenario $scenario"; exit 2 ;;
     esac
