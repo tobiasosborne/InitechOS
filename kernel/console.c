@@ -615,3 +615,19 @@ void console_restore_page(console_t *con,const uint8_t *buf)
 { console_copy_page(con,buf,0); }
 void console_update_page(console_t *con,const uint8_t *buf)
 { console_copy_page(con,buf,1); }
+
+/* Existing INT39 page ABI, now reached through OEM INT21 FBh as well.
+ * tsr_contract.h: 4000 character/attribute bytes, cursor row and column. */
+void console_page_dispatch(console_t *con, int_frame_t *f)
+{
+    uint32_t p=f->edx;
+    uint8_t al=(uint8_t)f->eax;
+    uint16_t err=0;
+    if(!con || al>2u)err=1;
+    else if(!p || p+CONSOLE_PAGE_BYTES<p)err=9;
+    else if(!al)console_save_page(con,(uint8_t *)(uintptr_t)p);
+    else if(al==1)console_restore_page(con,(const uint8_t *)(uintptr_t)p);
+    else console_update_page(con,(const uint8_t *)(uintptr_t)p);
+    if(err){f->eax=(f->eax&0xffff0000u)|err;f->eflags|=1u;}
+    else f->eflags&=~1u;
+}

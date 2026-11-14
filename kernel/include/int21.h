@@ -29,6 +29,9 @@
 
 #include <stdint.h>
 #include "idt.h"      /* int_frame_t -- the trap stub builds the SAME layout */
+/* Resident startup bindings for the documented OEM INT21 functions. */
+void int21_set_console_page(void (*service)(int_frame_t *));
+void int21_set_restart(void (*service)(void));
 #include "devices.h"  /* device_header_t / devices_io_t -- the AH=3Dh OPEN-by-name
                        * character-device chain (beads initech-509.7 / 6zd9). Pure
                        * type/decl header (stdint/stddef only, freestanding-clean),

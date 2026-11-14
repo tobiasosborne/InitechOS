@@ -64,3 +64,9 @@ TARGET_ARTIFACTS := $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS
 .PHONY: object-list
 object-list:
 	@echo $(OBJECTS)
+
+.PHONY: smoke-oem
+smoke-oem:
+	$(MAKE) -C $(TOP) image
+	sh tests/smoke/oem.sh "$(TOP)" "$(OUT)/smoke/oem"
+smoke: smoke-oem

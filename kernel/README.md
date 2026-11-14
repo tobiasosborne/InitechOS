@@ -305,3 +305,30 @@ include/dos_messages.json (ADR-0003 Appendix C).
 `test-fat16-policy` mounts mtools-built FAT12/FAT16 partitions, lists/reads literal
 bytes, exercises file/INT26/shared-sector/INT13 refusals and compares complete
 refused disk images byte for byte, then independently extracts the old file.
+
+InitechDOS provides three OEM INT21 functions. Microsoft reserved AH=F8h..FFh
+for OEM extensions in its [MS-DOS2 system-call documentation](https://github.com/microsoft/MS-DOS/blob/main/v2.0/source/SYSCALL.txt).
+F8h is left unused; public constants are in include/dos_oem.h. These are Initech
+extensions, with the existing flat register convention, not standard DOS calls.
+
+| Function | Request and result |
+|---|---|
+| AH=F9h, Memory Arena Summary | AL=0. CF=0: full EAX=total data bytes (excluding MCB headers), EBX=free data bytes, ECX=largest free data block bytes. Includes every owner, counts each header once. CF=1/AX=7 for absent or corrupt arena; EBX/ECX=0. Other AL: CF=1/AX=1. |
+| AH=FAh, Restart Computer | AL=0. Never returns, including unavailable or failed reset hardware. Requests the PC/AT 8042 reset pulse; if reset returns, interrupts are disabled and the CPU halts until external reset. No Ctrl-C cancellation can return to stale DOS partition state. Other AL refuses with CF=1/AX=1 and requests no reset. |
+| AH=FBh, Console Page | Identical payload and behavior to the previous INT39h service: AL=0 saves, AL=1 restores/redraws, AL=2 updates changed cells. EDX points to 4002 bytes: 2000 character/attribute pairs, then cursor row/column. CF=0 succeeds. Invalid AL/unbound console: CF=1/AX=1; null/wrapped buffer: CF=1/AX=9. |
+
+The memory summary follows the validated MCB layout in include/mcb.h and the
+existing CHKDSK data-byte convention; a corrupt chain produces no partial totals.
+Restart uses the PC/AT 8042 / CLI / HLT sources already cited in include/power.h.
+The console payload is include/tsr_contract.h's existing B800h-equivalent page;
+INT39h and FBh share console_page_dispatch, so migration changes no page format.
+INT39h is a temporary compatibility alias until InitechBase switches to FBh
+(initech-q9p80); it is deliberately retained during that coordinated migration.
+Only resident startup binds the page and restart implementations. Disk callers
+use INT21; the setters are implementation bindings, not application services.
+
+`oem-services` tests literal fragmented/corrupt MCB layouts, complete page bytes,
+cursor/canary behavior and nonreturning restart behavior including an absent or
+returning backend. `make smoke-oem` runs an ordinary disk client on both
+emulators, independently reads its 4002-byte page file with mtools and compares
+literal bytes, then proves an actual restart reaches the prompt a second time.

@@ -1,0 +1,13 @@
+# OEM return negative control
+# test: oem-services
+--- a/int21.c
++++ b/int21.c
+@@ -5285,7 +5285,7 @@
+     /* A reset that fails, including an unavailable controller, cannot resume
+      * a utility or its parent with stale partition state. PC/AT reset contract
+      * in power.h; CLI/HLT waits permanently for RESET. */
+-    for(;;)__asm__ __volatile__("cli; hlt");
++    cf_clear(f);
+ }
+ 
+ /* ---- the dispatch spine ---- */

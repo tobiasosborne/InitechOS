@@ -2,7 +2,7 @@
 # test: test-dos-break
 --- a/int21.c
 +++ b/int21.c
-@@ -5214,21 +5214,6 @@
+@@ -5300,21 +5300,6 @@
       * BREAK ON extends Ctrl-C checking to disk reads/writes and other DOS
       * calls. Nonblocking entry check; preserve ordinary keyboard typeahead.
       * The character family keeps its existing checks and raw 06h/07h rules. */
@@ -23,4 +23,4 @@
 -    }
  
      switch (ah) {
-         case 0x00:                       /* TERMINATE (alias for 4Ch AL=0) */
+         case DOS_OEM_ARENA: do_oem_arena(frame); return;

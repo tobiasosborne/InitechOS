@@ -19,6 +19,7 @@
  */
 
 #include "int21.h"
+#include "dos_oem.h"
 #include "sft.h"        /* JFT->SFT handle layer (beads initech-509.3); pulls psp.h */
 #include "mcb.h"        /* MCB arena allocator behind AH=48h/49h/4Ah (initech-509.6) */
 #include "dos_structs.h" /* exec_param_block_t (AH=4Bh EBX block; initech-456)      */
@@ -5258,10 +5259,41 @@ static void int24_dispatch_body(int_frame_t *frame)
     cf_clear(frame);                /* 24h returns the action, not an error */
 }
 
+/* OEM extensions: Microsoft MS-DOS2 SYSCALL.TXT reserves F8h..FFh. */
+static void (*g_console_page)(int_frame_t *);
+static void (*g_restart)(void);
+void int21_set_console_page(void (*service)(int_frame_t *)) { g_console_page=service; }
+void int21_set_restart(void (*service)(void)) { g_restart=service; }
+static void do_oem_arena(int_frame_t *f)
+{
+    uint32_t free=0,largest=0,headers=0,at=0;
+    if(frame_al(f)!=0){set_ax(f,1);cf_set(f);return;}
+    if(!g_arena_bound || !mcb_stats(&g_arena,&free,&largest)) {
+        set_ax(f,7);f->ebx=f->ecx=0;cf_set(f);return;
+    }
+    while(at<g_arena.total_paras) {
+        const mcb_t *m=(const mcb_t *)(g_arena.base+at*16u);
+        headers++;at+=1u+m->size_paras;
+    }
+    f->eax=(g_arena.total_paras-headers)*16u;
+    f->ebx=free*16u;f->ecx=largest*16u;cf_clear(f);
+}
+static void do_oem_restart(int_frame_t *f)
+{
+    if(frame_al(f)!=0){set_ax(f,1);cf_set(f);return;}
+    if(g_restart)g_restart();
+    /* A reset that fails, including an unavailable controller, cannot resume
+     * a utility or its parent with stale partition state. PC/AT reset contract
+     * in power.h; CLI/HLT waits permanently for RESET. */
+    for(;;)__asm__ __volatile__("cli; hlt");
+}
+
 /* ---- the dispatch spine ---- */
 static void int21_dispatch_body(int_frame_t *frame)
 {
     uint8_t ah = (uint8_t)((frame->eax >> 8) & 0xFFu);
+    /* Restart must not be cancelled into stale DOS state by Ctrl-C. */
+    if(ah==DOS_OEM_RESTART && frame_al(frame)==0){do_oem_restart(frame);return;}
     (void)select_volume(g_current_drive);
 
     /* DEC-16 Sec 3.3 Fork A / C-6; MS-DOS 3.3 Reference p.38 (PDF123):
@@ -5285,6 +5317,12 @@ static void int21_dispatch_body(int_frame_t *frame)
     }
 
     switch (ah) {
+        case DOS_OEM_ARENA: do_oem_arena(frame); return;
+        case DOS_OEM_RESTART: do_oem_restart(frame); return;
+        case DOS_OEM_PAGE:
+            if(g_console_page)g_console_page(frame);
+            else {set_ax(frame,1);cf_set(frame);}
+            return;
         case 0x00:                       /* TERMINATE (alias for 4Ch AL=0) */
             do_terminate(frame, 0u);
             return;

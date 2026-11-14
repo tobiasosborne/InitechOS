@@ -1,0 +1,13 @@
+# OEM save negative control
+# test: oem-services
+--- a/console.c
++++ b/console.c
+@@ -625,7 +625,7 @@
+     uint16_t err=0;
+     if(!con || al>2u)err=1;
+     else if(!p || p+CONSOLE_PAGE_BYTES<p)err=9;
+-    else if(!al)console_save_page(con,(uint8_t *)(uintptr_t)p);
++    else if(!al)console_restore_page(con,(uint8_t *)(uintptr_t)p);
+     else if(al==1)console_restore_page(con,(const uint8_t *)(uintptr_t)p);
+     else console_update_page(con,(const uint8_t *)(uintptr_t)p);
+     if(err){f->eax=(f->eax&0xffff0000u)|err;f->eflags|=1u;}

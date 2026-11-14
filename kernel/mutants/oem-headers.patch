@@ -1,0 +1,13 @@
+# OEM headers negative control
+# test: oem-services
+--- a/int21.c
++++ b/int21.c
+@@ -5275,7 +5275,7 @@
+         const mcb_t *m=(const mcb_t *)(g_arena.base+at*16u);
+         headers++;at+=1u+m->size_paras;
+     }
+-    f->eax=(g_arena.total_paras-headers)*16u;
++    f->eax=(g_arena.total_paras-headers+1u)*16u;
+     f->ebx=free*16u;f->ecx=largest*16u;cf_clear(f);
+ }
+ static void do_oem_restart(int_frame_t *f)

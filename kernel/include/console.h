@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include "boot_info.h"
+#include "idt.h"
 
 /* 80x25 cells, 8x16 px each => 640x400 px, fits the 640x480 LFB (Sec, brief). */
 #define CONSOLE_COLS      80
@@ -109,6 +110,8 @@ typedef struct {
  * cursor row and column byte) / restore it: every cell is redrawn from its
  * {character, attribute} and the cursor is put back. */
 #define CONSOLE_PAGE_BYTES (CONSOLE_COLS * CONSOLE_ROWS * 2 + 2)
+/* Shared implementation for the OEM gate and its temporary INT39 alias. */
+void console_page_dispatch(console_t *con, int_frame_t *frame);
 void console_save_page(const console_t *con, uint8_t *buf);
 void console_restore_page(console_t *con, const uint8_t *buf);
 /* Update an already visible text page: redraw changed cells, then restore

@@ -336,6 +336,8 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
      * slave IRQ band. Trap gates, like every DOS software vector. */
     idt_install_trap(TSR_VEC_KEEP27, (void *)int27_entry);
     idt_install_trap(TSR_VEC_IDLE, (void *)tsr_idle_entry);
+    /* Compatibility alias for INT21 AH=FBh; remove after InitechBase migrates
+     * its console-page calls (initech-q9p80). Same payload/implementation. */
     idt_install_trap(TSR_VEC_SCREEN, (void *)tsr_screen_entry);
     serial("INT21\n");
 }

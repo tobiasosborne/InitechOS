@@ -499,6 +499,12 @@ test-fat16-policy_SRCS := tests/runner.c
 test-fat16-policy_ARGS := tests/run.sh test-fat16-policy
 test-fat16-policy_DEPS := $(OUT)/host/tool_test_fat16_policy tests/gates/test-fat16-policy.sh
 
+HOST_TESTS += oem-services
+oem-services_SRCS := tests/test_oem.c
+oem-services_OBJS := $(tool_test_fileio_OBJS) $(tool_test_console_OBJS)
+oem-services_CFLAGS := -no-pie
+
+
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk

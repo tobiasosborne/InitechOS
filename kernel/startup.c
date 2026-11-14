@@ -7,6 +7,7 @@
 #include "io.h"
 #include "console.h"
 #include "int21.h"
+#include "power.h"
 #include "sysinit.h"
 #include "psp.h"
 #include "fat12.h"
@@ -186,22 +187,20 @@ static int int21_conin_get_kbd(void)
     return c;
 }
 
+static void restart_machine(void)
+{
+    (void)kernel_reset();
+    serial_puts("RESTART-FAILED\n");
+    kernel_halt();
+}
+
+static void console_page_service(int_frame_t *f)
+{
+    console_page_dispatch(g_int21_con,f);
+}
 void KERNEL_ASM_ABI tsr_screen_dispatch(int_frame_t *f)
 {
-    uint32_t p = f->edx;
-    uint8_t al = (uint8_t)f->eax;
-    uint16_t err = 0u;
-    if (!g_int21_con || al > 2u) err = 0x0001u;
-    else if (p == 0u || p + TSR_SCREEN_BYTES < p) err = 0x0009u;
-    else if (al == 0u) console_save_page(g_int21_con, (uint8_t *)(uintptr_t)p);
-    else if(al==1u)console_restore_page(g_int21_con, (const uint8_t *)(uintptr_t)p);
-    else console_update_page(g_int21_con, (const uint8_t *)(uintptr_t)p);
-    if (err) {
-        f->eax = (f->eax & 0xFFFF0000u) | err;
-        f->eflags |= 1u;
-    } else {
-        f->eflags &= ~1u;
-    }
+    console_page_service(f);
 }
 
 static int int21_conin_poll_kbd(void)
@@ -606,6 +605,8 @@ void startup(void)
 
  sysinit_enable_irqs(serial_puts);
  int21_set_conin(int21_conin_get_kbd,int21_conin_poll_kbd);
+ int21_set_console_page(console_page_service);
+ int21_set_restart(restart_machine);
  serial_puts("CONIN-LIVE\n");
 }
 
