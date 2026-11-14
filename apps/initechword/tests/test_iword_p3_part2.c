@@ -175,6 +175,18 @@ static void serial_undo(const char *path)
 }
 /* PM-authorized Initech settings record, independently spelled bytes below.
  * Navigation/features: Reference pp. 42, 160, 574-575, 698-700. */
+static void setup_new_tenant(void)
+{
+    /* The loader tears down registration, exit/modal state, handles and
+     * windows together. Closed files already reached the scratch disk; also
+     * retain deliberate host-side edits to it. Transfer limits are test-side
+     * device configuration, reapplied to the fresh tenant. */
+    uint32_t read_limit = m_read_limit, write_limit = m_write_limit;
+    tbx_host_reset();
+    m_read_limit = read_limit; m_write_limit = write_limit;
+    fixture_import();
+}
+
 static void setup_test(void)
 {
     char path[1024]; uint8_t got[12]; FILE *f;
@@ -193,7 +205,7 @@ static void setup_test(void)
         f = fopen(path, "wb"); if (f) { fwrite(got, 1, n, f); fclose(f); }
         snprintf(path, sizeof path, "%s/IWORD.SET", m_dir);
     }
-    tbx_host.nwindows = 0; /* a fresh loader discards the previous windows */
+    setup_new_tenant();
     CHECK(tbx_app_main() == 0, "setup", "relaunch");
     fkey(0x3B, SHIFT); tks("38");
     CHECK(row_is(4, "1 Display and Entry of Numbers for Margins, Tabs, etc.  Centimeters"), "setup", "units survive relaunch");
@@ -202,7 +214,7 @@ static void setup_test(void)
     CHECK(row_is(6, "2 Original Document Backup  Yes"), "setup", "backup option survives relaunch");
     fkey(0x3B, 0); CHECK(g_mode == M_EDIT, "setup", "Cancel returns to document");
     f = fopen(path, "wb"); if (f) { fwrite("IWS1xx\1\0", 1, 8, f); fclose(f); }
-    tbx_host.nwindows = 0; /* a fresh loader discards the previous windows */
+    setup_new_tenant();
     CHECK(tbx_app_main() == 0, "setup", "invalid settings relaunch");
     fkey(0x3B, SHIFT); tks("38");
     CHECK(row_is(4, "1 Display and Entry of Numbers for Margins, Tabs, etc.  Inches"), "setup", "invalid record uses defaults");
