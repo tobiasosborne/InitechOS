@@ -42,6 +42,7 @@ void flair_cursor_move(int x, int y);
 /* Select the frozen canon hourglass while a Saving modal is up; restore the
  * arrow on dismissal. Preserves hotspot position and save-under ownership. */
 void flair_cursor_set_busy(int busy);
+int flair_cursor_is_busy(void);
 
 /* ShieldCursor analogue. The outermost shield erases the sprite; the matching
  * final unshield redraws it at its latest logical position. */

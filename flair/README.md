@@ -59,6 +59,12 @@ all cancel controls, empty source, success and refused operations. It verifies
 one delivered completion and independently reads the disk. The live Cancel
 button/close box are authored GM3 policy required by the phase-2 operator;
 the two-item film tableau retains its original geometry.
+The live copy selects the canon hourglass before opening the dialog and
+restores the prior cursor selection on success, cancel and early/late error.
+The booted smoke reads P6 pixels independently against transcribed frozen
+hourglass rows and compares the restored cursor area to its idle capture.
+It waits for the painted midpoint and uses a slower valid configured rate
+so a snapshot inside ShieldCursor cannot masquerade as a missing cursor.
 
 Managers:
 
@@ -148,7 +154,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 195 patches through the shared strict runner: passing baseline,
+make mutants runs 196 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;

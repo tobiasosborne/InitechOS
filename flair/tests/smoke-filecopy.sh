@@ -8,6 +8,7 @@ cd "$repo"
 out=${FILECOPY_SMOKE_OUT:-build/flair/smoke-filecopy}
 mkdir -p "$out"
 make -s -C "${FILECOPY_TENANT_SRC:-flair/tests/copy_tenant}" TOP="$repo" OUT="$repo/$out/tenant" all
+${HOSTCC:-cc} -std=c11 -O1 -Wall -Wextra -Werror flair/tests/copy_pixels.c -o "$out/copy-pixels"
 case_list=${FILECOPY_CASES:-'escape empty control button close success readonly missing bad-rate'}
 for mode in $case_list; do
  d=$out/$mode
@@ -19,7 +20,9 @@ for mode in $case_list; do
  printf 'Previous saved document.\r\n' > "$d/before.txt"
  printf 'Replacement document.\r\n' > "$d/source.txt"
  [ "$mode" != empty ] || : > "$d/source.txt"
- printf 'PROGRESS_BAR_RATE=20\r\n' > "$d/rate.cfg"
+ # One percent per 20 ticks leaves a stable painted frame between updates;
+ # a snapshot inside ShieldCursor is not a cursor oracle.
+ printf 'PROGRESS_BAR_RATE=5\r\n' > "$d/rate.cfg"
  [ "$mode" != bad-rate ] || printf 'PROGRESS_BAR_RATE=0\r\n' > "$d/rate.cfg"
  mcopy -o -i "$d/data.img" "$d/before.txt" ::TARGET.DAT
  mcopy -o -i "$d/data.img" "$d/source.txt" ::SOURCE.DAT
@@ -42,8 +45,8 @@ for mode in $case_list; do
   inject m22:20; launch_app CALC.EXE COPYTEST
   point 520 350; inject "w100,D$d/idle.ppm,ks"
   case $mode in missing|bad-rate) :;; *)
-   await_marker 'TENANT-FILECOPY up bytes='
-   inject "w100,D$d/copy.ppm"
+   await_marker 'TENANT-FILECOPY-MID v='
+   inject "D$d/copy.ppm"
   esac
   case $mode in
    escape|empty) inject kesc;;
@@ -78,5 +81,8 @@ for mode in $case_list; do
   mcopy -o -i "$d/data.img" ::SOURCE.DAT "$d/source-after.txt"
   cmp "$d/source.txt" "$d/source-after.txt"
  fi
+ copy_frame=$d/copy.ppm
+ case $mode in missing|bad-rate) copy_frame=-;; esac
+ "$out/copy-pixels" "$d/idle.ppm" "$copy_frame" "$d/after.ppm"
  echo "ok FILE COPY $mode: one completion rc=$expected; independent disk bytes"
 done

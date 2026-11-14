@@ -13,7 +13,7 @@ DialogItem g_fc_it[2];
 ControlRecord g_fc_bar;
 finder_win_rgn_t g_fc_rs,g_fc_rc,g_fc_ru;
 flair_raw_ring_t g_flair_kbd_ring;
-static unsigned replies,ticks,mode;
+static unsigned replies,ticks,mode,busy_presentations;
 static int32_t answer;
 static void modal_answer(int32_t result) { replies++; answer=result; }
 void serial_putc(char c) { (void)c; }
@@ -22,7 +22,12 @@ void serial_putu(uint32_t n) { (void)n; }
 void serial_puts(const char *s) { (void)s; }
 void flair_live_emit_evt(const EventRecord *ev) { (void)ev; }
 void flair_live_cursor_track(const EventRecord *ev) { (void)ev; }
-void flair_desktop_present(const boot_info_t *bi,const bitmap_t *off) { (void)bi; (void)off; }
+void flair_desktop_present(const boot_info_t *bi,const bitmap_t *off)
+{
+ (void)bi; (void)off;
+ CHECK(flair_cursor_is_busy(),"live modal selects hourglass before every presentation");
+ busy_presentations++;
+}
 void finder_desk_repaint(flair_live_ctx_t *ctx,const boot_info_t *bi) { (void)ctx; (void)bi; }
 void flair_live_tenant_service(flair_live_ctx_t *ctx,const boot_info_t *bi) { (void)ctx; (void)bi; }
 void fta_rgn(finder_win_rgn_t *s)
@@ -72,9 +77,12 @@ int main(void)
   f=fopen("rate.cfg","wb"); CHECK(f!=0,"rate fixture"); fputs("PROGRESS_BAR_RATE=100\r\n",f); fclose(f);
   command("mmd -i copy.img ::APPS"); command("mcopy -i copy.img rate.cfg ::APPS/MICHAEL.CFG");
   disk=fopen("copy.img","r+b"); CHECK(fileio_fat_bind(&vol)==0,"reload modal disk");
-  replies=ticks=0; answer=0;
+  replies=ticks=busy_presentations=0; answer=0;
+  flair_cursor_set_busy(mode==4); /* a pre-existing busy state must survive */
   flair_event_init(&g_flair_kbd_ring); flair_event_set_yield(tick);
   finder_filecopy_run(&ctx,0,"Copying test data...","SOURCE.DAT","TARGET.DAT");
+  CHECK(busy_presentations && flair_cursor_is_busy()==(mode==4),"cancellation restores previous cursor selection");
+  flair_cursor_set_busy(0);
   CHECK(replies==1 && answer==TBX_ERR_BUSY,"all live cancel routes deliver exactly one cancelled completion");
   if(mode==1) {
    recovered_stream("mcopy -o -i copy.img ::TARGET.DAT recovered.dat",old,sizeof old-1);

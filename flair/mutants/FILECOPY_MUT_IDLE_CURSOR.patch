@@ -1,0 +1,13 @@
+# Live copy must select the canon hourglass before showing the modal.
+# test: test_copy_modal
+--- a/desktop/finder_actions.c
++++ b/desktop/finder_actions.c
+@@ -480,7 +480,7 @@
+ #endif
+ 
+ 
+-    flair_cursor_set_busy(1);
++    /* mutant: leave the idle cursor selected */
+     rate = tbx_fc_rate();
+     serial_puts("TENANT-FILECOPY s=\"");
+     serial_puts(cap);

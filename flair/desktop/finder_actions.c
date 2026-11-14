@@ -9,6 +9,7 @@
 #include "blockdev.h"
 #include "desktop_db.h"
 #include "filecopy_cancel.h"
+#include "cursor.h"
 #define FINDER_ZOOM_STEPS 8
 int finder_fat_mkdir(void *fs_user, const char *name83,
                             uint16_t parent_dir_start)
@@ -465,6 +466,7 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
     int mid = 0;
     static DialogItem live_items[3];
     static ControlRecord live_controls[2];
+    int was_busy=flair_cursor_is_busy();
 #ifdef FILECOPY_RECORD_STEP
     /* Record images ONLY (make record-flair, FLAIRTENANTS_RECORDXLONGDBL_IMG):
      * the bar advances a fixed FILECOPY_RECORD_STEP ticks per injected input
@@ -478,6 +480,7 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
 #endif
 
 
+    flair_cursor_set_busy(1);
     rate = tbx_fc_rate();
     serial_puts("TENANT-FILECOPY s=\"");
     serial_puts(cap);
@@ -490,6 +493,7 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
     serial_putc('\n');
     rc = rate < 0 ? rate : tbx_fc_open(&size);
     if (rc < 0) {
+        flair_cursor_set_busy(was_busy);
         serial_puts("TENANT-FILECOPY-REFUSED rc=");
         serial_puti(rc);
         serial_putc('\n');
@@ -563,6 +567,7 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
         if (dt > limit) { serial_puts("FILECOPY-STALL\n"); done = TBX_ERR_BUSY; break; }
     }
     tbx_fc_close();
+    flair_cursor_set_busy(was_busy);
     serial_puts("TENANT-FILECOPY-DONE rc=");
     serial_puti(done);
     serial_puts(" ticks=");

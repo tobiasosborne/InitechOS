@@ -190,7 +190,7 @@ test_tbx_volume_disk_SRCS := $(subst tests/test_filecopy_disk.c,tests/test_tbx_v
 test_tbx_volume_disk_CFLAGS := $(test_filecopy_disk_CFLAGS)
 
 HOST_TESTS += test_copy_modal
-test_copy_modal_SRCS := tests/test_copy_modal.c $(addprefix $(TOP)/kernel/,int21.c devices.c mcb.c sft.c psp.c irq.c fat12.c fileio_fat.c) event.c dialog.c control.c text.c surface.c blitter.c chrome.c window.c heap.c flair_look.c $(TOP)/flair/region/region.c
+test_copy_modal_SRCS := tests/test_copy_modal.c $(addprefix $(TOP)/kernel/,int21.c devices.c mcb.c sft.c psp.c irq.c fat12.c fileio_fat.c) event.c dialog.c control.c text.c surface.c blitter.c chrome.c window.c heap.c flair_look.c cursor.c $(TOP)/flair/region/region.c
 test_copy_modal_CFLAGS := $(test_filecopy_disk_CFLAGS)
 
 $(foreach t,$(HOST_TESTS),$(eval $(t)_DEPS += $(GENERATED) $(OUT)/host-config))

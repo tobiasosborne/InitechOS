@@ -197,6 +197,10 @@ void flair_cursor_unshield(void)
 }
 
 /* PRD Appendix A: hourglass, never the Mac wristwatch. Same CURS compositor. */
+int flair_cursor_is_busy(void)
+{
+    return g_cursor_shape == &FLAIR_CURSOR_BUSY;
+}
 void flair_cursor_set_busy(int busy)
 {
     const FLAIRCursor *shape = busy ? &FLAIR_CURSOR_BUSY : &FLAIR_CURSOR_ARROW;
