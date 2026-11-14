@@ -17,7 +17,10 @@ smoke: $(OUT)/smoke/TIMER.COM
 $(OUT)/smoke/compare: tests/smoke/compare.c
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
-selfhost: all $(OUT)/smoke/TIMER.COM $(OUT)/smoke/compare
+$(OUT)/smoke/monotonic-ms: tests/smoke/monotonic-ms.c
+	@mkdir -p $(@D)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+selfhost: all $(OUT)/smoke/TIMER.COM $(OUT)/smoke/compare $(OUT)/smoke/monotonic-ms
 	+$(MAKE) -C $(TOP) image
 	sh tests/smoke/selfhost.sh
 ddc: selfhost

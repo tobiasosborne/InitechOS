@@ -36,3 +36,4 @@ build/factory/mz/mzcheck "$out/changed/TURBOOUT.EXE" > "$out/changed/mzcheck.log
 if build/turbo/smoke/compare "$out/D1.COM" "$out/changed/TURBOOUT.EXE" > "$out/changed-source.log" 2>&1; then exit 1; fi
 cat "$out/contaminated.log" "$out/changed-source.log"
 echo 'DDC: FPC bootstrap D2 == seed bootstrap K2 == K3; two negative controls red'
+sh turbo/tests/smoke/bochs-ddc.sh

@@ -17,3 +17,4 @@ printf '\000' | dd of="$out/corrupt.COM" bs=1 seek=0 conv=notrunc 2>/dev/null
 if build/turbo/smoke/compare "$out/K2.COM" "$out/corrupt.COM" > "$out/red-control.log" 2>&1; then exit 1; fi
 cat "$out/red-control.log"
 echo 'SELFHOST: in-OS K2 == K3, whole containers; corruption control red'
+sh turbo/tests/smoke/bochs-selfhost.sh

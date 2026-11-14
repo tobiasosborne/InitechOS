@@ -69,16 +69,23 @@ Its module grows by 1064 bytes and relocation header by 112 bytes over the
 previous 163087-byte compiler for div/mod guard emission and label handling.
 The two compilations use fresh boots with identical source/disk input names.
 The computed-left-character seed repair preserves this fixed point. Fresh
-guest times were 44s/46s, within the unchanged 120-second gate. A deliberately changed byte
+QEMU guest times were 60s/102s. A deliberately changed byte
 makes the comparator red with its offset and container region. Full evidence
 and source identity remain under build/turbo/selfhost. No stack/CPU fault or
 host assembler/linker participates in either compilation.
 
 `make -C turbo ddc` refreshes the seed certificate and runs the independent
 FPC bootstrap path: host Pascal compiler -> D1, in-OS D1(S) -> D2. D2 equals
-both K2 and K3 at the hash above; D1(S) took 85 guest seconds. Contaminated
+both K2 and K3 at the hash above; D1(S) took 104 guest seconds. Contaminated
 candidate and changed-source controls are red. DDC evidence is retained under
 build/turbo/ddc. This removes sole trust in seed translation; source/runtime,
 FPC, host tools, the OS and hardware remain trusted. Both-emulator generated
 execution additionally checks translation semantics that byte agreement and
 self-hosting alone cannot establish.
+
+The parent selfhost/DDC targets also require ordinary-image Bochs runs at
+8 MiB, with per-emulator source identity, mtools extraction and complete
+container comparisons against each other and QEMU. See the parent README
+for the measured whole-run bound, strict monotonic deadline check and
+in-guest corrupted-K2 control. Runtime-encoder authorship is the separate
+initech-cd2yi task; the checked-in runtime tables are unchanged here.

@@ -43,18 +43,34 @@ The guest TIMER test utility brackets compilation through DOS GET TIME at its
 No test material is placed on the product boot disk. Images/logs remain under
 build/turbo/smoke. The old placement-only check is tests/smoke/placement.sh.
 
-`make selfhost` builds K1 on the host, then uses fresh QEMU boots and TEST
-disks for K1(S) -> K2 and K2(S) -> K3. Identical source/input names are reset
-each time. Separate boots respect the unchanged factory driver's fixed
-120-second serial gate. mtools extracts both whole containers, the comparator
-asserts K2==K3 and prints SHA-256. A corruption control must fail. Transcripts,
-source identity and artifacts remain under build/turbo/selfhost.
+`make selfhost` builds K1 on the host, then performs K1(S) -> K2 and
+K2(S) -> K3 on both QEMU and Bochs at 8 MiB. Every compilation uses a fresh
+TEST disk and the ordinary product boot image; identical source/input names
+are reset each time. The QEMU invocation is unchanged. mtools extracts whole
+containers; K2==K3 must hold on each emulator, and both emulator results must
+agree. QEMU artifacts remain under build/turbo/selfhost; Bochs artifacts,
+configuration, boot-image identity and timing are under its bochs/ subdirectory.
+
+Factory gives emulator runs independent resources. Bochs uses an explicit
+3600000ms acceptance bound for each complete harness invocation, including
+startup and cleanup. Calibration at 600s and 1200s expired during
+native emission. A monotonic acceptance check also rejects late completion
+regardless of the harness verdict, and timed_out must be zero. Override only
+with TURBO_BOCHS_TIMEOUT_MS. Ordered per-phase waits are a separate factory
+follow-up, initech-b8vxr; the operator authorized this bounded whole-run route
+until that interface is available. No factory default or QEMU limit is changed.
+
+Controls reject a corrupted QEMU candidate, a corrupted Bochs K2 attempted in
+a real guest boot, and an impossible one-millisecond Bochs deadline. The Bochs
+corruption preserves MZ/tag but changes the descriptor version, so its red is
+a clean loader refusal rather than raw-COM execution or a timeout.
 
 `make ddc` first refreshes that seed-path certificate, then uses the same
 compiler source built with Free Pascal as the independent host bootstrap.
-That compiler emits D1 directly; D1(S) runs in the OS to produce D2. The check
-asserts D2==K2==K3. Contamination and changed-source controls must fail.
-Evidence, FPC version and bootstrap hashes remain under build/turbo/ddc.
+That compiler emits D1 directly; D1(S) runs in the OS on both emulators to
+produce D2. Each D2 must equal its K2/K3 and the other emulator's D2.
+Contamination and changed-source controls must fail. Evidence, FPC version
+and bootstrap hashes remain under build/turbo/ddc, with a separate bochs/ tree.
 
 The certified fixed point is K2==K3==D2: 164263 bytes, SHA-256
 2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7.
@@ -62,8 +78,18 @@ The minimum-Integer div/mod guards and their emission/label handling increase
 the previous 163087-byte compiler's module by 1064 bytes and relocation header
 by 112 bytes. The computed-left-character seed-planner repair leaves the
 Pascal source and seed-built TURBO.COM bytes unchanged, and its fresh proof
-agrees at the same hash. Self-hosting took 44s/46s and DDC took 85s for D1(S),
-within the unchanged 120-second gate. All three negative controls are red.
+agrees at the same hash. Fresh QEMU DOS-clock times are 60s/102s for K2/K3
+and 104s for D1(S). Bochs K2/K3/D2 agree with QEMU at this same hash;
+measured host harness times are 1291.005s/1738.492s/1546.689s, each below
+3600s. Qualification preceded factory's resource-isolation change, so those
+measurements include its former Bochs host-lock waiting and cleanup. The
+complete default selfhost/DDC command passed in 4855.22s, with its script
+manifest unchanged throughout. The isolated driver also passes a fresh
+resident native compilation against the FPC-built host compiler's output,
+plus the corrupted-K2 and deadline controls. All negative controls are red.
+Only proof drivers changed here;
+compiler source and runtime bytes are unchanged. Runtime-encoder authorship
+remains open separately as initech-cd2yi.
 The checked-in NASM tables regenerate
 byte-for-byte. Times use the guest clock with 1-second resolution. DDC removes sole
 reliance on the C seed's translation and its bootstrap assembler pipeline.
