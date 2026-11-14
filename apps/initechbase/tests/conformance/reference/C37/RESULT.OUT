@@ -1,0 +1,9 @@
+
+BEGIN C37 zap-index
+BEFORE          3
+ZAPPED          0 .T.
+AFTER          1 ZZZZZZZZ      9
+SEEKOLD .F.
+SEEKNEW .T.          1 ZZZZZZZZ
+SAVE
+END C37

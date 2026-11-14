@@ -1,0 +1,13 @@
+# test: conformance_host
+# ZAP skips every open index, leaving entries for records that no longer exist.
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1041,7 +1041,7 @@
+     int area = wa_selected(env);
+     dbf_table *tbl = wa_table(env, area);
+     uint32_t old_recno=wa_recno(env,area);
+-    int rc,i,nidx=wa_index_count(env,area),failure=0;
++    int rc,i,nidx=0,failure=0; /* MUTANT: ZAP leaves all NDX entries unchanged. */
+     int old_eof=wa_eof(env,area),old_bof=wa_bof(env,area);
+     dbf_flush_tx table_tx;
+     ndx_rebuild_tx pending[NDX_PER_AREA];

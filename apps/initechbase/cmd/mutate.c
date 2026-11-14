@@ -1041,7 +1041,10 @@ static IBASE_OVL_TEXT(file) int m_zap(xb_interp *ip, int *ec)
     int area = wa_selected(env);
     dbf_table *tbl = wa_table(env, area);
     uint32_t old_recno=wa_recno(env,area);
-    int rc;
+    int rc,i,nidx=wa_index_count(env,area),failure=0;
+    int old_eof=wa_eof(env,area),old_bof=wa_bof(env,area);
+    dbf_flush_tx table_tx;
+    ndx_rebuild_tx pending[NDX_PER_AREA];
 
     if (!tbl) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
     if (!m_confirm_file(ip,"ZAP",tbl)) { if(ec)*ec=0;return INTERP_OK; }
@@ -1051,12 +1054,50 @@ static IBASE_OVL_TEXT(file) int m_zap(xb_interp *ip, int *ec)
         else { if (ec) *ec = 0; }
         return -INTERP_ERR_EVAL;
     }
-    rc = dbf_flush(tbl);
+    /* ZAP empties every open index file. Ref: dbase3-decomp specs/commands/
+     * data-definition-and-manipulation.md sec.11, HELP.DBS:1206 ("equivalent
+     * to DELETE ALL followed by PACK", "empties all open index files"), and
+     * genuine III+ capture tests/conformance C37 (SEEK of a zapped key is
+     * .F.). Stage the table and each emptied index, and accept none of them
+     * until all are staged, so a failed ZAP retains every predecessor. */
+    rc = dbf_flush_begin(tbl,&table_tx);
     if (rc != DBF_OK) { m_reject_records(env,area,old_recno); if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
+    for(i=0;i<nidx;i++)pending[i].file.pal=0;
     (void)wa_refresh(env, area, 0u);   /* empty -> EOF */
+    for (i = 0; i < nidx; i++) {
+        ndx_index *ix = wa_index(env, area, i);
+        m_pack_kp_ctx kctx;
+        if (!ix) continue;
+        kctx.ip       = ip;
+        kctx.env      = env;
+        kctx.area     = area;
+        kctx.key_expr = ndx_key_expr(ix);
+        kctx.key_type = ndx_key_type(ix);
+        kctx.failed   = 0;
+        kctx.ec       = 0;
+        rc = ndx_rebuild_begin(ix, 0u, m_pack_get_key, &kctx,&pending[i]);
+        if (rc != NDX_OK) {
+            pending[i].file.pal=0; /* begin restores its own failed file */
+            failure=kctx.ec?kctx.ec:rc==-NDX_ERR_IO?1001:rc==-NDX_ERR_OOM?43:114;
+            goto restore;
+        }
+    }
+    (void)wa_refresh(env, area, 0u);
     (void)wa_nav_reset(area);
+    if(wa_nav_index_top(env,area)!=NAV_OK){ failure=29;goto restore; }
+    for(i=0;i<nidx;i++)if(pending[i].file.pal)ibase_file_accept(&pending[i].file);
+    ibase_file_accept(&table_tx.file);
     if (ec) *ec = 0;
     return INTERP_OK;
+restore:
+    for(i=nidx;i-->0;)if(pending[i].file.pal)
+        (void)ndx_rebuild_restore(wa_index(env,area,i),&pending[i]);
+    (void)dbf_flush_restore(tbl,&table_tx);
+    (void)wa_refresh(env,area,old_recno);
+    (void)wa_nav_reset(area);
+    wa_nav_set_eof(env,area,old_eof);wa_nav_set_bof(env,area,old_bof);
+    if(ec)*ec=failure;
+    return -INTERP_ERR_EVAL;
 }
 
 /* ===================================================================== */

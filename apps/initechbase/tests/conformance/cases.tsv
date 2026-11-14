@@ -35,3 +35,4 @@ C33	do-depth	recursive DO attempts 23 levels	DO PROBE; print depth on unwind; RE
 C34	lines513	512 active assignments plus 513th output line	DO PROBE; LINE513; REPLACE; close/copy
 C35	bytes8192	8192-byte file of short comments between START/END	DO PROBE; START/PROBE-END; REPLACE; close/copy
 C36	continued255	physical lines joined by trailing semicolon; 255 logical bytes	DO PROBE; LEN; PROBE-END; REPLACE; close/copy
+C37	zap-index	3 records C8/N6 with OLD.NDX on KEY	USE BASE INDEX OLD; ZAP; APPEND BLANK; REPLACE; SEEK old/new; close/copy

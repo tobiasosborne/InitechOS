@@ -30,6 +30,15 @@ All 36 retained inputs match `INPUTS.sha256`. Replaying a capture must use a
 new output directory. Host observations use `w2_host.c` and the actual unmodified
 interpreter/codecs, through a separate runner; five-second per-case watchdog.
 
+C37 (zap-index) was captured the same way on 2026-11-14
+(`CASES='C37 C38' sh tests/conformance/capture.sh EMPTY_DIR`, then
+`retain.sh`) for issue initech-sy1o3. Its real `OLD.NDX` readback is 1025
+bytes: a 0x1A tail byte after the two 512-byte pages, stale entries as page
+slack beyond the live count, and uninitialised bytes in the header page. It
+is not byte-reproducible, so it is not retained; C37 is graded by its
+transcript (`SEEK` of a zapped key is `.F.`, of the new key `.T.`) and its
+DBF readbacks.
+
 Prior corpus examined: `goldens/README.md`, CORPORA.lock's dBASE entries,
 component captured-hashes and independent readers, the pristine DBF/DBT/NDX
 samples, and `tests/xbase_prog_diff/do-file-mint/depth/GOLD.OUT`. The latter
