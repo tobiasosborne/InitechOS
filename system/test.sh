@@ -10,4 +10,6 @@ test -s ../build/flair/libflair.a
 test -s ../build/flair/desktop/libdesktop.a
 # Exercise factory input additions without starting an emulator.
 ../build/factory/trace-input-test
+sh tests/manifest.sh
+sh tests/inputs.sh
 echo 'system: composition and standalone boundary green'

@@ -3,7 +3,14 @@ COMPONENT := system
 include $(TOP)/mk/config.mk
 KERNEL := $(shell MAKEFLAGS= $(MAKE) --no-print-directory -s -C $(TOP)/kernel object-list BIG_KERNEL=$(BIG_KERNEL))
 COMMAND := $(addprefix $(TOP)/build/dos/,command-resident.o batch.o env.o)
-all: $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS
+all: $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS installed-inputs $(OUT)/tps-report
+.PHONY: installed-inputs
+$(OUT)/samples: samples.c | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+$(OUT)/tps-report: tests/tps-report.c | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+installed-inputs: $(OUT)/samples
+	sh install-inputs.sh $(OUT)/installed $(OUT)/samples
 .PHONY: components
 components:
 	+$(MAKE) -C $(TOP)/kernel objects resident-command
@@ -16,14 +23,20 @@ $(OUT)/system$(if $(BIG_KERNEL),-big).elf: $(KERNEL) $(COMMAND) $(TOP)/build/fla
 $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS: $(OUT)/system$(if $(BIG_KERNEL),-big).elf
 	objcopy -O binary $< $@
 	@echo "Product loaded bytes: $$(wc -c < $@)"
-.PHONY: test smoke mutants
+.PHONY: test smoke capacity manifest-mutants mutants
 test:
 	+$(MAKE) -C $(TOP)/kernel all
 	+$(MAKE) all
 	+$(MAKE) -C $(TOP)/factory test
 	sh test.sh
 smoke:
-	+$(MAKE) -C $(TOP) smoke
+	+$(MAKE) -C $(TOP) image
+	sh tests/installed.sh
+capacity:
+	+$(MAKE) -C $(TOP) image
+	sh tests/capacity.sh
+manifest-mutants:
+	sh tests/manifest-mutants.sh
 mutants:
 	@echo 'Use factory/red-desktop.sh for the two slice mutations' >&2; exit 1
 

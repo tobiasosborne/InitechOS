@@ -13,3 +13,36 @@ build/apps/initechcalc/CALC.EXE       APPS/CALC.EXE
 build/apps/initechcalc/LEDGER.TXT     APPS/LEDGER.TXT
 build/apps/initechcalc/MICHAEL.CFG     APPS/MICHAEL.CFG
 build/apps/initechpaint/PAINT.EXE     APPS/PAINT.EXE
+# DOS owner: make -C dos; ordinary archive attributes for every entry here.
+build/dos/COMMAND.COM                 COMMAND.COM
+build/dos/CHKDSK.COM                  CHKDSK.COM
+build/dos/FORMAT.COM                  FORMAT.COM
+build/dos/SYS.COM                     SYS.COM
+build/dos/FDISK.COM                   FDISK.COM
+build/dos/EDLIN.COM                   EDLIN.COM
+build/dos/XCOPY.COM                   XCOPY.COM
+build/dos/TREE.COM                    TREE.COM
+build/dos/ATTRIB.COM                  ATTRIB.COM
+build/dos/LABEL.COM                   LABEL.COM
+build/dos/FIND.COM                    FIND.COM
+build/dos/SORT.COM                    SORT.COM
+build/dos/MORE.COM                    MORE.COM
+build/dos/DISKCOPY.COM                DISKCOPY.COM
+build/dos/DISKCOMP.COM                DISKCOMP.COM
+build/dos/TPSREP.COM                  TPSREP.COM
+# system owner: make -C system installed-inputs; samples/PROVENANCE.md.
+build/system/installed/CONFIG.SYS     CONFIG.SYS
+build/system/installed/AUTOEXEC.BAT   AUTOEXEC.BAT
+build/system/installed/HELLO.TXT      HELLO.TXT
+build/system/installed/CLIENTS.DBF    APPS/CLIENTS.DBF
+build/system/installed/PARTS.DBF      APPS/PARTS.DBF
+build/system/installed/INVOICE.DBF    APPS/INVOICE.DBF
+build/system/installed/Y2KACCT.PRG    APPS/Y2KACCT.PRG
+build/system/installed/TPS.DBF        APPS/TPS.DBF
+build/system/installed/TPSPARM.DAT    APPS/TPSPARM.DAT
+build/system/installed/HELLO.PAS      APPS/HELLO.PAS
+build/system/installed/TURBOIN.PAS    APPS/TURBOIN.PAS
+build/system/installed/README.TXT     APPS/README.TXT
+# Turbo owner: make -C turbo; complete single-file Pascal compiler source.
+build/turbo/compiler/TURBO.COM        APPS/TURBO.COM
+build/system/installed/TURBO.PAS      APPS/TURBO.PAS

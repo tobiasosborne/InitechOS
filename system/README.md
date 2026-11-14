@@ -3,7 +3,7 @@
 Links the InitechDOS objects and resident COMMAND.COM with the FLAIR Toolbox,
 region engine and desktop binding into build/system/INITDOS.SYS. The standalone
 kernel artifact remains build/kernel/INITDOS.SYS. Dependencies: kernel, dos,
-flair and flair/desktop. No source is compiled here and no ABI flags are changed.
+flair and flair/desktop. No kernel source is compiled here and no ABI flags are changed.
 
 S1 verification: the QEMU and Bochs DOS smoke passes (8 MiB); the composed
 image is 186010 loaded bytes. A working disk with AUTOEXEC.BAT containing
@@ -38,3 +38,53 @@ and a weak one with no GUI symbols in the standalone DOS image, verifies archive
 inputs, and runs the factory transport parser check. make smoke delegates to
 the complete product session. Product sources use no overlay, section GC,
 regparm, callee-pop ABI or LTO. make mutants fails with its actual pending work.
+
+Installed inputs are an explicit two-column source/destination contract in
+working-volume.list, including COMMAND.COM and the closed utility list.
+`make installed-inputs` builds the Initech-authored DBF examples with a small
+C factory producer, converts the introductory Pascal and accounting program
+to CRLF, copies recovered hash-pinned TPS inputs, and installs the complete
+matching Turbo source. Dependencies for these inputs also include Turbo
+Initech (source and compiler), and InitechBase (sample/canon references).
+The image composition owner must build `turbo` before consuming the manifest.
+Missing sources fail; no build reads legacy or attic. Ownership, attributes,
+producers, source captures and imported hashes are in samples/PROVENANCE.md.
+All existing APPS artifacts remain owned/built by their named components.
+
+`make test` additionally checks the required workflow inventory, independently
+reads the three DBFs in Python, and verifies source/protocol/canon input
+identity. `make manifest-mutants` rejects an omitted table and an installed
+test driver using isolated manifest patches. Python only reads the foreign DBF format; C and shell produce all
+shipped bytes. Generated tables have a fixed 1993-07-19 update date. Recovered
+TPS bytes retain the original table date. These examples have no memo/index
+dependency, so no DBT/NDX is installed.
+
+`make smoke` builds the ordinary product image and drives the installed TPS,
+Base and Turbo workflows on QEMU and Bochs at 8 MiB. Each session clones both
+product disks, removes AUTOEXEC on its private working copy to reach DOS,
+sets the ordinary root PATH, and changes to APPS. No fixture or executable is
+injected. Every manifest file is independently extracted and compared before
+boot. TPSREPT.TXT matches all meaningful bytes of the retained REALDOS report,
+with its directory census changed explicitly from the original single TPS.DBF
+to the four installed DBFs. The comparator also checks FCB record padding and
+rejects any other difference. Base LIST
+rows come from real III+ captures; the accounting report retains the canon
+negative ages and 0.00 total. Turbo compiles the installed HELLO via its
+current fixed-name protocol, runs the result, and agrees with FPC stdout.
+Artifacts remain in build/system/installed-smoke.*. SYSTEM_SMOKE_CPUS can
+select a single emulator for iteration; the default runs both.
+
+`make capacity` independently measures free clusters with mtools and requires
+2 MiB free for the compiler's listing, two output generations, the full source
+input copy, reports and save stages. This fails on the inherited 1.44 MB volume;
+the image owner must enlarge it. A hosted run of the exact shipped source
+produced a 954720-byte listing and 164263-byte native executable, before the
+source copy and retained second generation. Capacity is separate from the
+ordinary Hello workflow so a passing short program cannot certify the finale.
+
+The boot/working disk split is unchanged here. IO.SYS and composed INITDOS.SYS
+remain the boot-volume builder's responsibility. Consolidating to C:, expanding
+the working volume, removing the builder's DOS wildcard, and scheduling Turbo
+before image assembly belong to the image composition owner. The installed
+APPS/README.TXT describes the currently available fixed-name compiler protocol;
+when the Turbo owner lands the IDE, update those directions with its workflow.
