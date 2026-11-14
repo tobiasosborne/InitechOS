@@ -1,7 +1,7 @@
 # Status
 
-Rewritten 2026-11-14 after landing the reviewed InitechDOS fixes and
-data-loss captures on main, through `abdeb56c`. Setup: `docs/SETUP.md`.
+Rewritten 2026-11-14 after landing the reviewed InitechDOS fixes, data-loss
+captures and Turbo Initech compiler repairs on main. Setup: `docs/SETUP.md`.
 
 ## Where we are
 
@@ -41,6 +41,15 @@ Host tests passed in 63.66s and full smoke in 212.12s before the push.
 Logs: `build/cert/2026-11-14T005336Z-049b6b4a/`; an external copy is
 retained with the landing report. No limit was relaxed and no fix was needed.
 
+The independently reviewed Turbo repairs landed as `9228ccac` and `e717e105`,
+rebased onto `d4a0cfad`. Fresh self-host/DDC passed in 146.80s with the unchanged
+fixed point above. Worktree `make -j12 test` passed in 62.90s and full
+`make smoke` in 333.70s; the fast-forwarded main checkout's host gate passed
+in 50.11s. Default Turbo smoke now compares 280 generated executions on QEMU
+and Bochs: all 168 extended comparisons plus 112 real flat COM executions,
+with independent FPC stdout/files and no budget increase. The new flat-only
+runtime fault completes with wrong digits and is caught by execution.
+
 After fast-forwarding the main checkout from `62830873`, `make -j12 test`
 passes all 19 registered components in 55.96s, including default factory
 verification of the captures and configured reference readers. Full
@@ -72,7 +81,10 @@ Today's targeted reviews filed 37 new issues plus six Turbo compiler bugs.
 The fix plan starts with trustworthy readback, timeout, nonempty-run and
 smoke-coverage gates; then FAT/write protection, stage ownership and handles;
 then recovery policy, file conservation and independent execution/ABI oracles.
-The six Turbo bugs need red-first FPC execution differentials for both compilers.
+The six Turbo bugs now have red-first FPC execution differentials for both
+compilers: record/var layout, byte-safe character access, for-loop bounds and
+endpoints, and single-evaluation seed record copies. Extended and flat native
+paths are both exercised; the three restored execution patches are active.
 
 `integration/next` was independently reviewed and fast-forwarded to main
 after the two capture-harness findings and the timing nit were fixed:
@@ -110,7 +122,7 @@ Dead commands in the frozen app inventories also need implement/remove decisions
 ## Next, in order
 
 1. Repair the reviewed acceptance gates, then the data-loss bugs under the
-   agreed recovery policy; add the six compiler execution regressions.
+   agreed recovery policy.
 2. Finish kernel/FLAIR desktop imports and boot's audit; prove pending mutants.
 3. Initech's menu mark, app windows up 20 pixels, Finder long-label overlap.
 4. The film frame: safe FILE COPY and honest gaps in the ledger; do not
