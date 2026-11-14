@@ -82,6 +82,16 @@ static void sweep(void)
         if(i>=11 && i<=14) type("2=");
         CHECK(!strcmp(calc_display(&g_calc),results[i]),"sweep key/button effect");
     }
+    /* The tall bottom '=' is a separate visible button from the top '='.
+     * Its literal locked reading-order slot is 15; do not collapse aliases. */
+    key('c');type("2+3");
+    int l,t,r,b;calc_view_key_rect(15,&l,&t,&r,&b);
+    tbx_event_t click={0};click.what=mouseDown;
+    click.whereh=tbx_host.origin_h+(l+r)/2;click.wherev=tbx_host.origin_v+(t+b)/2;
+    tbx_app_event(&click);
+    CHECK(!strcmp(calc_display(&g_calc),"5"),"sweep separate tall equals button");
+    key('c');click.what=autoKey;click.message='7';tbx_app_event(&click);
+    CHECK(!strcmp(calc_display(&g_calc),"7"),"sweep autoKey entry route");
     key('c');type("12");
     for(const char *s="zxv";*s;s++) {
         tbx_event_t e={0};e.what=keyDown;e.message=*s;e.modifiers=FLAIR_EVT_MOD_CONTROL_KEY;

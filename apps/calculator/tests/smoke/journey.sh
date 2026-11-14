@@ -10,7 +10,13 @@ journey() {
  # Authored Edit bindings: Copy 20 with the pointer, then Clear a pending
  # operation. Pointer starts at (60,50); Edit is at (95,9).
  inject 'k2,k0,m35:-41,l1,m0:22,l0'
- inject 'k2,kshift-equal,k3,m0:-22,l1,m0:38,l0,k4,kequal'
+ inject 'kc,k2'
+ # '+' by its captured button center; Return is the captured '=' mapping.
+ # These input routes are supported by both factory transports.
+ move_by 256 166
+ inject 'l1,l0,k3'
+ move_by -256 -188
+ inject 'l1,m0:38,l0,k4,kret'
  # Exit through File Close, then verify Copy through another real app.
  inject kctrl-w
  await_marker 'TENANT-EXIT rc=0 via=exit'
