@@ -2,14 +2,14 @@
 # test: test-conkeys-unit
 --- a/int21.c
 +++ b/int21.c
-@@ -900,10 +900,6 @@
-         if (key >= 0) {
-             g_conin_pushback = key; /* lookahead shared with AH=0Bh */
+@@ -919,10 +919,6 @@
+             conin_unget(key); /* lookahead shared with AH=0Bh */
          }
--    }
+     }
 -    if (g_printer_echo && g_devio_bound && g_devio.prn_write) {
 -        uint8_t byte = (uint8_t)c;
 -        (void)g_devio.prn_write(&byte, 1, g_devio.prn_ctx);
-     }
+-    }
      if (con_ansi_active()) {
          /* ANSI.SYS loaded: route the byte through the escape-sequence FSM, whose
+          * actions are applied to the live console (and serial, via the put_char

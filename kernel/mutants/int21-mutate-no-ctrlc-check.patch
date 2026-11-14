@@ -2,7 +2,7 @@
 # test: test-4tw
 --- a/int21.c
 +++ b/int21.c
-@@ -1316,15 +1316,11 @@
+@@ -1335,15 +1335,8 @@
   * Ref: DOS 3.3 PRM AH=01h/08h/0Ah, INT 23h; ADR-0003 Amendment DEC-16 Sec 3.3. */
  static int conin_check_ctrlc(int c, int_frame_t *f)
  {
@@ -11,15 +11,12 @@
 -     * suppress the CON detection -- it is consulted, not a gate, on this path. */
 -    uint8_t brk = int21_get_break_flag();
 -    (void)brk;
--    if ((c & 0xFF) == 0x03) {            /* ^C (Ctrl-C) */
+-    if (!g_conin_last_scan && (c & 0xFF) == 0x03) { /* ^C, not a scan */
 -        int23_dispatch(f);              /* the DOS Ctrl-Break abort (DEC-10) */
 -        return 1;
 -    }
-+    /* MUTANT M5 (the repository contract; make test-4tw-mutant only): drop the ^C check so 0x03 is
-+     * delivered as a raw char and INT 23h is NEVER invoked -> the [4tw.*] oracle
-+     * goes RED. NEVER define in a real build -- DEC-16 Sec 3.3 mandates the CON
-+     * check-point. */
-+    (void)c; (void)f;
++    (void)c;
++    (void)f;
      return 0;
  }
  

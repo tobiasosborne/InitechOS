@@ -1,7 +1,17 @@
 # DU_MUT_HIDDEN
 # test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
+# FIND and visible() both exclude hidden/system entries; inject the policy fault in both layers.
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
+@@ -137,7 +137,7 @@
+ static int nth(const char *spec, unsigned attr, unsigned n, find_data_t *out)
+ {
+     call(0x1a00,0,0,(uintptr_t)&dta);
+-    int rc=call(0x4e00,0,attr,(uintptr_t)spec);
++    int rc=call(0x4e00,0,attr|6u,(uintptr_t)spec);
+     while (rc >= 0 && n--) rc=call(0x4f00,0,0,0);
+     if (rc < 0) {
+         if (rc != -2 && rc != -18) error=5;
 @@ -148,7 +148,7 @@
  }
  static int visible(const find_data_t *fd)

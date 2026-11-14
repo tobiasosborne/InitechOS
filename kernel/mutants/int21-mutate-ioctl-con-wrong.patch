@@ -2,14 +2,12 @@
 # test: test-er3h
 --- a/int21.c
 +++ b/int21.c
-@@ -1804,7 +1804,9 @@
- 
-         /* Character device (our only one is CON) vs disk file: the bit15
-          * (ISDEV) fork. DX carries the locked device-info word for the kind. */
--        uint16_t con_word = (uint16_t)INT21_DEVINFO_CON;
-+        /* MUTANT (the repository contract): emit the wrong CON word (drop a bit) -> the CON
-+         * full-word assertion goes RED. */
-+        uint16_t con_word = (uint16_t)(INT21_DEVINFO_CON & ~INT21_DEVINFO_STDIN);
-         if (e->kind == SFT_KIND_DEVICE) {
-             set_dx(f, con_word);
+@@ -1822,7 +1822,7 @@
+             uint16_t identity = e->device
+                 ? ((device_header_t *)e->device)->attribute & 0x0fu
+                 : e->dev_id == SFT_DEV_CON ? 3u : 0u;
+-            uint16_t word = identity == 3u ? INT21_DEVINFO_CON
++            uint16_t word = identity == 3u ? (INT21_DEVINFO_CON & ~INT21_DEVINFO_STDIN)
+                 : (uint16_t)((INT21_DEVINFO_CON & ~0x1fu) | identity);
+             set_dx(f, word);
          } else {

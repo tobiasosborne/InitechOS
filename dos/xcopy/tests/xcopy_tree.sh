@@ -131,6 +131,19 @@ if [ "$mode" = host ]; then
     run XCOPY 'SRC\PL?IN.BIN DST' || fail '? wildcard execution'
     mcopy -m -i "$work/ref.img" ::SRC/PLAIN.BIN ::DST
     compare '? wildcard binary copy'
+    # The same default exclusion applies while descending directories.
+    # Source: MS-DOS 3.3 XCOPY reference (pp.127-129,324 above). The reference
+    # image contains only the ordinary source tree; mcopy supplies its bytes,
+    # membership, attributes and timestamps independently of XCOPY's filters.
+    fresh
+    mmd -i "$work/art.img" ::SRC/HIDDEN ::SRC/SYSTEM
+    mcopy -m -i "$work/art.img" "$work/old.txt" ::SRC/HIDDEN/LEAF.TXT
+    mcopy -m -i "$work/art.img" "$work/old.txt" ::SRC/SYSTEM/LEAF.TXT
+    mattrib +h -i "$work/art.img" ::SRC/HIDDEN
+    mattrib +s -i "$work/art.img" ::SRC/SYSTEM
+    run XCOPY 'SRC DST /S /E' || fail 'hidden/system directory execution'
+    mcopy -s -m -i "$work/ref.img" '::SRC/*' ::DST
+    compare 'hidden/system directories excluded recursively'
     fresh
     mcopy -m -i "$work/art.img" "$work/old.txt" ::SRC/HIDDEN.TXT
     mcopy -m -i "$work/art.img" "$work/old.txt" ::SRC/SYSTEM.TXT

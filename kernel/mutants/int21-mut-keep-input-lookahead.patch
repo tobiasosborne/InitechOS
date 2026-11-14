@@ -2,11 +2,11 @@
 # test: test-4tw
 --- a/int21.c
 +++ b/int21.c
-@@ -659,7 +659,6 @@
+@@ -676,7 +676,6 @@
  }
  void int21_conin_handoff(void)
  {
 -    g_conin_pushback = -1;
+     g_conin_scan_pending = g_conin_last_scan = 0;
  }
  void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
- {
