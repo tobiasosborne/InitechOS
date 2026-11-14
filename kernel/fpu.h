@@ -1,6 +1,6 @@
 /* fpu.h -- x87 FPU bring-up: the PURE decision logic (beads initech-zj6w).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding, <stdint.h> only, header-only
+ * THE ARTIFACT (CLAUDE.md, The constitution): freestanding, <stdint.h> only, header-only
  * static inlines. Shared VERBATIM by the kernel (sysinit.c sysinit_fpu_init,
  * which owns the CR0 / x87 instructions) and the host oracle
  * (os/initechdos/test_fpu.c), so the probe verdict and the CR0 arithmetic the boot
@@ -19,7 +19,7 @@
  *     instruction traps #NM (vector 7) and panics there, loudly. No boot
  *     panic, no software emulator (INITECHBASE is soft-float, ADR-0009 DEC-01).
  *
- * Intel references (Law 1). NO local copy of the Intel SDM exists under docs/
+ * Intel references (The constitution). NO local copy of the Intel SDM exists under docs/
  * or spec/ (checked 2026-10-03); the citations below are recorded so a
  * reviewer can verify them against the SDM, and are NOT backed locally:
  *   - SDM Vol 3A Sec 2.5 "Control Registers": CR0.MP bit 1, EM bit 2, TS bit 3,
@@ -34,7 +34,7 @@
  *     coprocessor stores nothing) are the classic Intel detection sequence
  *     (Intel AP-485 "Processor Identification" FPU check). Also not local.
  *
- * Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII).
+ * The constitution (fail loud), The constitution (deterministic), The constitution (ASCII).
  */
 #ifndef INITECH_INITECHDOS_FPU_H
 #define INITECH_INITECHDOS_FPU_H

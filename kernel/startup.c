@@ -20,7 +20,7 @@
 #include "pit.h"
 #include "rtc.h"
 #include "tsr_contract.h"
-#include "../dos/command/entry.h"
+#include "entry.h"
 #define COM1_LSR 0x3fdu
 #define COM1_THR 0x3f8u
 #define LSR_THRE 0x20u

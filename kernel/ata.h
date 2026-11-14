@@ -1,18 +1,18 @@
 /*
  * os/initechdos/ata.h -- minimal ATA PIO LBA28 sector read backend (INITECHDOS).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code, freestanding
+ * THE ARTIFACT (CLAUDE.md, The constitution): shipped InitechDOS kernel code, freestanding
  * (only <stdint.h>). This is the REAL-HARDWARE sector backend that satisfies
  * the blockdev_t read contract (os/initechdos/blockdev.h) on the primary ATA
  * channel. test-ata scripts the I/O ports through a factory-only seam;
  * test-fs/test-block-device-emu exercise the real instructions under QEMU.
  *
- * Ref (Law 1): ATA/ATAPI-6 spec, READ SECTORS (0x20) PIO protocol; standard
+ * Ref (The constitution): ATA/ATAPI-6 spec, READ SECTORS (0x20) PIO protocol; standard
  *   primary-channel port map 0x1F0..0x1F7 + control 0x3F6; the drive/head
  *   register bit 4 (master/slave) and bit 6 (LBA). PRD Sec 6.1;
  *   docs/research/fs-mount-sft-ground-truth.md Sec 1.3, Sec 2.
  *
- * ASCII-clean (Rule 12). No timestamps / host paths (Rule 11).
+ * ASCII-clean (The constitution). No timestamps / host paths (The constitution).
  */
 #ifndef INITECH_INITECHDOS_ATA_H
 #define INITECH_INITECHDOS_ATA_H
@@ -37,7 +37,7 @@
 #define ATA_DRIVE_MASTER_LBA  0xE0u  /* LBA, master (bit 4 = 0) */
 #define ATA_DRIVE_SLAVE_LBA   0xF0u  /* LBA, slave  (bit 4 = 1) */
 
-/* Fail-loud error codes (CLAUDE.md Rule 2). All negative; 0 == success. These
+/* Fail-loud error codes (CLAUDE.md, The constitution). All negative; 0 == success. These
  * are returned by ata_read_sectors so a caller (fat12_mount) surfaces the
  * exact failure rather than spinning forever (brief Sec 2.3). */
 enum {
@@ -107,7 +107,7 @@ void ata_ctx_init_primary_slave(ata_ctx_t *ctx);
  *
  * The wrapper reaches INT 24h ONLY through a bound HOOK (a function pointer the
  * kernel sets to int21_run_critical_error, int21.h) -- so ata.c does NOT link
- * int21.c and compiles freestanding standalone (Law 3), and the host oracle
+ * int21.c and compiles freestanding standalone (The constitution), and the host oracle
  * binds its own stub responder. With NO hook bound (the default) the wrapper is
  * TRANSPARENT: it returns the inner error verbatim (== the historical "Fail"
  * behavior), so nothing changes until the kernel wires the hook.
@@ -115,7 +115,7 @@ void ata_ctx_init_primary_slave(ata_ctx_t *ctx);
  * The hook returns the disk-layer decision:
  *   CRIT_BLOCKDEV_RETRY -> RE-ISSUE the inner op (bounded by CRIT_BLOCKDEV_MAX_
  *                          RETRIES so a permanently-dead drive cannot spin
- *                          forever -- Rule 2);
+ *                          forever -- The constitution);
  *   CRIT_BLOCKDEV_FAIL  -> return the inner error (Abort is handled inside the
  *                          hook via do_terminate, which normally does not
  *                          return; a returning Abort degrades to Fail).
@@ -127,7 +127,7 @@ void ata_ctx_init_primary_slave(ata_ctx_t *ctx);
 #define CRIT_BLOCKDEV_FAIL        0   /* propagate the inner error (Fail/Abort) */
 #define CRIT_BLOCKDEV_RETRY       1   /* re-issue the failed inner op (Retry)   */
 #define CRIT_BLOCKDEV_MAX_RETRIES 5u  /* bound the Retry loop (a dead drive must
-                                       * not spin forever -- Rule 2). DOS itself
+                                       * not spin forever -- The constitution). DOS itself
                                        * re-prompts indefinitely, but each Retry
                                        * here is one operator decision; this caps
                                        * the AUTOMATIC re-issues per decision. */

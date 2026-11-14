@@ -2,8 +2,8 @@
  *
  * beads: initech-509.6 (DEC-03). Pure, host-testable allocator over a caller-
  * provided region, addressed in arena-relative paragraphs. See mcb.h for the
- * model + the DOS mapping. Fail loud on a corrupt chain or a bad block (Rule 2);
- * the property suite (test_mcb.c) is the oracle (Law 2).
+ * model + the DOS mapping. Fail loud on a corrupt chain or a bad block (The constitution);
+ * the property suite (test_mcb.c) is the oracle (The constitution).
  *
  * Ref: ADR-0003 DEC-03 + Appendix B.3; DOS 3.3 PRM AH=48h/49h/4Ah. ASCII (R12).
  */
@@ -120,7 +120,7 @@ int mcb_chain_intact(const mcb_arena_t *a)
 
 /* The chain's free-memory figures (bead initech-tdnl.47: About This
  * Computer's "Largest Unused Block"). A corrupt or empty chain reports 0/0
- * and returns 0 (Rule 2: the caller says so; never a guess). */
+ * and returns 0 (The constitution: the caller says so; never a guess). */
 int mcb_stats(const mcb_arena_t *a, uint32_t *free_paras, uint32_t *largest_paras)
 {
     uint32_t fr = 0u, big = 0u, para = 0u;
@@ -332,7 +332,7 @@ uint16_t mcb_setblock(mcb_arena_t *a, uint32_t data_para, uint32_t want,
  * mark it resident (MCB_OWNER_SYSTEM). See mcb.h for the full DOS semantics.
  * Ref: DOS 3.3 AH=31h (RBIL INT 21/AH=31h; MS-DOS 3.3 Tech Ref) -- terminate but
  * keep the program's memory block, re-homed to the system arena so it is never
- * freed/reused. Rule 2: fail loud (BAD_BLOCK) if psp_owner owns nothing. */
+ * freed/reused. The constitution: fail loud (BAD_BLOCK) if psp_owner owns nothing. */
 uint16_t mcb_keep_resident(mcb_arena_t *a, uint16_t psp_owner,
                            uint32_t keep_data_paras)
 {
@@ -395,7 +395,7 @@ uint32_t mcb_keep_all(mcb_arena_t *a, uint16_t owner)
 }
 
 /* See mcb.h (ADR-0003 Amendment DEC-19.4). One read-only walk; a corrupt chain
- * owns nothing (Rule 2: the overlay load is refused, never guessed). */
+ * owns nothing (The constitution: the overlay load is refused, never guessed). */
 int mcb_owned_block(const mcb_arena_t *a, uint16_t owner, uint32_t off,
                     uint32_t *out_end)
 {

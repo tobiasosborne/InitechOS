@@ -1,8 +1,8 @@
 /* irq.h -- in-IRQ depth counter + the INT 21h reentrancy guard hook.
  *
  * beads: initech-xk2 ("INT 21h reentrancy hardening when IRQs are unmasked").
- * Ref:   CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Rule 2 (fail
- *        LOUD on an invariant violation), Rule 11 (deterministic), Rule 12
+ * Ref:   CLAUDE.md, The constitution (cite source), The constitution (oracle is truth), The constitution (fail
+ *        LOUD on an invariant violation), The constitution (deterministic), The constitution
  *        (ASCII). Intel SDM Vol 3A Sec 6.12.1.2 (a TRAP gate, 0x8F, leaves IF
  *        unchanged, so an unmasked IRQ CAN be delivered inside a software-int
  *        handler reached through one) -- this is exactly why INT 21h, installed
@@ -58,7 +58,7 @@ uint32_t irq_depth(void);
  * future ISR/driver MUST NOT issue INT 21h while this is true. */
 int kbd_in_irq(void);
 
-/* FAIL LOUD (Rule 2): an INT 21h dispatch was entered from IRQ context -- an
+/* FAIL LOUD (The constitution): an INT 21h dispatch was entered from IRQ context -- an
  * invariant violation that can only happen if an ISR called DOS (forbidden). The
  * kernel impl emits a grep-able serial marker ("INT21-REENTRY-PANIC") + the
  * vector dump and halts (it routes through the real panic path via a deliberate

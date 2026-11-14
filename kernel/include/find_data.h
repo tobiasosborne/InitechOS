@@ -1,14 +1,14 @@
 /*
  * spec/find_data.h -- InitechDOS FINDFIRST/FINDNEXT Disk Transfer Area layout.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8): the 43-byte find-data block INT 21h
+ * LOCKED spec-data (CLAUDE.md, The constitution): the 43-byte find-data block INT 21h
  * AH=4Eh (FINDFIRST) / AH=4Fh (FINDNEXT) write into the current DTA is a
  * contract a DIR-style program reads at fixed field offsets. It is data, not a
  * magic struct buried in a .c file. Changing any field offset/size is a
- * deliberate act (Rule 8): it ripples into every program that walks a find-data
+ * deliberate act (The constitution): it ripples into every program that walks a find-data
  * block and into the int21.c FINDFIRST/FINDNEXT writer + its oracle.
  *
- * Source / Law 1 citations (all local):
+ * Source / The constitution citations (all local):
  *   DOS 3.3 Programmer's Reference Manual, INT 21h AH=4Eh (FINDFIRST): the DTA
  *     find-data layout (drive/search-attr + 11-byte search template internal
  *     use; then the found entry's attribute, packed time, packed date, 32-bit
@@ -26,12 +26,12 @@
  * contract data (C); read by the artifact int21.c FINDFIRST/FINDNEXT writer and
  * by any DTA-walking program (dir_program.asm / irqstorm_program.asm @ 0x1E).
  *
- * NOTE (Law 1 reconciliation, dww): the older simplified layout (attr@0x0C ...
+ * NOTE (The constitution reconciliation, dww): the older simplified layout (attr@0x0C ...
  * name@0x15) came from fs-mount-sft-ground-truth.md Sec 4.5, which encoded a
  * compressed table byte-INCOMPATIBLE with real DOS; the brief Sec 4.5 has been
  * corrected to match this header, so the two local sources now agree.
  *
- * ASCII-clean (Rule 12). No nondeterminism (Rule 11).
+ * ASCII-clean (The constitution). No nondeterminism (The constitution).
  */
 #ifndef INITECH_SPEC_FIND_DATA_H
 #define INITECH_SPEC_FIND_DATA_H
@@ -75,7 +75,7 @@ _Static_assert(sizeof(find_data_t) == FIND_DATA_SIZE,
                "find_data_t must be 43 bytes (DOS 3.3 Programmer's Reference "
                "Manual AH=4Eh)");
 
-/* Real-DOS byte-offset anchor (the dww fix; Law 5 differential). These are the
+/* Real-DOS byte-offset anchor (the dww fix; The constitution differential). These are the
  * offsets a real-DOS program -- or a differential test vs real DOS FINDFIRST --
  * reads. Perturbing the layout breaks the build here (the oracle bites at
  * compile time; mutation-proof). Ref: DOS 3.3 PRM AH=4Eh. */

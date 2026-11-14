@@ -5,7 +5,7 @@
 #define INITECH_PANIC_SCREEN_H
 #include <stdint.h>
 typedef struct { uint32_t x, y; } panic_origin_t;
-/* CLAUDE Rule 2, PRD Appendix B; ADR-0003 DEC-08a.5. These are terminal
+/* CLAUDE The constitution, PRD Appendix B; ADR-0003 DEC-08a.5. These are terminal
  * loader/startup causes, deliberately separate from Intel exception vectors. */
 typedef enum {
     PANIC_REASON_NONE,

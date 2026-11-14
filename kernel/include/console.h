@@ -6,8 +6,8 @@
  *        (glyph format: 256 glyphs x 16 bytes, 1 byte/row, MSB=0x80=leftmost
  *        pixel, set bit = ink) + Sec 5 Risk 2 (the blitter MUST branch on
  *        lfb_bpp -- 32 vs 24 -- never assume 32; Bochs/86Box may give 24);
- *        os/initechdos/boot_info.h (the handoff contract). CLAUDE.md Law 2 (oracle
- *        is truth), Rule 2 (fail loud), Rule 11 (reproducible), Rule 12 (ASCII).
+ *        os/initechdos/boot_info.h (the handoff contract). CLAUDE.md, The constitution (oracle
+ *        is truth), The constitution (fail loud), The constitution (reproducible), The constitution (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only, no
  * libc, no malloc. The SAME translation unit (console.c) compiles hosted for
@@ -31,7 +31,7 @@
 #define CONSOLE_FONT_GLYPHS 256
 #define CONSOLE_FONT_BYTES  (CONSOLE_FONT_GLYPHS * CONSOLE_CELL_H) /* 4096 */
 
-/* Return codes (Rule 2 -- init refuses rather than scribbles on bad input). */
+/* Return codes (The constitution -- init refuses rather than scribbles on bad input). */
 #define CONSOLE_OK         0
 #define CONSOLE_ERR_NULL   1  /* NULL console or boot_info                 */
 #define CONSOLE_ERR_ADDR   2  /* lfb_addr == 0 (no framebuffer)            */
@@ -79,7 +79,7 @@ typedef struct {
     /* CURRENT attribute (beads initech-p96i -- ANSI.SYS wiring). console_putc /
      * the glyph draw use THESE so an ANSI SGR (ESC[..m) can recolour subsequent
      * text. Initialised to fg/bg at console_init so the no-ANSI / no-SGR output
-     * path stays PIXEL-IDENTICAL to before this field existed (CLAUDE.md Law 4:
+     * path stays PIXEL-IDENTICAL to before this field existed (CLAUDE.md, The constitution:
      * the default rendering must not change). console_set_attr maps a CGA
      * attribute byte onto these; the 8bpp (mode-0x13) path has only two DAC
      * entries programmed, so there it falls back to the default fg/bg pair
@@ -124,7 +124,7 @@ void console_update_page(console_t *con, const uint8_t *buf);
 console_color_t console_pack_rgb(uint32_t bpp, uint8_t r, uint8_t g, uint8_t b);
 
 /* Bind framebuffer + font from boot_info, set default colors, clear, home the
- * cursor. Returns CONSOLE_OK or a CONSOLE_ERR_* (Rule 2 -- refuse bad input,
+ * cursor. Returns CONSOLE_OK or a CONSOLE_ERR_* (The constitution -- refuse bad input,
  * do not scribble). On error the console is left zeroed (unusable). */
 int console_init(console_t *con, const boot_info_t *bi);
 
@@ -156,7 +156,7 @@ void console_write(console_t *con, const char *buf, uint32_t len);
  * These are the console operations the ANSI escape interpreter drives. They are
  * ADDITIVE: an artifact that never loads ANSI.SYS never calls them, so the
  * default (no-ANSI) rendering is byte/pixel-identical to before (CLAUDE.md
- * Law 4). All clamp defensively (Rule 2 -- never address past the grid).
+ * The constitution). All clamp defensively (The constitution -- never address past the grid).
  * Ref: MS-DOS 3.3 Technical Reference Ch 4 "ANSI.SYS" (CUP/ED/EL/SGR effects);
  *      IBM PC Technical Reference (1984) App B "Display Adapter" (CGA attribute
  *      byte: bits 2:0 fg nibble, bit 3 bright, bits 6:4 bg nibble, bit 7 blink).

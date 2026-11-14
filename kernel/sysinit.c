@@ -1,15 +1,15 @@
 /* sysinit.c -- InitechDOS SYSINIT phases (beads initech-509.2).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding kernel code. NAMED, ordered
+ * THE ARTIFACT (CLAUDE.md, The constitution): freestanding kernel code. NAMED, ordered
  * bring-up phases extracted from kmain.c kernel_main(). A RELOCATION, not a
  * re-ordering -- see sysinit.h for the ordering minefield contract. The CONFIG.SYS
  * apply phase (sysinit_apply_config) is the new behavior; the rest is relocation
  * of the exact original sequence.
  *
- * Ref (Law 1): kmain.c kernel_main (the original ordered init); ADR-0003 DEC-06
+ * Ref (The constitution): kmain.c kernel_main (the original ordered init); ADR-0003 DEC-06
  *   (FILES= governs the SFT capacity) + Appendix D.2; spec/dos_config_sys_baseline.txt
  *   (the LOCKED baseline, embedded below); os/initechdos/config_sys.h; os/initechdos/sft.h.
- *   Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII).
+ *   The constitution (fail loud), The constitution (deterministic), The constitution (ASCII).
  */
 
 #include "sysinit.h"
@@ -43,13 +43,13 @@ int sysinit_ansi_enabled(void) { return g_ansi_enabled; }
  * from the sysinit_early `serial` fn so a WRITE to a chain-routed PRN/AUX handle
  * reaches the COM1 boot log -- the only output sink sysinit can reach without
  * pulling console.c (off-limits) into the phase. A real LPT1/COM1 port driver is
- * a flagged follow-up; this makes PRN/AUX OBSERVABLE (Rule 2: not a silent drop)
+ * a flagged follow-up; this makes PRN/AUX OBSERVABLE (The constitution: not a silent drop)
  * rather than a fault. NULL-safe (no serial bound -> the write is discarded). */
 static sysinit_serial_fn g_dev_serial = 0;
 
 /* PRN/AUX write adapter (dev_write_fn): emit each byte to the captured serial
  * sink. Returns the byte count (a synchronous sink never short-writes). The
- * single-char buffer keeps the freestanding, malloc-free discipline (Law 3). */
+ * single-char buffer keeps the freestanding, malloc-free discipline (The constitution). */
 static int sysinit_prn_aux_write(const uint8_t *buf, int len, void *ctx)
 {
     (void)ctx;
@@ -81,7 +81,7 @@ extern void tsr_idle_entry(void);    /* INT 28h-equivalent default IRETD (6fdt) 
 extern void tsr_screen_entry(void);  /* console page save/restore (6fdt) */
 
 /* The LOCKED CONFIG.SYS baseline, embedded byte-for-byte from
- * spec/dos_config_sys_baseline.txt (Rule 8 -- this is the fallback when no
+ * spec/dos_config_sys_baseline.txt (The constitution -- this is the fallback when no
  * CONFIG.SYS is present on the volume). Kept in sync with the spec file; the host
  * oracle (test_config_sys.c) parses the spec FILE directly so a drift between this
  * literal and the spec is caught there as a parse-result mismatch is NOT -- so the
@@ -96,7 +96,7 @@ static const char SYSINIT_CONFIG_BASELINE[] =
     "SHELL=COMMAND.COM /P /E:512\n";
 
 /* Case-insensitive ASCII compare of a NUL-terminated parsed DEVICE= name against
- * a literal (e.g. "ANSI.SYS"). Freestanding (Law 3), bounded by the NUL on both
+ * a literal (e.g. "ANSI.SYS"). Freestanding (The constitution), bounded by the NUL on both
  * sides. Returns 1 iff equal ignoring case. */
 static int sysinit_name_eq_ci(const char *a, const char *b)
 {
@@ -210,7 +210,7 @@ static void sysinit_fpu_init(sysinit_serial_fn serial)
 
     sysinit_hex16(got, hx);
     if (got != want) {
-        /* Rule 2: a coprocessor that will not hold its control word is not a
+        /* The constitution: a coprocessor that will not hold its control word is not a
          * deterministic machine -- refuse to continue. */
         serial("PANIC fpu-init: x87 control word readback mismatch cw=");
         serial(hx);
@@ -404,7 +404,7 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     /* Read CONFIG.SYS from the mounted volume if present; otherwise embed the
      * LOCKED baseline. `fat_buf` caches the FAT for the cluster walk; the file
      * bytes land in a small static scratch sized for a realistic CONFIG.SYS (no
-     * malloc, Law 3). A file LARGER than the scratch is not discarded: we honor
+     * malloc, The constitution). A file LARGER than the scratch is not discarded: we honor
      * its first sizeof(cfg_buf) bytes (the directives we apply -- FILES=, SHELL=
      * -- sit in the early lines) and flag the truncation in the SYSINIT summary
      * (bcg.9; operator choice 2026-06-13). */
@@ -544,7 +544,7 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     /* BREAK= state APPLIED (beads initech-er3h; DEC-16). Unlike DEVICE/INSTALL/
      * BUFFERS/LASTDRIVE this one has teeth -- it set g_break_flag above. Report
      * the effective state (the parsed value, or the boot default ON if absent)
-     * so the boot log shows it was honored (Rule 2 -- not silently dropped). */
+     * so the boot log shows it was honored (The constitution -- not silently dropped). */
     serial("SYSINIT: BREAK=");
     serial((cfg.break_present ? cfg.break_on : 1u) ? "ON" : "OFF");
     serial(cfg.break_present ? " applied\n" : " (default)\n");

@@ -1,15 +1,15 @@
 /* rtc.c -- InitechDOS MC146818 RTC / CMOS clock source (beads initech-yv9).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): freestanding kernel C. The port-I/O read
+ * THE ARTIFACT (CLAUDE.md, The constitution): freestanding kernel C. The port-I/O read
  * (rtc_read_reg / rtc_now / rtc_set) is kernel-only; the conversion logic
  * (rtc_decode / rtc_encode / rtc_day_of_week) is PURE so the unit oracle
  * (os/initechdos/test_rtc.c) compiles + tests it HOSTED with no I/O dependency.
  *
- * Ref (Law 1): MC146818A datasheet -- ports 0x70 (index) / 0x71 (data); time/
+ * Ref (The constitution): MC146818A datasheet -- ports 0x70 (index) / 0x71 (data); time/
  *   date registers 0x00..0x09; Status Reg A (0x0A) bit 7 = UIP; Status Reg B
  *   (0x0B) bit 1 = 24h, bit 2 = DM (1=binary, 0=BCD); century register 0x32.
  *   QEMU hw/rtc/mc146818rtc.c emulates exactly this. See rtc.h for the full
- *   citation. CLAUDE.md Law 2, Rule 2 (fail loud / never hang), Rule 11, Rule 12.
+ *   citation. CLAUDE.md, The constitution (fail loud / never hang), The constitution.
  */
 
 #include "rtc.h"
@@ -59,7 +59,7 @@ static uint8_t days_in_month(uint16_t year, uint8_t month)
     return d[month - 1u];
 }
 
-/* Validate a normalized date/time is in range (fail loud, Rule 2). */
+/* Validate a normalized date/time is in range (fail loud, The constitution). */
 static int rtc_time_valid(const rtc_time_t *t)
 {
     if (t->month < 1u || t->month > 12u) {
@@ -205,7 +205,7 @@ static void rtc_write_reg(uint8_t reg, uint8_t val)
     outb(RTC_PORT_DATA, val);
 }
 
-/* Wait (BOUNDED -- never hang, Rule 2) until the RTC is NOT mid-update, so a
+/* Wait (BOUNDED -- never hang, The constitution) until the RTC is NOT mid-update, so a
  * snapshot is coherent. Returns 1 if it settled, 0 if it never did (caller
  * reads anyway -- best effort -- but the double-read below also protects us). */
 static int rtc_wait_not_updating(void)

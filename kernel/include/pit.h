@@ -9,8 +9,8 @@
  *        mode 3 (square wave), binary count. (8254 datasheet; OSDev "Programmable
  *        Interval Timer".) The classic ROM-BIOS rate uses divisor 0 (== 65536)
  *        -> 18.2065 Hz; a divisor of 11932 -> ~100.0 Hz. 8259A EOI = 0x20 to the
- *        master command port 0x20. CLAUDE.md Law 1 (cite), Rule 2 (fail loud),
- *        Rule 12 (ASCII).
+ *        master command port 0x20. CLAUDE.md, The constitution (cite), The constitution (fail loud),
+ *        The constitution (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  *
@@ -54,7 +54,7 @@ void pit_irq_handler(void);
  * NULL: every kernel that does not call pit_set_tick_hook() observes a
  * pit_irq_handler that is byte-for-byte the legacy behaviour (increment + EOI),
  * so pit.o is shared across all kernels with ZERO new undefined symbol and ZERO
- * behavioural change (CLAUDE.md Rule 11 byte-stability; Rule 2 fail-loud is
+ * behavioural change (CLAUDE.md, The constitution byte-stability; The constitution fail-loud is
  * preserved -- a NULL hook is simply not called, never dereferenced).
  *
  * The FLAIR-live kernel installs flair_tick_advance() here so the cooperative

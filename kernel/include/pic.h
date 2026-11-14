@@ -4,7 +4,7 @@
  * Ref:   docs/research/internals-int21h-ground-truth.md Sec 4 (ICW sequence,
  *        ports, mask-all) + Sec 5.1 / Sec 8 Risk 3 (the 0x28/0x30 remap that
  *        keeps vector 0x21 free for `int 0x21`); Intel 8259A datasheet (ICW1-4
- *        initialization protocol, external reference). CLAUDE.md Law 1, Rule 2.
+ *        initialization protocol, external reference). CLAUDE.md, The constitution.
  *
  * ARTIFACT code: freestanding, uses io.h (inb/outb) only.
  */

@@ -9,7 +9,7 @@
  *        MUST match the asm pushad order); Intel SDM Vol 3A Sec 6.10-6.12 (IDT,
  *        gate descriptors, interrupt/exception delivery); Intel SDM Vol 2A
  *        PUSHAD (push order EAX,ECX,EDX,EBX,ESP,EBP,ESI,EDI) + LIDT/IRET.
- *        CLAUDE.md Law 1 (cite source), Rule 2 (fail loud), Rule 12 (ASCII).
+ *        CLAUDE.md, The constitution (cite source), The constitution (fail loud), The constitution (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only. The
  * encode/layout logic is ALSO compiled HOSTED by the factory oracle
@@ -37,7 +37,7 @@
  * conventions); these attributes pin the asm boundary to the stack ABI the
  * stubs were written against, so isr.asm / tbx_gate.asm stay byte-identical.
  * No-op on the hosted (x86-64) oracle builds. Ref: GCC 13 "x86 Function
- * Attributes" cdecl / regparm; CLAUDE.md Law 3; PRD Sec 5. */
+ * Attributes" cdecl / regparm; CLAUDE.md, The constitution; PRD Sec 5. */
 #ifndef KERNEL_ASM_ABI
 #if defined(__i386__)
 #define KERNEL_ASM_ABI __attribute__((cdecl, regparm(0)))

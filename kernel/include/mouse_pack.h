@@ -5,7 +5,7 @@
  *          axis INVERTED because the producer packed the RAW PS/2 dy with no
  *          Y-flip, violating the locked ring-payload contract).
  *
- * Ref (Law 1):
+ * Ref (The constitution):
  *   - spec/event_model.h Sec 5 (flair_raw_event_t MOUSE payload, LOCKED):
  *     "bits 16..23 = signed delta Y as int8_t ... Y axis inverted from PS/2
  *      convention to screen-down-positive." The flip MUST happen BEFORE the
@@ -30,12 +30,12 @@
  *   without linking the freestanding IRQ shell (mouse_irq_handler needs real
  *   inb()/outb() and cannot run un-privileged on a host process).
  *
- * ARTIFACT code (Law 3): freestanding-safe (stdint.h only, no I/O, no libc).
+ * ARTIFACT code (The constitution): freestanding-safe (stdint.h only, no I/O, no libc).
  * Dual-compile: hosted (harness/proptest/test_mouse_producer.c) AND
  * freestanding (included from os/initechdos/kmain.c under -m32 -ffreestanding).
- * Rule 11 (deterministic, pure function). Rule 12 (ASCII-clean).
+ * The constitution (deterministic, pure function). The constitution (ASCII-clean).
  *
- * MUTATION PROBE (Rule 6):
+ * MUTATION PROBE (How the tree is organised):
  *   EVENT_MUTATE_FLIP_SIGN -- inverts the already-cooked screen-dy a SECOND
  *   time, exactly reproducing the initech-rgt8 polarity bug. Compiling
  *   harness/proptest/test_mouse_producer.c with this macro defined MUST

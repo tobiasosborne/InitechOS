@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 /* Bounds on the parsed directive arrays. CONFIG.SYS realistically carries only a
- * handful of DEVICE=/INSTALL= lines; these small fixed arrays avoid malloc (Law 3)
+ * handful of DEVICE=/INSTALL= lines; these small fixed arrays avoid malloc (The constitution)
  * and overflow extras are dropped (DOS itself caps loadable drivers). An 8.3 name
  * is at most 12 chars ("NAME.EXT") + NUL = 13; round to 16 for alignment headroom. */
 #define CONFIG_SYS_NAME_MAX     16u   /* one 8.3 device/install name + NUL          */
@@ -59,7 +59,7 @@ typedef struct dos_config {
  * into *out. Lenient + case-insensitive: blank lines, ';'-comment lines, and
  * unknown directives are skipped (NOT fatal). Line endings may be LF or CRLF.
  * Returns the number of directives it RECOGNIZED (>= 0). Fails loud (panic/abort)
- * ONLY on out == NULL (a programmer bug, Rule 2); buf == NULL with len 0 is the
+ * ONLY on out == NULL (a programmer bug, The constitution); buf == NULL with len 0 is the
  * empty file (out is zeroed, returns 0). Pure (no I/O), so host-testable. */
 int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out);
 

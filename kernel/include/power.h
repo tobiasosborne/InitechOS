@@ -19,18 +19,18 @@
  *        Intel SDM Vol 2 (CLI / HLT): with IF clear, HLT stops the processor
  *        until NMI or RESET -- the halt is permanent. NOT backed by a local
  *        copy either.
- *        CLAUDE.md Law 1 (cite), Rule 2 (fail loud: a reset that does not
- *        happen is a PANIC with context, never a silent hang), Rule 11, Rule 12.
+ *        CLAUDE.md, The constitution (cite), The constitution (fail loud: a reset that does not
+ *        happen is a PANIC with context, never a silent hang), The constitution.
  *
  * WHY A HEADER (static inline), not a new object: the only kernel caller is
  * os/initechdos/kmain.c's Finder power path (os/flair may not include os/initechdos --
  * kmain.c is the seam that services every Finder command outcome, the Empty
  * Trash pattern). Inline keeps every other kernel image byte-identical and lets
- * the Rule-6 mutant ride the existing kmain mutant rules (-D on kmain.o only).
+ * the How the tree is organised mutant ride the existing kmain mutant rules (-D on kmain.o only).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  *
- * MUTANT KNOB (Rule 6; -D on kmain.o only, test-flair-restart-mutant):
+ * MUTANT KNOB (How the tree is organised; -D on kmain.o only, test-flair-restart-mutant):
  *   POWER_MUT_NO_PULSE -- the reset command byte is 0xFF ("pulse NO output-
  *                         port bit") instead of 0xFE: the controller accepts a
  *                         command, nothing resets, the bounded spin expires and
@@ -46,7 +46,7 @@
 #define KBC_COMMAND_PORT     0x64u  /* 8042 command register (write)          */
 #define KBC_STATUS_IBF       0x02u  /* bit 1: input buffer full               */
 #define KBC_CMD_PULSE_RESET  0xFEu  /* pulse output-port bit 0 = CPU RESET    */
-/* Bounded spins (Rule 2): each is one port read, about 1 us on an ISA-bus AT,
+/* Bounded spins (The constitution): each is one port read, about 1 us on an ISA-bus AT,
  * so 2^20 reads is about a second -- far above the controller's command
  * latency, small enough that a dead controller is reported, not waited on. */
 #define KBC_SPIN_MAX         0x100000u
@@ -68,7 +68,7 @@ static inline void kernel_halt(void)
  *
  * Returns ONLY ON FAILURE, with what the caller needs for its PANIC line: the
  * last status byte read, plus 0x100 when the input buffer never drained (the
- * command was never written). A caller must treat a return as fatal (Rule 2):
+ * command was never written). A caller must treat a return as fatal (The constitution):
  * kmain.c prints "PANIC kernel_reset: ..." and calls kernel_halt(). */
 static inline uint32_t kernel_reset(void)
 {
