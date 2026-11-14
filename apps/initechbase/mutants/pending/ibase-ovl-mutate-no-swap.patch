@@ -1,8 +1,0 @@
-# test: test_ibase_ovl_lifetime
---- a/core/ovl.c
-+++ b/core/ovl.c
-@@ -372 +372,3 @@
--    if (O.loaded != id) {
-+    /* MUTANT (CLAUDE.md, The constitution; test-ibase-ovl-swap-emu-mutant only): load once, never
-+     * swap -- whatever overlay came first answers every later call. */
-+    if (O.loaded == OVL_NONE) {

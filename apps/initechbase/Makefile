@@ -61,7 +61,7 @@ NATIVE_MODES ?= $(shell cat tests/native/cases)
 native-check: native-prepare
 	@set -e; test -n "$(strip $(NATIVE_MODES))" || { echo 'FAIL: no native cases selected'; exit 1; }; \
 	for mode in $(NATIVE_MODES); do \
-	 case $$mode in io|stream|stack) check=files;; *) check=check;; esac; \
+	 case $$mode in io|stream|stack) check=files;; ovl-*) check=overlays;; *) check=check;; esac; \
 	 sh tests/native/$$check.sh "$$mode" "$(TOP)" "$(OUT)/INITBASE.EXE" "$(OUT)/INITBASE.OVL" "$(OUT)/native/$$mode"; \
 	done
 

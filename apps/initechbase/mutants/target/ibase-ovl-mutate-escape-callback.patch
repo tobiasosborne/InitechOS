@@ -1,0 +1,28 @@
+# target: native-ovl-callback
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -101,7 +101,7 @@
+     }
+     return 0;
+ }
+-static void alternate_output(
++static IBASE_OVL_TEXT(set) void alternate_output(
+ void *user,const char *s,uint32_t n)
+ {
+     xb_interp *ip=user;ibase_pal_t *pal=xb_interp_pal(ip);int i;
+@@ -540,7 +540,6 @@
+     int i;
+     ss->alternate=-1;ss->alternate_on=0;
+     ss->alternate_name[0]=0;
+-    ibase_bind_output(xb_interp_ctx(ip),alternate_output,ip);
+ 
+     /*
+      * SET EXACT default = OFF [verified: mint-results-002.md].
+@@ -1056,6 +1055,7 @@
+     const char *s, *opt_start;
+     char        opt[32];
+     int         i, k, opt_len;
++    ibase_bind_output(xb_interp_ctx(ip),alternate_output,ip);
+ 
+     if(k_unused==1) {
+         ss=set_state_for(ip,(int *)0);

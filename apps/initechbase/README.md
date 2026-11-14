@@ -2,58 +2,47 @@
 
 InitechBase provides a dBASE III PLUS 1.1 command interpreter with DBF tables,
 DBT memos, NDX indexes, ten work areas, command programs and a dot prompt.
-This import adds packaging and boot validation; it adds no language features.
 
-`make` builds INITBASE.EXE and INITBASE.OVL. `make test` runs the independent
-host corpus (77 suites, 30-second execution budget, excluding compilation).
-`make test THOROUGH=1` adds the live real-dBASE DOSBox differential. Missing
-references fail. `make pending CASE=...` exposes unfinished captures honestly;
-it is not part of the passing selection. `make pair-test EXE=/absolute/file.EXE`
-runs the 50 container/overlay checks. `make smoke` builds the product image,
-then drives the DOS session on QEMU and Bochs at 8 MiB. Test fixtures live on a
-separate TEST disk; the product working volume contains only the EXE/OVL pair.
-Logs and mtools readbacks are under build/apps/initechbase/smoke.
+`make` builds INITBASE.EXE and INITBASE.OVL. `make test` runs 77 independent
+host suites with a 30-second execution budget, excluding compilation, and
+validates the real target pair. `make test THOROUGH=1` adds the live genuine
+III+ differential. Missing references fail. `make pending CASE=...` exposes
+unfinished captures; it is outside the passing selection.
+
+`make smoke` drives the one product image on QEMU and Bochs at 8 MiB, reads
+files back with mtools/independent readers and reopens them with genuine III+.
+It passes 50 checks. Scenarios and the selected application pair live on a
+separate disposable TEST disk; no test scenario is compiled into the kernel.
+`make native-check` runs the DOS console, file, program-return and overlay
+oracles. `make mutants` runs 250 host patches and 19 target patches, including
+three static semantic rejections. All 28 original pending faults are qualified.
+The test controls themselves must receive zero kills.
 
 Core, command and codec sources include only this component's headers. The
-PAL vtable is the only platform interface; pal_dos uses INT 21h, flat pointers
-and CF/error returns. The host binding is never linked into the product.
-Dependencies: kernel/include/memory_map.h and initechmz_extended.h for the DOS
-PAL and packaging contract; factory/mz for the generic mzlink/mzcheck tools;
-factory/testlib and emu drivers for judging. No SDK or Toolbox dependency and
-no build input from attic. Host tests retain the inherited independent Python
-DBF/DBT/NDX readers; new orchestration is C, make and POSIX shell.
+PAL vtable is the platform interface; pal_dos uses INT 21h and CF/error returns.
+The host binding is never linked into the product. Dependencies:
+kernel/include/memory_map.h and initechmz_extended.h for the DOS PAL and
+packaging contract; factory/mz for mzlink/mzcheck; factory/testlib and emulator
+drivers for judging. No SDK or Toolbox dependency and no build input from
+attic. Python is used only for independent foreign-format readers.
 
-## Loader and overlay contract
+## Loader and overlays
 
-The imported baseline resident module is 107744 bytes with 792 relocations; INITBASE.EXE is
-110976 bytes, including its relocation header, and INITBASE.OVL is 39424 bytes.
-Above the resident bytes, the link needs a 13968-byte overlay slot, 16 bytes
-of BSS alignment, 47680 bytes of BSS, and a 3952-byte PAL heap region: 65616
-bytes total. Startup zeroes BSS; the PAL initializes that fixed first region
-and obtains its separate 32912-byte scratch/codec allocation through AH=48h.
+The resident image, six overlays, BSS, PAL heap tail and fixed slot are checked
+by the linker, overlay packer, independent MZ reader and 50 pair checks.
+`make package-check` reports current geometry; artifact sizes are not frozen.
+IBASE_LOADER_RESERVE follows the public 262144-byte module ceiling, covering
+the slot, alignment, BSS and PAL tail. tools/ibase_memory_ld.c generates both
+linker symbols and descriptor arguments. The old 65536-byte reserve was too
+small; the kernel cannot infer this runtime tail from serialized module bytes.
 
-The old app-owned 65536-byte reserve was 80 bytes short. App policy now gives
-the runtime tail the same budget as a maximum module: IBASE_LOADER_RESERVE
-follows INITECHMZ_EXT_MODULE_MAX (262144 bytes), with 196528 bytes of tail
-headroom. It leaves 1657616 usable bytes in the DOS arena (1624704 above the
-required minimum). tools/ibase_memory_ld.c generates both the linker symbols
-and the generic MZ descriptor arguments from include/ibase/memory_contract.h.
-boot/ibase.ld checks the actual tail, module ceiling and complete footprint
-against the high-memory guard and minimum heap. factory/mz/mzcheck checks the
-container independently. No kernel change or size-squeezing flags are needed.
-
-Ground truth: kernel/mz.c reads reserve_bytes from the extended descriptor;
-kernel/loader_validation.c:loader_high_plan places the allocation arena at
-ALIGN(EXT_APP_BASE + module length + reserve_bytes,16). It cannot infer BSS.
-The reserve protects our entire runtime tail from that arena, independently
-of LOAD_STAGING_MAX, PROGRAM_BSS_RESERVE and graphical tenant limits.
-
-Six overlay entries reuse one fixed slot; on-disk overlay bytes do not live
-in BSS. Startup validates the matching file, and the manager checks lifetime,
-stamp, CRC and relocations when loading it. It is separate from FLAIR. Removing
-it would require resident dispatch and new lifetime/packaging proofs, outside
-this import. Target flags retain soft-float, section isolation and the shipped
-FLOW_MAX_REGISTRY=1/FLOW_MEMVAR_ARENA=6000 profile with the default C ABI.
+A module may call resident code but cannot name another module. Resident code
+cannot retain module code/data, and a live module cannot evict its return
+address. The target linker and relocation call graph enforce static boundaries;
+runtime guards reject escaped pointers before they outlive the slot. Modules
+are stamp/CRC/geometry/relocation checked. Missing/corrupt media receive the
+documented retry/abort refusal. Its text follows the real executable's string;
+exact missing-OVL runtime parity with III+ is not claimed.
 
 ## Frozen feature inventory
 
@@ -127,171 +116,72 @@ SEEK lines match real III+; its Y2K report uses the authored canon golden:
 CTOD('01/31/00') is 1900, A1001 ages -36477 days, and overdue total is 0.00.
 The period rollover bug is enforced.
 
-## Mutation and migration evidence
+## Write preservation
 
-Product faults live only as zero-fuzz patches under mutants/. `make mutants`
-groups identical host selections and invokes the shared strict factory runner
-with four workers (MUTANT_JOBS overrides; MUTANT_SERIAL=1 uses mk/mutants.mk
-alone). Where available, ccache caches sandbox host compiles without debug
-information, keeping scratch paths out of the cache key. Product flags and the
-ordinary host oracle keep their normal settings. Each selection has one passing
-baseline; every kill must compile and
-fail the same runtime suite twice. Pending patches are excluded, with their
-specific missing oracle recorded in mutants/pending/README.md. No survivor is
-reported as killed.
+The operator's guarantee governs reported failures; this is not crash atomicity.
+DBF flush stages the complete image, including +2-to-+1 header normalization.
+Incremental NDX changes and DBT append/flush also stage complete images.
+COPY FILE, SAVE TO, REPORT, LABEL, ALTERNATE and index builds retain predecessors
+through their last fallible validation. Open-table/memo/index output aliases are
+refused. ALTERNATE publishes on close and reports write/close failures. Real
+III+ full-disk COPY/SAVE captures are destructive; that behavior is not copied.
+Sources and detailed fault coverage are in tests/write-safety/README.md.
 
-`sh tests/smoke/red.sh` drops REPLACE's write, boots the same session, requires
-the independent DBF readback to reject it, and restores/rebuilds the product.
-The EXE and overlay hashes are compared across mutation-hook removal.
-The remaining legacy emulator scenarios are listed in tests/SMOKES.md;
-tests/IMPORT.md records host provenance and unfinished migration work.
+REPLACE, APPEND BLANK and each APPEND FROM row retain the DBF and every index
+predecessor until that record is complete. Earlier completed source rows remain
+if a later import fails. PACK holds the table and all indexes through rebuilding
+and final navigation. Key extraction reads physical rows without consulting the
+obsolete old sequence. REINDEX likewise discards stale navigation only after
+validation. The genuine C21 repair compares both rows, both seeks and recnos.
 
-At import: 258 original fault names (including nine aliases), plus the
-write-loss control: 231 active patches killed, 28 pending. That four-worker
-`make mutants` sweep took 208 seconds with the local cache. Imported product
-bytes before and after hook removal were identical:
+Refused DELETE, RECALL, ZAP and PACK discard rejected arena edits, restoring
+record count/cursor and invalidating navigation. Recovery can grow PACK's arena
+back to its pre-compaction size. An unreadable predecessor latches further
+flushes until a reload succeeds. Fault tests check the next unrelated write,
+not just the file snapshot at the reported error.
 
-- INITBASE.EXE: `5a713213ab16795e8f9efd24ad0ce9121db34fb58ae544a2b25983aadd0f7501`
-- INITBASE.OVL: `015fd792d0b0d458761c956024250a41a620c53e6dc1fff1e9cad11b8929db1d`
+DOS 3.30 offers no atomic replace through INT 21h. If installation and restoration
+both fail, the operator's explicit review ruling applies: InitechBase prints
+`Previous file retained as: <exact pathname>` and deletes nothing. The old BAK,
+new stage and installed replacement remain available; the original name can be
+absent. Kernel initech-7mb66's primitive is not an INT 21h service and is not
+called. This metadata double-failure residual remains explicit.
 
-The product smoke passes 44 checks. The top-level parallel test run is ALL
-GREEN (11 components, 89 seconds); InitechBase executes its 75 suites in nine
-seconds. `make status` reports apps/initechbase as imported. This establishes
-the import conditions and the named DOS journey, not the deferred parity and
-screen qualification listed above.
+## Independent checks and remaining work
 
-## Write preservation and reference qualification
+Tier 0 compares real period captures, literal original file bytes and independent
+format/property checks. DBF comparisons normalize only volatile header date and
+reserved bytes. dbsafe's exhaustive write/short-write/seek/close/rename/open/read/
+allocation matrices cover restored handles, retries, multiple indexes and
+completed import prefixes. Case selection is tests/conformance/accepted.cases.
+Thirty-five conformance captures pass. C33's disk-DO file-budget repair remains
+blocked by kernel initech-kyrcw (CLOSE of standard JFT slot 3 falsely succeeds);
+its genuine PSP/JFT capture and app checkpoint are recorded in the phase report.
+Its expected limit is not changed to fit the kernel defect.
 
-DBF flush and committed APPEND serialize to a separate file, including +2 to
-+1 header normalization. COPY FILE (including self-copy), SAVE TO, REPORT,
-LABEL, ALTERNATE and index builds likewise close a completed stage before
-replacing their destination. An output alias of an open table, memo or index
-is refused. ALTERNATE publishes on close and reports output/close failures.
-The policy is the operator's failed-save guarantee; the real III+ full-disk
-COPY/SAVE captures are destructive. Sources, precise fault coverage and the
-remaining repeated-metadata-failure limitation are in
-[tests/write-safety/README.md](tests/write-safety/README.md).
+The genuine-III+ leg of smoke reopens target DBF/NDX, C21's repaired pair, a
+host-written memo pair and the +2 table preserved by an injected flush failure.
+It checks exact values, counts and seeks. W4 editor/file comparators remain
+self-tests, not qualification of unimplemented editors or GET/READ.
 
-The host SAY suite executes three captured supported @...TO workflows and
-compares target character, attribute and cursor dumps to real III+. W4's
-retained editor screens and file comparators are explicitly self-tests. They
-still do not qualify the unimplemented editors or traceback UI. The smoke
-also starts genuine III+ to reopen target DBF/NDX, a host-written memo pair,
-and the real +2 table preserved by an injected flush failure. It checks exact
-values, record counts and seeks. GET/READ is unchanged.
+Native console checks compare all 4002 character/attribute/cursor bytes against
+real supported TE/Enter screens and grade literal redirected SAY cells. The
+QMP observer first proves its copied ELF matches the booted system binary.
+Color checks use the documented CGA/HELP.DBS properties and do not claim a real
+SET COLOR VGA capture. File checks grade exported C21 data; stream checks retain
+every internal CR/LF from the complete genuine depth-with transcript. The DOS
+return marker must be an executed ECHO, not its input echo. The stack fault emits
+the correct full transcript but fails normal return with UD6/HALTED.
 
-The artifact sizes and hashes earlier in this README describe the imported
-baseline, before this change. `make package-check` reports the current loader
-geometry and validates the actual EXE/OVL pair; no size or hash above is a
-claim about the current build. The 5 pending patches remain unproved.
+Mutation faults live only in patches. Host kills compile and fail the same
+independent runtime suite twice. Target static faults must compile every object
+and receive the specific linker/call-graph rejection twice. Native faults require
+the same independently observed rejection twice. Corrupt/missing media and
+retained pointers have explicit format/lifetime oracles. Generic compiler errors,
+incomplete guests and timeouts alone earn no kill. No-fault, compiler-error and
+native no-fault controls must receive zero kills. Seventy-two active faults were
+refreshed contextually after source refactoring and the complete sweep reproved.
+See tests/native and mutants/target for the exact target contracts.
 
-The C19/C20/C21 conformance repair selection is now part of tier 0 (77 suites).
-Its real III+ fixtures come unchanged from the conformance study. An old NDX
-sequence is sized by its own entry count, including removed DBF records; explicit
-GO BOTTOM on the captured missing record raises #4 and leaves blank fields at
-EOF. REINDEX obtains keys in physical DBF order without consulting that old
-sequence, then invalidates navigation state. C21's transcript, the edited row 2
-and the rebuilt two-entry NDX match real III+; its booted smoke readback checks
-the same three results on both emulators. The study's other fifteen defects
-are being repaired against their retained captures; the accepted selection is
-listed below. The 5 pending patches remain to be qualified.
-
-INDEX and REINDEX retain each predecessor through their final reopen, header,
-attachment and navigation checks. An error restores the old file and index
-metadata; successful validation alone releases the backup. Fault tests exercise
-both the public REINDEX API and the commands, including full attachment slots
-and allocation failures. Incremental NDX and DBT append/flush now also stage
-their complete images. The `ndxfail`, `rowfail` and `dbtfail` matrices check
-preservation, one-record DBF/index consistency and recovered-handle retries.
-
-DOS 3.30 cannot atomically replace files through INT 21h. Under the operator's
-review ruling, if installation and restoration both fail, InitechBase prints
-`Previous file retained as: <exact pathname>` for the surviving predecessor.
-It deletes nothing in that double-failure case: the old BAK, new stage and any
-installed replacement remain available. The original name can be absent; this
-is the explicit recovery residual until suitable DOS support exists. The kernel
-primitive tracked as initech-7mb66 is not an INT 21h service and is not called.
-
-The genuine-III+ leg of `make smoke` also reopens C21's REPAIRED.DBF and
-STALE.NDX, checking both physical rows (A/1 and B/9), count two, and both
-indexed seeks with exact record numbers/values. `reopen-red.sh ... c21` corrupts
-only the serialized repaired row and requires a completed genuine run to reject
-it. This emulator coverage belongs to tier 1; tier 0 remains emulator-free.
-
-The accepted conformance selection is listed in
-`tests/conformance/accepted.cases`. C13/C15/C18 now also qualify LEN's #34
-rejection of memo expressions; separate typed-value checks cover resolved
-lengths 0, 12, 511 and 2300 independently of outstanding memo display defects.
-
-Five of the original pending patches now use `test_ibase_forms`, which runs
-eight captured supported command workflows and compares all 4002 screen and
-cursor bytes to real III+. It starts from a captured filled page to qualify
-CLEAR, includes full-page cursor wrap and large-coordinate narrowing, and
-executes CLEAR ALL through the real command/work-area path. All five compile
-and fail this oracle twice under the strict runner. Nineteen original
-patches remain pending, as listed in `mutants/pending/README.md`.
-
-The same oracle now covers eleven workflows, including actual prompt policy
-and writing after captured NFILL/CF1 returns. Four more original pending faults
-are active: bottom placement, scoreboard scrolling, deferred CLEAR cleanup
-and clearing 80 columns instead of 79. `tests/prompt-tail` retains a new genuine
-III+ VGA/BIOS cursor capture in which the final Z survives the next dot prompt.
-All four compile and fail the strict runtime check twice. Nine of the original
-28 pending faults are qualified; nineteen remain.
-
-DELETE, RECALL, ZAP and a refused PACK flush discard rejected record edits
-before returning. Recovery restores the predecessor's record count and cursor,
-including PACK's larger pre-compaction arena. If the predecessor cannot be
-read, the codec refuses further flushes until a reload succeeds. The `retry`
-fault matrix checks subsequent unrelated writes against genuine CLIENTS rows;
-its authority is the operator's reported-failure preservation guarantee.
-
-PACK retains the DBF and every attached index predecessor until all rebuilds
-and final navigation checks succeed. Key extraction reads physical records,
-without consulting the obsolete index order. The `packfail` matrix includes
-two indexes, short writes and every allocation/read/metadata boundary; retries
-check original survivor bytes and every physical-record/key association.
-
-APPEND FROM publishes each fully populated source row together with its index
-entries. A failed row restores its predecessor; earlier completed rows remain.
-The `fromfail` fault matrix compares exact imported bytes and every index key,
-including second-row failures after the first row has completed. Error codes
-cannot turn a failed insertion into a successful blank import.
-
-APPEND BLANK uses the same complete-record transaction as APPEND FROM. A
-reported index failure restores the original DBF and all indexes, including
-a successfully updated first index when the second fails. `blankfail` grades
-exact original rows, the new blank row, index coverage and recovered retries.
-
-Three more original pending faults are qualified by `make target-mutants`,
-also included in `make mutants`: REPORT-to-FILE references, resident-to-REPORT
-references and nested program execution from an overlay. All target C/assembly
-objects must compile; the independent linker or call-graph property then rejects
-the specific lifetime violation twice. Ordinary compiler errors are errors.
-Two controls prove that an unchanged product and an ordinary compiler failure
-both receive zero kills. These are static semantic rejections, not host runtime
-kills. Twelve original pending faults are qualified; sixteen remain.
-
-`make native-check` drives the target DOS PAL and compares captured pages with
-real III+ screens and documented console properties. Its observer proves that
-the booted system binary matches its ELF before reading cells. Seven further
-original pending faults now have repeated completed-guest kills: cursor row 25,
-raw wrapping, Enter scrolling, color selection, color reset, extended keys and
-redirected SAY. Nineteen of the original 28 are qualified; nine remain.
-Native observers/scenarios stay outside the product image; see tests/native.
-
-The active host sweep was repeated after the conformance/write repairs.
-Seventy-two old faults needed contextual refresh or movement to the live
-command/serializer/cache operation after refactoring. Fault semantics and
-independent oracles were retained. The complete current sweep passes: 250
-compiled host faults rejected twice and all ten target faults rejected twice;
-no survivors or compiler errors count as kills. The nine original pending
-faults remain explicitly outside that passing selection.
-
-Four more original pending faults have native proofs: short DBF reads, lost
-file writes, lost stream CR/LF and placing WITH frames on the native stack.
-The first two compare the actual saved DBF to the genuine C21 result. Stream
-bytes match the complete real depth-with capture; its stack fault produces the
-correct transcript but cannot return from QUIT to DOS. No generic crash or
-elapsed timeout earns a kill. A new native no-fault control earns zero kills.
-Twenty-three original pending faults are qualified; five overlay faults remain.
+Unclaimed legacy emulator journeys remain with the InitechBase owner in
+tests/SMOKES.md. The imported helpers build only here; nothing builds from attic.

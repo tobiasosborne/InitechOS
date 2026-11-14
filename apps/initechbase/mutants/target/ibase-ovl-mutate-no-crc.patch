@@ -1,0 +1,19 @@
+# target: native-ovl-crc
+--- a/core/ovl.c
++++ b/core/ovl.c
+@@ -280,7 +280,6 @@
+         if (ovl_read_at(pos, buf, i)) { ovl_close(); return IBASE_OVL_MISSING; }
+         crc = ibase_ovl_crc32(crc, buf, i);
+     }
+-    if (crc != ovl_rd32(hdr + IBASE_OVL_HDR_STAMP_OFF)) { ovl_close(); return IBASE_OVL_CORRUPT; }
+     if (ovl_read_at(IBASE_OVL_HDR_SIZE, O.dir, IBASE_OVL_COUNT * IBASE_OVL_DIR_SIZE)) {
+         ovl_close();
+         return IBASE_OVL_MISSING;
+@@ -349,7 +348,6 @@
+         crc = ibase_ovl_crc32(crc, rel, n * 4u);
+         if (ibase_ovl_relocate(slot, len, rel, n, (uint32_t)(uintptr_t)__ibase_base)) return -1;
+     }
+-    if (crc != ecrc) return -1;
+     if (h->magic != IBASE_OVL_MAGIC || h->id != id) return -1;
+     if ((uintptr_t)h->entry < (uintptr_t)slot + IBASE_OVL_SLOT_HDR_SIZE ||
+         (uintptr_t)h->entry >= (uintptr_t)slot + len)

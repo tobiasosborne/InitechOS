@@ -27,8 +27,9 @@ for patch_file do
  static-cross) diagnostic='prohibited cross reference from .ovl_report to `ndx_rebuild' ;;
  static-resref) diagnostic='prohibited cross reference from .text to `.text.0ovl_report' ;;
  static-reenter) diagnostic='no-returning-into-an-evicted-overlay rule violated: ibase_ovl_call' ;;
- native-forms|native-enter|native-keys|native-color|native-color-state|native-controls|native-io|native-stream|native-stack)
+ native-forms|native-enter|native-keys|native-color|native-color-state|native-controls|native-io|native-stream|native-stack|native-ovl-crc|native-ovl-missing|native-ovl-callback|native-ovl-hook)
   case $mode in native-io|native-stream|native-stack)checker=tests/native/files.sh;;esac
+  case $mode in native-ovl-*)checker=tests/native/overlays.sh;;esac
   oracle=${mode#native-}
   if [ ! -f "$run/baseline/$mode.ok" ]; then
    if ! sh "$checker" "$oracle" "$top" "$run/baseline/build/INITBASE.EXE" "$run/baseline/build/INITBASE.OVL" "$run/baseline/$mode" > "$run/baseline/$mode.log" 2>&1; then
@@ -52,7 +53,7 @@ for patch_file do
   for pass in 1 2; do
    rc=0
    sh "$checker" "$oracle" "$top" "$scratch/build/INITBASE.EXE" "$scratch/build/INITBASE.OVL" "$scratch/observe-$pass" > "$scratch/observe-$pass.log" 2>&1 || rc=$?
-   if [ "$rc" -ne 1 ] || ! grep -E '^RED: first difference|^RED console-review:|^RED native (io|stream|stack):' "$scratch/observe-$pass.log" > "$scratch/verdict-$pass"; then good=0; fi
+   if [ "$rc" -ne 1 ] || ! grep -E '^RED: first difference|^RED console-review:|^RED native (io|stream|stack|ovl-[a-z]+):' "$scratch/observe-$pass.log" > "$scratch/verdict-$pass"; then good=0; fi
   done
   if [ "$good" -eq 1 ] && cmp -s "$scratch/verdict-1" "$scratch/verdict-2"; then
    echo "  killed $name ($mode: same independent semantic rejection twice)";killed=$((killed+1))

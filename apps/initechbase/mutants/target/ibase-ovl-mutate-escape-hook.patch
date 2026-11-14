@@ -1,0 +1,20 @@
+# target: native-ovl-hook
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1049,6 +1049,8 @@
+  * SET sub-option parser. set_cmd_hook (resident) claims the verb exactly as
+  * before; everything after the claim runs here, unchanged. k is unused. */
+ /* Deliberate retained-pointer regressions for the runtime gates. */
++static IBASE_OVL_TEXT(set) int ovl_bad_hook(void *u,xb_interp *ip,const char *v,const char *a,int *e)
++{ (void)u;(void)ip;(void)v;(void)a;(void)e;return CMD_UNKNOWN; }
+ static IBASE_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
+                                              const char *args, int *err_code)
+ {
+@@ -1056,6 +1058,7 @@
+     const char *s, *opt_start;
+     char        opt[32];
+     int         i, k, opt_len;
++    xb_interp_add_cmd_hook(ip,ovl_bad_hook,ip);
+ 
+     if(k_unused==1) {
+         ss=set_state_for(ip,(int *)0);

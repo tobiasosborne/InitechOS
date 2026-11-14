@@ -1,7 +1,0 @@
-# test: test_ibase_ovl_lifetime
---- a/core/ovl.c
-+++ b/core/ovl.c
-@@ -283 +282,0 @@
--    if (crc != ovl_rd32(hdr + IBASE_OVL_HDR_STAMP_OFF)) { ovl_close(); return IBASE_OVL_CORRUPT; }
-@@ -352 +350,0 @@
--    if (crc != ecrc) return -1;

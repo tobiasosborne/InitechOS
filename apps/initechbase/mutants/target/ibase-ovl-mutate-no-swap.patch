@@ -1,0 +1,12 @@
+# target: native-forms
+--- a/core/ovl.c
++++ b/core/ovl.c
+@@ -369,7 +369,7 @@
+     IBASE_RETAIN(ip);
+     ibase_ovl_validate_pal(O.pal);
+     ibase_ovl_validate_ctx(xb_interp_ctx(ip));
+-    if (O.loaded != id) {
++    if (O.loaded == OVL_NONE) {
+         /* Entry above forbids reentry, including an indirect same-id call. */
+         while (ovl_fetch(id)) {
+             ovl_close();

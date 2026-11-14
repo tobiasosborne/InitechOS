@@ -1,0 +1,19 @@
+# target: native-ovl-missing
+--- a/core/ovl.c
++++ b/core/ovl.c
+@@ -319,6 +319,7 @@
+     O.fd = -1;
+     O.loaded = OVL_NONE;
+     O.depth = 0u;
++    return 0; /* fault: no startup media validation */
+     while (ovl_ready() != IBASE_OVL_OK) {
+         if (!ovl_prompt()) return -1;
+     }
+@@ -360,6 +361,7 @@
+ 
+ int ibase_ovl_call(unsigned id, int k, xb_interp *ip, const char *args, int *ec)
+ {
++    if(id==IBASE_OVL_SET && k==1)return 0;
+     const ibase_ovl_slot_hdr *h = (const ibase_ovl_slot_hdr *)(const void *)__ovl_slot;
+     int rc;
+ 

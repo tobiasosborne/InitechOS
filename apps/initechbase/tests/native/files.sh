@@ -80,7 +80,7 @@ else
  if [ "$stack_fault" -eq 1 ]; then
   cmp -s "$out/expected" "$out/actual" || fail 'exception before correct captured program completion'
   grep -F nativefilecomplete "$out/run.serial" >/dev/null && fail 'inconsistent DOS return and exception'
-  red 'captured DO program completed, but QUIT raised UD6 and halted instead of returning to DOS'
+  red 'captured DO transcript completed, but normal DOS return was replaced by UD6 and HALTED'
  fi
  cmp -s "$out/expected" "$out/actual" || red 'native stream differs from captured complete DO transcript'
 fi
