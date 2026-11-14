@@ -165,7 +165,7 @@ The two law-authorized temporary exceptions have separate issue/removal records.
 The four migration crossings have exact named, issue-linked declarations;
 unknown or stale migration records fail, and no adjacent vector site is waived.
 `factory/tests/interfaces.sh` compiles independent positive and negative callers,
-including forbidden direct-call/vector patches in factory/mutants/interfaces/.
+including forbidden direct-call/vector patches in factory/tests/fixtures/interfaces/.
 
 Shared host mutation kills require fresh per-test receipts, successful completion
 of the whole selected runner, exit 1 from the test, a completed

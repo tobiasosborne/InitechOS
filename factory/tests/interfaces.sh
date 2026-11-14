@@ -56,10 +56,10 @@ reject() {
 check
 echo 'ok interface: declared pure call and INT81 compiled green'
 if [ "${INTERFACE_ONLY:-}" != wrong-vector ]; then
- patch -s -p1 < "$repo/factory/mutants/interfaces/forbidden-direct-call.patch"
+ patch -s -p1 < "$repo/factory/tests/fixtures/interfaces/forbidden-direct-call.patch"
  reject direct-call 'undeclared external symbol sft_close_process'
 fi
-patch -s -p1 < "$repo/factory/mutants/interfaces/forbidden-vector.patch"
+patch -s -p1 < "$repo/factory/tests/fixtures/interfaces/forbidden-vector.patch"
 reject wrong-vector 'forbidden INT 39h'
 printf '\nvoid bad(void) { __asm__ volatile("int3"); }\n' >> product.c
 reject trap-vector 'forbidden interrupt opcode'

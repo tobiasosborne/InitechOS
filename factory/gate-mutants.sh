@@ -19,7 +19,7 @@ for patch_file in factory/mutants/gates/*.patch; do
  dependency-query) command='sh factory/tests/dependency-query.sh'; signature='FAIL dependency: accepted error';;
  snapshot-producer) command='sh factory/tests/snapshots.sh'; signature='FAIL snapshot:';;
  worksheet-*) command='sh factory/tests/worksheet.sh'; signature='FAIL worksheet:';;
- desktop-held-key) command="mkdir -p build/factory; cc -std=c11 -O1 -D_POSIX_C_SOURCE=200809L factory/desktop-key-test.c -o build/factory/desktop-key && build/factory/desktop-key"; signature="FAIL desktop key:";;
+ desktop-held-key|bochs-input-*) command="mkdir -p build/factory; cc -std=c11 -O1 -D_POSIX_C_SOURCE=200809L factory/desktop-key-test.c -o build/factory/desktop-key && build/factory/desktop-key"; signature="FAIL desktop key:";;
  desktop-omit-session) command="sh factory/tests/desktop-sessions.sh"; signature="FAIL desktop plan:";;
  desktop-no-progress|desktop-no-overall) command="mkdir -p build/factory; cc -std=c11 -O1 -D_POSIX_C_SOURCE=200809L factory/desktop-wait-test.c -o build/factory/desktop-wait && build/factory/desktop-wait"; signature="FAIL desktop wait:";;
  bochs-timeout|bochs-exit) command='make -s -C factory ../build/factory/bochs-verdict-test'; signature='FAIL Bochs:'

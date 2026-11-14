@@ -35,10 +35,10 @@ smoke:
 capacity:
 	+$(MAKE) -C $(TOP) image
 	sh tests/capacity.sh
-manifest-mutants:
-	sh tests/manifest-mutants.sh
+MUTANT_PATCHES ?= $(wildcard mutants/*.patch)
+manifest-mutants: mutants
 mutants:
-	@echo 'Use factory/red-desktop.sh for the two slice mutations' >&2; exit 1
+	sh tests/manifest-mutants.sh $(MUTANT_PATCHES)
 
 TARGET_ARTIFACTS := $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS
 include $(TOP)/mk/import-check.mk

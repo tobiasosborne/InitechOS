@@ -37,7 +37,7 @@ make test builds both links, checks a strong environment entry in the product
 and a weak one with no GUI symbols in the standalone DOS image, verifies archive
 inputs, and runs the factory transport parser check. make smoke delegates to
 the complete product session. Product sources use no overlay, section GC,
-regparm, callee-pop ABI or LTO. make mutants fails with its actual pending work.
+regparm, callee-pop ABI or LTO.
 
 Installed inputs are an explicit two-column source/destination contract in
 working-volume.list, including COMMAND.COM and the closed utility list.
@@ -60,7 +60,7 @@ smoke exercises the resulting icons on both emulators.
 
 `make test` additionally checks the required workflow inventory, independently
 reads the three DBFs in Python, and verifies source/protocol/canon input
-identity. `make manifest-mutants` rejects an omitted table and an installed
+identity. `make mutants` (alias `manifest-mutants`) rejects an omitted table and an installed
 test driver using isolated manifest patches. Python only reads the foreign DBF format; C and shell produce all
 shipped bytes. Generated tables have a fixed 1993-07-19 update date. Recovered
 TPS bytes retain the original table date. These examples have no memo/index
