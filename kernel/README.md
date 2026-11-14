@@ -271,3 +271,12 @@ addend. Existing flat InitechMZ dword offsets/addends adapt the 16-bit probe;
 foreign MZ refusal remains. Captured addresses and final words grade actual
 product memory; this is no longer a detached reference self-check. Every actual
 factor-based fixup range must be owned, with overflow refused before any write.
+
+Host gate setup creates the complete helper alias set with one C adapter call,
+retaining each gate's private directory. It no longer forks `ln` once for every
+helper in every gate. Replacement metadata checks batch the independent reader
+per scenario while still inspecting every committed image; distinct fixed
+source/destination dates make the timestamp check observable. No test seeds,
+fault positions, image outcomes, assertions or time budget are removed or raised.
+On idle core0 the same105 gates measured16.68s before and9.53s after; the added
+adapter filesystem regression separately checks complete alias creation.

@@ -31,8 +31,18 @@ def entries(path):
     walk(b[root*bps:root*bps+roots*32], '')
     return result
 
-before, after = entries(sys.argv[1]), entries(sys.argv[2])
-stage, dest = (s.replace('\\', '/') for s in sys.argv[3:5])
-s, old, new = before[stage], before[dest], after[dest]
-assert new[:22] == old[:22], 'destination name/attributes/reserved fields changed'
-assert new[22:] == s[22:], 'staged timestamp/chain/size not published'
+if len(sys.argv) < 5:
+    sys.exit(2)
+before = entries(sys.argv[1])
+stage, dest = (s.replace('\\', '/') for s in sys.argv[2:4])
+s, old = before[stage], before[dest]
+checks = 0
+for path in sys.argv[4:]:
+    new = entries(path)[dest]
+    try:
+        assert new[:22] == old[:22], 'destination name/attributes/reserved fields changed'
+        assert new[22:] == s[22:], 'staged timestamp/chain/size not published'
+    except AssertionError as error:
+        sys.exit(f'FAIL replace metadata: {error}\nINITECH_CHECKS {checks+2} failures=1')
+    checks += 2
+print(f'INITECH_CHECKS {checks} failures=0')

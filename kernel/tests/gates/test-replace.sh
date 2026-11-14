@@ -8,17 +8,19 @@ mformat -i "$image" -f 1440 ::
 printf 'the previous document\n' > build/replace/old
 # Different sizes/chains, including empty source and destination below.
 dd if=kernel/tests/fixtures/chain.txt of=build/replace/new bs=1 count=1537 status=none
-mcopy -i "$image" build/replace/old ::DEST.BIN
-mcopy -i "$image" build/replace/new ::STAGE.BIN
+touch -t 199103010800.00 build/replace/old
+touch -t 199203020930.00 build/replace/new
+mcopy -m -i "$image" build/replace/old ::DEST.BIN
+mcopy -m -i "$image" build/replace/new ::STAGE.BIN
 mmd -i "$image" ::SUB
-mcopy -i "$image" build/replace/old ::SUB/DEST.BIN
+mcopy -m -i "$image" build/replace/old ::SUB/DEST.BIN
 # Put staging in a different directory sector (also crosses a subdir cluster).
 for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
- mcopy -i "$image" build/replace/old ::F$n
- mcopy -i "$image" build/replace/old ::SUB/F$n
+ mcopy -m -i "$image" build/replace/old ::F$n
+ mcopy -m -i "$image" build/replace/old ::SUB/F$n
 done
-mcopy -i "$image" build/replace/new ::FAR.BIN
-mcopy -i "$image" build/replace/new ::SUB/STAGE.BIN
+mcopy -m -i "$image" build/replace/new ::FAR.BIN
+mcopy -m -i "$image" build/replace/new ::SUB/STAGE.BIN
 for kind in root same-sector sub empty-stage empty-dest; do
  input=build/replace/input-$kind.img
  cp "$image" "$input"
@@ -46,15 +48,17 @@ for kind in root same-sector sub empty-stage empty-dest; do
    if test "$nth" -eq 1; then cmp "$input" "$out"; fi
   done
  done
+ set --
  for out in build/replace/$kind-*.img; do
   mcopy -o -i "$out" "::$mdest" build/replace/readback || { fail "destination chain is independently readable"; }
   case $out in *-1-0.img|*-1-1.img) mcopy -o -i "$input" "::$mdest" build/replace/old-expected; cmp build/replace/old-expected build/replace/readback;;
    *) cmp build/replace/expected-$kind build/replace/readback
-      "$PYTHON_FAT_REFERENCE" kernel/tests/disk/check_replace.py "$input" "$out" "$stage" "$dest"
+      set -- "$@" "$out"
       if mcopy -o -i "$out" "::$mstage" build/replace/readback 2>/dev/null; then echo 'FAIL staging entry retained';exit 1;fi;;
   esac
   fsck.fat -n "$out" > build/replace/fsck.log
  done
+ "$PYTHON_FAT_REFERENCE" kernel/tests/disk/check_replace.py "$input" "$stage" "$dest" "$@"
 done
 for pair in 'STAGE.BIN SUB\DEST.BIN' 'STAGE.BIN C:\DEST.BIN' 'STAGE.BIN STAGE.BIN' 'MISSING.BIN DEST.BIN' 'SUB DEST.BIN'; do
  set -- $pair

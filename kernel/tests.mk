@@ -457,6 +457,11 @@ EXTRA_HOST_TESTS += tool_test_overlay_captures
 tool_test_overlay_captures_SRCS := tests/test_overlay_captures.c
 tool_test_overlay_captures_OBJS := $(tool_test_loader_OBJS)
 
+HOST_TESTS += test-runner-setup
+test-runner-setup_SRCS := tests/test_runner_setup.c
+test-runner-setup_ARGS := $(OUT)/host/test-int21
+test-runner-setup_DEPS := $(OUT)/host/test-int21
+
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk

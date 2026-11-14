@@ -1,0 +1,12 @@
+# test: test-replace
+--- a/fat12.c
++++ b/fat12.c
+@@ -3320,7 +3320,7 @@
+     replacement = old;
+     replacement.start_cluster = source.start_cluster;
+     replacement.file_size = source.file_size;
+-    replacement.mtime = source.mtime;
++    replacement.mtime = old.mtime;
+     replacement.mdate = source.mdate;
+     rc = fat12_write_dirent_in_dir(vol,fat,fat_len,parent==0,parent,dest_slot,
+                                    &replacement,sector_buf);

@@ -8,10 +8,7 @@ out=${HOST_TEST_OUTPUT:?HOST_TEST_OUTPUT missing}
 work=$out/cases/$gate
 rm -rf "$work"
 mkdir -p "$work/build"
-for tool in "$out"/tool_*; do
- [ -f "$tool" ] || continue
- ln -s "$tool" "$work/build/${tool##*/tool_}"
-done
+"$out/$gate" --link-tools "$out" "$work/build"
 export SOURCE_ROOT=$source_root
 export LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=315532800
 case ${THOROUGH:-0} in
