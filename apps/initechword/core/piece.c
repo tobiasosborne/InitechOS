@@ -23,6 +23,18 @@
 
 static const uint8_t FIXED_LEN[16] = IW_WP5_FIXED_LEN_INIT;
 
+/* Unit/layout walks ask for adjacent bytes repeatedly. Restarting their
+ * piece search at zero made a forward walk quadratic in the piece count.
+ * Cache a piece's index and document offset, never its bytes. A mutation of
+ * ANY document invalidates it (two documents may borrow the same pieces).
+ * No public layout or const document is changed; scans still read each byte
+ * from its original/add buffer. The core does not yield during a call. */
+/* Store an address identity, not a pointer whose temporary document's
+ * lifetime would have to extend until the next read. init/load invalidate. */
+static uintptr_t byte_doc;
+static uint32_t byte_piece, byte_start, byte_end;
+static const uint8_t *byte_data;
+
 static void mcopy(uint8_t *d, const uint8_t *s, uint32_t n)
 {
     while (n--) *d++ = *s++;
@@ -44,6 +56,7 @@ static const uint8_t *pbytes(const iw_doc_t *d, const iw_piece_t *p)
 int iw_doc_init(iw_doc_t *d, uint8_t *add, uint32_t add_cap,
                 iw_piece_t *pc, uint32_t pc_cap, uint32_t max_len)
 {
+    byte_doc = 0;
     d->orig = add;           /* an empty original: never read */
     d->orig_len = 0;
     d->add = add;
@@ -59,6 +72,7 @@ int iw_doc_init(iw_doc_t *d, uint8_t *add, uint32_t add_cap,
 
 void iw_doc_load(iw_doc_t *d, const uint8_t *orig, uint32_t n)
 {
+    byte_doc = 0;
     d->orig = orig;
     d->orig_len = n;
     d->add_len = 0;
@@ -87,6 +101,7 @@ int iw_doc_insert(iw_doc_t *d, uint32_t pos, const uint8_t *s, uint32_t n)
     if (pos > d->len) return IW_E_RANGE;
     if (n == 0u) return IW_OK;
     if (d->len + n > d->max_len || d->add_len + n > d->add_cap) return IW_E_FULL;
+    byte_doc = 0;
     a = d->add_len;
     locate(d, pos, &pi, &po);
     /* Typing at the end of the piece that ends exactly at the add buffer's
@@ -130,6 +145,7 @@ int iw_doc_delete(iw_doc_t *d, uint32_t pos, uint32_t n)
     uint32_t pi, po;
     if (pos > d->len || n > d->len - pos) return IW_E_RANGE;
     if (n == 0u) return IW_OK;
+    byte_doc = 0;
     locate(d, pos, &pi, &po);
     if (po > 0u) {
         iw_piece_t *p = &d->pc[pi];
@@ -191,10 +207,20 @@ int iw_doc_set(iw_doc_t *d, uint32_t pos, uint8_t b)
 
 int iw_doc_byte(const iw_doc_t *d, uint32_t pos)
 {
-    uint32_t pi, po;
+    uint32_t pi = 0, start = 0;
     if (pos >= d->len) return -1;
-    locate(d, pos, &pi, &po);
-    return pbytes(d, &d->pc[pi])[po];
+    if (byte_doc == (uintptr_t)d && pos >= byte_start) {
+        if (pos < byte_end) return byte_data[pos - byte_start];
+        pi = byte_piece;
+        start = byte_start;
+    }
+    while (pos - start >= d->pc[pi].len) start += d->pc[pi++].len;
+    byte_doc = (uintptr_t)d;
+    byte_piece = pi;
+    byte_start = start;
+    byte_end = start + d->pc[pi].len;
+    byte_data = pbytes(d, &d->pc[pi]);
+    return byte_data[pos - start];
 }
 
 uint32_t iw_doc_read(const iw_doc_t *d, uint32_t pos, uint8_t *out, uint32_t n)
