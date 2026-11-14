@@ -1,0 +1,12 @@
+# test: test-commit-outcome
+--- a/fat12.c
++++ b/fat12.c
+@@ -2723,8 +2723,6 @@
+ 	rc = fat12_read_dirent_local(vol, slot, &de, sector_buf);
+ 	if (rc != FAT12_OK) return rc;
+ 	if ((de.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
+-	rc = fat12_exclusive_allocation(vol,fat,fat_len,0u,slot,&de,sector_buf);
+-	if (rc != FAT12_OK) return rc;
+ 
+ 	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
+ 	                    (uint32_t)vol->bpb.bytes_per_sector;

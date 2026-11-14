@@ -1,0 +1,16 @@
+# test: test-commit-outcome
+--- a/fat12.c
++++ b/fat12.c
+@@ -2523,8 +2523,10 @@
+ 	if (have_chain) {
+ 		if (fat == NULL) return FAT12_ERR_NULL;
+ 		if (bytes > sizeof before || fat_len < bytes) return FAT12_ERR_BUFFER;
+-		rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,slot,old,sector_buf);
+-		if (rc != FAT12_OK) return rc;
++		if (replacement->filename[0] == DIR_NAME_DELETED) {
++			rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,slot,old,sector_buf);
++			if (rc != FAT12_OK) return rc;
++		}
+ 		/* Validate the entire chain before changing the live allocation map.
+ 		 * A corrupt tail must not leave a partly freed prefix in memory. */
+ 		bpc = (uint32_t)vol->bpb.sectors_per_cluster * vol->bpb.bytes_per_sector;
