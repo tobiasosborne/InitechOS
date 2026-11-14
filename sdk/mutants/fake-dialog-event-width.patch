@@ -1,0 +1,6 @@
+# test: conformance
+--- a/host/tbx_host.c
++++ b/host/tbx_host.c
+@@ -120,1 +120,1 @@
+-  if(e&&(uint16_t)e->what!=mouseDown&&(uint16_t)e->what!=keyDown&&(uint16_t)e->what!=autoKey)return TBX_ERR_BADARG;
++  if(e&&e->what!=mouseDown&&e->what!=keyDown&&e->what!=autoKey)return TBX_ERR_BADARG;

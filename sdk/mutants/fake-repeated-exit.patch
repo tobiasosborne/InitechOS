@@ -1,0 +1,6 @@
+# test: conformance
+--- a/host/tbx_host.c
++++ b/host/tbx_host.c
+@@ -88,1 +88,1 @@
+-int32_t tbx_exit(int32_t rc) { R(rc,0,0,0,0,0,0);if(!S.registrations)return TBX_ERR_NOTREG;S.exit_calls++;S.exit_rc=rc;return TBX_OK; }
++int32_t tbx_exit(int32_t rc) { R(rc,0,0,0,0,0,0);LIVE();S.exit_calls++;S.exit_rc=rc;return TBX_OK; }

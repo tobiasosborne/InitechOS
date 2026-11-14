@@ -1,6 +1,6 @@
 # Live gate conformance capture
 
-The 508-byte gate-results.bin contains 127 little-endian signed EAX results,
+The 516-byte gate-results.bin contains 129 little-endian signed EAX results,
 ordered by tests/live/cases.h (including its handle-capacity loop). It was read
 with mtools from SDKRES.BIN, written by SDKCHECK.EXE on the booted, ordinary
 product image at source base 09d52a32. The fake does not produce this file.
@@ -20,10 +20,23 @@ The validation sources are flair/tbxgate.c (registration, windows, drawing,
 menus, dialogs, modal state, tracking, scroll), flair/tbxfile.h (file spans and
 access), flair/cp_service.h (services), and kernel/int21.c (DOS backend).
 
+The review follow-up adds cases 61/62 (zero-based): the same valid dialog
+event with what=3 and what=0x10003. Both real-gate EAX results are zero:
+v_dialog narrows what to uint16_t before checking the EventRecord kind.
+Removing those two dwords reproduces the original 508-byte capture exactly.
+The post-exit tenant assertions also request EXIT(7), then EXIT(0), before
+returning. The live serial records both calls returning zero and the final
+TENANT-EXIT status zero, proving replacement of the pending exit status.
+These returns cannot be saved through the already-closed file gate; incorrect
+returns crash the test tenant and an incorrect final status fails smoke.
+The host conformance check separately grades both returns and exit_rc=0.
+Before the follow-up fix, the fake returns NOTREG on the second EXIT and
+BADARG for dialog what=0x10003 (129 calls, two mismatches).
+
 Capture hashes (SHA-256):
 
 ```
-d02b11f5ae4045d1a38e94d64a0fb124c5f7f188689d7c49facd90a67c1f9a08  gate-results.bin
+2e0568d0fb68e153e6607d501cc5d3cf9d9d0533f9575a5c8c73025c98029471  gate-results.bin
 a5a6468ea6f99d44f7a930161fb082652d70ebd1217d1d93b8980b37bea74a96  flair/tbxgate.c
 c92b667f81cb9751daf5ef5cb7680e1397b9f582bbae93702871e2e43bcda7f6  flair/tbxfile.h
 dee3b06eeb8ea6b01b9db3c298551ddf8ef13f77d7ef1c6ca10651a98599fb1b  flair/cp_service.h

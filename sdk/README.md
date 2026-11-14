@@ -167,7 +167,7 @@ arity and argument-array length, and OS switch/argument-table membership.
 The compatibility tbx_get_clock alias calls the single CLOCK binding.
 make red-once proves number/layout/fake-binding failures in isolated copies.
 
-tests/live/cases.h runs the same 127 calls through the typed fake and a disk
+tests/live/cases.h runs the same 129 calls through the typed fake and a disk
 tenant. gate-results.bin is a little-endian EAX capture from the real booted
 gate; see tests/live/CAPTURE.md. Tier 0 compares against that capture, and
 smoke-conformance boots again and requires identical results. No expected

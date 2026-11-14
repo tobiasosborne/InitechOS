@@ -11,6 +11,7 @@ static cp_item_t dialog_item TBX_IN_IMAGE = {1,2,45,23,1,0,"OK"};
 static tbx_event_t dialog_event TBX_IN_IMAGE;
 static cp_time_t timebuf;
 static uint8_t settings[16];
+static int32_t exit_first,exit_second;
 #define TAKE(call) do { results[nr++]=(call); } while (0)
 static void cases(void)
 {
@@ -67,6 +68,12 @@ static void cases(void)
     dialog_item.type=1;dialog_item.left=-1;TAKE(tbx_dialog(1,&dialog_item,1,1,0,0));
     dialog_item.left=1;dialog_event.what=0;
     TAKE(tbx_dialog(1,&dialog_item,1,1,0,&dialog_event));
+    /* v_dialog narrows the wire what field to uint16_t before validation.
+     * Both returns are captured from the real gate, including the high bits. */
+    dialog_event.what=keyDown;
+    TAKE(tbx_dialog(1,&dialog_item,1,1,0,&dialog_event));
+    dialog_event.what=0x10003;
+    TAKE(tbx_dialog(1,&dialog_item,1,1,0,&dialog_event));
     TAKE(tbx_settings(2,settings)); TAKE(tbx_clock(2,&timebuf)); TAKE(tbx_memory(0));
     TAKE(tbx_settings(0,(uint8_t *)stack)); TAKE(tbx_clock(0,(cp_time_t *)stack));
     TAKE(tbx_memory((uint32_t *)stack)); TAKE(tbx_sf_getfile(stack));
@@ -103,7 +110,11 @@ static void cases(void)
  * A wrong return therefore crashes the test tenant, making smoke red. */
 static int postexit(void)
 {
-    if(tbx_exit(0)!=0)return 0;
+    /* v_exit defers teardown until return: both requests succeed and the
+     * second status replaces the first. Smoke requires the final status 0. */
+    exit_first=tbx_exit(7);
+    exit_second=tbx_exit(0);
+    if(exit_first!=0||exit_second!=0)return 0;
     return tbx_register()==TBX_ERR_NOTREG&&
         tbx_new_window(12,40,250,200,1)==TBX_ERR_NOTREG&&
         tbx_set_mbar(&bar)==TBX_ERR_NOTREG&&tbx_beep()==TBX_ERR_NOTREG&&

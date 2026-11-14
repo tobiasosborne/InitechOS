@@ -83,7 +83,9 @@ int32_t tbx_draw_cells(int32_t w,int32_t x,int32_t y,const char *s,uint32_t f,ui
 }
 int32_t tbx_set_mbar(const tbx_menubar_t *b) { R(0,0,0,0,0,0,0);LIVE();if(!menu_valid(b))return TBX_ERR_BADARG;S.bar=b;return TBX_OK; }
 int32_t tbx_draw_menubar(void) { R(0,0,0,0,0,0,0);LIVE();S.menubar_draws++;return TBX_OK; }
-int32_t tbx_exit(int32_t rc) { R(rc,0,0,0,0,0,0);LIVE();S.exit_calls++;S.exit_rc=rc;return TBX_OK; }
+/* v_exit in flair/tbxgate.c: registration survives until callback return;
+ * another EXIT before teardown succeeds and replaces the requested status. */
+int32_t tbx_exit(int32_t rc) { R(rc,0,0,0,0,0,0);if(!S.registrations)return TBX_ERR_NOTREG;S.exit_calls++;S.exit_rc=rc;return TBX_OK; }
 int32_t tbx_alert(const char *t,const char *d,const char *c,const char *o)
 { R(0,0,0,0,0,0,t);LIVE();if(S.alert_pending)return TBX_ERR_BUSY;if(!alert_valid(t,d,c,o))return TBX_ERR_BADARG;if(S.alert_rc)return S.alert_rc;S.alert_pending=1;S.alerts++;copy(S.alert_text,256,t);copy(S.alert_btn[0],32,d);copy(S.alert_btn[1],32,c);copy(S.alert_btn[2],32,o);return TBX_OK; }
 int32_t tbx_clock(uint32_t mode,cp_time_t *t)
@@ -110,7 +112,8 @@ int32_t tbx_dialog(int32_t w,const cp_item_t *items,uint32_t n,uint32_t def,uint
   for(unsigned i=0;i<n;i++)if(items[i].type>3||items[i].left<0||items[i].top<0||
     items[i].right<=items[i].left||items[i].bottom<=items[i].top||items[i].right>dw||items[i].bottom>dh||
     string_len(items[i].text,64,1)<0)return TBX_ERR_BADARG;
-  if(e&&e->what!=mouseDown&&e->what!=keyDown&&e->what!=autoKey)return TBX_ERR_BADARG;
+  /* v_dialog converts the flat event kind to the 16-bit EventRecord first. */
+  if(e&&(uint16_t)e->what!=mouseDown&&(uint16_t)e->what!=keyDown&&(uint16_t)e->what!=autoKey)return TBX_ERR_BADARG;
   S.dialog_items=items;S.dialog_count=n;S.dialog_def=def;S.dialog_cancel=cancel;if(e)S.dialog_event=*e;return S.dialog_result; }
 int32_t tbx_scrap_put(const void *b,uint32_t n)
 { R((int32_t)n,0,0,0,0,0,0);LIVE();if(n>sizeof S.scrap||!span(b,n,0))return TBX_ERR_BADARG;if(n)memcpy(S.scrap,b,n);S.scrap_len=(int)n;S.scrap_puts++;return TBX_OK; }
