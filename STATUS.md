@@ -48,11 +48,21 @@ FAT: per the operator's stated intent, "FAT12/16" in GM2 expresses the
 accreted corporate legacy (the same spirit as the TPS Report Generator),
 not a storage feature to complete. FAT12 is the working read-write
 format; FAT12 and the FCB calls TPSREP uses stay real and supported.
-FAT16 volumes are read, and every file-level modification is refused
-before the first write with a period message; no FAT16 writer is built.
-The exact GM2 wording is with the operator. Not settled: the two-interface
-exceptions (initech-q9p80, initech-xoif4), including what FORMAT, FDISK
-and SYS may do to FAT16 below the file level.
+The operator amended GOLDEN-MASTER.md and CLAUDE.md (c7398425): GM2 is
+FAT12 read-write and FAT16 read-only, a FAT16 volume mounts, lists and
+reads and every write to it is refused before the first sector changes
+(FAT16 writes are Release 2); no FAT16 writer is built. "Two interfaces"
+is now an explicit allowed list with two temporary exceptions: the
+resident command processor (until a separately loaded COMMAND.COM,
+Release 2, initech-1frx2) and the Finder's direct FAT use (until it goes
+through DOS, initech-02siz). Work queued behind what is in flight: make
+the FAT16 refusal complete on every path (DOS file layer, Finder
+initech-pbl0i, INT 26h, INT 13h and the utilities on a mounted FAT16
+volume) with unchanged-sector evidence and a both-emulator session; fix
+the four crossings outside the list (CHKDSK arena walk, FDISK port reset,
+InitechBase INT 39h, Note Pad/Scrapbook INT 21h diagnostics,
+initech-q9p80); make declared libraries and published bindings checkable
+in the import audit.
 
 ## Where we are
 
