@@ -1,0 +1,12 @@
+# FDISK_MUT_LOADED
+# test: fdisk-session
+--- a/fdisk/fdisk.c
++++ b/fdisk/fdisk.c
+@@ -155,7 +155,6 @@
+     for(;;) {
+         /* PM ruling: loaded volume is not an editing target. The present
+          * single-volume loader is bound exclusively to ATA primary slave. */
+-        if(drive==io->loaded_drive)return 1;
+         sectors=io->capacity(drive);
+         if(!sectors || io->read(drive,mbr))return 1;
+         heading("Disk Options");

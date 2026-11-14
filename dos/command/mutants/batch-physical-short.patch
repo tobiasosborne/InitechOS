@@ -1,0 +1,7 @@
+# Physical batch-line limit shrinks to 126, losing the captured last byte.
+# test: batch-physical
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -1,1 +1,1 @@
+-           n < BATCH_LINE_MAX - 1) {
++           n < BATCH_LINE_MAX - 2) {

@@ -1,0 +1,13 @@
+# CMD_MUTATE_COPY_FULL_BADCMD
+# test: test-copy-full
+--- a/command/command.c
++++ b/command/command.c
+@@ -2921,7 +2921,7 @@
+ static int copy_full(const char *dest)
+ {
+     (void)dos_unlink(dest);
+-    dos_print(MSG_DOS_0005 "\r\n$");
++    dos_print(MSG_DOS_0002 "\r\n$");
+     return -1;
+ }
+ /* COPY execution. the repository contract: MS-DOS 3.3 Reference pp.50-52; ADR-0003 App A.

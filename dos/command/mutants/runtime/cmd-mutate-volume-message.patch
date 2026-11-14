@@ -1,0 +1,13 @@
+# CMD_MUTATE_VOLUME_MESSAGE
+# session: auto
+--- a/command/command.c
++++ b/command/command.c
+@@ -3597,7 +3597,7 @@
+             ax=0x1900u;
+             __asm__ __volatile__("int $0x21" : "+a"(ax) : : "cc","memory");
+             if ((ax&255u)!=drive) {
+-                dos_print(MSG_DOS_0004 "\r\n$");
++                dos_print(MSG_DOS_0002 "\r\n$");
+             }
+             return 0;
+         }

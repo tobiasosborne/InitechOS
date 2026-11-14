@@ -1,0 +1,7 @@
+# Full COPY falsely retains a partial output (including an overwritten file).
+# test: test-copy-full
+--- a/command/command.c
++++ b/command/command.c
+@@ -1,1 +1,1 @@
+-    (void)dos_unlink(dest);
++    (void)dest;

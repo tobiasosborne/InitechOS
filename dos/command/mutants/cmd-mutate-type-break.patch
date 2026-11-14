@@ -1,0 +1,24 @@
+# CMD_MUTATE_TYPE_BREAK
+# test: test-shell-failures
+--- a/command/command.c
++++ b/command/command.c
+@@ -2883,11 +2883,6 @@
+     }
+     for (;;) {
+         got = dos_read(handle, chunk, sizeof(chunk));
+-        /* INT 23h resident recovery returns before the service completes:
+-         * EAX can still be the 3F00h request, not a byte count. Unwind through
+-         * CLOSE and the redirect epilogue without emitting any buffer bytes.
+-         * Ref: User's Guide p.159 / PDF244; ADR-0003 DEC-16 Fork A. */
+-        if (g_shell_break.interrupted) break;
+         if (got == DOS_READ_ERROR || got > sizeof(chunk)) {
+             /* initech-winh: a read failure is NOT a byte count -- abort
+              * rather than flush `chunk` (possibly never written this call)
+@@ -2900,7 +2895,6 @@
+             break;          /* EOF */
+         }
+         dos_write((const char *)chunk, got);
+-        if (g_shell_break.interrupted) break;
+     }
+     dos_close(handle);
+     if (g_shell_break.interrupted) return;

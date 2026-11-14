@@ -1,0 +1,36 @@
+# TPS_MUTATE_UNCHECKED_BACKUP
+# session: tps-unchecked-backup
+--- a/tpsrep/tpsrep_program.asm
++++ b/tpsrep/tpsrep_program.asm
+@@ -468,31 +468,9 @@
+     jmp .ls
+ .ls_done:
+     ; keep one generation: delete TPSREPT.BAK, rename TPSREPT.TXT -> .BAK
+-    ; Ref: IBM DOS 3.30 TR pp. 6-70/71, 6-74, 6-79/80; FCBX real-DOS
+-    ; golden T15/T16: AL=FFh for a rename collision or read-only delete.
+-    ; Missing files are normal on the first run, so search before rotating.
+-    ; Never create/truncate the latest report unless its rename succeeded.
+-    mov byte [renamed], 0xFF
+-    FCB 0x11, outsearch        ; hidden/system reports must not look absent
+-    test al, al
+-    jnz .backup_ready          ; no previous report; leave any .BAK alone
+-    FCB 0x11, bakfcb
+-    test al, al
+-    jnz .backup_rename         ; no visible .BAK to delete
+     FCB 0x13, bakfcb
+-    test al, al
+-    jnz .backup_failed
+-.backup_rename:
+     FCB 0x17, renfcb
+     mov [renamed], al
+-    test al, al
+-    jz .backup_ready
+-.backup_failed:
+-    mov edx, m_e12
+-    call lineout
+-    mov al, 10
+-    jmp finish
+-.backup_ready:
+     FCB 0x16, outfcb
+     test al, al
+     jz .created

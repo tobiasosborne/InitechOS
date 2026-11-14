@@ -1,0 +1,13 @@
+# CMD_MUTATE_REDIR_CREATE_BADCMD
+# session: full
+--- a/command/command.c
++++ b/command/command.c
+@@ -3762,7 +3762,7 @@
+          * "File creation error": the name is a read-only file, a directory, or
+          * there is no room for it (MS-DOS 3.3 User's Guide App. F, printed
+          * p.330; initech-66oc, audit L027). */
+-        dos_print(MSG_DOS_0046 "\r\n$");           /* "File creation error" */
++        dos_print(MSG_DOS_0002 "\r\n$");   /* MUTANT: the pre-66oc catch-all */
+         return 0;
+     }
+ 

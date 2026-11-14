@@ -1,0 +1,12 @@
+# CMD_MUTATE_FOR_PROMPT
+# session: basic
+--- a/command/command.c
++++ b/command/command.c
+@@ -4441,6 +4441,7 @@
+         return 1;
+     }
+     case BL_FOR:
++        if (!frame) return 0;
+         control_for(args);
+         return 1;
+     case BL_GOTO:

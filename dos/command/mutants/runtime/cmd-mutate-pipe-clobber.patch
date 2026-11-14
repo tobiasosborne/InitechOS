@@ -1,0 +1,17 @@
+# CMD_MUTATE_PIPE_CLOBBER
+# session: auto
+--- a/command/command.c
++++ b/command/command.c
+@@ -3988,10 +3988,8 @@
+         buf[n++] = '$';
+         buf[n++] = '$';
+         buf[n] = '\0';
+-        int h = dos_creatnew(buf);
+-        if (h != -(int)INT21_ERR_FILE_EXISTS) {
+-            return h;   /* created, or a failure no other name can cure */
+-        }
++        (void)&dos_creatnew;   /* keep it "used" under the mutant (-Werror) */
++        return dos_creat(buf);
+     }
+     return -(int)INT21_ERR_FILE_EXISTS;
+ }

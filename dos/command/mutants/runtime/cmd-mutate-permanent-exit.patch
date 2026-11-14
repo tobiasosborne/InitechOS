@@ -1,0 +1,12 @@
+# CMD_MUTATE_PERMANENT_EXIT
+# session: auto
+--- a/command/command.c
++++ b/command/command.c
+@@ -3672,7 +3672,6 @@
+              * No previous processor exists for the permanent primary.
+              * The shared dispatcher also covers AUTOEXEC, IF, FOR and pipes.
+              * L035 / initech-pbru. Ignoring EXIT emits no diagnostic. */
+-            if (g_shell_permanent) break;
+             /* Grep-able clean-exit marker. Plain '\n' (no CR) so the serial
+              * line is exactly "SHELL-EXIT" -- the oracle's ^SHELL-EXIT$
+              * anchored match would miss a trailing CR (the same serial-clean

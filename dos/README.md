@@ -77,3 +77,9 @@ kernel startup. `make mutants-host` runs host patches; `make mutants-sessions`
 builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
+
+The current DOS inventory is 124 host patches and 38 product-session patches,
+with zero pending entries. This includes the 46 formerly pending faults and
+two new controls for physical-line truncation and COPY output cleanup.
+`make smoke-errors` checks the captured COPY ERRORLEVEL state in the booted
+product as well as destination removal and source preservation.

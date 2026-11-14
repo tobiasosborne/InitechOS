@@ -1,0 +1,13 @@
+# CMD_MUTATE_DIR_NO_VOLUME
+# session: auto
+--- a/command/command.c
++++ b/command/command.c
+@@ -2604,8 +2604,6 @@
+ 
+     dos_setdta(&g_shell_dta);
+     dos_print("\r\n$");
+-    print_volume_identity(disp[0], label);
+-    dos_print("\r\n\r\n$");
+     dos_puts_raw(MSG_DOS_0023);
+     dos_puts_raw(disp);
+     dos_print("\r\n\r\n$");

@@ -1,0 +1,23 @@
+# CMD_MUTATE_RD_NOOP
+# session: auto
+--- a/command/command.c
++++ b/command/command.c
+@@ -2759,9 +2759,15 @@
+         return;
+     }
+     cmd_upcase_str(path);            /* DOS upcases 8.3 path components */
+-    if (dos_rmdir(path) != 0u) {
+-        dos_print(MSG_DOS_0019 "\r\n$");   /* "Invalid path, ... not empty" */
+-    }
++    /* MUTANT (the repository contract; make test-ut6d-mutant only): SKIP the AH=3Ah RMDIR entirely
++     * but stay silent-as-if-success, so RD becomes a no-op that LOOKS like it
++     * worked -- SUB persists on the volume. The re-`cd sub` after RD then SUCCEEDS
++     * (the prompt returns to "A:\SUB>") and the controlled "Invalid directory"
++     * diagnostic is ABSENT -> the test-ut6d RD-removal assertion goes RED. This is
++     * exactly the "silent RD failure" the old gate could not catch. NEVER in a
++     * real build. */
++    (void)path;
++    (void)&dos_rmdir;   /* keep dos_rmdir "used" without calling it (-Werror) */
+     /* Success is SILENT (DOS RD prints nothing on success). */
+ }
+ 

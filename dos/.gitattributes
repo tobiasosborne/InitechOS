@@ -1,0 +1,3 @@
+# Oracle captures retain DOS CRLF and fixed-width screen/listing bytes.
+command/tests/dos33/reference/** -text -whitespace
+tpsrep/tests/reference/** -text -whitespace

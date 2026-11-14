@@ -99,8 +99,9 @@ Acceptance on this worktree:
 - Kernel default host sweep: 229/229 killed. DOS sweep: 111 killed and three
   mis-selected survivors; corrected DIR/VOL selectors kill all three (114
   distinct host kills). Keyboard mutants also rechecked without retired Oz
-  tuning: 13/13 killed. 85 converted patches remain explicitly unproved in
-  mutants/pending; they are NOT part of this host certificate.
+  tuning: 13/13 killed. At that import, 85 converted patches were unproved.
+  The 46 DOS patches now have host or product-session coverage; the kernel
+  migration remains with the kernel owner.
 - Python absence is red: PYTHON_FAT_REFERENCE=/no/such/python makes test-fat
   fail loudly. Shell syntax checks and ASCII source scan passed.
 

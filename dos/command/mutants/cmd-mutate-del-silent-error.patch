@@ -1,0 +1,10 @@
+# CMD_MUTATE_DEL_SILENT_ERROR
+# test: test-shell-failures
+--- a/command/command.c
++++ b/command/command.c
+@@ -1,5 +1,4 @@
+             uint16_t error = dos_unlink(path);
+             if (error != 0u) {
+-                del_remaining(name, prefix);
+                 return;
+             }

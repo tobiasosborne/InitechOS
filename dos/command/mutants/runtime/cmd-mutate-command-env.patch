@@ -1,0 +1,13 @@
+# CMD_MUTATE_COMMAND_ENV
+# session: auto
+--- a/command/command.c
++++ b/command/command.c
+@@ -4643,7 +4643,7 @@
+     depth++;
+     run_with_redirect(arg);
+     depth--;
+-    g_master_env=env;
++    (void)env;
+     g_shell_exit=exit;g_shell_permanent=permanent;
+     g_errorlevel=errorlevel;g_batch_frame=frame;
+ }

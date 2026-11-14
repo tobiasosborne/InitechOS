@@ -1,0 +1,14 @@
+# CMD_MUTATE_DIR_BREAK
+# session: dirbreak
+--- a/command/command.c
++++ b/command/command.c
+@@ -2620,9 +2620,6 @@
+         if (page && rows >= 23) {
+             dos_print(MSG_DOS_0016 "$" );
+             (void)dos_conin();
+-            /* User's Guide p.159 / PDF244: ^C aborts the current command,
+-             * rather than satisfying DIR /P's request for the next page. */
+-            if (g_shell_break.interrupted) return;
+             dos_print("\r\n$"); rows = 0;
+         }
+         if (wide) {

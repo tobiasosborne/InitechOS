@@ -1,0 +1,13 @@
+# CMD_MUTATE_SHIFT_ZERO
+# session: auto
+--- a/command/command.c
++++ b/command/command.c
+@@ -4454,7 +4454,7 @@
+     case BL_SHIFT:
+         /* Reference p.151: SHIFT also discards the original %0. */
+         if (frame && frame->count>0) {
+-            int first=0;
++            int first=1;
+             for (int k=first;k<frame->count-1;k++) frame->view[k]=frame->view[k+1];
+             frame->count--;
+         }

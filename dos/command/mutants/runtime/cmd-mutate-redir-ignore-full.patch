@@ -1,0 +1,14 @@
+# CMD_MUTATE_REDIR_IGNORE_FULL
+# session: full
+--- a/command/command.c
++++ b/command/command.c
+@@ -3718,7 +3718,8 @@
+  * full-disk redirect or pipe is silent again (test-redir-full-emu RED). */
+ static int redir_write_failed(int h)
+ {
+-    return int21_write_fault((uint16_t)h);
++    (void)h;
++    return 0;
+ }
+ 
+ static int run_output_and_dispatch(const char *raw_line, const char *clean,
