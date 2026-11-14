@@ -267,7 +267,9 @@ rgn_rect_t MenuInfo_panel_rect(const MenuBar *bar, int mi)
 {
     rgn_rect_t r = { 0, 0, 0, 0 };
     const MenuInfo *m = MenuBar_menu(bar, mi);
-    if (!m)
+    /* Authored empty-title policy: Inside Macintosh IV, printed IV-55
+     * (128K ROM): highlight the title without pulling down an empty panel. */
+    if (!m || m->n_items == 0)
         return r;
 
     int left = (mi == FLAIR_MENU_APPLE_MI) ? FLAIR_MENU_APPLE_HILITE_L

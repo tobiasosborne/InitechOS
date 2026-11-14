@@ -68,6 +68,13 @@ so a snapshot inside ShieldCursor cannot masquerade as a missing cursor.
 
 Managers:
 
+Empty menu titles highlight while held and have no panel, shadow, selectable
+row or below-bar damage. This is the authored Inside Macintosh IV-55 (128K
+ROM) choice for Paint's seven structural headings. test_menu_empty checks
+literal zero geometry, pixel conservation and streaming hold/drag/release;
+tests/smoke-empty-menu.sh drives the real Paint graph and independently reads
+all seven held/released images plus File-to-empty restoration.
+
 - Surface: bounded pixel writes and depth packing.
 - Blitter: region-clipped fills and copies.
 - Text/fonts: Chicago and Geneva strikes, metrics, styled/clipped text runs.
@@ -154,7 +161,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 196 patches through the shared strict runner: passing baseline,
+make mutants runs 197 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;

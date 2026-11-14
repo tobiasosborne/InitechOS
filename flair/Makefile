@@ -193,6 +193,10 @@ HOST_TESTS += test_copy_modal
 test_copy_modal_SRCS := tests/test_copy_modal.c $(addprefix $(TOP)/kernel/,int21.c devices.c mcb.c sft.c psp.c irq.c fat12.c fileio_fat.c) event.c dialog.c control.c text.c surface.c blitter.c chrome.c window.c heap.c flair_look.c cursor.c $(TOP)/flair/region/region.c
 test_copy_modal_CFLAGS := $(test_filecopy_disk_CFLAGS)
 
+HOST_TESTS += test_menu_empty
+test_menu_empty_SRCS := $(subst tests/test_menu.c,tests/test_menu_empty.c,$(test_menu_SRCS))
+test_menu_empty_CFLAGS := $(test_menu_CFLAGS)
+
 $(foreach t,$(HOST_TESTS),$(eval $(t)_DEPS += $(GENERATED) $(OUT)/host-config))
 include $(TOP)/mk/host-test.mk
 
@@ -216,6 +220,10 @@ endef
 smoke:
 	+$(MAKE) -C $(TOP) image
 	cd $(TOP) && sh flair/tests/smoke-filecopy.sh
+.PHONY: smoke-empty-menus
+smoke-empty-menus:
+	+$(MAKE) -C $(TOP) image
+	cd $(TOP) && sh flair/tests/smoke-empty-menu.sh
 MUTANT_PATCHES ?= $(wildcard mutants/*.patch)
 MUTANT_JOBS ?= 16
 .PHONY: mutants

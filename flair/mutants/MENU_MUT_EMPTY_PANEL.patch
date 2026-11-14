@@ -1,0 +1,13 @@
+# IM IV-55 empty menus must not create a panel or shadow.
+# test: test_menu_empty
+--- a/menu.c
++++ b/menu.c
+@@ -269,7 +269,7 @@
+     const MenuInfo *m = MenuBar_menu(bar, mi);
+     /* Authored empty-title policy: Inside Macintosh IV, printed IV-55
+      * (128K ROM): highlight the title without pulling down an empty panel. */
+-    if (!m || m->n_items == 0)
++    if (!m)
+         return r;
+ 
+     int left = (mi == FLAIR_MENU_APPLE_MI) ? FLAIR_MENU_APPLE_HILITE_L
