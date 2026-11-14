@@ -1,0 +1,35 @@
+=== build/apps/initech123/phase2/width-range/RANGEIV.WK1  size=1405 consumed=1405 OK
+  BOF         len=2   version=0x0406
+  RANGE       len=8   i16s=[0, 0, 0, 0]
+  HIDVEC1     len=0   
+  CALCCOUNT   len=1   u8=0x01
+  CALCMODE    len=1   u8=0xff
+  CALCORDER   len=1   u8=0x00
+  SPLIT       len=1   u8=0x00
+  SYNC        len=1   u8=0xff
+  WINDOW1     len=32  cur(col=3,row=0) fmt=General colw=11 ncols=6 nrows=20 left=0 top=0
+  COLW1       len=3   col=0 width=10
+  COLW1       len=3   col=3 width=14
+  COLW1       len=3   col=255 width=240
+  PRINTRANGE  len=32  0000000000000000000000000000000000000000000000000000000000000000
+  TABLE       len=25  00ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000
+  ORANGE      len=25  i16s=[-1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0] odd-tail=00
+  PRANGE      len=8   i16s=[-1, 0, -1, 0]
+  UNFORMATTED len=1   u8=0x00
+  FRANGE      len=8   i16s=[-1, 0, -1, 0]
+  SRANGE      len=8   i16s=[-1, 0, -1, 0]
+  KRANGE1     len=9   i16s=[-1, 0, -1, 0] odd-tail=00
+  KRANGE2     len=9   i16s=[-1, 0, -1, 0] odd-tail=00
+  FONTSTYLE   len=25  ffff0000ffff0000ffff0000ffff0000ffff0000ffff000000
+  FONTCOLOR   len=40  ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000ffff0000
+  HRANGE      len=16  i16s=[-1, 0, -1, 0, -1, 0, -1, 0]
+  FONTFACE    len=16  ffff0000ffff0000ffff0000ffff0000
+  PROTEC      len=1   u8=0x00
+  FOOTER      len=242 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000...
+  HEADER      len=242 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000...
+  SETUP       len=40  00000000000000000000000000000000000000000000000000000000000000000000000000000000
+  MARGINS     len=10  margins=(4, 76, 66, 2, 2)
+  LABELFMT    len=1   u8=0x27
+  TITLES      len=16  i16s=[-1, 0, -1, 0, -1, 0, -1, 0]
+  NGRAPH      len=439 ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff...
+  EOF         len=0   
