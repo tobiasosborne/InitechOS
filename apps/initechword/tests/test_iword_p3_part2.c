@@ -1,7 +1,7 @@
 /* initech-qvgd, WL-0146 Part 2. Independent UI expectations from WP 5.1
  * Reference pp. 551-553, 697-698. Real corpus bytes enter through search.sh's
- * original-file/mtools comparison. Expected replacement uses the
- * pre-existing piece-table primitives, never the new replacement routine. */
+ * original-file/mtools comparison. Corpus results are exported for the
+ * standalone independent WP5 stream reader in tests/diff/replace_ref.c. */
 #define main p12_first_main
 #include "test_iword_face.c"
 #undef main
@@ -52,44 +52,40 @@ static void replace_test(void)
     CHECK(body_is((const uint8_t *)"keep", 4) && g_ed.cur == 2, "replace", "Cancel before replacement preserves document and cursor");
 }
 
-static void replace_corpus(const char *path)
+static void replace_corpus(const char *path, const char *trials)
 {
-    static uint8_t file[65536], model_add[65536], want[65536];
-    static iw_piece_t model_pc[8192];
+    static uint8_t file[65536], got[65536];
     iw_wp5_t w;
     FILE *f = fopen(path, "rb");
     CHECK(f != 0, "replace-corpus", "real file opens"); if (!f) return;
     uint32_t n = (uint32_t)fread(file, 1, sizeof file, f); fclose(f);
     CHECK(iw_wp5_read(file, n, &w) == IW_OK, "replace-corpus", "real WP file decodes");
     if (iw_wp5_read(file, n, &w) != IW_OK) return;
-    /* Each eligible byte gets its own pristine document. The independent
-     * model deletes ONE literal span, inserts the expected uppercase byte,
-     * and runs P2's already mutation-proven reflow/bookkeeping. */
+    FILE *out = fopen(trials, "wb");
+    CHECK(out != 0, "replace-corpus", "trial output opens"); if (!out) return;
+    /* Emit actual results only. The standalone replace_ref reader constructs
+     * expectations and checks that no eligible input offset was skipped. */
     for (uint32_t p = 0; p < w.body_len; ) {
         uint32_t k = iw_unit_len(w.body, w.body_len, p);
         if (!k) return;
         uint8_t c = w.body[p];
         int code = k == 3 && c == 0xC3 && (w.body[p+1] == 12 || w.body[p+1] == 14);
         if ((k == 1 && c >= 'a' && c <= 'z') || code) {
-            iw_ed_t model; uint8_t r = (uint8_t)(c - 32); char q[2] = {(char)c, 0}, repl[2] = {(char)r, 0};
+            uint8_t r = (uint8_t)(c - 32); char q[2] = {(char)c, 0}, repl[2] = {(char)r, 0};
             reset_face(); memcpy(g_bank[1u-g_live], file, n); adopt(n, w.prefix_len); g_ed.cur = p;
-            iw_doc_init(&model.doc, model_add, sizeof model_add, model_pc, 8192, 65536);
-            iw_doc_load(&model.doc, w.body, w.body_len); iw_ed_init(&model, IW_WP5_WRAP_COLS);
-            CHECK(iw_doc_delete(&model.doc, p, k) == IW_OK && (code || iw_doc_insert(&model.doc, p, &r, 1) == IW_OK),
-                  "replace-corpus", "independent primitive model edits");
-            model.cur = p+(code ? 0 : 1); (void)iw_reflow_all(&model.doc, model.width); (void)iw_ed_fixup(&model);
             if (code) {
                 fkey(0x3C, ALT); tks("y"); fkey(w.body[p+1] == 12 ? 0x40 : 0x42, 0);
                 fkey(0x3C, 0); fkey(0x3C, 0);
             } else replace_start(1, q, repl);
             tks("y"); fkey(0x3B, 0);
-            iw_doc_read(&model.doc, 0, want, model.doc.len);
-            CHECK(body_is(want, model.doc.len), "replace-corpus", "document bytes equal independent piece-table operation");
-            /* Existing no-op Retrieve/save mint authority: same bytes and
-             * same cursor serialize exactly as the old codec does. */
+            uint32_t hdr[2] = {p, g_ed.doc.len};
+            iw_doc_read(&g_ed.doc, 0, got, g_ed.doc.len);
+            CHECK(fwrite(hdr, sizeof hdr, 1, out) == 1 &&
+                  fwrite(got, 1, hdr[1], out) == hdr[1], "replace-corpus", "actual result exported");
         }
         p += k;
     }
+    fclose(out);
 }
 static void serial_replace(const char *path)
 {
@@ -241,7 +237,7 @@ int main(int argc, char **argv)
     if (!strcmp(argv[1], "setup") && argc == 3) m_dir = argv[2];
     if (tbx_app_main()) return 2;
     if (!strcmp(argv[1], "replace")) replace_test();
-    else if (!strcmp(argv[1], "replace-corpus") && argc == 3) replace_corpus(argv[2]);
+    else if (!strcmp(argv[1], "replace-corpus") && argc == 4) replace_corpus(argv[2], argv[3]);
     else if (!strcmp(argv[1], "replace-serial") && argc == 3) serial_replace(argv[2]);
     else if (!strcmp(argv[1], "undo")) undo_test();
     else if (!strcmp(argv[1], "undo-corpus") && argc == 3) undo_corpus(argv[2]);

@@ -8,11 +8,10 @@ WordPerfect captures and the legacy-final implementation cited in the source.
 
 make builds WORD.EXE through mk/tenant.mk using plain TARGET_CFLAGS. No resource
 file is required. The independent MZ reader validates relocations and BSS:
-57,760 bytes on disk, 51,344-byte module, 493,520-byte BSS (below the OS-side
-512 KiB limit). Drawing data already uses TBX_IN_IMAGE; file buffers stay in
+the BSS remains below the OS-side 512 KiB limit. Drawing data already uses TBX_IN_IMAGE; file buffers stay in
 BSS as allowed by sdk/README.md. No OS change was needed to run this executable.
 
-make test runs 13 programs and 22,394 counted checks against the real pinned
+make test runs 13 programs against the real pinned
 WordPerfect corpus, captured grids and independent models/readers. Execution
 fits the 30-second budget. Hosted code uses -O2, keeping every property
 session: 13s before versus 10s after on the integration machine (codes 8s
@@ -39,9 +38,7 @@ The shared save-loop short-write fault is owned by sdk/mutants/save_one_write.pa
 which kills the actual helper twice. The former setup-short patch only defined
 its retired macro after SDK hook removal and was therefore a no-op. Setup's
 host test still forces two-byte transfers and checks all eight settings bytes.
-Product source contains no mutation hooks. The EXE
-before/after SHA-256 is identical:
-9453efb0e90e0ff491cb9cf630c928a70294316f9652329a6432b0b891ea698e.
+Product source contains no mutation hooks.
 
 ## Present depth (frozen feature inventory)
 
@@ -103,3 +100,21 @@ search soft-return route. These are existing triage items, not new scope.
 The corpus minting tools/fixtures are manual capture support, excluded from
 all/test. Remaining legacy pixel-heavy emulator gates are listed in
  tests/SMOKES.md; their future owner is the InitechWord/factory importer.
+
+## Independent Replace expectation
+
+`tests/diff/replace_ref.c` is a standalone WP5 stream/property reader linked
+only to the host C library, with no product headers or objects. It parses the
+real source stream, requires an actual trial for every eligible offset, and
+checks a confirmed single-letter substitution or code-token deletion with flat
+byte spans. Unrelated semantic tokens must survive; only SRt/space, Tab/Indent
+geometry and hidden bookkeeping normalize. Plain length-preserving edits retain
+the exact captured wrapping. The separate round-trip/layout suites retain the
+formatted geometry checks. The shared edit/reflow expected model is removed.
+The shared-insertion Q-to-R mutant passes the former model but fails this reader.
+
+The codes suite retains all 1,700 fixed-seed sessions and every assertion.
+Source-line profiling found repeated piece searches in `iw_doc_byte`; a cached
+piece span reduces its CPU time from 13.59s to 5.30s. Init/load/insert/delete
+invalidate the cache, and in-place byte changes remain visible through its
+storage pointer. No timeout, budget or optimization flag changed.
