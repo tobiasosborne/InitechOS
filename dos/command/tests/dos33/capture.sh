@@ -58,5 +58,6 @@ for scenario in ${DOS33_SCENARIOS:-batch concat append appendpartial final self}
  fi
  gzip -n "$d/data.img"
  gzip -n "$d/qemu.log"
+ if [ -f "$d/before.ppm" ]; then gzip -n "$d/before.ppm";fi
  rm "$d/boot.img" "$d/result.ppm" "$d/wait.vga" "$d/wait.txt" 2>/dev/null || :
 done
