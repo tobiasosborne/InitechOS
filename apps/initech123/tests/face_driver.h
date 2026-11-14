@@ -35,7 +35,9 @@ static void ev(int32_t what, int32_t msg)
     tbx_event_t e;
     memset(&e, 0, sizeof e);
     e.what = what; e.message = msg;
-    tbx_app_event(&e);
+    /* The shell consumes modal replies before entering the tenant callback. */
+    if (!tbx_host_push_event(&e)) exit(2);
+    (void)tbx_host_dispatch(tbx_app_event);
 }
 static void tk(char c)
 {
