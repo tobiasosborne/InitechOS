@@ -2,15 +2,16 @@
 # test: test-fileio
 --- a/int21.c
 +++ b/int21.c
-@@ -2618,41 +2618,6 @@
+@@ -2655,48 +2655,6 @@
          return;
      }
  
 -    /* CREATNEW precondition: the target must not already exist. Probe via the
 -     * pure-locate open() member. open() returns 0 when the leaf is found in
 -     * `dir_start`; that means EXISTS -> fail with 0x0050, commit nothing. A
--     * 0x0002 (not found) or any other non-zero locate result means "does not
--     * exist" -> fall through to the CREAT path. (the repository contract mutants: NO_GUARD drops
+-     * Only 0x0002 (not found) establishes absence. Media/lookup failures must
+-     * refuse before truncating CREAT (IBM DOS 3.30 TR p.6-215; initech-06l23).
+-     * (the repository contract mutants: NO_GUARD drops
 -     * this block so CREATNEW==CREAT; GUARD_INVERT flips the sense; WRONG_CONST
 -     * returns the wrong AX.)
 -     *
@@ -40,7 +41,13 @@
 -            cf_set(f);
 -            return;
 -        }
+-        if (found != INT21_ERR_FILE_NOT_FOUND) {
+-            set_ax(f, found);
+-            cf_set(f);
+-            return;
+-        }
 -    }
- 
+-
      /* From here on: identical to do_creat. Secure the table slots BEFORE creating
       * so a slot-exhaustion failure does not commit anything (mirrors do_open). */
+     uint8_t sft_idx = sft_alloc();

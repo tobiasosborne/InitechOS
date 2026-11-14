@@ -104,9 +104,12 @@ int main(int argc, char **argv)
         uint32_t slot = 0, wrote = 99;
         CHECK(fat12_read_fat(&vol, fat, sizeof fat) == FAT12_OK, "read fixture FAT");
         CHECK(fat12_find_slot(&vol, sector, "LOCK.BIN", &de, &slot) == FAT12_OK, "locate protected entry");
+        uint32_t writes_before = disk.write_calls;
         CHECK(fat12_write_partial(&vol, fat, sizeof fat, 0, slot, 0, &data, 1,
               sector, cluster, &wrote) == FAT12_ERR_ACCESS && wrote == 0,
               "positioned write read-only refusal");
+        CHECK(disk.write_calls == writes_before,
+              "read-only refusal must not issue rollback writes");
         CHECK(fat12_write_file(&vol, fat, sizeof fat, slot, &data, 1,
               sector, cluster) == FAT12_ERR_ACCESS, "whole-file write read-only refusal");
         CHECK(fat12_write_file(&vol, fat, sizeof fat, slot, &data, 0,

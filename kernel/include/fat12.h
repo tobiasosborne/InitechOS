@@ -738,6 +738,13 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint8_t attr, uint16_t parent_dir_start,
                  void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,
                  uint32_t *out_slot);
+/* Runtime stamp participates in the same checked directory commit. The
+ * ordinary entry point retains its deterministic default timestamp. */
+int fat12_create_timed(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                       const char *name83, uint8_t attr, uint16_t parent,
+                       void *sector_buf, void *cluster_buf,
+                       dir_entry_t *out_entry, uint32_t *out_slot,
+                       uint16_t mtime, uint16_t mdate);
 
 /*
  * fat12_write_file: write `len` bytes of `data` as the contents of the file at
