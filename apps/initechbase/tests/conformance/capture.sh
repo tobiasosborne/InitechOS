@@ -16,9 +16,11 @@ cc -std=c11 -O2 -Wall -Wextra -Werror "$repo/goldens/dataloss/drive.c" -o "$out/
 sha256sum "$media" "$corpus"/mint/work/DBASE.EXE "$corpus"/mint/work/DBASE.OVL \
  "$corpus"/mint/work/DBASE.MSG "$corpus"/mint/work/DBASEINL.OVL > "$out/reference.sha256"
 # Each case boots separately: a malformed file cannot hide later cases.
+selected=0;failed=0
 for case_dir in "$src"/cases/C*; do
  name=${case_dir##*/}
  case " ${CASES:-all} " in *" all "*|*" $name "*) ;; *) continue;; esac
+ selected=$((selected+1))
  d=$out/$name; mkdir -p "$d/before" "$d/after"
  cp "$case_dir"/* "$d/before/"
  cp "$media" "$d/boot.img"
@@ -42,4 +44,7 @@ for case_dir in "$src"/cases/C*; do
   fi
  done
  printf '%s\t%s\n' "$name" "$rc"
+ test "$rc" -eq 0 || failed=1
 done
+test "$selected" -gt 0 || { echo 'FAIL: no selected capture cases' >&2;exit 2; }
+exit "$failed"
