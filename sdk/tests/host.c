@@ -8,6 +8,26 @@ static unsigned checks;
 #define CHECK(x) do { checks++;if(!(x)){fprintf(stderr,"host:%d: %s\n",__LINE__,#x);exit(1);} } while(0)
 static unsigned callbacks;
 static void event(const tbx_event_t *e) { CHECK(e->message==(int32_t)++callbacks); }
+/* Model the shell's delivery, not a direct tenant callback: replies complete
+ * modal services and mouseDown establishes TRACKMOUSE's dynamic context. */
+static int32_t control_what,control_message;
+static void control_event(const tbx_event_t *e)
+{
+    CHECK(e->what==control_what && e->message==control_message);
+    if(e->what==mouseDown) CHECK(tbx_track_mouse()==TBX_OK);
+}
+static void deliver(int32_t what,int32_t message)
+{
+    tbx_event_t e={.what=what,.message=message};
+    control_what=what;control_message=message;
+    CHECK(tbx_host_push_event(&e));CHECK(tbx_host_dispatch(control_event)==1);
+}
+static const tbx_menuitem_t menu_items[]={{.text="Open",.enabled=1}};
+static const tbx_menuinfo_t menus[]={{.menu_id=1,.title="File",.items=menu_items,.n_items=1}};
+static const tbx_menubar_t bar={.menus=menus,.n_menus=1};
+static const cp_item_t dialog_items[]={
+    {0,0,60,20,1,0,"One"},{70,0,130,20,1,0,"Cancel"},{140,0,200,20,1,0,"Other"}
+};
 int main(void)
 {
     tbx_host_reset();CHECK(tbx_register()==0);CHECK(tbx_new_window(0,40,640,480,2)==1);
@@ -19,27 +39,38 @@ int main(void)
     CHECK(tbx_draw_cells(1,1,0,"AB",TBX_TEXT_BOLD|1,3)==0);
     CHECK(!strncmp(tbx_host.scr[0],"AB",2)&&tbx_host.bg[0][0]=='N'&&tbx_host.face[0][0]==1);
     CHECK(tbx_draw_cells(1,1,0,"C",3,0)==0);CHECK(tbx_host.inv[0][0]&&tbx_host.face[0][0]==1);
-    CHECK(tbx_draw_cells(1,2,0,"x",1,0)==TBX_ERR_BADARG);
-    CHECK(tbx_set_mbar(0)==0&&tbx_draw_menubar()==0&&tbx_host.menubar_draws==1);
+    /* Off-grid coordinates are valid on the real gate; use an invalid colour
+     * for the common negative case, retaining the grid's AB/C assertions. */
+    CHECK(tbx_draw_cells(1,1,0,"x",TBX_COLOR_COUNT,0)==TBX_ERR_BADARG);
+    CHECK(tbx_set_mbar(&bar)==0&&tbx_draw_menubar()==0&&tbx_host.menubar_draws==1);
     CHECK(tbx_alert("Save?","Yes","Cancel","No")==0);CHECK(tbx_host.alerts==1&&!strcmp(tbx_host.alert_btn[2],"No"));
-    CHECK(tbx_scrap_get(0,0)==TBX_ERR_NOTYPE);CHECK(tbx_scrap_put("hello",5)==0);char b[128]={0};
+    deliver(TBX_EVT_ALERT,1);
+    CHECK(tbx_scrap_get(0,0)==TBX_ERR_NOTYPE);CHECK(tbx_scrap_put("hello",5)==0);static char b[128];
     CHECK(tbx_scrap_get(0,0)==5);CHECK(tbx_scrap_get(b,5)==5&&!memcmp(b,"hello",5));CHECK(tbx_scrap_get(b,3)==TBX_ERR_BADARG);
     CHECK(tbx_sf_getfile(b)==0&&tbx_host.sf_reply==b&&tbx_host.sf==1);
+    deliver(TBX_EVT_SFREPLY,0);
     CHECK(tbx_sf_putfile("Save","TEST",b)==0&&!strcmp(tbx_host.sf_name,"TEST"));
-    CHECK(tbx_track_mouse()==0&&tbx_host.track==1);
+    deliver(TBX_EVT_SFREPLY,0);
+    deliver(mouseDown,0);CHECK(tbx_host.track==1);
     CHECK(tbx_set_scroll(1,1000,30)==30&&tbx_get_scroll(1)==30&&tbx_host.setscroll==1);
     CHECK(tbx_file_copy("Copy","A","B")==0&&!strcmp(tbx_host.copy_dst,"B"));
-    cp_time_t clock;CHECK(tbx_get_clock(&clock)==0&&clock.year==1992);
+    deliver(TBX_EVT_FILECOPY,TBX_ERR_DOS(2));
+    static cp_time_t clock;CHECK(tbx_get_clock(&clock)==0&&clock.year==1992);
     clock.hour=13;CHECK(tbx_clock(1,&clock)==0&&tbx_host.clock.hour==13);
     tbx_host.clock_rc=-42;CHECK(tbx_get_clock(&clock)==-42);tbx_host.clock_rc=0;
-    uint8_t rec[16];CHECK(tbx_settings(0,rec)==0&&rec[14]==0xfa);rec[0]=0;CHECK(tbx_settings(1,rec)==TBX_ERR_BADARG);
-    uint32_t mem[4];CHECK(tbx_memory(mem)==0&&mem[0]==8192);
+    static uint8_t rec[16];CHECK(tbx_settings(0,rec)==0&&rec[14]==0xfa);rec[0]=0;CHECK(tbx_settings(1,rec)==TBX_ERR_BADARG);
+    static uint32_t mem[4];CHECK(tbx_memory(mem)==0&&mem[0]==8192);
     CHECK(tbx_beep()==0&&tbx_trap(TBX_BEEP,0,0)==0&&tbx_host.beeps==2);
     CHECK(tbx_trap(0xffff,0,0)==TBX_ERR_BADCODE);
-    tbx_host.dialog_result=3;CHECK(tbx_dialog(1,0,0,1,2,0)==3&&tbx_host.dialog_cancel==2);
-    int32_t h=tbx_file_create("c:\\test.dat");CHECK(h==5);CHECK(tbx_file_write(h,"hello",5)==5);
+    tbx_host.dialog_result=3;CHECK(tbx_dialog(1,dialog_items,3,1,2,0)==3&&tbx_host.dialog_cancel==2);
+    int32_t h=tbx_file_create("a:\\test.dat");CHECK(h==5);CHECK(tbx_file_write(h,"hello",5)==5);
     CHECK(tbx_file_close(h)==0);CHECK(tbx_file_create_new("TEST.DAT")==TBX_ERR_DOS(80));
-    h=tbx_file_open("test.dat",0);CHECK(h==5);CHECK(tbx_file_write(h,"x",1)==TBX_ERR_DOS(5));
+    h=tbx_file_open("test.dat",0);CHECK(h==5);
+    int32_t denied=tbx_file_write(h,"x",1);
+    /* The legacy recording fake returns DOS access denied; the real gate and
+     * stricter fake return BADARG. Neither may write or advance the handle. */
+    CHECK(denied==TBX_ERR_BADARG || denied==TBX_ERR_DOS(5));
+    CHECK(tbx_host_file("test.dat")->size==5 && !memcmp(tbx_host_file("test.dat")->data,"hello",5));
     CHECK(tbx_file_read(h,b,8)==5&&!memcmp(b,"hello",5));CHECK(tbx_file_read(h,b,1)==0);
     CHECK(tbx_file_seek(h,-2,TBX_FILE_FROM_END)==3);CHECK(tbx_file_read(h,b,2)==2&&!memcmp(b,"lo",2));
     CHECK(tbx_file_close(h)==0&&tbx_file_close(h)==TBX_ERR_BADARG);
@@ -52,7 +83,7 @@ int main(void)
     /* A committed save remains successful when only backup cleanup fails. */
     tbx_host.file_error[TBX_FILE_DELETE]=5;CHECK(tbx_file_save("NEW.DAT","new",3)==3);CHECK(!memcmp(tbx_host_file("NEW.DAT")->data,"new",3));CHECK(tbx_host_file("NEW.~00") && !memcmp(tbx_host_file("NEW.~00")->data,"preserved",9));tbx_host.file_error[TBX_FILE_DELETE]=0;
     CHECK(tbx_host_put_file("DIR\\FILE.WP5","wp",2));
-    tbx_find_rec_t found[8];CHECK(tbx_file_find("DIR\\*.*",0x16,found,8)==1);CHECK(!strcmp(found[0].name,"FILE.WP5")&&found[0].size==2);
+    static tbx_find_rec_t found[8];CHECK(tbx_file_find("DIR\\*.*",0x16,found,8)==1);CHECK(!strcmp(found[0].name,"FILE.WP5")&&found[0].size==2);
     tbx_host.free_bytes=12345;CHECK(tbx_disk_free()==12345);
     h=tbx_file_open("NEW.DAT",0);tbx_host.read_limit=2;CHECK(tbx_file_read(h,b,9)==2);
     tbx_host.file_error[TBX_FILE_CLOSE]=5;CHECK(tbx_file_close(h)==TBX_ERR_DOS(5));CHECK(tbx_file_read(h,b,1)==TBX_ERR_BADARG);
