@@ -42,13 +42,15 @@ index builds. Source-table navigation failures are not claimed by that matrix.
 `append` separately qualifies 255-to-256 count publication with +1/+2 inputs.
 
 Same-directory 8.3 stages are closed before replacing a destination; failed
-serialization removes only the stage. Commit renames the predecessor aside,
-then installs the completed file and restores the predecessor if installation
-fails. A second independent metadata failure during rollback can prevent
-restoration under the original name: the backup is retained. The current PAL
-has no atomic replace primitive, so unconditional preservation across arbitrary
-repeated rename failures cannot be guaranteed. Cleanup failures after successful
-publication may leave a BAK. No crash-atomicity guarantee is made.
+serialization removes only the stage. Commit retains the predecessor until the
+caller's final checks succeed. INDEX/REINDEX include reopen, header, attachment
+and navigation checks; failure restores old bytes and index metadata. Under the
+operator's review ruling, if installation and restoration both fail, the error
+prints `Previous file retained as: <exact pathname>` and deletes nothing. The
+old BAK, new stage and any installed replacement survive; the original name can
+be absent. DOS 3.30 has no atomic replace through INT 21h; kernel-only
+initech-7mb66 is not used. Cleanup failure after success can leave a BAK.
+No crash guarantee is made.
 
 `test_ibase_say` now executes the captured TA/TB/TD @...TO command prefixes,
 saves actual target cell/attribute/cursor dumps, and compares all 4002 bytes
@@ -68,3 +70,9 @@ an ordinary character comparison (#34), so the checker requires the exact
 with only a mutated target record is rejected by reopen-red.sh while intact
 index and memo checks still pass. `PRESERVED-OK` separately qualifies the +2
 TAX table exported by the injected record-region flush failure.
+
+The committed genuine-reader leg also requires `C21-RECORDS-OK` and
+`C21-INDEX-OK`: two rows, unchanged A/1, repaired B/9 and exact indexed seeks.
+It runs in `make smoke`, not tier 0, because it boots actual III+ under QEMU.
+`reopen-red.sh OUT PRODUCT CORE c21` changes only row 2's serialized VALUE
+from 9 to 8 and requires a completed real run to reject it.

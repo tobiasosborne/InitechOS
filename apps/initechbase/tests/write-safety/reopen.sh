@@ -12,7 +12,7 @@ printf 'label: dos\nlabel-id: 0x19920302\nunit: sectors\n\n63,65457,4,*\n' | sfd
 mformat -i "$out/runtime.img@@32256" -T 65457 -h 16 -s 63 -c 4 -r 32 -H 63 -N 19920302 ::
 for f in DBASE.EXE DBASE.OVL DBASE.MSG DBASEINL.OVL; do mcopy -i "$out/runtime.img@@32256" "$ref/mint/work/$f" ::; done
 truncate -s 1474560 "$out/data.img"; mformat -i "$out/data.img" -f 1440 -N 19920302 ::
-for f in BASE.DBF RESULT.DBF NAMES.NDX; do mcopy -i "$out/data.img" "$product/$f" ::; done
+for f in BASE.DBF RESULT.DBF NAMES.NDX REPAIRED.DBF STALE.NDX; do mcopy -i "$out/data.img" "$product/$f" ::; done
 mcopy -i "$out/data.img" "$core/build/core-memo.dbf" ::MEMO.DBF
 mcopy -i "$out/data.img" "$core/build/core-memo.dbt" ::MEMO.DBT
 mcopy -i "$out/data.img" "$core/build/FLUSHERR.DBF" ::FLUSHERR.DBF
@@ -51,6 +51,22 @@ USE B:FLUSHERR
 IF RECCOUNT()=9 .AND. TITLE="Business Expenses"
 ? "PRESERVED-OK"
 ENDIF
+USE B:REPAIRED
+GO 1
+IF RECCOUNT()=2 .AND. KEY='AAAAAAAA' .AND. VALUE=1
+GO 2
+IF KEY='BBBBBBBB' .AND. VALUE=9
+? 'C21-RECORDS-OK'
+ENDIF
+ENDIF
+USE B:REPAIRED INDEX B:STALE
+SEEK 'AAAAAAAA'
+IF FOUND() .AND. RECNO()=1 .AND. KEY='AAAAAAAA' .AND. VALUE=1
+SEEK 'BBBBBBBB'
+IF FOUND() .AND. RECNO()=2 .AND. KEY='BBBBBBBB' .AND. VALUE=9
+? 'C21-INDEX-OK'
+ENDIF
+ENDIF
 USE B:MEMO
 IF RECCOUNT()=1
 ? NOTE
@@ -69,8 +85,8 @@ printf 'sleep 3\nkey ret\nwait REOPEN-DONE\nshot result\nend\n' > "$out/steps"
 "$out/drive" "$out" "$out/boot.img" "$out/data.img" "$out/runtime.img" "$out/steps"
 mcopy -i "$out/runtime.img@@32256" ::TRACE.TXT "$out/TRACE.TXT"
 tr -d '\r\032' < "$out/TRACE.TXT" > "$out/trace.txt"
-for marker in RECORDS-OK INDEX-OK MEMO-OK PRESERVED-OK; do grep -Fx "$marker" "$out/trace.txt"; done
+for marker in RECORDS-OK INDEX-OK MEMO-OK PRESERVED-OK C21-RECORDS-OK C21-INDEX-OK; do grep -Fx "$marker" "$out/trace.txt"; done
 memo_line=$(printf 'hello%45s' '')
 grep -Fx "$memo_line" "$out/trace.txt"
 if grep -F REOPEN-ERROR "$out/trace.txt"; then exit 1; fi
-echo 'GREEN: real III+ reopened target DBF/NDX and host DBF/DBT with exact record/key/memo values'
+echo 'GREEN: real III+ reopened target DBF/NDX, repaired C21 pair and host DBF/DBT with exact values'
