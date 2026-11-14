@@ -54,7 +54,6 @@
 /* Tunables (bounded -- CLAUDE.md, The constitution fail-loud on overflow, never UB)           */
 /* ===================================================================== */
 
-#define FLOW_MAX_LINES     512   /* logical lines per program */
 #define FLOW_MAX_MEMVARS   256   /* live memory variables */
 #ifndef FLOW_MEMVAR_ARENA
 #define FLOW_MEMVAR_ARENA  16384u/* host stress profile; target uses III+ 6000 */
@@ -62,7 +61,7 @@
 #define FLOW_MAX_NAME      11    /* dBASE memvar name: 10 chars + NUL */
 #define FLOW_MAX_TOKS      128   /* per-expression token pool */
 #define FLOW_MAX_NODES     128   /* per-expression node pool */
-#define FLOW_MAX_LINELEN   254   /* a working copy of one line (dBASE cap 254) */
+#define FLOW_MAX_LINELEN   255   /* genuine III+ C31 accepts 255 source bytes */
 #ifndef FLOW_MAX_REGISTRY
 # define FLOW_MAX_REGISTRY 16    /* host-test default; InitechDOS .COM build passes -DFLOW_MAX_REGISTRY=1 (ADR-0009 DEC-03) */
 #endif
@@ -1984,7 +1983,8 @@ int ibase_do_n(xb_interp *ip, const char *prg, uint32_t plen)
     ibase_ovl_validate_ctx(xb_interp_ctx(ip));
     fs->program = xb_interp_ctx(ip)->program_name;
 
-    n = split_lines(prg, plen, (flow_line *)0, FLOW_MAX_LINES);
+    /* C34: statement storage is sized by the count pass, not a 512-line cap. */
+    n = split_lines(prg, plen, (flow_line *)0, INT32_MAX);
     if (n < 0) {
         fs->last_error = 43;                /* Insufficient memory. */
         return -INTERP_ERR_DEPTH;
@@ -2010,6 +2010,9 @@ static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
     if (n <= FLOW_STACK_LINES)
         return flow_exec_lines(ip, fs, prg, plen, n, small_lines, small_kind);
     pal = xb_interp_pal(ip);
+    if((uint32_t)n>UINT32_MAX/(uint32_t)(sizeof(flow_line)+sizeof(line_kind))){
+        fs->last_error=43;return -INTERP_ERR_NOMEM;
+    }
     blk = (pal && pal->acquire)
         ? pal->acquire(pal, (uint32_t)n * (uint32_t)(sizeof(flow_line) + sizeof(line_kind)))
         : (void *)0;

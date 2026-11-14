@@ -112,7 +112,6 @@
 #define P_MSG_WRONG_PARAM   94  /* "Wrong number of parameters." */
 #define P_MSG_NOT_FOUND      1  /* "File does not exist." */
 #define P_MAX_FILE         128
-#define P_PRG_CAP         8192u /* existing dot-prompt loader bound */
 
 /* RETURN sentinel: a negative rc the flow executor bubbles up out of nested
  * control flow; proc_call maps it to a clean return. Chosen WELL outside the
@@ -554,7 +553,9 @@ char *proc_load_program(xb_interp *ip, const char *name, uint32_t *len, int *ec)
     }
     if (fd < 0) return (char *)0;
     total = pal->seek(pal, fd, 0, PAL_SEEK_END);
-    if (total < 0 || (uint32_t)total >= P_PRG_CAP) {
+    /* C35: an 8192-byte source is valid. The exact-size owned allocation
+     * below limits storage by available memory, not an unrelated byte cap. */
+    if (total < 0) {
         if (ec) *ec = 18;
         pal->close(pal, fd);
         return (char *)0;
