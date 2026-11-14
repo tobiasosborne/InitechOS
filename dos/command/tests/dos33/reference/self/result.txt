@@ -1,0 +1,25 @@
+SeaBIOS (version 1.16.3-debian-1.16.3-2)                                        
+Booting from Floppy...                                                          
+File cannot be copied onto itself                                               
+        0 File(s) copied                                                        
+CAPTURE-DONE                                                                    
+B>                                                                              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

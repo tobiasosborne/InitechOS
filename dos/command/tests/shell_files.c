@@ -9,11 +9,12 @@
 #include "sft.h"
 #define COMMAND_FILE_HOST
 #include "command.c"
+#include "batch.c"
 static void sink(char c) { putchar(c); }
 static int con_get(void) { int c=getchar(); if(c==EOF)exit(2); return c=='\n'?'\r':c; }
 int main(int argc,char **argv)
 {
-    if(argc!=3)return 2;
+    if(argc!=3 && !(argc==4 && !strcmp(argv[2],"--batch")))return 2;
     blockdev_file_t bf; fat12_volume_t vol; unsigned char sector[512];
     static psp_t psp; psp_params_t params={0}; params.alloc_end_linear=0x80000;
     if(blockdev_file_open_rw(&bf,argv[1]) || fat12_mount(&vol,&bf.dev,sector) || fileio_fat_bind(&vol))return 2;
@@ -51,13 +52,16 @@ int main(int argc,char **argv)
         puts("GREEN created-name matrix: raw 39h/3Ch/5Bh refusals, qualified devices and aliases");
         return 0;
     }
-    FILE *in=fopen(argv[2],"r"); if(!in)return 2;
+    FILE *in=fopen(argv[argc-1],"r"); if(!in)return 2;
     char line[128];
-    while(fgets(line,sizeof line,in)) {
+    char physical[4097]; int pos=0,len=0;
+    if(argc==4){len=(int)fread(physical,1,sizeof physical-1,in);physical[len]=0;}
+    while(argc==4 ? batch_next_line(physical,len,&pos,line) : fgets(line,sizeof line,in)!=NULL) {
         line[strcspn(line,"\r\n")]=0;
         cmd_line_t c;cmd_parse(line,&c);
         switch(c.kind) {
         case CMD_COPY: builtin_copy(c.arg);break;
+        case CMD_TYPE: builtin_type(c.arg);break;
         case CMD_REN: builtin_ren(c.arg);break;
         case CMD_DEL: builtin_del(c.arg);break;
         case CMD_CD: call_host(0x3b00,0,0,(uintptr_t)c.arg,0);break;

@@ -108,6 +108,10 @@ test-xcopy-tree_SRCS := tests/runner.c
 test-xcopy-tree_ARGS := tests/run.sh test-xcopy-tree
 test-xcopy-tree_DEPS := $(OUT)/host/tool_test_xcopy_tree tests/run.sh tests/gates/test-xcopy-tree.sh
 test-build: $(TOP)/build/kernel/dos_messages.h
+test-build: dos33-reference
+.PHONY: dos33-reference
+dos33-reference:
+	@cd command/tests/dos33/reference && sha256sum -c SHA256SUMS >/dev/null
 
 MUTANT_PATCHES := $(wildcard */mutants/*.patch)
 
@@ -139,5 +143,35 @@ HOST_TESTS += test-dosmsg
 test-dosmsg_SRCS := tests/runner.c
 test-dosmsg_ARGS := tests/run.sh test-dosmsg
 test-dosmsg_DEPS := $(OUT)/host/tool_dosmsg_scan $(addprefix $(OUT)/,$(addsuffix .COM,$(PROGRAMS))) tests/gates/test-dosmsg.sh
+HOST_TESTS += test-copy-full
+test-copy-full_SRCS := tests/runner.c
+test-copy-full_ARGS := tests/run.sh test-copy-full
+test-copy-full_DEPS := $(OUT)/host/tool_shell_files tests/gates/test-copy-full.sh
+HOST_TESTS += batch-physical
+batch-physical_SRCS := command/tests/batch_physical.c
+batch-physical_CFLAGS := $(tool_batch_break_CFLAGS)
+batch-physical_DEPS := $(TOP)/build/kernel/dos_messages.h
+HOST_TESTS += fdisk-session
+fdisk-session_SRCS := fdisk/tests/session.c fdisk/fdisk.c
+HOST_TESTS += test-explicit-drive
+test-explicit-drive_SRCS := tests/runner.c
+test-explicit-drive_ARGS := tests/run.sh test-explicit-drive
+test-explicit-drive_DEPS := $(OUT)/host/tool_dosutil_host tests/gates/test-explicit-drive.sh
+HOST_TESTS += test-shell-failures
+test-shell-failures_SRCS := tests/runner.c
+test-shell-failures_ARGS := tests/run.sh test-shell-failures
+test-shell-failures_DEPS := $(OUT)/host/tool_shell_files tests/gates/test-shell-failures.sh
+HOST_TESTS += test-xcopy-drive
+test-xcopy-drive_SRCS := tests/runner.c
+test-xcopy-drive_ARGS := tests/run.sh test-xcopy-drive
+test-xcopy-drive_DEPS := $(OUT)/host/tool_test_xcopy_tree tests/gates/test-xcopy-drive.sh
 include $(TOP)/mk/host-test.mk
-include $(TOP)/mk/mutants.mk
+SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
+.PHONY: mutants mutants-host mutants-sessions
+mutants: mutants-host mutants-sessions
+mutants-host:
+	+@sh $(TOP)/factory/testlib/run-mutants.sh "$(abspath $(TOP))" "$(COMPONENT)" \
+	  "$(abspath $(OUT))" "$(MAKE)" $(MUTANT_PATCHES)
+mutants-sessions:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/mutants.sh "$(TOP)" $(SESSION_MUTANT_PATCHES)

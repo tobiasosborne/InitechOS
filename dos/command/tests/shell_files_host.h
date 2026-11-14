@@ -5,11 +5,14 @@ static find_data_t g_shell_dta;
 static int21_break_recovery_t g_shell_break;
 static char g_out[64];
 static unsigned verify_reads;
+static unsigned break_read_calls;
 static char last_created[128];
 static unsigned char verify_handle[256];
 static int call_host(unsigned a,unsigned b,unsigned c,uintptr_t d,uintptr_t di)
+/* Factory-only fault seam: exercise an actual command failure epilogue. */
 {
     int_frame_t f={0}; unsigned ah=a>>8;
+    if(ah==0x41 && getenv("SHELL_DENY_UNLINK"))return -5;
     if(ah==0x40 && c==0 && getenv("SHELL_REFUSE_TRUNCATE"))return -0x1d;
     f.eax=a; f.ebx=b; f.ecx=c; f.edx=(uint32_t)d; f.edi=(uint32_t)di;
     f.eflags=0x202;
@@ -40,7 +43,7 @@ static int dos_open_mode(const char *s,uint8_t m) { return call_host(0x3d00|m,0,
 static int dos_creat(const char *s) { return call_host(0x3c00,0,0,(uintptr_t)s,0); }
 #define DOS_READ_ERROR 0xffffffffu
 static uint32_t dos_read(int h,uint8_t *p,uint32_t n)
-{ int r=call_host(0x3f00,(unsigned)h,n,(uintptr_t)p,0); return r<0 ? DOS_READ_ERROR:(uint32_t)r; }
+{ if(getenv("SHELL_BREAK_READ")){g_shell_break.interrupted=1;memset(p,'X',n);return break_read_calls++ ? 0:1;} int r=call_host(0x3f00,(unsigned)h,n,(uintptr_t)p,0); return r<0 ? DOS_READ_ERROR:(uint32_t)r; }
 #define DOS_WRITE_ERROR 0xffffffffu
 static uint32_t dos_write_h(int h,const uint8_t *p,uint32_t n)
 { int r=call_host(0x4000,(unsigned)h,n,(uintptr_t)p,0); return r<0 ? DOS_WRITE_ERROR:(uint32_t)r; }
@@ -68,4 +71,9 @@ static void dos_getline(uint8_t *p)
     /* Drive the real cooked CON input, with a low-address ABI buffer. */
     memcpy(bounce,p,2); call_host(0x0a00,0,0,(uintptr_t)bounce,0);
     memcpy(p,bounce,(unsigned)bounce[1]+3);
+}
+static int dos_stdout_is_device(void)
+{
+    int_frame_t f={0};f.eax=0x4400;f.ebx=1;int21_dispatch(&f);
+    return !(f.eflags&1) && (f.edx&0x80);
 }

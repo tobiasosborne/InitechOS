@@ -1,0 +1,7 @@
+sleep 2
+shot before
+key y
+key ret
+sleep 1
+shot result
+end

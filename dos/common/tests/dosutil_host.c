@@ -56,7 +56,7 @@ int du_cwd(unsigned drive, char out[64])
     if (strlen(cwd)>63) return -1;
     strcpy(out,cwd); return 0;
 }
-int du_drive(void) { return 0; }
+int du_drive(void) { const char *d=getenv("DOSUTIL_DEFAULT"); return d ? atoi(d):0; }
 int du_sector(int write, unsigned drive, unsigned lba, uint8_t buf[512])
 {
     if (drive) return -1;

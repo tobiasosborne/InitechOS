@@ -40,7 +40,7 @@ Remaining boundary debt, inherited unchanged from legacy utilities:
   The standard filters, EDLIN, XCOPY/TREE and TPSREP use INT21 only.
 - Utilities use the fixed conventional PSP/program layout, not a relocatable
   process ABI. The product keeps the old format/loader limits.
-- Inactive mutation guards were converted to patches; see tests/MUTANTS-TODO.md.
+- Mutation variants are patch files, graded by host tests or product sessions.
 
 `make test` runs the shell, batch/environment/redirection parsers, disk utilities,
 CHKDSK, EDLIN, FDISK, XCOPY/TREE, ATTRIB/LABEL and directory/message checks.
@@ -53,12 +53,27 @@ tests/SMOKES.md. The existing product smoke runs the filters.
 `make smoke-programs` only assembles the factory probes; factory installs them
 on its separate disposable data disk. Product image assembly uses only the
 fifteen PROGRAMS and never copies these probes. `make smoke` invokes the
-factory sessions. `make mutants` runs proved host patches; pending patches
-remain explicitly unproved under each core's mutants/pending/ directory.
-See tests/IMPORT.md and tests/MUTANTS-TODO.md for counts and remaining work.
+factory sessions. `make mutants` runs the host and product-session patch inventories.
+The import history for other legacy tests remains in tests/IMPORT.md.
 
 FLAIR is a built-in command that calls the optional public kernel environment
 hook. It returns to the existing interpreter and current batch context when
 the user leaves the desktop; it does not start another COMMAND.COM. Product
 AUTOEXEC.BAT ends with FLAIR. The system link supplies the environment, while
 the standalone DOS kernel reports that it is not installed.
+
+COPY disk-full behavior follows the provisional DOS 3.30 ruling: remove the
+failed output, print the captured insufficient-space message and copied-file
+count, and retain ERRORLEVEL. This includes destructive overwrite and append
+failures. Sources: goldens/dataloss/dos and command/tests/dos33/reference.
+Batch physical lines retain 127 characters and discard the remainder, exactly
+as the new OEM DOS capture does; the reported long-mask scenario retains both
+KEEP.DAT and JUNK.TMP in the reference and the real command/FAT host test.
+
+Mutation coverage now includes an external product-session runner under
+`tests/runtime/`: target code is patched in disposable copies, built normally,
+and linked into the same product composition. Tests never add scenarios to
+kernel startup. `make mutants-host` runs host patches; `make mutants-sessions`
+builds the product image and proves the runtime patches, each twice after a
+green baseline. `make mutants` runs both, with factory-compatible counts.
+The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.

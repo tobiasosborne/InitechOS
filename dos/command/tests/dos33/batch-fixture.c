@@ -1,0 +1,19 @@
+/* Independent physical-line inputs, executed by the pinned OEM COMMAND.COM. */
+#include <stdio.h>
+#include <string.h>
+int main(void) {
+    printf("@ECHO OFF\r\nB:\r\n");
+    for(int n=124;n<=132;n++) {
+        char prefix[64]; sprintf(prefix,"ECHO >E%d.OUT ",n);
+        fputs(prefix,stdout);
+        for(int i=(int)strlen(prefix);i<n-1;i++)putchar('x');
+        printf("Z\r\n");
+    }
+    printf("REM ");
+    for(int i=0;i<512;i++)putchar('r');
+    printf(" DEL KEEP.DAT\r\nECHO REM-AFTER>REM.OUT\r\n");
+    printf("MD MASK\r\nCD MASK\r\nECHO keep>KEEP.DAT\r\nECHO temp>JUNK.TMP\r\nDEL");
+    for(int i=0;i<123;i++)putchar(' ');
+    printf("*.TMP\r\nDIR\r\nECHO CAPTURE-DONE\r\n");
+    return 0;
+}

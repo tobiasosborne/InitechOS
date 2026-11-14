@@ -56,6 +56,8 @@
  * from command.h -- .BAT lines are fed through the same DOS line-input path.
  * We define our own constant here to keep batch.h independent of command.h. */
 #define BATCH_LINE_MAX  128
+/* OEM DOS 3.30 physical-line capture: tests/dos33/reference/batch. */
+int batch_next_line(const char *buf, int len, int *pos, char *out);
 
 /* Maximum length of a GOTO target label or a batch variable name (%%v FOR
  * loop variable; %VAR% environment name).  Conservative; labels in real DOS

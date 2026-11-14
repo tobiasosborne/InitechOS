@@ -67,8 +67,10 @@ all: $(OUT)/COMMAND.COM
 $(OUT)/COMMAND.COM: command/forward.asm | $(OUT)
 	$(NASM) -f bin $< -o $@
 
-$(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc: $(TOP)/kernel/include/dos_messages.json $(TOP)/kernel/gen_messages.c
-	$(MAKE) -C $(TOP)/kernel $(TOP)/build/kernel/dos_messages.h $(TOP)/build/kernel/dos_messages.inc
+$(TOP)/build/kernel/dos_messages.h: $(TOP)/kernel/include/dos_messages.json $(TOP)/kernel/gen_messages.c
+	$(MAKE) -C $(TOP)/kernel $@
+$(TOP)/build/kernel/dos_messages.inc: $(TOP)/build/kernel/dos_messages.h
+	$(MAKE) -C $(TOP)/kernel $@
 $(OUT)/command-resident.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o: $(TOP)/build/kernel/dos_messages.h
 
 include tests-programs.mk
@@ -78,3 +80,8 @@ include tests.mk
 
 TARGET_ARTIFACTS := $(addprefix $(OUT)/,$(addsuffix .COM,$(PROGRAMS))) $(OUT)/COMMAND.COM
 include $(TOP)/mk/import-check.mk
+
+.PHONY: smoke-errors
+smoke-errors:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/copy-state.sh "$(TOP)" "$(TOP)/build/image/boot.img" "$(OUT)" "$(OUT)/smoke-errors"

@@ -73,3 +73,10 @@ personalities, test logic in production startup, or fake successful target.
 | test-xcopy-cwd-emu, test-xcopy-cwd-emu-bochs, test-xcopy-cwd-emu-mutant | SESSION | Type the normal DOS command sequence on a copied data volume; compare serial and mtools bytes/attributes/FAT before and after. |
 | test-xcopy-tree-emu, test-xcopy-tree-emu-bochs, test-xcopy-tree-emu-mutant | SESSION | Type the normal DOS command sequence on a copied data volume; compare serial and mtools bytes/attributes/FAT before and after. |
 | test-xcopy-tree-emu-cancel | SESSION | Type the normal DOS command sequence on a copied data volume; compare serial and mtools bytes/attributes/FAT before and after. |
+
+Phase 2 adds executable external sessions in `tests/runtime/`: AUTOEXEC,
+COMMAND /C, IF/FOR/SHIFT, filters, redirection, pipes, COPY timestamps,
+CWD/date/dollar/drive prompts, permanent EXIT, pagination Ctrl-C, corrupt
+reads, full media and the TPS ritual/faults. `make mutants-sessions` grades
+38 target patches there; the ordinary factory DOS smoke still covers both
+QEMU and Bochs. Sessions use only disposable disks and the normal image.

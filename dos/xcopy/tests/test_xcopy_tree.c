@@ -146,6 +146,11 @@ int main(int argc, char **argv)
     unsigned char sector[512];
     if (blockdev_file_open_rw(&bf, argv[2]) || fat12_mount(&vol, &bf.dev, sector) ||
         fileio_fat_bind(&vol)) return 95;
+    blockdev_file_t other; fat12_volume_t other_vol; unsigned char other_sector[512];
+    const char *other_path=getenv("XCOPY_DRIVE_C");
+    if(other_path && (blockdev_file_open_rw(&other,other_path) ||
+       fat12_mount(&other_vol,&other.dev,other_sector) ||
+       fileio_fat_add_drive(2,&other_vol)))return 98;
     psp_params_t params = {0};
     params.alloc_end_linear = 0x80000;
     psp_build(&psp, &params); sft_init(); int21_set_psp(&psp); int21_set_sink(sink);
@@ -160,6 +165,7 @@ int main(int argc, char **argv)
     strcpy(tail, argv[4]);
     int rc = du_main(!strcmp(argv[3], "TREE"), tail);
     blockdev_file_close(&bf);
+    if(other_path)blockdev_file_close(&other);
     fprintf(stderr, "ORACLE RUN: exit=%d verify_reads=%d\n", rc, verify_reads);
     return rc;
 }

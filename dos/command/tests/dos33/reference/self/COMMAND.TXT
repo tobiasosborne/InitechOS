@@ -1,0 +1,1 @@
+COPY SOURCE.BIN .\source.bin /B

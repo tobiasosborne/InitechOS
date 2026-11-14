@@ -1,29 +1,7 @@
-# CMD_MUTATE_COPY_EOF
-# test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
+# CMD_MUTATE_COPY_EOF: suppress the destination's ASCII EOF byte.
+# test: test-shell-files-host
 --- a/command/command.c
 +++ b/command/command.c
-@@ -3103,23 +3103,7 @@
-         }
-         if(!append) {dos_print(MSG_DOS_0003 "\r\n$");return;}
-         int textmode=plan.dest_mode==1 || (!plan.dest_mode && combined);
+@@ -1,1 +1,1 @@
 -        if(textmode) {
--            uint8_t eof=26;int h=dos_open_mode(target,2);
--            if(h<0 || dos_lseek_end(h)<0 || dos_write_h(h,&eof,1)!=1) {
--                if(h>=0)dos_close(h);
--                dos_print(MSG_DOS_0009 "\r\n$");return;
--            }
--            dos_close(h);
--            if(!combined) {
--                int s=dos_open(source); h=dos_open_mode(target,2);
--                uint16_t time=0,date=0;
--                if(s>=0 && h>=0 && !dos_filetime(s,0,&time,&date)) {
--                    (void)dos_filetime(h,1,&time,&date);
--                }
--                if(s>=0)dos_close(s);
--                if(h>=0)dos_close(h);
--            }
--        }
-+        (void)textmode;
-         done++;
-     } while(per_file && !g_shell_break.interrupted);
-     {
++        if(0 && textmode) {

@@ -2656,57 +2656,6 @@ static void builtin_dir(const char *arg)
     dos_write(g_out,(uint32_t)n);
 }
 
-/* TYPE <file>: OPEN the named file, READ it in chunks, WRITE each chunk to
- * stdout (handle 1), CLOSE. File-not-found => the controlled diagnostic. */
-static void builtin_type(const char *arg)
-{
-    char name[CMD_TOKEN_MAX];
-    int handle;
-    uint8_t chunk[128];
-    uint32_t got;
-
-    if (cmd_first_token(arg, name) == 0) {
-        /* No filename given -- MSG-DOS-0011 "Required parameter missing". */
-        dos_print(MSG_DOS_0011 "\r\n$");
-        return;
-    }
-    cmd_upcase_str(name);   /* DOS upcases 8.3 names */
-
-    handle = dos_open(name);
-    if (handle < 0) {
-        dos_print(handle == -15 ? MSG_DOS_0004 "\r\n$" : MSG_DOS_0003 "\r\n$");
-        return;
-    }
-    for (;;) {
-        got = dos_read(handle, chunk, sizeof(chunk));
-        /* INT 23h resident recovery returns before the service completes:
-         * EAX can still be the 3F00h request, not a byte count. Unwind through
-         * CLOSE and the redirect epilogue without emitting any buffer bytes.
-         * Ref: User's Guide p.159 / PDF244; ADR-0003 DEC-16 Fork A. */
-        if (g_shell_break.interrupted) break;
-        if (got == DOS_READ_ERROR || got > sizeof(chunk)) {
-            /* initech-winh: a read failure is NOT a byte count -- abort
-             * rather than flush `chunk` (possibly never written this call)
-             * to stdout as if it were real file content. */
-            dos_close(handle);
-            dos_print(MSG_DOS_0002 "\r\n$");   /* catch-all diagnostic */
-            return;
-        }
-        if (got == 0u) {
-            break;          /* EOF */
-        }
-        dos_write((const char *)chunk, got);
-        if (g_shell_break.interrupted) break;
-    }
-    dos_close(handle);
-    if (g_shell_break.interrupted) return;
-    /* A redirected TYPE is file bytes, without console-only line framing.
-     * MS-DOS 3.3 Reference TYPE/redirection; IOCTL IBM TR pp6-148..149. */
-    uint32_t ax=0x4400u, info;
-    __asm__ __volatile__("int $0x21" : "+a"(ax), "=d"(info) : "b"(1u) : "cc","memory");
-    if(info & 0x80u) dos_print("\r\n$");
-}
-
 /* Compose the displayable CWD ("A:\" + the root-relative path AH=47h reports)
  * into `out`. The root is the empty root-relative string -> "A:\"; a subdir
  * "SUB" -> "A:\SUB". `out` must hold >= 3 (drive+root '\') + INT21_CWD_MAX-1 + 1
@@ -2894,6 +2843,13 @@ static void builtin_break(const char *arg)
     }
 }
 
+static int dos_stdout_is_device(void)
+{
+    uint32_t ax=0x4400u, info;
+    __asm__ __volatile__("int $0x21" : "+a"(ax), "=d"(info) : "b"(1u) : "cc","memory");
+    return (info & 0x80u)!=0;
+}
+
 #elif defined(COMMAND_FILE_HOST)
 /* Factory adapter issues the same calls to the actual INT21/FAT backend.
  * PRD 6.1: mtools on identical images is the independent oracle. */
@@ -2904,7 +2860,70 @@ static void builtin_break(const char *arg)
 #endif
 
 #ifndef COMMAND_BATCH_HOST
+/* TYPE <file>: OPEN the named file, READ it in chunks, WRITE each chunk to
+ * stdout (handle 1), CLOSE. File-not-found => the controlled diagnostic. */
+static void builtin_type(const char *arg)
+{
+    char name[CMD_TOKEN_MAX];
+    int handle;
+    uint8_t chunk[128];
+    uint32_t got;
+
+    if (cmd_first_token(arg, name) == 0) {
+        /* No filename given -- MSG-DOS-0011 "Required parameter missing". */
+        dos_print(MSG_DOS_0011 "\r\n$");
+        return;
+    }
+    cmd_upcase_str(name);   /* DOS upcases 8.3 names */
+
+    handle = dos_open(name);
+    if (handle < 0) {
+        dos_print(handle == -15 ? MSG_DOS_0004 "\r\n$" : MSG_DOS_0003 "\r\n$");
+        return;
+    }
+    for (;;) {
+        got = dos_read(handle, chunk, sizeof(chunk));
+        /* INT 23h resident recovery returns before the service completes:
+         * EAX can still be the 3F00h request, not a byte count. Unwind through
+         * CLOSE and the redirect epilogue without emitting any buffer bytes.
+         * Ref: User's Guide p.159 / PDF244; ADR-0003 DEC-16 Fork A. */
+        if (g_shell_break.interrupted) break;
+        if (got == DOS_READ_ERROR || got > sizeof(chunk)) {
+            /* initech-winh: a read failure is NOT a byte count -- abort
+             * rather than flush `chunk` (possibly never written this call)
+             * to stdout as if it were real file content. */
+            dos_close(handle);
+            dos_print(MSG_DOS_0002 "\r\n$");   /* catch-all diagnostic */
+            return;
+        }
+        if (got == 0u) {
+            break;          /* EOF */
+        }
+        dos_write((const char *)chunk, got);
+        if (g_shell_break.interrupted) break;
+    }
+    dos_close(handle);
+    if (g_shell_break.interrupted) return;
+    /* A redirected TYPE is file bytes, without console-only line framing.
+     * MS-DOS 3.3 Reference TYPE/redirection; IOCTL IBM TR pp6-148..149. */
+    if(dos_stdout_is_device()) dos_print("\r\n$");
+}
+
 static uint32_t copy_verify_offset;
+static void copy_count(unsigned done)
+{
+    int n=0;put_u_field(g_out,&n,done,9);dos_write(g_out,(uint32_t)n);
+    dos_puts_raw(MSG_DOS_0061);dos_print("\r\n$");
+}
+/* Real DOS 3.30 captures: dos33/reference and goldens/dataloss/dos.
+ * Disk-full removes the output, even when it replaced an existing file or
+ * was the first operand of an omitted-target concatenation. */
+static int copy_full(const char *dest)
+{
+    (void)dos_unlink(dest);
+    dos_print(MSG_DOS_0005 "\r\n$");
+    return -1;
+}
 /* COPY execution. the repository contract: MS-DOS 3.3 Reference pp.50-52; ADR-0003 App A.
  * Resolve identity before CREAT; enumerate by ordinal and restart after file
  * calls (one kernel find context). No roster limit on wildcard source files. */
@@ -2993,8 +3012,7 @@ denied:
     dos_close(src);if(dst>=0)dos_close(dst);return 0;
 full:
     dos_close(src);dos_close(dst);
-    dos_print(MSG_DOS_0005 "\r\n$");   /* "Insufficient disk space" */
-    return 0;
+    return copy_full(dest);
 failed:
     dos_close(src);if(dst>=0)dos_close(dst);
     if(!g_shell_break.interrupted)dos_print(MSG_DOS_0002 "\r\n$");
@@ -3047,6 +3065,7 @@ static void builtin_copy(const char *arg)
     /* Omitted-target concatenation retains the first source, then appends.
      * With /A, replace its first EOF by the following sources (p.52). */
     if(append) {
+        dos_puts_raw(plan.names+plan.offset[0]);dos_print("\r\n$");
         int h=dos_open(dest);uint8_t c;
         if(h<0){dos_print(MSG_DOS_0003 "\r\n$");return;}
         uint32_t got;
@@ -3098,7 +3117,9 @@ static void builtin_copy(const char *arg)
                     if(!copy_path(source,spec,base))return;
                 } else for(unsigned i=0;(source[i]=spec[i])!=0;i++){}
                 int ascii=plan.mode[s]==1 || (!plan.mode[s] && combined);
-                if(!copy_transfer(source,target,ascii,append,(int)plan.verify,!combined))return;
+                if(combined){dos_puts_raw(source);dos_print("\r\n$");}
+                int result=copy_transfer(source,target,ascii,append,(int)plan.verify,!combined);
+                if(result<=0){if(result<0)copy_count(done);return;}
                 append=1;
                 if(per_file || !cmd_has_wildcard(spec))break;
             } while(!g_shell_break.interrupted);
@@ -3107,11 +3128,17 @@ static void builtin_copy(const char *arg)
         int textmode=plan.dest_mode==1 || (!plan.dest_mode && combined);
         if(textmode) {
             uint8_t eof=26;int h=dos_open_mode(target,2);
-            if(h<0 || dos_lseek_end(h)<0 || dos_write_h(h,&eof,1)!=1) {
+            if(h<0 || dos_lseek_end(h)<0) {
                 if(h>=0)dos_close(h);
                 dos_print(MSG_DOS_0009 "\r\n$");return;
             }
+            uint32_t put=dos_write_h(h,&eof,1);
             dos_close(h);
+            if(put!=1) {
+                if(put==DOS_WRITE_ERROR)dos_print(MSG_DOS_0009 "\r\n$");
+                else {copy_full(target);copy_count(done);}
+                return;
+            }
             if(!combined) {
                 int s=dos_open(source); h=dos_open_mode(target,2);
                 uint16_t time=0,date=0;
@@ -3125,8 +3152,7 @@ static void builtin_copy(const char *arg)
         done++;
     } while(per_file && !g_shell_break.interrupted);
     {
-        int n=0;put_u_field(g_out,&n,done,9);dos_write(g_out,(uint32_t)n);
-        dos_puts_raw(MSG_DOS_0061);dos_print("\r\n$");
+        copy_count(done);
     }
 }
 
@@ -3258,12 +3284,7 @@ static void builtin_del(const char *arg)
                 previous[i] = g_shell_dta.fname[i];
             previous[i] = '\0';
             del_path(path, name, prefix, previous);
-            uint16_t error;
-#ifdef CMD_TEST_DEL_DENIED
-            error = INT21_ERR_ACCESS_DENIED; /* factory-injected write refusal */
-#else
-            error = dos_unlink(path);
-#endif
+            uint16_t error = dos_unlink(path);
             if (error != 0u) {
                 del_remaining(name, prefix);
                 return;
@@ -4198,39 +4219,6 @@ static void batch_echo_line(const char *text)
     dos_print("\r\n$");
 }
 
-/* Extract the line that starts at byte offset `*pos` in `buf` (length `len`)
- * into `out` (capacity BATCH_LINE_MAX), advance `*pos` past the line and its
- * EOL sequence (CR, LF, or CRLF), and return 1.  Return 0 at end of buffer
- * (out[0] = '\0').  An over-long line is truncated into `out` but `*pos` is
- * still advanced past the whole physical line (the repository contract: never bleed). */
-static int batch_next_line(const char *buf, int len, int *pos, char *out)
-{
-    int i = *pos;
-    int n = 0;
-
-    out[0] = '\0';
-    if (i >= len) {
-        return 0;
-    }
-    while (i < len && buf[i] != '\r' && buf[i] != '\n' &&
-           n < BATCH_LINE_MAX - 1) {
-        out[n++] = buf[i++];
-    }
-    out[n] = '\0';
-    /* Skip any remaining chars of an over-long line. */
-    while (i < len && buf[i] != '\r' && buf[i] != '\n') {
-        i++;
-    }
-    /* Consume the EOL sequence (CRLF, lone CR, or lone LF). */
-    if (i < len && buf[i] == '\r') {
-        i++;
-    }
-    if (i < len && buf[i] == '\n') {
-        i++;
-    }
-    *pos = i;
-    return 1;
-}
 
 /* Find the start offset of the first line whose label matches `target`,
  * scanning `buf` (length `len`) from the top.  Returns that line's byte offset
