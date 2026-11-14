@@ -13,7 +13,11 @@ ln -s "$src/spec" "$work/spec"
 ln -s "$src/include" "$work/include"
 # Legacy drivers store the source root before chdir and spawn independent readers.
 cd "$work"
-"$bins/mint_clients_dbf" build/CLIENTS.DBF > build/fixture.log
+# The safety suite supplies independent raw/captured DBFs itself. Running the
+# product writer as unrelated setup would mask the writer fault it grades.
+if [ "$name" != test_ibase_dbsafe ]; then
+ "$bins/mint_clients_dbf" build/CLIENTS.DBF > build/fixture.log
+fi
 mkdir -p build/dbsafe build/ibase-audit build/ibase.audit
 # Only these drivers consume private copies of the captured family trees.
 # Unit suites read their own referenced files through tests/ and CORPUS.
@@ -34,8 +38,10 @@ case "$name" in
    for f in GOLD.OUT BASE.DBF NAMES.NDX VALUES.MEM; do cmp "build/ibasedml/golden/abbrev/$f" "build/ibasedml/golden/abbrfull/$f"; done
   fi;;
  test_ibase_report)
-  "$bins/$name" "$DBASE3_DECOMP" > build/report.log 2>&1
+  rc=0
+  "$bins/$name" "$DBASE3_DECOMP" > build/report.log 2>&1 || rc=$?
   cat build/report.log
+  test "$rc" -eq 0 || exit "$rc"
   grep -c 'byte-identical to real dBASE' build/report.log | grep -qx 124;;
  test_ibase_ndx_names)
   nm -u "$bins/../host-core/core/fn_builtins.o" > build/ndx-undefined.log
@@ -58,7 +64,7 @@ case "$name" in
   cases=$(cat tests/conformance/accepted.cases)
   CASES="$cases" sh tests/conformance/run-host.sh "$work/conformance"
   CASES="$cases" sh tests/conformance/check.sh "$work/conformance"
-  set -- $cases; echo "INITECH_CHECKS $# failures=0";;
+  ;;
  test_ibase_datatype)
   for c in blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar datecontract; do "$bins/$name" "$c"; done;;
  test_ibase_dbsafe)

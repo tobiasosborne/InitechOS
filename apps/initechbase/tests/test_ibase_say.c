@@ -38,10 +38,18 @@ static void error(xb_interp *ip,const char *program,int code)
 }
 static void model_draw(void *u,uint8_t r,uint8_t c,uint8_t a,const char *text,uint32_t n)
 { (void)u;(void)a;(void)text;
-    if(r>=25 || c>=80 || n>80u-c) {
-        fprintf(stderr,"RED continuation draw bound: row=%u col=%u n=%u\n",r,c,n);
-        exit(1);
-    }
+    CHECK(r<25 && c<80 && n<=80u-c,"continuation draw fits its one-row PAL span");
+}
+static unsigned unexpected_errors;
+static int unexpected_error(void *ip,int ec)
+{ (void)ip;(void)ec;unexpected_errors++;return INTERP_OK; }
+static void register_modules(xb_interp *ip)
+{
+    /* SET must not execute an indirect ON ERROR callback merely to register
+     * or parse an option. A safe sentinel observes that fault without UB. */
+    xb_interp_ctx(ip)->on_error=unexpected_error;
+    CHECK(set_register(ip)==0 && query_register(ip)==0,"SAY modules register");
+    CHECK(unexpected_errors==0,"module registration never invokes an unrelated ON ERROR callback");
 }
 static ibase_screen *continuation_model;
 static void continuation_output(ibase_pal_t *p,const char *s,uint32_t n)
@@ -66,7 +74,7 @@ static void target_screens(void)
 {
     const char *names[]={"TA","TB","TD"};
     ibase_pal_t *p=pal_host_make((struct pal_host_cfg){86,7,24,1048576});
-    xb_interp *ip=xb_interp_make(p);p->paint=target_paint;p->say_screen=target_paint;set_register(ip);query_register(ip);
+    xb_interp *ip=xb_interp_make(p);p->paint=target_paint;p->say_screen=target_paint;register_modules(ip);
     for(unsigned i=0;i<3;i++){
         screen_file reference;char name[256],program[8192],line[256];size_t n=0;FILE *f;
         for(unsigned j=0;j<2000;j++){target_screen.bytes[2*j]=' ';target_screen.bytes[2*j+1]=7;}
@@ -90,7 +98,7 @@ int main(void)
     target_screens();
     ibase_pal_t *p=pal_host_make((struct pal_host_cfg){86,7,24,1048576});
     xb_interp *ip=xb_interp_make(p);
-    p->conout=output;p->say_screen=screen;p->printout=printer;set_register(ip);query_register(ip);
+    p->conout=output;p->say_screen=screen;p->printout=printer;register_modules(ip);
     xb_interp_ctx(ip)->mirror_output=mirror;xb_interp_ctx(ip)->mirror_user=p;
     value(ip,"ROW()",0);value(ip,"COL()",0);value(ip,"PROW()",0);value(ip,"PCOL()",0);
     CHECK(ibase_do(ip,"@ 1+1, 6/2 SAY \"X\"\n")==INTERP_OK,"SAY numeric expressions");

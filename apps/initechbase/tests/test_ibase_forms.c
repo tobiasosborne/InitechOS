@@ -18,7 +18,8 @@ static ibase_screen model;
 static void draw(void *u,uint8_t r,uint8_t c,uint8_t a,const char *s,uint32_t n)
 {
     (void)u;
-    if(r>=25 || c+n>80)screen_die("product paint exceeded page");
+    CHECK(r<25 && c+n<=80,"product paint stays inside one page row");
+    if(r>=25 || c+n>80)return;
     for(uint32_t i=0;i<n;i++){page.bytes[2*(r*80+c+i)]=(uint8_t)s[i];page.bytes[2*(r*80+c+i)+1]=a;}
 }
 static int paint(ibase_pal_t *p,uint8_t r,uint8_t c,const char *s,uint32_t n)
@@ -91,7 +92,10 @@ int main(void)
         screen_read(path,&expected);
         if(memcmp(page.bytes,expected.bytes,4002))fprintf(stderr,"RED actual forms screen %s/%s\n",cases[i].dir,cases[i].name);
         CHECK(!memcmp(page.bytes,expected.bytes,4002),"all target characters, attributes and cursor equal real III+");
-        snprintf(path,sizeof path,"%s/actual.screen",work);screen_write(path,&page);
+        CHECK(page.bytes[4000]<=25 && page.bytes[4001]<80,"product cursor stays in captured screen bounds");
+        if(page.bytes[4000]<=25 && page.bytes[4001]<80){
+            snprintf(path,sizeof path,"%s/actual.screen",work);screen_write(path,&page);
+        }
         xb_interp_free(ip);w2_host_unbind(&env);pal_host_free(pal);
     }
     return TEST_SUMMARY("test-ibase-forms");

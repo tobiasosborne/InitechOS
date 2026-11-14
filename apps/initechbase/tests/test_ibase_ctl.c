@@ -38,7 +38,7 @@
  *    proves a 500-line body recursing to the 20-level cap leaves the session
  *    intact (its line tables come from the PAL heap, not the stack).
  */
-#define _XOPEN_SOURCE 700   /* sigaltstack / SA_ONSTACK (XSI) */
+#define _XOPEN_SOURCE 700   /* POSIX thread stack attributes. */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -81,6 +81,14 @@ typedef struct {
     long         polls;
 } cap_pal;
 static cap_pal g;
+static int stack_observing;
+static uintptr_t stack_top,stack_low,stack_used;
+static void observe_stack(void)
+{
+    char marker;
+    uintptr_t at=(uintptr_t)&marker;
+    if(stack_observing && at<stack_low)stack_low=at;
+}
 
 static pal_fd  c_open (ibase_pal_t *p, const char *n, int m) { return ((cap_pal*)p)->inner->open(((cap_pal*)p)->inner,n,m); }
 static int     c_close(ibase_pal_t *p, pal_fd fd) { return ((cap_pal*)p)->inner->close(((cap_pal*)p)->inner,fd); }
@@ -93,6 +101,7 @@ static void    c_conout(ibase_pal_t *p, const char *s, uint32_t n)
 {
     cap_pal *c = (cap_pal*)p;
     uint32_t i;
+    observe_stack();
     for (i = 0; i < n && c->len < CAP_BUF - 1u; i++) c->buf[c->len++] = s[i];
     c->buf[c->len] = '\0';
 }
@@ -151,15 +160,12 @@ static ibase_pal_t *cap_make(ibase_pal_t *inner)
 static const char *g_corpus;
 static const char *g_case = "";
 
-/* A session that never finishes is the L002 bug itself (an unstoppable
- * loop): fail it loudly instead of hanging the gate. */
+/* A stalled test is infrastructure failure, never a completed assertion. */
 static void on_alarm(int sig)
 {
     (void)sig;
-    fprintf(stderr, "  FAIL %s: session did not finish in 20 s (unstoppable program)\n", g_case);
-    printf("test-ibase-ctl: %d checks, %d failures\n", g_checks + 1, g_fails + 1);
-    fflush(stdout);
-    _exit(1);
+    fprintf(stderr, "ERROR %s: session did not finish in 20 s\n", g_case);
+    _exit(2);
 }
 
 static int slurp(const char *name, char *out, size_t cap)
@@ -226,6 +232,14 @@ static int stage_as(const char *name, const char *as)
             /* mint harness line: dropped */
         } else if (!strncmp(p, "SET PROCEDURE TO ", 17)) {
             if (nproc < 8 && sscanf(p + 17, "%15[A-Za-z0-9_]", procf[nproc]) == 1) nproc++;
+        } else if ((!strcmp(name,"ESC") || !strcmp(name,"ESCS")) &&
+                   !strncmp(p,"DO WHILE .T.",12)) {
+            /* Polls at 40 statements must interrupt long before N reaches
+             * this finite bound. A broken poll then finishes and fails the
+             * independent captured interrupt transcript, without a timeout. */
+            k += (size_t)snprintf(dst+k,sizeof dst-k,"DO WHILE N<1000\r\n");
+        } else if (!strcmp(name,"ESCTRAP") && !strncmp(p,"DO WHILE .NOT. STOP",18)) {
+            k += (size_t)snprintf(dst+k,sizeof dst-k,"DO WHILE .NOT. STOP .AND. N<1000\r\n");
         } else {
             k += (size_t)snprintf(dst + k, sizeof dst - k, "%s", p);
         }
@@ -319,44 +333,37 @@ static void session(const char *name, const char *const *lines, int n,
     session_as(name, name, lines, n, keys, esc, nesc);
 }
 
-/* NESTBIG runs on a thread whose stack is NESTBIG_STACK bytes, a stand-in for
- * the 64 KiB INITBASE.EXE stack (spec/memory_map.h PROGRAM_STACK_BOT..TOP; host
- * frames are larger, 64-bit). Per-call line tables back on the stack
- * (FLOW_MUTATE_STACK_LINES: 20 levels x 503 lines x 16 bytes) overflow it;
- * the overflow is caught on an alternate signal stack and reported RED. */
-#define NESTBIG_STACK (192u * 1024u)
-static void on_segv(int sig)
-{
-    (void)sig;
-    fprintf(stderr, "  FAIL %s: stack overflow (SIGSEGV) -- the session was lost\n", g_case);
-    printf("test-ibase-ctl: %d checks, %d failures\n", g_checks + 1, g_fails + 1);
-    fflush(stdout);
-    _exit(1);
-}
-static char g_alt[65536];
+/* Host frames differ from the target. Measure how much adding 500 source
+ * lines to each of 19 active procedures increases stack use at the captured
+ * deepest TRAP output. That increase alone must fit the target's entire
+ * 64 KiB stack (kernel public memory_map.h). A generous host stack lets the
+ * wrong VLA implementation complete; a generic SIGSEGV never earns a kill. */
+#define NESTBIG_STACK (4u * 1024u * 1024u)
 static void *nestbig_thread(void *u)
 {
-    stack_t ss;
+    char marker;
     (void)u;
-    ss.ss_sp = g_alt; ss.ss_size = sizeof g_alt; ss.ss_flags = 0;
-    CHECK(sigaltstack(&ss, (stack_t *)0) == 0, "alternate signal stack");
+    stack_top=stack_low=(uintptr_t)&marker;stack_observing=1;
     session_as("NEST", "NESTBIG", (const char *const *)0, 0, "", (const long *)0, 0);
+    stack_observing=0;stack_used=stack_top-stack_low;
     return (void *)0;
 }
-static void nestbig_on_small_stack(void)
+static void nestbig_stack_growth(void)
 {
     pthread_attr_t at;
     pthread_t th;
-    struct sigaction sa;
-    memset(&sa, 0, sizeof sa);
-    sa.sa_handler = on_segv;
-    sa.sa_flags = SA_ONSTACK;
-    CHECK(sigaction(SIGSEGV, &sa, (struct sigaction *)0) == 0, "SIGSEGV handler");
+    uintptr_t small;
+    int padding=g_pad;
     CHECK(pthread_attr_init(&at) == 0 &&
-          pthread_attr_setstacksize(&at, NESTBIG_STACK) == 0, "small-stack thread attr");
-    CHECK(pthread_create(&th, &at, nestbig_thread, (void *)0) == 0, "NESTBIG thread");
-    pthread_join(th, (void **)0);
+          pthread_attr_setstacksize(&at, NESTBIG_STACK) == 0, "bounded-stack thread attr");
+    g_pad=0;
+    if(pthread_create(&th,&at,nestbig_thread,NULL))exit(2);
+    if(pthread_join(th,NULL))exit(2);
+    small=stack_used;g_pad=padding;
+    if(pthread_create(&th,&at,nestbig_thread,NULL))exit(2);
+    if(pthread_join(th,NULL))exit(2);
     pthread_attr_destroy(&at);
+    CHECK(stack_used<=small+65536u,"500 source lines per active DO cannot consume another entire 64 KiB stack");
 }
 
 static void expect_in(const char *want, const char *why)
@@ -430,7 +437,7 @@ int main(int argc, char **argv)
         session("NEST", (const char *const *)0, 0, "", (const long *)0, 0);
         expect_in(want, "L003 20-level DO cap: TRAP 19 103 DOs nested too deep. (NEST.TXT)");
         g_pad = 500;
-        nestbig_on_small_stack();
+        nestbig_stack_growth();
         g_pad = 0;
         expect_in(want, "L003 500-line recursive body: same TRAP 19 103 / UNWOUND 19 (NEST.TXT)");
     }

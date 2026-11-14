@@ -388,6 +388,7 @@ static void test_guard_type(ibase_pal_t *pal)
     rc = run_prog(pal,
         "DO WHILE 1\n"
         "  X = 1\n"
+        "  EXIT\n"
         "ENDDO\n", &ip);
     CHECK(ip != NULL, "guard: DO WHILE-num interp");
     if (ip) {

@@ -9,7 +9,7 @@ case "$runner" in *[!a-zA-Z0-9_./-]*) exit 2;; esac
 mkdir -p build/do-file-test
 exec 9> "build/do-file-test/$mode-${runner##*/}.lock"
 flock 9
-fail=0
+fail=0;checks=0
 for source in "$base"/*; do
     test -d "$source" || continue
     name=${source##*/}
@@ -37,12 +37,15 @@ for source in "$base"/*; do
         mcopy -o -i "$work/data.img" ::GOLD.OUT "$work/GOLD.OUT"
         fsck.fat -n "$work/data.img" > "$work/fsck.log"
     fi
+    checks=$((checks+1))
     if ! cmp "$source/GOLD.OUT" "$work/GOLD.OUT"; then
-        printf 'RED DO-FILE %s %s: alternate differs from real III+\n' "$mode" "$name"
+        printf 'FAIL: DO-FILE %s %s: alternate differs from real III+\n' "$mode" "$name"
         cat "$work/console.out" 2>/dev/null || :
-        fail=1
+        fail=$((fail+1))
     else
         printf 'GREEN DO-FILE %s %s: byte-identical real III+ alternate\n' "$mode" "$name"
     fi
 done
-exit "$fail"
+test "$checks" -gt 0 || exit 2
+printf '\nINITECH_CHECKS %s failures=%s\n' "$checks" "$fail"
+test "$fail" -eq 0

@@ -17,6 +17,9 @@ separate disposable TEST disk; no test scenario is compiled into the kernel.
 oracles. `make mutants` runs 250 host patches and 19 target patches, including
 three static semantic rejections. All 28 original pending faults are qualified.
 The test controls themselves must receive zero kills.
+Host kills require completed assertion counts and identical failure evidence
+on two runs. Crashes, timeouts and missing fixtures are test errors. Recursive
+source growth is measured after normal completion, without counting a crash.
 
 Core, command and codec sources include only this component's headers. The
 PAL vtable is the platform interface; pal_dos uses INT 21h and CF/error returns.

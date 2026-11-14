@@ -64,6 +64,9 @@ def main():
             path = root / 'CASE.DBF'
             path.write_bytes(header + descriptor + b'\r' + b''.join(b' ' + c.encode('ascii') for c in cells) + b'\x1a')
             result = subprocess.run([binary, str(path)], capture_output=True, text=True)
+            if result.returncode:
+                print(f'ERROR: numeric observer exited {result.returncode}', file=sys.stderr)
+                return 2
             expected = ''.join(DELETION_FIELD + c + '\n' for c in cells)
             # LIST, explicit-field LIST, DISPLAY ALL, and current DISPLAY.
             # Real III+ fns-mint/numlist (SET HEADING OFF) and M005ULOG:
@@ -74,7 +77,7 @@ def main():
             if result.returncode or result.stdout != expected:
                 print(f'FAIL: N({width},{places}) descriptor differential', file=sys.stderr)
                 print(f'expected {expected[:120]!r}; actual {result.stdout[:120]!r}', file=sys.stderr)
-                print(f'test-ibase-numeric-format: {checks} checks, FAIL')
+                print(f'INITECH_CHECKS {checks} failures=1')
                 return 1
     # One row wider than the engine's 512-byte staging buffer. Independent
     # descriptor and payload construction checks the complete record view.
@@ -92,13 +95,17 @@ def main():
     path = root / 'WIDE.DBF'
     path.write_bytes(header + fields + b'\r ' + ''.join(cells).encode('ascii') + b'\x1a')
     result = subprocess.run([binary, str(path), 'wide'], capture_output=True, text=True)
+    if result.returncode:
+        print(f'ERROR: wide-record observer exited {result.returncode}', file=sys.stderr)
+        return 2
     expected = ('\n' + DELETION_FIELD + ' '.join(cells) + '\n') * 3
     checks += len(cells) * 3
     if result.returncode or result.stdout != expected:
         print('FAIL: wide-record descriptor differential', file=sys.stderr)
-        print(f'test-ibase-numeric-format: {checks} checks, FAIL')
+        print(f'INITECH_CHECKS {checks} failures=1')
         return 1
     print(f'test-ibase-numeric-format: {checks} cells PASS (manual-derived cells, real SF-numlist framing)')
+    print(f'INITECH_CHECKS {checks} failures=0')
     return 0
 
 
