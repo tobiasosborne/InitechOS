@@ -2658,8 +2658,9 @@ static void do_creatnew(int_frame_t *f)
     /* CREATNEW precondition: the target must not already exist. Probe via the
      * pure-locate open() member. open() returns 0 when the leaf is found in
      * `dir_start`; that means EXISTS -> fail with 0x0050, commit nothing. A
-     * 0x0002 (not found) or any other non-zero locate result means "does not
-     * exist" -> fall through to the CREAT path. (the repository contract mutants: NO_GUARD drops
+     * Only 0x0002 (not found) establishes absence. Media/lookup failures must
+     * refuse before truncating CREAT (IBM DOS 3.30 TR p.6-215; initech-06l23).
+     * (the repository contract mutants: NO_GUARD drops
      * this block so CREATNEW==CREAT; GUARD_INVERT flips the sense; WRONG_CONST
      * returns the wrong AX.)
      *
@@ -2686,6 +2687,11 @@ static void do_creatnew(int_frame_t *f)
         uint16_t    found = g_file->open(leaf, dir_start, &probe_de, &probe_slot);
         if (found == 0u) {               /* file located -> already exists */
             set_ax(f, INT21_ERR_FILE_EXISTS);     /* 0x0050 ERROR_FILE_EXISTS */
+            cf_set(f);
+            return;
+        }
+        if (found != INT21_ERR_FILE_NOT_FOUND) {
+            set_ax(f, found);
             cf_set(f);
             return;
         }
