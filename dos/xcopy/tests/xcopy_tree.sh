@@ -7,7 +7,7 @@ export LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=315532800 INITECH_QMP_STDIO=1
 mode=$1; runner=$2; work=$3
 mkdir -p "$work"
 seed=$work/seed.img
-fail() { echo "XCOPY/TREE RED: $*"; exit 1; }
+fail() { echo "FAIL XCOPY/TREE: $*"; echo "INITECH_CHECKS 1 failures=1"; exit 1; }
 run() { "$runner" --run "$work/art.img" "$@" > "$work/output" 2> "$work/run.log"; }
 fresh() { cp -f "$seed" "$work/art.img"; cp -f "$seed" "$work/ref.img"; }
 compare() {
@@ -176,6 +176,25 @@ if [ "$mode" = host ]; then
     mlabel -i "$work/art.img" '::TEST VOLUME'
     run TREE 'SRC /F' || fail 'volume label execution'
     tr -d '\r' < "$work/output" | grep -qx 'DIRECTORY PATH LISTING FOR VOLUME TEST VOLUME' || fail 'volume label spaces preserved'
+    # Disk full mid-copy (initech-w33id): Appendix F assigns
+    # "Insufficient disk space" to Xcopy; the captured COPY disk-full
+    # ruling removes the failed output. No partial, source-stamped
+    # destination may survive.
+    fresh
+    dd if=/dev/zero bs=1000 count=20 status=none | tr "\000" "B" > "$work/big.bin"
+    touch -t 198807151200 "$work/big.bin"
+    mcopy -m -i "$work/art.img" "$work/big.bin" ::SRC/BIG.BIN
+    free=$(mdir -i "$work/art.img" :: | sed -n 's/^ *\([0-9 ]*\) bytes free$/\1/p' | tr -d ' ')
+    dd if=/dev/zero of="$work/fill.bin" bs=1 count=$((free-10000)) status=none
+    mcopy -i "$work/art.img" "$work/fill.bin" ::FILL.BIN
+    if run XCOPY 'SRC\BIG.BIN DST'; then fail 'disk full accepted'; fi
+    grep -q 'exit=5' "$work/run.log" || fail 'disk full exit'
+    tr -d '\r' < "$work/output" | grep -qx 'Insufficient disk space' || fail 'disk full message'
+    if tr -d '\r' < "$work/output" | grep -qx 'Access denied'; then fail 'disk full reported as Access denied'; fi
+    tr -d '\r' < "$work/output" | grep -qx '0 File(s) copied' || fail 'disk full count'
+    if mtype -i "$work/art.img" ::DST/BIG.BIN > "$work/art.bytes" 2>/dev/null; then fail 'disk full left a partial destination'; fi
+    fsck.fat -n "$work/art.img" > "$work/fsck.log" || fail 'disk full fsck'
+    echo 'XCOPY GREEN: disk full reports Insufficient disk space and leaves no partial destination'
     echo 'XCOPY/TREE GREEN: mcopy FAT differential; /S /E /A /M /D /P /V /W F/D; TREE mdir/manual rendering; fsck.fat'
     exit 0
 fi

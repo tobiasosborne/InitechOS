@@ -34,7 +34,7 @@
 static find_data_t dta;
 static char pattern[13];
 static unsigned flags, copied, date_min, default_drive;
-static int error;
+static int error, error_full;
 
 static unsigned length(const char *s) { unsigned n=0; while (s[n]) n++; return n; }
 static int equal(const char *a, const char *b)
@@ -203,16 +203,21 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
         int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
         if (n < 0) { error=5; break; }
         if (!n) break;
-        if (call(0x4000,(unsigned)out,(unsigned)n,(uintptr_t)buf) != n) { error=5; break; }
+        int w=call(0x4000,(unsigned)out,(unsigned)n,(uintptr_t)buf);
+        if (w != n) { if (w >= 0) error_full=1; error=5; break; }
     }
     /* Source date/time survives the last WRITE and CLOSE (initech-qqrz).
      * Ref: MS-DOS 3.3 Reference p.50 (PDF135), mcopy -m on identical images;
-     * IBM DOS 3.30 Tech Ref p.6-208 (PDF331), AH=57h CX=time, DX=date. */
-    du_regs r={0x5701,(unsigned)out,fd->ftime,fd->fdate,0};
-    if (du_call(&r)) error=5;
+     * IBM DOS 3.30 Tech Ref p.6-208 (PDF331), AH=57h CX=time, DX=date.
+     * A failed copy is never stamped (initech-w33id): stamping first made
+     * a truncated destination look like a good copy. */
+    if (!error) {
+        du_regs r={0x5701,(unsigned)out,fd->ftime,fd->fdate,0};
+        if (du_call(&r)) error=5;
+    }
     if (call(0x3e00,(unsigned)out,0,0) < 0) error=5;
     if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
-    if (error) return 0;
+    if (error) { call(0x4100,0,0,(uintptr_t)dst); return 0; }
     if (flags & V_VERIFY) {
         in=call(0x3d00,0,0,(uintptr_t)src);
         out=call(0x3d00,0,0,(uintptr_t)dst);
@@ -308,7 +313,7 @@ int du_main(int tree, char *tail)
 {
     char source[CAP]="", target[CAP]="", src[CAP], dst[CAP];
     unsigned operands=0; int files=0;
-    flags=0; copied=0; date_min=0; error=0;
+    flags=0; copied=0; date_min=0; error=0; error_full=0;
     du_regs r={0x1900,0,0,0,0};   /* AH=19h: the default drive (0=A:) */
     du_call(&r);
     default_drive=r.a & 255;
@@ -420,7 +425,8 @@ int du_main(int tree, char *tail)
         if (nth(spec,0,1,&fd)) goto invalid;
     }
     copy_dir(src,dst,isdir ? 0 : target_file,0);
-    if (error == 5) line(MSG_DOS_0009);
+    /* Appendix F (p.337) assigns Insufficient disk space to Xcopy. */
+    if (error == 5) line(error_full ? MSG_DOS_0005 : MSG_DOS_0009);
     number(copied); line(MSG_DOS_0024 "copied");
     return error ? error : copied ? 0 : 1;
 invalid:
