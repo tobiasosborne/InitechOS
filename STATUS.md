@@ -26,20 +26,33 @@ InitechText reads a whole file, and confirms EOF, before opening it
 (initech-gxb4z). Tracker triage applied: one label convention
 (`component:<dir>`, `gm:<n>`, `sev:*`), priorities by the golden master.
 
-Rulings now in force (provisional ones to be confirmed by the operator):
-the graphical FILE COPY never destroys its destination on failure or
-cancel; desktop saves keep the previous file openable under its own name
-after any reported failure (not crash atomicity); 123 protection follows
-the Lotus captures; PROVISIONAL: InitechDOS COPY follows DOS 3.30 as
-captured, including removing the target after disk full; InitechBase
-`@...SAY/GET` and `READ` are in this master; refused visible commands are
-implemented when small or removed (reviewed split: 26 implement, 325
-remove); the Apple glyph is replaced by Initech's three-block mark
-(PROVISIONAL choice); one product image; Turbo keeps 32-bit Integer.
-Operator ruling (2026-11-14): in the frame, InitechCalc's own menus are
-in the bar during the "Saving tables to disk" copy, InitechPaint is shown
-separately in front with its Photoshop menus, and two disk apps are never
-resident at once (that stays on Release 2).
+Rulings in force. Operator rulings (2026-11-14): the graphical FILE COPY
+never destroys its destination on failure or cancel; InitechDOS COPY
+follows real DOS 3.30 as captured, including removing the target after a
+disk-full failure; the menu mark is Initech's three-block mark (candidate
+A) and no Apple glyph remains in the product; delivery (GM8) is by start,
+a ready-made reproducible fixed-disk image, with no SETUP and no install
+diskettes; unrecovered ledger cells are empty ruled cells with the one
+line "Blank entries were not recovered from the surviving material."; in
+the frame, InitechCalc's own menus are in the bar during the "Saving
+tables to disk" copy, InitechPaint is shown separately in front with its
+Photoshop menus, and two disk apps are never resident at once (that stays
+on Release 2). Advisor rulings from the golden master: desktop saves keep
+the previous file openable under its own name after any reported failure
+(not crash atomicity); 123 protection follows the Lotus captures;
+InitechBase `@...SAY/GET` and `READ` are in this master; refused visible
+commands are implemented when small or removed (reviewed split: 26
+implement, 325 remove); one product image; Turbo keeps 32-bit Integer.
+
+FAT: per the operator's stated intent, "FAT12/16" in GM2 expresses the
+accreted corporate legacy (the same spirit as the TPS Report Generator),
+not a storage feature to complete. FAT12 is the working read-write
+format; FAT12 and the FCB calls TPSREP uses stay real and supported.
+FAT16 volumes are read, and every file-level modification is refused
+before the first write with a period message; no FAT16 writer is built.
+The exact GM2 wording is with the operator. Not settled: the two-interface
+exceptions (initech-q9p80, initech-xoif4), including what FORMAT, FDISK
+and SYS may do to FAT16 below the file level.
 
 ## Where we are
 
