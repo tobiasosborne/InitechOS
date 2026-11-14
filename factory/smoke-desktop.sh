@@ -58,7 +58,8 @@ for emulator in qemu bochs; do
   > "$out/qemu.stdout" 2> "$out/qemu.report" || { cat "$out/qemu.report"; fail 'QEMU session'; }
  fi
  sort "$markers" | uniq -c | while read -r count marker; do
-  seen=$(grep -Fc "$marker" "$out/$emulator.serial" || :)
+  # Whole names, as the QEMU waits match: app=CALC is not app=CALCULAT.
+  seen=$(MARKER=$marker awk -f factory/testlib/marker-count.awk "$out/$emulator.serial")
   [ "$seen" -ge "$count" ] || fail "$emulator missing $marker ($seen/$count)"
  done
  if [ "$emulator" = qemu ]; then

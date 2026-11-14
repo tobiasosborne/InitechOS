@@ -1,0 +1,11 @@
+--- a/factory/emu/qemu.c
++++ b/factory/emu/qemu.c
+@@ -1693,7 +1693,7 @@
+         size_t len = 0, end = 0;
+         char *txt = read_file(serial_path, &len);
+         if (txt) {
+-            int hit = marker_token_after(txt, len, w_marker_consumed, marker, &end);
++            int hit = strstr(txt, marker) != NULL; end = w_marker_consumed;
+             free(txt);
+             if (hit) {
+                 w_marker_consumed = end;

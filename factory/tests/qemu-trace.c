@@ -45,6 +45,32 @@ int main(void)
               "invalid key suffix delivered its valid prefix");
         close(fd[0]);close(fd[1]);
     }
-    if(!failed)puts("ok QEMU trace: 4095/4096/6001 bytes, required suffix retained; invalid input rejected before delivery");
+    /* W markers are consumed in order and match whole names on complete
+     * lines (initech-10ali): a repeated exit needs a new line, app=CALC is
+     * not app=CALCULAT, and a marker already passed cannot satisfy a wait. */
+    char serial[]="/tmp/qemu-trace-serial.XXXXXX";
+    int sfd=mkstemp(serial);
+    if(sfd<0)return 2;
+    const char *transcript="FLAIR-TENANT-EXIT name=WORD\nTENANT-EXIT rc=0 via=exit\n"
+        "FLAIR-DISPATCH app=CALCULAT\nTENANT-GATE s=\"A:\\WORD.WP5\" -> 0\nFLAIR-DISPATCH app=CALC";
+    if(write(sfd,transcript,strlen(transcript))!=(ssize_t)strlen(transcript))return 2;
+    close(sfd);
+    w_budget_ms=150;
+    struct {const char *trace;int ok;const char *what;} waits[]={
+        {"WTENANT-EXIT rc=0 via=exit,WFLAIR-DISPATCH app=CALCULAT,Ws=\"A:\\WORD.WP5",1,"ordered markers and a deliberate prefix"},
+        {"WTENANT-EXIT rc=0 via=exit,WTENANT-EXIT rc=0 via=exit",0,"second exit satisfied by the first exit's line"},
+        {"WFLAIR-DISPATCH app=CALC",0,"app=CALC satisfied by app=CALCULAT or an incomplete line"},
+        {"WFLAIR-DISPATCH app=CALCULAT,WTENANT-EXIT rc=0 via=exit",0,"marker printed before the previous wait accepted"},
+        {"WTENANT-EXIT name=WORD",0,"TENANT-EXIT matched inside FLAIR-TENANT-EXIT"},
+    };
+    for(unsigned i=0;i<sizeof waits/sizeof *waits;i++) {
+        if(socketpair(AF_UNIX,SOCK_STREAM,0,fd))return 2;
+        w_marker_consumed=0;
+        int sent=qmp_inject_mouse(fd[0],waits[i].trace,NULL,NULL,serial,NULL);
+        check(waits[i].ok ? sent>=0 : sent<0,waits[i].what);
+        close(fd[0]);close(fd[1]);
+    }
+    unlink(serial);
+    if(!failed)puts("ok QEMU trace: 4095/4096/6001 bytes, required suffix retained; invalid input rejected before delivery; W markers consumed in order as whole names");
     return failed;
 }

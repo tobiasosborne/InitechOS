@@ -1418,6 +1418,7 @@ static int qmp_mouse_button(int fd, const char *button, int down)
 static int wait_for_serial_marker(const char *serial_path, const char *marker,
                                   int budget_ms);
 #define HARNESS_W_BUDGET_MS 20000
+static int w_budget_ms = HARNESS_W_BUDGET_MS; /* tests shorten it */
 
 static int qmp_inject_mouse_trace(int fd, char *buf, RecordCtx *rec,
                             CaptureCtx *cap, const char *serial_path,
@@ -1517,12 +1518,12 @@ static int qmp_inject_mouse_trace(int fd, char *buf, RecordCtx *rec,
             rec_release(rec);   /* RECORD-SYNC: it cannot print it blocked */
             if (serial_path != NULL &&
                 wait_for_serial_marker(serial_path, tok + 1,
-                                       HARNESS_W_BUDGET_MS)) {
+                                       w_budget_ms)) {
                 ok = 1;
             } else {
                 fprintf(stderr, "[harness] --mouse: W marker '%s' not seen "
                         "within %d ms (input stopped)\n",
-                        tok + 1, HARNESS_W_BUDGET_MS);
+                        tok + 1, w_budget_ms);
                 return -1; /* Missing guest progress is a failed session. */
             }
         } else if (tok[0] == 'D' && tok[1] != '\0') {
@@ -1653,17 +1654,49 @@ static int wait_for_serial_marker_n(const char *serial_path, const char *marker,
         sleep_ms(25);
     }
 }
+/* A W marker is consumed from the transcript in order: each wait searches
+ * only after the end of the previous match, so a repeated marker (a second
+ * TENANT-EXIT) needs a new line, and a marker printed before the previous
+ * one cannot satisfy a later wait. The match must lie on a complete line and
+ * may not extend into a longer name: app=CALC does not match app=CALCULAT,
+ * TENANT-EXIT does not match FLAIR-TENANT-EXIT. Name characters are letters,
+ * digits, '_', '-' and '.'; a marker edge that is not one (s="A:\WORD.WP5
+ * before its closing quote) is a deliberate prefix and needs no boundary. */
+static size_t w_marker_consumed;
+static int marker_name_char(char c)
+{
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+           (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
+}
+static int marker_token_after(const char *txt, size_t len, size_t from,
+                              const char *marker, size_t *end)
+{
+    size_t m = strlen(marker);
+    if (m == 0 || from > len) return 0;
+    for (size_t at = from; at + m <= len; at++) {
+        if (memcmp(txt + at, marker, m) != 0) continue;
+        if (marker_name_char(marker[0]) && at > 0 &&
+            marker_name_char(txt[at - 1])) continue;
+        if (!memchr(txt + at + m, '\n', len - at - m)) return 0; /* incomplete */
+        if (marker_name_char(marker[m - 1]) && marker_name_char(txt[at + m]))
+            continue;
+        *end = at + m;
+        return 1;
+    }
+    return 0;
+}
 static int wait_for_serial_marker(const char *serial_path, const char *marker,
                                   int budget_ms)
 {
     long long deadline = mono_ms() + budget_ms;
     for (;;) {
-        size_t len = 0;
+        size_t len = 0, end = 0;
         char *txt = read_file(serial_path, &len);
         if (txt) {
-            int hit = strstr(txt, marker) != NULL;
+            int hit = marker_token_after(txt, len, w_marker_consumed, marker, &end);
             free(txt);
             if (hit) {
+                w_marker_consumed = end;
                 return 1;
             }
         }
