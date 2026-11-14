@@ -48,6 +48,9 @@ static char g_tbx_save_backup[TBX_FILE_PATH_MAX];
 /* Nonzero means rollback itself failed. Both complete streams are retained;
  * the storage owner must resolve that I/O failure before reusing this helper. */
 static int32_t g_tbx_save_rollback_error;
+/* Keep this exact name until cleanup succeeds. Later saves retry cleanup
+ * before selecting another stage; the alert gives a bounded recovery path. */
+static int32_t g_tbx_save_cleanup_error;
 static char g_tbx_save_notice[3u * TBX_ALERT_LINE_MAX] TBX_IN_IMAGE;
 static unsigned char g_tbx_save_chunk[1024];
 static unsigned char g_tbx_save_verify[1024];
@@ -56,20 +59,28 @@ static unsigned char g_tbx_save_verify[1024];
  * per path line fits even the widest Chicago glyph (14 px, NFNT 5478's
  * locked advances in flair/include/assets/chicago12.h). Never truncate a name.
  * A save whose recovery name cannot fit refuses before creating a stage. */
-static void tbx_save_recovery_notice(void)
+static void tbx_save_named_notice(const char *heading,const char *path)
 {
-    static const char heading[]="Previous version saved as:\r";
     uint32_t n=0,j=0;
-    while(g_tbx_save_backup[n]) n++;
+    while(path[n]) n++;
     if(n<=40) for(uint32_t i=0;heading[i];i++) g_tbx_save_notice[j++]=heading[i];
     for(uint32_t i=0;i<n;i++) {
         if(i && i%20u==0) g_tbx_save_notice[j++]='\r';
-        g_tbx_save_notice[j++]=g_tbx_save_backup[i];
+        g_tbx_save_notice[j++]=path[i];
     }
     g_tbx_save_notice[j]=0;
     /* Queue this before the caller's ordinary error alert. The gate owns a
      * copy and refuses that later alert as BUSY, preserving the recovery name. */
     (void)tbx_alert(g_tbx_save_notice,"OK",0,0);
+}
+static void tbx_save_recovery_notice(void)
+{ tbx_save_named_notice("Previous version saved as:\r",g_tbx_save_backup); }
+
+static int32_t tbx_save_discard_stage(void)
+{
+    int32_t rc=tbx_file_delete(g_tbx_save_tmp);
+    if(rc<0 && rc!=TBX_ERR_DOS(2)) rc=tbx_file_delete(g_tbx_save_tmp);
+    return rc==TBX_ERR_DOS(2) ? 0 : rc;
 }
 
 /* initech-7aou: the SAME transaction also consumes a file handle. The input
@@ -81,6 +92,14 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
     uint32_t i = 0, dot = 0, pos = 0, k;
     int32_t h = TBX_ERR_DOS(0x50), rc = 0, cl;
     int old_moved = 0;
+    if(g_tbx_save_cleanup_error<0) {
+        g_tbx_save_cleanup_error=tbx_save_discard_stage();
+        if(g_tbx_save_cleanup_error<0) {
+            if(input>=0 && tbx_file_close(input)<0) (void)tbx_file_close(input);
+            tbx_save_named_notice("Temporary file remains:\r",g_tbx_save_tmp);
+            return g_tbx_save_cleanup_error;
+        }
+    }
     if(g_tbx_save_rollback_error<0) {
         if(input>=0) (void)tbx_file_close(input);
         tbx_save_recovery_notice();
@@ -173,8 +192,8 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
         if (in_close < 0) cl = in_close;
     }
     if (pos != n || cl < 0) {
-        (void)tbx_file_delete(g_tbx_save_tmp);   /* the old file never moved */
-        return cl < 0 ? cl : rc < 0 ? rc : (int32_t)pos;
+        rc = cl < 0 ? cl : rc < 0 ? rc : (int32_t)pos;
+        goto refuse;                         /* the old file never moved */
     }
     /* Refuse a read-only destination before moving it. DOS RENAME alone
      * does not necessarily enforce read-only overwrite protection. */
@@ -222,7 +241,11 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
     if (old_moved) (void)tbx_file_delete(g_tbx_save_backup);
     return (int32_t)n;
 refuse:
-    (void)tbx_file_delete(g_tbx_save_tmp);
+    cl=tbx_save_discard_stage();
+    if(cl<0) {
+        g_tbx_save_cleanup_error=cl;
+        tbx_save_named_notice("Temporary file remains:\r",g_tbx_save_tmp);
+    }
     return rc;
 }
 
