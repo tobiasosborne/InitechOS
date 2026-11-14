@@ -514,6 +514,10 @@ test-commit-outcome_SRCS := tests/runner.c
 test-commit-outcome_ARGS := tests/run.sh test-commit-outcome
 test-commit-outcome_DEPS := $(OUT)/host/tool_test_commit_outcome tests/gates/test-commit-outcome.sh
 
+# Apply after every registration, before host_source_rule expands _DEPS into
+# object prerequisites. Earlier expansion in tools.mk omitted later tools,
+# including the independent int21.c compilation for test-loader-live.
+$(foreach t,$(HOST_TESTS) $(EXTRA_HOST_TESTS),$(eval $(t)_DEPS += $(TOP)/build/kernel/dos_messages.h))
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk

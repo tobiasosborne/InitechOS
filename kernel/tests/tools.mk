@@ -513,5 +513,3 @@ tool_overlay_dos33_check_SRCS := tests/fixtures/dos33_overlay/check.c
 tool_overlay_dos33_negative_SRCS := tests/fixtures/dos33_overlay/check.c
 tool_overlay_dos33_negative_CFLAGS := -DMUTATE_EXPECT_LOAD_PATCH
 
-# Generated catalogue must exist before any parallel host compilation.
-$(foreach t,$(EXTRA_HOST_TESTS),$(eval $(t)_DEPS += $(TOP)/build/kernel/dos_messages.h))

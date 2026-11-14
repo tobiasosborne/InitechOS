@@ -39,6 +39,13 @@ harnesses; gate adapters preserve multi-command mtools/reference assertions in
 isolated scratch directories. Shared host objects avoid compiling int21.c for
 every invocation. All target-build rules remain in Makefile.
 
+`make test-cold-host` checks the committed source in two fresh worktrees with
+empty build directories, running all kernel host tests at `-j12` and `-j1`.
+`COLD_HOST_REV` selects another commit for the regression; logs and worktrees
+remain under build/kernel/cold-host. Generated catalogue dependencies are added
+after all host-program registrations, before mk/host-test.mk creates their
+object rules, so first compilation never relies on a previous image build.
+
 Dependencies used only by host tests: factory/testlib, kernel public headers,
 and the resident shell headers already documented above. Tests do not build
 from attic. `PYTHON_FAT_REFERENCE` and `PYTHON_MESSAGE_REFERENCE` isolate the

@@ -56,6 +56,10 @@ $(TOP)/build/dos/command-resident.o $(TOP)/build/dos/batch.o $(TOP)/build/dos/en
 # Host test wiring (separate from target build rules).
 include tests.mk
 
+.PHONY: test-cold-host
+test-cold-host:
+	sh tests/cold-host.sh $(or $(COLD_HOST_REV),HEAD)
+
 # The product composition also consumes these standalone kernel objects.
 .PHONY: objects
 objects: $(OBJECTS)
