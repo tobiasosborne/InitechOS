@@ -8,12 +8,12 @@ work=$(mktemp -d "$root/build/factory/smoke-mutants/run.XXXXXX")
 killed=0 survived=0 errors=0 total=0
 snapshot() {
  mkdir -p "$1"
- tar -cf - --exclude=./build --exclude=./.git --exclude=./.beads --exclude=./attic . | tar -xf - -C "$1"
+ sh factory/testlib/snapshot.sh "$1" --exclude=./build --exclude=./.git --exclude=./.beads --exclude=./attic .
 }
 baseline=$work/baseline
 snapshot "$baseline"
 mkdir -p "$baseline/build"
-tar -cf - --exclude=./factory/gate-mutants --exclude=./factory/smoke-mutants --exclude=./factory/navigation-mutants --exclude=./factory/mutants --exclude=./factory-gates --exclude=./smoke* --exclude=./test -C build . | tar -xf - -C "$baseline/build"
+sh factory/testlib/snapshot.sh "$baseline/build" --exclude=./factory/gate-mutants --exclude=./factory/smoke-mutants --exclude=./factory/navigation-mutants --exclude=./factory/mutants --exclude=./factory-gates --exclude=./smoke* --exclude=./test -C build .
 # No test scenario or wrong code is compiled into the ordinary product.
 if ! (cd "$baseline" && make -j2 image && sh factory/smoke.sh && sh factory/tests/desktop-capture.sh) > "$work/baseline.log" 2>&1; then
  echo "factory: 5 mutants, 0 killed, 0 survived, 1 errors; baseline failed: $work/baseline.log"; exit 1

@@ -15,7 +15,7 @@ printf 'apps/initech123/tests/smoke\napps/initechword/tests/smoke\n' > "$journey
 export DESKTOP_JOURNEYS=$journeys
 snapshot() {
  mkdir -p "$1"
- tar -cf - --exclude=./build --exclude=./.git --exclude=./attic . | tar -xf - -C "$1"
+ sh factory/testlib/snapshot.sh "$1" --exclude=./build --exclude=./.git --exclude=./.beads --exclude=./attic .
 }
 baseline=$work/baseline
 snapshot "$baseline"

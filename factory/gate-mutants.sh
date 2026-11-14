@@ -9,11 +9,12 @@ killed=0 survived=0 errors=0 total=0
 for patch_file in factory/mutants/gates/*.patch; do
  total=$((total+1)); name=$(basename "$patch_file" .patch); scratch=$work/$name
  mkdir -p "$scratch"
- tar -cf - --exclude=./build --exclude=./.git --exclude=./.beads --exclude=./attic . | tar -xf - -C "$scratch"
+ sh factory/testlib/snapshot.sh "$scratch" --exclude=./build --exclude=./.git --exclude=./.beads --exclude=./attic .
  if ! patch --batch --fuzz=0 -p1 -d "$scratch" < "$patch_file" > "$work/$name.patch.log" 2>&1; then errors=$((errors+1)); continue; fi
  case $name in
  cert-git-status) command='sh factory/tests/cert.sh'; signature='FAIL cert accepted git-error';;
  dependency-query) command='sh factory/tests/dependency-query.sh'; signature='FAIL dependency: accepted error';;
+ snapshot-producer) command='sh factory/tests/snapshots.sh'; signature='FAIL snapshot:';;
  worksheet-*) command='sh factory/tests/worksheet.sh'; signature='FAIL worksheet:';;
  desktop-held-key) command="mkdir -p build/factory; cc -std=c11 -O1 -D_POSIX_C_SOURCE=200809L factory/desktop-key-test.c -o build/factory/desktop-key && build/factory/desktop-key"; signature="FAIL desktop key:";;
  desktop-omit-session) command="sh factory/tests/desktop-sessions.sh"; signature="FAIL desktop plan:";;

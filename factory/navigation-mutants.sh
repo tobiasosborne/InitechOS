@@ -44,19 +44,19 @@ probe() {
   --timeout-ms "${NAVIGATION_TIMEOUT_MS:-45000}" --name run --out "$dir" \
   > "$dir/stdout" 2> "$dir/report"
 }
+scratch=$work/source
+mkdir -p "$scratch"
+sh factory/testlib/snapshot.sh "$scratch" --exclude=./build --exclude=./.git --exclude=./.beads --exclude=./attic .
+mkdir -p "$scratch/build"
+sh factory/testlib/snapshot.sh "$scratch/build" --exclude=./factory/gate-mutants --exclude=./factory/smoke-mutants \
+ --exclude=./factory/navigation-mutants --exclude=./factory/mutants \
+ --exclude=./factory-gates --exclude=./smoke* --exclude=./test -C build .
 cp build/image/boot.img "$work/pristine-boot.img"
 cp build/image/data.img "$work/pristine-data.img"
 first=$(mdir -b -i "$work/pristine-data.img" ::APPS/ | sed -n '1p')
 [ "$first" = '::/APPS/123.EXE' ] || fail 'positional control requires 123.EXE in the first cell'
 probe qemu position "$work/pristine-boot.img" "$work/pristine-data.img" \
  "$work/pristine-position" 123.EXE 'FLAIR-DISPATCH app=123' || fail 'pristine positional baseline'
-scratch=$work/source
-mkdir -p "$scratch"
-tar -cf - --exclude=./build --exclude=./.git --exclude=./.beads --exclude=./attic . | tar -xf - -C "$scratch"
-mkdir -p "$scratch/build"
-tar -cf - --exclude=./factory/gate-mutants --exclude=./factory/smoke-mutants \
- --exclude=./factory/navigation-mutants --exclude=./factory/mutants \
- --exclude=./factory-gates --exclude=./smoke* --exclude=./test -C build . | tar -xf - -C "$scratch/build"
 patch --batch --fuzz=0 -p1 -d "$scratch" < factory/mutants/navigation/finder-slot-shift.patch \
  > "$work/patch.log" 2>&1 || fail 'slot-shift patch'
 (cd "$scratch" && make -j2 -C flair/desktop test-build TESTS=test_finder_windows && make -j2 image) \

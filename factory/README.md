@@ -65,6 +65,10 @@ It checks a worksheet through mtools and the independent Lotus corpus reader,
 retains key PPMs and compares unchanged regions to a live legacy capture.
 red-desktop.sh kills worksheet empty-save, restored-file-cap and Word empty-save patch mutants in isolated
 source/build copies, after a passing baseline and two matching semantic kills.
+All four factory patch runners and InitechBase's target runner check archive creation before extraction, for
+source snapshots and reused build outputs alike. A producer error stops setup
+before any mutant kill can be credited; a complete stream with a failing tar
+status is still an acquisition failure. Host controls inject that exact case.
 `make -C factory mutants` runs it; no production source is patched in place. Missing
 QEMU W progress markers now stop replay rather than continuing input into an
 unexpected UI. trace-input-test.c pins the slash/chord RFB transport values.

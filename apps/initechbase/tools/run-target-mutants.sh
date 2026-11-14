@@ -10,7 +10,7 @@ run=$(mktemp -d "$out/run.XXXXXX")
 ulimit -c 0
 copy_source() {
  mkdir -p "$1"
- (cd "$src" && tar --exclude=./build -cf - .) | (cd "$1" && tar -xf -)
+ sh "$top/factory/testlib/snapshot.sh" "$1" --exclude=./build -C "$src" .
 }
 copy_source "$run/baseline/component"
 if ! "$make_cmd" --no-print-directory -j2 -C "$run/baseline/component" TOP="$top" OUT="$run/baseline/build" package-check > "$run/baseline.log" 2>&1; then
