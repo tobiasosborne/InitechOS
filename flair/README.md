@@ -74,6 +74,11 @@ hourglass rows and compares the restored cursor area to its idle capture.
 It waits for the painted midpoint and uses a slower valid configured rate
 so a snapshot inside ShieldCursor cannot masquerade as a missing cursor.
 
+The menu bar uses Initech's operator-approved three-block mark. Its 16 by 15
+transparent strike is independent of the retained 33px menu hit slot. The
+unchanged approved mask and provenance live in tests/goldens/marks; test_menu
+compares the product data and every normal/pulled rendered pixel against it.
+
 Managers:
 
 Empty menu titles highlight while held and have no panel, shadow, selectable
@@ -169,7 +174,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 197 patches through the shared strict runner: passing baseline,
+make mutants runs 198 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;

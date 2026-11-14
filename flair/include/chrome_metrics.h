@@ -33,7 +33,8 @@
 /* RE-KEY2026-10-15 : s8_menu_dropped L33, File ink43;
  * 43-33-1(NFNT bearing)=9. Item53-33-1=19. Frame230-ink216=14;
  * N's1px trailing blank plus exclusive frame correction =>cmd cell pad13.
- * Apple17-art bearing2=15. Row21-frame19=2; cap23-row21=2.
+ * Mark cell origin15 is retained; its bitmap width16 is not the slot width33.
+ * Row21-frame19=2; cap23-row21=2.
  * See chrome_metrics.json platinum_menu_layout for retained policy metrics. */
 #define FLAIR_CHROME_MENU_APPLE_W 33
 #define FLAIR_CHROME_MENU_APPLE_LEFT 15

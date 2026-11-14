@@ -74,8 +74,8 @@
  * File block/panel begins33; ink43 ->10px ink pad minus Chicago bearing1
  * =9px cell pad. File23px advance includes two blank outer columns, so its
  * substituted slot is41px (capture Charcoal40px;  remains separate).
- * Apple ink begins17; retained art first ink column2 -> cell origin15.
- * Apple slot ends at File block33, not at the bar height20.
+ * Initech mark cell origin15 is retained; the approved mask starts at column1.
+ * Its 16px bitmap and the 33px menu hit slot are independent dimensions.
  */
 #define FLAIR_MENU_TITLE_PAD     FLAIR_CHROME_MENU_TITLE_PAD
 #define FLAIR_MENU_TITLE_HILITE_PAD  10

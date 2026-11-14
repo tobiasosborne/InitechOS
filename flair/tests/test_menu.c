@@ -42,24 +42,16 @@
  *     retained classic tracking invert. The footprint tooth locks live restore
  *     geometry to every temporary panel pixel.
  *
- *  5. APPLE GLYPH.  The Apple slot renders the hand-authored
- *     apple_glyph.h strike, NOT a solid filled square: rendered ink count in
- *     the slot == the strike's own ink count exactly; ink coverage is 25%-60%
- *     of the slot; a named "bite" cell recedes to background a few rows below
- *     ink at the same column (the bite notch); the leaf-tip row has ink and the
- *     slot's top-left corner is background (not a filled rect); the widest body
- *     row is denser than the leaf-tip row. Properties are DERIVED from the
- *     authored strike (apple_glyph.h) but GRADED against the rendered pixels
- *     (independent checks -- the render must match the strike, not just "look plausible").
+ *  5. INITECH MARK. Every rendered pixel matches the separately approved
+ *     candidate-A mask, in normal ink and white on a pulled title.
  *
  * regression patches, each driven RED by the Makefile gate:
  *   fixed width patch     -- titles/items laid out fixed-width, not
  *                                  proportional => property 1 (x-positions) RED.
  *   select disabled patch -- a disabled item/divider becomes selectable
  *                                  => property 3 (selectability) RED.
- *   apple square patch       -- the Apple slot reverts to a solid filled
- *                                  square (the ORIGINAL  bug) =>
- *                                  property 5 (Apple glyph) RED.
+ *   mark square patch        -- solid rectangle fails the approved mask
+ *                                  comparison in property 5.
  *   bar flat patch           -- sampled profile/corners -> property 4 RED.
  *   no panel bevel patch     -- white/B3 inner bevel -> property 4 RED.
  *   sep plain patch          -- etched A5/white groove -> property 4 RED.
@@ -74,9 +66,12 @@
 #include "render.h"             /* host render skeleton (-Iharness/render)     */
 #include "menu.h"               /* the Menu Manager under test (-Ios/flair)    */
 #include "menu_canon.h"         /* FROZEN canon string (-Ispec/assets)         */
-#include "apple_glyph.h"        /* APPLE_GLYPH_* -- hand-authored strike, the
-                                 * PROPERTY 5 oracle's own reference (-Ispec/
-                                 * assets);                        */
+#include "initech_mark.h"
+#define APPLE_GLYPH_H 15
+#define APPLE_GLYPH_ROWS approved_initech_rows
+#include "marks/a-three-blocks.h"
+#undef APPLE_GLYPH_ROWS
+#undef APPLE_GLYPH_H
 #include "chrome_metrics.h"     /* FLAIR_CHROME_MENUBAR_H (-Ispec)             */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
@@ -746,92 +741,32 @@ int main(int argc, char **argv)
                       "MENU FIDELITY disabled item ink is sampled A5");
             }
 
-            /* ==================================================================
-             * PROPERTY 5: APPLE GLYPH -- the Apple slot renders the hand-
-             * authored apple-with-bite glyph (spec/assets/apple_glyph.h), NOT a
-             * solid filled square. Properties are derived from
-             * the AUTHORED STRIKE (apple_glyph.h) but graded against the
-             * RENDERED pixels, so a wrong render (the old solid-square bug)
-             * goes RED even though this oracle never looks at a screenshot.
-             * ================================================================== */
+            /* Operator-approved candidate A; independent handoff mask, fixed cell. */
             {
-                int ax0 = 15; /* capture Apple17 - art bearing2 */  /* slot left (apple.left) */
-                int ay0 = (int)FLAIR_MENU_TITLE_VPAD;  /* slot top  (apple.top)  */
-
-                /* (i) INK COVERAGE: rendered ink count in the slot == the
-                 * strike's OWN ink count exactly (the render must reproduce
-                 * apple_glyph.h bit for bit), AND within the 25%-60% band (a
-                 * glyph, not a solid square: a square renders 240/240 = 100%,
-                 * failing both checks). */
-                int strike_ink = 0;
-                for (int gy = 0; gy < APPLE_GLYPH_H; gy++)
-                    for (int gx = 0; gx < APPLE_GLYPH_W; gx++)
-                        if (APPLE_GLYPH_ROWS[gy] & (uint16_t)(0x8000u >> gx))
-                            strike_ink++;
-
-                int rendered_ink = 0;
-                for (int gy = 0; gy < APPLE_GLYPH_H; gy++)
-                    for (int gx = 0; gx < APPLE_GLYPH_W; gx++)
-                        if (render_pixel_index(&ctx, (uint32_t)(ax0 + gx),
-                                               (uint32_t)(ay0 + gy)) == 0u)
-                            rendered_ink++;
-
-                CHECK(rendered_ink == strike_ink,
-                      "Apple slot rendered ink count == the authored strike's "
-                      "ink count exactly (the render reproduces apple_glyph.h)");
-
-                {
-                    double ratio = (double)rendered_ink /
-                                   (double)(APPLE_GLYPH_W * APPLE_GLYPH_H);
-                    CHECK(ratio >= 0.25 && ratio <= 0.60,
-                          "Apple slot ink coverage is 25%-60% of the slot (a "
-                          "glyph, not a solid square -- initech-yx4v)");
+                CHECK(INITECH_MARK_W == 16 && INITECH_MARK_H == 15 &&
+                      sizeof INITECH_MARK_ROWS == sizeof approved_initech_rows &&
+                      memcmp(INITECH_MARK_ROWS, approved_initech_rows,
+                             sizeof approved_initech_rows) == 0,
+                      "product strike equals independently approved mask");
+                int bad = 0;
+                for (int y = 0; y < 15; y++) for (int x = 0; x < 16; x++) {
+                    unsigned want = (approved_initech_rows[y] & (0x8000u >> x))
+                                    ? MG_BLACK : MG_FACE_E7;
+                    bad += render_pixel_index(&ctx, 15u + x, 2u + y) != want;
                 }
-
-                /* (ii) BITE NOTCH: the named probe column is ink a few rows
-                 * above the bite (the pre-bite body, row 4) but recedes to
-                 * background AT the bite row (row 6) -- a solid square paints
-                 * ink at BOTH, so this differential is what a "some ink, some
-                 * bg" check alone would have missed. */
-                CHECK(render_pixel_index(&ctx,
-                          (uint32_t)(ax0 + APPLE_GLYPH_BITE_COL),
-                          (uint32_t)(ay0 + APPLE_GLYPH_PREBITE_ROW)) == 0u,
-                      "pre-bite body column is ink (apple_glyph.h row 4)");
-                CHECK(render_pixel_index(&ctx,
-                          (uint32_t)(ax0 + APPLE_GLYPH_BITE_COL),
-                          (uint32_t)(ay0 + APPLE_GLYPH_BITE_ROW)) != MG_BLACK,
-                      "the SAME column recedes to background at the bite notch "
-                      "row -- the apple has a bite, not a solid square");
-
-                /* (iii) LEAF ABOVE BODY: the leaf tip (row 0) is ink, but the
-                 * slot's top-left corner is background -- a solid square would
-                 * paint the corner ink too. */
-                CHECK(render_pixel_index(&ctx,
-                          (uint32_t)(ax0 + APPLE_GLYPH_LEAF_COL),
-                          (uint32_t)(ay0 + APPLE_GLYPH_LEAF_ROW)) == 0u,
-                      "leaf-tip pixel (row 0) is ink -- the leaf sits above the "
-                      "body");
-                CHECK(render_pixel_index(&ctx, (uint32_t)ax0, (uint32_t)ay0)
-                      != MG_BLACK,
-                      "the slot's top-left corner is background -- NOT a solid "
-                      "filled square (initech-yx4v)");
-
-                /* (iv) the widest body row (apple_glyph.h row 9) is denser than
-                 * the leaf-tip row (row 0) -- the leaf tapers, the body doesn't. */
-                {
-                    int leaf_row_ink = 0, widest_row_ink = 0;
-                    for (int gx = 0; gx < APPLE_GLYPH_W; gx++) {
-                        if (render_pixel_index(&ctx, (uint32_t)(ax0 + gx),
-                                (uint32_t)(ay0 + APPLE_GLYPH_LEAF_ROW)) == 0u)
-                            leaf_row_ink++;
-                        if (render_pixel_index(&ctx, (uint32_t)(ax0 + gx),
-                                (uint32_t)(ay0 + APPLE_GLYPH_WIDEST_ROW)) == 0u)
-                            widest_row_ink++;
-                    }
-                    CHECK(widest_row_ink > leaf_row_ink,
-                          "the widest body row has more ink than the leaf-tip "
-                          "row (leaf above body, not a uniform block)");
+                CHECK(!bad, "Initech mark matches every approved candidate-A pixel");
+                MenuBar_set_apple_menu(&g_bar.menus[0]);
+                DrawMenuBar(&ctx.port, &g_bar, FLAIR_MENU_APPLE_MI, NULL);
+                bad = 0;
+                for (int y = 0; y < 15; y++) for (int x = 0; x < 16; x++) {
+                    unsigned want = (approved_initech_rows[y] & (0x8000u >> x))
+                                    ? MG_WHITE : MG_DARK_3F;
+                    unsigned actual = render_pixel_index(&ctx, 15u + x, 2u + y);
+                    bad += actual != want;
                 }
+                CHECK(!bad, "pulled Initech mark matches approved mask in white");
+                MenuBar_set_apple_menu(NULL);
+                render_run(&ctx, draw_bar_and_panel);
             }
 
             /* optional PPM dump for human audit. */

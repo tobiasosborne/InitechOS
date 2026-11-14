@@ -3,8 +3,7 @@
  *
  *  ("FLAIR Menu Manager: pull-down menus + the menu bar,
  *        Photoshop-exact"). FLAIR Layer 3 Manager (clipped Toolbox drawing).
- *         ("Apple menu slot rendered as a solid black filled
- *        square, not an apple glyph") -- fixed by spec/assets/apple_glyph.h.
+ *        Operator-approved Initech mark replaces the historical menu glyph.
  *
  * ERA AXIS: Mac OS 8 Platinum is the FLAIR BASE. The drawing path uses
  * the sampled Platinum menu anatomy from sys8/menus.md; the canon strings and
@@ -15,8 +14,7 @@
  *          REGION_ENGINE region; one surface module, no second pixel path); D-7
  *          (proportional text -- text_measure = sum of per-glyph advances).
  *        spec/assets/menu_canon.h (the FROZEN canon string; USED, NOT re-authored).
- *        spec/assets/apple_glyph.h (the hand-authored Apple-menu glyph strike;
- *; back-checked against the system7-decomp captures).
+ *        include/assets/initech_mark.h (operator-approved three-block mask).
  *        spec/chrome_metrics.h (FLAIR_CHROME_MENUBAR_H = 20).
  *        os/flair/text.h (text_measure / text_draw), os/flair/blitter.h
  *          (blitter_fill_rect_clipped), os/flair/surface.h (the ONE writer).
@@ -43,11 +41,8 @@
  *                                 the ORIGINAL  bug: cross-menu
  *                                 drag is structurally impossible. => the
  *                                 PROPERTY 3c cross-menu-drag oracle goes RED.
- *   apple square patch      -- paint the Apple slot as a SOLID FILLED
- *                                 RECTANGLE instead of the apple_glyph.h masked
- *                                 blit -- the ORIGINAL  bug. =>
- *                                 the APPLE GLYPH property oracle goes RED
- *                                 (ink ratio, bite notch, leaf-above-body).
+ *   mark square patch       -- solid rectangle fails the independently approved
+ *                                 mask comparison in test_menu.
  *   bar flat patch          -- erase the sampled 3-D profile + round corners.
  *   no panel bevel patch    -- omit the panel's white/B3 inner bevel.
  *   sep plain patch         -- collapse the etched separator to one plain row.
@@ -58,7 +53,7 @@
  */
 
 #include "menu.h"
-#include "apple_glyph.h"        /* APPLE_GLYPH_ROWS -- hand-authored strike
+#include "initech_mark.h"        /* INITECH_MARK_ROWS -- hand-authored strike
                                  * (-Ispec/assets);             */
 #include "flair_look.h"         /* PART->pixel policy seam (authored teal C-8)          */
 
@@ -609,11 +604,11 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
 
     draw_menu_bar_corners(port, clip);
 
-    /* The pulled Apple slot (menu.h Sec 3a): the accent block first, the
+    /* The pulled Initech slot (menu.h Sec 3a): the accent block first, the
      * glyph over it in white -- the same inversion a pulled title gets. */
-    int apple_pulled = (hilited_menu == FLAIR_MENU_APPLE_MI &&
+    int mark_pulled = (hilited_menu == FLAIR_MENU_APPLE_MI &&
                         MenuBar_menu(bar, hilited_menu) != (const MenuInfo *)0);
-    if (apple_pulled) {
+    if (mark_pulled) {
         rgn_rect_t hr = MenuBar_hilite_rect(bar, hilited_menu);
         rgn_rect_t r0 = { 0, hr.left, 1, hr.right };
         rgn_rect_t rf = { 1, hr.left, (int16_t)(FLAIR_MENUBAR_H - 2), hr.right };
@@ -625,24 +620,24 @@ void DrawMenuBar(GrafPort *port, const MenuBar *bar,
         blitter_fill_rect_clipped(bm, rs, flair_look_pixel(port,
                                   FLAIR_PART_MENU_TITLE_HILITE_SHADOW), clip);
     }
-    /* Apple stays the locked monochrome authored strike pending D3-3 row 32. */
+    /* Operator-approved Initech strike; the legacy slot API is unchanged. */
     if (bar->has_apple) {
-        uint32_t apple_ink = apple_pulled ? white : ink;
-        rgn_rect_t apple;
-        apple.top = (int16_t)FLAIR_MENU_TITLE_VPAD;
-        apple.left = (int16_t)FLAIR_MENU_APPLE_LEFT;
-        apple.bottom = (int16_t)(FLAIR_MENUBAR_H - FLAIR_MENU_TITLE_VPAD - 1);
-        apple.right = (int16_t)(FLAIR_MENU_APPLE_LEFT + APPLE_GLYPH_W);
+        uint32_t mark_ink = mark_pulled ? white : ink;
+        rgn_rect_t mark;
+        mark.top = (int16_t)FLAIR_MENU_TITLE_VPAD;
+        mark.left = (int16_t)FLAIR_MENU_APPLE_LEFT;
+        mark.bottom = (int16_t)(FLAIR_MENUBAR_H - FLAIR_MENU_TITLE_VPAD - 1);
+        mark.right = (int16_t)(FLAIR_MENU_APPLE_LEFT + INITECH_MARK_W);
 
-        for (int gy = 0; gy < APPLE_GLYPH_H; gy++) {
-            uint16_t bits = APPLE_GLYPH_ROWS[gy];
-            for (int gx = 0; gx < APPLE_GLYPH_W; gx++) {
+        for (int gy = 0; gy < INITECH_MARK_H; gy++) {
+            uint16_t bits = INITECH_MARK_ROWS[gy];
+            for (int gx = 0; gx < INITECH_MARK_W; gx++) {
                 if (bits & (uint16_t)(0x8000u >> gx)) {
-                    rgn_rect_t px = { (int16_t)(apple.top + gy),
-                                      (int16_t)(apple.left + gx),
-                                      (int16_t)(apple.top + gy + 1),
-                                      (int16_t)(apple.left + gx + 1) };
-                    blitter_fill_rect_clipped(bm, px, apple_ink, clip);
+                    rgn_rect_t px = { (int16_t)(mark.top + gy),
+                                      (int16_t)(mark.left + gx),
+                                      (int16_t)(mark.top + gy + 1),
+                                      (int16_t)(mark.left + gx + 1) };
+                    blitter_fill_rect_clipped(bm, px, mark_ink, clip);
                 }
             }
         }

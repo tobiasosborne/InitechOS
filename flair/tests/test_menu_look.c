@@ -105,7 +105,7 @@ int main(int argc,char **argv)
         bad=0;for(int y=0;y<2;y++)for(int x=panel.left;x<panel.right;x++)
             bad+=render_pixel_rgb(&r,x,54+y)!=ml_divider_rgb(x-panel.left,panel.right-panel.left,y);
         CHECK(!bad,"ML10 whole divider rows match capture, including both bevel columns");
-        /* Idle title and Apple placement, then repeat with an effective clip.
+        /* Idle title and Initech mark placement, then repeat with an effective clip.
          * Compare a clipped draw to the complete draw, including unchanged
          * outside pixels; this detects text that bypasses the clip. */
         DrawMenuBar(&r.port,&bar,-1,NULL);lx=640;
@@ -114,7 +114,7 @@ int main(int argc,char **argv)
         CHECK(lx==43,"ML6 File first ink43 (capture)");
         lx=640;for(int y=2;y<18;y++)for(int x=10;x<33;x++)
             if(render_pixel_rgb(&r,x,y)==0 && x<lx)lx=x;
-        CHECK(lx==17,"ML7 retained Apple first ink17 (capture)");
+        CHECK(lx==16,"ML7 approved Initech mask first ink16 (cell15 + bearing1)");
         render_ctx_t c;if(render_ctx_init(&c,&b))return 2;
         region_t *clip=&c.clipRgn;
         rgn_rect_t cr={7,34,60,80};region_set_rect(clip,cr);

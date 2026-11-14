@@ -1,0 +1,13 @@
+# Wrong Initech artwork must fail against the approved handoff.
+# test: test_menu
+--- a/include/assets/initech_mark.h
++++ b/include/assets/initech_mark.h
+@@ -9,7 +9,7 @@
+ #define INITECH_MARK_W 16
+ #define INITECH_MARK_H 15
+ static const uint16_t INITECH_MARK_ROWS[INITECH_MARK_H] = {
+-    /* row  0 */ 0x0000, /* ................ */
++    /* row  0 */ 0x8000, /* wrong extra pixel */
+     /* row  1 */ 0x0180, /* .......##....... */
+     /* row  2 */ 0x03C0, /* ......####...... */
+     /* row  3 */ 0x0660, /* .....##..##..... */
