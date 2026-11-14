@@ -205,3 +205,9 @@ independent position contracts. navigation-mutants.sh shifts one real product
 icon slot: the positional control fails, name-based first/offscreen launches
 still work on both emulators, and the independent layout oracle rejects the
 wrong product layout twice.
+
+The complete host and smoke registries include the imported boot component.
+Its host receipt is required by the aggregate, and full smoke runs its ordinary
+boot/firmware/disk observations on both emulators. The boot-registration control
+rejects missing host registration and a full-smoke selection omitting boot;
+its external omission patch is included in the factory gate sweep.

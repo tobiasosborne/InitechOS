@@ -1,0 +1,10 @@
+--- a/Makefile
++++ b/Makefile
+@@ -8,7 +8,6 @@
+ # Components in the new tree, in dependency order, one per line so that
+ # parallel imports merge without conflicts.
+ override COMPONENTS :=
+-override COMPONENTS += boot
+ override COMPONENTS += kernel
+ override COMPONENTS += dos
+ override COMPONENTS += flair/region

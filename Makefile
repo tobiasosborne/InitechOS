@@ -8,6 +8,7 @@ endif
 # Components in the new tree, in dependency order, one per line so that
 # parallel imports merge without conflicts.
 override COMPONENTS :=
+override COMPONENTS += boot
 override COMPONENTS += kernel
 override COMPONENTS += dos
 override COMPONENTS += flair/region
@@ -99,7 +100,7 @@ image: boot-build system-build factory-build
 	$(MAKE) -C factory image
 # Components with their own emulator session on the product image
 # (`make -C <component> smoke`), one per line.
-override REGISTERED_SMOKE_COMPONENTS := turbo apps/initechbase
+override REGISTERED_SMOKE_COMPONENTS := boot turbo apps/initechbase
 SMOKE_COMPONENTS ?= $(REGISTERED_SMOKE_COMPONENTS)
 .PHONY: smoke-selection
 smoke-selection:

@@ -69,6 +69,7 @@ gate-test: $(OUT)/bochs-verdict-test $(OUT)/qemu-deadline-test $(OUT)/port-lock-
 	sh tests/worksheet.sh
 	+sh tests/registration.sh
 	+sh tests/selection.sh
+	+sh tests/boot-registration.sh
 	$(OUT)/qemu-deadline-test
 	$(OUT)/port-lock-test
 	$(OUT)/rfb-port-test

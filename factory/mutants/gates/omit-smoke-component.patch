@@ -3,7 +3,7 @@
 @@ -100,7 +100,7 @@
  # Components with their own emulator session on the product image
  # (`make -C <component> smoke`), one per line.
- override REGISTERED_SMOKE_COMPONENTS := turbo apps/initechbase
+ override REGISTERED_SMOKE_COMPONENTS := boot turbo apps/initechbase
 -SMOKE_COMPONENTS ?= $(REGISTERED_SMOKE_COMPONENTS)
 +SMOKE_COMPONENTS ?= turbo
  .PHONY: smoke-selection
