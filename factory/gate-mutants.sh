@@ -17,6 +17,7 @@ for patch_file in factory/mutants/gates/*.patch; do
   # Compile explicitly: OUT is an absolute path in component makefiles.
   command='mkdir -p build/factory; cc -std=c11 -O1 -D_POSIX_C_SOURCE=200809L factory/tests/bochs-verdict.c -o build/factory/verdict && build/factory/verdict';;
  empty-registration) command='make -s -C flair/region test-run'; signature='empty test registration/selection';;
+ qemu-trace-truncated) command='mkdir -p build/factory; cc -std=c11 -O1 factory/tests/qemu-trace.c -o build/factory/trace && build/factory/trace'; signature='FAIL QEMU trace:';;
  qemu-completion-cap) command='mkdir -p build/factory; cc -std=c11 -O1 factory/tests/qemu-deadline.c -o build/factory/deadline && build/factory/deadline'; signature='FAIL QEMU deadline:';;
  occupied-port) command='mkdir -p build/factory; cc -std=c11 -O1 factory/tests/port-lock.c -o build/factory/port-lock && build/factory/port-lock'; signature='FAIL port isolation:';;
  rfb-default-port) command='mkdir -p build/factory; cc -std=c11 -O1 factory/tests/rfb-port.c -o build/factory/rfb-port && build/factory/rfb-port'; signature='FAIL RFB port:';;

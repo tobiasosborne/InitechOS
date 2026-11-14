@@ -40,6 +40,7 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
@@ -1023,6 +1024,8 @@ static int qmp_send_key_chord(int fd, const char *tok, int explicit_release)
         memcpy(qcodes[i], qc, strlen(qc) + 1u);
     }
 
+    if (fd < 0) return 0; /* Validation only: resolve every chord member. */
+
     if (explicit_release) {
         /* initech-ptzy; spec/flair_i123_menu_traces.mk's explicit make/break
          * contract; PRD Sec 8. Guest backpressure replaces both send-key's
@@ -1214,28 +1217,68 @@ static int key_ack_wait(int fd, const KeyAckCtx *ack, int before)
  * loud about a silently-ignored key). Returns the number of keys sent; *bad is
  * set to the count of unrecognized tokens.
  */
-static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
+/* Validate the complete grammar before launching or delivering any prefix.
+ * Ref: QEMU qapi/ui.json send-key and input-send-event; factory trace tokens. */
+static int qmp_spec_number(const char *s, char **end, long low, long high)
+{
+    const char *digits=s+(*s=='-' || *s=='+');
+    if(*digits<'0' || *digits>'9')return 0;
+    errno=0;
+    long n=strtol(s,end,10);
+    return !errno && n>=low && n<=high;
+}
+static int qmp_spec_token(char *tok, int mouse)
+{
+    if(!mouse)return qmp_send_key_chord(-1,tok,0)==0;
+    char *end;
+    if(tok[0]=='m') {
+        if(!qmp_spec_number(tok+1,&end,INT_MIN,INT_MAX) || *end!=':')return 0;
+        return qmp_spec_number(end+1,&end,INT_MIN,INT_MAX) && !*end;
+    }
+    if(tok[0]=='w')return qmp_spec_number(tok+1,&end,0,30000) && !*end;
+    if((tok[0]=='l' || tok[0]=='r' || tok[0]=='M') &&
+       (tok[1]=='0' || tok[1]=='1') && !tok[2])return 1;
+    if(tok[0]=='k')return qmp_send_key_chord(-1,tok+1,0)==0;
+    if(tok[0]=='K') {
+        char *colon=strchr(tok+1,':');
+        if(!colon || (colon[1]!='0' && colon[1]!='1') || colon[2])return 0;
+        *colon=0;
+        int valid=token_to_qcode(tok+1)!=NULL;
+        *colon=':';
+        return valid;
+    }
+    if((tok[0]=='W' || tok[0]=='D' || tok[0]=='S') && tok[1]) {
+        if(strchr(tok,'\n') || strchr(tok,'\r'))return 0;
+        if(tok[0]!='W' && (strlen(tok+1)>=QEMU_PATH_MAX ||
+           strchr(tok+1,'"') || strchr(tok+1,'\\')))return 0;
+        return 1;
+    }
+    return 0;
+}
+static int qmp_validate_spec(const char *spec, int mouse)
+{
+    if(!spec)return 0;
+    char *copy=strdup(spec);
+    if(!copy) {perror("[harness] input allocation");return -1;}
+    char *save=NULL;
+    for(char *tok=strtok_r(copy,",",&save);tok;tok=strtok_r(NULL,",",&save)) {
+        while(*tok==' ')tok++;
+        size_t n=strlen(tok);
+        while(n && tok[n-1]==' ')tok[--n]=0;
+        if(!n)continue; /* Existing separators carry no event. */
+        if(!qmp_spec_token(tok,mouse)) {
+            fprintf(stderr,"[harness] invalid --%s token '%s'; input rejected\n",
+                    mouse?"mouse":"keys",tok);
+            free(copy);return -1;
+        }
+    }
+    free(copy);return 0;
+}
+static int qmp_inject_keys_trace(int fd, char *buf, int *bad,
                            RecordCtx *rec, CaptureCtx *cap, KeyAckCtx *ack)
 {
     int sent = 0;
     int unknown = 0;
-    /* 1024, not 256 (beads initech-tdnl.10): the R3.3 disk-window traces are
-     * 30+ tokens of "m<dx>:<dy>" and blew the old cap, which TRUNCATES -- i.e.
-     * silently replays a PREFIX of a locked trace and grades the wrong scene.
-     * The cap still exists and still shouts; it is simply above every trace the
-     * repo locks. 4096 since bead initech-ipu5.7: the manual screens type
-     * whole batch files through COPY CON. */
-    char buf[4096];
-    /* Copy so we can tokenize in place. Oversized specs are truncated loudly. */
-    size_t L = strlen(keys_spec);
-    if (L >= sizeof(buf)) {
-        fprintf(stderr, "[harness] --keys spec too long (max %zu); truncating\n",
-                sizeof(buf) - 1);
-        L = sizeof(buf) - 1;
-    }
-    memcpy(buf, keys_spec, L);
-    buf[L] = '\0';
-
     char *save = NULL;
     for (char *tok = strtok_r(buf, ",", &save); tok != NULL;
          tok = strtok_r(NULL, ",", &save)) {
@@ -1257,10 +1300,10 @@ static int qmp_inject_keys(int fd, const char *keys_spec, int *bad,
         if (before < 0) return -1;
         long long cpu_at_send = ack ? guest_ms(ack->guest_clock) : 0;
         if (qmp_send_key_chord(fd, tok, key_ack_enabled(ack)) != 0) {
-            fprintf(stderr, "[harness] --keys: unknown token '%s' (skipped)\n",
+            fprintf(stderr, "[harness] --keys: invalid token '%s' (input stopped)\n",
                     tok);
-            unknown++;
-            continue;
+            *bad = ++unknown;
+            return -1;
         }
         {
             sent++;
@@ -1376,22 +1419,12 @@ static int wait_for_serial_marker(const char *serial_path, const char *marker,
                                   int budget_ms);
 #define HARNESS_W_BUDGET_MS 20000
 
-static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
+static int qmp_inject_mouse_trace(int fd, char *buf, RecordCtx *rec,
                             CaptureCtx *cap, const char *serial_path,
                             KeyAckCtx *ack)
 {
     int sent = 0;
     int left_down = 0;
-    char buf[4096];   /* see qmp_inject_keys: 256 truncated the R3.3 traces */
-    size_t L = strlen(mouse_spec);
-    if (L >= sizeof(buf)) {
-        fprintf(stderr, "[harness] --mouse spec too long (max %zu); truncating\n",
-                sizeof(buf) - 1);
-        L = sizeof(buf) - 1;
-    }
-    memcpy(buf, mouse_spec, L);
-    buf[L] = '\0';
-
     char *save = NULL;
     for (char *tok = strtok_r(buf, ",", &save); tok != NULL;
          tok = strtok_r(NULL, ",", &save)) {
@@ -1501,12 +1534,12 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
         } else if (tok[0] == 'w' && tok[1] >= '0' && tok[1] <= '9') {
             /* "w<ms>" -- hold every input state for <ms> milliseconds. */
             int ms = atoi(tok + 1);
-            if (ms > 0 && ms <= 30000 && rec && rec->sync_fd >= 0) {
+            if (ms >= 0 && ms <= 30000 && rec && rec->sync_fd >= 0) {
                 /* RECORD-SYNC: the hold is timed on the GUEST's clock. */
                 rec_hold(rec, ms);
                 if (capture_failed(rec, cap)) return -1;
                 ok = 1;
-            } else if (ms > 0 && ms <= 30000) {
+            } else if (ms >= 0 && ms <= 30000) {
                 long long until = mono_ms() + ms;
                 while (mono_ms() < until) {
                     qmp_drain(fd, 20);
@@ -1555,10 +1588,35 @@ static int qmp_inject_mouse(int fd, const char *mouse_spec, RecordCtx *rec,
             record_frame(rec);
             if (capture_failed(rec, cap)) return -1;
         } else {
-            fprintf(stderr, "[harness] --mouse: unknown token '%s' (skipped)\n",
+            fprintf(stderr, "[harness] --mouse: invalid token '%s' (input stopped)\n",
                     tok);
+            return -1;
         }
     }
+    return sent;
+}
+
+/* Tokenization owns a full copy. Allocation failure fails the session; no
+ * fixed buffer may silently turn a complete journey into a prefix. */
+static int qmp_inject_keys(int fd, const char *spec, int *bad,
+                           RecordCtx *rec, CaptureCtx *cap, KeyAckCtx *ack)
+{
+    if (qmp_validate_spec(spec, 0)) return -1;
+    char *copy = strdup(spec);
+    if (!copy) return -1;
+    int sent = qmp_inject_keys_trace(fd, copy, bad, rec, cap, ack);
+    free(copy);
+    return sent;
+}
+static int qmp_inject_mouse(int fd, const char *spec, RecordCtx *rec,
+                            CaptureCtx *cap, const char *serial_path,
+                            KeyAckCtx *ack)
+{
+    if (qmp_validate_spec(spec, 1)) return -1;
+    char *copy = strdup(spec);
+    if (!copy) return -1;
+    int sent = qmp_inject_mouse_trace(fd, copy, rec, cap, serial_path, ack);
+    free(copy);
     return sent;
 }
 
@@ -2359,6 +2417,8 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     out->exit_code = -1;
     unsigned long long log_cap;
     if (qemu_log_cap(&log_cap)) return -1;
+    if (qmp_validate_spec(cfg->keys_spec, 0) ||
+        qmp_validate_spec(cfg->mouse_spec, 1)) return -1;
 
     /* Never let a closed QMP/serial pipe kill the harness with SIGPIPE --
      * the harness must always reach its reap+report (Law 2). */

@@ -8,11 +8,16 @@ journey() {
  move_by "$((95-78-app_dx))" "$((9-102-app_dy))"
  inject 'l1,m0:94,l0,kctrl-z'
  move_by "$((78+app_dx-95))" "$((102+app_dy-103))"
- inject 'kctrl-s,w600,kret,w500'
+ inject kctrl-s
+ await_marker 'TENANT-SF put up'
+ inject kret
+ await_marker 'path="UNTITLED.$$$" new="UNTITLED" -> 0'
+ inject w500
  # Save As must open a usable dialog; its actual Cancel button preserves
  # the saved document (standard put-dialog rectangle, centered at 142,115).
  move_by "$((55-78-app_dx))" "$((9-102-app_dy))"
- inject 'l1,m0:90,l0,w300'
+ inject 'l1,m0:90,l0'
+ await_marker 'TENANT-SF put up'
  move_by 385 162
  inject 'l1,l0'
  move_by "$((78+app_dx-440))" "$((102+app_dy-261))"

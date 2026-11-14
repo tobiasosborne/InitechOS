@@ -84,3 +84,10 @@ all: $(OUT)/desktop-reference
 test: pixels-test
 pixels-test: $(OUT)/pixels-desktop
 	sh tests/pixels.sh
+
+$(OUT)/qemu-trace-test: tests/qemu-trace.c emu/qemu.c emu/qemu.h emu/port_lock.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+gate-test: qemu-trace-check
+.PHONY: qemu-trace-check
+qemu-trace-check: $(OUT)/qemu-trace-test
+	$(OUT)/qemu-trace-test

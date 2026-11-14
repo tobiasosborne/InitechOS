@@ -1,0 +1,18 @@
+--- a/factory/emu/qemu.c
++++ b/factory/emu/qemu.c
+@@ -1604,6 +1604,7 @@
+     if (qmp_validate_spec(spec, 0)) return -1;
+     char *copy = strdup(spec);
+     if (!copy) return -1;
++    if (strlen(copy) > 4095) copy[4095] = '\0';
+     int sent = qmp_inject_keys_trace(fd, copy, bad, rec, cap, ack);
+     free(copy);
+     return sent;
+@@ -1615,6 +1616,7 @@
+     if (qmp_validate_spec(spec, 1)) return -1;
+     char *copy = strdup(spec);
+     if (!copy) return -1;
++    if (strlen(copy) > 4095) copy[4095] = '\0';
+     int sent = qmp_inject_mouse_trace(fd, copy, rec, cap, serial_path, ack);
+     free(copy);
+     return sent;

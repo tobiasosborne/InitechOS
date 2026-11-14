@@ -186,3 +186,13 @@ The deterministic qemu-deadline-test drives the actual QMP session with a
 socketpair and a virtual clock: completion at 125s passes a requested 180s run,
 while 90s expiry (including a marker exactly at that deadline) fails. A patch
 restoring the old 120s cap is part of gate-mutants.sh.
+
+QEMU validates every --keys/--mouse token before launch, using its QMP key
+vocabulary and strict complete numeric tokens. Invalid input fails before any
+prefix is delivered. Input-sized storage preserves complete scripts, including
+absolute capture paths in long checkouts; allocation failure fails the run.
+There is no total 4095-byte script limit. Chords, paths and waits retain their
+individual protocol bounds and reject excess or trailing data. The actual QMP
+regression checks 4095/4096/6001 bytes, an impossible mandatory suffix after
+4100 separators, and invalid suffixes with no prefix delivery. The live bisect
+control is `sh factory/tests/trace-suffix.sh` against the ordinary product image.
