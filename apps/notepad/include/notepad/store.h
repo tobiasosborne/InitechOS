@@ -24,9 +24,9 @@
  * Fold footprint is an authored functional adaptation of the page corner
  * in period-gui-suite Sec 4, NOT claimed as native pixel fidelity. */
 #define DA_WIN_L 160
-#define DA_WIN_T 80
+#define DA_WIN_T 20
 #define DA_WIN_R 480
-#define DA_WIN_B 360
+#define DA_WIN_B 300
 #define DA_VIEW_W 293
 #define DA_VIEW_H 237
 #define DA_TEXT_H 209

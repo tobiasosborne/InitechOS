@@ -38,7 +38,7 @@ static int sw(const char *s)
 static int canvas(void)
 {
     int bad = 0;
-    for (int y = 180; y < 370; y++)
+    for (int y = 50; y < 240; y++)
         for (int x = 340; x < 600; x++) bad += px(x, y) != 0xFFFFFFu;
     if (bad) {
         fprintf(stderr, "FAIL paint CANVAS: %d non-white pixels in the blank document\n", bad);

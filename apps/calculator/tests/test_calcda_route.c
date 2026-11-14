@@ -13,6 +13,7 @@ static int32_t put_scrap(const void *p, uint32_t n)
 #include "../calcda.c"
 #undef tbx_scrap_put
 #include "tbx_host.h"
+#include "chrome_metrics.h"
 
 static int fails, checks;
 #define installed tbx_host.bar
@@ -120,6 +121,7 @@ int main(int argc,char **argv)
     tbx_host_reset();
     int32_t quit=0;
     CHECK(tbx_app_main()==0 && installed,"launch");
+    CHECK(tbx_host.windows[0].t==FLAIR_CHROME_MENUBAR_H,"initial frame meets menu bar");
     CHECK(!strcmp(calc_display(&g_calc),"0"),"initial readout");
     sweep();
     CHECK(installed && installed->menus[0].items[0].enabled &&

@@ -14,10 +14,10 @@ journey() {
  await_marker 'TENANT-EXIT rc=0 via=exit'
  launch_app PAINT.EXE
  restore_pointer
- # Canvas frame (330,150): documentProc close box near (340,160).
- move_by 228 58
+ # Canvas frame (330,20): documentProc close box near (340,30).
+ move_by 228 -72
  inject 'l1,l0'
- move_by -228 -58
+ move_by -228 72
  await_marker 'TENANT-EXIT rc=0 via=close'
  launch_app PAINT.EXE
  restore_pointer

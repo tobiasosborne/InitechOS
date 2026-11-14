@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "chrome_metrics.h"
 
 #include "../itext.c"   /* the application under test */
 
@@ -54,7 +55,7 @@ static const char *const g_rn[] = { "copy", "save", "quit", "inverse", "route",
 enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, R_EDIT, R_SCROLL, R_LF, R_FULL,
        R_UNDO, R_UNDORUN, R_UNDORESET };
 #define CHECK(c, r, ...) do { g_checks++; if (!(c)) { g_fails++; if (!g_said[r]) {    \
-    g_said[r] = 1; printf("RED-REASON %s: ", g_rn[r]); printf(__VA_ARGS__);           \
+    g_said[r] = 1; printf("FAIL %s: ", g_rn[r]); printf(__VA_ARGS__);           \
     printf(" (line %d)\n", __LINE__); } else { printf("  FAIL line %d\n", __LINE__); } } } while (0)
 
 /* ---- the recording mock -------------------------------------------------- */
@@ -121,6 +122,7 @@ static void launch(void)
     g_undo_ok = 0; g_undo_run = 0;           /* a fresh launch's BSS */
     m_exits = m_alerts = m_track = m_sf = 0;
     CHECK(tbx_app_main() == 0, R_ROUTE, "launch");
+    CHECK(tbx_host.windows[0].t==FLAIR_CHROME_MENUBAR_H,R_ROUTE,"initial frame meets menu bar");
     hev(updateEvt, 1, 0, 0, 0);
 }
 

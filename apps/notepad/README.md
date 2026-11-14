@@ -47,3 +47,7 @@ Inherited diagnostics use DOS AUX INT 21h in addition to the Toolbox gate;
 the SDK lacks a diagnostic-output binding. This is retained behavior, not a
 new app interface. The desktop/SDK owners must resolve that boundary debt.
 Remaining legacy composed-chrome emulator gates belong to the factory owner.
+
+Initial windows meet the single menu bar (operator ruling, CLAUDE.md
+"Hazards that are still true"). Host routing checks their structure top
+against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.

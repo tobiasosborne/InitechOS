@@ -1,7 +1,7 @@
 TOP := $(abspath ../..)
 COMPONENT := apps/calculator
 include $(TOP)/mk/config.mk
-HOST_INCLUDES := -I. -Iinclude -I$(TOP)/sdk/include -I$(TOP)/sdk/host
+HOST_INCLUDES := -I. -Iinclude -I$(TOP)/sdk/include -I$(TOP)/sdk/host -I$(TOP)/flair/include
 HOST_TESTS := test_calcda test_calcda_route
 EXTRA_HOST_TESTS := pixels
 test_calcda_SRCS := tests/test_calcda.c calc_core.c calc_view.c
