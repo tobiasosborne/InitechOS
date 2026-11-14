@@ -1,0 +1,6 @@
+id	file	scenario	observed	independent_expectation_or_pending
+T01	fixtures/T01.TXT	CRLF, LF blank line, CR	open 21 normalized bytes; Save=21	property: exact TEXT, CRLF/LF normalize to CR; all line breaks retained
+T02	fixtures/T02.TXT	4096 printable x bytes	open/save 4096; excess insert refused visibly	property: exact capacity or visible refusal; no unread suffix discarded
+T03	fixtures/T03.TXT	4097 printable x bytes	visible too-large refusal	property: preserve old document/source on refusal
+T04	fixtures/T04.TXT	20-byte readable text, short reads of 4	normal open/save=20; short read silently open/save=4: RED	property: complete readable bytes or visible safe recovery; no suffix loss
+T05	fixtures/T05.TXT	4097 bytes: 2048 CRLF pairs plus z	visible too-large refusal	property: refusal is permitted; preserves source (normalization does not excuse silent loss)

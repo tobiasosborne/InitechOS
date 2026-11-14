@@ -303,11 +303,33 @@ static void say(const char *l1, const char *l2)
 
 static int doc_load(const char *path)
 {
-    int32_t h = tbx_file_open(path, TBX_FILE_READ_ONLY), n, i, k = 0;
+    int32_t h = tbx_file_open(path, TBX_FILE_READ_ONLY), n, start, rc, closed, i, k = 0;
+    uint32_t pos = 0;
     if (h < 0) { say("The document could not be opened.", (const char *)0); return 0; }
-    n = tbx_file_read(h, g_io, (uint32_t)sizeof g_io);
-    (void)tbx_file_close(h);
-    if (n < 0) { say("The document could not be opened.", (const char *)0); return 0; }
+    /* initech-gxb4z: GM4 and the operator's original-name preservation
+     * ruling require the whole input before publishing a named document.
+     * FILE_SEEK/READ/CLOSE: toolbox_gate.h Sec 10. A positive short read
+     * makes progress; only the measured length proves completion. The
+     * existing raw-byte capacity still applies before TEXT normalization. */
+    n = tbx_file_seek(h, 0, TBX_FILE_FROM_END);
+    start = n < 0 ? n : tbx_file_seek(h, 0, TBX_FILE_FROM_START);
+    if (n >= 0 && n <= FLAIR_TE_TEXT_MAX && start == 0) {
+        while (pos < (uint32_t)n) {
+            rc = tbx_file_read(h, g_io + pos, (uint32_t)n - pos);
+            if (rc <= 0 || (uint32_t)rc > (uint32_t)n - pos) break;
+            pos += (uint32_t)rc;
+        }
+    }
+    closed = tbx_file_close(h);
+    if (n < 0 || start != 0 || closed < 0 ||
+        (n <= FLAIR_TE_TEXT_MAX && pos != (uint32_t)n)) {
+        say("The document could not be opened.", (const char *)0);
+        return 0;
+    }
+    if (n > FLAIR_TE_TEXT_MAX) {
+        say("This document is too large to be", "opened by InitechText.");
+        return 0;
+    }
     /* CR LF -> one CR, a lone LF -> one CR, a lone CR stays. The pair test
      * remembers the previous INPUT byte (`prev`), never the normalised
      * output (which holds a CR for every LF): reading the output made the
@@ -322,8 +344,7 @@ static int doc_load(const char *path)
             if (!skip) g_io[k++] = (c == '\n') ? '\r' : c;
         }
     }
-    if (n > FLAIR_TE_TEXT_MAX ||
-        !FlairTECanReplace(&g_te, 0, g_te.teLength, g_io, (int16_t)k)) {
+    if (!FlairTECanReplace(&g_te, 0, g_te.teLength, g_io, (int16_t)k)) {
         say("This document is too large to be", "opened by InitechText.");
         return 0;
     }

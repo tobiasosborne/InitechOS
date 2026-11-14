@@ -1,0 +1,6 @@
+T01.TXT limit=0	bytes=22 loaded=1 shown=21 alerts=0 message= save=1 saved=21 edit-save=1 property=GREEN
+T02.TXT limit=0	bytes=4096 loaded=1 shown=4096 alerts=0 message= save=1 saved=4096 edit-save=1 property=GREEN
+T03.TXT limit=0	bytes=4097 loaded=0 shown=0 alerts=1 message=This document is too large to beopened by InitechText. property=GREEN
+T04.TXT limit=0	bytes=20 loaded=1 shown=20 alerts=0 message= save=1 saved=20 edit-save=1 property=GREEN
+T05.TXT limit=0	bytes=4097 loaded=0 shown=0 alerts=1 message=This document is too large to beopened by InitechText. property=GREEN
+T04.TXT limit=4	bytes=20 loaded=1 shown=4 alerts=0 message= save=1 saved=4 edit-save=1 property=RED

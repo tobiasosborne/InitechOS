@@ -1,0 +1,11 @@
+--- a/itext.c
++++ b/itext.c
+@@ -319,6 +319,8 @@
+             rc = tbx_file_read(h, g_io + pos, (uint32_t)n - pos);
+             if (rc <= 0 || (uint32_t)rc > (uint32_t)n - pos) break;
+             pos += (uint32_t)rc;
++            n = (int32_t)pos;
++            break;
+         }
+     }
+     closed = tbx_file_close(h);
