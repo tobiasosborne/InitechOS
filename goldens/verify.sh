@@ -33,7 +33,7 @@ while read -r kind var expected root path; do
 done < "$work/other"
 "$cache/stat-files" < "$work/files" > "$work/signature"
 if ! cmp -s "$work/signature" "$cache/verified"; then
-    if ! sha256sum --quiet -c "$work/files"; then
+    if [ -s "$work/files" ] && ! sha256sum --quiet -c "$work/files"; then
         echo 'FAIL corpus: changed pinned bytes; check the matching *_DECOMP override in CORPORA.lock' >&2
         exit 1
     fi
