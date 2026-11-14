@@ -21,19 +21,15 @@ Current mechanical evidence:
   Stdout/files agree with independent FPC;
   original corpus rows retain their authored goldens. Separate TEST disks
   preserve the product image. Resident output needs no host assembler/linker.
-- The last in-OS K1(S) -> K2 and K2(S) -> K3 proof reproduced 163087 bytes, SHA-256
-  7bf6424c74a46106b01f5d75de2c422005a026d2624f1e044e626fc1ae801ff6.
-  Fresh boots reset identical inputs and fit the unchanged emulator driver's
-  120-second serial gate. Guest compile times were 41s/86s in the DDC refresh.
-  K1==K2 is not the certificate.
-- After the minimum-Integer div/mod guards, the host-generated candidate is
-  164263 bytes, SHA-256
+- In-OS K1(S) -> K2 and K2(S) -> K3 reproduce 164263 bytes exactly, SHA-256
   2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7.
-  The module grows by 1064 bytes and the relocation header by 112 bytes for
-  guard emission and label handling. Fresh self-host/DDC is pending: the
-  loaded machine's first run reached the factory driver's 120-second ceiling.
-- The previous diverse proof used FPC 3.2.2 for the independent host bootstrap;
-  it directly emitted D1. In-OS D1(S) -> D2 took 75 guest seconds; D2==K2==K3.
+  Fresh boots reset identical inputs and fit the unchanged emulator driver's
+  120-second serial gate. Fresh guest compile times were 55s/103s.
+  K1==K2 is not the certificate.
+  The minimum-Integer div/mod guards and emission/label handling increase the
+  previous 163087-byte compiler's module by 1064 bytes and header by 112 bytes.
+- FPC 3.2.2 builds the independent host bootstrap and directly emits D1.
+  Fresh in-OS D1(S) -> D2 took 109 guest seconds; D2==K2==K3.
   A contaminated candidate and a changed used source constant both make the
   comparison red. This removes sole trust in the C seed's translation, not
   trust in source/runtime bytes, FPC, host tools, the OS or hardware.

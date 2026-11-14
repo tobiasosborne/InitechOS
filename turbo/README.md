@@ -54,15 +54,13 @@ That compiler emits D1 directly; D1(S) runs in the OS to produce D2. The check
 asserts D2==K2==K3. Contamination and changed-source controls must fail.
 Evidence, FPC version and bootstrap hashes remain under build/turbo/ddc.
 
-The last certified fixed point, before the minimum-Integer div/mod guards,
-was 163087 bytes, SHA-256
-7bf6424c74a46106b01f5d75de2c422005a026d2624f1e044e626fc1ae801ff6.
-The new host-generated candidate is 164263 bytes, SHA-256
-2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7;
-fresh self-host/DDC certification is pending after the loaded machine hit the
-factory driver's 120-second ceiling. The added guard emission and label handling
-increase the module by 1064 bytes and the relocation header by 112 bytes.
-The previous proof took 41s/86s and DDC took 75s for D1(S). The checked-in NASM tables regenerate
+The certified fixed point is K2==K3==D2: 164263 bytes, SHA-256
+2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7.
+The minimum-Integer div/mod guards and their emission/label handling increase
+the previous 163087-byte compiler's module by 1064 bytes and relocation header
+by 112 bytes. Fresh self-hosting took 55s/103s and DDC took 109s for D1(S),
+within the unchanged 120-second gate. All three negative controls are red.
+The checked-in NASM tables regenerate
 byte-for-byte. Times use the guest clock with 1-second resolution. DDC removes sole
 reliance on the C seed's translation and its bootstrap assembler pipeline.
 It still trusts the compiler source (including runtime byte tables), the
