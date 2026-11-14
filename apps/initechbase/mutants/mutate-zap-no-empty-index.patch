@@ -1,8 +1,8 @@
-# test: conformance_host
+# test: test_interp_replace
 # ZAP skips every open index, leaving entries for records that no longer exist.
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -1041,7 +1041,7 @@
+@@ -1055,7 +1055,7 @@
      int area = wa_selected(env);
      dbf_table *tbl = wa_table(env, area);
      uint32_t old_recno=wa_recno(env,area);

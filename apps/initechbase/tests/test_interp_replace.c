@@ -412,6 +412,13 @@ static int kp_code(void *user, uint32_t recno, uint8_t *key_out, uint16_t key_le
     return 0;
 }
 
+static int count_entry(void *ctx, const uint8_t *key_data, uint32_t recno)
+{
+    (void)key_data; (void)recno;
+    (*(unsigned *)ctx)++;
+    return 0;
+}
+
 static void test_master_key_drift(ibase_pal_t *pal)
 {
     const char *pa  = "/tmp/test_interp_replace_k.dbf";
@@ -506,6 +513,46 @@ static void test_master_key_drift(ibase_pal_t *pal)
         recno = 0; found = 0;
         rc = ndx_seek(ix, &k, 1, &recno, &found);
         CHECK(rc == NDX_OK && !found, "drift: SEEK 'FFF' no longer found (old key removed)");
+    }
+
+    /* ZAP with the index still open empties it. Expected values are the
+     * genuine III+ capture tests/conformance C37: after ZAP, APPEND BLANK
+     * and REPLACE of a new key, SEEK of a zapped key is not found and SEEK
+     * of the new key resolves record 1 -- the index's only entry. */
+    CHECK(set_register(ip) == INTERP_OK, "zapidx: set_register");
+    CHECK(ibase_do(ip, "SET SAFETY OFF\n") == INTERP_OK, "zapidx: safety off");
+    rc = ibase_do(ip, "ZAP\n");
+    snprintf(msg,sizeof msg,"zapidx: ZAP rc=%d ec=%d",rc,ibase_last_error(ip));
+    CHECK(rc == INTERP_OK, msg);
+    CHECK(dbf_nrec(tbl) == 0u, "zapidx: RECCOUNT == 0 after ZAP");
+    rc = ibase_do(ip, "APPEND BLANK\n");
+    CHECK(rc == INTERP_OK, "zapidx: APPEND BLANK");
+    rc = ibase_do(ip, "REPLACE CODE WITH 'ZZZ', AMT WITH 9\n");
+    snprintf(msg,sizeof msg,"zapidx: REPLACE rc=%d ec=%d",rc,ibase_last_error(ip));
+    CHECK(rc == INTERP_OK, msg);
+    {
+        static const char *oldkeys[4] = { "BBB", "DDD", "MMM", "HHH" };
+        int i;
+        for (i = 0; i < 4; i++) {
+            xb_val k = xb_c(oldkeys[i], 3);
+            recno = 0; found = 0;
+            rc = ndx_seek(ix, &k, 1, &recno, &found);
+            snprintf(msg,sizeof msg,"zapidx: SEEK zapped '%s' rc=%d found=%d",oldkeys[i],rc,found);
+            CHECK(rc == NDX_OK && !found, msg);
+        }
+        {
+            xb_val k = xb_c("ZZZ", 3);
+            recno = 0; found = 0;
+            rc = ndx_seek(ix, &k, 1, &recno, &found);
+            snprintf(msg,sizeof msg,"zapidx: SEEK 'ZZZ' rc=%d found=%d recno=%u",rc,found,recno);
+            CHECK(rc == NDX_OK && found && recno == 1u, msg);
+        }
+    }
+    {
+        unsigned entries = 0;
+        rc = ndx_inorder(ix, count_entry, &entries);
+        snprintf(msg,sizeof msg,"zapidx: inorder rc=%d entries=%u",rc,entries);
+        CHECK(rc == NDX_OK && entries == 1u, msg);
     }
 
     xb_interp_free(ip);

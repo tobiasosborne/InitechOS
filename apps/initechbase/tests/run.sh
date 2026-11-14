@@ -78,7 +78,8 @@ case "$name" in
  ibase_numeric_format) python3 tests/numeric_format_ref.py "$bins/$name" "$DBASE3_DECOMP";;
  readers)
   python3 tests/dbf_ref.py --selftest
-  python3 tests/ndx_ref.py --selftest;;
+  python3 tests/ndx_ref.py --selftest
+  python3 tests/conformance/read_dbf.py --selftest;;
  captured-hashes)
   (cd tests/write-safety/captured && sha256sum --quiet -c SHA256SUMS)
   (cd tests/prompt-tail && sha256sum --quiet -c SHA256SUMS)

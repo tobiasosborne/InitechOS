@@ -67,8 +67,15 @@ before retaining readback and a SHA-256 manifest (later roots override earlier
 ones). It is an explicit research step, never a gate. New captures should be
 inspected before promotion. `INPUTS.sha256` pins all fixture bytes; the separate
 reference manifest pins all retained oracle outputs. `qualify.sh` checks that
-the comparator rejects an altered saved record and accepts date/reserved-byte
-normalization. It changes only disposable host readbacks.
+the comparator rejects an altered saved record, garbage after the last
+record, a missing EOF byte and a wrong header length, and accepts
+date/reserved-byte normalization. It changes only disposable host readbacks.
+`read_dbf.py --selftest` (in the tier-0 `readers` suite) pins the same
+verdicts against the genuine C01 readback. C03/C04 (flush adds the 0x1A EOF
+real III+ leaves absent on damaged no-EOF inputs, initech-qylau) and C37
+(the whole-file serializer drops the post-EOF slack real III+ retains after
+ZAP, initech-dgdpg) are known failures: they sit outside `accepted.cases`
+and fail the full `check.sh` run on exactly their DBF tail bytes.
 
 The host adapter runs the actual interpreter and codecs using existing
 `w2_host.c` with the usual 2 MiB test heap. This is not a proof of target heap
