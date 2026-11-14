@@ -37,6 +37,45 @@ Host tests additionally use the Toolbox's render/reference test helpers and
 factory/testlib; no product build reads attic/. Hardware headers were published
 from kernel/ into kernel/include/ without changing their layouts.
 
+Under CLAUDE.md "Two interfaces" (operator amendment c7398425), the resident
+Finder temporarily calls the published kernel FAT interface directly. This
+covers finder_fs.c and Desktop DB/Trash persistence in desktop_db.c, with the
+mounted volume supplied through fileio_fat.h. Removal is tracked as
+initech-02siz: route those file operations through DOS file services, preserving
+GM2's FAT12 read-write/FAT16 read-only policy and failed-save guarantees.
+That DOS migration is separate work; pbl0i enforces the current write policy
+within the permitted resident binding. Disk applications still use INT 81h.
+
+Directly linked pure libraries and data helpers (the link is composed by
+system/Makefile; libdesktop.a itself does not perform the final link):
+
+| Provider / target input | Pure code used by the desktop |
+|---|---|
+| flair/region, build/flair/region/target/region.o | Normalised region algebra and caller-owned region storage |
+| flair, build/flair/libflair.a | Surface/blitter drawing, chrome and text drawing, flair_look colour/depth mapping and caller-owned heap allocation; public contracts in flair/include/{surface,blitter,chrome,text,flair_look,heap}.h |
+| flair/include/asset_lz.h, flair/include/assets and build/flair/generated | Header-defined asset decompression, font metrics/strikes, icon assets, palettes and colour helpers compiled into the desktop's drawing paths |
+| sdk/include | Shared ABI records and inline record helpers; no SDK runtime archive is linked into the resident desktop |
+
+libflair.a also contains resident Window, Menu, Control, Dialog, List,
+Standard File, Event, Cursor, Process, Scrap and TextEdit managers. Their
+public flair/include contracts are the manager bindings used by the shell
+and gate; the whole archive is not classified as a pure library. Kernel
+hardware, DOS, loader and console calls belong to the resident integration
+and the platform adapter below, rather than to the pure-library inventory.
+platform.c supplies the freestanding memcpy runtime helper locally.
+
+Published bindings implemented by this component:
+
+| Contract | Desktop implementation / consumers |
+|---|---|
+| flair/include/flair_platform.h | Every flair_platform_* service in platform.c; the suffix table below lists the kernel/desktop service used for each binding |
+| kernel/include/environment.h | kernel_graphical_environment in start.c, the resident DOS shell's returning graphical-environment entry; desktop_console_restore is supplied by the kernel |
+| flair/include/tbxgate.h and sdk/include/toolbox_gate.h | tbx_gate_entry installs the INT 81h transport to the Toolbox dispatcher; tbx_tenant_call/tbx_tenant_abort implement its resident call/unwind support in tbx_gate.asm |
+| kernel/include/{kbd,mouse,pit,panic}.h and flair/include/event.h hook contracts | The startup/pump registers keyboard/mouse raw-event callbacks, tick advancement, fault handling and cooperative yield, and removes/restores them on exit |
+
+Finder/model/compositor headers within this directory describe internal
+desktop calls, not additional OS service entries for disk applications.
+
 Production extraction from legacy-final kmain.c (8207 lines): scene.c owns the
 heap-backed scene, palette, splash and framebuffer present; input.c the raw IRQ
 queue adapters and cursor; tracking.c drag/close/zoom/grow/collapse/scroll/menu
@@ -66,6 +105,7 @@ The platform adapter follows ../NOTES-FOR-KERNEL.md:
 | Function suffix (flair_platform_) | Kernel or desktop service |
 |---|---|
 | files_init | psp_build with zero parameters, shadow PSP |
+| bind_files | bind the mounted data-drive number for private file sessions |
 | files_close | sft_close_process on shadow PSP |
 | files_live | shadow JFT entries 5..19, JFT_CLOSED excluded |
 | file_info_get | sft_from_handle, SFT_KIND_FILE only |
