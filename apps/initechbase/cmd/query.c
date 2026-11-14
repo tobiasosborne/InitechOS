@@ -698,9 +698,10 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = xb_interp_eval(ip, expr, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_field(ip,line, &pos, sizeof(line), &v,
-                           q_field_descriptor(ip,expr), xb_interp_ctx(ip),
-                           q_column_width(q_field_descriptor(ip,expr),expr,&v,xb_interp_ctx(ip)),&mc);
+            const dbf_field_t *f=q_field_descriptor(ip,expr);
+            uint32_t width=(!*q_skip_ws(p) && f && f->type=='C')?f->field_len:
+                q_column_width(f,expr,&v,xb_interp_ctx(ip));
+            q_render_field(ip,line, &pos, sizeof(line), &v,f,xb_interp_ctx(ip),width,&mc);
         }
         if (!ok) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
     } else {
@@ -717,8 +718,11 @@ static int q_render_record(xb_interp *ip, int area, const query_clauses *qc,
             rc = xb_interp_eval(ip, f->name, &v, ec);
             if (rc != INTERP_OK)
                 return rc;
-            q_render_field(ip,line, &pos, sizeof(line), &v, f, xb_interp_ctx(ip),
-                           q_column_width(f,f->name,&v,xb_interp_ctx(ip)),&mc);
+            /* Genuine III+ C23: the last character cell retains its field
+             * bytes but has no extra padding for a wider column heading. */
+            uint32_t width=(fi==nf-1 && f->type=='C')?f->field_len:
+                q_column_width(f,f->name,&v,xb_interp_ctx(ip));
+            q_render_field(ip,line, &pos, sizeof(line), &v, f, xb_interp_ctx(ip),width,&mc);
         }
     }
 

@@ -2,6 +2,6 @@
 --- a/ibase_main.c
 +++ b/ibase_main.c
 @@ -366,2 +366 @@
--            *ec = rc == -WA_ERR_ALREADY_OPEN ? 3 : rc == -DBF_ERR_NOENT ? 1 :
+-            *ec = rc == -WA_ERR_MEMO_OPEN ? 41 : rc == -WA_ERR_ALREADY_OPEN ? 3 : rc == -DBF_ERR_NOENT ? 1 :
 -                  (rc == -DBF_ERR_ACCESS || rc == -DBF_ERR_IO) ? 29 : 15;
 +            *ec = 15;
