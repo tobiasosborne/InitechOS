@@ -23,7 +23,8 @@ CALL**. BATCH.BAT prints CHILD-RAN, AFTER-CALL, CHILD-RAN, AFTER-COMMAND under b
 systems. The existing hash-pinned batch-break captures also use CALL. Removing
 CALL based on the parenthetical in the brief would contradict these captures.
 
-All paths below are relative to this directory unless prefixed by a component.
+Evidence paths below are relative to `dos/command/tests/compat33/` in this
+branch unless prefixed by another component, including in the P2 report copy.
 `expected/<case>/` contains actual DOS captures; `observed/<case>/` contains actual
 product results. Exact CRLF inputs are in each compressed data disk, with the
 boot AUTOEXEC/CONFIG retained separately. `generate.c` supplies portable recipes.
@@ -259,3 +260,11 @@ its owner. No STATUS.md edit or push is made under BRIEF-COMMON.
 - No product/interface/smoke driver changed; full `make smoke` and mutation
   sweep were not required or run. These external QEMU observations are
   compatibility experiments on the normal image.
+
+Post-rebase verification: fixtures commit `57d34709a5f05bb2f9fbf6f939c2ff9e05122029`
+was rebased onto local main `5a503113160ebaaacee7d1b78ff188dd4f59398d` (an
+unrelated InitechCalc stage-save change). The reviewed DOS/kernel sources are
+unchanged by that rebase. A fresh full command with the same 60/300 overrides
+passed all 19 in 108 seconds, including the added InitechCalc safety gate;
+`observed/checks/top-rebased.log` retains the summary. The default-limit failures
+remain visible alongside it; no source limit was raised.
