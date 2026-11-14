@@ -279,3 +279,11 @@ original pending faults now have repeated completed-guest kills: cursor row 25,
 raw wrapping, Enter scrolling, color selection, color reset, extended keys and
 redirected SAY. Nineteen of the original 28 are qualified; nine remain.
 Native observers/scenarios stay outside the product image; see tests/native.
+
+The active host sweep was repeated after the conformance/write repairs.
+Seventy-two old faults needed contextual refresh or movement to the live
+command/serializer/cache operation after refactoring. Fault semantics and
+independent oracles were retained. The complete current sweep passes: 250
+compiled host faults rejected twice and all ten target faults rejected twice;
+no survivors or compiler errors count as kills. The nine original pending
+faults remain explicitly outside that passing selection.

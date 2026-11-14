@@ -1,5 +1,11 @@
 # test: test_ibase_dbsafe
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -945,0 +946 @@
+@@ -1023,6 +1023,7 @@
+     ibase_pal_t *pal=xb_interp_pal(ip);
+     char answer[256];const char *s;uint32_t len;
+     if (!set_get_safety(ip)) return 1;
 +    return 1; /* mutant: stored SAFETY has no destructive consumer */
+     pal->conout(pal,verb,rt_strlen(verb));pal->conout(pal," ",1u);
+     pal->conout(pal,dbf_name(tbl),rt_strlen(dbf_name(tbl)));
+     pal->conout(pal,"? (Y/N)",7u);

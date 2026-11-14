@@ -1,7 +1,10 @@
 # test: test_dbf_read
 --- a/fs/dbf.c
 +++ b/fs/dbf.c
-@@ -616,0 +617,13 @@
+@@ -615,6 +615,19 @@
+          * Ref: dbf.md sec 4 (+1/+2 forms); dbf.h dbf_open_rw contract;
+          *      dbf_flush (the +1 emitter, below); bead initech-jf8p.
+          */
 +        /*
 +         * MUTATION HOOK (CLAUDE.md, The constitution; initech-jf8p): restores the exact pre-fix bug
 +         * -- eagerly normalize header_length/term_extra to the +1 form AT OPEN
@@ -15,3 +18,6 @@
 +         */
 +        tbl->header_length = (uint16_t)((uint32_t)DBF_HDR_SIZE + descbytes + 1u);
 +        tbl->term_extra    = 1u;
+     }
+ 
+     *out = tbl;

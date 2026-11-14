@@ -1,8 +1,14 @@
 # test: test_ndx_multilevel
 --- a/fs/ndx.c
 +++ b/fs/ndx.c
-@@ -1529,0 +1530,4 @@
+@@ -1549,6 +1549,10 @@
+     /* MUTATION mutants/ndx-mutate-no-root-split.patch (CLAUDE.md, The constitution): revert to the OLD 2-level
+      * ceiling -- fail loud with -NDX_ERR_PAGE_OVF the moment a 3rd level is
+      * needed ((L-1) > kpp). test_ndx_multilevel.c then goes RED. */
 +    if (nleaf > 1u && (nleaf - 1u) > kpp) {
 +        pal->reset(pal, mark);
 +        return -NDX_ERR_PAGE_OVF;
 +    }
+ 
+     /* --- The level stacks: each level holds at most kpp+1 pending children;
+      * the depth is at most ceil(log_{kpp+1}(nleaf)) + 1 (+1 slack). --- */

@@ -1,7 +1,13 @@
 # test: test_ibase_fns
 --- a/cmd/workarea.c
 +++ b/cmd/workarea.c
-@@ -1551,0 +1552,3 @@
+@@ -1618,6 +1618,9 @@
+ }
+ void xb_interp_output(xb_interp *ip,const char *s,uint32_t n)
+ {
 +    /* SF-console bite: CONSOLE OFF wrongly silences ALTERNATE too; the real
 +     * III+ capture keeps "HIDDEN" in the alternate file (fns-mint/console). */
 +    if(!xb_interp_console_visible(ip)) return;
+     if(ip) ibase_ovl_validate_ctx(&ip->ctx);
+     if(ip && ip->ctx.mirror_output && n)
+         ip->ctx.mirror_output(ip->ctx.mirror_user,s,n);

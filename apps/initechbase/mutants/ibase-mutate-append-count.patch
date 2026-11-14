@@ -1,10 +1,15 @@
 # test: test_ibase_dbsafe
 --- a/fs/dbf.c
 +++ b/fs/dbf.c
-@@ -1558,6 +1557,0 @@
--    /* A short four-byte write can tear 255 -> 256. Restore the committed
--     * bytes in the already allocated header sector before returning. */
--    if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF ||
--        write_result(tbl->pal->write(tbl->pal,tbl->fd,prior,4u),4u) != DBF_OK) {
--        tbl->write_failed=1u; rc=-DBF_ERR_WRITE;
--    }
+@@ -1448,6 +1448,11 @@
+     int rc;
+     if(!tbl || !tbl->writable)return -DBF_ERR_IO;
+     tx->header_length=tbl->header_length;tx->term_extra=tbl->term_extra;
++    { /* fault: publish the count into the live predecessor before rows */
++        uint8_t count[4];wr_u32le(count,tbl->nrec);
++        if(tbl->pal->seek(tbl->pal,tbl->fd,4,PAL_SEEK_SET)==4)
++            (void)tbl->pal->write(tbl->pal,tbl->fd,count,4);
++    }
+     tbl->raw_recno=0;
+     rc=ibase_file_begin(&tx->file,tbl->pal,tbl->name);
+     if(rc)return write_result(rc,1);

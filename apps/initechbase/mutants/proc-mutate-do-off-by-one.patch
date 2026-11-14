@@ -1,5 +1,11 @@
 # test: test_ibase_ctl
 --- a/cmd/proc.c
 +++ b/cmd/proc.c
-@@ -758,0 +759 @@
+@@ -757,6 +757,7 @@
+     int rc, scoped, depth_before = ps->do_depth, saved_master = ps->master_depth;
+     /* Using III+ U7-4 [103] + mint ibasectl NEST.TXT: at most 20 DO levels. */
+     if (ps->do_depth >= P_MAX_DO_NEST
 +        + 1
+         ) {
+         if (ec) *ec = P_MSG_DO_DEEP;
+         return -INTERP_ERR_DEPTH;

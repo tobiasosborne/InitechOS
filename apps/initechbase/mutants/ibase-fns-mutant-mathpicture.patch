@@ -1,6 +1,12 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2040,0 +2041,2 @@
+@@ -2040,6 +2040,8 @@
+     unsigned decimals = ctx->set_decimals > arg->num_dec
+         ? ctx->set_decimals : arg->num_dec;
+     int width = integer_columns + (int)(decimals ? decimals + 1u : 0u);
 +    /* Regression proof: corrupt only negative arguments with wide pictures. */
 +    if (arg->u.n < 0.0 && arg->num_width > 4u) width++;
+     out->num_width = (uint16_t)(width < 1 ? 1 : width > 255 ? 255 : width);
+     out->num_dec = (uint16_t)decimals;
+ }

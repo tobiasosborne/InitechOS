@@ -1,6 +1,12 @@
 # test: test_interp_list
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -910 +910 @@
--        q_append_cstr(line, &pos, sizeof(line), "\r\n");
-+        q_append_cstr(line, &pos, sizeof(line), "\n");
+@@ -919,7 +919,7 @@
+ 
+     if (leading_nl) {
+         /* Using III+ U5-15; DML-01..03 real alternate streams. */
+-        q_append_cstr(line, &pos, capacity, "\r\n");
++        q_append_cstr(line, &pos, capacity, "\n");
+     }
+ 
+     while (q_next_expr(&p, expr, sizeof(expr), &ok)) {

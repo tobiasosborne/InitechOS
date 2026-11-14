@@ -1,5 +1,11 @@
 # test: test_ibase_report
 --- a/cmd/report.c
 +++ b/cmd/report.c
-@@ -282,0 +283 @@
+@@ -282,6 +282,7 @@
+             if (i && !q->len) continue;
+             n = rp_seg(R.pool + q->off, q->len, q->w, &a);
+             rp_to(q->start
 +                  + (c == 1)   /* MUTANT: second column shifted right */
+                   );
+             rp_str(R.pool + q->off, n);
+             q->off += a; q->len -= a;

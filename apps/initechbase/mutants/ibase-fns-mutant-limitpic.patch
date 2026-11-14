@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2037,0 +2038 @@
+@@ -2037,6 +2037,7 @@
+      * remains: real limitpic/GOLD.OUT EXP(1.000000000) is 2.71828183.
+      * Keep that subtraction signed; clamp only the final computed picture. */
+     if (!computed_width && integer_columns < 1) integer_columns = 1;
 +    if (integer_columns < 1) integer_columns = 1;
+     unsigned decimals = ctx->set_decimals > arg->num_dec
+         ? ctx->set_decimals : arg->num_dec;
+     int width = integer_columns + (int)(decimals ? decimals + 1u : 0u);

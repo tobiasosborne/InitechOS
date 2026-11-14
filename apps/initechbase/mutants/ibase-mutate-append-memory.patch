@@ -1,5 +1,12 @@
 # test: test_ibase_dbsafe
 --- a/fs/dbf.c
 +++ b/fs/dbf.c
-@@ -1565 +1564,0 @@
--    tbl->nrec=old;
+@@ -1494,7 +1494,7 @@
+     }
+     tbl->rec_region=region;
+     if(count>tbl->rec_cap)tbl->rec_cap=count;
+-    tbl->nrec=count;tbl->header_length=offset;
++    /* fault: rejected APPEND count stays in memory */tbl->header_length=offset;
+     tbl->term_extra=(uint8_t)(offset-DBF_HDR_SIZE-DBF_DESC_STRIDE*tbl->nfields);
+     tbl->write_failed=0;
+     return DBF_OK;

@@ -1,5 +1,11 @@
 # test: test_ibase_dml
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -1257,0 +1258 @@
+@@ -1361,6 +1361,7 @@
+     while((n=pal->read(pal,in,buf,sizeof buf))>0) {
+         if(type) {
+             int32_t j=0;while(j<n && (unsigned char)buf[j]!=26)j++;
 +            j=0; /* suppress ASCII contents */
+             xb_interp_output(ip,buf,(uint32_t)j);
+             if(j<n)break;
+         } else {

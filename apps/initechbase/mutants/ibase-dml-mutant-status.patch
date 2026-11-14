@@ -1,5 +1,11 @@
 # test: test_ibase_dml
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -1534,0 +1535 @@
+@@ -1566,6 +1566,7 @@
+     qi_line(q);
+     for(int a=1;a<=WA_NAREAS;a++)if(wa_is_open(env,a)) {
+         const char *filter=wa_filter_text(env,a),*rel=wa_relation_text(env,a);
 +        if(a==2)continue; /* omit one real open work area */
+         if(a==wa_selected(env)) { qi_text(q,"Currently Selected Database: ");qi_line(q); }
+         qi_text(q,"Select area: ");qi_uint(q,(unsigned)a,2);qi_text(q,", Database in Use: ");
+         qi_file(q,dbf_name(wa_table(env,a)),".dbf",0);qi_text(q,"   Alias: ");qi_text(q,wa_alias(env,a));qi_line(q);

@@ -1,5 +1,11 @@
 # test: test_ibase_dml
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -1095,0 +1096 @@
+@@ -1188,6 +1188,7 @@
+         rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
+         ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
+         if(v.t!=XB_C && v.t!=XB_N && v.t!=XB_D)return d_fail(ec,9);
 +        if(count)count--; /* last physical record has no index entry */
+         rc=ndx_build_begin(pal,name,ctx.type,v.t==XB_C?v.u.c.len:8,expr,count,d_key,&ctx,unique,&tx);
+         if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:29); }
+         rc=ndx_open_rw(pal,name,&ix);

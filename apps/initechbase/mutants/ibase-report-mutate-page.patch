@@ -1,5 +1,11 @@
 # test: test_ibase_report
 --- a/cmd/report.c
 +++ b/cmd/report.c
-@@ -193,0 +194 @@
+@@ -193,6 +193,7 @@
+ /* A unit of n lines needs n+1 lines left. [verified: 83 lpp sweeps] */
+ static IBASE_OVL_TEXT(report) int rp_need(int n)
+ {
 +    n--;   /* MUTANT: off-by-one room check */
+     if (R.L + n + 1 > R.lpp) { rp_eject(); return 1; }
+     return 0;
+ }

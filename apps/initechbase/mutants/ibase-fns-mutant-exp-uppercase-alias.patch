@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2081,0 +2082 @@
+@@ -2081,6 +2081,7 @@
+         "fstpl %0"
+         : "=m" (result)
+         : "m" (a));
 +    result += 1.0; /* CLAUDE.md, The constitution: the EXP transcript must catch this perturbation. */
+     *out = xb_n(result);
+     /* Real III+ fns-mint/exppicture/GOLD.OUT: EXP starts with the standard
+      * computed-Numeric picture supplied by xb_n, while retaining the

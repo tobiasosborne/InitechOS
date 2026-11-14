@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2335,0 +2336 @@
+@@ -2335,6 +2335,7 @@
+     (void)ctx; (void)args;
+     if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+     *out = xb_n(0.0);
 +    out->u.n = 1.0;
+     out->num_width = 3;
+     *err = XBEE_OK;
+     return 0;

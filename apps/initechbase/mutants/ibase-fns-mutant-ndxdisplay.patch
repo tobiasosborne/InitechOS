@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -1473,0 +1474 @@
+@@ -1505,6 +1505,7 @@
+ static IBASE_OVL_TEXT(status) void qi_file(q_inspection *q, const char *name, const char *extension, int preserve)
+ {
+     ibase_pal_t *pal=xb_interp_pal(q->ip);
 +    preserve=0; /* MUTANT: STATUS must preserve supplied index spelling. */
+     unsigned n=0,end=0;
+     int drive=pal->curdrive?pal->curdrive(pal):-1;
+     if(name[0] && name[1]!=':' && drive>='A' && drive<='Z') {

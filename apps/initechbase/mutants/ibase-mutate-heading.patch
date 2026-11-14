@@ -1,6 +1,12 @@
 # test: test_ibase_use
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -614,0 +615,2 @@
+@@ -618,6 +618,8 @@
+     char line[Q_LINEBUF],expr[Q_MAX_EXPR+1]; uint32_t pos=0,prefix;
+     const char *p=qc->exprlist; int first=1,ok=1,fi=0;
+     dbf_table *tbl=wa_table(xb_interp_env(ip),area);
 +    (void)ip;(void)qc;(void)ec;(void)tbl;(void)p;(void)first;(void)ok;(void)fi;(void)expr;(void)line;(void)pos;(void)prefix;
 +    return INTERP_OK;
+     if(!xb_interp_ctx(ip)->set_heading) return INTERP_OK;
+     if(!qc->off) q_append_cstr(line,&pos,sizeof(line),"Record#  ");
+     else q_append_cstr(line,&pos,sizeof(line)," "); /* real PROG-query OFF */

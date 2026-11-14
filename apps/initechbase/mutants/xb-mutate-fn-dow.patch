@@ -1,7 +1,13 @@
 # test: test_xbase_fn_b
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -838,0 +839,3 @@
+@@ -838,6 +838,9 @@
+     jdn = (int32_t)args[0].u.d;
+     /* DOW: ((jdn+1)%7)+1  with 1=Sunday,7=Saturday [verified]. */
+     dow = (int32_t)(((jdn + 1) % 7) + 1);
 +    /* MUTATION (CLAUDE.md, The constitution): shift by 1, making Sunday report 2 instead of 1.
 +     * The Sunday=1 grounded assertion goes RED. */
 +    dow = (dow % 7) + 1;
+     *out = xb_n((double)dow);
+     *err = XBEE_OK;
+     return 0;

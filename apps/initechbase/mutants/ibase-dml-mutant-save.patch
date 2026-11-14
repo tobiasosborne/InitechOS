@@ -1,5 +1,11 @@
 # test: test_ibase_dml
 --- a/cmd/flow.c
 +++ b/cmd/flow.c
-@@ -1030,0 +1031 @@
+@@ -1031,6 +1031,7 @@
+             else {len=8;x.d=type=='D'?v->u.d:v->u.n;payload=x.b;
+                 if(type=='N'){h[16]=(unsigned char)v->num_width;h[17]=(unsigned char)v->num_dec;}
+             }
 +            h[11]='C'|128; /* corrupt the saved scalar type, not the oracle */
+             if(p->write(p,fd,h,32)!=32 || p->write(p,fd,payload,len)!=(int32_t)len)rc=56;
+         }
+         if(!rc && p->write(p,fd,&eof,1)!=1)rc=56;

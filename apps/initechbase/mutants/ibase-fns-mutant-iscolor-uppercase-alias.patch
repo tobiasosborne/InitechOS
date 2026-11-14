@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2358,0 +2359 @@
+@@ -2358,6 +2358,7 @@
+     if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
+     if (!pal || !pal->iscolor) return fn_fail(err, XBEE_INVALID_ARG);
+     color = pal->iscolor(pal);
 +    color = !color; /* CLAUDE.md, The constitution: invert only the capability result. */
+     *out = xb_l(color);
+     *err = XBEE_OK;
+     return 0;

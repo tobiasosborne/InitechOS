@@ -1,5 +1,11 @@
 # test: test_ibase_dml
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -1320,0 +1321 @@
+@@ -1425,6 +1425,7 @@
+         if(map[i]>=0 && dbf_field(src,map[i])->type!=f->type){rc=9;goto done;}
+     }
+     for(uint32_t r=1;r<=dbf_nrec(src);r++) {
 +        if(r==dbf_nrec(src))break; /* drop the last incoming record */
+         if(dbf_read_rec(src,r,input,&del)){rc=29;break;}
+         if(del && wa_get_deleted(env))continue;
+         if(m_append_record(ip,map,input,nf,ec)){

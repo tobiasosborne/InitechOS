@@ -1,5 +1,11 @@
 # test: test_ibase_dml
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -1260,0 +1261 @@
+@@ -1364,6 +1364,7 @@
+             xb_interp_output(ip,buf,(uint32_t)j);
+             if(j<n)break;
+         } else {
 +            buf[0]^=1; /* copied bytes differ even though state is preserved */
+             if(pal->write(pal,out,buf,(uint32_t)n)!=n){rc=56;break;}
+             total+=(uint32_t)n;
+         }

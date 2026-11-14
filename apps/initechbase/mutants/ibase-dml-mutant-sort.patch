@@ -1,5 +1,11 @@
 # test: test_ibase_dml
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -1161,0 +1162 @@
+@@ -1264,6 +1264,7 @@
+             int cmp;
+             if(dbf_field(src,fi)->type=='C')cmp=rt_memcmp(rows[j-1].key,v.key,dbf_field(src,fi)->field_len);
+             else cmp=(rows[j-1].number>v.number)-(rows[j-1].number<v.number);
 +            cmp=-cmp; /* descending instead of the documented ascending default */
+             if(cmp<=0)break;
+             rows[j]=rows[j-1];j--;
+         }

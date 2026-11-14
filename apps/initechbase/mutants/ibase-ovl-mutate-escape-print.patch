@@ -1,9 +1,21 @@
 # test: test_ibase_say
 --- a/cmd/set.c
 +++ b/cmd/set.c
-@@ -1043,0 +1044,2 @@
+@@ -1049,6 +1049,8 @@
+  * SET sub-option parser. set_cmd_hook (resident) claims the verb exactly as
+  * before; everything after the claim runs here, unchanged. k is unused. */
+ /* Deliberate retained-pointer regressions for the runtime gates. */
 +static IBASE_OVL_TEXT(set) int ovl_bad_print(ibase_pal_t *p,const char *s,uint32_t n)
 +{ (void)p;(void)s;(void)n;return 0; }
-@@ -1057,0 +1060,2 @@
+ static IBASE_OVL_TEXT(set) int set_ovl_entry(int k_unused, xb_interp *ip,
+                                              const char *args, int *err_code)
+ {
+@@ -1063,6 +1065,8 @@
+         set_init_defaults(ip,ss);
+         return INTERP_OK;
+     }
 +    { ibase_pal_t hooks=*xb_interp_pal(ip);hooks.printout=ovl_bad_print;
 +      ibase_bind_pal(xb_interp_pal(ip),&hooks); }
+     /* Find the set_state for this interpreter. */
+     ss = set_state_for(ip, (int *)0);
+     if (!ss) {

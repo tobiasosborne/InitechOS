@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2463,0 +2464 @@
+@@ -2463,6 +2463,7 @@
+         return fn_fail(err, XBEE_UNBOUND);
+     if (ctx->file_pal->diskspace(ctx->file_pal, &bytes) != PAL_OK)
+         return fn_fail(err, 29); /* dbase_msg_codes.tsv: File is not accessible. */
 +    bytes = 0u; /* CLAUDE.md, The constitution: the independent III+ >0 line must reject this. */
+     *out = xb_n((double)bytes);
+     return 0;
+ }

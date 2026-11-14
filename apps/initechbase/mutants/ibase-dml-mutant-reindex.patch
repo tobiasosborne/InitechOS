@@ -1,5 +1,11 @@
 # test: test_ibase_dml
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -1069,0 +1070 @@
+@@ -1149,6 +1149,7 @@
+     if(rebuild) {
+         ndx_rebuild_tx pending[NDX_PER_AREA];int done=0;
+         if(*m_skip_ws(args))return d_fail(ec,10);
 +        if(count)count--; /* omit last record from every rebuilt index */
+         for(int i=0;i<wa_index_count(env,area);i++) {
+             ndx_index *ix=wa_index(env,area,i);ctx.expr=ndx_key_expr(ix);ctx.type=ndx_key_type(ix);
+             rc=ndx_rebuild_begin(ix,count,d_key,&ctx,&pending[done]);

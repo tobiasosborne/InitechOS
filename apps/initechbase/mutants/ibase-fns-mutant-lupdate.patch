@@ -1,6 +1,12 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2185,0 +2186,2 @@
+@@ -2185,6 +2185,8 @@
+     if (!need_dbcur(ctx, err)) return *err;
+     date = ctx->dbcur->last_update
+         ? ctx->dbcur->last_update(ctx->dbcur_user) : 0.0;
 +    /* CLAUDE.md, The constitution: perturb the returned date by one day; the independent mint bites. */
 +    if (date > 0.0) date += 1.0;
+     *out = xb_d(date);
+     *err = XBEE_OK;
+     return 0;

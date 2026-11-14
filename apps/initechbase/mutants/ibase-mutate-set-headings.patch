@@ -1,5 +1,11 @@
 # test: test_ibase_w2
 --- a/cmd/set.c
 +++ b/cmd/set.c
-@@ -899,0 +900 @@
+@@ -905,6 +905,7 @@
+     int on;
+     xb_ctx *ctx=xb_interp_ctx(ip);
+     if(parse_on_off(s,&on)) { if(err_code) *err_code=10; return -INTERP_ERR_SYNTAX; }
 +    if(which==0) on=!on;
+     if(which==0) ctx->set_heading=(uint8_t)on;
+     else if(which==1) ctx->set_console=(uint8_t)on;
+     else if(which==2) ctx->set_status=(uint8_t)on;

@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2166,0 +2167 @@
+@@ -2166,6 +2166,7 @@
+     if (!dst) return fn_fail(err, XBEE_SCRATCH_FULL);
+     dst[0] = (char)('0' + hour / 10u); dst[1] = (char)('0' + hour % 10u);
+     dst[2] = ':';
 +    dst[2] = ';'; /* The named gate passes the lower-case case name. */
+     dst[3] = (char)('0' + minute / 10u); dst[4] = (char)('0' + minute % 10u);
+     dst[5] = ':';
+     dst[6] = (char)('0' + second / 10u); dst[7] = (char)('0' + second % 10u);

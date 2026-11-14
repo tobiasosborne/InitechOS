@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2135,0 +2136 @@
+@@ -2135,6 +2135,7 @@
+     if (nargs != 1 || args[0].t != XB_N)
+         return fn_fail(err, XBEE_INVALID_ARG);
+     if (args[0].u.n < 0.0) {
 +        return fn_fail(err, 61); /* MUTANT: raise before the result prints. */
+         if (!ctx->deferred_error) {
+             ctx->deferred_error = 61;
+         }

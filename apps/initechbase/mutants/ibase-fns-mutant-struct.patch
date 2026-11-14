@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/cmd/flow.c
 +++ b/cmd/flow.c
-@@ -1504,0 +1505 @@
+@@ -1506,6 +1506,7 @@
+ {
+     static const uint8_t m[9] = {0, 43, 10, 10, 10, 96, 16, 10, 103};
+     if (ec != 0) return ec;
 +    if (rc == -INTERP_ERR_STRUCT) return -rc;   /* MUTANT: the status leaks */
+     if (rc == -INTERP_ERR_STRUCT && xb_interp_ctx(ip)->dot_command) return 95;
+     if (rc < 0 && rc >= -INTERP_ERR_DEPTH) return m[-rc];
+     return -rc;

@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2318,0 +2319 @@
+@@ -2318,6 +2318,7 @@
+         default: key = 0; break;    /* No Table 6-1 equivalent. */
+         }
+     } else if (key == 17) key = 27; /* Ctrl-Q / Esc */
 +    key++;                         /* CLAUDE.md, The constitution: empty queue must return zero. */
+     *out = xb_n((double)key);
+     out->num_width = 3;             /* Real III+ "no-key   0 N". */
+     *err = XBEE_OK;

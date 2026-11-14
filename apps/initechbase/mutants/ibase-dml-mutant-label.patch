@@ -1,5 +1,11 @@
 # test: test_ibase_dml
 --- a/cmd/report.c
 +++ b/cmd/report.c
-@@ -550,0 +551 @@
+@@ -555,6 +555,7 @@
+                 p=s;
+             }
+             unsigned start=(unsigned)(lm+col*(w+gap)),take=pos>(unsigned)w?(unsigned)w:pos;
 +            take=0; /* suppress label text while retaining the band geometry */
+             rt_memcpy(band[line]+start,cell,take);
+             if(take)len[line]=(int)(start+take);
+         }

@@ -1,5 +1,11 @@
 # test: test_ibase_set_color
 --- a/cmd/set.c
 +++ b/cmd/set.c
-@@ -645,0 +646 @@
+@@ -649,6 +649,7 @@
+         s=s_skip_ws(s);
+     } else if(!mono)return -1;
+     if(*s && *s!=',')return -1;
 +    bg=0; /* CLAUDE.md, The constitution: drop only the parsed background nibble. */
+     *attr=(uint8_t)(fg|(bg<<4)|bits);
+     *text=s;
+     return 0;

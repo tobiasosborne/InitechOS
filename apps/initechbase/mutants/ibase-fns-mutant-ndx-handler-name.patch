@@ -1,6 +1,12 @@
 # test: test_ibase_fns
 --- a/cmd/proc.c
 +++ b/cmd/proc.c
-@@ -1024,0 +1025,2 @@
+@@ -1023,6 +1023,8 @@
+         *(k ? &ps->has_onesc : &ps->has_onerr) = (*p != '\0');
+         if (!k) xb_interp_ctx(ip)->on_error_procedure =
+             rt_kw_word(p, "DO\0", (int *)0) == 0
 +            /* MUTANT: real ndx/GOLD.OUT R5-RENAMED uses OTHERNAME. */
 +            && rt_kw_word(p_skip_ws(p+2), "GUARDTRAP\0", (int *)0) == 0
+             ;
+     }
+     /* ON KEY: parsed + accepted; the ON KEY trap is not modelled.

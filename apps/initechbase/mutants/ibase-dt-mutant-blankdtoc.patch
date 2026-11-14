@@ -1,5 +1,11 @@
 # test: test_ibase_datatype
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -560,0 +561 @@
+@@ -560,6 +560,7 @@
+     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+ 
+     rt_date_format(args[0].u.d, fmt, century, dst, 0);
 +    if (fn_date_blank(args[0].u.d)) rt_memset(dst, ' ', width);
+     *out = xb_c(dst, (uint16_t)width);
+     *err = XBEE_OK;
+     return 0;

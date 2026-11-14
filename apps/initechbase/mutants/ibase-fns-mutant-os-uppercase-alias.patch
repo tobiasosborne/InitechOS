@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2405,0 +2406 @@
+@@ -2405,6 +2405,7 @@
+     text[13] = (char)('0' + (version >> 8) / 10u);
+     text[14] = (char)('0' + (version >> 8) % 10u);
+     /* The existing gate template spells its case macro in lowercase. */
 +    text[14] = '1'; /* CLAUDE.md, The constitution: wrong version, 3.31 instead of 3.30. */
+     *out = xb_c(text, 15u);
+     *err = XBEE_OK;
+     return 0;

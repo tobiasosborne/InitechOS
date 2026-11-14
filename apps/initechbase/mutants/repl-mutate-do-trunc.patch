@@ -1,5 +1,11 @@
 # test: test_ibase_ctl
 --- a/cmd/proc.c
 +++ b/cmd/proc.c
-@@ -572,0 +573 @@
+@@ -571,6 +571,7 @@
+         pal->close(pal, fd);
+         return (char *)0;
+     }
 +    total /= 2;                 /* existing canon DO-read mutation */
+     while (used < (uint32_t)total) {
+         int32_t got = pal->read(pal, fd, buf + used, (uint32_t)total - used);
+         if (got <= 0) {

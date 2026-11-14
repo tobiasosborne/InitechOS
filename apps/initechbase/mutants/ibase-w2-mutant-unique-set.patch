@@ -1,5 +1,11 @@
 # test: test_ibase_w2
 --- a/cmd/set.c
 +++ b/cmd/set.c
-@@ -820,0 +821 @@
+@@ -826,6 +826,7 @@
+     int on;
+     (void)ip;
+     if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
 +    on = 0;   /* mutant: SET UNIQUE ON has no effect */
+     ss->unique = on;
+     return CMD_OK;
+ }

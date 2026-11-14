@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2257,0 +2258 @@
+@@ -2257,6 +2257,7 @@
+     if(nargs) return fn_fail(err, XBEE_INVALID_ARG);
+     *out=xb_n(ctx ? ctx->screen_col : 0);
+     out->num_width=4;
 +    out->u.n+=1; /* Each independent real capture must catch this. */
+     return 0;
+ }
+ 

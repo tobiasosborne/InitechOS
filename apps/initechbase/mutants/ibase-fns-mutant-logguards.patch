@@ -1,7 +1,13 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2117,0 +2118,3 @@
+@@ -2117,6 +2117,9 @@
+      * overflow result before raising #58. The accepted NDX mechanism
+      * consumes the first pending code at the statement boundary. */
+     if (x <= 0.0 && !ctx->deferred_error) {
 +        /* Real logguards/GOLD.OUT: a deferred false guard under a procedure
 +         * handler enters its body; an immediate error invokes the handler. */
 +        return fn_fail(err, 58);
+         ctx->deferred_error = 58;
+     }
+     *out = xb_n(value);

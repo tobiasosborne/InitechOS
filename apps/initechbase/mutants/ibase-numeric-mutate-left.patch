@@ -1,7 +1,13 @@
 # test: test_interp_list
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -576,0 +577,3 @@
+@@ -580,6 +580,9 @@
+         int dec=f->dec_count;
+         if(ctx->set_fixed)dec=ctx->set_decimals; /* SET FIXED ON */
+         dec_format_fit(v->u.n,width,dec,cell,0);
 +        { uint32_t lead=0,i; while(lead<width && cell[lead]==' ') lead++;
 +          for(i=0;i<width-lead;i++) cell[i]=cell[i+lead];
 +          while(i<width) cell[i++]=' '; }
+         q_append(buf,pos,cap,cell,(uint32_t)width);
+     } else {
+         /* A numeric expression column right-justifies under a wider heading:
