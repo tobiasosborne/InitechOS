@@ -15,6 +15,13 @@ static uint8_t source[65536],actual[65536],expected[65536],a[65536],b[65536];
 static unsigned u16(const uint8_t *s){return s[0]+256u*s[1];}
 static unsigned u32(const uint8_t *s){return u16(s)+65536u*u16(s+2);}
 static void require(int ok,const char *why){if(!ok){fprintf(stderr,"replace-ref: %s\n",why);exit(1);}}
+static unsigned properties;
+static void property(int ok,const char *why)
+{
+    properties++;
+    if(!ok){fprintf(stderr,"FAIL replace-ref: %s\n",why);
+        printf("INITECH_CHECKS %u failures=1\n",properties);exit(1);}
+}
 static unsigned unit(const uint8_t *s,unsigned n,unsigned p)
 {
     static const unsigned fixed[]={4,9,11,3,3,5,6,7,4,5,6,6,8,10,10,12};
@@ -69,13 +76,14 @@ int main(int argc,char **argv)
             if(!code)expected[en++]=(uint8_t)(c-32);
             memcpy(expected+en,source+p+k,n-p-k);en+=n-p-k;
             unsigned an=semantic(actual,hdr[1],a),bn=semantic(expected,en,b);
-            require(an==bn&&!memcmp(a,b,bn),"confirmed Replace changed unrelated text/codes or missed target");
-            if(plain)require(en==hdr[1]&&!memcmp(expected,actual,en),"length-preserving Replace changed captured wrapping");
+            property(an==bn&&!memcmp(a,b,bn),"confirmed Replace changed unrelated text/codes or missed target");
+            if(plain)property(en==hdr[1]&&!memcmp(expected,actual,en),"length-preserving Replace changed captured wrapping");
             checks++;
         }
         p+=k;
     }
     require(fgetc(f)==EOF,"unexpected extra trials");fclose(f);
     printf("replace-ref: %u independent replacement properties\n",checks);
+    printf("INITECH_CHECKS %u failures=0\n",properties);
     return 0;
 }

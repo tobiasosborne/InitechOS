@@ -156,7 +156,7 @@
  */
 #include "tbx.h"
 #include "tbx_save.h"   /* initech-mcep: the atomic document save */
-#include "iword/fkeys.h"
+#include "iword/commands.h"
 #include "iword.h"
 #include "iword/wp5_format.h"
 #include "iword/reveal_codes.h"
@@ -698,6 +698,26 @@ static void screen_lines(uint32_t rows, uint32_t *first, uint32_t *last)
     }
 }
 
+/* WP Reference 698-700; raw VGA fixtures/status-units. Coordinates enter
+ * before inch-string rounding. n/d is WPU; u uses line/column coordinates
+ * supplied by the fixed Courier-10, six-lines-per-inch document geometry. */
+static uint32_t status_measure(uint32_t n, uint32_t d, uint8_t unit, char *out)
+{
+    uint32_t h, len=0, k=0;char digits[12];
+    if(unit=='c'){n*=254u;d*=1200u;}
+    else if(unit=='p')n*=6u;
+    else if(unit=='w')n*=100u;
+    else if(unit=='u'){n*=100u;unit=0;}
+    else d*=12u;
+    h=(n+d/2u)/d;
+    uint32_t whole=h/100u;
+    do{digits[k++]=(char)('0'+whole%10u);whole/=10u;}while(whole);
+    while(k)out[len++]=digits[--k];
+    if(h%100u){out[len++]='.';out[len++]=(char)('0'+h/10u%10u);if(h%10u)out[len++]=(char)('0'+h%10u);}
+    if(unit)out[len++]=(char)unit;
+    out[len]=0;return len;
+}
+
 static void paint_status(const iw_where_t *w, int line)
 {
     char s[SCR_COLS + 1], num[12], doc[32];
@@ -722,7 +742,8 @@ static void paint_status(const iw_where_t *w, int line)
         doc[n++] = ' '; doc[n++] = 'L'; doc[n++] = 'n'; doc[n++] = ' ';
         /* Ln from the line's height down the page (slice 3: the spacing,
          * MINT25 "Ln 2.83""; single spacing gives P1's 1" + lines / 6) */
-        k = iw_fmt_inches(iw_ln_y_hundredths(w->y), num);
+        k = g_settings[5]=='u' ? status_measure(256u+w->y,256u,'u',num) :
+            status_measure(1200u*256u+w->y*200u,256u,g_settings[5],num);
         for (i = 0; i < k; i++) doc[n++] = num[i];
         {
             /* Pos: the paper position (slice 3, MINT23 "Pos 1.25""; at 1"/1"
@@ -734,7 +755,7 @@ static void paint_status(const iw_where_t *w, int line)
              * its shape and spacing kept (authored adaptation of WP's 80
              * columns, as tdnl.51's one-column move) */
             char pos[12];
-            uint32_t pk = iw_fmt_inches(w->x / 12u, pos);
+            uint32_t pk = status_measure(w->x,g_settings[5]=='u'?120u:1u,g_settings[5],pos);
             uint32_t sh = STATUS_POS + 4u + pk > SCR_COLS ? STATUS_POS + 4u + pk - SCR_COLS : 0u;
             for (i = 0; i < n; i++) s[STATUS_DOC_END + 1 - sh - n + i] = doc[i];
             s[STATUS_POS - sh] = 'P';
@@ -770,14 +791,14 @@ static void paint_status(const iw_where_t *w, int line)
         else if (g_mode == M_SEARCH || g_mode == M_RSEARCH) {
             t = g_search_back ? "<- Srch:" : "-> Srch:";
         }
-        else if (g_mode == M_FONT) t = IW_FONT_MENU;
+        else if (g_mode == M_FONT) t = "1 Size; 2 Appearance; 3 Normal: 0";
         else if (g_mode == M_FONTBLK) t = IW_FONT_BLK_MENU;   /* MINT28 07 */
         else if (g_mode == M_SIZE) t = IW_SIZE_MENU;           /* MINT28 11 / 18 */
         else if (g_mode == M_APPEAR) t = IW_APPEAR_MENU;
-        else if (g_mode == M_MOVE) t = IW_MOVE_MENU;
+        else if (g_mode == M_MOVE) t = "Move: 1 Block: 0";
         else if (g_mode == M_MOVENB) t = IW_MOVE_NB_MENU;      /* MINT31 02 */
-        else if (g_mode == M_RETMENU) t = IW_RETRIEVE_MENU;    /* MINT29 14 */
-        else if (g_mode == M_MOVEBLK) t = IW_MOVE_BLK_MENU;
+        else if (g_mode == M_RETMENU) t = "Retrieve: 1 Block: 0";
+        else if (g_mode == M_MOVEBLK) t = "1 Move; 2 Copy; 3 Delete: 0";
         else if (g_mode == M_DELBLOCK) t = IW_DEL_BLOCK;
         else if (g_mode == M_DELCODE) {
             /* "Delete [BOLD]? No (Yes)": the code's own Reveal label */
@@ -896,9 +917,16 @@ static void paint_reveal(const iw_where_t *w)
 
 /* ---- the Format screens (Shift-F8; slice 3) ------------------------------------ */
 typedef struct fmt_row { uint8_t row, col; const char *text; } fmt_row_t;
-static const fmt_row_t FMT_MAIN[] = IW_FMT_INIT;
-_Static_assert(sizeof FMT_MAIN / sizeof FMT_MAIN[0] == IW_FMT_ROWS, "IW_FMT_ROWS == the rows of IW_FMT_INIT");
-static const fmt_row_t FMT_LINE[IW_FMT_LINE_ROWS] = IW_FMT_LINE_INIT;
+/* Surviving WP numbers/geometry; full reference transcriptions remain in
+ * reveal_codes.h. No descriptor advertises an omitted branch. */
+static const fmt_row_t FMT_MAIN[] = {
+    {0,0,"Format"}, {2,5,"1 - Line"}, {3,14,"Line Spacing"},
+    {4,14,"Justification"}, {5,14,"Margins Left/Right"}
+};
+static const fmt_row_t FMT_LINE[] = {
+    {0,0,"Format: Line"}, {7,5,"3 - Justification"},
+    {13,5,"6 - Line Spacing"}, {15,5,"7 - Margins - Left"}, {16,19,"Right"}
+};
 
 static void put_at(row_t *r, uint32_t col, const char *t)
 {
@@ -917,7 +945,7 @@ static void paint_format(const iw_where_t *w)
 {
     static row_t rows[SCR_LINES];
     static const char *const JN[4] = IW_FMT_JUST_NAMES;
-    uint32_t i, n = g_mode == M_FORMAT ? IW_FMT_ROWS : IW_FMT_LINE_ROWS;
+    uint32_t i, n = g_mode == M_FORMAT ? sizeof FMT_MAIN/sizeof FMT_MAIN[0] : sizeof FMT_LINE/sizeof FMT_LINE[0];
     const fmt_row_t *t = g_mode == M_FORMAT ? FMT_MAIN : FMT_LINE;
     char sel[16];
     for (i = 0; i < SCR_LINES; i++) row_clear(&rows[i]);
@@ -929,12 +957,7 @@ static void paint_format(const iw_where_t *w)
         put_at(&rows[r], t[i].col, t[i].text);
     }
     if (g_mode != M_FORMAT) {
-        put_at(&rows[2], IW_FMT_VALUE_COL, IW_FMT_V_HYPH);
-        put_at(&rows[4], IW_FMT_VALUE_COL, IW_FMT_V_ZONE_L);
-        put_at(&rows[5], IW_FMT_VALUE_COL, IW_FMT_V_ZONE_R);
         put_at(&rows[7], IW_FMT_VALUE_COL, JN[w->just < 4u ? w->just : 1u]);
-        put_at(&rows[9], IW_FMT_VALUE_COL, IW_FMT_V_HEIGHT);
-        put_at(&rows[11], IW_FMT_VALUE_COL, IW_FMT_V_NUMBER);
         {
             /* the spacing at the cursor (slice 3; MINT25 02_spacing_set "2",
              * MINT30 02_spacing_225 "2.25"): hundredths, trailing zeros
@@ -946,8 +969,6 @@ static void paint_format(const iw_where_t *w)
         }
         put_inches(&rows[15], IW_FMT_VALUE_COL, w->lm);
         put_inches(&rows[16], IW_FMT_VALUE_COL, IW_WP5_PAPER_WPU - w->rm);
-        put_at(&rows[18], IW_FMT_VALUE_COL, IW_FMT_V_TABS);
-        put_at(&rows[20], IW_FMT_VALUE_COL, IW_FMT_V_WIDOW);
         if (g_mode == M_FMTMARL || g_mode == M_FMTMARR || g_mode == M_FMTSP) {
             /* the field being typed: the value until a key replaces it, then
              * the text typed and the cursor after it (04_left_typed "1.3_";
@@ -993,7 +1014,7 @@ static int setup_mode(void) { return g_mode >= M_SETUP && g_mode <= M_BACKUPVALU
 static const char *unit_name(uint8_t u)
 {
     switch (u) {
-    case 'i': return "Inches"; case 'c': return "Centimeters"; case 'p': return "Points";
+    case '"': case 'i': return "Inches"; case 'c': return "Centimeters"; case 'p': return "Points";
     case 'w': return "1200ths of an inch"; case 'u': return "WordPerfect 4.2 units";
     default: return "?";
     }
@@ -1013,21 +1034,18 @@ static void paint_setup(void)
     for (int i = 0; i < SCR_LINES; i++) put_text_row(i, "");
     if (g_mode == M_SETUP) {
         setup_row(0, "Setup", 0);
-        setup_row(4, "2 Display", 1); setup_row(6, "3 Environment", 0);
-        setup_row(8, "4 Initial Settings", 1); setup_row(10, "5 Keyboard Layout", 1);
-        setup_row(12, "6 Location of Files", 1);
+        setup_row(6, "3 Environment", 0);
     } else if (g_mode == M_ENV) {
         setup_row(0, "Setup: Environment", 0);
         setup_row(4, "1 Backup Options", 0); setup_row(6, "8 Units of Measure", 0);
     } else if (g_mode == M_UNITS || g_mode == M_UNITVALUE) {
         setup_row(0, "Setup: Units of Measure", 0);
-        setup_value(4, "1 Display and Entry of Numbers for Margins, Tabs, etc.", unit_name(g_settings[4]));
+        setup_row(4, "Display and Entry of Numbers: Inches", 0);
         setup_value(6, "2 Status Line Display", unit_name(g_settings[5]));
         setup_row(10, "i Inches; c Centimeters; p Points", 0);
         setup_row(12, "w 1200ths of an inch; u WordPerfect 4.2 units", 0);
     } else {
         setup_row(0, "Setup: Backup", 0);
-        setup_row(4, "1 Timed Document Backup", 1);
         setup_value(6, "2 Original Document Backup", g_settings[6] ? "Yes" : "No");
     }
     if (g_mode == M_UNITVALUE) setup_row(23, "Units of Measure:", 0);
@@ -1095,7 +1113,8 @@ static void error(const char *msg, int back)
 static void settings_defaults(void)
 {
     for (uint32_t i = 0; i < 4; i++) g_settings[i] = IW_SETTINGS_MAGIC[i];
-    g_settings[4] = g_settings[5] = IW_SETTINGS_DEFAULT_UNIT;
+    g_settings[4] = IW_SETTINGS_DEFAULT_UNIT;
+    g_settings[5] = '"'; /* WP's default inches spelling; explicit i is distinct. */
     g_settings[6] = g_settings[7] = 0;
 }
 static void settings_load(void)
@@ -1116,6 +1135,7 @@ static void settings_load(void)
     if (g_settings_io[6] > 1 || g_settings_io[7] || unit_name(g_settings_io[4])[0] == '?' ||
         unit_name(g_settings_io[5])[0] == '?') return;
     for (uint32_t i = 0; i < IW_SETTINGS_SIZE; i++) g_settings[i] = g_settings_io[i];
+    g_settings[4] = 'i'; /* Omitted entry selector; do not rewrite on load. */
 }
 static int settings_save(void)
 {
@@ -1136,7 +1156,7 @@ static void setup_key(char ch, uint8_t vk)
     if (g_mode == M_SETUP && ch == '3') g_mode = M_ENV;
     else if (g_mode == M_ENV && ch == '8') g_mode = M_UNITS;
     else if (g_mode == M_ENV && ch == '1') g_mode = M_BACKUP;
-    else if (g_mode == M_UNITS && (ch == '1' || ch == '2')) { g_unit_target = ch == '1' ? 4 : 5; g_mode = M_UNITVALUE; }
+    else if (g_mode == M_UNITS && ch == '2') { g_unit_target = 5; g_mode = M_UNITVALUE; }
     else if (g_mode == M_BACKUP && ch == '2') g_mode = M_BACKUPVALUE;
     else if (g_mode == M_UNITVALUE || g_mode == M_BACKUPVALUE) {
         uint8_t at = g_mode == M_UNITVALUE ? g_unit_target : 6, old = g_settings[at], value;
@@ -1362,8 +1382,30 @@ static const uint8_t LF_DEL_HDR1[] = IW_LF_DEL_HDR1;
 static const uint8_t LF_DEL_LIST[] = IW_LF_DEL_LIST;
 static const uint8_t LF_DEL_PROMPT[] = IW_LF_DEL_PROMPT;
 static const uint8_t LF_DEL_LOOK[] = IW_LF_DEL_LOOK;
-typedef struct lf_item { char key; uint8_t row, c0, c1, live; } lf_item_t;
-static const lf_item_t LF_ITEMS[IW_LF_N_ITEMS] = IW_LF_ITEMS;
+static uint8_t g_lf_search;
+static char g_lf_prefix[14];
+static uint32_t g_lf_prefix_n;
+
+/* WP5.1 Reference 351-352 and fixtures/name-search raw VGA: first prefix
+ * match, otherwise its lexical predecessor, clamped to the class endpoints.
+ * A slash selects the directory class rather than regular files. */
+static void lf_name_search(void)
+{
+    uint32_t first=0xffffffffu, prior=0xffffffffu;
+    int dirs=g_lf_prefix[0]=='/' || g_lf_prefix[0]=='\\';
+    const char *query=g_lf_prefix+dirs;
+    if(!query[0])return;
+    for(uint32_t s=2;s<g_lf_n+2u;s++){
+        const iw_lf_ent_t *e=&g_lf_ent[s-2u];
+        if(!!(e->attr&IW_LF_ATTR_DIR)!=dirs)continue;
+        if(first==0xffffffffu)first=s;
+        uint32_t i=0;while(query[i]&&upper(query[i])==upper(e->name[i]))i++;
+        if(!query[i]){g_lf_sel=s;return;}
+        if(upper(e->name[i])<upper(query[i]))prior=s;
+    }
+    if(prior!=0xffffffffu)g_lf_sel=prior;
+    else if(first!=0xffffffffu)g_lf_sel=first;
+}
 
 static int lf_mode(void) { return g_mode >= M_LISTDIR && g_mode <= M_LFERROR; }
 static uint32_t lf_slots(void) { return g_lf_n + 2u; }
@@ -1684,6 +1726,15 @@ static void lf_key(char ch, uint8_t vk)
     default:
         break;
     }
+    if(g_lf_search){
+        if(vk==VK_ENTER||ch=='\r'||vk==VK_F7||vk==VK_F1||vk==VK_ESC||ch==0x1b){g_lf_search=0;return;}
+        if(vk==VK_UP||vk==VK_DOWN||vk==VK_LEFT||vk==VK_RIGHT)g_lf_search=0;
+        else {
+            if(vk==VK_BSPC||ch==8){if(g_lf_prefix_n)g_lf_prefix[--g_lf_prefix_n]=0;}
+            else if(ch>=' '&&ch<='~'&&g_lf_prefix_n<sizeof g_lf_prefix-1u){g_lf_prefix[g_lf_prefix_n++]=ch;g_lf_prefix[g_lf_prefix_n]=0;}
+            lf_name_search();goto selection_visible;
+        }
+    }
     /* M_LIST */
     if (vk == VK_DOWN) { if (g_lf_sel + 2u < n) g_lf_sel += 2u; }
     else if (vk == VK_UP) { if (g_lf_sel >= 2u) g_lf_sel -= 2u; }
@@ -1693,10 +1744,12 @@ static void lf_key(char ch, uint8_t vk)
     else if (ch == '6' || vk == VK_ENTER || ch == '\r') {
         if (lf_is_file(g_lf_sel)) lf_look();
         else if (lf_slot_dir(g_lf_sel, g_lf_sub)) g_mode = M_LISTSUB;
-    } else if (ch == '2' || ch == '3' || ch == '8') lf_begin(ch);
+    } else if (up=='N'){g_lf_search=1;g_lf_prefix_n=0;g_lf_prefix[0]=0;}
+    else if (ch == '2' || ch == '3' || ch == '8') lf_begin(ch);
     else if (ch == '1') {
         if (lf_is_file(g_lf_sel)) { if (g_ed.doc.len) g_mode = M_LISTRQ; else lf_retrieve(); }
     }
+selection_visible:
     /* keep the selection's row on the screen */
     if (g_lf_sel / 2u < g_lf_top) g_lf_top = g_lf_sel / 2u;
     if (g_lf_sel / 2u >= g_lf_top + IW_LF_FACE_LIST_ROWS) g_lf_top = g_lf_sel / 2u - (IW_LF_FACE_LIST_ROWS - 1u);
@@ -1882,16 +1935,17 @@ static void paint_lf(void)
         }
         return;
     }
+    if(g_lf_search){
+        put_text_row(LINE_STATUS-1,"");row_clear(&r);put_at(&r,0,g_lf_prefix);
+        put_at(&r,38,"(Name Search; Enter or arrows to Exit)");
+        r.inv_col=(uint8_t)g_lf_prefix_n;r.inv_len=1;put_row(LINE_STATUS,&r);return;
+    }
     for (int m = 1; m <= 2; m++) {
         char row[IW_LF_WP_COLS + 1];
-        const char *t = m == 1 ? IW_LF_MENU1 : IW_LF_MENU2;
+        const char *t = m == 1 ? "1 Retrieve; 2 Delete; 3 Move/Rename;" : "6 Look; 8 Copy; N Name Search: 6";
         iw_lf_blank(row);
         for (i = 0; t[i]; i++) row[i] = t[i];
-        lf_row(&r, row, 0, 0, m == 1 ? IW_LF_MENU1_BRIGHT : IW_LF_MENU2_BRIGHT, 0u);
-        for (i = 0; i < IW_LF_N_ITEMS; i++)
-            if (LF_ITEMS[i].row == (uint8_t)m && !LF_ITEMS[i].live)
-                for (uint32_t c = LF_ITEMS[i].c0; c <= LF_ITEMS[i].c1 && c < SCR_COLS; c++)
-                    r.a[c] = (uint8_t)IW_A_GRAY;
+        lf_row(&r, row, 0, 0, m == 1 ? "B B         B B       B B" : "B B     B B     B B            B", 0u);
         put_row(LINE_STATUS - 2 + m, &r);
     }
 }
@@ -1970,10 +2024,9 @@ static void prompt_key(char ch, uint8_t vk)
         /* IW_FONT_MENU: 1 Size, 2 Appearance, 3 Normal. Base Font and Print
          * Color (MINT28 25 / 27: their own screens) are a later slice: the
          * key returns to the document, as Cancel does. */
-        g_mode = M_EDIT;
         if (ch == '1') g_mode = M_SIZE;
         else if (ch == '2') g_mode = M_APPEAR;
-        else if (ch == '3') font_rc = edit(ED_NORMAL, 0);
+        else if (ch == '3') { g_mode = M_EDIT; font_rc = edit(ED_NORMAL, 0); }
         break;
     case M_FONTBLK:
         /* Block on: "Attribute: 1 Size; 2 Appearance: 0" (MINT28 07) */
@@ -2009,7 +2062,7 @@ static void prompt_key(char ch, uint8_t vk)
         break;
     case M_MOVE:
         /* 1 Block; Tabular Column and Rectangle are not in this slice */
-        g_mode = ch == '1' ? M_MOVEBLK : M_EDIT;
+        if (ch == '1') g_mode = M_MOVEBLK;
         break;
     case M_MOVENB:
         /* Block off: "Move: 1 Sentence; 2 Paragraph; 3 Page; 4 Retrieve: 0"
@@ -2026,12 +2079,12 @@ static void prompt_key(char ch, uint8_t vk)
         /* "Retrieve: 1 Block; ..." (MINT29 14): 1 puts the last moved /
          * copied text at the cursor again, the cursor in front (MINT31 15);
          * Tabular Column and Rectangle are not in this slice */
-        g_mode = M_EDIT;
-        if (ch == '1' && g_clip_n) font_rc = edit(ED_RETRIEVE, 0);
+        if (ch == '1') { g_mode = M_EDIT; if (g_clip_n) font_rc = edit(ED_RETRIEVE, 0); }
         break;
     case M_MOVEBLK:
         /* 1 Move, 2 Copy: the block goes to the buffer, then the Move prompt;
          * 3 Delete; 4 Append (to a file) is not in this slice */
+        if (ch < '1' || ch > '3') break;
         g_mode = M_EDIT;
         if (ch == '1') { font_rc = edit(ED_CUT, 1); if (font_rc == IW_OK) g_mode = M_RETRIEVE; }
         else if (ch == '2') { font_rc = edit(ED_COPY, 0); if (font_rc == IW_OK) g_mode = M_RETRIEVE; }
@@ -2253,7 +2306,7 @@ static void block_key(char ch, uint8_t vk, int32_t mods)
     if (vk == VK_F6 || vk == VK_F8) return;
     if (vk == VK_F3 && alt) { toggle_reveal(); return; }
     if (vk == VK_DEL || vk == VK_BSPC || ch == 8) { g_mode = M_DELBLOCK; return; }
-    if (vk == VK_F1 || vk == VK_ESC || ch == 0x1B) { iw_ed_block(&g_ed); return; }
+    if ((vk == VK_F1 && !ctrl && !alt && !shift) || vk == VK_ESC || ch == 0x1B) { iw_ed_block(&g_ed); return; }
 }
 
 /* "Move cursor; press Enter to retrieve.": the cursor keys, Enter; F1 /
@@ -2280,7 +2333,6 @@ static int function_key(uint8_t vk, int32_t mods)
 {
     uint32_t k, m = 0, count = 0;
     int rc = IW_OK;
-    const iw_fkey_t *f;
     if (vk >= VK_F1 && vk <= VK_F10) k = vk - VK_F1;
     else if (vk == 0x57 || vk == 0x58) k = vk - 0x57u + 10u;
     else return 0;
@@ -2288,15 +2340,14 @@ static int function_key(uint8_t vk, int32_t mods)
     if (mods & FLAIR_EVT_MOD_OPTION_KEY) { m = 2; count++; }
     if (mods & FLAIR_EVT_MOD_CONTROL_KEY) { m = 3; count++; }
     if (count > 1) return 1;   /* outside the four rows of the WP template */
-    f = &IW_FKEYS[m][k];
-    switch (f->action) {
+    switch (IW_COMMAND_KEYS[m][k]) {
     case IW_FK_setup: g_mode = M_SETUP; break;
     case IW_FK_undelete:
         g_undo_sel = 0; g_undo_join = 0; g_mode = M_UNDO; break;
     case IW_FK_replace:
         g_search_back = 0; g_confirm = 0; g_mode = M_RCONF; break;
     case IW_FK_search_forward: case IW_FK_search_backward:
-        g_search_back = f->action == IW_FK_search_backward;
+        g_search_back = IW_COMMAND_KEYS[m][k] == IW_FK_search_backward;
         g_query_cur = g_query_n; g_query_fresh = 1; g_mode = M_SEARCH; break;
     case IW_FK_indent:    rc = edit(ED_INDENT, 0); break;
     case IW_FK_bold:      rc = edit(ED_ATTR, IW_WP5_ATTR_BOLD); break;
@@ -2315,7 +2366,7 @@ static int function_key(uint8_t vk, int32_t mods)
          * Keep the editing screen/status, rather than inventing a blank
          * disabled command. */
         break;
-    default:             g_gray = f->name; g_mode = M_GRAY; break;
+    default:             break;
     }
     if (rc == IW_E_FULL) error("ERROR: Document too large", M_EDIT);
     return 1;
@@ -2685,7 +2736,7 @@ void tbx_app_event(const tbx_event_t *ev)
     case TBX_EVT_MENU:
         if (g_mode == M_EDIT) {
             if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_EXIT)) request_exit(FROM_MAC);
-            else if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_SAVE)) { offer_name(); g_exiting = 0; g_mode = M_SAVE_NAME; }
+            else if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_SAVE) && g_ed.blk == IW_NO_BLOCK) { offer_name(); g_exiting = 0; g_mode = M_SAVE_NAME; }
             else if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_RETRIEVE)) { g_nlen = 0; g_name[0] = 0; g_mode = M_GET_NAME; }
             paint();
         }

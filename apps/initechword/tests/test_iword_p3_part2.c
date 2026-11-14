@@ -196,7 +196,7 @@ static void setup_test(void)
     snprintf(path, sizeof path, "%s/IWORD.SET", m_dir);
     f = fopen(path, "rb"); CHECK(f != 0, "setup", "settings file created on data volume");
     if (f) { size_t n = fread(got, 1, sizeof got, f); fclose(f);
-        CHECK(n == 8 && !memcmp(got, "IWS1cp\1\0", 8), "setup", "locked settings bytes persisted");
+        CHECK(n == 8 && !memcmp(got, "IWS1ip\1\0", 8), "setup", "locked settings bytes persisted");
         snprintf(path, sizeof path, "%s/IWORD.CAP", m_dir);
         f = fopen(path, "wb"); if (f) { fwrite(got, 1, n, f); fclose(f); }
         snprintf(path, sizeof path, "%s/IWORD.SET", m_dir);
@@ -204,7 +204,7 @@ static void setup_test(void)
     setup_new_tenant();
     CHECK(tbx_app_main() == 0, "setup", "relaunch");
     fkey(0x3B, SHIFT); tks("38");
-    CHECK(row_is(4, "1 Display and Entry of Numbers for Margins, Tabs, etc.  Centimeters"), "setup", "units survive relaunch");
+    CHECK(row_is(4, "Display and Entry of Numbers: Inches"), "setup", "units survive relaunch");
     CHECK(row_is(6, "2 Status Line Display  Points"), "setup", "status units survive relaunch");
     fkey(0x41, 0); tks("1");
     CHECK(row_is(6, "2 Original Document Backup  Yes"), "setup", "backup option survives relaunch");
@@ -213,7 +213,9 @@ static void setup_test(void)
     setup_new_tenant();
     CHECK(tbx_app_main() == 0, "setup", "invalid settings relaunch");
     fkey(0x3B, SHIFT); tks("38");
-    CHECK(row_is(4, "1 Display and Entry of Numbers for Margins, Tabs, etc.  Inches"), "setup", "invalid record uses defaults");
+    CHECK(row_is(4, "Display and Entry of Numbers: Inches"), "setup", "invalid record uses defaults");
+    CHECK(row_is(6, "2 Status Line Display  Inches") && g_settings[6]==0,
+          "setup", "invalid status/backup bytes use defaults too");
     m_read_limit = m_write_limit = 0;
 }
 static void serial_setup(const char *path)
@@ -225,7 +227,7 @@ static void serial_setup(const char *path)
         if (launches < 2) continue;
         if (strstr(line, "y=0 s=\"Setup: Environment ")) seen |= 1;
         if (strstr(line, "y=0 s=\"Setup: Units of Measure ")) seen |= 2;
-        if (strstr(line, "y=64 s=\"1 Display and Entry of Numbers for Margins, Tabs, etc.  Centimeters ")) seen |= 4;
+        if (strstr(line, "y=64 s=\"Display and Entry of Numbers: Inches ")) seen |= 4;
         if (strstr(line, "y=96 s=\"2 Original Document Backup  Yes ")) seen |= 8;
     }
     fclose(f); CHECK(seen == 15, "setup", "emulator menus and persisted options after relaunch");

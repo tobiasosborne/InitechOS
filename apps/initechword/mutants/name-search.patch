@@ -1,0 +1,12 @@
+# test: test_iword_commands
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1744,7 +1744,7 @@
+     else if (ch == '6' || vk == VK_ENTER || ch == '\r') {
+         if (lf_is_file(g_lf_sel)) lf_look();
+         else if (lf_slot_dir(g_lf_sel, g_lf_sub)) g_mode = M_LISTSUB;
+-    } else if (up=='N'){g_lf_search=1;g_lf_prefix_n=0;g_lf_prefix[0]=0;}
++    } else if (up=='N'){g_lf_search=0;g_lf_prefix_n=0;g_lf_prefix[0]=0;}
+     else if (ch == '2' || ch == '3' || ch == '8') lf_begin(ch);
+     else if (ch == '1') {
+         if (lf_is_file(g_lf_sel)) { if (g_ed.doc.len) g_mode = M_LISTRQ; else lf_retrieve(); }

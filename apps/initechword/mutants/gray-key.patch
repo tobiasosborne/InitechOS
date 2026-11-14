@@ -1,0 +1,11 @@
+# test: test_iword_commands
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -2362,6 +2362,7 @@
+     case IW_FK_font:      g_mode = M_FONT; break;
+     case IW_FK_list:      g_mode = M_LISTDIR; break;   /* List Files (F5), mint 005 */
+     case IW_FK_unmapped:
++        g_gray = "Help"; g_mode = M_GRAY;
+         /* Reference p. 966 note 4: no command is mapped to these keys.
+          * Keep the editing screen/status, rather than inventing a blank
+          * disabled command. */

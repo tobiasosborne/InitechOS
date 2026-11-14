@@ -13,8 +13,9 @@ HOST_INCLUDES := $(LOCAL_INC) -I$(TOP)/factory/testlib
 HOST_TESTS := test_iword_core test_iword_codes test_iword_wp5_roundtrip \
  test_iword_reveal_codes test_iword_face test_iword_face_small \
  test_iword_fkeys test_iword_search test_iword_listfiles test_iword_listfiles_ops \
- test_iword_replace test_iword_undo test_iword_setup test_iword_save test_iword_retrieve test_iword_move
-FACE_TESTS := face face_small fkeys search listfiles listfiles_ops replace undo setup save retrieve move
+ test_iword_replace test_iword_undo test_iword_setup test_iword_save test_iword_retrieve test_iword_move test_iword_commands
+FACE_TESTS := face face_small fkeys search listfiles listfiles_ops replace undo setup save retrieve move commands
+test_iword_commands_SRCS := tests/test_iword_commands.c
 $(foreach t,core codes,$(eval test_iword_$(t)_SRCS := tests/test_iword_$(t).c))
 $(foreach t,wp5_roundtrip reveal_codes,$(eval test_iword_$(t)_SRCS := tests/diff/test_iword_$(t).c))
 $(foreach t,face face_small,$(eval test_iword_$(t)_SRCS := tests/test_iword_face.c))

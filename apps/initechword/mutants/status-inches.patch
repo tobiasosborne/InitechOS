@@ -1,0 +1,23 @@
+# test: test_iword_commands
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -742,8 +742,8 @@
+         doc[n++] = ' '; doc[n++] = 'L'; doc[n++] = 'n'; doc[n++] = ' ';
+         /* Ln from the line's height down the page (slice 3: the spacing,
+          * MINT25 "Ln 2.83""; single spacing gives P1's 1" + lines / 6) */
+-        k = g_settings[5]=='u' ? status_measure(256u+w->y,256u,'u',num) :
+-            status_measure(1200u*256u+w->y*200u,256u,g_settings[5],num);
++        k = '"'=='u' ? status_measure(256u+w->y,256u,'u',num) :
++            status_measure(1200u*256u+w->y*200u,256u,'"',num);
+         for (i = 0; i < k; i++) doc[n++] = num[i];
+         {
+             /* Pos: the paper position (slice 3, MINT23 "Pos 1.25""; at 1"/1"
+@@ -755,7 +755,7 @@
+              * its shape and spacing kept (authored adaptation of WP's 80
+              * columns, as tdnl.51's one-column move) */
+             char pos[12];
+-            uint32_t pk = status_measure(w->x,g_settings[5]=='u'?120u:1u,g_settings[5],pos);
++            uint32_t pk = status_measure(w->x,'"'=='u'?120u:1u,'"',pos);
+             uint32_t sh = STATUS_POS + 4u + pk > SCR_COLS ? STATUS_POS + 4u + pk - SCR_COLS : 0u;
+             for (i = 0; i < n; i++) s[STATUS_DOC_END + 1 - sh - n + i] = doc[i];
+             s[STATUS_POS - sh] = 'P';

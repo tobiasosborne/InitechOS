@@ -384,7 +384,7 @@ static void t_codes(void)
     fkey(F8, 0);
     tk(' ');
     fkey(F8, CTRL);
-    CHECK(row_is(23, "1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0"), "F7",
+    CHECK(row_is(23, "1 Size; 2 Appearance; 3 Normal: 0"), "F7",
           "Ctrl-F8: the Font menu on the status line (01_font_menu.png)");
     tk('2');
     CHECK(row_is(23, "1 Bold 2 Undln 3 Dbl Und 4 Italc 5 Outln 6 Shadw 7 Sm Cap 8 Redln 9 Stkout: 0"), "F7",
@@ -487,9 +487,9 @@ static void t_block(void)
     tk('x');
     CHECK(row_is(1, "Alpha Beta Gamma."), "F8", "typing does nothing while Block is on");
     fkey(F4, CTRL);
-    CHECK(row_is(23, "Move: 1 Block; 2 Tabular Column; 3 Rectangle: 0"), "F8", "Ctrl-F4 with Block on (03_move_menu)");
+    CHECK(row_is(23, "Move: 1 Block: 0"), "F8", "Ctrl-F4 with Block on (03_move_menu)");
     tk('1');
-    CHECK(row_is(23, "1 Move; 2 Copy; 3 Delete; 4 Append: 0"), "F8", "1 Block (04_block_menu)");
+    CHECK(row_is(23, "1 Move; 2 Copy; 3 Delete: 0"), "F8", "1 Block (04_block_menu)");
     tk('1');
     CHECK(row_is(1, "Alpha Gamma.") && status_is("Move cursor; press Enter to retrieve.", "1.17\"", "1.6\"", 0) &&
           faces_are(23, 19, 24, 1) && faces_are(23, 0, 19, 0), "F8",
@@ -605,7 +605,7 @@ static void t_format(void)
     CHECK(row_is(0, "Format") && row_is(1, "     1 - Line") && row_is(23, "Selection: 0"), "F11",
           "Shift-F8: the Format screen, its blank row 1 dropped (01_format_menu)");
     tk('1');
-    CHECK(row_is(0, "Format: Line") && fmt_row_is(2, "1 - Hyphenation", "No") && fmt_row_is(7, "3 - Justification", "Full") &&
+    CHECK(row_is(0, "Format: Line") && row_is(2, "") && fmt_row_is(7, "3 - Justification", "Full") &&
           fmt_row_is(13, "6 - Line Spacing", "1") && fmt_row_is(15, "7 - Margins - Left", "1\"") &&
           row_is(23, "Selection: 0"), "F11", "1 Line: the values at the cursor (02_format_line)");
     tk('6');
@@ -743,7 +743,7 @@ static void t_block_attr(void)
     tk('4');
     CHECK(faces_are(1, 4, 7, IW_A_ITALIC) && status_is("", "1.17\"", "1.7\"", 0), "F14", "4 Italc: \"def\" italic (09_italic)");
     fkey(F8, CTRL);
-    CHECK(row_is(23, "1 Size; 2 Appearance; 3 Normal; 4 Base Font; 5 Print Color: 0"), "F14", "Ctrl-F8, Block off (17_font_menu)");
+    CHECK(row_is(23, "1 Size; 2 Appearance; 3 Normal: 0"), "F14", "Ctrl-F8, Block off (17_font_menu)");
     tk('1');
     CHECK(row_is(23, "1 Suprscpt; 2 Subscpt; 3 Fine; 4 Small; 5 Large; 6 Vry Large; 7 Ext Large: 0"), "F14",
           "1 Size (18_size_menu)");
@@ -765,7 +765,7 @@ static void t_move_nb(void)
     fkey(F4, CTRL);
     CHECK(row_is(23, "Move: 1 Sentence; 2 Paragraph; 3 Page; 4 Retrieve: 0"), "F15", "Ctrl-F4, Block off (02_move_menu)");
     tk('1');
-    CHECK(band(1, 21, 26) && row_is(23, "1 Move; 2 Copy; 3 Delete; 4 Append: 0"), "F15",
+    CHECK(band(1, 21, 26) && row_is(23, "1 Move; 2 Copy; 3 Delete: 0"), "F15",
           "1 Sentence: \"Second sentence follows.  \" highlighted (03_sentence)");
     tk('1');
     CHECK(row_is(1, "First sentence here. Third one.") &&
@@ -791,7 +791,7 @@ static void t_move_nb(void)
     CHECK(status_is("", "1.67\"", "1\"", 0), "F15", "3 Page, F1: the cursor at the page's end (13_page_cancel)");
     fkey(F4, CTRL);
     tk('4');
-    CHECK(row_is(23, "Retrieve: 1 Block; 2 Tabular Column; 3 Rectangle: 0"), "F15", "4 Retrieve (14_retrieve_menu)");
+    CHECK(row_is(23, "Retrieve: 1 Block: 0"), "F15", "4 Retrieve (14_retrieve_menu)");
     tk('1');
     CHECK(row_is(4, "Para two line.") && status_is("", "1.67\"", "1\"", 0), "F15",
           "1 Block: the paragraph again, the cursor in front (15_retrieved_again)");

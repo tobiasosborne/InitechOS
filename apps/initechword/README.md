@@ -59,15 +59,16 @@ List Files supports directory navigation, retrieve, Look, delete, move/rename
 and copy, including collision/error handling. Setup persists preferences.
 The native face is an authored 76x24 adaptation of WP's 80x25 screen.
 
-The following 69 visible command labels are inert or unavailable. Count each
-entry point once, including separately drawn Move and Retrieve choices (49
-entries), plus the 20 advertised children of blocked Format groups.
+The approved GM6 split retains Name Search and omits the following **68**
+formerly advertised choices. This is the frozen omission list. Historical
+templates/captures remain intact as reference evidence, separately from the
+shipping command projection in include/iword/commands.h and the face.
 Sources: include/iword/{fkeys.json,listfiles.h,reveal_codes.h}, app/face_a.c
 (function_key, prompt_key, format_key, setup_key, lf_key, block_key), frozen
 legacy docs/audits/2026-10-23-iword/REPORT.md L040-L084 and TRIAGE.md, and
-attic/triage/triage.md's apps-iword table. No command is fixed in this import.
+attic/triage/triage.md's apps-iword table; revised phase-2 design approval.
 
-- 23 function-key entries only show a gray command name: F3 Help; F9 End Field;
+- 23 omitted function-key entries: F3 Help; F9 End Field;
   Shift-F3 Switch, Shift-F4 reverse Indent, Shift-F5 Date/Outline, Shift-F6
   Center, Shift-F7 Print, Shift-F9 Merge Codes; Alt-F1 Thesaurus, Alt-F5 Mark
   Text, Alt-F6 Flush Right, Alt-F7 Columns/Table, Alt-F8 Style, Alt-F9 Graphics,
@@ -75,28 +76,42 @@ attic/triage/triage.md's apps-iword table. No command is fixed in this import.
   In/Out, Ctrl-F6 Tab Align, Ctrl-F7 Footnote, Ctrl-F9 Merge/Sort, Ctrl-F10
   Macro Define. The six modified F11/F12 slots have no WP command and are
   deliberately unmapped; they are not counted as visible commands.
-- 5 List Files entries ignore their keys: 4 Print, 5 Short/Long Display,
-  7 Other Directory, 9 Find, N Name Search.
-- 5 Setup entries are gray: Display, Initial Settings, Keyboard Layout,
+- 4 List Files omissions: 4 Print, 5 Short/Long Display,
+  7 Other Directory, 9 Find. The retained historical numbers are 1/2/3/6/8/N.
+- 5 Setup omissions: Display, Initial Settings, Keyboard Layout,
   Location of Files, Timed Document Backup.
-- 9 Format entries leave the menu unchanged: Page, Document, Other; Line's
+- 9 Format omissions: Page, Document, Other; Line's
   Hyphenation, Hyphenation Zone, Height, Numbering, Tab Set, Widow/Orphan.
-- 20 advertised Format children cannot be reached through those groups:
+- 20 Format children omitted with their groups:
   Page's Center Page (top to bottom), Force Odd/Even Page, Headers and Footers,
   Margins Top/Bottom, Page Numbering, Paper Size/Type/Labels, Suppress;
   Document's Display Pitch, Initial Codes/Font, Redline Method, Summary;
   Other's Advance, Conditional End of Page, Decimal Characters, Language,
   Overstrike, Printer Functions, Underline Spaces/Tabs, Border Options,
   End Centering/Alignment.
-- 2 Font choices return to editing without an operation: Base Font, Print Color.
-- 5 block entries do nothing: Move's Tabular Column and Rectangle; Retrieve's
+- 2 Font omissions: Base Font, Print Color.
+- 5 block omissions: Move's Tabular Column and Rectangle; Retrieve's
   Tabular Column and Rectangle; Append in the block-operation menu.
 
 Additional partially working affordances (not included in the 69-label count):
-Entry/status units
-are recorded but measurements stay in inches; List Files ignores typed/default
+Status Line Display supports i/c/p/w/u, from unrounded physical coordinates;
+u uses fixed-font line/column coordinates and first-text-line origin. The
+default inch mark and explicitly selected i remain distinct, as in WP5.1.
+Literal VGA fixtures cover fractional spacing, page transitions, 1.25-inch
+margins and all seven supported size attributes. IWS1 byte 5 persists the
+status choice (including the default inch mark). Entry units are read-only
+Inches; a legacy byte 4 is ineffective and becomes i on the next successful
+preference save. Loading alone never rewrites a record.
+
+Name Search follows captured WP5.1 prefix/class/closest-match behavior;
+Backspace updates the query, Enter/F7/Esc dismiss, arrows dismiss and move.
+The directory and document bytes are unchanged. Unsupported number keys leave
+their current prompt unchanged. Removed function keys have no name prompt.
+Save while Block owns input is omitted from both F10 and native-menu routes.
+
+Remaining partial affordances: List Files ignores typed/default
 path changes; Look does not scroll plain text or navigate adjacent documents;
-active-block Save, paragraph extension and code-search lack their block routes;
+paragraph extension and code-search are omitted while Block owns input;
 Ctrl-arrow and Ctrl-Delete act on units; inline Center/Flush Right codes have
 no layout effect; resize can hide prompts; document clicking/scrollbars have
 no viewport route; Finder power requests do not recognize File > Exit;
