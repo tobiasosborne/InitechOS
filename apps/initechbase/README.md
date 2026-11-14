@@ -77,9 +77,11 @@ suspended program reports #101, `Not suspended.`).
 
 Assignments, macro substitution, comments, IF/ELSE/ENDIF, DO WHILE/ENDDO,
 DO CASE/CASE/OTHERWISE/ENDCASE, LOOP and EXIT are structural program syntax.
-DO supports disk files, procedure libraries and WITH arguments. Program limits
-include 8191 bytes, 512 parsed lines and a 20-level DO cap; memory exhaustion
-can refuse earlier. The cap is production behavior; disabling it is not supported.
+DO supports disk files, procedure libraries and WITH arguments. Program and
+statement storage grows within available memory; captured 8192-byte programs,
+513 statements and 255-byte source lines execute. Trailing semicolons continue
+logical statements. The 20-level DO cap remains; memory exhaustion can refuse
+earlier. Disabling that cap is not supported.
 
 68 registered functions:
 
@@ -118,7 +120,7 @@ Known parity limits, not silently promoted pending captures: STR scientific
 fallback/range/precision and rounding, exponent pictures, HISTORY growth and
 recording/paging, MEMOWIDTH wrapping/column padding, multi-area DISPLAY pauses,
 empty-table BOF, unique-index incremental duplicate handling, error routing,
-live-date century transport, and memo-reader refresh. SET INDEX preconditions,
+live-date century transport. SET INDEX preconditions,
 mutation NEXT scopes and bounded LOCATE misses still need independent capture
 qualification. Accepted captures stay unchanged. The smoke's LIST and INDEX/
 SEEK lines match real III+; its Y2K report uses the authored canon golden:

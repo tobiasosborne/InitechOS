@@ -536,7 +536,7 @@ static int is_comment_line(const char *p, uint32_t len)
  * split_lines: fill `lines[]` with the program's non-blank, non-comment logical
  * lines. Inline "&&" comments are dropped; surrounding blanks are trimmed; '&&'
  * inside a string literal is preserved. Returns the line count, or -1 if the
- * program exceeds FLOW_MAX_LINES (fail loud).
+ * supplied count bound is exceeded (fail loud).
  */
 static int split_lines(const char *prg, uint32_t plen, flow_line *lines, int cap)
 {
@@ -1944,7 +1944,7 @@ int ibase_last_error(xb_interp *ip)
  * when the heap is exhausted the DO fails with #43 "Insufficient memory." and
  * the session survives (initech-39e5 review). A static pool would not fit:
  * the IBASE.COM BSS reserve is full (ibase.ld owned-heap tail ASSERT). One
- * program is still capped at FLOW_MAX_LINES.
+ * program storage is bounded by available owned memory (genuine III+ C34).
  */
 #ifndef FLOW_STACK_LINES
 /* DEC-03a.5, initech-jarzu: the checked 64 KiB high stack exposed the
@@ -1960,6 +1960,48 @@ static int flow_exec_lines(xb_interp *ip, flow_state *fs, const char *prg,
 static int flow_run_lines(xb_interp *ip, flow_state *fs, const char *prg,
                           uint32_t plen, int n);
 
+/* Genuine III+ C36: a trailing semicolon continues the logical statement.
+ * Keep the original source for procedure ownership; allocate a joined copy
+ * only when a continuation actually occurs. Quoted/comment semicolons retain
+ * their existing literal/comment meaning. */
+static int flow_join_lines(ibase_pal_t *pal,const char *prg,uint32_t plen,
+                            char **joined,uint32_t *length)
+{
+    uint32_t start=0,used=0;int continuing=0;
+    *joined=0;*length=plen;
+    while(start<plen && prg[start]){
+        uint32_t end=start,next,content,j,k,copy_start;char quote=0;int join;
+        while(end<plen && prg[end] && prg[end]!='\n')end++;
+        next=end+(end<plen && prg[end]=='\n');content=end;
+        j=start;while(j<end && fl_isspace(prg[j]))j++;
+        for(k=j;k<end;k++){
+            if(!rt_literal_byte(prg[k],&quote) && prg[k]=='&' && k+1u<end && prg[k+1u]=='&'){
+                content=k;break;
+            }
+        }
+        while(content>j && (prg[content-1u]=='\r' || fl_isspace(prg[content-1u])))content--;
+        join=next>end && !quote && content>j && prg[content-1u]==';' && !is_comment_line(prg+j,content-j);
+        if(join && !*joined){
+            if(plen==UINT32_MAX || !pal || !pal->acquire)return -INTERP_ERR_NOMEM;
+            *joined=pal->acquire(pal,plen+1u);
+            if(!*joined)return -INTERP_ERR_NOMEM;
+            rt_memcpy(*joined,prg,start);used=start;
+        }
+        copy_start=continuing?j:start;
+        if(join){
+            content--;
+            while(content>copy_start && fl_isspace(prg[content-1u]))content--;
+            rt_memcpy(*joined+used,prg+copy_start,content-copy_start);used+=content-copy_start;
+            (*joined)[used++]=' ';
+        }else if(*joined){
+            rt_memcpy(*joined+used,prg+copy_start,next-copy_start);used+=next-copy_start;
+        }
+        continuing=join;start=next;
+    }
+    if(*joined){(*joined)[used]=0;*length=used;}
+    return INTERP_OK;
+}
+
 int ibase_do(xb_interp *ip, const char *prg)
 {
     if (!prg)
@@ -1971,6 +2013,7 @@ int ibase_do_n(xb_interp *ip, const char *prg, uint32_t plen)
 {
     flow_state *fs;
     int n, rc, saved_deferred;
+    char *joined;ibase_pal_t *pal;
 
     if (!ip || !prg)
         return -INTERP_ERR_EVAL;
@@ -1983,9 +2026,15 @@ int ibase_do_n(xb_interp *ip, const char *prg, uint32_t plen)
     ibase_ovl_validate_ctx(xb_interp_ctx(ip));
     fs->program = xb_interp_ctx(ip)->program_name;
 
+    pal=xb_interp_pal(ip);
+    rc=flow_join_lines(pal,prg,plen,&joined,&plen);
+    if(rc){fs->last_error=43;return rc;}
+    if(joined)prg=joined;
+
     /* C34: statement storage is sized by the count pass, not a 512-line cap. */
     n = split_lines(prg, plen, (flow_line *)0, INT32_MAX);
     if (n < 0) {
+        if(joined)pal->release(pal,joined);
         fs->last_error = 43;                /* Insufficient memory. */
         return -INTERP_ERR_DEPTH;
     }
@@ -1995,6 +2044,7 @@ int ibase_do_n(xb_interp *ip, const char *prg, uint32_t plen)
     xb_interp_ctx(ip)->deferred_error = 0;
     rc = flow_run_lines(ip, fs, prg, plen, n);
     xb_interp_ctx(ip)->deferred_error = saved_deferred;
+    if(joined)pal->release(pal,joined);
     return rc;
 }
 
