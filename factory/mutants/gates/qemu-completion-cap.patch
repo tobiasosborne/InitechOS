@@ -1,0 +1,11 @@
+--- a/factory/emu/qemu.c
++++ b/factory/emu/qemu.c
+@@ -1784,7 +1784,7 @@
+ {
+     /* Ready, input acknowledgement and completion share the caller's wall
+      * deadline. Serial progress renews idle budgets, never this deadline. */
+-    long long serial_deadline = harness_deadline;
++    long long serial_deadline = mono_ms() + 120000;
+     if (rec_after_end) {
+         *rec_after_end = 0;
+     }

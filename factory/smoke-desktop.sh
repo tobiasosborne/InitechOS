@@ -12,6 +12,8 @@ list=${DESKTOP_JOURNEYS:-factory/desktop-journeys.list}
 # Reject missing/empty entries; list ordering is also the journey ordering.
 journeys=$(sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' "$list")
 [ -n "$journeys" ] || fail 'empty journey list'
+registered=$(sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' factory/desktop-journeys.list)
+sh factory/smoke-selection.sh desktop-journeys "$journeys" "$registered"
 exits=0
 for dir in $journeys; do
  [ -f "$dir/journey.sh" ] && [ -f "$dir/verify.sh" ] || fail "incomplete journey $dir"
@@ -55,7 +57,7 @@ for emulator in qemu bochs; do
  [ "$emulator" != bochs ] || driver=build/factory/desktop-bochs
  export DESKTOP_SERIAL="$out/$emulator.serial"
  if ! "$driver" --disk build/image/boot.img --disk2 "$out/$emulator-data.img" \
-  --keys-after FLAIR-LIVE-READY "$@" --timeout-ms 90000 --name "$emulator" --out "$out" \
+  --keys-after FLAIR-LIVE-READY "$@" --timeout-ms "${DESKTOP_SMOKE_TIMEOUT_MS:-90000}" --name "$emulator" --out "$out" \
   > "$out/$emulator.stdout" 2> "$out/$emulator.report"; then
   cat "$out/$emulator.report"; case $emulator in qemu) fail "QEMU session";; bochs) fail "Bochs session";; esac
  fi

@@ -39,10 +39,13 @@ for emu in qemu bochs; do
  cp "$out/test.img" "$out/$emu-data.img"
  keys=$(cat "$out/keys")
  marker=$finish
- if [ "$emu" = bochs ]; then marker=programsdone; keys=$(printf '%s' "$keys" | sed 's/ret/ret,w1000/g'); fi
+ if [ "$emu" = bochs ]; then
+  marker=programsdone
+  keys=$(printf '%s' "$keys" | sed "s/ret/ret,w${PROGRAM_SMOKE_WAIT_MS:-1000}/g")
+ fi
  if ! "build/factory/${emu}_harness" --disk "${SMOKE_BOOT:-build/image/boot.img}" \
   --disk2 "$out/$emu-data.img" --keys-after SHELL-READY --keys "$keys" \
-  --expect "$marker" --quit-after "$marker" --timeout-ms 55000 \
+  --expect "$marker" --quit-after "$marker" --timeout-ms "${PROGRAM_SMOKE_TIMEOUT_MS:-55000}" \
   --name "$emu" --out "$out" > "$out/$emu.stdout" 2> "$out/$emu.report"; then
   cat "$out/$emu.report"; fail "$emu did not complete";
  fi

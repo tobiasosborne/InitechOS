@@ -9,7 +9,9 @@ export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1 MTOOLS_SKIP_CHECK=1
 checks=0
 fail() { echo "FAIL $*" >&2; echo "InitechBase SMOKE: $checks checks completed, 1 failure" >&2; exit 1; }
 line() { grep -Fx -- "$2" "$1" >/dev/null || fail "missing [$2] in $1"; echo "ok $emulator: $2"; checks=$((checks+1)); }
-for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
+cpus=${IBASE_SMOKE_CPUS-qemu bochs}
+sh factory/smoke-selection.sh InitechBase-emulators "$cpus" 'qemu bochs'
+for emulator in $cpus; do
  dir=$out/$emulator
  mkdir -p "$dir"
  disk=$dir/test.img
@@ -46,10 +48,13 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
   extra='--vga-ext none --rtc-time0 699440400'
   # Pace commands, but leave the final completion command terminal. The
   # driver correctly rejects any trace step after its quit marker is seen.
-  sed -i 's/ret/ret,w1000/g; s/,w1000$//' "$dir/keys"
+  pause=${IBASE_SMOKE_WAIT_MS:-1000}
+  sed -i "s/ret/ret,w$pause/g; s/,w$pause\$//" "$dir/keys"
   # Child teardown can outlast the ordinary command gap on Bochs. Its DOS
   # input reset discards an echo queued before COMMAND.COM resumes.
-  sed -i 's/q,u,i,t,ret,w1000,/q,u,i,t,ret,w5000,/' "$dir/keys"
+  exit_pause=5000
+  if [ "$pause" -gt "$exit_pause" ]; then exit_pause=$pause; fi
+  sed -i "s/q,u,i,t,ret,w$pause,/q,u,i,t,ret,w$exit_pause,/" "$dir/keys"
  fi
  if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" \
     $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \
@@ -104,7 +109,6 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  echo "ok $emulator: C21 transcript, repaired DBF and rebuilt NDX match real III+"
  echo "$emulator: InitechBase smoke GREEN (8 MiB)"
 done
-echo "InitechBase SMOKE: $checks checks, 0 failures (QEMU then Bochs at 8 MiB)"
 # GM5: a fresh genuine III+ session must open serialized target output.
 core=$out/real-reopen/core
 mkdir -p "$core/build"
@@ -112,3 +116,4 @@ mkdir -p "$core/build"
 mkdir -p "$core/build/dbsafe"
 (cd "$core" && "$root/build/apps/initechbase/host/test_ibase_dbsafe" flush) > "$out/real-flush.log" 2>&1
 sh "$src/tests/write-safety/reopen.sh" "$out/real-reopen" "$dir" "$core"
+echo "InitechBase SMOKE: $checks checks, 0 failures (emulators: $cpus at 8 MiB)"

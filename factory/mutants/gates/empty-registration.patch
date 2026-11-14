@@ -1,0 +1,11 @@
+--- a/flair/region/Makefile
++++ b/flair/region/Makefile
+@@ -9,7 +9,7 @@
+ include $(TOP)/mk/target.mk
+ include $(TOP)/mk/import-check.mk
+ 
+-HOST_TESTS := region region-gdi
++HOST_TESTS :=
+ EXTRA_HOST_TESTS := region-asan
+ HOST_INCLUDES := -Iinclude -I$(TOP)/factory/testlib
+ region_SRCS := tests/test_region.c region.c

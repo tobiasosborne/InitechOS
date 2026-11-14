@@ -110,7 +110,7 @@ typedef struct {
 typedef struct {
     bool launched;             /* fork/exec of bochs succeeded.              */
     bool rfb_unblocked;        /* RFB handshake completed (Bochs proceeded). */
-    bool timed_out;            /* deadline hit (EXPECTED: guest hlt-loops).  */
+    bool timed_out;            /* deadline hit: always a failed run.         */
     int  exit_code;            /* bochs WEXITSTATUS, or -1 if killed.        */
     int  term_signal;          /* signal that killed bochs, or 0.            */
 
@@ -151,7 +151,7 @@ typedef struct {
                                   && !trace_late
                                   && (screendump_after ? screendump_ok &&
                                                          snapshot_ok : true).
-                                  NOT gated on timed_out (hlt-loop).         */
+                                  && !timed_out.                             */
 } BochsResult;
 
 /* Launch Bochs per cfg, capture signals into out. Returns 0 if the harness ran

@@ -57,3 +57,17 @@ testlib-test:
 .PHONY: mutants
 mutants:
 	+sh red-desktop.sh
+	+sh gate-mutants.sh
+
+.PHONY: gate-test
+$(OUT)/bochs-verdict-test: tests/bochs-verdict.c emu/bochs.c emu/bochs.h emu/bochs_trace.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+test: gate-test
+gate-test: $(OUT)/bochs-verdict-test $(OUT)/qemu-deadline-test
+	$(OUT)/bochs-verdict-test
+	sh tests/worksheet.sh
+	+sh tests/registration.sh
+	+sh tests/selection.sh
+	$(OUT)/qemu-deadline-test
+$(OUT)/qemu-deadline-test: tests/qemu-deadline.c emu/qemu.c emu/qemu.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@

@@ -1,0 +1,10 @@
+--- a/apps/initech123/fs/wk1.c
++++ b/apps/initech123/fs/wk1.c
+@@ -441,6 +441,7 @@
+     }
+     if (!cells_done) put_cells(&w, sh);
+     put_hdr(&w, WK1_OP_EOF, 0u);
++    put8(&w, 0u);
+     if (w.err) return (w.pos >= w.cap) ? I123_E_SPACE : I123_E_FORMAT;
+     *out_len = w.pos;
+     return I123_OK;

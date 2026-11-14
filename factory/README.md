@@ -100,3 +100,32 @@ those edges. The top-level preflight audits actual make graph paths, including
 generated headers, against those declarations. The kernel/resident shell and
 SDK/FLAIR source-audit cycles have explicit test-order exceptions there; the
 component recipes still build their required artifacts.
+
+Gate regressions run in `make test` (`gate-test` alone while iterating).
+The worksheet driver checks complete independent Lotus reader records and
+separate byte framing, including formula lengths and EOF consumption. Its
+test writer uses Initech 123's public worksheet interface and real serializer;
+four serializer patches prove wrong values and malformed output are rejected.
+Bochs's final verdict rejects deadline expiry even if final serial has all
+markers; the deterministic verdict fixture also preserves timely SIGTERM.
+Both shared host runners refuse empty selections. Top-level test additionally
+requires a positive named execution summary (both children for Turbo, explicit
+composition checks for system), besides the child exit status.
+
+Top-level smoke requires the complete component, journey and emulator sets;
+Turbo's source/path selectors are checked too. `smoke-selection` checks this
+without building or booting. Component-only red runs may select a nonempty
+subset, which is labelled SUBSET SMOKE and lists actual emulators. Zero work,
+unknown entries and duplicate entries cannot certify a full run. Gate patches
+in mutants/gates are applied to disposable source trees by gate-mutants.sh;
+each must fail twice for its named semantic reason. These controls need no
+emulator. Full make smoke still boots both emulators.
+
+Ready, acknowledgement and completion waits in QEMU use the caller's absolute
+wall deadline, without a second 120-second cap. Expiry explicitly fails the
+session. The virtual-clock/socketpair QMP test accepts completion at125s with
+an180s deadline and rejects90s expiry. The default remains5000ms. Bochs also
+rechecks its session deadline after frontend callbacks. DESKTOP_WAIT_MS permits
+an invocation-only override of its10000ms marker wait; session and app-driver
+pacing overrides likewise retain their defaults. These controls support busy
+shared-machine verification without weakening the oracle or test selection.

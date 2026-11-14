@@ -33,7 +33,14 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
     const char *path=getenv("DESKTOP_SERIAL");
     if(!path)return 0;
     struct timespec pause={0,20000000};
-    for(unsigned poll=0;poll<500;poll++) {
+    unsigned polls=500;
+    const char *limit=getenv("DESKTOP_WAIT_MS");
+    if(limit) {
+        char *end;unsigned long ms=strtoul(limit,&end,10);
+        if(!*limit || *end || ms<20 || ms>3600000)return 0;
+        polls=(unsigned)((ms+19)/20);
+    }
+    for(unsigned poll=0;poll<polls;poll++) {
         /* RFB updates must keep flowing while the guest paints. Otherwise
          * its display server can block before it reaches the serial marker. */
         if(journey_idle)journey_idle(journey_context);

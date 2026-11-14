@@ -41,6 +41,7 @@ endef
 test-build: $(HOST_TEST_BINS)
 test: test-run
 test-run: test-build
+	@test -n '$(strip $(TESTS))' || { echo 'FAIL $(COMPONENT): empty test registration/selection'; exit 1; }
 	@start=$$(date +%s); fail=0; ulimit -c 0; \
 	$(foreach t,$(TESTS),$(call timed_test,$(t))) \
 	elapsed=$$(($$(date +%s)-start)); \

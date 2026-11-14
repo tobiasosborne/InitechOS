@@ -646,6 +646,17 @@ static int bochs_host_lock(void)
     }
 }
 
+static bool bochs_verdict(const BochsConfig *cfg, const BochsResult *out,
+                          bool input_complete)
+{
+    return out->launched && out->rfb_unblocked && !out->timed_out && !out->triple_fault &&
+           !out->trace_late &&
+           (!cfg->keys_script || input_complete) &&
+           (!cfg->expect_marker || out->marker_found) &&
+           (!cfg->quit_after || out->quit_marker_found) &&
+           (!cfg->screendump_after || (out->screendump_ok && out->snapshot_ok));
+}
+
 int bochs_run(const BochsConfig *cfg, BochsResult *out)
 {
     if (!cfg || !out) return -1;
@@ -985,6 +996,9 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         }
         sleep_ms(sd == SD_WAIT && !key_next ? 100 : 20);
     }
+    /* A frontend marker wait or snapshot may consume the remaining budget.
+     * Completion observed inside that callback cannot extend the deadline. */
+    if (mono_ms() >= deadline) out->timed_out = true;
     free(snap);
     out->rfb_width = rfb.w;
     out->rfb_height = rfb.h;
@@ -1074,11 +1088,6 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                                                    cfg->quit_after_count);
     }
 
-    out->ok = out->launched && out->rfb_unblocked && !out->triple_fault &&
-              !out->trace_late &&
-              (cfg->keys_script ? (!key_next && !rfb.err[0]) : true) &&
-              (cfg->expect_marker ? out->marker_found : true) &&
-              (cfg->quit_after ? out->quit_marker_found : true) &&
-              (cfg->screendump_after ? (out->screendump_ok && out->snapshot_ok) : true);
+    out->ok = bochs_verdict(cfg, out, !key_next && !rfb.err[0]);
     return 0;
 }

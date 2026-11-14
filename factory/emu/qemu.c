@@ -1732,7 +1732,7 @@ static int wait_for_serial_marker_live(int fd, const char *serial_path,
             int hit = count_substr(txt, marker) >= count;
             free(txt);
             if (hit) {
-                return 1;
+                return mono_ms() < absolute_deadline;
             }
         }
         if (qmp_peer_closed(fd)) {
@@ -1742,7 +1742,7 @@ static int wait_for_serial_marker_live(int fd, const char *serial_path,
             if (txt) {
                 int hit = count_substr(txt, marker) >= count;
                 free(txt);
-                return hit;
+                return hit && mono_ms() < absolute_deadline;
             }
             return 0;
         }
@@ -1782,10 +1782,9 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
                        int *rec_first_dead, const clockid_t *guest_clock,
                        long long harness_deadline, int rec_sync_fd)
 {
-    /* initech-7r2; PRD Sec 8 / Rule 2: the ready and completion waits share
-     * one 120 s ceiling. Serial growth renews their existing idle budgets,
-     * but cannot keep a guest with no completion marker alive indefinitely. */
-    long long serial_deadline = mono_ms() + 120000;
+    /* Ready, input acknowledgement and completion share the caller's wall
+     * deadline. Serial progress renews idle budgets, never this deadline. */
+    long long serial_deadline = harness_deadline;
     if (rec_after_end) {
         *rec_after_end = 0;
     }
@@ -2032,7 +2031,10 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
         if (!seen) {
             fprintf(stderr,
                     "[harness] --quit-after marker '%s' not seen before "
-                    "deadline (or qemu exited first)\n", quit_after);
+                    "%s\n", quit_after, mono_ms() >= harness_deadline ?
+                    "requested wall deadline (expired)" : "idle deadline (or qemu exited first)");
+            close(fd);
+            return -1;
         }
         if (quit_seen) {
             *quit_seen = seen;

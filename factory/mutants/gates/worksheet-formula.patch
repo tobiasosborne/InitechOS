@@ -1,0 +1,24 @@
+--- a/apps/initech123/fs/wk1.c
++++ b/apps/initech123/fs/wk1.c
+@@ -381,7 +381,7 @@
+             put_hdr(w, WK1_OP_LABEL, WK1_CELL_PREFIX + (uint32_t)c->len + 1u);
+             break;
+         case I123_K_FORMULA:
+-            put_hdr(w, WK1_OP_FORMULA, WK1_FORMULA_FIXED + (uint32_t)c->len);
++            put_hdr(w, WK1_OP_FORMULA, WK1_FORMULA_FIXED + (uint32_t)c->len + 1u);
+             break;
+         default:
+             w->err = 1;
+@@ -394,10 +394,12 @@
+         case I123_K_INTEGER: put8(w, c->v[0]); put8(w, c->v[1]); break;
+         case I123_K_NUMBER:  put_bytes(w, c->v, 8u); break;
+         case I123_K_LABEL:   put_bytes(w, blob, c->len); put8(w, 0u); break;
++            put8(w, 0u);
+         case I123_K_FORMULA:
+             put_bytes(w, c->v, 8u);
+             put16(w, c->len);
+             put_bytes(w, blob, c->len);
++            put8(w, 0u);
+             if (c->has_str) {
+                 put_hdr(w, WK1_OP_STRING, WK1_CELL_PREFIX + (uint32_t)c->slen + 1u);
+                 put8(w, c->str_fmt);

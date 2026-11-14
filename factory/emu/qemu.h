@@ -93,8 +93,8 @@ typedef struct {
     /* No-progress budget for keys_after, in QEMU CPU ms; <=0 => 4000 ms.
      * Host starvation does not consume it; new guest serial bytes renew it
      * (initech-7r2). The QMP session's ready/completion
-     * waits share an absolute 120 s ceiling. --keys-after-ms overrides this
-     * idle budget, not the ceiling. */
+     * waits share the caller's absolute timeout_ms wall deadline.
+     * --keys-after-ms overrides this idle budget, not the wall deadline. */
     int keys_after_ms;
 
     /* initech-ptzy; PRD Sec 6.3/8; spec/event_model.h Sec 5.
@@ -112,7 +112,7 @@ typedef struct {
      * guest still working (a long AUTOEXEC batch, a multi-pass compile) is
      * TRUNCATED mid-run. When non-NULL, the harness instead waits for this
      * substring on the serial capture (idle budget = timeout_ms - 1000 CPU ms,
-     * renewed by new guest serial bytes, with a shared 120 s ceiling; ends
+     * renewed by new guest serial bytes, bounded by timeout_ms; ends
      * early if qemu exits) before quitting. Not seen => quit_marker_found=0, OK=0.
      * Requires --keys/--mouse or --screendump (it lives in the QMP session). */
     const char *quit_after;    /* serial marker to wait for, or NULL.        */

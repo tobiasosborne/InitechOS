@@ -3,6 +3,7 @@
 set -eu
 component=$1 out=$2 runner=$3
 shift 3
+[ "$#" -gt 0 ] || { echo "FAIL $component: empty test registration/selection" >&2; exit 1; }
 mkdir -p "$out/logs"
 start=$(date +%s)
 n=0 failed=0

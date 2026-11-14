@@ -66,7 +66,9 @@ factory-test:
 test-start: factory-test
 $(addprefix test-,$(COMPONENTS)): private export INITECH_CORPUS_VERIFIED := 1
 $(addprefix test-,$(COMPONENTS)): test-%: | test-start
-	+@rc=0; $(MAKE) --no-print-directory -C $* test || rc=1; \
+	+@rc=0; log=$(TEST_RUN)/$(subst /,_,$*).log; \
+	  $(MAKE) --no-print-directory -C $* test > $$log 2>&1 || rc=1; cat $$log; \
+	  awk -v component=$* -f factory/testlib/component-result.awk $$log || rc=1; \
 	  echo $$rc > $(TEST_RUN)/$(subst /,_,$*).result
 test: test-start $(addprefix test-,$(COMPONENTS))
 	@fail=0; run=0; for f in $(TEST_RUN)/*.result; do \
@@ -97,12 +99,21 @@ image: boot-build system-build factory-build
 	$(MAKE) -C factory image
 # Components with their own emulator session on the product image
 # (`make -C <component> smoke`), one per line.
-SMOKE_COMPONENTS :=
-SMOKE_COMPONENTS += turbo
-SMOKE_COMPONENTS += apps/initechbase
-smoke: image
+override REGISTERED_SMOKE_COMPONENTS := turbo apps/initechbase
+SMOKE_COMPONENTS ?= $(REGISTERED_SMOKE_COMPONENTS)
+.PHONY: smoke-selection
+smoke-selection:
+	@INITECH_FULL_SMOKE=1 sh factory/smoke-selection.sh components '$(SMOKE_COMPONENTS)' '$(REGISTERED_SMOKE_COMPONENTS)'
+	@INITECH_FULL_SMOKE=1 sh factory/smoke-selection.sh InitechBase-emulators "$${IBASE_SMOKE_CPUS-qemu bochs}" 'qemu bochs'
+	@INITECH_FULL_SMOKE=1 sh factory/smoke-selection.sh desktop-journeys "$$(sed '/^[[:space:]]*\#/d; /^[[:space:]]*$$/d' $${DESKTOP_JOURNEYS:-factory/desktop-journeys.list})" "$$(sed '/^[[:space:]]*\#/d; /^[[:space:]]*$$/d' factory/desktop-journeys.list)"
+	@INITECH_FULL_SMOKE=1 sh factory/smoke-selection.sh Turbo-emulators "$${TURBO_EXEC_EMULATORS-qemu bochs}" 'qemu bochs'
+	@INITECH_FULL_SMOKE=1 sh factory/smoke-selection.sh Turbo-paths "$${TURBO_EXEC_PATHS-seed hosted hosted-flat resident resident-flat}" 'seed hosted hosted-flat resident resident-flat'
+	@INITECH_FULL_SMOKE=1 sh factory/smoke-selection.sh Turbo-sources "$${TURBO_EXEC_SOURCES-$$(echo turbo/compiler/fixtures/gen*.pas turbo/tests/execution/*.pas)}" "$$(echo turbo/compiler/fixtures/gen*.pas turbo/tests/execution/*.pas)"
+smoke: export INITECH_FULL_SMOKE := 1
+smoke: smoke-selection image
 	$(MAKE) -C factory smoke
 	@for c in $(SMOKE_COMPONENTS); do $(MAKE) --no-print-directory -C $$c smoke || exit 1; done
+	@echo 'FULL SMOKE GREEN: factory DOS/programs/desktop + $(REGISTERED_SMOKE_COMPONENTS); QEMU + Bochs'
 run: image
 	qemu-system-i386 -m 8 -machine acpi=off -cpu 486 -drive file=build/image/boot.img,format=raw,index=0 -drive file=build/image/data.img,format=raw,index=1 -serial stdio -d int,guest_errors,cpu_reset -D build/qemu.log -no-reboot
 run-bochs: image

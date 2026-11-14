@@ -1,0 +1,11 @@
+--- a/apps/initech123/fs/wk1.c
++++ b/apps/initech123/fs/wk1.c
+@@ -391,7 +391,7 @@
+         put16(w, c->col);
+         put16(w, c->row);
+         switch (c->kind) {
+-        case I123_K_INTEGER: put8(w, c->v[0]); put8(w, c->v[1]); break;
++        case I123_K_INTEGER: put16(w, 1234u); break;
+         case I123_K_NUMBER:  put_bytes(w, c->v, 8u); break;
+         case I123_K_LABEL:   put_bytes(w, blob, c->len); put8(w, 0u); break;
+         case I123_K_FORMULA:
