@@ -173,6 +173,10 @@ uint8_t kbd_translate(kbd_state_t *st, uint8_t scancode)
         return 0u;
     }
     if (extended) {
+        /* IBM PS/2 Common Interfaces, Keyboards Sep1991 p32/Fig14(part3):
+         * Ctrl-Pause emits E0 46 E0 C6. Deliver one DOS break byte; the
+         * release half is ignored. Native DOS3.30 PAUSE capture: w7y7u. */
+        if (scancode == 0x46u && st->ctrl) return 0x03u;
         /* Extended keypad Enter/slash are characters; navigation, right Alt,
          * PrintScreen (including its fake Shifts) are not ASCII aliases. */
         if (scancode == 0x1Cu) return '\r';

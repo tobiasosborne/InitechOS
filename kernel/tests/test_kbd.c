@@ -412,6 +412,30 @@ static void test_control(void)
     CHECK(kbd_translate(&st, 0x2e) == 'c', "init clears pending E0 and Ctrl");
 }
 
+/* IBM PS/2 Common Interfaces, Keyboards Sep1991 p32/Fig14(part3):
+ * Ctrl-Pause is the make-only Set1 sequence E0 46 E0 C6. */
+static void test_control_break(void)
+{
+    for (unsigned right=0;right<2;right++) {
+        kbd_state_t st; kbd_state_init(&st);
+        if (right) CHECK(kbd_translate(&st,0xe0)==0,"right Ctrl prefix");
+        CHECK(kbd_translate(&st,0x1d)==0,"Ctrl make");
+        CHECK(kbd_translate(&st,0xe0)==0,"Break prefix");
+        CHECK(kbd_translate(&st,0x46)==3,"physical Ctrl-Break enters DOS break path");
+        CHECK(kbd_translate(&st,0xe0)==0,"Break release prefix");
+        CHECK(kbd_translate(&st,0xc6)==0,"Break release produces no second event");
+        if (right) CHECK(kbd_translate(&st,0xe0)==0,"right Ctrl release prefix");
+        CHECK(kbd_translate(&st,0x9d)==0,"Ctrl release");
+        CHECK(kbd_translate(&st,0x2e)=='c',"chord releases all modifiers");
+    }
+    kbd_state_t st; kbd_state_init(&st);
+    CHECK(kbd_translate(&st,0x46)==0,"plain Scroll Lock is not Ctrl-Break");
+    static const uint8_t pause[]={0xe1,0x1d,0x45,0xe1,0x9d,0xc5};
+    for (unsigned i=0;i<sizeof pause;i++)
+        CHECK(kbd_translate(&st,pause[i])==0,"plain Pause never emits DOS break");
+    CHECK(kbd_translate(&st,0x2e)=='c',"plain Pause leaves no Ctrl state");
+}
+
 /* DAS L002; GUI Copy is one command, never a pending DOS Ctrl-C. */
 static void test_input_ownership(void)
 {
@@ -474,6 +498,7 @@ int main(void)
     test_translate();
     test_modifier_sequences();
     test_control();
+    test_control_break();
     test_pit();
     test_input_ownership();
     return TEST_SUMMARY("test-kbd-unit");

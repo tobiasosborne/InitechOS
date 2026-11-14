@@ -214,3 +214,13 @@ with genuine VGA transcripts, checks native DOS file capacity and verifies that
 reading CONFIG leaves the image unchanged. Its malformed cases were red before
 the repair; negative controls also kill silent BUFFERS and incorrect resident
 console accounting. CONFIG is limited to1024 bytes; truncation is reported.
+
+The PS/2 Ctrl-Pause make sequence E0/46/E0/C6 produces one DOS break byte and
+uses the existing batch cancellation path. Source: IBM PS/2 Common Interfaces,
+Keyboards September1991 p32/Figure14(part3), and genuine DOS3.30 BREAK captures.
+`test-kbd-unit` checks left/right Ctrl, releases and plain Pause/Scroll Lock
+controls. `make smoke-ctrl-break` sends the actual QEMU physical chord during
+PAUSE, matches the native termination question, answersY and verifies an
+unchanged disk/no continuation file. A plain-key control continues the batch
+and independently reads the expected output with mtools. No input scenario is
+compiled into the kernel.
