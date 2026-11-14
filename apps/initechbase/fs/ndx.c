@@ -332,8 +332,7 @@ static int ndx_open_impl(ibase_pal_t *pal, const char *name, int pal_mode,
         return -NDX_ERR_IO;
     }
     fsize = (uint32_t)fsize_raw;
-    if (fsize < (uint32_t)NDX_PAGE_SIZE
-        || (fsize % (uint32_t)NDX_PAGE_SIZE) != 0u) {
+    if (fsize < (uint32_t)NDX_PAGE_SIZE) {
         pal->close(pal, fd);
         return -NDX_ERR_BAD_SIZE;
     }
@@ -385,8 +384,9 @@ static int ndx_open_impl(ibase_pal_t *pal, const char *name, int pal_mode,
             return -NDX_ERR_BAD_KPP;
         }
 
-        /* Step 8: total_pages == filesize / 512. */
-        if (total_pages != fsize / (uint32_t)NDX_PAGE_SIZE) {
+        /* Genuine III+ C22: the last page can omit its unused physical tail.
+         * Actual live entries are checked when the page is read. */
+        if (total_pages != (fsize + NDX_PAGE_SIZE - 1u) / NDX_PAGE_SIZE) {
             pal->close(pal, fd);
             return -NDX_ERR_BAD_SIZE;
         }
@@ -577,6 +577,7 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
     uint16_t    entry_count;
     uint16_t    filler;
     uint32_t    entries_end;
+    int32_t     present;
     ndx_node_t *node;
     uint8_t    *key_pool;
     uint32_t    node_struct_size;
@@ -606,8 +607,13 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
      *      spec/ibase/ndx_format.h NDX_PAGE_SIZE = 512. */
     rc = seek_to(idx->pal, idx->fd, page_no * (uint32_t)NDX_PAGE_SIZE);
     if (rc != NDX_OK) return rc;
-    rc = read_exact(idx->pal, idx->fd, page, (uint32_t)NDX_PAGE_SIZE);
-    if (rc != NDX_OK) return rc;
+    rt_memset(page,0,sizeof page);
+    present=idx->pal->read(idx->pal,idx->fd,page,sizeof page);
+    if(present<4)return -NDX_ERR_IO;
+    if(present!=(int32_t)sizeof page){
+        int32_t end=idx->pal->seek(idx->pal,idx->fd,0,PAL_SEEK_END);
+        if(end<0 || (uint32_t)end!=page_no*NDX_PAGE_SIZE+(uint32_t)present)return -NDX_ERR_IO;
+    }
 
     /* Parse the 4-byte node header.
      * Ref: ndx.md ss3 "entry_count is a 2-byte count at offset 0, with
@@ -623,8 +629,12 @@ int ndx_read_node(ndx_index *idx, uint32_t page_no, ndx_node_t **node_out)
      * NDX_NODE_ENTRIES_OFF = 4; group_length = ceil4(key_length+8). */
     entries_end = (uint32_t)NDX_NODE_ENTRIES_OFF
                 + (uint32_t)entry_count * (uint32_t)idx->group_length;
-    if (entries_end > (uint32_t)NDX_PAGE_SIZE)
+    if (entries_end > (uint32_t)present)
         return -NDX_ERR_PAGE_OVF;
+    /* A branch also needs its trailing child; a leaf's absent unused bytes
+     * are not manufactured into live entries (C22 and the NDX layout). */
+    if(entry_count && u32le(page+NDX_NODE_ENTRIES_OFF)!=0u &&
+       entries_end+NDX_GRP_CHILD_PAGE_SIZE>(uint32_t)present)return -NDX_ERR_PAGE_OVF;
 
     /* Allocate ndx_node_t + entry array + key_data pool from PAL arena.
      * ndx_node_free releases only this node.

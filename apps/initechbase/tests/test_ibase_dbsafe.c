@@ -370,6 +370,17 @@ static void incremental_failure_tests(void){
         pal_host_free(c.inner);if(!c.hit)break;
         CHECK(b<79,"all incremental failure boundaries enumerated");
     }
+    {
+        char src[1400];ibase_pal_t *p=setup();ndx_index *ix=NULL;ndx_node_t *node=NULL;
+        snprintf(src,sizeof src,"%s/tests/conformance/cases/C22/OLD.NDX",project_root);
+        copy_local(src,"CUT.NDX");
+        /* Independently remove part of a live eight-byte key, rather than
+         * only unused page padding. Header: page 1, three 16-byte groups. */
+        CHECK(truncate("CUT.NDX",512+4+2*16+4)==0,"cut within a live captured index group");
+        CHECK(ndx_open(p,"CUT.NDX",&ix)==0,"cut index header is still complete");
+        CHECK(ndx_read_node(ix,1,&node)!=0 && node==NULL,"missing live key bytes cannot be synthesized from padding");
+        ndx_close(ix);pal_host_free(c.inner);
+    }
 }
 /* One failed REPLACE must not commit a DBF with either preceding index.
  * Earlier successful records of a multi-record command are outside this

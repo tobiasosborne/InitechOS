@@ -1,0 +1,12 @@
+# test: test_ibase_dbsafe
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -629,7 +629,7 @@
+      * NDX_NODE_ENTRIES_OFF = 4; group_length = ceil4(key_length+8). */
+     entries_end = (uint32_t)NDX_NODE_ENTRIES_OFF
+                 + (uint32_t)entry_count * (uint32_t)idx->group_length;
+-    if (entries_end > (uint32_t)present)
++    if (entries_end > (uint32_t)NDX_PAGE_SIZE)
+         return -NDX_ERR_PAGE_OVF;
+     /* A branch also needs its trailing child; a leaf's absent unused bytes
+      * are not manufactured into live entries (C22 and the NDX layout). */

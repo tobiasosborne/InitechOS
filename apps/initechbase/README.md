@@ -191,14 +191,16 @@ EOF. REINDEX obtains keys in physical DBF order without consulting that old
 sequence, then invalidates navigation state. C21's transcript, the edited row 2
 and the rebuilt two-entry NDX match real III+; its booted smoke readback checks
 the same three results on both emulators. The study's other fifteen defects
-and all 28 pending patches remain assigned to the next owner.
+are being repaired against their retained captures; the accepted selection is
+listed below. The 28 pending patches remain to be qualified.
 
 INDEX and REINDEX retain each predecessor through their final reopen, header,
 attachment and navigation checks. An error restores the old file and index
 metadata; successful validation alone releases the backup. Fault tests exercise
 both the public REINDEX API and the commands, including full attachment slots
-and allocation failures. Incremental NDX updates and DBT saves remain outside
-this proof; initech-hls50 and initech-4qwvm belong to the second owner.
+and allocation failures. Incremental NDX and DBT append/flush now also stage
+their complete images. The `ndxfail`, `rowfail` and `dbtfail` matrices check
+preservation, one-record DBF/index consistency and recovered-handle retries.
 
 DOS 3.30 cannot atomically replace files through INT 21h. Under the operator's
 review ruling, if installation and restoration both fail, InitechBase prints

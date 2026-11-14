@@ -132,7 +132,9 @@ static void test_ndx_bounds(ibase_pal_t *p)
     ibase_pal_t fake=*p;
     for(n=0;n<=513;n+= n==0?1:n==1?510:2){
         write_bytes(ndxpath,b,n);
-        CHECK(ndx_open(p,ndxpath,&idx)==-NDX_ERR_BAD_SIZE,"NDX_SIZE: short or partial page is structural error");
+        int rc=ndx_open(p,ndxpath,&idx);
+        if(n<512)CHECK(rc==-NDX_ERR_BAD_SIZE,"NDX_SIZE: incomplete header is a structural error");
+        else CHECK(rc!=0,"NDX_SIZE: a complete all-zero header is invalid geometry");
         if(idx){ndx_close(idx);idx=NULL;}
     }
     fake.alloc=deny_alloc;allocations=providers=0;
