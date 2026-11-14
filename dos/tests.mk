@@ -185,6 +185,10 @@ HOST_TESTS += test-for-compat33
 test-for-compat33_SRCS := tests/runner.c
 test-for-compat33_ARGS := tests/run.sh test-for-compat33
 test-for-compat33_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-for-compat33.sh
+HOST_TESTS += test-if-exist-compat33
+test-if-exist-compat33_SRCS := tests/runner.c
+test-if-exist-compat33_ARGS := tests/run.sh test-if-exist-compat33
+test-if-exist-compat33_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-if-exist-compat33.sh
 include $(TOP)/mk/host-test.mk
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions

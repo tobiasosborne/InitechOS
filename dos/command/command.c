@@ -4171,15 +4171,19 @@ static int g_batch_depth = 0;
  * C stack, so it survives the nested CALL untouched. */
 static char g_batch_buf[BATCH_FILE_MAX];
 
-/* EXIST probe for batch_eval_if: AH=3Dh OPEN the spec; on success close it and
- * report 1 (exists), else 0.  Matches the dos_open-based prober the bead spec
- * calls for.  `ctx` is unused (the file system is global). */
+/* OEM DOS 3.30 compat33/BATCH: IF EXIST *.TXT finds files; bare SUB does
+ * not count as a file. OPEN handles plain names/devices; FINDFIRST expands
+ * wildcard file masks. `ctx` is unused (the file system is global). */
 static int batch_exist_probe(const char *spec, void *ctx)
 {
     int fh;
     (void)ctx;
     if (spec == 0 || spec[0] == '\0') {
         return 0;
+    }
+    if (cmd_has_wildcard(spec)) {
+        dos_setdta(&g_shell_dta);
+        return dos_findfirst(spec, 0u);
     }
     fh = dos_open(spec);
     if (fh >= 0) {
