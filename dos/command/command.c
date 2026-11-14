@@ -3420,6 +3420,7 @@ static void builtin_time(const char *arg)
  * Both are defined below, after the dispatcher run_batch reuses. */
 static void run_batch(const char *path, const char *const argv[], int argc);
 static void run_batch_invoke(const char *path, const char *tail);
+static void run_batch_named(const char *path, const char *tail, const char *name);
 
 /* Return 1 if `name` ends in the upper-cased extension ".BAT", else 0.  The
  * candidate paths cmd_path_candidates emits are upper-cased by run_external
@@ -3486,7 +3487,7 @@ static void run_external(const char *command, const char *tail)
             int fh = dos_open(prog);
             if (fh >= 0) {
                 dos_close(fh);
-                run_batch_invoke(prog, tail);
+                run_batch_named(prog, tail, command);
                 return;
             }
             /* .BAT not present at this candidate path -> try the next. */
@@ -4490,7 +4491,7 @@ static int dispatch_control(const char *line)
         callee[n]=0;
         cmd_upcase_str(callee);
         if (resolve_bat_path(callee,resolved)) {
-            run_batch_invoke(resolved,args);
+            run_batch_named(resolved,args,callee);
             if (frame) frame->len=batch_load_file(frame->path,g_batch_buf);
         } else dos_print(MSG_DOS_0002 "\r\n$");
         return 1;
@@ -4585,25 +4586,26 @@ static void run_batch(const char *path, const char *const argv[], int argc)
 
 /* Build a .BAT argv from a command word + a DOS command tail and run it.
  *
- *   `path` -- the resolved .BAT file path (used to OPEN/READ; also %0).
+ *   `path` -- the resolved .BAT file path (used to OPEN/READ).
+ *   `name` -- invocation spelling exposed as %0 (OEM DOS compat33/BATCH).
  *   `tail` -- the verbatim DOS command tail (leading separator + params), or
  *             NULL/"".  Tokenized into up to 9 positional parameters (%1..%9).
  *
  * The argv strings are copied into a local buffer (bounded), so the batch can
  * read %0..%9 without aliasing the caller's `tail`.  Ref: beads initech-xw1. */
-static void run_batch_invoke(const char *path, const char *tail)
+static void run_batch_named(const char *path, const char *tail, const char *name)
 {
-    /* argv[0] = path (%0); argv[1..9] = up to 9 params from the tail. */
+    /* argv[0] = invocation (%0); argv[1..9] = up to 9 params from the tail. */
     char        slots[10][CMD_TOKEN_MAX];
     const char *argv[10];
     int         argc = 1;
     const char *p = tail;
     int         i;
 
-    /* %0 = the batch path (DOS exposes the script name as %0). */
+    /* Keep the opened absolute path separate from the command's spelling. */
     {
         int n = 0;
-        const char *s = path;
+        const char *s = name;
         while (s != 0 && *s != '\0' && n < CMD_TOKEN_MAX - 1) {
             slots[0][n] = *s++;
             n++;
@@ -4640,6 +4642,12 @@ static void run_batch_invoke(const char *path, const char *tail)
     }
 
     run_batch(path, argv, argc);
+}
+
+/* Startup supplies an explicit script path rather than a command word. */
+static void run_batch_invoke(const char *path, const char *tail)
+{
+    run_batch_named(path, tail, path);
 }
 
 #ifndef COMMAND_BATCH_HOST

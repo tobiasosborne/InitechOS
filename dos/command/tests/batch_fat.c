@@ -23,12 +23,16 @@ static int run_pipeline_or_redirect(const char *s)
 int main(int argc,char **argv)
 {
     (void)g_out;
-    if(argc!=3)return 2;
+    if(argc!=3 && argc!=4)return 2;
     blockdev_file_t disk;fat12_volume_t vol;uint8_t sector[512];
     static psp_t process;psp_params_t params={0};params.alloc_end_linear=0x80000;
     if(blockdev_file_open_rw(&disk,argv[1]) || fat12_mount(&vol,&disk.dev,sector) || fileio_fat_bind(&vol))return 2;
     psp_build(&process,&params);sft_init();int21_set_psp(&process);int21_set_sink(sink);
     devices_init();int21_set_devices(devices_head(),0);env_init(&g_master_env);
+    if(argc==4) {
+        run_external(argv[2],argv[3]);
+        blockdev_file_close(&disk);return 0;
+    }
     FILE *f=fopen(argv[2],"rb");if(!f)return 2;
     char line[128],expanded[128];
     while(fgets(line,sizeof line,f)) {
