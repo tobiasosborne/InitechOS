@@ -244,13 +244,15 @@ static const tbx_menuinfo_t menus[] = {
 static const tbx_menubar_t mbar = { menus, 1, 1, 0 };
 
 /* ---- the document --------------------------------------------------------
- * Two 64 KB banks: one holds the current document's ORIGINAL (prefix +
+ * Two document banks: one holds the current document's ORIGINAL (prefix +
  * body, the piece table's read-only buffer), the other is scratch -- a file
  * is read into it, a save is flattened into it, and on success it becomes
  * the original (so a save also compacts the piece table). All BSS (the
  * e_minalloc area): file buffers may be BSS (toolbox_gate.h Sec 10). */
 #ifndef IWORD_SMALL_BUFFERS
-#define BANK        65536u
+/* W11 real WP5.1 edit/save/reopen crosses 64 KiB. One more 4 KiB page
+ * fits the unchanged 512 KiB tenant BSS limit, including clipboard and undo. */
+#define BANK        (17u * 4096u)
 #define ADD_CAP     65536u
 #define PIECES      8192u
 #define ROOM_PIECES 2048u        /* compact below this many free pieces   */

@@ -1,0 +1,14 @@
+# test: test_iword_retrieve
+# Reinstates the captured 65537-byte conformance defect.
+diff --git a/app/face_a.c b/app/face_a.c
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -252,7 +252,7 @@
+ #ifndef IWORD_SMALL_BUFFERS
+ /* W11 real WP5.1 edit/save/reopen crosses 64 KiB. One more 4 KiB page
+  * fits the unchanged 512 KiB tenant BSS limit, including clipboard and undo. */
+-#define BANK        (17u * 4096u)
++#define BANK        65536u
+ #define ADD_CAP     65536u
+ #define PIECES      8192u
+ #define ROOM_PIECES 2048u        /* compact below this many free pieces   */

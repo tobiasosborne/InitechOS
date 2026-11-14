@@ -80,12 +80,71 @@ static void refused(void)
           "recovery","unsupported corruption keeps existing document");
     source_unchanged();
 }
+/* W11-save/reopen: all 65210 source x characters survive an appended Z.
+ * Check the whole body with literal byte spans, without the product reader. */
+static int all_x(uint32_t n)
+{
+    uint8_t body[80000];
+    if(g_ed.doc.len!=n||iw_doc_read(&g_ed.doc,0,body,n)!=n)return 0;
+    for(uint32_t i=0;i<n;i++)if(body[i]!='x')return 0;
+    return 1;
+}
+static void large_document(const char *dir)
+{
+    seed_input();m_read_limit=97;retrieve_case();
+    CHECK(g_mode==M_EDIT&&!strcmp(g_current,"A:\\CASE.WP5"),"large","65537-byte captured input retrieves");
+    CHECK(all_x(65210),"large","every captured source character is present");
+    source_unchanged();
+    if(g_mode!=M_EDIT)return;
+    g_ed.cur=g_ed.doc.len;tk('Z');
+    CHECK(g_mode==M_EDIT&&g_ed.dirty,"large","append beyond the old file ceiling works");
+    fkey(F10,0);tks("LARGE.WP5\r");
+    CHECK(g_mode==M_EDIT&&!g_ed.dirty,"large","larger document saves");
+    source_unchanged();write_result(dir,"LARGE.WP5");
+    const tbx_host_file_t *saved=tbx_host_file("LARGE.WP5");
+    if(!saved)return;
+    uint8_t copy[80000];uint32_t n=saved->size;
+    CHECK(n<=sizeof copy,"large","saved stream fits test buffer");
+    if(n>sizeof copy)return;
+    memcpy(copy,saved->data,n);seed_input();
+    CHECK(tbx_host_put_file("REOPEN.WP5",copy,n),"large","seed saved larger stream");
+    fkey(F10,SHIFT);tks("REOPEN.WP5\r");
+    uint8_t body[65211];
+    int same=g_mode==M_EDIT&&g_ed.doc.len==sizeof body&&
+        iw_doc_read(&g_ed.doc,0,body,sizeof body)==sizeof body&&body[65210]=='Z';
+    for(uint32_t i=0;same&&i<65210;i++)if(body[i]!='x')same=0;
+    CHECK(same,"large","fresh tenant reopens every original character and final Z");
+}
+static void capacity_boundary(const char *dir)
+{
+    /* Authored 68 KiB limit fits the unchanged 512 KiB tenant BSS contract.
+     * Synthetic valid WP text derives only its opaque prefix from W11. */
+    memset(input_bytes+327,'x',69633-327);input_n=69632;
+    seed_input();m_read_limit=97;retrieve_case();
+    CHECK(g_mode==M_EDIT&&all_x(69305),"capacity","whole 69632-byte file opens at limit");
+    if(g_mode==M_EDIT){
+        g_ed.cur=g_ed.doc.len;tk('Z');
+        CHECK(g_mode==M_ERROR&&g_err&&!strcmp(g_err,"ERROR: Document too large")&&all_x(69305),
+              "capacity","excess edit refuses visibly without losing existing bytes");
+        fkey(F1,0);fkey(F10,0);tks("FULL.WP5\r");
+        CHECK(g_mode==M_EDIT&&!g_ed.dirty,"capacity","full document still saves after refused edit");
+        source_unchanged();write_result(dir,"FULL.WP5");
+    }
+    input_n=69633;seed_input();tks("Keep me");retrieve_case();
+    uint8_t body[8];
+    CHECK(g_mode==M_ERROR&&g_err&&!strcmp(g_err,"ERROR: Document too large"),
+          "capacity","one byte beyond limit refuses visibly");
+    CHECK(g_ed.doc.len==7&&iw_doc_read(&g_ed.doc,0,body,sizeof body)==7&&!memcmp(body,"Keep me",7),
+          "capacity","oversized Retrieve preserves working text");
+    source_unchanged();
+}
 int main(int argc,char **argv)
 {
-    if(argc!=4)return 2;
+    if(argc!=5)return 2;
     int counts[2]={0,0};g_ctr=counts;
     input_n=read_input(argv[2]);recovered(argv[1]);
     input_n=read_input(argv[3]);refused();
+    input_n=read_input(argv[4]);large_document(argv[1]);capacity_boundary(argv[1]);
     printf("test_iword_retrieve: %d checks, %d failures\n",counts[0],counts[1]);
     return counts[1]?1:0;
 }

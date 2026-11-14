@@ -170,3 +170,12 @@ The registered Retrieve test checks that exact formatting through an independent
 WP5 reader, source-byte preservation, short reads and a fresh-tenant reopen.
 The codec remains strict; unsupported damaged codes, including a complete wrong
 mirror, are refused without changing the existing document.
+
+Document banks hold 68 KiB (69,632 file bytes), including the opaque WP prefix.
+This admits the captured 65,537-byte W11 document and its saved/editable versions.
+The W11 save/reopen reference preserves all 65,210 source characters and an
+appended Z. The independent reader checks every character after save; host
+tests reopen the result and check the full-capacity and one-byte-over boundaries.
+Files beyond the finite capacity and edits beyond available room refuse visibly
+while preserving existing text and source bytes. The tenant BSS limit remains
+512 KiB; the target artifact check enforces it.

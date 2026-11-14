@@ -18,12 +18,27 @@ case "$name" in
     fixtures=tests/conformance/fixtures
     (cd "$fixtures"; sha256sum -c ../SHA256SUMS --quiet)
     (cd tests/conformance; grep '  captures/W06-save/AFTER.WP5$' CAPTURES.sha256 | sha256sum -c --quiet -)
-    "$bin" "$dir" "$fixtures/W06.WP5" "$fixtures/W07.WP5"
+    "$bin" "$dir" "$fixtures/W06.WP5" "$fixtures/W07.WP5" "$fixtures/W11.WP5"
     python3 -I "$ref" tests/conformance/captures/W06-save/AFTER.WP5 > "$dir/reference"
     python3 -I "$ref" "$dir/RECOVER.WP5" > "$dir/recovered"
     for dump in reference recovered; do
       grep -qxF "  TEXT: 'ReadableZ'" "$dir/$dump"
       grep -qxF "  CODES: T'Readable' [AttrOn Bold] T'Z'" "$dir/$dump"
+      grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$' "$dir/$dump"
+    done
+    (cd tests/conformance; grep '  captures/W11-save/AFTER.WP5$' CAPTURES.sha256 | sha256sum -c --quiet -)
+    python3 -I "$ref" tests/conformance/captures/W11-save/AFTER.WP5 > "$dir/large-reference"
+    python3 -I "$ref" "$dir/LARGE.WP5" > "$dir/large"
+    python3 -I "$ref" "$dir/FULL.WP5" > "$dir/full"
+    for dump in large-reference large full; do
+      awk -v full="$dump" '
+        /^  TEXT: / {
+          text=substr($0,10,length($0)-10); seen++
+          if(full=="full") { if(length(text)!=69305 || text !~ /^x+$/) exit 1 }
+          else if(length(text)!=65211 || substr(text,1,65210) !~ /^x+$/ || substr(text,65211)!="Z") exit 1
+        }
+        END { if(seen!=1) exit 1 }
+      ' "$dir/$dump"
       grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$' "$dir/$dump"
     done
     ;;
