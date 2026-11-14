@@ -126,7 +126,7 @@ The default-ring patch selects test_dialog; the wrong-era patch selects
 test_chrome_fidelity, matching their legacy host gates.
 
 MUTATION-RESULTS.tsv is the complete conversion disposition and recipe index.
-The sixteen pending emulator checks remain with the factory/desktop owners;
+The sixteen once-pending emulator checks are now killed by host legs (qpslo);
 SMOKES.md and SMOKES.tsv retain their broader legacy scenario inventory. Kernel
 owns the host-DOS binding debt and its mouse-producer/boot-renderer probes.
 Factory owns the retired checker/source-policy probes; desktop owns parked

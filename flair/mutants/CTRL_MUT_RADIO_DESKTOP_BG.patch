@@ -1,4 +1,3 @@
-# pending: legacy test-flair-cpanels-radio-mutant: independent radio background pixels
 # Legacy CTRL_MUT_RADIO_DESKTOP_BG
 # test: test_control test_scrollbar_look
 --- a/control.c

@@ -72,6 +72,7 @@
 #include "chrome_fidelity_golden.h" /* independent controls.md expectations    */
 #include "text.h"               /* text_measure, FONT_CHICAGO (-Ios/flair)     */
 #include "alert_capture.h"
+#include "icon_capture.h"     /* icap_png: the independent CAUTION capture   */
 #include "test_assert.h"        /* TEST_HARNESS/CHECK/TEST_SUMMARY (-Iseed)    */
 
 /* Region storage for dialog tests (pool sizes mirror test_control.c). */
@@ -914,6 +915,68 @@ static void draw_capture_dbox(GrafPort *port)
     DrawDialog(dp);
 }
 
+/* ALERT-CAUTION-ICON (initech-qpslo; legacy test-flair-trash-full-mutant).
+ * An alert's iconItem naming the CAUTION ICON (IM-I p. I-419, ID 2) draws
+ * the strike at the item's top-left. The ground truth is the real Mac OS 8.1
+ * Empty Wastebasket alert, s8_icons_alert_caution.png (mint-008), whose icon
+ * cell is the 32x32 at (156,100) on the alert face (icon_capture.h). The
+ * dialog below places its iconItem there, inside the same alert frame as
+ * ALERT-BANDS, and DrawDialog renders it; all 1024 cells are compared with
+ * the PNG decoded on this run -- clear cells against the face behind them. */
+static void draw_caution_alert(GrafPort *port)
+{
+    DialogRecord dr;
+    DialogItem item;
+    rgn_store_t struc, cont, upd;
+    rgn_store_init(&struc);
+    rgn_store_init(&cont);
+    rgn_store_init(&upd);
+    memset(&item, 0, sizeof item);
+    item.type = iconItem;
+    item.rect.top = 100; item.rect.left = 156;
+    item.rect.bottom = 132; item.rect.right = 188;
+    item._pad[0] = (uint8_t)DIALOG_ICON_ID_CAUTION;
+    rgn_rect_t bounds = {87, 133, 191, 507};
+    DialogPtr dp = NewDialog(&dr, bounds, "", &item, 1u, 0u, 0u, NULL,
+                             &struc.r, &cont.r, &upd.r);
+    if (!dp) return;
+    dp->window.port = *port;
+    dp->window.port.portRect = bounds;
+    DrawDialog(dp);
+}
+
+static void test_caution_icon_capture(void)
+{
+    unsigned char *gold = icap_png(CHROME_FID_CAPTURE_DIR, "s8_icons_alert_caution.png");
+    CHECK(gold != NULL, "ALERT-CAUTION-ICON: independent PNG must decode");
+    if (!gold) return;
+    /* Scene: the capture cell really holds an icon (not plain face). */
+    int ink = 0;
+    for (int y = 0; y < 32; y++)
+        for (int x = 0; x < 32; x++)
+            ink += icap_px(gold, 156 + x, 100 + y) != icap_px(gold, 156, 100);
+    CHECK(ink > 200, "ALERT-CAUTION-ICON scene: the capture cell holds the icon");
+    for (unsigned bpp = 8; bpp <= 32; bpp += 24) {
+        render_ctx_t ctx;
+        int bad = 0;
+        if (render_one(&ctx, bpp) != 0) {
+            CHECK(0, "ALERT-CAUTION-ICON: render context must initialize");
+            continue;
+        }
+        render_run(&ctx, draw_caution_alert);
+        for (int y = 0; y < 32; y++)
+            for (int x = 0; x < 32; x++)
+                bad += render_pixel_rgb(&ctx, (unsigned)(156 + x), (unsigned)(100 + y)) !=
+                       icap_px(gold, 156 + x, 100 + y);
+        printf("ALERT-CAUTION-ICON depth=%u: %d/1024 cells matched capture\n",
+               bpp, 1024 - bad);
+        CHECK(bad == 0, "ALERT-CAUTION-ICON: the CAUTION iconItem equals the "
+                        "Empty Wastebasket alert's icon, all 1024 cells");
+        render_ctx_free(&ctx);
+    }
+    free(gold);
+}
+
 /* L023: decode the historical frame at runtime. controls.md Sec 6 and
  * s8_alert_modal.png: frame x133..506,y87..190; mid-edge inward bands
  * TL 000000/FFB3B3/FFFFFF/E7E7E7, BR 000000/FF8787/B3B3B3/E7E7E7.
@@ -1155,6 +1218,7 @@ int main(int argc, char **argv)
     test_draw_filecopy();
     test_draw_border_sweep();
     test_draw_default_ring();
+    test_caution_icon_capture();
     test_item_accessors();
     test_find_dialog_item();
 

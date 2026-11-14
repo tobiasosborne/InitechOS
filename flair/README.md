@@ -190,17 +190,20 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 203 patches through the shared strict runner: passing baseline,
+make mutants runs 215 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
 the shared runner itself is serial. Native parallel scheduling and baseline sharing across patch workers
 would remove this local wrapper and the serial tail of large selection groups.
-Twelve patches under mutants/pending/ still need their named legacy emulator gates.
-Four of the original sixteen pending patches were promoted: the two FILE COPY
-patches are killed twice by test_filecopy_disk, and the raster routing fixture
-kills drawing-not-presented and window-token-alias twice. The other twelve
-remain unproved. No compile failure was counted as a kill.
+No patch is pending. The sixteen patches once pending on legacy emulator gates
+are killed twice by host legs: the two FILE COPY patches by test_filecopy_disk;
+drawing-not-presented and window-token-alias by the raster routing fixture;
+the menu-bar, exit, Geneva, cell-underline and Control Panels gate patches by
+test_flair_routing legs M/R/F/U/K; and the rDocProc close box, radio face,
+default-ring corners and CAUTION icon by capture legs in test_chrome_fidelity,
+test_control and test_dialog (s8_calc_idle, s8_controls_dialog face,
+s8_alert_modal, s8_icons_alert_caution). No compile failure was counted as a kill.
 The copy patches were refreshed against staged copying,
 with independent destination bytes and a literal configured-rate assertion.
 None was deleted as equivalent. tests/MUTATION-RESULTS.tsv records the 207 original

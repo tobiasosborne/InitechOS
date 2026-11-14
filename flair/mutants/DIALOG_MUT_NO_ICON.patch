@@ -1,4 +1,3 @@
-# pending: legacy test-flair-trash-full-mutant: independent CAUTION icon pixels
 # Legacy DIALOG_MUT_NO_ICON
 # test: test_dialog test_dialog_tracking
 --- a/dialog.c

@@ -1,4 +1,3 @@
-# pending: legacy test-flair-calcda-mutant: independent rDocProc close-widget pixels
 # Legacy CHROME_MUT_RDOC_NO_CLOSE
 # test: test_chrome_fidelity test_chrome test_scrollbar_look
 --- a/chrome.c

@@ -462,6 +462,16 @@ static void draw_capture_no_grow(GrafPort *port)
     owner_fill_content(port);
 }
 
+/* The Calculator's rDocProc window, active, with its close box, at the
+ * capture's frame (267,94)..(372,261) inclusive (s8_calc_idle.png). */
+static void draw_capture_rdoc(GrafPort *port)
+{
+    rgn_rect_t f;
+    f.top = 94; f.left = 267; f.bottom = 262; f.right = 373;
+    flair_draw_rdoc_window(port, flair_look_default_skin(), f, "Calculator", 1,
+                           FLAIR_WINDOW_WIDGET_CLOSE);
+}
+
 /* grade the ENTIRE cell directly against the independent capture,
  * including the three rows omitted by FG_GROW_PROFILE. No chrome_metrics.h
  * or renderer palette is an input to the expectation. Platinum base governs: this
@@ -1195,6 +1205,53 @@ int main(int argc, char **argv)
     CHECK(cap_grow_inactive_ok, "leg CAPTURE-GROW-INACTIVE: all 324 pixels equal the independent PNG at both depths");
     CHECK(no_grow_ok, "leg GROW-NO-REGION: no gadget when the window has no grow capability");
 
+    /* CAPTURE-RDOC-CLOSE (initech-qpslo; legacy test-flair-calcda-mutant).
+     * The rDocProc (16) WDEF's close box, graded against the real Mac OS 8.1
+     * Calculator window, the one rDocProc capture (s8_calc_idle.png, frame
+     * (267,94)..(372,261) inclusive, mint-results-007). The graded square is
+     * frame-relative x 8..19, y 3..14: the 10x10 ring and a 1-px margin of
+     * the black title band around it. Every expected pixel is read from the
+     * PNG; no chrome or rdoc.h value is an input to the expectation. */
+    int rdoc_close_ok = 0;
+    {
+        char pc[1024];
+        capture_img_t cc;
+        snprintf(pc, sizeof pc, "%s", CHROME_FID_CAPTURE_DIR "/s8_calc_idle.png");
+        int have = capture_load(&cc, pc);
+        CHECK(have, "leg CAPTURE-RDOC-CLOSE: the independent s8_calc_idle capture "
+                    "must decode (640x480) -- a missing golden is RED");
+        if (have) {
+            int white = 0;
+            for (int y = 3; y < 15; y++)
+                for (int x = 8; x < 20; x++)
+                    white += cap_rgb(&cc, 267 + x, 94 + y) == 0xFFFFFFu;
+            /* The capture's square is a closed white ring on black: 36 ring
+             * pixels (a 10x10 outline), everything else black. */
+            CHECK(white == 36, "leg CAPTURE-RDOC-CLOSE scene: the capture square "
+                               "holds the 36-pixel white ring of a 10x10 box");
+            rdoc_close_ok = white == 36;
+            for (unsigned depth = 8; depth <= 32; depth += 24) {
+                render_boot_info_t rb = { 0, 0, depth, 640, 480 };
+                render_ctx_t rr;
+                int bad = 0;
+                if (render_ctx_init(&rr, &rb) != 0) { rdoc_close_ok = 0; break; }
+                render_run(&rr, draw_capture_rdoc);
+                for (int y = 3; y < 15; y++)
+                    for (int x = 8; x < 20; x++)
+                        bad += our_rgb(&rr, 267 + x, 94 + y) !=
+                               cap_rgb(&cc, 267 + x, 94 + y);
+                printf("  CAPTURE-RDOC-CLOSE depth%u: %d/144 differ\n", depth, bad);
+                rdoc_close_ok &= bad == 0;
+                render_ctx_free(&rr);
+            }
+            free(cc.rgb);
+        }
+    }
+    CHECK(rdoc_close_ok,
+          "leg CAPTURE-RDOC-CLOSE: the active rDocProc window with a close box "
+          "reproduces s8_calc_idle's close ring and the band around it, all 144 "
+          "pixels, at both depths");
+
 #define LEG_STATUS(name, ok, why) \
     printf("  %-24s %s -- %s\n", name, (ok) ? "PASS" : "RED", why)
     LEG_STATUS("BAND", band_ok, "22-row profile / 12 light-first stripes / 2+4 face");
@@ -1227,6 +1284,7 @@ int main(int argc, char **argv)
     LEG_STATUS("CAPTURE-GROW-ACTIVE", cap_grow_ok, "324/324 independent PNG pixels, both depths");
     LEG_STATUS("CAPTURE-GROW-INACTIVE", cap_grow_inactive_ok, "324/324 independent PNG pixels, both depths");
     LEG_STATUS("GROW-NO-REGION", no_grow_ok, "absent capability leaves content clear");
+    LEG_STATUS("CAPTURE-RDOC-CLOSE", rdoc_close_ok, "rDocProc close ring == s8_calc_idle, 144/144");
 #undef LEG_STATUS
 
     if (rc == 0) render_ctx_free(&trunc);

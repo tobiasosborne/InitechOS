@@ -560,6 +560,16 @@ static void draw_all_controls(GrafPort *port)
         control_init(&sb, scrollBar, r, 50, 0, 100, 1, "");
         DrawControl(port, &sb);
     }
+
+    /* Selected radio button with a label, embedded in a dialog: [450,100)
+     * to [550,116). Its 12x12 box sits at y 102..113. */
+    {
+        ControlRecord radio;
+        rgn_rect_t r;
+        r.top = 100; r.left = 450; r.bottom = 116; r.right = 550;
+        control_init(&radio, radioButton, r, 1, 0, 1, 1, "Radio");
+        DrawControl(port, &radio);
+    }
 }
 
 static void test_draw_controls(void)
@@ -648,6 +658,38 @@ static void test_draw_controls(void)
               pidx(&ctx, 457u, 55u) == FG_CTRL_DARK_SHADOW_IDX &&
               pidx(&ctx, 458u, 55u) == FG_CTRL_SHADOW_IDX,
               "checked checkbox must retain black X plus 96/C0 lower-right shade legs");
+    }
+
+    /* --- RADIO AMBIENT FACE (initech-qpslo; legacy test-flair-cpanels-radio-
+     * mutant) ---
+     * Mac OS 8.1 has no radio capture (controls.md Sec 8 records the gap), so
+     * the radio's SHAPE is not graded here. What is graded is the colour it
+     * paints around that shape: a radio lives in a dialog, so the four
+     * clipped corners of its box and the background of its label run are
+     * the dialog face sampled from s8_controls_dialog.png (controls.md Sec 1,
+     * FG_CTRL_FACE_IDX), never the desktop the window sits on. */
+    {
+        int corners = pidx(&ctx, 450u, 102u) == FG_CTRL_FACE_IDX &&
+                      pidx(&ctx, 461u, 102u) == FG_CTRL_FACE_IDX &&
+                      pidx(&ctx, 450u, 113u) == FG_CTRL_FACE_IDX &&
+                      pidx(&ctx, 461u, 113u) == FG_CTRL_FACE_IDX;
+        CHECK(corners,
+              "RADIO-FACE: the radio box's four clipped corners must be the "
+              "sampled E7 dialog face (idx231)");
+        CHECK(pidx(&ctx, 451u, 102u) == FG_CTRL_FRAME_IDX &&
+              pidx(&ctx, 455u, 105u) == FG_CTRL_FRAME_IDX,
+              "RADIO-FACE scene: frame and selected dot are drawn black");
+        /* The label pens at box right + 4 = 466; its run is opaque. Every
+         * pixel of its first column is ink (black) or face, none desktop. */
+        int label = 1, face = 0;
+        for (uint32_t y = 100u; y < 116u; y++) {
+            uint32_t i = pidx(&ctx, 466u, y);
+            label &= i == FG_CTRL_FACE_IDX || i == FG_CTRL_FRAME_IDX;
+            face += i == FG_CTRL_FACE_IDX;
+        }
+        CHECK(label && face > 0,
+              "RADIO-FACE: the label run's background is the sampled E7 dialog "
+              "face, never the desktop");
     }
 
     /* --- SCROLLBAR ASSERTIONS ---
@@ -1048,6 +1090,56 @@ static void test_capture_button(void)
     free(gold);
 }
 
+/* RING-CORNERS (initech-qpslo; legacy test-flair-cpanels-date-mutant). The
+ * default OK of s8_alert_modal.png: ring bounds x432..496, y155..180
+ * (controls.md Sec 5.2), so the button is [435,494) x [158,178), the sampled
+ * 59x20 class. The button is painted first and the ring last, as
+ * DrawDialog does (dialog.c: the corner moat overlaps the button box). Graded: the four 5x5 corner crops of the ring bounds --
+ * the rounded black ring, its smoothing pixels, the moat and the button
+ * corner they meet -- exact against the PNG decoded on every run. The
+ * straight legs are graded by test_dialog's DEFAULT ring leg. */
+static void draw_capture_default_ok(GrafPort *port)
+{
+    ControlRecord btn;
+    rgn_rect_t rect = {158, 435, 178, 494};
+    control_init(&btn, pushButton, rect, 0, 0, 1, 1, "OK");
+    DrawControl(port, &btn);
+    DrawControlDefaultRing(port, &btn);
+}
+
+static void test_capture_ring_corners(void)
+{
+    static const int cx[2] = { 432, 492 }, cy[2] = { 155, 176 };
+    unsigned char *gold = alert_capture_load();
+    CHECK(gold != NULL, "RING-CORNERS: independent PNG must decode");
+    if (!gold) return;
+    for (unsigned bpp = 8; bpp <= 32; bpp += 24) {
+        render_ctx_t ctx;
+        int bad = 0;
+        if (render_one(&ctx, bpp) != 0) {
+            CHECK(0, "RING-CORNERS: render context must initialize");
+            continue;
+        }
+        render_run(&ctx, draw_capture_default_ok);
+        for (int k = 0; k < 4; k++)
+            for (int y = 0; y < 5; y++)
+                for (int x = 0; x < 5; x++) {
+                    int gx = cx[k & 1] + x, gy = cy[k >> 1] + y;
+                    uint32_t got = render_pixel_rgb(&ctx, (unsigned)gx, (unsigned)gy);
+                    uint32_t want = alert_capture_rgb(gold, gx, gy);
+                    if (got != want && bad < 6)
+                        printf("RING-CORNERS depth=%u (%d,%d): capture %06X ours %06X\n",
+                               bpp, gx, gy, (unsigned)want, (unsigned)got);
+                    bad += got != want;
+                }
+        printf("RING-CORNERS depth=%u: %d/100 matched\n", bpp, 100 - bad);
+        CHECK(bad == 0, "RING-CORNERS: the default ring's four 5x5 rounded corners "
+                        "equal s8_alert_modal.png (100/100)");
+        render_ctx_free(&ctx);
+    }
+    free(gold);
+}
+
 /*: the PRESSED default OK, host leg. The expected pixels are the
  * mint-010 pair (s8_alert_ok_pressed.png + _tl.png, composed pointer-free by
  * harness/render/alert_capture.h) decoded on EVERY run -- never a palette or
@@ -1165,6 +1257,7 @@ int main(int argc, char **argv)
     test_progress_platinum_golden();
     test_capture_button();
     test_capture_pressed();
+    test_capture_ring_corners();
     test_scrollbar_draw_vs_math();
     test_scrollbar_thumb_anatomy();
     test_scrollbar_disabled_face();
