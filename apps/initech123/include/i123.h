@@ -208,6 +208,11 @@ void i123_cell_text(const i123_sheet_t *sh, const i123_cell_t *c,
  * + NUL in line[]. */
 void i123_render_row(const i123_sheet_t *sh, uint16_t row, uint16_t left,
                      uint32_t nchars, char *line);
+/* Session-only Global Zero: optional encoded label, clipped to each column.
+ * This view option is never a worksheet record; zero_len == 0 displays zeros. */
+void i123_render_row_zero(const i123_sheet_t *sh, uint16_t row, uint16_t left,
+                         uint32_t nchars, char *line,
+                         const char *zero, uint32_t zero_len);
 /* The control-panel content of a cell as line 1 shows it after "A1: ":
  * a label with its prefix, a number in up to 15 significant digits. */
 void i123_cell_content(const i123_sheet_t *sh, const i123_cell_t *c,

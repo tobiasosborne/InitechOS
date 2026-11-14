@@ -1,0 +1,557 @@
+sleep 4
+key esc
+type /frBEFORE
+key ret
+sleep 1
+type /wgz
+key right
+sleep 0.8
+shot yes_description
+key ret
+sleep 0.8
+type /wgz
+sleep 0.8
+shot choices_after_yes
+key ret
+sleep 0.8
+shot enter_after_yes
+type /wgzy
+sleep 0.8
+type /wgzl
+sleep 0.8
+shot label_from_yes
+type NIL
+key ret
+sleep 0.8
+shot right_label
+type /wgz
+sleep 0.8
+shot choices_after_label
+type l
+sleep 0.8
+shot direct_reopen
+key esc
+sleep 0.8
+shot cleared_field
+key esc
+sleep 0.8
+shot cancel_menu
+key esc
+key esc
+key esc
+key esc
+key f9
+sleep 0.8
+shot canceled_result
+type /wgzn
+type /wgzl
+sleep 0.8
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+key a
+shot full_input
+key ret
+wait READY
+shot full_result
+type /wgzl
+sleep 0.8
+shot full_reopened
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+hmp sendkey backspace 30
+shot after_239_backspaces
+key backspace
+shot after_240_backspaces
+key backspace
+shot after_241_backspaces
+key esc
+key esc
+key esc
+key esc
+key esc
+key esc
+key f9
+sleep 0.8
+shot canceled_full
+type /fsMAXREF
+key ret
+sleep 2
+type /wgzy
+sleep 0.8
+type /qy
+sleep 0.8
+shot quit_after_zero_change
+end

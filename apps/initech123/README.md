@@ -35,9 +35,9 @@ component's include path. No build input comes from attic.
 
 ## Verification
 
-`make test` runs 26 host suites: the original 18, protection, shipped-configuration
+`make test` runs 27 host suites: the original 18, protection, shipped-configuration
 menu loading, EDIT, frame placement, file conformance, column ranges, time formats
-and Data Fill, using sdk/host's shared fake Toolbox. No emulator runs in tier 0.
+and Data Fill, plus Global Zero, using sdk/host's shared fake Toolbox. No emulator runs in tier 0.
 The original 1,023,560 counted assertions are retained; malformed Retrieve and
 automatic numeric-entry recalculation add seven, and menu_disk adds 354.
 Separate checks still cover eight real Copy/Move pairs, four tiling fixtures,
@@ -55,7 +55,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 48 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 49 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
 Bochs, including an independent check of the worksheet saved from the Finder.
@@ -119,7 +119,7 @@ mkdir -p ../../build/apps/initech123/save-probe
   tests/fixtures/protection --save-safety
 ```
 
-There are **217 refused slash-menu leaves**. **File Save > Backup** in
+There are **216 refused slash-menu leaves**. **File Save > Backup** in
 the replacement prompt is removed by the approved split. Every slash leaf
 below shows `Command not implemented`; Esc returns to READY. Quit leaves that
 return to READY are navigation, not unavailable operations. No listed command
@@ -148,7 +148,6 @@ and agrees with the 224-leaf October audit. Sources: legacy-final
 | `/Worksheet/Global/Default/Other/Beep` | `Enable`, `Disable` |
 | `/Worksheet/Global/Default/Other/Add-In` | `Set`, `Cancel` |
 | `/Worksheet/Global/Default/Autoexec` | `Enable`, `Disable` |
-| `/Worksheet/Global` | `Zero` |
 | `/Worksheet/Insert` | `Column`, `Row` |
 | `/Worksheet/Delete` | `Column`, `Row` |
 | `/Worksheet/Column` | `Hide`, `Display` |
@@ -259,3 +258,11 @@ failure. Defaults are numeric and reset on Retrieve/Worksheet Erase;
 Cancel preserves the worksheet. The independent reader compares every saved
 cell/name/protection/settings record, including the smaller native model's
 memory-limited prefix. No new WK1 parameter record is introduced.
+
+Global Zero provides No/Yes/Label, including editable label prefixes and the
+240-character input limit. It substitutes only actual numeric zero, clips
+replacement labels to the column and leaves Hidden/formula Text/errors alone.
+`tests/fixtures/zero` compares whole rendered rows directly against real VGA;
+paired complete WK1 saves must be byte-identical. The option never dirties
+or enters worksheet records, and resets on Retrieve/Worksheet Erase. The
+same captures correct Date1 serial-zero display to `00-Jan-00`.
