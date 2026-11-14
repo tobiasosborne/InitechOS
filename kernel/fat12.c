@@ -2469,6 +2469,37 @@ int fat12_hide_dir(const fat12_volume_t *vol, const void *fat, uint32_t fat_len,
                                      slot, &de, sector_buf);
 }
 
+/* A postcommit maintenance failure may leave two same-parent file entries
+ * naming the adopted chain. Neither entry then owns that allocation alone.
+ * Refuse mutations before the first write, not after entering rollback.
+ * Source: the operator's monotonic replacement/allocation rule, initech-oaouv.
+ * A move must also refuse: moving an alias away would evade this parent scan.
+ * This guards the staged-replacement state, not arbitrary FAT cross-link repair.
+ */
+static int fat12_exclusive_allocation(const fat12_volume_t *vol, const void *fat,
+                                      uint32_t fat_len, uint16_t parent,
+                                      uint32_t self, const dir_entry_t *entry,
+                                      void *sector_buf)
+{
+	if (entry->start_cluster < 2u ||
+	    (entry->attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL))) return FAT12_OK;
+	uint32_t limit = parent == 0u ? vol->bpb.root_entry_count :
+	    vol->total_clusters * vol->bpb.sectors_per_cluster *
+	    (vol->bpb.bytes_per_sector / (uint32_t)sizeof(dir_entry_t));
+	for (uint32_t slot=0;slot<limit;slot++) {
+		dir_entry_t other;
+		int rc=fat12_read_dirent_in_dir(vol,fat,fat_len,parent==0u,parent,
+		                                 slot,&other,sector_buf);
+		if (rc==FAT12_ERR_DIR_FULL) break;
+		if (rc) return rc;
+		if (!other.filename[0]) break;
+		if (slot!=self && other.filename[0]!=DIR_NAME_DELETED &&
+		    !(other.attribute & (DIR_ATTR_DIRECTORY|DIR_ATTR_VOLLABEL)) &&
+		    other.start_cluster==entry->start_cluster) return FAT12_ERR_ACCESS;
+	}
+	return FAT12_OK;
+}
+
 /* CREAT replacement / UNLINK share one destructive metadata transaction.
  * Source: FAT allocation ownership invariant (CLAUDE.md, The constitution),
  * initech-rg6d5. On a reported recoverable I/O error the original name, bytes
@@ -2492,6 +2523,8 @@ static int fat12_remove_allocation(const fat12_volume_t *vol, void *fat,
 	if (have_chain) {
 		if (fat == NULL) return FAT12_ERR_NULL;
 		if (bytes > sizeof before || fat_len < bytes) return FAT12_ERR_BUFFER;
+		rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,slot,old,sector_buf);
+		if (rc != FAT12_OK) return rc;
 		/* Validate the entire chain before changing the live allocation map.
 		 * A corrupt tail must not leave a partly freed prefix in memory. */
 		bpc = (uint32_t)vol->bpb.sectors_per_cluster * vol->bpb.bytes_per_sector;
@@ -2690,6 +2723,8 @@ int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	rc = fat12_read_dirent_local(vol, slot, &de, sector_buf);
 	if (rc != FAT12_OK) return rc;
 	if ((de.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
+	rc = fat12_exclusive_allocation(vol,fat,fat_len,0u,slot,&de,sector_buf);
+	if (rc != FAT12_OK) return rc;
 
 	bytes_per_cluster = (uint32_t)vol->bpb.sectors_per_cluster *
 	                    (uint32_t)vol->bpb.bytes_per_sector;
@@ -2855,6 +2890,8 @@ int fat12_set_size(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (old.filename[0] == 0u || old.filename[0] == 0xe5u ||
 	    (old.attribute & (DIR_ATTR_READONLY | DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)))
 		return FAT12_ERR_ACCESS;
+	rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,slot,&old,sector_buf);
+	if (rc != FAT12_OK) return rc;
 	bpc = (uint32_t)vol->bpb.sectors_per_cluster * vol->bpb.bytes_per_sector;
 	count = old.file_size / bpc + (old.file_size % bpc != 0u);
 	keep = size / bpc + (size % bpc != 0u);
@@ -3217,6 +3254,8 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	/* A refusal is not a transaction: do not write a rollback to a protected
 	 * file. This precedes both the inner writer and its recovery boundary. */
 	if (old.attribute & DIR_ATTR_READONLY) return FAT12_ERR_ACCESS;
+	rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,slot,&old,sector_buf);
+	if (rc != FAT12_OK) return rc;
 	for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];
 	rc = fat12_write_partial_inner(vol, fat, fat_len, parent, slot, offset,
 	                                data, len, sector_buf, cluster_buf, out_written);
@@ -3275,25 +3314,6 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if ((match.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
 	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
 		return FAT12_ERR_ACCESS;
-	/* A failed postcommit cleanup can leave the staging alias beside the
-	 * destination, both naming its adopted chain. The replacement contract is
-	 * same-parent: never let a later caller's UNLINK free that shared head.
-	 * Allocation ownership invariant / operator ruling, initech-8qgdz. */
-	if (match.start_cluster >= 2u) {
-		uint32_t limit = is_root ? vol->bpb.root_entry_count :
-		    vol->total_clusters * vol->bpb.sectors_per_cluster * 16u;
-		for (uint32_t slot=0;slot<limit;slot++) {
-			dir_entry_t other;
-			rc=fat12_read_dirent_in_dir(vol,fat,fat_len,is_root,parent_dir_start,
-			                             slot,&other,sector_buf);
-			if (rc==FAT12_ERR_DIR_FULL) break;
-			if (rc) return rc;
-			if (!other.filename[0]) break;
-			if (slot!=match_slot && other.filename[0]!=DIR_NAME_DELETED &&
-			    !(other.attribute & (DIR_ATTR_DIRECTORY|DIR_ATTR_VOLLABEL)) &&
-			    other.start_cluster==match.start_cluster) return FAT12_ERR_ACCESS;
-		}
-	}
 
 	/* Mark the dir entry deleted (filename[0] = 0xE5). */
 	{
@@ -3367,6 +3387,10 @@ int fat12_replace(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
             cur = next;
         }
     }
+    rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,source_slot,&source,sector_buf);
+    if (rc) return rc;
+    rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,dest_slot,&old,sector_buf);
+    if (rc) return rc;
     replacement = old;
     replacement.start_cluster = source.start_cluster;
     replacement.file_size = source.file_size;
@@ -3704,6 +3728,8 @@ int fat12_move_dirent(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	}
 	is_dir      = ((match.attribute & DIR_ATTR_DIRECTORY) != 0u);
 	moved_start = match.start_cluster;
+	rc = fat12_exclusive_allocation(vol,fat,fat_len,src_dir_start,match_slot,&match,sector_buf);
+	if (rc != FAT12_OK) return rc;
 
 	/* ---- 3. a directory may not move into its own subtree ------------- */
 	if (is_dir) {

@@ -75,3 +75,9 @@ smoke-oem:
 	$(MAKE) -C $(TOP) image
 	sh tests/smoke/oem.sh "$(TOP)" "$(OUT)/smoke/oem"
 smoke: smoke-oem
+
+.PHONY: smoke-alias
+smoke-alias: $(OUT)/host/tool_test_commit_outcome
+	$(MAKE) -C $(TOP) image
+	sh tests/smoke/alias.sh "$(TOP)" "$(OUT)/smoke/alias"
+smoke: smoke-alias

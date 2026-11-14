@@ -1,0 +1,14 @@
+# test: test-commit-outcome
+--- a/fat12.c
++++ b/fat12.c
+@@ -3387,10 +3387,6 @@
+             cur = next;
+         }
+     }
+-    rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,source_slot,&source,sector_buf);
+-    if (rc) return rc;
+-    rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,dest_slot,&old,sector_buf);
+-    if (rc) return rc;
+     replacement = old;
+     replacement.start_cluster = source.start_cluster;
+     replacement.file_size = source.file_size;

@@ -1,0 +1,12 @@
+# test: test-commit-outcome
+--- a/fat12.c
++++ b/fat12.c
+@@ -3728,8 +3728,6 @@
+ 	}
+ 	is_dir      = ((match.attribute & DIR_ATTR_DIRECTORY) != 0u);
+ 	moved_start = match.start_cluster;
+-	rc = fat12_exclusive_allocation(vol,fat,fat_len,src_dir_start,match_slot,&match,sector_buf);
+-	if (rc != FAT12_OK) return rc;
+ 
+ 	/* ---- 3. a directory may not move into its own subtree ------------- */
+ 	if (is_dir) {

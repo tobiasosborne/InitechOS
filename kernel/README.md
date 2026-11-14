@@ -355,14 +355,18 @@ cursor/canary behavior and nonreturning restart behavior including an absent or
 returning backend. `make smoke-oem` runs an ordinary disk client on both
 emulators, independently reads its 4002-byte page file with mtools and compares
 literal bytes, then proves an actual restart reaches the prompt a second time.
-A retained staging alias shares the destination's allocation head. UNLINK now
-refuses either alias while another regular entry in that same parent names the
-head, before changing the FAT or directory. This prevents a later caller's
-cleanup from freeing adopted data after a persistent cleanup error; recovery may
-leave the alias/allocation for CHKDSK. The commit-outcome gate first showed this
-late cleanup red, then verifies Access denied with zero physical writes and
-independent destination bytes. This is the allocation-ownership invariant under
-the operator's commit rule, not a claim about repairing arbitrary cross-links.
+A retained staging alias shares the destination's allocation head. The common
+allocation guard refuses CREATE/truncate, positioned and whole-file writes,
+size changes, UNLINK, moves and replacement using either shared entry before
+changing a sector. Moving an alias to another parent cannot evade the guard.
+Reads remain available. This is the operator's adopted-allocation invariant
+(initech-oaouv); file refusals return DOS error 5, Access denied, from the
+existing catalogue. Recovery may leave the alias/allocation for CHKDSK.
+`test-commit-outcome` checks root/subdirectory refusals with zero writes, exact
+whole-image preimages and independent mtools destination bytes. The permitted
+pre-existing cleanup leak is not passed off as a clean filesystem; the strict
+conservation reader remains unchanged. `make smoke-alias` runs an ordinary disk
+client on both emulators and proves the complete working image stays identical.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
