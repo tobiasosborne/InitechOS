@@ -1,0 +1,25 @@
+SeaBIOS (version 1.16.3-debian-1.16.3-2)                                        
+Booting from Floppy...                                                          
+TYPE-MISSING                                                                    
+File not found                                                                  
+TYPE-OPERAND                                                                    
+Invalid number of parameters                                                    
+UNKNOWN                                                                         
+Bad command or file name                                                        
+UNKNOWN-NOREDIR                                                                 
+Bad command or file name                                                        
+ROOT-PARENT                                                                     
+Invalid directory                                                               
+CAPTURE-DONE                                                                    
+B>                                                                              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

@@ -1666,6 +1666,7 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
 #include "memory_map.h"  /* ENV_BLOCK / ENV_BLOCK_CAP -- EXEC env inheritance (inc 3) */
 #include "batch.h"       /* the .BAT parser/expander + IF/FOR decision helpers   */
 #include "fileio_fat.h"  /* mounted volume identity for DIR (M017) */
+static void dos_error(const char *message);
 
 /* DEC-04a flat ABI (kernel/tests/data/int21h_calling_convention.json): AH=function in EAX,
  * EBX=handle, ECX=count, EDX=flat ptr, EAX=return, CF=error in EFLAGS. The
@@ -2567,7 +2568,7 @@ static void builtin_dir(const char *arg)
             char option = cmd_upcase_char(*++arg);
             if (option == 'W') wide = 1;
             else if (option == 'P') page = 1;
-            else { dos_print(MSG_DOS_0010 "\r\n$"); return; }
+            else { dos_error(MSG_DOS_0064 "\r\n$"); return; }
             arg++;
             continue;
         }
@@ -2711,8 +2712,20 @@ static char prompt_drive(void)
  * ".."/relative/absolute subpaths (beads initech-u6wa / initech-ut6d). */
 static void builtin_cd(const char *arg)
 {
+    for (const char *p=arg; *p; ++p) if (*p=='/') {
+        dos_error(MSG_DOS_0064 "\r\n$");return;
+    }
     char tok[CMD_TOKEN_MAX];
     int len = cmd_first_token(arg, tok);
+
+    /* Genuine reference/diagnostics: the root has no parent directory.
+     * Both CD .. and the adjacent CD.. retain root and report on CON. */
+    if (tok[0]=='.' && tok[1]=='.' && !tok[2]) {
+        char cwd[INT21_CWD_MAX];
+        if (dos_getcwd(0u,cwd)==0u && !cwd[0]) {
+            dos_error(MSG_DOS_0018 "\r\n$");return;
+        }
+    }
 
     if (len == 0) {
         /* No arg -> print the current directory (DOS 'CD' alone reports it).
@@ -2906,15 +2919,15 @@ static void builtin_type(const char *arg)
     uint32_t got;
 
     if (cmd_first_token(arg, name) == 0) {
-        /* No filename given -- MSG-DOS-0011 "Required parameter missing". */
-        dos_print(MSG_DOS_0011 "\r\n$");
+        /* Genuine compat33/REDIR: TYPE is not an stdin filter. */
+        dos_error(MSG_DOS_0038 "\r\n$");
         return;
     }
     cmd_upcase_str(name);   /* DOS upcases 8.3 names */
 
     handle = dos_open(name);
     if (handle < 0) {
-        dos_print(handle == -15 ? MSG_DOS_0004 "\r\n$" : MSG_DOS_0003 "\r\n$");
+        dos_error(handle == -15 ? MSG_DOS_0004 "\r\n$" : MSG_DOS_0003 "\r\n$");
         return;
     }
     for (;;) {
@@ -3081,6 +3094,12 @@ static void builtin_copy(const char *arg)
 {
     cmd_copy_t plan;
     if(!cmd_copy_parse(arg,&plan)) {
+        for (const char *p=arg; *p; ++p) if (*p=='/') {
+            char option=cmd_upcase_char(p[1]);
+            if (option!='A' && option!='B' && option!='V') {
+                dos_error(MSG_DOS_0064 "\r\n$");return;
+            }
+        }
         const char *p=arg;while(is_space(*p))p++;
         dos_print(*p ? MSG_DOS_0010 "\r\n$":MSG_DOS_0011 "\r\n$");return;
     }
@@ -3258,7 +3277,7 @@ static void builtin_del(const char *arg)
      * entire command, preserving the file. Validate before any mutation. */
     for (const char *p = arg; *p; ++p) {
         if (*p == '/') {
-            dos_print(MSG_DOS_0048 "\r\n$");
+            dos_error(MSG_DOS_0064 "\r\n$");
             return;
         }
     }
@@ -3373,7 +3392,7 @@ static void builtin_ren(const char *arg)
      * changing either name. Do not discard a trailing switch. */
     for (const char *p = arg; *p; ++p) {
         if (*p == '/') {
-            dos_print(MSG_DOS_0048 "\r\n$");
+            dos_error(MSG_DOS_0064 "\r\n$");
             return;
         }
     }
@@ -3591,7 +3610,7 @@ static void run_external(const char *command, const char *tail)
     }
 
     /* All candidates exhausted (or list empty) -> the canonical diagnostic. */
-    dos_print(MSG_DOS_0002 "\r\n$");
+    dos_error(MSG_DOS_0002 "\r\n$");
 }
 
 #endif /* !COMMAND_FILE_HOST */
@@ -3682,7 +3701,7 @@ static int dispatch_line(const char *line)
             ax=0x1900u;
             __asm__ __volatile__("int $0x21" : "+a"(ax) : : "cc","memory");
             if ((ax&255u)!=drive) {
-                dos_print(MSG_DOS_0004 "\r\n$");
+                dos_error(MSG_DOS_0004 "\r\n$");
             }
             return 0;
         }
@@ -4044,7 +4063,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
 
     for (i=0; i<2; ++i) {
         int h=pipe_temp_create(i,tname[i]);
-        if (h<0) { dos_error(MSG_DOS_0005 "\r\n$");goto cleanup; }
+        if (h<0) { dos_error(MSG_DOS_0066 "\r\n$");goto cleanup; }
         created[i]=1;
         dos_close(h);
     }
@@ -4066,7 +4085,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
             out_h = dos_creat(tname[current]);
             if (out_h < 0) {
                 /* Disk full / cannot create the intermediate -> fail loud. */
-                dos_print(MSG_DOS_0005 "\r\n$");   /* "Insufficient disk space" */
+                dos_error(MSG_DOS_0066 "\r\n$");
                 goto cleanup;
             }
             out_saved = dos_dup(1);
@@ -4130,7 +4149,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
         if (lost) {
             /* The intermediate is short: report it on CON and stop, never
              * feed the consumer a truncated pipe (audit L003). */
-            dos_print(MSG_DOS_0005 "\r\n$");   /* "Insufficient disk space" */
+            dos_error(MSG_DOS_0066 "\r\n$");
             break;
         }
     }
@@ -4504,7 +4523,7 @@ static int dispatch_control(const char *line)
     case BL_GOTO:
         if (frame) {
             int target=batch_find_label(g_batch_buf,frame->len,bp.goto_target);
-            if (target<0) dos_print(MSG_DOS_0036 "\r\n$");
+            if (target<0) dos_error(MSG_DOS_0036 "\r\n$");
             frame->pos = target<0 ? frame->len : target;
             frame->branch++;
         }

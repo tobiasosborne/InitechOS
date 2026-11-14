@@ -110,3 +110,8 @@ smoke-pipe-names:
 smoke-control-syntax:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/control-syntax.sh "$(TOP)" "$(OUT)/smoke-control-syntax"
+
+.PHONY: smoke-diagnostics
+smoke-diagnostics:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/diagnostics.sh "$(TOP)" ALL "$(OUT)/smoke-diagnostics"

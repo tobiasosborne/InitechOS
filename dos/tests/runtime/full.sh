@@ -16,6 +16,8 @@ truncate -s "$free" "$out/filler";mcopy -i "$img" "$out/filler" ::FILL.BIN
 sh "$root/dos/tests/runtime/execute.sh" "$root" "$boot" "$out" '' full-done
 tr -d '\r' < "$out/run.serial" > "$out/text"
 require 'file creation diagnostic' grep -Fx 'File creation error' "$out/text" >/dev/null
-require 'two full-disk diagnostics' test "$(grep -c '^Insufficient disk space$' "$out/text")" -eq 2
+require 'two full-disk diagnostics' test "$(grep -Ec '^(Insufficient disk space|Intermediate file error during pipe)$' "$out/text")" -eq 2
+require 'redirected-write full diagnostic' grep -Fx 'Insufficient disk space' "$out/text" >/dev/null
+require 'captured pipe diagnostic' grep -Fx 'Intermediate file error during pipe' "$out/text" >/dev/null
 mtype -i "$img" ::LOCK.TXT > "$out/got";require 'locked bytes' cmp "$out/locked" "$out/got"
 echo 'GREEN full disk: refused create, redirected short write, failed pipe; locked bytes intact'
