@@ -32,8 +32,8 @@ Current mechanical evidence:
   The module grows by 1064 bytes and the relocation header by 112 bytes for
   guard emission and label handling. Fresh self-host/DDC is pending: the
   loaded machine's first run reached the factory driver's 120-second ceiling.
-- FPC 3.2.2 builds the independent host bootstrap from the same source; it
-  directly emits D1. In-OS D1(S) -> D2 takes 75 guest seconds; D2==K2==K3.
+- The previous diverse proof used FPC 3.2.2 for the independent host bootstrap;
+  it directly emitted D1. In-OS D1(S) -> D2 took 75 guest seconds; D2==K2==K3.
   A contaminated candidate and a changed used source constant both make the
   comparison red. This removes sole trust in the C seed's translation, not
   trust in source/runtime bytes, FPC, host tools, the OS or hardware.
