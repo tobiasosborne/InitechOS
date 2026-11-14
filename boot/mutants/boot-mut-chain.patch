@@ -1,0 +1,27 @@
+# test: CHAIN
+# Former optional branch: BOOT_MUT_CHAIN
+--- a/stage2.asm
++++ b/stage2.asm
+@@ -306,17 +306,11 @@
+     jz .next
+     loop .sector
+ .next:
+-    mov bx, [cluster]
+-    mov ax, bx
+-    shr bx, 1
+-    add bx, ax
+-    mov dx, [FAT+bx]
+-    test ax, 1
+-    jz .even
+-    shr dx, 4
+-.even:
+-    mov ax, dx
+-    and ax, 0xfff
++    mov ax, [cluster]
++    inc ax
++    cmp word [remaining], 0
++    jne .decoded
++    mov ax, 0xfff
+ .decoded:
+     cmp word [remaining], 0
+     je .end

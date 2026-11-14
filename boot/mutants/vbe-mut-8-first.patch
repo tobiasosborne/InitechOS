@@ -1,0 +1,12 @@
+# test: normal
+# Former optional branch: VBE_MUT_8_FIRST
+--- a/io_sys.asm
++++ b/io_sys.asm
+@@ -295,6 +295,7 @@
+     cmp eax, 0x41534556          ; "VESA"
+     jne .errsig
+ 
++    mov byte [wanted_bpp], 8
+ .restart:
+     ; Rescan the BIOS list at each depth: BIOS enumeration order is NOT
+     ; preference order. All modes in the higher tier must be tried first.

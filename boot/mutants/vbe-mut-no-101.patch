@@ -1,0 +1,12 @@
+# test: indexed
+# Former optional branch: VBE_MUT_NO_101
+--- a/io_sys.asm
++++ b/io_sys.asm
+@@ -349,6 +349,7 @@
+     jne .scan
+     cmp al, 8
+     jne .direct
++    jmp .scan
+     cmp word [cur_mode], 0x101
+     jne .scan
+     ; D5 may mark the extended mode non-VGA (SeaBIOS returns 00BBh).

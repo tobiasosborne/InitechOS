@@ -1,0 +1,23 @@
+# test: ORDER
+# Former optional branch: BOOT_MUT_ORDER
+--- a/stage2.asm
++++ b/stage2.asm
+@@ -234,6 +234,8 @@
+ ; SI = required root slot, DI = DOS 8.3 name. Enforce the installed order
+ ; in slots 0/1 (IBM DOS 3.30 TR 1-7; MS-DOS 3.3 User.s Guide 119).
+ lookup:
++    mov si, ROOT
++.search:
+     push si
+     push di
+     mov cx, 11
+@@ -250,6 +252,9 @@
+ .wrong:
+     pop di
+     pop si
++    add si, 32
++    cmp si, ROOT+512
++    jb .search
+     jmp fail
+ 
+ ; SI dirent; AX destination segment; EDX maximum bytes. Walk the on-disk

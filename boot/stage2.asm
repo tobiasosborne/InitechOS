@@ -231,13 +231,9 @@ start:
     mov dl, [drive]
     mov dh, 1
     jmp 0:0x9000
-; SI = required root slot, DI = DOS 8.3 name. ORDER mutant searches instead
-; of enforcing slots 0/1, so moving both files one slot exposes the regression.
+; SI = required root slot, DI = DOS 8.3 name. Enforce the installed order
+; in slots 0/1 (IBM DOS 3.30 TR 1-7; MS-DOS 3.3 User.s Guide 119).
 lookup:
-%ifdef BOOT_MUT_ORDER
-    mov si, ROOT
-.search:
-%endif
     push si
     push di
     mov cx, 11
@@ -254,11 +250,6 @@ lookup:
 .wrong:
     pop di
     pop si
-%ifdef BOOT_MUT_ORDER
-    add si, 32
-    cmp si, ROOT+512
-    jb .search
-%endif
     jmp fail
 
 ; SI dirent; AX destination segment; EDX maximum bytes. Walk the on-disk
@@ -268,13 +259,8 @@ lookup:
 load_file:
     mov [dest], ax
     mov al, [si+11]
-%ifdef BOOT_MUT_ATTR_R
-    and al, 0x1e
-    cmp al, 6
-%else
     and al, 0x1f
     cmp al, 7
-%endif
     jne fail
     mov eax, [si+28]
     test eax, eax
@@ -320,13 +306,6 @@ load_file:
     jz .next
     loop .sector
 .next:
-%ifdef BOOT_MUT_CHAIN
-    mov ax, [cluster]
-    inc ax
-    cmp word [remaining], 0
-    jne .decoded
-    mov ax, 0xfff
-%else
     mov bx, [cluster]
     mov ax, bx
     shr bx, 1
@@ -338,7 +317,6 @@ load_file:
 .even:
     mov ax, dx
     and ax, 0xfff
-%endif
 .decoded:
     cmp word [remaining], 0
     je .end

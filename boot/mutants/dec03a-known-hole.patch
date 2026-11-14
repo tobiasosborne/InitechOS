@@ -1,0 +1,18 @@
+# test: normal
+# Former optional branch: DEC03A_KNOWN_HOLE
+--- a/io_sys.asm
++++ b/io_sys.asm
+@@ -551,6 +551,13 @@
+     ; fields straight from the buffer [es:di+...] and uses only EAX/EDX, which
+     ; are reloaded at the top of the loop). EBP carries the running KiB total
+     ; (preserved). type at [di+16] (dword): only TYPE 1 (usable) counts.
++    ; GATE-ONLY: introduce a real map gap [1,2) MiB into the BIOS's usable
++    ; extent. With 16 MiB installed, a sum still exceeds the 8 MiB floor.
++    cmp dword [es:di],0x100000
++    jne .hole_injected
++    add dword [es:di],0x100000
++    sub dword [es:di+8],0x100000
++.hole_injected:
+     ; DEC-03a.6: never trust a sum of disconnected TYPE-1 ranges.
+     cmp dword [es:di+4], 0
+     jne .e820_next               ; addresses >=4 GiB cannot back our windows

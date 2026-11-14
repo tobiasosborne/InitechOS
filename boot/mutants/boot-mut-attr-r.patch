@@ -1,0 +1,15 @@
+# test: ATTR_R
+# Former optional branch: BOOT_MUT_ATTR_R
+--- a/stage2.asm
++++ b/stage2.asm
+@@ -259,8 +259,8 @@
+ load_file:
+     mov [dest], ax
+     mov al, [si+11]
+-    and al, 0x1f
+-    cmp al, 7
++    and al, 0x1e
++    cmp al, 6
+     jne fail
+     mov eax, [si+28]
+     test eax, eax

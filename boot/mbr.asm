@@ -8,7 +8,7 @@
 ;        CLAUDE.md hallucination callout: "Real mode -> 32-bit protected/flat
 ;        is a minefield" -- that transition lives in stage2; the MBR's only
 ;        job is to load stage2 reliably and hand off.
-;        CLAUDE.md Rule 2 (fail loud), Rule 12 (ASCII-only source).
+;        CLAUDE.md, The constitution (fail loud; period source).
 ;
 ; BIOS loads this 512-byte sector at physical 0x7C00 in 16-bit real mode and
 ; jumps to it with DL = the BIOS boot drive number. We:
@@ -17,7 +17,7 @@
 ;   3. load stage2 from the disk into 0x0000:0x8000 via INT 13h,
 ;   4. far-jump to stage2 at 0x0000:0x8000.
 ;
-; Disk addressing decision (documented per Law 1): we use INT 13h **CHS**
+; Disk addressing decision (documented per CLAUDE.md, The constitution): we use INT 13h **CHS**
 ; (AH=02h) reads, not LBA extensions. Rationale: the image is a small raw
 ; disk and QEMU's BIOS (SeaBIOS) presents it with a CHS geometry whose first
 ; track holds far more than the few sectors of stage2 we need; reading
@@ -84,7 +84,7 @@ start:
     jmp STAGE2_SEG:STAGE2_OFF
 
 ; ---------------------------------------------------------------------------
-; disk_error -- fail loud over serial, then halt (Rule 2). No silent retry.
+; disk_error -- fail loud over serial, then halt (the fail-loud contract). No silent retry.
 ; ---------------------------------------------------------------------------
 disk_error:
     mov si, msg_err

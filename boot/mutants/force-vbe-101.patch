@@ -1,0 +1,64 @@
+# test: normal
+# Former optional branch: FORCE_VBE_101
+--- a/io_sys.asm
++++ b/io_sys.asm
+@@ -295,6 +295,7 @@
+     cmp eax, 0x41534556          ; "VESA"
+     jne .errsig
+ 
++    mov byte [wanted_bpp], 8
+ .restart:
+     ; Rescan the BIOS list at each depth: BIOS enumeration order is NOT
+     ; preference order. All modes in the higher tier must be tried first.
+@@ -314,6 +315,8 @@
+     je .next_depth
+     add word [mode_ptr_off], 2
+     mov [cur_mode], cx
++    cmp cx, 0x101
++    jne .scan
+ 
+     ; 3. Query ModeInfoBlock for this mode.
+     xor ax, ax
+@@ -324,6 +327,16 @@
+     int 0x10
+     cmp ax, 0x004F
+     jne .scan                    ; couldn't query -> skip
++    mov si, msg_101_info
++    call serial_puts
++    mov ax, [es:VBE_MODE_BUF]
++    call serial_hex16
++    movzx ax, byte [es:VBE_MODE_BUF + 0x19]
++    call serial_hex16
++    movzx ax, byte [es:VBE_MODE_BUF + 0x1B]
++    call serial_hex16
++    mov ax, [es:VBE_CTRL_BUF + 0x0A]
++    call serial_hex16
+ 
+     ; ModeAttributes (offset 0x00): bit0 supported, bit4 graphics, bit7 LFB.
+     mov ax, [es:VBE_MODE_BUF + 0x00]
+@@ -394,6 +407,17 @@
+     int 0x10
+     cmp ax, 0x004F
+     jne .scan                    ; try the remaining modes / lower tiers
++    ; Gate-only padding: real VBE 4F06h logical scanline (VBE 2.0 Sec 4.9,
++    ; p28), not manufactured boot_info. Keep 640 visible pixels, but request
++    ; 648 virtual pixels so the live row copy must honor the returned stride.
++    mov ax, 0x4F06
++    xor bx, bx
++    mov cx, 648
++    int 0x10
++    cmp ax, 0x004F
++    jne .err02
++    movzx eax, bx
++    mov [lfb_pitch], eax
+     ; Optional eight-bit DAC precision (VBE 2.0 Sec 4.11, p30). Retain the
+     ; authentic six-bit path on fixed-width hardware. BH is the ACTUAL width,
+     ; not a promise that the requested eight bits were supported.
+@@ -891,6 +915,7 @@
+ msg_s2:      db "S2", 0x0A, 0
+ msg_vbe:     db "VBE", 0x0A, 0
+ msg_vbe_mode: db "VBE-MODE=", 0
++msg_101_info: db "VBE101-INFO attr/bpp/model/caps", 10, 0
+ msg_a20:     db "A20", 0x0A, 0
+ msg_gdt:     db "GDT", 0x0A, 0
+ msg_err_vbe: db "ERR-VBE", 0x0A, 0

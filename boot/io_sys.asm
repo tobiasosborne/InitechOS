@@ -16,7 +16,7 @@
 ;        flush the prefetch queue -- use a known-good sequence and verify in
 ;        the Bochs debugger ... A triple-fault in QEMU silently reboots; turn
 ;        on -d int,guest_errors,cpu_reset and watch for it." (The harness does.)
-;        CLAUDE.md Rule 2 (fail loud), Rule 12 (ASCII only).
+;        CLAUDE.md, The constitution (fail loud; period source).
 ;        VBE: VESA BIOS Extensions 2.0/3.0 (INT 10h AX=4F00/4F01/4F02).
 ;        A20: fast A20 via system control port 0x92 (documented below).
 ;
@@ -127,7 +127,7 @@ start:
     ;      docs/research/boot-to-text-ground-truth.md Sec 1.1-1.3. INT 10h is a
     ;      BIOS service, unavailable after the PM switch, so it goes here.
     ;      Copy 4096 bytes to FONT_STASH (0x1000). Fail loud if ES:BP==0:0
-    ;      (Rule 2; ground-truth Sec 1.4).
+    ;      (the fail-loud contract; ground-truth Sec 1.4).
     mov ax, 0x1130
     mov bh, 0x06                ; 8x16 ROM BIOS font selector
     int 0x10
@@ -171,13 +171,10 @@ start:
     ;      boot_info_t.ext_mem_kb so the kernel can fail loud below FLAIR_HEAP_MIN.
     ;      RBIL / ACPI: INT 15h AX=E820h (SMAP) is the modern map; E801h and
     ;      AH=88h are the period BIOS fallbacks. mem_probe leaves the KiB above
-    ;      1 MiB in EAX (0 if every probe failed -- fail-safe, Rule 2). INT 15h is
+    ;      1 MiB in EAX (0 if every probe failed -- fail-safe, the fail-loud contract). INT 15h is
     ;      a BIOS service, so the probe goes HERE, before the PM switch. DS=0/ES=0
     ;      are restored after the font copy above.
     call mem_probe                     ; -> EAX = ext_mem_kb (0 on total failure)
-%ifdef DEC03A_REPORT_KB
-    mov eax, DEC03A_REPORT_KB ; GATE-ONLY exact boundary, never production
-%endif
     mov [ext_mem_kb], eax
     ; ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36.
     ; DEC-03a.6: refuse BEFORE copying to the 5 MiB kernel, not just in C.
@@ -246,7 +243,7 @@ start:
     call serial_puts
 
     ; -- A20 enable (fast A20 via port 0x92) -------------------------------
-    ; Decision (Law 1): fast A20 via the PS/2 system control port 0x92 is
+    ; Decision (CLAUDE.md, The constitution): fast A20 via the PS/2 system control port 0x92 is
     ; sufficient and reliable under QEMU/Bochs. We read-modify-write so we set
     ; bit 1 (A20) without toggling bit 0 (fast reset) which would reboot.
     in al, 0x92
@@ -275,8 +272,8 @@ start:
 ; vbe_setup -- query VBE controller, walk the mode list, find a 640x480 mode
 ; with a linear framebuffer: 32 -> 24 -> 8 (0x101) -> VGA13 floor.
 ; Ref: PRD Sec 5; ADR-0004 OD-2/AM-7; vesa8-ground-truth.md (VBE 2.0
-; pp6,13-14,16-20,25,30). FORCE_VBE_101 filters the BIOS offer ONLY in gate
-; IO.SYS images; the query/validation/set/handoff path is production code.
+; pp6,13-14,16-20,25,30). The firmware offer determines the available tiers.
+; Query and validate every mode before setting it and handing it off.
 ; ===========================================================================
 vbe_setup:
     mov dword [lfb_dac_bits], 6  ; VBE mode sets reset the DAC to six bits
@@ -298,12 +295,6 @@ vbe_setup:
     cmp eax, 0x41534556          ; "VESA"
     jne .errsig
 
-%ifdef FORCE_VBE_101
-    mov byte [wanted_bpp], 8
-%endif
-%ifdef VBE_MUT_8_FIRST
-    mov byte [wanted_bpp], 8
-%endif
 .restart:
     ; Rescan the BIOS list at each depth: BIOS enumeration order is NOT
     ; preference order. All modes in the higher tier must be tried first.
@@ -323,10 +314,6 @@ vbe_setup:
     je .next_depth
     add word [mode_ptr_off], 2
     mov [cur_mode], cx
-%ifdef FORCE_VBE_101
-    cmp cx, 0x101
-    jne .scan
-%endif
 
     ; 3. Query ModeInfoBlock for this mode.
     xor ax, ax
@@ -337,18 +324,6 @@ vbe_setup:
     int 0x10
     cmp ax, 0x004F
     jne .scan                    ; couldn't query -> skip
-%ifdef FORCE_VBE_101
-    mov si, msg_101_info
-    call serial_puts
-    mov ax, [es:VBE_MODE_BUF]
-    call serial_hex16
-    movzx ax, byte [es:VBE_MODE_BUF + 0x19]
-    call serial_hex16
-    movzx ax, byte [es:VBE_MODE_BUF + 0x1B]
-    call serial_hex16
-    mov ax, [es:VBE_CTRL_BUF + 0x0A]
-    call serial_hex16
-%endif
 
     ; ModeAttributes (offset 0x00): bit0 supported, bit4 graphics, bit7 LFB.
     mov ax, [es:VBE_MODE_BUF + 0x00]
@@ -374,9 +349,6 @@ vbe_setup:
     jne .scan
     cmp al, 8
     jne .direct
-%ifdef VBE_MUT_NO_101
-    jmp .scan
-%endif
     cmp word [cur_mode], 0x101
     jne .scan
     ; D5 may mark the extended mode non-VGA (SeaBIOS returns 00BBh).
@@ -422,19 +394,6 @@ vbe_setup:
     int 0x10
     cmp ax, 0x004F
     jne .scan                    ; try the remaining modes / lower tiers
-%ifdef FORCE_VBE_101
-    ; Gate-only padding: real VBE 4F06h logical scanline (VBE 2.0 Sec 4.9,
-    ; p28), not manufactured boot_info. Keep 640 visible pixels, but request
-    ; 648 virtual pixels so the live row copy must honor the returned stride.
-    mov ax, 0x4F06
-    xor bx, bx
-    mov cx, 648
-    int 0x10
-    cmp ax, 0x004F
-    jne .err02
-    movzx eax, bx
-    mov [lfb_pitch], eax
-%endif
     ; Optional eight-bit DAC precision (VBE 2.0 Sec 4.11, p30). Retain the
     ; authentic six-bit path on fixed-width hardware. BH is the ACTUAL width,
     ; not a promise that the requested eight bits were supported.
@@ -474,7 +433,7 @@ vbe_setup:
     jmp .restart
 
     ; -- VBE error paths: print the specific marker, then fall back to a
-    ; standard VGA mode (Rule 2 -- a loud, recorded path change, not a halt).
+    ; standard VGA mode (the fail-loud contract -- a loud, recorded path change, not a halt).
 .err00:
     mov si, msg_vbe_e00
     call serial_puts
@@ -495,14 +454,14 @@ vbe_setup:
 ; ---------------------------------------------------------------------------
 ; .vga_fallback -- no VBE LFB on this BIOS (e.g. Bochs). Set the universally
 ; available standard VGA mode 0x13 (320x200x256, linear @ 0xA0000) via INT 10h
-; and record an 8bpp boot_info. Fail loud (Rule 2) if even mode 0x13's
+; and record an 8bpp boot_info. Fail loud (the fail-loud contract) if even mode 0x13's
 ; framebuffer is not live. Ref: bd memory bochs-boot-solved-initech-6pj;
-; os/initechdos/console.c 8bpp path (initech-6pj).
+; kernel/console.c 8bpp path (initech-6pj).
 ; ---------------------------------------------------------------------------
 .vga_fallback:
     mov ax, 0x0013               ; AH=00 set video mode -> 320x200x256
     int 0x10
-    ; Probe: the linear framebuffer at 0xA0000 must accept a write (Rule 2).
+    ; Probe: the linear framebuffer at 0xA0000 must accept a write (the fail-loud contract).
     push es
     mov ax, 0xA000
     mov es, ax
@@ -592,23 +551,6 @@ mem_probe:
     ; fields straight from the buffer [es:di+...] and uses only EAX/EDX, which
     ; are reloaded at the top of the loop). EBP carries the running KiB total
     ; (preserved). type at [di+16] (dword): only TYPE 1 (usable) counts.
-%ifdef DEC03A_KNOWN_HOLE
-    ; GATE-ONLY: introduce a real map gap [1,2) MiB into the BIOS's usable
-    ; extent. With 16 MiB installed, a sum still exceeds the 8 MiB floor.
-    cmp dword [es:di],0x100000
-    jne .hole_injected
-    add dword [es:di],0x100000
-    sub dword [es:di+8],0x100000
-.hole_injected:
-%endif
-%ifdef DEC03A_LOW_HOLE
-    ; GATE-ONLY: remove required conventional RAM from the first usable entry.
-    cmp dword [es:di],0
-    jne .low_hole_injected
-    add dword [es:di],0x50000
-    sub dword [es:di+8],0x50000
-.low_hole_injected:
-%endif
     ; DEC-03a.6: never trust a sum of disconnected TYPE-1 ranges.
     cmp dword [es:di+4], 0
     jne .e820_next               ; addresses >=4 GiB cannot back our windows
@@ -949,9 +891,6 @@ ext_mem_kb: dd 0
 msg_s2:      db "S2", 0x0A, 0
 msg_vbe:     db "VBE", 0x0A, 0
 msg_vbe_mode: db "VBE-MODE=", 0
-%ifdef FORCE_VBE_101
-msg_101_info: db "VBE101-INFO attr/bpp/model/caps", 10, 0
-%endif
 msg_a20:     db "A20", 0x0A, 0
 msg_gdt:     db "GDT", 0x0A, 0
 msg_err_vbe: db "ERR-VBE", 0x0A, 0

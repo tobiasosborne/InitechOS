@@ -1,0 +1,12 @@
+# test: normal
+# Former optional branch: DEC03A_REPORT_KB
+--- a/io_sys.asm
++++ b/io_sys.asm
+@@ -175,6 +175,7 @@
+     ;      a BIOS service, so the probe goes HERE, before the PM switch. DS=0/ES=0
+     ;      are restored after the font copy above.
+     call mem_probe                     ; -> EAX = ext_mem_kb (0 on total failure)
++    mov eax, 7167 ; GATE-ONLY exact boundary, never production
+     mov [ext_mem_kb], eax
+     ; ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36.
+     ; DEC-03a.6: refuse BEFORE copying to the 5 MiB kernel, not just in C.
