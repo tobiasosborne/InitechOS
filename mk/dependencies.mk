@@ -1,6 +1,6 @@
 # Authoritative build dependencies. `make dependencies` prints this graph.
 # READMEs describe the contracts; build ordering and audits use these edges.
-DEPENDS_boot := kernel
+DEPENDS_boot := kernel dos
 DEPENDS_kernel := dos
 DEPENDS_dos := kernel
 DEPENDS_flair := flair/region sdk
