@@ -129,7 +129,7 @@ int fat12_read_sectors(const fat12_volume_t *v, uint32_t s, uint32_t n, void *p)
 int fat12_write_sectors(const fat12_volume_t *v, uint32_t s, uint32_t n,
                         const void *p)
 {
-	if (!v || !v->dev || !v->dev->write_sectors || !p)
+	if (!v || v->fat_type != FAT_TYPE_FAT12 || !v->dev || !v->dev->write_sectors || !p)
 		return FAT12_ERR_WRITE;
 	if (!sector_range(v, s, n)) return FAT12_ERR_PARTITION;
 	return v->dev->write_sectors(v->dev->ctx, v->base_lba + s, n, p);
@@ -248,6 +248,7 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 	if (partition_sectors && total_sectors > partition_sectors)
 		return FAT12_ERR_PARTITION;
 	vol->total_sectors = total_sectors;
+	vol->extent_sectors = partition_sectors ? partition_sectors : total_sectors;
 
 	/* Derived geometry (brief Sec 2; macros in kernel/include/dos_structs.h). */
 	vol->dev              = dev;

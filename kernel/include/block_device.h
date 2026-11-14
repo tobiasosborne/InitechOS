@@ -9,6 +9,10 @@ int block_device_map(unsigned letter, du_map *map);
 int block_device_chs(uint16_t cx, uint8_t head, uint32_t sectors, uint32_t *lba);
 uint8_t block_device_status(int ata_error);
 void block_device_bind(unsigned index, const blockdev_t *dev, uint32_t sectors);
+/* Mount/unmount policy: zero sectors clears an entry. Protect the entire
+ * partition extent, including any tail beyond the BPB's volume length. */
+void block_device_volume_policy(unsigned letter, uint8_t drive, uint32_t base,
+                                uint32_t sectors, int readonly);
 void block_device_mounted(uint8_t drive, uint32_t base, uint32_t sectors,
                          void (*written)(uint32_t, uint32_t, const void *));
 /* Fixed C (2) / D (3): successful AH=03h writes inside m's partition are

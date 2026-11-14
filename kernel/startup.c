@@ -305,6 +305,9 @@ static void mount_fixed_volume(unsigned letter)
     if (!rc) rc = fileio_fat_add_drive(letter, &fixed_volumes[letter-2]);
     if (rc) fileio_fat_drop_drive(letter);
     bind_fixed_absdisk(letter, !rc);
+    block_device_volume_policy(letter,0x80,fixed_volumes[letter-2].base_lba,
+        rc ? 0 : fixed_volumes[letter-2].extent_sectors,
+        !rc && fixed_volumes[letter-2].fat_type == FAT_TYPE_FAT16);
     serial_puts(rc ? "DOS-VOLUME-FAIL " : "DOS-VOLUME-OK ");
     serial_putc((char)('A'+letter));
     serial_puts(" rc="); serial_puti(rc); serial_putc('\n');

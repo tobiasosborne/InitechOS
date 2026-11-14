@@ -136,6 +136,7 @@ typedef struct fat12_volume {
 	 * IBM DOS 3.30 TR pp9-3,9-7..9; hidden/start mismatch fails loud. */
 	uint32_t    base_lba;
 	uint32_t    total_sectors;    /* validated BPB length, bounded by partition */
+	uint32_t    extent_sectors;   /* containing partition, or BPB for superfloppy */
 	bpb_t       bpb;              /* parsed copy of the on-disk BPB             */
 
 	/* Derived geometry (brief Sec 2). */

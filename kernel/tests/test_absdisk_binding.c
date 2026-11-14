@@ -10,6 +10,8 @@
 TEST_HARNESS();
 fat12_volume_t g_absdisk_vol;
 static unsigned writes;
+void block_device_volume_policy(unsigned l,uint8_t d,uint32_t b,uint32_t n,int ro)
+{ (void)l;(void)d;(void)b;(void)n;(void)ro; }
 static uint8_t disk[1024];
 int int21_absdisk_read(uint32_t l,uint32_t n,void *p)
 { memcpy(p,disk+l*512,n*512); return 0; }

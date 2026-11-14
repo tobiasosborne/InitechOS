@@ -6,11 +6,11 @@
 #include <string.h>
 #include "block_device.h"
 #include "block_device_contract.h"
-static unsigned calls, writes, notices, fail_io;
+static unsigned calls, writes, notices, fail_io, checks;
 static uint32_t last;
 static unsigned char buffer[1024]; /* -no-pie: DEC-04a's 32-bit EBX */
 static void require(int ok, const char *rule)
-{ if (!ok) { fprintf(stderr,"RED block-device %s\n",rule); exit(1); } }
+{ checks++; if (!ok) { fprintf(stderr,"FAIL block-device %s\nINITECH_CHECKS %u failures=1\n",rule,checks); exit(1); } }
 static int rd(void *ctx, uint32_t l, uint32_t n, void *p)
 { (void)ctx; (void)p; require(n>0,"backend count"); calls++; last=l; return (int)fail_io; }
 static int wr(void *ctx, uint32_t l, uint32_t n, const void *p)
@@ -73,6 +73,27 @@ int main(void)
     require(!(f.eflags&1) && last==4031 && watch_letter==3 && watch_lba==0 && watch_n==1,"fixed volume raw write watch");
     watch_letter=0;f=frame(0x0301,1,0x81);int13_dispatch(&f);
     require(watch_letter==0,"watch is per physical disk");
+    block_device_mounted(0x81,0,0,0);
+    block_device_volume_policy(2,0x80,100,10,1);
+    const unsigned starts[]={99,100,109,99};
+    const unsigned counts[]={2,1,2,12};
+    for(unsigned x=0;x<4;x++) {
+        unsigned before=writes;
+        unsigned head=starts[x]/63,sec=starts[x]%63+1;
+        f=frame(0x0300|counts[x],sec,(head<<8)|0x80);int13_dispatch(&f);
+        require((f.eflags&1) && ((f.eax>>8)&255)==3 && writes==before,
+                "GM2 prefix/interior/suffix/enclosing writes refused before backend");
+    }
+    f=frame(0x0301,37,0x0180);int13_dispatch(&f); /* LBA99 */
+    require(!(f.eflags&1),"GM2 preceding adjacent sector remains writable");
+    f=frame(0x0301,48,0x0180);int13_dispatch(&f); /* LBA110 */
+    require(!(f.eflags&1),"GM2 following adjacent sector remains writable");
+    f=frame(0x0301,38,0x0181);int13_dispatch(&f); /* other disk LBA100 */
+    require(!(f.eflags&1),"GM2 physical disk isolation");
+    block_device_volume_policy(2,0x80,100,10,0);
+    f=frame(0x0301,38,0x0180);int13_dispatch(&f);
+    require(!(f.eflags&1),"GM2 remount FAT12 clears protection");
     puts("GREEN test-block-device: CHS grid, BIOS statuses/CF, drive map, geometry, raw origin, coherence");
+    printf("INITECH_CHECKS %u failures=0\n",checks);
     return 0;
 }

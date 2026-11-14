@@ -289,3 +289,19 @@ source/destination dates make the timestamp check observable. No test seeds,
 fault positions, image outcomes, assertions or time budget are removed or raised.
 On idle core 0 the same 105 gates measured 16.68 s before and 9.53 s after; the added
 adapter filesystem regression separately checks complete alias creation.
+
+GM2 mounts FAT16 for listing and reading only. DOS file mutations return access
+denied; INT26 refuses with write protection. INT13 AH=03h refuses the entire
+request with BIOS status03h before calling the backend when any requested sector
+intersects a mounted FAT16 partition (A, C or D), including either boundary and
+partition tail sectors. Mount policy is keyed by physical disk and does not
+follow the selected DOS drive. The shared FAT sector writer also refuses FAT16,
+so resident FAT consumers cannot bypass the file layer. FAT12 stays writable.
+Source: GOLDEN-MASTER item2 (operator amendment, 2026-11-14), Microsoft FAT BPB /
+partition layout, IBM BIOS Interface Technical Reference AH=03h. Callers render
+MSG-DOS-0008 `Write protect error writing drive %c:` for disk operations and
+MSG-DOS-0009 `Access denied` for file operations; catalogue provenance is
+include/dos_messages.json (ADR-0003 Appendix C).
+`test-fat16-policy` mounts mtools-built FAT12/FAT16 partitions, lists/reads literal
+bytes, exercises file/INT26/shared-sector/INT13 refusals and compares complete
+refused disk images byte for byte, then independently extracts the old file.

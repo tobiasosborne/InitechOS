@@ -8,6 +8,25 @@
 static blockdev_t disks[2];
 static uint32_t sizes[2];
 static int initialized;
+/* GM2: protect mounted FAT16 extents before issuing any part of a write.
+ * Physical addressing is independent of the current DOS drive/cache. */
+static struct { uint8_t disk; uint32_t base, size; int readonly; } policy[4];
+void block_device_volume_policy(unsigned letter,uint8_t disk,uint32_t base,
+                                uint32_t size,int readonly)
+{
+    if(letter<4) {
+        policy[letter].disk=disk; policy[letter].base=base;
+        policy[letter].size=size; policy[letter].readonly=readonly;
+    }
+}
+static int write_protected(unsigned disk,uint32_t lba,uint32_t count)
+{
+    for(unsigned i=0;i<4;i++)
+        if(policy[i].readonly && policy[i].disk==disk && policy[i].size &&
+           (uint64_t)lba < (uint64_t)policy[i].base+policy[i].size &&
+           (uint64_t)policy[i].base < (uint64_t)lba+count) return 1;
+    return 0;
+}
 static uint8_t mounted_drive;
 static uint32_t mounted_base,mounted_size;
 static void (*write_notice)(uint32_t,uint32_t,const void *);
@@ -156,7 +175,8 @@ void KERNEL_ASM_ABI int13_dispatch(int_frame_t *f)
     void *buf=(void *)(uintptr_t)f->ebx;int rc;
     if(ah==2)rc=disks[i].read_sectors(disks[i].ctx,lba,count,buf);
     else {
-        if(!disks[i].write_sectors){result(f,BD_status_write_protected);return;}
+        if(!disks[i].write_sectors || write_protected(drive,lba,count))
+            {result(f,BD_status_write_protected);return;}
         rc=disks[i].write_sectors(disks[i].ctx,lba,count,buf);
         if(!rc && write_notice && drive==mounted_drive)
             overlap(lba,count,buf,mounted_base,mounted_size,0,write_notice,0);

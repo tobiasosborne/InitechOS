@@ -490,6 +490,15 @@ test-pending-fat_DEPS := $(OUT)/host/tool_test_pending_fat tests/gates/test-pend
 HOST_TESTS += test-config-uint
 test-config-uint_SRCS := tests/test_config_uint.c
 
+EXTRA_HOST_TESTS += tool_test_fat16_policy
+tool_test_fat16_policy_SRCS := tests/test_fat16_policy.c tests/disk/blockdev_file.c
+tool_test_fat16_policy_OBJS := $(tool_test_fileio_subdir_OBJS) $(tool_test_block_device_OBJS)
+tool_test_fat16_policy_CFLAGS := -no-pie -DBLOCK_DEVICE_HOST
+HOST_TESTS += test-fat16-policy
+test-fat16-policy_SRCS := tests/runner.c
+test-fat16-policy_ARGS := tests/run.sh test-fat16-policy
+test-fat16-policy_DEPS := $(OUT)/host/tool_test_fat16_policy tests/gates/test-fat16-policy.sh
+
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk
