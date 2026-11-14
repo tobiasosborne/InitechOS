@@ -1,0 +1,20 @@
+PSP 0d6a parent 0d6a JFT 20 used 5
+01 01 01 00 02 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff
+PSP 0e51 parent 0d6a JFT 20 used 20
+01 01 01 03 02 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12
+SFT name DBASE   OVL references 1 owner 0e51
+SFT name MINT    PRG references 1 owner 0e51
+SFT name RESULT  OUT references 1 owner 0e51
+SFT name BASE    DBF references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51
+SFT name PROBE   PRG references 1 owner 0e51

@@ -1,0 +1,5 @@
+# test: conformance_host
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -596,0 +597 @@
++    pal->close(pal,program->fd);program->fd=-1; /* mutant: close active program early */

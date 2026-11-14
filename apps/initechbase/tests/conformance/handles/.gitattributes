@@ -1,0 +1,3 @@
+reference/*.PRG -text -diff
+reference/*.OUT -text -diff
+reference/result.txt -text -diff
