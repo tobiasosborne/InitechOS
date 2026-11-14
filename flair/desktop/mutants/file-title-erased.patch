@@ -1,0 +1,9 @@
+# test: test_shell
+# Simulate a redraw losing the File title; independent ink invariant kills it.
+--- a/shell.c
++++ b/shell.c
+@@ -279,2 +279,4 @@
+                     (const region_t *)0);
++        for (int y=4;y<15;y++) for (int x=42;x<66;x++)
++            surface_put_pixel(dst, y*dst->pitch+x*dst->bytes_per_pixel, 1);
+     }

@@ -263,23 +263,75 @@ rgn_rect_t finder_desk_sprite_rect(const finder_desk_t *fd, int idx)
     return r;
 }
 
+/* Reserve the label's share of the compact grid before formatting. Intersect
+ * with the viewport instead of pinning scrolled-out labels to its edge.
+ * Mac OS 8.1 mint-008: centered single-line icon names; Apple HIG (1992),
+ * p.221: replace the middle of an overlong name, preserving both ends. */
+static rgn_rect_t fd_label_slot(const finder_desk_t *fd, int idx)
+{
+    rgn_rect_t r = fd_empty_rect();
+    int cx, left, right;
+    if (!fd_valid(fd, idx)) return r;
+    cx = (int)fd->icons[idx].x + FINDER_ICON_DIM / 2;
+    left = cx - FINDER_LABEL_MAX_W / 2;
+    right = left + FINDER_LABEL_MAX_W;
+    if (left < fd->bounds.left) left = fd->bounds.left;
+    if (right > fd->bounds.right) right = fd->bounds.right;
+    if (left > fd->bounds.right) left = fd->bounds.right;
+    if (right < left) right = left;
+    r.left = (int16_t)left; r.right = (int16_t)right;
+    r.top = (int16_t)(fd->icons[idx].y + FINDER_ICON_DIM + FINDER_LABEL_GAP);
+    r.bottom = (int16_t)(r.top + FINDER_LABEL_H);
+    return r;
+}
+
+void finder_desk_label_name(const finder_desk_t *fd, int idx, char *out)
+{
+    rgn_rect_t slot = fd_label_slot(fd, idx);
+    int available = slot.right - slot.left - 2 * FINDER_LABEL_PAD_X;
+    int n = 0, left, right;
+    const char *name;
+    out[0] = '\0';
+    if (!fd_valid(fd, idx)) return;
+    name = fd->icons[idx].name;
+    while (name[n]) { out[n] = name[n]; n++; }
+    out[n] = '\0';
+    if (finder_desk_text_width(out) <= available) return;
+    if (available < finder_desk_text_width("...")) { out[0] = '\0'; return; }
+    left = (n + 1) / 2; right = left;
+    do {
+        int k = 0;
+        /* Remove a contiguous middle range, balancing the surviving ends.
+         * The ASCII strike has no MacRoman ellipsis: use three periods. */
+        if (left > n - right) left--; else right++;
+        for (int j = 0; j < left; j++) out[k++] = name[j];
+        out[k++] = '.'; out[k++] = '.'; out[k++] = '.';
+        for (int j = right; j < n; j++) out[k++] = name[j];
+        out[k] = '\0';
+    } while (finder_desk_text_width(out) > available);
+}
+
 rgn_rect_t finder_desk_label_rect(const finder_desk_t *fd, int idx)
 {
     rgn_rect_t r;
+    rgn_rect_t slot;
+    char name[FINDER_DESK_NAME_MAX + 3];
     int w;
     int cx;
     int left;
 
     if (!fd_valid(fd, idx)) return fd_empty_rect();
 
-    w  = finder_desk_text_width(fd->icons[idx].name) + 2 * FINDER_LABEL_PAD_X;
+    slot = fd_label_slot(fd, idx);
+    finder_desk_label_name(fd, idx, name);
+    w  = finder_desk_text_width(name) + 2 * FINDER_LABEL_PAD_X;
+    if (w > slot.right - slot.left) w = slot.right - slot.left;
     cx = (int)fd->icons[idx].x + FINDER_ICON_DIM / 2;
     /* Centered under the sprite; integer division matches text_center_in. */
     left = cx - w / 2;
 
-    /* Clamp into the usable desktop so a long label never runs off the edge. */
-    if (left + w > (int)fd->bounds.right) left = (int)fd->bounds.right - w;
-    if (left < (int)fd->bounds.left)      left = (int)fd->bounds.left;
+    if (left + w > slot.right) left = slot.right - w;
+    if (left < slot.left) left = slot.left;
 
     r.left   = (int16_t)left;
     r.right  = (int16_t)(left + w);
@@ -848,6 +900,7 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
         const FLAIRDeskIcon *strike = fd_strike(ic->kind, fd->trash_full);
         rgn_rect_t cell = finder_desk_cell_rect(fd, i);
         rgn_rect_t lab;
+        char name[FINDER_DESK_NAME_MAX + 3];
         uint32_t band_px;
         uint32_t text_px;
 
@@ -874,9 +927,10 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
         text_px = (ic->selected || ic->hilite) ? face_px : ink_px;
 
         lab = finder_desk_label_rect(fd, i);
+        finder_desk_label_name(fd, i, name);
         blitter_fill_rect_clipped(dst, lab, band_px, clip);
         finder_desk_text(dst, (int)lab.left + FINDER_LABEL_PAD_X,
-                      (int)lab.top + 1, ic->name, text_px, clip);
+                      (int)lab.top + 1, name, text_px, clip);
     }
 }
 

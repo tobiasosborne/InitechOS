@@ -651,6 +651,30 @@ int main(int argc, char **argv)
                     lower_bad += idx_at(&lc, x, y) != (int)FLAIR_DESKTOP_BG_INDEX;
                 CHECK(top_bad == 0, "(9) front owner's titles, glyph and clock in top bar");
                 CHECK(lower_bad == 0, "(9) no second band in Finder or app scene");
+                /* Independent presence invariant: a comparison to another
+                 * DrawMenuBar call alone could bless two missing titles.
+                 * Mac OS 8.1 sys8/menus.md section 1.3 puts File at x=42;
+                 * both owners declare it first. Neither switching owners nor
+                 * updating the clock may erase its ink. */
+                CHECK(strcmp(owner->menus[0].title, "File") == 0,
+                      "(9) Finder and application both retain their File resource");
+                int file_ink=0;
+                for (int y=4;y<15;y++) for (int x=42;x<66;x++)
+                    file_ink += (render_pixel_rgb(&lc,(uint32_t)x,(uint32_t)y) & 0xffffffu)==0;
+                CHECK(file_ink>0,"(9) File title has visible ink after owner switch");
+                unsigned char before_clock[11*24];
+                for (int y=4;y<15;y++) for (int x=42;x<66;x++)
+                    before_clock[(y-4)*24+x-42]=(unsigned char)idx_at(&lc,x,y);
+                MenuClock_set(13, (unsigned)(which+1));
+                MenuClock_draw(&lc.port,NULL);
+                int file_preserved=1;
+                for (int y=4;y<15;y++) for (int x=42;x<66;x++)
+                    file_preserved &= idx_at(&lc,x,y)==before_clock[(y-4)*24+x-42];
+                CHECK(file_preserved,"(9) clock redraw preserves every File title pixel");
+                /* Keep the existing whole-frame owner-return identity leg
+                 * independent of the differing clock times just exercised. */
+                MenuClock_set(9,0);
+                MenuClock_draw(&lc.port,NULL);
                 CHECK(!region_contains_point(live.scene.overlay_rgn, 300, 20),
                       "(9) reclaimed rows are not menu occlusion");
                 if (which == 0) snapshot(&lc, &finder);

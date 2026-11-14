@@ -1,0 +1,13 @@
+# test: test_power_notice
+# Suppress the explanation when an application prevents shutdown/exit.
+--- a/power_notice.h
++++ b/power_notice.h
+@@ -7,6 +7,8 @@
+ static inline unsigned finder_power_notice(int asked, const char *app,
+                                            const char *lines[3])
+ {
++    (void)asked; (void)app; (void)lines;
++    return 0;
+     lines[0] = "The operation was cancelled.";
+     lines[1] = app;
+     lines[2] = asked ? "The application did not quit." :

@@ -122,6 +122,9 @@
  * against the sys8 captures (design F1.2). */
 #define FINDER_LABEL_GAP           2
 #define FINDER_LABEL_PAD_X         3
+/* The authored 68-pixel FLAIR grid leaves a two-pixel gutter. Native Mac
+ * OS 8.1 uses wider columns; see README.md for the reference and adaptation. */
+#define FINDER_LABEL_MAX_W        66
 #define FINDER_LABEL_ROWS          11   /* == GENEVA9_CELL_H; asserted in .c   */
 #define FINDER_LABEL_H             (FINDER_LABEL_ROWS + 2)
 
@@ -282,12 +285,15 @@ int finder_desk_find_kind(const finder_desk_t *fd, finder_icon_kind_t kind);
 /* ===========================================================================
  * 4. GEOMETRY  (design F1.2)
  * ---------------------------------------------------------------------------
- * The label band is centered under the sprite and CLAMPED into fd->bounds so a
- * long label can never run off the screen edge. The hit / damage rect is the
- * sprite rect UNION the label rect.
+ * The display spelling is centered under the sprite within a bounded slot,
+ * intersected with fd->bounds. Overlong names lose a middle portion; the disk
+ * name stays intact. The hit / damage rect is sprite UNION display label.
  * ===========================================================================*/
 rgn_rect_t finder_desk_sprite_rect(const finder_desk_t *fd, int idx);
 rgn_rect_t finder_desk_label_rect (const finder_desk_t *fd, int idx);
+/* Display spelling only: middle ellipsis, original disk name untouched.
+ * out holds FINDER_DESK_NAME_MAX + 3 bytes (ASCII ellipsis in Geneva 9). */
+void finder_desk_label_name(const finder_desk_t *fd, int idx, char *out);
 rgn_rect_t finder_desk_cell_rect  (const finder_desk_t *fd, int idx);
 
 /* Rect helpers (half-open [left,right) x [top,bottom), the region_algebra.h

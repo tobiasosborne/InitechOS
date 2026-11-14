@@ -81,14 +81,42 @@ The platform adapter follows ../NOTES-FOR-KERNEL.md:
 | serial | serial_puts |
 | panic | panic_show_reason and cli/hlt, never returns |
 
-make test runs 17 retained host suites plus a target/import audit: Finder
+make test runs 18 host suites plus the shared target/import audit: Finder
 commands/model/windows/operations/menu/input/list view/replace/limits/notices/
-restore, captured desktop icons, Apple menu, shell, drag, power notice and heap
+restore, label properties, captured desktop icons, Apple menu, shell, drag, power notice and heap
 RAM contract. Logs and generated host screens stay in build/flair/desktop/host.
 The pure manager objects are shared between tests. Test sources and their
 literal/capture oracles are retained. tests/MUTANTS-TODO.md lists removed knobs
 only where an existing test/harness still names them; patch conversion remains
-unclaimed. The slice's two independent red checks are factory/red-desktop.sh.
+unclaimed for those rows. The remaining power-notice hook is now the external
+mutants/power-silent-cancel.patch, killed by test_power_notice. make mutants
+uses the shared isolated-copy runner, builds each patch, and requires two
+matching runtime failures. The slice's two independent red checks are
+factory/red-desktop.sh. The full shared import audit is part of make test;
+there is no desktop-specific substitute or mutation-pattern exception.
+
+Finder labels use the centered single-line arrangement captured from the real
+Mac OS 8.1 Finder in system7-decomp's re/mint-results-008.md, section 2,
+goldens/captures/s8_icons_floppy_window.png (SHA-256
+53079a514994e0bb61d2fabf115e4ee883b7022f3dd4c7f6fba1b3125a730ffd).
+That capture uses 128-pixel columns. FLAIR retains its authored compact 68x52
+grid; it does not claim native Finder grid metrics. A label owns at most 66
+pixels, leaving two pixels between adjacent grid labels, and intersects its
+slot with the viewport so scrolling cannot pin hidden labels at the edge.
+The band, glyphs, selection, hit testing and damage all use the same shortened
+display spelling. The real filename, opening, renaming and persistence keep
+the complete name. Arbitrarily dragged overlapping icons remain possible.
+
+Overflow follows Apple's Macintosh Human Interface Guidelines (1992), p.221:
+replace a contiguous middle portion, preserving the beginning and ending.
+Primary document: https://raw.githubusercontent.com/gingerbeardman/apple-human-interface-guidelines/main/1992%20Macintosh%20Human%20Interface%20Guidelines.pdf
+(SHA-256 df13d3ceb76d235b1475578e959d9936442ca52b9a29b8267bec37f7a92ba7fb).
+This paragraph describes scrolling-list names; applying the same truncation
+rule to the compact icon labels is an explicit adaptation. Geneva 9's authored
+ASCII strike has no MacRoman ellipsis, so it displays three periods. If even
+those do not fit, the display spelling is empty. The test checks disjoint
+label bands across window widths, actual painted extents, scrolling, fitting,
+middle omission and unchanged disk names; it does not bless a renderer image.
 
 test_shell additionally checks literal rows 20 through 39 for absence of menu
 chrome with the Finder alone and an application in front, compares the top bar
@@ -98,10 +126,16 @@ assertion was red on the two-bar compositor before the implementation changed.
 Default-window/list-view persistence expectations move up 20 pixels under the
 same ruling. The operations suite places its existing fixtures explicitly so
 its file-operation probes remain independent of default launch geometry.
+It also independently requires File-title ink during owner switches and checks
+that clock redraws preserve every title pixel. The reviewed screenshots alleged
+to omit File actually retain identical File ink masks; no missing-title product
+fault has been reproduced. mutants/file-title-erased.patch proves the ink
+assertion detects a lost title even if renderer-to-renderer comparisons agree.
 
 Still parked tests: finder_demo (reference tenants), film_scene (InitechCalc
 face harness), egg_jtc (unclaimed authored-data packer/fixture), finder_icon_art
 and finder_icon_oracles (additional art matrices), menubar_clock (extra NFNT
 fixture), menu_handlers (legacy kernel composite). Their future owner is the
-desktop import. make smoke delegates to the product's QEMU+Bochs smoke;
-make mutants fails until the remaining mutation patches are imported.
+desktop import. make smoke delegates to the product's QEMU+Bochs smoke.
+The unconverted rows in tests/MUTANTS-TODO.md remain coverage limits; the
+registered mutation set covers the power notice, label bounds and File title.
