@@ -27,8 +27,8 @@
  * Toolbox's own highlight pair (spec/toolbox_gate.h Sec 7 tokens), on a WHITE
  * document field with BLACK text -- a Macintosh document window, as plan Sec
  * 3.3 puts it ("what a period Mac 1-2-3-alike would have rendered").
- * The window opens at 76 x 24 cells (FLAIR_SCREEN 640 x 480 less the menu
- * bands and the window frame), so 19 rows show where the 25-line DOS screen
+ * The window opens at 76 x 26 cells (FLAIR_SCREEN 640 x 480 less the menu
+ * bar and the window frame), so 21 rows show where the 25-line DOS screen
  * shows 20; the worksheet area keeps the full 72 characters (8 columns of 9).
  * B12 (bead initech-89rc, audit L018): the window can be grown and shrunk,
  * so that screen is the LARGEST one; the face lays itself out for the
@@ -80,7 +80,7 @@ const char tbx_app_name[] = "123";
 
 /* ---- geometry ------------------------------------------------------------ */
 #define WIN_L        0
-#define WIN_T        40          /* the first row below both menu bands */
+#define WIN_T        20          /* one menu bar: CLAUDE.md, Hazards */
 #define WIN_R        640
 #define WIN_B        480
 #define CW           8           /* TBX_CELL_W */
@@ -92,7 +92,7 @@ const char tbx_app_name[] = "123";
  * content-local x of the face is unchanged except the right-anchored items
  * (the MODE indicator, CIRC/CALC), which move one cell left. */
 #define SCR_COLS     76          /* 613-px content / 8: the widest face */
-#define SCR_LINES    24          /* 397-px content / 16: the tallest   */
+#define SCR_LINES    26          /* 417-px content / 16: the tallest   */
 #define X0           1           /* content-local left margin (613 - 608 = 5 spare) */
 #define BORDER_W     4           /* the row-number border */
 #define LINE_PANEL1  0
@@ -112,7 +112,7 @@ const char tbx_app_name[] = "123";
  * by the R2.2 screen (manual pp. 1-3/1-4): the area is the characters right
  * of the row border, the rows are the lines between the column border and
  * the status line, the status line is the last line. Bounds (authored): at
- * most the 76 x 24 face the buffers hold (the largest content the desktop
+ * most the 76 x 26 face the buffers hold (the largest content the desktop
  * allows); at least GEO_MIN_COLS characters -- the smallest frame the Window
  * Manager allows, FLAIR_CHROME_WINDOW_MIN_W 96 px, has a 69-px content of 8
  * -- and one row, so the arithmetic below never underflows (line one keeps

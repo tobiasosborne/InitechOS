@@ -8,7 +8,7 @@ X87_CORE := $(addprefix $(OUT)/host-x87/,$(CORE:.c=.o))
 LOCAL_INC := -Iinclude
 FACE_INC := -I$(TOP)/sdk/include -I$(TOP)/sdk/host
 HOST_INCLUDES := $(LOCAL_INC) -I$(TOP)/factory/testlib -Itests
-FACE_TESTS := edit quit range_menu entry clock keys hit resize cells protection
+FACE_TESTS := window edit quit range_menu entry clock keys hit resize cells protection
 DIFF_TESTS := wk1_roundtrip formula recalc_order copy_move transfer_baseline menu_tree
 HOST_TESTS := $(addprefix test_i123_,$(DIFF_TESTS) $(FACE_TESTS)) \
               test_i123_formula_x87_037F test_i123_formula_x87_027F \
@@ -23,6 +23,7 @@ test_i123_menu_tree_SRCS := tests/diff/test_i123_menu_tree.c core/menu.c
 test_i123_menu_tree_CFLAGS := -DI123_MENU_HOST
 $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_DEPS := $(TOP)/build/sdk/host/libtbx_host.a app/face_a.c tests/test_i123_quit.c tests/run.sh))
 $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
+test_i123_window_CFLAGS += -I$(TOP)/flair/include
 HOST_TESTS += test_i123_menu_disk
 test_i123_menu_disk_SRCS := tests/test_i123_menu_disk.c core/menu.c $(filter-out $(OUT)/host-core/core/menu.o,$(HOST_CORE))
 test_i123_menu_disk_CFLAGS := $(FACE_INC) -DI123_MENU_DISK

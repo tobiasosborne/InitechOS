@@ -214,3 +214,10 @@ and the independent `tests/fixtures/edit` capture. The saved LABEL records
 are compared to real R2.2 by a separate Python WK1 reader in tier 0;
 `edit_left_ignored.patch` proves that leaving F2 working while dropping its
 Left route fails. Inline cursor movement leaves the worksheet pointer fixed.
+
+The initial document structure region starts immediately below the single
+menu bar (CLAUDE.md, Hazards that are still true). The frame test reads
+`FLAIR_CHROME_MENUBAR_H` from `flair/include/chrome_metrics.h`; this is a
+test-only dependency on FLAIR's public metrics. Product calls still cross
+only the Toolbox gate. The taller window can show 26 whole lines. The
+app-owned smoke uses keys after launch, so no factory click needs moving.
