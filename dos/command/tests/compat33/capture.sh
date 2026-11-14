@@ -33,7 +33,7 @@ for case in "$@"; do
  case "$case" in ''|*[!A-Z0-9]*) echo 'Invalid capture case name' >&2; exit 2;; esac
  d=$out/$mode/$case
  capture_rc=0
- rm -rf "$d/files"
+ rm -rf "$d/files" "$d/INCOMPLETE"
  mkdir -p "$d/files"
  truncate -s 0 "$d/data.img"
  truncate -s 1474560 "$d/data.img"

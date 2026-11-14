@@ -4077,7 +4077,14 @@ static int run_with_redirect(const char *line)
     if (out_has && target[0]) {
         cmd_line_t parsed;
         cmd_parse(clean,&parsed);
-        if (parsed.kind==CMD_EXTERNAL && !external_exists(parsed.command)) {
+        /* Batch control lines (CALL, IF, FOR, ...) parse as CMD_EXTERNAL
+         * here but dispatch_control owns them; genuine DOS 3.30 opens the
+         * redirect target before resolving a CALL (reference/callredir),
+         * so only a plain external command gets the pre-resolve refusal. */
+        batch_parsed_t bparsed;
+        const char *cline = clean;
+        while (*cline==' ' || *cline=='\t' || *cline=='@') cline++;
+        if (parsed.kind==CMD_EXTERNAL && batch_classify(cline,&bparsed)==BL_COMMAND && !external_exists(parsed.command)) {
             dos_error(MSG_DOS_0002 "\r\n$");
             return 0;
         }
@@ -4659,7 +4666,7 @@ static int dispatch_control(const char *line)
         if (resolve_bat_path(callee,resolved)) {
             run_batch_named(resolved,args,callee);
             if (frame) frame->len=batch_load_file(frame->path,g_batch_buf);
-        } else dos_print(MSG_DOS_0002 "\r\n$");
+        } else dos_error(MSG_DOS_0002 "\r\n$");
         return 1;
     }
     case BL_PAUSE:

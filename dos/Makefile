@@ -134,6 +134,11 @@ smoke-break:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/break.sh "$(TOP)" "$(TOP)/build/image/boot.img" "$(OUT)" "$(OUT)/smoke-break"
 
+.PHONY: smoke-callredir
+smoke-callredir:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/callredir.sh "$(TOP)" "$(TOP)/build/image/boot.img" "$(OUT)" "$(OUT)/smoke-callredir"
+
 .PHONY: smoke-fat16
 smoke: smoke-fat16
 smoke-fat16:

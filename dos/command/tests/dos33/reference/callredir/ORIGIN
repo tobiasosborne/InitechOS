@@ -1,0 +1,10 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-callredir.sh; CAPTURE-DONE barrier.
+AUTOEXEC on B: runs CALL CHILD.BAT > TRACE.TXT (child ECHOs CHILD-RAN)
+and CALL NOPE.BAT > NOPE.OUT. Genuine results: the child runs (its
+internal ECHO goes to the screen, so TRACE.TXT is created empty); the
+missing batch prints Bad command or file name on the screen and still
+leaves NOPE.OUT created empty. The redirect target is therefore opened
+before CALL resolves its batch, and CALL is not refused as an unknown
+external command.
