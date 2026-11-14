@@ -1,0 +1,11 @@
+# test: test-loader-live
+--- a/loader.c
++++ b/loader.c
+@@ -1032,7 +1032,7 @@
+     };
+     if (size < sizeof declaration) return 0;
+-    for (uint32_t i = 0; i < sizeof declaration; i++)
++    for (uint32_t i = 0; i < sizeof declaration - 1u; i++)
+         if (image[i] != declaration[i]) return 0;
+     return 1;
+ }

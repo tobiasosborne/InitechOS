@@ -1,0 +1,12 @@
+# test: test-loader-live
+--- a/loader.c
++++ b/loader.c
+@@ -1215,7 +1215,7 @@
+             st = LOADER_ERR_BAD_FORMAT;
+         }
+         if (child_psp + 0x100u != PROGRAM_IMAGE && !loader_flat_is_pic(image, got))
+-            st = LOADER_ERR_BAD_FORMAT; /* DOS EXEC 0Bh, before any transfer. */
++            st = LOADER_OK; /* DOS EXEC 0Bh, before any transfer. */
+         if (st == LOADER_OK) {
+             plan.low_mcb_owned = 1;
+             plan.psp_addr = child_psp;

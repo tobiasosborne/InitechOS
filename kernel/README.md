@@ -304,6 +304,22 @@ foreign MZ refusal remains. Captured addresses and final words grade actual
 product memory; this is no longer a detached reference self-check. Every actual
 factor-based fixup range must be owned, with overflow refused before any write.
 
+Flat programs without relocation records are linked for `0x40100`. Nested EXEC
+refuses them with DOS error 0Bh if their allocated image address differs, before
+transferring control (initech-0nuel). This follows the native fixed-base format;
+IBM DOS 3.30 Technical Reference p. 6-200 supplies the Invalid format error.
+`turbo/tests/ide/probe/README.md` records the formerly silent wrong-address run.
+Native position-independent producers can explicitly declare PIC with this
+16-byte executable preamble: `EB 0E`, ASCII `INITECHP`, then bytes
+`01 10 01 00 00 00` (version, length, PIC flag, three reserved zeroes). The
+short jump enters code immediately after the record. Only that complete record
+permits another address; a missing, truncated or changed record grants nothing.
+This declaration is the producer's promise that its code, data and stack use
+no fixed image address. It does not relocate code. Existing KEEP refusals remain.
+The real 32-bit transfer test covers fixed-base refusal, valid PIC execution,
+every damaged record byte, parent PSP/high-memory preservation, arena reclamation
+and unchanged disk bytes; ordinary top-level flat programs still execute.
+
 Host gate setup creates the complete helper alias set with one C adapter call,
 retaining each gate's private directory. It no longer forks `ln` once for every
 helper in every gate. Replacement metadata checks batch the independent reader

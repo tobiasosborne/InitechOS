@@ -26,6 +26,9 @@ bits 32
 org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 start:
+    jmp short .code
+    db 'INITECHP',1,16,1,0,0,0 ; native PIC declaration; kernel README
+.code:
     ; Native flat .COM has no relocation records (ADR-0003 DEC-08).
     ; Resolve the message relative to EIP so nested EXEC can place the child
     ; in an MCB above a resident caller (IBM DOS 3.30 TR pp. 11-4/5).

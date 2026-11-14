@@ -1021,6 +1021,20 @@ static loader_status_t loader_load_high(const dir_entry_t *de, const mz_image_t 
                                         uint32_t env,uint8_t *out_rc);
 static uint32_t g_high_live;
 
+/* Native PIC flat declaration (README, initech-0nuel). Raw COM bytes carry no
+ * relocation records; only this complete executable preamble opts into a
+ * different load address. This is a producer declaration, not a code guess. */
+static int loader_flat_is_pic(const uint8_t *image, uint32_t size)
+{
+    static const uint8_t declaration[16] = {
+        0xeb, 0x0e, 'I', 'N', 'I', 'T', 'E', 'C', 'H', 'P', 1, 16, 1, 0, 0, 0
+    };
+    if (size < sizeof declaration) return 0;
+    for (uint32_t i = 0; i < sizeof declaration; i++)
+        if (image[i] != declaration[i]) return 0;
+    return 1;
+}
+
 loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
                                       const char *cmd_tail, uint32_t cmd_tail_len,
                                       uint32_t env_block, uint8_t *out_rc)
@@ -1110,8 +1124,8 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
     /* DOS EXEC allocates the largest free block for the child's PSP and stack
      * (IBM DOS 3.30 TR pp. 11-4/5). The existing top-level disjoint arena is
      * ABOVE the resident image+BSS. Keep its chain, including caller-owned
-     * blocks. Native flat .COM code loaded here must be position independent;
-     * unlike InitechMZ it has no relocation records (DEC-08/DEC-08a.1). */
+     * blocks. Away from PROGRAM_IMAGE, native flat code must explicitly declare
+     * position independence; it has no relocation records (initech-0nuel). */
     uint32_t child_psp = 0u, child_end = 0u;
     /* KEEP occupies the fixed flat-image base. Top-level MZ placement is a
      * relocation, not a nested EXEC: use the first free MCB above the retained
@@ -1200,6 +1214,8 @@ loader_status_t load_program_from_fat(const char *name83, uint16_t dir_start,
              * Nested InitechMZ relocation is a separate format extension. */
             st = LOADER_ERR_BAD_FORMAT;
         }
+        if (child_psp + 0x100u != PROGRAM_IMAGE && !loader_flat_is_pic(image, got))
+            st = LOADER_ERR_BAD_FORMAT; /* DOS EXEC 0Bh, before any transfer. */
         if (st == LOADER_OK) {
             plan.low_mcb_owned = 1;
             plan.psp_addr = child_psp;

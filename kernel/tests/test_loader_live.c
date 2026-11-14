@@ -43,6 +43,32 @@ static void guest(void)
     guest_calls++;
     psp_t *psp=int21_get_psp();
     CHECK(psp!=NULL,"executing child has a real PSP");
+    if(!strncmp(mode,"nested-",7) && guest_calls==1) {
+        psp_t saved=*psp;
+        uint8_t child_rc=0;
+        uint32_t total_before,largest_before,total_after,largest_after;
+        CHECK(int21_mcb_stats(&total_before,&largest_before),"parent owns a valid arena");
+        *(uint32_t *)(uintptr_t)(EXT_APP_BASE+4096u)=0x13579bdfu;
+        if(!strcmp(mode,"nested-pic")) {
+            loader_status_t child=load_program_from_fat("PIC.COM",0,NULL,0,0,&child_rc);
+            CHECK(child==LOADER_OK && child_rc==7 && guest_calls==2,
+                  "explicit PIC child transfers at a different base and returns");
+        } else {
+            unsigned count=!strcmp(mode,"nested-invalid")?16:1;
+            for(unsigned i=0;i<count;i++) {
+                char name[16];snprintf(name,sizeof name,"BAD%u.COM",i);
+                loader_status_t child=load_program_from_fat(count==1?"RAW.COM":name,0,NULL,0,0,&child_rc);
+                CHECK(child==LOADER_ERR_BAD_FORMAT && guest_calls==1,
+                      "undeclared or damaged PIC declaration refuses before transfer");
+            }
+        }
+        CHECK(int21_get_psp()==psp && !memcmp(psp,&saved,sizeof saved) && g_load.depth==1,
+              "child EXEC preserves complete parent PSP and active EXEC frame");
+        CHECK(*(uint32_t *)(uintptr_t)(EXT_APP_BASE+4096u)==0x13579bdfu && g_high_live,
+              "child EXEC preserves extended parent's owned data and residency");
+        CHECK(int21_mcb_stats(&total_after,&largest_after) && total_after==total_before && largest_after==largest_before,
+              "child completion or refusal restores parent's free arena without a leak");
+    }
     if (!strcmp(mode,"cwd")) {
         int21_cwd_snapshot_t cwd=int21_cwd_save();
         CHECK(cwd.start_cluster==want_directory,"actual child inherits caller CWD");
@@ -67,6 +93,12 @@ static void fixtures(const char *dir)
     uint8_t code[16]={0xb8}, mz[68]={0}, high[80]={0};
     put32(code,1,(uintptr_t)guest);code[5]=0xff;code[6]=0xe0;put32(code,8,0x10);
     save(dir,"RAW.COM",code,sizeof code);
+    uint8_t pic[32]={0xeb,0x0e,'I','N','I','T','E','C','H','P',1,16,1,0,0,0};
+    memcpy(pic+16,code,sizeof code);save(dir,"PIC.COM",pic,sizeof pic);
+    for(unsigned i=0;i<16;i++) {
+        char name[16];snprintf(name,sizeof name,"BAD%u.COM",i);
+        pic[i]^=1;save(dir,name,pic,sizeof pic);pic[i]^=1;
+    }
     put16(mz,0,0x5a4d);put16(mz,2,68);put16(mz,4,1);put16(mz,6,1);
     put16(mz,8,3);put16(mz,0x18,64);put16(mz,0x1c,MZ_INITECH_TAG);
     memcpy(mz+48,code,16);put32(mz,64,8);
@@ -138,9 +170,10 @@ int main(int argc,char **argv)
             CHECK(st==LOADER_ERR_NOMEM && guest_calls==0,"second high image refuses occupied owner window");
             int intact=1;for(unsigned i=0;i<0x200000;i++)if(((uint8_t *)high)[i]!=0x5a)intact=0;
             CHECK(intact,"refused high EXEC preserves all existing owner bytes");
-        } else if(!strcmp(mode,"high-reclaim")) {
+        } else if(!strcmp(mode,"high-reclaim") || !strncmp(mode,"nested-",7)) {
             st=load_program_from_fat("HIGH.EXE",0,NULL,0,0,&rc);
-            CHECK(st==LOADER_OK && rc==7 && guest_calls==1,"real high child executes and returns");
+            CHECK(st==LOADER_OK && rc==7 && guest_calls==(!strcmp(mode,"nested-pic")?2u:1u),
+                  "real high parent returns without an undeclared transfer");
             CHECK(g_high_live==0,"returned high child releases single owner");
             int zero=1;for(unsigned i=0;i<0x200000;i++)if(((uint8_t *)high)[i])zero=0;
             CHECK(zero,"returned high child clears complete high window");

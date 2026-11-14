@@ -2,6 +2,9 @@
 ; Ref: IBM DOS 3.30 TR pp. 6-195..201, 11-4/5; dos_structs.h PSP:16h.
 bits 32
 org 0
+    jmp short pic_code
+    db 'INITECHP',1,16,1,0,0,0 ; native PIC declaration; kernel README
+pic_code:
 %ifdef NEST_TERM20
     ; A direct child's parent PSP is the resident NEST.COM, not the kernel.
     cmp ebx,0x40000

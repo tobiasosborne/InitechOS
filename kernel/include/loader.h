@@ -330,8 +330,9 @@ loader_status_t load_program_in_place(uint32_t image_len, const char *cmd_tail,
  * and points the child PSP env_seg at it. Threaded verbatim to load_program_in_place.
  *
  * REENTRANCY: resident native flat .COM callers use a bounded return-frame
- * chain. Their position-independent children are allocated above the resident
- * image through its existing MCB arena. The caller's PSP, exit hook, DTA and
+ * chain. Explicitly declared PIC children (kernel README) can use a different
+ * load address in its existing MCB arena. Undeclared flat code away from
+ * PROGRAM_IMAGE refuses with BAD_FORMAT (DOS 0Bh). The caller's PSP, exit hook, DTA and
  * CWD are restored after termination (IBM DOS 3.30 TR pp. 6-196/200, 11-4/5;
  * CWD restoration retains this kernel's existing policy).
  *
