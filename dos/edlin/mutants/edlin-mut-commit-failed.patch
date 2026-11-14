@@ -1,0 +1,13 @@
+# EDLIN_MUT_COMMIT_FAILED_SAVE
+# test: test-edlin-host
+--- a/edlin/edlin.c
++++ b/edlin/edlin.c
+@@ -150,7 +150,7 @@
+     /* A failed remainder stream (NUL byte or read error) has set failed:
+      * commit nothing. Renaming here would replace the original with a
+      * truncated file and destroy the previous backup. */
+-    if(failed)return 0;
++    if(0)return 0;
+     if(!writebytes("\032",1))return 0;
+     if(io->close(output)<0){failed=1;return 0;}output=-1;
+     if(input.h>=0){io->close(input.h);input.h=-1;}

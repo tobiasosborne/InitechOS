@@ -147,6 +147,10 @@ static int write_lines(unsigned count,int automatic){
 static int save(void){
     if(!write_lines(lines,0))return 0;
     while(nextline(&input)){if(!writebytes(input.pending,length(input.pending))||!writebytes("\r\n",2))return 0;input.ready=0;}
+    /* A failed remainder stream (NUL byte or read error) has set failed:
+     * commit nothing. Renaming here would replace the original with a
+     * truncated file and destroy the previous backup. */
+    if(failed)return 0;
     if(!writebytes("\032",1))return 0;
     if(io->close(output)<0){failed=1;return 0;}output=-1;
     if(input.h>=0){io->close(input.h);input.h=-1;}
