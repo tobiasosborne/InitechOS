@@ -1,0 +1,7 @@
+# target: native-io
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -1025,2 +1025,3 @@
+ {
++    /* No native fault: the grader must award zero kills. */
+     state_of(p)->screen.attr=attr;

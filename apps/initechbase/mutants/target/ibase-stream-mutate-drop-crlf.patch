@@ -1,0 +1,14 @@
+# target: native-stream
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -707,10 +707,6 @@
+                  * Keep their order among drawn runs. Restore the page after
+                  * CON forwards the byte, then let the model apply its motion
+                  * once (including its reserved rows and bottom-row scroll). */
+-                uint8_t page[4002];
+-                dos_page(page,0);
+-                dos_rawout(p,text+i,1);
+-                dos_page(page,1);
+                 ibase_screen_write(screen,text+i++,1);
+             }
+         }

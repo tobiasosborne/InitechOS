@@ -30,6 +30,21 @@ ELF or ordinary compilation failure is an error, never a kill. Each mutant
 must produce the same semantic screen rejection twice; ordinary compiler-error
 and no-fault controls must receive zero kills.
 
+The file/stream cases require an executed DOS ECHO line after process return,
+not just the command's input echo. Ordered input waits for the program's END
+marker and allows child teardown before typing the ECHO. io writes the captured
+C21 B/9 row and uses the independent DBF reader against real SAVED.DBF. stream
+compares every internal CR/LF and character of the complete depth-with capture.
+Input programs/results are hash-checked before running.
+
+stack runs the same captured 20-level WITH program and verifies the complete
+correct transcript plus normal QUIT return to DOS. Its fault completes that
+transcript, then raises UD6 and HALTED instead of returning. This specific exit
+violation counts only with the full correct transcript, exact exception and
+missing executed DOS completion line; an incomplete program, arbitrary crash
+or timeout alone earns no kill. The return failure is not described as a
+wrong nesting transcript or an observed stack-guard diagnostic.
+
 screen_capture.c and test_console_review.c were claimed with git mv from the
 legacy harness. The remaining unclaimed emulator inventory stays with the
 InitechBase owner under tests/SMOKES.md; these helpers build only here.

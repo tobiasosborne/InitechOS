@@ -22,14 +22,16 @@ n=0 killed=0 errors=0
 for patch_file do
  n=$((n+1)); name=$(basename "$patch_file" .patch)
  mode=$(sed -n 's/^# target: //p' "$patch_file")
+ checker=tests/native/check.sh
  case $mode in
  static-cross) diagnostic='prohibited cross reference from .ovl_report to `ndx_rebuild' ;;
  static-resref) diagnostic='prohibited cross reference from .text to `.text.0ovl_report' ;;
  static-reenter) diagnostic='no-returning-into-an-evicted-overlay rule violated: ibase_ovl_call' ;;
- native-forms|native-enter|native-keys|native-color|native-color-state|native-controls)
+ native-forms|native-enter|native-keys|native-color|native-color-state|native-controls|native-io|native-stream|native-stack)
+  case $mode in native-io|native-stream|native-stack)checker=tests/native/files.sh;;esac
   oracle=${mode#native-}
   if [ ! -f "$run/baseline/$mode.ok" ]; then
-   if ! sh tests/native/check.sh "$oracle" "$top" "$run/baseline/build/INITBASE.EXE" "$run/baseline/build/INITBASE.OVL" "$run/baseline/$mode" > "$run/baseline/$mode.log" 2>&1; then
+   if ! sh "$checker" "$oracle" "$top" "$run/baseline/build/INITBASE.EXE" "$run/baseline/build/INITBASE.OVL" "$run/baseline/$mode" > "$run/baseline/$mode.log" 2>&1; then
     echo "ERROR native baseline $mode ($run/baseline/$mode.log)";errors=$((errors+1));continue
    fi
    touch "$run/baseline/$mode.ok"
@@ -49,11 +51,11 @@ for patch_file do
   good=1
   for pass in 1 2; do
    rc=0
-   sh tests/native/check.sh "$oracle" "$top" "$scratch/build/INITBASE.EXE" "$scratch/build/INITBASE.OVL" "$scratch/observe-$pass" > "$scratch/observe-$pass.log" 2>&1 || rc=$?
-   if [ "$rc" -ne 1 ] || ! grep -E '^RED: first difference|^RED console-review:' "$scratch/observe-$pass.log" > "$scratch/verdict-$pass"; then good=0; fi
+   sh "$checker" "$oracle" "$top" "$scratch/build/INITBASE.EXE" "$scratch/build/INITBASE.OVL" "$scratch/observe-$pass" > "$scratch/observe-$pass.log" 2>&1 || rc=$?
+   if [ "$rc" -ne 1 ] || ! grep -E '^RED: first difference|^RED console-review:|^RED native (io|stream|stack):' "$scratch/observe-$pass.log" > "$scratch/verdict-$pass"; then good=0; fi
   done
   if [ "$good" -eq 1 ] && cmp -s "$scratch/verdict-1" "$scratch/verdict-2"; then
-   echo "  killed $name ($mode: completed guest, same independent screen rejection twice)";killed=$((killed+1))
+   echo "  killed $name ($mode: same independent semantic rejection twice)";killed=$((killed+1))
   else
    echo "ERROR/SURVIVED $name ($scratch/observe-1.log)";errors=$((errors+1))
   fi

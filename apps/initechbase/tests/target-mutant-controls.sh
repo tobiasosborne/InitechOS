@@ -3,7 +3,7 @@
 set -eu
 top=$1 out=$2 make_cmd=$3
 mkdir -p "$out"
-for control in no-fault compile-error; do
+for control in no-fault compile-error native-no-fault; do
  log=$out/$control.log
  if sh tools/run-target-mutants.sh "$top" "$out/$control" "$make_cmd" "mutants/controls/target-$control.patch" > "$log" 2>&1; then
   echo "FAIL target grader accepted $control control ($log)"; exit 1

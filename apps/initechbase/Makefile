@@ -57,10 +57,12 @@ native-tools: $(HOST_OUT)/screen_capture $(HOST_OUT)/test_console_review $(HOST_
 native-prepare: package native-tools
 	+$(MAKE) -C $(TOP) image
 target-mutant-controls: native-prepare
-NATIVE_MODES ?= forms enter keys color color-state controls continuation
+NATIVE_MODES ?= $(shell cat tests/native/cases)
 native-check: native-prepare
-	@set -e; for mode in $(NATIVE_MODES); do \
-	 sh tests/native/check.sh "$$mode" "$(TOP)" "$(OUT)/INITBASE.EXE" "$(OUT)/INITBASE.OVL" "$(OUT)/native/$$mode"; \
+	@set -e; test -n "$(strip $(NATIVE_MODES))" || { echo 'FAIL: no native cases selected'; exit 1; }; \
+	for mode in $(NATIVE_MODES); do \
+	 case $$mode in io|stream|stack) check=files;; *) check=check;; esac; \
+	 sh tests/native/$$check.sh "$$mode" "$(TOP)" "$(OUT)/INITBASE.EXE" "$(OUT)/INITBASE.OVL" "$(OUT)/native/$$mode"; \
 	done
 
 # Host-only sandbox compiles are identical except for debug paths. Cache them

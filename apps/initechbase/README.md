@@ -183,7 +183,7 @@ values, record counts and seeks. GET/READ is unchanged.
 The artifact sizes and hashes earlier in this README describe the imported
 baseline, before this change. `make package-check` reports the current loader
 geometry and validates the actual EXE/OVL pair; no size or hash above is a
-claim about the current build. The 9 pending patches remain unproved.
+claim about the current build. The 5 pending patches remain unproved.
 
 The C19/C20/C21 conformance repair selection is now part of tier 0 (77 suites).
 Its real III+ fixtures come unchanged from the conformance study. An old NDX
@@ -194,7 +194,7 @@ sequence, then invalidates navigation state. C21's transcript, the edited row 2
 and the rebuilt two-entry NDX match real III+; its booted smoke readback checks
 the same three results on both emulators. The study's other fifteen defects
 are being repaired against their retained captures; the accepted selection is
-listed below. The 9 pending patches remain to be qualified.
+listed below. The 5 pending patches remain to be qualified.
 
 INDEX and REINDEX retain each predecessor through their final reopen, header,
 attachment and navigation checks. An error restores the old file and index
@@ -287,3 +287,11 @@ independent oracles were retained. The complete current sweep passes: 250
 compiled host faults rejected twice and all ten target faults rejected twice;
 no survivors or compiler errors count as kills. The nine original pending
 faults remain explicitly outside that passing selection.
+
+Four more original pending faults have native proofs: short DBF reads, lost
+file writes, lost stream CR/LF and placing WITH frames on the native stack.
+The first two compare the actual saved DBF to the genuine C21 result. Stream
+bytes match the complete real depth-with capture; its stack fault produces the
+correct transcript but cannot return from QUIT to DOS. No generic crash or
+elapsed timeout earns a kill. A new native no-fault control earns zero kills.
+Twenty-three original pending faults are qualified; five overlay faults remain.

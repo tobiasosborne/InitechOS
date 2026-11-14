@@ -1,0 +1,22 @@
+# target: native-stack
+--- a/cmd/proc.c
++++ b/cmd/proc.c
+@@ -922,9 +922,7 @@
+         if (ec) *ec=10;
+         return -INTERP_ERR_SYNTAX;
+     }
+-    with_frame *frame=(pal && pal->acquire && pal->release)
+-        ? (with_frame *)pal->acquire(pal,(uint32_t)sizeof *frame) : (with_frame *)0;
+-    if (!frame) { if (ec) *ec=43; return -INTERP_ERR_NOMEM; }
++    with_frame stack_frame, *frame=&stack_frame; /* CLAUDE.md, The constitution: obsolete stack frame */
+     int nblk = 0;
+     int nargs = 0, crc, ecode;
+ 
+@@ -968,7 +966,6 @@
+     crc = p_do_transfer(ip,ps,name,frame->argv,nargs,ec);
+ out:
+     p_release_args(pal, frame->argblk, nblk);  /* every exit frees the WITH blocks */
+-    pal->release(pal,frame);
+     return crc;
+ syntax:
+     crc = -INTERP_ERR_SYNTAX;

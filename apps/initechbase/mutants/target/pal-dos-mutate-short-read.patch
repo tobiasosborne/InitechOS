@@ -1,0 +1,47 @@
+# target: native-io
+--- a/pal/pal_dos.c
++++ b/pal/pal_dos.c
+@@ -188,6 +188,7 @@
+      * Authored 20 KiB budget, no local reference. */
+     pal_heap_block *blocks;
+     ibase_line_state input;
++    uint32_t short_read_fds; /* DBF handles only; overlays and command input intact. */
+     uint8_t     *heap_base;
+     uint8_t     *heap_ptr;
+     uint8_t     *heap_end;
+@@ -371,6 +372,15 @@
+     }
+     /* AX = handle (low 16 bits; do_open sets EAX low 16).
+      * Valid handles are JFT indices (0-based, small non-negative numbers). */
++    {
++        uint32_t fd = result & 0xFFFFu, n = rt_strlen(name);
++        if (fd < 32u) {
++            state_of(p)->short_read_fds &= ~(1u << fd);
++            if (n >= 4u && name[n-4] == '.' && (name[n-3] | 32) == 'd' &&
++                (name[n-2] | 32) == 'b' && (name[n-1] | 32) == 'f')
++                state_of(p)->short_read_fds |= 1u << fd;
++        }
++    }
+     return (pal_fd)(result & 0xFFFFu);
+ }
+ 
+@@ -387,6 +397,7 @@
+     if (fd < 0) {
+         return -(int)PAL_EACCES;
+     }
++    if ((uint32_t)fd < 32u) state_of(p)->short_read_fds &= ~(1u << fd);
+     result = int21(0x3Eu, 0x00u,
+                    0u,               /* EDX unused */
+                    (uint32_t)fd,     /* EBX=handle */
+@@ -423,6 +434,11 @@
+     if (n == 0u) {
+         return 0;
+     }
++    /* MUTANT: request one byte fewer so reads come up short (>1 only, so a
++     * single-byte read still moves). The dbf codec then mis-frames records. */
++    if (n > 1u && (uint32_t)fd < 32u && (state_of(p)->short_read_fds & (1u << fd))) {
++        n -= 1u;
++    }
+     result = int21(0x3Fu, 0x00u,
+                    (uint32_t)(uintptr_t)buf,   /* EDX=buffer flat ptr */
+                    (uint32_t)fd,                /* EBX=handle */
