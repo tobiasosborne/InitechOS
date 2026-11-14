@@ -2,11 +2,12 @@
 #ifndef INITECH_TBX_HOST_H
 #define INITECH_TBX_HOST_H
 #include "tbx.h"
+#include <stddef.h>
 #define TBX_HOST_W 76
 #define TBX_HOST_H 24
 #define TBX_HOST_OPS 16384
 #define TBX_HOST_FILES 64
-#define TBX_HOST_HANDLES 32
+#define TBX_HOST_HANDLES 15
 #define TBX_HOST_EVENTS 256
 /* Every call records its binding name, scalar arguments and a text snapshot.
  * Pointer-bearing records remain native host pointers in the typed state. */
@@ -60,9 +61,15 @@ typedef struct tbx_host_state {
     struct { int used, file; uint32_t pos, mode; } handles[TBX_HOST_HANDLES];
     tbx_event_t events[TBX_HOST_EVENTS];
     unsigned event_head, event_count;
+    int in_mousedown, copy_pending, alert_pending;
+    int scroll_len, scroll_val;
+    /* Native-address translation of a loaded tenant. Reset binds the host ELF
+     * module/BSS; fixtures can bind a smaller explicit module/allocation. */
+    uintptr_t image_base, image_end, block_end;
 } tbx_host_state_t;
 extern tbx_host_state_t tbx_host;
 void tbx_host_reset(void);
+void tbx_host_arena(const void *base, size_t module_bytes, size_t block_bytes);
 int tbx_host_put_file(const char *path, const void *bytes, uint32_t size);
 const tbx_host_file_t *tbx_host_file(const char *path);
 int tbx_host_push_event(const tbx_event_t *event);

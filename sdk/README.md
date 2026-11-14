@@ -114,8 +114,18 @@ outside those captured cases.
 
 file_error selects a DOS error for each file operation. fail_create/fail_write, short
 read/write limits, finite write_budget and one-shot handle-specific close
-failure cover existing save/copy fault cases. File capacity is 64 entries and
-32 handles; these are factory bounds, not ABI promises.
+failure cover existing save/copy fault cases. File capacity is 64 entries
+(a fixture bound). File handles are 5..19, matching the live 20-entry JFT.
+
+The fake enforces registration, exit, scalar ranges, string lengths, menu and
+dialog graph bounds, modal busy states, mouseDown-only tracking, file access
+modes and the same-directory rename restriction. Unaligned/offscreen cell
+coordinates are accepted; only aligned cells are represented in the recording
+grid. Reset binds native ELF text/rodata/data as the module and extends file,
+scrap and service spans through BSS. Stack and heap pointers are refused.
+TBX_IN_IMAGE has the same purpose in host fixtures as in tenants. Tests can
+bind a smaller arena with tbx_host_arena(base,module_bytes,block_bytes).
+The file fixture mounts A:; other drive prefixes return DOS error 15.
 
 Scrap is TEXT-only, 8192 bytes, with absent-type and insufficient-buffer
 errors. Standard File retains the reply pointer, tracking records a request,
@@ -157,11 +167,33 @@ arity and argument-array length, and OS switch/argument-table membership.
 The compatibility tbx_get_clock alias calls the single CLOCK binding.
 make red-once proves number/layout/fake-binding failures in isolated copies.
 
+tests/live/cases.h runs the same 127 calls through the typed fake and a disk
+tenant. gate-results.bin is a little-endian EAX capture from the real booted
+gate; see tests/live/CAPTURE.md. Tier 0 compares against that capture, and
+smoke-conformance boots again and requires identical results. No expected
+result comes from the fake. make smoke builds the ordinary product image with
+debug metadata, adds SDKCHECK.EXE only to a copy of the working volume, and
+runs conformance and live ABI legs. Debug sections do not enter INITDOS.SYS.
+
+smoke-abi uses the existing QEMU GDB stub to read a[] after the production
+dispatcher copies interrupted-stack arguments. abi.tsv is an independent
+literal table covering every argument of all 37 bindings, with distinct words
+at every position. Registration pointers are checked against the tenant ELF;
+all six callback fields read back from disk must match the desktop's source
+EventRecord. The tenant checks returned values, including the exit return
+observed before teardown. No test hook or scenario is built into the kernel.
+This leg needs GDB and the matching system.elf with -g; use make smoke to build
+both together. sdk/tests/live/red.sh proves the live check kills an x/y swap
+that the structural ABI audit accepts. Fake validation mutants run through
+the conformance entry with the ordinary mutation runner.
+
 Known debts: no ABI version negotiation; menus and dialog items contain native
 i386 pointers, not portable serialized records; the raw host trap cannot
-carry 64-bit pointers; the private OS dialog adapter needs its header handoff;
-and emulator launch/behavior remains tier 1 pending a booted desktop and the
-OS file-cap change. The source audit intentionally fails if the dispatcher is
+carry 64-bit pointers; the private OS dialog adapter needs its header handoff.
+The host file fixture retains a glob subset rather than a complete DOS path
+and wildcard parser, and dialog hit results remain injectable. App-owned
+fixtures must follow the same module/BSS and lifecycle rules as target code.
+The source audit intentionally fails if the dispatcher is
 refactored; FLAIR should then publish a read-only dispatch/arity manifest.
 
 ## Trap table

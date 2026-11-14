@@ -15,6 +15,7 @@ int main(int argc, char **argv)
     fclose(ref);
     static const unsigned attrs[] = {0x20, 0x22, 0x24, 0x26, 0x10, 8, 0x16};
     tbx_host_reset();
+    if(tbx_register()!=0)return 2;
     for (unsigned i = 0; i < 7; i++) {
         char name[4]; snprintf(name, sizeof name, "A%u", i);
         if (!tbx_host_put_file(name, "literal", 7)) return 2;
@@ -22,8 +23,8 @@ int main(int argc, char **argv)
     }
     unsigned at = 0, failures[2] = {0, 0};
     for (unsigned mask = 0; mask < 64; mask++) for (unsigned i = 0; i < 7; i++) for (unsigned wild = 0; wild < 2; wild++) {
-        char path[16]; snprintf(path, sizeof path, "A%u%s", i, wild ? ".*" : "");
-        tbx_find_rec_t records[8];
+        static char path[16]; snprintf(path, sizeof path, "A%u%s", i, wild ? ".*" : "");
+        static tbx_find_rec_t records[8];
         int want = expected[at++] == 0 ? 1 : 0;
         int got = tbx_file_find(path, mask, records, 8);
         char name[4]; snprintf(name, sizeof name, "A%u", i);

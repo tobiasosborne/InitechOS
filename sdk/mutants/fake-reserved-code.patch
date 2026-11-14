@@ -1,0 +1,6 @@
+# test: dispatch
+--- a/host/tbx_host.c
++++ b/host/tbx_host.c
+@@ -365,1 +365,2 @@
++    case TBX_FRAMERECT:return TBX_OK;
+     default:return TBX_ERR_BADCODE;

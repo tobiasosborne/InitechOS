@@ -7,6 +7,8 @@ case $2 in
  layout) echo 'ABI: target i386 layouts pinned (compile-only)';;
  link) "$out/tests/link"; echo 'ABI: all bindings link against shared fake';;
  host) "$out/tests/host";;
+ conformance) sh tests/live/inventory.sh "$out/tests"; "$out/tests/conformance" tests/live/gate-results.bin;;
+ dispatch) "$out/tests/dispatch" "$TOP/flair/tbxgate.c" tests/traps.tsv;;
  search33) "$out/tests/search33" "$TOP/kernel/tests/fixtures/search33/matrix.bin";;
  host32) sh tests/host32.sh "${HOSTCC:-cc}" "$out/tests/host32";;
  mz) make --no-print-directory -C "$TOP/factory/mz" test;;

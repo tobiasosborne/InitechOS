@@ -1,0 +1,6 @@
+# test: conformance
+--- a/host/tbx_validate.h
++++ b/host/tbx_validate.h
+@@ -10,1 +10,1 @@
+-    return !S.image_base || (a>=S.image_base&&a<=end&&n<=end-a);
++    return !S.image_base || (a>=S.image_base&&a<=end&&n<=end-a) || 1;

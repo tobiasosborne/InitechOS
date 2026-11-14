@@ -1,0 +1,6 @@
+# smoke: live-abi (run sdk/tests/live/red.sh; not a host mutant)
+--- a/rt/tbx_rt.c
++++ b/rt/tbx_rt.c
+@@ -118,1 +118,1 @@
+-    uint32_t a[6] = { (uint32_t)win, (uint32_t)x, (uint32_t)y,
++    uint32_t a[6] = { (uint32_t)win, (uint32_t)y, (uint32_t)x,

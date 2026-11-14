@@ -3,7 +3,7 @@ COMPONENT := sdk
 include $(TOP)/mk/config.mk
 HOST_AR ?= ar
 HOST_LIB := $(OUT)/host/libtbx_host.a
-HOST_TESTS := abi layout link host host32 mz search33
+HOST_TESTS := abi layout link host host32 mz search33 conformance dispatch
 TESTS ?= $(HOST_TESTS)
 export TOP
 TEST_BUDGET_S := 30
@@ -46,10 +46,26 @@ test-run: test-build
 	@TEST_BUDGET_S=$(TEST_BUDGET_S) sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) $(OUT) tests/run.sh $(TESTS)
 -include $(wildcard $(OUT)/host/*.d $(OUT)/tests/*.d)
 smoke:
-	@echo 'Tier 1: launch 123.EXE on the booted desktop, pending desktop import' >&2; exit 1
+	+$(MAKE) -C $(TOP) -j2 image TARGET_CFLAGS='$(TARGET_CFLAGS) -g'
+	+$(MAKE) smoke-conformance
+	+$(MAKE) smoke-abi
 .PHONY: red-once
 red-once: test
 	sh tests/red-once.sh $(TOP) $(OUT)/red "$(MAKE)"
 
 include $(TOP)/mk/mutants.mk
 include $(TOP)/mk/import-check.mk
+
+$(OUT)/tests/conformance: tests/live/host.c tests/live/cases.h $(HOST_LIB) FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -MMD -MP $< $(HOST_LIB) -o $@)
+test-build: $(OUT)/tests/conformance
+.PHONY: smoke-conformance smoke-abi
+smoke-conformance: $(OUT)/tests/conformance
+	+$(MAKE) -f tests/live/Makefile TOP=$(TOP) OUT=$(OUT)/live
+	SDK_HOST=$(OUT)/tests/conformance SDK_TENANT=$(OUT)/live/SDKCHECK.EXE sh tests/live/smoke.sh
+smoke-abi:
+	+$(MAKE) -f tests/live/Makefile TOP=$(TOP) OUT=$(OUT)/abi-live ABI=1
+	SDK_ABI_TENANT=$(OUT)/abi-live sh tests/live/abi-smoke.sh
+$(OUT)/tests/dispatch: tests/dispatch.c $(HOST_LIB) FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -MMD -MP $< $(HOST_LIB) -o $@)
+test-build: $(OUT)/tests/dispatch
