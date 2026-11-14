@@ -4,9 +4,9 @@ journey() {
  restore_pointer
  # File Close via pointer, then Close W, Quit Q, and the close box each
  # exercise the same documentless lifecycle in separate launches.
- move_by -23 -93
+ move_by -57 -93
  inject 'l1,m0:22,l0'
- move_by 23 71
+ move_by 57 71
  await_marker 'TENANT-EXIT rc=0 via=exit'
  launch_app PAINT.EXE
  restore_pointer
@@ -15,9 +15,9 @@ journey() {
  launch_app PAINT.EXE
  restore_pointer
  # Canvas frame (330,150): documentProc close box near (340,160).
- move_by 262 58
+ move_by 228 58
  inject 'l1,l0'
- move_by -262 -58
+ move_by -228 -58
  await_marker 'TENANT-EXIT rc=0 via=close'
  launch_app PAINT.EXE
  restore_pointer

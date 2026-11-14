@@ -28,11 +28,11 @@ journey() {
  inject m22:20
  launch_app NOTEPAD.EXE
  # Save the copied readout on page 2, leaving page 1 for Note Pad's journey.
- move_by "$((455-78-app_dx))" "$((329-102-app_dy))"
+ move_by "$((455-112-app_dx))" "$((329-102-app_dy))"
  inject 'l1,l0,kctrl-v'
  move_by -285 0
  inject 'l1,l0'
- move_by "$((78+app_dx-170))" "$((102+app_dy-329))"
+ move_by "$((112+app_dx-170))" "$((102+app_dy-329))"
  restore_pointer
  inject kctrl-q
  await_marker 'TENANT-EXIT rc=0 via=exit'
