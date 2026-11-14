@@ -14,11 +14,11 @@ mmd -i "$out/data.img" ::SUB
 emulator=qemu
 markers=$out/markers
 : > "$markers"
-app_entries=$(mdir -b -i "$out/data.img" ::APPS/)
 trace=$(
  inject "$open_disk"; await_marker 'FINDER-OPEN-VOLUME'
  inject "$open_apps"; await_marker 'FINDER-OPEN-FOLDER name=APPS'
- inject 'm22:20';launch_app SDKCHECK.EXE SDKCHECK
+ # finder_windows.c:fw_key selects by name and reveals an offscreen icon.
+ inject 'ks,kd,kk,kctrl-o'; await_marker 'FLAIR-DISPATCH app=SDKCHECK'
 )
 trace=${trace%,}
 trace=${trace%,WFLAIR-DISPATCH app=SDKCHECK}
