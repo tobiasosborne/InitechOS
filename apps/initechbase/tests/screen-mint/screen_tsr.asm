@@ -136,17 +136,15 @@ resident_end:
 install:
     cmp byte [80h],0
     jne save
-    ; Ref: screen_mint.sh's pinned MOUNT geometry. Refuse host-dependent space.
+    ; Claimed for the QEMU real-DOS mint (tests/screen-mint/mint.sh): the
+    ; DOSBox MOUNT geometry pins no longer apply. Require a valid C: with
+    ; 512-byte sectors; reproducibility is proven by two identical mints.
     mov ah,36h
     mov dl,3
     int 21h
-    cmp ax,32
-    jne fail
-    cmp bx,1024
-    jne fail
+    cmp ax,0FFFFh
+    je fail
     cmp cx,512
-    jne fail
-    cmp dx,2048
     jne fail
     mov ax,3D00h
     mov dx,event_name

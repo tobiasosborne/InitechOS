@@ -162,6 +162,15 @@ smoke: package $(HOST_OUT)/prog_diff $(HOST_OUT)/mint_clients_dbf $(OUT)/smoke/f
 $(OUT)/smoke/fixtures: tests/smoke/fixtures.c FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
 
+# Forms screen mint (explicit, never in make test): real III+ on QEMU.
+# Usage: make mint-forms FORMS_CASE=tests/.../case FORMS_OUT=/abs/empty-dir
+$(HOST_OUT)/SCREEN.COM: tests/screen-mint/screen_tsr.asm FORCE | $(HOST_OUT)
+	$(call run-command,$(NASM) -f bin -o $@ $<)
+.PHONY: mint-forms
+mint-forms: $(HOST_OUT)/screen_tool $(HOST_OUT)/SCREEN.COM
+	@test -n "$(FORMS_CASE)" && test -n "$(FORMS_OUT)" || { echo 'set FORMS_CASE and FORMS_OUT' >&2; exit 1; }
+	@DBASE3_DECOMP="$(DBASE3_DECOMP)" sh tests/screen-mint/mint.sh "$(FORMS_CASE)" "$(FORMS_OUT)" "$(HOST_OUT)/screen_tool" "$(HOST_OUT)/SCREEN.COM"
+
 $(HOST_OUT)/retained-screens: $(HOST_OUT)/screen_tool $(HOST_OUT)/w4_screen_check
 $(HOST_OUT)/screen_tool: tests/screen_tool.c tests/screen_file.h FORCE | $(HOST_OUT)
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -MMD -MP -MF $@.d -o $@ $<)

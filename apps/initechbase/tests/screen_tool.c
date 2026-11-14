@@ -57,7 +57,14 @@ static unsigned key(const char *s)
         {"LEFT",0x4b00}, {"RIGHT",0x4d00}, {"HOME",0x4700}, {"END",0x4f00},
         {"PGUP",0x4900}, {"PGDN",0x5100}, {"TAB",0x0f09}, {"BACKSPACE",0x0e08},
         {"DELETE",0x5300}, {"CTRL-Y",0x1519}, {"CTRL-END",0x7500},
-        {"CTRL-HOME",0x7700}, {"F1",0x3b00}, {"F2",0x3c00}, {"F10",0x4400}
+        {"CTRL-HOME",0x7700}, {"F1",0x3b00}, {"F2",0x3c00}, {"F10",0x4400},
+        /* IBM BIOS words (scan<<8|ASCII) for the forms captures: Insert,
+         * Shift-Tab and Ctrl-letter chords (Ctrl-W 0x1117, Ctrl-Q 0x1011). */
+        {"INSERT",0x5200}, {"SHIFT-TAB",0x0f00},
+        {"CTRL-A",0x1e01}, {"CTRL-C",0x2e03}, {"CTRL-D",0x2004},
+        {"CTRL-E",0x1205}, {"CTRL-F",0x2106}, {"CTRL-G",0x2207},
+        {"CTRL-Q",0x1011}, {"CTRL-R",0x1312}, {"CTRL-S",0x1f13},
+        {"CTRL-V",0x2f16}, {"CTRL-W",0x1117}, {"CTRL-X",0x2d18}
     };
     for (unsigned i=0; i<sizeof keys/sizeof keys[0]; i++)
         if (!strcmp(s,keys[i].name)) return keys[i].value;
