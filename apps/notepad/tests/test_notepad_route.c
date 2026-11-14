@@ -5,6 +5,7 @@
  * Compile twice: Note Pad, then SCRAPBOOK. No expected values use app state. */
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 static void mock_diagnostic(const char *s);
 #define DA_AUX(s) mock_diagnostic(s)
@@ -14,6 +15,7 @@ static void mock_diagnostic(const char *s);
 static long checks, fails;
 #define CHECK(c, why) do { checks++; if (!(c)) { fails++; printf("RED-REASON %s: line %d\n", why, __LINE__); } } while (0)
 #include "tbx_host.h"
+#include "tenant_lifecycle.h"
 typedef tbx_host_file_t mfile_t;
 typedef tbx_host_op_t op_t;
 #define m_ops tbx_host.ops
@@ -29,7 +31,6 @@ typedef tbx_host_op_t op_t;
 #define m_sf_reply tbx_host.sf_reply
 #define m_title tbx_host.windows[0].title
 #define m_scroll_len tbx_host.windows[0].scroll_len
-#define m_scroll_val tbx_host.windows[0].scroll_val
 #define m_scrap tbx_host.scrap
 #define m_scrap_len tbx_host.scrap_len
 #define m_scrap_puts tbx_host.scrap_puts
@@ -38,7 +39,9 @@ static int diagnostics;
 
 static void mock_diagnostic(const char *s) { if (strstr(s, "DA-CORRUPT")) diagnostics++; }
 static void event(int what, int msg, int mods, int x, int y)
-{ tbx_event_t ev = {what, msg, mods, 0, x, y}; m_nops = 0; tbx_app_event(&ev); }
+{ tbx_event_t ev = {what, msg, mods, 0, x, y}; m_nops = 0;
+  if(!tbx_host_push_event(&ev))exit(2);
+  (void)tbx_host_dispatch(tbx_app_event); }
 static void menu(int item) { event(TBX_EVT_MENU, TBX_MENU_WORD(130, item), 0, 0, 0); }
 #ifndef SCRAPBOOK
 static void type(const char *s) { for (; *s; s++) event(keyDown, (unsigned char)*s, 0, 0, 0); }
@@ -49,7 +52,7 @@ static int shown(const char *s)
     for (unsigned i = 0; i < m_nops; i++) if (!strcmp(m_ops[i].name,"tbx_draw_text") && !strcmp(m_ops[i].text, s)) return 1;
     return 0;
 }
-static void launch(void) { tbx_host.nwindows=0; CHECK(tbx_app_main() == 0, "launch"); event(updateEvt, 0, 0, 0, 0); }
+static void launch(void) { restart_host_tenant(); CHECK(tbx_app_main() == 0, "launch"); event(updateEvt, 0, 0, 0, 0); }
 static int u16(const unsigned char *p) { return (unsigned char)p[0] | ((unsigned char)p[1] << 8); }
 static int disk_page(const mfile_t *f, int p, const char *s)
 {
@@ -68,7 +71,9 @@ int main(void)
     tbx_scrap_put("bravo", 5); menu(5);
     CHECK(shown("bravo") && shown("2 of 2"), "paste-page");
     /* Bar line-down/up events map to whole clip pages, preserving labels. */
-    m_scroll_val = 221; event(updateEvt, 0, 0, 0, 0);
+    /* The shell's scroll value goes through the same public setter as a bar
+     * update; this works with both per-window and shared-scroll recording. */
+    (void)tbx_set_scroll(1,2*CONT_H,221); event(updateEvt, 0, 0, 0, 0);
     CHECK(shown("alpha") && shown("1 of 2"), "page-turn");
     menu(4); CHECK(m_scrap_len == 5 && !memcmp(m_scrap, "alpha", 5), "scrap");
     menu(3); CHECK(shown("bravo") && shown("1 of 1"), "cut");
