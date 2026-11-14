@@ -186,11 +186,14 @@ static unsigned __attribute__((unused)) serialise(void)
     stage[n]=0; return n;
 }
 static void notice(void) { g_ask=ASK_NOTICE; if(tbx_alert(fail_text,"OK",0,0)!=TBX_OK) g_ask=ASK_NONE; }
+/* Only DOS file-not-found proves absence. A refused OPEN or CLOSE must not
+ * bypass the replace question (GM4; failed-save ruling in README.md). */
 static int exists(const char *path)
 {
     int32_t h=tbx_file_open(path,TBX_FILE_READ_ONLY);
-    if(h<0) return 0;
-    (void)tbx_file_close(h); return 1;
+    if(h<0) return h==TBX_ERR_DOS(2)?0:h;
+    int32_t rc=tbx_file_close(h);
+    return rc<0?rc:1;
 }
 /* Start the FILE COPY box: the edited model through a stage file, or (clean)
  * the shipped ledger itself. The caption/box are the initech-bf2 canon. */
@@ -198,24 +201,38 @@ static void do_save(void)
 {
     const char *from=copy_src;
     if(g_edited) {   /* an edited sheet ALWAYS saves the model, even after a save */
-        unsigned n=serialise(); int32_t h;
+        unsigned n=serialise(); int32_t h=TBX_ERR_DOS(80);
         copy_stage=0;
-        for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0]&&!copy_stage;i++) if(!exists(stage_names[i])) copy_stage=stage_names[i];
-        if(!copy_stage) { g_quit_after_save=0; notice(); return; }   /* never destroy a stranger's file */
-        h=tbx_file_create(copy_stage);
+        /* Sec 10b of toolbox_gate.h: exclusive CREATE_NEW is the ownership
+         * proof. OPEN errors never license truncating someone else's file.
+         * Only file-exists advances to another candidate. */
+        for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0];i++) {
+            h=tbx_file_create_new(stage_names[i]);
+            if(h>=0) { copy_stage=stage_names[i]; break; }
+            if(h!=TBX_ERR_DOS(80)) break;
+        }
         if(h<0) { g_quit_after_save=0; notice(); return; }
-        g_staged=1;   /* from here on the stage is OURS (it did not exist) */
-        if(tbx_file_write(h,stage,n)!=(int32_t)n||tbx_file_close(h)<0) { g_staged=0; (void)tbx_file_delete(copy_stage); g_quit_after_save=0; notice(); return; }
+        g_staged=1;
+        int32_t written=tbx_file_write(h,stage,n);
+        int32_t closed=tbx_file_close(h); /* also after short/failed WRITE */
+        if(written!=(int32_t)n||closed<0) { g_staged=0; (void)tbx_file_delete(copy_stage); g_quit_after_save=0; notice(); return; }
         from=copy_stage;
     }
     g_copying=1;
-    if(tbx_file_copy(copy_caption,from,copy_dst)!=TBX_OK) { g_copying=0; g_quit_after_save=0; notice(); }
+    if(tbx_file_copy(copy_caption,from,copy_dst)!=TBX_OK) {
+        g_copying=0;
+        /* A rejected request has no completion event to clean up for us. */
+        if(g_staged) { g_staged=0; (void)tbx_file_delete(copy_stage); }
+        g_quit_after_save=0; notice();
+    }
 }
 static void begin_save(void)
 {
     if(g_copying||g_ask) return;
     commit();   /* an entry being typed is part of the work */
-    if(exists(copy_dst)) {
+    int present=exists(copy_dst);
+    if(present<0) { g_quit_after_save=0; notice(); return; }
+    if(present) {
         g_ask=ASK_REPLACE;
         if(tbx_alert(replace_text,"Yes","No",0)!=TBX_OK) { g_ask=ASK_NONE; g_quit_after_save=0; } /* fail safe: never replace unasked */
         return;

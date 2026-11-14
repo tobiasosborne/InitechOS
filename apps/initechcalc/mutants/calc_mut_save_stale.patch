@@ -6,6 +6,6 @@
      const char *from=copy_src;
 -    if(g_edited) {   /* an edited sheet ALWAYS saves the model, even after a save */
 +    if(0) {
-         unsigned n=serialise(); int32_t h;
+         unsigned n=serialise(); int32_t h=TBX_ERR_DOS(80);
          copy_stage=0;
-         for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0]&&!copy_stage;i++) if(!exists(stage_names[i])) copy_stage=stage_names[i];
+         /* Sec 10b of toolbox_gate.h: exclusive CREATE_NEW is the ownership

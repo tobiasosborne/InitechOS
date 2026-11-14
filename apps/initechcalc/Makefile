@@ -6,12 +6,14 @@ CORE := $(TOP)/apps/initech123/core/sheet.c $(TOP)/apps/initech123/core/fmt.c $(
 CORE_INC := -I$(TOP)/apps/initech123/include
 TENANT_SRCS := calc.c
 HOST_INCLUDES := -Iinclude $(CORE_INC) -I$(TOP)/sdk/include -I$(TOP)/sdk/host
-HOST_TESTS := test_calc_tenant test_calc_file_copy
+HOST_TESTS := test_calc_tenant test_calc_file_copy test_calc_save_safety
 $(foreach t,$(HOST_TESTS),$(eval $(t)_SRCS := tests/$(t).c $(CORE)))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_DEPS := $(TOP)/build/sdk/host/libtbx_host.a))
 test_calc_tenant_COUNT_PATTERN := ^test_calc_tenant: ([0-9]+) checks.*$$
 test_calc_file_copy_COUNT_PATTERN := ^test_calc_file_copy: ([0-9]+) checks.*$$
+test_calc_save_safety_COUNT_PATTERN := ^test_calc_save_safety: ([0-9]+) checks.*$$
+test_calc_save_safety_ENV := sh tests/save-safety.sh
 include $(TOP)/mk/host-test.mk
 TENANT := calc
 TENANT_EXE := CALC.EXE

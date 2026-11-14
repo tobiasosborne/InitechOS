@@ -1,14 +1,11 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -215,11 +215,6 @@
- {
-     if(g_copying||g_ask) return;
+@@ -267,7 +267,7 @@
      commit();   /* an entry being typed is part of the work */
--    if(exists(copy_dst)) {
--        g_ask=ASK_REPLACE;
--        if(tbx_alert(replace_text,"Yes","No",0)!=TBX_OK) { g_ask=ASK_NONE; g_quit_after_save=0; } /* fail safe: never replace unasked */
--        return;
--    }
-     do_save();
- }
- /* THE ONE EXIT GUARD: File > Quit, Ctrl-Q, the close box, and the Finder's
+     int present=exists(copy_dst);
+     if(present<0) { g_quit_after_save=0; notice(); return; }
+-    if(present) {
++    if(present && 0) {
+         g_ask=ASK_REPLACE;
+         if(tbx_alert(replace_text,"Yes","No",0)!=TBX_OK) { g_ask=ASK_NONE; g_quit_after_save=0; } /* fail safe: never replace unasked */
+         return;

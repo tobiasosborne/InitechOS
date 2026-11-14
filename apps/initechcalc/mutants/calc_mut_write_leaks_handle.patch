@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -247,7 +247,7 @@
+         if(h<0) { g_quit_after_save=0; notice(); return; }
+         g_staged=1;
+         int32_t written=tbx_file_write(h,stage,n);
+-        int32_t closed=tbx_file_close(h); /* also after short/failed WRITE */
++        int32_t closed=written==(int32_t)n?tbx_file_close(h):0;
+         if(written!=(int32_t)n||closed<0) { g_staged=0; (void)tbx_file_delete(copy_stage); g_quit_after_save=0; notice(); return; }
+         from=copy_stage;
+     }
