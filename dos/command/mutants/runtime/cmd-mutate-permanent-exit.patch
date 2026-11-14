@@ -1,5 +1,5 @@
 # CMD_MUTATE_PERMANENT_EXIT
-# session: auto
+# session: permanent
 --- a/command/command.c
 +++ b/command/command.c
 @@ -3672,7 +3672,6 @@

@@ -1,0 +1,12 @@
+# Misdispatch the command-looking tail of a physical REM line.
+# test: batch-physical
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -843,6 +843,7 @@
+         out[n++] = buf[i++];
+     }
+     out[n] = '\0';
++    if(out[0]=='R' && out[1]=='E' && out[2]=='M') bat_strlcpy(out,"DEL KEEP.DAT",BATCH_LINE_MAX);
+     /* Skip any remaining chars of an over-long line. */
+     while (i < len && buf[i] != '\r' && buf[i] != '\n') {
+         i++;

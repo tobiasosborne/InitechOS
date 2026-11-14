@@ -2,6 +2,8 @@
  Volume Serial Number is 1992-0302
 Directory for ::/
 
+MASK122      <DIR>     2026-11-14   6:24 
+MASK123      <DIR>     2026-11-14   6:24 
 E124     OUT       112 1992-03-02   9:30 
 E125     OUT       113 1992-03-02   9:30 
 E126     OUT       114 1992-03-02   9:30 
@@ -12,7 +14,6 @@ E130     OUT       115 1992-03-02   9:30
 E131     OUT       115 1992-03-02   9:30 
 E132     OUT       115 1992-03-02   9:30 
 REM      OUT        11 1992-03-02   9:30 
-MASK         <DIR>     1992-03-02   9:30 
-       11 files               1 040 bytes
-                          1 451 520 bytes free
+       12 files               1 040 bytes
+                          1 449 472 bytes free
 

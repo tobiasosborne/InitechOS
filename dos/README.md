@@ -67,8 +67,9 @@ failed output, print the captured insufficient-space message and copied-file
 count, and retain ERRORLEVEL. This includes destructive overwrite and append
 failures. Sources: goldens/dataloss/dos and command/tests/dos33/reference.
 Batch physical lines retain 127 characters and discard the remainder, exactly
-as the new OEM DOS capture does; the reported long-mask scenario retains both
-KEEP.DAT and JUNK.TMP in the reference and the real command/FAT host test.
+as the synchronized OEM DOS capture does. Separate 122- and 123-space DEL
+cases retain KEEP.DAT and JUNK.TMP; tests compare the captured input volume,
+diagnostics and surviving bytes directly.
 
 Mutation coverage now includes an external product-session runner under
 `tests/runtime/`: target code is patched in disposable copies, built normally,
@@ -78,8 +79,17 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 124 host patches and 38 product-session patches,
+The current DOS inventory is 126 host patches and 38 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
-two new controls for physical-line truncation and COPY output cleanup.
+four new controls for physical-line truncation, COPY output cleanup, missing
+REM sentinel dispatch and execution of a REM tail.
 `make smoke-errors` checks the captured COPY ERRORLEVEL state in the booted
 product as well as destination removal and source preservation.
+
+Runtime verdicts distinguish semantic assertions (exit 42 plus a stable assertion
+record and a healthy completed emulator report) from transport/setup errors
+(exit 2). Only the same explicit assertion failing twice kills a patch. The
+no-op, injected timeout and startup-failure controls run before the default
+session sweep; unexpected exits and incomplete transport are errors. TPS invalid
+input tests supply enough input for faulty programs to finish, then grade the
+required diagnostic. Missing completion is never a mutation kill.

@@ -2,9 +2,10 @@
 # Imported real-DOS report bytes and independent file-preservation invariants.
 set -eu
 root=$1 boot=$2 programs=$3 out=$4
+. "$root/dos/tests/runtime/verdict.sh"
 ref=$root/dos/tpsrep/tests/reference
 (cd "$ref" && sha256sum -c SHA256SUMS >/dev/null)
-fail() { echo "RED TPS session: $*" >&2; exit 1; }
+fail() { semantic "$*"; }
 for scenario in ${TPS_SCENARIOS:-ritual lines pages backup full}; do
  d=$out/$scenario;mkdir -p "$d"
  truncate -s 1474560 "$d/data.img";mformat -i "$d/data.img" -f 1440 ::
@@ -26,7 +27,11 @@ for scenario in ${TPS_SCENARIOS:-ritual lines pages backup full}; do
   truncate -s "$free" "$d/filler";mcopy -i "$d/data.img" "$d/filler" ::FILL.BIN
  fi
  keys=
- case $scenario in ritual) input=$ref/keys_a.txt;; lines|pages) input=/dev/null;; *) input=$ref/keys_ok.txt;; esac
+ case $scenario in ritual) input=$ref/keys_a.txt;; *) input=$ref/keys_ok.txt;; esac
+ if [ "${TPS_COUNT_CONTROL:-0}" = 1 ]; then
+  printf '      \r       \r004417\r004417\r004417\r004417\r88-114\ry' > "$d/count-keys"
+  input=$d/count-keys
+ fi
  # SPACE, Enter, digits, hyphen and y/n: no host key encoding shortcuts.
  od -An -tu1 -v "$input" | awk '{for(i=1;i<=NF;i++){c=$i;if(c==32)k="spc";else if(c==13 || c==10)k="ret";else if(c==9)k="tab";else if(c>=48 && c<=57)k=sprintf("%c",c);else if(c==45)k="minus";else k=sprintf("%c",c);printf "%s%s",sep,k;sep=","}} END{print ""}' > "$d/keys"
  # AUTOEXEC starts the program before SHELL-READY, so use the program's marker.
@@ -36,24 +41,26 @@ for scenario in ${TPS_SCENARIOS:-ritual lines pages backup full}; do
  export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
  if ! timeout -k 5 60 "$root/build/factory/qemu_harness" --disk "$short/boot.img" --boot-rw --disk2 "$short/data.img" \
   --keys "$(cat "$d/keys")" --keys-after TPS-READY --expect tps-done --quit-after tps-done \
-  --timeout-ms 25000 --name run --out "$short" > "$d/stdout" 2> "$d/report"; then rm -f "$short";fail "$scenario did not finish";fi
+  --timeout-ms 25000 --name run --out "$short" > "$d/stdout" 2> "$d/report"; then rm -f "$short";error "$scenario did not finish";fi
  rm -f "$short"
+ transport_pass "$d/report"
  tr -d '\r' < "$d/run.serial" > "$d/text"
  case $scenario in
  ritual)
+  if [ "${TPS_COUNT_CONTROL:-0}" = 1 ]; then require 'six alignment presses refused' grep -F 'FORM NOT ALIGNED (6 PRESSES)' "$d/text" >/dev/null;fi
   mtype -i "$d/data.img" ::TPSREPT.TXT > "$d/report.txt"
-  cmp "$d/report.txt" "$ref/tpsrept_expected.txt" || fail 'report differs from real DOS'
+  require 'report differs from real DOS' cmp "$d/report.txt" "$ref/tpsrept_expected.txt"
   if grep '^ADVANCE THE FORM' "$d/text" | grep -Ei '[0-9]|space' >/dev/null; then fail 'alignment prompt states tacit count/key';fi;;
  lines|pages|backup)
   case $scenario in lines) code=010;; pages) code=011;; backup) code=012;; esac
-  grep -F "TPS-$code " "$d/text" >/dev/null || fail "$scenario refused without required diagnostic"
+  require "$scenario refused without required diagnostic" grep -F "TPS-$code " "$d/text" >/dev/null
   mtype -i "$d/data.img" ::TPSREPT.TXT > "$d/retained"
-  cmp "$d/retained" "$ref/old_tpsrept.txt" || fail "$scenario lost previous report";;
+  require "$scenario lost previous report" cmp "$d/retained" "$ref/old_tpsrept.txt";;
  full)
-  grep -F 'TPS-009 ' "$d/text" >/dev/null || fail 'full disk reported success'
+  require 'full disk reported success' grep -F 'TPS-009 ' "$d/text" >/dev/null
   if mdir -i "$d/data.img" ::TPSREPT.TXT >/dev/null 2>&1; then fail 'failed report retained';fi
   mtype -i "$d/data.img" ::TPSREPT.BAK > "$d/retained"
-  cmp "$d/retained" "$ref/old_tpsrept.txt" || fail 'full disk lost backup';;
+  require 'full disk lost backup' cmp "$d/retained" "$ref/old_tpsrept.txt";;
  esac
 done
 echo 'GREEN TPS sessions: real-DOS report, tacit alignment, invalid inputs, backup collision and full disk'

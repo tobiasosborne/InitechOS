@@ -16,12 +16,28 @@ SHELL_BREAK_READ=1 build/shell_files build/fail.img build/command > build/type-o
 test ! -s build/type-output
 cmp build/fail.img build/before.img
 echo 'GREEN shell-failures: failed unlink is visible; interrupted read emits nothing; volume unchanged'
-# The original reported physical-mask boundary, captured from real DOS 3.30.
-# Real DOS retains KEEP.DAT and JUNK.TMP; verify actual command + FAT behavior.
-printf 'temp\r\n' > build/temp
-mcopy -i build/fail.img build/temp ::JUNK.TMP
-awk '/^DEL/ {print}' dos/command/tests/dos33/reference/batch/AUTOEXEC.BAT > build/long.bat
-cp build/fail.img build/before.img
-build/shell_files build/fail.img --batch build/long.bat > build/long-output
-cmp build/fail.img build/before.img
-tr -d '\r' < build/long-output | grep -Fx 'File not found' >/dev/null
+ref=dos/command/tests/dos33/reference/batch
+grep -F CAPTURE-DONE "$ref/result.txt" >/dev/null
+for spaces in 122 123;do
+ sed -n "/MASK-$spaces-BEGIN/,/MASK-$spaces-END/p" "$ref/result.txt" |
+  sed '1d;$d;s/ *$//' | awk 'length {printf "%s\r\n",$0}' > build/captured-diagnostic
+ cmp build/captured-diagnostic "$ref/MASK$spaces/DEL.OUT"
+done
+gzip -dc "$ref/before-data.img.gz" > build/masks.img
+awk '/^CD |^DEL/ {print}' "$ref/AUTOEXEC.BAT" > build/masks.bat
+build/shell_files build/masks.img --batch build/masks.bat > build/masks-output
+cat "$ref/MASK122/DEL.OUT" "$ref/MASK123/DEL.OUT" > build/masks-expected
+cmp build/masks-output build/masks-expected
+# Also re-read the captured disk: a stale extracted inventory cannot certify it.
+gzip -dc "$ref/data.img.gz" > build/masks-reference.img
+for mask in MASK122 MASK123;do
+ for image in masks masks-reference;do
+  mdir -b -i build/$image.img "::$mask" | sed 's@.*/@@' | LC_ALL=C sort > build/$image-names
+  cmp build/$image-names "$ref/$mask/names"
+  while IFS= read -r leaf;do
+   mtype -i build/$image.img "::$mask/$leaf" > build/mask-bytes
+   cmp build/mask-bytes "$ref/$mask/$leaf"
+  done < "$ref/$mask/names"
+ done
+done
+echo 'GREEN batch masks: 122/123 spaces match real DOS diagnostics, names and surviving bytes'

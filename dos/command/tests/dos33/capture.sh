@@ -23,7 +23,16 @@ for scenario in ${DOS33_SCENARIOS:-batch concat append appendpartial final self}
  "$out/fixtures" "$out/OLD.BIN" 4096 OLD-CONTENT-9876543210
  if [ "$scenario" = batch ]; then
   "$out/batch-fixture" > "$d/AUTOEXEC.BAT"
-  printf 'sleep 2\nshot before\nkey y\nkey ret\nsleep 1\nshot result\nend\n' > "$d/steps"
+  printf 'wait CAPTURE-DONE\nshot result\nend\n' > "$d/steps"
+  printf 'keep\r\n' > "$d/input-KEEP.DAT"
+  printf 'temp\r\n' > "$d/input-JUNK.TMP"
+  for spaces in 122 123; do
+   mmd -i "$d/data.img" "::MASK$spaces"
+   mcopy -i "$d/data.img" "$d/input-KEEP.DAT" "::MASK$spaces/KEEP.DAT"
+   mcopy -i "$d/data.img" "$d/input-JUNK.TMP" "::MASK$spaces/JUNK.TMP"
+  done
+  cp "$d/data.img" "$d/before-data.img"
+  gzip -n "$d/before-data.img"
  else
   mcopy -i "$d/data.img" "$out/SOURCE.BIN" ::SOURCE.BIN
   mcopy -i "$d/data.img" "$out/OLD.BIN" ::OLD.BIN
@@ -49,7 +58,15 @@ for scenario in ${DOS33_SCENARIOS:-batch concat append appendpartial final self}
  mkdir -p "$d/files"
  if [ "$scenario" = batch ]; then
   mcopy -i "$d/data.img" '::*.OUT' "$d/files"
-  mdir -i "$d/data.img" ::MASK > "$d/mask.mdir"
+  grep -F CAPTURE-DONE "$d/result.txt" >/dev/null
+  for spaces in 122 123; do
+   mask=MASK$spaces;mkdir -p "$d/$mask"
+   mdir -i "$d/data.img" "::$mask" > "$d/$mask/after.mdir"
+   mdir -b -i "$d/data.img" "::$mask" | sed 's@.*/@@' | LC_ALL=C sort > "$d/$mask/names"
+   while IFS= read -r leaf; do mcopy -i "$d/data.img" "::$mask/$leaf" "$d/$mask/$leaf";done < "$d/$mask/names"
+   sed -n "/MASK-$spaces-BEGIN/,/MASK-$spaces-END/p" "$d/result.txt" |
+    sed '1d;$d;s/ *$//' | awk 'length {printf "%s\r\n",$0}' > "$d/$mask/DEL.OUT"
+  done
  else
   for f in COPY.OUT STATE.OUT VERSION.TXT; do mcopy -i "$d/boot.img" "::$f" "$d/$f"; done
   for f in SOURCE.BIN OLD.BIN TARGET.BIN; do

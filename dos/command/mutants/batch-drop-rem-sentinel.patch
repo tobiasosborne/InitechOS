@@ -1,0 +1,12 @@
+# Drop the command following the long REM.
+# test: batch-physical
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -843,6 +843,7 @@
+         out[n++] = buf[i++];
+     }
+     out[n] = '\0';
++    if (bat_stricmp(out,"ECHO REM-AFTER>REM.OUT")==0) out[0]=0;
+     /* Skip any remaining chars of an over-long line. */
+     while (i < len && buf[i] != '\r' && buf[i] != '\n') {
+         i++;

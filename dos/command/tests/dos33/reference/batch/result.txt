@@ -1,13 +1,13 @@
 SeaBIOS (version 1.16.3-debian-1.16.3-2)                                        
 Booting from Floppy...                                                          
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
+MASK-122-BEGIN                                                                  
+File not found                                                                  
+MASK-122-END                                                                    
+MASK-123-BEGIN                                                                  
+File not found                                                                  
+MASK-123-END                                                                    
+CAPTURE-DONE                                                                    
+B>                                                                              
                                                                                 
                                                                                 
                                                                                 

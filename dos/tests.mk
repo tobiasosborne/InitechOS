@@ -165,6 +165,10 @@ HOST_TESTS += test-xcopy-drive
 test-xcopy-drive_SRCS := tests/runner.c
 test-xcopy-drive_ARGS := tests/run.sh test-xcopy-drive
 test-xcopy-drive_DEPS := $(OUT)/host/tool_test_xcopy_tree tests/gates/test-xcopy-drive.sh
+HOST_TESTS += test-runtime-verdict
+test-runtime-verdict_SRCS := tests/runner.c
+test-runtime-verdict_ARGS := tests/run.sh test-runtime-verdict
+test-runtime-verdict_DEPS := tests/gates/test-runtime-verdict.sh tests/runtime/classify.sh
 include $(TOP)/mk/host-test.mk
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions
@@ -174,4 +178,5 @@ mutants-host:
 	  "$(abspath $(OUT))" "$(MAKE)" $(MUTANT_PATCHES)
 mutants-sessions:
 	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/controls.sh "$(TOP)" "$(OUT)/runtime-controls"
 	+sh tests/runtime/mutants.sh "$(TOP)" $(SESSION_MUTANT_PATCHES)

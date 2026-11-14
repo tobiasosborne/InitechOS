@@ -1,7 +1,3 @@
-sleep 2
-shot before
-key y
-key ret
-sleep 1
+wait CAPTURE-DONE
 shot result
 end

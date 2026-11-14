@@ -26,3 +26,14 @@ A 529-byte REM with a command-looking tail is consumed as one physical line;
 `REM.OUT` records execution of the following line. `DOS33_SCENARIOS=batch`
 recaptures just this batch leg. Leading whitespace in captured E*.OUT is DOS's
 ECHO/redirection framing; the host limit test compares it literally.
+
+The batch leg was reminted after independent review found that the first
+fixed-sleep recording stopped before completion and its disk did not match
+its description. It now waits for CAPTURE-DONE, sends no unsolicited keys,
+and covers DEL followed by **122 spaces** and by **123 spaces** in separate
+MASK122/MASK123 directories. These are distinct inputs: the former retains
+`*.` at the 127-byte limit, the latter retains `*`. Both fresh DOS runs print
+File not found and retain KEEP.DAT/JUNK.TMP. before-data.img.gz holds the actual
+input volume; each mask directory pins stdout extracted from the completed
+screen, surviving names and all surviving bytes. The host gate compares these
+and independently re-reads the captured disk, rather than assuming no change.

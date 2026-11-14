@@ -7,9 +7,19 @@
 #include "batch.c"
 #include "env.c"
 static unsigned echoes;
+static unsigned rem_after, rem_tail;
+static char observed_rem[64];
 static int run_pipeline_or_redirect(const char *s)
 {
     if(dispatch_control(s))return 0;
+    if(!strcmp(s,"DEL KEEP.DAT"))rem_tail++;
+    if(!strcmp(s,"ECHO REM-AFTER>REM.OUT")) {
+        const char *p=s+5;
+        unsigned n=0;
+        while(*p && *p!='>' && n+3<sizeof observed_rem)observed_rem[n++]=*p++;
+        observed_rem[n++]='\r';observed_rem[n++]='\n';observed_rem[n]=0;
+        rem_after++;
+    }
     if(!strncmp(s,"ECHO >E",7)) {
         int number=atoi(s+7);
         const char *payload=strchr(s+7,' ');
@@ -18,7 +28,7 @@ static int run_pipeline_or_redirect(const char *s)
         FILE *f=fopen(path,"rb"); if(!f)exit(2);
         size_t n=fread(expected,1,sizeof expected,f);fclose(f);
         if(!payload || n<2 || strlen(payload)!=n-2 || memcmp(payload,expected,n-2)) {
-            fprintf(stderr,"RED batch-physical: E%d differs from real DOS (command %zu, captured %zu)\n",number,strlen(payload),n-2);exit(1);
+            fprintf(stderr,"RED batch-physical: E%d differs from real DOS (command %zu, captured %zu)\n",number,payload ? strlen(payload):0,n-2);exit(1);
         }
         echoes++;
     }
@@ -34,7 +44,12 @@ int main(void)
     f=fopen("command/tests/dos33/reference/batch/files/REM.OUT","rb");
     if(!f)return 2;
     char after[32];n=fread(after,1,sizeof after,f);fclose(f);
-    if(n!=11 || memcmp(after,"REM-AFTER\r\n",11))return 1;
+    if(rem_after!=1 || n!=strlen(observed_rem) || memcmp(after,observed_rem,n)) {
+        fputs("RED batch-physical: following REM sentinel was not dispatched exactly once\n",stderr);return 1;
+    }
+    if(rem_tail) {
+        fputs("RED batch-physical: long REM tail executed as a command\n",stderr);return 1;
+    }
     if(echoes!=9){fprintf(stderr,"RED batch-physical: missing lines\n");return 1;}
     /* Control bodies must retain SHIFT's %0 and execute under IF/FOR.
      * MS-DOS 3.3 Reference pp.144-151; tests grade resulting commands. */

@@ -12,8 +12,11 @@ int main(void) {
     printf("REM ");
     for(int i=0;i<512;i++)putchar('r');
     printf(" DEL KEEP.DAT\r\nECHO REM-AFTER>REM.OUT\r\n");
-    printf("MD MASK\r\nCD MASK\r\nECHO keep>KEEP.DAT\r\nECHO temp>JUNK.TMP\r\nDEL");
-    for(int i=0;i<123;i++)putchar(' ');
-    printf("*.TMP\r\nDIR\r\nECHO CAPTURE-DONE\r\n");
+    for(int spaces=122;spaces<=123;spaces++) {
+        printf("CD \\MASK%d\r\nECHO MASK-%d-BEGIN\r\nDEL",spaces,spaces);
+        for(int i=0;i<spaces;i++)putchar(' ');
+        printf("*.TMP\r\nECHO MASK-%d-END\r\n",spaces);
+    }
+    printf("ECHO CAPTURE-DONE\r\n");
     return 0;
 }
