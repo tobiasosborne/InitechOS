@@ -285,29 +285,29 @@ static void leg_skip(void)
 }
 
 /* ===========================================================================
- * L3 -- THE INVISIBLE GRID  (design F1.2 pitch 68x52; header inset 18,4)
+ * L3 -- THE INVISIBLE GRID  (native 128px columns; inset 48,4)
  * ---------------------------------------------------------------------------
  * HAND-AUTHORED content rect (100,50)..(400,250):
- *   width 300; usable = 300 - 18 = 282; cols = 282 / 68 = 4.
- *   cell(i): x = 100 + 18 + (i % 4) * 68,  y = 50 + 4 + (i / 4) * 52
+ *   width 300; cols = 300 / 128 = 2.
+ *   cell(i): x = 100 + 48 + (i % 2) * 128, y = 50 + 4 + (i / 2) * 52
  * ===========================================================================*/
 static void leg_grid(void)
 {
     rgn_rect_t c = mk_rect(50, 100, 250, 400);
     struct { int i; int16_t x, y; } W[] = {
-        { 0, 118,  54 }, { 1, 186,  54 }, { 2, 254,  54 }, { 3, 322,  54 },
-        { 4, 118, 106 }, { 7, 322, 106 }, { 8, 118, 158 }, { 11, 322, 158 },
+        { 0, 148,  54 }, { 1, 276,  54 }, { 2, 148, 106 }, { 3, 276, 106 },
+        { 4, 148, 158 }, { 7, 276, 210 }, { 8, 148, 262 }, { 11, 276, 314 },
     };
 
-    CHECK(finder_win_grid_cols(c) == 4,
-          "L3 a 300-px content rect fits 4 columns at the LOCKED 68-px pitch");
+    CHECK(finder_win_grid_cols(c) == 2,
+          "L3 a 300-px content rect fits two native 128-pixel columns");
     CHECK(finder_win_grid_cols(mk_rect(0, 0, 100, 60)) == 1,
           "L3 a rect too narrow for one pitch still reports ONE column "
           "(never zero -- a zero would divide by zero in the row-major map)");
-    CHECK(finder_win_grid_cols(mk_rect(0, 0, 100, 86)) == 1,
-          "L3 exactly one pitch past the inset is one column");
-    CHECK(finder_win_grid_cols(mk_rect(0, 0, 100, 154)) == 2,
-          "L3 two pitches past the inset is two columns");
+    CHECK(finder_win_grid_cols(mk_rect(0, 0, 100, 128)) == 1,
+          "L3 exactly one pitch is one column");
+    CHECK(finder_win_grid_cols(mk_rect(0, 0, 100, 256)) == 2,
+          "L3 two pitches are two columns");
 
     for (unsigned k = 0; k < sizeof W / sizeof W[0]; k++) {
         int16_t x = -1, y = -1;
@@ -470,10 +470,10 @@ static void leg_enumerate(void)
      * on the window's own content rect (which the Window Manager produced and
      * test-window/test-chrome grade -- the GRID math is what is under test). */
     content = region_get_bbox(s.sh.windows[0].rec.contRgn);
-    cols = ((int)content.right - (int)content.left - 18) / 68;
+    cols = ((int)content.right - (int)content.left) / 128;
     if (cols < 1) cols = 1;
     for (int i = 0; i < (int)v->n; i++) {
-        int16_t wx = (int16_t)((int)content.left + 18 + (i % cols) * 68);
+        int16_t wx = (int16_t)((int)content.left + 48 + (i % cols) * 128);
         int16_t wy = (int16_t)((int)content.top  +  4 + (i / cols) * 52);
         CHECK(v->icons[i].x == wx && v->icons[i].y == wy,
               "L5 a freshly opened window is already snapped row-major");
@@ -550,8 +550,8 @@ static void leg_service(void)
         if (strcmp(v->icons[i].name, WR[i]) != 0) bad = 1;
     CHECK(!bad, "L5b the root listing is NEWFOLD, TRASH.TXT, APPS, DESKTOP in disk order");
     /* The hidden entries take no grid cell: icon i sits in cell i. */
-    CHECK(v->n >= 4u && v->icons[2].x == v->icons[0].x + 2 * 68 &&
-          v->icons[3].x == v->icons[0].x + 3 * 68 && v->icons[3].y == v->icons[0].y,
+    CHECK(v->n >= 4u && v->icons[2].x == v->icons[0].x &&
+          v->icons[3].x == v->icons[0].x + 128 && v->icons[3].y == v->icons[0].y+52,
           "L5b the shown icons are packed into cells 0..3 (no hole where TRASH was)");
 
     CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK && slot == 1,
@@ -689,10 +689,10 @@ static void leg_cleanup(void)
     CHECK(moved == (int)v->n, "L7 every scattered icon reports as MOVED");
 
     content = region_get_bbox(s.sh.windows[0].rec.contRgn);
-    cols = ((int)content.right - (int)content.left - 18) / 68;
+    cols = ((int)content.right - (int)content.left) / 128;
     if (cols < 1) cols = 1;
     for (int i = 0; i < (int)v->n; i++) {
-        int16_t wx = (int16_t)((int)content.left + 18 + (i % cols) * 68);
+        int16_t wx = (int16_t)((int)content.left + 48 + (i % cols) * 128);
         int16_t wy = (int16_t)((int)content.top  +  4 + (i / cols) * 52);
         CHECK(v->icons[i].x == wx && v->icons[i].y == wy,
               "L7 Clean Up snaps ROW-MAJOR in record order (the "

@@ -1,0 +1,9 @@
+# test: test_finder_list_view
+# Bypass fitting in the real Name-column painter while the helper stays correct.
+--- a/finder_windows.c
++++ b/finder_windows.c
+@@ -469,3 +469,3 @@
+             if(col==0) {
+-                finder_win_list_name(t,fw_list_widths[0]-50,name);
++                finder_win_list_name(t,4096,name);
+                 t=name;

@@ -1,0 +1,8 @@
+# test: test_finder_labels
+# Reintroduce shortening in icon view instead of granting room to the name.
+--- a/finder_desktop.c
++++ b/finder_desktop.c
+@@ -272,2 +272,3 @@
+     fd_copy_name(out, fd->icons[idx].name, FINDER_ICON_NAME_MAX);
++    if(finder_desk_text_width(out)>60) out[4]=0;
+ }

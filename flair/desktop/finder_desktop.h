@@ -122,9 +122,6 @@
  * against the sys8 captures (design F1.2). */
 #define FINDER_LABEL_GAP           2
 #define FINDER_LABEL_PAD_X         3
-/* The authored 68-pixel FLAIR grid leaves a two-pixel gutter. Native Mac
- * OS 8.1 uses wider columns; see README.md for the reference and adaptation. */
-#define FINDER_LABEL_MAX_W        66
 #define FINDER_LABEL_ROWS          11   /* == GENEVA9_CELL_H; asserted in .c   */
 #define FINDER_LABEL_H             (FINDER_LABEL_ROWS + 2)
 
@@ -178,6 +175,9 @@ void finder_desk_text(const bitmap_t *dst, int x, int y, const char *s,
  * the fat12_format_83 shape ("NAME.EXT" is at most 12 chars; 13 matches
  * FAT12_NAME83_MAX so a later item-icon slice needs no widening). */
 #define FINDER_DESK_NAME_MAX       14
+/* Display storage covers the 31-character native Finder reference names.
+ * DOS operands and DESKTOP.DB name83 fields retain their existing limits. */
+#define FINDER_ICON_NAME_MAX       32
 #define FINDER_DESK_MAX_ICONS      16
 
 /* ===========================================================================
@@ -226,7 +226,7 @@ typedef struct finder_desk_icon {
     uint8_t  hilite;
     int16_t  x;             /* sprite top-left, desktop (== global) coords     */
     int16_t  y;
-    char     name[FINDER_DESK_NAME_MAX];   /* NUL-terminated label text        */
+    char     name[FINDER_ICON_NAME_MAX];   /* NUL-terminated display name     */
     /* R3.3 (bead initech-tdnl.10). F1.1's original sketch carried dir_start /
      * slot / origin_dir; R3.2 shipped none of them because a desktop-only slice
      * could not have populated them honestly (contract). THIS is the field the
@@ -285,14 +285,13 @@ int finder_desk_find_kind(const finder_desk_t *fd, finder_icon_kind_t kind);
 /* ===========================================================================
  * 4. GEOMETRY  (design F1.2)
  * ---------------------------------------------------------------------------
- * The display spelling is centered under the sprite within a bounded slot,
- * intersected with fd->bounds. Overlong names lose a middle portion; the disk
- * name stays intact. The hit / damage rect is sprite UNION display label.
+ * Icon names stay complete on one line centered beneath the sprite. The
+ * viewport clips drawing, not the name or its document-space geometry.
+ * The hit / damage rect is sprite UNION display label.
  * ===========================================================================*/
 rgn_rect_t finder_desk_sprite_rect(const finder_desk_t *fd, int idx);
 rgn_rect_t finder_desk_label_rect (const finder_desk_t *fd, int idx);
-/* Display spelling only: middle ellipsis, original disk name untouched.
- * out holds FINDER_DESK_NAME_MAX + 3 bytes (ASCII ellipsis in Geneva 9). */
+/* Full icon spelling; out holds FINDER_ICON_NAME_MAX bytes. */
 void finder_desk_label_name(const finder_desk_t *fd, int idx, char *out);
 rgn_rect_t finder_desk_cell_rect  (const finder_desk_t *fd, int idx);
 

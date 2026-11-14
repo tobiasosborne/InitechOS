@@ -189,7 +189,7 @@ static void leg_geometry(void)
     CHECK(rect_eq(c, 10, 10, 57, 42), "L2 cell bbox is sprite UNION label");
     CHECK(c.bottom - c.top == FINDER_CELL_H, "L2 cell height is FINDER_CELL_H");
 
-    /* A long label is clamped inside the bounds, never off the right edge. */
+    /* Full labels keep their document geometry; the viewport clips paint. */
     {
         fixture_t g;
         rgn_rect_t gl;
@@ -199,8 +199,8 @@ static void leg_geometry(void)
         (void)finder_desk_add(&g.fd, FINDER_ICON_VOLUME,
                               "WWWWWWWWWWWWW", 170, 10, 1u);
         gl = finder_desk_label_rect(&g.fd, 0);
-        CHECK(gl.right <= 200, "L2 a long label is clamped to the right bound");
-        CHECK(gl.left >= 0, "L2 a long label is clamped to the left bound");
+        CHECK(gl.right == 248, "L2 the full label extends beyond the viewport");
+        CHECK(gl.left == 125, "L2 the full label stays centered on the sprite");
     }
 }
 

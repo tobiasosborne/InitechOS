@@ -15,7 +15,7 @@ int main(void)
     finder_move_result_t r;
     scene_init(&S);
     mv_add(&S.mock.d[1],"README.TXT",0x20u,8);
-    t=finder_ops_resolve(&S.sh,ROOT,0,148,122);
+    t=finder_ops_resolve(&S.sh,ROOT,0,238,122);
     CHECK(finder_ops_drop(&S.sh,ROOT,0,&t,0,0,&r)==FINDER_WIN_ERR_EXISTS,"REPLACE first asks permission");
     CHECK(finder_ops_replace(&S.sh,ROOT,0,&t,0,0,&r)==FINDER_WIN_OK,"REPLACE confirmed move succeeds");
     CHECK(!mv_has(&S.mock,CL_ROOT,"README.TXT") && mv_has(&S.mock,CL_APPS,"README.TXT"),"REPLACE incoming item reaches destination");
@@ -25,7 +25,7 @@ int main(void)
     scene_init(&S);
     mv_add(&S.mock.d[1],"README.TXT",0x20u,8);
     S.sh.fs.move=failed_rollback;move_step=0;
-    t=finder_ops_resolve(&S.sh,ROOT,0,148,122);
+    t=finder_ops_resolve(&S.sh,ROOT,0,238,122);
     CHECK(finder_ops_replace(&S.sh,ROOT,0,&t,0,0,&r)==FINDER_WIN_ERR_MOVE,
           "REPLACE_ROLLBACK reports failed incoming move");
     CHECK(mv_has(&S.mock,CL_ROOT,"README.TXT") && mv_has(&S.mock,CL_TRASH,"README.TXT"),

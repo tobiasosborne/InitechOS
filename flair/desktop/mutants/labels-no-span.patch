@@ -1,0 +1,8 @@
+# test: test_finder_labels
+# Allocate one column even when a complete name needs more room.
+--- a/finder_windows.c
++++ b/finder_windows.c
+@@ -573,2 +573,1 @@
+-    int width=finder_desk_text_width(icon->name)+2*FINDER_LABEL_PAD_X;
+-    int span=(width+2+FINDER_GRID_PITCH_X-1)/FINDER_GRID_PITCH_X;
++    int span=1;

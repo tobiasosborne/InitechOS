@@ -164,28 +164,26 @@
 /* ===========================================================================
  * 2. THE INVISIBLE GRID  (design F1.2 / F3.3 "Clean Up ... plain row-major")
  * ---------------------------------------------------------------------------
- * PITCH is design F1.2's provisional 68 x 52, *golden-resolves* against the
- * sys8 captures. INSET_X is (68 - 32) / 2 == 18, i.e. the 32-px sprite is
- * CENTRED in its 68-px grid cell, so a label wider than the sprite spreads
- * symmetrically instead of hanging off one side. INSET_Y is a 4-px top margin
- * inside the content rect.
+ * Native Mac OS 8.1 mint-008 establishes 128-pixel ordinary columns; the
+ * review's mac-long-names.png establishes full single-line names and room for
+ * wide labels. The allocator reserves additional columns for a wide name.
+ * INSET_X is (128 - 32) / 2 == 48. The existing row pitch is 52 pixels and
+ * INSET_Y remains a 4-pixel top margin.
  *
  * Cell (row, col) of a window whose content rect is `c`:
  *      sprite_x = c.left + FINDER_GRID_INSET_X + col * FINDER_GRID_PITCH_X
  *      sprite_y = c.top  + FINDER_GRID_INSET_Y + row * FINDER_GRID_PITCH_Y
- * and the column count is (content_width - INSET_X) / PITCH_X, at least 1.
+ * and the ordinary column count is content_width / PITCH_X, at least 1.
  * ROW-MAJOR means index i occupies col = i % cols, row = i / cols -- fill the
  * first row left-to-right, then the next. Deterministic (contract) and fully
  * hand-computable, which is how the oracle grades it.
  *
- * A cell below the content rect is NOT clipped away: finder_desk_drag_commit's
- * clamp keeps every icon inside `bounds`, so a directory with more icons than
- * fit simply stacks them on the last legal row. Scrolling is DEFERRED (no List
- * Manager, no scrollbar wiring this slice; the view record reserves the bits).
+ * Cells beyond the content rect remain in document coordinates and are reached
+ * by scrolling. Names are never abbreviated to squeeze them into icon cells.
  * ===========================================================================*/
-#define FINDER_GRID_PITCH_X       68
+#define FINDER_GRID_PITCH_X      128
 #define FINDER_GRID_PITCH_Y       52
-#define FINDER_GRID_INSET_X       18
+#define FINDER_GRID_INSET_X       48
 #define FINDER_GRID_INSET_Y        4
 
 /* ===========================================================================
@@ -663,6 +661,10 @@ int finder_win_grid_cols(rgn_rect_t c);
 
 /* The row-major grid cell for icon index `i` inside content rect `c`. Pure. */
 void finder_win_grid_origin(rgn_rect_t c, int i, int16_t *out_x, int16_t *out_y);
+/* Full-name icon allocation; wide labels occupy additional columns. */
+int finder_win_layout_icons(finder_desk_t *view, rgn_rect_t document);
+/* Name-column spelling only; out holds FINDER_ICON_NAME_MAX + 3 bytes. */
+void finder_win_list_name(const char *name, int width, char *out);
 
 /* Build the next free New Folder name for a directory whose existing names are
  * `existing[0..n)`. Writes a NUL-terminated 8.3 name into `out` (which must

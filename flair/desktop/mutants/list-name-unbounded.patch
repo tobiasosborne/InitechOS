@@ -1,0 +1,8 @@
+# test: test_finder_labels
+# Forget to abbreviate overflowing Name-column text.
+--- a/finder_windows.c
++++ b/finder_windows.c
+@@ -398,2 +398,3 @@
+     out[n]=0;
++    return;
+     if(finder_desk_text_width(out)<=width) return;

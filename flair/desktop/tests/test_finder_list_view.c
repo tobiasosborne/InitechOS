@@ -13,6 +13,7 @@
 #include "menu.h"
 #include "finder_menu.h"
 #include "test_assert.h"
+#include "geneva9.h"
 
 TEST_HARNESS();
 
@@ -232,7 +233,7 @@ static void live_layout(void)
     CHECK(finder_win_content_hit(w,200,85)==2 && w->icons[2].y==83,
           "V7 scrollbar moves rows and hit testing together below fixed header");
     finder_dispatch(&s.ctx,MenuResult(514,1),"mouse");
-    CHECK(w->view_bits==0 && w->icons[0].x==44 && w->icons[0].y==66,
+    CHECK(w->view_bits==0 && w->icons[0].x==74 && w->icons[0].y==66,
           "V7 Icons restores the original grid through the same model");
 }
 
@@ -275,8 +276,46 @@ static void persistence(void)
           "V5 per-folder view bits survive reload independent of window slot");
 }
 
+/* Exercise the live list painter, not just the string helper. In the fixed
+ * Name column 234-49-1 = 184 pixels are available. The authored strike has
+ * W=9, period=4, T=6, X=7: the literal expected middle-omitted run is 179px.
+ * mac-list-names.png and HIG p.221 establish preserving the name's ends. */
+static void list_name_paint(void)
+{
+    static scene_t s;
+    static uint8_t pixels[640*480];
+    static const char expected[]="WWWWWWWWWW...WWWWWW.TXT";
+    bitmap_t bm={0};
+    int slot=-1;
+    init_scene(&s);
+    CHECK(finder_win_open(&s.sh,0,7,"APPS",0,&slot,NULL)==0,
+          "V8 empty window opens for native long-name display");
+    if(slot<0)return;
+    CHECK(finder_win_reserve_icons(&s.sh,slot,1)==FINDER_WIN_OK,
+          "V8 one reference display record is allocated");
+    finder_window_t *w=&s.sh.windows[slot];
+    finder_desk_add(&w->view,FINDER_ICON_FILE,"WWWWWWWWWWWWWWWWWWWWWWWWWWW.TXT",0,0,1);
+    memset(w->meta,0,sizeof *w->meta);
+    finder_win_set_view(w,FINDER_VIEW_NAME);
+    bm.base=pixels;bm.width=640;bm.height=480;bm.pitch=640;
+    bm.bpp=8;bm.bytes_per_pixel=1;
+    memset(pixels,0x7e,sizeof pixels);
+    finder_win_paint(w,&bm,w->rec.contRgn);
+    /* Default slot-zero content origin is (26,62); Name ink begins x=75. */
+    int x=75,y=w->icons[0].y+3,ok=1;
+    for(const char *p=expected;*p;p++) {
+        unsigned c=(unsigned char)*p-32,advance=geneva9_advance[c];
+        for(int r=0;r<11;r++) for(unsigned col=0;col<advance;col++)
+            ok &= (pixels[(y+r)*640+x+(int)col]==0)==!!(geneva9[c][r]&(0x80u>>col));
+        x+=(int)advance;
+    }
+    CHECK(ok,"V8 live Name column paints the middle ellipsis and complete TXT ending");
+    CHECK(!strcmp(w->icons[0].name,"WWWWWWWWWWWWWWWWWWWWWWWWWWW.TXT"),
+          "V8 switching to list view preserves the full icon name");
+}
+
 int main(void)
 {
-    modes(); sorts(); columns(); routing(); live_layout(); persistence();
+    modes(); sorts(); columns(); routing(); live_layout(); persistence(); list_name_paint();
     return TEST_SUMMARY("test-finder-list-view");
 }

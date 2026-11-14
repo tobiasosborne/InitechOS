@@ -108,16 +108,16 @@ int finder_desk_text_width(const char *s)
     return w;
 }
 
-static void fd_copy_name(char *dst, const char *src)
+static void fd_copy_name(char *dst, const char *src, uint32_t cap)
 {
     uint32_t i = 0u;
     if (src != (const char *)0) {
-        while (i < (uint32_t)(FINDER_DESK_NAME_MAX - 1) && src[i] != '\0') {
+        while (i < cap - 1u && src[i] != '\0') {
             dst[i] = src[i];
             i++;
         }
     }
-    while (i < (uint32_t)FINDER_DESK_NAME_MAX) {
+    while (i < cap) {
         dst[i] = '\0';
         i++;
     }
@@ -196,7 +196,7 @@ int finder_desk_add(finder_desk_t *fd, finder_icon_kind_t kind,
     ic->x         = x;
     ic->y         = y;
     ic->dir_start = 0u;     /* R3.3: set by finder_desk_set_cluster if needed  */
-    fd_copy_name(ic->name, name);
+    fd_copy_name(ic->name, name, FINDER_ICON_NAME_MAX);
     fd->n = (uint16_t)(fd->n + 1u);
     return idx;
 }
@@ -222,7 +222,7 @@ int finder_desk_seed_defaults(finder_desk_t *fd)
 void finder_desk_set_name(finder_desk_t *fd, int idx, const char *name)
 {
     if (!fd_valid(fd, idx)) return;
-    fd_copy_name(fd->icons[idx].name, name);
+    fd_copy_name(fd->icons[idx].name, name, FINDER_ICON_NAME_MAX);
 }
 
 void finder_desk_set_cluster(finder_desk_t *fd, int idx, uint16_t cluster)
@@ -263,75 +263,28 @@ rgn_rect_t finder_desk_sprite_rect(const finder_desk_t *fd, int idx)
     return r;
 }
 
-/* Reserve the label's share of the compact grid before formatting. Intersect
- * with the viewport instead of pinning scrolled-out labels to its edge.
- * Mac OS 8.1 mint-008: centered single-line icon names; Apple HIG (1992),
- * p.221: replace the middle of an overlong name, preserving both ends. */
-static rgn_rect_t fd_label_slot(const finder_desk_t *fd, int idx)
-{
-    rgn_rect_t r = fd_empty_rect();
-    int cx, left, right;
-    if (!fd_valid(fd, idx)) return r;
-    cx = (int)fd->icons[idx].x + FINDER_ICON_DIM / 2;
-    left = cx - FINDER_LABEL_MAX_W / 2;
-    right = left + FINDER_LABEL_MAX_W;
-    if (left < fd->bounds.left) left = fd->bounds.left;
-    if (right > fd->bounds.right) right = fd->bounds.right;
-    if (left > fd->bounds.right) left = fd->bounds.right;
-    if (right < left) right = left;
-    r.left = (int16_t)left; r.right = (int16_t)right;
-    r.top = (int16_t)(fd->icons[idx].y + FINDER_ICON_DIM + FINDER_LABEL_GAP);
-    r.bottom = (int16_t)(r.top + FINDER_LABEL_H);
-    return r;
-}
-
+/* Native Mac OS 8.1 mac-long-names.png: icon names stay complete, including
+ * the 31-character W-name. Middle omission belongs to list columns only. */
 void finder_desk_label_name(const finder_desk_t *fd, int idx, char *out)
 {
-    rgn_rect_t slot = fd_label_slot(fd, idx);
-    int available = slot.right - slot.left - 2 * FINDER_LABEL_PAD_X;
-    int n = 0, left, right;
-    const char *name;
     out[0] = '\0';
     if (!fd_valid(fd, idx)) return;
-    name = fd->icons[idx].name;
-    while (name[n]) { out[n] = name[n]; n++; }
-    out[n] = '\0';
-    if (finder_desk_text_width(out) <= available) return;
-    if (available < finder_desk_text_width("...")) { out[0] = '\0'; return; }
-    left = (n + 1) / 2; right = left;
-    do {
-        int k = 0;
-        /* Remove a contiguous middle range, balancing the surviving ends.
-         * The ASCII strike has no MacRoman ellipsis: use three periods. */
-        if (left > n - right) left--; else right++;
-        for (int j = 0; j < left; j++) out[k++] = name[j];
-        out[k++] = '.'; out[k++] = '.'; out[k++] = '.';
-        for (int j = right; j < n; j++) out[k++] = name[j];
-        out[k] = '\0';
-    } while (finder_desk_text_width(out) > available);
+    fd_copy_name(out, fd->icons[idx].name, FINDER_ICON_NAME_MAX);
 }
 
 rgn_rect_t finder_desk_label_rect(const finder_desk_t *fd, int idx)
 {
     rgn_rect_t r;
-    rgn_rect_t slot;
-    char name[FINDER_DESK_NAME_MAX + 3];
     int w;
     int cx;
     int left;
 
     if (!fd_valid(fd, idx)) return fd_empty_rect();
 
-    slot = fd_label_slot(fd, idx);
-    finder_desk_label_name(fd, idx, name);
-    w  = finder_desk_text_width(name) + 2 * FINDER_LABEL_PAD_X;
-    if (w > slot.right - slot.left) w = slot.right - slot.left;
+    w  = finder_desk_text_width(fd->icons[idx].name) + 2 * FINDER_LABEL_PAD_X;
     cx = (int)fd->icons[idx].x + FINDER_ICON_DIM / 2;
     /* Centered under the sprite; integer division matches text_center_in. */
     left = cx - w / 2;
-
-    if (left + w > slot.right) left = slot.right - w;
-    if (left < slot.left) left = slot.left;
 
     r.left   = (int16_t)left;
     r.right  = (int16_t)(left + w);
@@ -745,7 +698,7 @@ int finder_desk_db_get_origins(const uint8_t *buf, uint32_t len,
         out[took].name83[13] = '\0';
         for(uint32_t k=0;k<FINDER_DESK_NAME_MAX;k++) out[took].original83[k]='\0';
         if(!(out[took].flags & FINDER_ORIGIN_FLAG_RENAMED))
-            fd_copy_name(out[took].original83,out[took].name83);
+            fd_copy_name(out[took].original83,out[took].name83,FINDER_DESK_NAME_MAX);
         else if(i+1u<n && buf[off+FINDER_DB_RECORD_SIZE]==FINDER_DB_KIND_ORIGINAL &&
                 fd_get_le16(buf+off+FINDER_DB_RECORD_SIZE+2)==out[took].dir_start) {
             for(uint32_t k=0;k<13u;k++)
@@ -900,7 +853,7 @@ void finder_desk_paint(const finder_desk_t *fd, const bitmap_t *dst,
         const FLAIRDeskIcon *strike = fd_strike(ic->kind, fd->trash_full);
         rgn_rect_t cell = finder_desk_cell_rect(fd, i);
         rgn_rect_t lab;
-        char name[FINDER_DESK_NAME_MAX + 3];
+        char name[FINDER_ICON_NAME_MAX];
         uint32_t band_px;
         uint32_t text_px;
 

@@ -349,8 +349,7 @@ int finder_win_set_view(finder_window_t *w,uint16_t bits)
         w->scroll.axis[WSCROLL_H].value=w->scroll.axis[WSCROLL_V].value=0;
         w->applied_sx=w->applied_sy=0;
         if ((bits & FINDER_VIEW_MASK)==FINDER_VIEW_ICONS)
-            for(int i=0;i<(int)w->view.n;i++)
-                finder_win_grid_origin(w->view.bounds,i,&w->icons[i].x,&w->icons[i].y);
+            (void)finder_win_layout_icons(&w->view,w->view.bounds);
     }
     (void)finder_win_sync_geometry(w);
     return changed;
@@ -389,6 +388,26 @@ static char *fw_num(char *p,uint32_t v)
     while(n)*p++=b[--n];
     *p=0; return p;
 }
+/* Mac OS 8.1 mac-list-names.png and Apple HIG (1992) p.221: Name columns
+ * abbreviate in the middle, preserving both ends. Never used by icon view. */
+void finder_win_list_name(const char *name, int width, char *out)
+{
+    int n=0, left, right;
+    while (name && name[n] && n<FINDER_ICON_NAME_MAX-1) { out[n]=name[n]; n++; }
+    out[n]=0;
+    if(finder_desk_text_width(out)<=width) return;
+    if(width<finder_desk_text_width("...")) {out[0]=0;return;}
+    left=(n+1)/2; right=left;
+    do {
+        int k=0;
+        if(left>n-right) left--; else right++;
+        for(int j=0;j<left;j++) out[k++]=name[j];
+        out[k++]='.';out[k++]='.';out[k++]='.';
+        for(int j=right;j<n;j++) out[k++]=name[j];
+        out[k]=0;
+    } while(finder_desk_text_width(out)>width);
+}
+
 static __attribute__((noinline)) void fw_cell_text(const bitmap_t *dst,const region_t *clip,rgn_rect_t col,
                             int x,int y,const char *s,int part)
 {
@@ -445,6 +464,11 @@ static __attribute__((noinline)) void fw_paint_list(finder_window_t *w,const bit
             cell.right=(int16_t)(left+fw_list_widths[col]>c.right?c.right:left+fw_list_widths[col]);
             const char *t=col==0?w->icons[i].name:col==1?date:col==2?size:
                 w->icons[i].kind==FINDER_ICON_FOLDER?"folder":w->icons[i].kind==FINDER_ICON_APP?"application program":"Application document";
+            char name[FINDER_ICON_NAME_MAX+3];
+            if(col==0) {
+                finder_win_list_name(t,fw_list_widths[0]-50,name);
+                t=name;
+            }
             int x=col==0?origin+49:col==2?left+58-finder_desk_text_width(t):left+12;
             fw_cell_text(dst,clip,cell,x,row+4,t,ink);
             left+=fw_list_widths[col];
@@ -512,7 +536,7 @@ rgn_rect_t finder_win_default_frame(int slot)
 
 int finder_win_grid_cols(rgn_rect_t c)
 {
-    int usable = (int)c.right - (int)c.left - FINDER_GRID_INSET_X;
+    int usable = (int)c.right - (int)c.left;
     int cols;
     if (usable < FINDER_GRID_PITCH_X) return 1;   /* always at least one column */
     cols = usable / FINDER_GRID_PITCH_X;
@@ -534,6 +558,39 @@ void finder_win_grid_origin(rgn_rect_t c, int i, int16_t *out_x, int16_t *out_y)
     if (out_y != (int16_t *)0)
         *out_y = (int16_t)((int)c.top + FINDER_GRID_INSET_Y +
                            row * FINDER_GRID_PITCH_Y);
+}
+
+typedef struct fw_grid_cursor { int col, row; } fw_grid_cursor_t;
+
+/* Native Finder ordinary columns are 128 pixels apart (mint-008). The fresh
+ * mac-long-names capture reserves a whole row for its wide name. Allocate
+ * enough columns for each full label, then wrap before the next item. */
+static int fw_grid_place(finder_desk_icon_t *icon, rgn_rect_t doc,
+                         fw_grid_cursor_t *cursor)
+{
+    int width=finder_desk_text_width(icon->name)+2*FINDER_LABEL_PAD_X;
+    int span=(width+2+FINDER_GRID_PITCH_X-1)/FINDER_GRID_PITCH_X;
+    int cols=finder_win_grid_cols(doc);
+    int16_t x,y;
+    if(span<1) span=1;
+    if(cursor->col && cursor->col+span>cols) {cursor->col=0;cursor->row++;}
+    x=(int16_t)(doc.left+cursor->col*FINDER_GRID_PITCH_X+
+                  span*FINDER_GRID_PITCH_X/2-FINDER_ICON_DIM/2);
+    y=(int16_t)(doc.top+FINDER_GRID_INSET_Y+cursor->row*FINDER_GRID_PITCH_Y);
+    cursor->col+=span;
+    if(cursor->col>=cols) {cursor->col=0;cursor->row++;}
+    int moved=icon->x!=x || icon->y!=y;
+    icon->x=x;icon->y=y;
+    return moved;
+}
+
+int finder_win_layout_icons(finder_desk_t *view, rgn_rect_t document)
+{
+    fw_grid_cursor_t cursor={0,0};
+    int moved=0;
+    for(int i=0;i<(int)view->n;i++)
+        moved+=fw_grid_place(&view->icons[i],document,&cursor);
+    return moved;
 }
 
 /* ---------------------------------------------------------------------------
@@ -745,6 +802,8 @@ int finder_win_sync_geometry(finder_window_t *w)
         for (int i = 0; i < (int)w->view.n; i++) {
             int r = (int)w->view.icons[i].x - old_ox + FINDER_ICON_DIM +
                     FINDER_GRID_INSET_X;
+            int label_right=finder_desk_label_rect(&w->view,i).right-old_ox+8;
+            if(label_right>r) r=label_right;
             int b = (int)w->view.icons[i].y - old_oy + FINDER_CELL_H +
                     FINDER_GRID_INSET_Y;
             if (r > ext_x) ext_x = r;
@@ -794,20 +853,6 @@ finder_desk_t *finder_win_view(finder_shell_t *sh, int slot)
     if (!fw_slot_ok(sh, slot)) return (finder_desk_t *)0;
     (void)finder_win_sync_geometry(&sh->windows[slot]);
     return &sh->windows[slot].view;
-}
-
-/* Snap icon `i` to its row-major grid cell. Returns 1 when it moved. The
- * caller has re-based the model (populate / cleanup sync first), so the grid
- * is laid over the window's CURRENT content rect. */
-static int fw_snap(finder_window_t *w, int i, int cell)
-{
-    int16_t gx = 0, gy = 0;
-    /* The grid is laid in DOCUMENT coordinates (Sec 10c). */
-    finder_win_grid_origin(finder_win_doc_rect(w), cell, &gx, &gy);
-    if (w->view.icons[i].x == gx && w->view.icons[i].y == gy) return 0;
-    w->view.icons[i].x = gx;
-    w->view.icons[i].y = gy;
-    return 1;
 }
 
 finder_win_status_t finder_win_reserve_icons(finder_shell_t *sh, int slot,
@@ -881,7 +926,7 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
 
     /* A freshly populated window is already CLEAN: row-major from the top-left
      * (design F3.3). Clean Up later restores exactly this arrangement. */
-    for (int i = 0; i < (int)w->view.n; i++) (void)fw_snap(w, i, i);
+    (void)finder_win_layout_icons(&w->view,finder_win_doc_rect(w));
     (void)finder_win_sync_geometry(w);   /* the ranges cover the new layout */
     /* tdnl.82: re-list can change max while value remains zero. A later sync
      * cannot rediscover that transition; damage the two bars at the source. */
@@ -1130,17 +1175,15 @@ int finder_win_cleanup(finder_shell_t *sh, int slot)
 {
     finder_window_t *w;
     int moved = 0;
-    int n;
 
     if (!fw_slot_ok(sh, slot)) return 0;
     w = &sh->windows[slot];
     (void)finder_win_sync_geometry(w);   /* snap onto the CURRENT grid (tdnl.34) */
-    n = (int)w->view.n;
 
     /* Row-major from the top-left, in RECORD order, selected-items-first
      * deliberately NOT applied (design F3.3: "selected-items-first is NOT
      * period -- plain row-major"). */
-    for (int i = 0; i < n; i++) moved += fw_snap(w, i, i);
+    moved=finder_win_layout_icons(&w->view,finder_win_doc_rect(w));
     return moved;
 }
 
@@ -1519,15 +1562,18 @@ int finder_win_arrange_by_name(finder_shell_t *sh, int slot)
     w = &sh->windows[slot];
     (void)finder_win_sync_geometry(w);
     n = (int)w->view.n;
-    for (int i = 0; i < n; i++) {
-        int rank = 0;
-        for (int j = 0; j < n; j++) {
-            if (j == i) continue;
-            if (fw_rank_before(fw_name_compare(w->view.icons[j].name,
-                                              w->view.icons[i].name), j, i))
-                rank++;
+    fw_grid_cursor_t cursor={0,0};
+    int previous=-1;
+    for (int rank = 0; rank < n; rank++) {
+        int best=-1;
+        for (int i = 0; i < n; i++) {
+            if(previous>=0 && !fw_rank_before(fw_name_compare(w->icons[previous].name,
+                                               w->icons[i].name),previous,i)) continue;
+            if(best<0 || fw_rank_before(fw_name_compare(w->icons[i].name,
+                                            w->icons[best].name),i,best)) best=i;
         }
-        moved += fw_snap(w, i, rank);
+        moved+=fw_grid_place(&w->icons[best],finder_win_doc_rect(w),&cursor);
+        previous=best;
     }
     return moved;
 }
