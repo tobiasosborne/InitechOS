@@ -34,7 +34,7 @@ for emulator in qemu bochs; do
   # Park off the independently graded volume icon, then restore trace anchor.
   inject m-100:0; capture disk; inject m100:0
   inject "$open_apps"; await_marker 'FINDER-OPEN-FOLDER name=APPS'; capture apps
-  inject "m22:20" # common pointer anchor: first APPS icon
+  inject "m22:20" # common pointer anchor (112,102): first APPS icon
   for dir in $journeys; do
    # A subshell isolates per-app variables and helper names.
    ( . "./$dir/journey.sh"; journey )

@@ -3,7 +3,7 @@
 # original accessory trace starts at the system menu hotspot (20,9).
 journey() {
  inject 'kctrl-w,kctrl-w'
- move_by -58 -93
+ move_by -92 -93
  inject 'l1,w300,m40:41,l0'
  await_marker 'FLAIR-DISPATCH app=CALCULAT'
  capture calculator

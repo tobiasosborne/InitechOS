@@ -12,14 +12,12 @@ await_marker() {
 capture() {
     if [ "$emulator" = qemu ]; then inject "D$out/$1.ppm"; fi
 }
-# Production geometry from legacy-final flair_exit_dos_traces.mk. Boot pointer
-# starts at (320,240); APPS is the first folder in the working volume.
+# Boot pointer starts at (320,240); APPS is the first folder in the working
+# volume. The imported full-name layout uses 128-pixel columns; the reviewed
+# ordinary APPS geometry puts its first icon's pointer anchor at (112,102).
 open_disk='m100:-98,m100:-98,m80:0,l1,l0,l1,l0'
-open_apps='m-100:8,m-100:8,m-100:8,m-100:8,m-100:8,m-44:-2,l1,l0,l1,l0'
-exit_desktop='m92:-92,l1,m0:100,m0:33,l0'
-# Default APPS grid follows FAT enumeration order, four columns at 68x52.
-# Ground truth: finder_windows.c fw_enum_cb/finder_win_grid_origin and its
-# default frame. mdir supplies input coordinates, never verification results.
+open_apps='m-100:8,m-100:8,m-100:8,m-100:8,m-100:8,m-10:-2,l1,l0,l1,l0'
+exit_desktop='m58:-92,l1,m0:100,m0:33,l0'
 move_by() {
     move_x=$1 move_y=$2
     while [ "$move_x" -ne 0 ] || [ "$move_y" -ne 0 ]; do
@@ -33,13 +31,18 @@ move_by() {
     done
 }
 launch_app() {
-    slot=$(printf '%s\n' "$app_entries" | awk -F/ -v app="$1" '$NF==app {print NR-1}')
-    [ -n "$slot" ] || fail "APPS has no $1"
-    app_dx=$((slot%4*68)) app_dy=$((slot/4*52))
-    move_by "$app_dx" "$app_dy"
-    # Finder File > Open (finder_menu.c): selecting then invoking the command
-    # avoids depending on emulator event processing fitting a double click.
-    inject 'l1,l0,kctrl-o'
+    count=$(printf '%s\n' "$app_entries" | awk -F/ -v app="$1" '$NF==app {n++} END{print n+0}')
+    [ "$count" -eq 1 ] || fail "APPS must contain exactly one $1"
+    app_dx=0 app_dy=0
+    # fw_key explicitly clears type-ahead on Up, then selects and scrolls
+    # a full filename into view. Full spelling distinguishes 123.EXE/123.MNU.
+    # Keyboard selection reaches offscreen rows without moving the pointer.
+    app_keys=$(printf '%s\n' "$1" | tr 'A-Z' 'a-z' | fold -w1 |
+      while IFS= read -r key; do
+       case $key in .) key=dot;; [a-z0-9]) ;; *) exit 1;; esac
+       printf 'k%s,' "$key"
+      done)
+    inject "kup,${app_keys}kctrl-o"
     # Optional second argument is the app registration name when it differs.
     await_marker "FLAIR-DISPATCH app=${2:-${1%.EXE}}"
 }

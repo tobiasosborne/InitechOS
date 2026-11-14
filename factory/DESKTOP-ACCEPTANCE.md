@@ -49,10 +49,12 @@ WordPerfect corpus reader requires that text, both attribute tokens in order,
 and END offset == filesize with zero trailer errors. The empty-save patch is
 the third red control; it fails specifically at the independent host verifier.
 
-launch_app uses the independent mtools directory listing to locate a named
-EXE in the default four-column Finder grid. It does not infer any expected
-saved data from the product. restore_pointer runs before each app exits, so
-subsequent journeys start from the same anchor. Bochs's final W is supplied
+launch_app verifies the exact EXE in the independent mtools directory listing,
+clears Finder's timed prefix with Up, types the complete filename and invokes
+File > Open. Finder scrolls offscreen entries into view. The full-name APPS
+layout has two 128-pixel columns; selection leaves the pointer at (112,102).
+No expected saved data is inferred from the product. restore_pointer retains
+that anchor. Bochs's final W is supplied
 by its completion-marker/count check, retaining its input-after-completion
 failure. The guest RTC is pinned to 1992-03-01 09:00 UTC on both emulators.
 The frontend regression test covers validation vs live replay, waiting for

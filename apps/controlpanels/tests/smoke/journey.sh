@@ -3,7 +3,7 @@
 journey() {
  launch_app CPANELS.EXE
  restore_pointer
- move_by 162 98
+ move_by 128 98
  inject 'l1,l0'
  # cp_panels paint() finishes its nine PAT# samples at this final pixel.
  # Wait for repaint completion before changing live mouse/key state.
@@ -13,7 +13,7 @@ journey() {
  capture patterns
  inject kret
  await_marker 'CPANELS-APPLY pattern=3'
- move_by -128 -110
+ move_by -94 -110
  inject kctrl-q
  await_marker 'TENANT-EXIT rc=0 via=exit'
 }
