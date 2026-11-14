@@ -159,7 +159,9 @@ static int dbt_open_impl(ibase_pal_t *pal, const char *name, int is_iv_dialect,
      * seek(fd, 0, PAL_SEEK_END) is the file-size primitive (pal.h comment).
      * Ref: pal.h PAL_SEEK_END; dbt.md sec 2. */
     fsize = pal->seek(pal, fd, 0, PAL_SEEK_END);
-    if (fsize < 0 || (uint32_t)fsize < DBT_BLOCK_SIZE) {
+    /* Genuine III+ C12 opens an empty companion; nonmemo fields remain
+     * editable. C14 also establishes physical EOF as available memo text. */
+    if (fsize < 0 || (fsize>0 && fsize<4)) {
         pal->close(pal, fd);
         return -DBT_ERR_SHORT;
     }
@@ -173,7 +175,8 @@ static int dbt_open_impl(ibase_pal_t *pal, const char *name, int is_iv_dialect,
      * Ref: dbt.md sec 2.1 "off 0..3 = next-available block (uint32 LE)";
      *      sec 3 (endianness RESOLVED: little-endian).
      * [verified: TOURS 01 00 00 00 -> 1; TRAVEL 03 00 00 00 -> 3] */
-    if (!read_exact(pal, fd, hdr, 4u)) {
+    hdr[0]=1;hdr[1]=hdr[2]=hdr[3]=0;
+    if (fsize && !read_exact(pal, fd, hdr, 4u)) {
         pal->close(pal, fd);
         return -DBT_ERR_IO;
     }
@@ -624,11 +627,10 @@ int dbt_read(dbt_file *f, uint32_t blockno,
              * Single-trailing-0x1A tolerance: if the last byte read (in the
              * previous iteration) was 0x1A and we hit EOF now, accept it.
              * Ref: dbt.md sec 6 "TOURS.DBT ... single stray 0x1A"; S2.1 contract. */
-            if (prev_was_1a) {
-                done = 1;
-                break;
-            }
-            return -DBT_ERR_NO_TERM;
+            /* C14: real III+ returns available bytes at physical EOF even
+             * without a terminator. A trailing single 1A is still omitted. */
+            done = 1;
+            break;
         }
 
         /* Scan the block for 0x1A 0x1A.

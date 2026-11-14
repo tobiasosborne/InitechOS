@@ -363,7 +363,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
          * The engine returns negated wa/codec codes;
          * we map to the user-facing catalog ordinal. */
         if (ec) {
-            *ec = rc == -WA_ERR_ALREADY_OPEN ? 3 : rc == -DBF_ERR_NOENT ? 1 :
+            *ec = rc == -WA_ERR_MEMO_OPEN ? 41 : rc == -WA_ERR_ALREADY_OPEN ? 3 : rc == -DBF_ERR_NOENT ? 1 :
                   (rc == -DBF_ERR_ACCESS || rc == -DBF_ERR_IO) ? 29 : 15;
         }
         return -INTERP_ERR_EVAL;

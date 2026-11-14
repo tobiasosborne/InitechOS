@@ -176,6 +176,7 @@ typedef enum {
     WA_ERR_IO        = 8,  /* a dbf/dbt/ndx open or read failed (detail in the
                             * propagated codec code when wa_set_open returns it) */
     WA_ERR_ALREADY_OPEN = 20, /* real DBASE.MSG #3, Using III+ U7-7 */
+    WA_ERR_MEMO_OPEN = 21, /* genuine III+ C10/C11: companion open -> #41 */
     WA_ERR_NO_ALIAS  = 9   /* wa_select_alias: no open area carries that alias */
 } wa_err;
 

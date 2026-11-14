@@ -512,7 +512,7 @@ static int wa_open_impl(wa_env *env, int area, const char *name,
             /* A memo .dbf with a missing/unreadable .dbt: fail loud (CLAUDE.md, The constitution). */
             wa->memo = (dbt_file *)0;
             close_handles(wa);
-            return rc;                 /* propagate the dbt error */
+            return rc==-DBT_ERR_IO?-WA_ERR_MEMO_OPEN:rc;
         }
     }
 
