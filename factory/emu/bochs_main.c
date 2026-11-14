@@ -140,6 +140,8 @@ int main(int argc, char **argv)
         "[bochs] launched=%d rfb_unblocked=%d timed_out=%d exit=%d signal=%d\n"
         "[bochs] serial_len=%zu marker_found=%d (expect=%s)\n"
         "[bochs] triple_fault=%d\n"
+        "[bochs] rfb_port=%d\n"
+        "[bochs] private_boot=%s\n"
         "[bochs] keys_sent=%d\n"
         "[bochs] trace_late=%d\n"
         "[bochs] quit_marker_found=%d quit_markers_seen=%d (want=%d, quit_after=%s)\n"
@@ -151,7 +153,7 @@ int main(int argc, char **argv)
         res.launched, res.rfb_unblocked, res.timed_out, res.exit_code, res.term_signal,
         res.serial_len, res.marker_found,
         cfg.expect_marker ? cfg.expect_marker : "(none)",
-        res.triple_fault, res.keys_sent, res.trace_late, res.quit_marker_found, res.quit_markers_seen,
+        res.triple_fault, res.rfb_port, res.boot_path, res.keys_sent, res.trace_late, res.quit_marker_found, res.quit_markers_seen,
         cfg.quit_after_count > 0 ? cfg.quit_after_count : 1,
         cfg.quit_after ? cfg.quit_after : "(none)", res.serial_path,
         cfg.screendump_after ? cfg.screendump_after : "(none)",

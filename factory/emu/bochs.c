@@ -16,18 +16,19 @@
  *  - Serial is captured via `com1: mode=file`. The guest hlt-loops, so the run
  *    times out unless a completion marker was requested; the verdict is
  *    markers + fault scan (PRD Sec 8; initech-cqej reboot-and-wait).
- *  - Bochs locks the disk image (<disk>.lock); we remove a stale lock before
- *    launch and after reaping so a killed run does not poison the next.
+ *  - Each run clones its boot disk privately. Callers supply a private
+ *    writable data disk; no other run's disk lock is removed.
  */
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700   /* realpath(3) (XSI; glibc gates it on XOPEN_EXTENDED) */
 
 #include "bochs.h"
 #include "bochs_trace.h"
-#include "port_lock.h"
+#include "rfb_port.h"
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -200,8 +201,8 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
     fputs("display_library: rfb\n", f);
     if (cfg->keys_script && strchr(cfg->keys_script, ':'))
         fputs("mouse: type=ps2, enabled=1\n", f);
-    /* The RFB port is selected by the BX_RFB display via the 5900+display#
-     * default; this build uses 5900. (Bochs 2.7 has no bochsrc knob for it.) */
+    /* The backend binds an available port starting at 5900. Its successful
+     * bind is published in this child's log; no configuration knob exists. */
     (void)port;
     fclose(f);
     return 0;
@@ -209,15 +210,21 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
 
 /* ---- RFB 3.3 unblock (the headless key) ---------------------------------- */
 
-static int recvn(int fd, void *buf, size_t n)
+static int recvn(int fd, void *buf, size_t n, long long deadline)
 {
     unsigned char *p = buf;
     size_t got = 0;
     while (got < n) {
-        ssize_t r = recv(fd, p + got, n - got, 0);
+        long long left=deadline-mono_ms();
+        if(left<=0)return -1;
+        struct pollfd ready={.fd=fd,.events=POLLIN};
+        int rc=poll(&ready,1,(int)left);
+        if(rc<0 && errno==EINTR)continue;
+        if(rc<=0)return -1;
+        ssize_t r = recv(fd, p + got, n - got, MSG_DONTWAIT);
         if (r == 0) return -1;                /* peer closed */
         if (r < 0) {
-            if (errno == EINTR) continue;
+            if (errno == EINTR || errno==EAGAIN || errno==EWOULDBLOCK) continue;
             return -1;
         }
         got += (size_t)r;
@@ -254,10 +261,10 @@ static int rfb_unblock(int port, long long deadline_ms, int *out_handshook)
     /* Handshake: recv 12-byte server ProtocolVersion, send our 3.3, recv the
      * 4-byte security type (1 == None), send the 1-byte shared ClientInit. */
     char ver[12];
-    if (recvn(fd, ver, 12) != 0) { close(fd); return -1; }
+    if (recvn(fd, ver, 12, deadline_ms) != 0) { close(fd); return -1; }
     if (send(fd, "RFB 003.003\n", 12, 0) != 12) { close(fd); return -1; }
     unsigned char sec[4];
-    if (recvn(fd, sec, 4) != 0) { close(fd); return -1; }
+    if (recvn(fd, sec, 4, deadline_ms) != 0) { close(fd); return -1; }
     unsigned long sectype = ((unsigned long)sec[0] << 24) | ((unsigned long)sec[1] << 16) |
                             ((unsigned long)sec[2] << 8) | sec[3];
     if (sectype == 0) { close(fd); return -1; }   /* server refused */
@@ -595,23 +602,44 @@ void bochs_result_free(BochsResult *out)
     out->serial_text = NULL;
 }
 
-/* One Bochs at a time per host (bead initech-d9tt). The rfb display plugin
- * listens on 5900 and Bochs 2.7 has no bochsrc knob for the port: a second
- * concurrent Bochs silently takes 5901, nobody unblocks it, and BOTH gates go
- * red ("RFB unblock failed" / "did not complete the smoke") -- reproduced
- * 2026-10-05 with test-boot-bochs run in two checkouts at once. So every run
- * holds an exclusive flock(2) on a host-wide lock file from before the fork
- * until Bochs is reaped. The path is the one `flock(1)` wrappers already use,
- * so a wrapped old harness and this one exclude each other. The wait is
- * bounded and fails loud (CLAUDE.md, "The oracle is the truth"): a harness run inside such a wrapper would
- * otherwise wait on its own parent for ever. Returns the lock fd or -1. */
-#define BOCHS_HOST_LOCK_PATH    "/tmp/initech-bochs.lock"
-#define BOCHS_HOST_LOCK_WAIT_MS (20 * 60 * 1000)
-
-static int bochs_host_lock(void)
+/* No host queue: each Bochs binds its own available port. Read only this
+ * child's freshly truncated log, and never guess 5900 while it is occupied. */
+static int bochs_listener_port(const char *path,pid_t child,long long deadline)
 {
-    return factory_port_lock(BOCHS_HOST_LOCK_PATH, BOCHS_DEFAULT_RFB_PORT,
-                             BOCHS_HOST_LOCK_WAIT_MS);
+    while(mono_ms()<deadline) {
+        siginfo_t status;memset(&status,0,sizeof status);
+        if(waitid(P_PID,(id_t)child,&status,WEXITED|WNOHANG|WNOWAIT)<0 || status.si_pid)return 0;
+        FILE *f=fopen(path,"r");int port=0;
+        if(f) {port=bochs_rfb_log_port(f);fclose(f);}
+        if(port)return port;
+        sleep_ms(20);
+    }
+    fprintf(stderr,"bochs_run: no listener published by child %ld before deadline (%s)\n",(long)child,path);
+    return 0;
+}
+
+static int bochs_boot_copy(const char *source,char *destination)
+{
+    int in=open(source,O_RDONLY),out=mkstemp(destination);
+    if(in<0 || out<0) {if(in>=0)close(in);if(out>=0)close(out);return -1;}
+    char bytes[65536];int failed=0;
+    for(;;) {
+        ssize_t got=read(in,bytes,sizeof bytes);
+        if(got<0 && errno==EINTR)continue;
+        if(got<0) {failed=1;break;}
+        if(!got)break;
+        ssize_t used=0;
+        while(used<got) {
+            ssize_t sent=write(out,bytes+used,(size_t)(got-used));
+            if(sent<0 && errno==EINTR)continue;
+            if(sent<=0) {failed=1;break;}
+            used+=sent;
+        }
+        if(failed)break;
+    }
+    if(close(in))failed=1;
+    if(close(out))failed=1;
+    return failed?-1:0;
 }
 
 static bool bochs_verdict(const BochsConfig *cfg, const BochsResult *out,
@@ -658,8 +686,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     int timeout_ms = (cfg->timeout_ms > 0) ? cfg->timeout_ms : BOCHS_DEFAULT_TIMEOUT_MS;
     int port = (cfg->rfb_port > 0) ? cfg->rfb_port : BOCHS_DEFAULT_RFB_PORT;
     if (port != BOCHS_DEFAULT_RFB_PORT) {
-        fprintf(stderr, "bochs_run: this Bochs RFB backend supports only port %d\n",
-                BOCHS_DEFAULT_RFB_PORT);
+        fprintf(stderr, "bochs_run: explicit RFB port selection is unsupported; use the backend allocator\n");
         return -1;
     }
 
@@ -698,10 +725,15 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     if (join_path(out->snap_ppm_path, sizeof(out->snap_ppm_path), dir, fn) != 0) return -1;
     char bochs_snap[BOCHS_PATH_MAX];     /* where gui.cc writes, cwd=dir */
     if (join_path(bochs_snap, sizeof(bochs_snap), dir, "snapshot.bmp") != 0) return -1;
+    if(join_path(out->boot_path,sizeof out->boot_path,dir,".bochs-boot.XXXXXX") ||
+       bochs_boot_copy(cfg->disk_path,out->boot_path)) {
+        fprintf(stderr,"bochs_run: cannot create private boot copy\n");return -1;
+    }
 
     /* Screendump runs Bochs with cwd=dir: every path Bochs sees is absolute
      * (the report keeps the caller's relative spellings). */
     BochsConfig rcfg = *cfg;
+    rcfg.disk_path=out->boot_path;
     char *abs_dir = NULL, *abs_disk = NULL, *abs_data = NULL, *abs_bios = NULL,
          *abs_vga = NULL;
     char abs_serial[BOCHS_PATH_MAX], abs_bochsrc[BOCHS_PATH_MAX], abs_rcfile[BOCHS_PATH_MAX];
@@ -709,7 +741,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                *child_bochsrc = out->bochsrc_path;
     if (cfg->screendump_after) {
         abs_dir = realpath(dir, NULL);
-        abs_disk = realpath(cfg->disk_path, NULL);
+        abs_disk = realpath(out->boot_path, NULL);
         abs_data = cfg->data_disk_path ? realpath(cfg->data_disk_path, NULL) : NULL;
         abs_bios = realpath(cfg->bios_path ? cfg->bios_path : BOCHS_DEFAULT_BIOS, NULL);
         abs_vga = realpath(cfg->vgabios_path ? cfg->vgabios_path : BOCHS_DEFAULT_VGABIOS, NULL);
@@ -735,22 +767,14 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         child_bochsrc = abs_bochsrc;
     }
 
-    /* Remove a stale serial (so a launch failure cannot show old content) and
-     * a stale disk lock (a previous killed run leaves <disk>.lock). */
+    /* A launch failure must never show an earlier run's content. */
     remove(out->serial_path);
+    remove(out->log_path); /* discovery must never read an earlier run's port */
     remove(out->rfb_pgm_path);   /* a failed capture must not leave stale pixels */
     remove(out->rfb_ppm_path);
     remove(out->snap_bmp_path);
     remove(out->snap_ppm_path);
     remove(bochs_snap);
-    {
-        char lock[BOCHS_PATH_MAX];
-        if (snprintf(lock, sizeof(lock), "%s.lock", cfg->disk_path) < (int)sizeof(lock))
-            remove(lock);
-        if (cfg->data_disk_path &&
-            snprintf(lock, sizeof(lock), "%s.lock", cfg->data_disk_path) < (int)sizeof(lock))
-            remove(lock);
-    }
 
     /* rc file: auto-continue the debugger build. */
     {
@@ -770,12 +794,8 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     /* SIGPIPE off: a dropped RFB socket must not kill the harness. */
     signal(SIGPIPE, SIG_IGN);
 
-    int host_lock = bochs_host_lock();
-    if (host_lock < 0) { free(abs_dir); return -1; }
-
     pid_t pid = fork();
     if (pid < 0) {
-        close(host_lock);
         free(abs_dir);
         fprintf(stderr, "bochs_run: fork failed: %s\n", strerror(errno));
         return -1;
@@ -810,7 +830,9 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     int handshook = 0;
     long long rfb_deadline = start + (timeout_ms / 2 < 10000 ? 10000 : timeout_ms / 2);
     if (rfb_deadline > deadline) rfb_deadline = deadline;
-    int rfb_fd = rfb_unblock(port, rfb_deadline, &handshook);
+    port=bochs_listener_port(out->log_path,pid,rfb_deadline);
+    out->rfb_port=port;
+    int rfb_fd = port?rfb_unblock(port, rfb_deadline, &handshook):-1;
     out->rfb_unblocked = (handshook != 0);
     RfbShadow rfb;
     memset(&rfb, 0, sizeof(rfb));
@@ -994,7 +1016,6 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         }
     }
     if (rfb_fd >= 0) close(rfb_fd);
-    close(host_lock);              /* Bochs is reaped: the port is free again */
 
     if (reaped && WIFEXITED(status)) {
         out->exit_code = WEXITSTATUS(status);
@@ -1006,13 +1027,11 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         out->exit_code = -1;
     }
 
-    /* Drop the disk lock for the next run. */
+    /* Only our unique private clone belongs to this harness. Never remove
+     * locks beside source images or caller-supplied writable data. */
     {
         char lock[BOCHS_PATH_MAX];
-        if (snprintf(lock, sizeof(lock), "%s.lock", cfg->disk_path) < (int)sizeof(lock))
-            remove(lock);
-        if (cfg->data_disk_path &&
-            snprintf(lock, sizeof(lock), "%s.lock", cfg->data_disk_path) < (int)sizeof(lock))
+        if (snprintf(lock, sizeof(lock), "%s.lock", out->boot_path) < (int)sizeof(lock))
             remove(lock);
     }
 

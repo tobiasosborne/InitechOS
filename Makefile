@@ -111,7 +111,7 @@ smoke-selection:
 	@INITECH_FULL_SMOKE=1 sh factory/smoke-selection.sh Turbo-sources "$${TURBO_EXEC_SOURCES-$$(echo turbo/compiler/fixtures/gen*.pas turbo/tests/execution/*.pas)}" "$$(echo turbo/compiler/fixtures/gen*.pas turbo/tests/execution/*.pas)"
 smoke: export INITECH_FULL_SMOKE := 1
 smoke: smoke-selection image
-	+@set -e; . factory/testlib/smoke-lock.sh; smoke_lock; \
+	+@set -e; \
 	$(MAKE) -C factory smoke; \
 	for c in $(SMOKE_COMPONENTS); do $(MAKE) --no-print-directory -C $$c smoke || exit 1; done; \
 	echo 'FULL SMOKE GREEN: factory DOS/programs/desktop + $(REGISTERED_SMOKE_COMPONENTS); QEMU + Bochs'

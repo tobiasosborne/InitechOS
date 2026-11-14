@@ -2,10 +2,10 @@
 # IBM DOS 3.30 TR INT21 program probes on a separate writable data volume.
 set -eu
 cd "$(dirname "$0")/.."
-. factory/testlib/smoke-lock.sh
-smoke_lock
-out=${PROGRAM_SMOKE_OUT:-build/smoke-programs}
+mkdir -p build/smoke-programs
+out=${PROGRAM_SMOKE_OUT:-$(mktemp -d "$PWD/build/smoke-programs/run.XXXXXX")}
 mkdir -p "$out"
+echo "Program smoke evidence: $out"
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 export SOURCE_DATE_EPOCH=315532800 TZ=UTC LC_ALL=C
 fail() { echo "FAIL program smoke: $*" >&2; exit 1; }

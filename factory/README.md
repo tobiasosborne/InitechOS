@@ -131,19 +131,21 @@ pacing overrides likewise retain their defaults. These controls support busy
 shared-machine verification without weakening the oracle or test selection.
 # Concurrent smoke runs
 
-Full smoke and standalone DOS, program, desktop, InitechBase and Turbo
-execution drivers acquire `factory/testlib/smoke-lock.sh`'s per-user host
-lock. Nested drivers inherit its file descriptor. A queued run waits before
-starting any guest deadline; it fails explicitly after 20 minutes rather
-than silently skipping work. Each worktree retains its own images, logs,
-serial files and screenshots below its own `build/` directory.
+Smokes run concurrently, without a host smoke lock, Bochs lock or QEMU slot
+queue. Each DOS, program, desktop, Base and Turbo execution invocation creates
+a private `build/.../run.XXXXXX` directory and prints its location. Explicit
+output overrides remain available; concurrent callers must choose distinct
+paths. Serial, logs, QMP endpoints, writable data and screenshots stay private.
 
-Bochs 2.7's RFB backend chooses 5900 automatically and falls back to 5901
-when busy. The harness holds the existing host lock and now also waits for
-the OS to release 5900 before launching. A nondefault RFB port is rejected
-because this backend cannot configure it. Normal QEMU smoke has no TCP
-listener: QMP uses an inherited socketpair and serial uses a private file.
-The optional QEMU GDB listener on 1234 has its own host lock and port check.
+Bochs 2.7 binds an available RFB port starting at 5900. The harness reads the
+successful listener publication from that child's fresh log and reports the
+actual port. It never assumes that a failed attempt at 5900 was a bind, and
+rejects partial/stale log input. Each guest gets a private boot clone; source
+image locks are never removed. Ready/handshake waits share the caller deadline.
+Normal QEMU smoke has no TCP listener: QMP uses an inherited socketpair and
+serial uses a private file. Only optional GDB's specific fixed endpoint 1234
+has a resource lock; it cannot block ordinary smoke.
+
 Whole-desktop comparison is strict by default over every RGB pixel (or every
 pixel of an explicit binary reference mask). pixels-check.sh enforces 1578
 opaque icon pixels recovered from hash-pinned genuine Mac OS 8.1 captures on

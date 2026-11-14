@@ -13,7 +13,7 @@ snapshot() {
 baseline=$work/baseline
 snapshot "$baseline"
 mkdir -p "$baseline/build"
-tar -cf - --exclude=./factory/gate-mutants --exclude=./factory/smoke-mutants --exclude=./factory/mutants --exclude=./factory-gates --exclude=./smoke* --exclude=./test -C build . | tar -xf - -C "$baseline/build"
+tar -cf - --exclude=./factory/gate-mutants --exclude=./factory/smoke-mutants --exclude=./factory/navigation-mutants --exclude=./factory/mutants --exclude=./factory-gates --exclude=./smoke* --exclude=./test -C build . | tar -xf - -C "$baseline/build"
 # No test scenario or wrong code is compiled into the ordinary product.
 if ! (cd "$baseline" && make -j2 image && sh factory/smoke.sh && sh factory/tests/desktop-capture.sh) > "$work/baseline.log" 2>&1; then
  echo "factory: 5 mutants, 0 killed, 0 survived, 1 errors; baseline failed: $work/baseline.log"; exit 1

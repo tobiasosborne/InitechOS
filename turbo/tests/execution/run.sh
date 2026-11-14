@@ -5,16 +5,16 @@
 # the complete default matrix. CLAUDE.md: The oracle is the truth.
 set -eu
 cd "$(dirname "$0")/../../.."
-. factory/testlib/smoke-lock.sh
-smoke_lock
 root=$PWD
-out=${TURBO_EXEC_OUT:-$root/build/turbo/smoke/execution}
+mkdir -p "$root/build/turbo/smoke/execution"
+out=${TURBO_EXEC_OUT:-$(mktemp -d "$root/build/turbo/smoke/execution/run.XXXXXX")}
 hosted=${TURBO_HOSTED:-$root/build/turbo/compiler/turbo_fpc}
 paths=${TURBO_EXEC_PATHS:-seed hosted hosted-flat resident resident-flat}
 emulators=${TURBO_EXEC_EMULATORS:-qemu bochs}
 sources=${TURBO_EXEC_SOURCES:-$(echo turbo/compiler/fixtures/gen*.pas turbo/tests/execution/*.pas)}
 mkdir -p "$out"
 out=$(CDPATH= cd -- "$out" && pwd)
+echo "Turbo execution smoke evidence: $out"
 export MTOOLS_SKIP_CHECK=1 INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 failed=0
 : > "$out/cases"

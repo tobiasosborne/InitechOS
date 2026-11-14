@@ -17,11 +17,11 @@ trap restore EXIT HUP INT TERM
 patch --batch --fuzz=0 -p1 -d apps/initechbase < apps/initechbase/mutants/drop-replace-write.patch > "$out/patch.log"
 make -C apps/initechbase package > "$out/build.log" 2>&1
 make image >> "$out/build.log" 2>&1
-if IBASE_SMOKE_CPUS=qemu sh apps/initechbase/tests/smoke/run.sh > "$out/session.log" 2>&1; then
+if IBASE_SMOKE_OUT="$out/session" IBASE_SMOKE_CPUS=qemu sh apps/initechbase/tests/smoke/run.sh > "$out/session.log" 2>&1; then
  echo 'FAIL drop-write mutant survived'; exit 1
 fi
 grep -Fx 'FAIL persisted REPLACE/APPEND/DELETE' "$out/session.log"
-cp -R build/apps/initechbase/smoke/qemu "$out/qemu"
+cp -R "$out/session/qemu" "$out/qemu"
 restore
 trap - EXIT HUP INT TERM
 sha256sum -c "$out/baseline.sha256"

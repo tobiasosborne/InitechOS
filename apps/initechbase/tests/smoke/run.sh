@@ -1,12 +1,12 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/../../../.."
-. factory/testlib/smoke-lock.sh
-smoke_lock
 root=$PWD
-out=$root/build/apps/initechbase/smoke
+mkdir -p "$root/build/apps/initechbase/smoke"
+out=${IBASE_SMOKE_OUT:-$(mktemp -d "$root/build/apps/initechbase/smoke/run.XXXXXX")}
 src=$root/apps/initechbase
 mkdir -p "$out"
+echo "InitechBase smoke evidence: $out"
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1 MTOOLS_SKIP_CHECK=1
 checks=0
 fail() { echo "FAIL $*" >&2; echo "InitechBase SMOKE: $checks checks completed, 1 failure" >&2; exit 1; }

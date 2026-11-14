@@ -1,11 +1,11 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-. factory/testlib/smoke-lock.sh
-smoke_lock
 start=$(date +%s)
-out=${DESKTOP_SMOKE_OUT:-build/smoke-desktop}
+mkdir -p build/smoke-desktop
+out=${DESKTOP_SMOKE_OUT:-$(mktemp -d "$PWD/build/smoke-desktop/run.XXXXXX")}
 mkdir -p "$out"
+echo "Desktop smoke evidence: $out"
 fail() { echo "FAIL desktop: $*" >&2; exit 1; }
 . factory/desktop-trace.sh
 make -s -f factory/desktop-tools.mk test

@@ -1,0 +1,10 @@
+--- a/factory/emu/rfb_port.h
++++ b/factory/emu/rfb_port.h
+@@ -8,6 +8,7 @@
+ #include <string.h>
+ static inline int bochs_rfb_log_port(FILE *f)
+ {
++    (void)f;return 5900;
+     char line[1024];
+     const char prefix[]=" listening for connections on port ";
+     while(fgets(line,sizeof line,f)) {

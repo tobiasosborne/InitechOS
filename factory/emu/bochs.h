@@ -59,7 +59,7 @@ typedef struct {
                                   ASCII, no slashes.                         */
 
     int timeout_ms;            /* wall-clock kill deadline; <=0 => default.  */
-    int rfb_port;              /* Bochs RFB server port; <=0 => default.     */
+    int rfb_port;              /* 0/default: backend allocates a free port */
 
     const char *expect_marker; /* if non-NULL, asserted present (line-exact,
                                   see bochs.c) in the serial capture.        */
@@ -110,6 +110,7 @@ typedef struct {
 typedef struct {
     bool launched;             /* fork/exec of bochs succeeded.              */
     bool rfb_unblocked;        /* RFB handshake completed (Bochs proceeded). */
+    int rfb_port;             /* actual port published by this child */
     bool timed_out;            /* deadline hit: always a failed run.         */
     int  exit_code;            /* bochs WEXITSTATUS, or -1 if killed.        */
     int  term_signal;          /* signal that killed bochs, or 0.            */
@@ -118,6 +119,7 @@ typedef struct {
     size_t serial_len;
     char serial_path[BOCHS_PATH_MAX];
     char log_path[BOCHS_PATH_MAX];     /* bochs stdout/stderr log.           */
+    char boot_path[BOCHS_PATH_MAX];    /* private boot clone, retained */
     char bochsrc_path[BOCHS_PATH_MAX]; /* the generated bochsrc.             */
 
     bool triple_fault;         /* "3rd (13) exception" or "IDT.limit = 0x0"

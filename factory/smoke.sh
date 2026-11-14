@@ -1,10 +1,10 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-. factory/testlib/smoke-lock.sh
-smoke_lock
-out=${SMOKE_OUT:-build/smoke}
+mkdir -p build/smoke
+out=${SMOKE_OUT:-$(mktemp -d "$PWD/build/smoke/run.XXXXXX")}
 mkdir -p "$out"
+echo "DOS smoke evidence: $out"
 fail() { echo "FAIL $*" >&2; exit 1; }
 line() { grep -Fx "$2" "$1" >/dev/null || fail "$3: missing line [$2]"; }
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1

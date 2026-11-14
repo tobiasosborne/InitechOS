@@ -1103,46 +1103,6 @@ typedef struct {
     pid_t qemu_pid;
 } KeyAckCtx;
 
-/* initech-1x6x2.1; PRD Sec 8; precedent: the host-wide Bochs flock (d9tt).
- * `make -j64 test-merge-initechbase` started up to 64 QEMUs at once on 64 logical
- * CPUs, beside compilers and other lanes' clones. A guest that needs 20 s alone
- * then missed its 60 s wall deadline (timed_out=1 with SHELL-DONE seen). Every
- * deadline stays as it is; instead at most NPROC/3 QEMUs run host-wide, so each
- * gets a CPU, and queueing for a slot is not charged to any deadline. The flock
- * dies with the harness, so a crash leaks nothing, and QEMU never inherits it.
- * Slots are held until the harness exits: one QEMU per harness process. */
-static void qemu_slot_acquire(void)
-{
-#ifndef HARNESS_MUTATE_NO_QEMU_SLOTS
-    static int g_qemu_slot_fd = -1;
-    long cpus = sysconf(_SC_NPROCESSORS_ONLN);
-    int slots = cpus >= 3 ? (int)(cpus / 3) : 1;
-    const char *env = getenv("INITECH_QEMU_SLOTS");
-    if (env && atoi(env) > 0) slots = atoi(env);
-    if (g_qemu_slot_fd >= 0) return;
-    /* Host-wide, so not $TMPDIR (legs set private ones). The gate's own dir. */
-    const char *dir = getenv("INITECH_QEMU_SLOT_DIR");
-    char path[512];
-    for (;;) {
-        for (int i = 0; i < slots; i++) {
-            snprintf(path, sizeof(path), "%.400s/initech-qemu-slot-%ld.%d",
-                     dir && dir[0] ? dir : "/tmp", (long)getuid(), i);
-            int fd = open(path, O_CREAT | O_RDWR | O_CLOEXEC, 0600);
-            if (fd < 0) {
-                fprintf(stderr, "[harness] qemu slot %s: %s\n", path, strerror(errno));
-                exit(2);
-            }
-            if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
-                g_qemu_slot_fd = fd;
-                return;
-            }
-            close(fd);
-        }
-        sleep_ms(50);
-    }
-#endif
-}
-
 /* initech-1x6x2.1; PRD Sec 8; os/initechdos/kmain.c (input waits spin on hlt).
  * A blind-typed trace outran a guest starved by a parallel vector: wall-clock
  * pacing filled the 32-byte kernel ring (KBD-RING-DROP) or INITECHBASE's
@@ -2526,7 +2486,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
     }
     /* The optional debugger uses QEMU's fixed -s endpoint. Normal smoke has
      * no TCP listener (serial files and per-run QMP socketpairs). Keep this
-     * lock for the harness process, like the QEMU slot lock below. */
+     * lock only for this particular fixed endpoint. */
     static int gdb_lock = -1;
     if (cfg->enable_gdb && gdb_lock < 0) {
         gdb_lock = factory_port_lock("/tmp/initech-qemu-gdb-1234.lock",1234,20*60*1000);
@@ -2537,7 +2497,6 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
             return -1;
         }
     }
-    qemu_slot_acquire(); /* before the deadline starts: waiting is not running */
     long long harness_deadline = mono_ms() + timeout_ms;
     pid_t pid = fork();
     if (pid < 0) {
