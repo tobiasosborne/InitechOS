@@ -29,6 +29,13 @@ static int32_t tbxf_call(flair_platform_files *p, uint32_t lo, uint32_t len,
     flair_platform_regs f = { 0 };
     flair_platform_file_info info, *e = 0;
     uint32_t h = a[0];
+    if(code==TBX_FILE_REPLACE) {
+        if(!tbxf_path(lo,len,a[0]) || !tbxf_path(lo,len,a[1])) return TBX_ERR_BADARG;
+        uint16_t cleanup=0;
+        uint16_t rc=flair_platform_file_replace(p,(const char *)(uintptr_t)a[0],
+                                                 (const char *)(uintptr_t)a[1],&cleanup);
+        return rc ? TBX_ERR_DOS(rc) : TBX_OK;
+    }
     /* Sec 10b: CREATE_NEW is CREATE's checks over AH=5Bh (never truncates). */
     int creat = code == TBX_FILE_CREATE || code == TBX_FILE_CREATE_NEW;
     if (creat || code == TBX_FILE_OPEN || code == TBX_FILE_DELETE ||

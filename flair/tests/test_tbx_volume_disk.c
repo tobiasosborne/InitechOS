@@ -40,6 +40,15 @@ int main(void)
         CHECK(h>=5,"explicit C root opens");
         if(h>=5) { int32_t n=tbx_file_read(h,g_tbx_save_chunk,80); CHECK(n==10 && !memcmp(g_tbx_save_chunk,"OLD C ROOT",10),"explicit C root bytes"); CHECK(tbx_file_close(h)==0,"close C"); }
         CHECK(tbx_file_open(missing,0)<0,"error restoration control");
+        h=tbx_file_create_new("ROOT.$00");
+        CHECK(h>=5 && tbx_file_write(h,"OLD A ROOT",10)==10 && tbx_file_close(h)==0,
+              "closed stage in the bound root");
+        CHECK(tbx_file_replace("ROOT.$00",name)==0,"replace binds A root despite caller drive and CWD");
+        h=tbx_file_create_new("C:ROOT.$00");
+        CHECK(h>=5 && tbx_file_write(h,"OLD C ROOT",10)==10 && tbx_file_close(h)==0,
+              "closed stage in explicit foreign root");
+        CHECK(tbx_file_replace("C:ROOT.$00",foreign)==0,"replace explicit C root");
+        CHECK(tbx_file_replace("ABSENT.DAT",name)<0,"replacement error restoration control");
         after=int21_cwd_save(); CHECK(!memcmp(&before,&after,sizeof before),"all caller drive/CWD state restored");
         CHECK(int21_get_psp()==&caller,"caller PSP restored");
     }

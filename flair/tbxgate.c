@@ -1121,6 +1121,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         { (uint8_t)TBX_FILE_DELETE, (uint8_t)(TBX_ARGC_FILE_DELETE) },
         { (uint8_t)TBX_FILE_RENAME, (uint8_t)(TBX_ARGC_FILE_RENAME) },
         { (uint8_t)TBX_FILE_CREATE_NEW, (uint8_t)(TBX_ARGC_FILE_CREATE_NEW) },
+        { (uint8_t)TBX_FILE_REPLACE, (uint8_t)(TBX_ARGC_FILE_REPLACE) },
         { (uint8_t)TBX_FILE_FIND, (uint8_t)(TBX_ARGC_FILE_FIND) },
         { (uint8_t)TBX_DISK_FREE, (uint8_t)(TBX_ARGC_DISK_FREE) },
         { (uint8_t)TBX_ALERT, (uint8_t)(TBX_ARGC_ALERT) },
@@ -1182,7 +1183,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
             break;
         case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_READ:
         case TBX_FILE_WRITE: case TBX_FILE_SEEK: case TBX_FILE_CLOSE:
-        case TBX_FILE_DELETE: case TBX_FILE_RENAME: case TBX_FILE_CREATE_NEW:
+        case TBX_FILE_DELETE: case TBX_FILE_RENAME: case TBX_FILE_CREATE_NEW: case TBX_FILE_REPLACE:
             rc = g_slot.app == 0 || g_slot.exit_req || g_slot.crashed || g_slot.torn_down
                 ? TBX_ERR_NOTREG
                 : tbxf_call(&g_slot.files, g_slot.plan.load_base,
@@ -1204,8 +1205,8 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         tputx(a[0] - g_slot.plan.load_base, 4);
         break;
     case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_DELETE:
-    case TBX_FILE_RENAME: case TBX_FILE_CREATE_NEW:
-        for (uint32_t k = 0; k <= (ax == TBX_FILE_RENAME); k++) {
+    case TBX_FILE_RENAME: case TBX_FILE_CREATE_NEW: case TBX_FILE_REPLACE:
+        for (uint32_t k = 0; k <= (ax == TBX_FILE_RENAME || ax == TBX_FILE_REPLACE); k++) {
             tputs(k ? " new=" : " path=");
             if (g_slot.block != 0 && tbxf_path(g_slot.plan.load_base,
                           g_slot.plan.block_len - TBX_TENANT_PSP_BYTES, a[k])) {
@@ -1597,27 +1598,6 @@ static int32_t fc_op(uint32_t ax, uint32_t bx, uint32_t cx, uint32_t dx, uint32_
 static int32_t fc_dos(uint32_t ax, uint32_t bx, uint32_t cx, uint32_t dx)
 { return fc_op(ax,bx,cx,dx,0); }
 
-static void fc_recovery_notice(void)
-{
-    const char *p=g_fc.tx.backup;
-    unsigned len=0,line=0,col=0;
-    while(p[len]) len++;
-    if(len<=40) {
-        static const char title[]="Previous version saved as:";
-        for(unsigned i=0;i<sizeof title;i++) g_slot.alert_text[0][i]=title[i];
-        line=1;
-    }
-    for(unsigned i=0;i<len;i++) {
-        if(col==20) { g_slot.alert_text[line++][col]=0; col=0; }
-        g_slot.alert_text[line][col++]=p[i];
-    }
-    g_slot.alert_text[line][col]=0;
-    g_slot.alert_lines=(uint8_t)(line+1);
-    g_slot.alert_btn[0][0]='O'; g_slot.alert_btn[0][1]='K'; g_slot.alert_btn[0][2]=0;
-    g_slot.alert_btns=1; g_slot.alert=1;
-}
-
-
 int tbx_take_filecopy(const char **caption, const char **src, const char **dst)
 {
     if (!g_slot.fcopy || !tenant_live()) return 0;
@@ -1679,7 +1659,6 @@ int32_t tbx_fc_open(uint32_t *size)
     int32_t end;
     if(g_fc.closing) tbx_fc_close();
     if(g_fc.active || g_fc.cfg>=0) return TBX_ERR_BUSY;
-    if(g_fc.tx.old_moved) return TBX_ERR_BUSY; /* unresolved rollback: retain both streams */
     if(!size ||
        flair_platform_path_is_device(g_slot.fc_src) ||
        flair_platform_path_is_device(g_slot.fc_dst)) return TBX_ERR_BADARG;
@@ -1773,13 +1752,17 @@ int32_t tbx_fc_commit(void)
         rc=fc_dos(0x3e00u,(uint32_t)g_fc.dst,0,0);
         if(rc<0) goto fail;
         g_fc.dst=-1;
-        rc=flair_file_commit(&g_fc.tx,g_slot.fc_dst,fc_op);
+        uint16_t cleanup=0;
+        uint16_t error=flair_platform_file_replace(&g_slot.files,g_fc.tx.stage,g_slot.fc_dst,&cleanup);
+        rc=error ? TBX_ERR_DOS(error) : TBX_OK;
+        if(rc==TBX_ERR_DOS(2))
+            rc=fc_op(0x5600,0,0,flair_file_ptr(g_fc.tx.stage),flair_file_ptr(g_slot.fc_dst));
         if(rc<0) goto fail;
+        g_fc.tx.staged=0; /* Adopted: never unlink after commit. */
         g_fc.committed=1;
     }
     return (int32_t)g_fc.done;
 fail:
-    if(g_fc.tx.rollback_error<0) fc_recovery_notice();
     tbx_fc_close();
     return rc;
 }
@@ -1792,7 +1775,7 @@ void tbx_fc_close(void)
     (void)fc_close_owned(&g_fc.cfg);
     if(g_fc.src>=0 || g_fc.dst>=0 || g_fc.cfg>=0) { g_fc.active=1; return; }
     flair_file_discard(&g_fc.tx,fc_op);
-    if(g_fc.tx.staged && !g_fc.tx.old_moved) { g_fc.active=1; return; }
+    if(g_fc.tx.staged) { g_fc.active=1; return; }
     g_fc.active=g_fc.closing=0;
 }
 

@@ -12,12 +12,16 @@
 #include "tbx_save.h"
 #include "filecopy_cancel.h"
 #define flair_platform_dos real_platform_dos
+#define flair_platform_file_replace real_platform_file_replace
 #include "platform_dos.c"
 #undef flair_platform_dos
+#undef flair_platform_file_replace
 TEST_HARNESS();
 static unsigned fail_call, calls, fail_write, writes, hit, fail_rollbacks, corrupt_sector, deletes;
 static int fail_closes;
 static unsigned fail_deletes;
+static unsigned fail_after_persist;
+static int first_save;
 static FILE *disk;
 static int (*sector_fault)(uint32_t,uint32_t,const void *);
 static int rd(void *p,uint32_t lba,uint32_t n,void *b)
@@ -25,7 +29,12 @@ static int rd(void *p,uint32_t lba,uint32_t n,void *b)
 static int wr(void *p,uint32_t lba,uint32_t n,const void *b)
 {
     FILE *media=p?p:disk;
-    if (++writes==fail_write) { hit++; return -1; }
+    if (++writes==fail_write) {
+        if(fail_after_persist) {
+            if(fseek(media,(long)lba*512,SEEK_SET) || fwrite(b,512,n,media)!=n || fflush(media)) abort();
+        }
+        hit++; return -1;
+    }
     if(sector_fault && sector_fault(lba,n,b)) { hit++; return -1; }
     unsigned char corrupt[512];
     unsigned nonzero=0;
@@ -49,6 +58,11 @@ void flair_platform_dos(flair_platform_files *p,flair_platform_regs *r)
     if (++calls==fail_call) { hit++; r->eax=5; r->eflags|=1; return; }
     real_platform_dos(p,r);
 }
+uint16_t flair_platform_file_replace(flair_platform_files *p,const char *s,const char *d,uint16_t *c)
+{
+    if(fail_rollbacks || ++calls==fail_call) { hit++; return 5; }
+    return real_platform_file_replace(p,s,d,c);
+}
 static void command(const char *s) { CHECK(system(s)==0,s); }
 static fat12_volume_t vol;
 static blockdev_t dev={0,rd,wr};
@@ -60,6 +74,7 @@ int32_t tbx_alert(const char *text,const char *def,const char *cancel,const char
 static void setup(void)
 {
     command("cp base.img copy.img");
+    if(first_save) command("mdel -i copy.img ::TARGET.DAT");
     disk=fopen("copy.img","r+b"); CHECK(disk!=0,"open disk");
     CHECK(fat12_mount(&vol,&dev,sec)==0,"mount FAT12");
     CHECK(fileio_fat_bind(&vol)==0,"bind real DOS FAT");
@@ -97,6 +112,7 @@ int32_t tbx_file_close(int32_t h) { return file_gate(TBX_FILE_CLOSE,(uint32_t)h,
 int32_t tbx_file_seek(int32_t h,int32_t n,uint32_t origin) { return file_gate(TBX_FILE_SEEK,(uint32_t)h,(uint32_t)n,(uint32_t)origin); }
 int32_t tbx_file_delete(const char *p) { return file_gate(TBX_FILE_DELETE,flair_file_ptr(p),0,0); }
 int32_t tbx_file_rename(const char *a,const char *b) { return file_gate(TBX_FILE_RENAME,flair_file_ptr(a),flair_file_ptr(b),0); }
+int32_t tbx_file_replace(const char *a,const char *b) { return file_gate(TBX_FILE_REPLACE,flair_file_ptr(a),flair_file_ptr(b),0); }
 static int32_t save_run(int from_file)
 {
     if(!from_file) return tbx_file_save("TARGET.DAT",source,sizeof source);
@@ -115,13 +131,14 @@ static void save_sweep(int from_file)
         CHECK(tbxf_live(&g_slot.files)==0,"SDK DOS failure releases handles");
         tbxf_reap(&g_slot.files); fclose(disk);
     }
-    for(unsigned i=1;i<=nw;i++) {
+    for(fail_after_persist=0;fail_after_persist<2;fail_after_persist++) for(unsigned i=1;i<=nw;i++) {
         setup(); fail_write=i; int32_t rc=save_run(from_file); fail_write=0;
         printf("SDK%s sector fault %u rc=%d hit=%u\n",from_file?" input":"",i,rc,hit);
         CHECK(hit==1,"SDK sector fault reached"); verify(rc==sizeof source?(const void *)source:old,rc==sizeof source?sizeof source:sizeof old-1);
         CHECK(tbxf_live(&g_slot.files)==0,"SDK sector failure releases handles");
         tbxf_reap(&g_slot.files); fclose(disk);
     }
+    fail_after_persist=0;
 }
 static void reserve(const char *name)
 {
@@ -230,18 +247,73 @@ static void recovered_stream(const char *cmd,const void *want,size_t len)
 }
 static void double_failure(int sdk)
 {
-    setup(); fail_rollbacks=1;
+    setup(); fail_rollbacks=1; fail_deletes=2;
     int32_t rc=sdk?tbx_file_save("TARGET.DAT",source,sizeof source):run();
     fail_rollbacks=0;
-    printf("%s commit+rollback failure rc=%d faults=%u\n",sdk?"SDK":"FILE COPY",rc,hit);
-    CHECK(rc<0 && hit==2,"commit and restore both failed");
-    CHECK(deletes==0,"double failure deletes nothing");
-    if(sdk) CHECK(strstr(reported_error,"TARGET.~00")!=0,"SDK error names exact previous version");
-    else CHECK(g_slot.alert && !strcmp(g_slot.alert_text[1],"TARGET.~00"),"FILE COPY error names exact previous version");
-    recovered_stream("mcopy -o -i copy.img '::TARGET.~00' recovered.dat",old,sizeof old-1);
+    printf("%s commit+cleanup failure rc=%d faults=%u\n",sdk?"SDK":"FILE COPY",rc,hit);
+    CHECK(rc<0 && hit==3,"commit refusal and both stage cleanup refusals reached");
+    CHECK(deletes==2,"only owned-stage cleanup was attempted");
+    verify(old,sizeof old-1); /* Reported error: previous file keeps its name. */
+    if(sdk) CHECK(!strstr(reported_error,"Previous version"),"no backup recovery case");
     recovered_stream(sdk?"mcopy -o -i copy.img '::TARGET.$$$' recovered.dat":"mcopy -o -i copy.img '::TARGET.$00' recovered.dat",source,sizeof source);
     recovered_stream("mcopy -o -i copy.img ::SOURCE.DAT recovered.dat",source,sizeof source);
     CHECK(tbxf_live(&g_slot.files)==0,"double failure closes every handle");
+    fclose(disk);
+}
+static unsigned committed_write;
+static int refuse_maintenance(uint32_t lba,uint32_t n,const void *p)
+{
+    if(committed_write) return 1;
+    if(n==1 && lba>=vol.root_dir_sector && lba<vol.root_dir_sector+14) {
+        const unsigned char *s=p;
+        for(unsigned i=0;i<512;i+=32) {
+            uint32_t size=(uint32_t)s[i+28]|((uint32_t)s[i+29]<<8)|
+                          ((uint32_t)s[i+30]<<16)|((uint32_t)s[i+31]<<24);
+            if(!memcmp(s+i,"TARGET  DAT",11) && size==sizeof source) committed_write=1;
+        }
+    }
+    return 0;
+}
+static void maintenance_failure(int sdk)
+{
+    setup(); committed_write=0; sector_fault=refuse_maintenance;
+    int32_t rc=sdk?save_run(0):run();
+    sector_fault=0;
+    CHECK(rc==sizeof source && committed_write && hit>=2,"postcommit maintenance cannot report a failed save");
+    CHECK(deletes==0,"caller never unlinks the adopted staging chain");
+    verify(source,sizeof source);
+    recovered_stream(sdk?"mcopy -o -i copy.img '::TARGET.$$$' recovered.dat":
+                         "mcopy -o -i copy.img '::TARGET.$00' recovered.dat",source,sizeof source);
+    CHECK(tbxf_live(&g_slot.files)==0,"maintenance refusal leaves no open handles");
+    fclose(disk);
+}
+/* initech-8qgdz: a sector can persist before reporting failure. The second
+ * error refuses restoration. Grade the app's reported result, using mtools. */
+static unsigned failed_publication;
+static int publication_and_restore_fault(uint32_t lba,uint32_t n,const void *p)
+{
+    if(failed_publication==1) { failed_publication=2; return 1; }
+    if(failed_publication || n!=1 || lba<vol.root_dir_sector || lba>=vol.root_dir_sector+14) return 0;
+    const unsigned char *s=p;
+    for(unsigned i=0;i<512;i+=32) {
+        uint32_t size=(uint32_t)s[i+28]|((uint32_t)s[i+29]<<8)|
+                      ((uint32_t)s[i+30]<<16)|((uint32_t)s[i+31]<<24);
+        if(!memcmp(s+i,"TARGET  DAT",11) && size==sizeof source) {
+            CHECK(!fseek(disk,(long)lba*512,SEEK_SET) && fwrite(p,512,n,disk)==n && !fflush(disk),
+                  "publication persists before its error");
+            failed_publication=1; return 1;
+        }
+    }
+    return 0;
+}
+static void physical_double_failure(int sdk)
+{
+    setup(); failed_publication=0; sector_fault=publication_and_restore_fault;
+    int32_t rc=sdk?save_run(0):run(); sector_fault=0;
+    CHECK(failed_publication==2,"physical publication and restore faults reached");
+    printf("%s persisted commit + restore error rc=%d\n",sdk?"SDK":"FILE COPY",rc);
+    verify(rc==sizeof source?(const void *)source:old,rc==sizeof source?sizeof source:sizeof old-1);
+    CHECK(tbxf_live(&g_slot.files)==0,"physical double failure releases handles");
     fclose(disk);
 }
 static int absent(const char *path)
@@ -250,6 +322,50 @@ static int absent(const char *path)
     snprintf(cmd,sizeof cmd,"mdir -b -i copy.img '%s' >/dev/null 2>&1",path);
     return system(cmd)!=0;
 }
+
+/* First publication has no previous file: a reported failure must leave the
+ * name absent. The source is independently read on every outcome. */
+static void verify_first_save(int32_t rc)
+{
+    if(rc==(int32_t)sizeof source) verify(source,sizeof source);
+    else {
+        CHECK(absent("::TARGET.DAT"),"failed first publication leaves destination absent (mtools)");
+        recovered_stream("mcopy -o -i copy.img ::SOURCE.DAT recovered.dat",source,sizeof source);
+    }
+}
+static int32_t first_save_run(unsigned kind)
+{ return kind==2 ? run() : save_run(kind==1); }
+static void first_save_sweep(void)
+{
+    first_save=1;
+    for(unsigned kind=0;kind<3;kind++) {
+        setup(); int32_t rc=first_save_run(kind);
+        CHECK(rc==(int32_t)sizeof source,"first publication succeeds without a destination");
+        unsigned nc=calls,nw=writes; verify_first_save(rc); tbxf_reap(&g_slot.files); fclose(disk);
+        for(unsigned i=1;i<=nc;i++) {
+            setup(); fail_call=i; rc=first_save_run(kind); fail_call=0;
+            CHECK(hit==1,"first-publication operation fault reached"); verify_first_save(rc);
+            CHECK(tbxf_live(&g_slot.files)==0,"first-publication operation fault releases handles");
+            tbxf_reap(&g_slot.files); fclose(disk);
+        }
+        for(fail_after_persist=0;fail_after_persist<2;fail_after_persist++) for(unsigned i=1;i<=nw;i++) {
+            setup(); fail_write=i; rc=first_save_run(kind); fail_write=0;
+            CHECK(hit==1,"first-publication physical fault reached"); verify_first_save(rc);
+            CHECK(tbxf_live(&g_slot.files)==0,"first-publication physical fault releases handles");
+            tbxf_reap(&g_slot.files); fclose(disk);
+        }
+        fail_after_persist=0;
+    }
+    for(unsigned progress=0;progress<=sizeof source;progress+=171) {
+        setup(); uint32_t size;
+        CHECK(tbx_fc_open(&size)==0 && tbx_fc_step(progress)>=0,"first-copy cancellation stages progress");
+        tbx_fc_close(); verify_first_save(TBX_ERR_DOS(5));
+        CHECK(tbxf_live(&g_slot.files)==0,"first-copy cancellation releases handles");
+        tbxf_reap(&g_slot.files); fclose(disk);
+    }
+    first_save=0;
+}
+
 static void only_stage(const char *expected)
 {
     char line[128]; unsigned count=0;
@@ -348,6 +464,10 @@ int main(int argc,char **argv)
     command("mformat -C -i base.img -f 1440 ::");
     command("mcopy -i base.img old.dat ::TARGET.DAT");
     command("mcopy -i base.img source.dat ::SOURCE.DAT");
+    if(argc>1 && !strcmp(argv[1],"--physical-double-failure")) {
+        physical_double_failure(1); physical_double_failure(0);
+        return TEST_SUMMARY("test-physical-reported-failure-invariant");
+    }
     if(argc>1 && !strcmp(argv[1],"--rollback-failure")) {
         double_failure(1); double_failure(0);
         return TEST_SUMMARY("test-reported-failure-invariant");
@@ -365,13 +485,14 @@ int main(int argc,char **argv)
         CHECK(tbxf_live(&g_slot.files)==0,"copy DOS failure releases handles");
         tbxf_reap(&g_slot.files); fclose(disk);
     }
-    for(unsigned i=1;i<=nw;i++) {
+    for(fail_after_persist=0;fail_after_persist<2;fail_after_persist++) for(unsigned i=1;i<=nw;i++) {
         setup(); fail_write=i; int32_t rc=run(); fail_write=0;
         printf("sector fault %u rc=%d hit=%u\n",i,rc,hit);
         CHECK(hit==1,"sector fault reached"); verify(rc<0?old:(const void *)source,rc<0?sizeof old-1:sizeof source);
         CHECK(tbxf_live(&g_slot.files)==0,"copy sector failure releases handles");
         tbxf_reap(&g_slot.files); fclose(disk);
     }
+    fail_after_persist=0;
     for(unsigned i=0;i<sizeof source;i+=128) {
         uint32_t n; setup(); CHECK(tbx_fc_open(&n)==0,"cancel open"); CHECK(tbx_fc_step(i)>=0,"cancel progress"); tbx_fc_close();
         verify(old,sizeof old-1); CHECK(tbxf_live(&g_slot.files)==0,"cancel closes handles"); fclose(disk);
@@ -404,6 +525,9 @@ int main(int argc,char **argv)
     CHECK(tbxf_live(&g_slot.files)==0,"empty success releases handles"); fclose(disk);
     save_sweep(0); save_sweep(1);
     extra_cases();
+    maintenance_failure(1); maintenance_failure(0);
+    first_save_sweep();
+    physical_double_failure(1); physical_double_failure(0);
     double_failure(1); double_failure(0);
     return TEST_SUMMARY("test-filecopy-disk");
 }

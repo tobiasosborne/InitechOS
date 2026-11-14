@@ -18,8 +18,8 @@ recovery ruling. FILE COPY creates an exclusive same-directory stage, transfers
 and closes it, then compares its bytes against the source before replacement.
 Progress calls never publish, including for a zero-byte source. The modal
 explicitly commits at its completion tick, with no further cancellable input
-turn before its result. The previous destination moves to the first absent
-NAME.~00..~99 only during commit; a failed publication restores it. Physical
+turn before its result. The native replacement binding repoints the destination
+entry to the closed stage; no backup rename or restore is used. Physical
 Escape, Control-period (the PC command shortcut), the Cancel button and the
 close box reach one modal cancellation path. Mouse controls fire on release
 inside; close and tenant teardown remove only an incomplete
@@ -34,21 +34,27 @@ file and prevents further saves from consuming additional temporary names.
 Later calls retry that owned cleanup and can save once storage accepts it.
 Early transfer/close errors and later commit refusals share this cleanup.
 
-If publication and restore both fail, both complete streams remain and the
-error notice names the exact previous-version path. This is not crash atomicity.
+The SDK save helper reaches the same native operation through the new INT81
+FILE_REPLACE verb 008Bh, with stage and destination arguments. Both files must
+be closed, in one directory and volume. An absent destination uses the existing
+non-overwriting RENAME. Zero means committed, even when later kernel maintenance
+fails; neither helper unlinks an adopted stage. This is not crash atomicity.
 The current three-line alert can conservatively show 60 path characters, so a
-longer recovery name refuses before staging; no recovery name is truncated.
-The SDK save helper uses the same sequence and existing ALERT verb. Successful
-replacement remains successful if only backup cleanup fails. Removing a
-retained backup after that error still depends on the kernel unlink repair.
+longer temporary name refuses before staging; no cleanup name is truncated.
+The previous file keeps its own name on every reported failure; the old
+double-rename recovery-name case is removed. Kernel publication reconciles
+failed write acknowledgments against the actual directory entry (8qgdz/i7zfp),
+so an adopted replacement or first publication reports success. Independent
+mtools reads grade every operation and sector write before/after persistence,
+both existing and absent destinations, double errors, and later maintenance.
 
 The desktop binds the data volume once. Every file-session dispatch temporarily
 selects that volume and root CWDs for all mounted drives, then restores the
 caller PSP, all per-drive CWDs, default drive and selected I/O drive. Explicit
 foreign-drive paths use that drive's root. Resolved file identity is the triple
 of volume, parent directory and directory slot; the internal platform record
-now supplies these fields. The INT 81h numbers, arguments and records are
-unchanged.
+now supplies these fields. Existing INT81 numbers, arguments and records are
+unchanged; FILE_REPLACE 008Bh is a deliberate two-argument extension.
 
 tests/test_filecopy_disk.c fault-injects each DOS operation and sector write
 through the real Toolbox adapter, InitechDOS dispatcher and FAT12 backend.
@@ -246,7 +252,7 @@ Interface export-binding: flair/include/dialog.h DialogHandleEvent DialogModalDi
 Interface export-binding: flair/include/event.h GetNextEvent WaitNextEvent flair_event_init flair_event_set_keyboard_observer flair_event_set_yield flair_event_warp flair_raw_post flair_tick_advance flair_tick_count
 Interface export-binding: flair/include/filecopy_cancel.h
 Interface export-pure: flair/include/flair_look.h flair_look_default_skin flair_look_pixel flair_look_pixel_depth flair_look_pixel_for_skin flair_look_small_icon_pixel
-Interface export-binding: flair/include/flair_platform.h flair_platform_bind_files flair_platform_desktop_pattern flair_platform_dos flair_platform_file_info_get flair_platform_files_close flair_platform_files_init flair_platform_files_live flair_platform_load flair_platform_memory flair_platform_panic flair_platform_path_is_device flair_platform_serial flair_platform_speaker flair_platform_swap_dta flair_platform_tenant_abort flair_platform_tenant_call
+Interface export-binding: flair/include/flair_platform.h flair_platform_bind_files flair_platform_desktop_pattern flair_platform_dos flair_platform_file_info_get flair_platform_file_replace flair_platform_files_close flair_platform_files_init flair_platform_files_live flair_platform_load flair_platform_memory flair_platform_panic flair_platform_path_is_device flair_platform_serial flair_platform_speaker flair_platform_swap_dta flair_platform_tenant_abort flair_platform_tenant_call
 Interface export-binding: flair/include/grafport.h
 Interface export-pure: flair/include/heap.h flair_alloc flair_free flair_heap_avail flair_heap_init
 Interface export-binding: flair/include/imaging.h
