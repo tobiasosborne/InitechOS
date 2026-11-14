@@ -29,6 +29,13 @@ case $name in
   test_i123_copy_move) "$bin" ;;
   test_i123_copy_corpus) "$bin" --corpus "$LOTUS123_DECOMP" "$out" "$ref" ;;
   test_i123_copy_tile) "$bin" --tile tests/fixtures/i123-copy "$out" "$ref" ;;
+  test_i123_protection)
+    captures=${I123_PROTECTION_ROOT:-../../goldens/dataloss/lotus}
+    manifest=$(pwd)/tests/oracles/name-protection.sha256
+    (cd "$captures" && sha256sum -c "$manifest") > "$out/name-hashes.log"
+    (cd tests/fixtures/protection && sha256sum -c SHA256SUMS) > "$out/write-hashes.log"
+    "$bin" "$out" "$captures" tests/fixtures/protection
+    ;;
   test_i123_menu_disk) "$bin" "${bin%/*}/../123.MNU" ;;
   test_i123_menu_tree)
     "$bin" "$LOTUS123_DECOMP/goldens/lotus-123-2.2-installed-ref/extracted/installed/123.RI" tests/oracles/menu/menu_ri_offsets.tsv > "$out/ri.txt"
