@@ -1,0 +1,15 @@
+# DU_MUT_SELF_TEXT
+# test: test-xcopy-tree
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -223,8 +223,9 @@
+     char source_entry[CAP], target_entry[CAP];
+     int source_found=entry_name(src,source_entry);
+     int target_found=entry_name(dst,target_entry);
++    (void)source_found; (void)target_found;
+     if (source_found<0 || target_found<0) { error=5; return 0; }
+-    if (source_found && target_found && equal(source_entry,target_entry)) {
++    if (equal(src,dst)) {
+         line(MSG_DOS_0020); error=4; return 0;
+     }
+     if (flags & P_PROMPT) {

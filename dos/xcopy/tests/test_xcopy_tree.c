@@ -32,7 +32,9 @@ int du_call(du_regs *r)
     unsigned ah = (r->a >> 8) & 255, al = r->a & 255;
     uintptr_t original = r->d;
     int to = ah == 0x39 || ah == 0x3b || ah == 0x3c || ah == 0x3d ||
-             ah == 0x41 || ah == 0x43 || ah == 0x4e;
+             ah == 0x41 || ah == 0x43 || ah == 0x4e || ah == 0x5b;
+    /* Adapter fault injection after CREATE, outside the shipped product. */
+    if (ah == 0x3f && getenv("XCOPY_FAIL_READ")) { r->a=5; return 1; }
     if (ah == 7 || ah == 8) {
         if (!*keys) { fputs("ORACLE RED: unexpected keyboard wait\n", stderr); exit(90); }
         r->a = (unsigned char)*keys++;

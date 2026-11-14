@@ -183,10 +183,50 @@ static int selected(const find_data_t *fd)
     return 1;
 }
 
+/* Resolve an existing entry through public DOS services. GETCWD returns
+ * the directory's on-disk spelling after CHDIR; FINDFIRST returns its 8.3
+ * leaf. FAT has no hard links. Reference: dos33/reference/self-alias and
+ * compat33/NAMES, IBM DOS 3.30 TR AH=3B/47/4E. Never compare user path text
+ * to authorize truncation, including overlong directory components. */
+static int entry_name(const char *path, char out[CAP])
+{
+    char parent[CAP], back[CAP], cwd[64], leaf[13];
+    unsigned start=3;
+    if (!put(parent,path)) return -1;
+    for (unsigned i=3; path[i]; i++) if (path[i]=='\\') start=i+1;
+    unsigned n=0, i=start;
+    while (path[i] && path[i]!='.' && n<8) leaf[n++]=path[i++];
+    while (path[i] && path[i]!='.') i++;
+    if (path[i]=='.' && path[i+1]) {
+        leaf[n++]='.';
+        for (unsigned e=0; path[++i] && e<3; e++) leaf[n++]=path[i];
+    }
+    leaf[n]=0;
+    dospath_parent(parent);
+    back[0]=path[0]; back[1]=':'; back[2]=0;
+    if (!absolute(back,back)) return -1;
+    if (call(0x3b00,0,0,(uintptr_t)parent)<0) return 0;
+    int ok=drive_cwd((unsigned)(path[0]-'A'),cwd)>=0;
+    if (call(0x3b00,0,0,(uintptr_t)back)<0) { error=5; return -1; }
+    if (!ok) return -1;
+    parent[0]=path[0]; parent[1]=':'; parent[2]='\\'; parent[3]=0;
+    if (!join(parent,parent,cwd) || !join(out,parent,leaf)) return -1;
+    find_data_t found;
+    if (!nth(out,7,0,&found)) return error ? -1 : 0;
+    if (!join(out,parent,found.fname)) return -1;
+    return 1;
+}
+
 static int transfer(const char *src, const char *dst, const find_data_t *fd)
 {
     unsigned char buf[2048], verify[2048];
-    if (equal(src,dst)) { line(MSG_DOS_0020); error=4; return 0; }
+    char source_entry[CAP], target_entry[CAP];
+    int source_found=entry_name(src,source_entry);
+    int target_found=entry_name(dst,target_entry);
+    if (source_found<0 || target_found<0) { error=5; return 0; }
+    if (source_found && target_found && equal(source_entry,target_entry)) {
+        line(MSG_DOS_0020); error=4; return 0;
+    }
     if (flags & P_PROMPT) {
         text(src+2); text(" (Y/N?)");
         if (!yes()) return 0;
@@ -197,7 +237,9 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
     if (!ensure_dir(parent)) return 0;
     int in=call(0x3d00,0,0,(uintptr_t)src);
     if (in < 0) { error=5; return 0; }
-    int out=call(0x3c00,0,0,(uintptr_t)dst);
+    int out=call(0x5b00,0,0,(uintptr_t)dst);
+    int created=out>=0;
+    if (out == -80) out=call(0x3c00,0,0,(uintptr_t)dst);
     if (out < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
     for (;;) {
         int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
@@ -217,7 +259,7 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
     }
     if (call(0x3e00,(unsigned)out,0,0) < 0) error=5;
     if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
-    if (error) { call(0x4100,0,0,(uintptr_t)dst); return 0; }
+    if (error) { if (created) call(0x4100,0,0,(uintptr_t)dst); return 0; }
     if (flags & V_VERIFY) {
         in=call(0x3d00,0,0,(uintptr_t)src);
         out=call(0x3d00,0,0,(uintptr_t)dst);

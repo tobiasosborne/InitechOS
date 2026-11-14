@@ -386,3 +386,15 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./callredir/dr
 3988277de8b9a1a7dc0aa48b816ebedb48afa8a2e7bbb8e1e1ebc20919b1d371  ./callredir/result.txt
 da71d43acbe19f12f9b4768b10915f06f614a3b2e165bb6c7b1e057db0e225dc  ./callredir/result.vga
 b5218f700541322bcc225948bb05b6bddd7a143ed63d856c2bc80e34eda3a85a  ./callredir/steps
+9e257ee8c4015818e3517e271cafce4342a23aee6d1e57626bd6de1777f6a5c8  ./self-alias/before-data.img.gz
+91efa03b10f6e8df37a3db02feda294b86b3532ab528ee58f234964a3e00f32d  ./self-alias/SOURCE.TXT
+2a36196ea34a63c82917cf43b0513c6b1833897fa2bc82c41bf2506c135e57c3  ./self-alias/AUTOEXEC.BAT
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ./self-alias/driver.log
+91efa03b10f6e8df37a3db02feda294b86b3532ab528ee58f234964a3e00f32d  ./self-alias/AFTER.TXT
+fd13b69b5659288ba958f1628a8e74375f3d1e90d89fddf1ae28521c7b448d16  ./self-alias/TRACE.TXT
+865c19695fa8502786979faa32d545c953aeaa2b0ef4abc5733b083d377cac9a  ./self-alias/SELF.BAT
+b5218f700541322bcc225948bb05b6bddd7a143ed63d856c2bc80e34eda3a85a  ./self-alias/steps
+9e257ee8c4015818e3517e271cafce4342a23aee6d1e57626bd6de1777f6a5c8  ./self-alias/data.img.gz
+d67873b968b4facd2f2753c146768241a9008b1871be9c7b9be824747fc5618a  ./self-alias/result.txt
+3427abb84dbc406640ba1fbfb55ed9ee29c01f2eb35424814c2273c9e61d5114  ./self-alias/result.vga
+2fd0ba6a5e32b9f75bfe88f24b9c3771ec2de0b6c12a4ad61dd08ff7d47e21bd  ./self-alias/ORIGIN

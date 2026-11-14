@@ -161,6 +161,35 @@ if [ "$mode" = host ]; then
     if run XCOPY 'SRC\ROOT.TXT SRC\.\ROOT.TXT'; then fail 'same-file alias accepted'; fi
     mtype -i "$work/art.img" ::SRC/ROOT.TXT > "$work/art.bytes"
     cmp -s "$work/art.bytes" "$work/old.txt" || fail 'same-file alias destroyed source'
+    # self-alias capture: 8.3 leaves and resolved directory aliases.
+    for target in 'SRC\LONGNAMEX.TXT' 'SRC\.\LONGNAMEX.TXT' 'LONGDIRX\LONGNAMEX.TXT'; do
+        fresh
+        # Fragmented allocation makes truncation corrupt the source reliably.
+        dd if=/dev/zero of="$work/hole" bs=3000 count=1 status=none
+        mcopy -i "$work/art.img" "$work/hole" ::HOLE.BIN
+        dd if=/dev/zero bs=4893 count=1 status=none | tr "\000" "L" > "$work/long"
+        mcopy -i "$work/art.img" "$work/long" ::SRC/LONGNAME.TXT
+        mdel -i "$work/art.img" ::HOLE.BIN
+        if [ "$target" = 'LONGDIRX\LONGNAMEX.TXT' ]; then
+            mmd -i "$work/art.img" ::LONGDIRX
+            mcopy -i "$work/art.img" "$work/long" ::LONGDIRX/LONGNAME.TXT
+            target='LONGDIRXX\LONGNAMEX.TXT'
+            source='LONGDIRX\LONGNAME.TXT'
+        else source='SRC\LONGNAME.TXT'; fi
+        cp "$work/art.img" "$work/before.img"
+        if run XCOPY "$source $target"; then fail '8.3 self-copy accepted'; fi
+        grep -q 'File cannot be copied onto itself' "$work/output" || fail '8.3 self-copy diagnostic'
+        mtype -i "$work/art.img" "::$(printf '%s' "$source" | tr '\\' '/')" > "$work/art.bytes" || fail '8.3 source deleted'
+        cmp "$work/long" "$work/art.bytes" || fail '8.3 source changed'
+        cmp "$work/before.img" "$work/art.img" || fail '8.3 self-copy wrote the volume'
+    done
+    # Failure may unlink a new entry only, never a pre-existing destination.
+    fresh
+    mcopy -i "$work/art.img" "$work/old.txt" ::DST/ROOT.TXT
+    if XCOPY_FAIL_READ=1 run XCOPY 'SRC\ROOT.TXT DST'; then fail 'read error ignored'; fi
+    mdir -b -i "$work/art.img" ::DST/ROOT.TXT > "$work/entry" || fail 'failure deleted an existing entry'
+    mtype -i "$work/art.img" ::SRC/ROOT.TXT > "$work/art.bytes"
+    cmp "$work/old.txt" "$work/art.bytes" || fail 'read failure damaged source'
     for tail in 'SRC DST /D:02-30-1988' 'SRC DST /D:07-15-1979' 'SRC DST /D:01-01-2080' 'SRC DST /Z' ''; do
         if run XCOPY "$tail"; then fail "invalid syntax accepted: $tail"; fi
         grep -q 'exit=4' "$work/run.log" || fail 'invalid syntax exit code'

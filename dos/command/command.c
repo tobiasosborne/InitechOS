@@ -3521,7 +3521,11 @@ static void builtin_ren(const char *arg)
         found=1;
         if(!cmd_name_map(leaf,pattern,mapped) || !copy_path(old,pair.first,leaf) ||
            !copy_path(newname,pair.first,mapped))break;
-        if(cmd_same_file(old,newname)){ordinal++;continue;}
+        int from=dos_open(old), to=dos_open(newname);
+        int same=from>=0 && to>=0 && int21_same_file((uint16_t)from,(uint16_t)to);
+        if(from>=0)dos_close(from);
+        if(to>=0)dos_close(to);
+        if(same){ordinal++;continue;}
         if(dos_rename(old,newname)) {
             dos_print(MSG_DOS_0062 "\r\n$");ordinal++;continue;
         }
