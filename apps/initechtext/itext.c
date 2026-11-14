@@ -304,12 +304,14 @@ static void say(const char *l1, const char *l2)
 static int doc_load(const char *path)
 {
     int32_t h = tbx_file_open(path, TBX_FILE_READ_ONLY), n, start, rc, closed, i, k = 0;
+    int32_t tail = 0;
     uint32_t pos = 0;
     if (h < 0) { say("The document could not be opened.", (const char *)0); return 0; }
     /* initech-gxb4z: GM4 and the operator's original-name preservation
      * ruling require the whole input before publishing a named document.
      * FILE_SEEK/READ/CLOSE: toolbox_gate.h Sec 10. A positive short read
-     * makes progress; only the measured length proves completion. The
+     * makes progress. Completion also requires EOF after the measured bytes:
+     * a source that grows during the read must never publish a prefix. The
      * existing raw-byte capacity still applies before TEXT normalization. */
     n = tbx_file_seek(h, 0, TBX_FILE_FROM_END);
     start = n < 0 ? n : tbx_file_seek(h, 0, TBX_FILE_FROM_START);
@@ -319,9 +321,12 @@ static int doc_load(const char *path)
             if (rc <= 0 || (uint32_t)rc > (uint32_t)n - pos) break;
             pos += (uint32_t)rc;
         }
+        /* g_io has one extra byte, even for a full-capacity document.
+         * Probe empty files too: they may have grown during the rewind. */
+        if (pos == (uint32_t)n) tail = tbx_file_read(h, g_io + pos, 1u);
     }
     closed = tbx_file_close(h);
-    if (n < 0 || start != 0 || closed < 0 ||
+    if (n < 0 || start != 0 || closed < 0 || tail != 0 ||
         (n <= FLAIR_TE_TEXT_MAX && pos != (uint32_t)n)) {
         say("The document could not be opened.", (const char *)0);
         return 0;

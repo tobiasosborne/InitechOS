@@ -1,0 +1,11 @@
+--- a/itext.c
++++ b/itext.c
+@@ -324,7 +324,7 @@
+         }
+         /* g_io has one extra byte, even for a full-capacity document.
+          * Probe empty files too: they may have grown during the rewind. */
+-        if (pos == (uint32_t)n) tail = tbx_file_read(h, g_io + pos, 1u);
++        if (pos == (uint32_t)n) tail = 0;
+     }
+     closed = tbx_file_close(h);
+     if (n < 0 || start != 0 || closed < 0 || tail != 0 ||

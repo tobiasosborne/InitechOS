@@ -16,7 +16,10 @@ Three visible commands are disabled: Page Setup, Print, Print One Copy.
 GOLDEN-MASTER item 4's dead-command sweep is still outstanding.
 
 Open measures the raw file length and reads until that length is complete;
-positive short reads continue. Seek/read/early-EOF/close failures and files
+positive short reads continue. A further one-byte read must return EOF before
+the document is published, including empty and full-capacity inputs. Growth
+during loading refuses the open rather than adopting the initial prefix.
+Seek/read/early-EOF/close failures and files
 over capacity produce an OK alert before changing the document, name or Undo.
 The previously open document remains editable and Save still uses its name.
 This implements GM4 and the operator's phase-2 original-name preservation
@@ -32,8 +35,11 @@ fixtures from the desktop reader study (4fb96275), plus literal prior-document
 bytes. An independent stdio reader checks real host files after saves and
 failed opens; the app's loader never supplies expected output. It covers
 one-/three-/four-byte reads, line-end normalization across chunks, empty and
-capacity inputs, seek/read/close failures and early EOF after a prefix.
-make mutants kills eleven patches, including partial-input publication.
+capacity inputs, seek/read/close failures, early EOF after a prefix, and real
+growth/shrinkage through a separate host descriptor during the load (including
+empty-to-nonempty and growth past capacity). The EOF probe must also succeed.
+make mutants kills twelve patches, including partial-input publication and
+bypassing the final EOF check.
 make smoke launches
 from the Finder on QEMU and Bochs, edits alpha CR bravo, saves UNTITLED on
 QEMU and Bochs, checks exact bytes with mtools/cmp and checks the volume with fsck.fat.
