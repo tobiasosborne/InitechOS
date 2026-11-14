@@ -1,0 +1,47 @@
+patch	oracle	verdict	runs	assertion
+dos/command/mutants/runtime/cmd-mutate-batch-body.patch	session:auto	killed	2	missing [IF-BODY]
+dos/command/mutants/runtime/cmd-mutate-cd-drive.patch	session:auto	killed	2	missing [A:\]
+dos/command/mutants/runtime/cmd-mutate-command-c.patch	session:auto	killed	2	SEC.TXT bytes
+dos/command/mutants/runtime/cmd-mutate-command-env.patch	session:auto	killed	2	ENV.TXT bytes
+dos/command/mutants/runtime/cmd-mutate-copy-date.patch	session:auto	killed	2	COPY timestamp
+dos/command/mutants/cmd-mutate-copy-full-badcmd.patch	host:test-copy-full	killed	2	registered host oracle failed in both runs
+dos/command/mutants/runtime/cmd-mutate-copy-time.patch	session:auto	killed	2	COPY timestamp
+dos/command/mutants/cmd-mutate-del-silent-error.patch	host:test-shell-failures	killed	2	registered host oracle failed in both runs
+dos/command/mutants/runtime/cmd-mutate-dir-args.patch	session:auto	killed	2	DIR operands
+dos/command/mutants/runtime/cmd-mutate-dir-break.patch	session:dirbreak	killed	2	entry emitted after Ctrl-C
+dos/command/mutants/runtime/cmd-mutate-dir-no-volume.patch	session:auto	killed	2	DIR volume identity
+dos/command/mutants/runtime/cmd-mutate-for-prompt.patch	session:basic	killed	2	FOR at prompt
+dos/command/mutants/runtime/cmd-mutate-for-wildcard.patch	session:auto	killed	2	missing [SRC\ONE.TXT]
+dos/command/mutants/runtime/cmd-mutate-no-autoexec.patch	session:auto	killed	2	missing [AUTOEXEC-RAN]
+dos/command/mutants/runtime/cmd-mutate-no-cwd-prompt.patch	session:basic	killed	2	CWD/literal dollar prompt
+dos/command/mutants/runtime/cmd-mutate-no-read-cf.patch	session:readerror	killed	2	read error diagnostic
+dos/command/mutants/runtime/cmd-mutate-permanent-exit.patch	session:permanent	killed	2	missing [PERMANENT-SURVIVED]
+dos/command/mutants/runtime/cmd-mutate-pipe-clobber.patch	session:auto	killed	2	missing PIPE1.$$$
+dos/command/mutants/runtime/cmd-mutate-pipe-ignore-full.patch	session:full	killed	2	two full-disk diagnostics
+dos/command/mutants/runtime/cmd-mutate-pipe-no-stdin.patch	session:auto	killed	2	PIPE.OUT bytes
+dos/command/mutants/runtime/cmd-mutate-prompt-date.patch	session:basic	killed	2	live date prompt
+dos/command/mutants/runtime/cmd-mutate-prompt-dollar.patch	session:basic	killed	2	CWD/literal dollar prompt
+dos/command/mutants/runtime/cmd-mutate-rd-noop.patch	session:auto	killed	2	RD did not remove directory
+dos/command/mutants/runtime/cmd-mutate-redir-bypass.patch	session:auto	killed	2	SEC.TXT bytes
+dos/command/mutants/runtime/cmd-mutate-redir-create-badcmd.patch	session:full	killed	2	file creation diagnostic
+dos/command/mutants/runtime/cmd-mutate-redir-ignore-full.patch	session:full	killed	2	two full-disk diagnostics
+dos/command/mutants/runtime/cmd-mutate-redir-no-restore.patch	session:auto	killed	2	missing [IF-BODY]
+dos/command/mutants/runtime/cmd-mutate-shift-zero.patch	session:auto	killed	2	SHIFT.OUT bytes
+dos/command/mutants/runtime/cmd-mutate-startup.patch	session:startup	killed	2	date prompt
+dos/command/mutants/cmd-mutate-type-break.patch	host:test-shell-failures	killed	2	registered host oracle failed in both runs
+dos/command/mutants/runtime/cmd-mutate-volume-message.patch	session:auto	killed	2	missing [Invalid drive specification]
+dos/command/mutants/runtime/cmd-mutate-volume-prompt.patch	session:volume	killed	2	default C prompt
+dos/common/mutants/du-mutate-drive.patch	host:test-explicit-drive	killed	2	registered host oracle failed in both runs
+dos/common/mutants/du-mutate-label-drive.patch	host:test-explicit-drive	killed	2	registered host oracle failed in both runs
+dos/fdisk/mutants/fdisk-mut-letter.patch	host:fdisk-session	killed	2	registered host oracle failed in both runs
+dos/fdisk/mutants/fdisk-mut-loaded.patch	host:fdisk-session	killed	2	registered host oracle failed in both runs
+dos/find/mutants/runtime/find-mutate-invert.patch	session:auto	killed	2	FIND.TXT bytes
+dos/more/mutants/runtime/more-mutate-drop.patch	session:auto	killed	2	PIPE.OUT bytes
+dos/sort/mutants/runtime/sort-mutate-reverse.patch	session:auto	killed	2	SORTED.TXT bytes
+dos/tpsrep/mutants/runtime/tps-mutate-count6.patch	session:tps-count6	killed	2	six alignment presses refused
+dos/tpsrep/mutants/runtime/tps-mutate-linesok.patch	session:tps-linesok	killed	2	lines refused without required diagnostic
+dos/tpsrep/mutants/runtime/tps-mutate-nowrchk.patch	session:tps-nowrchk	killed	2	full disk reported success
+dos/tpsrep/mutants/runtime/tps-mutate-pagesok.patch	session:tps-pagesok	killed	2	pages refused without required diagnostic
+dos/tpsrep/mutants/runtime/tps-mutate-say7.patch	session:tps-say7	killed	2	alignment prompt states tacit count/key
+dos/tpsrep/mutants/runtime/tps-mutate-unchecked-backup.patch	session:tps-unchecked-backup	killed	2	backup refused without required diagnostic
+dos/xcopy/mutants/du-mut-drive.patch	host:test-xcopy-drive	killed	2	registered host oracle failed in both runs

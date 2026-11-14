@@ -93,3 +93,8 @@ no-op, injected timeout and startup-failure controls run before the default
 session sweep; unexpected exits and incomplete transport are errors. TPS invalid
 input tests supply enough input for faulty programs to finish, then grade the
 required diagnostic. Missing completion is never a mutation kill.
+
+`tests/mutation-verdicts.tsv` records the corrected phase-2 re-sweep of the
+46 formerly pending patches: eight host and 38 runtime faults, each failing
+twice. Runtime entries name the actual completed-run semantic assertion.
+The prior timeout-based totals are superseded by that explicit re-sweep.
