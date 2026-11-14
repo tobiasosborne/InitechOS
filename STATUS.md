@@ -1,7 +1,7 @@
 # Status
 
-Rewritten 2026-11-14 for the local next-landing candidate after wave 2.
-Main remains at `62830873`. Setup: `docs/SETUP.md`.
+Rewritten 2026-11-14 after landing the reviewed InitechDOS fixes and
+data-loss captures on main, through `abdeb56c`. Setup: `docs/SETUP.md`.
 
 ## Where we are
 
@@ -41,15 +41,22 @@ Host tests passed in 63.66s and full smoke in 212.12s before the push.
 Logs: `build/cert/2026-11-14T005336Z-049b6b4a/`; an external copy is
 retained with the landing report. No limit was relaxed and no fix was needed.
 
-The unlanded `integration/next` candidate passes `make -j12 test`: all 19
-registered components ran, ALL GREEN in 59.48s, including default factory
-verification of the data-loss captures. Full `make smoke` passes DOS,
-programs, nine GUI executables, Turbo Initech and InitechBase on QEMU and
-Bochs at 8 MiB. The additional focused console-pair smoke passes four cases.
-`make repro` passes in 84.01s: boot/data/kernel/system bytes match across
-two clean builds. No budget was relaxed; no budget retry was needed.
-Logs and emulator evidence survive outside build at
-`/tmp/integration-next-logs/`. This candidate has not run a new full cert.
+After fast-forwarding the main checkout from `62830873`, `make -j12 test`
+passes all 19 registered components in 55.96s, including default factory
+verification of the captures and configured reference readers. Full
+`make smoke` passes in 314.98s: DOS, programs, nine GUI executables,
+Turbo Initech and InitechBase on QEMU and Bochs at 8 MiB. Before landing,
+the full host gate also passed with relocated corpora in 84.89s. Fresh
+Lotus replay from a nonexistent output directory passes all seven cases;
+all 14 WK1 files match the retained captures. A delayed-monitor control
+proves the capture driver waits for command completion.
+
+The reviewed candidate's additional console-pair smoke passes four cases,
+and `make repro` passes in 84.01s across two clean builds. All four rebuilt
+main artifact hashes match those reproducibility hashes; the final review
+fixes affect capture tooling only. No budget was relaxed or needed a retry.
+Logs survive at `/tmp/integration-next-logs/` and
+`/tmp/integration-next-landing-logs/`. This landing has not run a new full cert.
 
 There are still 129 unproved pending patches: kernel 39, DOS 46,
 FLAIR 16, InitechBase 28. Default cert reports PASS_PENDING; it is not
@@ -67,8 +74,8 @@ smoke-coverage gates; then FAT/write protection, stage ownership and handles;
 then recovery policy, file conservation and independent execution/ABI oracles.
 The six Turbo bugs need red-first FPC execution differentials for both compilers.
 
-`integration/next` is prepared locally for independent review, then landing
-by the orchestrator; nothing was pushed and main was not changed:
+`integration/next` was independently reviewed and fast-forwarded to main
+after the two capture-harness findings and the timing nit were fixed:
 
 - `fixes/initechdos` at `18750e4a`, all 17 commits, merged as `1fa2ebc5`.
   FLAIR now checks CREATE EOF, seek/literal read and explicit write-only
@@ -77,14 +84,21 @@ by the orchestrator; nothing was pushed and main was not changed:
   `WRITE-READBACK-OK` as well as independent disk bytes. Each follow-up
   has a semantic red-first regression (`95a43cd0`).
 - `goldens/dataloss` at `773d45da`, merged as `6593a4df`: real DOS 3.30,
-  Lotus R2.2 and WordPerfect 5.1 captures, unchanged. All 422 pinned files,
+  Lotus R2.2 and WordPerfect 5.1 captures. All 422 pinned files,
   mtools disk readback and independent reader dumps verify; corrupted
   evidence is rejected. Default factory verification is `3ce50293`.
-  No product data-loss policy or behavior was changed.
+  `abdeb56c` makes that verifier use the configured, preflight-checked
+  readers, creates fresh Lotus output directories before compilation,
+  and waits for HMP completion. Retained capture bytes are unchanged;
+  only helper/documentation hashes were updated. No product data-loss
+  policy or behavior was changed.
 
 The sole merge conflict was the research branch's stale STATUS.md; the
-current main status was retained before this rewrite. Progress comments
-were added to the touched beads; none was closed during this preparation.
+current main status was retained before the candidate rewrite. This landing
+closes initech-oecdm with guest and factory proof. The ten fully fixed
+kernel/DOS issues already closed by the implementer retain that status,
+with landing/commit comments. Partial issues and recovery-policy decisions
+remain open; the current tracker snapshot is committed with this rewrite.
 
 Operator decisions pending: real DOS 3.3 COPY deletes the target on
 failure; WordPerfect 5.1 can leave only `NAME.BK!` after a failed save.
@@ -95,21 +109,19 @@ Dead commands in the frozen app inventories also need implement/remove decisions
 
 ## Next, in order
 
-1. Independently review `integration/next`, then have the orchestrator land it.
-2. Repair the reviewed acceptance gates, then the data-loss bugs under the
+1. Repair the reviewed acceptance gates, then the data-loss bugs under the
    agreed recovery policy; add the six compiler execution regressions.
-3. Finish kernel/FLAIR desktop imports and boot's audit; prove pending mutants.
-4. Initech's menu mark, app windows up 20 pixels, Finder long-label overlap.
-5. The film frame: safe FILE COPY and honest gaps in the ledger; do not
+2. Finish kernel/FLAIR desktop imports and boot's audit; prove pending mutants.
+3. Initech's menu mark, app windows up 20 pixels, Finder long-label overlap.
+4. The film frame: safe FILE COPY and honest gaps in the ledger; do not
    invent missing `TODO_FRAME` cells. Resolve the frozen dead commands.
-6. Turbo Initech IDE, runtime encoders and fixed point on Bochs.
-7. Install path and a single product disk.
+5. Turbo Initech IDE, runtime encoders and fixed point on Bochs.
+6. Install path and a single product disk.
 
 ## Notes for this week
 
 - Shared places (`mk/`, `sdk/`, `factory/`, top Makefile) owner:
-  the orchestrator session of 2026-11-14; this implementation session acts
-  for that owner while preparing integration/next. Released when it lands.
+  released after this landing; currently unassigned.
 - Remaining Word/small-app attic journeys and pixel harnesses belong to
   their component/factory importers; publication inventories and manuals
   to the publication importer; composed chrome and menu/panel coverage
@@ -119,4 +131,3 @@ Dead commands in the frozen app inventories also need implement/remove decisions
   or its deeper mutation paths; it remains tracked without a path waiver.
 - QEMU: 486, 8 MiB, ACPI off. Bochs: installed Pentium model, 8 MiB.
   IDE master boots; the slave is working volume A:. All checks run locally.
-- This session ran with a Fable advisor setting direction, an Opus orchestrator running the fleet, Sol 6.1 xhigh doing implementation and review, Astra hands-on, Muse Wonder Full for the outside view, and a cap of 1 to 2 percent ahead of pace on every account.
