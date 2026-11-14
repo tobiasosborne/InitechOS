@@ -2864,6 +2864,18 @@ static int dos_stdout_is_device(void)
 #include "batch_break_host.h"
 #endif
 
+/* Captured DOS 3.30 diagnostics go to CON even inside redirected batches.
+ * Keep the saved stdout and its file position untouched. */
+static void dos_error(const char *message)
+{
+    int h=dos_open_mode("CON",2u);
+    if (h<0) { dos_print(message);return; }
+    unsigned n=0;
+    while (message[n] && message[n]!='$') ++n;
+    dos_write_h(h,(const uint8_t *)message,n);
+    dos_close(h);
+}
+
 #ifndef COMMAND_BATCH_HOST
 /* TYPE <file>: OPEN the named file, READ it in chunks, WRITE each chunk to
  * stdout (handle 1), CLOSE. File-not-found => the controlled diagnostic. */
@@ -3470,6 +3482,19 @@ static int bat_ends_with_bat(const char *name)
  * candidates => "Bad command or file name" (MSG-DOS-0002).
  * Ref: ADR-0003 DEC-11 / Appendix D; DOS 3.3 COMMAND.COM PATH search.
  * Ref: cmd_path_candidates (above) for the candidate planning logic. */
+static int external_exists(const char *command)
+{
+    cmd_path_iter_t cands;
+    char cwd[3+INT21_CWD_MAX];
+    cwd_display(cwd);
+    cmd_path_candidates(command,env_get(&g_master_env,"PATH"),cwd,&cands);
+    for (int i=0; i<cands.count; ++i) {
+        int h=dos_open(cands.entries[i]);
+        if (h>=0) { dos_close(h);return 1; }
+    }
+    return 0;
+}
+
 static void run_external(const char *command, const char *tail)
 {
     cmd_path_iter_t cands;
@@ -3898,6 +3923,18 @@ static int run_with_redirect(const char *line)
 
     int out_has = (has & CMD_REDIR_OUT) != 0;
     int in_has  = (has & CMD_REDIR_IN) != 0;
+
+    /* OEM DOS 3.30 compat33/REDIR: BADNAME>BAD.OUT reports on CON and
+     * never creates BAD.OUT. Resolve an external command before opening its
+     * output; built-ins and existing executables keep their redirect scopes. */
+    if (out_has && target[0]) {
+        cmd_line_t parsed;
+        cmd_parse(clean,&parsed);
+        if (parsed.kind==CMD_EXTERNAL && !external_exists(parsed.command)) {
+            dos_error(MSG_DOS_0002 "\r\n$");
+            return 0;
+        }
+    }
 
     /* ---- INPUT (`<`) setup: open READ, save handle 0, DUP2 the file onto 0 ---- */
     int in_fh = -1;

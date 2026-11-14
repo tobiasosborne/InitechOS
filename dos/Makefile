@@ -90,3 +90,8 @@ smoke-errors:
 smoke-batch-return:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/batch-return.sh "$(TOP)" "$(OUT)/smoke-batch-return"
+
+.PHONY: smoke-unknown-redirect
+smoke-unknown-redirect:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/unknown-redirect.sh "$(TOP)" "$(OUT)/smoke-unknown-redirect"
