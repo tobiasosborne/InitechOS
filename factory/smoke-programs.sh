@@ -11,7 +11,7 @@ for tool in mformat mcopy mmd; do command -v "$tool" >/dev/null || fail "missing
 truncate -s 0 "$out/test.img"
 truncate -s 1474560 "$out/test.img"
 mformat -i "$out/test.img" -f 1440 -N 0x50524f47 ::
-mcopy -i "$out/test.img" build/dos/test-programs/*.COM ::
+mcopy -i "$out/test.img" "${PROGRAM_SMOKE_PROGRAMS:-build/dos/test-programs}"/*.COM ::
 mmd -i "$out/test.img" ::SUB
 printf 'Hello, world!\r\n' > "$out/hello.txt"
 printf 'Second file\r\n' > "$out/second.txt"
@@ -50,7 +50,7 @@ for emu in qemu bochs; do
  for line in 'MO-A1=Hel' 'MO-B1=Sec' 'MO-A2=Hello' 'MO-BIG=BEYOND-64KiB!' 'MO-DONE' \
   'FCBX-BEGIN' 'FCBX-END' 'EXEC-NESTED-DEPTH-4-BUSY' \
   'EXEC-NESTED-RC=7 PSP-RESTORED INT20-OK' 'SERVICES-MEMORY-VECTORS-CLOCK-OK' \
-  'CONIN-LINE=dir' 'programsdone'; do
+  'WRITE-READBACK-OK' 'CONIN-LINE=dir' 'programsdone'; do
   grep -Fx "$line" "$out/$emu.txt" >/dev/null || fail "$emu missing [$line]";
  done
  if grep -E '(SERVICES-FAIL|EXEC-NESTED-FAIL|WRITE-.*-FAIL|PANIC|Bad command)' "$out/$emu.txt"; then fail "$emu guest failure"; fi

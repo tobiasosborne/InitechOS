@@ -69,9 +69,18 @@ int main(void)
     ASSERT_TRUE("F1 create returns owned file", h >= 5);
     ASSERT_EQ("F1 write BSS bytes", call(&owner, lo, TBX_FILE_WRITE, h, lo+2048, 5), 5);
     ASSERT_EQ("F1 independent bytes", memcmp(bytes, "abcde", 5), 0);
-    ASSERT_EQ("F1 read denied on write handle", call(&owner, lo, TBX_FILE_READ, h, lo+2050, 2), TBX_ERR_BADARG);
+    /* DOS 3.3 Programmer's Reference, AH=3Ch: CREATE grants read/write. */
+    ASSERT_EQ("F1 created handle at EOF", call(&owner, lo, TBX_FILE_READ, h, lo+3000, 2), 0);
+    ASSERT_EQ("F1 rewind created handle", call(&owner, lo, TBX_FILE_SEEK, h, 0, 0), 0);
+    memset(mem+3000, 0, 5);
+    ASSERT_EQ("F1 read created bytes", call(&owner, lo, TBX_FILE_READ, h, lo+3000, 5), 5);
+    ASSERT_EQ("F1 literal created bytes", memcmp(mem+3000, "abcde", 5), 0);
     ASSERT_EQ("F1 close", call(&owner, lo, TBX_FILE_CLOSE, h, 0, 0), 0);
     ASSERT_EQ("F1 double close refused", call(&owner, lo, TBX_FILE_CLOSE, h, 0, 0), TBX_ERR_BADARG);
+    h = call(&owner, lo, TBX_FILE_OPEN, lo, 1, 0);
+    ASSERT_TRUE("F1 explicit write-only open", h >= 5);
+    ASSERT_EQ("F1 read denied on write-only open", call(&owner, lo, TBX_FILE_READ, h, lo+3000, 2), TBX_ERR_BADARG);
+    ASSERT_EQ("F1 close write-only open", call(&owner, lo, TBX_FILE_CLOSE, h, 0, 0), 0);
     h = call(&owner, lo, TBX_FILE_OPEN, lo, 0, 0);
     ASSERT_EQ("F1 end seek signed", call(&owner, lo, TBX_FILE_SEEK, h, (uint32_t)-2, 2), 3);
     ASSERT_EQ("F1 read tail", call(&owner, lo, TBX_FILE_READ, h, lo+3000, 5), 2);

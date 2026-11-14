@@ -103,8 +103,16 @@ The file system is in memory: case-insensitive DOS names, drive/root prefix
 normalization, read/write access, create-new, seek/close/delete/rename, exact
 or wildcard find with metadata, and injectable free space. Seed with
  tbx_host_put_file and inspect with tbx_host_file. File metadata is editable
-through tbx_host.files (including directory/read-only attributes). file_error
-selects a DOS error for each file operation. fail_create/fail_write, short
+through tbx_host.files (including directory/read-only attributes).
+
+FIND attribute selection and optional wildcard extensions are checked against
+the same 896-byte genuine DOS 3.30 matrix used by the kernel, at
+kernel/tests/fixtures/search33/ (provenance and hashes in its README).
+This covers all masks 00h..3Fh over seven attribute classes, exact names and
+extensionless names with `.*`; the fake retains its existing glob subset
+outside those captured cases.
+
+file_error selects a DOS error for each file operation. fail_create/fail_write, short
 read/write limits, finite write_budget and one-shot handle-specific close
 failure cover existing save/copy fault cases. File capacity is 64 entries and
 32 handles; these are factory bounds, not ABI promises.

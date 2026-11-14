@@ -3,7 +3,7 @@ COMPONENT := sdk
 include $(TOP)/mk/config.mk
 HOST_AR ?= ar
 HOST_LIB := $(OUT)/host/libtbx_host.a
-HOST_TESTS := abi layout link host host32 mz
+HOST_TESTS := abi layout link host host32 mz search33
 TESTS ?= $(HOST_TESTS)
 export TOP
 TEST_BUDGET_S := 30
@@ -35,6 +35,9 @@ link-check: $(OUT)/tests/link
 	@echo 'ABI: all bindings link against shared fake'
 $(OUT)/tests/host: tests/host.c $(HOST_LIB) FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -MMD -MP $< $(HOST_LIB) -o $@)
+$(OUT)/tests/search33: tests/search33.c $(HOST_LIB) FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -MMD -MP $< $(HOST_LIB) -o $@)
+test-build: $(OUT)/tests/search33
 $(OUT)/tests/self-contained.o: tests/self-contained.c FORCE
 	$(call run-command,$(TARGET_CC) $(TARGET_CFLAGS) -Iinclude -MMD -MP -c $< -o $@)
 test-build: $(OUT)/tests/audit $(OUT)/tests/layout.o $(OUT)/tests/link $(OUT)/tests/host $(OUT)/tests/self-contained.o $(OUT)/rt/tbx_rt.o

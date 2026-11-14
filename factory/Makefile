@@ -29,6 +29,10 @@ test: $(OUT)/trace-input-test
 smoke-programs:
 	$(MAKE) -C $(TOP)/dos smoke-programs
 	sh smoke-programs.sh
+.PHONY: smoke-write-readback
+smoke-write-readback:
+	$(MAKE) -C $(TOP)/dos smoke-programs
+	sh tests/write-readback.sh
 .PHONY: testlib-test
 test: testlib-test image-order-test desktop-tools-test
 .PHONY: desktop-tools-test

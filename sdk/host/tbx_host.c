@@ -186,14 +186,25 @@ int32_t tbx_file_delete(const char *p)
 int32_t tbx_file_rename(const char *p,const char *q)
 { R(0,0,0,0,0,0,p);int32_t e=error(TBX_FILE_RENAME);if(e)return e;char name[TBX_FILE_PATH_MAX];if(!norm(q,name))return TBX_ERR_BADARG;if(find(q)>=0)return TBX_ERR_DOS(5);int i=find(p);if(i<0)return TBX_ERR_DOS(2);if(S.files[i].attr&1)return TBX_ERR_DOS(5);if(!remember_deleted(S.files[i].name))return TBX_ERR_DOS(5);copy(S.files[i].name,sizeof S.files[i].name,name);return TBX_OK; }
 static int match(const char *p,const char *s)
-{ if(!strcmp(p,"*.*"))return !strchr(s,'\\');if(!*p)return !*s;if(*p=='*')return match(p+1,s)||(*s&&*s!='\\'&&match(p,s+1));if(*p=='?')return *s&&*s!='\\'&&match(p+1,s+1);return *p==*s&&match(p+1,s+1); }
+{
+    /* Genuine DOS 3.30 search33 captures: A0.* includes extensionless A0.
+     * Keep the existing host glob subset; a terminal .* may match no extension. */
+    if(!strcmp(p,"*.*"))return !strchr(s,'\\');
+    if(!*s&&!strcmp(p,".*"))return 1;
+    if(!*p)return !*s;
+    if(*p=='*')return match(p+1,s)||(*s&&*s!='\\'&&match(p,s+1));
+    if(*p=='?')return *s&&*s!='\\'&&match(p+1,s+1);
+    return *p==*s&&match(p+1,s+1);
+}
 int32_t tbx_file_find(const char *p,uint32_t attr,void *buf,uint32_t max)
 {
     R((int32_t)attr,(int32_t)max,0,0,0,0,p);S.find_calls++;
     int32_t e=error(TBX_FILE_FIND);if(e)return e;
     char pat[TBX_FILE_PATH_MAX];if(!norm(p,pat)||(!buf&&max)||max>TBX_FIND_MAX_RECS)return TBX_ERR_BADARG;
     uint32_t n=0;for(int i=0;i<TBX_HOST_FILES&&n<max;i++) {
-        tbx_host_file_t *f=&S.files[i];if(!f->used||!match(pat,f->name)||((f->attr&0x16)&~attr))continue;
+        tbx_host_file_t *f=&S.files[i];
+        if(!f->used||!match(pat,f->name)||((f->attr&0x1e)&~attr)||
+           ((attr&0x1e)==8&&!(f->attr&8)))continue;
         const char *name=strrchr(f->name,'\\');name=name?name+1:f->name;
         tbx_find_rec_t rec={.attr=f->attr,.time=f->time,.date=f->date,.size=f->size};copy(rec.name,sizeof rec.name,name);
         memcpy((uint8_t *)buf+n*TBX_FIND_REC_BYTES,&rec,sizeof rec);n++;

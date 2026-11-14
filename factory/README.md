@@ -43,6 +43,13 @@ build/dos/test-programs. A separate mtools-minted data disk carries them; the
 product disks contain none. Both emulators compare literal service results,
 the real-DOS FCB captures and persisted files. Bochs uses its existing wait
 steps between commands so disk-heavy probes do not overflow the keyboard ring.
+The exact WRITE-READBACK-OK line is required in addition to failure-marker
+rejection and independent OUT.TXT byte comparison. `make smoke-write-readback`
+rejects a disposable WRITE probe that writes/closes correctly and exits before
+READ, while independently proving the persisted literal bytes remain correct.
+It requires an existing product image; `make smoke-programs` covers the normal
+probe on both emulators. PROGRAM_SMOKE_PROGRAMS selects the disposable probe
+directory for this control; its default remains build/dos/test-programs.
 
 smoke-desktop.sh is the product Finder/application journey on both emulators.
 It checks a worksheet through mtools and the independent Lotus corpus reader,
