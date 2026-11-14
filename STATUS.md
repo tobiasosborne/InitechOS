@@ -176,6 +176,17 @@ Dead commands in the frozen app inventories also need implement/remove decisions
 
 ## Notes for this week
 
+- Agents that work in their own worktree land their own work: when it is
+  green they rebase, push to `main` and carry on. Nobody merges for them,
+  no review or sign-off stands between green tests and `main`, and
+  reviews read what has already landed. Why: merge queues are how the
+  legacy tree ended with 23 unmerged branches, the oldest 670 commits
+  behind, and this phase rebuilt one (13 branches, 47 commits) in under
+  two hours before it was caught (reboot review at tag `legacy-final`,
+  `docs/audits/2026-11-13-reboot/README.md` decision 8 and
+  `report-D-process.md` sections 2 and 7). Tooling trap: a delegated
+  child given its own worktree gets a branch by default and will wait to
+  be merged unless its brief tells it to push to `main` itself.
 - Shared places owner: the phase-2 orchestrator, who delegates them one
   holder at a time: `factory/`, `mk/` and the top Makefile to the gate-repair
   task; `sdk/` to the fake/gate parity task, except `sdk/include/tbx_save.h`,
