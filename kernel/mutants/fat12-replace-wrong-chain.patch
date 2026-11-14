@@ -1,8 +1,9 @@
 # test: test-replace
 --- a/fat12.c
 +++ b/fat12.c
-@@ -3318,6 +3318,6 @@
-     }
+@@ -3392,7 +3392,7 @@
+     rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,dest_slot,&old,sector_buf);
+     if (rc) return rc;
      replacement = old;
 -    replacement.start_cluster = source.start_cluster;
 +    replacement.start_cluster = old.start_cluster;

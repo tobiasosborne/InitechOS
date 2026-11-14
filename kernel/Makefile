@@ -48,7 +48,7 @@ $(OUT)/dos_messages.inc: $(OUT)/dos_messages.h
 # A direct component build also refreshes the temporary resident shell objects.
 .PHONY: resident-command
 resident-command: $(OUT)/dos_messages.h
-	$(MAKE) -C $(TOP)/dos resident
+	$(MAKE) -C $(TOP)/dos TESTS= resident
 $(OUT)/kernel$(if $(BIG_KERNEL),-big).elf: $(wildcard $(TOP)/dos/command/*.[ch]) | resident-command
 $(TOP)/build/dos/command-resident.o $(TOP)/build/dos/batch.o $(TOP)/build/dos/env.o: | resident-command
 	@test -f $@
@@ -75,3 +75,9 @@ smoke-oem:
 	$(MAKE) -C $(TOP) image
 	sh tests/smoke/oem.sh "$(TOP)" "$(OUT)/smoke/oem"
 smoke: smoke-oem
+
+.PHONY: smoke-alias
+smoke-alias: $(OUT)/host/tool_test_commit_outcome
+	$(MAKE) -C $(TOP) image
+	sh tests/smoke/alias.sh "$(TOP)" "$(OUT)/smoke/alias"
+smoke: smoke-alias

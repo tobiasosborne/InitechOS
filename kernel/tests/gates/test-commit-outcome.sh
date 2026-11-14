@@ -11,6 +11,7 @@ for mode in replace rename; do
   mmd -i "$base" ::SUB
   prefix=; test "$dir" = root || prefix=SUB/
   mcopy -i "$base" "$w/new" "::${prefix}STAGE.BIN"
+  mcopy -i "$base" "$w/old" "::${prefix}OTHER.BIN"
   if test "$mode" = replace; then mcopy -i "$base" "$w/old" "::${prefix}DEST.BIN"; fi
   for scenario in before after cleanup persistent read1 read2; do
    after=1; cleanup=0; reads=0
@@ -30,5 +31,19 @@ for mode in replace rename; do
     if mdir -i "$out" "::${prefix}DEST.BIN" >/dev/null 2>&1; then exit 1; fi
    fi
   done
+  if test "$mode" = replace; then
+   for action in create truncate write grow move resize whole whole-zero replace-source replace-dest; do
+    case $dir:$action in sub:whole|sub:whole-zero) continue;; esac
+    out=$w/alias-$dir-$action.img
+    cp "$base" "$out"
+    build/test_commit_outcome "$out" replace "$dir" 1 2 0 "$action"
+    # The permitted postcommit cleanup leak already contains an alias and an
+    # old allocation. Grade refusal against that exact preimage: no additional
+    # cross-link, lost cluster or payload change can hide in a whole-image cmp.
+    cmp "$out.before" "$out"
+    mcopy -o -i "$out" "::${prefix}DEST.BIN" "$w/readback"
+    cmp "$w/new" "$w/readback"
+   done
+  fi
  done
 done
