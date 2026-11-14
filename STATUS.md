@@ -34,7 +34,11 @@ The reviewed integration passed a complete local `make cert` at
 builds, mutations, selfhost/DDC, oversized kernel and status audit.
 All 960 active mutation entries were killed, zero survivors or errors.
 Later commits correct documentation and reject an empty mutation inventory
-with a red-first regression. The first cert on main is next in this landing.
+with a red-first regression. The first cert on main passed at `049b6b4a`
+in 41m7.69s: all eight stages green, 960 active kills, zero survivors/errors.
+Host tests passed in 63.66s and full smoke in 212.12s before the push.
+Logs: `build/cert/2026-11-14T005336Z-049b6b4a/`; an external copy is
+retained with the landing report. No limit was relaxed and no fix was needed.
 
 There are still 129 unproved pending patches: kernel 39, DOS 46,
 FLAIR 16, InitechBase 28. Default cert reports PASS_PENDING; it is not
