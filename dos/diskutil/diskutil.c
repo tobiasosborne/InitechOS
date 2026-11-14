@@ -80,19 +80,40 @@ static int chain(const volume *v,const uint8_t *e,int contiguous){
  return 0;
 }
 static int transfer(volume *dst,volume *src,uint8_t files[3][32],unsigned count,int formatted,unsigned *used){
- uint8_t old[3][32];unsigned needed=0,available=0;int same=dst->m.disk==src->m.disk&&dst->m.base==src->m.base;
+ uint8_t old[3][32];unsigned needed=0,available=0,held=0;int same=dst->m.disk==src->m.disk&&dst->m.base==src->m.base;
  *used=0;
+ if(same&&!formatted)return -1; /* sys_run refuses this volume first. */
  for(unsigned i=0;i<count;i++){
   if(!(same&&formatted)&&chain(src,files[i],0))return -1;
   needed+=(u32(files[i]+28)+511)/512;
   if(entry(dst,i,old[i],0))return -1;
-  if(old[i][0] && old[i][0]!=0xe5 && !eq(old[i],names[i],11))return -1;
+  if(old[i][0] && old[i][0]!=0xe5){
+   /* Slots 0..count-1 must end up holding the system files. A slot may
+    * already hold one of them (it is replaced below); any other live
+    * name there is the captured No-room refusal (sys-occupied). */
+   int replaceable=0;
+   for(unsigned j=0;j<count;j++)if(eq(old[i],names[j],11))replaceable=1;
+   if(!replaceable)return -1;
+  }
  }
- if(same&&!formatted){for(unsigned i=0;i<2;i++){files[i][11]=7;if(entry(dst,i,files[i],1))return -1;}return sec(&dst->m,0,dst->boot,1);}
+ /* Genuine DOS 3.30 (sys-elsewheresys): a system-named file anywhere in
+  * the root is replaced by the new entry in slots 0..count-1, never left
+  * as a duplicate. Its clusters count toward the space available. */
+ for(unsigned n=0;n<dst->roots*16;n++){
+  uint8_t e[32];if(entry(dst,n,e,0))return -1;if(!e[0])break;
+  if(e[0]==0xe5||(e[11]&24))continue;
+  for(unsigned j=0;j<count;j++)if(eq(e,names[j],11))held+=(u32(e+28)+511)/512;
+ }
  if(freecount(dst,&available))return -1;
- for(unsigned i=0;i<count;i++)if(old[i][0]&&old[i][0]!=0xe5)available+=(u32(old[i]+28)+511)/512;
+ available+=held;
  if(available<needed)return -1;
- for(unsigned i=0;i<count;i++)if(old[i][0]&&old[i][0]!=0xe5&&freechain(dst,u16(old[i]+26)))return -1;
+ for(unsigned n=0;n<dst->roots*16;n++){
+  uint8_t e[32];if(entry(dst,n,e,0))return -1;if(!e[0])break;
+  if(e[0]==0xe5||(e[11]&24))continue;
+  int replace=0;
+  for(unsigned j=0;j<count;j++)if(eq(e,names[j],11))replace=1;
+  if(replace){if(freechain(dst,u16(e+26)))return -1;e[0]=0xe5;if(entry(dst,n,e,1))return -1;}
+ }
  unsigned scan=2;
  for(unsigned i=0;i<count;i++){
   unsigned source_c=u16(files[i]+26),first=0,prev=0,n=(u32(files[i]+28)+511)/512;
@@ -214,8 +235,12 @@ static int format_run(const options *o,const du_map *m){
   put("Format another (Y/N)?");if(!yes())return 0;
  }
 }
-static int sys_run(const du_map *m,unsigned letter){volume src,dst;uint8_t files[3][32];unsigned used;
+static int sys_run(const du_map *m,unsigned letter){volume src,dst;uint8_t files[3][32];unsigned used;du_map sm;
  if(fat16_target(m))return protected(letter);
+ /* Genuine DOS 3.30 (sys-self) refuses its source drive with Invalid
+  * drive specification. The Initech source is fixed at C: (DEC-18), so
+  * refuse exactly that volume; any other volume stays transferable. */
+ if(!io->map(2,&sm)&&sm.disk==m->disk&&sm.base==m->base)return error(MSG_DOS_0004,4);
  if(source(&src,files,2)||mount(&dst,m))return error("No room for system on destination disk",1);
  /* Preserve destination BPB, use the existing InitechDOS VBR code. */
  cp(dst.boot,src.boot,11);cp(dst.boot+62,src.boot+62,450);

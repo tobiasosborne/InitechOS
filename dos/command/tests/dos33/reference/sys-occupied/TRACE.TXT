@@ -1,0 +1,2 @@
+No room for system on destination disk
+SYS-EXIT- 

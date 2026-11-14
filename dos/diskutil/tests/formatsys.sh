@@ -207,3 +207,34 @@ for f in IO.SYS INITDOS.SYS; do
  cmp -s "$w/missing-a-before.img" "$w/a.img" || red '/B missing source wrote disk'
 done
 echo 'GREEN test-formatsys: /B needs two system files and uses missing-source prompt'
+# Genuine DOS 3.30 (dos33/reference/sys-elsewheresys): system-named files
+# beyond slots 0/1 are replaced in slots 0/1, never duplicated.
+prep; run 0 'D:' 'y
+' 0
+for f in FIRST.TXT SECOND.TXT; do mcopy -i "$w/master.img@@2064384" "$w/keep" "::$f"; done
+printf 'user io content' > "$w/userio"; printf 'user kernel content' > "$w/userkernel"
+mcopy -i "$w/master.img@@2064384" "$w/userio" ::IO.SYS
+mcopy -i "$w/master.img@@2064384" "$w/userkernel" ::INITDOS.SYS
+mdel -i "$w/master.img@@2064384" ::FIRST.TXT ::SECOND.TXT
+run 1 'D:' '' 0
+grep -qFx 'System transferred' "$w/console" || red 'SYS elsewhere message'
+extract; clean
+mdir -a -i "$w/ours.img" :: > "$w/elsewhere-mdir"
+[ "$(grep -c '^IO ' "$w/elsewhere-mdir")" -eq 1 ] || { cat "$w/elsewhere-mdir"; red 'SYS duplicated IO.SYS'; }
+[ "$(grep -c '^INITDOS ' "$w/elsewhere-mdir")" -eq 1 ] || { cat "$w/elsewhere-mdir"; red 'SYS duplicated INITDOS.SYS'; }
+for f in IO.SYS INITDOS.SYS; do
+ mcopy -i "$w/master.img@@32256" "::$f" - > "$w/ref-$f"
+ mcopy -i "$w/master.img@@2064384" "::$f" - > "$w/ours-$f"
+ cmp "$w/ref-$f" "$w/ours-$f" || red 'SYS elsewhere bytes'
+done
+echo 'GREEN test-formatsys: SYS replaces system files found beyond slots 0/1 without duplicates; fsck.fat clean'
+# Genuine DOS 3.30 (dos33/reference/sys-self): SYS refuses its source
+# volume with Invalid drive specification and writes nothing. In this
+# fixture the source is C: and the current volume is a different disk,
+# so the refusal proves source identity, not the current letter.
+prep
+cp -f "$w/master.img" "$w/master-before.img"
+run 1 'C:' '' 4
+grep -qFx 'Invalid drive specification' "$w/console" || red 'SYS source volume message'
+cmp "$w/master.img" "$w/master-before.img" || red 'SYS source volume writes'
+echo 'GREEN test-formatsys: SYS refuses the source volume with no writes'

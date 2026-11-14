@@ -1,0 +1,6 @@
+fsck.fat 4.2 (2021-01-31)
+Label '' stored in boot sector is not valid.
+  Auto-removing label from boot sector.
+
+Leaving filesystem unchanged.
+/home/tobias/.t3/worktrees/InitechOS/t3-3cdc71f7-6e7e075d9774345c/build/dos-sys-capture/elsewheresys/data.img: 2 files, 52/354 clusters

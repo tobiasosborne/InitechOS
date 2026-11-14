@@ -1,0 +1,8 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-sys.sh (elsewheresys); CAPTURE-DONE barrier.
+B: root slots 0/1 are deleted entries; user IBMBIO.COM/IBMDOS.COM sit
+in slots 2/3. SYS B: prints "System transferred" and the post disk
+holds exactly one IBMBIO.COM and one IBMDOS.COM, with the genuine
+system bytes in slots 0/1 (after.mdir); fsck.fat is clean. Existing
+system-named files anywhere in the root are replaced, never duplicated.
