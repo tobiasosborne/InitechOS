@@ -16,7 +16,7 @@ trace=$(
  inject "$open_disk";await_marker FINDER-OPEN-VOLUME
  inject "$open_apps";await_marker 'FINDER-OPEN-FOLDER name=APPS'
  # finder_windows.c:fw_key selects by name and reveals an offscreen icon.
- inject 'ks,kd,kk,kctrl-o';await_marker 'FLAIR-DISPATCH app=SDKCHECK'
+ inject 'kup,ks,kd,kk,kc,kh,ke,kc,kk,kdot,ke,kx,ke,kctrl-o';await_marker 'FLAIR-DISPATCH app=SDKCHECK'
  inject kctrl-k
 )
 trace=${trace%,}

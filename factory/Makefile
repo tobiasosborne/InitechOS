@@ -58,6 +58,7 @@ mutants:
 	+sh red-desktop.sh
 	+sh gate-mutants.sh
 	+sh smoke-mutants.sh
+	+sh navigation-mutants.sh
 
 .PHONY: gate-test
 $(OUT)/bochs-verdict-test: tests/bochs-verdict.c emu/bochs.c emu/bochs.h emu/bochs_trace.h emu/rfb_port.h | $(OUT)

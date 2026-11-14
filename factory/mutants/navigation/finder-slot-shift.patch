@@ -1,0 +1,11 @@
+--- a/flair/desktop/finder_windows.c
++++ b/flair/desktop/finder_windows.c
+@@ -586,7 +586,7 @@
+ 
+ int finder_win_layout_icons(finder_desk_t *view, rgn_rect_t document)
+ {
+-    fw_grid_cursor_t cursor={0,0};
++    fw_grid_cursor_t cursor={1,0};
+     int moved=0;
+     for(int i=0;i<(int)view->n;i++)
+         moved+=fw_grid_place(&view->icons[i],document,&cursor);

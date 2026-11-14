@@ -196,3 +196,12 @@ individual protocol bounds and reject excess or trailing data. The actual QMP
 regression checks 4095/4096/6001 bytes, an impossible mandatory suffix after
 4100 separators, and invalid suffixes with no prefix delivery. The live bisect
 control is `sh factory/tests/trace-suffix.sh` against the ordinary product image.
+Finder journeys open APPS by name and launch the exact full EXE name after
+clearing the timed type-ahead prefix with Up. Finder reveals selected offscreen
+rows; the pointer stays at its reviewed control anchor, independent of directory
+insertion order. All app journeys use this helper; SDK's two test-tenant journeys
+also use Finder name selection. Volume, menu and app-control clicks retain their
+independent position contracts. navigation-mutants.sh shifts one real product
+icon slot: the positional control fails, name-based first/offscreen launches
+still work on both emulators, and the independent layout oracle rejects the
+wrong product layout twice.
