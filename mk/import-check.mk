@@ -8,7 +8,7 @@ IMPORT_MUT_PATTERN ?= _(MUT|MUTATE|MUTANT)_
 import-check: all
 	@mkdir -p $(OUT)
 	@cd $(TOP) && sh factory/testlib/dependency-query.sh $(TOP) $(COMPONENT) '$(MAKE)' $(OUT)/import.make
-	@IMPORT_ROOT=$(TOP) IMPORT_COMPONENT=$(COMPONENT) IMPORT_OUT=$(OUT)/interface-audit \
+	@IMPORT_ROOT=$(TOP) IMPORT_TARGET_CC=$(call shquote,$(TARGET_CC)) IMPORT_HOST_CC=$(call shquote,$(HOSTCC)) IMPORT_COMPONENT=$(COMPONENT) IMPORT_OUT=$(OUT)/interface-audit \
 	 sh $(TOP)/factory/testlib/import-check.sh $(call shquote,$(IMPORT_MUT_PATTERN)) \
 	  $(OUT)/import.make.parent $(call shquote,$(TARGET_ARTIFACTS)) \
 	  $(call shquote,$(TARGET_INCLUDES) $(HOST_INCLUDES) $(TARGET_CFLAGS) $(TARGET_EXTRA_CFLAGS) $(HOST_CFLAGS) $(foreach t,$(HOST_TESTS),$($(t)_CFLAGS)) $(MAKEFILE_LIST)) $(call shquote,$(IMPORT_PRODUCT_SRCS)) $(MAKEFILE_LIST)

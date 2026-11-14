@@ -37,6 +37,36 @@ for line in '#ifdef LIVE_MUT_FAULT' '#if defined(LIVE_MUTATE_FAULT)' '#if LIVE_M
     grep -q '^FAIL ' log
     mv saved product.c
 done
+# Fault branches: any name no checked-in build defines is red, however named.
+printf '#define TEST_SEAM 1\n' >> tests/fixture.c
+printf '#define PATCH_ONLY 1\n' >> mutants/fixture.c
+printf '\tproduct.c\tLEDGERED\tinitech-x\n' > ledger
+export IMPORT_FAULT_LEDGER="$work/ledger"
+for line in '#ifdef TEST_SEAM' '#if defined(__GNUC__) && UINTPTR_MAX > 0' '#ifndef __cplusplus' '#ifdef LEDGERED'; do
+    cp product.c saved
+    printf '%s\n#endif\n' "$line" >> product.c
+    check || { cat log; echo "FAIL audit rejected $line"; exit 1; }
+    mv saved product.c
+done
+for line in '#ifndef DB_WRITE_SKIP' '#ifdef SAVE_SKIP' '#if 0' '#if 1' '#ifdef PATCH_ONLY' '#elif defined(TEST_SEAM) || LEDGERED_TOO'; do
+    cp product.c saved
+    printf '%s\n#endif\n' "$line" >> product.c
+    if check; then echo "FAIL audit accepted fault branch $line"; exit 1; fi
+    grep -q '^FAIL fault branch' log
+    mv saved product.c
+done
+cp product.c product.asm; printf 'artifact: product.asm\n' >> graph
+printf '%%ifdef RENAMED\n%%endif\n' >> product.asm
+if check; then echo 'FAIL audit accepted assembly fault branch'; exit 1; fi
+grep -q '^FAIL fault branch: RENAMED' log
+rm product.asm
+printf '{$IFDEF RENAMED}\n{$ENDIF}\nbegin end.\n' > public.pas
+if check; then echo 'FAIL audit accepted Pascal fault branch'; exit 1; fi
+printf '{$DEFINE RENAMED}\n{$IFDEF RENAMED}\n{$ENDIF}\nbegin end.\n' > public.pas
+check || { cat log; echo 'FAIL audit rejected defined Pascal symbol'; exit 1; }
+printf 'begin end.\n' > public.pas
+unset IMPORT_FAULT_LEDGER
+echo 'fault-branch fixtures: undefined, patch-only and constant conditions red; build-defined, platform and ledgered rows green'
 printf 'all: other\nartifact: product.c\n' > graph
 if check; then echo 'FAIL unreachable artifact accepted'; exit 1; fi
 grep -q '^FAIL target:' log

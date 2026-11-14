@@ -15,8 +15,13 @@ files=$(awk -v candidates="$files" -v here="$PWD" -v extra="$extra" '
 function visit(key, n,a,i) {if(seen[key]++)return;n=split(deps[key],a," ");for(i=1;i<=n;i++)if(a[i]!="|")visit(a[i])}
 END {visit("all");n=split(candidates,a,"\n");for(i=1;i<=n;i++){p=a[i];sub(/^\.\//,"",p);if(seen[p] || seen[here "/" p] || p ~ /^include\//)print a[i]}; print extra}
 ' "$database")
+macros=$(mktemp)
+trap 'rm -f "$macros" "$macros.raw"' EXIT HUP INT TERM
+if ! sh "$(dirname "$0")/definable-macros.sh" "$database" "$flags" > "$macros.raw" || ! sort -u "$macros.raw" > "$macros"; then
+    echo 'FAIL macros: cannot list definable macros'; bad=1
+fi
 if [ -n "$files" ]; then
-    if ! awk -v pattern="$pattern" -v component="${IMPORT_COMPONENT:-}" -v here="$PWD" -f "$(dirname "$0")/source-audit.awk" $files; then bad=1; fi
+    if ! awk -v pattern="$pattern" -v macros="$macros" -v known="${IMPORT_FAULT_LEDGER-$(dirname "$0")/fault-branches.known}" -v component="${IMPORT_COMPONENT:-}" -v here="$PWD" -f "$(dirname "$0")/source-audit.awk" $files; then bad=1; fi
 fi
 if [ -n "${IMPORT_COMPONENT:-}" ]; then
     sh "$(dirname "$0")/interface-check.sh" "$IMPORT_ROOT" "$IMPORT_COMPONENT" "$database" "$IMPORT_OUT" "$artifacts" || bad=1

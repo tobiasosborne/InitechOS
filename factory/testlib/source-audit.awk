@@ -30,5 +30,53 @@ FNR==1 {block=0}
   if(emit)print out
   gsub(/"([^"\\]|\\.)*"|\047([^\047\\]|\\.)*\047/, "", out)
   if(out ~ pattern) {print FILENAME ":" FNR ":" out; print "FAIL mutation: product mutation hook"; bad=1}
+  if(macros!="") fault_branch(out)
 }
-END {exit bad}
+# A conditional whose macro no checked-in build defines can only be switched
+# on by a patch: a fault hook, whatever its name. A constant condition hides
+# a branch the same way. macros names definable-macros.sh output.
+BEGIN {
+  if(macros!="") {while((getline name < macros) > 0) definable[name]=1; close(macros)}
+  # Temporary rows (fault-branches.known): removed as each issue closes.
+  FS0=FS; FS="\t"
+  if(known!="") while((getline row < known) > 0) {
+    if(row ~ /^#/ || split(row, f, "\t") != 4 || f[1]!=component) continue
+    ledger[f[2] SUBSEP f[3]]=f[4]
+  }
+  FS=FS0
+}
+function fault_branch(line,  rest,n,t,i,names,pascal,word,file) {
+  pascal=(FILENAME ~ /\.pas$/)
+  if(line ~ /^[ \t]*#[ \t]*(if|ifdef|ifndef|elif|elifdef|elifndef)([ \t(!]|$)/) {
+    rest=line; sub(/^[ \t]*#[ \t]*[a-z]+/, "", rest)
+  } else if(line ~ /^[ \t]*%(ifdef|ifndef|elifdef|elifndef)[ \t]/) {
+    rest=line; sub(/^[ \t]*%[a-z]+/, "", rest)
+  } else if(pascal && toupper(line) ~ /\{\$(IFDEF|IFNDEF|IF|ELSEIF)[ \t]/) {
+    rest=toupper(line); sub(/.*\{\$[A-Z]+/, "", rest); sub(/\}.*/, "", rest)
+  } else return
+  n=split(rest, t, /[^A-Za-z0-9_]+/); names=0
+  for(i=1;i<=n;i++) {
+    word=t[i]
+    if(word !~ /^[A-Za-z_]/) continue
+    if(word=="defined" || word ~ /^__has_/ || (pascal && word=="DEFINED")) continue
+    names++
+    if(!(word in definable)) {
+      print FILENAME ":" FNR ":" line
+      file=FILENAME; sub(/^\.\//, "", file); if(index(file, here "/")==1) file=substr(file, length(here)+2)
+      if((file SUBSEP word) in ledger) {
+        print "KNOWN fault branch: " word " (" ledger[file SUBSEP word] "; factory/testlib/fault-branches.known)"
+        used[file SUBSEP word]=1; continue
+      }
+      print "FAIL fault branch: " word " is defined by no checked-in build; only a patch can enable it"
+      bad=1
+    }
+  }
+  if(!names) {print FILENAME ":" FNR ":" line; print "FAIL fault branch: constant condition"; bad=1}
+}
+END {
+  for(k in ledger) if(!(k in used)) {
+    split(k, f, SUBSEP)
+    print "NOTE stale fault-branch row: " component " " f[1] " " f[2] " (" ledger[k] "): delete it"
+  }
+  exit bad
+}

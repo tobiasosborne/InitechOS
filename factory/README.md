@@ -289,3 +289,19 @@ instructions, and preprocessed flat assembly. Raw-disk vectors are permitted
 only when every consuming artifact has an authorized utility name. UART
 observability in the Turbo runtime is hardware code, not a private OS entry;
 the audit does not invent a general ban on port instructions.
+
+Fault branches (initech-e1j4j). A deliberately wrong product branch is found
+by what defines it, not by its name. definable-macros.sh lists every macro a
+checked-in build can define: compiler and standard-header predefines, `-D` in
+the component's flags and make database, and `#define`/`%define`/`{$DEFINE}`
+in the component's own files (tests included, mutants/ never) and under its
+`-I` directories. The source audit fails any product `#if`/`#ifdef`/`#elif`,
+NASM `%ifdef`, or Pascal `{$IFDEF}` on a name outside that list (only a patch
+could switch it on) and any constant condition (`#if 0`, `#if 1`). The
+`_MUT_` pattern check is unchanged. Renaming a hook does not evade the rule;
+defining its macro in a checked-in build does, and that is a reviewable diff
+in a Makefile or test. testlib/fault-branches.known is temporary: it holds the
+branches found when the rule landed, one (component, file, macro, issue) row
+each, and lets exactly those through as KNOWN. A row is deleted when its issue
+closes (the audit prints NOTE stale for rows that no longer match), and the
+file when it is empty. A new fault is a patch in mutants/, never a row there.

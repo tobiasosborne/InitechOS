@@ -50,7 +50,8 @@ target.mk. For an executable, supply link rules and set TARGET_ARTIFACTS to
 that executable instead. `include $(TOP)/mk/import-check.mk` after target.mk
 adds all and the audit to test. The audit scans included makefiles and include
 flags for attic, product sources (excluding tests/ and mutants/) for
-IMPORT_MUT_PATTERN (default _(MUT|MUTATE|MUTANT)_) and escaping includes, and the actual make
+IMPORT_MUT_PATTERN (default _(MUT|MUTATE|MUTANT)_), conditionals on macros no
+checked-in build defines (factory/README.md, Fault branches) and escaping includes, and the actual make
 graph for artifact reachability from all. It supplements, not replaces, the
 host oracle. `make status` reruns the component test target and builds/audits every registered
 component; logs explain failures. Undeclared artifacts are conservatively red.

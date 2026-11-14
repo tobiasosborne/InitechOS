@@ -1,0 +1,27 @@
+# Temporary: product conditionals on macros no checked-in build defines, found
+# when the fault-branch audit landed (initech-e1j4j). Each row lets exactly one
+# (component, file, macro) through and names the issue that removes it; a row
+# is deleted when that issue closes, and this file when it is empty. Nothing
+# is ever added: a new fault branch is a patch in mutants/, not a row here.
+# component	file	macro	issue
+kernel	int21.c	INT21_IRQTEST_SEAM	initech-yuumo
+kernel	kbd.c	KERNEL_PURE_DECODE_OZ	initech-yuumo
+kernel	console.c	CONSOLE_RECORD_CURSOR_STEADY	initech-yuumo
+kernel	loader.c	LOADER_TEST_HIGH_DIRTY	initech-yuumo
+kernel	loader.c	LOADER_TEST_HIGH_IO_FAIL	initech-yuumo
+kernel	mz.c	MZ_ONLY_PARSER	initech-yuumo
+kernel	mz.c	MZ_PARSE_EXTERNAL	initech-yuumo
+dos	command/command.h	BOOT_SHELL	initech-jk1yb
+dos	tpsrep/tpsrep_program.asm	REALDOS	initech-jk1yb
+flair	textedit.c	__KERNEL_FREESTANDING__	initech-ao6o0
+flair	dialog.c	__KERNEL_FREESTANDING__	initech-ao6o0
+flair	process.c	__KERNEL_FREESTANDING__	initech-ao6o0
+flair	scrap.c	__KERNEL_FREESTANDING__	initech-ao6o0
+flair	window.c	__KERNEL_FREESTANDING__	initech-ao6o0
+flair/desktop	shell.c	__KERNEL_FREESTANDING__	initech-ao6o0
+flair/desktop	finder_desktop.c	__KERNEL_FREESTANDING__	initech-ao6o0
+flair/desktop	desktop.c	__KERNEL_FREESTANDING__	initech-ao6o0
+flair/desktop	desktop_db.c	DB_WRITE_SKIP	initech-e1j4j
+flair/desktop	desktop_db.c	DB_MAGIC_FLIP	initech-e1j4j
+flair/desktop	finder_actions.c	FILECOPY_RECORD_STEP	initech-e1j4j
+apps/initechbase	ibase_main.c	IBASE_MAIN_STANDALONE	initech-a8bhu
