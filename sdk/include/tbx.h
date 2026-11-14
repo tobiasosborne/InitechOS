@@ -154,6 +154,10 @@ int32_t tbx_file_rename(const char *old_path, const char *new_path);
 /* CREATE_NEW: spec Sec 10b, DOS 3.3 AH=5Bh -- an existing file is
  * TBX_ERR_DOS(0x50) and is never truncated. */
 int32_t tbx_file_create_new(const char *path);
+/* Both files must exist and be closed, in the same directory and volume.
+ * Success adopts the stage; never delete it after success. Reported errors
+ * preserve the previous destination. This is not a crash-atomicity promise. */
+int32_t tbx_file_replace(const char *staged_path, const char *dest_path);
 /* The directory: spec Sec 10a (initech-qvgd). FIND writes up to `max`
  * TBX_FIND_REC_BYTES records (attr, DOS time, DOS date, size, 8.3 name) of the
  * entries matching `pattern` (e.g. "DOCS\\*.*") under `attr` into `recs`

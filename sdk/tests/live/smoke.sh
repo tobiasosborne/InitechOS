@@ -10,6 +10,11 @@ mcopy -o -i "$out/data.img" "${SDK_TENANT:-build/sdk/live/SDKCHECK.EXE}" ::APPS/
 printf abcdefghij > "$out/input.dat"
 mcopy -o -i "$out/data.img" "$out/input.dat" ::SDK.DAT
 mmd -i "$out/data.img" ::SUB
+printf replacement > "$out/new.dat"
+printf 'read only' > "$out/ro.dat"
+mcopy -o -i "$out/data.img" "$out/new.dat" ::SDKNEW.DAT
+mcopy -o -i "$out/data.img" "$out/ro.dat" ::SDKRO.DAT
+mattrib -i "$out/data.img" +r ::SDKRO.DAT
 . factory/desktop-trace.sh
 emulator=qemu
 markers=$out/markers

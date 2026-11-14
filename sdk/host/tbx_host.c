@@ -233,6 +233,28 @@ int32_t tbx_file_rename(const char *p,const char *q)
   if(an!=bn||memcmp(old,name,an))return TBX_ERR_DOS(17);
   if(find(q)>=0)return TBX_ERR_DOS(5);
   int i=find(p);if(i<0)return TBX_ERR_DOS(2);if(S.files[i].attr&0x19)return TBX_ERR_DOS(5);if(!remember_deleted(S.files[i].name))return TBX_ERR_DOS(5);copy(S.files[i].name,sizeof S.files[i].name,name);return TBX_OK; }
+int32_t tbx_file_replace(const char *p,const char *q)
+{
+    R(0,0,0,0,0,0,p);LIVE();
+    if(!path_valid(p)||!path_valid(q))return TBX_ERR_BADARG;
+    if(device(p)||device(q))return TBX_ERR_DOS(5);
+    if(volume_error(p)||volume_error(q))return TBX_ERR_DOS(15);
+    int32_t e=error(TBX_FILE_REPLACE);if(e)return e;
+    char src[128],dst[128];if(!norm(p,src)||!norm(q,dst))return TBX_ERR_BADARG;
+    char *a=strrchr(src,'\\'),*b=strrchr(dst,'\\');
+    size_t an=a?(size_t)(a-src):0,bn=b?(size_t)(b-dst):0;
+    if(an!=bn||memcmp(src,dst,an))return TBX_ERR_DOS(17);
+    int i=find(p),j=find(q);
+    if(i<0||j<0)return TBX_ERR_DOS(2);
+    tbx_host_file_t *stage=&S.files[i],*dest=&S.files[j];
+    if(i==j||((stage->attr|dest->attr)&0x19))return TBX_ERR_DOS(5);
+    if(!remember_deleted(stage->name))return TBX_ERR_DOS(5);
+    free(dest->data);
+    dest->data=stage->data;dest->size=stage->size;dest->capacity=stage->capacity;
+    dest->time=stage->time;dest->date=stage->date;
+    stage->data=0;stage->size=stage->capacity=0;stage->used=0;
+    return TBX_OK;
+}
 static int match(const char *p,const char *s)
 {
     /* Genuine DOS 3.30 search33 captures: A0.* includes extensionless A0.
@@ -305,6 +327,7 @@ TBX_TRAP_ABI int32_t tbx_trap(uint32_t c,uint32_t n,const uint32_t *a)
     case TBX_FILE_CLOSE: ARGS(1);return tbx_file_close(a[0]);
     case TBX_FILE_DELETE: ARGS(1);return tbx_file_delete(PTR(char,0));
     case TBX_FILE_RENAME: ARGS(2);return tbx_file_rename(PTR(char,0),PTR(char,1));
+    case TBX_FILE_REPLACE: ARGS(2);return tbx_file_replace(PTR(char,0),PTR(char,1));
     case TBX_FILE_FIND: ARGS(4);return tbx_file_find(PTR(char,0),a[1],PTR(void,2),a[3]);
     case TBX_DISK_FREE:return tbx_disk_free();
     case TBX_ALERT: ARGS(4);return tbx_alert(PTR(char,0),PTR(char,1),PTR(char,2),PTR(char,3));

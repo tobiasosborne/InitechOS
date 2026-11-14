@@ -59,3 +59,26 @@ runtime, verifies that the old structure/arity audit still passes, then
 requires the live observer to fail at row 5. The separate fake mutants allow
 an illegal go-away value or bypass pointer spans; both must fail conformance.
 No mutation is installed in the source tree or normal product image.
+
+The initech-7mb66 extension replaces this capture with 616 bytes / 154 outcomes.
+These are 153 scalar return values and one comparison of the actual read-back
+bytes with the independent literal fixture, rather than 154 EAX values.
+It adds 25 closed-file replacement cases before the alert cases: invalid
+module/stack paths, missing files, devices, foreign directories/drives,
+self-replacement and read-only files; then real adoption and zero-byte adoption.
+The literal replacement stream is `replacement`. The recording fake agrees
+with the actual booted gate on all 154 outcomes. Source base 8e75a8ea plus the
+FILE_REPLACE patch; make -C sdk smoke rebuilt the ordinary image with its
+normal flags and debug metadata, and read the identical capture from disk.
+Live ABI now covers 38 bindings; the added literal asymmetric pair is
+008B / 000061c2 / 000062c3. The replacement argument-swap mutant passes the
+structural audit but fails the real decoded-argument observer at row 21.
+The fake refusal mutant disagrees with live case 125 (zero vs DOS5).
+
+Extension capture SHA-256:
+
+```
+7f10d7ad30f6b55af250feea36d90240ffc671350c450bdb0dc72405ef18bf87  gate-results.bin
+faf73d75e4fe29e39b9547354500530d045782f65dd6bdb6672c669f26a31bdd  cases.h
+1f73949888ae2cba884c2255aadeebb7f5575d293c46cdc9e8f3e564459f9483  INITDOS.SYS
+```

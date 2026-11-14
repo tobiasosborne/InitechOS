@@ -102,6 +102,16 @@ static int32_t disk_rename(const char *from, const char *to)
     if (access(to, F_OK) == 0) return TBX_ERR_DOS(5);
     return rename(from, to) == 0 ? TBX_OK : TBX_ERR_DOS(5);
 }
+#ifdef TBX_FILE_REPLACE
+/* Same closed-file publication contract as the gate; stdio is this test's
+ * independent disk binding, so it must also receive the replacement verb. */
+static int32_t disk_replace(const char *from,const char *to)
+{
+    if(access(from,F_OK) || access(to,F_OK)) return TBX_ERR_DOS(2);
+    return rename(from,to)==0 ? TBX_OK : TBX_ERR_DOS(5);
+}
+#define tbx_file_replace disk_replace
+#endif
 #define tbx_file_open disk_open
 #define tbx_file_create_new disk_create_new
 #define tbx_file_read disk_read

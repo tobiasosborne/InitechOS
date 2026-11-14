@@ -11,9 +11,11 @@ The authority for trap behavior is the claimed toolbox_gate.h contract and
 legacy-final flair/tbxgate.c (formerly the same gate in the legacy layout).
 Event codes/Point are from Inside Macintosh, cited in event_model.h and
 geometry.h. cp_dialog.h and cpanels_record.h preserve the existing Control
-Panels transport and disk record. The save helper preserves the DOS-style
-create-new/write/close/delete/rename transaction; it is not crash-atomic
-between deletion and rename. See NOTES-FOR-FLAIR.md for private adapter work.
+Panels transport and disk record. The save helper creates, writes, closes and
+verifies a same-directory stage, then calls FILE_REPLACE for an existing
+destination or non-overwriting RENAME for a first save. No previous version is
+moved aside by the helper. This is not a crash-atomicity promise. See
+NOTES-FOR-FLAIR.md for private adapter work.
 
 ## Life cycle
 
@@ -167,7 +169,7 @@ arity and argument-array length, and OS switch/argument-table membership.
 The compatibility tbx_get_clock alias calls the single CLOCK binding.
 make red-once proves number/layout/fake-binding failures in isolated copies.
 
-tests/live/cases.h runs the same 129 calls through the typed fake and a disk
+tests/live/cases.h runs the same 154 outcomes through the typed fake and a disk
 tenant. gate-results.bin is a little-endian EAX capture from the real booted
 gate; see tests/live/CAPTURE.md. Tier 0 compares against that capture, and
 smoke-conformance boots again and requires identical results. No expected
@@ -177,7 +179,7 @@ runs conformance and live ABI legs. Debug sections do not enter INITDOS.SYS.
 
 smoke-abi uses the existing QEMU GDB stub to read a[] after the production
 dispatcher copies interrupted-stack arguments. abi.tsv is an independent
-literal table covering every argument of all 37 bindings, with distinct words
+literal table covering every argument of all 38 bindings, with distinct words
 at every position. Registration pointers are checked against the tenant ELF;
 all six callback fields read back from disk must match the desktop's source
 EventRecord. The tenant checks returned values, including the exit return
@@ -231,6 +233,7 @@ Arity is gate dwords, including implicit runtime registration arguments.
 | 0x0088 | TBX_DISK_FREE / tbx_disk_free | 0 | Read free disk bytes | initechword |
 | 0x0089 | TBX_FILE_RENAME / tbx_file_rename | 2 | Rename file | initechword |
 | 0x008A | TBX_FILE_CREATE_NEW / tbx_file_create_new | 1 | Create without truncation | - |
+| 0x008B | TBX_FILE_REPLACE / tbx_file_replace | 2 | Commit a closed same-directory stage | - |
 | 0x0090 | TBX_ALERT / tbx_alert | 4 | Ask alert | initech123, initechcalc, initechtext, notepad |
 | 0x0091 | TBX_FILECOPY / tbx_file_copy | 3 | Ask FILE COPY | initechcalc |
 | 0x0092 | TBX_DIALOG / tbx_dialog | 6 | Draw/route dialog | controlpanels |
@@ -249,7 +252,7 @@ Arity is gate dwords, including implicit runtime registration arguments.
 
 Calls through tbx_file_save/tbx_file_copy_save are indirect: controlpanels,
 initech123, initechtext, initechword and notepad also use CREATE_NEW, WRITE,
-CLOSE, DELETE and RENAME through sdk/include/tbx_save.h. The table shows direct
+CLOSE, DELETE, REPLACE and RENAME through sdk/include/tbx_save.h. The table shows direct
 callers so the source grep remains reproducible.
 
 Shared build conventions: command stamps rebuild on tool/flag changes; C
@@ -260,6 +263,11 @@ the mandatory target ABI compiles and all six existing check groups remain.
 Import audit is enabled. The three save faults are patches in mutants/;
 make mutants kills each through the real save helper and shared fake, including
 short writes, preserving an existing target and preserving a colliding temporary.
+The SDK runner uses the shared assertion-receipt protocol, so a setup failure,
+timeout or missing summary cannot kill a mutation. Nine patches compile and
+fail twice with matching semantic receipts; the new replacement refusal is
+graded against the real gate capture. Live replacement argument reversal is
+separately killed by GDB observing the actual decoded gate words.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate

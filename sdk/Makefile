@@ -43,7 +43,16 @@ $(OUT)/tests/self-contained.o: tests/self-contained.c FORCE
 test-build: $(OUT)/tests/audit $(OUT)/tests/layout.o $(OUT)/tests/link $(OUT)/tests/host $(OUT)/tests/self-contained.o $(OUT)/rt/tbx_rt.o
 test: test-run
 test-run: test-build
-	@TEST_BUDGET_S=$(TEST_BUDGET_S) sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) $(OUT) tests/run.sh $(TESTS)
+	@test -n '$(strip $(TESTS))' || { echo 'FAIL sdk: empty test selection'; exit 1; }
+	@mkdir -p $(OUT)/host; start=$$(date +%s); fail=0; \
+	for entry in $(TESTS); do \
+	  sh $(TOP)/factory/testlib/run-test.sh "$$entry" "$${TEST_TIMEOUT_S:-20}" '' "$(OUT)/host/$$entry" \
+	    sh -c 'sh tests/run.sh "$$1" "$$2" > "$$3.log" 2>&1' sh "$(OUT)" "$$entry" "$(OUT)/host/$$entry" || fail=$$((fail+1)); \
+	done; elapsed=$$(($$(date +%s)-start)); \
+	echo 'INITECH_TEST_RUN $(words $(TESTS))'; \
+	echo "$(COMPONENT): $(words $(TESTS)) tests, $$fail failures ($${elapsed}s; budget $(TEST_BUDGET_S)s)"; \
+	if [ $$elapsed -gt $(TEST_BUDGET_S) ]; then echo 'FAIL budget: sdk exceeded TEST_BUDGET_S'; fail=1; fi; \
+	test $$fail -eq 0
 -include $(wildcard $(OUT)/host/*.d $(OUT)/tests/*.d)
 smoke:
 	+$(MAKE) -C $(TOP) -j2 image TARGET_CFLAGS='$(TARGET_CFLAGS) -g'

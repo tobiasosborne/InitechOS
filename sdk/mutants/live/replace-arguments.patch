@@ -1,0 +1,11 @@
+--- a/rt/tbx_rt.c
++++ b/rt/tbx_rt.c
+@@ -185,7 +185,7 @@
+ { uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_CREATE_NEW, TBX_ARGC_FILE_CREATE_NEW, a); }
+ int32_t tbx_file_replace(const char *staged_path, const char *dest_path)
+ {
+-    uint32_t a[] = { (uint32_t)(uintptr_t)staged_path, (uint32_t)(uintptr_t)dest_path };
++    uint32_t a[] = { (uint32_t)(uintptr_t)dest_path, (uint32_t)(uintptr_t)staged_path };
+     return tbx_trap(TBX_FILE_REPLACE, TBX_ARGC_FILE_REPLACE, a);
+ }
+ /* Ref: sdk/include/toolbox_gate.h Sec 10a, deliberately extended in initech-qvgd. */

@@ -183,6 +183,11 @@ int32_t tbx_file_rename(const char *old_path, const char *new_path)
 }
 int32_t tbx_file_create_new(const char *path)
 { uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_CREATE_NEW, TBX_ARGC_FILE_CREATE_NEW, a); }
+int32_t tbx_file_replace(const char *staged_path, const char *dest_path)
+{
+    uint32_t a[] = { (uint32_t)(uintptr_t)staged_path, (uint32_t)(uintptr_t)dest_path };
+    return tbx_trap(TBX_FILE_REPLACE, TBX_ARGC_FILE_REPLACE, a);
+}
 /* Ref: sdk/include/toolbox_gate.h Sec 10a, deliberately extended in initech-qvgd. */
 int32_t tbx_file_find(const char *pattern, uint32_t attr, void *recs, uint32_t max)
 {

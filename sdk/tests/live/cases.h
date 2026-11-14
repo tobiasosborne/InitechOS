@@ -94,6 +94,32 @@ static void cases(void)
     TAKE(tbx_file_rename("SDK.DAT","SUB\\SDK.DAT"));
     for(unsigned i=0;i<16;i++)TAKE(tbx_file_open("SDK.DAT",0));
     for(int i=5;i<20;i++)(void)tbx_file_close(i);
+    /* Replacement results are captured from the booted gate. Literal file
+     * bytes below independently check adoption, source removal and empty files. */
+    TAKE(tbx_file_replace(0,"SDK.DAT"));
+    TAKE(tbx_file_replace("SDKNEW.DAT",0));
+    TAKE(tbx_file_replace(stack,"SDK.DAT"));
+    TAKE(tbx_file_replace("SDKNEW.DAT",stack));
+    TAKE(tbx_file_replace("ABSENT.DAT","SDK.DAT"));
+    TAKE(tbx_file_replace("SDKNEW.DAT","ABSENT.DAT"));
+    TAKE(tbx_file_replace("CON","SDK.DAT"));
+    TAKE(tbx_file_replace("SDKNEW.DAT","CON"));
+    TAKE(tbx_file_replace("SDKNEW.DAT","SUB\\SDK.DAT"));
+    TAKE(tbx_file_replace("Z:\\SDKNEW.DAT","SDK.DAT"));
+    TAKE(tbx_file_replace("SDKNEW.DAT","SDKNEW.DAT"));
+    TAKE(tbx_file_replace("SDKRO.DAT","SDK.DAT"));
+    TAKE(tbx_file_replace("SDKNEW.DAT","SDKRO.DAT"));
+    TAKE(tbx_file_replace("SDKNEW.DAT","SDK.DAT"));
+    TAKE(tbx_file_open("SDKNEW.DAT",0));
+    h=tbx_file_open("SDK.DAT",0);TAKE(h);
+    TAKE(tbx_file_read(h,buf,sizeof buf));
+    unsigned same=1;
+    for(unsigned i=0;i<11;i++)if(buf[i]!="replacement"[i])same=0;
+    TAKE((int32_t)same);TAKE(tbx_file_close(h));
+    h=tbx_file_create_new("EMPTY.DAT");TAKE(h);TAKE(tbx_file_close(h));
+    TAKE(tbx_file_replace("EMPTY.DAT","SDK.DAT"));
+    h=tbx_file_open("SDK.DAT",0);TAKE(h);
+    TAKE(tbx_file_read(h,buf,sizeof buf));TAKE(tbx_file_close(h));
     TAKE(tbx_alert("","OK",0,0));TAKE(tbx_alert("x",0,0,0));
     TAKE(tbx_alert("x","OK",0,"No"));TAKE(tbx_alert("x","WWWWWW",0,0));
     TAKE(tbx_alert("x\r","OK",0,0));TAKE(tbx_alert("a\rb\rc\rd","OK",0,0));

@@ -25,16 +25,17 @@ int main(int argc,char **argv)
         char *found=strstr(start,needle);
         if(found&&found<end){accepted[code]=1;count++;}
     }
-    fclose(f);free(text);if(count!=37)return 2;
+    fclose(f);free(text);if(count!=38)return 2;
     tbx_host_reset();tbx_host.registrations=1;
     unsigned bad=0;uint32_t args[6]={0};
     for(unsigned c=0;c<65536;c++) {
         tbx_host.exit_calls=0;
         int32_t r=tbx_trap(c,6,args);
         if((r!=TBX_ERR_BADCODE)!=accepted[c]) {
-            fprintf(stderr,"dispatch AX=%04x live table=%u fake=%d\n",c,accepted[c],r);bad++;
+            fprintf(stderr,"  FAIL dispatch AX=%04x live table=%u fake=%d\n",c,accepted[c],r);bad++;
         }
     }
     printf("dispatch conformance: 65536 AX values, %u product verbs, %u mismatches\n",count,bad);
+    printf("INITECH_CHECKS 65536 failures=%u\n",bad);
     return bad!=0;
 }

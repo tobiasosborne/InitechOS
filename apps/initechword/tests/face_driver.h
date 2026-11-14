@@ -144,6 +144,15 @@ static int32_t fixture_find(const char *p,uint32_t attr,void *buf,uint32_t max)
     }
     return tbx_file_find(p,attr,buf,max);
 }
+#ifdef TBX_FILE_REPLACE
+/* Publication must reach the independent disk readers just like rename. */
+static int32_t fixture_replace(const char *p,const char *q)
+{
+    SAVE_FAULT();
+    int32_t rc=tbx_file_replace(p,q);fixture_export();return rc;
+}
+#define tbx_file_replace fixture_replace
+#endif
 #define tbx_file_open fixture_open
 #define tbx_file_close fixture_close
 #define tbx_file_create_new fixture_create_new

@@ -1,0 +1,11 @@
+# test: conformance
+--- a/host/tbx_host.c
++++ b/host/tbx_host.c
+@@ -249,6 +249,7 @@
+     tbx_host_file_t *stage=&S.files[i],*dest=&S.files[j];
+     if(i==j||((stage->attr|dest->attr)&0x19))return TBX_ERR_DOS(5);
+     if(!remember_deleted(stage->name))return TBX_ERR_DOS(5);
++    return TBX_ERR_DOS(5); /* Deliberately refuse a valid replacement. */
+     free(dest->data);
+     dest->data=stage->data;dest->size=stage->size;dest->capacity=stage->capacity;
+     dest->time=stage->time;dest->date=stage->date;

@@ -42,6 +42,7 @@ void tbx_app_event(const tbx_event_t *e)
     BAD(tbx_file_find(P(char,0x61a1),0x62a2,P(void,0x63a3),0x64a4));if(tbx_disk_free()<0)failed++;
     BAD(tbx_file_rename(P(char,0x61b1),P(char,0x62b2)));
     BAD(tbx_file_create_new(P(char,0x61c1)));
+    BAD(tbx_file_replace(P(char,0x61c2),P(char,0x62c3)));
     BAD(tbx_alert(P(char,0x61d1),P(char,0x62d2),P(char,0x63d3),P(char,0x64d4)));
     BAD(tbx_file_copy(P(char,0x61e1),P(char,0x62e2),P(char,0x63e3)));
     BAD(tbx_dialog(0x61f1,P(cp_item_t,0x62f2),0x63f3,0x64f4,0x65f5,P(tbx_event_t,0x66f6)));
