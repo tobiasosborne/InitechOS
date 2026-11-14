@@ -1,0 +1,12 @@
+# test: test_i123_files
+--- a/app/files_ui.c
++++ b/app/files_ui.c
+@@ -251,7 +251,7 @@
+         if(vk==VK_LEFT||vk==VK_RIGHT||ch==' ')g_file_confirm=!g_file_confirm;
+         else if(vk==VK_ENTER||ch=='\r'||ch=='n'||ch=='N'||ch=='y'||ch=='Y') {
+             int yes=ch=='y'||ch=='Y'||((vk==VK_ENTER||ch=='\r')&&g_file_confirm);
+-            if(!yes){ready();paint_all();return;}
++            if(0&&!yes){ready();paint_all();return;}
+             int32_t rc=tbx_file_delete(g_selected);
+             if(rc<0){notice(rc==TBX_ERR_DOS(5)?"File or directory is read-only":rc==TBX_ERR_DOS(2)?"File does not exist":"File I/O error");return;}
+             ready();paint_all();return;

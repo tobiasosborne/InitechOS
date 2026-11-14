@@ -1,0 +1,25 @@
+A8191: 'one                                                                READY
+                                                                                
+                                                                                
+        A        B        C        D        E        F        G        H        
+8191one                                                                         
+8192two                                                                         
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+02-Mar-92  09:30 AM        UNDO                                                 

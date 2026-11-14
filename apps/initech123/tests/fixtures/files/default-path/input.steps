@@ -1,0 +1,19 @@
+sleep 4
+key esc
+type /frCURRENT
+key ret
+sleep 0.8
+type /fdFILES
+key ret
+sleep 0.8
+type /fs
+shot save_default
+key esc
+key esc
+key esc
+key esc
+key esc
+key esc
+type /fr
+shot retrieve_default
+end

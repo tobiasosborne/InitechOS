@@ -1,0 +1,14 @@
+# test: test_i123_import
+--- a/app/files_ui.c
++++ b/app/files_ui.c
+@@ -167,8 +167,8 @@
+      * An EOF/Ctrl-Z commits its final unterminated line. Row 8192 truncates. */
+     for(uint32_t pos=0;pos<=n&&row<I123_MAX_ROWS;pos++) {
+         uint8_t c=pos<n?g_wk[pos]:26;
+-        if(c==10||c==0)continue;
+-        if(c==13||c==26) {
++        if(c==0)continue;
++        if(c==10||c==13||c==26) {
+             if(len) {
+                 const i123_cell_t *old=i123_find(&next,(uint16_t)col,(uint16_t)row);
+                 uint8_t fmt=old?old->fmt:WK1_FMT_FRESH_CELL;
