@@ -183,7 +183,7 @@ values, record counts and seeks. GET/READ is unchanged.
 The artifact sizes and hashes earlier in this README describe the imported
 baseline, before this change. `make package-check` reports the current loader
 geometry and validates the actual EXE/OVL pair; no size or hash above is a
-claim about the current build. The 19 pending patches remain unproved.
+claim about the current build. The 16 pending patches remain unproved.
 
 The C19/C20/C21 conformance repair selection is now part of tier 0 (77 suites).
 Its real III+ fixtures come unchanged from the conformance study. An old NDX
@@ -194,7 +194,7 @@ sequence, then invalidates navigation state. C21's transcript, the edited row 2
 and the rebuilt two-entry NDX match real III+; its booted smoke readback checks
 the same three results on both emulators. The study's other fifteen defects
 are being repaired against their retained captures; the accepted selection is
-listed below. The 19 pending patches remain to be qualified.
+listed below. The 16 pending patches remain to be qualified.
 
 INDEX and REINDEX retain each predecessor through their final reopen, header,
 attachment and navigation checks. An error restores the old file and index
@@ -262,3 +262,12 @@ APPEND BLANK uses the same complete-record transaction as APPEND FROM. A
 reported index failure restores the original DBF and all indexes, including
 a successfully updated first index when the second fails. `blankfail` grades
 exact original rows, the new blank row, index coverage and recovered retries.
+
+Three more original pending faults are qualified by `make target-mutants`,
+also included in `make mutants`: REPORT-to-FILE references, resident-to-REPORT
+references and nested program execution from an overlay. All target C/assembly
+objects must compile; the independent linker or call-graph property then rejects
+the specific lifetime violation twice. Ordinary compiler errors are errors.
+Two controls prove that an unchanged product and an ordinary compiler failure
+both receive zero kills. These are static semantic rejections, not host runtime
+kills. Twelve original pending faults are qualified; sixteen remain.

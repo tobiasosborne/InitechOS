@@ -1,0 +1,11 @@
+# target: static-reenter
+--- a/cmd/report.c
++++ b/cmd/report.c
+@@ -583,6 +583,7 @@
+  * report_cmd_hook returned for that verb before the split. */
+ static IBASE_OVL_TEXT(report) int report_ovl_entry(int k, xb_interp *ip, const char *args, int *ec)
+ {
++    if (k == 99) return ibase_do(ip, "");
+     (void)ip;
+     if (k) return lbl_run(args, ec) ? -INTERP_ERR_EVAL : CMD_OK;
+     return rp_run(args, ec) ? -INTERP_ERR_EVAL : CMD_OK;

@@ -32,6 +32,7 @@ TESTS := $(RUN_TESTS)
 HOST_TEST_BINS := $(addprefix $(HOST_OUT)/,$(TESTS))
 test-build: $(HOST_TEST_BINS)
 MUTANT_PATCHES ?= $(wildcard mutants/*.patch)
+TARGET_MUTANT_PATCHES ?= $(wildcard mutants/target/*.patch)
 MUTANT_JOBS ?= 4
 ifeq ($(MUTANT_SERIAL),1)
 include $(TOP)/mk/mutants.mk
@@ -40,6 +41,16 @@ else
 mutants:
 	+@sh tools/run-mutants.sh "$(TOP)" "$(OUT)" "$(MAKE)" "$(MUTANT_JOBS)" $(MUTANT_PATCHES)
 endif
+
+# Native/static proofs are tier 2; they never run in the host-only test gate.
+.PHONY: target-mutants target-mutant-controls
+ifneq ($(strip $(TARGET_MUTANT_PATCHES)),)
+mutants: target-mutants
+endif
+target-mutants: target-mutant-controls
+	+@sh tools/run-target-mutants.sh "$(TOP)" "$(OUT)/target-mutants" "$(MAKE)" $(TARGET_MUTANT_PATCHES)
+target-mutant-controls:
+	+@sh tests/target-mutant-controls.sh "$(TOP)" "$(OUT)/target-mutant-controls" "$(MAKE)"
 
 # Host-only sandbox compiles are identical except for debug paths. Cache them
 # when available; omit debug information there so scratch paths do not defeat

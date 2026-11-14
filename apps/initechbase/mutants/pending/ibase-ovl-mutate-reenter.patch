@@ -1,8 +1,0 @@
-# test: test_ibase_ovl_lifetime
---- a/cmd/report.c
-+++ b/cmd/report.c
-@@ -577,0 +578,4 @@
-+    /* MUTANT (CLAUDE.md, The constitution; test-ibase-ovl-static-mutant only): overlay code runs a
-+     * nested program, which could swap the slot under it -- the packer's
-+     * call-graph rule must refuse. */
-+    if (k == 99) return ibase_do(ip, "");

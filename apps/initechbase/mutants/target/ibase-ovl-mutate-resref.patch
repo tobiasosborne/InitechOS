@@ -1,0 +1,11 @@
+# target: static-resref
+--- a/cmd/report.c
++++ b/cmd/report.c
+@@ -592,6 +592,7 @@
+ static int report_cmd_hook(void *user, xb_interp *ip, const char *verb,
+                            const char *args, int *err_code)
+ {
++    if (!verb[0]) return (int)(uintptr_t)(void *)rp_run;
+     int k;
+     (void)user;
+     if (rp_word(verb, "LABEL")) k = 1;
