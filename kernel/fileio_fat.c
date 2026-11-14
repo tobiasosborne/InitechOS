@@ -53,6 +53,7 @@
 #define FILEIO_ERR_PATH_NOT_FOUND  0x0003u
 #define FILEIO_ERR_TOO_MANY_OPEN   0x0004u
 #define FILEIO_ERR_ACCESS_DENIED   0x0005u
+#define FILEIO_ERR_GENERAL_FAILURE 0x001Fu /* IBM DOS 3.30 TR p.6-42 */
 
 /* The maximum path the resolve seam copies into a stack buffer (beads
  * initech-mzxa). The int21.c side already bounds the ASCIIZ path to
@@ -128,9 +129,9 @@ static uint16_t locate_in_dir(const char *name83, uint16_t dir_start,
     uint32_t    slot = 0;
     int rc = fat12_find_slot_in(g_vol, g_fat, g_fat_len, dir_start, g_sector,
                                 name83, &de, &slot);
-    if (rc != FAT12_OK) {
-        return FILEIO_ERR_FILE_NOT_FOUND;
-    }
+    if (rc != FAT12_OK)
+        return rc == FAT12_ERR_NOT_FOUND ? FILEIO_ERR_FILE_NOT_FOUND
+                                        : FILEIO_ERR_GENERAL_FAILURE;
     *out_entry = de;
     *out_slot  = slot;
     return 0u;

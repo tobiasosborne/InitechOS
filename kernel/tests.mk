@@ -2,6 +2,13 @@
 # alone, more when every component runs at once.
 TEST_BUDGET_S := 60
 include tests/tools.mk
+EXTRA_HOST_TESTS += tool_test_metadata_errors
+tool_test_metadata_errors_SRCS := tests/test_metadata_errors.c tests/disk/blockdev_file.c
+tool_test_metadata_errors_OBJS := $(tool_test_fileio_subdir_OBJS)
+HOST_TESTS += test-create-new-error
+test-create-new-error_SRCS := tests/runner.c
+test-create-new-error_ARGS := tests/run.sh test-create-new-error
+test-create-new-error_DEPS := $(OUT)/host/tool_test_metadata_errors tests/gates/test-create-new-error.sh
 HOST_TESTS += console-inherit test-file-conservation
 console-inherit_SRCS := tests/test_console_inherit.c sft.c psp.c
 test-file-conservation_SRCS := tests/runner.c
