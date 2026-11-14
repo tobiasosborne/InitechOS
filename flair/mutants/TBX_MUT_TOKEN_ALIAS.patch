@@ -1,4 +1,3 @@
-# pending: legacy test-flair-calc-mutant: independent window-token assignment pixels
 # Legacy TBX_MUT_TOKEN_ALIAS
 # test: test_flair_routing
 --- a/tbxgate.c

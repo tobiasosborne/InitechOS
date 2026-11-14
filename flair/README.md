@@ -150,8 +150,12 @@ speaker, serial diagnostics and panic. Clock ticks and the master arena already
 have explicit Event Manager / tbx_bind inputs. Console-to-GUI hand-off belongs
 to the desktop; the Toolbox does not seize the console. NOTES-FOR-KERNEL.md maps
 every binding to the legacy routine and states ordering/lifetime requirements.
-Routing uses real tbxgate/process/window/event with fail-loud platform stubs for
-services outside its scope; file integration uses tests/platform_dos.c over the
+Routing uses real tbxgate/process/window/event and the real blitter on a 32-bit
+surface, with fail-loud platform stubs for services outside its scope. FILLRECT
+clips in the wide local coordinate domain before adding an origin or narrowing;
+an independent reader subtracts two literal origins from every framebuffer
+pixel, including distant and extreme endpoints. The same fixture proves distinct
+window tokens and consumed-once presentation requests. File integration uses tests/platform_dos.c over the
 real existing InitechDOS dispatcher. No fake success replaces those DOS checks.
 
 The SDK owns all app-facing gate, event, geometry and Control Panels records.
@@ -177,17 +181,18 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 199 patches through the shared strict runner: passing baseline,
+make mutants runs 202 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
 the measured sweep is 85 seconds on this machine. The shared runner itself is
 serial; native parallel scheduling and baseline sharing across patch workers
 would remove this local wrapper and the serial tail of large selection groups.
-Fourteen patches under mutants/pending/ still need their named legacy emulator gates.
+Twelve patches under mutants/pending/ still need their named legacy emulator gates.
 The phase-2 strict sweep compiled and ran all sixteen original pending patches:
-the two FILE COPY patches are now killed twice by test_filecopy_disk; fourteen
-survive their current host selections and remain pending. No compile failure
+the two FILE COPY patches are now killed twice by test_filecopy_disk. The raster
+routing fixture also kills drawing-not-presented and window-token-alias twice;
+twelve remain pending. No compile failure
 was counted as a kill. The copy patches were refreshed against staged copying,
 with independent destination bytes and a literal configured-rate assertion.
 None was deleted as equivalent. tests/MUTATION-RESULTS.tsv records all 207 macros,

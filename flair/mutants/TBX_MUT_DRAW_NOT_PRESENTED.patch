@@ -1,4 +1,3 @@
-# pending: legacy test-flair-ctenant-mutant: framebuffer repaint pixels
 # Legacy TBX_MUT_DRAW_NOT_PRESENTED
 # test: test_flair_routing
 --- a/tbxgate.c

@@ -707,15 +707,17 @@ static int32_t v_fillrect(const uint32_t *a)
         return TBX_ERR_BADARG;
     if (g_host.surface == (const bitmap_t *)0) return TBX_OK;
     c = region_get_bbox(g_slot.win->contRgn);
-    /* content-local -> global, clamped to int16 by the content box itself */
-    r.left   = (int16_t)((int32_t)c.left + (int32_t)a[1] < c.right
-                         ? (int32_t)c.left + (int32_t)a[1] : c.right);
-    r.top    = (int16_t)((int32_t)c.top + (int32_t)a[2] < c.bottom
-                         ? (int32_t)c.top + (int32_t)a[2] : c.bottom);
-    r.right  = (int16_t)((int32_t)c.left + (int32_t)a[3] < c.right
-                         ? (int32_t)c.left + (int32_t)a[3] : c.right);
-    r.bottom = (int16_t)((int32_t)c.top + (int32_t)a[4] < c.bottom
-                         ? (int32_t)c.top + (int32_t)a[4] : c.bottom);
+    /* SDK Sec 7: clip in the caller's wide local domain before adding the
+     * origin or narrowing. An offscreen coordinate must never wrap onscreen. */
+    int32_t l=(int32_t)a[1],t=(int32_t)a[2],right=(int32_t)a[3],bottom=(int32_t)a[4];
+    int32_t width=(int32_t)c.right-c.left,height=(int32_t)c.bottom-c.top;
+    if(l<0) l=0;
+    if(t<0) t=0;
+    if(right>width) right=width;
+    if(bottom>height) bottom=height;
+    if(l>=right || t>=bottom) return TBX_OK;
+    r.left=(int16_t)(c.left+l); r.top=(int16_t)(c.top+t);
+    r.right=(int16_t)(c.left+right); r.bottom=(int16_t)(c.top+bottom);
     blitter_fill_rect_clipped(g_host.surface, r, color_px(a[5]), draw_clip());
     g_slot.drew = 1u;
     return TBX_OK;

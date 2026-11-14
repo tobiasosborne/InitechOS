@@ -155,7 +155,7 @@ gate	TBXGATE_MUT_CELL_UL_LOW	1	tbxgate.c:695	pending	legacy test-flair-iword-cod
 gate	TBX_MUT_ARG_OFFSET	1	tbxgate.c:1207	killed	test_flair_routing	Makefile:15062,Makefile:15092,Makefile:15097
 gate	TBX_MUT_AX_FULL_EAX	1	tbxgate.c:1152	killed	test_flair_routing	Makefile:15061,Makefile:15092,Makefile:15096
 gate	TBX_MUT_DRAWMBAR_NOOP	1	tbxgate.c:859	pending	legacy test-flair-tenant-menu-mutant: presented tenant menu-bar pixels	Makefile:23454
-gate	TBX_MUT_DRAW_NOT_PRESENTED	1	tbxgate.c:1455	pending	legacy test-flair-ctenant-mutant: framebuffer repaint pixels	Makefile:23560,Makefile:23566
+gate	TBX_MUT_DRAW_NOT_PRESENTED	1	tbxgate.c:1455	killed	test_flair_routing: literal raster and consumed-once presentation	Makefile:23560,Makefile:23566
 gate	TBX_MUT_EXIT_LEAK	1	tbxgate.c:1373	pending	legacy test-flair-app-launch-mutant: exit reclaims the tenant slot and arena	Makefile:23257
 gate	TBX_MUT_FILECOPY_NO_COPY	2	tbxgate.c:1744,tbxgate.c:1760	killed	test_filecopy_disk	harness/frameapps.mk:150,harness/frameapps.mk:213,harness/frameapps.mk:214
 gate	TBX_MUT_FILECOPY_RATE_IGNORED	1	tbxgate.c:1699	killed	test_filecopy_disk	harness/frameapps.mk:149,harness/frameapps.mk:208,harness/frameapps.mk:210
@@ -172,7 +172,7 @@ menu	TBX_MUT_MENU_ANY_BAR	1	tbxmenu.h:84	killed	test_tbx_menu	Makefile:15026,Mak
 menu	TBX_MUT_MENU_KEY_PLAIN	1	tbxmenu.h:60	killed	test_tbx_menu	Makefile:15026,Makefile:15027,Makefile:23452
 gate	TBX_MUT_MENU_NOT_DELIVERED	1	tbxgate.c:1475	pending	legacy test-flair-tenant-menu-mutant: mouse/key menu events delivered to tenant trace	Makefile:23453
 gate	TBX_MUT_NO_SLOT_GUARD	2	tbxgate.c:278,tbxgate.c:424	killed	test_flair_routing	Makefile:23256,Makefile:23360
-gate	TBX_MUT_TOKEN_ALIAS	1	tbxgate.c:538	pending	legacy test-flair-calc-mutant: independent window-token assignment pixels	harness/frameapps.mk:78,harness/frameapps.mk:90
+gate	TBX_MUT_TOKEN_ALIAS	1	tbxgate.c:538	killed	test_flair_routing: independent pixels at two literal window origins	harness/frameapps.mk:78,harness/frameapps.mk:90
 process	TEARDOWN_MUT_LEAK_BLOCK	1	process.c:429	killed	test_process_teardown	Makefile:14328,Makefile:14346
 process	TEARDOWN_MUT_LEAK_RECORDS	1	process.c:439	killed	test_process_teardown	Makefile:14348
 text	TEXT_MUTATE_FIXED_PITCH	2	include/text.h:203,include/text.h:296	killed	test_font_styles	Makefile:13314,Makefile:13325

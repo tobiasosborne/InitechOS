@@ -33,10 +33,6 @@ static void unreached(const char *what)
     abort();
 }
 
-void blitter_fill_rect_clipped(const bitmap_t *dst, rgn_rect_t rect,
-                               uint32_t px, const region_t *clip)
-{ (void)dst; (void)rect; (void)px; (void)clip; unreached("blitter_fill_rect_clipped"); }
-
 void control_init(ControlRecord *ctrl, flair_ctrl_type_t type, rgn_rect_t rect,
                   int16_t value, int16_t min_val, int16_t max_val, int16_t vis,
                   const char *title)

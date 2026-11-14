@@ -407,6 +407,7 @@ int flair_platform_load(const char *name83, uint16_t dir_start,
 /* ===========================================================================
  * 4. THE PUMP (kmain flair_live_tenant_service, host form)
  * ===========================================================================*/
+static const bitmap_t *probe_surface;
 static void world_init(void)
 {
     tbx_host_t host;
@@ -435,6 +436,7 @@ static void world_init(void)
     host.wm = &W.wm;
     host.master = &W.master;
     host.puts = serial_cap;
+    host.surface = probe_surface;
     tbx_bind(&host);
 }
 
@@ -1100,6 +1102,59 @@ static void leg_gate(void)
           "leg(X6): the scripted tenant is affirmed like any other once it returns");
 }
 
+/* SDK Sec 7 content-local rectangles. Literal captured document insets give
+ * content [346,579) x [122,299). The reader subtracts that origin in a wide
+ * domain, never repeats the gate's narrowing/addition. */
+static uint32_t fill_pixels[FLAIR_SCREEN_W*FLAIR_SCREEN_H];
+static void script_fill_geometry(void)
+{
+    uint32_t reg[]={g_base+IMG_REC};
+    uint32_t win[]={T_L,T_T,T_R,T_B,1};
+    uint32_t second[]={20,20,200,220,1};
+    CHECK(gate(TBX_REGISTER,1,reg)==0 && gate(TBX_NEWWINDOW,5,win)==1,
+          "raster probe registers and creates a real gate window");
+    CHECK(gate(TBX_NEWWINDOW,5,second)==2,"second raster window has its own token");
+    const int box[2][4]={{346,122,579,299},{26,42,179,199}};
+    const struct { int32_t l,t,r,b,rc; } cases[]={
+        {-65536,-65536,-65526,-65526,0},
+        {65536,65536,65546,65546,0},
+        {-1,-1,10,10,0},
+        {INT32_MIN,INT32_MIN,INT32_MAX,INT32_MAX,0},
+        {INT32_MIN,0,0,10,0},
+        {231,175,INT32_MAX,INT32_MAX,0},
+        {INT32_MAX-10,0,INT32_MAX,10,0},
+        {10,10,0,0,TBX_ERR_BADARG}
+    };
+    for(unsigned token=1;token<=2;token++) for(unsigned c=0;c<sizeof cases/sizeof cases[0];c++) {
+        for(unsigned i=0;i<sizeof fill_pixels/sizeof fill_pixels[0];i++) fill_pixels[i]=0xB2D3E5F7u;
+        uint32_t a[]={token,(uint32_t)cases[c].l,(uint32_t)cases[c].t,
+                      (uint32_t)cases[c].r,(uint32_t)cases[c].b,TBX_COLOR_BLACK};
+        CHECK(gate(TBX_FILLRECT,6,a)==cases[c].rc,"wide rectangle result follows SDK validation");
+        unsigned bad=0,painted=0;
+        for(int y=0;y<FLAIR_SCREEN_H;y++) for(int x=0;x<FLAIR_SCREEN_W;x++) {
+            int64_t lx=(int64_t)x-box[token-1][0],ly=(int64_t)y-box[token-1][1];
+            int want=cases[c].rc==0 && x>=box[token-1][0] && x<box[token-1][2] &&
+                     y>=box[token-1][1] && y<box[token-1][3] &&
+                     lx>=cases[c].l && lx<cases[c].r && ly>=cases[c].t && ly<cases[c].b;
+            bad += (fill_pixels[y*FLAIR_SCREEN_W+x]!=0xB2D3E5F7u)!=want;
+            painted += want;
+        }
+        CHECK(!bad,"every changed pixel equals the independent wide-domain clipped set");
+        int drew=tbx_take_drew();
+        if(painted) CHECK(drew==1,"actual drawing requests presentation");
+        CHECK(tbx_take_drew()==0,"presentation request is consumed once");
+    }
+}
+static void leg_fill_geometry(void)
+{
+    static const bitmap_t bm={.base=(volatile uint8_t *)fill_pixels,
+        .pitch=FLAIR_SCREEN_W*4,.bpp=32,.bytes_per_pixel=4,
+        .width=FLAIR_SCREEN_W,.height=FLAIR_SCREEN_H};
+    probe_surface=&bm; world_init(); TP.script=script_fill_geometry;
+    CHECK(launch()==0,"raster tenant launches through the real dispatcher");
+    probe_surface=0;
+}
+
 int main(void)
 {
     FlairApp *t;
@@ -1120,5 +1175,6 @@ int main(void)
     leg_panic();
     leg_title();
     leg_gate();
+    leg_fill_geometry();
     return TEST_SUMMARY("test-flair-routing");
 }
