@@ -3024,6 +3024,28 @@ failed:
     return 0;
 }
 
+/* OEM DOS 3.30 compat33/NAMES: an explicit COPY destination leaf keeps
+ * the first eight name and three extension characters. Path validation and
+ * the raw INT21 namespace remain the filesystem's responsibility. */
+static void copy_short_leaf(char *path)
+{
+    char *leaf=path, *dot=0;
+    for (char *p=path; *p; ++p) if (*p=='\\' || *p==':') leaf=p+1;
+    if (!*leaf || *leaf=='.') return;
+    for (char *p=leaf; *p; ++p) if (*p=='.') {
+        if (dot) return; /* leave invalid multiple-dot names to INT21 */
+        dot=p;
+    }
+    char shortname[13]; unsigned n=0;
+    for (char *p=leaf; *p && *p!='.' && n<8; ++p) shortname[n++]=*p;
+    if (dot && dot[1]) {
+        shortname[n++]='.';
+        for (unsigned i=1; dot[i] && i<=3; ++i) shortname[n++]=dot[i];
+    }
+    shortname[n]=0;
+    for (unsigned i=0; i<=n; ++i) leaf[i]=shortname[i];
+}
+
 static void builtin_copy(const char *arg)
 {
     cmd_copy_t plan;
@@ -3040,6 +3062,7 @@ static void builtin_copy(const char *arg)
     } else if(omitted) { dest[0]='.';dest[1]=0; }
     else for(unsigned i=0;(dest[i]=plan.dest[i])!=0;i++){}
     int directory=int21_directory_exists(dest);
+    if (!omitted && !directory && !cmd_has_wildcard(dest)) copy_short_leaf(dest);
     int per_file=directory || cmd_has_wildcard(dest);
     int combined=plan.joined || (!per_file && cmd_has_wildcard(plan.names));
     unsigned done=0;

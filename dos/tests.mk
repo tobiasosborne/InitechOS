@@ -197,6 +197,10 @@ HOST_TESTS += test-command-batch-return
 test-command-batch-return_SRCS := tests/runner.c
 test-command-batch-return_ARGS := tests/run.sh test-command-batch-return
 test-command-batch-return_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-command-batch-return.sh
+HOST_TESTS += test-copy-name-compat33
+test-copy-name-compat33_SRCS := tests/runner.c
+test-copy-name-compat33_ARGS := tests/run.sh test-copy-name-compat33
+test-copy-name-compat33_DEPS := $(OUT)/host/tool_shell_files tests/gates/test-copy-name-compat33.sh
 include $(TOP)/mk/host-test.mk
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions
