@@ -28,8 +28,8 @@ int main(int argc, char **argv)
     uint8_t sector[512];
     psp_t psp;
     psp_params_t params={0};
-    CHECK(argc==4,"image mode fault");
-    if(argc!=4) return 2;
+    CHECK(argc>=4,"image mode fault [capture]");
+    if(argc<4) return 2;
     unsigned fault=(unsigned)strtoul(argv[3],0,10);
     if(blockdev_file_open_rw(&disk,argv[1]) || fat12_mount(&vol,&disk.dev,sector) ||
        fileio_fat_bind(&vol)) return 2;
@@ -71,9 +71,19 @@ int main(int argc, char **argv)
                   "same handle reads the acknowledged bytes");
         }
     } else if(!strcmp(argv[2],"rootfull")) {
+        unsigned char reference[8];
+        FILE *capture=argc==5 ? fopen(argv[4],"rb") : NULL;
+        if(!capture || fread(reference,1,sizeof reference,capture)!=sizeof reference)
+            return 2;
+        fclose(capture);
+        unsigned i=0;
         for(unsigned op=0x3c00;op<=0x5b00;op+=0x1f00) {
             int_frame_t f=call(op,0,0,(uintptr_t)low);
-            CHECK((f.eflags&1) && (f.eax&65535)==5,"DOS33 full-root capture: access denied, not handle exhaustion");
+            unsigned ax=reference[i]|reference[i+1]<<8;
+            unsigned flags=reference[i+2]|reference[i+3]<<8;
+            CHECK((f.eflags&1)==(flags&1) && (f.eax&65535)==ax,
+                  "full-root error matches real DOS33 CREAT/CREATE_NEW capture");
+            i+=4;
         }
     } else return 2;
     blockdev_file_close(&disk);

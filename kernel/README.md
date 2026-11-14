@@ -147,3 +147,28 @@ not-ready output (test-dos-not-ready), and character-output redirection
 (test-redir). Those patches are active. The remaining 32 pending patches still
 have no accepted kill. The hide-directory patch was refreshed after metadata
 helper insertion changed its context; its existing selection still survives.
+
+CREATE_NEW treats only an explicit FILE_NOT_FOUND as proof of absence;
+lookup/media errors refuse before the truncating backend (initech-06l23,
+IBM DOS 3.30 TR p.6-215). `test-create-new-error` checks that a one-shot
+existence-probe read fault preserves the original bytes and complete image.
+
+Positioned extension and MKDIR now have a complete metadata rollback boundary,
+covering late FAT-copy, payload and directory-publication errors. RMDIR shares
+the destructive-metadata rollback with CREAT/UNLINK. Failed writes acknowledge
+zero bytes. Newly allocated/free data sectors may have changed, but both FAT
+copies and allocation ownership are restored, and old named payloads survive.
+This does not make ordinary in-place payload writes transactional. The additional
+`test-allocation-conservation` sweep checks empty-file growth, append, MKDIR and
+RMDIR in root/subdirectories with before/after-persistence faults, an independent
+FAT reader, mtools readback and successful-operation controls (initech-lelwp,
+initech-rxh8o and the RMDIR follow-up to initech-rg6d5).
+
+WRITE refuses a failed final metadata refresh rather than acknowledging bytes
+with stale SFT state. An opened file's I/O failure reports general failure,
+not FILE_NOT_FOUND. General failure is the chosen primary error policy; exact
+INT24 Fail/AH=59h parity is not claimed without further captures. Full root
+refusal returns access denied, matching the retained genuine DOS 3.30 capture
+in tests/fixtures/rootfull33/ (initech-knlbk, initech-2x5l7, initech-xhtlm;
+IBM DOS 3.30 TR pp.6-42, 6-137..140). Tests exercise the real FAT backend through
+INT21, not a mock file backend.

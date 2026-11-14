@@ -169,7 +169,10 @@ static uint16_t fat_read_at(const dir_entry_t *e, uint32_t offset,
                                 buf, g_cluster, &got);
     if (rc != FAT12_OK) {
         *out_read = 0u;
-        return FILEIO_ERR_FILE_NOT_FOUND;   /* corrupt chain / read error */
+        /* The handle already names a file. I/O/chain failure is not absence.
+         * General failure is a deliberate primary-code policy; exact INT24
+         * Fail / AH=59h parity is not claimed (IBM DOS 3.30 TR p.6-42). */
+        return FILEIO_ERR_GENERAL_FAILURE;
     }
     *out_read = got;
     return 0u;
@@ -268,7 +271,7 @@ static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
     int rc = fat12_create(g_vol, g_fat, g_fat_len, name83, DIR_ATTR_ARCHIVE,
                           parent, g_sector, g_cluster, &de, &slot);
     if (rc == FAT12_ERR_DIR_FULL) {
-        return FILEIO_ERR_TOO_MANY_OPEN;   /* dir full (root cannot grow) */
+        return FILEIO_ERR_ACCESS_DENIED;   /* genuine DOS33 rootfull capture */
     }
     if (rc != FAT12_OK) {
         return FILEIO_ERR_ACCESS_DENIED;   /* bad name / write error */
@@ -318,6 +321,11 @@ static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
                                           g_sector, slot, &de);
         if (rc2 == FAT12_OK) {
             *out_entry = de;
+        } else {
+            /* Do not acknowledge bytes while leaving the same handle with
+             * stale size/start metadata (initech-knlbk, TR pp.6-137..140). */
+            *out_written = 0u;
+            return FILEIO_ERR_GENERAL_FAILURE;
         }
     }
     return 0u;
