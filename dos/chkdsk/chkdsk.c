@@ -290,6 +290,12 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     s.clusters=(s.total-s.data)/s.spc;
     if(!s.clusters||s.clusters>=65525)goto failed;
     s.bits=s.clusters<4085?12:16;s.eoc=s.bits==12?0xff8:0xfff8;s.bad=s.bits==12?0xff7:0xfff7;s.reserved=s.bits==12?0xff0:0xfff0;
+    /* GM2: even a clean FAT16 /F is refused, before any repair traversal. */
+    if(s.fix && s.bits==16) {
+        const char *p=MSG_DOS_0008;
+        while(*p){char b[2]={*p++,0};if(b[0]=='%'&&*p=='c'){p++;b[0]=(char)('A'+io->drive);}put(b);}
+        nl();return -1;
+    }
     if((s.clusters+2)*(s.bits==12?3u:4u)>s.spf*1024)goto failed;
     s.path[0]=(char)('A'+io->drive);s.path[1]=':';s.path[2]='\\';s.path[3]=0;
     directory(0,0);s.pass=1;zero(s.visited,MAP);directory(0,0);

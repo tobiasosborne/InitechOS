@@ -133,3 +133,14 @@ their blank line and BEL. CHKDSK reports the invalid switch and continues its
 report; empty hidden categories are omitted as in the genuine label captures.
 ATTRIB sends its captured blank line and Syntax error to CON. Utility exit
 codes beyond the existing adapter contracts still need separate AH=4Dh captures.
+
+GM2 (operator, 2026-11-14): FAT16 volumes are import media. FORMAT refuses
+both an existing FAT16 filesystem (including larger cluster sizes) and a
+proposed FAT16 layout. SYS, LABEL changes, CHKDSK /F, and DISKCOPY/DISKCOMP
+FAT16 targets are refused with catalogue MSG-DOS-0008 before writes. Plain
+CHKDSK remains a reader. FDISK preserves every mapped FAT16 partition entry,
+including its active flag, before writing the MBR. Blank media and FAT12
+maintenance retain their existing behavior. File-based utilities use INT 21h;
+the kernel refuses their FAT16 mutations with Access denied.
+`test-fat16-utilities` uses mtools-created images, writable adapters, write-call
+counters and whole-image identity; existing fsck/mtools FAT12 controls remain.

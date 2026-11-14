@@ -14,6 +14,7 @@
 #include "dosutil.h"
 #include "dos_messages.h" /* DEC-13/App C; MS-DOS 3.3 pp.308,340. */
 #include "dospath.h"      /* q45q: drive-qualified operands (DEC-18). */
+#include "fat_policy.h"
 #define PATH_CAP 80
 static unsigned slen(const char *s) { unsigned n=0; while (s[n]) n++; return n; }
 static char upper(char c) { return c>='a' && c<='z' ? c-'a'+'A' : c; }
@@ -163,6 +164,7 @@ static int label_read(label_disk *d)
     d->root=word(d->boot+14)+d->boot[16]*word(d->boot+22);
     d->entries=word(d->boot+17);
     unsigned total=word(d->boot+19);
+    if(!total)total=word(d->boot+32)|((uint32_t)word(d->boot+34)<<16);
     /* DEC-15 is the DOS3.3 16-bit absolute-sector interface. No FAT32 or
      * DOS4 packet form, and no writes on malformed geometry. */
     if (word(d->boot+11)!=512 || !d->entries || !word(d->boot+14) ||
@@ -225,6 +227,11 @@ static int label_write(label_disk *d,const char *name)
 }
 static int label_commit(label_disk *disk,const char *name)
 {
+    if(dos_fat16(disk->boot)) {
+        const char *p=MSG_DOS_0008;
+        while(*p){char b[2]={*p++,0};if(b[0]=='%'&&*p=='c'){p++;b[0]=(char)('A'+disk->drive);}du_puts(b);}
+        return error("");
+    }
     int rc=label_write(disk,name);
     if (!rc) return 0;
     if (rc==-2) return error(MSG_DOS_0040);

@@ -1,0 +1,13 @@
+# GM2 label refusal bypass
+# test: test-fat16-utilities
+--- a/common/dosutil.c
++++ b/common/dosutil.c
+@@ -227,7 +227,7 @@
+ }
+ static int label_commit(label_disk *disk,const char *name)
+ {
+-    if(dos_fat16(disk->boot)) {
++    if(0&&dos_fat16(disk->boot)) {
+         const char *p=MSG_DOS_0008;
+         while(*p){char b[2]={*p++,0};if(b[0]=='%'&&*p=='c'){p++;b[0]=(char)('A'+disk->drive);}du_puts(b);}
+         return error("");

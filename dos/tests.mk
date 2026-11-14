@@ -209,7 +209,6 @@ HOST_TESTS += test-utility-errors-compat33
 test-utility-errors-compat33_SRCS := tests/runner.c
 test-utility-errors-compat33_ARGS := tests/run.sh test-utility-errors-compat33
 test-utility-errors-compat33_DEPS := $(OUT)/host/tool_chkdsk_host $(OUT)/host/tool_formatsys_host $(OUT)/host/tool_dosutil_host tests/gates/test-utility-errors-compat33.sh
-include $(TOP)/mk/host-test.mk
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions
 mutants: mutants-host mutants-sessions
@@ -220,3 +219,11 @@ mutants-sessions:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/controls.sh "$(TOP)" "$(OUT)/runtime-controls"
 	+sh tests/runtime/mutants.sh "$(TOP)" $(SESSION_MUTANT_PATCHES)
+
+HOST_TESTS += test-fat16-utilities
+test-fat16-utilities_SRCS := tests/runner.c
+test-fat16-utilities_COUNT_PATTERN := ^INITECH_CHECKS ([0-9]+) failures=[0-9]+$$
+test-fat16-utilities_ARGS := tests/run.sh test-fat16-utilities
+test-fat16-utilities_DEPS := $(OUT)/host/tool_fat16_host $(OUT)/host/tool_formatsys_host tests/gates/test-fat16-utilities.sh
+
+include $(TOP)/mk/host-test.mk

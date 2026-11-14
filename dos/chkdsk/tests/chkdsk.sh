@@ -83,6 +83,7 @@ for format in $formats; do
   tr -d '\r' < "$log" | grep -q " *$free bytes available on disk" || { echo 'RED CHKDSK-REPORT-FREE'; exit 1; }
   echo "GREEN CHKDSK FAT$format $scenario: fsck.fat verdict, report, read-only bytes, mdir free space"
  done
+ [ "$format" != 16 ] || continue  # GM2: FAT16 repairs are refused by the policy gate.
  # /F truncates invalid chains/starts, but preserves cross-links for manual
  # recovery (IBM A-46). Same corruption, same candidate, same fsck reference.
  for scenario in invalid badstart cross; do

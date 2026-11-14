@@ -4,6 +4,7 @@
  * DEC-17 PM ruling adds type06 and the loaded-volume refusal. Factory tests
  * compare this SAME core with mpartition/sfdisk on identical images. */
 #include "fdisk.h"
+#include "dos_messages.h"
 #define CYL_SECTORS 1008u /* DEC-17 fixed 16*63, not the mounted BPB */
 static uint32_t r32(const uint8_t *p)
 { return p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24); }
@@ -85,6 +86,7 @@ int fdisk_delete(uint8_t m[512],int confirmed)
 }
 static const fdisk_io *io;
 static uint8_t mbr[512];
+static uint8_t original[512];
 static unsigned drive;
 static uint32_t sectors;
 static void put(const char *s){io->put(s);}
@@ -148,7 +150,20 @@ static int choice(unsigned def)
 static int yes(int def)
 { char b[9];int n=line(b);return n<0?-1:!n?def:b[0]=='y'||b[0]=='Y'; }
 static void waitesc(void){while(io->get()!=27){} }
-static int save(void){return io->write(drive,mbr);}
+static int save(void){
+    /* GM2: a mounted FAT16 extent cannot be removed, reassigned, or have
+     * its partition metadata altered. Preserve the complete MBR on refusal. */
+    for(unsigned i=0;i<4;i++) {
+        char l=io->protected_letter?io->protected_letter(drive,i+1):0;
+        if(!l)continue;
+        for(unsigned j=0;j<16;j++)if(entry(mbr,i)[j]!=entry(original,i)[j]) {
+            const char *p=MSG_DOS_0008;
+            while(*p){char b[2]={*p++,0};if(b[0]=='%'&&*p=='c'){p++;b[0]=l;}put(b);}
+            put("\r\n");return -1;
+        }
+    }
+    return io->write(drive,mbr);
+}
 int fdisk_run(const fdisk_io *ops)
 {
     io=ops;drive=0x80;int changed=0;
@@ -158,6 +173,7 @@ int fdisk_run(const fdisk_io *ops)
         if(drive==io->loaded_drive)return 1;
         sectors=io->capacity(drive);
         if(!sectors || io->read(drive,mbr))return 1;
+        for(unsigned i=0;i<512;i++)original[i]=mbr[i];
         heading("Disk Options");
         put("Choose one of the following:\r\n\r\n"
             "    1. Create DOS Partition\r\n"

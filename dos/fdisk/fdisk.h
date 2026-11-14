@@ -14,6 +14,8 @@ typedef struct {
     /* DEC-18 letter of (BIOS drive, primary 1..4), or 0 when no DOS letter
      * maps it: the kernel's one resolver (spec/drive_letters.json). */
     char (*letter)(unsigned drive,unsigned partition);
+    /* Mounted FAT16 entry: its DOS letter, or zero if unprotected. */
+    char (*protected_letter)(unsigned drive,unsigned partition);
 } fdisk_io;
 int fdisk_create(uint8_t mbr[512],uint32_t sectors,unsigned cylinders,int active);
 int fdisk_active(uint8_t mbr[512],unsigned partition);

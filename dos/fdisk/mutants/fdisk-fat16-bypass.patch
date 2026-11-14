@@ -1,0 +1,13 @@
+# GM2 fdisk refusal bypass
+# test: test-fat16-utilities
+--- a/fdisk/fdisk.c
++++ b/fdisk/fdisk.c
+@@ -154,7 +154,7 @@
+     /* GM2: a mounted FAT16 extent cannot be removed, reassigned, or have
+      * its partition metadata altered. Preserve the complete MBR on refusal. */
+     for(unsigned i=0;i<4;i++) {
+-        char l=io->protected_letter?io->protected_letter(drive,i+1):0;
++        char l=0;
+         if(!l)continue;
+         for(unsigned j=0;j<16;j++)if(entry(mbr,i)[j]!=entry(original,i)[j]) {
+             const char *p=MSG_DOS_0008;

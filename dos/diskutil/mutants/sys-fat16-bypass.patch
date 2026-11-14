@@ -1,0 +1,13 @@
+# GM2 sys refusal bypass
+# test: test-fat16-utilities
+--- a/diskutil/diskutil.c
++++ b/diskutil/diskutil.c
+@@ -215,7 +215,7 @@
+  }
+ }
+ static int sys_run(const du_map *m,unsigned letter){volume src,dst;uint8_t files[3][32];unsigned used;
+- if(fat16_target(m))return protected(letter);
++ if(0&&fat16_target(m))return protected(letter);
+  if(source(&src,files,2)||mount(&dst,m))return error("No room for system on destination disk",1);
+  /* Preserve destination BPB, use the existing InitechDOS VBR code. */
+  cp(dst.boot,src.boot,11);cp(dst.boot+62,src.boot+62,450);

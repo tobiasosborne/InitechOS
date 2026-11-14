@@ -1,0 +1,13 @@
+# GM2 chkdsk refusal bypass
+# test: test-fat16-utilities
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -291,7 +291,7 @@
+     if(!s.clusters||s.clusters>=65525)goto failed;
+     s.bits=s.clusters<4085?12:16;s.eoc=s.bits==12?0xff8:0xfff8;s.bad=s.bits==12?0xff7:0xfff7;s.reserved=s.bits==12?0xff0:0xfff0;
+     /* GM2: even a clean FAT16 /F is refused, before any repair traversal. */
+-    if(s.fix && s.bits==16) {
++    if(0 && s.fix && s.bits==16) {
+         const char *p=MSG_DOS_0008;
+         while(*p){char b[2]={*p++,0};if(b[0]=='%'&&*p=='c'){p++;b[0]=(char)('A'+io->drive);}put(b);}
+         nl();return -1;

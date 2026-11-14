@@ -5,6 +5,7 @@
  * FAT metadata is streamed, so FAT16 never requires a whole FAT in memory. */
 #include "diskutil.h"
 #include "dos_messages.h"   /* DEC-13: the controlled catalogue, MSG_DOS_0004 */
+#include "fat_policy.h"
 static const du_io *io;
 static uint8_t copybuf[32768];
 static unsigned u16(const uint8_t *p){return p[0]|((unsigned)p[1]<<8);}
@@ -20,10 +21,16 @@ static void num(uint32_t v){char b[11];unsigned n=0;do{b[n++]=(char)('0'+v%10);v
 static void line(const char *p){put(p);put("\r\n");}
 static void drive_text(const char *prefix,unsigned d,const char *suffix){char c[2]={(char)('A'+d),0};put(prefix);put(c);put(suffix);}
 static int error(const char *s,int rc){line(s);return rc;}
+static int protected(unsigned letter){
+ const char *p=MSG_DOS_0008;char c[2]={(char)('A'+letter),0};
+ while(*p){if(p[0]=='%'&&p[1]=='c'){put(c);p+=2;}else{char b[2]={*p++,0};put(b);}}
+ put("\r\n");return 4;
+}
 static int input(char *p,unsigned cap){unsigned n=0;zero(p,cap+1);for(;;){int c=io->get();if(c==3)return -1;if(c==13||c==10){p[n]=0;put("\r\n");return (int)n;}if(c==8){if(n){n--;put("\b \b");}}else if(c>=32&&c<127&&n<cap){p[n++]=upper((char)c);char b[2]={(char)c,0};put(b);}}}
 static int yes(void){int c;do{c=upper((char)io->get());if(c==3)return 0;}while(c!='Y'&&c!='N');char b[2]={(char)c,0};line(b);return c=='Y';}
 typedef struct {du_map m;uint8_t boot[512];unsigned spf,root,roots,data,bits,clusters;} volume;
 static int sec(const du_map *m,uint32_t n,void *p,int write){if(n>=m->sectors)return -1;return io->sector(m->disk,m->base+n,p,write);}
+static int fat16_target(const du_map *m){uint8_t b[512];return !sec(m,0,b,0)&&dos_fat16(b);}
 static int parse(volume *v){
  uint8_t *b=v->boot;unsigned total=u16(b+19);if(!total)total=u32(b+32);
  if(u16(b+11)!=512 || b[13]!=1 || u16(b+14)!=1 || b[16]!=2 || !u16(b+22) || !u16(b+17) || total>v->m.sectors || b[510]!=0x55 || b[511]!=0xaa)return -1;
@@ -151,6 +158,7 @@ static int layout(volume *v,const options *o,const uint8_t template[512]){
 static void label_name(const volume *v,char out[12]){uint8_t e[32];zero(out,12);for(unsigned n=0;n<v->roots*16;n++){if(entry(v,n,e,0)||!e[0])return;if(e[0]!=0xe5&&e[11]==8){cp(out,e,11);unsigned i=11;while(i&&out[i-1]==' ')out[--i]=0;out[i]=0;return;}}}
 static int format_run(const options *o,const du_map *m){
  unsigned letter=o->letter[0];
+ if(fat16_target(m))return protected(letter);
  if(m->flags&DU_RUNNING){drive_text("Format not supported on drive ",letter,":\r\n");return 4;}
  volume src,dst;uint8_t files[3][32],template[512];du_map cm;
  if(o->s||o->b){
@@ -165,6 +173,7 @@ static int format_run(const options *o,const du_map *m){
  }else if(io->map(2,&cm)||sec(&cm,0,template,0))return error("Format failure",4);
  dst.m=*m;int rc=layout(&dst,o,template);
  if(rc)return error(rc==-2?"Format requires more than one sector per cluster":"Format failure",4);
+ if(dst.bits==16)return protected(letter);
  if(o->s||o->b){unsigned count=o->s?3:2,need=0;for(unsigned i=0;i<count;i++){if(chain(&src,files[i],0))return error("Format failure",4);need+=(u32(files[i]+28)+511)/512;}if(need>dst.clusters)return error("No room for system on destination disk",4);
   if(src.m.disk==m->disk&&src.m.base==m->base){unsigned start=2;if(src.data!=dst.data)return error("Insufficient memory for system transfer",4);for(unsigned i=0;i<3;i++){if(chain(&src,files[i],1)||u16(files[i]+26)!=start)return error("Insufficient memory for system transfer",4);start+=(u32(files[i]+28)+511)/512;}}
  }
@@ -175,7 +184,8 @@ static int format_run(const options *o,const du_map *m){
    if(!mount(&old,m)){char label[12];label_name(&old,label);drive_text("Enter current Volume Label for drive ",letter,": ");if(input(answer,11)<0)return 3;if(!eq(label,answer,12))return error("Invalid Volume ID Format failure",4);}
    line("WARNING, ALL DATA ON NON-REMOVABLE DISK");drive_text("DRIVE ",letter,": WILL BE LOST!\r\nProceed with Format (Y/N)?");if(input(answer,11)<0)return 3;if(answer[0]!='Y')return 5;
   }
-  line("Formatting...");
+   if(fat16_target(m))return protected(letter);
+   line("Formatting...");
   cp(dst.boot+43,"NO NAME    ",11); /* UG p75: ENTER means no label. */
   uint8_t b[512];zero(b,512);
   /* Clear FATs/root only. Data sectors carry no invented new file content. */
@@ -204,7 +214,8 @@ static int format_run(const options *o,const du_map *m){
   put("Format another (Y/N)?");if(!yes())return 0;
  }
 }
-static int sys_run(const du_map *m){volume src,dst;uint8_t files[3][32];unsigned used;
+static int sys_run(const du_map *m,unsigned letter){volume src,dst;uint8_t files[3][32];unsigned used;
+ if(fat16_target(m))return protected(letter);
  if(source(&src,files,2)||mount(&dst,m))return error("No room for system on destination disk",1);
  /* Preserve destination BPB, use the existing InitechDOS VBR code. */
  cp(dst.boot,src.boot,11);cp(dst.boot+62,src.boot+62,450);
@@ -217,7 +228,9 @@ static void swap_prompt(int compare,int target,unsigned letter){
  (void)io->get();
 }
 static int copy_run(const options *o,int compare){
- du_map m[2];for(unsigned i=0;i<2;i++){if(io->map(o->letter[i],m+i))return error(MSG_DOS_0004,4);if(!(m[i].flags&DU_REMOVABLE))return error("Specified drive does not exist,\r\nor is non-removable",4);}
+ du_map m[2];for(unsigned i=0;i<2;i++){if(io->map(o->letter[i],m+i))return error(MSG_DOS_0004,4);}
+ if(!(m[1].flags&DU_REMOVABLE)&&fat16_target(m+1))return protected(o->letter[1]);
+ for(unsigned i=0;i<2;i++)if(!(m[i].flags&DU_REMOVABLE))return error("Specified drive does not exist,\r\nor is non-removable",4);
  int result=0;
  do{
   swap_prompt(compare,0,o->letter[0]);uint8_t b[512];if(sec(m,0,b,0))return error("FIRST diskette bad or incompatible",3);
@@ -228,6 +241,7 @@ static int copy_run(const options *o,int compare){
    if(first)swap_prompt(compare,0,o->letter[0]);
    for(unsigned j=0;j<n;j++)if(sec(m,first+j,copybuf+j*512,0))return error("FIRST diskette bad or incompatible",3);
    swap_prompt(compare,1,o->letter[1]);
+   if(fat16_target(m+1))return protected(o->letter[1]);
    for(unsigned j=0;j<n;j++){
     unsigned l=first+j,side=(l/spt)%heads,track=l/(spt*heads);
     if((o->one&&side)||(o->eight&&l%spt>=8))continue;
@@ -248,5 +262,5 @@ int diskutil_run(const du_io *ops,unsigned kind,const char *tail){io=ops;options
  }
  if(kind>=2)return copy_run(&o,kind==3);
  du_map m;if(io->map(o.letter[0],&m))return error(MSG_DOS_0004,4);
- return kind?sys_run(&m):format_run(&o,&m);
+ return kind?sys_run(&m,o.letter[0]):format_run(&o,&m);
 }

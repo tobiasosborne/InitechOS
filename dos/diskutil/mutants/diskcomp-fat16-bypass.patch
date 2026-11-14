@@ -1,0 +1,13 @@
+# GM2 diskcomp refusal bypass
+# test: test-fat16-utilities
+--- a/diskutil/diskutil.c
++++ b/diskutil/diskutil.c
+@@ -241,7 +241,7 @@
+    if(first)swap_prompt(compare,0,o->letter[0]);
+    for(unsigned j=0;j<n;j++)if(sec(m,first+j,copybuf+j*512,0))return error("FIRST diskette bad or incompatible",3);
+    swap_prompt(compare,1,o->letter[1]);
+-   if(fat16_target(m+1))return protected(o->letter[1]);
++   if(!compare&&fat16_target(m+1))return protected(o->letter[1]);
+    for(unsigned j=0;j<n;j++){
+     unsigned l=first+j,side=(l/spt)%heads,track=l/(spt*heads);
+     if((o->one&&side)||(o->eight&&l%spt>=8))continue;

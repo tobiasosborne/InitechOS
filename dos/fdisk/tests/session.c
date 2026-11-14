@@ -18,7 +18,7 @@ static void put(const char *s){size_t n=strlen(s);if(used+n>=sizeof text)return;
 static char letter(unsigned d,unsigned p){(void)d;return p==1?'D':'E';}
 int main(void)
 {
-    fdisk_io io={read_disk,write_disk,cap,get,put,0x80,0,letter};
+    fdisk_io io={read_disk,write_disk,cap,get,put,0x80,0,letter,0};
     if(fdisk_run(&io)!=1 || reads || writes){fputs("RED FDISK: loaded volume was accessed\n",stderr);return 1;}
     io.loaded_drive=0x81;at=used=0;
     if(fdisk_run(&io) || writes || !strstr(text,"D:") || !strstr(text,"E:")) {

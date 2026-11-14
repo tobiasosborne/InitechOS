@@ -5,6 +5,7 @@
 #include "fdisk.h"
 #include "diskutil.h"      /* du_map: DEC-17 AH60h map record */
 #include "drive_letters.h" /* spec/drive_letters.json (DEC-18) */
+#include "fat_policy.h"
 #include "power.h" /* existing period AT 8042 reset mechanism */
 static int sector(unsigned drive,uint8_t *p,int write)
 {
@@ -31,6 +32,21 @@ static char letter(unsigned drive,unsigned partition)
     }
     return 0;
 }
+static char protected_letter(unsigned drive,unsigned partition)
+{
+    for(unsigned l=0;l<4;l++) {
+        du_map m;uint32_t a=(DL_function<<8)|l,b=(uint32_t)&m;unsigned char cf;
+        __asm__ volatile("int $0x13":"=@ccc"(cf),"+a"(a),"+b"(b)::"memory","cc");
+        if(cf || m.disk!=drive || m.partition!=partition)continue;
+        uint8_t boot[512];unsigned cyl=m.base/(63*16),head=(m.base/63)%16;
+        a=0x0201;b=(uint32_t)boot;
+        unsigned c=((cyl&255)<<8)|((cyl>>2)&192)|(m.base%63+1),d=(head<<8)|drive;
+        __asm__ volatile("int $0x13":"=@ccc"(cf),"+a"(a),"+b"(b),"+c"(c),"+d"(d)::"memory","cc");
+        /* An unreadable mounted extent is never safe to reassign. */
+        if(cf || dos_fat16(boot))return (char)('A'+l);
+    }
+    return 0;
+}
 static int get(void)
 {
     unsigned a=0x0700;
@@ -45,7 +61,7 @@ static void put(const char *p)
 int fdisk_entry(void)
 {
     extern void fdisk_restart(void);
-    const fdisk_io io={read_disk,write_disk,capacity,get,put,0x81,fdisk_restart,letter};
+    const fdisk_io io={read_disk,write_disk,capacity,get,put,0x81,fdisk_restart,letter,protected_letter};
     return fdisk_run(&io);
 }
 void fdisk_restart(void)

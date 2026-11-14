@@ -292,5 +292,8 @@ tool_test_dir_disk_CFLAGS :=  -O0
 EXTRA_HOST_TESTS += tool_dosmsg_scan
 tool_dosmsg_scan_SRCS := $(TOP)/kernel/tests/dosmsg_scan.c
 
+EXTRA_HOST_TESTS += tool_fat16_host
+tool_fat16_host_SRCS := tests/fat16_host.c common/dosutil.c chkdsk/chkdsk.c fdisk/fdisk.c $(TOP)/kernel/mcb.c
+
 # Generated catalogue must exist before any parallel host compilation.
 $(foreach t,$(EXTRA_HOST_TESTS),$(eval $(t)_DEPS += $(TOP)/build/kernel/dos_messages.h))

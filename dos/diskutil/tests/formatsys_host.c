@@ -7,10 +7,11 @@
 #include "block_device.h"
 static FILE *disks[2];
 static const char *input,*source,*target,*retry;
-static unsigned swaps;
+static unsigned swaps,writes;
 static int sector(unsigned d,uint32_t l,void *p,int write) {
  if(d<128||d>129)return -1;
  FILE *f=disks[d-128];if(fseek(f,(long)l*512,SEEK_SET))return -1;
+ if(write)writes++;
  size_t n=write?fwrite(p,512,1,f):fread(p,512,1,f);fflush(f);return n==1?0:-1;
 }
 static int rd(void *c,uint32_t l,uint32_t n,void *p) {
@@ -54,7 +55,7 @@ int main(int argc,char **argv){
  input=argv[5];retry=getenv("DU_RETRY_SOURCE");if(argc==9){source=argv[7];target=argv[8];}
  const du_io io={map,sector,get,put};int rc=diskutil_run(&io,(unsigned)atoi(argv[3]),argv[4]);
  fclose(disks[0]);fclose(disks[1]);
- fprintf(stderr,"diskutil exit=%d swaps=%u\n",rc,swaps);
+ fprintf(stderr,"diskutil exit=%d swaps=%u writes=%u\n",rc,swaps,writes);
  if(getenv("DISKUTIL_REPORT_ONLY"))return 0;
  return rc==atoi(argv[6])?0:1;
 }

@@ -73,35 +73,6 @@ printf X | dd of="$w/target.img" bs=1 seek=$((2879*512+38)) conv=notrunc status=
 "$exe" "$w/master.img" "$w/a.img" 3 'A: A:' N 1 "$w/source.img" "$w/target.img" > "$w/compare.console" 2> "$w/compare.exit" || red 'DISKCOMP missing differing sector'
 grep -q 'side 1, track 79' "$w/compare.console" || red 'DISKCOMP missing differing sector'
 echo 'GREEN test-formatsys: mformat BPB/FAT, /S bytes/HSR/order/label, SYS exclusions/occupied, invalid/running, single-drive copy/compare all sectors; fsck.fat'
-# FAT16 is selected by actual cluster count at SPC=1, independently mformatted.
-prep
-truncate -s $((40000*512)) "$w/master.img"
-printf 'label: dos\nunit: sectors\nstart=63,size=2880,type=1,bootable\nstart=4032,size=32768,type=6\n' | sfdisk --no-reread --no-tell-kernel "$w/master.img" > "$w/sfdisk.log" 2>&1
-run 0 'D:' 'y
-' 0
-dd if="$w/master.img" of="$w/ours.img" bs=512 skip=4032 count=32768 status=none
-dd if=/dev/zero of="$w/ref16.img" bs=512 count=32768 status=none
-mformat -i "$w/ref16.img" -T 32768 -h 16 -s 63 -c 1 -r 32 -H 4032 -N 0x4b4f4433 ::
-"$b/formatsys_check" "$w/ours.img" "$w/ref16.img" empty "$boot" || red FAT16
-clean
-# A size outside DOS 3.3/SPC1 must fail before changing even one disk byte.
-run 0 'D: /S' '
-y
-' 0
-dd if="$w/master.img" of="$w/ours.img" bs=512 skip=4032 count=32768 status=none
-"$b/formatsys_check" "$w/ours.img" "$w/ref16.img" system "$boot" || red 'FAT16 /S'
-for f in IO.SYS INITDOS.SYS COMMAND.COM; do
- mcopy -i "$w/master.img@@32256" "::$f" - > "$w/ref-$f"
- mcopy -i "$w/ours.img" "::$f" - > "$w/ours-$f"
- cmp "$w/ref-$f" "$w/ours-$f" || red 'FAT16 /S bytes'
-done
-clean
-truncate -s $((75000*512)) "$w/master.img"
-printf 'label: dos\nunit: sectors\nstart=63,size=2880,type=1,bootable\nstart=4032,size=70000,type=6\n' | sfdisk --no-reread --no-tell-kernel "$w/master.img" > "$w/sfdisk.log" 2>&1
-cp -f "$w/master.img" "$w/before.img"; run 0 'D:' '' 4
-cmp "$w/before.img" "$w/master.img" || red 'SPC1 size refusal writes'
-grep -qFx 'Format requires more than one sector per cluster' "$w/console" || red 'SPC1 size message'
-echo 'GREEN test-formatsys: FAT16 SPC1 == mformat and fsck.fat; larger-size refusal is byte-identical'
 # Removable geometries and DOS switch spellings, with current=C in this host
 # fixture. Actual shipped current=A still refuses its own volume above.
 for desc in '2880||1440' '720|/4|360' '640|/4 /8|320' '320|/1 /8 /T:40 /N:8|160' '1440|/T:80 /N:9|720'; do
