@@ -68,11 +68,11 @@ static const char *names[]={
 "memo-2300","memo-bad-pointer","stale-key","stale-append","stale-recno","short-ndx",
 "fields128","fields129","record4000","record4001","char254","date10",
 "century-date","line254","line255","if24","do-depth","lines513","bytes8192","continued255",
-"zap-index"};
+"zap-index","replace-partial"};
 int main(int argc,char **argv){
     unsigned c,i,w[129];char types[130],dir[32],cmd[2048];FILE *p;
     if(argc!=2 || chdir(argv[1]))die("output directory");
-    for(c=1;c<=37;c++) {
+    for(c=1;c<=38;c++) {
         snprintf(dir,sizeof dir,"C%02u",c);if(mkdir(dir,0755)||chdir(dir))die(dir);
         base();strcpy(cmd,"USE BASE\r\nLIST OFF\r\nGO BOTTOM\r\n? 'BOTTOM',RECNO(),KEY,VALUE\r\nREPLACE VALUE WITH 9\r\n");
         if(c==2)tablesz--;
@@ -113,9 +113,10 @@ int main(int argc,char **argv){
             else if(c==27)strcpy(cmd,"USE BASE\r\n? 'WIDTH',LEN(F001)\r\nLIST OFF F001\r\nGO BOTTOM\r\nREPLACE F001 WITH 'SAVED'\r\n");
             else strcpy(cmd,"USE BASE\r\nSET CENTURY ON\r\nLIST OFF F001\r\nGO BOTTOM\r\n? 'DATE',DTOC(F001),YEAR(F001)\r\nREPLACE F001 WITH CTOD('12/31/1992')\r\n");
         }
-        if(c==37){
+        if(c==37||c==38){
             put("BASE.DBF",table,tablesz);ndx(3,1024);
-            strcpy(cmd,"USE BASE INDEX OLD\r\n? 'BEFORE',RECCOUNT()\r\nZAP\r\n? 'ZAPPED',RECCOUNT(),EOF()\r\nAPPEND BLANK\r\nREPLACE KEY WITH 'ZZZZZZZZ', VALUE WITH 9\r\n? 'AFTER',RECCOUNT(),KEY,VALUE\r\nSEEK 'AAAAAAAA'\r\n? 'SEEKOLD',FOUND()\r\nSEEK 'ZZZZZZZZ'\r\n? 'SEEKNEW',FOUND(),RECNO(),KEY\r\n");
+            if(c==37)strcpy(cmd,"USE BASE INDEX OLD\r\n? 'BEFORE',RECCOUNT()\r\nZAP\r\n? 'ZAPPED',RECCOUNT(),EOF()\r\nAPPEND BLANK\r\nREPLACE KEY WITH 'ZZZZZZZZ', VALUE WITH 9\r\n? 'AFTER',RECCOUNT(),KEY,VALUE\r\nSEEK 'AAAAAAAA'\r\n? 'SEEKOLD',FOUND()\r\nSEEK 'ZZZZZZZZ'\r\n? 'SEEKNEW',FOUND(),RECNO(),KEY\r\n");
+            else strcpy(cmd,"USE BASE INDEX OLD\r\nGO 1\r\n? 'BEFORE',RECNO(),KEY,VALUE\r\nREPLACE KEY WITH 'XXXXXXXX', VALUE WITH 'X'\r\n? 'AFTERERR',RECNO(),KEY,VALUE\r\nGO 3\r\nREPLACE VALUE WITH 9\r\nGO 1\r\n? 'AFTERWRITE',RECNO(),KEY,VALUE\r\nSEEK 'AAAAAAAA'\r\n? 'SEEKOLD',FOUND(),RECNO(),KEY\r\nSEEK 'XXXXXXXX'\r\n? 'SEEKNEW',FOUND(),RECNO()\r\n");
         }
         if(c>=30&&c<=36){
             p=fopen("PROBE.PRG","wb");if(!p)die("PROBE.PRG");

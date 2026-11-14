@@ -531,33 +531,34 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
             fnlen++;
             p++;
         }
-        if (fnlen == 0u) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        if (fnlen == 0u) { if (ec) *ec = 0; rc = -INTERP_ERR_SYNTAX; goto reject; }
 
         /* --- "WITH" keyword --- */
         p = m_skip_ws(p);
         wpos = p;
         {
             int k = m_match_kw(wpos, "WITH");
-            if (k <= 0) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+            if (k <= 0) { if (ec) *ec = 0; rc = -INTERP_ERR_SYNTAX; goto reject; }
             p = m_skip_ws(wpos + k);
         }
 
         /* --- expression up to the next top-level comma --- */
         elen = rt_copy_expr(&p, exprbuf, M_MAX_EXPR);
-        if (elen <= 0) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+        if (elen <= 0) { if (ec) *ec = 0; rc = -INTERP_ERR_SYNTAX; goto reject; }
 
         /* resolve the field name. */
         field_idx = m_field_index(env, area, fstart, fnlen);
         if (field_idx < 0) {
             /* not a field of this table -> #9 mismatch (a bad target). */
             if (ec) *ec = XBEE_MISMATCH;
-            return -INTERP_ERR_EVAL;
+            rc = -INTERP_ERR_EVAL;
+            goto reject;
         }
 
         /* evaluate the WITH expression. */
         rc = xb_interp_eval(ip, exprbuf, &v, ec);
         if (rc != INTERP_OK)
-            return rc;
+            goto reject;
 
         /* write the field (assignment-coercion happens in dbf_replace). */
         rc = dbf_replace(tbl, recno, field_idx, &v);
@@ -565,7 +566,8 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
             if (rc == -DBF_ERR_MISMATCH) { if (ec) *ec = XBEE_MISMATCH; }
             else if (rc == -DBF_ERR_IO)  { if (ec) *ec = M_MSG_READONLY; }
             else { if (ec) *ec = 0; }
-            return -INTERP_ERR_EVAL;
+            rc = -INTERP_ERR_EVAL;
+            goto reject;
         }
 
         /* advance past the comma. */
@@ -595,6 +597,18 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
 
     if (ec) *ec = 0;
     return INTERP_OK;
+reject:
+    /* A failed pair rejects every earlier pair of THIS record: genuine III+
+     * capture tests/conformance C38 shows the first field unchanged on disk
+     * and in the index after a later #9, even after a later successful write.
+     * Reloading discards only unflushed arena edits; records already
+     * completed by a scoped REPLACE are on disk and reload as written. A
+     * memo pair already applied leaves its appended DBT block unreferenced;
+     * its pointer is discarded with the arena, so no record names it. */
+    (void)dbf_reload_records(tbl);
+    (void)wa_refresh(env,area,recno);
+    (void)wa_nav_reset(area);
+    return rc;
 }
 
 static int m_replace_impl(xb_interp *ip, const char *args, int *ec)

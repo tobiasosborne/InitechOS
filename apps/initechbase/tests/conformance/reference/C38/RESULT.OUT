@@ -1,0 +1,10 @@
+
+BEGIN C38 replace-partial
+BEFORE          1 AAAAAAAA      1
+ERR          9 Data type mismatch.
+AFTERERR          1 AAAAAAAA      1
+AFTERWRITE          1 AAAAAAAA      1
+SEEKOLD .T.          1 AAAAAAAA
+SEEKNEW .F.          4
+SAVE
+END C38

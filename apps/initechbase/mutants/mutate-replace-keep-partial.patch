@@ -1,0 +1,13 @@
+# test: conformance_host
+# A REPLACE failing on a later field keeps earlier fields in the record arena.
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -605,7 +605,7 @@
+      * completed by a scoped REPLACE are on disk and reload as written. A
+      * memo pair already applied leaves its appended DBT block unreferenced;
+      * its pointer is discarded with the arena, so no record names it. */
+-    (void)dbf_reload_records(tbl);
++    /* MUTANT: keep rejected arena edits for the next successful flush. */
+     (void)wa_refresh(env,area,recno);
+     (void)wa_nav_reset(area);
+     return rc;
