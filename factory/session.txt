@@ -7,11 +7,12 @@ cd check
 echo written-by-command > proof.txt
 type proof.txt
 copy proof.txt copy.txt
+copy proof.txt saved.txt
 ren copy.txt renamed.txt
-del renamed.txt
+del \deleteme.txt
 cd ..
 md empty
-rd empty
+rd removed
 echo @echo off > flow.bat
 echo if exist check\proof.txt goto good >> flow.bat
 echo echo batch-failed >> flow.bat
@@ -23,6 +24,6 @@ echo apple >> words.txt
 type words.txt | sort > sorted.txt
 type sorted.txt
 type words.txt | more > more.txt
-find "apple" < words.txt
+find "apple" < words.txt > found.txt
 chkdsk
 echo smoke-complete

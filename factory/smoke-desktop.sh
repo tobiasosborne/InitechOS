@@ -30,7 +30,9 @@ for emulator in qemu bochs; do
  trace=$(
   if [ "$emulator" = qemu ]; then await_marker 'FLAIR-CLOCK 9:00 am'; fi
   capture desktop
-  inject "$open_disk"; await_marker 'FINDER-OPEN-VOLUME'; capture disk
+  inject "$open_disk"; await_marker 'FINDER-OPEN-VOLUME'
+  # Park off the independently graded volume icon, then restore trace anchor.
+  inject m-100:0; capture disk; inject m100:0
   inject "$open_apps"; await_marker 'FINDER-OPEN-FOLDER name=APPS'; capture apps
   inject "m22:20" # common pointer anchor: first APPS icon
   for dir in $journeys; do
@@ -97,9 +99,10 @@ legacy=${LEGACY_TREE:-$HOME/Projects/InitechOS-legacy}
 cp "$legacy/build/flair_data.img" "$out/legacy-data.img"
 build/factory/qemu_harness --disk "$legacy/build/flair_tenants_interactive.img" \
  --disk2 "$out/legacy-data.img" --expect FLAIR-LIVE-READY --quit-after 'FLAIR-CLOCK 9:00 am' \
- --screendump --screendump-after 'FLAIR-CLOCK 9:00 am' --timeout-ms 15000 \
+ --screendump --screendump-after 'FLAIR-CLOCK 9:00 am' --timeout-ms "${LEGACY_SMOKE_TIMEOUT_MS:-${DESKTOP_SMOKE_TIMEOUT_MS:-15000}}" \
  --name legacy --out "$out" > "$out/legacy.stdout" 2> "$out/legacy.report" || fail 'legacy reference capture'
-build/factory/pixels-desktop "$out/legacy.ppm" "$out/desktop.ppm" > "$out/pixels.txt"
+sh factory/pixels-check.sh "$out" > "$out/pixels.txt" || { cat "$out/pixels.txt"; fail 'independent desktop pixels'; }
+build/factory/pixels-desktop --informational "$out/legacy.ppm" "$out/desktop.ppm" >> "$out/pixels.txt"
 cat "$out/pixels.txt"
 n=$((n+1))
 elapsed=$(($(date +%s)-start))

@@ -57,6 +57,7 @@ testlib-test:
 mutants:
 	+sh red-desktop.sh
 	+sh gate-mutants.sh
+	+sh smoke-mutants.sh
 
 .PHONY: gate-test
 $(OUT)/bochs-verdict-test: tests/bochs-verdict.c emu/bochs.c emu/bochs.h emu/bochs_trace.h emu/port_lock.h | $(OUT)
@@ -74,3 +75,10 @@ $(OUT)/port-lock-test: tests/port-lock.c emu/port_lock.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 $(OUT)/qemu-deadline-test: tests/qemu-deadline.c emu/qemu.c emu/qemu.h emu/port_lock.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+$(OUT)/desktop-reference: desktop-reference.c | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -lpng -o $@
+all: $(OUT)/desktop-reference
+.PHONY: pixels-test
+test: pixels-test
+pixels-test: $(OUT)/pixels-desktop
+	sh tests/pixels.sh

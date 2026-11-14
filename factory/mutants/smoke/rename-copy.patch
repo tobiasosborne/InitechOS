@@ -1,0 +1,16 @@
+--- a/dos/command/command.c
++++ b/dos/command/command.c
+@@ -3301,11 +3301,12 @@
+         if(dos_rename(old,newname)) {
+             dos_print(MSG_DOS_0062 "\r\n$");ordinal++;continue;
+         }
++        (void)copy_transfer(newname,old,0,0,0,0);
+         /* Re-enumerate until the current leaf. If the new spelling remains
+          * selected, it occupies this ordinal; otherwise the next moves here.
+          * The pure DOS matcher is the INT21 service, not a second shell glob. */
+         char current[13];
+-        if(copy_nth(pair.first,ordinal,current) && cmd_same_file(current,mapped))ordinal++;
++        if(copy_nth(pair.first,ordinal,current))ordinal++;
+     }
+     if(!found)dos_print(MSG_DOS_0062 "\r\n$");
+ }

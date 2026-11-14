@@ -1,8 +1,11 @@
 # Desktop journey acceptance
 
 Historical measurements below describe wave2/initechword before integration.
-Current mechanics are described in factory/README.md. Integration retains
-72 Word-owned patches; its shared short-write fault belongs to the SDK.
+Current mechanics are described in factory/README.md.
+Current whole-desktop enforcement and independent-reference limits are in
+factory/PIXEL-REFERENCES.md; historical four-region equality below is only
+a regression observation, not the current visual acceptance contract.
+Integration retains 72 Word-owned patches; its shared short-write fault belongs to the SDK.
 The shared Bochs loop now binds the RFB pump during frontend serial waits,
 and factory tier 0 checks that transport progress. The top-level desktop-apps
 prerequisite builds the full journey registry before assembling the image.

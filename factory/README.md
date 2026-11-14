@@ -144,3 +144,43 @@ the OS to release 5900 before launching. A nondefault RFB port is rejected
 because this backend cannot configure it. Normal QEMU smoke has no TCP
 listener: QMP uses an inherited socketpair and serial uses a private file.
 The optional QEMU GDB listener on 1234 has its own host lock and port check.
+Whole-desktop comparison is strict by default over every RGB pixel (or every
+pixel of an explicit binary reference mask). pixels-check.sh enforces 1578
+opaque icon pixels recovered from hash-pinned genuine Mac OS 8.1 captures on
+four composed QEMU screens, in smoke and therefore cert. The live legacy
+whole-screen comparison explicitly requests informational mode. It shares
+ancestral rendering code and is not independent fidelity evidence. Exact
+screen-by-screen coverage and the absent-reference reasons are recorded in
+PIXEL-REFERENCES.md. No current-renderer output is used to mint references.
+
+The DOS session retains both a copied file and a renamed file for mtools byte
+comparison, establishes the rename source is gone via a successful directory
+listing, and checks persisted MD separately from RD. DEL/RD operate on files
+and directories independently created and verified before the guest starts.
+An unsuccessful mtools listing is a failure, never proof of absence. FIND
+has a dedicated exact-output file so TYPE cannot supply its passing evidence.
+smoke-mutants.sh exercises four operation faults and a drawing-only icon
+fault on isolated product images, requiring two named semantic failures each.
+
+Shared-machine smoke limits can be overridden per invocation without changing
+defaults: DOS_SMOKE_TIMEOUT_MS (QEMU 150000, Bochs 45000),
+PROGRAM_SMOKE_TIMEOUT_MS (55000), DESKTOP_SMOKE_TIMEOUT_MS (90000), and
+IBASE_SMOKE_TIMEOUT_MS (90000). Red-control desktop capture has a 60000 ms
+budget. Gate tests remain host-only; product mutation controls are tier 2.
+PROGRAM_SMOKE_WAIT_MS and IBASE_SMOKE_WAIT_MS (both default 1000) set Bochs's
+inter-command wait for a busy host; they do not alter the oracle or test set.
+DESKTOP_WAIT_MS (default 10000) bounds Bochs's frontend marker waits. The driver
+rechecks its overall deadline after a frontend wait/capture, so increasing
+that invocation limit never permits late completion to pass the session.
+LEGACY_SMOKE_TIMEOUT_MS controls the diagnostic legacy boot (default 15000);
+when only DESKTOP_SMOKE_TIMEOUT_MS is supplied it applies to that boot too.
+
+QEMU's ready/ack/completion waits use the absolute wall deadline computed from
+its caller's timeout_ms. There is no separate 120-second ceiling. Existing
+idle budgets still detect a stalled guest; progress cannot renew the caller's
+wall deadline. Missing completion returns a failed QMP session with an explicit
+expiry diagnostic. No default was raised (QEMU_DEFAULT_TIMEOUT_MS remains 5000).
+The deterministic qemu-deadline-test drives the actual QMP session with a
+socketpair and a virtual clock: completion at 125s passes a requested 180s run,
+while 90s expiry (including a marker exactly at that deadline) fails. A patch
+restoring the old 120s cap is part of gate-mutants.sh.

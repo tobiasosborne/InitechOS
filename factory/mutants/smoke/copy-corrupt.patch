@@ -1,0 +1,10 @@
+--- a/dos/command/command.c
++++ b/dos/command/command.c
+@@ -2955,6 +2955,7 @@
+         if(ascii)for(uint32_t i=0;i<got;i++)if(chunk[i]==26){take=i;break;}
+         /* A short count is the full-disk answer (TR pp.6-139/6-140): say so
+          * with the [MS-DOS] message, Guide App. F p.337 (initech-66oc, L004). */
++        if(take)chunk[0]^=1u;
+         uint32_t put=dos_write_h(dst,chunk,take);
+         if(put==DOS_WRITE_ERROR)goto failed;
+         if(put!=take)goto full;

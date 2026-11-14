@@ -1,0 +1,12 @@
+--- a/flair/desktop/finder_icon.c
++++ b/flair/desktop/finder_icon.c
+@@ -110,8 +110,7 @@
+         if (n == 0 || k <= (int)DESK_IC_CLEAR || k >= (int)DESK_IC__COUNT) continue;
+         if (hilite) k = (int)DESK_IC_SELECTED[k];
+         tone_on[n] = 1u;
+-        tone_px[n] = flair_look_pixel_depth(dst->bpp,
+-                                            (int)FLAIR_PART_ICON_CLUT + k - 1);
++        tone_px[n] = 0;
+     }
+ 
+     for (r = 0; r < dim; r++) {

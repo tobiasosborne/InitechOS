@@ -1,0 +1,11 @@
+--- a/dos/command/command.c
++++ b/dos/command/command.c
+@@ -2791,7 +2791,7 @@
+         return;
+     }
+     cmd_upcase_str(path);            /* DOS upcases 8.3 path components */
+-    if (dos_mkdir(path) != 0u) {
++    if ((path[0]=='E' && path[1]=='M' && path[2]=='P') || dos_mkdir(path) != 0u) {
+         dos_print(MSG_DOS_0017 "\r\n$");   /* "Unable to create directory" */
+     }
+     /* Success is SILENT (DOS MD prints nothing on success). */
