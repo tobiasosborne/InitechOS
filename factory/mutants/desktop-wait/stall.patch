@@ -1,0 +1,10 @@
+--- a/flair/desktop/start.c
++++ b/flair/desktop/start.c
+@@ -114,6 +114,7 @@
+     pic_unmask_irq12();
+     flair_event_set_yield(flair_live_yield);
+     serial_puts("FLAIR-LIVE-READY\n");
++    for (;;) __asm__ volatile("cli; hlt");
+     {
+         enum { FLAIR_TEN_TICK_ANNOUNCE = 4 };
+         enum { FLAIR_TEN_WNE_SLICE = 3 };

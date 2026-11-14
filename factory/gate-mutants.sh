@@ -13,6 +13,7 @@ for patch_file in factory/mutants/gates/*.patch; do
  if ! patch --batch --fuzz=0 -p1 -d "$scratch" < "$patch_file" > "$work/$name.patch.log" 2>&1; then errors=$((errors+1)); continue; fi
  case $name in
  worksheet-*) command='sh factory/tests/worksheet.sh'; signature='FAIL worksheet:';;
+ desktop-no-progress|desktop-no-overall) command="mkdir -p build/factory; cc -std=c11 -O1 -D_POSIX_C_SOURCE=200809L factory/desktop-wait-test.c -o build/factory/desktop-wait && build/factory/desktop-wait"; signature="FAIL desktop wait:";;
  bochs-timeout|bochs-exit) command='make -s -C factory ../build/factory/bochs-verdict-test'; signature='FAIL Bochs:'
   # Compile explicitly: OUT is an absolute path in component makefiles.
   command='mkdir -p build/factory; cc -std=c11 -O1 -D_POSIX_C_SOURCE=200809L factory/tests/bochs-verdict.c -o build/factory/verdict && build/factory/verdict';;

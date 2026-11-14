@@ -212,3 +212,15 @@ Its host receipt is required by the aggregate, and full smoke runs its ordinary
 boot/firmware/disk observations on both emulators. The boot-registration control
 rejects missing host registration and a full-smoke selection omitting boot;
 its external omission patch is included in the factory gate sweep.
+
+Bochs desktop W waits use a 10-second idle allowance (DESKTOP_WAIT_MS still
+supports an explicit override). Newly observed consumed input, tenant drawing,
+file/dialog activity and Finder/dispatch progress renew it; clock heartbeats
+and update events alone do not. Repeated W markers still need new occurrences.
+The shared driver's --timeout-ms is an absolute monotonic overall deadline,
+including time spent inside these waits. It never renews and rejects boundary
+or late completion. The desktop smoke caller's default remains 90000ms;
+loaded-host acceptance supplies an explicit larger overall bound without
+changing the 10000ms idle default. desktop-wait-test uses virtual serial/input
+and time; desktop-wait-mutants.sh boots a truly halted desktop product fault
+and requires the missing Finder assertion twice after a passing baseline.

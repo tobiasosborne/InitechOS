@@ -11,3 +11,7 @@ $(OUT)/desktop-primitives-test: factory/desktop-primitives-test.c factory/deskto
 .PHONY: test
 test: all
 	@$(OUT)/desktop-primitives-test
+	@$(OUT)/desktop-wait-test
+all: $(OUT)/desktop-wait-test
+$(OUT)/desktop-wait-test: factory/desktop-wait-test.c factory/desktop-bochs.c $(wildcard factory/emu/bochs*) factory/emu/rfb_port.h FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)

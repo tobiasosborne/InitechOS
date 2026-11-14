@@ -1,0 +1,11 @@
+--- a/factory/desktop-bochs.c
++++ b/factory/desktop-bochs.c
+@@ -91,7 +91,7 @@
+             if(extensions)fprintf(stderr,"desktop: W marker '%s' occurrence %u reached after %lldms; progress renewals=%u\n",marker,want,now-start,extensions);
+             memset(v,0,sizeof *v);v->kind=BX_WAIT;return 1;
+         }
+-        if(progress) {last_progress=now;extensions++;}
++        if(progress) {extensions++;}
+         nanosleep(&pause,0);
+     }
+ }
