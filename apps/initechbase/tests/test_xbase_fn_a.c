@@ -194,6 +194,16 @@ int main(void)
     ok_n("LEN('ABCDE')", 5.0, "D1: LEN -> 5");
     ok_n("LEN('')",      0.0, "D2: LEN('') -> 0");
     ok_n("LEN(SPACE(3))",3.0, "D3: LEN(SPACE(3)) -> 3 (nested)");
+    /* Genuine III+ C13-C18: LEN rejects even empty/resolved memos with #34.
+     * Keep this typed-value check independent of the memo display defects. */
+    {
+        static const uint16_t lengths[]={0,12,511,2300};
+        for(unsigned i=0;i<sizeof lengths/sizeof lengths[0];i++){
+            xb_val memo=xb_m("",lengths[i]),out;int code=0;
+            CHECK(xb_call_builtin("LEN",3,&memo,1,NULL,&out,&code)!=0 && code==34,
+                  "C13-C18: LEN memo returns catalog error 34");
+        }
+    }
 
     /* =================================================================== */
     /* E. SPACE -> C (SPACE(0)='', neg -> #60, >254 -> #59)                 */

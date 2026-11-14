@@ -55,9 +55,10 @@ case "$name" in
  conformance_host)
   mkdir -p "$work/conformance"
   ln -s "$bins/conformance_host" "$work/conformance/host"
-  CASES='C19 C20 C21' sh tests/conformance/run-host.sh "$work/conformance"
-  CASES='C19 C20 C21' sh tests/conformance/check.sh "$work/conformance"
-  echo 'INITECH_CHECKS 3 failures=0';;
+  cases=$(cat tests/conformance/accepted.cases)
+  CASES="$cases" sh tests/conformance/run-host.sh "$work/conformance"
+  CASES="$cases" sh tests/conformance/check.sh "$work/conformance"
+  set -- $cases; echo "INITECH_CHECKS $# failures=0";;
  test_ibase_datatype)
   for c in blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar datecontract; do "$bins/$name" "$c"; done;;
  test_ibase_dbsafe)

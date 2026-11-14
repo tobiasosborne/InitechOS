@@ -213,3 +213,8 @@ STALE.NDX, checking both physical rows (A/1 and B/9), count two, and both
 indexed seeks with exact record numbers/values. `reopen-red.sh ... c21` corrupts
 only the serialized repaired row and requires a completed genuine run to reject
 it. This emulator coverage belongs to tier 1; tier 0 remains emulator-free.
+
+The accepted conformance selection is listed in
+`tests/conformance/accepted.cases`. C13/C15/C18 now also qualify LEN's #34
+rejection of memo expressions; separate typed-value checks cover resolved
+lengths 0, 12, 511 and 2300 independently of outstanding memo display defects.

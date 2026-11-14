@@ -235,6 +235,8 @@ static int fn_substr(const xb_val *args, int nargs, xb_val *out, int *err)
 /* LEN(<expC>) -> N: byte length (string-functions.md). */
 static int fn_len(const xb_val *args, xb_val *out, int *err)
 {
+    /* Real III+ C13-C18 rejects memo expressions, including empty memos. */
+    if(args[0].t==XB_M)return fn_fail(err,XBEE_MEMO_EXPR);
     *out = xb_n((double)args[0].u.c.len);
     *err = XBEE_OK;
     return 0;

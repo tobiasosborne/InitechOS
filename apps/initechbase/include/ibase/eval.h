@@ -461,6 +461,7 @@ typedef enum {
     XBEE_INVALID_FN    = 31,  /* dbase_msg_codes.tsv code 31 "Invalid function */
                               /*   name." -- unknown OR not-in-III+ function   */
                               /*   (S3.5: DTOS, and any name not in the table) */
+    XBEE_MEMO_EXPR     = 34,  /* genuine III+ conformance C13-C18: LEN(memo) */
     XBEE_NOT_LOGICAL   = 37,  /* dbase_msg_codes.tsv code 37 */
     XBEE_NUM_OVERFLOW  = 39,  /* dbase_msg_codes.tsv code 39 */
     XBEE_NOT_CHARACTER = 45,  /* dbase_msg_codes.tsv code 45 */
