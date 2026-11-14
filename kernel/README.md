@@ -356,3 +356,13 @@ leave the alias/allocation for CHKDSK. The commit-outcome gate first showed this
 late cleanup red, then verifies Access denied with zero physical writes and
 independent destination bytes. This is the allocation-ownership invariant under
 the operator's commit rule, not a claim about repairing arbitrary cross-links.
+
+AH=3Eh CLOSE releases any valid process JFT slot, including0..4. The resident
+SFT entries stay pinned; a file duplicated/opened into a standard-number slot
+releases its own counted SFT reference normally. Closing an already closed or
+invalid slot returns DOS6. Source: the genuine DOS3.30 CLOSE3 capture in
+`tests/fixtures/close3-dos33` and the AH=3Eh reference (initech-kyrcw). The capture
+is hash-pinned and its16-bit probe rebuilds exactly; it is reference data only.
+`test-close-standard` checks slot reuse, resident conservation, invalid repeats
+and file references for all five standard slots. `smoke-oem` also executes the
+flat CLOSE3 adaptation on both emulators before testing page services/restart.

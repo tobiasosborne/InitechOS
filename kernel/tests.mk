@@ -515,6 +515,15 @@ test-commit-outcome_SRCS := tests/runner.c
 test-commit-outcome_ARGS := tests/run.sh test-commit-outcome
 test-commit-outcome_DEPS := $(OUT)/host/tool_test_commit_outcome tests/gates/test-commit-outcome.sh
 
+EXTRA_HOST_TESTS += tool_test_close_standard
+tool_test_close_standard_SRCS := tests/test_close_standard.c
+tool_test_close_standard_OBJS := $(tool_test_fileio_OBJS)
+tool_test_close_standard_CFLAGS := -no-pie
+HOST_TESTS += test-close-standard
+test-close-standard_SRCS := tests/runner.c
+test-close-standard_ARGS := tests/run.sh test-close-standard
+test-close-standard_DEPS := $(OUT)/host/tool_test_close_standard tests/gates/test-close-standard.sh tests/fixtures/close3-dos33/SHA256SUMS
+
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk

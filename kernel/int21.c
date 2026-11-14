@@ -3336,9 +3336,10 @@ static void do_read(int_frame_t *f)
  * the slot; JFT[EBX] = 0xFF. With positioned per-call writes (beads initech-0qh)
  * the bytes are already on disk, so close holds no flush -- it calls the
  * backend's close(slot) hook (a no-op kept for symmetry / a future deferred
- * write model) and frees the slot. Closing a predefined handle 0-4 is a no-op
- * success (as real DOS). CF clear; bad handle -> CF=1, AX=0x0006.
- * Ref: brief Sec 4.3; DOS 3.3 PRM AH=3Eh. */
+ * write model) and frees the slot. This includes standard-number JFT slots;
+ * the underlying resident devices remain pinned. CF clear; bad handle ->
+ * CF=1, AX=0x0006. Ref: genuine DOS3.30 CLOSE3 capture in
+ * tests/fixtures/close3-dos33, initech-kyrcw; DOS 3.3 PRM AH=3Eh. */
 static void do_close(int_frame_t *f)
 {
     uint32_t handle = f->ebx;
@@ -3346,13 +3347,6 @@ static void do_close(int_frame_t *f)
     if (handle > 0xFFu) {
         set_ax(f, INT21_ERR_INVALID_HANDLE);
         cf_set(f);
-        return;
-    }
-
-    /* Predefined standard handles 0-4: no-op success (real DOS does not actually
-     * close stdin/stdout/stderr/aux/prn on a 3Eh -- the device stays live). */
-    if (handle <= 4u) {
-        cf_clear(f);
         return;
     }
 
