@@ -141,6 +141,22 @@ static void extra_cases(void)
     for(unsigned i=0;i<100;i++) { snprintf(collision,sizeof collision,"TARGET.$%02u",i); reserve(collision); }
     CHECK(tbx_fc_open(&n)==TBX_ERR_DOS(0x50),"all FILE COPY temporary collisions refuse");
     verify(old,sizeof old-1); fclose(disk);
+    setup();
+    unsigned filled=0;
+    for(;filled<224;filled++) {
+        snprintf(collision,sizeof collision,"F%07u",filled);
+        int32_t h=tbx_file_create_new(collision);
+        if(h<0) break;
+        CHECK(tbx_file_close(h)==0,"close root-capacity fixture");
+    }
+    CHECK(filled==222,"mformat root has 224 entries, two already occupied");
+    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0,"full root refuses SDK staging");
+    CHECK(tbx_fc_open(&n)<0,"full root refuses FILE COPY staging");
+    verify(old,sizeof old-1); fclose(disk);
+    setup(); command("mattrib -i copy.img +r ::TARGET.DAT"); fclose(disk);
+    disk=fopen("copy.img","r+b"); CHECK(disk!=0,"reopen read-only fixture");
+    CHECK(run()<0,"FILE COPY refuses a read-only destination"); verify(old,sizeof old-1);
+    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0,"SDK refuses a read-only destination"); verify(old,sizeof old-1); fclose(disk);
     /* Fill every available cluster independently, then remount before testing
      * both writers. An initial stage creation may succeed; transfer must not. */
     command("cp base.img clean.img");
