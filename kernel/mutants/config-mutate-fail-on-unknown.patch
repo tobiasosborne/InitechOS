@@ -1,24 +1,19 @@
-# CONFIG_MUTATE_FAIL_ON_UNKNOWN
 # test: test-config-sys test-config-fuzz
 --- a/config_sys.c
 +++ b/config_sys.c
-@@ -155,6 +155,10 @@
+@@ -148,6 +148,7 @@
              eq++;
          }
          if (eq >= line_end) {
-+            /* the repository contract mutant target (make test-config-sys-mutant): treat an
-+             * unrecognized line as FATAL (real DOS does NOT) -> the "unknown
-+             * ignored" assertions go RED. NEVER define in a real build. */
 +            return -1;
+             if (report) report(context);
              continue; /* no '=' -> unrecognized directive, skip (NOT fatal) */
          }
- 
-@@ -263,6 +267,8 @@
+@@ -264,6 +265,7 @@
              /* else: unrecognized BREAK= value -> ignored (lenient), not fatal. */
          } else {
              /* Unknown directive (keyword had no match) -> DOS ignores it. */
-+            /* the repository contract mutant: an unknown keyword is FATAL -> RED. */
 +            return -1;
          }
+         if (recognized == before && report) report(context);
      }
- 

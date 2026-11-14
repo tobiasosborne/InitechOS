@@ -7,7 +7,7 @@ int main(void) {
  size_t n=fread(buf,1,sizeof(buf)-1,stdin); buf[n]=0;
  puts("/* Generated from kernel/include/dos_messages.json. */");
  puts("#ifndef INITECH_DOS_MESSAGES_H\n#define INITECH_DOS_MESSAGES_H");
- for(unsigned i=1;i<=66;i++) {
+ for(unsigned i=1;i<=68;i++) {
   char key[32]; snprintf(key,sizeof key,"\"MSG-DOS-%04u\"",i);
   char *p=strstr(buf,key); if(!p)return 1;
   p=strchr(p+strlen(key),':'); if(!p)return 1;

@@ -2,6 +2,14 @@
 # alone, more when every component runs at once.
 TEST_BUDGET_S := 60
 include tests/tools.mk
+EXTRA_HOST_TESTS += tool_test_config_apply
+tool_test_config_apply_SRCS := tests/test_config_apply.c tests/disk/blockdev_file.c sysinit.c config_sys.c fat12.c sft.c int21.c devices.c fileio_fat.c psp.c mcb.c irq.c
+tool_test_config_apply_CFLAGS := -m32 -ffunction-sections -fdata-sections -Wl,--gc-sections
+tool_test_config_apply_DEPS := $(TOP)/build/kernel/dos_messages.h
+HOST_TESTS += test-config-diagnostics33
+test-config-diagnostics33_SRCS := tests/runner.c
+test-config-diagnostics33_ARGS := tests/run.sh test-config-diagnostics33
+test-config-diagnostics33_DEPS := $(OUT)/host/tool_test_config_apply tests/gates/test-config-diagnostics33.sh
 EXTRA_HOST_TESTS += tool_test_metadata_errors
 tool_test_metadata_errors_SRCS := tests/test_metadata_errors.c tests/disk/blockdev_file.c
 tool_test_metadata_errors_OBJS := $(tool_test_fileio_subdir_OBJS)
@@ -419,4 +427,5 @@ test-redir_ARGS := tests/run.sh test-redir
 test-redir_DEPS := $(OUT)/host/tool_test_redir tests/gates/test-redir.sh tests/run.sh
 
 include $(TOP)/mk/host-test.mk
+$(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk

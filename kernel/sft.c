@@ -49,7 +49,7 @@
 sft_entry_t g_sft[SFT_MAX_ENTRIES];
 
 /* Runtime FILES= cap (beads initech-509.2). Default == SFT_MAX_ENTRIES so a
- * kernel/oracle that never runs SYSINIT keeps the full 16-file-slot table (no
+ * kernel/oracle that never runs SYSINIT keeps the full physical table (no
  * existing gate regresses); SYSINIT lowers it from CONFIG.SYS via
  * sft_set_files_limit. NOT a BSS zero: a non-trivial initializer so a build that
  * forgets SYSINIT still has the permissive default rather than a 0 (which would
@@ -264,7 +264,7 @@ uint16_t sft_dup2(psp_t *psp, uint8_t src, uint8_t dst)
  * initech-6qy). "Real DOS closes all a process's handles on terminate": without
  * this, a child that OPENs files and exits (4Ch / 00h / INT 20h) WITHOUT closing
  * them leaks SFT slots, and an EXEC chain (shell -> program -> ...) exhausts the
- * 16 file slots (SFT_FIRST_FILE..SFT_MAX_ENTRIES) so a later OPEN fails.
+ * file slots below SFT_MAX_ENTRIES so a later OPEN fails.
  *
  * Walk the process's JFT; for every entry that is OPEN (!= JFT_CLOSED) AND points
  * at a FILE-kind SFT slot, drop its SFT reference via sft_release (freeing the

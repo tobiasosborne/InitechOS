@@ -42,7 +42,10 @@ struct device_header;
 
 /* FILES=20 (ADR-0003 Appendix D.2 CONFIG.SYS baseline) governs the SFT capacity
  * AND the JFT width (DEC-06: a 20-entry JFT). */
-#define SFT_MAX_ENTRIES   20u
+/* This implementation separates CON input/output. One extra physical slot
+ * preserves the native DOS FILES=20 capacity with that representation.
+ * Genuine DOS 3.30 FILES5..8 open-count captures grade the accounting. */
+#define SFT_MAX_ENTRIES   21u
 #define JFT_MAX_ENTRIES   20u
 
 /* JFT sentinel: a process handle slot that is closed / unused. Matches the
@@ -145,7 +148,7 @@ extern sft_entry_t g_sft[SFT_MAX_ENTRIES];
  * (int21 do_open/do_creat already map sft_alloc()>=cap onto INT21_ERR_TOO_MANY_OPEN).
  *
  * Default == SFT_MAX_ENTRIES so a kernel that never runs SYSINIT (the host unit
- * oracle calling sft_alloc directly) keeps the historical 16-file-slot behavior --
+ * oracle calling sft_alloc directly) keeps the historical allocation behavior --
  * no existing gate regresses. sft_init() does NOT reset it (the limit is a system
  * policy set once at SYSINIT, not per-process). */
 extern uint8_t g_files_limit;
@@ -176,7 +179,7 @@ sft_entry_t *sft_from_handle(const psp_t *psp, uint8_t handle);
 /* Lowest free JFT slot (jft[i]==0xFF) in 0..19, or JFT_CLOSED (0xFF) if full. */
 uint8_t jft_alloc(const psp_t *psp);
 
-/* Lowest free SFT slot in SFT_FIRST_FILE..19 (files never reuse the device
+/* Lowest free SFT slot below the physical limit (files never reuse the device
  * slots 0..3), or SFT_MAX_ENTRIES if the table is full. */
 uint8_t sft_alloc(void);
 

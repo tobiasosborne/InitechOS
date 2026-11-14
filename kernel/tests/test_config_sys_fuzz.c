@@ -1,63 +1,13 @@
-/* test_config_sys_fuzz.c -- deterministic, seeded generative fuzzer for the PURE
- * CONFIG.SYS parser (kernel/config_sys.c). beads initech-hjv.
- *
- * FACTORY host tool (the repository contract): libc OK; the SUBJECT under test is the
- * UNMODIFIED artifact config_sys.c -- the SAME code SYSINIT runs (it compiles
- * both freestanding and hosted). Nothing about the artifact is touched here.
- *
- * Why (beads initech-hjv): test_config_sys.c is a fixed ENUMERATED matrix vs the
- * LOCKED baseline -- strong, but it does not explore the deep space of HOSTILE
- * input (the repository contract: "all bugs are deep"). This is the standing GENERATIVE fuzzer: a
- * splitmix64-seeded PRNG synthesizes adversarial CONFIG.SYS files -- lines with
- * no '=', non-numeric FILES=/BUFFERS=, OVERSIZED decimals that overflow the
- * decimal parse (config_sys.c:75 ">429496729" guard), >255-char lines, unknown
- * keywords, blank lines, ';'-comments, and CR / LF / CRLF / bare-CR variants --
- * then runs the REAL config_sys_parse() and asserts the parser:
- *
- *   (1) NEVER overflows: a GUARD page of magic bytes brackets the dos_config_t
- *       and the input buffer; every byte must survive every parse (no OOB write).
- *   (2) NEVER crashes: it returns normally (>= 0) on every hostile input; the
- *       only fail-loud path is a NULL out pointer (a programmer bug), never user
- *       content -- so the parser is exercised only with a valid out + buffer.
- *   (3) CLAMPS FILES into [CONFIG_SYS_FILES_MIN, CONFIG_SYS_FILES_MAX] (and
- *       BUFFERS into its range) WHENEVER the directive is marked present, AND the
- *       clamped FILES value MATCHES an INDEPENDENT reference (ref_files_clamped)
- *       that re-implements the shipped saturating decimal accumulator + clamp
- *       BIT-FOR-BIT. This is the differential oracle (TDD shape 2): on an
- *       oversized decimal the overflow GUARD makes the accumulator SATURATE
- *       (not wrap), so the live value tracks the reference on EVERY input. Remove
- *       the guard (-DCONFIG_MUTATE_NO_OVERFLOW_GUARD) and the accumulator WRAPS
- *       modulo 2^32 where the reference saturates; on the discriminating family
- *       (e.g. 8589934592: ref clamps to MAX, the wrap clamps to MIN) the values
- *       diverge and the fuzzer goes RED.
- *   (4) is LENIENT on unknown keywords / no-'=' / blank / comment lines: they are
- *       NEVER fatal -- the parse completes and recognized counts only the honored
- *       directives (matches the baseline leniency the existing oracle pins).
- *
- * Determinism (the repository contract): a splitmix64-seeded xorshift128+ PRNG; NO time()/rand().
- * Same --seed => identical CONFIG.SYS => identical result, so any failure REPLAYS
- * exactly by seed. The gate runs a fixed seed sweep.
- *
- * Ref (the repository contract): kernel/config_sys.h (the bounds + the leniency contract);
- *   kernel/config_sys.c (the ">429496729" decimal saturation guard, the FILES
- *   [MIN,MAX] clamp, the no-'='/unknown skip); kernel/tests/data/dos_config_sys_baseline.txt;
- *   ADR-0003 Sec 5.6; the repository contract (oracle is truth), the repository contract (mutation-prove),
- *   the repository contract (deterministic), the repository contract (ASCII).
- *
- * Exit code: 0 if every seed's every invariant held; non-zero on the FIRST
- * violation (after printing the seed + the offending CONFIG.SYS, replayable) so
- * the Makefile gate goes RED (the repository contract).
- *
- * Usage:
- *   test_config_sys_fuzz --seed N  [--ops K]
- *   test_config_sys_fuzz --sweep A B [--ops K]
- * (--ops bounds the number of synthesized lines per file; default 24.)
- */
+/* Adversarial CONFIG.SYS properties: bounded output, read-only input,
+ * valid numeric ranges and last accepted FILES token. Host libc conversion
+ * is independent of the product accumulator. Accepted/refused boundaries
+ * come from genuine DOS 3.30 captures, not product arithmetic. */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include "config_sys.h"
 
@@ -179,7 +129,7 @@ static void emit_eol(char *t, uint32_t *len, prng_t *p)
  *  - an out-of-range-but-uint32 value (e.g. 9999, 0, 1000000);
  *  - a HUGE decimal that overflows the uint32 accumulator (a fixed >2^32 family,
  *    or 10..29 random digits). digits_out records the decimal string verbatim so
- *    the differential checker can replay it through ref_files_clamped.
+ *    the differential checker can replay it through ref_files_value.
  *  - a NON-numeric token (letters / punctuation) so cfg_parse_uint sees 0 digits.
  * Returns 1 if a (possibly-empty) numeric token was emitted, 0 for non-numeric. */
 static int emit_value_token(char *t, uint32_t *len, prng_t *p, char *digits_out,
@@ -199,24 +149,19 @@ static int emit_value_token(char *t, uint32_t *len, prng_t *p, char *digits_out,
     }
 
     if (pick == 1) {
-        /* OVERFLOW family: values far exceeding 0xFFFFFFFF that exercise the
-         * decimal overflow guard. With the guard, the live parser tracks the
-         * faithful ref_parse_uint (saturate-or-corner-wrap); WITHOUT the guard
-         * (-DCONFIG_MUTATE_NO_OVERFLOW_GUARD) the live parser wraps modulo 2^32.
-         * The clamped results DIVERGE on the discriminating members (e.g.
-         * 8589934592 / 12884901888 / 2^64: ref clamps to FILES_MAX, the wrap
-         * clamps to FILES_MIN), which is what makes the mutant go RED. The
-         * 2^32-multiple members (4294967296, 42949672960) are kept too: they
-         * harden the differential by also stressing the guard's exact corner. */
+        /* Values whose wrap would masquerade as an accepted small FILES token. */
         static const char *const OVR[] = {
             "4294967296",            /* 2^32        */
             "8589934592",            /* 2^33        */
             "12884901888",           /* 3 * 2^32    */
             "42949672960",           /* 10 * 2^32   */
             "4294967296000000",      /* 2^32 * 10^6 */
-            "18446744073709551616"   /* 2^64        */
+            "18446744073709551616",  /* 2^64        */
+            "4294967316",            /* 2^32+20: a wrap falsely accepts20 */
+            "8589934612",            /* 2^33+20 */
+            "18446744073709551636"   /* 2^64+20 */
         };
-        const char *s = OVR[prng_below(p, 6)];
+        const char *s = OVR[prng_below(p, sizeof OVR / sizeof OVR[0])];
         uint32_t di = 0;
         for (const char *q = s; *q; q++) {
             emit(t, len, *q);
@@ -252,34 +197,15 @@ static int emit_value_token(char *t, uint32_t *len, prng_t *p, char *digits_out,
     return 1;
 }
 
-/* INDEPENDENT REFERENCE re-implementation of the artifact's cfg_parse_uint
- * (config_sys.c), faithful to the shipped code: a TRULY saturating decimal
- * accumulator that pins 0xFFFFFFFF on the EXACT overflow of v*10+digit. This is
- * the differential oracle (TDD shape 2): the fuzzer asserts the live parser's
- * clamped FILES value EQUALS what this reference computes. It mirrors the
- * corrected guard exactly, so the CLEAN fuzzer is GREEN on every input --
- * including the 2^32-family ("4294967296", 2^64, ...) which now correctly
- * SATURATE to 0xFFFFFFFF and clamp to FILES_MAX. The mutants diverge from it:
- * -DCONFIG_MUTATE_NO_OVERFLOW_GUARD wraps everywhere; -DCONFIG_MUTATE_OVERFLOW_OFFBYONE
- * restores the old `v>429496729` off-by-one so the 2^32-family wraps to 0 and
- * clamps to FILES_MIN -- both make the differential go RED (bug initech-zfo). */
-static uint32_t ref_parse_uint(const char *d)
+/* Independently parse the generated decimal token using host libc. */
+static uint16_t ref_files_value(const char *digits)
 {
-    uint32_t v = 0;
-    for (; *d >= '0' && *d <= '9'; d++) {
-        uint32_t digit = (uint32_t)(*d - '0');
-        if (v > (0xFFFFFFFFu - digit) / 10u) { v = 0xFFFFFFFFu; continue; }
-        v = v * 10u + digit;
-    }
-    return v;
-}
-
-/* The reference FILES value after the documented [MIN,MAX] clamp. */
-static uint16_t ref_files_clamped(const char *digits)
-{
-    uint32_t n = ref_parse_uint(digits);
-    if (n < CONFIG_SYS_FILES_MIN) n = CONFIG_SYS_FILES_MIN;
-    if (n > CONFIG_SYS_FILES_MAX) n = CONFIG_SYS_FILES_MAX;
+    /* Host libc is independent of the product's decimal accumulator. The
+     * accepted range is grounded by the genuine0/7/8/255/256 captures. */
+    char *end;
+    errno=0;
+    unsigned long long n=strtoull(digits,&end,10);
+    if (errno || end==digits || *end || n<5 || n>255) return 0;
     return (uint16_t)n;
 }
 
@@ -372,7 +298,7 @@ static uint32_t generate(char *t, prng_t *p, uint32_t max_lines, gen_meta_t *met
         /* Track the LAST present FILES= numeric value (the parser keeps it). A
          * FILES line only honors when it has '=' AND a numeric token with >=1
          * digit (cfg_parse_uint sets any=1). */
-        if (is_files && has_eq && numeric && digits[0] != '\0') {
+        if (is_files && has_eq && numeric && ref_files_value(digits)) {
             meta->files_seen = 1;
             strncpy(meta->files_digits, digits, sizeof(meta->files_digits) - 1);
             meta->files_digits[sizeof(meta->files_digits) - 1] = '\0';
@@ -442,23 +368,18 @@ static int run_seed(uint64_t seed, uint32_t max_lines)
         }
     }
 
-    /* (3, sharp) the overflow-guard DIFFERENTIAL: when a FILES= numeric token was
-     * the last honored one, the live parser's clamped FILES value MUST equal the
-     * INDEPENDENT faithful reference (ref_files_clamped, which mirrors the shipped
-     * cfg_parse_uint + clamp BIT-FOR-BIT). This holds for EVERY input on the real
-     * parser (incl. the 2^32-corner where the guard happens to leave 0 -> MIN).
-     * Remove the overflow guard and the live parser WRAPS modulo 2^32 where the
-     * reference SATURATES; on the discriminating family (e.g. 8589934592: ref->255
-     * / wrap->8) the values diverge and THIS assertion trips. A FILES line is
-     * honored iff it had '=' AND a numeric token, so files_present MUST be set. */
+    /* Compare the last accepted token with the independent host conversion. */
     uint16_t ref_files = 0;
     if (meta.files_seen) {
-        ref_files = ref_files_clamped(meta.files_digits);
+        ref_files = ref_files_value(meta.files_digits);
         if (!fail && !gc->cfg.files_present) {
             fail = 1; why = "FILES= numeric token was dropped (expected present)";
         } else if (!fail && gc->cfg.files != ref_files) {
-            fail = 1; why = "live FILES != faithful reference clamp (overflow guard breached)";
+            fail = 1; why = "live FILES differs from independent accepted token";
         }
+    }
+    if (!fail && (gc->cfg.files_present != (meta.files_seen != 0))) {
+        fail=1; why="FILES presence differs from independent accepted-token model";
     }
 
     /* (4) leniency: counts are bounded + sane; device/install counts cannot

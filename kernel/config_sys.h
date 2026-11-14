@@ -1,27 +1,7 @@
-/* config_sys.h -- PURE CONFIG.SYS parser for InitechDOS SYSINIT (beads initech-509.2).
- *
- * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code, freestanding
- * (-ffreestanding -nostdlib), <stdint.h> only, NO I/O and NO malloc -- pure text
- * -> struct transformation over a caller-supplied buffer + caller-supplied output
- * struct. So it compiles BOTH freestanding (the kernel SYSINIT) and HOSTED (the
- * factory oracle test_config_sys.c), exactly like sft.c / psp.c.
- *
- * Ref (Law 1): spec/dos_config_sys_baseline.txt (the LOCKED baseline, Rule 8 --
- *   FILES=20 / BUFFERS=20 / LASTDRIVE=Z / DEVICE=ANSI.SYS / DEVICE=INITNET.SYS /
- *   INSTALL=SHARE.EXE / SHELL=COMMAND.COM /P /E:512); ADR-0003 Sec 5.6 (DEC-06:
- *   FILES= governs the SFT capacity) + Appendix D.2; os/initechdos/sft.h
- *   (SFT_MAX_ENTRIES=20). DOS 3.3 CONFIG.SYS directive semantics: case-insensitive
- *   keyword=value lines; DOS IGNORES blank lines, ';'-comment lines, and unknown
- *   directives (it does NOT abort the boot on a directive it does not recognize);
- *   numeric ranges are clamped to the DOS-documented bounds. CLAUDE.md Law 2
- *   (oracle is truth), Rule 2 (fail loud on a PROGRAMMER invariant -- NOT on a
- *   user typo in CONFIG.SYS), Rule 11 (deterministic), Rule 12 (ASCII).
- *
- * PERIOD-CORRECT LENIENCY: a malformed/unknown CONFIG.SYS line is NOT a fatal
- * error -- real DOS skips it and keeps booting. The parser therefore NEVER fails
- * the boot on user content; it returns the directives it understood. (The only
- * "fail loud" cases are programmer bugs: a NULL output pointer.)
- */
+/* Pure CONFIG.SYS text reader. Ground truth: genuine DOS 3.30 CONFIG
+ * boot captures (initech-hp0tb), with directive-specific token termination.
+ * Invalid lines leave their settings untouched and can report a diagnostic.
+ * Recognizing syntax does not imply an unsupported directive is applied. */
 #ifndef INITECH_INITECHDOS_CONFIG_SYS_H
 #define INITECH_INITECHDOS_CONFIG_SYS_H
 
@@ -36,11 +16,10 @@
 #define CONFIG_SYS_MAX_INSTALL   8u   /* INSTALL= lines retained                     */
 #define CONFIG_SYS_SHELL_MAX    64u   /* SHELL= command tail (path + switches) + NUL */
 
-/* DOS-documented numeric bounds (the parser clamps into these). FILES: DOS 3.3
- * accepts 8..255; we additionally clamp to SFT_MAX_ENTRIES at APPLY time (sft.h),
- * not here, so the parsed value still reflects what the user wrote. BUFFERS: 1..99
- * (vestigial this release -- recorded, not honored). */
-#define CONFIG_SYS_FILES_MIN     8u
+/* DOS numeric token bounds. Invalid values are refused, not clamped. SYSINIT
+ * separately refuses sizes beyond its physical SFT, and BUFFERS requests
+ * because a configurable disk cache is not implemented. */
+#define CONFIG_SYS_FILES_MIN     5u
 #define CONFIG_SYS_FILES_MAX   255u
 #define CONFIG_SYS_BUFFERS_MIN   1u
 #define CONFIG_SYS_BUFFERS_MAX  99u
@@ -50,9 +29,9 @@
  * live; `*_present` flags distinguish "directive absent" from "directive present
  * with a default-looking value". */
 typedef struct dos_config {
-    uint16_t files;            /* FILES=    (clamped to [MIN,MAX]); 0 if absent     */
+    uint16_t files;            /* FILES= requested value; 0 if absent             */
     uint8_t  files_present;
-    uint16_t buffers;          /* BUFFERS=  (clamped); 0 if absent                  */
+    uint16_t buffers;          /* BUFFERS= requested value; 0 if absent            */
     uint8_t  buffers_present;
     char     lastdrive;        /* LASTDRIVE= uppercased letter ('A'..'Z'); 0 if absent */
     uint8_t  lastdrive_present;
@@ -83,5 +62,12 @@ typedef struct dos_config {
  * ONLY on out == NULL (a programmer bug, Rule 2); buf == NULL with len 0 is the
  * empty file (out is zeroed, returns 0). Pure (no I/O), so host-testable. */
 int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out);
+
+/* Report each malformed/unrecognized line without aborting the boot. The
+ * callback performs I/O; parsing itself still has no transport dependency.
+ * Source: genuine DOS 3.30 CFGA..CFGF boot captures (initech-hp0tb). */
+typedef void (*config_sys_diagnostic_fn)(void *context);
+int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
+                            config_sys_diagnostic_fn report, void *context);
 
 #endif /* INITECH_INITECHDOS_CONFIG_SYS_H */

@@ -26,6 +26,7 @@
 #include "fpu.h"          /* x87 probe verdict + CR0 arithmetic (beads initech-zj6w) */
 #include "fpu_contract.h" /* X87_BOOT_CONTROL_WORD, locked spec-data (initech-zj6w) */
 #include "tsr_contract.h" /* TSR_VEC_* (bead initech-6fdt) */
+#include "dos_messages.h"
 
 /* ANSI.SYS install flag (beads initech-6zd9 records it; beads initech-p96i, the
  * ANSI escape interpreter, consumes it). A CONFIG.SYS `DEVICE=ANSI.SYS` line sets
@@ -340,6 +341,25 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
 /* ======================================================================== *
  * PHASE 2 -- CONFIG.SYS apply (the NEW behavior + the hook point).
  * ======================================================================== */
+/* The console transport was bound in sysinit_early. Use the normal handle
+ * write path so boot refusals reach the screen as well as serial capture. */
+static void sysinit_config_puts(const char *text)
+{
+    uint32_t len=0;
+    while (text[len]) len++;
+    int_frame_t frame={0};
+    frame.eax=0x4000u; frame.ebx=1u; frame.ecx=len;
+    frame.edx=(uint32_t)(uintptr_t)text;
+    int21_dispatch(&frame);
+}
+
+static void sysinit_config_unrecognized(void *context)
+{
+    (void)context;
+    sysinit_config_puts(MSG_DOS_0067);
+    sysinit_config_puts("\r\n");
+}
+
 uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
                              void *fat_buf, uint32_t fat_buf_len,
                              sysinit_serial_fn serial)
@@ -391,19 +411,19 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
                         while (got2 > 0u && cfg_buf[got2 - 1u] != '\n') {
                             got2--;          /* drop the partial final line */
                         }
-                        if (got2 > 0u) {
-                            src = cfg_buf;
-                            src_len = got2;
-                            from_disk = 1;
-                            truncated = 1;
-                        }
+                        src = cfg_buf;
+                        src_len = got2;
+                        from_disk = 1;
+                        truncated = 1;
                     }
                 }
             }
         }
     }
 
-    (void)config_sys_parse(src, src_len, &cfg);
+    (void)config_sys_parse_report(src, src_len, &cfg,
+                                 sysinit_config_unrecognized, 0);
+    if (truncated) sysinit_config_unrecognized(0);
 
     /* APPLY the CTRL-BREAK directive (beads initech-er3h; ADR-0003 Amendment
      * DEC-16 Sec 3.3 / C-4): BREAK=ON|OFF flows into the kernel g_break_flag via
@@ -416,8 +436,15 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
      * FILES= was absent (or the file was unparseable), fall back to the baseline
      * FILES=20 so the system always has a coherent cap. */
     uint16_t files = cfg.files_present ? cfg.files : 20u;
-    uint8_t  applied_limit = sft_set_files_limit(
-        (files > 255u) ? 255u : (uint8_t)files);
+    if (files > SFT_MAX_ENTRIES - 1u) {
+        /* Refuse an unsupported table size instead of claiming it was applied.
+         * GM2 permits a visible period refusal; the fixed table is documented. */
+        sysinit_config_unrecognized(0);
+        files=20u;
+    }
+    /* Separate CON input/output cost one more resident slot than DOS. Keep
+     * the configured file capacity, as graded by genuine FILES5..8 opens. */
+    uint8_t applied_limit = sft_set_files_limit((uint8_t)(files + 1u));
 
     /* ---- the SYSINIT summary line the in-emulator oracle asserts ---- */
     serial("SYSINIT: source=");
@@ -429,41 +456,38 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     serial(" FILES=");
     sysinit_put_uint(serial, (uint32_t)files);
     serial(" cap=");
-    sysinit_put_uint(serial, (uint32_t)applied_limit);
+    sysinit_put_uint(serial, (uint32_t)applied_limit - 1u);
     serial(" SHELL=");
     serial(cfg.shell_present ? cfg.shell : "(none)");
     serial("\n");
 
-    /* DEVICE / INSTALL / BUFFERS / LASTDRIVE: parsed + recorded. The resident
-     * character-device chain (NUL/CON/AUX/PRN/CLOCK$) is now installed at
-     * sysinit_early (beads initech-6zd9) -- it is intrinsic, not a CONFIG.SYS
-     * DEVICE= load. A CONFIG.SYS DEVICE= line names an INSTALLABLE driver:
-     *   - DEVICE=ANSI.SYS sets g_ansi_enabled so beads initech-p96i (the ANSI
-     *     escape interpreter) can gate its CSI handling on it -- this bead ONLY
-     *     records the flag, it implements no ANSI behavior; logged "ansi-enabled".
-     *   - DEVICE=INITNET.SYS stays accepted(deferred): the INT 2Fh redirector is
-     *     amendment-gated and OUT of scope here.
-     * Anything else stays accepted(deferred). Emitting a line per DEVICE= keeps
-     * the operator log honest (Rule 2: directives were seen, not silently dropped). */
+    /* ANSI selects the built-in interpreter. External drivers, INSTALL and
+     * configurable BUFFERS are visibly refused (GM2), never deferred success.
+     * Wording: genuine DOS 3.30 CFGE/CFGF captures (initech-hp0tb). */
     for (uint8_t d = 0; d < cfg.device_count; d++) {
         serial("SYSINIT: DEVICE=");
         serial(cfg.devices[d]);
         if (sysinit_name_eq_ci(cfg.devices[d], "ANSI.SYS")) {
-            g_ansi_enabled = 1;          /* recorded for beads initech-p96i (ANSI) */
+            g_ansi_enabled = 1;
             serial(" ansi-enabled\n");
         } else {
-            serial(" accepted(deferred)\n");
+            sysinit_config_puts(MSG_DOS_0068);
+            sysinit_config_puts(cfg.devices[d]);
+            sysinit_config_puts("\r\n");
+            serial(" refused\n");
         }
     }
     for (uint8_t n = 0; n < cfg.install_count; n++) {
         serial("SYSINIT: INSTALL=");
         serial(cfg.install[n]);
-        serial(" accepted(deferred)\n");
+        sysinit_config_unrecognized(0);
+        serial(" refused\n");
     }
     if (cfg.buffers_present) {
         serial("SYSINIT: BUFFERS=");
         sysinit_put_uint(serial, (uint32_t)cfg.buffers);
-        serial(" accepted(deferred)\n");
+        sysinit_config_unrecognized(0);
+        serial(" refused\n");
     }
     if (cfg.lastdrive_present) {
         int21_set_lastdrive((unsigned)(cfg.lastdrive-'A'+1));
@@ -489,7 +513,7 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     serial((cfg.break_present ? cfg.break_on : 1u) ? "ON" : "OFF");
     serial(cfg.break_present ? " applied\n" : " (default)\n");
 
-    return applied_limit;
+    return (uint8_t)files;
 }
 
 /* ======================================================================== *

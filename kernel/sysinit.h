@@ -55,12 +55,12 @@ void sysinit_early(int21_sink_fn sink, int21_exit_fn exit_hook,
 /* PHASE 2 -- CONFIG.SYS apply (the NEW behavior + the hook point, beads
  * initech-509.2). If `vol` is non-NULL and CONFIG.SYS exists on it, read + parse
  * it; otherwise fall back to the LOCKED baseline (spec/dos_config_sys_baseline.txt,
- * embedded). Apply the honorable directives: FILES=N -> sft_set_files_limit (the
- * one with teeth); SHELL= recorded; DEVICE/INSTALL/BUFFERS/LASTDRIVE recorded +
- * logged "accepted(deferred)". Emits a one-line "SYSINIT: ..." serial summary the
- * in-emulator oracle asserts. `sector_buf`/`fat_buf` are caller scratch (>=512 /
- * >= a FAT image) so this stays malloc-free (Law 3). Called AFTER the FAT bind,
- * BEFORE the program demos. Returns the effective FILES= cap that was applied. */
+ * embedded). Apply FILES, LASTDRIVE, BREAK and built-in ANSI selection. Malformed
+ * lines and unsupported drivers/cache/INSTALL requests emit period console
+ * refusals. SHELL is still recorded for the interpreter follow-up. Scratch is
+ * caller-owned (>=512 bytes / a FAT image). Called after the FAT bind; returns
+ * the effective logical FILES setting. The physical SFT includes one extra CON
+ * slot; see sft.h and genuine FILES5..8 capacity captures. */
 uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
                              void *fat_buf, uint32_t fat_buf_len,
                              sysinit_serial_fn serial);

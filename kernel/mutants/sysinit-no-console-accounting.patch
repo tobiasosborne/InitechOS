@@ -1,0 +1,12 @@
+# test: test-config-diagnostics33
+--- a/sysinit.c
++++ b/sysinit.c
+@@ -446,7 +446,7 @@
+     }
+     /* Separate CON input/output cost one more resident slot than DOS. Keep
+      * the configured file capacity, as graded by genuine FILES5..8 opens. */
+-    uint8_t applied_limit = sft_set_files_limit((uint8_t)(files + 1u));
++    uint8_t applied_limit = sft_set_files_limit((uint8_t)files);
+ 
+     /* ---- the SYSINIT summary line the in-emulator oracle asserts ---- */
+     serial("SYSINIT: source=");

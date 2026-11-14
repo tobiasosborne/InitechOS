@@ -1,15 +1,7 @@
-/* config_sys.c -- PURE CONFIG.SYS parser (beads initech-509.2).
- *
- * THE ARTIFACT (the repository contract): freestanding (-ffreestanding -nostdlib),
- * <stdint.h> only, NO libc / NO malloc. Pure text -> dos_config_t transformation,
- * so it compiles BOTH freestanding (the kernel SYSINIT) and HOSTED (test_config_sys.c).
- *
- * Ref (the repository contract): kernel/tests/data/dos_config_sys_baseline.txt (LOCKED, the repository contract); DOS 3.3
- *   CONFIG.SYS directive semantics (case-insensitive keyword=value; blank /
- *   ';'-comment / unknown lines skipped, NOT fatal; numeric clamp). config_sys.h
- *   for the struct + bounds. the repository contract (fail loud on a PROGRAMMER bug only),
- *   the repository contract (deterministic), the repository contract (ASCII).
- */
+/* Pure CONFIG.SYS syntax reader. Sources: genuine DOS 3.30 CFGA..CFGF
+ * captures and the retained numeric/suffix probes for initech-hp0tb.
+ * Invalid lines report through an optional callback and do not abort boot.
+ * The apply phase visibly refuses unsupported directives. */
 
 #include "config_sys.h"
 
@@ -60,8 +52,8 @@ static int cfg_kw_eq(const char *s, uint32_t len, const char *kw)
     return kw[i] == '\0'; /* keyword exactly consumed */
 }
 
-/* Parse a non-negative decimal from s[0..len). Stops at the first non-digit.
- * Saturates at 0xFFFFFFFF (then the caller clamps). *out_any = 1 if >=1 digit. */
+/* Parse a decimal token, stopping at whitespace. Non-digit contamination is
+ * invalid. Saturate overflow so it is refused by the directive range check. */
 static uint32_t cfg_parse_uint(const char *s, uint32_t len, int *out_any)
 {
     uint32_t v = 0;
@@ -69,14 +61,14 @@ static uint32_t cfg_parse_uint(const char *s, uint32_t len, int *out_any)
     for (uint32_t i = 0; i < len; i++) {
         char c = s[i];
         if (c < '0' || c > '9') {
+            /* DOS accepts a whitespace-delimited suffix, not numeric junk.
+             * Captures: FILES=20 20 applies20; FILES=40garbage refuses. */
+            if (!cfg_is_space(c)) any = 0;
             break;
         }
         any = 1;
         uint32_t digit = (uint32_t)(c - '0');
-        /* Saturate at 0xFFFFFFFF (the documented contract). Guard the EXACT
-         * overflow of v*10+digit: the previous `v > 429496729` form let
-         * v==429496729 with digit>=6 wrap past UINT32_MAX (bug initech-zfo --
-         * "4294967296" wrapped to 0 and clamped to FILES_MIN, not MAX). */
+        /* Overflow must not turn a large refused token into a valid small one. */
         if (v > (0xFFFFFFFFu - digit) / 10u) { v = 0xFFFFFFFFu; continue; }
         v = v * 10u + digit;
     }
@@ -104,7 +96,8 @@ static uint32_t cfg_copy_clamped(char *dst, uint32_t cap, const char *s, uint32_
 
 /* --- the parser ---------------------------------------------------------- */
 
-int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
+int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
+                            config_sys_diagnostic_fn report, void *context)
 {
     if (out == 0) {
         /* Programmer bug, NOT user content -> fail loud (the repository contract). */
@@ -145,9 +138,6 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
         if (p >= line_end) {
             continue; /* blank line -> skip */
         }
-        if (buf[p] == ';') {
-            continue; /* comment line -> skip (DOS ignores) */
-        }
 
         /* ---- split KEYWORD '=' VALUE. A line with no '=' is unknown -> skip. */
         uint32_t eq = p;
@@ -155,6 +145,7 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
             eq++;
         }
         if (eq >= line_end) {
+            if (report) report(context);
             continue; /* no '=' -> unrecognized directive, skip (NOT fatal) */
         }
 
@@ -180,13 +171,12 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
         uint32_t v_len = v_end - v_start;
         const char *val = &buf[v_start];
 
+        int before = recognized;
         /* ---- dispatch on the (case-insensitive) keyword ---- */
         if (cfg_kw_eq(kw, kw_len, "FILES")) {
             int any = 0;
             uint32_t n = cfg_parse_uint(val, v_len, &any);
-            if (any) {
-                if (n < CONFIG_SYS_FILES_MIN) { n = CONFIG_SYS_FILES_MIN; }
-                if (n > CONFIG_SYS_FILES_MAX) { n = CONFIG_SYS_FILES_MAX; }
+            if (any && n >= CONFIG_SYS_FILES_MIN && n <= CONFIG_SYS_FILES_MAX) {
                 out->files = (uint16_t)n;
                 out->files_present = 1u;
                 recognized++;
@@ -194,9 +184,7 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
         } else if (cfg_kw_eq(kw, kw_len, "BUFFERS")) {
             int any = 0;
             uint32_t n = cfg_parse_uint(val, v_len, &any);
-            if (any) {
-                if (n < CONFIG_SYS_BUFFERS_MIN) { n = CONFIG_SYS_BUFFERS_MIN; }
-                if (n > CONFIG_SYS_BUFFERS_MAX) { n = CONFIG_SYS_BUFFERS_MAX; }
+            if (any && n >= CONFIG_SYS_BUFFERS_MIN && n <= CONFIG_SYS_BUFFERS_MAX) {
                 out->buffers = (uint16_t)n;
                 out->buffers_present = 1u;
                 recognized++;
@@ -219,6 +207,10 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
                 while (tok < v_len && !cfg_is_space(val[tok])) {
                     tok++;
                 }
+                if (tok >= CONFIG_SYS_NAME_MAX) {
+                    if (report) report(context);
+                    continue;
+                }
                 char *slot = out->devices[out->device_count];
                 cfg_copy_clamped(slot, CONFIG_SYS_NAME_MAX, val, tok);
                 out->device_count++;
@@ -230,13 +222,17 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
                 while (tok < v_len && !cfg_is_space(val[tok])) {
                     tok++;
                 }
+                if (tok >= CONFIG_SYS_NAME_MAX) {
+                    if (report) report(context);
+                    continue;
+                }
                 char *slot = out->install[out->install_count];
                 cfg_copy_clamped(slot, CONFIG_SYS_NAME_MAX, val, tok);
                 out->install_count++;
                 recognized++;
             }
         } else if (cfg_kw_eq(kw, kw_len, "SHELL")) {
-            if (v_len >= 1u) {
+            if (v_len >= 1u && v_len < CONFIG_SYS_SHELL_MAX) {
                 /* SHELL keeps the full tail (path + switches) -- e.g.
                  * "COMMAND.COM /P /E:512" -- for 509.10/k6x. */
                 cfg_copy_clamped(out->shell, CONFIG_SYS_SHELL_MAX, val, v_len);
@@ -251,11 +247,12 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
              * LENIENCY: a malformed value (e.g. BREAK=MAYBE) is NOT recognized
              * -- break_present stays 0 so the boot default ON stands, exactly as
              * DOS ignores a directive value it does not understand. */
-            if (cfg_kw_eq(val, v_len, "ON")) {
+            /* Genuine DOS 3.30 accepts ONjunk as ON, unlike numeric junk. */
+            if (v_len >= 2u && cfg_kw_eq(val, 2u, "ON")) {
                 out->break_on = 1u;
                 out->break_present = 1u;
                 recognized++;
-            } else if (cfg_kw_eq(val, v_len, "OFF")) {
+            } else if (v_len >= 3u && cfg_kw_eq(val, 3u, "OFF")) {
                 out->break_on = 0u;
                 out->break_present = 1u;
                 recognized++;
@@ -264,7 +261,13 @@ int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
         } else {
             /* Unknown directive (keyword had no match) -> DOS ignores it. */
         }
+        if (recognized == before && report) report(context);
     }
 
     return recognized;
+}
+
+int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out)
+{
+    return config_sys_parse_report(buf,len,out,0,0);
 }

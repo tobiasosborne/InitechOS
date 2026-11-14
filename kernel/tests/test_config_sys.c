@@ -137,17 +137,20 @@ int main(void)
         CHECK_STR_EQ(cfg.shell, "command.com /p", "lowercase SHELL tail preserved");
     }
 
-    /* ================= numeric range clamping ============================ */
+    /* Genuine DOS 3.30 captures: FILES7 applies7; FILES256 is refused. */
     {
-        static const char src_lo[] = "FILES=2\n";   /* below min 8  -> clamp up */
-        static const char src_hi[] = "FILES=9999\n"; /* above max 255 -> clamp dn */
+        static const char src_lo[] = "FILES=7\n";
+        static const char src_hi[] = "FILES=256\n";
         dos_config_t lo, hi;
         config_sys_parse(src_lo, (uint32_t)(sizeof(src_lo) - 1), &lo);
         config_sys_parse(src_hi, (uint32_t)(sizeof(src_hi) - 1), &hi);
-        CHECK(lo.files_present && lo.files == CONFIG_SYS_FILES_MIN,
-              "FILES=2 clamped UP to the min (8)");
-        CHECK(hi.files_present && hi.files == CONFIG_SYS_FILES_MAX,
-              "FILES=9999 clamped DOWN to the max (255)");
+        CHECK(lo.files_present && lo.files == 7,
+              "FILES7 keeps the captured requested value");
+        CHECK(!hi.files_present, "FILES256 is refused, not clamped");
+        static const char suffix[]="FILES=20 20\nBREAK=ON junk\nLASTDRIVE=ZZ\n";
+        config_sys_parse(suffix,sizeof suffix-1,&lo);
+        CHECK(lo.files_present && lo.files==20 && lo.break_present && lo.break_on &&
+              lo.lastdrive_present && lo.lastdrive=='Z',"captured directive-specific suffixes apply");
     }
 
     /* ================= CRLF line endings ================================= */

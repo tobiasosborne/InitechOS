@@ -1,0 +1,11 @@
+# test: test-config-diagnostics33
+--- a/sysinit.c
++++ b/sysinit.c
+@@ -487,7 +487,6 @@
+     if (cfg.buffers_present) {
+         serial("SYSINIT: BUFFERS=");
+         sysinit_put_uint(serial, (uint32_t)cfg.buffers);
+-        sysinit_config_unrecognized(0);
+         serial(" refused\n");
+     }
+     if (cfg.lastdrive_present) {

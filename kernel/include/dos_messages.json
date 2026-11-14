@@ -76,7 +76,9 @@
     "MSG-DOS-0063": "Terminate batch job (Y/N)?",
     "MSG-DOS-0064": "Invalid parameter",
     "MSG-DOS-0065": "Syntax error",
-    "MSG-DOS-0066": "Intermediate file error during pipe"
+    "MSG-DOS-0066": "Intermediate file error during pipe",
+    "MSG-DOS-0067": "Unrecognized command in CONFIG.SYS",
+    "MSG-DOS-0068": "Bad or missing "
   },
   "citations": {
     "MSG-DOS-0021": "MS-DOS_3.3_Users_Guide_198707.pdf, printed pp.28-29 / PDF 41-42; ADR-0003 Appendix C LOOK amendment (initech-vjtp/d31e/b0qk/irp2/veub)",
@@ -124,6 +126,8 @@
     "MSG-DOS-0063": "MS-DOS_3.3_Users_Guide_198707.pdf Reference PAUSE, printed p.149 / PDF234; PM ruling initech-0qw1 approves DEC-13 catalogue addition; exact printed wording and punctuation",
     "MSG-DOS-0064": "Genuine DOS 3.30 capture dos/command/tests/compat33/expected/SWITCH/result.txt; initech-pnjw6, operator-authorized catalogue addition",
     "MSG-DOS-0065": "Genuine DOS 3.30 captures dos/command/tests/compat33/expected/BATCH/result.txt and expected/U13/result.txt; initech-pnjw6, operator-authorized catalogue addition",
-    "MSG-DOS-0066": "Genuine DOS 3.30 capture dos/command/tests/compat33/expected/FULL/result.txt; initech-pnjw6, operator-authorized catalogue addition"
+    "MSG-DOS-0066": "Genuine DOS 3.30 capture dos/command/tests/compat33/expected/FULL/result.txt; initech-pnjw6, operator-authorized catalogue addition",
+    "MSG-DOS-0067": "Genuine DOS 3.30 captures dos/command/tests/compat33/expected/CFGA..CFGD,CFGF/result.txt; initech-hp0tb visible refusal",
+    "MSG-DOS-0068": "Genuine DOS 3.30 capture dos/command/tests/compat33/expected/CFGE/result.txt; prefix before requested driver MISSING.SYS, initech-hp0tb"
   }
 }

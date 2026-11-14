@@ -61,9 +61,9 @@ Follow-up work:
 - loader_validation.c retains rejection of COMMAND3 and FLAIROVL content, so
   old non-program files cannot become executable merely by being renamed.
   There is no kernel overlay loading or exact-address COMMAND transient.
-- CONFIG.SYS retains legacy accepted(deferred) DEVICE/INSTALL/BUFFERS handling;
-  windowed FAT16 EXEC limitations, fixed native/program windows, and the
-  low-memory 8 MiB requirement remain unchanged. These need later scope work.
+- Windowed FAT16 EXEC limitations, fixed native/program windows, and the
+  low-memory 8 MiB requirement remain. SHELL path/options still need the
+  separately tracked interpreter repair (initech-vx2ko).
 - The parked desktop quarry belongs to the FLAIR desktop owner and is not built.
   Diagnostic-image and remaining program/session work is mapped in tests/SMOKES.md.
 
@@ -187,3 +187,21 @@ Qualified character-device opens validate the selected drive and containing
  `test-device-paths33` compares OPEN/IOCTL/CLOSE classifications with the genuine
  DOS 3.30 DEVICES trace, including valid SUB aliases and missing-parent/invalid-
  drive refusals (initech-905b8). The capture proves refusal, not the exact AX code.
+
+CONFIG.SYS refusals are visible on the console with captured DOS 3.30 wording;
+malformed lines do not abort boot or silently change a setting. Numeric tokens
+accept the captured whitespace-delimited suffixes; numeric junk and out-of-range
+values refuse. FILES accepts DOS syntax5..255, with an implemented capacity5..20.
+One additional physical SFT slot accounts for separate CON input/output entries;
+real independent OPEN counts at FILES5..8 match the native DOS captures. The
+process JFT remains20 handles.
+
+The frozen CONFIG omissions are installable drivers other than the built-in
+ANSI selector, configurable BUFFERS, INSTALL commands and FILES above20.
+They receive a visible period refusal rather than a deferred-success marker.
+The baseline still selects20 files. `test-config-diagnostics33` mounts captured
+CONFIG inputs with the real SYSINIT/INT21/FAT stack, compares console messages
+with genuine VGA transcripts, checks native DOS file capacity and verifies that
+reading CONFIG leaves the image unchanged. Its malformed cases were red before
+the repair; negative controls also kill silent BUFFERS and incorrect resident
+console accounting. CONFIG is limited to1024 bytes; truncation is reported.
