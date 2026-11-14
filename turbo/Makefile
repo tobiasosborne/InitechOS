@@ -8,6 +8,7 @@ all test mutants:
 smoke: all
 	+$(MAKE) -C $(TOP) image
 	sh tests/execution/run.sh
+	sh ide/tests/smoke.sh
 $(OUT)/smoke/timer.o: tests/smoke/timer.c
 	@mkdir -p $(@D)
 	$(TARGET_CC) $(TARGET_CFLAGS) -c $< -o $@

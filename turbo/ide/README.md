@@ -30,6 +30,14 @@ Reset, Rewrite and Assign close an open file first (seed/rt/fileio.asm).
   the end, then saved; awk computes the expected bytes.
 - `seed` and `turbo`: the C seed and Turbo Initech itself accept the source.
 
+`make smoke` in `turbo/` also runs `tests/smoke.sh` (tier 1): Turbo
+Initech (the hosted Pascal compiler) compiles the same driver to an
+extended executable, which replays both journeys inside the booted product
+image on QEMU and Bochs from a TEST disk; the dumps and saved files are read
+back with mtools and graded by the same `screens` tool and `cmp`. With the
+tab-stop mutant applied, the QEMU run reports 26 differences on
+`load_verify` and others (seen red 2026-11-14).
+
 `make mutants`: nine patches (text colour, PgDn step, tab stops, missing
 0x1A, missing backup, caret column, dropped page suffix, Ctrl-PgDn lost,
 start-up menu state), all killed.

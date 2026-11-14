@@ -171,7 +171,9 @@ vendor or product does not appear on any Initech screen.
   box. No greyed placeholder or "not available" message exists for them.
 
 The editor, chrome and paged buffer are in `ide/` (its README): tier 0
-compares 36 screens with MINT06 and the saved bytes with TP 5.5's.
+compares 36 screens with MINT06 and the saved bytes with TP 5.5's; `make
+smoke` repeats both journeys with the Turbo-compiled IDE in the booted
+image on QEMU and Bochs.
 
 ### Packaging (feasibility, 2026-11-14)
 
