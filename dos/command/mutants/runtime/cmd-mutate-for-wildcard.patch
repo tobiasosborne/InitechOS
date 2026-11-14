@@ -2,7 +2,7 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4383,20 +4383,6 @@
+@@ -4432,22 +4432,6 @@
      if (var[0] != '%' || !var[1] || var[2] ||
          (var[1] >= '0' && var[1] <= '9')) return;
      while (batch_for_next_token(set, &cur, tok, sizeof(tok))) {
@@ -18,7 +18,9 @@
 -                del_path(name, tok, (int)prefix, g_shell_dta.fname);
 -                if (!for_store(name)) goto done;
 -            } while (dos_findnext());
--            break; /* Reference p.144: wildcard set has one member. */
+-            /* OEM DOS 3.30 compat33/BATCH: (*.TXT literal) executes
+-             * the literal after all matches, including after no matches. */
+-            continue;
 -        }
          if (!for_store(tok)) goto done;
      }

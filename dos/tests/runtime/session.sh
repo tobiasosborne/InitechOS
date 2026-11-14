@@ -28,6 +28,19 @@ touch -t 198707061330.58 "$out/words"
 mcopy -m -i "$img" "$out/words" ::SRC/ONE.TXT
 mcopy -i "$img" "$out/words" ::WORDS.TXT
 mcopy -i "$img" "$out/sentinel" '::PIPE1.$$$'
+# The captured hexadecimal pipe namespace is based on the guest clock. Seed
+# every whole-second candidate in this run's 13:30/13:31 observation window;
+# CREATE NEW must preserve them rather than truncate a stranger's bytes.
+: > "$out/foreign-names"
+for minute in 30 31;do
+ second=0
+ while [ "$second" -lt 60 ];do
+  name=$(printf '%02X%02X%02X00' 13 "$minute" "$second")
+  printf '%s\n' "$name" >> "$out/foreign-names"
+  mcopy -i "$img" "$out/sentinel" "::$name"
+  second=$((second+1))
+ done
+done
 printf '@ECHO OFF\r\nSHIFT\r\nECHO %%0 >SHIFT.OUT\r\n' > "$out/child"
 mcopy -i "$img" "$out/child" ::CHILD.BAT
 cat > "$out/autoexec" <<'BAT'
@@ -100,6 +113,7 @@ printf 'pipe-data\r\n' > "$out/expected"; extract PIPE.OUT "$out/expected"
 printf 'apple\r\n' > "$out/expected"; extract FIND.TXT "$out/expected"
 extract MORE.TXT "$out/words"; extract SORTED.TXT "$out/words"; extract STAMP.TXT "$out/words"
 extract 'PIPE1.$$$' "$out/sentinel"
+while IFS= read -r name;do extract "$name" "$out/sentinel";done < "$out/foreign-names"
 mtype -i "$img" ::DIR.OUT > "$out/dir"
 require 'DIR volume identity' grep -F 'Volume in drive A is INITECH' "$out/dir" >/dev/null
 require 'DIR operands' grep -F 'ONE      TXT' "$out/dir" >/dev/null

@@ -1,0 +1,13 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-pipe.sh; synchronized CAPTURE-DONE barrier.
+Controlled TIME 12:34:10 produces prefix 0C22; TIME 23:58:10 prefix 173A.
+The names encode hexadecimal hours/minutes/seconds/hundredths (inferred from
+controlled time changes; DOS tick rounding can put the clock just below 10s).
+Two files exist during every pipe. Ordered sizes are ONE 0,7; TWO 7,0;
+THREE 0,7; FOUR 7,7. The write buffer alternates across producers.
+Existing PIPE1.$$$ survives; owned temporary names disappear after completion.
+
+FIVE is a four-stage pipe with decreasing producer lengths; captured x CRLF
+proves that reusing a buffer truncates the older, longer contents. PASS is the
+same test-only stream probe already validated by compat33/expected/STREAM.

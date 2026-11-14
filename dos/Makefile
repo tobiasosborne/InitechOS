@@ -100,3 +100,8 @@ smoke-unknown-redirect:
 smoke-dir-wide:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/dir-wide.sh "$(TOP)" "$(OUT)/smoke-dir-wide"
+
+.PHONY: smoke-pipe-names
+smoke-pipe-names:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/pipe-names.sh "$(TOP)" "$(OUT)/smoke-pipe-names"

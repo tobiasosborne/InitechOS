@@ -112,3 +112,8 @@ unknown-command output and file preservation. `make smoke-dir-wide` compares
 complete single-member and multirow DIR /W transcripts to the synchronized
 OEM capture, including tabs and CRLF. The default wide-row host gate enumerates
 the captured input volume independently with mtools.
+`make smoke-pipe-names` compares DOS 3.30's two clock-named temporary buffers,
+rotation, reuse and cleanup against fresh pinned captures. Product sessions
+also seed the clock namespace with foreign files and verify every byte survives.
+The fraction-time capture is retained separately for initech-ubpjy; the pipe
+regression uses a separately captured seconds-only TIME input.

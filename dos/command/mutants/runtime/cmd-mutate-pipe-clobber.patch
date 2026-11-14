@@ -2,15 +2,13 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -3988,10 +3988,8 @@
-         buf[n++] = '$';
-         buf[n++] = '$';
-         buf[n] = '\0';
--        int h = dos_creatnew(buf);
--        if (h != -(int)INT21_ERR_FILE_EXISTS) {
--            return h;   /* created, or a failure no other name can cure */
--        }
-+        (void)&dos_creatnew;   /* keep it "used" under the mutant (-Werror) */
+@@ -4025,8 +4025,8 @@
+         uint32_t value=stamp+k;
+         for (int p=7; p>=0; --p) { buf[p]=hex[value&15u];value>>=4; }
+         buf[8]=0;
+-        int h=dos_creatnew(buf);
+-        if (h!=-(int)INT21_ERR_FILE_EXISTS) return h;
++        (void)&dos_creatnew;
 +        return dos_creat(buf);
      }
      return -(int)INT21_ERR_FILE_EXISTS;

@@ -4005,90 +4005,28 @@ static int run_with_redirect(const char *line)
     return rc;
 }
 
-/* ---- PIPE executor (beads initech-bsy.8) ---------------------------------
- * Authentic DOS 3.3 implements `a | b` as a TEMP-FILE pipe (MS-DOS 3.3 Tech Ref
- * Ch.6): COMMAND.COM runs `a` with stdout redirected to a temporary file, then
- * runs `b` with stdin from that file, then DELETES the temp.  `a | b | c`
- * composes left-to-right (each interior stage feeds the next via its own temp).
- *
- * We COMPOSE the proven redirect machinery rather than duplicate it: for each
- * stage we bracket run_with_redirect (which peels the stage's OWN `<`/`>`/`>>`
- * and restores per-invocation) with an OUTER stdin (from the previous stage's
- * temp) and an OUTER stdout (to this stage's temp).  Because the OUTER handles
- * are set up BEFORE run_with_redirect and torn down AFTER, and the stage's own
- * redirects nest INSIDE, DOS precedence falls out for free: an explicit `a > f`
- * inside a piped stage wins for handle 1 (the temp stays empty) exactly as real
- * DOS does.  For `a < in | b > out` the `< in` is stage 0's own redirect and the
- * `> out` is the last stage's own redirect -- both handled by cmd_redir_parse
- * inside their stage; the pipe only supplies the inter-stage temps.
- *
- * STAGE-FAILURE semantics (CITED): DOS pipes do NOT check a stage's exit code --
- * `a` is always run to completion (writing the temp), then `b` is always run on
- * whatever the temp contains, even if `a` failed (MS-DOS 3.3 Tech Ref Ch.6: the
- * pipe is a straight temp-file substitution, not a conditional).  So a failing
- * left stage still feeds its PARTIAL temp to the right stage; we never short-
- * circuit on a stage's return except for a mid-pipeline EXIT builtin (rc==1),
- * which tears the shell down (ASSUMED: `exit` inside a pipe is degenerate; we
- * stop the pipeline but still delete every temp).
- *
- * TEMP-FILE NAME SCHEME: real MS-DOS COMMAND.COM writes pipe intermediates to a
- * file with the DOS ".$$$" TEMPORARY extension (the ".$$$" convention is DOS-
- * wide; MS-DOS 3.3 Tech Ref Ch.6).  DOS 3.3 predates the TEMP-environment
- * placement of later versions, so the intermediate lands in the CURRENT
- * directory of the default drive (single-drive A: here).  We name successive
- * intermediates PIPE1.$$$ .. PIPE7.$$$.
- *   CITED : the ".$$$" temporary extension + current-drive-root placement.
- *   ASSUMED: the exact "PIPEn" stem (the real 3.3 stem is not byte-documented).
- * A temporary is created with AH=5Bh CREATE NEW FILE, never AH=3Ch: when a user
- * file already owns PIPEn.$$$ the call fails (TR p.6-215) and the next name
- * PIPEnkkk.$$$ (kkk = 001..999) is tried, so a pipe never truncates or deletes
- * a file it did not create (TR p.6-213 "unique filenames" for temporaries;
- * initech-66oc, audit L001).  Only names this pipeline created are deleted.
- *
- * FAIL-LOUD (the repository contract): a temp-file CREATE failure (disk full) prints the DOS
- * "Insufficient disk space" diagnostic (MSG-DOS-0005), deletes any temps already
- * made, and aborts the pipeline -- never runs a stage with a bogus stdout.  A
- * producer whose writes into the temporary came up short (a full disk; AH=40h
- * short count, TR pp.6-139/6-140) is the same failure: the message is printed
- * and the consumer is NOT handed the truncated intermediate (initech-66oc,
- * audit L003).  The [MS-DOS] wording "Intermediate file error during pipe"
- * (User's Guide App. F, printed p.337) is not in the locked DEC-13 catalogue,
- * so the catalogue's full-disk message stands in for it.
- *
- * MUTATION hook (the repository contract): CMD_MUTATE_PIPE_NO_STDIN drops the OUTER stdin repoint
- * for stages 2..n, so a consumer reads the KEYBOARD instead of the pipe -- the
- * GREET|GOBBLE emu gate goes RED (GREETINGS never flows through the temp).
- * NEVER in a real build. */
-
-/* Create the pipe temporary for intermediate `idx` (0-based) with AH=5Bh,
- * writing its name into `buf` (>= 13 bytes).  Candidate 0 is "PIPE<idx+1>.$$$";
- * when that name exists, candidates k = 1..999 are "PIPE<idx+1><kkk>.$$$".
- * Returns the handle, or <0 (the DOS error) when no name could be created.
- * MUTATION hook (the repository contract): CMD_MUTATE_PIPE_CLOBBER creates candidate 0 with
- * AH=3Ch (the pre-66oc truncate), so a user PIPE1.$$$ is destroyed again. */
+/* ---- TEMP-FILE pipes --------------------------------------------------
+ * OEM DOS 3.30 reference/pipe captures two extensionless 8-hex-digit names,
+ * derived from hours/minutes/seconds/hundredths. Two buffers are allocated
+ * before execution and rotate across producers, including successive pipes.
+ * Redirection scopes remain nested around each stage. Only CREATE NEW grants
+ * ownership; only owned names are truncated and removed during cleanup.
+ * Failed writes stop the consumer after restoring handles (reference/FULL).
+ */
 static int pipe_temp_create(int idx, char *buf)
 {
-    for (int k = 0; k <= 999; k++) {
-        int n = 0;
-        buf[n++] = 'P';
-        buf[n++] = 'I';
-        buf[n++] = 'P';
-        buf[n++] = 'E';
-        buf[n++] = (char)('1' + idx);   /* PIPE1.. (idx 0-based, <= 7) */
-        if (k > 0) {
-            buf[n++] = (char)('0' + k / 100);
-            buf[n++] = (char)('0' + (k / 10) % 10);
-            buf[n++] = (char)('0' + k % 10);
-        }
-        buf[n++] = '.';
-        buf[n++] = '$';
-        buf[n++] = '$';
-        buf[n++] = '$';
-        buf[n] = '\0';
-        int h = dos_creatnew(buf);
-        if (h != -(int)INT21_ERR_FILE_EXISTS) {
-            return h;   /* created, or a failure no other name can cure */
-        }
+    uint8_t hour=0,minute=0,second=0,hundredth=0;
+    (void)idx;
+    dos_gettime(&hour,&minute,&second,&hundredth);
+    uint32_t stamp=((uint32_t)hour<<24)|((uint32_t)minute<<16)|
+                   ((uint32_t)second<<8)|hundredth;
+    const char hex[]="0123456789ABCDEF";
+    for (unsigned k=0; k<=999; ++k) {
+        uint32_t value=stamp+k;
+        for (int p=7; p>=0; --p) { buf[p]=hex[value&15u];value>>=4; }
+        buf[8]=0;
+        int h=dos_creatnew(buf);
+        if (h!=-(int)INT21_ERR_FILE_EXISTS) return h;
     }
     return -(int)INT21_ERR_FILE_EXISTS;
 }
@@ -4097,13 +4035,18 @@ static int pipe_temp_create(int idx, char *buf)
  * REPL down), else 0.  Deletes every temp on EVERY path (the repository contract). */
 static int run_pipeline(cmd_pipeline_t *pl)
 {
-    char tname[CMD_PIPE_MAX_STAGES][13];   /* tname[i] = temp AFTER stage i     */
-    int  created[CMD_PIPE_MAX_STAGES];     /* 1 iff we created (must delete) it  */
+    static unsigned write_next=1u;
+    char tname[2][13];
+    int created[2]={0,0};
+    int previous=-1;
     int  rc = 0;
     int  i;
 
-    for (i = 0; i < CMD_PIPE_MAX_STAGES; i++) {
-        created[i] = 0;
+    for (i=0; i<2; ++i) {
+        int h=pipe_temp_create(i,tname[i]);
+        if (h<0) { dos_error(MSG_DOS_0005 "\r\n$");goto cleanup; }
+        created[i]=1;
+        dos_close(h);
     }
 
     for (i = 0; i < pl->nstages; i++) {
@@ -4112,16 +4055,20 @@ static int run_pipeline(cmd_pipeline_t *pl)
 
         int out_h = -1, out_saved = -1;   /* OUTER stdout -> temp[i]            */
         int in_h  = -1, in_saved  = -1;   /* OUTER stdin  <- temp[i-1]          */
+        int current=-1;
 
         /* ---- OUTER stdout: an interior/producer stage writes to temp[i] ---- */
         if (!is_last) {
-            out_h = pipe_temp_create(i, tname[i]);
+            current=previous<0 ? (int)write_next : previous^1;
+            write_next=(unsigned)current^1u;
+            /* Both names are already ours. Reuse truncates the next buffer
+             * so a shorter producer never exposes an earlier stage's tail. */
+            out_h = dos_creat(tname[current]);
             if (out_h < 0) {
                 /* Disk full / cannot create the intermediate -> fail loud. */
                 dos_print(MSG_DOS_0005 "\r\n$");   /* "Insufficient disk space" */
                 goto cleanup;
             }
-            created[i] = 1;
             out_saved = dos_dup(1);
             if (out_saved < 0) {
                 dos_close(out_h);
@@ -4138,7 +4085,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
 
         /* ---- OUTER stdin: a consumer stage reads from temp[i-1] ---- */
         if (!is_first) {
-            in_h = dos_open(tname[i - 1]);   /* AH=3Dh AL=00 read the intermediate */
+            in_h = dos_open(tname[previous]);
             if (in_h >= 0) {
                 in_saved = dos_dup(0);
                 if (in_saved >= 0) {
@@ -4157,6 +4104,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
 
         /* ---- run the stage; its OWN `<`/`>`/`>>` are peeled INSIDE (nested) ---- */
         rc = run_with_redirect(pl->stage[i]);
+        previous=current;
 
         /* ---- tear down the OUTER handles (stdin first, then stdout) ---- */
         if (in_saved >= 0) {
@@ -4190,7 +4138,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
 cleanup:
     /* Delete every intermediate on EVERY path (incl. disk-full abort + EXIT).
      * Authentic DOS removes the pipe temp(s) when the pipeline finishes. */
-    for (i = 0; i < CMD_PIPE_MAX_STAGES; i++) {
+    for (i = 0; i < 2; i++) {
         if (created[i]) {
             (void)dos_unlink(tname[i]);
         }

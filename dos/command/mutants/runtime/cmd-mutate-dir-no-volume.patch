@@ -2,12 +2,12 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -2604,8 +2604,6 @@
+@@ -2628,8 +2628,6 @@
  
      dos_setdta(&g_shell_dta);
      dos_print("\r\n$");
 -    print_volume_identity(disp[0], label);
--    dos_print("\r\n\r\n$");
+-    dos_print(wide ? "\r\n$" : "\r\n\r\n$");
      dos_puts_raw(MSG_DOS_0023);
+     if (wide) dos_write(" ",1u);
      dos_puts_raw(disp);
-     dos_print("\r\n\r\n$");

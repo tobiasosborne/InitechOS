@@ -2,12 +2,12 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4040,23 +4040,9 @@
+@@ -4084,23 +4084,7 @@
          }
  
          /* ---- OUTER stdin: a consumer stage reads from temp[i-1] ---- */
 -        if (!is_first) {
--            in_h = dos_open(tname[i - 1]);   /* AH=3Dh AL=00 read the intermediate */
+-            in_h = dos_open(tname[previous]);
 -            if (in_h >= 0) {
 -                in_saved = dos_dup(0);
 -                if (in_saved >= 0) {
@@ -23,9 +23,7 @@
 -                }
 -            }
 -        }
-+        /* MUTANT: the consumer never gets its stdin repointed at the temp, so it
-+         * reads the keyboard -- the piped data never flows (gate RED). */
-+        (void)is_first;
++        (void)is_first; /* MUTANT: consumer keeps console stdin. */
  
          /* ---- run the stage; its OWN `<`/`>`/`>>` are peeled INSIDE (nested) ---- */
          rc = run_with_redirect(pl->stage[i]);

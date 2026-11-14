@@ -1,0 +1,41 @@
+
+ Volume in drive B has no label
+ Directory of  B:\
+
+SUB          <DIR>     11-14-26   4:42a
+A        TXT        7  11-14-26   4:42a
+B        TXT        6  11-14-26   4:42a
+BATCH    BAT      651  11-14-26   4:42a
+BIG      TXT   123000  11-14-26   4:42a
+CFG1     CFG      254  11-14-26   4:42a
+CFG2     CFG       30  11-14-26   4:42a
+CFG3     CFG       22  11-14-26   4:42a
+CFG4     CFG       66  11-14-26   4:42a
+CHILD    BAT       17  11-14-26   4:42a
+ENV      BAT     1142  11-14-26   4:42a
+EXPAND   BAT      166  11-14-26   4:42a
+FILTER   BAT      384  11-14-26   4:42a
+FULL     BAT       59  11-14-26   4:42a
+LIMIT    BAT     1831  11-14-26   4:42a
+LONG     TXT      619  11-14-26   4:42a
+MORE     BAT       81  11-14-26   4:42a
+MORECASE BAT       81  11-14-26   4:42a
+NAMES    BAT      254  11-14-26   4:42a
+NOEND    TXT       18  11-14-26   4:42a
+PARAM    BAT       63  11-14-26   4:42a
+PARAMS   BAT      149  11-14-26   4:42a
+REDIR    BAT      280  11-14-26   4:42a
+SWITCH   BAT      241  11-14-26   4:42a
+TAIL     BAT      483  11-14-26   4:42a
+TAIL     COM       34  11-14-26   4:42a
+TRACE    TXT        0   3-02-92   9:30a
+R        OUT       10   3-02-92   9:30a
+PIPE1    $$$       16   3-02-92   9:30a
+PIPECASE BAT      227  11-14-26   8:12a
+AUTOEXEC BAT       80  11-14-26   8:12a
+PIPES    OUT     1409   3-02-92   9:30a
+0C220A0E            7   3-02-92  12:34p
+0C220A14            0   3-02-92  12:34p
+ONE      OUT     1532   3-02-92  12:34p
+TWO      OUT        0   3-02-92  12:34p
+       36 File(s)   1309696 bytes free
