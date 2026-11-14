@@ -1,0 +1,15 @@
+# prove FILE COPY writes destination bytes
+# Legacy TBX_MUT_FILECOPY_NO_COPY
+# test: test_filecopy_disk
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1701,8 +1701,7 @@
+         if (want > TBX_FILECOPY_CHUNK) want = TBX_FILECOPY_CHUNK;
+         int32_t got = fc_dos(0x3f00u, (uint32_t)g_fc.src, want, (uint32_t)(uintptr_t)g_fc_buf);
+         if (got <= 0) { rc=got<0?got:TBX_ERR_BADARG; goto fail; }
+-        int32_t put = fc_dos(0x4000u, (uint32_t)g_fc.dst, (uint32_t)got,
+-                             (uint32_t)(uintptr_t)g_fc_buf);
++        int32_t put = got; /* mutant: report progress without writing */
+         if (put != got) { rc=put<0?put:TBX_ERR_DOS(0x1d); goto fail; }
+         g_fc.done += (uint32_t)got;
+     }

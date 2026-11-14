@@ -1,9 +1,9 @@
-# pending: legacy test-flair-file-copy-mutant: progress/tick-rate trace and independent progress pixels
+# prove configured FILE COPY rate is read from disk
 # Legacy TBX_MUT_FILECOPY_RATE_IGNORED
-# test: test_flair_routing
+# test: test_filecopy_disk
 --- a/tbxgate.c
 +++ b/tbxgate.c
-@@ -1597,31 +1597,9 @@
+@@ -1623,32 +1623,7 @@
  
  int32_t tbx_fc_rate(void)
  {
@@ -13,8 +13,9 @@
 -    int32_t n, rate = -1;
 -    if (h < 0) return h;
 -    n = fc_dos(0x3f00u, (uint32_t)h, TBX_FILECOPY_CFG_MAX, (uint32_t)(uintptr_t)cfg);
--    (void)fc_dos(0x3e00u, (uint32_t)h, 0u, 0u);
+-    int32_t cl=fc_dos(0x3e00u, (uint32_t)h, 0u, 0u);
 -    if (n < 0) return n;
+-    if (cl < 0) return cl;
 -    cfg[n] = 0;
 -    for (int32_t i = 0; i < n && rate < 0; ) {
 -        uint32_t k = 0u;
@@ -32,8 +33,6 @@
 -    if (rate < (int32_t)TBX_FILECOPY_RATE_MIN || rate > (int32_t)TBX_FILECOPY_RATE_MAX)
 -        return TBX_ERR_BADARG;
 -    return rate;
-+    /* NAMED regression patches (mutation checks; test-flair-file-copy-mutant): the configured
-+     * PROGRESS_BAR_RATE is never read -- a compiled-in 100 %/s. */
 +    return 100;
  }
  

@@ -157,8 +157,8 @@ gate	TBX_MUT_AX_FULL_EAX	1	tbxgate.c:1152	killed	test_flair_routing	Makefile:150
 gate	TBX_MUT_DRAWMBAR_NOOP	1	tbxgate.c:859	pending	legacy test-flair-tenant-menu-mutant: presented tenant menu-bar pixels	Makefile:23454
 gate	TBX_MUT_DRAW_NOT_PRESENTED	1	tbxgate.c:1455	pending	legacy test-flair-ctenant-mutant: framebuffer repaint pixels	Makefile:23560,Makefile:23566
 gate	TBX_MUT_EXIT_LEAK	1	tbxgate.c:1373	pending	legacy test-flair-app-launch-mutant: exit reclaims the tenant slot and arena	Makefile:23257
-gate	TBX_MUT_FILECOPY_NO_COPY	2	tbxgate.c:1744,tbxgate.c:1760	pending	legacy test-flair-file-copy-mutant: destination disk bytes after FILE COPY	harness/frameapps.mk:150,harness/frameapps.mk:213,harness/frameapps.mk:214
-gate	TBX_MUT_FILECOPY_RATE_IGNORED	1	tbxgate.c:1699	pending	legacy test-flair-file-copy-mutant: progress/tick-rate trace and independent progress pixels	harness/frameapps.mk:149,harness/frameapps.mk:208,harness/frameapps.mk:210
+gate	TBX_MUT_FILECOPY_NO_COPY	2	tbxgate.c:1744,tbxgate.c:1760	killed	test_filecopy_disk	harness/frameapps.mk:150,harness/frameapps.mk:213,harness/frameapps.mk:214
+gate	TBX_MUT_FILECOPY_RATE_IGNORED	1	tbxgate.c:1699	killed	test_filecopy_disk	harness/frameapps.mk:149,harness/frameapps.mk:208,harness/frameapps.mk:210
 gate	TBX_MUT_FILE_BOUNDS	1	tbxfile.h:15	killed	test_tbx_file	Makefile:31957,Makefile:31958
 gate	TBX_MUT_FILE_CREATE_NEW_TRUNC	1	tbxfile.h:58	killed	test_tbx_file	Makefile:31957,Makefile:31958
 gate	TBX_MUT_FILE_LEAK	1	tbxfile.h:127	killed	test_tbx_file	Makefile:31957,Makefile:31958,Makefile:31977

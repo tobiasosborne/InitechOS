@@ -123,7 +123,7 @@ and length; only the platform binding interprets its DOS resume state.
 
 Host-only integration debt: tests/platform_dos.c and test_tbx_file.c use
 only kernel public headers, and the
-file suite compiles six unchanged kernel translation units directly. There
+file suites compile existing kernel translation units directly. There
 are no borrowed headers, source views or app GrafPort compatibility paths.
 The target never sees kernel include paths. Move the host adapter into the
 kernel's host binding when that binding is published. The diagnostic catalog
@@ -135,14 +135,19 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 192 patches through the shared strict runner: passing baseline,
+make mutants runs 194 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
 the measured sweep is 85 seconds on this machine. The shared runner itself is
 serial; native parallel scheduling and baseline sharing across patch workers
 would remove this local wrapper and the serial tail of large selection groups.
-Sixteen patches under mutants/pending/ need their named legacy emulator gates.
+Fourteen patches under mutants/pending/ still need their named legacy emulator gates.
+The phase-2 strict sweep compiled and ran all sixteen original pending patches:
+the two FILE COPY patches are now killed twice by test_filecopy_disk; fourteen
+survive their current host selections and remain pending. No compile failure
+was counted as a kill. The copy patches were refreshed against staged copying,
+with independent destination bytes and a literal configured-rate assertion.
 None was deleted as equivalent. tests/MUTATION-RESULTS.tsv records all 207 macros,
 their original 248 guard entries, test selection, disposition and recipe evidence.
 This includes five hooks omitted from the original 202-macro/243-entry inventory:
