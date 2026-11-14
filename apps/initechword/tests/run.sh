@@ -14,6 +14,19 @@ read_text() {
     grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$' "$1.ref"
 }
 case "$name" in
+ test_iword_retrieve)
+    fixtures=tests/conformance/fixtures
+    (cd "$fixtures"; sha256sum -c ../SHA256SUMS --quiet)
+    (cd tests/conformance; grep '  captures/W06-save/AFTER.WP5$' CAPTURES.sha256 | sha256sum -c --quiet -)
+    "$bin" "$dir" "$fixtures/W06.WP5" "$fixtures/W07.WP5"
+    python3 -I "$ref" tests/conformance/captures/W06-save/AFTER.WP5 > "$dir/reference"
+    python3 -I "$ref" "$dir/RECOVER.WP5" > "$dir/recovered"
+    for dump in reference recovered; do
+      grep -qxF "  TEXT: 'ReadableZ'" "$dir/$dump"
+      grep -qxF "  CODES: T'Readable' [AttrOn Bold] T'Z'" "$dir/$dump"
+      grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$' "$dir/$dump"
+    done
+    ;;
  test_iword_save)
     capture=$IWORD_GOLDENS/dataloss/wordperfect/collision
     (cd "$capture"; printf '%s\n' \

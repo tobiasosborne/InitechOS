@@ -1,0 +1,14 @@
+# test: test_iword_retrieve
+# Text alone is insufficient: real WP repairs and retains the incomplete Bold.
+diff --git a/app/face_a.c b/app/face_a.c
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1273,7 +1273,7 @@
+      * Keep the codec strict; no other damaged code has a recovery capture. */
+     if (parsed == IW_E_CODE && pos < BANK && w.err_off + 2u == pos &&
+         buf[pos-2u] == IW_WP5_ATTR_ON && buf[pos-1u] == IW_WP5_ATTR_BOLD) {
+-        buf[pos++] = IW_WP5_ATTR_ON;
++        pos -= 2u;
+         parsed = iw_wp5_read(buf, pos, &w);
+     }
+     if (parsed != IW_OK) { error("ERROR: Incompatible File Format", back); return; }

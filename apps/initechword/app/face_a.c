@@ -1267,7 +1267,16 @@ static void retrieve_file(int back)
     closed = tbx_file_close(h);
     if (size < 0 || (uint32_t)size > BANK) { error("ERROR: Document too large", back); return; }
     if (pos != (uint32_t)size || closed < 0) { error("ERROR: File Not Found", back); return; }
-    if (iw_wp5_read(buf, pos, &w) != IW_OK) { error("ERROR: Incompatible File Format", back); return; }
+    int parsed = iw_wp5_read(buf, pos, &w);
+    /* Real WP5.1 W06 recovery, conformance/captures/W06-save/AFTER.WP5:
+     * a final C3 0C regains its missing mirror. Appended text stays Bold.
+     * Keep the codec strict; no other damaged code has a recovery capture. */
+    if (parsed == IW_E_CODE && pos < BANK && w.err_off + 2u == pos &&
+        buf[pos-2u] == IW_WP5_ATTR_ON && buf[pos-1u] == IW_WP5_ATTR_BOLD) {
+        buf[pos++] = IW_WP5_ATTR_ON;
+        parsed = iw_wp5_read(buf, pos, &w);
+    }
+    if (parsed != IW_OK) { error("ERROR: Incompatible File Format", back); return; }
     if (g_ed.doc.len == 0u) {
         /* onto a clear screen: the file IS the document now */
         g_ed.cur = 0;

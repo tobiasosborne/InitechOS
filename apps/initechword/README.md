@@ -16,7 +16,7 @@ file is required. The independent MZ reader validates relocations and BSS:
 the BSS remains below the OS-side 512 KiB limit. Drawing data already uses TBX_IN_IMAGE; file buffers stay in
 BSS as allowed by sdk/README.md. No OS change was needed to run this executable.
 
-make test runs 14 programs against the real pinned
+make test runs 15 programs against the real pinned
 WordPerfect corpus, captured grids and independent models/readers. Execution
 fits the 30-second budget. Hosted code uses -O2, keeping every property
 session: 13s before versus 10s after on the integration machine (codes 8s
@@ -162,3 +162,11 @@ checks every exported primary, backup and complete recovery stream. The double-
 failure residual has a delete-the-original mutant. No product codec computes the
 expected prior file. The separate `rollback` diagnostic still checks the stronger
 original-name ruling and remains red until `initech-7mb66` closes it.
+
+Retrieve repairs the captured incomplete trailing Bold-on code (`C3 0C`) by
+restoring its missing mirror. The W06 real WP5.1 edit/save/reopen capture in
+`tests/conformance/captures/` retains Bold on text appended after recovery.
+The registered Retrieve test checks that exact formatting through an independent
+WP5 reader, source-byte preservation, short reads and a fresh-tenant reopen.
+The codec remains strict; unsupported damaged codes, including a complete wrong
+mirror, are refused without changing the existing document.
