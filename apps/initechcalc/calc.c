@@ -338,9 +338,15 @@ static unsigned serialise(void)
 static void text(int32_t w,int x,int y,const char *s,uint32_t fg,uint32_t bg)
 { (void)tbx_draw_text(w,x,y,s,fg|TBX_TEXT_GENEVA9,bg); }
 static void rect(int32_t w,int l,int t,int r,int b,uint32_t c) { if(l<r&&t<b) (void)tbx_fill_rect(w,l,t,r,b,c); }
+/* Treatment A (operator ruling 2026-11-14, design-frame section 3): reserve
+ * one white annotation strip before the final total and its rule. It is
+ * layout, never a worksheet row or a fabricated cell value. */
+static unsigned note_row(void) { return g_rows>1?g_rows-2:0; }
+static int row_y(unsigned r)
+{ return (int)r*ROW_H+(note[0]&&r>=note_row()?ROW_H:0); }
 static void paint_cell(unsigned c,unsigned r)
 {
-    int x=colx[c], y=(int)r*ROW_H;
+    int x=colx[c], y=row_y(r);
     int editing=entered&&c==i123_cursor_col(&g_sheet)&&r==i123_cursor_row(&g_sheet);
     if(editing) copy(line,entry);
     else if(!cell_text(c,r,line,(unsigned)(colx[c+1]-x-2))) return;   /* empty: a left neighbour may run over it */
@@ -351,19 +357,26 @@ static void paint_cell(unsigned c,unsigned r)
 static void paint_ledger(void)
 {
     int32_t s=tbx_content_size(ledger);
-    int cw=s&0xFFFF, ch=(s>>16)&0xFFFF, gw=colx[CALC_COLS], gh=(int)g_rows*ROW_H;
+    int cw=s&0xFFFF, ch=(s>>16)&0xFFFF, gw=colx[CALC_COLS], gh=row_y(g_rows);
+    int ny=(int)note_row()*ROW_H;
     if(s<=0) return;
     rect(ledger,0,0,cw,ch,TBX_COLOR_WHITE);
-    for(unsigned r=0;r<=g_rows;r++) rect(ledger,0,(int)r*ROW_H,gw+1,(int)r*ROW_H+1,TBX_COLOR_GRAY);
-    for(unsigned c=0;c<=CALC_COLS;c++) rect(ledger,colx[c],0,colx[c]+1,gh+1,TBX_COLOR_GRAY);
+    if(note[0]) rect(ledger,0,ny,gw+1,ny+1,TBX_COLOR_GRAY);
+    for(unsigned r=0;r<=g_rows;r++) rect(ledger,0,row_y(r),gw+1,row_y(r)+1,TBX_COLOR_GRAY);
+    for(unsigned c=0;c<=CALC_COLS;c++) {
+        if(note[0]) {
+            rect(ledger,colx[c],0,colx[c]+1,ny+1,TBX_COLOR_GRAY);
+            rect(ledger,colx[c],ny+ROW_H,colx[c]+1,gh+1,TBX_COLOR_GRAY);
+        } else rect(ledger,colx[c],0,colx[c]+1,gh+1,TBX_COLOR_GRAY);
+    }
     for(unsigned r=0;r<g_rows;r++) for(unsigned c=0;c<CALC_COLS;c++) paint_cell(c,r);
     if(g_rows) {   /* the cell pointer */
         int x0=colx[i123_cursor_col(&g_sheet)], x1=colx[i123_cursor_col(&g_sheet)+1];
-        int y0=(int)i123_cursor_row(&g_sheet)*ROW_H, y1=y0+ROW_H;
+        int y0=row_y(i123_cursor_row(&g_sheet)), y1=y0+ROW_H;
         rect(ledger,x0,y0,x1+1,y0+1,TBX_COLOR_BLACK); rect(ledger,x0,y1,x1+1,y1+1,TBX_COLOR_BLACK);
         rect(ledger,x0,y0,x0+1,y1+1,TBX_COLOR_BLACK); rect(ledger,x1,y0,x1+1,y1+1,TBX_COLOR_BLACK);
     }
-    if(note[0]) { copy(line,note); text(ledger,4,gh+2,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE); }
+    if(note[0]) { copy(line,note); text(ledger,4,ny+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE); }
 }
 
 /* The pie: an elliptical disk of slices, each value/sum of a turn, exploded

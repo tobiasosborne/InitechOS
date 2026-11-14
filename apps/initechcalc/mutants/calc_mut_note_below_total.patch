@@ -1,0 +1,8 @@
+# test: test_calc_tenant
+--- a/calc.c
++++ b/calc.c
+@@ -378,3 +378,3 @@
+     }
+-    if(note[0]) { copy(line,note); text(ledger,4,ny+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE); }
++    if(note[0]) { copy(line,note); text(ledger,4,gh+2,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE); }
+ }

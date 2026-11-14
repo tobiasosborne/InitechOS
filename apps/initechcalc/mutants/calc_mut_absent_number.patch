@@ -1,0 +1,11 @@
+# test: test_calc_tenant
+--- a/calc.c
++++ b/calc.c
+@@ -160,6 +160,6 @@
+ static int load_cell(unsigned c,unsigned r,const char *f,unsigned n)
+ {
+-    if(!n) return 1;
++    if(!n) return put_number(c,r,0,FMT_GENERAL);
+     if(f[0]=='\''||f[0]=='\\') {
+         if(n<2||n>64) return 0;
+         for(unsigned i=0;i<n;i++) if((unsigned char)f[i]<32||(unsigned char)f[i]>126) return 0;

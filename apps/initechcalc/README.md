@@ -4,7 +4,8 @@ CALC.EXE is the frame's ledger and its separate pie-chart window.
 Dependencies: SDK and Initech 123 public worksheet headers/core. Plain target
 flags, no semantic defines. The target links Initech 123's public libi123.a;
 host tests compile its seven worksheet sources (sheet, fmt, formula, range,
-eval, recalc and fs/wk1) for the host architecture.
+eval, recalc and fs/wk1) for the host architecture. Host geometry checks also
+use FLAIR's public chrome metrics.
 
 ## The ledger document
 
@@ -19,7 +20,7 @@ A document is ASCII text, CR LF lines, tab-separated:
     WINDOW  l t r b         the ledger window's bounds
     CHART   l t r b         the chart window's bounds
     SERIES  v1 ... vn       the chart's values, 1 to 8, each above zero
-    NOTE    text            the source note under the grid (optional)
+    NOTE    text            the source note above the total (optional)
     ROWS    n               rows in the ledger, 1 to 26
     row  c0 c1 ... c9       a non-empty row, ascending, columns 0 to 9
 
@@ -44,7 +45,11 @@ the windows and saving keeps the new places.
 ## The ledger
 
 Ten columns (label 100 px, eight amounts of 46, one narrow of 10), rows 12 px,
-Geneva 9, grey rules, the note below the grid. All cells are left-aligned, as
+Geneva 9 and grey rules. Treatment A reserves a shallow white strip across the
+content width above the final total and its rule, in black Geneva 9. The strip
+is layout, not a worksheet row; it stays below the upper chart and copy dialog.
+It follows the operator's above-total ruling, rather than the reference
+package's later recommendation to put it below the grid. All cells are left-aligned, as
 in the still. A label runs over empty cells to its right and stops at a full
 one. Arrows and Tab move the cell pointer; typing enters a value (a number,
 with a leading or trailing minus and for currency `$` and commas) or a label;
@@ -89,7 +94,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 
 - `test_calc_frame` + `tests/frame-content.sh`: the frame's content. The
   script reads goldens/frame/transcription.tsv and geometry.tsv and grades,
-  with the same rules, the shipped document (read with awk, no product code)
+  with the same rules, the shipped and saved documents (read with awk, no product code)
   and what the real tenant drew (cell texts at cell origins, the note, the
   chart labels, and a ring of chart pixels: a slice face at each value/sum
   middle, a gap within 4 degrees of each boundary). Every certain or
@@ -99,7 +104,10 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   still's arrangement.
 - `test_calc_tenant`: launch, which document opens, the reader's refusals,
   formats (typed Lotus R2 expectations with the sign moved), editing, the
-  quit guard.
+  quit guard, typed missing cells, white ruled gaps, and note order/visibility.
+  The source, shipped ledger and drawing are also checked for retired
+  placeholders. Existing transcription data is preserved; this treatment
+  introduces no recovered labels or amounts.
 - `test_calc_file_copy`: Save routing, the byte-for-byte round trip of the
   shipped ledger, saved positions after a drag, reopening the saved tables,
   replace confirmation, stage ownership. Expected bytes are the shipped
@@ -110,7 +118,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 18 patches in `mutants/`; each must fail a host
+`make mutants` runs the 22 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,

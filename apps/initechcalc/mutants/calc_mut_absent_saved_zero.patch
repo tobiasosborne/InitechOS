@@ -1,0 +1,11 @@
+# test: test_calc_frame
+--- a/calc.c
++++ b/calc.c
+@@ -316,6 +316,6 @@
+             const i123_cell_t *p=i123_find(&g_sheet,(uint16_t)c,(uint16_t)r);
+             put("\t");
+-            if(!p) continue;
++            if(!p) { put("(G) 0"); continue; }
+             if(p->kind==I123_K_LABEL) {
+                 const char *b=(const char *)i123_cell_bytes(&g_sheet,p);
+                 char t[2]={0,0};

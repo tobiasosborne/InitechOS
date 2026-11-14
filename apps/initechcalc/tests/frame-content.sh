@@ -2,9 +2,10 @@
 # The frame's content, graded against goldens/frame (README.md "Checks").
 # Expected values come only from transcription.tsv and geometry.tsv, the hand
 # reading of the still; the operator's note literal is quoted from the ruling.
-# Two things are graded with the same rules:
+# Three things are graded with the same rules:
 #   1. the shipped ledger document, read here with awk (no product code);
-#   2. what the real tenant drew, as tests/test_calc_frame.c reports it.
+#   2. what the real tenant drew, as tests/test_calc_frame.c reports it;
+#   3. TABLES.TXT saved through the tenant's ordinary Save request.
 set -eu
 export LC_ALL=C
 bin=$1
@@ -26,7 +27,8 @@ awk -F'\t' '$1=="CANON.PIE116" { print $4 }' "$tsv" > "$tmp/canon"
 awk -F'\t' '$1=="LEDWIN" || $1=="CHARTWIN" { print $11 "\t" $12 }' "$geom" > "$tmp/origins"
 
 # 1. The document as the product's formats display it.
-tr -d '\r' < "$doc" | awk -F'\t' -v q="'" '
+read_document() {
+tr -d '\r' < "$1" | awk -F'\t' -v q="'" '
 function grouped(s,   i, o, n) { n=length(s); o=""; for(i=1;i<=n;i++) { o=o substr(s,i,1); if((n-i)%3==0 && i<n) o=o "," } return o }
 function shown(f,   d, v, neg, s, p) {
     if(substr(f,1,1)==q) return substr(f,2)
@@ -44,10 +46,13 @@ $1=="SERIES" { for(i=2;i<=NF;i++) print "LABEL\t" $i "%"; next }
 $1=="NOTE"   { print "NOTE\t" substr($0,6); next }
 $1=="ROWS"   { next }
 $1 ~ /^[0-9]+$/ { for(i=2;i<=NF;i++) if($i!="") print "CELL\t" $1 "\t" i-2 "\t" shown($i); next }
-{ print "OTHER\t" $0 }' > "$tmp/document"
+{ print "OTHER\t" $0 }'
+}
+read_document "$doc" > "$tmp/document"
 
 # 2. What the tenant drew.
-"$bin" > "$tmp/drawn"
+"$bin" "$doc" "$tmp/TABLES.TXT" > "$tmp/drawn"
+read_document "$tmp/TABLES.TXT" > "$tmp/saved"
 
 grade() {   # $1 = name, $2 = observation file
     awk -F'\t' -v name="$1" -v note="$note" -v canon="$(cat "$tmp/canon")" \
@@ -88,10 +93,24 @@ grade() {   # $1 = name, $2 = observation file
 rc=0
 grade document "$tmp/document" || rc=1
 grade drawn "$tmp/drawn" || rc=1
+grade saved "$tmp/saved" || rc=1
+# Product sources, shipped document and actual draw records must all omit
+# the retired placeholder. Construct the test token without a self-match.
+forbidden='TODO_''FRAME'
+for source in calc.c include/*.h include/*.json data/LEDGER.TXT; do
+    if grep -F "$forbidden" "$source" >/dev/null; then
+        echo "FAIL treatment A: placeholder in $source"
+        rc=1
+    fi
+done
+if grep -F "$forbidden" "$tmp/drawn" >/dev/null; then
+    echo "FAIL treatment A: placeholder in screen draw records"
+    rc=1
+fi
 cells=$(grep -c '^CELL' "$tmp/drawn" || :)
 labels=$(grep -c '^LABEL' "$tmp/drawn" || :)
 if [ "$rc" -eq 0 ]; then
-    echo "ok frame content: document and drawing agree with the transcription ($cells cells, $labels labels)"
+    echo "ok frame content: shipped document, saved TABLES.TXT and drawing agree ($cells cells, $labels labels)"
 fi
 echo "test_calc_frame: $((cells + labels + 2)) checks, $rc failures"
 exit "$rc"

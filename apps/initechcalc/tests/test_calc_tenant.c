@@ -9,6 +9,7 @@
 #include <string.h>
 #include "../calc.c"
 #include "tbx_host.h"
+#include "chrome_metrics.h"
 
 static int failures, checks;
 #define CHECK(c,s) do { checks++; if (!(c)) { failures++; fprintf(stderr,"FAIL %s\n",s); } } while(0)
@@ -31,6 +32,45 @@ static void event(int what,int msg)
 }
 static int drawn(int w,const char *s)
 { for(unsigned i=0;i<tbx_host.nops;i++) if(!strcmp(tbx_host.ops[i].name,"tbx_draw_text")&&tbx_host.ops[i].a[0]==w&&!strcmp(tbx_host.ops[i].text,s)) return 1; return 0; }
+static int pixel(int x,int y)
+{
+    int colour=-1;
+    for(unsigned i=0;i<tbx_host.nops;i++) {
+        const tbx_host_op_t *o=&tbx_host.ops[i];
+        if(!strcmp(o->name,"tbx_fill_rect")&&o->a[0]==1&&
+           x>=o->a[1]&&x<o->a[3]&&y>=o->a[2]&&y<o->a[4]) colour=o->a[5];
+    }
+    return colour;
+}
+static void treatment_a(void)
+{
+    int ny=-1,ty=-1,count=0,style=0;
+    for(unsigned i=0;i<tbx_host.nops;i++) {
+        const tbx_host_op_t *o=&tbx_host.ops[i];
+        if(strcmp(o->name,"tbx_draw_text")) continue;
+        CHECK(!strstr(o->text,"TODO_" "FRAME"),"no placeholder is drawn in either window");
+        if(o->a[0]!=1) continue;
+        if(!strcmp(o->text,"Blank entries were not recovered from the surviving material.")) {
+            ny=o->a[2]; count++;
+            style=o->a[3]==(TBX_COLOR_BLACK|TBX_TEXT_GENEVA9)&&o->a[4]==TBX_COLOR_WHITE;
+        }
+        if(!strcmp(o->text,"$112,276.87")) ty=o->a[2];
+    }
+    CHECK(count==1&&style,"one black Geneva 9 source note on white");
+    CHECK(ny>=0&&ty>=0&&ny+12<=ty,"source note occupies its own strip above the total");
+    /* Public chrome metric plus observed window bounds, and COPY's bottom
+     * from goldens/frame/geometry.tsv: the upper overlays cannot cover it. */
+    int global_y=tbx_host.windows[0].t+FLAIR_CHROME_TITLEBAR_H+ny;
+    CHECK(ny>=0&&global_y>=tbx_host.windows[1].b&&global_y>=274,
+          "note remains exposed below the chart and reference FILE COPY box");
+    int white=ny>=0;
+    for(int x=0;x<tbx_host.cw&&white;x++) if(pixel(x,ny+3)!=TBX_COLOR_WHITE) white=0;
+    CHECK(white,"source-note strip spans the white content width without cell rules");
+    CHECK(!i123_find(&g_sheet,1,0)&&!i123_find(&g_sheet,4,12)&&!i123_find(&g_sheet,9,12)&&!i123_find(&g_sheet,0,24),
+          "unrecovered cells are absent model entries, not numeric zero or labels");
+    CHECK(pixel(110,18)==TBX_COLOR_WHITE&&pixel(100,18)==TBX_COLOR_GRAY&&pixel(110,24)==TBX_COLOR_GRAY,
+          "an unrecovered cell has a white interior and ordinary gray rules");
+}
 static int start_calc(const char *ledger_doc,const char *tables)
 {
     tbx_host_reset();
@@ -81,6 +121,7 @@ int main(void)
     event(updateEvt,0);
     CHECK(drawn(2,"40%")&&drawn(2,"9%")&&!drawn(2,"116%"),"labels are the values; no invented total");
     CHECK(drawn(1,"Blank entries were not recovered from the surviving material."),"the source note is drawn");
+    treatment_a();
 
     /* The clean worksheet quits at once, never asking. */
     event(TBX_EVT_GOAWAY,2); CHECK(tbx_host.exit_calls==1&&tbx_host.alerts==0,"QUIT_CLEAN a clean close box quits without a question");

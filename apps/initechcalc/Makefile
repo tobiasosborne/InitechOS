@@ -5,7 +5,7 @@ include $(TOP)/mk/config.mk
 CORE := $(TOP)/apps/initech123/core/sheet.c $(TOP)/apps/initech123/core/fmt.c $(TOP)/apps/initech123/fs/wk1.c $(TOP)/apps/initech123/core/formula.c $(TOP)/apps/initech123/core/range.c $(TOP)/apps/initech123/core/eval.c $(TOP)/apps/initech123/core/recalc.c
 CORE_INC := -I$(TOP)/apps/initech123/include
 TENANT_SRCS := calc.c
-HOST_INCLUDES := -Iinclude $(CORE_INC) -I$(TOP)/sdk/include -I$(TOP)/sdk/host
+HOST_INCLUDES := -Iinclude $(CORE_INC) -I$(TOP)/sdk/include -I$(TOP)/sdk/host -I$(TOP)/flair/include
 HOST_TESTS := test_calc_tenant test_calc_file_copy test_calc_save_safety test_calc_frame
 $(foreach t,$(HOST_TESTS),$(eval $(t)_SRCS := tests/$(t).c $(CORE)))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
@@ -26,7 +26,7 @@ TENANT_OBJ += $(TOP)/build/apps/initech123/libi123.a
 $(OUT)/$(TENANT).base.elf $(OUT)/$(TENANT).probe.elf: $(TOP)/build/apps/initech123/libi123.a
 .PHONY: worksheet-library
 worksheet-library:
-	+$(MAKE) -C $(TOP)/apps/initech123 OUT=$(TOP)/build/apps/initech123 MAKEOVERRIDES= all
+	+$(MAKE) -C $(TOP)/apps/initech123 OUT=$(TOP)/build/apps/initech123 TESTS= MAKEOVERRIDES= all
 $(TOP)/build/apps/initech123/libi123.a: | worksheet-library
 TARGET_ARTIFACTS := $(TENANT_IMAGE)
 include $(TOP)/mk/import-check.mk
@@ -47,4 +47,4 @@ ledger-data: $(HOST_OUT)/ledgergen
 	@cmp include/calc_ledger.h $(OUT)/ledger.generated.h
 test-build: ledger-data
 $(TOP)/build/sdk/host/libtbx_host.a:
-	+$(MAKE) -C $(TOP)/sdk OUT=$(TOP)/build/sdk MAKEOVERRIDES= host
+	+$(MAKE) -C $(TOP)/sdk OUT=$(TOP)/build/sdk TESTS= MAKEOVERRIDES= host
