@@ -3,10 +3,10 @@ TOP := $(abspath .)
 COMPONENT := factory
 include $(TOP)/mk/config.mk
 all: $(OUT)/desktop-bochs
-$(OUT)/desktop-bochs: factory/desktop-bochs.c $(wildcard factory/emu/bochs*) FORCE
+$(OUT)/desktop-bochs: factory/desktop-bochs.c $(wildcard factory/emu/bochs*) factory/emu/port_lock.h FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
 all: $(OUT)/desktop-primitives-test
-$(OUT)/desktop-primitives-test: factory/desktop-primitives-test.c factory/desktop-bochs.c $(wildcard factory/emu/bochs*) FORCE
+$(OUT)/desktop-primitives-test: factory/desktop-primitives-test.c factory/desktop-bochs.c $(wildcard factory/emu/bochs*) factory/emu/port_lock.h FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
 .PHONY: test
 test: all

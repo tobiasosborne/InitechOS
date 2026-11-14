@@ -1,0 +1,10 @@
+--- a/factory/emu/port_lock.h
++++ b/factory/emu/port_lock.h
+@@ -28,6 +28,7 @@
+             if(flock(fd,LOCK_EX|LOCK_NB)==0)locked=1;
+             else if(errno!=EWOULDBLOCK && errno!=EINTR) {perror(path);close(fd);return -1;}
+         }
++        if(locked) return fd;
+         if(locked) {
+             int probe=socket(AF_INET,SOCK_STREAM,0);
+             if(probe<0) {perror("port probe socket");close(fd);return -1;}

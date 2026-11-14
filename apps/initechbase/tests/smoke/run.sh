@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/../../../.."
+. factory/testlib/smoke-lock.sh
+smoke_lock
 root=$PWD
 out=$root/build/apps/initechbase/smoke
 src=$root/apps/initechbase

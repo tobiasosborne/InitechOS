@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
+. factory/testlib/smoke-lock.sh
+smoke_lock
 out=${SMOKE_OUT:-build/smoke}
 mkdir -p "$out"
 fail() { echo "FAIL $*" >&2; exit 1; }

@@ -111,9 +111,10 @@ smoke-selection:
 	@INITECH_FULL_SMOKE=1 sh factory/smoke-selection.sh Turbo-sources "$${TURBO_EXEC_SOURCES-$$(echo turbo/compiler/fixtures/gen*.pas turbo/tests/execution/*.pas)}" "$$(echo turbo/compiler/fixtures/gen*.pas turbo/tests/execution/*.pas)"
 smoke: export INITECH_FULL_SMOKE := 1
 smoke: smoke-selection image
-	$(MAKE) -C factory smoke
-	@for c in $(SMOKE_COMPONENTS); do $(MAKE) --no-print-directory -C $$c smoke || exit 1; done
-	@echo 'FULL SMOKE GREEN: factory DOS/programs/desktop + $(REGISTERED_SMOKE_COMPONENTS); QEMU + Bochs'
+	+@set -e; . factory/testlib/smoke-lock.sh; smoke_lock; \
+	$(MAKE) -C factory smoke; \
+	for c in $(SMOKE_COMPONENTS); do $(MAKE) --no-print-directory -C $$c smoke || exit 1; done; \
+	echo 'FULL SMOKE GREEN: factory DOS/programs/desktop + $(REGISTERED_SMOKE_COMPONENTS); QEMU + Bochs'
 run: image
 	qemu-system-i386 -m 8 -machine acpi=off -cpu 486 -drive file=build/image/boot.img,format=raw,index=0 -drive file=build/image/data.img,format=raw,index=1 -serial stdio -d int,guest_errors,cpu_reset -D build/qemu.log -no-reboot
 run-bochs: image

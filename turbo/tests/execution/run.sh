@@ -5,6 +5,8 @@
 # the complete default matrix. CLAUDE.md: The oracle is the truth.
 set -eu
 cd "$(dirname "$0")/../../.."
+. factory/testlib/smoke-lock.sh
+smoke_lock
 root=$PWD
 out=${TURBO_EXEC_OUT:-$root/build/turbo/smoke/execution}
 hosted=${TURBO_HOSTED:-$root/build/turbo/compiler/turbo_fpc}

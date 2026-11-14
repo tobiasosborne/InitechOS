@@ -3,18 +3,17 @@ COMPONENT := factory
 include $(TOP)/mk/config.mk
 export LOTUS123_DECOMP WORDPERFECT51_DECOMP
 all: $(OUT)/qemu_harness $(OUT)/bochs_harness $(OUT)/boot_system
-$(OUT)/qemu_harness: emu/qemu.c emu/qemu_main.c emu/qemu.h | $(OUT)
+$(OUT)/qemu_harness: emu/qemu.c emu/qemu_main.c emu/qemu.h emu/port_lock.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) emu/qemu.c emu/qemu_main.c -o $@
-$(OUT)/bochs_harness: emu/bochs.c emu/bochs_main.c emu/bochs.h emu/bochs_trace.h | $(OUT)
+$(OUT)/bochs_harness: emu/bochs.c emu/bochs_main.c emu/bochs.h emu/bochs_trace.h emu/port_lock.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) emu/bochs.c emu/bochs_main.c -o $@
 $(OUT)/boot_system: image/boot_system.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 image: all
 	SYSTEM_IMAGE=$(TOP)/build/system/INITDOS$(if $(BIG_KERNEL),-big).SYS sh image/build.sh
 smoke:
-	sh smoke.sh
-	$(MAKE) smoke-programs
-	sh smoke-desktop.sh
+	+@set -e; . testlib/smoke-lock.sh; smoke_lock; \
+	sh smoke.sh; $(MAKE) smoke-programs; sh smoke-desktop.sh
 all: $(OUT)/keys
 $(OUT)/keys: keys.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
@@ -60,14 +59,18 @@ mutants:
 	+sh gate-mutants.sh
 
 .PHONY: gate-test
-$(OUT)/bochs-verdict-test: tests/bochs-verdict.c emu/bochs.c emu/bochs.h emu/bochs_trace.h | $(OUT)
+$(OUT)/bochs-verdict-test: tests/bochs-verdict.c emu/bochs.c emu/bochs.h emu/bochs_trace.h emu/port_lock.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 test: gate-test
-gate-test: $(OUT)/bochs-verdict-test $(OUT)/qemu-deadline-test
+gate-test: $(OUT)/bochs-verdict-test $(OUT)/qemu-deadline-test $(OUT)/port-lock-test
 	$(OUT)/bochs-verdict-test
 	sh tests/worksheet.sh
 	+sh tests/registration.sh
 	+sh tests/selection.sh
 	$(OUT)/qemu-deadline-test
-$(OUT)/qemu-deadline-test: tests/qemu-deadline.c emu/qemu.c emu/qemu.h | $(OUT)
+	$(OUT)/port-lock-test
+	sh tests/smoke-lock.sh
+$(OUT)/port-lock-test: tests/port-lock.c emu/port_lock.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+$(OUT)/qemu-deadline-test: tests/qemu-deadline.c emu/qemu.c emu/qemu.h emu/port_lock.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@

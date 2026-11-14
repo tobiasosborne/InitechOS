@@ -2,6 +2,8 @@
 # IBM DOS 3.30 TR INT21 program probes on a separate writable data volume.
 set -eu
 cd "$(dirname "$0")/.."
+. factory/testlib/smoke-lock.sh
+smoke_lock
 out=${PROGRAM_SMOKE_OUT:-build/smoke-programs}
 mkdir -p "$out"
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1

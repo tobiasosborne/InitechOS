@@ -129,3 +129,18 @@ rechecks its session deadline after frontend callbacks. DESKTOP_WAIT_MS permits
 an invocation-only override of its10000ms marker wait; session and app-driver
 pacing overrides likewise retain their defaults. These controls support busy
 shared-machine verification without weakening the oracle or test selection.
+# Concurrent smoke runs
+
+Full smoke and standalone DOS, program, desktop, InitechBase and Turbo
+execution drivers acquire `factory/testlib/smoke-lock.sh`'s per-user host
+lock. Nested drivers inherit its file descriptor. A queued run waits before
+starting any guest deadline; it fails explicitly after 20 minutes rather
+than silently skipping work. Each worktree retains its own images, logs,
+serial files and screenshots below its own `build/` directory.
+
+Bochs 2.7's RFB backend chooses 5900 automatically and falls back to 5901
+when busy. The harness holds the existing host lock and now also waits for
+the OS to release 5900 before launching. A nondefault RFB port is rejected
+because this backend cannot configure it. Normal QEMU smoke has no TCP
+listener: QMP uses an inherited socketpair and serial uses a private file.
+The optional QEMU GDB listener on 1234 has its own host lock and port check.

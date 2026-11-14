@@ -24,6 +24,7 @@
 
 #include "bochs.h"
 #include "bochs_trace.h"
+#include "port_lock.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -602,48 +603,15 @@ void bochs_result_free(BochsResult *out)
  * holds an exclusive flock(2) on a host-wide lock file from before the fork
  * until Bochs is reaped. The path is the one `flock(1)` wrappers already use,
  * so a wrapped old harness and this one exclude each other. The wait is
- * bounded and fails loud (Rule 2): a harness run inside such a wrapper would
+ * bounded and fails loud (CLAUDE.md, "The oracle is the truth"): a harness run inside such a wrapper would
  * otherwise wait on its own parent for ever. Returns the lock fd or -1. */
 #define BOCHS_HOST_LOCK_PATH    "/tmp/initech-bochs.lock"
 #define BOCHS_HOST_LOCK_WAIT_MS (20 * 60 * 1000)
 
 static int bochs_host_lock(void)
 {
-    int fd = open(BOCHS_HOST_LOCK_PATH, O_RDWR | O_CREAT | O_CLOEXEC, 0666);
-    if (fd < 0) {
-        fprintf(stderr, "bochs_run: cannot open %s: %s\n",
-                BOCHS_HOST_LOCK_PATH, strerror(errno));
-        return -1;
-    }
-    long long deadline = mono_ms() + BOCHS_HOST_LOCK_WAIT_MS;
-    bool told = false;
-    for (;;) {
-#ifndef BOCHS_MUTATE_NO_HOST_LOCK
-        if (flock(fd, LOCK_EX | LOCK_NB) == 0) return fd;
-#else
-        return fd;                 /* mutant: run without the host lock */
-#endif
-        if (errno != EWOULDBLOCK && errno != EINTR) {
-            fprintf(stderr, "bochs_run: flock %s: %s\n",
-                    BOCHS_HOST_LOCK_PATH, strerror(errno));
-            close(fd);
-            return -1;
-        }
-        if (!told) {
-            fprintf(stderr, "bochs_run: another Bochs run holds %s; waiting\n",
-                    BOCHS_HOST_LOCK_PATH);
-            told = true;
-        }
-        if (mono_ms() >= deadline) {
-            fprintf(stderr, "bochs_run: %s still held after %d s -- another "
-                    "Bochs run (or an outer flock around this one) never "
-                    "released it\n", BOCHS_HOST_LOCK_PATH,
-                    BOCHS_HOST_LOCK_WAIT_MS / 1000);
-            close(fd);
-            return -1;
-        }
-        sleep_ms(250);
-    }
+    return factory_port_lock(BOCHS_HOST_LOCK_PATH, BOCHS_DEFAULT_RFB_PORT,
+                             BOCHS_HOST_LOCK_WAIT_MS);
 }
 
 static bool bochs_verdict(const BochsConfig *cfg, const BochsResult *out,
@@ -689,6 +657,11 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     const char *name = cfg->name       ? cfg->name       : "bochs";
     int timeout_ms = (cfg->timeout_ms > 0) ? cfg->timeout_ms : BOCHS_DEFAULT_TIMEOUT_MS;
     int port = (cfg->rfb_port > 0) ? cfg->rfb_port : BOCHS_DEFAULT_RFB_PORT;
+    if (port != BOCHS_DEFAULT_RFB_PORT) {
+        fprintf(stderr, "bochs_run: this Bochs RFB backend supports only port %d\n",
+                BOCHS_DEFAULT_RFB_PORT);
+        return -1;
+    }
 
     long cyl = disk_cylinders(cfg->disk_path);
     if (cyl < 0) {
@@ -836,6 +809,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
      * open the port). */
     int handshook = 0;
     long long rfb_deadline = start + (timeout_ms / 2 < 10000 ? 10000 : timeout_ms / 2);
+    if (rfb_deadline > deadline) rfb_deadline = deadline;
     int rfb_fd = rfb_unblock(port, rfb_deadline, &handshook);
     out->rfb_unblocked = (handshook != 0);
     RfbShadow rfb;

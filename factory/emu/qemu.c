@@ -36,6 +36,7 @@
 #define _XOPEN_SOURCE 700
 
 #include "qemu.h"
+#include "port_lock.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -2520,6 +2521,19 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, qmp_pair) != 0) {
             perror("qemu_run: QMP socketpair");
             overlay_remove(temporary, overlay);
+            return -1;
+        }
+    }
+    /* The optional debugger uses QEMU's fixed -s endpoint. Normal smoke has
+     * no TCP listener (serial files and per-run QMP socketpairs). Keep this
+     * lock for the harness process, like the QEMU slot lock below. */
+    static int gdb_lock = -1;
+    if (cfg->enable_gdb && gdb_lock < 0) {
+        gdb_lock = factory_port_lock("/tmp/initech-qemu-gdb-1234.lock",1234,20*60*1000);
+        if (gdb_lock < 0) {
+            if (qmp_pair[0] >= 0) {close(qmp_pair[0]);close(qmp_pair[1]);}
+            if (rec_sync_fd >= 0) {close(rec_sync_fd);unlink(sync_in);unlink(sync_out);}
+            overlay_remove(temporary,overlay);
             return -1;
         }
     }

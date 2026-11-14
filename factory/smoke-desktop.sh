@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
+. factory/testlib/smoke-lock.sh
+smoke_lock
 start=$(date +%s)
 out=${DESKTOP_SMOKE_OUT:-build/smoke-desktop}
 mkdir -p "$out"

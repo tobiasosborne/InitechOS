@@ -18,6 +18,8 @@ for patch_file in factory/mutants/gates/*.patch; do
   command='mkdir -p build/factory; cc -std=c11 -O1 -D_POSIX_C_SOURCE=200809L factory/tests/bochs-verdict.c -o build/factory/verdict && build/factory/verdict';;
  empty-registration) command='make -s -C flair/region test-run'; signature='empty test registration/selection';;
  qemu-completion-cap) command='mkdir -p build/factory; cc -std=c11 -O1 factory/tests/qemu-deadline.c -o build/factory/deadline && build/factory/deadline'; signature='FAIL QEMU deadline:';;
+ occupied-port) command='mkdir -p build/factory; cc -std=c11 -O1 factory/tests/port-lock.c -o build/factory/port-lock && build/factory/port-lock'; signature='FAIL port isolation:';;
+ overlap-smokes) command='mkdir -p build/factory; sh factory/tests/smoke-lock.sh'; signature='FAIL smoke isolation:';;
  omit-smoke-component) command='make -s smoke-selection'; signature='FAIL smoke: incomplete components';;
  *) echo "FAIL unregistered gate mutant $name"; exit 1;;
  esac
