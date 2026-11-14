@@ -81,7 +81,7 @@ The platform adapter follows ../NOTES-FOR-KERNEL.md:
 | serial | serial_puts |
 | panic | panic_show_reason and cli/hlt, never returns |
 
-make test runs 18 host suites plus the shared target/import audit: Finder
+make test runs 19 host suites plus the shared target/import audit: Finder
 commands/model/windows/operations/menu/input/list view/replace/limits/notices/
 restore, label properties, captured desktop icons, Apple menu, shell, drag, power notice and heap
 RAM contract. Logs and generated host screens stay in build/flair/desktop/host.

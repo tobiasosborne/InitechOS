@@ -9,6 +9,7 @@
 #include "finder_actions.h"
 #include "desktop_db.h"
 #include "finder_ops.h"
+#include "finder_storage.h"
 extern const finder_fs_t g_finder_fs_binding;
 const fat12_volume_t *g_finder_vol;
 void *g_finder_fat, *g_finder_secbuf;
@@ -69,7 +70,8 @@ int main(int argc,char **argv)
     CHECK((int)v.fat_type==kind,"mtools independently minted the requested FAT type");
     if(kind==16) {
         fat12_fat_window_init(&win,window,sizeof window); v.fat_window=&win;
-        g_finder_fat=window; g_finder_fat_len=0;
+        g_finder_fat=finder_storage_read_cache(&v,NULL); g_finder_fat_len=0;
+        CHECK(g_finder_fat==window,"NULL whole FAT uses real two-sector read window");
     } else {
         CHECK(rd(NULL,v.first_fat_sector,9,fat)==0,"FAT12 whole FAT loaded");
         g_finder_fat=fat; g_finder_fat_len=sizeof fat;
@@ -80,6 +82,22 @@ int main(int argc,char **argv)
     CHECK(finder_win_open(&scene.sh,0,0,"",1,&root,NULL)==FINDER_WIN_OK,"Finder opens volume");
     CHECK(finder_fat_read_partial(NULL,"SOURCE.TXT",0,0,sizeof bytes,bytes,&got)==0 &&
           got==21 && !memcmp(bytes,"Finder source bytes\r\n",21),"Finder FAT16/FAT12 reads preserved");
+    uint32_t total=0;
+    for (;;) {
+        uint32_t chunk=0;
+        int rc=finder_fat_read_partial(NULL,"CHAIN.TXT",2,total,sizeof bytes,bytes,&chunk);
+        CHECK(rc==0,"Finder opens/reads a file inside FAT16/FAT12 folder");
+        if(rc || !chunk) break;
+        int equal=1;
+        for(uint32_t i=0;i<chunk;i++)
+            if(bytes[i]!=(uint8_t)"Finder source bytes\r\n"[(total+i)%21]) equal=0;
+        CHECK(equal,"nested chain bytes match independent literal pattern");
+        total+=chunk;
+        if(total>2100) break;
+    }
+    CHECK(total==2100,"Finder reads entire multi-cluster nested stream");
+    CHECK(finder_fat_read_partial(NULL,"SOURCE.TXT",0,0,sizeof bytes,bytes,&got)==0 && got==21,
+          "reopen source after nested file");
     CHECK(fat12_find_slot_in(&v,g_finder_fat,g_finder_fat_len,0,sec,"SOURCE.TXT",&entry,&slot)==0,"source slot");
     if(kind==16) {
         /* -21 is the new Finder write-protect status; literal makes red-first

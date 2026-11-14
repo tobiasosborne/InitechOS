@@ -12,6 +12,8 @@ for kind in 12 16; do
  printf 'Finder source bytes\r\n' > "$w/source.txt"
  mmd -i "$w/fat$kind.img" ::FOLDER ::EMPTY ::TRASH
  mcopy -i "$w/fat$kind.img" "$w/source.txt" ::SOURCE.TXT
+ awk 'BEGIN {for(i=0;i<100;i++) printf "Finder source bytes\r\n"}' > "$w/chain.txt"
+ mcopy -i "$w/fat$kind.img" "$w/chain.txt" ::FOLDER/CHAIN.TXT
  mcopy -i "$w/fat$kind.img" "$w/source.txt" ::TRASH/GONE.TXT
  cp "$w/fat$kind.img" "$w/fat$kind.before"
  "$bin" "$w/fat$kind.img" "$kind"

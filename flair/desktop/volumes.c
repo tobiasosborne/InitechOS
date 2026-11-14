@@ -1,6 +1,7 @@
 /* Extracted production volumes; reference: legacy-final kmain.c. */
 #include "desktop_internal.h"
 #include "flair_platform.h"
+#include "finder_storage.h"
 
 int finder_abs(int v) { return v < 0 ? -v : v; }
 
@@ -66,6 +67,7 @@ void flair_tenant_mount_volume(void)
         {
             uint32_t fat_len = 0u;
             uint8_t *fat = (uint8_t *)fileio_fat_fat_buffer(&fat_len);
+            fat = finder_storage_read_cache(v, fat);
             desktop_db_boot_state_t db_state = DESKTOP_DB_BOOT_OK;
             desktop_db_reason_t db_reason = DESKTOP_DB_REASON_NONE;
             desktop_trash_state_t trash_state = DESKTOP_TRASH_OK;
