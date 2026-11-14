@@ -440,6 +440,11 @@ test-raw-names33_SRCS := tests/runner.c
 test-raw-names33_ARGS := tests/run.sh test-raw-names33
 test-raw-names33_DEPS := $(OUT)/host/tool_test_raw_names33 tests/gates/test-raw-names33.sh tests/fixtures/raw-name33/SHA256SUMS
 
+HOST_TESTS += test-mkdir-stamp-conservation
+test-mkdir-stamp-conservation_SRCS := tests/runner.c
+test-mkdir-stamp-conservation_ARGS := tests/run.sh test-mkdir-stamp-conservation
+test-mkdir-stamp-conservation_DEPS := $(OUT)/host/tool_test_metadata_errors tests/gates/test-mkdir-stamp-conservation.sh tests/disk/check_mkdir_stamp.py tests/disk/check_conservation.py
+
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk

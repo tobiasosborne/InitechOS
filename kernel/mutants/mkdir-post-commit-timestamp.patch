@@ -1,0 +1,19 @@
+# test: test-mkdir-stamp-conservation
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -562,7 +562,14 @@
+     /* No fallible timestamp writes may follow a committed allocation. */
+     int rc = fat12_mkdir_timed(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
+                                g_sector, g_cluster, mtime, mdate);
+-    if (rc == FAT12_OK) return 0u;
++    if (rc == FAT12_OK) {
++        dir_entry_t de;
++        uint32_t slot;
++        if (locate_in_dir(name83,dir_start_cluster,&de,&slot) ||
++            stamp_entry(dir_start_cluster,slot,&de) != FAT12_OK)
++            return FILEIO_ERR_ACCESS_DENIED;
++        return 0u;
++    }
+     /* Every failure mode maps to ACCESS_DENIED for DOS MKDIR (name exists, dir
+      * full, full volume, bad name, write error). */
+     return FILEIO_ERR_ACCESS_DENIED;

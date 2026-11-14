@@ -557,18 +557,12 @@ static uint16_t fat_mkdir(const char *name83, uint16_t dir_start_cluster)
     if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
     }
-    int rc = fat12_mkdir(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
-                         g_sector, g_cluster);
-    if (rc == FAT12_OK) {
-        dir_entry_t de;
-        uint32_t slot;
-        if (locate_in_dir(name83, dir_start_cluster, &de, &slot) ||
-            stamp_entry(dir_start_cluster, slot, &de) != FAT12_OK ||
-            stamp_entry(de.start_cluster, 0u, 0) != FAT12_OK ||
-            stamp_entry(de.start_cluster, 1u, 0) != FAT12_OK)
-            return FILEIO_ERR_ACCESS_DENIED;
-        return 0u;
-    }
+    uint16_t mtime=FAT12_FIXED_MTIME, mdate=FAT12_FIXED_MDATE;
+    (void)int21_file_stamp(&mtime,&mdate);
+    /* No fallible timestamp writes may follow a committed allocation. */
+    int rc = fat12_mkdir_timed(g_vol, g_fat, g_fat_len, name83, dir_start_cluster,
+                               g_sector, g_cluster, mtime, mdate);
+    if (rc == FAT12_OK) return 0u;
     /* Every failure mode maps to ACCESS_DENIED for DOS MKDIR (name exists, dir
      * full, full volume, bad name, write error). */
     return FILEIO_ERR_ACCESS_DENIED;

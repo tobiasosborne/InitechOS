@@ -1105,6 +1105,11 @@ int fat12_trash_suffix_name(const fat12_volume_t *vol, const void *fat,
 int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                 const char *name83, uint16_t parent_dir_start, void *sector_buf,
                 void *cluster_buf);
+/* Runtime DOS timestamp for the parent entry and both dot entries. All three
+ * participate in the same allocation/publication rollback boundary. */
+int fat12_mkdir_timed(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                const char *name83, uint16_t parent_dir_start, void *sector_buf,
+                void *cluster_buf, uint16_t mtime, uint16_t mdate);
 
 /*
  * fat12_rmdir: remove the EMPTY subdirectory `name83` whose PARENT is the

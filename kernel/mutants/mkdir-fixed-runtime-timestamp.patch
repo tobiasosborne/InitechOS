@@ -1,0 +1,10 @@
+# test: test-mkdir-stamp-conservation
+--- a/fat12.c
++++ b/fat12.c
+@@ -4020,5 +4020,5 @@
+ 	de.attribute     = DIR_ATTR_DIRECTORY;
+-	de.mtime         = mtime;
++	de.mtime         = FAT12_FIXED_MTIME;
+ 	de.mdate         = mdate;
+ 	de.start_cluster = newc;
+ 	de.file_size     = 0u;

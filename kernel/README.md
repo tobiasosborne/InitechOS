@@ -232,3 +232,12 @@ including long parent names, extension widths, space termination, wildcard
 positions and invalid punctuation. `test-raw-names33` checks captured carries,
 errors, counts and bytes, independent mtools names/payloads, unchanged refused
 images, cluster conservation and CREATE_NEW alias preservation.
+
+Runtime MKDIR timestamps for the parent entry, dot and dot-dot are published
+inside its allocation rollback boundary (initech-9s4d2). No timestamp write
+follows a successful commit. The deterministic fat12_mkdir wrapper retains its
+fixed timestamp for lower-level format tests. `test-mkdir-stamp-conservation`
+drives actual INT21/FAT with a fixed DOS clock, faults every physical write
+before/after persistence in root and subdirectories, checks old named bytes
+and failed-entry absence with mtools, allocation with the independent FAT
+reader, and successful timestamps with a separate format reader.

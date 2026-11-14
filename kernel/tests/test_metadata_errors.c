@@ -15,6 +15,19 @@
 #include "blockdev_file.h"
 #include "test_assert.h"
 TEST_HARNESS();
+static int (*mkdir_base_write)(void *,uint32_t,uint32_t,const void *);
+static unsigned mkdir_write_count,mkdir_fail_at,mkdir_faulted,mkdir_after;
+static int mkdir_fault_write(void *ctx,uint32_t lba,uint32_t count,const void *data)
+{
+    const uint8_t *bytes=data;
+    for(unsigned i=0;i<count;i++) {
+        unsigned hit=++mkdir_write_count==mkdir_fail_at;
+        if(hit && !mkdir_after) { mkdir_faulted=1;return -1; }
+        if(mkdir_base_write(ctx,lba+i,1,bytes+i*512)) return -1;
+        if(hit) { mkdir_faulted=1;return -1; }
+    }
+    return 0;
+}
 static int_frame_t call(unsigned ax, unsigned bx, unsigned cx, uintptr_t dx)
 {
     int_frame_t f={0};
@@ -76,6 +89,17 @@ int main(int argc, char **argv)
         }
         CHECK(cases==8,"all captured qualified device cases ran");
         fclose(capture);
+    } else if(!strcmp(argv[2],"mkdir-stamp") || !strcmp(argv[2],"mkdir-stamp-sub")) {
+        int21_set_clock(clock_fixture,0);
+        strcpy((char *)low,!strcmp(argv[2],"mkdir-stamp") ? "NEWDIR" : "SUB\\NEWDIR");
+        mkdir_base_write=disk.dev.write_sectors;
+        disk.dev.write_sectors=mkdir_fault_write;
+        mkdir_fail_at=fault;
+        mkdir_after=argc==5 && !strcmp(argv[4],"after");
+        int_frame_t f=call(0x3900,0,0,(uintptr_t)low);
+        printf("MKDIR_RESULT %s\n",f.eflags&1 ? "failed" : "success");
+        printf("WRITE_COUNT %u\n",mkdir_write_count);
+        CHECK(mkdir_faulted==(fault!=0),"requested physical MKDIR write fault fired");
     } else if(!strcmp(argv[2],"creat-stamp")) {
         int21_set_clock(clock_fixture,0);
         blockdev_file_arm_write_fault(&disk,fault);

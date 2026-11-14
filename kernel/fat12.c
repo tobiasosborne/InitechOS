@@ -3834,7 +3834,7 @@ static void fat12_make_dotdir(dir_entry_t *de, int dots, uint16_t start)
 
 static int fat12_mkdir_inner(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                 const char *name83, uint16_t parent_dir_start, void *sector_buf,
-                void *cluster_buf)
+                void *cluster_buf, uint16_t mtime, uint16_t mdate)
 {
 	uint8_t     want11[11];
 	uint32_t    free_slot = 0u;
@@ -3976,10 +3976,12 @@ static int fat12_mkdir_inner(const fat12_volume_t *vol, void *fat, uint32_t fat_
 	cb = (uint8_t *)sector_buf;
 	for (k = 0u; k < BLOCKDEV_SECTOR_SIZE; k++) cb[k] = 0u;
 	fat12_make_dotdir(&de, 1, newc);             /* '.'  -> own cluster */
+	de.mtime = mtime; de.mdate = mdate;
 	for (k = 0u; k < 32u; k++) {
 		cb[k] = ((const uint8_t *)&de)[k];
 	}
 	fat12_make_dotdir(&de, 2, parent_dir_start); /* '..' -> parent (root=0) */
+	de.mtime = mtime; de.mdate = mdate;
 	for (k = 0u; k < 32u; k++) {
 		cb[32u + k] = ((const uint8_t *)&de)[k];
 	}
@@ -4017,8 +4019,8 @@ static int fat12_mkdir_inner(const fat12_volume_t *vol, void *fat, uint32_t fat_
 		de.extension[k] = want11[8u + k];
 	}
 	de.attribute     = DIR_ATTR_DIRECTORY;
-	de.mtime         = FAT12_FIXED_MTIME;        /* deterministic (the repository contract) */
-	de.mdate         = FAT12_FIXED_MDATE;
+	de.mtime         = mtime;
+	de.mdate         = mdate;
 	de.start_cluster = newc;
 	de.file_size     = 0u;
 
@@ -4043,9 +4045,9 @@ static int fat12_mkdir_inner(const fat12_volume_t *vol, void *fat, uint32_t fat_
 /* initech-rxh8o: restore both FAT copies even when the parent did not grow.
  * Snapshot before any parent growth, and preserve the reusable slot too:
  * a failed final write may already have published the child directory. */
-int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+int fat12_mkdir_timed(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                 const char *name83, uint16_t parent, void *sector_buf,
-                void *cluster_buf)
+                void *cluster_buf, uint16_t mtime, uint16_t mdate)
 {
 	static uint8_t before[6144];
 	uint8_t want11[11];
@@ -4066,14 +4068,14 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	                    want11, &free_slot, &have_free, &match_slot, &match, &found);
 	if (rc != FAT12_OK) return rc;
 	if (found || (!have_free && parent == 0u))
-		return fat12_mkdir_inner(vol, fat, fat_len, name83, parent, sector_buf, cluster_buf);
+		return fat12_mkdir_inner(vol, fat, fat_len, name83, parent, sector_buf, cluster_buf, mtime, mdate);
 	if (have_free) {
 		rc = fat12_read_dirent_in_dir(vol, fat, fat_len, parent == 0u, parent,
 		                              free_slot, &old, sector_buf);
 		if (rc != FAT12_OK) return rc;
 	}
 	for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];
-	rc = fat12_mkdir_inner(vol, fat, fat_len, name83, parent, sector_buf, cluster_buf);
+	rc = fat12_mkdir_inner(vol, fat, fat_len, name83, parent, sector_buf, cluster_buf, mtime, mdate);
 	if (rc == FAT12_OK) return rc;
 	for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
 	restore_fat = fat12_flush_fats(vol, fat, fat_len);
@@ -4082,6 +4084,14 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		                                        parent, free_slot, &old, sector_buf);
 	if (restore_fat != FAT12_OK || restore_dir != FAT12_OK) return FAT12_ERR_WRITE;
 	return rc;
+}
+
+int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                const char *name83, uint16_t parent, void *sector_buf,
+                void *cluster_buf)
+{
+	return fat12_mkdir_timed(vol, fat, fat_len, name83, parent, sector_buf,
+	                         cluster_buf, FAT12_FIXED_MTIME, FAT12_FIXED_MDATE);
 }
 
 /* Empty-check callback: count any surviving entry that is NOT '.' or '..'. A
