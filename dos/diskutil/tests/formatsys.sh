@@ -5,7 +5,7 @@ set -eu
 export LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=315532800
 b=$1; boot=$2; exe=$3; only=${4:-all}; w=$b/formatsys
 mkdir -p "$w"
-red(){ echo "RED formatsys $*"; exit 1; }
+red(){ echo "FAIL formatsys $*"; echo "INITECH_CHECKS 1 failures=1"; exit 1; }
 prep(){
  cp -f "$boot" "$w/master.img"; truncate -s $((8064*512)) "$w/master.img"
  mcopy -o -i "$w/master.img@@32256" "$b/transient_flairtenants.bin" ::COMMAND.COM

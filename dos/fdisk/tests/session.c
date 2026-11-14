@@ -19,10 +19,10 @@ static char letter(unsigned d,unsigned p){(void)d;return p==1?'D':'E';}
 int main(void)
 {
     fdisk_io io={read_disk,write_disk,cap,get,put,0x80,0,letter,0};
-    if(fdisk_run(&io)!=1 || reads || writes){fputs("RED FDISK: loaded volume was accessed\n",stderr);return 1;}
+    if(fdisk_run(&io)!=1 || reads || writes){fputs("FAIL FDISK: loaded volume was accessed\n",stderr);puts("INITECH_CHECKS 2 failures=1");return 1;}
     io.loaded_drive=0x81;at=used=0;
     if(fdisk_run(&io) || writes || !strstr(text,"D:") || !strstr(text,"E:")) {
-        fputs("RED FDISK: partition letters must follow the supplied mapping\n",stderr);return 1;
+        fputs("FAIL FDISK: partition letters must follow the supplied mapping\n",stderr);puts("INITECH_CHECKS 2 failures=1");return 1;
     }
     puts("GREEN FDISK session: loaded drive untouched, independent D/E partition mapping");return 0;
 }

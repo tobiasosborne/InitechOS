@@ -6,7 +6,7 @@ mode=$1
 runner=$2
 tag=$3
 b=build/dosutil_$tag
-fail() { echo "FAIL: $1"; exit 1; }
+fail() { echo "FAIL: $*" >&2; echo "INITECH_CHECKS 1 failures=1"; exit 1; }
 sh dos/common/tests/dosutil_fixture.sh "$b.seed"
 cp -f "$b.seed" "$b.img"
 cp -f "$b.seed" "$b.ref"

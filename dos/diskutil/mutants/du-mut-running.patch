@@ -2,10 +2,10 @@
 # test: test-formatsys
 --- a/diskutil/diskutil.c
 +++ b/diskutil/diskutil.c
-@@ -151,7 +151,6 @@
- static void label_name(const volume *v,char out[12]){uint8_t e[32];zero(out,12);for(unsigned n=0;n<v->roots*16;n++){if(entry(v,n,e,0)||!e[0])return;if(e[0]!=0xe5&&e[11]==8){cp(out,e,11);unsigned i=11;while(i&&out[i-1]==' ')out[--i]=0;out[i]=0;return;}}}
+@@ -159,7 +159,6 @@
  static int format_run(const options *o,const du_map *m){
   unsigned letter=o->letter[0];
+  if(fat16_target(m))return protected(letter);
 - if(m->flags&DU_RUNNING){drive_text("Format not supported on drive ",letter,":\r\n");return 4;}
   volume src,dst;uint8_t files[3][32],template[512];du_map cm;
   if(o->s||o->b){

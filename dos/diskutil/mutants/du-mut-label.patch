@@ -2,10 +2,10 @@
 # test: test-formatsys
 --- a/diskutil/diskutil.c
 +++ b/diskutil/diskutil.c
-@@ -176,7 +176,6 @@
-    line("WARNING, ALL DATA ON NON-REMOVABLE DISK");drive_text("DRIVE ",letter,": WILL BE LOST!\r\nProceed with Format (Y/N)?");if(input(answer,11)<0)return 3;if(answer[0]!='Y')return 5;
+@@ -186,7 +186,6 @@
    }
-   line("Formatting...");
+    if(fat16_target(m))return protected(letter);
+    line("Formatting...");
 -  cp(dst.boot+43,"NO NAME    ",11); /* UG p75: ENTER means no label. */
    uint8_t b[512];zero(b,512);
    /* Clear FATs/root only. Data sectors carry no invented new file content. */
