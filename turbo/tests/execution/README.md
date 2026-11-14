@@ -18,18 +18,27 @@ compose those paths with forwarding/aliasing, live sentinels, negative array
 bounds, whole-record copies through var formals, destination-index effects,
 empty/recursive loops, and expression evaluation order. Their behavioral
 source is `fpc -Mtp -B -O-`, run afresh, independent of either product compiler.
-Only the endpoint references change the Integer declaration to LongInt to
+Five Phase 2 probes reproduce initech-jyaxt (`div_min`, `mod_min`),
+initech-gnam4 (`length_live`), and initech-hpa1h (`record_field_string`,
+`record_index_string`). The arithmetic probes store the quotient in Integer
+where needed to avoid host expression widening; minimum Integer divided by
+-1 wraps and its remainder is zero. Length must preserve a live local, and
+both record access forms must select element 1. These use the corpus's
+Delphi/B+/H- pins, with identical source given to FPC and both compilers.
+
+Only the original endpoint references change the Integer declaration to LongInt to
 match the product's documented 32-bit width. The existing corpus retains its
-Delphi/B+/H- directives; these regressions use TP mode without a mode override.
+Delphi/B+/H- directives; the original regressions use TP mode without a mode override.
 This work does not resolve the separately tracked TP integer-width decision.
 
 Hosted and resident Pascal outputs run in both extended and flat form;
-the seed retains its extended assembly/link/mzlink leg. All 28 registered
+the seed retains its extended assembly/link/mzlink leg. All 33 registered
 programs fit the conventional arena, so a missing flat output fails rather
 than skipping execution. Flat outputs must be nonempty raw COM files, not
 renamed MZ containers. Each form has its own working directory and independent
-stdout/file comparison. Default smoke now performs 280 executions across
-both emulators, keeping all 168 extended executions and adding 112 flat ones.
+stdout/file comparison. Default smoke performs 330 executions across
+both emulators, preserving the original 280 and adding 30 extended and 20 flat
+Phase 2 comparisons.
 
 `TURBO_EXEC_SOURCES`, `TURBO_EXEC_PATHS`
 (`seed hosted hosted-flat resident resident-flat`),

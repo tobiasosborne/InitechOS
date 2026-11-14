@@ -37,16 +37,17 @@ Generated files/logs remain in build/turbo/compiler; make clean removes them.
 The protocol and corpus derivations are in the local *-DUMP/TRACE, CODEGEN and
 CORPUS documents; tests/reference is parser-derived documentation, not an oracle.
 
-Measured placement: seed module 111002, reserve 174410, module headroom 151142,
-free window after aligned resident and heap header 1742080. Pascal-generated
-module 148511, reserve 174409, module headroom 113633, free window 1704576.
+Measured placement: seed module 111924, reserve 174408, module headroom 150220,
+free window after aligned resident and heap header 1741168. Pascal-generated
+module 149575, reserve 174409, module headroom 112569, free window 1703520.
 Both have separate 65536-byte stack and 4096-byte guard. These are mechanical
 layout limits, not a measured worst-case stack-usage claim.
 
-The parent smoke executes the complete 17-program corpus plus 11 regressions
+The parent smoke executes the complete 17-program corpus plus 16 regressions
 on both emulators, through seed, hosted Pascal native and resident Pascal
 native paths. Both hosted and resident Pascal paths execute flat COM as well
-as extended EXE, for 280 total comparisons. No host assembler/linker finishes
+as extended EXE, for 330 total comparisons (all original 280 plus 50 Phase 2
+regression comparisons). No host assembler/linker finishes
 resident-generated programs.
 Stdout is compared with the independent goldens and FPC reference executions;
 mtools checks the on-disk payloads. Guest DOS GET TIME brackets each compile
@@ -54,17 +55,23 @@ at its documented 1-second resolution. Tests use a separate 8 MiB FAT12 TEST
 volume (8 sectors/cluster); the inherited executable loader does not bind FAT16.
 
 `make -C turbo selfhost` is the in-OS K2==K3 certificate, not K1==K2. The
-current fixed point is 163087 bytes, SHA-256
+last certified fixed point, before the minimum-Integer div/mod guards, was
+163087 bytes, SHA-256
 7bf6424c74a46106b01f5d75de2c422005a026d2624f1e044e626fc1ae801ff6.
+The new host-generated candidate is 164263 bytes, SHA-256
+2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7.
+Its module grows by 1064 bytes and relocation header by 112 bytes for guard
+emission and label handling. Fresh self-host/DDC certification is pending;
+the loaded machine's first run reached the factory driver's 120-second ceiling.
 The two compilations use fresh boots with identical source/disk input names.
-Guest times after the code-generation fixes were 41s/86s; mzcheck accepts both. A deliberately changed byte
+Guest times for the previous proof were 41s/86s. A deliberately changed byte
 makes the comparator red with its offset and container region. Full evidence
 and source identity remain under build/turbo/selfhost. No stack/CPU fault or
 host assembler/linker participates in either compilation.
 
 `make -C turbo ddc` refreshes the seed certificate and runs the independent
 FPC bootstrap path: host Pascal compiler -> D1, in-OS D1(S) -> D2. D2 equals
-both K2 and K3 at the hash above; D1(S) took 75 guest seconds. Contaminated
+both K2 and K3 in the previous proof; D1(S) took 75 guest seconds. Contaminated
 candidate and changed-source controls are red. DDC evidence is retained under
 build/turbo/ddc. This removes sole trust in seed translation; source/runtime,
 FPC, host tools, the OS and hardware remain trusted. Both-emulator generated

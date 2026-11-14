@@ -14,17 +14,24 @@ Current mechanical evidence:
   every emitted container and both compiler memory plans. Runtime tables are
   regenerated against NASM in tier 0. The 15 compiler patches include two
   restored semantic execution patches and a flat-only runtime fault.
-- The full 17-program corpus and 11 code-generation regressions execute on
+- The full 17-program corpus and 16 code-generation regressions execute on
   QEMU and Bochs through direct seed, hosted Pascal native and resident Pascal
-  native output, with both native forms exercised (280 comparisons).
+  native output, with both native forms exercised (330 comparisons, preserving
+  the original 280).
   Stdout/files agree with independent FPC;
   original corpus rows retain their authored goldens. Separate TEST disks
   preserve the product image. Resident output needs no host assembler/linker.
-- In-OS K1(S) -> K2 and K2(S) -> K3 reproduce 163087 bytes exactly, SHA-256
+- The last in-OS K1(S) -> K2 and K2(S) -> K3 proof reproduced 163087 bytes, SHA-256
   7bf6424c74a46106b01f5d75de2c422005a026d2624f1e044e626fc1ae801ff6.
   Fresh boots reset identical inputs and fit the unchanged emulator driver's
   120-second serial gate. Guest compile times were 41s/86s in the DDC refresh.
   K1==K2 is not the certificate.
+- After the minimum-Integer div/mod guards, the host-generated candidate is
+  164263 bytes, SHA-256
+  2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7.
+  The module grows by 1064 bytes and the relocation header by 112 bytes for
+  guard emission and label handling. Fresh self-host/DDC is pending: the
+  loaded machine's first run reached the factory driver's 120-second ceiling.
 - FPC 3.2.2 builds the independent host bootstrap from the same source; it
   directly emits D1. In-OS D1(S) -> D2 takes 75 guest seconds; D2==K2==K3.
   A contaminated candidate and a changed used source constant both make the

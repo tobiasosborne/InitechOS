@@ -803,7 +803,7 @@ begin
       end;
       if (Part = '.Lstr_after_') or (Part = '.Lendif_') or
          (Part = '.Lwhile_end_') or (Part = '.Lfor_end_') or
-         (Part = '.Lbdone_') then N := N + 1
+         (Part = '.Lbdone_') or (Part = '.Ldiv_end_') then N := N + 1
     end;
   if Text = '__str_assign' then N := 1
   else if Text = '__str_concat' then N := 2
@@ -2992,6 +2992,31 @@ begin
   GenFlags[3] := true
 end;
 
+{ FPC -Mtp, corpus Delphi/B+/H-: minimum Integer div -1 wraps when
+  stored to Integer; mod -1 is zero. IDIV would raise #DE even for mod.
+  Both operands are already evaluated. Tests: div_min.pas and mod_min.pas
+  in tests/execution/. }
+procedure GenDivMod();
+var LabelNumber: integer;
+begin
+  LabelNumber := GenNewLabel();
+  begin GenText := '    cmp ecx, -1'; GenLine(GenText) end;
+  begin GenText := '    jz near '; GenPut(GenText) end;
+  begin GenText := '.Ldiv_neg_'; GenPut(GenText); GenInt(LabelNumber) end;
+  GenChar(Chr(10));
+  begin GenText := '    cdq'; GenLine(GenText) end;
+  begin GenText := '    idiv ecx'; GenLine(GenText) end;
+  begin GenText := '    jmp near '; GenPut(GenText) end;
+  begin GenText := '.Ldiv_end_'; GenPut(GenText); GenInt(LabelNumber) end;
+  GenChar(Chr(10));
+  begin GenText := '.Ldiv_neg_'; GenPut(GenText); GenInt(LabelNumber) end;
+  begin GenText := ':'; GenLine(GenText) end;
+  begin GenText := '    neg eax'; GenLine(GenText) end;
+  begin GenText := '    xor edx, edx'; GenLine(GenText) end;
+  begin GenText := '.Ldiv_end_'; GenPut(GenText); GenInt(LabelNumber) end;
+  begin GenText := ':'; GenLine(GenText) end
+end;
+
 procedure GenScalarBinary(OperatorKind: integer);
 begin
   begin GenText := '    mov ecx, eax'; GenLine(GenText) end;
@@ -3000,14 +3025,10 @@ begin
   else if OperatorKind = TkMinus then begin GenText := '    sub eax, ecx'; GenLine(GenText) end
   else if OperatorKind = TkStar then begin GenText := '    imul eax, ecx'; GenLine(GenText) end
   else if OperatorKind = TkDiv then
-  begin
-    begin GenText := '    cdq'; GenLine(GenText) end;
-    begin GenText := '    idiv ecx'; GenLine(GenText) end
-  end
+    GenDivMod()
   else if OperatorKind = TkMod then
   begin
-    begin GenText := '    cdq'; GenLine(GenText) end;
-    begin GenText := '    idiv ecx'; GenLine(GenText) end;
+    GenDivMod();
     begin GenText := '    mov eax, edx'; GenLine(GenText) end
   end
   else if OperatorKind = TkAnd then begin GenText := '    and eax, ecx'; GenLine(GenText) end

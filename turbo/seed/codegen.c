@@ -37,8 +37,8 @@
  *   +   add eax, ecx
  *   -   sub eax, ecx                 (lhs - rhs)
  *   *   imul eax, ecx                (signed 32x32 -> low 32)
- *   div cdq ; idiv ecx -> quotient in eax   (Pascal `div`)
- *   mod cdq ; idiv ecx -> remainder in edx ; mov eax, edx   (Pascal `mod`)
+ *   div gen_divmod -> quotient in eax   (Pascal `div`)
+ *   mod gen_divmod -> remainder in edx ; mov eax, edx   (Pascal `mod`)
  *   unary -  neg eax
  *
  *   B1 (beads initech-f0uc; ADR-0007 DEC-02/DEC-03) relational + boolean:
@@ -79,10 +79,10 @@
  *   seed/examples/arith/negative_divmod.pas (beads initech-tf3c): `cdq` +
  *   `idiv` needs no sign-correction because the x86 instruction's native
  *   trunc-toward-zero quotient / dividend-signed remainder IS Turbo Pascal's
- *   div/mod, so this codegen was correct by construction the whole time --
- *   the earlier gap was test coverage, not a latent bug (confirmed by
- *   running the fixture: differential golden green, no codegen change
- *   needed).
+ *   div/mod. The divisor -1 uses negation and a zero remainder instead:
+ *   signed minimum/-1 overflows IDIV's quotient. FPC's 32-bit Integer
+ *   assignment wraps that quotient; the remainder is exactly zero. See
+ *   tests/execution/{div_min,mod_min}.pas in the parent component.
  *
  * VARIABLES: each `integer` var gets a zero-initialised 4-byte slot in .bss
  * labelled `v_<name>` (names are case-insensitive Pascal idents; we lower-case
@@ -1222,6 +1222,24 @@ static void gen_str_compare(Cg *cg, const AstNode *e)
     fprintf(o, "    movzx eax, al\n");
 }
 
+/* Both operands have already been evaluated once. Avoid IDIV's quotient
+ * overflow for minimum Integer/-1, including when only mod is requested.
+ * FPC -Mtp with corpus Delphi/B+/H- pins is the execution oracle above. */
+static void gen_divmod(Cg *cg)
+{
+    FILE *o = cg->out;
+    int label = cg->lbl_count++;
+    fprintf(o, "    cmp ecx, -1\n");
+    fprintf(o, "    jz near .Ldiv_neg_%d\n", label);
+    fprintf(o, "    cdq\n");
+    fprintf(o, "    idiv ecx\n");
+    fprintf(o, "    jmp near .Ldiv_end_%d\n", label);
+    fprintf(o, ".Ldiv_neg_%d:\n", label);
+    fprintf(o, "    neg eax\n");
+    fprintf(o, "    xor edx, edx\n");
+    fprintf(o, ".Ldiv_end_%d:\n", label);
+}
+
 static void gen_binop(Cg *cg, const AstNode *e)
 {
     FILE *o = cg->out;
@@ -1261,12 +1279,10 @@ static void gen_binop(Cg *cg, const AstNode *e)
 
         break;
     case OP_DIV:
-        fprintf(o, "    cdq\n");          /* sign-extend eax into edx:eax */
-        fprintf(o, "    idiv ecx\n");     /* quotient -> eax */
+        gen_divmod(cg);                   /* quotient -> eax */
         break;
     case OP_MOD:
-        fprintf(o, "    cdq\n");
-        fprintf(o, "    idiv ecx\n");     /* remainder -> edx */
+        gen_divmod(cg);                   /* remainder -> edx */
         fprintf(o, "    mov eax, edx\n");
         break;
     case OP_EQ:
@@ -1948,7 +1964,15 @@ static int plan_val(AstNode *e, int b)
     case AST_INDEX:
         /* string s[i] or array a[i]: the index is an integer expression. */
         return plan_val(e->as.arrayindex.index, b);
+    case AST_FIELD:
+        /* A field's indexed record base can materialize strings too.
+         * FPC differential: tests/execution/record_field_string.pas. */
+        return plan_val(e->as.field.base, b);
     case AST_UNOP:
+        /* Length consumes a string value, including concatenation temps.
+         * FPC differential: tests/execution/length_live.pas. */
+        if (e->as.unop.op == OP_LENGTH)
+            return plan_str(e->as.unop.operand, b);
         return plan_val(e->as.unop.operand, b);
     case AST_CALL: {
         int hi = b - 1;
@@ -1975,7 +1999,7 @@ static int plan_val(AstNode *e, int b)
         return (hl > hr) ? hl : hr;
     }
     default:
-        return b - 1; /* leaves + AST_FIELD: no string temp */
+        return b - 1; /* leaves: no string temp */
     }
 }
 
@@ -2042,8 +2066,9 @@ static void plan_stmt(AstNode *n, int *maxtemps)
             }
             return;
         }
-        if (n->as.assign.rec_fields > 0)
-            return;                                        /* record copy */
+        /* Record copies evaluate both designators' indices sequentially,
+         * just like scalar assignments. Plan their embedded string values.
+         * FPC differential: tests/execution/record_index_string.pas. */
         if (n->as.assign.index)
             plan_track(plan_val(n->as.assign.index, 0), maxtemps);
         plan_track(plan_val(n->as.assign.value, 0), maxtemps);

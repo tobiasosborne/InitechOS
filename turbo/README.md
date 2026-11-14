@@ -26,11 +26,12 @@ see compiler/NATIVE.md. The 15 compiler patches include five native
 encoder/fixup/relocation/layout and three generated-execution patches.
 
 `make smoke` builds the product image and uses separate FAT12 TEST disks.
-QEMU and Bochs each execute all 17 corpus programs and 11 regressions through
+QEMU and Bochs each execute all 17 corpus programs and 16 regressions through
 direct seed output, hosted Pascal native output, and resident Pascal native
 compilation. Hosted and resident Pascal output also runs as flat COM:
-280 executions, preserving all 168 extended comparisons and adding 112 flat
-comparisons. Every registered case fits the flat arena; missing flat output
+330 executions, preserving the original 280 and adding 50 Phase 2 comparisons
+for minimum-Integer div/mod and string temporaries in Length and record indices.
+Every registered case fits the flat arena; missing flat output
 fails. Complete stdout and extracted files match FPC;
 the original corpus also matches its authored goldens. mzcheck validates the
 emitted containers. See tests/execution/README.md for the red-first probes and
@@ -53,10 +54,15 @@ That compiler emits D1 directly; D1(S) runs in the OS to produce D2. The check
 asserts D2==K2==K3. Contamination and changed-source controls must fail.
 Evidence, FPC version and bootstrap hashes remain under build/turbo/ddc.
 
-The fixed point is 163087 bytes, SHA-256
+The last certified fixed point, before the minimum-Integer div/mod guards,
+was 163087 bytes, SHA-256
 7bf6424c74a46106b01f5d75de2c422005a026d2624f1e044e626fc1ae801ff6.
-After the record, character and for-loop code-generation fixes, self-hosting
-took 41s/86s and DDC took 75s for D1(S). The checked-in NASM tables regenerate
+The new host-generated candidate is 164263 bytes, SHA-256
+2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7;
+fresh self-host/DDC certification is pending after the loaded machine hit the
+factory driver's 120-second ceiling. The added guard emission and label handling
+increase the module by 1064 bytes and the relocation header by 112 bytes.
+The previous proof took 41s/86s and DDC took 75s for D1(S). The checked-in NASM tables regenerate
 byte-for-byte. Times use the guest clock with 1-second resolution. DDC removes sole
 reliance on the C seed's translation and its bootstrap assembler pipeline.
 It still trusts the compiler source (including runtime byte tables), the
