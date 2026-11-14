@@ -1,6 +1,7 @@
 # Status
 
-Rewritten 2026-11-14 after landing wave 2 on main. Setup: `docs/SETUP.md`.
+Rewritten 2026-11-14 for the local next-landing candidate after wave 2.
+Main remains at `62830873`. Setup: `docs/SETUP.md`.
 
 ## Where we are
 
@@ -40,6 +41,16 @@ Host tests passed in 63.66s and full smoke in 212.12s before the push.
 Logs: `build/cert/2026-11-14T005336Z-049b6b4a/`; an external copy is
 retained with the landing report. No limit was relaxed and no fix was needed.
 
+The unlanded `integration/next` candidate passes `make -j12 test`: all 19
+registered components ran, ALL GREEN in 59.48s, including default factory
+verification of the data-loss captures. Full `make smoke` passes DOS,
+programs, nine GUI executables, Turbo Initech and InitechBase on QEMU and
+Bochs at 8 MiB. The additional focused console-pair smoke passes four cases.
+`make repro` passes in 84.01s: boot/data/kernel/system bytes match across
+two clean builds. No budget was relaxed; no budget retry was needed.
+Logs and emulator evidence survive outside build at
+`/tmp/integration-next-logs/`. This candidate has not run a new full cert.
+
 There are still 129 unproved pending patches: kernel 39, DOS 46,
 FLAIR 16, InitechBase 28. Default cert reports PASS_PENDING; it is not
 full mutation coverage. The audit reports 17 imported and two host-green:
@@ -56,14 +67,24 @@ smoke-coverage gates; then FAT/write protection, stage ownership and handles;
 then recovery policy, file conservation and independent execution/ABI oracles.
 The six Turbo bugs need red-first FPC execution differentials for both compilers.
 
-Two local branches are next to land, neither pushed:
+`integration/next` is prepared locally for independent review, then landing
+by the orchestrator; nothing was pushed and main was not changed:
 
-- `fixes/initechdos` at `18750e4a`: 17 reviewed INT 21h and DOS commits.
-  Landing must update FLAIR's CREATE/read EOF test with seek/read and
-  write-only controls, align SDK fake FIND with the real DOS attribute
-  matrix and extension matching, and require `WRITE-READBACK-OK` in factory.
-- `goldens/dataloss` at `773d45da`: real DOS 3.30, Lotus R2.2 and
-  WordPerfect 5.1 captures for the data-loss repairs.
+- `fixes/initechdos` at `18750e4a`, all 17 commits, merged as `1fa2ebc5`.
+  FLAIR now checks CREATE EOF, seek/literal read and explicit write-only
+  OPEN refusal. SDK fake FIND matches all 896 genuine-DOS attribute/name
+  cases; the matrix was independently re-minted here. Factory requires
+  `WRITE-READBACK-OK` as well as independent disk bytes. Each follow-up
+  has a semantic red-first regression (`95a43cd0`).
+- `goldens/dataloss` at `773d45da`, merged as `6593a4df`: real DOS 3.30,
+  Lotus R2.2 and WordPerfect 5.1 captures, unchanged. All 422 pinned files,
+  mtools disk readback and independent reader dumps verify; corrupted
+  evidence is rejected. Default factory verification is `3ce50293`.
+  No product data-loss policy or behavior was changed.
+
+The sole merge conflict was the research branch's stale STATUS.md; the
+current main status was retained before this rewrite. Progress comments
+were added to the touched beads; none was closed during this preparation.
 
 Operator decisions pending: real DOS 3.3 COPY deletes the target on
 failure; WordPerfect 5.1 can leave only `NAME.BK!` after a failed save.
@@ -74,7 +95,7 @@ Dead commands in the frozen app inventories also need implement/remove decisions
 
 ## Next, in order
 
-1. Land the two local branches above with the three shared-place follow-ups.
+1. Independently review `integration/next`, then have the orchestrator land it.
 2. Repair the reviewed acceptance gates, then the data-loss bugs under the
    agreed recovery policy; add the six compiler execution regressions.
 3. Finish kernel/FLAIR desktop imports and boot's audit; prove pending mutants.
@@ -87,7 +108,8 @@ Dead commands in the frozen app inventories also need implement/remove decisions
 ## Notes for this week
 
 - Shared places (`mk/`, `sdk/`, `factory/`, top Makefile) owner:
-  the orchestrator session of 2026-11-14, for landing fixes/initechdos; released when it lands.
+  the orchestrator session of 2026-11-14; this implementation session acts
+  for that owner while preparing integration/next. Released when it lands.
 - Remaining Word/small-app attic journeys and pixel harnesses belong to
   their component/factory importers; publication inventories and manuals
   to the publication importer; composed chrome and menu/panel coverage

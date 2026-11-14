@@ -2,7 +2,7 @@
 ;
 ; beads: initech-509.11 (FAT write). The end-to-end in-emulator proof that the
 ;        WRITE half works THROUGH the OS on real ATA in one boot: it
-;          1. AH=3Ch CREAT  "OUT.TXT"        -> a write handle
+;          1. AH=3Ch CREAT  "OUT.TXT"        -> a read/write handle
 ;          2. AH=40h WRITE  "hello\r\n"       -> buffered
 ;          3. AH=3Eh CLOSE                    -> FLUSH to disk (cluster + FAT + dir)
 ;          4. AH=3Dh OPEN   "OUT.TXT" (read)  -> read the file we just wrote
@@ -10,8 +10,8 @@
 ;          6. AH=40h WRITE to handle 1 (CON)  -> echo them to stdout (serial)
 ;          7. AH=3Eh CLOSE + AH=4Ch EXIT rc=0
 ;        Count, literal bytes, terminal EOF and read CLOSE must all pass before
-;        WRITE-READBACK-OK. factory/smoke-programs.sh must require that marker
-;        (remaining shared-owner work in initech-oecdm); the kernel tier 0
+;        WRITE-READBACK-OK. factory/smoke-programs.sh requires that marker
+;        in addition to independent disk-byte comparison; the kernel tier 0
 ;        instruction oracle rejects each injected READ/CLOSE failure.
 ;
 ; Ref:   kernel/int21.c do_creat (AH=3Ch: EDX -> ASCIIZ path, CX=attr,
