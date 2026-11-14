@@ -8,13 +8,11 @@
  *                    y 180..370: inside PAINT's (330,150)-(630,400) window,
  *                    clear of its frame, title bar and scroll bars) is
  *                    entirely white -- InitechPaint opens an EMPTY canvas.
- *   menu dump.ppm    the Edit pull-down at FLAIR-MENU-XDROP (button held, no
- *                    item tracked): the panel hangs from the Edit title slot
- *                    (x = StringWidth("File") + 2*9, the real NFNT advances,
- *                    menu.h Sec 5 re-derived by hand), and its five item rows
- *                    carry DISABLED ink only (#A5A5A5, sys8/menus.md Sec 2.3 /
- *                    menu_look) -- not one black glyph pixel: every Edit item
- *                    is period-grayed.
+ *   empty idle.ppm held.ppm title: the authored Inside Macintosh IV-55 empty
+ *                    heading behavior; held title highlighted, all pixels
+ *                    below the bar unchanged. Pointer must occupy the same
+ *                    position in both captures. Toolbox owner supplies these
+ *                    captures after fixing zero-row panel geometry.
  *
  * Exit 0 PASS, 1 named FAIL, 2 unusable input. ASCII-clean (CLAUDE.md, The constitution).
  */
@@ -50,57 +48,49 @@ static int canvas(void)
     return 0;
 }
 
-static int menu(void)
+/* Empty titles follow the authored IM IV-55 contract. Idle and held captures
+ * must use the same pointer position so pointer pixels are not a mask. */
+static unsigned char idle[sizeof pixels];
+static int empty(const char *title)
 {
-    int L = sw("File") + 2 * 9;          /* the Edit slot, no Apple slot   */
-    int R = -1, black = 0, gray = 0;
-    for (int y = 45; y < 115; y++)
-        if (px(L, y) != 0x000000u) {
-            fprintf(stderr, "FAIL paint MENU_PANEL: no Edit panel frame at x=%d (y=%d #%06X)\n",
-                    L, y, (unsigned)px(L, y));
-            return 1;
-        }
-    for (int x = L + 20; x < 400 && R < 0; x++) {
-        int col = 1;
-        for (int y = 45; y < 115 && col; y++) col = px(x, y) == 0x000000u;
-        if (col) R = x;
+    const char *titles[]={"File","Edit","Image","Layer","Select","View","Window","Help"};
+    /* The live desktop merges its 33-pixel system slot before the app's
+     * titles (one bar). NFNT widths here remain independent golden data. */
+    int x=33,found=0;
+    for(unsigned i=0;i<8;i++) {
+        if(!strcmp(title,titles[i]) && i) {found=1;break;}
+        x+=sw(titles[i])+18;
     }
-    if (R < 0) {
-        fprintf(stderr, "FAIL paint MENU_PANEL: no right frame for the Edit panel\n");
-        return 1;
+    if(!found) return 2;
+    if(px(x+2,3)!=0 || !memcmp(idle+3*(3*640+x+2),pixels+3*(3*640+x+2),3)) {
+        fprintf(stderr,"FAIL paint EMPTY: title is not highlighted\n");return 1;
     }
-    /* Rows 50..118: inside the frame (bottom frame row 41 + 5*16 - 1), below
-     * the held arrow cursor (hotspot (62,30), its 16x16 image ends y=46). */
-    for (int y = 50; y < 41 + 5 * 16 - 2; y++)
-        for (int x = L + 2; x <= R - 2; x++) {
-            uint32_t c = px(x, y);
-            black += c == 0x000000u;
-            gray += c == 0xA5A5A5u;
-        }
-    if (black != 0 || gray < 40) {
-        fprintf(stderr, "FAIL paint MENU_GRAYED: Edit panel x=%d..%d holds %d black (want 0) and "
-                "%d disabled-ink px (want >= 40)\n", L, R, black, gray);
-        return 1;
+    if(memcmp(idle+640*20*3,pixels+640*20*3,sizeof pixels-640*20*3)) {
+        fprintf(stderr,"FAIL paint EMPTY: pixels below the menu bar changed\n");return 1;
     }
-    printf("paint MENU PASS: Edit panel x=%d..%d, %d disabled-ink px, 0 enabled ink\n", L, R, gray);
-    return 0;
+    puts("paint EMPTY PASS: held title highlighted; no panel or shadow");return 0;
 }
-
-int main(int argc, char **argv)
+static int read_ppm(const char *path)
 {
-    FILE *f;
-    int w, h, max;
-    if (argc != 3 || (strcmp(argv[1], "canvas") && strcmp(argv[1], "menu"))) {
-        fprintf(stderr, "usage: ppm_flair_paint_check canvas|menu dump.ppm\n");
-        return 2;
+    int w,h,max;FILE *f=fopen(path,"rb");
+    if(!f || fscanf(f,"P6 %d %d %d",&w,&h,&max)!=3 || w!=640 || h!=480 ||
+       max!=255 || fgetc(f)==EOF || fread(pixels,1,sizeof pixels,f)!=sizeof pixels) {
+        if(f) fclose(f);
+        fprintf(stderr,"FAIL paint: missing or malformed 640x480 PPM %s\n",path);return 0;
     }
-    f = fopen(argv[2], "rb");
-    if (!f || fscanf(f, "P6 %d %d %d", &w, &h, &max) != 3 || w != 640 || h != 480 ||
-        max != 255 || fgetc(f) == EOF || fread(pixels, 1, sizeof pixels, f) != sizeof pixels) {
-        fprintf(stderr, "FAIL paint: missing or malformed 640x480 PPM %s\n", argv[2]);
-        if (f) fclose(f);
-        return 2;
+    fclose(f);return 1;
+}
+int main(int argc,char **argv)
+{
+    if(argc==3 && !strcmp(argv[1],"canvas")) {
+        if(!read_ppm(argv[2])) return 2;
+        return canvas();
     }
-    fclose(f);
-    return !strcmp(argv[1], "canvas") ? canvas() : menu();
+    if(argc==5 && !strcmp(argv[1],"empty")) {
+        if(!read_ppm(argv[2])) return 2;
+        memcpy(idle,pixels,sizeof pixels);
+        if(!read_ppm(argv[3])) return 2;
+        return empty(argv[4]);
+    }
+    fputs("usage: pixels canvas dump.ppm | empty idle.ppm held.ppm title\n",stderr);return 2;
 }

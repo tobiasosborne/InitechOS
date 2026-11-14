@@ -31,14 +31,15 @@ int main(void)
     if (bar) for (uint16_t m = 0; m < bar->n_menus; m++) {
         if (m) strcat(joined, " ");
         strcat(joined, bar->menus[m].title);
-        CHECK(bar->menus[m].n_items >= 1 && bar->menus[m].n_items <= TBX_MBAR_MAX_ITEMS,
-              "every menu has 1..16 items");
+        CHECK(bar->menus[m].menu_id==128+(int)m,"sweep menu dispatch identity");
+        CHECK(bar->menus[m].n_items == (m==0?2:0),
+              "sweep File has Close/Quit; exactly seven empty titles");
         for (uint16_t i = 0; i < bar->menus[m].n_items; i++) {
             const tbx_menuitem_t *it = &bar->menus[m].items[i];
-            int quit = m == 0 && !strcmp(it->text, "Quit");
             CHECK(strlen(it->text) < TBX_MBAR_STR_MAX, "item text fits the MenuBar limit");
-            if (quit) CHECK(it->enabled && it->cmd_char == 'Q', "File > Quit is live, Cmd/Ctrl-Q");
-            else CHECK(!it->enabled, "GRAYED every other item is period-grayed");
+            CHECK(m==0 && i<2 && !strcmp(it->text,i?"Quit":"Close") &&
+                  it->enabled && !it->is_divider && it->cmd_char==(i?'Q':'W'),
+                  "sweep exact ordered enabled menu/shortcut set");
         }
     }
     CHECK(!strcmp(joined, "File Edit Image Layer Select View Window Help"),
@@ -56,9 +57,18 @@ int main(void)
         tbx_event_t other = { TBX_EVT_MENU, TBX_MENU_WORD(129, 2), 0, 0, 0, 0 };
         tbx_app_event(&other);
         CHECK(exits == 0, "a non-Quit menu word does nothing");
-        tbx_event_t quit = { TBX_EVT_MENU, TBX_MENU_WORD(128, 5), 0, 0, 0, 0 };
+        tbx_event_t quit = { TBX_EVT_MENU, TBX_MENU_WORD(128, 2), 0, 0, 0, 0 };
         tbx_app_event(&quit);
         CHECK(exits == 1 && tbx_host.exit_rc==0, "File > Quit exits");
+        exits=0;quit.message=TBX_MENU_WORD(128,1);tbx_app_event(&quit);
+        CHECK(exits==1 && tbx_host.exit_rc==0,"File Close exits same as close box");
+        unsigned before=tbx_host.nops;
+        for(int m=129;m<=135;m++) {
+            quit.message=TBX_MENU_WORD(m,1);tbx_app_event(&quit);
+        }
+        CHECK(tbx_host.nops==before,"empty titles dispatch no app command");
+        CHECK(!tbx_host.sf && !tbx_host.alerts && !tbx_host.find_calls &&
+              !tbx_host.ndeleted,"documentless Paint never touches files or prompts");
     }
     printf("test_paint_tenant: %u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;

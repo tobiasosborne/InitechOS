@@ -10,10 +10,10 @@
  *              Photoshop bar has none; spec/assets/menu_canon.h), one blank
  *              white canvas window, return (resident).
  *   updateEvt  the canvas is white (a blank document).
- *   File>Quit  EXIT(0); the close box ends the tenant (goAway 1).
- * Every other item is period-GRAYED (enabled 0): the Menu Manager draws it in
- * the disabled ink and never delivers it -- InitechPaint carries the bar, it
- * does not paint (PRD Sec 6.5).
+ *   File>Close / Quit  EXIT(0); the close box ends the tenant (goAway 1).
+ * The seven other headings have no items. Authored period-compatible choice:
+ * Inside Macintosh IV-55 (128K ROM) highlights an empty title while held,
+ * with no pulled panel or selected command. It is not a Mac OS 8 capture.
  *
  * Titles: the FROZEN canon (spec/assets/menu_canon.h FLAIR_CANON_MENU_ITEM_*,
  * locked by ADR-0004 D-3 / AM-4 -- never "corrected" to a real Photoshop).
@@ -27,33 +27,9 @@
 
 const char tbx_app_name[] = "PAINT";
 
-#define G 0   /* period-grayed */
-#define ITEM(t) { t, 0, 0, 0, G, 0, { 0, 0, 0 } }
-
 static const tbx_menuitem_t file_items[] = {
-    ITEM("New..."), ITEM("Open..."), ITEM("Close"), ITEM("Save"),
+    { "Close", 0, 'W', 0, 1, 0, { 0, 0, 0 } },
     { "Quit", 0, 'Q', 0, 1, 0, { 0, 0, 0 } }
-};
-static const tbx_menuitem_t edit_items[] = {
-    ITEM("Undo"), ITEM("Cut"), ITEM("Copy"), ITEM("Paste"), ITEM("Clear")
-};
-static const tbx_menuitem_t image_items[] = {
-    ITEM("Adjust"), ITEM("Image Size..."), ITEM("Canvas Size...")
-};
-static const tbx_menuitem_t layer_items[] = {
-    ITEM("New Layer..."), ITEM("Delete Layer"), ITEM("Flatten Image")
-};
-static const tbx_menuitem_t select_items[] = {
-    ITEM("All"), ITEM("None"), ITEM("Inverse")
-};
-static const tbx_menuitem_t view_items[] = {
-    ITEM("Zoom In"), ITEM("Zoom Out"), ITEM("Show Rulers")
-};
-static const tbx_menuitem_t window_items[] = {
-    ITEM("Show Brushes"), ITEM("Show Layers")
-};
-static const tbx_menuitem_t help_items[] = {
-    ITEM("Paint Help")
 };
 #define N(a) ((uint16_t)(sizeof(a) / sizeof((a)[0])))
 
@@ -61,13 +37,13 @@ static const tbx_menuitem_t help_items[] = {
 enum { PAINT_FILE = 128 };
 static const tbx_menuinfo_t menus[] = {
     { 128, 0, FLAIR_CANON_MENU_ITEM_0, file_items,   N(file_items),   0 },
-    { 129, 0, FLAIR_CANON_MENU_ITEM_1, edit_items,   N(edit_items),   0 },
-    { 130, 0, FLAIR_CANON_MENU_ITEM_2, image_items,  N(image_items),  0 },
-    { 131, 0, T_LAYER,                 layer_items,  N(layer_items),  0 },
-    { 132, 0, FLAIR_CANON_MENU_ITEM_4, select_items, N(select_items), 0 },
-    { 133, 0, FLAIR_CANON_MENU_ITEM_5, view_items,   N(view_items),   0 },
-    { 134, 0, FLAIR_CANON_MENU_ITEM_6, window_items, N(window_items), 0 },
-    { 135, 0, FLAIR_CANON_MENU_ITEM_7, help_items,   N(help_items),   0 }
+    { 129, 0, FLAIR_CANON_MENU_ITEM_1, 0, 0, 0 },
+    { 130, 0, FLAIR_CANON_MENU_ITEM_2, 0, 0, 0 },
+    { 131, 0, T_LAYER,                 0, 0, 0 },
+    { 132, 0, FLAIR_CANON_MENU_ITEM_4, 0, 0, 0 },
+    { 133, 0, FLAIR_CANON_MENU_ITEM_5, 0, 0, 0 },
+    { 134, 0, FLAIR_CANON_MENU_ITEM_6, 0, 0, 0 },
+    { 135, 0, FLAIR_CANON_MENU_ITEM_7, 0, 0, 0 }
 };
 static const tbx_menubar_t mbar = { menus, N(menus), 0 /* no Apple slot */, 0 };
 
@@ -95,6 +71,8 @@ void tbx_app_event(const tbx_event_t *e)
                             TBX_COLOR_WHITE);
         return;
     }
-    if (e->what == TBX_EVT_MENU && e->message == TBX_MENU_WORD(PAINT_FILE, 5))
+    if (e->what == TBX_EVT_MENU &&
+        (e->message == TBX_MENU_WORD(PAINT_FILE, 1) ||
+         e->message == TBX_MENU_WORD(PAINT_FILE, 2)))
         (void)tbx_exit(0);
 }

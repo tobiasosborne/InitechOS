@@ -1,11 +1,11 @@
 --- a/paint.c
 +++ b/paint.c
-@@ -58,7 +58,7 @@
+@@ -33,7 +33,7 @@
  };
  #define N(a) ((uint16_t)(sizeof(a) / sizeof((a)[0])))
  
 -#define T_LAYER FLAIR_CANON_MENU_ITEM_3
-+#define T_LAYER "Layers"   /* NAMED MUTANT: a "corrected" title */
++#define T_LAYER "Layers"
  enum { PAINT_FILE = 128 };
  static const tbx_menuinfo_t menus[] = {
      { 128, 0, FLAIR_CANON_MENU_ITEM_0, file_items,   N(file_items),   0 },
