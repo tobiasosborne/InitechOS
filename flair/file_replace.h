@@ -53,8 +53,8 @@ static inline int32_t flair_file_stage(flair_file_replace *t,const char *path,fl
 static inline void flair_file_discard(flair_file_replace *t,flair_file_op op)
 {
     if(t->staged && !t->old_moved) {
-        (void)op(0x4100,0,0,flair_file_ptr(t->stage),0);
-        t->staged=0;
+        int32_t rc=op(0x4100,0,0,flair_file_ptr(t->stage),0);
+        if(rc>=0 || rc==TBX_ERR_DOS(2)) t->staged=0;
     }
 }
 static inline int32_t flair_file_commit(flair_file_replace *t,const char *path,flair_file_op op)

@@ -1787,6 +1787,7 @@ void tbx_fc_close(void)
     (void)fc_close_owned(&g_fc.cfg);
     if(g_fc.src>=0 || g_fc.dst>=0 || g_fc.cfg>=0) { g_fc.active=1; return; }
     flair_file_discard(&g_fc.tx,fc_op);
+    if(g_fc.tx.staged && !g_fc.tx.old_moved) { g_fc.active=1; return; }
     g_fc.active=g_fc.closing=0;
 }
 

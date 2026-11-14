@@ -28,6 +28,11 @@ devices, and checks every transfer, verification and close result.
 Cancellation and rate-file cleanup retry a failed CLOSE once and retain any
 still-open handle until cleanup succeeds or the tenant session is reaped.
 A pending close blocks a new copy; cleanup never deletes a stage still open.
+A refused stage DELETE keeps its name owned for the next cleanup attempt.
+The SDK retries cleanup once; persistent refusal names the exact temporary
+file and prevents further saves from consuming additional temporary names.
+Later calls retry that owned cleanup and can save once storage accepts it.
+Early transfer/close errors and later commit refusals share this cleanup.
 
 If publication and restore both fail, both complete streams remain and the
 error notice names the exact previous-version path. This is not crash atomicity.

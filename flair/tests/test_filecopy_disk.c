@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "test_assert.h"
+#include "expect_abort.h"
 #include "fileio_fat.h"
 #include "devices.h"
 #include "tbxgate.c"
@@ -16,6 +17,7 @@
 TEST_HARNESS();
 static unsigned fail_call, calls, fail_write, writes, hit, fail_rollbacks, corrupt_sector, deletes;
 static int fail_closes;
+static unsigned fail_deletes;
 static FILE *disk;
 static int (*sector_fault)(uint32_t,uint32_t,const void *);
 static int rd(void *p,uint32_t lba,uint32_t n,void *b)
@@ -38,6 +40,9 @@ void flair_platform_dos(flair_platform_files *p,flair_platform_regs *r)
 {
     if(fail_closes && r->eax==0x3e00) { hit++; r->eax=5; r->eflags|=1; return; }
     if(r->eax==0x4100) deletes++;
+    if(fail_deletes && r->eax==0x4100) {
+        fail_deletes--; hit++; r->eax=5; r->eflags|=1; return;
+    }
     if(fail_rollbacks && r->eax==0x5600 && strcmp((const char *)(uintptr_t)r->edx,"TARGET.DAT")) {
         hit++; r->eax=5; r->eflags|=1; return;
     }
@@ -239,6 +244,101 @@ static void double_failure(int sdk)
     CHECK(tbxf_live(&g_slot.files)==0,"double failure closes every handle");
     fclose(disk);
 }
+static int absent(const char *path)
+{
+    char cmd[256];
+    snprintf(cmd,sizeof cmd,"mdir -b -i copy.img '%s' >/dev/null 2>&1",path);
+    return system(cmd)!=0;
+}
+static void only_stage(const char *expected)
+{
+    char line[128]; unsigned count=0;
+    fflush(disk);
+    command("mdir -b -i copy.img '::TARGET.$*' > stages.lst");
+    FILE *f=fopen("stages.lst","r"); CHECK(f!=0,"independent stage inventory");
+    if(f) {
+        while(fgets(line,sizeof line,f)) {
+            line[strcspn(line,"\r\n")]=0;
+            const char *name=strrchr(line,'/'); name=name?name+1:line;
+            CHECK(!strcmp(name,expected),"inventory contains only the exact owned stage"); count++;
+        }
+        fclose(f);
+    }
+    CHECK(count==1,"persistent cleanup never consumes another stage candidate");
+}
+static void readonly_destination(void)
+{
+    fclose(disk); command("mattrib -i copy.img +r ::TARGET.DAT");
+    disk=fopen("copy.img","r+b"); CHECK(fileio_fat_bind(&vol)==0,"reload read-only destination");
+}
+static void cleanup_delete_cases(void)
+{
+    EXPECT_SUCCESS("early SDK close failure retains and names its stage", {
+        setup();
+        fail_call=calls+3; /* CREATE_NEW, WRITE, stage CLOSE */
+        fail_deletes=2;
+        CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0,"SDK reports early stage-close failure");
+        fail_call=fail_deletes=0;
+        CHECK(hit==3 && strstr(reported_error,"Temporary file remains:") && strstr(reported_error,"TARGET.$$$"),
+              "early failure also names its stage after refused cleanup");
+        recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
+        unsigned before=deletes; fail_deletes=2;
+        CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0 && deletes==before+2,
+              "later save retries only its owned stage while cleanup remains refused");
+        fail_deletes=0;
+        only_stage("TARGET.$$$");
+        recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
+        verify(old,sizeof old-1);
+        CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)==sizeof source,
+              "early-error cleanup can recover and save when storage accepts it");
+        CHECK(absent("::TARGET.$$$"),"early-error recovery retires its owned stage");
+        verify(source,sizeof source); fclose(disk);
+    });
+    uint32_t size;
+    setup();
+    CHECK(tbx_fc_open(&size)==0 && tbx_fc_step(256)==256,"partial copy stage");
+    fail_call=calls+3; /* source CLOSE, stage CLOSE, stage DELETE */
+    tbx_fc_close(); fail_call=0;
+    CHECK(hit==1 && g_fc.tx.staged && g_fc.active,"failed DELETE retains copy stage ownership");
+    recovered_stream("mcopy -o -i copy.img '::TARGET.$00' recovered.dat",source,256);
+    only_stage("TARGET.$00");
+    unsigned pending_deletes=deletes; fail_deletes=1;
+    CHECK(tbx_fc_open(&size)==TBX_ERR_BUSY && deletes==pending_deletes+1 &&
+          tbxf_live(&g_slot.files)==0,"new copy only retries its still-refused cleanup");
+    fail_deletes=0; only_stage("TARGET.$00");
+    recovered_stream("mcopy -o -i copy.img '::TARGET.$00' recovered.dat",source,256);
+    tbx_fc_close();
+    CHECK(absent("::TARGET.$00"),"later close removes retained stage");
+    verify(old,sizeof old-1); fclose(disk);
+    setup(); readonly_destination();
+    fail_deletes=1;
+    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0,"read-only SDK save refuses");
+    fail_deletes=0;
+    CHECK(hit==1 && absent("::TARGET.$$$"),"SDK retries a single cleanup DELETE refusal");
+    verify(old,sizeof old-1); fclose(disk);
+    setup(); readonly_destination();
+    fail_deletes=2;
+    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0,"SDK save refuses with persistent cleanup failure");
+    fail_deletes=0;
+    CHECK(hit==2 && strstr(reported_error,"Temporary file remains:") && strstr(reported_error,"TARGET.$$$"),
+          "SDK reports exact stage path after both cleanup attempts fail");
+    recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
+    unsigned before=deletes; fail_deletes=2;
+    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0 && deletes==before+2,
+          "unresolved stage retries cleanup without consuming another temporary name");
+    fail_deletes=0;
+    only_stage("TARGET.$$$");
+    recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
+    verify(old,sizeof old-1);
+    fclose(disk); command("mattrib -i copy.img -r ::TARGET.DAT");
+    disk=fopen("copy.img","r+b");
+    CHECK(fileio_fat_bind(&vol)==0,"storage now permits replacing the previous destination");
+    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)==sizeof source,
+          "later save recovers after the stage DELETE becomes possible");
+    CHECK(absent("::TARGET.$$$"),"successful recovery removes the owned stage");
+    verify(source,sizeof source); fclose(disk);
+    (void)TEST_SUMMARY("test-stage-cleanup");
+}
 int main(int argc,char **argv)
 {
     FILE *f; unsigned nc,nw;
@@ -252,6 +352,11 @@ int main(int argc,char **argv)
         double_failure(1); double_failure(0);
         return TEST_SUMMARY("test-reported-failure-invariant");
     }
+    /* A fresh app lifetime: sticky recovery state must never be reset by a
+     * test to make a later save appear safe. The child leaves it unresolved. */
+    EXPECT_SUCCESS("owned stages survive cleanup errors and are retired or named", {
+        cleanup_delete_cases();
+    });
     setup(); CHECK(run()==sizeof source,"successful copy"); nc=calls; nw=writes; verify(source,sizeof source); fclose(disk);
     for(unsigned i=1;i<=nc;i++) {
         setup(); fail_call=i; int32_t rc=run(); fail_call=0;
