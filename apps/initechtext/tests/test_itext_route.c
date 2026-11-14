@@ -59,6 +59,7 @@ enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, 
 
 /* ---- the recording mock -------------------------------------------------- */
 #include "tbx_host.h"
+#include "tenant_lifecycle.h"
 typedef tbx_host_file_t mfile_t;
 typedef tbx_host_op_t op_t;
 #define m_ops tbx_host.ops
@@ -90,7 +91,8 @@ static void hev(int what, int32_t msg, int32_t mods, int h, int v)
 {
     tbx_event_t e = { what, msg, mods, 0, h, v };
     m_nops = 0;                              /* the ops are THIS event's draws */
-    tbx_app_event(&e);
+    if(!tbx_host_push_event(&e))exit(2);
+    (void)tbx_host_dispatch(tbx_app_event);
 }
 static void hkey(int ascii, int vk, int mods) { hev(keyDown, (vk << 8) | ascii, mods, 0, 0); }
 static void type(const char *s) { for (; *s; s++) hkey(*s == '\r' ? 0x0A : *s, *s == '\r' ? 0x1C : 0, 0); }
@@ -112,7 +114,7 @@ static int doc_is(const char *s)
 
 static void launch(void)
 {
-    tbx_host.nwindows=0;
+    restart_host_tenant();
     memset(&g_te, 0, sizeof g_te);
     g_win = 0; g_dirty = 0; g_active = 1; g_scroll = 0; g_anchor = 0;
     g_scrap_has = 0; g_after = 0; g_sf_kind = 0; g_path[0] = 0;
