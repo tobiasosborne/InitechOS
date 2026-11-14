@@ -259,7 +259,7 @@ static int g_anchor;
 static const char *g_prompt;
 enum { A_COPY=1, A_MOVE, A_VALUE, A_TRANS, A_ERASE, A_FORMAT, A_LABEL,
        A_PROT, A_UNPROT, A_NAME, A_NAME_DELETE, A_NAME_LABELS, A_NAME_TABLE,
-       A_WIDTH, A_GLOBAL_WIDTH, A_ITERATION, A_GOTO };
+       A_WIDTH, A_GLOBAL_WIDTH, A_ITERATION, A_GOTO, A_RANGE_WIDTH, A_RANGE_RESET };
 
 /* R2.2 Reference p.1-25; fixtures/i123-copy: POINT is separate from typed
  * range text (EDIT). The real escape.png restores the anchor cell;
@@ -267,10 +267,15 @@ enum { A_COPY=1, A_MOVE, A_VALUE, A_TRANS, A_ERASE, A_FORMAT, A_LABEL,
 static int pointable(void)
 {
     return g_action<=A_UNPROT ? !(g_action==A_FORMAT&&!g_stage&&g_arg) :
-        (g_action==A_NAME&&g_stage)||g_action==A_NAME_LABELS||g_action==A_NAME_TABLE||g_action==A_GOTO;
+        (g_action==A_NAME&&g_stage)||g_action==A_NAME_LABELS||g_action==A_NAME_TABLE||g_action==A_GOTO||
+        (g_action==A_RANGE_WIDTH&&!g_stage)||g_action==A_RANGE_RESET;
 }
 static void point_text(char *s)
 {
+    if(g_action==A_RANGE_WIDTH && g_stage) {
+        i123_number_text((double)i123_colwidth(&g_sheet,g_from.c0),s,32);
+        return;
+    }
     uint16_t c=i123_cursor_col(&g_sheet),r=i123_cursor_row(&g_sheet);
     uint32_t n=0;
     if(g_anchor) {n=i123_addr_text(g_ac,g_ar,s);s[n++]='.';s[n++]='.';}
@@ -749,6 +754,18 @@ static void range_accept(void)
         copy_text(g_named,input);
         if (g_action==A_NAME) { g_stage=1; g_prompt="Enter range: "; point_begin(); return; }
         rc=spare(&next); if (!rc) rc=i123_name_delete(&next,g_named);
+    } else if (g_action==A_RANGE_WIDTH && g_stage) {
+        double width;
+        uint32_t len=0;while(input[len])++len;
+        if(i123_parse_value(input,len,&width)||width<1||width>240||(int)width!=width) {
+            /* Real width-range captures: error retains the prompt; Esc
+             * restores its default rather than publishing any widths. */
+            g_error="Invalid number input";g_mode=M_NOTICE;
+            paint_panel();paint_status();return;
+        }
+        rc=spare(&next);
+        for(uint32_t c=g_from.c0;!rc&&c<=g_from.c1;c++)
+            rc=i123_set_colwidth(&next,(uint16_t)c,(uint8_t)width);
     } else if (g_action==A_WIDTH || g_action==A_GLOBAL_WIDTH || g_action==A_ITERATION ||
                (g_action==A_FORMAT && g_stage==0 && g_arg)) {
         double x;
@@ -771,13 +788,19 @@ static void range_accept(void)
             notice("Invalid range"); return;
         }
         if(g_action==A_GOTO) {ready();go_to(r.c0,r.r0);return;}
+        if(g_action==A_RANGE_WIDTH) {
+            g_from=r;g_stage=1;g_prompt="Select a width for range of columns (1..240): ";
+            point_begin();return;
+        }
         if(g_action<=A_TRANS && !g_stage) {
             g_from=r;g_stage=1;g_rlen=0;
             g_prompt=g_action==A_MOVE?"Enter range to move TO: ":"Enter range to copy TO: ";
             point_begin();return;
         }
         rc=spare(&next);
-        if(!rc && g_action<=A_TRANS) {
+        if(!rc && g_action==A_RANGE_RESET) {
+            for(uint32_t c=r.c0;!rc&&c<=r.c1;c++)rc=i123_set_colwidth(&next,(uint16_t)c,0);
+        } else if(!rc && g_action<=A_TRANS) {
             rc=i123_transfer_rect_progress(&g_sheet,&next,g_from,r,g_action-1,&written);
         } else if(!rc && g_action==A_NAME)rc=i123_name_set(&next,g_named,r);
         else if(!rc && g_action==A_NAME_LABELS)rc=i123_name_labels(&next,r,g_dc,g_dr);
@@ -866,6 +889,9 @@ static void menu_select(void)
         }
     }
     if(g_top==0) {
+        if(g_depth==3&&g_indexes[1]==3&&g_indexes[2]==4) {
+            prompt(g_menu_index==0?A_RANGE_WIDTH:A_RANGE_RESET,"Enter range for column width change: ");return;
+        }
         if(g_depth>=3&&g_indexes[1]==0&&g_indexes[2]==0) {
             if(g_depth==3) {
                 static const uint8_t f[]={0,0x10,0x20,0x40,0x71,0x70,0x30,0,0x75,0x76};
@@ -908,6 +934,11 @@ static void menu_back(void)
 }
 static void command_key(char ch, uint8_t vk)
 {
+    if(g_mode==M_NOTICE && g_error && g_action==A_RANGE_WIDTH && g_stage &&
+       (vk==VK_ESC||ch==0x1b||vk==VK_ENTER||ch=='\r')) {
+        g_error=0;g_mode=M_RANGE;g_rlen=0;g_range_text[0]=0;
+        command_paint();paint_status();return;
+    }
     if(ch==3 || vk==0x46) {ready();return;} /* Ctrl-Break/Ctrl-C */
     if(vk==VK_ESC||ch==0x1b) {
         if(g_mode==M_RANGE&&!g_rlen&&g_anchor) {g_anchor=0;i123_set_cursor(&g_sheet,g_ac,g_ar);follow_pointer();paint_all();return;}

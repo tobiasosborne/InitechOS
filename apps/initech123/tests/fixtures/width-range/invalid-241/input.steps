@@ -1,0 +1,12 @@
+sleep 4
+key esc
+type /wccsB1..C1
+key ret
+type 241
+shot typed
+key ret
+sleep 0.8
+shot result
+key esc
+shot escape
+end

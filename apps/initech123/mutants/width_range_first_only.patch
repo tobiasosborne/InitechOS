@@ -1,0 +1,8 @@
+# test: test_i123_widthrange
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -766,3 +766,3 @@
+         rc=spare(&next);
+-        for(uint32_t c=g_from.c0;!rc&&c<=g_from.c1;c++)
++        for(uint32_t c=g_from.c0;!rc&&c<=g_from.c0;c++)
+             rc=i123_set_colwidth(&next,(uint16_t)c,(uint8_t)width);

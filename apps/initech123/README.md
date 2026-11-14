@@ -54,7 +54,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 45 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 46 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
 Bochs, including an independent check of the worksheet saved from the Finder.
@@ -90,7 +90,7 @@ three named formula exceptions remain documented by the formula oracle.
 
 | Menu branch | Implemented today |
 |---|---|
-| Worksheet | Global formats/label prefix/width, recalculation order/mode/iteration, global protection; current-column Set-Width/Reset-Width; Erase No/Yes. |
+| Worksheet | Global formats/label prefix/width, recalculation order/mode/iteration, global protection; current-column and column-range Set-Width/Reset-Width; Erase No/Yes. |
 | Range | Format (Fixed, Sci, Currency, comma, General, +/-, Percent, Date 1/2/3, Text, Hidden, Reset), label alignment, Erase, Name Create/Delete/Labels/Reset/Table, Prot/Unprot, Value and Trans. |
 | Copy, Move | Snapshot transfers, singleton-axis tiling for Copy rectangles, formula reference adjustment, named ranges; Copy retains the allowed prefix on protection refusal, Move checks all destinations first. Capacity failures discard the candidate bank. |
 | File | Retrieve and Save WK1, Cancel/Replace on existing files. Backup is omitted. |
@@ -117,7 +117,7 @@ mkdir -p ../../build/apps/initech123/save-probe
   tests/fixtures/protection --save-safety
 ```
 
-There are **224 refused slash-menu leaves**. **File Save > Backup** in
+There are **222 refused slash-menu leaves**. **File Save > Backup** in
 the replacement prompt is removed by the approved split. Every slash leaf
 below shows `Command not implemented`; Esc returns to READY. Quit leaves that
 return to READY are navigation, not unavailable operations. No listed command
@@ -150,7 +150,6 @@ and agrees with the 224-leaf October audit. Sources: legacy-final
 | `/Worksheet/Insert` | `Column`, `Row` |
 | `/Worksheet/Delete` | `Column`, `Row` |
 | `/Worksheet/Column` | `Hide`, `Display` |
-| `/Worksheet/Column/Column-Range` | `Set-Width`, `Reset-Width` |
 | `/Worksheet/Titles` | `Both`, `Horizontal`, `Vertical`, `Clear` |
 | `/Worksheet/Window` | `Horizontal`, `Vertical`, `Sync`, `Unsync`, `Clear` |
 | `/Worksheet` | `Status`, `Page` |

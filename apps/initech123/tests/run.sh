@@ -29,6 +29,12 @@ case $name in
   test_i123_copy_move) "$bin" ;;
   test_i123_copy_corpus) "$bin" --corpus "$LOTUS123_DECOMP" "$out" "$ref" ;;
   test_i123_copy_tile) "$bin" --tile tests/fixtures/i123-copy "$out" "$ref" ;;
+  test_i123_widthrange)
+    (cd tests/fixtures/width-range && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
+    "$bin" "$out"
+    for f in RANGESET RANGERST RANGEIV RANGECAN; do python3 tests/oracles/width_records.py "tests/fixtures/width-range/$f.WK1" "$out/$f.WK1"; done
+    python3 tests/oracles/edit_labels.py "$out/KEEPBEF.WK1" "$out/KEEPAFT.WK1"
+    ;;
   test_i123_conformance)
     (cd tests/conformance/fixtures && sha256sum -c ../SHA256SUMS) > "$out/fixture-hashes.log"
     (cd tests/conformance && sha256sum -c CAPTURES.sha256) > "$out/capture-hashes.log"
