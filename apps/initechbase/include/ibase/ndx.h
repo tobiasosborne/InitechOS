@@ -634,6 +634,8 @@ typedef struct {
 int ndx_rebuild_begin(ndx_index *,uint32_t,ndx_key_provider,void *,ndx_rebuild_tx *);
 int ndx_rebuild_restore(ndx_index *,ndx_rebuild_tx *);
 int ndx_update_key_begin(ndx_index *,const uint8_t *,const uint8_t *,uint32_t,ndx_rebuild_tx *);
+/* Retain the predecessor until the enclosing one-record APPEND completes. */
+int ndx_insert_key_begin(ndx_index *,const uint8_t *,uint32_t,ndx_rebuild_tx *);
 
 /* -----------------------------------------------------------------------
  * S4.5: incremental index maintenance

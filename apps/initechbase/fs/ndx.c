@@ -2483,6 +2483,10 @@ int ndx_insert_key(ndx_index *idx,const uint8_t *key,uint32_t recno)
     if(!rc)ibase_file_accept(&tx.file);
     return rc;
 }
+int ndx_insert_key_begin(ndx_index *idx,const uint8_t *key,uint32_t recno,ndx_rebuild_tx *tx)
+{
+    return ndx_change_begin(idx,key,0,recno,0,tx);
+}
 int ndx_delete_key(ndx_index *idx,const uint8_t *key,uint32_t recno)
 {
     ndx_rebuild_tx tx;int rc=ndx_change_begin(idx,key,0,recno,1,&tx);

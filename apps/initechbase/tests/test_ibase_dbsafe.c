@@ -587,8 +587,10 @@ static int command_index_entry(void *arg,const uint8_t *key,uint32_t recno){
     CHECK(!memcmp(key,r+21,20) && !memcmp(key+20,r+1,20),"command index key names its actual physical row");
     return 0;
 }
-static void indexed_pack_failure_tests(void){
-    unsigned char dbefore[132000],nbefore[132000];unsigned failures=0;
+static void indexed_command_failure_tests(int import){
+    unsigned char dbefore[132000],nbefore[132000],expected[132000];unsigned failures=0;
+    const char *command=import==1?"APPEND FROM SOURCE.DBF":import==2?"APPEND BLANK":"PACK";
+    unsigned count=import?50:48;
     for(int kind=0;kind<=6;kind++)for(int short_kind=0;short_kind<(kind==0?5:1);short_kind++)
     for(int boundary=1;boundary<2000;boundary++){
         ibase_pal_t *p=setup();wa_env *env;ndx_index *ix[2];int rc,hit;
@@ -600,7 +602,13 @@ static void indexed_pack_failure_tests(void){
         c.ip=xb_interp_make(p);env=xb_interp_env(c.ip);
         set_register(c.ip);mutate_register(c.ip);query_register(c.ip);
         CHECK(wa_set_open_rw(env,1,"ROW.DBF",NULL,NULL)==0,"PACK real table");
-        CHECK(ibase_do(c.ip,"DELETE")==0,"PACK deleted first physical row");
+        if(!import)CHECK(ibase_do(c.ip,"DELETE")==0,"PACK deleted first physical row");
+        if(import==1){
+            FILE *f;unsigned char one[4]={1,0,0,0};
+            copy_local("ROW.DBF","SOURCE.DBF");f=fopen("SOURCE.DBF","r+b");
+            CHECK(f!=NULL,"single-source-record fixture opened");
+            if(f){CHECK(fseek(f,4,SEEK_SET)==0 && fwrite(one,1,4,f)==4,"source declares one genuine record");fclose(f);}
+        }
         for(int i=0;i<2;i++){
             CHECK(ndx_open_rw(p,i?"OTHER.NDX":"ROW.NDX",&ix[i])==0,"PACK real index");
             CHECK(wa_attach_index(env,1,ix[i])==0,"PACK attach both indexes");
@@ -610,28 +618,68 @@ static void indexed_pack_failure_tests(void){
         dn=readbytes("ROW.DBF");memcpy(dbefore,extracted,dn);
         nn=readbytes("ROW.NDX");memcpy(nbefore,extracted,nn);
         old_offset=dbefore[8]+256u*dbefore[9];width=dbefore[10]+256u*dbefore[11];
+        memcpy(expected,dbefore+old_offset+(import?0:width),(import?49:48)*width);
+        if(import==1)memcpy(expected+49*width,dbefore+old_offset,width);
+        if(import==2)memset(expected+49*width,' ',width);
         c.armed=1;c.failure_op=kind;c.boundary=boundary;c.short_kind=short_kind;c.error=PAL_EIO;
-        rc=ibase_do(c.ip,"PACK");c.armed=0;hit=c.hit;
+        rc=ibase_do(c.ip,command);c.armed=0;hit=c.hit;
         if(rc){
             failures++;
             CHECK(readbytes("ROW.DBF")==dn && !memcmp(extracted,dbefore,dn),"failed PACK restores original DBF");
             for(int i=0;i<2;i++)CHECK(readbytes(i?"OTHER.NDX":"ROW.NDX")==nn && !memcmp(extracted,nbefore,nn),"failed PACK restores every original NDX");
             CHECK(dbf_nrec(wa_table(env,1))==49 && wa_nrec(env,1)==49 && wa_recno(env,1)==old_recno,"failed PACK restores count and cursor");
-            CHECK(ibase_do(c.ip,"PACK")==0,"PACK retry succeeds through recovered handles");
+            CHECK(ibase_last_error(c.ip)!=10,"media failure is not syntax error");
+            CHECK(ibase_do(c.ip,command)==0,"command retry succeeds through recovered handles");
         }
         readbytes("ROW.DBF");after_offset=extracted[8]+256u*extracted[9];
-        CHECK(extracted[4]==48 && !memcmp(extracted+after_offset,dbefore+old_offset+width,48*width),"PACK success retains exact original survivors in physical order");
+        CHECK(extracted[4]==count && !memcmp(extracted+after_offset,expected,count*width),"completed command has exact expected physical rows");
         for(int i=0;i<2;i++){
-            command_index_oracle o={dbefore+old_offset,48,width,1,0};
+            command_index_oracle o={expected,count,width,0,0};
             CHECK(ndx_inorder(ix[i],command_index_entry,&o)==0,"PACK completed index traverses");
-            CHECK(o.seen==((UINT64_C(1)<<48)-1),"PACK completed index covers all 48 survivors");
+            CHECK(o.seen==((UINT64_C(1)<<count)-1),"completed index covers every physical row");
         }
         xb_interp_free(c.ip);pal_host_free(c.inner);
-        if(g_fails!=before_fails)fprintf(stderr,"PACK fault kind=%d short=%d boundary=%d hit=%d rc=%d\n",kind,short_kind,boundary,hit,rc);
+        if(g_fails!=before_fails)fprintf(stderr,"%s fault kind=%d short=%d boundary=%d hit=%d rc=%d\n",command,kind,short_kind,boundary,hit,rc);
         if(!hit){CHECK(rc==0,"PACK no-fault control");break;}
         CHECK(boundary<1999,"PACK exhausts fault boundaries");
     }
-    printf("INDEXED PACK recovered failures=%u\n",failures);
+    printf("INDEXED %s recovered failures=%u\n",command,failures);
+}
+static void append_batch_failure_tests(void){
+    unsigned char expected[6000];unsigned partial=0;
+    for(int boundary=1;boundary<2000;boundary++){
+        ibase_pal_t *p=setup();wa_env *env;ndx_index *ix;FILE *f;
+        unsigned char two[4]={2,0,0,0};unsigned offset,width,count;int rc,hit;
+        wa_nav_reset(1);
+        copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CLIENTS.DBF"),"ROW.DBF");
+        readbytes("ROW.DBF");offset=extracted[8]+256u*extracted[9];width=extracted[10]+256u*extracted[11];
+        CHECK(51*width<=sizeof expected,"batch oracle buffer fits genuine schema");
+        memcpy(expected,extracted+offset,49*width);memcpy(expected+49*width,extracted+offset,2*width);
+        copy_local("ROW.DBF","SOURCE.DBF");f=fopen("SOURCE.DBF","r+b");
+        CHECK(f!=NULL,"batch source open");
+        if(f){CHECK(!fseek(f,4,SEEK_SET) && fwrite(two,1,4,f)==4,"batch source declares two genuine rows");fclose(f);}
+        copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CNAMES.NDX"),"ROW.NDX");
+        c.ip=xb_interp_make(p);env=xb_interp_env(c.ip);
+        set_register(c.ip);mutate_register(c.ip);query_register(c.ip);
+        CHECK(wa_set_open_rw(env,1,"ROW.DBF",NULL,NULL)==0,"batch real table");
+        CHECK(ndx_open_rw(p,"ROW.NDX",&ix)==0 && wa_attach_index(env,1,ix)==0,"batch real attached index");
+        c.armed=1;c.boundary=boundary;c.error=PAL_EIO;
+        rc=ibase_do(c.ip,"APPEND FROM SOURCE.DBF");c.armed=0;hit=c.hit;
+        readbytes("ROW.DBF");offset=extracted[8]+256u*extracted[9];count=extracted[4]+256u*extracted[5];
+        CHECK(rc?(count==49 || count==50):count==51,"batch commits only complete source-record prefix");
+        if(count>=49 && count<=51){
+            command_index_oracle o={expected,count,width,0,0};
+            CHECK(!memcmp(extracted+offset,expected,count*width),"batch preserves original rows and exact imported prefix");
+            CHECK(wa_nrec(env,1)==count && dbf_nrec(wa_table(env,1))==count,"batch cache describes completed prefix");
+            CHECK(ndx_inorder(ix,command_index_entry,&o)==0 && o.seen==((UINT64_C(1)<<count)-1),"batch index contains exactly the completed prefix");
+        }
+        if(rc && count==50)partial++;
+        xb_interp_free(c.ip);pal_host_free(c.inner);
+        if(!hit){CHECK(rc==0,"batch terminal no-fault control");break;}
+        CHECK(boundary<1999,"batch enumerates every write boundary");
+    }
+    CHECK(partial>0,"batch exercised second-record failure after first-record completion");
+    printf("APPEND FROM completed-prefix failure cases=%u\n",partial);
 }
 static void rejected_command_tests(void){
     const char *commands[]={"DELETE","RECALL","ZAP","PACK","DELETE ALL","RECALL ALL"};
@@ -694,6 +742,6 @@ int main(int argc,char **argv){
     CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
     CHECK(mkdtemp(directory)!=NULL,"private oracle directory");
     if(chdir(directory) || mkdir("build",0700) || mkdir("build/dbsafe",0700)) return 2;
-    if(!strcmp(mode,"packfail"))indexed_pack_failure_tests();else if(!strcmp(mode,"retry"))rejected_command_tests();else if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"ndxfail"))incremental_failure_tests();else if(!strcmp(mode,"rowfail"))indexed_replace_failure_tests();else if(!strcmp(mode,"dbtfail"))memo_failure_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
+    if(!strcmp(mode,"fromfail")){indexed_command_failure_tests(1);append_batch_failure_tests();}else if(!strcmp(mode,"blankfail"))indexed_command_failure_tests(2);else if(!strcmp(mode,"packfail"))indexed_command_failure_tests(0);else if(!strcmp(mode,"retry"))rejected_command_tests();else if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"ndxfail"))incremental_failure_tests();else if(!strcmp(mode,"rowfail"))indexed_replace_failure_tests();else if(!strcmp(mode,"dbtfail"))memo_failure_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
     return TEST_SUMMARY(mode);
 }

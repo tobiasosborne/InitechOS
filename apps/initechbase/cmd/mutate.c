@@ -698,6 +698,59 @@ static void m_reject_records(wa_env *env,int area,uint32_t recno)
     }
 }
 
+/* Complete one imported row before releasing its DBF/NDX predecessors.
+ * The operator's failure guarantee applies to this record; previously
+ * completed records remain committed (Using III+ U5-28; DML-08 capture). */
+static int m_append_record(xb_interp *ip,const int *map,const xb_val *input,int nf,int *ec)
+{
+    wa_env *env=xb_interp_env(ip);int area=wa_selected(env);
+    dbf_table *tbl=wa_table(env,area);dbf_flush_tx table_tx;
+    ndx_rebuild_tx pending[NDX_PER_AREA];
+    uint32_t keep=wa_recno(env,area),rec;
+    int rc,i,nidx=wa_index_count(env,area),published=0,failure=0;
+    int old_eof=wa_eof(env,area),old_bof=wa_bof(env,area);
+    for(i=0;i<nidx;i++)pending[i].file.pal=0;
+    rc=dbf_append_blank(tbl);
+    if(rc){failure=rc==-DBF_ERR_NOMEM?43:m_write_error(rc);goto restore;}
+    rec=dbf_nrec(tbl);
+    for(i=0;i<nf;i++)if(map[i]>=0){
+        rc=dbf_replace(tbl,rec,i,&input[map[i]]);
+        if(rc){failure=rc==-39?39:m_write_error(rc);goto restore;}
+    }
+    rc=dbf_flush_begin(tbl,&table_tx);
+    if(rc){failure=m_write_error(rc);goto restore;}
+    published=1;
+    (void)wa_refresh(env,area,rec);(void)wa_nav_reset(area);
+    if(wa_goto(env,area,rec)!=WA_OK){failure=29;goto restore;}
+    for(i=0;i<nidx;i++){
+        ndx_index *ix=wa_index(env,area,i);uint8_t key[M_MAX_KEY];
+        uint16_t len=ndx_key_length(ix);
+        if(!len || len>M_MAX_KEY){failure=114;goto restore;}
+        rc=m_encode_key(ip,ndx_key_expr(ix),ndx_key_type(ix),len,key,ec);
+        if(rc){failure=ec && *ec?*ec:114;goto restore;}
+        rc=ndx_insert_key_begin(ix,key,rec,&pending[i]);
+        if(rc){
+            pending[i].file.pal=0;
+            failure=rc==-NDX_ERR_IO?1001:rc==-NDX_ERR_OOM?43:rc==-NDX_ERR_READONLY?111:114;
+            goto restore;
+        }
+    }
+    if(wa_nav_index_top(env,area)!=NAV_OK || wa_goto(env,area,rec)!=WA_OK){failure=29;goto restore;}
+    for(i=0;i<nidx;i++)ibase_file_accept(&pending[i].file);
+    ibase_file_accept(&table_tx.file);
+    if(ec)*ec=0;
+    return INTERP_OK;
+restore:
+    for(i=nidx;i-->0;)if(pending[i].file.pal)
+        (void)ndx_rebuild_restore(wa_index(env,area,i),&pending[i]);
+    if(published)(void)dbf_flush_restore(tbl,&table_tx);
+    else (void)dbf_reload_records(tbl);
+    (void)wa_refresh(env,area,keep);(void)wa_nav_reset(area);
+    wa_nav_set_eof(env,area,old_eof);wa_nav_set_bof(env,area,old_bof);
+    if(ec)*ec=failure?failure:1001;
+    return -INTERP_ERR_EVAL;
+}
+
 static int m_append(xb_interp *ip, const char *args, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
@@ -913,7 +966,7 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
     rc = dbf_pack(tbl);
     if (rc != DBF_OK) {
         if (rc == -DBF_ERR_IO) { if (ec) *ec = M_MSG_READONLY; }
-        else { if (ec) *ec = 0; }
+        else { if (ec) *ec = rc==-DBF_ERR_NOMEM?43:1001; }
         return -INTERP_ERR_EVAL;
     }
     rc = dbf_flush_begin(tbl,&table_tx);
@@ -1378,7 +1431,7 @@ static IBASE_OVL_TEXT(file) int d_run(xb_interp *ip,const char *args,int *ec)
  * deleted-row rules and per-field truncation); DML-08 is the independent file.
  * Each record is persisted before proceeding. Previously appended records are
  * never rolled back if a later input/write fails; there is no invented batch
- * transaction. The blank-append primitive protects only its own record. */
+ * transaction. Data and all indexes complete together for each source row. */
 static IBASE_OVL_TEXT(file) int d_append_from(xb_interp *ip,const char *args,int *ec)
 {
     wa_env *env=xb_interp_env(ip);int area=wa_selected(env),del,rc=0,nf,ns;
@@ -1399,24 +1452,10 @@ static IBASE_OVL_TEXT(file) int d_append_from(xb_interp *ip,const char *args,int
     for(uint32_t r=1;r<=dbf_nrec(src);r++) {
         if(dbf_read_rec(src,r,input,&del)){rc=29;break;}
         if(del && wa_get_deleted(env))continue;
-        /* Commit one blank through the existing index-maintaining adapter,
-         * then fill matching fields. A failing later field leaves this row. */
-        if(m_append(ip,"BLANK",ec)){rc=*ec;break;}
-        uint32_t rec=dbf_nrec(out);
-        for(int i=0;i<nf;i++)if(map[i]>=0) {
-            int code=dbf_replace(out,rec,i,&input[map[i]]);
-            if(code){rc=code==-39?39:m_write_error(code);break;}
+        if(m_append_record(ip,map,input,nf,ec)){
+            rc=ec && *ec?*ec:1001;
+            break;
         }
-        if(dbf_flush(out) && !rc)rc=56;
-        wa_refresh(env,area,rec);
-        /* Rebuild attached indexes after the complete row, using their own
-         * codec and expression. This includes a partially filled failure row. */
-        for(int i=0;i<wa_index_count(env,area);i++) {
-            ndx_index *ix=wa_index(env,area,i);d_key_ctx c={ip,ndx_key_expr(ix),ndx_key_type(ix),0};
-            if(ndx_rebuild(ix,dbf_nrec(out),d_key,&c) && !rc)rc=c.ec?c.ec:114;
-        }
-        wa_nav_reset(area);wa_nav_goto(env,area,rec);
-        if(rc)break;
     }
  done:
     dbf_close(src);

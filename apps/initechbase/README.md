@@ -251,3 +251,9 @@ and final navigation checks succeed. Key extraction reads physical records,
 without consulting the obsolete index order. The `packfail` matrix includes
 two indexes, short writes and every allocation/read/metadata boundary; retries
 check original survivor bytes and every physical-record/key association.
+
+APPEND FROM publishes each fully populated source row together with its index
+entries. A failed row restores its predecessor; earlier completed rows remain.
+The `fromfail` fault matrix compares exact imported bytes and every index key,
+including second-row failures after the first row has completed. Error codes
+cannot turn a failed insertion into a successful blank import.

@@ -62,7 +62,7 @@ case "$name" in
  test_ibase_datatype)
   for c in blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar datecontract; do "$bins/$name" "$c"; done;;
  test_ibase_dbsafe)
-  for mode in append lifetime safety writes ndxfail rowfail dbtfail retry packfail; do "$bins/$name" "$mode"; done;;
+  for mode in append lifetime safety writes ndxfail rowfail dbtfail retry packfail fromfail; do "$bins/$name" "$mode"; done;;
  test_interp_do_file) sh tests/do_file_test.sh host "$bins/$name";;
  test_ibase_memocells)
   mkdir -p build/memocells/DRIVE build/memocells/DATA
