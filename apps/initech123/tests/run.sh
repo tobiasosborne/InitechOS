@@ -73,3 +73,15 @@ case $name in
     echo 'CURRENCY saved bytes: independent reader green'
     ;;
 esac
+if [ "$name" = test_i123_edit ]; then
+  (cd tests/fixtures/edit && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
+  python3 tests/oracles/edit_labels.py tests/fixtures/edit/EDITKEYS.WK1 "$out/EDITKEYS.WK1"
+fi
+if [ "$name" = test_i123_edit ]; then
+  python3 "$LOTUS123_DECOMP/tools/wk1_ref.py" "$out/NUMFORM.WK1" > "$out/NUMFORM.ref"
+  grep -q 'INTEGER.*c0 r0 int=1203$' "$out/NUMFORM.ref"
+  grep -q 'FORMULA.*c1 r0 cached=55' "$out/NUMFORM.ref"
+  grep -q 'LABEL.*c2 r0 label=.*Alpha' "$out/NUMFORM.ref"
+  grep -q 'LABEL.*c3 r0 label=.*Old' "$out/NUMFORM.ref"
+  grep -q 'INTEGER.*c4 r0 int=234$' "$out/NUMFORM.ref"
+fi

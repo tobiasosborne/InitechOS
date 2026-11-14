@@ -1,0 +1,25 @@
+A15: 'ABCDEFGHIJ                                                            EDIT
+X'ABCDEFGHIJ                                                                    
+                                                                                
+        A        B        C        D        E        F        G        H        
+1   ABCDEFGHIXJ                                                                 
+2   ABCDEFGHIXJ                                                                 
+3   X'ABCDEFGHIJ                                                                
+4   ABCDEFGHIJX                                                                 
+5   ABCDEXFGHIJ                                                                 
+6   ABCDXEFGHIJ                                                                 
+7   ABCDEXFGHIJ                                                                 
+8   ABCDXEFGHIJ                                                                 
+9   ABCDEFGHI                                                                   
+10  ABCDEFGHJ                                                                   
+11  ABCDEFGHXJ                                                                  
+12  X'ABCDEFGHIJ                                                                
+13  ABCDEFGHIJX                                                                 
+14  X'ABCDEFGHIJ                                                                
+15  ABCDEFGHIJ                                                                  
+16                                                                              
+17                                                                              
+18                                                                              
+19                                                                              
+20                                                                              
+02-Mar-92  09:30 AM                                                             

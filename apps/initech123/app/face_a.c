@@ -138,6 +138,9 @@ static uint32_t vis_rows(void) { return g_lines - (LINE_ROW0 + 1u); }
 #define VK_BSPC      0x0E
 #define VK_ENTER     0x1C
 #define VK_HOME      0x47
+#define VK_END       0x4F
+#define VK_INS       0x52
+#define VK_DEL       0x53
 #define VK_UP        0x48
 #define VK_LEFT      0x4B
 #define VK_RIGHT     0x4D
@@ -201,6 +204,8 @@ static char     g_line[SCR_COLS + 1] TBX_IN_IMAGE = { 0 };
  * tbx.h memory rule / Toolbox Gate Sec 8: the loader zeroes private .bss. */
 static char     g_edit[ENTRY_MAX + 1];
 static uint32_t g_elen TBX_IN_IMAGE = 0;
+static uint32_t g_epos TBX_IN_IMAGE = 0;
+static int g_overwrite TBX_IN_IMAGE = 0;
 
 enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE, M_RANGE };
 static int      g_mode TBX_IN_IMAGE = M_READY;
@@ -464,13 +469,19 @@ static void paint_edit_line(void)
      * B13 (initech-twxf) requires the tail to follow the typing cursor.
      * No long-entry capture in the Lotus corpus; one-character scrolling
      * is the native viewport policy, not a measured R2.2 scroll increment. */
-    uint32_t i, first = g_elen > cols() - 1u ? g_elen - (cols() - 1u) : 0u;
-    for (i = first; i < g_elen; i++) src[i - first] = g_edit[i];
+    uint32_t cursor = g_mode == M_EDIT ? g_epos : g_elen;
+    uint32_t i, first = cursor > cols() - 1u ? cursor - (cols() - 1u) : 0u;
+    for (i = first; i < g_elen && i - first < cols() - 1u; i++) src[i - first] = g_edit[i];
     i -= first;
-    if (g_mode != M_READY) src[i++] = '_';          /* the edit cursor */
+    if (g_mode != M_READY && cursor == g_elen) src[i++] = '_';
     src[i] = '\0';
     pad_into(tmp, SCR_COLS, src);
     put_line(LINE_PANEL2, 0, tmp, SCR_COLS, TBX_COLOR_BLACK, TBX_COLOR_WHITE);
+    if (g_mode == M_EDIT && cursor < g_elen)
+        put_line(LINE_PANEL2, (int)(cursor-first), g_edit+cursor, 1, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
+    /* Captured INS/OVR indicator, 24 columns from the status line's end. */
+    put_line(LINE_STATUS, (int)cols()-24, g_mode==M_EDIT ? (g_overwrite?"OVR":"INS") : "   ",
+             3, TBX_COLOR_BLACK, TBX_COLOR_WHITE);
     panel_line(LINE_PANEL3, "");
 }
 
@@ -994,6 +1005,8 @@ static int commit(void)
     }
     if (rc != I123_OK) {
         g_mode = M_EDIT;   /* 1-2-3 beeps and drops into EDIT */
+        g_epos = g_elen;
+        g_overwrite = 0;
         paint_panel();
         paint_edit_line();
         return 1;
@@ -1080,8 +1093,9 @@ static int finish(void)
  * the edit line in EDIT mode (mint keys 02_f2 "'Hello", 44 "123", 47 empty);
  * in EDIT it switches to LABEL or VALUE by the entry's first character, and
  * while typing it switches to EDIT (p. 1-22 "Editing As You Type"). The
- * in-line cursor keys of EDIT (p. 1-22/1-23: Left/Right/Home/End/Tab/Del/Ins)
- * are not implemented: the cursor stays at the end (Backspace works). */
+ * in-line keys follow pp. 1-22/1-23 and tests/fixtures/edit: the prefix is
+ * editable, End reaches the insertion point after the last character, and
+ * each new EDIT starts in insert mode. */
 static void edit_key(void)
 {
     if (g_mode == M_READY) {
@@ -1091,6 +1105,8 @@ static void edit_key(void)
         g_mode = M_EDIT;
     } else if (g_mode != M_EDIT) g_mode = M_EDIT;
     else if (g_elen) g_mode = is_value_start(g_edit[0]) ? M_VALUE : M_LABEL;
+    g_epos = g_elen;
+    g_overwrite = 0;
     paint_panel();
     paint_edit_line();
 }
@@ -1107,6 +1123,44 @@ static void key(int32_t message, int32_t mods)
     if (g_mode >= M_MAIN) { command_key(ch, vk); return; }
     if (vk == VK_F2 && !ch) { edit_key(); return; }
 
+    if (g_mode == M_EDIT) {
+        uint32_t step = (mods & FLAIR_EVT_MOD_CONTROL_KEY) ? 5u : 1u;
+        if (vk == VK_LEFT || vk == VK_RIGHT || vk == VK_TAB ||
+            vk == VK_HOME || vk == VK_END || vk == VK_INS || vk == VK_DEL ||
+            vk == VK_BSPC || ch == 8) {
+            if (vk == VK_HOME) g_epos = 0;
+            else if (vk == VK_END) g_epos = g_elen;
+            else if (vk == VK_INS) g_overwrite = !g_overwrite;
+            else if (vk == VK_LEFT || (vk == VK_TAB && (mods & FLAIR_EVT_MOD_SHIFT_KEY))) {
+                if (vk == VK_TAB) step = 5;
+                g_epos = g_epos > step ? g_epos-step : 0;
+            } else if (vk == VK_RIGHT || vk == VK_TAB) {
+                if (vk == VK_TAB) step = 5;
+                g_epos = g_epos+step < g_elen ? g_epos+step : g_elen;
+            } else {
+                uint32_t p = g_epos;
+                if ((vk == VK_BSPC || ch == 8) && p) p = --g_epos;
+                else if (vk == VK_BSPC || ch == 8) { paint_edit_line(); return; }
+                if (p < g_elen) {
+                    for (uint32_t i=p; i<g_elen; ++i) g_edit[i]=g_edit[i+1];
+                    --g_elen;
+                }
+            }
+            paint_edit_line(); return;
+        }
+        if (ch >= ' ' && ch <= '~') {
+            if (g_elen >= ENTRY_LIMIT && !(g_overwrite && g_epos < g_elen)) {
+                (void)tbx_trap(TBX_BEEP, 0, 0); return;
+            }
+            if (!g_overwrite || g_epos == g_elen) {
+                for (uint32_t i=g_elen; i>g_epos; --i) g_edit[i]=g_edit[i-1];
+                ++g_elen;
+            }
+            g_edit[g_epos++] = ch; g_edit[g_elen] = 0;
+            paint_edit_line(); return;
+        }
+    }
+
     if (ch == 0) {
         mv = vk == VK_UP ? 1 : vk == VK_DOWN ? 2 : vk == VK_LEFT ? 3 : vk == VK_RIGHT ? 4 :
              vk == VK_PGUP ? 5 : vk == VK_PGDN ? 6 : 0;
@@ -1118,8 +1172,7 @@ static void key(int32_t message, int32_t mods)
         /* Typing, a pointer-movement key completes the entry and moves (p.
          * 1-16; mint keys 67 "abc" Tab -> I1, 68 "xyz" PgDn -> A21). In EDIT
          * only Up/Down/PgUp/PgDn complete (pp. 1-8/1-10, mint keys 49);
-         * Left/Right/Tab move its cursor (not implemented, see edit_key). */
-        if (g_mode == M_EDIT && (mv == 3 || mv == 4 || mv > 6)) return;
+         * Left/Right/Tab have already moved the EDIT cursor above. */
         if (g_mode != M_READY && finish() != 0) return;   /* a bad value stays in EDIT */
         if (mv > 6) page_cols(mv == 7);
         else if (mv > 4) page_rows(mv == 6);
@@ -1134,6 +1187,7 @@ static void key(int32_t message, int32_t mods)
             if (g_mode != M_EDIT || !g_elen)
                 g_mode = M_READY;
             g_elen = 0;
+            g_epos = 0;
             g_edit[0] = '\0';
             paint_panel();
             paint_edit_line();

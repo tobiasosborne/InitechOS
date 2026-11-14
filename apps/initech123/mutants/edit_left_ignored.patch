@@ -1,0 +1,8 @@
+# test: test_i123_edit
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1126,3 +1126,4 @@
+     if (g_mode == M_EDIT) {
++        if (vk == VK_LEFT) return;
+         uint32_t step = (mods & FLAIR_EVT_MOD_CONTROL_KEY) ? 5u : 1u;
+         if (vk == VK_LEFT || vk == VK_RIGHT || vk == VK_TAB ||

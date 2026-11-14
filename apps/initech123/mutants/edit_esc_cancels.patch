@@ -1,13 +1,12 @@
-# Legacy I123_MUT_EDIT_ESC_CANCELS (all hook locations together).
 # test: test_i123_keys
 --- a/app/face_a.c
 +++ b/app/face_a.c
-@@ -1115,7 +1115,7 @@
+@@ -1184,7 +1184,7 @@
              /* EDIT: Esc "Erases all characters in entry" (p. 1-23); Esc on the
               * empty line returns to READY, the cell unchanged (mint keys
               * 03_f2_esc1 / 04_f2_esc2; 51_bad_value_esc after a bad value). */
 -            if (g_mode != M_EDIT || !g_elen)
-+            /* MUTANT (CLAUDE.md, The constitution; test-i123-keys-mutant): one Esc leaves EDIT. */
++            if (1)
                  g_mode = M_READY;
              g_elen = 0;
-             g_edit[0] = '\0';
+             g_epos = 0;

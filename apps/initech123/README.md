@@ -54,7 +54,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 42 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 43 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
 Bochs, including an independent check of the worksheet saved from the Finder.
@@ -207,3 +207,10 @@ minting utilities are factory support, not additional host tests. Cross-app
 Calculator, Finder and InitechWord tests belong to their respective importers.
 The retired factory bookkeeping and size-policy gates are not app behavior.
 This component does not consume any of those files while building or testing.
+
+EDIT's Left/Right/Home/End, five-character Tab/Shift-Tab and Ctrl arrows,
+Delete, Backspace and insert/overwrite follow R2.2 Reference pp. 1-22/1-23
+and the independent `tests/fixtures/edit` capture. The saved LABEL records
+are compared to real R2.2 by a separate Python WK1 reader in tier 0;
+`edit_left_ignored.patch` proves that leaving F2 working while dropping its
+Left route fails. Inline cursor movement leaves the worksheet pointer fixed.
