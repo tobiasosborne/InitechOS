@@ -2464,7 +2464,9 @@ static int fat12_remove_allocation(const fat12_volume_t *vol, void *fat,
 		/* Validate the entire chain before changing the live allocation map.
 		 * A corrupt tail must not leave a partly freed prefix in memory. */
 		bpc = (uint32_t)vol->bpb.sectors_per_cluster * vol->bpb.bytes_per_sector;
-		count = old->file_size / bpc + (old->file_size % bpc != 0u);
+		int directory = (old->attribute & DIR_ATTR_DIRECTORY) != 0u;
+		count = directory ? vol->total_clusters
+		                  : old->file_size / bpc + (old->file_size % bpc != 0u);
 		if (count == 0u || count > vol->total_clusters) return FAT12_ERR_CHAIN;
 		cur = old->start_cluster;
 		for (i = 0u; i < count; i++) {
@@ -2472,6 +2474,7 @@ static int fat12_remove_allocation(const fat12_volume_t *vol, void *fat,
 			if (!fat12_cluster_in_range(vol, cur)) return FAT12_ERR_CHAIN;
 			rc = fat12_next_cluster(vol, fat, fat_len, cur, &next);
 			if (rc != FAT12_OK) return rc;
+			if (directory && chain_is_eoc(vol, next)) break;
 			if (i + 1u == count) {
 				if (!chain_is_eoc(vol, next)) return FAT12_ERR_CHAIN;
 			} else if (!fat12_cluster_in_range(vol, next) || chain_is_eoc(vol, next)) {
@@ -2869,7 +2872,7 @@ int fat12_set_size(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	return rc;
 }
 
-int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+static int fat12_write_partial_inner(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                         uint16_t parent_dir_start, uint32_t slot,
                         uint32_t offset, const uint8_t *data,
                         uint32_t len, void *sector_buf, void *cluster_buf,
@@ -3142,6 +3145,45 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	de.file_size     = new_size;
 	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, parent_dir_start,
 	                                 slot, &de, sector_buf);
+}
+
+/* initech-lelwp: every failure after extending must undo the reservation,
+ * including errors in FAT copy 2, payload writes and directory publication.
+ * The original directory entry and full FAT are independent preimages.
+ * This conserves allocation; ordinary in-place payload overwrites are not a
+ * transactional file save (IBM DOS 3.30 TR pp.6-139/140). */
+int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                        uint16_t parent, uint32_t slot, uint32_t offset,
+                        const uint8_t *data, uint32_t len, void *sector_buf,
+                        void *cluster_buf, uint32_t *out_written)
+{
+	static uint8_t before[6144];
+	dir_entry_t old;
+	uint32_t bytes, i;
+	int rc, restore_fat, restore_dir;
+	if (out_written) *out_written = 0u;
+	if (!vol || !fat || !sector_buf || !cluster_buf || !out_written || len == 0u)
+		return fat12_write_partial_inner(vol, fat, fat_len, parent, slot, offset,
+		                                 data, len, sector_buf, cluster_buf, out_written);
+	if (!vol->dev || !vol->dev->read_sectors || !vol->dev->write_sectors)
+		return FAT12_ERR_WRITE;
+	if (vol->fat_type != FAT_TYPE_FAT12) return FAT12_ERR_UNSUPPORTED;
+	bytes = (uint32_t)vol->bpb.sectors_per_fat * vol->bpb.bytes_per_sector;
+	if (bytes > sizeof before || fat_len < bytes) return FAT12_ERR_BUFFER;
+	rc = fat12_read_dirent_in_dir(vol, fat, fat_len, parent == 0u, parent,
+	                              slot, &old, sector_buf);
+	if (rc != FAT12_OK) return rc;
+	for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];
+	rc = fat12_write_partial_inner(vol, fat, fat_len, parent, slot, offset,
+	                                data, len, sector_buf, cluster_buf, out_written);
+	if (rc == FAT12_OK) return rc;
+	*out_written = 0u;
+	for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
+	restore_fat = fat12_flush_fats(vol, fat, fat_len);
+	restore_dir = fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0u,
+	                                        parent, slot, &old, sector_buf);
+	if (restore_fat != FAT12_OK || restore_dir != FAT12_OK) return FAT12_ERR_WRITE;
+	return rc;
 }
 
 int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
@@ -3777,7 +3819,7 @@ static void fat12_make_dotdir(dir_entry_t *de, int dots, uint16_t start)
 	de->file_size     = 0u;
 }
 
-int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+static int fat12_mkdir_inner(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                 const char *name83, uint16_t parent_dir_start, void *sector_buf,
                 void *cluster_buf)
 {
@@ -3985,6 +4027,50 @@ int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	return FAT12_OK;
 }
 
+/* initech-rxh8o: restore both FAT copies even when the parent did not grow.
+ * Snapshot before any parent growth, and preserve the reusable slot too:
+ * a failed final write may already have published the child directory. */
+int fat12_mkdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                const char *name83, uint16_t parent, void *sector_buf,
+                void *cluster_buf)
+{
+	static uint8_t before[6144];
+	uint8_t want11[11];
+	uint32_t bytes, i, free_slot = 0u, match_slot = 0u;
+	int have_free = 0, found = 0, rc, restore_fat, restore_dir = FAT12_OK;
+	dir_entry_t match, old;
+	if (!vol || !fat || !name83 || !sector_buf) return FAT12_ERR_NULL;
+	if (!vol->dev || !vol->dev->read_sectors || !vol->dev->write_sectors)
+		return FAT12_ERR_WRITE;
+	if (vol->fat_type != FAT_TYPE_FAT12) return FAT12_ERR_UNSUPPORTED;
+	bytes = (uint32_t)vol->bpb.sectors_per_fat * vol->bpb.bytes_per_sector;
+	if (bytes > sizeof before || fat_len < bytes) return FAT12_ERR_BUFFER;
+	rc = fat12_dir_guard(vol, fat, fat_len, parent, sector_buf);
+	if (rc != FAT12_OK) return rc;
+	rc = parse_name83(name83, want11);
+	if (rc != FAT12_OK) return rc;
+	rc = fat12_scan_dir(vol, fat, fat_len, parent == 0u, parent, sector_buf,
+	                    want11, &free_slot, &have_free, &match_slot, &match, &found);
+	if (rc != FAT12_OK) return rc;
+	if (found || (!have_free && parent == 0u))
+		return fat12_mkdir_inner(vol, fat, fat_len, name83, parent, sector_buf, cluster_buf);
+	if (have_free) {
+		rc = fat12_read_dirent_in_dir(vol, fat, fat_len, parent == 0u, parent,
+		                              free_slot, &old, sector_buf);
+		if (rc != FAT12_OK) return rc;
+	}
+	for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];
+	rc = fat12_mkdir_inner(vol, fat, fat_len, name83, parent, sector_buf, cluster_buf);
+	if (rc == FAT12_OK) return rc;
+	for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
+	restore_fat = fat12_flush_fats(vol, fat, fat_len);
+	if (have_free)
+		restore_dir = fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0u,
+		                                        parent, free_slot, &old, sector_buf);
+	if (restore_fat != FAT12_OK || restore_dir != FAT12_OK) return FAT12_ERR_WRITE;
+	return rc;
+}
+
 /* Empty-check callback: count any surviving entry that is NOT '.' or '..'. A
  * non-zero return stops the enumeration early (the dir is provably non-empty).
  * fat12_read_dir already skips free/deleted/LFN slots, so every entry handed
@@ -4070,26 +4156,16 @@ int fat12_rmdir(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 		return FAT12_ERR_NOT_EMPTY;
 	}
 
-	/* Free the target's cluster chain (the '.'/'..' cluster), flush both FATs. */
-	if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
-		rc = fat12_free_chain(vol, fat, fat_len, match.start_cluster);
-		if (rc != FAT12_OK) {
-			return rc;
-		}
-		rc = fat12_flush_fats(vol, fat, fat_len);
-		if (rc != FAT12_OK) {
-			return rc;
-		}
-	}
-
 	/* Mark the parent's dir entry deleted (filename[0] = 0xE5). For a SUBDIR
 	 * parent the slot is cluster-chain-addressed down parent_dir_start
 	 * (fat12_write_dirent_in_dir); for the root it is the fixed-region slot
 	 * (is_root, byte-identical to the historical fat12_write_dirent). */
-	match.filename[0] = DIR_NAME_DELETED;
-	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root,
-	                                 parent_dir_start, match_slot, &match,
-	                                 sector_buf);
+	{
+		dir_entry_t deleted = match;
+		deleted.filename[0] = DIR_NAME_DELETED;
+		return fat12_remove_allocation(vol, fat, fat_len, parent_dir_start,
+		                                match_slot, &match, &deleted, sector_buf);
+	}
 }
 
 /* ======================================================================== *
