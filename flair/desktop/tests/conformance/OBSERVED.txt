@@ -1,0 +1,5 @@
+D01.DB	bytes=8 validate=0 reason=0 bootstrap=PENDING
+D02.DB	bytes=7 validate=1 reason=1 bootstrap=PENDING
+D03.DB	bytes=31 validate=1 reason=4 bootstrap=PENDING
+D04.DB	bytes=4088 validate=0 reason=0 bootstrap=PENDING
+D05.DB	bytes=4112 validate=0 reason=0 bootstrap=PENDING

@@ -1,0 +1,8 @@
+N01.DAT	bytes=8224 kept=0 count=8 page=7 shown=1024 save=1 original-unchanged=0 property=GREEN
+N02.DAT	bytes=8223 kept=1 count=8 page=0 shown=0 save=1 original-unchanged=1 property=GREEN
+N03.DAT	bytes=8224 kept=1 count=8 page=0 shown=0 save=1 original-unchanged=1 property=GREEN
+N04.DAT	bytes=8224 kept=1 count=8 page=0 shown=0 save=1 original-unchanged=1 property=GREEN
+S01.DAT	bytes=32848 kept=0 count=32 page=31 shown=1024 save=1 original-unchanged=0 property=GREEN
+S02.DAT	bytes=32847 kept=1 count=0 page=0 shown=0 save=1 original-unchanged=1 property=GREEN
+S03.DAT	bytes=32848 kept=1 count=0 page=0 shown=0 save=1 original-unchanged=1 property=GREEN
+S04.DAT	bytes=32848 kept=1 count=0 page=0 shown=0 save=1 original-unchanged=1 property=GREEN

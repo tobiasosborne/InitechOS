@@ -1,0 +1,4 @@
+id	file	scenario	observed	independent_expectation_or_pending
+C01	fixtures/C01.TXT	shipped 150-byte ledger	launch built-in model; Save requests source 150 bytes	property: saved model agrees with visible content; host does not execute FILE COPY
+C02	fixtures/C02.TXT	ledger cut after 23 bytes	same built-in display; Save requests source 23 bytes	property: never replace a good destination with damage; booted copy/readback pending
+C03	fixtures/C03.TXT	8192-byte ledger source	same display; Save requests source 8192 bytes	property: complete/refuse; actual copy/readback pending; no import command

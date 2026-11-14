@@ -1,0 +1,11 @@
+W01.WP5	bytes=344 loaded=1 body=17 message= save-error=0 saved=344 identical=0 edit=0 edited-save-error=0
+W02.WP5	bytes=0 loaded=0 body=0 message=ERROR: Incompatible File Format
+W03.WP5	bytes=15 loaded=0 body=0 message=ERROR: Incompatible File Format
+W04.WP5	bytes=326 loaded=0 body=0 message=ERROR: Incompatible File Format
+W05.WP5	bytes=343 loaded=1 body=16 message= save-error=0 saved=343 identical=0 edit=0 edited-save-error=0
+W06.WP5	bytes=337 loaded=0 body=0 message=ERROR: Incompatible File Format
+W07.WP5	bytes=338 loaded=0 body=0 message=ERROR: Incompatible File Format
+W08.WP5	bytes=65327 loaded=1 body=65000 message= save-error=0 saved=65327 identical=0 edit=0 edited-save-error=0
+W09.WP5	bytes=8327 loaded=1 body=8000 message= save-error=0 saved=8327 identical=0 edit=0 edited-save-error=0
+W10.WP5	bytes=65536 loaded=1 body=65209 message= save-error=0 saved=65536 identical=0 edit=-1
+W11.WP5	bytes=65537 loaded=0 body=0 message=ERROR: Document too large

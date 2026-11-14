@@ -1,0 +1,9 @@
+id	file	scenario	observed	independent_expectation_or_pending
+N01	fixtures/N01.DAT	8 full 1024-byte pages, last current	open page 8, edit first byte/save	property: preserve all other pages; exact fixed store contract
+N02	fixtures/N02.DAT	store cut one byte short	empty pages; damaged original retained on edit/save	property: finish; refuse/notice; do not replace damaged source
+N03	fixtures/N03.DAT	bad FNV checksum	empty pages; damaged original retained	property: finish; preserve original
+N04	fixtures/N04.DAT	page length 1025 with valid checksum	empty pages; damaged original retained	property: length validation independent of checksum; preserve original
+S01	fixtures/S01.DAT	32 full 1024-byte clips, last current	open clip 32; clear last/paste Z/save	property: preserve other clips and valid framing
+S02	fixtures/S02.DAT	store cut one byte short	empty scrapbook; damaged original retained	property: finish; preserve original
+S03	fixtures/S03.DAT	bad FNV checksum	empty scrapbook; damaged original retained	property: finish; preserve original
+S04	fixtures/S04.DAT	clip length 1025, valid checksum	empty scrapbook; damaged original retained	property: enforce length even when checksum agrees

@@ -1,0 +1,3 @@
+C01.TXT	bytes=150 windows=2 copy-src=APPS\LEDGER.TXT copy-dst=APPS\TABLES.TXT requested-bytes=150 alerts=1
+C02.TXT	bytes=23 windows=2 copy-src=APPS\LEDGER.TXT copy-dst=APPS\TABLES.TXT requested-bytes=23 alerts=1
+C03.TXT	bytes=8192 windows=2 copy-src=APPS\LEDGER.TXT copy-dst=APPS\TABLES.TXT requested-bytes=8192 alerts=1

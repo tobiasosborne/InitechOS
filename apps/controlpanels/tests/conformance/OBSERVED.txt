@@ -1,0 +1,3 @@
+P01.DAT	bytes=16 decoded=1 pattern=3 tracking=1 clock=1
+P02.DAT	bytes=15 disk-load=PENDING (no length-bearing decoder)
+P03.DAT	bytes=16 decoded=0 pattern=0 tracking=1 clock=1

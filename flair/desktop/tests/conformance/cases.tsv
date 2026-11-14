@@ -1,0 +1,6 @@
+id	file	scenario	observed	independent_expectation_or_pending
+D01	fixtures/D01.DB	empty 8-byte DB	header validator accepts	property: bootstrap completes; boot/read/write preservation pending
+D02	fixtures/D02.DB	7-byte DB header	validator rejects length	property: bounded refusal/regeneration with notice; no damaged commit
+D03	fixtures/D03.DB	one record, last byte missing	validator rejects size	property: do not read partial record; boot regeneration pending
+D04	fixtures/D04.DB	170 records, 4088 bytes	structural validator accepts	property: header size bound only; Finder semantic capacity/record validation pending
+D05	fixtures/D05.DB	171 records, 4112 bytes	structural validator accepts	property: bootstrap rejects >4096; not an observed validator defect (caller checks bound)

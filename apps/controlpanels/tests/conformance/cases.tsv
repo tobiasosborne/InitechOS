@@ -1,0 +1,4 @@
+id	file	scenario	observed	independent_expectation_or_pending
+P01	fixtures/P01.DAT	literal valid 16-byte settings	decoder accepts pattern 3	property: valid settings decode/apply; boot and save pending
+P02	fixtures/P02.DAT	15-byte settings	disk loader PENDING (decoder has no length arg)	property: reject wrong length/defaults, keep original until explicit valid save
+P03	fixtures/P03.DAT	future version 2, valid checksum	decoder refuses; defaults retained	property: reject unknown version; do not silently replay/repair

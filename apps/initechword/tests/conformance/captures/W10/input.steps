@@ -1,0 +1,11 @@
+# Use WP5.1 boot/runtime images from goldens/dataloss/runtime.sh.
+# Fresh floppy B: contains the case as CASE.WP5.
+sleep 6
+key shift-f10
+type B:\CASE.WP5
+key ret
+sleep 4
+shot retrieved
+# STOP on any error/conversion prompt. For success, capture Alt-F3 Reveal
+# Codes and Home/Home/Down; insert Z, F10 B:\AFTER.WP5; stop/extract.
+end
