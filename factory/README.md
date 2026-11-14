@@ -102,6 +102,11 @@ generated headers, against those declarations. The kernel/resident shell and
 SDK/FLAIR source-audit cycles have explicit test-order exceptions there; the
 component recipes still build their required artifacts.
 
+Dependency queries accept GNU make's ordinary statuses 0 and 1 only. The
+audit requires a complete parent database with the component's own CURDIR,
+all/test targets and final completion record. Recursive child databases are
+kept in the raw evidence but are not attributed to the parent component.
+
 Gate regressions run in `make test` (`gate-test` alone while iterating).
 The worksheet driver checks complete independent Lotus reader records and
 separate byte framing, including formula lengths and EOF consumption. Its

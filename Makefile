@@ -59,7 +59,7 @@ dependencies:
 	@$(foreach c,$(REGISTERED_COMPONENTS),echo '$(c): $(DEPENDS_$(c))';)
 dependency-check:
 	@mkdir -p build/dependencies
-	@$(foreach c,$(REGISTERED_COMPONENTS),$(MAKE) --no-print-directory -qp -C $(c) all test > build/dependencies/$(subst /,_,$(c)).make 2>/dev/null || test $$? -eq 1; awk -v root=$(TOP) -v component=$(c) -v components='$(REGISTERED_COMPONENTS) boot factory factory/mz turbo/seed turbo/compiler' -v declared='$(DEPENDS_$(c))' -f factory/testlib/build-deps.awk build/dependencies/$(subst /,_,$(c)).make || exit 1;)
+	@$(foreach c,$(REGISTERED_COMPONENTS),sh factory/testlib/dependency-query.sh '$(TOP)' '$(c)' '$(MAKE)' build/dependencies/$(subst /,_,$(c)).make || exit 1; awk -v root=$(TOP) -v component=$(c) -v components='$(REGISTERED_COMPONENTS) boot factory factory/mz turbo/seed turbo/compiler' -v declared='$(DEPENDS_$(c))' -f factory/testlib/build-deps.awk build/dependencies/$(subst /,_,$(c)).make.parent || exit 1;)
 test-start: dependency-check
 .PHONY: factory-test
 factory-test:
