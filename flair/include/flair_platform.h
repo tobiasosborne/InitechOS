@@ -42,6 +42,10 @@ int flair_platform_path_is_device(const char *path);
  * Explicit mounted-drive paths are supported from that drive's root.
  * NULL: system date/time service. */
 void flair_platform_dos(flair_platform_files *files, flair_platform_regs *regs);
+/* Existing resident file binding, same PSP/volume/CWD discipline as DOS.
+ * Both files closed. Zero is committed; cleanup_error is maintenance only. */
+uint16_t flair_platform_file_replace(flair_platform_files *files,
+    const char *staged, const char *dest, uint16_t *cleanup_error);
 uint32_t flair_platform_swap_dta(uint32_t address);
 int flair_platform_memory(uint32_t *total, uint32_t *free_paras, uint32_t *largest);
 int flair_platform_load(const char *name83, uint16_t dir, flair_platform_carve carve,

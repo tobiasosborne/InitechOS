@@ -16,3 +16,5 @@ void flair_platform_desktop_pattern(unsigned p) { (void)p; unused_service(); }
 void flair_platform_speaker(unsigned hz) { (void)hz; unused_service(); }
 _Noreturn void flair_platform_panic(const char *why) { fprintf(stderr,"PANIC tbx: %s\nHALTED\n",why); abort(); }
 void flair_platform_serial(const char *s) { fputs(s,stderr); }
+uint16_t flair_platform_file_replace(flair_platform_files *p,const char *s,const char *d,uint16_t *c)
+{ (void)p;(void)s;(void)d;(void)c; unused_service(); return 5; }

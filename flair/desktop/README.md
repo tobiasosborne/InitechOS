@@ -111,6 +111,7 @@ The platform adapter follows ../NOTES-FOR-KERNEL.md:
 | file_info_get | sft_from_handle, SFT_KIND_FILE only |
 | path_is_device | int21_path_is_device |
 | dos | int21_dispatch, save/restore PSP and CWD |
+| file_replace | int21_file_replace under the same private PSP, bound-volume and root-CWD guard; committed results never become failed saves because of maintenance |
 | swap_dta | int21_swap_dta |
 | memory | int21_mcb_usage (paragraphs) |
 | load | loader_load_tenant, explicit plan mapping, caller-owned carve |

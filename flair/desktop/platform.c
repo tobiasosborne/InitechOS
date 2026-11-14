@@ -52,6 +52,18 @@ void flair_platform_dos(flair_platform_files *files,flair_platform_regs *regs)
     if(files) { memcpy(files,&p,sizeof p); int21_set_psp(old); int21_cwd_restore(&cwd); }
     memcpy(regs,&f,sizeof f);
 }
+uint16_t flair_platform_file_replace(flair_platform_files *files,
+    const char *staged,const char *dest,uint16_t *cleanup_error)
+{
+    psp_t p,*old=int21_get_psp();
+    int21_cwd_snapshot_t cwd=int21_cwd_save(),root={0};
+    root.current_drive=root.io_drive=(uint8_t)files_drive;
+    memcpy(&p,files,sizeof p); int21_set_psp(&p); int21_cwd_restore(&root);
+    uint16_t rc=int21_file_replace(staged,dest,cleanup_error);
+    memcpy(files,&p,sizeof p); int21_set_psp(old); int21_cwd_restore(&cwd);
+    return rc;
+}
+
 uint32_t flair_platform_swap_dta(uint32_t dta) { return int21_swap_dta(dta); }
 int flair_platform_memory(uint32_t *t,uint32_t *f,uint32_t *l) { return int21_mcb_usage(t,f,l); }
 #include "loader.h"
