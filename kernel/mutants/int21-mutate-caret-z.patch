@@ -1,0 +1,13 @@
+# INT21_MUTATE_CARET_Z
+# test: test-conin-unit
+--- a/int21.c
++++ b/int21.c
+@@ -1492,8 +1492,6 @@
+ {
+     (void)ctx;
+     g_input_echo++;
+-    if (c == 0x1a) con_puts("^Z");
+-    else
+         con_putc((char)c);
+     g_input_echo--;
+ }

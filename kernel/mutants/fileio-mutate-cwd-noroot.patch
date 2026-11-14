@@ -1,0 +1,24 @@
+# FILEIO_MUTATE_CWD_NOROOT
+# test: test-pending-fat
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -720,13 +720,12 @@
+  * CHDIR/OPEN path resolution. */
+ static uint16_t fat_descend_seed(const char *path, uint16_t cwd_start)
+ {
+-    int had_drive = (path[0] != '\0' && path[1] == ':');
+-    const char *after_drive = had_drive ? path + 2 : path;
+-    int absolute = (after_drive[0] == '\\');
+-    if (absolute) {
+-        return 0u;                 /* root: absolute or drive-prefixed */
+-    }
+-    return cwd_start;              /* relative: descend from the CWD */
++    /* MUTANT m5 (the repository contract; make test-u6wa-mutant only): IGNORE cwd_start and
++     * always seed from the root, reverting the relative-CWD fix. A relative
++     * multi-component CHDIR (e.g. 'DEEP' from CWD '\SUB') then wrongly resolves
++     * from the root and goes RED. NEVER define in a real build. */
++    (void)cwd_start; (void)path;
++    return 0u;
+ }
+ 
+ static uint16_t fat_resolve(const char *path, uint16_t cwd_start,

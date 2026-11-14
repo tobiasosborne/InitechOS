@@ -49,8 +49,8 @@ remaining ownership, and tests/SMOKES.md for the full emulator migration.
 
 All inactive mutation guards were converted to patches. `make mutants` sweeps
 the proved host patches with unmodified-baseline and mutated-build checks.
-Nested mutants/pending/ files have no accepted kill yet; tests/MUTANTS-TODO.md
-lists every one. Conversion is not a complete mutation certificate.
+The original 39 pending patches are now all proved and active. No kernel
+patch remains pending; this does not replace a fresh full mutation certificate.
 
 Follow-up work:
 
@@ -140,12 +140,21 @@ the DOS owner, plus corresponding include paths and dependency documentation.
 The import check is unchanged; no local duplicate declarations hide the boundary.
 The runtime resident interpreter exception remains an operator decision.
 
-Seven pending mutations now have confirmed host kills: full-disk error mapping
-(test-zs24), BREAK cleanup/recovery/disk-entry and caret-C (test-dos-break),
-not-ready output (test-dos-not-ready), and character-output redirection
-(test-redir). Those patches are active. The remaining 32 pending patches still
-have no accepted kill. The hide-directory patch was refreshed after metadata
-helper insertion changed its context; its existing selection still survives.
+All 39 originally pending mutations now have repeated semantic kills, including
+the seven previously promoted ones. The remaining 32 are promoted, with refreshed
+contexts preserving their original faults. tests/MUTANTS-TODO.md is retired.
+The live-loader host harness executes the actual freestanding stack switch and
+return with only port/IDT hardware supplied by the factory, and uses mtools
+fixtures for file placement. It grades resident conservation, own-base fixups,
+CWD inheritance, high ownership/reclamation and in-place loads. Startup faults
+are errors; only an armed, exact runtime NULL-source copy is an explicit failed
+in-place invariant. Disk/dispatch suites add independently minted allocation,
+FAT16 readback, labels, directory operations, FCB records and device refusals.
+The saturating numeric parser is compared directly to libc's 64-bit conversion:
+its original overflow fault wraps to 0..3, which FILES now independently refuses,
+so public directive checks alone no longer distinguish the two implementations.
+BREAK/not-ready tests emit canonical assertion counts so failures are never
+misreported as kills without complete semantic evidence.
 
 CREATE_NEW treats only an explicit FILE_NOT_FOUND as proof of absence;
 lookup/media errors refuse before the truncating backend (initech-06l23,
@@ -278,5 +287,5 @@ helper in every gate. Replacement metadata checks batch the independent reader
 per scenario while still inspecting every committed image; distinct fixed
 source/destination dates make the timestamp check observable. No test seeds,
 fault positions, image outcomes, assertions or time budget are removed or raised.
-On idle core0 the same105 gates measured16.68s before and9.53s after; the added
+On idle core 0 the same 105 gates measured 16.68 s before and 9.53 s after; the added
 adapter filesystem regression separately checks complete alias creation.

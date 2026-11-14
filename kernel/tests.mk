@@ -461,6 +461,34 @@ HOST_TESTS += test-runner-setup
 test-runner-setup_SRCS := tests/test_runner_setup.c
 test-runner-setup_ARGS := $(OUT)/host/test-int21
 test-runner-setup_DEPS := $(OUT)/host/test-int21
+EXTRA_HOST_TESTS += tool_test_loader_live
+tool_test_loader_live_SRCS := tests/test_loader_live.c int21.c fileio_fat.c sft.c psp.c mcb.c devices.c irq.c fat12.c tests/disk/blockdev_file.c
+tool_test_loader_live_CFLAGS := -m32 -ffreestanding -fno-pie -no-pie -ffunction-sections -fdata-sections -Wl,--gc-sections
+HOST_TESTS += test-loader-live
+test-loader-live_SRCS := tests/runner.c
+test-loader-live_ARGS := tests/run.sh test-loader-live
+test-loader-live_DEPS := $(OUT)/host/tool_test_loader_live tests/gates/test-loader-live.sh
+
+EXTRA_HOST_TESTS += tool_test_pending_dispatch
+tool_test_pending_dispatch_SRCS := tests/test_pending_dispatch.c
+tool_test_pending_dispatch_OBJS := $(tool_test_fileio_OBJS)
+tool_test_pending_dispatch_CFLAGS := -no-pie
+HOST_TESTS += test-pending-dispatch
+test-pending-dispatch_SRCS := tests/runner.c
+test-pending-dispatch_ARGS := tests/run.sh test-pending-dispatch
+test-pending-dispatch_DEPS := $(OUT)/host/tool_test_pending_dispatch tests/gates/test-pending-dispatch.sh
+
+EXTRA_HOST_TESTS += tool_test_pending_fat
+tool_test_pending_fat_SRCS := tests/test_pending_fat.c tests/disk/blockdev_file.c
+tool_test_pending_fat_OBJS := $(tool_test_fileio_subdir_OBJS)
+tool_test_pending_fat_CFLAGS := -no-pie
+HOST_TESTS += test-pending-fat
+test-pending-fat_SRCS := tests/runner.c
+test-pending-fat_ARGS := tests/run.sh test-pending-fat
+test-pending-fat_DEPS := $(OUT)/host/tool_test_pending_fat tests/gates/test-pending-fat.sh tests/disk/check_conservation.py
+
+HOST_TESTS += test-config-uint
+test-config-uint_SRCS := tests/test_config_uint.c
 
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h

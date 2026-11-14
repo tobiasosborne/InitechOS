@@ -144,13 +144,11 @@ Acceptance on this worktree:
 - Kernel default host sweep: 229/229 killed. DOS sweep: 111 killed and three
   mis-selected survivors; corrected DIR/VOL selectors kill all three (114
   distinct host kills). Keyboard mutants also rechecked without retired Oz
-  tuning: 13/13 killed. 85 converted patches remain explicitly unproved in
-  mutants/pending; they are NOT part of this host certificate.
+  tuning: 13/13 killed. 85 converted patches were unproved at import and were NOT part of that
+  certificate. Kernel's original39 pending faults now have repeated semantic
+  kills; current component README records that completion. DOS owns its queue.
 - Python absence is red: PYTHON_FAT_REFERENCE=/no/such/python makes test-fat
   fail loudly. Shell syntax checks and ASCII source scan passed.
 
-Known inherited discrepancy, not fixed: loader_validation.c:479 applies overlay
-fixups within the loaded destination, while the genuine DOS 3.30 unequal-factor
-capture patches at the factor address. fixtures/dos33_overlay/README.txt records
-this old deviation as awaiting operator ratification. FIND also still ignores
-filename operands (dos/README.md); its redirected-input smoke is unchanged.
+The inherited unequal-factor overlay discrepancy is repaired and graded against
+genuine DOS3.30 product-state captures (initech-i1swl); see the component README.

@@ -1,5 +1,5 @@
 # INITECHBASE_MUTATE_FULL_ERROR
-# test: test-zs24
+# test: test-pending-fat
 --- a/fileio_fat.c
 +++ b/fileio_fat.c
 @@ -298,8 +298,6 @@

@@ -1,0 +1,22 @@
+# LOADER_MUTATE_ARENA_OVERLAP
+# test: test-loader-live
+--- a/loader_validation.c
++++ b/loader_validation.c
+@@ -124,11 +124,12 @@
+      * DISJOINTNESS INVARIANT for the proof. (Was: the arena overlaid the running
+      * program -- the latent corruption INITECHBASE would have hit.) */
+     {
+-        /* roundup_paragraph(PROGRAM_IMAGE + image_len + PROGRAM_BSS_RESERVE). The
+-         * +0xF then mask-to-16 rounds UP to the next paragraph boundary so the DOS
+-         * segment math (base_linear >> 4) is exact. */
+-        uint32_t image_end  = PROGRAM_IMAGE + image_len;
+-        uint32_t arena_base = (image_end + PROGRAM_BSS_RESERVE + 0xFu) & ~0xFu;
++        /* MUTANT (the repository contract; make test-arena-disjoint-mutant only): revert
++         * the arena base to PROGRAM_BASE -- the EXACT pre-fix bug (the arena
++         * overlays the PSP/image/stack). The disjointness oracle MUST go RED
++         * (an allocation lands inside [PROGRAM_IMAGE, image_end) or the stack).
++         * NEVER define in a real build. */
++        uint32_t arena_base = PROGRAM_BASE;
+         uint32_t arena_ceil = PROGRAM_ARENA_CEIL;   /* == ENV_BLOCK (exclusive) */
+ 
+         if (arena_base < arena_ceil &&

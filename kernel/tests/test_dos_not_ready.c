@@ -5,6 +5,8 @@
 #include "ata.h"
 #include "int21.h"
 #include "blockdev_file.h"
+#include "test_assert.h"
+TEST_HARNESS();
 
 static blockdev_file_t backing;
 static int removed;
@@ -33,12 +35,10 @@ int main(int argc,char **argv)
         memcmp(actual,expected,sizeof(actual)) || used) return 2;
     removed=1;
     int rc=wrapped.dev.read_sectors(wrapped.dev.ctx,0,1,actual);
-    if (rc!=ATA_ERR_NO_DRIVE || strcmp(text,
-        "Not ready reading drive A:\r\nAbort, Retry, Fail?")) {
-        fprintf(stderr,"RED dos-not-ready: missing exact MSG-DOS-0006 before A/R/F (got %s)\n",text);
-        return 1;
-    }
+    CHECK(rc==ATA_ERR_NO_DRIVE,"disconnected read preserves device status");
+    CHECK(!strcmp(text,"Not ready reading drive A:\r\nAbort, Retry, Fail?"),
+          "exact MSG-DOS-0006 precedes A/R/F");
     blockdev_file_close(&backing);
     puts("GREEN test-dos-not-ready: disconnected backend -> exact MSG-DOS-0006 + A/R/F; healthy reads unchanged");
-    return 0;
+    return TEST_SUMMARY("test-dos-not-ready");
 }

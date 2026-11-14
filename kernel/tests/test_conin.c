@@ -46,6 +46,7 @@
 #include "kbd.h"
 #include "sft.h"
 #include "psp.h"
+#include "devices.h"
 #include "test_assert.h"
 
 TEST_HARNESS();
@@ -665,6 +666,7 @@ int main(void)
     {
         uint8_t *buf = alloc_low_buf(16);
         memset(buf, 0xCC, 16);
+        sink_reset();
         queue_set("\x1a\r", 2);
         int_frame_t f = fresh_frame();
         f.eax = 0x3F00u; f.ebx = 0u; f.ecx = 16u;
@@ -673,6 +675,24 @@ int main(void)
         CHECK(f.eax == 0 && frame_cf(&f) == 0, "K12 stdin Ctrl-Z -> AX=0 EOF");
         CHECK(buf[0] == 0xCC, "K12 EOF leaves destination untouched");
         CHECK(mock_poll() == -1, "K12 EOF consumes Enter");
+        CHECK_STR_EQ(sink_str(), "^Z\r\n", "K12 EOF visibly echoes caret-Z and Enter");
+        /* OPEN CON must use the same cooked contract as inherited stdin,
+         * even when the process has separately redirected standard handles. */
+        devices_init(); int21_set_devices(devices_head(),NULL);
+        uint8_t *name=alloc_low_buf(16);memcpy(name,"CON",4);
+        f=fresh_frame();f.eax=0x3d00;f.edx=(uintptr_t)name;int21_dispatch(&f);
+        CHECK(!frame_cf(&f),"K12 explicit CON opens");
+        unsigned handle=f.eax&65535;
+        sink_reset();queue_set("\x1a\r",2);memset(buf,0xcc,16);
+        f=fresh_frame();f.eax=0x3f00;f.ebx=handle;f.ecx=16;f.edx=(uintptr_t)buf;
+        int21_dispatch(&f);
+        CHECK(!frame_cf(&f) && f.eax==0 && buf[0]==0xcc,
+              "K12 explicit CON uses cooked Ctrl-Z EOF and preserves buffer");
+        CHECK_STR_EQ(sink_str(),"^Z\r\n","K12 explicit CON echoes caret-Z and Enter");
+        f=fresh_frame();f.eax=0x3e00;f.ebx=handle;int21_dispatch(&f);
+        CHECK(!frame_cf(&f),"K12 explicit CON closes");
+        int21_set_devices(NULL,NULL);
+
     }
 
     /* ===== [4tw.*] CON-input ^C (0x03) -> INT 23h check-point ================

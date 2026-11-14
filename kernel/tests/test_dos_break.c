@@ -6,6 +6,8 @@
 #include "psp.h"
 #include "sft.h"
 #include "devices.h"
+#include "test_assert.h"
+TEST_HARNESS();
 
 static psp_t resident;
 static unsigned char chunk[128];
@@ -20,7 +22,7 @@ static int get_key(void) { return poll_key(); }
 static void exit_hook(uint8_t code) { (void)code; exits++; }
 static int check(int yes, const char *why)
 {
-    if (!yes) fprintf(stderr,"RED dos-break: %s\n",why);
+    CHECK(yes,why);
     return !yes;
 }
 static int_frame_t call(unsigned ax, unsigned bx, unsigned cx, void *p)
@@ -171,7 +173,7 @@ int main(void)
         bad+=check(!polls && pending==3,"batch checkpoint must protect an unwinding scope");
         int21_set_break_recovery(old);int21_set_psp(NULL);pending=-1;
     }
-    if (bad) return 1;
+    (void)bad;
     puts("GREEN test-dos-break: ON/OFF/raw/typeahead; resident read/write/pause; CLOSE, stdin/stdout and SFT cleanup");
-    return 0;
+    return TEST_SUMMARY("test-dos-break");
 }

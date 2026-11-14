@@ -1,0 +1,16 @@
+# FAT12_MUTATE_GROW_NO_WRAP
+# test: test-pending-fat
+--- a/fat12.c
++++ b/fat12.c
+@@ -1576,11 +1576,6 @@
+ 
+ 	/* Claim + reserve a free cluster (mark EOC immediately so find_free skips). */
+ 	newc = fat12_find_free(vol, fat, fat_len, (uint16_t)(cur + 1u));
+-	/* ADR-0003 DEC-07; mtools on the identical fragmented image (fov8).
+-	 * Locality is a hint, not a space bound: free clusters can precede cur. */
+-	if (newc == 0u) {
+-		newc = fat12_find_free(vol, fat, fat_len, FAT12_FIRST_DATA_CLUSTER);
+-	}
+ 	if (newc == 0u) {
+ 		return FAT12_ERR_NO_SPACE;
+ 	}

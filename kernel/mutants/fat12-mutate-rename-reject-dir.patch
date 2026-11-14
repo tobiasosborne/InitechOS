@@ -1,0 +1,13 @@
+# FAT12_MUTATE_RENAME_REJECT_DIR
+# test: test-pending-fat
+--- a/fat12.c
++++ b/fat12.c
+@@ -3402,7 +3402,7 @@
+ 	}
+ 	/* Same parent means '..' remains correct, including for a directory.
+ 	 * Ref: ADR-0003 Appendix A 56h; IBM DOS 3.30 TR p. 6-206; mren diff. */
+-	if ((match.attribute & DIR_ATTR_VOLLABEL) != 0u) {
++	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u) {
+ 		return FAT12_ERR_ACCESS;
+ 	}
+ 

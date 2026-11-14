@@ -1,0 +1,16 @@
+# FAT12_MUTATE_CREATE_CHARS
+# test: test-pending-fat
+--- a/fat12.c
++++ b/fat12.c
+@@ -1425,11 +1425,6 @@
+ 		/* Created names are not search masks. Guide p.17 (PDF30),
+ 		 * Reference pp.9-10; INT21 FINDFIRST has its own pattern parser.
+ 		 * Reject before slot allocation, so invalid requests change no disk. */
+-		if ((uint8_t)c < 0x21u || c == '"' || c == '*' || c == '+' ||
+-		    c == ',' || c == '/' || c == ';' || c == '<' || c == '=' ||
+-		    c == '>' || c == '?' || c == '[' || c == ']' || c == '|') {
+-			return FAT12_ERR_NOT_FOUND;
+-		}
+ 		if (c == '\\' || c == ':') {
+ 			return FAT12_ERR_NOT_FOUND;   /* subdir / drive: unsupported */
+ 		}

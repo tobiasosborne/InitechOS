@@ -1,0 +1,12 @@
+# LOADER_MUT_HIGH_OWNER
+# test: test-loader-live
+--- a/loader.c
++++ b/loader.c
+@@ -1074,7 +1074,6 @@
+             mz_rd16(g_load_sector+0x1c)==INITECHMZ_EXT_TAG) {
+             mz_image_t img;
+             if(mz_parse_header(g_load_sector,de.file_size,&img)!=MZ_OK) return LOADER_ERR_BAD_FORMAT;
+-            if(g_high_live) return LOADER_ERR_NOMEM;
+             return loader_load_high(&de,&img,cmd_tail,cmd_tail_len,env_block,out_rc);
+         }
+     }

@@ -1,0 +1,13 @@
+# CONFIG_MUTATE_OVERFLOW_OFFBYONE
+# test: test-config-uint
+--- a/config_sys.c
++++ b/config_sys.c
+@@ -69,7 +69,7 @@
+         any = 1;
+         uint32_t digit = (uint32_t)(c - '0');
+         /* Overflow must not turn a large refused token into a valid small one. */
+-        if (v > (0xFFFFFFFFu - digit) / 10u) { v = 0xFFFFFFFFu; continue; }
++        if (v > 429496729u) { v = 0xFFFFFFFFu; continue; }
+         v = v * 10u + digit;
+     }
+     if (out_any) {

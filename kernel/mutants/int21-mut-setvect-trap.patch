@@ -1,0 +1,14 @@
+# INT21_MUT_SETVECT_TRAP
+# test: test-tsr-unit
+--- a/int21.c
++++ b/int21.c
+@@ -667,7 +667,8 @@
+ 
+ uint8_t int21_vector_gate(uint8_t vec)
+ {
+-    return (vec >= 0x28u && vec <= 0x37u) ? 0x8Eu : 0x8Fu;   /* DEC-04a.1 */
++    (void)vec;   /* the repository contract: every vector a trap gate (the pre-6fdt SETVECT). */
++    return 0x8Fu;
+ }
+ 
+ void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)

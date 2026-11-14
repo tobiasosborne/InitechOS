@@ -1,0 +1,20 @@
+# INT21_MUTATE_EXEC_ROOTREJECT
+# test: test-exec-unit
+--- a/int21.c
++++ b/int21.c
+@@ -4345,6 +4345,15 @@
+         cf_set(f);
+         return;
+     }
++    /* MUTANT (the repository contract; make test-zs24-exec-mutant only): restore the
++     * pre-zs24 root-only gate -- reject any subdir/drive path BEFORE resolving, so
++     * a subdir EXEC returns 0x0003 and the program never runs (its serial marker
++     * is ABSENT). The subdir-EXEC oracle MUST go RED. NEVER define in a real build. */
++    if (path_has_subdir_or_drive(path)) {
++        set_ax(f, INT21_ERR_PATH_NOT_FOUND);
++        cf_set(f);
++        return;
++    }
+     /* Resolve the EDX path to (containing-dir start cluster, bare 8.3 leaf) the
+      * SAME way do_open does (beads initech-zs24): absolute / CWD-relative /
+      * '\SUB\FILE', a leading 'X:' drive prefix stripped, a missing/non-dir
