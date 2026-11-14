@@ -7,6 +7,9 @@ function only_programs(pattern, n,a,i,p) {
 }
 {
  line=tolower($0)
+ # NASM: labels may share the instruction's line ("retry: int 13h").
+ if(input_kind=="asm")
+  while(line ~ /^[ \t]*[a-z_.?@$][a-z_0-9.?@$#~]*:/) sub(/^[ \t]*[a-z_.?@$][a-z_0-9.?@$#~]*:/,"",line)
  if((input_kind=="asm" && line ~ /^[ \t]*(int3|into)([ \t;]|$)/) ||
     (input_kind!="asm" && line ~ /\t(int3|into)([ \t]|$)/)) {
   if(role!="startup")reject("forbidden interrupt opcode")

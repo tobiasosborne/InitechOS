@@ -104,6 +104,28 @@ vector apps/calculator desktop /out/program.o /out/CALCULAT.EXE 21 1
 vector apps/calculator desktop /out/program.o /out/CALCULAT.EXE 13 1
 vector dos dos /out/program.o /out/MORE.COM 81 1
 echo 'ok interface: every allowed raw-disk role, DOS termination and desktop gate; wrong roles and mixed consumers red'
+# Flat DOS programs are graded from preprocessed NASM source. A label sharing
+# the line still assembles the instruction (nasm -f bin emits CD 13 below).
+flat() {
+ text=$1 expected=$2
+ printf '%s\n' "$text" > flat.asm
+ nasm -f bin flat.asm -o flat.com
+ nasm -E flat.asm > assembly
+ rc=0
+ awk -v component=dos -v role=dos -v object=/src/more.asm -v input_kind=asm -v artifacts=/out/MORE.COM \
+  -f "$repo/factory/testlib/interface-vectors.awk" assembly > flat.log || rc=$?
+ if [ "$rc" -ne "$expected" ]; then cat flat.log; echo "FAIL interface fixture: flat '$text' status $rc expected $expected"; exit 1; fi
+}
+flat 'retry: int 13h' 1
+flat 'retry:int 0x13' 1
+flat 'retry.1: int 25h ; read' 1
+flat 'quit: int 3' 1
+flat 'quit: int3' 1
+flat 'done: int 21h' 0
+flat 'msg: db "int 13h"' 0
+printf 'retry: int 13h\n' > flat.asm; nasm -f bin flat.asm -o flat.com
+od -An -tx1 flat.com | grep -q 'cd 13' || { echo 'FAIL interface fixture: labelled int did not assemble to CD 13'; exit 1; }
+echo 'ok interface: labelled flat-assembly interrupts graded like unlabelled ones'
 # A real resident consumer may use the published Window manager binding.
 mkdir -p "$work/flair/desktop" "$work/build/flair/desktop"
 cd "$work/flair/desktop"
