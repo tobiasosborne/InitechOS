@@ -864,8 +864,8 @@ static int m_delete_recall_impl(xb_interp *ip, const char *args, int want_delete
  * recno = 1..nrec of the ALREADY-packed table (fs/ndx.c never evaluates
  * expressions itself -- the DECOUPLING note in ndx.h -- so the caller, here,
  * owns evaluating THIS index's key_expr). The callback positions the work
- * area's cursor at the PHYSICAL record `recno` (wa_nav_goto, which is always
- * physical regardless of master order) so wa_resolve/m_eval read the right
+ * area's cursor at the PHYSICAL record `recno` (wa_goto, without consulting
+ * the old index sequence) so wa_resolve/m_eval read the right
  * record's fields, then renders the on-disk key bytes with m_encode_key --
  * the exact same encoder used by REPLACE/APPEND for index maintenance.
  *
@@ -889,8 +889,8 @@ static IBASE_OVL_TEXT(file) int m_pack_get_key(void *user, uint32_t recno,
     m_pack_kp_ctx *c = (m_pack_kp_ctx *)user;
     int rc;
 
-    rc = wa_nav_goto(c->env, c->area, recno);
-    if (rc != NAV_OK) { c->failed = 1; c->ec = 0; return -1; }
+    rc = wa_goto(c->env, c->area, recno);
+    if (rc != WA_OK) { c->failed = 1; c->ec = 29; return -1; }
 
     rc = m_encode_key(c->ip, c->key_expr, c->key_type, key_len, key_out, &c->ec);
     if (rc != INTERP_OK) { c->failed = 1; return -1; }
@@ -904,7 +904,10 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
     int area = wa_selected(env);
     dbf_table *tbl = wa_table(env, area);
     uint32_t new_nrec,old_recno=wa_recno(env,area);
-    int rc;
+    int rc,i,nidx=wa_index_count(env,area),failure=0;
+    int old_eof=wa_eof(env,area),old_bof=wa_bof(env,area);
+    dbf_flush_tx table_tx;
+    ndx_rebuild_tx pending[NDX_PER_AREA];
 
     if (!tbl) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
     rc = dbf_pack(tbl);
@@ -913,12 +916,13 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
         else { if (ec) *ec = 0; }
         return -INTERP_ERR_EVAL;
     }
-    rc = dbf_flush(tbl);
+    rc = dbf_flush_begin(tbl,&table_tx);
     if (rc != DBF_OK) { m_reject_records(env,area,old_recno); if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
     new_nrec = dbf_nrec(tbl);
+    for(i=0;i<nidx;i++)pending[i].file.pal=0;
 
     /* Refresh the work area's nrec + record cache BEFORE reindexing: the
-     * get_key callback below drives wa_nav_goto over the FULL packed range
+     * get_key callback below drives wa_goto over the FULL packed range
      * 1..new_nrec, which wa_goto bounds-checks against the area's (still
      * stale, pre-refresh) nrec. */
     (void)wa_refresh(env, area, 1u);
@@ -930,9 +934,6 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
      * ../dbase3-decomp/specs/commands/data-definition-and-manipulation.md
      * sec.10 [ASSIST.HLP:120]. initech-x87g. */
     {
-        int nidx = wa_index_count(env, area);
-        int i;
-
         for (i = 0; i < nidx; i++) {
             ndx_index *ix = wa_index(env, area, i);
             m_pack_kp_ctx kctx;
@@ -947,10 +948,11 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
             kctx.failed   = 0;
             kctx.ec       = 0;
 
-            rc = ndx_rebuild(ix, new_nrec, m_pack_get_key, &kctx);
+            rc = ndx_rebuild_begin(ix, new_nrec, m_pack_get_key, &kctx,&pending[i]);
             if (rc != NDX_OK) {
-                if (ec) *ec = kctx.failed ? kctx.ec : 0;
-                return -INTERP_ERR_EVAL;    /* structural index fault: fail loud */
+                pending[i].file.pal=0; /* begin restores its own failed file */
+                failure=kctx.ec?kctx.ec:rc==-NDX_ERR_IO?1001:rc==-NDX_ERR_OOM?43:114;
+                goto restore;
             }
         }
     }
@@ -961,8 +963,25 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
      * sequence. */
     (void)wa_refresh(env, area, 1u);
     (void)wa_nav_reset(area);
+    /* Keep all predecessors through the last fallible navigation check.
+     * Policy: operator preservation ruling; initech-6sqtx. */
+    if(wa_nav_index_top(env,area)!=NAV_OK ||
+       (new_nrec && wa_goto(env,area,1u)!=WA_OK)){
+        failure=29;goto restore;
+    }
+    for(i=0;i<nidx;i++)if(pending[i].file.pal)ibase_file_accept(&pending[i].file);
+    ibase_file_accept(&table_tx.file);
     if (ec) *ec = 0;
     return INTERP_OK;
+restore:
+    for(i=nidx;i-->0;)if(pending[i].file.pal)
+        (void)ndx_rebuild_restore(wa_index(env,area,i),&pending[i]);
+    (void)dbf_flush_restore(tbl,&table_tx);
+    (void)wa_refresh(env,area,old_recno);
+    (void)wa_nav_reset(area);
+    wa_nav_set_eof(env,area,old_eof);wa_nav_set_bof(env,area,old_bof);
+    if(ec)*ec=failure;
+    return -INTERP_ERR_EVAL;
 }
 
 /* Ref: Ashton-Tate Using dBase III Plus.pdf U5-284 (ZAP prompt) and

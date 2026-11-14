@@ -245,3 +245,9 @@ including PACK's larger pre-compaction arena. If the predecessor cannot be
 read, the codec refuses further flushes until a reload succeeds. The `retry`
 fault matrix checks subsequent unrelated writes against genuine CLIENTS rows;
 its authority is the operator's reported-failure preservation guarantee.
+
+PACK retains the DBF and every attached index predecessor until all rebuilds
+and final navigation checks succeed. Key extraction reads physical records,
+without consulting the obsolete index order. The `packfail` matrix includes
+two indexes, short writes and every allocation/read/metadata boundary; retries
+check original survivor bytes and every physical-record/key association.
