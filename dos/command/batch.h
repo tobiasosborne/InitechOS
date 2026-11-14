@@ -221,6 +221,14 @@ typedef int (*batch_exist_fn)(const char *spec, void *ctx);
  *
  * MUTANT BATCH_MUTATE_IF_IGNORE_NOT: the NOT prefix is ignored, so a NOT'd
  * condition returns the un-negated truth value.  The IF-NOT test goes RED. */
+/* Captured DOS 3.30 reference/syntax distinguishes a false condition from
+ * Syntax error, and true EXIST without a body from both of those. */
+typedef enum {
+    BATCH_IF_NONE, BATCH_IF_SYNTAX, BATCH_IF_BAD_COMMAND
+} batch_if_diagnostic_t;
+int batch_eval_if_checked(const char *if_args, uint8_t errorlevel,
+                         batch_exist_fn exist_fn, void *ctx,
+                         const char **out_cmd, batch_if_diagnostic_t *diagnostic);
 int batch_eval_if(const char *if_args, uint8_t errorlevel,
                   batch_exist_fn exist_fn, void *ctx,
                   const char **out_cmd);

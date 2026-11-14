@@ -565,14 +565,17 @@ static int bat_streq_exact(const char *a, const char *b)
     return (a[i] == b[i]) ? 1 : 0;
 }
 
-int batch_eval_if(const char *if_args, uint8_t errorlevel,
+int batch_eval_if_checked(const char *if_args, uint8_t errorlevel,
                   batch_exist_fn exist_fn, void *ctx,
-                  const char **out_cmd)
+                  const char **out_cmd, batch_if_diagnostic_t *diagnostic)
 {
     int negate = 0;
     int result = 0;
+    int exist_test = 0;
     const char *rest = 0;
     const char *p;
+
+    if (diagnostic) *diagnostic=BATCH_IF_SYNTAX;
 
     if (out_cmd != 0) {
         *out_cmd = 0;
@@ -593,7 +596,9 @@ int batch_eval_if(const char *if_args, uint8_t errorlevel,
     if (bat_match_kw(p, "ERRORLEVEL", &rest)) {
         unsigned n = 0;
         if (!bat_parse_uint(rest, &n)) {
-            return 0;   /* malformed: no number -> skip (fail safe) */
+            /* Genuine capture C2: nonnumeric ERRORLEVEL silently skips. */
+            if (diagnostic) *diagnostic=BATCH_IF_NONE;
+            return 0;
         }
         /* DOS semantics: ERRORLEVEL n is TRUE iff errorlevel >= n. */
         result = ((unsigned)errorlevel >= n) ? 1 : 0;
@@ -609,6 +614,7 @@ int batch_eval_if(const char *if_args, uint8_t errorlevel,
     }
     /* ---- IF EXIST filespec ------------------------------------------------ */
     else if (bat_match_kw(p, "EXIST", &rest)) {
+        exist_test = 1;
         char spec[BATCH_LINE_MAX];
         rest = bat_take_token(rest, spec, BATCH_LINE_MAX);
         if (spec[0] == '\0') {
@@ -661,6 +667,16 @@ int batch_eval_if(const char *if_args, uint8_t errorlevel,
         result = result ? 0 : 1;
     }
 
+    if (!rest || !*rest) {
+        /* Genuine C4/C9/C12/C13 require a body even for false string or
+         * numeric conditions. EXIST instead skips a missing file (C10),
+         * or dispatches a missing command for an existing file (C11). */
+        if (exist_test && diagnostic)
+            *diagnostic=result ? BATCH_IF_BAD_COMMAND : BATCH_IF_NONE;
+        return 0;
+    }
+    if (diagnostic) *diagnostic=BATCH_IF_NONE;
+
     if (result) {
         if (out_cmd != 0) {
             *out_cmd = (rest != 0) ? rest : "";
@@ -668,6 +684,12 @@ int batch_eval_if(const char *if_args, uint8_t errorlevel,
         return 1;
     }
     return 0;
+}
+
+int batch_eval_if(const char *if_args, uint8_t errorlevel,
+                  batch_exist_fn exist_fn, void *ctx, const char **out_cmd)
+{
+    return batch_eval_if_checked(if_args,errorlevel,exist_fn,ctx,out_cmd,0);
 }
 
 /* ---- batch_for_parse ----------------------------------------------------- */

@@ -1,0 +1,9 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-syntax.sh and ../../syntax-input.txt; CAPTURE-DONE barrier.
+C1/C3/C4/C5/C7/C9/C12/C13 print Syntax error on CON.
+C2 (nonnumeric ERRORLEVEL) silently skips its body.
+C6 (numeric FOR variable) executes FORNUM. C8 executes VALID.
+C10 (false EXIST with no body) is silent; C11 (true EXIST with no body)
+prints Bad command or file name. TRACE.TXT contains only body/completion output.
+These distinctions are captured, not inferred from the old parser.

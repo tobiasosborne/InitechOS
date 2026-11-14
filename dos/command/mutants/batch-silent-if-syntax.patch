@@ -1,0 +1,12 @@
+# BATCH_SILENT_IF_SYNTAX
+# test: test-batch-exec
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -633,6 +633,7 @@
+             eq++;
+         }
+         if (*eq == '\0') {
++            if (diagnostic) *diagnostic=BATCH_IF_NONE;
+             return 0;   /* no "==" and not ERRORLEVEL/EXIST -> malformed, skip */
+         }
+         {

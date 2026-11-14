@@ -4426,11 +4426,14 @@ static void control_for(const char *args)
     unsigned mark = g_for_used;
     batch_frame_t *frame = g_batch_frame;
     unsigned branch = frame ? frame->branch : 0u;
-    if (!batch_for_parse(args, var, set, tmpl)) return;
+    if (!batch_for_parse(args, var, set, tmpl) || !tmpl[0]) {
+        dos_error(MSG_DOS_0065 "\r\n$");return;
+    }
     /* Physical batch lines have already collapsed %% to %. Interactive FOR
      * uses % directly (Reference pp.144-145). */
-    if (var[0] != '%' || !var[1] || var[2] ||
-        (var[1] >= '0' && var[1] <= '9')) return;
+    if (var[0] != '%' || !var[1] || var[2]) {
+        dos_error(MSG_DOS_0065 "\r\n$");return;
+    }
     while (batch_for_next_token(set, &cur, tok, sizeof(tok))) {
         if (cmd_has_wildcard(tok)) {
             char name[BATCH_LINE_MAX + 13];
@@ -4487,7 +4490,11 @@ static int dispatch_control(const char *line)
         return 0;
     case BL_IF: {
         const char *body = 0;
-        if (batch_eval_if(args,g_errorlevel,batch_exist_probe,0,&body) && body && *body)
+        batch_if_diagnostic_t diagnostic;
+        int take=batch_eval_if_checked(args,g_errorlevel,batch_exist_probe,0,&body,&diagnostic);
+        if (diagnostic==BATCH_IF_SYNTAX) dos_error(MSG_DOS_0065 "\r\n$");
+        else if (diagnostic==BATCH_IF_BAD_COMMAND) dos_error(MSG_DOS_0002 "\r\n$");
+        else if (take && body && *body)
             control_body(body);
         return 1;
     }

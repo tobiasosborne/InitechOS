@@ -1,0 +1,28 @@
+@echo off
+echo C1>CON
+if nonsense echo BAD
+echo C2>CON
+if errorlevel echo IFNUM
+echo C3>CON
+if exist
+echo C4>CON
+if x==x
+echo C5>CON
+for broken
+echo C6>CON
+for %%1 in (one) do echo FORNUM
+echo C7>CON
+for %%f in (one) do
+echo C8>CON
+if not x==X echo VALID
+echo C9>CON
+if x==X
+echo C10>CON
+if exist MISSING.XYZ
+echo C11>CON
+if exist A.TXT
+echo C12>CON
+if errorlevel 0
+echo C13>CON
+if errorlevel 255
+echo SYNTAX-DONE

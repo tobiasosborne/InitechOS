@@ -105,3 +105,8 @@ smoke-dir-wide:
 smoke-pipe-names:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/pipe-names.sh "$(TOP)" "$(OUT)/smoke-pipe-names"
+
+.PHONY: smoke-control-syntax
+smoke-control-syntax:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/control-syntax.sh "$(TOP)" "$(OUT)/smoke-control-syntax"

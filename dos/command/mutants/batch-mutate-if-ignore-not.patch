@@ -2,7 +2,7 @@
 # test: test-batch-exec
 --- a/command/batch.c
 +++ b/command/batch.c
-@@ -657,9 +657,7 @@
+@@ -663,9 +663,7 @@
      /* Apply NOT.
       * MUTANT BATCH_MUTATE_IF_IGNORE_NOT: drop the negation so a NOT'd condition
       * returns the un-negated truth -> the IF-NOT oracle goes RED (the repository contract). */
@@ -11,5 +11,5 @@
 -    }
 +    (void)negate;
  
-     if (result) {
-         if (out_cmd != 0) {
+     if (!rest || !*rest) {
+         /* Genuine C4/C9/C12/C13 require a body even for false string or

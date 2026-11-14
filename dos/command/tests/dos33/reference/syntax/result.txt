@@ -1,0 +1,25 @@
+Booting from Floppy...                                                          
+C1                                                                              
+Syntax error                                                                    
+C2                                                                              
+C3                                                                              
+Syntax error                                                                    
+C4                                                                              
+Syntax error                                                                    
+C5                                                                              
+Syntax error                                                                    
+C6                                                                              
+C7                                                                              
+Syntax error                                                                    
+C8                                                                              
+C9                                                                              
+Syntax error                                                                    
+C10                                                                             
+C11                                                                             
+Bad command or file name                                                        
+C12                                                                             
+Syntax error                                                                    
+C13                                                                             
+Syntax error                                                                    
+CAPTURE-DONE                                                                    
+B>                                                                              

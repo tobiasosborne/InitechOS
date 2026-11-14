@@ -79,7 +79,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 126 host patches and 38 product-session patches,
+The current DOS inventory is 127 host patches and 38 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.
@@ -117,3 +117,7 @@ rotation, reuse and cleanup against fresh pinned captures. Product sessions
 also seed the clock namespace with foreign files and verify every byte survives.
 The fraction-time capture is retained separately for initech-ubpjy; the pipe
 regression uses a separately captured seconds-only TIME input.
+`make smoke-control-syntax` checks the captured IF/FOR diagnostic decisions and
+keeps error output on CON. The pure IF result also carries its diagnostic kind;
+false conditions, silent nonnumeric ERRORLEVEL and missing command bodies have
+separately captured outcomes. The numeric FOR variable is a valid control.

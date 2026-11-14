@@ -326,8 +326,32 @@ static void test_for_subst(void)
 
 /* ---- main ---------------------------------------------------------------- */
 
+/* Independent genuine reference/syntax case table. Existing/missing names
+ * use this adapter's table; truth and diagnostic decisions come from DOS. */
+static void test_if_diagnostics(void)
+{
+    const struct {const char *args;batch_if_diagnostic_t diagnostic;} cases[]={
+        {"nonsense ECHO BAD",BATCH_IF_SYNTAX},
+        {"ERRORLEVEL ECHO IFNUM",BATCH_IF_NONE},
+        {"EXIST",BATCH_IF_SYNTAX},
+        {"x==x",BATCH_IF_SYNTAX},
+        {"x==X",BATCH_IF_SYNTAX},
+        {"EXIST MISSING.XYZ",BATCH_IF_NONE},
+        {"EXIST AUTOEXEC.BAT",BATCH_IF_BAD_COMMAND},
+        {"ERRORLEVEL 0",BATCH_IF_SYNTAX},
+        {"ERRORLEVEL 255",BATCH_IF_SYNTAX}
+    };
+    for (unsigned i=0;i<sizeof cases/sizeof *cases;i++) {
+        const char *body=0;batch_if_diagnostic_t diagnostic=BATCH_IF_NONE;
+        int take=batch_eval_if_checked(cases[i].args,0,stub_exist,0,&body,&diagnostic);
+        CHECK(take==0,"captured missing/malformed IF body does not execute");
+        CHECK(diagnostic==cases[i].diagnostic,"captured IF diagnostic versus silent skip");
+    }
+}
+
 int main(void)
 {
+    test_if_diagnostics();
     test_if_errorlevel();
     test_if_exist();
     test_if_strcmp();

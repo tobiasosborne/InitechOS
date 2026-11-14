@@ -2,9 +2,9 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4432,22 +4432,6 @@
-     if (var[0] != '%' || !var[1] || var[2] ||
-         (var[1] >= '0' && var[1] <= '9')) return;
+@@ -4435,22 +4435,6 @@
+         dos_error(MSG_DOS_0065 "\r\n$");return;
+     }
      while (batch_for_next_token(set, &cur, tok, sizeof(tok))) {
 -        if (cmd_has_wildcard(tok)) {
 -            char name[BATCH_LINE_MAX + 13];
