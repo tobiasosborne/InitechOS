@@ -13,8 +13,16 @@ artifacts/scripts, factory/mz's packaging/checking tools, and own sources and
 fixtures. No private kernel header/code is used. The hosted bootstrap uses
 FPC -B -O2; independent corpus execution references still use -O-. Delphi/B+/H-
 semantics are preserved. NASM filenames/order and ELF scripts are fixed for determinism.
-All original 39 entries remain: hosted execution fell from 16s to 13s on the
-integration machine. The added isolated-seed entry checks that a fresh seed
+All 40 entries remain. The two self entries share two fresh full compiler
+executions inside each invocation's private scratch directory; both entries
+retain every protocol, determinism and artifact assertion. Generation stays
+inside the timed runner, and no results survive into another invocation.
+Each pass assembles once with NASM, reusing that fresh object for its bare,
+DOS and two extended link bases. A native-fixup fault still fails after a good
+run in the same OUT, then restoring the compiler passes. Profiling all 40
+entries measured 21.94s before and 14.66s after at low load (an earlier loaded
+baseline was 30.50s); the dominant work is CPU-bound.
+The isolated-seed entry checks that a fresh seed
 prerequisite is built into the requested SEED_OUT even with a different compiler
 OUT. Recursive seed builds explicitly select their own output directory; cached
 tools must not hide a missing prerequisite. The 30s suite budget and 20s entry

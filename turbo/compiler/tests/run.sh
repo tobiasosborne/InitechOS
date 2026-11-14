@@ -11,6 +11,24 @@ run_compiler() {
     (cd "$dest" && "$out/turbo_fpc" > raw)
     tr -d '\r' < "$dest/raw" > "$dest/normalized"
 }
+run_self_compiler() {
+    self_dest=$1 self_pass=$2
+    # Both self entries assert different properties of the same two fresh
+    # translations. Share only inside this invocation, never across make runs.
+    # Generation stays inside the timed entry runner; every assertion below
+    # still runs, including both protocol and artifact determinism checks.
+    if [ -z "${TURBO_SELF_RUNS:-}" ]; then
+        run_compiler "$self_dest" turbo.pas
+        return
+    fi
+    shared=$TURBO_SELF_RUNS/$self_pass
+    if [ ! -f "$shared/complete" ]; then
+        run_compiler "$shared" turbo.pas
+        : > "$shared/complete"
+    fi
+    mkdir -p "$self_dest"
+    cp "$shared"/* "$self_dest/"
+}
 bracket() {
     phase=$1 dir=$2
     test "$(grep -c "^TURBO-$phase-BEGIN\$" "$dir/normalized")" -eq 1
@@ -62,7 +80,7 @@ lex*|parse*|type*)
     ;;
 self-protocols)
     for pass in a b; do
-        run_compiler "$scratch/$pass" turbo.pas
+        run_self_compiler "$scratch/$pass" "$pass"
         for phase in LEX PARSE TYPE; do
             bracket "$phase" "$scratch/$pass"
             ! grep -q "^TURBO-$phase-ERROR" "$scratch/$pass/bracket-$phase"
@@ -75,13 +93,17 @@ self-protocols)
 gen*|self-generation)
     if [ "$entry" = self-generation ]; then source=turbo.pas; else source=fixtures/$entry.pas; fi
     for pass in a b; do
-        run_compiler "$scratch/$pass" "$source"
+        if [ "$entry" = self-generation ]; then
+            run_self_compiler "$scratch/$pass" "$pass"
+        else
+            run_compiler "$scratch/$pass" "$source"
+        fi
         bracket GEN "$scratch/$pass"
         ! grep -q '^TURBO-GEN-ERROR' "$scratch/$pass/bracket-GEN"
         test "$(grep -c '^TURBO-GEN-OK bytes=[0-9][0-9]* labels=[0-9][0-9]*$' "$scratch/$pass/bracket-GEN")" -eq 1
         test -s "$scratch/$pass/TURBOOUT.S"
         links "$scratch/$pass"
-        sh tests/package.sh "$scratch/$pass/TURBOOUT.S" "$scratch/$pass/extended"
+        sh tests/package.sh "$scratch/$pass/TURBOOUT.S" "$scratch/$pass/extended" "$scratch/$pass/program.o"
         cmp "$scratch/$pass/extended/program.exe" "$scratch/$pass/TURBOOUT.EXE"
         "$TOP/build/factory/mz/mzcheck" "$scratch/$pass/TURBOOUT.EXE"
         if [ "$entry" != self-generation ]; then
@@ -94,7 +116,7 @@ gen*|self-generation)
     if [ "$entry" = self-generation ]; then
         nm -n "$scratch/a/dos.elf" > "$scratch/symbols"
         end=$(awk '$3 == "__bss_end" {print $1}' "$scratch/symbols")
-        sh tests/package.sh "$scratch/a/TURBOOUT.S" "$scratch/extended"
+        sh tests/package.sh "$scratch/a/TURBOOUT.S" "$scratch/extended" "$scratch/a/program.o"
         echo "self assembly=$(wc -c < "$scratch/a/TURBOOUT.S") DOS end=0x$end"
     else
         mkdir -p "$scratch/fpc"

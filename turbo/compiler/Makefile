@@ -39,7 +39,9 @@ all: tools $(OUT)/turbo_fpc $(OUT)/TURBO.COM $(OUT)/turbo_seed_bare.elf
 test-build: all
 test: test-run
 test-run: test-build
-	@sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) "$(OUT)" tests/run.sh $(TESTS)
+	@shared=$$(mktemp -d "$(OUT)/self-runs.XXXXXX"); \
+	  trap 'rm -rf "$$shared"' 0; \
+	  TURBO_SELF_RUNS=$$shared sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) "$(OUT)" tests/run.sh $(TESTS)
 export TOP FPC NASM TARGET_LD OBJCOPY SEED_OUT RT_SRC
 include $(TOP)/mk/mutants.mk
 smoke:

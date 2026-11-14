@@ -7,7 +7,14 @@ root=${TOP:-$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)}
 mkdir -p "$dest"
 dest=$(CDPATH= cd -- "$dest" && pwd)
 cp "$source" "$dest/program.s"
-(cd "$dest" && nasm -f elf32 program.s -o program.o)
+# Host entries already assemble this exact source once per pass for the
+# bare/DOS links. Reuse that fresh NASM object for the two extended link bases;
+# callers without an object retain the independent assembly step here.
+if [ "$#" -ge 3 ]; then
+    cp "$3" "$dest/program.o"
+else
+    (cd "$dest" && nasm -f elf32 program.s -o program.o)
+fi
 nasm -f elf32 "$root/turbo/seed/rt/start_extended.asm" -o "$dest/start.o"
 for variant in zero probe; do
     if [ "$variant" = zero ]; then base=0; else base=0x01010180; fi
