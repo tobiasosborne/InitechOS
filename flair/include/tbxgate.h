@@ -186,9 +186,12 @@ int  tbx_take_bar_dirty(void);
  * tbx_take_filecopy: 1 (once) when the tenant asked TBX_FILECOPY; returns
  * the copied caption and paths. tbx_fc_rate: PROGRESS_BAR_RATE read from
  * TBX_FILECOPY_CFG_PATH through the DOS handle API (1..100, or an error).
- * tbx_fc_open opens the source and creates the destination (size out);
- * tbx_fc_step(upto) copies until `upto` bytes are on disk (returns the
- * running total or an error); tbx_fc_close closes both. Every handle is in
+ * tbx_fc_open opens the source and creates an exclusive stage (size out);
+ * tbx_fc_step(upto) copies until `upto` bytes are staged, closes and commits
+ * at size (including an empty source), returning the running total or error.
+ * tbx_fc_close cancels an incomplete transfer and removes only its stage.
+ * Call close before answering cancellation (TBX_ERR_BUSY).
+ * Every handle is in
  * the tenant's kernel-owned JFT. tbx_filecopy_answer pushes
  * TBX_EVT_FILECOPY (Message = bytes copied or the error). */
 int     tbx_take_filecopy(const char **caption, const char **src, const char **dst);

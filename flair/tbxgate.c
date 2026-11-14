@@ -1284,6 +1284,7 @@ static void slot_clear(void)
 /* Free the code block LAST (disk tenant lifecycle strict reverse) and report. */
 static void finish(const char *via, int32_t rc)
 {
+    tbx_fc_close();
     /* tenant lifecycle/AC-2: shared death cleanup, never tenant memory.
      * kill skips close; writes already commit per call (int21.h WRITE_AT). */
     uint32_t n = tbxf_live(&g_slot.files);
@@ -1572,18 +1573,43 @@ int tbx_take_bar_dirty(void)
  * modal box; these do the DOS-handle-API work on the tenant's kernel-owned
  * JFT (g_slot.files, Sec 10) so every handle dies with the tenant.
  * ===========================================================================*/
-static struct { int32_t src, dst; uint32_t size, done; } g_fc = { -1, -1, 0u, 0u };
+#include "file_replace.h"
+static struct { int32_t src, dst; uint32_t size, done; int active, committed; flair_file_replace tx; } g_fc = { .src=-1, .dst=-1 };
 static uint8_t g_fc_buf[TBX_FILECOPY_CHUNK];
+static uint8_t g_fc_verify[TBX_FILECOPY_CHUNK];
 
 /* One INT 21h call under the tenant's PSP with the root CWD (tbxf_call's
  * discipline). Returns EAX, or TBX_ERR_DOS(code) on carry. */
-static int32_t fc_dos(uint32_t ax, uint32_t bx, uint32_t cx, uint32_t dx)
+static int32_t fc_op(uint32_t ax, uint32_t bx, uint32_t cx, uint32_t dx, uint32_t di)
 {
     flair_platform_regs f = { 0 };
-    f.eax = ax; f.ebx = bx; f.ecx = cx; f.edx = dx;
+    f.eax = ax; f.ebx = bx; f.ecx = cx; f.edx = dx; f.edi=di;
     flair_platform_dos(&g_slot.files,&f);
     return (f.eflags & 1u) ? TBX_ERR_DOS(f.eax & 0xffffu) : (int32_t)f.eax;
 }
+static int32_t fc_dos(uint32_t ax, uint32_t bx, uint32_t cx, uint32_t dx)
+{ return fc_op(ax,bx,cx,dx,0); }
+
+static void fc_recovery_notice(void)
+{
+    const char *p=g_fc.tx.backup;
+    unsigned len=0,line=0,col=0;
+    while(p[len]) len++;
+    if(len<=40) {
+        static const char title[]="Previous version saved as:";
+        for(unsigned i=0;i<sizeof title;i++) g_slot.alert_text[0][i]=title[i];
+        line=1;
+    }
+    for(unsigned i=0;i<len;i++) {
+        if(col==20) { g_slot.alert_text[line++][col]=0; col=0; }
+        g_slot.alert_text[line][col++]=p[i];
+    }
+    g_slot.alert_text[line][col]=0;
+    g_slot.alert_lines=(uint8_t)(line+1);
+    g_slot.alert_btn[0][0]='O'; g_slot.alert_btn[0][1]='K'; g_slot.alert_btn[0][2]=0;
+    g_slot.alert_btns=1; g_slot.alert=1;
+}
+
 
 int tbx_take_filecopy(const char **caption, const char **src, const char **dst)
 {
@@ -1603,8 +1629,9 @@ int32_t tbx_fc_rate(void)
     int32_t n, rate = -1;
     if (h < 0) return h;
     n = fc_dos(0x3f00u, (uint32_t)h, TBX_FILECOPY_CFG_MAX, (uint32_t)(uintptr_t)cfg);
-    (void)fc_dos(0x3e00u, (uint32_t)h, 0u, 0u);
+    int32_t cl=fc_dos(0x3e00u, (uint32_t)h, 0u, 0u);
     if (n < 0) return n;
+    if (cl < 0) return cl;
     cfg[n] = 0;
     for (int32_t i = 0; i < n && rate < 0; ) {
         uint32_t k = 0u;
@@ -1627,16 +1654,37 @@ int32_t tbx_fc_rate(void)
 int32_t tbx_fc_open(uint32_t *size)
 {
     int32_t end;
+    if(g_fc.active) return TBX_ERR_BUSY;
+    if(g_fc.tx.old_moved) return TBX_ERR_BUSY; /* unresolved rollback: retain both streams */
+    if(!size ||
+       flair_platform_path_is_device(g_slot.fc_src) ||
+       flair_platform_path_is_device(g_slot.fc_dst)) return TBX_ERR_BADARG;
+    g_fc.active=1; g_fc.committed=0;
     g_fc.done = 0u;
     g_fc.src = fc_dos(0x3d00u, 0u, 0u, (uint32_t)(uintptr_t)g_slot.fc_src);
-    if (g_fc.src < 0) { int32_t e = g_fc.src; g_fc.src = -1; return e; }
+    if (g_fc.src < 0) { int32_t e = g_fc.src; g_fc.src = -1; tbx_fc_close(); return e; }
+    /* Compare the resolved volume/directory/slot as well as spelling. This
+     * covers every alias DOS accepts, including the bound volume's letter. */
+    g_fc.dst=fc_dos(0x3d00u,0,0,flair_file_ptr(g_slot.fc_dst));
+    if(g_fc.dst>=0) {
+        flair_platform_file_info a,b;
+        int same=!flair_platform_file_info_get(&g_slot.files,(uint8_t)g_fc.src,&a) ||
+                 !flair_platform_file_info_get(&g_slot.files,(uint8_t)g_fc.dst,&b) ||
+                 (a.drive==b.drive && a.directory==b.directory && a.slot==b.slot);
+        int32_t cl=fc_dos(0x3e00u,(uint32_t)g_fc.dst,0,0);
+        if(cl>=0) g_fc.dst=-1;
+        if(same || cl<0) { tbx_fc_close(); return same?TBX_ERR_BADARG:cl; }
+    } else {
+        int32_t rc=g_fc.dst; g_fc.dst=-1;
+        if(rc!=TBX_ERR_DOS(2)) { tbx_fc_close(); return rc; }
+    }
     end = fc_dos(0x4202u, (uint32_t)g_fc.src, 0u, 0u);     /* size = seek end */
     if (end < 0 || fc_dos(0x4200u, (uint32_t)g_fc.src, 0u, 0u) < 0) {
         tbx_fc_close();
         return end < 0 ? end : TBX_ERR_BADARG;
     }
     g_fc.size = (uint32_t)end;
-    g_fc.dst = fc_dos(0x3c00u, 0u, 0u, (uint32_t)(uintptr_t)g_slot.fc_dst);
+    g_fc.dst = flair_file_stage(&g_fc.tx,g_slot.fc_dst,fc_op);
     if (g_fc.dst < 0) { int32_t e = g_fc.dst; g_fc.dst = -1; tbx_fc_close(); return e; }
     *size = g_fc.size;
     return TBX_OK;
@@ -1644,25 +1692,69 @@ int32_t tbx_fc_open(uint32_t *size)
 
 int32_t tbx_fc_step(uint32_t upto)
 {
+    int32_t rc;
+    if(!g_fc.active) return TBX_ERR_BADARG;
+    if(g_fc.committed) return (int32_t)g_fc.done;
     if (upto > g_fc.size) upto = g_fc.size;
     while (g_fc.done < upto) {
         uint32_t want = upto - g_fc.done;
         if (want > TBX_FILECOPY_CHUNK) want = TBX_FILECOPY_CHUNK;
         int32_t got = fc_dos(0x3f00u, (uint32_t)g_fc.src, want, (uint32_t)(uintptr_t)g_fc_buf);
-        if (got <= 0) return got < 0 ? got : TBX_ERR_BADARG;   /* short source */
+        if (got <= 0) { rc=got<0?got:TBX_ERR_BADARG; goto fail; }
         int32_t put = fc_dos(0x4000u, (uint32_t)g_fc.dst, (uint32_t)got,
                              (uint32_t)(uintptr_t)g_fc_buf);
-        if (put != got) return put < 0 ? put : TBX_ERR_DOS(0x1d);  /* write fault */
+        if (put != got) { rc=put<0?put:TBX_ERR_DOS(0x1d); goto fail; }
         g_fc.done += (uint32_t)got;
     }
+    if(g_fc.done==g_fc.size) {
+        rc=fc_dos(0x3e00u,(uint32_t)g_fc.dst,0,0);
+        if(rc<0) goto fail;
+        g_fc.dst=-1;
+        /* Read the closed stage and compare every byte with the source. */
+        rc=fc_dos(0x3d00u,0,0,flair_file_ptr(g_fc.tx.stage));
+        if(rc<0) goto fail;
+        g_fc.dst=rc;
+        rc=fc_dos(0x4200u,(uint32_t)g_fc.src,0,0);
+        if(rc<0) goto fail;
+        for(uint32_t checked=0;checked<g_fc.size;) {
+            uint32_t want=g_fc.size-checked;
+            if(want>TBX_FILECOPY_CHUNK) want=TBX_FILECOPY_CHUNK;
+            int32_t got=fc_dos(0x3f00u,(uint32_t)g_fc.src,want,flair_file_ptr(g_fc_buf));
+            if(got<=0 || (uint32_t)got>want) { rc=got<0?got:TBX_ERR_BADARG; goto fail; }
+            uint32_t read=0;
+            while(read<(uint32_t)got) {
+                int32_t n=fc_dos(0x3f00u,(uint32_t)g_fc.dst,(uint32_t)got-read,flair_file_ptr(g_fc_verify+read));
+                if(n<=0 || (uint32_t)n>(uint32_t)got-read) { rc=n<0?n:TBX_ERR_BADARG; goto fail; }
+                read+=(uint32_t)n;
+            }
+            for(uint32_t i=0;i<(uint32_t)got;i++) if(g_fc_buf[i]!=g_fc_verify[i]) { rc=TBX_ERR_DOS(0x1d); goto fail; }
+            checked+=(uint32_t)got;
+        }
+        rc=fc_dos(0x3e00u,(uint32_t)g_fc.src,0,0);
+        if(rc<0) goto fail;
+        g_fc.src=-1;
+        rc=fc_dos(0x3e00u,(uint32_t)g_fc.dst,0,0);
+        if(rc<0) goto fail;
+        g_fc.dst=-1;
+        rc=flair_file_commit(&g_fc.tx,g_slot.fc_dst,fc_op);
+        if(rc<0) goto fail;
+        g_fc.committed=1;
+    }
     return (int32_t)g_fc.done;
+fail:
+    if(g_fc.tx.rollback_error<0) fc_recovery_notice();
+    tbx_fc_close();
+    return rc;
 }
 
 void tbx_fc_close(void)
 {
+    if(!g_fc.active) return;
     if (g_fc.src >= 0) (void)fc_dos(0x3e00u, (uint32_t)g_fc.src, 0u, 0u);
     if (g_fc.dst >= 0) (void)fc_dos(0x3e00u, (uint32_t)g_fc.dst, 0u, 0u);
     g_fc.src = g_fc.dst = -1;
+    flair_file_discard(&g_fc.tx,fc_op);
+    g_fc.active=0;
 }
 
 void tbx_filecopy_answer(int32_t result)

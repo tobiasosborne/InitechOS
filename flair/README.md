@@ -13,6 +13,40 @@ The flat-item adapter is the same one used by the target gate. Control Panels
 links this archive for its real press/release tests; its app never reads FLAIR's
 private renderer or compiles private manager sources.
 
+File replacement follows GOLDEN-MASTER items 3/4/6 and the phase-2 operator
+recovery ruling. FILE COPY creates an exclusive same-directory stage, transfers
+and closes it, then compares its bytes against the source before replacement.
+The previous destination moves to the first absent NAME.~00..~99 only during
+commit; a failed publication restores it. Escape and Command-period cancel
+the live modal transfer; close and tenant teardown remove only an incomplete
+stage. The copy engine refuses resolved source/destination identity and DOS
+devices, and checks every transfer, verification and close result.
+
+If publication and restore both fail, both complete streams remain and the
+error notice names the exact previous-version path. This is not crash atomicity.
+The current three-line alert can conservatively show 60 path characters, so a
+longer recovery name refuses before staging; no recovery name is truncated.
+The SDK save helper uses the same sequence and existing ALERT verb. Successful
+replacement remains successful if only backup cleanup fails. Removing a
+retained backup after that error still depends on the kernel unlink repair.
+
+The desktop binds the data volume once. Every file-session dispatch temporarily
+selects that volume and root CWDs for all mounted drives, then restores the
+caller PSP, all per-drive CWDs, default drive and selected I/O drive. Explicit
+foreign-drive paths use that drive's root. Resolved file identity is the triple
+of volume, parent directory and directory slot; the internal platform record
+now supplies these fields. The INT 81h numbers, arguments and records are
+unchanged.
+
+tests/test_filecopy_disk.c fault-injects each DOS operation and sector write
+through the real Toolbox adapter, InitechDOS dispatcher and FAT12 backend.
+mtools independently decodes the resulting destination bytes. It also checks
+cancel positions, aliases, devices, temporary collisions, disk exhaustion,
+readback detection of silent corruption and both failed-restore streams.
+test_desktop_db_disk checks persisted positions and Trash origins with literal
+IDB1 records, independent disk readback and fresh FAT-cache reloads.
+test_tbx_volume_disk checks two real mounted disks and caller-state restoration.
+
 Managers:
 
 - Surface: bounded pixel writes and depth packing.

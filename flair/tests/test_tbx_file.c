@@ -14,9 +14,12 @@ TEST_HARNESS();
 #define ASSERT_EQ(msg, got, want) CHECK((got) == (want), msg)
 static uint8_t bytes[64];
 static uint32_t size, calls;
+static unsigned selected_drive, opened_drive;
+static int select_drive(unsigned d) { selected_drive=d; return d==0 || d==2; }
 static uint16_t open_file(const char *name, uint16_t dir, dir_entry_t *e, uint32_t *slot)
 {
     calls++;
+    opened_drive=selected_drive;
     if (dir != 0) return 3;
     if (strcmp(name, "FRESH.DAT") == 0) return 2;   /* F6: the one absent name */
     memset(e, 0, sizeof *e); e->file_size = size; *slot = 0; return 0;
@@ -106,6 +109,27 @@ int main(void)
     int21_cwd_snapshot_t now = int21_cwd_save();
     ASSERT_EQ("F3 caller CWD restored", now.start_cluster, 7);
     ASSERT_EQ("F3 caller CWD text", strcmp(now.path, "OTHER"), 0);
+    /* Sec 10: a different most-recent I/O drive must not choose which CWD
+     * is reset. Deliberately distinct default/I/O drives and two decoys. */
+    int21_set_drive_selector(select_drive);
+    int21_cwd_snapshot_t mixed=int21_cwd_save();
+    mixed.current_drive=2; mixed.io_drive=0; mixed.start_cluster=9;
+    strcpy(mixed.path,"AOTHER"); mixed.starts[0]=9; mixed.starts[2]=11;
+    strcpy(mixed.paths[0],"AOTHER"); strcpy(mixed.paths[2],"COTHER");
+    int21_cwd_restore(&mixed);
+    int32_t rooted=call(&owner,lo,TBX_FILE_OPEN,lo,0,0);
+    ASSERT_TRUE("F3 bound-volume root open", rooted>=5);
+    if(rooted>=5) {
+        ASSERT_EQ("F3 bound data volume",opened_drive,0);
+        (void)call(&owner,lo,TBX_FILE_CLOSE,(uint32_t)rooted,0,0);
+    }
+    now=int21_cwd_save();
+    ASSERT_EQ("F3 default drive restored",now.current_drive,2);
+    ASSERT_EQ("F3 I/O drive restored",now.io_drive,0);
+    ASSERT_EQ("F3 A CWD restored",now.starts[0],9);
+    ASSERT_EQ("F3 C CWD restored",now.starts[2],11);
+    ASSERT_EQ("F3 selected backend restored",selected_drive,0);
+    int21_set_drive_selector(0);
     devices_init(); int21_set_devices(devices_head(),0);
     strcpy((char *)mem+200,"A:\\NUL.TXT");
     uint32_t live = tbxf_live(&owner);

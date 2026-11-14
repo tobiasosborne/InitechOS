@@ -181,6 +181,14 @@ test_tbx_file_SRCS := tests/test_tbx_file.c tests/platform_dos.c $(addprefix $(T
 test_tbx_file_CFLAGS := -I$(TOP)/kernel/include -Itests/platform -D_GNU_SOURCE
 test_tbx_file_DEPS := $(GENERATED)
 
+HOST_TESTS += test_filecopy_disk test_desktop_db_disk test_tbx_volume_disk
+test_filecopy_disk_SRCS := tests/test_filecopy_disk.c $(addprefix $(TOP)/kernel/,int21.c devices.c mcb.c sft.c psp.c irq.c fat12.c fileio_fat.c)
+test_filecopy_disk_CFLAGS := -I$(TOP)/kernel/include -Itests/platform -D_GNU_SOURCE -no-pie -ffunction-sections -fdata-sections -Wl,--gc-sections
+test_desktop_db_disk_SRCS := $(subst tests/test_filecopy_disk.c,tests/test_desktop_db_disk.c,$(test_filecopy_disk_SRCS)) desktop/desktop_db.c
+test_desktop_db_disk_CFLAGS := $(test_filecopy_disk_CFLAGS)
+test_tbx_volume_disk_SRCS := $(subst tests/test_filecopy_disk.c,tests/test_tbx_volume_disk.c,$(test_filecopy_disk_SRCS))
+test_tbx_volume_disk_CFLAGS := $(test_filecopy_disk_CFLAGS)
+
 $(foreach t,$(HOST_TESTS),$(eval $(t)_DEPS += $(GENERATED) $(OUT)/host-config))
 include $(TOP)/mk/host-test.mk
 
