@@ -50,6 +50,25 @@ and Bochs: all 168 extended comparisons plus 112 real flat COM executions,
 with independent FPC stdout/files and no budget increase. The new flat-only
 runtime fault completes with wrong digits and is caught by execution.
 
+The end-of-day cert on `4f7c0cb4` passed in 2050.40s: all eight stages
+returned zero. Clean host tests took 76s, full smoke 335s, reproducibility
+45s, mutations 1221s, self-host/DDC 145s, oversized-kernel 26s, status
+202s and tracked-files 0s (stage times use the script's integer clock).
+All 964 active patches were killed, with zero survivors/errors. The 129
+pending patches and two incomplete imports below remain explicit coverage
+limits; the mutation stage is PASS_PENDING. The fixed point is unchanged.
+Evidence: `build/cert/2026-11-14T031436Z-4f7c0cb4/`; an external archive and
+timed logs are retained with the Turbo landing report.
+
+The first attempt on `f248a6d6` failed only mutation coverage: eight INT21
+patch contexts had drifted, and corrected FIND filtering masked XCOPY's
+old hidden-file fault. `d72eaa42` refreshes the faults and adds a recursive
+hidden/system-directory mtools oracle. All nine faults were proved red,
+clean baselines green, and full host tests passed before the successful
+cert rerun. No product source, budget or timeout changed. The seven Turbo
+issues and the two certificate-maintenance issues are closed; all tracked
+memory records were preserved in the issue snapshot.
+
 After fast-forwarding the main checkout from `62830873`, `make -j12 test`
 passes all 19 registered components in 55.96s, including default factory
 verification of the captures and configured reference readers. Full
