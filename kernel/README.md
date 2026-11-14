@@ -180,3 +180,10 @@ post-truncation timestamp write; errors preserve the original image, and success
 publishes the known DOS timestamp. The lower-level fat12_create entry retains
 its deterministic default timestamp. Read-only positioned writes refuse before
 entering the recovery boundary, so refusal does not issue rollback writes.
+
+Qualified character-device opens validate the selected drive and containing
+ directory before binding the device; device basenames still take precedence
+ over ordinary files in an existing directory. Bare device names need no media.
+ `test-device-paths33` compares OPEN/IOCTL/CLOSE classifications with the genuine
+ DOS 3.30 DEVICES trace, including valid SUB aliases and missing-parent/invalid-
+ drive refusals (initech-905b8). The capture proves refusal, not the exact AX code.

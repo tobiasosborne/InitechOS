@@ -2331,8 +2331,9 @@ static uint16_t dev_route_rw(device_header_t *dev, int is_write,
 /* AH=3Dh OPEN: EDX = flat ptr to ASCIIZ path, AL = mode (0=r,1=w,2=rdwr).
  * DEVICE-by-name (beads initech-6zd9): if `path` names a resident character
  * device (CON/NUL/PRN/AUX/CLOCK$), bind a SFT_KIND_DEVICE slot to that device
- * header and return the handle -- the device open NEVER touches the FAT (DOS
- * checks the device chain before the directory; Ralf Brown INT 21/AH=3Dh).
+ * header and return the handle. Qualified names first validate their drive and
+ * containing directory; the final device name needs no on-disk entry. Source:
+ * genuine DOS 3.30 compat33/expected/DEVICES capture (initech-905b8).
  * Otherwise: a '\SUB\FILE'-qualified path is resolved to its containing
  * directory's start cluster via the backend resolve seam (beads initech-mzxa);
  * a missing/non-dir component or an overlength path -> CF=1, AX=0x0003 (path not
@@ -2409,11 +2410,30 @@ static void do_open(int_frame_t *f)
         return;
     }
 
-    /* DEVICE-by-name FIRST (DOS precedence): a device open binds a device-kind
-     * SFT slot and returns immediately, bypassing the FAT path entirely. Only the
-     * JFT slot is needed (no FAT, no per-handle file state). */
+    /* Devices take precedence over files in an existing containing directory. */
     device_header_t *dev = dev_open_lookup(path);
     if (dev != 0) {
+        const char *qualified = path;
+        while (*qualified && *qualified != ':' && *qualified != '\\' && *qualified != '/')
+            qualified++;
+        if (*qualified) {
+            const char *leaf = path;
+            uint16_t dir_start = 0u;
+            uint16_t perr;
+            if (g_file != 0 && g_file->resolve != 0) {
+                perr = resolve_dir_path(path, &leaf, &dir_start);
+            } else {
+                /* A root-only binding can still open A:\\NUL without media.
+                 * A containing subdirectory needs a real resolver. */
+                perr = int21_select_path(&leaf);
+                if (*leaf == '\\' || *leaf == '/') leaf++;
+                if (!perr && path_has_subdir_or_drive(leaf))
+                    perr = INT21_ERR_PATH_NOT_FOUND;
+            }
+            if (perr) {
+                set_ax(f, perr); int21_note_error(perr); cf_set(f); return;
+            }
+        }
         uint8_t sft_idx = sft_alloc();
         if (sft_idx >= (uint8_t)SFT_MAX_ENTRIES) {
             set_ax(f, INT21_ERR_TOO_MANY_OPEN);

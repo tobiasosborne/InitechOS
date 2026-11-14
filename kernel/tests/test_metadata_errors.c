@@ -11,6 +11,7 @@
 #include "fileio_fat.h"
 #include "sft.h"
 #include "psp.h"
+#include "devices.h"
 #include "blockdev_file.h"
 #include "test_assert.h"
 TEST_HARNESS();
@@ -47,7 +48,35 @@ int main(int argc, char **argv)
     if(low==MAP_FAILED) return 2;
     strcpy((char *)low,"TARGET.BIN");
     memset(low+512,'X',512);
-    if(!strcmp(argv[2],"creat-stamp")) {
+    if(!strcmp(argv[2],"devices")) {
+        FILE *capture=argc==5 ? fopen(argv[4],"rb") : NULL;
+        if(!capture) return 2;
+        devices_init();
+        int21_set_devices(devices_head(),NULL);
+        char line[128];
+        unsigned cases=0;
+        while(fgets(line,sizeof line,capture)) {
+            line[strcspn(line,"\r\n")]=0;
+            if(!strcmp(line,"DEVICES-DONE")) break;
+            char *expected=strrchr(line,':');
+            if(!expected) return 2;
+            *expected++=0;
+            strcpy((char *)low,line);
+            int_frame_t f=call(0x3d02,0,0,(uintptr_t)low);
+            const char *actual="ERROR";
+            if(!(f.eflags&1)) {
+                unsigned handle=f.eax&65535;
+                f=call(0x4400,handle,0,0);
+                actual=!(f.eflags&1) && (f.edx&0x80) ? "DEVICE" : "FILE";
+                (void)call(0x3e00,handle,0,0);
+            }
+            printf("%s:%s (DOS 3.30 %s)\n",line,actual,expected);
+            CHECK(!strcmp(actual,expected),"qualified device result matches genuine DOS 3.30");
+            cases++;
+        }
+        CHECK(cases==8,"all captured qualified device cases ran");
+        fclose(capture);
+    } else if(!strcmp(argv[2],"creat-stamp")) {
         int21_set_clock(clock_fixture,0);
         blockdev_file_arm_write_fault(&disk,fault);
         int_frame_t f=call(0x3c00,0,0,(uintptr_t)low);
