@@ -106,6 +106,7 @@
 #include "flair_look.h"
 #include "text.h"
 #include "test_assert.h"
+#include "expect_abort.h"
 
 TEST_HARNESS();
 
@@ -1155,6 +1156,43 @@ static void leg_fill_geometry(void)
     probe_surface=0;
 }
 
+/* SDK Sec 5: every endpoint is in the screen domain before any difference.
+ * Failed requests must preserve both window count and the records arena. */
+static unsigned extreme_case;
+static void script_window_extremes(void)
+{
+    static const int32_t invalid[][4]={
+        {INT32_MAX-100,60,INT32_MIN+100,280},
+        {20,INT32_MAX-100,300,INT32_MIN+100},
+        {INT32_MIN,60,300,280},{20,INT32_MIN,300,280},
+        {INT32_MAX,60,INT32_MAX,280},{20,INT32_MAX,300,INT32_MAX},
+        {20,60,INT32_MIN,280},{20,60,300,INT32_MIN}
+    };
+    uint32_t reg[]={g_base+IMG_REC};
+    CHECK(gate(TBX_REGISTER,1,reg)==0,"extreme-window tenant registers");
+    FlairApp *app=tenant_app();
+    uint32_t avail=flair_heap_avail(&app->records_arena);
+    int windows=windows_in_zorder();
+    uint32_t a[5];
+    for(unsigned k=0;k<4;k++) a[k]=(uint32_t)invalid[extreme_case][k];
+    a[4]=1;
+    CHECK(gate(TBX_NEWWINDOW,5,a)==TBX_ERR_BADARG,"extreme or inverted window is refused");
+    CHECK(flair_heap_avail(&app->records_arena)==avail && windows_in_zorder()==windows,
+          "refusal consumes no record storage or window slot");
+    const uint32_t good[]={20,40,200,180,1};
+    CHECK(gate(TBX_NEWWINDOW,5,good)==1,"first valid window still receives token one");
+}
+static void leg_window_extremes(void)
+{
+    for(extreme_case=0;extreme_case<8;extreme_case++) {
+        EXPECT_SUCCESS("wide window rejection returns without side effects", {
+            world_init(); TP.script=script_window_extremes;
+            CHECK(launch()==0,"extreme-window fixture launches");
+        });
+    }
+}
+
+
 int main(void)
 {
     FlairApp *t;
@@ -1176,5 +1214,6 @@ int main(void)
     leg_title();
     leg_gate();
     leg_fill_geometry();
+    leg_window_extremes();
     return TEST_SUMMARY("test-flair-routing");
 }

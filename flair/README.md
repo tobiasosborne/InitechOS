@@ -155,8 +155,11 @@ surface, with fail-loud platform stubs for services outside its scope. FILLRECT
 clips in the wide local coordinate domain before adding an origin or narrowing;
 an independent reader subtracts two literal origins from every framebuffer
 pixel, including distant and extreme endpoints. The same fixture proves distinct
-window tokens and consumed-once presentation requests. File integration uses tests/platform_dos.c over the
-real existing InitechDOS dispatcher. No fake success replaces those DOS checks.
+window tokens and consumed-once presentation requests. NEWWINDOW bounds every
+endpoint before width/height subtraction; extreme refusals preserve record
+storage, window count and the first valid token, including under UBSan.
+File integration uses tests/platform_dos.c over the real existing InitechDOS
+dispatcher. No fake success replaces those DOS checks.
 
 The SDK owns all app-facing gate, event, geometry and Control Panels records.
 GrafPort includes geometry.h rather than declaring Point again. The former
@@ -181,7 +184,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 202 patches through the shared strict runner: passing baseline,
+make mutants runs 203 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
