@@ -12,6 +12,7 @@ for patch_file in factory/mutants/gates/*.patch; do
  tar -cf - --exclude=./build --exclude=./.git --exclude=./.beads --exclude=./attic . | tar -xf - -C "$scratch"
  if ! patch --batch --fuzz=0 -p1 -d "$scratch" < "$patch_file" > "$work/$name.patch.log" 2>&1; then errors=$((errors+1)); continue; fi
  case $name in
+ cert-git-status) command='sh factory/tests/cert.sh'; signature='FAIL cert accepted git-error';;
  worksheet-*) command='sh factory/tests/worksheet.sh'; signature='FAIL worksheet:';;
  desktop-held-key) command="mkdir -p build/factory; cc -std=c11 -O1 -D_POSIX_C_SOURCE=200809L factory/desktop-key-test.c -o build/factory/desktop-key && build/factory/desktop-key"; signature="FAIL desktop key:";;
  desktop-omit-session) command="sh factory/tests/desktop-sessions.sh"; signature="FAIL desktop plan:";;

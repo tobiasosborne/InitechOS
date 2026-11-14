@@ -1,0 +1,5 @@
+--- a/factory/cert.sh
++++ b/factory/cert.sh
+@@ -84,1 +84,1 @@
+-    git status --porcelain > "$work/git-status.txt" || return
++    git status --porcelain > "$work/git-status.txt"

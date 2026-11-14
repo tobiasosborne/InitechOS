@@ -81,7 +81,7 @@ board() {
     awk -f factory/testlib/cert-board.awk "$work/registry.txt" "$work/board.txt"
 }
 unchanged() {
-    git status --porcelain > "$work/git-status.txt"
+    git status --porcelain > "$work/git-status.txt" || return
     cat "$work/git-status.txt"
     test ! -s "$work/git-status.txt"
 }

@@ -32,11 +32,18 @@ esac
 MAKE
 cat > "$work/bin/git" <<'GIT'
 #!/bin/sh
-case $1 in rev-parse) echo fixture;; esac
+case $1 in
+ rev-parse) echo fixture;;
+ status)
+ case $CASE in
+ git-error) echo 'fatal: injected git status error' >&2; exit 128;;
+ git-dirty) echo ' M tracked.c';;
+ esac;;
+esac
 GIT
 chmod +x "$work/bin/"*
 for strict in 0 1; do
- for name in green red host-green missing duplicate unknown empty malformed pending subset no-receipt missing-host; do
+ for name in green red host-green missing duplicate unknown empty malformed pending subset no-receipt missing-host git-error git-dirty; do
   dir=$work/$strict-$name
   mkdir -p "$dir/factory/testlib" "$dir/a/mutants"
   cp "$root/factory/cert.sh" "$root/factory/mutants.sh" "$dir/factory/"
@@ -51,6 +58,8 @@ for strict in 0 1; do
   if [ "$name" = green ]; then
    [ "$rc" -eq 0 ] || { cat "$dir/log"; exit 1; }
    grep -q 'status: PASS' "$dir/log"
+  elif [ "$name" = git-error ] || [ "$name" = git-dirty ]; then
+   [ "$rc" -ne 0 ] && grep -q 'tracked-files: FAIL' "$dir/log" && grep -q 'status: PASS' "$dir/log" && grep -q 'clean-test: PASS' "$dir/log" || { echo "FAIL cert accepted $name strict=$strict"; cat "$dir/log"; exit 1; }
   elif [ "$name" = subset ] || [ "$name" = no-receipt ] || [ "$name" = missing-host ]; then
    [ "$rc" -ne 0 ] && grep -q "clean-test: FAIL" "$dir/log" && grep -q "status: PASS" "$dir/log" || { cat "$dir/log"; exit 1; }
   elif [ "$name" = pending ]; then
