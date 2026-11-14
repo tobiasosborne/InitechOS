@@ -4,6 +4,10 @@ These are Initech's own content, never vendor demonstration databases.
 `system` owns the installed examples and the deterministic factory producer
 `samples.c` / `install-inputs.sh`. No reference program or test driver ships.
 All manifest entries have ordinary archive attributes, no H/S/R attributes.
+Installed locations: the Base/TPS data and program are in root SAMPLES;
+the compiler, its full source and Hello inputs are in root TURBO. The operating
+directions are root README.TXT. APPS retains its original fourteen entries,
+so every existing desktop application remains in the default visible grid.
 The image builder fixes FAT dates to 1980-01-01. DBF update dates generated
 here are 1993-07-19; the recovered TPS table retains 1989-10-16.
 
@@ -17,7 +21,7 @@ here are 1993-07-19; the recovered TPS table retains 1989-10-16.
 | HELLO.PAS / initial TURBOIN.PAS | New Initech introductory program, `Writeln('Hello from Turbo Initech.')`; CRLF conversion by `install-inputs.sh`. Initial input is an exact copy. This follows Turbo's fixed input/output protocol, documented in `turbo/compiler/turbo.pas` and `turbo/tests/smoke/compile.sh`. |
 | TURBO.PAS | Exact copy of `turbo/compiler/turbo.pas`, the complete single-file compiler including embedded runtime tables; no include dependencies. Turbo owns the source and its compiler artifact, `build/turbo/compiler/TURBO.COM` (`make -C turbo`). No host compiler ships. |
 | README.TXT | New Initech operating directions, CRLF conversion by `install-inputs.sh`; the commands above and existing TPS `keys_ok.txt` ritual. |
-| CONFIG.SYS / AUTOEXEC.BAT / HELLO.TXT | `install-inputs.sh`; preserves the existing factory/image/build.sh startup and greeting, adding the ordinary root PATH needed to find TPSREP from APPS. C: consolidation remains the delivery/factory owners' work. |
+| CONFIG.SYS / AUTOEXEC.BAT / HELLO.TXT | `install-inputs.sh`; preserves the existing factory/image/build.sh startup and greeting, adding root and APPS to PATH so programs resolve from SAMPLES. C: consolidation remains the delivery/factory owners' work. |
 
 The first three DBFs use the documented dBASE III byte layout in
 `apps/initechbase/spec/ibase/dbf.md`, independently read by

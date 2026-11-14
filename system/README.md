@@ -50,6 +50,13 @@ The image composition owner must build `turbo` before consuming the manifest.
 Missing sources fail; no build reads legacy or attic. Ownership, attributes,
 producers, source captures and imported hashes are in samples/PROVENANCE.md.
 All existing APPS artifacts remain owned/built by their named components.
+The APPS directory retains its original fourteen entries. InitechBase and TPS
+examples live in the root SAMPLES directory; the compiler and its Pascal
+sources live in the root TURBO directory. Root README.TXT gives the commands.
+Separate application/example folders follow the existing APPS convention and
+keep every original application visible in the default Finder window. The
+host layout check compares APPS against its pre-example inventory; desktop
+smoke exercises the resulting icons on both emulators.
 
 `make test` additionally checks the required workflow inventory, independently
 reads the three DBFs in Python, and verifies source/protocol/canon input
@@ -62,7 +69,9 @@ dependency, so no DBT/NDX is installed.
 `make smoke` builds the ordinary product image and drives the installed TPS,
 Base and Turbo workflows on QEMU and Bochs at 8 MiB. Each session clones both
 product disks, removes AUTOEXEC on its private working copy to reach DOS,
-sets the ordinary root PATH, and changes to APPS. No fixture or executable is
+sets the ordinary root PATH, and changes to SAMPLES or TURBO. The Base session
+starts in APPS beside its required overlay and opens the examples using
+absolute SAMPLES paths. No fixture or executable is
 injected. Every manifest file is independently extracted and compared before
 boot. TPSREPT.TXT matches all meaningful bytes of the retained REALDOS report,
 with its directory census changed explicitly from the original single TPS.DBF
@@ -86,5 +95,5 @@ The boot/working disk split is unchanged here. IO.SYS and composed INITDOS.SYS
 remain the boot-volume builder's responsibility. Consolidating to C:, expanding
 the working volume, removing the builder's DOS wildcard, and scheduling Turbo
 before image assembly belong to the image composition owner. The installed
-APPS/README.TXT describes the currently available fixed-name compiler protocol;
+README.TXT describes the currently available fixed-name compiler protocol;
 when the Turbo owner lands the IDE, update those directions with its workflow.

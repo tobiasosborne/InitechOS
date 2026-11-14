@@ -1,20 +1,22 @@
 INITECH SYSTEMS CORPORATION
 APPLICATION EXAMPLES
 
-Change to the APPS directory before using these examples.
+The APPS directory contains the desktop applications. SAMPLES contains
+the database and report examples. TURBO contains the Pascal compiler.
 
 INITECHBASE
-  Start INITBASE. At the dot prompt enter:
-    USE CLIENTS
+  Enter CD \APPS, then INITBASE. At the dot prompt enter:
+    USE \SAMPLES\CLIENTS
     LIST
-    USE PARTS
+    USE \SAMPLES\PARTS
     LIST
-    USE INVOICE
-    DO Y2KACCT
+    USE \SAMPLES\INVOICE
+    DO \SAMPLES\Y2KACCT
   QUIT returns to InitechDOS. The accounting report uses two-digit years.
   Inspect the reporting date and aging columns before acting on a balance.
 
 TURBO INITECH
+  Enter CD \TURBO before using the compiler.
   HELLO.PAS is a short introductory program. The compiler reads the fixed
   input name TURBOIN.PAS; initially this contains the same program.
     COPY HELLO.PAS TURBOIN.PAS
@@ -26,7 +28,7 @@ TURBO INITECH
   TURBO.PAS to TURBOIN.PAS and run TURBO. Keep the original TURBO.COM.
 
 TPS REPORT GENERATOR
-  From this directory enter TPSREP TPS.DBF. TPSPARM.DAT supplies the form
+  Enter CD \SAMPLES, then TPSREP TPS.DBF. TPSPARM.DAT supplies the form
   title, division, memorandum number and page length. Advance the form
   seven positions with SPACE, then press RETURN. For the supplied example,
   enter report number 004417 twice, acknowledge memorandum 88-114 and

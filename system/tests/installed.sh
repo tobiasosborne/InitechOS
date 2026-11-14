@@ -26,7 +26,7 @@ while read -r source destination rest; do
  mcopy -o -i "$volume" "::$destination" "$path" || fail "missing $destination"
  cmp "$source" "$path" || fail "stale installed $destination"
 done < system/working-volume.list
-python3 system/tests/read-samples.py "$out/installed/APPS"
+python3 system/tests/read-samples.py "$out/installed/SAMPLES"
 mdir -i "$volume" :: > "$out/space.txt"
 cat "$out/space.txt"
 for emulator in $emulators; do
@@ -37,14 +37,14 @@ for emulator in $emulators; do
   cp "$volume" "$dir/data.img"
   mdel -i "$dir/data.img" ::AUTOEXEC.BAT
   # Ordinary commands; no program, table, source or report is injected.
-  printf '\n\npath a:\\\ncd apps\n' > "$dir/session"
+  printf '\n\npath a:\\\n' > "$dir/session"
   case $workflow in
   tps)
-   printf 'tpsrep tps.dbf\n       \n004417\n004417\n88-114\ny\n' >> "$dir/session";;
+   printf 'cd samples\ntpsrep tps.dbf\n       \n004417\n004417\n88-114\ny\n' >> "$dir/session";;
   base)
-   printf 'initbase\nuse clients\nlist\nuse parts\nlist\nuse invoice\ndo y2kacct\nquit\n' >> "$dir/session";;
+   printf 'cd apps\ninitbase\nuse \\samples\\clients\nlist\nuse \\samples\\parts\nlist\nuse \\samples\\invoice\ndo \\samples\\y2kacct\nquit\n' >> "$dir/session";;
   turbo)
-   printf 'copy hello.pas turboin.pas\nturbo\nturboout\n' >> "$dir/session";;
+   printf 'cd turbo\ncopy hello.pas turboin.pas\nturbo\nturboout\n' >> "$dir/session";;
   esac
   printf 'echo installed%scomplete\n' "$workflow" >> "$dir/session"
   build/factory/keys < "$dir/session" > "$dir/keys"
@@ -70,7 +70,7 @@ for emulator in $emulators; do
   fi
   case $workflow in
   tps)
-   mcopy -i "$dir/data.img" ::APPS/TPSREPT.TXT "$dir/report.txt"
+   mcopy -i "$dir/data.img" ::SAMPLES/TPSREPT.TXT "$dir/report.txt"
    # Frozen report from REALDOS on MS-DOS 6.22; never minted by this run.
    build/system/tps-report dos/tpsrep/tests/reference/tpsrept_expected.txt "$dir/report.txt" || fail 'real-DOS TPS report differs';;
   base)
@@ -88,12 +88,12 @@ for emulator in $emulators; do
   turbo)
    line "$dir/serial.txt" 'Hello from Turbo Initech.'
    grep '^TURBO-NATIVE-OK form=0 ' "$dir/serial.txt" >/dev/null || fail 'resident compiler did not emit flat hello'
-   mcopy -i "$dir/data.img" ::APPS/TURBOOUT.COM "$dir/hello.com"
+   mcopy -i "$dir/data.img" ::TURBO/TURBOOUT.COM "$dir/hello.com"
    test -s "$dir/hello.com" || fail 'empty Pascal executable'
    # The greeting is an authored Pascal-language result; compare with FPC
    # independently too, rather than deriving expected stdout from Turbo.
    mkdir -p "$dir/fpc"
-   fpc -v0 -FE"$dir/fpc" -FU"$dir/fpc" -ohello "$out/installed/APPS/HELLO.PAS" > "$dir/fpc.log"
+   fpc -v0 -FE"$dir/fpc" -FU"$dir/fpc" -ohello "$out/installed/TURBO/HELLO.PAS" > "$dir/fpc.log"
    "$dir/fpc/hello" > "$dir/hello.expected"
    line "$dir/serial.txt" "$(cat "$dir/hello.expected")";;
   esac

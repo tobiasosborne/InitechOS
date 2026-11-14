@@ -34,15 +34,15 @@ build/dos/TPSREP.COM                  TPSREP.COM
 build/system/installed/CONFIG.SYS     CONFIG.SYS
 build/system/installed/AUTOEXEC.BAT   AUTOEXEC.BAT
 build/system/installed/HELLO.TXT      HELLO.TXT
-build/system/installed/CLIENTS.DBF    APPS/CLIENTS.DBF
-build/system/installed/PARTS.DBF      APPS/PARTS.DBF
-build/system/installed/INVOICE.DBF    APPS/INVOICE.DBF
-build/system/installed/Y2KACCT.PRG    APPS/Y2KACCT.PRG
-build/system/installed/TPS.DBF        APPS/TPS.DBF
-build/system/installed/TPSPARM.DAT    APPS/TPSPARM.DAT
-build/system/installed/HELLO.PAS      APPS/HELLO.PAS
-build/system/installed/TURBOIN.PAS    APPS/TURBOIN.PAS
-build/system/installed/README.TXT     APPS/README.TXT
+build/system/installed/CLIENTS.DBF    SAMPLES/CLIENTS.DBF
+build/system/installed/PARTS.DBF      SAMPLES/PARTS.DBF
+build/system/installed/INVOICE.DBF    SAMPLES/INVOICE.DBF
+build/system/installed/Y2KACCT.PRG    SAMPLES/Y2KACCT.PRG
+build/system/installed/TPS.DBF        SAMPLES/TPS.DBF
+build/system/installed/TPSPARM.DAT    SAMPLES/TPSPARM.DAT
+build/system/installed/HELLO.PAS      TURBO/HELLO.PAS
+build/system/installed/TURBOIN.PAS    TURBO/TURBOIN.PAS
+build/system/installed/README.TXT     README.TXT
 # Turbo owner: make -C turbo; complete single-file Pascal compiler source.
-build/turbo/compiler/TURBO.COM        APPS/TURBO.COM
-build/system/installed/TURBO.PAS      APPS/TURBO.PAS
+build/turbo/compiler/TURBO.COM        TURBO/TURBO.COM
+build/system/installed/TURBO.PAS      TURBO/TURBO.PAS

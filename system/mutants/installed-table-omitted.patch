@@ -3,8 +3,8 @@
 @@ -36,7 +36,6 @@
  build/system/installed/AUTOEXEC.BAT   AUTOEXEC.BAT
  build/system/installed/HELLO.TXT      HELLO.TXT
- build/system/installed/CLIENTS.DBF    APPS/CLIENTS.DBF
--build/system/installed/PARTS.DBF      APPS/PARTS.DBF
- build/system/installed/INVOICE.DBF    APPS/INVOICE.DBF
- build/system/installed/Y2KACCT.PRG    APPS/Y2KACCT.PRG
- build/system/installed/TPS.DBF        APPS/TPS.DBF
+ build/system/installed/CLIENTS.DBF    SAMPLES/CLIENTS.DBF
+-build/system/installed/PARTS.DBF      SAMPLES/PARTS.DBF
+ build/system/installed/INVOICE.DBF    SAMPLES/INVOICE.DBF
+ build/system/installed/Y2KACCT.PRG    SAMPLES/Y2KACCT.PRG
+ build/system/installed/TPS.DBF        SAMPLES/TPS.DBF

@@ -1,10 +1,10 @@
 --- a/working-volume.list
 +++ b/working-volume.list
 @@ -44,6 +44,7 @@
- build/system/installed/HELLO.PAS      APPS/HELLO.PAS
- build/system/installed/TURBOIN.PAS    APPS/TURBOIN.PAS
- build/system/installed/README.TXT     APPS/README.TXT
+ build/system/installed/HELLO.PAS      TURBO/HELLO.PAS
+ build/system/installed/TURBOIN.PAS    TURBO/TURBOIN.PAS
+ build/system/installed/README.TXT     README.TXT
 +build/turbo/smoke/TIMER.COM           APPS/TIMER.COM
  # Turbo owner: make -C turbo; complete single-file Pascal compiler source.
- build/turbo/compiler/TURBO.COM        APPS/TURBO.COM
- build/system/installed/TURBO.PAS      APPS/TURBO.PAS
+ build/turbo/compiler/TURBO.COM        TURBO/TURBO.COM
+ build/system/installed/TURBO.PAS      TURBO/TURBO.PAS
