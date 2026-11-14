@@ -133,15 +133,23 @@ int main(void)
         CHECK(rc == SFT_OK, "DUP(stdout) succeeds");
         CHECK(newh == 5u, "DUP -> lowest free handle 5");
         CHECK(p.jft[5] == p.jft[1], "DUP'd handle aliases the SAME SFT slot as stdout");
-        /* stdout slot now referenced by jft[1], jft[2] (stderr), jft[5] = 3. */
-        CHECK(g_sft[SFT_SLOT_CON_OUT].ref_count == 3u,
-              "DUP bumps the shared SFT slot ref_count to 3");
+        /* Resident entries are pinned even when more JFT aliases are added. */
+        CHECK(g_sft[SFT_SLOT_CON_OUT].ref_count == 2u,
+              "DUP leaves pinned resident CON count unchanged");
 
         /* DUP of a closed handle -> invalid handle, out param untouched. */
         uint8_t before = newh;
         rc = sft_dup(&p, 9, &newh);
         CHECK(rc == SFT_ERR_INVALID_HANDLE, "DUP(closed handle) -> invalid handle");
         CHECK(newh == before, "DUP error leaves out_handle untouched");
+
+        uint8_t file = sft_alloc();
+        g_sft[file].kind = SFT_KIND_FILE;
+        g_sft[file].ref_count = 1;
+        p.jft[6] = file;
+        CHECK(sft_dup(&p, 6, &newh) == SFT_OK, "DUP of process-owned file succeeds");
+        CHECK(g_sft[file].ref_count == 2 && p.jft[newh] == file,
+              "each process-owned file alias acquires one reference");
     }
 
     /* ===================== DUP exhausts the JFT ========================== */
@@ -177,8 +185,8 @@ int main(void)
         uint16_t file_before = g_sft[fslot].ref_count;           /* 1 */
 
         /* DUP2(src=file handle 6, dst=stdout handle 1): redirect stdout to the
-         * file. The old stdout target (CON-out slot) loses a reference; the file
-         * slot gains one; handle 1 now resolves to the FILE entry. */
+         * file. The pinned CON-out entry stays fixed; the file slot gains one
+         * reference; handle 1 now resolves to the FILE entry. */
         uint16_t rc = sft_dup2(&p, 6, 1);
         CHECK(rc == SFT_OK, "DUP2(file -> stdout) succeeds");
         CHECK(p.jft[1] == fslot, "stdout (handle 1) now points at the file SFT slot");
@@ -187,8 +195,8 @@ int main(void)
               "handle 1 resolves to the FILE entry after redirect");
         CHECK(g_sft[fslot].ref_count == (uint16_t)(file_before + 1u),
               "DUP2 bumps the file slot ref_count");
-        CHECK(g_sft[SFT_SLOT_CON_OUT].ref_count == (uint16_t)(out_before - 1u),
-              "DUP2 releases one reference from the old stdout (CON-out) slot");
+        CHECK(g_sft[SFT_SLOT_CON_OUT].ref_count == out_before,
+              "DUP2 leaves pinned resident CON count unchanged");
 
         /* stderr (handle 2) still points at CON-out -> the slot is NOT freed. */
         CHECK(p.jft[2] == SFT_SLOT_CON_OUT, "stderr still on CON-out after stdout redirect");
@@ -273,9 +281,8 @@ int main(void)
         psp_t child;
         memcpy(&child, &parent, sizeof(child));
 
-        /* CON-out is now referenced by stderr (jft[2]) only: the DUP2 above moved
-         * stdout off it (2 -> 1). Capture it to prove sft_inherit leaves resident
-         * device slots UNTOUCHED. */
+        /* CON-out has only stderr in this PSP, but its pinned count is fixed.
+         * Inheritance must also leave that resident entry untouched. */
         uint16_t con_before = g_sft[SFT_SLOT_CON_OUT].ref_count;
 
         sft_inherit(&child);

@@ -1,0 +1,11 @@
+# test: console-inherit
+--- a/sft.c
++++ b/sft.c
+@@ -197,7 +197,6 @@
+         SFT_FAIL_LOUD();
+         return; /* not reached */
+     }
+-    if (idx < SFT_FIRST_FILE) return;
+     if (g_sft[idx].ref_count > 0u) {
+         g_sft[idx].ref_count--;
+     }

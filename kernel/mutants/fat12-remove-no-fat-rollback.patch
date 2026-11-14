@@ -1,0 +1,19 @@
+# test: test-file-conservation
+--- a/fat12.c
++++ b/fat12.c
+@@ -2496,7 +2496,6 @@
+ 	if (rc == FAT12_OK) return FAT12_OK;
+ 
+ 	if (have_chain) {
+-		for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
+ 		restore_fat = fat12_flush_fats(vol, fat, fat_len);
+ 	}
+ 	/* Also restore after an error that reached the medium. A negative write
+@@ -2859,7 +2858,6 @@
+ 		                                 slot, &de, sector_buf);
+ 	if (rc != FAT12_OK) {
+ 		int restore_fat, restore_dir;
+-		for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
+ 		restore_fat = fat12_flush_fats(vol, fat, fat_len);
+ 		restore_dir = fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0u,
+ 		                                        parent, slot, &old, sector_buf);

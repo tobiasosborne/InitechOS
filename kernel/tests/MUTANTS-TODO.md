@@ -4,7 +4,9 @@ All inactive product guards in kernel and DOS were removed. There are no
 remaining deliberately wrong branches in product sources. Patches preserve
 the wrong-code variants from legacy-final. Counts are patches, not guard sites.
 
-268 converted; 229 killed by retained tier-0 gates; 39 pending.
+273 patches total: 241 registered active patches and 32 pending.
+Seven former pending patches are now killed by the retained host tests;
+four new rollback/resident-device faults cover initech-rg6d5 and initech-ktlzw.
 
 The default `make mutants` sweep includes the proved host patches. Nested
 `mutants/pending/` patches are converted but NOT certified: they survived the
@@ -31,23 +33,16 @@ The live-loader exit-code negative control is temporary and was restored.
 | kernel/mutants/pending/fileio-mutate-cwd-noroot.patch | test-b53d |
 | kernel/mutants/pending/fileio-mutate-dir-boot-label.patch | test-zs24 |
 | kernel/mutants/pending/fileio-mutate-dir-free.patch | test-zs24 |
-| kernel/mutants/pending/initechbase-mutate-full-error.patch | test-zs24 |
 | kernel/mutants/pending/int21-mut-indos-exec.patch | test-int21 |
 | kernel/mutants/pending/int21-mut-setvect-trap.patch | test-int21 |
-| kernel/mutants/pending/int21-mutate-break-cleanup.patch | test-int21 |
-| kernel/mutants/pending/int21-mutate-break-recovery.patch | test-int21 |
-| kernel/mutants/pending/int21-mutate-caret-c.patch | test-conin-unit |
 | kernel/mutants/pending/int21-mutate-caret-z.patch | test-conin-unit |
 | kernel/mutants/pending/int21-mutate-cd-root.patch | test-int21 |
 | kernel/mutants/pending/int21-mutate-con-explicit-raw.patch | test-conin-unit |
-| kernel/mutants/pending/int21-mutate-disk-break.patch | test-int21 |
 | kernel/mutants/pending/int21-mutate-exec-rootreject.patch | test-int21 |
 | kernel/mutants/pending/int21-mutate-fcb-ext-noattr.patch | test-int21 |
 | kernel/mutants/pending/int21-mutate-fcb-partial-nozero.patch | test-int21 |
 | kernel/mutants/pending/int21-mutate-fcb-seq-no-advance.patch | test-int21 |
 | kernel/mutants/pending/int21-mutate-mkdir-device.patch | test-int21 |
-| kernel/mutants/pending/int21-mutate-not-ready.patch | test-int21 |
-| kernel/mutants/pending/k36g-mutate-no-redir.patch | test-ansi-wire |
 | kernel/mutants/pending/loader-mut-cwd-reset.patch | test-loader |
 | kernel/mutants/pending/loader-mut-high-low.patch | test-loader |
 | kernel/mutants/pending/loader-mut-high-owner.patch | test-loader |

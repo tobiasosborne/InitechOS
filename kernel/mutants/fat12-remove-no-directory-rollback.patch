@@ -1,0 +1,12 @@
+# test: test-file-conservation
+--- a/fat12.c
++++ b/fat12.c
+@@ -2502,7 +2502,7 @@
+ 	/* Also restore after an error that reached the medium. A negative write
+ 	 * result does not promise that the directory sector was untouched. */
+ 	restore_dir = fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0u,
+-	                                        parent, slot, old, sector_buf);
++	                                        parent, slot, replacement, sector_buf);
+ 	if (restore_fat != FAT12_OK || restore_dir != FAT12_OK) return FAT12_ERR_WRITE;
+ 	return rc;
+ }

@@ -84,8 +84,11 @@ typedef enum sft_dev_id {
 #define SFT_MODE_RDWR   2u
 
 /* One system-wide open-file (or device) registry entry. The JFT maps a process
- * handle (0..19) to an index into g_sft[]. ref_count is the number of JFT slots
- * (across DUP/DUP2) pointing here; when it falls to zero the slot is freed.
+ * handle (0..19) to an index into g_sft[]. For slots >= SFT_FIRST_FILE,
+ * ref_count counts JFT references across processes and DUP/DUP2; at zero the
+ * slot is freed. Resident slots 0..3 are pinned for the system lifetime with
+ * their initial counts fixed; boot and shadow PSPs may install these handles
+ * without acquiring references. All release paths preserve those entries.
  *
  * Ref: fs-mount-sft-ground-truth.md Sec 3.2 (the recommended struct). The FILE
  * fields (dir_entry/file_offset/root_slot) are populated by AH=3Dh OPEN /

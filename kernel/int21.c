@@ -3309,6 +3309,13 @@ static void do_close(int_frame_t *f)
     }
 
     uint8_t  sft_idx   = g_cur_psp->jft[handle];
+    /* A DUP of a resident device may be closed at a nonstandard handle.
+     * Resident SFT entries are pinned, matching sft_inherit/DUP2/teardown. */
+    if (sft_idx < SFT_FIRST_FILE) {
+        g_cur_psp->jft[handle] = JFT_CLOSED;
+        cf_clear(f);
+        return;
+    }
     int      was_file  = (e->kind == SFT_KIND_FILE);
     uint32_t root_slot = e->root_slot;
 

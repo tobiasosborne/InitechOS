@@ -108,3 +108,42 @@ file + BSS. 32-bit addition/rounding is checked for overflow, and allocation
 failure returns LOADER_ERR_NOMEM. Existing EXE validation, e_minalloc format
 and 512 KiB BSS policy remain. include/ now publishes the unchanged hardware,
 loader, framebuffer and input/timer contracts used by the desktop binding.
+
+Failed replacement CREAT and UNLINK preserve the original directory entry,
+allocation map and data after recoverable metadata I/O errors (initech-rg6d5).
+The shared destructive-metadata helper snapshots the FAT, validates the complete
+old chain before mutation, and restores both FAT copies and the directory entry
+on failure, including an error reported after a write reached the medium.
+Rollback failure reports WRITE; persistent hardware failure and power loss are
+not certified recovery cases. No data sector is written by either operation.
+`test-file-conservation` faults every physical metadata write, before and after
+persistence, in root and subdirectory cases with fragmented originals. An
+independent FAT12 reader checks allocation ownership and matching FAT copies;
+mtools extracts the original bytes after reopening; failed images must equal
+the input image byte for byte. Successful delete/truncate controls also run.
+Source: the FAT allocation invariant, CLAUDE.md's The constitution, and the
+metadata layout in the Microsoft FAT specification. These checks establish
+conservation, not historical DOS error-state parity.
+
+Resident SFT entries 0..3 are pinned for the system lifetime. Their initial
+counts remain fixed across inherit, DUP, DUP2, CLOSE and process teardown;
+process-owned file and by-name device entries still count every JFT reference.
+This completes the existing resident-device representation without changing
+boot or shadow PSP construction. `console-inherit` checks parent handles across
+child redirection/exit, with and without a saved console DUP; `review-handles`
+checks repeated resident DUP/CLOSE. Source: IBM DOS 3.30 Technical Reference
+p.4-15 handle ownership and the invariant that a live parent JFT cannot point
+to a freed SFT entry. Pinning describes this kernel, not real DOS internals.
+
+The kernel remains host-green, not imported: main.c and startup.c include the
+private DOS command/entry.h. Publishing that resident interpreter header needs
+the DOS owner, plus corresponding include paths and dependency documentation.
+The import check is unchanged; no local duplicate declarations hide the boundary.
+The runtime resident interpreter exception remains an operator decision.
+
+Seven pending mutations now have confirmed host kills: full-disk error mapping
+(test-zs24), BREAK cleanup/recovery/disk-entry and caret-C (test-dos-break),
+not-ready output (test-dos-not-ready), and character-output redirection
+(test-redir). Those patches are active. The remaining 32 pending patches still
+have no accepted kill. The hide-directory patch was refreshed after metadata
+helper insertion changed its context; its existing selection still survives.

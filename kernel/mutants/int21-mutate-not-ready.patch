@@ -1,5 +1,5 @@
 # INT21_MUTATE_NOT_READY
-# test: test-int21
+# test: test-dos-not-ready
 --- a/int21.c
 +++ b/int21.c
 @@ -5502,16 +5502,7 @@

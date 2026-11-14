@@ -12,4 +12,4 @@
 +    return FAT12_OK;
  }
  
- int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+ /* CREAT replacement / UNLINK share one destructive metadata transaction.

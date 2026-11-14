@@ -1,13 +1,12 @@
-# FAT12_MUTATE_UNLINK_NONREGULAR
 # test: test-dos-safety-create test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro test-dos-safety-identity
 --- a/fat12.c
 +++ b/fat12.c
-@@ -3124,8 +3124,6 @@
+@@ -3187,8 +3187,6 @@
  	 * AH=41h cannot delete read-only files. Directories use RMDIR; a volume
  	 * label is not a file (pp. 5-10/5-11). L006 / initech-1nsj. */
  	if ((match.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
 -	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
 -		return FAT12_ERR_ACCESS;
  
- 	/* Free the cluster chain (if any), flush both FATs. */
- 	if (fat != NULL && match.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
+ 	/* Mark the dir entry deleted (filename[0] = 0xE5). */
+ 	{
