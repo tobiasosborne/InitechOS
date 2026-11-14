@@ -1,0 +1,5 @@
+--- a/dos/common/dosutil.c
++++ b/dos/common/dosutil.c
+@@ -135,1 +135,1 @@
+-            return error(MSG_DOS_0038);
++            return error("Invalid number of parameters");

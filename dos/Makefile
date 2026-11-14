@@ -56,7 +56,10 @@ $(OUT)/common/attrib.o: common/dosutil_target.c $(filter-out %.d,$(MAKEFILE_LIST
 $(OUT)/common/label.o: common/dosutil_target.c $(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
 	@mkdir -p $(@D)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
-$(eval $(call c_program,ATTRIB,common/attrib.o common/dosutil.o,common/dosutil.ld))
+$(OUT)/common/dosutil_attrib.o: common/dosutil.c $(TOP)/build/kernel/dos_messages.h FORCE | $(OUT)
+	@mkdir -p $(@D)
+	$(call run-command,$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -DDOSUTIL_ATTRIB -MMD -MP -c $< -o $@)
+$(eval $(call c_program,ATTRIB,common/attrib.o common/dosutil_attrib.o,common/dosutil.ld))
 $(eval $(call c_program,LABEL,common/label.o common/dosutil.o,common/dosutil.ld))
 smoke:
 	$(MAKE) -C $(TOP) smoke

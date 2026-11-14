@@ -46,6 +46,7 @@ int du_attr(const char *path, int set, uint8_t *attr)
     if (!set) *attr=(uint8_t)cx;
     return cf ? -1 : 0;
 }
+#ifndef DOSUTIL_ATTRIB
 int du_sector(int write, unsigned drive, unsigned lba, uint8_t buf[512])
 {
     unsigned ax=drive,bx=(unsigned)buf,cx=1,dx=lba;
@@ -56,6 +57,7 @@ int du_sector(int write, unsigned drive, unsigned lba, uint8_t buf[512])
         "+a"(ax), "+b"(bx), "+c"(cx), "+d"(dx) : : "memory","cc");
     return cf ? -1 : 0;
 }
+#endif
 void du_puts(const char *s) { call21(0x4000,1,len(s),(unsigned)s); }
 void du_con_puts(const char *s)
 {

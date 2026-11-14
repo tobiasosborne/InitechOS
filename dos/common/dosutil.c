@@ -150,6 +150,7 @@ int attrib_main(const char *tail)
     return opt.failed ? 1 : 0;
 }
 
+#ifndef DOSUTIL_ATTRIB
 static unsigned word(const uint8_t *p) { return p[0]|((unsigned)p[1]<<8); }
 static void bytes(uint8_t *d,const uint8_t *s,unsigned n) { while (n--) *d++=*s++; }
 typedef struct label_disk {
@@ -282,3 +283,4 @@ int label_main(const char *tail)
     if (!n) return error(MSG_DOS_0041);
     return label_commit(&disk,name);
 }
+#endif
