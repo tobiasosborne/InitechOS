@@ -1470,7 +1470,7 @@ int dbf_flush(dbf_table *tbl)
  * refuse later flushes rather than publish stale cache contents. */
 int dbf_reload_records(dbf_table *tbl)
 {
-    uint8_t hdr[DBF_HDR_SIZE];uint32_t count;uint16_t offset;int rc;
+    uint8_t hdr[DBF_HDR_SIZE],*region;uint32_t count;uint16_t offset;int rc;
     if(!tbl || !tbl->writable)return -DBF_ERR_IO;
     tbl->write_failed=1;
     tbl->raw_recno=0;
@@ -1479,11 +1479,21 @@ int dbf_reload_records(dbf_table *tbl)
     rc=read_exact(tbl->pal,tbl->fd,0,hdr,sizeof hdr);
     if(rc)return rc;
     count=rd_u32le(hdr+4);offset=rd_u16le(hdr+8);
-    if(count>tbl->rec_cap || rd_u16le(hdr+10)!=tbl->record_length)return -DBF_ERR_BAD_RECLEN;
+    if(rd_u16le(hdr+10)!=tbl->record_length ||
+       count>0x7fffffffu/tbl->record_length)return -DBF_ERR_BAD_RECLEN;
+    region=tbl->rec_region;
+    /* PACK may have replaced the arena with a smaller survivor set. Recovery
+     * must accommodate the predecessor, including its deleted records. */
+    if(count>tbl->rec_cap){
+        region=pal_owned_alloc(tbl->pal,&tbl->owned,count*tbl->record_length);
+        if(!region)return -DBF_ERR_NOMEM;
+    }
     if(count){
-        rc=read_exact(tbl->pal,tbl->fd,offset,tbl->rec_region,count*tbl->record_length);
+        rc=read_exact(tbl->pal,tbl->fd,offset,region,count*tbl->record_length);
         if(rc)return rc;
     }
+    tbl->rec_region=region;
+    if(count>tbl->rec_cap)tbl->rec_cap=count;
     tbl->nrec=count;tbl->header_length=offset;
     tbl->term_extra=(uint8_t)(offset-DBF_HDR_SIZE-DBF_DESC_STRIDE*tbl->nfields);
     tbl->write_failed=0;

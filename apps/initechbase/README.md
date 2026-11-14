@@ -238,3 +238,10 @@ and clearing 80 columns instead of 79. `tests/prompt-tail` retains a new genuine
 III+ VGA/BIOS cursor capture in which the final Z survives the next dot prompt.
 All four compile and fail the strict runtime check twice. Nine of the original
 28 pending faults are qualified; nineteen remain.
+
+DELETE, RECALL, ZAP and a refused PACK flush discard rejected record edits
+before returning. Recovery restores the predecessor's record count and cursor,
+including PACK's larger pre-compaction arena. If the predecessor cannot be
+read, the codec refuses further flushes until a reload succeeds. The `retry`
+fault matrix checks subsequent unrelated writes against genuine CLIENTS rows;
+its authority is the operator's reported-failure preservation guarantee.

@@ -17,6 +17,7 @@
 #include "ibase/dbt.h"
 #include "ibase/ndx.h"
 #include "ibase/set.h"
+#include "ibase/nav.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t yy,mm,dd; uint32_t heap_size; };
 extern ibase_pal_t *pal_host_make(struct pal_host_cfg);
@@ -565,6 +566,63 @@ static void safety_case(const char *answer,int off,unsigned expected){
     if(answer || off==1)CHECK(strstr(c.out,expected?"\n         3. ":"\n         0. ")!=NULL,"L007 following command remains framed");
 }
 static void safety_tests(void){safety_case("N",0,3);safety_case("N",2,3);safety_case("Y",2,0);safety_case("\033",0,3);safety_case("",0,3);safety_case(NULL,0,3);safety_case("#INPUT_ERROR",0,3);safety_case("Y",0,0);safety_case("y",0,0);safety_case(NULL,1,0);}
+/* initech-rvfta: reviewer base-extra.c, with the operator's preservation
+ * invariant and genuine CLIENTS bytes as the oracle. A refused ZAP followed
+ * by a successful APPEND must have 50 rows, preserving the original 49; the
+ * reviewer's original retry assertion accidentally demanded only 49. */
+static void rejected_command_tests(void){
+    const char *commands[]={"DELETE","RECALL","ZAP","PACK","DELETE ALL","RECALL ALL"};
+    unsigned char before[132000];unsigned failures=0;
+    for(unsigned cmd=0;cmd<sizeof commands/sizeof commands[0];cmd++)
+    for(int kind=0;kind<=6;kind++)for(int boundary=1;boundary<2000;boundary++){
+        ibase_pal_t *p=setup();wa_env *env;size_t size,n;int rc,hit;
+        unsigned rows,width,offset;
+        wa_nav_reset(1);
+        copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CLIENTS.DBF"),"ROW.DBF");
+        c.ip=xb_interp_make(p);env=xb_interp_env(c.ip);
+        set_register(c.ip);mutate_register(c.ip);query_register(c.ip);
+        CHECK(wa_set_open_rw(env,1,"ROW.DBF",NULL,NULL)==0,"rejected command real table");
+        CHECK(ibase_do(c.ip,"SET SAFETY OFF")==0,"rejected command safety");
+        if(cmd==1 || cmd==3 || cmd==5)CHECK(ibase_do(c.ip,"DELETE")==0,"rejected command deleted fixture");
+        size=readbytes("ROW.DBF");memcpy(before,extracted,size);
+        rows=before[4]+256u*before[5];offset=before[8]+256u*before[9];width=before[10]+256u*before[11];
+        c.armed=1;c.failure_op=kind;c.boundary=boundary;c.error=PAL_EIO;
+        rc=ibase_do(c.ip,commands[cmd]);c.armed=0;hit=c.hit;
+        if(rc){
+            failures++;
+            n=readbytes("ROW.DBF");
+            CHECK(n==size && !memcmp(extracted,before,size),"refused command preserves predecessor bytes");
+            CHECK(dbf_nrec(wa_table(env,1))==rows && wa_nrec(env,1)==rows,"refused command restores cached count");
+            CHECK(wa_recno(env,1)==1,"refused command restores cursor");
+            CHECK(ibase_do(c.ip,cmd==2?"APPEND BLANK":"REPLACE LASTNAME WITH LASTNAME")==0,"unrelated retry succeeds");
+            n=readbytes("ROW.DBF");
+            unsigned after_offset=extracted[8]+256u*extracted[9];
+            CHECK(n>=after_offset+rows*width && !memcmp(extracted+after_offset,before+offset,rows*width),"retry never publishes rejected row edits");
+            CHECK(extracted[4]+256u*extracted[5]==rows+(cmd==2),"retry retains every original row");
+        }
+        xb_interp_free(c.ip);pal_host_free(c.inner);
+        if(!hit){CHECK(rc==0,"rejected command no-fault control");break;}
+        CHECK(boundary<1999,"rejected command exhausts fault boundaries");
+    }
+    printf("REJECTED COMMAND recovered failures=%u\n",failures);
+    {
+        ibase_pal_t *p=setup();wa_env *env;size_t size;
+        wa_nav_reset(1);
+        copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CLIENTS.DBF"),"ROW.DBF");
+        size=readbytes("ROW.DBF");memcpy(before,extracted,size);
+        c.ip=xb_interp_make(p);env=xb_interp_env(c.ip);
+        set_register(c.ip);mutate_register(c.ip);query_register(c.ip);
+        CHECK(wa_set_open_rw(env,1,"ROW.DBF",NULL,NULL)==0,"recovery latch real table");
+        c.armed=1;c.failure_op=5;c.boundary=1;c.persistent=1;
+        CHECK(ibase_do(c.ip,"DELETE ALL")!=0 && c.hit,"persistent read failure rejects command and reload");
+        c.armed=0;
+        CHECK(ibase_do(c.ip,"REPLACE LASTNAME WITH LASTNAME")!=0,"failed reload refuses next write");
+        CHECK(readbytes("ROW.DBF")==size && !memcmp(extracted,before,size),"recovery latch preserves predecessor");
+        CHECK(dbf_reload_records(wa_table(env,1))==0,"explicit successful reload clears latch");
+        CHECK(ibase_do(c.ip,"REPLACE LASTNAME WITH LASTNAME")==0,"recovered table accepts retry");
+        xb_interp_free(c.ip);pal_host_free(c.inner);
+    }
+}
 int main(int argc,char **argv){
     const char *mode=argc>1?argv[1]:"append";
     char directory[]="build/dbsafe/host-XXXXXX";
@@ -573,6 +631,6 @@ int main(int argc,char **argv){
     CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
     CHECK(mkdtemp(directory)!=NULL,"private oracle directory");
     if(chdir(directory) || mkdir("build",0700) || mkdir("build/dbsafe",0700)) return 2;
-    if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"ndxfail"))incremental_failure_tests();else if(!strcmp(mode,"rowfail"))indexed_replace_failure_tests();else if(!strcmp(mode,"dbtfail"))memo_failure_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
+    if(!strcmp(mode,"retry"))rejected_command_tests();else if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"ndxfail"))incremental_failure_tests();else if(!strcmp(mode,"rowfail"))indexed_replace_failure_tests();else if(!strcmp(mode,"dbtfail"))memo_failure_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
     return TEST_SUMMARY(mode);
 }

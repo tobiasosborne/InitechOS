@@ -685,6 +685,19 @@ static int m_replace_impl(xb_interp *ip, const char *args, int *ec)
 /* APPEND BLANK                                                            */
 /* ===================================================================== */
 
+/* Reported failure must not leave rejected arena edits for a later command.
+ * Reload failure latches the codec against writes until recovery succeeds.
+ * Policy: operator failed-save ruling; initech-rvfta reviewer reproducer. */
+static void m_reject_records(wa_env *env,int area,uint32_t recno)
+{
+    dbf_table *tbl=wa_table(env,area);
+    if(tbl){
+        (void)dbf_reload_records(tbl);
+        (void)wa_refresh(env,area,recno);
+        (void)wa_nav_reset(area);
+    }
+}
+
 static int m_append(xb_interp *ip, const char *args, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
@@ -890,7 +903,7 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
     dbf_table *tbl = wa_table(env, area);
-    uint32_t new_nrec;
+    uint32_t new_nrec,old_recno=wa_recno(env,area);
     int rc;
 
     if (!tbl) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
@@ -901,7 +914,7 @@ static IBASE_OVL_TEXT(file) int m_pack(xb_interp *ip, int *ec)
         return -INTERP_ERR_EVAL;
     }
     rc = dbf_flush(tbl);
-    if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
+    if (rc != DBF_OK) { m_reject_records(env,area,old_recno); if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
     new_nrec = dbf_nrec(tbl);
 
     /* Refresh the work area's nrec + record cache BEFORE reindexing: the
@@ -980,6 +993,7 @@ static IBASE_OVL_TEXT(file) int m_zap(xb_interp *ip, int *ec)
     wa_env *env = xb_interp_env(ip);
     int area = wa_selected(env);
     dbf_table *tbl = wa_table(env, area);
+    uint32_t old_recno=wa_recno(env,area);
     int rc;
 
     if (!tbl) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
@@ -991,7 +1005,7 @@ static IBASE_OVL_TEXT(file) int m_zap(xb_interp *ip, int *ec)
         return -INTERP_ERR_EVAL;
     }
     rc = dbf_flush(tbl);
-    if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
+    if (rc != DBF_OK) { m_reject_records(env,area,old_recno); if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
     (void)wa_refresh(env, area, 0u);   /* empty -> EOF */
     (void)wa_nav_reset(area);
     if (ec) *ec = 0;
@@ -1435,10 +1449,13 @@ static int m_delete_recall(xb_interp *ip, const char *args, int want_delete, int
 {
     m_clauses mc;
     wa_env *env=xb_interp_env(ip);
+    int area=wa_selected(env);
+    uint32_t recno=wa_recno(env,area);
     int old,rc;
     if(m_split_clauses(args,&mc)) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
     old=wa_include_deleted(env,mc.scope_kind==MS_RECORD || mc.scope_kind==MS_NEXT || (mc.scope_kind==MS_DEFAULT && !mc.has_for && !mc.has_while));
     rc=m_delete_recall_impl(ip,args,want_delete,ec);
+    if(rc)m_reject_records(env,area,recno);
     wa_include_deleted(env,old);
     return rc;
 }
