@@ -29,15 +29,19 @@ The utility entry and register bridges use cdecl; their transfer/return runs
 in the product smoke. FIND's existing implementation consumes redirected stdin;
 its filename operands are still ignored. Smoke uses `FIND "apple" < WORDS.TXT`.
 
-Remaining boundary debt, inherited unchanged from legacy utilities:
+Published application bindings (CLAUDE.md, "Two interfaces"):
 
-- CHKDSK/ATTRIB/LABEL use period INT25/26 for raw volume sectors; CHKDSK also
-  reads the conventional MCB chain directly. They therefore exceed a strict
-  INT21-only program boundary. Keep independent disk/MCB oracles when moving
-  this behind a future documented gate.
-- FORMAT/SYS/DISKCOPY/DISKCOMP and FDISK use the existing INT13 physical-disk
-  and drive-map interface. FDISK uses power.h's 8042 reset after a write.
-  The standard filters, EDLIN, XCOPY/TREE and TPSREP use INT21 only.
+- CHKDSK and LABEL use INT25/26 for mounted-volume sectors and INT21 for
+  console/process services. ATTRIB uses INT21 attribute services; the shared
+  LABEL adapter's raw-sector helpers are not an executed ATTRIB path.
+- FORMAT/SYS/DISKCOPY/DISKCOMP and FDISK use INT13 physical-disk and drive-map
+  services plus INT21 console/process services.
+- The filters, EDLIN, XCOPY/TREE and TPSREP use INT21; entry fallbacks may use
+  the standard INT20 exit. Disk programs link their own utility cores only.
+- Named migrations under initech-q9p80: CHKDSK still links kernel/mcb.c and
+  walks its arena until the kernel's INT21 summary lands; FDISK still uses
+  power.h's reset/halt until the kernel's INT21 restart request lands. These
+  are outstanding fixes, not exceptions to CLAUDE.md.
 - Utilities use the fixed conventional PSP/program layout, not a relocatable
   process ABI. The product keeps the old format/loader limits.
 - Mutation variants are patch files, graded by host tests or product sessions.
