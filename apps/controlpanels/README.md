@@ -31,3 +31,7 @@ make test checks its include paths and all own-object header dependencies,
 including host tests. The real Dialog Manager press/release assertions remain
 unchanged and link the public hosted library. No target adds a FLAIR dependency.
 Remaining legacy panel pixel/bar-composition smokes belong to factory.
+
+Initial windows meet the single menu bar (operator ruling, CLAUDE.md
+"Hazards that are still true"). Host routing checks their structure top
+against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.

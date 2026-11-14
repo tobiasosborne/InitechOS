@@ -1,0 +1,11 @@
+--- a/itext.c
++++ b/itext.c
+@@ -52,7 +52,7 @@
+ 
+ /* ---- geometry (GLOBAL frame; content-local everything else) ------------- */
+ #define WIN_L   4
+-#define WIN_T  20
++#define WIN_T  40
+ #define WIN_R 588
+ #define WIN_B 452
+ /* the content rect of a document window: frame inset (6, 22, 21, 21) --

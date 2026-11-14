@@ -52,9 +52,9 @@ const char tbx_app_name[] = "TEXT";
 
 /* ---- geometry (GLOBAL frame; content-local everything else) ------------- */
 #define WIN_L   4
-#define WIN_T  44
+#define WIN_T  20
 #define WIN_R 588
-#define WIN_B 476
+#define WIN_B 452
 /* the content rect of a document window: frame inset (6, 22, 21, 21) --
  * os/flair/window.c CalcDocContentRect (the left body rail since tdnl.51,
  * the title bar, the two scroll-bar gutters); measured on the screendump of

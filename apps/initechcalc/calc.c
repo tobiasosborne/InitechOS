@@ -146,9 +146,9 @@ int tbx_app_main(void)
     }
     if(i123_set_number(&g_sheet,1,4,(double)CALC_NEGATIVE_SPECIMEN)!=I123_OK) return 1;
     if(tbx_set_mbar(&mbar)<0) return 1;
-    ledger=tbx_new_window(10,65,390,360,TBX_GOAWAY_ASK);
+    ledger=tbx_new_window(10,20,390,315,TBX_GOAWAY_ASK);
     if(ledger<0||tbx_set_wtitle(ledger,"InitechCalc")<0) { tbx_exit(1); return 1; }
-    chart=tbx_new_window(400,100,635,360,TBX_GOAWAY_ASK);
+    chart=tbx_new_window(400,20,635,280,TBX_GOAWAY_ASK);
     if(chart<0||tbx_set_wtitle(chart,"Pie Chart")<0) { tbx_exit(1); return 1; }
     return 0;
 }

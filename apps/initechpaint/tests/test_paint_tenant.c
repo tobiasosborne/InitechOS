@@ -10,6 +10,7 @@
 #include <string.h>
 #include "../paint.c"
 #include "tbx_host.h"
+#include "chrome_metrics.h"
 #include "calc_ledger.h"
 
 static unsigned checks, failures;
@@ -25,6 +26,7 @@ int main(void)
     tbx_host_reset();
     char joined[128] = "";
     CHECK(tbx_app_main() == 0, "Paint launches");
+    CHECK(tbx_host.windows[0].t==FLAIR_CHROME_MENUBAR_H,"initial frame meets menu bar");
     CHECK(m_windows == 1 && !strcmp(m_title, "Untitled-1"), "one blank document window");
     CHECK(bar != NULL && bar->n_menus == 8 && bar->has_apple == 0,
           "BAR_SHAPE eight menus, no Apple slot (the frame's bar has none)");

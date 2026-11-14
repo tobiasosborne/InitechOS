@@ -82,8 +82,8 @@ int tbx_app_main(void)
     if (tbx_register() != TBX_OK) return 1;
     (void)tbx_set_mbar(&mbar);
     calc_init(&g_calc);
-    g_win = tbx_new_window(CALC_WIN_L, CALC_WIN_T, CALC_WIN_L + CALC_WIN_W,
-                           CALC_WIN_T + CALC_WIN_H,
+    g_win = tbx_new_window(CALC_WIN_L, 20, CALC_WIN_L + CALC_WIN_W,
+                           20 + CALC_WIN_H,
                            (int32_t)(TBX_GOAWAY_CLOSE | TBX_WDEF_RDOC));
     if (g_win <= 0) return 1;
     (void)tbx_set_wtitle(g_win, "Calculator");

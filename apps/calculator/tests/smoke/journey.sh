@@ -13,9 +13,9 @@ journey() {
  inject 'kc,k2'
  # '+' by its captured button center; Return is the captured '=' mapping.
  # These input routes are supported by both factory transports.
- move_by 256 166
+ move_by 256 92
  inject 'l1,l0,k3'
- move_by -256 -188
+ move_by -256 -114
  inject 'l1,m0:38,l0,k4,kret'
  # Exit through File Close, then verify Copy through another real app.
  inject kctrl-w
@@ -28,11 +28,11 @@ journey() {
  inject m22:20
  launch_app NOTEPAD.EXE
  # Save the copied readout on page 2, leaving page 1 for Note Pad's journey.
- move_by "$((455-112-app_dx))" "$((329-102-app_dy))"
+ move_by "$((455-112-app_dx))" "$((269-102-app_dy))"
  inject 'l1,l0,kctrl-v'
  move_by -285 0
  inject 'l1,l0'
- move_by "$((112+app_dx-170))" "$((102+app_dy-329))"
+ move_by "$((112+app_dx-170))" "$((102+app_dy-269))"
  restore_pointer
  inject kctrl-q
  await_marker 'TENANT-EXIT rc=0 via=exit'

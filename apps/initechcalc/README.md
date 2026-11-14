@@ -57,3 +57,9 @@ make smoke runs QEMU and Bochs, enters 73, saves, and checks every saved byte
 with mtools/cmp, untouched original ledger, deleted stage and fsck.fat.
 Screendump: build/smoke-desktop/calc.ppm.
 Remaining legacy scene/pixel and FILE COPY failure gates belong to factory.
+
+Initial windows meet the single menu bar (operator ruling, CLAUDE.md
+"Hazards that are still true"). Host routing checks their structure top
+against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.
+
+Host geometry tests also depend on flair/include/chrome_metrics.h.
