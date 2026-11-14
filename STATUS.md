@@ -3,6 +3,31 @@
 Rewritten 2026-11-14 after landing the reviewed InitechDOS fixes, data-loss
 captures and Turbo Initech compiler repairs on main. Setup: `docs/SETUP.md`.
 
+## Phase 2 landings (in progress; a full rewrite follows at phase end)
+
+Landed after independent review, top `make test` green at default limits
+(19/19, 81 s): InitechCalc stages exclusively and closes failed writes
+(initech-1tuwf); Initech 123 protection follows the Lotus captures for
+Name Labels/Name Table and the audited write paths (initech-uyi1);
+InitechText reads a whole file, and confirms EOF, before opening it
+(initech-gxb4z). Tracker triage applied: one label convention
+(`component:<dir>`, `gm:<n>`, `sev:*`), priorities by the golden master.
+
+Rulings now in force (provisional ones to be confirmed by the operator):
+the graphical FILE COPY never destroys its destination on failure or
+cancel; desktop saves keep the previous file openable under its own name
+after any reported failure (not crash atomicity); 123 protection follows
+the Lotus captures; PROVISIONAL: InitechDOS COPY follows DOS 3.30 as
+captured, including removing the target after disk full; InitechBase
+`@...SAY/GET` and `READ` are in this master; refused visible commands are
+implemented when small or removed (reviewed split: 26 implement, 325
+remove); the Apple glyph is replaced by Initech's three-block mark
+(PROVISIONAL choice); one product image; Turbo keeps 32-bit Integer.
+Operator ruling (2026-11-14): in the frame, InitechCalc's own menus are
+in the bar during the "Saving tables to disk" copy, InitechPaint is shown
+separately in front with its Photoshop menus, and two disk apps are never
+resident at once (that stays on Release 2).
+
 ## Where we are
 
 The three wave-2 branches are merged: InitechWord, small apps, factory.
@@ -151,8 +176,10 @@ Dead commands in the frozen app inventories also need implement/remove decisions
 
 ## Notes for this week
 
-- Shared places (`mk/`, `sdk/`, `factory/`, top Makefile) owner:
-  the orchestrator of the next phase, once the operator sets it; until then nobody edits them.
+- Shared places owner: the phase-2 orchestrator, who delegates them one
+  holder at a time: `factory/`, `mk/` and the top Makefile to the gate-repair
+  task; `sdk/` to the fake/gate parity task, except `sdk/include/tbx_save.h`,
+  held by the Toolbox save-safety task.
 - Remaining Word/small-app attic journeys and pixel harnesses belong to
   their component/factory importers; publication inventories and manuals
   to the publication importer; composed chrome and menu/panel coverage
