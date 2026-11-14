@@ -58,7 +58,7 @@ int main(int argc, char **argv)
                 char path[1024];
                 fat12_volume_t vol;
                 dir_entry_t entry;
-                uint32_t slot, bytes;
+                uint32_t slot, bytes, wrote = 0;
                 uint16_t parent = 0;
                 int rc;
                 snprintf(path, sizeof path, "%s/%s-%s-%u-%d.img", argv[2],
@@ -80,8 +80,23 @@ int main(int argc, char **argv)
                 if (!strcmp(argv[3], "create"))
                     rc = fat12_create(&vol, fat, bytes, "OLD.BIN", 0x20, parent,
                                       sector, cluster, &entry, &slot);
-                else
+                else if (!strcmp(argv[3], "unlink"))
                     rc = fat12_unlink(&vol, fat, bytes, "OLD.BIN", parent, sector);
+                else if (!strcmp(argv[3], "mkdir"))
+                    rc = fat12_mkdir(&vol, fat, bytes, "NEWDIR", parent, sector, cluster);
+                else if (!strcmp(argv[3], "rmdir"))
+                    rc = fat12_rmdir(&vol, fat, bytes, "EMPTY", parent, sector);
+                else {
+                    unsigned char payload[1024];
+                    memset(payload, 'X', sizeof payload);
+                    int append = !strcmp(argv[3], "append");
+                    require(fat12_find_slot_in(&vol, fat, bytes, parent, sector,
+                            append ? "OLD.BIN" : "ZERO.BIN", &entry, &slot) == FAT12_OK,
+                            "find extension target");
+                    rc = fat12_write_partial(&vol, fat, bytes, parent, slot,
+                            entry.file_size, payload, sizeof payload,
+                            sector, cluster, &wrote);
+                }
                 if (!nth) {
                     require(rc == FAT12_OK, "successful control");
                     total = calls;
