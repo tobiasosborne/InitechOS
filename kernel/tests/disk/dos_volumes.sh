@@ -20,6 +20,7 @@ mcopy -i "$w/c.img@@32256" "$w/system.txt" ::SYS/TWO.TXT
 mtype -i "$w/a.img" ::USER/SAME.TXT > "$w/a.ref"
 mtype -i "$w/c.img@@32256" ::SYS/SAME.TXT > "$w/c.ref"
 if [ "$mode" = host ]; then
+    mlabel -i "$w/a.img" ::REVIEW
     "${DOS_VOLUMES_HOST:-build/dos_volumes_host}" "$w/a.img" "$w/c.img" "$w/a.ref" "$w/c.ref"
     mtype -i "$w/a.img" ::COPY.TXT > "$w/copy"
     cmp "$w/copy" "$w/c.ref" || red 'COPY vs mcopy'

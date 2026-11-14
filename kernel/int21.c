@@ -66,8 +66,25 @@ static int21_coninpoll_fn g_conin_poll = 0;
 static int g_printer_echo;
 static unsigned g_input_echo;
 static int g_conin_pushback = -1;
+/* Encyclopedia AH=07h/08h: a zero prefix and its scan form one key.
+ * Lookahead rolls back the delivery state until that byte is consumed. */
+static int g_conin_scan_pending, g_conin_last_scan;
+static void conin_unget(int c)
+{
+    g_conin_pushback = c;
+    if (c >= 0) g_conin_scan_pending = g_conin_last_scan;
+}
+static int conin_consumed(int c)
+{
+    if (c >= 0) {
+        g_conin_last_scan = g_conin_scan_pending;
+        g_conin_scan_pending = !g_conin_last_scan && c == 0;
+    }
+    return c;
+}
 static int conin_poll_pb(void);
 static int conin_get_pb(void);
+static int con_handle_ready(void);
 static int con_control(int c);
 
 /* Debug seam only: spec/hardware.json contracts no parallel printer port.
@@ -660,6 +677,7 @@ void int21_set_conin(int21_conin_fn get, int21_coninpoll_fn poll)
 void int21_conin_handoff(void)
 {
     g_conin_pushback = -1;
+    g_conin_scan_pending = g_conin_last_scan = 0;
 }
 void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
 {
@@ -898,7 +916,7 @@ static void con_putc(char c)
         int key = conin_poll_pb();
         while (key >= 0 && con_control(key)) key = conin_poll_pb();
         if (key >= 0) {
-            g_conin_pushback = key; /* lookahead shared with AH=0Bh */
+            conin_unget(key); /* lookahead shared with AH=0Bh */
         }
     }
     if (g_printer_echo && g_devio_bound && g_devio.prn_write) {
@@ -1110,8 +1128,8 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
         /* AH=3Dh AL=2 (RDWR) must permit writing, not only AL=1 (WRITE) per the
          * DOS 3.3 PRM (bcg.1). A read-only (AL=0) handle or a missing write
          * backend -> access denied (the repository contract). */
-        int writable = (e->open_mode == SFT_MODE_WRITE ||
-                        e->open_mode == SFT_MODE_RDWR);
+        unsigned access = e->open_mode & 3u;
+        int writable = (access == SFT_MODE_WRITE || access == SFT_MODE_RDWR);
         if (!writable || g_file == 0 || g_file->write_at == 0) {
             return INT21_ERR_ACCESS_DENIED;
         }
@@ -1258,9 +1276,9 @@ static int conin_get_pb(void)
     if (g_conin_pushback >= 0) {
         int c = g_conin_pushback;
         g_conin_pushback = -1;
-        return c & 0xFF;
+        return conin_consumed(c & 0xFF);
     }
-    return conin_get();
+    return conin_consumed(conin_get());
 }
 
 /* Non-blocking poll honoring the 0Bh pushback (06h-input / 0Bh / 0Ch drain). */
@@ -1269,15 +1287,16 @@ static int conin_poll_pb(void)
     if (g_conin_pushback >= 0) {
         int c = g_conin_pushback;
         g_conin_pushback = -1;
-        return c & 0xFF;
+        return conin_consumed(c & 0xFF);
     }
-    return conin_poll();
+    return conin_consumed(conin_poll());
 }
 
 /* MS-DOS 3.3 pp.158-159: display flow control and printer echo. This runs in
  * task context, never IRQ1. Raw AH=06h/07h retain their raw-byte contract. */
 static int con_control(int c)
 {
+    if (g_conin_last_scan) return 0;
     if (c == 0x10 || c == 0x0e) {
         g_printer_echo = c == 0x10 ? !g_printer_echo : 0;
         conkeys_trace(g_printer_echo ? "CONKEYS-PRN-ON\n" : "CONKEYS-PRN-OFF\n");
@@ -1321,7 +1340,7 @@ static int conin_check_ctrlc(int c, int_frame_t *f)
      * suppress the CON detection -- it is consulted, not a gate, on this path. */
     uint8_t brk = int21_get_break_flag();
     (void)brk;
-    if ((c & 0xFF) == 0x03) {            /* ^C (Ctrl-C) */
+    if (!g_conin_last_scan && (c & 0xFF) == 0x03) { /* ^C, not a scan */
         int23_dispatch(f);              /* the DOS Ctrl-Break abort (DEC-10) */
         return 1;
     }
@@ -1336,10 +1355,10 @@ void int21_batch_checkpoint(void)
     if (!g_break_recovery || g_break_recovery->owner != (struct psp *)g_cur_psp ||
         g_break_recovery->interrupted) return;
     int c = conin_poll_pb();
-    if (c == 3) {
+    if (c == 3 && !g_conin_last_scan) {
         int_frame_t f = {0};
         (void)conin_check_ctrlc(c, &f);
-    } else g_conin_pushback = c;
+    } else conin_unget(c);
 }
 
 /* AH=01h CHARACTER INPUT WITH ECHO: block for one char, echo it to CON, AL=char.
@@ -1431,9 +1450,9 @@ static void do_input_status(int_frame_t *f)
     if (g_conin_pushback >= 0) {
         avail = 1;                 /* already have one queued */
     } else {
-        int c = conin_poll();
+        int c = conin_poll_pb();
         if (c >= 0) {
-            g_conin_pushback = c & 0xFF;  /* park it -- do NOT consume */
+            conin_unget(c & 0xFF);  /* park it -- do NOT consume */
             avail = 1;
         } else {
             avail = 0;
@@ -1558,14 +1577,7 @@ static void do_buffered_input(int_frame_t *f)
 void int21_conin_discard_through(int c)
 {
     int k;
-    if (g_conin_pushback >= 0) {
-        k = g_conin_pushback;
-        g_conin_pushback = -1;
-        if (k == c) {
-            return;
-        }
-    }
-    while ((k = conin_poll()) >= 0) {
+    while ((k = conin_poll_pb()) >= 0) {
         if (k == c) {
             return;
         }
@@ -1584,6 +1596,7 @@ static void do_flush_then_input(int_frame_t *f)
     while (conin_poll() >= 0) {
         /* discard */
     }
+    g_conin_scan_pending = g_conin_last_scan = 0;
 
     uint8_t sub = frame_al(f);
     /* Re-dispatch by replacing AH with the chained function and clearing AL's
@@ -1728,6 +1741,9 @@ static void do_write(int_frame_t *f)
  * Programmer's Reference Manual AH=45h; fs-mount-sft-ground-truth.md Sec 3.4. */
 static void do_dup(int_frame_t *f)
 {
+    if (f->ebx > 0xFFu) {
+        set_ax(f, INT21_ERR_INVALID_HANDLE); cf_set(f); return;
+    }
     uint8_t src = (uint8_t)(f->ebx & 0xFFu);
     uint8_t newh = 0;
     uint16_t rc = sft_dup(g_cur_psp, src, &newh);
@@ -1736,7 +1752,7 @@ static void do_dup(int_frame_t *f)
         cf_set(f);
         return;
     }
-    f->eax = (f->eax & 0xFFFFFF00u) | (uint32_t)newh; /* EAX (AL) = new handle */
+    set_ax(f, newh);                 /* PRM AH=45h: AX is the new handle. */
     cf_clear(f);
 }
 
@@ -1746,6 +1762,9 @@ static void do_dup(int_frame_t *f)
  * Reference Manual AH=46h; fs-mount-sft-ground-truth.md Sec 3.4. */
 static void do_dup2(int_frame_t *f)
 {
+    if (f->ebx > 0xFFu || f->ecx > 0xFFu) {
+        set_ax(f, INT21_ERR_INVALID_HANDLE); cf_set(f); return;
+    }
     uint8_t src = (uint8_t)(f->ebx & 0xFFu);
     uint8_t dst = (uint8_t)(f->ecx & 0xFFu);
     uint16_t rc = sft_dup2(g_cur_psp, src, dst);
@@ -1788,12 +1807,9 @@ static void do_ioctl(int_frame_t *f)
 {
     uint8_t al = frame_al(f);
 
-    /* --- AL=00h Get Device Information (beads initech-ro6c) ------------------
-     * A CHARACTER device (kind==SFT_KIND_DEVICE) -> DX = INT21_DEVINFO_CON
-     * (0x80D3, the PRM CON word; our only modeled char device is CON; bit15
-     * ISDEV set). A disk FILE (kind==SFT_KIND_FILE) -> DX = INT21_DEVINFO_FILE:
-     * bit15 clear, bits 0-5 = drive number (0 == A:), bit6 = 1 (PRM "not
-     * written" default; no per-handle dirty bit in sft_entry_t yet). */
+    /* AL=00h: device identity follows the resolved header; files report their
+     * SFT drive. Reserved/high legacy bits are retained pending initech-eb0n1;
+     * tests compare the defined identity mask from Encyclopedia 4400h. */
     if (al == 0x00u) {
         sft_entry_t *e = ioctl_sft_from_ebx(f);
         if (e == 0) {
@@ -1802,13 +1818,15 @@ static void do_ioctl(int_frame_t *f)
             return;
         }
 
-        /* Character device (our only one is CON) vs disk file: the bit15
-         * (ISDEV) fork. DX carries the locked device-info word for the kind. */
-        uint16_t con_word = (uint16_t)INT21_DEVINFO_CON;
         if (e->kind == SFT_KIND_DEVICE) {
-            set_dx(f, con_word);
+            uint16_t identity = e->device
+                ? ((device_header_t *)e->device)->attribute & 0x0fu
+                : e->dev_id == SFT_DEV_CON ? 3u : 0u;
+            uint16_t word = identity == 3u ? INT21_DEVINFO_CON
+                : (uint16_t)((INT21_DEVINFO_CON & ~0x1fu) | identity);
+            set_dx(f, word);
         } else {
-            set_dx(f, (uint16_t)INT21_DEVINFO_FILE);
+            set_dx(f, (uint16_t)(INT21_DEVINFO_FILE | e->drive));
         }
         cf_clear(f);
         return;
@@ -1849,9 +1867,8 @@ static void do_ioctl(int_frame_t *f)
     /* --- AL=06h Get Input Status (RBIL/HelpPC INT 21,44,6) ------------------
      * Inputs: BX=handle. Output AL: char device -> 0xFF ready / 0x00 not-ready;
      * FILE -> 0xFF if NOT at EOF / 0x00 if at EOF (read position >= size).
-     * Our CON is the live keyboard -> ALWAYS ready (0xFF). For a FILE we have the
-     * exact per-handle position (file_offset) and size (dir_entry.file_size), so
-     * we report the faithful EOF answer. */
+     * CON includes staged line bytes and nonconsuming keyboard lookahead;
+     * other devices use their input-status request. Files use offset/size. */
     if (al == 0x06u) {
         sft_entry_t *e = ioctl_sft_from_ebx(f);
         if (e == 0) {
@@ -1861,7 +1878,20 @@ static void do_ioctl(int_frame_t *f)
         }
         uint8_t status;
         if (e->kind == SFT_KIND_DEVICE) {
-            status = 0xFFu;                 /* CON keyboard: always ready */
+            device_header_t *dev = (device_header_t *)e->device;
+            if (dev ? (dev->attribute & DEV_ATTR_STDIN) : e->dev_id == SFT_DEV_CON) {
+                int c = conin_poll_pb();
+                status = c >= 0 || con_handle_ready() ? 0xffu : 0u;
+                conin_unget(c);
+            } else if (dev) {
+                device_request_t pkt = {0};
+                pkt.command = DEVCMD_INSTATUS;
+                devices_request(dev, &pkt, g_devio_bound ? &g_devio : 0);
+                if (pkt.status & DEVST_ERROR) {
+                    set_ax(f, INT21_ERR_ACCESS_DENIED); cf_set(f); return;
+                }
+                status = (pkt.status & DEVST_BUSY) ? 0u : 0xffu;
+            } else status = 0u; /* no input service bound to AUX/PRN */
         } else {
             /* RBIL: AL=0x00 if EOF (files); 0xFF if not at EOF. */
             status = (e->file_offset >= e->dir_entry.file_size) ? 0x00u : 0xFFu;
@@ -2367,6 +2397,12 @@ static void do_open(int_frame_t *f)
     const char *path = (const char *)(uintptr_t)f->edx;
     uint8_t mode = frame_al(f);
 
+    /* DOS 3.3 PRM AH=3Dh: access 0..2, bit 3 reserved, sharing 0..4.
+     * Retain inheritance/sharing fields separately from access checks. */
+    if ((mode & 7u) > 2u || (mode & 8u) || (mode & 0x70u) > 0x40u) {
+        set_ax(f, 12u); cf_set(f); return;
+    }
+
     if (path == 0 || *path == '\0') {
         set_ax(f, INT21_ERR_FILE_NOT_FOUND);
         cf_set(f);
@@ -2457,7 +2493,8 @@ static void do_open(int_frame_t *f)
 
     /* IBM 80X0945_DOS_3.30_Technical_Reference_Apr87.pdf p. 5-11:
      * a read-only file cannot be opened for output. L005 / initech-1vcl. */
-    if ((mode & 3u) != 0u && (de.attribute & DIR_ATTR_READONLY) != 0u) {
+    if ((de.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u ||
+        ((mode & 3u) != 0u && (de.attribute & DIR_ATTR_READONLY) != 0u)) {
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         int21_note_error(INT21_ERR_ACCESS_DENIED);
         cf_set(f);
@@ -2551,7 +2588,7 @@ static void do_creat(int_frame_t *f)
 
     sft_entry_t *e = &g_sft[sft_idx];
     e->kind        = SFT_KIND_FILE;
-    e->open_mode   = SFT_MODE_WRITE;   /* a write handle (positioned writes) */
+    e->open_mode   = SFT_MODE_RDWR;    /* DOS 3.3 PRM AH=3Ch: read/write. */
     e->dev_id      = 0;
     e->ref_count   = 1u;
     e->dir_entry   = de;
@@ -2680,7 +2717,7 @@ static void do_creatnew(int_frame_t *f)
 
     sft_entry_t *e = &g_sft[sft_idx];
     e->kind        = SFT_KIND_FILE;
-    e->open_mode   = SFT_MODE_WRITE;   /* a write handle (positioned writes) */
+    e->open_mode   = SFT_MODE_RDWR;    /* DOS 3.3 PRM AH=5Bh: read/write. */
     e->dev_id      = 0;
     e->ref_count   = 1u;
     e->dir_entry   = de;
@@ -3006,6 +3043,14 @@ static void do_rmdir(int_frame_t *f)
         return;
     }
 
+    /* PRM AH=3Ah: both guards and removal refer to the pathname's drive
+     * and its saved CWD, without changing the DOS default drive. */
+    const char *requested_path = path;
+    uint16_t drive_error = int21_select_path(&path);
+    if (drive_error) {
+        set_ax(f, drive_error); cf_set(f); return;
+    }
+
     if (g_file == 0 || g_file->rmdir == 0) {
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         cf_set(f);
@@ -3044,7 +3089,7 @@ static void do_rmdir(int_frame_t *f)
     /* Resolve the CONTAINING directory + bare leaf for the backend remove. */
     const char *leaf      = path;
     uint16_t    dir_start = 0u;
-    uint16_t    perr = resolve_dir_path(path, &leaf, &dir_start);
+    uint16_t    perr = resolve_dir_path(requested_path, &leaf, &dir_start);
     if (perr != 0u) {
         set_ax(f, perr);                 /* 0x0003 PATH_NOT_FOUND */
         cf_set(f);
@@ -3080,6 +3125,7 @@ static void do_rmdir(int_frame_t *f)
 static unsigned g_con_template_len;
 static uint8_t g_con_line[INT21_CON_LINE_MAX + 2u];
 static uint16_t g_con_line_pos, g_con_line_len;
+static int con_handle_ready(void) { return g_con_line_pos < g_con_line_len; }
 
 static void con_handle_read(int_frame_t *f, sft_entry_t *e, uint8_t *buf,
                             uint32_t count)
@@ -3191,6 +3237,17 @@ static void do_read(int_frame_t *f)
         f->eax = 0u;
         cf_clear(f);
         return;
+    }
+
+    /* MS-DOS Encyclopedia AH=3Fh: a write-only file denies READ. */
+    if ((e->open_mode & 3u) == SFT_MODE_WRITE) {
+        set_ax(f, INT21_ERR_ACCESS_DENIED); cf_set(f); return;
+    }
+    if (count == 0u) {
+        f->eax = 0u; cf_clear(f); return;
+    }
+    if (g_file == 0 || g_file->read_at == 0) {
+        set_ax(f, INT21_ERR_ACCESS_DENIED); cf_set(f); return;
     }
 
     /* Validate the destination buffer before the backend writes into it
@@ -3603,10 +3660,13 @@ static uint16_t find_scan(int_frame_t *f)
         }
         g_find.next_index++;
 
-        /* Attribute filter: skip vollabel/dir entries unless requested. */
-        uint8_t special = (uint8_t)(de.attribute &
-                                    (DIR_ATTR_VOLLABEL | DIR_ATTR_DIRECTORY));
-        if (special != 0 && (special & g_find.search_attr) == 0) {
+        /* Genuine DOS 3.30: tests/fixtures/search33 matrix. Mask 08h after
+         * ignoring read-only/archive bits searches only labels; mixed
+         * H/S/directory masks admit ordinary entries too.
+         * Every H/S/directory/label bit on the entry must be requested. */
+        uint8_t special = (uint8_t)(de.attribute & 0x1eu);
+        if ((special & (uint8_t)~g_find.search_attr) != 0u ||
+            ((g_find.search_attr & 0x1eu) == 8u && !(special & DIR_ATTR_VOLLABEL))) {
             continue;
         }
 
@@ -4018,7 +4078,7 @@ static int do_fcb(int_frame_t *f, uint8_t ah)
                 d[6] = attr;
                 d += 7;
             }
-            d[0] = 1u;                                  /* drive used: A: */
+            d[0] = (uint8_t)(g_io_drive + 1u); /* PRM AH=11h: drive searched */
             for (int i = 0; i < 32; i++) d[1 + i] = ((const uint8_t *)&de)[i];
             al = 0u;
         }
@@ -5156,11 +5216,11 @@ static void int21_dispatch_body(int_frame_t *frame)
              && g_break_recovery->interrupted)
         ) {
         int c = conin_poll_pb();
-        if (c == 3) {
+        if (c == 3 && !g_conin_last_scan) {
             int23_dispatch(frame);
             return; /* a returning recovery hook must not run the service */
         }
-        g_conin_pushback = c;
+        conin_unget(c);
     }
 
     switch (ah) {

@@ -48,8 +48,13 @@ printf '>>> test-qekc [SET]: \\SUB\\TSTAMP.TXT on-disk mtime/mdate == 0x4A6B/0x2
 printf '>>> test-qekc [SET]: TSTAMP.TXT body reads back byte-exact (the time-set flush left data untouched)\n'
 # (3) PERSISTENCE: a subsequent WRITE must PRESERVE the FILETIME-set stamp
 # (fat12_write_partial patches only size/start_cluster, NOT mtime/mdate).
-build/test_fileio_subdir "build/fat12_qekc_scratch.img" "kernel/tests/fixtures" --write filetime-persist >/dev/null 2>&1 || true
+build/test_fileio_subdir "build/fat12_qekc_scratch.img" "kernel/tests/fixtures" --write filetime-persist
 test "$("${PYTHON_FAT_REFERENCE:-python3}" kernel/tests/disk/fat12_ref.py build/fat12_qekc_scratch.img --stat-path-time 'SUB\TSTAMP.TXT')" = "19051 11405" \
 	|| { printf '!!! test-qekc FAIL [PERSIST]: a later WRITE clobbered the FILETIME-set stamp (fat12_write_partial did not preserve mtime/mdate)\n'; exit 1; }
 printf '>>> test-qekc [PERSIST]: a later WRITE preserved the FILETIME-set stamp (write_partial leaves 0x16/0x18 alone)\n'
+# mtools independently decodes the modified file; require the literal 16-Z
+# prefix and all 48 original suffix bytes, not only an unchanged timestamp.
+mcopy -o -i build/fat12_qekc_scratch.img ::SUB/TSTAMP.TXT build/qekc_persist.bin
+printf 'ZZZZZZZZZZZZZZZZqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl' > build/qekc_expected.bin
+cmp build/qekc_expected.bin build/qekc_persist.bin
 printf ">>> test-qekc: green\n"

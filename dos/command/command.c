@@ -4253,8 +4253,8 @@ static int batch_find_label(const char *buf, int len, const char *target)
 }
 
 /* Read the whole .BAT at `path` into `buf` (capacity BATCH_FILE_MAX), returning
- * the byte count, or -1 if the file cannot be opened.  A file larger than the
- * bound is truncated (fail-safe: we interpret what we read, never overrun).
+ * the byte count, or -1 on failure. GOLDEN-MASTER item 2 / initech-r7gf:
+ * refuse an oversized script visibly before interpreting any of its prefix.
  * run_batch calls this once on entry AND again after every CALL -- the nested
  * CALL shares g_batch_buf, so the parent must reload its own contents before
  * resuming (its pos/len survive on the stack; only the shared bytes were lost). */
@@ -4268,7 +4268,12 @@ static int batch_load_file(const char *path, char *buf)
     for (;;) {
         uint32_t got;
         if (total >= (uint32_t)BATCH_FILE_MAX) {
-            break;   /* truncate at the bound (fail safe) */
+            uint8_t extra;
+            got = dos_read(fh, &extra, 1u);
+            dos_close(fh);
+            if (got == 0u) return (int)total; /* exact capacity, proved EOF */
+            if (got != DOS_READ_ERROR) dos_print(MSG_DOS_0037 "\r\n$");
+            return -1;
         }
         got = dos_read(fh, (uint8_t *)(buf + total),
                        (uint32_t)BATCH_FILE_MAX - total);

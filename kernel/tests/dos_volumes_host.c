@@ -29,7 +29,13 @@ static int_frame_t call(unsigned ax, unsigned bx, unsigned cx, uintptr_t dx)
 static unsigned ok(unsigned ax,unsigned bx,unsigned cx,uintptr_t dx,const char *rule)
 { int_frame_t f=call(ax,bx,cx,dx); if(f.eflags&1) fprintf(stderr,"INT21 %04X error=%u path=%s\n",ax,f.eax&65535,path); need(!(f.eflags&1),rule); return f.eax; }
 static unsigned open_path(const char *s)
-{ strcpy(path,s); return ok(0x3d00,0,0,(uintptr_t)path,"PATH open"); }
+{
+    strcpy(path,s); unsigned h=ok(0x3d00,0,0,(uintptr_t)path,"PATH open");
+    int_frame_t f=call(0x4400,h,0,0);
+    unsigned drive=(s[0]=='C'||s[0]=='c')?2:s[0]=='A'||s[0]=='a'?0:int21_current_drive();
+    need(!(f.eflags&1) && (f.edx&0xbf)==drive,"i1nu4 IOCTL file drive identity");
+    return h;
+}
 static void cd(const char *s)
 { strcpy(path,s); ok(0x3b00,0,0,(uintptr_t)path,"CWD chdir"); }
 static void select_drive(unsigned d)
@@ -51,6 +57,50 @@ static void read_equal(const char *name,const char *reference)
     }
     fclose(f); ok(0x3e00,h,0,0,"HANDLE close");
     need(total!=0,"REFERENCE nonempty");
+}
+/* DOS 3.3 PRM AH=3Ah: qualify before lookup/current-directory guard. */
+static void review_rmdir(void)
+{
+    select_drive(0);
+    strcpy(path,"C:\\EMPTY"); ok(0x3900,0,0,(uintptr_t)path,"review mkdir C EMPTY");
+    ok(0x3a00,0,0,(uintptr_t)path,"3rp9i qualified removal uses C, not A");
+    strcpy(path,"C:\\SYS"); int_frame_t f=call(0x3a00,0,0,(uintptr_t)path);
+    need((f.eflags&1) && (f.eax&65535)==16,"3rp9i protect C current directory");
+    strcpy(path,"C:CUR"); ok(0x3900,0,0,(uintptr_t)path,"review mkdir relative C");
+    cd("C:CUR");
+    strcpy(path,"C:\\SYS\\CUR"); f=call(0x3a00,0,0,(uintptr_t)path);
+    need((f.eflags&1) && (f.eax&65535)==16,"3rp9i protect qualified nested current directory");
+    cd("C:\\SYS");
+    strcpy(path,"C:CUR"); ok(0x3a00,0,0,(uintptr_t)path,"3rp9i qualified relative removal");
+    need((call(0x1900,0,0,0).eax&255)==0,"3rp9i default drive preserved");
+}
+/* DOS 3.3 PRM AH=11h/12h: returned FCB names the drive searched.
+ * A and C contain different mtools-minted SAME.TXT bytes. D aliases C's
+ * physical volume here; its DOS identity must nevertheless remain D. */
+static void review_fcb(fat12_volume_t *c,const char *a_ref,const char *c_ref)
+{
+    need(!fileio_fat_add_drive(3,c),"review mount D"); cd("D:\\SYS");
+    static uint8_t fcb[44], result[44], opened[44];
+    for(unsigned d=1;d<=4;d++) {
+        if(d==2)continue;
+        for(unsigned ext=0;ext<2;ext++) {
+            memset(fcb,0,sizeof fcb); unsigned off=ext?7:0;
+            if(ext)fcb[0]=255;
+            fcb[off]=d; memcpy(fcb+off+1,"SAME    TXT",11);
+            ok(0x1a00,0,0,(uintptr_t)result,"review FCB DTA");
+            need((call(0x1100,0,0,(uintptr_t)fcb).eax&255)==0,"review FCB search");
+            need(result[off]==d,"us273 search result drive byte");
+            memset(opened,0,sizeof opened); memcpy(opened,result,off+12);
+            need((call(0x0f00,0,0,(uintptr_t)opened).eax&255)==0,"us273 reopen result FCB");
+            ok(0x1a00,0,0,(uintptr_t)data,"review record DTA");
+            unsigned status=call(0x1400,0,0,(uintptr_t)opened).eax&255;
+            need(status==0 || status==3,"us273 record read");
+            FILE *ref=fopen(d==1?a_ref:c_ref,"rb"); char expected[128];
+            need(ref!=0,"review independent reference"); size_t n=fread(expected,1,128,ref); fclose(ref);
+            need(n && !memcmp(data,expected,n),"us273 reopened source vs mtype");
+        }
+    }
+    fileio_fat_drop_drive(3); select_drive(0);
 }
 int main(int argc,char **argv)
 {
@@ -103,6 +153,18 @@ int main(int argc,char **argv)
         strcpy(path,d==1?"B:\\SAME.TXT":"D:\\SAME.TXT");
         int_frame_t bad=call(0x3d00,0,0,(uintptr_t)path);
         need((bad.eflags&1) && (bad.eax&65535)==15,"INVALID path drive");
+    }
+    if(!getenv("REVIEW_FCB_ONLY")) review_rmdir();
+    review_fcb(vols+1,argv[3],argv[4]);
+    /* Encyclopedia 3Dh: real FAT directories and volume labels are not
+     * ordinary file handles. No JFT/SFT entry may be committed on refusal. */
+    const char *nonfiles[]={"C:\\SYS","A:\\REVIEW"};
+    for(unsigned i=0;i<2;i++) {
+        sft_entry_t before[SFT_MAX_ENTRIES]; psp_t saved=process;
+        memcpy(before,g_sft,sizeof before);strcpy(path,nonfiles[i]);
+        int_frame_t f=call(0x3d00,0,0,(uintptr_t)path);
+        need((f.eflags&1) && (f.eax&65535)==5,"vwo7d real FAT directory/label OPEN denied");
+        need(!memcmp(before,g_sft,sizeof before) && !memcmp(&saved,&process,sizeof saved),"vwo7d real FAT refusal preserves tables");
     }
     for(unsigned i=0;i<2;i++) blockdev_file_close(disks+i);
     puts("GREEN dos-volumes host: path forms, SELDISK/GETDISK, per-drive CWD, SFT/COPY and search identity, absent B/D");

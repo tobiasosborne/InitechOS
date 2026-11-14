@@ -1,4 +1,8 @@
 include tests/tools.mk
+HOST_TESTS += batch-capacity
+batch-capacity_SRCS := command/tests/batch_capacity.c
+batch-capacity_CFLAGS := $(tool_batch_break_CFLAGS)
+batch-capacity_DEPS := $(TOP)/build/kernel/dos_messages.h
 HOST_TESTS += test-attrib
 test-attrib_SRCS := tests/runner.c
 test-attrib_ARGS := tests/run.sh test-attrib

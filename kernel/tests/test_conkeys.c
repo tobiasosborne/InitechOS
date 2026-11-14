@@ -75,6 +75,23 @@ int main(void) {
     static const unsigned char off[]={14};
     keys=off;left=1;f.eax=0x0200;f.edx='N';int21_dispatch(&f);
     check(strcmp(printer,"P")==0,"Ctrl-P output polling routes PRN; Ctrl-N disables");
+    /* Encyclopedia AH=07h/08h: 00h and scan are two reads of ONE key.
+     * Neither output, status nor BREAK polling may reinterpret the scan. */
+    for(unsigned reader=0;reader<4;reader++) for(unsigned scan=0x10;scan<=0x13;scan+=3) {
+        unsigned char pair[]={0,(unsigned char)scan,'r','s'};
+        int21_conin_handoff(); keys=pair; left=sizeof pair; ne=np=nt=gets=0;
+        echo[0]=printer[0]=trace[0]=0;
+        f.eax=reader==0?0x0700:reader==1?0x0800:reader==2?0x0100:0x0600;
+        f.edx=255;int21_dispatch(&f);
+        check((f.eax&255)==0,"extended prefix delivered");
+        f.eax=0x0b00;int21_dispatch(&f);f.eax=0x0b00;int21_dispatch(&f);
+        f.eax=0x3000;int21_dispatch(&f); /* non-character BREAK poll */
+        f.eax=0x0200;f.edx='!';int21_dispatch(&f);
+        f.eax=0x0700;int21_dispatch(&f);
+        check((f.eax&255)==scan && left==2,"extended scan survives interleaved output/status/BREAK");
+        check(!np && !strstr(trace,"PAUSE") && !strstr(trace,"PRN-ON"),"extended scan never acts as flow control");
+    }
+    int21_conin_handoff();
     poll_input=0;
     /* DOS maximum-size CR and recall bounds: full template cannot overrun. */
     char full[255];memset(full,'x',254);full[254]=0;

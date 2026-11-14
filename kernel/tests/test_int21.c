@@ -554,8 +554,7 @@ int main(void)
               "AH=44h/01 bad handle returns AX=0x0006");
     }
 
-    /* AL=06h GET INPUT STATUS on CON -> AL=0xFF (live keyboard always ready),
-     * CF clear. */
+    /* Encyclopedia 4406h: an empty keyboard is not ready, CF clear. */
     {
         bind_standard_process();
         int_frame_t f = fresh_frame();
@@ -564,8 +563,8 @@ int main(void)
         f.eflags |= CF_BIT;
         int21_dispatch(&f);
         CHECK(frame_cf(&f) == 0, "AH=44h/06 input-status CON clears CF");
-        CHECK((uint8_t)(f.eax & 0xFFu) == 0xFFu,
-              "AH=44h/06 input-status CON returns AL=0xFF (ready)");
+        CHECK((uint8_t)(f.eax & 0xFFu) == 0u,
+              "AH=44h/06 input-status empty CON returns AL=0 (not ready)");
     }
 
     /* AL=06h on a FILE NOT at EOF (offset < size) -> AL=0xFF (not-EOF). */
