@@ -34,7 +34,11 @@ boot image with a disposable working disk. `DOS33_TIMEOUT_MS` overrides its
 60-second capture timeout; this is an observation deadline, not an assertion
 that a command can never finish. Each capture records `driver.rc`, logs,
 post-disk bytes, and independent mtools extraction. A successful capture
-command records observations; it does not declare parity. Inspect its rc.
+command records observations; it does not declare parity. Inspect its rc:
+2 means a required genuine utility is missing (PENDING), and 3 means a
+case is INCOMPLETE (its driver, TRACE.TXT, or batch *-DONE marker shows
+the scenario never actually ran; the case directory holds INCOMPLETE).
+CFG* boots are exempt from the TRACE/marker requirement.
 
 The original boot disk lacks FIND, SORT, MORE, EDLIN, FDISK, FORMAT, XCOPY,
 TREE, and LABEL. Their unminted outputs are **pending**, not “Bad command or

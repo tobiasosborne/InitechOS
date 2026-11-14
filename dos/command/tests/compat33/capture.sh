@@ -28,6 +28,7 @@ else
 fi
 [ "$#" -gt 0 ] || set -- BATCH LIMIT EXPAND PARAMS ENV SWITCH NAMES REDIR TCASE DEVICES CFG1 CFG2 CFG3 CFG4 FULL
 pending=0
+incomplete=0
 for case in "$@"; do
  case "$case" in ''|*[!A-Z0-9]*) echo 'Invalid capture case name' >&2; exit 2;; esac
  d=$out/$mode/$case
@@ -118,6 +119,27 @@ for case in "$@"; do
  fsck_rc=0
  fsck.fat -n "$d/data.img" > "$d/fsck.log" 2>&1 || fsck_rc=$?
  printf '%s\n' "$fsck_rc" > "$d/fsck.rc"
+ # CAPTURE-DONE alone does not prove the scenario ran: AUTOEXEC prints it
+ # even when the command/CALL wrapper failed first (initech-inch5, DEVICES:
+ # Bad command or file name, no TRACE.TXT, yet driver OK). Require the
+ # scenario's own output: a completed driver, a non-empty TRACE.TXT, and
+ # the batch's own *-DONE marker when it defines one. CFG* boots have no
+ # TRACE contract (README; CFG3 deliberately never completes).
+ case "$case" in CFG*) :;;
+ *)
+  marker=$(tr -d '\r' < "$out/inputs-$mode/$batch.BAT" | sed -n 's/^echo \([A-Z0-9-]*-DONE\)$/\1/p' | tail -n 1)
+  problem=
+  [ "$capture_rc" = 0 ] || problem="driver rc $capture_rc"
+  if [ -z "$problem" ] && [ ! -s "$d/files/TRACE.TXT" ]; then problem='TRACE.TXT missing or empty (wrapper never ran the scenario)'; fi
+  if [ -z "$problem" ] && [ -n "$marker" ] && ! grep -q "$marker" "$d/files/TRACE.TXT"; then problem="completion marker $marker absent from TRACE.TXT"; fi
+  if [ -n "$problem" ]; then
+   printf 'INCOMPLETE %s %s: %s\n' "$mode" "$case" "$problem" > "$d/INCOMPLETE"
+   incomplete=3
+  fi
+  ;;
+ esac
  echo "$mode $case: $(cat "$d/driver.log" | tail -c 160)"
+ if [ -f "$d/INCOMPLETE" ]; then cat "$d/INCOMPLETE"; fi
 done
+[ "$incomplete" = 0 ] || exit "$incomplete"
 exit "$pending"
