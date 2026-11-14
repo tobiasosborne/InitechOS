@@ -1,0 +1,12 @@
+# test: test-commit-outcome
+--- a/fat12.c
++++ b/fat12.c
+@@ -1839,7 +1839,7 @@
+         const uint8_t *a=(const uint8_t *)&observed,*b=(const uint8_t *)e;
+         unsigned k=0;
+         while(k<sizeof observed && a[k]==b[k])k++;
+-        if(k==sizeof observed) {
++        if(0 && k==sizeof observed) {
+             if(warning)*warning=rc;
+             return FAT12_OK;
+         }

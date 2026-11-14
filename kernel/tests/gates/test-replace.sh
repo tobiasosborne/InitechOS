@@ -43,15 +43,15 @@ for kind in root same-sector sub empty-stage empty-dest; do
   for after in 0 1; do
    out=build/replace/$kind-$nth-$after.img
    cp "$input" "$out"
-   rc=0; test "$nth" -ne 1 || rc=31
+   rc=0; if test "$nth" -eq 1 && test "$after" -eq 0; then rc=31; fi
    build/test_replace "$out" "$stage" "$dest" "$nth" "$after" "$rc"
-   if test "$nth" -eq 1; then cmp "$input" "$out"; fi
+   if test "$nth" -eq 1 && test "$after" -eq 0; then cmp "$input" "$out"; fi
   done
  done
  set --
  for out in build/replace/$kind-*.img; do
   mcopy -o -i "$out" "::$mdest" build/replace/readback || { fail "destination chain is independently readable"; }
-  case $out in *-1-0.img|*-1-1.img) mcopy -o -i "$input" "::$mdest" build/replace/old-expected; cmp build/replace/old-expected build/replace/readback;;
+  case $out in *-1-0.img) mcopy -o -i "$input" "::$mdest" build/replace/old-expected; cmp build/replace/old-expected build/replace/readback;;
    *) cmp build/replace/expected-$kind build/replace/readback
       set -- "$@" "$out"
       if mcopy -o -i "$out" "::$mstage" build/replace/readback 2>/dev/null; then echo 'FAIL staging entry retained';exit 1;fi;;

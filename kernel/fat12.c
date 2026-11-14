@@ -1818,6 +1818,36 @@ static int fat12_write_dirent_in_dir(const fat12_volume_t *vol, const void *fat,
 	return FAT12_OK;
 }
 
+/* Publication is monotonic (GM3/safe-save ruling, initech-8qgdz/i7zfp).
+ * An I/O error is not proof that the sector stayed unchanged. Read the actual
+ * entry before reporting a precommit failure; never restore over an adopted
+ * entry. Transient read errors get two retries. As with other metadata paths,
+ * persistent unreadable media is outside the recoverable-error guarantee. */
+static int fat12_publish_dirent(const fat12_volume_t *vol, const void *fat,
+                                uint32_t fat_len, int is_root,
+                                uint16_t start_cluster, uint32_t slot,
+                                const dir_entry_t *e, void *sector_buf,
+                                int *warning)
+{
+    int rc=fat12_write_dirent_in_dir(vol,fat,fat_len,is_root,start_cluster,
+                                    slot,e,sector_buf);
+    if(!rc)return FAT12_OK;
+    for(unsigned attempt=0;attempt<3;attempt++) {
+        dir_entry_t observed;
+        if(fat12_read_dirent_in_dir(vol,fat,fat_len,is_root,start_cluster,
+                                    slot,&observed,sector_buf))continue;
+        const uint8_t *a=(const uint8_t *)&observed,*b=(const uint8_t *)e;
+        unsigned k=0;
+        while(k<sizeof observed && a[k]==b[k])k++;
+        if(k==sizeof observed) {
+            if(warning)*warning=rc;
+            return FAT12_OK;
+        }
+        return rc;
+    }
+    return rc;
+}
+
 /* Write a single dir entry (32 bytes) to its root-dir slot on disk (the root-
  * only thin wrapper; byte-identical historical behavior). */
 static int fat12_write_dirent(const fat12_volume_t *vol, uint32_t slot,
@@ -3245,6 +3275,25 @@ int fat12_unlink(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if ((match.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
 	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
 		return FAT12_ERR_ACCESS;
+	/* A failed postcommit cleanup can leave the staging alias beside the
+	 * destination, both naming its adopted chain. The replacement contract is
+	 * same-parent: never let a later caller's UNLINK free that shared head.
+	 * Allocation ownership invariant / operator ruling, initech-8qgdz. */
+	if (match.start_cluster >= 2u) {
+		uint32_t limit = is_root ? vol->bpb.root_entry_count :
+		    vol->total_clusters * vol->bpb.sectors_per_cluster * 16u;
+		for (uint32_t slot=0;slot<limit;slot++) {
+			dir_entry_t other;
+			rc=fat12_read_dirent_in_dir(vol,fat,fat_len,is_root,parent_dir_start,
+			                             slot,&other,sector_buf);
+			if (rc==FAT12_ERR_DIR_FULL) break;
+			if (rc) return rc;
+			if (!other.filename[0]) break;
+			if (slot!=match_slot && other.filename[0]!=DIR_NAME_DELETED &&
+			    !(other.attribute & (DIR_ATTR_DIRECTORY|DIR_ATTR_VOLLABEL)) &&
+			    other.start_cluster==match.start_cluster) return FAT12_ERR_ACCESS;
+		}
+	}
 
 	/* Mark the dir entry deleted (filename[0] = 0xE5). */
 	{
@@ -3323,15 +3372,9 @@ int fat12_replace(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
     replacement.file_size = source.file_size;
     replacement.mtime = source.mtime;
     replacement.mdate = source.mdate;
-    rc = fat12_write_dirent_in_dir(vol,fat,fat_len,parent==0,parent,dest_slot,
-                                   &replacement,sector_buf);
-    if (rc) {
-        /* A failed sector write can have persisted. Recoverable reported
-         * errors restore the old entry before returning failure to the app. */
-        if (fat12_write_dirent_in_dir(vol,fat,fat_len,parent==0,parent,dest_slot,
-                                      &old,sector_buf)) return FAT12_ERR_WRITE;
-        return rc;
-    }
+    rc = fat12_publish_dirent(vol,fat,fat_len,parent==0,parent,dest_slot,
+                              &replacement,sector_buf,cleanup_error);
+    if (rc) return rc;
     /* COMMITTED. Nothing below may report a failed replacement. Remove the
      * staging alias before reclaiming the old chain. Retry once for transient
      * I/O; persistent trouble leaves repairable aliases/allocation for CHKDSK,
@@ -3435,8 +3478,8 @@ int fat12_rename(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	for (k = 0u; k < 3u; k++) {
 		match.extension[k] = new11[8u + k];
 	}
-	return fat12_write_dirent_in_dir(vol, fat, fat_len, is_root, dir_start,
-	                                 match_slot, &match, sector_buf);
+	return fat12_publish_dirent(vol, fat, fat_len, is_root, dir_start,
+	                            match_slot, &match, sector_buf, NULL);
 }
 
 /* ======================================================================== *

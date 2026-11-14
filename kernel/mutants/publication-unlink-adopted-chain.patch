@@ -1,0 +1,30 @@
+# test: test-commit-outcome
+--- a/fat12.c
++++ b/fat12.c
+@@ -3275,26 +3275,6 @@
+ 	if ((match.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
+ 	if ((match.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)) != 0u)
+ 		return FAT12_ERR_ACCESS;
+-	/* A failed postcommit cleanup can leave the staging alias beside the
+-	 * destination, both naming its adopted chain. The replacement contract is
+-	 * same-parent: never let a later caller's UNLINK free that shared head.
+-	 * Allocation ownership invariant / operator ruling, initech-8qgdz. */
+-	if (match.start_cluster >= 2u) {
+-		uint32_t limit = is_root ? vol->bpb.root_entry_count :
+-		    vol->total_clusters * vol->bpb.sectors_per_cluster * 16u;
+-		for (uint32_t slot=0;slot<limit;slot++) {
+-			dir_entry_t other;
+-			rc=fat12_read_dirent_in_dir(vol,fat,fat_len,is_root,parent_dir_start,
+-			                             slot,&other,sector_buf);
+-			if (rc==FAT12_ERR_DIR_FULL) break;
+-			if (rc) return rc;
+-			if (!other.filename[0]) break;
+-			if (slot!=match_slot && other.filename[0]!=DIR_NAME_DELETED &&
+-			    !(other.attribute & (DIR_ATTR_DIRECTORY|DIR_ATTR_VOLLABEL)) &&
+-			    other.start_cluster==match.start_cluster) return FAT12_ERR_ACCESS;
+-		}
+-	}
+-
+ 	/* Mark the dir entry deleted (filename[0] = 0xE5). */
+ 	{
+ 		dir_entry_t deleted = match;

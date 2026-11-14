@@ -505,6 +505,15 @@ oem-services_OBJS := $(tool_test_fileio_OBJS) $(tool_test_console_OBJS)
 oem-services_CFLAGS := -no-pie
 
 
+EXTRA_HOST_TESTS += tool_test_commit_outcome
+tool_test_commit_outcome_SRCS := tests/test_commit_outcome.c tests/disk/blockdev_file.c
+tool_test_commit_outcome_OBJS := $(tool_test_fileio_subdir_OBJS)
+tool_test_commit_outcome_CFLAGS := -no-pie
+HOST_TESTS += test-commit-outcome
+test-commit-outcome_SRCS := tests/runner.c
+test-commit-outcome_ARGS := tests/run.sh test-commit-outcome
+test-commit-outcome_DEPS := $(OUT)/host/tool_test_commit_outcome tests/gates/test-commit-outcome.sh
+
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk

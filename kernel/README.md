@@ -258,20 +258,34 @@ uses the same path/CWD/drive resolution as other file operations and restores
 the previous selected I/O drive. It refuses devices, directories, labels,
 read-only files, identical names and invalid/intersecting chains. FAT16 remains
 read-only. Its destination-sector write publishes the staged chain, length and
-last-write time while retaining the destination name and attributes. A failed
-commit write restores the old entry, including after-persistence errors.
+last-write time while retaining the destination name and attributes. A reported
+commit-sector error is reconciled against the actual directory entry. If the
+new entry persisted, replacement is committed and never restores the old entry;
+if publication did not happen, the error preserves the old named bytes.
 
 Zero means the replacement committed. Any postcommit cleanup error is returned
 separately through `cleanup_error`; callers must treat the save as committed
 and must never unlink the staging name after that result. Cleanup removes the
 staging alias before freeing the old allocation, and retries transient writes
 once. Persistent media trouble can leave a staging alias or orphan allocation
-for CHKDSK; power loss and unrecoverable rollback failure are outside the safe
+for CHKDSK; power loss and persistent unreadable media are outside the safe
 reported-error guarantee. The `test-replace` gate faults every physical write
 before/after persistence in root, same-sector, separate-sector/subdirectory and
 empty-file cases. mtools verifies named contents, fsck.fat verifies the image,
 and the independent FAT reader proves allocation ownership and matching FATs.
 Source: phase-2 safe-save ruling, initech-7mb66, and Microsoft FAT layout.
+
+The commit outcome also governs AH=56h RENAME (initech-i7zfp). A rename whose
+new entry persisted succeeds even if its write acknowledged an error, so a
+first-save helper cannot report failure after publishing a previously absent
+destination. Replacement records that write error in its separate cleanup
+warning. In both cases readback retries two transient read failures. Persistent
+unreadable media and power loss remain outside the recoverable-error guarantee.
+`test-commit-outcome` covers root/subdirectories, failure before/after physical
+publication, transient read failures and failed/persistently refused maintenance;
+mtools checks the named destination after the caller's real failure cleanup.
+The independent Toolbox test at 8a188549 reproduces the adopted-chain double
+failure through both SDK save and FILE COPY (initech-8qgdz).
 
 Overlay fixups are graded against the genuine DOS3.30 equal/unequal-factor
 captures in tests/fixtures/dos33_overlay (initech-i1swl). The load destination
@@ -332,3 +346,11 @@ cursor/canary behavior and nonreturning restart behavior including an absent or
 returning backend. `make smoke-oem` runs an ordinary disk client on both
 emulators, independently reads its 4002-byte page file with mtools and compares
 literal bytes, then proves an actual restart reaches the prompt a second time.
+A retained staging alias shares the destination's allocation head. UNLINK now
+refuses either alias while another regular entry in that same parent names the
+head, before changing the FAT or directory. This prevents a later caller's
+cleanup from freeing adopted data after a persistent cleanup error; recovery may
+leave the alias/allocation for CHKDSK. The commit-outcome gate first showed this
+late cleanup red, then verifies Access denied with zero physical writes and
+independent destination bytes. This is the allocation-ownership invariant under
+the operator's commit rule, not a claim about repairing arbitrary cross-links.

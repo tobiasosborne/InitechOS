@@ -550,7 +550,7 @@ typedef struct int21_file_backend {
  * be closed, on the same mounted drive and in the same directory. Returns a
  * DOS error only BEFORE commit (old named bytes preserved on recoverable I/O
  * error). Zero means committed: dest owns the staged bytes. Optional
- * cleanup_error reports postcommit maintenance trouble; it MUST NOT be
+ * cleanup_error reports commit-acknowledgment or postcommit maintenance trouble; it MUST NOT be
  * presented as a failed save or followed by unlink(staged). CHKDSK can repair
  * residual staging aliases/orphan allocation. No new INT21 function is added. */
 void int21_set_file_replace_backend(uint16_t (*replace)(const char *, const char *,

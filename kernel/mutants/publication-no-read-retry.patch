@@ -1,0 +1,12 @@
+# test: test-commit-outcome
+--- a/fat12.c
++++ b/fat12.c
+@@ -1832,7 +1832,7 @@
+     int rc=fat12_write_dirent_in_dir(vol,fat,fat_len,is_root,start_cluster,
+                                     slot,e,sector_buf);
+     if(!rc)return FAT12_OK;
+-    for(unsigned attempt=0;attempt<3;attempt++) {
++    for(unsigned attempt=0;attempt<1;attempt++) {
+         dir_entry_t observed;
+         if(fat12_read_dirent_in_dir(vol,fat,fat_len,is_root,start_cluster,
+                                     slot,&observed,sector_buf))continue;
