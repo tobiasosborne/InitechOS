@@ -85,3 +85,8 @@ include $(TOP)/mk/import-check.mk
 smoke-errors:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/copy-state.sh "$(TOP)" "$(TOP)/build/image/boot.img" "$(OUT)" "$(OUT)/smoke-errors"
+
+.PHONY: smoke-batch-return
+smoke-batch-return:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/batch-return.sh "$(TOP)" "$(OUT)/smoke-batch-return"

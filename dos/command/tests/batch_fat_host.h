@@ -3,8 +3,10 @@
 #include "shell_files_host.h"
 static env_store_t g_master_env;
 static int g_shell_exit;
+static int g_shell_permanent;
 static uint8_t g_errorlevel;
 static int run_pipeline_or_redirect(const char *);
+static int run_with_redirect(const char *);
 static void cwd_display(char *p) { strcpy(p,"A:\\"); }
 static void dos_getcwd(uint8_t d,char *p) { (void)d; *p=0; }
 static char prompt_drive(void) { return 'A'; }

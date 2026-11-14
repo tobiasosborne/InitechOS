@@ -4652,7 +4652,7 @@ static void run_batch_invoke(const char *path, const char *tail)
     run_batch_named(path, tail, path);
 }
 
-#ifndef COMMAND_BATCH_HOST
+#if !defined(COMMAND_BATCH_HOST) || defined(COMMAND_BATCH_FAT_HOST)
 /* Reference pp.46-47: /C creates a private environment, executes one command
  * and returns automatically. Existing redirect/pipe scopes save and restore
  * the parent's handles; EXIT and batch control are isolated as well. */
@@ -4677,8 +4677,13 @@ static void builtin_command(const char *arg)
     g_master_env=env;
     g_shell_exit=exit;g_shell_permanent=permanent;
     g_errorlevel=errorlevel;g_batch_frame=frame;
+    /* OEM DOS 3.30 compat33/BATCH: COMMAND /C returns to the physical
+     * parent line after its child overwrites the shared batch buffer. */
+    if (frame) frame->len=batch_load_file(frame->path,g_batch_buf);
 }
+#endif
 
+#ifndef COMMAND_BATCH_HOST
 /* EXEC of COMSPEC by a resident program (initech-n8q8). The interpreter is
  * resident in this kernel (ADR-0003 DEC-03/DEC-11), so the "second copy" of
  * COMMAND.COM a dBASE RUN asks for is a secondary processor of the same code:

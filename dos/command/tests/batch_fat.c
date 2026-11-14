@@ -17,9 +17,12 @@ static int run_pipeline_or_redirect(const char *s)
 {
     if(dispatch_control(s))return 0;
     cmd_line_t c;cmd_parse(s,&c);
+    if(c.kind==CMD_COMMAND) { builtin_command(c.arg);return 0; }
+    if(c.kind==CMD_EXTERNAL) { run_external(c.command,c.tail);return 0; }
     if(c.kind!=CMD_ECHO) { fprintf(stderr,"unsupported batch fixture body: %s\n",s);exit(2); }
     dos_puts_raw(c.arg);dos_print("\r\n$");return 0;
 }
+static int run_with_redirect(const char *s) { return run_pipeline_or_redirect(s); }
 int main(int argc,char **argv)
 {
     (void)g_out;
