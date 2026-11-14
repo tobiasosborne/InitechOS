@@ -74,7 +74,7 @@ $(TOP)/build/kernel/dos_messages.h: $(TOP)/kernel/include/dos_messages.json $(TO
 	$(MAKE) -C $(TOP)/kernel $@
 $(TOP)/build/kernel/dos_messages.inc: $(TOP)/build/kernel/dos_messages.h
 	$(MAKE) -C $(TOP)/kernel $@
-$(OUT)/command-resident.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o: $(TOP)/build/kernel/dos_messages.h
+$(OUT)/command-resident.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o $(OUT)/diskutil/diskutil.o $(OUT)/fdisk/fdisk.o: $(TOP)/build/kernel/dos_messages.h
 
 include tests-programs.mk
 
