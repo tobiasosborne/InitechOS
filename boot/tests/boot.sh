@@ -54,6 +54,10 @@ for scenario in $cases; do
         # VGA13 is exercised on Bochs, which can disable its VBE extension.
         [ "$scenario:$emu" != fallback:qemu ] || continue
         name=$scenario-$emu
+        # Each Bochs termination can leave its data image's lock file. Give
+        # every leg its own writable disk rather than deleting source locks.
+        data=$out/$name-data.img
+        cp "$out/data.img" "$data"
         marker=SHELL-READY
         [ "$wanted" != refusal ] || marker='Replace and strike any key when ready'
         rc=0
@@ -61,16 +65,19 @@ for scenario in $cases; do
         [ "$scenario" != indexed ] || BOOT_INDEXED_ROM=$artifacts/indexed.rom
         if [ "$scenario" = indexed ] || [ "$scenario" = normal ]; then
             PATH="$out/bin:$PATH" "build/factory/${emu}_harness" \
-                --disk "$image" --disk2 "$out/data.img" $extra \
+                --disk "$image" --disk2 "$data" $extra \
                 --expect "$marker" --quit-after "$marker" --timeout-ms 8000 \
                 --name "$name" --out "$out" > "$out/$name.stdout" 2> "$out/$name.report" || rc=$?
         else
-            "build/factory/${emu}_harness" --disk "$image" --disk2 "$out/data.img" $extra \
+            "build/factory/${emu}_harness" --disk "$image" --disk2 "$data" $extra \
                 --expect "$marker" --quit-after "$marker" --timeout-ms 8000 \
                 --name "$name" --out "$out" > "$out/$name.stdout" 2> "$out/$name.report" || rc=$?
         fi
         report=$out/$name.report
         serial=$out/$name.txt
+        if [ ! -f "$out/$name.serial" ]; then
+            cat "$report"; echo "ERROR boot $name: no serial capture"; exit 2
+        fi
         tr -d '\r' < "$out/$name.serial" > "$serial"
         # Launch/lock/port errors and crashes are errors, never mutation kills.
         if ! grep -q 'launched=1' "$report" || ! grep -q 'triple_fault=0' "$report" ||
