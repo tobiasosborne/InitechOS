@@ -1,0 +1,21 @@
+PARAMS=[A:\BATCH.BAT][one][two][nine]
+SHIFT=[one][two][three][]
+MISSING=[%ABSENT%]
+PERCENT=[%][trailing%]
+CASE-OK
+TOKEN=[one]
+TOKEN=[two;three=four]
+FILE=[A.TXT]
+FILE=[B.TXT]
+WILD=[A.TXT]
+WILD=[B.TXT]
+WILD=[BIG.TXT]
+WILD=[LONG.TXT]
+WILD=[NOEND.TXT]
+WILD=[TRACE.TXT]
+CHILD-RAN
+AFTER-CALL
+CHILD-RAN
+AFTER-COMMAND
+COLON-OK
+Label not found

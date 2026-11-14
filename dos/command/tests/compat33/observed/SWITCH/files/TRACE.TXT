@@ -1,0 +1,21 @@
+DIR-W
+
+ Volume in drive A has no label
+
+ Directory of A:\
+
+A.TXT           
+
+        1 File(s)   1309696 bytes free
+DIR-Z
+Too many parameters
+COPY-V
+        1 File(s) copied
+COPY-Z
+Too many parameters
+DEL-Z
+        1 File(s) copied
+REN-Z
+CD-Z
+Invalid directory
+SWITCH-DONE

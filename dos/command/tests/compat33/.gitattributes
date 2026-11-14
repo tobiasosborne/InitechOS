@@ -1,0 +1,5 @@
+# Captured bytes must not be normalized by a host checkout.
+expected/** -text
+observed/** -text
+*.vga binary
+*.img.gz binary

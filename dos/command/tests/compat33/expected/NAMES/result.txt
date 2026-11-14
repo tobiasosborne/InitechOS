@@ -1,0 +1,25 @@
+SeaBIOS (version 1.16.3-debian-1.16.3-2)                                        
+Booting from Floppy...                                                          
+Invalid directory                                                               
+Invalid drive specification                                                     
+CAPTURE-DONE                                                                    
+B>                                                                              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

@@ -1,0 +1,58 @@
+ Volume in drive : has no label
+ Volume Serial Number is 1992-0302
+Directory for ::/
+
+SUB          <DIR>     2026-11-14   4:55 
+A        TXT         7 2026-11-14   4:55 
+B        TXT         6 2026-11-14   4:55 
+BATCH    BAT       651 2026-11-14   4:55 
+BIG      TXT    123000 2026-11-14   4:55 
+CFG1     CFG       254 2026-11-14   4:55 
+CFG2     CFG        30 2026-11-14   4:55 
+CFG3     CFG        22 2026-11-14   4:55 
+CFG4     CFG        66 2026-11-14   4:55 
+CFGA     CFG        14 2026-11-14   4:55 
+CFGB     CFG        12 2026-11-14   4:55 
+CFGC     CFG        13 2026-11-14   4:55 
+CFGD     CFG        13 2026-11-14   4:55 
+CFGE     CFG        23 2026-11-14   4:55 
+CFGF     CFG        24 2026-11-14   4:55 
+CHILD    BAT        17 2026-11-14   4:55 
+DEVICES  BAT        44 2026-11-14   4:55 
+DEVPROBE COM       193 2026-11-14   4:55 
+ENV      BAT      1142 2026-11-14   4:55 
+EXPAND   BAT       166 2026-11-14   4:55 
+FILTER   BAT       384 2026-11-14   4:55 
+FULL     BAT        59 2026-11-14   4:55 
+LIMIT    BAT      1831 2026-11-14   4:55 
+LONG     TXT       619 2026-11-14   4:55 
+MORECASE BAT        81 2026-11-14   4:55 
+NAMES    BAT       254 2026-11-14   4:55 
+NOEND    TXT        18 2026-11-14   4:55 
+PARAM    BAT        63 2026-11-14   4:55 
+PARAMS   BAT       149 2026-11-14   4:55 
+REDIR    BAT       280 2026-11-14   4:55 
+SWITCH   BAT       241 2026-11-14   4:55 
+TAIL     BAT       483 2026-11-14   4:55 
+TAIL     COM        51 2026-11-14   4:55 
+TCASE    BAT       483 2026-11-14   4:55 
+COMMAND  COM        52 2026-11-14   4:55 
+MORE     COM       163 2026-11-14   4:55 
+FIND     COM       985 2026-11-14   4:55 
+SORT     COM       623 2026-11-14   4:55 
+AUTOEXEC BAT       108 2026-11-14   4:55 
+TRACE    TXT        13 1992-03-02   9:30 
+SNO      OUT        20 1992-03-02   9:30 
+FNO      OUT        20 1992-03-02   9:30 
+MNO      OUT        18 1992-03-02   9:30 
+FNAM     OUT         0 1992-03-02   9:30 
+FZ       OUT        20 1992-03-02   9:30 
+SZ       OUT        20 1992-03-02   9:30 
+MZ       OUT        18 1992-03-02   9:30 
+SBIG     OUT        21 1992-03-02   9:30 
+FBIG     OUT     65538 1992-03-02   9:30 
+FLONG    OUT       621 1992-03-02   9:30 
+SLONG    OUT       621 1992-03-02   9:30 
+       51 files             199 554 bytes
+                          1 238 016 bytes free
+

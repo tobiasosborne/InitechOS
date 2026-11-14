@@ -1,0 +1,35 @@
+ Volume in drive : has no label
+ Volume Serial Number is 1992-0302
+Directory for ::/
+
+SUB          <DIR>     2026-11-14   4:46 
+A        TXT         7 2026-11-14   4:46 
+B        TXT         6 2026-11-14   4:46 
+BATCH    BAT       651 2026-11-14   4:46 
+BIG      TXT    123000 2026-11-14   4:46 
+CFG1     CFG       254 2026-11-14   4:46 
+CFG2     CFG        30 2026-11-14   4:46 
+CFG3     CFG        22 2026-11-14   4:46 
+CFG4     CFG        66 2026-11-14   4:46 
+CHILD    BAT        17 2026-11-14   4:46 
+ENV      BAT      1142 2026-11-14   4:46 
+EXPAND   BAT       166 2026-11-14   4:46 
+FILTER   BAT       384 2026-11-14   4:46 
+FULL     BAT        59 2026-11-14   4:46 
+LIMIT    BAT      1831 2026-11-14   4:46 
+LONG     TXT       619 2026-11-14   4:46 
+MORE     BAT        81 2026-11-14   4:46 
+MORECASE BAT        81 2026-11-14   4:46 
+NAMES    BAT       254 2026-11-14   4:46 
+NOEND    TXT        18 2026-11-14   4:46 
+PARAM    BAT        63 2026-11-14   4:46 
+PARAMS   BAT       149 2026-11-14   4:46 
+REDIR    BAT       280 2026-11-14   4:46 
+SWITCH   BAT       241 2026-11-14   4:46 
+TAIL     BAT       483 2026-11-14   4:46 
+TAIL     COM        34 2026-11-14   4:46 
+FILL     BIN   1313792 2026-11-14   4:46 
+TRACE    TXT        11 1992-03-02   9:30 
+       28 files           1 443 741 bytes
+                              3 584 bytes free
+

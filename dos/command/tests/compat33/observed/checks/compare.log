@@ -1,0 +1,16 @@
+GREEN LIMIT captured limit control
+GREEN TCASE captured limit control
+GREEN R.OUT redirected/append/preserved bytes
+GREEN PIPE1.$$$ redirected/append/preserved bytes
+GREEN IN.OUT input redirect/pipe bytes
+GREEN PIPE.OUT input redirect/pipe bytes
+RED BATCH /^SHIFT=/p
+RED BATCH /^MISSING=/p
+RED BATCH /^TOKEN=/p
+RED BATCH /^WILDCARD-EXISTS/p
+RED BATCH /^PARAMS=/p
+RED BATCH /^PERCENT=/p
+RED device path validation
+RED invalid DEL switch preserves file
+GREEN SYS invalid switch control
+8 captured incompatibilities in selected comparisons

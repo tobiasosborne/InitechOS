@@ -1,0 +1,25 @@
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Bad or missing MISSING.SYS                                                      
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+                                                                                
+Unrecognized command in CONFIG.SYS                                              
+CAPTURE-DONE                                                                    
+B>                                                                              

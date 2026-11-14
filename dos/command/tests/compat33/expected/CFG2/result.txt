@@ -1,0 +1,25 @@
+SeaBIOS (version 1.16.3-debian-1.16.3-2)                                        
+Booting from Floppy...                                                          
+Insufficient disk space                                                         
+ENV-BEGIN                                                                       
+ENV-END                                                                         
+NEW=[ok]                                                                        
+CAPTURE-DONE                                                                    
+B>                                                                              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

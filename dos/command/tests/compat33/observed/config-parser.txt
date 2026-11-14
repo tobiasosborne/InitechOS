@@ -1,0 +1,17 @@
+line=1 recognized=0 files=0:0 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=2 recognized=0 files=0:0 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=3 recognized=1 files=1:8 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=4 recognized=1 files=1:255 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=5 recognized=1 files=1:12 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=6 recognized=0 files=0:0 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=7 recognized=0 files=0:0 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=8 recognized=1 files=0:0 buffers=1:1 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=9 recognized=1 files=0:0 buffers=1:99 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=10 recognized=1 files=0:0 buffers=1:12 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=11 recognized=0 files=0:0 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=12 recognized=1 files=0:0 buffers=0:0 lastdrive=1:Z device=0 install=0 shell=0: break=0:0
+line=13 recognized=0 files=0:0 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=14 recognized=1 files=0:0 buffers=0:0 lastdrive=0:- device=1 install=0 shell=0: break=0:0
+line=15 recognized=1 files=0:0 buffers=0:0 lastdrive=0:- device=0 install=1 shell=0: break=0:0
+line=16 recognized=0 files=0:0 buffers=0:0 lastdrive=0:- device=0 install=0 shell=0: break=0:0
+line=17 recognized=1 files=0:0 buffers=0:0 lastdrive=0:- device=0 install=0 shell=1:COMMAND.COM /P /E:512 break=0:0

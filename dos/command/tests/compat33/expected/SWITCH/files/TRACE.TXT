@@ -1,0 +1,16 @@
+DIR-W
+
+ Volume in drive B has no label
+ Directory of  B:\
+
+A        TXT	
+        1 File(s)   1317376 bytes free
+DIR-Z
+COPY-V
+        1 File(s) copied
+COPY-Z
+DEL-Z
+        1 File(s) copied
+REN-Z
+CD-Z
+SWITCH-DONE

@@ -1,0 +1,16 @@
+LONG
+        1 File(s) copied
+DEVICE
+ROOT
+B:\SUB
+B:\
+B:\
+WILDCARD
+
+ Volume in drive B has no label
+ Directory of  B:\
+
+A        TXT        7  11-14-26   4:42a
+        1 File(s)   1316864 bytes free
+DRIVE
+NAMES-DONE

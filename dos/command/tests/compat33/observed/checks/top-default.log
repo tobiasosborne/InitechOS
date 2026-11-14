@@ -1,0 +1,29 @@
+flair/region: 2 tests, 0 failures (4s; budget 30s)
+sdk: 7 tests, 0 failures (17s; budget 30s)
+  FAIL  test-b53d (20s, exit 124; timeout 20s; log: /home/tobias/.t3/worktrees/InitechOS/t3-2e27b1a0-1d457979401a639f/build/kernel/host/test-b53d.log)
+flair: 52 tests, 0 failures (32s; budget 30s)
+FAIL budget: speed the suite up or raise TEST_BUDGET_S with a reason in the component README
+FAIL budget: speed the suite up or raise TEST_BUDGET_S with a reason in the component README
+  FAIL  test-zs24 (20s, exit 124; timeout 20s; log: /home/tobias/.t3/worktrees/InitechOS/t3-2e27b1a0-1d457979401a639f/build/kernel/host/test-zs24.log)
+kernel: 91 tests, 2 failures (434s; budget 60s)
+FAIL budget: speed the suite up or raise TEST_BUDGET_S with a reason in the component README
+apps/calculator: 2 tests, 0 failures (1s; budget 30s)
+apps/notepad: 2 tests, 0 failures (0s; budget 30s)
+apps/initechtext: 1 tests, 0 failures (1s; budget 30s)
+apps/controlpanels: 2 tests, 0 failures (0s; budget 30s)
+apps/initechcalc: 2 tests, 0 failures (0s; budget 30s)
+apps/fonts: 1 tests, 0 failures (0s; budget 30s)
+apps/ctenant: 2 tests, 0 failures (0s; budget 30s)
+  FAIL  test_iword_codes (20s, exit 124; timeout 20s; log: /home/tobias/.t3/worktrees/InitechOS/t3-2e27b1a0-1d457979401a639f/build/apps/initechword/host/test_iword_codes.log)
+apps/initechword: 13 tests, 1 failures (33s; budget 30s)
+FAIL budget: speed the suite up or raise TEST_BUDGET_S with a reason in the component README
+dos: 32 tests, 0 failures (27s; budget 30s)
+flair/desktop: 17 tests, 0 failures (2s; budget 30s)
+apps/initechpaint: 1 tests, 0 failures (0s; budget 30s)
+turbo/seed: 6 tests, 0 failures (2s; budget 30s)
+  FAIL  self-generation (log: /home/tobias/.t3/worktrees/InitechOS/t3-2e27b1a0-1d457979401a639f/build/turbo/compiler/logs/self-generation.log)
+apps/initechbase: 75 tests, 0 failures (10s; budget 30s)
+turbo/compiler: 40 tests, 1 failures (54s; budget 30s)
+FAIL budget: turbo/compiler exceeded TEST_BUDGET_S
+registered 19, run 19; elapsed 1034s
+5 component(s) RED

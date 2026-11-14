@@ -1,0 +1,8 @@
+wait Strike a key
+key ctrl-pause
+sleep 1
+shot question
+key y
+sleep 1
+shot after
+end

@@ -1,0 +1,7 @@
+ENV-BEGIN
+COMSPEC=A:\COMMAND.COM
+PATH=A:\
+V00=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+V01=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ENV-END
+NEW=[ok]

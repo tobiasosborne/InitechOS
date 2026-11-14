@@ -1,0 +1,6 @@
+BEFORE-PIPE
+consumer
+AFTER-PIPE
+do-not-clobber
+PIPE-ENV=[child]
+REDIR-DONE

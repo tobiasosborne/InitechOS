@@ -1,0 +1,118 @@
+S1
+JMP2
+IOSYS-FOUND
+IO-CLUSTERS=0004
+INITDOS-FOUND
+INITDOS-CLUSTERS=020C
+S2
+VBE-MODE=0142
+VBE
+FONT
+E820
+KLOAD
+A20
+GDT
+PM
+LFB
+OK
+KHI
+KERNEL
+PIC
+IDT
+FPU-INIT present cw=037F
+INT21
+BANNER-BEGIN
+InitechDOS  Version 3.30
+Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.
+BANNER-END
+BANNER
+FAT-MOUNT-BEGIN
+FAT-MOUNT-OK
+Directory of A:\
+A.TXT            7
+B.TXT            6
+BATCH.BAT          651
+BIG.TXT       123000
+CFG1.CFG          254
+CFG2.CFG           30
+CFG3.CFG           22
+CFG4.CFG           66
+CFGA.CFG           14
+CFGB.CFG           12
+CFGC.CFG           13
+CFGD.CFG           13
+CFGE.CFG           23
+CFGF.CFG           24
+CHILD.BAT           17
+DEVICES.BAT           44
+DEVPROBE.COM          193
+ENV.BAT         1142
+EXPAND.BAT          166
+FILTER.BAT          384
+FULL.BAT           59
+LIMIT.BAT         1831
+LONG.TXT          619
+MORECASE.BAT           81
+NAMES.BAT          254
+NOEND.TXT           18
+PARAM.BAT           63
+PARAMS.BAT          149
+PASS.COM          190
+REDIR.BAT          280
+STREAM.BAT           77
+SWITCH.BAT          241
+TAIL.COM           51
+TCASE.BAT          483
+U01.BAT           51
+U02.BAT           51
+U03.BAT           51
+U04.BAT           53
+U05.BAT           52
+U06.BAT           52
+U07.BAT           53
+U08.BAT           50
+U09.BAT           55
+U10.BAT           55
+U11.BAT           52
+U12.BAT           51
+U13.BAT           53
+U14.BAT           52
+U15.BAT           53
+ATTRIB.COM         3936
+CHKDSK.COM         8913
+COMMAND.COM           52
+DISKCOMP.COM         9281
+DISKCOPY.COM         9281
+EDLIN.COM         8209
+FDISK.COM         4513
+FIND.COM          985
+FORMAT.COM         9281
+LABEL.COM         3936
+MORE.COM          163
+SORT.COM          623
+SYS.COM         9281
+TPSREP.COM         7928
+TREE.COM         6312
+XCOPY.COM         6312
+AUTOEXEC.BAT          108
+DIR-OK
+FILEIO-BIND-OK
+LOADER-FAT-BIND-OK
+DOS-VOLUME-OK C rc=0
+ABSDISK-BIND-OK
+FAT-MOUNT-END
+CLOCK-LIVE
+ANSI-WIRED
+VECT-LIVE
+SYSINIT: source=baseline FILES=20 cap=20 SHELL=COMMAND.COM /P /E:512
+SYSINIT: DEVICE=ANSI.SYS ansi-enabled
+SYSINIT: DEVICE=INITNET.SYS accepted(deferred)
+SYSINIT: INSTALL=SHARE.EXE accepted(deferred)
+SYSINIT: BUFFERS=20 accepted(deferred)
+SYSINIT: LASTDRIVE=Z applied
+SYSINIT: BREAK=ON (default)
+IRQ-LIVE
+CONIN-LIVE
+SHELL-READY
+CAPTURE-DONE
+A:\>

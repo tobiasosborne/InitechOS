@@ -1,0 +1,20 @@
+LONG
+Access denied
+DEVICE
+ROOT
+A:\SUB
+A:\
+Bad command or file name
+A:\
+WILDCARD
+
+ Volume in drive A has no label
+
+ Directory of A:\
+
+A        TXT        7  11-14-26   4:54a
+
+        1 File(s)   1309696 bytes free
+DRIVE
+Invalid drive specification
+NAMES-DONE

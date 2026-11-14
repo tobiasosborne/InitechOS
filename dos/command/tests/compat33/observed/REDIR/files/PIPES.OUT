@@ -1,0 +1,52 @@
+
+ Volume in drive A has no label
+
+ Directory of A:\
+
+SUB             <DIR>  11-14-26   4:54a
+A        TXT        7  11-14-26   4:54a
+B        TXT        6  11-14-26   4:54a
+BATCH    BAT      651  11-14-26   4:54a
+BIG      TXT   123000  11-14-26   4:54a
+CFG1     CFG      254  11-14-26   4:54a
+CFG2     CFG       30  11-14-26   4:54a
+CFG3     CFG       22  11-14-26   4:54a
+CFG4     CFG       66  11-14-26   4:54a
+CFGA     CFG       14  11-14-26   4:54a
+CFGB     CFG       12  11-14-26   4:54a
+CFGC     CFG       13  11-14-26   4:54a
+CFGD     CFG       13  11-14-26   4:54a
+CFGE     CFG       23  11-14-26   4:54a
+CFGF     CFG       24  11-14-26   4:54a
+CHILD    BAT       17  11-14-26   4:54a
+DEVICES  BAT       44  11-14-26   4:54a
+DEVPROBE COM      193  11-14-26   4:54a
+ENV      BAT     1142  11-14-26   4:54a
+EXPAND   BAT      166  11-14-26   4:54a
+FILTER   BAT      384  11-14-26   4:54a
+FULL     BAT       59  11-14-26   4:54a
+LIMIT    BAT     1831  11-14-26   4:54a
+LONG     TXT      619  11-14-26   4:55a
+MORECASE BAT       81  11-14-26   4:55a
+NAMES    BAT      254  11-14-26   4:55a
+NOEND    TXT       18  11-14-26   4:55a
+PARAM    BAT       63  11-14-26   4:55a
+PARAMS   BAT      149  11-14-26   4:55a
+REDIR    BAT      280  11-14-26   4:55a
+SWITCH   BAT      241  11-14-26   4:55a
+TAIL     BAT      483  11-14-26   4:55a
+TAIL     COM       51  11-14-26   4:55a
+TCASE    BAT      483  11-14-26   4:55a
+COMMAND  COM       52  11-14-26   4:55a
+MORE     COM      163  11-14-26   4:55a
+FIND     COM      985  11-14-26   4:55a
+SORT     COM      623  11-14-26   4:55a
+AUTOEXEC BAT      107  11-14-26   4:55a
+TRACE    TXT       63   3-02-92   9:30a
+R        OUT       10   3-02-92   9:30a
+BAD      OUT       26   3-02-92   9:30a
+PIPE1    $$$       16   3-02-92   9:30a
+PIPE1001 $$$        7   3-02-92   9:30a
+PIPES    OUT     1818   3-02-92   9:30a
+
+       45 File(s)   1307648 bytes free
