@@ -35,7 +35,10 @@ smoke-write-readback:
 	$(MAKE) -C $(TOP)/dos smoke-programs
 	sh tests/write-readback.sh
 .PHONY: testlib-test
-test: testlib-test image-order-test desktop-tools-test dataloss-test
+test: testlib-test image-order-test desktop-tools-test dataloss-test host-paths-test
+.PHONY: host-paths-test
+host-paths-test:
+	sh tests/host-paths.sh
 .PHONY: dataloss-test
 dataloss-test:
 	+$(MAKE) -C $(TOP) -f goldens/preflight.mk verify CORPORA='LOTUS123_DECOMP WORDPERFECT51_DECOMP'

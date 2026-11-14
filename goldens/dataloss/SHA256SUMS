@@ -1,6 +1,6 @@
 a3b88cf35cf13475b530977294940c971bd9a47c7e35c472c3d56c6bafc344b1  ./.gitattributes
-0c6ef01e8e7f16f52b873f21b0ef4e8ca4cdc8e740b8bb3acde4cb360927989c  ./README.md
-3c804657609ebc9769133f5fec817e3873394eda152669599422d38582742f16  ./dos-copy.sh
+cc0d6bb5f3e4676988e0557208b4bd61b40601d06b5b1bbf41d7b5b3602de293  ./README.md
+445921ba0076bd7ed7985443c7858db74b6c1a5643bdee4f789ba423bd1dd91f  ./dos-copy.sh
 0e6dcf06b3b884ee6ef5168610ed85b43455992c8d0df1d266017b3e448b9778  ./dos/OLD.BIN
 39a7125431654c1743b5aa650841b7ed4873935b51e8b6132a1a4173bd95da1f  ./dos/SOURCE.BIN
 384eb8fd032b84e20cd814b4adcc7fce5b7f23c375f327a5770f42d990cd641a  ./dos/ascii/AUTOEXEC.BAT
@@ -133,7 +133,7 @@ a6bf2b3df153f36250da939510eb0f310db877d687d9192e1a106d83325d13c7  ./inputs/lotus
 cef35deeb0dc6d3a03cb6955cfec1378ea5e68f64d94c2ce335bb31b9d5b3c41  ./inputs/reference.sha256
 dd57c1fadddd5639285487a4b3d4205e73ba1a365f410db882a237f5716f883d  ./inputs/wordperfect-runtime.sha256
 fdd9173efb54e5d3ab69409384ece3d2da37c76ad598d6c0606673f43e70d8c2  ./inputs/wp-AUTOEXEC.BAT
-df453de02bcd2111bc7edb2890b41f75678caf8c3ec04e515476eae9e66db241  ./lotus.sh
+db87de775056a5acb586f47843bae81b56f007c1478102c9288aee61f5303704  ./lotus.sh
 dfa105c90ef58ac34eead6ecc7675bb98bd2761491e72b0ed086f5e753f82447  ./lotus/allprotected/AFTER.WK1
 d1966b3e73df413563377ec4665043f962b5894faa0f77918232c1aa3cb0693a  ./lotus/allprotected/AFTER.dump
 dfa105c90ef58ac34eead6ecc7675bb98bd2761491e72b0ed086f5e753f82447  ./lotus/allprotected/BEFORE.WK1
@@ -270,12 +270,12 @@ d44a07c629eb4fb73488dd305c11b4861209b48977554821d7cc806643a6dc66  ./lotus/unprot
 14f2d303b71973cf0b6996a8181cf6eded2f248485b6d3b16e3dd78cd787f390  ./lotus/unprotected/table_prompt.png
 3eee4ea36ac5377404def124ca255bfbc02c51636f9a3e7956119179509cb911  ./lotus/unprotected/table_prompt.txt
 aa44b9de3d74adf20a2ca58b97d39f881605365f7c8cec104615fa4ffea85b19  ./lotus/unprotected/table_prompt.vga
-dc2411cf0e886719a9a9d40a7953144e8c32ec8d80bb84fa613edd4a6cd0d36c  ./runtime.sh
+e7f392660ad9926c33f50a16a255942685f7d992a7e88e26f62c4b3ecd51205e  ./runtime.sh
 cef6d93c378cfa1fd514c1afad9ac52e8e96eb443f77882b830095b0ced35ace  ./validation/make-test.log.gz
 f354e310f9a1eb511597f1da077d6616ae4cb965927377fd350a722ddafb68f1  ./validation/verify-green.log
 c21162752e0e9447063c54afadaabcd769aa943d1dc1e9641847e990d83020b9  ./validation/verify-red.log
 adc9eee979e53ca62f0788ac1e13c8da8a08a38ee169782525240fcc5fd26eb4  ./verify.sh
-104acc31c11705ecae6590516cbaf488193821206968a2ac43673e2a57351fff  ./wordperfect.sh
+462abd3c1e2a562e7c2aa284340c0ecfe6295431ab706e5a5fa06cc0e1484c92  ./wordperfect.sh
 b2b9df5cd68aee170538d21c36a405ea03dc7aa0d374fc9a26dba6d3002a2ab4  ./wordperfect/collision/after.NAME.BK!
 364ad872752d002e07bf5a0e3b018971c9cc2b6dfb93f153f53598bc7c3620cc  ./wordperfect/collision/after.NAME.BK!.dump
 5da2a2ff40aa8636572c7764e11c5c7b29192af7255127af1e0356940d0db4ca  ./wordperfect/collision/after.NAME.WP5

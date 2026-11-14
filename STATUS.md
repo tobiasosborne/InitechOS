@@ -84,7 +84,7 @@ and `make repro` passes in 84.01s across two clean builds. All four rebuilt
 main artifact hashes match those reproducibility hashes; the final review
 fixes affect capture tooling only. No budget was relaxed or needed a retry.
 Logs survive at `/tmp/integration-next-logs/` and
-`/tmp/integration-next-landing-logs/`. This landing has not run a new full cert.
+`/tmp/integration-next-landing-logs/`. The later end-of-day cert above covers this landing.
 
 There are still 129 unproved pending patches: kernel 39, DOS 46,
 FLAIR 16, InitechBase 28. Default cert reports PASS_PENDING; it is not
@@ -152,7 +152,7 @@ Dead commands in the frozen app inventories also need implement/remove decisions
 ## Notes for this week
 
 - Shared places (`mk/`, `sdk/`, `factory/`, top Makefile) owner:
-  released after this landing; currently unassigned.
+  the orchestrator of the next phase, once the operator sets it; until then nobody edits them.
 - Remaining Word/small-app attic journeys and pixel harnesses belong to
   their component/factory importers; publication inventories and manuals
   to the publication importer; composed chrome and menu/panel coverage
@@ -162,3 +162,4 @@ Dead commands in the frozen app inventories also need implement/remove decisions
   or its deeper mutation paths; it remains tracked without a path waiver.
 - QEMU: 486, 8 MiB, ACPI off. Bochs: installed Pentium model, 8 MiB.
   IDE master boots; the slave is working volume A:. All checks run locally.
+- This session ran with a Fable advisor setting direction, an Opus orchestrator running the fleet, Sol 6.1 xhigh doing implementation and review, Astra hands-on, Muse Wonder Full for the outside view, and a cap of 1 to 2 percent ahead of pace on every account.

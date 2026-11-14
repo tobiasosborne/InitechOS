@@ -51,7 +51,9 @@ changing the pinned corpus HEAD or Lotus `mint/*.steps` enumeration in
 ## Reproduce
 
 Run from any directory, with absolute output directories that do not exist
-(or are empty), and the existing reference checkouts at their recorded paths:
+(or are empty), and the existing reference checkouts under $HOME/Projects
+or INITECH_CORPUS. LOTUS123_DECOMP and WORDPERFECT51_DECOMP override the
+individual app roots; DOS33_BOOT overrides the OEM DOS boot image:
 
 ```
 sh goldens/dataloss/runtime.sh /tmp/new-dataloss-runtime

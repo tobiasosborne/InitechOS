@@ -3,7 +3,8 @@
 set -eu
 src=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 out=${1:?absolute output directory}
-media=${DOS33_BOOT:-/home/tobias/Projects/initech-manuals-ref/sidekick/dosboot/PB_MSDOS33_Sys_and_Util.img}
+corpus=${INITECH_CORPUS:-"$HOME/Projects"}
+media=${DOS33_BOOT:-"$corpus/initech-manuals-ref/sidekick/dosboot/PB_MSDOS33_Sys_and_Util.img"}
 mkdir -p "$out"
 test "$(sha256sum "$media" | cut -d ' ' -f 1)" = 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30
 sha256sum "$media" > "$out/media.sha256"

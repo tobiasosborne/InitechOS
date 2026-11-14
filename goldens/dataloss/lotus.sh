@@ -2,6 +2,8 @@
 # Capture from the corpus's initialized Lotus R2.2 runtime, under real DOS.
 set -eu
 src=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+corpus=${INITECH_CORPUS:-"$HOME/Projects"}
+lotus=${LOTUS123_DECOMP:-"$corpus/lotus123-decomp"}
 out=${1:?output}; base=${2:?runtime image}; boot=${3:?boot image}
 mkdir -p "$out"
 cc -std=c11 -O2 -Wall -Wextra -Werror "$src/drive.c" -o "$out/drive"
@@ -53,6 +55,6 @@ STEPS
  for f in BEFORE AFTER; do mcopy -i "$d/runtime.img@@32256" "::LOTUS/$f.WK1" "$d/$f.WK1"; done
  mdir -i "$d/runtime.img@@32256" ::LOTUS > "$d/after.mdir"
  for f in "$d"/*.ppm; do convert "$f" "${f%.ppm}.png"; done
- python3 /home/tobias/Projects/lotus123-decomp/tools/wk1_ref.py "$d/BEFORE.WK1" > "$d/BEFORE.dump"
- python3 /home/tobias/Projects/lotus123-decomp/tools/wk1_ref.py "$d/AFTER.WK1" > "$d/AFTER.dump"
+ python3 "$lotus/tools/wk1_ref.py" "$d/BEFORE.WK1" > "$d/BEFORE.dump"
+ python3 "$lotus/tools/wk1_ref.py" "$d/AFTER.WK1" > "$d/AFTER.dump"
 done

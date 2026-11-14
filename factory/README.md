@@ -8,6 +8,10 @@ product disk set, copies the writable disk per run, checks serial lines and
 uses mtools to read written bytes independently. All factory programs are C,
 make or POSIX shell. No target test personalities or remote automation.
 
+Tier 0 rejects host-specific home paths in factory shell scripts. parity.sh
+uses smoke-desktop.sh's LEGACY_TREE default ($HOME/Projects/InitechOS-legacy),
+with INITECH_LEGACY retained as its first-choice override.
+
 QEMU smoke uses 8 MiB, CPU 486, acpi=off and -d int,guest_errors,cpu_reset.
 Two power-on CPU Reset records are required; any additional reset, triple
 fault cascade or guest error fails. Full logs and stderr survive success.

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-legacy=${INITECH_LEGACY:-/home/tobiasosborne/Projects/InitechOS-legacy}
+legacy=${INITECH_LEGACY:-${LEGACY_TREE:-$HOME/Projects/InitechOS-legacy}}
 mkdir -p build/parity
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 build/factory/keys < factory/session.txt > build/parity/keys

@@ -2,11 +2,13 @@
 # Real WordPerfect 5.1 03-09-92, Original Document Backup collision/failure.
 set -eu
 src=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+corpus=${INITECH_CORPUS:-"$HOME/Projects"}
+wordperfect=${WORDPERFECT51_DECOMP:-"$corpus/wordperfect51-decomp"}
 out=${1:?output}; base=${2:?runtime}; boot=${3:?WP boot with FILES=40}
 mkdir -p "$out"
 cc -std=c11 -O2 -Wall -Wextra -Werror "$src/drive.c" -o "$out/drive"
 cc -std=c11 -O2 -Wall -Wextra -Werror "$src/fixtures.c" -o "$out/fixtures"
-corpus=/home/tobias/Projects/wordperfect51-decomp/goldens/minted
+corpus=$wordperfect/goldens/minted
 for scenario in collision full readonly; do
  d=$out/$scenario; mkdir -p "$d"; cp "$base" "$d/runtime.img"
  truncate -s 1474560 "$d/data.img"; mformat -i "$d/data.img" -f 1440 -N 19920302 ::
@@ -65,6 +67,6 @@ STEPS
  done
  for f in "$d"/*.ppm; do convert "$f" "${f%.ppm}.png"; done
  for f in "$d"/before.NAME* "$d"/after.NAME*; do
-  python3 /home/tobias/Projects/wordperfect51-decomp/tools/wp5_ref.py "$f" > "$f.dump"
+  python3 "$wordperfect/tools/wp5_ref.py" "$f" > "$f.dump"
  done
 done
