@@ -18,9 +18,11 @@ recovery ruling. FILE COPY creates an exclusive same-directory stage, transfers
 and closes it, then compares its bytes against the source before replacement.
 Progress calls never publish, including for a zero-byte source. The modal
 explicitly commits at its completion tick, with no further cancellable input
-turn before its result. The previous destination moves to the first absent NAME.~00..~99 only during
-commit; a failed publication restores it. Escape and Command-period cancel
-the live modal transfer; close and tenant teardown remove only an incomplete
+turn before its result. The previous destination moves to the first absent
+NAME.~00..~99 only during commit; a failed publication restores it. Physical
+Escape, Control-period (the PC command shortcut), the Cancel button and the
+close box reach one modal cancellation path. Mouse controls fire on release
+inside; close and tenant teardown remove only an incomplete
 stage. The copy engine refuses resolved source/destination identity and DOS
 devices, and checks every transfer, verification and close result.
 
@@ -48,6 +50,15 @@ readback detection of silent corruption and both failed-restore streams.
 test_desktop_db_disk checks persisted positions and Trash origins with literal
 IDB1 records, independent disk readback and fresh FAT-cache reloads.
 test_tbx_volume_disk checks two real mounted disks and caller-state restoration.
+test_copy_modal compiles the actual desktop copy loop with the Event Manager,
+Dialog Manager, copy engine and real DOS/FAT. Its five Set-1/mouse cancellation
+traces preserve literal old/source bytes as read by mtools. Presentation and
+app-completion bindings alone are hosted. make smoke builds the product image
+and a separate test tenant, then drives nine real INT 81h scenarios in QEMU:
+all cancel controls, empty source, success and refused operations. It verifies
+one delivered completion and independently reads the disk. The live Cancel
+button/close box are authored GM3 policy required by the phase-2 operator;
+the two-item film tableau retains its original geometry.
 
 Managers:
 
@@ -137,7 +148,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 194 patches through the shared strict runner: passing baseline,
+make mutants runs 195 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;

@@ -252,8 +252,8 @@ struct DialogRecord {
     /* --- Active edit item index (1-based; 0 = no active editText) --------- */
     uint16_t      editField;
 
-    /*: the original control while the mouse is held. IM Control
-     * Manager TrackControl: only release inside that control fires. */
+    /* Original control while held (1-based; 0 idle; 0xffff close box).
+     * TrackControl/TrackGoAway fire only on release inside the same target. */
     uint16_t      trackingItem;
 
     uint8_t       _pad[2]; /* alignment */
@@ -533,6 +533,12 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
                          region_t      *strucRgn,
                          region_t      *contRgn,
                          region_t      *updateRgn);
+
+/* Live GM3 operation: same furniture plus Cancel and a close box. Requires
+ * three items and two controls. The film tableau retains FileCopyDialog. */
+DialogPtr FileCopyCancelableDialog(DialogRecord *storage, DialogItem *items,
+                                  ControlRecord *controls, region_t *struc,
+                                  region_t *content, region_t *update);
 
 /* ===========================================================================
  * 6. COMPILE-TIME CONTRACT CHECKS

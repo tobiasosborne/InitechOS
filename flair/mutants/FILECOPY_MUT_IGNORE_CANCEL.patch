@@ -1,0 +1,19 @@
+# Live FILE COPY absorbs every cancellation instead of completing once.
+# test: test_copy_modal
+--- a/desktop/finder_actions.c
++++ b/desktop/finder_actions.c
+@@ -519,12 +519,12 @@
+         flair_live_cursor_track(&ev);
+         /* GM3: Escape or Command-period cancels the same staged transfer
+          * used by the live frame, before this tick can commit its last byte. */
+-        if (got && flair_filecopy_cancel(ev.what,ev.message,ev.modifiers)) {
++        if (0 && got && flair_filecopy_cancel(ev.what,ev.message,ev.modifiers)) {
+             done = TBX_ERR_BUSY;
+             break;
+         }
+         uint16_t item=0;
+-        if(DialogHandleEvent(&g_fc_dr,&ev,0,&item) && item==g_fc_dr.cancelItem) {
++        if(0 && DialogHandleEvent(&g_fc_dr,&ev,0,&item) && item==g_fc_dr.cancelItem) {
+             done=TBX_ERR_BUSY;
+             break;
+         }

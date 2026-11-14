@@ -1022,8 +1022,28 @@ static void test_keyboard_observer(void)
     CHECK(observed_count == sizeof want, "ownership: init detaches keyboard observer");
 }
 
+#include "filecopy_cancel.h"
+static void test_copy_cancel_cooked(void)
+{
+    flair_raw_ring_t ring;
+    EventRecord ev;
+    fresh_ring(&ring);
+    post1(&ring,FLAIR_RAW_KEYBOARD,1,0x01);
+    CHECK(drain1(&ring,everyEvent,&ev) && ev.what==keyDown && ev.message==0x100,
+          "real Set-1 Escape cooks to scan 1, ASCII zero");
+    CHECK(flair_filecopy_cancel(ev.what,ev.message,ev.modifiers),"physical Escape cancels FILE COPY");
+    post1(&ring,FLAIR_RAW_KEYBOARD,2,0x101);
+    (void)drain1(&ring,everyEvent,&ev);
+    CHECK(!flair_filecopy_cancel(ev.what,ev.message,ev.modifiers),"Escape release does not cancel twice");
+    post1(&ring,FLAIR_RAW_KEYBOARD,3,0x1d);
+    (void)drain1(&ring,everyEvent,&ev);
+    post1(&ring,FLAIR_RAW_KEYBOARD,4,0x34);
+    (void)drain1(&ring,everyEvent,&ev);
+    CHECK(flair_filecopy_cancel(ev.what,ev.message,ev.modifiers),"physical Control-period cancels FILE COPY");
+}
 int main(void)
 {
+    test_copy_cancel_cooked();
     test_double_click_seed();
     test_deterministic_replay();
     test_deterministic_replay2();

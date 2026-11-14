@@ -465,6 +465,23 @@ static void draw_alert_frame(GrafPort *port, int left, int top,
     cfill_dlg(port, left + 2, bottom - 3, 1, DLG_ALERT_LIGHT);
 }
 
+/* The live copy dialog opts into a standard Platinum close box. Its gesture
+ * follows TrackGoAway: press, track excursions, then release inside once. */
+#define DIALOG_CLOSE_TRACKING 0xffffu
+static int dialog_close_hit(DialogPtr dp, flair_point_t p)
+{
+    rgn_rect_t b=dp->window.port.portRect;
+    int x=b.left+FLAIR_CHROME_CLOSE_LEFT_OFF, y=b.top+FLAIR_CHROME_WIDGET_TOP_OFF;
+    return dp->window.goAwayFlag && dp->cancelItem &&
+           dp->window.windowDefProcVariant==(int16_t)movableDBoxProc &&
+           p.h>=x && p.h<x+FLAIR_CHROME_WIDGET_FOOTPRINT &&
+           p.v>=y && p.v<y+FLAIR_CHROME_WIDGET_FOOTPRINT;
+}
+static void dialog_close_draw(DialogPtr dp,int pressed)
+{
+    flair_draw_window_widget(&dp->window.port,flair_look_default_skin(),
+                             dp->window.port.portRect,inGoAway,pressed);
+}
 void DrawDialog(DialogPtr dp)
 {
     if (!dp) {
@@ -495,6 +512,7 @@ void DrawDialog(DialogPtr dp)
                             right - fr, bottom - fr);
         flair_draw_movable_dbox_chrome(port, flair_look_default_skin(),
                                        bounds, dp->window.titleHandle);
+        if(dp->window.goAwayFlag) dialog_close_draw(dp,0);
     } else {
         /* dBoxProc: the sampled Platinum modal frame (L023). */
         draw_alert_frame(port, left, top, right, bottom);
@@ -598,6 +616,7 @@ flair_modal_disposition_t DialogModalDispatch(
 
         if (ev->what == (uint16_t)mouseDown &&
             dp->window.windowDefProcVariant == (int16_t)movableDBoxProc) {
+            if(dialog_close_hit(dp,ev->where)) return FLAIR_MODAL_CAPTURE;
             rgn_rect_t bounds = region_get_bbox(dp->window.strucRgn);
             if (ev->where.v >= bounds.top &&
                 ev->where.v < (int16_t)(bounds.top +
@@ -781,6 +800,21 @@ int DialogHandleEvent(DialogPtr dp, EventRecord *ev,
 {
     if (!dp || !ev || !itemHit) {
         DIALOG_PANIC("DialogHandleEvent: NULL required argument");
+        return 0;
+    }
+
+    if(dp->trackingItem==DIALOG_CLOSE_TRACKING && dp->window.goAwayFlag) {
+        int inside=dialog_close_hit(dp,ev->where);
+        if(ev->what==mouseUp) {
+            dp->trackingItem=0;
+            dialog_close_draw(dp,0);
+            if(inside) { *itemHit=dp->cancelItem; return 1; }
+        } else if(ev->what==nullEvent) dialog_close_draw(dp,inside);
+        return 0;
+    }
+    if(ev->what==mouseDown && dialog_close_hit(dp,ev->where)) {
+        dp->trackingItem=DIALOG_CLOSE_TRACKING;
+        dialog_close_draw(dp,1);
         return 0;
     }
 
@@ -1057,6 +1091,28 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
         dp->window.windowDefProcVariant = (int16_t)movableDBoxProc;
     }
 
+    return dp;
+}
+
+DialogPtr FileCopyCancelableDialog(DialogRecord *storage, DialogItem *items,
+                                  ControlRecord *controls, region_t *struc,
+                                  region_t *content, region_t *update)
+{
+    DialogPtr dp=FileCopyDialog(storage,items,controls,struc,content,update);
+    if(!dp) return dp;
+    rgn_rect_t bounds=dp->window.port.portRect;
+    bounds.bottom=(int16_t)(bounds.bottom+28);
+    region_set_rect(struc,bounds);
+    region_set_rect(content,bounds);
+    dp->window.port.portRect=bounds;
+    dp->window.goAwayFlag=1;
+    rgn_rect_t button={ (int16_t)(bounds.bottom-30), (int16_t)(bounds.right-86),
+                        (int16_t)(bounds.bottom-10), (int16_t)(bounds.right-14) };
+    control_init(&controls[1],pushButton,button,0,0,1,1,"Cancel");
+    DialogItem cancel={0};
+    cancel.type=ctrlItem; cancel.rect=button; cancel.ctrl=&controls[1]; cancel.enabled=1;
+    items[2]=cancel;
+    dp->itemCount=3; dp->cancelItem=3;
     return dp;
 }
 

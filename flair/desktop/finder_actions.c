@@ -463,6 +463,8 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
     uint32_t size = 0u, t0, dt = 0u, v = 0u, shown = 101u, limit;
     int32_t rate, rc, done = 0;
     int mid = 0;
+    static DialogItem live_items[3];
+    static ControlRecord live_controls[2];
 #ifdef FILECOPY_RECORD_STEP
     /* Record images ONLY (make record-flair, FLAIRTENANTS_RECORDXLONGDBL_IMG):
      * the bar advances a fixed FILECOPY_RECORD_STEP ticks per injected input
@@ -496,9 +498,10 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
         return;
     }
     fta_rgn(&g_fc_rs); fta_rgn(&g_fc_rc); fta_rgn(&g_fc_ru);
-    (void)FileCopyDialog(&g_fc_dr, g_fc_it, &g_fc_bar, &g_fc_rs.r, &g_fc_rc.r, &g_fc_ru.r);
-    g_fc_it[0].text = cap;                     /* the tenant's statText line */
-    g_fc_bar.contrlValue = 0;
+    (void)FileCopyCancelableDialog(&g_fc_dr,live_items,live_controls,
+                                  &g_fc_rs.r,&g_fc_rc.r,&g_fc_ru.r);
+    live_items[0].text = cap;
+    live_controls[0].contrlValue = 0;
     g_fc_dr.window.port.portBits.bm = ctx->off;
     g_fc_dr.window.port.visRgn  = (region_t *)0;
     g_fc_dr.window.port.clipRgn = (region_t *)0;
@@ -520,6 +523,12 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
             done = TBX_ERR_BUSY;
             break;
         }
+        uint16_t item=0;
+        if(DialogHandleEvent(&g_fc_dr,&ev,0,&item) && item==g_fc_dr.cancelItem) {
+            done=TBX_ERR_BUSY;
+            break;
+        }
+        if(got) flair_desktop_present(bi,&ctx->off);
         dt = flair_tick_count() - t0;
 #ifdef FILECOPY_RECORD_STEP
         if (!fc_have) { fc_have = 1; fc_h = ev.where.h; fc_v = ev.where.v; }
@@ -535,7 +544,7 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
         if (done < 0) break;
         if (v != shown) {
             shown = v;
-            g_fc_bar.contrlValue = (int16_t)v;
+            live_controls[0].contrlValue = (int16_t)v;
             DrawDialog(&g_fc_dr);
             flair_desktop_present(bi, &ctx->off);
         }
