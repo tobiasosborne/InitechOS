@@ -1,0 +1,25 @@
+A1:                                                                        FILES
+Enter extension of files to list: C:\LOTUS\FILES\*.prn                          
+           P35.PRN        03/02/92       09:30          8                       
+P35.PRN         P36.PRN         P37.PRN         P38.PRN         P39.PRN         
+P40.PRN         P41.PRN         P42.PRN         P43.PRN         P44.PRN         
+P45.PRN         P46.PRN         P47.PRN         P48.PRN         P49.PRN         
+P50.PRN         P51.PRN         P52.PRN         P53.PRN         P54.PRN         
+P55.PRN         P56.PRN         P57.PRN         P58.PRN         P59.PRN         
+P60.PRN         P61.PRN         P62.PRN         P63.PRN         P64.PRN         
+P65.PRN         P66.PRN         P67.PRN         P68.PRN         P69.PRN         
+P70.PRN         P71.PRN         P72.PRN         P73.PRN         P74.PRN         
+P75.PRN         P76.PRN         P77.PRN         P78.PRN         P79.PRN         
+P80.PRN         P81.PRN         P82.PRN         P83.PRN         P84.PRN         
+P85.PRN         P86.PRN         P87.PRN         P88.PRN         P89.PRN         
+P90.PRN         P91.PRN         P92.PRN         P93.PRN         P94.PRN         
+P95.PRN         P96.PRN         P97.PRN         P98.PRN         P99.PRN         
+PRINT.PRN       EMPTY\          SUB\                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+02-Mar-92  09:30 AM                                                             

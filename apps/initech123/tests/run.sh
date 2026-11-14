@@ -8,6 +8,33 @@ rm -rf "$out"
 mkdir -p "$out"
 ref=tests/oracles/wk1_formula_ref.py
 case $name in
+  test_i123_import)
+    (cd tests/fixtures/files && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
+    rc=0; "$bin" "$out" || rc=1
+    i=0
+    for c in CR LF CTRLZ MIX LONG PROTECTED EDGE RIGHT FULL PREFIX AFTERLONG MAX240 CONTROLS TABLIMIT OTHER; do
+      f=$(printf 'I%02u.WK1' "$i");set --
+      if [ "$c" = FULL ]; then set -- --native-import-prefix; fi
+      python3 tests/oracles/worksheet_records.py "tests/fixtures/files/import/$c/RESULT.WK1" "$out/$f" "$@" || rc=1
+      i=$((i+1))
+    done
+    test "$rc" -eq 0
+    ;;
+  test_i123_files)
+    (cd tests/fixtures/files && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
+    "$bin" "$out"
+    index=0
+    for category in w p g o; do
+      actual=$(CDPATH= cd -- "$out/c$index/FILES" && pwd)
+      (cd "$actual" && find . -type f | LC_ALL=C sort | xargs sha256sum) > "$out/c$index/files.sha256"
+      diff -u "tests/fixtures/files/fat/$category/after.sha256" "$out/c$index/files.sha256"
+      (cd "$actual" && find . -type d | LC_ALL=C sort) > "$out/c$index/dirs.txt"
+      diff -u "tests/fixtures/files/fat/$category/dirs.txt" "$out/c$index/dirs.txt"
+      cmp "$out/c$index/BEFORE.WK1" "$out/c$index/AFTER.WK1"
+      index=$((index+1))
+    done
+    cmp "$out/routing/READBEF.WK1" "$out/routing/FILES/READAFT.WK1"
+    ;;
   test_i123_wk1_roundtrip) "$bin" "$LOTUS123_DECOMP" "$out" tests/oracles/wk1_canon.py ;;
   test_i123_formula|test_i123_formula_x87_037F)
     "$bin" "$LOTUS123_DECOMP" "$out" "$ref" ;;

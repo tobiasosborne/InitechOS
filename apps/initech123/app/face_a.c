@@ -192,7 +192,13 @@ static void refresh_clock(void)
 static uint32_t     g_bank;
 static uint8_t      g_wk[65536];
 static uint32_t     g_wk_len;
-static char         g_name[49], g_path[TBX_FILE_PATH_MAX], g_current[TBX_FILE_PATH_MAX];
+static char         g_name[TBX_FILE_PATH_MAX], g_path[TBX_FILE_PATH_MAX], g_current[TBX_FILE_PATH_MAX];
+static char g_directory[TBX_FILE_PATH_MAX] TBX_IN_IMAGE = "A:\\";
+static int resolve_path(const char *input,char *out);
+static void file_front_paint(void);
+static void file_front_key(char ch,uint8_t vk);
+static void file_front_start(unsigned op,unsigned category);
+static int file_front_editing(void);
 static uint32_t     g_nlen;
 static int          g_menu_index, g_replacing;
 static const char  *g_notice;
@@ -215,10 +221,10 @@ static const char *const ZERO_NAMES[]={"No","Yes","Label"};
 static const char *const ZERO_DESCS[]={"Display zero values",
     "Display blanks for zero values","Replace zeros with a specified label"};
 
-enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE, M_RANGE, M_ZERO };
+enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE, M_RANGE, M_ZERO, M_BROWSE, M_DIRECTORY, M_FILE_ERASE };
 static int      g_mode TBX_IN_IMAGE = M_READY;
 static const char MODE_TEXT[][6] = { "READY", "LABEL", "VALUE", " EDIT",
-    "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR", "POINT", "MENU" };
+    "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR", "POINT", "MENU", "FILES", " EDIT", "MENU" };
 /* B11: an error 1-2-3 shows on the STATUS line (manual p. 1-5, PDF 21: "in
  * place of the date-and-time indicator"; ESC or ENTER clears it). */
 static const char *g_error;
@@ -369,6 +375,7 @@ static void paint_fill(void)
 
 static void paint_command(void)
 {
+    if(g_mode==M_BROWSE||g_mode==M_DIRECTORY||g_mode==M_FILE_ERASE){file_front_paint();return;}
     if(g_mode==M_ZERO) {
         uint32_t x=g_zero_choice==0?0u:g_zero_choice==1?4u:9u;
         panel_line(LINE_PANEL2,"No  Yes  Label");
@@ -501,7 +508,8 @@ static void paint_panel(void)
     uint32_t n, k;
     /* Prompted for an address, 1-2-3 shows POINT until a character is
      * typed, then EDIT (manual p. 1-6; mint keys 06/07, COPY01 04_copy_from). */
-    const char *mode = MODE_TEXT[g_mode == M_RANGE && (g_rlen||(g_action==A_FILL&&g_stage)) ? M_EDIT : g_mode];
+    const char *mode = MODE_TEXT[(g_mode == M_RANGE && (g_rlen||(g_action==A_FILL&&g_stage))) ||
+                                (g_mode==M_BROWSE&&file_front_editing()) ? M_EDIT : g_mode];
     uint32_t mlen = slen(mode);
 
     /* line 1: "A1: 'Hello" ... "READY" (the shots: address, colon, space) */
@@ -648,6 +656,7 @@ static void paint_all(void)
     paint_border();
     paint_rows();
     paint_status();
+    if(g_mode==M_BROWSE)file_front_paint();
 }
 
 /* ---- moving the pointer (B11, initech-69mz) ---------------------------------
@@ -716,6 +725,7 @@ static int file_name(void)
     uint32_t n = 0, dot = 0;
     if (!s[0]) { notice("Enter a file name"); return 0; }
     while (s[n]) {
+        if(n>=sizeof g_path-5u){notice("File name too long");return 0;}
         if (s[n] == '*' || s[n] == '?' || s[n] == ' ') { notice("Invalid file name"); return 0; }
         if (s[n] == '\\' || s[n] == '/' || s[n] == ':') dot = 0;
         if (s[n] == '.') dot = 1;
@@ -723,7 +733,10 @@ static int file_name(void)
     }
     /* Ref: Reference Manual p. 5-21 (default .WK1 extension). */
     if (!dot) { const char *ext = ".wk1"; for (uint32_t i = 0; i < 4; i++) g_path[n++] = ext[i]; }
-    g_path[n] = 0; return 1;
+    g_path[n] = 0;
+    /* Session Directory is a prefix over the public root-resolved file gate. */
+    if(!resolve_path(g_path,g_path)){notice("Invalid file name");return 0;}
+    return 1;
 }
 static void retrieve(void)
 {
@@ -953,6 +966,7 @@ static void range_accept(void)
 }
 static void menu_mode(void)
 { g_mode=g_depth==1&&g_top==4?M_FILE:g_depth==1&&g_top==10?M_QUIT:M_MAIN; }
+#include "files_ui.c"
 static void menu_select(void)
 {
     if(g_mode==M_REPLACE) {
@@ -970,6 +984,11 @@ static void menu_select(void)
     if(g_top==10) {int yes=g_menu_index==1;ready();if(yes)request_quit();return;}
     if(g_depth==0 && (g_top==2||g_top==3)) {prompt(g_top==2?A_COPY:A_MOVE,g_top==2?"Enter range to copy FROM: ":"Enter range to move FROM: ");return;}
     if(g_top==4 && g_depth==1 && g_menu_index<=1) {g_mode=g_menu_index?M_SAVE:M_GET;g_nlen=0;g_name[0]=0;command_paint();return;}
+    if(g_top==4) {
+        if(g_depth==1&&same(nm,"Directory")){g_mode=M_DIRECTORY;g_nlen=0;g_name[0]=0;command_paint();return;}
+        if(g_depth==2&&(g_indexes[1]==4||g_indexes[1]==5)&&g_menu_index<4){file_front_start(g_indexes[1]==4?0u:1u,(unsigned)g_menu_index);return;}
+        if(g_depth==2&&g_indexes[1]==6&&same(nm,"Text")){file_front_start(2u,1u);return;}
+    }
     if(same(nm,"Quit")) {ready();return;}
     if(g_top==7&&g_depth==1&&same(nm,"Fill")){prompt(A_FILL,"Enter fill range: ");return;}
     if(g_top==1) {
@@ -1050,6 +1069,7 @@ static void menu_back(void)
 }
 static void command_key(char ch, uint8_t vk)
 {
+    if(g_mode==M_BROWSE||g_mode==M_DIRECTORY||g_mode==M_FILE_ERASE){file_front_key(ch,vk);return;}
     if(g_mode==M_ZERO) {
         if(vk==VK_ESC||ch==27){menu_mode();command_paint();return;}
         if(vk==VK_LEFT||vk==VK_UP)g_zero_choice=(g_zero_choice+2)%3;

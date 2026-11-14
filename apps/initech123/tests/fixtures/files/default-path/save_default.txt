@@ -1,0 +1,25 @@
+A11: @ERR                                                                   EDIT
+Enter name of file to save: C:\LOTUS\CURRENT.wk1                                
+                                                                                
+         A           B           C           D           E           F          
+1             0                                                                 
+2             0                                                                 
+3   0                                                                           
+4             0                                                                 
+5                                                                               
+6   +A1                                                                         
+7             0                                                                 
+8   12:00:00 AM                                                                 
+9     00-Jan-00                                                                 
+10           NA                                                                 
+11          ERR                                                                 
+12                                                                              
+13                                                                              
+14                                                                              
+15                                                                              
+16                                                                              
+17                                                                              
+18                                                                              
+19                                                                              
+20                                                                              
+02-Mar-92  09:30 AM                                                             

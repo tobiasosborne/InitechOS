@@ -1,0 +1,8 @@
+# test: test_i123_files
+--- a/app/files_ui.c
++++ b/app/files_ui.c
+@@ -264,3 +264,3 @@
+             int yes=ch=='y'||ch=='Y'||((vk==VK_ENTER||ch=='\r')&&g_file_confirm);
+-            if(!yes){ready();paint_all();return;}
++            if(0&&!yes){ready();paint_all();return;}
+             int32_t rc=tbx_file_delete(g_selected);

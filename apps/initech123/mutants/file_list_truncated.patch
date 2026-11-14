@@ -1,0 +1,12 @@
+# test: test_i123_files
+--- a/app/files_ui.c
++++ b/app/files_ui.c
+@@ -81,7 +81,7 @@
+     if(!join_path(g_folder,"*.*",g_probe)){notice("File name too long");return 0;}
+     int32_t n=tbx_file_find(g_probe,16,g_files,FILE_CAP+1);
+     if(n<0){file_error(n);return 0;}
+-    if(n>=(int32_t)(FILE_CAP+1)){notice("Too many files (511 maximum)");return 0;}
++    if(n>(int32_t)(FILE_CAP+1)){notice("Too many files (511 maximum)");return 0;}
+     g_file_count=0;g_file_sel=0;
+     for(int32_t i=0;i<n;i++) {
+         tbx_find_rec_t *f=&g_files[i];

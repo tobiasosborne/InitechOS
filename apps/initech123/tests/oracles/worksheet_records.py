@@ -36,11 +36,11 @@ def records(path):
 
 
 expected, actual = map(records, sys.argv[1:3])
-if len(sys.argv) == 4 and sys.argv[3] == "--native-fill-prefix":
+if len(sys.argv) == 4 and sys.argv[3] in ("--native-fill-prefix", "--native-import-prefix"):
     expected = {key: value for key, value in expected.items()
                 if key[0] != "cell" or (key[2] == 0 and key[3] < 2048)}
 errors = 0
-for key in expected.keys() | actual.keys():
+for key in sorted(expected.keys() | actual.keys()):
     if expected.get(key) != actual.get(key):
         print('FAIL WK1', key, 'real:', expected.get(key), 'saved:', actual.get(key))
         errors += 1

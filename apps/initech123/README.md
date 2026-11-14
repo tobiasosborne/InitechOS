@@ -35,9 +35,10 @@ component's include path. No build input comes from attic.
 
 ## Verification
 
-`make test` runs 27 host suites: the original 18, protection, shipped-configuration
+`make test` runs 29 host suites: the original 18, protection, shipped-configuration
 menu loading, EDIT, frame placement, file conformance, column ranges, time formats
-and Data Fill, plus Global Zero, using sdk/host's shared fake Toolbox. No emulator runs in tier 0.
+and Data Fill, plus Global Zero, file browsing and Text import, using sdk/host's
+shared fake Toolbox. No emulator runs in tier 0.
 The original 1,023,560 counted assertions are retained; malformed Retrieve and
 automatic numeric-entry recalculation add seven, and menu_disk adds 354.
 Separate checks still cover eight real Copy/Move pairs, four tiling fixtures,
@@ -55,7 +56,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 49 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 52 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
 Bochs, including an independent check of the worksheet saved from the Finder.
@@ -91,10 +92,10 @@ three named formula exceptions remain documented by the formula oracle.
 
 | Menu branch | Implemented today |
 |---|---|
-| Worksheet | Global formats/label prefix/width, recalculation order/mode/iteration, global protection; current-column and column-range Set-Width/Reset-Width; Erase No/Yes. |
+| Worksheet | Global formats/label prefix/width, recalculation order/mode/iteration, global protection and Zero No/Yes/Label; current-column and column-range Set-Width/Reset-Width; Erase No/Yes. |
 | Range | Format (Fixed, Sci, Currency, comma, General, +/-, Percent, Date 1/2/3, fixed AM/PM Time 1/2, Text, Hidden, Reset), label alignment, Erase, Name Create/Delete/Labels/Reset/Table, Prot/Unprot, Value and Trans. |
 | Copy, Move | Snapshot transfers, singleton-axis tiling for Copy rectangles, formula reference adjustment, named ranges; Copy retains the allowed prefix on protection refusal, Move checks all destinations first. Capacity failures discard the candidate bank. |
-| File | Retrieve and Save WK1, Cancel/Replace on existing files. Backup is omitted. |
+| File | Retrieve and Save WK1, Cancel/Replace on existing files; filtered Erase/List Worksheet/Print/Graph/Other, session Directory and Import Text. Backup is omitted. |
 | Print | Menu navigation and Quit/escape; execution leaves below refuse. |
 | Data | Fill, including expressions/names, remembered numeric defaults, column-first clear/fill and captured protection/memory prefixes. Other leaves below refuse. |
 | Graph | Type/Name/Group navigation and Quit; execution leaves below refuse. |
@@ -119,7 +120,7 @@ mkdir -p ../../build/apps/initech123/save-probe
   tests/fixtures/protection --save-safety
 ```
 
-There are **216 refused slash-menu leaves**. **File Save > Backup** in
+There are **206 refused slash-menu leaves**. **File Save > Backup** in
 the replacement prompt is removed by the approved split. Every slash leaf
 below shows `Command not implemented`; Esc returns to READY. Quit leaves that
 return to READY are navigation, not unavailable operations. No listed command
@@ -164,10 +165,8 @@ and agrees with the 224-leaf October audit. Sources: legacy-final
 | `/File/Combine/Add` | `Entire-File`, `Named/Specified-Range` |
 | `/File/Combine/Subtract` | `Entire-File`, `Named/Specified-Range` |
 | `/File/Xtract` | `Formulas`, `Values` |
-| `/File/Erase` | `Worksheet`, `Print`, `Graph`, `Other` |
-| `/File/List` | `Worksheet`, `Print`, `Graph`, `Other`, `Linked` |
-| `/File/Import` | `Text`, `Numbers` |
-| `/File` | `Directory` |
+| `/File/List` | `Linked` |
+| `/File/Import` | `Numbers` |
 | `/File/Admin/Reservation` | `Get`, `Release` |
 | `/File/Admin` | `Table`, `Link-Refresh` |
 | `/Print/Printer` | `Range`, `Line`, `Page`, `Align`, `Go` |
@@ -266,3 +265,24 @@ replacement labels to the column and leaves Hidden/formula Text/errors alone.
 paired complete WK1 saves must be byte-identical. The option never dirties
 or enters worksheet records, and resets on Retrieve/Worksheet Erase. The
 same captures correct Date1 serial-zero display to `00-Jan-00`.
+
+File Erase and List provide the captured *.WK? / *.PRN / *.PIC / all-file
+choosers, sorted files before directories, selected FAT date/time/size, full
+paging and No/Yes confirmation for deletion. Directory is a validated session
+prefix used by Retrieve, Save, List, Erase and Import; no kernel chdir or global
+default is changed. Save's default retains the retrieved file's complete path.
+Listing refuses at the 512th SDK result rather than show an incomplete list;
+511 entries are supported. Only confirmed deletion changes disk data; these
+commands preserve the worksheet and dirty state.
+
+Import Text consumes at most 64 KiB per file (reported native input capacity),
+CR-delimited lines, ignored LF/NUL, eight-column tabs and Ctrl-Z EOF. It stores
+literal left labels, leaves cells under empty lines alone, accepts 240 expanded
+characters per line and silently stops at row 8192. Completed lines survive
+protection/length/memory failures; disk read/close failures preserve the old
+worksheet. This follows the saved R2.2 bytes even when its ERROR screen is
+stale. Existing formats and global alignment records are preserved.
+`tests/fixtures/files` retains all reference inputs, VGA, saved WK1 and mtools
+FAT file sets/hashes. Independent tests compare complete pages, metadata,
+whole saved worksheets, all fifteen import outputs and all four deletion
+results. Same basenames in two directories exercise every file route.

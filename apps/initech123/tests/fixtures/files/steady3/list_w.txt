@@ -1,0 +1,25 @@
+A1:                                                                        FILES
+Enter extension of files to list: C:\LOTUS\FILES\*.wk?                          
+           ALPHA.WKS      03/02/92       09:30          8                       
+ALPHA.WKS       BASE.WK1        BETA.WK1        DECOY.WK2       GAMMA.WK3       
+EMPTY\          SUB\                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+02-Mar-92  09:30 AM                                                             
