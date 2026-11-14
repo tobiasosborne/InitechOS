@@ -169,6 +169,10 @@ HOST_TESTS += test-runtime-verdict
 test-runtime-verdict_SRCS := tests/runner.c
 test-runtime-verdict_ARGS := tests/run.sh test-runtime-verdict
 test-runtime-verdict_DEPS := tests/gates/test-runtime-verdict.sh tests/runtime/classify.sh
+HOST_TESTS += test-compat33-evidence
+test-compat33-evidence_SRCS := tests/runner.c
+test-compat33-evidence_ARGS := tests/run.sh test-compat33-evidence
+test-compat33-evidence_DEPS := tests/gates/test-compat33-evidence.sh command/tests/compat33/EVIDENCE.sha256
 include $(TOP)/mk/host-test.mk
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions

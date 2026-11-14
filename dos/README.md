@@ -98,3 +98,8 @@ required diagnostic. Missing completion is never a mutation kill.
 46 formerly pending patches: eight host and 38 runtime faults, each failing
 twice. Runtime entries name the actual completed-run semantic assertion.
 The prior timeout-based totals are superseded by that explicit re-sweep.
+
+The DOS 3.30 compatibility study is retained in command/tests/compat33/.
+The default host gate verifies its evidence hashes, not the intentionally
+pending comparisons of old product observations. Each repaired behavior is
+promoted separately to a product regression against the genuine capture.
