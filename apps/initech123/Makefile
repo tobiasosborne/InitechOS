@@ -38,9 +38,9 @@ n=$$((n+1)); \
 if LOTUS123_DECOMP="$(LOTUS123_DECOMP)" I123_PROTECTION_ROOT="$(TOP)/goldens/dataloss/lotus" sh tests/run.sh $(HOST_OUT)/$(1) > $(HOST_OUT)/$(1).log 2>&1; then \
   echo "  ok    $(1)"; \
 else \
+ fail=$$?; \
   echo "  FAIL  $(1)   (log: $(HOST_OUT)/$(1).log)"; \
   tail -n 15 $(HOST_OUT)/$(1).log | sed 's/^/        /'; \
-  fail=$$((fail+1)); \
 fi;
 endef
 

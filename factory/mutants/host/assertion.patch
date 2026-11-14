@@ -1,0 +1,8 @@
+--- a/probe.c
++++ b/probe.c
+@@ -1,4 +1,4 @@
+ #include "test_assert.h"
+ TEST_HARNESS();
+-static int product(void) { return 7; }
++static int product(void) { return 8; }
+ int main(void) { CHECK(product()==7, "literal seven"); return TEST_SUMMARY("probe"); }

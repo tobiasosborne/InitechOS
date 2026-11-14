@@ -38,10 +38,14 @@ for patch_file do
         echo "!!! BUILD FAILED (not a kill): $patch_file"; errors=$((errors+1)); continue
     fi
     for pass in 1 2; do
-        "$make_cmd" --no-print-directory -C "$scratch/component" TOP="$top" OUT="$scratch/build" "$@" test-run > "$scratch/test-$pass.log" 2>&1 || :
-        sed -n 's/^  FAIL  \([^ ]*\).*/\1/p' "$scratch/test-$pass.log" | sort > "$scratch/fail-$pass"
+        rm -f "$scratch"/build/host/*.result
+        rc=0
+        "$make_cmd" --no-print-directory -C "$scratch/component" TOP="$top" OUT="$scratch/build" "$@" test-run > "$scratch/test-$pass.log" 2>&1 || rc=$?
+        sh "$top/factory/testlib/host-results.sh" "$scratch/build" "$scratch/test-$pass.log" "$rc" > "$scratch/fail-$pass"
     done
-    if [ -s "$scratch/fail-1" ] && cmp -s "$scratch/fail-1" "$scratch/fail-2"; then
+    if grep -qx ERROR "$scratch/fail-1" || grep -qx ERROR "$scratch/fail-2"; then
+        echo "!!! TEST ERROR (not a kill): $patch_file"; errors=$((errors+1))
+    elif grep -q " SEMANTIC " "$scratch/fail-1" && cmp -s "$scratch/fail-1" "$scratch/fail-2"; then
         echo "  killed $name ($(tr '\n' ' ' < "$scratch/fail-1"))"; killed=$((killed+1))
         rm -rf "$scratch"
     else

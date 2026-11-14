@@ -139,3 +139,11 @@ resident-shell include in kernel: documentation does not waive CLAUDE.md.
 parked files, live C/Pascal hooks, escaping/attic includes, unreachable artifacts
 and missing build dependencies. mk/dependencies.mk owns the graph used by both
 top-level ordering and the generated-path dependency audit.
+
+Shared host mutation kills require fresh per-test receipts, successful completion
+of the whole selected runner, exit 1 from the test, a completed
+INITECH_CHECKS or retained checks/failures summary with positive failures, and assertion diagnostics.
+The same diagnostic hashes must recur twice. Timeouts, signals, startup/build
+failures, absent receipts and unknown legacy failure formats count as errors.
+Legacy assertion drivers must supply a completed assertion summary before
+those faults qualify; a generic failing test name is never proof of a kill.

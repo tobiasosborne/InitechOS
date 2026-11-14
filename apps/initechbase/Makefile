@@ -78,8 +78,9 @@ n=$$((n+1)); \
 if INITECH_FACTORY_ROOT="$(TOP)" DBASE3_DECOMP="$(DBASE3_DECOMP)" sh tests/run.sh "$(1)" "$(abspath $(HOST_OUT))" > $(HOST_OUT)/$(1).log 2>&1; then \
  echo "  ok    $(1)"; \
 else \
+ fail=$$?; \
  echo "  FAIL  $(1) (log: $(HOST_OUT)/$(1).log)"; \
- tail -n 18 $(HOST_OUT)/$(1).log; fail=$$((fail+1)); \
+ tail -n 18 $(HOST_OUT)/$(1).log; \
 fi;
 endef
 

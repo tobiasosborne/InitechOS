@@ -214,7 +214,8 @@ n=$$((n+1)); \
 if SYSTEM7_DECOMP="$(abspath $(SYSTEM7_DECOMP))" WIN31_DECOMP="$(abspath $(WIN31_DECOMP))" sh tests/run.sh "$(abspath $(HOST_OUT)/$(1))" "$(abspath $(OUT))" > $(HOST_OUT)/$(1).log 2>&1; then \
  echo "  ok    $(1)"; \
 else \
- echo "  FAIL  $(1) (log: $(HOST_OUT)/$(1).log)"; tail -n 15 $(HOST_OUT)/$(1).log; fail=$$((fail+1)); \
+ fail=$$?; \
+ echo "  FAIL  $(1) (log: $(HOST_OUT)/$(1).log)"; tail -n 15 $(HOST_OUT)/$(1).log; \
 fi;
 endef
 smoke:

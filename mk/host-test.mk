@@ -31,11 +31,11 @@ $(foreach d,$(wildcard $(foreach t,$(HOST_TESTS) $(EXTRA_HOST_TESTS),$($(t)_C_OB
 HOST_TEST_BINS := $(addprefix $(HOST_OUT)/,$(TESTS))
 
 define host_test_run
-$($(1)_ENV) $(HOST_OUT)/$(1) $($(1)_ARGS) > $(HOST_OUT)/$(1).log 2>&1 || fail=1;
+$($(1)_ENV) $(HOST_OUT)/$(1) $($(1)_ARGS) > $(HOST_OUT)/$(1).log 2>&1 || fail=$$?;
 endef
 # Isolate inherited runners under the same timeout/count/timing wrapper.
 define timed_test
-if sh $(TOP)/factory/testlib/run-test.sh $(1) $(or $($(1)_TIMEOUT_S),$(TEST_TIMEOUT_S)) $(call shquote,$($(1)_COUNT_PATTERN)) $(HOST_OUT)/$(1) sh -c $(call shquote,n=0; fail=0; $(call host_test_run,$(1)) test $$fail -eq 0); then :; else fail=$$((fail+1)); fi;
+if sh $(TOP)/factory/testlib/run-test.sh $(1) $(or $($(1)_TIMEOUT_S),$(TEST_TIMEOUT_S)) $(call shquote,$($(1)_COUNT_PATTERN)) $(HOST_OUT)/$(1) sh -c $(call shquote,n=0; fail=0; $(call host_test_run,$(1)) exit $$fail); then :; else fail=$$((fail+1)); fi;
 endef
 .PHONY: test test-build test-run
 test-build: $(HOST_TEST_BINS)
@@ -45,6 +45,7 @@ test-run: test-build
 	@start=$$(date +%s); fail=0; ulimit -c 0; \
 	$(foreach t,$(TESTS),$(call timed_test,$(t))) \
 	elapsed=$$(($$(date +%s)-start)); \
+	echo "INITECH_TEST_RUN $(words $(TESTS))"; \
 	echo "$(COMPONENT): $(words $(TESTS)) tests, $$fail failures ($${elapsed}s; budget $(TEST_BUDGET_S)s)"; \
 	if [ $$elapsed -gt $(TEST_BUDGET_S) ]; then \
 	  echo 'FAIL budget: speed the suite up or raise TEST_BUDGET_S with a reason in the component README'; fail=1; \

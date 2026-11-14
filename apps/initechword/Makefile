@@ -46,9 +46,9 @@ n=$$((n+1)); \
 if IWORD_GOLDENS="$(TOP)/goldens" WORDPERFECT51_DECOMP="$(WORDPERFECT51_DECOMP)" sh tests/run.sh $(HOST_OUT)/$(1) > $(HOST_OUT)/$(1).log 2>&1; then \
   echo "  ok    $(1)"; \
 else \
+ fail=$$?; \
   echo "  FAIL  $(1)   (log: $(HOST_OUT)/$(1).log)"; \
   tail -n 15 $(HOST_OUT)/$(1).log | sed 's/^/        /'; \
-  fail=$$((fail+1)); \
 fi;
 endef
 

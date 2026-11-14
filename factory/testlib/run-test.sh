@@ -3,6 +3,7 @@
 set -eu
 name=$1 seconds=$2 pattern=$3 bin=$4
 shift 4
+rm -f "$bin.result" "$bin.log" "$bin.assertion"
 start=$(date +%s)
 rc=0
 timeout -k 1 "$seconds" "$@" > "$bin.run.log" 2>&1 || rc=$?
@@ -15,6 +16,14 @@ if [ "$rc" -eq 0 ] && [ -n "$pattern" ]; then
     case $count in ''|*[!0-9]*) count=0;; esac
     if ! [ "$count" -gt 0 ] 2>/dev/null; then echo "FAIL count: $name reported no positive check count" >> "$bin.run.log"; rc=1; fi
 fi
+state=ERROR
+if [ "$rc" -eq 0 ]; then
+    state=PASS
+elif [ "$rc" -eq 1 ] &&
+     awk -f "$(dirname "$0")/host-verdict.awk" "$bin.log" > "$bin.assertion"; then
+    state="SEMANTIC $(sha256sum "$bin.assertion" | cut -d " " -f1)"
+fi
+printf "%s\n" "$state" > "$bin.result"
 elapsed=$(($(date +%s)-start))
 if [ "$rc" -eq 0 ]; then
     echo "  ok    $name (${elapsed}s)"
