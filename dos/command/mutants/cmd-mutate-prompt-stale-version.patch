@@ -1,0 +1,21 @@
+# CMD_MUTATE_PROMPT_STALE_VERSION
+# test: test-command
+--- a/command/command.c
++++ b/command/command.c
+@@ -1102,13 +1102,10 @@
+                 for (int i = 0; banner[i] != '\0'; i++) {
+                     PROMPT_PUTC(banner[i]);
+                 }
+-                if (ctx->ver_major >= 10) {
+-                    tmp[n++] = (char)('0' + ((ctx->ver_major / 10) % 10));
+-                }
+-                tmp[n++] = (char)('0' + (ctx->ver_major % 10));
++                tmp[n++] = '3';
+                 tmp[n++] = '.';
+-                tmp[n++] = (char)('0' + ((ctx->ver_minor / 10) % 10));
+-                tmp[n++] = (char)('0' + (ctx->ver_minor % 10));
++                tmp[n++] = '3';
++                tmp[n++] = '0';
+                 for (int i = 0; i < n; i++) {
+                     PROMPT_PUTC(tmp[i]);
+                 }

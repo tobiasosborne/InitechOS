@@ -1,0 +1,10 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-prompt.sh. AUTOEXEC sets PROMPT to
+[$v][$d][$t][$p]$g; PCASE.BAT then sets $v$g interactively.
+Genuine expansions (combined.txt): $v is the 40-character version
+banner "MS-DOS Version 3.30" padded with spaces (the same bytes VER
+prints), $d is "Mon  3-02-1992" (day name, space-padded month), and
+$t is " 9:30:00.40" (space-padded hour). The Initech $V uses its
+native AH=30h version contract and VER wording without the padding;
+the padding and the $d/$t formats are recorded here for their owner.

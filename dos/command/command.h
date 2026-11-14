@@ -237,6 +237,8 @@ int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss,
  *   $N -> the drive letter as a single char (e.g. "A")
  *   $T -> "HH:MM:SS.CC" from ctx->hour/minute/second/centisec
  *   $D -> "mm-dd-yyyy" from ctx->month/day/year
+ *   $V -> "InitechDOS Version M.mm" from ctx->ver_major/ver_minor
+ *         (the AH=30h contract VER prints; captured prompt reference)
  *   $_ -> CRLF (\r\n)
  *   $E -> ESC (0x1B)
  *   $H -> backspace (0x08)
@@ -258,6 +260,8 @@ typedef struct {
     int         year;
     int         month;
     int         day;
+    int         ver_major;  /* AH=30h major/minor for $V */
+    int         ver_minor;
 } prompt_ctx_t;
 
 /* Expand `templ` (a PROMPT env-var string, e.g. "$P$G") into `out` using the

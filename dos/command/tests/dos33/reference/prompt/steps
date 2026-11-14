@@ -1,0 +1,7 @@
+wait CAPTURE-DONE
+shot combined
+type pcase
+key ret
+sleep 1
+shot vonly
+end

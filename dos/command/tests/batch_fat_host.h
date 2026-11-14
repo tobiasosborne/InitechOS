@@ -15,6 +15,7 @@ static void dos_gettime(uint8_t *h,uint8_t *m,uint8_t *s,uint8_t *c)
 { *h=*m=*s=*c=0; }
 static void dos_getdate(uint16_t *y,uint8_t *m,uint8_t *d,uint8_t *w)
 { *y=1987; *m=*d=1; *w=4; }
+static void dos_getver(uint8_t *major,uint8_t *minor) { *major=3; *minor=30; }
 static uint8_t dos_conin(void) { fputs("unexpected CON input\n",stderr);exit(2); }
 static uint16_t dos_exec(const char *p,const char *t) { (void)p;(void)t;return 2; }
 static uint16_t dos_get_child_status(void) { return 0; }

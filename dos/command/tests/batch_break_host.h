@@ -54,6 +54,7 @@ static void cwd_display(char *p){strcpy(p,"A:\\\\");}
 static uint8_t dos_getdrive(void){return 0;}
 static void dos_gettime(uint8_t *h,uint8_t *m,uint8_t *s,uint8_t *c){*h=*m=*s=*c=0;}
 static void dos_getdate(uint16_t *y,uint8_t *m,uint8_t *d,uint8_t *w){*y=1987;*m=*d=1;*w=4;}
+static void dos_getver(uint8_t *major,uint8_t *minor){*major=3;*minor=30;}
 static void dos_setdta(void *p){(void)p;}
 static int dos_findfirst(const char *p,uint16_t a){(void)p;(void)a;return 0;}
 static int dos_findnext(void){return 0;}

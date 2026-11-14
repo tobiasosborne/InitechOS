@@ -1,0 +1,25 @@
+SeaBIOS (version 1.16.3-debian-1.16.3-2)                                        
+Booting from Floppy...                                                          
+                                                                                
+MS-DOS Version 3.30                                                             
+CAPTURE-DONE                                                                    
+[MS-DOS Version 3.30                     ][Mon  3-02-1992][ 9:30:00.40][A:\]>pca
+se                                                                              
+MS-DOS Version 3.30                     >                                       
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

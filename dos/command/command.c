@@ -1092,6 +1092,29 @@ int cmd_render_prompt(const char *templ, const prompt_ctx_t *ctx,
                 break;
             }
 
+            case 'V': case 'v': {
+                /* $V -> the version banner VER prints, from the AH=30h
+                 * numbers in ctx (captured DOS 3.30 prompt reference;
+                 * the minor is a two-digit fraction, 30 -> ".30"). */
+                static const char banner[] = "InitechDOS Version ";
+                char tmp[8];
+                int n = 0;
+                for (int i = 0; banner[i] != '\0'; i++) {
+                    PROMPT_PUTC(banner[i]);
+                }
+                if (ctx->ver_major >= 10) {
+                    tmp[n++] = (char)('0' + ((ctx->ver_major / 10) % 10));
+                }
+                tmp[n++] = (char)('0' + (ctx->ver_major % 10));
+                tmp[n++] = '.';
+                tmp[n++] = (char)('0' + ((ctx->ver_minor / 10) % 10));
+                tmp[n++] = (char)('0' + (ctx->ver_minor % 10));
+                for (int i = 0; i < n; i++) {
+                    PROMPT_PUTC(tmp[i]);
+                }
+                break;
+            }
+
             case '_':
                 /* $_ -> CRLF (carriage-return + line-feed). */
                 PROMPT_PUTC('\r');
@@ -4334,6 +4357,8 @@ static void prompt_date(prompt_ctx_t *ctx)
     uint8_t mon=0, day=0, dow=0;
     dos_getdate(&year,&mon,&day,&dow);
     ctx->year=year; ctx->month=mon; ctx->day=day;
+    { uint8_t major=0, minor=0; dos_getver(&major,&minor);
+      ctx->ver_major=major; ctx->ver_minor=minor; }
 }
 
 /* Echo a batch line to CON with the DOS prompt prefix (the rendered $P$G + the

@@ -212,6 +212,8 @@ static void test_render_prompt(void)
     ctx_root.minute   = 5;
     ctx_root.second   = 3;
     ctx_root.centisec = 7;
+    ctx_root.ver_major = 3;
+    ctx_root.ver_minor = 30;
     ctx_root.year     = 2026;
     ctx_root.month    = 6;
     ctx_root.day      = 20;
@@ -223,6 +225,8 @@ static void test_render_prompt(void)
     ctx_sub.minute   = 0;
     ctx_sub.second   = 0;
     ctx_sub.centisec = 0;
+    ctx_sub.ver_major = 3;
+    ctx_sub.ver_minor = 30;
     ctx_sub.year     = 1980;
     ctx_sub.month    = 1;
     ctx_sub.day      = 1;
@@ -256,6 +260,24 @@ static void test_render_prompt(void)
     n = cmd_render_prompt("MS-DOS$G", &ctx_root, buf, sizeof(buf));
     CHECK(n == 7, "render_prompt: MS-DOS$G len=7");
     CHECK_STR_EQ(buf, "MS-DOS>", "render_prompt: MS-DOS$G -> 'MS-DOS>'");
+
+    /* Captured DOS 3.30 (dos33/reference/prompt): $V is the version
+     * banner; the native contract is VER's AH=30h text (initech-96gj). */
+    n = cmd_render_prompt("$V", &ctx_root, buf, sizeof(buf));
+    CHECK_STR_EQ(buf, "InitechDOS Version 3.30", "render_prompt: $V -> version");
+    CHECK(n == 23, "render_prompt: $V len");
+    n = cmd_render_prompt("$v$G", &ctx_root, buf, sizeof(buf));
+    CHECK_STR_EQ(buf, "InitechDOS Version 3.30>", "render_prompt: $v$G lowercase");
+    {   /* The numbers come from ctx (AH=30h), never a stale literal. */
+        prompt_ctx_t ctx_old = ctx_root;
+        ctx_old.ver_major = 2; ctx_old.ver_minor = 5;
+        n = cmd_render_prompt("$V", &ctx_old, buf, sizeof(buf));
+        CHECK_STR_EQ(buf, "InitechDOS Version 2.05", "render_prompt: $V uses ctx version");
+        /* Capacity clamp: a tiny buffer truncates inside the banner. */
+        buf[0] = '\0';
+        n = cmd_render_prompt("$V$G", &ctx_root, buf, 8);
+        CHECK(n <= 7 && buf[7] == '\0', "render_prompt: $V respects capacity");
+    }
 
     /* Unknown "$Z" -> emits 'Z' literally (DOS 3.3 pass-through behaviour). */
     n = cmd_render_prompt("$Z", &ctx_root, buf, sizeof(buf));
