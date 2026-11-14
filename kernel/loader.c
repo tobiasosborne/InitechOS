@@ -233,6 +233,28 @@ loader_status_t loader_prepare_tenant(uint8_t *block, uint32_t block_len,
  * buffers. Only a device read error can return after copying begins.
  * Ref: DEC-19.3/.4, TR p. 11-5 (the caller's allocated footprint).
  * ------------------------------------------------------------------------ */
+/* Genuine DOS3.30 equal/unequal-factor captures (tests/fixtures/dos33_overlay)
+ * locate fixups relative to the factor, not the module's load address. Flat
+ * InitechMZ retains dword offsets/addends; ownership covers each actual write,
+ * including fixups outside the copied module. No foreign 16-bit code runs. */
+static loader_status_t loader_overlay_fixups_owned(loader_ovl_read_fn rd, void *ctx,
+                                    const mz_image_t *img, uint32_t factor,
+                                    loader_ovl_owns_fn owns, uint8_t *scratch)
+{
+    for (uint32_t done=0; done<img->reloc_count;) {
+        uint32_t n=img->reloc_count-done;
+        if (n>LOADER_OVL_SCRATCH/4u) n=LOADER_OVL_SCRATCH/4u;
+        if (rd(ctx,img->reloc_table_off+done*4u,n*4u,scratch)) return LOADER_ERR_READ;
+        for (uint32_t i=0;i<n;i++) {
+            uint32_t off=mz_rd32(scratch+i*4u);
+            if (off>0xfffffffcu || factor>0xfffffffcu-off || !owns(factor+off,4u))
+                return LOADER_ERR_NOT_OWNED;
+        }
+        done+=n;
+    }
+    return LOADER_OK;
+}
+
 loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
                                     uint32_t file_len, uint8_t *dest,
                                     uint32_t load_linear, uint32_t reloc_factor,
@@ -245,6 +267,7 @@ loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
     uint32_t head = file_len < INITECHMZ_EXT_HEADER_MIN ? file_len : INITECHMZ_EXT_HEADER_MIN;
     int is_mz = 0;
     loader_status_t st;
+    uint8_t *fixup_dest = dest;
 
     if (rd == 0 || owns == 0 || dest == 0 || check == 0 ||
         scratch == 0 || out_len == 0) {
@@ -280,13 +303,28 @@ loader_status_t loader_overlay_core(loader_ovl_read_fn rd, void *ctx,
         if (st != LOADER_OK) {
             return st;
         }
+        st = loader_overlay_fixups_owned(rd,ctx,&img,reloc_factor,owns,scratch);
+        if (st != LOADER_OK) return st;
+        /* Host tests can supply a simulated load address. The same linear
+         * translation covers their factor block; on target dest==load_linear. */
+        uintptr_t base=(uintptr_t)dest;
+        if (reloc_factor>=load_linear) {
+            uint32_t delta=reloc_factor-load_linear;
+            if (delta>UINTPTR_MAX-base) return LOADER_ERR_NOT_OWNED;
+            base+=delta;
+        } else {
+            uint32_t delta=load_linear-reloc_factor;
+            if (delta>base) return LOADER_ERR_NOT_OWNED;
+            base-=delta;
+        }
+        fixup_dest=(uint8_t *)base;
     }
     /* Last validation before ANY write. The source and ownership stay stable
      * during this non-reentrant DOS call; the cached FAT is read-only here. */
     if (!owns(load_linear, len)) return LOADER_ERR_NOT_OWNED;
     if (len != 0u && rd(ctx, src, len, dest) != 0) return LOADER_ERR_READ;
     if (is_mz) {
-        st = loader_ovl_relocs(rd, ctx, &img, dest, reloc_factor, scratch, 1);
+        st = loader_ovl_relocs(rd, ctx, &img, fixup_dest, reloc_factor, scratch, 1);
         if (st != LOADER_OK) return st; /* only a device read error */
     }
     *out_len = len;

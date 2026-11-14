@@ -263,3 +263,11 @@ before/after persistence in root, same-sector, separate-sector/subdirectory and
 empty-file cases. mtools verifies named contents, fsck.fat verifies the image,
 and the independent FAT reader proves allocation ownership and matching FATs.
 Source: phase-2 safe-save ruling, initech-7mb66, and Microsoft FAT layout.
+
+Overlay fixups are graded against the genuine DOS3.30 equal/unequal-factor
+captures in tests/fixtures/dos33_overlay (initech-i1swl). The load destination
+receives the module; the factor determines both the fixup address base and the
+addend. Existing flat InitechMZ dword offsets/addends adapt the 16-bit probe;
+foreign MZ refusal remains. Captured addresses and final words grade actual
+product memory; this is no longer a detached reference self-check. Every actual
+factor-based fixup range must be owned, with overflow refused before any write.

@@ -427,7 +427,11 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
  * the load segment and "relocation factor to be applied to the image";
  * p. 11-5: no PSP, no memory allocation. The DEC-08a machinery EXTENDS here:
  * the same mz_parse_header / mz_apply_relocs, with the caller's factor as the
- * base the flat dwords are added to.
+ * base the flat dwords are added to. Genuine DOS3.30 captures in
+ * tests/fixtures/dos33_overlay establish that the factor ALSO locates fixups:
+ * each write is at factor + relocation offset, independently of load_linear.
+ * Both the module and every fixup range must belong to the caller. The host
+ * dest buffer maps simulated linear addresses using dest + (address-load_linear).
  *
  * `rd(ctx, off, len, dst)` reads exactly `len` file bytes at `off` into `dst`
  * (0 = ok). `owns(linear, len)` is the DEC-19.4 destination check
@@ -455,7 +459,7 @@ loader_status_t loader_load_tenant(const char *name83, uint16_t dir_start,
  *     factor ignored.
  *   - owns(load_linear, footprint) == 0 -> LOADER_ERR_NOT_OWNED.
  *   - check(ctx) != 0 -> LOADER_ERR_READ; whole dest untouched.
- *   - Validate ALL relocation offsets, streaming chunks through scratch.
+ *   - Validate ALL relocation offsets and factor-based destination ownership, streaming chunks through scratch.
  *     Bad offset -> LOADER_ERR_BAD_FORMAT, whole dest untouched.
  *   - Recheck owns, then stream the module directly into dest and reread the
  *     validated table to apply the factor. A device read error during copy or

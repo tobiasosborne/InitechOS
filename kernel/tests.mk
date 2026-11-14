@@ -339,7 +339,7 @@ test-nmpo_DEPS := $(OUT)/host/tool_test_fileio_subdir tests/run.sh tests/gates/t
 HOST_TESTS += test-overlay
 test-overlay_SRCS := tests/runner.c
 test-overlay_ARGS := tests/run.sh test-overlay
-test-overlay_DEPS := $(OUT)/host/tool_overlay_dos33_check $(OUT)/host/tool_overlay_dos33_negative $(OUT)/host/tool_test_overlay tests/run.sh tests/gates/test-overlay.sh
+test-overlay_DEPS := $(OUT)/host/tool_test_overlay_captures $(OUT)/host/tool_overlay_dos33_check $(OUT)/host/tool_overlay_dos33_negative $(OUT)/host/tool_test_overlay tests/run.sh tests/gates/test-overlay.sh
 HOST_TESTS += test-partition-spec
 test-partition-spec_SRCS := tests/runner.c
 test-partition-spec_ARGS := tests/run.sh test-partition-spec
@@ -452,6 +452,10 @@ HOST_TESTS += test-replace
 test-replace_SRCS := tests/runner.c
 test-replace_ARGS := tests/run.sh test-replace
 test-replace_DEPS := $(OUT)/host/tool_test_replace tests/gates/test-replace.sh tests/disk/check_conservation.py tests/disk/check_replace.py
+
+EXTRA_HOST_TESTS += tool_test_overlay_captures
+tool_test_overlay_captures_SRCS := tests/test_overlay_captures.c
+tool_test_overlay_captures_OBJS := $(tool_test_loader_OBJS)
 
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h

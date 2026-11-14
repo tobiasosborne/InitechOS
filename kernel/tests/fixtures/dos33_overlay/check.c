@@ -1,5 +1,5 @@
 /* Independent DOS 3.30 captures, not values computed by the artifact.
- * Ref: README.txt / DEC-19.3 pending-ratification deviation; initech-i15. */
+ * Ref: README.txt; initech-i15 and initech-i1swl product comparison. */
 #include <stdint.h>
 #include <stdio.h>
 

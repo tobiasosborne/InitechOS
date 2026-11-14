@@ -1,0 +1,12 @@
+# test: test-overlay
+--- a/loader.c
++++ b/loader.c
+@@ -317,7 +317,7 @@
+             if (delta>base) return LOADER_ERR_NOT_OWNED;
+             base-=delta;
+         }
+-        fixup_dest=(uint8_t *)base;
++        fixup_dest=dest; (void)base;
+     }
+     /* Last validation before ANY write. The source and ownership stay stable
+      * during this non-reentrant DOS call; the cached FAT is read-only here. */

@@ -4,7 +4,7 @@
 set -eu
 media=$1
 out=${2:-build/overlay-dos33-mint}
-src=harness/fixtures/dos33_overlay
+src=kernel/tests/fixtures/dos33_overlay
 export SOURCE_DATE_EPOCH=699408000 TZ=UTC
 mkdir -p "$out"
 sha256sum "$media" > "$out/media.sha256"

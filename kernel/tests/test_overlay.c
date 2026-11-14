@@ -268,14 +268,15 @@ int main(void)
     loader_status_t st;
     uint32_t got;
     const uint32_t LOAD = 0x00052000u;     /* fake flat address of g_dest */
-    const uint32_t FACTOR = 0x00123400u;   /* deliberately != LOAD        */
+    const uint32_t FACTOR = 0x00052000u;   /* equal-factor core vectors    */
 
     /* ===================== Part A: loader_overlay_core ================== */
     g_win_lo = LOAD;
     g_win_hi = LOAD + 0x100u;
 
-    /* A1: tagged InitechMZ, factor != load address. Each relocated dword is
-     * its link-time value + FACTOR (DEC-19.3), never + LOAD; the footprint is
+    /* A1: tagged InitechMZ, factor == load address (unequal capture is a separate gate). Each relocated dword is
+     * its link-time value + FACTOR; the separate capture gate distinguishes
+     * the factor address from the load address. The footprint is
      * exactly the 64-byte module (header + reloc table never written). */
     build_mz(MZ_INITECH_TAG, 0u);
     dest_reset();
@@ -284,13 +285,13 @@ int main(void)
                              win_owns, mem_check, g_scratch, &got);
     CHECK(st == LOADER_OK, "A1 tagged InitechMZ overlay loads");
     CHECK(got == MOD_LEN, "A1 footprint == load module length (64)");
-    CHECK(g_owns_calls == 2 && g_owns_lin == LOAD && g_owns_len == MOD_LEN,
+    CHECK(g_owns_calls >= 2 && g_owns_lin == LOAD && g_owns_len == MOD_LEN,
           "A1 ownership asked for (load address, module length)");
-    CHECK(get32(g_dest, 4u) == 0x00123410u,
-          "A1 reloc @4: 0x10 + factor 0x123400 = 0x123410");
-    CHECK(get32(g_dest, 16u) == 0x00123420u,
-          "A1 reloc @16: 0x20 + factor = 0x123420");
-    CHECK(get32(g_dest, 60u) == 0x0012343Cu,
+    CHECK(get32(g_dest, 4u) == 0x00052010u,
+          "A1 reloc @4: 0x10 + factor 0x52000 = 0x52010");
+    CHECK(get32(g_dest, 16u) == 0x00052020u,
+          "A1 reloc @16: 0x20 + factor = 0x52020");
+    CHECK(get32(g_dest, 60u) == 0x0005203Cu,
           "A1 reloc @60 (the module's last dword): 0x3C + factor");
     CHECK(g_dest[0] == 0x40u && g_dest[8] == 0x48u && g_dest[59] == 0x7Bu,
           "A1 unrelocated module bytes copied verbatim");
