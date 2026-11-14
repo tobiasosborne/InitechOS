@@ -1,0 +1,6 @@
+# test: execution-frame
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -2771,1 +2771,1 @@
+-    GenFrameOffset := SymOffset[Index] { TURBO_GEN_MUT_OFFBYONE }
++    GenFrameOffset := SymOffset[Index] + 4 { TURBO_GEN_MUT_OFFBYONE }

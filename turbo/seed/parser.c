@@ -950,13 +950,20 @@ static AstNode *parse_while(Parser *p)
  *
  * for v := e1 to e2 do S      desugars to:
  *   begin
- *     v := e1;
+ *     __initial := e1;
  *     __forlim_N := e2;
- *     while v <= __forlim_N do begin S; v := v + 1 end
+ *     v := __initial; __active := 1;
+ *     while (v <= __forlim_N) and (__active = 1) do begin
+ *       S;
+ *       if v = __forlim_N then __active := 0 else v := v + 1
+ *     end
  *   end
  * ("downto" swaps to ">=" and "v - 1"). The loop-control variable's value
  * once the loop terminates NORMALLY is left FORMALLY UNDEFINED by both ISO
  * 7185 and Turbo Pascal -- no fixture may depend on it (see parser.h).
+ * Independent FPC -Mtp references: parent tests/execution/for_*.pas.
+ * Saving e1 before e2 preserves expression order while delaying the counter
+ * assignment; checking the endpoint before stepping avoids integer wrap.
  */
 static AstNode *parse_for(Parser *p)
 {
@@ -1000,13 +1007,20 @@ static AstNode *parse_for(Parser *p)
         return NULL;
 
     char *limit = synth_intvar(p, line, col);
+    char *initial = synth_intvar(p, line, col);
+    char *active = synth_intvar(p, line, col);
 
-    AstNode *init_v = mk_assign(p, varname, e1, line, col);
+    AstNode *init_first = mk_assign(p, initial, e1, line, col);
+    AstNode *init_v = mk_assign(p, varname, mk_varref(p, initial, line, col), line, col);
     AstNode *init_lim = mk_assign(p, limit, e2, line, col);
+    AstNode *init_active = mk_assign(p, active, mk_intlit(p, 1, line, col), line, col);
 
-    AstNode *guard = mk_binop(p, is_downto ? OP_GE : OP_LE,
+    AstNode *range = mk_binop(p, is_downto ? OP_GE : OP_LE,
                               mk_varref(p, varname, line, col),
                               mk_varref(p, limit, line, col), line, col);
+    AstNode *guard = mk_binop(p, OP_AND, range,
+                              mk_binop(p, OP_EQ, mk_varref(p, active, line, col),
+                                       mk_intlit(p, 1, line, col), line, col), line, col);
 
     AstNode *step = mk_assign(p, varname,
                               mk_binop(p, is_downto ? OP_SUB : OP_ADD,
@@ -1019,7 +1033,15 @@ static AstNode *parse_for(Parser *p)
     ast_list_init(&loop_body->as.block.stmts);
     if (body)
         ast_list_push(p->arena, &loop_body->as.block.stmts, body);
-    ast_list_push(p->arena, &loop_body->as.block.stmts, step);
+    /* Stop at the saved endpoint before the step can overflow. A frame-local
+     * active flag preserves the counter and works in nested/recursive loops. */
+    AstNode *finish = ast_new(p->arena, AST_IF, line, col);
+    finish->as.ifstmt.cond = mk_binop(p, OP_EQ,
+                                     mk_varref(p, varname, line, col),
+                                     mk_varref(p, limit, line, col), line, col);
+    finish->as.ifstmt.then_stmt = mk_assign(p, active, mk_intlit(p, 0, line, col), line, col);
+    finish->as.ifstmt.else_stmt = step;
+    ast_list_push(p->arena, &loop_body->as.block.stmts, finish);
 
     AstNode *wh = ast_new(p->arena, AST_WHILE, line, col);
     wh->as.whilestmt.cond = guard;
@@ -1027,8 +1049,10 @@ static AstNode *parse_for(Parser *p)
 
     AstNode *outer = ast_new(p->arena, AST_BLOCK, line, col);
     ast_list_init(&outer->as.block.stmts);
-    ast_list_push(p->arena, &outer->as.block.stmts, init_v);
+    ast_list_push(p->arena, &outer->as.block.stmts, init_first);
     ast_list_push(p->arena, &outer->as.block.stmts, init_lim);
+    ast_list_push(p->arena, &outer->as.block.stmts, init_v);
+    ast_list_push(p->arena, &outer->as.block.stmts, init_active);
     ast_list_push(p->arena, &outer->as.block.stmts, wh);
     return outer;
 }

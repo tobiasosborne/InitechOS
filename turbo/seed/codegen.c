@@ -862,7 +862,7 @@ static void gen_str_compare(Cg *cg, const AstNode *e); /* string relop -> 0/1 ea
  *   GLOBAL array `name` (a .bss block labelled v_<name>, resd (hi-lo+1)):
  *     base = the label's address (a bare "mov eax, v_name", the same
  *     convention gen_addr_of already uses for a global's address-of).
- *   LOCAL array (frame-resident, cg_build_scope): base = [ebp + se->offset],
+ *   LOCAL scalar array (frame-resident, cg_build_scope): base = [ebp + se->offset],
  *     where se->offset is the ebp displacement of ELEMENT 0 (index lo).
  *     Because cg_local_offset's slots grow MORE NEGATIVE as the slot number
  *     increases (cg_build_scope allocates element j at slot+j), the
@@ -874,7 +874,8 @@ static void gen_str_compare(Cg *cg, const AstNode *e); /* string relop -> 0/1 ea
  *     SEED_MUT_CODEGEN_FRAME_OFF4 mutant, which shifts the whole family
  *     uniformly and therefore still corrupts an array local's addressing
  *     exactly as it corrupts a scalar local's -- no special-casing needed
- *     for the mutant to bite here too).
+ *     for the mutant to bite here too). Local record arrays instead ascend
+ *     from the low end of the allocated block, matching global/var records.
  */
 /*
  * B6 (beads initech-rug7; ADR-0007 DEC-02 "arrays of records ... deterministic
@@ -916,7 +917,9 @@ static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr)
         fprintf(o, "    mov edx, eax\n");         /* edx = byte offset */
         fprintf(o, "    lea eax, ");
         cg_ebp(o, se->offset);                    /* eax = &element[lo] */
-        fprintf(o, "\n    sub eax, edx\n");        /* local slots grow down */
+        /* Records have the same ascending layout through direct and var
+         * access. Scalar arrays retain their descending frame slots. */
+        fprintf(o, "\n    %s eax, edx\n", se->rec_fields ? "add" : "sub");
     } else {
         const CgGlobalArr *ga = cg_global_arr_find(cg, name);
         if (!ga)
@@ -936,7 +939,7 @@ static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr)
  * access, arrays of records, with a deterministic field layout") -- record
  * field addressing.
  *
- * DETERMINISTIC LAYOUT RULE (Rule 11, ast.h's B6 comment has the full story):
+ * Record storage (CLAUDE.md, The constitution: reproducible builds):
  * fields sit in CONSECUTIVE UNIFORM 4-byte slots in DECLARATION ORDER; field
  * k is at byte offset cg_field_offset(k) = 4*k from the record's BASE
  * address. sizeof(record) = 4 * field-count. An array-of-record ELEMENT uses
@@ -947,28 +950,19 @@ static void gen_elem_addr(Cg *cg, const char *name, const AstNode *idxexpr)
  * gen_designator_base_addr computes the BASE address (= field 0's address)
  * of a plain designator: `name` (a scalar OR record variable) or
  * `name[idxexpr]` (one array element, scalar or record) -- reusing
- * gen_elem_addr for the indexed case (which ALREADY normalizes local-vs-
- * global addressing via its own sub/add split, so the element address it
- * leaves in eax behaves like a plain ascending base from here on: a further
- * field offset is ALWAYS a plain ADD on top of an indexed base, regardless of
- * whether the array itself is local or global).
+ * gen_elem_addr for the indexed case. Local record blocks start at their
+ * lowest address, so both elements and fields ascend, exactly like globals.
  *
  * gen_field_addr computes the address of ONE FIELD of `name`/`name[idxexpr]`:
- * the base, then cg_field_offset(field_index) -- ADDED for a global or an
- * indexed base (gen_elem_addr already normalized those to ascending
- * addresses), SUBTRACTED for a bare LOCAL scalar-record designator (frame
- * slots grow to MORE NEGATIVE addresses as the field index increases, the
- * IDENTICAL "[ebp-...] offset math" gen_elem_addr's own LOCAL branch already
- * uses for array elements -- see cg_build_scope's record-local slot
- * allocation). A `var` parameter of record type is NOT "local" in this sense
- * -- its frame slot holds a POINTER whose VALUE is the record's own
- * (ascending) base address, so field access through it ADDS, exactly like a
- * global.
+ * the base, then cg_field_offset(field_index), always added. Var parameters
+ * forward the identical field-zero address, preserving aliases. Independent
+ * FPC -Mtp execution: tests/execution/record_{var,array,layout}.pas (in the
+ * parent component). No copy-in/copy-out or layout tag is needed.
  *
  * gen_record_copy implements WHOLE-RECORD assignment (`r1 := r2` or
  * `arr[i] := r`) as a fully UNROLLED, compile-time member-wise word copy --
  * field count is always a compile-time constant here, so no runtime loop or
- * extra ordinal label is needed (deterministic, Rule 11; DECISION, report:
+ * extra ordinal label is needed (deterministic; DECISION, report:
  * simpler and just as fast as a labelled loop for the small field counts
  * this subset's own records have).
  * ============================================================================
@@ -1027,56 +1021,37 @@ static void gen_designator_base_addr(Cg *cg, const char *name,
     }
 }
 
-/* Is `name` (with NO index -- idxexpr NULL) a LOCAL frame-resident designator
- * whose fields SUBTRACT the field offset (frame slots grow down), as opposed
- * to a global label or a `var`-parameter's forwarded (ascending) pointer,
- * which ADD it? An INDEXED base is never "local" in this sense -- gen_elem_addr
- * already normalized it to an ascending address. */
-static int gen_designator_is_local_frame(Cg *cg, const char *name,
-                                         const AstNode *idxexpr)
-{
-    if (idxexpr)
-        return 0;
-    const CgScopeEnt *se = cg_resolve(cg, name);
-    return se && se->kind != CG_VARPARAM;
-}
-
 /* Address of field `field_index` of designator `name`/`name[idxexpr]` -> eax. */
 static void gen_field_addr(Cg *cg, const char *name, const AstNode *idxexpr,
                           int field_index)
 {
-    int local = gen_designator_is_local_frame(cg, name, idxexpr);
     gen_designator_base_addr(cg, name, idxexpr);
     int off = cg_field_offset(field_index);
     if (off == 0)
         return;
-    if (local)
-        fprintf(cg->out, "    sub eax, %d\n", off);
-    else
-        fprintf(cg->out, "    add eax, %d\n", off);
+    fprintf(cg->out, "    add eax, %d\n", off);
 }
 
 /* WHOLE-RECORD assignment: copy `rec_fields` fields, one at a time, from
  * src_name[src_idx?] to dst_name[dst_idx?]. Fully unrolled (field count is a
- * compile-time constant) -- deterministic, no runtime loop/label. Each
- * field's address is recomputed fresh for both sides (mirrors this file's
- * existing "never cache an address across a sub-computation that might
- * clobber eax/ecx/edx" discipline, e.g. gen_stmt's indexed-assignment spill)
- * rather than hoisting the base once, keeping the code simple and safe under
- * the FIELD_OFF4 mutant (which must perturb EVERY field, including field 0,
- * uniformly -- see cg_field_offset). */
+ * compile-time constant). Each base is evaluated once, then the copy has no
+ * calls and can use saved pointers. The FIELD_OFF4 patch still perturbs each
+ * field uniformly, including field zero. FPC -Mtp: record_indices.pas. */
 static void gen_record_copy(Cg *cg, const char *dst_name,
                             const AstNode *dst_idx, const char *src_name,
                             const AstNode *src_idx, int rec_fields)
 {
     FILE *o = cg->out;
+    /* Evaluate both designators exactly once, including side effects in
+     * their indices. The spill survives arbitrary calls in the source. */
+    gen_designator_base_addr(cg, dst_name, dst_idx);
+    fprintf(o, "    push eax\n");
+    gen_designator_base_addr(cg, src_name, src_idx);
+    fprintf(o, "    pop edx\n");
     for (int k = 0; k < rec_fields; k++) {
-        gen_field_addr(cg, src_name, src_idx, k);   /* &src.field[k] -> eax */
-        fprintf(o, "    mov eax, [eax]\n");         /* load value -> eax */
-        fprintf(o, "    push eax\n");               /* spill value */
-        gen_field_addr(cg, dst_name, dst_idx, k);    /* &dst.field[k] -> eax */
-        fprintf(o, "    pop ecx\n");
-        fprintf(o, "    mov [eax], ecx\n");
+        int off = cg_field_offset(k);
+        fprintf(o, "    mov ecx, [eax+%d]\n", off);
+        fprintf(o, "    mov [edx+%d], ecx\n", off);
     }
 }
 
@@ -1388,15 +1363,17 @@ static void gen_expr(Cg *cg, const AstNode *e)
          * pointer and DEREFERENCES it (fresh every time -- no staleness). */
         const CgScopeEnt *se = cg_resolve(cg, e->as.varref.name);
         if (!se) {
-            fprintf(o, "    mov eax, [v_");
+            fprintf(o, e->type == AST_TY_CHAR
+                       ? "    movzx eax, byte [v_" : "    mov eax, [v_");
             emit_var_label(o, e->as.varref.name);
             fprintf(o, "]\n");
         } else if (se->kind == CG_VARPARAM) {
             fprintf(o, "    mov eax, ");
             cg_ebp(o, se->offset);
-            fprintf(o, "\n    mov eax, [eax]\n");
+            fprintf(o, e->type == AST_TY_CHAR
+                       ? "\n    movzx eax, byte [eax]\n" : "\n    mov eax, [eax]\n");
         } else {
-            fprintf(o, "    mov eax, ");
+            fprintf(o, e->type == AST_TY_CHAR ? "    movzx eax, byte " : "    mov eax, ");
             cg_ebp(o, se->offset);
             fprintf(o, "\n");
         }
@@ -1423,7 +1400,8 @@ static void gen_expr(Cg *cg, const AstNode *e)
             break;
         }
         gen_elem_addr(cg, e->as.arrayindex.name, e->as.arrayindex.index);
-        fprintf(o, "    mov eax, [eax]\n");
+        fprintf(o, e->type == AST_TY_CHAR
+                   ? "    movzx eax, byte [eax]\n" : "    mov eax, [eax]\n");
         break;
     /* B6 (beads initech-rug7): `base.field` as an r-value -- compute the
      * FIELD address (gen_field_addr, the ONE shared field-address path) then
@@ -1433,7 +1411,8 @@ static void gen_expr(Cg *cg, const AstNode *e)
         const AstNode *fidx;
         gen_field_base_designator(e->as.field.base, &fname, &fidx);
         gen_field_addr(cg, fname, fidx, e->as.field.field_index);
-        fprintf(o, "    mov eax, [eax]\n");
+        fprintf(o, e->type == AST_TY_CHAR
+                   ? "    movzx eax, byte [eax]\n" : "    mov eax, [eax]\n");
         break;
     }
     case AST_BINOP:
@@ -1686,7 +1665,8 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
         } else if (se->kind == CG_VARPARAM) {
             fprintf(o, "    mov edx, ");
             cg_ebp(o, se->offset);
-            fprintf(o, "\n    mov [edx], eax\n");
+            fprintf(o, n->as.assign.value->type == AST_TY_CHAR
+                       ? "\n    mov [edx], al\n" : "\n    mov [edx], eax\n");
         } else {
             fprintf(o, "    mov ");
             cg_ebp(o, se->offset);
@@ -1765,7 +1745,13 @@ static void gen_stmt(Cg *cg, const AstNode *n, int *str_idx)
 static void gen_addr_of(Cg *cg, const AstNode *arg)
 {
     if (arg->kind == AST_INDEX) {
-        gen_elem_addr(cg, arg->as.arrayindex.name, arg->as.arrayindex.index);
+        if (arg->as.arrayindex.is_string) {
+            gen_str_base_addr(cg, arg->as.arrayindex.name);
+            fprintf(cg->out, "    push eax\n");
+            gen_expr(cg, arg->as.arrayindex.index);
+            fprintf(cg->out, "    pop edx\n    add eax, edx\n");
+        } else
+            gen_elem_addr(cg, arg->as.arrayindex.name, arg->as.arrayindex.index);
         return;
     }
     if (arg->kind == AST_FIELD) {
@@ -1911,7 +1897,9 @@ static void gen_call(Cg *cg, const AstNode *call)
  * the field count (0 for a scalar, non-record entry) so gen_elem_addr's
  * array-of-record stride and gen_field_addr's field offset can both resolve
  * it later purely from the scope table, with no second AST walk. A `var`
- * parameter of record type needs NO extra frame slots (its ONE slot holds a
+ * Local record bases point to the lowest allocated slot and fields/elements
+ * ascend, unlike the scalar-array convention above. A var parameter of
+ * record type needs NO extra frame slots (its ONE slot holds a
  * pointer, exactly like a scalar var parameter) -- only `rec_fields` is set,
  * for gen_field_addr's benefit (see `cg` now being passed in, needed to
  * resolve a record TYPE NAME to its field count via cg_rectype_fields). */
@@ -2192,12 +2180,14 @@ static void cg_build_scope(const Cg *cg, CgScope *sc, const AstNode *pf)
                 e->is_array = 1;
                 e->lo = lo;
                 e->hi = hi;
-                e->offset = cg_local_offset(slot); /* element 0 (index lo) */
+                /* Records ascend from the low end of the entire block. */
+                int base_slot = slot + (rec_fields ? (int)count * elem_words - 1 : 0);
+                e->offset = cg_local_offset(base_slot);
                 slot += (int)count * elem_words;
             } else {
                 e->is_array = 0;
                 e->lo = e->hi = 0;
-                e->offset = cg_local_offset(slot); /* field 0 (scalar: itself) */
+                e->offset = cg_local_offset(slot + elem_words - 1);
                 slot += elem_words;
             }
         }
@@ -2263,7 +2253,8 @@ static void emit_proc(Cg *cg, const AstNode *pf, int *str_idx)
 
     if (pf->as.procfunc.has_result) {
         /* Load the result slot (slot 0) into eax for the return value. */
-        fprintf(o, "    mov eax, ");
+        fprintf(o, pf->as.procfunc.rettype == AST_TY_CHAR
+                   ? "    movzx eax, byte " : "    mov eax, ");
         cg_ebp(o, cg_local_offset(0));
         fprintf(o, "\n");
     }

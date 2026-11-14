@@ -71,13 +71,14 @@ arguments, and any string materialization bytes in one deterministic cleanup.
 
 - Globals are insertion-ordered `v_<lower-case-name>` labels in `.bss`.
 - Routine labels are `pf_<lower-case-name>`; the entry body is `pas_main`.
-- Scalars occupy one dword. Global arrays advance upward from their label;
-  local array slots descend from EBP. The lower bound is subtracted before
+- Scalars reserve one dword. Character reads zero-extend one byte; stores
+  through var-char pointers write one byte. Global arrays advance upward from
+  their label; local scalar-array slots descend from EBP. The lower bound is subtracted before
   multiplying by the scalar or record stride.
-- Record fields are declaration-ordered dwords. Global/var-parameter fields
-  advance from the base. Plain local records and local array-of-record
-  elements descend from their field-zero frame address.
-- Whole records copy field-by-field with compile-time offsets. No runtime
+- Record fields are declaration-ordered dword slots, ascending from field
+  zero for globals, locals, array elements and var parameters alike. Local
+  record blocks start at their lowest allocated frame address.
+- Whole records evaluate each designator once and copy field-by-field with compile-time offsets. No runtime
   layout metadata or loop label is introduced.
 
 `TURBO_GEN_MUT_OFFBYONE` changes parameter displacements by one dword. The tiny

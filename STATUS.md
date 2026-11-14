@@ -15,8 +15,8 @@ retain separate sessions on both emulators.
 
 Turbo Initech's wrong-write runtime entry points are removed; both
 runtime tables regenerate exactly. Self-host and diverse bootstrap prove
-`K2 == K3 == D2`: 163,439 bytes, SHA-256
-`08499523b5b74b394a05775008481162948b81054adf989785cee18902d55b3f`.
+`K2 == K3 == D2`: 163,087 bytes, SHA-256
+`7bf6424c74a46106b01f5d75de2c422005a026d2624f1e044e626fc1ae801ff6`.
 Corruption, contamination and changed-source controls go red.
 
 This machine's baseline exceeded Word and Turbo host time budgets and

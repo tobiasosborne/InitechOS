@@ -2252,7 +2252,8 @@ begin
       Count := SizeValue div 4;
       OffsetValue := -(4 * (LocalSlots + 1));
       if TypeId = TyString then OffsetValue := -(4 * (LocalSlots + Count))
-      else if TypeId = TyFile then OffsetValue := -(4 * (LocalSlots + Count));
+      else if (TypeId = TyFile) or (TypeId = TyRecord) then
+        OffsetValue := -(4 * (LocalSlots + Count));
       LocalSlots := LocalSlots + Count
     end;
     NewIndex := AddRawSymbol(NameOffset, NameLength, Kind, TypeId,
@@ -2837,7 +2838,7 @@ begin
     begin GenText := '    imul ecx, '; GenPut(GenText) end;
     GenInt(Stride);
     GenChar(Chr(10));
-    if SymKind[Index] = SkLocalArray then
+    if (SymKind[Index] = SkLocalArray) and (SymType[Index] <> TyRecord) then
       begin GenText := '    sub eax, ecx'; GenLine(GenText) end
     else
       begin GenText := '    add eax, ecx'; GenLine(GenText) end
@@ -2851,13 +2852,7 @@ begin
   OffsetValue := SymOffset[FieldIndex];
   if OffsetValue <> 0 then
   begin
-    if (SymKind[BaseIndex] = SkLocalArray) or
-       ((SymScope[BaseIndex] > 0) and
-        (SymKind[BaseIndex] <> SkVarParam) and
-        (SymKind[BaseIndex] <> SkValueParam) and (not HadIndex)) then
-      begin GenText := '    sub eax, '; GenPut(GenText) end
-    else
-      begin GenText := '    add eax, '; GenPut(GenText) end;
+    begin GenText := '    add eax, '; GenPut(GenText) end;
     GenInt(OffsetValue);
     GenChar(Chr(10))
   end
@@ -3843,12 +3838,7 @@ begin
               if not GenFlags[5] then
               begin
                 if LastExprType = TyChar then
-                begin
-                  if BaseWasString and HadIndex then
-                    begin GenText := '    movzx eax, byte [eax]'; GenLine(GenText) end
-                  else
-                    begin GenText := '    mov eax, [eax]'; GenLine(GenText) end
-                end
+                  begin GenText := '    movzx eax, byte [eax]'; GenLine(GenText) end
                 else if (LastExprType = TyInteger) or
                         (LastExprType = TyBoolean) then
                   begin GenText := '    mov eax, [eax]'; GenLine(GenText) end
@@ -4174,8 +4164,8 @@ procedure ParseAssignment();
 var
   TargetSym, TargetType, TargetRecord, TargetForm, ValueType, ValueRecord: integer;
   ValueTemp, FieldIndex, I, OffsetValue: integer;
-  TargetLvalue, WholeString, TargetHadIndex, TargetDescending: boolean;
-  SourceDescending, SavedWantAddress: boolean;
+  TargetLvalue, WholeString, TargetHadIndex: boolean;
+  SavedWantAddress: boolean;
 begin
   TraceEnter(PrAssignment);
   TargetSym := 0;
@@ -4185,7 +4175,6 @@ begin
   TargetLvalue := false;
   WholeString := false;
   TargetHadIndex := false;
-  TargetDescending := false;
   if TypeMode then
   begin
     TargetSym := ResolveName(PendingIdentOffset, PendingIdentLength);
@@ -4281,12 +4270,6 @@ begin
   if not ParseFailed then
     if GenFlags[1] then
     begin
-      TargetDescending := SymKind[TargetSym] = SkLocalArray;
-      if not TargetDescending then
-        TargetDescending := (SymScope[TargetSym] > 0) and
-                            (SymKind[TargetSym] <> SkVarParam) and
-                            (SymKind[TargetSym] <> SkValueParam) and
-                            (not TargetHadIndex);
       begin GenText := '    push eax'; GenLine(GenText) end
     end;
   if not ParseFailed then ExpectToken(TkAssign, TkAssign);
@@ -4360,12 +4343,6 @@ begin
       end
       else if TargetType = TyRecord then
       begin
-        SourceDescending := SymKind[LastExprSym] = SkLocalArray;
-        if not SourceDescending then
-          SourceDescending := (SymScope[LastExprSym] > 0) and
-                              (SymKind[LastExprSym] <> SkVarParam) and
-                              (SymKind[LastExprSym] <> SkValueParam) and
-                              (LastExprForm = 1);
         begin GenText := '    mov edx, [esp]'; GenLine(GenText) end;
         I := 0;
         while I < SymSize[TargetRecord] div 4 do
@@ -4374,7 +4351,7 @@ begin
           begin GenText := '    mov ecx, [eax'; GenPut(GenText) end;
           if OffsetValue > 0 then
           begin
-            if SourceDescending then GenChar('-') else GenChar('+');
+            GenChar('+');
             GenInt(OffsetValue)
           end;
           begin GenText := ']'; GenPut(GenText) end;
@@ -4382,7 +4359,7 @@ begin
           begin GenText := '    mov [edx'; GenPut(GenText) end;
           if OffsetValue > 0 then
           begin
-            if TargetDescending then GenChar('-') else GenChar('+');
+            GenChar('+');
             GenInt(OffsetValue)
           end;
           begin GenText := '], ecx'; GenPut(GenText) end;
@@ -4394,7 +4371,7 @@ begin
       else
       begin
         begin GenText := '    pop edx'; GenLine(GenText) end;
-        if (SymType[TargetSym] = TyString) and (TargetForm = 2) then
+        if TargetType = TyChar then
           begin GenText := '    mov [edx], al'; GenLine(GenText) end
         else
           begin GenText := '    mov [edx], eax'; GenLine(GenText) end
@@ -4691,10 +4668,9 @@ begin
   if not ParseFailed then
     if GenFlags[1] then
     begin
-      begin GenText := '    push eax'; GenLine(GenText) end;
-      GenDesignatorAddress(ControlSym);
-      begin GenText := '    pop ecx'; GenLine(GenText) end;
-      begin GenText := '    mov [eax], ecx'; GenLine(GenText) end
+      { Keep the initial value separate until the final expression has read
+        the old control variable. FPC -Mtp is the execution reference. }
+      begin GenText := '    push eax'; GenLine(GenText) end
     end;
   Direction := 0;
   if not ParseFailed then
@@ -4712,7 +4688,10 @@ begin
   if not ParseFailed then
     if GenFlags[1] then
     begin
+      begin GenText := '    pop ecx'; GenLine(GenText) end;
       begin GenText := '    push eax'; GenLine(GenText) end;
+      GenDesignatorAddress(ControlSym);
+      begin GenText := '    mov [eax], ecx'; GenLine(GenText) end;
       LabelNumber := GenNewLabel();
       begin GenText := '.Lfor_top_'; GenPut(GenText); GenInt(LabelNumber) end;
       begin GenText := ':'; GenPut(GenText) end;
@@ -4731,6 +4710,12 @@ begin
     if GenFlags[1] then
     begin
       GenDesignatorAddress(ControlSym);
+      begin GenText := '    mov ecx, [eax]'; GenLine(GenText) end;
+      begin GenText := '    mov edx, [esp]'; GenLine(GenText) end;
+      begin GenText := '    cmp ecx, edx'; GenLine(GenText) end;
+      begin GenText := '    jz near '; GenPut(GenText) end;
+      begin GenText := '.Lfor_end_'; GenPut(GenText); GenInt(LabelNumber) end;
+      GenChar(Chr(10));
       if Direction = 1 then begin GenText := '    add dword [eax], 1'; GenLine(GenText) end
       else begin GenText := '    sub dword [eax], 1'; GenLine(GenText) end;
       begin GenText := '    jmp near '; GenPut(GenText) end;
@@ -5374,8 +5359,11 @@ begin
         begin
           if IsFunction then
           begin
-            begin GenText := '    mov eax, '; GenPut(GenText) end;
             I := FindLocal(NameOffset, NameLength);
+            if SymType[I] = TyChar then
+              begin GenText := '    movzx eax, byte '; GenPut(GenText) end
+            else
+              begin GenText := '    mov eax, '; GenPut(GenText) end;
             GenEbp(I);
             GenChar(Chr(10))
           end;

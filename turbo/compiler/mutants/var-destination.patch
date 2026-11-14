@@ -1,0 +1,6 @@
+# test: execution-var
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -2823,1 +2823,1 @@
+-    GenDesignatorAddress(Index) { TURBO_GEN_MUT_VARPARAM }
++    begin GenText := '    lea eax, '; GenPut(GenText); GenEbp(Index); GenChar(Chr(10)) end { TURBO_GEN_MUT_VARPARAM }

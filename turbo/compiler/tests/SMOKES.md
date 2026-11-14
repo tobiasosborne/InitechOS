@@ -17,7 +17,11 @@ A host FPC build alone does not replace the seed-built guest compiler.
 | test-compiler-os-mutant | OFFBYONE tiny leg above and VARPARAM compiler emitting gen_func_deep -> MVARPAR.COM; same corpus oracle must reject wrong parameter-slot values (FACT5=120 line etc.), not merely detect changed assembly. |
 
 Renamed guest names/markers and historical names are recorded in IMPORT.md.
-The deferred semantic faults remain in MUTANTS-TODO.md, ready for patch-based
-execution once the product image exists. Two other legacy targets, selfhost and
-ddc, were failing stubs, not emulator proofs that can be imported. They remain
-explicit failures at turbo/Makefile until ROADMAP.md's certificates are built.
+The generated-execution and semantic-mutation rows are now implemented by
+parent tests/execution/run.sh: the full corpus and 11 regressions run through
+seed, hosted Pascal native and resident Pascal native paths on QEMU and Bochs.
+frame-offset.patch and var-destination.patch are killed by explicit tier-2
+execution entries; the completed MUTANTS-TODO migration record is removed.
+The lex/parse/type protocol bracket journeys above remain pending. The parent
+selfhost and ddc targets now prove K2==K3==D2 with independent negative controls;
+they are new proofs, not imports of the historical failing stubs.

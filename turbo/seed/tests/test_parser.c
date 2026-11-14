@@ -473,7 +473,8 @@ static void test_while_ast(void)
 }
 
 /* for .. to: SUGAR (ADR-0007 DEC-02) desugared entirely at parse time into
- * "v := e1; <limit> := e2; while v <= limit do begin S; v := v+1 end" (see
+ * saved initial/final expressions, delayed counter initialization, and
+ * endpoint-before-step termination (see
  * parser.c's parse_for). The synthesized limit variable ("__forlim_1") is
  * appended to the program's decls AFTER the user's own var-section -- this
  * test pins that exact desugared shape down so a future refactor of the
@@ -489,10 +490,13 @@ static void test_for_to_desugars_to_while(void)
     CHECK_STR_EQ(buf,
         "(program P (var (varref i):integer (varref x):integer) "
         "(var (varref __forlim_1):integer) "
-        "(block (block (assign i (int 1)) (assign __forlim_1 (int 5)) "
-        "(while (<= (varref i) (varref __forlim_1)) "
+        "(var (varref __forlim_2):integer) (var (varref __forlim_3):integer) "
+        "(block (block (assign __forlim_2 (int 1)) (assign __forlim_1 (int 5)) "
+        "(assign i (varref __forlim_2)) (assign __forlim_3 (int 1)) "
+        "(while (and (<= (varref i) (varref __forlim_1)) (= (varref __forlim_3) (int 1))) "
         "(block (assign x (+ (varref x) (varref i))) "
-        "(assign i (+ (varref i) (int 1))))))))",
+        "(if (= (varref i) (varref __forlim_1)) (assign __forlim_3 (int 0)) "
+        "(assign i (+ (varref i) (int 1)))))))))",
         "for .. to desugars to a once-evaluated-limit while loop");
 }
 
@@ -509,10 +513,13 @@ static void test_for_downto_desugars_to_while(void)
     CHECK_STR_EQ(buf,
         "(program P (var (varref i):integer (varref x):integer) "
         "(var (varref __forlim_1):integer) "
-        "(block (block (assign i (int 5)) (assign __forlim_1 (int 1)) "
-        "(while (>= (varref i) (varref __forlim_1)) "
+        "(var (varref __forlim_2):integer) (var (varref __forlim_3):integer) "
+        "(block (block (assign __forlim_2 (int 5)) (assign __forlim_1 (int 1)) "
+        "(assign i (varref __forlim_2)) (assign __forlim_3 (int 1)) "
+        "(while (and (>= (varref i) (varref __forlim_1)) (= (varref __forlim_3) (int 1))) "
         "(block (assign x (+ (varref x) (varref i))) "
-        "(assign i (- (varref i) (int 1))))))))",
+        "(if (= (varref i) (varref __forlim_1)) (assign __forlim_3 (int 0)) "
+        "(assign i (- (varref i) (int 1)))))))))",
         "for .. downto uses >= and a decrementing step");
 }
 

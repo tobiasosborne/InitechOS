@@ -23,7 +23,10 @@ and guest execution with independent Free Pascal stdout/file comparisons. Guest
 entries are selected only by tier 2; the default six tier-0 entries never boot
 an emulator. Build `make image` first for the guest mutation catchers. The two
 file-I/O faults live only in runtime patches; no wrong entry point ships.
-The normal emitted assembly is unchanged for the 37-program example/corpus
-selection. Runtime object and compiler fixed-point bytes change when dead
-fault paths are removed; runtime-table regeneration is checked in tier 0.
+Records now ascend uniformly in local/global/var storage; record copies
+evaluate each index once. Char reads zero-extend bytes and var-char writes
+preserve adjacent bytes, including string-element actuals. For loops delay
+counter initialization until both bounds are saved and stop before stepping
+past their endpoint. Parent tests/execution compares all corpus/regression
+programs to FPC on QEMU and Bochs. Runtime tables still regenerate in tier 0.
 `make smoke` remains a parent Turbo Initech/product responsibility.

@@ -1107,7 +1107,8 @@ static AstVarType check_call(Tc *tc, AstNode *call, int want_value)
                 resolved = resolve_name(tc, alc, &at, &base_is_lvalue,
                                         &is_array, &lo, &hi, &is_record,
                                         rectype, &arg_strcap);
-                is_lvalue = resolved && is_array; /* an element of a REAL array */
+                is_lvalue = resolved && (is_array ||
+                             (at == AST_TY_STRING && base_is_lvalue));
             } else if (arg->kind == AST_FIELD) {
                 resolved = 1;
                 is_lvalue = 1;

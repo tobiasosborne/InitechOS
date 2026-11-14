@@ -106,7 +106,8 @@ layout; they are not addresses from the current checker process.
 - Parameters use cdecl displacements `+8,+12,...` and occupy one four-byte
   slot; a `var` slot contains an address.
 - Function result and ordinary local slots descend from EBP at `-4,-8,...`.
-  String/file locals report the lowest address of their contiguous block.
+  String/file/record locals (including record arrays) report the lowest
+  address of their contiguous block. Record fields/elements always ascend.
 - `frame` is the total result-plus-local byte reservation; parameters are not
   included.
 

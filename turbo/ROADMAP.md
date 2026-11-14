@@ -12,18 +12,20 @@ Current mechanical evidence:
   NASM/binutils/mzlink byte for byte. mzlink derives relocations by two link
   bases independently of the Pascal emitter's recorded sites. mzcheck validates
   every emitted container and both compiler memory plans. Runtime tables are
-  regenerated against NASM in tier 0. All 12 compiler mutants are killed.
-- The full 17-program corpus compiles and executes inside QEMU without a host
-  assembler/linker; Bochs runs three cases. Stdout agrees with the authored,
-  FPC-checked goldens; mtools checks written file bytes on separate TEST disks.
-  Guest compile readings were 1-2s on QEMU, 1-3s on Bochs (1s resolution).
-- In-OS K1(S) -> K2 and K2(S) -> K3 reproduce 163439 bytes exactly, SHA-256
-  08499523b5b74b394a05775008481162948b81054adf989785cee18902d55b3f.
+  regenerated against NASM in tier 0. All 14 compiler patches are killed,
+  including the two restored semantic execution patches.
+- The full 17-program corpus and 11 code-generation regressions execute on
+  QEMU and Bochs through direct seed, hosted Pascal native and resident Pascal
+  native output (168 comparisons). Stdout/files agree with independent FPC;
+  original corpus rows retain their authored goldens. Separate TEST disks
+  preserve the product image. Resident output needs no host assembler/linker.
+- In-OS K1(S) -> K2 and K2(S) -> K3 reproduce 163087 bytes exactly, SHA-256
+  7bf6424c74a46106b01f5d75de2c422005a026d2624f1e044e626fc1ae801ff6.
   Fresh boots reset identical inputs and fit the unchanged emulator driver's
-  120-second serial gate. Guest compile times were 68s/83s, then 66s/82s in
-  the DDC refresh. K1==K2 is not the certificate.
+  120-second serial gate. Guest compile times were 41s/86s in the DDC refresh.
+  K1==K2 is not the certificate.
 - FPC 3.2.2 builds the independent host bootstrap from the same source; it
-  directly emits D1. In-OS D1(S) -> D2 takes 80 guest seconds and D2==K2==K3.
+  directly emits D1. In-OS D1(S) -> D2 takes 75 guest seconds; D2==K2==K3.
   A contaminated candidate and a changed used source constant both make the
   comparison red. This removes sole trust in the C seed's translation, not
   trust in source/runtime bytes, FPC, host tools, the OS or hardware.
