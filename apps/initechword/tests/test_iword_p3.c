@@ -31,9 +31,8 @@ static void template_test(void)
         CHECK(!strcmp(names[m][k], IW_FKEYS[m][k].name), "template", "all command names equal the independent Reference transcription");
         fkey(vk_at(k), modifiers[m] | FLAIR_EVT_MOD_ACTIVE_FLAG);
         if (!live) {
-            int unmapped = names[m][k][0] == 0;
-            CHECK(unmapped ? status_is("", "1\"", "1\"", 0) : row_is(23, names[m][k]), "template", "manual name or unchanged unmapped status");
-            CHECK(m_col[23][0] == (unmapped ? 0x03 : 0x23), "template", "gray command or unchanged unmapped colors");
+            CHECK(status_is("", "1\"", "1\"", 0), "template", "omitted key keeps status without command name");
+            CHECK(m_col[23][0] == 0x03, "template", "omitted key keeps editing colors");
             CHECK(g_ed.doc.len == 0 && !m_exit_calls, "template", "grayed key leaves document and tenant alive");
         } else {
             /* Real action effects, independently specified. No test-only dispatch counter. */

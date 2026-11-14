@@ -157,6 +157,14 @@ static int fit(const wp_screen_t *s, int w, int kind, unsigned char *out, unsign
  * unbuilt items GRAY (1/2/3/6/8 live, initech-7aou). */
 static void cmp_row(const char *id, const wp_screen_t *s, int f, int w, int kind, int attrs, int menu)
 {
+    if(menu && ((w==23 && s->t[w][0]=='1') || (w==24 && s->t[w][0]=='6'))){
+        /* Approved subtraction, separately authored from the shipping table.
+         * The immutable full WP capture remains the naming/number authority. */
+        const char *want=w==23?"1 Retrieve; 2 Delete; 3 Move/Rename;":"6 Look; 8 Copy; N Name Search: 6";
+        CHECK(row_is(f,want),id,"approved shortened List Files manifest");
+        for(int c=0;c<SCR_W;c++)CHECK(m_col[f][c]==0x03,id,"no gray command-name advertisement");
+        return;
+    }
     unsigned char t[SCR_W];
     unsigned int fo[SCR_W], bo[SCR_W];
     char gray[SCR_W];
@@ -294,7 +302,7 @@ static void listfiles_test(void)
              * items' keys are ignored */
             fkey(ESC, 0);            cmp_list("LF14_23_after_n");
             tk('6'); tk(' ');        cmp_list("LF14_23_after_n");
-            tk('N'); tk('9'); cmp_list("LF14_23_after_n");
+            tks("4579"); cmp_list("LF14_23_after_n");
         }
     }
     CHECK(g_mode == M_EDIT && g_ed.dirty, "LF14_25", "y retrieved into the document (now modified)");

@@ -44,6 +44,12 @@ journey() {
     word_keys 'kw,ko,kr,kd,kdot,kb,kk,kshift-1,kret'
     await_marker 's="A:\WORD.BK!'
     capture word-retrieved-backup
+    # Clear the edit screen, find the independently checked primary by its
+    # real List Files Name Search route, retrieve and save an exact copy.
+    word_keys 'kf7,kn,kn,kf5,kret,kn,kw,ko,kr,kd,kdot,kw,kp,k5,kret,k1'
+    await_marker 's="A:\WORD.WP5'
+    word_keys 'kf10,ks,ke,ka,kr,kc,kh,kdot,kw,kp,k5,kret'
+    await_marker 's="A:\SEARCH.WP5'
     restore_pointer
     word_keys 'kf7,kn'
     # Completion follows this key; no trailing wait may remain for Bochs.
