@@ -1,0 +1,13 @@
+# CMD_MUTATE_BREAK_LENIENT
+# session: break
+--- a/command/command.c
++++ b/command/command.c
+@@ -239,7 +239,7 @@
+     while (token[i]) { token[i] = cmd_upcase_char(token[i]); i++; }
+     if (token[0] == 'O' && token[1] == 'N' && token[2] == '\0') return 1;
+     if (token[0] == 'O' && token[1] == 'F' && token[2] == 'F' && token[3] == '\0') return 2;
+-    return -1;
++    return 0;
+ }
+ 
+ int cmd_append_com(const char *name, char *out)

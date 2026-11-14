@@ -124,6 +124,8 @@ int cmd_append_com(const char *name, char *out);
  * out[CMD_TOKEN_MAX] (TYPE/EXEC take a single filename; extra params ignored
  * this milestone). Returns the token length; out is ASCIIZ. */
 int cmd_first_token(const char *arg, char *out);
+/* BREAK operand: 0 query, 1 ON, 2 OFF, -1 invalid. PURE. */
+int cmd_break_parse(const char *arg);
 
 /* ---- SET built-in parsing (PURE, host-testable; beads initech-1i0x Tranche E
  * increment 2). Ref: DOS 3.3 COMMAND.COM SET behaviour (DEC-11 / Appendix D):

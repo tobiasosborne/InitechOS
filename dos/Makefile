@@ -129,6 +129,11 @@ smoke-datetime:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/datetime.sh "$(TOP)" "$(TOP)/build/image/boot.img" "$(OUT)" "$(OUT)/smoke-datetime"
 
+.PHONY: smoke-break
+smoke-break:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/break.sh "$(TOP)" "$(TOP)/build/image/boot.img" "$(OUT)" "$(OUT)/smoke-break"
+
 .PHONY: smoke-fat16
 smoke: smoke-fat16
 smoke-fat16:

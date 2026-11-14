@@ -221,6 +221,27 @@ int cmd_first_token(const char *arg, char *out)
     return i;
 }
 
+/* Captured DOS 3.30 (dos33/reference/datetime*): BREAK takes no operand
+ * (query) or exactly one ON/OFF token; anything else is invalid and the
+ * flag is left unchanged. Returns 0 query, 1 ON, 2 OFF, -1 invalid. */
+int cmd_break_parse(const char *arg)
+{
+    char token[CMD_TOKEN_MAX];
+    const char *p = arg;
+    int n, i = 0;
+    if (arg == 0) return 0;
+    n = cmd_first_token(arg, token);
+    if (n == 0) return 0;
+    while (is_space(*p)) p++;
+    while (*p && !is_space(*p)) p++;
+    while (is_space(*p)) p++;
+    if (*p != '\0') return -1;          /* a second operand is invalid */
+    while (token[i]) { token[i] = cmd_upcase_char(token[i]); i++; }
+    if (token[0] == 'O' && token[1] == 'N' && token[2] == '\0') return 1;
+    if (token[0] == 'O' && token[1] == 'F' && token[2] == 'F' && token[3] == '\0') return 2;
+    return -1;
+}
+
 int cmd_append_com(const char *name, char *out)
 {
     int n = 0;
@@ -2882,31 +2903,20 @@ static void builtin_echo(const char *arg)
     dos_print("\r\n$");
 }
 
-/* BREAK [ON|OFF] (beads initech-er3h; ADR-0003 Amendment DEC-16). With no arg,
- * report the current CTRL-BREAK state ("BREAK is on" / "BREAK is off" -- the
- * built-in's own string, DEC-16 Sec 3.3; not a controlled MSG-DOS-NNNN). With
- * "ON"/"OFF" (case-insensitive), set it via AH=33h SET. Any other argument is a
- * lenient no-op report of the unchanged state (period DOS does not abort on a
- * bad BREAK argument). All I/O dogfoots INT 21h (AH=33h GET/SET + AH=09h). */
+/* BREAK [ON|OFF]: bare reports the state on stdout; ON/OFF set silently;
+ * any other operand is refused on CON with no state change (genuine
+ * DOS 3.30 captures, dos33/reference/datetime*). INT 21h AH=33h. */
+static void dos_error(const char *message);
 static void builtin_break(const char *arg)
 {
-    char first[CMD_TOKEN_MAX];
-    int  n = cmd_first_token(arg, first);
-
-    if (n != 0) {
-        cmd_upcase_str(first);
-        /* A bare hand-rolled compare keeps this freestanding (no libc). */
-        if (first[0] == 'O' && first[1] == 'N' && first[2] == '\0') {
-            dos_set_break(1u);
-        } else if (first[0] == 'O' && first[1] == 'F' &&
-                   first[2] == 'F' && first[3] == '\0') {
-            dos_set_break(0u);
-        }
-        /* else: unrecognized arg -> fall through and just report the state. */
+    int k = cmd_break_parse(arg);
+    if (k == 1) { dos_set_break(1u); return; }
+    if (k == 2) { dos_set_break(0u); return; }
+    if (k < 0) {
+        /* Captured: no state change, no report, diagnostic on CON. */
+        dos_error("Must specify ON or OFF\r\n$");
+        return;
     }
-
-    /* Report the (possibly just-changed) state, read back via AH=33h GET so the
-     * report reflects the live g_break_flag (DEC-16 single source of truth). */
     if (dos_get_break() != 0u) {
         dos_print(MSG_DOS_0029 "\r\n$");
     } else {

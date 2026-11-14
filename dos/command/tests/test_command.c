@@ -807,12 +807,31 @@ static void test_lane_grammar(void)
     CHECK_STR_EQ(mapped,"FOO.BAK","REN independent name/extension fields");
 }
 
+static void test_break_parse(void)
+{
+    /* BREAK operands, captured DOS 3.30 (dos33/reference/datetime*):
+     * only a lone ON or OFF sets the flag; anything else is invalid. */
+    CHECK(cmd_break_parse("") == 0, "break: empty is query");
+    CHECK(cmd_break_parse("  ") == 0, "break: spaces are query");
+    CHECK(cmd_break_parse("ON") == 1, "break: ON");
+    CHECK(cmd_break_parse("on") == 1, "break: on lowercase");
+    CHECK(cmd_break_parse(" oFf ") == 2, "break: oFf mixed case padded");
+    CHECK(cmd_break_parse("OFF") == 2, "break: OFF");
+    CHECK(cmd_break_parse("maybe") == -1, "break: maybe invalid");
+    CHECK(cmd_break_parse("ON extra") == -1, "break: ON extra invalid");
+    CHECK(cmd_break_parse("OFF extra") == -1, "break: OFF extra invalid");
+    CHECK(cmd_break_parse("OFFX") == -1, "break: OFFX invalid");
+    CHECK(cmd_break_parse("O") == -1, "break: O invalid");
+
+}
+
 int main(void)
 {
     test_parse_basic();
     test_classify();
     test_classify_set();
     test_classify_prompt();
+    test_break_parse();
     test_render_prompt();
     test_set_parse();
     test_first_token();
