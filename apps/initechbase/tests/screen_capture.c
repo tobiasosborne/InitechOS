@@ -1,6 +1,6 @@
-/* Capture the live SAMIR text console, without OCR or artifact changes.
- * Ref: pubs/screens/capture.sh (QMP), os/milton/console.{c,h} shadow page,
- * kmain.c g_int21_con, spec/tsr_contract.h (4002-byte save-under layout).
+/* Capture the live InitechBase text console, without OCR or artifact changes.
+ * Ref: pubs/screens/capture.sh (QMP), kernel/console.{c,h} shadow page,
+ * startup.c g_int21_con, kernel/include/tsr_contract.h (4002-byte save-under layout).
  * Read the matching kernel ELF32 symbols. Flat identity mapping, ADR-0001.
  * Stop QEMU around all reads; restore its original running/paused state.
  */
@@ -17,7 +17,7 @@
 #include "screen_file.h"
 
 static int sock=-1, resume_guest, temp_created;
-static char tempdir[]="/tmp/samir-screen.XXXXXX", mempath[128];
+static char tempdir[]="/tmp/initechbase-screen.XXXXXX", mempath[128];
 static void cleanup(void)
 {
     if (sock>=0 && resume_guest) {
@@ -174,6 +174,6 @@ int main(int argc,char **argv)
         resume_guest=0;
     }
     screen_write(output,&s);
-    puts("GREEN: live SAMIR console captured (2000 characters, 2000 attributes, cursor)");
+    puts("GREEN: live InitechBase console captured (2000 characters, 2000 attributes, cursor)");
     return 0;
 }
