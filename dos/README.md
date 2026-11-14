@@ -98,6 +98,12 @@ required diagnostic. Missing completion is never a mutation kill.
 46 formerly pending patches: eight host and 38 runtime faults, each failing
 twice. Runtime entries name the actual completed-run semantic assertion.
 The prior timeout-based totals are superseded by that explicit re-sweep.
+The post-compatibility repeat used product base `db0cc4bd92a3e8f2ca8c60bc9e537eb1a8e4ca52`:
+all 46 faults failed twice, with 76 healthy completed runtime assertions and
+16 host semantic failures. The AUTOEXEC fault initially failed to build after
+its removed call became the helper's only use; the refreshed patch retains an
+unused helper reference while still skipping execution. That build error was
+recorded as an error, then replaced by two explicit missing-AUTOEXEC assertions.
 
 The DOS 3.30 compatibility study is retained in command/tests/compat33/.
 The default host gate verifies its evidence hashes, not the intentionally

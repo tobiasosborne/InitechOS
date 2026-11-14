@@ -2,7 +2,7 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4703,7 +4703,11 @@
+@@ -4792,7 +4792,11 @@
          int fh = dos_open(autoexec);
          if (fh >= 0) {
              dos_close(fh);
@@ -11,7 +11,7 @@
 +             * AUTOEXEC.BAT entirely, so its markers never reach serial and the
 +             * emu gate's marker assertions go RED -- proving the gate bites.
 +             * NEVER in a real build. */
-+            (void)autoexec;
++            (void)run_batch_invoke;
          }
          else if (g_shell_permanent) {
              startup_datetime();
