@@ -29,6 +29,10 @@ case $name in
   test_i123_copy_move) "$bin" ;;
   test_i123_copy_corpus) "$bin" --corpus "$LOTUS123_DECOMP" "$out" "$ref" ;;
   test_i123_copy_tile) "$bin" --tile tests/fixtures/i123-copy "$out" "$ref" ;;
+  test_i123_time)
+    (cd tests/fixtures/time-formats && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
+    "$bin" "$out"
+    ;;
   test_i123_widthrange)
     (cd tests/fixtures/width-range && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
     "$bin" "$out"
