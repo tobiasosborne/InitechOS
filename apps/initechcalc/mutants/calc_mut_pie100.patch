@@ -1,10 +1,11 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -53,6 +53,7 @@
- static void copy(char *d,const char *s) { do { *d++=*s; } while(*s++); }
- static int calc_slice(int i)
- {
-+    if(i==0) return calc_pie_slices[0]-16;
-     return calc_pie_slices[i];
- }
- static int calc_pie_sum(void) { int n=0; for(int i=0;i<5;i++) n+=calc_slice(i); return n; }
+@@ -453,7 +453,7 @@
+         uint32_t s=slice_start(i), e=slice_start(i+1), m=(s+e)/2;
+         int ox=PIE_X*sine(m)/1024, oy=-PIE_X*cosine(m)*PIE_B/PIE_A/1024;
+         int x=PIE_CX+ox+PIE_A*PIE_LABEL/100*sine(m)/1024, y=PIE_CY+oy-PIE_B*PIE_LABEL/100*cosine(m)/1024;
+-        i123_number_text(series[i],line,sizeof line);
++        i123_number_text((double)(int)(series[i]*100.0/series_sum()+0.5),line,sizeof line);
+         unsigned n=length(line); line[n]='%'; line[n+1]=0;
+         text(chart,x-3*(int)(n+1),y-5,line,TBX_COLOR_WHITE,TBX_COLOR_NAVY);
+     }

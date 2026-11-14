@@ -1,11 +1,11 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -238,7 +238,7 @@
-          * proof. OPEN errors never license truncating someone else's file.
-          * Only file-exists advances to another candidate. */
-         for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0];i++) {
--            h=tbx_file_create_new(stage_names[i]);
-+            h=tbx_file_create(stage_names[i]);
-             if(h>=0) { copy_stage=stage_names[i]; break; }
-             if(h!=TBX_ERR_DOS(80)) break;
-         }
+@@ -519,7 +519,7 @@
+      * errors never license truncating someone else's file. Only file-exists
+      * advances to another candidate. */
+     for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0];i++) {
+-        h=tbx_file_create_new(stage_names[i]);
++        h=tbx_file_create(stage_names[i]);
+         if(h>=0) { copy_stage=stage_names[i]; break; }
+         if(h!=TBX_ERR_DOS(80)) break;
+     }

@@ -205,8 +205,10 @@ Dead commands in the frozen app inventories also need implement/remove decisions
    agreed recovery policy.
 2. Finish kernel/FLAIR desktop imports and boot's audit; prove pending mutants.
 3. Initech's menu mark, app windows up 20 pixels, Finder long-label overlap.
-4. The film frame: safe FILE COPY and honest gaps in the ledger; do not
-   invent missing `TODO_FRAME` cells. Resolve the frozen dead commands.
+4. The film frame: safe FILE COPY; the arrangement (Drive A, FILE COPY,
+   frame smoke). The ledger and chart content is in (goldens/frame
+   transcription, InitechCalc's ledger document); its operator questions
+   are at the top of goldens/frame/README.md. Resolve the frozen dead commands.
 5. Turbo Initech IDE, runtime encoders and fixed point on Bochs.
 6. Install path and a single product disk.
 

@@ -13,8 +13,9 @@ Each has a recommendation. Item ids refer to `transcription.tsv`.
 
 1. **Vendoring the still.** The repository is public, and `.gitignore` has
    kept film stills out of it since 7b213e4c ("measured/derived from, never
-   vendored"). This package pins the still by SHA-256 below and does not
-   commit its bytes. *Recommend: keep it out of the repository; the factory
+   vendored"), and the operator ruled on 2026-10-24 (initech-dam) that the
+   still is a local-only fixture with nothing to commit. This package pins
+   the still by SHA-256 below and does not commit its bytes. *Recommend: keep it out of the repository; the factory
    frame smoke reads it through a pinned local corpus root, as the Lotus and
    dBASE captures are read.* If the operator wants it vendored, it is one
    commit of the two files named below plus a `.gitignore` exception.
@@ -100,6 +101,8 @@ pixels, boxes half-open `[x0,x1) x [y0,y1)`.
   - *probable*: I would bet on it; the alternative is in the note;
   - *unreadable*: hidden or not legible; I would not bet;
   - *blank*: visible and empty. Not the same as unreadable.
+  The chart's five label items (CHT.40 ... CHT.9) are listed clockwise
+  from 12 o'clock, the order of the slices in the still.
   Ledger cells are named by fragment position (`LED.R07.C1` is fragment
   row 7, amount column 1; `CL` is the label column, `C9` the narrow column),
   never by invented spreadsheet addresses. The canon facts (116%, the
@@ -116,6 +119,18 @@ pixels, boxes half-open `[x0,x1) x [y0,y1)`.
 
 Glyphs are not extracted: the still is too small and too compressed, and the
 product's fonts are hand-authored (CLAUDE.md, "Hazards that are still true").
+
+## The gap drawing (treatment A)
+
+`proposal-ledger.png` (479 x 327) and `proposal-chart.png` (222 x 173) are
+the content of InitechCalc's ledger and chart windows at native resolution,
+as the product draws the shipped ledger: readable cells filled, unreadable
+ones empty and ruled, the one-line note at the foot. They were produced by
+running the real CALC.EXE code over sdk/host, recording its Toolbox calls
+and replaying them into a 640 x 480 buffer with the product's own Geneva 9
+strike and the four Toolbox colours (white, black, grey #C0C0C0, navy
+#000080); window chrome is not drawn. They are a proposal for the operator's
+eye, not a test oracle, and nothing reads them.
 
 ## How this is used
 

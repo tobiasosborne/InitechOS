@@ -1,8 +1,12 @@
 #!/bin/sh
+# Independent readback of the booted save: mtools extracts the files; the
+# expected TABLES.TXT is the shipped ledger with the typed row inserted by awk
+# (the first cell, 73, a general number), never Calc's serializer. The
+# windows were not moved, so the saved positions are the shipped ones.
 set -eu
 disk=$1 out=$2
 mcopy -o -i "$disk" ::APPS/TABLES.TXT "$out.txt"
-printf 'INITECH LEDGER\r\n73               TODO_FRAME\r\nMatte Cutters    TODO_FRAME\r\nExacto Blades    TODO_FRAME\r\n570- format      570-\r\nTOTAL            $112,276.87\r\n' > "$out.expected"
+awk '{ print } index($0,"ROWS\t")==1 { printf "1\t(G) 73\r\n" }' apps/initechcalc/data/LEDGER.TXT > "$out.expected"
 cmp "$out.expected" "$out.txt"
 mcopy -i "$disk" ::APPS/LEDGER.TXT - | cmp - apps/initechcalc/data/LEDGER.TXT
 if mdir -b -i "$disk" ::APPS | grep -E 'TABLE.*\.TMP$'; then exit 1; fi

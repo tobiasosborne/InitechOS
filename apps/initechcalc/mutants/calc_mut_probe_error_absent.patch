@@ -1,6 +1,6 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -215,7 +215,7 @@
+@@ -504,7 +504,7 @@
  static int exists(const char *path)
  {
      int32_t h=tbx_file_open(path,TBX_FILE_READ_ONLY);

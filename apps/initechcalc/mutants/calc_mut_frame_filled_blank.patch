@@ -1,0 +1,11 @@
+--- a/data/LEDGER.TXT
++++ b/data/LEDGER.TXT
+@@ -4,7 +4,7 @@
+ SERIES	40	35	18	14	9
+ NOTE	Blank entries were not recovered from the surviving material.
+ ROWS	26
+-13	'Film Costs	(F2) 98	(F2) 5	(F2) 8474
++13	'Film Costs	(F2) 98	(F2) 5	(F2) 8474	(F2) 950
+ 14	'Office Supplies	(F2) 1150	(F2) 950	(F2) 950	(F2) 1150	(F2) 950	(F2) 950	(F2) 950	(F2) 734
+ 15	'Exacto Blades	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 809
+ 16	'Matte Cutters	(F2) 738	(F1) 89302	(F2) 8701	(F2) 789	(F2) 78	(F2) 7	(F2) 789	(G) 570-

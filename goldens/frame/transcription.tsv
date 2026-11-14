@@ -191,17 +191,17 @@ LED.R16.C3	ledger	row 16 col 3		blank	713	626	770	641	visible, empty
 LED.R16.C4	ledger	row 16 col 4		blank	770	626	827	641	visible, empty
 LED.R16.C5	ledger	row 16 col 5		blank	827	626	884	641	visible, empty
 LED.R16.C6	ledger	row 16 col 6		blank	884	626	942	641	visible, empty
-LED.R16.C7	ledger	row 16 col 7		blank	942	626	1000	641	visible; the total's text spills over this cell from C8
-LED.R16.C8	ledger	row 16 col 8	$112,276.87	certain	1000	626	1059	641	right-aligned in C8 and spilling left into C7; double rule beneath C6-C8; PRD agrees
+LED.R16.C7	ledger	row 16 col 7	$112,276.87	certain	942	626	1000	641	the text starts inside C7 (x=955) and runs across C8 to its right edge; held here, spilling into empty C8 (which cell holds it is not visible); PRD agrees
+LED.R16.C8	ledger	row 16 col 8		blank	1000	626	1059	641	covered by the total's text running over from C7
 LED.R17.CL	ledger	row 17 col L		blank	457	641	598	656	visible, empty
 LED.R17.C1	ledger	row 17 col 1		blank	598	641	655	656	visible, empty
 LED.R17.C2	ledger	row 17 col 2		blank	655	641	713	656	visible, empty
 LED.R17.C3	ledger	row 17 col 3		blank	713	641	770	656	visible, empty
 LED.R17.C4	ledger	row 17 col 4		blank	770	641	827	656	visible, empty
 LED.R17.C5	ledger	row 17 col 5		blank	827	641	884	656	visible, empty
-LED.R17.C6	ledger	row 17 col 6		blank	884	641	942	656	visible, empty
-LED.R17.C7	ledger	row 17 col 7		blank	942	641	1000	656	visible, empty
-LED.R17.C8	ledger	row 17 col 8		blank	1000	641	1059	656	visible, empty
+LED.R17.C6	ledger	row 17 col 6	(double rule)	certain	884	641	942	656	two 1-px rules about 5 px apart at the top of the row, under the total
+LED.R17.C7	ledger	row 17 col 7	(double rule)	certain	942	641	1000	656	two 1-px rules about 5 px apart at the top of the row, under the total
+LED.R17.C8	ledger	row 17 col 8	(double rule)	certain	1000	641	1059	656	two 1-px rules about 5 px apart at the top of the row, under the total
 LED.R01.C9	ledger	row 1 col 9 (narrow)		unreadable	1059	398	1073	413	hidden under FILE COPY / chart
 LED.R02.C9	ledger	row 2 col 9 (narrow)		unreadable	1059	413	1073	429	hidden under FILE COPY / chart
 LED.R03.C9	ledger	row 3 col 9 (narrow)		unreadable	1059	429	1073	444	hidden under FILE COPY / chart

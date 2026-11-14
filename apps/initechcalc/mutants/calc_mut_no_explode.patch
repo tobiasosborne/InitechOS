@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -369,7 +369,7 @@
+ /* The pie: an elliptical disk of slices, each value/sum of a turn, exploded
+  * and extruded as in the still (geometry.tsv PIE, PIEDEPTH). Integer only.
+  * Angles: 65536 to the turn, clockwise from 12 o'clock. */
+-enum { PIE_CX=112, PIE_CY=62, PIE_A=92, PIE_B=52, PIE_D=28, PIE_X=6, PIE_LABEL=62 };
++enum { PIE_CX=112, PIE_CY=62, PIE_A=92, PIE_B=52, PIE_D=28, PIE_X=0, PIE_LABEL=62 };
+ static const int16_t quarter[17]={0,100,200,297,392,483,569,650,724,792,851,903,946,980,1004,1019,1024};
+ static int sine(uint32_t a)   /* sin of a turn fraction, scaled 1024 */
+ {

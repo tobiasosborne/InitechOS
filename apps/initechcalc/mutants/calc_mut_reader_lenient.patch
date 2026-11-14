@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -231,7 +231,7 @@
+             if(!number_field(f,n,&v)||v<1||v>CALC_ROW_MAX) goto bad;
+             g_rows=(unsigned)v; seen|=16;
+         } else {
+-            int32_t r; if(!(seen&16)||!number_field(f,n,&r)||r<1||(unsigned)r>g_rows||(unsigned)r<=last_row) goto bad;
++            int32_t r; if(!(seen&16)||!number_field(f,n,&r)||r<1||(unsigned)r<=last_row) goto bad;
+             last_row=(unsigned)r; seen|=32;
+             unsigned c=0, any=0;
+             while(q<e) {

@@ -1,18 +1,13 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -117,15 +117,6 @@
-     static const uint32_t shades[]={TBX_COLOR_BLACK,TBX_COLOR_GRAY,TBX_COLOR_NAVY,TBX_COLOR_BLACK,TBX_COLOR_GRAY};
-     (void)shades;
-     (void)tbx_fill_rect(chart,0,0,208,217,TBX_COLOR_WHITE);
--    for(int y=-48;y<=48;y++) {
--        int x=-48;
--        while(x<=48) {
--            if(x*x+y*y>48*48) { x++; continue; }
--            int begin=x, s=sector(x,y); x++;
--            while(x<=48&&x*x+y*y<=48*48&&sector(x,y)==s) x++;
--            (void)tbx_fill_rect(chart,70+begin,75+y,70+x,76+y,shades[s]);
--        }
--    }
-     for(int i=0;i<5;i++) {
-         i123_number_text((double)calc_slice(i),line,sizeof line);
-         unsigned n=length(line); line[n]='%'; line[n+1]=0;
+@@ -446,8 +446,8 @@
+         unsigned i=order[k]; uint32_t s=slice_start(i), e=slice_start(i+1), m=(s+e)/2;
+         if(e<=s) continue;
+         int ox=PIE_X*sine(m)/1024, oy=-PIE_X*cosine(m)*PIE_B/PIE_A/1024;
+-        if(e-s>32768u) { draw_piece(s,m,ox,oy); draw_piece(m,e,ox,oy); }
+-        else draw_piece(s,e,ox,oy);
++        if(0&&e-s>32768u) { draw_piece(s,m,ox,oy); draw_piece(m,e,ox,oy); }
++        else if(0) draw_piece(s,e,ox,oy);
+     }
+     for(unsigned i=0;i<nseries;i++) {
+         uint32_t s=slice_start(i), e=slice_start(i+1), m=(s+e)/2;

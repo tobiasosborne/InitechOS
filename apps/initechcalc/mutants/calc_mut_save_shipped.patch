@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -529,7 +529,7 @@
+     int32_t closed=tbx_file_close(h); /* also after a short or failed WRITE */
+     if(written!=(int32_t)n||closed<0) { g_staged=0; (void)tbx_file_delete(copy_stage); g_quit_after_save=0; notice(fail_text); return; }
+     g_copying=1;
+-    if(tbx_file_copy(copy_caption,copy_stage,copy_dst)!=TBX_OK) {
++    if(tbx_file_copy(copy_caption,shipped,copy_dst)!=TBX_OK) {
+         g_copying=0;
+         /* A rejected request has no completion event to clean up for us. */
+         g_staged=0; (void)tbx_file_delete(copy_stage);

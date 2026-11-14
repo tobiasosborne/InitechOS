@@ -1,6 +1,20 @@
 INITECH LEDGER
-Film Costs       TODO_FRAME
-Matte Cutters    TODO_FRAME
-Exacto Blades    TODO_FRAME
-570- format      570-
-TOTAL            $112,276.87
+WINDOW	116	104	622	474
+CHART	349	72	598	288
+SERIES	40	35	18	14	9
+NOTE	Blank entries were not recovered from the surviving material.
+ROWS	26
+13	'Film Costs	(F2) 98	(F2) 5	(F2) 8474
+14	'Office Supplies	(F2) 1150	(F2) 950	(F2) 950	(F2) 1150	(F2) 950	(F2) 950	(F2) 950	(F2) 734
+15	'Exacto Blades	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 1150	(F2) 809
+16	'Matte Cutters	(F2) 738	(F1) 89302	(F2) 8701	(F2) 789	(F2) 78	(F2) 7	(F2) 789	(G) 570-
+17	'Fiml Strippers	(F2) 67	(F2) 70	(F2) 78	(F2) 567	(F2) 870	(F2) 734	(F2) 78	(F2) 678
+18	'Chemical Supplies	(F2) 37	(F2) 567	(F2) 79	(F2) 57	(F2) 679	(F2) 809	(F2) 48	(F2) 97
+19	'Canister removals	(F2) 60	(F2) 50	(F2) 50	(F2) 59	(F2) 569	(G) 570-	(F2) 50	(F2) 76
+20	'Printing Supplies	(F2) 1150	(F2) 786	(F2) 67	(F2) 6	(F2) 678	(F2) 678	(F2) 687	(F2) 589
+21	'Paper  (bulk)	(F2) 789	(F2) 789	(F2) 89	(F2) 89	(F2) 79	(F2) 97	(F2) 89	(F2) 80
+22	'Ink form TOYO	(F2) 90	(F2) 76	(F2) 8	(F2) 83	(F2) 50	(F2) 76	(F2) 798	(F2) 94
+23	'Ganns Best ink	(F2) 78	(F2) 979	(F2) 9	(F2) 59	(F2) 48	(F2) 589	(F2) 608	(F2) 950
+24	'Misc paper goods	(F2) 89	(F2) 79	(F2) 69	(F2) 59	(F2) 59	(F2) 80	(F2) 789	(F2) 1150
+25								(C2) 112276.87
+26							\=	\=	\=

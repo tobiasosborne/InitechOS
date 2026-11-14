@@ -31,13 +31,30 @@ static int32_t fault_copy(const char *caption, const char *src, const char *dst)
     if(copy_rejected) return TBX_ERR_BUSY;
     return tbx_file_copy(caption,src,dst);
 }
+/* Windows report the content rect of the bounds they were opened with
+ * (FLAIR CalcDocContentRect insets 6, 22, 27, 43), so an undisturbed save
+ * writes the positions it read. */
+static int32_t fake_origin(int32_t w)
+{
+    if(w<1||w>tbx_host.nwindows) return TBX_ERR_BADARG;
+    return (int32_t)(((uint32_t)(uint16_t)(tbx_host.windows[w-1].t+22)<<16)|(uint16_t)(tbx_host.windows[w-1].l+6));
+}
+static int32_t fake_size(int32_t w)
+{
+    if(w<1||w>tbx_host.nwindows) return TBX_ERR_BADARG;
+    return (int32_t)(((uint32_t)(uint16_t)(tbx_host.windows[w-1].b-tbx_host.windows[w-1].t-43)<<16)|(uint16_t)(tbx_host.windows[w-1].r-tbx_host.windows[w-1].l-27));
+}
 #define tbx_file_open fault_open
 #define tbx_file_create_new count_reserve
 #define tbx_file_copy fault_copy
+#define tbx_content_origin fake_origin
+#define tbx_content_size fake_size
 #include "../calc.c"
 #undef tbx_file_open
 #undef tbx_file_create_new
 #undef tbx_file_copy
+#undef tbx_content_origin
+#undef tbx_content_size
 
 static unsigned checks, failures;
 #define CHECK(c,s) do { checks++; if(!(c)) { failures++; fprintf(stderr,"FAIL save safety: %s\n",s); } } while(0)
@@ -79,7 +96,7 @@ int main(int argc, char **argv)
     int success=!strcmp(scenario,"stage-open-error") || !strcmp(scenario,"collision");
     tbx_host_reset();
     CHECK(tbx_host_import(argv[2]),"import independent on-disk fixture");
-    CHECK(tbx_app_main()==0,"Calc launches");
+    CHECK(tbx_app_main()==0&&tbx_host.alerts==0,"Calc launches on the saved tables");
     event(keyDown,'7'); event(keyDown,'3'); event(keyDown,'\r');
     /* Enter through Quit > Save so failures also prove that unsaved work
      * remains open instead of fulfilling a stale deferred Quit. */

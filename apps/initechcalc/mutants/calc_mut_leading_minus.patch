@@ -1,11 +1,11 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -61,7 +61,7 @@
- static void calc_format(double x,char *out)
- {
-     char number[80]; i123_number_text(x<0?-x:x,number,sizeof number);
--    if(x<0) { copy(out,number); unsigned n=length(out); out[n]='-'; out[n+1]=0; }
-+    if(x<0) { out[0]='-'; copy(out+1,number); }
-     else copy(out,number);
+@@ -83,7 +83,7 @@
+         while(n>s&&number[n-1]==' ') number[--n]=0;
+         copy(out,number+s);
+     } else { i123_number_text(a,number,sizeof number); copy(out,number); }
+-    if(x<0) { unsigned n=length(out); out[n]='-'; out[n+1]=0; }
++    if(x<0) { unsigned n=length(out); for(unsigned i=n+1;i>0;i--) out[i]=out[i-1]; out[0]='-'; }
  }
- static void text(int32_t w,int x,int y,const char *s)
+ /* A typed or saved number: digits with an optional point, a leading or a
+  * trailing minus, and for currency a dollar sign and thousands commas. */

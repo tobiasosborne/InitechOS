@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -427,7 +427,7 @@
+ static uint32_t slice_start(unsigned i)   /* value/sum of a turn */
+ {
+     double t=series_sum(), a=0; for(unsigned k=0;k<i;k++) a+=series[k];
+-    return i>=nseries?65536u:(uint32_t)(a*65536.0/t+0.5);
++    (void)t; return i>=nseries?65536u:(uint32_t)(a*65536.0/100.0+0.5);
+ }
+ static void paint_chart(void)
+ {

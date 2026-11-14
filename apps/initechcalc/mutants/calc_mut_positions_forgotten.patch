@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -283,7 +283,7 @@
+ static void current_bounds(int w)
+ {
+     int32_t o=tbx_content_origin(win[w]), s=tbx_content_size(win[w]);
+-    if(o<0||s<=0) return;   /* collapsed or unknown: keep what we had */
++    if(o<0||s<=0||1) return;   /* collapsed or unknown: keep what we had */
+     int32_t l=(o&0xFFFF)-6, t=((o>>16)&0xFFFF)-22;
+     int32_t r=l+(s&0xFFFF)+27, b=t+((s>>16)&0xFFFF)+43;
+     int32_t nb[4]={l,t,r,b}; fit(nb,bounds[w]);
