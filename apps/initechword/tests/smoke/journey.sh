@@ -45,6 +45,8 @@ journey() {
     await_marker 's="A:\WORD.BK!'
     capture word-retrieved-backup
     restore_pointer
-    word_keys 'kf7,kn,ky'
+    word_keys 'kf7,kn'
+    # Completion follows this key; no trailing wait may remain for Bochs.
+    inject 'ky'
     await_marker 'TENANT-EXIT rc=0 via=exit'
 }

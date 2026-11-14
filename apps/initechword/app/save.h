@@ -36,15 +36,16 @@ static int word_extension(char *dst, const char *src, const char *ext)
 
 /* Reserve an unused recovery name. The cooperative scheduler cannot interleave
  * another tenant between deleting our reservation and renaming the original. */
-static int32_t word_reserve(char *path, const char *ext)
+static int32_t word_reserve_path(char *path, const char *base, const char *ext,
+                                 const char *avoid)
 {
     int32_t h, cl;
-    if (!word_extension(path, g_path, ext)) return TBX_ERR_BADARG;
+    if (!word_extension(path, base, ext)) return TBX_ERR_BADARG;
     uint32_t end = slen(path);
     for (uint32_t i = 0; i < 100; i++) {
         path[end-2] = (char)('0' + i / 10u);
         path[end-1] = (char)('0' + i % 10u);
-        if (word_same(path, g_path)) continue;
+        if (word_same(path, base) || (avoid && word_same(path, avoid))) continue;
         h = tbx_file_create_new(path);
         if (h == TBX_ERR_DOS(80)) continue;
         if (h < 0) return h;
@@ -53,6 +54,11 @@ static int32_t word_reserve(char *path, const char *ext)
         return cl < 0 ? cl : rc;
     }
     return TBX_ERR_DOS(80);
+}
+
+static int32_t word_reserve(char *path, const char *ext)
+{
+    return word_reserve_path(path, g_path, ext, 0);
 }
 
 static int32_t word_save(uint32_t n)

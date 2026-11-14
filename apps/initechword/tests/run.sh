@@ -14,6 +14,16 @@ read_text() {
     grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$' "$1.ref"
 }
 case "$name" in
+ test_iword_move)
+    capture=$IWORD_GOLDENS/dataloss/wordperfect/collision
+    (cd "$capture"; printf '%s\n' \
+      'b2b9df5cd68aee170538d21c36a405ea03dc7aa0d374fc9a26dba6d3002a2ab4  before.NAME.WP5' \
+      '1de63f570187add4bdcc1310d90e8db617095525fbec8dbb6e2e299e773220dd  before.NAME.BK!' | sha256sum -c --quiet -)
+    "$bin" "$dir" "$capture/before.NAME.WP5" "$capture/before.NAME.BK!"
+    find "$dir" -type f ! -name readback -size +0c -exec python3 -I "$ref" {} + > "$dir/readback"
+    ! grep -qE '!!|trailer-errors=[1-9]' "$dir/readback"
+    test "$(grep -c '  END offset=' "$dir/readback")" -gt 0
+    ;;
  test_iword_retrieve)
     fixtures=tests/conformance/fixtures
     (cd "$fixtures"; sha256sum -c ../SHA256SUMS --quiet)

@@ -1,0 +1,11 @@
+# test: test_iword_move
+# Reintroduce evky3: discard the destination before final source removal.
+--- a/app/lf_move.h
++++ b/app/lf_move.h
+@@ -73,5 +73,6 @@
+         rc=tbx_file_copy_save(g_lf_src,g_lf_dst);
+         if(rc==TBX_OK){
++            if(s->old){(void)tbx_file_delete(g_lf_move_old);s->old=0;}
+             s->copied=s->published=1;rc=tbx_file_delete(g_lf_src);
+             if(rc==TBX_OK)s->removed=1;
+         }

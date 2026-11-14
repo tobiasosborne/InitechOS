@@ -1041,7 +1041,7 @@ static int word_recovery_paint(void);
 static void paint(void)
 {
     iw_where_t w;
-    if (g_mode == M_ERROR && word_recovery_paint()) return;
+    if ((g_mode == M_ERROR || g_mode == M_LFERROR) && word_recovery_paint()) return;
     if (setup_mode()) { paint_setup(); return; }
     if (lf_mode()) { paint_lf(); return; }
     if (g_mode == M_UNDO) {
@@ -1382,15 +1382,15 @@ static int lf_cat(char *d, const char *a, const char *b)
 }
 
 /* List `dir` ("" or "DOCS\"), the slot `sel` selected. */
-static void lf_open(const char *dir, uint32_t sel)
+static int32_t lf_open(const char *dir, uint32_t sel)
 {
     /* static: the gate refuses automatic buffers (tbx.h, spec Sec 10) */
     static char pat[TBX_FILE_PATH_MAX];
     int32_t n, fr;
-    if (!lf_cat(pat, dir, IW_LF_ALL)) { error("ERROR: File Not Found", M_EDIT); return; }
+    if (!lf_cat(pat, dir, IW_LF_ALL)) { error("ERROR: File Not Found", M_EDIT); return TBX_ERR_BADARG; }
     n = tbx_file_find(pat, IW_LF_FIND_ATTR, g_lf_recs, LF_MAX);
     /* authored: WP's message for a bad directory was not minted */
-    if (n < 0) { error("ERROR: File Not Found", M_EDIT); return; }
+    if (n < 0) { error("ERROR: File Not Found", M_EDIT); return n; }
     g_lf_n = iw_lf_load(g_lf_recs, (uint32_t)n, g_lf_ent, LF_MAX, &g_lf_used, &g_lf_files);
     fr = tbx_disk_free();
     g_lf_free = fr > 0 ? (uint32_t)fr : 0u;
@@ -1406,6 +1406,7 @@ static void lf_open(const char *dir, uint32_t sel)
     g_lf_sel = sel < lf_slots() ? sel : 0u;
     g_lf_top = 0;
     g_mode = M_LIST;
+    return TBX_OK;
 }
 
 /* the directory slot `slot` names: "." the listed one, ".." its parent */
@@ -1464,13 +1465,23 @@ static void lf_question(const char *verb, const char *path)
     scopy(g_lf_question + slen(g_lf_question), IW_LF_NO_YES);
 }
 
-static void lf_refresh(void)
+static int32_t lf_refresh(const char *omit)
 {
     char dir[TBX_FILE_PATH_MAX], path[TBX_FILE_PATH_MAX];
     const char *keep = g_lf_op == '8' ? g_lf_src : g_lf_dst;
     uint32_t sel = g_lf_sel;
     scopy(dir, g_lf_dir);
-    lf_open(dir, 0u);
+    int32_t rc=lf_open(dir, 0u);
+    if(rc<0)return rc;
+    /* Move still owns this predecessor until the refreshed listing succeeds.
+     * Exclude only that exact private name, then release it after this read. */
+    if(omit)for(uint32_t i=0;i<g_lf_n;i++){
+        if(lf_cat(path,g_lf_dir,g_lf_ent[i].name)&&lf_same(path,omit)){
+            g_lf_used-=g_lf_ent[i].size;g_lf_files--;
+            for(uint32_t j=i+1;j<g_lf_n;j++)g_lf_ent[j-1]=g_lf_ent[j];
+            g_lf_n--;break;
+        }
+    }
     g_lf_sel = sel < lf_slots() ? sel : lf_slots() - 1u;
     /* Real WP shots 32/33: Copy retains the source; Rename follows its
      * new alphabetical position. Delete selects the next remaining entry. */
@@ -1478,6 +1489,7 @@ static void lf_refresh(void)
         if (lf_cat(path, g_lf_dir, g_lf_ent[i].name) && lf_same(path, keep)) { g_lf_sel = i + 2u; break; }
     }
     if (g_lf_sel / 2u >= IW_LF_FACE_LIST_ROWS) g_lf_top = g_lf_sel / 2u - (IW_LF_FACE_LIST_ROWS - 1u);
+    return TBX_OK;
 }
 
 static int lf_protected(const char *path)
@@ -1489,25 +1501,31 @@ static int lf_protected(const char *path)
     return 0;
 }
 
+#include "lf_move.h"
+
 static void lf_perform(void)
 {
     int32_t rc;
+    lf_move_t move={0,0,0,0};
+    if (g_word_blocked) { lf_error(TBX_ERR_BADARG); g_err=g_word_recovery; return; }
     if (g_lf_op != '8' && lf_protected(g_lf_src)) return;
     if (g_lf_op == '2') rc = tbx_file_delete(g_lf_src);
     else {
         if (lf_same(g_lf_src, g_lf_dst)) { g_mode = M_LIST; return; }
         if (lf_protected(g_lf_dst)) return;
-        /* DOS AH=56h handles a new same-directory name without free space.
-         * Cross-directory moves (DOS 17) and confirmed replacements use the
-         * shared mcep transaction; delete the source ONLY after it commits. */
-        rc = g_lf_op == '3' ? tbx_file_rename(g_lf_src, g_lf_dst) : TBX_ERR_DOS(17);
-        if (rc == TBX_ERR_DOS(17) || rc == TBX_ERR_DOS(5)) {
-            rc = tbx_file_copy_save(g_lf_src, g_lf_dst);
-            if (rc == TBX_OK && g_lf_op == '3') rc = tbx_file_delete(g_lf_src);
-        }
+        rc = g_lf_op == '3' ? lf_move_file(&move) : tbx_file_copy_save(g_lf_src, g_lf_dst);
     }
-    if (rc < 0) { lf_error(rc); return; }
-    lf_refresh();
+    if (rc < 0) { lf_error(rc); if(g_word_blocked)g_err=g_word_recovery; return; }
+    rc=lf_refresh(g_lf_op=='3'&&move.old?g_lf_move_old:0);
+    if(g_lf_op=='3'){
+        if(rc<0){
+            rc=lf_move_undo(&move,rc);lf_error(rc);
+            if(g_word_blocked)g_err=g_word_recovery;
+            return;
+        }
+        lf_move_cleanup(&move);
+        int32_t free=tbx_disk_free();g_lf_free=free>0?(uint32_t)free:0;
+    }
 }
 
 static void lf_begin(char op)

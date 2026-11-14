@@ -26,6 +26,11 @@ static const char *m_dir;
 static unsigned save_call, save_fail_at, save_fail_again, save_failed;
 static int save_persistent, save_zero;
 static int save_reclaim_backup;
+#ifdef IWORD_MOVE_FAULTS
+static unsigned move_source_delete,move_restore,move_retire_copy;
+static int move_delete_persistent;
+static const char *move_destination;
+#endif
 static int save_fault(void)
 {
     save_call++;
@@ -73,6 +78,12 @@ static int32_t fixture_create_new(const char *p)
 { SAVE_FAULT();fixture_import();return tbx_file_create_new(p); }
 static int32_t fixture_delete(const char *p)
 {
+#ifdef IWORD_MOVE_FAULTS
+    if(!strcmp(p,"SOURCE.WP5")){
+        move_source_delete=save_call+1;
+        if(move_delete_persistent)tbx_host.file_error[TBX_FILE_DELETE]=5;
+    }
+#endif
     SAVE_FAULT();
 #ifdef IWORD_SAVE_FAULTS
     /* Captured full 1.44MB floppy: removing the 344-byte older backup frees
@@ -89,7 +100,14 @@ static int32_t fixture_delete(const char *p)
     return rc;
 }
 static int32_t fixture_rename(const char *p,const char *q)
-{ SAVE_FAULT();int32_t rc=tbx_file_rename(p,q);fixture_export();return rc; }
+{
+#ifdef IWORD_MOVE_FAULTS
+    if(move_destination&&!strcmp(q,move_destination)&&strstr(p,".M"))move_restore=save_call+1;
+    if(move_destination&&!strcmp(p,move_destination)&&strstr(q,".N"))move_retire_copy=save_call+1;
+#endif
+    SAVE_FAULT();
+    int32_t rc=tbx_file_rename(p,q);fixture_export();return rc;
+}
 #ifdef IWORD_SAVE_FAULTS
 static int32_t fixture_read(int32_t h,void *p,uint32_t n)
 { if(save_fault())return save_zero?0:TBX_ERR_DOS(5);return tbx_file_read(h,p,n); }
@@ -105,6 +123,9 @@ static int32_t fixture_seek(int32_t h,int32_t d,uint32_t o)
  * This is test injection, separate from the shared fake's find implementation. */
 static int32_t fixture_find(const char *p,uint32_t attr,void *buf,uint32_t max)
 {
+#ifdef IWORD_MOVE_FAULTS
+    SAVE_FAULT();
+#endif
     fixture_import();
     if(m_dirents) {
         /* Install the captured volume in captured order, retaining file bytes. */

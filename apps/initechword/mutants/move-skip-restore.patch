@@ -1,0 +1,11 @@
+# test: test_iword_move
+--- a/app/lf_move.h
++++ b/app/lf_move.h
+@@ -33,6 +33,6 @@
+     if(s->published&&tbx_file_rename(g_lf_dst,g_lf_move_stage)<0)
+         return lf_move_residual(s->old);
+-    if(s->old&&tbx_file_rename(g_lf_move_old,g_lf_dst)<0)
++    if(s->old&&0)
+         return lf_move_residual(s->old);
+     s->old=0;
+     if(s->published)(void)tbx_file_delete(g_lf_move_stage);

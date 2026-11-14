@@ -16,7 +16,7 @@ file is required. The independent MZ reader validates relocations and BSS:
 the BSS remains below the OS-side 512 KiB limit. Drawing data already uses TBX_IN_IMAGE; file buffers stay in
 BSS as allowed by sdk/README.md. No OS change was needed to run this executable.
 
-make test runs 15 programs against the real pinned
+make test runs 16 programs against the real pinned
 WordPerfect corpus, captured grids and independent models/readers. Execution
 fits the 30-second budget. Hosted code uses -O2, keeping every property
 session: 13s before versus 10s after on the integration machine (codes 8s
@@ -179,3 +179,34 @@ tests reopen the result and check the full-capacity and one-byte-over boundaries
 Files beyond the finite capacity and edits beyond available room refuse visibly
 while preserving existing text and source bytes. The tenant BSS limit remains
 512 KiB; the target artifact check enforces it.
+
+## List Files Move/Rename recovery
+
+Move retains an existing destination under an exclusively chosen `.M00`..`.M99`
+name until source removal and list refresh both succeed. Same-directory moves
+use rename; DOS 17 falls back to verified streaming copy followed by source
+removal. Any single reported failure restores the previous destination under
+its own name and retains the source. Rollback uses rename rather than delete,
+so a persistent refusal to remove the source cannot destroy the old target.
+A failed refresh also restores the source before restoring the destination.
+Postcommit cleanup failure retains an extra predecessor and reports success.
+Cross-directory Move also preflights the source against the shared helper's
+current 60-character recovery-name limit, so a failed refresh can restore it.
+Longer recovery names refuse before changing either file; the kernel primitive
+`initech-7mb66` removes this limitation.
+
+Normal prompts and selection follow the real WP5.1 List Files captures in
+`tests/fixtures/iword-listfiles-ops/` (`13_move_replace`, `17_move_success`,
+`33_rename_selection`); the disk-full retry wording is capture `29_full_copy`.
+The original-file guarantee is the stronger phase-2 ruling, rather than a claim
+that arbitrary injected DOS failures were captured in real WordPerfect.
+`test_iword_move` injects every nominal file/FIND boundary for new/replacing,
+same/cross-directory moves, checks repeated failures and retry, and compares
+literal pinned source/destination captures. An external WP5 reader checks all
+exported complete streams; the expected bytes never use the product codec.
+
+The existing `initech-7mb66` residual also applies when a Move failure is followed
+by a failed restoration: delete no retained complete stream, display the exact
+preceding destination's recovery name, and block further file operations/saves
+in that tenant. Paired source-delete/rollback failures are tested. This remains
+a known residual to the original-name ruling, not a policy exception.

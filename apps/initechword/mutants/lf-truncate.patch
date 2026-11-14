@@ -1,13 +1,15 @@
 # test: test_iword_listfiles_ops
 --- a/app/face_a.c
 +++ b/app/face_a.c
-@@ -1486,6 +1486,9 @@
-          * shared mcep transaction; delete the source ONLY after it commits. */
-         rc = g_lf_op == '3' ? tbx_file_rename(g_lf_src, g_lf_dst) : TBX_ERR_DOS(17);
-         if (rc == TBX_ERR_DOS(17) || rc == TBX_ERR_DOS(5)) {
-+            /* MUTANT: the old destructive CREATE-before-copy mistake. */
-+            int32_t h = tbx_file_create(g_lf_dst);
-+            if (h >= 0) (void)tbx_file_close(h);
-             rc = tbx_file_copy_save(g_lf_src, g_lf_dst);
-             if (rc == TBX_OK && g_lf_op == '3') rc = tbx_file_delete(g_lf_src);
-         }
+@@ -1512,6 +1512,11 @@
+     else {
+         if (lf_same(g_lf_src, g_lf_dst)) { g_mode = M_LIST; return; }
+         if (lf_protected(g_lf_dst)) return;
++        /* MUTANT: the old destructive CREATE-before-copy mistake. */
++        if(g_lf_op=='8') {
++            int32_t h=tbx_file_create(g_lf_dst);
++            if(h>=0)(void)tbx_file_close(h);
++        }
+         rc = g_lf_op == '3' ? lf_move_file(&move) : tbx_file_copy_save(g_lf_src, g_lf_dst);
+     }
+     if (rc < 0) { lf_error(rc); if(g_word_blocked)g_err=g_word_recovery; return; }
