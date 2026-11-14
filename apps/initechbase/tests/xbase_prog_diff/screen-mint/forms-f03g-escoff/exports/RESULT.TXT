@@ -1,0 +1,5 @@
+
+AT= C BT= C RKT= N
+A= AB   B=     
+RKV=         12
+RK= 271
