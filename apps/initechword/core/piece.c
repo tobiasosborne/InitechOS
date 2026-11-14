@@ -35,6 +35,11 @@ static uintptr_t byte_doc;
 static uint32_t byte_piece, byte_start, byte_end;
 static const uint8_t *byte_data;
 
+void iw_doc_invalidate(void)
+{
+    byte_doc = 0;
+}
+
 static void mcopy(uint8_t *d, const uint8_t *s, uint32_t n)
 {
     while (n--) *d++ = *s++;

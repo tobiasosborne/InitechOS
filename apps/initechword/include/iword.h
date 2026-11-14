@@ -84,6 +84,9 @@ int      iw_doc_init(iw_doc_t *d, uint8_t *add, uint32_t add_cap,
 /* Replace the document by `n` bytes at `orig` (borrowed, not copied). The
  * add buffer and the pieces are reset. The caller validated the bytes. */
 void     iw_doc_load(iw_doc_t *d, const uint8_t *orig, uint32_t n);
+/* Discard sequential-read state after restoring a borrowed document by value.
+ * init/load/insert/delete invalidate it themselves. */
+void     iw_doc_invalidate(void);
 int      iw_doc_insert(iw_doc_t *d, uint32_t pos, const uint8_t *s, uint32_t n);
 int      iw_doc_delete(iw_doc_t *d, uint32_t pos, uint32_t n);
 /* Overwrite one byte in place (the reflow primitive). */

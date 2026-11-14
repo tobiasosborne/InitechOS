@@ -1078,6 +1078,7 @@ static void paint(void)
         }
         iw_ed_where(&g_ed, &w); paint_doc(&w, EDIT_ROWS); paint_status(&w, LINE_STATUS);
         g_ed = saved;
+        iw_doc_invalidate();
         return;
     }
     iw_ed_where(&g_ed, &w);
@@ -1721,6 +1722,7 @@ static void lf_key(char ch, uint8_t vk)
             if (vk == VK_DOWN && iw_ed_lines(&g_ed, w.line + 1u, 1u, ln)) g_look_cur = ln[0].start;
             if (vk == VK_UP && w.line && iw_ed_lines(&g_ed, w.line - 1u, 1u, ln)) g_look_cur = ln[0].start;
             g_ed = saved;
+            iw_doc_invalidate();
         }
         return;
     default:
@@ -1828,6 +1830,7 @@ static void paint_look(void)
         paint_doc(&w, IW_LF_FACE_LOOK_ROWS);
         g_row_off = 0;
         g_ed = saved; g_top = top; g_skip = skip;
+        iw_doc_invalidate();
     } else {
         /* a text file's lines (LF04_06), CR LF ends a line, cut at 76 */
         const uint8_t *b = g_bank[1u - g_live];

@@ -100,8 +100,58 @@ static void serial_replace(const char *path)
     }
     fclose(f); CHECK(seen == 31, "replace", "emulator prompts, accepted replacements and paired-code query");
 }
+/* Borrowing a document for display must preserve both the live byte stream
+ * and the view used by subsequent edits. Literal bodies are independent of
+ * the piece cache; WP5 validation checks complete code-group boundaries. */
+static void borrowed_cache_test(void)
+{
+    uint32_t n=0; iw_wp5_t w;
+    reset_face();tks("Q\ba");fkey(0x40,0);tks("cd");fkey(0x40,0);
+    g_ed.cur=1;fkey(0x3b,0);fkey(0x3b,0);
+    CHECK(row_is(0,"acd"),"borrowed-cache","cancelled Undelete paints the live text");
+    CHECK(iw_doc_byte(&g_ed.doc,1)==0xc3,"borrowed-cache","cancel restores the live Bold boundary");
+    fkey(0x53,0);
+    CHECK(g_mode==M_DELCODE,"borrowed-cache","Delete recognizes a code and asks before removing it");
+    tk('y');
+    CHECK(body_is((const uint8_t *)"acd",3),"borrowed-cache","Delete removes the complete paired Bold code");
+    CHECK(flatten(&n)==IW_OK&&iw_wp5_read(g_bank[1u-g_live],n,&w)==IW_OK,
+          "borrowed-cache","post-cancel edit still produces a readable WP5 file");
+    fkey(0x44,0);tks("UNDO.WP5\r");
+    const tbx_host_file_t *saved=tbx_host_file("UNDO.WP5");
+    CHECK(saved&&iw_wp5_read(saved->data,saved->size,&w)==IW_OK,
+          "borrowed-cache","ordinary Save publishes a readable WP5 file");
+    reset_face();
+    fkey(0x44,SHIFT);tks("UNDO.WP5\r");
+    CHECK(g_mode==M_EDIT&&body_is((const uint8_t *)"acd",3),
+          "borrowed-cache","ordinary Retrieve accepts the just-saved document");
+
+    static uint8_t file[400];uint32_t prefix_len;
+    const uint8_t *prefix=iw_wp5_default_prefix(&prefix_len);
+    memcpy(file,prefix,prefix_len);memcpy(file+prefix_len,"ZZZZZZZZZZ",10);
+    CHECK(tbx_host_put_file("CACHE.WP5",file,prefix_len+10),"borrowed-cache","independent Look fixture installed");
+    for(int move=0;move<3;move++){
+        reset_face();tks("abcdef");fkey(0x3f,0);tk('\r');
+        int found=0;
+        for(uint32_t i=0;i<g_lf_n;i++)if(!strcmp(g_lf_ent[i].name,"CACHE.WP5")){g_lf_sel=i+2;found=1;break;}
+        CHECK(found,"borrowed-cache","Look selects the other file by name");
+        if(!found)continue;
+        tk('6');CHECK(g_mode==M_LOOK,"borrowed-cache","Look opens the selected WP file");
+        if(move){
+            /* Check the key handler's restore before paint_look can reset
+             * another temporary document at the same address. */
+            lf_key(0,move==1?0x50:0x48);
+            CHECK(iw_doc_byte(&g_ed.doc,0)=='a',"borrowed-cache","Look navigation restores live byte reads before repaint");
+            fkey(move==1?0x50:0x48,0);
+        }
+        tk(27);fkey(0x41,0);
+        CHECK(g_mode==M_EDIT&&row_is(0,"abcdef"),"borrowed-cache","Look and scroll return to live editing text");
+        CHECK(body_is((const uint8_t *)"abcdef",6)&&iw_doc_byte(&g_ed.doc,0)=='a',
+              "borrowed-cache","Look preserves storage and cached byte reads");
+    }
+}
 static void undo_test(void)
 {
+    borrowed_cache_test();
     reset_face(); tks("abcd\b\b");
     fkey(0x3B, 0);
     CHECK(row_is(23, "Undelete 1 Restore; 2 Previous Deletion: 0"), "undo", "three-level prompt");
@@ -120,6 +170,7 @@ static void undo_test(void)
     reset_face(); tks("abc"); g_ed.cur = 0; fkey(0x53, 0); fkey(0x53, 0);
     fkey(0x3B, 0); fkey(0x3B, 0);
     CHECK(body_is((const uint8_t *)"c", 1), "undo", "Cancel removes preview without inserting");
+    CHECK(row_is(0,"c"),"undo","cancelled preview repaints the live document");
     fkey(0x3B, 0); tks("1");
     CHECK(body_is((const uint8_t *)"abc", 3), "undo", "contiguous Delete preserves order");
     reset_face(); tks("ab"); g_ed.cur = 0; fkey(0x3E, ALT); fkey(0x4D, 0); fkey(0x53, 0); tks("y");

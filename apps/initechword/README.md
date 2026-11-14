@@ -138,7 +138,11 @@ The codes suite retains all 1,700 fixed-seed sessions and every assertion.
 Source-line profiling found repeated piece searches in `iw_doc_byte`; a cached
 piece span reduces its CPU time from 13.59s to 5.30s. Init/load/insert/delete
 invalidate the cache, and in-place byte changes remain visible through its
-storage pointer. No timeout, budget or optimization flag changed.
+storage pointer. Every borrowed-editor restore (Undelete preview, Look painting
+and Look navigation) also calls `iw_doc_invalidate`; restoring a struct alone
+does not restore the cached span. Route checks preserve the live screen, code
+boundaries and Save/Retrieve readability, with a `cache-restore` patch control.
+No timeout, budget or optimization flag changed.
 
 ## Original Document Backup and recovery
 

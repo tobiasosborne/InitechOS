@@ -1,0 +1,12 @@
+# test: test_iword_undo
+# Restoring the live editor after a preview must drop borrowed piece spans.
+--- a/core/piece.c
++++ b/core/piece.c
+@@ -37,7 +37,6 @@
+ 
+ void iw_doc_invalidate(void)
+ {
+-    byte_doc = 0;
+ }
+ 
+ static void mcopy(uint8_t *d, const uint8_t *s, uint32_t n)
