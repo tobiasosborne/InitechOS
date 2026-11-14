@@ -404,3 +404,13 @@ Interface export-binding: kernel/isr.asm irq12_entry
 The earlier private-header import-blocker notes predate c7398425. The current
 test/import gate checks this exact resident entry exception mechanically.
 <!-- end-interface-declarations -->
+
+AH=3Eh CLOSE releases any valid process JFT slot, including 0..4. The resident
+SFT entries stay pinned; a file duplicated/opened into a standard-number slot
+releases its own counted SFT reference normally. Closing an already closed or
+invalid slot returns DOS error 6. Source: the genuine DOS 3.30 CLOSE3 capture in
+`tests/fixtures/close3-dos33` and the AH=3Eh reference (initech-kyrcw). The capture
+is hash-pinned and its 16-bit probe rebuilds exactly; it is reference data only.
+`test-close-standard` checks slot reuse, resident conservation, invalid repeats
+and file references for all five standard slots. `smoke-oem` also executes the
+flat CLOSE3 adaptation on both emulators before testing page services/restart.

@@ -1,0 +1,12 @@
+# test: test-close-standard
+--- a/int21.c
++++ b/int21.c
+@@ -3350,6 +3350,8 @@
+         return;
+     }
+ 
++    if(handle<=4u){cf_clear(f);return;}
++
+     sft_entry_t *e = sft_from_handle(g_cur_psp, (uint8_t)handle);
+     if (e == 0) {
+         set_ax(f, INT21_ERR_INVALID_HANDLE);
