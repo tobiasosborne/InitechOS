@@ -67,8 +67,7 @@ const char tbx_app_name[] = "TEXT";
 
 #define MENU_FILE 129
 #define MENU_EDIT 130
-enum { F_NEW = 1, F_OPEN, F_D1, F_CLOSE, F_SAVE, F_SAVEAS, F_D2, F_SETUP,
-       F_PRINT, F_PRINT1, F_D3, F_QUIT };
+enum { F_NEW = 1, F_OPEN, F_D1, F_CLOSE, F_SAVE, F_SAVEAS, F_D2, F_QUIT };
 enum { E_UNDO = 1, E_D1, E_CUT, E_COPY, E_PASTE, E_CLEAR, E_ALL };
 
 /* The menu resource lives in the IMAGE (.data) so the enable bytes can change
@@ -80,10 +79,6 @@ static tbx_menuitem_t file_items[] TBX_IN_IMAGE = {
     { "Close",          0, 'W', 0, 1, 0, { 0, 0, 0 } },
     { "Save",           0, 'S', 0, 1, 0, { 0, 0, 0 } },
     { "Save As...",     0, 0,   0, 1, 0, { 0, 0, 0 } },
-    { "-",              0, 0,   0, 0, 1, { 0, 0, 0 } },
-    { "Page Setup...",  0, 0,   0, 0, 0, { 0, 0, 0 } },
-    { "Print...",       0, 'P', 0, 0, 0, { 0, 0, 0 } },
-    { "Print One Copy", 0, 0,   0, 0, 0, { 0, 0, 0 } },
     { "-",              0, 0,   0, 0, 1, { 0, 0, 0 } },
     { "Quit",           0, 'Q', 0, 1, 0, { 0, 0, 0 } },
 };
@@ -97,7 +92,7 @@ static tbx_menuitem_t edit_items[] TBX_IN_IMAGE = {
     { "Select All", 0, 'A', 0, 1, 0, { 0, 0, 0 } },
 };
 static const tbx_menuinfo_t menus[] = {
-    { MENU_FILE, 0, "File", file_items, 12, 0 },
+    { MENU_FILE, 0, "File", file_items, 8, 0 },
     { MENU_EDIT, 0, "Edit", edit_items, 7, 0 },
 };
 static const tbx_menubar_t mbar = { menus, 2, 1, 0 };

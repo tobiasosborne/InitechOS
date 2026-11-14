@@ -131,12 +131,51 @@ static const op_t *find_text(const char *s, uint32_t fg, uint32_t bg)
             return &m_ops[i];
     return NULL;
 }
+static void sweep_manifest(void)
+{
+    const char *file[]={"New","Open...","-","Close","Save","Save As...","-","Quit"};
+    const char fk[]={'N','O',0,'W','S',0,0,'Q'};
+    const char *edit[]={"Undo","-","Cut","Copy","Paste","Clear","Select All"};
+    const char ek[]={'Z',0,'X','C','V',0,'A'};
+    CHECK(tbx_host.bar && tbx_host.bar->n_menus==2,R_MENU,"sweep two menus");
+    if(!tbx_host.bar) return;
+    for(unsigned m=0;m<2;m++) {
+        const tbx_menuinfo_t *mi=&tbx_host.bar->menus[m];
+        CHECK(mi->menu_id==129+(int)m && !strcmp(mi->title,m?"Edit":"File"),R_MENU,"sweep menu dispatch identity");
+        unsigned count=m?7:8;
+        CHECK(mi->n_items==count,R_MENU,"sweep exact shipped count (Print absent)");
+        for(unsigned i=0;i<mi->n_items;i++) {
+            const tbx_menuitem_t *it=&mi->items[i];
+            CHECK(i<count && !strcmp(it->text,m?edit[i]:file[i]) &&
+                  it->cmd_char==(m?ek[i]:fk[i]) &&
+                  !!it->is_divider==(!strcmp(it->text,"-")) &&
+                  (m || it->is_divider || it->enabled),R_MENU,"sweep row and shortcut %u/%u",m,i);
+        }
+    }
+}
+static void sweep_file_routes(void)
+{
+    launch();type("kept");
+    hkey('p',0,FLAIR_EVT_MOD_CONTROL_KEY);
+    CHECK(doc_is("kept") && !m_sf && !m_alerts,R_MENU,"removed Print chord is unmapped");
+    menu_hit(129,6);CHECK(m_sf==2,R_SAVE,"Save As by literal shipped row");
+    sf_answer(NULL);CHECK(doc_is("kept") && g_dirty,R_SAVE,"Save As Cancel preserves document");
+    menu_hit(129,6);sf_answer("SWEEP.TXT");
+    mfile_t *f=mfind("SWEEP.TXT");
+    CHECK(f && f->size==4 && !memcmp(f->data,"kept",4) && !g_dirty,R_SAVE,"Save As writes exact TEXT");
+    menu_hit(129,4);CHECK(m_exits==1,R_QUIT,"Close by literal shipped row exits clean doc");
+    launch();type("draft");menu_hit(129,4);alert_answer(TBX_ALERT_CANCEL);
+    CHECK(!m_exits && doc_is("draft") && g_dirty,R_QUIT,"Close Cancel keeps draft");
+    menu_hit(129,1);alert_answer(TBX_ALERT_OTHER);
+    CHECK(doc_is("") && !g_dirty && !m_exits,R_EDIT,"New discards only on Don't Save");
+}
 
 int main(void)
 {
     tbx_host_reset(); tbx_host.origin_h=10; tbx_host.origin_v=66; tbx_host.ch=389;
     /* -- launch 1: an empty scrap grays Paste; nothing selected grays Cut/Copy/Clear */
     launch();
+    sweep_manifest();
     CHECK(strcmp(m_title, "untitled") == 0, R_ROUTE, "title %s", m_title);
     CHECK(!edit_items[E_PASTE - 1].enabled && !edit_items[E_CUT - 1].enabled &&
           !edit_items[E_COPY - 1].enabled && !edit_items[E_CLEAR - 1].enabled &&
@@ -438,6 +477,7 @@ int main(void)
         CHECK(g_te.teLength == 4096 && g_te.text[4095] == 'k', R_UNDO, "and redoes it");
     }
 
+    sweep_file_routes();
     printf("test_itext_route: %ld checks, %ld failures\n", g_checks, g_fails);
     return g_fails == 0 ? 0 : 1;
 }

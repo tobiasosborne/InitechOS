@@ -1,0 +1,19 @@
+--- a/itext.c
++++ b/itext.c
+@@ -80,6 +80,7 @@
+     { "Save",           0, 'S', 0, 1, 0, { 0, 0, 0 } },
+     { "Save As...",     0, 0,   0, 1, 0, { 0, 0, 0 } },
+     { "-",              0, 0,   0, 0, 1, { 0, 0, 0 } },
++    { "Print...", 0, 'P', 0, 0, 0, { 0, 0, 0 } },
+     { "Quit",           0, 'Q', 0, 1, 0, { 0, 0, 0 } },
+ };
+ static tbx_menuitem_t edit_items[] TBX_IN_IMAGE = {
+@@ -92,7 +93,7 @@
+     { "Select All", 0, 'A', 0, 1, 0, { 0, 0, 0 } },
+ };
+ static const tbx_menuinfo_t menus[] = {
+-    { MENU_FILE, 0, "File", file_items, 8, 0 },
++    { MENU_FILE, 0, "File", file_items, 9, 0 },
+     { MENU_EDIT, 0, "Edit", edit_items, 7, 0 },
+ };
+ static const tbx_menubar_t mbar = { menus, 2, 1, 0 };

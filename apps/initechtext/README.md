@@ -12,8 +12,14 @@ and replace guards, typing/backspace/arrows, selection/drag, wrapping,
 scrolling, Cut/Copy/Paste/Clear/Select All and single-level Undo with typing
 runs. Up to 4,096 bytes; opening normalizes LF/CRLF to CR, saving preserves
 single-byte TEXT. Close exits the app. No resize reflow or caret blinking.
-Three visible commands are disabled: Page Setup, Print, Print One Copy.
-GOLDEN-MASTER item 4's dead-command sweep is still outstanding.
+Frozen omissions (approved phase-2 GM4 split): File Page Setup..., Print...
+(Cmd-P), Print One Copy. Their rows/shortcut and redundant divider are absent;
+there is no printer backend. File retains New/Open/Close/Save/Save As/Quit
+in the original order. The route suite sweeps the exact ordered native menu
+and shortcut manifest, including disabled contextual rows, and checks all
+retained commands against literal text, selection, file and exit outcomes.
+See tests/COMMANDS.md for the audited mode/input-route coverage and shared
+shell-dialog boundary.
 
 Open measures the raw file length and reads until that length is complete;
 positive short reads continue. A further one-byte read must return EOF before
@@ -26,7 +32,7 @@ This implements GM4 and the operator's phase-2 original-name preservation
 ruling for failed opens; it does not extend the shared save transaction's
 rollback guarantees (sdk/include/tbx_save.h remains owned by SDK).
 
-make test runs the claimed 98-check routing regression on sdk/host and a
+make test runs the 127-check routing regression on sdk/host and a
 disk-backed load/conservation regression, both in <1s.
 Expectations are authored from the real-Mac SimpleText mint-results-007 and
 Inside Macintosh contracts cited in the source; this is a unit/regression
@@ -38,8 +44,8 @@ one-/three-/four-byte reads, line-end normalization across chunks, empty and
 capacity inputs, seek/read/close failures, early EOF after a prefix, and real
 growth/shrinkage through a separate host descriptor during the load (including
 empty-to-nonempty and growth past capacity). The EOF probe must also succeed.
-make mutants kills twelve patches, including partial-input publication and
-bypassing the final EOF check.
+make mutants kills thirteen patches, including partial-input publication,
+bypassing the final EOF check and reinserting a disabled Print command.
 make smoke launches
 from the Finder on QEMU and Bochs, edits alpha CR bravo, saves UNTITLED on
 QEMU and Bochs, checks exact bytes with mtools/cmp and checks the volume with fsck.fat.
