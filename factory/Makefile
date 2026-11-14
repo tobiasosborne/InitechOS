@@ -34,7 +34,10 @@ smoke-write-readback:
 	$(MAKE) -C $(TOP)/dos smoke-programs
 	sh tests/write-readback.sh
 .PHONY: testlib-test
-test: testlib-test image-order-test desktop-tools-test
+test: testlib-test image-order-test desktop-tools-test dataloss-test
+.PHONY: dataloss-test
+dataloss-test:
+	sh $(TOP)/goldens/dataloss/verify.sh
 .PHONY: desktop-tools-test
 desktop-tools-test:
 	+$(MAKE) -C $(TOP) -f factory/desktop-tools.mk test

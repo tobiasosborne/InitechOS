@@ -51,6 +51,11 @@ It requires an existing product image; `make smoke-programs` covers the normal
 probe on both emulators. PROGRAM_SMOKE_PROGRAMS selects the disposable probe
 directory for this control; its default remains build/dos/test-programs.
 
+Tier 0 also verifies goldens/dataloss: all pinned capture bytes, mtools disk
+readback and independent Lotus/WordPerfect reader dumps. These are reference
+observations only; DOS failed-COPY and WordPerfect recovery policy still need
+the operator's decision before any product behavior changes.
+
 smoke-desktop.sh is the product Finder/application journey on both emulators.
 It checks a worksheet through mtools and the independent Lotus corpus reader,
 retains key PPMs and compares unchanged regions to a live legacy capture.
