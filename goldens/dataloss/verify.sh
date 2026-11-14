@@ -1,6 +1,9 @@
 #!/bin/sh
 # Verify retained reference bytes, disk readback, and independent reader output.
 set -eu
+corpus=${INITECH_CORPUS:-"$HOME/Projects"}
+lotus=${LOTUS123_DECOMP:-"$corpus/lotus123-decomp"}
+wordperfect=${WORDPERFECT51_DECOMP:-"$corpus/wordperfect51-decomp"}
 here=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 cd "$here"
 sha256sum -c SHA256SUMS > /dev/null
@@ -27,7 +30,7 @@ cmp 'wordperfect/readonly/before.NAME.BK!' 'wordperfect/readonly/after.NAME.BK!'
 for d in allprotected firstprotected; do cmp "lotus/$d/BEFORE.WK1" "lotus/$d/AFTER.WK1"; done
 for f in lotus/*/*.WK1 wordperfect/*/before.NAME* wordperfect/*/after.NAME*; do
  case "$f" in *.dump) continue;; esac
- case "$f" in *.WK1) reader=/home/tobias/Projects/lotus123-decomp/tools/wk1_ref.py;; *) reader=/home/tobias/Projects/wordperfect51-decomp/tools/wp5_ref.py;; esac
+ case "$f" in *.WK1) reader=$lotus/tools/wk1_ref.py;; *) reader=$wordperfect/tools/wp5_ref.py;; esac
  python3 "$reader" "$f" > "$tmp/read"
  sed '1d' "$tmp/read" > "$tmp/actual"
  sed '1d' "${f%.WK1}.dump" > "$tmp/expected" 2>/dev/null || sed '1d' "$f.dump" > "$tmp/expected"

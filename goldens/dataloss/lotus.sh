@@ -3,6 +3,7 @@
 set -eu
 src=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 out=${1:?output}; base=${2:?runtime image}; boot=${3:?boot image}
+mkdir -p "$out"
 cc -std=c11 -O2 -Wall -Wextra -Werror "$src/drive.c" -o "$out/drive"
 for scenario in disabled allprotected firstprotected secondprotected terminator unprotected labels; do
  d=$out/$scenario; mkdir -p "$d"; cp "$base" "$d/runtime.img"

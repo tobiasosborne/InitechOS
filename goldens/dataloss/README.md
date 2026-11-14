@@ -66,6 +66,10 @@ This replays behavior; application timestamps/settings serialization and
 host fixture times mean a fresh run is not promised identical disk bytes.
 The immutable captured bytes, rather than a regenerated expected result,
 are the oracle. SHA verification: `(cd goldens/dataloss && sha256sum -c SHA256SUMS)`.
+The mandatory `make -C factory dataloss-test` verifies its readers through
+CORPORA.lock and uses the configured INITECH_CORPUS, LOTUS123_DECOMP and
+WORDPERFECT51_DECOMP roots, as ordinary component tests do. The standalone
+verify.sh accepts the same environment variables and defaults to $HOME/Projects.
 
 ## DOS COPY: initech-u6x8 and initech-rp8d
 

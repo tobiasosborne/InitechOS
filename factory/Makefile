@@ -1,6 +1,7 @@
 TOP := ..
 COMPONENT := factory
 include $(TOP)/mk/config.mk
+export LOTUS123_DECOMP WORDPERFECT51_DECOMP
 all: $(OUT)/qemu_harness $(OUT)/bochs_harness $(OUT)/boot_system
 $(OUT)/qemu_harness: emu/qemu.c emu/qemu_main.c emu/qemu.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) emu/qemu.c emu/qemu_main.c -o $@
@@ -37,6 +38,7 @@ smoke-write-readback:
 test: testlib-test image-order-test desktop-tools-test dataloss-test
 .PHONY: dataloss-test
 dataloss-test:
+	+$(MAKE) -C $(TOP) -f goldens/preflight.mk verify CORPORA='LOTUS123_DECOMP WORDPERFECT51_DECOMP'
 	sh $(TOP)/goldens/dataloss/verify.sh
 .PHONY: desktop-tools-test
 desktop-tools-test:

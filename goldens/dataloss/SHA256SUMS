@@ -1,5 +1,5 @@
 a3b88cf35cf13475b530977294940c971bd9a47c7e35c472c3d56c6bafc344b1  ./.gitattributes
-bfff38f00c84f1f48caf8bd48be9bea19396c3c92afd8034320fb50da6a009aa  ./README.md
+0c6ef01e8e7f16f52b873f21b0ef4e8ca4cdc8e740b8bb3acde4cb360927989c  ./README.md
 3c804657609ebc9769133f5fec817e3873394eda152669599422d38582742f16  ./dos-copy.sh
 0e6dcf06b3b884ee6ef5168610ed85b43455992c8d0df1d266017b3e448b9778  ./dos/OLD.BIN
 39a7125431654c1743b5aa650841b7ed4873935b51e8b6132a1a4173bd95da1f  ./dos/SOURCE.BIN
@@ -124,7 +124,7 @@ a970c557a2874ccd605288e9d12ae76ce62d99ad7cefc2cd0243e97268faaf30  ./dos/selfalia
 aea897c97d45d6cbe5f19db19d41c53fc0f12c3313abd72be083fe008db65bd8  ./dos/selfalias/result.vga
 d4f6da4403c54a9c083192950fc0c9273b924adaff2d092791812eee6c9c2a42  ./dos/selfalias/source-after.sha256
 b5218f700541322bcc225948bb05b6bddd7a143ed63d856c2bc80e34eda3a85a  ./dos/selfalias/steps
-ef4a3bc3966906bd8648adbd9f80933b3845111cfd61969e5e6c4f3bd345d3cb  ./drive.c
+6e993d7bb26340ad4ce35155f3e3b14649e551957da97bcb6243dd80d1bfa026  ./drive.c
 8bf3221c33d89e51f8216f8b1565e8ebe4c212a4ca36a7e69793dd63a4ec02ec  ./fixtures.c
 0c7c1e7cc5fb964a3257beb0800f09cefda897cdbda85bf849adeb380dc9286e  ./inputs/CONFIG.SYS
 c363c3385472c1082a0bca2abc4a97d04e7108c0680b792c02e0a1ccff4d6200  ./inputs/environment.txt
@@ -133,7 +133,7 @@ a6bf2b3df153f36250da939510eb0f310db877d687d9192e1a106d83325d13c7  ./inputs/lotus
 cef35deeb0dc6d3a03cb6955cfec1378ea5e68f64d94c2ce335bb31b9d5b3c41  ./inputs/reference.sha256
 dd57c1fadddd5639285487a4b3d4205e73ba1a365f410db882a237f5716f883d  ./inputs/wordperfect-runtime.sha256
 fdd9173efb54e5d3ab69409384ece3d2da37c76ad598d6c0606673f43e70d8c2  ./inputs/wp-AUTOEXEC.BAT
-3a1b1d517668d91f3387f9c5e21ac4aece4130cee3873a115d31eed81d84aaae  ./lotus.sh
+df453de02bcd2111bc7edb2890b41f75678caf8c3ec04e515476eae9e66db241  ./lotus.sh
 dfa105c90ef58ac34eead6ecc7675bb98bd2761491e72b0ed086f5e753f82447  ./lotus/allprotected/AFTER.WK1
 d1966b3e73df413563377ec4665043f962b5894faa0f77918232c1aa3cb0693a  ./lotus/allprotected/AFTER.dump
 dfa105c90ef58ac34eead6ecc7675bb98bd2761491e72b0ed086f5e753f82447  ./lotus/allprotected/BEFORE.WK1
@@ -274,7 +274,7 @@ dc2411cf0e886719a9a9d40a7953144e8c32ec8d80bb84fa613edd4a6cd0d36c  ./runtime.sh
 cef6d93c378cfa1fd514c1afad9ac52e8e96eb443f77882b830095b0ced35ace  ./validation/make-test.log.gz
 f354e310f9a1eb511597f1da077d6616ae4cb965927377fd350a722ddafb68f1  ./validation/verify-green.log
 c21162752e0e9447063c54afadaabcd769aa943d1dc1e9641847e990d83020b9  ./validation/verify-red.log
-cafab2c9402add49c03e5176dacc489ad315d4ebe7b77f3b8dfaa9d81a50727f  ./verify.sh
+adc9eee979e53ca62f0788ac1e13c8da8a08a38ee169782525240fcc5fd26eb4  ./verify.sh
 104acc31c11705ecae6590516cbaf488193821206968a2ac43673e2a57351fff  ./wordperfect.sh
 b2b9df5cd68aee170538d21c36a405ea03dc7aa0d374fc9a26dba6d3002a2ab4  ./wordperfect/collision/after.NAME.BK!
 364ad872752d002e07bf5a0e3b018971c9cc2b6dfb93f153f53598bc7c3620cc  ./wordperfect/collision/after.NAME.BK!.dump
