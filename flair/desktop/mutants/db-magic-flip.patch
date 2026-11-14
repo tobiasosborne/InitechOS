@@ -1,0 +1,13 @@
+# test: test_finder_storage
+# The default database must persist the independently specified IDB1 header.
+--- a/desktop_db.c
++++ b/desktop_db.c
+@@ -25,7 +25,7 @@
+ 
+ static void desktop_db_empty_header(uint8_t out[DESKTOP_DB_HEADER_SIZE])
+ {
+-	out[0] = (uint8_t)'I';
++	out[0] = (uint8_t)'X';
+ 	out[1] = (uint8_t)'D';
+ 	out[2] = (uint8_t)'B';
+ 	out[3] = (uint8_t)'1';

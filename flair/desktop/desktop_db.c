@@ -23,24 +23,17 @@ static uint16_t db_le16(const uint8_t *p)
 	return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
 }
 
-#ifndef DB_WRITE_SKIP
 static void desktop_db_empty_header(uint8_t out[DESKTOP_DB_HEADER_SIZE])
 {
 	out[0] = (uint8_t)'I';
 	out[1] = (uint8_t)'D';
 	out[2] = (uint8_t)'B';
 	out[3] = (uint8_t)'1';
-#ifdef DB_MAGIC_FLIP
-	/* contract mutant: creation emits a corrupt magic byte. The next boot must
-	 * take DESKTOP-DB-REGEN (or the persistence oracle goes RED). */
-	out[0] = (uint8_t)'X';
-#endif
 	out[4] = 0x01u; /* little-endian version 1 */
 	out[5] = 0x00u;
 	out[6] = 0x00u; /* little-endian n_records 0 */
 	out[7] = 0x00u;
 }
-#endif
 
 desktop_db_validation_t desktop_db_validate(const void *data, uint32_t len,
 	                                         desktop_db_reason_t *out_reason)
@@ -98,20 +91,9 @@ static int desktop_db_write_default(const fat12_volume_t *vol, void *fat,
 	                                uint32_t fat_len, void *sector_buf,
 	                                void *cluster_buf)
 {
-#ifdef DB_WRITE_SKIP
-	/* contract mutant: report success while skipping creation. The mtools
-	 * differential must find DESKTOP.DB absent/wrong and go RED. */
-	(void)vol;
-	(void)fat;
-	(void)fat_len;
-	(void)sector_buf;
-	(void)cluster_buf;
-	return FAT12_OK;
-#else
 	uint8_t header[DESKTOP_DB_HEADER_SIZE];
 	desktop_db_empty_header(header);
 	return desktop_db_write(vol,fat,fat_len,sector_buf,cluster_buf,header,sizeof header);
-#endif
 }
 
 int desktop_db_bootstrap(const fat12_volume_t *vol, void *fat,

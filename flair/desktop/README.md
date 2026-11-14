@@ -226,6 +226,10 @@ The storage host suite mounts mtools FAT12/FAT16 images with a writable backend.
 It checks zero write callbacks and every image byte after each FAT16 mutation,
 including the real New Folder/drag/Trash/Put Away/Empty Trash/Delete Now routes.
 FAT12 writes a folder, a copied stream and Desktop DB; mtools reads them back.
+Desktop DB bootstrap must persist the literal `IDB1` version-one empty header;
+the next boot must accept it without another write. The `db-write-skip` and
+`db-magic-flip` patch mutants break those persistence checks. Product source
+contains neither fault branch.
 Nested multi-cluster streams are read against a literal pattern on both
 formats, and bytes read from FAT16 are copied onto a separate FAT12 image
 and checked by mtools.

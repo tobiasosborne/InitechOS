@@ -32,5 +32,8 @@ for kind in 12 16; do
   mtype -i "$w/fat$kind.img" ::COPY.TXT > "$w/copied"
   cmp "$w/source.txt" "$w/copied"
   mdir -i "$w/fat$kind.img" ::NEWFOLD > "$w/newfolder"
+  printf 'IDB1\001\000\000\000' > "$w/expected-db"
+  mtype -i "$w/fat$kind.img" ::DESKTOP.DB > "$w/desktop-db"
+  cmp "$w/expected-db" "$w/desktop-db"
  fi
 done

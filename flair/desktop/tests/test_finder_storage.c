@@ -199,7 +199,17 @@ int main(int argc,char **argv)
         CHECK(finder_fat_mkdir(NULL,"NEWFOLD",0)==0,"FAT12 New Folder succeeds");
         CHECK(finder_fat_create(NULL,"COPY.TXT",0,&slot)==0,"FAT12 copy create succeeds");
         CHECK(finder_fat_write_partial(NULL,0,slot,0,bytes,got,&got)==0,"FAT12 copy write succeeds");
-        CHECK(desktop_db_write(&v,fat,sizeof fat,sec,g_finder_clusbuf,db,8)==0,"FAT12 Desktop DB save succeeds");
+        CHECK(desktop_db_bootstrap(&v,fat,sizeof fat,sec,g_finder_clusbuf,bytes,sizeof bytes,&state,&reason)==0,
+              "absent Desktop DB bootstrap succeeds on FAT12");
+        CHECK(state==DESKTOP_DB_BOOT_CREATE && reason==DESKTOP_DB_REASON_NONE,
+              "absent Desktop DB reports creation");
+        CHECK(desktop_db_read(&v,fat,sizeof fat,sec,g_finder_clusbuf,bytes,sizeof bytes,&got)==0 &&
+              got==8 && !memcmp(bytes,db,8),
+              "bootstrap persists literal IDB1 version-one empty header");
+        unsigned saved_writes=writes;
+        CHECK(desktop_db_bootstrap(&v,fat,sizeof fat,sec,g_finder_clusbuf,bytes,sizeof bytes,&state,&reason)==0 &&
+              state==DESKTOP_DB_BOOT_OK && reason==DESKTOP_DB_REASON_NONE && writes==saved_writes,
+              "next boot accepts the persisted header without rewriting");
         CHECK(writes>0,"positive control actually writes sectors");
     }
     rewind(fp); CHECK(fwrite(disk,1,disk_len,fp)==disk_len,"write host result image"); fclose(fp);
