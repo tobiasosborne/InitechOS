@@ -82,7 +82,8 @@ static void operation_case(void)
         "/rtA1..B2\rD1\r", "/rlrA1..A2\r", "/rlrA1..A2\r",
         "/mA1..A2\rA2\r", "/rlrA1..A2\r", "/rntA10\r", "/rntA10\r",
         "/rntA10\r", "/rntA10\r", "/rntIU8192\r", "/mA1..A2\rD1\r",
-        "/mA1..A2\rD1\r", "/rvA1..B2\rD1\r", "/reA1..B2\r", "/rlrA1..B2\r"
+        "/mA1..A2\rD1\r", "/rvA1..B2\rD1\r", "/reA1..B2\r", "/rlrA1..B2\r",
+        "/rntIV10\r"
     };
     unsigned id=(unsigned)atoi(scenario),n=load_write("B","WK1",input);
     CHECK(tbx_host_put_file("INPUT.WK1",input,n),scenario,"install real BEFORE bytes");
@@ -145,7 +146,7 @@ int main(int argc,char **argv)
         forget_output();
     }
     /* Extend only after retaining the independent captures. */
-    for(unsigned i=1;i<=32;i++){
+    for(unsigned i=1;i<=33;i++){
         char id[4];snprintf(id,sizeof id,"%02u",i);scenario=id;
         launch(scenario,operation_case);forget_output();
     }

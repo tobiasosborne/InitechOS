@@ -8,7 +8,8 @@ No application binary or operating-system image is included here.
 `Bnn.WK1` is the saved worksheet immediately before the command; `Ann.WK1`
 is the real worksheet saved after it. `Bnn` and `Rnn` PNG/VGA/text files
 show the before and result screens. `input.steps`, `extra.steps` and the
-compressed HMP logs preserve the actual inputs and captures. SHA256SUMS
+compressed HMP logs preserve the actual inputs and captures. `edge.steps`
+captures the last-column case. SHA256SUMS
 pins these immutable inputs. The test compares actual cell records,
 named-range records and PROTEC bytes against these WK1 files, and compares
 READY/ERROR and diagnostics against the result screen. It does not compute
@@ -54,6 +55,7 @@ pending: the saved bytes after dismissal are authoritative for the prefix.
 | 30 | Value A1:B2 to D1, D1:E1 unprotected | Writes D1 then refuses D2, column order. |
 | 31 | Erase A1:B2, A1:B1 unprotected | Erases A1 then refuses A2, before B1. |
 | 32 | Range Label Right all four labels, only first row unprotected | Changes all four, including protected labels. |
+| 33 | Name Table at IV10, IV10:IV11 unprotected | Refuses with `Invalid cell or range address`, without writing a prefix. |
 
 Reproduce from the repository root, with fresh absolute scratch directories:
 
@@ -65,6 +67,10 @@ sh apps/initech123/tests/capture-protection-extra.sh /tmp/123-extra \
 ```
 
 The second command consumes the stopped first runtime, which contains BASE.
+It now includes case 33 and waits one second after the final Save before
+stopping QEMU, allowing the guest to finish that save under host load.
+The first last-column experiment stopped too soon and yielded a zero-length
+save; it was discarded and repeated with the recorded `edge.steps` barrier.
 These scripts use the existing `goldens/dataloss/` C driver and runtime
 packer. They do not run during tier 0. Clock/settings metadata can differ on
 replay; the retained bytes are the oracle, not regenerated expectations.

@@ -138,7 +138,7 @@ case_steps 21 'A2' 'type /mA1..A2
 key ret
 type A2
 key ret'
-printf 'end\n' >> "$s"
+printf 'sleep 1\nend\n' >> "$s"
 "$out/drive" "$out" "$out/runtime/lotus-boot.img" - "$out/runtime/runtime.img" "$s"
 for id in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21; do
  for prefix in B A; do

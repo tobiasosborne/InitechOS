@@ -111,9 +111,16 @@ case_steps 32 "$labels
 type /ruA1..B1
 key ret" 'type /rlrA1..B2
 key ret'
-printf 'end\n' >> "$s"
+case_steps 33 'type /rncTOTAL
+key ret
+type A1
+key ret
+type /ruIV10..IV11
+key ret' 'type /rntIV10
+key ret'
+printf 'sleep 1\nend\n' >> "$s"
 "$out/drive" "$out" "$boot" - "$out/runtime.img" "$s"
-for id in 22 23 24 25 26 27 28 29 30 31 32; do
+for id in 22 23 24 25 26 27 28 29 30 31 32 33; do
  for prefix in B A; do mcopy -i "$out/runtime.img@@32256" "::LOTUS/$prefix$id.WK1" "$out/$prefix$id.WK1"; done
 done
 for f in "$out"/*.ppm; do convert "$f" "${f%.ppm}.png"; done

@@ -81,9 +81,9 @@ does. Move checks all destinations first; protected sources may be moved.
 Name Labels rebinding, Range Label alignment and formats are permitted on
 protected cells. Name Table checks both writes and both following erasures,
 retains erasure formats and prints singleton addresses without `..`.
-Authority: seven `goldens/dataloss/lotus` cases and 32 real R2.2 captures
+Authority: seven `goldens/dataloss/lotus` cases and 33 real R2.2 captures
 in `tests/fixtures/protection` (byte/hash-pinned WK1 and VGA/PNG screens).
-The protection suite adds 163 checks; it compares raw saved cell, name and
+The protection suite adds 167 checks; it compares raw saved cell, name and
 PROTEC records, plus READY/ERROR and diagnostics, to these independent files.
 File links keep cached values;
 three named formula exceptions remain documented by the formula oracle.

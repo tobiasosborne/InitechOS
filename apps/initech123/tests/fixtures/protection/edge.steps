@@ -1,0 +1,23 @@
+sleep 4
+key esc
+type 123
+key ret
+type /frBASE
+key ret
+type /rncTOTAL
+key ret
+type A1
+key ret
+type /ruIV10..IV11
+key ret
+type /fsB33
+key ret
+shot B33
+type /rntIV10
+key ret
+shot R33
+key esc
+type /fsA33
+key ret
+sleep 1
+end
