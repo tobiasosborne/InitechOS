@@ -1,0 +1,10 @@
+--- a/factory/emu/bochs.c
++++ b/factory/emu/bochs.c
+@@ -518,6 +518,7 @@
+     do {
+         char line[1024];
+         while(rfb_input_line(r->input_log,line,sizeof line)) {
++            if(read==count)return true;
+             const char *p=strstr(line,"gen_scancode(): ");
+             unsigned value;
+             if(p && strstr(p,"BX_KEY_")) {

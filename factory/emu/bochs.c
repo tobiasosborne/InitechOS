@@ -199,6 +199,8 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
             fprintf(f, "clock: sync=%s\n", sync);
     }
     fputs("display_library: rfb\n", f);
+    if (cfg->keys_script)
+        fputs("debug: action=ignore, keyboard=report\n", f);
     if (cfg->keys_script && strchr(cfg->keys_script, ':'))
         fputs("mouse: type=ps2, enabled=1\n", f);
     /* The backend binds an available port starting at 5900. Its successful
@@ -288,6 +290,8 @@ static int rfb_unblock(int port, long long deadline_ms, int *out_handshook)
  * protocol surprise and fails loud (Rule 2) rather than producing pixels. */
 typedef struct {
     int fd;
+    FILE *input_log;             /* independent Bochs keyboard consumption */
+    long long input_deadline;
     unsigned char *rx;
     size_t len, cap;
     bool have_init;
@@ -441,8 +445,107 @@ static unsigned rfb_key(const char *s, size_t n)
     return bochs_trace_parse(s, n, &step) && step.kind == BX_KEY ? step.key : 0;
 }
 
+/* IBM PC/AT set-1 scan codes; X11 keysyms are the RFC 6143 wire values.
+ * These are independent of the guest's keyboard translator. */
+static unsigned rfb_input_scan(unsigned key, unsigned char scan[2], bool down)
+{
+    static const struct { const char *keys; unsigned first; } rows[]={
+        {"1234567890",0x02},{"qwertyuiop",0x10},
+        {"asdfghjkl",0x1e},{"zxcvbnm",0x2c}
+    };
+    unsigned code=0,extended=0;
+    for(unsigned i=0;i<sizeof rows/sizeof rows[0];i++) {
+        const char *p=key<128?strchr(rows[i].keys,(int)key):NULL;
+        if(p && key)code=rows[i].first+(unsigned)(p-rows[i].keys);
+    }
+    if(key>=0xffbe && key<=0xffc7)code=0x3b+key-0xffbe;
+    static const struct { unsigned key,code,extended; } special[]={
+        {0xffe3,0x1d,0},{0xffe1,0x2a,0},{0xffe9,0x38,0},
+        {0xff0d,0x1c,0},{0xff08,0x0e,0},{' ',0x39,0},{'.',0x34,0},{'/',0x35,0},
+        {0xff50,0x47,1},{0xff52,0x48,1},{0xff55,0x49,1},
+        {0xff51,0x4b,1},{0xff53,0x4d,1},{0xff57,0x4f,1},
+        {0xff54,0x50,1},{0xff56,0x51,1},{0xff63,0x52,1},{0xffff,0x53,1},
+        {0xffb7,0x47,0},{0xffb8,0x48,0},{0xffb9,0x49,0},
+        {0xffb4,0x4b,0},{0xffb6,0x4d,0},{0xffb1,0x4f,0},
+        {0xffb2,0x50,0},{0xffb3,0x51,0},{0xffb0,0x52,0},{0xffae,0x53,0}
+    };
+    for(unsigned i=0;i<sizeof special/sizeof special[0];i++)
+        if(key==special[i].key){code=special[i].code;extended=special[i].extended;}
+    if(!code)return 0;
+    scan[0]=extended?0xe0:(unsigned char)(code|(down?0:0x80));
+    scan[extended?1:0]=(unsigned char)(code|(down?0:0x80));
+    return extended?2:1;
+}
+
+/* Only complete records advance the live log cursor. An interrupted writer
+ * may leave half a record; the next poll must reread it, not lose its suffix. */
+static bool rfb_input_line(FILE *log, char *line, size_t cap)
+{
+    long start=ftell(log);
+    if(!fgets(line,(int)cap,log)){clearerr(log);return false;}
+    if(!strchr(line,'\n')){fseek(log,start,SEEK_SET);return false;}
+    return true;
+}
+
+static bool rfb_input_quiet(RfbShadow *r)
+{
+    if(!r->input_log)return true;
+    char line[1024];
+    while(rfb_input_line(r->input_log,line,sizeof line))
+        if(strstr(line,"gen_scancode():")) {
+            rfb_fail(r,"unsolicited or replayed keyboard event");return false;
+        }
+    return true;
+}
+
+/* Bochs 2.7 gui/rfb.cc shares a producer/consumer event array using a plain
+ * check-then-set flag. Sending the next event while the old batch is being
+ * consumed can race that array's reset. Keep one keyboard event in flight.
+ * keyboard.cc logs gen_scancode, translated bytes and READ(60). The last READ
+ * acknowledges guest consumption AFTER handle_events returned and cleared the
+ * batch, rather than just TCP receipt. Never resend on a missing acknowledgement.
+ * Source: https://github.com/bochs-emu/Bochs/tree/REL_2_7_FINAL/bochs
+ * Sentinel ecox5: O release, extra O press/release, then intended 1/2/3.
+ */
+static bool rfb_input_wait(RfbShadow *r, unsigned key, bool down)
+{
+    if(!r->input_log)return true; /* byte-only host transport fixtures */
+    unsigned char expected[2];unsigned count=rfb_input_scan(key,expected,down);
+    if(!count){rfb_fail(r,"no keyboard acknowledgement mapping");return false;}
+    unsigned generated=0,read=0,events=0;
+    long long until=mono_ms()+10000;
+    if(r->input_deadline && until>r->input_deadline)until=r->input_deadline;
+    do {
+        char line[1024];
+        while(rfb_input_line(r->input_log,line,sizeof line)) {
+            const char *p=strstr(line,"gen_scancode(): ");
+            unsigned value;
+            if(p && strstr(p,"BX_KEY_")) {
+                if(++events!=1 || !strstr(p,down?" pressed":" released")) {
+                    rfb_fail(r,"duplicated or out-of-order keyboard event");return false;
+                }
+            } else if(p && sscanf(p,"gen_scancode(): writing translated %x",&value)==1) {
+                if(events!=1 || generated>=count || value!=expected[generated++]) {
+                    rfb_fail(r,"wrong or duplicated keyboard scan code");return false;
+                }
+            } else if((p=strstr(line,"READ(60) = ")) && events &&
+                      sscanf(p,"READ(60) = %x",&value)==1) {
+                if(read>=generated || value!=expected[read++]) {
+                    rfb_fail(r,"wrong or duplicated keyboard consumption");return false;
+                }
+            }
+        }
+        if(read==count)return true;
+        if(r->closed || r->err[0])break;
+        rfb_pump(r);
+        sleep_ms(2);
+    } while(mono_ms()<until);
+    rfb_fail(r,"keyboard consumption acknowledgement missing");return false;
+}
+
 static bool rfb_key_event(RfbShadow *r, unsigned key, bool down)
 {
+    if(!rfb_input_quiet(r))return false;
     unsigned char m[8] = { 4, down ? 1 : 0, 0, 0,
         (unsigned char)(key >> 24), (unsigned char)(key >> 16),
         (unsigned char)(key >> 8), (unsigned char)key };
@@ -456,7 +559,7 @@ static bool rfb_key_event(RfbShadow *r, unsigned key, bool down)
         sleep_ms(5);
     }
     if (sent != sizeof m) rfb_fail(r, "cannot send KeyEvent");
-    return sent == sizeof m;
+    return sent == sizeof m && rfb_input_wait(r,key,down);
 }
 
 /* RFC 6143 Sec 7.5.5. As with KeyEvent, interrupted/partial sends must
@@ -645,8 +748,8 @@ static int bochs_boot_copy(const char *source,char *destination)
 #ifndef BOCHS_TRACE_TAP_KEYS
 #define BOCHS_TRACE_TAP_KEYS 0
 #endif
-/* RFC6143 KeyEvent ordering. Journey taps must release before yielding to a
- * slow display/serial pump, so a host delay cannot turn a tap into typematic. */
+/* RFC6143 KeyEvent ordering. Each edge is sent once and acknowledged before
+ * advancing the replay; a host delay never replays the previous token. */
 static bool bochs_key_step(RfbShadow *rfb, const BochsTraceStep *step,
                            unsigned key, bool *down, bool tap)
 {
@@ -863,6 +966,11 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     RfbShadow rfb;
     memset(&rfb, 0, sizeof(rfb));
     rfb.fd = rfb_fd;
+    rfb.input_deadline=deadline;
+    if(cfg->keys_script) {
+        rfb.input_log=fopen(out->log_path,"r");
+        if(!rfb.input_log)rfb_fail(&rfb,"cannot open keyboard acknowledgement log");
+    }
 
     /* Poll the SAME capture across guest RESET; never restart Bochs or clear
      * serial at reset. Ref: qemu.c wait_for_serial_marker_live and the locked
@@ -889,6 +997,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         if (w == pid) { reaped = true; break; }
         if (w < 0 && errno != EINTR) break;
         rfb_pump(&rfb);
+        if(rfb.err[0])break;
         if (key_next && !keys_started) {
             char *txt = read_file(out->serial_path, NULL);
             keys_started = txt && serial_marker_count(txt, cfg->keys_after) > 0;
@@ -1113,6 +1222,9 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                                                    cfg->quit_after_count);
     }
 
+    (void)rfb_input_quiet(&rfb);
+    if(rfb.input_log)fclose(rfb.input_log);
+    snprintf(out->rfb_error, sizeof(out->rfb_error), "%s", rfb.err);
     out->ok = bochs_verdict(cfg, out, !key_next && !rfb.err[0]);
     return 0;
 }

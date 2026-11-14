@@ -1,0 +1,5 @@
+--- a/factory/emu/bochs.c
++++ b/factory/emu/bochs.c
+@@ -562,1 +562,1 @@
+-    return sent == sizeof m && rfb_input_wait(r,key,down);
++    return sent == sizeof m;
