@@ -285,6 +285,8 @@ static int serial_ymd(double x, uint32_t *y, uint32_t *m, uint32_t *d)
 {
     static const uint8_t ML[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
     int32_t n;
+    /* fixtures/zero/yes/before.vga: R2.2 displays serial zero as 00-Jan-00. */
+    if(x==0.0){*y=1900;*m=1;*d=0;return 1;}
     /* 1 = 01-Jan-1900; 73050 = 31-Dec-2099, the last date 1-2-3 R2 accepts
      * [inferred: @DATE's year range 0..199] */
     if (!(x >= 1.0 && x < 73051.0)) return 0;
@@ -433,8 +435,32 @@ static void left_text(const uint8_t *t, uint32_t n, uint32_t width, char *out,
     *spill = (n > width) ? n : 0u;
 }
 
-void i123_cell_text(const i123_sheet_t *sh, const i123_cell_t *c,
-                    uint32_t width, char *out, uint32_t *spill)
+static void label_text(const uint8_t *b, uint32_t len, uint32_t width,
+                       char *out, uint32_t *spill)
+{
+    uint8_t pfx = len ? b[0] : (uint8_t)WK1_PFX_LEFT;
+    const uint8_t *t = b + (len != 0);
+    uint32_t n = len ? len - 1u : 0u;
+    if (pfx == WK1_PFX_REPEAT && n) {
+        for (uint32_t i=0;i<width;i++) out[i]=(char)t[i%n];
+        out[width]=0; return;
+    }
+    if (pfx == WK1_PFX_RIGHT && n <= width-1u) {
+        fill(out,width,' ');
+        for(uint32_t i=0;i<n;i++)out[width-1u-n+i]=(char)t[i];
+        return;
+    }
+    if (pfx == WK1_PFX_CENTER && n <= width) {
+        uint32_t at=(width-n)/2u; fill(out,width,' ');
+        for(uint32_t i=0;i<n;i++)out[at+i]=(char)t[i];
+        return;
+    }
+    left_text(t,n,width,out,spill);
+}
+
+static void cell_text(const i123_sheet_t *sh, const i123_cell_t *c,
+                     uint32_t width, char *out, uint32_t *spill,
+                     const char *zero, uint32_t zero_len)
 {
     const uint8_t *b;
     *spill = 0;
@@ -442,31 +468,19 @@ void i123_cell_text(const i123_sheet_t *sh, const i123_cell_t *c,
     uint8_t fmt = resolve_fmt(sh, c->fmt);
     if ((fmt & 127u) == 0x76u) { fill(out, width, ' '); return; }
     b = sh->pool + c->off;
+    /* Reference 12-33..35; fixtures/zero: actual numeric zero only, including
+     * numeric Text/Date/Time, excluding formula Text, strings, NA and ERR.
+     * Replacement is clipped to this column, even when neighbours are empty. */
+    if(zero_len && ((c->kind==I123_K_INTEGER && !(c->v[0]|c->v[1])) ||
+       ((c->kind==I123_K_NUMBER ||
+         (c->kind==I123_K_FORMULA && (fmt&127u)!=0x75u)) &&
+        !raw_class(c->v) && cell_double(c->v)==0.0))) {
+        label_text((const uint8_t *)zero,zero_len,width,out,spill);
+        *spill=0; return;
+    }
     switch (c->kind) {
     case I123_K_LABEL: {
-        uint8_t pfx = c->len ? b[0] : (uint8_t)WK1_PFX_LEFT;
-        const uint8_t *t = b + 1;
-        uint32_t n = c->len ? (uint32_t)c->len - 1u : 0u;
-        if (pfx == WK1_PFX_REPEAT && n > 0u) {
-            /* \ repeats the text to fill the column exactly [documented:
-             * wk1-format.md Sec 4.4 names the prefix; display unminted] */
-            for (uint32_t i = 0; i < width; i++) out[i] = (char)t[i % n];
-            out[width] = '\0';
-            return;
-        }
-        if (pfx == WK1_PFX_RIGHT && n <= width - 1u) {
-            fill(out, width, ' ');
-            for (uint32_t i = 0; i < n; i++) out[width - 1u - n + i] = (char)t[i];
-            return;
-        }
-        if (pfx == WK1_PFX_CENTER && n <= width) {
-            /* centred in the column [inferred: unminted] */
-            uint32_t at = (width - n) / 2u;
-            fill(out, width, ' ');
-            for (uint32_t i = 0; i < n; i++) out[at + i] = (char)t[i];
-            return;
-        }
-        left_text(t, n, width, out, spill);
+        label_text(b,c->len,width,out,spill);
         return;
     }
     case I123_K_INTEGER: {
@@ -505,14 +519,19 @@ void i123_cell_text(const i123_sheet_t *sh, const i123_cell_t *c,
     }
 }
 
+void i123_cell_text(const i123_sheet_t *sh, const i123_cell_t *c,
+                    uint32_t width, char *out, uint32_t *spill)
+{ cell_text(sh,c,width,out,spill,0,0); }
+
 static int is_empty(const i123_sheet_t *sh, uint16_t col, uint16_t row)
 {
     const i123_cell_t *c = i123_find(sh, col, row);
     return c == (const i123_cell_t *)0 || c->kind == I123_K_BLANK;
 }
 
-void i123_render_row(const i123_sheet_t *sh, uint16_t row, uint16_t left,
-                     uint32_t nchars, char *line)
+void i123_render_row_zero(const i123_sheet_t *sh, uint16_t row, uint16_t left,
+                         uint32_t nchars, char *line,
+                         const char *zero, uint32_t zero_len)
 {
     char cell[256];
     uint32_t x = 0, col = left;
@@ -531,7 +550,7 @@ void i123_render_row(const i123_sheet_t *sh, uint16_t row, uint16_t left,
         if (x + w > nchars) break;
         c = i123_find(sh, (uint16_t)col, row);
         if (c != (const i123_cell_t *)0) {
-            i123_cell_text(sh, c, w, cell, &spill);
+            cell_text(sh, c, w, cell, &spill,zero,zero_len);
             for (uint32_t i = 0; i < w; i++) line[x + i] = cell[i];
             if (spill > w) {
                 /* a long label runs on into EMPTY cells to the right, whole
@@ -553,6 +572,10 @@ void i123_render_row(const i123_sheet_t *sh, uint16_t row, uint16_t left,
         col++;
     }
 }
+
+void i123_render_row(const i123_sheet_t *sh, uint16_t row, uint16_t left,
+                     uint32_t nchars, char *line)
+{ i123_render_row_zero(sh,row,left,nchars,line,0,0); }
 
 uint32_t i123_col_name(uint16_t col, char *out)
 {

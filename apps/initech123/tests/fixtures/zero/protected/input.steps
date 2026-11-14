@@ -1,0 +1,19 @@
+sleep 4
+key esc
+type /frBEFORE
+key ret
+sleep 1
+type /rpA1..A11
+key ret
+type /wgpe
+key f5
+type A1
+key ret
+shot protected_value
+type /wgzy
+sleep 0.8
+shot protected_zero
+type /fsPROTECT
+key ret
+sleep 1
+end

@@ -29,6 +29,12 @@ case $name in
   test_i123_copy_move) "$bin" ;;
   test_i123_copy_corpus) "$bin" --corpus "$LOTUS123_DECOMP" "$out" "$ref" ;;
   test_i123_copy_tile) "$bin" --tile tests/fixtures/i123-copy "$out" "$ref" ;;
+  test_i123_zero)
+    (cd tests/fixtures/zero && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
+    "$bin" "$out"
+    for n in YES LEFT RIGHT CENTER REPEAT PLAIN EMPTY; do cmp "$out/${n}B.WK1" "$out/${n}A.WK1"; done
+    python3 tests/oracles/worksheet_records.py tests/fixtures/zero/protected/PROTECT.WK1 "$out/PROTECT.WK1"
+    ;;
   test_i123_fill)
     (cd tests/fixtures/fill && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
     rc=0; "$bin" "$out" || rc=1

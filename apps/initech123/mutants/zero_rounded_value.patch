@@ -1,0 +1,12 @@
+# test: test_i123_zero
+--- a/core/fmt.c
++++ b/core/fmt.c
+@@ -474,7 +474,7 @@
+     if(zero_len && ((c->kind==I123_K_INTEGER && !(c->v[0]|c->v[1])) ||
+        ((c->kind==I123_K_NUMBER ||
+          (c->kind==I123_K_FORMULA && (fmt&127u)!=0x75u)) &&
+-        !raw_class(c->v) && cell_double(c->v)==0.0))) {
++        !raw_class(c->v) && cell_double(c->v)>=0.0 && cell_double(c->v)<0.1))) {
+         label_text((const uint8_t *)zero,zero_len,width,out,spill);
+         *spill=0; return;
+     }

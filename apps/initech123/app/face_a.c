@@ -206,11 +206,19 @@ static char     g_edit[ENTRY_MAX + 1];
 static uint32_t g_elen TBX_IN_IMAGE = 0;
 static uint32_t g_epos TBX_IN_IMAGE = 0;
 static int g_overwrite TBX_IN_IMAGE = 0;
+/* Reference 12-33..35 and fixtures/zero: this is session display state,
+ * independent of cell contents, protection, dirty state and WK1 records. */
+static char g_zero[ENTRY_MAX+1];
+static uint32_t g_zero_len;
+static int g_zero_edit, g_zero_choice;
+static const char *const ZERO_NAMES[]={"No","Yes","Label"};
+static const char *const ZERO_DESCS[]={"Display zero values",
+    "Display blanks for zero values","Replace zeros with a specified label"};
 
-enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE, M_RANGE };
+enum { M_READY, M_LABEL, M_VALUE, M_EDIT, M_MAIN, M_FILE, M_GET, M_SAVE, M_REPLACE, M_QUIT, M_NOTICE, M_RANGE, M_ZERO };
 static int      g_mode TBX_IN_IMAGE = M_READY;
 static const char MODE_TEXT[][6] = { "READY", "LABEL", "VALUE", " EDIT",
-    "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR", "POINT" };
+    "MENU", "MENU", "FILES", "FILES", "MENU", "MENU", "ERROR", "POINT", "MENU" };
 /* B11: an error 1-2-3 shows on the STATUS line (manual p. 1-5, PDF 21: "in
  * place of the date-and-time indicator"; ESC or ENTER clears it). */
 static const char *g_error;
@@ -361,6 +369,12 @@ static void paint_fill(void)
 
 static void paint_command(void)
 {
+    if(g_mode==M_ZERO) {
+        uint32_t x=g_zero_choice==0?0u:g_zero_choice==1?4u:9u;
+        panel_line(LINE_PANEL2,"No  Yes  Label");
+        put_line(LINE_PANEL2,(int)x,ZERO_NAMES[g_zero_choice],slen(ZERO_NAMES[g_zero_choice]),TBX_COLOR_WHITE,TBX_COLOR_NAVY);
+        panel_line(LINE_PANEL3,ZERO_DESCS[g_zero_choice]);return;
+    }
     if (g_mode == M_MAIN || g_mode == M_FILE || g_mode == M_QUIT) {
         const i123_menu_level_t *lv = &i123_menu_levels[g_level];
         char line[512]; uint32_t n = 0, x = 0;
@@ -510,6 +524,18 @@ static void paint_panel(void)
 static void paint_edit_line(void)
 {
     if (g_mode >= M_MAIN) { paint_command(); return; }
+    if(g_zero_edit) {
+        const char *prompt="Enter label (can include label prefix): ";
+        uint32_t at=slen(prompt),room=cols()>at?cols()-at:1u;
+        uint32_t first=g_epos>=room?g_epos-room+1u:0u;
+        char text[SCR_COLS+1];uint32_t n=0;
+        for(uint32_t i=0;prompt[i]&&n<cols();i++)text[n++]=prompt[i];
+        for(uint32_t i=first;i<g_elen&&n<cols();i++)text[n++]=g_edit[i];
+        if(g_epos==g_elen&&n<cols())text[n++]='_';
+        text[n]=0;panel_line(LINE_PANEL2,text);panel_line(LINE_PANEL3,"");
+        if(g_epos<g_elen&&at<cols())put_line(LINE_PANEL2,(int)(at+g_epos-first),g_edit+g_epos,1,TBX_COLOR_WHITE,TBX_COLOR_NAVY);
+        return;
+    }
     char tmp[SCR_COLS + 1], src[SCR_COLS + 1];
     /* Ref: manual p. 1-4/1-16: the entry occupies control-panel line two.
      * B13 (initech-twxf) requires the tail to follow the typing cursor.
@@ -566,7 +592,7 @@ static void paint_row(uint32_t vis)
     }
     pad_into(tmp, BORDER_W, num);
     put_line(line, 0, tmp, BORDER_W, TBX_COLOR_WHITE, TBX_COLOR_NAVY);
-    i123_render_row(&g_sheet, r, i123_view_left(&g_sheet), AREA_CHARS, row);
+    i123_render_row_zero(&g_sheet, r, i123_view_left(&g_sheet), AREA_CHARS, row,g_zero,g_zero_len);
     pad_into(tmp, SCR_COLS - BORDER_W, row);
     put_line(line, BORDER_W, tmp, SCR_COLS - BORDER_W, TBX_COLOR_BLACK, TBX_COLOR_WHITE);
 }
@@ -583,8 +609,8 @@ static void paint_pointer(void)
     for(uint32_t r=i123_view_top(&g_sheet);r<=r1&&r<i123_view_top(&g_sheet)+VIS_ROWS;r++)
         for(uint32_t c=i123_view_left(&g_sheet);c<=c1&&c<i123_view_left(&g_sheet)+area_cols();c++) {
             if(c<c0||r<r0)continue;
-            uint32_t w=vis_width((uint16_t)c),spill;
-            i123_cell_text(&g_sheet,i123_find(&g_sheet,(uint16_t)c,(uint16_t)r),w,text,&spill);
+            uint32_t w=vis_width((uint16_t)c);
+            i123_render_row_zero(&g_sheet,(uint16_t)r,(uint16_t)c,w,text,g_zero,g_zero_len);
             put_line(LINE_ROW0+(int)(r-i123_view_top(&g_sheet)),BORDER_W+col_x((uint16_t)c),text,w,TBX_COLOR_WHITE,TBX_COLOR_NAVY);
         }
 }
@@ -667,6 +693,7 @@ static void notice(const char *s)
 }
 static void ready(void)
 {
+    g_zero_edit=0;
     g_quit_after_save = 0; g_mode = M_READY; g_elen = 0; g_edit[0] = 0; g_nlen = 0; command_paint();
     if(g_anchor){g_anchor=0;paint_rows();}
     if (g_error) { g_error = 0; paint_status(); }
@@ -727,7 +754,7 @@ static void retrieve(void)
     /* Manual p. 5-19: retrieved data/window settings replace the worksheet.
      * Authored transaction: failures above leave the old bank intact. */
     g_sheet = next; g_bank = 1-g_bank;
-    reset_fill_defaults();
+    reset_fill_defaults();g_zero_len=0;g_zero[0]=0;
     g_dirty = 0;   /* initech-fvnj: the sheet IS the file now */
     copy_text(g_current, g_path); file_status("Retrieved "); ready(); paint_all();
 }
@@ -974,6 +1001,9 @@ static void menu_select(void)
         }
     }
     if(g_top==0) {
+        if(g_depth==2&&g_indexes[1]==0&&same(nm,"Zero")) {
+            g_zero_choice=0;g_mode=M_ZERO;command_paint();return;
+        }
         if(g_depth==3&&g_indexes[1]==3&&g_indexes[2]==4) {
             prompt(g_menu_index==0?A_RANGE_WIDTH:A_RANGE_RESET,"Enter range for column width change: ");return;
         }
@@ -992,7 +1022,7 @@ static void menu_select(void)
         }
         if(g_depth==2&&g_indexes[1]==4) {
             if(g_menu_index==0){ready();return;}
-            i123_sheet_t next;if(!i123_sheet_init(&next,g_mem[1-g_bank],sizeof g_mem[0],SHEET_CELLS)){reset_fill_defaults();changed(&next);}return;
+            i123_sheet_t next;if(!i123_sheet_init(&next,g_mem[1-g_bank],sizeof g_mem[0],SHEET_CELLS)){reset_fill_defaults();g_zero_len=0;g_zero[0]=0;changed(&next);}return;
         }
         if(g_depth==2&&g_indexes[1]==3) {
             if(g_menu_index==0){prompt(A_WIDTH,"Enter column width (1..240): ");return;}
@@ -1020,6 +1050,27 @@ static void menu_back(void)
 }
 static void command_key(char ch, uint8_t vk)
 {
+    if(g_mode==M_ZERO) {
+        if(vk==VK_ESC||ch==27){menu_mode();command_paint();return;}
+        if(vk==VK_LEFT||vk==VK_UP)g_zero_choice=(g_zero_choice+2)%3;
+        else if(vk==VK_RIGHT||vk==VK_DOWN||ch==' ')g_zero_choice=(g_zero_choice+1)%3;
+        else if(vk==VK_HOME)g_zero_choice=0;
+        else {
+            if(ch>='a'&&ch<='z')ch-=32;
+            int selected=vk==VK_ENTER||ch=='\r';
+            for(int i=0;i<3;i++)if(ch==ZERO_NAMES[i][0]){g_zero_choice=i;selected=1;}
+            if(selected) {
+                if(g_zero_choice==2) {
+                    g_zero_edit=1;g_mode=M_EDIT;g_elen=g_zero_len;g_epos=g_elen;g_overwrite=0;
+                    for(uint32_t i=0;i<=g_elen;i++)g_edit[i]=g_zero[i];
+                    paint_panel();paint_edit_line();return;
+                }
+                g_zero_len=(uint32_t)g_zero_choice;g_zero[0]=g_zero_len?'"':0;g_zero[g_zero_len]=0;
+                ready();paint_all();return;
+            }
+        }
+        command_paint();return;
+    }
     if(g_mode==M_NOTICE && g_error && g_action==A_RANGE_WIDTH && g_stage &&
        (vk==VK_ESC||ch==0x1b||vk==VK_ENTER||ch=='\r')) {
         g_error=0;g_mode=M_RANGE;g_rlen=0;g_range_text[0]=0;
@@ -1240,7 +1291,7 @@ static void key(int32_t message, int32_t mods)
     /* 123.RI 0x5a5a, verbatim; mint keys 06_f5_prompt (+ current address). */
     if (vk==VK_F5 && !ch && g_mode==M_READY) {prompt(A_GOTO,"Enter address to go to: ");return;}
     if (g_mode >= M_MAIN) { command_key(ch, vk); return; }
-    if (vk == VK_F2 && !ch) { edit_key(); return; }
+    if (vk == VK_F2 && !ch && !g_zero_edit) { edit_key(); return; }
 
     if (g_mode == M_EDIT) {
         uint32_t step = (mods & FLAIR_EVT_MOD_CONTROL_KEY) ? 5u : 1u;
@@ -1280,6 +1331,22 @@ static void key(int32_t message, int32_t mods)
         }
     }
 
+    if(g_zero_edit) {
+        if(vk==VK_ESC||ch==27) {
+            if(!g_elen){g_zero_edit=0;g_mode=M_ZERO;}
+            g_elen=g_epos=0;g_edit[0]=0;paint_panel();paint_edit_line();return;
+        }
+        if(vk==VK_ENTER||ch=='\r') {
+            uint32_t offset=0;
+            char p=g_edit[0];
+            if(!g_elen||(p!='\''&&p!='"'&&p!='^'&&p!='\\')){g_zero[0]='"';offset=1;}
+            g_zero_len=g_elen+offset;
+            if(g_zero_len>ENTRY_MAX)g_zero_len=ENTRY_MAX;
+            for(uint32_t i=offset;i<g_zero_len;i++)g_zero[i]=g_edit[i-offset];
+            g_zero[g_zero_len]=0;ready();paint_all();return;
+        }
+        return;
+    }
     if (ch == 0) {
         mv = vk == VK_UP ? 1 : vk == VK_DOWN ? 2 : vk == VK_LEFT ? 3 : vk == VK_RIGHT ? 4 :
              vk == VK_PGUP ? 5 : vk == VK_PGDN ? 6 : 0;
@@ -1394,7 +1461,7 @@ static void cell_click(const tbx_event_t *ev)
  * refused question is never a silent discard) and the status line says so. */
 static int entry_pending(void)
 {
-    return g_mode == M_LABEL || g_mode == M_VALUE || g_mode == M_EDIT;
+    return !g_zero_edit && (g_mode == M_LABEL || g_mode == M_VALUE || g_mode == M_EDIT);
 }
 
 static void request_quit(void)

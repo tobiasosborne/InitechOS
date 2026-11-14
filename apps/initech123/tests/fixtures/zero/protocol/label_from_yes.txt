@@ -1,0 +1,25 @@
+A11: @ERR                                                                   EDIT
+Enter label (can include label prefix): "                                       
+                                                                                
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ Global Settings ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿    
+³   Conventional memory:  183532 of 381360 Bytes (48%)                     ³    
+³   Expanded memory:      (None)                                           ³    
+³                                                                          ³    
+³   Math coprocessor:     Present                                          ³    
+³                                                                          ³    
+³   Recalculation:                                                         ³    
+³     Method              Automatic                                        ³    
+³     Order               Natural                                          ³    
+³     Iterations          1                                                ³    
+³                                                                          ³    
+³   Circular reference:   (None)                                           ³    
+³                                                                          ³    
+³   Cell display:                                                          ³    
+³     Format              (G)                                              ³    
+³     Label prefix        ' (left align)                                   ³    
+³     Column width        12                                               ³    
+³     Zero suppression    Yes                                              ³    
+³                                                                          ³    
+³   Global protection:    Disabled                                         ³    
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ    
+02-Mar-92  09:30 AM                                                             
