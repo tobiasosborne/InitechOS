@@ -160,7 +160,7 @@ static void init_scene(scene_t *s)
 static void routing(void)
 {
     static scene_t s;
-    static const uint16_t items[] = {1,2,3,4,5,7};
+    static const uint16_t items[] = {1,2,3,4,5,6};
     static const uint16_t bits[] = {0,2,1,5,9,13};
     int slot = -1;
     init_scene(&s);
@@ -178,8 +178,8 @@ static void routing(void)
             CHECK(v->items[items[j]-1].enabled &&
                   v->items[items[j]-1].mark == (i == j ? FINDER_MENU_MARK_CHECK : 0),
                   "V6 enabled view items carry exactly the current check");
-        CHECK(!v->items[5].enabled && !v->items[7].enabled && !v->items[8].enabled,
-              "V6 Label Buttons Popup stay period grayed");
+        CHECK(v->n_items==9 && v->items[6].is_divider,
+              "V6 unsupported View rows are absent and retained rows close gaps");
     }
 }
 
@@ -257,7 +257,7 @@ static void persistence(void)
     if (apps < 0 || other < 0) return;
     before.sh.windows[apps].view_bits = finder_win_view_choose(0, 4);
     before.sh.windows[other].view_bits = finder_win_view_choose(0, 2);
-    finder_dispatch(&before.ctx, MenuResult(515, 6), "mouse");
+    finder_dispatch(&before.ctx, MenuResult(515, 4), "mouse");
     CHECK(before.sh.n_views == 2 && before.sh.windows[apps].open &&
           before.sh.windows[other].open,
           "V5 Restart dispatch saves both views without closing them");

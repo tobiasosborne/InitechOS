@@ -2674,10 +2674,24 @@ static void undo_key(char ch, uint8_t vk)
     else if (vk == VK_DOWN && g_undo_sel) g_undo_sel--;
 }
 
+/* Omitted template slots are unmapped in every input mode, while retained
+ * keys (notably contextual F1/F7) still belong to the active prompt. */
+static int omitted_function(uint8_t vk,int32_t mods)
+{
+    unsigned k,m=0,count=0;
+    if(vk>=VK_F1&&vk<=VK_F10)k=vk-VK_F1;
+    else if(vk==0x57||vk==0x58)k=vk-0x57u+10u;
+    else return 0;
+    if(mods&FLAIR_EVT_MOD_SHIFT_KEY){m=1;count++;}
+    if(mods&FLAIR_EVT_MOD_OPTION_KEY){m=2;count++;}
+    if(mods&FLAIR_EVT_MOD_CONTROL_KEY){m=3;count++;}
+    return count>1||IW_COMMAND_KEYS[m][k]==IW_FK_unmapped;
+}
 static void key(int32_t message, int32_t mods)
 {
     char ch = (char)(message & 0xFF);
     uint8_t vk = (uint8_t)((message >> 8) & 0xFF);
+    if(!ch&&omitted_function(vk,mods))return;
     uint32_t cur_before = g_ed.cur;
     int mode_before = g_mode;
     g_caps = (mods & (int32_t)FLAIR_EVT_MOD_ALPHA_LOCK) != 0;

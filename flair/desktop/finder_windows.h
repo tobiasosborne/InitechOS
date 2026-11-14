@@ -439,6 +439,25 @@ typedef struct {
     uint16_t date, time;
     uint8_t  attribute;
 } finder_win_meta_t;
+/* GM4's bounded file Info and read-only TEXT snapshot. The snapshot uses the
+ * public Scrap Manager capacity and never retains pointers into live scrap. */
+typedef struct { char name83[13]; uint32_t size; uint16_t date; uint8_t locked; } finder_file_info_t;
+#include "scrap.h"
+typedef struct {
+    uint8_t bytes[FLAIR_SCRAP_MAX_PAYLOAD];
+    uint32_t length, start, next;
+    char lines[3][64];
+} finder_clipboard_t;
+struct finder_shell;
+int finder_file_info(struct finder_shell *sh, finder_file_info_t *out);
+void finder_file_info_lines(const finder_file_info_t *info, char lines[4][64]);
+int finder_clipboard_snapshot(finder_clipboard_t *view, const FlairScrap *scrap);
+void finder_clipboard_next(finder_clipboard_t *view);
+void finder_clipboard_previous(finder_clipboard_t *view);
+typedef uint16_t (*finder_clipboard_dialog_fn)(void *user,
+    const char *const *text,const char *const *buttons,unsigned nbuttons);
+int finder_clipboard_show(finder_clipboard_t *view,const FlairScrap *scrap,
+    finder_clipboard_dialog_fn dialog,void *user);
 struct finder_list_key;
 
 typedef struct finder_window {
@@ -537,6 +556,8 @@ typedef struct finder_shell {
     FlairApp            *app;
     finder_fs_t          fs;
     FinderCtx           *ctx;      /* the command context (kmain owns it)      */
+    finder_file_info_t   info;
+    FlairScrap         *scrap;     /* borrowed shell-owned Scrap Manager */
     uint8_t              have_fs;  /* 1 once a binding is installed            */
     finder_cmd_outcome_t last;     /* the most recent command's outcome        */
     /* R3.4a (bead initech-34dh): the kind=5 trash-origin set (design F1.5),

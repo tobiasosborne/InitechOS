@@ -16,3 +16,6 @@ grep -F "T'office ' [AttrOn Bold] T'reports' [AttrOff Bold] T' are ready. rev1'"
 grep 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$' "$out.backup-readback" >/dev/null
 mcopy -o -i "$disk" ::SEARCH.WP5 "$out.search.WP5"
 cmp "$out.WP5" "$out.search.WP5"
+mcopy -o -i "$disk" ::NOTEPAD.DAT "$out.clipboard.DAT"
+make -s -C apps/initechword "$PWD/build/apps/initechword/host/iword_clipboard_readback"
+build/apps/initechword/host/iword_clipboard_readback "$out.clipboard.DAT"

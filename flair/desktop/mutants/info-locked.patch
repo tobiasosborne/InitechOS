@@ -1,0 +1,12 @@
+# test: test_finder_storage
+--- a/finder_windows.c
++++ b/finder_windows.c
+@@ -2383,7 +2383,7 @@
+         unsigned n=0;while(n<12&&e->name83[n]){s->info.name83[n]=e->name83[n];n++;}
+         if(e->name83[n])return 0;
+         s->info.name83[n]=0;s->info.size=e->size;
+-        s->info.date=e->date;s->info.locked=!!(e->attribute&FINDER_ATTR_READONLY);s->matches++;
++        s->info.date=e->date;s->info.locked=0;s->matches++;
+     }
+     return 0;
+ }

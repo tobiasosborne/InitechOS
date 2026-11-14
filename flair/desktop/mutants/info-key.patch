@@ -1,0 +1,12 @@
+# test: test_finder_commands
+--- a/finder_cmd.c
++++ b/finder_cmd.c
+@@ -173,7 +173,7 @@
+ 
+ uint8_t finder_pred_selection_infoable(const FinderCtx *fx)
+ {
+-    return fx && fx->selection_infoable;
++    return fx && fx->selection_infoable && 0;
+ }
+ static void fcmd_nyi(FinderCtx *fx, const finder_cmd_t *c)
+ {

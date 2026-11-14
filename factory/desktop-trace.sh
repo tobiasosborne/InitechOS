@@ -19,7 +19,7 @@ open_disk='m100:-98,m100:-98,m80:0,l1,l0,l1,l0'
 # Open the folder by name too. The following movements only park the pointer;
 # they never choose a filesystem entry or depend on the icon's rectangle.
 open_apps='kup,ka,kp,kp,ks,kctrl-o,m-100:8,m-100:8,m-100:8,m-100:8,m-100:8,m-10:-2'
-exit_desktop='m58:-92,l1,m0:100,m0:33,l0'
+exit_desktop='m58:-92,l1,m0:95,l0'
 move_by() {
     move_x=$1 move_y=$2
     while [ "$move_x" -ne 0 ] || [ "$move_y" -ne 0 ]; do

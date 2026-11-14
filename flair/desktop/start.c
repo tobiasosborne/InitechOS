@@ -74,6 +74,7 @@ void kernel_graphical_environment(void)
                                              (uint32_t)sizeof(FlairScrap));
         if (th.scrap == (FlairScrap *)0) flair_desktop_oom("desk scrap");
         FlairScrap_init(th.scrap);
+        g_finder_shell->scrap = th.scrap;
         serial_puts("FLAIR-SCRAP-READY bytes=");
         serial_putu((uint32_t)sizeof(FlairScrap));
         serial_putc('\n');

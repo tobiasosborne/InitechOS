@@ -204,9 +204,7 @@ void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
                               g_finder_shell->windows[s->slot].dir_start);
         return;
     }
-    serial_puts("FINDER-OPEN-ITEM NYI name=");
-    serial_puts(ic->name);
-    serial_putc('\n');
+    /* Document associations are omitted in this master. */
 }
 
 void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
@@ -320,7 +318,7 @@ void flair_live_do_surface(flair_live_ctx_t *ctx, const boot_info_t *bi,
         }
     } else if (!moved) {
         finder_click_kind_t k =
-            finder_click_classify(s->click, (int16_t)idx,
+            finder_desk_click_classify(s->click, fd, (int16_t)idx,
                                   where0.h, where0.v, ev->when);
         if (k == FINDER_CLICK_DOUBLE) {
             finder_surface_open(ctx, bi, s, idx);

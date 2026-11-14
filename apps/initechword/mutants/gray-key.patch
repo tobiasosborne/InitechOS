@@ -1,11 +1,12 @@
 # test: test_iword_commands
 --- a/app/face_a.c
 +++ b/app/face_a.c
-@@ -2362,6 +2362,7 @@
-     case IW_FK_font:      g_mode = M_FONT; break;
-     case IW_FK_list:      g_mode = M_LISTDIR; break;   /* List Files (F5), mint 005 */
-     case IW_FK_unmapped:
-+        g_gray = "Help"; g_mode = M_GRAY;
-         /* Reference p. 966 note 4: no command is mapped to these keys.
-          * Keep the editing screen/status, rather than inventing a blank
-          * disabled command. */
+@@ -2691,7 +2691,7 @@
+ {
+     char ch = (char)(message & 0xFF);
+     uint8_t vk = (uint8_t)((message >> 8) & 0xFF);
+-    if(!ch&&omitted_function(vk,mods))return;
++    if(!ch&&omitted_function(vk,mods)){g_gray="Help";g_mode=M_GRAY;paint();return;}
+     uint32_t cur_before = g_ed.cur;
+     int mode_before = g_mode;
+     g_caps = (mods & (int32_t)FLAIR_EVT_MOD_ALPHA_LOCK) != 0;

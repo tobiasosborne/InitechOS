@@ -46,6 +46,7 @@ extern flair_raw_ring_t g_flair_kbd_ring;
 void flair_live_emit_evt(const EventRecord *);
 void flair_live_cursor_track(const EventRecord *);
 extern char g_finder_notice_lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+extern DialogRecord g_al_dr;
 extern char g_finder_trash_confirm_lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
 extern char g_finder_delete_now_confirm_lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
 int finder_fat_mkdir(void *fs_user, const char *name83,

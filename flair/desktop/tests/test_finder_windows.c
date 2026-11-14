@@ -948,11 +948,11 @@ static void leg_cmd_spine(void)
      * File menu 512, item 1 == New Folder. */
     c = finder_cmd_lookup(512, 1);
     CHECK(c != NULL && c->id == FCMD_NEW_FOLDER, "L11 File>New Folder is 512/1");
-    CHECK(finder_cmd_lookup(512, 4) != NULL &&
-          finder_cmd_lookup(512, 4)->id == FCMD_CLOSE_WINDOW,
+    CHECK(finder_cmd_lookup(512, 3) != NULL &&
+          finder_cmd_lookup(512, 3)->id == FCMD_CLOSE_WINDOW,
           "L11 File>Close Window is 512/4");
     CHECK(finder_cmd_lookup(512, 2)->id == FCMD_OPEN, "L11 File>Open is 512/2");
-    CHECK(finder_cmd_lookup(512, 3) == NULL,
+    CHECK(finder_cmd_lookup(512, 99) == NULL,
           "L11 an inert V1 row (Print) has NO command row -- dispatch says so");
     CHECK(finder_cmd_lookup(512, 0) == NULL,
           "L11 item 0 is not an IM item number (items are 1-based)");
@@ -1013,7 +1013,7 @@ static void leg_cmd_spine(void)
         finder_shell_bind_ctx(&d.sh, &dctx);
         finder_shell_sync_ctx(&d.sh);
         CHECK(dctx.front_is_diskwin == 0u, "L11 with no window front the predicate is FALSE");
-        finder_dispatch(&dctx, finder_cmd_result(finder_cmd_lookup(512, 4)), "key");
+        finder_dispatch(&dctx, finder_cmd_result(finder_cmd_lookup(512, 3)), "key");
         CHECK(finder_shell_take_outcome(&d.sh) == NULL,
               "L11 a predicate-disabled command never reaches the shell hook");
     }

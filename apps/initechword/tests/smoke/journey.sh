@@ -57,4 +57,70 @@ journey() {
     # Completion follows this key; no trailing wait may remain for Bochs.
     inject 'ky'
     await_marker 'TENANT-EXIT rc=0 via=exit'
+    # Finder's retained Get Info is a file query, including an EXE as a file.
+    word_keys 'kup,kw,ko,kr,kd,kdot,ke,kx,ke,kctrl-i'
+    await_marker 'FINDER-INFO Name: WORD.EXE'
+    capture finder-info
+    if [ "$emulator" = qemu ]; then word_keys kesc; else word_keys kret; fi
+    # Copy a literal CR fixture from Note Pad page3 of the fresh product disk.
+    # Restore page1 so the Note Pad/Calculator journeys retain their start.
+    launch_app NOTEPAD.EXE
+    move_by 58 167
+    move_by 285 0
+    inject 'l1,l0'
+    await_marker 's="2 of 8"'
+    inject 'l1,l0'
+    await_marker 's="3 of 8"'
+    move_by -343 -167
+    clip_y=4
+    for clip_line in first second third fourth fifth sixth seventh uniquetail; do
+        clip_prefix=
+        clip_pending=0
+        # Bound input to two characters per paint acknowledgement. This drains
+        # the cooperative queue and fits the frontend's distinct-wait capacity.
+        for letter in $(printf '%s\n' "$clip_line" | fold -w1); do
+            clip_prefix=$clip_prefix$letter
+            word_keys "k$letter"
+            clip_pending=$((clip_pending+1))
+            if [ "$clip_pending" -eq 2 ] || [ "$clip_prefix" = "$clip_line" ]; then
+                await_marker "TENANT-GATE ax=0x0030 win=1 x=5 y=$clip_y s=\"$clip_prefix\""
+                clip_pending=0
+            fi
+        done
+        [ "$clip_line" = uniquetail ] || word_keys kret
+        clip_y=$((clip_y+11))
+    done
+    word_keys kctrl-a
+    await_marker 'TENANT-GATE ax=0x0030 win=1 x=5 y=81 s="uniquetail"'
+    word_keys kctrl-c
+    await_marker 'TENANT-SCRAP put n=56'
+    word_keys kctrl-x
+    await_marker 'TENANT-SCRAP put n=56'
+    word_keys kctrl-q
+    await_marker 'TENANT-EXIT rc=0 via=exit'
+    move_by -17 -93
+    inject 'l1,m0:38,l0'
+    move_by 17 55
+    await_marker 'FINDER-CLIPBOARD first'
+    capture finder-clipboard-first
+    move_by 281 66
+    inject 'l1,l0'
+    await_marker 'FINDER-CLIPBOARD fourth'
+    inject 'l1,l0'
+    await_marker 'FINDER-CLIPBOARD uniquetail'
+    capture finder-clipboard-last
+    # Last page's second button is Previous. Escape always means Close.
+    inject 'l1,l0'
+    await_marker 'FINDER-CLIPBOARD fourth'
+    if [ "$emulator" = qemu ]; then word_keys kesc; else word_keys kret; fi
+    move_by -281 -66
+    launch_app NOTEPAD.EXE
+    word_keys kctrl-v
+    inject w500
+    move_by 58 167
+    inject 'l1,l0,w500,l1,l0,w500'
+    move_by -58 -167
+    word_keys kctrl-q
+    await_marker 'TENANT-EXIT rc=0 via=exit'
 }
+journey_exits=3

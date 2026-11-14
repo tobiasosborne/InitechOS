@@ -102,8 +102,37 @@ static void name_search(void)
     for(const char *p="4579";*p;p++)unchanged(*p,M_LIST);
     m_dirents=NULL;m_ndirents=0;
 }
+static void enter_prompt(unsigned i)
+{
+    fresh();tks("Keep");
+    if(i<3){fkey(F8,CTRL);if(i)tk((char)('0'+i));}
+    else if(i<6){fkey(F4,ALT);fkey(F8,CTRL);if(i>3)tk((char)('0'+i-3));}
+    else if(i==6||i==7){fkey(F4,ALT);fkey(F4,CTRL);if(i==7)tk('1');}
+    else if(i==8||i==9){fkey(F4,CTRL);if(i==9)tk('4');}
+    else if(i>=10&&i<=15){fkey(F8,SHIFT);if(i>10)tk('1');if(i==12)tk('3');if(i==13||i==14){tk('7');if(i==14)tk('\r');}if(i==15)tk('6');}
+    else if(i>=16&&i<=21){fkey(F1,SHIFT);if(i>16)tk('3');if(i==18||i==19){tk('8');if(i==19)tk('2');}if(i==20||i==21){tk('1');if(i==21)tk('2');}}
+    else if(i==22)fkey(0x3c,0);
+    else if(i==23)fkey(0x3c,ALT);
+    else if(i==24)fkey(F1,0);
+    else if(i==25)fkey(0x47,CTRL);
+    else if(i==26)fkey(F10,0);
+    else if(i==27)fkey(F10,SHIFT);
+    else if(i==28||i==29){fkey(F7,0);if(i==29)tk('n');}
+    else if(i==30||i==31){fkey(0x3f,0);if(i==31)tk('\r');}
+}
+static void modal_keys(void)
+{
+    for(unsigned p=0;p<32;p++)for(int m=0;m<4;m++)for(int k=0;k<10;k++)if(removed[m]&(1u<<k)){
+        enter_prompt(p);char screen[24][77];unsigned char bytes[128],after[128];
+        memcpy(screen,m_scr,sizeof screen);uint32_t n=iw_doc_read(&g_ed.doc,0,bytes,sizeof bytes);
+        int mode=g_mode,dirty=g_ed.dirty;uint32_t cur=g_ed.cur,block=g_ed.blk;
+        fkey(0x3b+k,mods[m]);
+        CHECK(g_mode==mode&&!memcmp(screen,m_scr,sizeof screen),"mode-route","removed function slot preserves every reachable prompt");
+        CHECK(g_ed.cur==cur&&g_ed.blk==block&&g_ed.dirty==dirty&&iw_doc_read(&g_ed.doc,0,after,sizeof after)==n&&!memcmp(bytes,after,n),"mode-route","removed slot preserves document, block and cursor in modal contexts");
+    }
+}
 int main(void)
 {
-    static int ctr[2];g_ctr=ctr;if(tbx_app_main())return 2;sweep();units();name_search();
+    static int ctr[2];g_ctr=ctr;if(tbx_app_main())return 2;sweep();units();name_search();modal_keys();
     printf("Word commands: %d checks, %d failures\n",ctr[0],ctr[1]);return ctr[1]?1:0;
 }

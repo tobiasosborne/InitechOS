@@ -234,3 +234,9 @@ compiled includes, external symbols and interrupt vectors against these lines.
 Interface role: desktop
 Interface use-gate: sdk/include/tbx.h
 <!-- end-interface-declarations -->
+
+The omission sweep also enters32 prompt/input contexts and sends all23 removed
+function slots through the native event dispatcher. Removed slots preserve the
+current prompt, document, block and cursor; retained F1/F7 keep their contextual
+cancel/return meanings. The expanded route test was red239/2063 before the
+cross-mode input guard; its removal is a semantic mutation control.

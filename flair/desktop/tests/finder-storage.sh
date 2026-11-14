@@ -1,6 +1,7 @@
 #!/bin/sh
 # Independent mtools mint/readback; no expected filesystem bytes from the driver.
 set -eu
+export SOURCE_DATE_EPOCH=699350400 TZ=UTC
 bin=$1 w=$2
 mkdir -p "$w"
 for kind in 12 16; do
@@ -12,6 +13,8 @@ for kind in 12 16; do
  printf 'Finder source bytes\r\n' > "$w/source.txt"
  mmd -i "$w/fat$kind.img" ::FOLDER ::EMPTY ::TRASH
  mcopy -i "$w/fat$kind.img" "$w/source.txt" ::SOURCE.TXT
+ mcopy -i "$w/fat$kind.img" "$w/source.txt" ::LOCKED.TXT
+ mattrib -i "$w/fat$kind.img" +r ::LOCKED.TXT
  awk 'BEGIN {for(i=0;i<100;i++) printf "Finder source bytes\r\n"}' > "$w/chain.txt"
  mcopy -i "$w/fat$kind.img" "$w/chain.txt" ::FOLDER/CHAIN.TXT
  mcopy -i "$w/fat$kind.img" "$w/source.txt" ::TRASH/GONE.TXT

@@ -1,0 +1,12 @@
+# test: test_finder_commands
+--- a/finder_windows.c
++++ b/finder_windows.c
+@@ -2477,7 +2477,7 @@
+         if(v->next<v->length){next=++n;buttons[n-1]="Next";}
+         if(v->start){prev=++n;buttons[n-1]="Previous";}
+         uint16_t hit=dialog(user,text,buttons,n);
+-        if(next&&hit==next)finder_clipboard_next(v);
++        if(next&&hit==next)finder_clipboard_previous(v);
+         else if(prev&&hit==prev)finder_clipboard_previous(v);
+         else return 0;
+     }

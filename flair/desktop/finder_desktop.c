@@ -938,3 +938,14 @@ int finder_desk_tenant_build(finder_desk_t *fd, finder_desk_icon_t *storage,
 void finder_desk_small_icon(const bitmap_t *dst,int16_t x,int16_t y,uint8_t kind,
                              const region_t *clip)
 { finder_icon_draw_small(dst,x,y,kind==FINDER_ICON_APP?0:kind==FINDER_ICON_FOLDER?2:1,clip); }
+
+/* Approved GM4 gesture reduction: documents have no launch associations.
+ * Treat their second click as selection; volume/folder/app/Trash still open. */
+finder_click_kind_t finder_desk_click_classify(finder_click_track_t *t,
+    const finder_desk_t *desk,int16_t target,int16_t h,int16_t v,uint32_t when)
+{
+    finder_click_kind_t k=finder_click_classify(t,target,h,v,when);
+    if(k==FINDER_CLICK_DOUBLE && desk && target>=0 && target<desk->n &&
+       desk->icons[target].kind==FINDER_ICON_FILE)return FINDER_CLICK_SINGLE;
+    return k;
+}
