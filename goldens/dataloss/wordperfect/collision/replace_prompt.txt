@@ -1,0 +1,25 @@
+Hello from InitechWord. This is a plain paragraph typed into real               
+WordPerfect 5.1.                                                                
+                                                                                
+Bold and underlined words.                                                      
+                          Centered line                                         
+     Tabbed line                                                                
+SAVE-REVISION-ONE-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789-EXTRA-TEXT              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Replace B:\NAME.WP5? No (Yes)                                                   

@@ -1,0 +1,16 @@
+*.BIN -text
+*.OUT -text
+*.TXT -text
+*.BAT -text
+*.SYS -text
+*.WP5 -text
+*.BK! -text
+*.WK1 -text
+*.vga -text
+# Preserve byte-exact DOS CRLF and padded VGA/mtools text captures.
+*.txt -whitespace
+*.TXT -whitespace
+*.BAT -whitespace
+*.SYS -whitespace
+*.OUT -whitespace
+*.mdir -whitespace

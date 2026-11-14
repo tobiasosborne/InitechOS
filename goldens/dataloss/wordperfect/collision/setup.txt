@@ -1,0 +1,25 @@
+Setup                                                                           
+                                                                                
+     1 - Mouse                                                                  
+                                                                                
+     2 - Display                                                                
+                                                                                
+     3 - Environment                                                            
+                                                                                
+     4 - Initial Settings                                                       
+                                                                                
+     5 - Keyboard Layout                                                        
+                                                                                
+     6 - Location of Files                                                      
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Selection: 0                                                                    

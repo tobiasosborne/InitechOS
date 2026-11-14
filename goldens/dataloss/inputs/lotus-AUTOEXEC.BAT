@@ -1,0 +1,4 @@
+@ECHO OFF
+C:
+CD \LOTUS
+123

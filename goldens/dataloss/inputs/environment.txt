@@ -1,0 +1,11 @@
+QEMU emulator version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)
+mtools 4.0.43
+CPU 486; RAM 8 MiB; no network; real Packard Bell OEM MS-DOS 3.30 boot.
+RTC base 1992-03-02T09:30:00,clock=vm.
+Lotus R2.2: initialized corpus mint/work_ref, not pristine uninitialized retail executable.
+WordPerfect 5.1: corpus installed 03-09-92 build, not 1989 cross-check build.
+DOSBox-X executable absent from PATH and searched user/local locations.
+Real runtimes run directly in QEMU; no substitute application or shell.
+Lotus corpus HEAD 95eed7cc35b651dfef56624e02c7b9e12669d1fa
+WordPerfect corpus HEAD e983c8dad9ce92fce02052cc0262640873ee50ad
+Original corpus files are not changed. All emulator disks are disposable copies.

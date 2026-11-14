@@ -1,0 +1,25 @@
+E10: PR 777                                                                 MENU
+Right  Down  Left  Up                                                           
+Each label in range names cell to its right                                     
+        A        B        C        D        E        F        G        H        
+1        123                                                                    
+2                                                                               
+3                                                                               
+4                                                                               
+5                                                                               
+6                                                                               
+7                                                                               
+8                                                                               
+9                                                                               
+10  KEEP-A10 KEEP-B10          TOTAL         777                                
+11  KEEP-A11 KEEP-B11                                                           
+12                                                                              
+13                                                                              
+14                                                                              
+15                                                                              
+16                                                                              
+17                                                                              
+18                                                                              
+19                                                                              
+20                                                                              
+02-Mar-92  09:30 AM                                                             
