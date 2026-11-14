@@ -102,3 +102,14 @@ language feature was added; seed string-character var arguments now accept
 the documented form. Authored corpus/protocol goldens are unchanged. Emulator
 work never runs in tier 0. See ROADMAP.md for remaining
 GOLDEN-MASTER.md item-7 work, including the IDE.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: dos
+Interface product-elf: build/turbo/compiler/extended/zero.elf
+The package recipe links this ELF into shipped TURBO.COM; Multiboot startup
+objects in all are judging fixtures, not DOS application inputs.
+<!-- end-interface-declarations -->

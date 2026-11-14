@@ -30,3 +30,12 @@ counter initialization until both bounds are saved and stop before stepping
 past their endpoint. Parent tests/execution compares all corpus/regression
 programs to FPC on QEMU and Bochs. Runtime tables still regenerate in tier 0.
 `make smoke` remains a parent Turbo Initech/product responsibility.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: dos
+Interface callback: pas_main
+<!-- end-interface-declarations -->

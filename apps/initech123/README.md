@@ -401,3 +401,14 @@ before publishing a window. Removing menus does not remove unknown WK1 records
 or formula/file compatibility. READY F2/F5/F9 remain; deferred READY F3/F4/F6/F7/
 F8/F10 remain unmapped without command-name prompts. F3 in the file chooser is
 the captured full-list toggle, a working context-specific file command.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: desktop
+Interface export-pure: apps/initech123/include/i123.h i123_addr_text i123_after_entry i123_calc_clock i123_calc_init i123_cell_bytes i123_cell_content i123_cell_text i123_cell_value i123_col_name i123_cols_fitting i123_colwidth i123_cursor_col i123_cursor_row i123_enter_formula i123_erase i123_eval i123_fill_progress i123_find i123_fixed_text i123_format_number i123_formula_check i123_formula_compile i123_formula_compile_named i123_formula_text i123_name_delete i123_name_find i123_name_labels i123_name_set i123_name_table i123_name_table_progress i123_number_text i123_parse_value i123_range_parse i123_recalc i123_recalc_cell i123_ref_resolve i123_render_row i123_render_row_zero i123_set_cell_format i123_set_colwidth i123_set_cursor i123_set_formula_raw i123_set_label i123_set_number i123_set_view i123_sheet_clear i123_sheet_clone i123_sheet_init i123_sig_text i123_store_result i123_token_size i123_transfer i123_transfer_rect i123_transfer_rect_progress i123_view_left i123_view_top i123_wk1_read i123_wk1_write
+Interface export-pure: apps/initech123/include/i123/wk1_format.h
+Interface use-gate: sdk/include/tbx.h
+<!-- end-interface-declarations -->

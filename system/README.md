@@ -97,3 +97,27 @@ the working volume, removing the builder's DOS wildcard, and scheduling Turbo
 before image assembly belong to the image composition owner. The installed
 README.TXT describes the currently available fixed-name compiler protocol;
 when the Turbo owner lands the IDE, update those directions with its workflow.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: startup
+Interface use-binding: kernel/include/blockdev.h
+Interface use-binding: kernel/include/conedit.h
+Interface use-binding: kernel/include/devices.h
+Interface use-binding: kernel/include/diskutil.h
+Interface use-binding: kernel/include/dos_structs.h
+Interface use-binding: kernel/include/environment.h
+Interface use-binding: kernel/include/fat12.h
+Interface use-binding: kernel/include/fileio_fat.h
+Interface use-binding: kernel/include/find_data.h
+Interface use-binding: kernel/include/idt.h
+Interface use-binding: kernel/include/int21.h
+Interface use-binding: kernel/include/io.h
+Interface use-binding: kernel/include/memory_map.h
+Interface use-binding: kernel/include/power.h
+Interface use-pure: kernel/include/mcb.h
+Interface use-records: kernel/include/drive_letters.h
+<!-- end-interface-declarations -->

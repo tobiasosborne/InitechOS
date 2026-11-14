@@ -61,6 +61,7 @@ include tests.mk
 objects: $(OBJECTS)
 
 TARGET_ARTIFACTS := $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS
+include $(TOP)/mk/import-check.mk
 .PHONY: object-list
 object-list:
 	@echo $(OBJECTS)

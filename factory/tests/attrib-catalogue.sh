@@ -20,6 +20,9 @@ patch -s -p1 < "$root/factory/mutants/interfaces/attrib-catalogue.patch"
 # Compile the literal into ATTRIB's real core variant, not just an unused source.
 gcc -m32 -Os -ffreestanding -fno-pic -DDOSUTIL_ATTRIB -Idos/common -Ikernel/include -Ibuild/kernel \
  -c dos/common/dosutil.c -o "$work/literal-attrib.o"
+ld -m elf_i386 --build-id=none -T "$root/dos/common/dosutil.ld" \
+ -o "$work/literal-attrib.elf" "$root/build/dos/common/attrib.o" "$work/literal-attrib.o"
+objcopy -O binary "$work/literal-attrib.elf" "$work/build/dos/ATTRIB.COM"
 rc=0
 sh "$root/dos/tests/gates/test-dosmsg.sh" > "$work/red.log" 2>&1 || rc=$?
 [ "$rc" -eq 1 ] && grep -q 'RED dosmsg-source:.*inline MSG_DOS_0038' "$work/red.log" || { cat "$work/red.log"; echo 'FAIL ATTRIB catalogue: literal bypass accepted or wrong failure'; exit 1; }

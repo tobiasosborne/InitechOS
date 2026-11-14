@@ -210,3 +210,12 @@ by a failed restoration: delete no retained complete stream, display the exact
 preceding destination's recovery name, and block further file operations/saves
 in that tenant. Paired source-delete/rollback failures are tested. This remains
 a known residual to the original-name ruling, not a policy exception.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: desktop
+Interface use-gate: sdk/include/tbx.h
+<!-- end-interface-declarations -->

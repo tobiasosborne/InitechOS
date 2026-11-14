@@ -279,3 +279,13 @@ exit counts are written to bochs-times.txt, with complete per-session serial,
 trace and reports under bochs-sessions/. The old monolithic default reproduced
 RED at 91s with timed_out=1. The halted-guest mutant still fails at the default
 idle limit, twice, after a freshly built healthy worksheet/readback baseline.
+
+The import audit reads each product component's delimited README interface
+section. Provider-published pure contracts grant exact external symbols;
+record contracts grant includes only. Resident platform and manager contracts
+are restricted to resident/startup roles. The audit follows real target make
+edges, compiler dependency files, nm references and disassembled interrupt
+instructions, and preprocessed flat assembly. Raw-disk vectors are permitted
+only when every consuming artifact has an authorized utility name. UART
+observability in the Turbo runtime is hardware code, not a private OS entry;
+the audit does not invent a general ban on port instructions.

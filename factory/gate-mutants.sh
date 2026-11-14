@@ -13,6 +13,8 @@ for patch_file in factory/mutants/gates/*.patch; do
  if ! patch --batch --fuzz=0 -p1 -d "$scratch" < "$patch_file" > "$work/$name.patch.log" 2>&1; then errors=$((errors+1)); continue; fi
  case $name in
  attrib-absolute-disk) command='sh factory/tests/utility-vectors.sh'; signature='FAIL utility vectors: ATTRIB';;
+ interface-audit) command='sh factory/tests/interfaces.sh'; signature='FAIL interface fixture: accepted direct-call';;
+ interface-vector) command='sh factory/tests/interfaces.sh'; signature='FAIL interface fixture: accepted wrong-vector';;
  cert-git-status) command='sh factory/tests/cert.sh'; signature='FAIL cert accepted git-error';;
  dependency-query) command='sh factory/tests/dependency-query.sh'; signature='FAIL dependency: accepted error';;
  snapshot-producer) command='sh factory/tests/snapshots.sh'; signature='FAIL snapshot:';;

@@ -21,3 +21,12 @@ file operations use sdk/host. Target pointers use uintptr_t so the same
 fixture can be hosted without truncating addresses. The crash command is
 never executed in host tests. make smoke fails explicitly: legacy composed
 pixel/cleanup journeys are unimported and belong to factory.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: desktop
+Interface use-gate: sdk/include/tbx.h
+<!-- end-interface-declarations -->

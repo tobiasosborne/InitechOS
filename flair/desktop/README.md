@@ -232,3 +232,93 @@ The external patch fat16-write-check-dropped removes the capability decision
 and is killed by these invariants. `make smoke-storage` drives the Finder in
 both emulators and compares the FAT16 volume byte-for-byte, with FAT12 as the
 positive control. No test scenario is compiled into the product.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: resident
+Interface temporary: finder-fat initech-02siz
+Published FAT calls in finder_fs.c and desktop_db.c expire when Finder file
+operations use DOS. The pure contracts and resident manager/platform bindings
+are the inventory described above; this section adds no private app service.
+Interface use-pure: flair/include/assets/chicago12.h
+Interface use-pure: flair/include/assets/color_canon.h
+Interface use-pure: flair/include/assets/desk_icons.h
+Interface use-pure: flair/include/assets/font_linkage.h
+Interface use-pure: flair/include/assets/geneva12.h
+Interface use-pure: flair/include/assets/geneva9.h
+Interface use-pure: flair/include/assets/palette.h
+Interface use-binding: flair/include/chrome_metrics.h
+Interface use-binding: flair/include/control.h
+Interface use-binding: flair/include/cursor.h
+Interface use-binding: flair/include/dialog.h
+Interface use-binding: flair/include/event.h
+Interface use-binding: flair/include/filecopy_cancel.h
+Interface use-binding: flair/include/flair_platform.h
+Interface use-binding: flair/include/grafport.h
+Interface use-binding: flair/include/imaging.h
+Interface use-binding: flair/include/list.h
+Interface use-binding: flair/include/menu.h
+Interface use-binding: flair/include/ostype.h
+Interface use-binding: flair/include/process.h
+Interface use-binding: flair/include/stdfile.h
+Interface use-binding: flair/include/tbxgate.h
+Interface use-binding: flair/include/window.h
+Interface use-binding: flair/include/window_record.h
+Interface use-binding: flair/include/winscroll.h
+Interface use-binding: kernel/include/blockdev.h
+Interface use-binding: kernel/include/boot_info.h
+Interface use-binding: kernel/include/console.h
+Interface use-binding: kernel/include/devices.h
+Interface use-binding: kernel/include/dos_structs.h
+Interface use-binding: kernel/include/environment.h
+Interface use-binding: kernel/include/fat12.h
+Interface use-binding: kernel/include/fileio_fat.h
+Interface use-binding: kernel/include/find_data.h
+Interface use-binding: kernel/include/idt.h
+Interface use-binding: kernel/include/int21.h
+Interface use-binding: kernel/include/io.h
+Interface use-binding: kernel/include/kbd.h
+Interface use-binding: kernel/include/loader.h
+Interface use-binding: kernel/include/memory_map.h
+Interface use-binding: kernel/include/mouse.h
+Interface use-binding: kernel/include/mouse_pack.h
+Interface use-binding: kernel/include/panic.h
+Interface use-binding: kernel/include/panic_screen.h
+Interface use-binding: kernel/include/pic.h
+Interface use-binding: kernel/include/pit.h
+Interface use-binding: kernel/include/power.h
+Interface use-binding: kernel/include/psp.h
+Interface use-binding: kernel/include/rtc.h
+Interface use-binding: kernel/include/sft.h
+Interface use-gate: sdk/include/tbx.h
+Interface use-pure: flair/include/asset_lz.h
+Interface use-pure: flair/include/blitter.h
+Interface use-pure: flair/include/chrome.h
+Interface use-pure: flair/include/flair_look.h
+Interface use-pure: flair/include/heap.h
+Interface use-pure: flair/include/scrap.h
+Interface use-pure: flair/include/surface.h
+Interface use-pure: flair/include/text.h
+Interface use-pure: flair/region/include/region.h
+Interface use-pure: flair/region/include/region_algebra.h
+Interface use-records: build/flair/generated/asset_lz_data.h
+Interface use-records: build/flair/generated/boot_logo.h
+Interface use-records: build/flair/generated/chicago12.h
+Interface use-records: build/flair/generated/chicago_packed_data.h
+Interface use-records: build/flair/generated/color_canon.h
+Interface use-records: build/flair/generated/flair_dac.h
+Interface use-records: build/flair/generated/geneva12.h
+Interface use-records: build/flair/generated/geneva12_packed_data.h
+Interface use-records: build/flair/generated/palette.h
+Interface use-records: flair/include/assets/boot_logo.h
+Interface use-records: flair/include/assets/finder_icons.h
+Interface use-records: flair/include/assets/finder_list_titles.h
+Interface use-records: flair/include/assets/finder_small_icons.h
+Interface use-records: flair/include/assets/menu_canon.h
+Interface use-binding: kernel/startup.c
+Interface use-binding: kernel/isr.asm
+Interface use-binding: flair/event.c
+<!-- end-interface-declarations -->

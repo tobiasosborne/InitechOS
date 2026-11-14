@@ -18,3 +18,12 @@ passing tier-0 pixel differential. Its full emulator journey is unimported;
 make smoke fails explicitly. Font metrics/styles property and real-resource
 host suites were already claimed by FLAIR and remain owned there. Remaining
 font specimen traces in the migration tree belong to factory.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: desktop
+Interface use-gate: sdk/include/tbx.h
+<!-- end-interface-declarations -->

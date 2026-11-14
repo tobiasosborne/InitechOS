@@ -16,13 +16,18 @@ FNR==1 {block=0}
     if(c=="\"" || c=="\047") quote=c
     out=out c
   }
-  if(out ~ /^[ \t]*#[ \t]*include[ \t]*["<]\.\.\//) {
+  # CLAUDE.md "Two interfaces": sole private resident entry header, until
+  # separately loaded COMMAND.COM (Release 2, initech-1frx2).
+  shell_entry=(component=="kernel" && (FILENAME=="./main.c" || FILENAME=="./startup.c" || FILENAME==here "/main.c" || FILENAME==here "/startup.c") &&
+      out ~ /^[ \t]*#[ \t]*include[ \t]*"\.\.\/dos\/command\/entry.h"[ \t]*$/)
+  if(out ~ /^[ \t]*#[ \t]*include[ \t]*["<]\.\.\// && !shell_entry) {
     print FILENAME ":" FNR ":" out; print "FAIL includes: product include escapes component"; bad=1
   }
   if(out ~ /^[ \t]*#[ \t]*include.*attic\//) {
     print FILENAME ":" FNR ":" out; print "FAIL attic: product include references attic"; bad=1
   }
   # Literal text and comments naming an old hook are not executable hooks.
+  if(emit)print out
   gsub(/"([^"\\]|\\.)*"|\047([^\047\\]|\\.)*\047/, "", out)
   if(out ~ pattern) {print FILENAME ":" FNR ":" out; print "FAIL mutation: product mutation hook"; bad=1}
 }

@@ -354,3 +354,51 @@ leave the alias/allocation for CHKDSK. The commit-outcome gate first showed this
 late cleanup red, then verifies Access denied with zero physical writes and
 independent destination bytes. This is the allocation-ownership invariant under
 the operator's commit rule, not a claim about repairing arbitrary cross-links.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: startup
+Interface export-binding: kernel/include/blockdev.h
+Interface export-binding: kernel/include/boot_info.h
+Interface export-binding: kernel/include/conedit.h
+Interface export-binding: kernel/include/console.h console_clear console_cursor_wait console_draw_glyph console_erase_display console_erase_line console_get_cursor console_init console_pack_rgb console_putc console_puts console_restore_page console_save_page console_scroll console_set_attr console_set_cursor console_update_page console_write
+Interface export-binding: kernel/include/devices.h devices_find devices_head devices_init devices_request
+Interface export-binding: kernel/include/diskutil.h
+Interface export-binding: kernel/include/dos_structs.h
+Interface export-records: kernel/include/drive_letters.h
+Interface export-binding: kernel/include/environment.h desktop_console_restore kernel_graphical_environment
+Interface export-binding: kernel/include/fat12.h fat12_create fat12_create_timed fat12_dir_identity fat12_fat_window_init fat12_find fat12_find_slot fat12_find_slot_in fat12_flush_fats fat12_format_83 fat12_get_attr fat12_hide_dir fat12_mkdir fat12_mkdir_timed fat12_mount fat12_mount_primary fat12_move_dirent fat12_next_cluster fat12_read_dir fat12_read_dir_entry fat12_read_dir_entry_in fat12_read_fat fat12_read_fat_sector fat12_read_file fat12_read_partial fat12_read_root_dir fat12_read_sectors fat12_rename fat12_replace fat12_resolve_path fat12_resolve_path_from fat12_rmdir fat12_set_attr fat12_set_dirent_time fat12_set_entry fat12_set_size fat12_trash_suffix_name fat12_unlink fat12_validate_file_chain fat12_walk_chain fat12_write_file fat12_write_partial fat12_write_sectors fat16_next_cluster
+Interface export-binding: kernel/include/fileio_fat.h fileio_fat_absdisk_written fileio_fat_add_drive fileio_fat_bind fileio_fat_current_volume fileio_fat_drop_drive fileio_fat_fat_buffer fileio_fat_raw_written fileio_fat_volume_label
+Interface export-binding: kernel/include/find_data.h
+Interface export-binding: kernel/include/idt.h idt_get_gate idt_init idt_install_irq idt_install_trap idt_set_gate isr_dispatch_c panic_set_fault_hook
+Interface export-records: kernel/include/initechmz_extended.h
+Interface export-binding: kernel/include/int21.h crit_error_action dos_in_dos int20_dispatch int21_batch_checkpoint int21_conin_discard_through int21_conin_handoff int21_current_drive int21_cwd_reset int21_cwd_restore int21_cwd_save int21_directory_exists int21_directory_path int21_dispatch int21_file_replace int21_file_stamp int21_get_break_flag int21_get_exit int21_get_psp int21_high_init int21_high_swap int21_indos_ptr int21_io_drive int21_mcb_bind_above_residents int21_mcb_bind_program int21_mcb_exec_alloc int21_mcb_exec_free int21_mcb_exec_trim int21_mcb_reset int21_mcb_stats int21_mcb_usage int21_note_error int21_overlay_dest_ok int21_path_is_device int21_run_critical_error int21_same_file int21_select_path int21_set_absdisk_drive int21_set_ansi_console int21_set_ansi_gate int21_set_blockdev int21_set_break_flag int21_set_break_recovery int21_set_break_trace int21_set_clock int21_set_conin int21_set_devices int21_set_dpb_source int21_set_drive_selector int21_set_exec_backend int21_set_exit int21_set_file_backend int21_set_file_replace_backend int21_set_lastdrive int21_set_mcb_arena int21_set_media int21_set_overlay_backend int21_set_psp int21_set_sink int21_set_vectortable int21_swap_dta int21_tsr_count int21_tsr_top int21_vector_gate int21_write_fault int22_dispatch int23_dispatch int24_dispatch int25_dispatch int25_entry int26_dispatch int26_entry int27_dispatch
+Interface export-binding: kernel/include/io.h
+Interface export-binding: kernel/include/kbd.h kbd_bios_flags kbd_console_replay kbd_getchar kbd_haschar kbd_init kbd_input_claim kbd_input_init kbd_input_put kbd_irq_handler kbd_ring_empty kbd_ring_get kbd_ring_init kbd_ring_put kbd_scancode_put kbd_set_input_owner kbd_set_scancode_hook kbd_state_init kbd_translate
+Interface export-binding: kernel/include/loader.h load_program load_program_from_fat load_program_in_place loader_bind_fat_volume loader_decide_env loader_image_is_transient loader_load_overlay loader_load_tenant loader_nest_enter loader_nest_leave loader_overlay_core loader_prepare loader_prepare_in_place loader_prepare_mz loader_prepare_mz_at loader_prepare_tenant
+Interface export-records: kernel/include/memory_map.h
+Interface export-binding: kernel/include/memory_map.h
+Interface export-binding: kernel/include/mouse.h mouse_init mouse_irq_handler mouse_set_event_hook
+Interface export-binding: kernel/include/mouse_pack.h
+Interface export-binding: kernel/include/panic.h panic_show_reason
+Interface export-binding: kernel/include/panic_screen.h
+Interface export-binding: kernel/include/pic.h pic_remap_and_mask pic_unmask_irq0_irq1 pic_unmask_irq12
+Interface export-binding: kernel/include/pit.h pit_divisor_for_hz pit_init pit_irq_handler pit_set_tick_hook pit_ticks
+Interface export-binding: kernel/include/power.h kernel_reset kernel_halt
+Interface export-binding: kernel/include/psp.h psp_build psp_load_vectors psp_save_vectors
+Interface export-binding: kernel/include/rtc.h rtc_day_of_week rtc_decode rtc_encode rtc_now rtc_set
+Interface export-binding: kernel/include/sft.h jft_alloc sft_alloc sft_close_process sft_dup sft_dup2 sft_from_handle sft_inherit sft_init sft_set_files_limit
+Interface export-pure: kernel/include/mcb.h mcb_chain_intact
+Interface export-source: kernel/mcb.c
+Interface temporary: resident-command initech-1frx2
+The private dos/command/entry.h include and resident shell calls expire when
+COMMAND.COM becomes a separately loaded program (Release 2).
+Interface export-records: build/kernel/dos_messages.h
+Interface export-binding: kernel/startup.c serial_putc serial_puts serial_putu serial_puthex32 serial_puti
+Interface export-binding: kernel/isr.asm irq12_entry
+The earlier private-header import-blocker notes predate c7398425. The current
+test/import gate checks this exact resident entry exception mechanically.
+<!-- end-interface-declarations -->

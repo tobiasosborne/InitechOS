@@ -51,3 +51,31 @@ Remaining legacy composed-chrome emulator gates belong to the factory owner.
 Initial windows meet the single menu bar (operator ruling, CLAUDE.md
 "Hazards that are still true"). Host routing checks their structure top
 against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: desktop
+Interface migration: notes-diagnostics21 initech-q9p80
+The shared Note Pad/Scrapbook diagnostic AUX site alone awaits a Toolbox route.
+Interface use-gate: sdk/include/tbx.h
+Interface use-pure: flair/include/scrap.h
+Interface use-pure: flair/include/surface.h
+Interface use-pure: flair/include/text.h
+Interface use-pure: flair/include/textedit.h
+Interface use-pure: flair/region/include/region_algebra.h
+Interface use-records: build/flair/generated/asset_lz_data.h
+Interface use-records: build/flair/generated/boot_logo.h
+Interface use-records: build/flair/generated/chicago12.h
+Interface use-records: build/flair/generated/chicago_packed_data.h
+Interface use-records: build/flair/generated/color_canon.h
+Interface use-records: build/flair/generated/flair_dac.h
+Interface use-records: build/flair/generated/geneva12.h
+Interface use-records: build/flair/generated/geneva12_packed_data.h
+Interface use-records: build/flair/generated/palette.h
+Interface use-records: flair/include/assets/font_linkage.h
+Interface use-pure: flair/include/assets/geneva9.h
+Interface use-records: flair/include/ostype.h
+<!-- end-interface-declarations -->

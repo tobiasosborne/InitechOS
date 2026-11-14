@@ -193,3 +193,17 @@ See tests/native and mutants/target for the exact target contracts.
 
 Unclaimed legacy emulator journeys remain with the InitechBase owner in
 tests/SMOKES.md. The imported helpers build only here; nothing builds from attic.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: dos
+Interface migration: base-console39 initech-qu7rx
+Pure libraries: none. The PAL console-page INT 39h site alone is pending the
+published INT 21h replacement, preserving the 4002-byte payload.
+Interface use-records: kernel/include/initechmz_extended.h
+Interface use-records: kernel/include/memory_map.h
+Interface compiler-runtime: __divdi3
+<!-- end-interface-declarations -->

@@ -98,3 +98,13 @@ complete tier-0 selection; measured execution fits the default, excluding builds
 Standalone tests verify their consumed files in goldens/CORPORA.lock; the
 top-level test run verifies the full lock once before parallel execution.
 The target library contains target/region.o; target is an alias for all.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: pure
+Interface export-pure: flair/region/include/region.h region_engine_bind_ws
+Interface export-pure: flair/region/include/region_algebra.h CombineRgn DiffRgn EmptyRgn EqualRgn GetRgnBox PtInRegion PtInRgn RectInRegion RectInRgn SectRgn SetEmptyRgn SetRectRgn UnionRgn XorRgn region_assert_normal region_complement region_contains_point region_engine_reset region_equal region_from_rects region_get_bbox region_intersects region_is_empty region_normalize region_op region_rect_fully_in region_rect_overlaps region_set_empty region_set_rect
+<!-- end-interface-declarations -->

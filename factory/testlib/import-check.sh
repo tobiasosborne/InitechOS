@@ -16,7 +16,10 @@ function visit(key, n,a,i) {if(seen[key]++)return;n=split(deps[key],a," ");for(i
 END {visit("all");n=split(candidates,a,"\n");for(i=1;i<=n;i++){p=a[i];sub(/^\.\//,"",p);if(seen[p] || seen[here "/" p] || p ~ /^include\//)print a[i]}; print extra}
 ' "$database")
 if [ -n "$files" ]; then
-    if ! awk -v pattern="$pattern" -f "$(dirname "$0")/source-audit.awk" $files; then bad=1; fi
+    if ! awk -v pattern="$pattern" -v component="${IMPORT_COMPONENT:-}" -v here="$PWD" -f "$(dirname "$0")/source-audit.awk" $files; then bad=1; fi
+fi
+if [ -n "${IMPORT_COMPONENT:-}" ]; then
+    sh "$(dirname "$0")/interface-check.sh" "$IMPORT_ROOT" "$IMPORT_COMPONENT" "$database" "$IMPORT_OUT" "$artifacts" || bad=1
 fi
 # Walk the actual make graph, rather than trusting a declared artifact list.
 if [ -z "$artifacts" ] || ! awk -v wanted="$artifacts" '

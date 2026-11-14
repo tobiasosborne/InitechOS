@@ -1,0 +1,6 @@
+--- a/factory/testlib/interface-vectors.awk
++++ b/factory/testlib/interface-vectors.awk
+@@ -20 +20,2 @@
+- v=text
++ v=text
++ if(v=="39")next

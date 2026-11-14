@@ -260,3 +260,13 @@ the mandatory target ABI compiles and all six existing check groups remain.
 Import audit is enabled. The three save faults are patches in mutants/;
 make mutants kills each through the real save helper and shared fake, including
 short writes, preserving an existing target and preserving a colliding temporary.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: gate
+Interface callback: tbx_app_event tbx_app_main tbx_app_name
+Interface link-layout: sdk/rt/tenant.ld
+<!-- end-interface-declarations -->

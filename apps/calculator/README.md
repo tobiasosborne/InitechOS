@@ -44,3 +44,12 @@ Initial windows meet the single menu bar (operator ruling, CLAUDE.md
 against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.
 
 Host geometry tests also depend on flair/include/chrome_metrics.h.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: desktop
+Interface use-gate: sdk/include/tbx.h
+<!-- end-interface-declarations -->

@@ -89,3 +89,11 @@ container comparisons against each other and QEMU. See the parent README
 for the measured whole-run bound, strict monotonic deadline check and
 in-guest corrupted-K2 control. Runtime-encoder authorship is the separate
 initech-cd2yi task; the checked-in runtime tables are unchanged here.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: dos
+<!-- end-interface-declarations -->

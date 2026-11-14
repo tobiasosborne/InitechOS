@@ -152,3 +152,36 @@ counters and whole-image identity; existing fsck/mtools FAT12 controls remain.
 including mtools readback of Bochs's actual private writable boot image.
 For the identity-oracle negative control, set DOS_POLICY_WRITE_CONTROL=1;
 a legitimate FAT12 write to C: must produce the explicit whole-image failure.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: dos
+Interface migration: chkdsk-arena initech-q9p80
+Interface migration: fdisk-reset initech-q9p80
+CHKDSK's live arena walk and FDISK's port reset expire with their DOS services.
+The resident command processor's existing kernel calls are the separate
+CLAUDE.md exception, ending at separately loaded COMMAND.COM (Release 2).
+Interface temporary: resident-command initech-1frx2
+Interface use-source: kernel/mcb.c
+Interface use-binding: kernel/include/blockdev.h
+Interface use-binding: kernel/include/conedit.h
+Interface use-binding: kernel/include/devices.h
+Interface use-binding: kernel/include/diskutil.h
+Interface use-binding: kernel/include/dos_structs.h
+Interface use-binding: kernel/include/environment.h
+Interface use-binding: kernel/include/fat12.h
+Interface use-binding: kernel/include/fileio_fat.h
+Interface use-binding: kernel/include/find_data.h
+Interface use-binding: kernel/include/idt.h
+Interface use-binding: kernel/include/int21.h
+Interface use-binding: kernel/include/io.h
+Interface use-binding: kernel/include/memory_map.h
+Interface use-binding: kernel/include/power.h
+Interface use-pure: kernel/include/mcb.h
+Interface use-records: kernel/include/drive_letters.h
+Interface use-records: build/kernel/dos_messages.h
+Interface shell-services: fileio_fat_volume_label int21_batch_checkpoint int21_current_drive int21_directory_exists int21_directory_path int21_get_psp int21_io_drive int21_same_file int21_select_path int21_set_break_recovery int21_write_fault kernel_graphical_environment
+<!-- end-interface-declarations -->

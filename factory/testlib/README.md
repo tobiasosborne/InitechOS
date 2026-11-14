@@ -132,12 +132,39 @@ The import audit strips C, NASM and Pascal comments/literals before looking for
 live mutation identifiers. It scans sources reachable from all and exported
 include/ headers; IMPORT_PRODUCT_SRCS adds recursive product sources whose
 child make graphs are not visible in the parent. Parked source files are not
-product artifacts. Escaping includes still fail, including the documented
-resident-shell include in kernel: documentation does not waive CLAUDE.md.
+product artifacts. Escaping includes fail except for the exact resident command
+entry includes in kernel/main.c and kernel/startup.c, authorized by CLAUDE.md
+"Two interfaces" until separately loaded COMMAND.COM (initech-1frx2, Release 2).
 `make -C factory test` runs tiny clean/red fixtures for comments, test-only and
 parked files, live C/Pascal hooks, escaping/attic includes, unreachable artifacts
 and missing build dependencies. mk/dependencies.mk owns the graph used by both
 top-level ordering and the generated-path dependency audit.
+
+The delimited `interface-declarations` section in each component README is the
+interface inventory. `Interface role:` is checked against actual ownership.
+`use-pure`, `use-binding`, `use-records` and `use-source` name a provider's exact
+published contract; the provider must declare the matching `export-*` line.
+Pure/binding exports list exact external symbols. Records grant headers only;
+source exports permit a pure source to be compiled locally without treating all
+its definitions as the consumer's own. `use-gate: sdk/include/tbx.h` names the
+published Toolbox transport. Resident bindings cannot be granted to disk apps
+by their own declarations. Existing resident serial/IRQ symbols are published
+against their implementing source, without authorizing private header includes.
+
+The audit selects the complete parent GNU make database and follows declared
+target artifacts, then checks real target dependency files, external symbols,
+source references to resident services and interrupt instructions. Flat NASM
+inputs are preprocessed before vector checks. Shared disk helper code must
+belong exclusively to authorized consuming executables. Turbo's packaged ELF
+is the vector evidence for its recipe-built product; Multiboot judging outputs
+are separate from the shipped DOS runtime. Component-local transcripts are
+retained under build/<component>/interface-audit/.
+
+The two law-authorized temporary exceptions have separate issue/removal records.
+The four migration crossings have exact named, issue-linked declarations;
+unknown or stale migration records fail, and no adjacent vector site is waived.
+`factory/tests/interfaces.sh` compiles independent positive and negative callers,
+including forbidden direct-call/vector patches in factory/mutants/interfaces/.
 
 Shared host mutation kills require fresh per-test receipts, successful completion
 of the whole selected runner, exit 1 from the test, a completed

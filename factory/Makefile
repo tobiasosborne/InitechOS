@@ -102,6 +102,11 @@ gate-test: qemu-trace-check
 qemu-trace-check: $(OUT)/qemu-trace-test
 	$(OUT)/qemu-trace-test
 
+.PHONY: interface-test
+interface-test:
+	sh tests/interfaces.sh
+test: interface-test
+
 .PHONY: utility-vectors-test
 utility-vectors-test:
 	sh tests/utility-vectors.sh "$(TARGET_CC)" $(TARGET_CFLAGS)

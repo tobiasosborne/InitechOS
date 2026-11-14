@@ -69,3 +69,11 @@ proof: a deterministic 128 KiB blob makes INITDOS.SYS exceed the old
 00FF0000 after clearing BSS. The target restores the production image.
 Its initial clean removes previous build artifacts, so retain any earlier
 evidence outside build first. The opt-in blob is absent from the product.
+
+<!-- interface-declarations -->
+These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
+on caller-owned data; resident bindings are unavailable to disk applications.
+Records grant type/layout access only. The audit checks the target make graph,
+compiled includes, external symbols and interrupt vectors against these lines.
+Interface role: startup
+<!-- end-interface-declarations -->
