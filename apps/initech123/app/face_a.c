@@ -674,7 +674,9 @@ static void retrieve(void)
     i123_sheet_t next;
     rc = i123_sheet_init(&next, g_mem[1-g_bank], sizeof g_mem[0], SHEET_CELLS);
     if (rc == I123_OK) rc = i123_wk1_read(&next, g_wk, (uint32_t)n);
-    if (rc != I123_OK) { notice(rc == I123_E_FULL ? "Not enough worksheet memory" : "Not a valid WK1 file"); return; }
+    /* Real R2.2 L05 capture: missing EOF is distinct from invalid framing. */
+    if (rc != I123_OK) { notice(rc == I123_E_FULL ? "Not enough worksheet memory" :
+                               rc == I123_E_MISSING ? "Part of file is missing" : "Not a valid WK1 file"); return; }
     /* Manual p. 5-19: retrieved data/window settings replace the worksheet.
      * Authored transaction: failures above leave the old bank intact. */
     g_sheet = next; g_bank = 1-g_bank;

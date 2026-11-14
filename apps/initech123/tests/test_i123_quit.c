@@ -310,7 +310,7 @@ static void t_bad_retrieve(void)
     type_row();
     CHECK(tbx_host_put_file("BAD.WK1", bad, sizeof bad), "Q11", "install truncated WK1");
     tks("/frbad\r");
-    CHECK(line_has(1, "Not a valid WK1 file"), "Q11", "malformed Retrieve visibly refuses");
+    CHECK(line_has(1, "Part of file is missing"), "Q11", "malformed Retrieve visibly refuses");
     cell(0, 0, text, sizeof text);
     CHECK(!strcmp(text, "'Hello"), "Q11", "failed Retrieve keeps A1 label");
     cell(3, 0, text, sizeof text);

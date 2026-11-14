@@ -1,0 +1,6 @@
+T01.TXT: OK
+T02.TXT: OK
+T03.TXT: OK
+T04.TXT: FAILED
+T05.TXT: OK
+sha256sum: WARNING: 1 computed checksum did NOT match

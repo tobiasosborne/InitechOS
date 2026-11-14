@@ -1,0 +1,25 @@
+A1:                                                                        ERROR
+Name of file to retrieve: C:\LOTUS\CASE.WK1                                     
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Part of file is missing                                                         

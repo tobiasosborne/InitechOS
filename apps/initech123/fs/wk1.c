@@ -185,7 +185,7 @@ static int read_body(i123_sheet_t *sh, const uint8_t *buf, uint32_t len)
         int rc = I123_OK;
 
         sh->err_off = off;
-        if (off + WK1_REC_HDR > len) return I123_E_FORMAT;   /* no EOF */
+        if (off + WK1_REC_HDR > len) return I123_E_MISSING;  /* no EOF */
         op = rd16(buf + off);
         ln = rd16(buf + off + 2);
         if (off + WK1_REC_HDR + ln > len) return I123_E_FORMAT;

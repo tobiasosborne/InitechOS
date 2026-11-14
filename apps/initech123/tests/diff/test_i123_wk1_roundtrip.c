@@ -717,7 +717,7 @@ static void part_e(void)
     golden_path(path, sizeof path, "MINT01", 1);
     len = load(path, in, sizeof in);
 
-    expect_refused(in, len - 4u, I123_E_FORMAT, "no EOF");
+    expect_refused(in, len - 4u, I123_E_MISSING, "no EOF (real R2.2 L05 missing-part diagnostic)");
     memcpy(bad, in, len); bad[len] = 0;
     expect_refused(bad, len + 1u, I123_E_FORMAT, "a byte after EOF");
     memcpy(bad, in, len); bad[4] = 0x04;

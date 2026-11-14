@@ -29,6 +29,13 @@ case $name in
   test_i123_copy_move) "$bin" ;;
   test_i123_copy_corpus) "$bin" --corpus "$LOTUS123_DECOMP" "$out" "$ref" ;;
   test_i123_copy_tile) "$bin" --tile tests/fixtures/i123-copy "$out" "$ref" ;;
+  test_i123_conformance)
+    (cd tests/conformance/fixtures && sha256sum -c ../SHA256SUMS) > "$out/fixture-hashes.log"
+    (cd tests/conformance && sha256sum -c CAPTURES.sha256) > "$out/capture-hashes.log"
+    cp tests/conformance/fixtures/L05.WK1 tests/conformance/fixtures/L10.WK1 tests/conformance/fixtures/L12.WK1 "$out/"
+    "$bin" "$out"
+    python3 tests/oracles/edit_labels.py tests/conformance/captures/L10-f2/AFTER.WK1 "$out/L10F2.WK1"
+    ;;
   test_i123_protection)
     captures=${I123_PROTECTION_ROOT:-../../goldens/dataloss/lotus}
     manifest=$(pwd)/tests/oracles/name-protection.sha256

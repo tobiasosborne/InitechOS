@@ -1,0 +1,12 @@
+L01.WK1	bytes=1609 loaded=1 cells=8 message= serialize=0 saved=1609 identical=1 edit=0 edited-save=0
+L02.WK1	bytes=0 loaded=0 cells=0 message=Not a valid WK1 file
+L03.WK1	bytes=5 loaded=0 cells=0 message=Not a valid WK1 file
+L04.WK1	bytes=1603 loaded=0 cells=0 message=Not a valid WK1 file
+L05.WK1	bytes=1605 loaded=0 cells=0 message=Not a valid WK1 file
+L06.WK1	bytes=1610 loaded=0 cells=0 message=Not a valid WK1 file
+L07.WK1	bytes=21 loaded=1 cells=1 message= serialize=0 saved=21 identical=1 edit=0 edited-save=0
+L08.WK1	bytes=22538 loaded=1 cells=2048 message= serialize=0 saved=22538 identical=1 edit=0 edited-save=0
+L09.WK1	bytes=22549 loaded=0 cells=0 message=Not enough worksheet memory
+L10.WK1	bytes=261 loaded=1 cells=1 message= serialize=0 saved=261 identical=1 F2-Enter-label-bytes=240 edit=0 edited-save=0
+L11.WK1	bytes=3722 loaded=1 cells=0 message= serialize=0 saved=3722 identical=1 edit=0 edited-save=0
+L12.WK1	bytes=161 loaded=1 cells=1 message= serialize=0 saved=161 identical=1 edit=0 edited-save=0

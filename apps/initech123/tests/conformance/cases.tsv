@@ -1,0 +1,14 @@
+id	file	scenario	observed	independent_expectation_or_pending
+L01	fixtures/L01.WK1	MINT01 unchanged	retrieve 8 cells; unchanged save 1609 bytes, identical	existing real R2.2 MINT01 capture; edit/save replay pending
+L02	fixtures/L02.WK1	zero-byte worksheet	refuse	needs capture
+L03	fixtures/L03.WK1	5-byte BOF fragment	refuse	needs capture
+L04	fixtures/L04.WK1	MINT01 cut inside final cell record	refuse	needs capture
+L05	fixtures/L05.WK1	MINT01 missing EOF	refuse: Not a valid WK1 file	real R2.2: Part of file is missing; captured
+L06	fixtures/L06.WK1	MINT01 plus DOS EOF byte 1A	refuse	needs capture
+L07	fixtures/L07.WK1	IV2048=42, sparse extent	open one cell; byte-identical save	needs capture; requested coordinate boundary
+L08	fixtures/L08.WK1	2048 populated INTEGER cells A1:IV8	open 2048; byte-identical save	real R2.2 opens, A1=42; captured
+L09	fixtures/L09.WK1	2049 populated INTEGER cells	refuse: Not enough worksheet memory	needs capture; authored populated-cell capacity, not format limit
+L10	fixtures/L10.WK1	240-character label A1	open/save identical; F2+Return truncates 240 text chars to 239	real R2.2 opens label; captured; full-length edit/save pending
+L11	fixtures/L11.WK1	128 NNAME records	open; 3722-byte identical save	needs capture; range table and rebinding pending
+L12	fixtures/L12.WK1	formula with 128 PAREN tokens	open; 161-byte identical save	real R2.2 refuses: Formula too long; captured
+L13	PENDING	real R3 WK3 renamed WK1	PENDING input and observation	needs R3 runtime/native sample; recipe below

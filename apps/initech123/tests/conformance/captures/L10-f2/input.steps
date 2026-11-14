@@ -1,0 +1,14 @@
+sleep 4
+key esc
+type /frCASE.WK1
+key ret
+sleep 1
+key f2
+shot edit
+key ret
+shot committed
+type /fsAFTER
+key ret
+sleep 0.5
+shot saved
+end

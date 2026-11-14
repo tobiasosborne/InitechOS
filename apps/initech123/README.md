@@ -54,7 +54,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 43 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 44 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
 Bochs, including an independent check of the worksheet saved from the Finder.
@@ -221,3 +221,11 @@ menu bar (CLAUDE.md, Hazards that are still true). The frame test reads
 test-only dependency on FLAIR's public metrics. Product calls still cross
 only the Toolbox gate. The taller window can show 26 whole lines. The
 app-owned smoke uses keys after launch, so no factory click needs moving.
+
+Retrieve distinguishes a missing worksheet EOF from invalid framing using
+real R2.2's `Part of file is missing` (study fixture L05). The original
+reader study's component fixtures/captures are imported under
+`tests/conformance`; their historical observations are not passing checks.
+The registered conformance suite preserves the current sheet on refusal and
+independently compares a 240-character label's no-op F2 save with real R2.2.
+That shortening is reference behavior (initech-pmw9), retained deliberately.
