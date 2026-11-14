@@ -84,6 +84,7 @@
  */
 
 #include "ibase/lifetime.h"
+#include "ibase/file_write.h"
 #include <stdint.h>
 
 #include "ibase/pal.h"
@@ -106,6 +107,7 @@
  * ----------------------------------------------------------------------- */
 struct dbt_file {
     ibase_pal_t *pal;          /* the PAL vtable (borrowed; not owned) */
+    char         name[260];    /* reopen the published companion after staging */
     pal_fd       fd;           /* open file handle (owned; closed on dbt_close) */
     uint32_t     next_free;    /* block-0 next-available-block (LE uint32) */
     int          writable;     /* 0 = read-only (dbt_open); 1 = writable (dbt_create)
@@ -138,6 +140,8 @@ static int dbt_open_impl(ibase_pal_t *pal, const char *name, int is_iv_dialect,
     uint32_t  next_free;
 
     *out = (dbt_file *)0;
+
+    if(rt_strlen(name)>=260u)return -DBT_ERR_IO;
 
     /* Reject IV dialect immediately (plan Sec 2.C, fail loud). */
     if (is_iv_dialect) {
@@ -186,6 +190,7 @@ static int dbt_open_impl(ibase_pal_t *pal, const char *name, int is_iv_dialect,
     }
 
     f->pal        = pal;
+    rt_memcpy(f->name,name,rt_strlen(name)+1u);
     f->fd         = fd;
     f->next_free  = next_free;
     f->writable   = writable;
@@ -249,6 +254,7 @@ int dbt_create(ibase_pal_t *pal, const char *name, dbt_file **out)
     int       rc;
 
     *out = (dbt_file *)0;
+    if(rt_strlen(name)>=260u)return -DBT_ERR_IO;
 
     /* Create / truncate the file read+write.
      * PAL_CREATE | PAL_RDWR: create-or-truncate, open read+write.
@@ -287,6 +293,7 @@ int dbt_create(ibase_pal_t *pal, const char *name, dbt_file **out)
     }
 
     f->pal        = pal;
+    rt_memcpy(f->name,name,rt_strlen(name)+1u);
     f->fd         = fd;
     f->next_free  = 1u;  /* one block (block 0) written; next memo starts at 1 */
     f->writable   = 1;   /* dbt_create: read+write; dbt_append is permitted */
@@ -345,7 +352,7 @@ uint32_t dbt_next_free(const dbt_file *f)
  * Ref: dbt.md sec 5 (0x1A 0x1A terminator), sec 6 (tail = don't-care /
  *      NORMALIZE; 0x00 for reproducibility), sec 8 (writer recipe steps 2-4).
  * ----------------------------------------------------------------------- */
-int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
+static int dbt_append_raw(dbt_file *f, const uint8_t *text, uint32_t len,
                uint32_t *blockno_out)
 {
     ibase_pal_t *pal;
@@ -462,10 +469,51 @@ int dbt_append(dbt_file *f, const uint8_t *text, uint32_t len,
  *
  * Ref: dbt.h dbt_flush doc-comment.
  * ----------------------------------------------------------------------- */
+/* A companion can be replaced by another DBF/memo handle. A fresh open is
+ * needed after rename on both DOS and host PALs; seeking an old handle does
+ * not attach it to the newly published file. */
+static int dbt_refresh(dbt_file *f)
+{
+    ibase_pal_t *p=f->pal;uint8_t hdr[4];pal_fd fresh;
+    fresh=p->open(p,f->name,f->writable?PAL_RDWR:PAL_RD);
+    if(fresh<0)return -DBT_ERR_IO;
+    if(f->fd>=0){int rc=p->close(p,f->fd);f->fd=fresh;if(rc)return -DBT_ERR_IO;}
+    else f->fd=fresh;
+    if(!read_exact(p,f->fd,hdr,4u))return -DBT_ERR_IO;
+    f->next_free=(uint32_t)hdr[0]|((uint32_t)hdr[1]<<8)|((uint32_t)hdr[2]<<16)|((uint32_t)hdr[3]<<24);
+    return DBT_OK;
+}
+int dbt_append(dbt_file *f,const uint8_t *text,uint32_t len,uint32_t *blockno_out)
+{
+    ibase_file_write tx;dbt_file work;uint32_t block;int rc;
+    *blockno_out=0;
+    if(!f || !f->writable)return -DBT_ERR_RDONLY;
+    rc=dbt_refresh(f);if(rc)return rc;
+    if(ibase_file_clone(&tx,f->pal,f->name,f->fd))return -DBT_ERR_IO;
+    work=*f;work.fd=tx.fd;
+    rc=dbt_append_raw(&work,text,len,&block);
+    if(rc){ibase_file_abort(&tx);return rc;}
+    if(ibase_file_install(&tx,&f->fd)){
+        if(f->fd<0)f->fd=f->pal->open(f->pal,f->name,PAL_RDWR);
+        return -DBT_ERR_IO;
+    }
+    f->next_free=work.next_free;*blockno_out=block;
+    ibase_file_accept(&tx);
+    return DBT_OK;
+}
 int dbt_flush(dbt_file *f)
 {
-    if (!f || !f->writable) return DBT_OK;
-    return write_next_free(f->pal, f->fd, f->next_free);
+    ibase_file_write tx;int rc;
+    if(!f || !f->writable)return DBT_OK;
+    rc=dbt_refresh(f);if(rc)return rc;
+    if(ibase_file_clone(&tx,f->pal,f->name,f->fd))return -DBT_ERR_IO;
+    rc=write_next_free(f->pal,tx.fd,f->next_free);
+    if(rc){ibase_file_abort(&tx);return rc;}
+    if(ibase_file_commit(&tx,&f->fd)){
+        if(f->fd<0)f->fd=f->pal->open(f->pal,f->name,PAL_RDWR);
+        return -DBT_ERR_IO;
+    }
+    return DBT_OK;
 }
 
 /* -----------------------------------------------------------------------
@@ -509,16 +557,7 @@ int dbt_read(dbt_file *f, uint32_t blockno,
 
     /* A DBF replacement can append through another handle. Refresh the
      * append-only high-water mark (dbt.md ss2.1/3) before validating it. */
-    {
-        uint8_t hdr[4];
-        /* Seek past the old read buffer before rewinding. The host PAL may
-         * cache block 0 while another handle appends (ADR-0008 DEC-02). */
-        if (f->pal->seek(f->pal, f->fd, 0, PAL_SEEK_END) < 0 ||
-            f->pal->seek(f->pal, f->fd, 0, PAL_SEEK_SET) < 0 ||
-            !read_exact(f->pal, f->fd, hdr, 4u)) return -DBT_ERR_IO;
-        f->next_free = (uint32_t)hdr[0] | ((uint32_t)hdr[1] << 8) |
-                      ((uint32_t)hdr[2] << 16) | ((uint32_t)hdr[3] << 24);
-    }
+    if(dbt_refresh(f))return -DBT_ERR_IO;
     /* --- Validate blockno (fail loud; CLAUDE.md, The constitution) ---
      * blockno 0 is the header block (never a memo).
      * blockno >= next_free is out of range (no live data there).

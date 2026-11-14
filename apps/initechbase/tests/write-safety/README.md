@@ -88,3 +88,13 @@ cannot flush rejected record bytes. Predecessors are retained until that
 record's DBF and indexes have completed. Earlier successful records remain
 committed. A failed reload blocks further flushes until the original records
 can be read again. The repeated rename limitation above still applies.
+
+DBT append and flush clone the complete companion, including its old header,
+and publish only after the new payload, terminator, padding and high-water
+mark have completed. `dbtfail` independently authors the review's 255-block
+boundary and compares every predecessor byte after failures. It includes
+persistent shorts and device errors, metadata/read/allocation failures,
+255-to-256 publication and a reader opened before the append. Memo reads
+reopen the published pathname so they cannot keep reading an old file after
+replacement. `dbt_create` is a codec-only fixture API with no product caller;
+its existing-file truncation is not a qualified save operation.

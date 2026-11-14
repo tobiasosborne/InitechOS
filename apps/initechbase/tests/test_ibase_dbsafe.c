@@ -130,7 +130,7 @@ static ibase_pal_t *setup(void){
 }
 static void put16(unsigned char *b,unsigned n){b[0]=n;b[1]=n>>8;}
 static void put32(unsigned char *b,unsigned n){put16(b,n);put16(b+2,n>>16);}
-static unsigned char original[66000]; static size_t olen; static int hlen;
+static unsigned char original[132000]; static size_t olen; static int hlen;
 static void fixture(const char *name,int extra,unsigned count){
     FILE *f;unsigned i,j;hlen=64+extra;olen=(size_t)hlen+count*255+1;
     memset(original,0,olen);original[0]=3;original[1]=85;original[2]=10;original[3]=30;
@@ -139,7 +139,7 @@ static void fixture(const char *name,int extra,unsigned count){
     for(i=0;i<count;i++){original[hlen+i*255]=' ';for(j=1;j<255;j++)original[hlen+i*255+j]=(unsigned char)('A'+i%26);}
     original[olen-1]=26;f=fopen(name,"wb");CHECK(f!=NULL,"fixture open");if(f){CHECK(fwrite(original,1,olen,f)==olen,"fixture written");fclose(f);}
 }
-static unsigned char extracted[67000];
+static unsigned char extracted[133000];
 static size_t readbytes(const char *name){FILE *f=fopen(name,"rb");size_t n=0;CHECK(f!=NULL,"result readable");if(f){n=fread(extracted,1,sizeof extracted,f);fclose(f);}return n;}
 static void independent(unsigned expected){
     char cmd[2048],buf[1024],needle[80];FILE *f;size_t n;
@@ -413,6 +413,40 @@ static void indexed_replace_failure_tests(void){
         CHECK(b<159,"all indexed REPLACE boundaries enumerated");
     }
 }
+/* Independent DBT geometry: 255 blocks, next_free=255, terminated old memo
+ * in block 1. A one-byte 255->256 header write used to destroy accessibility.
+ * The failed-save ruling requires preservation even under persistent writes. */
+static void memo_failure_tests(void){
+    int operation,kind,k,b,persistent;
+    for(operation=0;operation<2;operation++)for(kind=0;kind<=6;kind++)
+    for(persistent=0;persistent<(kind?1:2);persistent++)for(k=0;k<(kind?1:5);k++)for(b=1;b<300;b++){
+        ibase_pal_t *p=setup();dbt_file *memo=NULL,*reader=NULL;uint32_t block=0,len=0;uint8_t *text=NULL;size_t n;int rc;FILE *out;
+        olen=255u*512u;memset(original,0,olen);put32(original,255);memcpy(original+512,"old memo\032\032",10);
+        out=fopen("HIGH.DBT","wb");CHECK(out!=NULL,"independent DBT opens for fixture");
+        if(out){CHECK(fwrite(original,1,olen,out)==olen,"independent DBT geometry written");fclose(out);}
+        CHECK(dbt_open_rw(p,"HIGH.DBT",&memo)==0,"255-block predecessor opens writable");
+        CHECK(dbt_open(p,"HIGH.DBT",0,&reader)==0,"concurrent memo reader opens");
+        CHECK(dbt_read(reader,1,&text,&len)==0 && len==8 && !memcmp(text,"old memo",8),"old memo readable before failure");
+        c.armed=1;c.failure_op=kind;c.boundary=b;c.short_kind=k;c.persistent=persistent;c.error=PAL_EIO;
+        rc=operation?dbt_flush(memo):dbt_append(memo,(const uint8_t *)"new",3,&block);
+        c.armed=0;
+        if(rc){
+            n=readbytes("HIGH.DBT");CHECK(n==olen && !memcmp(original,extracted,n),"failed DBT append/flush preserves every preceding byte");
+            CHECK(dbt_next_free(memo)==255,"failed DBT append preserves handle high-water mark");
+            CHECK(dbt_flush(memo)==0,"recovered DBT handle can flush");
+        }else if(!operation){
+            CHECK(block==255 && dbt_next_free(memo)==256,"positive append crosses 255-to-256 boundary");
+            CHECK(dbt_read(reader,255,&text,&len)==0 && len==3 && !memcmp(text,"new",3),"already-open reader sees committed memo");
+        }
+        CHECK(dbt_read(reader,1,&text,&len)==0 && len==8 && !memcmp(text,"old memo",8),"old memo survives error or successful append");
+        CHECK(c.hit || rc==0,"DBT positive control succeeds");
+        dbt_close(memo);dbt_close(reader);
+        CHECK(dbt_open(p,"HIGH.DBT",0,&reader)==0,"DBT predecessor reopens after close");
+        CHECK(dbt_read(reader,1,&text,&len)==0 && len==8 && !memcmp(text,"old memo",8),"reopened DBT retains old memo");
+        dbt_close(reader);pal_host_free(c.inner);if(!c.hit)break;
+        CHECK(b<299,"all DBT failure boundaries enumerated");
+    }
+}
 static void output_alias_tests(void){
     static const char *commands[]={"COPY FILE SOURCE.TXT TO ./CLIENTS.DBF", "SAVE TO .\\CLIENTS.DBF",
         "LABEL FORM ADDRESS TO FILE ./CLIENTS.DBF", "SET ALTERNATE TO ./CLIENTS.DBF"};
@@ -528,6 +562,6 @@ int main(int argc,char **argv){
     CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
     CHECK(mkdtemp(directory)!=NULL,"private oracle directory");
     if(chdir(directory) || mkdir("build",0700) || mkdir("build/dbsafe",0700)) return 2;
-    if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"ndxfail"))incremental_failure_tests();else if(!strcmp(mode,"rowfail"))indexed_replace_failure_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
+    if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"ndxfail"))incremental_failure_tests();else if(!strcmp(mode,"rowfail"))indexed_replace_failure_tests();else if(!strcmp(mode,"dbtfail"))memo_failure_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
     return TEST_SUMMARY(mode);
 }

@@ -1,0 +1,12 @@
+# test: test_ibase_dbsafe
+--- a/fs/dbt.c
++++ b/fs/dbt.c
+@@ -490,7 +490,7 @@
+     if(!f || !f->writable)return -DBT_ERR_RDONLY;
+     rc=dbt_refresh(f);if(rc)return rc;
+     if(ibase_file_clone(&tx,f->pal,f->name,f->fd))return -DBT_ERR_IO;
+-    work=*f;work.fd=tx.fd;
++    work=*f;work.fd=f->fd;
+     rc=dbt_append_raw(&work,text,len,&block);
+     if(rc){ibase_file_abort(&tx);return rc;}
+     if(ibase_file_install(&tx,&f->fd)){
