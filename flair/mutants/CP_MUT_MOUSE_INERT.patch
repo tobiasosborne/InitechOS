@@ -1,4 +1,3 @@
-# pending: legacy test-flair-cpanels-mouse-apply-mutant: cursor movement and settings trace
 # Legacy CP_MUT_MOUSE_INERT
 # test: test_flair_routing
 --- a/cp_service.h

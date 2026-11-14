@@ -1,4 +1,3 @@
-# pending: legacy test-flair-iword-codes-mutant: independent underline pixels, other serial/style legs green
 # Legacy TBXGATE_MUT_CELL_UL_LOW
 # test: test_flair_routing
 --- a/tbxgate.c

@@ -1,4 +1,3 @@
-# pending: legacy test-flair-app-launch-mutant: out-of-image SETMBAR rejected in gate trace
 # Legacy TBX_MUT_MBAR_NO_BOUNDS
 # test: test_flair_routing
 --- a/tbxgate.c

@@ -57,7 +57,9 @@ int32_t FlairPutScrap(FlairScrap *s, flair_ostype_t type, const void *data, uint
 { (void)s; (void)type; (void)data; (void)len; unreached("FlairPutScrap"); return 0; }
 void FlairZeroScrap(FlairScrap *s) { (void)s; unreached("FlairZeroScrap"); }
 
-void MenuClock_enable(int enabled) { (void)enabled; unreached("MenuClock_enable"); }
+/* Leg K grades the SETTINGS apply: the menu clock state is recorded. */
+int routing_menu_clock = -1;
+void MenuClock_enable(int enabled) { routing_menu_clock = enabled; }
 uint32_t MenuKey(const MenuBar *bar, char ch) { (void)bar; (void)ch; unreached("MenuKey"); return 0u; }
 
 text_font_t text_font_from_txfont(int txfont) { (void)txfont; unreached("text_font_from_txfont"); return FONT_CHICAGO; }

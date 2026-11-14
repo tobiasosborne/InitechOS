@@ -1,4 +1,3 @@
-# pending: legacy test-flair-app-launch-mutant: exit reclaims the tenant slot and arena
 # Legacy TBX_MUT_EXIT_LEAK
 # test: test_flair_routing
 --- a/tbxgate.c

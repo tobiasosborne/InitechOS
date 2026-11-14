@@ -1,4 +1,3 @@
-# pending: legacy test-flair-tenant-menu-mutant: mouse/key menu events delivered to tenant trace
 # Legacy TBX_MUT_MENU_NOT_DELIVERED
 # test: test_flair_routing
 --- a/tbxgate.c

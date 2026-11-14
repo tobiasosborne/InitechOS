@@ -1,4 +1,3 @@
-# pending: legacy test-flair-calc-mutant: independent Geneva glyph pixels
 # Legacy TBX_MUT_GENEVA_IGNORED
 # test: test_flair_routing
 --- a/tbxgate.c

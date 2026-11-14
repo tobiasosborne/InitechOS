@@ -72,6 +72,14 @@
  *      frame+68 under a poisoned frame, errors are negative in EAX, a stray
  *      int 81h is NOTTENANT, the TENANT-GATE trace is exact.
  *                              regression patches ax full eax patch, arg offset patch
+ *   M  SETMBAR refuses a graph outside the image, installs the tenant's own
+ *      record; DRAWMENUBAR asks one redraw; a choice in the tenant's bar is
+ *      delivered as TBX_EVT_MENU.   MBAR_NO_BOUNDS, MBAR_NOT_SWAPPED,
+ *                                   DRAWMBAR_NOOP, MENU_NOT_DELIVERED
+ *   R  launch/exit cycles leave the master heap stable (O-3).   EXIT_LEAK
+ *   F  TEXTDRAW in Geneva 12: the [MEAS] 39 x 16 run box.       GENEVA_IGNORED
+ *   U  DRAWCELLS underline on row B + 1 = 13.                   CELL_UL_LOW
+ *   K  SETTINGS applies the Mouse record live (record.json).    MOUSE_INERT
  *
  * Ref: tenant lifecycle/3.4/7 (O-1); docs/design/GUI-remediation-ADR-
  *      reconciliation.md disk tenant lifecycle/-4; spec/toolbox_gate.h Sec 2/3/5/6;
@@ -97,6 +105,7 @@
 #include "system_key.h"
 #include "process.h"
 #include "tbxgate.h"
+#include "menu.h"            /* MenuBar: leg M installs the tenant's own bar */
 #include "toolbox_gate.h"
 #include "flair_platform.h"
 // #include "sft.h"             /* sft_init: the boot-time SFT the teardown reaps */
@@ -409,6 +418,7 @@ int flair_platform_load(const char *name83, uint16_t dir_start,
  * 4. THE PUMP (kmain flair_live_tenant_service, host form)
  * ===========================================================================*/
 static const bitmap_t *probe_surface;
+static const uint8_t *probe_cellfont;   /* leg U: a hand-authored 8x16 strike */
 static void world_init(void)
 {
     tbx_host_t host;
@@ -438,6 +448,7 @@ static void world_init(void)
     host.master = &W.master;
     host.puts = serial_cap;
     host.surface = probe_surface;
+    host.cellfont = probe_cellfont;
     tbx_bind(&host);
 }
 
@@ -1193,6 +1204,401 @@ static void leg_window_extremes(void)
 }
 
 
+/* CHECK with a formatted reason (the shared macro takes one string). */
+#define CHECKF(cond, ...) do { char m_[512]; \
+    snprintf(m_, sizeof m_, __VA_ARGS__); CHECK((cond), m_); } while (0)
+
+/* ===========================================================================
+ * 6. MENU BAR, EXIT, TEXT AND SETTINGS LEGS (initech-qpslo)
+ *
+ * The legacy emulator gates test-flair-app-launch-mutant and
+ * test-flair-tenant-menu-mutant proved these verbs from screendumps; the host
+ * forms below drive the same REAL dispatcher and grade literal values that
+ * come from spec/toolbox_gate.h Sec 6a/8/9, the Geneva 12 [MEAS] widths and
+ * spec/cpanels/record.json, never from tbxgate.c.
+ * ===========================================================================*/
+
+/* A MenuBar graph laid out by hand at `at` (spec Sec 9 offsets, literal):
+ * one menu, ID 128, title "File", items "Open" and "Quit" (both enabled). */
+#define MB_BAR   0x000u
+#define MB_MENU  0x010u
+#define MB_ITEMS 0x020u
+#define MB_TITLE 0x040u
+#define MB_OPEN  0x048u
+#define MB_QUIT  0x050u
+#define MB_LEN   0x060u
+static void lay_menubar(uint32_t at)
+{
+    memset((void *)(uintptr_t)at, 0, MB_LEN);
+    put32(at + MB_BAR + 0u, at + MB_MENU);                  /* menus @0     */
+    *(volatile uint16_t *)(uintptr_t)(at + MB_BAR + 4u) = 1u; /* n_menus @4 */
+    *(volatile uint16_t *)(uintptr_t)(at + MB_MENU + 0u) = 128u; /* menuID @0 */
+    put32(at + MB_MENU + 4u, at + MB_TITLE);                /* title @4     */
+    put32(at + MB_MENU + 8u, at + MB_ITEMS);                /* items @8     */
+    *(volatile uint16_t *)(uintptr_t)(at + MB_MENU + 12u) = 2u; /* n_items @12 */
+    put32(at + MB_ITEMS + 0u, at + MB_OPEN);                /* item 1 text  */
+    *(volatile uint8_t *)(uintptr_t)(at + MB_ITEMS + 7u) = 1u;  /* enabled @7 */
+    put32(at + MB_ITEMS + 12u, at + MB_QUIT);               /* item 2 text  */
+    *(volatile uint8_t *)(uintptr_t)(at + MB_ITEMS + 12u + 7u) = 1u;
+    memcpy((void *)(uintptr_t)(at + MB_TITLE), "File", 5);
+    memcpy((void *)(uintptr_t)(at + MB_OPEN), "Open", 5);
+    memcpy((void *)(uintptr_t)(at + MB_QUIT), "Quit", 5);
+}
+
+/* The same graph OUTSIDE the tenant image, in readable static storage (below
+ * 4 GiB, -no-pie), so a missing image-range check would install it rather
+ * than fault: the refusal is the only correct outcome. */
+static uint8_t g_foreign_bar[MB_LEN] __attribute__((aligned(16)));
+
+#define IMG_MBAR 0x100u      /* the in-image MenuBar graph (0x100..0x160) */
+static struct mres {
+    int32_t reg, win, outside_bar, outside_menus, set, draw;
+    int     redraw_before_draw;
+    MenuBar *installed_after_set;
+} M;
+
+static void script_menubar(void)
+{
+    uint32_t reg[1] = { g_base + IMG_REC };
+    uint32_t win[5] = { T_L, T_T, T_R, T_B, 1u };
+    uint32_t a[1];
+    uint32_t inbar = g_base + IMG_MBAR;
+    uint32_t foreign = (uint32_t)(uintptr_t)g_foreign_bar;
+
+    M.reg = gate(TBX_REGISTER, 1u, reg);
+    M.win = gate(TBX_NEWWINDOW, 5u, win);
+    lay_menubar(foreign);
+    a[0] = foreign;
+    M.outside_bar = gate(TBX_SETMBAR, 1u, a);
+    /* An in-image bar whose menus array lies outside the image. */
+    lay_menubar(inbar);
+    put32(inbar + MB_BAR + 0u, foreign + MB_MENU);
+    a[0] = inbar;
+    M.outside_menus = gate(TBX_SETMBAR, 1u, a);
+    lay_menubar(inbar);
+    M.set = gate(TBX_SETMBAR, 1u, a);
+    M.installed_after_set = tenant_app() != NULL ? tenant_app()->menubar : NULL;
+    M.redraw_before_draw = tbx_take_mbar_redraw();
+    M.draw = gate(TBX_DRAWMENUBAR, 0u, NULL);
+}
+
+static void leg_menubar(void)
+{
+    FlairApp *t;
+    MenuBar *want;
+    int b;
+    EventRecord src;
+
+    world_init();
+    memset(&M, 0, sizeof M);
+    TP.script = script_menubar;
+    CHECKF(launch() == TBX_OK, "leg(M0): the menu-bar tenant launches");
+    t = tenant_app();
+    want = (MenuBar *)(uintptr_t)(g_base + IMG_MBAR);
+    CHECKF(M.reg == TBX_OK && M.win == 1, "leg(M0b): it registers and opens window 1");
+    CHECKF(M.outside_bar == TBX_ERR_BADARG &&
+          serial_has("TENANT-SETMBAR-BAD why=bar-outside-image\n"),
+          "leg(M1): a MenuBar record outside the image is refused BADARG "
+          "(spec Sec 9: the WHOLE graph lies in the image; why=bar-outside-image)");
+    CHECKF(M.outside_menus == TBX_ERR_BADARG &&
+          serial_has("TENANT-SETMBAR-BAD why=menus-outside-image\n"),
+          "leg(M2): an in-image bar whose menus array is outside the image is "
+          "refused BADARG (why=menus-outside-image)");
+    CHECKF(M.set == TBX_OK && M.installed_after_set == want,
+          "leg(M3): a valid in-image bar is INSTALLED: the app's menubar is the "
+          "tenant's own record at load_base+0x100 (SetMenuBar, spec Sec 9)");
+    CHECKF(M.redraw_before_draw == 0,
+          "leg(M4): SETMBAR alone requests no band-2 redraw (SetMenuBar, not DrawMenuBar)");
+    CHECKF(M.draw == TBX_OK && tbx_take_mbar_redraw() == 1 && tbx_take_mbar_redraw() == 0,
+          "leg(M5): DRAWMENUBAR asks the pump for ONE band-2 redraw once the "
+          "tenant returns (spec Sec 9 V3), consumed once");
+    service();
+    CHECKF(t != NULL && W.plist.head == t && t->menubar == want,
+          "leg(M6): the affirmed foreground tenant keeps its installed bar");
+
+    /* Sec 6a: a choice made in the tenant's OWN bar reaches its eventProc as
+     * TBX_EVT_MENU with Message (menuID << 16) | item. Item 2 of menu 128. */
+    memset(&src, 0, sizeof src);
+    src.what = mouseDown; src.where.h = 30; src.where.v = 10;
+    b = g_n;
+    CHECKF(tbx_menu_choice(want, (128u << 16) | 2u, &src, "mouse") == 1,
+          "leg(M7): the shell reports the tenant's own menu choice as delivered");
+    CHECKF(g_n == b + 1 && g_log[b].who == WHO_T &&
+          g_log[b].what == (int32_t)TBX_EVT_MENU &&
+          g_log[b].msg == (int32_t)((128u << 16) | 2u) &&
+          g_log[b].h == 30 && g_log[b].v == 10,
+          "leg(M8): the tenant's eventProc reads TBX_EVT_MENU, message "
+          "0x00800002 and the source where out of its own FlairEvent");
+    CHECKF(serial_has("TENANT-MENU menu=128 item=2 src=mouse\n"),
+          "leg(M9): the delivery is on the trace (TENANT-MENU menu=128 item=2 src=mouse)");
+    b = g_n;
+    CHECKF(tbx_menu_choice((const MenuBar *)(const void *)g_foreign_bar,
+                          (128u << 16) | 2u, &src, "mouse") == 0 && g_n == b,
+          "leg(M10): a choice made in a bar that is not the tenant's is not delivered");
+}
+
+/* --- leg R: EXIT returns the code block (the O-3 avail-stable invariant) -- */
+static uint32_t heapavail_line(int nth)
+{
+    const char *p = g_serial;
+    for (int i = 0; p != NULL; i++) {
+        p = strstr(p, "TENANT-HEAPAVAIL n=");
+        if (p == NULL) break;
+        if (i == nth) return (uint32_t)strtoul(p + 19, NULL, 10);
+        p++;
+    }
+    return 0xFFFFFFFFu;
+}
+
+/* heap.h: flair_heap_avail is the untouched bump tail; a freed block goes to
+ * its class free list and the next request of that class and size reuses it.
+ * So the first cycle may lower the tail once, and every later launch/exit
+ * cycle must leave it exactly where the first left it (the legacy O-3
+ * avail-stable invariant of test-flair-app-launch). */
+static void leg_reclaim(void)
+{
+    enum { CYCLES = 3 };
+    uint32_t avail0, avail[CYCLES];
+
+    world_init();
+    avail0 = flair_heap_avail(&W.master);
+    for (int cycle = 0; cycle < CYCLES; cycle++) {
+        memset(&TP, 0, sizeof TP);
+        TP.do_register = 1;
+        TP.do_newwindow = 1;
+        TP.exit_on = 'q';
+        CHECKF(launch() == TBX_OK, "leg(R0): launch cycle %d", cycle);
+        service();
+        CHECKF(tenant_app() != NULL && W.plist.head == tenant_app(),
+               "leg(R1): the tenant is resident and foreground (cycle %d)", cycle);
+        pump(mk(keyDown, 'q', T_PROBE_H, T_PROBE_V));
+        avail[cycle] = flair_heap_avail(&W.master);
+        CHECKF(tenant_app() == NULL && W.plist.head == &W.finder &&
+               serial_has("TENANT-EXIT rc=7 via=exit\n"),
+               "leg(R2): the tenant exited and was reaped (cycle %d)", cycle);
+        CHECKF(heapavail_line(cycle) == avail[cycle],
+               "leg(R3): TENANT-HEAPAVAIL reports the master heap's free tail "
+               "(cycle %d: line %u, heap %u)", cycle,
+               (unsigned)heapavail_line(cycle), (unsigned)avail[cycle]);
+    }
+    CHECKF(avail[0] <= avail0,
+           "leg(R4): the first cycle may only lower the tail (%u -> %u)",
+           (unsigned)avail0, (unsigned)avail[0]);
+    for (int cycle = 1; cycle < CYCLES; cycle++)
+        CHECKF(avail[cycle] == avail[0],
+               "leg(R5): launch/exit cycle %d leaves the master heap exactly as "
+               "cycle 0 did -- the code block and every tenant record are reused, "
+               "never leaked (cycle 0 %u, now %u)", cycle,
+               (unsigned)avail[0], (unsigned)avail[cycle]);
+}
+
+/* --- leg F: TEXTDRAW honours txFont/txSize (Geneva 12) -------------------- */
+static uint32_t text_pixels[FLAIR_SCREEN_W * FLAIR_SCREEN_H];
+#define TEXT_SENTINEL 0xB2D3E5F7u
+static uint32_t g_text_fg;
+static int32_t g_text_rc;
+static void script_textdraw(void)
+{
+    uint32_t reg[1] = { g_base + IMG_REC };
+    uint32_t win[5] = { T_L, T_T, T_R, T_B, 1u };
+    uint32_t s = g_base + IMG_MBAR;
+    memcpy((void *)(uintptr_t)s, "tables", 7);
+    CHECKF(gate(TBX_REGISTER, 1u, reg) == 0 && gate(TBX_NEWWINDOW, 5u, win) == 1,
+          "leg(F0): the text tenant registers and opens window 1");
+    for (unsigned i = 0; i < sizeof text_pixels / sizeof text_pixels[0]; i++)
+        text_pixels[i] = TEXT_SENTINEL;
+    {
+        uint32_t a[6] = { 1u, 10u, 10u, s, g_text_fg, TBX_COLOR_GRAY };
+        g_text_rc = gate(TBX_TEXTDRAW, 6u, a);
+    }
+}
+
+/* The opaque run box: bbox of every pixel the call changed. */
+static void changed_box(int *x0, int *y0, int *x1, int *y1, long *n)
+{
+    *x0 = FLAIR_SCREEN_W; *y0 = FLAIR_SCREEN_H; *x1 = -1; *y1 = -1; *n = 0;
+    for (int y = 0; y < FLAIR_SCREEN_H; y++)
+        for (int x = 0; x < FLAIR_SCREEN_W; x++)
+            if (text_pixels[y * FLAIR_SCREEN_W + x] != TEXT_SENTINEL) {
+                if (x < *x0) *x0 = x;
+                if (y < *y0) *y0 = y;
+                if (x > *x1) *x1 = x;
+                if (y > *y1) *y1 = y;
+                (*n)++;
+            }
+}
+
+static void leg_geneva(void)
+{
+    static const bitmap_t bm = { .base = (volatile uint8_t *)text_pixels,
+        .pitch = FLAIR_SCREEN_W * 4, .bpp = 32, .bytes_per_pixel = 4,
+        .width = FLAIR_SCREEN_W, .height = FLAIR_SCREEN_H };
+    int x0, y0, x1, y1;
+    long n;
+
+    probe_surface = &bm;
+    world_init();
+    TP.script = script_textdraw;
+    g_text_fg = TBX_COLOR_BLACK | TBX_TEXT_GENEVA12;
+    CHECKF(launch() == TBX_OK && g_text_rc == TBX_OK,
+          "leg(F1): TEXTDRAW with applFont at txSize 12 is accepted");
+    changed_box(&x0, &y0, &x1, &y1, &n);
+    /* Content origin (346,122) as leg fill_geometry; the run starts at local
+     * (10,10). Geneva 12 "tables" is 39 px wide ([MEAS] SimpleText capture,
+     * specs/sys8/simpletext-stdfile.md Sec 1.2) and the line is 16 rows
+     * (12 + 3 + 1, the same capture); the run box is opaque. */
+    CHECKF(x0 == 356 && y0 == 132 && x1 - x0 + 1 == 39 && y1 - y0 + 1 == 16 &&
+          n == 39L * 16L,
+          "leg(F2): the Geneva 12 run box is exactly the measured 39 x 16 at "
+          "(356,132) (got x[%d,%d] y[%d,%d], %ld px)", x0, x1, y0, y1, n);
+    probe_surface = NULL;
+}
+
+/* --- leg U: DRAWCELLS underline row (spec Sec 7a STYLE) ------------------- */
+/* A hand-authored strike: glyph 'A' is a 2-px stem on rows 2..11 (the ROM
+ * strike's capitals end on row 11, spec Sec 7a), every other glyph blank. */
+static uint8_t g_cellfont[256u * 16u];
+static int32_t g_cells_rc[2];
+static void script_cells(void)
+{
+    uint32_t reg[1] = { g_base + IMG_REC };
+    uint32_t win[5] = { T_L, T_T, T_R, T_B, 1u };
+    uint32_t s = g_base + IMG_MBAR;
+    memcpy((void *)(uintptr_t)s, "A A", 4);
+    CHECKF(gate(TBX_REGISTER, 1u, reg) == 0 && gate(TBX_NEWWINDOW, 5u, win) == 1,
+          "leg(U0): the cell tenant registers and opens window 1");
+    for (unsigned i = 0; i < sizeof text_pixels / sizeof text_pixels[0]; i++)
+        text_pixels[i] = TEXT_SENTINEL;
+    {
+        uint32_t plain[6] = { 1u, 8u, 8u, s, TBX_COLOR_BLACK, TBX_COLOR_GRAY };
+        uint32_t ul[6] = { 1u, 8u, 40u, s, TBX_COLOR_BLACK | TBX_TEXT_UNDERLINE,
+                           TBX_COLOR_GRAY };
+        g_cells_rc[0] = gate(TBX_DRAWCELLS, 6u, plain);
+        g_cells_rc[1] = gate(TBX_DRAWCELLS, 6u, ul);
+    }
+}
+
+static void leg_cells(void)
+{
+    static const bitmap_t bm = { .base = (volatile uint8_t *)text_pixels,
+        .pitch = FLAIR_SCREEN_W * 4, .bpp = 32, .bytes_per_pixel = 4,
+        .width = FLAIR_SCREEN_W, .height = FLAIR_SCREEN_H };
+    /* Global cell tops: content origin (346,122) + local (8,8) / (8,40). */
+    const int gx = 354, yplain = 130, yul = 162, ncols = 24;
+    uint32_t ink, paper;
+    int last_ink_row = -1, bad13 = 0, bad_other = 0, ul_row = -1, ul_rows = 0;
+
+    memset(g_cellfont, 0, sizeof g_cellfont);
+    for (int r = 2; r <= 11; r++) g_cellfont['A' * 16 + r] = 0x18u;
+    probe_surface = &bm;
+    probe_cellfont = g_cellfont;
+    world_init();
+    TP.script = script_cells;
+    CHECKF(launch() == TBX_OK && g_cells_rc[0] == TBX_OK && g_cells_rc[1] == TBX_OK,
+          "leg(U1): plain and underlined DRAWCELLS runs are accepted");
+    ink = text_pixels[(yplain + 5) * FLAIR_SCREEN_W + gx + 3];
+    paper = text_pixels[yplain * FLAIR_SCREEN_W + gx];
+    CHECKF(ink != paper && ink != TEXT_SENTINEL && paper != TEXT_SENTINEL,
+          "leg(U2): the plain run inks the stem in fg on an opaque bg cell");
+    /* Measure B on the plain run (the legacy checker's leg BASELINE). */
+    for (int r = 0; r < 16; r++)
+        for (int c = 0; c < ncols; c++)
+            if (text_pixels[(yplain + r) * FLAIR_SCREEN_W + gx + c] == ink) last_ink_row = r;
+    CHECKF(last_ink_row == 11,
+          "leg(U3): the plain letters end on row 11, so the baseline row B is 12");
+    /* UNDERLINE: one 1-px line on row B + 1 = 13 under the whole run; no ink
+     * of the strike touches row 13, so no halo gap. */
+    for (int r = 12; r < 16; r++) {
+        int full = 1;
+        for (int c = 0; c < ncols; c++) {
+            uint32_t px = text_pixels[(yul + r) * FLAIR_SCREEN_W + gx + c];
+            if (px != ink) full = 0;
+            if (r == 13 && px != ink) bad13++;
+            if (r != 13 && px != paper) bad_other++;
+        }
+        if (full) { ul_row = r; ul_rows++; }
+    }
+    CHECKF(bad13 == 0 && bad_other == 0 && ul_rows == 1 && ul_row == 13,
+          "leg(U4): the underline is the single row B + 1 = 13 of the cell, "
+          "across all 24 columns; rows 12, 14 and 15 stay bg (found row %d, "
+          "%d rows; %d gaps on row 13, %d stray)", ul_row, ul_rows, bad13, bad_other);
+    probe_surface = NULL;
+    probe_cellfont = NULL;
+}
+
+/* --- leg K: Control Panels SETTINGS applies Mouse live -------------------- */
+/* spec/cpanels/record.json: "CP01", version 1, pattern, tracking (0 slow,
+ * 1 normal, 2 fast), double click (0 slow 40 ticks, 1 normal 20 ticks,
+ * 2 fast 10 ticks), sound, volume, clock, reserved 0 x3, sum of bytes 0..13
+ * little endian. Literal: pattern 0, tracking 2, double 2, sound 0,
+ * volume 2, clock 1. Sum = 67+80+48+49+1+0+2+2+0+2+1 = 252. */
+static const uint8_t k_cp_fast[16] = {
+    'C','P','0','1', 1, 0, 2, 2, 0, 2, 1, 0, 0, 0, 252, 0
+};
+static int32_t g_settings_rc;
+extern unsigned routing_desktop_pattern, routing_desktop_pattern_calls;
+extern int routing_menu_clock;
+static void script_settings(void)
+{
+    uint32_t reg[1] = { g_base + IMG_REC };
+    uint32_t rec = g_base + IMG_MBAR;
+    memcpy((void *)(uintptr_t)rec, k_cp_fast, sizeof k_cp_fast);
+    CHECKF(gate(TBX_REGISTER, 1u, reg) == 0, "leg(K0): the panel tenant registers");
+    {
+        uint32_t a[2] = { 1u, rec };
+        g_settings_rc = gate(TBX_SETTINGS, 2u, a);
+    }
+}
+
+/* One mouseDown after a +10 px horizontal delta from the centre: its where.h. */
+static int click_after_delta(void)
+{
+    flair_raw_ring_t ring;
+    flair_raw_event_t raw = { FLAIR_RAW_MOUSE, 0u,
+                              0x01u | ((uint32_t)(uint8_t)(int8_t)10 << 8) };
+    flair_raw_event_t up = { FLAIR_RAW_MOUSE, 1u, 0u };
+    EventRecord ev;
+    int h = -1;
+    flair_event_init(&ring);
+    (void)flair_raw_post(&ring, &raw);
+    (void)flair_raw_post(&ring, &up);
+    if (GetNextEvent(&ring, everyEvent, &ev) && ev.what == mouseDown) h = ev.where.h;
+    (void)GetNextEvent(&ring, everyEvent, &ev);
+    return h;
+}
+
+static void leg_settings(void)
+{
+    unsigned saved_tracking = flair_mouse_tracking, saved_ticks = flair_double_click_ticks;
+    int normal_h, fast_h;
+
+    flair_mouse_tracking = 1u;
+    normal_h = click_after_delta();
+    CHECKF(normal_h == FLAIR_SCREEN_W / 2 + 10,
+          "leg(K1): normal tracking is 1:1 -- a +10 delta from the centre clicks at "
+          "x=330 (got %d)", normal_h);
+    world_init();
+    TP.script = script_settings;
+    routing_desktop_pattern_calls = 0u;
+    CHECKF(launch() == TBX_OK && g_settings_rc == 0,
+          "leg(K2): SETTINGS write of a valid CP01 record succeeds");
+    CHECKF(serial_has("CPANELS-APPLY pattern=0 tracking=2 double=2 ticks=10\n"),
+          "leg(K3): the applied trace reports the fast interval of 10 ticks "
+          "(record.json byte 7 value 2)");
+    CHECKF(flair_double_click_ticks == 10u,
+          "leg(K4): the Event/Finder double-click interval is live at 10 ticks "
+          "(got %u)", flair_double_click_ticks);
+    fast_h = click_after_delta();
+    CHECKF(fast_h > normal_h,
+          "leg(K5): fast tracking is live: the same +10 delta moves the cursor "
+          "farther than normal (normal x=%d, fast x=%d)", normal_h, fast_h);
+    CHECKF(routing_desktop_pattern_calls == 1u && routing_desktop_pattern == 0u &&
+          routing_menu_clock == 1,
+          "leg(K6): the pattern and menu clock of the record are applied once");
+    flair_mouse_tracking = saved_tracking;
+    flair_double_click_ticks = saved_ticks;
+}
+
 int main(void)
 {
     FlairApp *t;
@@ -1218,5 +1624,10 @@ int main(void)
     leg_gate();
     leg_fill_geometry();
     leg_window_extremes();
+    leg_menubar();
+    leg_reclaim();
+    leg_geneva();
+    leg_cells();
+    leg_settings();
     return TEST_SUMMARY("test-flair-routing");
 }

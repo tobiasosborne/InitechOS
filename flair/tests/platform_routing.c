@@ -12,7 +12,9 @@ int flair_platform_path_is_device(const char *p) { (void)p; unused_service(); }
 void flair_platform_dos(flair_platform_files *p,flair_platform_regs *r) { (void)p;(void)r; unused_service(); }
 uint32_t flair_platform_swap_dta(uint32_t d) { (void)d; unused_service(); }
 int flair_platform_memory(uint32_t *t,uint32_t *f,uint32_t *l) { (void)t;(void)f;(void)l; unused_service(); }
-void flair_platform_desktop_pattern(unsigned p) { (void)p; unused_service(); }
+/* Leg K grades the SETTINGS apply: the desktop pattern call is recorded. */
+unsigned routing_desktop_pattern, routing_desktop_pattern_calls;
+void flair_platform_desktop_pattern(unsigned p) { routing_desktop_pattern = p; routing_desktop_pattern_calls++; }
 void flair_platform_speaker(unsigned hz) { (void)hz; unused_service(); }
 _Noreturn void flair_platform_panic(const char *why) { fprintf(stderr,"PANIC tbx: %s\nHALTED\n",why); abort(); }
 void flair_platform_serial(const char *s) { fputs(s,stderr); }
