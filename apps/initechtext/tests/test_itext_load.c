@@ -137,7 +137,8 @@ static void event(int what, int32_t message)
 {
     tbx_event_t e = { .what = what, .message = message };
     tbx_host.nops = 0;
-    tbx_app_event(&e);
+    if (!tbx_host_push_event(&e)) exit(2);
+    (void)tbx_host_dispatch(tbx_app_event);
 }
 static void open_named(const char *path)
 {
