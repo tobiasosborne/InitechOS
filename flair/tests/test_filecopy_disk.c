@@ -15,6 +15,7 @@
 #undef flair_platform_dos
 TEST_HARNESS();
 static unsigned fail_call, calls, fail_write, writes, hit, fail_rollbacks, corrupt_sector, deletes;
+static int fail_closes;
 static FILE *disk;
 static int (*sector_fault)(uint32_t,uint32_t,const void *);
 static int rd(void *p,uint32_t lba,uint32_t n,void *b)
@@ -35,6 +36,7 @@ static int wr(void *p,uint32_t lba,uint32_t n,const void *b)
 }
 void flair_platform_dos(flair_platform_files *p,flair_platform_regs *r)
 {
+    if(fail_closes && r->eax==0x3e00) { hit++; r->eax=5; r->eflags|=1; return; }
     if(r->eax==0x4100) deletes++;
     if(fail_rollbacks && r->eax==0x5600 && strcmp((const char *)(uintptr_t)r->edx,"TARGET.DAT")) {
         hit++; r->eax=5; r->eflags|=1; return;
@@ -124,6 +126,30 @@ static void reserve(const char *name)
 static void extra_cases(void)
 {
     static char collision[32]; uint32_t n;
+    /* A cleanup CLOSE is still an owned handle on error. A single refusal
+     * must not leak it; a later cleanup must also remain able to retry. */
+    for(unsigned which=0;which<2;which++) {
+        setup();
+        CHECK(tbx_fc_open(&n)==0 && tbx_fc_step(256)==256,"partial copy for cleanup close fault");
+        fail_call=calls+1+which;
+        tbx_fc_close(); fail_call=0;
+        CHECK(hit==1,"cleanup CLOSE fault reached");
+        CHECK(tbxf_live(&g_slot.files)==0,"single cleanup CLOSE failure releases every owned handle");
+        tbx_fc_close();
+        CHECK(tbxf_live(&g_slot.files)==0,"repeated cleanup has no lost handle");
+        verify(old,sizeof old-1); tbxf_reap(&g_slot.files); fclose(disk);
+    }
+    setup();
+    CHECK(tbx_fc_open(&n)==0 && tbx_fc_step(256)==256,"partial copy for persistent cleanup refusal");
+    fail_closes=1; tbx_fc_close();
+    CHECK(tbxf_live(&g_slot.files)==2 && g_fc.src>=5 && g_fc.dst>=5 && g_fc.active,
+          "persistent CLOSE failures retain both handles and block a new copy");
+    CHECK(g_fc.tx.staged && deletes==0 && tbx_fc_open(&n)==TBX_ERR_BUSY,
+          "stage stays owned and is not deleted while its close is pending");
+    fail_closes=0;
+    tbx_fc_close();
+    CHECK(tbxf_live(&g_slot.files)==0 && !g_fc.active,"retry after persistent refusal releases handles");
+    verify(old,sizeof old-1); fclose(disk);
     CHECK(flair_filecopy_cancel(3,27,0),"Escape cancels");
     CHECK(flair_filecopy_cancel(5,'.',0x100),"Command-period repeat cancels");
     CHECK(!flair_filecopy_cancel(3,'.',0),"plain period is not cancel");
@@ -173,6 +199,23 @@ static void extra_cases(void)
     command("mmd -i copy.img ::APPS"); command("mcopy -i copy.img rate.cfg ::APPS/MICHAEL.CFG");
     disk=fopen("copy.img","r+b"); CHECK(fileio_fat_bind(&vol)==0,"remount configured rate fixture");
     CHECK(tbx_fc_rate()==37,"FILE COPY uses configured disk rate"); fclose(disk);
+    setup(); fclose(disk);
+    command("mmd -i copy.img ::APPS"); command("mcopy -i copy.img rate.cfg ::APPS/MICHAEL.CFG");
+    disk=fopen("copy.img","r+b"); CHECK(fileio_fat_bind(&vol)==0,"reload rate close fault fixture");
+    fail_call=calls+3; /* OPEN, READ, CLOSE */
+    CHECK(tbx_fc_rate()<0 && hit==1,"rate-file close failure is reported"); fail_call=0;
+    CHECK(tbxf_live(&g_slot.files)==0,"failed rate CLOSE releases owned handle");
+    tbx_fc_close(); CHECK(tbxf_live(&g_slot.files)==0,"rate cleanup remains repeatable");
+    verify(old,sizeof old-1); tbxf_reap(&g_slot.files); fclose(disk);
+    setup(); fclose(disk);
+    command("mmd -i copy.img ::APPS"); command("mcopy -i copy.img rate.cfg ::APPS/MICHAEL.CFG");
+    disk=fopen("copy.img","r+b"); CHECK(fileio_fat_bind(&vol)==0,"reload persistent rate close fixture");
+    fail_closes=1;
+    CHECK(tbx_fc_rate()<0 && tbxf_live(&g_slot.files)==1,
+          "persistent rate CLOSE retains its handle");
+    fail_closes=0; tbx_fc_close();
+    CHECK(tbxf_live(&g_slot.files)==0,"retry closes pending rate handle");
+    fclose(disk);
 }
 static void recovered_stream(const char *cmd,const void *want,size_t len)
 {

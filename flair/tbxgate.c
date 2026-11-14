@@ -1276,6 +1276,7 @@ void tbx_bind(const tbx_host_t *host)
     tbx_zero(&g_slot, (uint32_t)sizeof g_slot);
 }
 
+static void fc_files_reaped(void);
 static void slot_clear(void)
 {
     tbx_zero(&g_slot, (uint32_t)sizeof g_slot);
@@ -1289,6 +1290,7 @@ static void finish(const char *via, int32_t rc)
      * kill skips close; writes already commit per call (int21.h WRITE_AT). */
     uint32_t n = tbxf_live(&g_slot.files);
     tbxf_reap(&g_slot.files);
+    fc_files_reaped();
     if (n != 0) {
         tputs("TENANT-FILES reclaimed="); tputu(n);
         tputs(" live="); tputu(tbxf_live(&g_slot.files)); tputs("\n");
@@ -1574,7 +1576,7 @@ int tbx_take_bar_dirty(void)
  * JFT (g_slot.files, Sec 10) so every handle dies with the tenant.
  * ===========================================================================*/
 #include "file_replace.h"
-static struct { int32_t src, dst; uint32_t size, done; int active, committed; flair_file_replace tx; } g_fc = { .src=-1, .dst=-1 };
+static struct { int32_t src, dst, cfg; uint32_t size, done; int active, committed, closing; flair_file_replace tx; } g_fc = { .src=-1, .dst=-1, .cfg=-1 };
 static uint8_t g_fc_buf[TBX_FILECOPY_CHUNK];
 static uint8_t g_fc_verify[TBX_FILECOPY_CHUNK];
 
@@ -1621,15 +1623,31 @@ int tbx_take_filecopy(const char **caption, const char **src, const char **dst)
     return 1;
 }
 
+/* A failed CLOSE does not transfer ownership. Retry a transient refusal once;
+ * retain the handle for a later cleanup if both attempts fail. Return the
+ * first error even when cleanup succeeds, preserving the caller's result. */
+static int32_t fc_close_owned(int32_t *handle)
+{
+    if(*handle<0) return TBX_OK;
+    int32_t rc=fc_dos(0x3e00u,(uint32_t)*handle,0,0);
+    if(rc>=0) { *handle=-1; return TBX_OK; }
+    if(fc_dos(0x3e00u,(uint32_t)*handle,0,0)>=0) *handle=-1;
+    return rc;
+}
 int32_t tbx_fc_rate(void)
 {
     static const char key[] = TBX_FILECOPY_RATE_KEY;
     static char cfg[TBX_FILECOPY_CFG_MAX + 1];
+    if(g_fc.cfg>=0) {
+        int32_t pending=fc_close_owned(&g_fc.cfg);
+        if(pending<0) return pending;
+    }
     int32_t h = fc_dos(0x3d00u, 0u, 0u, (uint32_t)(uintptr_t)TBX_FILECOPY_CFG_PATH);
     int32_t n, rate = -1;
     if (h < 0) return h;
+    g_fc.cfg=h;
     n = fc_dos(0x3f00u, (uint32_t)h, TBX_FILECOPY_CFG_MAX, (uint32_t)(uintptr_t)cfg);
-    int32_t cl=fc_dos(0x3e00u, (uint32_t)h, 0u, 0u);
+    int32_t cl=fc_close_owned(&g_fc.cfg);
     if (n < 0) return n;
     if (cl < 0) return cl;
     cfg[n] = 0;
@@ -1654,7 +1672,8 @@ int32_t tbx_fc_rate(void)
 int32_t tbx_fc_open(uint32_t *size)
 {
     int32_t end;
-    if(g_fc.active) return TBX_ERR_BUSY;
+    if(g_fc.closing) tbx_fc_close();
+    if(g_fc.active || g_fc.cfg>=0) return TBX_ERR_BUSY;
     if(g_fc.tx.old_moved) return TBX_ERR_BUSY; /* unresolved rollback: retain both streams */
     if(!size ||
        flair_platform_path_is_device(g_slot.fc_src) ||
@@ -1762,12 +1781,21 @@ fail:
 
 void tbx_fc_close(void)
 {
-    if(!g_fc.active) return;
-    if (g_fc.src >= 0) (void)fc_dos(0x3e00u, (uint32_t)g_fc.src, 0u, 0u);
-    if (g_fc.dst >= 0) (void)fc_dos(0x3e00u, (uint32_t)g_fc.dst, 0u, 0u);
-    g_fc.src = g_fc.dst = -1;
+    g_fc.closing=1;
+    (void)fc_close_owned(&g_fc.src);
+    (void)fc_close_owned(&g_fc.dst);
+    (void)fc_close_owned(&g_fc.cfg);
+    if(g_fc.src>=0 || g_fc.dst>=0 || g_fc.cfg>=0) { g_fc.active=1; return; }
     flair_file_discard(&g_fc.tx,fc_op);
-    g_fc.active=0;
+    g_fc.active=g_fc.closing=0;
+}
+
+static void fc_files_reaped(void)
+{
+    /* The binding has reclaimed the tenant JFT. Do not carry those numeric
+     * handles into a new tenant; only the owned stage name may need cleanup. */
+    g_fc.src=g_fc.dst=g_fc.cfg=-1;
+    tbx_fc_close();
 }
 
 void tbx_filecopy_answer(int32_t result)

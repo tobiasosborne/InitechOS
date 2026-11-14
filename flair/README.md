@@ -25,6 +25,9 @@ close box reach one modal cancellation path. Mouse controls fire on release
 inside; close and tenant teardown remove only an incomplete
 stage. The copy engine refuses resolved source/destination identity and DOS
 devices, and checks every transfer, verification and close result.
+Cancellation and rate-file cleanup retry a failed CLOSE once and retain any
+still-open handle until cleanup succeeds or the tenant session is reaped.
+A pending close blocks a new copy; cleanup never deletes a stage still open.
 
 If publication and restore both fail, both complete streams remain and the
 error notice names the exact previous-version path. This is not crash atomicity.
