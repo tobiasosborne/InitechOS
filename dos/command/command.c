@@ -3310,6 +3310,14 @@ static void builtin_del(const char *arg)
  * substitution retains matching character positions. REN stays in place. */
 static void builtin_ren(const char *arg)
 {
+    /* OEM DOS 3.30 compat33/SWITCH rejects REN old new /Z without
+     * changing either name. Do not discard a trailing switch. */
+    for (const char *p = arg; *p; ++p) {
+        if (*p == '/') {
+            dos_print(MSG_DOS_0048 "\r\n$");
+            return;
+        }
+    }
     cmd_pair_t pair;cmd_pair_parse(arg,&pair);
     if(!pair.ok){dos_print(MSG_DOS_0011 "\r\n$");return;}
     /* p.104: destination has no path; its optional drive is ignored. */

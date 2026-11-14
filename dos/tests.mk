@@ -177,6 +177,10 @@ HOST_TESTS += test-del-invalid-switch
 test-del-invalid-switch_SRCS := tests/runner.c
 test-del-invalid-switch_ARGS := tests/run.sh test-del-invalid-switch
 test-del-invalid-switch_DEPS := $(OUT)/host/tool_shell_files tests/gates/test-del-invalid-switch.sh
+HOST_TESTS += test-ren-invalid-switch
+test-ren-invalid-switch_SRCS := tests/runner.c
+test-ren-invalid-switch_ARGS := tests/run.sh test-ren-invalid-switch
+test-ren-invalid-switch_DEPS := $(OUT)/host/tool_shell_files tests/gates/test-ren-invalid-switch.sh
 include $(TOP)/mk/host-test.mk
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions
