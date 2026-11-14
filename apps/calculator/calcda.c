@@ -25,7 +25,7 @@
  * Gaps (recorded, not invented): the key press flash (the real Calculator
  * inverts a key while it is held, s8_calc_key7_pressed.png) needs mouseUp /
  * keyUp delivery, which the App Contract does not route to tenants
- * (os/flair/process.c); the Edit menu's Copy/Paste need a tenant Scrap call.
+ * (os/flair/process.c).
  *
  * ASCII-clean (CLAUDE.md, The constitution).
  */
@@ -48,19 +48,16 @@ static const tbx_menuitem_t file_items[] = {
      * Never infer permission to terminate document tenants from a close box. */
     { "Quit", 0, 'Q', 0, 1, 0, { 0, 0, 0 } },
 };
-/* The DA's Edit menu: present (the capture's bar is File Edit Help), every
- * row dimmed until a tenant Scrap call exists (recorded gap). */
+/* Authored readout binding of Copy (Mac System Software Guide v6 p.118),
+ * and menu binding of the captured C/Clear reset (calc_core.h p00/s10/s11).
+ * No clipboard numeric parser or arithmetic history is advertised. */
 static const tbx_menuitem_t edit_items[] = {
-    { "Undo",  0, 'Z', 0, 0, 0, { 0, 0, 0 } },
-    { "-",     0, 0,   0, 0, 1, { 0, 0, 0 } },
-    { "Cut",   0, 'X', 0, 0, 0, { 0, 0, 0 } },
-    { "Copy",  0, 0,   0, 0, 0, { 0, 0, 0 } },
-    { "Paste", 0, 'V', 0, 0, 0, { 0, 0, 0 } },
-    { "Clear", 0, 0,   0, 0, 0, { 0, 0, 0 } },
+    { "Copy",  0, 0,   0, 1, 0, { 0, 0, 0 } },
+    { "Clear", 0, 0,   0, 1, 0, { 0, 0, 0 } },
 };
 static const tbx_menuinfo_t menus[] = {
     { MENU_FILE, 0, "File", file_items, sizeof file_items / sizeof file_items[0], 0 },
-    { MENU_EDIT, 0, "Edit", edit_items, 6, 0 },
+    { MENU_EDIT, 0, "Edit", edit_items, 2, 0 },
 };
 static const tbx_menubar_t mbar = { menus, 2, 1, 0 };
 
@@ -109,11 +106,19 @@ void tbx_app_event(const tbx_event_t *ev)
     }
     case keyDown:
     case autoKey:
-        command(calc_cmd_from_key((uint32_t)ev->message));
+        if (!(ev->modifiers & FLAIR_EVT_MOD_CONTROL_KEY))
+            command(calc_cmd_from_key((uint32_t)ev->message));
         break;
     case TBX_EVT_MENU:
         if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_CLOSE) ||
             ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_QUIT)) (void)tbx_exit(0);
+        else if (ev->message == TBX_MENU_WORD(MENU_EDIT, 1)) {
+            const char *s = calc_display(&g_calc);
+            uint32_t n = 0;
+            while (s[n]) n++;
+            if (tbx_scrap_put(s, n) != TBX_OK)
+                (void)tbx_alert("The readout could not be copied.", "OK", 0, 0);
+        } else if (ev->message == TBX_MENU_WORD(MENU_EDIT, 2)) command(CALC_CLEAR);
         break;
     default:
         break;

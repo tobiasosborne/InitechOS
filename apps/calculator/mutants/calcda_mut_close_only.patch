@@ -6,5 +6,5 @@
       * Never infer permission to terminate document tenants from a close box. */
 -    { "Quit", 0, 'Q', 0, 1, 0, { 0, 0, 0 } },
  };
- /* The DA's Edit menu: present (the capture's bar is File Edit Help), every
-  * row dimmed until a tenant Scrap call exists (recorded gap). */
+ /* Authored readout binding of Copy (Mac System Software Guide v6 p.118),
+  * and menu binding of the captured C/Clear reset (calc_core.h p00/s10/s11).

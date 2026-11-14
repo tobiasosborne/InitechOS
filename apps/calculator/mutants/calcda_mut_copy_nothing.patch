@@ -1,0 +1,12 @@
+# test: test_calcda_route
+--- a/calcda.c
++++ b/calcda.c
+@@ -129,7 +129,7 @@
+             const char *s = calc_display(&g_calc);
+             uint32_t n = 0;
+             while (s[n]) n++;
+-            if (tbx_scrap_put(s, n) != TBX_OK)
++            if (n == 0)
+                 (void)tbx_alert("The readout could not be copied.", "OK", 0, 0);
+         } else if (ev->message == TBX_MENU_WORD(MENU_EDIT, 2)) command(CALC_CLEAR);
+         break;
