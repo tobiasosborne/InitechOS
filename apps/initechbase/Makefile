@@ -167,3 +167,5 @@ test: package-check
 smoke: pinned-corpus
 
 include $(TOP)/mk/import-check.mk
+
+smoke: $(HOST_OUT)/test_ibase_core $(HOST_OUT)/test_ibase_dbsafe

@@ -6,6 +6,7 @@
 #include "test_assert.h"
 #include "ibase/interp.h"
 #include "ibase/screen.h"
+#include "screen_file.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t yy,mm,dd;uint32_t heap; };
 extern ibase_pal_t *pal_host_make(struct pal_host_cfg);
@@ -52,8 +53,41 @@ static void value(xb_interp *ip,const char *expr,double expected)
     xb_val v;int ec=0;
     CHECK(xb_interp_eval(ip,expr,&v,&ec)==INTERP_OK && v.t==XB_N && v.u.n==expected,expr);
 }
+static screen_file target_screen;
+static int target_paint(ibase_pal_t *p,uint8_t r,uint8_t c,const char *s,uint32_t n)
+{
+    (void)p;if(r>=25 || c+n>80)return -PAL_EIO;
+    for(uint32_t i=0;i<n;i++){target_screen.bytes[2*(r*80+c+i)]=(unsigned char)s[i];target_screen.bytes[2*(r*80+c+i)+1]=7;}
+    return 0;
+}
+/* Grade actual command output against real III+ captures, before the waiting
+ * key loop in each captured program. These are frozen @...TO workflows. */
+static void target_screens(void)
+{
+    const char *names[]={"TA","TB","TD"};
+    ibase_pal_t *p=pal_host_make((struct pal_host_cfg){86,7,24,1048576});
+    xb_interp *ip=xb_interp_make(p);p->paint=target_paint;p->say_screen=target_paint;set_register(ip);query_register(ip);
+    for(unsigned i=0;i<3;i++){
+        screen_file reference;char name[256],program[8192],line[256];size_t n=0;FILE *f;
+        for(unsigned j=0;j<2000;j++){target_screen.bytes[2*j]=' ';target_screen.bytes[2*j+1]=7;}
+        snprintf(name,sizeof name,"tests/xbase_prog_diff/screen-mint/at-to-a/SETUP/%s.PRG",names[i]);
+        f=screen_open(name,"rb");
+        while(fgets(line,sizeof line,f) && strncmp(line,"DO WHILE INKEY()",16)){
+            size_t k=strlen(line);if(n+k>=sizeof program)screen_die("program too long");memcpy(program+n,line,k);n+=k;
+        }
+        fclose(f);program[n]=0;
+        CHECK(ibase_do(ip,program)==0,"target runs captured @...TO program prefix");
+        target_screen.bytes[4000]=(unsigned char)xb_interp_ctx(ip)->screen_row;
+        target_screen.bytes[4001]=(unsigned char)xb_interp_ctx(ip)->screen_col;
+        snprintf(name,sizeof name,"build/target-%s.screen",names[i]);screen_write(name,&target_screen);
+        snprintf(name,sizeof name,"tests/xbase_prog_diff/screen-mint/at-to-a/%s.screen",names[i]);screen_read(name,&reference);
+        CHECK(!memcmp(reference.bytes,target_screen.bytes,4002),"target characters, attributes and cursor equal real III+");
+    }
+    xb_interp_free(ip);pal_host_free(p);
+}
 int main(void)
 {
+    target_screens();
     ibase_pal_t *p=pal_host_make((struct pal_host_cfg){86,7,24,1048576});
     xb_interp *ip=xb_interp_make(p);
     p->conout=output;p->say_screen=screen;p->printout=printer;set_register(ip);query_register(ip);

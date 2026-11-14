@@ -96,7 +96,7 @@
 extern int query_register(xb_interp *ip);
 extern int mutate_register(xb_interp *ip);
 extern int set_register(xb_interp *ip);
-extern void set_close_alternate(xb_interp *ip);
+extern int set_close_alternate(xb_interp *ip);
 extern int proc_register(xb_interp *ip);
 extern int report_register(xb_interp *ip);   /* cmd/report.c (initech-airx) */
 
@@ -569,10 +569,11 @@ int ibase_repl(ibase_pal_t *pal, xb_interp *ip)
     (void)repl_loop(pal, ip, 0);
 
     xb_interp_ctx(ip)->set_status=0;
-    set_close_alternate(ip);
+    rc=set_close_alternate(ip);
+    if(rc)repl_render_error(pal,rc);
     ibase_status_refresh(ip);
     wa_close_all(xb_interp_env(ip));
-    return INTERP_OK;
+    return rc ? -INTERP_ERR_EVAL : INTERP_OK;
 }
 
 /* ===================================================================== */

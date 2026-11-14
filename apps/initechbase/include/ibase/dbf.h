@@ -490,8 +490,9 @@ typedef struct {
  * dbf_create: create a new, empty (nrec=0) .dbf table from a field schema.
  *
  * Builds the 32-byte header + nfields 32-byte descriptors + the +1 terminator
- * in the PAL arena, opens the file via PAL_RDWR|PAL_CREATE|PAL_TRUNC, and
- * returns the handle in *out (nothing is written to disk until dbf_flush).
+ * in the PAL arena and returns the handle in *out. An existing file is opened
+ * without truncation; an absent file is not published until dbf_flush closes
+ * a complete stage. A failed flush preserves the preceding on-disk table.
  *
  * Validates the schema (fail loud, CLAUDE.md, The constitution):
  *   - nfields in [1, DBF_MAX_FIELDS]                  -> DBF_ERR_TOO_MANY

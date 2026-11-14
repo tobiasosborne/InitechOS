@@ -16,17 +16,21 @@
 #include "ibase/dbf.h"
 #include "ibase/dbt.h"
 #include "ibase/ndx.h"
+#include "ibase/set.h"
 TEST_HARNESS();
 struct pal_host_cfg { uint8_t yy,mm,dd; uint32_t heap_size; };
 extern ibase_pal_t *pal_host_make(struct pal_host_cfg);
 extern void pal_host_free(ibase_pal_t *);
 extern int ibase_repl(ibase_pal_t *,xb_interp *);
 extern int proc_register(xb_interp *);
+extern int mutate_register(xb_interp *);
+extern int report_register(xb_interp *);
+extern int query_register(xb_interp *);
 static struct {
     ibase_pal_t p; ibase_pal_t *inner; xb_interp *ip;
     const char *script[32]; int line;
     char out[16384]; size_t used;
-    int armed, boundary, hit, calls, seek_fault, short_kind, error;
+    int armed, boundary, hit, calls, seek_fault, short_kind, error, persistent, failure_op;
     void *live_mark; int reset_bad, closes, opens, objects;
     uintptr_t heap_base;
     uint32_t heap_high;
@@ -46,12 +50,16 @@ static const char *sibling(const char *rel){
 }
 static uint32_t test_heap_size=4u*1024u*1024u;
 static const char *path="build/dbsafe/FAULT.DBF";
-static pal_fd op(ibase_pal_t *p,const char *s,int m){pal_fd fd;(void)p;fd=c.inner->open(c.inner,s,m);if(fd>=0)c.opens++;return fd;}
-static int cl(ibase_pal_t *p,pal_fd f){(void)p;c.closes++;return c.inner->close(c.inner,f);}
-static int32_t rd(ibase_pal_t *p,pal_fd f,void *b,uint32_t n){(void)p;return c.inner->read(c.inner,f,b,n);}
+static int fault(int kind){
+    if(!c.armed || c.failure_op!=kind)return 0;
+    if(++c.calls==c.boundary || (c.persistent && c.hit)){c.hit=1;return 1;}return 0;
+}
+static pal_fd op(ibase_pal_t *p,const char *s,int m){pal_fd fd;(void)p;if(fault(4))return -PAL_EIO;fd=c.inner->open(c.inner,s,m);if(fd>=0)c.opens++;return fd;}
+static int cl(ibase_pal_t *p,pal_fd f){int rc;(void)p;c.closes++;rc=c.inner->close(c.inner,f);return fault(2)?-PAL_EIO:rc;}
+static int32_t rd(ibase_pal_t *p,pal_fd f,void *b,uint32_t n){(void)p;if(fault(5))return -PAL_EIO;return c.inner->read(c.inner,f,b,n);}
 static int32_t wr(ibase_pal_t *p,pal_fd f,const void *b,uint32_t n){
     (void)p;
-    if(c.armed && !c.seek_fault && ++c.calls==c.boundary){
+    if(n && c.armed && !c.failure_op && !c.seek_fault && (++c.calls==c.boundary || (c.persistent && c.hit))){
         uint32_t k=0;c.hit=1;
         if(!c.short_kind) return -c.error;
         if(c.short_kind==2) k=1;
@@ -64,11 +72,12 @@ static int32_t wr(ibase_pal_t *p,pal_fd f,const void *b,uint32_t n){
 }
 static int32_t sk(ibase_pal_t *p,pal_fd f,int32_t o,int w){
     (void)p;
+    if(fault(1))return -PAL_EIO;
     if(c.armed && c.seek_fault && ++c.calls==c.boundary){c.hit=1;return -PAL_EIO;}
     return c.inner->seek(c.inner,f,o,w);
 }
 static int rmf(ibase_pal_t *p,const char *s){(void)p;return c.inner->remove(c.inner,s);}
-static int rn(ibase_pal_t *p,const char *a,const char *b){(void)p;return c.inner->rename(c.inner,a,b);}
+static int rn(ibase_pal_t *p,const char *a,const char *b){(void)p;if(fault(3))return -PAL_EIO;return c.inner->rename(c.inner,a,b);}
 static void co(ibase_pal_t *p,const char *s,uint32_t n){(void)p;if(c.used+n<sizeof c.out){memcpy(c.out+c.used,s,n);c.used+=n;c.out[c.used]=0;}}
 static int32_t ci(ibase_pal_t *p,char *b,uint32_t n){
     const char *s=c.script[c.line++];(void)p;
@@ -145,7 +154,9 @@ static int append_case(int extra,int seek,int boundary,int kind,int error){
         CHECK(!memcmp(extracted,original,(size_t)hlen),"L001 original header geometry and committed count");
         CHECK(!memcmp(extracted+hlen,original+hlen,255*255),"L001 prior record bytes untouched");
         if(!seek) CHECK(strstr(c.out,error==PAL_EACCES?"File is not accessible.":error==PAL_EIO?"Database write failed":"Disk full when writing file:")!=NULL,"B02 typed write diagnostic");
-        independent(255);
+        /* Every boundary compares all bytes above; decode one refused file
+         * per geometry/fault class rather than spawning duplicate readers. */
+        if(boundary==1 && kind==0)independent(255);
     }else{
         CHECK(extracted[4]==0 && extracted[5]==1,"L001 successful append commits 256");independent(256);
     }
@@ -168,6 +179,116 @@ static void copy_local(const char *source,const char *dest){
     if(a && b)while((n=fread(buf,1,sizeof buf,a))!=0)CHECK(fwrite(buf,1,n,b)==n,"local corpus copy written");
     if(a)fclose(a);
     if(b)fclose(b);
+}
+/* Preservation is the operator's failed-save ruling, not an inferred dBASE
+ * transaction contract. Real III+ input is independently decoded on failure. */
+static void flush_tests(void){
+    int b,k,persistent,source;size_t n;dbf_table *t;xb_val value=xb_c("CHANGED",7);
+    for(source=0;source<2;source++)for(persistent=0;persistent<2;persistent++)for(k=0;k<5;k++)for(b=1;b<64;b++){
+        ibase_pal_t *p=setup();
+        copy_local(sibling(source?"goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/TAX.DBF":"goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CLIENTS.DBF"),path);
+        olen=readbytes(path);memcpy(original,extracted,olen);
+        t=NULL;CHECK(dbf_open_rw(p,path,&t)==0,"flush opens real III+ table");
+        CHECK(t && dbf_replace(t,1,source?1:0,&value)==0,"flush edits character field");
+        c.armed=1;c.boundary=b;c.short_kind=k;c.persistent=persistent;
+        {int rc=dbf_flush(t);CHECK(!c.hit || rc!=0,"flush reports injected write failure");}
+        c.armed=0;dbf_close(t);
+        n=readbytes(path);
+        if(c.hit){
+            CHECK(n==olen && !memcmp(extracted,original,n),source?"failed +2 real TAX flush preserves every original byte":"failed flush preserves every original byte");
+            if(source && b==5 && k==0 && !persistent){
+                char export[1200];snprintf(export,sizeof export,"%s/build/FLUSHERR.DBF",project_root);copy_local(path,export);
+            }
+        }
+        pal_host_free(c.inner);
+        if(!c.hit)break;
+    }
+}
+static void output_tests(void){
+    static const char *commands[]={
+        "COPY FILE SOURCE.TXT TO OUTPUT.TXT",
+        "SAVE TO OUTPUT.TXT",
+        "COPY FILE OUTPUT.TXT TO OUTPUT.TXT",
+        "REPORT FORM TRAVELER NEXT 1 TO FILE OUTPUT.TXT",
+        "LABEL FORM ADDRESS TO FILE OUTPUT.TXT",
+        "SET ALTERNATE TO OUTPUT.TXT\nSET ALTERNATE ON\n? 'NEW LOG'\nSET ALTERNATE TO"};
+    unsigned cmd;int b,k,persistent,kind;
+    copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/TRAVELER.FRM"),"TRAVELER.FRM");
+    copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/ADDRESS.LBL"),"ADDRESS.LBL");
+    copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/TRAVEL.DBF"),"TRAVEL.DBF");
+    copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/TRAVEL.DBT"),"TRAVEL.DBT");
+    copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CLIENTS.DBF"),"CLIENTS.DBF");
+    /* One real record exercises every label output path. The DBF-format
+     * record count is independently authored at offset 4; stale tail bytes
+     * are permitted by the III+ format and are never used as expectations. */
+    {FILE *f=fopen("CLIENTS.DBF","r+b");const unsigned char one[4]={1,0,0,0};
+     CHECK(f!=NULL,"single-record label fixture");if(f){fseek(f,4,SEEK_SET);fwrite(one,1,4,f);fclose(f);}}
+    for(cmd=0;cmd<6;cmd++)for(kind=0;kind<=5;kind++)for(persistent=0;persistent<(kind?1:2);persistent++)for(k=0;k<(kind?1:5);k++)for(b=1;b<200;b++){
+        /* Source-table seek/read errors are a separate work-area contract.
+         * This matrix exhausts output writes/closes/opens/renames. */
+        if(cmd>=3 && (kind==1 || kind==5))break;
+        ibase_pal_t *p=setup();FILE *f;char before[64]="PREVIOUS-FILE\r\n";size_t n;
+        f=fopen("SOURCE.TXT","wb");fputs("NEW-FILE\r\n",f);fclose(f);
+        f=fopen("OUTPUT.TXT","wb");fputs(before,f);fclose(f);
+        c.ip=xb_interp_make(p);set_register(c.ip);proc_register(c.ip);mutate_register(c.ip);query_register(c.ip);report_register(c.ip);
+        CHECK(ibase_do(c.ip,"SET SAFETY OFF\nSTORE 'VALUE' TO SENTINEL")==0,"output setup");
+        if(cmd==3 || cmd==4)CHECK(wa_set_open_rw(xb_interp_env(c.ip),1,cmd==3?"TRAVEL.DBF":"CLIENTS.DBF",NULL,NULL)==0,"report input opens");
+        c.armed=1;c.boundary=b;c.short_kind=k;c.persistent=persistent;c.failure_op=kind;
+        {int rc=ibase_do(c.ip,commands[cmd]);CHECK(!c.hit || rc!=0,"output reports write failure");
+         if(c.hit && rc==0)fprintf(stderr,"ignored fault cmd=%u kind=%d b=%d\n",cmd,kind,b);
+         CHECK(c.hit || rc==0,"output positive control executes");
+         if(!c.hit && rc)fprintf(stderr,"command %s rc=%d error=%d\n",commands[cmd],rc,ibase_last_error(c.ip));}
+        c.armed=0;
+        n=readbytes("OUTPUT.TXT");
+        if(c.hit)CHECK(n==strlen(before) && !memcmp(extracted,before,n),"failed output preserves old destination");
+        if(cmd==2 && !c.hit)CHECK(n>=strlen(before) && !memcmp(extracted,before,strlen(before)),"self copy preserves source data");
+        xb_interp_free(c.ip);pal_host_free(c.inner);
+        if(!c.hit)break;
+    }
+}
+static int index_key(void *user,uint32_t rec,uint8_t *key,uint16_t len){
+    (void)user;memset(key,' ',len);key[0]=(uint8_t)('D'-rec);return 0;
+}
+static void index_tests(void){
+    int kind,b,k;
+    for(kind=0;kind<=4;kind++)for(k=0;k<(kind?1:5);k++)for(b=1;b<40;b++){
+        ibase_pal_t *p=setup();size_t n;int rc;
+        copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CNAMES.NDX"),"OUTPUT.NDX");
+        olen=readbytes("OUTPUT.NDX");memcpy(original,extracted,olen);
+        c.armed=1;c.failure_op=kind;c.boundary=b;c.short_kind=k;
+        rc=ndx_build(p,"OUTPUT.NDX",0,8,"NAME",3,index_key,NULL);
+        c.armed=0;CHECK(!c.hit || rc!=0,"index reports failed rebuild");
+        n=readbytes("OUTPUT.NDX");
+        if(c.hit)CHECK(n==olen && !memcmp(extracted,original,n),"failed rebuild preserves real III+ index");
+        pal_host_free(c.inner);if(!c.hit)break;
+    }
+}
+static void metadata_tests(void){
+    int kind,b;size_t n;
+    for(kind=1;kind<=4;kind++)for(b=1;b<40;b++){
+        ibase_pal_t *p=setup();dbf_table *t=NULL;xb_val v=xb_c("CHANGED",7);
+        fixture(path,2,3);
+        CHECK(dbf_open_rw(p,path,&t)==0,"metadata open +2 fixture");
+        CHECK(dbf_replace(t,1,0,&v)==0,"metadata edit");
+        c.armed=1;c.failure_op=kind;c.boundary=b;
+        {int rc=dbf_flush(t);CHECK(!c.hit || rc!=0,"metadata failure reported");}
+        c.armed=0;dbf_close(t);n=readbytes(path);
+        if(c.hit)CHECK(n==olen && !memcmp(extracted,original,n),"metadata failure restores old +2 file under its name");
+        pal_host_free(c.inner);if(!c.hit)break;
+    }
+}
+static void output_alias_tests(void){
+    static const char *commands[]={"COPY FILE SOURCE.TXT TO ./CLIENTS.DBF", "SAVE TO .\\CLIENTS.DBF",
+        "LABEL FORM ADDRESS TO FILE ./CLIENTS.DBF", "SET ALTERNATE TO ./CLIENTS.DBF"};
+    ibase_pal_t *p=setup();size_t n;
+    c.ip=xb_interp_make(p);set_register(c.ip);mutate_register(c.ip);report_register(c.ip);
+    CHECK(wa_set_open_rw(xb_interp_env(c.ip),1,"CLIENTS.DBF",NULL,NULL)==0,"active-output table opens");
+    olen=readbytes("CLIENTS.DBF");memcpy(original,extracted,olen);
+    for(unsigned i=0;i<sizeof commands/sizeof commands[0];i++){
+        CHECK(ibase_do(c.ip,commands[i])!=0 && ibase_last_error(c.ip)==3,"active-output alias refused with error 3");
+        n=readbytes("CLIENTS.DBF");CHECK(n==olen && !memcmp(original,extracted,n),"active table survives refused output alias");
+    }
+    xb_interp_free(c.ip);pal_host_free(c.inner);
 }
 static void codec_lifetimes(ibase_pal_t *p){
     dbt_file *ma=NULL,*mb=NULL;ndx_index *ia=NULL,*ib=NULL;ndx_node_t *node=NULL;
@@ -271,6 +392,6 @@ int main(int argc,char **argv){
     CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
     CHECK(mkdtemp(directory)!=NULL,"private oracle directory");
     if(chdir(directory) || mkdir("build",0700) || mkdir("build/dbsafe",0700)) return 2;
-    if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else safety_tests();
+    if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();}else safety_tests();
     return TEST_SUMMARY(mode);
 }

@@ -265,6 +265,8 @@ ibase_pal_t *wa_env_pal(const wa_env *env);
  * Ref: dbf.h dbf_open/dbf_has_memo; dbt.h dbt_open; ndx.h ndx_open; plan S5.1.
  */
 int wa_name_is_open(const wa_env *env, const char *name, int except_area);
+/* Destructive output must not replace any open DBF, memo or index. */
+int wa_output_is_open(const wa_env *env, const char *name);
 int wa_set_open(wa_env *env, int area, const char *name,
                 const char *alias, const wa_index_list *idx);
 

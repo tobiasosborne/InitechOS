@@ -141,6 +141,7 @@
 #include "ibase/lifetime.h"
 #include <stdint.h>
 #include "ibase/pal.h"
+#include "ibase/file_write.h"
 #include "ibase/rt.h"
 #include "ibase/value.h"
 #include "ibase/ndx.h"
@@ -1442,6 +1443,7 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
     int       rc;
     uint32_t  i;
     ndx_bld   b;
+    ibase_file_write tx;
 
     if (!pal || !out_name || !get_key)
         return -NDX_ERR_IO;
@@ -1556,17 +1558,17 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
     b.page      = page;
 
     /* --- Open the output file (create/truncate). --- */
-    fd = pal->open(pal, out_name, PAL_RDWR | PAL_CREATE | PAL_TRUNC);
-    if (fd < 0) {
+    if (ibase_file_begin(&tx,pal,out_name)) {
         pal->reset(pal, mark);
         return -NDX_ERR_IO;
     }
+    fd=tx.fd;
     b.fd = fd;
 
     /* --- Page 0 placeholder (rewritten with root/total at the end). --- */
     rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
     rc = write_page(pal, fd, 0u, page);
-    if (rc != NDX_OK) { pal->close(pal, fd); pal->reset(pal, mark); return rc; }
+    if (rc != NDX_OK) { ibase_file_abort(&tx); pal->reset(pal, mark); return rc; }
 
     /* --- Leaves: pack 100% L->R, remainder last; each leaf is written and
      * pushed the moment it is complete (streaming; see the block above). --- */
@@ -1603,14 +1605,14 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
                 rc = bld_push(&b, 0u, pno,
                               fill ? key_i + fill - 1u : NDX_BLD_NOHI);
             if (rc != NDX_OK) {
-                pal->close(pal, fd); pal->reset(pal, mark); return rc;
+                ibase_file_abort(&tx); pal->reset(pal, mark); return rc;
             }
             key_i += fill;
         }
     }
 
     rc = bld_finish(&b, &root_page);
-    if (rc != NDX_OK) { pal->close(pal, fd); pal->reset(pal, mark); return rc; }
+    if (rc != NDX_OK) { ibase_file_abort(&tx); pal->reset(pal, mark); return rc; }
 
     /* --- Page 0: the header, now that root_page and total_pages are known. --- */
     rt_memset(page, 0, (uint32_t)NDX_PAGE_SIZE);
@@ -1633,7 +1635,8 @@ IBASE_OVL_TEXT(file) int ndx_build_ex(ibase_pal_t *pal, const char *out_name,
     }
     rc = write_page(pal, fd, 0u, page);
 
-    pal->close(pal, fd);
+    if(rc!=NDX_OK)ibase_file_abort(&tx);
+    else if(ibase_file_commit(&tx,0))rc=-NDX_ERR_IO;
     pal->reset(pal, mark);
     return rc;
 }
@@ -2386,8 +2389,9 @@ IBASE_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
     pal = idx->pal;
 
     /* Release our handle so ndx_build can create/truncate the file cleanly. */
-    pal->close(pal, idx->fd);
+    rc=pal->close(pal, idx->fd);
     idx->fd = (pal_fd)-1;
+    if(rc)return -NDX_ERR_IO;
 
     /* Rebuild the whole .ndx from the packed table, preserving key geometry
      * and the verbatim key expression. */
@@ -2395,8 +2399,10 @@ IBASE_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx, uint32_t nrec,
                    idx->key_type, idx->key_length, idx->key_expr,
                    nrec, get_key, user,
                    idx->unique_flag != 0u);
-    if (rc != NDX_OK)
-        return rc;   /* fail loud; handle left fd == -1 */
+    if (rc != NDX_OK){
+        idx->fd=pal->open(pal,idx->path,PAL_RDWR);
+        return rc;
+    }
 
     /* Reopen the freshly-built file read-write and refresh the in-memory
      * header so the caller's existing handle continues to resolve. */

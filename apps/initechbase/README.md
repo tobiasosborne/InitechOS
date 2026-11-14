@@ -25,7 +25,7 @@ DBF/DBT/NDX readers; new orchestration is C, make and POSIX shell.
 
 ## Loader and overlay contract
 
-The resident module is 107744 bytes with 792 relocations; INITBASE.EXE is
+The imported baseline resident module is 107744 bytes with 792 relocations; INITBASE.EXE is
 110976 bytes, including its relocation header, and INITBASE.OVL is 39424 bytes.
 Above the resident bytes, the link needs a 13968-byte overlay slot, 16 bytes
 of BSS alignment, 47680 bytes of BSS, and a 3952-byte PAL heap region: 65616
@@ -157,3 +157,28 @@ GREEN (11 components, 89 seconds); InitechBase executes its 75 suites in nine
 seconds. `make status` reports apps/initechbase as imported. This establishes
 the import conditions and the named DOS journey, not the deferred parity and
 screen qualification listed above.
+
+## Write preservation and reference qualification
+
+DBF flush and committed APPEND serialize to a separate file, including +2 to
++1 header normalization. COPY FILE (including self-copy), SAVE TO, REPORT,
+LABEL, ALTERNATE and index builds likewise close a completed stage before
+replacing their destination. An output alias of an open table, memo or index
+is refused. ALTERNATE publishes on close and reports output/close failures.
+The policy is the operator's failed-save guarantee; the real III+ full-disk
+COPY/SAVE captures are destructive. Sources, precise fault coverage and the
+remaining repeated-metadata-failure limitation are in
+[tests/write-safety/README.md](tests/write-safety/README.md).
+
+The host SAY suite executes three captured supported @...TO workflows and
+compares target character, attribute and cursor dumps to real III+. W4's
+retained editor screens and file comparators are explicitly self-tests. They
+still do not qualify the unimplemented editors or traceback UI. The smoke
+also starts genuine III+ to reopen target DBF/NDX, a host-written memo pair,
+and the real +2 table preserved by an injected flush failure. It checks exact
+values, record counts and seeks. GET/READ is unchanged.
+
+The artifact sizes and hashes earlier in this README describe the imported
+baseline, before this change. `make package-check` reports the current loader
+geometry and validates the actual EXE/OVL pair; no size or hash above is a
+claim about the current build. The 28 pending patches remain unproved.

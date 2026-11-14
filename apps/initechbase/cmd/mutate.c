@@ -108,6 +108,7 @@
 #include "ibase/value.h"
 #include "ibase/rt.h"
 #include "ibase/pal.h"
+#include "ibase/file_write.h"
 #include "ibase/set.h"
 #include "ibase/ovl.h"
 
@@ -1042,12 +1043,9 @@ static IBASE_OVL_TEXT(file) int d_destination(xb_interp *ip,const char *name,int
 {
     ibase_pal_t *p=xb_interp_pal(ip);pal_fd fd;
     wa_env *env=xb_interp_env(ip);
-    for(int a=1;a<=WA_NAREAS;a++) {
-        dbf_table *t=wa_table(env,a);
-        if(t && m_ci_eq(dbf_name(t),name))return d_fail(ec,3);
-    }
+    if(wa_output_is_open(env,name))return d_fail(ec,3);
     fd=p->open(p,name,PAL_RD);
-    if(fd>=0) { p->close(p,fd);if(set_get_safety(ip))return d_fail(ec,7); }
+    if(fd>=0) { if(p->close(p,fd))return d_fail(ec,29);if(set_get_safety(ip))return d_fail(ec,7); }
     else if(fd!=-PAL_ENOENT)return d_fail(ec,29);
     return 0;
 }
@@ -1225,6 +1223,7 @@ static IBASE_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
     const char *p=m_skip_ws(args);char src[128],dst[128],buf[512];int copy=kind==3;
     int type=kind==0,erase=kind==2,rc=0;
     ibase_pal_t *pal=xb_interp_pal(ip);pal_fd in,out=-1;int32_t n;uint32_t total=0;
+    ibase_file_write tx;
     if(copy) {if(!m_match_kw(p,"FILE"))return CMD_UNKNOWN;p=m_skip_ws(p+4);}
     if(!d_word(&p,src,sizeof src) || !d_name(src,sizeof src,""))return d_fail(ec,10);
     if(!erase && !type) {
@@ -1249,8 +1248,8 @@ static IBASE_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
     }
     if(copy) {
         if(d_destination(ip,dst,ec)) {pal->close(pal,in);return -INTERP_ERR_EVAL;}
-        out=pal->open(pal,dst,PAL_RDWR|PAL_CREATE|PAL_TRUNC);
-        if(out<0){pal->close(pal,in);return d_fail(ec,29);}
+        if(ibase_file_begin(&tx,pal,dst)){pal->close(pal,in);return d_fail(ec,29);}
+        out=tx.fd;
     } else xb_interp_output(ip,"\r\n",2);
     while((n=pal->read(pal,in,buf,sizeof buf))>0) {
         if(type) {
@@ -1270,8 +1269,11 @@ static IBASE_OVL_TEXT(file) int d_file(xb_interp *ip,int kind,const char *args,i
         if(pal->write(pal,out,buf,pad)!=(int32_t)pad)rc=56;
     }
 
-    if(out>=0 && pal->close(pal,out))rc=29;
-    pal->close(pal,in);
+    if(pal->close(pal,in) && !rc)rc=29;
+    if(out>=0){
+        if(rc)ibase_file_abort(&tx);
+        else if(ibase_file_commit(&tx,0))rc=29;
+    }
     return rc?d_fail(ec,rc):INTERP_OK;
 }
 

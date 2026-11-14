@@ -76,6 +76,7 @@
  */
 
 #include "ibase/lifetime.h"
+#include "ibase/file_write.h"
 #include <stdint.h>
 
 #include "ibase/pal.h"
@@ -1194,11 +1195,11 @@ IBASE_OVL_TEXT(file) int dbf_create(ibase_pal_t *pal, const char *name,
         tbl->rec_buf = rb;
     }
 
-    /* Open the file for read/write, creating/truncating it (PAL contract). */
-    fd = pal->open(pal, name, PAL_RDWR | PAL_CREATE | PAL_TRUNC);
-    if (fd < 0)
+    /* Retain an existing readable file until flush publishes a full stage. */
+    fd = pal->open(pal, name, PAL_RDWR);
+    if (fd < 0 && fd != -PAL_ENOENT)
         return teardown(tbl, -DBF_ERR_IO);
-    tbl->fd = fd;
+    tbl->fd = fd < 0 ? -1 : fd;
 
     /* The record region is allocated lazily on the first append (we do not know
      * the record count at create time). rec_region stays NULL until then. */
@@ -1273,7 +1274,7 @@ static int write_result(int32_t wr, uint32_t n)
 
 const char *dbf_name(const dbf_table *tbl) { return tbl ? tbl->name : ""; }
 
-int dbf_flush(dbf_table *tbl)
+static int dbf_serialize(dbf_table *tbl, pal_fd fd)
 {
     uint8_t   hdr[DBF_HDR_SIZE];
     uint8_t   desc[DBF_DESC_STRIDE];
@@ -1311,8 +1312,8 @@ int dbf_flush(dbf_table *tbl)
     flush_hdrlen = (uint32_t)DBF_HDR_SIZE
                  + (uint32_t)DBF_DESC_STRIDE * (uint32_t)tbl->nfields + 1u;
 
-    /* Seek to the start; we always rewrite the whole file (TRUNC at create). */
-    pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
+    /* This handle belongs to a fresh stage, never the preceding table. */
+    pos = tbl->pal->seek(tbl->pal, fd, 0, PAL_SEEK_SET);
     if (pos != 0)
         return -DBF_ERR_WRITE;
 
@@ -1335,7 +1336,7 @@ int dbf_flush(dbf_table *tbl)
     wr_u16le(hdr + DBF_HDR_RECORD_LEN_OFF, tbl->record_length);
     /* hdr[0x0C..0x1F] remain 0x00 (NORMALIZE: reserved/MDX/LDID/multiuser). */
 
-    wr = tbl->pal->write(tbl->pal, tbl->fd, hdr, DBF_HDR_SIZE);
+    wr = tbl->pal->write(tbl->pal, fd, hdr, DBF_HDR_SIZE);
     if (wr != (int32_t)DBF_HDR_SIZE)
             return write_result(wr, DBF_HDR_SIZE);
 
@@ -1358,21 +1359,21 @@ int dbf_flush(dbf_table *tbl)
         desc[DBF_DESC_DEC_COUNT_OFF] = f->dec_count;
         /* desc 0x14 work-area id, 0x12/0x15/0x17/0x18/0x1F: 0x00 (NORMALIZE). */
 
-        wr = tbl->pal->write(tbl->pal, tbl->fd, desc, DBF_DESC_STRIDE);
+        wr = tbl->pal->write(tbl->pal, fd, desc, DBF_DESC_STRIDE);
         if (wr != (int32_t)DBF_DESC_STRIDE)
             return write_result(wr, DBF_DESC_STRIDE);
     }
 
     /* --- the lone 0x0D terminator (the +1 form; dbf.md sec 4). --- */
     term = (uint8_t)DBF_DESC_TERMINATOR;
-    wr = tbl->pal->write(tbl->pal, tbl->fd, &term, 1u);
+    wr = tbl->pal->write(tbl->pal, fd, &term, 1u);
     if (wr != 1)
             return write_result(wr, 1u);
 
     /* --- the record region: nrec records, record_length bytes each. --- */
     if (tbl->nrec > 0u) {
         uint32_t total = tbl->nrec * (uint32_t)tbl->record_length;
-        wr = tbl->pal->write(tbl->pal, tbl->fd, tbl->rec_region, total);
+        wr = tbl->pal->write(tbl->pal, fd, tbl->rec_region, total);
         if (wr != (int32_t)total)
             return write_result(wr, total);
     }
@@ -1380,13 +1381,13 @@ int dbf_flush(dbf_table *tbl)
     /* --- trailing 0x1A EOF byte (S1.4 decision: emit it; dbf.md sec 8 optional;
      * NOT counted in header_length/record_length; a reader must not require it). */
     eof = (uint8_t)DBF_EOF_MARKER;
-    wr = tbl->pal->write(tbl->pal, tbl->fd, &eof, 1u);
+    wr = tbl->pal->write(tbl->pal, fd, &eof, 1u);
     if (wr != 1)
             return write_result(wr, 1u);
 
     /* Reposition to the file start so the table can be read back without
      * re-open (the open handle is RDWR). */
-    pos = tbl->pal->seek(tbl->pal, tbl->fd, 0, PAL_SEEK_SET);
+    pos = tbl->pal->seek(tbl->pal, fd, 0, PAL_SEEK_SET);
     if (pos != 0)
         return -DBF_ERR_WRITE;
 
@@ -1408,7 +1409,21 @@ int dbf_flush(dbf_table *tbl)
     return DBF_OK;
 }
 
-/* ======================================================================== */
+
+int dbf_flush(dbf_table *tbl)
+{
+    ibase_file_write tx;int rc;uint16_t old_header;uint8_t old_extra;
+    if(!tbl || !tbl->writable)return -DBF_ERR_IO;
+    old_header=tbl->header_length;old_extra=tbl->term_extra;
+    rc=ibase_file_begin(&tx,tbl->pal,tbl->name);
+    if(rc)return write_result(rc,1);
+    rc=dbf_serialize(tbl,tx.fd);
+    if(rc)ibase_file_abort(&tx);
+    else rc=write_result(ibase_file_commit(&tx,&tbl->fd),0);
+    if(rc){tbl->header_length=old_header;tbl->term_extra=old_extra;}
+    return rc;
+}
+
 /* S1.5: record mutation verbs                                               */
 /*                                                                          */
 /* Record-cursor model: EXPLICIT recno arguments (1-based, matching         */
@@ -1528,41 +1543,17 @@ int dbf_append_blank(dbf_table *tbl)
     return DBF_OK;
 }
 
-/* L001: preserve +1/+2 geometry and every earlier record. Only the new
- * tail can require allocation; publish the count after both tail writes.
- * Ref: dbf.md ss2/4/6/8. Failure atomicity (including restoring a short
- * count write) is authored, no local reference; this is not crash recovery. */
+/* Append uses the same staged serializer as REPLACE. A short count write
+ * followed by a persistent media error cannot be repaired in place.
+ * Preservation contract: tests/write-safety/README.md. */
 int dbf_append_blank_commit(dbf_table *tbl)
 {
-    uint32_t old, offset;
-    uint8_t count[4], prior[4], eof = DBF_EOF_MARKER;
-    int rc;
-    if (!tbl || tbl->write_failed) return -DBF_ERR_WRITE;
-    old = tbl->nrec;
-    rc = dbf_append_blank(tbl);
-    if (rc != DBF_OK) return rc;
-    offset = (uint32_t)tbl->header_length + old * tbl->record_length;
-    if (tbl->pal->seek(tbl->pal,tbl->fd,(int32_t)offset,PAL_SEEK_SET) != (int32_t)offset) {
-        rc = -DBF_ERR_WRITE; goto refused;
-    }
-    rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,rec_ptr(tbl,old+1u),tbl->record_length),tbl->record_length);
-    if (rc != DBF_OK) goto refused;
-    rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,&eof,1u),1u);
-    if (rc != DBF_OK) goto refused;
-    if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF) {
-        rc = -DBF_ERR_WRITE; goto refused;
-    }
-    wr_u32le(prior,old); wr_u32le(count,tbl->nrec);
-    rc = write_result(tbl->pal->write(tbl->pal,tbl->fd,count,4u),4u);
-    if (rc == DBF_OK) return DBF_OK;
-    /* A short four-byte write can tear 255 -> 256. Restore the committed
-     * bytes in the already allocated header sector before returning. */
-    if (tbl->pal->seek(tbl->pal,tbl->fd,DBF_HDR_NREC_OFF,PAL_SEEK_SET) != DBF_HDR_NREC_OFF ||
-        write_result(tbl->pal->write(tbl->pal,tbl->fd,prior,4u),4u) != DBF_OK) {
-        tbl->write_failed=1u; rc=-DBF_ERR_WRITE;
-    }
-refused:
-    tbl->nrec=old;
+    uint32_t old;int rc;
+    if(!tbl || tbl->write_failed)return -DBF_ERR_WRITE;
+    old=tbl->nrec;rc=dbf_append_blank(tbl);
+    if(rc)return rc;
+    rc=dbf_flush(tbl);
+    if(rc)tbl->nrec=old;
     return rc;
 }
 

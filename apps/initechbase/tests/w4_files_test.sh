@@ -75,4 +75,4 @@ one prg "$real/ADD.PRG" 3
 one vue "$real/RESERVE.VUE" 0x1a
 one exact "$real/ADD.PRG" 3
 red exact "$real/FLT_INFO.FRM" 0x1d8 unchanged-resave-scratch
-printf 'GREEN: test-w4-files: real III+ samples; meaningful mutants RED; documented padding GREEN; framing/truncation RED\n'
+printf 'GREEN: comparator self-test w4-files: real III+ samples; meaningful mutants RED; documented padding GREEN; framing/truncation RED\n'

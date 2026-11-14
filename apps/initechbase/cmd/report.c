@@ -64,6 +64,7 @@
 #include "ibase/value.h"
 #include "ibase/rt.h"
 #include "ibase/pal.h"
+#include "ibase/file_write.h"
 #include "ibase/ovl.h"
 
 /* query.c engine helpers (expression evaluation + value display text). */
@@ -85,6 +86,7 @@ static struct {
     xb_interp *ip;
     ibase_pal_t *pal;
     pal_fd fd;
+    ibase_file_write output;
     int ncol, nlev, plain, summary, nto, err;
     int lpp, lm, U, L, page, pos, gvn[2];
     const char *title, *gx[2], *gh[2];
@@ -311,7 +313,7 @@ static IBASE_OVL_TEXT(report) int rp_load(void)
     if (fd < 0) return fd == -PAL_ENOENT ? 1 : 29;
     i = R.pal->read(R.pal, fd, R.frm, RP_FRM);
     if (i == RP_FRM && R.pal->read(R.pal, fd, R.fn, 1u) != 0) i = -1;   /* longer */
-    R.pal->close(R.pal, fd);
+    if(R.pal->close(R.pal,fd))return 29;
     tot = rp_u16(2);
     if (i != RP_FRM || rp_u16(0) != 2 || rp_u16(0x7C4) != 2 || tot > 0x68C - 0xE0) return 50;
     for (i = 0; i < 55; i++) { x = rp_u16(4 + 2 * i); sum += x; nz += x != 0; }
@@ -469,15 +471,18 @@ static IBASE_OVL_TEXT(report) int rp_run(const char *args, int *ec)
     rt_memset(R.acc, 0, sizeof R.acc);
     if (cl[K_TO]) {
         if ((rc = rp_name(cl[K_TO], ".TXT")) != 0) { *ec = rc; return -1; }   /* U5-178 */
-        R.fd = R.pal->open(R.pal, R.fn, PAL_WR | PAL_CREATE | PAL_TRUNC);
-        if (R.fd < 0) { *ec = 29; return -1; }
+        if(wa_output_is_open(env,R.fn)){*ec=3;return -1;}
+        if(ibase_file_begin(&R.output,R.pal,R.fn)){*ec=29;return -1;}
+        R.fd=R.output.fd;
     }
     i = wa_include_deleted(env, cl[K_RECORD] || cl[K_NEXT]);
     rc = rp_walk(cl, ec);
     wa_include_deleted(env, i);
     if (!rc) rp_raw("\r\n", 2);
     if (R.fd >= 0) {
-        if (R.pal->write(R.pal, R.fd, "\x1a", 1u) != 1 || R.pal->close(R.pal, R.fd)) R.err = 29;
+        if(!rc && !R.err && R.pal->write(R.pal,R.fd,"\x1a",1u)!=1)R.err=29;
+        if(rc || R.err)ibase_file_abort(&R.output);
+        else if(ibase_file_commit(&R.output,0))R.err=29;
         R.fd = -1;
     }
     if (!rc && R.err) { *ec = R.err; rc = -1; }
@@ -501,7 +506,8 @@ static IBASE_OVL_TEXT(report) int lbl_run(const char *args,int *ec)
     if(*e)*e++=0;
     if((*ec=rp_name(p,".LBL")))return -1;
     form=R.pal->open(R.pal,R.fn,PAL_RD);if(form<0){*ec=form==-PAL_ENOENT?1:29;return -1;}
-    int n=R.pal->read(R.pal,form,R.frm,sizeof R.frm);R.pal->close(R.pal,form);
+    int n=R.pal->read(R.pal,form,R.frm,sizeof R.frm);
+    if(R.pal->close(R.pal,form)){*ec=29;return -1;}
     if(n!=1034 || R.frm[0]!=2 || R.frm[1033]!=2){*ec=54;return -1;}
     h=rp_u16(61);w=rp_u16(63);lm=rp_u16(65);spacing=rp_u16(67);gap=rp_u16(69);across=rp_u16(71);
     if(h<1 || h>16 || !w || across<1 || across>16 || lm+(w+gap)*across>512 || spacing>100){*ec=54;return -1;}
@@ -512,8 +518,9 @@ static IBASE_OVL_TEXT(report) int lbl_run(const char *args,int *ec)
         if(!rp_word(p,"FILE")){*ec=36;return -1;}
         for(p+=4;*p==' ';p++);
         if((*ec=rp_name(p,".TXT")))return -1;
-        R.fd=R.pal->open(R.pal,R.fn,PAL_WR|PAL_CREATE|PAL_TRUNC);
-        if(R.fd<0){*ec=29;return -1;}
+        if(wa_output_is_open(env,R.fn)){*ec=3;return -1;}
+        if(ibase_file_begin(&R.output,R.pal,R.fn)){*ec=29;return -1;}
+        R.fd=R.output.fd;
     }
     area=wa_selected(env);
     if(!wa_is_open(env,area)){*ec=52;rc=-1;goto done;}
@@ -562,7 +569,9 @@ static IBASE_OVL_TEXT(report) int lbl_run(const char *args,int *ec)
     }
  done:
     if(R.fd>=0) {
-        if(R.pal->write(R.pal,R.fd,"\x1a",1)!=1 || R.pal->close(R.pal,R.fd))R.err=29;
+        if(!rc && !R.err && R.pal->write(R.pal,R.fd,"\x1a",1)!=1)R.err=29;
+        if(rc || R.err)ibase_file_abort(&R.output);
+        else if(ibase_file_commit(&R.output,0))R.err=29;
         R.fd=-1;
     }
     if(!rc && R.err){*ec=R.err;rc=-1;}

@@ -67,6 +67,7 @@
 
 #include <stdint.h>
 #include "ibase/interp.h"
+#include "ibase/file_write.h"
 
 /* -----------------------------------------------------------------------
  * SET DATE format keywords (the III+ keyword set from set-commands.md Sec 3.2).
@@ -107,6 +108,7 @@ typedef enum {
 
 typedef struct {
     pal_fd alternate;
+    ibase_file_write alternate_write;
     int alternate_on;
     char alternate_name[128];
     /* --- Stored toggles (non-EXACT) --- */
@@ -191,7 +193,7 @@ int          set_get_escape  (xb_interp *ip);   /* 1 = ON (default) */
  * to inspect GATED fields (index_text, filter_text, relation_text).
  */
 const set_state *set_get_state(xb_interp *ip);
-void set_close_alternate(xb_interp *ip);
+int set_close_alternate(xb_interp *ip);
 /* Record one executed program statement into the HISTORY ring when both
  * SET HISTORY and SET DOHISTORY are ON (flow.c, before macro expansion). */
 int set_history_record(xb_interp *ip, const char *line, int *ec);   /* 0 or -INTERP_ERR_NOMEM, ec 43 */

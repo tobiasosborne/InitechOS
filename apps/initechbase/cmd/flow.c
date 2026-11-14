@@ -46,6 +46,7 @@
 #include "ibase/value.h"
 #include "ibase/rt.h"
 #include "ibase/pal.h"
+#include "ibase/file_write.h"
 #include "ibase/set.h"
 #include "ibase/ovl.h"
 
@@ -1006,10 +1007,13 @@ static IBASE_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const
         p->release(p,b);
     } else {
         unsigned char h[32],eof=26;
+        ibase_file_write tx;
+        if(wa_output_is_open(xb_interp_env(ip),name))return fl_memfail(ec,3);
         fd=p->open(p,name,PAL_RD);
-        if(fd>=0) {p->close(p,fd);if(set_get_safety(ip))return fl_memfail(ec,7);}
+        if(fd>=0) {if(p->close(p,fd))return fl_memfail(ec,29);if(set_get_safety(ip))return fl_memfail(ec,7);}
         else if(fd!=-PAL_ENOENT)return fl_memfail(ec,29);
-        fd=p->open(p,name,PAL_RDWR|PAL_CREATE|PAL_TRUNC);if(fd<0)return fl_memfail(ec,29);
+        if(ibase_file_begin(&tx,p,name))return fl_memfail(ec,29);
+        fd=tx.fd;
         for(int i=0;!rc && i<fs->nvars;i++)if(fs->vars[i].live && memvar_find(fs,fs->vars[i].name)==i) {
             xb_val *v=&fs->vars[i].val;unsigned type=(unsigned char)xb_type_char(v->t),len;
             union {double d;unsigned char b[8];} x;unsigned char text[255];const void *payload;
@@ -1031,7 +1035,8 @@ static IBASE_OVL_TEXT(memfile) int fl_memfile(xb_interp *ip,flow_state *fs,const
             if(p->write(p,fd,h,32)!=32 || p->write(p,fd,payload,len)!=(int32_t)len)rc=56;
         }
         if(!rc && p->write(p,fd,&eof,1)!=1)rc=56;
-        if(p->close(p,fd) && !rc)rc=29;
+        if(rc)ibase_file_abort(&tx);
+        else if(ibase_file_commit(&tx,0))rc=29;
     }
     return rc?fl_memfail(ec,rc):INTERP_OK;
 }

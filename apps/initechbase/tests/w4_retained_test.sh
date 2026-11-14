@@ -38,4 +38,4 @@ for app in retained create-retained structure-retained generated-form; do
         done
     done < "$src/DUMPS"
 done
-echo 'GREEN: test-w4-retained: real reference hashes/identity, exact char/attribute/cursor mutants RED'
+echo 'GREEN: comparator self-test w4-retained: real reference hashes/identity, exact char/attribute/cursor mutants RED'

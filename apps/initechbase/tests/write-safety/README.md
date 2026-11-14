@@ -1,0 +1,63 @@
+# Failed writes and real-software qualification
+
+The operator's Phase 2 failed-save ruling is the preservation authority:
+after a reported write failure the preceding file must still open under its
+own name. It deliberately strengthens III+ where the reference loses data.
+This is reported-error recovery, not power-loss/crash atomicity.
+
+`capture.sh /absolute/fresh/output` uses the tooling in goldens/dataloss and
+the same hash-pinned real DOS 3.30 and dBASE III PLUS 1.1 runtime as the
+existing corpora. No reference binaries are retained here. SCENARIOS selects
+individual cases. It fills a 1.44 MiB FAT12 floppy with mtools before running
+real commands on it. Captured runs are in captured/ and SHA256SUMS pins them.
+The complete disposable disks and raw monitor evidence from this session
+remain under /tmp/ibase-write-capture5 and /tmp/ibase-write-capture6.
+
+Observed in the retained captures:
+
+- `full`: REPLACE fits the existing allocation; repeated APPEND reaches
+  `Disk full when writing file: B:BASE.dbf`. This is a write-failure capture,
+  not proof of real III+'s abort/reopen contract: both attempted A responses
+  left the reference at its recovery prompt. We do not infer the missing result.
+- `copy`: failed COPY FILE on full media leaves the previous TARGET.TXT at
+  length zero (original was `PREVIOUS-FILE\r\n`).
+- `save`: failed SAVE TO on full media leaves TARGET.MEM at length zero.
+- `index`: building on full media reports insufficient index disk space and
+  then a disk-full recovery prompt. It does not qualify failed REINDEX of an
+  existing index. The preservation property, not an invented III+ contract,
+  governs that case.
+- `alias`: real self-copy completes, but TARGET.TXT is empty afterward.
+
+The retained `running` VGA/PNG captures are sampled at the recovery prompt;
+files/listings are extracted only after QEMU stops. Host dates in mdir are
+observations, not product bytes. The SCRIPT captures include unsuccessful
+abort/reopen attempts so they cannot be mistaken for a positive reopen proof.
+
+The host `test_ibase_dbsafe writes` matrix injects negative and short writes
+(zero/one/half/all-but-one), persistent write failure, and individual open,
+seek, close and rename faults. Byte equality with independent real III+
+inputs is stronger than merely accepting a DBF parser's exit status. It also
+exhausts output writes/closes for COPY, SAVE, REPORT, LABEL, ALTERNATE and
+index builds. Source-table navigation failures are not claimed by that matrix.
+`append` separately qualifies 255-to-256 count publication with +1/+2 inputs.
+
+Same-directory 8.3 stages are closed before replacing a destination; failed
+serialization removes only the stage. Commit renames the predecessor aside,
+then installs the completed file and restores the predecessor if installation
+fails. A second independent metadata failure during rollback can prevent
+restoration under the original name: the backup is retained. The current PAL
+has no atomic replace primitive, so unconditional preservation across arbitrary
+repeated rename failures cannot be guaranteed. Cleanup failures after successful
+publication may leave a BAK. No crash-atomicity guarantee is made.
+
+`test_ibase_say` now executes the captured TA/TB/TD @...TO command prefixes,
+saves actual target cell/attribute/cursor dumps, and compares all 4002 bytes
+with the real III+ at-to-a captures. TC's traceback/recovery screen remains
+outside the implemented recovery UI; no GET/READ or editor work is included.
+The retained-screens and w4-files suites are comparator/provenance self-tests,
+not target acceptance tests for the unimplemented editor forms.
+
+The smoke's `reopen.sh` boots fresh real III+ and requires exact known records
+from the target-written DBF, seeks with its NDX, and exact memo text from a
+host-written DBF/DBT. It requires all three independent acceptance markers;
+parse success alone is insufficient. The ordinary tier-0 suite uses no emulator.

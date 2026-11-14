@@ -1,0 +1,16 @@
+sleep 3
+key ret
+sleep 8
+shot running
+type A
+sleep 1
+type use
+key ret
+type use b:base
+key ret
+type ? reccount()
+key ret
+sleep 1
+shot reopened
+shot result
+end

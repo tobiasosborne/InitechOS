@@ -45,7 +45,7 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" \
     $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \
     --expect initechbasesmokecomplete --quit-after initechbasesmokecomplete \
-    --timeout-ms 90000 --name run --out "$dir" > "$dir/stdout" 2> "$dir/report"; then
+    --timeout-ms "${IBASE_SMOKE_TIMEOUT_MS:-90000}" --name run --out "$dir" > "$dir/stdout" 2> "$dir/report"; then
   cat "$dir/report"; fail "$emulator session incomplete";
  fi
  tr -d "\r" < "$dir/run.serial" | sed "s/\[DML-BEGIN\]//g; s/\[DML-END\].*//; s/\. [a-z?].*//" > "$dir/serial.txt"
@@ -84,3 +84,10 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  echo "$emulator: InitechBase smoke GREEN (8 MiB)"
 done
 echo "InitechBase SMOKE: $checks checks, 0 failures (QEMU then Bochs at 8 MiB)"
+# GM5: a fresh genuine III+ session must open serialized target output.
+core=$out/real-reopen/core
+mkdir -p "$core/build"
+(cd "$core" && "$root/build/apps/initechbase/host/test_ibase_core" "$core") > "$out/real-core.log" 2>&1
+mkdir -p "$core/build/dbsafe"
+(cd "$core" && "$root/build/apps/initechbase/host/test_ibase_dbsafe" flush) > "$out/real-flush.log" 2>&1
+sh "$src/tests/write-safety/reopen.sh" "$out/real-reopen" "$dir" "$core"

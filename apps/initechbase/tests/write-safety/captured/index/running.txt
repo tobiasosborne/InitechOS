@@ -1,0 +1,25 @@
+                                                                                
+บ                                   Charlie                                    บ
+บ                                    Horse                                     บ
+บ                                  3399742-37                                  บ
+บ                                                                              บ
+บ         Copyright (c) Ashton-Tate 1985, 1986.  All Rights Reserved.          บ
+บ      dBASE, dBASE III PLUS and Ashton-Tate are trademarks of Ashton-Tate     บ
+บ                                                                              บ
+บ       You may use the software and  printed materials in  the dBASE III      บ
+บ       PLUS package under the  terms of the  Software License Agreement;      บ
+บ       please  read it.   In summary,  Ashton-Tate grants you a paid-up,      บ
+บ       non-transferable,  personal license to use dBASE III  PLUS on one      บ
+บ       computer  work  station.   You  do  not become  the owner  of the      บ
+บ       package nor do  you have  the  right  to  copy  (except permitted      บ
+บ       backups  of  the  software)  or  alter  the  software  or printed      บ
+บ       materials.   You are legally accountable for any violation of the      บ
+บ       License Agreement and copyright, trademark, or trade secret law.       บ
+ศออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออออผ
+                                                                                
+                                                                                
+                                                                                
+BEFORE         49 Claire                                                        
+Not enough disk space for INDEX.                                                
+Disk full when writing file: B:OLD.ndx                                          
+Abort, Ignore, or Delete old files? (A, I, or D)                                

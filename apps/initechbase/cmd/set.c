@@ -87,15 +87,19 @@ static int        g_n;
 
 /* Using III+ U5-193: close owns the handle and appends the DOS EOF byte.
  * Replacing a log closes its predecessor; ON/OFF only pauses capture. */
-void set_close_alternate(xb_interp *ip)
+int set_close_alternate(xb_interp *ip)
 {
     int i;ibase_pal_t *pal=xb_interp_pal(ip);
     for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate>=0) {
         char eof=26;
-        pal->write(pal,g_val[i].alternate,&eof,1);
-        pal->close(pal,g_val[i].alternate);
+        int rc=0;
+        if(pal->write(pal,g_val[i].alternate,&eof,1)!=1){ibase_file_abort(&g_val[i].alternate_write);rc=8;}
+        else if(ibase_file_commit(&g_val[i].alternate_write,0))rc=8;
         g_val[i].alternate=-1;g_val[i].alternate_on=0;
+        if(rc)xb_interp_ctx(ip)->error_number=rc;
+        return rc;
     }
+    return 0;
 }
 static void alternate_output(
 void *user,const char *s,uint32_t n)
@@ -104,8 +108,10 @@ void *user,const char *s,uint32_t n)
     for(i=0;i<g_n;i++)if(g_key[i]==ip && g_val[i].alternate_on && g_val[i].alternate>=0) {
         if(pal->write(pal,g_val[i].alternate,s,n)!=(int32_t)n) {
             g_val[i].alternate_on=0;
+            ibase_file_abort(&g_val[i].alternate_write);g_val[i].alternate=-1;
             /* Preserve a failed log rather than continuing silent partial I/O. */
             xb_interp_ctx(ip)->error_number=8;
+            xb_interp_ctx(ip)->deferred_error=8;
         }
         return;
     }
@@ -702,7 +708,8 @@ static IBASE_OVL_TEXT(set) int set_opt_alternate(xb_interp *ip, set_state *ss, c
     if(!parse_on_off(s,&on)) { ss->alternate_on=on;return CMD_OK; }
     if(rt_kw_word(s,"TO\0",(int *)0)==0) {
         char name[128];uint32_t n;ibase_pal_t *pal=xb_interp_pal(ip);
-        s=s_skip_ws(s+2);set_close_alternate(ip);
+        s=s_skip_ws(s+2);
+        if(set_close_alternate(ip)){if(err_code)*err_code=8;return -INTERP_ERR_EVAL;}
         if(!*s)return CMD_OK;
         s_copy_trim(name,sizeof name,s);n=rt_strlen(name);
         if(n>1 && ((name[0]=='"' && name[n-1]=='"')||(name[0]=='\'' && name[n-1]=='\''))) {
@@ -710,8 +717,9 @@ static IBASE_OVL_TEXT(set) int set_opt_alternate(xb_interp *ip, set_state *ss, c
         }
         {uint32_t j;int dot=0;for(j=0;name[j];j++)if(name[j]=='.')dot=1;
          if(!dot && j+4<sizeof name)rt_memcpy(name+j,".TXT",5);}
-        ss->alternate=pal->open(pal,name,PAL_WR|PAL_CREATE|PAL_TRUNC);
-        if(ss->alternate<0){if(err_code)*err_code=8;return -INTERP_ERR_EVAL;}
+        if(wa_output_is_open(xb_interp_env(ip),name)){if(err_code)*err_code=3;return -INTERP_ERR_EVAL;}
+        if(ibase_file_begin(&ss->alternate_write,pal,name)){if(err_code)*err_code=8;return -INTERP_ERR_EVAL;}
+        ss->alternate=ss->alternate_write.fd;
         s_copy_trim(ss->alternate_name,sizeof ss->alternate_name,name);
         return CMD_OK;
     }

@@ -55,7 +55,7 @@ case "$name" in
  test_ibase_datatype)
   for c in blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar datecontract; do "$bins/$name" "$c"; done;;
  test_ibase_dbsafe)
-  for mode in append lifetime safety; do "$bins/$name" "$mode"; done;;
+  for mode in append lifetime safety writes; do "$bins/$name" "$mode"; done;;
  test_interp_do_file) sh tests/do_file_test.sh host "$bins/$name";;
  test_ibase_memocells)
   mkdir -p build/memocells/DRIVE build/memocells/DATA
@@ -67,6 +67,7 @@ case "$name" in
   python3 tests/dbf_ref.py --selftest
   python3 tests/ndx_ref.py --selftest;;
  captured-hashes)
+  (cd tests/write-safety/captured && sha256sum --quiet -c SHA256SUMS)
   for manifest in use_mint005.md5 report_mint004.md5; do
    (cd "$DBASE3_DECOMP/mint/work" && md5sum --quiet -c "$src/tests/$manifest")
   done

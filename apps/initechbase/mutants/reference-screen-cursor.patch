@@ -1,0 +1,12 @@
+# test: test_ibase_say
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1748,7 +1748,7 @@
+         row[0]=bl;row[w-1]=br;
+         if(pal->paint(pal,(uint8_t)r2,(uint8_t)c1,row,(uint32_t)w))return -1;
+     }
+-    x->screen_row=(uint16_t)r2;x->screen_col=(uint16_t)(c2+1);
++    x->screen_row=(uint16_t)r2;x->screen_col=(uint16_t)c2;
+     if(x->screen_col>=80) { x->screen_col=0;x->screen_row++; }
+     return qf_cursor(ip);
+ }

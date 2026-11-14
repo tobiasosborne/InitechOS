@@ -400,6 +400,25 @@ int wa_name_is_open(const wa_env *env,const char *name,int except_area)
     return 0;
 }
 
+int wa_output_is_open(const wa_env *env,const char *name)
+{
+    char key[260],other[260],memo[260];int a,i;
+    if(!env || !name)return 0;
+    if(wa_name_is_open(env,name,0))return 1;
+    name_key(name,key);
+    for(a=0;a<WA_NAREAS;a++)if(env->area[a].open){
+        const work_area *wa=&env->area[a];
+        if(wa->memo && !derive_dbt_path(memo,sizeof memo,dbf_name(wa->tbl))){
+            name_key(memo,other);if(!rt_strncmp(key,other,260))return 1;
+        }
+        for(i=0;i<wa->nidx;i++)if(wa->idx[i]){
+            name_key(ndx_name(wa->idx[i]),other);
+            if(!rt_strncmp(key,other,260))return 1;
+        }
+    }
+    return 0;
+}
+
 static void close_handles(work_area *wa)
 {
     if(wa->owner_pal) pal_owned_free(wa->owner_pal,&wa->owned);
