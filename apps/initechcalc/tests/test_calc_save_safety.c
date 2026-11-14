@@ -5,6 +5,7 @@
  * FILE COPY completion is a fixture of its owner's stage/commit contract;
  * this suite checks Calc's routing, ownership, handles and error handling. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "tbx_host.h"
 
@@ -43,7 +44,8 @@ static unsigned checks, failures;
 static void event(int32_t what, int32_t message)
 {
     tbx_event_t e={what,message,0,0,0,0};
-    tbx_app_event(&e);
+    if(!tbx_host_push_event(&e))exit(2);
+    (void)tbx_host_dispatch(tbx_app_event);
 }
 static unsigned handles(void)
 {

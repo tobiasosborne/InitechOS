@@ -3,13 +3,13 @@
  * Two windows use the existing Window Manager / tenant gate. Layout is
  * explicitly product policy in spec/flair_calc_traces.mk, not a frame crop. */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../calc.c"
 #include "tbx_host.h"
 
-static int failures, checks, draws[3], total, negative;
+static int failures, checks, draws[3], total, negative, exits;
 #define nw tbx_host.nwindows
-#define exits tbx_host.exit_calls
 #define installed tbx_host.bar
 #define alerts tbx_host.alerts
 #define alert_text tbx_host.alert_text
@@ -32,7 +32,12 @@ static int contour_changes(void)
 #define CHECK(c,s) do { checks++; if (!(c)) { failures++; fprintf(stderr,"FAIL %s\n",s); } } while(0)
 /* Rasterize recorded calls only; no private Toolbox transport. */
 static void event(int what,int msg) {
-    tbx_event_t e={what,msg,0,0,0,0}; tbx_host.nops=0; tbx_app_event(&e);
+    tbx_event_t e={what,msg,0,0,0,0};
+    int before=tbx_host.exit_calls;
+    tbx_host.nops=0;
+    if(!tbx_host_push_event(&e))exit(2);
+    (void)tbx_host_dispatch(tbx_app_event);
+    exits+=tbx_host.exit_calls-before;
     for(unsigned i=0;i<tbx_host.nops;i++) {
         const tbx_host_op_t *o=&tbx_host.ops[i];
         int w=o->a[0];
@@ -87,6 +92,10 @@ int main(void)
     CHECK(total&&negative,"footer total and trailing-minus specimen actually drawn");
     /* L007: a CLEAN worksheet quits at once, never asking. */
     event(TBX_EVT_GOAWAY,2); CHECK(exits==1&&alerts==0,"QUIT_CLEAN a clean close box quits without a question");
+    /* The shell reaps the clean tenant. The dirty-sheet scenario is a new
+     * launch; aggregate exit statistics belong to this fixture, not the slot. */
+    tbx_host_reset();
+    CHECK(tbx_app_main()==0,"fresh Calc after clean Quit");
     event(keyDown,'7'); event(keyDown,'3'); event(keyDown,'\r');
     content(0,0,s); CHECK(!strcmp(s,"73"),"editing uses i123 model");
     /* L007: after an edit File > Quit / the close box ASK (Save / Cancel / Don't Save). */

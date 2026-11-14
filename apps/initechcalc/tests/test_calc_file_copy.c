@@ -7,6 +7,7 @@
  * Pixels, the rate and the copied bytes are graded in the emulator
  * (test-flair-file-copy: ppm_flair_file_copy_check + the FAT differential). */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../calc.c"
 #include "tbx_host.h"
@@ -37,7 +38,8 @@ static void deliver(const tbx_event_t *e) {
   const tbx_host_file_t *f=tbx_host_file(src);
   if(f) tbx_host_put_file(dst,f->data,f->size);
  }
- tbx_app_event(e);
+ if(!tbx_host_push_event(e))exit(2);
+ (void)tbx_host_dispatch(tbx_app_event);
  if(src[0] && strcmp(src,"APPS\\LEDGER.TXT")) {
   const tbx_host_file_t *f=tbx_host_file(src);
   if(f && f->size<sizeof stage_data) {
@@ -120,22 +122,15 @@ int main(void)
         { tbx_event_t a = { (int32_t)TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0, 0 }; tbx_app_event(&a); }
         CHECK(copies == c0 + 1, "REPLACE_YES Replace performs the copy");
         { tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 }; tbx_app_event(&done); }
-        /* L007 + L006: Quit on a dirty sheet, answer Save: saved (after the replace question), then the session ends. */
+        /* Save the second edit while the tenant is live; repeat-save checks
+         * below must run before the final Quit, never by clearing exit_calls. */
         k = (tbx_event_t){ keyDown, '9', 0, 0, 0, 0 }; tbx_app_event(&k);
         k.message = '\r'; tbx_app_event(&k);
-        alerts = 0; c0 = copies;
-        { tbx_event_t q = { TBX_EVT_MENU, TBX_MENU_WORD(menu_id, 2), 0, 0, 0, 0 }; tbx_app_event(&q); }
-        CHECK(alerts == 1 && alert_buttons == 3 && exits == 0, "QUITSAVE Quit on an edited sheet asks first");
+        { tbx_event_t sv = { TBX_EVT_MENU, TBX_MENU_WORD(menu_id,item), 0, 0, 0, 0 }; tbx_app_event(&sv); }
         { tbx_event_t a = { (int32_t)TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0, 0 }; tbx_app_event(&a); }
-        CHECK(alerts == 2 && exits == 0, "QUITSAVE Save over an existing TABLES.TXT asks the replace question");
-        { tbx_event_t a = { (int32_t)TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0, 0 }; tbx_app_event(&a); }
-        CHECK(copies == c0 + 1 && exits == 0, "QUITSAVE Replace copies, and the session is still open until the copy lands");
-        CHECK(strstr(stage_data, "\r\n9 ") != NULL, "QUITSAVE the saved file holds the second edit (9)");
         { tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 }; tbx_app_event(&done); }
-        CHECK(exits == 1, "QUITSAVE a successful Save ends the session");
     }
-    /* Review fixes: the model is saved EVERY time once edited. A fresh Calc
-     * instance state is not possible here, so use the live one: no new edit,
+    /* The model is saved EVERY time once edited. Use the live tenant: no new edit,
      * Save again (TABLES.TXT exists -> Yes): the source is still the stage
      * holding the edited model, never the shipped LEDGER.TXT. */
     {
@@ -143,7 +138,7 @@ int main(void)
         tbx_event_t sv = { TBX_EVT_MENU, TBX_MENU_WORD(menu_id, item), 0, 0, 0, 0 };
         tbx_event_t yes = { (int32_t)TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0, 0 };
         tbx_event_t done = { (int32_t)TBX_EVT_FILECOPY, 50, 0, 0, 0, 0 };
-        exits = 0; tbx_app_event(&sv); tbx_app_event(&yes);
+        tbx_app_event(&sv); tbx_app_event(&yes);
         CHECK(copies == c0 + 1 && strcmp(src, "APPS\\LEDGER.TXT") != 0 && strstr(stage_data, "\r\n9 ") != NULL,
               "SAVE_REPEAT a second Save with no new edit still saves the edited model, not the stale ledger");
         tbx_app_event(&done);
@@ -154,6 +149,22 @@ int main(void)
               "STAGE_CLOBBER an existing APPS\\TABLES.TMP is neither truncated nor used as the stage");
         tbx_app_event(&done);
         CHECK(!tmp_clobbered, "STAGE_CLOBBER completion deletes only the stage this Save created");
+    }
+    /* L007 + L006: make another edit, then Quit > Save. This is the last
+     * scenario in the tenant; no callback may be sent after its final EXIT. */
+    {
+        tbx_event_t k={keyDown,'9',0,0,0,0};tbx_app_event(&k);
+        k.message='\r';tbx_app_event(&k);
+        alerts=0;unsigned c0=copies;
+        { tbx_event_t q={TBX_EVT_MENU,TBX_MENU_WORD(menu_id,2),0,0,0,0};tbx_app_event(&q); }
+        CHECK(alerts == 1 && alert_buttons == 3 && exits == 0, "QUITSAVE Quit on an edited sheet asks first");
+        { tbx_event_t a={TBX_EVT_ALERT,TBX_ALERT_DEFAULT,0,0,0,0};tbx_app_event(&a); }
+        CHECK(alerts == 2 && exits == 0, "QUITSAVE Save over an existing TABLES.TXT asks the replace question");
+        { tbx_event_t a={TBX_EVT_ALERT,TBX_ALERT_DEFAULT,0,0,0,0};tbx_app_event(&a); }
+        CHECK(copies == c0 + 1 && exits == 0, "QUITSAVE Replace copies, and the session is still open until the copy lands");
+        CHECK(strstr(stage_data, "\r\n9 ") != NULL, "QUITSAVE the saved file holds the second edit (9)");
+        { tbx_event_t done={TBX_EVT_FILECOPY,50,0,0,0,0};tbx_app_event(&done); }
+        CHECK(exits == 1, "QUITSAVE a successful Save ends the session");
     }
     printf("test_calc_file_copy: %u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;
