@@ -4,6 +4,8 @@
 set -eu
 cd "$(dirname "$0")/../.."
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1 MTOOLS_SKIP_CHECK=1
+emulators=${SYSTEM_SMOKE_CPUS-qemu bochs}
+sh factory/smoke-selection.sh system-emulators "$emulators" 'qemu bochs'
 mkdir -p build/system
 out=$(mktemp -d "$PWD/build/system/installed-smoke.XXXXXX")
 echo "system installed workflow evidence: $out"
@@ -27,7 +29,7 @@ done < system/working-volume.list
 python3 system/tests/read-samples.py "$out/installed/APPS"
 mdir -i "$volume" :: > "$out/space.txt"
 cat "$out/space.txt"
-for emulator in ${SYSTEM_SMOKE_CPUS:-qemu bochs}; do
+for emulator in $emulators; do
  for workflow in tps base turbo; do
   dir=$out/$emulator-$workflow
   mkdir -p "$dir"
