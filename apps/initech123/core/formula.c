@@ -555,7 +555,10 @@ int i123_formula_compile(const char *text, uint32_t len, uint16_t col, uint16_t 
 
 /* The expression tree of a code stream: one node per value-producing token
  * (PAREN wraps its operand), children as first/next lists. */
-#define DN_MAX 160u
+/* A retrieved expression may contain 250 characters (captured separately
+ * from the 240-character typed-entry limit). One node emits at least one
+ * character; 256 nodes cover every expression at that boundary. */
+#define DN_MAX 256u
 typedef struct {
     uint32_t at;          /* code offset of the token */
     int16_t  kid, next;   /* first child, next sibling (-1 none) */
@@ -663,7 +666,7 @@ static void print_node(dc_t *d, int k)
     int kid = d->nd[k].kid;
 
     if (d->err) return;
-    if (++d->depth > 64) { d->err = I123_E_FORMAT; return; }
+    if (++d->depth > (int)DN_MAX) { d->err = I123_E_FORMAT; return; }
     switch (t) {
     case WKF_CONST: {
         union { double v; uint8_t b[8]; } u;

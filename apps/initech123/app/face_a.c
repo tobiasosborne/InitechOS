@@ -676,6 +676,7 @@ static void retrieve(void)
     if (rc == I123_OK) rc = i123_wk1_read(&next, g_wk, (uint32_t)n);
     /* Real R2.2 L05 capture: missing EOF is distinct from invalid framing. */
     if (rc != I123_OK) { notice(rc == I123_E_FULL ? "Not enough worksheet memory" :
+                               rc == I123_E_FORMULA_LONG ? "Formula too long" :
                                rc == I123_E_MISSING ? "Part of file is missing" : "Not a valid WK1 file"); return; }
     /* Manual p. 5-19: retrieved data/window settings replace the worksheet.
      * Authored transaction: failures above leave the old bank intact. */

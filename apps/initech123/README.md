@@ -54,7 +54,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 44 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 45 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` uses the top-level product-image journey on QEMU and
 Bochs, including an independent check of the worksheet saved from the Finder.
@@ -229,3 +229,12 @@ reader study's component fixtures/captures are imported under
 The registered conformance suite preserves the current sheet on refusal and
 independently compares a 240-character label's no-op F2 save with real R2.2.
 That shortening is reference behavior (initech-pmw9), retained deliberately.
+
+Retrieved non-string expressions follow the independently captured
+250-character rendering boundary (`tests/conformance/boundaries`), with the
+real `Formula too long` refusal before the candidate worksheet is published.
+The entry-marker '+' is excluded; the 240-character typing limit is separate.
+Integer, floating, signed and binary neighboring cases are retained. Literal
+strings follow a different reference path and keep the existing behavior;
+the accepted 249-character string fixture prevents imposing a guessed global
+bytecode or nesting cap. The decompiler can print the accepted deep neighbors.

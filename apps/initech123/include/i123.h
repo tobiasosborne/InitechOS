@@ -51,6 +51,7 @@
 #define I123_E_SYNTAX  (-7)   /* typed text is not a formula 1-2-3 accepts       */
 #define I123_E_PROTECTED (-8) /* a write refused by worksheet protection       */
 #define I123_E_MISSING (-9)   /* truncated record or missing worksheet EOF     */
+#define I123_E_FORMULA_LONG (-10) /* retrieved expression exceeds R2.2 limit  */
 
 /* ---- the formula token table as stored (formula.c i123_tokens) ----------
  * The rows of spec/i123/wk1_formula.h Sec 4, field for field wkf_token_t

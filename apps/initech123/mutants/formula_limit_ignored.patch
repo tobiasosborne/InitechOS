@@ -1,0 +1,8 @@
+# test: test_i123_conformance
+--- a/fs/wk1.c
++++ b/fs/wk1.c
+@@ -163,3 +163,3 @@
+         int limited=formula_limit(b+WK1_FORMULA_FIXED,code_len,col,row);
+-        if (limited!=I123_OK) return limited;
++        (void)limited;
+         /* Its STRING record, if the next record is one for the same cell. */

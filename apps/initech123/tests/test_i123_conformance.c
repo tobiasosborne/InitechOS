@@ -30,6 +30,11 @@ int main(int argc,char **argv)
     if(g_ctr==MAP_FAILED)return 2;
     g_ctr[0]=g_ctr[1]=0;
     name="L05";message="Part of file is missing";accepted=0;launch(name,load_case);
+    name="L12";message="Formula too long";accepted=0;launch(name,load_case);
+    const char *yes[]={"F124","N124","B123","D119","S249"};
+    const char *no[]={"F125","B124","D125"};
+    for(unsigned i=0;i<sizeof yes/sizeof yes[0];i++){name=yes[i];accepted=1;launch(name,load_case);}
+    for(unsigned i=0;i<sizeof no/sizeof no[0];i++){name=no[i];accepted=0;launch(name,load_case);}
     launch("L10 F2/Return",edit240);
     printf("Initech 123 conformance: %d checks, %d failures\n",g_ctr[0],g_ctr[1]);
     return g_ctr[1]?1:0;

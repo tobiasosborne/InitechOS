@@ -32,6 +32,8 @@ case $name in
   test_i123_conformance)
     (cd tests/conformance/fixtures && sha256sum -c ../SHA256SUMS) > "$out/fixture-hashes.log"
     (cd tests/conformance && sha256sum -c CAPTURES.sha256) > "$out/capture-hashes.log"
+    (cd tests/conformance && sha256sum -c BOUNDARIES.sha256) > "$out/boundary-hashes.log"
+    for c in F124 N124 B123 D119 S249 F125 B124 D125; do cp "tests/conformance/boundaries/$c/CASE.WK1" "$out/$c.WK1"; done
     cp tests/conformance/fixtures/L05.WK1 tests/conformance/fixtures/L10.WK1 tests/conformance/fixtures/L12.WK1 "$out/"
     "$bin" "$out"
     python3 tests/oracles/edit_labels.py tests/conformance/captures/L10-f2/AFTER.WK1 "$out/L10F2.WK1"

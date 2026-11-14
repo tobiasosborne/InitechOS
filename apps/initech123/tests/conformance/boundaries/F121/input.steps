@@ -1,0 +1,12 @@
+# Use the boot/runtime images from goldens/dataloss/runtime.sh.
+# The runner installs this case in C:\LOTUS\CASE.WK1.
+sleep 6
+key esc
+type /frCASE.WK1
+key ret
+sleep 3
+shot retrieved
+# STOP if an error or conversion prompt is visible. Do not type into it.
+# For successful loads: view the case-specific addresses, edit A1=73,
+# File Save to B:\AFTER.WK1, stop emulator, extract with mcopy.
+end

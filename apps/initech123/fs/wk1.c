@@ -22,6 +22,7 @@
  */
 #include "i123.h"
 #include "i123/wk1_format.h"
+#include "i123/wk1_formula.h"
 
 /* sheet.c's internal store verb (not public API). */
 int i123_put_cell(i123_sheet_t *sh, uint16_t col, uint16_t row, uint8_t kind,
@@ -89,6 +90,28 @@ static int carry_rec(i123_sheet_t *sh, uint16_t op, uint32_t len, const uint8_t 
     return I123_OK;
 }
 
+/* Retrieve's non-string expression limit, tests/conformance/boundaries:
+ * 249/250 rendered characters fit, 251 refuses. Literal strings follow a
+ * different reference path; retain them, and opaque unsupported bytecode,
+ * without inventing a limit. This is not a bytecode-size or nesting cap. */
+static int formula_limit(const uint8_t *code, uint32_t len, uint16_t col, uint16_t row)
+{
+    char text[252];
+    uint32_t at=0, n=0;
+    int rc;
+    if (i123_formula_check(code,len)!=I123_OK) return I123_OK;
+    while (at<len) {
+        if (code[at]==WKF_STRING) return I123_OK;
+        at+=i123_token_size(code,len,at);
+    }
+    rc=i123_formula_text(code,len,col,row,text,sizeof text);
+    if (rc==I123_E_SPACE) return I123_E_FORMULA_LONG;
+    if (rc!=I123_OK) return I123_OK;
+    while (text[n]) ++n;
+    if (text[0]=='+') --n; /* artificial entry marker, not expression text */
+    return n>250u ? I123_E_FORMULA_LONG : I123_OK;
+}
+
 /* One cell record (and, for a FORMULA, the STRING record right after it). */
 static int read_cell(i123_sheet_t *sh, uint16_t op, const uint8_t *b, uint32_t ln,
                      const uint8_t *next, uint32_t next_avail, uint32_t *consumed_next)
@@ -137,6 +160,8 @@ static int read_cell(i123_sheet_t *sh, uint16_t op, const uint8_t *b, uint32_t l
         if (ln < WK1_FORMULA_FIXED) return I123_E_FORMAT;
         code_len = rd16(b + 13);
         if (WK1_FORMULA_FIXED + code_len != ln) return I123_E_FORMAT;
+        int limited=formula_limit(b+WK1_FORMULA_FIXED,code_len,col,row);
+        if (limited!=I123_OK) return limited;
         /* Its STRING record, if the next record is one for the same cell. */
         if (next_avail >= WK1_REC_HDR && rd16(next) == WK1_OP_STRING) {
             uint32_t sl = rd16(next + 2);
