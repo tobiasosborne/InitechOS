@@ -172,3 +172,11 @@ refusal returns access denied, matching the retained genuine DOS 3.30 capture
 in tests/fixtures/rootfull33/ (initech-knlbk, initech-2x5l7, initech-xhtlm;
 IBM DOS 3.30 TR pp.6-42, 6-137..140). Tests exercise the real FAT backend through
 INT21, not a mock file backend.
+
+CREAT's runtime timestamp now participates in its directory commit instead of
+being a separate fallible write after truncation. `test-create-stamp-conservation`
+binds a fixed DOS clock and faults each backend write, including the former
+post-truncation timestamp write; errors preserve the original image, and success
+publishes the known DOS timestamp. The lower-level fat12_create entry retains
+its deterministic default timestamp. Read-only positioned writes refuse before
+entering the recovery boundary, so refusal does not issue rollback writes.

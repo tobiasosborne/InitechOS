@@ -21,6 +21,12 @@ static int_frame_t call(unsigned ax, unsigned bx, unsigned cx, uintptr_t dx)
     int21_dispatch(&f);
     return f;
 }
+static int clock_fixture(uint16_t *year, uint8_t *mon, uint8_t *day,
+                          uint8_t *hh, uint8_t *mi, uint8_t *ss, uint8_t *dow)
+{
+    *year=1992; *mon=3; *day=2; *hh=9; *mi=30; *ss=0; *dow=1;
+    return 1;
+}
 int main(int argc, char **argv)
 {
     blockdev_file_t disk;
@@ -41,7 +47,18 @@ int main(int argc, char **argv)
     if(low==MAP_FAILED) return 2;
     strcpy((char *)low,"TARGET.BIN");
     memset(low+512,'X',512);
-    if(!strcmp(argv[2],"new")) {
+    if(!strcmp(argv[2],"creat-stamp")) {
+        int21_set_clock(clock_fixture,0);
+        blockdev_file_arm_write_fault(&disk,fault);
+        int_frame_t f=call(0x3c00,0,0,(uintptr_t)low);
+        if(f.eflags&1) puts("CREATE_RESULT failed");
+        else {
+            sft_entry_t *entry=sft_from_handle(&psp,(uint8_t)f.eax);
+            CHECK(entry && entry->dir_entry.mtime==0x4bc0 && entry->dir_entry.mdate==0x1862,
+                  "successful CREAT publishes runtime DOS timestamp in the same entry");
+            puts("CREATE_RESULT success");
+        }
+    } else if(!strcmp(argv[2],"new")) {
         blockdev_file_arm_read_fault(&disk,fault);
         int_frame_t f=call(0x5b00,0,0,(uintptr_t)low);
         CHECK(f.eflags&1,"CREATE_NEW never succeeds for an existing name, even on lookup error");

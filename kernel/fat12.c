@@ -2510,10 +2510,10 @@ static int fat12_remove_allocation(const fat12_volume_t *vol, void *fat,
 	return rc;
 }
 
-int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+int fat12_create_timed(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                  const char *name83, uint8_t attr, uint16_t parent_dir_start,
                  void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,
-                 uint32_t *out_slot)
+                 uint32_t *out_slot, uint16_t mtime, uint16_t mdate)
 {
 	uint8_t     want11[11];
 	uint32_t    free_slot = 0u;
@@ -2603,8 +2603,8 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	}
 
 	de.attribute     = attr;
-	de.mtime         = FAT12_FIXED_MTIME;   /* deterministic (the repository contract) */
-	de.mdate         = FAT12_FIXED_MDATE;
+	de.mtime         = mtime;
+	de.mdate         = mdate;
 	de.start_cluster = 0u;
 	de.file_size     = 0u;
 
@@ -2621,6 +2621,16 @@ int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	*out_entry = de;
 	*out_slot  = slot;
 	return FAT12_OK;
+}
+
+int fat12_create(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                 const char *name83, uint8_t attr, uint16_t parent,
+                 void *sector_buf, void *cluster_buf, dir_entry_t *out_entry,
+                 uint32_t *out_slot)
+{
+	return fat12_create_timed(vol, fat, fat_len, name83, attr, parent,
+	                          sector_buf, cluster_buf, out_entry, out_slot,
+	                          FAT12_FIXED_MTIME, FAT12_FIXED_MDATE);
 }
 
 int fat12_write_file(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
@@ -3173,6 +3183,9 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	rc = fat12_read_dirent_in_dir(vol, fat, fat_len, parent == 0u, parent,
 	                              slot, &old, sector_buf);
 	if (rc != FAT12_OK) return rc;
+	/* A refusal is not a transaction: do not write a rollback to a protected
+	 * file. This precedes both the inner writer and its recovery boundary. */
+	if (old.attribute & DIR_ATTR_READONLY) return FAT12_ERR_ACCESS;
 	for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];
 	rc = fat12_write_partial_inner(vol, fat, fat_len, parent, slot, offset,
 	                                data, len, sector_buf, cluster_buf, out_written);

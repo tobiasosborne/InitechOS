@@ -268,17 +268,19 @@ static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
 
     dir_entry_t de;
     uint32_t    slot = 0;
-    int rc = fat12_create(g_vol, g_fat, g_fat_len, name83, DIR_ATTR_ARCHIVE,
-                          parent, g_sector, g_cluster, &de, &slot);
+    uint16_t mtime = FAT12_FIXED_MTIME, mdate = FAT12_FIXED_MDATE;
+    (void)int21_file_stamp(&mtime, &mdate);
+    /* A second timestamp write after successful truncation could fail after
+     * the original allocation was freed. Stamp in the rollback boundary.
+     * Ref: IBM DOS 3.30 TR pp.5-12/13; initech-rg6d5. */
+    int rc = fat12_create_timed(g_vol, g_fat, g_fat_len, name83, DIR_ATTR_ARCHIVE,
+                                parent, g_sector, g_cluster, &de, &slot, mtime, mdate);
     if (rc == FAT12_ERR_DIR_FULL) {
         return FILEIO_ERR_ACCESS_DENIED;   /* genuine DOS33 rootfull capture */
     }
     if (rc != FAT12_OK) {
         return FILEIO_ERR_ACCESS_DENIED;   /* bad name / write error */
     }
-
-    if (stamp_entry(parent, slot, &de) != FAT12_OK)
-        return FILEIO_ERR_ACCESS_DENIED;
 
     *out_entry = de;
     *out_slot  = slot;
