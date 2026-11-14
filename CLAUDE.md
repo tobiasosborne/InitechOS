@@ -115,8 +115,22 @@ attic/         legacy tests, specs and tools not yet claimed (see below)
 ```
 
 **Two interfaces.** DOS programs reach the OS through INT 21h. Desktop
-apps reach it through the Toolbox gate, INT 81h (`sdk/`). Nothing else
-crosses a component boundary. A component may include its own headers,
+apps reach it through the Toolbox gate, INT 81h (`sdk/`). Application OS
+services use these gates. Declared pure libraries, system startup and
+the published resident platform and manager bindings may link directly;
+they expose no private service entry to disk applications. As their real
+counterparts did, FORMAT, FDISK, SYS, DISKCOPY and DISKCOMP may also use
+the published INT 13h services, and CHKDSK and LABEL the published
+INT 25h/26h services. DOS programs may terminate through INT 20h. Every
+path enforces the volume write policy in `GOLDEN-MASTER.md` item 2.
+
+Two exceptions are temporary. The command processor is resident in
+`INITDOS.SYS`, and its entry header and existing shell service calls are
+permitted, until `COMMAND.COM` is a separately loaded program (Release
+2). The resident Finder may use the published FAT interface directly
+until its file operations go through DOS.
+
+A component may include its own headers,
 `sdk/` headers, and the public headers (`<component>/include/`) of the
 components its README lists as dependencies. Include paths are set per
 component, and `#include "../..."` out of a component is forbidden; the
@@ -152,7 +166,10 @@ wrong code never lives in product source: a mutant is a patch file.
    meant to stay fast enough that nobody skips it; each component has a
    time budget and a slow suite is a defect. Run `make smoke` as well if
    you changed the kernel, the Toolbox or either interface.
-2. Commit to `main` and push. No lanes, certificates or proof packs.
+2. Commit to `main` and push. The agent that made the change lands it:
+   rebase onto `origin/main`, run the checks above, push. Nobody else
+   merges it, and review happens after landing. No lanes, certificates
+   or proof packs.
 3. Tier 2 (`make cert` at the top: both emulators, pixel goldens, the
    mutation sweep, the reproducible hash) is run by the orchestrator at
    the end of each working day and on release candidates. If it goes

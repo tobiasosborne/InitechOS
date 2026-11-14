@@ -23,9 +23,12 @@ legacy tree to find more is not.
 
 ## 2. InitechDOS
 
-- FAT12/16, the INT 21h services the bundled software uses, the program
-  loader, `COMMAND.COM` with batch files, `CONFIG.SYS` and
-  `AUTOEXEC.BAT`, and the external utilities already written (CHKDSK,
+- FAT12 read-write and FAT16 read-only (operator, 2026-11-14): a FAT16
+  volume mounts, lists and reads, and every write to it is refused
+  before the first sector changes.
+- The INT 21h services the bundled software uses, the program loader,
+  `COMMAND.COM` with batch files, `CONFIG.SYS` and `AUTOEXEC.BAT`, and
+  the external utilities already written (CHKDSK,
   FORMAT, SYS, FDISK, EDLIN, XCOPY, TREE, ATTRIB, LABEL, FIND, SORT,
   MORE, DISKCOPY, DISKCOMP).
 - Nothing accepted silently: a directive or switch either works or is
@@ -109,6 +112,9 @@ legacy tree to find more is not.
 - 86Box and real hardware.
 - The physical edition: diskettes, box, printed manuals.
 - DOS 5-era utilities and memory managers.
+- Writing to FAT16 volumes.
+- `COMMAND.COM` as a separately loaded program; in this master the
+  command processor is resident in `INITDOS.SYS`.
 - The wider app-platform bar: Print Manager, CopyBits modes, GWorlds,
   several disk apps resident at once.
 - Games and further easter eggs.
