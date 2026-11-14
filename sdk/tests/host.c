@@ -48,7 +48,9 @@ int main(void)
     CHECK(tbx_host_put_file("NEW.$$$","keep",4));
     tbx_host.fail_write=1;CHECK(tbx_file_save("NEW.DAT","lost",4)==0);CHECK(tbx_host_file("new.dat")->size==5);CHECK(tbx_host_file("NEW.$$$") && tbx_host_file("NEW.$$$")->size==4);tbx_host.fail_write=0;
     tbx_host.write_limit=2;CHECK(tbx_file_save("NEW.DAT","preserved",9)==9);CHECK(!memcmp(tbx_host_file("new.dat")->data,"preserved",9));
-    tbx_host.file_error[TBX_FILE_DELETE]=5;CHECK(tbx_file_save("NEW.DAT","lost",4)==TBX_ERR_DOS(5));CHECK(tbx_host_file("NEW.DAT")->size==9);tbx_host.file_error[TBX_FILE_DELETE]=0;
+    tbx_host.file_error[TBX_FILE_RENAME]=5;CHECK(tbx_file_save("NEW.DAT","lost",4)==TBX_ERR_DOS(5));CHECK(tbx_host_file("NEW.DAT")->size==9);tbx_host.file_error[TBX_FILE_RENAME]=0;
+    /* A committed save remains successful when only backup cleanup fails. */
+    tbx_host.file_error[TBX_FILE_DELETE]=5;CHECK(tbx_file_save("NEW.DAT","new",3)==3);CHECK(!memcmp(tbx_host_file("NEW.DAT")->data,"new",3));CHECK(tbx_host_file("NEW.~00") && !memcmp(tbx_host_file("NEW.~00")->data,"preserved",9));tbx_host.file_error[TBX_FILE_DELETE]=0;
     CHECK(tbx_host_put_file("DIR\\FILE.WP5","wp",2));
     tbx_find_rec_t found[8];CHECK(tbx_file_find("DIR\\*.*",0x16,found,8)==1);CHECK(!strcmp(found[0].name,"FILE.WP5")&&found[0].size==2);
     tbx_host.free_bytes=12345;CHECK(tbx_disk_free()==12345);

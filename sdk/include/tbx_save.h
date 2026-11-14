@@ -1,4 +1,4 @@
-/* tbx_save.h -- the tenant runtime's atomic document save (bead initech-mcep).
+/* tbx_save.h -- the tenant runtime's staged document save (bead initech-vtl9).
  *
  * WHY. TBX_FILE_CREATE is DOS AH=3Ch: it truncates an existing file before
  * the first byte of the new one is written (sdk/include/toolbox_gate.h Sec 10). A
@@ -13,18 +13,18 @@
  *      directory -- or, when that name is taken (a user's file, a remnant of
  *      an interrupted save), the first free of <name>.$$0 .. <name>.$$9 --
  *      and WRITE every byte; CLOSE. Any failure here DELETEs only the file
- *      this call created: the old file, any file already under a temporary
- *      name, and the directory are exactly as they were.
- *   2. DELETE <name> (DOS error 2, no such file, is a new save, not a
- *      failure). A refused DELETE (a read-only file: DOS error 5) DELETEs the
- *      temporary file and returns the error -- the old file is untouched.
- *   3. RENAME <name>.$$$ -> <name> (AH=56h, sdk/include/toolbox_gate.h Sec 10b).
+ *      this call created; the previous file never moved.
+ *   2. Check destination write access; find an absent <name>.~00 .. .~99.
+ *      RENAME the previous file there, retaining its complete stream.
+ *   3. RENAME the stage to the destination. If that fails, rename the old
+ *      stream back before reporting the failure; never delete that stream.
+ *      If rollback itself fails, retain both streams (see rollback_error).
+ *   4. After commit, remove the backup. Failed cleanup retains an extra copy
+ *      and is not reported as a failed save.
  * DOS 3.3 has no rename-over-an-existing-file (Technical Reference p. 6-206;
  * kernel/int21.c do_rename refuses an existing target with AX=5), hence
- * delete-THEN-rename. THE WINDOW: between steps 2 and 3 only <name>.$$$ holds
- * the document; a machine reset exactly there leaves it under that name (the
- * EDLIN-style recoverable remnant). Gate calls are synchronous and the
- * scheduler is cooperative, so no other tenant runs inside the window.
+ * checked backup/rename/rollback. This is not crash atomicity. Gate calls are
+ * synchronous and the scheduler is cooperative; no tenant runs in the window.
  * THE COST: the new file is written while the old one still occupies its
  * clusters, so a replacing save needs free space for the whole new file.
  * A candidate equal to the target's own name is skipped; eleven taken names
@@ -44,7 +44,33 @@
 #include "tbx.h"
 
 static char g_tbx_save_tmp[TBX_FILE_PATH_MAX];
+static char g_tbx_save_backup[TBX_FILE_PATH_MAX];
+/* Nonzero means rollback itself failed. Both complete streams are retained;
+ * the storage owner must resolve that I/O failure before reusing this helper. */
+static int32_t g_tbx_save_rollback_error;
+static char g_tbx_save_notice[3u * TBX_ALERT_LINE_MAX] TBX_IN_IMAGE;
 static unsigned char g_tbx_save_chunk[1024];
+static unsigned char g_tbx_save_verify[1024];
+
+/* Existing ALERT geometry: three lines, 285 pixels. At most 20 characters
+ * per path line fits even the widest Chicago glyph (14 px, NFNT 5478's
+ * locked advances in flair/include/assets/chicago12.h). Never truncate a name.
+ * A save whose recovery name cannot fit refuses before creating a stage. */
+static void tbx_save_recovery_notice(void)
+{
+    static const char heading[]="Previous version saved as:\r";
+    uint32_t n=0,j=0;
+    while(g_tbx_save_backup[n]) n++;
+    if(n<=40) for(uint32_t i=0;heading[i];i++) g_tbx_save_notice[j++]=heading[i];
+    for(uint32_t i=0;i<n;i++) {
+        if(i && i%20u==0) g_tbx_save_notice[j++]='\r';
+        g_tbx_save_notice[j++]=g_tbx_save_backup[i];
+    }
+    g_tbx_save_notice[j]=0;
+    /* Queue this before the caller's ordinary error alert. The gate owns a
+     * copy and refuses that later alert as BUSY, preserving the recovery name. */
+    (void)tbx_alert(g_tbx_save_notice,"OK",0,0);
+}
 
 /* initech-7aou: the SAME transaction also consumes a file handle. The input
  * is closed before committing; short reads/writes and either failed close
@@ -54,6 +80,13 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
     const unsigned char *b = (const unsigned char *)buf;
     uint32_t i = 0, dot = 0, pos = 0, k;
     int32_t h = TBX_ERR_DOS(0x50), rc = 0, cl;
+    int old_moved = 0;
+    if(g_tbx_save_rollback_error<0) {
+        if(input>=0) (void)tbx_file_close(input);
+        tbx_save_recovery_notice();
+        return g_tbx_save_rollback_error;
+    }
+    g_tbx_save_rollback_error = 0;
 
     /* <name>.$$$: the leaf's extension (after the last '.' of the last
      * component) replaced, or appended when there is none. */
@@ -62,7 +95,7 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
         else if (path[i] == '.') dot = i;
     }
     if (dot == 0) dot = i;
-    if (dot + 5u > TBX_FILE_PATH_MAX) {
+    if (dot + 5u > TBX_FILE_PATH_MAX || dot + 4u > 60u) {
         if (input >= 0) (void)tbx_file_close(input);
         return TBX_ERR_BADARG;
     }
@@ -102,21 +135,95 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
 
     }
     cl = tbx_file_close(h);
+    if (cl < 0) (void)tbx_file_close(h);
+    /* Verify the closed staged stream against the caller's bytes, or the
+     * rewound input stream, before moving the previous version at all. */
+    if(pos==n && cl>=0) {
+        h=tbx_file_open(g_tbx_save_tmp,TBX_FILE_READ_ONLY);
+        if(h<0) cl=h;
+        else {
+            uint32_t checked=0;
+            if(input>=0) cl=tbx_file_seek(input,0,TBX_FILE_FROM_START);
+            while(cl>=0 && checked<n) {
+                uint32_t want=n-checked;
+                if(want>sizeof g_tbx_save_verify) want=sizeof g_tbx_save_verify;
+                rc=tbx_file_read(h,g_tbx_save_verify,want);
+                if(rc<=0 || (uint32_t)rc>want) { cl=rc<0?rc:TBX_ERR_DOS(0x1d); break; }
+                uint32_t got=(uint32_t)rc;
+                const unsigned char *expected=b?b+checked:g_tbx_save_chunk;
+                if(input>=0) {
+                    uint32_t read=0;
+                    while(read<got) {
+                        rc=tbx_file_read(input,g_tbx_save_chunk+read,got-read);
+                        if(rc<=0 || (uint32_t)rc>got-read) { cl=rc<0?rc:TBX_ERR_DOS(0x1d); break; }
+                        read+=(uint32_t)rc;
+                    }
+                    if(cl<0) break;
+                }
+                for(uint32_t v=0;v<got;v++) if(expected[v]!=g_tbx_save_verify[v]) { cl=TBX_ERR_DOS(0x1d); break; }
+                checked+=got;
+            }
+            rc=tbx_file_close(h);
+            if(rc<0) { (void)tbx_file_close(h); cl=rc; }
+        }
+    }
     if (input >= 0) {
         int32_t in_close = tbx_file_close(input);
+        if (in_close < 0) (void)tbx_file_close(input);
         if (in_close < 0) cl = in_close;
     }
     if (pos != n || cl < 0) {
         (void)tbx_file_delete(g_tbx_save_tmp);   /* the old file never moved */
         return cl < 0 ? cl : rc < 0 ? rc : (int32_t)pos;
     }
-    rc = tbx_file_delete(path);
-    if (rc < 0 && rc != TBX_ERR_DOS(2)) {
-        (void)tbx_file_delete(g_tbx_save_tmp);   /* e.g. read-only: kept */
-        return rc;
+    /* Refuse a read-only destination before moving it. DOS RENAME alone
+     * does not necessarily enforce read-only overwrite protection. */
+    rc = tbx_file_open(path, TBX_FILE_WRITE_ONLY);
+    if (rc >= 0) {
+        h=rc; rc=tbx_file_close(h);
+        if(rc<0) (void)tbx_file_close(h);
     }
+    if (rc < 0 && rc != TBX_ERR_DOS(2)) goto refuse;
+    for (i = 0; i <= dot; i++) g_tbx_save_backup[i] = g_tbx_save_tmp[i];
+    g_tbx_save_backup[dot+1] = '~';
+    g_tbx_save_backup[dot+4] = 0;
+    rc = TBX_ERR_DOS(0x50);
+    for (k = 0; k < 100; k++) {
+        g_tbx_save_backup[dot+2] = (char)('0' + k/10);
+        g_tbx_save_backup[dot+3] = (char)('0' + k%10);
+        /* Never borrow the target itself as its backup. */
+        for (i=0; path[i] && path[i]==g_tbx_save_backup[i]; i++) {}
+        if (!path[i] && !g_tbx_save_backup[i]) continue;
+        h = tbx_file_open(g_tbx_save_backup, TBX_FILE_READ_ONLY);
+        if (h >= 0) {
+            cl = tbx_file_close(h);
+            if (cl < 0) (void)tbx_file_close(h);
+            if (cl < 0) { rc=cl; goto refuse; }
+            continue;
+        }
+        if (h != TBX_ERR_DOS(2)) { rc=h; goto refuse; }
+        rc = tbx_file_rename(path,g_tbx_save_backup);
+        if (rc == TBX_ERR_DOS(2)) { rc=0; break; }
+        if (rc < 0) goto refuse;
+        old_moved=1;
+        break;
+    }
+    if (rc < 0) goto refuse;
     rc = tbx_file_rename(g_tbx_save_tmp, path);
-    return rc < 0 ? rc : (int32_t)n;
+    if (rc < 0) {
+        if (old_moved) {
+            g_tbx_save_rollback_error = tbx_file_rename(g_tbx_save_backup,path);
+            if (g_tbx_save_rollback_error < 0) { tbx_save_recovery_notice(); return rc; }
+        }
+        goto refuse;
+    }
+    /* The save has committed. Failed backup cleanup leaves a recoverable
+     * extra file and must not report that the save failed. */
+    if (old_moved) (void)tbx_file_delete(g_tbx_save_backup);
+    return (int32_t)n;
+refuse:
+    (void)tbx_file_delete(g_tbx_save_tmp);
+    return rc;
 }
 
 static __attribute__((unused)) int32_t tbx_file_save(const char *path, const void *buf, uint32_t n)
