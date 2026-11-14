@@ -141,7 +141,9 @@ static void fixture(const char *name,int extra,unsigned count){
     original[olen-1]=26;f=fopen(name,"wb");CHECK(f!=NULL,"fixture open");if(f){CHECK(fwrite(original,1,olen,f)==olen,"fixture written");fclose(f);}
 }
 static unsigned char extracted[133000];
-static size_t readbytes(const char *name){FILE *f=fopen(name,"rb");size_t n=0;CHECK(f!=NULL,"result readable");if(f){n=fread(extracted,1,sizeof extracted,f);fclose(f);}return n;}
+/* Clear the header window callers read ([4],[5],[8..11]) so a short or
+ * missing result can never be graded against the previous case's bytes. */
+static size_t readbytes(const char *name){FILE *f=fopen(name,"rb");size_t n=0;memset(extracted,0,16);CHECK(f!=NULL,"result readable");if(f){n=fread(extracted,1,sizeof extracted,f);fclose(f);}return n;}
 static void independent(unsigned expected){
     char cmd[2048],buf[1024],needle[80];FILE *f;size_t n;
     snprintf(cmd,sizeof cmd,"python3 '%s/tests/dbf_ref.py' --schema %s > build/dbsafe/ref.json 2> build/dbsafe/ref.err",project_root,path);
@@ -167,7 +169,7 @@ static int append_case(int extra,int seek,int boundary,int kind,int error){
          * per geometry/fault class rather than spawning duplicate readers. */
         if(boundary==1 && kind==0)independent(255);
     }else{
-        CHECK(extracted[4]==0 && extracted[5]==1,"L001 successful append commits 256");independent(256);
+        CHECK(n>=6 && extracted[4]==0 && extracted[5]==1,"L001 successful append commits 256");independent(256);
     }
     return hit;
 }
