@@ -22,7 +22,7 @@ KERNEL_STACK_TOP  equ 0x005FFFFC
 ; drift guard: the Makefile parses the header's
 ; KERNEL_STACK_BOT/TOP and passes them as MK_KERNEL_STACK_BOT/TOP; any
 ; disagreement is an assembly error, never a silently-misplaced ESP
-; (bead initech-xu97; CLAUDE.md Rule 2).
+; (bead initech-xu97; CLAUDE.md, The constitution).
 %ifndef MK_KERNEL_STACK_TOP
   %error "MK_KERNEL_STACK_TOP not defined: kstart.asm must be assembled by the Makefile rule so its stack equates can be checked against spec/memory_map.h."
 %elif MK_KERNEL_STACK_TOP != KERNEL_STACK_TOP
@@ -178,5 +178,5 @@ bigkernel_blob:
 %endif
 
 ; Mark the stack non-executable (silences the ld GNU-stack warning). Harmless
-; for a flat binary; good hygiene. ASCII-only (Rule 12).
+; for a flat binary; good hygiene. ASCII-only (The constitution).
 section .note.GNU-stack noalloc noexec nowrite progbits

@@ -4,8 +4,8 @@
  * Ref:   Intel 8254 datasheet (channel 0 -> IRQ0; cmd port 0x43, ch0 data port
  *        0x40; mode byte 0x36 = ch0/lohi/mode3/binary; divisor written LSB then
  *        MSB; input clock 1.193182 MHz; divisor 0 == 65536); Intel 8259A EOI
- *        (OCW2 0x20 -> master cmd port 0x20). CLAUDE.md Law 1, Rule 2, Rule 11,
- *        Rule 12.
+ *        (OCW2 0x20 -> master cmd port 0x20). CLAUDE.md, The constitution, The constitution,
+ *        The constitution.
  *
  * pit_divisor_for_hz is PURE (host-tested); pit_init/pit_irq_handler/pit_ticks
  * are kernel-only.
@@ -50,7 +50,7 @@ static volatile uint32_t g_ticks;
 /* Optional per-tick hook (ADR-0006 E-D3a / FO-4). DEFAULT NULL: pit_irq_handler
  * is byte-identical to the legacy increment+EOI for every kernel that never
  * calls pit_set_tick_hook(), so pit.o stays shared across all kernels with no
- * behavioural change (CLAUDE.md Rule 11). Only the FLAIR-live kernel installs a
+ * behavioural change (CLAUDE.md, The constitution). Only the FLAIR-live kernel installs a
  * non-NULL hook (flair_tick_advance). file-static; written once from task
  * context BEFORE `sti`, read in ISR context -- no concurrency (the hook is set
  * while IRQs are masked, then never changed). */
@@ -83,7 +83,7 @@ void pit_irq_handler(void)
      * g_ticks++ (and the mutant blocks above) and BEFORE the PIC EOI below,
      * iff a non-NULL hook was installed via pit_set_tick_hook(). DEFAULT NULL,
      * so every kernel that does not install a hook runs the IDENTICAL legacy
-     * increment+EOI path (Rule 11 byte-stability of all pit.o-linking kernels).
+     * increment+EOI path (The constitution byte-stability of all pit.o-linking kernels).
      * The FLAIR-live kernel installs flair_tick_advance() here -- ISR-enqueue-
      * only minimum (a single volatile counter increment; ADR-0004 D-4). */
     if (g_tick_hook) {

@@ -8,14 +8,14 @@
  *          DEC-08a.4: dispatch by content (first 2 bytes 'MZ'/'ZM'), not ext.
  *          DEC-08a.5: tag word at e_res[0] (offset 0x1C); untagged -> PANIC.
  *        spec/memory_map.h (PROGRAM_BASE, PROGRAM_IMAGE constants).
- *        CLAUDE.md Law 1 (cite source), Law 2 (oracle is truth), Law 3
- *        (artifact = C), Rule 2 (fail loud), Rule 6 (mutation-proven),
- *        Rule 11 (deterministic), Rule 12 (ASCII).
+ *        CLAUDE.md, The constitution (cite source), The constitution (oracle is truth), The constitution
+ *        (artifact = C), The constitution (fail loud), How the tree is organised (mutation-proven),
+ *        The constitution (deterministic), The constitution (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  * Pure logic -- no asm, no I/O -- host-testable by #include "mz.c".
  *
- * MUTATION hooks (CLAUDE.md Rule 6; guarded by #ifdef in mz.c):
+ * MUTATION hooks (CLAUDE.md How the tree is organised; guarded by #ifdef in mz.c):
  *   MZ_MUTATE_RELOC_NOADD     -- mz_apply_relocs skips the += load_base
  *                                 (leaves dword unchanged) -> reloc oracle RED.
  *   MZ_MUTATE_RELOC_PARAGRAPH -- add (load_base >> 4) instead of load_base
@@ -66,7 +66,7 @@ typedef struct {
 } mz_image_t;
 
 /* mz_status -- return codes for mz_parse_header() and mz_apply_relocs().
- * Fail-loud (Rule 2): each error is distinct; the caller must act on each. */
+ * Fail-loud (The constitution): each error is distinct; the caller must act on each. */
 typedef enum {
     MZ_OK            = 0,  /* success                                           */
     MZ_ERR_NOT_MZ       ,  /* magic bytes are not 'MZ' or 'ZM'                 */
@@ -92,7 +92,7 @@ int mz_is_mz(const uint8_t *file, uint32_t len);
  * On any failure the status code is returned and *out is left unspecified;
  * the caller MUST NOT use *out.
  *
- * Validation chain (fail loud, Rule 2):
+ * Validation chain (fail loud, The constitution):
  *   MZ_ERR_NOT_MZ      : magic != 'MZ' and != 'ZM'.
  *   MZ_ERR_FOREIGN     : magic OK but e_res[0] (offset 0x1C) != MZ_INITECH_TAG.
  *                        A genuine 16-bit DOS .EXE.  The kernel loader will
@@ -122,7 +122,7 @@ int mz_parse_header(const uint8_t *file, uint32_t file_len, mz_image_t *out);
  * For each reloc entry i in [0, reloc_count):
  *   off = LE32(reloc_table + i*4)
  *   bounds-check: off + 4 <= image_len, else return MZ_ERR_BAD_RELOC (FAIL
- *   LOUD -- do NOT write out of bounds, Rule 2).
+ *   LOUD -- do NOT write out of bounds, The constitution).
  *   read LE32 dword at image[off], add load_base, write back LE32.
  *   The add is to the full 32-bit flat dword (not a paragraph add).
  *

@@ -1,7 +1,7 @@
 TOP := ..
 COMPONENT := kernel
 include $(TOP)/mk/config.mk
-TARGET_INCLUDES := -Iinclude -I. -I$(OUT)
+TARGET_INCLUDES := -Iinclude -I. -I$(OUT) -I$(TOP)/dos/command
 SOURCES := main startup environment console console_pixels idt pic panic int21 devices mcb psp sft config_sys sysinit loader ata block_device fat12 fileio_fat kbd mouse pit rtc irq
 OBJECTS := $(addprefix $(OUT)/,$(addsuffix .o,$(SOURCES))) $(OUT)/kstart$(if $(BIG_KERNEL),-big).o $(OUT)/isr.o
 include $(TOP)/mk/target.mk
@@ -48,7 +48,7 @@ $(OUT)/dos_messages.inc: $(OUT)/dos_messages.h
 # A direct component build also refreshes the temporary resident shell objects.
 .PHONY: resident-command
 resident-command: $(OUT)/dos_messages.h
-	$(MAKE) -C $(TOP)/dos resident
+	$(MAKE) -C $(TOP)/dos TESTS= resident
 $(OUT)/kernel$(if $(BIG_KERNEL),-big).elf: $(wildcard $(TOP)/dos/command/*.[ch]) | resident-command
 $(TOP)/build/dos/command-resident.o $(TOP)/build/dos/batch.o $(TOP)/build/dos/env.o: | resident-command
 	@test -f $@
@@ -61,6 +61,7 @@ include tests.mk
 objects: $(OBJECTS)
 
 TARGET_ARTIFACTS := $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS
+include $(TOP)/mk/import-check.mk
 .PHONY: object-list
 object-list:
 	@echo $(OBJECTS)

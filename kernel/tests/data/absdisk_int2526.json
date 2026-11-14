@@ -25,7 +25,7 @@
     "buffer_guard": "user_buf_ok(EBX, CX*512) per DEC-14 BEFORE any I/O; CX*512 must not 32-bit-wrap the buffer span"
   },
   "error_codes": {
-    "_comment": "AL = DOS hardware-error low byte (from the DOS driver / INT 24h low-byte space); AH = error class byte. This is a SEPARATE code space from the INT 21h INT21_ERR_* extended-error enum and MUST NOT be conflated. CF and AL are the load-bearing, ratified values. The AH class bytes (0x0A/0x0B/0x0C) are PROVISIONAL pending an 86Box golden of the real DOS 3.3 INT 25h/26h AH error class per condition; an 86Box-confirmed AH is corrected by editorial erratum without a further full amendment, while CF/AL and the condition-to-code mapping are fixed. Single honest code per condition (adjudicated over the fine-grained 8-code historian table on Law-2 grounds: the blockdev seam returns only success/negative).",
+    "_comment": "AL = DOS hardware-error low byte (from the DOS driver / INT 24h low-byte space); AH = error class byte. This is a SEPARATE code space from the INT 21h INT21_ERR_* extended-error enum and MUST NOT be conflated. CF and AL are the load-bearing, ratified values. The AH class bytes (0x0A/0x0B/0x0C) are PROVISIONAL pending an 86Box golden of the real DOS 3.3 INT 25h/26h AH error class per condition; an 86Box-confirmed AH is corrected by editorial erratum without a further full amendment, while CF/AL and the condition-to-code mapping are fixed. Single honest code per condition (adjudicated over the fine-grained 8-code historian table on The constitution grounds: the blockdev seam returns only success/negative).",
     "write_protect": {
       "al": "0x00",
       "ah": "0x0A",

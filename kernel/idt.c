@@ -3,8 +3,8 @@
  * beads: initech-a5a.
  * Ref: docs/research/internals-int21h-ground-truth.md Sec 2 (gate encode, lidt
  *      pseudo-descriptor); Intel SDM Vol 3A Sec 6.10-6.12 (IDT/gates/delivery),
- *      Vol 2A LIDT. CLAUDE.md Law 1, Rule 2 (fail loud), Rule 11 (deterministic),
- *      Rule 12 (ASCII). The gate-encode math is shared with the host oracle
+ *      Vol 2A LIDT. CLAUDE.md, The constitution (fail loud), The constitution (deterministic),
+ *      The constitution (ASCII). The gate-encode math is shared with the host oracle
  *      (test_idt.c) -- keep it freestanding-clean.
  */
 
@@ -32,7 +32,7 @@ extern void isr30(void);  extern void isr31(void);
 
 /* The catch-all "spurious / unhandled vector" stub (isr.asm). Installed on all
  * vectors not given a dedicated handler so an unexpected vector fails loud via
- * the same panic path rather than triple-faulting (Rule 2). */
+ * the same panic path rather than triple-faulting (The constitution). */
 extern void isr_spurious(void);
 extern void isr_irq7_spurious(void);    /* 8259A master spurious (0x2F), bcg.7 */
 extern void isr_irq15_spurious(void);   /* 8259A slave  spurious (0x37), bcg.7 */

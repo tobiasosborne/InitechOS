@@ -1,7 +1,7 @@
 /*
  * spec/dos_structs.h -- InitechDOS on-disk and in-memory structure layouts.
  *
- * LOCKED spec-data (CLAUDE.md Rule 8). Transcribed VERBATIM from ADR-0003
+ * LOCKED spec-data (CLAUDE.md, The constitution). Transcribed VERBATIM from ADR-0003
  * Appendix B (On-Disk and In-Memory Structure Layouts).
  *
  * Source: docs/adr/ADR-0003-InitechDOS-Base-OS-Personality.md, Appendix B:
@@ -235,13 +235,13 @@ _Static_assert(sizeof(dpb_t) == 32, "dpb_t must be 32 bytes (DOS 3.x DPB, Append
  *
  *   Source: Microsoft FAT File System Specification (1.03 / 2000-11-06),
  *           Sections 3 (BPB) and 4 (Extended BPB); empirically confirmed
- *           against mformat 4.0.43 output on a 1.44 MB image (Law 1:
+ *           against mformat 4.0.43 output on a 1.44 MB image (The constitution:
  *           docs/research/fat12-ground-truth.md Section 1 + Section 6).
  *   ADR-0003 DEC-07 (Sec 5.7): "The on-volume layout shall be: boot sector;
  *           first File Allocation Table; second (redundant) File Allocation
  *           Table; fixed-size root directory; data area." The BPB is the
  *           structure named in ADR-0003 Sec 1.4 (glossary) -- locked here as
- *           data per CLAUDE.md Rule 8 (beads initech-8e7).
+ *           data per CLAUDE.md, The constitution (beads initech-8e7).
  *   Note: the jump instruction and OEM name at offsets 0x00-0x0A are NOT
  *         part of the BPB proper; they precede it and are included here
  *         for struct completeness. The BPB proper begins at 0x0B.

@@ -29,9 +29,12 @@ external COLD mechanism. The console has private legacy pixel-format primitives
 in console_pixels.*; the kernel has no dependency on FLAIR or apps. The mouse
 IRQ driver remains kernel hardware; desktop event routing is not built.
 
-Dependencies: dos/command/entry.h is the sole temporary resident interpreter
-entry boundary. COMMAND.COM is linked into this image until the process
-boundary work described in dos/README.md. No other component private headers
+Dependencies: dos/command/entry.h is the temporary resident interpreter entry
+boundary explicitly permitted by CLAUDE.md, "Two interfaces". COMMAND.COM is
+linked into INITDOS.SYS, so this private entry header and the existing shell
+service calls are permitted until COMMAND.COM becomes a separately loaded
+program (Release 2). Its narrow include path is set by this component; product
+includes do not escape with ../. No other component private headers
 are permitted. `make smoke` runs the outside factory smoke, including normal disk
 programs on a separate test volume. `make test` runs the retained host gates
 through tests.mk and mk/host-test.mk. tests/tools.mk registers the real C
@@ -134,11 +137,10 @@ checks repeated resident DUP/CLOSE. Source: IBM DOS 3.30 Technical Reference
 p.4-15 handle ownership and the invariant that a live parent JFT cannot point
 to a freed SFT entry. Pinning describes this kernel, not real DOS internals.
 
-The kernel remains host-green, not imported: main.c and startup.c include the
-private DOS command/entry.h. Publishing that resident interpreter header needs
-the DOS owner, plus corresponding include paths and dependency documentation.
-The import check is unchanged; no local duplicate declarations hide the boundary.
-The runtime resident interpreter exception remains an operator decision.
+Ordinary `make test` builds the target and runs the unchanged import audit.
+The resident command entry header uses the exception and expiry above; no
+duplicate declarations or audit waiver hide that dependency. Legacy numeric
+rule citations have been replaced with the current CLAUDE.md section names.
 
 All 39 originally pending mutations now have repeated semantic kills, including
 the seven previously promoted ones. The remaining 32 are promoted, with refreshed

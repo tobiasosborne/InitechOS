@@ -1,7 +1,7 @@
 /* sysinit.h -- InitechDOS SYSINIT: the named, ordered system bring-up contract
  * (beads initech-509.2).
  *
- * THE ARTIFACT (CLAUDE.md Law 3): shipped InitechDOS kernel code, freestanding.
+ * THE ARTIFACT (CLAUDE.md, The constitution): shipped InitechDOS kernel code, freestanding.
  * This extracts the ad-hoc init that was scattered through kmain.c kernel_main()
  * into NAMED, DOCUMENTED phases -- a single init contract with a clear hook point
  * for CONFIG.SYS (sysinit_apply_config). It is a RELOCATION, not a re-ordering:
@@ -9,7 +9,7 @@
  * calls them at the same points (the boot path is behaviorally unchanged).
  *
  * THE ORDERING MINEFIELD (kmain.c ~line 832 / CLAUDE.md "real mode -> protected
- * is a minefield" / Rule 5): the interrupt + device bring-up order is load-bearing
+ * is a minefield" / Hazards that are still true): the interrupt + device bring-up order is load-bearing
  *   1. pic_remap_and_mask  (move the 8259 away from the CPU exception vectors)
  *   2. idt_init            (256 gates; exceptions 0-31 as fail-loud panics)
  *   3. int21 sink + exit hook bound BEFORE any `int 0x21`
@@ -25,9 +25,9 @@
  * kernel globals + the int21 glue are what this header names. The CONFIG.SYS phase
  * (sysinit_apply_config) is the new behavior; everything else is relocation.
  *
- * Ref (Law 1): kmain.c kernel_main (the original ordered sequence); ADR-0003
+ * Ref (The constitution): kmain.c kernel_main (the original ordered sequence); ADR-0003
  *   DEC-06 (FILES= governs the SFT capacity); os/initechdos/config_sys.h; os/initechdos/
- *   sft.h. Rule 2 (fail loud), Rule 11 (deterministic), Rule 12 (ASCII).
+ *   sft.h. The constitution (fail loud), The constitution (deterministic), The constitution (ASCII).
  */
 #ifndef INITECH_INITECHDOS_SYSINIT_H
 #define INITECH_INITECHDOS_SYSINIT_H

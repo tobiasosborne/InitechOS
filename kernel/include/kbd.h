@@ -10,12 +10,12 @@
  *        LShift/RShift make, 0xAA/0xB6 their breaks; 0x3A is CapsLock make.
  *        (IBM PC/XT scancode set 1 table; OSDev "PS/2 Keyboard" Scan Code Set 1.)
  *        8259A PIC: end-of-interrupt is OCW2 = 0x20 to the master command port
- *        0x20 (Intel 8259A datasheet, EOI). CLAUDE.md Law 1 (cite source),
- *        Rule 2 (fail loud / fail safe), Rule 12 (ASCII).
+ *        0x20 (Intel 8259A datasheet, EOI). CLAUDE.md, The constitution (cite source),
+ *        The constitution (fail loud / fail safe), The constitution (ASCII).
  *
  * ARTIFACT code: freestanding (-ffreestanding -nostdlib), <stdint.h> only.
  *
- * SPLIT for the host oracle (CLAUDE.md Rule 6 / Law 2): the PURE logic -- the
+ * SPLIT for the host oracle (CLAUDE.md How the tree is organised / The constitution): the PURE logic -- the
  * scancode->ASCII translator (kbd_state_t + kbd_translate) and the ring buffer
  * (kbd_ring_t + kbd_ring_*) -- has NO I/O and compiles HOSTED in test_kbd.c.
  * Only kbd_init() and the IRQ1 handler (kbd_irq_handler) touch ports 0x60/0x20,
@@ -41,7 +41,7 @@
 /* The ring index wrap uses `& (KBD_RING_CAP - 1u)` (kbd.c kbd_ring_put/get),
  * which is a correct modulo ONLY when the capacity is a power of two. Enforce
  * it at compile time so a future resize that breaks the invariant fails the
- * build rather than silently corrupting the wrap at runtime (Rule 2). */
+ * build rather than silently corrupting the wrap at runtime (The constitution). */
 _Static_assert((KBD_RING_CAP & (KBD_RING_CAP - 1u)) == 0u,
                "KBD_RING_CAP must be a power of two for the index-mask wrap");
 
