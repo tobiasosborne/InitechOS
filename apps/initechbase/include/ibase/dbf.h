@@ -389,6 +389,7 @@ const dbf_field_t *dbf_field(const dbf_table *tbl, int i);
  */
 int dbf_read_rec(dbf_table *tbl, uint32_t recno,
                  xb_val *out /*[nfields]*/, int *deleted);
+int dbf_field_bytes(const dbf_table *,uint32_t,const dbf_field_t *,const uint8_t **,uint16_t *);
 
 /* ---- S1.4: deterministic write + round-trip ----
  *

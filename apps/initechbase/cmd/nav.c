@@ -311,6 +311,7 @@ static int nav_raw_go_bottom(wa_env *env, int area)
     if (master == 0) {
         /* Physical order: last record = recno nrec. */
         rc = wa_goto(env, area, nrec);
+        if(rc==-DBF_ERR_BAD_RECNO)return -NAV_ERR_EOF; /* C04 */
         return (rc == WA_OK) ? NAV_OK : rc;
     }
 
@@ -433,6 +434,7 @@ static int nav_raw_skip(wa_env *env, int area, int32_t n)
             }
             rc = wa_goto(env, area, (uint32_t)next);
         }
+        if(rc==-DBF_ERR_BAD_RECNO)return NAV_OK; /* C04 LIST stops at missing data */
         return (rc == WA_OK) ? NAV_OK : rc;
     }
 

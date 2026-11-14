@@ -172,6 +172,8 @@ struct dbf_table {
                                * Each dbf_append_rec formats one record here. NULL
                                * for a dbf_open()'d (read-only) table. */
     uint32_t      rec_cap;    /* S1.4: capacity of rec_region in records. */
+    uint32_t      raw_recno;  /* record currently in rec_buf */
+    uint16_t      raw_length; /* physical bytes available in that record */
     uint8_t       writable;   /* S1.4: 1 if created by dbf_create (flushable),
                                * 0 if opened read-only by dbf_open. */
 
@@ -297,7 +299,6 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
     uint16_t nfields;
     uint32_t sum_lens;     /* 1 + sum(field lengths) accumulator (invariant 1b) */
     int32_t  filesz;
-    uint32_t body;         /* header_length + nrec*record_length */
     int32_t  off;
     uint32_t descbytes;    /* DBF_DESC_STRIDE * nfields */
     int32_t  term_off;     /* offset of the 0x0D terminator */
@@ -439,8 +440,9 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
      * including the RW record allocation below (initech-ptqc). */
     if (nrec > (UINT32_MAX - (uint32_t)header_length) / record_length)
         return teardown(tbl, -DBF_ERR_BAD_FILESZ);
-    body = (uint32_t)header_length + nrec * (uint32_t)record_length;
-    if ((uint32_t)filesz < body)
+    /* Genuine III+ C03/C04: a complete header may describe a partial or
+     * missing final row. Distinguish those while reading, not during USE. */
+    if ((uint32_t)filesz < header_length)
         return teardown(tbl, -DBF_ERR_BAD_FILESZ);
 
     /* All S1.1 invariants hold: capture the parsed values. */
@@ -567,7 +569,10 @@ static int dbf_open_common(ibase_pal_t *pal, const char *name, dbf_table **out,
             uint8_t *region = (uint8_t *)pal_owned_alloc(pal, &tbl->owned, total);
             if (!region)
                 return teardown(tbl, -DBF_ERR_NOMEM);
-            rc = read_exact(pal, fd, (int32_t)header_length, region, total);
+            uint32_t present=(uint32_t)filesz-header_length;
+            if(present>total)present=total;
+            rt_memset(region,' ',total);
+            rc=present?read_exact(pal,fd,(int32_t)header_length,region,present):DBF_OK;
             if (rc != DBF_OK)
                 return teardown(tbl, rc);
             tbl->rec_region = region;
@@ -727,8 +732,8 @@ const dbf_field_t *dbf_field(const dbf_table *t, int i)
  *   - value.h xb_c/xb_n/xb_d/xb_l/xb_m/xb_u.
  *   - dbf_ref.py decode_field() for C/N/D/L/M field-by-field agreement.
  */
-int dbf_read_rec(dbf_table *tbl, uint32_t recno,
-                 xb_val *out, int *deleted)
+static int dbf_read_rec_impl(dbf_table *tbl, uint32_t recno,
+                 xb_val *out, int *deleted,int physical)
 {
     int32_t     rec_off;     /* byte offset of this record's first byte (delete flag) */
     int32_t     field_off;   /* running offset into rec_buf for each field */
@@ -741,7 +746,7 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
 
     /* Validate 1-based recno: must be in [1, nrec]. dbf.h S1.3 contract.
      * Ref: dbf.md sec 9 "header nrec is authoritative for reading". */
-    if (recno < 1u || recno > tbl->nrec)
+    if (recno < 1u || (!physical && recno > tbl->nrec))
         return -DBF_ERR_BAD_RECNO;
 
     /* Compute the byte offset of this record's first byte (the delete flag).
@@ -754,10 +759,17 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
 
     /* Read the entire record into the reusable rec_buf.
      * read_exact seeks to rec_off and reads record_length bytes. */
-    rc = read_exact(tbl->pal, tbl->fd, rec_off, tbl->rec_buf,
-                    (uint32_t)tbl->record_length);
-    if (rc != DBF_OK)
-        return rc;
+    tbl->raw_recno=0;
+    if(tbl->pal->seek(tbl->pal,tbl->fd,rec_off,PAL_SEEK_SET)!=rec_off)return -DBF_ERR_IO;
+    rc=tbl->pal->read(tbl->pal,tbl->fd,tbl->rec_buf,tbl->record_length);
+    if(rc<0)return -DBF_ERR_IO;
+    if(rc==0 || (rc==1 && tbl->rec_buf[0]==0x1a))return -DBF_ERR_BAD_RECNO;
+    if(rc<tbl->record_length){
+        int32_t end=tbl->pal->seek(tbl->pal,tbl->fd,0,PAL_SEEK_END);
+        if(end<0 || end!=rec_off+rc)return -DBF_ERR_IO;
+        rt_memset(tbl->rec_buf+rc,' ',tbl->record_length-(uint32_t)rc);
+    }
+    tbl->raw_recno=recno;tbl->raw_length=(uint16_t)rc;
 
     /* Delete flag is the first byte of the record (rec_buf[0]).
      * 0x20 = live, 0x2A = deleted; any other byte is corrupt data -> fail loud.
@@ -938,6 +950,28 @@ int dbf_read_rec(dbf_table *tbl, uint32_t recno,
     }
 
     return DBF_OK;
+}
+
+int dbf_read_rec(dbf_table *tbl,uint32_t recno,xb_val *out,int *deleted)
+{
+    return dbf_read_rec_impl(tbl,recno,out,deleted,0);
+}
+/* Physical field bytes from the last decoded row. LIST must not fabricate
+ * missing digits or padding in the partial-row C03 capture. */
+int dbf_field_bytes(const dbf_table *tbl,uint32_t recno,const dbf_field_t *field,
+                    const uint8_t **bytes,uint16_t *length)
+{
+    uint32_t off=1;unsigned i;
+    if(tbl->raw_recno!=recno)return -DBF_ERR_BAD_RECNO;
+    for(i=0;i<tbl->nfields;i++){
+        if(field==&tbl->fields[i]){
+            uint32_t n=tbl->raw_length>off?tbl->raw_length-off:0;
+            if(n>field->field_len)n=field->field_len;
+            *bytes=tbl->rec_buf+off;*length=(uint16_t)n;return DBF_OK;
+        }
+        off+=tbl->fields[i].field_len;
+    }
+    return -DBF_ERR_BAD_TYPE;
 }
 
 /* ======================================================================== */
@@ -1415,6 +1449,7 @@ int dbf_flush_begin(dbf_table *tbl,dbf_flush_tx *tx)
     int rc;
     if(!tbl || !tbl->writable)return -DBF_ERR_IO;
     tx->header_length=tbl->header_length;tx->term_extra=tbl->term_extra;
+    tbl->raw_recno=0;
     rc=ibase_file_begin(&tx->file,tbl->pal,tbl->name);
     if(rc)return write_result(rc,1);
     rc=dbf_serialize(tbl,tx->file.fd);
@@ -1439,6 +1474,7 @@ int dbf_reload_records(dbf_table *tbl)
     uint8_t hdr[DBF_HDR_SIZE];uint32_t count;uint16_t offset;int rc;
     if(!tbl || !tbl->writable)return -DBF_ERR_IO;
     tbl->write_failed=1;
+    tbl->raw_recno=0;
     if(tbl->fd<0)tbl->fd=tbl->pal->open(tbl->pal,tbl->name,PAL_RDWR);
     if(tbl->fd<0)return -DBF_ERR_IO;
     rc=read_exact(tbl->pal,tbl->fd,0,hdr,sizeof hdr);

@@ -617,7 +617,10 @@ static int m_replace_impl(xb_interp *ip, const char *args, int *ec)
     if (kind == MS_DEFAULT) {
         /* default: the CURRENT record only (data-definition sec 8). */
         uint32_t recno = wa_recno(env, area);
-        if (wa_nrec(env, area) == 0u || wa_eof(env, area)) {
+        /* C04: real III+ fills a declared but physically missing row after
+         * GO BOTTOM reports EOF, without appending a new record number. */
+        if (wa_nrec(env, area) == 0u || (wa_eof(env, area) &&
+            (!wa_missing_recno(env,area) || wa_missing_recno(env,area)>wa_nrec(env,area)))) {
             if (ec) *ec = 0;
             return INTERP_OK;                    /* nothing to replace */
         }

@@ -559,6 +559,12 @@ static void q_render_field(xb_interp *ip,char *buf,uint32_t *pos,uint32_t cap,
      * preserving every numeric byte instead of truncating at Q_LINEBUF. */
     if(width+*pos>=cap) { q_putn(ip,buf,*pos);*pos=0; }
     start=*pos;
+    if(f){
+        wa_env *env=xb_interp_env(ip);int area=wa_selected(env);const uint8_t *bytes;uint16_t available;
+        if(!dbf_field_bytes(wa_table(env,area),wa_recno(env,area),f,&bytes,&available) && available<f->field_len){
+            q_append(buf,pos,cap,(const char *)bytes,available);return;
+        }
+    }
     if(v->t==XB_M) {
         uint32_t off=0u,len=v->u.c.len;
         const char *t=v->u.c.p?v->u.c.p:"";

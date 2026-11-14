@@ -88,6 +88,7 @@ struct work_area {
     uint32_t     rec_bytes_len;        /* record_length */
     uint32_t     cache_recno;          /* recno currently in the cache, 0 = none */
     int          cache_deleted;        /* delete flag of the cached record */
+    uint32_t     eof_recno;            /* C04: missing physical row inside nrec */
 
     char        *memo_buf;             /* per-area memo text scratch */
     uint32_t     memo_buf_cap;         /* capacity of memo_buf */
@@ -560,6 +561,7 @@ static int wa_open_impl(wa_env *env, int area, const char *name,
     wa->recno = 1u;                    /* dBASE positions at record 1 on USE */
     wa->bof   = 0;
     wa->eof   = (wa->nrec == 0u) ? 1 : 0;  /* empty table => EOF */
+    wa->eof_recno=0;
     wa->found = 0;                     /* fresh USE => FOUND() .F. (no search) */
     wa->open  = 1;
 
@@ -678,6 +680,7 @@ int wa_adopt_table(wa_env *env, int area, dbf_table *tbl, dbt_file *memo,
     wa->recno = 1u;
     wa->bof   = 0;
     wa->eof   = (wa->nrec == 0u) ? 1 : 0;
+    wa->eof_recno=0;
     wa->found = 0;
     wa->open  = 1;
 
@@ -701,6 +704,7 @@ int wa_refresh(wa_env *env, int area, uint32_t keep_recno)
     wa->cache_recno = 0u;
 
     if (wa->nrec == 0u) {
+        wa->eof_recno=0;
         wa->recno = 1u;
         wa->eof   = 1;
         wa->bof   = 0;
@@ -714,6 +718,7 @@ int wa_refresh(wa_env *env, int area, uint32_t keep_recno)
         if (target > wa->nrec) target = wa->nrec;
         wa->recno = target;
         wa->eof   = 0;
+        wa->eof_recno=0;
         wa->bof   = 0;
     }
     return WA_OK;
@@ -735,6 +740,7 @@ int wa_close(wa_env *env, int area)
     wa->recno = 0u;
     wa->nrec = 0u;
     wa->eof = 0;
+    wa->eof_recno=0;
     wa->bof = 0;
     wa->found = 0;
     wa->nfields = 0;
@@ -817,9 +823,11 @@ int wa_goto(wa_env *env, int area, uint32_t recno)
         return -DBF_ERR_BAD_RECNO;     /* fail loud; cursor unchanged */
     wa->recno = recno;
     wa->eof = 0;
+    wa->eof_recno=0;
     wa->bof = 0;
     wa->cache_recno = 0u;              /* invalidate cache; next resolve re-reads */
     rc = wa_touch_record(wa);
+    if(rc==-DBF_ERR_BAD_RECNO){wa->eof=1;wa->eof_recno=recno;}
     return rc;
 }
 
@@ -889,7 +897,7 @@ int wa_resolve(void *user, const char *name, uint16_t len, xb_val *out)
             /* C21: an old index points at a removed physical record. The
              * captured EOF field keeps its declared width, filled with spaces.
              * Other empty-table/EOF conventions are unchanged here. */
-            if(wa->nrec && wa->recno>wa->nrec && f){
+            if(wa->eof_recno && f){
                 rt_memset(wa->rec_bytes,' ',f->field_len);wa->cache_recno=0;
                 *out=xb_c(wa->rec_bytes,f->field_len);
             }else *out = xb_c(wa->rec_bytes, 0u);
@@ -985,7 +993,7 @@ static uint32_t wac_recno(void *u)
      * to RECCOUNT()+1 so RECNO() honors the documented EOF rule regardless of how
      * the area reached EOF (system-and-database-functions.md RECNO()). */
     if (wa->eof)
-        return wa->nrec + 1u;          /* RECCOUNT()+1 at EOF; empty file -> 1 */
+        return wa->eof_recno?wa->eof_recno:wa->nrec + 1u;
     return wa->recno;
 }
 
@@ -1225,6 +1233,7 @@ void wa_nav_set_eof(wa_env *env, int area, int val)
     if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
         return;
     env->area[area - 1].eof = val ? 1 : 0;
+    env->area[area - 1].eof_recno=0;
 }
 
 void wa_nav_missing(wa_env *env,int area,uint32_t recno)
@@ -1232,8 +1241,13 @@ void wa_nav_missing(wa_env *env,int area,uint32_t recno)
     work_area *wa;
     if(!env || area<1 || area>WA_NAREAS)return;
     wa=&env->area[area-1];
-    if(!wa->open || recno<=wa->nrec)return;
+    if(!wa->open || !recno)return;
     wa->recno=recno;wa->eof=1;wa->bof=0;wa->cache_recno=0;
+    wa->eof_recno=recno;
+}
+uint32_t wa_missing_recno(const wa_env *env,int area)
+{
+    return wa_is_open(env,area)?env->area[area-1].eof_recno:0;
 }
 
 int wa_found(const wa_env *env, int area)
