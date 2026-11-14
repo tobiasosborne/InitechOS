@@ -1,0 +1,22 @@
+# Fresh copy of runtime/data; test W06 or W11 only.
+sleep 6
+key shift-f10
+wait Document to be retrieved
+type B:\CASE.WP5
+key ret
+sleep 20
+shot retrieved
+key home
+key home
+key down
+type Z
+shot edited
+key f10
+wait Document to be saved
+key ret
+sleep 3
+shot replace
+type y
+sleep 4
+shot saved
+end

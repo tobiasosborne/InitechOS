@@ -4,11 +4,11 @@ W02	fixtures/W02.WP5	zero bytes	refuse: Incompatible File Format	needs capture
 W03	fixtures/W03.WP5	15-byte header fragment	refuse: Incompatible File Format	needs capture
 W04	fixtures/W04.WP5	327-byte prefix cut at byte 326	refuse: Incompatible File Format	needs capture
 W05	fixtures/W05.WP5	MINT02 loses final text period	open body 16; save 343	real WP5.1 opens Plain text only; captured
-W06	fixtures/W06.WP5	Readable plus incomplete Bold-on code	refuse: Incompatible File Format	real WP5.1 opens Readable after 20s; captured; edit/save pending
+W06	fixtures/W06.WP5	Readable plus incomplete Bold-on code	refuse: Incompatible File Format	real WP5.1 recovers Readable, saves complete ReadableZ after edit, reopens
 W07	fixtures/W07.WP5	Bold-on code with wrong mirror	refuse: Incompatible File Format	needs capture
 W08	fixtures/W08.WP5	65000 plain body bytes	open; save 65327; insert/save works	needs capture
 W09	fixtures/W09.WP5	1000 Bold-on/b/Bold-off/HRt runs	open body 8000; save 8327; insert/save works	real WP5.1 opens b lines; captured; tail/code inventory pending
 W10	fixtures/W10.WP5	total file length 65536	open; unchanged save works; insertion refuses	real WP5.1 opens x lines; captured; edit/save pending
-W11	fixtures/W11.WP5	total file length 65537	refuse: Document too large	real WP5.1 opens x lines after 20s; captured; final-byte/edit/save pending
+W11	fixtures/W11.WP5	total file length 65537	refuse: Document too large	real WP5.1 saves all 65210 source x characters plus final Z and reopens
 W12	PENDING	genuine WP5.0 document	PENDING input and observation	needs WP5.0 runtime/sample; recipe below
 W13	PENDING	genuine WP6.0 document	PENDING input and observation	needs WP6.0 runtime/sample; recipe below

@@ -1,0 +1,21 @@
+=== /home/tobias/.t3/worktrees/InitechOS/t3-6ae10afc-772915194b85f3cf/build/apps/initechword/conformance/save-W06/AFTER.WP5 size=582 docstart=0x23a product=1 filetype=0x0a version=0.1 encrypt=0
+  index@0x10 flag=0xfffb entries=5 size=50 next=0x159
+    packet type=0x06 len=16 off=0x42 data=00237c00780000000100000000000000
+    packet type=0xffff len=17 off=0x98 data=436f757269657220313020506974636800
+    packet type=0xffff len=90 off=0xa9 data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0x0f len=86 off=0x103 data=0000ffff7a004e007800780078000a000100000000555edb017800141e0c178c0a000000041140c9...
+    packet type=0x2300 len=7864444 off=0x10000 data=
+  index@0x159 flag=0xfffb entries=5 size=50 next=0x206
+    packet type=0x07 len=17 off=0x18b data=436f757269657220313020506974636800
+    packet type=0x0c len=90 off=0x19c data=00000000000000000000000000000000000000000000000000000000000000000000000000000000...
+    packet type=0xffff len=16 off=0x1f6 data=00237c00780000000100000000000000
+    packet type=0xffff len=70 off=0x52 data=0100000000555edb017800141e0c178c0a000000041140c90087cf01000100580240ffffffffffff...
+    packet type=0x6f43 len=1701409397 off=0x30312072 data=
+  index@0x206 flag=0xfffb entries=5 size=50 next=0x0
+    packet type=0x08 len=2 off=0x238 data=0000
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+    packet type=0x00 len=0 off=0x0 data=
+  TEXT: 'ReadableZ'
+  CODES: T'Readable' [AttrOn Bold] T'Z'
+  END offset=582 filesize=582 trailer-errors=0

@@ -55,6 +55,14 @@ W06, W09, W10 captures used 4 seconds; their actual input.steps are retained).
 A screen still at a filename prompt does not establish a freeze or refusal.
 Extract AFTER.WP5 only after an explicit successful edit/save replay.
 
+W06 and W11 now also have capture-save.sh/capture-save.steps replays and
+fresh-runtime reopens. W06-save/AFTER.WP5 is a real 582-byte recovered
+document whose independent reader text is exactly ReadableZ. W11-save
+contains all 65210 source x characters plus final Z (65211 text characters),
+65784 file bytes and zero trailer errors. W06-reopen/W11-reopen use fresh
+runtime images on the actual saved files. The load observer's refusal
+differs from these real recovery/capacity results.
+
 W12/W13 have no binary yet: obtain genuine WP5.0 and WP6.0 runtimes or a
 hash/provenance-pinned sample. In each real editor enter 'VERSION TEST',
 Return, F6 'BOLD' F6 and save with F10 in that version's NATIVE default
