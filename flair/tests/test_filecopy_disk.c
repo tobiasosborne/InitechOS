@@ -89,21 +89,27 @@ int32_t tbx_file_close(int32_t h) { return file_gate(TBX_FILE_CLOSE,(uint32_t)h,
 int32_t tbx_file_seek(int32_t h,int32_t n,uint32_t origin) { return file_gate(TBX_FILE_SEEK,(uint32_t)h,(uint32_t)n,(uint32_t)origin); }
 int32_t tbx_file_delete(const char *p) { return file_gate(TBX_FILE_DELETE,flair_file_ptr(p),0,0); }
 int32_t tbx_file_rename(const char *a,const char *b) { return file_gate(TBX_FILE_RENAME,flair_file_ptr(a),flair_file_ptr(b),0); }
-static void save_sweep(void)
+static int32_t save_run(int from_file)
+{
+    if(!from_file) return tbx_file_save("TARGET.DAT",source,sizeof source);
+    int32_t rc=tbx_file_copy_save("SOURCE.DAT","TARGET.DAT");
+    return rc==TBX_OK?(int32_t)sizeof source:rc;
+}
+static void save_sweep(int from_file)
 {
     unsigned nc,nw;
-    setup(); CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)==sizeof source,"successful SDK save");
+    setup(); CHECK(save_run(from_file)==sizeof source,"successful SDK save");
     nc=calls; nw=writes; verify(source,sizeof source); tbxf_reap(&g_slot.files); fclose(disk);
     for(unsigned i=1;i<=nc;i++) {
-        setup(); fail_call=i; int32_t rc=tbx_file_save("TARGET.DAT",source,sizeof source); fail_call=0;
-        printf("SDK DOS fault %u rc=%d hit=%u\n",i,rc,hit);
+        setup(); fail_call=i; int32_t rc=save_run(from_file); fail_call=0;
+        printf("SDK%s DOS fault %u rc=%d hit=%u\n",from_file?" input":"",i,rc,hit);
         CHECK(hit==1,"SDK DOS fault reached"); verify(rc==sizeof source?(const void *)source:old,rc==sizeof source?sizeof source:sizeof old-1);
         CHECK(tbxf_live(&g_slot.files)==0,"SDK DOS failure releases handles");
         tbxf_reap(&g_slot.files); fclose(disk);
     }
     for(unsigned i=1;i<=nw;i++) {
-        setup(); fail_write=i; int32_t rc=tbx_file_save("TARGET.DAT",source,sizeof source); fail_write=0;
-        printf("SDK sector fault %u rc=%d hit=%u\n",i,rc,hit);
+        setup(); fail_write=i; int32_t rc=save_run(from_file); fail_write=0;
+        printf("SDK%s sector fault %u rc=%d hit=%u\n",from_file?" input":"",i,rc,hit);
         CHECK(hit==1,"SDK sector fault reached"); verify(rc==sizeof source?(const void *)source:old,rc==sizeof source?sizeof source:sizeof old-1);
         CHECK(tbxf_live(&g_slot.files)==0,"SDK sector failure releases handles");
         tbxf_reap(&g_slot.files); fclose(disk);
@@ -205,7 +211,7 @@ int main(int argc,char **argv)
         uint32_t n; setup(); CHECK(tbx_fc_open(&n)==0,"cancel open"); CHECK(tbx_fc_step(i)>=0,"cancel progress"); tbx_fc_close();
         verify(old,sizeof old-1); CHECK(tbxf_live(&g_slot.files)==0,"cancel closes handles"); fclose(disk);
     }
-    save_sweep();
+    save_sweep(0); save_sweep(1);
     extra_cases();
     double_failure(1); double_failure(0);
     return TEST_SUMMARY("test-filecopy-disk");
