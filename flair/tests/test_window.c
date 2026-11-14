@@ -1083,6 +1083,35 @@ int main(void)
               "CollapseWindow restore: expanded self footprint is exact damage");
     }
 
+    /* k8kja: windowshade changes height, not the document's location. Literal
+     * drag endpoints and sizes grade restoration, independently of saved state. */
+    for (int zoomed=0;zoomed<2;zoomed++) {
+        static win_store_t W; static mgr_store_t M;
+        static uint8_t old_owned[OP_W*OP_H];
+        const rgn_rect_t user={35,80,159,199};
+        const rgn_rect_t expected[2]={{28,55,152,174},{28,11,164,203}};
+        mgr_attach(&M,(rgn_rect_t){0,0,OP_H,OP_W}); win_attach(&W);
+        NewDocumentWindow(&M.wm,&W.rec,user,documentKind,1);
+        if(zoomed) CHECK(ZoomWindow(&M.wm,&W.rec)==1,"zoom before collapsed drag");
+        CHECK(CollapseWindow(&M.wm,&W.rec)==1,"collapse before moving title band");
+        MoveWindow(&M.wm,&W.rec,zoomed?14:50,zoomed?30:25);
+        DragWindow(&M.wm,&W.rec,zoomed?-3:5,zoomed?-2:3);
+        rgn_rect_t shade=WindowFrameRect(&W.rec);
+        CHECK(shade.left==expected[zoomed].left && shade.top==expected[zoomed].top &&
+              region_is_empty(W.rec.contRgn),"collapsed moves reach literal endpoint with no content");
+        WindowMgr_validate(&W.rec); region_set_empty(M.wm.desktop_update);
+        snapshot_op_region(W.rec.strucRgn,old_owned);
+        CHECK(CollapseWindow(&M.wm,&W.rec)==0,"expand after two collapsed moves");
+        CHECK(rect_same(WindowFrameRect(&W.rec),expected[zoomed]),
+              "expanded frame keeps the dragged position and original size");
+        CHECK(geometry_damage_exact(old_owned,&W.rec,&M.wm),
+              "expansion at dragged position has exact independent damage");
+        if(zoomed) {
+            CHECK(ZoomWindow(&M.wm,&W.rec)==0 && rect_same(WindowFrameRect(&W.rec),user),
+                  "moving collapsed standard state preserves the pre-zoom user frame");
+        }
+    }
+
     /* ======================================================================
      * HideWindow exposure: hiding a window damages exactly what it owned
      * (independent owner-grid before/after) -- PLUS, when the hidden window

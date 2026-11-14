@@ -94,6 +94,9 @@ all seven held/released images plus File-to-empty restoration.
 - TextEdit: editable text, layout, selection, caret and scrap operations.
 - Chrome: Platinum window and widget drawing.
 - Window: geometry, z-order, visible regions, exposure and update damage.
+  Moving a collapsed document translates its saved expanded frame, so expansion
+  preserves the dragged location and full size. The pre-zoom user frame remains
+  independent; literal geometry and owner-grid damage tests cover both states.
 - Menu: proportional bars, pull-down layout, tracking and keyboard equivalents.
 - Control: buttons, checkboxes, radios, scroll bars and progress bars.
 - Dialog: item routing, modal handling and standard alert/file-copy furniture.
@@ -174,7 +177,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 198 patches through the shared strict runner: passing baseline,
+make mutants runs 199 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;

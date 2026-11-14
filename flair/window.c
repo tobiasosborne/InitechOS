@@ -771,6 +771,15 @@ void MoveWindow(WindowMgr *wm, WindowPtr w, int16_t newLeft, int16_t newTop)
              structure_scratch(wm, ns, w->windowDefProcVariant));
     set_content(wm, w, nc);
 
+    /* Windowshade retains the expanded size at the title band's new location.
+     * userState belongs to zoom restoration and is independent of this move. */
+    if (w->collapsed) {
+        w->collapseState.left=(int16_t)(w->collapseState.left+dh);
+        w->collapseState.right=(int16_t)(w->collapseState.right+dh);
+        w->collapseState.top=(int16_t)(w->collapseState.top+dv);
+        w->collapseState.bottom=(int16_t)(w->collapseState.bottom+dv);
+    }
+
     distribute_exposure(wm, w, exposed);
     region_set_empty(w->updateRgn);
 }
