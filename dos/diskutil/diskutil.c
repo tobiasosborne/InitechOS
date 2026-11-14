@@ -222,10 +222,14 @@ static int sys_run(const du_map *m,unsigned letter){volume src,dst;uint8_t files
  if(transfer(&dst,&src,files,2,0,&used))return error("No room for system on destination disk",1);
  return error("System transferred",0);
 }
-static void swap_prompt(int compare,int target,unsigned letter){
+/* Genuine DOS 3.30 (dos33/reference/diskcopy-break): Ctrl-C or Ctrl-Break
+ * (byte 03h through the adapter) at a swap prompt echoes ^C, exits the
+ * utility and writes nothing further. Returns -1 on that cancel. */
+static int swap_prompt(int compare,int target,unsigned letter){
  drive_text(compare?(target?"Insert SECOND diskette into drive ":"Insert FIRST diskette into drive "):(target?"Insert TARGET diskette into drive ":"Insert SOURCE diskette in drive "),letter,":\r\n");
  if(!compare)line("Press any key when ready . . .");
- (void)io->get();
+ if(io->get()==3){line("^C");return -1;}
+ return 0;
 }
 static int copy_run(const options *o,int compare){
  du_map m[2];for(unsigned i=0;i<2;i++){if(io->map(o->letter[i],m+i))return error(MSG_DOS_0004,4);}
@@ -233,14 +237,15 @@ static int copy_run(const options *o,int compare){
  for(unsigned i=0;i<2;i++)if(!(m[i].flags&DU_REMOVABLE))return error("Specified drive does not exist,\r\nor is non-removable",4);
  int result=0;
  do{
-  swap_prompt(compare,0,o->letter[0]);uint8_t b[512];if(sec(m,0,b,0))return error("FIRST diskette bad or incompatible",3);
+  if(swap_prompt(compare,0,o->letter[0]))return 3;
+  uint8_t b[512];if(sec(m,0,b,0))return error("FIRST diskette bad or incompatible",3);
   unsigned total=u16(b+19),spt=u16(b+24),heads=u16(b+26);if(u16(b+11)!=512||!total||total>m[0].sectors||!spt||spt>63||!heads||heads>2)return error("FIRST diskette bad or incompatible",3);
   unsigned count=sizeof copybuf/512;
   result=0;
   for(unsigned first=0;first<total;first+=count){unsigned n=total-first;if(n>count)n=count;
-   if(first)swap_prompt(compare,0,o->letter[0]);
+   if(first&&swap_prompt(compare,0,o->letter[0]))return 3;
    for(unsigned j=0;j<n;j++)if(sec(m,first+j,copybuf+j*512,0))return error("FIRST diskette bad or incompatible",3);
-   swap_prompt(compare,1,o->letter[1]);
+   if(swap_prompt(compare,1,o->letter[1]))return 3;
    if(fat16_target(m+1))return protected(o->letter[1]);
    for(unsigned j=0;j<n;j++){
     unsigned l=first+j,side=(l/spt)%heads,track=l/(spt*heads);

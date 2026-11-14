@@ -1,0 +1,10 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-diskcopy-break.sh: AUTOEXEC runs A:\DISKCOPY B: B:
+against a 360K B: diskette labelled PRECIOUS holding P.TXT. The driver
+presses a key at the SOURCE prompt, then Ctrl-C at the TARGET prompt.
+Genuine result (afterc.txt/final.txt): "^C" is echoed, DISKCOPY exits,
+the batch continues with its next lines (no Terminate batch job
+question), and the B: image is byte-identical before and after
+(IDENTITY, before-data.img.gz versus data.img.gz): Ctrl-C at the
+target prompt cancels before any target sector is written.

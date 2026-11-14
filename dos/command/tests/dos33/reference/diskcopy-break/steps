@@ -1,0 +1,12 @@
+wait SOURCE
+shot source
+key spc
+wait TARGET
+shot target
+key ctrl-c
+sleep 2
+shot afterc
+key y
+sleep 2
+shot final
+end

@@ -72,6 +72,14 @@ grep -q 'Compare OK' "$w/compare.console" || red 'compare OK'
 printf X | dd of="$w/target.img" bs=1 seek=$((2879*512+38)) conv=notrunc status=none
 "$exe" "$w/master.img" "$w/a.img" 3 'A: A:' N 1 "$w/source.img" "$w/target.img" > "$w/compare.console" 2> "$w/compare.exit" || red 'DISKCOMP missing differing sector'
 grep -q 'side 1, track 79' "$w/compare.console" || red 'DISKCOMP missing differing sector'
+# Genuine DOS 3.30 (dos33/reference/diskcopy-break): Ctrl-C at the first
+# TARGET prompt cancels before any target write. Keys: X at SOURCE, ^C at TARGET.
+dd if=/dev/zero bs=512 count=2880 status=none | tr '\000' '\245' > "$w/target.img"
+cp -f "$w/target.img" "$w/target-before.img"
+"$exe" "$w/master.img" "$w/a.img" 2 'A: A:' "$(printf 'X\003')" 3 "$w/source.img" "$w/target.img" > "$w/copybreak.console" 2> "$w/copybreak.exit" || { cat "$w/copybreak.console" "$w/copybreak.exit"; red 'DISKCOPY Ctrl-C at TARGET prompt'; }
+cmp "$w/target-before.img" "$w/target.img" || red 'DISKCOPY Ctrl-C wrote target sectors'
+"$exe" "$w/master.img" "$w/a.img" 3 'A: A:' "$(printf 'X\003')" 3 "$w/source.img" "$w/target.img" > "$w/compbreak.console" 2> "$w/compbreak.exit" || { cat "$w/compbreak.console" "$w/compbreak.exit"; red 'DISKCOMP Ctrl-C at SECOND prompt'; }
+echo 'GREEN test-formatsys: Ctrl-C at the DISKCOPY TARGET prompt writes nothing; DISKCOMP cancels the same way'
 echo 'GREEN test-formatsys: mformat BPB/FAT, /S bytes/HSR/order/label, SYS exclusions/occupied, invalid/running, single-drive copy/compare all sectors; fsck.fat'
 # Removable geometries and DOS switch spellings, with current=C in this host
 # fixture. Actual shipped current=A still refuses its own volume above.

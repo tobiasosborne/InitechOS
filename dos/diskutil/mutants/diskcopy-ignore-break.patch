@@ -1,0 +1,13 @@
+# DISKCOPY_IGNORE_BREAK
+# test: test-formatsys
+--- a/diskutil/diskutil.c
++++ b/diskutil/diskutil.c
+@@ -228,7 +228,7 @@
+ static int swap_prompt(int compare,int target,unsigned letter){
+  drive_text(compare?(target?"Insert SECOND diskette into drive ":"Insert FIRST diskette into drive "):(target?"Insert TARGET diskette into drive ":"Insert SOURCE diskette in drive "),letter,":\r\n");
+  if(!compare)line("Press any key when ready . . .");
+- if(io->get()==3){line("^C");return -1;}
++ (void)io->get();
+  return 0;
+ }
+ static int copy_run(const options *o,int compare){
