@@ -55,6 +55,12 @@ static void test_parse_basic(void)
     CHECK(p.kind == CMD_PATH, "PATH; clears the command path");
     CHECK_STR_EQ(p.arg, ";", "PATH; clear operand reaches PATH");
 
+    /* Genuine DOS 3.30 compat33/expected/NAMES: CD.. executes the directory
+     * command and prints the root on the following CD, not an unknown command. */
+    cmd_parse("cd..", &p);
+    CHECK(p.kind == CMD_CD, "captured CD.. executes internal CD");
+    CHECK_STR_EQ(p.arg, "..", "captured CD.. passes parent operand");
+
     /* "type hello.txt" -> command TYPE (upper), arg "hello.txt" (verbatim). The
      * DOS tail keeps the leading separator (what a child reads at PSP:80h). */
     cmd_parse("type hello.txt", &p);

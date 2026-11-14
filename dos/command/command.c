@@ -159,7 +159,9 @@ void cmd_parse(const char *line, cmd_line_t *out)
         /* MS-DOS 3.3 Reference p.57 (DIR[/P][/W]), p.97 (PATH;),
          * Guide p.48 (PATH=...). Preserve the adjacent delimiter as the
          * operand; executable path names retain the ordinary tokenizer. */
-        if ((*p == '/' && i == 3 && out->command[0] == 'D' &&
+        if ((*p == '.' && i == 2 && out->command[0] == 'C' &&
+             out->command[1] == 'D') ||
+            (*p == '/' && i == 3 && out->command[0] == 'D' &&
              out->command[1] == 'I' && out->command[2] == 'R') ||
             ((*p == ';' || *p == '=') && i == 4 && out->command[0] == 'P' &&
              out->command[1] == 'A' && out->command[2] == 'T' && out->command[3] == 'H'))
