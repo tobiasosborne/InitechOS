@@ -322,3 +322,41 @@ Interface use-binding: kernel/startup.c
 Interface use-binding: kernel/isr.asm
 Interface use-binding: flair/event.c
 <!-- end-interface-declarations -->
+
+## Frozen command omissions (GM4)
+
+The approved phase-2 split omits twenty formerly inert choices: File Print,
+Duplicate, Make Alias, Find, Page Setup, Sharing, Eject; Edit Undo, Cut, Copy,
+Paste, Clear, Preferences; View by Label, as Buttons, as Pop-up Window;
+Special Erase Disk, Sleep; Help About Help, Show Balloons. The empty Help title
+and surplus dividers are absent. Surviving command IDs keep their meanings;
+Duplicate's ID is retired. Row numbers and View checkmarks follow the shorter
+resource. File Open and document double-click have no document-association
+route: a document's second click selects it. Folder, volume, application and
+Trash open routes remain. Users open documents from their application's
+Open/Retrieve command.
+
+Get Info supports exactly one selected regular file in a Finder directory
+window, including an EXE as a file. Name, exact byte size, DOS modification
+date and Locked Yes/No are read-only. The directory is read again when the
+command runs. Missing/unreadable metadata, no selection, multiple selections,
+folders and desktop volume/Trash contexts have no Info route. A zero DOS date
+is shown as Not recorded. One OK button, Return or Escape dismisses the modal.
+The reference is Macintosh System Software User's Guide V6, printed87-90;
+the four-field modal is the explicitly approved reduction, not a native
+modeless Info window. The real mtools FAT12/FAT16 fixtures check every field,
+readonly state, race/read errors and unchanged image bytes.
+
+Show Clipboard takes one TEXT snapshot through the public Scrap Manager,
+using its complete8192-byte capacity. It uses the existing alert's fixed
+285-pixel text area: three rows below the Clipboard caption, wrapped by public
+Chicago advances. CR/LF separate lines; other control/non-ASCII bytes are
+visible hexadecimal escapes. Close/Return/Escape dismiss; Next and Previous
+appear only where they can move. It neither edits nor refreshes the shared
+scrap. Empty/PICT-only scrap is blank; read/size errors are reported. Reference:
+the same Mac guide, printed118-119; modal snapshots and pagination are the
+approved authored reduction. Host tests inspect every byte of the full-capacity
+snapshot, first/last pages, bounds, changed live scrap, all three modal button
+routes and native menu/shortcut contexts. The omission inventory was red before
+implementation. Removed-key, modal-button and document-gesture patch controls
+make the route checks mutation-testable.

@@ -1087,14 +1087,14 @@ static void leg_select_arrange(void)
     finder_shell_bind_ctx(&S.sh, &fx);
 
     finder_shell_sync_ctx(&S.sh);
-    finder_dispatch(&fx, ((uint32_t)513u << 16) | 6u, "mouse");   /* Select All */
+    finder_dispatch(&fx, ((uint32_t)513u << 16) | 1u, "mouse");   /* Select All */
     o = finder_shell_take_outcome(&S.sh);
     CHECK(o != NULL && o->id == FCMD_SELECT_ALL && o->slot == ROOT && o->moved == 2 &&
           finder_desk_selection_count(&rw->view) == 2u,
           "O10 Edit > Select All selects BOTH shown icons of the front window (F03)");
 
     finder_shell_sync_ctx(&S.sh);
-    finder_dispatch(&fx, ((uint32_t)514u << 16) | 12u, "mouse");  /* Arrange   */
+    finder_dispatch(&fx, ((uint32_t)514u << 16) | 9u, "mouse");  /* Arrange   */
     o = finder_shell_take_outcome(&S.sh);
     CHECK(o != NULL && o->id == FCMD_ARRANGE_BY_NAME && o->status == FINDER_WIN_OK &&
           o->moved == 2,
@@ -1108,10 +1108,10 @@ static void leg_select_arrange(void)
      * (the bar would never hand it out), the shell declines it. */
     /* RE-KEY (bead initech-tdnl.78, stated): Restart left the "no" side of
      * this row when it was implemented; O15 grades it. Get Info stays "no". */
-    CHECK(finder_shell_implements(FCMD_GET_INFO) == 0 &&
+    CHECK(finder_shell_implements(FCMD_GET_INFO) == 1 &&
           finder_shell_implements(FCMD_SELECT_ALL) == 1 &&
           finder_shell_implements(FCMD_ARRANGE_BY_NAME) == 1,
-          "O10 the shell's execution table: Select All + Arrange yes, Get Info no");
+          "O10 the shell's execution table: Select All + Arrange + bounded Get Info yes");
 }
 
 /* ===========================================================================
@@ -1224,7 +1224,7 @@ static void leg_power(void)
     CHECK(S.sh.n_views == 0u, "O15 (setup) no view record before the command");
 
     finder_shell_sync_ctx(&S.sh);
-    finder_dispatch(&fx, ((uint32_t)515u << 16) | 7u, "mouse");   /* Shut Down */
+    finder_dispatch(&fx, ((uint32_t)515u << 16) | 5u, "mouse");   /* Shut Down */
     o = finder_shell_take_outcome(&S.sh);
     CHECK(o != NULL && o->id == FCMD_SHUTDOWN && o->status == FINDER_WIN_OK &&
           o->moved == 2,
@@ -1237,13 +1237,13 @@ static void leg_power(void)
     CHECK(S.sh.windows[ROOT].open && S.sh.windows[APPW].open,
           "O15 the windows stay open: the kernel owns what happens next");
 
-    finder_dispatch(&fx, ((uint32_t)515u << 16) | 7u, "mouse");
+    finder_dispatch(&fx, ((uint32_t)515u << 16) | 5u, "mouse");
     o = finder_shell_take_outcome(&S.sh);
     CHECK(o != NULL && o->id == FCMD_SHUTDOWN && o->moved == 0,
           "O15 a second Shut Down with nothing moved notes nothing new");
 
     MoveWindow(&S.wm, &S.sh.windows[ROOT].rec, 200, 150);
-    finder_dispatch(&fx, ((uint32_t)515u << 16) | 6u, "mouse");   /* Restart   */
+    finder_dispatch(&fx, ((uint32_t)515u << 16) | 4u, "mouse");   /* Restart   */
     o = finder_shell_take_outcome(&S.sh);
     vr = finder_shell_find_view(&S.sh, CL_ROOT);
     CHECK(o != NULL && o->id == FCMD_RESTART && o->status == FINDER_WIN_OK &&
@@ -1255,7 +1255,7 @@ static void leg_power(void)
      * the console hand-off), so it notes the moved ROOT frame exactly the same
      * way and leaves the windows open for the kernel. */
     MoveWindow(&S.wm, &S.sh.windows[ROOT].rec, 210, 160);
-    finder_dispatch(&fx, ((uint32_t)515u << 16) | 10u, "mouse");  /* Exit DOS */
+    finder_dispatch(&fx, ((uint32_t)515u << 16) | 7u, "mouse");  /* Exit DOS */
     o = finder_shell_take_outcome(&S.sh);
     vr = finder_shell_find_view(&S.sh, CL_ROOT);
     CHECK(o != NULL && o->id == FCMD_EXIT_DOS && o->status == FINDER_WIN_OK &&

@@ -10,6 +10,7 @@
 #include "desktop_db.h"
 #include "finder_ops.h"
 #include "finder_storage.h"
+#include "finder_menu.h"
 extern const finder_fs_t g_finder_fs_binding;
 const fat12_volume_t *g_finder_vol;
 void *g_finder_fat, *g_finder_secbuf;
@@ -20,6 +21,7 @@ void serial_puts(const char *s) { (void)s; }
 void serial_puti(int32_t n) { (void)n; }
 void serial_putc(char c) { (void)c; }
 static unsigned writes;
+static int fail_reads;
 static uint8_t *disk, *before;
 static size_t disk_len;
 static int item_index(finder_desk_t *view, const char *name)
@@ -30,6 +32,7 @@ static int item_index(finder_desk_t *view, const char *name)
 static int rd(void *ctx,uint32_t lba,uint32_t n,void *out)
 {
     (void)ctx;
+    if(fail_reads)return -1;
     if ((uint64_t)(lba+n)*512>disk_len) return -1;
     memcpy(out,disk+(size_t)lba*512,(size_t)n*512); return 0;
 }
@@ -102,6 +105,37 @@ int main(int argc,char **argv)
     scene_init(&scene,MOCK_DIRS,2);
     finder_shell_bind_fs(&scene.sh,&g_finder_fs_binding);
     CHECK(finder_win_open(&scene.sh,0,0,"",1,&root,NULL)==FINDER_WIN_OK,"Finder opens volume");
+    {
+        FinderCtx context={0};finder_file_info_t info;char lines[4][64];
+        finder_shell_bind_ctx(&scene.sh,&context);
+        int index=item_index(&scene.sh.windows[root].view,"SOURCE.TXT");
+        CHECK(index>=0,"Info target exists in mtools volume");
+        if(index>=0){
+            scene.sh.windows[root].view.icons[index].selected=1;
+            CHECK(finder_file_info(&scene.sh,&info),"Info reads real FAT directory record");
+            finder_file_info_lines(&info,lines);
+            CHECK(!strcmp(lines[0],"Name: SOURCE.TXT")&&!strcmp(lines[1],"Size: 21 bytes")&&
+                  !strcmp(lines[2],"Modified: 02/29/1992")&&!strcmp(lines[3],"Locked: No"),
+                  "all four Info fields match independent mtools fixture");
+            finder_shell_sync_ctx(&scene.sh);finder_menu_refresh_enables(&context);
+            CHECK(MenuKey(finder_menu_bar(),'I')==MenuResult(512,5),"Info shortcut targets supported selected file");
+            finder_dispatch(&context,MenuResult(512,5),"mouse");
+            const finder_cmd_outcome_t *out=finder_shell_take_outcome(&scene.sh);
+            CHECK(out&&out->id==FCMD_GET_INFO&&out->status==0,"mouse route produces bounded Info outcome");
+            fail_reads=1;finder_dispatch(&context,MenuResult(512,5),"key");
+            CHECK(finder_shell_take_outcome(&scene.sh)==NULL,"metadata race/read error opens no Info dialog");
+            finder_shell_sync_ctx(&scene.sh);finder_menu_refresh_enables(&context);
+            CHECK(MenuKey(finder_menu_bar(),'I')==0,"unreadable metadata disables shortcut");
+            fail_reads=0;scene.sh.windows[root].view.icons[index].selected=0;
+        }
+        index=item_index(&scene.sh.windows[root].view,"LOCKED.TXT");
+        CHECK(index>=0,"locked Info target exists");
+        if(index>=0){scene.sh.windows[root].view.icons[index].selected=1;
+            CHECK(finder_file_info(&scene.sh,&info)&&info.locked==1,"Locked comes from real DOS readonly attribute");
+            finder_file_info_lines(&info,lines);CHECK(!strcmp(lines[3],"Locked: Yes"),"locked text is read only");
+            scene.sh.windows[root].view.icons[index].selected=0;}
+        CHECK(writes==0&&!memcmp(disk,before,disk_len),"Info and failed Info preserve every FAT12/FAT16 byte");
+    }
     CHECK(finder_fat_read_partial(NULL,"SOURCE.TXT",0,0,sizeof bytes,bytes,&got)==0 &&
           got==21 && !memcmp(bytes,"Finder source bytes\r\n",21),"Finder FAT16/FAT12 reads preserved");
     uint32_t total=0;

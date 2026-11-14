@@ -1,0 +1,11 @@
+# test: test_finder_commands
+--- a/finder_desktop.c
++++ b/finder_desktop.c
+@@ -946,6 +946,6 @@
+ {
+     finder_click_kind_t k=finder_click_classify(t,target,h,v,when);
+     if(k==FINDER_CLICK_DOUBLE && desk && target>=0 && target<desk->n &&
+-       desk->icons[target].kind==FINDER_ICON_FILE)return FINDER_CLICK_SINGLE;
++       desk->icons[target].kind==FINDER_ICON_FILE && 0)return FINDER_CLICK_SINGLE;
+     return k;
+ }

@@ -57,4 +57,51 @@ journey() {
     # Completion follows this key; no trailing wait may remain for Bochs.
     inject 'ky'
     await_marker 'TENANT-EXIT rc=0 via=exit'
+    # Finder's retained Get Info is a file query, including an EXE as a file.
+    word_keys 'kup,kw,ko,kr,kd,kdot,ke,kx,ke,kctrl-i'
+    await_marker 'FINDER-INFO Name: WORD.EXE'
+    capture finder-info
+    word_keys 'kesc'
+    # Copy a literal CR fixture from Note Pad page3. Restore page1 before
+    # ending so the ordinary Note Pad/Calculator journeys retain their start.
+    launch_app NOTEPAD.EXE
+    move_by 58 167
+    for turn in 1 2 3 4 5 6 7; do inject 'l1,l0,w100'; done
+    move_by 285 0
+    inject 'l1,l0,w150,l1,l0'
+    move_by -343 -167
+    for clip_line in first second third fourth fifth sixth seventh unique-tail; do
+        clip_keys=$(printf '%s\n' "$clip_line" | fold -w1 | while IFS= read -r letter; do
+            case $letter in -) letter=minus;; esac
+            printf 'k%s,' "$letter"
+        done)
+        inject "${clip_keys%,}"
+        [ "$clip_line" = unique-tail ] || inject kret
+    done
+    word_keys 'kctrl-a,kctrl-c,kctrl-x,kctrl-q'
+    await_marker 'TENANT-EXIT rc=0 via=exit'
+    move_by -17 -93
+    inject 'l1,m0:38,l0'
+    move_by 17 55
+    await_marker 'FINDER-CLIPBOARD first'
+    capture finder-clipboard-first
+    move_by 281 66
+    inject 'l1,l0'
+    await_marker 'FINDER-CLIPBOARD fourth'
+    inject 'l1,l0'
+    await_marker 'FINDER-CLIPBOARD unique-tail'
+    capture finder-clipboard-last
+    # Last page's second button is Previous. Escape always means Close.
+    inject 'l1,l0'
+    await_marker 'FINDER-CLIPBOARD fourth'
+    word_keys kesc
+    move_by -281 -66
+    launch_app NOTEPAD.EXE
+    word_keys kctrl-v
+    move_by 58 167
+    inject 'l1,l0,w150,l1,l0'
+    move_by -58 -167
+    word_keys kctrl-q
+    await_marker 'TENANT-EXIT rc=0 via=exit'
 }
+journey_exits=3

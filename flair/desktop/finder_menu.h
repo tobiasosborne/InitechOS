@@ -108,7 +108,7 @@
 
 /* The number of TITLED menus in the bar (Apple is the glyph slot, not a title;
  * see the banner). File, Edit, View, Special, Help. */
-#define FINDER_MENU_COUNT        5
+#define FINDER_MENU_COUNT        4
 
 /* Bar-index constants so callers and the oracle name the same slots. */
 #define FINDER_MENU_IX_FILE      0

@@ -102,7 +102,7 @@ static const char *const EXPECTED[] = {
     "FINDER-CMD id=5 name=GET_INFO src=mouse sel=0",
     "FINDER-CMD-DISABLED name=GET_INFO",
     /* 3  File/Get Info, key, two icons selected */
-    "FINDER-CMD id=5 name=GET_INFO src=key sel=2",
+    "FINDER-CMD id=5 name=GET_INFO src=key sel=1",
     "FINDER-NYI name=GET_INFO",
     /* 4  Special/Empty Trash, mouse, Trash empty */
     "FINDER-CMD id=11 name=EMPTY_TRASH src=mouse sel=2",
@@ -132,7 +132,7 @@ static const char *const EXPECTED[] = {
     "FINDER-CMD id=8 name=SELECT_ALL src=key sel=2",
     "FINDER-NYI name=SELECT_ALL",
     /* 13 File item 3 == Print: inert V1 decoration, carries no command id */
-    "FINDER-CMD-UNKNOWN menu=512 item=3",
+    "FINDER-CMD-UNKNOWN menu=512 item=99",
     /* 14 Help item 1 == About Help: menu 516 carries no commands at all */
     "FINDER-CMD-UNKNOWN menu=516 item=1",
     /* 15 the literal word 0 emits NOTHING (IM "nothing chosen") */
@@ -159,33 +159,34 @@ static void run_script(capture_t *cap)
 
     /* Every result word is minted by the LOCKED packer (menu.h Sec 4). */
     finder_dispatch(&fx, MenuResult(512, 1), "mouse");   /* 1  New Folder    */
-    finder_dispatch(&fx, MenuResult(512, 6), "mouse");   /* 2  Get Info (0)  */
+    finder_dispatch(&fx, MenuResult(512, 5), "mouse");   /* 2  Get Info (0)  */
 
-    fx.selection_count = 2;                              /* predicate flip   */
-    finder_dispatch(&fx, MenuResult(512, 6), "key");     /* 3  Get Info (2)  */
+    fx.selection_count = 1; fx.selection_infoable = 1;   /* one regular file */
+    finder_dispatch(&fx, MenuResult(512, 5), "key");     /* 3  Get Info (2)  */
+    fx.selection_count = 2; fx.selection_infoable = 0;
 
     finder_dispatch(&fx, MenuResult(515, 2), "mouse");   /* 4  Empty Trash   */
     fx.trash_nonempty = 1;                               /* predicate flip   */
     finder_dispatch(&fx, MenuResult(515, 2), "key");     /* 5  Empty Trash   */
 
-    finder_dispatch(&fx, MenuResult(512, 4), "key");     /* 6  Close Window  */
+    finder_dispatch(&fx, MenuResult(512, 3), "key");     /* 6  Close Window  */
     fx.front_is_diskwin = 1;                             /* predicate flip   */
-    finder_dispatch(&fx, MenuResult(512, 4), "mouse");   /* 7  Close Window  */
+    finder_dispatch(&fx, MenuResult(512, 3), "mouse");   /* 7  Close Window  */
 
-    finder_dispatch(&fx, MenuResult(514, 11), "mouse");  /* 8  Clean Up/View */
+    finder_dispatch(&fx, MenuResult(514, 8), "mouse");  /* 8  Clean Up/View */
     finder_dispatch(&fx, MenuResult(515,  1), "key");    /* 9  Clean Up/Spec */
 
     finder_dispatch(&fx, MenuResult(0, 3), "mouse");     /* 10 Calculator    */
     finder_dispatch(&fx, MenuResult(0, 4), "key");       /* 11 Note Pad      */
 
-    finder_dispatch(&fx, MenuResult(513, 6), "key");     /* 12 Select All    */
+    finder_dispatch(&fx, MenuResult(513, 1), "key");     /* 12 Select All    */
 
-    finder_dispatch(&fx, MenuResult(512, 3), "mouse");   /* 13 Print -> ???  */
+    finder_dispatch(&fx, MenuResult(512, 99), "mouse");   /* 13 Print -> ???  */
     finder_dispatch(&fx, MenuResult(516, 1), "key");     /* 14 Help  -> ???  */
 
     finder_dispatch(&fx, 0u, "mouse");                   /* 15 nothing chosen*/
 
-    finder_dispatch(&fx, MenuResult(515, 7), "mouse");   /* 16 Shut Down     */
+    finder_dispatch(&fx, MenuResult(515, 5), "mouse");   /* 16 Shut Down     */
 }
 
 static void leg_trace_golden(void)
@@ -237,7 +238,7 @@ static const uint16_t EXPECTED_ROWS_PER_ID[FCMD_COUNT] = {
     /* FCMD_OPEN            */ 1,
     /* FCMD_CLOSE_WINDOW    */ 1,
     /* FCMD_GET_INFO        */ 1,
-    /* FCMD_DUPLICATE       */ 1,
+    /* FCMD_DUPLICATE (retired ID) */ 0,
     /* FCMD_PUT_AWAY        */ 1,
     /* FCMD_SELECT_ALL      */ 1,
     /* FCMD_CLEANUP         */ 2,   /* View item 11 AND Special item 1        */
@@ -248,7 +249,8 @@ static const uint16_t EXPECTED_ROWS_PER_ID[FCMD_COUNT] = {
     /* FCMD_VIEW_ICONS      */ 1,
     /* FCMD_LAUNCH_APPLE    */ 2,   /* Calculator AND Note Pad (F4.2/F4.3)    */
     /* FCMD_EXIT_DOS        */ 1,   /* Special item 10 (bead initech-3p1a)    */
-    /* tdnl.44 Small, Name, Size, Kind, Date */ 1,1,1,1,1
+    /* tdnl.44 Small, Name, Size, Kind, Date */ 1,1,1,1,1,
+    /* FCMD_SHOW_CLIPBOARD */ 1
 };
 
 /* HAND-AUTHORED: the command-key map (F4.2). Exactly these seven chars carry
@@ -259,7 +261,6 @@ static const cmdkey_row_t EXPECTED_CMDKEYS[] = {
     { 'O', FCMD_OPEN },
     { 'W', FCMD_CLOSE_WINDOW },
     { 'I', FCMD_GET_INFO },
-    { 'D', FCMD_DUPLICATE },
     { 'Y', FCMD_PUT_AWAY },
     { 'A', FCMD_SELECT_ALL }
 };
@@ -386,9 +387,9 @@ static void leg_lookup_and_predicates(void)
     CHECK(c != NULL && c->id == FCMD_NEW_FOLDER, "lookup(512,1) is not New Folder");
     c = finder_cmd_lookup(515, 1);
     CHECK(c != NULL && c->id == FCMD_CLEANUP, "lookup(515,1) is not Clean Up");
-    c = finder_cmd_lookup(514, 11);
+    c = finder_cmd_lookup(514, 8);
     CHECK(c != NULL && c->id == FCMD_CLEANUP, "lookup(514,11) is not Clean Up");
-    CHECK(finder_cmd_lookup(512, 3) == NULL, "lookup(512,3) (Print) should be unknown");
+    CHECK(finder_cmd_lookup(512, 99) == NULL, "lookup(512,3) (Print) should be unknown");
     CHECK(finder_cmd_lookup(516, 1) == NULL, "lookup(516,1) (Help) should be unknown");
     CHECK(finder_cmd_lookup(512, 0) == NULL, "lookup with item 0 should be unknown");
     CHECK(finder_cmd_lookup(999, 1) == NULL, "lookup of an unknown menu should be unknown");
@@ -404,7 +405,7 @@ static void leg_lookup_and_predicates(void)
     CHECK(finder_cmd_enabled(c, &fx) == 0, "New Folder should be DARK with the Trash window front");
     fx.front_is_trash = 0;
     /* ALWAYS (NULL predicate) is live with an empty context. */
-    c = finder_cmd_lookup(513, 6);
+    c = finder_cmd_lookup(513, 1);
     CHECK(c != NULL && c->enabled == NULL, "Select All should carry the ALWAYS predicate");
     CHECK(finder_cmd_enabled(c, &fx) == 1, "ALWAYS should be live on an empty context");
 

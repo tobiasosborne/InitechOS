@@ -442,10 +442,37 @@ void finder_filecopy_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
     flair_live_tenant_service(ctx, bi);
 }
 
+typedef struct { flair_live_ctx_t *ctx; const boot_info_t *bi; } finder_viewer_host_t;
+static uint16_t finder_clipboard_dialog(void *user,const char *const *text,
+                                       const char *const *buttons,unsigned n)
+{
+    finder_viewer_host_t *host=user;
+    for(int i=0;i<4;i++){serial_puts("FINDER-CLIPBOARD ");serial_puts(text[i]);serial_putc('\n');}
+    flair_live_alert_open(host->ctx,host->bi,text,4,buttons,(int)n,1);
+    g_al_dr.cancelItem=1; /* Escape closes even on a paged snapshot. */
+    return flair_live_alert_run(host->ctx,host->bi);
+}
 void finder_outcome_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
                         const finder_cmd_outcome_t *o)
 {
     switch (o->id) {
+    case FCMD_GET_INFO: {
+        char lines[4][64];const char *text[4];const char *buttons[]={"OK"};
+        finder_file_info_lines(&g_finder_shell->info,lines);
+        for(int i=0;i<4;i++){text[i]=lines[i];serial_puts("FINDER-INFO ");serial_puts(lines[i]);serial_putc('\n');}
+        flair_live_alert_open(ctx,bi,text,4,buttons,1,1);
+        (void)flair_live_alert_run(ctx,bi);
+        break;
+    }
+    case FCMD_SHOW_CLIPBOARD: {
+        static finder_clipboard_t snapshot;
+        finder_viewer_host_t host={ctx,bi};
+        if(finder_clipboard_show(&snapshot,g_finder_shell->scrap,finder_clipboard_dialog,&host)<0){
+            const char *error[]={"The Clipboard could not be read."};const char *ok[]={"OK"};
+            flair_live_alert_open(ctx,bi,error,1,ok,1,1);(void)flair_live_alert_run(ctx,bi);break;
+        }
+        break;
+    }
     case FCMD_NEW_FOLDER:
         if (o->status == FINDER_WIN_OK) {
             finder_win_invalidate_all(g_finder_shell, o->slot);

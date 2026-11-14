@@ -270,7 +270,7 @@ int main(int argc, char **argv)
         CHECK(idx_at(&ctx, 600, 5) == 231 && idx_at(&ctx, 300, 19) == 0,
               "(2) top bar retains Platinum face and baseline");
         CHECK(S.scene.bar.menus == finder_menu_bar()->menus &&
-              S.scene.bar.n_menus == 5 && S.scene.bar.has_apple,
+              S.scene.bar.n_menus == 4 && S.scene.bar.has_apple,
               "(2) Finder titles and Initech slot occupy the top bar");
     }
 
