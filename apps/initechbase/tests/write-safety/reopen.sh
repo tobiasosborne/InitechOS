@@ -52,7 +52,8 @@ IF RECCOUNT()=9 .AND. TITLE="Business Expenses"
 ? "PRESERVED-OK"
 ENDIF
 USE B:MEMO
-IF RECCOUNT()=1 .AND. NOTE='hello'
+IF RECCOUNT()=1
+? NOTE
 ? 'MEMO-OK'
 ENDIF
 USE
@@ -69,5 +70,7 @@ printf 'sleep 3\nkey ret\nwait REOPEN-DONE\nshot result\nend\n' > "$out/steps"
 mcopy -i "$out/runtime.img@@32256" ::TRACE.TXT "$out/TRACE.TXT"
 tr -d '\r\032' < "$out/TRACE.TXT" > "$out/trace.txt"
 for marker in RECORDS-OK INDEX-OK MEMO-OK PRESERVED-OK; do grep -Fx "$marker" "$out/trace.txt"; done
+memo_line=$(printf 'hello%45s' '')
+grep -Fx "$memo_line" "$out/trace.txt"
 if grep -F REOPEN-ERROR "$out/trace.txt"; then exit 1; fi
 echo 'GREEN: real III+ reopened target DBF/NDX and host DBF/DBT with exact record/key/memo values'

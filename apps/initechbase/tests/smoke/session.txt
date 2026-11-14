@@ -17,5 +17,6 @@ use base
 do idxtest
 use invoice
 do y2kacct
+do c21test
 quit
 echo initechbasesmokecomplete

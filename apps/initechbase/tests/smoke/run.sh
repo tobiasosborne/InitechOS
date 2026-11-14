@@ -31,7 +31,13 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  cp "$src/tests/xbase_prog_diff/corpus/dml/index.prg" "$dir/IDXTEST.PRG"
  cp "$src/tests/canon/y2kacct_driver.prg" "$dir/Y2KACCT.PRG"
  cp "$src/tests/smoke/values.prg" "$dir/VALUES.PRG"
- for file in PARTS.DBF BASE.DBF INVOICE.DBF IDXTEST.PRG Y2KACCT.PRG VALUES.PRG; do
+ # C21 is the independent real-III+ stale-index repair capture. Only fixture
+ # names change to coexist with this journey's existing BASE/NAMES pair.
+ cp "$src/tests/conformance/cases/C21/BASE.DBF" "$dir/SHORT.DBF"
+ cp "$src/tests/conformance/cases/C21/OLD.NDX" "$dir/STALE.NDX"
+ tr -d '\r' < "$src/tests/conformance/cases/C21/MINT.PRG" |
+  sed 's/USE BASE INDEX OLD/USE SHORT INDEX STALE/; s/COPY FILE BASE.DBF TO SAVED.DBF/COPY FILE SHORT.DBF TO REPAIRED.DBF/; s/RESULT.OUT/C21.OUT/; /^QUIT$/d' > "$dir/C21TEST.PRG"
+ for file in PARTS.DBF BASE.DBF INVOICE.DBF IDXTEST.PRG Y2KACCT.PRG VALUES.PRG SHORT.DBF STALE.NDX C21TEST.PRG; do
   mcopy -i "$disk" "$dir/$file" ::APPS/
  done
  build/factory/keys < "$src/tests/smoke/session.txt" > "$dir/keys"
@@ -41,6 +47,9 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
   # Pace commands, but leave the final completion command terminal. The
   # driver correctly rejects any trace step after its quit marker is seen.
   sed -i 's/ret/ret,w1000/g; s/,w1000$//' "$dir/keys"
+  # Child teardown can outlast the ordinary command gap on Bochs. Its DOS
+  # input reset discards an echo queued before COMMAND.COM resumes.
+  sed -i 's/q,u,i,t,ret,w1000,/q,u,i,t,ret,w5000,/' "$dir/keys"
  fi
  if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" \
     $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \
@@ -81,6 +90,18 @@ for emulator in ${IBASE_SMOKE_CPUS:-qemu bochs}; do
  diff -u "$dir/index.want" "$dir/index.txt" || fail 'persisted INDEX'
  echo "ok $emulator: mtools + independent NDX reader: index matches real III+"
  checks=$((checks+1))
+ mcopy -o -i "$disk" ::APPS/C21.OUT "$dir/C21.OUT"
+ cmp "$src/tests/conformance/reference/C21/RESULT.OUT" "$dir/C21.OUT" || fail 'C21 real III+ transcript'
+ mcopy -o -i "$disk" ::APPS/REPAIRED.DBF "$dir/REPAIRED.DBF"
+ python3 "$src/tests/conformance/read_dbf.py" "$dir/REPAIRED.DBF" > "$dir/repaired.txt"
+ python3 "$src/tests/conformance/read_dbf.py" "$src/tests/conformance/reference/C21/SAVED.DBF" > "$dir/repaired.want"
+ cmp "$dir/repaired.want" "$dir/repaired.txt" || fail 'C21 wrong-record write'
+ mcopy -o -i "$disk" ::APPS/STALE.NDX "$dir/STALE.NDX"
+ python3 "$src/tests/ndx_ref.py" --index-dump "$dir/STALE.NDX" > "$dir/stale.txt"
+ python3 "$src/tests/ndx_ref.py" --index-dump "$src/tests/conformance/reference/C21/OLD.NDX" > "$dir/stale.want"
+ cmp "$dir/stale.want" "$dir/stale.txt" || fail 'C21 stale index entries after REINDEX'
+ checks=$((checks+3))
+ echo "ok $emulator: C21 transcript, repaired DBF and rebuilt NDX match real III+"
  echo "$emulator: InitechBase smoke GREEN (8 MiB)"
 done
 echo "InitechBase SMOKE: $checks checks, 0 failures (QEMU then Bochs at 8 MiB)"

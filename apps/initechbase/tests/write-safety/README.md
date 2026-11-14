@@ -61,3 +61,10 @@ The smoke's `reopen.sh` boots fresh real III+ and requires exact known records
 from the target-written DBF, seeks with its NDX, and exact memo text from a
 host-written DBF/DBT. It requires all three independent acceptance markers;
 parse success alone is insufficient. The ordinary tier-0 suite uses no emulator.
+
+The real-reader check tests memo output directly: real III+ rejects a memo in
+an ordinary character comparison (#34), so the checker requires the exact
+50-column `hello` display and no REOPEN-ERROR marker. A completed genuine run
+with only a mutated target record is rejected by reopen-red.sh while intact
+index and memo checks still pass. `PRESERVED-OK` separately qualifies the +2
+TAX table exported by the injected record-region flush failure.
