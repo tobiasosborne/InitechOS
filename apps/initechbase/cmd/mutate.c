@@ -438,6 +438,8 @@ static int m_index_after_replace(xb_interp *ip, int area, uint32_t recno,
     wa_env *env = xb_interp_env(ip);
     int n = wa_index_count(env, area);
     int i, rc;
+    ndx_rebuild_tx pending[NDX_PER_AREA];
+    for(i=0;i<n;i++)pending[i].file.pal=0;
 
     for (i = 0; i < n; i++) {
         ndx_index *ix = wa_index(env, area, i);
@@ -448,15 +450,22 @@ static int m_index_after_replace(xb_interp *ip, int area, uint32_t recno,
         if (klen == 0u || (uint32_t)klen > (uint32_t)M_MAX_KEY) continue;
         rc = m_encode_key(ip, ndx_key_expr(ix), ndx_key_type(ix), klen, newk, ec);
         if (rc != INTERP_OK)
-            return rc;
-        rc = ndx_update_key(ix, old_keys[i], newk, recno);
+            goto restore;
+        if(!rt_memcmp(old_keys[i],newk,klen))continue;
+        rc = ndx_update_key_begin(ix, old_keys[i], newk, recno,&pending[i]);
         if (rc != NDX_OK) {
+            pending[i].file.pal=0; /* begin already restored its own file */
             if (ec) *ec = 0;
-            return -INTERP_ERR_EVAL;       /* structural index fault: fail loud */
+            rc=-INTERP_ERR_EVAL;
+            goto restore;
         }
     }
+    for(i=0;i<n;i++)if(pending[i].file.pal)ibase_file_accept(&pending[i].file);
     if (ec) *ec = 0;
     return INTERP_OK;
+restore:
+    while(i-->0)if(pending[i].file.pal)(void)ndx_rebuild_restore(wa_index(env,area,i),&pending[i]);
+    return rc;
 }
 
 /* ===================================================================== */
@@ -567,15 +576,22 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
 
     /* Persist + refresh so the new bytes are visible to resolve + the index key
      * re-evaluation reflects the NEW field value. */
-    rc = dbf_flush(tbl);
-    if (rc != DBF_OK) { if (ec) *ec = m_write_error(rc); return -INTERP_ERR_EVAL; }
-    (void)wa_refresh(env, area, recno);
-
-    /* Re-file every open index entry for this record (master-key pointer drift). */
-    rc = m_index_after_replace(ip, area, recno,
-                               (const uint8_t (*)[M_MAX_KEY])old_keys, ec);
-    if (rc != INTERP_OK)
-        return rc;
+    {
+        dbf_flush_tx tx;
+        rc=dbf_flush_begin(tbl,&tx);
+        if(rc!=DBF_OK){
+            (void)dbf_reload_records(tbl);(void)wa_refresh(env,area,recno);
+            if(ec)*ec=m_write_error(rc);
+            return -INTERP_ERR_EVAL;
+        }
+        rc=wa_refresh(env,area,recno);
+        if(!rc)rc=m_index_after_replace(ip,area,recno,(const uint8_t (*)[M_MAX_KEY])old_keys,ec);
+        if(rc){
+            (void)dbf_flush_restore(tbl,&tx);(void)wa_refresh(env,area,recno);
+            return rc;
+        }
+        ibase_file_accept(&tx.file);
+    }
 
     if (ec) *ec = 0;
     return INTERP_OK;

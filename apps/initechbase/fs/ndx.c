@@ -1989,7 +1989,7 @@ static int sep_propagate(ndx_index *idx, const uint32_t *path_pg,
     return NDX_OK;
 }
 
-int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
+static int ndx_insert_raw(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
 {
     uint8_t  page[NDX_PAGE_SIZE];
     uint8_t  big[NDX_BIGBUF];
@@ -2170,7 +2170,7 @@ int ndx_insert_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
  * leaf's HIGH key still equals the target. Then the minted dBASE delete rules
  * (block comment above) restore the separators.
  */
-int ndx_delete_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
+static int ndx_delete_raw(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
 {
     uint8_t  page[NDX_PAGE_SIZE];
     uint8_t  big[NDX_BIGBUF];
@@ -2331,7 +2331,7 @@ int ndx_delete_key(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
  *
  * Ref: plan S4.5 contract. Calls ndx_delete_key + ndx_insert_key.
  */
-int ndx_update_key(ndx_index *idx,
+static int ndx_update_raw(ndx_index *idx,
                    const uint8_t *old_key_data,
                    const uint8_t *new_key_data,
                    uint32_t recno)
@@ -2347,9 +2347,9 @@ int ndx_update_key(ndx_index *idx,
     if (ndx_key_cmp(idx, old_key_data, new_key_data) == 0)
         return NDX_OK;
 
-    rc = ndx_delete_key(idx, old_key_data, recno);
+    rc = ndx_delete_raw(idx, old_key_data, recno);
     if (rc != NDX_OK) return rc;
-    return ndx_insert_key(idx, new_key_data, recno);
+    return ndx_insert_raw(idx, new_key_data, recno);
 }
 
 /*
@@ -2397,7 +2397,7 @@ static void ndx_apply_header(ndx_index *idx,const uint8_t *page0)
     idx->dummy         = u16le(page0 + NDX_HDR_DUMMY_OFF);
     idx->unique_flag   = u16le(page0 + NDX_HDR_UNIQUE_FLAG_OFF);
 }
-IBASE_OVL_TEXT(file) int ndx_rebuild_restore(ndx_index *idx,ndx_rebuild_tx *tx)
+int ndx_rebuild_restore(ndx_index *idx,ndx_rebuild_tx *tx)
 {
     ibase_pal_t *pal=idx->pal;
     if(idx->fd>=0)pal->close(pal,idx->fd);
@@ -2439,4 +2439,58 @@ IBASE_OVL_TEXT(file) int ndx_rebuild(ndx_index *idx,uint32_t nrec,
     int rc=ndx_rebuild_begin(idx,nrec,get_key,user,&tx);
     if(!rc)ibase_file_accept(&tx.file);
     return rc;
+}
+
+/* initech-hls50: random-access page edits operate on a private image. A failed
+ * insert after delete, including a short page/root split, cannot publish it.
+ * Successful bytes are still graded against real III+ incremental captures. */
+static int ndx_change_begin(ndx_index *idx,const uint8_t *oldkey,const uint8_t *newkey,
+                            uint32_t recno,int operation,ndx_rebuild_tx *tx)
+{
+    ibase_pal_t *pal;ndx_index work;uint8_t next_header[NDX_PAGE_SIZE];int rc;
+    if(!idx || !oldkey || (operation==2 && !newkey))return -NDX_ERR_BAD_PAGE;
+    if(!idx->writable)return -NDX_ERR_READONLY;
+    pal=idx->pal;
+    rc=seek_to(pal,idx->fd,0);
+    if(!rc)rc=read_exact(pal,idx->fd,tx->previous_header,NDX_PAGE_SIZE);
+    if(rc)return rc;
+    if(ibase_file_clone(&tx->file,pal,idx->path,idx->fd))return -NDX_ERR_IO;
+    work=*idx;work.fd=tx->file.fd;work.last_node=0;
+    rc=operation==0?ndx_insert_raw(&work,oldkey,recno):operation==1?ndx_delete_raw(&work,oldkey,recno):ndx_update_raw(&work,oldkey,newkey,recno);
+    if(work.last_node)pal->release(pal,work.last_node);
+    if(!rc)rc=seek_to(pal,work.fd,0);
+    if(!rc)rc=read_exact(pal,work.fd,next_header,NDX_PAGE_SIZE);
+    if(rc){ibase_file_abort(&tx->file);return rc;}
+    if(ibase_file_install(&tx->file,&idx->fd)){
+        idx->fd=pal->open(pal,idx->path,PAL_RDWR);return -NDX_ERR_IO;
+    }
+    ndx_apply_header(idx,next_header);
+    return NDX_OK;
+}
+int ndx_insert_key(ndx_index *idx,const uint8_t *key,uint32_t recno)
+{
+    ndx_rebuild_tx tx;int rc=ndx_change_begin(idx,key,0,recno,0,&tx);
+    if(!rc)ibase_file_accept(&tx.file);
+    return rc;
+}
+int ndx_delete_key(ndx_index *idx,const uint8_t *key,uint32_t recno)
+{
+    ndx_rebuild_tx tx;int rc=ndx_change_begin(idx,key,0,recno,1,&tx);
+    if(!rc)ibase_file_accept(&tx.file);
+    return rc;
+}
+int ndx_update_key(ndx_index *idx,const uint8_t *oldkey,const uint8_t *newkey,uint32_t recno)
+{
+    ndx_rebuild_tx tx;int rc;
+    if(!idx || !oldkey || !newkey)return -NDX_ERR_BAD_PAGE;
+    if(!idx->writable)return -NDX_ERR_READONLY;
+    if(!ndx_key_cmp(idx,oldkey,newkey))return NDX_OK;
+    rc=ndx_change_begin(idx,oldkey,newkey,recno,2,&tx);
+    if(!rc)ibase_file_accept(&tx.file);
+    return rc;
+}
+int ndx_update_key_begin(ndx_index *idx,const uint8_t *oldkey,const uint8_t *newkey,
+                         uint32_t recno,ndx_rebuild_tx *tx)
+{
+    return ndx_change_begin(idx,oldkey,newkey,recno,2,tx);
 }

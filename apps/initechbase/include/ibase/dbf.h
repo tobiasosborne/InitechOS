@@ -140,6 +140,7 @@
 
 #include "ibase/pal.h"
 #include "ibase/value.h"   /* xb_val, xb_c/xb_n/xb_d/xb_l/xb_m/xb_u */
+#include "ibase/file_write.h"
 
 /* ---- Error codes (fail loud; CLAUDE.md, The constitution) ----
  *
@@ -554,6 +555,16 @@ int dbf_append_rec(dbf_table *tbl, const xb_val *in, int deleted);
  * Ref: dbf.md sec 2/4/6/8; spec/ibase/dbf_normalization.json; plan S1.4.
  */
 int dbf_flush(dbf_table *tbl);
+/* Retain one record's preceding table while its attached indexes are updated.
+ * This does not roll back earlier records of a multi-record command. */
+typedef struct {
+    ibase_file_write file;
+    uint16_t header_length;
+    uint8_t term_extra;
+} dbf_flush_tx;
+int dbf_flush_begin(dbf_table *,dbf_flush_tx *);
+int dbf_flush_restore(dbf_table *,dbf_flush_tx *);
+int dbf_reload_records(dbf_table *);
 
 /* ---- S1.5: record mutation verbs ----
  *

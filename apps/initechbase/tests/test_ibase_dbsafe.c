@@ -348,6 +348,71 @@ static void persistent_rename_tests(void){
     CHECK(access(c.stage,F_OK)==0,"complete new stage retained too");
     xb_interp_free(c.ip);pal_host_free(c.inner);
 }
+/* initech-hls50: independent originals are the captured C21 old index and
+ * real III+ B004 (a full leaf). Preservation is the operator's ruling;
+ * successful insert/split geometry is graded by test_ndx_incremental. */
+static void incremental_failure_tests(void){
+    int operation,kind,k,b,persistent;
+    for(operation=0;operation<4;operation++)for(kind=0;kind<=6;kind++)
+    for(persistent=0;persistent<(kind?1:2);persistent++)for(k=0;k<(kind?1:5);k++)for(b=1;b<80;b++){
+        ibase_pal_t *p=setup();ndx_index *ix=NULL;size_t n;int rc;uint8_t oldkey[100],newkey[100];char src[1400];
+        if(operation==3)snprintf(src,sizeof src,"%s",sibling("mint/work/B004.NDX"));
+        else snprintf(src,sizeof src,"%s/tests/conformance/cases/C21/OLD.NDX",project_root);
+        copy_local(src,"INCR.NDX");olen=readbytes("INCR.NDX");memcpy(original,extracted,olen);
+        CHECK(ndx_open_rw(p,"INCR.NDX",&ix)==0,"independent incremental predecessor opens");
+        memset(oldkey,'C',8);memset(newkey,operation==2?'D':'Z',8);
+        if(operation==3){memset(newkey,'0',100);newkey[98]='5';newkey[99]='0';}
+        c.armed=1;c.failure_op=kind;c.boundary=b;c.short_kind=k;c.persistent=persistent;c.error=PAL_EIO;
+        rc=operation==0?ndx_update_key(ix,oldkey,newkey,3):operation==1?ndx_delete_key(ix,oldkey,3):ndx_insert_key(ix,newkey,operation==3?5:4);
+        c.armed=0;ndx_close(ix);n=readbytes("INCR.NDX");
+        if(rc)CHECK(n==olen && !memcmp(original,extracted,n),"failed incremental operation preserves every independent NDX byte");
+        CHECK(c.hit || rc==0,"incremental positive control succeeds");
+        pal_host_free(c.inner);if(!c.hit)break;
+        CHECK(b<79,"all incremental failure boundaries enumerated");
+    }
+}
+/* One failed REPLACE must not commit a DBF with either preceding index.
+ * Earlier successful records of a multi-record command are outside this
+ * invariant. All three originals are captured III+ files. */
+static void indexed_replace_failure_tests(void){
+    static unsigned char before_dbf[66000],before_ndx[66000];
+    int kind,k,b,persistent;size_t dbflen,ndxlen;
+    for(kind=0;kind<=6;kind++)for(persistent=0;persistent<(kind?1:2);persistent++)
+    for(k=0;k<(kind?1:5);k++)for(b=1;b<160;b++){
+        ibase_pal_t *p=setup();ndx_index *ix;size_t n;int rc;
+        copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CLIENTS.DBF"),"ROW.DBF");
+        dbflen=readbytes("ROW.DBF");memcpy(before_dbf,extracted,dbflen);
+        copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CNAMES.NDX"),"ROW1.NDX");
+        ndxlen=readbytes("ROW1.NDX");memcpy(before_ndx,extracted,ndxlen);
+        copy_local("ROW1.NDX","ROW2.NDX");
+        c.ip=xb_interp_make(p);set_register(c.ip);mutate_register(c.ip);
+        CHECK(wa_set_open_rw(xb_interp_env(c.ip),1,"ROW.DBF",NULL,NULL)==0,"indexed REPLACE table opens");
+        for(int i=0;i<2;i++){
+            CHECK(ndx_open_rw(p,i?"ROW2.NDX":"ROW1.NDX",&ix)==0,"indexed REPLACE predecessor opens");
+            CHECK(wa_attach_index(xb_interp_env(c.ip),1,ix)==0,"indexed REPLACE predecessor attached");
+        }
+        CHECK(wa_goto(xb_interp_env(c.ip),1,1)==0,"indexed REPLACE physical record selected");
+        c.armed=1;c.failure_op=kind;c.boundary=b;c.short_kind=k;c.persistent=persistent;c.error=PAL_EIO;
+        rc=ibase_do(c.ip,"REPLACE FIRSTNAME WITH 'ZZZZZZZZZZZZZZZZZZZZ'");
+        c.armed=0;
+        if(rc){
+            n=readbytes("ROW.DBF");CHECK(n==dbflen && !memcmp(before_dbf,extracted,n),"failed indexed REPLACE preserves preceding DBF");
+            for(int i=0;i<2;i++){
+                n=readbytes(i?"ROW2.NDX":"ROW1.NDX");
+                CHECK(n==ndxlen && !memcmp(before_ndx,extracted,n),"failed indexed REPLACE preserves each preceding NDX");
+            }
+            /* A retry after a transient failure must not flush stale memory. */
+            CHECK(ibase_do(c.ip,"REPLACE LASTNAME WITH LASTNAME")==0,"same work area accepts retry after device recovery");
+            n=readbytes("ROW.DBF");
+            {unsigned oldoff=before_dbf[8]+256u*before_dbf[9],newoff=extracted[8]+256u*extracted[9];
+             unsigned rows=before_dbf[4]+256u*before_dbf[5],width=before_dbf[10]+256u*before_dbf[11];
+             CHECK(n>=newoff+rows*width && !memcmp(before_dbf+oldoff,extracted+newoff,rows*width),"retry retains original record bytes");}
+        }
+        CHECK(c.hit || rc==0,"indexed REPLACE positive control succeeds");
+        xb_interp_free(c.ip);pal_host_free(c.inner);if(!c.hit)break;
+        CHECK(b<159,"all indexed REPLACE boundaries enumerated");
+    }
+}
 static void output_alias_tests(void){
     static const char *commands[]={"COPY FILE SOURCE.TXT TO ./CLIENTS.DBF", "SAVE TO .\\CLIENTS.DBF",
         "LABEL FORM ADDRESS TO FILE ./CLIENTS.DBF", "SET ALTERNATE TO ./CLIENTS.DBF"};
@@ -463,6 +528,6 @@ int main(int argc,char **argv){
     CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
     CHECK(mkdtemp(directory)!=NULL,"private oracle directory");
     if(chdir(directory) || mkdir("build",0700) || mkdir("build/dbsafe",0700)) return 2;
-    if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
+    if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"ndxfail"))incremental_failure_tests();else if(!strcmp(mode,"rowfail"))indexed_replace_failure_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
     return TEST_SUMMARY(mode);
 }

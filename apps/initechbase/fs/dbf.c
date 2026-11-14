@@ -1410,18 +1410,56 @@ static int dbf_serialize(dbf_table *tbl, pal_fd fd)
 }
 
 
+int dbf_flush_begin(dbf_table *tbl,dbf_flush_tx *tx)
+{
+    int rc;
+    if(!tbl || !tbl->writable)return -DBF_ERR_IO;
+    tx->header_length=tbl->header_length;tx->term_extra=tbl->term_extra;
+    rc=ibase_file_begin(&tx->file,tbl->pal,tbl->name);
+    if(rc)return write_result(rc,1);
+    rc=dbf_serialize(tbl,tx->file.fd);
+    if(rc)ibase_file_abort(&tx->file);
+    else rc=write_result(ibase_file_install(&tx->file,&tbl->fd),0);
+    if(rc){
+        tbl->header_length=tx->header_length;tbl->term_extra=tx->term_extra;
+        if(tbl->fd<0)tbl->fd=tbl->pal->open(tbl->pal,tbl->name,PAL_RDWR);
+    }
+    return rc;
+}
 int dbf_flush(dbf_table *tbl)
 {
-    ibase_file_write tx;int rc;uint16_t old_header;uint8_t old_extra;
-    if(!tbl || !tbl->writable)return -DBF_ERR_IO;
-    old_header=tbl->header_length;old_extra=tbl->term_extra;
-    rc=ibase_file_begin(&tx,tbl->pal,tbl->name);
-    if(rc)return write_result(rc,1);
-    rc=dbf_serialize(tbl,tx.fd);
-    if(rc)ibase_file_abort(&tx);
-    else rc=write_result(ibase_file_commit(&tx,&tbl->fd),0);
-    if(rc){tbl->header_length=old_header;tbl->term_extra=old_extra;}
+    dbf_flush_tx tx;int rc=dbf_flush_begin(tbl,&tx);
+    if(!rc)ibase_file_accept(&tx.file);
     return rc;
+}
+/* Discard rejected in-memory record edits. If the device cannot be read yet,
+ * refuse later flushes rather than publish stale cache contents. */
+int dbf_reload_records(dbf_table *tbl)
+{
+    uint8_t hdr[DBF_HDR_SIZE];uint32_t count;uint16_t offset;int rc;
+    if(!tbl || !tbl->writable)return -DBF_ERR_IO;
+    tbl->write_failed=1;
+    if(tbl->fd<0)tbl->fd=tbl->pal->open(tbl->pal,tbl->name,PAL_RDWR);
+    if(tbl->fd<0)return -DBF_ERR_IO;
+    rc=read_exact(tbl->pal,tbl->fd,0,hdr,sizeof hdr);
+    if(rc)return rc;
+    count=rd_u32le(hdr+4);offset=rd_u16le(hdr+8);
+    if(count>tbl->rec_cap || rd_u16le(hdr+10)!=tbl->record_length)return -DBF_ERR_BAD_RECLEN;
+    if(count){
+        rc=read_exact(tbl->pal,tbl->fd,offset,tbl->rec_region,count*tbl->record_length);
+        if(rc)return rc;
+    }
+    tbl->nrec=count;tbl->header_length=offset;
+    tbl->term_extra=(uint8_t)(offset-DBF_HDR_SIZE-DBF_DESC_STRIDE*tbl->nfields);
+    tbl->write_failed=0;
+    return DBF_OK;
+}
+int dbf_flush_restore(dbf_table *tbl,dbf_flush_tx *tx)
+{
+    if(tbl->fd>=0)tbl->pal->close(tbl->pal,tbl->fd);
+    tbl->fd=-1;tbl->header_length=tx->header_length;tbl->term_extra=tx->term_extra;
+    if(ibase_file_restore(&tx->file)){tbl->write_failed=1;return -DBF_ERR_WRITE;}
+    return dbf_reload_records(tbl);
 }
 
 /* S1.5: record mutation verbs                                               */

@@ -8,5 +8,5 @@
 -    t->pal->remove(t->pal,t->stage);
 +    t->pal->remove(t->pal,t->name);
  }
- static inline void ibase_file_recovery(ibase_file_write *t)
- {
+ /* Preserve complete foreign-file bytes while doing random-access edits on a
+  * stage. Every source read and stage write is checked before publication. */

@@ -1,41 +1,12 @@
 # test: test_interp_replace
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -434,26 +433,0 @@
--static int m_index_after_replace(xb_interp *ip, int area, uint32_t recno,
--                                 const uint8_t old_keys[][M_MAX_KEY], int *ec)
--{
--    wa_env *env = xb_interp_env(ip);
--    int n = wa_index_count(env, area);
--    int i, rc;
--
--    for (i = 0; i < n; i++) {
--        ndx_index *ix = wa_index(env, area, i);
--        uint8_t newk[M_MAX_KEY];
--        uint16_t klen;
--        if (!ix) continue;
--        klen = ndx_key_length(ix);
--        if (klen == 0u || (uint32_t)klen > (uint32_t)M_MAX_KEY) continue;
--        rc = m_encode_key(ip, ndx_key_expr(ix), ndx_key_type(ix), klen, newk, ec);
--        if (rc != INTERP_OK)
--            return rc;
--        rc = ndx_update_key(ix, old_keys[i], newk, recno);
--        if (rc != NDX_OK) {
--            if (ec) *ec = 0;
--            return -INTERP_ERR_EVAL;       /* structural index fault: fail loud */
--        }
--    }
--    if (ec) *ec = 0;
--    return INTERP_OK;
--}
-@@ -573,5 +547,5 @@
--    /* Re-file every open index entry for this record (master-key pointer drift). */
--    rc = m_index_after_replace(ip, area, recno,
--                               (const uint8_t (*)[M_MAX_KEY])old_keys, ec);
--    if (rc != INTERP_OK)
--        return rc;
-+    /* MUTANT (CLAUDE.md, The constitution -- mutants/mutate-replace-no-index.patch): skip the open-index update
-+     * after a REPLACE. The index then still points at the OLD key, so a SEEK on
-+     * the NEW key after a key-field REPLACE no longer resolves the record ->
-+     * the oracle's master-key-pointer-drift checks go RED. */
-+    (void)old_keys;
+@@ -452,7 +452,7 @@
+         if (rc != INTERP_OK)
+             goto restore;
+         if(!rt_memcmp(old_keys[i],newk,klen))continue;
+-        rc = ndx_update_key_begin(ix, old_keys[i], newk, recno,&pending[i]);
++        rc = ndx_update_key_begin(ix, old_keys[i], old_keys[i], recno,&pending[i]);
+         if (rc != NDX_OK) {
+             pending[i].file.pal=0; /* begin already restored its own file */
+             if (ec) *ec = 0;

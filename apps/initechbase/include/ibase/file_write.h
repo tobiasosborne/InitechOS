@@ -46,6 +46,22 @@ static inline void ibase_file_abort(ibase_file_write *t)
     if(t->fd>=0){t->pal->close(t->pal,t->fd);t->fd=-1;}
     t->pal->remove(t->pal,t->stage);
 }
+/* Preserve complete foreign-file bytes while doing random-access edits on a
+ * stage. Every source read and stage write is checked before publication. */
+static inline int ibase_file_clone(ibase_file_write *t,ibase_pal_t *p,const char *name,pal_fd source)
+{
+    uint8_t bytes[512];int32_t remaining,got;int rc=ibase_file_begin(t,p,name);
+    if(rc)return rc;
+    remaining=p->seek(p,source,0,PAL_SEEK_END);
+    if(remaining<0 || p->seek(p,source,0,PAL_SEEK_SET)!=0){ibase_file_abort(t);return -PAL_EIO;}
+    while(remaining){
+        uint32_t n=remaining>512?512u:(uint32_t)remaining;
+        got=p->read(p,source,bytes,n);
+        if(got!=(int32_t)n || p->write(p,t->fd,bytes,n)!=(int32_t)n){ibase_file_abort(t);return -PAL_EIO;}
+        remaining-=(int32_t)n;
+    }
+    return 0;
+}
 static inline void ibase_file_recovery(ibase_file_write *t)
 {
     /* Operator review ruling: DOS has no atomic replace. If restoration also

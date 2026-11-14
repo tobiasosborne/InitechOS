@@ -76,3 +76,15 @@ The committed genuine-reader leg also requires `C21-RECORDS-OK` and
 It runs in `make smoke`, not tier 0, because it boots actual III+ under QEMU.
 `reopen-red.sh OUT PRODUCT CORE c21` changes only row 2's serialized VALUE
 from 9 to 8 and requires a completed real run to reject it.
+
+Incremental NDX insert/delete/update also edit a complete private image. The
+`ndxfail` matrix includes the independently captured C21 predecessor and real
+III+ B004 full leaf, split writes, zero/one/half/all-but-one shorts, persistent
+media errors and every read/seek/close/open/rename/allocation boundary. Existing
+incremental capture tests continue to grade successful page bytes and seeks.
+`rowfail` checks REPLACE with two attached real III+ indexes. The preceding
+DBF and each index survive a reported failure; a subsequent same-area retry
+cannot flush rejected record bytes. Predecessors are retained until that
+record's DBF and indexes have completed. Earlier successful records remain
+committed. A failed reload blocks further flushes until the original records
+can be read again. The repeated rename limitation above still applies.
