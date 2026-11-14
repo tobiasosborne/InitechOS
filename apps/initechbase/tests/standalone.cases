@@ -42,6 +42,7 @@ test_ibase_repl CORPUS
 test_ibase_report CORPUS
 test_ibase_rt
 test_ibase_say
+test_ibase_forms
 test_ibase_set_color
 test_ibase_softfp
 test_ibase_spec spec/ibase

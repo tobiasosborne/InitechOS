@@ -152,6 +152,9 @@ test_ibase_rt_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_ibase_say_SRCS := tests/test_ibase_say.c
 test_ibase_say_OBJS := $(OUT)/host-core/core/screen.o $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/mutate.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/cmd/proc.o $(OUT)/host-core/cmd/report.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
 test_ibase_say_CFLAGS := -D_POSIX_C_SOURCE=200809L
+test_ibase_forms_SRCS := tests/test_ibase_forms.c tests/w2_host.c
+test_ibase_forms_OBJS := $(test_ibase_say_OBJS)
+test_ibase_forms_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_ibase_set_color_SRCS := tests/test_ibase_set_color.c
 test_ibase_set_color_OBJS := $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
 test_ibase_set_color_CFLAGS := -D_POSIX_C_SOURCE=200809L

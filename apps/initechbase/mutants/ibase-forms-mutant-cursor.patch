@@ -1,4 +1,4 @@
-# test: test_w2_host
+# test: test_ibase_forms
 --- a/cmd/query.c
 +++ b/cmd/query.c
 @@ -1752 +1751,0 @@

@@ -5,7 +5,7 @@ DBT memos, NDX indexes, ten work areas, command programs and a dot prompt.
 This import adds packaging and boot validation; it adds no language features.
 
 `make` builds INITBASE.EXE and INITBASE.OVL. `make test` runs the independent
-host corpus (76 suites, 30-second execution budget, excluding compilation).
+host corpus (77 suites, 30-second execution budget, excluding compilation).
 `make test THOROUGH=1` adds the live real-dBASE DOSBox differential. Missing
 references fail. `make pending CASE=...` exposes unfinished captures honestly;
 it is not part of the passing selection. `make pair-test EXE=/absolute/file.EXE`
@@ -146,10 +146,10 @@ The EXE and overlay hashes are compared across mutation-hook removal.
 The remaining legacy emulator scenarios are listed in tests/SMOKES.md;
 tests/IMPORT.md records host provenance and unfinished migration work.
 
-Qualification: 258 original fault names (including nine aliases), plus the
-write-loss control: 231 active patches killed, 28 pending. The four-worker
-`make mutants` sweep takes 208 seconds with the local cache. Product bytes
-before and after hook removal are identical:
+At import: 258 original fault names (including nine aliases), plus the
+write-loss control: 231 active patches killed, 28 pending. That four-worker
+`make mutants` sweep took 208 seconds with the local cache. Imported product
+bytes before and after hook removal were identical:
 
 - INITBASE.EXE: `5a713213ab16795e8f9efd24ad0ce9121db34fb58ae544a2b25983aadd0f7501`
 - INITBASE.OVL: `015fd792d0b0d458761c956024250a41a620c53e6dc1fff1e9cad11b8929db1d`
@@ -183,9 +183,9 @@ values, record counts and seeks. GET/READ is unchanged.
 The artifact sizes and hashes earlier in this README describe the imported
 baseline, before this change. `make package-check` reports the current loader
 geometry and validates the actual EXE/OVL pair; no size or hash above is a
-claim about the current build. The 28 pending patches remain unproved.
+claim about the current build. The 23 pending patches remain unproved.
 
-The C19/C20/C21 conformance repair selection is now part of tier 0 (76 suites).
+The C19/C20/C21 conformance repair selection is now part of tier 0 (77 suites).
 Its real III+ fixtures come unchanged from the conformance study. An old NDX
 sequence is sized by its own entry count, including removed DBF records; explicit
 GO BOTTOM on the captured missing record raises #4 and leaves blank fields at
@@ -194,7 +194,7 @@ sequence, then invalidates navigation state. C21's transcript, the edited row 2
 and the rebuilt two-entry NDX match real III+; its booted smoke readback checks
 the same three results on both emulators. The study's other fifteen defects
 are being repaired against their retained captures; the accepted selection is
-listed below. The 28 pending patches remain to be qualified.
+listed below. The 23 pending patches remain to be qualified.
 
 INDEX and REINDEX retain each predecessor through their final reopen, header,
 attachment and navigation checks. An error restores the old file and index
@@ -222,3 +222,11 @@ The accepted conformance selection is listed in
 `tests/conformance/accepted.cases`. C13/C15/C18 now also qualify LEN's #34
 rejection of memo expressions; separate typed-value checks cover resolved
 lengths 0, 12, 511 and 2300 independently of outstanding memo display defects.
+
+Five of the original pending patches now use `test_ibase_forms`, which runs
+eight captured supported command workflows and compares all 4002 screen and
+cursor bytes to real III+. It starts from a captured filled page to qualify
+CLEAR, includes full-page cursor wrap and large-coordinate narrowing, and
+executes CLEAR ALL through the real command/work-area path. All five compile
+and fail this oracle twice under the strict runner. Twenty-three original
+patches remain pending, as listed in `mutants/pending/README.md`.
