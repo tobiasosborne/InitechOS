@@ -3195,6 +3195,15 @@ static void builtin_del(const char *arg)
 {
     char name[CMD_LINE_MAX];
 
+    /* OEM DOS 3.30, compat33/expected/SWITCH: DEL file /Z refuses the
+     * entire command, preserving the file. Validate before any mutation. */
+    for (const char *p = arg; *p; ++p) {
+        if (*p == '/') {
+            dos_print(MSG_DOS_0048 "\r\n$");
+            return;
+        }
+    }
+
     if (cmd_first_token(arg, name) == 0) {
         dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
         return;

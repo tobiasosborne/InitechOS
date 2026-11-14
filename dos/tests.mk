@@ -173,6 +173,10 @@ HOST_TESTS += test-compat33-evidence
 test-compat33-evidence_SRCS := tests/runner.c
 test-compat33-evidence_ARGS := tests/run.sh test-compat33-evidence
 test-compat33-evidence_DEPS := tests/gates/test-compat33-evidence.sh command/tests/compat33/EVIDENCE.sha256
+HOST_TESTS += test-del-invalid-switch
+test-del-invalid-switch_SRCS := tests/runner.c
+test-del-invalid-switch_ARGS := tests/run.sh test-del-invalid-switch
+test-del-invalid-switch_DEPS := $(OUT)/host/tool_shell_files tests/gates/test-del-invalid-switch.sh
 include $(TOP)/mk/host-test.mk
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions
