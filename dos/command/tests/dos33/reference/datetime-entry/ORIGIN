@@ -1,0 +1,10 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-datetime-entry.sh: plain media with no AUTOEXEC.BAT,
+typed answers at the genuine prompts. Findings: startup and the bare DATE
+and TIME commands share one flow: "Current date is Mon  3-02-1992" (month
+space-padded to width 2) then "Enter new date (mm-dd-yy): "; an invalid
+answer prints "Invalid date" and re-prompts without reprinting Current.
+"Current time is  9:30:03.36" likewise space-pads the hour. A blank answer
+keeps the value. TIME accepts 13:14:15.99 and 9:08:07.06 at the prompt and
+the hundredths are retained (later Current shows 9:08:07.51).

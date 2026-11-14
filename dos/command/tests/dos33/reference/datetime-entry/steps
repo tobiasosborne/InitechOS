@@ -1,0 +1,38 @@
+wait Enter new date
+shot dateprompt
+type 13-40-90
+key ret
+sleep 1
+shot dateinvalid
+type 2-29-92
+key ret
+wait Enter new time
+shot timeprompt
+type 25:00
+key ret
+sleep 1
+shot timeinvalid
+type 13:14:15.99
+key ret
+wait A>
+type date
+key ret
+wait Enter new date
+shot datecmd
+key ret
+type time
+key ret
+wait Enter new time
+shot timecmd
+type 9:08:07.06
+key ret
+type time
+key ret
+wait Enter new time
+shot timeagain
+key ret
+type ver
+key ret
+sleep 1
+shot final
+end

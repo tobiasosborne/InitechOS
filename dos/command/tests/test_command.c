@@ -477,18 +477,19 @@ static void test_date_time_format(void)
 
     /* MS-DOS 3.3 Guide pp.19-20 / PDF32-33: unpadded month and hour. */
     cmd_format_date(5u, 2026u, 6u, 20u, out);
-    CHECK_STR_EQ(out, "Current date is Fri 6-20-2026",
-                 "format_date: manual month width");
+    /* Genuine capture dos33/reference/datetime-entry: month space-padded. */
+    CHECK_STR_EQ(out, "Current date is Fri  6-20-2026",
+                 "format_date: captured month width");
 
     /* Explicit weekday field, epoch date: unpadded month, two-digit day. */
     cmd_format_date(0u, 1980u, 1u, 1u, out);
-    CHECK_STR_EQ(out, "Current date is Sun 1-01-1980",
-                 "format_date: manual epoch");
+    CHECK_STR_EQ(out, "Current date is Sun  1-01-1980",
+                 "format_date: captured epoch");
 
     /* 9:05:03.00 -- unpadded hour, remaining fields two digits. */
     cmd_format_time(9u, 5u, 3u, 0u, out);
-    CHECK_STR_EQ(out, "Current time is 9:05:03.00",
-                 "format_time: manual hour width");
+    CHECK_STR_EQ(out, "Current time is  9:05:03.00",
+                 "format_time: captured hour width");
 
     /* 23:59:59.00 -- the upper bounds. */
     cmd_format_time(23u, 59u, 59u, 0u, out);
@@ -530,8 +531,14 @@ static void test_date_parse(void)
           "parse_date: Feb 29 of a leap year valid");
     CHECK(cmd_parse_date("06-20", &year, &mon, &day) == 0,
           "parse_date: missing year invalid");
-    CHECK(cmd_parse_date("06/20-2026", &year, &mon, &day) == 0,
-          "parse_date: mismatched separators invalid");
+    /* Genuine capture dos33/reference/datetime3: separators may mix and
+     * '.' is a separator; ':' is not. */
+    CHECK(cmd_parse_date("06/20-2026", &year, &mon, &day) == 1,
+          "parse_date: mixed separators valid");
+    CHECK(cmd_parse_date("04.05.1993", &year, &mon, &day) == 1 && year == 1993u && mon == 4u && day == 5u,
+          "parse_date: dot separators valid");
+    CHECK(cmd_parse_date("04:05:1993", &year, &mon, &day) == 0,
+          "parse_date: colon separator invalid");
     CHECK(cmd_parse_date("abc", &year, &mon, &day) == 0,
           "parse_date: non-numeric invalid");
 }

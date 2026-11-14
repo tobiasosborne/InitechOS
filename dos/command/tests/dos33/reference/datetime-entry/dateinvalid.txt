@@ -1,0 +1,25 @@
+SeaBIOS (version 1.16.3-debian-1.16.3-2)                                        
+Booting from Floppy...                                                          
+Current date is Mon  3-02-1992                                                  
+Enter new date (mm-dd-yy): 13-40-90                                             
+                                                                                
+Invalid date                                                                    
+Enter new date (mm-dd-yy):                                                      
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                

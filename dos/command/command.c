@@ -757,7 +757,9 @@ int cmd_format_date(uint8_t dow, uint16_t year, uint8_t mon, uint8_t day,
         out[pos++] = dname[i];
     }
     out[pos++] = ' ';
-    /* Guide pp.19-20 / PDF32-33: month and hour have no leading zero. */
+    /* Captured DOS 3.30 (datetime-entry): the month is space-padded to
+     * width 2 ("Mon  3-02-1992"), not unpadded or zero-padded. */
+    if (mon < 10u) out[pos++] = ' ';
     put_u_pad0(out, &pos, (uint32_t)mon, mon >= 10u ? 2 : 1);
     out[pos++] = '-';
     put_u_pad0(out, &pos, (uint32_t)day, 2);     /* DD */
@@ -776,6 +778,7 @@ int cmd_format_time(uint8_t hh, uint8_t mi, uint8_t ss, uint8_t cs, char *out)
     for (i = 0; prefix[i] != '\0'; i++) {
         out[pos++] = prefix[i];
     }
+    if (hh < 10u) out[pos++] = ' ';   /* captured space-padded hour */
     put_u_pad0(out, &pos, (uint32_t)hh, hh >= 10u ? 2 : 1);
     out[pos++] = ':';
     put_u_pad0(out, &pos, (uint32_t)mi, 2);       /* MM */
@@ -831,7 +834,6 @@ int cmd_parse_date(const char *arg, uint16_t *year, uint8_t *mon, uint8_t *day)
 {
     const char *p;
     uint32_t mm = 0, dd = 0, yy = 0;
-    char sep;
 
     if (arg == 0) {
         return 0;
@@ -844,14 +846,16 @@ int cmd_parse_date(const char *arg, uint16_t *year, uint8_t *mon, uint8_t *day)
     if (!parse_u_field(&p, &mm, 2)) {
         return 0;
     }
-    if (*p != '-' && *p != '/') {         /* DOS accepts '-' or '/' */
+    /* Captured DOS 3.30 (datetime3): '-', '/' and '.' each separate,
+     * and the two positions may differ. ':' is not a separator. */
+    if (*p != '-' && *p != '/' && *p != '.') {
         return 0;
     }
-    sep = *p++;
+    p++;
     if (!parse_u_field(&p, &dd, 2)) {
         return 0;
     }
-    if (*p != sep) {                      /* the two separators must match */
+    if (*p != '-' && *p != '/' && *p != '.') {
         return 0;
     }
     p++;
@@ -3499,63 +3503,83 @@ static void builtin_ren(const char *arg)
 
 #endif /* !COMMAND_BATCH_HOST */
 #if !defined(COMMAND_FILE_HOST) && !defined(COMMAND_BATCH_HOST)
-/* DATE [MM-DD-YY[YY]] (beads initech-uy4l, Tranche F).
- *   no arg -> AH=2Ah GET, print "Current date is Day MM-DD-YYYY".
- *   arg    -> AH=2Bh SET after validating the date (DOS rejects a bad date and
- *             reprompts; we print "Invalid date" and skip the SET, then still
- *             report the unchanged current date). Ref: DOS 3.3 DATE; 2Ah/2Bh. */
-static void builtin_date(const char *arg)
+static void read_line(char *out);
+/* DATE/TIME entry, genuine DOS 3.30 (dos33/reference/datetime-entry and
+ * datetime): one flow for startup and the bare commands. A valid argument
+ * sets the clock and prints nothing; an invalid one prints the Invalid
+ * line and prompts; no argument prints Current and prompts. A blank
+ * answer keeps the clock; an invalid answer re-prompts without Current.
+ * The whole argument must parse, so an extra operand is invalid. */
+static void show_current_date(void)
 {
-    char first[CMD_TOKEN_MAX];
-    uint16_t year;
-    uint8_t  mon, day, dow;
-    int len;
-
-    if (cmd_first_token(arg, first) != 0) {
-        uint16_t syear;
-        uint8_t  smon, sday;
-        if (cmd_parse_date(first, &syear, &smon, &sday)) {
-            if (!dos_setdate(syear, smon, sday)) {
-                dos_print(MSG_DOS_0033 "\r\n$");
-            }
-        } else {
-            dos_print(MSG_DOS_0033 "\r\n$");
-        }
-    }
-
-    /* Report the (possibly just-set) current date, read back via AH=2Ah. */
+    uint16_t year; uint8_t mon, day, dow; int len;
     dos_getdate(&year, &mon, &day, &dow);
     len = cmd_format_date(dow, year, mon, day, g_out);
     dos_write(g_out, (uint32_t)len);
     dos_print("\r\n$");
 }
-
-/* TIME [HH:MM[:SS]] (beads initech-uy4l, Tranche F).
- *   no arg -> AH=2Ch GET, print "Current time is HH:MM:SS.cc".
- *   arg    -> AH=2Dh SET after validating; bad time -> "Invalid time" + skip.
- * Ref: DOS 3.3 TIME; spec/int21h_register.json 2Ch/2Dh. */
-static void builtin_time(const char *arg)
+static void show_current_time(void)
 {
-    char first[CMD_TOKEN_MAX];
-    uint8_t hh, mi, ss, cs;
-    int len;
-
-    if (cmd_first_token(arg, first) != 0) {
-        uint8_t shh, smi, sss, scs;
-        if (cmd_parse_time(first, &shh, &smi, &sss, &scs)) {
-            if (!dos_settime(shh, smi, sss, scs)) {
-                dos_print(MSG_DOS_0034 "\r\n$");
-            }
-        } else {
-            dos_print(MSG_DOS_0034 "\r\n$");
-        }
-    }
-
-    /* Report the (possibly just-set) current time, read back via AH=2Ch. */
+    uint8_t hh, mi, ss, cs; int len;
     dos_gettime(&hh, &mi, &ss, &cs);
     len = cmd_format_time(hh, mi, ss, cs, g_out);
     dos_write(g_out, (uint32_t)len);
     dos_print("\r\n$");
+}
+static void date_entry_loop(void)
+{
+    char answer[CMD_LINE_MAX];
+    uint16_t year; uint8_t mon, day;
+    for (;;) {
+        dos_print("Enter new date (mm-dd-yy): $");
+        read_line(answer);
+        if (!answer[0]) return;
+        if (cmd_parse_date(answer, &year, &mon, &day) && dos_setdate(year, mon, day)) return;
+        dos_print(MSG_DOS_0033 "\r\n$");
+    }
+}
+static void time_entry_loop(void)
+{
+    char answer[CMD_LINE_MAX];
+    uint8_t hh, mi, ss, cs;
+    for (;;) {
+        dos_print("Enter new time: $");
+        read_line(answer);
+        if (!answer[0]) return;
+        if (cmd_parse_time(answer, &hh, &mi, &ss, &cs) && dos_settime(hh, mi, ss, cs)) return;
+        dos_print(MSG_DOS_0034 " \r\n$");
+    }
+}
+static int arg_present(const char *arg)
+{
+    while (arg && (*arg == ' ' || *arg == '\t')) arg++;
+    return arg && *arg != '\0';
+}
+/* DATE [date]: AH=2Ah/2Bh. Ref: captures above; DOS 3.3 DATE. */
+static void builtin_date(const char *arg)
+{
+    if (arg_present(arg)) {
+        uint16_t syear; uint8_t smon, sday;
+        if (cmd_parse_date(arg, &syear, &smon, &sday) && dos_setdate(syear, smon, sday)) return;
+        dos_print("\r\n" MSG_DOS_0033 "\r\n$");
+        date_entry_loop();
+        return;
+    }
+    show_current_date();
+    date_entry_loop();
+}
+/* TIME [time]: AH=2Ch/2Dh. The captured Invalid line ends in a space. */
+static void builtin_time(const char *arg)
+{
+    if (arg_present(arg)) {
+        uint8_t shh, smi, sss, scs;
+        if (cmd_parse_time(arg, &shh, &smi, &sss, &scs) && dos_settime(shh, smi, sss, scs)) return;
+        dos_print("\r\n" MSG_DOS_0034 " \r\n$");
+        time_entry_loop();
+        return;
+    }
+    show_current_time();
+    time_entry_loop();
 }
 
 #endif /* kernel-only DATE/TIME */
@@ -3715,29 +3739,10 @@ static void read_line(char *out)
  * ADR-0003 Appendix A (0Ah,2Ah-2Dh). Secondary processors do not boot DOS. */
 static void startup_datetime(void)
 {
-    char answer[CMD_LINE_MAX];
-    uint16_t year;
-    uint8_t mon, day, dow, hh, mi, ss, cs;
-    dos_getdate(&year, &mon, &day, &dow);
-    cmd_format_date(dow, year, mon, day, g_out);
-    dos_puts_raw(g_out); dos_print("\r\n$");
-    for (;;) {
-        dos_print("Enter new date (mm-dd-yy): $");
-        read_line(answer);
-        if (!answer[0]) break;
-        if (cmd_parse_date(answer, &year, &mon, &day) && dos_setdate(year, mon, day)) break;
-        dos_print(MSG_DOS_0033 "\r\n$");
-    }
-    dos_gettime(&hh, &mi, &ss, &cs);
-    cmd_format_time(hh, mi, ss, cs, g_out);
-    dos_puts_raw(g_out); dos_print("\r\n$");
-    for (;;) {
-        dos_print("Enter new time: $");
-        read_line(answer);
-        if (!answer[0]) break;
-        if (cmd_parse_time(answer, &hh, &mi, &ss, &cs) && dos_settime(hh, mi, ss, cs)) break;
-        dos_print(MSG_DOS_0034 "\r\n$");
-    }
+    show_current_date();
+    date_entry_loop();
+    show_current_time();
+    time_entry_loop();
 }
 
 /* Parse one command `line` and dispatch it to the matching built-in or to

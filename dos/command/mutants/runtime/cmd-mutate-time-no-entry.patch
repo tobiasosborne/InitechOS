@@ -1,0 +1,20 @@
+# CMD_MUTATE_TIME_NO_ENTRY
+# session: datetime
+--- a/command/command.c
++++ b/command/command.c
+@@ -3579,7 +3579,6 @@
+         return;
+     }
+     show_current_time();
+-    time_entry_loop();
+ }
+ 
+ #endif /* kernel-only DATE/TIME */
+@@ -3742,7 +3741,6 @@
+     show_current_date();
+     date_entry_loop();
+     show_current_time();
+-    time_entry_loop();
+ }
+ 
+ /* Parse one command `line` and dispatch it to the matching built-in or to

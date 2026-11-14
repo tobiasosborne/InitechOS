@@ -124,6 +124,11 @@ smoke-utility-errors:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/utility-errors.sh "$(TOP)" ALL "$(OUT)/smoke-utility-errors"
 
+.PHONY: smoke-datetime
+smoke-datetime:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/datetime.sh "$(TOP)" "$(TOP)/build/image/boot.img" "$(OUT)" "$(OUT)/smoke-datetime"
+
 .PHONY: smoke-fat16
 smoke: smoke-fat16
 smoke-fat16:
