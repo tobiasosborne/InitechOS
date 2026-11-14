@@ -1,0 +1,47 @@
+@echo off
+time 3:04:05.06
+time 12::34
+echo U1
+CLOCK.COM
+time 3:04:05.06
+time 12:34::56
+echo U2
+CLOCK.COM
+time 3:04:05.06
+time 12:34:056
+echo U3
+CLOCK.COM
+time 3:04:05.06
+time 123:04:05
+echo U4
+CLOCK.COM
+time 3:04:05.06
+time 12:34:56.078
+echo U5
+CLOCK.COM
+time 3:04:05.06
+time 12:34:56..78
+echo U6
+CLOCK.COM
+time 3:04:05.06
+time 12:34:56.78.90
+echo U7
+CLOCK.COM
+date 1-15-1992
+date 4.5.93
+echo U8
+CLOCK.COM
+date 1-15-1992
+date 4:5:93
+echo U9
+CLOCK.COM
+date 1-15-1992
+date 4-5/93
+echo U10
+CLOCK.COM
+date 1-15-1992
+date 04/05/93
+echo U11
+CLOCK.COM
+date 3-2-92
+echo DT3-DONE

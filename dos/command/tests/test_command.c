@@ -538,31 +538,69 @@ static void test_date_parse(void)
 
 static void test_time_parse(void)
 {
-    uint8_t hh, mi, ss;
+    uint8_t hh, mi, ss, cs;
 
     /* HH:MM:SS full. */
-    CHECK(cmd_parse_time("14:30:15", &hh, &mi, &ss) == 1,
+    CHECK(cmd_parse_time("14:30:15", &hh, &mi, &ss, &cs) == 1,
           "parse_time: 14:30:15 valid");
     CHECK(hh == 14u && mi == 30u && ss == 15u,
           "parse_time: 14:30:15 fields");
 
     /* HH:MM (seconds default to 0). */
-    CHECK(cmd_parse_time("09:05", &hh, &mi, &ss) == 1,
+    CHECK(cmd_parse_time("09:05", &hh, &mi, &ss, &cs) == 1,
           "parse_time: 09:05 valid (no seconds)");
     CHECK(hh == 9u && mi == 5u && ss == 0u,
           "parse_time: 09:05 seconds default 0");
 
+    /* Genuine DOS 3.30 captures dos33/reference/datetime{,2,3} (initech-ubpjy):
+     * a decimal hundredths suffix is accepted, '.' separates minutes and
+     * seconds as ':' does, and a bare hour is valid. */
+    CHECK(cmd_parse_time("12:34:10.00", &hh, &mi, &ss, &cs) == 1,
+          "parse_time: 12:34:10.00 hundredths valid");
+    CHECK(hh == 12u && mi == 34u && ss == 10u && cs == 0u,
+          "parse_time: 12:34:10.00 fields");
+    CHECK(cmd_parse_time("23:58:10.99", &hh, &mi, &ss, &cs) == 1 && cs == 99u,
+          "parse_time: 23:58:10.99 valid");
+    CHECK(cmd_parse_time("12:34:10.5", &hh, &mi, &ss, &cs) == 1 && cs == 5u,
+          "parse_time: 12:34:10.5 one-digit hundredths valid");
+    CHECK(cmd_parse_time("12:34.56", &hh, &mi, &ss, &cs) == 1 && ss == 56u,
+          "parse_time: 12:34.56 dot separates seconds");
+    CHECK(cmd_parse_time("12.34.56", &hh, &mi, &ss, &cs) == 1 && mi == 34u && ss == 56u,
+          "parse_time: 12.34.56 dots separate fields");
+    CHECK(cmd_parse_time("12", &hh, &mi, &ss, &cs) == 1 && hh == 12u && mi == 0u && ss == 0u,
+          "parse_time: bare hour valid");
+
     /* Invalid cases. */
-    CHECK(cmd_parse_time("24:00:00", &hh, &mi, &ss) == 0,
+    CHECK(cmd_parse_time("24:00:00", &hh, &mi, &ss, &cs) == 0,
           "parse_time: hour 24 invalid");
-    CHECK(cmd_parse_time("12:60:00", &hh, &mi, &ss) == 0,
+    CHECK(cmd_parse_time("12:60:00", &hh, &mi, &ss, &cs) == 0,
           "parse_time: minute 60 invalid");
-    CHECK(cmd_parse_time("12:30:61", &hh, &mi, &ss) == 0,
+    CHECK(cmd_parse_time("12:30:61", &hh, &mi, &ss, &cs) == 0,
           "parse_time: second 61 invalid");
-    CHECK(cmd_parse_time("1230", &hh, &mi, &ss) == 0,
+    CHECK(cmd_parse_time("1230", &hh, &mi, &ss, &cs) == 0,
           "parse_time: missing colon invalid");
-    CHECK(cmd_parse_time("", &hh, &mi, &ss) == 0,
+    CHECK(cmd_parse_time("", &hh, &mi, &ss, &cs) == 0,
           "parse_time: empty invalid");
+    /* Captured invalid forms (datetime{,2,3}): three-digit fields, a ':'
+     * before hundredths, trailing separators and trailing junk. */
+    CHECK(cmd_parse_time("12:34:10.123", &hh, &mi, &ss, &cs) == 0,
+          "parse_time: three-digit hundredths invalid");
+    CHECK(cmd_parse_time("12:34:056", &hh, &mi, &ss, &cs) == 0,
+          "parse_time: three-digit seconds invalid");
+    CHECK(cmd_parse_time("12:34:56:78", &hh, &mi, &ss, &cs) == 0,
+          "parse_time: colon before hundredths invalid");
+    CHECK(cmd_parse_time("12:34:", &hh, &mi, &ss, &cs) == 0,
+          "parse_time: trailing separator invalid");
+    CHECK(cmd_parse_time("12:34:10.", &hh, &mi, &ss, &cs) == 0,
+          "parse_time: empty hundredths invalid");
+    CHECK(cmd_parse_time("12:34:10.00x", &hh, &mi, &ss, &cs) == 0,
+          "parse_time: trailing junk invalid");
+    CHECK(cmd_parse_time("12:34:10,99", &hh, &mi, &ss, &cs) == 0,
+          "parse_time: comma separator invalid");
+    CHECK(cmd_parse_time("12:34::56", &hh, &mi, &ss, &cs) == 0,
+          "parse_time: empty seconds field invalid");
+    CHECK(cmd_parse_time("12:34:56.78.90", &hh, &mi, &ss, &cs) == 0,
+          "parse_time: fifth field invalid");
 }
 
 /* ---- cmd_path_candidates oracle -----------------------------------------

@@ -887,10 +887,14 @@ int cmd_parse_date(const char *arg, uint16_t *year, uint8_t *mon, uint8_t *day)
     return 1;
 }
 
-int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss)
+/* Genuine DOS 3.30 grammar (dos33/reference/datetime{,2,3}, initech-ubpjy):
+ * HH[sep MM[sep SS[.CC]]] where sep is ':' or '.' and the hundredths
+ * separator is '.' only. Each field is 1-2 digits; a bare hour is valid. */
+int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss,
+                   uint8_t *cs)
 {
     const char *p;
-    uint32_t h = 0, m = 0, s = 0;
+    uint32_t h = 0, m = 0, s = 0, c = 0;
 
     if (arg == 0) {
         return 0;
@@ -903,17 +907,22 @@ int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss)
     if (!parse_u_field(&p, &h, 2)) {
         return 0;
     }
-    if (*p != ':') {
-        return 0;
-    }
-    p++;
-    if (!parse_u_field(&p, &m, 2)) {
-        return 0;
-    }
-    if (*p == ':') {                      /* seconds are optional (HH:MM[:SS]) */
+    if (*p == ':' || *p == '.') {
         p++;
-        if (!parse_u_field(&p, &s, 2)) {
+        if (!parse_u_field(&p, &m, 2)) {
             return 0;
+        }
+        if (*p == ':' || *p == '.') {
+            p++;
+            if (!parse_u_field(&p, &s, 2)) {
+                return 0;
+            }
+            if (*p == '.') {              /* hundredths need '.', never ':' */
+                p++;
+                if (!parse_u_field(&p, &c, 2)) {
+                    return 0;
+                }
+            }
         }
     }
     while (*p == ' ' || *p == '\t') {
@@ -923,12 +932,13 @@ int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss)
         return 0;
     }
 
-    if (h > 23u || m > 59u || s > 59u) {
+    if (h > 23u || m > 59u || s > 59u || c > 99u) {
         return 0;
     }
     *hh = (uint8_t)h;
     *mi = (uint8_t)m;
     *ss = (uint8_t)s;
+    *cs = (uint8_t)c;
     return 1;
 }
 
@@ -2110,13 +2120,13 @@ static void dos_gettime(uint8_t *hh, uint8_t *mi, uint8_t *ss, uint8_t *cs)
     *cs = (uint8_t)(dx & 0xFFu);            /* DL (centiseconds; RTC reports 0) */
 }
 
-/* AH=2Dh SET TIME: CH=hour, CL=min, DH=sec, DL=centiseconds(ignored). Returns 1
+/* AH=2Dh SET TIME: CH=hour, CL=min, DH=sec, DL=centiseconds. Returns 1
  * if AL=0 (success), 0 if AL=0xFF (invalid time rejected). */
-static int dos_settime(uint8_t hh, uint8_t mi, uint8_t ss)
+static int dos_settime(uint8_t hh, uint8_t mi, uint8_t ss, uint8_t cs)
 {
     uint32_t ax = 0x2D00u;
     uint32_t cx = ((uint32_t)hh << 8) | (uint32_t)mi;     /* CH=hh, CL=mi */
-    uint32_t dx = ((uint32_t)ss << 8);                    /* DH=ss, DL=0  */
+    uint32_t dx = ((uint32_t)ss << 8) | (uint32_t)cs;     /* DH=ss, DL=cs  */
     __asm__ __volatile__(
         "int $0x21"
         : "+a"(ax)
@@ -3470,9 +3480,9 @@ static void builtin_time(const char *arg)
     int len;
 
     if (cmd_first_token(arg, first) != 0) {
-        uint8_t shh, smi, sss;
-        if (cmd_parse_time(first, &shh, &smi, &sss)) {
-            if (!dos_settime(shh, smi, sss)) {
+        uint8_t shh, smi, sss, scs;
+        if (cmd_parse_time(first, &shh, &smi, &sss, &scs)) {
+            if (!dos_settime(shh, smi, sss, scs)) {
                 dos_print(MSG_DOS_0034 "\r\n$");
             }
         } else {
@@ -3664,7 +3674,7 @@ static void startup_datetime(void)
         dos_print("Enter new time: $");
         read_line(answer);
         if (!answer[0]) break;
-        if (cmd_parse_time(answer, &hh, &mi, &ss) && dos_settime(hh, mi, ss)) break;
+        if (cmd_parse_time(answer, &hh, &mi, &ss, &cs) && dos_settime(hh, mi, ss, cs)) break;
         dos_print(MSG_DOS_0034 "\r\n$");
     }
 }

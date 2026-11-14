@@ -1,0 +1,17 @@
+# CMD_MUTATE_TIME_NO_HUNDREDTHS
+# test: test-command
+--- a/command/command.c
++++ b/command/command.c
+@@ -917,12 +917,6 @@
+             if (!parse_u_field(&p, &s, 2)) {
+                 return 0;
+             }
+-            if (*p == '.') {              /* hundredths need '.', never ':' */
+-                p++;
+-                if (!parse_u_field(&p, &c, 2)) {
+-                    return 0;
+-                }
+-            }
+         }
+     }
+     while (*p == ' ' || *p == '\t') {

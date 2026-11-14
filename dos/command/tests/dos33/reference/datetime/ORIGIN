@@ -1,0 +1,20 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-datetime.sh, ../../datetime-input.txt and the test-only
+16-bit ../../clock.asm probe (INT 21h AH=2Ah/2Ch/33h readback); CAPTURE-DONE
+barrier. Batch stdout is TRACE.TXT; batch stdin is ANSWERS.TXT blank lines,
+because genuine DATE/TIME enter the entry prompt after an invalid argument.
+Findings: TIME accepts HH[:MM[:SS[.CC]]] with '.' also accepted as the
+minute/second separator (12:34.56 sets seconds 56); the hundredths separator
+is '.'; each field is 1-2 digits; ranges 23/59/59/99. A valid DATE/TIME
+argument prints nothing. An invalid one prints CR LF "Invalid time " (with
+trailing space) or CR LF "Invalid date" (no trailing space), then
+"Enter new time: " / "Enter new date (mm-dd-yy): " on stdout and reads a
+line from stdin; a blank line keeps the clock. Extra operands are invalid.
+BREAK with no argument prints "BREAK is on"/"BREAK is off" on stdout;
+an invalid operand (including ON/OFF with an extra word) prints
+"Must specify ON or OFF" on CON (see result.txt) and leaves the flag
+unchanged. VER prints CR LF "MS-DOS Version 3.30" padded with spaces.
+Clock readback hundredths include elapsed ticks, so CLK centiseconds are
+approximate; acceptance is shown by the hh:mm:ss fields and the absence of
+an Invalid block before the case marker.

@@ -1,0 +1,108 @@
+
+MS-DOS Version 3.30                     
+T0
+CLK 1992-03-02 D1 09:30:01.11 BRK=0
+T1
+CLK 1992-03-02 D1 12:34:10.20 BRK=0
+T2
+CLK 1992-03-02 D1 13:14:16.04 BRK=0
+T3
+CLK 1992-03-02 D1 12:34:10.03 BRK=0
+
+Invalid time 
+Enter new time: 
+T4
+CLK 1992-03-02 D1 12:34:10.09 BRK=0
+
+Invalid time 
+Enter new time: 
+T5
+CLK 1992-03-02 D1 12:34:10.14 BRK=0
+T6
+CLK 1992-03-02 D1 12:34:56.01 BRK=0
+
+Invalid time 
+Enter new time: 
+T7
+CLK 1992-03-02 D1 12:34:56.06 BRK=0
+
+Invalid time 
+Enter new time: 
+T8
+CLK 1992-03-02 D1 12:34:56.12 BRK=0
+
+Invalid time 
+Enter new time: 
+T9
+CLK 1992-03-02 D1 12:34:56.23 BRK=0
+
+Invalid time 
+Enter new time: 
+T10
+CLK 1992-03-02 D1 12:34:56.34 BRK=0
+T11
+CLK 1992-03-02 D1 01:02:03.06 BRK=0
+
+Invalid time 
+Enter new time: 
+T12
+CLK 1992-03-02 D1 01:02:03.12 BRK=0
+
+Invalid time 
+Enter new time: 
+T13
+CLK 1992-03-02 D1 01:02:03.17 BRK=0
+T14
+CLK 1992-03-02 D1 09:05:00.00 BRK=0
+T15
+CLK 1992-03-02 D1 09:05:06.04 BRK=0
+T16
+CLK 1992-03-02 D1 09:05:06.15 BRK=0
+D1
+CLK 1992-02-29 D6 09:05:06.31 BRK=0
+
+Invalid date
+Enter new date (mm-dd-yy): 
+D2
+CLK 1992-02-29 D6 09:05:06.42 BRK=0
+
+Invalid date
+Enter new date (mm-dd-yy): 
+D3
+CLK 1992-02-29 D6 09:05:06.48 BRK=0
+D4
+CLK 1993-02-28 D0 09:05:06.48 BRK=0
+
+Invalid date
+Enter new date (mm-dd-yy): 
+D5
+CLK 1993-02-28 D0 09:05:06.59 BRK=0
+D6
+CLK 1992-03-02 D1 09:05:06.59 BRK=0
+BREAK is off
+B0
+CLK 1992-03-02 D1 09:05:06.64 BRK=0
+B1
+CLK 1992-03-02 D1 09:05:06.70 BRK=1
+BREAK is on
+B2
+CLK 1992-03-02 D1 09:05:06.75 BRK=0
+BREAK is off
+B3
+CLK 1992-03-02 D1 09:05:06.81 BRK=0
+BREAK is off
+B4
+CLK 1992-03-02 D1 09:05:06.81 BRK=0
+BREAK is off
+B5
+CLK 1992-03-02 D1 09:05:06.86 BRK=0
+BREAK is off
+B6
+CLK 1992-03-02 D1 09:05:06.97 BRK=0
+BREAK is off
+B7
+CLK 1992-03-02 D1 09:05:06.97 BRK=1
+BREAK is on
+B8
+CLK 1992-03-02 D1 09:05:07.03 BRK=0
+DATETIME-DONE

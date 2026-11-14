@@ -1,0 +1,13 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-datetime3.sh, ../../datetime3-input.txt and
+../../clock.asm; CAPTURE-DONE barrier. Each TIME case is preceded by
+TIME 3:04:05.06 so a set is distinguishable from a no-op.
+Findings: three-digit fields are invalid even when the value is in
+range (12:34:056, 12:34:56.078, 123:04:05); an empty seconds field
+(12:34::56), a doubled hundredths point (12:34:56..78) and a fifth
+field (12:34:56.78.90) are invalid. Quirk: 12::34 neither sets the
+clock nor reports an error (the parser stops without a diagnostic);
+InitechDOS does not reproduce that silent no-op. DATE separators '-',
+'/' and '.' may be mixed in one value (4-5/93, 4.5.93 set the date);
+':' is not a DATE separator (4:5:93 invalid).

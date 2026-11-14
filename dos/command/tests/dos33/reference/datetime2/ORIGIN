@@ -1,0 +1,11 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-datetime2.sh, ../../datetime2-input.txt and
+../../clock.asm; CAPTURE-DONE barrier. Separator grammar for TIME:
+'.' is accepted wherever ':' separates hours/minutes/seconds
+(12.34.56, 12.34:56, 1.2.3.4 all set the clock), but ':' before the
+hundredths field is invalid (12:34:56:78). A trailing separator is
+invalid (12:34:, 12:); a bare hour is valid (12). '-' and space are
+not separators. DATE accepts '.' separators (3.2.92). BREAK OFFX and
+BREAK OFF EXTRA after BREAK ON leave the flag on and print
+"Must specify ON or OFF" on CON (result.txt).

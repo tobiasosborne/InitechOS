@@ -213,10 +213,14 @@ int cmd_format_time(uint8_t hh, uint8_t mi, uint8_t ss, uint8_t cs, char *out);
  * PURE: validation only, no I/O. */
 int cmd_parse_date(const char *arg, uint16_t *year, uint8_t *mon, uint8_t *day);
 
-/* Parse a "HH:MM[:SS]" time argument into hh/mi/ss. Seconds default to 0 when
- * omitted. Returns 1 on a syntactically + range-valid time, 0 otherwise (the
- * REPL then prints "Invalid time" and skips the SET). PURE. */
-int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss);
+/* Parse a DOS 3.30 time argument into hh/mi/ss/cs. Grammar (genuine
+ * captures dos33/reference/datetime{,2,3}): HH[sep MM[sep SS[.CC]]] with
+ * ':' or '.' as sep and '.' only before hundredths; fields are 1-2 digits
+ * and omitted fields default to 0. Returns 1 on a syntactically +
+ * range-valid time, 0 otherwise (the REPL then prints "Invalid time" and
+ * skips the SET). PURE. */
+int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss,
+                   uint8_t *cs);
 
 /* ---- PROMPT built-in + $-metacharacter renderer (PURE, host-testable) -----
  * Ref: ADR-0003 DEC-12 (the $P$G prompt + version 3.30); DOS 3.3 COMMAND.COM
