@@ -128,3 +128,8 @@ desktop-apps:
 	$(MAKE) -C apps/initechbase
 	+sh factory/desktop-build.sh
 system-build: desktop-apps
+# The working volume installs TURBO.COM (system/working-volume.list).
+.PHONY: turbo-build
+turbo-build:
+	$(MAKE) -C turbo/compiler $(TOP)/build/turbo/compiler/TURBO.COM
+system-build: turbo-build
