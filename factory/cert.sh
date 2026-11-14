@@ -61,9 +61,8 @@ selfhost_ddc() { make -C turbo selfhost ddc; }
 board() {
     make status > "$work/board.txt" 2>&1 || return
     cat "$work/board.txt"
-    if [ "${CERT_STRICT:-0}" = 1 ]; then
-        awk '/^[a-z][a-z0-9\/]*: (host-green|red)$/ {bad=1} END {exit bad}' "$work/board.txt"
-    fi
+    make -s dependencies > "$work/registry.txt" || return
+    awk -f factory/testlib/cert-board.awk "$work/registry.txt" "$work/board.txt"
 }
 unchanged() {
     git status --porcelain > "$work/git-status.txt"

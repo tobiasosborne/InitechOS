@@ -83,8 +83,9 @@ every summary is validated against the discovered patch inventory, with zero
 survivors/errors and no omitted entries. Reused cross-component patches are
 declared in mutants/extra.list. A killed worker or missing log/result is red.
 Logs and per-stage wall times survive clean builds in
-build/cert/<UTC date/time>-<short sha>/{summary,full.log}. CERT_STRICT=1 also
-requires every registered component to be imported. CERT_JOBS (default 16) and
+build/cert/<UTC date/time>-<short sha>/{summary,full.log}. Every certificate requires a complete, unique imported status row for every
+registered component, including at the default CERT_STRICT=0. Standalone
+make status remains informational. CERT_JOBS (default 16) and
 CERT_MUTANT_JOBS (default 4) bound parallel work. Mutation summaries include
 pending patches without counting them as kills. Targets are invoked even for
 pending-only owners: unimplemented targets fail. Successful active sweeps with
