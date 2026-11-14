@@ -1,0 +1,14 @@
+# test: journey
+--- a/editor.pas
++++ b/editor.pas
+@@ -618,8 +618,8 @@
+     { MINT06 27, 28: 21 lines, the cursor keeps its view row }
+     if EdTop + ViewRows - 1 <= DocLines then
+     begin
+-      EdTop := EdTop + ViewRows - 1;
+-      EdLine := EdLine + ViewRows - 1;
++      EdTop := EdTop + ViewRows;
++      EdLine := EdLine + ViewRows;
+       if EdLine > DocLines then EdLine := DocLines
+     end
+     else EdLine := DocLines

@@ -1,0 +1,12 @@
+# test: journey
+--- a/editor.pas
++++ b/editor.pas
+@@ -359,7 +359,7 @@
+ procedure DoSave;
+ var B: string;
+ begin
+-  if EdOnDisk then
++  if false then
+   begin
+     BakName(FileName, B);
+     FileCopy(FileName, B)

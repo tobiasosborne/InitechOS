@@ -1,0 +1,12 @@
+# test: journey
+--- a/editor.pas
++++ b/editor.pas
+@@ -86,7 +86,7 @@
+     if S[I] = chr(9) then
+     begin
+       D := D + ' ';
+-      while Length(D) mod 8 <> 0 do D := D + ' '
++      while Length(D) mod 4 <> 0 do D := D + ' '
+     end
+     else
+     begin

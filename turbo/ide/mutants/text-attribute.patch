@@ -1,0 +1,12 @@
+# test: journey
+--- a/screen.pas
++++ b/screen.pas
+@@ -13,7 +13,7 @@
+   AtMenuKey = 116;     { 0x74 red on grey: hotkey letters }
+   AtSelect = 15;       { 0x0F white on black: selected title or item }
+   AtInfo = 23;         { 0x17 grey on blue: info line }
+-  AtText = 30;         { 0x1E yellow on blue: source text }
++  AtText = 31;         { 0x1E yellow on blue: source text }
+   AtError = 78;        { 0x4E yellow on red: error line }
+   AtVerify = 127;      { 0x7F bright white on grey: Verify frame }
+   AtErrFrame = 71;     { 0x47 grey on red: Error box frame }

@@ -1,0 +1,12 @@
+# test: journey
+--- a/editor.pas
++++ b/editor.pas
+@@ -289,7 +289,7 @@
+   DrawInfo();
+   DrawBar();
+   DrawStatus();
+-  ScrCursor(EdLine - EdTop + 2, EdCol - EdLeft, UiMode = ModeEditor);
++  ScrCursor(EdLine - EdTop + 2, EdCol - EdLeft + 1, UiMode = ModeEditor);
+   if (UiMode = ModeMenu) or ((UiMode = ModeVerify) and (VerifyKind <> VerifyQuit)) then
+     DrawMenu()
+   else if (UiMode = ModeName) and (NameKind <> NameRename) then

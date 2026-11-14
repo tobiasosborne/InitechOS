@@ -170,6 +170,9 @@ vendor or product does not appear on any Initech screen.
   multiple windows, mouse, syntax colour, 43/50-line modes, the splash
   box. No greyed placeholder or "not available" message exists for them.
 
+The editor, chrome and paged buffer are in `ide/` (its README): tier 0
+compares 36 screens with MINT06 and the saved bytes with TP 5.5's.
+
 ### Packaging (feasibility, 2026-11-14)
 
 `tests/ide/probe/` shows in the booted product that an extended

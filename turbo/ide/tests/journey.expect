@@ -1,0 +1,182 @@
+# Expected screens for journey.steps: each is a turbopascal-decomp MINT06
+# capture (raw B800h + CRTC) with explicit edits; see screens.c.
+
+# The surviving chrome (turbo/README.md "IDE"): only File Edit Run Compile,
+# no Indent/Unindent words, the status legend keeps F9-Make and F10-Menu.
+define chrome
+fill 0 34 79 0x70        # Options, Debug, Break/watch are absent
+fill 1 32 37 0x17        # "Indent": auto-indent is absent
+fill 1 48 55 0x17        # "Unindent"
+fill 24 0 79 0x70        # F1 Help, F5 Zoom, F6 Switch, F7 Trace, F8 Step absent
+copy . 24 49 24 1 17     # "F9-Make  F10-Menu" moved to the front
+end
+
+# File pulldown with absent items removed (Pick, Directory, Change dir,
+# OS shell); rows from the named capture: top, Load, New, Save, Write to,
+# Quit, bottom.
+define abort
+fill 24 0 79 0x70
+copy 43_new_dirty_prompt 24 10 24 1 9   # "Esc-Abort" only (F1-Help absent)
+end
+
+shot start 53_new             # empty NONAME.PAS, zoomed
+use chrome
+copy 02_editor 0 0 0 0 34     # after start the bar is active on File
+cursor hidden                 # 02_editor
+
+shot empty 53_new
+use chrome
+
+shot typed 04_typed
+use chrome
+shot rename 05_f2_noname
+use chrome
+shot saved 06_saved_demo
+use chrome
+shot line4 08_after_error     # same position, reached by keys here
+use chrome
+shot fixed 09_fixed
+use chrome
+shot saved2 10_saved
+use chrome
+shot overwrite 17_overwrite
+use chrome
+shot insert 18_insert
+use chrome
+
+shot menu_file 18_insert
+use chrome
+copy 19_menu_file 0 0 0 0 34
+copy 19_menu_file 1 3 1 3 16
+copy 19_menu_file 2 3 2 3 16
+copy 19_menu_file 4 3 3 3 16
+copy 19_menu_file 5 3 4 3 16
+copy 19_menu_file 6 3 5 3 16
+copy 19_menu_file 10 3 6 3 16
+copy 19_menu_file 11 3 7 3 16
+cursor hidden
+
+shot menu_run 18_insert
+use chrome
+copy 20_menu_run 0 0 0 0 34
+copy 20_menu_run 1 19 1 19 25
+copy 20_menu_run 2 19 2 19 25
+copy 20_menu_run 7 19 3 19 25
+copy 20_menu_run 8 19 4 19 25
+cursor hidden
+
+shot menu_compile 18_insert
+use chrome
+copy 21_menu_compile 0 0 0 0 34
+copy 21_menu_compile 1 26 1 26 35
+copy 21_menu_compile 2 26 2 26 35
+copy 21_menu_compile 3 26 3 26 35
+copy 21_menu_compile 9 26 4 26 35
+attr 2 27 59 0x0F             # first item selected, as Destination in row 5
+cursor hidden
+
+shot f10 22_f10               # F10 returns to the last menu used
+use chrome
+shot f10_esc 24_f10_esc
+use chrome
+
+shot load_dialog 18_insert
+use chrome
+copy 25_load_dialog 0 0 0 0 34
+copy 25_load_dialog 1 3 1 3 16
+copy 25_load_dialog 2 3 2 3 16
+copy 25_load_dialog 3 3 3 3 46   # pulldown edge and Load File Name box
+copy 25_load_dialog 4 3 4 3 46
+copy 25_load_dialog 5 3 5 3 46
+copy 25_load_dialog 10 3 6 3 16
+copy 25_load_dialog 11 3 7 3 16
+cursor 12 4                   # 25_load_dialog
+
+shot long 26_long_loaded
+use chrome
+shot pgdn 27_pgdn
+use chrome
+shot pgdn2 28_pgdn2
+use chrome
+shot ctrl_home 29_ctrl_home
+use chrome
+shot ctrl_end 30_ctrl_end
+use chrome
+shot pgup 31_pgup
+use chrome
+shot ctrl_pgup 32_ctrl_pgup
+use chrome
+shot ctrl_pgdn 33_ctrl_pgdn
+use chrome
+shot tab_end 36_tab_line_end
+use chrome
+shot long_end 37_long_line_end
+use chrome
+shot long_home 38_long_line_home
+use chrome
+shot ctrl_y 39_ctrl_y
+use chrome
+shot join 40_backspace_join
+use chrome
+shot delete 41_delete
+use chrome
+
+shot new_verify 41_delete
+use chrome
+copy 44_new_cancelled 0 0 0 0 34
+copy 44_new_cancelled 1 3 1 3 16
+copy 44_new_cancelled 2 3 2 3 16
+copy 44_new_cancelled 4 3 3 3 16
+copy 44_new_cancelled 5 3 4 3 16
+copy 44_new_cancelled 6 3 5 3 16
+copy 44_new_cancelled 10 3 6 3 16
+copy 44_new_cancelled 11 3 7 3 16
+copy 43_new_dirty_prompt 5 10 5 10 36   # Verify box, LONG.PAS
+copy 43_new_dirty_prompt 6 10 6 10 36
+copy 43_new_dirty_prompt 7 10 7 10 36
+use abort
+cursor hidden
+
+shot new_cancel 41_delete
+use chrome
+copy 44_new_cancelled 0 0 0 0 34
+copy 44_new_cancelled 1 3 1 3 16
+copy 44_new_cancelled 2 3 2 3 16
+copy 44_new_cancelled 4 3 3 3 16
+copy 44_new_cancelled 5 3 4 3 16
+copy 44_new_cancelled 6 3 5 3 16
+copy 44_new_cancelled 10 3 6 3 16
+copy 44_new_cancelled 11 3 7 3 16
+cursor hidden
+
+shot quit_verify 41_delete
+use chrome
+copy 43_new_dirty_prompt 5 10 5 10 36   # Alt-X uses the same box (56)
+copy 43_new_dirty_prompt 6 10 6 10 36
+copy 43_new_dirty_prompt 7 10 7 10 36
+use abort
+cursor hidden
+
+shot quit_cancel 41_delete
+use chrome
+
+shot load_verify 41_delete
+use chrome
+copy 46_load_dirty_prompt 0 0 0 0 34
+copy 19_menu_file 1 3 1 3 16
+copy 19_menu_file 2 3 2 3 16
+copy 19_menu_file 4 3 3 3 16
+copy 19_menu_file 5 3 4 3 16
+copy 19_menu_file 6 3 5 3 16
+copy 19_menu_file 10 3 6 3 16
+copy 19_menu_file 11 3 7 3 16
+copy 46_load_dirty_prompt 5 10 5 10 36
+copy 46_load_dirty_prompt 6 10 6 10 36
+copy 46_load_dirty_prompt 7 10 7 10 36
+use abort
+cursor hidden
+
+shot demo 47_demo_loaded
+use chrome
+copy 26_long_loaded 1 0 1 0 31   # "Line 1     Col 1   Insert": no Pick memory
+cursor 0 2                       # 26_long_loaded

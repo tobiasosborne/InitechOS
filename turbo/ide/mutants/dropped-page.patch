@@ -1,0 +1,11 @@
+# test: paging
+--- a/buffer.pas
++++ b/buffer.pas
+@@ -135,7 +135,6 @@
+         I := 0
+       end
+     end;
+-    CopyBytes(DocLen - PgStart - PgOrig);
+     OutFlush();
+     DocLen := DocLen - PgOrig + PgLen;
+     PgOrig := PgLen;

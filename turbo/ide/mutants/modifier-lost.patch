@@ -1,0 +1,12 @@
+# test: journey
+--- a/editor.pas
++++ b/editor.pas
+@@ -638,7 +638,7 @@
+     if EdLine > DocLines then EdLine := DocLines
+   end
+   else if K = KeyCtrlPgUp then begin EdLine := 1; EdTop := 1 end
+-  else if K = KeyCtrlPgDn then begin EdLine := DocLines; JumpTo() end;
++  else if K = KeyCtrlPgDn then begin EdLine := EdLine end;
+   ScrollTo()
+ end;
+ 

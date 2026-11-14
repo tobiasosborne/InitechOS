@@ -1,0 +1,10 @@
+# test: journey
+--- a/editor.pas
++++ b/editor.pas
+@@ -795,5 +795,5 @@
+   DoNew();
+   MenuSel := MenuFile;
+   LastMenu := MenuFile;
+-  UiMode := ModeBar
++  UiMode := ModeEditor
+ end;

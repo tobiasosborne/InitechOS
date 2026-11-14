@@ -3,7 +3,7 @@ COMPONENT := turbo
 include $(TOP)/mk/config.mk
 
 all test mutants:
-	+@for c in seed compiler; do $(MAKE) --no-print-directory -C $$c $@ || exit 1; done
+	+@for c in seed compiler ide; do $(MAKE) --no-print-directory -C $$c $@ || exit 1; done
 
 smoke: all
 	+$(MAKE) -C $(TOP) image
@@ -34,5 +34,5 @@ $(TARGET_ARTIFACTS): | compiler-build
 compiler-build:
 	+@$(MAKE) --no-print-directory -C compiler all
 
-IMPORT_PRODUCT_SRCS := $(wildcard seed/*.[ch] seed/rt/*.asm compiler/*.pas)
+IMPORT_PRODUCT_SRCS := $(wildcard seed/*.[ch] seed/rt/*.asm compiler/*.pas ide/*.pas)
 include $(TOP)/mk/import-check.mk
