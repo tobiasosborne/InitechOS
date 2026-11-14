@@ -270,6 +270,7 @@ int cmd_render_prompt(const char *templ, const prompt_ctx_t *ctx,
 int cmd_format_dir_line(const char *fname, uint32_t fsize, uint8_t attr,
                         uint16_t fdate, uint16_t ftime, char *out);
 int cmd_format_dir_footer(uint32_t files, uint32_t free_bytes, char *out);
+int cmd_format_dir_wide(const char *fname,uint8_t attr,unsigned column,char *out);
 
 /* ---- PATH-directory search planner (PURE, host-testable) ------------------
  * cmd_path_candidates: plan the ordered set of candidate paths for an

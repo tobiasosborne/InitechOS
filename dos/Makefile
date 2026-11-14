@@ -95,3 +95,8 @@ smoke-batch-return:
 smoke-unknown-redirect:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/unknown-redirect.sh "$(TOP)" "$(OUT)/smoke-unknown-redirect"
+
+.PHONY: smoke-dir-wide
+smoke-dir-wide:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/dir-wide.sh "$(TOP)" "$(OUT)/smoke-dir-wide"

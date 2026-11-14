@@ -334,6 +334,28 @@ int cmd_format_dir_line(const char *fname, uint32_t fsize, uint8_t attr,
     return pos;
 }
 
+int cmd_format_dir_wide(const char *name,uint8_t attr,unsigned column,char *cell)
+{
+    /* OEM DOS 3.30 reference/wide: independent 8/3 fields, no directory
+     * brackets, and a literal TAB after every non-fifth cell. */
+    (void)attr;
+    for (int i=0; i<12; ++i) cell[i]=' ';
+    unsigned i=0;
+    while (name[i] && (name[0]=='.' || name[i]!='.') && i<8) {
+        cell[i]=name[i];++i;
+    }
+    const char *ext=name;
+    while (*ext && *ext!='.') ++ext;
+    if (*ext && name[0]!='.') {
+        ++ext;
+        for (unsigned j=0; j<3 && ext[j]; ++j) cell[9+j]=ext[j];
+    }
+    int pos=12;
+    if (column!=4) cell[pos++]='\t';
+    cell[pos]=0;
+    return pos;
+}
+
 int cmd_format_dir_footer(uint32_t files, uint32_t free_bytes, char *out)
 {
     int pos=0;
@@ -2607,8 +2629,9 @@ static void builtin_dir(const char *arg)
     dos_setdta(&g_shell_dta);
     dos_print("\r\n$");
     print_volume_identity(disp[0], label);
-    dos_print("\r\n\r\n$");
+    dos_print(wide ? "\r\n$" : "\r\n\r\n$");
     dos_puts_raw(MSG_DOS_0023);
+    if (wide) dos_write(" ",1u);
     dos_puts_raw(disp);
     dos_print("\r\n\r\n$");
 
@@ -2629,14 +2652,7 @@ static void builtin_dir(const char *arg)
         }
         if (wide) {
             char cell[17];
-            int pos = 0;
-            if (g_shell_dta.attr & DIR_ATTR_DIRECTORY) cell[pos++] = '[';
-            for (int i=0; g_shell_dta.fname[i] && pos<15; i++) cell[pos++] = g_shell_dta.fname[i];
-            if (g_shell_dta.attr & DIR_ATTR_DIRECTORY) cell[pos++] = ']';
-            /* Last column ends at its name: padding to column 80 would wrap
-             * the console before the explicit newline. */
-            if (column != 4) while (pos < 16) cell[pos++] = ' ';
-            cell[16] = 0;
+            int pos=cmd_format_dir_wide(g_shell_dta.fname,g_shell_dta.attr,(unsigned)column,cell);
             dos_write(cell, (uint32_t)pos);
             if (++column == 5) { dos_print("\r\n$"); column = 0; rows++; }
         } else {
@@ -2653,9 +2669,12 @@ static void builtin_dir(const char *arg)
 
     if (wide && column) dos_print("\r\n$");
 
-    dos_print("\r\n$");
+    if (!wide) dos_print("\r\n$");
     n=cmd_format_dir_footer(files,free_bytes,g_out);
-    dos_write(g_out,(uint32_t)n);
+    if (wide) {
+        dos_write(g_out,(uint32_t)n-1u);
+        dos_print("\r\n$");
+    } else dos_write(g_out,(uint32_t)n);
 }
 
 /* Compose the displayable CWD ("A:\" + the root-relative path AH=47h reports)

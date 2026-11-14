@@ -1,0 +1,19 @@
+
+ Volume in drive B has no label
+ Directory of  B:\
+
+A        TXT	
+        1 File(s)   1316352 bytes free
+SINGLE-END
+
+ Volume in drive B has no label
+ Directory of  B:\
+
+SUB         	A        TXT	B        TXT	BATCH    BAT	BIG      TXT
+CFG1     CFG	CFG2     CFG	CFG3     CFG	CFG4     CFG	CHILD    BAT
+ENV      BAT	EXPAND   BAT	FILTER   BAT	FULL     BAT	LIMIT    BAT
+LONG     TXT	MORE     BAT	MORECASE BAT	NAMES    BAT	NOEND    TXT
+PARAM    BAT	PARAMS   BAT	REDIR    BAT	SWITCH   BAT	TAIL     BAT
+TAIL     COM	TRACE    TXT	WIDE     BAT	AUTOEXEC BAT	
+       29 File(s)   1315840 bytes free
+WIDE-DONE

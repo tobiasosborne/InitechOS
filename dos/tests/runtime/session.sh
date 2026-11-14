@@ -102,8 +102,8 @@ extract MORE.TXT "$out/words"; extract SORTED.TXT "$out/words"; extract STAMP.TX
 extract 'PIPE1.$$$' "$out/sentinel"
 mtype -i "$img" ::DIR.OUT > "$out/dir"
 require 'DIR volume identity' grep -F 'Volume in drive A is INITECH' "$out/dir" >/dev/null
-require 'DIR operands' grep -F 'ONE.TXT' "$out/dir" >/dev/null
-if grep -F 'WORDS.TXT' "$out/dir" >/dev/null; then fail 'DIR ignored mask'; fi
+require 'DIR operands' grep -F 'ONE      TXT' "$out/dir" >/dev/null
+if grep -F 'WORDS    TXT' "$out/dir" >/dev/null; then fail 'DIR ignored mask'; fi
 if mdir -i "$img" ::EMPTY >/dev/null 2>&1; then fail 'RD did not remove directory'; fi
 require 'COPY timestamp' "$root/build/dos/host/tool_dos_parity_host" --compare "$img" STAMP.TXT "$img" SRC/ONE.TXT > "$out/stamp"
 grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$out/report" >/dev/null || fail 'CPU fault'

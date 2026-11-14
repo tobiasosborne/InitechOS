@@ -103,3 +103,12 @@ The DOS 3.30 compatibility study is retained in command/tests/compat33/.
 The default host gate verifies its evidence hashes, not the intentionally
 pending comparisons of old product observations. Each repaired behavior is
 promoted separately to a product regression against the genuine capture.
+
+Captured DOS 3.30 regressions also cover invalid DEL/REN switches, FOR
+separators and wildcard continuation, IF EXIST wildcards, batch invocation
+names, CD.., and COPY destination 8.3 spelling. `make smoke-batch-return`
+checks nested COMMAND continuation; `make smoke-unknown-redirect` checks
+unknown-command output and file preservation. `make smoke-dir-wide` compares
+complete single-member and multirow DIR /W transcripts to the synchronized
+OEM capture, including tabs and CRLF. The default wide-row host gate enumerates
+the captured input volume independently with mtools.
