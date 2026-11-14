@@ -446,6 +446,34 @@ void finder_outcome_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
                         const finder_cmd_outcome_t *o)
 {
     switch (o->id) {
+    case FCMD_GET_INFO: {
+        char lines[4][64];const char *text[4];const char *buttons[]={"OK"};
+        finder_file_info_lines(&g_finder_shell->info,lines);
+        for(int i=0;i<4;i++)text[i]=lines[i];
+        flair_live_alert_open(ctx,bi,text,4,buttons,1,1);
+        (void)flair_live_alert_run(ctx,bi);
+        break;
+    }
+    case FCMD_SHOW_CLIPBOARD: {
+        static finder_clipboard_t snapshot;
+        const char *text[4]={"Clipboard",snapshot.lines[0],snapshot.lines[1],snapshot.lines[2]};
+        if(finder_clipboard_snapshot(&snapshot,g_finder_shell->scrap)<0){
+            const char *error[]={"The Clipboard could not be read."};const char *ok[]={"OK"};
+            flair_live_alert_open(ctx,bi,error,1,ok,1,1);(void)flair_live_alert_run(ctx,bi);break;
+        }
+        for(;;){
+            const char *buttons[3]={"Close",0,0};int n=1,next=0,prev=0;
+            if(snapshot.next<snapshot.length){next=++n;buttons[n-1]="Next";}
+            if(snapshot.start){prev=++n;buttons[n-1]="Previous";}
+            flair_live_alert_open(ctx,bi,text,4,buttons,n,1);
+            g_al_dr.cancelItem=1; /* Escape closes even on a paged snapshot. */
+            uint16_t hit=flair_live_alert_run(ctx,bi);
+            if(next&&hit==next)finder_clipboard_next(&snapshot);
+            else if(prev&&hit==prev)finder_clipboard_previous(&snapshot);
+            else break;
+        }
+        break;
+    }
     case FCMD_NEW_FOLDER:
         if (o->status == FINDER_WIN_OK) {
             finder_win_invalidate_all(g_finder_shell, o->slot);

@@ -171,6 +171,10 @@ uint8_t finder_pred_new_folder_here(const FinderCtx *fx)
     return (fx != 0 && fx->front_is_trash == 0u) ? 1u : 0u;
 }
 
+uint8_t finder_pred_selection_infoable(const FinderCtx *fx)
+{
+    return fx && fx->selection_infoable;
+}
 static void fcmd_nyi(FinderCtx *fx, const finder_cmd_t *c)
 {
     fcmd_line_t l;
@@ -241,16 +245,16 @@ const finder_cmd_t FINDER_COMMANDS[] = {
     /* --- File (512) ------------------------------------------------------ */
     { FCMD_NEW_FOLDER,    512,  1, 'N', finder_pred_new_folder_here,  fcmd_nyi, "NEW_FOLDER" },
     { FCMD_OPEN,          512,  2, 'O', finder_pred_selection_openable, fcmd_nyi, "OPEN" },
-    { FCMD_CLOSE_WINDOW,  512,  4, 'W', finder_pred_front_is_diskwin, fcmd_nyi, "CLOSE_WINDOW" },
-    { FCMD_GET_INFO,      512,  6, 'I', finder_pred_has_selection,    fcmd_nyi, "GET_INFO" },
-    { FCMD_DUPLICATE,     512,  7, 'D', finder_pred_has_selection,    fcmd_nyi, "DUPLICATE" },
+    { FCMD_CLOSE_WINDOW,  512,  3, 'W', finder_pred_front_is_diskwin, fcmd_nyi, "CLOSE_WINDOW" },
+    { FCMD_GET_INFO,      512,  5, 'I', finder_pred_selection_infoable, fcmd_nyi, "GET_INFO" },
     /* Put Away's V1 rest-graying (F4.2) is a menu-resource enabled byte owned
      * by tdnl.12; the SEMANTIC predicate -- the one dispatch enforces -- is
      * "there is something selected to put away" (F1-5 stores the origins). */
-    { FCMD_PUT_AWAY,      512,  9, 'Y', finder_pred_has_selection,    fcmd_nyi, "PUT_AWAY" },
+    { FCMD_PUT_AWAY,      512,  6, 'Y', finder_pred_selection_putaway, fcmd_nyi, "PUT_AWAY" },
 
     /* --- Edit (513) ------------------------------------------------------ */
-    { FCMD_SELECT_ALL,    513,  6, 'A', 0,                            fcmd_nyi, "SELECT_ALL" },
+    { FCMD_SELECT_ALL,    513,  1, 'A', 0,                            fcmd_nyi, "SELECT_ALL" },
+    { FCMD_SHOW_CLIPBOARD,513,  2,  0, 0,                            fcmd_nyi, "SHOW_CLIPBOARD" },
 
     /* --- View (514) ------------------------------------------------------ */
     /* The three window-arrangement rows act on the FRONT DISK WINDOW, so they
@@ -261,18 +265,18 @@ const finder_cmd_t FINDER_COMMANDS[] = {
     { FCMD_VIEW_NAME, 514, 3, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_NAME" },
     { FCMD_VIEW_SIZE, 514, 4, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_SIZE" },
     { FCMD_VIEW_KIND, 514, 5, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_KIND" },
-    { FCMD_VIEW_DATE, 514, 7, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_DATE" },
-    { FCMD_CLEANUP,       514, 11,  0,  finder_pred_front_is_diskwin, fcmd_nyi, "CLEANUP" },
-    { FCMD_ARRANGE_BY_NAME, 514, 12, 0, finder_pred_front_is_diskwin, fcmd_nyi, "ARRANGE_BY_NAME" },
+    { FCMD_VIEW_DATE, 514, 6, 0, finder_pred_front_is_diskwin, fcmd_nyi, "VIEW_DATE" },
+    { FCMD_CLEANUP,       514, 8,  0,  finder_pred_front_is_diskwin, fcmd_nyi, "CLEANUP" },
+    { FCMD_ARRANGE_BY_NAME, 514, 9, 0, finder_pred_front_is_diskwin, fcmd_nyi, "ARRANGE_BY_NAME" },
 
     /* --- Special (515) --------------------------------------------------- */
     { FCMD_CLEANUP,       515,  1,  0,  finder_pred_front_is_diskwin, fcmd_nyi, "CLEANUP" },
     { FCMD_EMPTY_TRASH,   515,  2,  0,  finder_pred_trash_nonempty,   fcmd_nyi, "EMPTY_TRASH" },
-    { FCMD_RESTART,       515,  6,  0,  0,                            fcmd_nyi, "RESTART" },
-    { FCMD_SHUTDOWN,      515,  7,  0,  0,                            fcmd_nyi, "SHUTDOWN" },
+    { FCMD_RESTART,       515,  4,  0,  0,                            fcmd_nyi, "RESTART" },
+    { FCMD_SHUTDOWN,      515,  5,  0,  0,                            fcmd_nyi, "SHUTDOWN" },
     /* bead initech-3p1a: the DOS-over-Mac tell -- leave the Finder for the
      * InitechDOS prompt. Always live (no predicate), like the power rows. */
-    { FCMD_EXIT_DOS,      515, 10,  0,  0,                            fcmd_nyi, "EXIT_DOS" }
+    { FCMD_EXIT_DOS,      515, 7,  0,  0,                            fcmd_nyi, "EXIT_DOS" }
 };
 
 const uint16_t FINDER_COMMANDS_N =

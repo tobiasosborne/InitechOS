@@ -1653,7 +1653,17 @@ static void fw_do_put_away(finder_shell_t *sh,finder_cmd_id id,int slot)
     fw_outcome(sh,id,st,slot);sh->last.moved=(int16_t)moved;
 }
 
+static void fw_do_info(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    if (finder_file_info(sh,&sh->info)) fw_outcome(sh,id,FINDER_WIN_OK,slot);
+}
+static void fw_do_clipboard(finder_shell_t *sh, finder_cmd_id id, int slot)
+{
+    fw_outcome(sh,id,FINDER_WIN_OK,slot); /* snapshot belongs to the modal UI */
+}
 static const struct { finder_cmd_id id; fw_cmd_fn fn; } FW_EXEC_TABLE[] = {
+    { FCMD_GET_INFO,        fw_do_info },
+    { FCMD_SHOW_CLIPBOARD,  fw_do_clipboard },
     { FCMD_PUT_AWAY, fw_do_put_away },
     { FCMD_NEW_FOLDER,      fw_do_new_folder },
     { FCMD_CLEANUP,         fw_do_cleanup    },
@@ -1733,6 +1743,7 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
     sh->ctx->trash_nonempty = (uint8_t)((sh->trash_items != 0u) ? 1 : 0);
     sh->ctx->selection_openable = 0u;
     sh->ctx->selection_putaway = 0u;
+    sh->ctx->selection_infoable = (uint8_t)finder_file_info(sh, &sh->info);
     if (slot >= 0) {
         const finder_desk_t *v = &sh->windows[slot].view;
         for (int i = 0; i < (int)v->n; i++)
@@ -2359,3 +2370,98 @@ static int fw_alert_wrap(const char *msg,
 /* ===========================================================================
  * THE COMMAND EXECUTION HOOK  (finder_cmd.h FinderCtx.exec)
  * ===========================================================================*/
+
+/* Mac Guide V6 pp.87-90; approved reduced Info is regular-file-only. Scan
+ * again at invocation so neither a stale view nor a late I/O failure opens a
+ * misleading Info dialog. Enumeration is read-only and must finish cleanly. */
+typedef struct { const char *name; finder_file_info_t info; unsigned matches; } fw_info_scan_t;
+static int fw_info_entry(const finder_dirent_t *e,void *user)
+{
+    fw_info_scan_t *s=user;
+    if(fw_ieq(e->name83,s->name) && !(e->attribute&(FINDER_ATTR_DIRECTORY|FINDER_ATTR_VOLLABEL))){
+        unsigned n=0;while(n<12&&e->name83[n]){s->info.name83[n]=e->name83[n];n++;}
+        if(e->name83[n])return 0;
+        s->info.name83[n]=0;s->info.size=e->size;
+        s->info.date=e->date;s->info.locked=!!(e->attribute&FINDER_ATTR_READONLY);s->matches++;
+    }
+    return 0;
+}
+int finder_file_info(finder_shell_t *sh,finder_file_info_t *out)
+{
+    if(!sh||!out||!sh->have_fs||!sh->fs.enumerate)return 0;
+    int slot=finder_win_front_slot(sh),selected=-1;
+    if(slot<0)return 0;
+    finder_window_t *w=&sh->windows[slot];
+    for(int i=0;i<w->view.n;i++)if(w->view.icons[i].selected){if(selected>=0)return 0;selected=i;}
+    if(selected<0)return 0;
+    finder_desk_icon_t *ic=&w->view.icons[selected];
+    if(ic->kind!=FINDER_ICON_FILE&&ic->kind!=FINDER_ICON_APP)return 0;
+    if(finder_win_check_live(sh,slot)!=FINDER_WIN_OK)return 0;
+    fw_info_scan_t scan;fw_zero(&scan,sizeof scan);scan.name=ic->name;
+    if(sh->fs.enumerate(sh->fs.user,w->dir_start,fw_info_entry,&scan)!=0||scan.matches!=1)return 0;
+    *out=scan.info;return 1;
+}
+static char *fw_info_number(char *dst,uint32_t n)
+{
+    char digits[10];unsigned k=0;
+    do{digits[k++]=(char)('0'+n%10);n/=10;}while(n);
+    while(k)*dst++=digits[--k];
+    *dst=0;return dst;
+}
+void finder_file_info_lines(const finder_file_info_t *i,char lines[4][64])
+{
+    fw_copy83(lines[0],"Name: ");unsigned n=6;
+    for(unsigned k=0;i->name83[k];k++)lines[0][n++]=i->name83[k];
+    lines[0][n]=0;
+    fw_copy83(lines[1],"Size: ");char *end=fw_info_number(lines[1]+6,i->size);
+    const char *bytes=" bytes";while(*bytes)*end++=*bytes++;*end=0;
+    const char *label="Modified: ";n=0;while(label[n]){lines[2][n]=label[n];n++;}
+    if(!i->date){const char *unknown="Not recorded";while(*unknown)lines[2][n++]=*unknown++;lines[2][n]=0;}
+    else {
+        unsigned m=(i->date>>5)&15,d=i->date&31,y=1980+(i->date>>9);
+        lines[2][n++]=(char)('0'+m/10);lines[2][n++]=(char)('0'+m%10);lines[2][n++]='/';
+        lines[2][n++]=(char)('0'+d/10);lines[2][n++]=(char)('0'+d%10);lines[2][n++]='/';
+        (void)fw_info_number(lines[2]+n,y);
+    }
+    const char *lock=i->locked?"Locked: Yes":"Locked: No";
+    for(n=0;lock[n];n++)lines[3][n]=lock[n];
+    lines[3][n]=0;
+}
+/* The existing alert's 285-pixel text area, three rows below its title.
+ * Wrap by the public Chicago advances. CR/LF are line breaks. Other control
+ * and non-ASCII bytes are visible hexadecimal escapes, never silently lost. */
+static void fw_clip_page(finder_clipboard_t *v,uint32_t start)
+{
+    uint32_t p=start;fw_zero(v->lines,sizeof v->lines);v->start=start;
+    for(unsigned r=0;r<3&&p<v->length;r++){
+        unsigned col=0,width=0;
+        while(p<v->length){
+            unsigned char c=v->bytes[p];
+            if(c=='\r'||c=='\n'){p++;if(c=='\r'&&p<v->length&&v->bytes[p]=='\n')p++;break;}
+            char token[5];unsigned k,len=1,tw=0;
+            token[0]=(char)c;token[1]=0;
+            if(c<32||c>126){static const char hex[]="0123456789ABCDEF";token[0]='\\';token[1]='x';token[2]=hex[c>>4];token[3]=hex[c&15];token[4]=0;len=4;}
+            for(k=0;k<len;k++)tw+=(unsigned)chicago12_advance((unsigned char)token[k]);
+            if(width+tw>FINDER_ALERT_TEXT_W||col+len>=sizeof v->lines[0])break;
+            for(k=0;k<len;k++)v->lines[r][col++]=token[k];
+            width+=tw;p++;
+        }
+    }
+    v->next=p;
+}
+int finder_clipboard_snapshot(finder_clipboard_t *v,const FlairScrap *scrap)
+{
+    if(!v||!scrap)return -1;
+    uint32_t len=0;int32_t n=FlairGetScrap(scrap,FLAIR_SCRAP_TYPE_TEXT,v->bytes,sizeof v->bytes,&len);
+    if(n==-1)len=0;
+    else if(n<0||(uint32_t)n!=len||len>sizeof v->bytes)return -1;
+    v->length=len;fw_clip_page(v,0);return 0;
+}
+void finder_clipboard_next(finder_clipboard_t *v)
+{if(v&&v->next<v->length)fw_clip_page(v,v->next);}
+void finder_clipboard_previous(finder_clipboard_t *v)
+{
+    if(!v||!v->start)return;
+    uint32_t target=v->start;fw_clip_page(v,0);
+    while(v->next<target&&v->next>v->start){uint32_t next=v->next;fw_clip_page(v,next);}
+}

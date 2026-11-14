@@ -360,6 +360,8 @@ typedef struct finder_click_track {
 } finder_click_track_t;
 
 void                finder_click_reset(finder_click_track_t *t);
+finder_click_kind_t finder_desk_click_classify(finder_click_track_t *t,
+    const finder_desk_t *desk, int16_t target, int16_t h, int16_t v, uint32_t when);
 finder_click_kind_t finder_click_classify(finder_click_track_t *t,
                                           int16_t target,
                                           int16_t h, int16_t v, uint32_t when);
