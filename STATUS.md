@@ -5,6 +5,19 @@ captures and Turbo Initech compiler repairs on main. Setup: `docs/SETUP.md`.
 
 ## Phase 2 landings (in progress; a full rewrite follows at phase end)
 
+Gate health while the fleet works (2026-11-14, ~11:20): the last full
+`make smoke` seen green on BOTH emulators is `da31e926` (09:16, clean
+build, orchestrator's smoke sentinel). At `ebf59aec` the host tests all
+pass but the kernel suite exceeds its 60 s budget under load (68 s, being
+sped up, not re-budgeted), and the Bochs desktop session exceeds its fixed
+90 s whole-session cap under load (10 of 12 launches; QEMU desktop, DOS,
+programs all green; being split/re-measured by the factory owner). Treat
+main's smoke as unknown, not green, until both emulators are seen green
+again. Known false-pass classes found and fixed today: smoke click
+targets by pixel (now by name), a truncated mouse trace returning OK
+(initech-jri2c), timeouts counted as mutant kills (DOS runner fixed;
+shared runner initech-zd68e in progress).
+
 Landed after independent review, top `make test` green at default limits
 (19/19, 81 s): InitechCalc stages exclusively and closes failed writes
 (initech-1tuwf); Initech 123 protection follows the Lotus captures for
