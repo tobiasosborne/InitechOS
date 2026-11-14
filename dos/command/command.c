@@ -2854,6 +2854,9 @@ static int dos_stdout_is_device(void)
 /* Factory adapter issues the same calls to the actual INT21/FAT backend.
  * PRD 6.1: mtools on identical images is the independent oracle. */
 #include "shell_files_host.h"
+#elif defined(COMMAND_BATCH_FAT_HOST)
+/* Same batch dispatcher with the real hosted INT21/FAT implementation. */
+#include "batch_fat_host.h"
 #else
 /* Factory I/O seam; the batch execution driver below is shared verbatim. */
 #include "batch_break_host.h"
@@ -4407,7 +4410,9 @@ static void control_for(const char *args)
                 del_path(name, tok, (int)prefix, g_shell_dta.fname);
                 if (!for_store(name)) goto done;
             } while (dos_findnext());
-            break; /* Reference p.144: wildcard set has one member. */
+            /* OEM DOS 3.30 compat33/BATCH: (*.TXT literal) executes
+             * the literal after all matches, including after no matches. */
+            continue;
         }
         if (!for_store(tok)) goto done;
     }

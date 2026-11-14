@@ -739,10 +739,10 @@ int batch_for_parse(const char *for_args,
 
 /* ---- batch_for_next_token ------------------------------------------------ */
 
-/* A FOR-set separator: space, tab, or comma (DOS FOR set element delimiters). */
+/* OEM DOS 3.30 compat33/BATCH: (one,two;three=four) has four members. */
 static int bat_is_for_sep(char c)
 {
-    return (c == ' ' || c == '\t' || c == ',');
+    return (c == ' ' || c == '\t' || c == ',' || c == ';' || c == '=');
 }
 
 int batch_for_next_token(const char *set, int *cursor, char *tok_out, int cap)

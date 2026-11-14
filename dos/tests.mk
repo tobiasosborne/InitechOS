@@ -181,6 +181,10 @@ HOST_TESTS += test-ren-invalid-switch
 test-ren-invalid-switch_SRCS := tests/runner.c
 test-ren-invalid-switch_ARGS := tests/run.sh test-ren-invalid-switch
 test-ren-invalid-switch_DEPS := $(OUT)/host/tool_shell_files tests/gates/test-ren-invalid-switch.sh
+HOST_TESTS += test-for-compat33
+test-for-compat33_SRCS := tests/runner.c
+test-for-compat33_ARGS := tests/run.sh test-for-compat33
+test-for-compat33_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-for-compat33.sh
 include $(TOP)/mk/host-test.mk
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions
