@@ -432,6 +432,14 @@ test-redir_SRCS := tests/runner.c
 test-redir_ARGS := tests/run.sh test-redir
 test-redir_DEPS := $(OUT)/host/tool_test_redir tests/gates/test-redir.sh tests/run.sh
 
+EXTRA_HOST_TESTS += tool_test_raw_names33
+tool_test_raw_names33_SRCS := tests/test_raw_names33.c tests/disk/blockdev_file.c
+tool_test_raw_names33_OBJS := $(tool_test_fileio_subdir_OBJS)
+HOST_TESTS += test-raw-names33
+test-raw-names33_SRCS := tests/runner.c
+test-raw-names33_ARGS := tests/run.sh test-raw-names33
+test-raw-names33_DEPS := $(OUT)/host/tool_test_raw_names33 tests/gates/test-raw-names33.sh tests/fixtures/raw-name33/SHA256SUMS
+
 include $(TOP)/mk/host-test.mk
 $(addprefix $(OUT)/host/tool_test_config_apply.objs/,$(tool_test_config_apply_SRCS:.c=.o)): $(TOP)/build/kernel/dos_messages.h
 include $(TOP)/mk/mutants.mk

@@ -1,0 +1,11 @@
+# test: test-raw-names33
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -130,5 +130,7 @@
+         } else if (c==' ') {
+             ended=1;
++        } else if (count>=(extension ? 3u : 8u)) {
++            return 0;
+         } else if (!ended && count<(extension ? 3u : 8u)) {
+             if (c=='*' || c=='?') return 0;
+             output[used++]=(char)c;

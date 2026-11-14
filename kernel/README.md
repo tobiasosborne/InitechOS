@@ -224,3 +224,11 @@ PAUSE, matches the native termination question, answersY and verifies an
 unchanged disk/no continuation file. A plain-key control continues the batch
 and independently reads the expected output with mtools. No input scenario is
 compiled into the kernel.
+
+DOS path components are shortened to8.3 at the INT21 FAT backend boundary;
+fat12.c retains strict field validation. Genuine raw DOS3.30 AH3Ch/3Dh and
+namespace-operation captures in tests/fixtures/raw-name33 establish the boundary,
+including long parent names, extension widths, space termination, wildcard
+positions and invalid punctuation. `test-raw-names33` checks captured carries,
+errors, counts and bytes, independent mtools names/payloads, unchanged refused
+images, cluster conservation and CREATE_NEW alias preservation.

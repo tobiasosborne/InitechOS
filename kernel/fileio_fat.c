@@ -94,6 +94,68 @@ static int fat_select_drive(unsigned letter)
 static uint8_t  g_sector[BLOCKDEV_SECTOR_SIZE];
 static uint8_t  g_cluster[BLOCKDEV_SECTOR_SIZE];
 
+/* DOS path parsing precedes the strict FAT field encoder. Genuine raw
+ * AH=3Ch/3Dh records in tests/fixtures/raw-name33 prove 8/3 truncation,
+ * spaces ending a field, and ignored wildcard characters beyond its width.
+ * Punctuation and a second dot still refuse even beyond that width. */
+static int dos_name83(const char *input, char output[13])
+{
+    unsigned used=0, count=0, extension=0, ended=0, base=0;
+    for (unsigned i=0; i<128u; i++) {
+        unsigned char c=(unsigned char)input[i];
+        if (!c) {
+            output[used]='\0';
+            return base!=0;
+        }
+        if (c<32u || c=='"' || c=='+' || c==',' || c=='/' || c==';' ||
+            c=='<' || c=='=' || c=='>' || c=='[' || c==']' || c=='|' ||
+            c=='\\' || c==':') return 0;
+        if (c=='.') {
+            if (extension || !base) return 0;
+            extension=1; count=0; ended=0; output[used++]='.';
+        } else if (c==' ') {
+            ended=1;
+        } else if (!ended && count<(extension ? 3u : 8u)) {
+            if (c=='*' || c=='?') return 0;
+            output[used++]=(char)c;
+            count++;
+            if (!extension) base++;
+        }
+    }
+    return 0; /* unterminated input never reaches the disk */
+}
+
+/* Normalize each directory component independently, retaining separators and
+ * the structural dot components consumed by fat12_resolve_path_from. */
+static int dos_directory_path(const char *input, char output[FILEIO_PATH_MAX])
+{
+    unsigned length=0, used=0, start=0;
+    while (length<128u && input[length]) length++;
+    if (length==128u) return 0;
+    if (length>=2u && input[1]==':') {
+        output[used++]=input[0]; output[used++]=':'; start=2;
+    }
+    while (start<length) {
+        if (input[start]=='\\') { output[used++]='\\'; start++; continue; }
+        unsigned end=start;
+        while (end<length && input[end]!='\\') end++;
+        unsigned size=end-start;
+        char component[FILEIO_PATH_MAX], name[13];
+        for (unsigned i=0;i<size;i++) component[i]=input[start+i];
+        component[size]='\0';
+        if ((size==1u && component[0]=='.') ||
+            (size==2u && component[0]=='.' && component[1]=='.')) {
+            for (unsigned i=0;i<size;i++) output[used++]=component[i];
+        } else {
+            if (!dos_name83(component,name)) return 0;
+            for (unsigned i=0;name[i];i++) output[used++]=name[i];
+        }
+        start=end;
+    }
+    output[used]='\0';
+    return 1;
+}
+
 /* dwbl: per-call disk commits include the runtime last-write stamp. Explicit
  * AH=57h remains authoritative until the next write. Ref: IBM DOS 3.30 Tech
  * Ref pp.5-12/13,6-136/139; ADR-0003 Appendix A/B.1. */
@@ -125,10 +187,12 @@ static int stamp_entry(uint16_t parent, uint32_t slot, dir_entry_t *entry)
 static uint16_t locate_in_dir(const char *name83, uint16_t dir_start,
                               dir_entry_t *out_entry, uint32_t *out_slot)
 {
+    char name[13];
+    if (!dos_name83(name83,name)) return FILEIO_ERR_FILE_NOT_FOUND;
     dir_entry_t de;
     uint32_t    slot = 0;
     int rc = fat12_find_slot_in(g_vol, g_fat, g_fat_len, dir_start, g_sector,
-                                name83, &de, &slot);
+                                name, &de, &slot);
     if (rc != FAT12_OK)
         return rc == FAT12_ERR_NOT_FOUND ? FILEIO_ERR_FILE_NOT_FOUND
                                         : FILEIO_ERR_GENERAL_FAILURE;
@@ -255,6 +319,9 @@ static uint16_t fat_dir_entry(uint32_t index, uint16_t dir_start_cluster,
 static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
                            dir_entry_t *out_entry, uint32_t *out_slot)
 {
+    char name[13];
+    if (!dos_name83(name83,name)) return FILEIO_ERR_FILE_NOT_FOUND;
+    name83=name;
     if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
     }
@@ -374,6 +441,9 @@ static uint16_t fat_set_time(uint16_t dir_start, uint32_t slot,
 static uint16_t fat_chmod(const char *name83, uint16_t dir_start_cluster,
                           int set, uint8_t *io_attr)
 {
+	char name[13];
+	if (!dos_name83(name83,name)) return FILEIO_ERR_FILE_NOT_FOUND;
+	name83=name;
 	int rc;
 
 	if (io_attr == 0) {
@@ -405,6 +475,9 @@ static uint16_t fat_chmod(const char *name83, uint16_t dir_start_cluster,
 
 static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
 {
+    char name[13];
+    if (!dos_name83(name83,name)) return FILEIO_ERR_FILE_NOT_FOUND;
+    name83=name;
     if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;
     }
@@ -440,6 +513,10 @@ static uint16_t fat_unlink(const char *name83, uint16_t dir_start_cluster)
 static uint16_t fat_rename(const char *old83, uint16_t old_dir,
                            const char *new83, uint16_t new_dir)
 {
+    char old_name[13], new_name[13];
+    if (!dos_name83(old83,old_name) || !dos_name83(new83,new_name))
+        return FILEIO_ERR_FILE_NOT_FOUND;
+    old83=old_name; new83=new_name;
     if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
     }
@@ -474,6 +551,9 @@ static uint16_t fat_rename(const char *old83, uint16_t old_dir,
  *   any other error     -> 0x0005 (bad name / no space / write error). */
 static uint16_t fat_mkdir(const char *name83, uint16_t dir_start_cluster)
 {
+    char name[13];
+    if (!dos_name83(name83,name)) return FILEIO_ERR_ACCESS_DENIED;
+    name83=name;
     if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;   /* read-only / no volume */
     }
@@ -508,6 +588,9 @@ static uint16_t fat_mkdir(const char *name83, uint16_t dir_start_cluster)
  *   any other error     -> 0x0005 (write error). */
 static uint16_t fat_rmdir(const char *name83, uint16_t dir_start_cluster)
 {
+    char name[13];
+    if (!dos_name83(name83,name)) return FILEIO_ERR_PATH_NOT_FOUND;
+    name83=name;
     if (g_vol == 0 || g_vol->fat_type != FAT_TYPE_FAT12 || g_vol->dev == 0 || g_vol->dev->write_sectors == 0) {
         return FILEIO_ERR_ACCESS_DENIED;
     }
@@ -701,9 +784,12 @@ static uint16_t fat_resolve(const char *path, uint16_t cwd_start,
     }
     parent[parent_len] = '\0';
 
+    char normalized_parent[FILEIO_PATH_MAX];
+    if (!dos_directory_path(parent,normalized_parent)) return FILEIO_ERR_PATH_NOT_FOUND;
+
     fat12_dir_t dir;
     dir_entry_t e;
-    int rc = fat12_resolve_path_from(g_vol, g_sector, g_fat, g_fat_len, parent,
+    int rc = fat12_resolve_path_from(g_vol, g_sector, g_fat, g_fat_len, normalized_parent,
                                      seed, &dir, &e);
     if (rc != FAT12_OK) {
         return FILEIO_ERR_PATH_NOT_FOUND;       /* missing/non-dir component */
@@ -887,9 +973,12 @@ static uint16_t fat_resolve_dir(const char *path, uint16_t cwd_start,
      * CWD, an absolute / drive-prefixed one from the root (beads initech-u6wa). */
     uint16_t seed = fat_descend_seed(path, cwd_start);
 
+    char normalized_path[FILEIO_PATH_MAX];
+    if (!dos_directory_path(path,normalized_path)) return FILEIO_ERR_PATH_NOT_FOUND;
+
     fat12_dir_t dir;
     dir_entry_t e;
-    int rc = fat12_resolve_path_from(g_vol, g_sector, g_fat, g_fat_len, path,
+    int rc = fat12_resolve_path_from(g_vol, g_sector, g_fat, g_fat_len, normalized_path,
                                      seed, &dir, &e);
     if (rc != FAT12_OK) {
         return FILEIO_ERR_PATH_NOT_FOUND;   /* missing component (0x0003) */

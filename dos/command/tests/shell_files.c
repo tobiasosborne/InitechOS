@@ -24,10 +24,11 @@ int main(int argc,char **argv)
     (void)g_out; (void)g_shell_dta;
     if(!strcmp(argv[2],"--namespace")) {
         /* Raw INT21 paths avoid shell tokenization hiding illegal bytes.
-         * Every request must refuse before any allocation or directory write. */
+         * Invalid-byte controls only. Captured long/space name behavior is
+         * graded by kernel test-raw-names33 (initech-mzll9). */
         const char *bad[]={"BAD?NAME","BAD*NAME","BAD+NAME","BAD,NAME",
             "BAD;NAME","BAD=NAME","BAD[NAME","BAD]NAME","BAD|NAME",
-            "BAD NAME","BAD\x01NAME","TOOLONGNM.TXT","OK.LONG"};
+            "BAD\x01NAME"};
         for(unsigned i=0;i<sizeof bad/sizeof *bad;i++) {
             for(unsigned j=0;j<3;j++) {
                 unsigned ah=j==0?0x3900:j==1?0x3c00:0x5b00;

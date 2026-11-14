@@ -1,0 +1,11 @@
+# test: test-raw-names33
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -803,6 +803,6 @@
+     fat12_dir_t dir;
+     dir_entry_t e;
+-    int rc = fat12_resolve_path_from(g_vol, g_sector, g_fat, g_fat_len, normalized_parent,
++    int rc = fat12_resolve_path_from(g_vol, g_sector, g_fat, g_fat_len, parent,
+                                      seed, &dir, &e);
+     if (rc != FAT12_OK) {
+         return FILEIO_ERR_PATH_NOT_FOUND;       /* missing/non-dir component */
