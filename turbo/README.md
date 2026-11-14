@@ -13,7 +13,7 @@ Startup retains the loader's separate 64 KiB stack; descriptor reserve covers
 BSS including alignment. Files and exit use INT 21h. Inherited serial helpers
 now poll transmitter readiness. No private kernel header/code is included.
 
-`make test` composes 6 seed and 39 compiler host entries, including 17 FPC
+`make test` composes 6 seed and 40 compiler host entries, including 17 FPC
 execution references and independent native byte comparisons (17 flat,
 18 extended). The two compiler placements are packaged with factory/mz/mzlink
 and checked by the independent mzcheck against the actual extended limits:
