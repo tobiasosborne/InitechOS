@@ -16,9 +16,15 @@ for kind in 12 16; do
  mcopy -i "$w/fat$kind.img" "$w/chain.txt" ::FOLDER/CHAIN.TXT
  mcopy -i "$w/fat$kind.img" "$w/source.txt" ::TRASH/GONE.TXT
  cp "$w/fat$kind.img" "$w/fat$kind.before"
- "$bin" "$w/fat$kind.img" "$kind"
+ if [ "$kind" = 16 ]; then
+  "$bin" "$w/fat$kind.img" "$kind" "$w/fat12.img"
+ else
+  "$bin" "$w/fat$kind.img" "$kind"
+ fi
  if [ "$kind" = 16 ]; then
   cmp "$w/fat$kind.before" "$w/fat$kind.img"
+  mtype -i "$w/fat12.img" ::OUT.TXT > "$w/out"
+  cmp "$w/source.txt" "$w/out"
  else
   mtype -i "$w/fat$kind.img" ::COPY.TXT > "$w/copied"
   cmp "$w/source.txt" "$w/copied"

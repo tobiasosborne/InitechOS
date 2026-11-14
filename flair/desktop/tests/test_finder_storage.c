@@ -47,6 +47,28 @@ static void unchanged(int rc,int expected,const char *operation)
     CHECK(memcmp(disk,before,disk_len)==0,"all image bytes unchanged");
     memcpy(disk,before,disk_len); writes=0;
 }
+static void copy_out(const char *destination, const uint8_t source[21])
+{
+    uint8_t *saved_disk=disk;
+    size_t saved_len=disk_len;
+    fat12_volume_t dest;
+    blockdev_t dev={NULL,rd,wr};
+    uint8_t sec[512],fat[4608]; uint32_t slot=0,put=0;
+    FILE *fp=fopen(destination,"r+b");
+    CHECK(fp!=NULL,"copy OUT opens independent FAT12 destination");
+    if(!fp) return;
+    fseek(fp,0,SEEK_END); disk_len=(size_t)ftell(fp); rewind(fp);
+    disk=malloc(disk_len);
+    if(!disk || fread(disk,1,disk_len,fp)!=disk_len) exit(2);
+    CHECK(fat12_mount(&dest,&dev,sec)==0 && dest.fat_type==FAT_TYPE_FAT12,"copy OUT destination is FAT12");
+    CHECK(rd(NULL,dest.first_fat_sector,9,fat)==0,"copy OUT loads destination FAT");
+    g_finder_vol=&dest; g_finder_fat=fat; g_finder_fat_len=sizeof fat;
+    CHECK(finder_fat_create(NULL,"OUT.TXT",0,&slot)==0,"copy OUT creates on FAT12");
+    CHECK(finder_fat_write_partial(NULL,0,slot,0,source,21,&put)==0 && put==21,
+          "copy OUT writes bytes actually read from FAT16");
+    rewind(fp); CHECK(fwrite(disk,1,disk_len,fp)==disk_len,"copy OUT stores destination image");
+    fclose(fp);free(disk);disk=saved_disk;disk_len=saved_len;
+}
 int main(int argc,char **argv)
 {
     FILE *fp;
@@ -54,13 +76,13 @@ int main(int argc,char **argv)
     blockdev_t dev={NULL,rd,wr};
     fat12_fat_window_t win;
     uint8_t window[1024],fat[4608],sec[512],db[8]={'I','D','B','1',1,0,0,0};
-    uint8_t bytes[128]; uint32_t got=0,slot=0;
+    uint8_t bytes[128],source[21]; uint32_t got=0,slot=0;
     dir_entry_t entry;
     desktop_db_boot_state_t state; desktop_db_reason_t reason;
     desktop_trash_state_t trash;
     static scene_t scene;
     int root=-1, kind;
-    if(argc!=3) return 2;
+    if(argc!=3 && argc!=4) return 2;
     kind=atoi(argv[2]); fp=fopen(argv[1],"r+b"); if(!fp) return 2;
     fseek(fp,0,SEEK_END); disk_len=(size_t)ftell(fp); rewind(fp);
     disk=malloc(disk_len); before=malloc(disk_len);
@@ -98,6 +120,7 @@ int main(int argc,char **argv)
     CHECK(total==2100,"Finder reads entire multi-cluster nested stream");
     CHECK(finder_fat_read_partial(NULL,"SOURCE.TXT",0,0,sizeof bytes,bytes,&got)==0 && got==21,
           "reopen source after nested file");
+    memcpy(source,bytes,sizeof source);
     CHECK(fat12_find_slot_in(&v,g_finder_fat,g_finder_fat_len,0,sec,"SOURCE.TXT",&entry,&slot)==0,"source slot");
     if(kind==16) {
         /* -21 is the new Finder write-protect status; literal makes red-first
@@ -146,6 +169,7 @@ int main(int argc,char **argv)
         CHECK(writes>0,"positive control actually writes sectors");
     }
     rewind(fp); CHECK(fwrite(disk,1,disk_len,fp)==disk_len,"write host result image"); fclose(fp);
+    if(kind==16 && argc==4) copy_out(argv[3],source);
     free(disk);free(before);
     return TEST_SUMMARY("test-finder-storage");
 }

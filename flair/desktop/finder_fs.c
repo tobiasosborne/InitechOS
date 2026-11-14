@@ -239,4 +239,3 @@ const finder_fs_t g_finder_fs_binding __attribute__((unused)) = {
     finder_fat_dir_ident,
     (void *)0
 };
-

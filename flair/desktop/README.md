@@ -165,6 +165,9 @@ rename/move, create, positioned write, unlink, rmdir and mkdir. Desktop DB
 staging/bootstrap and Trash creation/attribute updates use the same check.
 Read/enumeration/identity checks retain their separate geometry predicate;
 FAT16 still opens and reads through the kernel's two-sector FAT window.
+The mount adapter passes that window's buffer when the DOS cache getter
+returns NULL, retaining a zero whole-FAT length; the FAT API requires a
+non-NULL argument even though windowed link decoding uses the volume.
 The write-protect status survives New Folder, drag/move, Put Away and purge
 error mapping and uses the ordinary one-button Finder alert.
 
@@ -182,6 +185,9 @@ The storage host suite mounts mtools FAT12/FAT16 images with a writable backend.
 It checks zero write callbacks and every image byte after each FAT16 mutation,
 including the real New Folder/drag/Trash/Put Away/Empty Trash/Delete Now routes.
 FAT12 writes a folder, a copied stream and Desktop DB; mtools reads them back.
+Nested multi-cluster streams are read against a literal pattern on both
+formats, and bytes read from FAT16 are copied onto a separate FAT12 image
+and checked by mtools.
 The external patch fat16-write-check-dropped removes the capability decision
 and is killed by these invariants. `make smoke-storage` drives the Finder in
 both emulators and compares the FAT16 volume byte-for-byte, with FAT12 as the
