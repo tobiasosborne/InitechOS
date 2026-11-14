@@ -343,11 +343,11 @@ int main(int argc,char **argv)
     CHECK(i123_transfer_rect(&sh,&dst,one,edge,0)==0,"tile-last-cell");
     CHECK(i123_transfer_rect(&sh,&dst,(i123_rect_t){0,0,1,0},edge,0)==I123_E_ARG,"tile-boundary-refusal");
     sh.protec=255;
-    CHECK(i123_transfer_rect(&sh,&dst,one,(i123_rect_t){3,0,3,2},0)==I123_E_ARG,"tile-protected-absent");
+    CHECK(i123_transfer_rect(&sh,&dst,one,(i123_rect_t){3,0,3,2},0)==I123_E_PROTECTED,"tile-protected-absent");
     for(unsigned r=0;r<3;r++)CHECK(i123_set_cell_format(&sh,3,r,0x7f)==0,"tile-unprotect");
     CHECK(i123_transfer_rect(&sh,&dst,one,(i123_rect_t){3,0,3,2},0)==0,"tile-unprotected");
     CHECK(i123_set_cell_format(&sh,3,2,0xff)==0&&
-          i123_transfer_rect(&sh,&dst,one,(i123_rect_t){3,0,3,2},0)==I123_E_ARG,"tile-protected-last");
+          i123_transfer_rect(&sh,&dst,one,(i123_rect_t){3,0,3,2},0)==I123_E_PROTECTED,"tile-protected-last");
     sh.protec=0;
     const char *mixed="+A1+$A1+A$1+$A$1";
     CHECK(i123_enter_formula(&cx,&sh,1,1,mixed,(uint32_t)strlen(mixed))==0,"tile-mixed-formula");

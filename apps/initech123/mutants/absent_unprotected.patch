@@ -1,27 +1,24 @@
-# Legacy I123_MUT_ABSENT_UNPROTECTED (all hook locations together).
+# Protection regression (CLAUDE.md, The constitution).
 # test: test_i123_cells
 --- a/core/range.c
 +++ b/core/range.c
-@@ -190,7 +190,8 @@
-             if((t||f)&&(c->fmt&128))return I123_E_ARG;
-             un_to+=(uint32_t)t;un_from+=(uint32_t)f;
-         }
--        if(un_to<(uint32_t)(to.c1-col+1)*(to.r1-row+1)||(mode==1&&un_from<(w+1u)*(h+1u)))return I123_E_ARG;
-+        /* MUTANT (CLAUDE.md, The constitution; test-i123-cells-mutant C9): absent cells count as
-+         * unprotected. NEVER real. */
-     }
-     rc=i123_sheet_clone(s,d);if(rc)return rc;
-     for(uint32_t i=d->ncells;i>0;i--) {
+@@ -21,7 +21,7 @@
+ static int cell_locked(const i123_sheet_t *s,uint16_t col,uint16_t row)
+ {
+     const i123_cell_t *c=i123_find(s,col,row);
+-    return s->protec&&((c?c->fmt:WK1_FMT_FRESH_CELL)&128);
++    return s->protec&&((c?c->fmt:0)&128);
+ }
+ /* Copy/Value visit columns first; Trans visits rows first (real R2.2
+  * fixtures/protection cases 14, 18, 30). limit is exclusive. */
 --- a/app/face_a.c
 +++ b/app/face_a.c
-@@ -947,7 +947,9 @@
+@@ -963,7 +963,7 @@
      /* B02 review (initech-3s12): an ABSENT cell is the default 0xFF, bit 7
       * set -- protected under /WGP Enable unless /Range Unprot gave it a
       * BLANK (wk1-format.md Sec 4.1 / Format byte bit 7; manual p. 10-3). */
--    if(g_sheet.protec&&((locked?locked->fmt:WK1_FMT_FRESH_CELL)&128)) {notice("Cell is protected");return 1;}
-+    /* MUTANT (CLAUDE.md, The constitution; test-i123-cells-mutant C9): an absent cell counts as
-+     * unprotected. NEVER real. */
-+    if(g_sheet.protec&&locked&&(locked->fmt&128)) {notice("Cell is protected");return 1;}
+-    if(g_sheet.protec&&((locked?locked->fmt:WK1_FMT_FRESH_CELL)&128)) {notice("Protected cell");return 1;}
++    if(g_sheet.protec&&((locked?locked->fmt:0)&128)) {notice("Protected cell");return 1;}
      refresh_clock();
      /* EDIT completes as a label unless the entry starts like a value (p. 1-16:
       * the first character decides; mint keys 05 "'HelloX", 49 "HelloZ"). */

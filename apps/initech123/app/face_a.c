@@ -672,9 +672,9 @@ static void retrieve(void)
 }
 static void write_sheet(void)
 {
-    /* initech-mcep (audit 2026-10-23-i123 L001): the atomic save -- a failed
-     * Replace keeps the previously saved worksheet, a failed new name leaves
-     * no file (tbx_save.h removes its temporary). */
+    /* Shared tbx_save.h owns staging and commit. The desktop-save ruling
+     * requires the previous worksheet under its own name on reported errors;
+     * this app has no separate replacement path. */
     int32_t rc = tbx_file_save(g_path, g_wk, g_wk_len);
     if (rc != (int32_t)g_wk_len) { file_error(rc < 0 ? rc : 0); return; }
     copy_text(g_current, g_path); file_status("Saved ");
@@ -729,7 +729,7 @@ static void prompt(int action, const char *text)
 static void range_accept(void)
 {
     char addr[32]; const char *input=g_range_text; i123_rect_t r;
-    i123_sheet_t next; int rc=I123_OK;
+    i123_sheet_t next; int rc=I123_OK;uint32_t written=0;
     if (!g_rlen) { point_text(addr); input=addr; }
     if ((g_action==A_NAME && g_stage==0) || g_action==A_NAME_DELETE) {
         if (!g_rlen || g_rlen>15) { notice("Invalid range name"); return; }
@@ -765,15 +765,20 @@ static void range_accept(void)
         }
         rc=spare(&next);
         if(!rc && g_action<=A_TRANS) {
-            rc=i123_transfer_rect(&g_sheet,&next,g_from,r,g_action-1);
+            rc=i123_transfer_rect_progress(&g_sheet,&next,g_from,r,g_action-1,&written);
         } else if(!rc && g_action==A_NAME)rc=i123_name_set(&next,g_named,r);
         else if(!rc && g_action==A_NAME_LABELS)rc=i123_name_labels(&next,r,g_dc,g_dr);
-        else if(!rc && g_action==A_NAME_TABLE)rc=i123_name_table(&next,r.c0,r.r0);
+        else if(!rc && g_action==A_NAME_TABLE) {
+            rc=i123_name_table_progress(&next,r.c0,r.r0,&written);
+        }
         else if(!rc) {
-            for(uint32_t row=r.r0;!rc&&row<=r.r1;row++)for(uint32_t col=r.c0;!rc&&col<=r.c1;col++) {
+            /* Real R2.2 protection case 31: Erase visits columns first. */
+            for(uint32_t col=r.c0;!rc&&col<=r.c1;col++)for(uint32_t row=r.r0;!rc&&row<=r.r1;row++) {
                 const i123_cell_t *c=i123_find(&next,(uint16_t)col,(uint16_t)row);
                 uint8_t fmt=c?c->fmt:WK1_FMT_FRESH_CELL;
-                if((g_action==A_ERASE||g_action==A_LABEL)&&next.protec&&(fmt&128)) {rc=I123_E_ARG;break;}
+                /* Range Label, like Format, changes presentation even on
+                 * protected cells (real R2.2 protection cases 22 and 32). */
+                if(g_action==A_ERASE&&next.protec&&(fmt&128)) {rc=I123_E_PROTECTED;break;}
                 /* Manual p. 10-3 (PDF 221): erase data, keep format/protection. */
                 if(g_action==A_ERASE&&c) {
                     rc=i123_erase(&next,(uint16_t)col,(uint16_t)row);
@@ -783,8 +788,19 @@ static void range_accept(void)
                 if(g_action==A_PROT||g_action==A_UNPROT)rc=i123_set_cell_format(&next,(uint16_t)col,(uint16_t)row,
                     g_action==A_PROT?fmt|128:fmt&127);
                 if(g_action==A_LABEL&&c&&c->kind==I123_K_LABEL)next.pool[c->off]=(uint8_t)g_arg;
+                if(!rc)written++;
             }
         }
+    }
+    if(rc==I123_E_PROTECTED) {
+        /* The real Lotus captures retain allowed prefix writes on ERROR. */
+        if(written)changed(&next);
+        notice("Protected cell");return;
+    }
+    if(g_action==A_NAME_TABLE&&rc==I123_E_ARG) {
+        /* R2.2 case 27 writes the last row, then errors on its terminator. */
+        if(written)changed(&next);
+        notice("Invalid cell or range address");return;
     }
     if(rc) {notice(rc==I123_E_FULL?"Not enough worksheet memory":"Command refused");return;}
     changed(&next);
@@ -947,7 +963,7 @@ static int commit(void)
     /* B02 review (initech-3s12): an ABSENT cell is the default 0xFF, bit 7
      * set -- protected under /WGP Enable unless /Range Unprot gave it a
      * BLANK (wk1-format.md Sec 4.1 / Format byte bit 7; manual p. 10-3). */
-    if(g_sheet.protec&&((locked?locked->fmt:WK1_FMT_FRESH_CELL)&128)) {notice("Cell is protected");return 1;}
+    if(g_sheet.protec&&((locked?locked->fmt:WK1_FMT_FRESH_CELL)&128)) {notice("Protected cell");return 1;}
     refresh_clock();
     /* EDIT completes as a label unless the entry starts like a value (p. 1-16:
      * the first character decides; mint keys 05 "'HelloX", 49 "HelloZ"). */

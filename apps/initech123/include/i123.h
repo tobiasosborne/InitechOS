@@ -49,6 +49,7 @@
 #define I123_E_SPACE   (-5)   /* the output buffer is too small                 */
 #define I123_E_VALUE   (-6)   /* typed text is not a value the parser accepts   */
 #define I123_E_SYNTAX  (-7)   /* typed text is not a formula 1-2-3 accepts       */
+#define I123_E_PROTECTED (-8) /* a write refused by worksheet protection       */
 
 /* ---- the formula token table as stored (formula.c i123_tokens) ----------
  * The rows of spec/i123/wk1_formula.h Sec 4, field for field wkf_token_t
@@ -112,7 +113,9 @@ typedef struct i123_sheet {
 } i123_sheet_t;
 
 /* P3 range operations. Source and destination banks must be disjoint.
- * A refused transfer leaves source intact; destination is scratch. */
+ * Source remains intact. Copy/Value/Trans protection refusal leaves the
+ * permitted prefix in destination; Move refuses before preparing a candidate.
+ * Capacity/argument failures leave destination as scratch. */
 typedef struct { uint16_t c0, r0, c1, r1; } i123_rect_t;
 #define I123_TRANSFER_COPY 0
 #define I123_TRANSFER_MOVE 1
@@ -123,12 +126,21 @@ int i123_transfer(const i123_sheet_t *src, i123_sheet_t *dst, i123_rect_t rg,
                   uint16_t col, uint16_t row, int mode);
 int i123_transfer_rect(const i123_sheet_t *src, i123_sheet_t *dst, i123_rect_t rg,
                        i123_rect_t to, int mode);
+/* Optional count of permitted destination cells, for publishing a prefix
+ * on I123_E_PROTECTED. Move reports zero on protection refusal. */
+int i123_transfer_rect_progress(const i123_sheet_t *src, i123_sheet_t *dst,
+                       i123_rect_t rg, i123_rect_t to, int mode, uint32_t *written);
 int i123_range_parse(const i123_sheet_t *sh, const char *text, i123_rect_t *rg);
 int i123_name_find(const i123_sheet_t *sh, const char *name, uint32_t len, i123_rect_t *rg);
 int i123_name_set(i123_sheet_t *sh, const char *name, i123_rect_t rg);
 int i123_name_delete(i123_sheet_t *sh, const char *name); /* NULL: reset all */
 int i123_name_labels(i123_sheet_t *sh, i123_rect_t rg, int dc, int dr);
 int i123_name_table(i123_sheet_t *sh, uint16_t col, uint16_t row);
+/* Name Table keeps permitted prefix writes on protection refusal and on an
+ * I123_E_ARG from advancing beyond the last row. The face publishes that
+ * prefix and marks it unsaved. written may be NULL. */
+int i123_name_table_progress(i123_sheet_t *sh, uint16_t col, uint16_t row,
+                             uint32_t *written);
 int i123_formula_compile_named(const i123_sheet_t *sh, const char *text, uint32_t len,
                                uint16_t col, uint16_t row, uint8_t *code,
                                uint32_t cap, uint32_t *code_len);

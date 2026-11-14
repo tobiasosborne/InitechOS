@@ -1,0 +1,19 @@
+# Protection regression (CLAUDE.md, The constitution).
+# test: test_i123_protection
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -794,12 +794,12 @@
+     }
+     if(rc==I123_E_PROTECTED) {
+         /* The real Lotus captures retain allowed prefix writes on ERROR. */
+-        if(written)changed(&next);
++        (void)written;
+         notice("Protected cell");return;
+     }
+     if(g_action==A_NAME_TABLE&&rc==I123_E_ARG) {
+         /* R2.2 case 27 writes the last row, then errors on its terminator. */
+-        if(written)changed(&next);
++        (void)written;
+         notice("Invalid cell or range address");return;
+     }
+     if(rc) {notice(rc==I123_E_FULL?"Not enough worksheet memory":"Command refused");return;}

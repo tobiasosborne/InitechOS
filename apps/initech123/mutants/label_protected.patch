@@ -1,0 +1,13 @@
+# Protection regression (CLAUDE.md, The constitution).
+# test: test_i123_protection
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -778,7 +778,7 @@
+                 uint8_t fmt=c?c->fmt:WK1_FMT_FRESH_CELL;
+                 /* Range Label, like Format, changes presentation even on
+                  * protected cells (real R2.2 protection cases 22 and 32). */
+-                if(g_action==A_ERASE&&next.protec&&(fmt&128)) {rc=I123_E_PROTECTED;break;}
++                if((g_action==A_ERASE||g_action==A_LABEL)&&next.protec&&(fmt&128)) {rc=I123_E_PROTECTED;break;}
+                 /* Manual p. 10-3 (PDF 221): erase data, keep format/protection. */
+                 if(g_action==A_ERASE&&c) {
+                     rc=i123_erase(&next,(uint16_t)col,(uint16_t)row);
