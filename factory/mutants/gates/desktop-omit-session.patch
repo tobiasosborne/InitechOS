@@ -1,0 +1,10 @@
+--- a/factory/desktop-sessions.sh
++++ b/factory/desktop-sessions.sh
+@@ -4,6 +4,7 @@
+ [ "$#" -gt 0 ] || { echo 'FAIL desktop sessions: empty selection' >&2; exit 1; }
+ pending=
+ for dir do
++ [ "$dir" != apps/initech123/tests/smoke ] || continue
+  if [ -n "$pending" ]; then
+   if [ "$pending" = apps/calculator/tests/smoke ] && [ "$dir" = apps/notepad/tests/smoke ]; then
+    printf '%s %s\n' "$pending" "$dir"

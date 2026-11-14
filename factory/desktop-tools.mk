@@ -12,6 +12,10 @@ $(OUT)/desktop-primitives-test: factory/desktop-primitives-test.c factory/deskto
 test: all
 	@$(OUT)/desktop-primitives-test
 	@$(OUT)/desktop-wait-test
+	@$(OUT)/desktop-key-test
 all: $(OUT)/desktop-wait-test
 $(OUT)/desktop-wait-test: factory/desktop-wait-test.c factory/desktop-bochs.c $(wildcard factory/emu/bochs*) factory/emu/rfb_port.h FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
+all: $(OUT)/desktop-key-test
+$(OUT)/desktop-key-test: factory/desktop-key-test.c factory/desktop-bochs.c $(wildcard factory/emu/bochs*) factory/emu/rfb_port.h FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)

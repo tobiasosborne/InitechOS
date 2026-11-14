@@ -1,0 +1,11 @@
+--- a/factory/desktop-bochs.c
++++ b/factory/desktop-bochs.c
+@@ -95,7 +95,7 @@
+         nanosleep(&pause,0);
+     }
+ }
+-#define BOCHS_TRACE_TAP_KEYS 1
++#define BOCHS_TRACE_TAP_KEYS 0
+ #define bochs_trace_parse journey_parse
+ #define BOCHS_TRACE_BIND_IDLE(transport) do { \
+     journey_idle=journey_rfb_pump; journey_context=(transport); \

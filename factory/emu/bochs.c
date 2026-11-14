@@ -642,6 +642,28 @@ static int bochs_boot_copy(const char *source,char *destination)
     return failed?-1:0;
 }
 
+#ifndef BOCHS_TRACE_TAP_KEYS
+#define BOCHS_TRACE_TAP_KEYS 0
+#endif
+/* RFC6143 KeyEvent ordering. Journey taps must release before yielding to a
+ * slow display/serial pump, so a host delay cannot turn a tap into typematic. */
+static bool bochs_key_step(RfbShadow *rfb, const BochsTraceStep *step,
+                           unsigned key, bool *down, bool tap)
+{
+    if(step->ctrl && !*down && !rfb_key_event(rfb,0xffe3,true))return false;
+    if(step->shift && !*down && !rfb_key_event(rfb,0xffe1,true))return false;
+    if(step->alt && !*down && !rfb_key_event(rfb,0xffe9,true))return false;
+    if(!rfb_key_event(rfb,key,!*down))return false;
+    *down=!*down;
+    if(tap && *down) {
+        if(!rfb_key_event(rfb,key,false))return false;
+        *down=false;
+    }
+    if(step->alt && !*down && !rfb_key_event(rfb,0xffe9,false))return false;
+    if(step->shift && !*down && !rfb_key_event(rfb,0xffe1,false))return false;
+    if(step->ctrl && !*down && !rfb_key_event(rfb,0xffe3,false))return false;
+    return true;
+}
 static bool bochs_verdict(const BochsConfig *cfg, const BochsResult *out,
                           bool input_complete)
 {
@@ -887,14 +909,10 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
             if (!bochs_trace_parse(key_next, end ? (size_t)(end - key_next) : strlen(key_next), &step)) break;
             int delay = BOCHS_TRACE_STEP_MS;
             if (step.kind == BX_KEY) {
-                if (step.ctrl && !key_down && !rfb_key_event(&rfb, 0xffe3, true)) break;
-                if (step.shift && !key_down && !rfb_key_event(&rfb, 0xffe1, true)) break;
-                if (step.alt && !key_down && !rfb_key_event(&rfb, 0xffe9, true)) break;
-                if (!rfb_key_event(&rfb, rfb_key(key_next, end ? (size_t)(end - key_next) : strlen(key_next)), !key_down)) break;
-                key_down = !key_down;
-                if (step.alt && !key_down && !rfb_key_event(&rfb, 0xffe9, false)) break;
-                if (step.shift && !key_down && !rfb_key_event(&rfb, 0xffe1, false)) break;
-                if (step.ctrl && !key_down && !rfb_key_event(&rfb, 0xffe3, false)) break;
+                if (!bochs_key_step(&rfb, &step,
+                        rfb_key(key_next, end ? (size_t)(end-key_next) : strlen(key_next)),
+                        &key_down, BOCHS_TRACE_TAP_KEYS)) break;
+                if (BOCHS_TRACE_TAP_KEYS) delay *= 2;
                 delay = BOCHS_TRACE_KEY_MS;
             } else if (step.kind == BX_WAIT) delay = step.delay;
             else {

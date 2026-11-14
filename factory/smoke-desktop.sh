@@ -27,6 +27,9 @@ n=0
 for emulator in qemu bochs; do
  markers=$out/$emulator.markers
  : > "$markers"
+ if [ "$emulator" = bochs ]; then
+  sh factory/desktop-bochs-sessions.sh build/image/boot.img build/image/data.img "$out" $journeys || fail 'Bochs session'
+ else
  trace=$(
   if [ "$emulator" = qemu ]; then await_marker 'FLAIR-CLOCK 9:00 am'; fi
   capture desktop
@@ -46,24 +49,13 @@ for emulator in qemu bochs; do
   fi
  )
  trace=${trace%,}
- # The final exit is already the driver's completion marker. Leaving a W
- # token after it would correctly trip Bochs's "input after completion" guard.
- if [ "$emulator" = bochs ]; then trace=${trace%,WTENANT-EXIT rc=0 via=exit}; fi
- cp build/image/data.img "$out/$emulator-data.img"
- if [ "$emulator" = qemu ]; then
-  set -- --mouse "$trace" --expect FLAIR-EXIT-TO-DOS --quit-after FLAIR-LIVE-READY --quit-after-count 2 \
-   --screendump --screendump-after FLAIR-LIVE-READY --screendump-after-count 2
- else
-  set -- --rtc-time0 699440400 --allow-reboot --keys "$trace" --expect 'TENANT-EXIT rc=0 via=exit' \
-   --quit-after 'TENANT-EXIT rc=0 via=exit' --quit-after-count "$exits"
- fi
- driver="build/factory/${emulator}_harness"
- [ "$emulator" != bochs ] || driver=build/factory/desktop-bochs
- export DESKTOP_SERIAL="$out/$emulator.serial"
- if ! "$driver" --disk build/image/boot.img --disk2 "$out/$emulator-data.img" \
-  --keys-after FLAIR-LIVE-READY "$@" --timeout-ms "${DESKTOP_SMOKE_TIMEOUT_MS:-90000}" --name "$emulator" --out "$out" \
-  > "$out/$emulator.stdout" 2> "$out/$emulator.report"; then
-  cat "$out/$emulator.report"; case $emulator in qemu) fail "QEMU session";; bochs) fail "Bochs session";; esac
+ cp build/image/data.img "$out/qemu-data.img"
+ build/factory/qemu_harness --disk build/image/boot.img --disk2 "$out/qemu-data.img" \
+  --keys-after FLAIR-LIVE-READY --mouse "$trace" --expect FLAIR-EXIT-TO-DOS \
+  --quit-after FLAIR-LIVE-READY --quit-after-count 2 --screendump \
+  --screendump-after FLAIR-LIVE-READY --screendump-after-count 2 \
+  --timeout-ms "${DESKTOP_SMOKE_TIMEOUT_MS:-90000}" --name qemu --out "$out" \
+  > "$out/qemu.stdout" 2> "$out/qemu.report" || { cat "$out/qemu.report"; fail 'QEMU session'; }
  fi
  sort "$markers" | uniq -c | while read -r count marker; do
   seen=$(grep -Fc "$marker" "$out/$emulator.serial" || :)

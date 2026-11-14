@@ -19,8 +19,8 @@ Bochs retains the legacy BIOS/RFB driver and key pacing, 8 MiB and its installed
 pentium CPU model (this distro's Bochs build does not offer a 486 model).
 The DOS session disables its VBE extension to require VGA13 fallback; the
 desktop session uses the normal LGPL BIOS with extension=vbe and mode 0101.
-Run logs/config/transcripts are in build/smoke. The Bochs driver serializes
-host access to its fixed RFB port. run-bochs is a serial-emitting harness run;
+Run logs/config/transcripts are in build/smoke. The Bochs driver discovers each child's published RFB listener and uses private run outputs; ordinary smokes
+hold no global emulator queue. run-bochs is a serial-emitting harness run;
 interactive graphical operation is available with the generated bochsrc.
 
 session.txt is the shared keyboard session. keys.c maps text to QMP tokens.
@@ -219,8 +219,54 @@ file/dialog activity and Finder/dispatch progress renew it; clock heartbeats
 and update events alone do not. Repeated W markers still need new occurrences.
 The shared driver's --timeout-ms is an absolute monotonic overall deadline,
 including time spent inside these waits. It never renews and rejects boundary
-or late completion. The desktop smoke caller's default remains 90000ms;
-loaded-host acceptance supplies an explicit larger overall bound without
-changing the 10000ms idle default. desktop-wait-test uses virtual serial/input
+or late completion. The desktop smoke uses the bounded session policy below with a 90000ms hard
+limit per boot and the unchanged 10000ms idle default. desktop-wait-test uses virtual serial/input
 and time; desktop-wait-mutants.sh boots a truly halted desktop product fault
 and requires the missing Finder assertion twice after a passing baseline.
+
+Bochs desktop session policy: run one registered journey per ordinary boot,
+except adjacent Calculator/Note Pad journeys stay together for their clipboard
+work. Their internal Note Pad and Scrapbook launches are never separated.
+The eight journeys currently form seven sessions with 12 normal exits plus
+Paint's close-box exit. QEMU retains the entire original single-session trace.
+The planner and completed execution receipts must cover the selected journeys
+exactly once, in order; missing/duplicate work fails before certification.
+
+Every Bochs boot retains the hard 90000ms limit and progress-aware 10000ms idle
+wait. The default guest-deadline sum is bounded by 7*90=630 seconds, rather than
+forcing all launches into one 90-second deadline. A longer/new journey gets its
+own bounded boot; it is not accommodated by silently raising the global cap.
+An explicit DESKTOP_SMOKE_TIMEOUT_MS override remains possible and must be a
+positive bounded integer. Startup, input completion, marker counts, CPU/RFB,
+reap and late-completion checks apply separately to every boot.
+
+One working-volume state is carried through all boots. Each boot uses a fresh
+private image copied from the preceding successful checkpoint, then publishes
+its completed bytes to that checkpoint. This preserves all saved files and
+avoids Bochs's retained .lock pathname without deleting another run's lock.
+All eight original independent saved-file verifiers run on the final volume.
+Journey keyboard taps release before display/serial pumping; the interval
+between presses is preserved at 200ms, and ordinary Bochs callers retain their
+two-step key transport. This prevents an overdue key-up from becoming a repeat.
+
+Measured 2026-11-14: three complete default-budget Bochs runs with background
+builders and concurrent emulators (initial host loads 7.52,7.52,6.44), all 21
+sessions and all eight verifiers green. Maximum elapsed seconds by session:
+
+| Journey group | Maximum seconds | Hard limit seconds |
+|---|---:|---:|
+| Initech 123 | 17 | 90 |
+| InitechWord | 28 | 90 |
+| Calculator, Note Pad, Scrapbook | 35 | 90 |
+| InitechText | 39 | 90 |
+| InitechPaint (four launch routes) | 16 | 90 |
+| Control Panels | 20 | 90 |
+| InitechCalc | 32 | 90 |
+
+The measured worst session has 51 seconds spare and 2.3 times headroom. These
+are loaded-host measurements, not a claimed quiet-machine calibration; the
+chosen remedy is session splitting. Per-run plans, limits, elapsed times and
+exit counts are written to bochs-times.txt, with complete per-session serial,
+trace and reports under bochs-sessions/. The old monolithic default reproduced
+RED at 91s with timed_out=1. The halted-guest mutant still fails at the default
+idle limit, twice, after a freshly built healthy worksheet/readback baseline.

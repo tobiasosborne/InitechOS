@@ -95,6 +95,7 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
         nanosleep(&pause,0);
     }
 }
+#define BOCHS_TRACE_TAP_KEYS 1
 #define bochs_trace_parse journey_parse
 #define BOCHS_TRACE_BIND_IDLE(transport) do { \
     journey_idle=journey_rfb_pump; journey_context=(transport); \
