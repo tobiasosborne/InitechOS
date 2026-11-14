@@ -2019,9 +2019,14 @@ static int plan_str(AstNode *e, int b)
             && lhs->type == AST_TY_STRING) {
             int m = plan_str(lhs, b);         /* left spine shares accumulator */
             if (m > hi) hi = m;
+        } else {
+            /* A computed leftmost char can itself evaluate string values.
+             * They die before accumulator initialization, so reuse b, while
+             * preserving any lower accumulators of enclosing expressions.
+             * FPC: tests/execution/concat_left_contexts.pas (parent component). */
+            int m = plan_val(lhs, b);
+            if (m > hi) hi = m;
         }
-        /* a leftmost char/designator/literal initializes the accumulator with
-         * no extra temp. */
         if (str_materializes(rhs)) {
             int m = plan_str(rhs, b + 1);     /* fresh simultaneously-live temp */
             if (m > hi) hi = m;

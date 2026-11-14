@@ -14,22 +14,23 @@ Current mechanical evidence:
   every emitted container and both compiler memory plans. Runtime tables are
   regenerated against NASM in tier 0. The 15 compiler patches include two
   restored semantic execution patches and a flat-only runtime fault.
-- The full 17-program corpus and 16 code-generation regressions execute on
+- The full 17-program corpus and 19 code-generation regressions execute on
   QEMU and Bochs through direct seed, hosted Pascal native and resident Pascal
-  native output, with both native forms exercised (330 comparisons, preserving
-  the original 280).
+  native output, with both native forms exercised (360 comparisons, preserving
+  all prior 330 and the original 280).
   Stdout/files agree with independent FPC;
   original corpus rows retain their authored goldens. Separate TEST disks
   preserve the product image. Resident output needs no host assembler/linker.
 - In-OS K1(S) -> K2 and K2(S) -> K3 reproduce 164263 bytes exactly, SHA-256
   2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7.
   Fresh boots reset identical inputs and fit the unchanged emulator driver's
-  120-second serial gate. Fresh guest compile times were 55s/103s.
+  120-second serial gate. Fresh guest compile times were 44s/46s after the
+  computed-left-character seed repair, which preserves the fixed point.
   K1==K2 is not the certificate.
   The minimum-Integer div/mod guards and emission/label handling increase the
   previous 163087-byte compiler's module by 1064 bytes and header by 112 bytes.
 - FPC 3.2.2 builds the independent host bootstrap and directly emits D1.
-  Fresh in-OS D1(S) -> D2 took 109 guest seconds; D2==K2==K3.
+  Fresh in-OS D1(S) -> D2 took 85 guest seconds; D2==K2==K3.
   A contaminated candidate and a changed used source constant both make the
   comparison red. This removes sole trust in the C seed's translation, not
   trust in source/runtime bytes, FPC, host tools, the OS or hardware.

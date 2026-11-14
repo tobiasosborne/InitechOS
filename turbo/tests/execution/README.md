@@ -26,19 +26,25 @@ where needed to avoid host expression widening; minimum Integer divided by
 both record access forms must select element 1. These use the corpus's
 Delphi/B+/H- pins, with identical source given to FPC and both compilers.
 
+Three follow-up probes cover initech-y8xxc: `nested_length` and
+`record_char_concat` reproduce missed embedded string planning in computed
+leftmost characters. `concat_left_contexts` also keeps enclosing accumulators
+live in right-nested concatenations and on both sides of string comparisons,
+checking a local sentinel and the prefix independently against FPC.
+
 Only the original endpoint references change the Integer declaration to LongInt to
 match the product's documented 32-bit width. The existing corpus retains its
 Delphi/B+/H- directives; the original regressions use TP mode without a mode override.
 This work does not resolve the separately tracked TP integer-width decision.
 
 Hosted and resident Pascal outputs run in both extended and flat form;
-the seed retains its extended assembly/link/mzlink leg. All 33 registered
+the seed retains its extended assembly/link/mzlink leg. All 36 registered
 programs fit the conventional arena, so a missing flat output fails rather
 than skipping execution. Flat outputs must be nonempty raw COM files, not
 renamed MZ containers. Each form has its own working directory and independent
-stdout/file comparison. Default smoke performs 330 executions across
-both emulators, preserving the original 280 and adding 30 extended and 20 flat
-Phase 2 comparisons.
+stdout/file comparison. Default smoke performs 360 executions across
+both emulators, preserving all prior 330 and adding 18 extended and 12 flat
+computed-left-character comparisons.
 
 `TURBO_EXEC_SOURCES`, `TURBO_EXEC_PATHS`
 (`seed hosted hosted-flat resident resident-flat`),

@@ -51,11 +51,11 @@ module 149575, reserve 174409, module headroom 112569, free window 1703520.
 Both have separate 65536-byte stack and 4096-byte guard. These are mechanical
 layout limits, not a measured worst-case stack-usage claim.
 
-The parent smoke executes the complete 17-program corpus plus 16 regressions
+The parent smoke executes the complete 17-program corpus plus 19 regressions
 on both emulators, through seed, hosted Pascal native and resident Pascal
 native paths. Both hosted and resident Pascal paths execute flat COM as well
-as extended EXE, for 330 total comparisons (all original 280 plus 50 Phase 2
-regression comparisons). No host assembler/linker finishes
+as extended EXE, for 360 total comparisons (all prior 330 plus 30 computed
+left-character comparisons). No host assembler/linker finishes
 resident-generated programs.
 Stdout is compared with the independent goldens and FPC reference executions;
 mtools checks the on-disk payloads. Guest DOS GET TIME brackets each compile
@@ -68,14 +68,15 @@ current certified fixed point is 164263 bytes, SHA-256
 Its module grows by 1064 bytes and relocation header by 112 bytes over the
 previous 163087-byte compiler for div/mod guard emission and label handling.
 The two compilations use fresh boots with identical source/disk input names.
-Fresh guest times were 55s/103s, within the unchanged 120-second gate. A deliberately changed byte
+The computed-left-character seed repair preserves this fixed point. Fresh
+guest times were 44s/46s, within the unchanged 120-second gate. A deliberately changed byte
 makes the comparator red with its offset and container region. Full evidence
 and source identity remain under build/turbo/selfhost. No stack/CPU fault or
 host assembler/linker participates in either compilation.
 
 `make -C turbo ddc` refreshes the seed certificate and runs the independent
 FPC bootstrap path: host Pascal compiler -> D1, in-OS D1(S) -> D2. D2 equals
-both K2 and K3 at the hash above; D1(S) took 109 guest seconds. Contaminated
+both K2 and K3 at the hash above; D1(S) took 85 guest seconds. Contaminated
 candidate and changed-source controls are red. DDC evidence is retained under
 build/turbo/ddc. This removes sole trust in seed translation; source/runtime,
 FPC, host tools, the OS and hardware remain trusted. Both-emulator generated

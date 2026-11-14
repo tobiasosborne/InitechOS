@@ -26,11 +26,13 @@ see compiler/NATIVE.md. The 15 compiler patches include five native
 encoder/fixup/relocation/layout and three generated-execution patches.
 
 `make smoke` builds the product image and uses separate FAT12 TEST disks.
-QEMU and Bochs each execute all 17 corpus programs and 16 regressions through
+QEMU and Bochs each execute all 17 corpus programs and 19 regressions through
 direct seed output, hosted Pascal native output, and resident Pascal native
 compilation. Hosted and resident Pascal output also runs as flat COM:
-330 executions, preserving the original 280 and adding 50 Phase 2 comparisons
-for minimum-Integer div/mod and string temporaries in Length and record indices.
+360 executions, preserving all prior 330 and adding 30 comparisons for
+computed characters at the start of concatenations, including higher temporary
+bases. The earlier probes cover minimum-Integer div/mod and string temporaries
+in Length and record indices.
 Every registered case fits the flat arena; missing flat output
 fails. Complete stdout and extracted files match FPC;
 the original corpus also matches its authored goldens. mzcheck validates the
@@ -58,7 +60,9 @@ The certified fixed point is K2==K3==D2: 164263 bytes, SHA-256
 2c33ed0c7ee667138cfb3253630994be169cc8a22a1f4c54715a4eb40f9e0fc7.
 The minimum-Integer div/mod guards and their emission/label handling increase
 the previous 163087-byte compiler's module by 1064 bytes and relocation header
-by 112 bytes. Fresh self-hosting took 55s/103s and DDC took 109s for D1(S),
+by 112 bytes. The computed-left-character seed-planner repair leaves the
+Pascal source and seed-built TURBO.COM bytes unchanged, and its fresh proof
+agrees at the same hash. Self-hosting took 44s/46s and DDC took 85s for D1(S),
 within the unchanged 120-second gate. All three negative controls are red.
 The checked-in NASM tables regenerate
 byte-for-byte. Times use the guest clock with 1-second resolution. DDC removes sole
