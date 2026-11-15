@@ -108,10 +108,55 @@ Omissions and current refusals (the catalogue text is retained verbatim):
   `Syntax error.` Unknown function names: #31, `Invalid function name.`
 - COPY TO is outside the COPY FILE subset; unrecognised supported-verb
   clauses use #36, `Unrecognized phrase/keyword in command.`, or #10 depending
-  on the parser. @ GET/READ forms and interactive table/schema editors do not
-  exist. CLEAR FIELDS/GETS are accepted with nothing to clear.
+  on the parser. Interactive table/schema editors do not exist. CLEAR
+  FIELDS/GETS are accepted with nothing to clear until the forms surface
+  below lands.
 - Unhandled program errors return to the dot prompt; the real III+ traceback
   and Cancel/Ignore/Suspend recovery dialog are absent.
+
+### Full-screen forms: frozen surface (initech-p3nn0, landing)
+
+GOLDEN-MASTER item 5 adds `@...SAY/GET` and `READ`. The surface below is
+frozen: every behaviour is pinned by a twice-minted real III+ capture in
+`tests/xbase_prog_diff/screen-mint/forms-f01-*/` … `forms-f17-*/` (design
+cases C01-C18, renamed F because conformance C01-C38 own C-numbers;
+whole 80x25 text/attribute pages plus cursor, RESULT transcripts and
+DBF/DBT/NDX/MEM readbacks; mint with `make mint-forms`). Until each
+stage lands, READ still refuses as #16 and @ GET is absent; the list
+above stays the implemented truth and this section is what ships.
+
+Supported: `@ r,c GET lvalue` and combined `@ r,c SAY expr GET lvalue`
+for C/N/D/L memory variables and fields (unqualified name binds the
+field when a table is open, `M->` the variable, `alias->` another work
+area; the edit lands on the record current when READ runs and open
+indexes stay current); `READ`; `CLEAR GETS` (plain CLEAR also empties
+the pending list); PICTURE mask characters `A N X ! 9 # L Y . , $ *`
+with literal positions on SAY and GET; whole-value functions `! B C X (`
+in PICTURE `"@..."` form and as a separate `FUNCTION` clause (both
+together: #36, F15c); SET CONFIRM, BELL, INTENSITY and DELIMITERS
+ON/OFF and DELIMITERS TO; READKEY's captured exit codes (Enter 15,
+Up-exit 4, Down-exit 5, PgUp 6, PgDn 7, Esc/Ctrl-Q 12, Ctrl-End/Ctrl-W
+14, +256 when a saved edit changed a buffer). READ waits through the
+existing INT 21h raw input path; no new event pump. A READ with no
+pending GET still waits for an exit key (F01).
+
+Frozen omissions, each refused, never accepted silently. Texts are
+verbatim from `spec/ibase/dbase_msg_codes.tsv`; a refusal marked
+*subset* is an authored refusal where real III+ accepts the feature,
+with the real behaviour pinned in the case named:
+
+- `RANGE` on GET: #36, `Unrecognized phrase/keyword in command.` (*subset*; real III+ accepts the declaration, F15b.)
+- `READ SAVE`: #36 as above. (*subset*; real III+ retains the GET list, F15c.)
+- Memo GET: #34, `Operation with Memo field invalid.`, refused at declaration. (*subset*; real III+ paints `memo` and Enter passes over it, F15b/F15d. Memo files stay readable and writable through the existing commands.)
+- `SET FORMAT`: #10, `Syntax error.` (*subset*; real III+ opens a .FMT file or reports #1 `File does not exist.`, F15b.)
+- `VALID`, `WHEN` and other later-dialect GET clauses: real III+ itself reports #36 (F15a).
+- GET of an undefined name: #12, `Variable not found.`; GET of an expression: #10, `Syntax error.`; non-numeric @ coordinate: #27, `Not a numeric expression.`; non-character PICTURE: #45, `Not a Character expression.`; duplicate GET clause: #36. (All real III+ at the dot prompt, F15a/F15b.)
+- No installed or bundled program uses GET/READ today (working-volume and the Y2K/SALAMI accounting programs checked), so no shipping program needs a feature beyond this floor.
+
+Bell note: F14 pins the screens for a refused key under SET BELL ON;
+the speaker is graded from PC-speaker port programming on the product
+image (factory stage), not from recorded audio. InitechBase emits BEL
+through INT 21h output.
 
 Known parity limits, not silently promoted pending captures: STR scientific
 fallback/range/precision and rounding, exponent pictures, HISTORY growth and
