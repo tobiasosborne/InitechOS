@@ -198,3 +198,8 @@ are absent from the pinned media. initech-0e5gu tracks the exact-boundary,
 read-error and diagnostic/ERRORLEVEL captures. Until then, limit refusals
 use the period catalogue's "Insufficient memory" and status 1; read failures
 use "Error reading file" and status 1. These are stated safety assumptions.
+
+`make smoke-find-limits` checks FIND's provisional 64 KiB input bound with
+its only match beyond 70 KiB. FIND probes EOF when full and refuses before
+emitting any line or count if more input remains. It does not claim the
+recovered DOS utility's streaming capacity; initech-0e5gu tracks that capture.

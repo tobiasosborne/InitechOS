@@ -243,4 +243,9 @@ smoke-sort-limits:
 	+$(MAKE) -C $(TOP) image
 	FILTER_BOUNDARIES=1 sh tests/runtime/sortlimits.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$(abspath $(OUT))/sort-limits"
 
+.PHONY: smoke-find-limits
+smoke-find-limits:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/findlimits.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$(abspath $(OUT))/find-limits"
+
 include $(TOP)/mk/host-test.mk

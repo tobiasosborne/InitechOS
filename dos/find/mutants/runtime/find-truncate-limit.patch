@@ -1,0 +1,13 @@
+# FIND_TRUNCATE_LIMIT
+# session: findlimits
+--- a/find/find_program.asm
++++ b/find/find_program.asm
+@@ -156,7 +156,7 @@
+     int 0x21
+     jc .read_error
+     test eax, eax
+-    jnz .limit_error
++    jnz .read_done
+ .read_done:
+     mov [total], edi
+ 

@@ -19,6 +19,10 @@ printf 'needle\r\n' >> "$out/large"
 awk 'BEGIN {for(i=0;i<7680;i++)printf "\r\n"}' > "$out/fit-lines"
 awk 'BEGIN {for(i=0;i<20000;i++)printf "\r\n"}' > "$out/many-lines"
 dd if=/dev/zero bs=65536 count=1 status=none | tr '\000' 'a' > "$out/exact"
+if [ "$program" = FIND ]; then
+ dd if=/dev/zero bs=65530 count=1 status=none | tr '\000' 'a' > "$out/exact"
+ printf 'needle' >> "$out/exact"
+fi
 cat "$out/exact" > "$out/exact-expected"
 printf '\r\n' >> "$out/exact-expected"
 for spec in 'fit-lines FIT.TXT' 'many-lines MANY.TXT' 'exact EXACT.TXT'; do
@@ -35,6 +39,11 @@ printf '@echo off\r\n%s\r\nif errorlevel 1 echo REFUSED >STATUS.TXT\r\nDONE\r\n'
 if [ "$program" = SORT ] && [ "${FILTER_BOUNDARIES:-0}" = 1 ]; then
  sed '$d' "$out/AUTOEXEC.BAT" > "$out/auto-more"
  printf 'SORT <FIT.TXT >FIT.OUT\r\nSORT <EXACT.TXT >EXACT.OUT\r\nSORT <MANY.TXT >MANY.OUT\r\nSORT <LARGE.TXT >LARGE.OUT\r\nDONE\r\n' >> "$out/auto-more"
+ mv "$out/auto-more" "$out/AUTOEXEC.BAT"
+fi
+if [ "$program" = FIND ]; then
+ sed '$d' "$out/AUTOEXEC.BAT" > "$out/auto-more"
+ printf 'FIND "needle" <EXACT.TXT >EXACT.OUT\r\nFIND /C "needle" <LARGE.TXT >COUNT.OUT\r\nDONE\r\n' >> "$out/auto-more"
  mv "$out/auto-more" "$out/AUTOEXEC.BAT"
 fi
 mcopy -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
@@ -57,4 +66,11 @@ if [ "$program" = SORT ] && [ "${FILTER_BOUNDARIES:-0}" = 1 ]; then
   tr -d '\r' < "$out/actual" > "$out/text"
   require "SORT refuses $name before partial output" grep -Fx 'Insufficient memory' "$out/text"
  done
+fi
+if [ "$program" = FIND ]; then
+ mtype -i "$out/data.img" ::EXACT.OUT > "$out/actual" || error 'exact output missing'
+ require 'FIND accepts exact input capacity without dropping its last match' cmp "$out/actual" "$out/exact-expected"
+ mtype -i "$out/data.img" ::COUNT.OUT > "$out/actual" || error 'count output missing'
+ tr -d '\r' < "$out/actual" > "$out/text"
+ require 'FIND refuses an incomplete count' grep -Fx 'Insufficient memory' "$out/text"
 fi

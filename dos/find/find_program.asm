@@ -136,18 +136,27 @@ start:
 .read_loop:
     mov eax, INBUF_MAX
     sub eax, edi
-    jz .read_done              ; buffer full: process what we have (best-effort)
+    jz .probe_eof              ; never silently truncate a full input buffer
     mov ecx, eax
     mov ah, 0x3F
     xor ebx, ebx
     mov edx, INBUF
     add edx, edi
     int 0x21
-    jc .read_done
+    jc .read_error
     test eax, eax
     jz .read_done
     add edi, eax
     jmp .read_loop
+.probe_eof:
+    mov eax, 0x3F00
+    xor ebx, ebx
+    mov ecx, 1
+    mov edx, eof_probe
+    int 0x21
+    jc .read_error
+    test eax, eax
+    jnz .limit_error
 .read_done:
     mov [total], edi
 
@@ -251,9 +260,18 @@ start:
     int 0x21
     int 0x20
 
+; Safety assumptions until genuine DOS 3.30 FIND is recovered (initech-0e5gu).
+; Refuse BEFORE any line/count output; neither limits nor read errors are EOF.
+.read_error:
+    mov edx, msg_read
+    jmp .refuse
+.limit_error:
+    mov edx, msg_limit
+    jmp .refuse
 .param_err:
-    mov ah, 0x09
     mov edx, msg_param
+.refuse:
+    mov ah, 0x09
     int 0x21
     mov ah, 0x4C
     mov al, 1
@@ -374,6 +392,9 @@ emit_decimal:
 crlf:      db 0x0D, 0x0A
 lbrack:    db "["
 rbrack:    db "]"
+msg_limit: db MSG_DOS_0060, 0x0D, 0x0A, "$"
+msg_read:  db "Error reading file", 0x0D, 0x0A, "$"
+eof_probe: db 0
 msg_param: db MSG_DOS_0059, 0x0D, 0x0A, "$"
 
 ; --- scratch (baked as zeros/space in the .COM image) -----------------------
