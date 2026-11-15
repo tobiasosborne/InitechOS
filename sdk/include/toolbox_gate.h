@@ -194,10 +194,14 @@
  * local number): the next code after CONTENTORIGIN in the window group. */
 /* NEWWINDOW goAway dword: bits 0..7 goAway (0/1/2, Sec 11), bits 8..15 the
  * WDEF: 0 = zoomDocProc (the document window), TBX_WDEF_RDOC = rDocProc 16
- * (the rounded desk-accessory window, os/flair/rdoc.h). Any other bit is
- * BADARG. Bead initech-tdnl.17. */
+ * (the rounded desk-accessory window, os/flair/rdoc.h), TBX_WDEF_NOGROW =
+ * noGrowDocProc 4 (a document window with no grow box and no scroll bars;
+ * its content is the frame inset by the title bar on top and the 6-px rail
+ * on the other three sides, flair/window.c CalcPlainDocContentRect; frame-
+ * owner request W1). Any other bit is BADARG. Bead initech-tdnl.17. */
 #define TBX_WDEF_SHIFT    8u
 #define TBX_WDEF_RDOC     (16u << TBX_WDEF_SHIFT)
+#define TBX_WDEF_NOGROW   (4u << TBX_WDEF_SHIFT)
 #define TBX_TEXTDRAW      0x0030u  /* V1  (win, x, y, strPtr, fg, bg) -> 0|err */
 #define TBX_FILLRECT      0x0031u  /* V1  (win, l, t, r, b, color) -> 0 | err  */
 #define TBX_FRAMERECT     0x0032u  /* reserved (V2)                            */
@@ -905,7 +909,7 @@
  * because the data volume's root listing is locked by every R3.2/R3.3 gate.
  * ------------------------------------------------------------------------- */
 #define TBX_EVT_FILECOPY       0x0091u
-#define TBX_FILECOPY_TEXT_W    332u   /* FileCopyDialog statText 14..346     */
+#define TBX_FILECOPY_TEXT_W    314u   /* the live FileCopyDialog statText    */
 #define TBX_FILECOPY_CFG_PATH  "APPS\\MICHAEL.CFG"
 #define TBX_FILECOPY_RATE_KEY  "PROGRESS_BAR_RATE="
 #define TBX_FILECOPY_RATE_MIN  1u

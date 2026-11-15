@@ -50,7 +50,7 @@ int32_t tbx_new_window(int32_t l,int32_t t,int32_t r,int32_t b,int32_t g)
     if(S.nwindows==TBX_TENANT_WINDOWS) return TBX_ERR_BUSY;
     uint32_t go=(uint32_t)g&255u,def=(uint32_t)g&~255u;
     if(l<0||r>640||t<20||b>480||(int64_t)r-l<96||(int64_t)b-t<64||
-       go>2||(def&&def!=TBX_WDEF_RDOC))return TBX_ERR_BADARG;
+       go>2||(def&&def!=TBX_WDEF_RDOC&&def!=TBX_WDEF_NOGROW))return TBX_ERR_BADARG;
     unsigned i=(unsigned)S.nwindows++;
     S.windows[i].l=l;S.windows[i].t=t;S.windows[i].r=r;S.windows[i].b=b;S.windows[i].goaway=g;
     return S.nwindows;
@@ -105,10 +105,12 @@ int32_t tbx_dialog(int32_t w,const cp_item_t *items,uint32_t n,uint32_t def,uint
 { R(w,(int32_t)n,(int32_t)def,(int32_t)cancel,0,0,0);
   if(!win(w)||!n||n>CP_MAX_ITEMS||def>n||cancel>n||!span(items,n*sizeof *items,1)||
     (e&&!span(e,sizeof *e,1)))return TBX_ERR_BADARG;
-  /* CalcDocContentRect / CalcRDocContentRect, flair/window.c. */
-  int rdoc=(S.windows[w-1].goaway&~255)==TBX_WDEF_RDOC;
-  int dw=S.windows[w-1].r-S.windows[w-1].l-(rdoc?4:27);
-  int dh=S.windows[w-1].b-S.windows[w-1].t-(rdoc?22:43);
+  /* CalcDocContentRect / CalcRDocContentRect / CalcPlainDocContentRect,
+   * flair/window.c. */
+  uint32_t wdef=(uint32_t)S.windows[w-1].goaway&~255u;
+  int rdoc=wdef==TBX_WDEF_RDOC,plain=wdef==TBX_WDEF_NOGROW;
+  int dw=S.windows[w-1].r-S.windows[w-1].l-(rdoc?4:plain?12:27);
+  int dh=S.windows[w-1].b-S.windows[w-1].t-(rdoc?22:plain?28:43);
   for(unsigned i=0;i<n;i++)if(items[i].type>3||items[i].left<0||items[i].top<0||
     items[i].right<=items[i].left||items[i].bottom<=items[i].top||items[i].right>dw||items[i].bottom>dh||
     string_len(items[i].text,64,1)<0)return TBX_ERR_BADARG;
@@ -129,7 +131,7 @@ int32_t tbx_global_to_local(int32_t w,int32_t h,int32_t v)
 { R(w,h,v,0,0,0,0);return win(w)&&h>=-32768&&h<=32767&&v>=-32768&&v<=32767?pack(h-S.origin_h,v-S.origin_v):TBX_ERR_BADARG; }
 int32_t tbx_file_copy(const char *c,const char *s,const char *d)
 { R(0,0,0,0,0,0,c);LIVE();if(S.alert_pending||S.copy_pending)return TBX_ERR_BUSY;int n=string_len(c,48,1);
-  if(n<1||width(c,(unsigned)n)>332||strchr(c,'\r')||string_len(s,128,1)<1||string_len(d,128,1)<1)return TBX_ERR_BADARG;
+  if(n<1||width(c,(unsigned)n)>TBX_FILECOPY_TEXT_W||strchr(c,'\r')||string_len(s,128,1)<1||string_len(d,128,1)<1)return TBX_ERR_BADARG;
   S.copy_pending=1;copy(S.copy_caption,128,c);copy(S.copy_src,128,s);copy(S.copy_dst,128,d);return TBX_OK; }
 
 /* Paths are DOS case-insensitive, rooted on one data volume. */

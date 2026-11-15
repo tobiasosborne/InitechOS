@@ -55,6 +55,12 @@ int main(void)
     CHECK(tbx_set_scroll(1,1000,30)==30&&tbx_get_scroll(1)==30&&tbx_host.setscroll==1);
     CHECK(tbx_file_copy("Copy","A","B")==0&&!strcmp(tbx_host.copy_dst,"B"));
     deliver(TBX_EVT_FILECOPY,TBX_ERR_DOS(2));
+    /* The live FILE COPY caption is 314 px (FileCopyDialog statText, flair
+     * dialog.h FLAIR_LIVECOPY_TEXT_W). Chicago 12 '0' advances 8 px (NFNT
+     * 5478 owTable): 39 zeros are 312 px, 40 are 320 px. */
+    CHECK(tbx_file_copy("0000000000000000000000000000000000000000","A","B")==TBX_ERR_BADARG);
+    CHECK(tbx_file_copy("000000000000000000000000000000000000000","A","B")==0);
+    deliver(TBX_EVT_FILECOPY,0);
     static cp_time_t clock;CHECK(tbx_get_clock(&clock)==0&&clock.year==1992);
     clock.hour=13;CHECK(tbx_clock(1,&clock)==0&&tbx_host.clock.hour==13);
     tbx_host.clock_rc=-42;CHECK(tbx_get_clock(&clock)==-42);tbx_host.clock_rc=0;
@@ -63,6 +69,19 @@ int main(void)
     CHECK(tbx_beep()==0&&tbx_trap(TBX_BEEP,0,0)==0&&tbx_host.beeps==2);
     CHECK(tbx_trap(0xffff,0,0)==TBX_ERR_BADCODE);
     tbx_host.dialog_result=3;CHECK(tbx_dialog(1,dialog_items,3,1,2,0)==3&&tbx_host.dialog_cancel==2);
+    /* noGrowDocProc (frame owner W1): content is frame + (6,22) .. frame - 6,
+     * flair/window.c CalcPlainDocContentRect, so a 200 x 150 frame holds
+     * items up to 188 x 122; the zoomDocProc frame holds only 173 x 107. */
+    CHECK(tbx_new_window(100,100,300,250,TBX_WDEF_NOGROW|TBX_WDEF_RDOC)==TBX_ERR_BADARG);
+    CHECK(tbx_new_window(100,100,300,250,1|TBX_WDEF_NOGROW)==2);
+    {
+        static const cp_item_t edge[]={{0,0,188,122,1,0,"Edge"}};
+        static const cp_item_t wide[]={{0,0,189,122,1,0,"Wide"}};
+        static const cp_item_t tall[]={{0,0,188,123,1,0,"Tall"}};
+        CHECK(tbx_dialog(2,edge,1,1,1,0)==3);
+        CHECK(tbx_dialog(2,wide,1,1,1,0)==TBX_ERR_BADARG);
+        CHECK(tbx_dialog(2,tall,1,1,1,0)==TBX_ERR_BADARG);
+    }
     int32_t h=tbx_file_create("a:\\test.dat");CHECK(h==5);CHECK(tbx_file_write(h,"hello",5)==5);
     CHECK(tbx_file_close(h)==0);CHECK(tbx_file_create_new("TEST.DAT")==TBX_ERR_DOS(80));
     h=tbx_file_open("test.dat",0);CHECK(h==5);
@@ -99,5 +118,24 @@ int main(void)
     CHECK(tbx_host_dispatch(event)==3&&callbacks==3&&tbx_host.event_count==0);
     CHECK(tbx_exit(7)==0&&tbx_host.exit_calls==1&&tbx_host.exit_rc==7);
     tbx_host_reset();CHECK(tbx_host_file("new.dat")==0&&tbx_host.exit_calls==0&&tbx_host.nops==0);
+    /* initech-ui9dg: a stage whose cleanup DELETE was refused is named to the
+     * user and is theirs from then on. The user replaces it with an unrelated
+     * file between saves; the next save must not delete it, and still saves
+     * through another exclusively created stage. Expected bytes are literals. */
+    {
+        static const char foreign[]="Unrelated user file\000\377\r\n";
+        CHECK(tbx_register()==0&&tbx_host_put_file("DOC.WP5","old document",12));
+        tbx_host.file_error[TBX_FILE_REPLACE]=5;tbx_host.file_error[TBX_FILE_DELETE]=5;
+        CHECK(tbx_file_save("DOC.WP5","new document",12)==TBX_ERR_DOS(5));
+        CHECK(tbx_host_file("DOC.$$$")&&tbx_host.alerts==1&&strstr(tbx_host.alert_text,"DOC.$$$"));
+        tbx_host.file_error[TBX_FILE_REPLACE]=0;tbx_host.file_error[TBX_FILE_DELETE]=0;
+        deliver(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);
+        CHECK(tbx_file_delete("DOC.$$$")==0&&tbx_host_put_file("DOC.$$$",foreign,sizeof foreign-1));
+        CHECK(tbx_file_save("DOC.WP5","new document",12)==12);
+        CHECK(tbx_host_file("DOC.WP5")->size==12&&!memcmp(tbx_host_file("DOC.WP5")->data,"new document",12));
+        const tbx_host_file_t *f=tbx_host_file("DOC.$$$");
+        CHECK(f&&f->size==sizeof foreign-1&&!memcmp(f->data,foreign,sizeof foreign-1));
+        tbx_host_reset();
+    }
     printf("shared fake: %u checks, 0 failures\n",checks);return 0;
 }

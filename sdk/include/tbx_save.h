@@ -5,7 +5,10 @@
  * RENAME. No previous version is renamed or deleted by this helper.
  * A zero REPLACE return is committed even if kernel maintenance failed:
  * its staging chain has been adopted and must never be unlinked by us.
- * Failed stage cleanup retains its exact owned name for a later retry.
+ * A stage whose cleanup DELETE is refused is named to the user and is never
+ * touched again: it is provably ours only within the save that created it
+ * (CREATE_NEW), and the user may replace it before the next save. The next
+ * save creates another stage exclusively (initech-ui9dg).
  * Authored safe-save policy; DOS 3.3 EDLIN writes before publishing (UG p164).
  * This guarantees reported results, not crash atomicity. A replacing save
  * needs free space for the complete new stream while the old remains.
@@ -17,9 +20,6 @@
 #include "tbx.h"
 
 static char g_tbx_save_tmp[TBX_FILE_PATH_MAX];
-/* Keep this exact name until cleanup succeeds. Later saves retry cleanup
- * before selecting another stage; the alert gives a bounded recovery path. */
-static int32_t g_tbx_save_cleanup_error;
 static char g_tbx_save_notice[3u * TBX_ALERT_LINE_MAX] TBX_IN_IMAGE;
 static unsigned char g_tbx_save_chunk[1024];
 static unsigned char g_tbx_save_verify[1024];
@@ -57,14 +57,6 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
     const unsigned char *b = (const unsigned char *)buf;
     uint32_t i = 0, dot = 0, pos = 0, k;
     int32_t h = TBX_ERR_DOS(0x50), rc = 0, cl;
-    if(g_tbx_save_cleanup_error<0) {
-        g_tbx_save_cleanup_error=tbx_save_discard_stage();
-        if(g_tbx_save_cleanup_error<0) {
-            if(input>=0 && tbx_file_close(input)<0) (void)tbx_file_close(input);
-            tbx_save_named_notice("Temporary file remains:\r",g_tbx_save_tmp);
-            return g_tbx_save_cleanup_error;
-        }
-    }
 
     /* <name>.$$$: the leaf's extension (after the last '.' of the last
      * component) replaced, or appended when there is none. */
@@ -162,10 +154,7 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
     return (int32_t)n;
 refuse:
     cl=tbx_save_discard_stage();
-    if(cl<0) {
-        g_tbx_save_cleanup_error=cl;
-        tbx_save_named_notice("Temporary file remains:\r",g_tbx_save_tmp);
-    }
+    if(cl<0) tbx_save_named_notice("Temporary file remains:\r",g_tbx_save_tmp);
     return rc;
 }
 

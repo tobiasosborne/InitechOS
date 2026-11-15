@@ -2,5 +2,5 @@
 --- a/host/tbx_host.c
 +++ b/host/tbx_host.c
 @@ -54,1 +54,1 @@
--       go>2||(def&&def!=TBX_WDEF_RDOC))return TBX_ERR_BADARG;
-+       go>3||(def&&def!=TBX_WDEF_RDOC))return TBX_ERR_BADARG;
+-       go>2||(def&&def!=TBX_WDEF_RDOC&&def!=TBX_WDEF_NOGROW))return TBX_ERR_BADARG;
++       go>3||(def&&def!=TBX_WDEF_RDOC&&def!=TBX_WDEF_NOGROW))return TBX_ERR_BADARG;

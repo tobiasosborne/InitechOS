@@ -1,0 +1,13 @@
+# test: host
+--- a/include/tbx_save.h
++++ b/include/tbx_save.h
+@@ -57,6 +57,9 @@
+     const unsigned char *b = (const unsigned char *)buf;
+     uint32_t i = 0, dot = 0, pos = 0, k;
+     int32_t h = TBX_ERR_DOS(0x50), rc = 0, cl;
++    /* Deliberate: retry deleting the previous save's stage, which the user
++     * may since have replaced (initech-ui9dg), external mutation only. */
++    if(g_tbx_save_tmp[0]) (void)tbx_save_discard_stage();
+ 
+     /* <name>.$$$: the leaf's extension (after the last '.' of the last
+      * component) replaced, or appended when there is none. */

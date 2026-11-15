@@ -12,6 +12,6 @@
 +        pos+=(uint32_t)rc;
 +    cl=tbx_file_close(h);
 +    return cl<0?cl:(int32_t)pos;
-     if(g_tbx_save_cleanup_error<0) {
-         g_tbx_save_cleanup_error=tbx_save_discard_stage();
-         if(g_tbx_save_cleanup_error<0) {
+ 
+     /* <name>.$$$: the leaf's extension (after the last '.' of the last
+      * component) replaced, or appended when there is none. */
