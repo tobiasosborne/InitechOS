@@ -253,4 +253,9 @@ smoke-pipe-cwd:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/pipecwd.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$(abspath $(OUT))/pipe-cwd"
 
+.PHONY: smoke-sort-columns
+smoke-sort-columns:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/sortcolumns.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$(abspath $(OUT))/sort-columns"
+
 include $(TOP)/mk/host-test.mk

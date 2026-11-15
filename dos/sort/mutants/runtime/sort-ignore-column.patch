@@ -1,0 +1,21 @@
+# SORT_IGNORE_COLUMN
+# session: sortcolumns
+--- a/sort/sort_program.asm
++++ b/sort/sort_program.asm
+@@ -335,14 +335,14 @@
+ compare_lines:
+     ; MS-DOS 3.3 Guide p.116: compare from column n (one-based).
+     ; A line shorter than the selected column contributes an empty suffix.
+-    mov eax, [column]
++    xor eax, eax
+     cmp ecx, eax
+     jae .a_column
+     mov eax, ecx
+ .a_column:
+     add edx, eax
+     sub ecx, eax
+-    mov eax, [column]
++    xor eax, eax
+     cmp ebp, eax
+     jae .b_column
+     mov eax, ebp

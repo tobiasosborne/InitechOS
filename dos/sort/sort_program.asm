@@ -18,10 +18,8 @@
 ;   - The collating sequence for the default (no /+n) sort folds case: letters
 ;     compare case-insensitively (a == A). Non-letters compare by ASCII value.
 ;   - /R sorts in REVERSE (descending) order.
-;   - /+n starts the sort at column n (1-based). NOT IMPLEMENTED here (reported):
-;     a program that reads /+n but ignores it would silently mis-sort, so we do
-;     NOT accept it -- only plain ascending + /R are honored; any other switch is
-;     ignored (the fixtures never pass one).
+;   - /+n starts at column n (1-based), per Guide p.116. Unknown/malformed
+;     switches refuse explicitly; exact diagnostic/status awaits genuine media.
 ;   - Local safety limits: 64 KiB input and 7680 line records. These are
 ;     implementation bounds, not established DOS 3.30 limits (initech-0e5gu).
 ;     The pinned media lacks SORT. Guide pp.116-117 documents sorting and
@@ -56,7 +54,7 @@ PSP_TAIL_LEN equ 0x00040080    ; PSP:80h byte0 = command-tail length
 PSP_TAIL_TXT equ 0x00040081    ; PSP:81h.. = command-tail text
 
 start:
-    ; ---- Parse the command tail (PSP:80h) for /R (reverse). ----
+    ; ---- Parse the command tail (PSP:80h) for /R and /+n. ----
     xor ebp, ebp               ; EBP = reverse flag (0 = ascending)
     movzx ecx, byte [PSP_TAIL_LEN]
     mov esi, PSP_TAIL_TXT
@@ -64,16 +62,64 @@ start:
     test ecx, ecx
     jz .tail_done
     mov al, [esi]
+    cmp al, ' '
+    je .tail_next
+    cmp al, 9
+    je .tail_next
     cmp al, '/'
-    jne .tail_next
-    ; '/': look at the following char for R/r.
-    cmp ecx, 1
-    jbe .tail_next
-    mov dl, [esi + 1]
-    and dl, 0xDF               ; fold to upper (R)
-    cmp dl, 'R'
-    jne .tail_next
-    xor ebp, 1                 ; toggle reverse (so /R under the mutant cancels)
+    jne .bad_switch
+    inc esi
+    dec ecx
+    jz .bad_switch
+    mov al, [esi]
+    and al, 0xDF
+    cmp al, 'R'
+    je .reverse
+    cmp byte [esi], '+'
+    jne .bad_switch
+    inc esi
+    dec ecx
+    jz .bad_switch
+    xor edx, edx
+.column_digits:
+    movzx eax, byte [esi]
+    sub eax, '0'
+    cmp eax, 9
+    ja .bad_switch
+    ; Refuse arithmetic overflow rather than silently selecting another column.
+    cmp edx, 429496729
+    ja .bad_switch
+    imul edx, edx, 10
+    add edx, eax
+    jc .bad_switch
+    inc esi
+    dec ecx
+    jz .column_done
+    mov al, [esi]
+    cmp al, '0'
+    jb .column_done
+    cmp al, '9'
+    jbe .column_digits
+.column_done:
+    test edx, edx
+    jz .bad_switch
+    dec edx
+    mov [column], edx
+    jmp .separator
+.reverse:
+    or ebp, 1
+    inc esi
+    dec ecx
+.separator:
+    test ecx, ecx
+    jz .tail_done
+    mov al, [esi]
+    cmp al, '/'
+    je .tail_scan
+    cmp al, ' '
+    je .tail_next
+    cmp al, 9
+    jne .bad_switch
 .tail_next:
     inc esi
     dec ecx
@@ -263,6 +309,9 @@ start:
     int 0x21
     int 0x20                    ; defense in depth (the repository contract)
 
+.bad_switch:
+    mov edx, msg_switch
+    jmp .refuse
 .read_error:
     mov edx, msg_read
     jmp .refuse
@@ -281,9 +330,25 @@ start:
 ; compare_lines: case-insensitive ASCII comparison of line A vs line B, then
 ; adjusted for the reverse flag.  Inputs: EDX=a.off, ECX=a.clen, EBX=b.off,
 ; EBP=b.clen.  Output: EAX <0 if A<B, 0 if equal, >0 if A>B (AFTER applying
-; rflag: reverse negates the result).  Clobbers EAX/ECX/EDX/ESI/EDI (not EBX/EBP).
+; rflag: reverse negates the result). Clobbers EAX/EBX/ECX/EDX/ESI/EDI/EBP.
 ; ---------------------------------------------------------------------------
 compare_lines:
+    ; MS-DOS 3.3 Guide p.116: compare from column n (one-based).
+    ; A line shorter than the selected column contributes an empty suffix.
+    mov eax, [column]
+    cmp ecx, eax
+    jae .a_column
+    mov eax, ecx
+.a_column:
+    add edx, eax
+    sub ecx, eax
+    mov eax, [column]
+    cmp ebp, eax
+    jae .b_column
+    mov eax, ebp
+.b_column:
+    add ebx, eax
+    sub ebp, eax
     ; ESI walks A content, EDI walks B content; count = min(a.clen,b.clen).
     lea esi, [INBUF + edx]
     lea edi, [INBUF + ebx]
@@ -342,11 +407,13 @@ compare_lines:
 ; --- Data -------------------------------------------------------------------
 crlf:      db 0x0D, 0x0A
 ; Period vocabulary, provisional diagnostics, not a captured SORT run.
+msg_switch: db MSG_DOS_0064, 0x0D, 0x0A, "$"
 msg_read:  db "Error reading file", 0x0D, 0x0A, "$"
 eof_probe: db 0
 msg_oom:   db MSG_DOS_0060, 0x0D, 0x0A, "$"
 
 ; --- BSS-ish scratch (small; baked as zeros in the .COM image) --------------
+column:    dd 0                 ; zero-based offset
 rflag:     dd 0
 total:     dd 0
 nlines:    dd 0

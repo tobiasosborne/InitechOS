@@ -2,11 +2,8 @@
 # session: auto
 --- a/sort/sort_program.asm
 +++ b/sort/sort_program.asm
-@@ -56,6 +56,7 @@
- start:
-     ; ---- Parse the command tail (PSP:80h) for /R (reverse). ----
-     xor ebp, ebp               ; EBP = reverse flag (0 = ascending)
-+    mov ebp, 1                 ; MUTANT: default to descending -> ascending gate RED
+@@ -57,3 +57,3 @@
+     ; ---- Parse the command tail (PSP:80h) for /R and /+n. ----
+-    xor ebp, ebp               ; EBP = reverse flag (0 = ascending)
++    mov ebp, 1                 ; incorrect default descending
      movzx ecx, byte [PSP_TAIL_LEN]
-     mov esi, PSP_TAIL_TXT
- .tail_scan:
