@@ -7,7 +7,13 @@ mk/tenant.mk with plain flags; no semantic compiler switches are required.
 Frozen inventory (legacy-final): decimal entry, chained + - * /, clear,
 12-character fixed/scientific readout, keyboard and mouse keys, Close and
 Quit. The rounded window and key/readout pixels follow the real Mac OS 8.1
-Calculator capture. No files are persisted. Key press flashing is absent.
+Calculator capture. No files are persisted. A key pressed with the pointer is
+shown inverted while held and acts on release over it, as the real
+Calculator does (s8_calc_key7_pressed: 7 held, readout still 15;
+s8_calc_after_click7: released, 7); leaving the key shows it idle and a
+release off it does nothing (Inside Macintosh I-323, TrackControl).
+Deactivation ends a press without acting (authored). Typed keys act at once
+and do not flash: the App Contract delivers no keyUp.
 Edit offers Copy of the unpadded readout as TEXT and Clear (the captured C
 reset). Copy leaves arithmetic unchanged and reports scrap transport errors;
 Clear preserves the scrap. These menu bindings are authored adaptations of
@@ -30,8 +36,10 @@ capture differential plus 20,000 independent reference sessions, and a
 unit/regression routing test on sdk/host, and the GM4 command sweep. Missing captures fail. References
 are the system7-decomp mint-results-007 captures named by the claimed vector
 file; include/calcda/calcda_layout.h documents their measurement. make mutants
-kills eleven patches, including a live Copy no-op, a grayed Clear and a dead
-'.' key that the command sweep catches. Mutation switches are
+kills fourteen patches, including a live Copy no-op, a grayed Clear and a dead
+'.' key that the command sweep catches, and a held key never painted, a lost
+release and a white pressed face (graded against s8_calc_key7_pressed outside
+the pointer's 16x16 arrow cell). Mutation switches are
 absent from the product source. make smoke uses the booted
 product image and grades the window against the independent real-Mac PNG.
 Screendump: build/smoke-desktop/calculator.ppm.

@@ -1,0 +1,11 @@
+--- a/calcda.c
++++ b/calcda.c
+@@ -130,7 +130,7 @@
+     case TBX_EVT_TRACK: {
+         if (g_held < 0) break;
+         int over = local_key(ev) == g_held;
+-        if (ev->message == 1) {             /* the release */
++        if (ev->message == 2) {             /* the release */
+             int k = g_held;
+             paint_held(0);
+             g_held = -1; g_over = 0;

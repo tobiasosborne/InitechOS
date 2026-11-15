@@ -1,0 +1,11 @@
+--- a/calcda.c
++++ b/calcda.c
+@@ -124,7 +124,7 @@
+         if (calc_view_click_cmd(k) == CALC_NONE) break;
+         if (tbx_track_mouse() != TBX_OK) { command(calc_view_click_cmd(k)); break; }
+         g_held = k; g_over = 1;
+-        paint_held(1);
++        paint_held(0);
+         break;
+     }
+     case TBX_EVT_TRACK: {

@@ -1,0 +1,11 @@
+--- a/calc_view.c
++++ b/calc_view.c
+@@ -73,7 +73,7 @@
+     fn(user, l + s, b, r, b + s, CALC_TOK_BLACK);
+     /* the frame, then the face (pressed: the face stays black) */
+     fn(user, l, t, r, b, CALC_TOK_BLACK);
+-    if (!pressed) fn(user, l + 1, t + 1, r - 1, b - 1, CALC_TOK_WHITE);
++    fn(user, l + 1, t + 1, r - 1, b - 1, CALC_TOK_WHITE);
+     draw_glyph(glyph(k->label), l + k->ldx, t + k->ldy,
+                pressed ? CALC_TOK_WHITE : CALC_TOK_BLACK, fn, user);
+ }

@@ -449,6 +449,71 @@ static int leg_capture(const char *root)
     return graded;
 }
 
+/* initech-m6v0: the HELD key. s8_calc_key7_pressed shows key 7 held after
+ * 12+3= (s8_calc_12plus3eq): the key inverted and the readout still "15", so
+ * a press acts on release, not on mouseDown; s8_calc_after_click7 is the
+ * same pointer after the release, "7" and the key idle. The pointer covers
+ * part of the key in both. Its footprint is taken from after_click7 against
+ * the idle face this file already grades, never from the pressed paint;
+ * the pressed capture is then graded everywhere outside that footprint. */
+static int leg_pressed(const char *root)
+{
+    char path[512];
+    img_t held, after;
+    static unsigned char mask[CALC_CONTENT_H][CALC_CONTENT_W];
+    int k7 = calc_view_key_of_cmd(CALC_7), masked = 0, bad = 0, fx = -1, fy = -1;
+    int l, t, r, b;
+    snprintf(path, sizeof path, "%s/goldens/captures/s8_calc_after_click7.png", root);
+    if (!png_load(path, &after)) return 0;
+    snprintf(path, sizeof path, "%s/goldens/captures/s8_calc_key7_pressed.png", root);
+    if (!png_load(path, &held)) { free(after.rgb); return 0; }
+    memset(g_canvas, 9, sizeof g_canvas);
+    calc_view_paint("7", canvas_rect, NULL);
+    calc_view_key_rect(k7, &l, &t, &r, &b);
+    /* The pointer is QuickDraw's arrow (IM I-146..147): a 16x16 cell whose
+     * hot spot (1,1) is its first black pixel, so the first pixel (in
+     * reading order) where after_click7 leaves the idle face is the hot
+     * spot. Its black may hide on the black label, so the whole cell is
+     * masked rather than only the pixels that differ. */
+    int hx = -1, hy = -1;
+    for (int y = 0; y < CALC_CONTENT_H && hy < 0; y++)
+        for (int x = 0; x < CALC_CONTENT_W; x++)
+            if (cls_rgb(&after.rgb[3 * ((CAP_CY + y) * after.w + CAP_CX + x)]) != g_canvas[y][x] &&
+                !((y < 2 && (x < 2 || x >= CALC_CONTENT_W - 2)) ||
+                  (y >= CALC_CONTENT_H - 3 && (x < 2 || x >= CALC_CONTENT_W - 3)))) { hx = x; hy = y; break; }
+    CHECK("C6 pointer footprint", hx >= l && hx < r && hy >= t && hy < b,
+          "the pointer's hot spot (%d,%d) is not on key 7", hx, hy);
+    for (int y = 0; y < CALC_CONTENT_H; y++)
+        for (int x = 0; x < CALC_CONTENT_W; x++) {
+            int corner = (y < 2 && (x < 2 || x >= CALC_CONTENT_W - 2)) ||
+                         (y >= CALC_CONTENT_H - 3 && (x < 2 || x >= CALC_CONTENT_W - 3));
+            int cell = x >= hx - 1 && x < hx + 15 && y >= hy - 1 && y < hy + 15;
+            mask[y][x] = (unsigned char)(corner || cell);
+            masked += cell;
+            if (!corner && !cell)
+                CHECK("C6 pointer footprint",
+                      cls_rgb(&after.rgb[3 * ((CAP_CY + y) * after.w + CAP_CX + x)]) == g_canvas[y][x],
+                      "after_click7 differs from the idle face at content (%d,%d), outside the pointer", x, y);
+        }
+    CHECK("C6 pointer footprint", masked == 256, "%d masked pixels", masked);
+    memset(g_canvas, 9, sizeof g_canvas);
+    calc_view_paint("15", canvas_rect, NULL);
+    calc_view_paint_key(k7, 1, canvas_rect, NULL);
+    for (int y = 0; y < CALC_CONTENT_H; y++)
+        for (int x = 0; x < CALC_CONTENT_W; x++) {
+            if (mask[y][x]) continue;
+            if (cls_rgb(&held.rgb[3 * ((CAP_CY + y) * held.w + CAP_CX + x)]) != g_canvas[y][x]) {
+                if (!bad) { fx = x; fy = y; }
+                bad++;
+            }
+        }
+    CHECK("C6 CAPTURE held key", bad == 0,
+          "readout 15 with key 7 held: %d pixels differ from s8_calc_key7_pressed.png (first at content (%d,%d))",
+          bad, fx, fy);
+    free(after.rgb); free(held.rgb);
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 3) { fprintf(stderr, "usage: %s <calc_vectors.tsv> <system7-decomp>\n", argv[0]); return 2; }
@@ -458,6 +523,8 @@ int main(int argc, char **argv)
     leg_property();
     leg_parity();
     int graded = leg_capture(argv[2]);
+    CHECK("C6 required captures", leg_pressed(argv[2]), "s8_calc_key7_pressed / s8_calc_after_click7 absent");
+    graded += 2;
     printf("test_calcda: %d checks, %d failures; %d vectors; %d capture crops graded\n",
            g_checks, g_fail, g_nvec, graded);
     return g_fail ? 1 : 0;

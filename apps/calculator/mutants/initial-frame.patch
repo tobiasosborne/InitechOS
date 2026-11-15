@@ -1,10 +1,10 @@
 # test: test_calcda_route
 --- a/calcda.c
 +++ b/calcda.c
-@@ -82,7 +82,7 @@
-     if (tbx_register() != TBX_OK) return 1;
+@@ -104,7 +104,7 @@
      (void)tbx_set_mbar(&mbar);
      calc_init(&g_calc);
+     g_held = -1; g_over = 0;
 -    g_win = tbx_new_window(CALC_WIN_L, 20, CALC_WIN_L + CALC_WIN_W,
 +    g_win = tbx_new_window(CALC_WIN_L, 40, CALC_WIN_L + CALC_WIN_W,
                             20 + CALC_WIN_H,

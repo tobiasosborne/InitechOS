@@ -27,6 +27,74 @@ static void menu(int32_t word)
 static void key(int c)
 { tbx_event_t e={0};e.what=keyDown;e.message=c;tbx_app_event(&e); }
 static void type(const char *s) { for(;*s;s++)key(*s); }
+/* The pointer route as the shell delivers it: a mouseDown (inside which the
+ * tenant may ask for tracking), then TBX_EVT_TRACK moves and one release. */
+static void host_event(int what,int msg,int mods,int x,int y)
+{
+    tbx_event_t e={0};e.what=what;e.message=msg;e.modifiers=mods;e.whereh=x;e.wherev=y;
+    if(!tbx_host_push_event(&e)) { puts("FAIL event queue"); fails++; return; }
+    (void)tbx_host_dispatch(tbx_app_event);
+}
+static void key_center(int idx,int *x,int *y)
+{ int l,t,r,b;calc_view_key_rect(idx,&l,&t,&r,&b);*x=tbx_host.origin_h+(l+r)/2;*y=tbx_host.origin_v+(t+b)/2; }
+static void press(int idx) { int x,y;key_center(idx,&x,&y);tbx_host.track=0;host_event(mouseDown,0,0,x,y); }
+static void track_to(int x,int y,int up) { host_event(TBX_EVT_TRACK,up,0,x,y); }
+static void click(int idx) { int x,y;key_center(idx,&x,&y);press(idx);if(tbx_host.track)track_to(x,y,1); }
+/* Did the recorded paint since nops=0 draw key idx exactly as the face draws
+ * it idle or pressed? The face's pressed paint is graded against the real
+ * s8_calc_key7_pressed capture by test_calcda (C6). */
+static int want_rects[64][5],nwant;
+static void want_rect(void *u,int l,int t,int r,int b,int tok)
+{ (void)u;if(nwant<64){want_rects[nwant][0]=l;want_rects[nwant][1]=t;want_rects[nwant][2]=r;want_rects[nwant][3]=b;want_rects[nwant][4]=tok;nwant++;} }
+static int painted(int idx,int pressed)
+{
+    nwant=0;calc_view_paint_key(idx,pressed,want_rect,0);
+    for(unsigned i=0;i+nwant<=tbx_host.nops;i++) {
+        int ok=1;
+        for(int k=0;k<nwant && ok;k++) {
+            const tbx_host_op_t *o=&tbx_host.ops[i+k];
+            ok=!strcmp(o->name,"tbx_fill_rect") && o->a[1]==want_rects[k][0] && o->a[2]==want_rects[k][1] &&
+               o->a[3]==want_rects[k][2] && o->a[4]==want_rects[k][3] && o->a[5]==want_rects[k][4];
+        }
+        if(ok) return 1;
+    }
+    return 0;
+}
+/* initech-m6v0: the held key. s8_calc_key7_pressed: 7 held after 12+3=,
+ * the key inverted, the readout still 15; s8_calc_after_click7: released,
+ * 7 shown and the key idle. Leaving the key shows it idle and a release
+ * outside does nothing, re-entering re-inverts it (Inside Macintosh I-323,
+ * TrackControl, the Mac's rule for a pressed button). Deactivation ends a
+ * press without acting (authored; no capture). Keyboard keys still act at
+ * once: the App Contract delivers no keyUp. */
+static void held(void)
+{
+    int k7=calc_view_key_of_cmd(CALC_7),k8=calc_view_key_of_cmd(CALC_8);
+    int k1=calc_view_key_of_cmd(CALC_1),k9=calc_view_key_of_cmd(CALC_9),x,y;
+    key('c');type("12+3=");CHECK(!strcmp(calc_display(&g_calc),"15"),"held: 12+3= reads 15");
+    tbx_host.nops=0;press(k7);
+    CHECK(!strcmp(calc_display(&g_calc),"15"),"held: a held key does not act before release");
+    CHECK(tbx_host.track==1,"held: a press on a key asks the shell to track");
+    CHECK(painted(k7,1),"held: the held key is painted pressed");
+    tbx_host.nops=0;host_event(updateEvt,0,0,0,0);
+    CHECK(painted(k7,1),"held: an update keeps the held key pressed");
+    tbx_host.nops=0;track_to(tbx_host.origin_h+1,tbx_host.origin_v+1,0);
+    CHECK(painted(k7,0) && !strcmp(calc_display(&g_calc),"15"),"held: leaving the key shows it idle");
+    key_center(k7,&x,&y);tbx_host.nops=0;track_to(x,y,0);
+    CHECK(painted(k7,1),"held: coming back re-inverts the key");
+    tbx_host.nops=0;track_to(x,y,1);
+    CHECK(!strcmp(calc_display(&g_calc),"7"),"held: release on the key acts once");
+    CHECK(painted(k7,0),"held: release paints the key idle");
+    press(k8);track_to(tbx_host.origin_h+1,tbx_host.origin_v+1,0);
+    tbx_host.nops=0;track_to(tbx_host.origin_h+1,tbx_host.origin_v+1,1);
+    CHECK(!strcmp(calc_display(&g_calc),"7"),"held: release off the key does nothing");
+    click(k1);CHECK(!strcmp(calc_display(&g_calc),"71"),"held: one action per accepted press");
+    press(k9);tbx_host.nops=0;host_event(activateEvt,0,0,0,0);
+    CHECK(painted(k9,0),"held: deactivation shows the key idle");
+    key_center(k9,&x,&y);track_to(x,y,1);
+    CHECK(!strcmp(calc_display(&g_calc),"71"),"held: a press ended by deactivation never acts");
+    host_event(activateEvt,0,FLAIR_EVT_MOD_ACTIVE_FLAG,0,0);
+}
 static void sweep(void)
 {
     (void)put_scrap; /* baseline has no Copy call yet */
@@ -73,25 +141,17 @@ static void sweep(void)
         if(i==15) type("1+1");
         if(i==16) type("2+3");
         if(!route) key(labels[i]);
-        else {
-            int l,t,r,b;
-            calc_view_key_rect(calc_view_key_of_cmd((calc_cmd_t)i),&l,&t,&r,&b);
-            tbx_event_t e={0};e.what=mouseDown;
-            e.whereh=tbx_host.origin_h+(l+r)/2;e.wherev=tbx_host.origin_v+(t+b)/2;
-            tbx_app_event(&e);
-        }
+        else click(calc_view_key_of_cmd((calc_cmd_t)i));
         if(i>=11 && i<=14) type("2=");
         CHECK(!strcmp(calc_display(&g_calc),results[i]),"sweep key/button effect");
     }
     /* The tall bottom '=' is a separate visible button from the top '='.
      * Its literal locked reading-order slot is 15; do not collapse aliases. */
     key('c');type("2+3");
-    int l,t,r,b;calc_view_key_rect(15,&l,&t,&r,&b);
-    tbx_event_t click={0};click.what=mouseDown;
-    click.whereh=tbx_host.origin_h+(l+r)/2;click.wherev=tbx_host.origin_v+(t+b)/2;
-    tbx_app_event(&click);
+    click(15);
     CHECK(!strcmp(calc_display(&g_calc),"5"),"sweep separate tall equals button");
-    key('c');click.what=autoKey;click.message='7';tbx_app_event(&click);
+    tbx_event_t ak={0};
+    key('c');ak.what=autoKey;ak.message='7';tbx_app_event(&ak);
     CHECK(!strcmp(calc_display(&g_calc),"7"),"sweep autoKey entry route");
     key('c');type("12");
     for(const char *s="zxv";*s;s++) {
@@ -124,6 +184,7 @@ int main(int argc,char **argv)
     CHECK(tbx_host.windows[0].t==FLAIR_CHROME_MENUBAR_H,"initial frame meets menu bar");
     CHECK(!strcmp(calc_display(&g_calc),"0"),"initial readout");
     sweep();
+    held();
     CHECK(installed && installed->menus[0].items[0].enabled &&
           installed->menus[0].items[0].cmd_char=='W' &&
           !strcmp(installed->menus[0].items[0].text,"Close"),"Close W retained");
