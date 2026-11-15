@@ -2,7 +2,7 @@ TOP := $(abspath ../..)
 COMPONENT := apps/calculator
 include $(TOP)/mk/config.mk
 HOST_INCLUDES := -I. -Iinclude -I$(TOP)/sdk/include -I$(TOP)/sdk/host -I$(TOP)/flair/include
-HOST_TESTS := test_calcda test_calcda_route
+HOST_TESTS := test_calcda test_calcda_route test_calcda_commands
 EXTRA_HOST_TESTS := pixels
 test_calcda_SRCS := tests/test_calcda.c calc_core.c calc_view.c
 test_calcda_LIBS := -lpng -lm
@@ -12,6 +12,12 @@ test_calcda_route_COUNT_PATTERN := ^test_calcda_route: ([0-9]+) checks.*$$
 test_calcda_route_SRCS := tests/test_calcda_route.c calc_core.c calc_view.c
 test_calcda_route_LIBS := $(TOP)/build/sdk/host/libtbx_host.a
 test_calcda_route_DEPS := $(TOP)/build/sdk/host/libtbx_host.a
+# GM4 dead-command sweep: the README's frozen inventory is its input.
+test_calcda_commands_SRCS := tests/test_calcda_commands.c calc_core.c calc_view.c
+test_calcda_commands_LIBS := $(TOP)/build/sdk/host/libtbx_host.a
+test_calcda_commands_DEPS := $(TOP)/build/sdk/host/libtbx_host.a
+test_calcda_commands_CFLAGS := -DSWEEP_README='"$(CURDIR)/README.md"'
+test_calcda_commands_COUNT_PATTERN := ^test_calcda_commands: ([0-9]+) checks.*$$
 pixels_SRCS := tests/ppm_flair_calcda_check.c
 pixels_LIBS := -lpng
 include $(TOP)/mk/host-test.mk

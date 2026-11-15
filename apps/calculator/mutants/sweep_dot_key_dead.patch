@@ -1,0 +1,11 @@
+--- a/calc_core.c
++++ b/calc_core.c
+@@ -397,7 +397,7 @@
+ 
+     if (a >= '0' && a <= '9') return (calc_cmd_t)(a - '0');
+     switch (a) {
+-    case '.': return CALC_DOT;
++    case '.': return CALC_NONE;
+     case '+': return CALC_ADD;
+     case '-': return CALC_SUB;
+     case '*': return CALC_MUL;

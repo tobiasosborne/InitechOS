@@ -1,0 +1,11 @@
+--- a/calcda.c
++++ b/calcda.c
+@@ -53,7 +53,7 @@
+  * No clipboard numeric parser or arithmetic history is advertised. */
+ static const tbx_menuitem_t edit_items[] = {
+     { "Copy",  0, 0,   0, 1, 0, { 0, 0, 0 } },
+-    { "Clear", 0, 0,   0, 1, 0, { 0, 0, 0 } },
++    { "Clear", 0, 0,   0, 0, 0, { 0, 0, 0 } },
+ };
+ static const tbx_menuinfo_t menus[] = {
+     { MENU_FILE, 0, "File", file_items, sizeof file_items / sizeof file_items[0], 0 },

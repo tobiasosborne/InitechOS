@@ -25,12 +25,13 @@ No contextual/popup menu or dialog button surface exists beyond an OK error
 notice. The shell owns menu-key/close-box routing; the desktop smoke drives
 those real routes. tests/COMMANDS.md records the audited route ledger.
 
-make test runs two programs in about one second: the real-Mac vector and
+make test runs three programs in about two seconds: the real-Mac vector and
 capture differential plus 20,000 independent reference sessions, and a
-unit/regression routing test on sdk/host. Missing captures fail. References
+unit/regression routing test on sdk/host, and the GM4 command sweep. Missing captures fail. References
 are the system7-decomp mint-results-007 captures named by the claimed vector
 file; include/calcda/calcda_layout.h documents their measurement. make mutants
-kills eight patches, including a live Copy no-op. Mutation switches are
+kills ten patches, including a live Copy no-op, a grayed Clear and a dead
+'.' key that the command sweep catches. Mutation switches are
 absent from the product source. make smoke uses the booted
 product image and grades the window against the independent real-Mac PNG.
 Screendump: build/smoke-desktop/calculator.ppm.
@@ -44,6 +45,37 @@ Initial windows meet the single menu bar (operator ruling, CLAUDE.md
 against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.
 
 Host geometry tests also depend on flair/include/chrome_metrics.h.
+
+GM4 dead-command sweep (test_calcda_commands, tests/command_sweep.h): the
+block below is the frozen inventory as data; the sweep checks the installed
+bar in every context, chooses each row where it must work, sends its command
+key as the shell does, and sends every character byte and key code under each
+modifier, so any key that changes anything must be listed and every listed key
+must work, judged only from the host Toolbox record. The keys are the frozen
+legacy map: digits, . + - * / =, c or C, the Enter key code 1C (main and
+keypad) and the key code 45 where the Mac keypad has Clear. Shift and Option
+do not change a key; Control is Command and reaches only the menus. Pointer
+presses on the painted keys are swept by test_calcda_route.
+
+<!-- command-inventory CALCULAT.EXE -->
+Context: entry = key c31
+Context: pending = key c32; key c2B; key c33
+Title: File | 2
+Menu: File | Close | W | base | exit
+Menu: File | Quit | Q | base | exit
+Title: Edit | 2
+Menu: Edit | Copy | - | base | scrap
+Menu: Edit | Clear | - | entry | screen
+Key: none | c2E c31-39 | base | screen
+Key: none | c30 c43 c63 v45 | entry | screen
+Key: none | c2A c2B c2D c2F c3D v1C | pending | screen
+Key: shift | c2E c31-39 | base | screen
+Key: shift | c30 c43 c63 v45 | entry | screen
+Key: shift | c2A c2B c2D c2F c3D v1C | pending | screen
+Key: option | c2E c31-39 | base | screen
+Key: option | c30 c43 c63 v45 | entry | screen
+Key: option | c2A c2B c2D c2F c3D v1C | pending | screen
+<!-- end-command-inventory -->
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
