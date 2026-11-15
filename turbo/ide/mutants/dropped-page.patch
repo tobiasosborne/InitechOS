@@ -1,11 +1,7 @@
-# test: paging
+# test: page-failure
 --- a/buffer.pas
 +++ b/buffer.pas
-@@ -135,7 +135,6 @@
-         I := 0
-       end
+@@ -161,3 +161,2 @@
      end;
 -    CopyBytes(DocLen - PgStart - PgOrig);
      OutFlush();
-     DocLen := DocLen - PgOrig + PgLen;
-     PgOrig := PgLen;
