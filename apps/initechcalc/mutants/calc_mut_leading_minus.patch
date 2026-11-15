@@ -1,11 +1,11 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -83,7 +83,7 @@
+@@ -86,7 +86,7 @@
          while(n>s&&number[n-1]==' ') number[--n]=0;
          copy(out,number+s);
      } else { i123_number_text(a,number,sizeof number); copy(out,number); }
 -    if(x<0) { unsigned n=length(out); out[n]='-'; out[n+1]=0; }
 +    if(x<0) { unsigned n=length(out); for(unsigned i=n+1;i>0;i--) out[i]=out[i-1]; out[0]='-'; }
  }
- /* A typed or saved number: digits with an optional point, a leading or a
-  * trailing minus, and for currency a dollar sign and thousands commas. */
+ /* A typed or saved number: digits with an optional point and exponent, a
+  * leading or a trailing minus, and for currency a dollar sign and thousands

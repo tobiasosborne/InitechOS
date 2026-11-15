@@ -47,8 +47,11 @@ static const int colx[CALC_COLS+1]={0,100,146,192,238,284,330,376,422,468,478};
 #define FMT_GENERAL ((uint8_t)((WK1_FT_SPECIAL<<4)|WK1_FS_GENERAL))
 #define SERIES_MAX 8
 #define NOTE_MAX 79
-/* Window bounds used when a document gives none it can use. */
-static const int32_t home[2][4]={{116,104,622,474},{349,72,598,288}};
+/* Window bounds used when a document gives none it can use: the still's
+ * arrangement (geometry.tsv LEDWIN, CHARTWIN). The chart is 7 px wider than
+ * the still's window, whose field runs to its frame: the Platinum document
+ * window keeps a scroll-bar gutter, and the pie must not be cut by it. */
+static const int32_t home[2][4]={{116,104,622,474},{349,72,605,288}};
 
 static uint8_t store[40960];
 static i123_sheet_t g_sheet;
@@ -394,9 +397,12 @@ static void paint_ledger(void)
 }
 
 /* The pie: an elliptical disk of slices, each value/sum of a turn, exploded
- * and extruded as in the still (geometry.tsv PIE, PIEDEPTH). Integer only.
- * Angles: 65536 to the turn, clockwise from 12 o'clock. */
-enum { PIE_CX=112, PIE_CY=62, PIE_A=92, PIE_B=52, PIE_D=28, PIE_X=6, PIE_LABEL=62 };
+ * and extruded as in the still. In content pixels of the chart window at its
+ * saved place (content origin 355,94), the drawing covers the screen box the
+ * still shows: top face 378,107 to 581 across, side down to 265
+ * (goldens/frame/geometry.tsv PIE, PIEDEPTH). Integer only. Angles: 65536 to
+ * the turn, clockwise from 12 o'clock. */
+enum { PIE_CX=124, PIE_CY=70, PIE_A=96, PIE_B=55, PIE_D=42, PIE_X=6, PIE_LABEL=62 };
 static const int16_t quarter[17]={0,100,200,297,392,483,569,650,724,792,851,903,946,980,1004,1019,1024};
 static int sine(uint32_t a)   /* sin of a turn fraction, scaled 1024 */
 {

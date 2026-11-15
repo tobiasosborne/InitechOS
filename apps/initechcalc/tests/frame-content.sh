@@ -25,6 +25,11 @@ awk -F'\t' 'NR>1 && $1 ~ /^LED\.R[0-9][0-9]\.C.$/ {
 awk -F'\t' 'NR>1 && $2=="chart" && $4 ~ /^[0-9]+%$/ { print $4 }' "$tsv" > "$tmp/labels"
 awk -F'\t' '$1=="CANON.PIE116" { print $4 }' "$tsv" > "$tmp/canon"
 awk -F'\t' '$1=="LEDWIN" || $1=="CHARTWIN" { print $11 "\t" $12 }' "$geom" > "$tmp/origins"
+# The pie's place on the 640 x 480 screen: the top face's bounds (PIE) and
+# the foot of its side (PIEDEPTH), as measured on the still.
+pie_box=$(awk -F'\t' '$1=="PIE" { l=$11; t=$12; r=$13 } $1=="PIEDEPTH" { b=$14 } END { print l "\t" t "\t" r "\t" b }' "$geom")
+FRAME_PIE=$(awk -F'\t' '$1=="PIE" { print ($11+$13)/2, ($12+$14)/2, ($13-$11)/2, ($14-$12)/2 }' "$geom")
+export FRAME_PIE
 
 # 1. The document as the product's formats display it.
 read_document() {
@@ -55,7 +60,7 @@ read_document "$doc" > "$tmp/document"
 read_document "$tmp/TABLES.TXT" > "$tmp/saved"
 
 grade() {   # $1 = name, $2 = observation file
-    awk -F'\t' -v name="$1" -v note="$note" -v canon="$(cat "$tmp/canon")" \
+    awk -F'\t' -v name="$1" -v note="$note" -v canon="$(cat "$tmp/canon")" -v pie="$pie_box" \
         -v cells="$tmp/cells" -v labels="$tmp/labels" -v origins="$tmp/origins" '
     BEGIN {
         while((getline l < cells) > 0) { split(l,f,"\t"); k=f[1] SUBSEP f[2]
@@ -72,6 +77,10 @@ grade() {   # $1 = name, $2 = observation file
     $1=="NOTE" { notes++; if($2!=note) fail("note reads \"" $2 "\"") }
     $1=="WINDOW" { d1=$3-ox[$2]; d2=$4-oy[$2]; if(d1<-4 || d1>4 || d2<-4 || d2>4) fail("window " $2 " opens at " $3 "," $4 "; the still puts it at " ox[$2] "," oy[$2]) }
     $1=="RING" { ring=$2 }
+    $1=="EXTENT" { extent=1; split(pie,p,"\t")   # within 4 px, as the windows are
+        off=0; for(i=1;i<=4;i++) { d=$(i+1)-p[i]; if(d<-4 || d>4) off=1 }
+        if(off) fail("the pie spans " $2 "," $3 " to " $4 "," $5 "; the still puts it at " p[1] "," p[2] " to " p[3] "," p[4]) }
+    $1=="NOREF" || $1=="NOCHART" { fail("unexpected " $0) }
     $1=="OTHER" || $1=="ALERT" || $1=="LAUNCH" || $1=="DROPPED" { fail("unexpected " $0) }
     END {
         for(k in want) if(!(k in seen)) { split(k,f,SUBSEP); fail("row " f[1] " col " f[2] " is empty; the still reads \"" want[k] "\"") }
@@ -88,6 +97,7 @@ grade() {   # $1 = name, $2 = observation file
                 if(!hit) fail("no gap at " e " degrees, after " lab[i])
                 a=b } }
         else if(name=="drawn") fail("no ring")
+        if(name=="drawn" && !extent) fail("no pie on screen")
         exit bad>0 }' "$2"
 }
 rc=0

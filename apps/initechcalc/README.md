@@ -44,7 +44,10 @@ surviving material." Document row = fragment row + 9: nine ruled rows stand
 for the part of the ledger window hidden under Drive A Files and the chart
 (goldens/frame/README.md question 7). The total is a stored number, not a
 sum of cells nobody can read. The window bounds are the still's arrangement
-mapped to 640 x 480 (geometry.tsv LEDWIN, CHARTWIN). The frame's arrangement
+mapped to 640 x 480 (geometry.tsv LEDWIN, CHARTWIN), except that the chart
+window is 7 px wider than the still's: the still's chart field runs to its
+frame, while the Platinum document window keeps a scroll-bar gutter that
+would cut the pie. The frame's arrangement
 is therefore ordinary saved state: launching Calc reproduces it, and moving
 the windows and saving keeps the new places.
 
@@ -64,7 +67,9 @@ A new number keeps the cell's format; a new cell is general.
 
 ## The chart
 
-The series as an elliptical, exploded, extruded pie on a black field, slices
+The series as an elliptical, exploded, extruded pie on a black field,
+covering on screen the box the still shows (geometry.tsv PIE and PIEDEPTH:
+378,107 to 581,265 with the chart at its saved place), slices
 clockwise from 12 o'clock, each value/sum of a turn so the pie closes; each
 label is the value with a percent sign. The frame's series is 40 35 18 14 9,
 so the labels really sum to 116%. The Toolbox has one blue (navy): faces are
@@ -102,8 +107,13 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   script reads goldens/frame/transcription.tsv and geometry.tsv and grades,
   with the same rules, the shipped and saved documents (read with awk, no product code)
   and what the real tenant drew (cell texts at cell origins, the note, the
-  chart labels, and a ring of chart pixels: a slice face at each value/sum
-  middle, a gap within 4 degrees of each boundary). Every certain or
+  chart labels, and the chart replayed on the screen at the window's
+  observed content origin and clipped to its observed size: every navy
+  pixel's bounds within 4 px of geometry.tsv PIE/PIEDEPTH, and a ring at 80%
+  of geometry.tsv's PIE ellipse with a slice face at each value/sum middle
+  and a gap within 4 degrees of each boundary). The pie's expected place
+  comes from the reference package, never from the renderer
+  (initech-42lrp). Every certain or
   probable item must show exactly; every unreadable or blank item, and every
   cell outside the fragment, must be empty; the labels must be the still's
   and sum to the canon 116%; the windows must open within 4 px of the
@@ -126,7 +136,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 24 patches in `mutants/`; each must fail a host
+`make mutants` runs the 25 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,

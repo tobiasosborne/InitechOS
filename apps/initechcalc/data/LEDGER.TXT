@@ -1,6 +1,6 @@
 INITECH LEDGER
 WINDOW	116	104	622	474
-CHART	349	72	598	288
+CHART	349	72	605	288
 SERIES	40	35	18	14	9
 NOTE	Blank entries were not recovered from the surviving material.
 ROWS	26

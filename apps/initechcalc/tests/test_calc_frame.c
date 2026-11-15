@@ -9,9 +9,18 @@
  *   NOTE    text            the ledger's recovery annotation
  *   OTHER   x y text        any other ledger draw (a failure for the script)
  *   LABEL   text            a chart draw
- *   RING    360 chars       the chart around the pie, 1 per degree clockwise
- *                           from 12 o'clock: N solid navy (a slice's face),
- *                           S navy and black rows (a side), B black, o other
+ *   EXTENT  l t r b         the bounds of every navy pixel the chart shows,
+ *                           in SCREEN coordinates, half-open
+ *   RING    360 chars       the chart around the reference ellipse, 1 per
+ *                           degree clockwise from 12 o'clock: N solid navy (a
+ *                           slice's face), S navy and black rows (a side), B
+ *                           black, o other or outside what the window shows
+ * The chart is replayed in screen coordinates: each fill at the observed
+ * content origin, clipped to the observed content size, so a pie drawn past
+ * the window's edge is seen as cut. Where the ring is sampled comes from
+ * outside: FRAME_PIE="cx cy a b" (screen pixels), which tests/frame-content.sh
+ * reads from goldens/frame/geometry.tsv. Nothing here uses the renderer's own
+ * geometry.
  * The cell origins are the layout (README.md "The ledger"): column rules at
  * 0 100 146 ... 468, rows 12 pixels, text 2 right of the rule and 1 below. */
 #include <stdio.h>
@@ -42,7 +51,7 @@ static int32_t frame_size(int32_t w)
 #undef tbx_content_size
 
 static const int lx[]={0,100,146,192,238,284,330,376,422,468};
-static uint8_t px[480][640];   /* chart content, colour token + 1 */
+static uint8_t px[480][640];   /* the screen as the chart covers it, colour token + 1 */
 int main(int argc,char **argv)
 {
     const char *path=argc>1?argv[1]:"data/LEDGER.TXT";
@@ -62,6 +71,10 @@ int main(int argc,char **argv)
     if(!tbx_host_push_event(&e)) return 2;
     (void)tbx_host_dispatch(tbx_app_event);
     if(tbx_host.dropped_ops) { puts("DROPPED ops"); return 1; }
+    /* The chart window's content, observed: its origin and size on screen. */
+    int32_t corg=frame_origin(2), csz=frame_size(2);
+    int cox=corg&0xFFFF, coy=(corg>>16)&0xFFFF, ccw=csz&0xFFFF, cch=(csz>>16)&0xFFFF;
+    if(corg<0||csz<=0) { puts("NOCHART"); return 1; }
     int bottom=0,note_y=-1;
     for(unsigned i=0;i<tbx_host.nops;i++) {
         const tbx_host_op_t *o=&tbx_host.ops[i];
@@ -80,13 +93,26 @@ int main(int argc,char **argv)
         if(!strcmp(o->name,"tbx_draw_text")&&w==2) printf("LABEL\t%s\n",o->text);
         if(!strcmp(o->name,"tbx_fill_rect")&&w==2)
             for(int yy=o->a[2];yy<o->a[4];yy++) for(int xx=o->a[1];xx<o->a[3];xx++)
-                if(yy>=0&&yy<480&&xx>=0&&xx<640) px[yy][xx]=(uint8_t)(o->a[5]+1);
+                if(yy>=0&&yy<cch&&xx>=0&&xx<ccw&&yy+coy>=0&&yy+coy<480&&xx+cox>=0&&xx+cox<640)
+                    px[yy+coy][xx+cox]=(uint8_t)(o->a[5]+1);
     }
-    /* The ring: 80% of the way out on the unexploded top face. */
+    {   int l=640,t=480,r=-1,b=-1;
+        for(int yy=0;yy<480;yy++) for(int xx=0;xx<640;xx++) if(px[yy][xx]==TBX_COLOR_NAVY+1) {
+            if(xx<l) l=xx;
+            if(xx>r) r=xx;
+            if(yy<t) t=yy;
+            if(yy>b) b=yy;
+        }
+        if(r>=0) printf("EXTENT\t%d\t%d\t%d\t%d\n",l,t,r+1,b+1);
+    }
+    /* The ring: 80% of the way out on the reference ellipse. */
+    double pcx,pcy,pa,pb; const char *ref=getenv("FRAME_PIE");
+    if(!ref||sscanf(ref,"%lf %lf %lf %lf",&pcx,&pcy,&pa,&pb)!=4) { puts("NOREF FRAME_PIE"); return 1; }
     char ring[361];
     for(int d=0;d<360;d++) {
         double t=d*3.14159265358979323846/180.0;
-        int xx=(int)lround(PIE_CX+0.8*PIE_A*sin(t)), yy=(int)lround(PIE_CY-0.8*PIE_B*cos(t));
+        int xx=(int)lround(pcx+0.8*pa*sin(t)), yy=(int)lround(pcy-0.8*pb*cos(t));
+        if(xx<0||xx>=640||yy<1||yy>=479) { ring[d]='o'; continue; }
         int v=px[yy][xx], up=px[yy-1][xx], dn=px[yy+1][xx], navy=TBX_COLOR_NAVY+1, black=TBX_COLOR_BLACK+1;
         if(v==navy&&up==navy&&dn==navy) ring[d]='N';
         else if(v==black&&up==black&&dn==black) ring[d]='B';

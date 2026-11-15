@@ -216,7 +216,7 @@ int main(void)
      * bytes are written by hand from README.md "The ledger document": the
      * home bounds, no chart values, the full 26 rows, the one typed cell. */
     {   int saved=0; double x=0;
-        static const char want_empty[]="INITECH LEDGER\r\nWINDOW\t116\t104\t622\t474\r\nCHART\t349\t72\t598\t288\r\nSERIES\r\nROWS\t26\r\n1\t(G) 73\r\n";
+        static const char want_empty[]="INITECH LEDGER\r\nWINDOW\t116\t104\t622\t474\r\nCHART\t349\t72\t605\t288\r\nSERIES\r\nROWS\t26\r\n1\t(G) 73\r\n";
         int rc=save_and_reopen(0,0,"73",&saved);
         const tbx_host_file_t *t=tbx_host_file("APPS\\TABLES.TXT");
         CHECK(rc==0&&saved&&t&&t->size==sizeof want_empty-1&&!memcmp(t->data,want_empty,t->size),"EMPTY the empty ledger's entry is saved in an ordinary document");
