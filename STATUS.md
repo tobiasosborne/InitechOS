@@ -102,10 +102,23 @@ consolidation and start route (GM8), the manuals.
 
 ## Who holds what (one writer per directory)
 
-- Phase 3's orchestrator assigns all directories from 2026-11-15 03:00.
-  No phase-2 agent holds a directory. `apps/initechbase/` forms work sits
-  unlanded on branch `base-forms`. Shared places (`factory/`, `mk/`, top
-  Makefile, `sdk/`) had no holder at the close of phase 2.
+Assigned by phase 3's orchestrator (2026-11-15, 05:00). Each owner lands
+its own work; requests to another owner go in the requester's handoff.
+
+- `turbo/`: Turbo Initech owner (IDE save safety, one TURBO.COM,
+  Compile/Make/Run, initech-wkp2p).
+- `apps/initechcalc/`, `goldens/frame/`: the frame owner (GM3).
+- `apps/initechbase/`: the forms owner (initech-p3nn0).
+- `dos/`: the DOS owner, until its session ends; then the delivery owner.
+- `kernel/`, `system/`, `apps/initech123/`: the delivery owner (kernel
+  mutation survivors initech-xn1ev first, then the C: consolidation).
+- `flair/`: the FLAIR owner (initech-vhgid, ao6o0).
+- `flair/desktop/`: the desktop owner (Finder menus, C: binding, 02siz).
+- Shared places `factory/`, `mk/`, `sdk/`, top Makefile: the factory
+  owner (strict mutation runner, initech-vocfm/fl7ce/kkqbw; smoke
+  defects; forms replay).
+- Free: `apps/initechword/`, `apps/initechtext/`, `apps/initechpaint/`,
+  the small apps, `boot/`.
 
 ## Notes for this week
 
