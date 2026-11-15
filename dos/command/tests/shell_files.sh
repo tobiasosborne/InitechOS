@@ -2,13 +2,12 @@
 # Independent file bytes + mcopy/mren inventories on identical FAT seeds.
 # MS-DOS 3.3 Reference pp.50-52,104; Guide p.17. No artifact computes expected.
 set -efu
-failed=0
-trap 'rc=$?; if [ $rc -ne 0 ] && [ $failed -eq 0 ]; then failed=1; echo "FAIL shell-files: check failed (exit $rc)"; echo "INITECH_CHECKS 1 failures=1"; exit 1; fi' EXIT
+check_suite=shell-files
+. dos/tests/assertions.sh
 export LC_ALL=C TZ=UTC INITECH_QMP_STDIO=1
 mode=$1 runner=$2 tag=${3:-green}
 out=build/shell-files-$mode-$tag
 mkdir -p "$out"
-fail() { echo "FAIL shell-files: $*"; echo 'INITECH_CHECKS 1 failures=1'; failed=1; exit 1; }
 dd if=/dev/zero of="$out/data.img" bs=512 count=2880 status=none
 mformat -i "$out/data.img" -f 1440 -N 102 ::
 printf 'alpha\032tail\r\n' > "$out/a"
@@ -64,28 +63,28 @@ cp -f "$out/reference.img" "$out/collision-before.img"
 for n in 1 2; do
     if mren -D s -i "$out/reference.img" "::REN/B$n.DAT" ::REN/CLASH.DAT; then fail 'reference collision unexpectedly succeeded'; fi
 done
-cmp -s "$out/reference.img" "$out/collision-before.img" || fail 'mren collision changed image'
+check 'mren collision changed image' cmp -s "$out/reference.img" "$out/collision-before.img"
 if [ "$mode" = host ]; then
     cp -f "$out/data.img" "$out/namespace.img"
-    "$runner" "$out/namespace.img" --namespace > "$out/namespace-log" 2>&1 || { cat "$out/namespace-log"; fail 'created-name matrix'; }
-    cmp -s "$out/namespace.img" "$out/data.img" || fail 'rejected raw names changed image'
+    "$runner" "$out/namespace.img" --namespace > "$out/namespace-log" 2>&1 || { rc=$?; cat "$out/namespace-log"; exit "$rc"; }
+    check 'rejected raw names changed image' cmp -s "$out/namespace.img" "$out/data.img"
     cp -f "$out/data.img" "$out/refused.img"
     printf 'copy app.txt + b.txt\n' > "$out/refused-command"
-    SHELL_REFUSE_TRUNCATE=1 "$runner" "$out/refused.img" "$out/refused-command" > "$out/refused-text" 2> "$out/refused-report"
-    grep -q 'Access denied' "$out/refused-text" || fail 'COPY ignored truncation error'
-    cmp -s "$out/refused.img" "$out/data.img" || fail 'COPY wrote after truncation error'
-    "$runner" "$out/data.img" "$out/commands" > "$out/text" 2> "$out/report" || fail 'host did not finish'
+    SHELL_REFUSE_TRUNCATE=1 "$runner" "$out/refused.img" "$out/refused-command" > "$out/refused-text" 2> "$out/refused-report" || { rc=$?; cat "$out/refused-report"; exit "$rc"; }
+    check 'COPY ignored truncation error' grep -q 'Access denied' "$out/refused-text"
+    check 'COPY wrote after truncation error' cmp -s "$out/refused.img" "$out/data.img"
+    "$runner" "$out/data.img" "$out/commands" > "$out/text" 2> "$out/report" || { rc=$?; cat "$out/report"; exit "$rc"; }
 else
     build/qemu_harness --disk "$runner" --disk2 "$out/data.img" --out "$out" --name run \
       --timeout-ms 25000 --keys-after SHELL-READY --keys 'e,x,i,t,ret' --quit-after SHELL-DONE \
       --rtc-base 1987-07-06T13:30:58 --rtc-deterministic 2> "$out/report" || true
-    grep -q quit_after_found=1 "$out/report" || fail 'injected EXIT did not finish'
-    grep -q keys_sent=5 "$out/report" || fail 'injected trace incomplete'
+    check 'injected EXIT did not finish' grep -q quit_after_found=1 "$out/report"
+    check 'injected trace incomplete' grep -q keys_sent=5 "$out/report"
     ! grep -q triple_fault=1 "$out/report" || fail 'triple fault'
     tr -d '\r' < "$out/run.serial" > "$out/text"
-    grep -qx SHELL-FILES-DONE "$out/text" || fail 'batch did not finish'
+    check 'batch did not finish' grep -qx SHELL-FILES-DONE "$out/text"
 fi
-extract() { mtype -i "$out/data.img" "::$1" > "$out/got" 2>/dev/null || fail "$1 missing"; cmp -s "$out/got" "$2" || fail "$1 bytes"; }
+extract() { read_product "$out/data.img" "$1" "$out/got"; check "$1 bytes" cmp -s "$out/got" "$2"; }
 printf alpha > "$out/ascii"
 printf 'alpha\032tail\r\n\032' > "$out/text-eof"
 cat "$out/a" "$out/b" > "$out/joined-bin"
@@ -103,18 +102,20 @@ extract ALL.TXT "$out/all"
 extract SRC/ONE.TXT "$out/a"
 if [ "$mode" = host ]; then
     printf 'copy /b src\\one.txt verify.bin /v\n' > "$out/verify-command"
-    SHELL_CORRUPT_VERIFY=1 "$runner" "$out/data.img" "$out/verify-command" > "$out/verify-text" 2> "$out/verify-report"
-    grep -q 'Bad command or file name' "$out/verify-text" || fail 'COPY /V accepted corrupt read-back'
-    grep -q 'verify_reads=[1-9]' "$out/verify-report" || fail 'COPY /V did not read recorded data'
+    SHELL_CORRUPT_VERIFY=1 "$runner" "$out/data.img" "$out/verify-command" > "$out/verify-text" 2> "$out/verify-report" || { rc=$?; cat "$out/verify-report"; exit "$rc"; }
+    check 'COPY /V accepted corrupt read-back' grep -q 'Bad command or file name' "$out/verify-text"
+    check 'COPY /V did not read recorded data' grep -q 'verify_reads=[1-9]' "$out/verify-report"
     if grep -q 'copied' "$out/verify-text"; then fail 'COPY /V printed success after corruption'; fi
 fi
 mdir -b -i "$out/data.img" ::EXTRA.TXT >/dev/null 2>&1 && fail 'surplus COPY created destination'
 for dir in SRC DST REN; do
-    mdir -b -i "$out/data.img" "::$dir" | sort > "$out/actual"
-    mdir -b -i "$out/reference.img" "::$dir" | sort > "$out/expected"
-    cmp -s "$out/actual" "$out/expected" || fail "$dir membership != mtools"
+    mdir -b -i "$out/data.img" "::$dir" > "$out/raw-names" || error "list $dir"
+    sort "$out/raw-names" > "$out/actual"
+    mdir -b -i "$out/reference.img" "::$dir" > "$out/raw-names" || error "list reference $dir"
+    sort "$out/raw-names" > "$out/expected"
+    check "$dir membership != mtools" cmp -s "$out/actual" "$out/expected"
 done
-grep -q 'Duplicate file name' "$out/text" || fail 'REN collision diagnostic differs from manual p.325'
+check 'REN collision diagnostic differs from manual p.325' grep -q 'Duplicate file name' "$out/text"
 for n in DST/ONE.TXT DST/TWO.TXT DST/ONE.BIN DST/TWO.BIN; do extract "$n" "$out/a"; done
 for n in REN/B1.DAT REN/B2.DAT REN/KEEP.BIN REN/CLASH.DAT; do
     mtype -i "$out/reference.img" "::$n" > "$out/want"
@@ -124,5 +125,6 @@ for n in 'BAD?NAME' CON AUX.TXT SUB/LPT1; do
     mdir -b -i "$out/data.img" "::$n" >/dev/null 2>&1 && fail 'invalid created name persisted'
 done
 mdir -b -i "$out/data.img" ::LEGAL >/dev/null 2>&1 || fail 'legal MD rejected'
-fsck.fat -n "$out/data.img" > "$out/fsck" 2>&1 || fail 'dosfstools damage'
+check_log 'dosfstools damage' "$out/fsck" fsck.fat -n "$out/data.img"
 echo "GREEN test-shell-files-$mode: COPY modes/lists/wildcards, REN patterns/collisions, MD namespace; mtools and fsck.fat"
+complete

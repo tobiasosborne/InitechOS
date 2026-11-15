@@ -97,7 +97,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 154 host patches and 48 product-session patches,
+The current DOS inventory is 157 host patches and 48 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.
@@ -228,3 +228,19 @@ checks literal manual-derived column order. Unknown/malformed switches refuse
 with the period catalogue's "Invalid parameter", status 1, under GM2's
 explicit-refusal requirement. That exact SORT diagnostic/status is a stated
 assumption pending authentic media in initech-0e5gu.
+
+Host verdict adapters name the actual failed property. Setup/tool failures carry
+no synthetic FAIL or completed-failure count. `test-verdict-controls` injects
+failed mformat setup into all seven previously trapped drivers and checks cmp
+I/O errors stay errors; its exit-trap patch fails those controls twice. ATTRIB,
+LABEL, DEL refusal and interrupted TYPE have distinct repeated kill signatures.
+The source for stamp-copy checks is now owned in command/tests/copy_stamp.sh,
+so this component grades individual mtools byte/stamp comparisons directly.
+
+`make smoke-xcopy-buffer` executes the shipped XCOPY on both emulators at
+the full 128 KiB workspace capacity over a different pre-existing destination.
+Independent mtools bytes and fsck grade the result, including /V. The workspace
+is part of the flat loaded image, since that format has no BSS extent header.
+Raw two-second stamp words have their own mutation control; captured command
+failures retain the exact assertion and status rather than disappearing into
+a redirected host log. Fixture verbs are validated before builtin dispatch.

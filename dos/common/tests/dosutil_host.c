@@ -85,5 +85,6 @@ int main(int argc, char **argv)
     input=argc>4 ? argv[4] : "";
     int rc=!strcmp(argv[2],"attrib") ? attrib_main(argv[3]) : label_main(argv[3]);
     blockdev_file_close(&disk);
+    if(getenv("DOSUTIL_COMPLETION")) fprintf(stderr,"DOSUTIL-HOST-DONE rc=%d\n",rc);
     return rc;
 }

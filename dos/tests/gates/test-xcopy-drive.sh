@@ -1,6 +1,6 @@
 set -eu
-failed=0
-trap 'rc=$?; if [ $rc -ne 0 ] && [ $failed -eq 0 ]; then failed=1; echo "FAIL xcopy-drive: check failed (exit $rc)"; echo "INITECH_CHECKS 1 failures=1"; exit 1; fi' EXIT
+check_suite=xcopy-drive
+. dos/tests/assertions.sh
 for disk in a c; do truncate -s 1474560 build/$disk.img; mformat -i build/$disk.img -f 1440 ::; done
 printf 'on A\r\n' > build/a
 printf 'on C\r\n' > build/c
@@ -9,6 +9,7 @@ mmd -i build/c.img ::SRC
 mcopy -i build/a.img build/a ::SRC/ONE.TXT
 mcopy -i build/c.img build/c ::SRC/ONE.TXT
 XCOPY_DRIVE_C=build/c.img build/test_xcopy_tree --run build/a.img XCOPY 'C:\SRC\ONE.TXT A:\DST\' ''
-mtype -i build/a.img ::DST/ONE.TXT > build/got
-cmp build/got build/c
+read_product build/a.img DST/ONE.TXT build/got
+check 'XCOPY copied C source bytes to A destination' cmp build/got build/c
 echo 'GREEN XCOPY drive: distinct mounted A/C bytes, explicit source letter preserved'
+complete

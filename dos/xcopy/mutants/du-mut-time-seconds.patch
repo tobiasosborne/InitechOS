@@ -1,0 +1,13 @@
+# DU_MUT_TIME_SECONDS
+# test: test-dos-stamp-copy-host
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -274,7 +274,7 @@
+      * A failed copy is never stamped (initech-w33id): stamping first made
+      * a truncated destination look like a good copy. */
+     if (!error) {
+-        du_regs r={0x5701,(unsigned)out,fd->ftime,fd->fdate,0};
++        du_regs r={0x5701,(unsigned)out,fd->ftime ^ 1u,fd->fdate,0};
+         if (du_call(&r)) error=5;
+     }
+     if (call(0x3e00,(unsigned)out,0,0) < 0) error=5;

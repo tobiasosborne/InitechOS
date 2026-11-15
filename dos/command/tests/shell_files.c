@@ -59,7 +59,25 @@ int main(int argc,char **argv)
     if(argc==4){len=(int)fread(physical,1,sizeof physical-1,in);physical[len]=0;}
     while(argc==4 ? batch_next_line(physical,len,&pos,line) : fgets(line,sizeof line,in)!=NULL) {
         line[strcspn(line,"\r\n")]=0;
+        /* The fixture states its intended built-in independently of the
+         * classifier being graded. An unknown fixture verb is setup error;
+         * a known DOS verb classified differently is the observed failure. */
+        char verb[16]={0};
+        if(sscanf(line,"%15s",verb)!=1) continue;
+        for(unsigned i=0;verb[i];i++) if(verb[i]>='a' && verb[i]<='z') verb[i]-='a'-'A';
+        static const struct { const char *name; int kind; } fixture[]={
+            {"COPY",CMD_COPY},{"TYPE",CMD_TYPE},{"REN",CMD_REN},
+            {"DEL",CMD_DEL},{"ERASE",CMD_DEL},{"CD",CMD_CD},{"MD",CMD_MD}
+        };
+        int expected=-1;
+        for(unsigned i=0;i<sizeof fixture/sizeof *fixture;i++)
+            if(!strcmp(verb,fixture[i].name)) expected=fixture[i].kind;
+        if(expected<0) { fprintf(stderr,"ERROR shell-files: unknown fixture verb %s\n",verb); return 2; }
         cmd_line_t c;cmd_parse(line,&c);
+        if((int)c.kind!=expected) {
+            fprintf(stderr,"FAIL shell-files: fixture %s classified as %d instead of %d\nINITECH_CHECKS 1 failures=1\n",verb,(int)c.kind,expected);
+            return 1;
+        }
         switch(c.kind) {
         case CMD_COPY: builtin_copy(c.arg);break;
         case CMD_TYPE: builtin_type(c.arg);break;

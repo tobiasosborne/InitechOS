@@ -2,14 +2,13 @@
 # MS-DOS 3.3 Reference p.56 / PDF141: a directory operand deletes its files.
 # Expected bytes/attributes come from mtools, not the shell's listing.
 set -eu
-failed=0
-trap 'rc=$?; if [ $rc -ne 0 ] && [ $failed -eq 0 ]; then failed=1; echo "FAIL del-directory: check failed (exit $rc)"; echo "INITECH_CHECKS 1 failures=1"; exit 1; fi' EXIT
+check_suite=del-directory
+. dos/tests/assertions.sh
 mode=$1
 runner=$2
 tag=${3:-clean}
 out=build/del-directory-$mode-$tag
 mkdir -p "$out"
-fail() { echo "FAIL del-directory: $*"; echo 'INITECH_CHECKS 1 failures=1'; failed=1; exit 1; }
 img=$out/data.img
 dd if=/dev/zero of="$img" bs=512 count=2880 status=none
 mformat -i "$img" -f 1440 ::
@@ -38,7 +37,7 @@ printf 'cd t\ndel deldir\n' > "$out/commands"
 printf 'n\n' > "$out/answers"
 run() {
     if [ "$mode" = host ]; then
-        "$runner" "$img" "$out/commands" < "$out/answers" > "$out/text" 2>&1
+        "$runner" "$img" "$out/commands" < "$out/answers" > "$out/text" 2>&1 || { rc=$?; cat "$out/text"; exit "$rc"; }
     else
         cat "$out/commands" "$out/answers" > "$out/keys.txt"
         printf 'exit\n' >> "$out/keys.txt"
@@ -46,28 +45,32 @@ run() {
         build/qemu_harness --disk "$runner" --disk2 "$img" --name "del-directory-$mode-$tag" --out "$out" \
             --timeout-ms 60000 --keys "$keys" --keys-after SHELL-READY --quit-after SHELL-DONE > "$out/report" 2>&1 || true
         tr -d '\r' < "$out/del-directory-$mode-$tag.serial" > "$out/text"
-        grep -q SHELL-DONE "$out/text" || fail 'QEMU did not finish'
+        check 'QEMU did not finish' grep -q SHELL-DONE "$out/text"
     fi
 }
 run
-cmp -s "$img" "$out/before.img" || fail 'N changed disk bytes'
-grep -qF 'Are you sure (Y/N)?' "$out/text" || fail 'directory confirmation missing'
+check 'N changed disk bytes' cmp -s "$img" "$out/before.img"
+check 'directory confirmation missing' grep -qF 'Are you sure (Y/N)?' "$out/text"
 # Retain the complete non-Y disk assertion; then approve a qualified dotted path.
 printf 'cd t\nerase a:\\t\\.\\deldir\\\n' > "$out/commands"
 printf 'y\n' > "$out/answers"
 run
-grep -qF 'Are you sure (Y/N)?' "$out/text" || fail 'qualified directory confirmation missing'
+check 'qualified directory confirmation missing' grep -qF 'Are you sure (Y/N)?' "$out/text"
 if mdir -i "$img" '::T/DELDIR/F*.TXT' > "$out/list" 2>&1; then fail 'eligible immediate files remain'; fi
 bytes() {
-    mcopy -i "$img" "::$1" - > "$out/actual" 2>/dev/null || fail "$1 missing"
-    cmp -s "$out/actual" "$2" || fail "$1 bytes changed"
+    read_product "$img" "$1" "$out/actual"
+    check "$1 bytes changed" cmp -s "$out/actual" "$2"
 }
 bytes ONE.TXT "$out/root"
 bytes T/DELDIR/NEST/ONE.TXT "$out/child"
 for leaf in LOCK.TXT HIDDEN.TXT SYSTEM.TXT; do bytes "T/DELDIR/$leaf" "$out/child"; done
-mattrib -i "$img" ::T/DELDIR/LOCK.TXT | grep -q R || fail 'read-only attribute lost'
-mattrib -i "$img" ::T/DELDIR/HIDDEN.TXT | grep -q H || fail 'hidden attribute lost'
-mattrib -i "$img" ::T/DELDIR/SYSTEM.TXT | grep -q S || fail 'system attribute lost'
+mattrib -i "$img" ::T/DELDIR/LOCK.TXT > "$out/attributes"
+check 'read-only attribute preserved' grep -q R "$out/attributes"
+mattrib -i "$img" ::T/DELDIR/HIDDEN.TXT > "$out/attributes"
+check 'hidden attribute preserved' grep -q H "$out/attributes"
+mattrib -i "$img" ::T/DELDIR/SYSTEM.TXT > "$out/attributes"
+check 'system attribute preserved' grep -q S "$out/attributes"
 mdir -i "$img" ::T/DELDIR/NEST > "$out/nest" || fail 'nested directory removed'
-fsck.fat -n "$img" > "$out/fsck" 2>&1 || fail 'FAT damage'
+check_log 'FAT damage' "$out/fsck" fsck.fat -n "$img"
 echo "GREEN del-directory-$mode: N whole disk unchanged; Y 300 immediate files only; protected/nested bytes + fsck.fat"
+complete
