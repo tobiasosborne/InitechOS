@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-static void mock_diagnostic(const char *s);
-#define DA_AUX(s) mock_diagnostic(s)
 #include "../notepad.c"
 #include "scrap.h"
 #define CONT_H 237
@@ -36,9 +34,6 @@ typedef tbx_host_op_t op_t;
 #define m_scrap_len tbx_host.scrap_len
 #define m_scrap_puts tbx_host.scrap_puts
 static mfile_t *mfind(const char *p) { return (mfile_t *)tbx_host_file(p); }
-static int diagnostics;
-
-static void mock_diagnostic(const char *s) { if (strstr(s, "DA-CORRUPT")) diagnostics++; }
 static void event(int what, int msg, int mods, int x, int y)
 { tbx_event_t ev = {what, msg, mods, 0, x, y}; m_nops = 0;
   if(!tbx_host_push_event(&ev))exit(2);
@@ -227,8 +222,7 @@ int main(void)
     mfile_t *file = mfind("NOTEPAD.DAT");
 #endif
     CHECK(m_exits > 0, "close");
-    if (file) { file->data[20] ^= 1; launch(); CHECK(diagnostics == 1, "corrupt");
-        CHECK(g_te.teLength == 0, "corrupt"); }
+    if (file) { file->data[20] ^= 1; launch(); CHECK(g_te.teLength == 0, "corrupt"); }
     CHECK(m_alerts == 0, "unexpected-alert");
     /* initech-mcep (audit 2026-10-23-das L008): closing over the damaged store
      * never writes it -- it warns once and ends on the answer; the bytes are
@@ -254,8 +248,10 @@ int main(void)
         CHECK(g_te.teLength==6 && !memcmp(g_te.text,want,6),"single-byte-text");
         menu(7); menu(4);
         CHECK(m_scrap_len==6 && !memcmp(m_scrap,want,6),"single-byte-text");
-        event(TBX_EVT_GOAWAY,0,0,0,0); launch();
-        CHECK(g_te.teLength==6 && !memcmp(g_te.text,want,6) && diagnostics==1,"single-byte-text");
+        int alerts=(int)m_alerts; event(TBX_EVT_GOAWAY,0,0,0,0);
+        CHECK((int)m_alerts==alerts,"single-byte-text saved without a damaged-store notice");
+        launch();
+        CHECK(g_te.teLength==6 && !memcmp(g_te.text,want,6),"single-byte-text");
     }
     /* initech-l3ahn: TBX_FILE_READ returns "bytes | err" (toolbox_gate.h),
      * the INT 21h AH=3Fh contract: AX is the count actually read, fewer than

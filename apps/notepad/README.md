@@ -46,9 +46,9 @@ closes both, extracts both stores with mtools and checks lengths, headers,
 page bytes and an independently implemented checksum, then runs fsck.fat.
 Screendumps: build/smoke-desktop/{notepad,scrapbook}.ppm.
 
-Inherited diagnostics use DOS AUX INT 21h in addition to the Toolbox gate;
-the SDK lacks a diagnostic-output binding. This is retained behavior, not a
-new app interface. The desktop/SDK owners must resolve that boundary debt.
+Both apps reach the OS only through the Toolbox gate (INT 81h). The inherited
+DOS AUX diagnostics (initech-q9p80) were removed rather than rerouted: nothing
+read them, and a damaged store is reported to the user by the close alert.
 Remaining legacy composed-chrome emulator gates belong to the factory owner.
 
 Initial windows meet the single menu bar (operator ruling, CLAUDE.md
@@ -61,8 +61,6 @@ on caller-owned data; resident bindings are unavailable to disk applications.
 Records grant type/layout access only. The audit checks the target make graph,
 compiled includes, external symbols and interrupt vectors against these lines.
 Interface role: desktop
-Interface migration: notes-diagnostics21 initech-q9p80
-The shared Note Pad/Scrapbook diagnostic AUX site alone awaits a Toolbox route.
 Interface use-gate: sdk/include/tbx.h
 Interface use-pure: flair/include/scrap.h
 Interface use-pure: flair/include/surface.h

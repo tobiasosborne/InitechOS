@@ -1,6 +1,5 @@
 #include "bytes.h"
 #include "tbx_host.h"
-#define DA_AUX(s) ((void)(s))
 #include "../../notepad.c"
 int main(int argc,char **argv){
  if(argc!=2)return 2;

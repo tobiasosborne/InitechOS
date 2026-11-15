@@ -26,18 +26,6 @@ const char tbx_app_name[] = "SCRAPBK";
 const char tbx_app_name[] = "NOTEPAD";
 #define DA_TITLE "Note Pad"
 #endif
-/* DOS AUX output, AH=04h (kernel/int21.c do_aux_output), the existing
- * serial device seam. Host routing records it; no host env or paths. */
-#ifndef DA_AUX
-static void da_aux(const char *s)
-{
-    for (; *s; s++) {
-        uint32_t ax = 0x0400, dx = (unsigned char)*s;
-        __asm__ volatile("int $0x21" : "+a"(ax) : "d"(dx) : "memory", "cc");
-    }
-}
-#define DA_AUX(s) da_aux(s)
-#endif
 static tbx_menuitem_t file_items[] TBX_IN_IMAGE = {
     {"Close",0,'W',0,1,0,{0,0,0}},
     {"Quit",0,'Q',0,1,0,{0,0,0}}
@@ -120,14 +108,16 @@ static int valid(void)
 /* initech-mcep (audit 2026-10-23-das L008): a store that exists but cannot
  * be read back -- a bad checksum, a wrong length, a read error -- is KEPT:
  * this session runs on empty pages and never writes over it (save() below),
- * and closing says so. Only a missing store (first launch) is created. */
+ * and closing says so in an alert, the only report. initech-q9p80: the old
+ * DOS AUX diagnostics are gone; a desktop app speaks only through INT 81h.
+ * Only a missing store (first launch) is created. */
 static int g_keep, g_closing;
 static void load(void)
 {
     int32_t fd=tbx_file_open(DA_PATH,TBX_FILE_READ_ONLY), n;
     g_keep=0; g_closing=0;                     /* each launch judges afresh */
     if(fd==TBX_ERR_DOS(2)) return;             /* first launch */
-    if(fd<0) { g_keep=1; DA_AUX("DA-READ-ERROR " DA_PATH "\r\n"); return; }
+    if(fd<0) { g_keep=1; return; }
     /* initech-l3ahn: TBX_FILE_READ answers the bytes actually read (INT 21h
      * AH=3Fh); fewer than asked is legal and only 0 is end of file. Gather
      * every positive read, then judge the whole store. The buffer holds one
@@ -140,7 +130,6 @@ static void load(void)
     }
     if(tbx_file_close(fd)<0 || n!=DA_FILE_BYTES || !valid()) {
         g_keep=1;
-        DA_AUX("DA-CORRUPT " DA_PATH " empty pages\r\n");
         return;                              /* defaults remain intact */
     }
     g_count=word(6); g_page=word(8);
@@ -149,7 +138,6 @@ static void load(void)
         g_len[p]=(uint16_t)word(off);
         bytes(g_pages[p],g_disk+off+2,g_len[p]);
     }
-    DA_AUX("DA-LOADED " DA_PATH "\r\n");
 }
 static void notice(const char *s) { (void)tbx_alert(s,"OK",0,0); }
 static void stash(void)
@@ -161,7 +149,7 @@ static void stash(void)
 static int save(void)
 {
     uint32_t h; const char *magic=DA_MAGIC;
-    if(g_keep) { DA_AUX("DA-KEPT " DA_PATH " damaged, not replaced\r\n"); return 1; }
+    if(g_keep) return 1;
     for(int i=0;i<DA_FILE_BYTES;i++) g_disk[i]=0;
     for(int i=0;i<4;i++) g_disk[i]=(unsigned char)magic[i];
     putword(4,1); putword(6,g_count); putword(8,g_page); putword(10,DA_SLOTS);
@@ -172,7 +160,6 @@ static int save(void)
     h=hash(); for(int i=0;i<4;i++) g_disk[12+i]=(unsigned char)(h>>(8*i));
     /* initech-mcep: the atomic save -- a full disk keeps the old pages. */
     if(tbx_file_save(DA_PATH,g_disk,DA_FILE_BYTES)!=DA_FILE_BYTES) { notice("The pages could not be saved."); return 0; }
-    DA_AUX("DA-SAVED " DA_PATH "\r\n");
     g_dirty=0;
     if(g_undo_ok) g_undo_dirty=1; /* the prior state differs from disk now */
     return 1;
