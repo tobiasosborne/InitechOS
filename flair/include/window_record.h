@@ -162,6 +162,10 @@ typedef enum flair_part_code {
 #define FLAIR_WINDOW_WIDGET_COLLAPSE  0x04u
 #define FLAIR_WINDOW_WIDGET_GROW      0x08u
 #define FLAIR_WINDOW_WIDGET_ALL       0x0Fu
+/* Not a widget: the body has no scroll-bar gutters (NewPlainDocumentWindow;
+ * Mac OS 8.1 Get Info, s8_get_info_doc.png). Read by the same drawer and
+ * hit-test paths as the widget bits. */
+#define FLAIR_WINDOW_PLAIN_BODY       0x10u
 
 /* ===========================================================================
  * 2. WINDOW-KIND CONSTANTS  (verbatim Inside Macintosh values)

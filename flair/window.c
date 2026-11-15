@@ -620,6 +620,30 @@ void NewDocumentWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t frame,
               wKind, (int16_t)zoomDocProc, goAway);
 }
 
+/* Mac OS 8.1 Get Info (s8_get_info_doc.png, scans y=240 / x=290): with no
+ * gutters the 6-px rail (outline, 4-px raised bar, inner line) closes round
+ * the content on the right and bottom exactly as on the left. */
+rgn_rect_t CalcPlainDocContentRect(rgn_rect_t frame)
+{
+    const int rail = FLAIR_CHROME_FRAME + FLAIR_CHROME_BODY_BAR + FLAIR_CHROME_FRAME;
+    rgn_rect_t content;
+    content.top = (int16_t)(frame.top + FLAIR_CHROME_TITLEBAR_H);
+    content.left = (int16_t)(frame.left + rail);
+    content.bottom = (int16_t)(frame.bottom - rail);
+    content.right = (int16_t)(frame.right - rail);
+    if (content.bottom < content.top) content.bottom = content.top;
+    if (content.right < content.left) content.right = content.left;
+    return content;
+}
+
+void NewPlainDocumentWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t frame,
+                            int16_t wKind, uint8_t goAway)
+{
+    NewWindow(wm, w, frame, CalcPlainDocContentRect(frame),
+              wKind, (int16_t)noGrowDocProc, goAway);
+    w->widgetFlags |= FLAIR_WINDOW_PLAIN_BODY;
+}
+
 void SetWTitle(WindowMgr *wm, WindowPtr w, const char *title)
 {
     int n = 0;
@@ -823,7 +847,10 @@ static void set_document_frame(WindowMgr *wm, WindowPtr w,
     if (collapsed) {
         region_set_empty(w->contRgn);
     } else {
-        region_set_rect(w->contRgn, CalcDocContentRect(next));
+        region_set_rect(w->contRgn,
+                        (w->widgetFlags & FLAIR_WINDOW_PLAIN_BODY) != 0u
+                            ? CalcPlainDocContentRect(next)
+                            : CalcDocContentRect(next));
         /*: chrome paints BEFORE the client's updateEvt. Settle the
          * cached document extents now, not during Finder content painting.
          * Grow, zoom and unshade all take this transaction. The full new
@@ -1148,6 +1175,7 @@ int WindowScrollBand(const WindowRecord *w, flair_point_t pt)
     rgn_rect_t frame;
     if (w == NULL || !w->visible || w->collapsed ||
         !document_variant(w->windowDefProcVariant) ||
+        (w->widgetFlags & FLAIR_WINDOW_PLAIN_BODY) != 0u ||
         w->strucRgn == NULL || region_is_empty(w->strucRgn))
         return -1;
     frame = WindowFrameRect((WindowPtr)w);

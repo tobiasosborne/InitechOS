@@ -28,6 +28,24 @@ devices, and checks every transfer, verification and close result.
 Cancellation and rate-file cleanup retry a failed CLOSE once and retain any
 still-open handle until cleanup succeeds or the tenant session is reaped.
 A pending close blocks a new copy; cleanup never deletes a stage still open.
+The live FILE COPY sits at the still's box (goldens/frame/geometry.tsv COPY,
+COPYCAPTION, COPYBAR; frame-owner request L1): (150,171)-(480,285), the
+still's box grown 11 rows to hold Cancel below the bar, which the still lacks.
+The bar keeps the measured 14-row CDEF height, centred on the still's 16 fill
+rows. A live caption is at most FLAIR_LIVECOPY_TEXT_W (314) pixels, narrower
+than the SDK's TBX_FILECOPY_TEXT_W (332), and the gate enforces the tighter
+limit. test_dialog_tracking reads the expected boxes from geometry.tsv at run
+time. The film tableau's FileCopyDialog keeps its older canonical place.
+
+NEWWINDOW's WDEF byte 4 is the Mac's noGrowDocProc (frame-owner request W1):
+NewPlainDocumentWindow gives a document window with close and collapse, no
+zoom or grow box, and no scroll bars; the 6-px raised rail closes round the
+content on all four sides, as on Mac OS 8.1 Get Info (s8_get_info_doc.png),
+and the content inset shadow is the Appearance control panel's
+(s8_controls_dialog.png). The record's FLAIR_WINDOW_PLAIN_BODY bit is read by
+the drawer, FindWindow's scroll band and resize/collapse, and SETSCROLL
+refuses such a window. test_plain_window grades it against both captures. The
+SDK has yet to publish the wire name (TBX_WDEF_NOGROW, value 4 << 8).
 A refused stage DELETE keeps its name owned for the next cleanup attempt.
 The SDK retries cleanup once; persistent refusal names the exact temporary
 file and prevents further saves from consuming additional temporary names.

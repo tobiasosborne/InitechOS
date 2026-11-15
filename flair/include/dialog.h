@@ -534,8 +534,13 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
                          region_t      *contRgn,
                          region_t      *updateRgn);
 
-/* Live GM3 operation: same furniture plus Cancel and a close box. Requires
- * three items and two controls. The film tableau retains FileCopyDialog. */
+/* Live GM3 operation: same furniture plus Cancel and a close box, placed at
+ * the still's FILE COPY box (dialog.c). Requires three items and two
+ * controls. The film tableau retains FileCopyDialog. The caption item ends
+ * FLAIR_LIVECOPY_TEXT_RIGHT pixels from the box's left edge (8 inside its
+ * right edge), so a live caption is at most FLAIR_LIVECOPY_TEXT_W pixels. */
+#define FLAIR_LIVECOPY_TEXT_RIGHT 322
+#define FLAIR_LIVECOPY_TEXT_W     314
 DialogPtr FileCopyCancelableDialog(DialogRecord *storage, DialogItem *items,
                                   ControlRecord *controls, region_t *struc,
                                   region_t *content, region_t *update);

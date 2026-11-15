@@ -1,0 +1,14 @@
+# A plain document window forgets it has no gutters; the Get Info capture rejects it.
+# Source: s8_get_info_doc.png, s8_controls_dialog.png; frame-owner request W1.
+# test: test_plain_window test_flair_routing
+--- a/window.c
++++ b/window.c
+@@ -641,7 +641,7 @@
+ {
+     NewWindow(wm, w, frame, CalcPlainDocContentRect(frame),
+               wKind, (int16_t)noGrowDocProc, goAway);
+-    w->widgetFlags |= FLAIR_WINDOW_PLAIN_BODY;
++    (void)0; /* wrong: forget the plain body */
+ }
+ 
+ void SetWTitle(WindowMgr *wm, WindowPtr w, const char *title)

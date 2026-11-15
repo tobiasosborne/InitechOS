@@ -221,6 +221,15 @@ rgn_rect_t CalcRDocContentRect(rgn_rect_t frame);
 void NewDocumentWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t frame,
                        int16_t wKind, uint8_t goAway);
 
+/* NewPlainDocumentWindow -- a noGrowDocProc document window with no scroll
+ * bars: the 6-px raised body rail closes round the content on all four sides
+ * (Mac OS 8.1 Get Info, s8_get_info_doc.png). Close and collapse only. The
+ * record carries FLAIR_WINDOW_PLAIN_BODY so the drawer and FindWindow agree.
+ * CalcPlainDocContentRect is its content: frame + (6, title) .. frame - 6. */
+rgn_rect_t CalcPlainDocContentRect(rgn_rect_t frame);
+void NewPlainDocumentWindow(WindowMgr *wm, WindowPtr w, rgn_rect_t frame,
+                            int16_t wKind, uint8_t goAway);
+
 /* WindowFrameRect -- recover the drawer/hit-test frame from strucRgn. A
  * document strucRgn includes its shadow; the frame does not. */
 rgn_rect_t WindowFrameRect(const WindowPtr w);

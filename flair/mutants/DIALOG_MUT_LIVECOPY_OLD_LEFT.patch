@@ -1,0 +1,14 @@
+# Put the live FILE COPY back at the old left edge; the still's COPY box rejects it.
+# Source: goldens/frame/geometry.tsv COPY; frame-owner request L1.
+# test: test_dialog_tracking
+--- a/dialog.c
++++ b/dialog.c
+@@ -1101,7 +1101,7 @@
+  * it under the bar (Cancel 14 px from the right, 10 from the bottom, as
+  * before). The bar keeps the measured CDEF 5 height (FILECOPY_BAR_*, 14
+  * rows), centred on the still's 16 fill rows. */
+-#define LIVECOPY_LEFT        150
++#define LIVECOPY_LEFT        140
+ #define LIVECOPY_TOP         171
+ #define LIVECOPY_RIGHT       480
+ #define LIVECOPY_BOTTOM      285

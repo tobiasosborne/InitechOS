@@ -47,7 +47,8 @@ static void tick(void)
  if(mode<2) raw(FLAIR_RAW_KEYBOARD,1); /* physical Escape, ASCII zero */
  else if(mode==2) { raw(FLAIR_RAW_KEYBOARD,0x1d); raw(FLAIR_RAW_KEYBOARD,0x34); }
  else {
-  flair_event_warp(mode==3?450:150,mode==3?288:210);
+  /* Cancel (394,255)-(466,275) or the close box at the live box (150,171)+10. */
+  flair_event_warp(mode==3?430:160,mode==3?265:181);
   raw(FLAIR_RAW_MOUSE,1); raw(FLAIR_RAW_MOUSE,0);
  }
 }

@@ -93,6 +93,14 @@
 
 #include "tbx_layout.h" /* SDK wire pins and manager layout comparisons */
 
+/* NEWWINDOW WDEF byte 4: the Mac's noGrowDocProc, a document window with no
+ * grow box and (in FLAIR, which owns the bars) no scroll bars; frame-owner
+ * request W1. The SDK is asked to publish it as TBX_WDEF_NOGROW with this
+ * value (phase3/word-owner.md requests); until then a tenant passes
+ * 4 << TBX_WDEF_SHIFT. */
+#define FLAIR_TBX_WDEF_NOGROW (4u << TBX_WDEF_SHIFT)
+
+
 /* Tenant transfer and non-returning crash unwind are platform services. */
 
 /* ===========================================================================
@@ -454,7 +462,7 @@ static int32_t v_newwindow(const uint32_t *a)
         b < FLAIR_CHROME_MENUBAR_H || b > FLAIR_SCREEN_H ||
         r - l < 96 || b - t < 64 ||
         goaway > TBX_GOAWAY_ASK ||                /* Sec 11: 0, 1 or 2 */
-        (wdef != 0u && wdef != TBX_WDEF_RDOC))    /*  */
+        (wdef != 0u && wdef != TBX_WDEF_RDOC && wdef != FLAIR_TBX_WDEF_NOGROW))
         return TBX_ERR_BADARG;
 
     rec = (WindowRecord *)flair_alloc(&app->records_arena, FLAIR_CLASS_HANDLE,
@@ -489,6 +497,9 @@ static int32_t v_newwindow(const uint32_t *a)
         NewWindow(g_host.wm, rec, fr, CalcRDocContentRect(fr),
                   (int16_t)documentKind, (int16_t)rDocProc,
                   (uint8_t)(goaway != 0u ? 1u : 0u));
+    else if (wdef == FLAIR_TBX_WDEF_NOGROW)
+        NewPlainDocumentWindow(g_host.wm, rec, fr, (int16_t)documentKind,
+                               (uint8_t)(goaway != 0u ? 1u : 0u));
     else
         NewDocumentWindow(g_host.wm, rec, fr, (int16_t)documentKind,
                           (uint8_t)(goaway != 0u ? 1u : 0u));
@@ -939,6 +950,8 @@ static int32_t v_setscroll(const uint32_t *a)
     rgn_rect_t c;
     if (!check_win(a[0])) return TBX_ERR_BADARG;
     if (a[1] > 32767u || a[2] > 32767u) return TBX_ERR_BADARG;
+    if ((g_slot.win->widgetFlags & FLAIR_WINDOW_PLAIN_BODY) != 0u)
+        return TBX_ERR_BADARG;                /* no gutter to put a bar in */
     if (g_slot.scroll == (WindowScroll *)0) {
         WindowScroll *ws = (WindowScroll *)flair_alloc(&g_slot.app->records_arena,
                                                        FLAIR_CLASS_HANDLE,
@@ -1051,7 +1064,11 @@ static int32_t v_filecopy(const uint32_t *a)
     if (g_slot.alert || g_slot.fcopy) return TBX_ERR_BUSY;
     if (len <= 0) return TBX_ERR_BADARG;
     for (int32_t i = 0; i < len; i++) if (t[i] == '\r') return TBX_ERR_BADARG;
-    if (!alert_copy(g_slot.fc_caption, TBX_ALERT_LINE_MAX, t, len, TBX_FILECOPY_TEXT_W) ||
+    /* The live box is the still's (dialog.c): its caption item is narrower
+     * than the SDK's TBX_FILECOPY_TEXT_W, so the tighter limit applies. */
+    if (!alert_copy(g_slot.fc_caption, TBX_ALERT_LINE_MAX, t, len,
+                    FLAIR_LIVECOPY_TEXT_W < TBX_FILECOPY_TEXT_W ?
+                    FLAIR_LIVECOPY_TEXT_W : TBX_FILECOPY_TEXT_W) ||
         !fc_path_copy(g_slot.fc_src, a[1]) || !fc_path_copy(g_slot.fc_dst, a[2]))
         return TBX_ERR_BADARG;
     g_slot.fcopy = 1u;

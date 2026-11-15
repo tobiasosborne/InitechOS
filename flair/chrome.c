@@ -830,6 +830,9 @@ void flair_draw_document_window_scroll(GrafPort *port,
         grow_x = ri - FLAIR_CHROME_GROW_RIGHT_OFF;
         grow_y = bi - FLAIR_CHROME_GROW_BOTTOM_OFF;
         sb_left = grow_x - FLAIR_CHROME_FRAME;
+        /* A plain body (Get Info, s8_get_info_doc.png) has no gutters and no
+         * grow box: the rails drawn above close round the content. */
+        if ((widget_flags & FLAIR_WINDOW_PLAIN_BODY) == 0u) {
         {
             int sb_top = shared_line;
             sb_state_of(&sbv, frame, WSCROLL_V, ws);
@@ -843,6 +846,7 @@ void flair_draw_document_window_scroll(GrafPort *port,
         if ((widget_flags & FLAIR_WINDOW_WIDGET_GROW) != 0u
         )
             draw_grow_box(port, skin, grow_x, grow_y, active);
+        }
     }
 
     ri = right - 1;

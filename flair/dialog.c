@@ -1094,18 +1094,43 @@ DialogPtr FileCopyDialog(DialogRecord  *storage,
     return dp;
 }
 
+/* The live copy is placed at the still's FILE COPY (goldens/frame/
+ * geometry.tsv: COPY (150,171)-(480,274), caption COPYCAPTION from (158,213),
+ * fill COPYBAR (160,234)-(420,250)); frame-owner request L1. The still has
+ * no Cancel; GM3 keeps one, so the box grows 11 rows below the still's to hold
+ * it under the bar (Cancel 14 px from the right, 10 from the bottom, as
+ * before). The bar keeps the measured CDEF 5 height (FILECOPY_BAR_*, 14
+ * rows), centred on the still's 16 fill rows. */
+#define LIVECOPY_LEFT        150
+#define LIVECOPY_TOP         171
+#define LIVECOPY_RIGHT       480
+#define LIVECOPY_BOTTOM      285
+#define LIVECOPY_TEXT_LEFT   158
+#define LIVECOPY_TEXT_TOP    213
+#define LIVECOPY_BAR_LEFT    160
+#define LIVECOPY_BAR_RIGHT   420
+#define LIVECOPY_BAR_TOP     235
+
 DialogPtr FileCopyCancelableDialog(DialogRecord *storage, DialogItem *items,
                                   ControlRecord *controls, region_t *struc,
                                   region_t *content, region_t *update)
 {
     DialogPtr dp=FileCopyDialog(storage,items,controls,struc,content,update);
     if(!dp) return dp;
-    rgn_rect_t bounds=dp->window.port.portRect;
-    bounds.bottom=(int16_t)(bounds.bottom+28);
+    rgn_rect_t bounds={ LIVECOPY_TOP, LIVECOPY_LEFT, LIVECOPY_BOTTOM, LIVECOPY_RIGHT };
     region_set_rect(struc,bounds);
     region_set_rect(content,bounds);
     dp->window.port.portRect=bounds;
     dp->window.goAwayFlag=1;
+    rgn_rect_t text={ LIVECOPY_TEXT_TOP, LIVECOPY_TEXT_LEFT,
+                      (int16_t)(LIVECOPY_TEXT_TOP+FILECOPY_TEXT_BOTTOM-FILECOPY_TEXT_TOP),
+                      (int16_t)(LIVECOPY_LEFT+FLAIR_LIVECOPY_TEXT_RIGHT) };
+    items[0].rect=text;
+    rgn_rect_t bar={ LIVECOPY_BAR_TOP, LIVECOPY_BAR_LEFT,
+                     (int16_t)(LIVECOPY_BAR_TOP+FILECOPY_BAR_BOTTOM-FILECOPY_BAR_TOP),
+                     LIVECOPY_BAR_RIGHT };
+    items[1].rect=bar;
+    controls[0].contrlRect=bar;
     rgn_rect_t button={ (int16_t)(bounds.bottom-30), (int16_t)(bounds.right-86),
                         (int16_t)(bounds.bottom-10), (int16_t)(bounds.right-14) };
     control_init(&controls[1],pushButton,button,0,0,1,1,"Cancel");

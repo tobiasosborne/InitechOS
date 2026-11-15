@@ -53,8 +53,10 @@ for mode in $case_list; do
   case $mode in
    escape|empty) inject kesc;;
    control) inject kctrl-dot;;
-   button) point 450 288; inject 'l1,l0';;
-   close) point 150 210; inject 'l1,l0';;
+   # Cancel (394,255)-(466,275) and the close box, 10 px inside the live
+   # box's top-left (150,171): flair/dialog.c FileCopyCancelableDialog.
+   button) point 430 265; inject 'l1,l0';;
+   close) point 160 181; inject 'l1,l0';;
   esac
   await_marker 'TENANT-EVT what=145'
   point 520 350; inject "w100,D$d/after.ppm,kq"

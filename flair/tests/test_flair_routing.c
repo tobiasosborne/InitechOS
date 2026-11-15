@@ -1203,6 +1203,32 @@ static void leg_window_extremes(void)
     }
 }
 
+/* Frame-owner W1: NEWWINDOW's WDEF byte 4 is the Mac's noGrowDocProc, the
+ * gutterless body of Mac OS 8.1 Get Info (s8_get_info_doc.png: 6-px rails on
+ * all four sides, 22-row title band). Frame (20,40)-(220,240) therefore has
+ * content (200-12) x (200-22-6) = 188 x 172; it has no scroll bar to set. */
+static void script_plain_window(void)
+{
+    uint32_t reg[]={g_base+IMG_REC};
+    uint32_t plain[]={20,40,220,240,1u|(4u<<TBX_WDEF_SHIFT)};
+    uint32_t zoom_no_grow[]={20,40,220,240,1u|(12u<<TBX_WDEF_SHIFT)};
+    CHECK(gate(TBX_REGISTER,1,reg)==0,"plain-window tenant registers");
+    CHECK(gate(TBX_NEWWINDOW,5,zoom_no_grow)==TBX_ERR_BADARG,"other WDEF values stay refused");
+    CHECK(gate(TBX_NEWWINDOW,5,plain)==1,"noGrowDocProc window is created");
+    uint32_t tok[]={1};
+    CHECK(gate(TBX_CONTENT_SIZE,1,tok)==(int32_t)((172u<<16)|188u),
+          "gutterless content is the frame less 6-px rails and the title band");
+    uint32_t bar[]={1,400,0};
+    CHECK(gate(TBX_SETSCROLL,3,bar)==TBX_ERR_BADARG,"a plain window has no scroll bar");
+}
+static void leg_plain_window(void)
+{
+    EXPECT_SUCCESS("plain document window through the gate", {
+        world_init(); TP.script=script_plain_window;
+        CHECK(launch()==0,"plain-window fixture launches");
+    });
+}
+
 
 /* CHECK with a formatted reason (the shared macro takes one string). */
 #define CHECKF(cond, ...) do { char m_[512]; \
@@ -1624,6 +1650,7 @@ int main(void)
     leg_gate();
     leg_fill_geometry();
     leg_window_extremes();
+    leg_plain_window();
     leg_menubar();
     leg_reclaim();
     leg_geneva();
