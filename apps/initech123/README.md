@@ -56,7 +56,12 @@ Separate checks still cover eight real Copy/Move pairs, four tiling fixtures,
 12 self-transfers and the complete 82-level/381-item reference. The shipped
 25-level/105-item tree is graded by full path, order, descriptions and action
 identity against the independent subtraction. The precision-negative
-x87-027F invocation retains its two expected failures and three diagnostics.
+x87-027F invocation retains its two expected failures and three diagnostics in
+its separate `precision.log`. Eight wrapper assertions verify that exact
+negative result, including the MINT05 literal and control word, then print
+their own completed passing verdict. Missing completion and producer errors
+remain errors. The raw expected-red summary is never presented as the outer
+test's verdict (initech-u5jow; shared summary contract, factory 8cc265de).
 The independent corpus comprises 59 real WK1 inputs. Formula checks retain
 1090 formulas, 4000 random formulas, poisoned-cache files and manual examples;
 Copy/Move retains 4000 random sheets and 1,020,041 assertions.

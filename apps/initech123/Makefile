@@ -18,6 +18,7 @@ $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_SRCS := tests/test_i123_$(t).c $
 $(foreach t,$(FACE_TESTS),$(eval test_i123_$(t)_CFLAGS := $(FACE_INC) -D_DEFAULT_SOURCE))
 $(foreach cw,037F 027F,$(eval test_i123_formula_x87_$(cw)_SRCS := tests/diff/test_i123_formula.c $(X87_CORE)))
 $(foreach cw,037F 027F,$(eval test_i123_formula_x87_$(cw)_CFLAGS := -mfpmath=387 -DI123_TEST_X87_CW=0x$(cw)))
+test_i123_formula_x87_027F_DEPS := tests/precision-negative.sh tests/run.sh
 $(foreach mode,corpus tile,$(eval test_i123_copy_$(mode)_SRCS := $(test_i123_copy_move_SRCS)))
 test_i123_menu_tree_SRCS := tests/diff/test_i123_menu_tree.c tests/tools/menu_project.c tests/tools/menu_resource.c core/menu.c
 test_i123_menu_tree_CFLAGS := -DI123_MENU_HOST

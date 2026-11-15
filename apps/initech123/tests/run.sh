@@ -44,15 +44,7 @@ case $name in
   test_i123_formula_x87_027F)
     rc=0
     "$bin" "$LOTUS123_DECOMP" "$out" "$ref" > "$out/precision.log" 2>&1 || rc=$?
-    cat "$out/precision.log"
-    test "$rc" -eq 1
-    test "$(grep -c 'FAIL [AB]:' "$out/precision.log")" -eq 3
-    if grep -Eq 'RED-REASON (values|recalc-file|property|manual)' "$out/precision.log"; then
-      echo 'FAIL: 53-bit precision run has failures beyond the recorded literal diagnostics' >&2
-      exit 1
-    fi
-    grep -q 'checks,' "$out/precision.log"
-    echo '53-bit x87 correctly RED: typed/round-trip literal precision'
+    sh tests/precision-negative.sh "$out/precision.log" "$rc"
     ;;
   test_i123_recalc_order) "$bin" "$LOTUS123_DECOMP" "$ref" ;;
   test_i123_transfer_baseline) "$bin" "$LOTUS123_DECOMP" "$out" "$ref" ;;
