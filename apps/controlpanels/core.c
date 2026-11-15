@@ -67,6 +67,14 @@ unsigned cp_items(cp_state_t *s,cp_item_t *p) {
     add(p,&n,24,s->panel==1?198:4,340,0,0,s->error?"Settings could not be saved.":names[s->panel]);
     return n;
 }
+/* initech-tgt0: the date or time the user changed, against the reading the
+ * panel holds (cpanels.c re-reads an untouched time on every event, so OK
+ * over it sets the clock to the reading just taken, never back). */
+int cp_time_changed(const cp_state_t *s) {
+    const cp_time_t *a=&s->time,*b=&s->original_time;
+    return a->year!=b->year || a->month!=b->month || a->day!=b->day ||
+           a->hour!=b->hour || a->minute!=b->minute || a->second!=b->second;
+}
 void cp_hit(cp_state_t *s,unsigned item,const cp_ops_t *o) {
     if(!s->panel) {if(item<=2)s->closed=1;else if(item<=7){s->panel=item-2;s->edit=s->live;s->original_time=s->time;s->error=0;s->clock_tab=0;}return;}
     if(item==2) {

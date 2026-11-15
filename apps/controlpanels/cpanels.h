@@ -13,5 +13,6 @@ typedef struct cp_ops {
 } cp_ops_t;
 void cp_init(cp_state_t *,const cp_settings_t *);
 void cp_hit(cp_state_t *,unsigned,const cp_ops_t *);
+int cp_time_changed(const cp_state_t *);
 unsigned cp_items(cp_state_t *,cp_item_t *);
 #endif

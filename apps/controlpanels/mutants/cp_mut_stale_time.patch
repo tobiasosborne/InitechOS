@@ -1,0 +1,11 @@
+--- a/cpanels.c
++++ b/cpanels.c
+@@ -35,7 +35,7 @@
+  * receives no idle events, so the reading is as fresh as the last event,
+  * not a ticking display); a changed time is never overwritten. */
+ static void fresh_time(void) {
+- if(state.panel!=1 || cp_time_changed(&state))return;
++ return;
+  if(clock(0)==0)state.original_time=state.time;
+ }
+ static int dialog(const tbx_event_t *e) {

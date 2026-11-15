@@ -30,6 +30,14 @@ static void beep(void *u) {
  cp_encode(&state.live,record);(void)settings(1);
 }
 static const cp_ops_t ops={save,apply,setclock,beep,0};
+/* initech-tgt0: while the user has not changed the date or time, the panel
+ * shows the running clock, read again on every event it receives (a tenant
+ * receives no idle events, so the reading is as fresh as the last event,
+ * not a ticking display); a changed time is never overwritten. */
+static void fresh_time(void) {
+ if(state.panel!=1 || cp_time_changed(&state))return;
+ if(clock(0)==0)state.original_time=state.time;
+}
 static int dialog(const tbx_event_t *e) {
  unsigned n=cp_items(&state,items);
  return tbx_dialog(win,items,n,1,2,e);
@@ -57,8 +65,9 @@ int tbx_app_main(void) {
 }
 void tbx_app_event(const tbx_event_t *e) {
  if(e->what==TBX_EVT_GOAWAY || (e->what==TBX_EVT_MENU && e->message==TBX_MENU_WORD(129,1))) {(void)tbx_exit(0);return;}
- if(e->what==updateEvt){paint();return;}
+ if(e->what==updateEvt){fresh_time();paint();return;}
  if(e->what!=mouseDown && e->what!=keyDown && e->what!=autoKey)return;
+ fresh_time();
  event=*e;unsigned before=state.panel;int hit=dialog(&event);
  if(hit>0) {
   if(!before)(void)clock(0);

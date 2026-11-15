@@ -12,12 +12,19 @@ speaker sounds/lengths and preview, and read-only memory labels. RTC is CMOS;
 CPANELS.DAT stores the other settings in the claimed record.json format.
 Native panel layouts are not recovered: existing Dialog/Control furniture is
 an authored composition, not a pixel replica of a period panel.
+Date & Time shows the running clock until the user changes the date or
+time: an untouched time is read again on every event the panel receives
+(a tenant gets no idle events, so it does not tick on its own), and OK over
+it sets the clock to the reading just taken, never back to the moment the
+panel opened. A changed time is never overwritten by a reading; OK sets it
+and Cancel discards it (initech-tgt0).
 
 make test runs three suites, 144 core/dialog checks, four shared-sdk/host
 transport checks and the GM4 command sweep, in about a second. The PAT# resource comparison is differential
 against real System 7 bytes; routing/transactions/calendar/record assertions
-are unit/regression. make mutants kills five patches, among them a dead
-Sound Test button that only the command sweep catches. make smoke launches on QEMU, chooses
+are unit/regression. make mutants kills six patches, among them a dead
+Sound Test button that only the command sweep catches and a Date & Time
+that keeps the reading taken when it opened (cp_mut_stale_time). make smoke launches on QEMU, chooses
 Stipple, saves, quits, then mtools/cmp checks a literal independent 16-byte
 record and fsck checks the volume. Screendump:
 build/smoke-desktop/patterns.ppm.
