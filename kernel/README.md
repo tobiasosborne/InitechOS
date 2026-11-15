@@ -489,3 +489,11 @@ then inject an exit after completed operations and prove that passing disk
 comparisons cannot hide it. The two additional mutations remove the completion
 guard or ignore producer status. This repairs the three remaining stamp-gate
 runner errors without modifying the DOS component (initech-vocfm).
+
+The conservation gates extract each failed image's original files/directories
+with one recursive mtools traversal into a fresh per-image directory. Every
+payload/empty-file/directory check and whole-image comparison remains; explicit
+assertions now report byte mismatches as semantic failures. A positioned-write
+error that damages the old payload is a separate mutation, so allocation-only
+checks cannot stand in for the named-byte guarantee. No fault position is
+removed to reduce the number of mtools processes.

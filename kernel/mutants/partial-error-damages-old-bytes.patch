@@ -1,0 +1,14 @@
+# test: test-allocation-conservation
+--- a/fat12.c
++++ b/fat12.c
+@@ -3261,6 +3261,10 @@
+ 	                                data, len, sector_buf, cluster_buf, out_written);
+ 	if (rc == FAT12_OK) return rc;
+ 	*out_written = 0u;
++	if (old.start_cluster >= FAT12_FIRST_DATA_CLUSTER) {
++		for (i = 0u; i < 512u; i++) ((uint8_t *)sector_buf)[i] = 0u;
++		(void)fat12_write_sectors(vol, cluster_lba(vol, old.start_cluster), 1u, sector_buf);
++	}
+ 	for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
+ 	restore_fat = fat12_flush_fats(vol, fat, fat_len);
+ 	restore_dir = fat12_write_dirent_in_dir(vol, fat, fat_len, parent == 0u,

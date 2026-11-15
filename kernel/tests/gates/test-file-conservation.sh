@@ -1,4 +1,5 @@
 set -eu
+. kernel/tests/assertions.sh
 for tool in mformat mcopy mmd mdel; do command -v "$tool" >/dev/null; done
 mkdir -p build/conservation
 image=build/conservation/fixture.img
@@ -21,11 +22,13 @@ done
 for file in build/conservation/create-*.img build/conservation/unlink-*.img; do
  case "$file" in *-0-0.img) continue;; esac
  # All reported errors leave both originals under their previous names.
+ extracted=$file.files
+ mkdir "$extracted"
+ mcopy -s -i "$file" ::OLD.BIN ::SUB "$extracted/"
  for name in OLD.BIN SUB/OLD.BIN; do
-  mcopy -o -i "$file" "::$name" build/conservation/readback.bin
-  cmp build/conservation/old.bin build/conservation/readback.bin
+  assert cmp build/conservation/old.bin "$extracted/$name"
  done
- cmp "$image" "$file"
+ assert cmp "$image" "$file"
 done
 for file in build/conservation/*-0-0.img; do
  case "$file" in *-sub-*) name=SUB/OLD.BIN;; *) name=OLD.BIN;; esac
@@ -40,3 +43,4 @@ for file in build/conservation/*-0-0.img; do
  esac
 done
 printf 'PASS mtools: original bytes survive every reported metadata error\n'
+finish
