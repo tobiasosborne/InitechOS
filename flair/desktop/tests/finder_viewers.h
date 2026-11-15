@@ -1,5 +1,5 @@
 /* Independent viewer/gesture invariants, alongside the exact menu manifest. */
-static int empty_metadata(void *u,uint16_t d,finder_enum_cb cb,void *cu)
+static int empty_metadata(void *u,finder_dir_id_t d,finder_enum_cb cb,void *cu)
 {(void)u;(void)d;(void)cb;(void)cu;return 0;}
 static __attribute__((unused)) void info_contexts(void)
 {

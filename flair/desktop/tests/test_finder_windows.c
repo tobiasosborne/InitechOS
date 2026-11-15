@@ -125,11 +125,11 @@ typedef struct mock_entry {
     const char *name;
     uint8_t     attr;
     uint32_t    size;
-    uint16_t    cluster;
+    finder_dir_id_t    cluster;
 } mock_entry_t;
 
 typedef struct mock_dir {
-    uint16_t            dir_start;
+    finder_dir_id_t            dir_start;
     const mock_entry_t *ents;
     int                 n;
 } mock_dir_t;
@@ -141,11 +141,11 @@ typedef struct mock_fs {
     int               fail;          /* 1 == enumerate() reports a backend error */
     int               mkdir_rc;      /* what mkdir() returns                     */
     char              mkdir_name[FINDER_DESK_NAME_MAX];
-    uint16_t          mkdir_parent;
+    finder_dir_id_t          mkdir_parent;
     int               mkdir_calls;
 } mock_fs_t;
 
-static int mock_enumerate(void *user, uint16_t dir_start,
+static int mock_enumerate(void *user, finder_dir_id_t dir_start,
                           finder_enum_cb cb, void *cb_user)
 {
     mock_fs_t *m = (mock_fs_t *)user;
@@ -179,7 +179,7 @@ static int mock_enumerate(void *user, uint16_t dir_start,
     return 0;
 }
 
-static int mock_mkdir(void *user, const char *name83, uint16_t parent)
+static int mock_mkdir(void *user, const char *name83, finder_dir_id_t parent)
 {
     mock_fs_t *m = (mock_fs_t *)user;
     m->mkdir_calls++;
@@ -192,7 +192,7 @@ static int mock_mkdir(void *user, const char *name83, uint16_t parent)
 /* The view identity (finder_fs_t dir_ident, bead initech-uios): `dir` is
  * live iff the parent's listing holds a DIRECTORY `name83` -> `dir`, the same
  * rule fat12_dir_identity applies, evaluated over the hand-authored tree. */
-static int mock_dir_ident(void *user, uint16_t dir, uint16_t parent,
+static int mock_dir_ident(void *user, finder_dir_id_t dir, finder_dir_id_t parent,
                           const char *name83)
 {
     mock_fs_t *m = (mock_fs_t *)user;
@@ -433,7 +433,7 @@ static void leg_enumerate(void)
      * own root bookkeeping (\DESKTOP.DB, \TRASH -- beads initech-tdnl.56/.73/
      * .75) dropped, everything else in on-disk order, with the kind heuristic
      * applied by hand. */
-    struct { const char *name; finder_icon_kind_t kind; uint16_t cluster; } W[] = {
+    struct { const char *name; finder_icon_kind_t kind; finder_dir_id_t cluster; } W[] = {
         { "README.TXT", FINDER_ICON_FILE,   0u },
         { "APPS",       FINDER_ICON_FOLDER, 7u },
         { "SETUP.EXE",  FINDER_ICON_APP,    0u },
@@ -876,7 +876,7 @@ static void leg_new_folder(void)
     static scene_t s;
     int slot = -1;
     char name[FINDER_DESK_NAME_MAX];
-    uint16_t parent = 0xFFFFu;
+    finder_dir_id_t parent = 0xFFFFu;
 
     scene_init(&s, MOCK_DIRS, 2);
     CHECK(finder_win_open(&s.sh, 0u, 7u, "APPS", 0u, &slot, NULL) == FINDER_WIN_OK,
@@ -1039,8 +1039,8 @@ static void leg_cmd_spine(void)
  *   A<3>: CHILD<4>, KEEP.TXT[6]      CHILD<4>: GRAND<5>     GRAND<5>: NOTE.TXT[7]
  * ===========================================================================*/
 enum { PV_DIRS = 8, PV_ENTS = 8, PV_CLUSTERS = 32 };
-typedef struct pv_ent { char name[14]; uint8_t attr; uint16_t cl; } pv_ent_t;
-typedef struct pv_dir { int used; uint16_t cl; int n; pv_ent_t e[PV_ENTS]; } pv_dir_t;
+typedef struct pv_ent { char name[14]; uint8_t attr; finder_dir_id_t cl; } pv_ent_t;
+typedef struct pv_dir { int used; finder_dir_id_t cl; int n; pv_ent_t e[PV_ENTS]; } pv_dir_t;
 typedef struct pv {
     pv_dir_t d[PV_DIRS];
     uint8_t  busy[PV_CLUSTERS];       /* 1 == allocated                       */
@@ -1048,7 +1048,7 @@ typedef struct pv {
     int      mkdir_calls;
 } pv_t;
 
-static pv_dir_t *pv_dir(pv_t *m, uint16_t cl)
+static pv_dir_t *pv_dir(pv_t *m, finder_dir_id_t cl)
 {
     for (int i = 0; i < PV_DIRS; i++)
         if (m->d[i].used && m->d[i].cl == cl) return &m->d[i];
@@ -1059,7 +1059,7 @@ static int pv_find(const pv_dir_t *d, const char *n)
     for (int i = 0; i < d->n; i++) if (strcmp(d->e[i].name, n) == 0) return i;
     return -1;
 }
-static void pv_add(pv_t *m, uint16_t dir, const char *n, uint8_t attr, uint16_t cl)
+static void pv_add(pv_t *m, finder_dir_id_t dir, const char *n, uint8_t attr, finder_dir_id_t cl)
 {
     pv_dir_t *d = pv_dir(m, dir);
     memset(&d->e[d->n], 0, sizeof d->e[d->n]);
@@ -1077,14 +1077,14 @@ static void pv_add(pv_t *m, uint16_t dir, const char *n, uint8_t attr, uint16_t 
 }
 static void pv_del(pv_t *m, pv_dir_t *d, int i)
 {
-    uint16_t cl = d->e[i].cl;
+    finder_dir_id_t cl = d->e[i].cl;
     pv_dir_t *sub = ((d->e[i].attr & 0x10u) != 0u) ? pv_dir(m, cl) : NULL;
     if (sub != NULL) sub->used = 0;
     if (cl != 0u) m->busy[cl] = 0u;               /* FREED (0x000)         */
     for (int k = i; k + 1 < d->n; k++) d->e[k] = d->e[k + 1];
     d->n--;
 }
-static int pv_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
+static int pv_enum(void *u, finder_dir_id_t cl, finder_enum_cb cb, void *cu)
 {
     pv_t *m = (pv_t *)u;
     pv_dir_t *d = pv_dir(m, cl);
@@ -1103,7 +1103,7 @@ static int pv_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
 }
 /* mkdir allocates the LOWEST FREE cluster (fat12_find_free); a parent that is
  * not a live directory is the FAT layer's FAT12_ERR_STALE_DIR -> ERR_MKDIR. */
-static int pv_mkdir(void *u, const char *n, uint16_t parent)
+static int pv_mkdir(void *u, const char *n, finder_dir_id_t parent)
 {
     pv_t *m = (pv_t *)u;
     pv_dir_t *p = pv_dir(m, parent);
@@ -1113,7 +1113,7 @@ static int pv_mkdir(void *u, const char *n, uint16_t parent)
         if (!m->busy[c]) { pv_add(m, parent, n, 0x10u, c); return 0; }
     return (int)FINDER_WIN_ERR_MKDIR;
 }
-static int pv_unlink(void *u, const char *n, uint16_t dir)
+static int pv_unlink(void *u, const char *n, finder_dir_id_t dir)
 {
     pv_t *m = (pv_t *)u;
     pv_dir_t *d = pv_dir(m, dir);
@@ -1122,7 +1122,7 @@ static int pv_unlink(void *u, const char *n, uint16_t dir)
     pv_del(m, d, i);
     return 0;
 }
-static int pv_rmdir(void *u, const char *n, uint16_t dir)
+static int pv_rmdir(void *u, const char *n, finder_dir_id_t dir)
 {
     pv_t *m = (pv_t *)u;
     pv_dir_t *d = pv_dir(m, dir), *sub;
@@ -1134,7 +1134,7 @@ static int pv_rmdir(void *u, const char *n, uint16_t dir)
     return 0;
 }
 static int pv_trash_dir(void *u) { (void)u; return 2; }
-static int pv_ident(void *u, uint16_t cl, uint16_t parent, const char *n)
+static int pv_ident(void *u, finder_dir_id_t cl, finder_dir_id_t parent, const char *n)
 {
     pv_t *m = (pv_t *)u;
     pv_dir_t *p = pv_dir(m, parent);
@@ -1211,7 +1211,7 @@ static void leg_purge_views(void)
     uint16_t purged = 0u, refused = 0u;
     uint8_t dirty = 0u;
     char name[FINDER_DESK_NAME_MAX];
-    uint16_t parent = 0u;
+    finder_dir_id_t parent = 0u;
     finder_win_status_t st;
 
     /* ---- A: the nested views all close ---------------------------------- */

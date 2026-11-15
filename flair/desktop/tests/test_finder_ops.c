@@ -108,10 +108,10 @@ enum { MV_DIRS = 4, MV_ENTS = 26 };   /* 26: leg O11 root, 24 shown + 2 hidden *
 enum { CL_ROOT = 0, CL_APPS = 2, CL_TRASH = 3, CL_NEWFOLD = 9 };
 
 typedef struct mv_ent {
-    char name[14]; uint8_t attr; uint16_t cluster; uint32_t size;
+    char name[14]; uint8_t attr; finder_dir_id_t cluster; uint32_t size;
     uint16_t date, time;
 } mv_ent_t;
-typedef struct mv_dir { uint16_t cl; int n; mv_ent_t e[MV_ENTS]; } mv_dir_t;
+typedef struct mv_dir { finder_dir_id_t cl; int n; mv_ent_t e[MV_ENTS]; } mv_dir_t;
 
 typedef struct mock {
     mv_dir_t d[MV_DIRS];
@@ -123,7 +123,7 @@ typedef struct mock {
     char     log[256];           /* O14: the purge ops, in order                */
 } mock_t;
 
-static mv_dir_t *mv_dir(mock_t *m, uint16_t cl)
+static mv_dir_t *mv_dir(mock_t *m, finder_dir_id_t cl)
 {
     for (int i = 0; i < MV_DIRS; i++) if (m->d[i].cl == cl) return &m->d[i];
     return NULL;
@@ -133,7 +133,7 @@ static int mv_find(const mv_dir_t *d, const char *n)
     for (int i = 0; i < d->n; i++) if (strcmp(d->e[i].name, n) == 0) return i;
     return -1;
 }
-static void mv_add(mv_dir_t *d, const char *n, uint8_t attr, uint16_t cl)
+static void mv_add(mv_dir_t *d, const char *n, uint8_t attr, finder_dir_id_t cl)
 {
     memset(&d->e[d->n], 0, sizeof d->e[d->n]);
     strncpy(d->e[d->n].name, n, 13); d->e[d->n].attr = attr;
@@ -144,13 +144,13 @@ static void mv_del(mv_dir_t *d, int i)
     for (int k = i; k + 1 < d->n; k++) d->e[k] = d->e[k + 1];
     d->n--;
 }
-static int mv_has(mock_t *m, uint16_t cl, const char *n)
+static int mv_has(mock_t *m, finder_dir_id_t cl, const char *n)
 {
     mv_dir_t *d = mv_dir(m, cl);
     return d != NULL && mv_find(d, n) >= 0;
 }
 
-static int m_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
+static int m_enum(void *u, finder_dir_id_t cl, finder_enum_cb cb, void *cu)
 {
     mock_t *m = (mock_t *)u;
     mv_dir_t *d = mv_dir(m, cl);
@@ -168,8 +168,8 @@ static int m_enum(void *u, uint16_t cl, finder_enum_cb cb, void *cu)
     }
     return 0;
 }
-static int m_mkdir(void *u, const char *n, uint16_t p) { (void)u; (void)n; (void)p; return 0; }
-static int m_move(void *u, const char *src, uint16_t sd, const char *dst, uint16_t dd)
+static int m_mkdir(void *u, const char *n, finder_dir_id_t p) { (void)u; (void)n; (void)p; return 0; }
+static int m_move(void *u, const char *src, finder_dir_id_t sd, const char *dst, finder_dir_id_t dd)
 {
     mock_t *m = (mock_t *)u;
     mv_dir_t *s = mv_dir(m, sd), *d = mv_dir(m, dd);
@@ -189,7 +189,7 @@ static int m_move(void *u, const char *src, uint16_t sd, const char *dst, uint16
     mv_del(s, i);
     return 0;
 }
-static int m_trash_name(void *u, const char *n, uint16_t dir, char *out)
+static int m_trash_name(void *u, const char *n, finder_dir_id_t dir, char *out)
 {
     mock_t *m = (mock_t *)u;
     if (!mv_has(m, dir, n)) { strcpy(out, n); return 0; }
@@ -199,7 +199,7 @@ static int m_trash_name(void *u, const char *n, uint16_t dir, char *out)
     return 0;
 }
 static int m_trash_dir(void *u) { return ((mock_t *)u)->no_trash ? -1 : CL_TRASH; }
-static int m_unlink(void *u, const char *n, uint16_t dir)
+static int m_unlink(void *u, const char *n, finder_dir_id_t dir)
 {
     mock_t *m = (mock_t *)u;
     mv_dir_t *d = mv_dir(m, dir);
@@ -214,7 +214,7 @@ static int m_unlink(void *u, const char *n, uint16_t dir)
 }
 /* O14: remove an EMPTY subdirectory; a non-empty one is refused NOTEMPTY,
  * exactly the finder_fs_t rmdir contract. */
-static int m_rmdir(void *u, const char *n, uint16_t dir)
+static int m_rmdir(void *u, const char *n, finder_dir_id_t dir)
 {
     mock_t *m = (mock_t *)u;
     mv_dir_t *d = mv_dir(m, dir), *sub;
@@ -230,7 +230,7 @@ static int m_rmdir(void *u, const char *n, uint16_t dir)
 
 /* The view identity (bead initech-uios): the fat12_dir_identity rule over the
  * mock tree -- the parent lists a DIRECTORY `n` whose cluster is `cl`. */
-static int m_dir_ident(void *u, uint16_t cl, uint16_t parent, const char *n)
+static int m_dir_ident(void *u, finder_dir_id_t cl, finder_dir_id_t parent, const char *n)
 {
     mock_t *m = (mock_t *)u;
     mv_dir_t *p = mv_dir(m, parent);

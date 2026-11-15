@@ -113,9 +113,9 @@ int fw_ieq(const char *a, const char *b)
     return fw_upper(*a) == fw_upper(*b);
 }
 
-int finder_win_is_service(uint16_t dir_start, const char *name83)
+int finder_win_is_service(finder_dir_id_t dir_start, const char *name83)
 {
-    return dir_start == 0u &&
+    return finder_dir_is_root(dir_start) &&
            (fw_ieq(name83, FINDER_SVC_TRASH_NAME) ||
             fw_ieq(name83, FINDER_SVC_DB_NAME));
 }
@@ -660,7 +660,7 @@ finder_win_status_t finder_win_next_folder_name(
  * 10. WINDOW OPERATIONS
  * ===========================================================================*/
 
-int finder_win_find(const finder_shell_t *sh, uint16_t dir_start)
+int finder_win_find(const finder_shell_t *sh, finder_dir_id_t dir_start)
 {
     if (sh == (const finder_shell_t *)0) return -1;
     for (int i = 0; i < sh->window_cap; i++)
@@ -894,7 +894,7 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
     int rc;
 
     if (!fw_slot_ok(sh, slot) || !sh->have_fs ||
-        sh->fs.enumerate == (int (*)(void *, uint16_t, finder_enum_cb, void *))0)
+        sh->fs.enumerate == (int (*)(void *, finder_dir_id_t, finder_enum_cb, void *))0)
         return FINDER_WIN_ERR_NULL;
 
     w = &sh->windows[slot];
@@ -938,8 +938,8 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
     return FINDER_WIN_OK;
 }
 
-finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
-                                    uint16_t dir_start,
+finder_win_status_t finder_win_open(finder_shell_t *sh, finder_dir_id_t parent,
+                                    finder_dir_id_t dir_start,
                                     const char *name83, uint8_t is_root,
                                     int *out_slot, int *out_singleton)
 {
@@ -1022,7 +1022,7 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
      * by DisposeWindow on close (window.c), so the slot can be reused. */
     WindowScrollAttach(sh->wm, &w->scroll, &w->rec);
     char root_title[]=FINDER_WIN_ROOT_TITLE;
-    root_title[6]=(char)('A'+sh->volume_drive);
+    root_title[6]=(char)('A'+finder_dir_drive(dir_start,sh->volume_drive));
     SetWTitle(sh->wm, &w->rec, is_root ? root_title : w->name83);
 
     /* The binding / demux rule (ADR-0013 Sec 3.1): FindWindow -> refCon ->
@@ -1064,7 +1064,7 @@ finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
         return FINDER_WIN_ERR_NULL;
     td = sh->fs.trash_dir(sh->fs.user);
     if (td < 0) return FINDER_WIN_ERR_NOTRASH;          /* fail loud, contract */
-    st = finder_win_open(sh, 0u /* \TRASH lives in the root */, (uint16_t)td,
+    st = finder_win_open(sh, 0u /* \TRASH lives in the root */, (finder_dir_id_t)td,
                          FINDER_SVC_TRASH_NAME, 0u, &slot, &single);
     if (st != FINDER_WIN_OK) return st;
     if (!single) {
@@ -1113,7 +1113,7 @@ finder_win_status_t finder_win_check_live(finder_shell_t *sh, int slot)
     w = &sh->windows[slot];
     if (w->is_root || w->dir_start == 0u) return FINDER_WIN_OK;
     if (!sh->have_fs ||
-        sh->fs.dir_ident == (int (*)(void *, uint16_t, uint16_t, const char *))0)
+        sh->fs.dir_ident == (int (*)(void *, finder_dir_id_t, finder_dir_id_t, const char *))0)
         return FINDER_WIN_ERR_NULL;
     return (sh->fs.dir_ident(sh->fs.user, w->dir_start, w->parent,
                              w->name83) == (int)FINDER_WIN_OK)
@@ -1122,7 +1122,7 @@ finder_win_status_t finder_win_check_live(finder_shell_t *sh, int slot)
 
 finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
                                           char *out_name83,
-                                          uint16_t *out_parent)
+                                          finder_dir_id_t *out_parent)
 {
     finder_window_t *w;
     fw_taken_t t;
@@ -1131,11 +1131,11 @@ finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
     int rc;
 
     if (!fw_slot_ok(sh, slot) || !sh->have_fs ||
-        sh->fs.mkdir == (int (*)(void *, const char *, uint16_t))0)
+        sh->fs.mkdir == (int (*)(void *, const char *, finder_dir_id_t))0)
         return FINDER_WIN_ERR_NULL;
 
     w = &sh->windows[slot];
-    if (out_parent != (uint16_t *)0) *out_parent = w->dir_start;
+    if (out_parent != 0) *out_parent = w->dir_start;
 
     /* The view must still BE its folder (Sec 10d): a window over a purged or
      * recycled directory authorises no mkdir (audit L002). */
@@ -1266,7 +1266,7 @@ void finder_win_paint(finder_window_t *w, const bitmap_t *dst,
  * ===========================================================================*/
 
 const finder_view_rec_t *finder_shell_find_view(const finder_shell_t *sh,
-                                                uint16_t dir_start)
+                                                finder_dir_id_t dir_start)
 {
     if (sh == (const finder_shell_t *)0) return (const finder_view_rec_t *)0;
     for (uint16_t i = 0u; i < sh->n_views; i++)
@@ -1274,7 +1274,7 @@ const finder_view_rec_t *finder_shell_find_view(const finder_shell_t *sh,
     return (const finder_view_rec_t *)0;
 }
 
-int finder_shell_note_view(finder_shell_t *sh, uint16_t dir_start,
+int finder_shell_note_view(finder_shell_t *sh, finder_dir_id_t dir_start,
                            const char *name83, uint16_t x, uint16_t y,
                            uint16_t view_bits)
 {
@@ -1294,7 +1294,11 @@ int finder_shell_note_view(finder_shell_t *sh, uint16_t dir_start,
          * a cache miss, not an invariant violation (design F1.3: icon positions
          * are "disposable caches of user preference"), so this is a quiet 0
          * rather than a panic. */
-        if ((uint32_t)sh->n_views >= FINDER_DB_MAX_VIEWS) return 0;
+        unsigned volume_views=0;
+        unsigned drive=finder_dir_drive(dir_start,sh->volume_drive);
+        for(unsigned i=0;i<sh->n_views;i++)
+            volume_views+=finder_dir_drive(sh->views[i].dir_start,sh->volume_drive)==drive;
+        if (volume_views>=FINDER_DB_MAX_VIEWS || sh->n_views>=FINDER_ALL_VIEWS) return 0;
         rec = &sh->views[sh->n_views];
         sh->n_views = (uint16_t)(sh->n_views + 1u);
         is_new = 1;
@@ -1387,7 +1391,7 @@ static int fw_item_cb(const finder_dirent_t *e, void *u)
 }
 
 /* 1 found, 0 no such item, -1 the backend failed. */
-int fw_item(finder_shell_t *sh, uint16_t dir, int n, fw_item_t *it)
+int fw_item(finder_shell_t *sh, finder_dir_id_t dir, int n, fw_item_t *it)
 {
     int rc;
     it->want = n;
@@ -1399,13 +1403,13 @@ int fw_item(finder_shell_t *sh, uint16_t dir, int n, fw_item_t *it)
 int fw_trash_ok(const finder_shell_t *sh)
 {
     return sh != (const finder_shell_t *)0 && sh->have_fs &&
-           sh->fs.enumerate != (int (*)(void *, uint16_t, finder_enum_cb, void *))0 &&
+           sh->fs.enumerate != (int (*)(void *, finder_dir_id_t, finder_enum_cb, void *))0 &&
            sh->fs.trash_dir != (int (*)(void *))0;
 }
 
 int finder_shell_recount_trash(finder_shell_t *sh)
 {
-    struct { uint16_t dir, next; } st[FINDER_TRASH_DEPTH];
+    struct { finder_dir_id_t dir; uint16_t next; } st[FINDER_TRASH_DEPTH];
     uint16_t items = 0u;
     uint32_t bytes = 0u;
     uint8_t  was, now;
@@ -1415,7 +1419,7 @@ int finder_shell_recount_trash(finder_shell_t *sh)
     if (sh == (finder_shell_t *)0) return 0;
     td = fw_trash_ok(sh) ? sh->fs.trash_dir(sh->fs.user) : -1;
     if (td >= 0) {
-        st[0].dir  = (uint16_t)td;
+        st[0].dir  = (finder_dir_id_t)td;
         st[0].next = 0u;
         while (d >= 0) {
             if (fw_item(sh, st[d].dir, (int)st[d].next, &it) <= 0) { d--; continue; }
@@ -1463,7 +1467,7 @@ typedef void (*fw_cmd_fn)(finder_shell_t *sh, finder_cmd_id id, int slot);
 static void fw_do_new_folder(finder_shell_t *sh, finder_cmd_id id, int slot)
 {
     char     name[FINDER_DESK_NAME_MAX];
-    uint16_t parent = 0u;
+    finder_dir_id_t parent = 0u;
     finder_win_status_t st;
 
     if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
@@ -1506,7 +1510,7 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
     int opened = 0;
     const finder_desk_icon_t *app = (const finder_desk_icon_t *)0;
     int apps = 0;
-    uint16_t dir;
+    finder_dir_id_t dir;
     if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
     dir = sh->windows[slot].dir_start;
     for (int i = 0; i < (int)sh->windows[slot].view.n; i++) {
@@ -1960,7 +1964,7 @@ finder_desk_t *finder_shell_desk(finder_shell_t *sh)
 #include "finder_windows_private.h"
 #include "chicago12.h"
 /* 1 when `name83` is an item of `dir` (case-insensitive 8.3). */
-static int fw_has_item(finder_shell_t *sh, uint16_t dir, const char *name83)
+static int fw_has_item(finder_shell_t *sh, finder_dir_id_t dir, const char *name83)
 {
     fw_item_t it;
     for (int n = 0; fw_item(sh, dir, n, &it) > 0; n++)
@@ -1975,7 +1979,7 @@ static int fw_has_item(finder_shell_t *sh, uint16_t dir, const char *name83)
  * record keyed by the dead cluster dropped, so a folder later allocated into
  * that cluster inherits nothing. Returns 1 when a view record was dropped. */
 /* The open window slots over directory `dir`, as a bit set. */
-static unsigned fw_slots_of(const finder_shell_t *sh, uint16_t dir)
+static unsigned fw_slots_of(const finder_shell_t *sh, finder_dir_id_t dir)
 {
     unsigned m = 0u;
     for (int i = 0; i < sh->window_cap; i++)
@@ -1984,7 +1988,7 @@ static unsigned fw_slots_of(const finder_shell_t *sh, uint16_t dir)
     return m;
 }
 
-static int fw_retire_dir(finder_shell_t *sh, uint16_t dir)
+static int fw_retire_dir(finder_shell_t *sh, finder_dir_id_t dir)
 {
     uint16_t kept = 0u;
     int dropped;
@@ -2017,10 +2021,10 @@ typedef struct fw_purge {
     unsigned touched;               /* surviving views whose listing changed */
 } fw_purge_t;
 
-static void fw_purge_tree(finder_shell_t *sh, uint16_t root, fw_purge_t *p)
+static void fw_purge_tree(finder_shell_t *sh, finder_dir_id_t root, fw_purge_t *p)
 {
     struct {
-        uint16_t dir, skip;
+        finder_dir_id_t dir; uint16_t skip;
         char     name[FINDER_DESK_NAME_MAX];   /* this folder's name in its parent */
     } st[FINDER_TRASH_DEPTH];
     int d = 0, rc;
@@ -2099,24 +2103,24 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
     int td;
     fw_purge_t p;
 
-    if (out_purged != (uint16_t *)0)   *out_purged = 0u;
-    if (out_refused != (uint16_t *)0)  *out_refused = 0u;
+    if (out_purged != 0)   *out_purged = 0u;
+    if (out_refused != 0)  *out_refused = 0u;
     if (out_db_dirty != (uint8_t *)0)  *out_db_dirty = 0u;
     if (sh != (finder_shell_t *)0) sh->purge_closed = 0u;
     if (!fw_trash_ok(sh) ||
-        sh->fs.unlink == (int (*)(void *, const char *, uint16_t))0 ||
-        sh->fs.rmdir == (int (*)(void *, const char *, uint16_t))0)
+        sh->fs.unlink == (int (*)(void *, const char *, finder_dir_id_t))0 ||
+        sh->fs.rmdir == (int (*)(void *, const char *, finder_dir_id_t))0)
         return FINDER_WIN_ERR_NULL;
     td = sh->fs.trash_dir(sh->fs.user);
     if (td < 0) return FINDER_WIN_ERR_NOTRASH;
 
     fw_zero(&p, (uint32_t)sizeof p);
-    fw_purge_tree(sh, (uint16_t)td, &p);
+    fw_purge_tree(sh, (finder_dir_id_t)td, &p);
 
     /* The kind=5 origins of purged items are stale; a refused item keeps its
      * own (it is still in \TRASH and can still be put back). */
     for (uint16_t i = 0u; i < sh->n_origins; i++)
-        if (fw_has_item(sh, (uint16_t)td, sh->origins[i].name83))
+        if (fw_has_item(sh, (finder_dir_id_t)td, sh->origins[i].name83))
             sh->origins[kept++] = sh->origins[i];
     if ((kept != sh->n_origins || p.views_dropped) && out_db_dirty != (uint8_t *)0)
         *out_db_dirty = 1u;
@@ -2127,7 +2131,7 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
      * folder stayed for a locked descendant, its removed children must not
      * stay on as icons naming freed clusters). A retired slot is closed and
      * no longer matches. */
-    p.touched |= fw_slots_of(sh, (uint16_t)td);
+    p.touched |= fw_slots_of(sh, (finder_dir_id_t)td);
     for (int i = 0; i < sh->window_cap; i++)
         if ((p.touched & (1u << i)) != 0u && sh->windows[i].open &&
             finder_win_populate(sh, i) == FINDER_WIN_OK)
@@ -2140,8 +2144,8 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
         fw_refresh_group_head(sh);
         finder_shell_sync_ctx(sh);
     }
-    if (out_purged != (uint16_t *)0)  *out_purged = p.purged;
-    if (out_refused != (uint16_t *)0) *out_refused = p.refused;
+    if (out_purged != 0)  *out_purged = p.purged;
+    if (out_refused != 0) *out_refused = p.refused;
     if (p.write_protected) return FINDER_WIN_ERR_WRITEPROTECT;
     return p.locked ? FINDER_WIN_ERR_LOCKED : FINDER_WIN_OK;
 }
@@ -2169,15 +2173,15 @@ finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
     fw_purge_t p;
     finder_win_status_t st;
     char name[FINDER_DESK_NAME_MAX];
-    uint16_t dir;
+    finder_dir_id_t dir;
     int n, rc, found = 0;
 
-    if (out_purged != (uint16_t *)0)   *out_purged = 0u;
+    if (out_purged != 0)   *out_purged = 0u;
     if (out_db_dirty != (uint8_t *)0)  *out_db_dirty = 0u;
     if (!fw_slot_ok(sh, slot) || !sh->have_fs ||
-        sh->fs.enumerate == (int (*)(void *, uint16_t, finder_enum_cb, void *))0 ||
-        sh->fs.unlink == (int (*)(void *, const char *, uint16_t))0 ||
-        sh->fs.rmdir == (int (*)(void *, const char *, uint16_t))0)
+        sh->fs.enumerate == (int (*)(void *, finder_dir_id_t, finder_enum_cb, void *))0 ||
+        sh->fs.unlink == (int (*)(void *, const char *, finder_dir_id_t))0 ||
+        sh->fs.rmdir == (int (*)(void *, const char *, finder_dir_id_t))0)
         return FINDER_WIN_ERR_NULL;
     w = &sh->windows[slot];
     if (idx < 0 || idx >= (int)w->view.n) return FINDER_WIN_ERR_NULL;
@@ -2226,7 +2230,7 @@ finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
         fw_refresh_group_head(sh);
         finder_shell_sync_ctx(sh);
     }
-    if (out_purged != (uint16_t *)0)  *out_purged = p.purged;
+    if (out_purged != 0)  *out_purged = p.purged;
     if (out_db_dirty != (uint8_t *)0) *out_db_dirty = (uint8_t)(p.views_dropped ? 1u : 0u);
     if (p.locked) return FINDER_WIN_ERR_LOCKED;
     if (p.write_protected) return FINDER_WIN_ERR_WRITEPROTECT;

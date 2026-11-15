@@ -279,7 +279,7 @@ typedef struct finder_dirent {
     const char *name83;        /* NUL-terminated, fat12_format_83 shape        */
     uint8_t     attribute;     /* the raw FAT attribute byte                   */
     uint32_t    size;          /* file size in bytes (0 for a directory)       */
-    uint16_t    start_cluster; /* the entry's first data cluster               */
+    finder_dir_id_t    start_cluster; /* the entry's first data cluster               */
     uint16_t    date, time;    /* FAT modification words, copied during enum */
 } finder_dirent_t;
 
@@ -294,7 +294,7 @@ typedef struct finder_fs {
      * fixed root), invoking `cb` per surviving entry. Returns 0 on a full scan,
      * the callback's non-zero value on an early stop, or a NEGATIVE value on a
      * backend error. */
-    int (*enumerate)(void *fs_user, uint16_t dir_start,
+    int (*enumerate)(void *fs_user, finder_dir_id_t dir_start,
                      finder_enum_cb cb, void *cb_user);
 
     /* Create the subdirectory `name83` under `parent_dir_start` (0 == root).
@@ -302,7 +302,7 @@ typedef struct finder_fs {
      * another entry, or FINDER_WIN_ERR_MKDIR for any other backend refusal --
      * the BINDING maps its backend's error codes into these, so this layer
      * never spells a FAT12_ERR_* value. */
-    int (*mkdir)(void *fs_user, const char *name83, uint16_t parent_dir_start);
+    int (*mkdir)(void *fs_user, const char *name83, finder_dir_id_t parent_dir_start);
 
     /* ---- R3.4a (bead initech-34dh): the FILE-OPERATION half of the seam ----
      * Every entry below follows the mkdir rule: the BINDING maps its backend's
@@ -326,14 +326,14 @@ typedef struct finder_fs {
      * -- fat12_move_dirent. Returns FINDER_WIN_OK, or ERR_SAMEDIR / ERR_CYCLE /
      * ERR_EXISTS for the three named refusals, or ERR_MOVE for any other
      * backend failure (dir full, chain, device). */
-    int (*move)(void *fs_user, const char *src_name83, uint16_t src_dir,
-                const char *dst_name83, uint16_t dst_dir);
+    int (*move)(void *fs_user, const char *src_name83, finder_dir_id_t src_dir,
+                const char *dst_name83, finder_dir_id_t dst_dir);
 
     /* The name `name83` must take inside `dir` so it collides with nothing
      * there (fat12_trash_suffix_name: itself when free, else trunc5 + "%03u",
      * lowest free counter). Writes a NUL-terminated 8.3 name into `out`
      * (FINDER_DESK_NAME_MAX bytes). FINDER_WIN_OK or ERR_MOVE. */
-    int (*trash_name)(void *fs_user, const char *name83, uint16_t dir,
+    int (*trash_name)(void *fs_user, const char *name83, finder_dir_id_t dir,
                       char *out);
 
     /* The first data cluster of the volume's \TRASH directory (design F1.4:
@@ -343,26 +343,26 @@ typedef struct finder_fs {
     int (*trash_dir)(void *fs_user);
 
     /* Delete the regular file `name83` from `dir` (fat12_unlink). */
-    int (*unlink)(void *fs_user, const char *name83, uint16_t dir);
+    int (*unlink)(void *fs_user, const char *name83, finder_dir_id_t dir);
 
     /* Remove the EMPTY subdirectory `name83` from `dir` (fat12_rmdir);
      * ERR_NOTEMPTY when it still holds entries. */
-    int (*rmdir)(void *fs_user, const char *name83, uint16_t dir);
+    int (*rmdir)(void *fs_user, const char *name83, finder_dir_id_t dir);
 
     /* Create/truncate the regular file `name83` in `dir` (fat12_create);
      * *out_slot receives its dirent slot for write_partial. */
-    int (*create)(void *fs_user, const char *name83, uint16_t dir,
+    int (*create)(void *fs_user, const char *name83, finder_dir_id_t dir,
                   uint32_t *out_slot);
 
     /* Positioned read of up to `len` bytes of `name83` in `dir` from `offset`
      * (fat12_read_partial); *out_read receives the count (0 == EOF). */
-    int (*read_partial)(void *fs_user, const char *name83, uint16_t dir,
+    int (*read_partial)(void *fs_user, const char *name83, finder_dir_id_t dir,
                         uint32_t offset, uint32_t len, uint8_t *out,
                         uint32_t *out_read);
 
     /* Positioned write of `len` bytes into the file at dirent `slot` of `dir`
      * (fat12_write_partial); *out_written receives the committed count. */
-    int (*write_partial)(void *fs_user, uint16_t dir, uint32_t slot,
+    int (*write_partial)(void *fs_user, finder_dir_id_t dir, uint32_t slot,
                          uint32_t offset, const uint8_t *data, uint32_t len,
                          uint32_t *out_written);
 
@@ -375,7 +375,7 @@ typedef struct finder_fs {
      * reuses a freed cluster -- so every write THROUGH a window view first
      * re-resolves the view's (dir, parent, name83) here (Sec 10d). NULL in a
      * binding: every such write refuses FINDER_WIN_ERR_NULL (contract). */
-    int (*dir_ident)(void *fs_user, uint16_t dir, uint16_t parent,
+    int (*dir_ident)(void *fs_user, finder_dir_id_t dir, finder_dir_id_t parent,
                      const char *name83);
 
     void *user;                /* the binding's opaque cookie                  */
@@ -465,9 +465,9 @@ typedef struct finder_window {
     uint8_t              is_root;     /* 1 == the volume's root window         */
     uint8_t              is_trash;    /* 1 == the Trash window over \TRASH
                                        * (bead initech-tdnl.39)                */
-    uint16_t             dir_start;   /* the folder's first cluster (0 == root)*/
+    finder_dir_id_t             dir_start;   /* the folder's first cluster (0 == root)*/
     char                 name83[FINDER_DESK_NAME_MAX];  /* the folder's name   */
-    uint16_t             parent;      /* the first cluster of the directory
+    finder_dir_id_t             parent;      /* the first cluster of the directory
                                        * that holds it (0 == root): with
                                        * dir_start + name83 the view's
                                        * IDENTITY (Sec 10d; initech-uios)      */
@@ -517,7 +517,7 @@ typedef struct finder_cmd_outcome {
     int16_t             moved;    /* Clean Up: icons that actually moved;
                                    * Restart / Shut Down (tdnl.78): open-window
                                    * views noted at dispatch                   */
-    uint16_t            parent;   /* New Folder: the parent's first cluster    */
+    finder_dir_id_t            parent;   /* New Folder: the parent's first cluster    */
     uint8_t             singleton;/* Open: 1 == an existing window was raised  */
     char                name83[FINDER_DESK_NAME_MAX];  /* New Folder / Open    */
     /* Open on a selected APPLICATION (bead initech-fbo4, audit 2026-10-23
@@ -532,7 +532,7 @@ typedef struct finder_cmd_outcome {
      * launch83 / launch_dir = the FIRST in listing order, and the directory
      * of the window it was selected in. */
     uint16_t            launch;
-    uint16_t            launch_dir;
+    finder_dir_id_t            launch_dir;
     char                launch83[FINDER_DESK_NAME_MAX];
 } finder_cmd_outcome_t;
 
@@ -549,7 +549,7 @@ typedef struct finder_shell {
     finder_window_t     *windows;
     uint16_t            window_cap; /* fits the actual RECORDS arena */
     flair_heap_t       *icon_heap;
-    finder_view_rec_t    views[FINDER_DB_MAX_VIEWS];        /* kind=4 records  */
+    finder_view_rec_t    views[FINDER_ALL_VIEWS];        /* kind=4 records  */
     uint16_t             n_views;
     WindowMgr           *wm;
     const bitmap_t      *surface;
@@ -564,7 +564,7 @@ typedef struct finder_shell {
     /* R3.4a (bead initech-34dh): the kind=5 trash-origin set (design F1.5),
      * serialised into \DESKTOP.DB after the views (finder_desk_db_encode_full)
      * and owned by os/flair/finder_ops.c. */
-    finder_origin_rec_t  origins[FINDER_DB_MAX_ORIGINS];
+    finder_origin_rec_t  origins[FINDER_ALL_ORIGINS];
     uint16_t             n_origins;
     /* bead initech-6k12: what \TRASH holds, counted at EVERY depth by
      * finder_shell_recount_trash (Sec 12) -- the Empty Trash predicate, the
@@ -674,7 +674,7 @@ int finder_win_skip_entry(uint8_t attribute);
  * both, carries the drift tooth. */
 #define FINDER_SVC_TRASH_NAME "TRASH"
 #define FINDER_SVC_DB_NAME    "DESKTOP.DB"
-int finder_win_is_service(uint16_t dir_start, const char *name83);
+int finder_win_is_service(finder_dir_id_t dir_start, const char *name83);
 
 /* The default cascaded frame for `slot` (Sec 3). Pure. */
 rgn_rect_t finder_win_default_frame(int slot);
@@ -704,7 +704,7 @@ finder_win_status_t finder_win_next_folder_name(
 /* The slot holding the window for `dir_start`, or -1. This IS the spatial
  * singleton rule (design F3.3): reopening a folder finds its window instead of
  * making a second one. */
-int finder_win_find(const finder_shell_t *sh, uint16_t dir_start);
+int finder_win_find(const finder_shell_t *sh, finder_dir_id_t dir_start);
 
 /* The slot owning `w`, or -1 (used to demux a go-away / content click). */
 int finder_win_slot_of(const finder_shell_t *sh, const WindowRecord *w);
@@ -729,8 +729,8 @@ int finder_win_front_slot(const finder_shell_t *sh);
  * A fresh open enumerates through the binding, lays the icons out row-major on
  * the grid, restores the saved frame origin from the kind=4 view record when
  * there is one, and seeds a full-content update. */
-finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
-                                    uint16_t dir_start,
+finder_win_status_t finder_win_open(finder_shell_t *sh, finder_dir_id_t parent,
+                                    finder_dir_id_t dir_start,
                                     const char *name83, uint8_t is_root,
                                     int *out_slot, int *out_singleton);
 
@@ -793,7 +793,7 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot);
  * caller can emit FINDER-NEW-FOLDER / FINDER-DIR-FULL without re-deriving it. */
 finder_win_status_t finder_win_new_folder(finder_shell_t *sh, int slot,
                                           char *out_name83,
-                                          uint16_t *out_parent);
+                                          finder_dir_id_t *out_parent);
 
 /* Snap every icon in `slot` to its row-major grid cell (design F3.3). Returns
  * the number of icons that actually MOVED (0 means the window was already
@@ -930,13 +930,13 @@ uint16_t finder_shell_load_views(finder_shell_t *sh, const uint8_t *buf,
 
 /* Upsert one view record keyed by dir_start. Returns 1 when the set CHANGED
  * (so the caller knows to commit), 0 when it was already exactly this. */
-int finder_shell_note_view(finder_shell_t *sh, uint16_t dir_start,
+int finder_shell_note_view(finder_shell_t *sh, finder_dir_id_t dir_start,
                            const char *name83, uint16_t x, uint16_t y,
                            uint16_t view_bits);
 
 /* The stored record for dir_start, or NULL. */
 const finder_view_rec_t *finder_shell_find_view(const finder_shell_t *sh,
-                                                uint16_t dir_start);
+                                                finder_dir_id_t dir_start);
 
 /* tdnl.44. Ref: design F1.3 bit0=list; bits2..3 sort, bit1=small.
  * Capture geometry: system7-decomp re/mint-results-008 Sec6. The existing

@@ -4,7 +4,7 @@
 #include "test_finder_ops.c"
 #undef main
 static int move_step;
-static int failed_rollback(void *u,const char *src,uint16_t sd,const char *dst,uint16_t dd)
+static int failed_rollback(void *u,const char *src,finder_dir_id_t sd,const char *dst,finder_dir_id_t dd)
 {
     if(++move_step>1) return FINDER_WIN_ERR_MOVE;
     return m_move(u,src,sd,dst,dd);

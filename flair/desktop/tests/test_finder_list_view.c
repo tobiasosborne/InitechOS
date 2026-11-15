@@ -137,7 +137,7 @@ static void attach(finder_win_rgn_t *s)
     region_set_empty(&s->r);
 }
 
-static int empty_enum(void *u, uint16_t dir, finder_enum_cb cb, void *cu)
+static int empty_enum(void *u, finder_dir_id_t dir, finder_enum_cb cb, void *cu)
 { (void)u; (void)dir; (void)cb; (void)cu; return 0; }
 
 static void init_scene(scene_t *s)
@@ -183,7 +183,7 @@ static void routing(void)
     }
 }
 
-static int rows_enum(void *u,uint16_t dir,finder_enum_cb cb,void *cu)
+static int rows_enum(void *u,finder_dir_id_t dir,finder_enum_cb cb,void *cu)
 {
     (void)u;(void)dir;
     finder_dirent_t entries[] = {

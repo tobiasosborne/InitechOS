@@ -140,7 +140,7 @@ typedef struct finder_tgt {
     uint8_t  kind;      /* finder_tgt_kind_t                                   */
     int8_t   slot;      /* window holding the target; -1 == the desktop        */
     int16_t  idx;       /* target icon on that surface; -1 == no icon          */
-    uint16_t dir;       /* destination dir (meaningless for NONE/REPOSITION/
+    finder_dir_id_t dir;       /* destination dir (meaningless for NONE/REPOSITION/
                            TRASH -- the Trash dir comes from the binding)      */
 } finder_tgt_t;
 
@@ -176,8 +176,8 @@ typedef struct finder_move_result {
     uint8_t  renamed;                 /* Trash: 1 == a suffix was applied      */
     uint8_t  origin_lost;             /* Trash: 1 == the origin set was full   */
     uint8_t  db_dirty;                /* 1 == the origin set changed           */
-    uint16_t from_dir;                /* source directory                      */
-    uint16_t to_dir;                  /* destination directory                 */
+    finder_dir_id_t from_dir;                /* source directory                      */
+    finder_dir_id_t to_dir;                  /* destination directory                 */
     int16_t  dst_slot;                /* open window that received the icon    */
     char     name[FINDER_DESK_NAME_MAX];   /* the dragged item's name          */
     char     as[FINDER_DESK_NAME_MAX];     /* its name at the destination      */
