@@ -1,0 +1,15 @@
+# The quit request goes back to the literal title Quit; WordPerfect's File > Exit is missed.
+# Source: Macintosh HIG reserved Command-Q; WP5.1 Reference p. 193; initech-qv7t.
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1447,7 +1447,8 @@
+ static int tbx_is_quit(const MenuItem *it)
+ {
+     return !it->is_divider && it->enabled &&
+-           (it->cmdChar == 'Q' || it->cmdChar == 'q');
++           it->text && it->text[0] == 'Q' && it->text[1] == 'u' &&
++           it->text[2] == 'i' && it->text[3] == 't' && !it->text[4]; /* wrong: the title */
+ }
+ 
+ int tbx_ask_quit(void)

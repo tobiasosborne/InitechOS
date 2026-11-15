@@ -114,7 +114,10 @@ path changes; Look does not scroll plain text or navigate adjacent documents;
 paragraph extension and code-search are omitted while Block owns input;
 Ctrl-arrow and Ctrl-Delete act on units; inline Center/Flush Right codes have
 no layout effect; resize can hide prompts; document clicking/scrollbars have
-no viewport route; Finder power requests do not recognize File > Exit;
+no viewport route; a Finder Restart or Shut Down now reaches File > Exit
+(the Toolbox finds the quit command by its Command-Q) and brings Word to the
+front, but with a dirty document the Finder still cancels at once rather
+than waiting for the answer to "Save document?" (initech-qv7t, desktop part);
 zero-inch margins are silently ignored; real FLAIR Ctrl-M does not reach the
 search soft-return route. These are existing triage items, not new scope.
 

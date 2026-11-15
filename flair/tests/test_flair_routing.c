@@ -1363,6 +1363,71 @@ static void leg_menubar(void)
           "leg(M10): a choice made in a bar that is not the tenant's is not delivered");
 }
 
+/* --- leg Q: the Finder's quit request (initech-qv7t) ------------------------
+ * Inside Macintosh VI (PDF p. 345): Restart and Shut Down send each running
+ * application the Quit Application event, handled by "the same routine" as
+ * its own quit command, which may ask to save; it first comes to the front to
+ * interact with the user. The App Contract has no such event, so the request
+ * is the tenant's quit command, found by the equivalent the Macintosh Human
+ * Interface Guidelines reserve for Quit (Command-Q), not by its title:
+ * WordPerfect's is File > Exit (Reference Manual p. 193). */
+static MenuItem g_quit_items[2];
+static MenuInfo g_quit_menu;
+static MenuBar g_quit_bar;
+/* The installed bar in host layout (the i386 tenant's record has the same
+ * shape there; tbx_layout.h pins it), rebuilt between asks. */
+static int quit_ask(FlairApp *t, const char *title, char key, uint8_t enabled)
+{
+    memset(g_quit_items, 0, sizeof g_quit_items);
+    g_quit_items[0].text = "Retrieve"; g_quit_items[0].enabled = 1u;
+    g_quit_items[1].text = title; g_quit_items[1].cmdChar = key;
+    g_quit_items[1].enabled = enabled;
+    g_quit_menu.menuID = 128; g_quit_menu.title = "File";
+    g_quit_menu.items = g_quit_items; g_quit_menu.n_items = 2u;
+    g_quit_bar.menus = &g_quit_menu; g_quit_bar.n_menus = 1u;
+    t->menubar = &g_quit_bar;
+    EventRecord ev0;
+    memset(&ev0, 0, sizeof ev0);
+    ev0.what = (uint16_t)nullEvent;
+    (void)FlairProcess_activate(&W.plist, &W.wm, &ev0, &W.finder);
+    g_serial_n = 0; g_serial[0] = '\0';
+    return tbx_ask_quit();
+}
+static void leg_quit(void)
+{
+    world_init();
+    memset(&M, 0, sizeof M);
+    TP.script = script_menubar;
+    CHECKF(launch() == TBX_OK, "leg(Q0): the menu-bar tenant launches");
+    service();
+    FlairApp *t = tenant_app();
+    if (t == NULL) return;
+    int b = g_n;
+    CHECKF(quit_ask(t, "Exit", 'Q', 1u) == 1,
+          "leg(Q1): an enabled Exit carrying Command-Q is the tenant's quit command");
+    CHECKF(serial_has("TENANT-MENU menu=128 item=2 src=quit\n"),
+          "leg(Q2): the request reaches the tenant as its own File > Exit choice");
+    CHECKF(W.plist.head == t,
+          "leg(Q3): the tenant is brought to the front before it is asked");
+    int menu_after_activate = 0, activated = 0;
+    for (int i = b; i < g_n; i++) {
+        if (g_log[i].who == WHO_T && g_log[i].what == activateEvt) activated = 1;
+        if (g_log[i].who == WHO_T && g_log[i].what == (int32_t)TBX_EVT_MENU && activated)
+            menu_after_activate = 1;
+    }
+    CHECKF(menu_after_activate,
+          "leg(Q4): its window is activated before the quit choice arrives");
+    CHECKF(quit_ask(t, "Quit", 'Q', 1u) == 1 &&
+           serial_has("TENANT-MENU menu=128 item=2 src=quit\n"),
+          "leg(Q5): an enabled Quit carrying Command-Q is asked the same way");
+    CHECKF(quit_ask(t, "Quit", 0, 1u) == -1 && !serial_has("TENANT-MENU"),
+          "leg(Q6): a title alone is not the quit command: no Command-Q, cannot ask");
+    CHECKF(quit_ask(t, "Exit", 'Q', 0u) == -1 && !serial_has("TENANT-MENU"),
+          "leg(Q7): a disabled quit command cannot be asked");
+    CHECKF(quit_ask(t, "Close", 'W', 1u) == -1 && !serial_has("TENANT-MENU"),
+          "leg(Q8): a bar with no quit command cannot be asked");
+}
+
 /* --- leg R: EXIT returns the code block (the O-3 avail-stable invariant) -- */
 static uint32_t heapavail_line(int nth)
 {
@@ -1652,6 +1717,7 @@ int main(void)
     leg_window_extremes();
     leg_plain_window();
     leg_menubar();
+    leg_quit();
     leg_reclaim();
     leg_geneva();
     leg_cells();

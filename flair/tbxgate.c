@@ -1437,14 +1437,17 @@ int tbx_menu_key(const EventRecord *ev)
  * Shut Down (Inside Macintosh Vol VI, PDF p. 345), and the application's
  * handler is "the same routine" as its File > Quit -- including asking to
  * save, and cancelling (userCanceledErr, Listing 6-8, same page). The App Contract has no such event, so the request is the
- * application's OWN Quit: the enabled item titled "Quit" in its installed
- * bar (the Macintosh HIG File > Quit every disk tenant carries), delivered
- * exactly as a mouse choice would be. */
-static int tbx_text_is(const char *a, const char *b)
+ * application's OWN quit command, delivered exactly as a mouse choice would
+ * be. It is found by the keyboard equivalent the Macintosh Human Interface
+ * Guidelines reserve for Quit, Command-Q, not by its title: WordPerfect's is
+ * File > Exit (Reference Manual p. 193; initech-qv7t). MenuKey matches the
+ * letter in either case. Before it is asked the application comes to the
+ * front, as one does to interact with the user over an Apple event, so a
+ * save question is shown in front. */
+static int tbx_is_quit(const MenuItem *it)
 {
-    if (a == (const char *)0) return 0;
-    while (*a != '\0' && *a == *b) { a++; b++; }
-    return *a == *b;
+    return !it->is_divider && it->enabled &&
+           (it->cmdChar == 'Q' || it->cmdChar == 'q');
 }
 
 int tbx_ask_quit(void)
@@ -1468,8 +1471,9 @@ int tbx_ask_quit(void)
         const MenuInfo *mi = &bar->menus[m];
         for (uint16_t k = 0u; k < mi->n_items; k++) {
             const MenuItem *it = &mi->items[k];
-            if (it->is_divider || !it->enabled || !tbx_text_is(it->text, "Quit"))
-                continue;
+            if (!tbx_is_quit(it)) continue;
+            if (g_host.list != (FlairProcessList *)0 && g_host.wm != (WindowMgr *)0)
+                (void)FlairProcess_activate(g_host.list, g_host.wm, &ev, app);
             return tbx_menu_choice(bar, MenuResult(mi->menuID,
                                                    (uint16_t)(k + 1u)),
                                    &ev, "quit") ? 1 : -1;
