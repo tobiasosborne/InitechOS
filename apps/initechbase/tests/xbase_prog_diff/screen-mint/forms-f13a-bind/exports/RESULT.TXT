@@ -1,0 +1,7 @@
+
+RK=        271
+R1= KEY2          77.25 01/31/00 .T.          1
+SEEKNEW= .T.          1
+SEEKOLD= .F.
+R2= WXYZ          -3.25 01/15/92 .T.          2
+A2= ZONE2             1

@@ -1,0 +1,3 @@
+
+FIELD= AA       MEMT= C
+MEM= BB      
