@@ -1,6 +1,6 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -446,8 +446,8 @@
+@@ -579,8 +579,8 @@
          unsigned i=order[k]; uint32_t s=slice_start(i), e=slice_start(i+1), m=(s+e)/2;
          if(e<=s) continue;
          int ox=PIE_X*sine(m)/1024, oy=-PIE_X*cosine(m)*PIE_B/PIE_A/1024;
@@ -9,5 +9,5 @@
 +        if(0&&e-s>32768u) { draw_piece(s,m,ox,oy); draw_piece(m,e,ox,oy); }
 +        else if(0) draw_piece(s,e,ox,oy);
      }
+     send_pie();
      for(unsigned i=0;i<nseries;i++) {
-         uint32_t s=slice_start(i), e=slice_start(i+1), m=(s+e)/2;

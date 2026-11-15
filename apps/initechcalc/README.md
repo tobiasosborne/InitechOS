@@ -81,6 +81,20 @@ label is the value with a percent sign. The frame's series is 40 35 18 14 9,
 so the labels really sum to 116%. The Toolbox has one blue (navy): faces are
 navy, sides a navy and black scanline dither, edges black.
 
+## Painting
+
+Every FILLRECT and TEXTDRAW is an INT 81h gate call that FLAIR clips and
+traces, so Calc paints with as few as its picture allows (initech-kzras;
+since ee66540c the pie and ledger cost about 10,000 calls a session and the
+Bochs journey ran out of time). The pie is drawn into Calc's own memory and
+sent as navy rectangles over the black field, each running down as far as
+navy covers it. The ledger is painted a band of rows at a time, a column at
+a time, so a column's rule and stops are one call per run of rows; a
+keystroke repaints only the band between the row it left and the row it is
+on. The pixels are those of the cell-by-cell painting they replaced
+(checked, below). An update repaints both windows: the updateEvt carries a
+WindowPtr, not Calc's window token.
+
 ## Numbers
 
 Calc's one format adaptation: Initech 123's display of the absolute value,
@@ -116,7 +130,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 
 ## Checks
 
-`make test`: four host programs over sdk/host.
+`make test`: five host programs over sdk/host.
 
 - `test_calc_frame` + `tests/frame-content.sh`: the frame's content. The
   script reads goldens/frame/transcription.tsv and geometry.tsv and grades,
@@ -158,9 +172,18 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   `restart`: four sessions over one disk, each Quit > Save with its stage's
   DELETE refused, then a fifth session without the fault that must save.
 
+- `test_calc_paint`: the gate-call budget and the repaint property. One
+  update of the shipped ledger at most 600 drawing calls, one keystroke at
+  most 80 (a budget for the Bochs journey's 90 s limit, not a measurement;
+  the code before it made 1,472 and 380). After every keystroke of a
+  sequence (typing, Return, arrows, Tab into the narrow column, a label run
+  over its neighbours and cleared, Escape, Del, down across the note strip
+  and back) what the windows show equals a fresh full repaint, replayed
+  pixel by pixel by tests/replay.h with FLAIR's Geneva 9 strike.
+
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 30 patches in `mutants/`; each must fail a host
+`make mutants` runs the 33 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,

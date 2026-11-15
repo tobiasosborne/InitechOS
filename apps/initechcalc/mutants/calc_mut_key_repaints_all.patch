@@ -1,0 +1,10 @@
+# test: test_calc_paint
+--- a/calc.c
++++ b/calc.c
+@@ -744,5 +744,5 @@
+     else if(ch>=32&&ch<=126&&entered<sizeof entry-1) { entry[entered++]=(char)ch; entry[entered]=0; }
+     /* A key changes at most the row it left and the row it is on. */
+     int now=i123_cursor_row(&g_sheet);
+-    if(g_rows) paint_band((unsigned)(now<r0?now:r0),(unsigned)(now<r0?r0:now),0);
++    (void)now; (void)r0; paint_ledger();
+ }

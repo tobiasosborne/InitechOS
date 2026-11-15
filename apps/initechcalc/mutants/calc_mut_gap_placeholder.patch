@@ -1,12 +1,13 @@
 # test: test_calc_tenant test_calc_frame
 --- a/calc.c
 +++ b/calc.c
-@@ -350,7 +350,7 @@
-     int x=colx[c], y=row_y(r);
-     int editing=entered&&c==i123_cursor_col(&g_sheet)&&r==i123_cursor_row(&g_sheet);
-     if(editing) copy(line,entry);
--    else if(!cell_text(c,r,line,(unsigned)(colx[c+1]-x-2))) return;   /* empty: a left neighbour may run over it */
-+    else if(!cell_text(c,r,line,(unsigned)(colx[c+1]-x-2))) copy(line,"TODO_FRAME");
-     rect(ledger,x+1,y+1,colx[c+1],y+ROW_H,TBX_COLOR_WHITE);            /* stop the left neighbour here */
-     rect(ledger,x,y,x+1,y+ROW_H+1,TBX_COLOR_GRAY);
-     text(ledger,x+2,y+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE);
+@@ -395,7 +395,8 @@
+ static int cell_shows(unsigned c,unsigned r)
+ {
+     if(entered&&c==i123_cursor_col(&g_sheet)&&r==i123_cursor_row(&g_sheet)) { copy(line,entry); return 1; }
+-    return cell_text(c,r,line,(unsigned)(colx[c+1]-colx[c]-2));
++    if(!cell_text(c,r,line,(unsigned)(colx[c+1]-colx[c]-2))) copy(line,"TODO_FRAME");
++    return 1;
+ }
+ /* Which cells of each row show something, for the band being painted. A
+  * shown cell stops whatever a cell to its left ran over it: its interior is

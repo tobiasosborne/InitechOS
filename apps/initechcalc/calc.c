@@ -374,40 +374,77 @@ static void rect(int32_t w,int l,int t,int r,int b,uint32_t c) { if(l<r&&t<b) (v
 static unsigned note_row(void) { return g_rows>1?g_rows-2:0; }
 static int row_y(unsigned r)
 { return (int)r*ROW_H+(note[0]&&r>=note_row()?ROW_H:0); }
-static void paint_cell(unsigned c,unsigned r)
+/* What cell (c,r) shows, into `line`: the entry being typed, its text, or
+ * nothing (0), when a label to its left may run over it. */
+static int cell_shows(unsigned c,unsigned r)
 {
-    int x=colx[c], y=row_y(r);
-    int editing=entered&&c==i123_cursor_col(&g_sheet)&&r==i123_cursor_row(&g_sheet);
-    if(editing) copy(line,entry);
-    else if(!cell_text(c,r,line,(unsigned)(colx[c+1]-x-2))) return;   /* empty: a left neighbour may run over it */
-    rect(ledger,x+1,y+1,colx[c+1],y+ROW_H,TBX_COLOR_WHITE);            /* stop the left neighbour here */
-    rect(ledger,x,y,x+1,y+ROW_H+1,TBX_COLOR_GRAY);
-    text(ledger,x+2,y+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE);
+    if(entered&&c==i123_cursor_col(&g_sheet)&&r==i123_cursor_row(&g_sheet)) { copy(line,entry); return 1; }
+    return cell_text(c,r,line,(unsigned)(colx[c+1]-colx[c]-2));
 }
-static void paint_ledger(void)
+/* Which cells of each row show something, for the band being painted. A
+ * shown cell stops whatever a cell to its left ran over it: its interior is
+ * cleared and its left rule drawn again before its own text. */
+static uint16_t row_shown[CALC_ROW_MAX];
+static int stops(unsigned c,unsigned r) { return (row_shown[r]>>c&1u)&&(row_shown[r]&((1u<<c)-1u)); }
+/* Paint ledger rows r0..r1 (the band between their outer rules). Every
+ * FILLRECT and TEXTDRAW is a gate call, clipped and traced by the shell
+ * (initech-kzras), so the band is painted a column at a time: one rule, one
+ * stop and one redrawn left rule per column for each run of rows, not per
+ * cell. A row's pixels are those of painting its cells left to right: each
+ * shown cell clears its interior after the cells to its left have drawn and
+ * before its own text; nothing else in the band lands on a row's rule lines,
+ * so they are drawn once, at the end, with the cell pointer over them. The
+ * note strip, between the last two rows, has no column rules. */
+static void stop_runs(unsigned c,unsigned r0,unsigned r1,int white)
+{
+    unsigned nr=note[0]?note_row():CALC_ROW_MAX+1;
+    for(unsigned a=r0;a<=r1;a++) {
+        if(!stops(c,a)) continue;
+        unsigned b=a; while(b<r1&&b+1!=nr&&stops(c,b+1)) b++;
+        if(white) rect(ledger,colx[c]+1,row_y(a)+1,colx[c+1],row_y(b)+ROW_H,TBX_COLOR_WHITE);
+        else rect(ledger,colx[c],row_y(a),colx[c]+1,row_y(b)+ROW_H+1,TBX_COLOR_GRAY);
+        a=b;
+    }
+}
+static void paint_band(unsigned r0,unsigned r1,int whole)
 {
     int32_t s=tbx_content_size(ledger);
-    int cw=s&0xFFFF, ch=(s>>16)&0xFFFF, gw=colx[CALC_COLS], gh=row_y(g_rows);
-    int ny=(int)note_row()*ROW_H;
-    if(s<=0) return;
-    rect(ledger,0,0,cw,ch,TBX_COLOR_WHITE);
-    if(note[0]) rect(ledger,0,ny,gw+1,ny+1,TBX_COLOR_GRAY);
-    for(unsigned r=0;r<=g_rows;r++) rect(ledger,0,row_y(r),gw+1,row_y(r)+1,TBX_COLOR_GRAY);
+    int cw=s&0xFFFF, ch=(s>>16)&0xFFFF, gw=colx[CALC_COLS];
+    unsigned nr=note_row();
+    int ny=(int)nr*ROW_H, strip=note[0]&&(whole||(r0<nr&&nr<=r1));
+    int y0=whole?0:row_y(r0), y1=row_y(r1)+ROW_H+1;
+    if(s<=0||!g_rows) return;
+    for(unsigned r=r0;r<=r1;r++) {
+        row_shown[r]=0;
+        for(unsigned c=0;c<CALC_COLS;c++) if(cell_shows(c,r)) row_shown[r]|=(uint16_t)(1u<<c);
+    }
+    if(whole) rect(ledger,0,0,cw,ch,TBX_COLOR_WHITE);
+    else rect(ledger,0,y0+1,cw,y1-1,TBX_COLOR_WHITE);
     for(unsigned c=0;c<=CALC_COLS;c++) {
-        if(note[0]) {
-            rect(ledger,colx[c],0,colx[c]+1,ny+1,TBX_COLOR_GRAY);
-            rect(ledger,colx[c],ny+ROW_H,colx[c]+1,gh+1,TBX_COLOR_GRAY);
-        } else rect(ledger,colx[c],0,colx[c]+1,gh+1,TBX_COLOR_GRAY);
+        if(strip) {
+            rect(ledger,colx[c],y0,colx[c]+1,ny+1,TBX_COLOR_GRAY);
+            rect(ledger,colx[c],ny+ROW_H,colx[c]+1,y1,TBX_COLOR_GRAY);
+        } else rect(ledger,colx[c],y0,colx[c]+1,y1,TBX_COLOR_GRAY);
     }
-    for(unsigned r=0;r<g_rows;r++) for(unsigned c=0;c<CALC_COLS;c++) paint_cell(c,r);
-    if(g_rows) {   /* the cell pointer */
+    for(unsigned c=0;c<CALC_COLS;c++) {
+        stop_runs(c,r0,r1,1);
+        for(unsigned r=r0;r<=r1;r++) if((row_shown[r]>>c&1u)&&cell_shows(c,r)) text(ledger,colx[c]+2,row_y(r)+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE);
+    }
+    for(unsigned c=1;c<CALC_COLS;c++) stop_runs(c,r0,r1,0);
+    for(unsigned r=r0;r<=r1;r++) rect(ledger,0,row_y(r),gw+1,row_y(r)+1,TBX_COLOR_GRAY);
+    rect(ledger,0,y1-1,gw+1,y1,TBX_COLOR_GRAY);
+    if(strip) {
+        rect(ledger,0,ny,gw+1,ny+1,TBX_COLOR_GRAY);
+        copy(line,note); text(ledger,4,ny+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE);
+    }
+    {   /* the cell pointer */
         int x0=colx[i123_cursor_col(&g_sheet)], x1=colx[i123_cursor_col(&g_sheet)+1];
-        int y0=row_y(i123_cursor_row(&g_sheet)), y1=y0+ROW_H;
-        rect(ledger,x0,y0,x1+1,y0+1,TBX_COLOR_BLACK); rect(ledger,x0,y1,x1+1,y1+1,TBX_COLOR_BLACK);
-        rect(ledger,x0,y0,x0+1,y1+1,TBX_COLOR_BLACK); rect(ledger,x1,y0,x1+1,y1+1,TBX_COLOR_BLACK);
+        int p0=row_y(i123_cursor_row(&g_sheet)), p1=p0+ROW_H;
+        rect(ledger,x0,p0,x1+1,p0+1,TBX_COLOR_BLACK); rect(ledger,x0,p1,x1+1,p1+1,TBX_COLOR_BLACK);
+        rect(ledger,x0,p0,x0+1,p1+1,TBX_COLOR_BLACK); rect(ledger,x1,p0,x1+1,p1+1,TBX_COLOR_BLACK);
     }
-    if(note[0]) { copy(line,note); text(ledger,4,ny+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE); }
 }
+static void paint_ledger(void) { paint_band(0,g_rows?g_rows-1:0,1); }
 
 /* The pie: an elliptical disk of slices, each value/sum of a turn, exploded
  * and extruded as in the still. In content pixels of the chart window at its
@@ -449,6 +486,23 @@ static void piece_spans(uint32_t s,uint32_t e)
         span_l[y+PIE_B]=(int16_t)l; span_r[y+PIE_B]=(int16_t)r;
     }
 }
+/* The pie is drawn in Calc's own memory first and sent to the Toolbox as
+ * navy rectangles over the black field: a gate call per scanline of every
+ * slice made the chart about 1,100 gate calls (initech-kzras). The picture
+ * covers everything the slices can reach (each is pushed out at most PIE_X).
+ * 0 is the black field, 1 navy, 2 navy already sent. */
+enum { PIE_L=PIE_CX-PIE_A-PIE_X, PIE_T=PIE_CY-PIE_B-PIE_X,
+       PIE_W=2*(PIE_A+PIE_X)+1, PIE_H=2*(PIE_B+PIE_X)+PIE_D+1 };
+static uint8_t pie[PIE_H][PIE_W];
+static void pie_rect(int l,int t,int r,int b,uint8_t v)
+{
+    l-=PIE_L; r-=PIE_L; t-=PIE_T; b-=PIE_T;
+    if(l<0) l=0;
+    if(t<0) t=0;
+    if(r>PIE_W) r=PIE_W;
+    if(b>PIE_H) b=PIE_H;
+    for(int y=t;y<b;y++) for(int x=l;x<r;x++) pie[y][x]=v;
+}
 static void draw_piece(uint32_t s,uint32_t e,int ox,int oy)
 {
     piece_spans(s,e);
@@ -461,13 +515,29 @@ static void draw_piece(uint32_t s,uint32_t e,int ox,int oy)
             if(span_l[t+PIE_B]<l) l=span_l[t+PIE_B];
             if(span_r[t+PIE_B]>r) r=span_r[t+PIE_B];
         }
-        rect(chart,cx+l,cy+y,cx+r+1,cy+y+1,((cy+y)&1)?TBX_COLOR_BLACK:TBX_COLOR_NAVY);
+        pie_rect(cx+l,cy+y,cx+r+1,cy+y+1,((cy+y)&1)?0:1);
     }
     /* the edge between face and side, then the face */
     for(int y=-PIE_B;y<=PIE_B;y++) if(span_l[y+PIE_B]<=span_r[y+PIE_B])
-        rect(chart,cx+span_l[y+PIE_B],cy+y+1,cx+span_r[y+PIE_B]+1,cy+y+2,TBX_COLOR_BLACK);
+        pie_rect(cx+span_l[y+PIE_B],cy+y+1,cx+span_r[y+PIE_B]+1,cy+y+2,0);
     for(int y=-PIE_B;y<=PIE_B;y++) if(span_l[y+PIE_B]<=span_r[y+PIE_B])
-        rect(chart,cx+span_l[y+PIE_B],cy+y,cx+span_r[y+PIE_B]+1,cy+y+1,TBX_COLOR_NAVY);
+        pie_rect(cx+span_l[y+PIE_B],cy+y,cx+span_r[y+PIE_B]+1,cy+y+1,1);
+}
+/* Send the navy: each rectangle starts at the first row with navy not yet
+ * sent, spans that row's unsent navy and runs down as far as navy covers it.
+ * Navy over navy changes nothing, so rectangles may overlap. */
+static void send_pie(void)
+{
+    for(int y=0;y<PIE_H;y++) for(int x=0;x<PIE_W;) {
+        if(!pie[y][x]) { x++; continue; }
+        int u=-1, v=-1;
+        for(;x<PIE_W&&pie[y][x];x++) if(pie[y][x]==1) { if(u<0) u=x; v=x; }
+        if(u<0) continue;
+        int h=1;
+        for(;y+h<PIE_H;h++) { int k=u; while(k<=v&&pie[y+h][k]) k++; if(k<=v) break; }
+        for(int t=y;t<y+h;t++) for(int k=u;k<=v;k++) pie[t][k]=2;
+        rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,TBX_COLOR_NAVY);
+    }
 }
 static double series_sum(void) { double t=0; for(unsigned i=0;i<nseries;i++) t+=series[i]; return t; }
 static uint32_t slice_start(unsigned i)   /* value/sum of a turn */
@@ -488,6 +558,7 @@ static void paint_chart(void)
         uint32_t ma=(slice_start(order[k-1])+slice_start(order[k-1]+1))/2, mb=(slice_start(order[k])+slice_start(order[k]+1))/2;
         if(cosine(mb)>cosine(ma)) { unsigned t=order[k]; order[k]=order[k-1]; order[k-1]=t; } else break;
     }
+    for(int y=0;y<PIE_H;y++) for(int x=0;x<PIE_W;x++) pie[y][x]=0;
     for(unsigned k=0;k<nseries;k++) {
         unsigned i=order[k]; uint32_t s=slice_start(i), e=slice_start(i+1), m=(s+e)/2;
         if(e<=s) continue;
@@ -495,6 +566,7 @@ static void paint_chart(void)
         if(e-s>32768u) { draw_piece(s,m,ox,oy); draw_piece(m,e,ox,oy); }
         else draw_piece(s,e,ox,oy);
     }
+    send_pie();
     for(unsigned i=0;i<nseries;i++) {
         uint32_t s=slice_start(i), e=slice_start(i+1), m=(s+e)/2;
         int ox=PIE_X*sine(m)/1024, oy=-PIE_X*cosine(m)*PIE_B/PIE_A/1024;
@@ -657,7 +729,7 @@ void tbx_app_event(const tbx_event_t *e)
     }
     if(e->what!=keyDown) return;
     unsigned ch=(unsigned)e->message&255, vk=((unsigned)e->message>>8)&255;
-    int c=i123_cursor_col(&g_sheet), r=i123_cursor_row(&g_sheet);
+    int c=i123_cursor_col(&g_sheet), r=i123_cursor_row(&g_sheet), r0=r;
     if(vk==0x4b||vk==0x4d||vk==0x48||vk==0x50||ch=='\t') {
         commit();
         if(vk==0x4b&&c>0) c--;
@@ -670,5 +742,7 @@ void tbx_app_event(const tbx_event_t *e)
     else if(ch==27) { entered=0; entry[0]=0; }
     else if(ch==8) { if(entered) entry[--entered]=0; }
     else if(ch>=32&&ch<=126&&entered<sizeof entry-1) { entry[entered++]=(char)ch; entry[entered]=0; }
-    paint_ledger();
+    /* A key changes at most the row it left and the row it is on. */
+    int now=i123_cursor_row(&g_sheet);
+    if(g_rows) paint_band((unsigned)(now<r0?now:r0),(unsigned)(now<r0?r0:now),0);
 }

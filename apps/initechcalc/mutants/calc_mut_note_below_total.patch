@@ -1,8 +1,12 @@
 # test: test_calc_tenant
 --- a/calc.c
 +++ b/calc.c
-@@ -378,3 +378,3 @@
+@@ -451,7 +451,7 @@
+     rect(ledger,0,y1-1,gw+1,y1,TBX_COLOR_GRAY);
+     if(strip) {
+         rect(ledger,0,ny,gw+1,ny+1,TBX_COLOR_GRAY);
+-        copy(line,note); text(ledger,4,ny+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE);
++        copy(line,note); text(ledger,4,y1+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE);
      }
--    if(note[0]) { copy(line,note); text(ledger,4,ny+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE); }
-+    if(note[0]) { copy(line,note); text(ledger,4,gh+2,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE); }
- }
+     {   /* the cell pointer */
+         int x0=colx[i123_cursor_col(&g_sheet)], x1=colx[i123_cursor_col(&g_sheet)+1];

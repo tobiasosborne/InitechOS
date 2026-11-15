@@ -1,0 +1,12 @@
+# test: test_calc_frame
+--- a/calc.c
++++ b/calc.c
+@@ -534,7 +534,7 @@
+         for(;x<PIE_W&&pie[y][x];x++) if(pie[y][x]==1) { if(u<0) u=x; v=x; }
+         if(u<0) continue;
+         int h=1;
+-        for(;y+h<PIE_H;h++) { int k=u; while(k<=v&&pie[y+h][k]) k++; if(k<=v) break; }
++        for(;y+h<PIE_H;h++) { int k=u; while(k<=v&&(pie[y+h][k]||pie[y+h-1][k])) k++; if(k<=v) break; }
+         for(int t=y;t<y+h;t++) for(int k=u;k<=v;k++) pie[t][k]=2;
+         rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,TBX_COLOR_NAVY);
+     }

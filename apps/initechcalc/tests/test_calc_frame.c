@@ -79,7 +79,7 @@ int main(int argc,char **argv)
     int bottom=0,note_y=-1;
     for(unsigned i=0;i<tbx_host.nops;i++) {
         const tbx_host_op_t *o=&tbx_host.ops[i];
-        if(!strcmp(o->name,"tbx_fill_rect")&&o->a[0]==1&&o->a[5]==TBX_COLOR_GRAY&&o->a[4]-o->a[2]==1&&o->a[1]==0) bottom=o->a[2];
+        if(!strcmp(o->name,"tbx_fill_rect")&&o->a[0]==1&&o->a[5]==TBX_COLOR_GRAY&&o->a[4]-o->a[2]==1&&o->a[1]==0&&o->a[2]>bottom) bottom=o->a[2];   /* the lowest rule */
         if(!strcmp(o->name,"tbx_draw_text")&&o->a[0]==1&&o->a[1]==4) note_y=o->a[2];
     }
     for(unsigned i=0;i<tbx_host.nops;i++) {
