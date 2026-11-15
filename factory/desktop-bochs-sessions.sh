@@ -60,7 +60,7 @@ while IFS= read -r group; do
  "$root/build/factory/desktop-bochs" --disk "$boot" --disk2 "$run/data.img" \
  --keys-after FLAIR-LIVE-READY --rtc-time0 699440400 --allow-reboot --keys "$trace" \
  --expect 'TENANT-EXIT rc=0 via=exit' --quit-after 'TENANT-EXIT rc=0 via=exit' \
- --quit-after-count "$exits" --timeout-ms "$session_timeout" \
+ --quit-after-count "$exits" --timeout-ms "$session_timeout" --renew-ms "${DESKTOP_RENEW_MS:-30000}" \
  --name bochs --out "$run" > "$run/bochs.stdout" 2> "$run/bochs.report" || rc=$?
  took=$(($(date +%s)-begun))
  printf '%s %s %s %s %s\n' "$index" "$took" "$session_timeout" "$exits" "$group" >> "$out/bochs-times.txt"

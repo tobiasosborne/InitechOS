@@ -32,6 +32,7 @@ static void usage(const char *argv0)
         "  --expect MARKER    assert MARKER present (line-exact) on serial\n"
         "  --quit-after MARK  stop after this complete exact serial line\n"
         "  --quit-after-count N  wait for N occurrences (default 1)\n"
+        "  --renew-ms N     serial growth renews the deadline by N ms, up to 3 x timeout\n"
         "  --allow-reboot     opt into waiting across hardware RESET; required\n"
         "                     for count >1; triple faults always fail\n"
         "  --bios ROM         system BIOS (default %s)\n"
@@ -89,6 +90,7 @@ int main(int argc, char **argv)
         else if (strcmp(a, "--bios") == 0)       { NEED_ARG(); cfg.bios_path = argv[++i]; }
         else if (strcmp(a, "--vgabios") == 0)    { NEED_ARG(); cfg.vgabios_path = argv[++i]; }
         else if (strcmp(a, "--timeout-ms") == 0) { NEED_ARG(); cfg.timeout_ms = atoi(argv[++i]); }
+        else if (strcmp(a, "--renew-ms") == 0) { NEED_ARG(); cfg.renew_ms = atoi(argv[++i]); }
         else if (strcmp(a, "--rfb-port") == 0)   { NEED_ARG(); cfg.rfb_port = atoi(argv[++i]); }
         else if (strcmp(a, "--name") == 0)       { NEED_ARG(); cfg.name = argv[++i]; }
         else if (strcmp(a, "--out") == 0)        { NEED_ARG(); cfg.output_dir = argv[++i]; }
@@ -140,6 +142,7 @@ int main(int argc, char **argv)
 
     fprintf(stderr,
         "[bochs] launched=%d rfb_unblocked=%d timed_out=%d exit=%d signal=%d\n"
+        "[bochs] timeout_ms=%d renew_ms=%d renewals=%d deadline_ms=%lld\n"
         "[bochs] reaped=%d shutdown_requested=%d\n"
         "[bochs] serial_len=%zu marker_found=%d (expect=%s)\n"
         "[bochs] triple_fault=%d\n"
@@ -154,6 +157,7 @@ int main(int argc, char **argv)
         "[bochs] snapshot_ok=%d snapshot_tries=%d snap_ppm=%s\n"
         "[bochs] OK=%d\n",
         res.launched, res.rfb_unblocked, res.timed_out, res.exit_code, res.term_signal,
+        cfg.timeout_ms, cfg.renew_ms, res.renewals, res.deadline_ms,
         res.reaped, res.shutdown_requested,
         res.serial_len, res.marker_found,
         cfg.expect_marker ? cfg.expect_marker : "(none)",

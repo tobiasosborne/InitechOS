@@ -59,6 +59,8 @@ typedef struct {
                                   ASCII, no slashes.                         */
 
     int timeout_ms;            /* wall-clock kill deadline; <=0 => default.  */
+    int renew_ms;              /* >0: serial growth renews the deadline by this
+                                  much, up to 3 x timeout_ms (run_status.h). */
     int rfb_port;              /* 0/default: backend allocates a free port */
 
     const char *expect_marker; /* if non-NULL, asserted present (line-exact,
@@ -112,6 +114,8 @@ typedef struct {
     bool rfb_unblocked;        /* RFB handshake completed (Bochs proceeded). */
     int rfb_port;             /* actual port published by this child */
     bool timed_out;            /* deadline hit: always a failed run.         */
+    int renewals;              /* times serial growth moved the deadline     */
+    long long deadline_ms;     /* final deadline, ms after launch            */
     bool reaped;               /* child status was successfully collected */
     bool shutdown_requested;   /* harness sent SIGTERM after completed work */
     bool harness_stopped;      /* the harness signalled bochs before it ended */

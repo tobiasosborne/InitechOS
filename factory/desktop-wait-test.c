@@ -81,6 +81,24 @@ int main(void)
         } else printf("ok desktop wait: stale-history deadline=%lld\n",deadline);
         unsetenv("DESKTOP_WAIT_MS");
     }
+    {
+        /* The plain loop's --renew-ms rule after the trace (bochs.c
+         * BOCHS_SERIAL_PROGRESS): heartbeats never count, a painting line
+         * counts once, and the cursor is the session's own. */
+        if(ftruncate(fileno(serial),0)||fseek(serial,0,SEEK_SET))return 2;
+        journey_progress_scanned=0;
+        fputs("FLAIR-CLOCK-POLL\nFLAIR-CLOCK 9:00 am\nFLAIR-EVT what=6\n",serial);fflush(serial);
+        int clock=journey_serial_progress(path,0);
+        fputs("TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=10 b=10 c=0 -> 0\nTENANT-GA",serial);fflush(serial);
+        int paint=journey_serial_progress(path,0);
+        int again=journey_serial_progress(path,0);
+        if(clock||!paint||again) {
+            fprintf(stderr,"FAIL desktop wait: plain-loop progress clock=%d paint=%d again=%d expected 0/1/0\n",clock,paint,again);
+            bad=1;
+        } else puts("ok desktop wait: plain-loop progress ignores heartbeats, counts a line once");
+        if(ftruncate(fileno(serial),0)||fseek(serial,0,SEEK_SET))return 2;
+        journey_progress_scanned=0;
+    }
     bad|=run("slow-input",input,15000,60000,1,15000);
     bad|=run("missing",NULL,999999,60000,0,10000);
     bad|=run("clock-only","FLAIR-CLOCK-POLL\nFLAIR-CLOCK 9:00 am\nFLAIR-EVT what=6\n",999999,60000,0,10000);

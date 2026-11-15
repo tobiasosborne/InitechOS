@@ -72,7 +72,7 @@ cp build/image/data.img "$out/bochs-data.img"
 mdel -i "$out/bochs-data.img" ::AUTOEXEC.BAT
 if ! build/factory/bochs_harness --disk build/image/boot.img --disk2 "$out/bochs-data.img" \
  --vga-ext none --keys-after SHELL-READY --keys ret,ret,v,e,r,ret,d,i,r,ret,e,c,h,o,spc,b,o,c,h,s,ret \
- --expect bochs --quit-after bochs --timeout-ms "${DOS_SMOKE_TIMEOUT_MS:-45000}" --name bochs --out "$out" \
+ --expect bochs --quit-after bochs --timeout-ms "${DOS_SMOKE_TIMEOUT_MS:-45000}" --renew-ms 30000 --name bochs --out "$out" \
  > "$out/bochs.stdout" 2> "$out/bochs.report"; then
  cat "$out/bochs.report"; fail 'Bochs session did not complete';
 fi

@@ -35,7 +35,22 @@ send (OOM SIGKILL, SIGSEGV), not reaped, or an exit status that is no guest
 verdict (QEMU: even and nonzero, since isa-debug-exit is always odd; Bochs:
 any nonzero exit before the harness stopped it). Only 1 is product evidence.
 tests/emu-cli.sh links the real qemu_main.c and bochs_main.c to a scripted
-run (tests/emu-cli-stub.c) and grades each ending (review F2). When
+run (tests/emu-cli-stub.c) and grades each ending (review F2).
+
+bochs_harness --renew-ms N renews the run's deadline while the guest makes
+progress: each progress observation moves it to now + N, never earlier and
+never past three times --timeout-ms; without progress it does not move
+(emu_deadline_renew, tests/emu-exit.c). Progress is new serial output, or,
+in desktop-bochs, a new meaningful journey line (heartbeats excluded, the
+session-wide cursor shared with the W waits), also after the trace has
+ended while the guest finishes. The report prints timeout_ms, renew_ms,
+renewals and the final deadline_ms. The DOS smoke's Bochs leg and every
+Bochs desktop session pass it (DESKTOP_RENEW_MS, default 30000). Receipts:
+under 16 CPU hogs the DOS leg at a 12 s deadline timed out with the old
+harness and passed renewed (35 renewals, 19.3 s); a stalled guest still
+timed out at 12 s with none. Under 12 hogs the InitechCalc session timed
+out at its fixed 90 s on main and passed renewed in 246 s. QEMU has no
+renewal yet: its callers' wall deadlines stay absolute. When
 `INITECH_INFRA_LOG` is set, exits 2 and 3 append one line to that file; the
 mutation runner reads it, so a test script that ignores the harness status
 still cannot turn an incomplete run into a kill (testlib/README.md, Kill

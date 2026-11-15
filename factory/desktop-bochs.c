@@ -113,6 +113,27 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
         nanosleep(&pause,0);
     }
 }
+/* The plain loop's --renew-ms uses the journey's own progress rule and the
+ * same session-wide cursor, so heartbeats never renew and no line counts
+ * twice (review F5). It runs after the trace too, while the guest finishes. */
+static int journey_serial_progress(const char *path, off_t *unused)
+{
+    size_t len=0;char *txt=read_file(path,&len);int progress=0;
+    (void)unused;
+    if(!txt)return 0;
+    size_t complete=len;
+    while(complete>0 && txt[complete-1]!='\n')complete--;
+    for(size_t at=journey_progress_scanned;at<complete;) {
+        char line[4096];size_t k=0;
+        while(at<complete && txt[at]!='\n') {if(k<sizeof line-1)line[k++]=txt[at];at++;}
+        line[k]=0;at++;
+        if(journey_progress(line))progress=1;
+    }
+    if(complete>journey_progress_scanned)journey_progress_scanned=complete;
+    free(txt);
+    return progress;
+}
+#define BOCHS_SERIAL_PROGRESS(path, seen) journey_serial_progress((path), (seen))
 #define BOCHS_TRACE_TAP_KEYS 1
 #define bochs_trace_parse journey_parse
 #define BOCHS_TRACE_BIND_IDLE(transport) journey_bind(&deadline, (transport))

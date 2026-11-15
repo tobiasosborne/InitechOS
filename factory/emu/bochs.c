@@ -23,6 +23,7 @@
 #define _XOPEN_SOURCE 700   /* realpath(3) (XSI; glibc gates it on XOPEN_EXTENDED) */
 
 #include "bochs.h"
+#include "run_status.h"
 #include "bochs_trace.h"
 #include "rfb_port.h"
 
@@ -78,6 +79,19 @@ static int join_path(char *dst, size_t cap, const char *dir, const char *file)
 
 /* Read a whole file into a heap NUL-terminated buffer; *len = bytes (no NUL).
  * Returns NULL if the file is absent/unreadable (caller treats as empty). */
+/* Guest progress for --renew-ms (factory/README.md, Emulator exit status):
+ * by default any new serial byte. A frontend that knows which lines are
+ * meaningful (desktop-bochs: not clock heartbeats) supplies its own. */
+#ifndef BOCHS_SERIAL_PROGRESS
+static int bochs_serial_grew(const char *path, off_t *seen)
+{
+    struct stat st;
+    if (stat(path, &st) != 0 || st.st_size <= *seen) return 0;
+    *seen = st.st_size;
+    return 1;
+}
+#define BOCHS_SERIAL_PROGRESS(path, seen) bochs_serial_grew((path), (seen))
+#endif
 static char *read_file(const char *path, size_t *len)
 {
     if (len) *len = 0;
@@ -953,6 +967,8 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     out->launched = true;
     long long start = mono_ms();
     long long deadline = start + timeout_ms;
+    long long renew_ceiling = start + 3LL * timeout_ms;
+    off_t renew_seen = 0;
 
     /* Unblock the RFB wait so Bochs proceeds (give it part of the budget to
      * open the port). */
@@ -998,6 +1014,13 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         if (w < 0 && errno != EINTR) break;
         rfb_pump(&rfb);
         if(rfb.err[0])break;
+        if (cfg->renew_ms > 0) {
+            int grew = BOCHS_SERIAL_PROGRESS(out->serial_path, &renew_seen);
+            long long moved = emu_deadline_renew(deadline, renew_ceiling, mono_ms(), cfg->renew_ms, grew);
+            if (moved != deadline) out->renewals++;
+            deadline = moved;
+            if (rfb.input_deadline) rfb.input_deadline = deadline;
+        }
         if (key_next && !keys_started) {
             char *txt = read_file(out->serial_path, NULL);
             keys_started = txt && serial_marker_count(txt, cfg->keys_after) > 0;
@@ -1130,6 +1153,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     /* A frontend marker wait or snapshot may consume the remaining budget.
      * Completion observed inside that callback cannot extend the deadline. */
     if (mono_ms() >= deadline) out->timed_out = true;
+    out->deadline_ms = deadline - start;
     free(snap);
     out->rfb_width = rfb.w;
     out->rfb_height = rfb.h;
