@@ -91,7 +91,9 @@ Save safety follows the operator's failed-save ruling (GM3/GM4): after any
 reported failure the previous file must still open under its own name.
 Calc reserves stages with CREATE_NEW, advances only on DOS file-exists,
 closes every acquired handle even after a failed or short write, and removes
-only its own stage. An error probing TABLES.TXT refuses the save rather than
+only its own stage. A stage of its own whose DELETE DOS refuses stays its
+own: Calc deletes it again at the next Save (initech-40kpb). An error probing
+TABLES.TXT refuses the save rather than
 bypassing replace confirmation. A rejected FILE COPY request cleans its
 stage immediately; accepted requests keep it until the completion event.
 Failure/cancel retains unsaved work and cancels a deferred Quit. A model too
@@ -128,7 +130,8 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   shipped ledger, saved positions after a drag, reopening the saved tables,
   replace confirmation, stage ownership, exponent-form numbers typed, saved
   and reopened as the typed values, and the empty ledger's entry saved and
-  reopened. Expected bytes are the shipped fixture with literal
+  reopened, and a stage left by a refused DELETE cleared by the next Save.
+  Expected bytes are the shipped fixture with literal
   substitutions, or a document written by hand from the format above.
 - `test_calc_save_safety` + `tests/save-safety.sh`: 14 failure scenarios;
   the shell compares exported disk files with pre-save snapshots or the
@@ -136,7 +139,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 25 patches in `mutants/`; each must fail a host
+`make mutants` runs the 26 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,

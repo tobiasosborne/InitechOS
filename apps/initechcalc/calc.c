@@ -30,6 +30,9 @@ static const char copy_dst[]="APPS\\TABLES.TXT";
 /* Stage names, tried in DOS order; an occupied name is never touched. */
 static const char *const stage_names[]={"APPS\\TABLES.TMP","APPS\\TABLE~1.TMP","APPS\\TABLE~2.TMP","APPS\\TABLE~3.TMP"};
 static const char *copy_stage;
+#define STAGES (sizeof stage_names/sizeof stage_names[0])
+static unsigned stage_at;           /* stage_names index of copy_stage */
+static uint8_t left_behind[STAGES]; /* stages of ours a refused DELETE kept */
 static const char quit_text[]="Save changes to the worksheet\r\"TABLES.TXT\"\rbefore quitting?";
 static const char replace_text[]="\"TABLES.TXT\" already exists.\rDo you want to replace it with the\rworksheet you are saving?";
 static const char fail_text[]="The worksheet could not be saved.";
@@ -541,31 +544,40 @@ static int exists(const char *path)
     int32_t rc=tbx_file_close(h);
     return rc<0?rc:1;
 }
+/* Delete stage i, which this process created. If DOS refuses, the file is
+ * still ours: remember it and try again at the next Save (initech-40kpb). */
+static void drop_stage(unsigned i)
+{
+    int32_t rc=tbx_file_delete(stage_names[i]);
+    left_behind[i]=rc<0&&rc!=TBX_ERR_DOS(2);
+}
+static void release_stage(void) { g_staged=0; drop_stage(stage_at); }
 /* Every save writes the model, with the windows where they are now, to a
  * stage this process owns, and FILE COPY copies the stage to TABLES.TXT. */
 static void do_save(void)
 {
     unsigned n=serialise(); int32_t h=TBX_ERR_DOS(80);
     if(!n) { g_quit_after_save=0; notice(fail_text); return; }
+    for(unsigned i=0;i<STAGES;i++) if(left_behind[i]) drop_stage(i);
     copy_stage=0;
     /* CREATE_NEW is the ownership proof (toolbox_gate.h Sec 10b). OPEN
      * errors never license truncating someone else's file. Only file-exists
      * advances to another candidate. */
-    for(unsigned i=0;i<sizeof stage_names/sizeof stage_names[0];i++) {
+    for(unsigned i=0;i<STAGES;i++) {
         h=tbx_file_create_new(stage_names[i]);
-        if(h>=0) { copy_stage=stage_names[i]; break; }
+        if(h>=0) { copy_stage=stage_names[i]; stage_at=i; break; }
         if(h!=TBX_ERR_DOS(80)) break;
     }
     if(h<0) { g_quit_after_save=0; notice(fail_text); return; }
     g_staged=1;
     int32_t written=tbx_file_write(h,stage,n);
     int32_t closed=tbx_file_close(h); /* also after a short or failed WRITE */
-    if(written!=(int32_t)n||closed<0) { g_staged=0; (void)tbx_file_delete(copy_stage); g_quit_after_save=0; notice(fail_text); return; }
+    if(written!=(int32_t)n||closed<0) { release_stage(); g_quit_after_save=0; notice(fail_text); return; }
     g_copying=1;
     if(tbx_file_copy(copy_caption,copy_stage,copy_dst)!=TBX_OK) {
         g_copying=0;
         /* A rejected request has no completion event to clean up for us. */
-        g_staged=0; (void)tbx_file_delete(copy_stage);
+        release_stage();
         g_quit_after_save=0; notice(fail_text);
     }
 }
@@ -611,7 +623,7 @@ void tbx_app_event(const tbx_event_t *e)
     if(e->what==TBX_EVT_ALERT) { answer((int32_t)e->message); return; }
     if(e->what==TBX_EVT_FILECOPY) { /* the shell restored what the box covered */
         int ok=(int32_t)e->message>=0; g_copying=0;
-        if(g_staged) { g_staged=0; (void)tbx_file_delete(copy_stage); } /* the stage never outlives the copy */
+        if(g_staged) release_stage(); /* the stage never outlives the copy */
         if(ok) { g_dirty=0; if(g_quit_after_save) { g_quit_after_save=0; (void)tbx_exit(0); } }
         else { g_quit_after_save=0; notice(fail_text); }
         return;

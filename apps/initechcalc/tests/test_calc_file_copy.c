@@ -222,6 +222,30 @@ int main(void)
         CHECK(rc==0&&saved&&t&&t->size==sizeof want_empty-1&&!memcmp(t->data,want_empty,t->size),"EMPTY the empty ledger's entry is saved in an ordinary document");
         CHECK(reopen_alerts==0&&first_cell(&x)&&x==73,"EMPTY the saved document reopens with the entry");
     }
+
+    /* initech-40kpb: a stage Calc created is still Calc's after its DELETE
+     * fails. A cancelled copy whose cleanup is refused leaves APPS\TABLES.TMP;
+     * the next Save must clear it, and after that Save lands no stage of
+     * Calc's may remain. (A stranger's TABLES.TMP is never touched:
+     * STAGE_CLOBBER above.) */
+    {   tbx_host_reset(); copies=0; memset(drag_h,0,sizeof drag_h); memset(drag_v,0,sizeof drag_v);
+        tbx_host_put_file("APPS\\LEDGER.TXT",shipped_bytes,(uint32_t)shipped_len);
+        CHECK(tbx_app_main()==0,"LEFTOVER Calc launches");
+        key('7'); key('3'); key('\r');
+        event(TBX_EVT_MENU,SAVE);
+        CHECK(copies==1&&!strcmp(tbx_host.copy_src,"APPS\\TABLES.TMP"),"LEFTOVER the first Save stages APPS\\TABLES.TMP");
+        tbx_host.file_error[TBX_FILE_DELETE]=5;
+        event(TBX_EVT_FILECOPY,TBX_ERR_BUSY);              /* cancelled; the stage cannot be deleted */
+        tbx_host.file_error[TBX_FILE_DELETE]=0;
+        CHECK(tbx_host_file("APPS\\TABLES.TMP")!=0&&g_dirty,"LEFTOVER the refused cleanup left the stage and the work");
+        event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);            /* dismiss the failure notice */
+        event(TBX_EVT_MENU,SAVE);
+        CHECK(copies==2,"LEFTOVER the next Save copies");
+        event(TBX_EVT_FILECOPY,(int32_t)staged_len);
+        CHECK(!tbx_host_file("APPS\\TABLES.TMP")&&!tbx_host_file("APPS\\TABLE~1.TMP")&&!tbx_host_file("APPS\\TABLE~2.TMP")&&!tbx_host_file("APPS\\TABLE~3.TMP"),
+              "LEFTOVER no stage of Calc's outlives the next landed Save");
+        CHECK(!g_dirty,"LEFTOVER the next Save lands");
+    }
     printf("test_calc_file_copy: %u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;
 }
