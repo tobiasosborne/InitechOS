@@ -4,7 +4,7 @@ include $(TOP)/mk/config.mk
 HOST_AR ?= ar
 HOST_LIB := $(OUT)/host/libtbx_host.a
 # layout and link are compile and link checks in test-build; nothing runs.
-HOST_TESTS := abi host host32 mz search33 conformance dispatch
+HOST_TESTS := abi host host32 mz search33 conformance dispatch sweep
 TESTS ?= $(HOST_TESTS)
 export TOP
 TEST_BUDGET_S := 30
@@ -36,6 +36,12 @@ link-check: $(OUT)/tests/link
 	@echo 'ABI: all bindings link against shared fake'
 $(OUT)/tests/host: tests/host.c $(HOST_LIB) FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -MMD -MP $< $(HOST_LIB) -o $@)
+# The published GM4 dead-command sweep, graded on a toy tenant live and dead.
+$(OUT)/tests/sweep-live: tests/sweep.c tests/sweep/toy.c host/command_sweep.h $(HOST_LIB) FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -Itests -DSWEEP_TOY_DEAD=0 -DSWEEP_README='"$(CURDIR)/tests/sweep/INVENTORY.md"' -MMD -MP $< $(HOST_LIB) -o $@)
+$(OUT)/tests/sweep-dead: tests/sweep.c tests/sweep/toy.c host/command_sweep.h $(HOST_LIB) FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -Itests -DSWEEP_TOY_DEAD=1 -DSWEEP_README='"$(CURDIR)/tests/sweep/INVENTORY.md"' -MMD -MP $< $(HOST_LIB) -o $@)
+test-build: $(OUT)/tests/sweep-live $(OUT)/tests/sweep-dead
 $(OUT)/tests/search33: tests/search33.c $(HOST_LIB) FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -MMD -MP $< $(HOST_LIB) -o $@)
 test-build: $(OUT)/tests/search33

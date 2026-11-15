@@ -25,6 +25,18 @@ WDEF's content rectangle in flair/window.c. TBX_FILECOPY_TEXT_W is the live
 FILE COPY caption, 314 px. This is not a crash-atomicity promise. See
 NOTES-FOR-FLAIR.md for private adapter work.
 
+## Dead-command sweep
+
+host/command_sweep.h is GOLDEN-MASTER item 4's dead-command sweep, published
+once for the desktop apps (their tests include "command_sweep.h"; with the
+host fake's directory on the include path a local copy is no longer needed).
+It reads an app README's frozen command inventory and judges every menu row,
+command key, key code and dialog button only from the host fake's observable
+record. tests/sweep.c grades the engine itself on a toy tenant: the live toy
+passes, and a toy whose File > Beep does nothing must fail on that row. Each
+app's sweep is an ordinary host test, so `make test` (and the cert's
+clean-test stage) already runs every sweep; no separate cert stage is needed.
+
 ## Life cycle
 
 The loader relocates the module and zeroes e_minalloc BSS. Module byte zero
