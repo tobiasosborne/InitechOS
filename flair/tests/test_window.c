@@ -1210,5 +1210,36 @@ int main(void)
         }
         CHECK(!bad, "visible pixels exclude the always-on-top overlay");
     }
+    /* ======================================================================
+     * initech-2ief5: a HIDDEN window owns no pixels, so moving or resizing it
+     * exposes nothing: neither the desktop nor the window under its old frame
+     * receives damage (window.c distribute_exposure: exposure is exactly the
+     * pixels whose owner changed; HideWindow already gave its pixels back).
+     * Showing it afterwards covers; it exposes nothing either.
+     * ====================================================================== */
+    {
+        static win_store_t A, B;
+        static mgr_store_t M;
+        mgr_attach(&M, (rgn_rect_t){ 0, 0, 480, 640 });
+        win_attach(&B); win_attach(&A);
+        NewDocumentWindow(&M.wm, &B.rec, (rgn_rect_t){ 40, 20, 300, 400 }, documentKind, 1);
+        NewDocumentWindow(&M.wm, &A.rec, (rgn_rect_t){ 80, 60, 340, 440 }, documentKind, 1);
+        HideWindow(&M.wm, &A.rec);
+        CHECK(!region_is_empty(&B.upd.r),
+              "hiding the front window gives its pixels to the window behind");
+        region_set_empty(&B.upd.r); region_set_empty(&M.desk.r);
+        MoveWindow(&M.wm, &A.rec, 100, 120);
+        CHECK(region_is_empty(&M.desk.r) && region_is_empty(&B.upd.r),
+              "a hidden move damages neither the desktop nor the window under its old frame");
+        SizeWindow(&M.wm, &A.rec, 200, 150);
+        CHECK(region_is_empty(&M.desk.r) && region_is_empty(&B.upd.r),
+              "a hidden resize damages neither the desktop nor the window under it");
+        rgn_rect_t f = WindowFrameRect(&A.rec);
+        CHECK(f.left == 100 && f.top == 120 && f.right == 300 && f.bottom == 270,
+              "the hidden window still takes its new geometry");
+        ShowWindow(&M.wm, &A.rec);
+        CHECK(region_is_empty(&M.desk.r),
+              "showing it again covers and exposes no desktop");
+    }
     return TEST_SUMMARY("test_window");
 }

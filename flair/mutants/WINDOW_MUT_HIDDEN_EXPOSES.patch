@@ -1,0 +1,13 @@
+# A hidden window again exposes pixels it never owned when moved or resized.
+# Source: initech-2ief5; window.c distribute_exposure contract.
+# test: test_window
+--- a/window.c
++++ b/window.c
+@@ -288,7 +288,6 @@
+     /* A hidden window owns no pixels, so a move or resize while hidden has
+      * nothing to expose (initech-2ief5). Hide, dispose and invalidate already
+      * call this only while the window is visible. */
+-    if (!w->visible) { region_set_empty(out); return; }
+     region_t *fu = wm->scratch_a;
+     fronts_union(wm, w, fu);                                  /* scratch_a (uses scratch_c) */
+     if (!clip_to_frame) {

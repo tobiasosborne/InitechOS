@@ -285,6 +285,10 @@ static void fronts_union(const WindowMgr *wm, const WindowPtr w, region_t *out)
 static void visible_into(const WindowMgr *wm, const WindowPtr w, region_t *out,
                          int clip_to_frame)
 {
+    /* A hidden window owns no pixels, so a move or resize while hidden has
+     * nothing to expose (initech-2ief5). Hide, dispose and invalidate already
+     * call this only while the window is visible. */
+    if (!w->visible) { region_set_empty(out); return; }
     region_t *fu = wm->scratch_a;
     fronts_union(wm, w, fu);                                  /* scratch_a (uses scratch_c) */
     if (!clip_to_frame) {
