@@ -580,6 +580,16 @@ static int m_apply_replace_one(xb_interp *ip, int area, uint32_t recno,
             rc = -INTERP_ERR_EVAL;
             goto reject;
         }
+        /* A number that does not fit is stored as asterisks and real III+
+         * says so on its own line, not as a trapped error (no ON ERROR):
+         * datatype-mint DT2 F and screen-mint data-d03-overflow. */
+        if (v.t == XB_N) {
+            const dbf_field_t *f = dbf_field(tbl, field_idx);
+            char cell[256];
+            if (f->type == 'N' && f->field_len &&
+                (dec_format_fit(v.u.n, (int)f->field_len, (int)f->dec_count, cell, 1), cell[0] == '*'))
+                xb_interp_output(ip, "\r\nNumeric overflow (data was lost).", 35u);
+        }
 
         /* advance past the comma. */
         p = m_skip_ws(p);

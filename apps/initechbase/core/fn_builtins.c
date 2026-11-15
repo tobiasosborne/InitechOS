@@ -667,6 +667,9 @@ static int fn_abs(const xb_val *args, xb_val *out, int *err)
     v = args[0].u.n;
     if (v < 0.0) v = -v;
     *out = xb_n(v);
+    /* The argument's display width and decimals: ABS(X) of an overflowed
+     * X = 1/0 prints X's eight asterisks (data-d10-overflowcmp). */
+    out->num_width = args[0].num_width; out->num_dec = args[0].num_dec;
     *err = XBEE_OK;
     return 0;
 }
@@ -716,8 +719,13 @@ static int fn_mod(const xb_val *args, xb_val *out, int *err)
 
     a = args[0].u.n;
     b = args[1].u.n;
-    /* PROVISIONAL/GATED (numfn-3): MOD(a,0) -> a (zero-divisor not an error). */
-    if (b == 0.0) { *out = xb_n(a); *err = XBEE_OK; return 0; }
+    /* MOD(a,0) overflows: real III+ prints MOD(5,0) as "**", the width of
+     * the larger argument plus one (screen-mint data-d10-overflowcmp). */
+    if (b == 0.0) {
+        *out = xb_n(xb_overflow());
+        out->num_width=(args[0].num_width>args[1].num_width?args[0].num_width:args[1].num_width)+1;
+        *err = XBEE_OK; return 0;
+    }
     /* PROVISIONAL/GATED (numfn-3): truncated-quotient remainder.
      * INT(a/b) via (int64_t) cast (truncation toward zero). */
     q = (double)(int64_t)(a / b);
@@ -756,6 +764,8 @@ static int fn_round(const xb_val *args, xb_val *out, int *err)
 
     v   = args[0].u.n;
     dec = to_int_trunc(args[1].u.n);   /* may be negative (round to tens, etc.) */
+    /* An overflow stays an overflow (data-d03: ROUND(1/0,2) is "******"). */
+    if (xb_is_overflow(v)) { *out = xb_n(v); *err = XBEE_OK; return 0; }
 
     /* Build scale = 10^|dec| by repeated multiplication (no libm/pow). */
     scale = 1.0;
@@ -799,7 +809,13 @@ static int fn_maxmin(const xb_val *args, int is_max,
 
     if (args[0].t == XB_N) {
         double a = args[0].u.n, b = args[1].u.n;
-        *out = xb_n(is_max ? (a >= b ? a : b) : (a <= b ? a : b));
+        /* One comparison picks: MAX(X,1) is X and MIN(X,1) is 1 for an
+         * overflowed X (data-d10); equal to >=/<= for ordinary numbers. */
+        *out = xb_n(is_max ? (a < b ? b : a) : (a < b ? a : b));
+        /* The wider of the two widths and decimals: MIN(X,1) prints
+         * "    1.00" beside X's N(8,2) (data-d10-overflowcmp). */
+        out->num_width = args[0].num_width > args[1].num_width ? args[0].num_width : args[1].num_width;
+        out->num_dec = args[0].num_dec > args[1].num_dec ? args[0].num_dec : args[1].num_dec;
         *err = XBEE_OK;
         return 0;
     }

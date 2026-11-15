@@ -1,5 +1,9 @@
 # test: test_ibase_w2
 --- a/core/eval.c
 +++ b/core/eval.c
-@@ -825,0 +826 @@
+@@ -827,4 +827,5 @@
+ void xb_fixed_picture(const xb_ctx *ctx, xb_val *v)
+ {
 +    return; /* MUTANT: FIXED ON changes nothing */
+     if (ctx->set_fixed && v->t == XB_N) {
+         unsigned w = v->num_width ? v->num_width : 10, d = v->num_dec;

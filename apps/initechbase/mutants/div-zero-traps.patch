@@ -1,0 +1,11 @@
+# test: test_ibase_forms_replay
+--- a/core/eval.c
++++ b/core/eval.c
+@@ -523,6 +523,5 @@
+                  * (mint-002 C1/E2; screen-mint data-d03-overflow). The width
+                  * metadata is set by the caller as for any division. */
+-                *out = xb_n(xb_overflow());
+-                *err = XBEE_OK; return 0;
++                return fail(err, XBEE_NUM_OVERFLOW);
+             }
+             *out = xb_n(a->u.n / b->u.n);

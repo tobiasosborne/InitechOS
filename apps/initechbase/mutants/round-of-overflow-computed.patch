@@ -1,0 +1,9 @@
+# test: test_xbase_eval
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -766,5 +766,4 @@
+     dec = to_int_trunc(args[1].u.n);   /* may be negative (round to tens, etc.) */
+     /* An overflow stays an overflow (data-d03: ROUND(1/0,2) is "******"). */
+-    if (xb_is_overflow(v)) { *out = xb_n(v); *err = XBEE_OK; return 0; }
+ 
+     /* Build scale = 10^|dec| by repeated multiplication (no libm/pow). */

@@ -1,0 +1,9 @@
+# test: test_ibase_forms_replay
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -670,5 +670,4 @@
+     /* The argument's display width and decimals: ABS(X) of an overflowed
+      * X = 1/0 prints X's eight asterisks (data-d10-overflowcmp). */
+-    out->num_width = args[0].num_width; out->num_dec = args[0].num_dec;
+     *err = XBEE_OK;
+     return 0;

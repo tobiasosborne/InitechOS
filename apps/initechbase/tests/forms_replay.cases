@@ -118,3 +118,7 @@ case data-d06-keywidth
 case data-d07-skipends
 case data-d08-replacemove
 case data-d09-uniqueomitted
+case data-d03-overflow
+case data-d10-overflowcmp
+differs data-d03-overflow export:RESULT.TXT lines:18 real III+ ROUND(1/0,2) is six asterisks; ROUND width metadata uncaptured (initech-wmna0)
+differs data-d10-overflowcmp export:RESULT.TXT lines:6 real III+ 10^400 compares like negative infinity; one point, sign uncaptured (initech-stjgk)

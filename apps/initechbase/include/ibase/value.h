@@ -190,4 +190,17 @@ char xb_type_char(xb_type t);
  */
 int xb_eq(const xb_val *a, const xb_val *b);
 
+/* Numeric overflow (initech-byc5). Real III+ never traps 1/0 or MOD(n,0):
+ * the result prints as asterisks across its display width and every
+ * relational with it is .F., <> and # included (screen-mint data-d03-overflow,
+ * data-d10-overflowcmp). It is carried as a quiet NaN; the soft-float
+ * runtime propagates it through arithmetic as the real value does. */
+static inline double xb_overflow(void)
+{
+    union { uint64_t u; double d; } x;
+    x.u = 0x7FF8000000000000ull;
+    return x.d;
+}
+static inline int xb_is_overflow(double v) { return v != v; }
+
 #endif /* INITECH_IBASE_VALUE_H */

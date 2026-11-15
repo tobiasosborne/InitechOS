@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/core/eval.c
++++ b/core/eval.c
+@@ -384,5 +384,5 @@
+         int c = cmp_double(a->u.n, b->u.n);
+         /* An overflowed operand makes every relational .F. (data-d10). */
+-        if (xb_is_overflow(a->u.n) || xb_is_overflow(b->u.n)) {
++        if (0) {
+             *res = 0u; *err = XBEE_OK; return 0;
+         }

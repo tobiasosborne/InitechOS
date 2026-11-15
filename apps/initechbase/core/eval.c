@@ -382,6 +382,10 @@ static int apply_relational(xb_ctx *ctx, xb_token_type op,
     }
     case XB_N: {
         int c = cmp_double(a->u.n, b->u.n);
+        /* An overflowed operand makes every relational .F. (data-d10). */
+        if (xb_is_overflow(a->u.n) || xb_is_overflow(b->u.n)) {
+            *res = 0u; *err = XBEE_OK; return 0;
+        }
         switch (op) {
         case XBT_EQ:  *res = (uint8_t)(c == 0); break;
         case XBT_NEQ: case XBT_HASH: *res = (uint8_t)(c != 0); break;
@@ -515,12 +519,11 @@ static int eval_binop(xb_ctx *ctx, xb_token_type op,
     case XBT_SLASH:
         if (ta == XB_N && tb == XB_N) {                 /* N/N -> N           */
             if (b->u.n == 0.0) {
-                /* div-by-zero: mint-002 shows 1/0 -> overflow asterisk-fill,
-                 * NOT a trapped error. At the VALUE layer there is no display
-                 * width to fill, so we map it to the numeric-overflow catalog
-                 * code (#39). DECISION (oracle-resolves note in JSON): treat
-                 * as XBEE_NUM_OVERFLOW, not a silent NaN/Inf. */
-                return fail(err, XBEE_NUM_OVERFLOW);
+                /* div-by-zero: real III+ prints asterisks and traps nothing
+                 * (mint-002 C1/E2; screen-mint data-d03-overflow). The width
+                 * metadata is set by the caller as for any division. */
+                *out = xb_n(xb_overflow());
+                *err = XBEE_OK; return 0;
             }
             *out = xb_n(a->u.n / b->u.n);
             *err = XBEE_OK; return 0;

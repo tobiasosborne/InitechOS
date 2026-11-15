@@ -14,7 +14,7 @@ files back with mtools/independent readers and reopens them with genuine III+.
 It passes 50 checks. Scenarios and the selected application pair live on a
 separate disposable TEST disk; no test scenario is compiled into the kernel.
 `make native-check` runs the DOS console, file, program-return and overlay
-oracles. `make mutants` runs 289 host patches and 19 target patches, including
+oracles. `make mutants` runs 296 host patches and 19 target patches, including
 three static semantic rejections. All 28 original pending faults are qualified.
 The test controls themselves must receive zero kills.
 Host kills require completed assertion counts and identical failure evidence
@@ -237,6 +237,15 @@ cases (RESULT.TXT plus every DBF/NDX they write):
   and RECNO() 1; SKIP forward at EOF is #4, back at BOF #38, in any order;
   GO takes an expression; GO past the end is #5 and leaves EOF() .T.
 - APPEND BLANK writes a blank logical as a space (d01), not dbf.md's `?`.
+- d03, d10 (initech-byc5): 1/0 and MOD(n,0) are never trapped. The result
+  prints as asterisks across its display width, carries through arithmetic,
+  and every relational with it is .F., `<>` and `#` included; MAX(X,1) is X
+  and MIN(X,1) is 1. ABS keeps its argument's width and decimals, MAX/MIN
+  take the wider of each. REPLACE of a value too wide for its N field stores
+  asterisks and prints `Numeric overflow (data was lost).` as a line, not
+  through ON ERROR. Two single points stay recorded disagreements: the width
+  of ROUND() (initech-wmna0) and 10^400 comparing like negative infinity
+  (initech-stjgk).
 
 The replay compares a DBF up to its EOF mark after the declared records and
 treats an NDX node's bytes 2-3, each entry's padding and a short key's bytes
@@ -249,7 +258,7 @@ image (factory stage 2).
 Known parity limits, not silently promoted pending captures: STR scientific
 fallback/range/precision and rounding, exponent pictures, HISTORY growth and
 recording/paging, MEMOWIDTH wrapping/column padding, multi-area DISPLAY pauses,
-error routing, numeric overflow display (initech-byc5). SET INDEX preconditions,
+error routing, ROUND() widths and 10^400 ordering. SET INDEX preconditions,
 mutation NEXT scopes and bounded LOCATE misses still need independent capture
 qualification. Accepted captures stay unchanged. The smoke's LIST and INDEX/
 SEEK lines match real III+; its Y2K report uses the authored canon golden:

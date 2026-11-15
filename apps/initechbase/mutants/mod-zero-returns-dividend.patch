@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -723,5 +723,5 @@
+      * the larger argument plus one (screen-mint data-d10-overflowcmp). */
+     if (b == 0.0) {
+-        *out = xb_n(xb_overflow());
++        *out = xb_n(a);
+         out->num_width=(args[0].num_width>args[1].num_width?args[0].num_width:args[1].num_width)+1;
+         *err = XBEE_OK; return 0;

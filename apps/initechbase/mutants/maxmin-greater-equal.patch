@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -812,5 +812,5 @@
+         /* One comparison picks: MAX(X,1) is X and MIN(X,1) is 1 for an
+          * overflowed X (data-d10); equal to >=/<= for ordinary numbers. */
+-        *out = xb_n(is_max ? (a < b ? b : a) : (a < b ? a : b));
++        *out = xb_n(is_max ? (a >= b ? a : b) : (a <= b ? a : b));
+         /* The wider of the two widths and decimals: MIN(X,1) prints
+          * "    1.00" beside X's N(8,2) (data-d10-overflowcmp). */

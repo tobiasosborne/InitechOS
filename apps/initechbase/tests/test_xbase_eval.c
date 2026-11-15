@@ -195,7 +195,14 @@ int main(void)
     /* unary minus on N (xbase_coercion unary -N -> N): */
     ok_n("- 5", -5.0,  "A10: unary -5 -> -5");
     /* div-by-zero: DECISION -> XBEE_NUM_OVERFLOW (#39); mint-002 1/0 overflow */
-    err_is("1 / 0", 0, XBEE_NUM_OVERFLOW, "A11: 1/0 -> num_overflow #39 [JSON note]");
+    /* Real III+ never traps 1/0: it is an overflow value printed as
+     * asterisks (screen-mint data-d03-overflow, initech-byc5). */
+    { xb_val v; int e = 999; int rc = eval_expr("1 / 0", 0, &v, &e);
+      CHECK(rc == 0 && e == 0 && v.t == XB_N && xb_is_overflow(v.u.n), "A11: 1/0 -> overflow value, no error [data-d03]"); }
+    /* data-d03 line 18: ROUND(1/0,2) still prints asterisks (its width is
+     * uncaptured, initech-wmna0), so it stays an overflow value. */
+    { xb_val v; int e = 999; int rc = eval_expr("ROUND(1/0,2)", 0, &v, &e);
+      CHECK(rc == 0 && e == 0 && v.t == XB_N && xb_is_overflow(v.u.n), "A11b: ROUND(1/0,2) stays overflow [data-d03]"); }
 
     /* =================================================================== */
     /* B. C + C -> C concat (R_concat_plus: trailing blanks kept in place)   */
