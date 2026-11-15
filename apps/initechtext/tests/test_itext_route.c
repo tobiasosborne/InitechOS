@@ -43,6 +43,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "chrome_metrics.h"
 
 #include "../itext.c"   /* the application under test */
@@ -51,9 +56,9 @@ static long g_checks, g_fails;
 static int  g_said[24];
 static const char *const g_rn[] = { "copy", "save", "quit", "inverse", "route",
                                     "scrap", "file", "menu", "open", "edit", "scroll", "linefeed", "full",
-                                    "undo", "undorun", "undoreset" };
+                                    "undo", "undorun", "undoreset", "halt" };
 enum { R_COPY, R_SAVE, R_QUIT, R_INV, R_ROUTE, R_SCRAP, R_FILE, R_MENU, R_OPEN, R_EDIT, R_SCROLL, R_LF, R_FULL,
-       R_UNDO, R_UNDORUN, R_UNDORESET };
+       R_UNDO, R_UNDORUN, R_UNDORESET, R_HALT };
 #define CHECK(c, r, ...) do { g_checks++; if (!(c)) { g_fails++; if (!g_said[r]) {    \
     g_said[r] = 1; printf("FAIL %s: ", g_rn[r]); printf(__VA_ARGS__);           \
     printf(" (line %d)\n", __LINE__); } else { printf("  FAIL line %d\n", __LINE__); } } } while (0)
@@ -295,6 +300,149 @@ static void geometry_and_scroll(void)
         const op_t *c = &m_ops[m_nops - 1];
         CHECK(!strcmp(c->name, "tbx_fill_rect") && c->a[3] - c->a[1] == 1 && c->a[2] >= 0 && c->a[4] <= 200,
               R_SCROLL, "the caret stays inside a 200-px view: y %d..%d", c->a[2], c->a[4]);
+    }
+    tbx_host.cw = 557; tbx_host.ch = 389;
+}
+/* initech-k2rix. Narrowing a large document must never halt the desktop.
+ * FLAIR's TextEdit panics when a layout needs more than its 128 line starts
+ * (flair/textedit.c te_recompute_lines): the hosted panic is abort(), the
+ * target's is an endless loop, and with cooperative scheduling an endless
+ * loop in one application is a hung desktop (CLAUDE.md, Hazards) with the
+ * unsaved document stranded. The test turns the hosted abort into a FAILED
+ * check, so a regression reads as "halted", not as a crashed test.
+ * EXPECTED VALUES (never from itext.c): the fixtures are built here; the
+ * smallest window is FLAIR_CHROME_WINDOW_MIN_W (flair/window.c
+ * ConstrainWindowSize), whose content is 27 px narrower (the document frame
+ * inset, itext.c [MEAS] content 10..566 of frame 4..588); every byte, the
+ * selection and the saved TEXT must be the fixture's; a document that fits
+ * a column is drawn inside it (Geneva 12 advances from FLAIR's text.h).
+ * Inside Macintosh I-374 (textedit.md Sec 1, Sec 4): text wraps to destRect
+ * and is clipped to viewRect, so a destRect wider than the view is a
+ * TextEdit layout, not a loss. */
+static sigjmp_buf g_halt_jb;
+static volatile sig_atomic_t g_halt_armed;
+static void on_halt(int sig)
+{
+    (void)sig;
+    if (g_halt_armed) siglongjmp(g_halt_jb, 1);
+    _exit(3);
+}
+static void ev_update(void) { hev(updateEvt, 1, 0, 0, 0); }
+static void ev_undo(void) { menu_hit(130, 1); }
+static void ev_type_x(void) { type("x"); }
+static int survives(void (*f)(void))
+{
+    if (sigsetjmp(g_halt_jb, 1) != 0) { g_halt_armed = 0; return 0; }
+    g_halt_armed = 1;
+    f();
+    g_halt_armed = 0;
+    return 1;
+}
+static char g_big[2][4001];
+/* One fixture per child process: glibc's abort() cannot be caught twice in
+ * one process, and a halted layout leaves the record half-built. The child
+ * reports its counts through a pipe; a child killed by a signal is a halt. */
+static void narrow_one(int f)
+{
+    const int min_cw = FLAIR_CHROME_WINDOW_MIN_W - 27;
+    char joined[4200];
+    signal(SIGABRT, on_halt);
+    {
+        const char *fx = g_big[f];
+        tbx_host.cw = 557; tbx_host.ch = 389;
+        launch();
+        memcpy(m_scrap, fx, 4000); m_scrap_len = 4000;
+        hev(activateEvt, 1, FLAIR_EVT_MOD_ACTIVE_FLAG, 0, 0);
+        menu_hit(130, 5);                           /* Edit > Paste */
+        CHECK(g_te.teLength == 4000 && g_dirty, R_HALT, "fixture %d: 4000 bytes pasted at full width", f);
+        if (g_te.teLength != 4000) return;
+        int lines_full = g_te.nLines;
+        int ss = g_te.selStart, se = g_te.selEnd, alive = 1;
+        for (int cw = 557; cw >= min_cw && alive; cw -= (cw > 120 ? 37 : 1)) {
+            tbx_host.cw = cw;
+            alive = survives(ev_update);
+            CHECK(alive, R_HALT, "fixture %d: TextEdit halted narrowing the content to %d px", f, cw);
+            if (!alive) break;
+            CHECK(g_te.teLength == 4000 && !memcmp(g_te.text, fx, 4000) &&
+                  g_te.selStart == ss && g_te.selEnd == se && g_dirty, R_HALT,
+                  "fixture %d: content %d px keeps every byte and the selection", f, cw);
+        }
+        if (!alive) return;
+        CHECK(tbx_host.cw == min_cw, R_HALT, "fixture %d: reached the smallest window (%d px)", f, tbx_host.cw);
+        /* the unsaved work can still be saved, byte for byte */
+        menu_hit(129, 6); sf_answer("BIG.TXT");
+        mfile_t *b = mfind("BIG.TXT");
+        CHECK(b && b->size == 4000 && !memcmp(b->data, fx, 4000) && !g_dirty, R_HALT,
+              "fixture %d: Save As in the smallest window writes the fixture", f);
+        /* grown back, the text fills the full column again */
+        tbx_host.cw = 557;
+        alive = survives(ev_update);
+        CHECK(alive && runs_fit(557, joined, sizeof joined) && g_te.nLines == lines_full, R_HALT,
+              "fixture %d: grown back, the runs fit 557 px in %d lines", f, lines_full);
+        if (!alive) return;
+        /* Undo of a snapshot larger than the narrow layout can hold */
+        tbx_host.cw = 557; hev(updateEvt, 1, 0, 0, 0);
+        menu_hit(130, 7);                           /* Select All */
+        type("x");                                  /* snapshot: the fixture */
+        tbx_host.cw = 100;
+        alive = survives(ev_update);
+        CHECK(alive && doc_is("x") && runs_fit(100, joined, sizeof joined), R_HALT,
+              "fixture %d: a one-byte document fits the 100-px column", f);
+        if (!alive) return;
+        alive = survives(ev_undo);
+        CHECK(alive, R_HALT, "fixture %d: TextEdit halted restoring the Undo snapshot at 100 px", f);
+        if (!alive) return;
+        CHECK(g_te.teLength == 4000 && !memcmp(g_te.text, fx, 4000), R_HALT,
+              "fixture %d: Undo at 100 px restores every byte", f);
+        menu_hit(129, 5);                           /* Save (named BIG.TXT) */
+        b = mfind("BIG.TXT");
+        CHECK(b && b->size == 4000 && !memcmp(b->data, fx, 4000), R_HALT,
+              "fixture %d: Save after the narrow Undo writes the fixture", f);
+        alive = survives(ev_undo);
+        CHECK(alive && doc_is("x"), R_HALT, "fixture %d: a second Undo takes it back", f);
+        if (!alive) return;
+        /* an edit at the narrow width after a wide layout re-wraps to the view */
+        alive = survives(ev_undo) && survives(ev_type_x);
+        CHECK(alive, R_HALT, "fixture %d: typing over the restored fixture at 100 px", f);
+        if (!alive) return;
+        menu_hit(130, 7); type("Saving tables to disk");    /* wider than 90 px */
+        hev(updateEvt, 1, 0, 0, 0);                 /* a full paint to read */
+        CHECK(doc_is("Saving tables to disk") && runs_fit(100, joined, sizeof joined) &&
+              !strcmp(joined, "Saving tables to disk"), R_HALT,
+              "fixture %d: a short document at 100 px is drawn inside the column again", f);
+    }
+    signal(SIGABRT, SIG_DFL);
+}
+static void narrow_large_document(void)
+{
+    memset(g_big[0], 'W', 4000);                    /* the review's fixture */
+    for (int i = 0; i < 4000; i++)                  /* words with spaces */
+        g_big[1][i] = "Saving tables to disk. "[i % 23];
+    for (int f = 0; f < 2; f++) {
+        int fd[2], st = 0;
+        long got[2] = { 0, 0 };
+        fflush(stdout);
+        if (pipe(fd) != 0) exit(2);
+        pid_t pid = fork();
+        if (pid < 0) exit(2);
+        if (pid == 0) {
+            close(fd[0]);
+            setvbuf(stdout, NULL, _IONBF, 0);
+            g_checks = g_fails = 0;
+            narrow_one(f);
+            got[0] = g_checks; got[1] = g_fails;
+            if (write(fd[1], got, sizeof got) != (ssize_t)sizeof got) _exit(2);
+            _exit(0);
+        }
+        close(fd[1]);
+        ssize_t r = read(fd[0], got, sizeof got);
+        close(fd[0]);
+        if (waitpid(pid, &st, 0) != pid) exit(2);
+        if (r == (ssize_t)sizeof got && WIFEXITED(st) && WEXITSTATUS(st) == 0) {
+            g_checks += got[0]; g_fails += got[1];
+        } else {
+            CHECK(0, R_HALT, "fixture %d: the application halted (child status %d)", f, st);
+        }
     }
     tbx_host.cw = 557; tbx_host.ch = 389;
 }
@@ -608,6 +756,7 @@ int main(void)
 
     sweep_file_routes();
     geometry_and_scroll();
+    narrow_large_document();
     printf("test_itext_route: %ld checks, %ld failures\n", g_checks, g_fails);
     return g_fails == 0 ? 0 : 1;
 }

@@ -1,11 +1,11 @@
 --- a/itext.c
 +++ b/itext.c
-@@ -245,7 +245,7 @@
+@@ -293,7 +293,7 @@
      if (p <= 0) return;
      w = (int)(p & 0xFFFF);
      h = (int)((uint32_t)p >> 16);
 -    if (w <= 2 * TEXT_X || h <= 0 || (w == g_cw && h == g_ch)) return;
 +    if (1 || w <= 2 * TEXT_X || h <= 0 || (w == g_cw && h == g_ch)) return;
      if (w != g_cw) {
-         int16_t s = g_te.selStart, e = g_te.selEnd;
          g_cw = w;
+         relayout();

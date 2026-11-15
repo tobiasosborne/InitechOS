@@ -11,7 +11,7 @@ Frozen legacy-final inventory: New/Open/Close/Save/Save As/Quit, unsaved-work
 and replace guards, typing/backspace/arrows, selection/drag, wrapping,
 scrolling, Cut/Copy/Paste/Clear/Select All and single-level Undo with typing
 runs. Up to 4,096 bytes; opening normalizes LF/CRLF to CR, saving preserves
-single-byte TEXT. Close exits the app. No resize reflow or caret blinking.
+single-byte TEXT. Close exits the app. No caret blinking.
 Frozen omissions (approved phase-2 GM4 split): File Page Setup..., Print...
 (Cmd-P), Print One Copy. Their rows/shortcut and redundant divider are absent;
 there is no printer backend. File retains New/Open/Close/Save/Save As/Quit
@@ -44,7 +44,7 @@ one-/three-/four-byte reads, line-end normalization across chunks, empty and
 capacity inputs, seek/read/close failures, early EOF after a prefix, and real
 growth/shrinkage through a separate host descriptor during the load (including
 empty-to-nonempty and growth past capacity). The EOF probe must also succeed.
-make mutants kills seventeen patches, including partial-input publication,
+make mutants kills eighteen patches, including partial-input publication,
 bypassing the final EOF check, reinserting a disabled Print command and a
 dead Save As that the command sweep catches, a fixed-geometry layout and a
 partial repaint after a caret-following scroll (initech-ulqb). The window's
@@ -54,6 +54,17 @@ every row. The route test compares each LINES25 keystroke's immediate
 paint with a forced full repaint, and shrinks/grows the content to check
 that every run fits the new column, all text stays drawn, and the bytes and
 selection survive.
+The wrap column (TextEdit's destRect) can be wider than the view: a text
+that needs more than FLAIR's 128 line starts in the view's column wraps to
+the narrowest wider column that holds it, and the view clips the rest
+(Inside Macintosh I-374: text wraps to destRect, is clipped to viewRect).
+Widening the window or shortening the text brings the column back; Undo
+restores a larger snapshot the same way. Every width is probed before the
+record is re-laid, so no window size reaches TextEdit's halt (initech-k2rix).
+The route test pastes two 4,000-byte fixtures, shrinks to the smallest
+window, saves, grows, and undoes at 100 px, each fixture in a child process
+that reports a TextEdit abort as a failed check; itext_mut_wrap_to_view
+(wrap to the view unprobed) is killed by it.
 make smoke launches
 from the Finder on QEMU and Bochs, edits alpha CR bravo, saves UNTITLED on
 QEMU and Bochs, checks exact bytes with mtools/cmp and checks the volume with fsck.fat.

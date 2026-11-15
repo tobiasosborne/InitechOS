@@ -136,6 +136,7 @@ static char    g_alert[96] TBX_IN_IMAGE;
  * keep the snapshot; a refused edit (L014 capacity) records nothing. */
 static char    g_undo[FLAIR_TE_TEXT_MAX];
 static int     g_undo_len, g_undo_ss, g_undo_se, g_undo_dirty;
+static int     g_undo_wrap;                /* a column the snapshot fits     */
 static int     g_undo_ok;                  /* a snapshot to go back to       */
 static int     g_undo_run;                 /* inside a typing run            */
 
@@ -236,6 +237,53 @@ static void show_caret(void)
     if (g_scroll != was) g_full = 1;   /* every row moved: repaint them all */
 }
 
+/* initech-k2rix: the wrap width (TextEdit's destRect) is not always the
+ * view's. FLAIR's TextEdit holds FLAIR_TE_MAX_LINES line starts and halts on
+ * a layout that needs more (flair/textedit.c te_recompute_lines); a halted
+ * application hangs the cooperative desktop with its document unsaved. Inside
+ * Macintosh I-374 (system7-decomp specs/toolbox/textedit.md Sec 1, Sec 4):
+ * text wraps to destRect and is clipped to viewRect, which need not match. So
+ * a text that cannot be laid out in the view's column wraps to the narrowest
+ * wider column it fits, and the view clips the right of it; widening the
+ * window, or shortening the text, brings the column back to the view's.
+ * Every width is probed (FlairTECanReplace) before the record is re-laid. */
+static int fits_at(int w, const char *s, int n)
+{
+    int16_t keep = g_te.wrapWidth;
+    int ok;
+    g_te.wrapWidth = (int16_t)w;
+    ok = FlairTECanReplace(&g_te, 0, g_te.teLength, s, (int16_t)n);
+    g_te.wrapWidth = keep;
+    return ok;
+}
+
+/* The narrowest column from the view's up to `known` that holds s, or -1 if
+ * not even `known` does. */
+static int fit_width(const char *s, int n, int known)
+{
+    int lo = WRAP_W, hi = known;
+    if (fits_at(lo, s, n)) return lo;
+    if (hi <= lo || !fits_at(hi, s, n)) return -1;
+    while (hi - lo > 1) {                /* lo does not fit, hi does */
+        int m = lo + (hi - lo) / 2;
+        if (fits_at(m, s, n)) hi = m; else lo = m;
+    }
+    return hi;
+}
+
+/* Re-lay the document for the current view (bytes and selection kept). The
+ * text always fits its present column, so there is always an answer. */
+static void relayout(void)
+{
+    int16_t s = g_te.selStart, e = g_te.selEnd;
+    int w = fit_width(g_te.text, g_te.teLength, g_te.wrapWidth);
+    if (w < 0 || w == g_te.wrapWidth) return;
+    g_te.wrapWidth = (int16_t)w;
+    FlairTESetText(&g_te, g_te.text, g_te.teLength);   /* re-lay the lines */
+    FlairTESetSelect(&g_te, s, e);
+    g_full = 1;
+}
+
 /* Adopt the content size the gate reports. A new width re-wraps the text
  * (bytes and selection kept); any change gives the bar its new range. */
 static void adopt_size(void)
@@ -247,11 +295,8 @@ static void adopt_size(void)
     h = (int)((uint32_t)p >> 16);
     if (w <= 2 * TEXT_X || h <= 0 || (w == g_cw && h == g_ch)) return;
     if (w != g_cw) {
-        int16_t s = g_te.selStart, e = g_te.selEnd;
         g_cw = w;
-        g_te.wrapWidth = (int16_t)WRAP_W;
-        FlairTESetText(&g_te, g_te.text, g_te.teLength);   /* re-lay the lines */
-        FlairTESetSelect(&g_te, s, e);
+        relayout();
     }
     g_ch = h;
     {
@@ -273,6 +318,7 @@ static void menus_sync(void)
 
 static void refresh(void)
 {
+    if (g_te.wrapWidth != WRAP_W) relayout();   /* initech-k2rix */
     show_caret();
     menus_sync();
     paint();
@@ -480,6 +526,7 @@ static void undo_note(int typing)
         g_undo_ss = g_te.selStart;
         g_undo_se = g_te.selEnd;
         g_undo_dirty = g_dirty;
+        g_undo_wrap = g_te.wrapWidth;
         g_undo_ok = 1;
     }
     g_undo_run = typing;
@@ -489,8 +536,14 @@ static void undo_note(int typing)
 static void undo(void)
 {
     int i, n = g_te.teLength, ss = g_te.selStart, se = g_te.selEnd, d = g_dirty;
+    int wrap = g_te.wrapWidth, w;
     if (!g_undo_ok) return;                  /* grayed: nothing to undo */
+    /* initech-k2rix: the snapshot may need a wider column than the view now
+     * gives; it fitted the one it was taken in. */
+    w = fit_width(g_undo, g_undo_len, g_undo_wrap);
+    if (w < 0) return;
     for (i = 0; i < n; i++) g_io[i] = g_te.text[i];
+    g_te.wrapWidth = (int16_t)w;
     FlairTESetText(&g_te, g_undo, (int16_t)g_undo_len);
     FlairTESetSelect(&g_te, (int16_t)g_undo_ss, (int16_t)g_undo_se);
     g_dirty = g_undo_dirty;
@@ -499,6 +552,7 @@ static void undo(void)
     g_undo_ss = ss;
     g_undo_se = se;
     g_undo_dirty = d;
+    g_undo_wrap = wrap;
     g_undo_run = 0;
     g_full = 1;
 }

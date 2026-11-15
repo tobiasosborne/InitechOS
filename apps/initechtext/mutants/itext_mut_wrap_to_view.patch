@@ -1,0 +1,11 @@
+--- a/itext.c
++++ b/itext.c
+@@ -262,7 +262,7 @@
+ static int fit_width(const char *s, int n, int known)
+ {
+     int lo = WRAP_W, hi = known;
+-    if (fits_at(lo, s, n)) return lo;
++    if (1 || fits_at(lo, s, n)) return lo;
+     if (hi <= lo || !fits_at(hi, s, n)) return -1;
+     while (hi - lo > 1) {                /* lo does not fit, hi does */
+         int m = lo + (hi - lo) / 2;

@@ -1,6 +1,6 @@
 --- a/itext.c
 +++ b/itext.c
-@@ -424,12 +424,7 @@
+@@ -521,13 +521,7 @@
  {
      int i;
      if (!(typing && g_undo_run)) {
@@ -9,6 +9,7 @@
 -        g_undo_ss = g_te.selStart;
 -        g_undo_se = g_te.selEnd;
 -        g_undo_dirty = g_dirty;
+-        g_undo_wrap = g_te.wrapWidth;
 -        g_undo_ok = 1;
 +        (void)i;
      }
