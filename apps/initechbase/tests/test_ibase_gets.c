@@ -503,6 +503,65 @@ static void f20_eof(void)
     CHECK(same_as_real("FORM.DBF", F20 "forms-f20g-eofsecond/exports/FORM.DBF"), "F20g: FORM.DBF as real III+ left it");
 }
 
+
+/* initech-hyczn: READ binds a field GET by work area and field position
+ * and takes the type of the field at that position in the table open
+ * there. forms-f20e/f20h/f20i/f20j make OTHER.DBF with COPY TO, a frozen
+ * omission, so these runs start from the real III+ OTHER.DBF instead: the
+ * f20e and f20j exports are the file as COPY TO made it (READ wrote
+ * nothing); for f20i the FL byte is restored to FORM2's T, the only byte
+ * that READ changed. Expected files and READKEYs are the real exports. */
+static void f20_rebind_case(const char *name, const char *other, const char *get, const uint8_t *k,
+                            uint32_t kn, int restore_fl, double rk, const char *want)
+{
+    char other_path[8500], prg[400];
+    snprintf(other_path, sizeof other_path, F20 "%s>OTHER.DBF", other);
+    const char *files[] = {F20 "forms-f20e-restruct/SETUP/FORM.DBF>FORM.DBF",
+                           F20 "forms-f20e-restruct/SETUP/FORM.DBT>FORM.DBT", other_path, NULL};
+    snprintf(prg, sizeof prg, "PUBLIC RK1\r\nUSE FORM\r\n@ 5,10 SAY \"F:\" GET %s\r\nUSE OTHER\r\n"
+             "READ\r\nRK1=READKEY()\r\nCLOSE DATABASES\r\nSAVE TO OUT\r\nRETURN\r\n", get);
+    int err = 0, rc;
+    if (restore_fl) {
+        /* Copy first, then put FORM2's T back in the one byte READ changed. */
+        char root[2048], temp[] = "build/gets-pre.XXXXXX", path[8400];
+        if (!getcwd(root, sizeof root) || !mkdtemp(temp)) screen_die("scratch");
+        snprintf(path, sizeof path, "%s/%s/OTHER.DBF", root, temp);
+        copy_file(F20 "forms-f20i-posnum/exports/OTHER.DBF", path);
+        FILE *f = screen_open(path, "r+b"); fseek(f, 97 + 1 + 10, SEEK_SET); fputc('T', f); fclose(f);
+        snprintf(other_path, sizeof other_path, "%s>OTHER.DBF", path);
+    }
+    rc = run_prg(files, prg, k, kn, &err);
+    char msg[160];
+    snprintf(msg, sizeof msg, "%s: READ completes", name); CHECK(rc == 0, msg);
+    snprintf(msg, sizeof msg, "%s: OTHER.DBF as real III+ left it", name);
+    CHECK(same_as_real("OTHER.DBF", want), msg);
+    snprintf(msg, sizeof msg, "%s: FORM.DBF untouched", name);
+    CHECK(same_as_real("FORM.DBF", F20 "forms-f20e-restruct/SETUP/FORM.DBF"), msg);
+    char path[8400]; snprintf(path, sizeof path, "%s/OUT.MEM", scratch);
+    FILE *m = fopen(path, "rb"); unsigned char b[64] = {0}; size_t n = m ? fread(b, 1, sizeof b, m) : 0; if (m) fclose(m);
+    double got = -1; if (n >= 40 && !memcmp(b, "RK1", 3)) memcpy(&got, b + 32, 8);
+    snprintf(msg, sizeof msg, "%s: READKEY %g", name, rk);
+    if (got != rk) fprintf(stderr, "%s: READKEY got %g\n", name, got);
+    CHECK(got == rk, msg);
+}
+static void f20_rebind(void)
+{
+    static const uint8_t zz[] = {'Z','Z','\r'}, n[] = {'N','\r'}, cy55[] = {25,'5','5','\r'}, t[] = {'T','\r'};
+    /* f20e: Z is refused by the logical field now at position 0; READKEY 15. */
+    f20_rebind_case("F20e", "forms-f20e-restruct/exports/OTHER.DBF", "FC", zz, sizeof zz, 0, 15,
+                    F20 "forms-f20e-restruct/exports/OTHER.DBF");
+    /* f20h: N lands in OTHER's FL as the byte N; READKEY 271. */
+    f20_rebind_case("F20h", "forms-f20e-restruct/exports/OTHER.DBF", "FC", n, sizeof n, 0, 271,
+                    F20 "forms-f20h-poslogic/exports/OTHER.DBF");
+    /* f20i: GET FN takes position 1, OTHER's FL; Ctrl-Y stores a blank. */
+    f20_rebind_case("F20i", "forms-f20i-posnum/exports/OTHER.DBF", "FN", cy55, sizeof cy55, 1, 271,
+                    F20 "forms-f20i-posnum/exports/OTHER.DBF");
+    /* f20j: position 1 does not exist in OTHER: READ returns at once, 1. */
+    f20_rebind_case("F20j", "forms-f20j-posgone/exports/OTHER.DBF", "FN", t, sizeof t, 0, 1,
+                    F20 "forms-f20j-posgone/exports/OTHER.DBF");
+    CHECK(keys_i == 0, "F20j: READ read no key");
+}
+
 int main(void)
 {
     f01_memvar();
@@ -518,5 +577,6 @@ int main(void)
     f18_keys_and_masks();
     f19_home_chain_and_badcombo();
     f20_eof();
+    f20_rebind();
     return TEST_SUMMARY("test-ibase-gets");
 }

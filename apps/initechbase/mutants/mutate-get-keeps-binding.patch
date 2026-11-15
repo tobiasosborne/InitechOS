@@ -1,0 +1,13 @@
+# test: test_ibase_gets
+# READ keeps the field GET as declared instead of re-resolving it (initech-hyczn).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1258,7 +1258,7 @@
+     wa_env *env=xb_interp_env(ip);ibase_pal_t *pal=xb_interp_pal(ip);
+     dbf_table *t;const dbf_field_t *f;char expr[40];const char *al;
+     uint32_t n=0,an;int ftype,rc;xb_val v;xb_get ng;
+-    if(g->kind!=1)return 0;
++    if(g->kind!=1||1)return 0; /* MUTANT: keep the declared binding. */
+     if(!wa_is_open(env,g->area)) { g->kind=2;return 0; } /* forms-f20k: edits go nowhere */
+     t=wa_table(env,g->area);
+     if(!t||g->field<0||(uint32_t)g->field>=dbf_nfields(t))return 1;

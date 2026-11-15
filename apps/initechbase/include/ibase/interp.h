@@ -508,6 +508,10 @@ int xb_interp_store_param(xb_interp *ip, const char *name, const xb_val *v);
  */
 int ibase_write_field(xb_interp *ip, int area, uint32_t recno,
                       int field_idx, const xb_val *v, int *ec);
+/* The same, storing the bytes of an XB_C value as they are into a
+ * non-memo field (a logical GET's typed letter, forms-f20m). */
+int ibase_write_field_raw(xb_interp *ip, int area, uint32_t recno,
+                          int field_idx, const xb_val *v, int *ec);
 
 /* Additional interp_err ordinals introduced by S5.3 (additive; INTERP_OK==0 and
  * the S5.1 codes are unchanged). Returned negated from ibase_do, recorded by

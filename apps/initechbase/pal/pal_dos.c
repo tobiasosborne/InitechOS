@@ -699,11 +699,12 @@ static void dos_conout(ibase_pal_t *p,const char *text,uint32_t n)
         uint32_t i=0;
         while(i<n) {
             uint32_t start=i;
-            while(i<n && text[i]!='\r' && text[i]!='\n' && text[i]!='\b') i++;
+            while(i<n && text[i]!='\r' && text[i]!='\n' && text[i]!='\b' && text[i]!='\a') i++;
             ibase_screen_write(screen,text+start,i-start);
             if(i<n) {
                 /* M005ULOG.TXT and real list-layout-real/prompt: line CR/LF
                  * belong to the stream even when the model owns scrolling.
+                 * BEL goes to CON the same way and draws nothing.
                  * Keep their order among drawn runs. Restore the page after
                  * CON forwards the byte, then let the model apply its motion
                  * once (including its reserved rows and bottom-row scroll). */
@@ -711,6 +712,10 @@ static void dos_conout(ibase_pal_t *p,const char *text,uint32_t n)
                 dos_page(page,0);
                 dos_rawout(p,text+i,1);
                 dos_page(page,1);
+                /* BEL sounds through CON and occupies no cell: real III+
+                 * screen-mint forms-f14 after-x keeps the cell under the
+                 * cursor blank after a refused key under SET BELL ON. */
+                if(text[i]=='\a') { i++; continue; }
                 ibase_screen_write(screen,text+i++,1);
             }
         }

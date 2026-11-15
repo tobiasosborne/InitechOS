@@ -75,7 +75,13 @@ static int h_say(ibase_pal_t *p, uint8_t r, uint8_t c, const char *s, uint32_t n
 { (void)p; ibase_screen_at(&model, r, c, s, n); return 0; }
 static void h_gotoxy(ibase_pal_t *p, uint8_t r, uint8_t c) { (void)p; model.row = r; model.col = c; }
 static void h_attr(ibase_pal_t *p, uint8_t a) { (void)p; model.attr = a; }
-static void h_conout(ibase_pal_t *p, const char *s, uint32_t n) { (void)p; ibase_screen_write(&model, s, n); }
+/* As pal_dos.c dos_conout: BEL goes to CON and draws no cell. */
+static void h_conout(ibase_pal_t *p, const char *s, uint32_t n)
+{
+    (void)p;
+    for (uint32_t i = 0, start = 0; i <= n; i++)
+        if (i == n || s[i] == '\a') { ibase_screen_write(&model, s + start, i - start); start = i + 1; }
+}
 static void h_prompt(ibase_pal_t *p, int scoreboard, int cleared)
 { (void)p; ibase_screen_prompt(&model, scoreboard, cleared); }
 static void h_status(ibase_pal_t *p, int on, const char *path, uint32_t rec, uint32_t count)

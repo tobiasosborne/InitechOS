@@ -2,12 +2,12 @@
 # READ stores every GET it leaves, edited or not (initech-h6a5v).
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -1431,7 +1431,7 @@
+@@ -1517,7 +1517,7 @@
       * value exactly as it was: forms-f20a (CENTURY ON 1992 field, a 2002
       * date, 10/3, 12.345 under "999.99", BRITISH 31/01/92), forms-f11
       * N=-12.5 and forms-f20l (01 typed over 01/01/02 keeps 2002). */
 -    if(!g->changed)return 1;
 +    /* MUTANT: store untouched GETs too. */
      if(!q_get_parse(ip,g,&v))return -1;
-     if(g->kind==0) {
-         char tmp[256];
+     if(g->kind==2)return 1; /* its work area was closed: forms-f20k */
+     if(g->kind==0&&g->type==XB_L&&g->buf[0]==' ')return 1; /* forms-f20m M: blank keeps the value */

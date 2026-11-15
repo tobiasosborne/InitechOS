@@ -91,9 +91,8 @@ differs forms-f19-lifetime dump:badcombo dot-prompt error display (initech-bgtl1
 differs forms-f20c-eof dump:entered the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20c-eof dump:typed the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20c-eof dump:done the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
-differs forms-f20d-reuse dump:typed READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
-differs forms-f20d-reuse dump:done READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
-differs forms-f20d-reuse export:RESULT.TXT READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
+differs forms-f20d-reuse dump:done DBF() returns the alias, real III+ C:FORM2.dbf (initech-uo6zv)
+differs forms-f20d-reuse export:RESULT.TXT DBF() returns the alias, real III+ C:FORM2.dbf (initech-uo6zv)
 differs forms-f20e-restruct dump:declared COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
 differs forms-f20e-restruct dump:typed COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
 differs forms-f20e-restruct dump:done COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
@@ -103,7 +102,6 @@ differs forms-f20f-longnum dump:n-typed over-long numeric entry (initech-1ffs3)
 differs forms-f20f-longnum dump:fn-typed over-long numeric entry (initech-1ffs3)
 differs forms-f20f-longnum dump:done over-long numeric entry (initech-1ffs3)
 differs forms-f20f-longnum export:RESULT.TXT over-long numeric entry (initech-1ffs3)
-differs forms-f20f-longnum export:FORM.DBF over-long numeric entry (initech-1ffs3)
 differs forms-f20g-eofsecond dump:entered the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20g-eofsecond dump:typed the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20g-eofsecond dump:moved the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
@@ -125,13 +123,3 @@ differs forms-f20j-posgone dump:typed COPY TO is a frozen omission, so the progr
 differs forms-f20j-posgone dump:done COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
 differs forms-f20j-posgone export:RESULT.TXT COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
 differs forms-f20j-posgone export:OTHER.DBF COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
-differs forms-f20m-logical dump:f1-typed a logical GET shows and stores the typed letter (initech-hyczn)
-differs forms-f20m-logical dump:f2-typed a logical GET shows and stores the typed letter (initech-hyczn)
-differs forms-f20m-logical dump:l-typed a logical GET shows and stores the typed letter (initech-hyczn)
-differs forms-f20m-logical dump:m-blanked a logical GET shows and stores the typed letter (initech-hyczn)
-differs forms-f20m-logical dump:done a logical GET shows and stores the typed letter (initech-hyczn)
-differs forms-f20m-logical export:RESULT.TXT a logical GET shows and stores the typed letter (initech-hyczn)
-differs forms-f20m-logical export:FORM.DBF a logical GET shows and stores the typed letter (initech-hyczn)
-differs forms-f20n-reload dump:done READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
-differs forms-f20n-reload export:RESULT.TXT READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
-differs forms-f20n-reload export:FORM.DBF READ re-resolves a field GET against the record and table current at READ (initech-hyczn)

@@ -1018,8 +1018,30 @@ static void q_get_paint(xb_interp *ip,const xb_get *g)
     if(g->col>=80||g->row>=25)return;
     if(n>80u-g->col)n=80u-g->col;
     if(pal->set_attr)pal->set_attr(pal,enh);
-    (void)pal->paint(pal,g->row,g->col,g->buf,n);
+    if(g->type==XB_L&&g->buf[0]==' ') (void)pal->paint(pal,g->row,g->col,"?",1); /* forms-f20m, f20i */
+    else (void)pal->paint(pal,g->row,g->col,g->buf,n);
     if(pal->set_attr)pal->set_attr(pal,std);
+}
+/* Repaint only the cells a key changed: real III+ forms-f20n shows ZBCD
+ * after Z is typed into a GET whose buffer READ reloaded as WXYZ. */
+static void q_get_paint_changed(xb_interp *ip,const xb_get *g,const char *before)
+{
+    ibase_pal_t *pal=xb_interp_pal(ip);const set_state *ss=set_get_state(ip);
+    uint8_t std=ss?(uint8_t)ss->color_standard:(uint8_t)0x07;
+    uint8_t enh=(ss&&!ss->intensity)?std:(ss?(uint8_t)ss->color_enhanced:(uint8_t)0x70);
+    uint32_t i,n=g->width;
+    if(!pal||!pal->paint||g->col>=80||g->row>=25)return;
+    if(n>80u-g->col)n=80u-g->col;
+    for(i=0;i<n;i++) {
+        uint32_t j=i;
+        if(g->buf[i]==before[i])continue;
+        while(j<n&&g->buf[j]!=before[j])j++;
+        if(pal->set_attr)pal->set_attr(pal,enh);
+        if(g->type==XB_L&&g->buf[0]==' ')(void)pal->paint(pal,g->row,g->col,"?",1);
+        else (void)pal->paint(pal,g->row,(uint8_t)(g->col+i),g->buf+i,j-i);
+        if(pal->set_attr)pal->set_attr(pal,std);
+        i=j;
+    }
 }
 static void q_get_cursor(xb_interp *ip,int row,int col)
 {
@@ -1155,12 +1177,116 @@ static int q_pic_validate(int type,const char *pic,int is_get,int *ec)
     }
     return INTERP_OK;
 }
-static int q_get_resolve(xb_interp *ip,int row,int col,const char *tail,xb_get *out,int *ec)
+/* Display text, width and edit buffer of a GET from its value: at
+ * declaration, and again at READ when a field GET is re-resolved against
+ * the table and record current then (forms-f20d/f20h/f20i/f20n). */
+static int q_get_render(xb_interp *ip,xb_get *g,xb_val v,int *ec)
 {
     xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);wa_env *env=xb_interp_env(ip);
+    uint32_t cap;int rc;
+        char text[Q_LINEBUF];uint32_t n=0;
+        if(g->kind==1) {
+            dbf_table *t=wa_table(env,g->area);const dbf_field_t *f=dbf_field(t,g->field);
+            g->width=f->field_len;
+            if(v.t==XB_N){v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(ctx,&v);}
+            /* A numeric field GET edits as the picture its structure
+             * implies: forms-f20d N(10,2) after Ctrl-Y and 99 shows
+             * "99     ." (the point stays, digits fill from the left),
+             * where a numeric variable enters right-justified (forms-f07). */
+            if(v.t==XB_N&&(!g->pic[0]||g->implicit)&&f->field_len<sizeof g->pic) {
+                uint32_t i,len=f->field_len,dot=f->dec_count?len-f->dec_count-1u:len;
+                for(i=0;i<len;i++)g->pic[i]=i==dot?'.':'9';
+                g->pic[len]=0;g->implicit=1;
+            }
+        }
+        if(v.t==XB_L) { text[0]=v.u.l?'T':'F';text[1]=0;n=1; }
+        else q_render_val(text,&n,sizeof text,&v,ctx,0);
+        text[n<sizeof text?n:sizeof text-1]=0;
+        if(g->kind==0) {
+            g->width=(uint16_t)n;
+            if(v.t==XB_N) { uint32_t w=10u+(uint32_t)(g->dec>0?g->dec+1:0);if(w>g->width)g->width=(uint16_t)w; }
+        }
+        g->srcwidth=g->width;
+        if(g->pic[0]&&v.t==XB_L) {
+            int tl;const char *tp=q_pic_template(g->pic,&tl);
+            text[0]=(tl==1&&tp[0]=='Y')?(v.u.l?'Y':'N'):(v.u.l?'T':'F');
+            text[1]=0;n=1;g->width=1;
+        } else if(g->pic[0]) {
+            xb_val fv;int fec=0;
+            rc=xb_picture_format(ctx,&v,g->pic,(uint16_t)rt_strlen(g->pic),&fv,&fec);
+            if(rc) { if(ec)*ec=fec;return rc; }
+            n=fv.u.c.len<sizeof text?fv.u.c.len:(uint32_t)sizeof text-1;
+            rt_memcpy(text,fv.u.c.p,n);text[n]=0;
+            /* A character GET keeps the source width: the F10 phone mask
+             * "999-9999" over C(7) displays and stores seven cells. */
+            g->width=v.t==XB_C?g->srcwidth:(uint16_t)n;
+            if(v.t==XB_N) { /* decimals come from the template (F10) */
+                int tl,i,dot=-1,d=0;const char *tp=q_pic_template(g->pic,&tl);
+                for(i=0;i<tl;i++){if(tp[i]=='.')dot=i;else if(dot>=0&&(tp[i]=='9'||tp[i]=='#'||tp[i]=='$'||tp[i]=='*'))d++;}
+                if(dot>=0)g->dec=(int16_t)d;
+            }
+        }
+        /* A date field shows its SET CENTURY width, ten cells under CENTURY
+         * ON (forms-f20a `FD: 01/15/1992`), not its eight stored bytes. */
+        if(g->kind==1&&v.t==XB_D&&!g->pic[0])g->width=(uint16_t)n;
+        if(g->width==0)g->width=1;
+        if(g->width>254)g->width=254;
+        cap=g->width+1u;
+        g->buf=(char *)pal->acquire(pal,cap);
+        if(!g->buf) { if(ec)*ec=43;return -INTERP_ERR_NOMEM; }
+        rt_memset(g->buf,' ',g->width);g->buf[g->width]=0;g->buflen=g->width;
+        if(v.t==XB_N) { /* right-justify the rendered number in the field */
+            uint32_t tn=n<g->width?n:g->width;
+            rt_memcpy(g->buf+(g->width-tn),text+(n-tn),tn);
+        } else {
+            uint32_t tn=n<g->width?n:g->width;
+            rt_memcpy(g->buf,text,tn);
+        }
+    if(ec)*ec=0;
+    return INTERP_OK;
+}
+/* READ re-resolves a field GET against the work area as it is now: the
+ * binding is the field position, which takes the type and width of the
+ * field at that position in the table open there, and the edit starts from
+ * the current record's value (real III+ forms-f20d: USE FORM2 after GET FN
+ * edits FORM2; f20h/f20i/f20e: the field at that position in OTHER, of its
+ * own type; f20n: GO 2 after the GET edits record 2's own bytes). The
+ * declared display is not repainted. Returns 1 when the position is gone
+ * (forms-f20j: READ then returns at once with READKEY 1), 0 otherwise. */
+static int q_get_rebind(xb_interp *ip,xb_get *g,int *ec)
+{
+    wa_env *env=xb_interp_env(ip);ibase_pal_t *pal=xb_interp_pal(ip);
+    dbf_table *t;const dbf_field_t *f;char expr[40];const char *al;
+    uint32_t n=0,an;int ftype,rc;xb_val v;xb_get ng;
+    if(g->kind!=1)return 0;
+    if(!wa_is_open(env,g->area)) { g->kind=2;return 0; } /* forms-f20k: edits go nowhere */
+    t=wa_table(env,g->area);
+    if(!t||g->field<0||(uint32_t)g->field>=dbf_nfields(t))return 1;
+    f=dbf_field(t,g->field);ftype=f->type;
+    if(ftype!='C'&&ftype!='N'&&ftype!='D'&&ftype!='L') { if(ec)*ec=34;return -INTERP_ERR_EVAL; }
+    al=wa_alias(env,g->area);an=al?(uint32_t)rt_strlen(al):0u;
+    if(!an||an+2u+11u>=sizeof expr) { if(ec)*ec=12;return -INTERP_ERR_EVAL; }
+    rt_memcpy(expr,al,an);n=an;expr[n++]='-';expr[n++]='>';
+    { uint32_t i;for(i=0;i<11u&&f->name[i];i++)expr[n++]=f->name[i]; }
+    expr[n]=0;
+    rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
+    ng=*g;ng.buf=(char *)0;
+    ng.type=(uint8_t)(ftype=='C'?XB_C:ftype=='N'?XB_N:ftype=='D'?XB_D:XB_L);
+    ng.dec=(int16_t)f->dec_count;
+    { uint32_t i;for(i=0;i<11u&&f->name[i];i++)ng.name[i]=f->name[i];ng.name[i]=0; }
+    if(ng.type!=g->type)ng.pic[0]=0; /* another type's picture never applies */
+    if(ng.implicit)ng.pic[0]=0;      /* re-derived from the field now there */
+    rc=q_get_render(ip,&ng,v,ec);if(rc)return rc;
+    pal->release(pal,g->buf);
+    *g=ng;
+    return 0;
+}
+static int q_get_resolve(xb_interp *ip,int row,int col,const char *tail,xb_get *out,int *ec)
+{
+    wa_env *env=xb_interp_env(ip);
     char first[12],name[12],expr[Q_MAX_EXPR+1];int n1=0,n2=0,have_alias=0,rc;
     const char *p=q_skip_ws(tail);
-    xb_get g;xb_val v;uint32_t cap;
+    xb_get g;xb_val v;
     rt_memset(&g,0,sizeof g);g.field=-1;g.area=wa_selected(env);
     if(!q_get_ident(p,first,&n1,0)) { if(ec)*ec=10;return -INTERP_ERR_SYNTAX; }
     p+=n1;
@@ -1228,58 +1354,7 @@ static int q_get_resolve(xb_interp *ip,int row,int col,const char *tail,xb_get *
         rt_memcpy(expr+n,name,(uint32_t)rt_strlen(name)+1u);
         rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
     }
-    /* Unformatted display text and width (stage 5 adds PICTURE). */
-    {
-        char text[Q_LINEBUF];uint32_t n=0;
-        if(g.kind==1) {
-            dbf_table *t=wa_table(env,g.area);const dbf_field_t *f=dbf_field(t,g.field);
-            g.width=f->field_len;
-            if(v.t==XB_N){v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(ctx,&v);}
-        }
-        if(v.t==XB_L) { text[0]=v.u.l?'T':'F';text[1]=0;n=1; }
-        else q_render_val(text,&n,sizeof text,&v,ctx,0);
-        text[n<sizeof text?n:sizeof text-1]=0;
-        if(g.kind==0) {
-            g.width=(uint16_t)n;
-            if(v.t==XB_N) { uint32_t w=10u+(uint32_t)(g.dec>0?g.dec+1:0);if(w>g.width)g.width=(uint16_t)w; }
-        }
-        g.srcwidth=g.width;
-        if(g.pic[0]&&v.t==XB_L) {
-            int tl;const char *tp=q_pic_template(g.pic,&tl);
-            text[0]=(tl==1&&tp[0]=='Y')?(v.u.l?'Y':'N'):(v.u.l?'T':'F');
-            text[1]=0;n=1;g.width=1;
-        } else if(g.pic[0]) {
-            xb_val fv;int fec=0;
-            rc=xb_picture_format(ctx,&v,g.pic,(uint16_t)rt_strlen(g.pic),&fv,&fec);
-            if(rc) { if(ec)*ec=fec;return rc; }
-            n=fv.u.c.len<sizeof text?fv.u.c.len:(uint32_t)sizeof text-1;
-            rt_memcpy(text,fv.u.c.p,n);text[n]=0;
-            /* A character GET keeps the source width: the F10 phone mask
-             * "999-9999" over C(7) displays and stores seven cells. */
-            g.width=v.t==XB_C?g.srcwidth:(uint16_t)n;
-            if(v.t==XB_N) { /* decimals come from the template (F10) */
-                int tl,i,dot=-1,d=0;const char *tp=q_pic_template(g.pic,&tl);
-                for(i=0;i<tl;i++){if(tp[i]=='.')dot=i;else if(dot>=0&&(tp[i]=='9'||tp[i]=='#'||tp[i]=='$'||tp[i]=='*'))d++;}
-                if(dot>=0)g.dec=(int16_t)d;
-            }
-        }
-        /* A date field shows its SET CENTURY width, ten cells under CENTURY
-         * ON (forms-f20a `FD: 01/15/1992`), not its eight stored bytes. */
-        if(g.kind==1&&v.t==XB_D&&!g.pic[0])g.width=(uint16_t)n;
-        if(g.width==0)g.width=1;
-        if(g.width>254)g.width=254;
-        cap=g.width+1u;
-        g.buf=(char *)pal->acquire(pal,cap);
-        if(!g.buf) { if(ec)*ec=43;return -INTERP_ERR_NOMEM; }
-        rt_memset(g.buf,' ',g.width);g.buf[g.width]=0;g.buflen=g.width;
-        if(v.t==XB_N) { /* right-justify the rendered number in the field */
-            uint32_t tn=n<g.width?n:g.width;
-            rt_memcpy(g.buf+(g.width-tn),text+(n-tn),tn);
-        } else {
-            uint32_t tn=n<g.width?n:g.width;
-            rt_memcpy(g.buf,text,tn);
-        }
-    }
+    rc=q_get_render(ip,&g,v,ec);if(rc)return rc;
     {
         const set_state *ss=set_get_state(ip);
         int delim=ss&&ss->delimiters;
@@ -1424,6 +1499,17 @@ static int q_get_parse(xb_interp *ip,const xb_get *g,xb_val *out)
         *out=xb_d((double)jdn_from_ymd(year,mm,dd));return 1;
     }
 }
+/* A stored pictured number is shown again in its picture: forms-f20d
+ * repaints "99     ." as "     99.00" when Enter leaves the field. */
+static void q_get_reshow(xb_interp *ip,xb_get *g,const xb_val *v)
+{
+    xb_val fv;int fec=0;uint32_t n;
+    if(g->type!=XB_N||!g->pic[0])return;
+    if(xb_picture_format(xb_interp_ctx(ip),v,g->pic,(uint16_t)rt_strlen(g->pic),&fv,&fec))return;
+    n=fv.u.c.len<g->width?fv.u.c.len:g->width;
+    rt_memset(g->buf,' ',g->width);rt_memcpy(g->buf+(g->width-n),fv.u.c.p+(fv.u.c.len-n),n);
+    q_get_paint(ip,g);
+}
 static int q_get_write(xb_interp *ip,xb_get *g,int *ec)
 {
     xb_val v;wa_env *env=xb_interp_env(ip);
@@ -1433,18 +1519,27 @@ static int q_get_write(xb_interp *ip,xb_get *g,int *ec)
      * N=-12.5 and forms-f20l (01 typed over 01/01/02 keeps 2002). */
     if(!g->changed)return 1;
     if(!q_get_parse(ip,g,&v))return -1;
+    if(g->kind==2)return 1; /* its work area was closed: forms-f20k */
+    if(g->kind==0&&g->type==XB_L&&g->buf[0]==' ')return 1; /* forms-f20m M: blank keeps the value */
     if(g->kind==0) {
         char tmp[256];
         if(v.t==XB_C) { uint32_t n=v.u.c.len>255?255:v.u.c.len;rt_memcpy(tmp,v.u.c.p,n);v=xb_c(tmp,(uint16_t)n); }
-        if(v.t==XB_N&&g->pic[0])return xb_interp_store_width(ip,g->name,&v)==INTERP_OK?1:-2;
+        if(v.t==XB_N&&g->pic[0]) {
+            if(xb_interp_store_width(ip,g->name,&v)!=INTERP_OK)return -2;
+            q_get_reshow(ip,g,&v);return 1;
+        }
         return xb_interp_store(ip,g->name,&v)==INTERP_OK?1:-2;
     }
     {
         int sel=wa_selected(env),rc;
         if(!wa_is_open(env,g->area)) { if(ec)*ec=12;return -2; }
         if(sel!=g->area)(void)wa_select(env,g->area);
-        rc=ibase_write_field(ip,g->area,wa_recno(env,g->area),g->field,&v,ec);
+        /* A logical field takes the typed letter itself, or a blank:
+         * forms-f20m stores N and Y, forms-f20h N, forms-f20i ' '. */
+        if(g->type==XB_L) { xb_val raw=xb_c(g->buf,1);rc=ibase_write_field_raw(ip,g->area,wa_recno(env,g->area),g->field,&raw,ec); }
+        else rc=ibase_write_field(ip,g->area,wa_recno(env,g->area),g->field,&v,ec);
         if(sel!=g->area)(void)wa_select(env,sel);
+        if(rc==INTERP_OK)q_get_reshow(ip,g,&v);
         return rc==INTERP_OK?1:-2;
     }
 }
@@ -1515,6 +1610,18 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                 ibase_gets_clear(ip);
                 if(ec)*ec=4;
                 return -INTERP_ERR_EVAL;
+            }
+        }
+    }
+    {
+        uint32_t i;
+        for(i=0;i<ctx->ngets;i++) {
+            int rb=q_get_rebind(ip,&ctx->gets[i],ec);
+            if(rb<0) { ibase_gets_clear(ip);return rb; }
+            if(rb==1) { /* forms-f20j: no key is read, nothing is written */
+                ctx->readkey=1;ibase_gets_clear(ip);q_get_cursor(ip,23,0);
+                if(ec)*ec=0;
+                return INTERP_OK;
             }
         }
     }
@@ -1629,8 +1736,9 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                 char u=q_up1((char)k);
                 int tl;const char *tp=q_pic_template(g->pic,&tl);
                 int yform=g->pic[0]&&tl==1&&tp[0]=='Y';
-                if(u=='T'||u=='Y'){g->buf[0]=yform?'Y':'T';accepted=1;}
-                else if(u=='F'||u=='N'){g->buf[0]=yform?'N':'F';accepted=1;}
+                /* The typed letter itself (forms-f20m: n shows N, y shows Y). */
+                if(u=='T'||u=='Y'){g->buf[0]=yform?'Y':u;accepted=1;}
+                else if(u=='F'||u=='N'){g->buf[0]=yform?'N':u;accepted=1;}
             } else if(g->pic[0]&&g->type==XB_N) {
                 if(k=='-'||k=='+') { g->raw[0]=k=='-'?'-':0;g->raw[1]=0;g->started=1;accepted=1; }
                 else if(k=='.') {
@@ -1676,8 +1784,9 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                 char u=q_up1((char)k);
                 int tl;const char *tp=q_pic_template(g->pic,&tl);
                 int yform=g->pic[0]&&tl==1&&tp[0]=='Y';
-                if(u=='T'||u=='Y'){g->buf[0]=yform?'Y':'T';accepted=1;}
-                else if(u=='F'||u=='N'){g->buf[0]=yform?'N':'F';accepted=1;}
+                /* The typed letter itself (forms-f20m: n shows N, y shows Y). */
+                if(u=='T'||u=='Y'){g->buf[0]=yform?'Y':u;accepted=1;}
+                else if(u=='F'||u=='N'){g->buf[0]=yform?'N':u;accepted=1;}
             } else if(g->type==XB_N) {
                 if((k>='0'&&k<='9')||k=='.'||k=='-'||k=='+') {
                     /* Live reformat (F07): the first key starts a new entry
@@ -1710,7 +1819,7 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                     /* Full field auto-advances under CONFIRM OFF (F05a). */
                     int w;
                     if(rt_memcmp(before,g->buf,g->width)){g->changed=1;any_change=1;}
-                    q_get_paint(ip,g);
+                    q_get_paint_changed(ip,g,before);
                     w=q_get_write(ip,g,ec);
                     if(w==-2)return -INTERP_ERR_EVAL;
                     if(w==-1){ /* cannot happen for C */ }
@@ -1725,7 +1834,7 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
          * over 01/01/02 leaves READKEY 15, X then Left A over ABCD gives 271. */
         if(rt_memcmp(before,g->buf,g->width))g->changed=1;
         if(g->changed)any_change=1;
-        q_get_paint(ip,g);
+        q_get_paint_changed(ip,g,before);
         q_get_cursor(ip,g->row,g->col+pos);
     }
     if(ctx->ngets&&save_cur) {

@@ -1749,6 +1749,23 @@ static int coerce_and_write_field(uint8_t *dst, uint8_t flen, char ftype,
     }
 }
 
+int dbf_replace_bytes(dbf_table *tbl, uint32_t recno, int field, const xb_val *v)
+{
+    const dbf_field_t *f;
+    uint8_t *dst;
+    uint32_t i;
+    if (!tbl || !v || v->t != XB_C) return -DBF_ERR_IO;
+    if (!tbl->writable) return -DBF_ERR_IO;
+    if (recno < 1u || recno > tbl->nrec) return -DBF_ERR_BAD_RECNO;
+    if (field < 0 || (uint32_t)field >= (uint32_t)tbl->nfields) return -DBF_ERR_BAD_RECNO;
+    f = &tbl->fields[field];
+    if (f->type == 'M') return -DBF_ERR_MISMATCH;
+    dst = rec_ptr(tbl, recno) + field_offset_in_rec(tbl, field);
+    for (i = 0; i < f->field_len; i++)
+        dst[i] = i < v->u.c.len ? (uint8_t)v->u.c.p[i] : (uint8_t)' ';
+    return DBF_OK;
+}
+
 int dbf_replace(dbf_table *tbl, uint32_t recno, int field, const xb_val *v)
 {
     uint8_t  *rec;

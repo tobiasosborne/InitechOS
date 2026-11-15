@@ -614,8 +614,8 @@ reject:
 /* One-field write for @...GET write-back (initech-p3nn0): the single-pair
  * version of m_apply_replace_one's transaction, so a confirmed GET field
  * publishes through the same staged flush and index maintenance as REPLACE. */
-int ibase_write_field(xb_interp *ip, int area, uint32_t recno,
-                      int field_idx, const xb_val *v, int *ec)
+static int m_write_field(xb_interp *ip, int area, uint32_t recno,
+                         int field_idx, const xb_val *v, int raw, int *ec)
 {
     wa_env *env = xb_interp_env(ip);
     dbf_table *tbl = wa_table(env, area);
@@ -633,7 +633,7 @@ int ibase_write_field(xb_interp *ip, int area, uint32_t recno,
                           old_keys[i], ec);
         if (rc != INTERP_OK) return rc;
     }
-    rc = dbf_replace(tbl, recno, field_idx, v);
+    rc = raw ? dbf_replace_bytes(tbl, recno, field_idx, v) : dbf_replace(tbl, recno, field_idx, v);
     if (rc != DBF_OK) {
         if (ec) *ec = rc == -DBF_ERR_MISMATCH ? XBEE_MISMATCH :
                       rc == -DBF_ERR_IO ? M_MSG_READONLY : 0;
@@ -658,6 +658,13 @@ int ibase_write_field(xb_interp *ip, int area, uint32_t recno,
     if (ec) *ec = 0;
     return INTERP_OK;
 }
+
+int ibase_write_field(xb_interp *ip, int area, uint32_t recno,
+                      int field_idx, const xb_val *v, int *ec)
+{ return m_write_field(ip, area, recno, field_idx, v, 0, ec); }
+int ibase_write_field_raw(xb_interp *ip, int area, uint32_t recno,
+                          int field_idx, const xb_val *v, int *ec)
+{ return m_write_field(ip, area, recno, field_idx, v, 1, ec); }
 
 static int m_replace_impl(xb_interp *ip, const char *args, int *ec)
 {

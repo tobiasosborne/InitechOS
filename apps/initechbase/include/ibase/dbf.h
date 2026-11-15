@@ -708,6 +708,9 @@ const char *dbf_name(const dbf_table *tbl);
  * Ref: dbf.md sec 6; xbase_coercion.json; plan S1.5.
  */
 int dbf_replace(dbf_table *tbl, uint32_t recno, int field, const xb_val *v);
+/* Store a C value's bytes, blank-padded, into a non-memo field as they are
+ * (no type coercion): the letter typed into a logical GET (forms-f20m). */
+int dbf_replace_bytes(dbf_table *tbl, uint32_t recno, int field, const xb_val *v);
 
 /*
  * dbf_delete: mark the record at `recno` as deleted (delete flag = 0x2A).

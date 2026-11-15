@@ -147,7 +147,12 @@ date is read in the SET DATE order with a four-digit year under CENTURY ON
 and 1900+yy otherwise (F20b), READ at end of file is `End of file
 encountered.` (F20c, F20g), and a field GET is re-resolved at READ by work
 area and field position against the table and record current then (F20d,
-F20h-F20n). READ leaves the cursor at row 23, column 0 (F02); a READ with
+F20h-F20n): it takes the type and width of the field at that position,
+starts from the current record's value, and repaints only the cells a key
+changes (F20n shows ZBCD while ZXYZ is stored). A numeric field edits as the
+picture its structure implies and is shown formatted when stored (F20d); a
+logical GET shows and a logical field stores the typed letter (F20m). READ
+leaves the cursor at row 23, column 0 (F02); a READ with
 no pending GET takes exactly one key (F01); a command line typed at the dot
 prompt leaves READKEY() at 271 (F01-F03).
 

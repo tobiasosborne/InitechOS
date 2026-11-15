@@ -653,6 +653,7 @@ typedef struct {
     char     raw[48];         /* numeric: raw entry text (live reformat) */
     char     pic[80];         /* effective PICTURE ("" = unformatted) */
     uint16_t srcwidth;        /* unformatted value width (confirm size) */
+    uint8_t  implicit;        /* pic is the numeric field's own 99.99 shape */
 } xb_get;
 struct xb_interp;
 struct ibase_pal;
