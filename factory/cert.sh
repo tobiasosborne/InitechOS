@@ -3,6 +3,17 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1
 root=$PWD
+# Budgets, timeouts and test selections are the components' own. A shell or
+# make command line that loosens them would grade a weaker product. The
+# defaults (mk/config.mk exports them into every recipe) are accepted.
+refuse() { echo "FAIL cert: $1; certify with the components' own budgets" >&2; exit 1; }
+[ "${TEST_BUDGET_S:-30}" = 30 ] || refuse "TEST_BUDGET_S=$TEST_BUDGET_S is set"
+[ "${TEST_TIMEOUT_S:-20}" = 20 ] || refuse "TEST_TIMEOUT_S=$TEST_TIMEOUT_S is set"
+[ -z "${TESTS:-}" ] || refuse "TESTS selects a subset"
+for setting in TEST_BUDGET_S TEST_TIMEOUT_S TESTS; do
+    case " ${MAKEFLAGS:-} " in *" $setting="*) refuse "$setting is set on the make command line";; esac
+done
+unset TEST_BUDGET_S TEST_TIMEOUT_S TESTS
 id=$(date -u +%Y-%m-%dT%H%M%SZ)-$(git rev-parse --short HEAD)
 work=$(mktemp -d)
 start=$(date +%s)

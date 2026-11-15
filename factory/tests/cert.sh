@@ -70,3 +70,15 @@ for strict in 0 1; do
   echo "ok cert $name strict=$strict"
  done
 done
+# Loosened budgets from the shell or the make command line are refused before
+# any stage runs (review F5); the exported defaults are accepted above.
+for loose in 'TEST_BUDGET_S=600' 'TEST_TIMEOUT_S=60' 'TESTS=one' 'MAKEFLAGS= -- TEST_BUDGET_S=600'; do
+ dir=$work/loose
+ rm -rf "$dir"; mkdir -p "$dir/factory"
+ cp "$root/factory/cert.sh" "$dir/factory/"
+ rc=0
+ (cd "$dir" && env PATH="$work/bin:$PATH" CASE=green "$loose" sh factory/cert.sh) > "$dir/log" 2>&1 || rc=$?
+ if [ "$rc" -ne 0 ] && grep -q '^FAIL cert: .*certify with the components' "$dir/log" && ! grep -q 'cert: clean-test' "$dir/log"; then
+  echo "ok cert refuses $loose"
+ else echo "FAIL cert accepted loosened $loose"; cat "$dir/log"; exit 1; fi
+done
