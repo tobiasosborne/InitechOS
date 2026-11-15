@@ -541,6 +541,15 @@ test-system-drive_SRCS := tests/runner.c
 test-system-drive_ARGS := tests/run.sh test-system-drive
 test-system-drive_DEPS := $(OUT)/host/tool_test_system_drive tests/gates/test-system-drive.sh
 
+EXTRA_HOST_TESTS += tool_test_startup_disks
+tool_test_startup_disks_SRCS := tests/test_startup_disks.c tests/disk/blockdev_file.c ata.c startup_disks.c
+tool_test_startup_disks_OBJS := $(tool_test_fileio_subdir_OBJS) $(tool_test_block_device_OBJS)
+tool_test_startup_disks_CFLAGS := -no-pie -Wl,--wrap=ata_ctx_init_primary_master -Wl,--wrap=ata_ctx_init_primary_slave -Wl,--wrap=ata_blockdev_init
+HOST_TESTS += test-startup-disks
+test-startup-disks_SRCS := tests/runner.c
+test-startup-disks_ARGS := tests/run.sh test-startup-disks
+test-startup-disks_DEPS := $(OUT)/host/tool_test_startup_disks tests/gates/test-startup-disks.sh
+
 # Apply after every registration, before host_source_rule expands _DEPS into
 # object prerequisites. Earlier expansion in tools.mk omitted later tools,
 # including the independent int21.c compilation for test-loader-live.

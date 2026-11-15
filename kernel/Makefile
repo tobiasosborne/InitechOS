@@ -2,7 +2,7 @@ TOP := ..
 COMPONENT := kernel
 include $(TOP)/mk/config.mk
 TARGET_INCLUDES := -Iinclude -I. -I$(OUT) -I$(TOP)/dos/command
-SOURCES := main startup environment console console_pixels idt pic panic int21 devices mcb psp sft config_sys sysinit loader ata block_device fat12 fileio_fat kbd mouse pit rtc irq
+SOURCES := main startup startup_disks environment console console_pixels idt pic panic int21 devices mcb psp sft config_sys sysinit loader ata block_device fat12 fileio_fat kbd mouse pit rtc irq
 OBJECTS := $(addprefix $(OUT)/,$(addsuffix .o,$(SOURCES))) $(OUT)/kstart$(if $(BIG_KERNEL),-big).o $(OUT)/isr.o
 include $(TOP)/mk/target.mk
 all: $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS
@@ -24,6 +24,11 @@ smoke:
 	$(MAKE) smoke-ctrl-break
 	$(MAKE) -C $(TOP) smoke
 smoke: smoke-conpair
+.PHONY: smoke-startup
+smoke: smoke-startup
+smoke-startup:
+	$(MAKE) -C $(TOP) image
+	sh tests/startup-native.sh
 .PHONY: smoke-shell-config
 smoke-shell-config:
 	$(MAKE) -C $(TOP) image
