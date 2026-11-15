@@ -1236,10 +1236,9 @@ static void write_file(void)
      * initech-tdnl.91). */
     if (flatten(&n) != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
     wn = n;
-    g_word_recovery[0] = 0;
     rc = word_save(wn);
     if (rc == TBX_ERR_DOS(39)) rc = 0; /* copy-save's full-disk result */
-    if (rc < 0) { error(g_word_recovery[0] ? g_word_recovery : "ERROR: File I/O error", M_SAVE_NAME); return; }
+    if (rc < 0) { error("ERROR: File I/O error", M_SAVE_NAME); return; }
     if ((uint32_t)rc != wn) {
         /* Appendix E, PDF 763 */
         error("ERROR: Disk Full--Press Any Key to Continue", M_SAVE_NAME);

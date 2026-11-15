@@ -37,7 +37,7 @@ static void seed(const char *dir,int backup,int exists,int readonly)
     else tks("New document");
     tks("REVISION");
     CHECK(g_ed.dirty,"save","edited document dirty");
-    m_dir=dir;mkdir(dir,0700);fixture_export();
+    m_dir=dir;if(dir){mkdir(dir,0700);fixture_export();}
     save_call=0;
 }
 static void save(void)
@@ -72,71 +72,79 @@ static void check_result(int backup,int exists)
     for(int i=0;i<TBX_HOST_HANDLES;i++)CHECK(!tbx_host.handles[i].used,"save","no leaked handle");
     total_calls=calls;
 }
-static void compound(const char *root,int backup)
+/* Every ordered pair of failed boundaries (negative results), backup on and
+ * off. A reported failure must leave the captured previous document openable
+ * under NAME.WP5. Each such disk state is written out flat and run.sh hashes
+ * every copy against the pinned capture, outside Word and the SDK fake. */
+static unsigned pair_failures, pair_exports;
+static void export_previous(const char *dir,int backup,unsigned a,unsigned b)
 {
-    char dir[1024];
-    snprintf(dir,sizeof dir,"%s/double-b%d-baseline",root,backup);
+    char path[1100];
+    const tbx_host_file_t *f=tbx_host_file("NAME.WP5");
+    pair_failures++;
+    if(!f)return;                        /* counted, not exported: run.sh goes red */
+    snprintf(path,sizeof path,"%s/b%d-%u-%u.WP5",dir,backup,a,b);
+    FILE *o=fopen(path,"wb");
+    if(!o||fwrite(f->data,1,f->size,o)!=f->size||fclose(o)){perror(path);exit(2);}
+    pair_exports++;
+}
+static void pairs(const char *root,int backup)
+{
+    char dir[1024],out[1024];
+    snprintf(dir,sizeof dir,"%s/pairs-b%d-baseline",root,backup);
     seed(dir,backup,1,0);save();check_result(backup,1);
     unsigned n=total_calls;
-    snprintf(dir,sizeof dir,"%s/double-b%d",root,backup);
-    seed(dir,backup,1,0);save_fail_at=n-1;save_fail_again=n;save();
-    CHECK(save_failed==2,"save-double","publication and restoration both failed");
-    CHECK(g_mode==M_ERROR&&g_ed.dirty,"save-double","error retains edited working document");
-    CHECK(disk_is("NAME.W00",original,original_n),"save-double","previous document retained byte-exactly");
-    const tbx_host_file_t *candidate=tbx_host_file("NAME.N00");
-    CHECK(candidate&&candidate->size==original_n+8,"save-double","complete edited candidate retained too");
-    CHECK(!tbx_host_file("NAME.WP5"),"save-double","original pathname is the known kernel residual");
-    CHECK(row_is(21,"ERROR: Original file retained as:")&&row_is(22,"NAME.W00"),
-          "save-double","error visibly names the exact previous file");
-    save_fail_at=save_fail_again=0;
-    unsigned deleted=tbx_host.ndeleted;
+    snprintf(out,sizeof out,"%s/pairs",root);mkdir(out,0700);
+    for(unsigned a=1;a<n;a++)for(unsigned b=a+1;b<=n;b++){
+        seed(0,backup,1,0);save_fail_at=a;save_fail_again=b;save();
+        CHECK(save_failed>=1,"save-pair","first selected boundary was exercised");
+        if(g_mode==M_ERROR)export_previous(out,backup,a,b);
+        check_result(backup,1);
+    }
+    /* After the last pair the editor still holds the edit: an immediate retry
+     * under the same name, and a save to a fresh name, both complete. */
+    seed(0,backup,1,0);save_fail_at=n-1;save_fail_again=n;save();
+    CHECK(g_mode==M_ERROR,"save-retry","final-boundary pair reports failure");
+    check_result(backup,1);
     tk(' ');fkey(F1,0);save();
-    CHECK(g_mode==M_ERROR&&g_word_blocked,"save-double","further saves are refused until a fresh tenant");
-    CHECK(tbx_host.ndeleted==deleted&&disk_is("NAME.W00",original,original_n)&&
-          tbx_host_file("NAME.N00")==candidate,"save-double","recovery never deletes either complete stream");
-    fixture_export();
+    CHECK(g_mode==M_EDIT&&!g_ed.dirty&&!strcmp(g_current,"A:\\NAME.WP5"),"save-retry","retry after a reported failure saves");
+    const tbx_host_file_t *f=tbx_host_file("NAME.WP5");
+    CHECK(f&&f->size>original_n,"save-retry","retry committed the edited version");
+    if(backup)CHECK(disk_is("NAME.BK!",original,original_n),"save-retry","retry rotates the retained previous version");
+    seed(0,backup,1,0);save_fail_at=n-1;save_fail_again=n;save();check_result(backup,1);
+    tk(' ');fkey(F1,0);save_as("FRESH.WP5");
+    CHECK(g_mode==M_EDIT&&!g_ed.dirty&&tbx_host_file("FRESH.WP5"),"save-retry","fresh name after a reported failure saves");
+    CHECK(disk_is("NAME.WP5",original,original_n),"save-retry","fresh-name save leaves the previous document alone");
 }
-static void compound_long(const char *root)
+/* A 53-character path: every single failed boundary keeps the previous
+ * document under its own long name. */
+static void long_path(const char *root)
 {
     static const char target[]="ABCDEFGH\\IJKLMNOP\\QRSTUVWX\\ABCDEFGH\\IJKLMNOP\\NAME.WP5";
-    static const char prior[]="ABCDEFGH\\IJKLMNOP\\QRSTUVWX\\ABCDEFGH\\IJKLMNOP\\NAME.W00";
-    static const char next[]="ABCDEFGH\\IJKLMNOP\\QRSTUVWX\\ABCDEFGH\\IJKLMNOP\\NAME.N00";
     char dir[1024],parent[128];unsigned calls=0;
-    for(int fault=0;fault<2;fault++){
-        snprintf(dir,sizeof dir,"%s/long-%d",root,fault);seed(dir,0,1,0);
+    for(unsigned fault=0;fault<=calls;fault++){
+        snprintf(dir,sizeof dir,"%s/long-%u",root,fault);seed(fault?0:dir,0,1,0);
         for(unsigned i=0;target[i];i++)if(target[i]=='\\'){
             memcpy(parent,target,i);parent[i]=0;
             CHECK(tbx_host_put_file(parent,0,0),"save-long","seed parent directory");
             ((tbx_host_file_t *)tbx_host_file(parent))->attr=16;
         }
         CHECK(tbx_host_put_file(target,original,original_n),"save-long","seed long-path document");
-        fixture_export();save_call=0;
-        if(fault){save_fail_at=calls-1;save_fail_again=calls;}
+        fixture_export();save_call=0;save_fail_at=fault;
         save_as(target);
         if(!fault){calls=save_call;CHECK(g_mode==M_EDIT&&!g_ed.dirty,"save-long","baseline save");continue;}
-        CHECK(save_failed==2&&g_mode==M_ERROR,"save-long","double-rename residual reached");
-        CHECK(disk_is(prior,original,original_n)&&tbx_host_file(next),"save-long","both complete streams retained");
-        CHECK(row_is(22,prior)&&row_is(23,"Press any key to continue"),"save-long","full recovery path is visible without truncation");
-        save_fail_at=save_fail_again=0;fixture_export();
+        CHECK(save_failed==1,"save-long","selected boundary was exercised once");
+        if(g_mode==M_ERROR)CHECK(disk_is(target,original,original_n),"save-long","previous document keeps its long name");
+        else CHECK(tbx_host_file(target)&&tbx_host_file(target)->size>original_n,"save-long","nonfatal fault still commits");
+        save_fail_at=0;
     }
 }
 int main(int argc,char **argv)
 {
     static int ctr[2];g_ctr=ctr;
-    if(argc!=4&&argc!=5)return 2;
+    if(argc!=4)return 2;
     original_n=load(argv[2],original);older_n=load(argv[3],older);
     char dir[1024];
-    if(argc==5){
-        /* Diagnostic reproducer for the still-open Toolbox rollback limit.
-         * Intentionally checks the full ruling and returns red today. */
-        if(strcmp(argv[4],"rollback"))return 2;
-        snprintf(dir,sizeof dir,"%s/baseline",argv[1]);seed(dir,0,1,0);save();check_result(0,1);
-        unsigned n=total_calls;
-        snprintf(dir,sizeof dir,"%s/rollback",argv[1]);seed(dir,0,1,0);
-        save_fail_at=n-1;save_fail_again=n;save();check_result(0,1);
-        printf("test-iword-save-rollback: %d checks, %d failures\n",ctr[0],ctr[1]);
-        return ctr[1]?1:0;
-    }
     for(int exists=0;exists<=1;exists++)for(int backup=0;backup<=1;backup++){
         snprintf(dir,sizeof dir,"%s/e%d-b%d-ok",argv[1],exists,backup);
         seed(dir,backup,exists,0);save();check_result(backup,exists);
@@ -149,7 +157,8 @@ int main(int argc,char **argv)
             check_result(backup,exists);
         }
     }
-    compound(argv[1],0);compound(argv[1],1);compound_long(argv[1]);
+    pairs(argv[1],0);pairs(argv[1],1);long_path(argv[1]);
+    printf("save-pairs: reported failures=%u exported=%u\n",pair_failures,pair_exports);
     /* Short transfers and disk exhaustion in both backup and document writes.
      * write_budget models DOS short/zero writes, independent of the editor. */
     for(int backup=0;backup<=1;backup++)for(unsigned budget=0;budget<4;budget++){

@@ -53,8 +53,8 @@ three undo records, cursor/page/Home/Go To navigation, paired attributes,
 Reveal Codes, stream blocks, move/copy/retrieve, sentence/paragraph/page
 selection, forward/backward code-aware search, case-preserving replacement,
 justification, line spacing and margins. .WP5 preserves captured prefixes and
-formatting streams; save stages the new version and honors Original Document
-Backup with checked restoration (see below).
+formatting streams; save publishes through the shared replacement helper and
+honors Original Document Backup (see below).
 List Files supports directory navigation, retrieve, Look, delete, move/rename
 and copy, including collision/error handling. Setup persists preferences.
 The native face is an authored 76x24 adaptation of WP's 80x25 screen.
@@ -154,33 +154,29 @@ Sources: real WP5.1 03-09-92 captures in
 The older backup is removed first to reclaim its cluster, as in the full-floppy
 capture. A read-only backup refuses before either existing file changes.
 
-The new document is completed through the Toolbox helper under an exclusively
-chosen `.N00`..`.N99` name before moving the previous file to `.W00`..`.W99`.
-Publication uses checked rename/restore. Every tested single failure leaves the
-previous document under its original name, with edited text and dirty state
-retained. This strengthens WP5.1's captured disk-full behavior, which leaves only
-`.BK!`. A failed postcommit cleanup retains an extra original and reports success.
-Unowned candidate names are never truncated. Direct self-backup to `.BK!` is refused.
+The document itself is published by the shared helper `tbx_file_save`
+(`sdk/include/tbx_save.h`): the new stream is written to a same-directory
+`.$$$` stage, closed and read back, then committed by the kernel's
+FILE_REPLACE, whose reported errors preserve the destination. Word has no
+private rename/restore step, so no combination of reported failures moves
+the previous document away from its own name, and a failed save never blocks
+the next one. This strengthens WP5.1's captured disk-full behavior, which
+leaves only `.BK!`. Unowned names are never truncated; direct self-backup to
+`.BK!` is refused. The helper refuses, before creating anything, a target
+whose stage name would exceed 60 characters. No crash-atomicity claim is made.
 
-Known residual until the kernel replace primitive (`initech-7mb66`): if publication
-AND restoration both fail, the original-name ruling remains unmet. Interim
-handling deletes neither complete stream, names the previous file exactly in the
-error display, and refuses further saves in that tenant. The complete path is
-shown separately from the error label to avoid truncation. This is a known
-residual, not a policy or an exception to the ruling. The shared helper's current
-60-character recovery-path preflight also remains; the kernel primitive removes
-that limitation. No crash-atomicity claim is made.
-
-`test_iword_save` injects errors and zero transfers at every nominal boundary,
-including the helper's verification reads/closes, with backup on/off and first/
-replacing saves. It also checks persistent errors by operation, write exhaustion,
-short transfers, readonly backup, third-save rotation, unowned-name collisions,
-backup retrieval, and double publication/restoration faults with complete recovery
-names. Expected prior bytes are hash-pinned captures; an external WP5 reader
-checks every exported primary, backup and complete recovery stream. The double-
-failure residual has a delete-the-original mutant. No product codec computes the
-expected prior file. The separate `rollback` diagnostic still checks the stronger
-original-name ruling and remains red until `initech-7mb66` closes it.
+`test_iword_save` injects errors and zero transfers at every nominal boundary
+(the helper's writes, closes, verification reads and the replace), with backup
+on/off and first/replacing saves, and then every ordered pair of failed
+boundaries for replacing saves. It also checks persistent errors by operation,
+write exhaustion, short transfers, read-only backup, third-save rotation,
+unowned-name collisions, backup retrieval, retry and fresh-name saves after a
+failure, and a 53-character path. Each reported failure of the pair sweep
+writes out the document left under `NAME.WP5`; `tests/run.sh` hashes every one
+against the pinned capture, and the external WP5 reader decodes every exported
+primary and backup. No product codec computes the expected prior file. The
+`save-delete-first` patch (drop the previous file before publishing) is the
+mutation control.
 
 Retrieve repairs the captured incomplete trailing Bold-on code (`C3 0C`) by
 restoring its missing mirror. The W06 real WP5.1 edit/save/reopen capture in

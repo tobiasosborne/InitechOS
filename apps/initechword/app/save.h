@@ -1,14 +1,18 @@
 /* Original Document Backup: goldens/dataloss/wordperfect/{collision,full,
  * readonly}, WP5.1 Reference pp.41-43,746. The phase-2 ruling strengthens
- * WP's full-disk behavior: restore the original name before reporting failure.
+ * WP's full-disk behavior: a reported failure leaves the previous document
+ * under its own name (initech-go4vt).
  *
- * Keep a separate original while calling either today's delete/rename helper
- * or a safer replacement helper. Never reuse another caller's scratch file.
+ * The document itself is published by the shared helper tbx_file_save
+ * (sdk/include/tbx_save.h): a verified same-directory stage committed by the
+ * kernel's FILE_REPLACE, whose reported errors preserve the destination.
  * All gate paths are module/BSS storage (Toolbox Files contract).
- * This is reported-error recovery, not power-loss atomicity. */
+ * This is reported-error recovery, not power-loss atomicity.
+ *
+ * g_word_original/g_word_recovery/g_word_blocked serve only the List Files
+ * Move residual (lf_move.h); a save never sets them. */
 static char g_word_original[TBX_FILE_PATH_MAX];
 static char g_word_backup[TBX_FILE_PATH_MAX];
-static char g_word_stage[TBX_FILE_PATH_MAX];
 static char g_word_recovery[TBX_FILE_PATH_MAX + 40];
 static int g_word_blocked;
 
@@ -56,21 +60,12 @@ static int32_t word_reserve_path(char *path, const char *base, const char *ext,
     return TBX_ERR_DOS(80);
 }
 
-static int32_t word_reserve(char *path, const char *ext)
-{
-    return word_reserve_path(path, g_path, ext, 0);
-}
-
 static int32_t word_save(uint32_t n)
 {
     int32_t h = tbx_file_open(g_path, TBX_FILE_READ_ONLY), rc;
     if (h == TBX_ERR_DOS(2)) return tbx_file_save(g_path, g_bank[1u-g_live], n);
     if (h < 0) return h;
     rc = tbx_file_close(h);
-    if (rc < 0) return rc;
-    rc = word_reserve(g_word_original, "W00");
-    if (rc < 0) return rc;
-    rc = word_reserve(g_word_stage, "N00");
     if (rc < 0) return rc;
     if (g_settings[6]) {
         if (!word_extension(g_word_backup, g_path, "BK!") || word_same(g_word_backup, g_path))
@@ -82,33 +77,7 @@ static int32_t word_save(uint32_t n)
         rc = tbx_file_copy_save(g_path, g_word_backup);
         if (rc < 0) return rc;
     }
-    /* Finish the new stream before moving the old name. This also keeps the
-     * complete candidate under OUR name if publication and restoration fail,
-     * independently of either generation of the shared helper's cleanup. */
-    rc = tbx_file_save(g_word_stage, g_bank[1u-g_live], n);
-    if (rc != (int32_t)n) return rc;
-    rc = tbx_file_rename(g_path, g_word_original);
-    if (rc < 0) { (void)tbx_file_delete(g_word_stage); return rc; }
-    rc = tbx_file_rename(g_word_stage, g_path);
-    if (rc == TBX_OK) {
-        /* The new version has committed. Cleanup cannot turn that success
-         * into a reported failure; a refused delete retains an extra original. */
-        (void)tbx_file_delete(g_word_original);
-        return (int32_t)n;
-    }
-    /* The helper has no old target to destroy. Restore by metadata only:
-     * even a full disk or persistent write error cannot prevent this rename. */
-    if (tbx_file_rename(g_word_original, g_path) < 0) {
-        /* Known residual until the kernel replace primitive (initech-7mb66).
-         * Delete neither complete stream. Name the original and stop further
-         * saves in this tenant; the original-path ruling remains unmet here. */
-        g_word_blocked = 1;
-        scopy(g_word_recovery, "ERROR: Original retained in ");
-        scopy(g_word_recovery + slen(g_word_recovery), g_word_original);
-        return TBX_ERR_BADARG;
-    }
-    (void)tbx_file_delete(g_word_stage);
-    return rc;
+    return tbx_file_save(g_path, g_bank[1u-g_live], n);
 }
 
 /* The ordinary error row cannot hold a 127-character path. Keep the working

@@ -30,14 +30,13 @@ journey() {
     word_keys 'kspc,kr,ke,kv,k1,kf10,kret'
     await_marker 's="Replace A:\WORD.WP5? No (Yes)'
     word_keys 'ky'
-    # Word's owned stage publication; removed with the kernel replace
-    # primitive (initech-7mb66), which removes this interim save sequence.
-    await_marker 'path="WORD.N00" new="WORD.WP5" -> 0'
+    # The shared helper's FILE_REPLACE (gate 0x8b) commits the new version.
+    await_marker 'ax=0x008b path="WORD.$$$" new="WORD.WP5" -> 0'
     capture word-second-save
     word_keys 'kspc,kr,ke,kv,k2,kf10,kret'
     await_marker 's="Replace A:\WORD.WP5? No (Yes)'
     word_keys 'ky'
-    await_marker 'path="WORD.N00" new="WORD.WP5" -> 0'
+    await_marker 'ax=0x008b path="WORD.$$$" new="WORD.WP5" -> 0'
     capture word-third-save
     word_keys 'kf7,kn,kn,kshift-f10'
     await_marker 's="Document to be Retrieved:'
