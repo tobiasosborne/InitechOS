@@ -1,0 +1,39 @@
+--- a/flair/tbxgate.c
++++ b/flair/tbxgate.c
+@@ -1046,6 +1046,16 @@
+         return TBX_ERR_DOS(f.eax & 0xFFFFu);
+     return (int32_t)n;
+ }
++static int32_t v_file_drive(void)
++{
++    /* DOS 3.3 AH=19h through the published per-session binding. Its bound
++     * drive is restored around every call, independent of Finder browsing. */
++    flair_platform_regs f = {0};
++    f.eax = 0x1900u;
++    flair_platform_dos(&g_slot.files, &f);
++    return (int32_t)(f.eax & 0xffu);
++}
++
+ static int32_t v_disk_free(void)
+ {
+     flair_platform_regs f;
+@@ -1152,6 +1162,7 @@
+         { (uint8_t)TBX_FILE_REPLACE, (uint8_t)(TBX_ARGC_FILE_REPLACE) },
+         { (uint8_t)TBX_FILE_FIND, (uint8_t)(TBX_ARGC_FILE_FIND) },
+         { (uint8_t)TBX_DISK_FREE, (uint8_t)(TBX_ARGC_DISK_FREE) },
++        { (uint8_t)TBX_FILE_DRIVE, (uint8_t)(TBX_ARGC_FILE_DRIVE) },
+         { (uint8_t)TBX_ALERT, (uint8_t)(TBX_ARGC_ALERT) },
+         { (uint8_t)TBX_SCRAP_PUT, (uint8_t)(TBX_ARGC_SCRAP_PUT) },
+         { (uint8_t)TBX_SCRAP_GET, (uint8_t)(TBX_ARGC_SCRAP_GET) },
+@@ -1219,8 +1230,10 @@
+         case TBX_FILECOPY:  rc = v_filecopy(a);    break;
+         case TBX_FILE_FIND:
+         case TBX_DISK_FREE:
++        case TBX_FILE_DRIVE:
+             rc = g_slot.app == 0 || g_slot.exit_req || g_slot.crashed || g_slot.torn_down
+-                ? TBX_ERR_NOTREG : ax == TBX_FILE_FIND ? v_file_find(a) : v_disk_free();
++                ? TBX_ERR_NOTREG : ax == TBX_FILE_FIND ? v_file_find(a) :
++                  ax == TBX_DISK_FREE ? v_disk_free() : v_file_drive();
+             break;
+         case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_READ:
+         case TBX_FILE_WRITE: case TBX_FILE_SEEK: case TBX_FILE_CLOSE:

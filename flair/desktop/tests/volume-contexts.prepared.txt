@@ -1,0 +1,70 @@
+EKTW0 is NEXT after landing current qv7t + already committed9uxsg pair.
+Do not work1swiy/3zcsf/gqgrb further beforeC. No subagents/out-of-owner edits.
+Agreed required kernel seam (already on main0a164088):
+const fat12_volume_t *fileio_fat_drive_volume(unsigned drive,void **fat,uint32_t *fat_len);
+Preserves DOS default/I/O/CWD, returns matching cache; FAT16 window adapted
+through finder_storage_read_cache. Never bind app sessions to browsed A.
+Pending kernel seam (read proposed public header only, no consumer yet):
+int fileio_fat_system_drive(void); stable initial system identity, may return-1.
+Publish before actual consumer lands. SDK app default query not proposed.
+
+Ground truth read BEFORE code: local MacintoshToolboxEssentials.pdf fulltext
+/tmp/desktop2-toolbox-essentials.txt, Finder Interface chapter7: FSSpec identifies
+volume reference + parent directoryID + name (lines46130..46148); Trash is union
+of appropriate Trash directories on every mounted volume (45682..45693), with
+per-volume Trash folder lookup (46272..46297). Do not implement current-volume
+only Trash. Frame source goldens/frame/geometry.tsv + hidden seed root46,115.
+
+Candidate design, NOT implemented:
+Use a private32-bit Finder directory identity containing (drive+1)<<16 | physical
+cluster. Zero tag preserves legacy single-volume host fixtures. FAT APIs remain
+physical uint16; runtime window/entry/command/target/view/origin IDs widen.
+FAT16 full16bit cluster range fits without arbitrary namespace collisions.
+Root helper tests low16zero. Synthetic global Trash ID UINT32_MAX handled by
+provider; entries remember actual containing directory so same83name on A/C
+is independent. No new kernel identity/move operation;02siz remains deferred.
+Use explicit per-mount volume/cache records, no DOS/backend selection while
+browsing A. g_finder_vol/loader/platform app file binding stay stable system C.
+FAT callback adapters resolve tagged directory to matching mount/cache.
+Spatial windows key full identity. DB bytes retain locked16bit physical clusters:
+load each volume's DB with tag, export filtered volume subset stripping tag.
+Filter desktop volume icons perDB; A seeded root applies onlyA; C root distinct.
+Trash origin lookup includes volume. Recount and Empty Trash iterate roots;
+union window entries retain actual containing directory; Put Away uses correct
+per-volume origin. Never reinterpret A cluster2 as C cluster2.
+Cross-volume drag copies (source retained) through existing public FAT reads,
+exclusive stage/create and fat12_replace on destination; ordinary same-volume
+move remains. Existing duplicate traversal can generalize using full IDs.
+Disk app loader may temporarily bind selected executable's volume for load,
+then restore system loader; app file session binding stays C throughout.
+
+Red first proposed host integration: real published named query + two mtools
+FAT12 images with deliberately equal root/subdir/Trash cluster numbers, seeded
+A DB46,115 and different contents. C/A root windows coexist; separate view
+persistence and same-name Trash origins; A mkdir/copy touches onlyA; C app-file
+session save still targetsC; independent mtools readback/image comparison.
+Native C-alone/C+A on QEMU and Bochs, C@@32256 bytes vs separately extractedA,
+real mouse/keys and cold reopen. Need factory C images/migration and published
+stable getter; agreement recorded in desktop-owner-2.md for delivery owner.
+Important fresh source observations:
+- volumes.c bootstrap uses ften_cluster[512], but promised C is spc8: replace
+  with existing full-sized g_finder_clusbuf after geometry validation; canary
+  host/native tests must cover C spc8. Mount/cache records remain pervolume.
+- finder_win_open(sh,parent,dir_start,name,is_root,...) already accepts arbitrary
+  IDs but both arguments uint16; literal runtime uint32 Croot0x30000 and
+  Aroot0x10000 currently truncate to0 and alias spatial singleton. A new host
+  test can compile against CURRENT API with runtime variables (no -Woverflow)
+  and show that red semantically before widening. Primary identity requirement
+  independent; bit packing is an authored private representation, not kernel ABI.
+- finder_shell_t views/origins arrays combine runtime full IDs; DBcodec remains
+  unchanged16-bit bytes, pervolume import/export translates tag/filter.
+- finder_fs_t currently all dir args16, callbacksignore fs_user and useglobalC.
+  New provider must route FULL ID to explicit mount, never mutate platform IO.
+- Kernel stable getter proposed actual signature is int, -1 absent; already
+  accepted in handoff. Native actual consumer onlyafterpublishedSHA.
+- SDK fake C mounting NOW on main b7fa2c90. Word truthful defaultdrive query
+  requested from SDKowner; proposed gatepatch /tmp/desktop2-sdk-drive-gate.patch
+  uses EXISTING flair_platform_dos(files) AH19, no new kernel interface. Next
+  free fileverb0x008C, tbx_file_drive()->0A..25Z, NOTREG outside registered app.
+  This allows same shipped Word to showA onlegacyA andC onrealC, preserving
+  explicitA paths without mere relabel. SDK owner must publish; do not editSDK.

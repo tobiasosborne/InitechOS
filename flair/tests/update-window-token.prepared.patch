@@ -1,0 +1,82 @@
+--- a/flair/tbxgate.c
++++ b/flair/tbxgate.c
+@@ -324,6 +324,19 @@
+ 
+     eb = (volatile int32_t *)(uintptr_t)g_slot.evbuf;
+     tbx_evbuf_fill(eb, ev);
++    if (ev->what == (uint16_t)updateEvt) {
++        /* MTE Event Manager p2-48: name the damaged window. Disk tenants
++         * know creation tokens, while resident applications use WindowPtr. */
++        uint32_t token = 0u;
++        for (uint32_t i = 0; i < g_slot.nwins; i++) {
++            if ((uint32_t)(uintptr_t)g_slot.wins[i] == ev->message) {
++                token = i + 1u;
++                break;
++            }
++        }
++        if (!token) tbx_panic("update for a window outside the resident disk tenant");
++        eb[FLAIR_EVBUF_MSG_OFF / 4u] = (int32_t)token;
++    }
+ 
+     g_slot.in_update = (ev->what == (uint16_t)updateEvt) ? 1u : 0u;
+     g_slot.in_mousedown = (ev->what == (uint16_t)mouseDown) ? 1u : 0u;
+--- a/flair/tests/test_flair_routing.c
++++ b/flair/tests/test_flair_routing.c
+@@ -1722,6 +1722,50 @@
+     CHECK(serial_has("s=\"Visible marker\""),"semantic text milestones retain detailed payload");
+ }
+ 
++/* MTE Event Manager p2-48: an update identifies the window needing repaint.
++ * Disk applications receive the already published NEWWINDOW token. */
++static void script_update_windows(void)
++{
++    uint32_t reg[1]={g_base+IMG_REC};
++    CHECK(gate(TBX_REGISTER,1,reg)==0,"update identity registers tenant");
++    uint32_t first[5]={70,50,280,200,1},second[5]={330,240,550,400,1};
++    CHECK(gate(TBX_NEWWINDOW,5,first)==1,"first window receives token one");
++    uint32_t title[2]={1,g_base+0x100};
++    memcpy((void *)(uintptr_t)title[1],"First",6);
++    CHECK(gate(TBX_SETWTITLE,2,title)==0,"first title installed");
++    CHECK(gate(TBX_NEWWINDOW,5,second)==2,"second window receives token two");
++    title[0]=2;memcpy((void *)(uintptr_t)title[1],"Second",7);
++    CHECK(gate(TBX_SETWTITLE,2,title)==0,"second title installed");
++}
++static void leg_update_identity(void)
++{
++    world_init();TP.script=script_update_windows;
++    CHECK(launch()==TBX_OK,"two-window tenant launches");service();
++    WindowPtr first=NULL,second=NULL;
++    for(WindowPtr w=W.wm.front;w;w=w->nextWindow){
++        WindowMgr_validate(w);
++        if(!strcmp(w->titleHandle,"First"))first=w;
++        if(!strcmp(w->titleHandle,"Second"))second=w;
++    }
++    CHECK(first&&second,"both real windows exist");if(!first||!second)return;
++    WindowMgr_invalidate(&W.wm,first,region_get_bbox(first->contRgn));
++    WindowMgr_invalidate(&W.wm,second,region_get_bbox(second->contRgn));
++    int b=g_n;flair_route_updates(&W.plist,&W.wm);
++    CHECK(g_n==b+2 && g_log[b].who==WHO_T && g_log[b].what==updateEvt && g_log[b].msg==2 &&
++          g_log[b+1].who==WHO_T && g_log[b+1].what==updateEvt && g_log[b+1].msg==1,
++          "damaged windows deliver creation tokens two then one, never resident pointers");
++    b=g_n;flair_route_updates(&W.plist,&W.wm);
++    CHECK(g_n==b,"validated windows generate no duplicate update");
++    WindowMgr_invalidate(&W.wm,first,region_get_bbox(first->contRgn));
++    flair_route_updates(&W.plist,&W.wm);
++    CHECK(g_n==b+1 && g_log[b].who==WHO_T && g_log[b].msg==1,
++          "a single damaged window identifies only its own token");
++    WindowMgr_invalidate(&W.wm,&W.fw.rec,region_get_bbox(W.fw.rec.contRgn));
++    b=g_n;flair_route_updates(&W.plist,&W.wm);
++    CHECK(g_n==b+1 && g_log[b].who==WHO_F && g_log[b].msg==(int32_t)(uintptr_t)&W.fw.rec,
++          "resident Finder retains the native window identity");
++}
++
+ int main(void)
+ {
+     FlairApp *t;
+@@ -1755,5 +1799,6 @@
+     leg_cells();
+     leg_settings();
+     leg_paint_trace();
++    leg_update_identity();
+     return TEST_SUMMARY("test-flair-routing");
+ }

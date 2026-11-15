@@ -1,0 +1,15 @@
+--- a/flair/tests/copy_capture.c
++++ b/flair/tests/copy_capture.c
+@@ -79,10 +79,10 @@
+         if(send_command("human-monitor-command","\"command-line\":\"info registers\""))break;
+         char *eip=strstr(reply,"EIP=");if(!eip||sscanf(eip+4,"%x",&pc)!=1)break;
+         if(memory(cursor,sizeof state,mem,&state))break;
+-        if(copy_capture_ready(pc,idle,size,&state)){
++        if(copying ? (state.depth>0 && !state.drawn) : copy_capture_ready(pc,idle,size,&state)){
+             snprintf(args,sizeof args,"\"filename\":\"%s\"",q);
+             if(send_command("screendump",args))break;
+-            fprintf(stderr,"FILECOPY stable capture: idle yield, cursor visible, copy=%d (%u samples)\n",copying,attempts);
++            fprintf(stderr,"FILECOPY witness: pc=%08x shield=%u drawn=%d copy=%d (%u samples)\n",pc,state.depth,state.drawn,copying,attempts);
+             rc=0;break;
+         }
+         if(send_command("cont",""))break;
