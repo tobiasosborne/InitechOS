@@ -1135,7 +1135,15 @@ static int q_pic_validate(int type,const char *pic,int is_get,int *ec)
 {
     int tl,i;const char *t=q_pic_template(pic,&tl);
     if(!pic[0])return INTERP_OK;
-    if(type==XB_D||type==XB_L) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
+    /* Captured: logical pictures are the one-letter templates L and Y
+     * (forms-f18b). A date GET picture is uncaptured; a date SAY picture
+     * formats the DTOC text (forms-f18b M3). */
+    if(type==XB_L) {
+        if(tl==1&&(t[0]=='L'||t[0]=='Y'))return INTERP_OK;
+        if(ec)*ec=36;
+        return -INTERP_ERR_SYNTAX;
+    }
+    if(type==XB_D&&is_get) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
     for(i=0;i<tl;i++) {
         char c=t[i];
         if(c=='@') { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
@@ -1226,7 +1234,11 @@ static int q_get_declare(xb_interp *ip,int row,int col,const char *tail,int *ec)
             if(v.t==XB_N) { uint32_t w=10u+(uint32_t)(g.dec>0?g.dec+1:0);if(w>g.width)g.width=(uint16_t)w; }
         }
         g.srcwidth=g.width;
-        if(g.pic[0]) {
+        if(g.pic[0]&&v.t==XB_L) {
+            int tl;const char *tp=q_pic_template(g.pic,&tl);
+            text[0]=(tl==1&&tp[0]=='Y')?(v.u.l?'Y':'N'):(v.u.l?'T':'F');
+            text[1]=0;n=1;g.width=1;
+        } else if(g.pic[0]) {
             xb_val fv;int fec=0;
             rc=xb_picture_format(ctx,&v,g.pic,(uint16_t)rt_strlen(g.pic),&fv,&fec);
             if(rc) { if(ec)*ec=fec;return rc; }
@@ -1475,13 +1487,38 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
             if(cur==0) { code=4;done=1;break; }
             cur--;pos=0;g=&ctx->gets[cur];q_get_cursor(ip,g->row,g->col);continue;
         }
+        if(k==QK_HOME||k==1) {
+            /* Home chain (F02/F02c/F18a): to the field start; at the start
+             * of a later field to the previous field; at the very start of
+             * the first GET it exits READ with READKEY 2. */
+            if(pos>0){pos=0;q_get_paint(ip,g);q_get_cursor(ip,g->row,g->col);continue;}
+            {
+                int w=q_get_write(ip,g,ec);
+                if(w==-1){q_bell(ip);continue;}
+                if(w==-2){ibase_gets_clear(ip);return -INTERP_ERR_EVAL;}
+                if(cur==0){code=2;done=1;break;}
+                cur--;pos=0;g=&ctx->gets[cur];q_get_cursor(ip,g->row,g->col);continue;
+            }
+        }
+        if(k==QK_END||k==6) {
+            /* End chain (F02d/F18c): to the end of the field's content; at
+             * the end of the last GET it exits READ with READKEY 3. */
+            int e=g->width-1;while(e>0&&g->buf[e]==' ')e--;
+            int epos=(g->buf[e]==' ')?e:(e<g->width-1?e+1:e);
+            if(pos<epos){pos=epos;q_get_paint(ip,g);q_get_cursor(ip,g->row,g->col+pos);continue;}
+            {
+                int w=q_get_write(ip,g,ec);
+                if(w==-1){q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue;}
+                if(w==-2){ibase_gets_clear(ip);return -INTERP_ERR_EVAL;}
+                if(cur+1>=ctx->ngets){code=3;done=1;break;}
+                cur++;g=&ctx->gets[cur];
+                e=g->width-1;while(e>0&&g->buf[e]==' ')e--;
+                pos=(g->buf[e]==' ')?e:(e<g->width-1?e+1:e);
+                q_get_cursor(ip,g->row,g->col+pos);continue;
+            }
+        }
         if(k==QK_LEFT||k==19) { if(pos>0)pos--; }
         else if(k==QK_RIGHT||k==4) { if(pos<g->width-1)pos++; }
-        else if(k==QK_HOME||k==1) { pos=0; }
-        else if(k==QK_END||k==6) {
-            int e=g->width-1;while(e>0&&g->buf[e]==' ')e--;
-            pos=(g->buf[e]==' ')?e:(e<g->width-1?e+1:e);
-        }
         else if(k==QK_INS||k==22) { insert=!insert; }
         else if(k==QK_DEL||k==7) {
             if(g->pic[0]) { if(q_pic_ismask(g,pos)){g->buf[pos]=' ';g->changed=1;} }
@@ -1515,7 +1552,13 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
         }
         else if(k>=32&&k<127) {
             int accepted=0;
-            if(g->pic[0]&&g->type==XB_N) {
+            if(g->type==XB_L) {
+                char u=q_up1((char)k);
+                int tl;const char *tp=q_pic_template(g->pic,&tl);
+                int yform=g->pic[0]&&tl==1&&tp[0]=='Y';
+                if(u=='T'||u=='Y'){g->buf[0]=yform?'Y':'T';accepted=1;}
+                else if(u=='F'||u=='N'){g->buf[0]=yform?'N':'F';accepted=1;}
+            } else if(g->pic[0]&&g->type==XB_N) {
                 if(k=='-'||k=='+') { g->raw[0]=k=='-'?'-':0;g->raw[1]=0;g->started=1;accepted=1; }
                 else if(k=='.') {
                     int tl,ti,off=q_pic_off(g);const char *tp=q_pic_template(g->pic,&tl);
@@ -1543,8 +1586,10 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                 }
             } else if(g->type==XB_L) {
                 char u=q_up1((char)k);
-                if(u=='T'||u=='Y'){g->buf[0]='T';accepted=1;}
-                else if(u=='F'||u=='N'){g->buf[0]='F';accepted=1;}
+                int tl;const char *tp=q_pic_template(g->pic,&tl);
+                int yform=g->pic[0]&&tl==1&&tp[0]=='Y';
+                if(u=='T'||u=='Y'){g->buf[0]=yform?'Y':'T';accepted=1;}
+                else if(u=='F'||u=='N'){g->buf[0]=yform?'N':'F';accepted=1;}
             } else if(g->type==XB_N) {
                 if((k>='0'&&k<='9')||k=='.'||k=='-'||k=='+') {
                     /* Live reformat (F07): the first key starts a new entry
@@ -1652,6 +1697,11 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
             rc=q_pic_compose(ip,clauses,picbuf,ec);if(rc)return rc;
             rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
             rc=q_pic_validate(v.t==XB_M?XB_C:(int)v.t,picbuf,0,ec);if(rc)return rc;
+            if(v.t==XB_D) { /* date SAY picture formats the DTOC text (F18b) */
+                char dt[16];uint32_t dn=0;
+                q_render_val(dt,&dn,sizeof dt,&v,ctx,0);dt[dn]=0;
+                rt_memcpy(line,dt,dn+1u);v=xb_c(line,(uint16_t)dn);
+            }
             if(picbuf[0]) {
                 xb_val fv;int fec=0;
                 rc=xb_picture_format(ctx,&v,picbuf,(uint16_t)rt_strlen(picbuf),&fv,&fec);

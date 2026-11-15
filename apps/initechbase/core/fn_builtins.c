@@ -1513,23 +1513,29 @@ static int tr_format_numeric(xb_ctx *ctx, double v,
              *
              * [verified: mint-002 "$$,$$9.99" + -12.5 -> "$$$-12.50"
              *   (comma at template[2] -> '$' because no digit to its left)]      */
-            if (dollar_fill) {
-                int32_t fill_boundary = (int32_t)tlen; /* leftmost non-fill pos */
+            {
+                /* Fill zone: every blank (and comma) left of the first
+                 * digit or sign becomes the fill character. Real III+
+                 * forms-f18b: "$9,999.99" 12.5 -> "$$$$12.50" and
+                 * "*999.99" -> "**12.50"; the old slot-only rule stopped
+                 * at the first '$' it had itself placed. */
+                char fillch = dollar_fill ? '$' : 0;
                 int32_t di;
-                for (di = 0; di < (int32_t)tlen; di++) {
-                    char tc = tmpl[di];
-                    if ((tr_is_digit_slot(tc) || tr_is_dollar_slot(tc))
-                        && dst[field_off + di] != ' ') {
-                        fill_boundary = di;
-                        break;
+                if (!fillch) for (di = 0; di < (int32_t)tlen; di++)
+                    if (tmpl[di] == '*') { fillch = '*'; break; }
+                if (fillch) {
+                    int32_t fill_boundary = (int32_t)tlen;
+                    for (di = 0; di < (int32_t)tlen; di++) {
+                        char dc = dst[field_off + di];
+                        if ((dc >= '0' && dc <= '9') || dc == '-') {
+                            fill_boundary = di;
+                            break;
+                        }
                     }
-                }
-                for (i = 0; i < fill_boundary; i++) {
-                    char tc = tmpl[i];
-                    if (tr_is_dollar_slot(tc) && dst[field_off + i] == ' ')
-                        dst[field_off + i] = '$';      /* $-slot in fill zone */
-                    else if (tc == ',')
-                        dst[field_off + i] = '$';      /* comma group sep in fill zone */
+                    for (i = 0; i < fill_boundary; i++) {
+                        if (dst[field_off + i] == ' ' || dst[field_off + i] == ',')
+                            dst[field_off + i] = fillch;
+                    }
                 }
             }
 

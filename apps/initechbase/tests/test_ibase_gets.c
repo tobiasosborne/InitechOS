@@ -237,7 +237,8 @@ static void row_text(int r, int col, const char *want)
 {
     int ok = 1;
     for (int i = 0; want[i]; i++) if (page.bytes[2*(r*80+col+i)] != (uint8_t)want[i]) ok = 0;
-    if (!ok) fprintf(stderr, "row %d col %d want [%s]\n", r, col, want);
+    if (!ok) { char got[41]; int i; for (i = 0; i < 40; i++) got[i] = (char)page.bytes[2*(r*80+col+i)]; got[40] = 0;
+               fprintf(stderr, "row %d col %d want [%s] got [%s]\n", r, col, want, got); }
     CHECK(ok, "painted row text");
 }
 
@@ -372,6 +373,46 @@ static void f07_f08_more(void)
     xb_interp_free(ip); pal_host_free(pal);
 }
 
+static void f18_keys_and_masks(void)
+{
+    static const uint8_t home_key[] = {0,0x47};
+    static const uint8_t end_keys[] = {'\r',0,0x4F,0,0x4F};
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    feed(home_key, sizeof home_key); /* F18a R3: Home at the very start exits */
+    CHECK(ibase_do(ip, "A=\"wxyz\"\nB=SPACE(4)\n@ 5,10 GET A\n@ 7,10 GET B\nREAD\n") == INTERP_OK, "home-exit form");
+    value_n(ip, "READKEY()", 2);
+    value_c(ip, "A", "wxyz");
+    feed(end_keys, sizeof end_keys); /* F18c: End at the very end exits */
+    CHECK(ibase_do(ip, "A=SPACE(4)\nB=\"wxyz\"\n@ 5,10 GET A\n@ 7,10 GET B\nREAD\n") == INTERP_OK, "end-exit form");
+    value_n(ip, "READKEY()", 3);
+    /* F18b SAY rows through the shared picture engine. */
+    page_reset();
+    CHECK(ibase_do(ip,
+        "@ 3,5 SAY 1234.5 PICTURE \"#,###.##\"\n"
+        "@ 4,5 SAY 12.5 PICTURE \"$9,999.99\"\n"
+        "@ 5,5 SAY 12.5 PICTURE \"*999.99\"\n"
+        "@ 6,5 SAY -7 PICTURE \"##9\"\n"
+        "@ 7,5 SAY CTOD(\"01/31/00\") PICTURE \"99/99/99\"\n") == INTERP_OK, "F18b says");
+    row_text(3, 5, "1,234.50");
+    row_text(4, 5, "$$$$12.50");
+    row_text(5, 5, "**12.50");
+    row_text(6, 5, " -7");
+    row_text(7, 5, "01/31/00");
+    FEED("a1-2\r"); /* F18b G1: N mask refuses '-' */
+    CHECK(ibase_do(ip, "SET CONFIRM ON\nC=SPACE(4)\n@ 9,5 GET C PICTURE \"NNNN\"\nREAD\n") == INTERP_OK, "N mask");
+    value_c(ip, "C", "a12 ");
+    FEED("T\r"); /* F18b: logical L picture */
+    CHECK(ibase_do(ip, "L=.F.\n@ 5,10 GET L PICTURE \"L\"\nREAD\n") == INTERP_OK, "L picture");
+    { xb_val v; int ec = 0;
+      CHECK(xb_interp_eval(ip, "L", &v, &ec) == INTERP_OK && v.u.l, "L picture true"); }
+    FEED("N\r"); /* F18b: logical Y picture displays Y, N stores false */
+    CHECK(ibase_do(ip, "L=.T.\n@ 5,10 GET L PICTURE \"Y\"\nREAD\n") == INTERP_OK, "Y picture");
+    { xb_val v; int ec = 0;
+      CHECK(xb_interp_eval(ip, "L", &v, &ec) == INTERP_OK && !v.u.l, "Y picture false"); }
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
 int main(void)
 {
     f01_memvar();
@@ -384,5 +425,6 @@ int main(void)
     f11_say_pictures();
     f02_order_and_f04_edit();
     f07_f08_more();
+    f18_keys_and_masks();
     return TEST_SUMMARY("test-ibase-gets");
 }

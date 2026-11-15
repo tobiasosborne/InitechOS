@@ -128,12 +128,12 @@ record bytes). Stage 5 has also landed for the captured subset:
 PICTURE masks `A N X ! 9 #` and literals on character GETs, digit-slot
 entry on numeric GETs, functions `! B C X (` (in the picture or as a
 separate FUNCTION clause) on SAY and GET through the shared TRANSFORM
-engine, and SET BELL/INTENSITY/DELIMITERS. Still to land:
-date/logical pictures (a PICTURE on a D or L GET/SAY refuses #36; no
-capture mints one yet), mask characters beyond the captured GET cases
-(`L`, `Y`; `,`/`$`/`*` reach GETs through the TRANSFORM engine's
-verified formatting, their entry editing uncaptured), and the
-both-emulator product-image replay (factory stage).
+engine, and SET BELL/INTENSITY/DELIMITERS. The F18 probes added the
+Home/End exit chains (READKEY 2 and 3), logical `L`/`Y` pictures and
+date SAY pictures. Still to land: a PICTURE on a date GET (refuses
+#36; uncaptured), entry editing for `,`/`$`/`*` numeric pictures
+beyond the captured slot cases, and the both-emulator product-image
+replay (factory stage).
 
 Supported: `@ r,c GET lvalue` and combined `@ r,c SAY expr GET lvalue`
 for C/N/D/L memory variables and fields (unqualified name binds the
