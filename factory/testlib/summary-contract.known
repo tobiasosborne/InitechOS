@@ -9,7 +9,6 @@ apps/initech123 test_i123_formula_x87_027F initech-u5jow
 apps/initech123 test_i123_transfer_baseline initech-u5jow
 apps/initechbase captured-hashes initech-zw6sl
 apps/initechbase messages-generated initech-zw6sl
-apps/initechbase mzlink-io initech-zw6sl
 apps/initechbase retained-screens initech-zw6sl
 apps/initechbase w4-files initech-zw6sl
 dos batch-capacity initech-wb3kr
