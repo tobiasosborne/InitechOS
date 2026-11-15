@@ -130,7 +130,7 @@ case "$name" in
   done
   # Real III+ forms captures: pinned outputs and the inputs that made them.
   n=0
-  for tree in tests/xbase_prog_diff/screen-mint/forms-*; do
+  for tree in tests/xbase_prog_diff/screen-mint/forms-* tests/xbase_prog_diff/screen-mint/data-*; do
    (cd "$tree" && sha256sum --quiet -c SHA256SUMS) || fail "captured-hashes: $tree outputs"; ok
    (cd "$tree" && sha256sum --quiet -c INPUTS.sha256) || fail "captured-hashes: $tree inputs"; ok
    grep -q '3f7ba1f5' "$tree/ORACLE.sha256" || fail "captured-hashes: $tree is not the real DBASE.EXE"; ok

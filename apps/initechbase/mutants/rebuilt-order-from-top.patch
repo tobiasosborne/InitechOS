@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/cmd/nav.c
++++ b/cmd/nav.c
+@@ -219,5 +219,5 @@
+         if (!wa_eof(env, area))
+             for (i = 0u; i < ns->seq_len; i++)
+-                if (ns->seq[i] == cur) { ns->ord_pos = i; break; }
++                if (ns->seq[i] == cur) { break; }
+     }
+     ns->master_snap = master;

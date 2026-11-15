@@ -1,0 +1,9 @@
+# test: test_ibase_forms_replay
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -2389,5 +2389,4 @@
+             n > wa_nrec(env, area) && wa_nrec(env, area)) {
+             (void)wa_nav_goto(env, area, wa_nrec(env, area));
+-            wa_nav_set_eof(env, area, 1);
+         }
+     }

@@ -1,5 +1,9 @@
 # test: test_ibase_dml
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -1247,0 +1248 @@
+@@ -1569,4 +1569,5 @@
+         pal->close(pal,in);
+         out=pal->open(pal,dst,PAL_RD);if(out>=0){pal->close(pal,out);return d_fail(ec,7);}
 +        return INTERP_OK; /* skip the actual filesystem rename */
+         rc=pal->rename(pal,src,dst);return rc?d_fail(ec,29):INTERP_OK;
+     }

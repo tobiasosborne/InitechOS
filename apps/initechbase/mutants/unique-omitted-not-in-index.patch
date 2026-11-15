@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -461,5 +461,5 @@
+              * "Record is not in index." and the record keeps its value
+              * (screen-mint data-d09-uniqueomitted). */
+-            if (ec) *ec = rc == -NDX_ERR_NOTFOUND ? 20 : 0;
++            if (ec) *ec = 0;
+             rc=-INTERP_ERR_EVAL;
+             goto restore;

@@ -252,6 +252,25 @@ static int32_t h_conin_poll(ibase_pal_t *p)
     return -1;
 }
 static int h_escape(ibase_pal_t *p) { (void)p; return 0; }
+/* The mint's clock: QEMU's RTC is 1992-03-02 (goldens/dataloss/drive.c).
+ * RUN DATE mm-dd-yyyy is DOS 3.30's DATE command with a date argument,
+ * which sets the system date; the replay models it here, as the operating
+ * system the product runs on (data-d04-dates). Anything else goes to the
+ * host PAL's own exec. */
+static int clock_y = 1992, clock_m = 3, clock_d = 2;
+static int32_t (*host_exec)(ibase_pal_t *, const char *);
+static void h_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
+{
+    (void)p; *yy = (uint8_t)(clock_y - 1900); *mm = (uint8_t)clock_m; *dd = (uint8_t)clock_d;
+}
+static int32_t h_exec(ibase_pal_t *p, const char *cmd)
+{
+    int m, d, y; char tail;
+    if (sscanf(cmd, " DATE %d-%d-%d%c", &m, &d, &y, &tail) == 3 && y >= 1980 && y <= 2099) {
+        clock_y = y; clock_m = m; clock_d = d; return 0;
+    }
+    return host_exec ? host_exec(p, cmd) : -1;
+}
 /* pal_dos.c dos_terminal_line, echo mode 2 (the dot prompt). */
 static int32_t h_command(ibase_pal_t *p, char *buf, uint32_t cap)
 {
@@ -387,14 +406,24 @@ static long file_bytes(const char *path, unsigned char **out)
  * as the conformance comparator (tests/conformance/qualify.sh) normalises
  * them; each MEM entry's address (12-15); an NDX header's bytes after its
  * key expression's terminator and each node page's unused tail. Nothing
- * else is touched. */
-static void normalise(const char *name, unsigned char *b, long n)
+ * else is touched. Two more, from the data-* captures (base-owner-4): a
+ * DBF is compared up to its EOF mark after the declared records (real III+
+ * leaves old record bytes past it after ZAP, data-d05), and a character
+ * key shorter than the key width ends in a NUL after which real III+
+ * leaves its key buffer's previous bytes (data-d06 W03 'ABCD\0AME'). The
+ * meaningful length is returned. */
+static long normalise(const char *name, unsigned char *b, long n)
 {
     size_t l = strlen(name);
     const char *ext = l > 4 ? name + l - 4 : "";
     if (!strcasecmp(ext, ".DBF") && n >= 32) {
         memset(b + 1, 0, 3); memset(b + 12, 0, 20);
         for (long o = 32; o + 32 <= n && b[o] != 0x0d; o += 32) { memset(b + o + 12, 0, 4); memset(b + o + 18, 0, 14); }
+        {
+            long recs = b[4] | (long)b[5] << 8 | (long)b[6] << 16 | (long)b[7] << 24;
+            long end = (b[8] | (long)b[9] << 8) + recs * (b[10] | (long)b[11] << 8) + 1;
+            if (end < n && b[end - 1] == 0x1a) n = end;
+        }
     } else if (!strcasecmp(ext, ".MEM")) {
         for (long o = 0; o + 32 <= n && b[o] != 0x1a; ) {
             long len = b[o+16] | (long)b[o+17] << 8;
@@ -408,12 +437,25 @@ static void normalise(const char *name, unsigned char *b, long n)
         if (z < 512) memset(b + z, 0, (size_t)(512 - z));
         /* Each node page: a 4-byte count, its entries and a final pointer;
          * the rest of the 512 bytes is unused. */
+        /* Real III+ writes a 16-bit entry count; bytes 2-3 of a node page
+         * and each entry's padding past its key (key length to group
+         * length) are its page buffer's previous bytes (data-d02 EC.NDX
+         * '0100 0cfb', data-d06 W05). */
+        long klen = b[12] | (long)b[13] << 8;
         for (long pg = 512; esize > 0 && pg + 512 <= n; pg += 512) {
-            long cnt = b[pg] | (long)b[pg+1] << 8 | (long)b[pg+2] << 16 | (long)b[pg+3] << 24;
+            long cnt = b[pg] | (long)b[pg+1] << 8;
             long used = 4 + cnt * esize + 4;
-            if (cnt >= 0 && used < 512) memset(b + pg + used, 0, (size_t)(512 - used));
+            b[pg+2] = b[pg+3] = 0;
+            if (used < 512) memset(b + pg + used, 0, (size_t)(512 - used));
+            if (used > 512 || klen + 8 > esize) continue;
+            for (long k = 0; k < cnt; k++) {
+                unsigned char *key = b + pg + 4 + k * esize + 8, *nul = memchr(key, 0, (size_t)klen);
+                if (!(b[16] | b[17]) && nul) memset(nul, 0, (size_t)(key + klen - nul));
+                memset(key + klen, 0, (size_t)(esize - 8 - klen));
+            }
         }
     }
+    return n;
 }
 static void compare_exports(const char *dir, const char *work)
 {
@@ -446,8 +488,8 @@ static void compare_exports(const char *dir, const char *work)
         snprintf(want_path, sizeof want_path, BASE "/%s/exports/%s", dir, line);
         long wn = file_bytes(want_path, &want);
         if (wn < 0) screen_die("pinned export missing");
-        if (gn >= 0) normalise(line, got, gn);
-        normalise(line, want, wn);
+        if (gn >= 0) gn = normalise(line, got, gn);
+        { long w = normalise(line, want, wn); if (w < 0) screen_die("pinned export length"); wn = w; }
         int agrees = file_agrees(got, gn, want, wn, spec, &inside);
         if (gn != wn || memcmp(got, want, (size_t)wn)) {
             long i = 0;
@@ -481,6 +523,8 @@ static void replay(const char *dir)
     pal->conout = h_conout; pal->prompt = h_prompt; pal->status = h_status;
     pal->conin_char = h_conin_char; pal->conin_poll = h_conin_poll; pal->conin_escape = h_escape;
     pal->conin_command = h_command; pal->conin_line = h_command;
+    host_exec = pal->exec; pal->exec = h_exec; pal->today = h_today;
+    clock_y = 1992; clock_m = 3; clock_d = 2;
     page_init();
     phase_setup = 1; setup_i = 0; dumps_seen = dumps_bad = 0; polls = 0;
     xb_interp *ip = xb_interp_make(pal);
@@ -555,7 +599,7 @@ int main(void)
     DIR *d = opendir(BASE);
     struct dirent *e; int pinned = 0;
     while (d && (e = readdir(d))) {
-        if (strncmp(e->d_name, "forms-", 6)) continue;
+        if (strncmp(e->d_name, "forms-", 6) && strncmp(e->d_name, "data-", 5)) continue;
         int listed = 0;
         for (int i = 0; i < ncases; i++) listed |= !strcmp(cases[i], e->d_name);
         for (int i = 0; i < nelse; i++) listed |= !strcmp(elsewhere[i], e->d_name);

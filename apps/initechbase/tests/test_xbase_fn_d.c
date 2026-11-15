@@ -382,7 +382,7 @@ static void test_empty_table(ibase_pal_t *pal)
     eval_n(ip, "RECCOUNT()", 0.0, "empty: RECCOUNT()==0");
     eval_n(ip, "RECNO()",    1.0, "empty: RECNO()==1 (empty file)");
     eval_l(ip, "EOF()", 1, "empty: EOF()=.T. (empty file)");
-    eval_l(ip, "BOF()", 0, "empty: BOF() (S5.1 sets only EOF on empty; nav owns BOF)");
+    eval_l(ip, "BOF()", 1, "empty: BOF() .T. like EOF() (real III+ screen-mint data-d05-emptybof, initech-gmt0)");
     eval_l(ip, "DELETED()", 0, "empty: DELETED()=.F. (no record)");
     /* FIELD() still works on an empty table (schema is present). */
     eval_c(ip, "FIELD(1)", "NAME", "empty: FIELD(1)==NAME (schema present)");

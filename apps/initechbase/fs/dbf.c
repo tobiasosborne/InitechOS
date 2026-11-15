@@ -1569,17 +1569,14 @@ static uint32_t field_offset_in_rec(const dbf_table *tbl, int fi)
 /*
  * fmt_blank_field: fill `dst[0..flen-1]` with the blank value for `ftype`.
  *   C/M/N/D -> spaces (0x20).
- *   L       -> '?' (0x3F) -- the III+ uninitialised logical value.
- * Ref: dbf.md sec 5 (L uninitialized = '?'); plan S1.5 blank-field spec.
+ *   L       -> space as well. dbf.md sec 5 calls an uninitialised logical
+ *              '?', but real III+ APPEND BLANK writes 0x20 (screen-mint
+ *              data-d01-unique U.DBF and V.DBF); the capture wins.
  */
 static void fmt_blank_field(uint8_t *dst, uint8_t flen, char ftype)
 {
-    if ((unsigned char)ftype == (unsigned char)'L' && flen >= 1u) {
-        rt_memset(dst, ' ', (uint32_t)flen);
-        dst[0] = (uint8_t)'?';
-    } else {
-        rt_memset(dst, ' ', (uint32_t)flen);
-    }
+    (void)ftype;
+    rt_memset(dst, ' ', (uint32_t)flen);
 }
 
 int dbf_append_blank(dbf_table *tbl)

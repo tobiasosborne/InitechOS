@@ -1,0 +1,22 @@
+
+Record#  FC
+      1  SAME    
+
+ERR         20 Record is not in index.
+OMITTED REKEYED
+Record#  FC
+      1  SAME    
+
+HOLDER TO DUPLICATE
+Record#  FC
+      1  OTHER   
+
+ERR         20 Record is not in index.
+SECOND AGAIN
+Record#  FC
+      1  OTHER   
+
+PACKED          1
+Record#  FC
+      1  SAME    
+

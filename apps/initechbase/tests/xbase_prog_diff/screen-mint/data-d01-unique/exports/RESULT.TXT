@@ -1,0 +1,44 @@
+
+U AFTER APPENDS
+Record#  FC               FN
+      2  A              1.00
+      1  B              2.00
+      4  C              2.00
+
+Record#  FC               FN
+      2  A              1.00
+      1  B              2.00
+      5  A              5.00
+
+Record#  FC               FN
+      2  A              1.00
+      5  A              5.00
+      1  B              2.00
+      4  C              2.00
+
+U AFTER REPLACE
+Record#  FC               FN
+      1  B              2.00
+      4  C              2.00
+      2  D              1.00
+
+.F.          6
+.T.          2
+Record#  FC               FN
+      5  A              5.00
+      1  B              2.00
+      4  C              2.00
+      2  D              1.00
+
+Record#  FC               FN
+      1  B              2.00
+      2  D              1.00
+      3  A              1.00
+      4  C              2.00
+      5  A              5.00
+
+V UNIQUE ON AFTER PLAIN BUILD
+Record#  FC               FN
+      1  B              2.00
+      2  B              3.00
+

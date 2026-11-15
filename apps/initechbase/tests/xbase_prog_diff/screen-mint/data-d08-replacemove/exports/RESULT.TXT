@@ -1,0 +1,14 @@
+
+TOP          1 ABCD    
+MOVED          1 NNNN    
+NEXT          2 WXYZ     .F.
+PREV          1 NNNN     .F.
+PREV2          3 MMMM     .F.
+BACK          2 AAAA     .T.
+TOP2          2 AAAA    
+SKIP2          3 MMMM    
+Record#  FC
+      2  AAAA    
+      3  MMMM    
+      1  NNNN    
+

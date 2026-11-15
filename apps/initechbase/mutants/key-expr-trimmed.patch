@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1381,5 +1381,5 @@
+         /* The header keeps the text as typed up to TO, with its blank: real
+          * III+ stores 'FC ' for INDEX ON FC TO (forms-f13a, initech-5s3t4). */
+-        rt_memcpy(stored,p,raw);stored[raw]=0;
++        rt_memcpy(stored,p,n);stored[n]=0;(void)raw;
+         p=m_skip_ws(to+2);
+         if(!d_word(&p,name,sizeof name))return d_fail(ec,10);

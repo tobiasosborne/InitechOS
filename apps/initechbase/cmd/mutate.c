@@ -223,8 +223,10 @@ static int m_encode_key(xb_interp *ip, const char *key_expr,
         return rc;
 
     if (key_type == 0u) {
-        /* char: left-justified, space-padded; longer truncated. */
-        rt_memset(key_out, ' ', (uint32_t)key_len);
+        /* char: left-justified, longer truncated. A shorter value ends in
+         * a NUL, as real III+ writes it (data-d06 W03 RTRIM 'ABCD\0'); the
+         * bytes after it are real III+'s stale key buffer, written 0 here. */
+        rt_memset(key_out, 0, (uint32_t)key_len);
         if ((v.t == XB_C || v.t == XB_M) && v.u.c.p) {
             uint32_t n = (uint32_t)v.u.c.len;
             if (n > (uint32_t)key_len) n = (uint32_t)key_len;
@@ -455,12 +457,21 @@ static int m_index_after_replace(xb_interp *ip, int area, uint32_t recno,
         rc = ndx_update_key_begin(ix, old_keys[i], newk, recno,&pending[i]);
         if (rc != NDX_OK) {
             pending[i].file.pal=0; /* begin already restored its own file */
-            if (ec) *ec = 0;
+            /* Real III+: re-keying a record a UNIQUE index omitted is #20
+             * "Record is not in index." and the record keeps its value
+             * (screen-mint data-d09-uniqueomitted). */
+            if (ec) *ec = rc == -NDX_ERR_NOTFOUND ? 20 : 0;
             rc=-INTERP_ERR_EVAL;
             goto restore;
         }
     }
-    for(i=0;i<n;i++)if(pending[i].file.pal)ibase_file_accept(&pending[i].file);
+    {
+        int moved=0;
+        for(i=0;i<n;i++)if(pending[i].file.pal){ibase_file_accept(&pending[i].file);moved=1;}
+        /* A changed key moves the record in index order; the materialized
+         * order is rebuilt on the next move (data-d01-unique LIST). */
+        if(moved)wa_nav_reset(area);
+    }
     if (ec) *ec = 0;
     return INTERP_OK;
 restore:
@@ -1248,6 +1259,91 @@ static IBASE_OVL_TEXT(file) int d_key(void *user,uint32_t rec,uint8_t *key,uint1
     if(wa_goto(e,wa_selected(e),rec)!=WA_OK)return -1;
     return m_encode_key(c->ip,c->expr,c->type,len,key,&c->ec);
 }
+/* INDEX key width (initech-qvpw). Real III+ fixes a character key's width
+ * from the expression itself, never from the record it stands on: a field
+ * gives its width, TRIM/RTRIM/LTRIM/UPPER/LOWER keep their argument's,
+ * SUBSTR/LEFT/RIGHT/STR/SPACE take their literal length (SUBSTR without one
+ * keeps the argument's, STR without one gives 1), REPLICATE and TRANSFORM
+ * give 10, CHR 1, DTOC 8, and + or - adds (screen-mint data-d06-keywidth
+ * W01-W24, data-d02-indexgeom: an empty table and EOF give the same
+ * widths). Anything else is measured on the current record as before;
+ * those shapes are uncaptured. Returns -2 for a non-character node and -1
+ * when the expression cannot be measured. */
+#define D_KW_TOKS 128
+#define D_KW_NODES 128
+static IBASE_OVL_TEXT(file) int d_kw_name(const xb_node *n,const char *want)
+{
+    unsigned i,l=rt_strlen(want);
+    if(n->u.str.len!=l)return 0;
+    for(i=0;i<l;i++)if(m_up1(n->u.str.p[i])!=want[i])return 0;
+    return 1;
+}
+static IBASE_OVL_TEXT(file) int d_kw_eval(xb_interp *ip,const xb_node *pool,int32_t n,xb_val *v)
+{
+    int ec=0;
+    return xb_eval(pool,n,xb_interp_ctx(ip),v,&ec);
+}
+static IBASE_OVL_TEXT(file) int d_kw_num(xb_interp *ip,const xb_node *pool,int32_t n)
+{
+    xb_val v;
+    if(n<0)return -1;
+    if(pool[n].type==XBN_LIT_N)return pool[n].u.num<0?0:(int)pool[n].u.num;
+    if(d_kw_eval(ip,pool,n,&v) || v.t!=XB_N)return -1;
+    return v.u.n<0?0:(int)v.u.n;
+}
+static IBASE_OVL_TEXT(file) int d_kw_node(xb_interp *ip,const xb_node *pool,int32_t n,int depth)
+{
+    const xb_node *x;xb_val v;
+    if(n<0 || depth>32)return -1;
+    x=&pool[n];
+    switch(x->type){
+    case XBN_LIT_C: return x->u.str.len;
+    case XBN_LIT_N: case XBN_LIT_L: case XBN_UNOP: return -2;
+    case XBN_IDENT: {
+        dbf_table *t=wa_table(xb_interp_env(ip),wa_selected(xb_interp_env(ip)));
+        for(int i=0;t && i<dbf_nfields(t);i++){
+            const dbf_field_t *f=dbf_field(t,i);const char *fn=f->name;unsigned k;
+            for(k=0;k<x->u.str.len && fn[k] && m_up1(x->u.str.p[k])==fn[k];k++);
+            if(k==x->u.str.len && !fn[k])return f->type=='C'?f->field_len:(f->type=='M'?-1:-2);
+        }
+        break;
+    }
+    case XBN_BINOP:
+        if(x->op==XBT_PLUS || x->op==XBT_MINUS){
+            int a=d_kw_node(ip,pool,x->kid[0],depth+1),b=d_kw_node(ip,pool,x->kid[1],depth+1);
+            if(a==-2 || b==-2)return -2;
+            if(a<0 || b<0)return -1;
+            return a+b;
+        }
+        return -2;
+    case XBN_CALL: {
+        int32_t arg[XB_FN_MAX_ARGS]={-1,-1,-1,-1};int na=0;
+        for(int32_t a=x->kid[0];a>=0 && na<XB_FN_MAX_ARGS;a=pool[a].kid[1])arg[na++]=pool[a].kid[0];
+        if(d_kw_name(x,"UPPER") || d_kw_name(x,"LOWER") || d_kw_name(x,"TRIM") ||
+           d_kw_name(x,"RTRIM") || d_kw_name(x,"LTRIM"))return na==1?d_kw_node(ip,pool,arg[0],depth+1):-1;
+        if(d_kw_name(x,"SUBSTR"))return na==3?d_kw_num(ip,pool,arg[2]):na==2?d_kw_node(ip,pool,arg[0],depth+1):-1;
+        if(d_kw_name(x,"LEFT") || d_kw_name(x,"RIGHT"))return na==2?d_kw_num(ip,pool,arg[1]):-1;
+        if(d_kw_name(x,"STR"))return na==1?1:na>=2?d_kw_num(ip,pool,arg[1]):-1;
+        if(d_kw_name(x,"SPACE"))return na==1?d_kw_num(ip,pool,arg[0]):-1;
+        if(d_kw_name(x,"REPLICATE") || d_kw_name(x,"TRANSFORM"))return 10;
+        if(d_kw_name(x,"CHR"))return 1;
+        if(d_kw_name(x,"DTOC"))return 8;
+        break;
+    }
+    default: break;
+    }
+    if(d_kw_eval(ip,pool,n,&v))return -1;
+    return v.t==XB_C?(int)v.u.c.len:-2;
+}
+static IBASE_OVL_TEXT(file) int d_key_width(xb_interp *ip,const char *expr)
+{
+    xb_token toks[D_KW_TOKS];xb_node pool[D_KW_NODES];int ec=0,ntok,root;
+    ntok=xb_lex(expr,rt_strlen(expr),toks,D_KW_TOKS,&ec);
+    if(ntok<0)return -1;
+    root=xb_parse(toks,(uint32_t)ntok,pool,D_KW_NODES,&ec);
+    if(root<0)return -1;
+    return d_kw_node(ip,pool,root,0);
+}
 static IBASE_OVL_TEXT(file) int d_index(xb_interp *ip,const char *args,int rebuild,int *ec)
 {
     wa_env *env=xb_interp_env(ip);ibase_pal_t *pal=xb_interp_pal(ip);
@@ -1276,15 +1372,19 @@ rebuild_failed:
         wa_nav_set_eof(env,area,previous_eof);wa_nav_set_bof(env,area,previous_bof);
         return d_fail(ec,ctx.ec?ctx.ec:114);
     } else {
-        const char *p=m_skip_ws(args),*to;char expr[255],name[128],display[128];xb_val v;ndx_index *ix=0;
+        const char *p=m_skip_ws(args),*to;char expr[255],stored[255],name[128],display[128];xb_val v;ndx_index *ix=0;
         ibase_file_write tx;int attached=0,previous_master=wa_master_order(env,area),failure=114;
-        unsigned n;int defaulted, unique=0, k=m_match_kw(p,"ON");
+        unsigned n,raw;int defaulted, unique=0, width, k=m_match_kw(p,"ON");
         if(!k)return d_fail(ec,10);
         p=m_skip_ws(p+k);to=d_kw(p,"TO");
         if(!to)return d_fail(ec,10);
-        n=(unsigned)(to-p);while(n && m_isspace(p[n-1]))n--;
+        raw=n=(unsigned)(to-p);while(n && m_isspace(p[n-1]))n--;
         if(!n || n>220)return d_fail(ec,10);
-        rt_memcpy(expr,p,n);expr[n]=0;p=m_skip_ws(to+2);
+        rt_memcpy(expr,p,n);expr[n]=0;
+        /* The header keeps the text as typed up to TO, with its blank: real
+         * III+ stores 'FC ' for INDEX ON FC TO (forms-f13a, initech-5s3t4). */
+        rt_memcpy(stored,p,raw);stored[raw]=0;
+        p=m_skip_ws(to+2);
         if(!d_word(&p,name,sizeof name))return d_fail(ec,10);
         /* Optional UNIQUE keyword; SET UNIQUE ON implies it (real III+ uniquerebuild). */
         {const set_state *ss=set_get_state(ip);unique=ss && ss->unique;}
@@ -1298,7 +1398,14 @@ rebuild_failed:
         rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
         ctx.expr=expr;ctx.type=v.t==XB_C?0:1;
         if(v.t!=XB_C && v.t!=XB_N && v.t!=XB_D)return d_fail(ec,9);
-        rc=ndx_build_begin(pal,name,ctx.type,v.t==XB_C?v.u.c.len:8,expr,count,d_key,&ctx,unique,&tx);
+        width=8;
+        if(v.t==XB_C){
+            width=d_key_width(ip,expr);
+            if(width<0)width=(int)v.u.c.len;
+            /* #23 before any file exists (data-d06 W20: no W20.NDX). */
+            if(width>100){wa_nav_goto(env,area,keep);return d_fail(ec,23);}
+        }
+        rc=ndx_build_begin(pal,name,ctx.type,(uint16_t)width,stored,count,d_key,&ctx,unique,&tx);
         if(rc) { wa_nav_goto(env,area,keep);return d_fail(ec,ctx.ec?ctx.ec:29); }
         rc=ndx_open_rw(pal,name,&ix);
         if(rc)goto index_failed;

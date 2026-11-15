@@ -1,0 +1,21 @@
+
+ZAPPED .T. .T.          1          0
+USE .T. .T.          1          0
+TOP .T. .T.          1
+BOTTOM .T. .T.          1
+ERR          4 End of file encountered.
+SKIP .T. .T.          1
+ERR         38 Beginning of file encountered.
+SKIP-1 .T. .T.          1
+ERR          5 Record is out of range.
+GO1 .T. .T.          1
+APPEND .F. .F.          1          1
+HIDDEN TOP .F. .T.          2
+PACKED .T. .T.          1          0
+PACKED TOP .T. .T.          1
+APPEND2 .F. .F.          1          1
+TOP2 .F. .F.          1
+FILTER TOP .F. .T.          3
+INDEXED .T. .T.          1
+INDEXED TOP .T. .T.          1
+CLOSED .F. .F.          0

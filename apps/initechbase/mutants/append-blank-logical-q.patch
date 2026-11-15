@@ -1,0 +1,11 @@
+# test: test_ibase_forms_replay
+--- a/fs/dbf.c
++++ b/fs/dbf.c
+@@ -1576,6 +1576,6 @@
+ static void fmt_blank_field(uint8_t *dst, uint8_t flen, char ftype)
+ {
+-    (void)ftype;
+     rt_memset(dst, ' ', (uint32_t)flen);
++    if (ftype == 'L' && flen) dst[0] = '?';
+ }
+ 

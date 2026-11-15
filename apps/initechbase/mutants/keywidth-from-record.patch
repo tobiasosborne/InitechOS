@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1401,5 +1401,5 @@
+         width=8;
+         if(v.t==XB_C){
+-            width=d_key_width(ip,expr);
++            width=d_key_width(ip,"");
+             if(width<0)width=(int)v.u.c.len;
+             /* #23 before any file exists (data-d06 W20: no W20.NDX). */

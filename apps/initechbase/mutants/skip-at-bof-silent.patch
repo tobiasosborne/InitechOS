@@ -1,0 +1,9 @@
+# test: test_ibase_forms_replay
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -2424,5 +2424,4 @@
+     if (wa_is_open(env, area)) {
+         if (n > 0 && wa_eof(env, area)) { if (ec) *ec = 4; return -INTERP_ERR_EVAL; }
+-        if (n < 0 && wa_bof(env, area)) { if (ec) *ec = 38; return -INTERP_ERR_EVAL; }
+     }
+     {

@@ -1,0 +1,22 @@
+
+EOF1 .F. .T.          3
+ERR          4 End of file encountered.
+EOF2 .F. .T.          3
+ERR          4 End of file encountered.
+EOF3 .F. .T.          3
+BACK .F. .F.          2
+BOF1 .T. .F.          1
+ERR         38 Beginning of file encountered.
+BOF2 .T. .F.          1
+SKIP0 .T. .F.          1
+FWD .F. .F.          2
+GOEXPR          2
+GOVAR          1
+ERR          5 Record is out of range.
+GO3 .F. .T.          3
+IEOF1 .F. .T.          3
+ERR          4 End of file encountered.
+IEOF2 .F. .T.          3
+IBOF1 .T. .F.          1
+ERR         38 Beginning of file encountered.
+IBOF2 .T. .F.          1

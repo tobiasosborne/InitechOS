@@ -1,7 +1,9 @@
 # test: test_ibase_core
 --- a/fs/ndx.c
 +++ b/fs/ndx.c
-@@ -1919,27 +1918,0 @@
+@@ -1940,31 +1940,4 @@
+ }
+ 
 -/* subtree_high: the (key, recno) of the LAST entry under PAGE_NO (follow the
 - * trailing children to the rightmost leaf). -NDX_ERR_NOTFOUND if that leaf is
 - * empty. */
@@ -29,9 +31,17 @@
 -        if (page_no == 0u || ++guard > NDX_MAX_DEPTH) return -NDX_ERR_CYCLE;
 -    }
 -}
-@@ -1997,0 +1971 @@
+ 
+ /* read_big: read PAGE_NO into a NDX_BIGBUF buffer (the slots past 512 are 0,
+@@ -2062,4 +2035,5 @@
+     if (!idx->writable)
+         return -NDX_ERR_READONLY;
 +    (void)hk;
-@@ -2022,16 +1995,0 @@
+ 
+     kl  = (uint32_t)idx->key_length;
+@@ -2086,20 +2060,4 @@
+             if (cmp < 0)
+                 continue;
 -            if (cmp == 0) {
 -                /* Equal separator (a duplicate key). Branch recnos are zero
 -                 * (ndx.md ss3.1), so recover the subtree's upper (key,recno)
@@ -48,3 +58,5 @@
 -                if (hc < 0 || (hc == 0 && recno > hr))
 -                    continue;
 -            }
+             ci = i;
+             break;

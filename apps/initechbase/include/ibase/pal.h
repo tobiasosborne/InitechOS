@@ -168,8 +168,8 @@ struct ibase_pal {
 
 	/* ---- clock: INJECTABLE for reproducibility (CLAUDE.md, The constitution) ---- */
 
-	/* today: return the current date as packed two-digit YY (00-99 = 1900s/2000s
-	 * per CENTURY handling above the PAL), 1-based MM, 1-based DD. INJECTABLE so
+	/* today: return the current date as YY = years since 1900 (92 = 1992,
+	 * 126 = 2026; initech-nbpj), 1-based MM, 1-based DD. INJECTABLE so
 	 * goldens with known dates bite deterministically; on the artifact it is
 	 * InitechDOS INT 21h AH=2Ah GET DATE, on the host a fixed/configured date. */
 	void    (*today) (ibase_pal_t *, uint8_t *yy, uint8_t *mm, uint8_t *dd);

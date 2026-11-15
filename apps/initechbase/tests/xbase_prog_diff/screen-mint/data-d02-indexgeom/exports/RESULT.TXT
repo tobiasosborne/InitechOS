@@ -1,0 +1,8 @@
+
+EMPTY SEEK .F. .T.          1
+AFTER APPEND .T.          1
+AT EOF .T.
+GE          1 .F.
+K100 DONE
+K101 DONE
+K254 DONE

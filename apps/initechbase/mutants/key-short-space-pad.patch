@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -227,5 +227,5 @@
+          * a NUL, as real III+ writes it (data-d06 W03 RTRIM 'ABCD\0'); the
+          * bytes after it are real III+'s stale key buffer, written 0 here. */
+-        rt_memset(key_out, 0, (uint32_t)key_len);
++        rt_memset(key_out, ' ', (uint32_t)key_len);
+         if ((v.t == XB_C || v.t == XB_M) && v.u.c.p) {
+             uint32_t n = (uint32_t)v.u.c.len;

@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/fs/ndx.c
++++ b/fs/ndx.c
+@@ -2054,5 +2054,5 @@
+         rc = ndx_raw_present(idx, key_data, &present);
+         if (rc != NDX_OK) return rc;
+-        if (present) return NDX_OK;
++        (void)present;
+     }
+ 

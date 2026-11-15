@@ -210,7 +210,16 @@ static int build_index_seq(wa_env *env, int area, int master)
     }
 
     ns->seq_len    = ctx.count;
-    ns->ord_pos    = 0u;       /* will be set by the GO TOP / GO BOTTOM caller */
+    /* GO TOP / GO BOTTOM set the ordinal themselves. Any other rebuild (a
+     * REPLACE moved the current record's key) continues from the current
+     * record where it now sits in key order (screen-mint data-d01-unique). */
+    ns->ord_pos    = 0u;
+    {
+        uint32_t cur = wa_recno(env, area), i;
+        if (!wa_eof(env, area))
+            for (i = 0u; i < ns->seq_len; i++)
+                if (ns->seq[i] == cur) { ns->ord_pos = i; break; }
+    }
     ns->master_snap = master;
     return NAV_OK;
 }

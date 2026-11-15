@@ -2372,9 +2372,24 @@ static int q_go(xb_interp *ip, const char *args, int *ec)
         uint32_t n;
         int k = q_match_kw(s, "RECORD");
         if (k > 0) s = q_skip_ws(s + k);   /* optional noise keyword */
-        if (*s < '0' || *s > '9') { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
-        n = q_parse_uint(&s);
+        if (*s >= '0' && *s <= '9') n = q_parse_uint(&s);
+        else {
+            /* GO <expN>: real III+ GO RECCOUNT() and GO N (data-d07). */
+            xb_val v;
+            if (!*s) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+            rc = xb_interp_eval(ip, s, &v, ec);
+            if (rc != INTERP_OK) return rc;
+            if (v.t != XB_N) { if (ec) *ec = 27; return -INTERP_ERR_EVAL; }
+            n = v.u.n < 0 ? 0u : (uint32_t)v.u.n;
+        }
         rc = wa_nav_goto(env, area, n);
+        /* Past the last record real III+ reports #5 and leaves the pointer
+         * at end of file, RECNO() RECCOUNT()+1 (data-d07 GO3). */
+        if (rc != NAV_OK && !wa_view_error(env) && wa_is_open(env, area) &&
+            n > wa_nrec(env, area) && wa_nrec(env, area)) {
+            (void)wa_nav_goto(env, area, wa_nrec(env, area));
+            wa_nav_set_eof(env, area, 1);
+        }
     }
     if (rc != NAV_OK) {
         if (ec) *ec = wa_view_error(env) ? wa_view_error(env) : rc==-NAV_ERR_EOF ? 4 : 5;
@@ -2402,6 +2417,13 @@ static int q_skip(xb_interp *ip, const char *args, int *ec)
         uint32_t v = q_parse_uint(&s);
         n = (int32_t)v;
         if (neg) n = -n;
+    }
+    /* Real III+ (screen-mint data-d07-skipends, data-d05-emptybof): SKIP
+     * forward while EOF() is #4 and SKIP back while BOF() is #38, in
+     * physical and index order; the position does not change. */
+    if (wa_is_open(env, area)) {
+        if (n > 0 && wa_eof(env, area)) { if (ec) *ec = 4; return -INTERP_ERR_EVAL; }
+        if (n < 0 && wa_bof(env, area)) { if (ec) *ec = 38; return -INTERP_ERR_EVAL; }
     }
     {
         int rc=wa_nav_skip(env, area, n);
@@ -2557,7 +2579,7 @@ static IBASE_OVL_TEXT(status) void qi_status(q_inspection *q)
             qi_text(q,i+1==wa_master_order(env,a)?"    Master index file:  ":"           Index file:  ");
             /* Real ndxdisplay/GOLD.OUT pins supplied case after creation,
              * REINDEX and SET INDEX; only the default extension is replaced. */
-            qi_file(q,ndx_display_name(ix),ndx_name_defaulted(ix)?".ndx":(const char *)0,1);qi_text(q,"  Key: ");qi_text(q,ndx_key_expr(ix));qi_text(q," ");qi_line(q);
+            qi_file(q,ndx_display_name(ix),ndx_name_defaulted(ix)?".ndx":(const char *)0,1);qi_text(q,"  Key: ");qi_text(q,ndx_key_expr(ix));qi_line(q);
         }
         if(wa_memo(env,a)) {
             qi_text(q,"           Memo file:   ");qi_file(q,dbf_name(wa_table(env,a)),".dbt",0);qi_line(q);

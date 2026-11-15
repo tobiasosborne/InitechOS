@@ -1,5 +1,9 @@
 # test: test_ibase_fns
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -634,0 +635 @@
+@@ -640,4 +640,5 @@
+         }
+     }
 +    code='C';
+     dst = fn_scratch(ctx, 1);
+     if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);

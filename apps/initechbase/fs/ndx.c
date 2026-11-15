@@ -1999,6 +1999,42 @@ static int sep_propagate(ndx_index *idx, const uint32_t *path_pg,
     return NDX_OK;
 }
 
+/* initech-1x6x2.13: a UNIQUE index (header flag 00 01) never takes a second
+ * entry for a key it already holds. Real III+ (screen-mint data-d01-unique):
+ * APPEND/REPLACE of a duplicate leaves the index unchanged, and re-keying the
+ * record that holds a key removes that key from the index, even though other
+ * records still carry it. The SET UNIQUE state at maintenance time does not
+ * matter; an index built without the flag keeps every duplicate. Re-keying a
+ * record the index omitted fails (#20, data-d09-uniqueomitted; mutate.c). */
+static int ndx_raw_present(ndx_index *idx, const uint8_t *key, int *present)
+{
+    uint32_t page_no = idx->root_page, depth = idx->total_pages;
+    *present = 0;
+    for (;;) {
+        ndx_node_t *node = (ndx_node_t *)0;
+        uint32_t i, next_page = 0u;
+        int rc, is_branch;
+        if (depth == 0u) return -NDX_ERR_CYCLE;
+        depth--;
+        rc = ndx_read_node(idx, page_no, &node);
+        if (rc != NDX_OK) return rc;
+        is_branch = node->entry_count ? node->entries[0].child_page != 0u
+                                     : node->trail_child != 0u;
+        for (i = 0u; i < (uint32_t)node->entry_count; i++)
+            if (ndx_key_cmp(idx, node->entries[i].key_data, key) >= 0) break;
+        if (!is_branch) {
+            *present = i < (uint32_t)node->entry_count &&
+                       ndx_key_cmp(idx, node->entries[i].key_data, key) == 0;
+            ndx_node_free(idx, node);
+            return NDX_OK;
+        }
+        next_page = i < (uint32_t)node->entry_count ? node->entries[i].child_page
+                                                    : node->trail_child;
+        ndx_node_free(idx, node);
+        if (next_page == 0u) return -NDX_ERR_BAD_PAGE;
+        page_no = next_page;
+    }
+}
 static int ndx_insert_raw(ndx_index *idx, const uint8_t *key_data, uint32_t recno)
 {
     uint8_t  page[NDX_PAGE_SIZE];
@@ -2013,6 +2049,13 @@ static int ndx_insert_raw(ndx_index *idx, const uint8_t *key_data, uint32_t recn
     uint32_t left_pg, new_pg;
     uint16_t n;
     int      rc;
+
+    if (idx && key_data && idx->unique_flag) {
+        int present;
+        rc = ndx_raw_present(idx, key_data, &present);
+        if (rc != NDX_OK) return rc;
+        if (present) return NDX_OK;
+    }
 
     if (!idx || !key_data)
         return -NDX_ERR_BAD_PAGE;

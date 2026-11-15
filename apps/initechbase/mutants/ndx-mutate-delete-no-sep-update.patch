@@ -1,7 +1,9 @@
 # test: test_ndx_incremental
 --- a/fs/ndx.c
 +++ b/fs/ndx.c
-@@ -1962,15 +1962,2 @@
+@@ -1983,19 +1983,6 @@
+                          const uint8_t *key)
+ {
 -    uint8_t page[NDX_PAGE_SIZE];
 -    while (depth > 0u) {
 -        uint16_t n;
@@ -19,3 +21,5 @@
 -    return NDX_OK;
 +    (void)idx; (void)path_pg; (void)path_ci; (void)depth; (void)key;
 +    return NDX_OK;   /* MUTANT (CLAUDE.md, The constitution): leave the stale separator */
+ }
+ 

@@ -1,0 +1,9 @@
+# test: test_ibase_forms_replay
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -2423,5 +2423,4 @@
+      * physical and index order; the position does not change. */
+     if (wa_is_open(env, area)) {
+-        if (n > 0 && wa_eof(env, area)) { if (ec) *ec = 4; return -INTERP_ERR_EVAL; }
+         if (n < 0 && wa_bof(env, area)) { if (ec) *ec = 38; return -INTERP_ERR_EVAL; }
+     }

@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -468,5 +468,5 @@
+         /* A changed key moves the record in index order; the materialized
+          * order is rebuilt on the next move (data-d01-unique LIST). */
+-        if(moved)wa_nav_reset(area);
++        (void)moved;
+     }
+     if (ec) *ec = 0;

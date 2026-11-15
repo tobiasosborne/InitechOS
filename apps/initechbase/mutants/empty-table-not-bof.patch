@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -1028,5 +1028,5 @@
+     if (!wa || !wa->open)
+         return 0;
+-    return (wa->bof || !wa->nrec) ? 1 : 0;
++    return wa->bof ? 1 : 0;
+ }
+ 

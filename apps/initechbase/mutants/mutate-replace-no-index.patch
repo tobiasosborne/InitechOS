@@ -1,12 +1,10 @@
 # test: test_interp_replace
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -452,7 +452,7 @@
-         if (rc != INTERP_OK)
+@@ -455,5 +455,5 @@
              goto restore;
          if(!rt_memcmp(old_keys[i],newk,klen))continue;
 -        rc = ndx_update_key_begin(ix, old_keys[i], newk, recno,&pending[i]);
 +        rc = ndx_update_key_begin(ix, old_keys[i], old_keys[i], recno,&pending[i]);
          if (rc != NDX_OK) {
              pending[i].file.pal=0; /* begin already restored its own file */
-             if (ec) *ec = 0;

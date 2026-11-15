@@ -14,7 +14,7 @@ files back with mtools/independent readers and reopens them with genuine III+.
 It passes 50 checks. Scenarios and the selected application pair live on a
 separate disposable TEST disk; no test scenario is compiled into the kernel.
 `make native-check` runs the DOS console, file, program-return and overlay
-oracles. `make mutants` runs 273 host patches and 19 target patches, including
+oracles. `make mutants` runs 289 host patches and 19 target patches, including
 three static semantic rejections. All 28 original pending faults are qualified.
 The test controls themselves must receive zero kills.
 Host kills require completed assertion counts and identical failure evidence
@@ -210,11 +210,46 @@ the speaker is graded from PC-speaker port programming on the product
 image (factory stage), not from recorded audio. InitechBase emits BEL
 through INT 21h output.
 
+### Data captures (base-owner-4)
+
+`tests/xbase_prog_diff/screen-mint/data-*` are real III+ probes minted twice
+with `make mint-forms`, replayed by `test-ibase-forms-replay` like the forms
+cases (RESULT.TXT plus every DBF/NDX they write):
+
+- d01, d09 (initech-1x6x2.13): an index with the UNIQUE flag never takes a
+  second entry for a key it holds, whatever SET UNIQUE says at the time;
+  re-keying the holder removes that key; re-keying a record the index
+  omitted is #20 `Record is not in index.` and the record keeps its value.
+  An index built without the flag keeps duplicates, new ones after old.
+- d02, d06 (initech-qvpw): a character key's width comes from the
+  expression, not the current record (empty table, EOF, TRIM all give the
+  field width; SUBSTR/LEFT/RIGHT/STR/SPACE their literal length, plain STR
+  1, REPLICATE/TRANSFORM 10, CHR 1, DTOC 8; + adds). Over 100 is #23
+  `Index is too big (100 char maximum).` before any file exists. A shorter
+  value is stored NUL-terminated. The header keeps the expression as typed
+  up to TO, blank included, and DISPLAY STATUS prints it verbatim.
+- d08: a REPLACE that moves the current record's key continues from its new
+  place in index order.
+- d04 (initech-nbpj): DATE() reads the system date on every call with its
+  century (the PAL year is years since 1900); RUN DATE takes effect at once.
+  Blank and invalid dates print `  /  /  `.
+- d05, d07 (initech-gmt0): a physically empty table has BOF() and EOF() .T.
+  and RECNO() 1; SKIP forward at EOF is #4, back at BOF #38, in any order;
+  GO takes an expression; GO past the end is #5 and leaves EOF() .T.
+- APPEND BLANK writes a blank logical as a space (d01), not dbf.md's `?`.
+
+The replay compares a DBF up to its EOF mark after the declared records and
+treats an NDX node's bytes 2-3, each entry's padding and a short key's bytes
+after its NUL as real III+ buffer residue (the two mints agree on them only
+because QEMU is deterministic). The live-date half of d04 is replayed with
+the mint's DOS clock modelled in the test PAL (`RUN DATE mm-dd-yyyy` sets
+it); pal_dos's INT 21h AH=2Ah year transport is graded only on the product
+image (factory stage 2).
+
 Known parity limits, not silently promoted pending captures: STR scientific
 fallback/range/precision and rounding, exponent pictures, HISTORY growth and
 recording/paging, MEMOWIDTH wrapping/column padding, multi-area DISPLAY pauses,
-empty-table BOF, unique-index incremental duplicate handling, error routing,
-live-date century transport. SET INDEX preconditions,
+error routing, numeric overflow display (initech-byc5). SET INDEX preconditions,
 mutation NEXT scopes and bounded LOCATE misses still need independent capture
 qualification. Accepted captures stay unchanged. The smoke's LIST and INDEX/
 SEEK lines match real III+; its Y2K report uses the authored canon golden:

@@ -565,11 +565,18 @@ static int fn_dtoc_impl(xb_ctx *ctx, const xb_val *args,
     return 0;
 }
 
-/* DATE() -> D: today's date from the INJECTED ctx->ctx_today (JDN). No args.
- * Freestanding: never reads the OS clock (CLAUDE.md, The constitution; pal.h today()). If the
- * caller has not injected a date, ctx_today is 0.0 -> a blank date. */
+/* DATE() -> D: the system date each time it is called, through the PAL's
+ * today() (years since 1900), as TIME() reads time(). Real III+ shows a date
+ * set by RUN DATE at once, century included: 10/04/26, YEAR() 2026, then
+ * 12/31/99 and 01/01/00 = 2000 (screen-mint data-d04-dates; initech-nbpj).
+ * Without a PAL the INJECTED ctx->ctx_today is used (0.0 -> blank date). */
 static int fn_date(xb_ctx *ctx, xb_val *out, int *err)
 {
+    if (ctx->file_pal && ctx->file_pal->today) {
+        uint8_t yy = 0u, mm = 0u, dd = 0u;
+        ctx->file_pal->today(ctx->file_pal, &yy, &mm, &dd);
+        ctx->ctx_today = (double)jdn_from_ymd(1900 + (int)yy, (int)mm, (int)dd);
+    }
     *out = xb_d(ctx->ctx_today);
     *err = XBEE_OK;
     return 0;

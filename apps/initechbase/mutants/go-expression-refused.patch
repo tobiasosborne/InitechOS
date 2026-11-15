@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -2377,5 +2377,5 @@
+             /* GO <expN>: real III+ GO RECCOUNT() and GO N (data-d07). */
+             xb_val v;
+-            if (!*s) { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
++            { if (ec) *ec = 0; return -INTERP_ERR_SYNTAX; }
+             rc = xb_interp_eval(ip, s, &v, ec);
+             if (rc != INTERP_OK) return rc;

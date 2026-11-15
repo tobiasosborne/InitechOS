@@ -74,7 +74,6 @@ case forms-f22i-numedit
 # Known disagreements: what may differ, then the cause.
 differs forms-f01-dotget export:OUT.MEM bytes:18+bytes:59+bytes:99 SAVE TO writes 2, real 0, at byte 18 for dot-prompt variables (initech-fae7j)
 differs forms-f02b-bounds dump:r4-end cursor End at the dot prompt moves the cursor to column 78 in real III+ (initech-a6hr9)
-differs forms-f13a-bind export:FORMIDX.NDX bytes:26 real NDX key expression keeps its trailing blank "FC " (initech-5s3t4)
 differs forms-f15a-refuse dump:undef rows:20-23 dot-prompt error display (initech-bgtl1)
 differs forms-f15a-refuse dump:expr rows:16-23 dot-prompt error display (initech-bgtl1)
 differs forms-f15a-refuse dump:valid rows:11-23 dot-prompt error display (initech-bgtl1)
@@ -111,3 +110,11 @@ differs forms-f20g-eofsecond dump:entered rows:1+rows:3+rows:5+rows:20-24+cursor
 differs forms-f20g-eofsecond dump:typed rows:1+rows:3+rows:5+rows:20-24+cursor the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20g-eofsecond dump:moved rows:1+rows:3+rows:18-23 the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20g-eofsecond dump:prompt rows:0+rows:15-20 the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
+case data-d01-unique
+case data-d02-indexgeom
+case data-d04-dates
+case data-d05-emptybof
+case data-d06-keywidth
+case data-d07-skipends
+case data-d08-replacemove
+case data-d09-uniqueomitted

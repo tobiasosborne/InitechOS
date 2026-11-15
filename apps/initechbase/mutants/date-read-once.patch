@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -573,5 +573,5 @@
+ static int fn_date(xb_ctx *ctx, xb_val *out, int *err)
+ {
+-    if (ctx->file_pal && ctx->file_pal->today) {
++    if (0 && ctx->file_pal && ctx->file_pal->today) {
+         uint8_t yy = 0u, mm = 0u, dd = 0u;
+         ctx->file_pal->today(ctx->file_pal, &yy, &mm, &dd);

@@ -1,0 +1,10 @@
+# test: test_ibase_dml
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -2580,5 +2580,5 @@
+             /* Real ndxdisplay/GOLD.OUT pins supplied case after creation,
+              * REINDEX and SET INDEX; only the default extension is replaced. */
+-            qi_file(q,ndx_display_name(ix),ndx_name_defaulted(ix)?".ndx":(const char *)0,1);qi_text(q,"  Key: ");qi_text(q,ndx_key_expr(ix));qi_line(q);
++            qi_file(q,ndx_display_name(ix),ndx_name_defaulted(ix)?".ndx":(const char *)0,1);qi_text(q,"  Key: ");qi_text(q,ndx_key_expr(ix));qi_text(q," ");qi_line(q);
+         }
+         if(wa_memo(env,a)) {

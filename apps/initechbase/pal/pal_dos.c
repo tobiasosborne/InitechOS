@@ -1124,9 +1124,7 @@ static int32_t dos_exec(ibase_pal_t *p, const char *cmdline)
 /*
  * dos_today: AH=2Ah GET DATE -> CX=year(full), DH=month(1-12), DL=day(1-31).
  *
- * The pal.h contract returns two-digit YY (00-99 = 1900s, century handling
- * above the PAL), 1-based MM, 1-based DD. We compute YY = year % 100 to match
- * pal_host.c's packing (pal_host stores date_yy which is already 2-digit).
+ * The pal.h contract returns YY = years since 1900, 1-based MM, 1-based DD.
  *
  * Mapping: CX=year (full 4-digit), DH=month, DL=day (from do_getdate which
  * packs DX as ((mon<<8)|day) and CX as year). We extract:
@@ -1158,9 +1156,10 @@ static void dos_today(ibase_pal_t *p, uint8_t *yy, uint8_t *mm, uint8_t *dd)
                      &ecx_r, &edx_r, (int *)0);
 
     if (yy) {
-        /* Two-digit YY: year % 100. e.g. 1993 -> 93, 2001 -> 01. */
+        /* Years since 1900 (pal.h): DOS gives 1980-2099, so 80-199 and
+         * the century survives (1993 -> 93, 2026 -> 126; initech-nbpj). */
         uint16_t year = (uint16_t)(ecx_r & 0xFFFFu);
-        *yy = (uint8_t)(year % 100u);
+        *yy = (uint8_t)(year - 1900u);
     }
     if (mm) {
         /* DH = month (bits 15:8 of the low 16 of EDX). */

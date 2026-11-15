@@ -1009,12 +1009,17 @@ static uint32_t wac_reccount(void *u)
     return wa->nrec;                   /* physical count; ignores FILTER/DELETED */
 }
 
+/* initech-gmt0: a physically empty table is at both ends at once. Real III+
+ * (screen-mint data-d05-emptybof) shows BOF() and EOF() .T. with RECNO() 1
+ * after ZAP, USE, GO TOP/BOTTOM, SKIP, PACK to nothing and INDEX; a table
+ * whose records are only hidden by SET DELETED or a filter is not empty
+ * (.F. .T.). */
 static int wac_eof(void *u)
 {
     work_area *wa = wa_cur_area((wa_env *)u);
     if (!wa || !wa->open)
         return 0;
-    return wa->eof ? 1 : 0;
+    return (wa->eof || !wa->nrec) ? 1 : 0;
 }
 
 static int wac_bof(void *u)
@@ -1022,7 +1027,7 @@ static int wac_bof(void *u)
     work_area *wa = wa_cur_area((wa_env *)u);
     if (!wa || !wa->open)
         return 0;
-    return wa->bof ? 1 : 0;
+    return (wa->bof || !wa->nrec) ? 1 : 0;
 }
 
 static int wac_found(void *u)
@@ -1234,14 +1239,14 @@ int wa_eof(const wa_env *env, int area)
 {
     if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
         return 0;
-    return env->area[area - 1].eof;
+    return env->area[area - 1].eof || !env->area[area - 1].nrec;
 }
 
 int wa_bof(const wa_env *env, int area)
 {
     if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
         return 0;
-    return env->area[area - 1].bof;
+    return env->area[area - 1].bof || !env->area[area - 1].nrec;
 }
 
 void wa_nav_set_eof(wa_env *env, int area, int val)
@@ -1437,9 +1442,8 @@ xb_interp *xb_interp_make(ibase_pal_t *pal)
     ip->ctx.file_pal     = pal;
 
     pal->today(pal, &yy, &mm, &dd);
-    /* yy is two-digit; 00..99. CENTURY handling lives above the PAL; for the
-     * injectable host clock we map 00..99 -> 1900..1999 (the III+ default
-     * CENTURY OFF window starts at 1900). DATE() reproducibility (CLAUDE.md, The constitution). */
+    /* yy is years since 1900 (pal.h). DATE() re-reads the clock on each
+     * call; this is the value before the first one. */
     ip->ctx.ctx_today = (double)jdn_from_ymd(1900 + (int)yy, (int)mm, (int)dd);
 
     /* Bind the resolve glue: field names resolve against the selected area. */

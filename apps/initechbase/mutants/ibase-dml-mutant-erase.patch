@@ -1,5 +1,9 @@
 # test: test_ibase_dml
 --- a/cmd/mutate.c
 +++ b/cmd/mutate.c
-@@ -1242,0 +1243 @@
+@@ -1564,4 +1564,5 @@
+     if(erase) {
+         pal->close(pal,in);
 +        return INTERP_OK; /* leave the file present */
+         rc=pal->remove(pal,src);return rc?d_fail(ec,29):INTERP_OK;
+     }

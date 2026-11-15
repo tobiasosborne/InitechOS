@@ -1,0 +1,10 @@
+# test: test_ibase_forms_replay
+--- a/cmd/mutate.c
++++ b/cmd/mutate.c
+@@ -1401,5 +1401,5 @@
+             if(width<0)width=(int)v.u.c.len;
+             /* #23 before any file exists (data-d06 W20: no W20.NDX). */
+-            if(width>100){wa_nav_goto(env,area,keep);return d_fail(ec,23);}
++            (void)keep;
+         }
+         rc=ndx_build_begin(pal,name,ctx.type,(uint16_t)width,stored,count,d_key,&ctx,unique,&tx);
