@@ -64,3 +64,10 @@ begin
   Kind := 'erase';
   if Inject(Kind) then FaultCode := 5 else System.Erase(F)
 end;
+
+procedure Reset(var F: file; Size: integer);
+var Kind: string;
+begin
+  Kind := 'open';
+  if Inject(Kind) then FaultCode := 5 else System.Reset(F, Size)
+end;

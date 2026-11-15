@@ -1,12 +1,8 @@
 # test: journey
 --- a/editor.pas
 +++ b/editor.pas
-@@ -615,7 +615,7 @@
-     end
-     else DoLoad(NameText)
-   end
--  else if (NameKind = NameWrite) and FileExists(NameText) then
-+  else if (NameKind = NameWrite) and FileExists(NameText) and false then
+@@ -665,3 +665,3 @@
    begin
-     PendingName := NameText;
-     UiMode := ModeOverwrite
+-    if FileExists(NameText) then
++    if false then
+     begin
