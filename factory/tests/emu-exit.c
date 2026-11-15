@@ -19,6 +19,12 @@ int main(int argc, char **argv)
     want(emu_run_status(0, 1, 1, 100, 0), 3, "deadline expired after output");
     want(emu_run_status(1, 1, 1, 100, 0), 3, "timed out but marked ok");
     want(emu_run_status(0, 1, 0, 0, 0), 3, "emulator ended with no serial output");
+    /* Renewal: 12 s budget, ceiling 36 s, 30 s window. */
+    want((int)emu_deadline_renew(12000, 36000, 1000, 30000, 1), 31000, "progress renews the deadline");
+    want((int)emu_deadline_renew(12000, 36000, 11000, 30000, 0), 12000, "no progress, no renewal");
+    want((int)emu_deadline_renew(31000, 36000, 20000, 30000, 1), 36000, "renewal capped at the ceiling");
+    want((int)emu_deadline_renew(31000, 36000, 500, 30000, 1), 31000, "renewal never shortens");
+    want((int)emu_deadline_renew(12000, 36000, 1000, 0, 1), 12000, "renewal off by default");
     if (argc == 2) {
         FILE *f;
         char line[200] = "";

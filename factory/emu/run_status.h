@@ -41,4 +41,17 @@ static inline void emu_record_infra(const char *tool, int status,
             tool, status, launched, timed_out, serial_len);
     fclose(f);
 }
+
+/* Progress-renewed deadline (factory/README.md, Emulator exit status): on
+ * guest progress the deadline moves to now + renew_ms, never past ceiling and
+ * never earlier than it was; without progress it does not move. */
+static inline long long emu_deadline_renew(long long deadline, long long ceiling,
+                                           long long now, long long renew_ms,
+                                           int progressed)
+{
+    long long want = now + renew_ms;
+    if (!progressed || renew_ms <= 0) return deadline;
+    if (want > ceiling) want = ceiling;
+    return want > deadline ? want : deadline;
+}
 #endif
