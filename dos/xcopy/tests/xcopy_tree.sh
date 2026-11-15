@@ -212,6 +212,38 @@ if [ "$mode" = host ]; then
     cmp "$work/previous.txt" "$work/art.bytes" || fail 'mid-file read failure destroyed pre-existing destination bytes'
     mtype -i "$work/art.img" ::SRC/BIGSRC.BIN > "$work/art.bytes"
     cmp "$work/bigsrc.bin" "$work/art.bytes" || fail 'mid-file read failure damaged source'
+    # gze1f: a transient failure on the old second source pass must not
+    # destroy the old destination. Retained bytes can finish the copy;
+    # otherwise the previous destination must survive byte for byte.
+    for read_at in 6 7; do
+        fresh
+        mcopy -i "$work/art.img" "$work/bigsrc.bin" ::SRC/BIGSRC.BIN
+        mcopy -i "$work/art.img" "$work/previous.txt" ::DST/BIGSRC.BIN
+        if XCOPY_FAIL_READ_AT=$read_at run XCOPY 'SRC\BIGSRC.BIN DST'; then
+            expected=$work/bigsrc.bin
+        else expected=$work/previous.txt; fi
+        mtype -i "$work/art.img" ::DST/BIGSRC.BIN > "$work/art.bytes" || fail "read $read_at deleted previous destination"
+        cmp "$expected" "$work/art.bytes" || fail "read $read_at corrupted destination"
+    done
+    # The conventional-memory buffer refuses oversized input BEFORE writes.
+    # Exact 128 KiB fits; byte 131073 must not truncate an existing target.
+    for size in 131072 131073; do
+        fresh
+        dd if=/dev/zero bs=$size count=1 status=none | tr '\000' 'B' > "$work/large.bin"
+        mcopy -i "$work/art.img" "$work/large.bin" ::SRC/LARGE.BIN
+        mcopy -i "$work/art.img" "$work/previous.txt" ::DST/LARGE.BIN
+        if run XCOPY 'SRC\LARGE.BIN DST'; then
+            [ "$size" = 131072 ] || fail 'oversized input accepted'
+            expected=$work/large.bin
+        else
+            [ "$size" = 131073 ] || fail 'exact buffer capacity refused'
+            grep -q 'Insufficient memory' "$work/output" || fail 'capacity refusal diagnostic'
+            grep -q 'exit=4' "$work/run.log" || fail 'capacity refusal status'
+            expected=$work/previous.txt
+        fi
+        mtype -i "$work/art.img" ::DST/LARGE.BIN > "$work/art.bytes" || fail "size $size deleted target"
+        cmp "$expected" "$work/art.bytes" || fail "size $size wrong destination bytes"
+    done
     for tail in 'SRC DST /D:02-30-1988' 'SRC DST /D:07-15-1979' 'SRC DST /D:01-01-2080' 'SRC DST /Z' ''; do
         if run XCOPY "$tail"; then fail "invalid syntax accepted: $tail"; fi
         grep -q 'exit=4' "$work/run.log" || fail 'invalid syntax exit code'

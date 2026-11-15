@@ -1,0 +1,98 @@
+# du-mut-reread-source
+# test: test-xcopy-tree
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -222,6 +222,7 @@
+ 
+ static int transfer(const char *src, const char *dst, const find_data_t *fd)
+ {
++    (void)source_bytes;
+     unsigned char buf[2048], verify[2048];
+     char source_entry[CAP], target_entry[CAP];
+     int source_found=entry_name(src,source_entry);
+@@ -240,31 +241,33 @@
+     if (!ensure_dir(parent)) return 0;
+     int in=call(0x3d00,0,0,(uintptr_t)src);
+     if (in < 0) { error=5; return 0; }
+-    /* initech-gze1f/q2w4b: retain every source byte BEFORE truncation.
+-     * DOS 3.30 COPY disk-full capture governs failed writes, not failed
+-     * source reads. Genuine XCOPY read-fault captures remain unavailable
+-     * (initech-0e5gu); destination retention is the stated safety property. */
+-    unsigned used=0;
++    /* Read the WHOLE source once BEFORE creating/truncating the
++     * destination, then rewind (initech-wz16r, initech-q2w4b). Genuine
++     * XCOPY buffers source files in memory before writing, so an
++     * unreadable source is discovered before any destination is touched;
++     * genuine XCOPY media are still missing (initech-0e5gu), so the safe
++     * rule stated here is that a source read failure -- at any offset,
++     * not only the first chunk -- never destroys the previous
++     * destination. The pre-pass costs one extra read of the source. */
+     for (;;) {
+         int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
+-        if (n < 0) { error=5; break; }
++        if (n < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
+         if (!n) break;
+-        if ((unsigned)n > sizeof(source_bytes)-used) {
+-            line(MSG_DOS_0035); error=4; break;
+-        }
+-        for (int i=0; i<n; i++) source_bytes[used++]=buf[i];
+-    }
+-    if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
+-    if (error) return 0;
++    }
++    if (call(0x4200,(unsigned)in,0,0) < 0) {   /* AH=42h AL=0: seek to 0 */
++        call(0x3e00,(unsigned)in,0,0); error=5; return 0;
++    }
++    int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
++    if (n < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
+     int out=call(0x5b00,0,0,(uintptr_t)dst);
+     if (out == -80) out=call(0x3c00,0,0,(uintptr_t)dst);
+-    if (out < 0) { error=5; return 0; }
+-    for (unsigned at=0; at<used;) {
+-        unsigned n=used-at;
+-        if (n > sizeof(buf)) n=sizeof(buf);
+-        int w=call(0x4000,(unsigned)out,n,(uintptr_t)(source_bytes+at));
+-        if (w != (int)n) { if (w >= 0) error_full=1; error=5; break; }
+-        at+=n;
++    if (out < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
++    for (;;) {
++        if (!n) break;
++        int w=call(0x4000,(unsigned)out,(unsigned)n,(uintptr_t)buf);
++        if (w != n) { if (w >= 0) error_full=1; error=5; break; }
++        n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
++        if (n < 0) { error=5; break; }
+     }
+     /* Source date/time survives the last WRITE and CLOSE (initech-qqrz).
+      * Ref: MS-DOS 3.3 Reference p.50 (PDF135), mcopy -m on identical images;
+@@ -276,6 +279,7 @@
+         if (du_call(&r)) error=5;
+     }
+     if (call(0x3e00,(unsigned)out,0,0) < 0) error=5;
++    if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
+     /* Once the destination was opened for writing, a failure leaves a
+      * truncated or partial file behind: remove the failed output, as the
+      * captured DOS 3.30 COPY disk-full ruling does (initech-w33id), whether
+@@ -283,16 +287,17 @@
+      * here, so its destination was never touched. */
+     if (error) { call(0x4100,0,0,(uintptr_t)dst); return 0; }
+     if (flags & V_VERIFY) {
++        in=call(0x3d00,0,0,(uintptr_t)src);
+         out=call(0x3d00,0,0,(uintptr_t)dst);
+-        if (out < 0) error=5;
+-        unsigned at=0;
++        if (in < 0 || out < 0) error=5;
+         while (!error) {
++            int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
+             int k=call(0x3f00,(unsigned)out,sizeof(verify),(uintptr_t)verify);
+-            if (k < 0 || (unsigned)k > used-at) { error=5; break; }
+-            for (int i=0; i<k; i++) if (source_bytes[at+i] != verify[i]) { error=5; break; }
+-            at+=(unsigned)k;
+-            if (!k) { if (at != used) error=5; break; }
++            if (n < 0 || k != n) { error=5; break; }
++            for (int i=0; i<n; i++) if (buf[i] != verify[i]) { error=5; break; }
++            if (!n) break;
+         }
++        if (in >= 0) call(0x3e00,(unsigned)in,0,0);
+         if (out >= 0) call(0x3e00,(unsigned)out,0,0);
+     }
+     /* A copy that fails /V verification is a failed output: remove it

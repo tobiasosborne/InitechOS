@@ -141,3 +141,9 @@ smoke: smoke-fat16
 smoke-fat16:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/fat16-policy.sh "$(TOP)" "$(OUT)/smoke-fat16"
+
+.PHONY: smoke-xcopy-buffer
+smoke: smoke-xcopy-buffer
+smoke-xcopy-buffer:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/xcopy-buffer.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/smoke-xcopy-buffer.XXXXXX")"

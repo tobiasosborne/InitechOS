@@ -1,13 +1,13 @@
-# DU_MUT_UNOWNED_CLEANUP
+# du-mut-unowned-cleanup
 # test: test-xcopy-tree
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
 @@ -247,7 +247,7 @@
-      * destination. The pre-pass costs one extra read of the source. */
+     unsigned used=0;
      for (;;) {
          int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
--        if (n < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
-+        if (n < 0) { call(0x3e00,(unsigned)in,0,0); call(0x4100,0,0,(uintptr_t)dst); error=5; return 0; }
+-        if (n < 0) { error=5; break; }
++        if (n < 0) { call(0x4100,0,0,(uintptr_t)dst); error=5; break; }
          if (!n) break;
-     }
-     if (call(0x4200,(unsigned)in,0,0) < 0) {   /* AH=42h AL=0: seek to 0 */
+         if ((unsigned)n > sizeof(source_bytes)-used) {
+             line(MSG_DOS_0035); error=4; break;

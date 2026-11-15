@@ -1,13 +1,13 @@
-# DU_MUT_FULL_PARTIAL
+# du-mut-full-partial
 # test: test-xcopy-tree
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
-@@ -272,7 +272,7 @@
+@@ -281,7 +281,7 @@
       * captured DOS 3.30 COPY disk-full ruling does (initech-w33id), whether
       * the entry is new or pre-existing. An unreadable source never reaches
       * here, so its destination was never touched. */
 -    if (error) { call(0x4100,0,0,(uintptr_t)dst); return 0; }
 +    if (error) { return 0; }
      if (flags & V_VERIFY) {
-         in=call(0x3d00,0,0,(uintptr_t)src);
          out=call(0x3d00,0,0,(uintptr_t)dst);
+         if (out < 0) error=5;
