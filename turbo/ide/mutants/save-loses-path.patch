@@ -1,0 +1,8 @@
+# test: save-path
+--- a/editor.pas
++++ b/editor.pas
+@@ -571,3 +571,3 @@
+ begin
+-  Code := SaveAs(FilePath, EdOnDisk);
++  Code := SaveAs(FileName, EdOnDisk);
+   if Code = 0 then
