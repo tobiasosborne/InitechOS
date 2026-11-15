@@ -3,7 +3,7 @@ COMPONENT := turbo
 include $(TOP)/mk/config.mk
 
 all test mutants:
-	+@for c in seed compiler ide; do $(MAKE) --no-print-directory -C $$c $@ || exit 1; done
+	+@for c in seed compiler ide tests; do $(MAKE) --no-print-directory -C $$c $@ || exit 1; done
 
 smoke: all
 	+$(MAKE) -C $(TOP) image

@@ -84,3 +84,9 @@ root sentinel. The host path probe uses literal DOS backslashes in Unix
 filenames, testing retained identity rather than pretending to emulate a
 DOS filesystem. Fault adapters exist only in tests. Every regression was
 observed red before its fix; each defect has a semantic mutation kill.
+
+The factory scripts distinguish setup/read failures from completed property
+failures (initech-kkqbw). Nested producers must emit their own positive
+assertion summary; an exit code alone supplies no evidence. A missing named
+output is checked as an existence property before byte comparison. Assembler,
+FPC and reader errors are never relabelled as failed byte assertions.

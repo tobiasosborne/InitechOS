@@ -14,9 +14,27 @@ checks=0 failures=0
 setup() { "$@" || { echo "setup failed: $*"; exit 2; }; }
 check() {
     name=$1; shift
-    checks=$((checks+1))
-    if "$@"; then echo "PASS $name"; else echo "FAIL $name"; failures=$((failures+1)); fi
+    checks=$((checks+1)); code=0
+    if [ "$1" = sh ] && [ "$2" != -c ]; then
+        # Producer scripts must supply their own completed assertions. A
+        # compiler/tool/setup failure cannot be relabelled by this adapter.
+        sh "$top/turbo/tests/entry.sh" "$2" "$3" "$name" "$out/$name.producer.log" || code=$?
+        cat "$out/$name.producer.log"
+    else
+        "$@" || code=$?
+    fi
+    case $code in
+    0) echo "PASS $name";;
+    1) echo "FAIL $name"; failures=$((failures+1));;
+    *) echo "ERROR $name (exit $code)" >&2; exit 2;;
+    esac
 }
+file_bytes() {
+    label=$1 expected=$2 actual=$3
+    if [ -f "$actual" ]; then check "$label" cmp "$expected" "$actual"
+    else check "$label:output exists" test -f "$actual"; fi
+}
+
 case $entry in
 tab-width)
     check tab-width sh tests/tab-width.sh "$out"
@@ -49,10 +67,10 @@ journey)
     (cd "$scratch" && ./idehost > stdout)
     check completed grep -qx "IDE-HOST-END shots=$(wc -l < "$scratch/shots.list")" "$scratch/stdout"
     check screens "$out/screens" "$mint" "$scratch" tests/journey.expect
-    check saved-source cmp "$mint/disk/DEMO.PAS" "$scratch/DEMO.PAS"
-    check saved-backup cmp "$mint/disk/DEMO.BAK" "$scratch/DEMO.BAK"
-    check unsaved-file-unchanged cmp "$corpus/mint/src/MINT06/LONG.PAS" "$scratch/LONG.PAS"
-    check read-only-untouched cmp "$corpus/mint/src/MINT06/RO.PAS" "$scratch/RO.PAS"
+    file_bytes saved-source "$mint/disk/DEMO.PAS" "$scratch/DEMO.PAS"
+    file_bytes saved-backup "$mint/disk/DEMO.BAK" "$scratch/DEMO.BAK"
+    file_bytes unsaved-file-unchanged "$corpus/mint/src/MINT06/LONG.PAS" "$scratch/LONG.PAS"
+    file_bytes read-only-untouched "$corpus/mint/src/MINT06/RO.PAS" "$scratch/RO.PAS"
     check refused-saves-leave-nothing sh -c "! ls '$scratch' | grep -q -E '^(RO[.]BAK|RO[.][$]{3}|DEMO[.][$]{3}|X[.]PAS|.*NODIR.*)\$'"
     ;;
 paging)
@@ -69,8 +87,8 @@ paging)
          NR == 2501 { next }
          { printf "%s\r\n", $0 }
          END { printf "END\032" }' "$scratch/original" > "$scratch/expected"
-    check saved-pages cmp "$scratch/expected" "$scratch/BIG.PAS"
-    check backup cmp "$scratch/original" "$scratch/BIG.BAK"
+    file_bytes saved-pages "$scratch/expected" "$scratch/BIG.PAS"
+    file_bytes backup "$scratch/original" "$scratch/BIG.BAK"
     ;;
 one-program)
     # One TURBO.COM holds the compiler and the IDE: the compiler's
