@@ -263,6 +263,9 @@ regression checks 4095/4096/6001 bytes, an impossible mandatory suffix after
 keys `bracket_left`/`bracket_right` (with shift, `{` `}`), added for the
 DOS 3.30 INTERACT replay (initech-kvwmq). The live bisect
 control is `sh factory/tests/trace-suffix.sh` against the ordinary product image.
+Journeys hold a press with hold_capture NAME [MARKER]: button down, the
+app's marker (or a 500 ms settle), a QEMU capture while held, button up
+(initech-8l4kp; tests/trace-hold.sh grades the emitted trace).
 Finder journeys open APPS by name and launch the exact full EXE name after
 clearing the timed type-ahead prefix with Up. Finder reveals selected offscreen
 rows; the pointer stays at its reviewed control anchor, independent of directory

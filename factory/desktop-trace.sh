@@ -12,6 +12,15 @@ await_marker() {
 capture() {
     if [ "$emulator" = qemu ]; then inject "D$out/$1.ppm"; fi
 }
+# Press and hold the mouse button where the pointer is, wait for the app's
+# MARKER (or a 500 ms settle when none is given), capture NAME while still
+# held (QEMU), then release (initech-8l4kp: a held key's pressed face).
+hold_capture() {
+    inject l1
+    if [ -n "${2:-}" ]; then await_marker "$2"; else inject w500; fi
+    capture "$1"
+    inject l0
+}
 # Boot pointer starts at (320,240); APPS is the first folder in the working
 # volume. The imported full-name layout uses 128-pixel columns; the reviewed
 # ordinary APPS geometry puts its first icon's pointer anchor at (112,102).

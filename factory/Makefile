@@ -38,6 +38,7 @@ test: testlib-test image-order-test desktop-tools-test dataloss-test host-paths-
 .PHONY: host-paths-test
 host-paths-test:
 	sh tests/host-paths.sh
+	sh tests/trace-hold.sh
 .PHONY: dataloss-test
 dataloss-test:
 	+$(MAKE) -C $(TOP) -f goldens/preflight.mk verify CORPORA='LOTUS123_DECOMP WORDPERFECT51_DECOMP'
