@@ -18,6 +18,9 @@ check() {
     if "$@"; then echo "PASS $name"; else echo "FAIL $name"; failures=$((failures+1)); fi
 }
 case $entry in
+save-path)
+    check save-path sh tests/save-path.sh "$out"
+    ;;
 first-save)
     check first-save sh tests/first-save.sh "$out"
     ;;
