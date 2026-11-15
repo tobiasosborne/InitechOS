@@ -16,6 +16,7 @@
  *                 [--screendump-after MARKER] [--rtc-time0 N] [--vga-ext EXT]
  */
 #include "bochs.h"
+#include "run_status.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -126,6 +127,7 @@ int main(int argc, char **argv)
     BochsResult res;
     if (bochs_run(&cfg, &res) != 0) {
         fprintf(stderr, "%s: harness failure\n", argv[0]);
+        emu_record_infra("bochs_harness", EMU_EXIT_HARNESS, 0, 0, 0);
         bochs_result_free(&res);
         return 2;
     }
@@ -166,7 +168,9 @@ int main(int argc, char **argv)
         res.snapshot_ok, res.snapshot_tries,
         res.snapshot_ok ? res.snap_ppm_path : "(none)", res.ok);
 
-    int rc = res.ok ? 0 : 1;
+    /* factory/README.md, Emulator exit status: an incomplete run is never a verdict. */
+    int rc = emu_run_status(res.ok, res.launched, res.timed_out, res.serial_len, res.triple_fault);
+    emu_record_infra("bochs_harness", rc, res.launched, res.timed_out, res.serial_len);
     bochs_result_free(&res);
     return rc;
 }

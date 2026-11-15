@@ -23,6 +23,18 @@ Run logs/config/transcripts are in build/smoke. The Bochs driver discovers each 
 hold no global emulator queue. run-bochs is a serial-emitting harness run;
 interactive graphical operation is available with the generated bochsrc.
 
+## Emulator exit status
+
+qemu_harness and bochs_harness (emu/run_status.h) exit 0 when the run
+completed and its verdict passed, 1 when it completed and the verdict failed,
+2 when the harness itself failed, and 3 when the guest run never completed:
+the emulator did not launch, the deadline expired, or it ended with no
+serial output and no triple fault. Only 1 is product evidence. When
+`INITECH_INFRA_LOG` is set, exits 2 and 3 append one line to that file; the
+mutation runner reads it, so a test script that ignores the harness status
+still cannot turn an incomplete run into a kill (testlib/README.md, Kill
+contract). tests/emu-exit.c grades the rule.
+
 session.txt is the shared keyboard session. keys.c maps text to QMP tokens.
 Bochs's shorter VER/DIR session uses its RFB key vocabulary. Source behavior is
 the frozen legacy shell and the period references in each imported driver.

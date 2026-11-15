@@ -19,7 +19,7 @@ snapshot() {
 }
 baseline=$work/baseline
 snapshot "$baseline"
-if ! (cd "$baseline" && make image && sh factory/smoke-desktop.sh) > "$work/baseline.log" 2>&1; then
+if ! (cd "$baseline" && make image && INITECH_INFRA_LOG=$work/baseline.infra sh factory/smoke-desktop.sh) > "$work/baseline.log" 2>&1; then
  echo "factory: 3 mutants, 0 killed, 0 survived, 1 errors; baseline failed ($work/baseline.log)"
  exit 1
 fi
@@ -36,10 +36,13 @@ for mutation in save-empty loader-cap word-save; do
     ! (cd "$scratch" && make image) > "$work/$mutation-build.log" 2>&1; then
   echo "!!! factory desktop-$mutation: patch/build failure"; errors=$((errors+1)); continue
  fi
- good=1
+ good=1 infra=0
  for pass in 1 2; do
   rc=0
-  (cd "$scratch" && DESKTOP_SMOKE_OUT="build/red-$pass" sh factory/smoke-desktop.sh) > "$work/$mutation-$pass.log" 2>&1 || rc=$?
+  : > "$work/$mutation-$pass.infra"
+  (cd "$scratch" && DESKTOP_SMOKE_OUT="build/red-$pass" INITECH_INFRA_LOG=$work/$mutation-$pass.infra sh factory/smoke-desktop.sh) > "$work/$mutation-$pass.log" 2>&1 || rc=$?
+  # Kill contract item 4: an emulator run that never completed is no kill.
+  if [ -n "$(sh factory/testlib/infra-new.sh "$work/baseline.infra" "$work/$mutation-$pass.infra")" ]; then infra=1; good=0; continue; fi
   if [ "$rc" -eq 0 ]; then good=0; continue; fi
   case $mutation in
    save-empty) grep -Fq 'FAIL desktop: QEMU worksheet content' "$work/$mutation-$pass.log" || good=0;;
@@ -48,7 +51,9 @@ for mutation in save-empty loader-cap word-save; do
                grep -Fq 'FAIL desktop: QEMU session' "$work/$mutation-$pass.log" || good=0;;
   esac
  done
- if [ "$good" -eq 1 ]; then
+ if [ "$infra" -eq 1 ]; then
+  echo "!!! factory desktop-$mutation: infrastructure failure (not a kill): $work/$mutation-*.infra"; errors=$((errors+1))
+ elif [ "$good" -eq 1 ]; then
   echo "  killed desktop-$mutation (two matching semantic failures)"; killed=$((killed+1)); rm -rf "$scratch"
  else
   echo "!!! factory desktop-$mutation survived/unstable"; survived=$((survived+1))

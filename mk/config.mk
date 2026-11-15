@@ -12,6 +12,8 @@ $(error set COMPONENT before including mk/config.mk)
 endif
 
 override TOP := $(abspath $(TOP))
+# factory/testlib/run-test.sh looks up this component's summary-contract rows.
+export INITECH_COMPONENT := $(COMPONENT)
 SHELL := /bin/sh
 .DEFAULT_GOAL := all
 .DELETE_ON_ERROR:

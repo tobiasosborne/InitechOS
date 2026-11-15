@@ -1,17 +1,19 @@
 #!/bin/sh
 set -eu
+. "$(dirname "$0")/../../testlib/shell-checks.sh"
+t=factory/mz/tests/extended.sh
 check=$1 fixture=$2 dir=$3
 mkdir -p "$dir"
 for kind in good maximum-good; do
  "$fixture" "$kind" "$dir/$kind"
- "$check" "$dir/$kind"
+ "$check" "$dir/$kind" || fail "$t: mzcheck rejected valid $kind"; ok
 done
 while read -r kind reason; do
  "$fixture" "$kind" "$dir/$kind"
  if "$check" "$dir/$kind" > "$dir/$kind.log" 2>&1; then
-  echo "FAIL accepted $kind"; exit 1
+  fail "$t: mzcheck accepted $kind"
  fi
- grep -Fx "mzcheck: $reason" "$dir/$kind.log"
+ grep -Fx "mzcheck: $reason" "$dir/$kind.log" || fail "$t: $kind rejected without 'mzcheck: $reason'"; ok
 done <<'CONTROLS'
 version extended version
 length extended descriptor length
@@ -34,3 +36,4 @@ truncated module extent
 maximum extended module maximum
 CONTROLS
 echo 'GREEN extended MZ: 2 hand-encoded valid controls, 19 specific rejections'
+summary

@@ -3,9 +3,9 @@ COMPONENT := factory
 include $(TOP)/mk/config.mk
 export LOTUS123_DECOMP WORDPERFECT51_DECOMP
 all: $(OUT)/qemu_harness $(OUT)/bochs_harness $(OUT)/boot_system
-$(OUT)/qemu_harness: emu/qemu.c emu/qemu_main.c emu/qemu.h emu/port_lock.h | $(OUT)
+$(OUT)/qemu_harness: emu/qemu.c emu/qemu_main.c emu/qemu.h emu/port_lock.h emu/run_status.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) emu/qemu.c emu/qemu_main.c -o $@
-$(OUT)/bochs_harness: emu/bochs.c emu/bochs_main.c emu/bochs.h emu/bochs_trace.h emu/rfb_port.h | $(OUT)
+$(OUT)/bochs_harness: emu/bochs.c emu/bochs_main.c emu/bochs.h emu/bochs_trace.h emu/rfb_port.h emu/run_status.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) emu/bochs.c emu/bochs_main.c -o $@
 $(OUT)/boot_system: image/boot_system.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
@@ -53,6 +53,8 @@ testlib-test:
 	sh testlib/tests/mutants.sh
 	sh testlib/tests/assertions.sh
 	sh testlib/tests/host-mutants.sh
+	sh testlib/tests/infra-mutants.sh
+	sh tests/run-command-race.sh
 
 .PHONY: mutants
 mutants:
@@ -81,6 +83,11 @@ gate-test: $(OUT)/bochs-verdict-test $(OUT)/qemu-deadline-test $(OUT)/port-lock-
 	$(OUT)/qemu-deadline-test
 	$(OUT)/port-lock-test
 	$(OUT)/rfb-port-test
+	rm -f $(OUT)/emu-exit.infra
+	$(OUT)/emu-exit-test $(OUT)/emu-exit.infra
+gate-test: $(OUT)/emu-exit-test
+$(OUT)/emu-exit-test: tests/emu-exit.c emu/run_status.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 $(OUT)/rfb-port-test: tests/rfb-port.c emu/rfb_port.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 $(OUT)/port-lock-test: tests/port-lock.c emu/port_lock.h | $(OUT)

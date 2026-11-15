@@ -167,6 +167,53 @@ unknown or stale migration records fail, and no adjacent vector site is waived.
 `factory/tests/interfaces.sh` compiles independent positive and negative callers,
 including forbidden direct-call/vector patches in factory/tests/fixtures/interfaces/.
 
+## Kill contract
+
+This is the diagnostic the shared runner (run-mutants.sh, run-test.sh,
+host-results.sh, host-verdict.awk) requires. A mutant is killed only when all
+of these hold, in both of two test runs, with the same receipt:
+
+1. The component's `make test-build` succeeded for the patched copy (a build
+   error is `BUILD FAILED`, an error).
+2. `make test-run` printed `INITECH_TEST_RUN n` and left a fresh `.result`
+   for each of the n tests; at least one is `SEMANTIC`, the rest `PASS`.
+3. A `SEMANTIC` test exited exactly 1 within its timeout (124, signals,
+   2 and every other status are errors) and its own log holds at least one
+   `FAIL` diagnostic line and a completed summary that counts checks and at
+   least one failure: `INITECH_CHECKS n failures=k` (TEST_SUMMARY in
+   factory/include/test_assert.h), or the retained `n checks, k failures`.
+4. No build tool and no emulator run failed during the mutant's test run in a
+   way the baseline did not. The runner puts recording shims for cc, gcc,
+   clang, nasm, as, ld, ar, objcopy and fpc first on PATH; a shim that sees a
+   nonzero exit appends `<tool> exit <rc>` to `$INITECH_INFRA_LOG`. The QEMU
+   and Bochs harnesses append there when they exit 2 (harness failure) or 3
+   (the guest run never completed; factory/README.md, Emulator exit status).
+   Any new line is `INFRASTRUCTURE FAILURE (not a kill)`, an error, however
+   the test's own wrapper reported it. Tools called by absolute path bypass
+   the shims; call them by name.
+
+The tier-0 half is checked on every `make test`: a test that exits 0 must
+print a completed summary with a positive check count and no failures
+(summary-contract.awk). A passing test with no summary fails
+`FAIL contract: ... printed no completed check summary`, and one whose summary
+counts failures fails `FAIL count`. So a test either satisfies the contract
+or fails loudly, before a mutation sweep finds out. Tests with a custom
+`<test>_COUNT_PATTERN` are graded by that pattern instead.
+summary-contract.known lists, temporarily and issue-linked, the tests that
+did not print a summary when the rule was introduced (2026-11-15); a listed
+test passes with a NOTE and can never kill a mutant until its owner fixes it
+and deletes the row. A row whose test now prints a summary prints a NOTE
+asking for its deletion. The file is deleted when it is empty.
+
+A wrapper that turns any exit 1 into `FAIL <name>` and a summary satisfies
+items 2 and 3 without proving anything; item 4 is what stops it counting a
+compiler, assembler, linker, FPC reference or emulator failure as a kill.
+testlib/tests/infra-mutants.sh is the receipt: on such a wrapper a
+comment-only mutant with a failing compiler, a comment-only mutant whose
+emulator run never completed, and a build-breaking mutant compiled at test
+time are errors; the unchanged comment-only mutant survives; a semantic
+mutant is still killed twice. Before item 4 the first three were kills.
+
 Shared host mutation kills require fresh per-test receipts, successful completion
 of the whole selected runner, exit 1 from the test, a completed
 INITECH_CHECKS or retained checks/failures summary with positive failures, and assertion diagnostics.

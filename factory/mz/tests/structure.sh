@@ -1,12 +1,14 @@
 #!/bin/sh
 # Hand-authored tiny module: NOP, RET, pad, absolute pointer to byte zero.
 set -eu
+. "$(dirname "$0")/../../testlib/shell-checks.sh"
+t=factory/mz/tests/structure.sh
 link=$1; check=$2; dir=$3
 mkdir -p "$dir"
 printf '\220\303\000\000\000\000\000\000' > "$dir/base"
 printf '\220\303\000\000\021\001\001\001' > "$dir/probe"
 "$link" "$dir/base" "$dir/good" --reloc-diff "$dir/probe" 0x01010111 --header-relocs --minalloc 2
-"$check" "$dir/good" "$dir/base" 32
+"$check" "$dir/good" "$dir/base" 32 || fail "$t: independent reader rejected the valid module"; ok
 # Independently corrupt entry, relocation site, pointer, BSS, signature.
 for field in entry site pointer bss tag; do
  cp "$dir/good" "$dir/bad"
@@ -17,6 +19,7 @@ for field in entry site pointer bss tag; do
  bss) printf '\000' | dd of="$dir/bad" bs=1 seek=10 conv=notrunc 2>/dev/null ;;
  tag) printf '\000' | dd of="$dir/bad" bs=1 seek=28 conv=notrunc 2>/dev/null ;;
  esac
- if "$check" "$dir/bad" "$dir/base" 32 > "$dir/$field.log" 2>&1; then echo "FAIL accepted $field corruption"; exit 1; fi
+ if "$check" "$dir/bad" "$dir/base" 32 > "$dir/$field.log" 2>&1; then fail "$t: independent reader accepted $field corruption"; fi; ok
 done
 echo 'GREEN MZ structure: independent reader rejected five corruptions'
+summary

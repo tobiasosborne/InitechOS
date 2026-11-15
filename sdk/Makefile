@@ -3,7 +3,8 @@ COMPONENT := sdk
 include $(TOP)/mk/config.mk
 HOST_AR ?= ar
 HOST_LIB := $(OUT)/host/libtbx_host.a
-HOST_TESTS := abi layout link host host32 mz search33 conformance dispatch
+# layout and link are compile and link checks in test-build; nothing runs.
+HOST_TESTS := abi host host32 mz search33 conformance dispatch
 TESTS ?= $(HOST_TESTS)
 export TOP
 TEST_BUDGET_S := 30

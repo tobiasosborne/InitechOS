@@ -16,6 +16,20 @@ if [ "$rc" -eq 0 ] && [ -n "$pattern" ]; then
     case $count in ''|*[!0-9]*) count=0;; esac
     if ! [ "$count" -gt 0 ] 2>/dev/null; then echo "FAIL count: $name reported no positive check count" >> "$bin.run.log"; rc=1; fi
 fi
+# Kill contract (testlib/README.md): a passing test prints a completed summary
+# with a positive check count and no failures, so that its failures can kill.
+if [ "$rc" -eq 0 ]; then
+    summary=$(awk -f "$(dirname "$0")/summary-contract.awk" "$bin.log")
+    known=$(awk -v c="${INITECH_COMPONENT:-}" -v t="$name" '$1 == c && $2 == t {print $3; exit}' "$(dirname "$0")/summary-contract.known")
+    case $summary in
+      failures) if [ -n "$known" ]; then echo "NOTE summary contract: $name exits 0 with a summary that counts failures ($known)"
+                else echo "FAIL count: $name exited 0 but its summary counts failures" >> "$bin.run.log"; rc=1; fi;;
+      ok) [ -z "$known" ] || echo "NOTE stale summary-contract row: ${INITECH_COMPONENT:-} $name now prints a summary; delete it";;
+      none|empty) if [ -n "$pattern" ]; then :
+            elif [ -n "$known" ]; then echo "NOTE summary contract: $name prints no completed check summary; its failures cannot kill a mutant ($known)"
+            else echo "FAIL contract: $name printed no completed check summary (factory/testlib/README.md, Kill contract)" >> "$bin.run.log"; rc=1; fi;;
+    esac
+fi
 state=ERROR
 if [ "$rc" -eq 0 ]; then
     state=PASS

@@ -10,10 +10,13 @@ static char tok[MAXTOK][128];
 static unsigned nt;
 static struct { char name[80],fn[80];int num,arity,defs,bindings,dispatch,args; } rows[128];
 static unsigned nr;
-static void die(const char *s) { fprintf(stderr,"ABI audit: %s\n",s);exit(1); }
+/* factory/testlib/README.md, Kill contract: a failed consistency check is an
+ * assertion with a summary; a missing input is a setup error (exit 2). */
+static void die(const char *s) { fprintf(stderr,"  FAIL tests/audit.c: ABI audit: %s\n",s);printf("INITECH_CHECKS %u failures=1\n",nr+1u);exit(1); }
+static void setup(const char *s) { fprintf(stderr,"ABI audit setup: %s\n",s);exit(2); }
 static void tokenize(const char *path)
 {
-    FILE *f=fopen(path,"rb");if(!f)die(path);nt=0;int c;
+    FILE *f=fopen(path,"rb");if(!f)setup(path);nt=0;int c;
     while((c=fgetc(f))!=EOF) {
         if(isspace(c))continue;
         if(c=='/') { int d=fgetc(f);if(d=='*'){int prev=0;while((c=fgetc(f))!=EOF){if(prev=='*'&&c=='/')break;prev=c;}continue;}if(d=='/'){while((c=fgetc(f))!=EOF&&c!='\n');continue;}if(d!=EOF)ungetc(d,f); }
@@ -36,8 +39,8 @@ static int value(const char *s)
 }
 int main(int argc,char **argv)
 {
-    if(argc!=6)die("usage: audit table header cp-header runtime OS-source");
-    FILE *f=fopen(argv[1],"r");if(!f)die("table");char line[512];
+    if(argc!=6)setup("usage: audit table header cp-header runtime OS-source");
+    FILE *f=fopen(argv[1],"r");if(!f)setup("table");char line[512];
     while(fgets(line,sizeof line,f)) {
         if(line[0]=='#')continue;
         if(nr==128||sscanf(line,"%79s %i %d %79s",rows[nr].name,&rows[nr].num,&rows[nr].arity,rows[nr].fn)!=4)die("table row");
@@ -103,5 +106,6 @@ int main(int argc,char **argv)
         active+=(unsigned)want;
     }
     printf("ABI: %u active traps, %u reserved; stable numbers, unique bindings and OS dispatch/arity agree\n",active,nr-active);
+    printf("INITECH_CHECKS %u failures=0\n",nr);
     return 0;
 }

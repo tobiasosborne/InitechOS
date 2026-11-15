@@ -4,8 +4,6 @@ set -eu
 out=$1
 case $2 in
  abi) "$out/tests/audit" tests/traps.tsv include/toolbox_gate.h include/cp_dialog.h rt/tbx_rt.c "$TOP/flair/tbxgate.c";;
- layout) echo 'ABI: target i386 layouts pinned (compile-only)';;
- link) "$out/tests/link"; echo 'ABI: all bindings link against shared fake';;
  host) "$out/tests/host";;
  conformance) sh tests/live/inventory.sh "$out/tests"; "$out/tests/conformance" tests/live/gate-results.bin;;
  dispatch) "$out/tests/dispatch" "$TOP/flair/tbxgate.c" tests/traps.tsv;;
