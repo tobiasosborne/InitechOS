@@ -147,3 +147,9 @@ smoke: smoke-xcopy-buffer
 smoke-xcopy-buffer:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/xcopy-buffer.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/smoke-xcopy-buffer.XXXXXX")"
+
+.PHONY: smoke-interact
+smoke: smoke-interact
+smoke-interact:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/interact.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/smoke-interact.XXXXXX")"

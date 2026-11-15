@@ -1,0 +1,14 @@
+# CMD_MUTATE_INTERACTIVE_EXPAND
+# session: interact
+--- a/command/command.c
++++ b/command/command.c
+@@ -4998,6 +4998,9 @@
+ 
+         read_line(line);
+         if (g_shell_break.interrupted) continue; /* ^C at prompt discards line */
++        char expanded[128];
++        batch_expand(line,0,0,batch_env_cb,&g_master_env,expanded,sizeof expanded);
++        for (unsigned i=0; i<sizeof(line); i++) { line[i]=expanded[i]; if (!expanded[i]) break; }
+ 
+         /* Dispatch through the SHARED path the .BAT interpreter also uses
+          * (beads initech-xw1), via the PIPE + I/O-redirection driver: pipes
