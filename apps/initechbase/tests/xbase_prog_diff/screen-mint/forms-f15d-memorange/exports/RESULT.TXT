@@ -1,0 +1,2 @@
+
+MEMORK=         15 FM= memo sentinel                                     
