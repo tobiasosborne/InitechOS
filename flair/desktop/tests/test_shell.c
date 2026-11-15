@@ -171,8 +171,8 @@ typedef struct shell_store {
 
     /* The FILE COPY modal storage. */
     DialogRecord       dlg;
-    DialogItem         dlg_items[2];
-    ControlRecord      dlg_progress;
+    DialogItem         dlg_items[3];
+    ControlRecord      dlg_progress[2];
     rgn_store_t        dlg_struc, dlg_cont, dlg_upd;
 
     /* The always-on-top overlay occluder region (beads initech-pipa). Only the
@@ -248,7 +248,7 @@ static void build_shell(shell_store_t *S, int show_modal, int enable_overlay)
                       S->wins, N_WINDOWS, g_win_bounds, g_win_titles,
                       &S->desk.r, &S->sa.r, &S->sb.r, &S->sc.r, &S->comp.r,
                       finder_menu_bar(),
-                      &S->dlg, S->dlg_items, &S->dlg_progress,
+                      &S->dlg, S->dlg_items, S->dlg_progress,
                       &S->dlg_struc.r, &S->dlg_cont.r, &S->dlg_upd.r,
                       enable_overlay ? &S->overlay.r : (region_t *)0,
                       show_modal);
@@ -408,21 +408,21 @@ int main(int argc, char **argv)
     }
 
     /* ======================================================================
-     * 4. The FILE COPY MODAL present + CENTERED + the byte-exact canon text +
-     * the progress bar. The dialog is at the canonical bounds {140,200,500,280}
-     * (centered on 640x480: center (320,240); 360x80). The chrome is the
+     * 4. The FILE COPY MODAL at the still + the byte-exact canon text +
+     * the progress bar. The dialog is at the canonical bounds {150,171,480,285}
+     * (goldens/frame/geometry.tsv COPY, plus 11 rows for Cancel). The chrome is the
      * MOVEABLE TITLED modal (movableDBoxProc; beads initech-zvo6): the exact
      * Platinum 22-row title profile over [dt,dt+FLAIR_CHROME_TITLEBAR_H), then a
      * PLAIN 1-px frame (idx0) around the whole box -- NOT the old dBoxProc
      * 7-px solid border.
      * ====================================================================== */
     {
-        const int dl = 140, dt = 200, dr = 500, db = 280;
+        const int dl = 150, dt = 171, dr = 480, db = 285;
         const int fr = FLAIR_CHROME_FRAME;               /* 1 px            */
 
-        /* Centered: the box center is the screen center. */
-        CHECK((dl + dr) / 2 == SCRW / 2 && (dt + db) / 2 == SCRH / 2,
-              "(4) FILE COPY box is centered on the 640x480 desktop");
+        /* Independent frame measurement; never derived from the constructor. */
+        CHECK(region_get_bbox(S.scene.dlg->window.strucRgn).left == dl && region_get_bbox(S.scene.dlg->window.strucRgn).top == dt && region_get_bbox(S.scene.dlg->window.strucRgn).right == dr && region_get_bbox(S.scene.dlg->window.strucRgn).bottom == db,
+              "(4) FILE COPY box follows frame geometry plus 11 rows for Cancel");
 
         /* Full-profile replacement for the retained bevel/stripe/shared-line
          * triplet. Ref: DEC-10 Sec 4; sys8/window-chrome.md Sec 2.1-2.2. */
@@ -430,7 +430,7 @@ int main(int argc, char **argv)
             int profile_ok = 1;
             for (int row = 0; row < FLAIR_CHROME_TITLEBAR_H; row++) {
                 profile_ok = profile_ok &&
-                    idx_at(&ctx, dl + 5, dt + row) ==
+                    idx_at(&ctx, dl + 30, dt + row) ==
                         shell_title_row_index(row);
             }
             CHECK(profile_ok,
@@ -457,11 +457,11 @@ int main(int argc, char **argv)
               idx_at(&ctx, 320, db - 2) == CIDX_PLAT_WELL,
               "(4) FILE COPY content carries white top / C0 bottom inset legs");
         CHECK(idx_at(&ctx, dl, 240) == 0,
-              "(4) FILE COPY outer LEFT frame column (x=140,y=240) is black");
+              "(4) FILE COPY outer LEFT frame column (x=150,y=230) is black");
         CHECK(idx_at(&ctx, dr - 1, 240) == 0,
-              "(4) FILE COPY outer RIGHT frame column (x=499,y=240) is black");
+              "(4) FILE COPY outer RIGHT frame column (x=479,y=230) is black");
         CHECK(idx_at(&ctx, 320, db - 1) == 0,
-              "(4) FILE COPY outer BOTTOM frame row (x=320,y=279) is black");
+              "(4) FILE COPY outer BOTTOM frame row (x=320,y=284) is black");
 
         /* The byte-EXACT canon string "Saving tables to disk..." is the dialog's
          * static text item (Law 4). Assert it on the BUILT dialog (byte-exact). */
@@ -481,13 +481,13 @@ int main(int argc, char **argv)
                      FLAIR_CANON_FILECOPY_TITLE) == 0, msg);
 
         /* And the statText body is RENDERED: the static-text item rect
-         * (left=154, top=225 -- below the Platinum title band, was
+         * (left=158, top=213 -- below the Platinum title band, was
          * top=212 under the old 7px-border layout) has painted text ink
          * within the text band -- proves the modal's text is drawn, not just
          * stored. DrawDialog draws statText with DLG_TEXT_INK (index 4; the
          * title-ink shade, dialog.c) on the E7 body. Require the exact ink
          * index so the new face cannot make this presence leg vacuous. */
-        int tx0 = 154, ty0 = 225;
+        int tx0 = 158, ty0 = 213;
         int tw  = text_measure(FONT_CHICAGO, FLAIR_CANON_FILECOPY_MSG);
         int text_ink = 0;
         for (int x = tx0; x < tx0 + tw && !text_ink; x++)
@@ -500,8 +500,8 @@ int main(int argc, char **argv)
 
         /* The progress bar item is a progressBar control at the CANON non-zero
          * value (beads initech-a90f), and its rendered black frame + a
-         * NON-ZERO fill are present. bar_rect: left=154, top=249, right=486,
-         * bottom=263 -- the Platinum CDEF 5 etched bar (initech-bf2): fill
+         * NON-ZERO fill are present. bar_rect: left=160, top=235, right=420,
+         * bottom=249 -- the Platinum CDEF 5 etched bar (initech-bf2): fill
          * rung #5454B3 -> the dark teal role (idx 63), empty track #CDCDCD.
          * SHELL/DIALOG_MUTATE_PROGRESS_ZERO reverts to value=0 -> the fill
          * check goes RED (this leg's own mutation coverage is
@@ -517,19 +517,19 @@ int main(int argc, char **argv)
                  (int)S.scene.dlg->items[1].ctrl->contrlValue);
         CHECK(S.scene.dlg->items[1].ctrl->contrlValue ==
               FLAIR_CANON_FILECOPY_PROGRESS, msg);
-        CHECK(idx_at(&ctx, 155, 259) == 0,
-              "(4) FILE COPY progress bar black frame is painted (x=155)");
-        CHECK(idx_at(&ctx, 160, 259) == 63,
-              "(4) FILE COPY progress bar FILL (x=160,y=259) is the dark "
+        CHECK(idx_at(&ctx, 161, 245) == 0,
+              "(4) FILE COPY progress bar black frame is painted (x=161)");
+        CHECK(idx_at(&ctx, 166, 245) == 63,
+              "(4) FILE COPY progress bar FILL (x=166,y=245) is the dark "
               "teal rung idx63 -- a non-zero fill (initech-a90f, bf2)");
-        CHECK(idx_at(&ctx, 400, 259) == 205,
-              "(4) FILE COPY progress bar empty track (x=400,y=259) "
+        CHECK(idx_at(&ctx, 400, 245) == 205,
+              "(4) FILE COPY progress bar empty track (x=400,y=245) "
               "is #CDCDCD idx205 (bf2)");
     }
 
     /* ======================================================================
      * 5. The MODAL is ON TOP (z-order / clip correct). The probe point
-     * (140,240) lies BOTH on the modal's plain 1-px LEFT frame column AND
+     * (150,230) lies BOTH on the modal's plain 1-px LEFT frame column AND
      * inside document window 0 (x in [60,360), y in [80,300)). With correct
      * z-order the modal occludes the window -> the pixel is the modal's BLACK
      * frame (idx 0). SHELL_MUTATE_MODAL_BEHIND / SHELL_MUTATE_NO_MODAL make the
@@ -538,15 +538,15 @@ int main(int argc, char **argv)
     {
         /* Confirm the probe is geometrically over BOTH the modal frame and the
          * window (the check is meaningful, not vacuous). */
-        int in_modal_frame = (140 >= 140 && 140 < 141 && 240 >= 200 && 240 < 280);
-        int in_window0 = (140 >= W0_L && 140 < W0_R && 240 >= W0_T && 240 < W0_B);
+        int in_modal_frame = (150 >= 150 && 150 < 151 && 230 >= 171 && 230 < 285);
+        int in_window0 = (150 >= W0_L && 150 < W0_R && 230 >= W0_T && 230 < W0_B);
         CHECK(in_modal_frame && in_window0,
-              "(5) probe (140,240) is over BOTH the modal frame and window 0 (meaningful)");
-        CHECK(idx_at(&ctx, 140, 240) == 0,
+              "(5) probe (150,230) is over BOTH the modal frame and window 0 (meaningful)");
+        CHECK(idx_at(&ctx, 150, 230) == 0,
               "(5) the modal OCCLUDES the window behind it -- modal frame on top (z-order)");
 
         /* A second probe inside the modal's E7 interior, also over window 0. */
-        CHECK(idx_at(&ctx, 160, 240) == CIDX_PLAT_FACE,
+        CHECK(idx_at(&ctx, 170, 230) == CIDX_PLAT_FACE,
               "(5) the modal interior occludes the window behind it (modal on top)");
     }
 
@@ -586,7 +586,7 @@ int main(int argc, char **argv)
      * no window's repaint includes the modal (no overpaint, defect b), so the
      * modal survives from the initial shell_render. Drag window 1 (front) 260 px
      * LEFT so its OLD struct {300,120,560,360} -- which overlapped the modal
-     * {140,200,500,280} -- is vacated (the pipa erase case), then minimal-repaint
+     * {150,171,480,285} -- is vacated (the pipa erase case), then minimal-repaint
      * the damage and assert the modal is untouched. This is the FAST host proof of
      * the fix on the SHARED window.c/desktop.c spine (no emulator); the EMU oracle
      * initech-dc4v is the independent-golden screendump grade.
@@ -605,10 +605,10 @@ int main(int argc, char **argv)
             shell_render(&S3.scene, &ctx3.fb.bm);
             CHECK(S3.scene.wm.overlay_rgn != (region_t *)0,
                   "(7) always-on-top overlay occluder is installed (wm.overlay_rgn)");
-            /* Right frame column is now x=499 (dr-1; the PLAIN 1px frame, was
+            /* Right frame column is now x=479 (dr-1; the PLAIN 1px frame, was
              * x=496 under the old 7px dBoxProc border, initech-zvo6). */
-            CHECK(idx_at(&ctx3, 499, 240) == 0,
-                  "(7) pre-drag: modal right frame (499,240) is black idx0");
+            CHECK(idx_at(&ctx3, 479, 230) == 0,
+                  "(7) pre-drag: modal right frame (479,230) is black idx0");
 
             /* Drag window 1 (the front doc window) 260 px LEFT and mirror the live
              * pump: MoveWindow + seed the moved window's own repaint + minimal
@@ -624,13 +624,13 @@ int main(int argc, char **argv)
 
             /* The modal SURVIVES: right frame still black, interior still E7,
              * and the vacated right-half band shows NO seafoam teal. */
-            CHECK(idx_at(&ctx3, 499, 240) == 0,
-                  "(7) post-drag: modal right frame (499,240) STILL black idx0 (not erased)");
-            CHECK(idx_at(&ctx3, 450, 240) == CIDX_PLAT_FACE,
-                  "(7) post-drag: modal interior (450,240) STILL E7 idx231 (not erased)");
+            CHECK(idx_at(&ctx3, 479, 230) == 0,
+                  "(7) post-drag: modal right frame (479,230) STILL black idx0 (not erased)");
+            CHECK(idx_at(&ctx3, 450, 230) == CIDX_PLAT_FACE,
+                  "(7) post-drag: modal interior (450,230) STILL E7 idx231 (not erased)");
             int teal = 0, tot = 0;
-            for (int y = 206; y < 278; y++)
-                for (int x = 366; x < 498; x++) {
+            for (int y = 194; y < 283; y++)
+                for (int x = 366; x < 478; x++) {
                     tot++;
                     if (idx_at(&ctx3, x, y) == (int)FLAIR_DESKTOP_BG_INDEX) teal++;
                 }
@@ -645,7 +645,7 @@ int main(int argc, char **argv)
 
     /* ======================================================================
      * 8. R1.4 REVERSE SURVIVAL (initech-zn61 orchestrator re-key): move the
-     * standalone FILE COPY modal 140 px LEFT across window 1, rebuild the
+     * standalone FILE COPY modal 150 px LEFT across window 1, rebuild the
      * overlay, restore its old footprint through the damage spine, then draw
      * the modal last at the new rect. This is the HOST coordinate/probe proof
      * behind the re-keyed ppm_flair_dc4v_check; the emulator leg stays unrun in
@@ -660,7 +660,7 @@ int main(int argc, char **argv)
         if (rc4 == 0) {
             rgn_rect_t old = region_get_bbox(S4.scene.dlg->window.strucRgn);
             shell_render(&S4.scene, &ctx4.fb.bm);
-            MoveDialog(S4.scene.dlg, -140, 0);
+            MoveDialog(S4.scene.dlg, -150, 0);
             shell_sync_overlay(&S4.scene);
             WindowMgr_invalidate_desktop(&S4.scene.wm, old);
             desktop_paint_damage(&S4.scene.wm, &ctx4.fb.bm, &S4.comp.r);
@@ -674,16 +674,16 @@ int main(int argc, char **argv)
             DrawDialog(S4.scene.dlg);
 
             CHECK(region_get_bbox(S4.scene.dlg->window.strucRgn).left == 0 &&
-                  region_get_bbox(S4.scene.dlg->window.strucRgn).top == 200,
-                  "(8) modal committed to literal new origin (0,200)");
-            CHECK(idx_at(&ctx4, 359, 240) == CIDX_BLACK,
-                  "(8) moved modal right frame (359,240) is black");
-            CHECK(idx_at(&ctx4, 330, 240) == CIDX_PLAT_FACE,
-                  "(8) moved modal interior (330,240) is E7");
+                  region_get_bbox(S4.scene.dlg->window.strucRgn).top == 171,
+                  "(8) modal committed to literal new origin (0,171)");
+            CHECK(idx_at(&ctx4, 329, 230) == CIDX_BLACK,
+                  "(8) moved modal right frame (329,230) is black");
+            CHECK(idx_at(&ctx4, 300, 230) == CIDX_PLAT_FACE,
+                  "(8) moved modal interior (300,230) is E7");
 
             int white = 0, teal = 0, tot = 0;
-            for (int y = 222; y < 278; y++)
-                for (int x = 366; x < 498; x++) {
+            for (int y = 194; y < 272; y++)
+                for (int x = 366; x < 478; x++) {
                     tot++;
                     if (idx_at(&ctx4, x, y) == CIDX_WHITE) white++;
                     if (idx_at(&ctx4, x, y) ==
@@ -824,11 +824,11 @@ int main(int argc, char **argv)
                   idx_at(&lc, 300, 19) == CIDX_BLACK,
                   "(9) reclaimed rows participate in window exposure and repaint");
             live.scene.modal_up = 1;
-            MoveDialog(live.scene.dlg, 0, -190);
+            MoveDialog(live.scene.dlg, 0, -161);
             shell_sync_overlay(&live.scene);
             shell_render_with_menubar(&live.scene, &lc.fb.bm, &live.paint_bar);
-            CHECK(idx_at(&lc, 499, 15) == CIDX_BLACK &&
-                  idx_at(&lc, 499, 30) == CIDX_BLACK,
+            CHECK(idx_at(&lc, 479, 15) == CIDX_BLACK &&
+                  idx_at(&lc, 479, 30) == CIDX_BLACK,
                   "(9) moved modal occludes menu and reclaimed desktop rows");
         }
         if (lr == 0) render_ctx_free(&lc);

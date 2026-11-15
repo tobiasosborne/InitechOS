@@ -26,6 +26,11 @@ the original owner pointer so the Toolbox gate's ownership check still holds.
 Activation, menu redraw, close, exit and preference repaint use the same view.
 Menu dismissal restores desktop/window content directly below the sole bar.
 The obsolete shell-owned About/Quit menu resource has been removed.
+The tableau uses the same cancelable FILE COPY constructor as live copying:
+goldens/frame/geometry.tsv COPY at (150,171)-(480,274), extended to bottom
+285 to fit Cancel. The pinned still has no Cancel button. The earlier reading
+"Cancel at about x=285" means the box bottom at y=285, not a button x position;
+the live button is (394,255)-(466,275). No second placement remains here.
 The legacy confirmation and application's opportunity to cancel are preserved.
 No executable overlay, COMMAND transient, demo tenant or boot personality is
 built. Default TARGET_CFLAGS and cdecl apply to every object. tbx_gate.asm
@@ -421,3 +426,9 @@ the former 18-pixel pitch and pass with the upstream captured 13-pixel pitch.
 The redundant __KERNEL_FREESTANDING__ clauses in desktop.c, shell.c and
 finder_desktop.c are removed; __STDC_HOSTED__ already selects host support.
 All three target objects are byte-identical before and after that cleanup.
+
+Finder keyboard selection emits FINDER-WIN-SELECT win=N name=X count=N through
+its command trace sink after selection and context synchronization. The marker
+acknowledges each matching prefix even if the same name stays selected; unmatched
+prefixes and command chords emit none. The factory can await the full desired
+name before Open instead of assuming a loaded host delivered the prefix in time.

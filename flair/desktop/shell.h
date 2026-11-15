@@ -53,7 +53,7 @@ typedef struct shell_scene {
 } shell_scene_t;
 
 /* Install zero to SHELL_MAX_WINDOWS windows, back to front, and the standalone
- * FILE COPY dialog. desktop_frame is the full screen. desktop_bar is the
+ * FILE COPY dialog (three items, two controls). desktop_frame is the full screen. desktop_bar is the
  * Finder's menu resource. An optional attached overlay protects menu/modal
  * pixels during damage repaint. NULL required storage fails loudly. */
 void shell_build_scene(shell_scene_t *s,

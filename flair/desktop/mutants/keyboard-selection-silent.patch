@@ -1,0 +1,13 @@
+# test: test_finder_selection
+# A delivered type-ahead must acknowledge its actual selected name.
+--- a/finder_windows.c
++++ b/finder_windows.c
+@@ -1879,7 +1879,7 @@
+     /* Acknowledge selection after the model/context agree. The driver waits
+      * for the actual name, so a prefix reset under load cannot launch a
+      * previously selected application (initech-nylrt). */
+-    if (sh->ctx && sh->ctx->trace) {
++    if (sh->ctx && !sh->ctx->trace) {
+         char line[128], *p=line;
+         const char *s="FINDER-WIN-SELECT win=";
+         while (*s) *p++=*s++;

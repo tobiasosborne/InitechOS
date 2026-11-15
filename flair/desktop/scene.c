@@ -170,10 +170,10 @@ void flair_desktop_run(const boot_info_t *bi, flair_live_ctx_t *ctx_out)
                                     (uint32_t)sizeof(DialogRecord));
     DialogItem *dlg_items =
         (DialogItem *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
-                                  (uint32_t)(sizeof(DialogItem) * 2));
+                                  (uint32_t)(sizeof(DialogItem) * 3));
     ControlRecord *dlg_progress =
         (ControlRecord *)flair_alloc(&heap, FLAIR_CLASS_HANDLE,
-                                     (uint32_t)sizeof(ControlRecord));
+                                     (uint32_t)(sizeof(ControlRecord) * 2));
     if (!dlg || !dlg_items || !dlg_progress) { flair_desktop_oom("dialog storage"); }
     region_t *dlg_struc = flair_desktop_alloc_region(&heap, "dlg.strucRgn");
     region_t *dlg_cont = flair_desktop_alloc_region(&heap, "dlg.contRgn");

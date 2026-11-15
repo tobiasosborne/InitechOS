@@ -1,0 +1,13 @@
+# test: test_shell
+# The Finder tableau must share the live FILE COPY placement.
+--- a/shell.c
++++ b/shell.c
+@@ -162,7 +162,7 @@
+      * it is drawn LAST, over everything). FileCopyDialog stamps the canon string
+      * + the progress bar (dialog.h FLAIR_CANON_FILECOPY_MSG; contract). */
+     s->dlg = dlg;
+-    (void)FileCopyCancelableDialog(dlg, dlg_items, dlg_progress,
++    (void)FileCopyDialog(dlg, dlg_items, dlg_progress,
+                          dlg_struc, dlg_cont, dlg_update);
+     s->modal_up = show_modal ? 1 : 0;
+ 

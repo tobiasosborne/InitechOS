@@ -162,7 +162,7 @@ void shell_build_scene(shell_scene_t *s,
      * it is drawn LAST, over everything). FileCopyDialog stamps the canon string
      * + the progress bar (dialog.h FLAIR_CANON_FILECOPY_MSG; contract). */
     s->dlg = dlg;
-    (void)FileCopyDialog(dlg, dlg_items, dlg_progress,
+    (void)FileCopyCancelableDialog(dlg, dlg_items, dlg_progress,
                          dlg_struc, dlg_cont, dlg_update);
     s->modal_up = show_modal ? 1 : 0;
 

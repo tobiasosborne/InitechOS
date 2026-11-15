@@ -1876,6 +1876,20 @@ static void fw_key(finder_shell_t *sh, const EventRecord *ev)
     }
     finder_win_invalidate_all(sh,slot);
     finder_shell_sync_ctx(sh);
+    /* Acknowledge selection after the model/context agree. The driver waits
+     * for the actual name, so a prefix reset under load cannot launch a
+     * previously selected application (initech-nylrt). */
+    if (sh->ctx && sh->ctx->trace) {
+        char line[128], *p=line;
+        const char *s="FINDER-WIN-SELECT win=";
+        while (*s) *p++=*s++;
+        p=fw_num(p,(uint32_t)slot);
+        s=" name=";while (*s) *p++=*s++;
+        s=v->icons[chosen].name;while (*s) *p++=*s++;
+        s=" count=";while (*s) *p++=*s++;
+        (void)fw_num(p,finder_desk_selection_count(v));
+        sh->ctx->trace(sh->ctx->trace_user,line);
+    }
 }
 
 static void finder_shell_event(FlairApp *self, const EventRecord *ev)
