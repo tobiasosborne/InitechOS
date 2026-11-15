@@ -19,9 +19,17 @@
  * each barrier's F2 to INKEY as the byte 'F' (a non-zero INKEY value) and
  * never to READ. The programs and other keys are replayed unchanged.
  *
- * A known disagreement is recorded as a `differs` line with its reason. The
- * replay requires a recorded item still to differ, so a fix that makes it
- * agree fails until the record is removed. */
+ * A known disagreement is a `differs` line naming exactly what may differ:
+ * for a dump `rows:A-B` (text and attribute cells of those rows) and
+ * `cursor`, for an export `bytes:N` or `bytes:A-B` (lengths must agree),
+ * `lines:N` (CR/LF lines, same count) or `absent` (the product writes no
+ * such file); parts join with `+`. Everything outside the spec is still
+ * compared exactly, the exempt part must still differ (a fix that makes it
+ * agree fails until the record is removed), and every run proves the
+ * comparator rejects corruption outside a spec (initech-nic17 review: a
+ * whole-item exemption accepted a missing OUT.MEM). A case whose program
+ * cannot run here is an `elsewhere` line naming the test that grades it;
+ * nothing of it counts as agreeing in this replay. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,24 +104,86 @@ static int dumps_seen, dumps_bad, phase_setup;
 static char setup_cmd[] = "DO SETUP\r";
 static int setup_i;
 
-struct differ { char dir[64], item[80]; int seen; };
+struct differ { char dir[64], item[80], spec[200]; int seen; };
 static struct differ differs[MAX_DIFFERS];
 static int ndiffers;
-static int recorded(const char *dir, const char *item)
+static const char *recorded(const char *dir, const char *item)
 {
     for (int i = 0; i < ndiffers; i++)
-        if (!strcmp(differs[i].dir, dir) && !strcmp(differs[i].item, item)) { differs[i].seen++; return 1; }
+        if (!strcmp(differs[i].dir, dir) && !strcmp(differs[i].item, item)) { differs[i].seen++; return differs[i].spec; }
+    return NULL;
+}
+/* Does a spec cover value v of part `kind`? Parts are kind:N or kind:A-B
+ * joined by '+'; a bare kind ("cursor", "absent") covers all of its kind. */
+static int spec_covers(const char *spec, const char *kind, long v)
+{
+    size_t kl = strlen(kind);
+    for (const char *p = spec; p && *p; ) {
+        const char *e = strchr(p, '+'); size_t n = e ? (size_t)(e - p) : strlen(p);
+        if (n >= kl && !strncmp(p, kind, kl)) {
+            if (n == kl) return 1;
+            if (p[kl] == ':') {
+                long a = strtol(p + kl + 1, NULL, 10), b = a;
+                const char *dash = memchr(p + kl + 1, '-', n - kl - 1);
+                if (dash) b = strtol(dash + 1, NULL, 10);
+                if (v >= a && v <= b) return 1;
+            }
+        }
+        p = e ? e + 1 : NULL;
+    }
     return 0;
 }
-/* Agree, or disagree exactly where a record says so. */
-static void judge(const char *item, int agrees, const char *detail)
+/* 1 when every cell outside the spec agrees; *inside when a part inside differs. */
+static int page_agrees(const unsigned char *got, const unsigned char *want, const char *spec, int *inside)
 {
-    int known = recorded(case_name, item);
-    char msg[256];
-    if (known) {
+    int ok = 1; *inside = 0;
+    for (int i = 0; i < 4000; i++) {
+        if (got[i] == want[i]) continue;
+        if (spec && spec_covers(spec, "rows", i / 160)) *inside = 1; else ok = 0;
+    }
+    if (got[4000] != want[4000] || got[4001] != want[4001]) {
+        if (spec && spec_covers(spec, "cursor", 0)) *inside = 1; else ok = 0;
+    }
+    return ok;
+}
+/* The same for an export (gn < 0: the product wrote no such file). */
+static int file_agrees(const unsigned char *got, long gn, const unsigned char *want, long wn, const char *spec, int *inside)
+{
+    *inside = 0;
+    if (gn < 0) { if (spec && spec_covers(spec, "absent", 0)) { *inside = 1; return 1; } return 0; }
+    if (spec && strstr(spec, "lines:")) {
+        long gi = 0, wi = 0; int line = 1, ok = 1;
+        while (gi < gn || wi < wn) {
+            long ge = gi, we = wi;
+            if ((gi >= gn) != (wi >= wn)) return 0;   /* line counts differ */
+            while (ge < gn && !(got[ge] == '\r' && ge + 1 < gn && got[ge+1] == '\n')) ge++;
+            while (we < wn && !(want[we] == '\r' && we + 1 < wn && want[we+1] == '\n')) we++;
+            if (ge - gi != we - wi || memcmp(got + gi, want + wi, (size_t)(ge - gi))) {
+                if (spec_covers(spec, "lines", line)) *inside = 1; else ok = 0;
+            }
+            gi = ge + 2; wi = we + 2; line++;
+        }
+        return ok;
+    }
+    if (gn != wn) return 0;
+    int ok = 1;
+    for (long i = 0; i < wn; i++) {
+        if (got[i] == want[i]) continue;
+        if (spec && spec_covers(spec, "bytes", i)) *inside = 1; else ok = 0;
+    }
+    return ok;
+}
+/* Agree, or differ only inside the recorded spec, and still there. */
+static void judge(const char *item, int agrees, int inside, const char *spec, const char *detail)
+{
+    char msg[300];
+    if (spec) {
+        snprintf(msg, sizeof msg, "%s %s agrees outside its recorded spec %s", case_name, item, spec);
+        if (!agrees) fprintf(stderr, "RED %s %s: differs outside %s: %s\n", case_name, item, spec, detail);
+        CHECK(agrees, msg);
         snprintf(msg, sizeof msg, "%s %s: recorded disagreement still differs", case_name, item);
-        if (agrees) fprintf(stderr, "STALE %s %s: now agrees; remove its differs line\n", case_name, item);
-        CHECK(!agrees, msg);
+        if (agrees && !inside) fprintf(stderr, "STALE %s %s: now agrees; remove its differs line\n", case_name, item);
+        CHECK(!agrees || inside, msg);
     } else {
         snprintf(msg, sizeof msg, "%s %s equals the real III+ capture", case_name, item);
         if (!agrees) fprintf(stderr, "RED %s %s: %s\n", case_name, item, detail);
@@ -123,12 +193,14 @@ static void judge(const char *item, int agrees, const char *detail)
 
 static void dump_now(const char *name)
 {
-    char path[512], detail[200] = "";
+    char path[512], detail[200] = "", item[80];
     screen_file want;
     snprintf(path, sizeof path, BASE "/%s/%s.screen", case_name, name);
     screen_read(path, &want);
     page.bytes[4000] = model.row; page.bytes[4001] = model.col;
-    int same = !memcmp(page.bytes, want.bytes, 4002);
+    snprintf(item, sizeof item, "dump:%s", name);
+    const char *spec = recorded(case_name, item);
+    int inside, same = !memcmp(page.bytes, want.bytes, 4002), agrees = page_agrees(page.bytes, want.bytes, spec, &inside);
     if (!same) {
         int i;
         for (i = 0; i < 4000 && page.bytes[i] == want.bytes[i]; i++) {}
@@ -143,8 +215,7 @@ static void dump_now(const char *name)
             screen_write(path, &page);
         }
     }
-    char item[80]; snprintf(item, sizeof item, "dump:%s", name);
-    judge(item, same, detail);
+    judge(item, agrees, inside, spec, detail);
     dumps_seen++; if (!same) dumps_bad++;
 }
 static void drain_dumps(void)
@@ -290,6 +361,39 @@ static long file_bytes(const char *path, unsigned char **out)
     fclose(f);
     return n;
 }
+/* Bytes real III+ fills from RAM: a DBF's header date and reserved bytes
+ * and each field descriptor's address (12-15) and reserved bytes (18-31),
+ * as the conformance comparator (tests/conformance/qualify.sh) normalises
+ * them; each MEM entry's address (12-15); an NDX header's bytes after its
+ * key expression's terminator and each node page's unused tail. Nothing
+ * else is touched. */
+static void normalise(const char *name, unsigned char *b, long n)
+{
+    size_t l = strlen(name);
+    const char *ext = l > 4 ? name + l - 4 : "";
+    if (!strcasecmp(ext, ".DBF") && n >= 32) {
+        memset(b + 1, 0, 3); memset(b + 12, 0, 20);
+        for (long o = 32; o + 32 <= n && b[o] != 0x0d; o += 32) { memset(b + o + 12, 0, 4); memset(b + o + 18, 0, 14); }
+    } else if (!strcasecmp(ext, ".MEM")) {
+        for (long o = 0; o + 32 <= n && b[o] != 0x1a; ) {
+            long len = b[o+16] | (long)b[o+17] << 8;
+            if ((b[o+11] & 0x7f) == 'N' || (b[o+11] & 0x7f) == 'D') len = 8;
+            memset(b + o + 12, 0, 4);
+            o += 32 + len;
+        }
+    } else if (!strcasecmp(ext, ".NDX") && n >= 512) {
+        long z = 24, esize = b[18] | (long)b[19] << 8;
+        while (z < 512 && b[z]) z++;
+        if (z < 512) memset(b + z, 0, (size_t)(512 - z));
+        /* Each node page: a 4-byte count, its entries and a final pointer;
+         * the rest of the 512 bytes is unused. */
+        for (long pg = 512; esize > 0 && pg + 512 <= n; pg += 512) {
+            long cnt = b[pg] | (long)b[pg+1] << 8 | (long)b[pg+2] << 16 | (long)b[pg+3] << 24;
+            long used = 4 + cnt * esize + 4;
+            if (cnt >= 0 && used < 512) memset(b + pg + used, 0, (size_t)(512 - used));
+        }
+    }
+}
 static void compare_exports(const char *dir, const char *work)
 {
     char path[1024], line[128];
@@ -311,38 +415,30 @@ static void compare_exports(const char *dir, const char *work)
             snprintf(got_path, sizeof got_path, "%s/%s", work, low);
             gn = file_bytes(got_path, &got);
         }
+        const char *spec = recorded(dir, item);
+        int inside;
         if (access(want_path, F_OK) == 0) {
             snprintf(detail, sizeof detail, "real III+ wrote no %s; product wrote %ld bytes", line, gn);
-            judge(item, gn < 0, detail);
+            judge(item, gn < 0, 0, NULL, detail);
             free(got); continue;
         }
         snprintf(want_path, sizeof want_path, BASE "/%s/exports/%s", dir, line);
         long wn = file_bytes(want_path, &want);
         if (wn < 0) screen_die("pinned export missing");
-        int same = gn == wn;
-        if (same && n > 4 && !strcasecmp(line + n - 4, ".DBF") && wn >= 32) {
-            /* Header date and reserved bytes; each field descriptor's RAM
-             * address (12-15) and reserved bytes (18-31), as the conformance
-             * comparator (tests/conformance/qualify.sh) normalises them. */
-            unsigned char *f2[2] = {got, want};
-            for (int k = 0; k < 2; k++) {
-                memset(f2[k] + 1, 0, 3); memset(f2[k] + 12, 0, 20);
-                for (long o = 32; o + 32 <= wn && f2[k][o] != 0x0d; o += 32) {
-                    memset(f2[k] + o + 12, 0, 4); memset(f2[k] + o + 18, 0, 14);
-                }
-            }
-        }
-        if (same) same = !memcmp(got, want, (size_t)wn);
-        if (!same) {
+        if (gn >= 0) normalise(line, got, gn);
+        normalise(line, want, wn);
+        int agrees = file_agrees(got, gn, want, wn, spec, &inside);
+        if (gn != wn || memcmp(got, want, (size_t)wn)) {
             long i = 0;
             if (gn >= 0) while (i < gn && i < wn && got[i] == want[i]) i++;
             snprintf(detail, sizeof detail, "%ld bytes vs %ld; first difference at %ld", gn, wn, i);
         }
-        judge(item, same, detail);
+        judge(item, agrees, inside, spec, detail);
         free(got); free(want);
     }
     fclose(f);
 }
+
 
 static void replay(const char *dir)
 {
@@ -379,21 +475,58 @@ static void replay(const char *dir)
     if (getenv("REPLAY_VERBOSE")) fprintf(stderr, "%s: %d dumps, %d differ\n", dir, dumps_seen, dumps_bad);
 }
 
+/* The comparator rejects what it must, every run: a missing export, a byte
+ * or line outside a spec, a length change, a page cell outside the recorded
+ * rows and a moved cursor; and it accepts exactly the recorded part
+ * (initech-nic17 review controls). */
+static void comparator_controls(void)
+{
+    unsigned char a[64], b[64]; static unsigned char p1[4002], p2[4002]; int in;
+    for (int i = 0; i < 64; i++) a[i] = b[i] = (unsigned char)i;
+    CHECK(!file_agrees(a, -1, b, 64, "bytes:18", &in), "control: a missing export fails a bytes spec");
+    CHECK(file_agrees(a, -1, b, 64, "absent", &in) && in, "control: absent accepts a missing file");
+    CHECK(!file_agrees(a, 64, b, 63, "absent", &in), "control: absent accepts nothing else");
+    b[18] ^= 1;
+    CHECK(file_agrees(a, 64, b, 64, "bytes:18", &in) && in, "control: the recorded byte may differ");
+    b[40] ^= 1;
+    CHECK(!file_agrees(a, 64, b, 64, "bytes:18", &in), "control: a byte outside the spec fails");
+    CHECK(!file_agrees(a, 63, b, 64, "bytes:0-63", &in), "control: a length change fails a bytes spec");
+    memcpy(a, "AB\r\nCD\r\nEF", 10); memcpy(b, "AB\r\nCX\r\nEF", 10);
+    CHECK(file_agrees(a, 10, b, 10, "lines:2", &in) && in, "control: the recorded line may differ");
+    CHECK(!file_agrees(a, 10, b, 10, "lines:3", &in), "control: a line outside the spec fails");
+    CHECK(!file_agrees(a, 6, b, 10, "lines:2", &in), "control: a missing line fails");
+    memset(p1, 7, sizeof p1); memset(p2, 7, sizeof p2);
+    p2[160*20] = 'X';
+    CHECK(page_agrees(p1, p2, "rows:20-24", &in) && in, "control: a cell in the recorded rows may differ");
+    p2[3999] ^= 1;
+    CHECK(page_agrees(p1, p2, "rows:20-24", &in), "control: row 24 is inside rows:20-24");
+    p2[5] ^= 1;
+    CHECK(!page_agrees(p1, p2, "rows:20-24", &in), "control: a cell outside the rows fails");
+    p2[5] ^= 1; p2[4000] = 3;
+    CHECK(!page_agrees(p1, p2, "rows:20-24", &in), "control: a moved cursor fails without cursor");
+    CHECK(page_agrees(p1, p2, "rows:20-24+cursor", &in), "control: cursor exempts the cursor");
+}
+
 int main(void)
 {
     FILE *f = screen_open("tests/forms_replay.cases", "rb");
-    char line[512], cases[96][64]; int ncases = 0;
+    char line[512], cases[96][64], elsewhere[16][64]; int ncases = 0, nelse = 0;
     const char *only = getenv("REPLAY_CASE");
     if (only && !*only) only = NULL;
     while (fgets(line, sizeof line, f)) {
         char a[64], b[64], c[96];
         if (line[0] == '#' || line[0] == '\n') continue;
         if (sscanf(line, "case %63s", a) == 1) { if (ncases < 96) snprintf(cases[ncases++], 64, "%s", a); continue; }
-        if (sscanf(line, "differs %63s %95s", b, c) == 2 && ndiffers < MAX_DIFFERS) {
+        char sp[200];
+        if (sscanf(line, "differs %63s %95s %199s", b, c, sp) == 3 && ndiffers < MAX_DIFFERS) {
+            if (strncmp(sp, "rows:", 5) && strncmp(sp, "cursor", 6) && strncmp(sp, "bytes:", 6) &&
+                strncmp(sp, "lines:", 6) && strncmp(sp, "absent", 6)) screen_die("differs line without a spec");
             snprintf(differs[ndiffers].dir, sizeof differs[0].dir, "%s", b);
             snprintf(differs[ndiffers].item, sizeof differs[0].item, "%s", c);
+            snprintf(differs[ndiffers].spec, sizeof differs[0].spec, "%s", sp);
             ndiffers++; continue;
         }
+        if (sscanf(line, "elsewhere %63s", a) == 1) { if (nelse < 16) snprintf(elsewhere[nelse++], 64, "%s", a); continue; }
         screen_die("bad forms_replay.cases line");
     }
     fclose(f);
@@ -404,12 +537,14 @@ int main(void)
         if (strncmp(e->d_name, "forms-", 6)) continue;
         int listed = 0;
         for (int i = 0; i < ncases; i++) listed |= !strcmp(cases[i], e->d_name);
+        for (int i = 0; i < nelse; i++) listed |= !strcmp(elsewhere[i], e->d_name);
         if (!listed) fprintf(stderr, "RED %s is pinned but not replayed\n", e->d_name);
         CHECK(listed, "every pinned forms case is listed for replay");
         pinned++;
     }
     if (d) closedir(d);
-    CHECK(pinned == ncases, "replay list names only pinned cases");
+    CHECK(pinned == ncases + nelse, "replay list names only pinned cases");
+    comparator_controls();
     for (int i = 0; i < ncases; i++) if (!only || !strcmp(only, cases[i])) replay(cases[i]);
     if (!only) for (int i = 0; i < ndiffers; i++) {
         if (!differs[i].seen) fprintf(stderr, "RED differs %s %s names no replayed item\n", differs[i].dir, differs[i].item);
