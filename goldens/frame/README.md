@@ -86,6 +86,23 @@ provisionally, and the checks grade that provisional reading.
     (3eda89aa), and InitechCalc's chart window is CHARTWIN exactly, the pie
     whole inside it. Until then it was 7 pixels wider (right edge 605).
 
+## Departures the live scene states
+
+What the product draws differently from the still, and why; the pixel checks
+do not grade these and say so (apps/initechcalc/tests/frame-pixels.sh).
+
+- FILE COPY is 11 rows deeper than COPY, for the Cancel button the still
+  lacks (GM3 requires a cancelled copy; flair/README.md).
+- FILE COPY's body is the Platinum dialog grey, and its progress fill is the
+  Platinum bar's, where the still shows white (filecopy_content) and a deep
+  blue fill (progress_fill). FLAIR draws both from Mac OS 8 captures; the
+  still's colours wait on a Toolbox colour (the slice-blue request also
+  asks for the progress blue).
+- The chart's slices are navy (question 12) and its title bar carries the
+  title "Pie Chart" at the Toolbox's 22-pixel height, where the still's is
+  thin and untitled.
+- The ledger window is larger than LEDWIN (apps/initechcalc/README.md).
+
 ## The still
 
 | | |

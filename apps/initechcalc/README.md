@@ -164,13 +164,21 @@ is a serialization regression for the locked literals, not a content oracle.
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,
-no stage left and fsck.fat. On QEMU it also grades the screendump
-(build/smoke-desktop/.../calc.ppm) with `tests/frame-pixels.sh`: the pie's
-navy pixels within 4 px of geometry.tsv PIE/PIEDEPTH, a navy face at each
-slice middle on geometry.tsv's PIE ellipse, and black at colours.tsv's
-chart-field samples mapped through geometry.tsv SCREEN, all to 3/255 (DAC
-quantisation). Bochs has no capture stream in the desktop journey framework,
-so it makes no pixel claim.
+no stage left and fsck.fat. On QEMU it also grades two screendumps with
+`tests/frame-pixels.sh`, every expectation from goldens/frame, colours to
+3/255 (DAC quantisation). `calc.ppm`, before Save: the chart window's outline
+exactly at geometry.tsv CHARTWIN, the pie's navy pixels within 4 px of
+PIE/PIEDEPTH, a navy face at each slice middle on the PIE ellipse, and black
+at colours.tsv's chart-field samples mapped through SCREEN. `calc-copy.ppm`,
+while FILE COPY runs: the chart's and FILE COPY's outlines exactly at
+CHARTWIN and COPY where nothing in front covers them (COPY's foot 11 rows
+lower for Cancel, FLAIR's stated departure), the caption's text starting at
+COPYCAPTION and the bar's outline at COPYBAR within 4 px, and no slice navy
+showing through FILE COPY. Seen red on the captures from before FLAIR placed
+FILE COPY at the still's box (1218 outline failures, navy through the box)
+and on edited copies of a green capture (caption moved 10 px right, bar 8 px
+down, navy painted in the box, box 5 px left). Bochs has no capture stream in
+the desktop journey framework, so it makes no pixel claim.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
