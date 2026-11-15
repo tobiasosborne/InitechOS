@@ -32,10 +32,9 @@ The live FILE COPY sits at the still's box (goldens/frame/geometry.tsv COPY,
 COPYCAPTION, COPYBAR; frame-owner request L1): (150,171)-(480,285), the
 still's box grown 11 rows to hold Cancel below the bar, which the still lacks.
 The bar keeps the measured 14-row CDEF height, centred on the still's 16 fill
-rows. A live caption is at most FLAIR_LIVECOPY_TEXT_W (314) pixels, narrower
-than the SDK's TBX_FILECOPY_TEXT_W (332), and the gate enforces the tighter
-limit. test_dialog_tracking reads the expected boxes from geometry.tsv at run
-time. The film tableau's FileCopyDialog keeps its older canonical place.
+rows. A live caption is at most TBX_FILECOPY_TEXT_W (314) pixels.
+test_dialog_tracking reads the expected boxes from geometry.tsv at run time.
+The Finder tableau uses this same live constructor and placement.
 
 NEWWINDOW's WDEF byte 4 is the Mac's noGrowDocProc (frame-owner request W1):
 NewPlainDocumentWindow gives a document window with close and collapse, no
@@ -45,12 +44,11 @@ and the content inset shadow is the Appearance control panel's
 (s8_controls_dialog.png). The record's FLAIR_WINDOW_PLAIN_BODY bit is read by
 the drawer, FindWindow's scroll band and resize/collapse, and SETSCROLL
 refuses such a window. test_plain_window grades it against both captures. The
-SDK has yet to publish the wire name (TBX_WDEF_NOGROW, value 4 << 8).
-A refused stage DELETE keeps its name owned for the next cleanup attempt.
-The SDK retries cleanup once; persistent refusal names the exact temporary
-file and prevents further saves from consuming additional temporary names.
-Later calls retry that owned cleanup and can save once storage accepts it.
-Early transfer/close errors and later commit refusals share this cleanup.
+SDK publishes the wire name TBX_WDEF_NOGROW (4 << 8).
+The SDK retries stage cleanup once; persistent refusal names the exact file
+and transfers it to the user. Later saves skip that occupied name and never
+delete it. Early transfer/close errors and later commit refusals share this
+cleanup. FILE COPY retains its still-owned incomplete stage until close succeeds.
 
 The SDK save helper reaches the same native operation through the new INT81
 FILE_REPLACE verb 008Bh, with stage and destination arguments. Both files must
@@ -90,7 +88,7 @@ and a separate test tenant, then drives nine real INT 81h scenarios in QEMU:
 all cancel controls, empty source, success and refused operations. It verifies
 one delivered completion and independently reads the disk. The live Cancel
 button/close box are authored GM3 policy required by the phase-2 operator;
-the two-item film tableau retains its original geometry.
+the Finder tableau shares the live copy's geometry and controls.
 The live copy selects the canon hourglass before opening the dialog and
 restores the prior cursor selection on success, cancel and early/late error.
 The booted smoke reads P6 pixels independently against transcribed frozen

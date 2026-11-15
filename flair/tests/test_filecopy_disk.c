@@ -398,16 +398,17 @@ static void cleanup_delete_cases(void)
         CHECK(hit==3 && strstr(reported_error,"Temporary file remains:") && strstr(reported_error,"TARGET.$$$"),
               "early failure also names its stage after refused cleanup");
         recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
-        unsigned before=deletes; fail_deletes=2;
-        CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0 && deletes==before+2,
-              "later save retries only its owned stage while cleanup remains refused");
+        unsigned before=deletes;
+        CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)==sizeof source && deletes==before,
+              "later save skips the disclosed stage and commits a fresh candidate");
         fail_deletes=0;
         only_stage("TARGET.$$$");
         recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
-        verify(old,sizeof old-1);
+        verify(source,sizeof source);
         CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)==sizeof source,
               "early-error cleanup can recover and save when storage accepts it");
-        CHECK(absent("::TARGET.$$$"),"early-error recovery retires its owned stage");
+        recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
+        CHECK(absent("::TARGET.$$0"),"later successful save leaves no stage of its own");
         verify(source,sizeof source); fclose(disk);
     });
     uint32_t size;
@@ -439,9 +440,9 @@ static void cleanup_delete_cases(void)
     CHECK(hit==2 && strstr(reported_error,"Temporary file remains:") && strstr(reported_error,"TARGET.$$$"),
           "SDK reports exact stage path after both cleanup attempts fail");
     recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
-    unsigned before=deletes; fail_deletes=2;
-    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0 && deletes==before+2,
-          "unresolved stage retries cleanup without consuming another temporary name");
+    unsigned before=deletes;
+    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)<0 && deletes==before+1,
+          "read-only retry cleans its fresh candidate, preserving the disclosed stage");
     fail_deletes=0;
     only_stage("TARGET.$$$");
     recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
@@ -451,7 +452,8 @@ static void cleanup_delete_cases(void)
     CHECK(fileio_fat_bind(&vol)==0,"storage now permits replacing the previous destination");
     CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)==sizeof source,
           "later save recovers after the stage DELETE becomes possible");
-    CHECK(absent("::TARGET.$$$"),"successful recovery removes the owned stage");
+    recovered_stream("mcopy -o -i copy.img '::TARGET.$$$' recovered.dat",source,sizeof source);
+    CHECK(absent("::TARGET.$$0"),"successful retry leaves no stage of its own");
     verify(source,sizeof source); fclose(disk);
     (void)TEST_SUMMARY("test-stage-cleanup");
 }

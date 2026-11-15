@@ -98,7 +98,6 @@
  * request W1. The SDK is asked to publish it as TBX_WDEF_NOGROW with this
  * value (phase3/word-owner.md requests); until then a tenant passes
  * 4 << TBX_WDEF_SHIFT. */
-#define FLAIR_TBX_WDEF_NOGROW (4u << TBX_WDEF_SHIFT)
 
 
 /* Tenant transfer and non-returning crash unwind are platform services. */
@@ -462,7 +461,7 @@ static int32_t v_newwindow(const uint32_t *a)
         b < FLAIR_CHROME_MENUBAR_H || b > FLAIR_SCREEN_H ||
         r - l < 96 || b - t < 64 ||
         goaway > TBX_GOAWAY_ASK ||                /* Sec 11: 0, 1 or 2 */
-        (wdef != 0u && wdef != TBX_WDEF_RDOC && wdef != FLAIR_TBX_WDEF_NOGROW))
+        (wdef != 0u && wdef != TBX_WDEF_RDOC && wdef != TBX_WDEF_NOGROW))
         return TBX_ERR_BADARG;
 
     rec = (WindowRecord *)flair_alloc(&app->records_arena, FLAIR_CLASS_HANDLE,
@@ -497,7 +496,7 @@ static int32_t v_newwindow(const uint32_t *a)
         NewWindow(g_host.wm, rec, fr, CalcRDocContentRect(fr),
                   (int16_t)documentKind, (int16_t)rDocProc,
                   (uint8_t)(goaway != 0u ? 1u : 0u));
-    else if (wdef == FLAIR_TBX_WDEF_NOGROW)
+    else if (wdef == TBX_WDEF_NOGROW)
         NewPlainDocumentWindow(g_host.wm, rec, fr, (int16_t)documentKind,
                                (uint8_t)(goaway != 0u ? 1u : 0u));
     else
