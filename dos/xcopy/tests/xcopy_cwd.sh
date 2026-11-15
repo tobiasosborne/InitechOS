@@ -1,10 +1,12 @@
 #!/bin/sh
 # Reference pp.7-8,127: relative source is resolved from the working directory.
 set -efu
+failed=0
+trap 'rc=$?; if [ $rc -ne 0 ] && [ $failed -eq 0 ]; then failed=1; echo "FAIL xcopy-cwd: check failed (exit $rc)"; echo "INITECH_CHECKS 1 failures=1"; exit 1; fi' EXIT
 export INITECH_QMP_STDIO=1 LC_ALL=C TZ=UTC
 mode=$1 runner=$2 out=build/xcopy-cwd-$1-${3:-green}
 mkdir -p "$out"
-fail() { echo 'FAIL xcopy-cwd: $*'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
+fail() { echo "FAIL xcopy-cwd: $*"; echo 'INITECH_CHECKS 1 failures=1'; failed=1; exit 1; }
 dd if=/dev/zero of="$out/data.img" bs=512 count=2880 status=none
 mformat -i "$out/data.img" -f 1440 -N 102 ::
 mmd -i "$out/data.img" ::SUB ::SUB/SRC ::DST ::SRC

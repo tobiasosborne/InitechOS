@@ -2,11 +2,13 @@
 # Independent file bytes + mcopy/mren inventories on identical FAT seeds.
 # MS-DOS 3.3 Reference pp.50-52,104; Guide p.17. No artifact computes expected.
 set -efu
+failed=0
+trap 'rc=$?; if [ $rc -ne 0 ] && [ $failed -eq 0 ]; then failed=1; echo "FAIL shell-files: check failed (exit $rc)"; echo "INITECH_CHECKS 1 failures=1"; exit 1; fi' EXIT
 export LC_ALL=C TZ=UTC INITECH_QMP_STDIO=1
 mode=$1 runner=$2 tag=${3:-green}
 out=build/shell-files-$mode-$tag
 mkdir -p "$out"
-fail() { echo 'FAIL shell-files: $*'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
+fail() { echo "FAIL shell-files: $*"; echo 'INITECH_CHECKS 1 failures=1'; failed=1; exit 1; }
 dd if=/dev/zero of="$out/data.img" bs=512 count=2880 status=none
 mformat -i "$out/data.img" -f 1440 -N 102 ::
 printf 'alpha\032tail\r\n' > "$out/a"

@@ -16,15 +16,15 @@ int main(int argc, char **argv)
     if (!fgets(want, sizeof want, f)) return 2;
     cmd_format_dir_line("COMMAND.COM", 23612, 0x20, 0x0F15, 0x6000, got);
     if (strcmp(want, got)) {
-        fprintf(stderr, "DIR LOOK RED: manual row wanted [%s] got [%s]\n", want, got);
+        fprintf(stderr, "FAIL DIR LOOK: manual row wanted [%s] got [%s]\nINITECH_CHECKS 1 failures=1\n", want, got);
         return 1;
     }
     if (!fgets(want, sizeof want, f)) return 2;
     cmd_format_dir_line("ANSI.SYS",1651,0x20,0x0F15,0x6000,got);
-    if (strcmp(want,got)) { fprintf(stderr,"DIR LOOK RED: ANSI columns/date\n"); return 1; }
+    if (strcmp(want,got)) { fprintf(stderr,"FAIL DIR LOOK: ANSI columns/date\nINITECH_CHECKS 1 failures=1\n"); return 1; }
     if (!fgets(want, sizeof want, f)) return 2;
     cmd_format_dir_footer(37,17408,got);
-    if (strcmp(want,got)) { fprintf(stderr,"DIR LOOK RED: footer wanted [%s] got [%s]\n",want,got); return 1; }
+    if (strcmp(want,got)) { fprintf(stderr,"FAIL DIR LOOK: footer wanted [%s] got [%s]\nINITECH_CHECKS 1 failures=1\n",want,got); return 1; }
     struct { const char *name,*want; unsigned date,time,attr; } cases[] = {
         {"CLOCK.TXT","CLOCK    TXT        0  12-31-99  12:00a\n",0x279F,0,0x20},
         {"NOEXT","NOEXT               0   1-01-80   1:05a\n",0x21,0x08A0,0x20},
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     };
     for (unsigned i=0;i<sizeof cases/sizeof cases[0];i++) {
         cmd_format_dir_line(cases[i].name,0,cases[i].attr,cases[i].date,cases[i].time,got);
-        if (strcmp(got,cases[i].want)) { fprintf(stderr,"DIR LOOK RED: boundary [%s] wanted [%s]\n",got,cases[i].want); return 1; }
+        if (strcmp(got,cases[i].want)) { fprintf(stderr,"FAIL DIR LOOK: boundary [%s] wanted [%s]\nINITECH_CHECKS 1 failures=1\n",got,cases[i].want); return 1; }
     }
     fclose(f);
     puts("DIR LOOK PASS: manual rows, columns, packed dates/times and File(s)");
