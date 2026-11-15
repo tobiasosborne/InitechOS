@@ -9,7 +9,9 @@ oracle.
 
 ## Questions only the operator can settle
 
-Each has a recommendation. Item ids refer to `transcription.tsv`.
+Each has a recommendation. Item ids refer to `transcription.tsv`. Until the
+operator answers (initech-tunh0), the product follows every recommendation
+provisionally, and the checks grade that provisional reading.
 
 1. **Vendoring the still.** The repository is public, and `.gitignore` has
    kept film stills out of it since 7b213e4c ("measured/derived from, never
@@ -69,6 +71,20 @@ Each has a recommendation. Item ids refer to `transcription.tsv`.
     Cancel button; a progress fill with no track, so its fraction cannot be
     read. *Recommend building none of the second application's chrome*
     (second bar, toolbars, outer worksheet), as the design says.
+14. **Drive A between Calc's two windows.** The still stacks, back to front,
+    the ledger, Drive A Files, the chart, FILE COPY. A Macintosh brings all
+    of an application's windows forward together, and FLAIR does the same
+    (flair/process.c, the whole-group raise), so no ordinary sequence of
+    clicks puts a Finder window between two of InitechCalc's. *Recommend the
+    ordinary order*: Drive A behind both of Calc's windows, at the still's
+    place. The alternative, raising single windows across applications, would
+    change every application's behaviour to match one photograph.
+15. **The chart window's width.** The still's chart field runs to the
+    window's frame; the Platinum document window keeps a 15-pixel scroll-bar
+    gutter. To show the still's pie whole (PIE to x=581), InitechCalc's chart
+    window is 7 pixels wider than CHARTWIN (right edge 605, same origin).
+    *Recommend accepting this* until the Toolbox offers a window without
+    scroll bars, when the chart can return to the still's width.
 
 ## The still
 
