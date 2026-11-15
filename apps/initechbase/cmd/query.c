@@ -1503,6 +1503,21 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
     char before[256];
     const char *t=q_skip_ws(args);
     if(*t) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; } /* READ SAVE: frozen omission */
+    /* A field GET whose work area is at end of file stops READ before any
+     * key: real III+ forms-f20c (GET FC after GO BOTTOM, SKIP) and forms-f20g
+     * (the same field as the second GET) report #4 "End of file
+     * encountered." at READ entry and leave FORM.DBF untouched. */
+    {
+        uint32_t i;wa_env *env=xb_interp_env(ip);
+        for(i=0;i<ctx->ngets;i++) {
+            const xb_get *g=&ctx->gets[i];
+            if(g->kind==1&&wa_is_open(env,g->area)&&wa_eof(env,g->area)) {
+                ibase_gets_clear(ip);
+                if(ec)*ec=4;
+                return -INTERP_ERR_EVAL;
+            }
+        }
+    }
     { uint32_t i;for(i=0;i<ctx->ngets;i++)ctx->gets[i].started=0; }
     if(ctx->ngets) { xb_get *g0=&ctx->gets[0];q_get_cursor(ip,g0->row,g0->col); }
     while(!done) {

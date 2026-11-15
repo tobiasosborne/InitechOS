@@ -433,6 +433,76 @@ static void f19_home_chain_and_badcombo(void)
     xb_interp_free(ip); pal_host_free(pal);
 }
 
+
+/* Run a program in a fresh scratch directory holding copies of real III+
+ * fixture files ("SOURCE>NAME" pairs); returns the startup status. */
+static char scratch[4200];
+static int run_prg(const char *const *files, const char *prg, const uint8_t *k, uint32_t kn, int *err)
+{
+    char root[2048], temp[] = "build/gets-prg.XXXXXX", path[8400];
+    if (!getcwd(root, sizeof root) || !mkdtemp(temp)) screen_die("scratch directory");
+    snprintf(scratch, sizeof scratch, "%s/%s", root, temp);
+    for (int i = 0; files[i]; i++) {
+        char src[512]; const char *gt = strchr(files[i], '>');
+        snprintf(src, sizeof src, "%.*s", (int)(gt - files[i]), files[i]);
+        snprintf(path, sizeof path, "%s/%s", scratch, gt + 1);
+        copy_file(src, path);
+    }
+    snprintf(path, sizeof path, "%s/MINT.PRG", scratch);
+    FILE *pf = screen_open(path, "wb"); fputs(prg, pf); fclose(pf);
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){92,3,2,4*1024*1024});
+    struct w2_host_env env;
+    struct w2_host_config cfg = {scratch, scratch, 16*1024*1024, 16*1024*1024, 'C'};
+    CHECK(pal && w2_host_bind(&env, pal, &cfg) == 0, "program scratch binding");
+    pal->paint = paint; pal->say_screen = say_screen;
+    pal->set_attr = set_attr; pal->gotoxy = gotoxy; pal->conin_char = conin_char;
+    xb_interp *ip = xb_interp_make(pal); page_reset();
+    feed(k, kn);
+    int rc = w2_host_startup(pal, ip, "MINT.PRG");
+    *err = ibase_last_error(ip);
+    xb_interp_free(ip); w2_host_unbind(&env); pal_host_free(pal);
+    return rc;
+}
+/* A scratch file against a real III+ export: exact bytes, except a DBF's
+ * header date and reserved bytes and each field descriptor's RAM address. */
+static int same_as_real(const char *name, const char *real)
+{
+    char path[8400]; static unsigned char a[70000], b[70000];
+    snprintf(path, sizeof path, "%s/%s", scratch, name);
+    FILE *fa = fopen(path, "rb"), *fb = fopen(real, "rb");
+    if (!fa || !fb) { if (fa) fclose(fa); if (fb) fclose(fb); return 0; }
+    size_t na = fread(a, 1, sizeof a, fa), nb = fread(b, 1, sizeof b, fb);
+    fclose(fa); fclose(fb);
+    if (na != nb) return 0;
+    if (na >= 32) {
+        unsigned char *f2[2] = {a, b};
+        for (int i = 0; i < 2; i++) {
+            memset(f2[i] + 1, 0, 3); memset(f2[i] + 12, 0, 20);
+            for (size_t o = 32; o + 32 <= na && f2[i][o] != 0x0d; o += 32) {
+                memset(f2[i] + o + 12, 0, 4); memset(f2[i] + o + 18, 0, 14);
+            }
+        }
+    }
+    return !memcmp(a, b, na);
+}
+
+#define F20 "tests/xbase_prog_diff/screen-mint/"
+/* initech-o9f9i: READ at end of file is #4 at entry, nothing written
+ * (forms-f20c GET FC; forms-f20g the same field as the second GET). */
+static void f20_eof(void)
+{
+    static const char *const files[] = {F20 "forms-f20c-eof/SETUP/FORM.DBF>FORM.DBF",
+                                        F20 "forms-f20c-eof/SETUP/FORM.DBT>FORM.DBT", NULL};
+    static const uint8_t keys[] = {'A','B','\r'};
+    int err = 0;
+    int rc = run_prg(files, "PUBLIC A\r\nA=SPACE(4)\r\nUSE FORM\r\nGO BOTTOM\r\nSKIP\r\n"
+                     "@ 3,10 SAY \"A:\" GET A\r\n@ 5,10 SAY \"FC:\" GET FC\r\nREAD\r\nRETURN\r\n",
+                     keys, sizeof keys, &err);
+    CHECK(rc != 0 && err == 4, "F20c/F20g: READ at end of file reports #4 End of file encountered.");
+    CHECK(keys_i == 0, "F20c: no key is read before the #4");
+    CHECK(same_as_real("FORM.DBF", F20 "forms-f20g-eofsecond/exports/FORM.DBF"), "F20g: FORM.DBF as real III+ left it");
+}
+
 int main(void)
 {
     f01_memvar();
@@ -447,5 +517,6 @@ int main(void)
     f07_f08_more();
     f18_keys_and_masks();
     f19_home_chain_and_badcombo();
+    f20_eof();
     return TEST_SUMMARY("test-ibase-gets");
 }

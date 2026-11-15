@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# READ at end of file edits instead of reporting #4 (initech-o9f9i).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1511,7 +1511,7 @@
+         uint32_t i;wa_env *env=xb_interp_env(ip);
+         for(i=0;i<ctx->ngets;i++) {
+             const xb_get *g=&ctx->gets[i];
+-            if(g->kind==1&&wa_is_open(env,g->area)&&wa_eof(env,g->area)) {
++            if(0&&g->kind==1&&wa_is_open(env,g->area)&&wa_eof(env,g->area)) { /* MUTANT */
+                 ibase_gets_clear(ip);
+                 if(ec)*ec=4;
+                 return -INTERP_ERR_EVAL;
