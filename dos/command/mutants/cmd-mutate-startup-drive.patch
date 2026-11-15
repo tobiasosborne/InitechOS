@@ -1,0 +1,13 @@
+# CMD_MUTATE_STARTUP_DRIVE
+# test: test-command
+--- a/command/command.c
++++ b/command/command.c
+@@ -972,7 +972,7 @@
+     const char *c="A:\\COMMAND.COM", *a="A:\\AUTOEXEC.BAT";
+     for (unsigned i=0; i<15; i++) comspec[i]=c[i];
+     for (unsigned i=0; i<16; i++) autoexec[i]=a[i];
+-    comspec[0]=autoexec[0]=(char)('A'+drive);
++    (void)drive; comspec[0]=autoexec[0]='A';
+ }
+ 
+ /* cmd_render_prompt: PURE $-metacharacter renderer (beads initech-dibc).

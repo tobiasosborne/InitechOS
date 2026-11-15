@@ -248,6 +248,10 @@ int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss,
  *                   character through; this matches the real COMMAND.COM).
  */
 
+/* Primary interpreter paths are anchored to its startup drive, independent
+ * of later current-drive changes (GM8 installed C: layout, initech-gl8tj). */
+void cmd_startup_paths(unsigned drive, char comspec[15], char autoexec[16]);
+
 /* Context block for cmd_render_prompt: carries the live drive + CWD + clock
  * fields needed to expand $P / $N / $T / $D without any I/O inside the
  * renderer.  The REPL populates this from AH=47h / AH=2Ch before calling. */

@@ -3,7 +3,7 @@
 command/ owns command.c, batch.c and env.c. Its temporary resident objects
 link into INITDOS.SYS using only command/entry.h from the kernel. The real
 permanent interpreter runs AUTOEXEC.BAT, prompts for date/time when absent,
-and enters A:\>. COMMAND.COM on the data disk is a small flat INT21 EXEC
+and enters the startup drive prompt. COMMAND.COM on the data disk is a small flat INT21 EXEC
 forwarder to the resident COMSPEC handler; it contains no kernel addresses and
 is not the retired exact-address transient. It is not yet an independent
 command interpreter.
@@ -97,7 +97,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 157 host patches and 48 product-session patches,
+The current DOS inventory is 158 host patches and 48 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.
@@ -236,6 +236,13 @@ I/O errors stay errors; its exit-trap patch fails those controls twice. ATTRIB,
 LABEL, DEL refusal and interrupted TYPE have distinct repeated kill signatures.
 The source for stamp-copy checks is now owned in command/tests/copy_stamp.sh,
 so this component grades individual mtools byte/stamp comparisons directly.
+
+Primary startup anchors COMSPEC and AUTOEXEC.BAT to the initial DOS drive
+(initech-gl8tj, GM8 installed C: layout). Paths stay absolute when the user
+subsequently selects data A:. Existing single-working-volume A: sessions
+retain their captured paths. Delivery must still validate real C-only/C+A
+boots after kernel/system/factory switch the installed volume; host path
+properties alone do not establish that integration.
 
 `make smoke-xcopy-buffer` executes the shipped XCOPY on both emulators at
 the full 128 KiB workspace capacity over a different pre-existing destination.

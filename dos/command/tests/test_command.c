@@ -825,8 +825,22 @@ static void test_break_parse(void)
 
 }
 
+/* GM8 installation contract: primary startup uses installed C:; captured
+ * single-working-volume sessions retain A:. Paths are absolute snapshots. */
+static void test_startup_paths(void)
+{
+    char comspec[15],autoexec[16];
+    cmd_startup_paths(0,comspec,autoexec);
+    CHECK(!strcmp(comspec,"A:\\COMMAND.COM"), "startup A COMSPEC");
+    CHECK(!strcmp(autoexec,"A:\\AUTOEXEC.BAT"), "startup A AUTOEXEC");
+    cmd_startup_paths(2,comspec,autoexec);
+    CHECK(!strcmp(comspec,"C:\\COMMAND.COM"), "startup C COMSPEC");
+    CHECK(!strcmp(autoexec,"C:\\AUTOEXEC.BAT"), "startup C AUTOEXEC");
+}
+
 int main(void)
 {
+    test_startup_paths();
     test_parse_basic();
     test_classify();
     test_classify_set();

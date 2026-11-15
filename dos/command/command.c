@@ -967,6 +967,14 @@ int cmd_parse_time(const char *arg, uint8_t *hh, uint8_t *mi, uint8_t *ss,
     return 1;
 }
 
+void cmd_startup_paths(unsigned drive, char comspec[15], char autoexec[16])
+{
+    const char *c="A:\\COMMAND.COM", *a="A:\\AUTOEXEC.BAT";
+    for (unsigned i=0; i<15; i++) comspec[i]=c[i];
+    for (unsigned i=0; i<16; i++) autoexec[i]=a[i];
+    comspec[0]=autoexec[0]=(char)('A'+drive);
+}
+
 /* cmd_render_prompt: PURE $-metacharacter renderer (beads initech-dibc).
  * Ref: ADR-0003 DEC-12 (the $P$G prompt + version 3.30); DOS 3.3 COMMAND.COM
  *      PROMPT command + $-metacharacter set (Appendix D / DEC-11).
@@ -4907,17 +4915,19 @@ void command_repl(int permanent)
 
     /* Seed the master environment once at REPL entry (beads initech-1i0x
      * Tranche E inc 2). These three variables match DOS 3.3 startup defaults
-     * for a single-floppy system. Overflow is impossible here (well under 512
+     * for the startup system drive. Overflow is impossible here (well under 512
      * bytes), but we follow fail-loud discipline (the repository contract) with no-op silence:
      * env_set returns 0 on overflow; the REPL continues regardless (the OS
      * must boot even if seeding somehow fails on a future tiny-arena config). */
+    char comspec[15], autoexec[16];
+    cmd_startup_paths(int21_current_drive(),comspec,autoexec);
     env_init(&g_master_env);
-    env_set(&g_master_env, "COMSPEC", "A:\\COMMAND.COM");
+    env_set(&g_master_env, "COMSPEC", comspec);
     env_set(&g_master_env, "PROMPT",  "$P$G");
     env_set(&g_master_env, "PATH",    "");
 
     /* AUTOEXEC.BAT (beads initech-xw1): on startup, real COMMAND.COM runs
-     * A:\AUTOEXEC.BAT once before the first interactive prompt.  Probe for it
+     * AUTOEXEC.BAT on the startup system drive once before the first prompt.  Probe for it
      * with AH=3Dh OPEN; if present, interpret it through run_batch (argv[0] =
      * the path, no positional params).  A typical AUTOEXEC begins "@ECHO OFF"
      * and sets PATH/PROMPT, so its side effects (env, prompt) persist into the
@@ -4926,7 +4936,6 @@ void command_repl(int permanent)
      * primary continues the batch. Recheck before entering the loop.
      * Ref: MS-DOS 3.3 Tech Ref Ch.3; spec/dos_autoexec_bat_baseline.txt. */
     {
-        const char *autoexec = "A:\\AUTOEXEC.BAT";
         int fh = dos_open(autoexec);
         if (fh >= 0) {
             dos_close(fh);
