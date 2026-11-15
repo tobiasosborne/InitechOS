@@ -615,7 +615,9 @@ begin
   if Kind = NameRename then
   begin
     NameRow := 3; NameCol := 7;
-    NameText := FileDir + chr(92) + FileName
+    NameText := FileDir;
+    if NameText[Length(NameText)] <> chr(92) then NameText := NameText + chr(92);
+    NameText := NameText + FileName
   end
   else
   begin

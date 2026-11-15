@@ -1,0 +1,6 @@
+# test: run-command
+--- a/product.pas
++++ b/product.pas
+@@ -1,1 +1,1 @@
+-    if RequestedCommand = CmdUser then UiMode := ModeUser
++    if RequestedCommand = CmdUser then UiMode := ModeEditor

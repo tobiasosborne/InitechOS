@@ -49,6 +49,9 @@ links() {
     setup "$OBJCOPY" -O binary "$dir/dos.elf" "$dir/program.com"
 }
 case $entry in
+pool-search)
+    exec sh tests/pool.sh "$PWD/turbo.pas" "$scratch"
+    ;;
 execution-frame|execution-var|execution-flat|execution-io)
     name=gen_tiny; paths=hosted
     if [ "$entry" = execution-io ]; then name=gen_ioresult; fi

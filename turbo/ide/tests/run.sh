@@ -36,6 +36,9 @@ file_bytes() {
 }
 
 case $entry in
+run-command)
+    check run-command sh tests/run-command.sh "$out"
+    ;;
 compile)
     check compile sh tests/compile.sh "$out"
     ;;
@@ -94,7 +97,7 @@ paging)
     file_bytes backup "$scratch/original" "$scratch/BIG.BAK"
     ;;
 one-program)
-    check embedded-source sh "$top/turbo/compiler/tests/ide-source.sh" check "$top/turbo/compiler/turbo.pas" "$top/turbo/ide"
+    check embedded-source "$top/turbo/compiler/tests/ide-source.sh" check "$top/turbo/compiler/turbo.pas" "$top/turbo/ide"
     # One TURBO.COM holds the compiler and the IDE: the compiler's
     # declarations, the IDE's, one main. Both compilers must accept that
     # program within their capacities (turbo/README.md, limits).

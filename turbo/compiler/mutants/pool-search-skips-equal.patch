@@ -1,0 +1,12 @@
+# test: pool-search
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -2117,7 +2117,7 @@
+   while Left <= Right do
+   begin
+     Mid := (Left + Right) div 2;
+-    if PoolOffset[Mid] <= NameOffset then
++    if PoolOffset[Mid] < NameOffset then
+     begin
+       if PoolOffset[Mid] = NameOffset then Found := PoolLength[Mid];
+       Left := Mid + 1

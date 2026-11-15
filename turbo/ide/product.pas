@@ -4,7 +4,7 @@
 var
   DisplayPage, UserPage: array[1..4002] of char;
   BuildRequest: integer;
-  BuildPending, ProgramReady, KeepRecovery: boolean;
+  BuildPending, ProgramReady, KeepRecovery, BuildOwned: boolean;
   BuildBase, ReadyName, BuildInput: string;
 
 procedure ProductPaint;
@@ -41,13 +41,14 @@ end;
 procedure CleanBuild;
 var Path: string;
 begin
-  if (Length(BuildBase) > 0) and (not KeepRecovery) then
+  if BuildOwned and (not KeepRecovery) then
   begin
     Path := BuildBase + '.S'; RemoveOwned(Path);
     Path := BuildBase + '.COM'; RemoveOwned(Path);
     Path := BuildBase + '.EXE'; RemoveOwned(Path);
     Path := BuildBase + '.CBK'; RemoveOwned(Path);
-    Path := BuildBase + '.EBK'; RemoveOwned(Path)
+    Path := BuildBase + '.EBK'; RemoveOwned(Path);
+    BuildOwned := false
   end
 end;
 
@@ -84,7 +85,7 @@ begin
   end;
   OutputAsmName := BuildBase + '.S'; OutputComName := BuildBase + '.COM';
   OutputExeName := BuildBase + '.EXE';
-  NewBuildNames := Free
+  BuildOwned := Free; NewBuildNames := Free
 end;
 
 function PublishProgram(var From, Into, Backup: string): integer;
@@ -133,6 +134,22 @@ begin
   end
 end;
 
+{ MINT07: Halt(0) and Halt(7) both return directly to the editor. The
+  program page survives until Alt-F5, then any key restores the editor. }
+procedure RunProgram;
+var Code, Status: integer;
+begin
+  ScreenPage(1, UserPage[1]); Code := IOResult();
+  if Code = 0 then
+  begin
+    Status := Execute(ReadyName);
+    ScreenPage(0, UserPage[1]); Code := IOResult();
+    if Status < 0 then Code := -Status
+  end;
+  UiMode := ModeEditor;
+  if Code <> 0 then ShowFileError(Code, ModeEditor)
+end;
+
 procedure FinishBuild;
 var Target, Backup, Ext, Msg: string;
     Code, Attr: integer;
@@ -164,6 +181,7 @@ begin
       Code := PublishProgram(OutputExeName, ReadyName, Backup);
       if Code = 0 then
       begin
+        ProgramReady := true;
         Assign(F, OutputComName); Attr := FileAttributes(F);
         if Attr >= 0 then
         begin
@@ -176,7 +194,11 @@ begin
       if Code = 0 then begin CompileDone := true; UiMode := ModeCompile end
     end
   end;
-  if Code <> 0 then ShowFileError(Code, ModeEditor)
+  if Code <> 0 then ShowFileError(Code, ModeEditor);
+  { Release private outputs before another editor command can save a user
+    document under one of those names. Recovery files remain untouched. }
+  CleanBuild();
+  if (Code = 0) and ProgramReady and (BuildRequest = CmdRun) then RunProgram()
 end;
 
 procedure ProductKey(K: integer);
@@ -207,10 +229,11 @@ procedure ProductMain;
 var K: integer;
     C: char;
 begin
-  BuildBase := ''; KeepRecovery := false; BuildPending := false;
+  BuildBase := ''; BuildOwned := false; KeepRecovery := false; BuildPending := false;
   ProgramReady := false;
   ScreenPage(0, UserPage[1]); K := IOResult(); if K <> 0 then Halt(1);
-  FileDrive := 'A'; FileDir := '.';
+  GetDir(0, FileDir); K := IOResult(); if K <> 0 then Halt(1);
+  FileDrive := FileDir[1];
   IdeStart();
   while UiMode <> ModeQuit do
   begin

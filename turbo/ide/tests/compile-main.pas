@@ -16,5 +16,13 @@ begin
   ProductKey(KeyEnd); ProductKey(KeyBack); ProductKey(KeyF9); FinishBuild();
   if ProgramReady or (not ErrLineShown) then
   begin Writeln('FAIL stale executable accepted'); Halt(1) end;
+  ProductKey(KeyEsc); ProductKey(KeyUp); ProductKey(KeyEnd); ProductKey(ord(';'));
+  ProductKey(KeyAltF9); FinishBuild();
+  if not ProgramReady then begin Writeln('FAIL ownership setup build'); Halt(2) end;
+  ProductKey(KeyEsc);
+  ShotName := BuildBase + '.S'; WriteTo(ShotName, FileExists(ShotName));
+  if (FilePath <> ShotName) or EdModified then
+  begin Writeln('FAIL ownership setup save'); Halt(2) end;
+  Writeln('OWNERSHIP ', ShotName); DoNew(); ProductCleanup();
   Writeln('PASS compiler, real Error 85, Compile/Make and fresh output')
 end.

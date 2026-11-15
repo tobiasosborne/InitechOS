@@ -588,3 +588,51 @@ rtl_dos_memory:
     mov eax, 1048560
     pop ebx
     ret
+
+; TP GetDir(drive, var string[255]); published DOS AH=19h/47h.
+; Kernel AH=47h writes at most64 bytes: root-relative path and NUL.
+global rtl_getdir
+rtl_getdir:
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+    call rtl_io_pending
+    jnz rtl_file_return
+    mov edi, [ebp+12]
+    mov byte [edi], 0
+    mov ebx, [ebp+8]
+    cmp ebx, 26
+    ja .invalid
+    test ebx, ebx
+    jnz .drive
+    mov eax, 0x1900
+    int 0x21
+    movzx ebx, al
+    jmp .prefix
+.drive:
+    dec ebx
+.prefix:
+    mov al, bl
+    add al, 'A'
+    mov [edi+1], al
+    mov word [edi+2], 0x5c3a
+    lea esi, [edi+4]
+    mov edx, [ebp+8]
+    mov eax, 0x4700
+    int 0x21
+    jc rtl_file_fail
+    mov ecx, 3
+.length:
+    cmp byte [edi+ecx+1], 0
+    je .done
+    inc ecx
+    cmp ecx, 66
+    jb .length
+.done:
+    mov [edi], cl
+    jmp rtl_file_return
+.invalid:
+    mov eax, 15
+    jmp rtl_file_fail

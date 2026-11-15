@@ -9,7 +9,7 @@ int main(int argc, char **argv) {
     FILE *f = fopen(argv[1], "rb");
     if (!f) return 2;
     size_t n = fread(data, 1, sizeof data, f);
-    if (ferror(f) || !feof(f) || fclose(f) || n != 1295) return 2;
+    if (ferror(f) || !feof(f) || fclose(f) || n != 1410) return 2;
     puts("{ BEGIN NASM RUNTIME TABLE -- tests/runtime-table.c; do not edit. }");
     printf("procedure %s();\nbegin\n", argv[2]);
     for (size_t i=0; i<n;) {
@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
             puts("  ;");
         }
     }
-    puts("  while Native[2] < 1296 do NativeByte(144)\nend;");
+    puts("  while Native[2] < 1424 do NativeByte(144)\nend;");
     puts("{ END NASM RUNTIME TABLE }");
     return 0;
 }

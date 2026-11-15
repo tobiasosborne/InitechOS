@@ -912,6 +912,7 @@ begin
     else if Text = 'rtl_execute' then N := 1128
     else if Text = 'rtl_halt' then N := 1235
     else if Text = 'rtl_dos_memory' then N := 1255
+    else if Text = 'rtl_getdir' then N := 1295
     else if Text = 'str_bool_true' then N := Native[3] + 20
     else if Text = 'str_bool_false' then N := Native[3] + 25
     else if Text[1] = 'v' then
@@ -1234,9 +1235,15 @@ begin
   ;
   GenText := '0000CD21720CB8004D0000CD210FB7C0EB050FB7C0F7D881C4180100005F5E5B5DC38B44240425FF0000000D004C0000'; NativeHex(GenText)
   ;
-  GenText := 'CD21FAF4EBFD53BBFFFF0000B800480000CD2173080FB7C3C1E0045BC30FB7D8B800490000CD21B8F0FF0F005BC3'; NativeHex(GenText)
+  GenText := 'CD21FAF4EBFD53BBFFFF0000B800480000CD2173080FB7C3C1E0045BC30FB7D8B800490000CD21B8F0FF0F005BC35589'; NativeHex(GenText)
   ;
-  while Native[2] < 1296 do NativeByte(144)
+  GenText := 'E5535657E892FBFFFF0F8588FDFFFF8B7D0CC607008B5D0883FB1A774A85DB750CB800190000CD210FB6D8EB014B88D8'; NativeHex(GenText)
+  ;
+  GenText := '044188470166C747023A5C8D77048B5508B800470000CD210F823FFDFFFFB903000000807C0F010074064183F94272F3'; NativeHex(GenText)
+  ;
+  GenText := '880FE930FDFFFFB80F000000E91CFDFFFF'; NativeHex(GenText)
+  ;
+  while Native[2] < 1424 do NativeByte(144)
 end;
 { END NASM RUNTIME TABLE }
 { BEGIN NASM RUNTIME TABLE -- tests/runtime-table.c; do not edit. }
@@ -1304,9 +1311,15 @@ begin
   ;
   GenText := '0000CD21720CB8004D0000CD210FB7C0EB050FB7C0F7D881C4180100005F5E5B5DC38B44240425FF0000000D004C0000'; NativeHex(GenText)
   ;
-  GenText := 'CD21FAF4EBFD53BBFFFF0000B800480000CD2173080FB7C3C1E0045BC30FB7D8B800490000CD21B8F0FF0F005BC3'; NativeHex(GenText)
+  GenText := 'CD21FAF4EBFD53BBFFFF0000B800480000CD2173080FB7C3C1E0045BC30FB7D8B800490000CD21B8F0FF0F005BC35589'; NativeHex(GenText)
   ;
-  while Native[2] < 1296 do NativeByte(144)
+  GenText := 'E5535657E892FBFFFF0F8588FDFFFF8B7D0CC607008B5D0883FB1A774A85DB750CB800190000CD210FB6D8EB014B88D8'; NativeHex(GenText)
+  ;
+  GenText := '044188470166C747023A5C8D77048B5508B800470000CD210F823FFDFFFFB903000000807C0F010074064183F94272F3'; NativeHex(GenText)
+  ;
+  GenText := '880FE930FDFFFFB80F000000E91CFDFFFF'; NativeHex(GenText)
+  ;
+  while Native[2] < 1424 do NativeByte(144)
 end;
 { END NASM RUNTIME TABLE }
 
@@ -2110,15 +2123,20 @@ end;
 
 function PoolLengthAt(NameOffset: integer): integer;
 var
-  I, Found: integer;
+  Left, Right, Mid, Found: integer;
 begin
-  I := 1;
-  Found := 0;
-  while I <= PoolCount do
+  { PoolAdd appends nondecreasing offsets. An empty entry can share the
+    following entry's offset; the last match retains the old lookup value. }
+  Left := 1; Right := PoolCount; Found := 0;
+  while Left <= Right do
   begin
-    if Found = 0 then
-      if PoolOffset[I] = NameOffset then Found := PoolLength[I];
-    I := I + 1
+    Mid := (Left + Right) div 2;
+    if PoolOffset[Mid] <= NameOffset then
+    begin
+      if PoolOffset[Mid] = NameOffset then Found := PoolLength[Mid];
+      Left := Mid + 1
+    end
+    else Right := Mid - 1
   end;
   PoolLengthAt := Found
 end;
@@ -2347,6 +2365,7 @@ begin
   else if DumpText = 'execute' then FileBuiltinId := 15
   else if DumpText = 'halt' then FileBuiltinId := 16
   else if DumpText = 'dosmemory' then FileBuiltinId := 17
+  else if DumpText = 'getdir' then FileBuiltinId := 18
 end;
 
 function AddRawSymbol(NameOffset, NameLength, Kind, TypeId, Scope,
@@ -2572,7 +2591,17 @@ begin
   Builtin := FileBuiltinId(PendingIdentOffset, PendingIdentLength);
   if Builtin >= 12 then
   begin
-    if Builtin = 14 then
+    if Builtin = 18 then
+    begin
+      if CallWantsValue or (ArgCount <> 2) then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol, 0, 0, 0, 0)
+      else if (ArgType[1] <> TyInteger) or (ArgType[2] <> TyString) or
+              (ArgLvalue[2] = 0) or (ArgForm[2] <> 1) or (ArgSym[2] = 0) then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol, 0, 0, 0, 0)
+      else if SymHi[ArgSym[2]] <> 255 then
+        FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
+    end
+    else if Builtin = 14 then
     begin
       if CallWantsValue or (ArgCount <> 2) then
         FailType(TeRule, PendingIdentLine, PendingIdentCol, 0, 0, 0, 0)
@@ -2597,7 +2626,7 @@ begin
       end
     end;
     if Builtin = 13 then MarkComputed(TyString)
-    else if (Builtin = 14) or (Builtin = 16) then MarkComputed(TyUnknown)
+    else if (Builtin = 14) or (Builtin = 16) or (Builtin = 18) then MarkComputed(TyUnknown)
     else MarkComputed(TyInteger)
   end
   else
@@ -3444,6 +3473,7 @@ begin
     else if Builtin = 15 then begin GenText := '    call rtl_execute'; GenLine(GenText) end
     else if Builtin = 16 then begin GenText := '    call rtl_halt'; GenLine(GenText) end
     else if Builtin = 17 then begin GenText := '    call rtl_dos_memory'; GenLine(GenText) end
+    else if Builtin = 18 then begin GenText := '    call rtl_getdir'; GenLine(GenText) end
     else GenFail(TokLine, TokCol, 4)
   end
   else
@@ -3468,7 +3498,7 @@ begin
     GenChar(Chr(10))
   end;
   { TP's $I+: every I/O call except Assign is checked where it stands. }
-  if ((Builtin >= 2) and (Builtin <= 8)) or (Builtin = 14) then
+  if ((Builtin >= 2) and (Builtin <= 8)) or (Builtin = 14) or (Builtin = 18) then
     if IoChecks then
       begin GenText := '    call rtl_io_check'; GenLine(GenText) end
   end
@@ -3672,7 +3702,7 @@ begin
           if Builtin <> 0 then
           begin
             if (I = 1) and ((Builtin <= 8) or (Builtin = 11)) then GenFlags[5] := true
-            else if (Builtin = 14) and (I = 2) then GenFlags[5] := true
+            else if ((Builtin = 14) or (Builtin = 18)) and (I = 2) then GenFlags[5] := true
             else if ((Builtin = 4) or (Builtin = 5)) and
                     ((I = 2) or (I = 4)) then
               GenFlags[5] := true
@@ -5924,7 +5954,8 @@ begin
           begin GenText := 'extern rtl_screen_page'; GenLine(GenText) end;
           begin GenText := 'extern rtl_execute'; GenLine(GenText) end;
           begin GenText := 'extern rtl_halt'; GenLine(GenText) end;
-          begin GenText := 'extern rtl_dos_memory'; GenLine(GenText) end
+          begin GenText := 'extern rtl_dos_memory'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_getdir'; GenLine(GenText) end
         end;
         if GenFlags[3] then GenStringIntrinsics();
         GenFlush()
@@ -7285,7 +7316,9 @@ begin
   if Kind = NameRename then
   begin
     NameRow := 3; NameCol := 7;
-    NameText := FileDir + chr(92) + FileName
+    NameText := FileDir;
+    if NameText[Length(NameText)] <> chr(92) then NameText := NameText + chr(92);
+    NameText := NameText + FileName
   end
   else
   begin
@@ -7826,7 +7859,7 @@ end;
 var
   DisplayPage, UserPage: array[1..4002] of char;
   BuildRequest: integer;
-  BuildPending, ProgramReady, KeepRecovery: boolean;
+  BuildPending, ProgramReady, KeepRecovery, BuildOwned: boolean;
   BuildBase, ReadyName, BuildInput: string;
 
 procedure ProductPaint;
@@ -7863,13 +7896,14 @@ end;
 procedure CleanBuild;
 var Path: string;
 begin
-  if (Length(BuildBase) > 0) and (not KeepRecovery) then
+  if BuildOwned and (not KeepRecovery) then
   begin
     Path := BuildBase + '.S'; RemoveOwned(Path);
     Path := BuildBase + '.COM'; RemoveOwned(Path);
     Path := BuildBase + '.EXE'; RemoveOwned(Path);
     Path := BuildBase + '.CBK'; RemoveOwned(Path);
-    Path := BuildBase + '.EBK'; RemoveOwned(Path)
+    Path := BuildBase + '.EBK'; RemoveOwned(Path);
+    BuildOwned := false
   end
 end;
 
@@ -7906,7 +7940,7 @@ begin
   end;
   OutputAsmName := BuildBase + '.S'; OutputComName := BuildBase + '.COM';
   OutputExeName := BuildBase + '.EXE';
-  NewBuildNames := Free
+  BuildOwned := Free; NewBuildNames := Free
 end;
 
 function PublishProgram(var From, Into, Backup: string): integer;
@@ -7955,6 +7989,22 @@ begin
   end
 end;
 
+{ MINT07: Halt(0) and Halt(7) both return directly to the editor. The
+  program page survives until Alt-F5, then any key restores the editor. }
+procedure RunProgram;
+var Code, Status: integer;
+begin
+  ScreenPage(1, UserPage[1]); Code := IOResult();
+  if Code = 0 then
+  begin
+    Status := Execute(ReadyName);
+    ScreenPage(0, UserPage[1]); Code := IOResult();
+    if Status < 0 then Code := -Status
+  end;
+  UiMode := ModeEditor;
+  if Code <> 0 then ShowFileError(Code, ModeEditor)
+end;
+
 procedure FinishBuild;
 var Target, Backup, Ext, Msg: string;
     Code, Attr: integer;
@@ -7986,6 +8036,7 @@ begin
       Code := PublishProgram(OutputExeName, ReadyName, Backup);
       if Code = 0 then
       begin
+        ProgramReady := true;
         Assign(F, OutputComName); Attr := FileAttributes(F);
         if Attr >= 0 then
         begin
@@ -7998,7 +8049,11 @@ begin
       if Code = 0 then begin CompileDone := true; UiMode := ModeCompile end
     end
   end;
-  if Code <> 0 then ShowFileError(Code, ModeEditor)
+  if Code <> 0 then ShowFileError(Code, ModeEditor);
+  { Release private outputs before another editor command can save a user
+    document under one of those names. Recovery files remain untouched. }
+  CleanBuild();
+  if (Code = 0) and ProgramReady and (BuildRequest = CmdRun) then RunProgram()
 end;
 
 procedure ProductKey(K: integer);
@@ -8029,10 +8084,11 @@ procedure ProductMain;
 var K: integer;
     C: char;
 begin
-  BuildBase := ''; KeepRecovery := false; BuildPending := false;
+  BuildBase := ''; BuildOwned := false; KeepRecovery := false; BuildPending := false;
   ProgramReady := false;
   ScreenPage(0, UserPage[1]); K := IOResult(); if K <> 0 then Halt(1);
-  FileDrive := 'A'; FileDir := '.';
+  GetDir(0, FileDir); K := IOResult(); if K <> 0 then Halt(1);
+  FileDrive := FileDir[1];
   IdeStart();
   while UiMode <> ModeQuit do
   begin
