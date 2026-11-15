@@ -166,12 +166,17 @@
       "role": "native16 Finder application pencil", "rgb": "#FFFF54", "rgb_bytes": [255, 255, 84],
       "heritage": "system8-platinum-quickdraw",
       "source_golden": "$(SYSTEM7_DECOMP)/goldens/captures/s8_finder_list_view.png and s8_finder_list_view_bysize.png native16 application cell; re/mint-results-008.md Sec 6.. Existing colours reuse Finder icon colors slots 11..25.",
-      "graded_by": "test-flair-list-view independent native16 PNG cells at TOL=0; SMALL_ICON_SHIFT RED" }
+      "graded_by": "test-flair-list-view independent native16 PNG cells at TOL=0; SMALL_ICON_SHIFT RED" },
+    { "idx": 27, "name": "CIDX_FILECOPY_PROGRESS", "era": "Initech frame",
+      "role": "live FILE COPY progress fill", "rgb": "#4559FF", "rgb_bytes": [69, 89, 255],
+      "heritage": "surviving-frame",
+      "source_golden": "goldens/frame/colours.tsv progress_fill, relative to photographed white 0.27 0.35 1.00; pinned still SHA256 11014f3332b66f2028c41f4c0236007de5dd540c8127a9f89942df84e0c52b6e",
+      "graded_by": "test_frame_copy_colour reads independent frame colour ratios and grades direct/indexed/DAC pixels" }
   ],
 
   "indexed_alert_extension": "L023 deliberate pinned inputs extension: slots 9/10 replace two unnamed gray-ramp values so the indexed desktop offscreen can carry the measured alert tints. Existing slots 0..8 and every named ramp row are unchanged; the unnamed gray ramp began at 11. See lane chrome-controls worklog.",
   "indexed_icon_extension": "Finder icon colors /  deliberate pinned inputs extension: slots 11..25 replace fifteen unnamed near-black gray-ramp values (#0B0B0B..#191919, named by no row and drawn by no PART) so the indexed offscreen can carry the fifteen non-gray Mac OS 8.1 Finder icon colours measured in mint-008 (re/mint-results-008.md Sec 3). Slots 0..10 and every named ramp row are unchanged; the unnamed gray ramp now begins at 26.",
-  "indexed_small_icon_extension": " deliberate pinned inputs reconciliation: native16 pink/tan/flesh/lavender colours reuse the identical Finder icon colors RGB slots 20/17/18/12/11/13. Only #FFFF54 is new, appended at slot 26. All slots 0..25 and named ramp rows retain their values; the unnamed ramp now starts at 27. See -finder-list-view.md.",
+  "indexed_small_icon_extension": " deliberate pinned inputs reconciliation: native16 pink/tan/flesh/lavender colours reuse the identical Finder icon colors RGB slots 20/17/18/12/11/13. Only #FFFF54 is new, appended at slot 26. All slots 0..25 and named ramp rows retain their values; the FILE COPY blue uses slot 27 and the unnamed ramp now starts at 28. See -finder-list-view.md.",
 
   "ramp_named_indices_note": "pinned inputs documented EXTENSION MECHANISM: flair_canon_rgb computes a deterministic gray ramp for idx>=11 (idx>=9 before the L023 indexed-alert extension) -- (idx<<16)|(idx<<8)|idx (color_canon.h flair_canon_rgb, the idx>=9 branch). A neutral gray (R==G==B) is therefore representable EXACTLY by naming its own index -- NO new 9-entry table slot, NO generator schema change to the color_canon[9][3] array. This is NOT a new mechanism: spec/flair_skins.h FLAIR_GRAY_IDX_808080 / FLAIR_CANON_GRAY_RGB already uses this exact idiom for the win31 btnshadow gray. The rows below are the SAME idiom, promoted into the generated header as named CIDX_* constants (not hand-typed in a consumer) so they carry a versioned pinned inputs citation the same as an indexed entry.",
 

@@ -138,6 +138,7 @@ static const want_part WANT[] = {
     { (int)FLAIR_PART_ICON_CLUT + 27, 0x875454,  23, "mint8 selected flesh" },
     { (int)FLAIR_PART_ICON_CLUT + 28, 0x870000,  24, "mint8 selected red" },
     { (int)FLAIR_PART_ICON_CLUT + 29, 0x870054,  25, "mint8 selected pink" },
+    P(FILECOPY_PROGRESS, 0x4559FF, 27, "goldens/frame/colours.tsv progress_fill"),
 };
 #define N_WANT ((int)(sizeof WANT / sizeof WANT[0]))
 

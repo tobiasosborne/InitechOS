@@ -99,6 +99,10 @@ test_dialog_record_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_dialog_tracking_SRCS := tests/test_dialog_tracking.c dialog.c control.c text.c event.c window.c blitter.c surface.c chrome.c heap.c $(TOP)/flair/region/region.c tests/render/render.c flair_look.c
 test_dialog_tracking_CFLAGS := -D_POSIX_C_SOURCE=200809L -DFRAME_GEOMETRY='"$(TOP)/goldens/frame/geometry.tsv"'
 test_dialog_tracking_LIBS := -lpng
+test_frame_copy_colour_SRCS := $(test_dialog_tracking_SRCS:tests/test_dialog_tracking.c=tests/test_frame_copy_colour.c)
+test_frame_copy_colour_CFLAGS := -D_POSIX_C_SOURCE=200809L
+test_frame_copy_colour_ARGS := $(TOP)/goldens/frame/colours.tsv
+test_frame_copy_colour_LIBS := -lpng
 test_drawing_ops_SRCS := tests/test_drawing_ops.c
 test_drawing_ops_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_event_SRCS := tests/test_event.c event.c
@@ -203,6 +207,7 @@ test_copy_modal_SRCS := tests/test_copy_modal.c $(addprefix $(TOP)/kernel/,int21
 test_copy_modal_CFLAGS := $(test_filecopy_disk_CFLAGS)
 
 HOST_TESTS += test_menu_empty
+HOST_TESTS += test_frame_copy_colour
 test_menu_empty_SRCS := $(subst tests/test_menu.c,tests/test_menu_empty.c,$(test_menu_SRCS))
 test_menu_empty_CFLAGS := $(test_menu_CFLAGS)
 

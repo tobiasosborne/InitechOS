@@ -398,8 +398,13 @@ part=78 bpp=15 depth=00870054 skin0=00870054 skin1=00870054 skin2=00870054
 part=78 bpp=16 depth=00870054 skin0=00870054 skin1=00870054 skin2=00870054
 part=78 bpp=24 depth=00870054 skin0=00870054 skin1=00870054 skin2=00870054
 part=78 bpp=32 depth=00870054 skin0=00870054 skin1=00870054 skin2=00870054
-part=79 bpp=8 depth=00000000
-part=79 bpp=15 depth=00000000
-part=79 bpp=16 depth=00000000
-part=79 bpp=24 depth=00000000
-part=79 bpp=32 depth=00000000
+part=79 bpp=8 depth=0000001B skin0=0000001B skin1=0000001B skin2=0000001B
+part=79 bpp=15 depth=004559FF skin0=004559FF skin1=004559FF skin2=004559FF
+part=79 bpp=16 depth=004559FF skin0=004559FF skin1=004559FF skin2=004559FF
+part=79 bpp=24 depth=004559FF skin0=004559FF skin1=004559FF skin2=004559FF
+part=79 bpp=32 depth=004559FF skin0=004559FF skin1=004559FF skin2=004559FF
+part=80 bpp=8 depth=00000000
+part=80 bpp=15 depth=00000000
+part=80 bpp=16 depth=00000000
+part=80 bpp=24 depth=00000000
+part=80 bpp=32 depth=00000000

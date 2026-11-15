@@ -256,7 +256,10 @@ struct DialogRecord {
      * TrackControl/TrackGoAway fire only on release inside the same target. */
     uint16_t      trackingItem;
 
-    uint8_t       _pad[2]; /* alignment */
+    /* Only the live FILE COPY uses the still's white body/blue fill. Generic
+     * dialogs and ordinary progress controls retain their captured skin. */
+    uint8_t       fileCopyStyle;
+    uint8_t       _pad;
 };
 
 /* DialogPtr -- pointer to a DialogRecord (verbatim QuickDraw name).

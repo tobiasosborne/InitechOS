@@ -338,3 +338,10 @@ lifecycle records and the existing single-pixel Control Panels probes retain
 their detailed markers. The summary keeps the existing progress prefix.
 The routing oracle independently scripts 18 successful fills, three blank rows,
 a refused fill and visible text, and checks both counts and retained records.
+
+Unlanded wind-down checkpoint, initech-1swiy: live FILE COPY white body and
+blue progress role from goldens/frame/colours.tsv, with generic Platinum
+controls retained. The independent isolated colour probe passed17/17 before
+this branch was saved. This is unfinished: full component/desktop integration,
+wrapper argument forwarding, generated asset audit, mutation and native checks
+remain. Never merge this checkpoint as an approved change.
