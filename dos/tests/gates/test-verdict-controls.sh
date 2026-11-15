@@ -26,4 +26,18 @@ rc=0
 check 'captured tool error remains exit 2' test "$rc" = 2
 if grep '^FAIL' build/verdict-controls/log-error.log; then fail 'captured tool error emitted semantic assertion'; fi
 checks=$((checks+1))
+# Error summaries must preserve their caller's check name, including FDISK.
+sed -n '/^red() /p' dos/fdisk/tests/fdisk.sh > build/verdict-controls/fdisk-helper
+printf '%s\n' '(exit "${CONTROL_STATUS:-1}") || red "$@"' >> build/verdict-controls/fdisk-helper
+for reason in CHS-bytes sfdisk-dump; do
+ rc=0
+ sh build/verdict-controls/fdisk-helper "$reason" > "build/verdict-controls/$reason.log" 2>&1 || rc=$?
+ check "FDISK $reason helper exits with assertion failure" test "$rc" = 1
+ check "FDISK verdict names $reason" grep -q -F "FAIL fdisk $reason" "build/verdict-controls/$reason.log"
+done
+rc=0
+CONTROL_STATUS=2 sh build/verdict-controls/fdisk-helper io-error > build/verdict-controls/fdisk-io.log 2>&1 || rc=$?
+check 'FDISK comparison I/O error remains exit 2' test "$rc" = 2
+if grep '^FAIL' build/verdict-controls/fdisk-io.log; then fail 'FDISK I/O error emitted assertion'; fi
+checks=$((checks+1))
 complete

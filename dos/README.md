@@ -97,7 +97,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 158 host patches and 48 product-session patches,
+The current DOS inventory is 159 host patches and 48 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.
@@ -251,3 +251,7 @@ is part of the flat loaded image, since that format has no BSS extent header.
 Raw two-second stamp words have their own mutation control; captured command
 failures retain the exact assertion and status rather than disappearing into
 a redirected host log. Fixture verbs are validated before builtin dispatch.
+
+The FDISK verdict helper is covered by the same diagnostic controls: separate
+CHS-byte and sfdisk-dump failures retain their actual names, and a comparison
+I/O error remains an error. Its literal-message mutation must fail the control.
