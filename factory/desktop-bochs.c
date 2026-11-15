@@ -2,6 +2,10 @@
  * while the driver's absolute overall deadline always bounds every wait. */
 #include <time.h>
 #include "emu/bochs_trace.h"
+#include "emu/marker_match.h"
+static char *read_file(const char *path, size_t *len);
+/* End of the last accepted W marker in the transcript (emu/marker_match.h). */
+static size_t journey_marker_consumed;
 static void (*journey_idle)(void *);
 static void *journey_context;
 static long long journey_deadline;
@@ -23,8 +27,6 @@ static int journey_progress(const char *line)
 }
 static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
 {
-    static struct { char text[160]; unsigned count; } waits[64];
-    static unsigned used;
     static int validated;
     if (!validated) {
         int ok;
@@ -34,15 +36,9 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
         return ok;
     }
     if (n < 2 || s[0] != 'W') return bochs_trace_parse(s,n,v);
-    if (n >= sizeof waits[0].text) return 0;
+    if (n >= 160) return 0;
     char marker[160];memcpy(marker,s+1,n-1);marker[n-1]=0;
-    unsigned slot=0;
-    while(slot<used && strcmp(waits[slot].text,marker))slot++;
-    if(slot==used) {
-        if(used==64)return 0;
-        strcpy(waits[used++].text,marker);
-    }
-    unsigned want=++waits[slot].count;
+    size_t after=journey_marker_consumed;
     const char *path=getenv("DESKTOP_SERIAL");
     if(!path)return 0;
     long long idle_ms=10000;
@@ -54,16 +50,16 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
     }
     struct timespec pause={0,20000000};
     long long start=mono_ms(), last_progress=start;
-    long consumed=0;
+    size_t consumed=0;
     unsigned extensions=0;
     for(;;) {
         long long now=mono_ms();
         if(journey_deadline && now>=journey_deadline) {
-            fprintf(stderr,"desktop: hard overall deadline expired waiting for W marker '%s' occurrence %u (waited %lldms)\n",marker,want,now-start);
+            fprintf(stderr,"desktop: hard overall deadline expired waiting for W marker '%s' after byte %zu (waited %lldms)\n",marker,after,now-start);
             return 0;
         }
         if(now-last_progress>=idle_ms) {
-            fprintf(stderr,"desktop: W marker '%s' occurrence %u missing: no meaningful serial/input progress for %lldms (waited %lldms; input stopped)\n",marker,want,idle_ms,now-start);
+            fprintf(stderr,"desktop: W marker '%s' after byte %zu missing: no meaningful serial/input progress for %lldms (waited %lldms; input stopped)\n",marker,after,idle_ms,now-start);
             return 0;
         }
         if(journey_idle)journey_idle(journey_context);
@@ -71,24 +67,27 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
         /* Expiry is checked before accepting even a newly arrived marker. */
         if((journey_deadline && now>=journey_deadline) || now-last_progress>=idle_ms)
             continue;
-        FILE *f=fopen(path,"r");unsigned seen=0;char line[4096];
-        int progress=0;
-        if(f) {
-            long complete=0;
-            while(fgets(line,sizeof line,f)) {
-                if(!strchr(line,'\n'))continue;
-                complete=ftell(f);
-                if(strstr(line,marker))seen++;
-                if(complete>consumed && journey_progress(line))progress=1;
+        size_t len=0,end=0;char *txt=read_file(path,&len);
+        int progress=0,seen=0;
+        if(txt) {
+            size_t complete=len;
+            while(complete>0 && txt[complete-1]!='\n')complete--;
+            if(complete<consumed || len<journey_marker_consumed) {
+                free(txt);fputs("desktop: serial transcript shrank during a wait\n",stderr);return 0;
             }
-            fclose(f);
-            if(complete<consumed) {
-                fputs("desktop: serial transcript shrank during a wait\n",stderr);return 0;
+            for(size_t at=consumed;at<complete;) {
+                char line[4096];size_t k=0;
+                while(at<complete && txt[at]!='\n') {if(k<sizeof line-1)line[k++]=txt[at];at++;}
+                line[k]=0;at++;
+                if(journey_progress(line))progress=1;
             }
             consumed=complete;
+            seen=marker_token_after(txt,len,journey_marker_consumed,marker,&end);
+            free(txt);
         }
-        if(seen>=want) {
-            if(extensions)fprintf(stderr,"desktop: W marker '%s' occurrence %u reached after %lldms; progress renewals=%u\n",marker,want,now-start,extensions);
+        if(seen) {
+            journey_marker_consumed=end;
+            if(extensions)fprintf(stderr,"desktop: W marker '%s' reached after %lldms; progress renewals=%u\n",marker,now-start,extensions);
             memset(v,0,sizeof *v);v->kind=BX_WAIT;return 1;
         }
         if(progress) {last_progress=now;extensions++;}

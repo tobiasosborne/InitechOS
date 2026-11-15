@@ -1663,28 +1663,7 @@ static int wait_for_serial_marker_n(const char *serial_path, const char *marker,
  * digits, '_', '-' and '.'; a marker edge that is not one (s="A:\WORD.WP5
  * before its closing quote) is a deliberate prefix and needs no boundary. */
 static size_t w_marker_consumed;
-static int marker_name_char(char c)
-{
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-           (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
-}
-static int marker_token_after(const char *txt, size_t len, size_t from,
-                              const char *marker, size_t *end)
-{
-    size_t m = strlen(marker);
-    if (m == 0 || from > len) return 0;
-    for (size_t at = from; at + m <= len; at++) {
-        if (memcmp(txt + at, marker, m) != 0) continue;
-        if (marker_name_char(marker[0]) && at > 0 &&
-            marker_name_char(txt[at - 1])) continue;
-        if (!memchr(txt + at + m, '\n', len - at - m)) return 0; /* incomplete */
-        if (marker_name_char(marker[m - 1]) && marker_name_char(txt[at + m]))
-            continue;
-        *end = at + m;
-        return 1;
-    }
-    return 0;
-}
+#include "marker_match.h"
 static int wait_for_serial_marker(const char *serial_path, const char *marker,
                                   int budget_ms)
 {

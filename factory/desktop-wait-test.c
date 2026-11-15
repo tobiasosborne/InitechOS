@@ -32,6 +32,7 @@ static int run(const char *name,const char *progress,long long at,long long hard
 {
     clock_ms=0;next_progress=1000;marker_at=at;marker=name;activity=progress;published=0;
     if(ftruncate(fileno(serial),0)||fseek(serial,0,SEEK_SET))return 1;
+    journey_marker_consumed=0; /* each scenario is a fresh session transcript */
     long long deadline=hard;
     BOCHS_TRACE_BIND_IDLE(NULL); /* Same binding as bochs_run, virtual transport. */
     journey_idle=produce;journey_context=NULL;

@@ -19,3 +19,10 @@ $(OUT)/desktop-wait-test: factory/desktop-wait-test.c factory/desktop-bochs.c $(
 all: $(OUT)/desktop-key-test
 $(OUT)/desktop-key-test: factory/desktop-key-test.c factory/desktop-bochs.c $(wildcard factory/emu/bochs*) factory/emu/rfb_port.h factory/emu/run_status.h FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
+all: $(OUT)/desktop-marker-test
+$(OUT)/desktop-marker-test: factory/desktop-marker-test.c factory/desktop-bochs.c factory/emu/marker_match.h $(wildcard factory/emu/bochs*) factory/emu/rfb_port.h factory/emu/run_status.h FORCE
+	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
+test: marker-test
+.PHONY: marker-test
+marker-test: $(OUT)/desktop-marker-test
+	@$(OUT)/desktop-marker-test
