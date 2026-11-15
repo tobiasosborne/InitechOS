@@ -36,6 +36,15 @@ file_bytes() {
 }
 
 case $entry in
+work-names)
+    check work-names sh tests/work-names.sh "$out"
+    ;;
+run-command)
+    check run-command sh tests/run-command.sh "$out"
+    ;;
+compile)
+    check compile sh tests/compile.sh "$out"
+    ;;
 unnamed)
     check unnamed sh tests/unnamed.sh "$out"
     ;;
@@ -94,13 +103,11 @@ paging)
     file_bytes backup "$scratch/original" "$scratch/BIG.BAK"
     ;;
 one-program)
+    check embedded-source "$top/turbo/compiler/tests/ide-source.sh" check "$top/turbo/compiler/turbo.pas" "$top/turbo/ide"
     # One TURBO.COM holds the compiler and the IDE: the compiler's
     # declarations, the IDE's, one main. Both compilers must accept that
     # program within their capacities (turbo/README.md, limits).
-    main=$(grep -n '^begin$' "$top/turbo/compiler/turbo.pas" | tail -1 | cut -d: -f1)
-    head -n $((main - 1)) "$top/turbo/compiler/turbo.pas" > "$scratch/ONE.PAS"
-    cat screen.pas buffer.pas editor.pas >> "$scratch/ONE.PAS"
-    printf 'begin\n  IdeStart()\nend.\n' >> "$scratch/ONE.PAS"
+    setup cp "$top/turbo/compiler/turbo.pas" "$scratch/ONE.PAS"
     check seed-capacity "$top/build/turbo/seed/initechc" --emit-asm -o "$scratch/one.s" "$scratch/ONE.PAS"
     setup cp "$scratch/ONE.PAS" "$scratch/TURBOIN.PAS"
     (cd "$scratch" && "$top/build/turbo/compiler/turbo_fpc" /DUMP > raw)

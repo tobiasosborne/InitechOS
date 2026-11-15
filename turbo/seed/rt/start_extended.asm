@@ -62,17 +62,15 @@ _start:
 ; In:  AL = byte. Clobbers: DX. Preserves nothing else of interest.
 global serial_putc
 serial_putc:
-    ; NS16550A LSR bit 5 (THRE): wait before every transmitted byte.
-    ; Authority: PC16550D data sheet, Line Status Register (offset 5).
-    push eax
-    mov dx, COM1 + 5
-.wait:
-    in al, dx
-    test al, 0x20
-    jz .wait
-    pop eax
-    mov dx, COM1
-    out dx, al
+    ; DOS stdout, AH=40h: visible and redirectable (DOS 3.30 TR 6-167).
+    ; Preserve all registers: string and integer writers keep loop state.
+    pushad
+    lea edx, [esp+28]
+    mov ecx, 1
+    mov ebx, 1
+    mov eax, 0x4000
+    int 0x21
+    popad
     ret
 
 ; -- serial_puts: write a NUL-terminated string at EAX to COM1 -------------

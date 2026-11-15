@@ -11,7 +11,7 @@ cmp "$out/source.sha256" build/turbo/selfhost/source.sha256
 fpc -iV > "$out/fpc-version.txt"
 sha256sum build/turbo/compiler/turbo_fpc build/turbo/compiler/TURBO.COM > "$out/bootstraps.sha256"
 cp turbo/compiler/turbo.pas "$out/host/TURBOIN.PAS"
-(cd "$out/host" && "$root/build/turbo/compiler/turbo_fpc" > transcript)
+(cd "$out/host" && "$root/build/turbo/compiler/turbo_fpc" TURBOIN.PAS > transcript)
 tr -d '\r' < "$out/host/transcript" > "$out/host/normalized"
 grep -E '^TURBO-NATIVE-OK form=1 ' "$out/host/normalized"
 if grep -E '^TURBO-.*(ERROR|SKIP)' "$out/host/normalized"; then exit 1; fi
@@ -30,7 +30,7 @@ if build/turbo/smoke/compare "$out/contaminated.COM" "$out/D2.COM" > "$out/conta
 # keeping this program and compiler source within both capacities.
 sed 's/SourceMax = 262144;/SourceMax = 262143;/' turbo/compiler/turbo.pas > "$out/changed/TURBOIN.PAS"
 if cmp -s turbo/compiler/turbo.pas "$out/changed/TURBOIN.PAS"; then exit 1; fi
-(cd "$out/changed" && "$root/build/turbo/compiler/turbo_fpc" > transcript)
+(cd "$out/changed" && "$root/build/turbo/compiler/turbo_fpc" TURBOIN.PAS > transcript)
 grep -E '^TURBO-NATIVE-OK form=1 ' "$out/changed/transcript"
 build/factory/mz/mzcheck "$out/changed/TURBOOUT.EXE" > "$out/changed/mzcheck.log"
 if build/turbo/smoke/compare "$out/D1.COM" "$out/changed/TURBOOUT.EXE" > "$out/changed-source.log" 2>&1; then exit 1; fi

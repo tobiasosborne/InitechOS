@@ -9,7 +9,7 @@ SEED_RT := $(SEED_OUT)/rt
 RT_SRC := $(TOP)/turbo/seed/rt
 PROTOCOLS := $(patsubst fixtures/%.golden,%,$(wildcard fixtures/lex*.golden fixtures/parse*.golden fixtures/type*.golden))
 CORPUS := $(patsubst fixtures/%.pas,%,$(wildcard fixtures/gen*.pas))
-HOST_TESTS := $(PROTOCOLS) self-protocols $(CORPUS) self-generation seed-build isolated-seed runtime-table execution-frame execution-var execution-flat execution-io
+HOST_TESTS := $(PROTOCOLS) self-protocols $(CORPUS) self-generation seed-build isolated-seed runtime-table pool-search cli execution-frame execution-var execution-flat execution-io
 # Generated execution is tier 1/2 only; the default tier 0 stays emulator-free.
 TESTS ?= $(filter-out execution-frame execution-var execution-flat execution-io,$(HOST_TESTS))
 ifneq ($(filter-out $(HOST_TESTS),$(TESTS)),)
@@ -21,8 +21,8 @@ tools:
 	@command -v $(FPC) >/dev/null 2>&1 || { echo 'FAIL: fpc is required (no skipped reference tests)' >&2; exit 1; }
 seed-tools:
 	+@$(MAKE) --no-print-directory -C $(TOP)/turbo/seed OUT=$(SEED_OUT) MAKEOVERRIDES= all TESTS=
-$(OUT)/turbo_fpc: turbo.pas $(MAKEFILE_LIST) | $(OUT) tools
-	@$(FPC) -B -O2 -v0 -FU$(OUT) -FE$(OUT) -o$@ $< > $(OUT)/fpc-build.log 2>&1 || { cat $(OUT)/fpc-build.log; exit 1; }
+$(OUT)/turbo_fpc: turbo.pas hostrtl.pas $(MAKEFILE_LIST) | $(OUT) tools
+	@$(FPC) -B -O2 -v0 -FaHostRTL -Fu. -FU$(OUT) -FE$(OUT) -o$@ $< > $(OUT)/fpc-build.log 2>&1 || { cat $(OUT)/fpc-build.log; exit 1; }
 $(OUT)/turbo_seed.s: turbo.pas $(wildcard $(TOP)/turbo/seed/*.[ch]) $(MAKEFILE_LIST) | $(OUT) seed-tools
 	@$(SEED_BIN) --emit-asm -o $@ $<
 $(OUT)/turbo_seed.o: $(OUT)/turbo_seed.s

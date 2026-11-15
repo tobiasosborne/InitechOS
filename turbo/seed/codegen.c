@@ -538,7 +538,8 @@ typedef enum {
     CG_FILEBI_RENAME,
     CG_FILEBI_IORESULT,
     CG_FILEBI_READKEY,
-    CG_FILEBI_ATTRIBUTES
+    CG_FILEBI_ATTRIBUTES,
+    CG_FILEBI_PARAMCOUNT, CG_FILEBI_PARAMSTR, CG_FILEBI_PAGE, CG_FILEBI_EXECUTE, CG_FILEBI_HALT, CG_FILEBI_MEMORY, CG_FILEBI_GETDIR
 } CgFileBuiltin;
 
 static CgFileBuiltin cg_file_builtin_kind(const char *name)
@@ -556,6 +557,13 @@ static CgFileBuiltin cg_file_builtin_kind(const char *name)
     if (strcmp(lc, "ioresult") == 0)   return CG_FILEBI_IORESULT;
     if (strcmp(lc, "readkey") == 0)    return CG_FILEBI_READKEY;
     if (strcmp(lc, "fileattributes") == 0) return CG_FILEBI_ATTRIBUTES;
+    if (strcmp(lc, "paramcount") == 0) return CG_FILEBI_PARAMCOUNT;
+    if (strcmp(lc, "paramstr") == 0) return CG_FILEBI_PARAMSTR;
+    if (strcmp(lc, "screenpage") == 0) return CG_FILEBI_PAGE;
+    if (strcmp(lc, "execute") == 0) return CG_FILEBI_EXECUTE;
+    if (strcmp(lc, "halt") == 0) return CG_FILEBI_HALT;
+    if (strcmp(lc, "dosmemory") == 0) return CG_FILEBI_MEMORY;
+    if (strcmp(lc, "getdir") == 0) return CG_FILEBI_GETDIR;
     return CG_FILEBI_NONE;
 }
 
@@ -1131,6 +1139,15 @@ static void gen_str_base_addr(Cg *cg, const char *name)
 static void gen_str_value(Cg *cg, const AstNode *e)
 {
     FILE *o = cg->out;
+    if (e->kind == AST_CALL && cg_file_builtin_kind(e->as.call.name) == CG_FILEBI_PARAMSTR) {
+        cg_emit_temp_lea(cg, "eax", e->str_temp);
+        fprintf(o, "    push eax\n");
+        gen_expr(cg, e->as.call.args.items[0]);
+        fprintf(o, "    push eax\n    call rtl_paramstr\n    add esp, 8\n");
+        cg_emit_temp_lea(cg, "eax", e->str_temp);
+        return;
+    }
+
     if (e->kind == AST_STRLIT) {
         fprintf(o, "    mov eax, strlit_%d\n", e->as.strlit.lit_ord);
         return;
@@ -1823,6 +1840,32 @@ static void gen_file_call(Cg *cg, const AstNode *call, CgFileBuiltin bi)
     int checked = call->as.call.io_checks && bi != CG_FILEBI_ASSIGN
                   && bi != CG_FILEBI_IORESULT && bi != CG_FILEBI_READKEY;
     switch (bi) {
+    case CG_FILEBI_GETDIR:
+        gen_str_base_addr(cg, call->as.call.args.items[1]->as.varref.name);
+        fprintf(o, "    push eax\n");
+        gen_expr(cg, filearg);
+        fprintf(o, "    push eax\n    call rtl_getdir\n    add esp, 8\n");
+        if (checked) fprintf(o, "    call rtl_io_check\n");
+        return;
+    case CG_FILEBI_MEMORY:
+        fprintf(o, "    call rtl_dos_memory\n"); return;
+    case CG_FILEBI_PARAMCOUNT:
+        fprintf(o, "    call rtl_paramcount\n"); return;
+    case CG_FILEBI_PARAMSTR:
+        cg_ice("ParamStr requires string-value materialization", call); return;
+    case CG_FILEBI_PAGE:
+        gen_elem_addr(cg, call->as.call.args.items[1]->as.arrayindex.name, call->as.call.args.items[1]->as.arrayindex.index);
+        fprintf(o, "    push eax\n");
+        gen_expr(cg, filearg);
+        fprintf(o, "    push eax\n    call rtl_screen_page\n    add esp, 8\n");
+        if (call->as.call.io_checks) fprintf(o, "    call rtl_io_check\n");
+        return;
+    case CG_FILEBI_EXECUTE:
+        gen_str_value(cg, filearg);
+        fprintf(o, "    push eax\n    call rtl_execute\n    add esp, 4\n"); return;
+    case CG_FILEBI_HALT:
+        gen_expr(cg, filearg);
+        fprintf(o, "    push eax\n    call rtl_halt\n"); return;
     case CG_FILEBI_ATTRIBUTES:
         gen_designator_base_addr(cg, filearg->as.varref.name, NULL);
         fprintf(o, "    push eax\n    call rtl_file_attributes\n    add esp, 4\n");
@@ -2661,6 +2704,7 @@ int codegen_emit(AstNode *program, FILE *out)
         fprintf(out, "extern rtl_io_check\n");
         fprintf(out, "extern rtl_readkey\n");
         fprintf(out, "extern rtl_file_attributes\n");
+        fprintf(out, "extern rtl_paramcount, rtl_paramstr, rtl_screen_page, rtl_execute, rtl_halt, rtl_dos_memory, rtl_getdir\n");
 
     }
     fprintf(out, "\n");

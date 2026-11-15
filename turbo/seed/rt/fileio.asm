@@ -337,3 +337,302 @@ rtl_file_attributes:
     neg eax
     pop ebx
     ret
+
+; ParamCount/ParamStr: DOS 3.30 PSP tail, AH=62h. Parameters are separated
+; by spaces/tabs (TP 5.5 Reference Guide; FPC oracle). ParamStr copies into
+; caller-owned ShortString storage so nested results do not alias.
+rtl_tail:
+    mov eax, 0x6200
+    int 0x21
+    movzx esi, bx
+    shl esi, 4
+    movzx ecx, byte [esi+0x80]
+    add esi, 0x81
+    ret
+
+global rtl_paramcount
+rtl_paramcount:
+    push ebx
+    push esi
+    push edi
+    call rtl_tail
+    xor eax, eax
+    xor edi, edi
+    xor edx, edx
+.loop:
+    test ecx, ecx
+    jz .done
+    lodsb
+    ; AL is the character, keep the count in EDI.
+    cmp al, ' '
+    je .space
+    cmp al, 9
+    je .space
+    test edx, edx
+    jnz .next
+    inc edi
+    mov edx, 1
+    jmp .next
+.space:
+    xor edx, edx
+.next:
+    dec ecx
+    jmp .loop
+.done:
+    mov eax, edi
+    pop edi
+    pop esi
+    pop ebx
+    ret
+
+global rtl_paramstr
+rtl_paramstr:
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+    mov edi, [ebp+12]        ; destination ShortString
+    mov byte [edi], 0
+    call rtl_tail
+    mov ebx, [ebp+8]         ; requested index
+    cmp ebx, 0
+    jl .done
+    je .program
+    xor edx, edx            ; current parameter index
+.skip:
+    test ecx, ecx
+    jz .done
+    cmp byte [esi], ' '
+    je .skipbyte
+    cmp byte [esi], 9
+    jne .start
+.skipbyte:
+    inc esi
+    dec ecx
+    jmp .skip
+.start:
+    inc edx
+.word:
+    test ecx, ecx
+    jz .done
+    mov al, [esi]
+    cmp al, ' '
+    je .skip
+    cmp al, 9
+    je .skip
+    cmp edx, ebx
+    jne .next
+    inc byte [edi]
+    movzx eax, byte [edi]
+    mov bl, [esi]
+    mov [edi+eax], bl
+    mov ebx, [ebp+8]
+.next:
+    inc esi
+    dec ecx
+    jmp .word
+.program:
+    ; DOS 3.x environments may carry a count and executable path after
+    ; double NUL. An absent trailer gives an empty result, never guessed.
+    sub esi, 0x81
+    movzx esi, word [esi+0x2c]
+    shl esi, 4
+    mov ecx, 4093
+.env:
+    cmp word [esi], 0
+    je .trailer
+    inc esi
+    loop .env
+    jmp .done
+.trailer:
+    cmp word [esi+2], 1
+    jne .done
+    add esi, 4
+.name:
+    mov al, [esi]
+    test al, al
+    jz .done
+    movzx edx, byte [edi]
+    cmp edx, 255
+    je .done
+    inc edx
+    mov [edi+edx], al
+    mov [edi], dl
+    inc esi
+    jmp .name
+.done:
+    mov eax, edi
+    pop edi
+    pop esi
+    pop ebx
+    pop ebp
+    ret
+
+; ScreenPage(op, byte*): OEM page packet, kernel/include/dos_oem.h,
+; kernel README AH=FBh. The kernel validates the complete fixed packet.
+global rtl_screen_page
+rtl_screen_page:
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+    sub esp, 4004
+    ; Pascal char-array elements occupy dword slots. Marshal the published
+    ; packed 4002-byte packet instead of exposing that language layout.
+    cmp dword [ebp+8], 0
+    je .call
+    mov esi, [ebp+12]
+    mov edi, esp
+    mov ecx, 4002
+.pack:
+    mov al, [esi]
+    stosb
+    add esi, 4
+    loop .pack
+.call:
+    mov eax, [ebp+8]
+    and eax, 0xff
+    or eax, 0xfb00
+    mov edx, esp
+    int 0x21
+    jc .failed
+    cmp dword [ebp+8], 0
+    jne .done
+    mov esi, esp
+    mov edi, [ebp+12]
+    mov ecx, 4002
+.unpack:
+    movzx eax, byte [esi]
+    stosd
+    inc esi
+    loop .unpack
+.done:
+    add esp, 4004
+    jmp rtl_file_return
+.failed:
+    add esp, 4004
+    jmp rtl_file_fail
+
+; Execute(path): existing DOS AH=4Bh/4Dh, empty command tail, inherited
+; environment. Return negative DOS load error, otherwise full exit status.
+global rtl_execute
+rtl_execute:
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+    sub esp, 280
+    mov esi, [ebp+8]
+    movzx ecx, byte [esi]
+    inc esi
+    mov edi, esp
+    rep movsb
+    mov byte [edi], 0
+    mov edx, esp
+    lea ebx, [esp+260]
+    mov dword [ebx], 0
+    lea eax, [esp+276]
+    mov dword [ebx+4], eax
+    mov word [eax], 0x0d00
+    mov dword [ebx+8], 0
+    mov dword [ebx+12], 0
+    mov eax, 0x4b00
+    int 0x21
+    jc .error
+    mov eax, 0x4d00
+    int 0x21
+    movzx eax, ax
+    jmp .done
+.error:
+    movzx eax, ax
+    neg eax
+.done:
+    add esp, 280
+    pop edi
+    pop esi
+    pop ebx
+    pop ebp
+    ret
+
+global rtl_halt
+rtl_halt:
+    mov eax, [esp+4]
+    and eax, 0xff
+    or eax, 0x4c00
+    int 0x21
+    cli
+    hlt
+    jmp $-1
+
+; DOS AH=48h largest-free-block probe (request 65535 paragraphs). The
+; published conventional arena is below 1 MiB; an unexpected allocation
+; is freed through AH=49h. Result is bytes, for the IDE compile box.
+global rtl_dos_memory
+rtl_dos_memory:
+    push ebx
+    mov ebx, 65535
+    mov eax, 0x4800
+    int 0x21
+    jnc .free
+    movzx eax, bx
+    shl eax, 4
+    pop ebx
+    ret
+.free:
+    movzx ebx, ax
+    mov eax, 0x4900
+    int 0x21
+    mov eax, 1048560
+    pop ebx
+    ret
+
+; TP GetDir(drive, var string[255]); published DOS AH=19h/47h.
+; Kernel AH=47h writes at most64 bytes: root-relative path and NUL.
+global rtl_getdir
+rtl_getdir:
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+    call rtl_io_pending
+    jnz rtl_file_return
+    mov edi, [ebp+12]
+    mov byte [edi], 0
+    mov ebx, [ebp+8]
+    cmp ebx, 26
+    ja .invalid
+    test ebx, ebx
+    jnz .drive
+    mov eax, 0x1900
+    int 0x21
+    movzx ebx, al
+    jmp .prefix
+.drive:
+    dec ebx
+.prefix:
+    mov al, bl
+    add al, 'A'
+    mov [edi+1], al
+    mov word [edi+2], 0x5c3a
+    lea esi, [edi+4]
+    mov edx, [ebp+8]
+    mov eax, 0x4700
+    int 0x21
+    jc rtl_file_fail
+    mov ecx, 3
+.length:
+    cmp byte [edi+ecx+1], 0
+    je .done
+    inc ecx
+    cmp ecx, 66
+    jb .length
+.done:
+    mov [edi], cl
+    jmp rtl_file_return
+.invalid:
+    mov eax, 15
+    jmp rtl_file_fail

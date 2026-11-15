@@ -1,67 +1,9 @@
 {$MODE DELPHI}{$B+}{$H-}
-{
-  turbo.pas -- Turbo Initech single-file bootstrap, B9.4 x86 codegen slice.
-
-  Ref: legacy Pascal subset plan Sec 3 and Sec 5; ADR-0007
-  DEC-02, DEC-04, DEC-05, and DEC-07; beads initech-6m52 and
-  initech-lh83. Pascal lives here by CLAUDE.md Law 3.
-
-  Input is the fixed B8 filename TURBOIN.PAS. A two-ShortString rolling window
-  supplies exact bytes to the monotonic lexer and is reopened for each driver
-  pass; this lets Turbo Initech check its grown source without enlarging BSS. The B9.2
-  SourceWords arena is retired; the build gate now proves the rolling window
-  and the absence of that dead 80 KiB reservation. Overflow is loud.
-  Identifiers are canonical lower-case and live in one global PoolChars array.
-
-  Dump protocols are specified in LEXER-DUMP.md, PARSER-TRACE.md, and
-  SYMBOLS-DUMP.md. The driver emits the unchanged lexer bracket, resets for
-  the unchanged syntax-only recursive-descent trace, then resets once more
-  for an AST-free semantic parse and deterministic symbol dump.
-
-  PHASE DIVERGENCE (deliberate): seed/typecheck.c parses to an AST, collects
-  declarations, then checks that AST (lines 10-23 and 2076-2127). Turbo Initech owns no
-  AST by design. Its third driver pass mirrors the seed's semantic rules while
-  checking expressions/statements as they are parsed. This is the plan's
-  sanctioned single-pass architecture; it changes phase structure, not the
-  type compatibility rules. A call to a later routine therefore needs an
-  explicit prior forward in Turbo Initech, while the seed's collect_procs-before-bodies
-  structure can already see every later header (seed/typecheck.c:2090-2108).
-
-  SEMANTIC REFERENCE MAP (rules mirrored, phase structure excepted above):
-    - insertion-ordered globals/local-first lookup and duplicate policy:
-      seed/typecheck.c:248-358,443-589,1944-2071;
-    - routine signatures, forwards, result variables, and call/var-parameter
-      rules: seed/typecheck.c:598-778,1015-1185,2014-2127;
-    - B7 char/string coercion table and ordinal operators:
-      seed/typecheck.c:1189-1365;
-    - array/string indexing and named-record scalar fields:
-      seed/typecheck.c:1368-1557;
-    - exact scalar, string/char, field, indexed, and named-record assignment:
-      seed/typecheck.c:1560-1868;
-    - B8 storage-only file surface: seed/typecheck.c:829-1007,1425-1429,
-      1593-1597; type/bound forms enforced by seed/parser.c:1170-1333,
-      scalar-only record fields by seed/parser.c:1554-1665.
-
-  Lexer dump:
-    TURBO-LEX-BEGIN
-    one token per line
-    TURBO-LEX-END
-  Keywords use KW plus their lower-case spelling. Identifiers use IDENT plus
-  the pooled spelling. Integers use INTEGER plus decimal value. Strings use
-  STRING, decoded length, then one decimal byte per payload character. Fixed
-  punctuation kind names and EOF carry no payload. Errors use one located
-  TURBO-LEX-ERROR line, stop the driver, then close the output bracket.
-
-  Parser trace:
-    TURBO-PARSE-BEGIN
-    ENTER production Lline / EXIT production Lline
-    TURBO-PARSE-OK or one located TURBO-PARSE-ERROR line
-    TURBO-PARSE-END
-
-  Source discipline: boolean evaluation is complete. Every bounds-sensitive
-  access is guarded by nested if statements or by a sentinel accessor, and
-  flag-controlled loops test the flag alone.
-}
+{ Turbo Initech: single-file compiler and IDE.
+  A rolling ShortString window feeds the lexer. Semantic parsing is AST-free;
+  forward declarations therefore precede calls to later routines. Native
+  encoding and runtime authorities are in compiler/NATIVE.md. Explicit /DUMP
+  enables the factory lexer, parser and symbol protocols. }
 program TurboInitech;
 
 const
@@ -255,6 +197,10 @@ var
   TokPos, TokLine, TokCol: integer;
   TokText, FoldedText, DumpText: string;
   HadError, ParseFailed: boolean;
+  InputName, OutputAsmName, OutputComName, OutputExeName: string;
+  DumpMode, QuietCompile: boolean;
+  FirstKind, FirstLine, FirstCol, FirstExpected, FirstDetail: integer;
+  CompilerIoError: integer;
   ParseIfDepth: integer;
 
   EmitParseTrace, TypeMode, TypeFailed, SyntaxClean: boolean;
@@ -347,10 +293,28 @@ begin
     end
 end;
 
+procedure CompilerIO(Code: integer);
+begin
+  if Code <> 0 then
+  begin
+    HadError := true; GenFlags[2] := true;
+    if FirstKind = 0 then
+    begin
+      FirstKind := 5; FirstLine := 1; FirstCol := 1; FirstDetail := Code;
+      if not QuietCompile then Writeln('TURBO-IO-ERROR code=', Code)
+    end
+  end
+end;
+
 procedure ReadStreamBlock(var Text: string; var Got: integer);
 begin
   Text := '';
+  Got := 0;
+  {$I-}
   BlockRead(InputFile, Text[1], ChunkMax, Got);
+  CompilerIoError := IOResult();
+  {$I+}
+  CompilerIO(CompilerIoError);
   Text[0] := Chr(Got);
   if SourceLen + Got > SourceMax then
   begin
@@ -386,7 +350,8 @@ end;
 function AtEnd(): boolean;
 begin
   AdvanceSourceWindow();
-  AtEnd := ChunkLen = 0
+  AtEnd := ChunkLen = 0;
+  if ChunkLen > 0 then AtEnd := SourceGet(ScanPos) = chr(26)
 end;
 
 function PeekChar(): char;
@@ -485,7 +450,11 @@ begin
     GenFail(L, C, 300 + Code)
   else if not HadError then
   begin
+    if FirstKind = 0 then
+    begin FirstKind := 1; FirstLine := L; FirstCol := C; FirstDetail := Code end;
     HadError := true;
+    if not QuietCompile then
+    begin
     Write('TURBO-LEX-ERROR pos=', P, ' line=', L, ' col=', C);
     if Code = ErrBadChar then
       Writeln(' bad character code=', Detail)
@@ -509,6 +478,7 @@ begin
       Writeln(' decimal integer exceeds 2147483647')
     else
       Writeln(' unknown lexer failure code=', Code)
+    end
   end
 end;
 
@@ -630,15 +600,20 @@ procedure GenFail(L, C, Code: integer);
 begin
   if not GenFlags[2] then
   begin
+    if FirstKind = 0 then
+    begin FirstKind := 4; FirstLine := L; FirstCol := C; FirstDetail := Code end;
     GenFlags[2] := true;
     ParseFailed := true;
     TypeFailed := true;
+    if not QuietCompile then
+    begin
     Write('TURBO-GEN-ERROR line=', L, ' col=', C, ' ');
     if Code = 1 then Writeln('output short write')
     else if Code = 2 then Writeln('invalid symbol storage')
     else if Code = 3 then Writeln('invalid expression storage')
     else if Code = 4 then Writeln('call stack invariant')
     else Writeln('internal invariant code=', Code)
+    end
   end
 end;
 
@@ -649,7 +624,12 @@ begin
   Need := Length(OutputChunk);
   if Need > 0 then
   begin
+    OutputActual := 0;
+    {$I-}
     BlockWrite(OutputFile, OutputChunk[1], Need, OutputActual);
+    CompilerIoError := IOResult();
+    {$I+}
+    CompilerIO(CompilerIoError);
     if OutputActual <> Need then
       GenFail(TokLine, TokCol, 1)
     else
@@ -854,20 +834,27 @@ begin
   if Native[1] = 2 then
   begin
     if Text = 'serial_putc' then N := 49
-    else if Text = 'serial_puts' then N := 66
-    else if Text = 'serial_put_int' then N := 85
-    else if Text = 'rtl_file_assign' then N := 189
-    else if Text = 'rtl_file_reset' then N := 239
-    else if Text = 'rtl_file_rewrite' then N := 303
-    else if Text = 'rtl_file_blockread' then N := 369
-    else if Text = 'rtl_file_blockwrite' then N := 428
-    else if Text = 'rtl_file_close' then N := 487
-    else if Text = 'rtl_file_erase' then N := 535
-    else if Text = 'rtl_file_rename' then N := 565
-    else if Text = 'rtl_ioresult' then N := 669
-    else if Text = 'rtl_io_check' then N := 685
-    else if Text = 'rtl_readkey' then N := 734
-    else if Text = 'rtl_file_attributes' then N := 751
+    else if Text = 'serial_puts' then N := 73
+    else if Text = 'serial_put_int' then N := 92
+    else if Text = 'rtl_file_assign' then N := 205
+    else if Text = 'rtl_file_reset' then N := 255
+    else if Text = 'rtl_file_rewrite' then N := 319
+    else if Text = 'rtl_file_blockread' then N := 385
+    else if Text = 'rtl_file_blockwrite' then N := 444
+    else if Text = 'rtl_file_close' then N := 503
+    else if Text = 'rtl_file_erase' then N := 551
+    else if Text = 'rtl_file_rename' then N := 581
+    else if Text = 'rtl_ioresult' then N := 685
+    else if Text = 'rtl_io_check' then N := 701
+    else if Text = 'rtl_readkey' then N := 750
+    else if Text = 'rtl_file_attributes' then N := 767
+    else if Text = 'rtl_paramcount' then N := 823
+    else if Text = 'rtl_paramstr' then N := 873
+    else if Text = 'rtl_screen_page' then N := 1028
+    else if Text = 'rtl_execute' then N := 1128
+    else if Text = 'rtl_halt' then N := 1235
+    else if Text = 'rtl_dos_memory' then N := 1255
+    else if Text = 'rtl_getdir' then N := 1295
     else if Text = 'str_bool_true' then N := Native[3] + 20
     else if Text = 'str_bool_false' then N := Native[3] + 25
     else if Text[1] = 'v' then
@@ -1137,40 +1124,68 @@ begin
   GenText := '29F931C089CAC1E902F3AB89D183E103F3AABCFCFF0700E8'; NativeHex(GenText)
   ;
   NativeWord(Native[6] - 39);
-  GenText := 'B8004C0000CD21F4EBFD5066BAFD03ECA82074FB5866BAF803EEC35689C68A0684C07408E8E1FFFFFF46EBF25EC35631'; NativeHex(GenText)
+  GenText := 'B8004C0000CD21F4EBFD608D54241CB901000000BB01000000B800400000CD2161C35689C68A0684C07408E8DAFFFFFF'; NativeHex(GenText)
   ;
-  GenText := 'F685C07907BE01000000F7D8B900000000BB0A00000031D2F7F380C230524185C075F385F67407B02DE8ACFFFFFF58E8'; NativeHex(GenText)
+  GenText := '46EBF25EC35631F685C07907BE01000000F7D8B900000000BB0A00000031D2F7F380C230524185C075F385F67407B02D'; NativeHex(GenText)
   ;
-  GenText := 'A6FFFFFF4975F75EC3E800000000580556020000C3E8EFFFFFFF833800C38B1E83FB05720FB8003E0000CD217207C706'; NativeHex(GenText)
+  GenText := 'E8A5FFFFFF58E89FFFFFFF4975F75EC3909090909090909090E800000000580556020000C3E8EFFFFFFF833800C38B1E'; NativeHex(GenText)
   ;
-  GenText := '00000000F8C35589E55356578B7508E8DAFFFFFF0F82BD0100008B5D088B750C0FB60E468D7B04FCF3A4C60700C70300'; NativeHex(GenText)
+  GenText := '83FB05720FB8003E0000CD217207C70600000000F8C35589E55356578B7508E8DAFFFFFF0F82BD0100008B5D088B750C'; NativeHex(GenText)
   ;
-  GenText := '000000E9A90100005589E5535657E8A2FFFFFF0F8598010000837D0C010F857D0100008B7508E893FFFFFF0F82760100'; NativeHex(GenText)
+  GenText := '0FB60E468D7B04FCF3A4C60700C70300000000E9A90100005589E5535657E8A2FFFFFF0F8598010000837D0C010F857D'; NativeHex(GenText)
   ;
-  GenText := '008D5604B8003D0000CD210F82660100008906E9690100005589E5535657E862FFFFFF0F8558010000837D0C010F853D'; NativeHex(GenText)
+  GenText := '0100008B7508E893FFFFFF0F82760100008D5604B8003D0000CD210F82660100008906E9690100005589E5535657E862'; NativeHex(GenText)
   ;
-  GenText := '0100008B7508E853FFFFFF0F82360100008D560431C9B8003C0000CD210F82240100008906E9270100005589E5535657'; NativeHex(GenText)
+  GenText := 'FFFFFF0F8558010000837D0C010F853D0100008B7508E853FFFFFF0F82360100008D560431C9B8003C0000CD210F8224'; NativeHex(GenText)
   ;
-  GenText := 'E820FFFFFF0F85160100008B4D1085C90F88FA0000008B75088B1E8B550CB8003F0000CD210F82EC0000008B7D148907'; NativeHex(GenText)
+  GenText := '0100008906E9270100005589E5535657E820FFFFFF0F85160100008B4D1085C90F88FA0000008B75088B1E8B550CB800'; NativeHex(GenText)
   ;
-  GenText := 'E9EC0000005589E5535657E8E5FEFFFF0F85DB0000008B4D1085C90F88BF0000008B7D088B1F8B550CB800400000CD21'; NativeHex(GenText)
+  GenText := '3F0000CD210F82EC0000008B7D148907E9EC0000005589E5535657E8E5FEFFFF0F85DB0000008B4D1085C90F88BF0000'; NativeHex(GenText)
   ;
-  GenText := '0F82B10000008B7D148907E9B10000005589E5535657E8AAFEFFFF0F85A00000008B7508833E057210E8A0FEFFFF0F82'; NativeHex(GenText)
+  GenText := '008B7D088B1F8B550CB800400000CD210F82B10000008B7D148907E9B10000005589E5535657E8AAFEFFFF0F85A00000'; NativeHex(GenText)
   ;
-  GenText := '83000000E988000000B867000000EB775589E5535657E87AFEFFFF75748B75088D5604B800410000CD21725BEB635589'; NativeHex(GenText)
+  GenText := '008B7508833E057210E8A0FEFFFF0F8283000000E988000000B867000000EB775589E5535657E87AFEFFFF75748B7508'; NativeHex(GenText)
   ;
-  GenText := 'E5535657E85CFEFFFF755681EC040100008B750C0FB60E4689E7FCF3A4C607008B75088D560489E7B800560000CD2172'; NativeHex(GenText)
+  GenText := '8D5604B800410000CD21725BEB635589E5535657E85CFEFFFF755681EC040100008B750C0FB60E4689E7FCF3A4C60700'; NativeHex(GenText)
   ;
-  GenText := '1789E68B7D0883C704B900010000F3A481C404010000EB1981C404010000EB07B801000000EB000FB7D0E8FAFDFFFF89'; NativeHex(GenText)
+  GenText := '8B75088D560489E7B800560000CD21721789E68B7D0883C704B900010000F3A481C404010000EB1981C404010000EB07'; NativeHex(GenText)
   ;
-  GenText := '105F5E5B5DC3E8EEFDFFFF89C28B02C70200000000C350E8DDFDFFFF8B0085C0750258C350B8'; NativeHex(GenText)
+  GenText := 'B801000000EB000FB7D0E8FAFDFFFF89105F5E5B5DC3E8EEFDFFFF89C28B02C70200000000C350E8DDFDFFFF8B0085C0'; NativeHex(GenText)
+  ;
+  GenText := '750258C350B8'; NativeHex(GenText)
   ;
   NativeAbsolute(Native[3]);
-  GenText := 'E87CFDFFFF58E889FDFFFFB00AE85EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000538B'; NativeHex(GenText)
+  GenText := 'E873FDFFFF58E880FDFFFFB00AE84EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000538B'; NativeHex(GenText)
   ;
-  GenText := '54240883C204B800430000CD2172050FB7C15BC30FB7C0F7D85BC3'; NativeHex(GenText)
+  GenText := '54240883C204B800430000CD2172050FB7C15BC30FB7C0F7D85BC3B800620000CD210FB7F3C1E6040FB68E8000000081'; NativeHex(GenText)
   ;
-  while Native[2] < 784 do NativeByte(144)
+  GenText := 'C681000000C3535657E8DDFFFFFF31C031FF31D285C9741AAC3C2074103C09740C85D2750A47BA01000000EB0231D249'; NativeHex(GenText)
+  ;
+  GenText := 'EBE289F85F5E5BC35589E55356578B7D0CC60700E8A2FFFFFF8B5D0883FB007C7B743831D285C97473803E207405803E'; NativeHex(GenText)
+  ;
+  GenText := '0975044649EBEE4285C974608A063C2074E33C0974DF39DA750DFE070FB6078A1E881C078B5D084649EBDD81EE810000'; NativeHex(GenText)
+  ;
+  GenText := '000FB7762CC1E604B9FD0F000066833E00740546E2F7EB2466837E0201751D83C6048A0684C074140FB61781FAFF0000'; NativeHex(GenText)
+  ;
+  GenText := '00740942880417881746EBE689F85F5E5B5DC35589E553565781ECA40F0000837D080074128B750C89E7B9A20F00008A'; NativeHex(GenText)
+  ;
+  GenText := '06AA83C604E2F88B450825FF0000000D00FB000089E2CD217222837D0800751189E68B7D0CB9A20F00000FB606AB46E2'; NativeHex(GenText)
+  ;
+  GenText := 'F981C4A40F0000E94BFEFFFF81C4A40F0000E936FEFFFF5589E553565781EC180100008B75080FB60E4689E7F3A4C607'; NativeHex(GenText)
+  ;
+  GenText := '0089E28D9C2404010000C703000000008D84241401000089430466C700000DC7430800000000C7430C00000000B8004B'; NativeHex(GenText)
+  ;
+  GenText := '0000CD21720CB8004D0000CD210FB7C0EB050FB7C0F7D881C4180100005F5E5B5DC38B44240425FF0000000D004C0000'; NativeHex(GenText)
+  ;
+  GenText := 'CD21FAF4EBFD53BBFFFF0000B800480000CD2173080FB7C3C1E0045BC30FB7D8B800490000CD21B8F0FF0F005BC35589'; NativeHex(GenText)
+  ;
+  GenText := 'E5535657E892FBFFFF0F8588FDFFFF8B7D0CC607008B5D0883FB1A774A85DB750CB800190000CD210FB6D8EB014B88D8'; NativeHex(GenText)
+  ;
+  GenText := '044188470166C747023A5C8D77048B5508B800470000CD210F823FFDFFFFB903000000807C0F010074064183F94272F3'; NativeHex(GenText)
+  ;
+  GenText := '880FE930FDFFFFB80F000000E91CFDFFFF'; NativeHex(GenText)
+  ;
+  while Native[2] < 1424 do NativeByte(144)
 end;
 { END NASM RUNTIME TABLE }
 { BEGIN NASM RUNTIME TABLE -- tests/runtime-table.c; do not edit. }
@@ -1185,40 +1200,68 @@ begin
   GenText := '29F931C089CAC1E902F3AB89D183E103F3AA9090909090E8'; NativeHex(GenText)
   ;
   NativeWord(Native[6] - 39);
-  GenText := 'B8004C0000CD21F4EBFD5066BAFD03ECA82074FB5866BAF803EEC35689C68A0684C07408E8E1FFFFFF46EBF25EC35631'; NativeHex(GenText)
+  GenText := 'B8004C0000CD21F4EBFD608D54241CB901000000BB01000000B800400000CD2161C35689C68A0684C07408E8DAFFFFFF'; NativeHex(GenText)
   ;
-  GenText := 'F685C07907BE01000000F7D8B900000000BB0A00000031D2F7F380C230524185C075F385F67407B02DE8ACFFFFFF58E8'; NativeHex(GenText)
+  GenText := '46EBF25EC35631F685C07907BE01000000F7D8B900000000BB0A00000031D2F7F380C230524185C075F385F67407B02D'; NativeHex(GenText)
   ;
-  GenText := 'A6FFFFFF4975F75EC3E800000000580556020000C3E8EFFFFFFF833800C38B1E83FB05720FB8003E0000CD217207C706'; NativeHex(GenText)
+  GenText := 'E8A5FFFFFF58E89FFFFFFF4975F75EC3909090909090909090E800000000580556020000C3E8EFFFFFFF833800C38B1E'; NativeHex(GenText)
   ;
-  GenText := '00000000F8C35589E55356578B7508E8DAFFFFFF0F82BD0100008B5D088B750C0FB60E468D7B04FCF3A4C60700C70300'; NativeHex(GenText)
+  GenText := '83FB05720FB8003E0000CD217207C70600000000F8C35589E55356578B7508E8DAFFFFFF0F82BD0100008B5D088B750C'; NativeHex(GenText)
   ;
-  GenText := '000000E9A90100005589E5535657E8A2FFFFFF0F8598010000837D0C010F857D0100008B7508E893FFFFFF0F82760100'; NativeHex(GenText)
+  GenText := '0FB60E468D7B04FCF3A4C60700C70300000000E9A90100005589E5535657E8A2FFFFFF0F8598010000837D0C010F857D'; NativeHex(GenText)
   ;
-  GenText := '008D5604B8003D0000CD210F82660100008906E9690100005589E5535657E862FFFFFF0F8558010000837D0C010F853D'; NativeHex(GenText)
+  GenText := '0100008B7508E893FFFFFF0F82760100008D5604B8003D0000CD210F82660100008906E9690100005589E5535657E862'; NativeHex(GenText)
   ;
-  GenText := '0100008B7508E853FFFFFF0F82360100008D560431C9B8003C0000CD210F82240100008906E9270100005589E5535657'; NativeHex(GenText)
+  GenText := 'FFFFFF0F8558010000837D0C010F853D0100008B7508E853FFFFFF0F82360100008D560431C9B8003C0000CD210F8224'; NativeHex(GenText)
   ;
-  GenText := 'E820FFFFFF0F85160100008B4D1085C90F88FA0000008B75088B1E8B550CB8003F0000CD210F82EC0000008B7D148907'; NativeHex(GenText)
+  GenText := '0100008906E9270100005589E5535657E820FFFFFF0F85160100008B4D1085C90F88FA0000008B75088B1E8B550CB800'; NativeHex(GenText)
   ;
-  GenText := 'E9EC0000005589E5535657E8E5FEFFFF0F85DB0000008B4D1085C90F88BF0000008B7D088B1F8B550CB800400000CD21'; NativeHex(GenText)
+  GenText := '3F0000CD210F82EC0000008B7D148907E9EC0000005589E5535657E8E5FEFFFF0F85DB0000008B4D1085C90F88BF0000'; NativeHex(GenText)
   ;
-  GenText := '0F82B10000008B7D148907E9B10000005589E5535657E8AAFEFFFF0F85A00000008B7508833E057210E8A0FEFFFF0F82'; NativeHex(GenText)
+  GenText := '008B7D088B1F8B550CB800400000CD210F82B10000008B7D148907E9B10000005589E5535657E8AAFEFFFF0F85A00000'; NativeHex(GenText)
   ;
-  GenText := '83000000E988000000B867000000EB775589E5535657E87AFEFFFF75748B75088D5604B800410000CD21725BEB635589'; NativeHex(GenText)
+  GenText := '008B7508833E057210E8A0FEFFFF0F8283000000E988000000B867000000EB775589E5535657E87AFEFFFF75748B7508'; NativeHex(GenText)
   ;
-  GenText := 'E5535657E85CFEFFFF755681EC040100008B750C0FB60E4689E7FCF3A4C607008B75088D560489E7B800560000CD2172'; NativeHex(GenText)
+  GenText := '8D5604B800410000CD21725BEB635589E5535657E85CFEFFFF755681EC040100008B750C0FB60E4689E7FCF3A4C60700'; NativeHex(GenText)
   ;
-  GenText := '1789E68B7D0883C704B900010000F3A481C404010000EB1981C404010000EB07B801000000EB000FB7D0E8FAFDFFFF89'; NativeHex(GenText)
+  GenText := '8B75088D560489E7B800560000CD21721789E68B7D0883C704B900010000F3A481C404010000EB1981C404010000EB07'; NativeHex(GenText)
   ;
-  GenText := '105F5E5B5DC3E8EEFDFFFF89C28B02C70200000000C350E8DDFDFFFF8B0085C0750258C350B8'; NativeHex(GenText)
+  GenText := 'B801000000EB000FB7D0E8FAFDFFFF89105F5E5B5DC3E8EEFDFFFF89C28B02C70200000000C350E8DDFDFFFF8B0085C0'; NativeHex(GenText)
+  ;
+  GenText := '750258C350B8'; NativeHex(GenText)
   ;
   NativeAbsolute(Native[3]);
-  GenText := 'E87CFDFFFF58E889FDFFFFB00AE85EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000538B'; NativeHex(GenText)
+  GenText := 'E873FDFFFF58E880FDFFFFB00AE84EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000538B'; NativeHex(GenText)
   ;
-  GenText := '54240883C204B800430000CD2172050FB7C15BC30FB7C0F7D85BC3'; NativeHex(GenText)
+  GenText := '54240883C204B800430000CD2172050FB7C15BC30FB7C0F7D85BC3B800620000CD210FB7F3C1E6040FB68E8000000081'; NativeHex(GenText)
   ;
-  while Native[2] < 784 do NativeByte(144)
+  GenText := 'C681000000C3535657E8DDFFFFFF31C031FF31D285C9741AAC3C2074103C09740C85D2750A47BA01000000EB0231D249'; NativeHex(GenText)
+  ;
+  GenText := 'EBE289F85F5E5BC35589E55356578B7D0CC60700E8A2FFFFFF8B5D0883FB007C7B743831D285C97473803E207405803E'; NativeHex(GenText)
+  ;
+  GenText := '0975044649EBEE4285C974608A063C2074E33C0974DF39DA750DFE070FB6078A1E881C078B5D084649EBDD81EE810000'; NativeHex(GenText)
+  ;
+  GenText := '000FB7762CC1E604B9FD0F000066833E00740546E2F7EB2466837E0201751D83C6048A0684C074140FB61781FAFF0000'; NativeHex(GenText)
+  ;
+  GenText := '00740942880417881746EBE689F85F5E5B5DC35589E553565781ECA40F0000837D080074128B750C89E7B9A20F00008A'; NativeHex(GenText)
+  ;
+  GenText := '06AA83C604E2F88B450825FF0000000D00FB000089E2CD217222837D0800751189E68B7D0CB9A20F00000FB606AB46E2'; NativeHex(GenText)
+  ;
+  GenText := 'F981C4A40F0000E94BFEFFFF81C4A40F0000E936FEFFFF5589E553565781EC180100008B75080FB60E4689E7F3A4C607'; NativeHex(GenText)
+  ;
+  GenText := '0089E28D9C2404010000C703000000008D84241401000089430466C700000DC7430800000000C7430C00000000B8004B'; NativeHex(GenText)
+  ;
+  GenText := '0000CD21720CB8004D0000CD210FB7C0EB050FB7C0F7D881C4180100005F5E5B5DC38B44240425FF0000000D004C0000'; NativeHex(GenText)
+  ;
+  GenText := 'CD21FAF4EBFD53BBFFFF0000B800480000CD2173080FB7C3C1E0045BC30FB7D8B800490000CD21B8F0FF0F005BC35589'; NativeHex(GenText)
+  ;
+  GenText := 'E5535657E892FBFFFF0F8588FDFFFF8B7D0CC607008B5D0883FB1A774A85DB750CB800190000CD210FB6D8EB014B88D8'; NativeHex(GenText)
+  ;
+  GenText := '044188470166C747023A5C8D77048B5508B800470000CD210F823FFDFFFFB903000000807C0F010074064183F94272F3'; NativeHex(GenText)
+  ;
+  GenText := '880FE930FDFFFFB80F000000E91CFDFFFF'; NativeHex(GenText)
+  ;
+  while Native[2] < 1424 do NativeByte(144)
 end;
 { END NASM RUNTIME TABLE }
 
@@ -1788,8 +1831,12 @@ var
   Got: integer;
 begin
   SourceLen := 0;
-  Assign(InputFile, 'TURBOIN.PAS');
+  {$I-}
+  Assign(InputFile, InputName);
   Reset(InputFile, 1);
+  CompilerIoError := IOResult();
+  {$I+}
+  CompilerIO(CompilerIoError);
   ChunkBase := 1;
   ChunkLen := 0;
   NextChunkLen := 0;
@@ -1984,13 +2031,18 @@ begin
     GenFail(TokLine, TokCol, 200 + Expected)
   else if not ParseFailed then
   begin
+    if FirstKind = 0 then
+    begin FirstKind := 2; FirstLine := TokLine; FirstCol := TokCol; FirstExpected := Expected end;
     ParseFailed := true;
+    if not QuietCompile then
+    begin
     Write('TURBO-PARSE-ERROR pos=', TokPos, ' line=', TokLine,
           ' col=', TokCol, ' expected=');
     WriteExpected(Expected);
     Write(' found=');
     WriteTokenName(TokKind);
     Writeln()
+    end
   end
 end;
 
@@ -2013,15 +2065,20 @@ end;
 
 function PoolLengthAt(NameOffset: integer): integer;
 var
-  I, Found: integer;
+  Left, Right, Mid, Found: integer;
 begin
-  I := 1;
-  Found := 0;
-  while I <= PoolCount do
+  { PoolAdd appends nondecreasing offsets. An empty entry can share the
+    following entry's offset; the last match retains the old lookup value. }
+  Left := 1; Right := PoolCount; Found := 0;
+  while Left <= Right do
   begin
-    if Found = 0 then
-      if PoolOffset[I] = NameOffset then Found := PoolLength[I];
-    I := I + 1
+    Mid := (Left + Right) div 2;
+    if PoolOffset[Mid] <= NameOffset then
+    begin
+      if PoolOffset[Mid] = NameOffset then Found := PoolLength[Mid];
+      Left := Mid + 1
+    end
+    else Right := Mid - 1
   end;
   PoolLengthAt := Found
 end;
@@ -2057,8 +2114,12 @@ begin
     GenFail(L, C, 100 + Code)
   else if not TypeFailed then
   begin
+    if FirstKind = 0 then
+    begin FirstKind := 3; FirstLine := L; FirstCol := C; FirstDetail := Code end;
     TypeFailed := true;
     ParseFailed := true;
+    if not QuietCompile then
+    begin
     Write('TURBO-TYPE-ERROR line=', L, ' col=', C, ' ');
     if Code = TeDuplicate then
     begin
@@ -2091,6 +2152,7 @@ begin
     else
       Write('unknown semantic failure code=', Code);
     Writeln()
+    end
   end
 end;
 
@@ -2216,6 +2278,12 @@ begin
   else if DumpText = 'ioresult' then NameIsFileBuiltin := true
   else if DumpText = 'readkey' then NameIsFileBuiltin := true
   else if DumpText = 'fileattributes' then NameIsFileBuiltin := true
+  else if DumpText = 'paramcount' then NameIsFileBuiltin := true
+  else if DumpText = 'paramstr' then NameIsFileBuiltin := true
+  else if DumpText = 'screenpage' then NameIsFileBuiltin := true
+  else if DumpText = 'execute' then NameIsFileBuiltin := true
+  else if DumpText = 'halt' then NameIsFileBuiltin := true
+  else if DumpText = 'dosmemory' then NameIsFileBuiltin := true
 end;
 
 function FileBuiltinId(NameOffset, NameLength: integer): integer;
@@ -2233,6 +2301,13 @@ begin
   else if DumpText = 'ioresult' then FileBuiltinId := 9
   else if DumpText = 'readkey' then FileBuiltinId := 10
   else if DumpText = 'fileattributes' then FileBuiltinId := 11
+  else if DumpText = 'paramcount' then FileBuiltinId := 12
+  else if DumpText = 'paramstr' then FileBuiltinId := 13
+  else if DumpText = 'screenpage' then FileBuiltinId := 14
+  else if DumpText = 'execute' then FileBuiltinId := 15
+  else if DumpText = 'halt' then FileBuiltinId := 16
+  else if DumpText = 'dosmemory' then FileBuiltinId := 17
+  else if DumpText = 'getdir' then FileBuiltinId := 18
 end;
 
 function AddRawSymbol(NameOffset, NameLength, Kind, TypeId, Scope,
@@ -2456,6 +2531,47 @@ var
   Builtin, RoutineIndex, ParamIndex, I: integer;
 begin
   Builtin := FileBuiltinId(PendingIdentOffset, PendingIdentLength);
+  if Builtin >= 12 then
+  begin
+    if Builtin = 18 then
+    begin
+      if CallWantsValue or (ArgCount <> 2) then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol, 0, 0, 0, 0)
+      else if (ArgType[1] <> TyInteger) or (ArgType[2] <> TyString) or
+              (ArgLvalue[2] = 0) or (ArgForm[2] <> 1) or (ArgSym[2] = 0) then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol, 0, 0, 0, 0)
+      else if SymHi[ArgSym[2]] <> 255 then
+        FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
+    end
+    else if Builtin = 14 then
+    begin
+      if CallWantsValue or (ArgCount <> 2) then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol, 0, 0, 0, 0)
+      else if (ArgType[1] <> TyInteger) or (ArgType[2] <> TyChar) or
+              (ArgLvalue[2] = 0) or (ArgForm[2] <> 2) or (ArgSym[2] = 0) then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol, 0, 0, 0, 0)
+      else if SymType[ArgSym[2]] = TyString then
+        FailType(TeRule, ArgLine[2], ArgCol[2], 0, 0, 0, 0)
+    end
+    else
+    begin
+      I := 1;
+      if (Builtin = 12) or (Builtin = 17) then I := 0;
+      if (ArgCount <> I) or (CallWantsValue = (Builtin = 16)) then
+        FailType(TeRule, PendingIdentLine, PendingIdentCol, 0, 0, 0, 0)
+      else if I = 1 then
+      begin
+        ParamIndex := TyInteger;
+        if Builtin = 15 then ParamIndex := TyString;
+        if ArgType[1] <> ParamIndex then
+          FailType(TeRule, ArgLine[1], ArgCol[1], 0, 0, 0, 0)
+      end
+    end;
+    if Builtin = 13 then MarkComputed(TyString)
+    else if (Builtin = 14) or (Builtin = 16) or (Builtin = 18) then MarkComputed(TyUnknown)
+    else MarkComputed(TyInteger)
+  end
+  else
   if Builtin = 11 then
   begin
     if (not CallWantsValue) or (ArgCount <> 1) then
@@ -3245,6 +3361,22 @@ begin
     I := I - 1
   end;
 
+  if Builtin = 13 then
+  begin
+    GenFlags[4] := true; GenFlags[3] := true;
+    GenText := '    mov ebx, [esp]'; GenLine(GenText);
+    GenText := '    add esp, '; GenPut(GenText); GenInt(OriginalBytes); GenChar(chr(10));
+    GenText := '    sub esp, 256'; GenLine(GenText);
+    GenText := '    mov edi, esp'; GenLine(GenText);
+    GenText := '    push edi'; GenLine(GenText);
+    GenText := '    push ebx'; GenLine(GenText);
+    GenText := '    call rtl_paramstr'; GenLine(GenText);
+    GenText := '    add esp, 8'; GenLine(GenText);
+    GenText := '    mov eax, esp'; GenLine(GenText);
+    GenData[5] := 256
+  end
+  else
+  begin
   Duplicates := 0;
   if ((Builtin = 2) or (Builtin = 3)) and (ArgCount = 1) then
   begin
@@ -3277,6 +3409,13 @@ begin
     else if Builtin = 9 then begin GenText := '    call rtl_ioresult'; GenLine(GenText) end
     else if Builtin = 10 then begin GenText := '    call rtl_readkey'; GenLine(GenText) end
     else if Builtin = 11 then begin GenText := '    call rtl_file_attributes'; GenLine(GenText) end
+    else if Builtin = 12 then begin GenText := '    call rtl_paramcount'; GenLine(GenText) end
+    else if Builtin = 13 then begin GenText := '    call rtl_paramstr'; GenLine(GenText) end
+    else if Builtin = 14 then begin GenText := '    call rtl_screen_page'; GenLine(GenText) end
+    else if Builtin = 15 then begin GenText := '    call rtl_execute'; GenLine(GenText) end
+    else if Builtin = 16 then begin GenText := '    call rtl_halt'; GenLine(GenText) end
+    else if Builtin = 17 then begin GenText := '    call rtl_dos_memory'; GenLine(GenText) end
+    else if Builtin = 18 then begin GenText := '    call rtl_getdir'; GenLine(GenText) end
     else GenFail(TokLine, TokCol, 4)
   end
   else
@@ -3301,9 +3440,10 @@ begin
     GenChar(Chr(10))
   end;
   { TP's $I+: every I/O call except Assign is checked where it stands. }
-  if (Builtin >= 2) and (Builtin <= 8) then
+  if ((Builtin >= 2) and (Builtin <= 8)) or (Builtin = 14) or (Builtin = 18) then
     if IoChecks then
       begin GenText := '    call rtl_io_check'; GenLine(GenText) end
+  end
 end;
 
 procedure ParseExpression(); forward;
@@ -3503,7 +3643,8 @@ begin
           I := ArgCount + 1;
           if Builtin <> 0 then
           begin
-            if I = 1 then GenFlags[5] := true
+            if (I = 1) and ((Builtin <= 8) or (Builtin = 11)) then GenFlags[5] := true
+            else if ((Builtin = 14) or (Builtin = 18)) and (I = 2) then GenFlags[5] := true
             else if ((Builtin = 4) or (Builtin = 5)) and
                     ((I = 2) or (I = 4)) then
               GenFlags[5] := true
@@ -4934,6 +5075,16 @@ begin
     else
       Done := true
   end;
+  { The protocol grammar historically expects END after its statement list.
+    TP5.5 MINT06 07 instead locates the next statement and asks for ';'.
+    Preserve the old dump text, but retain the captured IDE diagnostic. }
+  if (not ParseFailed) and (FirstKind = 0) then
+    if (TokKind = TkIdent) or (TokKind = TkWrite) or (TokKind = TkWriteln) or
+       (TokKind = TkIf) or (TokKind = TkWhile) or (TokKind = TkFor) or
+       (TokKind = TkRepeat) or (TokKind = TkBegin) then
+    begin
+      FirstKind := 2; FirstLine := TokLine; FirstCol := TokCol; FirstExpected := TkSemi
+    end;
   if not ParseFailed then ExpectToken(TkEnd, TkEnd);
   if not ParseFailed then TraceExit(PrBlock)
 end;
@@ -5600,8 +5751,8 @@ begin
   if not TypeFailed then
     if not ParseFailed then
     begin
-      DumpSymbols();
-      Writeln('TURBO-TYPE-OK')
+      if DumpMode then
+      begin DumpSymbols(); Writeln('TURBO-TYPE-OK') end
     end;
   TypeMode := false
 end;
@@ -5682,16 +5833,24 @@ begin
   Native[8] := 0;
   if Native[1] = 0 then
   begin
-    Assign(OutputFile, 'TURBOOUT.S');
-    Rewrite(OutputFile, 1)
+    {$I-}
+    Assign(OutputFile, OutputAsmName);
+    Rewrite(OutputFile, 1);
+    CompilerIoError := IOResult();
+    {$I+}
+    CompilerIO(CompilerIoError)
   end
   else
   begin
     if Native[1] = 2 then
     begin
-      if Native[10] = 0 then Assign(OutputFile, 'TURBOOUT.COM')
-      else Assign(OutputFile, 'TURBOOUT.EXE');
-      Rewrite(OutputFile, 1)
+      {$I-}
+      if Native[10] = 0 then Assign(OutputFile, OutputComName)
+      else Assign(OutputFile, OutputExeName);
+      Rewrite(OutputFile, 1);
+      CompilerIoError := IOResult();
+      {$I+}
+      CompilerIO(CompilerIoError)
     end;
     Native[2] := 0;
     if Native[1] = 2 then
@@ -5731,7 +5890,14 @@ begin
           begin GenText := 'extern rtl_ioresult'; GenLine(GenText) end;
           begin GenText := 'extern rtl_io_check'; GenLine(GenText) end;
           begin GenText := 'extern rtl_readkey'; GenLine(GenText) end;
-          begin GenText := 'extern rtl_file_attributes'; GenLine(GenText) end
+          begin GenText := 'extern rtl_file_attributes'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_paramcount'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_paramstr'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_screen_page'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_execute'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_halt'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_dos_memory'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_getdir'; GenLine(GenText) end
         end;
         if GenFlags[3] then GenStringIntrinsics();
         GenFlush()
@@ -5739,9 +5905,14 @@ begin
   if not GenFlags[2] then
     if not TypeFailed then
       if not ParseFailed then
-        if Native[1] = 0 then
+        if (Native[1] = 0) and (not QuietCompile) then
           Writeln('TURBO-GEN-OK bytes=', GenData[2],
                   ' labels=', GenData[3]);
+  if Native[1] = 0 then
+  begin
+    {$I-} Close(OutputFile); CompilerIoError := IOResult(); {$I+}
+    CompilerIO(CompilerIoError)
+  end;
   GenFlags[1] := false;
   TypeMode := false
 end;
@@ -5756,7 +5927,9 @@ begin
     GenText := '46494C45494F2D4552524F522041583D00000000'; NativeHex(GenText);
     GenText := '545255450046414C534500'; NativeHex(GenText);
     GenFlush();
-    if not GenFlags[2] then
+    {$I-} Close(OutputFile); CompilerIoError := IOResult(); {$I+}
+    CompilerIO(CompilerIoError);
+    if (not GenFlags[2]) and (not QuietCompile) then
       Writeln('TURBO-NATIVE-OK form=', Native[10], ' bytes=', GenData[2],
               ' end=', Native[9] + Native[5])
   end
@@ -5797,6 +5970,7 @@ begin
   Native[1] := 0
 end;
 
+procedure DumpCompile();
 begin
   HadError := false;
   Writeln('TURBO-LEX-BEGIN');
@@ -5831,4 +6005,2111 @@ begin
     if not GenFlags[2] then RunNative()
   end;
   Writeln('TURBO-GEN-END')
+end;
+
+{ No protocol passes in normal compilation. The semantic parse locates
+  syntax errors too; repeated generator passes retain the first record. }
+procedure CompileSource();
+begin
+  FirstKind := 0; FirstLine := 1; FirstCol := 1;
+  FirstExpected := 0; FirstDetail := 0;
+  HadError := false; ParseFailed := false; TypeFailed := false;
+  GenFlags[1] := false; GenFlags[2] := false; Native[1] := 0;
+  if DumpMode then DumpCompile()
+  else
+  begin
+    RunTypeChecker();
+    if (not HadError) and (not ParseFailed) and (not TypeFailed) then
+    begin
+      RunCodeGenerator();
+      if not GenFlags[2] then RunNative()
+    end
+  end
+end;
+
+procedure CompilerDefaults();
+begin
+  InputName := 'TURBOIN.PAS'; OutputAsmName := 'TURBOOUT.S';
+  OutputComName := 'TURBOOUT.COM'; OutputExeName := 'TURBOOUT.EXE';
+  QuietCompile := false; DumpMode := false
+end;
+
+
+{ BEGIN IDE screen }
+{$I-}
+{ The IDE checks its own file errors with IOResult (TP 5.5 Reference Guide):
+  the switch above is off for everything that follows. }
+{ screen.pas -- the IDE's 80x25 screen: characters, attributes, cursor.
+
+  Everything the IDE shows is drawn into these cells first; the product
+  copies them to the console and the tier-0 driver dumps them for the
+  comparison with the TP 5.5 captures (turbo/README.md "IDE").
+  Attributes are VGA (background*16 + foreground), as in the captures.
+  Source discipline as turbo.pas: complete boolean evaluation, so every
+  bounds-sensitive access sits under nested ifs. }
+const
+  ScrRows = 25;
+  ScrCols = 80;
+  AtMenu = 112;        { 0x70 black on grey: menu bar, pulldowns, boxes }
+  AtMenuKey = 116;     { 0x74 red on grey: hotkey letters }
+  AtSelect = 15;       { 0x0F white on black: selected title or item }
+  AtInfo = 23;         { 0x17 grey on blue: info line }
+  AtText = 30;         { 0x1E yellow on blue: source text }
+  AtError = 78;        { 0x4E yellow on red: error line }
+  AtVerify = 127;      { 0x7F bright white on grey: Verify frame }
+  AtErrFrame = 71;     { 0x47 grey on red: Error box frame }
+  AtErrText = 79;      { 0x4F bright white on red: Error box text }
+  AtBarText = 31;      { 0x1F bright white on blue: compile box result }
+  AtBlink = 159;       { 0x9F blinking bright white on blue: Press any key }
+
+var
+  ScrCh: array[0..1999] of char;
+  ScrAt: array[0..1999] of integer;
+  ScrCurRow, ScrCurCol: integer;
+  ScrCurOn: boolean;
+
+procedure ScrPut(Row, Col: integer; C: char; A: integer);
+begin
+  if (Row >= 0) and (Row < ScrRows) then
+    if (Col >= 0) and (Col < ScrCols) then
+    begin
+      ScrCh[Row * ScrCols + Col] := C;
+      ScrAt[Row * ScrCols + Col] := A
+    end
+end;
+
+procedure ScrFill(Row, Col0, Col1: integer; C: char; A: integer);
+var I: integer;
+begin
+  I := Col0;
+  while I <= Col1 do
+  begin
+    ScrPut(Row, I, C, A);
+    I := I + 1
+  end
+end;
+
+procedure ScrText(Row, Col: integer; var S: string; A: integer);
+var I: integer;
+begin
+  I := 1;
+  while I <= Length(S) do
+  begin
+    ScrPut(Row, Col + I - 1, S[I], A);
+    I := I + 1
+  end
+end;
+
+procedure ScrAttr(Row, Col: integer; A: integer);
+begin
+  if (Row >= 0) and (Row < ScrRows) then
+    if (Col >= 0) and (Col < ScrCols) then
+      ScrAt[Row * ScrCols + Col] := A
+end;
+
+procedure ScrCursor(Row, Col: integer; On: boolean);
+begin
+  ScrCurRow := Row;
+  ScrCurCol := Col;
+  ScrCurOn := On
+end;
+
+{ Decimal digits of a non-negative number, left-aligned. }
+procedure NumText(N: integer; var S: string);
+var D: string;
+begin
+  S := '';
+  if N = 0 then S := '0';
+  while N > 0 do
+  begin
+    D := chr(ord('0') + N mod 10);
+    S := D + S;
+    N := N div 10
+  end
+end;
+
+{ A single-line frame (pulldowns and name boxes) or a double-line frame
+  (Verify, Error and compile boxes), CP437 as captured. }
+procedure ScrBox(Row0, Col0, Row1, Col1: integer; Double: boolean; A: integer);
+var R: integer;
+begin
+  if Double then
+  begin
+    ScrPut(Row0, Col0, chr(201), A); ScrFill(Row0, Col0 + 1, Col1 - 1, chr(205), A);
+    ScrPut(Row0, Col1, chr(187), A);
+    ScrPut(Row1, Col0, chr(200), A); ScrFill(Row1, Col0 + 1, Col1 - 1, chr(205), A);
+    ScrPut(Row1, Col1, chr(188), A)
+  end
+  else
+  begin
+    ScrPut(Row0, Col0, chr(218), A); ScrFill(Row0, Col0 + 1, Col1 - 1, chr(196), A);
+    ScrPut(Row0, Col1, chr(191), A);
+    ScrPut(Row1, Col0, chr(192), A); ScrFill(Row1, Col0 + 1, Col1 - 1, chr(196), A);
+    ScrPut(Row1, Col1, chr(217), A)
+  end;
+  R := Row0 + 1;
+  while R < Row1 do
+  begin
+    if Double then
+    begin ScrPut(R, Col0, chr(186), A); ScrPut(R, Col1, chr(186), A) end
+    else
+    begin ScrPut(R, Col0, chr(179), A); ScrPut(R, Col1, chr(179), A) end;
+    R := R + 1
+  end
+end;
+
+{ A box title centred in the top edge with one space each side. }
+procedure ScrTitle(Row, Col0, Col1: integer; var S: string; A: integer);
+var C: integer;
+    T: string;
+begin
+  C := Col0 + (Col1 - Col0 + 1 - Length(S) - 2) div 2;
+  T := ' ' + S + ' ';
+  ScrText(Row, C, T, A)
+end;
+{ END IDE screen }
+
+{ BEGIN IDE buffer }
+{ buffer.pas -- the paged document behind the editor.
+
+  The whole document lives in a work file; only one page of whole lines is
+  in memory. Lines are held LF-terminated (the last line has no
+  terminator); loading turns CR LF into LF and stops at the first 0x1A,
+  saving writes CR LF between lines and one 0x1A at the end, as TP 5.5
+  saved (turbopascal-decomp MINT06 disk/DEMO.PAS). Leaving the page writes
+  prefix + page + suffix to the other work file, so the document is never
+  copied whole into memory and a file of any size the disk holds can be
+  edited. The page is refilled to half its size, leaving room to grow. }
+const
+  PageMax = 16384;
+  PageFill = 8192;
+  PageLinesMax = 16385;
+  BufChunkMax = 255;     { BlockRead/BlockWrite move ShortString bytes }
+  LineMax = 250;
+  BufOk = 0;
+  BufTooLong = 1;      { a line longer than PageFill bytes }
+
+var
+  Pg: array[1..PageMax] of char;
+  LoadPg: array[1..PageFill] of char; { commit only a complete checked reload }
+  PgLs: array[1..PageLinesMax] of integer;  { start of each page line }
+  PgLen, PgLines, PgLine, PgStart, PgOrig: integer;
+  PgDirty: boolean;
+  DocLen, DocLines: integer;
+  BufStatus: integer;
+  WorkSide: integer;
+  WorkName0, WorkName1: string;
+  WorkIn, WorkOut: file;
+  Chunk, OutChunk: string;
+  OutUsed: integer;
+  BufErr: integer;     { first DOS error of the last load/save/copy; 0 if none }
+
+{ Take any pending I/O error; keep the first one in BufErr. }
+procedure IoNote;
+var Code: integer;
+begin
+  Code := IOResult();
+  if (Code <> 0) and (BufErr = 0) then BufErr := Code
+end;
+
+procedure WorkNames(Side: integer; var Name: string);
+begin
+  if Side = 0 then Name := WorkName0 else Name := WorkName1
+end;
+
+procedure OutStart(var Name: string);
+begin
+  Assign(WorkOut, Name);
+  Rewrite(WorkOut, 1);
+  IoNote();
+  OutUsed := 0
+end;
+
+procedure OutFlush;
+var Wrote: integer;
+begin
+  if OutUsed > 0 then
+  begin
+    Wrote := 0;
+    BlockWrite(WorkOut, OutChunk[1], OutUsed, Wrote);
+    IoNote();
+    { a short write is DOS's disk-full answer: TP run-time error 101 }
+    if (Wrote <> OutUsed) and (BufErr = 0) then BufErr := 101
+  end;
+  OutUsed := 0
+end;
+
+procedure OutByte(C: char);
+begin
+  if OutUsed = BufChunkMax then OutFlush();
+  OutUsed := OutUsed + 1;
+  OutChunk[OutUsed] := C
+end;
+
+{ Rebuild the page line index from PgLs[From] onwards. }
+procedure PageIndex(From: integer);
+var I, N: integer;
+begin
+  N := From;
+  if N < 1 then N := 1;
+  if N = 1 then PgLs[1] := 1;
+  I := PgLs[N];
+  while I <= PgLen do
+  begin
+    if Pg[I] = chr(10) then
+    begin
+      N := N + 1;
+      if N <= PageLinesMax then PgLs[N] := I + 1
+    end;
+    I := I + 1
+  end;
+  { The page always ends with whole lines: either the last ends in LF and
+    the next page line is a line of the following page, or it is the
+    document's last line. }
+  if PgStart + PgOrig >= DocLen then PgLines := N
+  else PgLines := N - 1
+end;
+
+{ Copy Count bytes of the current work file to WorkOut, reading from the
+  current position of WorkIn. }
+procedure CopyBytes(Count: integer);
+var Want, Got, I: integer;
+begin
+  while (Count > 0) and (BufErr = 0) do
+  begin
+    Want := Count;
+    if Want > BufChunkMax then Want := BufChunkMax;
+    BlockRead(WorkIn, Chunk[1], Want, Got);
+    IoNote();
+    if (Got <> Want) and (BufErr = 0) then BufErr := 100;
+    I := 1;
+    while I <= Got do
+    begin
+      OutByte(Chunk[I]);
+      I := I + 1
+    end;
+    if Got = 0 then Count := 0 else Count := Count - Got
+  end
+end;
+
+{ Write the page back: prefix + page + suffix into the other work file. }
+procedure PageFlush;
+var Name: string;
+    I, Got0: integer;
+begin
+  if PgDirty then
+  begin
+    BufErr := 0;
+    WorkNames(WorkSide, Name);
+    Assign(WorkIn, Name);
+    Reset(WorkIn, 1);
+    IoNote();
+    WorkNames(1 - WorkSide, Name);
+    OutStart(Name);
+    CopyBytes(PgStart);
+    I := 1;
+    while I <= PgLen do
+    begin
+      OutByte(Pg[I]);
+      I := I + 1
+    end;
+    { skip the old page bytes, then copy the suffix }
+    I := PgOrig;
+    while (I > 0) and (BufErr = 0) do
+    begin
+      if I > BufChunkMax then
+      begin
+        BlockRead(WorkIn, Chunk[1], BufChunkMax, Got0);
+        IoNote();
+        if (Got0 <> BufChunkMax) and (BufErr = 0) then BufErr := 100;
+        I := I - BufChunkMax
+      end
+      else
+      begin
+        BlockRead(WorkIn, Chunk[1], I, Got0);
+        IoNote();
+        if (Got0 <> I) and (BufErr = 0) then BufErr := 100;
+        I := 0
+      end
+    end;
+    CopyBytes(DocLen - PgStart - PgOrig);
+    OutFlush();
+    Close(WorkIn); IoNote();
+    Close(WorkOut); IoNote();
+    { Commit only a complete, closed replacement. On failure the old
+      work file and every byte of the dirty page remain retryable. }
+    if BufErr = 0 then
+    begin
+    DocLen := DocLen - PgOrig + PgLen;
+    PgOrig := PgLen;
+    WorkSide := 1 - WorkSide;
+    PgDirty := false
+    end
+  end
+end;
+
+{ Load the page so that it starts at document line First (or earlier). }
+procedure PageLoad(First: integer);
+var Name: string;
+    Line, Pos, Got, I, Want, LastLf, NewLen, NewStart, NewStatus: integer;
+    Done: boolean;
+begin
+  PageFlush();
+  if BufErr = 0 then
+  begin
+  if First < 1 then First := 1;
+  if First > DocLines then First := DocLines;
+  WorkNames(WorkSide, Name);
+  Assign(WorkIn, Name);
+  Reset(WorkIn, 1);
+  IoNote();
+  Line := 1; Pos := 0; NewLen := 0; NewStart := 0; Done := false; LastLf := 0;
+  NewStatus := BufOk;
+  while (not Done) and (BufErr = 0) and (Pos < DocLen) do
+  begin
+    Want := DocLen - Pos; if Want > BufChunkMax then Want := BufChunkMax;
+    BlockRead(WorkIn, Chunk[1], Want, Got); IoNote();
+    if (Got <> Want) and (BufErr = 0) then BufErr := 100;
+    I := 1;
+    while I <= Got do
+    begin
+      if Line < First then
+      begin
+        if Chunk[I] = chr(10) then
+        begin
+          Line := Line + 1;
+          if Line = First then NewStart := Pos + 1
+        end
+      end
+      else if NewLen < PageFill then
+      begin
+        NewLen := NewLen + 1;
+        LoadPg[NewLen] := Chunk[I];
+        if Chunk[I] = chr(10) then LastLf := NewLen
+      end
+      else Done := true;
+      Pos := Pos + 1;
+      I := I + 1
+    end
+  end;
+  Close(WorkIn); IoNote();
+  { keep whole lines only, unless the page reaches the end of the document }
+  if NewStart + NewLen < DocLen then
+  begin
+    if LastLf = 0 then NewStatus := BufTooLong
+    else NewLen := LastLf
+  end;
+  if BufErr = 0 then
+  begin
+  I := 1;
+  while I <= NewLen do begin Pg[I] := LoadPg[I]; I := I + 1 end;
+  PgLen := NewLen; PgStart := NewStart; BufStatus := NewStatus;
+  PgLine := First;
+  PgOrig := PgLen;
+  PgDirty := false;
+  PageIndex(1)
+  end
+  end
+end;
+
+{ Is document line L in the page? }
+function PageHas(L: integer): boolean;
+begin
+  PageHas := (L >= PgLine) and (L < PgLine + PgLines)
+end;
+
+{ Make sure lines L .. L+Span-1 (those that exist) are in the page. }
+procedure PageCover(L, Span: integer);
+var Last: integer;
+begin
+  BufErr := 0;
+  Last := L + Span - 1;
+  if Last > DocLines then Last := DocLines;
+  if not (PageHas(L) and PageHas(Last)) then
+  begin
+    if L > 22 then PageLoad(L - 22) else PageLoad(1)
+  end
+end;
+
+{ Bytes of page line L (document numbering): start index and length. }
+procedure LineSpan(L: integer; var Start, Len: integer);
+var K, Stop: integer;
+begin
+  K := L - PgLine + 1;
+  Start := PgLs[K];
+  if K < PgLines then Stop := PgLs[K + 1] - 1
+  else if PgStart + PgOrig >= DocLen then Stop := PgLen + 1
+  else Stop := PgLs[K + 1] - 1;
+  Len := Stop - Start
+end;
+
+procedure LineText(L: integer; var S: string);
+var Start, Len, I: integer;
+    C: string;
+begin
+  S := '';
+  if (L >= 1) and (L <= DocLines) and PageHas(L) then
+  begin
+    LineSpan(L, Start, Len);
+    if Len > 255 then Len := 255;
+    I := 0;
+    while I < Len do
+    begin
+      C := Pg[Start + I];
+      S := S + C;
+      I := I + 1
+    end
+  end
+end;
+
+{ Insert one byte at page index At; lines after it move on by one. }
+procedure PageInsert(At: integer; C: char; L: integer);
+var I, Off: integer;
+begin
+  if PgLen >= PageMax then
+  begin
+    Off := At - PgLs[L - PgLine + 1];
+    PageLoad(L);
+    At := PgLs[1] + Off
+  end;
+  if BufErr = 0 then
+  begin
+  I := PgLen;
+  while I >= At do
+  begin
+    Pg[I + 1] := Pg[I];
+    I := I - 1
+  end;
+  Pg[At] := C;
+  PgLen := PgLen + 1;
+  PgDirty := true;
+  if C = chr(10) then DocLines := DocLines + 1;
+  PageIndex(L - PgLine + 1)
+  end
+end;
+
+procedure PageDelete(At: integer; L: integer);
+var I: integer;
+begin
+  if BufErr = 0 then
+  begin
+  if Pg[At] = chr(10) then DocLines := DocLines - 1;
+  I := At;
+  while I < PgLen do
+  begin
+    Pg[I] := Pg[I + 1];
+    I := I + 1
+  end;
+  PgLen := PgLen - 1;
+  PgDirty := true;
+  PageIndex(L - PgLine + 1)
+  end
+end;
+
+{ Load a DOS text file into a fresh work file. }
+procedure BufLoad(var FileName: string);
+var Src: file;
+    Got, I: integer;
+    Done, PendingCr: boolean;
+    Name: string;
+begin
+  BufErr := 0;
+  Assign(WorkIn, FileName);
+  Reset(WorkIn, 1);
+  IoNote();
+  if BufErr = 0 then
+  begin
+  WorkSide := 0;
+  WorkNames(0, Name);
+  OutStart(Name);
+  DocLen := 0; DocLines := 1; Done := false; PendingCr := false;
+  while not Done do
+  begin
+    Got := 0;
+    BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
+    IoNote();
+    if BufErr <> 0 then Got := 0;
+    if Got = 0 then Done := true;
+    I := 1;
+    while I <= Got do
+    begin
+      if Done then I := Got
+      else if Chunk[I] = chr(26) then Done := true
+      else if Chunk[I] = chr(13) then
+      begin
+        if PendingCr then begin OutByte(chr(13)); DocLen := DocLen + 1 end;
+        PendingCr := true
+      end
+      else
+      begin
+        if PendingCr and (Chunk[I] <> chr(10)) then
+        begin OutByte(chr(13)); DocLen := DocLen + 1 end;
+        PendingCr := false;
+        OutByte(Chunk[I]);
+        DocLen := DocLen + 1;
+        if Chunk[I] = chr(10) then DocLines := DocLines + 1
+      end;
+      I := I + 1
+    end
+  end;
+  if PendingCr then begin OutByte(chr(13)); DocLen := DocLen + 1 end;
+  OutFlush();
+  Assign(WorkIn, Name);
+  Assign(WorkOut, Name);
+  PgDirty := false;
+  PageLoad(1)
+  end
+end;
+
+procedure BufNew;
+var Name: string;
+begin
+  WorkSide := 0;
+  WorkNames(0, Name);
+  OutStart(Name);
+  Assign(WorkOut, Name);
+  DocLen := 0; DocLines := 1;
+  PgDirty := false;
+  PageLoad(1)
+end;
+
+{ Copy file From to file Into byte for byte (the .BAK copy). }
+procedure FileCopy(var From, Into: string);
+var Got, Wrote: integer;
+    Done: boolean;
+begin
+  BufErr := 0;
+  Assign(WorkIn, From);
+  Reset(WorkIn, 1);
+  IoNote();
+  if BufErr = 0 then
+  begin
+    OutStart(Into);
+    IoNote();
+    Done := BufErr <> 0;
+    while not Done do
+    begin
+      Got := 0;
+      BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
+      IoNote();
+      if (Got = 0) or (BufErr <> 0) then Done := true
+      else
+      begin
+        Wrote := 0;
+        BlockWrite(WorkOut, Chunk[1], Got, Wrote);
+        IoNote();
+        if (Wrote <> Got) and (BufErr = 0) then BufErr := 101
+      end
+    end
+  end;
+  Close(WorkIn); IoNote();
+  Close(WorkOut); IoNote()
+end;
+
+{ Write the document as a DOS text file. }
+procedure BufSave(var FileName: string);
+var Name: string;
+    Got, I: integer;
+    Done: boolean;
+begin
+  BufErr := 0;
+  PageFlush();
+  if BufErr = 0 then
+  begin
+  WorkNames(WorkSide, Name);
+  Assign(WorkIn, Name);
+  Reset(WorkIn, 1);
+  IoNote();
+  OutStart(FileName);
+  IoNote();
+  Done := BufErr <> 0;
+  while not Done do
+  begin
+    Got := 0;
+    BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
+    IoNote();
+    if (Got = 0) or (BufErr <> 0) then Done := true;
+    I := 1;
+    while I <= Got do
+    begin
+      if Chunk[I] = chr(10) then OutByte(chr(13));
+      OutByte(Chunk[I]);
+      I := I + 1
+    end
+  end;
+  if BufErr = 0 then
+  begin
+    OutByte(chr(26));
+    OutFlush()
+  end;
+  Close(WorkIn); IoNote();
+  Close(WorkOut); IoNote()
+  end
+end;
+{ END IDE buffer }
+
+{ BEGIN IDE editor }
+{ editor.pas -- the Turbo Initech IDE: chrome, menus, prompts and editing.
+
+  Layout, attributes and behaviour follow the TP 5.5 captures named in
+  turbo/README.md "IDE" (turbopascal-decomp MINT06, cited by shot number).
+  Keys arrive as DOS reports them through AH=07h: a character code, or
+  256 + scan code for an extended key. }
+const
+  KeyEnter = 13; KeyEsc = 27; KeyBack = 8; KeyTab = 9; KeyCtrlY = 25;
+  KeyF2 = 316; KeyF3 = 317; KeyF9 = 323; KeyF10 = 324;
+  KeyAltF9 = 368; KeyCtrlF9 = 358; KeyAltF5 = 364;
+  KeyAltX = 301; KeyAltE = 274; KeyAltF = 289; KeyAltR = 275; KeyAltC = 302;
+  KeyHome = 327; KeyUp = 328; KeyPgUp = 329; KeyLeft = 331; KeyRight = 333;
+  KeyEnd = 335; KeyDown = 336; KeyPgDn = 337; KeyIns = 338; KeyDel = 339;
+  KeyCtrlEnd = 373; KeyCtrlPgDn = 374; KeyCtrlHome = 375; KeyCtrlPgUp = 388;
+
+  ModeEditor = 0; ModeBar = 1; ModeMenu = 2; ModeName = 3; ModeVerify = 4;
+  ModeQuit = 5; ModeError = 6; ModeOverwrite = 7;
+  ModeCompile = 8; ModeUser = 9;
+  CmdCompile = 1; CmdMake = 2; CmdRun = 3; CmdUser = 4;
+  MenuFile = 1; MenuEdit = 2; MenuRun = 3; MenuCompile = 4;
+  NameRename = 1; NameLoad = 2; NameWrite = 3;
+  VerifyNew = 1; VerifyLoad = 2; VerifyQuit = 3;
+  ViewRows = 22;
+
+var
+  EdLine, EdCol, EdTop, EdLeft: integer;
+  EdInsert, EdModified, EdOnDisk: boolean;
+  FileName, FilePath, FileDrive, FileDir: string;
+  UiMode, MenuSel, LastMenu, NameKind, NameRow, NameCol, VerifyKind: integer;
+  ItemSel: array[1..4] of integer;
+  NameText, PendingName: string;
+  ResumeName: string;
+  ResumeKind: integer;
+  VerifyBar: boolean;
+  NameFresh: boolean;
+  ErrCode, ErrReturn: integer;       { Error box (MINT06 51, 54) }
+  ErrLineShown: boolean;             { compiler error on the info row (07) }
+  ErrLineText: string;
+  RequestedCommand, CompileLines, CompileMemory: integer;
+  CompileDone: boolean;
+  PrivateBase: string;
+  Tx: string;
+
+{ ---- line geometry: tabs at 8-column stops (MINT06 36, 34) ---- }
+
+function DispLen(var S: string): integer;
+var I, C: integer;
+begin
+  C := 0; I := 1;
+  while I <= Length(S) do
+  begin
+    if S[I] = chr(9) then C := (C div 8 + 1) * 8 else C := C + 1;
+    I := I + 1
+  end;
+  DispLen := C
+end;
+
+{ Byte index (1-based) of the first byte whose display position is at or
+  after column Col; Length+1 past the end. }
+function ColByte(var S: string; Col: integer): integer;
+var I, C, Found: integer;
+begin
+  C := 1; I := 1; Found := 0;
+  while I <= Length(S) do
+  begin
+    if Found = 0 then
+      if C >= Col then Found := I;
+    if S[I] = chr(9) then C := ((C - 1) div 8 + 1) * 8 + 1 else C := C + 1;
+    I := I + 1
+  end;
+  if Found = 0 then Found := Length(S) + 1;
+  ColByte := Found
+end;
+
+function ByteCol(var S: string; B: integer): integer;
+var I, C: integer;
+begin
+  C := 1; I := 1;
+  while I < B do
+  begin
+    if I <= Length(S) then
+    begin
+      if S[I] = chr(9) then C := ((C - 1) div 8 + 1) * 8 + 1 else C := C + 1
+    end;
+    I := I + 1
+  end;
+  ByteCol := C
+end;
+
+ { ---- view keeping ---- }
+
+procedure ScrollTo;
+begin
+  if EdLine < EdTop then EdTop := EdLine;
+  if EdLine > EdTop + ViewRows - 1 then EdTop := EdLine - ViewRows + 1;
+  if EdCol < EdLeft then EdLeft := EdCol;
+  if EdCol - EdLeft > 78 then EdLeft := EdCol - 78
+end;
+
+{ A jump far away puts the line on view row 11 (MINT06 34) without
+  scrolling past the last line (33). }
+procedure JumpTo;
+begin
+  EdTop := EdLine - 11;
+  if EdTop > DocLines - ViewRows + 2 then EdTop := DocLines - ViewRows + 2;
+  if EdTop < 1 then EdTop := 1;
+  ScrollTo()
+end;
+
+{ ---- drawing ---- }
+
+procedure DrawText;
+var R, L, C, I: integer;
+    S: string;
+begin
+  PageCover(EdTop, ViewRows);
+  if BufErr <> 0 then
+  begin
+    { A failed page replacement leaves the old page live. Stay on it;
+      never use the requested line numbers to index another page. }
+    EdTop := PgLine;
+    if not PageHas(EdLine) then EdLine := PgLine;
+    ErrCode := BufErr; ErrReturn := ModeEditor; UiMode := ModeError
+  end;
+  R := 0;
+  while R < ViewRows do
+  begin
+    ScrFill(R + 2, 0, 79, ' ', AtText);
+    L := EdTop + R;
+    if L <= DocLines then
+    begin
+      LineText(L, S);
+      { Walk source bytes directly: an expanded line can exceed the
+        ShortString limit. Only the visible cells need storage. }
+      C := 0; I := 1;
+      while I <= Length(S) do
+      begin
+        if S[I] = chr(9) then C := (C div 8 + 1) * 8
+        else
+        begin
+          if (C + 1 >= EdLeft) and (C + 1 < EdLeft + 80) then
+            ScrPut(R + 2, C + 1 - EdLeft, S[I], AtText);
+          C := C + 1
+        end;
+        I := I + 1
+      end
+    end;
+    R := R + 1
+  end
+end;
+
+procedure DrawInfo;
+var N: string;
+begin
+  if ErrLineShown then
+  begin
+    { MINT06 07: the error replaces the info row, 0x4E across it }
+    ScrFill(1, 0, 79, ' ', AtError);
+    ScrText(1, 0, ErrLineText, AtError)
+  end
+  else
+  begin
+  ScrFill(1, 0, 79, ' ', AtInfo);
+  Tx := 'Line'; ScrText(1, 6, Tx, AtInfo);
+  NumText(EdLine, N); ScrText(1, 11, N, AtInfo);
+  Tx := 'Col'; ScrText(1, 17, Tx, AtInfo);
+  NumText(EdCol, N); ScrText(1, 21, N, AtInfo);
+  if EdInsert then begin Tx := 'Insert'; ScrText(1, 25, Tx, AtInfo) end;
+  if EdModified then ScrPut(1, 57, '*', AtInfo);
+  Tx := FileDrive + ':' + FileName;
+  ScrText(1, 59, Tx, AtInfo)
+  end
+end;
+
+procedure DrawTitle(Which, Col: integer);
+begin
+  if Which = 1 then Tx := 'File'
+  else if Which = 2 then Tx := 'Edit'
+  else if Which = 3 then Tx := 'Run'
+  else Tx := 'Compile';
+  if ((UiMode = ModeBar) or (UiMode = ModeMenu)) and (MenuSel = Which) then
+    ScrText(0, Col, Tx, AtSelect)
+  else if (UiMode = ModeVerify) and (MenuSel = Which) and ((VerifyKind <> VerifyQuit) or VerifyBar) then
+    ScrText(0, Col, Tx, AtSelect)
+  else if (UiMode = ModeName) and (MenuSel = Which) and ((NameKind <> NameRename) or ((ResumeKind <> 0) and VerifyBar)) then
+    ScrText(0, Col, Tx, AtSelect)
+  else if (UiMode = ModeOverwrite) and (MenuSel = Which) then
+    ScrText(0, Col, Tx, AtSelect)
+  else if (UiMode = ModeError) and (MenuSel = Which) and (ErrReturn = ModeMenu) then
+    ScrText(0, Col, Tx, AtSelect)
+  else
+  begin
+    ScrText(0, Col, Tx, AtMenu);
+    ScrAttr(0, Col, AtMenuKey)
+  end;
+end;
+
+procedure DrawBar;
+begin
+  ScrFill(0, 0, 79, ' ', AtMenu);
+  DrawTitle(1, 4); DrawTitle(2, 12); DrawTitle(3, 20); DrawTitle(4, 27)
+end;
+
+procedure DrawStatus;
+begin
+  ScrFill(24, 0, 79, ' ', AtMenu);
+  if (UiMode = ModeVerify) or (UiMode = ModeError) or (UiMode = ModeOverwrite) then
+  begin
+    Tx := 'Esc'; ScrText(24, 1, Tx, AtMenuKey);
+    Tx := '-Abort'; ScrText(24, 4, Tx, AtMenu)
+  end
+  else
+  begin
+    Tx := 'F9'; ScrText(24, 1, Tx, AtMenuKey);
+    Tx := '-Make'; ScrText(24, 3, Tx, AtMenu);
+    Tx := 'F10'; ScrText(24, 10, Tx, AtMenuKey);
+    Tx := '-Menu'; ScrText(24, 13, Tx, AtMenu)
+  end
+end;
+
+function ItemCount(Menu: integer): integer;
+begin
+  if Menu = MenuFile then ItemCount := 5 else ItemCount := 2
+end;
+
+procedure ItemText(Menu, Item: integer; var S: string);
+begin
+  S := '';
+  if Menu = MenuFile then
+  begin
+    if Item = 1 then S := ' Load      F3 '
+    else if Item = 2 then S := ' New          '
+    else if Item = 3 then S := ' Save      F2 '
+    else if Item = 4 then S := ' Write to     '
+    else S := ' Quit   Alt-X '
+  end
+  else if Menu = MenuRun then
+  begin
+    if Item = 1 then S := ' Run           Ctrl-F9 ' else S := ' User screen    Alt-F5 '
+  end
+  else
+  begin
+    if Item = 1 then S := ' Compile  Alt-F9                 '
+    else S := ' Make         F9                 '
+  end
+end;
+
+{ Pulldown frames as captured: File (3,1)-(18,..) MINT06 19, Run (19,1)
+  20, Compile (26,1) 21; absent items are removed, the rest keep order. }
+function MenuLeft(Menu: integer): integer;
+begin
+  if Menu = MenuFile then MenuLeft := 3
+  else if Menu = MenuRun then MenuLeft := 19
+  else MenuLeft := 26
+end;
+
+procedure DrawMenu;
+var I, L: integer;
+    S: string;
+begin
+  L := MenuLeft(MenuSel);
+  ItemText(MenuSel, 1, S);
+  ScrBox(1, L, ItemCount(MenuSel) + 2, L + Length(S) + 1, false, AtMenu);
+  I := 1;
+  while I <= ItemCount(MenuSel) do
+  begin
+    ItemText(MenuSel, I, S);
+    if I = ItemSel[MenuSel] then
+      ScrText(I + 1, L + 1, S, AtSelect)
+    else
+    begin
+      ScrText(I + 1, L + 1, S, AtMenu);
+      ScrAttr(I + 1, L + 2, AtMenuKey)
+    end;
+    I := I + 1
+  end
+end;
+
+procedure DrawName;
+var Len: integer;
+begin
+  ScrBox(NameRow, NameCol, NameRow + 2, NameCol + 43, false, AtMenu);
+  ScrFill(NameRow + 1, NameCol + 1, NameCol + 42, ' ', AtMenu);
+  if NameKind = NameRename then Tx := 'Rename NONAME'
+  else if NameKind = NameLoad then Tx := 'Load File Name'
+  else Tx := 'New Name';
+  ScrTitle(NameRow, NameCol, NameCol + 43, Tx, AtMenu);
+  ScrText(NameRow + 1, NameCol + 2, NameText, AtSelect);
+  Len := Length(NameText);
+  ScrCursor(NameRow + 1, NameCol + 2 + Len, true)
+end;
+
+procedure DrawVerify;
+var W: integer;
+begin
+  Tx := ' ' + FileName + ' not saved.  Save? (Y/N) ';
+  W := Length(Tx) + 2;
+  ScrBox(5, 10, 7, 10 + W - 1, true, AtVerify);
+  ScrText(6, 11, Tx, AtMenu);
+  Tx := 'Verify';
+  ScrTitle(5, 10, 10 + W - 1, Tx, AtVerify)
+end;
+
+procedure LeafName(var S, L: string); forward;
+
+{ Overwrite prompt (MINT06 49): a Verify box where the name box was. }
+procedure DrawOverwrite;
+var L: string;
+    W: integer;
+begin
+  LeafName(PendingName, L);
+  Tx := ' Overwrite ' + L + '? (Y/N) ';
+  W := Length(Tx) + 2;
+  ScrBox(NameRow, NameCol, NameRow + 2, NameCol + W - 1, true, AtVerify);
+  ScrText(NameRow + 1, NameCol + 1, Tx, AtMenu);
+  Tx := 'Verify';
+  ScrTitle(NameRow, NameCol, NameCol + W - 1, Tx, AtVerify)
+end;
+
+{ Error box (MINT06 51, 54): DOS 3 and 5 as captured; others not captured. }
+procedure DrawError;
+var W: integer;
+    N: string;
+begin
+  { creating a file: 2 or 3 both mean the path cannot be reached }
+  if (ErrCode = 2) or (ErrCode = 3) then Tx := 'Invalid drive or directory.'
+  else if ErrCode = 5 then Tx := 'File is read only.'
+  else
+  begin
+    NumText(ErrCode, N);
+    Tx := 'File error ' + N + '.'
+  end;
+  Tx := ' ' + Tx + '  Press ';
+  W := Length(Tx) + 5 + 2;
+  ScrBox(10, 20, 12, 20 + W - 1, true, AtErrFrame);
+  ScrText(11, 21, Tx, AtErrText);
+  N := 'ESC';
+  ScrText(11, 21 + Length(Tx), N, AtError);
+  N := '. ';
+  ScrText(11, 24 + Length(Tx), N, AtErrText);
+  N := 'Error';
+  ScrTitle(10, 20, 20 + W - 1, N, AtErrText)
+end;
+
+{ MINT06 13c: the disk compile box. Values describe this compilation and
+  DOS's actual largest free conventional block, rather than TP's machine. }
+procedure DrawCompile;
+var N: string;
+    R: integer;
+begin
+  R := 8;
+  while R <= 18 do begin ScrFill(R, 20, 58, ' ', AtMenu); R := R + 1 end;
+  ScrBox(7, 19, 19, 59, true, AtMenu);
+  Tx := 'Compiling to Disk'; ScrTitle(7, 19, 59, Tx, AtMenu);
+  Tx := 'Main file: '; ScrText(9, 21, Tx, AtMenu);
+  ScrText(9, 32, FileName, AtMenu);
+  Tx := 'Compiling: EDITOR '; ScrText(10, 21, Tx, AtMenu);
+  ScrPut(10, 39, chr(26), AtMenu); ScrText(10, 41, FileName, AtMenu);
+  Tx := 'Total    File'; ScrText(12, 40, Tx, AtMenu);
+  Tx := 'Lines compiled:'; ScrText(13, 24, Tx, AtMenu);
+  NumText(CompileLines, N); ScrText(13, 40, N, AtMenu); ScrText(13, 49, N, AtMenu);
+  Tx := 'Available memory:'; ScrText(15, 24, Tx, AtMenu);
+  NumText(CompileMemory div 1024, N); N := N + 'K'; ScrText(15, 43, N, AtMenu);
+  if CompileDone then
+  begin
+    ScrFill(18, 20, 58, ' ', AtBarText);
+    Tx := 'Success         :'; ScrText(18, 22, Tx, AtBarText);
+    ScrFill(18, 39, 58, ' ', AtBlink);
+    Tx := 'Press any key'; ScrText(18, 43, Tx, AtBlink)
+  end;
+  ScrCursor(0, 0, false)
+end;
+
+procedure DrawAll;
+begin
+  DrawText();
+  DrawInfo();
+  DrawBar();
+  DrawStatus();
+  ScrCursor(EdLine - EdTop + 2, EdCol - EdLeft, UiMode = ModeEditor);
+  if (UiMode = ModeMenu) or ((UiMode = ModeVerify) and (VerifyKind <> VerifyQuit)) then
+    DrawMenu()
+  else if (UiMode = ModeName) and (NameKind <> NameRename) then
+    DrawMenu()
+  else if UiMode = ModeOverwrite then
+    DrawMenu()
+  else if (UiMode = ModeError) and (ErrReturn = ModeMenu) then
+    DrawMenu();
+  if UiMode = ModeName then DrawName();
+  if UiMode = ModeVerify then DrawVerify();
+  if UiMode = ModeOverwrite then DrawOverwrite();
+  if UiMode = ModeError then DrawError();
+  if UiMode = ModeCompile then DrawCompile()
+end;
+
+{ ---- file commands ---- }
+
+procedure Upper(var S: string);
+var I: integer;
+begin
+  I := 1;
+  while I <= Length(S) do
+  begin
+    if (S[I] >= 'a') and (S[I] <= 'z') then S[I] := chr(ord(S[I]) - 32);
+    I := I + 1
+  end
+end;
+
+procedure BakName(var S, B: string);
+var I, Dot: integer;
+    C: string;
+begin
+  Dot := 0; I := 1;
+  while I <= Length(S) do
+  begin
+    if S[I] = '.' then Dot := I;
+    if S[I] = chr(92) then Dot := 0;
+    I := I + 1
+  end;
+  B := ''; I := 1;
+  if Dot = 0 then Dot := Length(S) + 1;
+  while I < Dot do
+  begin
+    C := S[I];
+    B := B + C;
+    I := I + 1
+  end;
+  B := B + '.BAK'
+end;
+
+procedure CursorHome;
+begin
+  EdLine := 1; EdCol := 1; EdTop := 1; EdLeft := 1
+end;
+
+procedure DoNew;
+begin
+  BufNew();
+  FileName := 'NONAME.PAS';
+  FilePath := '';
+  EdModified := false; EdOnDisk := false;
+  CursorHome();
+  UiMode := ModeEditor
+end;
+
+procedure ShowFileError(Code, Back: integer);
+begin
+  ErrCode := Code;
+  ErrReturn := Back;
+  UiMode := ModeError
+end;
+
+{ A missing file opens as a new, empty buffer of that name (TP 5.5 F3;
+  not in the captures). Other errors leave the buffer as it was. }
+function WorkFileName(var Path: string): boolean; forward;
+
+procedure DoLoad(var Name: string);
+var L: string;
+begin
+  if WorkFileName(Name) then BufErr := 5 else BufLoad(Name);
+  LeafName(Name, L);
+  if BufErr = 2 then
+  begin
+    BufNew();
+    FileName := L;
+    FilePath := Name;
+    EdModified := false; EdOnDisk := false;
+    CursorHome();
+    UiMode := ModeEditor
+  end
+  else if BufErr <> 0 then ShowFileError(BufErr, ModeMenu)
+  else
+  begin
+    FileName := L;
+    FilePath := Name;
+    EdModified := false; EdOnDisk := true;
+    CursorHome();
+    UiMode := ModeEditor
+  end
+end;
+
+procedure ExtName(var S, Ext, B: string);
+var I, Dot: integer;
+    C: string;
+begin
+  Dot := 0; I := 1;
+  while I <= Length(S) do
+  begin
+    if S[I] = '.' then Dot := I;
+    if S[I] = chr(92) then Dot := 0;
+    I := I + 1
+  end;
+  B := ''; I := 1;
+  if Dot = 0 then Dot := Length(S) + 1;
+  while I < Dot do
+  begin
+    C := S[I];
+    B := B + C;
+    I := I + 1
+  end;
+  B := B + Ext
+end;
+
+{ DOS names compare without case; generated siblings must never alias
+  the source. .BAK sources use .BK1 for their previous version. }
+function SameName(var A, B: string): boolean;
+var X, Y: string;
+begin
+  X := A; Y := B; Upper(X); Upper(Y);
+  SameName := X = Y
+end;
+
+{ Reserve the work-file leaves under every DOS path spelling, including
+  staging/backup siblings which a later page flush may create. }
+function WorkFileName(var Path: string): boolean;
+var Leaf, W0, W1: string;
+begin
+  LeafName(Path, Leaf); LeafName(WorkName0, W0); LeafName(WorkName1, W1);
+  WorkFileName := SameName(Leaf, W0) or SameName(Leaf, W1)
+end;
+
+function PrivateName(var Path: string): boolean;
+var Leaf, P: string;
+begin
+  LeafName(Path, Leaf); Upper(Leaf); P := PrivateBase + '.PAS';
+  PrivateName := SameName(Leaf, P) or WorkFileName(Path)
+end;
+
+{ Write aside, close and check, then use only DOS renames to publish.
+  MINT06 54 refuses a read-only source; 49 confirms overwrites. The
+  operator's save ruling permits the residual double rename failure:
+  leave both the backup and stage intact if rollback also fails. }
+function SaveAs(var Path: string; Existing: boolean): integer;
+var Temp, Bak, Ext: string;
+    Code, I, Attr: integer;
+    F: file;
+    Moved, KeepStage, StageOwned: boolean;
+begin
+  Ext := '.$$$'; ExtName(Path, Ext, Temp);
+  Ext := '.BAK'; ExtName(Path, Ext, Bak);
+  if SameName(Path, Temp) then
+  begin Ext := '.$$1'; ExtName(Path, Ext, Temp) end;
+  if SameName(Path, Bak) then
+  begin Ext := '.BK1'; ExtName(Path, Ext, Bak) end;
+  Code := 0; Moved := false; KeepStage := false; StageOwned := false;
+  { A pre-existing stage belongs to someone else. Never truncate or erase
+    it, including when a prior rollback left recovery material behind. }
+  Assign(F, Temp); Attr := FileAttributes(F);
+  if Attr >= 0 then Code := 80
+  else if Attr <> -2 then Code := -Attr;
+  if WorkFileName(Path) or WorkFileName(Temp) or WorkFileName(Bak) then Code := 5;
+  if PrivateName(Path) then Code := 5;
+  if Existing and (Code = 0) then
+  begin
+    Assign(F, Path);
+    Attr := FileAttributes(F);
+    if Attr < 0 then Code := -Attr
+    else if Attr mod 2 = 1 then Code := 5
+  end;
+  if Code = 0 then
+  begin
+    StageOwned := true;
+    BufSave(Temp);
+    Code := BufErr
+  end;
+  if (Code = 0) and Existing then
+  begin
+    Assign(F, Bak); Erase(F); I := IOResult();
+    if (I <> 0) and (I <> 2) then Code := I;
+    if Code = 0 then
+    begin
+      Assign(F, Path); Rename(F, Bak); Code := IOResult();
+      Moved := Code = 0
+    end
+  end;
+  if Code = 0 then
+  begin
+    Assign(F, Temp); Rename(F, Path); Code := IOResult();
+    if (Code <> 0) and Moved then
+    begin
+      Assign(F, Bak); Rename(F, Path); I := IOResult();
+      KeepStage := I <> 0
+    end
+  end;
+  if (Code <> 0) and StageOwned and (not KeepStage) then
+  begin
+    Assign(F, Temp); Erase(F); I := IOResult()
+  end;
+  SaveAs := Code
+end;
+
+function FileExists(var Path: string): boolean;
+var F: file;
+    Code: integer;
+begin
+  BufErr := 0;
+  Assign(F, Path);
+  Reset(F, 1);
+  Code := IOResult();
+  if Code = 0 then
+  begin
+    Close(F);
+    Code := IOResult();
+    FileExists := Code = 0
+  end
+  else FileExists := false;
+  { Only FILE NOT FOUND proves absence. Access/close errors must not turn
+    an existing destination into an unconfirmed new-file save. }
+  if (Code <> 0) and (Code <> 2) then BufErr := Code
+end;
+
+procedure DoSave;
+var Code: integer;
+begin
+  Code := SaveAs(FilePath, EdOnDisk);
+  if Code = 0 then
+  begin
+    EdOnDisk := true;
+    EdModified := false;
+    UiMode := ModeEditor
+  end
+  else ShowFileError(Code, ModeEditor)
+end;
+
+procedure OpenName(Kind: integer);
+begin
+  ResumeKind := 0;
+  NameKind := Kind;
+  NameFresh := true;
+  if Kind = NameRename then
+  begin
+    NameRow := 3; NameCol := 7;
+    NameText := FileDir;
+    if NameText[Length(NameText)] <> chr(92) then NameText := NameText + chr(92);
+    NameText := NameText + FileName
+  end
+  else
+  begin
+    NameCol := 5;
+    NameRow := ItemSel[MenuFile] + 2;
+    if Kind = NameLoad then NameText := '*.PAS' else NameText := ''
+  end;
+  UiMode := ModeName
+end;
+
+function Wild(var S: string): boolean;
+var I: integer;
+    W: boolean;
+begin
+  W := false; I := 1;
+  while I <= Length(S) do
+  begin
+    if (S[I] = '*') or (S[I] = '?') then W := true;
+    I := I + 1
+  end;
+  Wild := W
+end;
+
+{ Strip a typed drive and directory for the info line and file name. }
+procedure LeafName(var S, L: string);
+var I: integer;
+    C: string;
+begin
+  L := ''; I := 1;
+  while I <= Length(S) do
+  begin
+    if (S[I] = chr(92)) or (S[I] = ':') then L := ''
+    else
+    begin
+      C := S[I];
+      L := L + C
+    end;
+    I := I + 1
+  end
+end;
+
+{ Save under a new name; on success the buffer takes that name. }
+procedure WriteTo(var Path: string; Existing: boolean);
+var L: string;
+    Code: integer;
+begin
+  Code := SaveAs(Path, Existing);
+  if Code = 0 then
+  begin
+    LeafName(Path, L);
+    FileName := L;
+    FilePath := Path;
+    EdOnDisk := true;
+    EdModified := false;
+    { after the Rename box TP shows the file from its start (MINT06 06) }
+    if NameKind = NameRename then CursorHome();
+    UiMode := ModeEditor;
+    if ResumeKind <> 0 then
+    begin
+      Code := ResumeKind; ResumeKind := 0;
+      if Code = VerifyNew then DoNew()
+      else if Code = VerifyLoad then DoLoad(ResumeName)
+      else UiMode := ModeQuit
+    end
+  end
+  else
+  begin
+    ResumeKind := 0;
+    if NameKind = NameRename then ShowFileError(Code, ModeEditor)
+    else ShowFileError(Code, ModeMenu)
+  end
+end;
+
+procedure NameAccept;
+var L: string;
+begin
+  Upper(NameText);
+  if Length(NameText) = 0 then UiMode := ModeEditor
+  else if Wild(NameText) then NameFresh := false
+  else if NameKind = NameLoad then
+  begin
+    if EdModified then
+    begin
+      PendingName := NameText;
+      VerifyKind := VerifyLoad;
+      UiMode := ModeVerify
+    end
+    else DoLoad(NameText)
+  end
+  else
+  begin
+    if FileExists(NameText) then
+    begin
+      PendingName := NameText;
+      UiMode := ModeOverwrite
+    end
+    else if BufErr <> 0 then
+    begin
+      if NameKind = NameRename then ShowFileError(BufErr, ModeEditor)
+      else ShowFileError(BufErr, ModeMenu)
+    end
+    else WriteTo(NameText, false)
+  end
+end;
+
+procedure SaveCommand;
+begin
+  if FileName = 'NONAME.PAS' then OpenName(NameRename)
+  else
+    DoSave()
+end;
+
+procedure VerifyDone(Saved: boolean);
+begin
+  if Saved and (Length(FilePath) = 0) then
+  begin
+    OpenName(NameRename); ResumeKind := VerifyKind; ResumeName := PendingName
+  end
+  else
+  begin
+  if Saved then DoSave();
+  if UiMode <> ModeError then
+  begin
+    if VerifyKind = VerifyNew then DoNew()
+    else if VerifyKind = VerifyLoad then DoLoad(PendingName)
+    else UiMode := ModeQuit
+  end
+  end
+end;
+
+procedure CancelName;
+begin
+  if (NameKind = NameRename) and (ResumeKind = VerifyQuit) then
+  begin MenuSel := MenuFile; LastMenu := MenuFile; UiMode := ModeBar end
+  else if NameKind = NameRename then UiMode := ModeEditor
+  else UiMode := ModeMenu;
+  ResumeKind := 0
+end;
+
+procedure RunItem;
+var I: integer;
+begin
+  I := ItemSel[MenuSel];
+  LastMenu := MenuSel;
+  if MenuSel = MenuFile then
+  begin
+    if I = 1 then OpenName(NameLoad)
+    else if I = 2 then
+    begin
+      if EdModified then begin VerifyKind := VerifyNew; UiMode := ModeVerify end
+      else DoNew()
+    end
+    else if I = 3 then SaveCommand()
+    else if I = 4 then OpenName(NameWrite)
+    else
+    begin
+      if EdModified then begin VerifyKind := VerifyQuit; UiMode := ModeVerify end
+      else UiMode := ModeQuit
+    end
+  end
+  else
+  begin
+    UiMode := ModeEditor;
+    if MenuSel = MenuRun then
+    begin
+      if I = 1 then RequestedCommand := CmdRun else RequestedCommand := CmdUser
+    end
+    else if I = 1 then RequestedCommand := CmdCompile else RequestedCommand := CmdMake
+  end
+end;
+
+{ ---- editing ---- }
+
+procedure CurLineBytes(var S: string; var Start: integer);
+var Len: integer;
+begin
+  PageCover(EdLine, 1);
+  if not PageHas(EdLine) then EdLine := PgLine;
+  LineSpan(EdLine, Start, Len);
+  LineText(EdLine, S)
+end;
+
+procedure TypeChar(C: char);
+var S: string;
+    Start, B, Len: integer;
+begin
+  CurLineBytes(S, Start);
+  Len := DispLen(S);
+  if Len < LineMax then
+  begin
+    while DispLen(S) + 1 < EdCol do
+    begin
+      PageInsert(Start + Length(S), ' ', EdLine);
+      CurLineBytes(S, Start)
+    end;
+    B := ColByte(S, EdCol);
+    if (not EdInsert) and (B <= Length(S)) then PageDelete(Start + B - 1, EdLine);
+    CurLineBytes(S, Start);
+    PageInsert(Start + B - 1, C, EdLine);
+    EdCol := EdCol + 1;
+    EdModified := true
+  end
+end;
+
+procedure NewLine;
+var S: string;
+    Start, B: integer;
+begin
+  CurLineBytes(S, Start);
+  B := ColByte(S, EdCol);
+  PageInsert(Start + B - 1, chr(10), EdLine);
+  EdLine := EdLine + 1;
+  EdCol := 1;
+  EdModified := true
+end;
+
+procedure BackSpace;
+var S, P: string;
+    Start, B: integer;
+begin
+  CurLineBytes(S, Start);
+  if EdCol > DispLen(S) + 1 then EdCol := EdCol - 1
+  else if EdCol > 1 then
+  begin
+    B := ColByte(S, EdCol);
+    EdCol := ByteCol(S, B - 1);
+    PageDelete(Start + B - 2, EdLine);
+    EdModified := true
+  end
+  else if EdLine > 1 then
+  begin
+    EdLine := EdLine - 1;
+    CurLineBytes(P, Start);
+    EdCol := DispLen(P) + 1;
+    PageDelete(Start + Length(P), EdLine);
+    EdModified := true
+  end
+end;
+
+procedure DeleteChar;
+var S: string;
+    Start, B: integer;
+begin
+  CurLineBytes(S, Start);
+  if EdCol <= DispLen(S) then
+  begin
+    B := ColByte(S, EdCol);
+    PageDelete(Start + B - 1, EdLine);
+    EdModified := true
+  end
+  else if EdLine < DocLines then
+  begin
+    while DispLen(S) + 1 < EdCol do
+    begin
+      PageInsert(Start + Length(S), ' ', EdLine);
+      CurLineBytes(S, Start)
+    end;
+    PageDelete(Start + Length(S), EdLine);
+    EdModified := true
+  end
+end;
+
+procedure DeleteLine;
+var S: string;
+    Start, I: integer;
+begin
+  CurLineBytes(S, Start);
+  I := Length(S);
+  if EdLine < DocLines then I := I + 1;
+  while I > 0 do
+  begin
+    PageDelete(Start, EdLine);
+    I := I - 1
+  end;
+  EdCol := 1;
+  EdModified := true
+end;
+
+procedure EditKey(K: integer);
+var S: string;
+    Start: integer;
+begin
+  if (K >= 32) and (K < 256) then TypeChar(chr(K))
+  else if K = KeyEnter then NewLine()
+  else if K = KeyBack then BackSpace()
+  else if K = KeyDel then DeleteChar()
+  else if K = KeyCtrlY then DeleteLine()
+  else if K = KeyIns then EdInsert := not EdInsert
+  else if K = KeyLeft then begin if EdCol > 1 then EdCol := EdCol - 1 end
+  else if K = KeyRight then begin if EdCol < LineMax then EdCol := EdCol + 1 end
+  else if K = KeyUp then begin if EdLine > 1 then EdLine := EdLine - 1 end
+  else if K = KeyDown then begin if EdLine < DocLines then EdLine := EdLine + 1 end
+  else if K = KeyHome then EdCol := 1
+  else if K = KeyEnd then
+  begin
+    CurLineBytes(S, Start);
+    EdCol := DispLen(S) + 1
+  end
+  else if K = KeyPgDn then
+  begin
+    { MINT06 27, 28: 21 lines, the cursor keeps its view row }
+    if EdTop + ViewRows - 1 <= DocLines then
+    begin
+      EdTop := EdTop + ViewRows - 1;
+      EdLine := EdLine + ViewRows - 1;
+      if EdLine > DocLines then EdLine := DocLines
+    end
+    else EdLine := DocLines
+  end
+  else if K = KeyPgUp then
+  begin
+    EdTop := EdTop - ViewRows + 1;
+    EdLine := EdLine - ViewRows + 1;
+    if EdTop < 1 then EdTop := 1;
+    if EdLine < 1 then EdLine := 1
+  end
+  else if K = KeyCtrlHome then EdLine := EdTop
+  else if K = KeyCtrlEnd then
+  begin
+    EdLine := EdTop + ViewRows - 1;
+    if EdLine > DocLines then EdLine := DocLines
+  end
+  else if K = KeyCtrlPgUp then begin EdLine := 1; EdTop := 1 end
+  else if K = KeyCtrlPgDn then begin EdLine := DocLines; JumpTo() end;
+  ScrollTo()
+end;
+
+{ ---- key dispatch ---- }
+
+procedure OpenMenu(Menu: integer);
+begin
+  MenuSel := Menu;
+  LastMenu := Menu;
+  if Menu = MenuEdit then UiMode := ModeEditor else UiMode := ModeMenu
+end;
+
+function HotMenu(K: integer): integer;
+var M: integer;
+begin
+  M := 0;
+  if (K = ord('f')) or (K = ord('F')) or (K = KeyAltF) then M := MenuFile
+  else if (K = ord('e')) or (K = ord('E')) or (K = KeyAltE) then M := MenuEdit
+  else if (K = ord('r')) or (K = ord('R')) or (K = KeyAltR) then M := MenuRun
+  else if (K = ord('c')) or (K = ord('C')) or (K = KeyAltC) then M := MenuCompile;
+  HotMenu := M
+end;
+
+function HotItem(K: integer): integer;
+var I, Found: integer;
+    S: string;
+begin
+  Found := 0; I := 1;
+  if (K >= ord('a')) and (K <= ord('z')) then K := K - 32;
+  while I <= ItemCount(MenuSel) do
+  begin
+    ItemText(MenuSel, I, S);
+    if ord(S[2]) = K then Found := I;
+    I := I + 1
+  end;
+  HotItem := Found
+end;
+
+procedure GlobalKey(K: integer);
+begin
+  if (K = KeyAltF) or (K = KeyAltR) or (K = KeyAltC) then OpenMenu(HotMenu(K))
+  else if K = KeyAltE then UiMode := ModeEditor
+  else if K = KeyF10 then begin MenuSel := LastMenu; UiMode := ModeBar end
+  else if K = KeyF2 then SaveCommand()
+  else if K = KeyF3 then
+  begin
+    MenuSel := MenuFile; ItemSel[MenuFile] := 1; LastMenu := MenuFile;
+    OpenName(NameLoad)
+  end
+  else if K = KeyF9 then RequestedCommand := CmdMake
+  else if K = KeyAltF9 then RequestedCommand := CmdCompile
+  else if K = KeyCtrlF9 then RequestedCommand := CmdRun
+  else if K = KeyAltF5 then RequestedCommand := CmdUser
+  else if K = KeyAltX then
+  begin
+    VerifyBar := UiMode = ModeBar;
+    if EdModified then begin VerifyKind := VerifyQuit; UiMode := ModeVerify end
+    else UiMode := ModeQuit
+  end
+end;
+
+function IsGlobal(K: integer): boolean;
+begin
+  IsGlobal := (K = KeyAltF) or (K = KeyAltR) or (K = KeyAltC) or (K = KeyAltE) or
+              (K = KeyF10) or (K = KeyF2) or (K = KeyF3) or (K = KeyAltX) or
+              (K = KeyF9) or (K = KeyAltF9) or (K = KeyCtrlF9) or (K = KeyAltF5)
+end;
+
+{ Show a compiler error (MINT06 07, 34): the message replaces the info
+  row and the cursor goes to the token; Col is the source byte column,
+  shown through the tabs. A line off screen is placed on view row 11. }
+procedure IdeError(Line, Col: integer; var Msg: string);
+var S: string;
+begin
+  if Line > DocLines then Line := DocLines;
+  if Line < 1 then Line := 1;
+  EdLine := Line;
+  PageCover(EdLine, 1);
+  LineText(EdLine, S);
+  EdCol := ByteCol(S, Col);
+  if (EdLine < EdTop) or (EdLine > EdTop + ViewRows - 1) then JumpTo()
+  else ScrollTo();
+  ErrLineText := Msg;
+  ErrLineShown := true;
+  UiMode := ModeEditor
+end;
+
+procedure IdeKey(K: integer);
+var M, I: integer;
+    C: string;
+begin
+  if (UiMode = ModeCompile) or (UiMode = ModeUser) then UiMode := ModeEditor
+  else if (UiMode = ModeEditor) and ErrLineShown then
+  begin
+    { the next key restores the info row (MINT06 08); Esc does no more }
+    ErrLineShown := false;
+    if K <> KeyEsc then
+    begin
+      if IsGlobal(K) then GlobalKey(K) else EditKey(K)
+    end
+  end
+  else if UiMode = ModeEditor then
+  begin
+    if IsGlobal(K) then GlobalKey(K) else EditKey(K)
+  end
+  else if UiMode = ModeError then
+  begin
+    if K = KeyEsc then UiMode := ErrReturn
+  end
+  else if UiMode = ModeOverwrite then
+  begin
+    if (K = ord('y')) or (K = ord('Y')) then WriteTo(PendingName, true)
+    else if (K = ord('n')) or (K = ord('N')) or (K = KeyEsc) then
+    begin
+      CancelName()
+    end
+  end
+  else if UiMode = ModeBar then
+  begin
+    M := HotMenu(K);
+    if M > 0 then OpenMenu(M)
+    else if K = KeyLeft then begin MenuSel := (MenuSel + 2) mod 4 + 1; LastMenu := MenuSel end
+    else if K = KeyRight then begin MenuSel := MenuSel mod 4 + 1; LastMenu := MenuSel end
+    else if (K = KeyEnter) or (K = KeyDown) then OpenMenu(MenuSel)
+    else if (K = KeyEsc) or (K = KeyF10) then UiMode := ModeEditor
+    else if IsGlobal(K) then GlobalKey(K)
+  end
+  else if UiMode = ModeMenu then
+  begin
+    I := HotItem(K);
+    if I > 0 then begin ItemSel[MenuSel] := I; RunItem() end
+    else if K = KeyDown then ItemSel[MenuSel] := ItemSel[MenuSel] mod ItemCount(MenuSel) + 1
+    else if K = KeyUp then
+      ItemSel[MenuSel] := (ItemSel[MenuSel] + ItemCount(MenuSel) - 2) mod ItemCount(MenuSel) + 1
+    else if K = KeyEnter then RunItem()
+    else if K = KeyEsc then UiMode := ModeBar
+    else if K = KeyLeft then
+    begin
+      MenuSel := (MenuSel + 2) mod 4 + 1; LastMenu := MenuSel;
+      if MenuSel = MenuEdit then UiMode := ModeBar
+    end
+    else if K = KeyRight then
+    begin
+      MenuSel := MenuSel mod 4 + 1; LastMenu := MenuSel;
+      if MenuSel = MenuEdit then UiMode := ModeBar
+    end
+    else if IsGlobal(K) then GlobalKey(K)
+  end
+  else if UiMode = ModeName then
+  begin
+    if K = KeyEnter then NameAccept()
+    else if K = KeyEsc then
+    begin
+      CancelName()
+    end
+    else if K = KeyBack then
+    begin
+      NameFresh := false;
+      if Length(NameText) > 0 then
+      begin
+        C := '';
+        I := 1;
+        while I < Length(NameText) do
+        begin
+          C := C + NameText[I];
+          I := I + 1
+        end;
+        NameText := C
+      end
+    end
+    else if (K > 32) and (K < 127) then
+    begin
+      if NameFresh then NameText := '';
+      NameFresh := false;
+      if Length(NameText) < 40 then
+      begin
+        C := chr(K);
+        NameText := NameText + C
+      end
+    end
+  end
+  else if UiMode = ModeVerify then
+  begin
+    if (K = ord('y')) or (K = ord('Y')) then VerifyDone(true)
+    else if (K = ord('n')) or (K = ord('N')) then VerifyDone(false)
+    else if K = KeyEsc then
+    begin
+      { a cancelled Alt-X leaves the bar on File (MINT06 57) }
+      if VerifyKind = VerifyQuit then
+      begin
+        MenuSel := MenuFile;
+        LastMenu := MenuFile;
+        UiMode := ModeBar
+      end
+      else UiMode := ModeMenu
+    end
+  end
+end;
+
+{ The state after start (MINT06 02_editor): an empty NONAME.PAS, the menu
+  bar active on File, the cursor hidden. }
+function FreeSibling(var Base, Ext: string): boolean;
+var Path: string;
+    F: file;
+begin
+  Path := Base + Ext; Assign(F, Path);
+  FreeSibling := FileAttributes(F) = -2
+end;
+
+procedure IdeStart;
+var I: integer;
+    S, Ext: string;
+    Free: boolean;
+begin
+  ResumeKind := 0; VerifyBar := false;
+  I := 0; Free := false;
+  while (I < 1000) and (not Free) do
+  begin
+    NumText(I, S); while Length(S) < 3 do S := '0' + S;
+    PrivateBase := 'TURBO' + S;
+    Ext := '.$00'; Free := FreeSibling(PrivateBase, Ext);
+    Ext := '.$01'; Free := Free and FreeSibling(PrivateBase, Ext);
+    Ext := '.PAS'; Free := Free and FreeSibling(PrivateBase, Ext);
+    I := I + 1
+  end;
+  if not Free then begin Writeln('Cannot create working files.'); Halt(1) end;
+  WorkName0 := PrivateBase + '.$00'; WorkName1 := PrivateBase + '.$01';
+  RequestedCommand := 0;
+  EdInsert := true;
+  ItemSel[1] := 1; ItemSel[2] := 1; ItemSel[3] := 1; ItemSel[4] := 1;
+  DoNew();
+  if BufErr <> 0 then begin Writeln('Cannot create working files.'); Halt(1) end;
+  MenuSel := MenuFile;
+  LastMenu := MenuFile;
+  UiMode := ModeBar
+end;
+{ END IDE editor }
+
+{ BEGIN IDE product }
+{ Product integration: compiler + editor, one TURBO.COM. Compile commands
+  use the actual compiler record, not a diagnostic-file parser. Geometry
+  is TP5.5 MINT06 07/08/13c/34/35. All services use public DOS calls. }
+var
+  DisplayPage, UserPage: array[1..4002] of char;
+  BuildRequest: integer;
+  BuildPending, ProgramReady, KeepRecovery, BuildOwned: boolean;
+  BuildBase, ReadyName, BuildInput: string;
+
+procedure ProductPaint;
+var I, Code: integer;
+begin
+  if UiMode = ModeUser then ScreenPage(1, UserPage[1])
+  else
+  begin
+    DrawAll(); I := 0;
+    while I < 2000 do
+    begin
+      DisplayPage[I * 2 + 1] := ScrCh[I];
+      DisplayPage[I * 2 + 2] := chr(ScrAt[I]); I := I + 1
+    end;
+    if ScrCurOn then
+    begin
+      DisplayPage[4001] := chr(ScrCurRow); DisplayPage[4002] := chr(ScrCurCol)
+    end
+    else begin DisplayPage[4001] := chr(25); DisplayPage[4002] := chr(0) end;
+    ScreenPage(2, DisplayPage[1])
+  end;
+  Code := IOResult();
+  if Code <> 0 then Halt(1)
+end;
+
+procedure RemoveOwned(var Path: string);
+var F: file;
+    Code: integer;
+begin
+  Assign(F, Path); Erase(F); Code := IOResult();
+  if (Code <> 0) and (Code <> 2) then KeepRecovery := true
+end;
+
+procedure CleanBuild;
+var Path: string;
+begin
+  if BuildOwned and (not KeepRecovery) then
+  begin
+    Path := BuildBase + '.S'; RemoveOwned(Path);
+    Path := BuildBase + '.COM'; RemoveOwned(Path);
+    Path := BuildBase + '.EXE'; RemoveOwned(Path);
+    Path := BuildBase + '.CBK'; RemoveOwned(Path);
+    Path := BuildBase + '.EBK'; RemoveOwned(Path);
+    BuildOwned := false
+  end
+end;
+
+{ Output siblings share the selected file's directory: DOS AH=56h is a
+  same-directory rename. Choose names absent before the first create. }
+function NewBuildNames(): boolean;
+var Prefix, S, Ext, Path, Target: string;
+    I, Last, J: integer;
+    Free: boolean;
+begin
+  Prefix := ''; Last := 0; I := 1;
+  while I <= Length(FilePath) do
+  begin
+    if (FilePath[I] = chr(92)) or (FilePath[I] = ':') then Last := I;
+    I := I + 1
+  end;
+  I := 1;
+  while I <= Last do begin S := FilePath[I]; Prefix := Prefix + S; I := I + 1 end;
+  J := 0; Free := false;
+  while (J < 1000) and (not Free) do
+  begin
+    NumText(J, S); while Length(S) < 3 do S := '0' + S;
+    BuildBase := Prefix + 'COMPI' + S;
+    Ext := '.S'; Free := FreeSibling(BuildBase, Ext);
+    Ext := '.COM'; Free := Free and FreeSibling(BuildBase, Ext);
+    Ext := '.EXE'; Free := Free and FreeSibling(BuildBase, Ext);
+    Ext := '.CBK'; Free := Free and FreeSibling(BuildBase, Ext);
+    Ext := '.EBK'; Free := Free and FreeSibling(BuildBase, Ext);
+    Target := FilePath; if Length(Target) = 0 then Target := FileName;
+    Ext := '.EXE'; ExtName(Target, Ext, Path);
+    S := BuildBase + Ext;
+    if SameName(Path, S) then Free := false;
+    J := J + 1
+  end;
+  OutputAsmName := BuildBase + '.S'; OutputComName := BuildBase + '.COM';
+  OutputExeName := BuildBase + '.EXE';
+  BuildOwned := Free; NewBuildNames := Free
+end;
+
+function PublishProgram(var From, Into, Backup: string): integer;
+var F: file;
+    Attr, Code, Rollback: integer;
+    Moved: boolean;
+begin
+  Code := 0; Moved := false;
+  if SameName(Into, FilePath) then Code := 5;
+  if Code = 0 then
+  begin
+    Assign(F, Into); Attr := FileAttributes(F);
+    if Attr >= 0 then
+    begin
+      if (Attr mod 2 = 1) or (Attr div 16 mod 2 = 1) then Code := 5
+      else
+      begin
+        Rename(F, Backup); Code := IOResult(); Moved := Code = 0
+      end
+    end
+    else if Attr <> -2 then Code := -Attr
+  end;
+  if Code = 0 then
+  begin
+    Assign(F, From); Rename(F, Into); Code := IOResult();
+    if (Code <> 0) and Moved then
+    begin
+      Assign(F, Backup); Rename(F, Into); Rollback := IOResult();
+      if Rollback <> 0 then KeepRecovery := true
+    end
+  end;
+  if (Code = 0) and Moved then RemoveOwned(Backup);
+  PublishProgram := Code
+end;
+
+procedure CompilerMessage(var Msg: string);
+var N: string;
+begin
+  if (FirstKind = 2) and (FirstExpected = TkSemi) then
+    Msg := 'Error 85: ";" expected'
+  else if (FirstKind = 1) and (FirstDetail = ErrSourceFull) then
+    Msg := 'Source exceeds compiler capacity.'
+  else
+  begin
+    NumText(FirstDetail, N); Msg := 'Compiler error ' + N + '.'
+  end
+end;
+
+{ MINT07: Halt(0) and Halt(7) both return directly to the editor. The
+  program page survives until Alt-F5, then any key restores the editor. }
+procedure RunProgram;
+var Code, Status: integer;
+begin
+  ScreenPage(1, UserPage[1]); Code := IOResult();
+  if Code = 0 then
+  begin
+    Status := Execute(ReadyName);
+    ScreenPage(0, UserPage[1]); Code := IOResult();
+    if Status < 0 then Code := -Status
+  end;
+  UiMode := ModeEditor;
+  if Code <> 0 then ShowFileError(Code, ModeEditor)
+end;
+
+procedure FinishBuild;
+var Target, Backup, Ext, Msg: string;
+    Code, Attr: integer;
+    F: file;
+begin
+  BuildPending := false; ProgramReady := false;
+  CleanBuild();
+  BuildInput := PrivateBase + '.PAS';
+  BufSave(BuildInput); Code := BufErr;
+  if Code = 0 then
+  begin
+    if not NewBuildNames() then Code := 5
+  end;
+  if Code = 0 then
+  begin
+    InputName := BuildInput; DumpMode := false; QuietCompile := true;
+    CompileSource(); CompileLines := DocLines;
+    if FirstKind = 5 then Code := FirstDetail
+    else if FirstKind = 4 then Code := 101
+    else if FirstKind <> 0 then
+    begin
+      CompilerMessage(Msg); IdeError(FirstLine, FirstCol, Msg)
+    end
+    else
+    begin
+      Target := FilePath; if Length(Target) = 0 then Target := FileName;
+      Ext := '.EXE'; ExtName(Target, Ext, ReadyName);
+      Backup := BuildBase + '.EBK';
+      Code := PublishProgram(OutputExeName, ReadyName, Backup);
+      if Code = 0 then
+      begin
+        ProgramReady := true;
+        Assign(F, OutputComName); Attr := FileAttributes(F);
+        if Attr >= 0 then
+        begin
+          Ext := '.COM'; ExtName(Target, Ext, ReadyName);
+          Backup := BuildBase + '.CBK';
+          Code := PublishProgram(OutputComName, ReadyName, Backup);
+          ProgramReady := Code = 0
+        end
+      end;
+      if Code = 0 then begin CompileDone := true; UiMode := ModeCompile end
+    end
+  end;
+  if Code <> 0 then ShowFileError(Code, ModeEditor);
+  { Release private outputs before another editor command can save a user
+    document under one of those names. Recovery files remain untouched. }
+  CleanBuild();
+  if (Code = 0) and ProgramReady and (BuildRequest = CmdRun) then RunProgram()
+end;
+
+procedure ProductKey(K: integer);
+begin
+  IdeKey(K);
+  if RequestedCommand <> 0 then
+  begin
+    if RequestedCommand = CmdUser then UiMode := ModeUser
+    else
+    begin
+      BuildRequest := RequestedCommand; BuildPending := true; ProgramReady := false;
+      CompileDone := false; CompileLines := 0; CompileMemory := DosMemory();
+      UiMode := ModeCompile
+    end;
+    RequestedCommand := 0
+  end
+end;
+
+procedure ProductCleanup;
+var Path: string;
+begin
+  CleanBuild();
+  Path := PrivateBase + '.PAS'; RemoveOwned(Path);
+  RemoveOwned(WorkName0); RemoveOwned(WorkName1)
+end;
+
+procedure ProductMain;
+var K: integer;
+    C: char;
+begin
+  BuildBase := ''; BuildOwned := false; KeepRecovery := false; BuildPending := false;
+  ProgramReady := false;
+  ScreenPage(0, UserPage[1]); K := IOResult(); if K <> 0 then Halt(1);
+  GetDir(0, FileDir); K := IOResult(); if K <> 0 then Halt(1);
+  FileDrive := FileDir[1];
+  IdeStart();
+  while UiMode <> ModeQuit do
+  begin
+    ProductPaint();
+    if BuildPending then FinishBuild()
+    else
+    begin
+      C := ReadKey(); K := ord(C);
+      if K = 0 then begin C := ReadKey(); K := 256 + ord(C) end;
+      ProductKey(K)
+    end
+  end;
+  ProductCleanup(); ScreenPage(1, UserPage[1])
+end;
+{ END IDE product }
+begin
+  CompilerDefaults();
+  if ParamCount() > 0 then
+  begin
+    InputName := ParamStr(1);
+    if InputName = '/DUMP' then
+    begin
+      DumpMode := true; InputName := 'TURBOIN.PAS';
+      if ParamCount() > 1 then InputName := ParamStr(2)
+    end;
+    CompileSource();
+    if (FirstKind <> 0) and (not DumpMode) then Halt(1)
+  end
+  else ProductMain()
 end.

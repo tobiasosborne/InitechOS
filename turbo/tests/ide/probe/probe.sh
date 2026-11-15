@@ -18,7 +18,7 @@ objcopy -O binary -j .text -j .rodata -j .data -j .got -j .got.plt "$out/child.e
 if readelf -r "$out/child.elf" | grep -q R_386; then echo 'child needs relocations' >&2; exit 1; fi
 mkdir -p "$out/pascal"
 cp "$here/hello.pas" "$out/pascal/TURBOIN.PAS"
-(cd "$out/pascal" && "$OLDPWD/build/turbo/compiler/turbo_fpc" > build.log)
+(cd "$out/pascal" && "$OLDPWD/build/turbo/compiler/turbo_fpc" /DUMP > build.log)
 disk=$out/test.img
 dd if=/dev/zero of="$disk" bs=512 count=16384 2>/dev/null
 mformat -i "$disk" -T 16384 -c 8 -h 16 -s 63 -N 0x54555242 -v TEST ::

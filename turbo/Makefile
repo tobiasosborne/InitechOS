@@ -7,8 +7,10 @@ all test mutants:
 
 smoke: all
 	+$(MAKE) -C $(TOP) image
-	sh tests/execution/matrix.sh
+	sh tests/execution/run.sh
 	sh ide/tests/smoke.sh
+	sh tests/ide/native.sh
+	sh tests/ide/interactive.sh
 $(OUT)/smoke/timer.o: tests/smoke/timer.c
 	@mkdir -p $(@D)
 	$(TARGET_CC) $(TARGET_CFLAGS) -c $< -o $@
@@ -24,7 +26,8 @@ $(OUT)/smoke/monotonic-ms: tests/smoke/monotonic-ms.c
 selfhost: all $(OUT)/smoke/TIMER.COM $(OUT)/smoke/compare $(OUT)/smoke/monotonic-ms
 	+$(MAKE) -C $(TOP) image
 	sh tests/smoke/selfhost.sh
-ddc: selfhost
+ddc: all $(OUT)/smoke/TIMER.COM $(OUT)/smoke/compare $(OUT)/smoke/monotonic-ms
+	@test -s $(OUT)/selfhost/K2.COM -a -s $(OUT)/selfhost/K3.COM || { echo 'Run make selfhost first for this source.' >&2; exit 1; }
 	sh tests/smoke/ddc.sh
 
 TARGET_ARTIFACTS := $(TOP)/build/turbo/compiler/TURBO.COM
