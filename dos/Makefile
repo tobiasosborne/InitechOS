@@ -153,3 +153,9 @@ smoke: smoke-interact
 smoke-interact:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/interact.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/smoke-interact.XXXXXX")"
+
+.PHONY: smoke-ata-terms
+smoke: smoke-ata-terms
+smoke-ata-terms:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/ata-terms.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/smoke-ata-terms.XXXXXX")"

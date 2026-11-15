@@ -79,6 +79,13 @@ cp -f "$w/target.img" "$w/target-before.img"
 "$exe" "$w/master.img" "$w/a.img" 2 'A: A:' "$(printf 'X\003')" 3 "$w/source.img" "$w/target.img" > "$w/copybreak.console" 2> "$w/copybreak.exit" || { cat "$w/copybreak.console" "$w/copybreak.exit"; red 'DISKCOPY Ctrl-C at TARGET prompt'; }
 cmp "$w/target-before.img" "$w/target.img" || red 'DISKCOPY Ctrl-C wrote target sectors'
 "$exe" "$w/master.img" "$w/a.img" 3 'A: A:' "$(printf 'X\003')" 3 "$w/source.img" "$w/target.img" > "$w/compbreak.console" 2> "$w/compbreak.exit" || { cat "$w/compbreak.console" "$w/compbreak.exit"; red 'DISKCOMP Ctrl-C at SECOND prompt'; }
+grep -qFx 'Insert SOURCE volume in drive A:' "$w/copybreak.console" || red 'ATA A DISKCOPY source volume prompt'
+grep -qFx 'Insert TARGET volume into drive A:' "$w/copybreak.console" || red 'ATA A DISKCOPY target volume prompt'
+grep -qFx 'Insert FIRST volume into drive A:' "$w/compbreak.console" || red 'ATA A DISKCOMP first volume prompt'
+grep -qFx 'Insert SECOND volume into drive A:' "$w/compbreak.console" || red 'ATA A DISKCOMP second volume prompt'
+for console in "$w/copybreak.console" "$w/compbreak.console"; do
+ if grep -qi diskette "$console"; then red 'ATA A copy/compare diskette wording'; fi
+done
 echo 'GREEN test-formatsys: Ctrl-C at the DISKCOPY TARGET prompt writes nothing; DISKCOMP cancels the same way'
 echo 'GREEN test-formatsys: mformat BPB/FAT, /S bytes/HSR/order/label, SYS exclusions/occupied, invalid/running, single-drive copy/compare all sectors; fsck.fat'
 # Removable geometries and DOS switch spellings, with current=C in this host
@@ -97,6 +104,10 @@ for desc in '2880||1440' '720|/4|360' '640|/4 /8|320' '320|/1 /8 /T:40 /N:8|160'
  for off in 512 $(((1+spf)*512)); do printf "$media" | dd of="$w/ref-floppy.img" bs=1 seek=$off conv=notrunc status=none; done
  DU_CURRENT_C=1 "$exe" "$w/master.img" "$w/a.img" 0 "A: $switches" '
 N' 0 > "$w/floppy.console" 2> "$w/floppy.exit" || red 'floppy switches'
+ # Operator ATA A: ruling: legacy geometry/removable ABI is retained,
+ # but the mounted data volume must not be described as a diskette.
+ grep -qFx 'Insert new volume for drive A:' "$w/floppy.console" || red 'ATA A FORMAT volume prompt'
+ if grep -qi diskette "$w/floppy.console"; then red 'ATA A FORMAT diskette wording'; fi
  "$b/formatsys_check" "$w/a.img" "$w/ref-floppy.img" floppy "$boot" || red 'floppy geometry'
  fsck.fat -n "$w/a.img" > "$w/floppy-fsck" 2>&1 || red 'floppy fsck'
 done
@@ -172,7 +183,7 @@ for f in COMMAND.COM IO.SYS INITDOS.SYS; do
  mdel -i "$w/master.img@@32256" "::$f"
  cp -f "$w/master.img" "$w/missing-before.img"
  "$exe" "$w/master.img" "$w/a.img" 0 'D: /S' "$(printf '\n\003')" 3 > "$w/console" 2> "$w/exit" || red 'missing source message'
- printf 'Insert DOS diskette in drive C:\nand strike ENTER when ready\n\nInsert DOS diskette in drive C:\nand strike ENTER when ready\n' > "$w/missing.want"
+ printf 'Insert DOS volume in drive C:\nand strike ENTER when ready\n\nInsert DOS volume in drive C:\nand strike ENTER when ready\n' > "$w/missing.want"
  cmp -s "$w/missing.want" "$w/console" || red 'missing source message'
  cmp -s "$w/missing-before.img" "$w/master.img" || red 'missing source wrote disk'
  # Supply an independently copied complete medium on ENTER. Prove the
@@ -202,7 +213,7 @@ for f in IO.SYS INITDOS.SYS; do
  mdel -i "$w/master.img@@32256" "::$f"
  cp -f "$w/a.img" "$w/missing-a-before.img"
  DU_CURRENT_C=1 run 0 'A: /B' "$(printf '\003')" 3
- printf 'Insert DOS diskette in drive C:\nand strike ENTER when ready\n' > "$w/missing.want"
+ printf 'Insert DOS volume in drive C:\nand strike ENTER when ready\n' > "$w/missing.want"
  cmp -s "$w/missing.want" "$w/console" || red '/B missing source message'
  cmp -s "$w/missing-a-before.img" "$w/a.img" || red '/B missing source wrote disk'
 done
@@ -238,3 +249,4 @@ run 1 'C:' '' 4
 grep -qFx 'Invalid drive specification' "$w/console" || red 'SYS source volume message'
 cmp "$w/master.img" "$w/master-before.img" || red 'SYS source volume writes'
 echo 'GREEN test-formatsys: SYS refuses the source volume with no writes'
+echo 'INITECH_CHECKS 1 failures=0'

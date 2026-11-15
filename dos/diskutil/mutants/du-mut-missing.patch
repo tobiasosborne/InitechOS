@@ -6,7 +6,7 @@
     * prompt for a DOS disk; p337's memory error is a different condition.
     * DEC-18 fixes the source at C:. Retry the lookup before ANY writes. */
    while(source(&src,files,o->s?3:2)){
--   char answer[1];drive_text("Insert DOS diskette in drive ",2,":\r\nand strike ENTER when ready\r\n");
+-   char answer[1];drive_text("Insert DOS volume in drive ",2,":\r\nand strike ENTER when ready\r\n");
 -   if(input(answer,0)<0)return 3;
 +   return error("Insufficient memory for system transfer",4);
    }

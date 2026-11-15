@@ -273,3 +273,12 @@ This is a payload comparison, with trailing blanks removed from both sides.
 Exact raw readbacks are retained: the replay exposed a distinct ECHO/redirection
 trailing-blank mismatch (initech-mf37n), which remains open. The capture is
 never rewritten to match the product.
+
+The operator's ATA A: layout uses volume wording in FORMAT and the disk
+copy/compare utilities, including retries and errors. This is an authored
+Initech substitution for the genuine DOS 3.30 diskette wording; historical
+captures remain untouched. Legacy geometry switches and the published
+removable flag are unchanged. The host A: FORMAT/copy/compare journeys use
+the shipped core and independent mtools/dosfstools readback with C: selected
+as the running volume. Until delivery activates native system C:, FORMAT A:
+correctly refuses the running A: volume; that guard is retained.

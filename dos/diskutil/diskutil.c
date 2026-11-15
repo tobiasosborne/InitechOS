@@ -1,3 +1,6 @@
+/* ATA-volume terminology is authored for the operator drive-A ruling.
+ * Geometry, switches and the published removable bit keep the DOS 3.30
+ * contract; historical reference captures retain their original wording. */
 /* Freestanding disk utilities. the repository contract: ADR-0003 Appendix A/B.1, DEC-17/18;
  * MS-DOS 3.3 UG pp26,59-63,74-76,119,318,332-337,340,348,358;
  * IBM DOS 3.30 TR pp1-7,2-31,5-4..11. No host runtime or clock.
@@ -187,7 +190,7 @@ static int format_run(const options *o,const du_map *m){
    * prompt for a DOS disk; p337's memory error is a different condition.
    * DEC-18 fixes the source at C:. Retry the lookup before ANY writes. */
   while(source(&src,files,o->s?3:2)){
-   char answer[1];drive_text("Insert DOS diskette in drive ",2,":\r\nand strike ENTER when ready\r\n");
+   char answer[1];drive_text("Insert DOS volume in drive ",2,":\r\nand strike ENTER when ready\r\n");
    if(input(answer,0)<0)return 3;
   }
   cp(template,src.boot,512);
@@ -200,7 +203,7 @@ static int format_run(const options *o,const du_map *m){
  }
  for(;;){
   char answer[12];volume old;
-  if(m->flags&DU_REMOVABLE){drive_text("Insert new diskette for drive ",letter,":\r\nand strike ENTER when ready\r\n");if(input(answer,0)<0)return 3;}
+  if(m->flags&DU_REMOVABLE){drive_text("Insert new volume for drive ",letter,":\r\nand strike ENTER when ready\r\n");if(input(answer,0)<0)return 3;}
   else {
    if(!mount(&old,m)){char label[12];label_name(&old,label);drive_text("Enter current Volume Label for drive ",letter,": ");if(input(answer,11)<0)return 3;if(!eq(label,answer,12))return error("Invalid Volume ID Format failure",4);}
    line("WARNING, ALL DATA ON NON-REMOVABLE DISK");drive_text("DRIVE ",letter,": WILL BE LOST!\r\nProceed with Format (Y/N)?");if(input(answer,11)<0)return 3;if(answer[0]!='Y')return 5;
@@ -251,7 +254,7 @@ static int sys_run(const du_map *m,unsigned letter){volume src,dst;uint8_t files
  * (byte 03h through the adapter) at a swap prompt echoes ^C, exits the
  * utility and writes nothing further. Returns -1 on that cancel. */
 static int swap_prompt(int compare,int target,unsigned letter){
- drive_text(compare?(target?"Insert SECOND diskette into drive ":"Insert FIRST diskette into drive "):(target?"Insert TARGET diskette into drive ":"Insert SOURCE diskette in drive "),letter,":\r\n");
+ drive_text(compare?(target?"Insert SECOND volume into drive ":"Insert FIRST volume into drive "):(target?"Insert TARGET volume into drive ":"Insert SOURCE volume in drive "),letter,":\r\n");
  if(!compare)line("Press any key when ready . . .");
  if(io->get()==3){line("^C");return -1;}
  return 0;
@@ -263,24 +266,24 @@ static int copy_run(const options *o,int compare){
  int result=0;
  do{
   if(swap_prompt(compare,0,o->letter[0]))return 3;
-  uint8_t b[512];if(sec(m,0,b,0))return error("FIRST diskette bad or incompatible",3);
-  unsigned total=u16(b+19),spt=u16(b+24),heads=u16(b+26);if(u16(b+11)!=512||!total||total>m[0].sectors||!spt||spt>63||!heads||heads>2)return error("FIRST diskette bad or incompatible",3);
+  uint8_t b[512];if(sec(m,0,b,0))return error("FIRST volume bad or incompatible",3);
+  unsigned total=u16(b+19),spt=u16(b+24),heads=u16(b+26);if(u16(b+11)!=512||!total||total>m[0].sectors||!spt||spt>63||!heads||heads>2)return error("FIRST volume bad or incompatible",3);
   unsigned count=sizeof copybuf/512;
   result=0;
   for(unsigned first=0;first<total;first+=count){unsigned n=total-first;if(n>count)n=count;
    if(first&&swap_prompt(compare,0,o->letter[0]))return 3;
-   for(unsigned j=0;j<n;j++)if(sec(m,first+j,copybuf+j*512,0))return error("FIRST diskette bad or incompatible",3);
+   for(unsigned j=0;j<n;j++)if(sec(m,first+j,copybuf+j*512,0))return error("FIRST volume bad or incompatible",3);
    if(swap_prompt(compare,1,o->letter[1]))return 3;
    if(fat16_target(m+1))return protected(o->letter[1]);
    for(unsigned j=0;j<n;j++){
     unsigned l=first+j,side=(l/spt)%heads,track=l/(spt*heads);
     if((o->one&&side)||(o->eight&&l%spt>=8))continue;
     if(compare){if(sec(m+1,l,b,0))return error("Compare process ended",3);if(!eq(b,copybuf+j*512,512)){put("Compare error on disk\r\nside ");num(side);put(", track ");num(track);put("\r\n");result=1;}}
-    else if(sec(m+1,l,copybuf+j*512,1))return error("Target diskette may be unusable",3);
+    else if(sec(m+1,l,copybuf+j*512,1))return error("Target volume may be unusable",3);
    }
   }
   if(compare&&!result)line("Compare OK");
-  put(compare?"Compare another diskette (Y/N)?":"Copy another diskette (Y/N)?");
+  put(compare?"Compare another volume (Y/N)?":"Copy another volume (Y/N)?");
  }while(yes());
  return result;
 }
