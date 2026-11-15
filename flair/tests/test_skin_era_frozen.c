@@ -44,6 +44,11 @@
  * to it (a deliberate pinned inputs re-pin with a issue + worklog note). An
  * accidental edit is exactly what the un-changed pin catches.
  *
+ * A RE-PIN IS NOT A VALUE CHECK. The pin is taken from this program's own
+ * output, so a wrong slot that is re-pinned passes here. Every slot value is
+ * graded against its reference by test_skin_manifest; change that literal
+ * manifest from the cited reference, never from this program's output.
+ *
  * DUAL-COMPILE / HOSTED RUN (mirrors test_color_canon.c):
  *   gcc -std=c11 -Wall -Wextra -Werror -Ispec -Ispec/assets \
  *       harness/proptest/test_skin_era_frozen.c -o build/test_skin_era_frozen \

@@ -1,0 +1,25 @@
+# System 7 menubar takes the Win 3.1 COLOR_MENU gray and the frozen digest is re-pinned to its live value.
+# Old pin stays green; test_skin_manifest (wctb part0 #FFFFFF) goes red.
+# test: test_skin_era_frozen test_skin_manifest
+--- a/include/flair_skins.h
++++ b/include/flair_skins.h
+@@ -173,7 +173,7 @@ static const flair_skin_t flair_skin_registry[] = {
+         /* desktop      */ { CIDX_DESKTOP,    INITECH_CANON_DESKTOP_RGB      },
+         /* caption_navy */ { CIDX_ACCENT,     INITECH_CANON_ACCENT_RGB       },
+         /* caption_ink  */ { CIDX_TITLE_INK,  INITECH_CANON_TITLE_INK_RGB    },
+-        /* menubar      */ { CIDX_MENUBAR,    INITECH_CANON_MENUBAR_RGB      },
++        /* menubar      */ { CIDX_CONTROL,    INITECH_CANON_CONTROL_RGB      },
+         /* btnface      */ { CIDX_CONTROL,    INITECH_CANON_CONTROL_RGB      },
+         /* btnshadow    */ { CIDX_PIN_DARK,   INITECH_CANON_PIN_DARK_RGB     },
+         /* btnhilight   */ { CIDX_PIN_LIGHT,  INITECH_CANON_PIN_LIGHT_RGB    },
+--- a/tests/test_skin_era_frozen.c
++++ b/tests/test_skin_era_frozen.c
+@@ -68,7 +68,7 @@
+  * re-pinned ONLY by a deliberate approved base-row change (a issue
+  * + worklog note); an accidental base-row edit diverges from it and goes RED.
+  * ------------------------------------------------------------------------- */
+-#define SKIN_FROZEN_DIGEST 0xDEF099ACu
++#define SKIN_FROZEN_DIGEST 0xD410DBE8u
+ 
+ /* FNV-1a-32 (deterministic, no libc, ASCII; reproducibility). */
+ #define FNV1A32_OFFSET 0x811C9DC5u
