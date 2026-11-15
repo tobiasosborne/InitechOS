@@ -527,6 +527,11 @@ test-verdict-controls_SRCS := tests/runner.c
 test-verdict-controls_ARGS := tests/run.sh test-verdict-controls
 test-verdict-controls_DEPS := tests/gates/test-verdict-controls.sh tests/assertions.sh
 
+HOST_TESTS += test-stamp-oracle-controls
+test-stamp-oracle-controls_SRCS := tests/runner.c
+test-stamp-oracle-controls_ARGS := tests/run.sh test-stamp-oracle-controls
+test-stamp-oracle-controls_DEPS := $(OUT)/host/tool_dos_parity_host tests/gates/test-stamp-oracle-controls.sh tests/disk/grade-stamps.sh tests/gates/test-dos-stamp-host.sh tests/assertions.sh
+
 # Apply after every registration, before host_source_rule expands _DEPS into
 # object prerequisites. Earlier expansion in tools.mk omitted later tools,
 # including the independent int21.c compilation for test-loader-live.

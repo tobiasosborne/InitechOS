@@ -478,3 +478,13 @@ invalid state. The invalid-buffer test arms recovery only around its deliberate
 NULL/wrapping accesses; unrelated faults remain errors. The Retry test grades
 queue exhaustion only in its armed finite-input bound case. These are test
 transport changes, with no kernel fault hooks (initech-vocfm).
+
+`test-dos-stamp-host` retains the existing DOS fixture/INT21 producer and
+independently grades all five timestamp pairs with the foreign FAT reader
+against mtools-created reference files. It requires the real producer's
+completed-operations marker before grading; if the properties pass but the
+producer failed, that remains an error. Its controls enter the real helper,
+then inject an exit after completed operations and prove that passing disk
+comparisons cannot hide it. The two additional mutations remove the completion
+guard or ignore producer status. This repairs the three remaining stamp-gate
+runner errors without modifying the DOS component (initech-vocfm).

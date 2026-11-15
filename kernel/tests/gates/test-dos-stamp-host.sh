@@ -1,2 +1,9 @@
 set -eu
-sh dos/command/tests/dos_parity.sh stamp-host
+producer_status=0
+sh dos/command/tests/dos_parity.sh stamp-host > build/stamp-producer.log 2>&1 || producer_status=$?
+cat build/stamp-producer.log
+sh kernel/tests/disk/grade-stamps.sh build/dos_parity_stamp-host_green/data.img build/dos_parity_stamp-host_green/reference.img build/stamp-producer.log
+if [ "$producer_status" -ne 0 ]; then
+ echo "ERROR: stamp producer exited $producer_status despite matching independent timestamps" >&2
+ exit 2
+fi
