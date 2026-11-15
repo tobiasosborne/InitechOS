@@ -365,3 +365,21 @@ snapshot, first/last pages, bounds, changed live scrap, all three modal button
 routes and native menu/shortcut contexts. The omission inventory was red before
 implementation. Removed-key, modal-button and document-gesture patch controls
 make the route checks mutation-testable.
+
+Phase-3 omission controls `file-find-restored` and `help-restored` restore an
+inert File Find leaf and the two inert Help leaves respectively. The literal
+`test_finder_commands` manifest must reject each twice under the strict runner.
+The omissions were already shipped in 8fab6e40; Put Away remains a real command
+for Trash entries with remembered origins, and is disabled in other contexts.
+
+The authored `data/DESKTOP.DB` is a 32-byte IDB1 root-view preference for the
+frame arrangement. Source: `goldens/frame/geometry.tsv`, DRIVEA, (46,115), and
+the approved phase-2 frame judgement (ordinary persisted state). It is an image
+seed for the delivery/factory owner to install on the frame's data volume,
+not a startup command. `test_frame_desktop` compares every byte to an independent
+literal record, opens the root through normal Open, then moves, closes, encodes
+and reloads it to prove the user's position supersedes the seed. The patch
+`frame-root-position-ignored` is its semantic control. Version one's 24-byte
+view record retains the documented default window size; the seed claims only
+the transcribed origin. It neither opens windows nor changes the Finder's
+unseeded defaults. FILE COPY chrome belongs to the Toolbox owner.

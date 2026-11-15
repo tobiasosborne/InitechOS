@@ -1,0 +1,12 @@
+# test: test_frame_desktop
+# Ordinary root preferences must be used, including the frame's shipped seed.
+--- a/finder_windows.c
++++ b/finder_windows.c
+@@ -1341,6 +1341,7 @@
+         if (finder_shell_find_view(sh, key) != (const finder_view_rec_t *)0)
+             continue;                       /* first record for a key wins      */
+         if ((uint32_t)sh->n_views >= FINDER_DB_MAX_VIEWS) break;
++        if (key == 0u) { rec.x = FINDER_WIN_DEFAULT_L; rec.y = FINDER_WIN_DEFAULT_T; }
+         sh->views[sh->n_views] = rec;
+         sh->n_views = (uint16_t)(sh->n_views + 1u);
+         took = (uint16_t)(took + 1u);

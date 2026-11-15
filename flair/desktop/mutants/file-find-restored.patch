@@ -1,0 +1,13 @@
+# test: test_finder_commands
+# GM4: an inert File leaf must not reappear in the approved projection.
+--- a/finder_menu.c
++++ b/finder_menu.c
+@@ -9,7 +9,7 @@
+ static MenuInfo finder_apple_menu={0,"",finder_apple_items,1,0};
+ static MenuItem finder_file_items[]={
+  ITEM("New Folder",'N',1),ITEM("Open",'O',0),ITEM("Close Window",'W',0),DIV,
+- ITEM("Get Info",'I',0),ITEM("Put Away",'Y',0)
++ ITEM("Get Info",'I',0),ITEM("Put Away",'Y',0),ITEM("Find",'F',0)
+ };
+ static MenuItem finder_edit_items[]={ITEM("Select All",'A',1),ITEM("Show Clipboard",0,1)};
+ static MenuItem finder_view_items[]={

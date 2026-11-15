@@ -1,0 +1,19 @@
+# test: test_finder_commands
+# GM4: restoring the inert Help resource must fail the omission inventory.
+--- a/finder_menu.c
++++ b/finder_menu.c
+@@ -25,10 +25,12 @@
+ };
+ #define MENU(id,title,items) {id,title,items,sizeof items/sizeof items[0],0}
++static MenuItem help[]={ITEM("About Help",0,0),ITEM("Show Balloons",0,0)};
+ static MenuInfo finder_menus[]={
+  MENU(512,"File",finder_file_items),MENU(513,"Edit",finder_edit_items),
+- MENU(514,"View",finder_view_items),MENU(515,"Special",finder_special_items)
++ MENU(514,"View",finder_view_items),MENU(515,"Special",finder_special_items),
++ MENU(516,"Help",help)
+ };
+-static MenuBar finder_bar={finder_menus,4,1};
++static MenuBar finder_bar={finder_menus,5,1};
+ MenuBar *finder_menu_bar(void){return &finder_bar;}
+ MenuInfo *finder_menu_apple(void){return &finder_apple_menu;}
+ void finder_menu_refresh_enables(const FinderCtx *fx)
