@@ -94,7 +94,15 @@ case "$name" in
   (cd tests/xbase_prog_diff/ibasectl-mint && md5sum --quiet -c ibasectl_mint.md5)
   for tree in tests/xbase_prog_diff/*-mint/*; do
    if [ -f "$tree/sha256.txt" ]; then (cd "$tree" && sha256sum --quiet -c sha256.txt); fi
-  done;;
+  done
+  # Real III+ forms captures: pinned outputs and the inputs that made them.
+  n=0
+  for tree in tests/xbase_prog_diff/screen-mint/forms-*; do
+   (cd "$tree" && sha256sum --quiet -c SHA256SUMS && sha256sum --quiet -c INPUTS.sha256)
+   grep -q '3f7ba1f5' "$tree/ORACLE.sha256"
+   n=$((n+1))
+  done
+  test "$n" -ge 50;;
  w4-files)
   for kind in frm lbl qry scr fmt config prg vue exact; do ln -s "$bins/${kind}_diff" "build/${kind}_diff"; done
   ln -s "$bins/w4_mutate" build/w4_mutate

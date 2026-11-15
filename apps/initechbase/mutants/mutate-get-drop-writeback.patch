@@ -2,10 +2,10 @@
 # GET write-back dropped: READ edits never reach the memvar.
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -1190,7 +1190,7 @@
-     if(g->kind==0) {
+@@ -1437,7 +1437,7 @@
          char tmp[256];
-         if(v.t==XB_C) { rt_memcpy(tmp,g->buf,g->buflen>255?255:g->buflen);v=xb_c(tmp,(uint16_t)(g->buflen>255?255:g->buflen)); }
+         if(v.t==XB_C) { uint32_t n=v.u.c.len>255?255:v.u.c.len;rt_memcpy(tmp,v.u.c.p,n);v=xb_c(tmp,(uint16_t)n); }
+         if(v.t==XB_N&&g->pic[0])return xb_interp_store_width(ip,g->name,&v)==INTERP_OK?1:-2;
 -        return xb_interp_store(ip,g->name,&v)==INTERP_OK?1:-2;
 +        return 1; /* MUTANT: drop GET write-back. */
      }

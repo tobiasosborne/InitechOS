@@ -117,7 +117,7 @@ Omissions and current refusals (the catalogue text is retained verbatim):
 
 GOLDEN-MASTER item 5 adds `@...SAY/GET` and `READ`. The surface below is
 frozen: every behaviour is pinned by a twice-minted real III+ capture in
-`tests/xbase_prog_diff/screen-mint/forms-f01-*/` … `forms-f17-*/` (design
+`tests/xbase_prog_diff/screen-mint/forms-f01-*/` … `forms-f20n-*/` (design
 cases C01-C18, renamed F because conformance C01-C38 own C-numbers;
 whole 80x25 text/attribute pages plus cursor, RESULT transcripts and
 DBF/DBT/NDX/MEM readbacks; mint with `make mint-forms`). Declaration,
@@ -135,6 +135,22 @@ date SAY pictures. Still to land: a PICTURE on a date GET (refuses
 beyond the captured slot cases, and the both-emulator product-image
 replay (factory stage).
 
+`test-ibase-forms-replay` replays every pinned case on the host: the
+captured program and keys run through the dot prompt, and every dump is
+compared whole (text, attributes, cursor) with the capture, every export
+byte for byte (DBF header date, reserved bytes and field RAM addresses
+normalised). Each known disagreement is a `differs` line with its cause in
+`tests/forms_replay.cases`; the replay fails when a recorded one starts to
+agree. The F20 cases (initech-h6a5v, o9f9i, hyczn, 1ffs3) settle what READ
+writes: only a GET a key actually changed is stored (F20a, F20l), an edited
+date is read in the SET DATE order with a four-digit year under CENTURY ON
+and 1900+yy otherwise (F20b), READ at end of file is `End of file
+encountered.` (F20c, F20g), and a field GET is re-resolved at READ by work
+area and field position against the table and record current then (F20d,
+F20h-F20n). READ leaves the cursor at row 23, column 0 (F02); a READ with
+no pending GET takes exactly one key (F01); a command line typed at the dot
+prompt leaves READKEY() at 271 (F01-F03).
+
 Supported: `@ r,c GET lvalue` and combined `@ r,c SAY expr GET lvalue`
 for C/N/D/L memory variables and fields (unqualified name binds the
 field when a table is open, `M->` the variable, `alias->` another work
@@ -147,8 +163,7 @@ together: #36, F15c); SET CONFIRM, BELL, INTENSITY and DELIMITERS
 ON/OFF and DELIMITERS TO; READKEY's captured exit codes (Enter 15,
 Up-exit 4, Down-exit 5, PgUp 6, PgDn 7, Esc/Ctrl-Q 12, Ctrl-End/Ctrl-W
 14, +256 when a saved edit changed a buffer). READ waits through the
-existing INT 21h raw input path; no new event pump. A READ with no
-pending GET still waits for an exit key (F01).
+existing INT 21h raw input path; no new event pump.
 
 Frozen omissions, each refused, never accepted silently. Texts are
 verbatim from `spec/ibase/dbase_msg_codes.tsv`; a refusal marked

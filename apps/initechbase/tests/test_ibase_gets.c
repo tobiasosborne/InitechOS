@@ -62,7 +62,7 @@ static void value_n(xb_interp *ip, const char *expr, double want)
 {
     xb_val v; int ec = 0;
     int ok = xb_interp_eval(ip, expr, &v, &ec) == INTERP_OK && v.t == XB_N && v.u.n == want;
-    if (!ok) fprintf(stderr, "value %s: ec=%d\n", expr, ec);
+    if (!ok) fprintf(stderr, "value %s: ec=%d got=%g want=%g\n", expr, ec, v.t == XB_N ? v.u.n : -1.0, want);
     CHECK(ok, expr);
 }
 static void value_c(xb_interp *ip, const char *expr, const char *want)
@@ -95,7 +95,7 @@ static void f01_memvar(void)
     /* Typed page: HELLO reversed from col 12 (existing mint get/read-typed). */
     CHECK(!memcmp(&page.bytes[2*(5*80+12)], "H", 1), "typed cell text");
     cell(5, 12, 'H', 0x70); cell(5, 16, 'O', 0x70);
-    /* F01 second READ: list consumed, empty READ still waits for Enter. */
+    /* F01 second READ: list consumed, an empty READ takes one key. */
     FEED("\r");
     CHECK(ibase_do(ip, "READ\n") == INTERP_OK, "second empty READ returns on Enter");
     value_n(ip, "READKEY()", 15);
@@ -104,7 +104,7 @@ static void f01_memvar(void)
     FEED("ZZ\r");
     CHECK(ibase_do(ip, "READ\n") == INTERP_OK, "READ after CLEAR GETS");
     value_c(ip, "VALUE", "HELLO   ");
-    value_n(ip, "READKEY()", 15);
+    CHECK(keys_i == 1, "a READ with no pending GET consumes one key (F01)");
     xb_interp_free(ip); pal_host_free(pal);
 }
 
@@ -343,11 +343,13 @@ static void f02_order_and_f04_edit(void)
     feed(edit_keys, sizeof edit_keys);
     CHECK(ibase_do(ip, "A=SPACE(4)\nV=\"ABCD\"\n@ 5,10 GET A\n@ 7,10 GET V\nREAD\n") == INTERP_OK, "F04 read");
     value_c(ip, "V", "ACZW");
-    /* F12: plain CLEAR also empties the pending list (RK stays 15). */
+    /* F12: plain CLEAR also empties the pending list; a READ with no GET
+     * takes exactly one key (F01 OUT.MEM names K2, not RK2). The READKEY a
+     * non-exit key leaves is uncaptured; the replay grades F12 itself. */
     FEED("ZZ\r");
     CHECK(ibase_do(ip, "A2=SPACE(4)\n@ 5,10 GET A2\nCLEAR\nREAD\n") == INTERP_OK, "F12 clear read");
     value_c(ip, "A2", "    ");
-    value_n(ip, "READKEY()", 15);
+    CHECK(keys_i == 1, "a READ with no pending GET consumes one key");
     xb_interp_free(ip); pal_host_free(pal);
 }
 

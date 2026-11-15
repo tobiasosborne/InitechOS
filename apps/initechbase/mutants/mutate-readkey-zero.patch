@@ -2,12 +2,12 @@
 # READKEY always returns zero after READ.
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -1364,7 +1364,7 @@
+@@ -1719,7 +1719,7 @@
          /* A save-exit on an unparseable current field keeps the old value:
           * the buffer is dropped with the list below. */
      }
--    ctx->readkey=code+((save_cur&&any_change)?256:0);
-+    ctx->readkey=(code+((save_cur&&any_change)?256:0))*0; /* MUTANT: READKEY always zero. */
+-    if(code>=0)ctx->readkey=code+((save_cur&&any_change)?256:0);
++    if(code>=0)ctx->readkey=(code+((save_cur&&any_change)?256:0))*0; /* MUTANT: READKEY always zero. */
      ibase_gets_clear(ip);
-     if(ec)*ec=0;
-     return INTERP_OK;
+     /* READ leaves the cursor at row 23, column 0: forms-f02 `exited` (a
+      * barrier dump after READ) has CURSOR 23 00, and the next `?` line lands

@@ -508,6 +508,14 @@ static int repl_loop(ibase_pal_t *pal, xb_interp *ip, int nested)
         if (n < 0)                            /* EOF / keyboard error -> stop */
             return nested ? INTERP_RC_QUIT : INTERP_OK;
         line[(uint32_t)n < (uint32_t)REPL_LINE_CAP ? (uint32_t)n : REPL_LINE_CAP - 1u] = '\0';
+        /* The dot prompt's line editor is itself a field edit left with
+         * Enter: after a command line typed there READKEY() is 271, Enter
+         * plus a changed buffer (real III+ forms-f01 RK1/K2, forms-f02c/
+         * f02d/f03a-g `RK=271` read by a later DO typed at the prompt). A
+         * program started as `DBASE MINT` reads 0 (fns-mint/readkey), and a
+         * line from plain conin_line was not typed into that editor. An
+         * empty line is uncaptured. */
+        if (n > 0 && pal->conin_command) xb_interp_ctx(ip)->readkey = 271;
 
         s = repl_trim(line);
         if (s[0] == '\0') continue;           /* blank line -> re-prompt */

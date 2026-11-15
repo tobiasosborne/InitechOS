@@ -1211,6 +1211,16 @@ static int q_get_resolve(xb_interp *ip,int row,int col,const char *tail,xb_get *
     rt_memcpy(g.name,name,(uint32_t)rt_strlen(name)+1u);
     rc=q_pic_compose(ip,q_skip_ws(p),g.pic,ec);if(rc)return rc;
     rc=q_pic_validate(g.type,g.pic,1,ec);if(rc)return rc;
+    /* A GET shows and edits its template without the @( wrapping that SAY
+     * applies: real III+ forms-f11 declares GET N PICTURE "@( 999.99" with
+     * N=-12.5 as the six cells "-12.50" (CURSOR 12 11). */
+    if(g.pic[0]=='@') {
+        char q[80];uint32_t i=1,n=1;q[0]='@';
+        while(g.pic[i]&&g.pic[i]!=' '){if(g.pic[i]!='(')q[n++]=g.pic[i];i++;}
+        if(n==1) { if(g.pic[i]==' ')i++; n=0; }
+        while(g.pic[i]&&n<79)q[n++]=g.pic[i++];
+        q[n]=0;rt_memcpy(g.pic,q,n+1u);
+    }
     /* Current value through the ordinary resolver (alias/M-> included). */
     {
         uint32_t n=0;
@@ -1253,6 +1263,9 @@ static int q_get_resolve(xb_interp *ip,int row,int col,const char *tail,xb_get *
                 if(dot>=0)g.dec=(int16_t)d;
             }
         }
+        /* A date field shows its SET CENTURY width, ten cells under CENTURY
+         * ON (forms-f20a `FD: 01/15/1992`), not its eight stored bytes. */
+        if(g.kind==1&&v.t==XB_D&&!g.pic[0])g.width=(uint16_t)n;
         if(g.width==0)g.width=1;
         if(g.width>254)g.width=254;
         cap=g.width+1u;
@@ -1347,7 +1360,7 @@ static int q_pic_upper(const xb_get *g)
     for(i=1;g->pic[i]&&g->pic[i]!=' ';i++)if(g->pic[i]=='!')return 1;
     return 0;
 }
-static int q_get_parse(const xb_get *g,xb_val *out)
+static int q_get_parse(xb_interp *ip,const xb_get *g,xb_val *out)
 {
     if(g->pic[0]&&g->type==XB_C) {
         /* The stored value is the buffer text, literals included, cut to
@@ -1368,7 +1381,12 @@ static int q_get_parse(const xb_get *g,xb_val *out)
             { char bc=g->buf[off+ti];if(bc>='0'&&bc<='9'&&nn<60)num[nn++]=bc; }
         }
         (void)dot;(void)seen_dot;
-        { xb_val v=xb_n(dec_parse(num,nn));v.num_dec=g->dec;*out=v; }
+        /* The variable takes the picture's digit slots and point as its
+         * width, commas dropped: forms-f10 M4 and forms-f18b G2 "123.40"
+         * (999.99, ###.##), G3 "1234.56" (9,999.99). */
+        { int w=0;xb_val v=xb_n(dec_parse(num,nn));
+          for(ti=0;ti<tl;ti++)if(t[ti]=='.'||t[ti]=='9'||t[ti]=='#'||t[ti]=='$'||t[ti]=='*')w++;
+          v.num_dec=g->dec;v.num_width=(uint16_t)w;*out=v; }
         return 1;
     }
     if(g->type==XB_C) { *out=xb_c(g->buf,(uint16_t)g->buflen);return 1; }
@@ -1378,20 +1396,29 @@ static int q_get_parse(const xb_get *g,xb_val *out)
      * -12.35 while -12.345 is being typed), so the stored value is the
      * rounded display value, not the raw key stream. */
     if(g->type==XB_N) { xb_val v=xb_n(dec_parse(g->buf,(int)g->buflen));v.num_dec=g->dec;*out=v;return 1; }
-    /* Date: fixed digit slots in the rendered mask, separators skipped. */
+    /* Date: three digit groups in the order SET DATE renders them, the year
+     * group four digits under CENTURY ON (forms-f20b: 01151993 -> 1993-01-15;
+     * BRITISH 310192 -> 1992-01-31), else 1900+yy, also when an edit retypes
+     * part of a later date (forms-f20b G: 0202 over 01/01/02 -> 1902-02-02;
+     * the canon two-digit rule, F17). Only AMERICAN and BRITISH entry are
+     * captured; the other formats use the same order as their picture. */
     {
-        int dig[8],nd=0,allblank=1;uint32_t i;
+        const xb_ctx *ctx=xb_interp_ctx(ip);
+        int grp[3]={0,0,0},nd[3]={0,0,0},ng=0,blanks=0,allblank=1;uint32_t i;
         static const int dim[12]={31,28,31,30,31,30,31,31,30,31,30,31};
-        int mm,dd,yy,year;
-        for(i=0;i<g->buflen&&nd<8;i++) {
+        int fmt=ctx?ctx->set_date_fmt:0,mm,dd,year,y;
+        for(i=0;i<g->buflen;i++) {
             char c=g->buf[i];
-            if(c>='0'&&c<='9'){dig[nd++]=c-'0';allblank=0;}
-            else if(c==' '){dig[nd++]=-1;}
+            if(c>='0'&&c<='9') { if(ng<3){grp[ng]=grp[ng]*10+(c-'0');nd[ng]++;} allblank=0; }
+            else if(c==' ') blanks++;
+            else ng++;
         }
         if(allblank) { *out=xb_d(0);return 1; }
-        if(nd<6)return 0;
-        if(dig[0]<0||dig[1]<0||dig[2]<0||dig[3]<0||dig[4]<0||dig[5]<0)return 0;
-        mm=dig[0]*10+dig[1];dd=dig[2]*10+dig[3];yy=dig[4]*10+dig[5];year=1900+yy;
+        if(blanks||nd[0]==0||nd[1]==0||nd[2]==0)return 0;
+        if(fmt==XB_DATE_ANSI||fmt==XB_DATE_JAPAN) { y=grp[0];mm=grp[1];dd=grp[2]; }
+        else if(fmt==XB_DATE_AMERICAN||fmt==XB_DATE_USA) { mm=grp[0];dd=grp[1];y=grp[2]; }
+        else { dd=grp[0];mm=grp[1];y=grp[2]; }
+        year=(ctx&&ctx->set_century)?y:1900+y;
         if(mm<1||mm>12)return 0;
         if(dd<1||dd>dim[mm-1]+(mm==2&&((year%4==0&&year%100!=0)||year%400==0)))return 0;
         *out=xb_d((double)jdn_from_ymd(year,mm,dd));return 1;
@@ -1400,10 +1427,16 @@ static int q_get_parse(const xb_get *g,xb_val *out)
 static int q_get_write(xb_interp *ip,xb_get *g,int *ec)
 {
     xb_val v;wa_env *env=xb_interp_env(ip);
-    if(!q_get_parse(g,&v))return -1;
+    /* Only a changed GET is stored. Real III+ leaves an untouched GET's
+     * value exactly as it was: forms-f20a (CENTURY ON 1992 field, a 2002
+     * date, 10/3, 12.345 under "999.99", BRITISH 31/01/92), forms-f11
+     * N=-12.5 and forms-f20l (01 typed over 01/01/02 keeps 2002). */
+    if(!g->changed)return 1;
+    if(!q_get_parse(ip,g,&v))return -1;
     if(g->kind==0) {
         char tmp[256];
         if(v.t==XB_C) { uint32_t n=v.u.c.len>255?255:v.u.c.len;rt_memcpy(tmp,v.u.c.p,n);v=xb_c(tmp,(uint16_t)n); }
+        if(v.t==XB_N&&g->pic[0])return xb_interp_store_width(ip,g->name,&v)==INTERP_OK?1:-2;
         return xb_interp_store(ip,g->name,&v)==INTERP_OK?1:-2;
     }
     {
@@ -1467,6 +1500,7 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
     const set_state *ss=set_get_state(ip);
     int confirm=ss?ss->confirm:0;
     uint32_t cur=0;int pos=0,insert=0,any_change=0,code=15,done=0,save_cur=1;
+    char before[256];
     const char *t=q_skip_ws(args);
     if(*t) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; } /* READ SAVE: frozen omission */
     { uint32_t i;for(i=0;i<ctx->ngets;i++)ctx->gets[i].started=0; }
@@ -1482,11 +1516,18 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
         if(k==QK_PGDN||k==3) { code=7;done=1;break; }
         if(k==QK_CTRLEND||k==23) { code=14;done=1;break; }
         if(!g) {
-            if(k==QK_ENTER) { code=15;done=1; }
-            else if(k==QK_UP) { code=4;done=1; }
-            else if(k==QK_DOWN) { code=5;done=1; }
-            continue;
+            /* A READ with no pending GET takes exactly one key, whatever it
+             * is (forms-f01 OUT.MEM: after READ consumed `R`, the rest of the
+             * typed `RK2=READKEY()` ran as the command `K2=...`; forms-f12
+             * Enter gives 15). READKEY for a non-exit key is uncaptured and
+             * is left as it was. */
+            if(k==QK_ENTER)code=15;
+            else if(k==QK_UP)code=4;
+            else if(k==QK_DOWN)code=5;
+            else code=-1;
+            done=1;break;
         }
+        rt_memcpy(before,g->buf,g->width);
         if(k==QK_ENTER||k==QK_DOWN||k==24) {
             int w=q_get_write(ip,g,ec);
             if(w==-1){q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue;} /* invalid date stays, cursor home (F08b) */
@@ -1538,32 +1579,32 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
         else if(k==QK_RIGHT||k==4) { if(pos<g->width-1)pos++; }
         else if(k==QK_INS||k==22) { insert=!insert; }
         else if(k==QK_DEL||k==7) {
-            if(g->pic[0]) { if(q_pic_ismask(g,pos)){g->buf[pos]=' ';g->changed=1;} }
-            else if(g->type==XB_C) { int i;for(i=pos;i<g->width-1;i++)g->buf[i]=g->buf[i+1];g->buf[g->width-1]=' ';g->changed=1; }
+            if(g->pic[0]) { if(q_pic_ismask(g,pos))g->buf[pos]=' '; }
+            else if(g->type==XB_C) { int i;for(i=pos;i<g->width-1;i++)g->buf[i]=g->buf[i+1];g->buf[g->width-1]=' '; }
         }
         else if(k==QK_BS) {
             if(g->pic[0]) {
                 int i=pos-1;while(i>=0&&!q_pic_ismask(g,i))i--;
-                if(i>=0){g->buf[i]=' ';pos=i;g->changed=1;}
+                if(i>=0){g->buf[i]=' ';pos=i;}
             } else
             if(g->type==XB_N) {
                 uint32_t rn=(uint32_t)rt_strlen(g->raw);
-                if(g->started&&rn){g->raw[rn-1]=0;g->changed=1;
+                if(g->started&&rn){g->raw[rn-1]=0;
                     if(g->raw[0]){xb_val v=xb_n(dec_parse(g->raw,(int)rn-1));char text[Q_LINEBUF];uint32_t n=0;v.num_width=g->width;v.num_dec=g->dec;q_render_val(text,&n,sizeof text,&v,ctx,0);rt_memset(g->buf,' ',g->width);{uint32_t tn=n<g->width?n:g->width;rt_memcpy(g->buf+(g->width-tn),text+(n-tn),tn);}}
                     else rt_memset(g->buf,' ',g->width);
                 }
             }
-            else if(pos>0) { int i;pos--;if(g->type==XB_C){for(i=pos;i<g->width-1;i++)g->buf[i]=g->buf[i+1];g->buf[g->width-1]=' ';}else g->buf[pos]=' ';g->changed=1; }
+            else if(pos>0) { int i;pos--;if(g->type==XB_C){for(i=pos;i<g->width-1;i++)g->buf[i]=g->buf[i+1];g->buf[g->width-1]=' ';}else g->buf[pos]=' '; }
         }
         else if(k==25) { /* Ctrl-Y: clear from cursor to end (F04) */
             int i;
             if(g->pic[0]) {
                 for(i=pos;i<g->width;i++)if(q_pic_ismask(g,i))g->buf[i]=' ';
-                g->changed=1;
                 if(g->type==XB_N)g->started=1;
             } else {
-                for(i=pos;i<g->width;i++)g->buf[i]=(g->type==XB_D&&(i==2||i==5))?'/':' ';
-                g->changed=1;
+                /* A date keeps its separator cells (F08 c-blanked "  /  /  "). */
+                for(i=pos;i<g->width;i++)
+                    if(!(g->type==XB_D&&(g->buf[i]=='/'||g->buf[i]=='-'||g->buf[i]=='.')))g->buf[i]=' ';
                 if(g->type==XB_N){g->raw[0]=0;g->started=1;rt_memset(g->buf,' ',g->width);}
             }
         }
@@ -1586,7 +1627,20 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                     int mp;
                     if(!g->started){int i;for(i=0;i<g->width;i++)if(q_pic_ismask(g,i))g->buf[i]=' ';g->started=1;pos=0;}
                     mp=q_pic_next_mask(g,pos);
-                    if(mp>=0){g->buf[mp]=(char)k;pos=mp+1;accepted=1;}
+                    if(mp>=0) {
+                        int tl,ti,off=q_pic_off(g),dot=-1,np;const char *tp=q_pic_template(g->pic,&tl);
+                        g->buf[mp]=(char)k;accepted=1;
+                        /* The cursor stays on a full template's last slot
+                         * (forms-f18b G3 CURSOR 09 12). */
+                        np=q_pic_next_mask(g,mp+1);pos=np>=0?np:mp;
+                        /* Once a decimal digit is typed the untyped decimal
+                         * places show 0: forms-f10 M4 and forms-f18b G2 type
+                         * 1234 into 999.99 / ###.## and show "123.40". */
+                        for(ti=0;ti<tl;ti++)if(tp[ti]=='.')dot=ti;
+                        if(dot>=0&&mp-off>dot)
+                            for(ti=dot+1;ti<tl;ti++)
+                                if(q_pic_ismask(g,off+ti)&&g->buf[off+ti]==' ')g->buf[off+ti]='0';
+                    }
                 }
             } else if(g->pic[0]) { /* pictured character entry (F10) */
                 int mp=q_pic_next_mask(g,pos);
@@ -1599,7 +1653,9 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                     else if(tc=='N')ok=(u>='A'&&u<='Z')||(k>='0'&&k<='9');
                     else if(tc=='9')ok=(k>='0'&&k<='9');
                     else if(tc=='#')ok=(k>='0'&&k<='9')||k==' ';
-                    if(ok){g->buf[mp]=(tc=='!'||q_pic_upper(g))?u:(char)k;pos=mp+1;accepted=1;}
+                    /* The cursor stays on a full mask's last cell under
+                     * CONFIRM ON (forms-f10 M1 CURSOR 05 13, M2 05 16). */
+                    if(ok){int np;g->buf[mp]=(tc=='!'||q_pic_upper(g))?u:(char)k;np=q_pic_next_mask(g,mp+1);pos=np>=0?np:mp;accepted=1;}
                 }
             } else if(g->type==XB_L) {
                 char u=q_up1((char)k);
@@ -1626,6 +1682,10 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                 if(k>='0'&&k<='9') {
                     while(pos<g->width&&(g->buf[pos]=='/'||g->buf[pos]=='-'||g->buf[pos]=='.'))pos++;
                     if(pos<g->width){g->buf[pos]=(char)k;accepted=1;if(pos<g->width-1)pos++;}
+                    /* The cursor passes a separator straight after a digit:
+                     * forms-f20l 01 over 01/01/02 leaves it on cell 3,
+                     * forms-f20b 0202 on cell 6. */
+                    while(pos<g->width-1&&(g->buf[pos]=='/'||g->buf[pos]=='-'||g->buf[pos]=='.'))pos++;
                 }
             } else { /* XB_C */
                 if(insert) { int i;for(i=g->width-1;i>pos;i--)g->buf[i]=g->buf[i-1]; }
@@ -1633,17 +1693,22 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                 if(pos<g->width-1)pos++;
                 else if(!confirm) {
                     /* Full field auto-advances under CONFIRM OFF (F05a). */
-                    int w;q_get_paint(ip,g);
+                    int w;
+                    if(rt_memcmp(before,g->buf,g->width)){g->changed=1;any_change=1;}
+                    q_get_paint(ip,g);
                     w=q_get_write(ip,g,ec);
                     if(w==-2)return -INTERP_ERR_EVAL;
                     if(w==-1){ /* cannot happen for C */ }
-                    else if(cur+1>=ctx->ngets){code=15;done=1;g->changed=1;any_change=1;break;}
-                    else {cur++;pos=0;g=&ctx->gets[cur];}
+                    else if(cur+1>=ctx->ngets){code=15;done=1;break;}
+                    else {cur++;pos=0;g=&ctx->gets[cur];rt_memcpy(before,g->buf,g->width);}
                 }
             }
-            if(accepted)g->changed=1;
-            else q_bell(ip); /* refused key: forms-f07 X, forms-f14 */
+            if(!accepted)q_bell(ip); /* refused key: forms-f07 X, forms-f14 */
         }
+        /* A GET is changed when a key altered its buffer, not merely when a
+         * key was accepted: real III+ forms-f20l typing AB over ABCD and 01
+         * over 01/01/02 leaves READKEY 15, X then Left A over ABCD gives 271. */
+        if(rt_memcmp(before,g->buf,g->width))g->changed=1;
         if(g->changed)any_change=1;
         q_get_paint(ip,g);
         q_get_cursor(ip,g->row,g->col+pos);
@@ -1654,8 +1719,13 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
         /* A save-exit on an unparseable current field keeps the old value:
          * the buffer is dropped with the list below. */
     }
-    ctx->readkey=code+((save_cur&&any_change)?256:0);
+    if(code>=0)ctx->readkey=code+((save_cur&&any_change)?256:0);
     ibase_gets_clear(ip);
+    /* READ leaves the cursor at row 23, column 0: forms-f02 `exited` (a
+     * barrier dump after READ) has CURSOR 23 00, and the next `?` line lands
+     * on row 24 without scrolling (forms-f02b, f07, f09, f10). Captured with
+     * STATUS OFF only. */
+    q_get_cursor(ip,23,0);
     if(ec)*ec=0;
     return INTERP_OK;
 }

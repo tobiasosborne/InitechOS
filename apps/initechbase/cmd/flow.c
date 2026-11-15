@@ -475,6 +475,26 @@ static int flow_resolve(void *user, const char *name, uint16_t len, xb_val *out)
     if (!fs || !out)
         return 1;
 
+    /* M->name always names the memory variable, even when the selected table
+     * has a field of that name (real III+ screen-mint forms-f13b: with FORM
+     * open, `GET M->FC` edits the variable FC and FORM.DBF is unchanged). */
+    {
+        uint16_t i = 0;
+        if (len > 3 && (name[0] == 'M' || name[0] == 'm')) {
+            i = 1;
+            while (i < len && name[i] == ' ') i++;
+            if (i + 1 < len && name[i] == '-' && name[i+1] == '>') {
+                i += 2;
+                while (i < len && name[i] == ' ') i++;
+                if (i < len) {
+                    slot = memvar_find_n(fs, name + i, (uint32_t)(len - i));
+                    if (slot >= 0) { *out = fs->vars[slot].val; return 0; }
+                    return 1;
+                }
+            }
+        }
+    }
+
     /* 1) fields of the selected open table win (dBASE field precedence). */
     if (fs->saved_resolve) {
         if (fs->saved_resolve(fs->saved_user, name, len, out) == 0)
@@ -1726,6 +1746,20 @@ int xb_interp_store(xb_interp *ip, const char *name, const xb_val *v)
     ibase_ovl_validate_ctx(xb_interp_ctx(ip));
     fs->program = ctx ? ctx->program_name : (const char *)0;
     return memvar_set(fs, name, v);
+}
+
+/* A pictured numeric GET stores its value at the picture's width, not the
+ * ten integer columns of STORE (real III+ screen-mint forms-f10 M4 and
+ * forms-f18b G2/G3 print "123.40" and "1234.56"). */
+int xb_interp_store_width(xb_interp *ip, const char *name, const xb_val *v)
+{
+    int rc = xb_interp_store(ip, name, v), slot;
+    flow_state *fs = flow_state_for(ip);
+    if (rc != INTERP_OK || !fs || v->t != XB_N || !v->num_width) return rc;
+    slot = memvar_find(fs, name);
+    if (slot >= 0 && fs->vars[slot].val.t == XB_N)
+        fs->vars[slot].val.num_width = v->num_width;
+    return rc;
 }
 
 int xb_interp_get_memvar(xb_interp *ip, const char *name, xb_val *out)

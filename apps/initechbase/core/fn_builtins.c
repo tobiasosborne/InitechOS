@@ -582,15 +582,17 @@ static int fn_dmy(const xb_val *args, int which,
 {
     int32_t y, m, d;
 
-    if (fn_date_blank(args[0].u.d)) { *out = xb_n(0.0); *err = XBEE_OK; return 0; }
-    ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
+    if (fn_date_blank(args[0].u.d)) y = m = d = 0;
+    else ymd_from_jdn((int32_t)args[0].u.d, &y, &m, &d);
     switch (which) {
     case 0:  *out = xb_n((double)d); break;
     case 1:  *out = xb_n((double)m); break;
     default: *out = xb_n((double)y); break;     /* YEAR is full 4-digit        */
     }
-    /* Real III+ PROG-funcs YEAR result occupies five columns. */
-    if(which==2) out->num_width=5;
+    /* Real III+ PROG-funcs YEAR result occupies five columns; DAY and MONTH
+     * three, for a blank date too (datatype-mint DT3LOG G9 "     0   0";
+     * screen-mint forms-f20a/f20b RESULT "  2002   1   1"). */
+    out->num_width = which == 2 ? 5 : 3;
     *err = XBEE_OK;
     return 0;
 }
@@ -1676,7 +1678,9 @@ static int fn_transform(xb_ctx *ctx, const xb_val *args,
         int32_t suffix_extra = 0;
 
         if (at_flags & TR_AT_DEBIT)  { if (is_neg)  suffix_extra = 3; } /* " DB" */
-        if (at_flags & TR_AT_CREDIT) { if (!is_neg)  suffix_extra = 3; } /* " CR" */
+        /* " CR" for a value above zero only: real III+ screen-mint
+         * forms-f11 `@ 7,5 SAY 0 PICTURE "@C 999.99"` paints "0.00" alone. */
+        if (at_flags & TR_AT_CREDIT) { if (args[0].u.n > 0.0) suffix_extra = 3; }
         /* @( paren wrap: 2 extra bytes: '(' at dst[0] (prefix), ')' at dst[tlen+1].
          * tr_format_numeric detects suffix_extra==2 as paren_wrap layout.
          * [verified: mint-002 "@( 9999" + -570 -> "( 570)" = tlen(4) + 2 = 6 chars] */

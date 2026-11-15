@@ -1,11 +1,13 @@
 # test: test_ibase_fns
+# READKEY() reports one more than the recorded exit code (no-read 1, not 0).
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2335,6 +2335,7 @@
-     (void)ctx; (void)args;
+@@ -2380,7 +2380,7 @@
+      * III+ forms captures (initech-p3nn0, forms-f01/f03). */
+     (void)args;
      if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
-     *out = xb_n(0.0);
-+    out->u.n = 1.0;
+-    *out = xb_n(ctx ? (double)ctx->readkey : 0.0);
++    *out = xb_n(ctx ? (double)ctx->readkey + 1.0 : 0.0); /* MUTANT */
      out->num_width = 3;
      *err = XBEE_OK;
      return 0;

@@ -1,0 +1,139 @@
+# Real III+ forms captures replayed by test_ibase_forms_replay (initech-nic17).
+# `case DIR` replays a pinned case; `differs DIR ITEM reason` records a
+# known disagreement (ITEM is dump:NAME or export:FILE) that must still differ.
+case forms-f01-dotget
+case forms-f02b-bounds
+case forms-f02c-home
+case forms-f02d-end
+case forms-f02-order
+case forms-f03a-esc
+case forms-f03b-pgdn
+case forms-f03c-pgup
+case forms-f03d-ctrlend
+case forms-f03e-ctrlw
+case forms-f03f-ctrlq
+case forms-f03g-escoff
+case forms-f04-edit
+case forms-f05a-confirm-off
+case forms-f05b-confirm-on
+case forms-f06a-delim
+case forms-f06b-intoff
+case forms-f06c-delimstr
+case forms-f07-num
+case forms-f08-date
+case forms-f09-logic
+case forms-f10-mask
+case forms-f11-func
+case forms-f12-list
+case forms-f13a-bind
+case forms-f13b-memvar
+case forms-f13c-recmove
+case forms-f14-bell
+case forms-f15a-refuse
+case forms-f15b-refuse
+case forms-f15c-refuse
+case forms-f15d-memorange
+case forms-f16-edges
+case forms-f17-y2k
+case forms-f18a-keys
+case forms-f18b-masks
+case forms-f18c-end
+case forms-f19-lifetime
+case forms-f20a-untouched
+case forms-f20b-datetyped
+case forms-f20c-eof
+case forms-f20d-reuse
+case forms-f20e-restruct
+case forms-f20f-longnum
+case forms-f20g-eofsecond
+case forms-f20h-poslogic
+case forms-f20i-posnum
+case forms-f20j-posgone
+case forms-f20k-closed
+case forms-f20l-sametext
+case forms-f20m-logical
+case forms-f20n-reload
+
+# Known disagreements, each with its cause.
+differs forms-f01-dotget export:OUT.MEM SAVE TO writes 2, real 0, at byte 18 for dot-prompt variables (initech-fae7j)
+differs forms-f02b-bounds dump:r4-end End at the dot prompt moves the cursor to column 78 in real III+ (initech-a6hr9)
+differs forms-f07-num export:RESULT.TXT N4 typed .5 into N=0: real 5, unpictured numeric entry (initech-1ffs3)
+differs forms-f13a-bind export:FORMIDX.NDX real NDX key expression keeps its trailing blank "FC " (initech-5s3t4)
+differs forms-f15a-refuse dump:undef dot-prompt error display (initech-bgtl1)
+differs forms-f15a-refuse dump:expr dot-prompt error display (initech-bgtl1)
+differs forms-f15a-refuse dump:valid dot-prompt error display (initech-bgtl1)
+differs forms-f15a-refuse dump:when dot-prompt error display (initech-bgtl1)
+differs forms-f15a-refuse dump:readsave dot-prompt error display (initech-bgtl1)
+differs forms-f15a-refuse dump:funcsep READ SAVE is a frozen omission; real III+ keeps the list and consumes the next line (README forms omissions)
+differs forms-f15b-refuse dump:memo frozen omission: memo GET, SET FORMAT, RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f15b-refuse dump:setformat frozen omission: memo GET, SET FORMAT, RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f15b-refuse dump:badcoord dot-prompt error display (initech-bgtl1)
+differs forms-f15b-refuse dump:badpic dot-prompt error display (initech-bgtl1)
+differs forms-f15b-refuse dump:range frozen omission: memo GET, SET FORMAT, RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f15b-refuse dump:dupget frozen omission: memo GET, SET FORMAT, RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f15c-refuse dump:readsave frozen omission: READ SAVE and the separate FUNCTION clause (README forms omissions)
+differs forms-f15c-refuse dump:after-save-read frozen omission: READ SAVE and the separate FUNCTION clause (README forms omissions)
+differs forms-f15c-refuse dump:second-read frozen omission: READ SAVE and the separate FUNCTION clause (README forms omissions)
+differs forms-f15c-refuse dump:funcsep frozen omission: READ SAVE and the separate FUNCTION clause (README forms omissions)
+differs forms-f15c-refuse dump:funcboth frozen omission: READ SAVE and the separate FUNCTION clause (README forms omissions)
+differs forms-f15d-memorange dump:memo-declared frozen omission: memo GET and RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f15d-memorange dump:memo-active frozen omission: memo GET and RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f15d-memorange dump:memo-enter frozen omission: memo GET and RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f15d-memorange dump:range-42 frozen omission: memo GET and RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f15d-memorange export:RESULT.TXT frozen omission: memo GET and RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f15d-memorange export:RESULT2.TXT frozen omission: memo GET and RANGE refused where real III+ accepts (README forms omissions)
+differs forms-f16-edges dump:declared a GET past column 79 continues on the next row in real III+ (initech-k4h9w)
+differs forms-f16-edges dump:active a GET past column 79 continues on the next row in real III+ (initech-k4h9w)
+differs forms-f16-edges dump:in-b a GET past column 79 continues on the next row in real III+ (initech-k4h9w)
+differs forms-f16-edges dump:in-c a GET past column 79 continues on the next row in real III+ (initech-k4h9w)
+differs forms-f18a-keys dump:r4-end1 End at the dot prompt moves the cursor to column 78 in real III+ (initech-a6hr9)
+differs forms-f19-lifetime dump:badcombo dot-prompt error display (initech-bgtl1)
+differs forms-f20c-eof dump:entered READ at end of file: real III+ reports End of file encountered (initech-o9f9i)
+differs forms-f20c-eof dump:typed READ at end of file: real III+ reports End of file encountered (initech-o9f9i)
+differs forms-f20c-eof dump:done READ at end of file: real III+ reports End of file encountered (initech-o9f9i)
+differs forms-f20c-eof export:RESULT.TXT READ at end of file: real III+ reports End of file encountered (initech-o9f9i)
+differs forms-f20c-eof export:FORM.DBF READ at end of file: real III+ reports End of file encountered (initech-o9f9i)
+differs forms-f20d-reuse dump:typed READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
+differs forms-f20d-reuse dump:done READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
+differs forms-f20d-reuse export:RESULT.TXT READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
+differs forms-f20e-restruct dump:declared COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20e-restruct dump:typed COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20e-restruct dump:done COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20e-restruct export:RESULT.TXT COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20e-restruct export:OTHER.DBF COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20f-longnum dump:n-typed over-long numeric entry (initech-1ffs3)
+differs forms-f20f-longnum dump:fn-typed over-long numeric entry (initech-1ffs3)
+differs forms-f20f-longnum dump:done over-long numeric entry (initech-1ffs3)
+differs forms-f20f-longnum export:RESULT.TXT over-long numeric entry (initech-1ffs3)
+differs forms-f20f-longnum export:FORM.DBF over-long numeric entry (initech-1ffs3)
+differs forms-f20g-eofsecond dump:entered READ at end of file: real III+ reports End of file encountered (initech-o9f9i)
+differs forms-f20g-eofsecond dump:typed READ at end of file: real III+ reports End of file encountered (initech-o9f9i)
+differs forms-f20g-eofsecond dump:moved READ at end of file: real III+ reports End of file encountered (initech-o9f9i)
+differs forms-f20g-eofsecond dump:prompt READ at end of file: real III+ reports End of file encountered (initech-o9f9i)
+differs forms-f20h-poslogic dump:declared COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20h-poslogic dump:typed COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20h-poslogic dump:done COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20h-poslogic export:RESULT.TXT COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20h-poslogic export:OTHER.DBF COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20i-posnum dump:declared COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20i-posnum dump:entered COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20i-posnum dump:typed COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20i-posnum dump:done COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20i-posnum export:RESULT.TXT COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20i-posnum export:OTHER.DBF COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20j-posgone dump:declared COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20j-posgone dump:entered COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20j-posgone dump:typed COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20j-posgone dump:done COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20j-posgone export:RESULT.TXT COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20j-posgone export:OTHER.DBF COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
+differs forms-f20m-logical dump:f1-typed a logical GET shows and stores the typed letter (initech-hyczn)
+differs forms-f20m-logical dump:f2-typed a logical GET shows and stores the typed letter (initech-hyczn)
+differs forms-f20m-logical dump:l-typed a logical GET shows and stores the typed letter (initech-hyczn)
+differs forms-f20m-logical dump:m-blanked a logical GET shows and stores the typed letter (initech-hyczn)
+differs forms-f20m-logical dump:done a logical GET shows and stores the typed letter (initech-hyczn)
+differs forms-f20m-logical export:RESULT.TXT a logical GET shows and stores the typed letter (initech-hyczn)
+differs forms-f20m-logical export:FORM.DBF a logical GET shows and stores the typed letter (initech-hyczn)
+differs forms-f20n-reload dump:done READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
+differs forms-f20n-reload export:RESULT.TXT READ re-resolves a field GET against the record and table current at READ (initech-hyczn)
+differs forms-f20n-reload export:FORM.DBF READ re-resolves a field GET against the record and table current at READ (initech-hyczn)

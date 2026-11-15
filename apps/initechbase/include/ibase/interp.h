@@ -385,6 +385,8 @@ void xb_interp_set_cmd_hook(xb_interp *ip, xb_cmd_hook hook, void *user);
  * PRIVATE seed the table).
  */
 int xb_interp_store(xb_interp *ip, const char *name, const xb_val *v);
+/* xb_interp_store keeping a numeric value's own width (pictured GET). */
+int xb_interp_store_width(xb_interp *ip, const char *name, const xb_val *v);
 
 /*
  * xb_interp_get_memvar: look up memvar `name` (NUL-terminated, case-insensitive).
