@@ -12,3 +12,13 @@
  .out_crlf:
      push edi
      mov ah, 0x40
+@@ -307,9 +304,6 @@
+     mov edx, crlf
+     int 0x21
+     pop edi
+-    jc .write_error
+-    cmp eax, 2
+-    jne .write_error
+     inc edi
+     jmp .out_loop
+ .out_done:

@@ -14,10 +14,12 @@ root=$1 boot=$2 programs=$3 out=$4
 mkdir -p "$out"
 out=$(realpath "$out")
 
-# 2000 lines, every line matches FIND "needle"; SORT keeps the same lines.
+# 400 lines, every line matches FIND "needle"; SORT keeps the same lines.
+# (Kept small: each short write rescans the nearly full FAT, and the
+# session harness window is 20s on a possibly loaded machine.)
 # Lines are unique and already in ascending order, so the host-expected
 # output for both filters is the input byte for byte.
-awk 'BEGIN {for (i=0;i<2000;i++) printf "needle%04d\r\n", i}' > "$out/input"
+awk 'BEGIN {for (i=0;i<400;i++) printf "needle%04d\r\n", i}' > "$out/input"
 cp "$out/input" "$out/expected"
 
 run_case() {
@@ -51,7 +53,7 @@ run_case() {
 run_case sort 'SORT <IN.TXT >OUT.TXT' 1536
 run_case find 'FIND "needle" <IN.TXT >OUT.TXT' 1536
 # /C writes only the count, so leave no cluster at all for it.
-printf '2000\r\n' > "$out/expected-count"
+printf '400\r\n' > "$out/expected-count"
 cp "$out/expected-count" "$out/expected"
 run_case findc 'FIND /C "needle" <IN.TXT >OUT.TXT' 0
 echo 'GREEN filters: SORT, FIND and FIND /C refuse with nonzero status on a full-disk write'
