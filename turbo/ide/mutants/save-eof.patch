@@ -1,11 +1,7 @@
 # test: journey
 --- a/buffer.pas
 +++ b/buffer.pas
-@@ -435,7 +435,6 @@
-   end;
-   if BufErr = 0 then
+@@ -461,3 +461,2 @@
    begin
 -    OutByte(chr(26));
      OutFlush()
-   end;
-   Close(WorkIn);
