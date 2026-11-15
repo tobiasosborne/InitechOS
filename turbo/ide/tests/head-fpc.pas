@@ -7,5 +7,5 @@ function FileAttributes(var F: file): integer;
 var A: word;
 begin
   GetFAttr(F, A);
-  if DosError = 0 then FileAttributes := A else FileAttributes := -DosError
+  if DosError = 0 then FileAttributes := A else if DosError = 3 then FileAttributes := -2 else FileAttributes := -DosError
 end;
