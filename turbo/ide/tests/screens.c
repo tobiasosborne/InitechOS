@@ -20,6 +20,7 @@
 static const char *captures, *shots;
 static char base[64];
 static unsigned char want[4000];
+static unsigned char mask_char[2000];
 static int want_col, want_row, want_on;
 static char blocks[16][32][256];
 static char block_name[16][64];
@@ -61,6 +62,11 @@ static void edit(char *line, const char *where)
             want[(dr * 80 + dc + i) * 2] = src[(sr * 80 + sc + i) * 2];
             want[(dr * 80 + dc + i) * 2 + 1] = src[(sr * 80 + sc + i) * 2 + 1];
         }
+    } else if (!strcmp(op, "mask") && sscanf(line, "mask %d %d %d", &r, &c0, &c1) == 3) {
+        if (r < 0 || r >= 25 || c0 < 0 || c1 >= 80 || c1 < c0) {
+            fprintf(stderr, "invalid value mask: %s\n", where); exit(2);
+        }
+        for (int i = c0; i <= c1; i++) mask_char[r * 80 + i] = 1;
     } else if (!strcmp(op, "fill") && sscanf(line, "fill %d %d %d %i", &r, &c0, &c1, &at) == 4) {
         for (int i = c0; i <= c1; i++) { want[(r * 80 + i) * 2] = ' '; want[(r * 80 + i) * 2 + 1] = (unsigned char)at; }
     } else if (!strcmp(op, "attr") && sscanf(line, "attr %d %d %d %i", &r, &c0, &c1, &at) == 4) {
@@ -89,7 +95,7 @@ static int compare(const char *name, int index)
     fclose(f);
     int bad = 0;
     for (int i = 0; i < 2000; i++)
-        if (got[i * 2] != want[i * 2] || got[i * 2 + 1] != want[i * 2 + 1]) {
+        if ((!mask_char[i] && got[i * 2] != want[i * 2]) || got[i * 2 + 1] != want[i * 2 + 1]) {
             if (bad < 8)
                 printf("FAIL %s: row %d col %d got %02X/%02X want %02X/%02X\n", name, i / 80, i % 80,
                        got[i * 2], got[i * 2 + 1], want[i * 2], want[i * 2 + 1]);
@@ -138,6 +144,7 @@ int main(int argc, char **argv)
             if (current < 0) { printf("FAIL %s: not in the journey\n", a); return 1; }
             strcpy(cname, a);
             strcpy(base, b);
+            memset(mask_char, 0, sizeof mask_char);
             load_capture(b, want, &want_col, &want_row, &want_on);
             continue;
         }

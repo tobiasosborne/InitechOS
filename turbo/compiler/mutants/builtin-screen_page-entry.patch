@@ -1,0 +1,6 @@
+# test: runtime-table
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -1,1 +1,1 @@
+-    else if Text = 'rtl_screen_page' then N := 1028
++    else if Text = 'rtl_screen_page' then N := 1029

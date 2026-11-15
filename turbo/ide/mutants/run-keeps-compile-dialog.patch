@@ -1,0 +1,6 @@
+# test: run-command
+--- a/product.pas
++++ b/product.pas
+@@ -1,1 +1,1 @@
+-  if (Code = 0) and ProgramReady and (BuildRequest = CmdRun) then RunProgram()
++  if (Code = 0) and ProgramReady and (BuildRequest = CmdMake) then RunProgram()

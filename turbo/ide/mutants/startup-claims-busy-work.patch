@@ -1,0 +1,6 @@
+# test: work-names
+--- a/editor.pas
++++ b/editor.pas
+@@ -1,1 +1,1 @@
+-    Ext := '.PAS'; Free := Free and FreeSibling(PrivateBase, Ext);
++    Ext := '.PAS'; Free := true;

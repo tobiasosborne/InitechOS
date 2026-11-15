@@ -1,0 +1,6 @@
+# test: runtime-table
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -1,1 +1,1 @@
+-    else if Text = 'rtl_paramcount' then N := 823
++    else if Text = 'rtl_paramcount' then N := 824

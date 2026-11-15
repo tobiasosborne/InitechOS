@@ -1,0 +1,12 @@
+# test: compile
+--- a/product.pas
++++ b/product.pas
+@@ -45,7 +45,7 @@
+ procedure CleanBuild;
+ var Path: string;
+ begin
+-  if BuildOwned and (not KeepRecovery) then
++  if (Length(BuildBase) > 0) and (not KeepRecovery) then
+   begin
+     Path := BuildBase + '.S'; RemoveOwned(Path);
+     Path := BuildBase + '.COM'; RemoveOwned(Path);

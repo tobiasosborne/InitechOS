@@ -10,35 +10,37 @@ assembler or linker finishes the programs compiled inside InitechOS.
 Despite its name, TURBO.COM is an extended InitechMZ container: a flat 32-bit
 module linked at zero, relocated to 0x600000 by the content-dispatch loader.
 Startup retains the loader's separate 64 KiB stack; descriptor reserve covers
-BSS including alignment. Files and exit use INT 21h. Inherited serial helpers
-now poll transmitter readiness. No private kernel header/code is included.
+BSS including alignment. Files, console output and exit use INT 21h. The bare
+factory startup retains serial output. No private kernel code is included.
 
-`make test` composes 8 seed, 41 compiler and 11 IDE host entries, plus
+`make test` composes 8 seed, 44 compiler and 14 IDE host entries, plus
 the factory assertion controls, including
-18 FPC execution references and independent native byte comparisons (18 flat,
-19 extended). The two compiler placements are packaged with factory/mz/mzlink
+19 FPC execution references and independent native byte comparisons (19 flat,
+20 extended). The two
+compiler placements are packaged with factory/mz/mzlink
 and checked by the independent mzcheck against the actual extended limits:
 262144 module bytes, aligned module+reserve before 0x7ef000, native heap
 header, separate guard and stack. The old conventional compiler placement
 gates are replaced by these real limits. Small programs retain their flat
 runtime/link route. The warm complete Turbo suite takes about 20 seconds.
 Runtime is a checked-in NASM byte table with a tier-0 regeneration comparison;
-see compiler/NATIVE.md. The 17 compiler patches include five native
+see compiler/NATIVE.md. The compiler patches include five native
 encoder/fixup/relocation/layout and five generated-execution patches.
 For every source, both compiler emissions match one fresh independent
 NASM/link result; their assembly and native containers also match each other.
 The suite does not rebuild identical foreign-tool inputs for the second pass.
 
 `make smoke` builds the product image and uses separate FAT12 TEST disks.
-QEMU and Bochs each execute all 17 corpus programs and 19 regressions through
+QEMU and Bochs each execute all 19 corpus programs and 19 regressions through
 direct seed output, hosted Pascal native output, and resident Pascal native
 compilation. Hosted and resident Pascal output also runs as flat COM:
-370 executions (gen_ioresult adds 10), preserving all prior 330 and the 30 comparisons for
+380 executions, preserving the prior comparisons for
 computed characters at the start of concatenations, including higher temporary
 bases. The earlier probes cover minimum-Integer div/mod and string temporaries
 in Length and record indices.
-The full matrix uses groups of six sources so each invocation retains its
-300-second bound even while the resident compiler emits its old serial dumps.
+Bochs uses the shared harness's progress renewal: 300 seconds initially and
+after progress, with the shared ceiling of three initial budgets. Resident
+compiles omit the lexer and parser dumps. Every registered case still runs.
 Every registered case fits the flat arena; missing flat output
 fails. Complete stdout and extracted files match FPC;
 the original corpus also matches its authored goldens. mzcheck validates the
@@ -71,7 +73,7 @@ a real guest boot, and an impossible one-millisecond Bochs deadline. The Bochs
 corruption preserves MZ/tag but changes the descriptor version, so its red is
 a clean loader refusal rather than raw-COM execution or a timeout.
 
-`make ddc` first refreshes that seed-path certificate, then uses the same
+`make ddc` requires that seed-path certificate, then uses the same
 compiler source built with Free Pascal as the independent host bootstrap.
 That compiler emits D1 directly; D1(S) runs in the OS on both emulators to
 produce D2. Each D2 must equal its K2/K3 and the other emulator's D2.
@@ -98,9 +100,9 @@ It still trusts the compiler source (including runtime byte tables), the
 independent FPC path, host tools, loader, emulator and hardware. The controls
 show comparison sensitivity, not resistance to every possible shared attack.
 
-FPC, NASM, GNU binutils and mtools are required; missing tools fail. No Pascal
-language feature was added; seed string-character var arguments now accept
-the documented form. Authored corpus/protocol goldens are unchanged. Emulator
+FPC, NASM, GNU binutils and mtools are required; missing tools fail. The added
+DOS intrinsics are described below. Existing corpus/protocol goldens are
+unchanged; the argument fixture adds a literal stdout oracle. Emulator
 work never runs in tier 0. See ROADMAP.md for remaining
 GOLDEN-MASTER.md item-7 work, including the IDE.
 
@@ -128,7 +130,7 @@ between statements. Reference: TP 5.5 Reference Guide (IOResult, the I
 directive); Free Pascal is the independent oracle: `gen_ioresult` matches
 its hand-computed golden under FPC and, through all five paths, in the
 image on QEMU and Bochs; `ide/tests` checks ReadKey's codes and the abort
-in the image. The runtime is 780 bytes (padded to 784); its error word
+in the image. The runtime is 1410 bytes (padded to 1424); its error word
 sits in the code and is addressed position-independently, so neither
 output form gains a relocation. `tests/runtime.sh` also checks that the
 compiler's fixed runtime entry offsets equal the linker's.
@@ -216,19 +218,37 @@ vendor or product does not appear on any Initech screen.
 The editor, chrome and paged buffer are in `ide/` (its README): tier 0
 compares 47 screens with MINT06 and the saved bytes with TP 5.5's; `make
 smoke` repeats both journeys with the Turbo-compiled IDE in the booted
-image on QEMU and Bochs.
+image on QEMU and Bochs. The single-program native journey also reads the
+actual DOS screen page through a separately compiled C reader: an authored
+full-page pattern and cursor, three MINT06 compile/error screens, and six
+MINT07 Run/User screens. A keyboard journey drives the real no-argument
+TURBO.COM and reads its saved source and backup from disk independently.
 
-### Packaging (feasibility, 2026-11-14)
+### Packaging
 
-`tests/ide/probe/` shows in the booted product that an extended
-`TURBO.COM` stays resident across EXEC and gets the child's exit code back,
-but it cannot run what Turbo compiles: the loader refuses an extended
-child while an extended program is live (error 8), and places a nested
-flat child after the parent's PSP block (0x41220), where Turbo's
-fixed-base flat output runs wrongly while EXEC reports success. Running
-compiled programs from the IDE therefore waits for a kernel change (see
-the probe README); the IDE's editor, chrome and runtime do not depend on
-it.
+The compiler and IDE are one single-file Pascal program. No arguments opens
+the editor; a source filename compiles to TURBOOUT.EXE and, when it fits,
+TURBOOUT.COM. `/DUMP filename` explicitly enables the host lexer/parser
+protocol; ordinary compilation and proof runs omit those dumps. The saved
+CRLF plus DOS EOF form of the compiler source also fits the input limit and
+produces the identical whole container.
+
+The kernel's published nested-flat EXEC placement now lets the resident
+extended compiler run its flat output at the required base. The IDE publishes
+fresh outputs under the selected source's name and prefers its COM for Run.
+An extended child is still refused while an extended parent is live; its real
+load error is displayed. MINT07, captured twice under real TP 5.5/MS-DOS 3.30,
+specifies return to the editor after both Halt(0) and Halt(7), without an exit
+code dialog, and Alt-F5 until any key. `tests/ide/probe/README.md` retains the
+original placement evidence and its successful repeat.
+
+Both compilers implement ParamCount/ParamStr from the DOS PSP, GetDir through
+AH=19h/47h, Execute through AH=4Bh/4Dh, Halt through AH=4Ch and ScreenPage
+through the published AH=FBh packet. ScreenPage marshals Pascal character
+array slots to the packed DOS page. The independent raw-PSP runtime probe
+currently exposes a kernel gap (initech-311t2): the executable-name trailer
+needed by ParamStr(0) is absent. Tail arguments, quoting, current directory,
+child exit status and load errors match the captured or published DOS values.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate

@@ -15,6 +15,8 @@ const
 
   ModeEditor = 0; ModeBar = 1; ModeMenu = 2; ModeName = 3; ModeVerify = 4;
   ModeQuit = 5; ModeError = 6; ModeOverwrite = 7;
+  ModeCompile = 8; ModeUser = 9;
+  CmdCompile = 1; CmdMake = 2; CmdRun = 3; CmdUser = 4;
   MenuFile = 1; MenuEdit = 2; MenuRun = 3; MenuCompile = 4;
   NameRename = 1; NameLoad = 2; NameWrite = 3;
   VerifyNew = 1; VerifyLoad = 2; VerifyQuit = 3;
@@ -31,6 +33,9 @@ var
   ErrCode, ErrReturn: integer;       { Error box (MINT06 51, 54) }
   ErrLineShown: boolean;             { compiler error on the info row (07) }
   ErrLineText: string;
+  RequestedCommand, CompileLines, CompileMemory: integer;
+  CompileDone: boolean;
+  PrivateBase: string;
   Tx: string;
 
 { ---- line geometry: tabs at 8-column stops (MINT06 36, 34) ---- }
@@ -334,6 +339,35 @@ begin
   ScrTitle(10, 20, 20 + W - 1, N, AtErrText)
 end;
 
+{ MINT06 13c: the disk compile box. Values describe this compilation and
+  DOS's actual largest free conventional block, rather than TP's machine. }
+procedure DrawCompile;
+var N: string;
+    R: integer;
+begin
+  R := 8;
+  while R <= 18 do begin ScrFill(R, 20, 58, ' ', AtMenu); R := R + 1 end;
+  ScrBox(7, 19, 19, 59, true, AtMenu);
+  Tx := 'Compiling to Disk'; ScrTitle(7, 19, 59, Tx, AtMenu);
+  Tx := 'Main file: '; ScrText(9, 21, Tx, AtMenu);
+  ScrText(9, 32, FileName, AtMenu);
+  Tx := 'Compiling: EDITOR '; ScrText(10, 21, Tx, AtMenu);
+  ScrPut(10, 39, chr(26), AtMenu); ScrText(10, 41, FileName, AtMenu);
+  Tx := 'Total    File'; ScrText(12, 40, Tx, AtMenu);
+  Tx := 'Lines compiled:'; ScrText(13, 24, Tx, AtMenu);
+  NumText(CompileLines, N); ScrText(13, 40, N, AtMenu); ScrText(13, 49, N, AtMenu);
+  Tx := 'Available memory:'; ScrText(15, 24, Tx, AtMenu);
+  NumText(CompileMemory div 1024, N); N := N + 'K'; ScrText(15, 43, N, AtMenu);
+  if CompileDone then
+  begin
+    ScrFill(18, 20, 58, ' ', AtBarText);
+    Tx := 'Success         :'; ScrText(18, 22, Tx, AtBarText);
+    ScrFill(18, 39, 58, ' ', AtBlink);
+    Tx := 'Press any key'; ScrText(18, 43, Tx, AtBlink)
+  end;
+  ScrCursor(0, 0, false)
+end;
+
 procedure DrawAll;
 begin
   DrawText();
@@ -352,7 +386,8 @@ begin
   if UiMode = ModeName then DrawName();
   if UiMode = ModeVerify then DrawVerify();
   if UiMode = ModeOverwrite then DrawOverwrite();
-  if UiMode = ModeError then DrawError()
+  if UiMode = ModeError then DrawError();
+  if UiMode = ModeCompile then DrawCompile()
 end;
 
 { ---- file commands ---- }
@@ -470,6 +505,14 @@ begin
   SameName := X = Y
 end;
 
+function PrivateName(var Path: string): boolean;
+var Leaf, P: string;
+begin
+  LeafName(Path, Leaf); Upper(Leaf);
+  P := PrivateBase + '.PAS';
+  PrivateName := SameName(Leaf, P) or SameName(Leaf, WorkName0) or SameName(Leaf, WorkName1)
+end;
+
 { Write aside, close and check, then use only DOS renames to publish.
   MINT06 54 refuses a read-only source; 49 confirms overwrites. The
   operator's save ruling permits the residual double rename failure:
@@ -492,7 +535,7 @@ begin
   Assign(F, Temp); Attr := FileAttributes(F);
   if Attr >= 0 then Code := 80
   else if Attr <> -2 then Code := -Attr;
-  if SameName(Path, WorkName0) or SameName(Path, WorkName1) then Code := 5;
+  if PrivateName(Path) then Code := 5;
   if Existing and (Code = 0) then
   begin
     Assign(F, Path);
@@ -572,7 +615,9 @@ begin
   if Kind = NameRename then
   begin
     NameRow := 3; NameCol := 7;
-    NameText := FileDir + chr(92) + FileName
+    NameText := FileDir;
+    if NameText[Length(NameText)] <> chr(92) then NameText := NameText + chr(92);
+    NameText := NameText + FileName
   end
   else
   begin
@@ -706,7 +751,15 @@ begin
       else UiMode := ModeQuit
     end
   end
-  else UiMode := ModeEditor
+  else
+  begin
+    UiMode := ModeEditor;
+    if MenuSel = MenuRun then
+    begin
+      if I = 1 then RequestedCommand := CmdRun else RequestedCommand := CmdUser
+    end
+    else if I = 1 then RequestedCommand := CmdCompile else RequestedCommand := CmdMake
+  end
 end;
 
 { ---- editing ---- }
@@ -911,6 +964,10 @@ begin
     MenuSel := MenuFile; ItemSel[MenuFile] := 1; LastMenu := MenuFile;
     OpenName(NameLoad)
   end
+  else if K = KeyF9 then RequestedCommand := CmdMake
+  else if K = KeyAltF9 then RequestedCommand := CmdCompile
+  else if K = KeyCtrlF9 then RequestedCommand := CmdRun
+  else if K = KeyAltF5 then RequestedCommand := CmdUser
   else if K = KeyAltX then
   begin
     if EdModified then begin VerifyKind := VerifyQuit; UiMode := ModeVerify end
@@ -921,7 +978,8 @@ end;
 function IsGlobal(K: integer): boolean;
 begin
   IsGlobal := (K = KeyAltF) or (K = KeyAltR) or (K = KeyAltC) or (K = KeyAltE) or
-              (K = KeyF10) or (K = KeyF2) or (K = KeyF3) or (K = KeyAltX)
+              (K = KeyF10) or (K = KeyF2) or (K = KeyF3) or (K = KeyAltX) or
+              (K = KeyF9) or (K = KeyAltF9) or (K = KeyCtrlF9) or (K = KeyAltF5)
 end;
 
 { Show a compiler error (MINT06 07, 34): the message replaces the info
@@ -947,7 +1005,8 @@ procedure IdeKey(K: integer);
 var M, I: integer;
     C: string;
 begin
-  if (UiMode = ModeEditor) and ErrLineShown then
+  if (UiMode = ModeCompile) or (UiMode = ModeUser) then UiMode := ModeEditor
+  else if (UiMode = ModeEditor) and ErrLineShown then
   begin
     { the next key restores the info row (MINT06 08); Esc does no more }
     ErrLineShown := false;
@@ -1056,13 +1115,36 @@ end;
 
 { The state after start (MINT06 02_editor): an empty NONAME.PAS, the menu
   bar active on File, the cursor hidden. }
-procedure IdeStart;
+function FreeSibling(var Base, Ext: string): boolean;
+var Path: string;
+    F: file;
 begin
-  WorkName0 := 'TURBOWK0.$$$';
-  WorkName1 := 'TURBOWK1.$$$';
+  Path := Base + Ext; Assign(F, Path);
+  FreeSibling := FileAttributes(F) = -2
+end;
+
+procedure IdeStart;
+var I: integer;
+    S, Ext: string;
+    Free: boolean;
+begin
+  I := 0; Free := false;
+  while (I < 1000) and (not Free) do
+  begin
+    NumText(I, S); while Length(S) < 3 do S := '0' + S;
+    PrivateBase := 'TURBO' + S;
+    Ext := '.$00'; Free := FreeSibling(PrivateBase, Ext);
+    Ext := '.$01'; Free := Free and FreeSibling(PrivateBase, Ext);
+    Ext := '.PAS'; Free := Free and FreeSibling(PrivateBase, Ext);
+    I := I + 1
+  end;
+  if not Free then begin Writeln('Cannot create working files.'); Halt(1) end;
+  WorkName0 := PrivateBase + '.$00'; WorkName1 := PrivateBase + '.$01';
+  RequestedCommand := 0;
   EdInsert := true;
   ItemSel[1] := 1; ItemSel[2] := 1; ItemSel[3] := 1; ItemSel[4] := 1;
   DoNew();
+  if BufErr <> 0 then begin Writeln('Cannot create working files.'); Halt(1) end;
   MenuSel := MenuFile;
   LastMenu := MenuFile;
   UiMode := ModeBar
