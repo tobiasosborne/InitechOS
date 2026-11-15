@@ -87,7 +87,12 @@ gate-test: $(OUT)/bochs-verdict-test $(OUT)/qemu-deadline-test $(OUT)/port-lock-
 	$(OUT)/rfb-port-test
 	rm -f $(OUT)/emu-exit.infra
 	$(OUT)/emu-exit-test $(OUT)/emu-exit.infra
-gate-test: $(OUT)/emu-exit-test emu-cli-check
+gate-test: $(OUT)/emu-exit-test emu-cli-check console-symbols-check
+.PHONY: console-symbols-check
+console-symbols-check: $(OUT)/console-symbols-test
+	sh tests/console-symbols.sh $(TOP)/build/system/system.elf $<
+$(OUT)/console-symbols-test: tests/console-symbols.c emu/console_symbols.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 .PHONY: emu-cli-check
 emu-cli-check: $(OUT)/emu-cli-qemu $(OUT)/emu-cli-bochs
 	sh tests/emu-cli.sh $(OUT)/emu-cli-qemu $(OUT)/emu-cli-bochs

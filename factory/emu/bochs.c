@@ -26,6 +26,7 @@
 #include "run_status.h"
 #include "bochs_trace.h"
 #include "rfb_port.h"
+#include "console_symbols.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -795,6 +796,80 @@ static bool bochs_verdict(const BochsConfig *cfg, const BochsResult *out,
            (!cfg->screendump_after || (out->screendump_ok && out->snapshot_ok));
 }
 
+/* InitechBase stage 2: the exact 80x25 text page and cursor of the stopped
+ * guest, without OCR. The debugger build breaks to its prompt on SIGINT;
+ * writemem copies linear memory to a file; c resumes. Layout checks as in
+ * apps/initechbase/tests/screen_capture.c (console_t prefix: cols, rows,
+ * cur_col, cur_row at +28/+32/+36/+40; 4002-byte screen_file.h record). */
+static int bochs_prompt_after(const char *log, long *seen, long long until)
+{
+    while (mono_ms() < until) {
+        size_t len = 0;
+        char *txt = read_file(log, &len);
+        if (txt && (long)len > *seen) {
+            char *hit = NULL, *p = txt + *seen;
+            while ((p = strstr(p, "<bochs:")) != NULL) { hit = p; p++; }
+            if (hit) { *seen = (long)len; free(txt); return 1; }
+        }
+        free(txt);
+        sleep_ms(20);
+    }
+    return 0;
+}
+static int bochs_mem(int fd, const char *log, long *seen, const char *tmp,
+                     uint32_t addr, size_t size, unsigned char *out)
+{
+    char cmd[BOCHS_PATH_MAX + 64];
+    FILE *f;
+    int n = snprintf(cmd, sizeof cmd, "writemem \"%s\" 0x%08x %zu\n", tmp, addr, size);
+    remove(tmp);
+    if (n < 0 || (size_t)n >= sizeof cmd || write(fd, cmd, (size_t)n) != n) return -1;
+    if (!bochs_prompt_after(log, seen, mono_ms() + 10000)) return -1;
+    f = fopen(tmp, "rb");
+    if (!f) return -1;
+    n = fread(out, 1, size, f) == size && fgetc(f) == EOF;
+    fclose(f);
+    remove(tmp);
+    return n ? 0 : -1;
+}
+static int bochs_text_capture(pid_t pid, int fd, const char *log, const char *elf,
+                              const char *dir, const char *name)
+{
+    uint32_t page, con;
+    unsigned char ptr[4], head[44], s[4002];
+    char tmp[BOCHS_PATH_MAX], path[BOCHS_PATH_MAX];
+    size_t len = 0;
+    char *txt;
+    long seen;
+    if (console_symbols(elf, &page, &con) != 0) { fprintf(stderr, "bochs_run: %s lacks the console symbols\n", elf); return -1; }
+    if (snprintf(tmp, sizeof tmp, "%s/.%s.mem", dir, name) >= (int)sizeof tmp ||
+        snprintf(path, sizeof path, "%s/%s.screen", dir, name) >= (int)sizeof path) return -1;
+    txt = read_file(log, &len); free(txt); seen = (long)len;
+    if (kill(pid, SIGINT) != 0 || !bochs_prompt_after(log, &seen, mono_ms() + 10000)) {
+        fprintf(stderr, "bochs_run: T%s: the debugger did not stop the guest\n", name); return -1;
+    }
+    int ok = bochs_mem(fd, log, &seen, tmp, con, 4, ptr) == 0;
+    uint32_t cp = (uint32_t)ptr[0] | (uint32_t)ptr[1] << 8 | (uint32_t)ptr[2] << 16 | (uint32_t)ptr[3] << 24;
+    ok = ok && cp && bochs_mem(fd, log, &seen, tmp, cp, sizeof head, head) == 0;
+#define LE(o) ((uint32_t)head[o] | (uint32_t)head[o+1] << 8 | (uint32_t)head[o+2] << 16 | (uint32_t)head[o+3] << 24)
+    if (ok && !(LE(28) == 80u && LE(32) == 25u && LE(36) < 80u && LE(40) <= 25u)) {
+        fprintf(stderr, "bochs_run: T%s: console=%08x grid=%ux%u cursor=%u,%u (layout mismatch)\n",
+                name, cp, LE(28), LE(32), LE(40), LE(36));
+        ok = 0;
+    }
+    ok = ok && bochs_mem(fd, log, &seen, tmp, page, 4000, s) == 0;
+    if (ok) { s[4000] = (unsigned char)LE(40); s[4001] = (unsigned char)LE(36); }
+#undef LE
+    /* Resume in every case: a capture never leaves the guest stopped. */
+    if (write(fd, "c\n", 2) != 2) ok = 0;
+    if (!ok) { fprintf(stderr, "bochs_run: T%s: text page capture FAILED\n", name); return -1; }
+    FILE *f = fopen(path, "wb");
+    if (!f || fwrite(s, 1, sizeof s, f) != sizeof s) { if (f) fclose(f); return -1; }
+    if (fclose(f) != 0) return -1;
+    fprintf(stderr, "[bochs] text page %s captured (cursor %u,%u)\n", path, s[4000], s[4001]);
+    return 0;
+}
+
 int bochs_run(const BochsConfig *cfg, BochsResult *out)
 {
     if (!cfg || !out) return -1;
@@ -937,6 +1012,11 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     /* SIGPIPE off: a dropped RFB socket must not kill the harness. */
     signal(SIGPIPE, SIG_IGN);
 
+    /* T<name> text captures drive the debugger through a stdin pipe; only
+     * then, so an ordinary run's debugger stop still meets EOF and exits. */
+    const char *text_elf = getenv("INITECH_TEXT_SCREEN_ELF");
+    int dbg[2] = { -1, -1 };
+    if (text_elf && *text_elf && pipe(dbg) != 0) { free(abs_dir); return -1; }
     pid_t pid = fork();
     if (pid < 0) {
         free(abs_dir);
@@ -948,7 +1028,8 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         int logfd = open(out->log_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
         int nullfd = open("/dev/null", O_RDONLY);
         if (logfd >= 0) { dup2(logfd, 1); dup2(logfd, 2); }
-        if (nullfd >= 0) dup2(nullfd, 0);
+        if (dbg[0] >= 0) { dup2(dbg[0], 0); close(dbg[0]); close(dbg[1]); }
+        else if (nullfd >= 0) dup2(nullfd, 0);
         /* A numeric time0 is localtime()d by Bochs 2.7 cmos.cc: pin UTC so
          * the guest RTC matches qemu -rtc base=<ISO> (UTC). */
         if (cfg->rtc_time0 > 0) setenv("TZ", "UTC", 1);
@@ -964,6 +1045,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     }
 
     free(abs_dir);               /* the child has its own copy */
+    if (dbg[0] >= 0) close(dbg[0]);
     out->launched = true;
     long long start = mono_ms();
     long long deadline = start + timeout_ms;
@@ -1047,7 +1129,15 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                 if (BOCHS_TRACE_TAP_KEYS) delay *= 2;
                 delay = BOCHS_TRACE_KEY_MS;
             } else if (step.kind == BX_WAIT) delay = step.delay;
-            else {
+            else if (step.kind == BX_TEXT) {
+                if (dbg[1] < 0 || bochs_text_capture(pid, dbg[1], out->log_path, text_elf,
+                                                     cfg->output_dir ? cfg->output_dir : ".", step.name) != 0) {
+                    if (dbg[1] < 0) fprintf(stderr, "bochs_run: T%s needs INITECH_TEXT_SCREEN_ELF\n", step.name);
+                    out->text_capture_failed = true;
+                    break;
+                }
+                delay = 0;
+            } else {
                 unsigned x, y, buttons;
                 int consumed = bochs_trace_pointer_next(&pointer, &step, &x, &y, &buttons);
                 if (!rfb_pointer_event(&rfb, x, y, buttons)) break;
@@ -1181,6 +1271,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         }
     }
     if (rfb_fd >= 0) close(rfb_fd);
+    if (dbg[1] >= 0) close(dbg[1]);
 
     out->reaped = reaped;
     if (reaped && WIFEXITED(status)) {

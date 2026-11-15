@@ -119,6 +119,7 @@ typedef struct {
     bool reaped;               /* child status was successfully collected */
     bool shutdown_requested;   /* harness sent SIGTERM after completed work */
     bool harness_stopped;      /* the harness signalled bochs before it ended */
+    bool text_capture_failed;  /* a T<name> page capture could not complete */
     int  exit_code;            /* bochs WEXITSTATUS, or -1 if killed.        */
     int  term_signal;          /* signal that killed bochs, or 0.            */
 

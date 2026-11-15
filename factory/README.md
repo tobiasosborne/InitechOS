@@ -263,6 +263,18 @@ regression checks 4095/4096/6001 bytes, an impossible mandatory suffix after
 keys `bracket_left`/`bracket_right` (with shift, `{` `}`), added for the
 DOS 3.30 INTERACT replay (initech-kvwmq). The live bisect
 control is `sh factory/tests/trace-suffix.sh` against the ordinary product image.
+Bochs reads the exact 80x25 text page and cursor of the stopped guest with
+a trace step T<name> (InitechBase forms stage 2; QEMU's equivalent is the D
+token with INITECH_TEXT_SCREEN_TOOL). It needs INITECH_TEXT_SCREEN_ELF, the
+matching unstripped system.elf: only then does the child's stdin become a
+pipe to the debugger build. The harness breaks the guest with SIGINT, reads
+g_int21_con, the console_t prefix (80x25, cursor) and the 4000-byte page
+with writemem, resumes with c and writes <out>/<name>.screen, the 4002-byte
+raw record of apps/initechbase/tests/screen_file.h. emu/console_symbols.h
+picks the page by size (two symbols share its name; tests/console-symbols.sh
+grades it against nm -S). A refused or failed capture ends the run
+incomplete (exit 3). On the DOS VER page it matched a fixed QEMU capture
+in every cell, attribute and the cursor except the clock's seconds.
 Journeys hold a press with hold_capture NAME [MARKER]: button down, the
 app's marker (or a 500 ms settle), a QEMU capture while held, button up
 (initech-8l4kp; tests/trace-hold.sh grades the emitted trace).

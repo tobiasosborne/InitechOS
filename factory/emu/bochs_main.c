@@ -176,7 +176,8 @@ int main(int argc, char **argv)
     /* Bochs ends on its own only by exiting 0; the harness stops every other
      * run. A spontaneous nonzero exit is Bochs's own failure (a panic). */
     int bad_exit = !res.harness_stopped && res.term_signal == 0 && res.exit_code != 0;
-    int abnormal = emu_ended_abnormally(!res.reaped, res.term_signal, res.harness_stopped, bad_exit);
+    int abnormal = emu_ended_abnormally(!res.reaped, res.term_signal, res.harness_stopped, bad_exit) ||
+                   res.text_capture_failed;
     if (abnormal)
         fprintf(stderr, "[bochs] INCOMPLETE: bochs ended abnormally (exit=%d signal=%d harness_stopped=%d reaped=%d)\n",
                 res.exit_code, res.term_signal, res.harness_stopped, res.reaped);
