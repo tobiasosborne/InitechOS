@@ -105,12 +105,19 @@ for emulator in $emulators; do
  printf 'echo turbo-execution-complete\r\n' >> "$batch"
  setup mcopy -i "$disk" "$batch" ::
  printf '\n\nrun\n' | build/factory/keys > "$dir/keys"
- extra=
- if [ "$emulator" = bochs ]; then extra='--vga-ext none'; fi
- setup build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" \
+ extra= driver=build/factory/${emulator}_harness
+ limit=${TURBO_EXEC_TIMEOUT_MS:-300000}
+ if [ "$emulator" = bochs ]; then
+  setup make -s -f factory/desktop-tools.mk build/factory/desktop-bochs
+  setup sh turbo/tests/execution/keys.sh "$dir/keys" "$out/cases" > "$dir/journey.keys"
+  setup mv "$dir/journey.keys" "$dir/keys"
+  driver=build/factory/desktop-bochs; extra='--vga-ext none'
+  export DESKTOP_SERIAL="$dir/run.serial" DESKTOP_WAIT_MS="$limit" DESKTOP_RENEW_MS="$limit"
+ fi
+ setup "$driver" --disk build/image/boot.img --disk2 "$disk" \
   $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \
   --expect turbo-execution-complete --quit-after turbo-execution-complete \
-  --timeout-ms "${TURBO_EXEC_TIMEOUT_MS:-300000}" --name run --out "$dir" \
+  --timeout-ms "$limit" --name run --out "$dir" \
   > "$dir/stdout" 2> "$dir/report"
  setup test -s "$dir/run.serial"
  setup tr -d '\r' < "$dir/run.serial" > "$dir/serial.txt"
