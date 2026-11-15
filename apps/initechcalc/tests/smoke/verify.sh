@@ -18,4 +18,13 @@ case $out in *qemu-*)
  make -s -C apps/initechcalc "$PWD/build/apps/initechcalc/host/frame_pixels"
  sh apps/initechcalc/tests/frame-pixels.sh build/apps/initechcalc/host/frame_pixels "${out%qemu-*}calc.ppm" goldens/frame chart
  sh apps/initechcalc/tests/frame-pixels.sh build/apps/initechcalc/host/frame_pixels "${out%qemu-*}calc-copy.ppm" goldens/frame copy
+ # The still beside the copy moment, for the operator's eye (not graded),
+ # when the pinned still is provisioned (goldens/CORPORA.lock FRAME_STILL).
+ still=${FRAME_STILL:-$HOME/Projects/initech-frame}/preview.ppm
+ if [ -f "$still" ] && grep -q "^$(sha256sum < "$still" | cut -d' ' -f1)  preview.ppm" goldens/frame/SHA256SUMS; then
+  make -s -C apps/initechcalc "$PWD/build/apps/initechcalc/host/frame_compare"
+  # shellcheck disable=SC2046
+  build/apps/initechcalc/host/frame_compare "$still" $(awk -F'\t' '$1=="SCREEN" { print $3, $4, $5, $6 }' goldens/frame/geometry.tsv) "${out%qemu-*}calc-copy.ppm" "${out%qemu-*}frame-compare.ppm"
+ else echo "frame-compare: the pinned still is not provisioned (FRAME_STILL); no comparison written"
+ fi
  ;; esac
