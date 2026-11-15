@@ -537,7 +537,8 @@ typedef enum {
     CG_FILEBI_ERASE,
     CG_FILEBI_RENAME,
     CG_FILEBI_IORESULT,
-    CG_FILEBI_READKEY
+    CG_FILEBI_READKEY,
+    CG_FILEBI_ATTRIBUTES
 } CgFileBuiltin;
 
 static CgFileBuiltin cg_file_builtin_kind(const char *name)
@@ -554,6 +555,7 @@ static CgFileBuiltin cg_file_builtin_kind(const char *name)
     if (strcmp(lc, "rename") == 0)     return CG_FILEBI_RENAME;
     if (strcmp(lc, "ioresult") == 0)   return CG_FILEBI_IORESULT;
     if (strcmp(lc, "readkey") == 0)    return CG_FILEBI_READKEY;
+    if (strcmp(lc, "fileattributes") == 0) return CG_FILEBI_ATTRIBUTES;
     return CG_FILEBI_NONE;
 }
 
@@ -1821,6 +1823,10 @@ static void gen_file_call(Cg *cg, const AstNode *call, CgFileBuiltin bi)
     int checked = call->as.call.io_checks && bi != CG_FILEBI_ASSIGN
                   && bi != CG_FILEBI_IORESULT && bi != CG_FILEBI_READKEY;
     switch (bi) {
+    case CG_FILEBI_ATTRIBUTES:
+        gen_designator_base_addr(cg, filearg->as.varref.name, NULL);
+        fprintf(o, "    push eax\n    call rtl_file_attributes\n    add esp, 4\n");
+        return;
     case CG_FILEBI_IORESULT:
         fprintf(o, "    call rtl_ioresult\n");
         return;
@@ -2654,6 +2660,7 @@ int codegen_emit(AstNode *program, FILE *out)
         fprintf(out, "extern rtl_ioresult\n");
         fprintf(out, "extern rtl_io_check\n");
         fprintf(out, "extern rtl_readkey\n");
+        fprintf(out, "extern rtl_file_attributes\n");
 
     }
     fprintf(out, "\n");

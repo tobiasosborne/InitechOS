@@ -1,0 +1,8 @@
+# test: save-failure
+--- a/editor.pas
++++ b/editor.pas
+@@ -497,3 +497,3 @@
+     StageOwned := true;
+-    BufSave(Temp);
++    BufSave(Path);
+     Code := BufErr

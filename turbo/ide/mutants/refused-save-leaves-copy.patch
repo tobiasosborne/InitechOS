@@ -1,12 +1,8 @@
-# test: journey
+# test: save-failure
 --- a/editor.pas
 +++ b/editor.pas
-@@ -496,7 +496,7 @@
-     end
-     else
-     begin
--      Assign(F, Temp); Erase(F); I := IOResult()
-+      I := IOResult()
-     end
+@@ -521,3 +521,3 @@
+   begin
+-    Assign(F, Temp); Erase(F); I := IOResult()
++    I := IOResult()
    end;
-   SaveAs := Code

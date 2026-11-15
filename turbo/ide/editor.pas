@@ -472,40 +472,54 @@ begin
   B := B + Ext
 end;
 
-{ Save to Path. The old file, if any, is first copied to NAME.$$$; only
-  when the new bytes are complete does that copy become NAME.BAK. A
-  refused or short write restores the old bytes and leaves no backup, as
-  TP 5.5 left RO.PAS (MINT06 54, disk/). Returns 0 or the DOS error. }
+{ Write aside, close and check, then use only DOS renames to publish.
+  MINT06 54 refuses a read-only source; 49 confirms overwrites. The
+  operator's save ruling permits the residual double rename failure:
+  leave both the backup and stage intact if rollback also fails. }
 function SaveAs(var Path: string; Existing: boolean): integer;
 var Temp, Bak, Ext: string;
-    Code, I: integer;
+    Code, I, Attr: integer;
     F: file;
+    Moved, KeepStage, StageOwned: boolean;
 begin
   Ext := '.$$$'; ExtName(Path, Ext, Temp);
   Ext := '.BAK'; ExtName(Path, Ext, Bak);
-  Code := 0;
+  Code := 0; Moved := false; KeepStage := false; StageOwned := false;
   if Existing then
   begin
-    FileCopy(Path, Temp);
-    Code := BufErr
+    Assign(F, Path);
+    Attr := FileAttributes(F);
+    if Attr < 0 then Code := -Attr
+    else if Attr mod 2 = 1 then Code := 5
   end;
   if Code = 0 then
   begin
-    BufSave(Path);
-    Code := BufErr;
-    if (Code <> 0) and Existing then FileCopy(Temp, Path)
+    StageOwned := true;
+    BufSave(Temp);
+    Code := BufErr
   end;
-  if Existing then
+  if (Code = 0) and Existing then
   begin
+    Assign(F, Bak); Erase(F); I := IOResult();
+    if (I <> 0) and (I <> 2) then Code := I;
     if Code = 0 then
     begin
-      Assign(F, Bak); Erase(F); I := IOResult();
-      Assign(F, Temp); Rename(F, Bak); I := IOResult()
+      Assign(F, Path); Rename(F, Bak); Code := IOResult();
+      Moved := Code = 0
     end
-    else
+  end;
+  if Code = 0 then
+  begin
+    Assign(F, Temp); Rename(F, Path); Code := IOResult();
+    if (Code <> 0) and Moved then
     begin
-      Assign(F, Temp); Erase(F); I := IOResult()
+      Assign(F, Bak); Rename(F, Path); I := IOResult();
+      KeepStage := I <> 0
     end
+  end;
+  if (Code <> 0) and StageOwned and (not KeepStage) then
+  begin
+    Assign(F, Temp); Erase(F); I := IOResult()
   end;
   SaveAs := Code
 end;

@@ -26,7 +26,7 @@ procedure BlockWrite(var F: file; var Data; Count: integer; var Wrote: integer);
 var Kind: string;
 begin
   Kind := 'write';
-  if Inject(Kind) then Wrote := 0
+  if ((FaultKind = 'target') and (string(FileRec(F).Name) = 'DOC.PAS')) or Inject(Kind) then Wrote := 0
   else System.BlockWrite(F, Data, Count, Wrote)
 end;
 
@@ -44,4 +44,23 @@ begin
   System.Close(F);
   Kind := 'close';
   if Inject(Kind) then FaultCode := 101
+end;
+
+procedure Rename(var F: file; Name: string);
+var Kind: string;
+begin
+  Kind := 'rename';
+  if FaultKind = 'rename-double' then
+  begin
+    FaultSeen := FaultSeen + 1;
+    if FaultSeen >= 2 then FaultCode := 5 else System.Rename(F, Name)
+  end
+  else if Inject(Kind) then FaultCode := 5 else System.Rename(F, Name)
+end;
+
+procedure Erase(var F: file);
+var Kind: string;
+begin
+  Kind := 'erase';
+  if Inject(Kind) then FaultCode := 5 else System.Erase(F)
 end;

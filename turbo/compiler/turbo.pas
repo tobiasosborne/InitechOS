@@ -867,6 +867,7 @@ begin
     else if Text = 'rtl_ioresult' then N := 669
     else if Text = 'rtl_io_check' then N := 685
     else if Text = 'rtl_readkey' then N := 734
+    else if Text = 'rtl_file_attributes' then N := 751
     else if Text = 'str_bool_true' then N := Native[3] + 20
     else if Text = 'str_bool_false' then N := Native[3] + 25
     else if Text[1] = 'v' then
@@ -1165,9 +1166,11 @@ begin
   GenText := '105F5E5B5DC3E8EEFDFFFF89C28B02C70200000000C350E8DDFDFFFF8B0085C0750258C350B8'; NativeHex(GenText)
   ;
   NativeAbsolute(Native[3]);
-  GenText := 'E87CFDFFFF58E889FDFFFFB00AE85EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000'; NativeHex(GenText)
+  GenText := 'E87CFDFFFF58E889FDFFFFB00AE85EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000538B'; NativeHex(GenText)
   ;
-  while Native[2] < 752 do NativeByte(144)
+  GenText := '54240883C204B800430000CD2172050FB7C15BC30FB7C0F7D85BC3'; NativeHex(GenText)
+  ;
+  while Native[2] < 784 do NativeByte(144)
 end;
 { END NASM RUNTIME TABLE }
 { BEGIN NASM RUNTIME TABLE -- tests/runtime-table.c; do not edit. }
@@ -1211,9 +1214,11 @@ begin
   GenText := '105F5E5B5DC3E8EEFDFFFF89C28B02C70200000000C350E8DDFDFFFF8B0085C0750258C350B8'; NativeHex(GenText)
   ;
   NativeAbsolute(Native[3]);
-  GenText := 'E87CFDFFFF58E889FDFFFFB00AE85EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000'; NativeHex(GenText)
+  GenText := 'E87CFDFFFF58E889FDFFFFB00AE85EFDFFFFB8014C0000CD21FAF4EBFD53B800070000CD210FB6C05BC300000000538B'; NativeHex(GenText)
   ;
-  while Native[2] < 752 do NativeByte(144)
+  GenText := '54240883C204B800430000CD2172050FB7C15BC30FB7C0F7D85BC3'; NativeHex(GenText)
+  ;
+  while Native[2] < 784 do NativeByte(144)
 end;
 { END NASM RUNTIME TABLE }
 
@@ -2210,6 +2215,7 @@ begin
   else if DumpText = 'rename' then NameIsFileBuiltin := true
   else if DumpText = 'ioresult' then NameIsFileBuiltin := true
   else if DumpText = 'readkey' then NameIsFileBuiltin := true
+  else if DumpText = 'fileattributes' then NameIsFileBuiltin := true
 end;
 
 function FileBuiltinId(NameOffset, NameLength: integer): integer;
@@ -2226,6 +2232,7 @@ begin
   else if DumpText = 'rename' then FileBuiltinId := 8
   else if DumpText = 'ioresult' then FileBuiltinId := 9
   else if DumpText = 'readkey' then FileBuiltinId := 10
+  else if DumpText = 'fileattributes' then FileBuiltinId := 11
 end;
 
 function AddRawSymbol(NameOffset, NameLength, Kind, TypeId, Scope,
@@ -2449,7 +2456,15 @@ var
   Builtin, RoutineIndex, ParamIndex, I: integer;
 begin
   Builtin := FileBuiltinId(PendingIdentOffset, PendingIdentLength);
-  if Builtin >= 9 then
+  if Builtin = 11 then
+  begin
+    if (not CallWantsValue) or (ArgCount <> 1) then
+      FailType(TeRule, PendingIdentLine, PendingIdentCol, 0, 0, 0, 0)
+    else if (ArgType[1] <> TyFile) or (ArgLvalue[1] = 0) or (ArgForm[1] <> 1) then
+      FailType(TeRule, ArgLine[1], ArgCol[1], 0, 0, 0, 0);
+    MarkComputed(TyInteger)
+  end
+  else if Builtin >= 9 then
   begin
     { IOResult() and ReadKey() are functions without arguments. }
     if not CallWantsValue then
@@ -3261,6 +3276,7 @@ begin
     else if Builtin = 8 then begin GenText := '    call rtl_file_rename'; GenLine(GenText) end
     else if Builtin = 9 then begin GenText := '    call rtl_ioresult'; GenLine(GenText) end
     else if Builtin = 10 then begin GenText := '    call rtl_readkey'; GenLine(GenText) end
+    else if Builtin = 11 then begin GenText := '    call rtl_file_attributes'; GenLine(GenText) end
     else GenFail(TokLine, TokCol, 4)
   end
   else
@@ -5714,7 +5730,8 @@ begin
           begin GenText := 'extern rtl_file_rename'; GenLine(GenText) end;
           begin GenText := 'extern rtl_ioresult'; GenLine(GenText) end;
           begin GenText := 'extern rtl_io_check'; GenLine(GenText) end;
-          begin GenText := 'extern rtl_readkey'; GenLine(GenText) end
+          begin GenText := 'extern rtl_readkey'; GenLine(GenText) end;
+          begin GenText := 'extern rtl_file_attributes'; GenLine(GenText) end
         end;
         if GenFlags[3] then GenStringIntrinsics();
         GenFlush()

@@ -316,3 +316,24 @@ rtl_inoutres:
 section .rodata
 rtl_file_error_prefix:
     db 'FILEIO-ERROR AX=', 0
+
+section .text
+; Initech FileAttributes(file): DOS AH=43h AL=0. Returns the mask or
+; negative DOS error; it does not use/alter the Pascal pending I/O error.
+; TP5.5 MINT06 54 requires a read-only check before write-aside renames.
+global rtl_file_attributes
+rtl_file_attributes:
+    push ebx
+    mov edx, [esp+8]
+    add edx, 4
+    mov eax, 0x4300
+    int 0x21
+    jc .error
+    movzx eax, cx
+    pop ebx
+    ret
+.error:
+    movzx eax, ax
+    neg eax
+    pop ebx
+    ret

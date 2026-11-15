@@ -422,9 +422,8 @@ begin
       end
     end
   end;
-  Close(WorkIn);
-  Close(WorkOut);
-  Got := IOResult()
+  Close(WorkIn); IoNote();
+  Close(WorkOut); IoNote()
 end;
 
 { Write the document as a DOS text file. }

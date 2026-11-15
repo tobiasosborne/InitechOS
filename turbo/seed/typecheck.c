@@ -237,7 +237,8 @@ typedef enum {
     FILEBI_ERASE,
     FILEBI_RENAME,
     FILEBI_IORESULT,     /* function: integer, no arguments */
-    FILEBI_READKEY       /* function: char, no arguments */
+    FILEBI_READKEY,      /* function: char, no arguments */
+    FILEBI_ATTRIBUTES
 } FileBuiltin;
 
 static FileBuiltin file_builtin_kind(const char *name_lc)
@@ -252,6 +253,7 @@ static FileBuiltin file_builtin_kind(const char *name_lc)
     if (strcmp(name_lc, "rename") == 0)     return FILEBI_RENAME;
     if (strcmp(name_lc, "ioresult") == 0)   return FILEBI_IORESULT;
     if (strcmp(name_lc, "readkey") == 0)    return FILEBI_READKEY;
+    if (strcmp(name_lc, "fileattributes") == 0) return FILEBI_ATTRIBUTES;
     return FILEBI_NONE;
 }
 
@@ -946,6 +948,17 @@ static AstVarType check_file_builtin(Tc *tc, AstNode *call,
 {
     const char *verb = call->as.call.name;
     size_t n = call->as.call.args.count;
+    if (bi == FILEBI_ATTRIBUTES) {
+        if (!want_value || n != 1) {
+            fail_at(tc, call->line, call->col, "FileAttributes expects one file and returns integer");
+            return AST_TY_UNKNOWN;
+        }
+        if (!check_file_designator(tc, call->as.call.args.items[0], verb))
+            return AST_TY_UNKNOWN;
+        tc->uses_fileio = 1;
+        call->type = AST_TY_INTEGER;
+        return call->type;
+    }
     if (bi == FILEBI_IORESULT || bi == FILEBI_READKEY) {
         char msg[TYPECHECK_ERRMSG_CAP];
         if (!want_value) {
