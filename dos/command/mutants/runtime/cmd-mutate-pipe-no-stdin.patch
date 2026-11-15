@@ -2,7 +2,7 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4084,23 +4084,7 @@
+@@ -4211,30 +4211,7 @@
          }
  
          /* ---- OUTER stdin: a consumer stage reads from temp[i-1] ---- */
@@ -23,7 +23,14 @@
 -                }
 -            }
 -        }
-+        (void)is_first; /* MUTANT: consumer keeps console stdin. */
+-
+-        if (!is_first && in_saved<0) {
+-            /* Never run a consumer on inherited CON after a failed OPEN/DUP. */
+-            dos_error(MSG_DOS_0066 "\r\n$");
+-            input_failed=1;
+-            goto stage_cleanup;
+-        }
++        (void)is_first; /* consumer inherits CON instead of its pipe */
  
          /* ---- run the stage; its OWN `<`/`>`/`>>` are peeled INSIDE (nested) ---- */
          rc = run_with_redirect(pl->stage[i]);

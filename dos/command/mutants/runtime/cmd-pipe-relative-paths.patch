@@ -1,0 +1,13 @@
+# CMD_PIPE_RELATIVE_PATHS
+# session: pipecwd
+--- a/command/command.c
++++ b/command/command.c
+@@ -4144,7 +4144,7 @@
+     /* CREATE NEW grants ownership in this directory. Keep its absolute
+      * identity when a stage changes either drive or working directory.
+      * Genuine DOS 3.30 reference/pipe-cwd retains/cleans the original files. */
+-    cwd_display(buf);
++    buf[0]=0;
+     unsigned prefix=str_len(buf);
+     if(prefix && buf[prefix-1]!='\\')buf[prefix++]='\\';
+     const char hex[]="0123456789ABCDEF";

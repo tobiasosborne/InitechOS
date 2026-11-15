@@ -4141,11 +4141,17 @@ static int pipe_temp_create(int idx, char *buf)
     dos_gettime(&hour,&minute,&second,&hundredth);
     uint32_t stamp=((uint32_t)hour<<24)|((uint32_t)minute<<16)|
                    ((uint32_t)second<<8)|hundredth;
+    /* CREATE NEW grants ownership in this directory. Keep its absolute
+     * identity when a stage changes either drive or working directory.
+     * Genuine DOS 3.30 reference/pipe-cwd retains/cleans the original files. */
+    cwd_display(buf);
+    unsigned prefix=str_len(buf);
+    if(prefix && buf[prefix-1]!='\\')buf[prefix++]='\\';
     const char hex[]="0123456789ABCDEF";
     for (unsigned k=0; k<=999; ++k) {
         uint32_t value=stamp+k;
-        for (int p=7; p>=0; --p) { buf[p]=hex[value&15u];value>>=4; }
-        buf[8]=0;
+        for (int p=7; p>=0; --p) { buf[prefix+(unsigned)p]=hex[value&15u];value>>=4; }
+        buf[prefix+8]=0;
         int h=dos_creatnew(buf);
         if (h!=-(int)INT21_ERR_FILE_EXISTS) return h;
     }
@@ -4157,7 +4163,7 @@ static int pipe_temp_create(int idx, char *buf)
 static int run_pipeline(cmd_pipeline_t *pl)
 {
     static unsigned write_next=1u;
-    char tname[2][13];
+    char tname[2][CMD_LINE_MAX];
     int created[2]={0,0};
     int previous=-1;
     int  rc = 0;
@@ -4176,7 +4182,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
 
         int out_h = -1, out_saved = -1;   /* OUTER stdout -> temp[i]            */
         int in_h  = -1, in_saved  = -1;   /* OUTER stdin  <- temp[i-1]          */
-        int current=-1;
+        int current=-1, input_failed=0;
 
         /* ---- OUTER stdout: an interior/producer stage writes to temp[i] ---- */
         if (!is_last) {
@@ -4223,10 +4229,18 @@ static int run_pipeline(cmd_pipeline_t *pl)
             }
         }
 
+        if (!is_first && in_saved<0) {
+            /* Never run a consumer on inherited CON after a failed OPEN/DUP. */
+            dos_error(MSG_DOS_0066 "\r\n$");
+            input_failed=1;
+            goto stage_cleanup;
+        }
+
         /* ---- run the stage; its OWN `<`/`>`/`>>` are peeled INSIDE (nested) ---- */
         rc = run_with_redirect(pl->stage[i]);
         previous=current;
 
+stage_cleanup:
         /* ---- tear down the OUTER handles (stdin first, then stdout) ---- */
         if (in_saved >= 0) {
             dos_dup2(in_saved, 0);
@@ -4244,7 +4258,7 @@ static int run_pipeline(cmd_pipeline_t *pl)
             dos_close(out_h);
         }
 
-        if (rc == 1 || g_shell_break.interrupted) {
+        if (input_failed || rc == 1 || g_shell_break.interrupted) {
             /* EXIT or ^C stops later stages AFTER handle restoration. */
             break;
         }

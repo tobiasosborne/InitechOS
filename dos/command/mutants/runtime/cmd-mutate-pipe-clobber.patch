@@ -2,10 +2,10 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4025,8 +4025,8 @@
+@@ -4152,8 +4152,8 @@
          uint32_t value=stamp+k;
-         for (int p=7; p>=0; --p) { buf[p]=hex[value&15u];value>>=4; }
-         buf[8]=0;
+         for (int p=7; p>=0; --p) { buf[prefix+(unsigned)p]=hex[value&15u];value>>=4; }
+         buf[prefix+8]=0;
 -        int h=dos_creatnew(buf);
 -        if (h!=-(int)INT21_ERR_FILE_EXISTS) return h;
 +        (void)&dos_creatnew;

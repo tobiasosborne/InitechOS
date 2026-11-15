@@ -1,0 +1,7 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-pipe-cwd.sh, completion CAPTURE-DONE.
+START is the original working directory. ECHO|PASS preserves hello; a
+CD ..\SUB stage changes directory for the consumer and caller to B:\SUB.
+The final image has no pipe buffers in START. PASS is a test-only stdin
+reader, assembled in 16-bit mode for this real-DOS reference capture.

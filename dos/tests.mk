@@ -248,4 +248,9 @@ smoke-find-limits:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/findlimits.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$(abspath $(OUT))/find-limits"
 
+.PHONY: smoke-pipe-cwd
+smoke-pipe-cwd:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/pipecwd.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$(abspath $(OUT))/pipe-cwd"
+
 include $(TOP)/mk/host-test.mk
