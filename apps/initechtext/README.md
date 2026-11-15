@@ -44,7 +44,7 @@ one-/three-/four-byte reads, line-end normalization across chunks, empty and
 capacity inputs, seek/read/close failures, early EOF after a prefix, and real
 growth/shrinkage through a separate host descriptor during the load (including
 empty-to-nonempty and growth past capacity). The EOF probe must also succeed.
-make mutants kills fourteen patches, including partial-input publication,
+make mutants kills fifteen patches, including partial-input publication,
 bypassing the final EOF check, reinserting a disabled Print command and a
 dead Save As that the command sweep catches.
 make smoke launches

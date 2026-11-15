@@ -30,7 +30,7 @@ capture differential plus 20,000 independent reference sessions, and a
 unit/regression routing test on sdk/host, and the GM4 command sweep. Missing captures fail. References
 are the system7-decomp mint-results-007 captures named by the claimed vector
 file; include/calcda/calcda_layout.h documents their measurement. make mutants
-kills ten patches, including a live Copy no-op, a grayed Clear and a dead
+kills eleven patches, including a live Copy no-op, a grayed Clear and a dead
 '.' key that the command sweep catches. Mutation switches are
 absent from the product source. make smoke uses the booted
 product image and grades the window against the independent real-Mac PNG.
