@@ -1,4 +1,4 @@
-# test: execution-frame
+# test: gen_tiny execution-frame
 --- a/turbo.pas
 +++ b/turbo.pas
 @@ -2771,1 +2771,1 @@

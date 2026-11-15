@@ -1,7 +1,7 @@
 # test: guest-fileio
 --- a/rt/fileio.asm
 +++ b/rt/fileio.asm
-@@ -145,6 +145,7 @@
+@@ -168,6 +168,7 @@
      js rtl_file_bad_argument
      mov edi, [ebp+8]
      mov ebx, [edi]

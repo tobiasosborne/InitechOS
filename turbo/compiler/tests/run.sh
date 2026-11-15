@@ -39,6 +39,7 @@ bracket() {
 links() {
     dir=$1
     assert "$entry:unique generated labels" awk -f tests/labels.awk "$dir/TURBOOUT.S"
+    assert "$entry:cdecl frame header conserved" awk -f "$TOP/turbo/tests/frame-layout.awk" "$dir/TURBOOUT.S"
     (cd "$dir" && setup "$NASM" -f elf32 TURBOOUT.S -o program.o)
     for mode in bare dos; do
         if [ "$mode" = bare ]; then start=start; script=seed; else start=start_dos; script=seed_dos; fi
