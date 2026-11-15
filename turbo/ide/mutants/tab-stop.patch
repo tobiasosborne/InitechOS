@@ -1,12 +1,13 @@
-# test: journey
+# test: journey tab-width
 --- a/editor.pas
 +++ b/editor.pas
-@@ -86,7 +86,7 @@
-     if S[I] = chr(9) then
-     begin
-       D := D + ' ';
--      while Length(D) mod 8 <> 0 do D := D + ' '
-+      while Length(D) mod 4 <> 0 do D := D + ' '
-     end
-     else
-     begin
+@@ -43,3 +43,3 @@
+   begin
+-    if S[I] = chr(9) then C := (C div 8 + 1) * 8 else C := C + 1;
++    if S[I] = chr(9) then C := (C div 4 + 1) * 4 else C := C + 1;
+     I := I + 1
+@@ -129,3 +129,3 @@
+       begin
+-        if S[I] = chr(9) then C := (C div 8 + 1) * 8
++        if S[I] = chr(9) then C := (C div 4 + 1) * 4
+         else

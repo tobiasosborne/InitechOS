@@ -18,6 +18,9 @@ check() {
     if "$@"; then echo "PASS $name"; else echo "FAIL $name"; failures=$((failures+1)); fi
 }
 case $entry in
+tab-width)
+    check tab-width sh tests/tab-width.sh "$out"
+    ;;
 save-path)
     check save-path sh tests/save-path.sh "$out"
     ;;
@@ -79,7 +82,7 @@ one-program)
     printf 'begin\n  IdeStart()\nend.\n' >> "$scratch/ONE.PAS"
     check seed-capacity "$top/build/turbo/seed/initechc" --emit-asm -o "$scratch/one.s" "$scratch/ONE.PAS"
     setup cp "$scratch/ONE.PAS" "$scratch/TURBOIN.PAS"
-    (cd "$scratch" && "$top/build/turbo/compiler/turbo_fpc" > raw)
+    (cd "$scratch" && "$top/build/turbo/compiler/turbo_fpc" /DUMP > raw)
     grep -a -E 'TURBO-[A-Z]+-(OK|ERROR)' "$scratch/raw" | head -5
     check turbo-capacity grep -q '^TURBO-NATIVE-OK ' "$scratch/raw"
     ;;
@@ -90,7 +93,7 @@ seed)
 turbo)
     # Turbo Initech itself (the FPC-hosted compiler) compiles the IDE.
     setup cp "$out/idehost.pas" "$scratch/TURBOIN.PAS"
-    (cd "$scratch" && "$top/build/turbo/compiler/turbo_fpc" > raw)
+    (cd "$scratch" && "$top/build/turbo/compiler/turbo_fpc" /DUMP > raw)
     check native-ok grep -q '^TURBO-NATIVE-OK ' "$scratch/raw"
     check no-error sh -c "! grep -a -E 'TURBO-.*ERROR' '$scratch/raw'"
     check container test -s "$scratch/TURBOOUT.EXE"

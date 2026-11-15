@@ -79,28 +79,7 @@ begin
   ByteCol := C
 end;
 
-procedure Expand(var S, D: string);
-var I: integer;
-    C: string;
-begin
-  D := ''; I := 1;
-  while I <= Length(S) do
-  begin
-    if S[I] = chr(9) then
-    begin
-      D := D + ' ';
-      while Length(D) mod 8 <> 0 do D := D + ' '
-    end
-    else
-    begin
-      C := S[I];
-      D := D + C
-    end;
-    I := I + 1
-  end
-end;
-
-{ ---- view keeping ---- }
+ { ---- view keeping ---- }
 
 procedure ScrollTo;
 begin
@@ -123,8 +102,8 @@ end;
 { ---- drawing ---- }
 
 procedure DrawText;
-var R, L, C: integer;
-    S, D: string;
+var R, L, C, I: integer;
+    S: string;
 begin
   PageCover(EdTop, ViewRows);
   if BufErr <> 0 then
@@ -143,12 +122,19 @@ begin
     if L <= DocLines then
     begin
       LineText(L, S);
-      Expand(S, D);
-      C := 0;
-      while C < 80 do
+      { Walk source bytes directly: an expanded line can exceed the
+        ShortString limit. Only the visible cells need storage. }
+      C := 0; I := 1;
+      while I <= Length(S) do
       begin
-        if EdLeft + C <= Length(D) then ScrPut(R + 2, C, D[EdLeft + C], AtText);
-        C := C + 1
+        if S[I] = chr(9) then C := (C div 8 + 1) * 8
+        else
+        begin
+          if (C + 1 >= EdLeft) and (C + 1 < EdLeft + 80) then
+            ScrPut(R + 2, C + 1 - EdLeft, S[I], AtText);
+          C := C + 1
+        end;
+        I := I + 1
       end
     end;
     R := R + 1

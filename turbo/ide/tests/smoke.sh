@@ -14,7 +14,7 @@ export MTOOLS_SKIP_CHECK=1 INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 rm -rf "$out"
 mkdir -p "$out/compile"
 cp "$build/idehost.pas" "$out/compile/TURBOIN.PAS"
-(cd "$out/compile" && "$root/build/turbo/compiler/turbo_fpc" > raw)
+(cd "$out/compile" && "$root/build/turbo/compiler/turbo_fpc" /DUMP > raw)
 grep -q '^TURBO-NATIVE-OK ' "$out/compile/raw"
 sed 's|^type NODIR/X.PAS$|type \\NODIR\\X.PAS|' turbo/ide/tests/journey.steps > "$out/journey.steps"
 grep -qx 'type \\NODIR\\X.PAS' "$out/journey.steps"
@@ -23,7 +23,7 @@ grep -qx 'type \\NODIR\\X.PAS' "$out/journey.steps"
 for prog in readkey iocheck; do
   mkdir -p "$out/$prog"
   cp turbo/ide/tests/$prog.pas "$out/$prog/TURBOIN.PAS"
-  (cd "$out/$prog" && "$root/build/turbo/compiler/turbo_fpc" > raw)
+  (cd "$out/$prog" && "$root/build/turbo/compiler/turbo_fpc" /DUMP > raw)
   grep -q '^TURBO-NATIVE-OK ' "$out/$prog/raw"
 done
 awk 'BEGIN { for (i = 1; i <= 5000; i++) printf "line %d of the paging fixture, tab\there\r\n", i }' > "$out/BIG.PAS"
