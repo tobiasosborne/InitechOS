@@ -42,22 +42,32 @@ for variant in empty failed incomplete zero-count pass semantic inconsistent tim
     case_run "$variant" "$state" sh "$controls/entry.sh" "$runner" "$out" "$variant" "$work/$variant.log"
 done
 cd "$root/turbo/seed"
-printf '#!/bin/sh\necho injected-tool-failure >&2\nexit 1\n' > "$work/tool-fails"
+printf 'bits 32\npush ebp\nmov ebp,esp\nmov [ebp-4],eax\nmov eax,[ebp+8]\nleave\nret\n' > "$work/frame-valid.s"
+assert 'cdecl local and argument slots allowed' awk -f "$controls/frame-layout.awk" "$work/frame-valid.s"
+for offset in 0 4; do
+    printf 'mov [ebp+%s],eax\n' "$offset" > "$work/frame-invalid.s"
+    assert_not "cdecl header word $offset is immutable" awk -f "$controls/frame-layout.awk" "$work/frame-invalid.s"
+done
+printf '#!/bin/sh\necho injected-tool-failure >&2\n: > "$TOOL_VISITED"\nexit 1\n' > "$work/tool-fails"
 setup chmod +x "$work/tool-fails"
-case_run nasm ERROR env NASM="$work/tool-fails" sh "$controls/entry.sh" tests/run.sh "$subject_out" repro "$work/nasm.log"
-case_run fpc ERROR env FPC="$work/tool-fails" sh "$controls/entry.sh" tests/run.sh "$subject_out" fileio-fpc "$work/fpc.log"
+case_run nasm ERROR env TOOL_VISITED="$work/nasm.called" NASM="$work/tool-fails" sh "$controls/entry.sh" tests/run.sh "$subject_out" repro "$work/nasm.log"
+case_run fpc ERROR env TOOL_VISITED="$work/fpc.called" FPC="$work/tool-fails" sh "$controls/entry.sh" tests/run.sh "$subject_out" fileio-fpc "$work/fpc.log"
+assert 'NASM control reached the assembler' test -f "$work/nasm.called"
+assert 'FPC control reached the reference compiler' test -f "$work/fpc.called"
 # Exercise the actual inherited producer and the new independent validator.
 # All guest resources live in this scratch root. Only the harness is a stub.
 fake=$work/no-emulator
 setup mkdir -p "$fake/factory" "$fake/turbo/tests" "$fake/build/factory" "$fake/build/dos"
 setup cp "$root/factory/seed-guest.sh" "$fake/factory/"
 setup cp "$controls/checks.sh" "$fake/turbo/tests/"
+setup cp "$controls/frame-layout.awk" "$fake/turbo/tests/"
 printf 'unused host harness fixture\n' > "$fake/build/dos/COMMAND.COM"
 printf '#!/bin/sh\ncat\n' > "$fake/build/factory/keys"
 setup chmod +x "$fake/build/factory/keys"
 for variant in missing-serial harness-timeout harness-startup; do
     cat > "$fake/build/factory/qemu_harness" <<'STUB'
 #!/bin/sh
+printf '%s\n' "$HARNESS_CONTROL" > "$HARNESS_VISITED"
 case $HARNESS_CONTROL in
 missing-serial)
     echo '[harness] launched=1 timed_out=0 exit=0 signal=0' >&2
@@ -75,7 +85,9 @@ STUB
 #!/bin/sh
 exec sh "$REAL_ROOT/turbo/seed/tests/guest.sh" "$FAKE_ROOT" "$1" bool
 RUNNER
-    case_run "$variant" ERROR env REAL_ROOT="$root" FAKE_ROOT="$fake" HARNESS_CONTROL="$variant" \
+    setup rm -f "$work/harness.called"
+    case_run "$variant" ERROR env REAL_ROOT="$root" FAKE_ROOT="$fake" HARNESS_CONTROL="$variant" HARNESS_VISITED="$work/harness.called" \
       sh "$controls/entry.sh" "$work/guest-runner.sh" "$subject_out" guest-bool "$work/$variant.log"
+    assert "$variant:reached the harness" grep -Fx "$variant" "$work/harness.called"
 done
 finish
