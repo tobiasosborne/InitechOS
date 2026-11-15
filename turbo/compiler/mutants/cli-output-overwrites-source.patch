@@ -1,0 +1,6 @@
+# test: cli
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -1,1 +1,1 @@
+-    if not CompilerInputSafe() then begin CompilerIO(5); Halt(1) end;
++    if not CompilerInputSafe() then begin end;

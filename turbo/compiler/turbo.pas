@@ -5947,6 +5947,7 @@ begin
   Native[10] := 0;
   Native[11] := 0;
   RunCodeGenerator();
+  if HadError or ParseFailed or TypeFailed or (FirstKind <> 0) then GenFlags[2] := true;
   Native[3] := ((Native[2] + 3) div 4) * 4; { NATIVE_SECTION }
   Native[4] := Native[3] + 32;
   Native[5] := Native[4] + GlobalBytes;
@@ -6015,16 +6016,10 @@ begin
   FirstExpected := 0; FirstDetail := 0;
   HadError := false; ParseFailed := false; TypeFailed := false;
   GenFlags[1] := false; GenFlags[2] := false; Native[1] := 0;
-  if DumpMode then DumpCompile()
-  else
-  begin
-    RunTypeChecker();
-    if (not HadError) and (not ParseFailed) and (not TypeFailed) then
-    begin
-      RunCodeGenerator();
-      if not GenFlags[2] then RunNative()
-    end
-  end
+  { MINT07 disk read-back: ordinary TP compilation creates the executable,
+    not an assembly listing. The native sizing pass already checks syntax
+    and types; keep the separate factory passes behind explicit /DUMP. }
+  if DumpMode then DumpCompile() else RunNative()
 end;
 
 procedure CompilerDefaults();
@@ -8098,6 +8093,25 @@ begin
   ProductCleanup(); ScreenPage(1, UserPage[1])
 end;
 { END IDE product }
+{ DOS folds case and resolves drive/directory prefixes. Reserve output leaves
+  before opening anything so a refused file argument retains all its bytes. }
+function CompilerInputSafe(): boolean;
+var Leaf, OutputLeaf: string;
+    Safe: boolean;
+begin
+  LeafName(InputName, Leaf); Safe := true;
+  LeafName(OutputComName, OutputLeaf);
+  if SameName(Leaf, OutputLeaf) then Safe := false;
+  LeafName(OutputExeName, OutputLeaf);
+  if SameName(Leaf, OutputLeaf) then Safe := false;
+  if DumpMode then
+  begin
+    LeafName(OutputAsmName, OutputLeaf);
+    if SameName(Leaf, OutputLeaf) then Safe := false
+  end;
+  CompilerInputSafe := Safe
+end;
+
 begin
   CompilerDefaults();
   if ParamCount() > 0 then
@@ -8108,6 +8122,7 @@ begin
       DumpMode := true; InputName := 'TURBOIN.PAS';
       if ParamCount() > 1 then InputName := ParamStr(2)
     end;
+    if not CompilerInputSafe() then begin CompilerIO(5); Halt(1) end;
     CompileSource();
     if (FirstKind <> 0) and (not DumpMode) then Halt(1)
   end
