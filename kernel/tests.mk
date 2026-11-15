@@ -532,6 +532,15 @@ test-stamp-oracle-controls_SRCS := tests/runner.c
 test-stamp-oracle-controls_ARGS := tests/run.sh test-stamp-oracle-controls
 test-stamp-oracle-controls_DEPS := $(OUT)/host/tool_dos_parity_host tests/gates/test-stamp-oracle-controls.sh tests/disk/grade-stamps.sh tests/gates/test-dos-stamp-host.sh tests/assertions.sh
 
+EXTRA_HOST_TESTS += tool_test_system_drive
+tool_test_system_drive_SRCS := tests/test_system_drive.c tests/disk/blockdev_file.c
+tool_test_system_drive_OBJS := $(tool_test_fileio_subdir_OBJS)
+tool_test_system_drive_CFLAGS := -no-pie
+HOST_TESTS += test-system-drive
+test-system-drive_SRCS := tests/runner.c
+test-system-drive_ARGS := tests/run.sh test-system-drive
+test-system-drive_DEPS := $(OUT)/host/tool_test_system_drive tests/gates/test-system-drive.sh
+
 # Apply after every registration, before host_source_rule expands _DEPS into
 # object prerequisites. Earlier expansion in tools.mk omitted later tools,
 # including the independent int21.c compilation for test-loader-live.

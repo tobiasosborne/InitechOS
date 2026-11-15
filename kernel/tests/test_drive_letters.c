@@ -5,6 +5,7 @@
 #include <string.h>
 #include "block_device.h"
 #include "drive_letters.h"
+extern void block_device_running(uint8_t, uint32_t) __attribute__((weak));
 static unsigned char disks[2][512];
 static du_map out;
 static unsigned checks;
@@ -23,6 +24,10 @@ int main(void){
  need(block_device_map(1,&out)!=0,"B unassigned");
  need(!block_device_map(2,&out)&&out.disk==128&&out.partition==1&&out.base==63&&out.sectors==2880&&!out.flags,"C primary 1");
  need(!block_device_map(3,&out)&&out.disk==128&&out.partition==2&&out.base==4032&&out.sectors==4000&&!out.flags,"D primary 2");
+ need(block_device_running!=0,"independent running-volume binding exists");
+ block_device_running(128,63);
+ need(!block_device_map(0,&out)&&out.flags==2,"data A remains ATA-backed but is not running system");
+ need(!block_device_map(2,&out)&&out.flags==1,"C can be running while A retains its raw-write watch");
  block_device_mounted(128,63,2880,0);
  need(!block_device_map(2,&out)&&out.flags==1,"running pair");
  need(!block_device_map(3,&out)&&out.flags==0,"running pair");
@@ -34,5 +39,6 @@ int main(void){
  part(0,2,5,4032,4000);need(block_device_map(3,&out)!=0,"extended invalid");
  part(0,2,6,9000,4000);need(block_device_map(3,&out)!=0,"bounds invalid");
  part(0,2,6,4032,4000);disks[0][510]=0;need(block_device_map(2,&out)!=0,"signature invalid");
- puts("GREEN test-drive-letters: A/B/C/D positions, partition bounds/types, running pair and AH60 ABI");return 0;
+ puts("GREEN test-drive-letters: A/B/C/D positions, partition bounds/types, running pair and AH60 ABI");
+ printf("INITECH_CHECKS %u failures=0\n",checks);return 0;
 }

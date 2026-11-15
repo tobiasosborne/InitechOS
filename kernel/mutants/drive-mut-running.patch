@@ -5,8 +5,8 @@
 @@ -73,6 +73,7 @@
      m->disk=drive;m->partition=part;m->base=base;m->sectors=n;
      m->flags=(!letter?DL_removable_flag:0) |
-         ((drive==mounted_drive && base==mounted_base)?DL_running_flag:0);
-+    if(drive==mounted_drive)m->flags|=DL_running_flag;
+         ((drive==running_drive && base==running_base)?DL_running_flag:0);
++    if(drive==running_drive)m->flags|=DL_running_flag;
      return 0;
  }
  int block_device_chs(uint16_t cx,uint8_t head,uint32_t sectors,uint32_t *lba)

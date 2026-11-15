@@ -6,6 +6,7 @@
 #include <string.h>
 #include "block_device.h"
 #include "block_device_contract.h"
+extern void block_device_running(uint8_t, uint32_t) __attribute__((weak));
 static unsigned calls, writes, notices, fail_io, checks;
 static uint32_t last;
 static unsigned char buffer[1024]; /* -no-pie: DEC-04a's 32-bit EBX */
@@ -62,6 +63,8 @@ int main(void)
     fail_io=(unsigned)-3;f=frame(0x0201,1,0x81);int13_dispatch(&f);
     require((f.eflags&1) && ((f.eax>>8)&255)==0x80,"backend timeout carry/status");fail_io=0;
     block_device_mounted(0x81,63,2880,notice);
+    require(block_device_running!=0,"running identity can be set independently of raw-write watches");
+    block_device_running(0x80,63);
     f=frame(0x0301,1,0x0181);int13_dispatch(&f);
     require(!(f.eflags&1) && last==63 && writes==1 && notices==1,"raw write coherence at volume origin");
     f=frame(0x0301,33,0x81);int13_dispatch(&f);

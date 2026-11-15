@@ -29,11 +29,18 @@ static int write_protected(unsigned disk,uint32_t lba,uint32_t count)
 }
 static uint8_t mounted_drive;
 static uint32_t mounted_base,mounted_size;
+static uint8_t running_drive;
+static uint32_t running_base;
 static void (*write_notice)(uint32_t,uint32_t,const void *);
 void block_device_bind(unsigned i,const blockdev_t *d,uint32_t n)
 { initialized=1; if(i<2){disks[i]=*d;sizes[i]=n;} }
 void block_device_mounted(uint8_t d,uint32_t b,uint32_t n,void(*w)(uint32_t,uint32_t,const void *))
-{ mounted_drive=d;mounted_base=b;mounted_size=n;write_notice=w; }
+{
+    mounted_drive=d;mounted_base=b;mounted_size=n;write_notice=w;
+    block_device_running(d,b);
+}
+void block_device_running(uint8_t d,uint32_t b)
+{ running_drive=d;running_base=b; }
 /* L042 (docs/audits/2026-10-23-dos): FORMAT/SYS write C:/D: through this
  * vector, behind those volumes' mounted FAT caches. DOS 3.3 keeps one view
  * of a drive (UG p119: SYS, then COPY COMMAND.COM onto the same disk), so
@@ -91,7 +98,7 @@ int block_device_map(unsigned letter,du_map *m)
     }
     m->disk=drive;m->partition=part;m->base=base;m->sectors=n;
     m->flags=(!letter?DL_removable_flag:0) |
-        ((drive==mounted_drive && base==mounted_base)?DL_running_flag:0);
+        ((drive==running_drive && base==running_base)?DL_running_flag:0);
     return 0;
 }
 int block_device_chs(uint16_t cx,uint8_t head,uint32_t sectors,uint32_t *lba)

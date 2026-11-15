@@ -1,0 +1,12 @@
+# test: test-system-drive
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -1121,7 +1121,7 @@
+     if (fat) *fat = 0;
+     if (fat_len) *fat_len = 0;
+     if (letter == 1u || letter > 3u) return 0;
+-    fileio_mount_t *m = &g_mounts[letter ? letter - 1u : 0u];
++    fileio_mount_t *m = g_mount;
+     if (!m->vol) return 0;
+     if (m->fat_len) {
+         if (fat) *fat = m->fat;

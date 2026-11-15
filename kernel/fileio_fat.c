@@ -1085,12 +1085,13 @@ int fileio_fat_add_drive(unsigned letter, fat12_volume_t *vol)
     return 0;
 }
 
-int fileio_fat_bind(fat12_volume_t *vol)
+int fileio_fat_bind_drive(unsigned letter, fat12_volume_t *vol)
 {
+    if (!vol || letter == 1u || letter > 3u) return FAT12_ERR_NULL;
     for (unsigned i=0;i<3;i++) g_mounts[i].vol = 0;
-    int rc = fileio_fat_add_drive(0, vol);
+    int rc = fileio_fat_add_drive(letter, vol);
     if (rc) return rc;
-    g_mount = &g_mounts[0];
+    g_mount = &g_mounts[letter ? letter - 1u : 0u];
     int21_set_file_backend(&g_fat_backend);
     if (int21_set_file_replace_backend) int21_set_file_replace_backend(fat_replace);
     int21_set_drive_selector(fat_select_drive);
@@ -1099,7 +1100,27 @@ int fileio_fat_bind(fat12_volume_t *vol)
     return 0;
 }
 
+int fileio_fat_bind(fat12_volume_t *vol)
+{
+    return fileio_fat_bind_drive(0u, vol);
+}
+
 const fat12_volume_t *fileio_fat_current_volume(void) { return g_vol; }
+
+const fat12_volume_t *fileio_fat_drive_volume(unsigned letter, void **fat,
+                                             uint32_t *fat_len)
+{
+    if (fat) *fat = 0;
+    if (fat_len) *fat_len = 0;
+    if (letter == 1u || letter > 3u) return 0;
+    fileio_mount_t *m = &g_mounts[letter ? letter - 1u : 0u];
+    if (!m->vol) return 0;
+    if (m->fat_len) {
+        if (fat) *fat = m->fat;
+        if (fat_len) *fat_len = m->fat_len;
+    }
+    return m->vol;
+}
 
 /* Expose the backend's already-cached FAT so SYSINIT (CONFIG.SYS read) can walk
  * the cluster chain WITHOUT allocating a SECOND ~4.6 KiB FAT buffer -- the kernel

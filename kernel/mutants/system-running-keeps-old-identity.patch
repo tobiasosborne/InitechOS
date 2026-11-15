@@ -1,0 +1,12 @@
+# test: test-drive-letters
+--- a/block_device.c
++++ b/block_device.c
+@@ -40,7 +40,7 @@
+     block_device_running(d,b);
+ }
+ void block_device_running(uint8_t d,uint32_t b)
+-{ running_drive=d;running_base=b; }
++{ running_drive=mounted_drive;running_base=mounted_base; (void)d; (void)b; }
+ /* L042 (docs/audits/2026-10-23-dos): FORMAT/SYS write C:/D: through this
+  * vector, behind those volumes' mounted FAT caches. DOS 3.3 keeps one view
+  * of a drive (UG p119: SYS, then COPY COMMAND.COM onto the same disk), so

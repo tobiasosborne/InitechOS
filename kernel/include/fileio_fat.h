@@ -27,9 +27,24 @@
  * FAT12_ERR_* from fat12_read_fat) on failure -- fail loud (The constitution), the caller
  * does NOT bind a half-initialised backend. */
 int fileio_fat_bind(fat12_volume_t *vol);
-/* DEC-18: add C (2) or D (3) without rebinding A or sharing its FAT cache. */
+/* Startup may instead bind C (2) or D (3) as the initial backend volume.
+ * Clears previous mounts/CWDs; startup then selects its DOS default drive
+ * through AH=0Eh before starting programs. No A: volume is needed. Invalid
+ * arguments are rejected before changing the binding. The entry above binds A.
+ * Ref: accepted delivery design, GM8; DOS AH=0Eh default-drive selection. */
+int fileio_fat_bind_drive(unsigned letter, fat12_volume_t *vol);
+/* DEC-18: add A (0), C (2) or D (3) without rebinding or sharing FAT caches. */
 int fileio_fat_add_drive(unsigned letter, fat12_volume_t *vol);
 const fat12_volume_t *fileio_fat_current_volume(void);
+
+/* Resident startup/Finder binding: explicitly identify a mounted volume and
+ * its matching live FAT cache, independently of the current DOS I/O volume.
+ * Leaves default drive, I/O selection and every CWD unchanged. Returns NULL
+ * for absent/invalid drives and clears optional outputs. A windowed FAT16
+ * volume has no whole-FAT cache (NULL/0). Returned storage lives with the
+ * mount and must not be retained across a remount. Not a disk-app service. */
+const fat12_volume_t *fileio_fat_drive_volume(unsigned letter, void **fat,
+                                             uint32_t *fat_len);
 
 /* Return the backend's cached FAT buffer (+ its byte length via *out_len) so
  * SYSINIT can read CONFIG.SYS off the volume WITHOUT a second ~4.6 KiB FAT
