@@ -23,7 +23,7 @@ const
 var
   EdLine, EdCol, EdTop, EdLeft: integer;
   EdInsert, EdModified, EdOnDisk: boolean;
-  FileName, FileDrive, FileDir: string;
+  FileName, FilePath, FileDrive, FileDir: string;
   UiMode, MenuSel, LastMenu, NameKind, NameRow, NameCol, VerifyKind: integer;
   ItemSel: array[1..4] of integer;
   NameText, PendingName: string;
@@ -413,6 +413,7 @@ procedure DoNew;
 begin
   BufNew();
   FileName := 'NONAME.PAS';
+  FilePath := '';
   EdModified := false; EdOnDisk := false;
   CursorHome();
   UiMode := ModeEditor
@@ -436,6 +437,7 @@ begin
   begin
     BufNew();
     FileName := L;
+    FilePath := Name;
     EdModified := false; EdOnDisk := false;
     CursorHome();
     UiMode := ModeEditor
@@ -444,6 +446,7 @@ begin
   else
   begin
     FileName := L;
+    FilePath := Name;
     EdModified := false; EdOnDisk := true;
     CursorHome();
     UiMode := ModeEditor
@@ -566,7 +569,7 @@ end;
 procedure DoSave;
 var Code: integer;
 begin
-  Code := SaveAs(FileName, EdOnDisk);
+  Code := SaveAs(FilePath, EdOnDisk);
   if Code = 0 then
   begin
     EdOnDisk := true;
@@ -635,6 +638,7 @@ begin
   begin
     LeafName(Path, L);
     FileName := L;
+    FilePath := Path;
     EdOnDisk := true;
     EdModified := false;
     { after the Rename box TP shows the file from its start (MINT06 06) }
