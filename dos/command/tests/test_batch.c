@@ -417,6 +417,14 @@ static void test_expand_combined(void)
 
 int main(void)
 {
+    /* Physical-line ownership invariant, independent of command parsing. */
+    const char physical[]="rem unndel *.txt\r\necho safe\r\n";
+    char line[BATCH_LINE_MAX];
+    for (int at=1; at<15; at++) {
+        int pos=at;
+        CHECK(!batch_next_line(physical,sizeof(physical)-1,&pos,line),
+              "mid-line offset must never dispatch a REM fragment");
+    }
     test_expand();
     test_classify();
     test_label_matches();

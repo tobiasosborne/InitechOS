@@ -1,0 +1,13 @@
+# CMD_MUTATE_BATCH_RETURN
+# test: test-batch-transfer
+--- a/command/command.c
++++ b/command/command.c
+@@ -3708,7 +3708,7 @@
+             int fh = dos_open(prog);
+             if (fh >= 0) {
+                 dos_close(fh);
+-                batch_abandon();
++                (void)batch_abandon;
+                 run_batch_named(prog, tail, command);
+                 return;
+             }

@@ -1,0 +1,7 @@
+Independent Packard Bell OEM MS-DOS 3.30 on QEMU 486, 8 MiB.
+Media sha256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Recipe ../../capture-batch-transfer.sh. Completion is CAPTURE-DONE.
+Plain, IF-body and FOR-body invocations transfer control; only CALL returns
+to PARENT-RETURN. CHILD itself transfers to GRAND, which never returns to
+CHILD-RETURN. The child's REM contains command-like text; KEEP.TXT survives
+byte-identical (mtools independently reads the post-image).

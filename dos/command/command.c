@@ -3628,6 +3628,7 @@ static void builtin_time(const char *arg)
 static void run_batch(const char *path, const char *const argv[], int argc);
 static void run_batch_invoke(const char *path, const char *tail);
 static void run_batch_named(const char *path, const char *tail, const char *name);
+static void batch_abandon(void);
 
 /* Return 1 if `name` ends in the upper-cased extension ".BAT", else 0.  The
  * candidate paths cmd_path_candidates emits are upper-cased by run_external
@@ -3707,6 +3708,7 @@ static void run_external(const char *command, const char *tail)
             int fh = dos_open(prog);
             if (fh >= 0) {
                 dos_close(fh);
+                batch_abandon();
                 run_batch_named(prog, tail, command);
                 return;
             }
@@ -4530,6 +4532,16 @@ typedef struct batch_frame {
     struct batch_frame *previous;
 } batch_frame_t;
 static batch_frame_t *g_batch_frame;
+static batch_frame_t *g_batch_buffer_owner;
+/* DOS 3.30 reference/batch-transfer: plain invocation abandons this frame,
+ * while CALL retains its caller. Branch change also stops an IF/FOR body. */
+static void batch_abandon(void)
+{
+    if (g_batch_frame) {
+        g_batch_frame->cancelled=1;
+        g_batch_frame->branch++;
+    }
+}
 static unsigned g_body_depth;
 /* Snapshot names before executing bodies: DIR, nested FOR and CALL all use
  * FINDFIRST/NEXT too. One bounded arena, reclaimed on FOR return, avoids
@@ -4669,7 +4681,7 @@ static int dispatch_control(const char *line)
         cmd_upcase_str(callee);
         if (resolve_bat_path(callee,resolved)) {
             run_batch_named(resolved,args,callee);
-            if (frame) frame->len=batch_load_file(frame->path,g_batch_buf);
+            if (frame) { frame->len=batch_load_file(frame->path,g_batch_buf); g_batch_buffer_owner=frame; }
         } else dos_error(MSG_DOS_0002 "\r\n$");
         return 1;
     }
@@ -4722,6 +4734,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
     for (int k=0;k<frame.count;k++) frame.view[k]=argv[k];
     frame.pos=0; frame.echo_on=1; frame.branch=0; frame.cancelled=0;
     frame.len=batch_load_file(path,g_batch_buf);
+    g_batch_buffer_owner=&frame;
     frame.previous=g_batch_frame;
     g_batch_frame=&frame;
     g_batch_depth++;
@@ -4740,6 +4753,9 @@ static void run_batch(const char *path, const char *const argv[], int argc)
                  * saved-handle restoration (DEC-16; resident B01 contract). */
             } else g_shell_break.interrupted=0u;
         }
+        /* A frame's saved byte offset is meaningful only in its own file.
+         * A missing reload must never dispatch fragments of another file. */
+        if (g_batch_buffer_owner!=&frame) break;
         if (frame.cancelled || frame.pos>=frame.len) break;
         char line[BATCH_LINE_MAX], expanded[BATCH_LINE_MAX];
         batch_parsed_t bp;
@@ -4759,6 +4775,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
     }
     g_batch_depth--;
     g_batch_frame=frame.previous;
+    g_batch_buffer_owner=0;
 }
 
 /* Build a .BAT argv from a command word + a DOS command tail and run it.
@@ -4854,7 +4871,7 @@ static void builtin_command(const char *arg)
     g_errorlevel=errorlevel;g_batch_frame=frame;
     /* OEM DOS 3.30 compat33/BATCH: COMMAND /C returns to the physical
      * parent line after its child overwrites the shared batch buffer. */
-    if (frame) frame->len=batch_load_file(frame->path,g_batch_buf);
+    if (frame) { frame->len=batch_load_file(frame->path,g_batch_buf); g_batch_buffer_owner=frame; }
 }
 #endif
 

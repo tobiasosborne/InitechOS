@@ -860,7 +860,10 @@ int batch_next_line(const char *buf, int len, int *pos, char *out)
     int n = 0;
 
     out[0] = '\0';
-    if (i >= len) {
+    /* Only a physical line start in this buffer may become a command.
+     * CRLF's LF is part of its preceding terminator, not another start. */
+    if (i < 0 || i >= len || (i > 0 && buf[i-1]!='\r' && buf[i-1]!='\n') ||
+        (i > 0 && buf[i-1]=='\r' && buf[i]=='\n')) {
         return 0;
     }
     while (i < len && buf[i] != '\r' && buf[i] != '\n' &&

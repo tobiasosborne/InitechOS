@@ -1,0 +1,14 @@
+# BATCH_MUTATE_MIDLINE
+# test: test-batch
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -862,8 +862,7 @@
+     out[0] = '\0';
+     /* Only a physical line start in this buffer may become a command.
+      * CRLF's LF is part of its preceding terminator, not another start. */
+-    if (i < 0 || i >= len || (i > 0 && buf[i-1]!='\r' && buf[i-1]!='\n') ||
+-        (i > 0 && buf[i-1]=='\r' && buf[i]=='\n')) {
++    if (i >= len) {
+         return 0;
+     }
+     while (i < len && buf[i] != '\r' && buf[i] != '\n' &&

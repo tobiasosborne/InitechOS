@@ -231,4 +231,11 @@ test-fat16-utilities_COUNT_PATTERN := ^INITECH_CHECKS ([0-9]+) failures=[0-9]+$$
 test-fat16-utilities_ARGS := tests/run.sh test-fat16-utilities
 test-fat16-utilities_DEPS := $(OUT)/host/tool_fat16_host $(OUT)/host/tool_formatsys_host tests/gates/test-fat16-utilities.sh
 
+
+HOST_TESTS += test-batch-transfer
+test-batch-transfer_COUNT_PATTERN := ^INITECH_CHECKS ([0-9]+) failures=[0-9]+$$
+test-batch-transfer_SRCS := tests/runner.c
+test-batch-transfer_ARGS := tests/run.sh test-batch-transfer
+test-batch-transfer_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-batch-transfer.sh
+
 include $(TOP)/mk/host-test.mk
