@@ -46,7 +46,10 @@ registration record), installs a menu bar, creates its windows, then returns.
 Registration makes the application resident. The shell pushes events through
 the runtime's event callback and flat event buffer. Returning from main or
 an event callback yields cooperatively; applications do not own an event loop.
-An updateEvt requests painting. Mouse coordinates are global; origin/local
+An updateEvt requests painting one window: its message is that window's token,
+as NEWWINDOW returned it (1, 2 in creation order), never a resident pointer
+(initech-3zcsf; Inside Macintosh I-59, MTE p. 2-7: the message names the window to
+update). Mouse coordinates are global; origin/local
 bindings translate them. Menu messages pack menu ID and 1-based item number.
 Alerts, Standard File, tracking and FILE COPY complete through later events.
 tbx_exit records a request; the shell tears the application down after return.

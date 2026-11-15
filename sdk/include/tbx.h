@@ -23,7 +23,12 @@
  *                                then RETURN (the app stays resident)
  *     void tbx_app_event(const tbx_event_t *ev)
  *                                every event, pushed by the kernel; RETURN to
- *                                yield. updateEvt: repaint. keyDown/mouseDown:
+ *                                yield. updateEvt: repaint the window whose
+ *                                token (NEWWINDOW's 1..TBX_TENANT_WINDOWS,
+ *                                creation order) is the Message, never a
+ *                                resident pointer (IM I-59, MTE p. 2-7: the message
+ *                                names the window; initech-3zcsf).
+ *                                keyDown/mouseDown:
  *                                act and draw (the pump presents what a tenant
  *                                drew once it returns -- bead initech-8zii).
  *                                TBX_EVT_MENU: Message = (menuID<<16)|item.
