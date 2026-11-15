@@ -14,7 +14,7 @@ files back with mtools/independent readers and reopens them with genuine III+.
 It passes 50 checks. Scenarios and the selected application pair live on a
 separate disposable TEST disk; no test scenario is compiled into the kernel.
 `make native-check` runs the DOS console, file, program-return and overlay
-oracles. `make mutants` runs 255 host patches and 19 target patches, including
+oracles. `make mutants` runs 257 host patches and 19 target patches, including
 three static semantic rejections. All 28 original pending faults are qualified.
 The test controls themselves must receive zero kills.
 Host kills require completed assertion counts and identical failure evidence

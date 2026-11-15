@@ -321,6 +321,57 @@ static void f11_say_pictures(void)
     xb_interp_free(ip); pal_host_free(pal);
 }
 
+static void f02_order_and_f04_edit(void)
+{
+    static const uint8_t order_keys[] = {
+        0,0x50,0,0x50,0,0x48,'A','B',0,0x4B,0,0x47,'\r','\r'
+    };
+    static const uint8_t edit_keys[] = {
+        '\r',0,0x4D,0,0x52,'x',0,0x53,8,0,0x4F,25,'Z','W','\r'
+    };
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    /* F02: navigation follows declaration order, not screen geometry. */
+    CHECK(ibase_do(ip, "C1=SPACE(4)\nC2=\"wxyz\"\nC3=SPACE(4)\n@ 8,10 GET C1\n@ 4,30 GET C2\n@ 12,10 GET C3\n") == INTERP_OK, "F02 declare");
+    value_n(ip, "ROW()", 12); value_n(ip, "COL()", 14);
+    feed(order_keys, sizeof order_keys);
+    CHECK(ibase_do(ip, "READ\n") == INTERP_OK, "F02 read");
+    value_c(ip, "C1", "    "); value_c(ip, "C2", "AByz"); value_c(ip, "C3", "    ");
+    value_n(ip, "READKEY()", 271);
+    /* F04: insert/delete/backspace/end/Ctrl-Y sequence ABCD -> ACZW. */
+    feed(edit_keys, sizeof edit_keys);
+    CHECK(ibase_do(ip, "A=SPACE(4)\nV=\"ABCD\"\n@ 5,10 GET A\n@ 7,10 GET V\nREAD\n") == INTERP_OK, "F04 read");
+    value_c(ip, "V", "ACZW");
+    /* F12: plain CLEAR also empties the pending list (RK stays 15). */
+    FEED("ZZ\r");
+    CHECK(ibase_do(ip, "A2=SPACE(4)\n@ 5,10 GET A2\nCLEAR\nREAD\n") == INTERP_OK, "F12 clear read");
+    value_c(ip, "A2", "    ");
+    value_n(ip, "READKEY()", 15);
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
+static void f07_f08_more(void)
+{
+    static const uint8_t invdate[] = {'0','2','2','9','0','0','\r',25,'0','1','3','1','0','0','\r'};
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    FEED("X5\r"); /* F07 N2: alphabetic key refused, digit lands */
+    CHECK(ibase_do(ip, "N=0\n@ 5,10 GET N\nREAD\n") == INTERP_OK, "F07 N2");
+    value_c(ip, "STR(N,10,2)", "      5.00");
+    static const uint8_t blank_num[] = {25,'\r'};
+    feed(blank_num, sizeof blank_num); /* F07 N3: cleared numeric confirms 0 */
+    CHECK(ibase_do(ip, "N=7\n@ 5,10 GET N\nREAD\n") == INTERP_OK, "F07 N3");
+    value_c(ip, "STR(N,10,2)", "      0.00");
+    feed(invdate, sizeof invdate); /* F08b: invalid date refuses Enter, correct it */
+    CHECK(ibase_do(ip, "D=CTOD(\"\")\n@ 5,10 GET D\nREAD\n") == INTERP_OK, "F08b");
+    value_c(ip, "DTOC(D)", "01/31/00");
+    FEED("013100\r"); /* F17: the Y2K entry lands in 1900 */
+    CHECK(ibase_do(ip, "ASOF=CTOD(\"\")\n@ 5,10 SAY \"AS OF:\" GET ASOF\nREAD\n") == INTERP_OK, "F17");
+    value_n(ip, "YEAR(ASOF)", 1900);
+    value_n(ip, "ASOF-CTOD(\"01/31/00\")", 0);
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
 int main(void)
 {
     f01_memvar();
@@ -331,5 +382,7 @@ int main(void)
     f05_f06_look_and_bell();
     f10_masks();
     f11_say_pictures();
+    f02_order_and_f04_edit();
+    f07_f08_more();
     return TEST_SUMMARY("test-ibase-gets");
 }

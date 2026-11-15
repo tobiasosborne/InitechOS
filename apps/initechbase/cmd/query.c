@@ -1448,7 +1448,7 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
     while(!done) {
         int k=q_read_key(pal);
         xb_get *g=ctx->ngets?&ctx->gets[cur]:(xb_get *)0;
-        if(k<0) { if(ec)*ec=29;return -INTERP_ERR_EVAL; }
+        if(k<0) { if(ec)*ec=29;ibase_gets_clear(ip);return -INTERP_ERR_EVAL; }
         if(k==0)continue;
         /* Exit keys shared by empty and active READs (F01/F03). */
         if(k==QK_ESC||k==17) { code=12;save_cur=0;done=1;break; }
@@ -1463,14 +1463,14 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
         }
         if(k==QK_ENTER||k==QK_DOWN||k==24) {
             int w=q_get_write(ip,g,ec);
-            if(w==-1){q_bell(ip);continue;} /* invalid date stays (F08b) */
+            if(w==-1){q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue;} /* invalid date stays, cursor home (F08b) */
             if(w==-2)return -INTERP_ERR_EVAL;
             if(cur+1>=ctx->ngets) { code=(k==QK_ENTER)?15:5;done=1;break; }
             cur++;pos=0;g=&ctx->gets[cur];q_get_cursor(ip,g->row,g->col);continue;
         }
         if(k==QK_UP||k==5) {
             int w=q_get_write(ip,g,ec);
-            if(w==-1){q_bell(ip);continue;}
+            if(w==-1){q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue;}
             if(w==-2)return -INTERP_ERR_EVAL;
             if(cur==0) { code=4;done=1;break; }
             cur--;pos=0;g=&ctx->gets[cur];q_get_cursor(ip,g->row,g->col);continue;

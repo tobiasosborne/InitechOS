@@ -1,0 +1,13 @@
+# test: test_ibase_gets
+# SET CONFIRM ignored: a full field never overwrites its last cell.
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1439,7 +1439,7 @@
+ {
+     xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
+     const set_state *ss=set_get_state(ip);
+-    int confirm=ss?ss->confirm:0;
++    int confirm=(ss?ss->confirm:0)*0; /* MUTANT: SET CONFIRM ignored. */
+     uint32_t cur=0;int pos=0,insert=0,any_change=0,code=15,done=0,save_cur=1;
+     const char *t=q_skip_ws(args);
+     if(*t) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; } /* READ SAVE: frozen omission */

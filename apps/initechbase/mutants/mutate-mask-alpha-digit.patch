@@ -1,0 +1,13 @@
+# test: test_ibase_gets
+# PICTURE A mask accepts digits.
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1535,7 +1535,7 @@
+                     int tl,ti=mp-q_pic_off(g);const char *tp=q_pic_template(g->pic,&tl);char tc=tl?tp[ti]:'X';
+                     char u=q_up1((char)k);int ok=0;
+                     if(tc=='X'||tc=='!')ok=1;
+-                    else if(tc=='A')ok=(u>='A'&&u<='Z')||k==' ';
++                    else if(tc=='A')ok=1; /* MUTANT: A mask accepts any key. */
+                     else if(tc=='N')ok=(u>='A'&&u<='Z')||(k>='0'&&k<='9');
+                     else if(tc=='9')ok=(k>='0'&&k<='9');
+                     else if(tc=='#')ok=(k>='0'&&k<='9')||k==' ';
