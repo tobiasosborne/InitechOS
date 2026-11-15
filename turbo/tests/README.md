@@ -29,3 +29,9 @@ unrelated earlier error cannot satisfy the expected ERROR. A cdecl storage
 property rejects direct stores to saved EBP or return PC before executing unsafe
 code; argument/local slots are independently exercised. This catches the
 shallow-frame mutation semantically without using a guest crash as evidence.
+
+`make controls` repeats the full shared-driver experiment: the comment-only
+patch must survive, repeatable NASM/FPC failures must be errors with zero
+kills, and the real nondeterminism patch must still die twice. Fixtures and
+injection scripts are retained here; logs remain under build/turbo/tests/
+noop-controls. This slower host-only experiment is separate from tier 0.
