@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# End goes straight to the end of the content, not to the next word (forms-f21a).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1716,7 +1716,7 @@
+                 int p2=pos;
+                 while(p2<g->width&&g->buf[p2]!=' ')p2++;
+                 while(p2<g->width&&g->buf[p2]==' ')p2++;
+-                if(p2<g->width){pos=p2;q_get_cursor(ip,g->row,g->col+pos);continue;}
++                if(0&&p2<g->width){pos=p2;q_get_cursor(ip,g->row,g->col+pos);continue;} /* MUTANT */
+             }
+             if(pos<epos){pos=epos;q_get_cursor(ip,g->row,g->col+pos);continue;}
+             {

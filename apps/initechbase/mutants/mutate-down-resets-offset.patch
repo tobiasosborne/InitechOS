@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# Down starts the next field at its first cell (forms-f21b keeps the offset).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1665,7 +1665,7 @@
+              * keep the cursor's offset (real III+ forms-f21b: cell 2 of C to
+              * cell 2 of D and back with Ctrl-E). */
+             cur++;g=&ctx->gets[cur];
+-            if(k==QK_ENTER)pos=0; else if(pos>g->width-1)pos=g->width-1;
++            pos=0; /* MUTANT */
+             q_get_cursor(ip,g->row,g->col+pos);continue;
+         }
+         if(k==QK_UP||k==5) {

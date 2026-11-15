@@ -117,7 +117,7 @@ Omissions and current refusals (the catalogue text is retained verbatim):
 
 GOLDEN-MASTER item 5 adds `@...SAY/GET` and `READ`. The surface below is
 frozen: every behaviour is pinned by a twice-minted real III+ capture in
-`tests/xbase_prog_diff/screen-mint/forms-f01-*/` … `forms-f20n-*/` (design
+`tests/xbase_prog_diff/screen-mint/forms-f01-*/` … `forms-f21c-*/` (design
 cases C01-C18, renamed F because conformance C01-C38 own C-numbers;
 whole 80x25 text/attribute pages plus cursor, RESULT transcripts and
 DBF/DBT/NDX/MEM readbacks; mint with `make mint-forms`). Declaration,
@@ -154,7 +154,10 @@ picture its structure implies and is shown formatted when stored (F20d); a
 logical GET shows and a logical field stores the typed letter (F20m). READ
 leaves the cursor at row 23, column 0 (F02); a READ with
 no pending GET takes exactly one key (F01); a command line typed at the dot
-prompt leaves READKEY() at 271 (F01-F03).
+prompt leaves READKEY() at 271 (F01-F03). Home/Ctrl-A and End/Ctrl-F move
+by words (F21a), Up/Down and Ctrl-E/Ctrl-X keep the cursor's offset (F21b),
+Ctrl-R and Ctrl-C exit as PgUp and PgDn, PgDn cannot leave an invalid date,
+and a READ with no pending GET leaves READKEY 15 (F21c).
 
 Supported: `@ r,c GET lvalue` and combined `@ r,c SAY expr GET lvalue`
 for C/N/D/L memory variables and fields (unqualified name binds the

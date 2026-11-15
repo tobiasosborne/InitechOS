@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# PgDn leaves READ on an invalid date (forms-f21c stays).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1640,7 +1640,7 @@
+              * the field start, as Enter does (forms-f08). PgUp, Ctrl-End and
+              * Ctrl-W share this path; only PgDn is captured. */
+             xb_val probe;
+-            if(g->changed&&!q_get_parse(ip,g,&probe)) { q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue; }
++            if(0&&g->changed&&!q_get_parse(ip,g,&probe)) { q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue; } /* MUTANT */
+         }
+         if(k==QK_PGUP||k==18) { code=6;done=1;break; }
+         if(k==QK_PGDN||k==3) { code=7;done=1;break; }

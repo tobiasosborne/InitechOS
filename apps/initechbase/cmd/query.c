@@ -1634,6 +1634,14 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
         if(k==0)continue;
         /* Exit keys shared by empty and active READs (F01/F03). */
         if(k==QK_ESC||k==17) { code=12;save_cur=0;done=1;break; }
+        if(g&&(k==QK_PGUP||k==18||k==QK_PGDN||k==3||k==QK_CTRLEND||k==23)) {
+            /* A save exit cannot leave an invalid date: real III+
+             * forms-f21c PgDn on 02/29/00 stays in READ with the cursor at
+             * the field start, as Enter does (forms-f08). PgUp, Ctrl-End and
+             * Ctrl-W share this path; only PgDn is captured. */
+            xb_val probe;
+            if(g->changed&&!q_get_parse(ip,g,&probe)) { q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue; }
+        }
         if(k==QK_PGUP||k==18) { code=6;done=1;break; }
         if(k==QK_PGDN||k==3) { code=7;done=1;break; }
         if(k==QK_CTRLEND||k==23) { code=14;done=1;break; }
@@ -1641,12 +1649,10 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
             /* A READ with no pending GET takes exactly one key, whatever it
              * is (forms-f01 OUT.MEM: after READ consumed `R`, the rest of the
              * typed `RK2=READKEY()` ran as the command `K2=...`; forms-f12
-             * Enter gives 15). READKEY for a non-exit key is uncaptured and
-             * is left as it was. */
-            if(k==QK_ENTER)code=15;
-            else if(k==QK_UP)code=4;
+             * Enter and forms-f21c X both give READKEY 15). */
+            if(k==QK_UP)code=4;
             else if(k==QK_DOWN)code=5;
-            else code=-1;
+            else code=15; /* Enter (forms-f12) and X (forms-f21c RK4) */
             done=1;break;
         }
         rt_memcpy(before,g->buf,g->width);
@@ -1655,20 +1661,38 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
             if(w==-1){q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue;} /* invalid date stays, cursor home (F08b) */
             if(w==-2)return -INTERP_ERR_EVAL;
             if(cur+1>=ctx->ngets) { code=(k==QK_ENTER)?15:5;done=1;break; }
-            cur++;pos=0;g=&ctx->gets[cur];q_get_cursor(ip,g->row,g->col);continue;
+            /* Enter starts the next field at its first cell; Down and Ctrl-X
+             * keep the cursor's offset (real III+ forms-f21b: cell 2 of C to
+             * cell 2 of D and back with Ctrl-E). */
+            cur++;g=&ctx->gets[cur];
+            if(k==QK_ENTER)pos=0; else if(pos>g->width-1)pos=g->width-1;
+            q_get_cursor(ip,g->row,g->col+pos);continue;
         }
         if(k==QK_UP||k==5) {
             int w=q_get_write(ip,g,ec);
             if(w==-1){q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue;}
             if(w==-2)return -INTERP_ERR_EVAL;
             if(cur==0) { code=4;done=1;break; }
-            cur--;pos=0;g=&ctx->gets[cur];q_get_cursor(ip,g->row,g->col);continue;
+            cur--;g=&ctx->gets[cur];if(pos>g->width-1)pos=g->width-1;
+            q_get_cursor(ip,g->row,g->col+pos);continue;
         }
         if(k==QK_HOME||k==1) {
             /* Home chain (F02/F02c/F18a): to the field start; at the start
              * of a later field to the previous field; at the very start of
              * the first GET it exits READ with READKEY 2. */
-            if(pos>0){pos=0;q_get_paint(ip,g);q_get_cursor(ip,g->row,g->col);continue;}
+            /* Home and Ctrl-A move a word left: to the start of the word
+             * the cursor is in, else to the previous word's start (real
+             * III+ forms-f21a: "AB CD EF" from cell 7 to 6, then to 3). */
+            if(pos>0) {
+                if(g->buf[pos]!=' '&&g->buf[pos-1]!=' ') { while(pos>0&&g->buf[pos-1]!=' ')pos--; }
+                else {
+                    int p2=pos-1;
+                    while(p2>0&&g->buf[p2]==' ')p2--;
+                    while(p2>0&&g->buf[p2-1]!=' ')p2--;
+                    pos=p2>0?p2:0;
+                }
+                q_get_cursor(ip,g->row,g->col+pos);continue;
+            }
             {
                 int w=q_get_write(ip,g,ec);
                 if(w==-1){q_bell(ip);continue;}
@@ -1685,7 +1709,16 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
              * the end of the last GET it exits READ with READKEY 3. */
             int e=g->width-1;while(e>0&&g->buf[e]==' ')e--;
             int epos=(g->buf[e]==' ')?e:(e<g->width-1?e+1:e);
-            if(pos<epos){pos=epos;q_get_paint(ip,g);q_get_cursor(ip,g->row,g->col+pos);continue;}
+            /* End and Ctrl-F move a word right: to the next word's start,
+             * and from the last word to the end of the content (real III+
+             * forms-f21a: "AB CD EF" from 0 to 3, 6, then 7). */
+            {
+                int p2=pos;
+                while(p2<g->width&&g->buf[p2]!=' ')p2++;
+                while(p2<g->width&&g->buf[p2]==' ')p2++;
+                if(p2<g->width){pos=p2;q_get_cursor(ip,g->row,g->col+pos);continue;}
+            }
+            if(pos<epos){pos=epos;q_get_cursor(ip,g->row,g->col+pos);continue;}
             {
                 int w=q_get_write(ip,g,ec);
                 if(w==-1){q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue;}

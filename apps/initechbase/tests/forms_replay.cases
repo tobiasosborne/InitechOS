@@ -53,6 +53,9 @@ case forms-f20k-closed
 case forms-f20l-sametext
 case forms-f20m-logical
 case forms-f20n-reload
+case forms-f21a-words
+case forms-f21b-aliases
+case forms-f21c-exits
 
 # Known disagreements, each with its cause.
 differs forms-f01-dotget export:OUT.MEM SAVE TO writes 2, real 0, at byte 18 for dot-prompt variables (initech-fae7j)
