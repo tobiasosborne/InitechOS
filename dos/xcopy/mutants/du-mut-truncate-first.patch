@@ -1,0 +1,18 @@
+# DU_MUT_TRUNCATE_FIRST
+# test: test-xcopy-tree
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -244,11 +244,11 @@
+      * (initech-0e5gu), so byte retention on an unreadable source is the
+      * stated safety assumption here. A pre-existing destination keeps its
+      * bytes when the source cannot be read at all. */
+-    int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
+-    if (n < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
+     int out=call(0x5b00,0,0,(uintptr_t)dst);
+     if (out == -80) out=call(0x3c00,0,0,(uintptr_t)dst);
+     if (out < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
++    int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
++    if (n < 0) { call(0x3e00,(unsigned)out,0,0); call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
+     for (;;) {
+         if (!n) break;
+         int w=call(0x4000,(unsigned)out,(unsigned)n,(uintptr_t)buf);

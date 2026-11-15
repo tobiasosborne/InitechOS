@@ -108,6 +108,9 @@ if [ "$mode" = host ]; then
     fresh
     if run XCOPY 'SRC\ROOT.TXT DST /V' '' corrupt; then fail '/V failed to detect read-back corruption'; fi
     grep -q 'exit=5 verify_reads=[1-9]' "$work/run.log" || fail '/V error exit / actual read-back'
+    # initech-wz16r secondary: a copy that fails verification is a failed
+    # output; it may not remain in place stamped like a good copy.
+    if mtype -i "$work/art.img" ::DST/ROOT.TXT > "$work/art.bytes" 2>/dev/null; then fail '/V failure left the bad copy in place'; fi
     fresh
     if run XCOPY 'SRC DST /E'; then fail '/E accepted without /S'; fi
     if run XCOPY 'SRC SRC\BRANCH /S'; then fail 'cyclic copy accepted'; fi
@@ -184,10 +187,16 @@ if [ "$mode" = host ]; then
         cmp "$work/before.img" "$work/art.img" || fail '8.3 self-copy wrote the volume'
     done
     # Failure may unlink a new entry only, never a pre-existing destination.
+    # initech-wz16r: retention means the BYTES. The destination seed differs
+    # from the source bytes, so an overwrite (or a truncation to zero) cannot
+    # masquerade as retention; mtools supplies the independent readback.
     fresh
-    mcopy -i "$work/art.img" "$work/old.txt" ::DST/ROOT.TXT
+    printf 'PRE-EXISTING DESTINATION - DO NOT LOSE\r\n' > "$work/previous.txt"
+    mcopy -i "$work/art.img" "$work/previous.txt" ::DST/ROOT.TXT
     if XCOPY_FAIL_READ=1 run XCOPY 'SRC\ROOT.TXT DST'; then fail 'read error ignored'; fi
     mdir -b -i "$work/art.img" ::DST/ROOT.TXT > "$work/entry" || fail 'failure deleted an existing entry'
+    mtype -i "$work/art.img" ::DST/ROOT.TXT > "$work/art.bytes"
+    cmp "$work/previous.txt" "$work/art.bytes" || fail 'read failure destroyed pre-existing destination bytes'
     mtype -i "$work/art.img" ::SRC/ROOT.TXT > "$work/art.bytes"
     cmp "$work/old.txt" "$work/art.bytes" || fail 'read failure damaged source'
     for tail in 'SRC DST /D:02-30-1988' 'SRC DST /D:07-15-1979' 'SRC DST /D:01-01-2080' 'SRC DST /Z' ''; do
@@ -223,6 +232,20 @@ if [ "$mode" = host ]; then
     tr -d '\r' < "$work/output" | grep -qx '0 File(s) copied' || fail 'disk full count'
     if mtype -i "$work/art.img" ::DST/BIG.BIN > "$work/art.bytes" 2>/dev/null; then fail 'disk full left a partial destination'; fi
     fsck.fat -n "$work/art.img" > "$work/fsck.log" || fail 'disk full fsck'
+    # Same rule when the destination pre-existed: once XCOPY has opened it
+    # for writing and the copy fails, the truncated partial file is removed
+    # rather than left behind as a silently wrong file (initech-wz16r).
+    fresh
+    mcopy -m -i "$work/art.img" "$work/big.bin" ::SRC/BIG.BIN
+    mcopy -i "$work/art.img" "$work/previous.txt" ::DST/BIG.BIN
+    free=$(mdir -i "$work/art.img" :: | sed -n 's/^ *\([0-9 ]*\) bytes free$/\1/p' | tr -d ' ')
+    dd if=/dev/zero of="$work/fill.bin" bs=1 count=$((free-10000)) status=none
+    mcopy -i "$work/art.img" "$work/fill.bin" ::FILL.BIN
+    if run XCOPY 'SRC\BIG.BIN DST'; then fail 'disk full over a pre-existing destination accepted'; fi
+    grep -q 'exit=5' "$work/run.log" || fail 'disk full pre-existing exit'
+    if mtype -i "$work/art.img" ::DST/BIG.BIN > "$work/art.bytes" 2>/dev/null; then fail 'disk full left a partial pre-existing destination'; fi
+    mtype -i "$work/art.img" ::SRC/BIG.BIN > "$work/art.bytes"
+    cmp "$work/big.bin" "$work/art.bytes" || fail 'disk full damaged source'
     echo 'XCOPY GREEN: disk full reports Insufficient disk space and leaves no partial destination'
     echo 'XCOPY/TREE GREEN: mcopy FAT differential; /S /E /A /M /D /P /V /W F/D; TREE mdir/manual rendering; fsck.fat'
     exit 0

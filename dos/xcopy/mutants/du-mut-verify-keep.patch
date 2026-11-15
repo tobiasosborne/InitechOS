@@ -1,0 +1,13 @@
+# DU_MUT_VERIFY_KEEP
+# test: test-xcopy-tree
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -289,7 +289,7 @@
+     }
+     /* A copy that fails /V verification is a failed output: remove it
+      * instead of leaving a source-stamped bad copy in place (initech-wz16r). */
+-    if (error) { call(0x4100,0,0,(uintptr_t)dst); return 0; }
++    if (error) { return 0; }
+     /* mcopy oracle: copied files have archive set; source read-only survives. */
+     if (call(0x4301,0,(fd->attr & 1)|32,(uintptr_t)dst) < 0) { error=5; return 0; }
+     if (flags & M_CLEAR) {

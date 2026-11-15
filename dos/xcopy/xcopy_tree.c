@@ -237,16 +237,24 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
     if (!ensure_dir(parent)) return 0;
     int in=call(0x3d00,0,0,(uintptr_t)src);
     if (in < 0) { error=5; return 0; }
+    /* Read the first source chunk BEFORE creating/truncating the
+     * destination (initech-wz16r). Genuine XCOPY buffers source files in
+     * memory before writing, so an unreadable source is discovered before
+     * any destination is touched; genuine XCOPY media are still missing
+     * (initech-0e5gu), so byte retention on an unreadable source is the
+     * stated safety assumption here. A pre-existing destination keeps its
+     * bytes when the source cannot be read at all. */
+    int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
+    if (n < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
     int out=call(0x5b00,0,0,(uintptr_t)dst);
-    int created=out>=0;
     if (out == -80) out=call(0x3c00,0,0,(uintptr_t)dst);
     if (out < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
     for (;;) {
-        int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
-        if (n < 0) { error=5; break; }
         if (!n) break;
         int w=call(0x4000,(unsigned)out,(unsigned)n,(uintptr_t)buf);
         if (w != n) { if (w >= 0) error_full=1; error=5; break; }
+        n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
+        if (n < 0) { error=5; break; }
     }
     /* Source date/time survives the last WRITE and CLOSE (initech-qqrz).
      * Ref: MS-DOS 3.3 Reference p.50 (PDF135), mcopy -m on identical images;
@@ -259,7 +267,12 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
     }
     if (call(0x3e00,(unsigned)out,0,0) < 0) error=5;
     if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
-    if (error) { if (created) call(0x4100,0,0,(uintptr_t)dst); return 0; }
+    /* Once the destination was opened for writing, a failure leaves a
+     * truncated or partial file behind: remove the failed output, as the
+     * captured DOS 3.30 COPY disk-full ruling does (initech-w33id), whether
+     * the entry is new or pre-existing. An unreadable source never reaches
+     * here, so its destination was never touched. */
+    if (error) { call(0x4100,0,0,(uintptr_t)dst); return 0; }
     if (flags & V_VERIFY) {
         in=call(0x3d00,0,0,(uintptr_t)src);
         out=call(0x3d00,0,0,(uintptr_t)dst);
@@ -274,7 +287,9 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
         if (in >= 0) call(0x3e00,(unsigned)in,0,0);
         if (out >= 0) call(0x3e00,(unsigned)out,0,0);
     }
-    if (error) return 0;
+    /* A copy that fails /V verification is a failed output: remove it
+     * instead of leaving a source-stamped bad copy in place (initech-wz16r). */
+    if (error) { call(0x4100,0,0,(uintptr_t)dst); return 0; }
     /* mcopy oracle: copied files have archive set; source read-only survives. */
     if (call(0x4301,0,(fd->attr & 1)|32,(uintptr_t)dst) < 0) { error=5; return 0; }
     if (flags & M_CLEAR) {

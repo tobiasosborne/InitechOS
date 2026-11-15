@@ -70,6 +70,13 @@ COPY disk-full behavior follows the provisional DOS 3.30 ruling: remove the
 failed output, print the captured insufficient-space message and copied-file
 count, and retain ERRORLEVEL. This includes destructive overwrite and append
 failures. Sources: goldens/dataloss/dos and command/tests/dos33/reference.
+XCOPY reads the first source chunk before creating or truncating its
+destination, so an unreadable source leaves a pre-existing destination's
+bytes intact (genuine XCOPY buffers sources in memory; its exact read-failure
+behavior is still uncaptured, initech-0e5gu, so retention is a stated safety
+assumption). Once a destination has been opened for writing, a failed copy
+or a failed /V verification removes the failed output rather than leaving a
+partial or source-stamped bad copy (initech-wz16r, initech-w33id).
 Batch physical lines retain 127 characters and discard the remainder, exactly
 as the synchronized OEM DOS capture does. Separate 122- and 123-space DEL
 cases retain KEEP.DAT and JUNK.TMP; tests compare the captured input volume,
@@ -83,7 +90,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 148 host patches and 45 product-session patches,
+The current DOS inventory is 150 host patches and 45 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.
