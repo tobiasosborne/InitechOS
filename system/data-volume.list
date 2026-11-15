@@ -1,0 +1,4 @@
+# Built source                         ATA data-volume path   Attributes
+build/system/installed/DESKTOP.DB       DESKTOP.DB             H
+build/system/installed/LEDGER.TXT        LEDGER.TXT             A
+build/system/installed/MICHAEL.CFG       MICHAEL.CFG            A

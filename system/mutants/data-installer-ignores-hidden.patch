@@ -1,0 +1,10 @@
+# test: data-volume
+--- a/install-data.sh
++++ b/install-data.sh
+@@ -17,5 +17,5 @@
+  test -f "$source"
+  mcopy -o -i "$image" "$source" "::$destination"
+  mattrib -i "$image" +a -h -s -r "::$destination"
+- case $attributes in H) mattrib -i "$image" +h "::$destination";; esac
++ case $attributes in H) mattrib -i "$image" -h "::$destination";; esac
+ done < "$manifest"

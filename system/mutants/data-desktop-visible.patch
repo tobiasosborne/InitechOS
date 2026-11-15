@@ -1,0 +1,9 @@
+# test: data-volume
+--- a/data-volume.list
++++ b/data-volume.list
+@@ -1,4 +1,4 @@
+ # Built source                         ATA data-volume path   Attributes
+-build/system/installed/DESKTOP.DB       DESKTOP.DB             H
++build/system/installed/DESKTOP.DB       DESKTOP.DB             A
+ build/system/installed/LEDGER.TXT        LEDGER.TXT             A
+ build/system/installed/MICHAEL.CFG       MICHAEL.CFG            A

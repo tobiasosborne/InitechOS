@@ -1,0 +1,8 @@
+# test: data-volume
+--- a/data-volume.list
++++ b/data-volume.list
+@@ -2,3 +2,4 @@
+ build/system/installed/DESKTOP.DB       DESKTOP.DB             H
+ build/system/installed/LEDGER.TXT        LEDGER.TXT             A
+ build/system/installed/MICHAEL.CFG       MICHAEL.CFG            A
++build/system/installed/HELLO.TXT         TIMER.COM              A

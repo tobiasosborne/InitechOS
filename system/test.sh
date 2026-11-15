@@ -13,4 +13,5 @@ test -s ../build/flair/desktop/libdesktop.a
 sh tests/manifest.sh
 sh tests/applist.sh
 sh tests/inputs.sh
+sh tests/data-volume.sh
 echo 'system: composition and standalone boundary green'

@@ -11,6 +11,8 @@ done
 cp "$out/HELLO.PAS" "$out/TURBOIN.PAS"
 cp samples/TPS.DBF samples/TPSPARM.DAT "$out/"
 cp ../turbo/compiler/turbo.pas "$out/TURBO.PAS"
+cp ../flair/desktop/data/DESKTOP.DB "$out/DESKTOP.DB"
+cp ../apps/initechcalc/data/LEDGER.TXT ../apps/initechcalc/data/MICHAEL.CFG "$out/"
 printf 'FILES=20\r\nSHELL=COMMAND.COM /P\r\nDEVICE=ANSI.SYS\r\n' > "$out/CONFIG.SYS"
 printf '%s\r\n' '@ECHO OFF' 'PATH A:\;A:\APPS' 'FLAIR' > "$out/AUTOEXEC.BAT"
 printf 'Hello from InitechDOS.\r\n' > "$out/HELLO.TXT"

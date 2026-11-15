@@ -3,7 +3,8 @@
 Links the InitechDOS objects and resident COMMAND.COM with the FLAIR Toolbox,
 region engine and desktop binding into build/system/INITDOS.SYS. The standalone
 kernel artifact remains build/kernel/INITDOS.SYS. Dependencies: kernel, dos,
-flair and flair/desktop. No kernel source is compiled here and no ABI flags are changed.
+flair and flair/desktop; InitechCalc supplies the frame's data-volume inputs.
+No kernel source is compiled here and no ABI flags are changed.
 
 S1 verification: the QEMU and Bochs DOS smoke passes (8 MiB); the composed
 image is 186010 loaded bytes. A working disk with AUTOEXEC.BAT containing
@@ -38,6 +39,16 @@ and a weak one with no GUI symbols in the standalone DOS image, verifies archive
 inputs, and runs the factory transport parser check. make smoke delegates to
 the complete product session. Product sources use no overlay, section GC,
 regparm, callee-pop ABI or LTO.
+
+The data-volume inputs have a separate three-column source/destination/attribute
+contract in data-volume.list. Run `sh system/install-data.sh IMAGE` from the
+source root on a fresh formatted ATA A: volume; the factory then fixes its FAT
+dates. It installs the desktop owner's frame arrangement as hidden DESKTOP.DB
+and the two InitechCalc frame inputs in the root. No system programs are added
+by this data manifest. `tests/data-volume.sh` uses mattrib, normal/hidden mdir
+listings and mcopy to grade the attributes and owner-supplied bytes independently.
+This prepares the C: delivery layout; the factory activates the new data manifest
+when the complete working system moves to C:.
 
 Installed inputs are an explicit two-column source/destination contract in
 working-volume.list, including COMMAND.COM and the closed utility list.
