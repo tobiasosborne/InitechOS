@@ -30,7 +30,7 @@ case "$name" in
   else
    rc=$?
    [ "$rc" -eq 1 ] || exit "$rc"
-   echo '  FAIL part-map transcript differs from the frozen independent fixture'
+   echo '  FAIL part-map transcript differs from the frozen regression fixture'
    echo 'INITECH_CHECKS 1 failures=1'
    exit 1
   fi ;;

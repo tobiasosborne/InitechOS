@@ -9,6 +9,11 @@
  * map, commit 4d907b1f) -- a differential against the original implementation,
  * not a value recomputed from the new table. The colour authority
  * itself stays graded by test-color-canon-gen / the pixel gates.
+ *
+ * This is a REGRESSION pin, not a value oracle: the fixture came from the
+ * product, so a wrong entry captured or regenerated into it passes here.
+ * test_part_manifest grades every PART against literal reference values
+ * (PART_MUT_REGEN_DROP_SHADOW shows the difference).
  */
 #include <stdio.h>
 #include <string.h>

@@ -8,8 +8,9 @@ All listed legacy targets were run in /home/tobiasosborne/Projects/InitechOS-leg
 with `. tools/lane-env.sh`, followed by `make -j16 <gate>`. Counts are observed
 outputs, not the draft inventory's inferred counts. No assertion count was reduced.
 
-53 invocations from 52 source programs: 26 ORACLE-STRONG, 27 UNIT/REGRESSION.
-test_skin_manifest (initech-jeo8c) is new, not imported; its legacy column is empty.
+54 invocations from 53 source programs: 27 ORACLE-STRONG, 27 UNIT/REGRESSION.
+test_skin_manifest and test_part_manifest (initech-jeo8c) are new, not imported;
+their legacy column is empty.
 451,944 baseline checks; 451,957 after restoring missing host coverage, plus separately counted storage/table
 comparisons below. The 438,499-check TextEdit property model dominates the total.
 
@@ -38,6 +39,7 @@ comparisons below. The 438,499-check TextEdit property model dominates the total
 | flair_heap | ORACLE-STRONG | 43 | 43 |
 | flair_mechanism_colorblind | UNIT/REGRESSION | 2 | 2 |
 | flair_part_map | UNIT/REGRESSION | 405 transcript rows | 405 transcript rows |
+| part_manifest | ORACLE-STRONG | - | 1937 |
 | flair_routing | UNIT/REGRESSION | 138 | 138 |
 | font_styles | ORACLE-STRONG | 4304 | 4304 |
 | geneva12_metrics | ORACLE-STRONG | 503 | 503 |
@@ -101,7 +103,7 @@ transcriptions also cite historical captures not reread at runtime.
 Two checked-in self-derived regression fixtures: fixtures/flair_part_map.golden
 (405 lines, captured from our pre-compaction renderer, commit 4d907b1f) and
 goldens/asset_lz_data.h (packed from our authored strikes). They are NOT fidelity
-oracles. The pack suites compare all raw strike rows against our authored font
+oracles; test_part_manifest grades the PART values the fixture pins. The pack suites compare all raw strike rows against our authored font
 inputs; the art/header equality checks prove transcription consistency. No one
 may count those as independent visual evidence. The raw asset headers are
 product inputs, not additional golden captures. tests/platform/dos_messages.h

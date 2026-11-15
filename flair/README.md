@@ -151,7 +151,10 @@ proof of historical fidelity. test_skin_manifest grades every slot of the
 three skin rows against literal values cited to wctb, the Platinum and Win 3.1
 references and the operator's teal canon; the frozen digest is only a
 regression pin, and SKIN_MUT_REPIN_MENUBAR shows a re-pinned wrong slot
-passing it and failing the manifest. Authored logo art and teal substitutions remain
+passing it and failing the manifest. test_part_manifest does the same for
+all 79 PARTs at every depth and skin; the part-map transcript is a regression
+pin, and PART_MUT_REGEN_DROP_SHADOW regenerates it around a wrong entry.
+Authored logo art and teal substitutions remain
 authored policy. No pixel or user-visible behavior is intentionally changed.
 
 The platform binding supplies private file sessions, DOS-form file/clock calls,
@@ -194,7 +197,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 216 patches through the shared strict runner: passing baseline,
+make mutants runs 217 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
@@ -211,7 +214,7 @@ s8_alert_modal, s8_icons_alert_caution). No compile failure was counted as a kil
 The copy patches were refreshed against staged copying,
 with independent destination bytes and a literal configured-rate assertion.
 None was deleted as equivalent. tests/MUTATION-RESULTS.tsv records the 207 original
-macros and their 248 guard entries, plus nine later external patches, test
+macros and their 248 guard entries, plus ten later external patches, test
 selection, disposition, recipe evidence and completed semantic receipts.
 This includes five hooks omitted from the original 202-macro/243-entry inventory:
 the two clock faults, modal passthrough, close hiding and update visibility.

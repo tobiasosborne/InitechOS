@@ -70,7 +70,8 @@ typedef struct {
  * row (79 x 8 B -> 79 x 3 B + 4 x 4 B). Still no 0xRRGGBB literal: each entry
  * is the canon authority's macro (color_canon.h derived_rows; ARB-5).
  * test-flair-part-map diffs every PART x depth x skin resolution against the
- * transcript of the 8-byte-row implementation (independent checks differential). */
+ * transcript of the 8-byte-row implementation (a regression pin only);
+ * test_part_manifest grades the values against their references. */
 static const uint32_t flair_derived_rgb[] = {
     INITECH_CANON_BEVEL_LIGHT_RGB,
     INITECH_CANON_BEVEL_SHADOW_RGB,
