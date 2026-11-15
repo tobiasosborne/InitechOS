@@ -18,6 +18,9 @@ check() {
     if "$@"; then echo "PASS $name"; else echo "FAIL $name"; failures=$((failures+1)); fi
 }
 case $entry in
+page-failure)
+    check page-failure sh tests/page-failure.sh "$out"
+    ;;
 journey)
     # The IDE built by Free Pascal replays the journey; every screen is
     # compared with the TP 5.5 capture it names, and the saved files with
