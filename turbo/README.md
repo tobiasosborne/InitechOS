@@ -29,7 +29,7 @@ encoder/fixup/relocation/layout and three generated-execution patches.
 QEMU and Bochs each execute all 17 corpus programs and 19 regressions through
 direct seed output, hosted Pascal native output, and resident Pascal native
 compilation. Hosted and resident Pascal output also runs as flat COM:
-360 executions, preserving all prior 330 and adding 30 comparisons for
+370 executions (gen_ioresult adds 10), preserving all prior 330 and the 30 comparisons for
 computed characters at the start of concatenations, including higher temporary
 bases. The earlier probes cover minimum-Integer div/mod and string temporaries
 in Length and record indices.
