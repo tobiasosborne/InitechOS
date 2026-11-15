@@ -1400,6 +1400,7 @@ static void leg_quit(void)
     TP.script = script_menubar;
     CHECKF(launch() == TBX_OK, "leg(Q0): the menu-bar tenant launches");
     service();
+    (void)tbx_take_mbar_redraw();
     FlairApp *t = tenant_app();
     if (t == NULL) return;
     int b = g_n;
@@ -1409,6 +1410,7 @@ static void leg_quit(void)
           "leg(Q2): the request reaches the tenant as its own File > Exit choice");
     CHECKF(W.plist.head == t,
           "leg(Q3): the tenant is brought to the front before it is asked");
+    CHECK(tbx_take_mbar_redraw(),"quit activation asks the shell to redraw the front program's menu bar");
     int menu_after_activate = 0, activated = 0;
     for (int i = b; i < g_n; i++) {
         if (g_log[i].who == WHO_T && g_log[i].what == activateEvt) activated = 1;

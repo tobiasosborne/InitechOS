@@ -32,6 +32,12 @@ goldens/frame/geometry.tsv COPY at (150,171)-(480,274), extended to bottom
 "Cancel at about x=285" means the box bottom at y=285, not a button x position;
 the live button is (394,255)-(466,275). No second placement remains here.
 The legacy confirmation and application's opportunity to cancel are preserved.
+Restart, Shut Down and Exit to InitechDOS retain the requested action while a
+resident application explicitly reports PENDING through TBX_QUIT_REPLY. The
+ordinary event pump continues; EXIT accepts and CANCEL abandons that action
+with the existing named notice. A callback return is not a refusal while the
+application is asking. This follows Inside Macintosh VI pp.6-36/6-37,
+Listing6-8, including its interactive save decision and userCanceledErr.
 No executable overlay, COMMAND transient, demo tenant or boot personality is
 built. Default TARGET_CFLAGS and cdecl apply to every object. tbx_gate.asm
 already pushed/cleaned stack arguments, so no ABI change was needed there.

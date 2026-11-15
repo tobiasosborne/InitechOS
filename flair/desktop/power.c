@@ -110,69 +110,75 @@ static void finder_restart_now(void)
     serial_puts("\nHALTED\n");
     kernel_halt();
 }
-static  int finder_power_ask_apps(flair_live_ctx_t *ctx, const boot_info_t *bi)
+/* Inside Macintosh VI pp.6-36/6-37 (Listing6-8): the quit handler may
+ * interact with the user and report userCanceledErr. Our callback transport
+ * represents that interval explicitly; the ordinary pump continues delivering
+ * events until EXIT or CANCEL. A callback return alone is not an answer. */
+static finder_cmd_id pending_power;
+static void finder_power_cancel(flair_live_ctx_t *ctx,const boot_info_t *bi,int asked)
 {
-    const char *still;
-    int r;
-    r = tbx_ask_quit();
-    if (r == 0) return 1;
-    if (r > 0) flair_live_tenant_heard(ctx, bi);
-    still = tbx_resident_name();
-    if (still == (const char *)0) return 1;
-    serial_puts("FINDER-POWER-CANCEL app=");
-    serial_puts(still);
-    serial_puts(r > 0 ? " declined\n" : " cannot-ask\n");
-    {
-        static const char *const ok[] = { "OK" };
-        const char *lines[3];
-        unsigned n = finder_power_notice(r > 0, still, lines);
-        if (n) {
-            flair_live_alert_open(ctx, bi, lines, (int)n, ok, 1, 1);
-            serial_puts("FINDER-POWER-NOTICE\n");
-            for (unsigned i = 0; i < n; i++) {
-                serial_puts("FINDER-ALERT-LINE ");
-                serial_puts(lines[i]); serial_putc('\n');
-            }
-            (void)flair_live_alert_run(ctx, bi);
+    const char *still=tbx_resident_name();
+    if(!still)return;
+    serial_puts("FINDER-POWER-CANCEL app=");serial_puts(still);
+    serial_puts(asked?" declined\n":" cannot-ask\n");
+    static const char *const ok[]={"OK"};
+    const char *lines[3];
+    unsigned n=finder_power_notice(asked,still,lines);
+    if(n){
+        flair_live_alert_open(ctx,bi,lines,(int)n,ok,1,1);
+        serial_puts("FINDER-POWER-NOTICE\n");
+        for(unsigned i=0;i<n;i++){
+            serial_puts("FINDER-ALERT-LINE ");serial_puts(lines[i]);serial_putc('\n');
         }
+        (void)flair_live_alert_run(ctx,bi);
     }
-    return 0;
 }
-void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                         finder_cmd_id id, int16_t noted)
+static void finder_power_complete(flair_live_ctx_t *ctx,const boot_info_t *bi,finder_cmd_id id)
 {
-    serial_puts(id == FCMD_RESTART ? "FINDER-POWER name=RESTART views="
-                                   : "FINDER-POWER name=SHUTDOWN views=");
-    serial_puti((int32_t)noted);
-    serial_putc('\n');
-    if (!finder_power_ask_apps(ctx, bi))
-        return;
-    g_finder_db_dirty = 1;
+    g_finder_db_dirty=1;
     finder_desk_persist();
-    if (id == FCMD_SHUTDOWN && !finder_shutdown_screen(ctx, bi))
-        return;
+    if(id==FCMD_EXIT_DOS){g_desktop_exit=1;return;}
+    if(id==FCMD_SHUTDOWN && !finder_shutdown_screen(ctx,bi))return;
     finder_restart_now();
 }
-void finder_exit_dos(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                            int16_t noted)
+void finder_power_poll(flair_live_ctx_t *ctx,const boot_info_t *bi)
 {
-    static const char *const labels[2] = { "Exit", "Cancel" };
-    static char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
-    const char *text[FINDER_ALERT_LINES];
-    int n = finder_exit_dos_alert_text(lines), k;
-    for (k = 0; k < n; k++) text[k] = lines[k];
-    flair_live_alert_open(ctx, bi, text, n, labels, 2, 1);
-    serial_puts("FINDER-EXIT-DOS-ALERT\n");
-    if (flair_live_alert_run(ctx, bi) != 1u) {
-        serial_puts("FINDER-EXIT-DOS-CANCEL\n");
+    finder_cmd_id id=pending_power;
+    if(!id || tbx_quit_pending())return;
+    pending_power=0;  /* consume before a modal, persistence or restart */
+    if(tbx_resident_name())finder_power_cancel(ctx,bi,1);
+    else finder_power_complete(ctx,bi,id);
+}
+void finder_power_reset(void){pending_power=0;}
+static void finder_power_request(flair_live_ctx_t *ctx,const boot_info_t *bi,finder_cmd_id id)
+{
+    if(pending_power)return;
+    int r=tbx_ask_quit();
+    if(r>0)flair_live_tenant_heard(ctx,bi);
+    if(!tbx_resident_name()){finder_power_complete(ctx,bi,id);return;}
+    if(r>0 && tbx_quit_pending()){
+        pending_power=id;
+        serial_puts("FINDER-POWER-WAIT\n");
         return;
     }
-    serial_puts("FINDER-POWER name=EXITDOS views=");
-    serial_puti((int32_t)noted);
-    serial_putc('\n');
-    if (!finder_power_ask_apps(ctx, bi))
-        return;
-    g_finder_db_dirty = 1;
-    finder_desk_persist();
-    g_desktop_exit=1;
+    finder_power_cancel(ctx,bi,r>0);
+}
+void finder_power(flair_live_ctx_t *ctx,const boot_info_t *bi,finder_cmd_id id,int16_t noted)
+{
+    serial_puts(id==FCMD_RESTART?"FINDER-POWER name=RESTART views=":"FINDER-POWER name=SHUTDOWN views=");
+    serial_puti((int32_t)noted);serial_putc('\n');
+    finder_power_request(ctx,bi,id);
+}
+void finder_exit_dos(flair_live_ctx_t *ctx,const boot_info_t *bi,int16_t noted)
+{
+    static const char *const labels[2]={"Exit","Cancel"};
+    static char lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
+    const char *text[FINDER_ALERT_LINES];
+    int n=finder_exit_dos_alert_text(lines);
+    for(int k=0;k<n;k++)text[k]=lines[k];
+    flair_live_alert_open(ctx,bi,text,n,labels,2,1);
+    serial_puts("FINDER-EXIT-DOS-ALERT\n");
+    if(flair_live_alert_run(ctx,bi)!=1u){serial_puts("FINDER-EXIT-DOS-CANCEL\n");return;}
+    serial_puts("FINDER-POWER name=EXITDOS views=");serial_puti((int32_t)noted);serial_putc('\n');
+    finder_power_request(ctx,bi,FCMD_EXIT_DOS);
 }

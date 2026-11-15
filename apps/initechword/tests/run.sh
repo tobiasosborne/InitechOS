@@ -14,6 +14,7 @@ read_text() {
     grep -q 'END offset=\([0-9]*\) filesize=\1 trailer-errors=0$' "$1.ref"
 }
 case "$name" in
+ test_iword_quit) "$bin" ;;
  test_iword_commands)
     (cd tests/fixtures/status-units; sha256sum -c SHA256SUMS --quiet)
     (cd tests/fixtures/name-search; sha256sum -c SHA256SUMS --quiet)

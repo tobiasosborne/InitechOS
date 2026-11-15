@@ -1,0 +1,13 @@
+# test: test_power_wait
+# A prompt still awaiting its answer is not a refusal.
+--- a/power.c
++++ b/power.c
+@@ -157,7 +157,7 @@
+     if(r>0)flair_live_tenant_heard(ctx,bi);
+     if(!tbx_resident_name()){finder_power_complete(ctx,bi,id);return;}
+     if(r>0 && tbx_quit_pending()){
+-        pending_power=id;
++        finder_power_cancel(ctx,bi,1);
+         serial_puts("FINDER-POWER-WAIT\n");
+         return;
+     }

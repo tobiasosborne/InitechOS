@@ -1488,6 +1488,7 @@ int tbx_ask_quit(void)
             if (!tbx_is_quit(it)) continue;
             if (g_host.list != (FlairProcessList *)0 && g_host.wm != (WindowMgr *)0)
                 (void)FlairProcess_activate(g_host.list, g_host.wm, &ev, app);
+            g_slot.mbar_redraw = 1u;
             g_slot.quit_requested = 1u;
             g_slot.quit_pending = 0u;
             return tbx_menu_choice(bar, MenuResult(mi->menuID,

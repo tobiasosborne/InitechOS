@@ -141,6 +141,8 @@ void kernel_graphical_environment(void)
         uint32_t clock_last_poll = 0;
         int clock_polled = 0;
         while (!g_desktop_exit) {
+            finder_power_poll(&ctx, &b);
+            if (g_desktop_exit) break;
             if(g_finder_io_error) {
                 finder_win_status_t st=g_finder_io_error;
                 g_finder_io_error=FINDER_WIN_OK;
@@ -264,6 +266,7 @@ void kernel_graphical_environment(void)
         }
     }
     flair_cursor_hide();
+    finder_power_reset();
     pit_set_tick_hook(0);
     kbd_set_scancode_hook(0);
     mouse_set_event_hook(0);

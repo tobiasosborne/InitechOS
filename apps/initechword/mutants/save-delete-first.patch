@@ -1,11 +1,10 @@
 # test: test_iword_save
 --- a/app/save.h
 +++ b/app/save.h
-@@ -77,6 +77,7 @@
+@@ -77,5 +77,6 @@
          rc = tbx_file_copy_save(g_path, g_word_backup);
          if (rc < 0) return rc;
      }
 +    (void)tbx_file_delete(g_path); /* wrong: drop the previous version before publishing */
      return tbx_file_save(g_path, g_bank[1u-g_live], n);
  }
- 

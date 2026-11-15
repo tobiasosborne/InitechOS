@@ -16,7 +16,7 @@ file is required. The independent MZ reader validates relocations and BSS:
 the BSS remains below the OS-side 512 KiB limit. Drawing data already uses TBX_IN_IMAGE; file buffers stay in
 BSS as allowed by sdk/README.md. No OS change was needed to run this executable.
 
-make test runs 16 programs against the real pinned
+make test runs 18 programs against the real pinned
 WordPerfect corpus, captured grids and independent models/readers. Execution
 fits the 30-second budget. Hosted code uses -O2, keeping every property
 session: 13s before versus 10s after on the integration machine (codes 8s
@@ -114,16 +114,25 @@ path changes; Look does not scroll plain text or navigate adjacent documents;
 paragraph extension and code-search are omitted while Block owns input;
 Ctrl-arrow and Ctrl-Delete act on units; inline Center/Flush Right codes have
 no layout effect; resize can hide prompts; document clicking/scrollbars have
-no viewport route; a Finder Restart or Shut Down now reaches File > Exit
-(the Toolbox finds the quit command by its Command-Q) and brings Word to the
-front, but with a dirty document the Finder still cancels at once rather
-than waiting for the answer to "Save document?" (initech-qv7t, desktop part);
+no viewport route;
 zero-inch margins are silently ignored; real FLAIR Ctrl-M does not reach the
 search soft-return route. These are existing triage items, not new scope.
 
 The corpus minting tools/fixtures are manual capture support, excluded from
 all/test. Remaining legacy pixel-heavy emulator gates are listed in
  tests/SMOKES.md; their future owner is the InitechWord/factory importer.
+
+Finder Restart/Shut Down reaches Word's File > Exit through Command-Q. A
+dirty document explicitly replies PENDING through the published Toolbox gate
+while the user answers the Save/Exit questions. Cancel, a refused save, or an
+already occupied prompt replies CANCEL; completed Exit uses the existing EXIT.
+The Finder keeps servicing ordinary input until that answer. This is the
+push-callback equivalent of Inside Macintosh VI pp.6-36/6-37, Listing6-8
+(interactive Quit Application and userCanceledErr); Word's questions follow
+WP5.1 Reference193/211. make smoke-power drives both power commands, dirty and
+clean documents, Cancel, refused read-only Save, saved and unsaved Exit, safe
+shutdown and actual reboot on both emulators. mtools and the independent WP5
+reader check the saved text and the unchanged refused destination.
 
 ## Independent Replace expectation
 

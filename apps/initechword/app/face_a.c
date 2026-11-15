@@ -353,6 +353,7 @@ static char     g_path[TBX_FILE_PATH_MAX];  /* "NAME" for the file verbs     */
 static char     g_current[TBX_FILE_PATH_MAX + 4]; /* once saved/retrieved   */
 static char     g_shown[TBX_FILE_PATH_MAX + 4];   /* of the name being used */
 static uint8_t  g_exiting;                  /* the save is part of F7 Exit  */
+static uint8_t  g_quit_reply;               /* native Exit still awaits input */
 /* the Format: Line margin fields (Shift-F8 1 7): the text typed so far, the
  * left value taken (WPU), whether anything was typed */
 static char     g_field[12];
@@ -1960,8 +1961,15 @@ static void paint_lf(void)
 enum { FROM_F7, FROM_MAC };
 static void request_exit(int from)
 {
-    if (g_mode != M_EDIT) return;                 /* one question at a time */
+    if (g_mode != M_EDIT) {
+        if (from == FROM_MAC) (void)tbx_quit_reply(TBX_QUIT_CANCEL);
+        return;                                /* one question at a time */
+    }
     if (from == FROM_MAC && !g_ed.dirty) { (void)tbx_exit(0); return; }
+    if (from == FROM_MAC) {
+        g_quit_reply = 1;
+        (void)tbx_quit_reply(TBX_QUIT_PENDING);
+    }
     g_mode = M_SAVEQ;
 }
 
@@ -2754,9 +2762,11 @@ void tbx_app_event(const tbx_event_t *ev)
         key(ev->message, ev->modifiers);
         break;
     case TBX_EVT_MENU:
-        if (g_mode == M_EDIT) {
-            if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_EXIT)) request_exit(FROM_MAC);
-            else if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_SAVE) && g_ed.blk == IW_NO_BLOCK) { offer_name(); g_exiting = 0; g_mode = M_SAVE_NAME; }
+        if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_EXIT)) {
+            request_exit(FROM_MAC);
+            paint();
+        } else if (g_mode == M_EDIT) {
+            if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_SAVE) && g_ed.blk == IW_NO_BLOCK) { offer_name(); g_exiting = 0; g_mode = M_SAVE_NAME; }
             else if (ev->message == TBX_MENU_WORD(MENU_FILE, ITEM_RETRIEVE)) { g_nlen = 0; g_name[0] = 0; g_mode = M_GET_NAME; }
             paint();
         }
@@ -2767,5 +2777,9 @@ void tbx_app_event(const tbx_event_t *ev)
         break;
     default:
         break;
+    }
+    if (g_quit_reply && (g_mode == M_EDIT || g_mode == M_ERROR)) {
+        g_quit_reply = 0;
+        (void)tbx_quit_reply(TBX_QUIT_CANCEL);
     }
 }

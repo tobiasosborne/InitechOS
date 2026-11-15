@@ -1,0 +1,13 @@
+# test: test_iword_quit
+# A native Exit save question must explicitly wait for user input.
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1973,7 +1973,7 @@
+     if (from == FROM_MAC && !g_ed.dirty) { (void)tbx_exit(0); return; }
+     if (from == FROM_MAC) {
+         g_quit_reply = 1;
+-        (void)tbx_quit_reply(TBX_QUIT_PENDING);
++        (void)tbx_quit_reply(TBX_QUIT_CANCEL);
+     }
+     g_mode = M_SAVEQ;
+ }

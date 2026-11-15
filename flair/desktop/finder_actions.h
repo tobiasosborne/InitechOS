@@ -101,6 +101,8 @@ void finder_surface_desktop(finder_surface_t *s);
 void finder_surface_invalidate_all(const finder_surface_t *s,
                                           flair_live_ctx_t *ctx);
 void finder_report_view(int slot);
+void finder_power_poll(flair_live_ctx_t *, const boot_info_t *);
+void finder_power_reset(void);
 void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
                          finder_cmd_id id, int16_t noted);
 void finder_exit_dos(flair_live_ctx_t *ctx, const boot_info_t *bi,

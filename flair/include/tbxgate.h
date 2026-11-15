@@ -132,8 +132,9 @@ int tbx_take_drew(void);
  * title: Quit, or WordPerfect's Exit) exactly as a mouse choice
  * (TENANT-MENU... src=quit), after bringing the tenant to the front so a save
  * question it asks is in front. The tenant may EXIT, ask or decline;
- * the caller runs its tenant service and then reads tbx_resident_name: still
- * resident == the application declined, and the shut-down is cancelled.
+ * the caller runs its tenant service and then reads tbx_resident_name and
+ * tbx_quit_pending. While pending it keeps delivering ordinary events. EXIT
+ * accepts; CANCEL or a callback returning without PENDING declines.
  * Returns 0 when no live disk tenant is resident (nothing to ask), 1 when the
  * request was delivered, -1 when the tenant has no enabled quit command (it
  * cannot be asked; the caller cancels -- never terminate it, its work would

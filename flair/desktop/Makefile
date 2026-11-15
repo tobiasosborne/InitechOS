@@ -26,6 +26,7 @@ HOST_TESTS += test_finder_storage
 HOST_TESTS += test_frame_desktop
 HOST_TESTS += test_volume_binding
 HOST_TESTS += test_finder_selection
+HOST_TESTS += test_power_wait
 $(foreach t,$(HOST_TESTS),$(eval $(t)_SRCS := tests/$(t).c))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_DEPS := $(OUT)/libdesktop-host.a))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_LIBS := $(OUT)/libdesktop-host.a -lpng))

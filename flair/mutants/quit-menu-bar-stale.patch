@@ -1,0 +1,12 @@
+# test: test_flair_routing
+# Bringing the quit respondent forward must bring its menu bar too.
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1488,6 +1488,6 @@
+             if (g_host.list != (FlairProcessList *)0 && g_host.wm != (WindowMgr *)0)
+                 (void)FlairProcess_activate(g_host.list, g_host.wm, &ev, app);
+-            g_slot.mbar_redraw = 1u;
++            g_slot.mbar_redraw = 0u;
+             g_slot.quit_requested = 1u;
+             g_slot.quit_pending = 0u;
+             return tbx_menu_choice(bar, MenuResult(mi->menuID,
