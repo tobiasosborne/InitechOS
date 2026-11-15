@@ -1271,6 +1271,7 @@ static int q_get_rebind(xb_interp *ip,xb_get *g,int *ec)
     expr[n]=0;
     rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
     ng=*g;ng.buf=(char *)0;
+    ng.changed=0;ng.started=0; /* a freshly loaded buffer is untouched */
     ng.type=(uint8_t)(ftype=='C'?XB_C:ftype=='N'?XB_N:ftype=='D'?XB_D:XB_L);
     ng.dec=(int16_t)f->dec_count;
     { uint32_t i;for(i=0;i<11u&&f->name[i];i++)ng.name[i]=f->name[i];ng.name[i]=0; }
@@ -1526,9 +1527,10 @@ static int q_get_write(xb_interp *ip,xb_get *g,int *ec)
         if(v.t==XB_C) { uint32_t n=v.u.c.len>255?255:v.u.c.len;rt_memcpy(tmp,v.u.c.p,n);v=xb_c(tmp,(uint16_t)n); }
         if(v.t==XB_N&&g->pic[0]) {
             if(xb_interp_store_width(ip,g->name,&v)!=INTERP_OK)return -2;
-            q_get_reshow(ip,g,&v);return 1;
+            q_get_reshow(ip,g,&v);g->changed=0;return 1;
         }
-        return xb_interp_store(ip,g->name,&v)==INTERP_OK?1:-2;
+        if(xb_interp_store(ip,g->name,&v)!=INTERP_OK)return -2;
+        g->changed=0;return 1;
     }
     {
         int sel=wa_selected(env),rc;
@@ -1539,7 +1541,12 @@ static int q_get_write(xb_interp *ip,xb_get *g,int *ec)
         if(g->type==XB_L) { xb_val raw=xb_c(g->buf,1);rc=ibase_write_field_raw(ip,g->area,wa_recno(env,g->area),g->field,&raw,ec); }
         else rc=ibase_write_field(ip,g->area,wa_recno(env,g->area),g->field,&v,ec);
         if(sel!=g->area)(void)wa_select(env,sel);
-        if(rc==INTERP_OK)q_get_reshow(ip,g,&v);
+        /* Stored once: the buffer is clean until another key changes it, so
+         * leaving the field and then READ's final save never publish the
+         * same edit twice (initech-el8uu: a second, failing save would
+         * report failure after the first had replaced the file). READKEY's
+         * history of changes is kept separately in q_read. */
+        if(rc==INTERP_OK) { q_get_reshow(ip,g,&v);g->changed=0; }
         return rc==INTERP_OK?1:-2;
     }
 }
@@ -1589,7 +1596,7 @@ static int q_read_key(ibase_pal_t *pal)
     if(c==9)return QK_TAB;
     return (int)c; /* printable or Ctrl-letter byte (1..26) */
 }
-static int q_read(xb_interp *ip,const char *args,int *ec)
+static int q_read_run(xb_interp *ip,const char *args,int *ec)
 {
     xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
     const set_state *ss=set_get_state(ip);
@@ -1905,6 +1912,15 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
     q_get_cursor(ip,23,0);
     if(ec)*ec=0;
     return INTERP_OK;
+}
+/* A READ that fails, for whatever reason, leaves no pending GET: a kept,
+ * changed GET would be rebound to the record current at the next READ and
+ * written there untouched (initech-xvko6: a 2002 date became 1902). */
+static int q_read(xb_interp *ip,const char *args,int *ec)
+{
+    int rc=q_read_run(ip,args,ec);
+    if(rc!=INTERP_OK)ibase_gets_clear(ip);
+    return rc;
 }
 /* Ref: say-get-read.md sections 1-2; programming-and-io.md error 30.
  * Deliberately reject out-of-slice clauses before evaluating or painting. */

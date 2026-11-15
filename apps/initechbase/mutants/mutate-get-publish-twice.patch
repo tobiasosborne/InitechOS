@@ -1,0 +1,13 @@
+# test: test_ibase_gets
+# A stored field GET stays dirty, so READ's final save publishes it again (initech-el8uu).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1546,7 +1546,7 @@
+          * same edit twice (initech-el8uu: a second, failing save would
+          * report failure after the first had replaced the file). READKEY's
+          * history of changes is kept separately in q_read. */
+-        if(rc==INTERP_OK) { q_get_reshow(ip,g,&v);g->changed=0; }
++        if(rc==INTERP_OK) { q_get_reshow(ip,g,&v); } /* MUTANT */
+         return rc==INTERP_OK?1:-2;
+     }
+ }

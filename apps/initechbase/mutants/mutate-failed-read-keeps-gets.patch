@@ -1,0 +1,13 @@
+# test: test_ibase_gets
+# A failed READ keeps its pending GETs (initech-xvko6).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1919,7 +1919,7 @@
+ static int q_read(xb_interp *ip,const char *args,int *ec)
+ {
+     int rc=q_read_run(ip,args,ec);
+-    if(rc!=INTERP_OK)ibase_gets_clear(ip);
++    /* MUTANT: keep the GET list after a failed READ. */
+     return rc;
+ }
+ /* Ref: say-get-read.md sections 1-2; programming-and-io.md error 30.

@@ -562,6 +562,116 @@ static void f20_rebind(void)
     CHECK(keys_i == 0, "F20j: READ read no key");
 }
 
+
+/* Write-failure preservation for READ (initech-xvko6, initech-el8uu; the
+ * reviewer's reproductions in phase3/xreview-base-forms-2.md). These grade
+ * the component's failed-write guarantee, not a dBASE coercion: expected
+ * bytes are the predecessor fixture's own. The PAL write hook returns
+ * disk full either from the first write or after the first install of a
+ * staged FORM.DBF. */
+extern int mutate_register(xb_interp *);
+static int (*real_rename)(ibase_pal_t *, const char *, const char *);
+static int32_t (*real_write)(ibase_pal_t *, pal_fd, const void *, uint32_t);
+static int fault_installs, fault_armed, fault_first;
+static int fault_rename(ibase_pal_t *p, const char *a, const char *b)
+{
+    int rc = real_rename(p, a, b);
+    if (!rc && fault_armed && strstr(a, ".TMP") && strstr(b, "FORM.DBF")) fault_installs++;
+    return rc;
+}
+static int32_t fault_write(ibase_pal_t *p, pal_fd f, const void *b, uint32_t n)
+{
+    if (fault_armed && n && (fault_first || fault_installs >= 1)) return -PAL_ENOSPC;
+    return real_write(p, f, b, n);
+}
+static void read_record(int recno, unsigned char *rec)
+{
+    char path[8400]; snprintf(path, sizeof path, "%s/FORM.DBF", scratch);
+    FILE *f = screen_open(path, "rb");
+    CHECK(fseek(f, 193 + 38 * (recno - 1), SEEK_SET) == 0 && fread(rec, 1, 38, f) == 38, "record readable");
+    fclose(f);
+}
+/* One GET over a fresh FORM.DBF in scratch; returns the bound interpreter. */
+static xb_interp *fault_setup(ibase_pal_t **pp, struct w2_host_env *env, const char *decl, int year2002)
+{
+    char root[2048], temp[] = "build/gets-fault.XXXXXX", path[8400];
+    if (!getcwd(root, sizeof root) || !mkdtemp(temp)) screen_die("scratch directory");
+    snprintf(scratch, sizeof scratch, "%s/%s", root, temp);
+    snprintf(path, sizeof path, "%s/FORM.DBF", scratch);
+    copy_file(F20 "forms-f13a-bind/SETUP/FORM.DBF", path);
+    if (year2002) { /* record 2 FD becomes 2002-01-15 in the fixture itself */
+        FILE *df = screen_open(path, "r+b");
+        fseek(df, 193 + 38 + 1 + 8 + 10, SEEK_SET); fwrite("20020115", 1, 8, df); fclose(df);
+    }
+    snprintf(path, sizeof path, "%s/FORM.DBT", scratch);
+    copy_file(F20 "forms-f13a-bind/SETUP/FORM.DBT", path);
+    ibase_pal_t *p = pal_host_make((struct pal_host_cfg){92,3,2,4*1024*1024});
+    struct w2_host_config cfg = {scratch, scratch, 1 << 24, 1 << 24, 'C'};
+    CHECK(p && w2_host_bind(env, p, &cfg) == 0, "fault scratch binding");
+    xb_interp *ip = make_ip(p); mutate_register(ip);
+    CHECK(wa_set_open_rw(xb_interp_env(ip), 1, "FORM.DBF", NULL, NULL) == 0, "fault fixture opens");
+    wa_goto(xb_interp_env(ip), 1, 1);
+    CHECK(ibase_do(ip, decl) == INTERP_OK, "fault GET declared");
+    real_rename = p->rename; p->rename = fault_rename;
+    real_write = p->write; p->write = fault_write;
+    fault_installs = 0; *pp = p;
+    return ip;
+}
+static void fault_teardown(xb_interp *ip, ibase_pal_t *p, struct w2_host_env *env)
+{
+    p->rename = real_rename; p->write = real_write;
+    xb_interp_free(ip); w2_host_unbind(env); pal_host_free(p);
+}
+/* xvko6: a READ that fails keeps no GET, so a later untouched READ on
+ * another record rewrites nothing (the review saw 2002 become 1902). */
+static void fault_failed_read_drops_gets(void)
+{
+    ibase_pal_t *p; struct w2_host_env env; unsigned char before[38], after[38];
+    xb_interp *ip = fault_setup(&p, &env, "SET CENTURY OFF\n@ 5,10 GET FD\n", 1);
+    read_record(2, before);
+    fault_first = 1; fault_armed = 1;
+    FEED("010194\r");
+    CHECK(ibase_do(ip, "READ\n") != INTERP_OK && ibase_last_error(ip) == 56, "disk-full READ reports #56");
+    fault_armed = 0;
+    CHECK(xb_interp_ctx(ip)->ngets == 0, "a failed READ leaves no pending GET");
+    CHECK(ibase_do(ip, "GO 2\n") == INTERP_OK, "move to record 2");
+    FEED("\r");
+    CHECK(ibase_do(ip, "READ\n") == INTERP_OK, "untouched READ after the failure");
+    value_n(ip, "YEAR(FD)", 2002);
+    read_record(2, after);
+    CHECK(!memcmp(before, after, 38), "record 2 bytes untouched after the retry");
+    fault_teardown(ip, p, &env);
+}
+/* el8uu: each leave-field exit publishes the edit once. A fault after the
+ * first install must either be unseen (READ succeeds with Z stored) or be
+ * reported with the predecessor ABCD intact; never failure after the edit
+ * replaced the file. */
+static void fault_publish_once_case(const char *what, const char *decl, const uint8_t *k, uint32_t kn, const char *want)
+{
+    ibase_pal_t *p; struct w2_host_env env; unsigned char rec[38]; char msg[200];
+    xb_interp *ip = fault_setup(&p, &env, decl, 0);
+    fault_first = 0; fault_armed = 1;
+    feed(k, kn);
+    int rc = ibase_do(ip, "READ\n");
+    fault_armed = 0;
+    read_record(1, rec);
+    snprintf(msg, sizeof msg, "%s: READ publishes the edit once (rc=%d, installs=%d, FC=%.8s)", what, rc, fault_installs, rec + 1);
+    CHECK(rc == INTERP_OK ? !memcmp(rec + 1, want, 8) : !memcmp(rec + 1, "ABCD    ", 8), msg);
+    snprintf(msg, sizeof msg, "%s: exactly one install", what);
+    CHECK(fault_installs == 1, msg);
+    fault_teardown(ip, p, &env);
+}
+static void fault_publish_once(void)
+{
+    static const uint8_t enter[] = {'Z','\r'}, up[] = {'Z',0,0x48}, home[] = {'Z',0,0x47,0,0x47},
+        end[] = {'Z',0,0x4f,0,0x4f}, full[] = {'Z','Y','X','W','V','U','T','S'};
+    fault_publish_once_case("Enter", "@ 5,10 GET FC\n", enter, sizeof enter, "ZBCD    ");
+    fault_publish_once_case("Up", "@ 5,10 GET FC\n", up, sizeof up, "ZBCD    ");
+    fault_publish_once_case("Home chain", "@ 5,10 GET FC\n", home, sizeof home, "ZBCD    ");
+    fault_publish_once_case("End chain", "@ 5,10 GET FC\n", end, sizeof end, "ZBCD    ");
+    fault_publish_once_case("CONFIRM OFF fill", "SET CONFIRM OFF\n@ 5,10 GET FC\n", full, sizeof full, "ZYXWVUTS");
+}
+
 int main(void)
 {
     f01_memvar();
@@ -578,5 +688,7 @@ int main(void)
     f19_home_chain_and_badcombo();
     f20_eof();
     f20_rebind();
+    fault_failed_read_drops_gets();
+    fault_publish_once();
     return TEST_SUMMARY("test-ibase-gets");
 }

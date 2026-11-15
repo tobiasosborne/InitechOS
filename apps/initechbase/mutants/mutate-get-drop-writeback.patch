@@ -2,12 +2,13 @@
 # GET write-back dropped: READ edits never reach the memvar.
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -1528,7 +1528,7 @@
+@@ -1529,8 +1529,7 @@
              if(xb_interp_store_width(ip,g->name,&v)!=INTERP_OK)return -2;
-             q_get_reshow(ip,g,&v);return 1;
+             q_get_reshow(ip,g,&v);g->changed=0;return 1;
          }
--        return xb_interp_store(ip,g->name,&v)==INTERP_OK?1:-2;
-+        return 1; /* MUTANT: drop GET write-back. */
+-        if(xb_interp_store(ip,g->name,&v)!=INTERP_OK)return -2;
+-        g->changed=0;return 1;
++        g->changed=0;return 1; /* MUTANT: drop GET write-back. */
      }
      {
          int sel=wa_selected(env),rc;
