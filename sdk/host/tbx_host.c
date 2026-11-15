@@ -155,12 +155,12 @@ static int norm(const char *p,char out[TBX_FILE_PATH_MAX])
     out[n]=0;return n!=0;
 }
 static int find(const char *p)
-{ char name[TBX_FILE_PATH_MAX];if(!norm(p,name))return -1;for(int i=0;i<TBX_HOST_FILES;i++)if(S.files[i].used&&!strcmp(S.files[i].name,name))return i;return -1; }
+{ char name[TBX_FILE_PATH_MAX],d=drive_of(p);if(!norm(p,name))return -1;for(int i=0;i<TBX_HOST_FILES;i++)if(S.files[i].used&&S.files[i].drive==d&&!strcmp(S.files[i].name,name))return i;return -1; }
 const tbx_host_file_t *tbx_host_file(const char *p) { int i=find(p);return i<0?0:&S.files[i]; }
 static int allocfile(const char *p)
 {
     char name[TBX_FILE_PATH_MAX];if(!norm(p,name))return -1;
-    for(int i=0;i<TBX_HOST_FILES;i++)if(!S.files[i].used) { free(S.files[i].data);memset(&S.files[i],0,sizeof S.files[i]);S.files[i].used=1;copy(S.files[i].name,sizeof S.files[i].name,name);return i; }
+    for(int i=0;i<TBX_HOST_FILES;i++)if(!S.files[i].used) { free(S.files[i].data);memset(&S.files[i],0,sizeof S.files[i]);S.files[i].used=1;S.files[i].drive=drive_of(p);copy(S.files[i].name,sizeof S.files[i].name,name);return i; }
     return -1;
 }
 static int grow(tbx_host_file_t *f,uint32_t n)
@@ -168,8 +168,8 @@ static int grow(tbx_host_file_t *f,uint32_t n)
 int tbx_host_put_file(const char *p,const void *b,uint32_t n)
 { int i=find(p);if(i<0)i=allocfile(p);if(i<0||!grow(&S.files[i],n))return 0;if(n)memcpy(S.files[i].data,b,n);S.files[i].size=n;return 1; }
 static int handle(int h) { return h>=5&&h<5+TBX_HOST_HANDLES&&S.handles[h-5].used; }
-static int remember_deleted(const char *p)
-{ if(S.ndeleted==TBX_HOST_FILES*2)return 0;copy(S.deleted[S.ndeleted++],TBX_FILE_PATH_MAX,p);return 1; }
+static int remember_deleted_on(char d,const char *p)
+{ if(S.ndeleted==TBX_HOST_FILES*2)return 0;S.deleted_drive[S.ndeleted]=d;copy(S.deleted[S.ndeleted++],TBX_FILE_PATH_MAX,p);return 1; }
 static int32_t error(unsigned op) { return S.file_error[op]?TBX_ERR_DOS(S.file_error[op]):0; }
 static int32_t openfile(int i,uint32_t mode)
 { for(int h=0;h<TBX_HOST_HANDLES;h++)if(!S.handles[h].used){S.handles[h].used=1;S.handles[h].file=i;S.handles[h].pos=0;S.handles[h].mode=mode;return h+5;}return TBX_ERR_DOS(4); }
@@ -233,21 +233,23 @@ int32_t tbx_file_seek(int32_t h,int32_t d,uint32_t o)
 int32_t tbx_file_close(int32_t h)
 { R(h,0,0,0,0,0,0);LIVE();if(!handle(h))return TBX_ERR_BADARG;S.handles[h-5].used=0;if(S.fail_close&&(!S.fail_close_handle||h==S.fail_close_handle)){S.fail_close=0;return TBX_ERR_DOS(5);}return error(TBX_FILE_CLOSE); }
 int32_t tbx_file_delete(const char *p)
-{ R(0,0,0,0,0,0,p);LIVE();if(!path_valid(p))return TBX_ERR_BADARG;if(volume_error(p))return volume_error(p);int32_t e=error(TBX_FILE_DELETE);if(e)return e;int i=find(p);if(i<0)return TBX_ERR_DOS(2);if(S.files[i].attr&0x19)return TBX_ERR_DOS(5);if(!remember_deleted(S.files[i].name))return TBX_ERR_DOS(5);S.files[i].used=0;return TBX_OK; }
+{ R(0,0,0,0,0,0,p);LIVE();if(!path_valid(p))return TBX_ERR_BADARG;if(volume_error(p))return volume_error(p);int32_t e=error(TBX_FILE_DELETE);if(e)return e;int i=find(p);if(i<0)return TBX_ERR_DOS(2);if(S.files[i].attr&0x19)return TBX_ERR_DOS(5);if(!remember_deleted_on(S.files[i].drive,S.files[i].name))return TBX_ERR_DOS(5);S.files[i].used=0;return TBX_OK; }
 int32_t tbx_file_rename(const char *p,const char *q)
 { R(0,0,0,0,0,0,p);LIVE();if(!path_valid(p)||!path_valid(q))return TBX_ERR_BADARG;
   if(volume_error(p)||volume_error(q))return TBX_ERR_DOS(15);
+  if(drive_of(p)!=drive_of(q))return TBX_ERR_DOS(17);   /* INT 21h 56h: not same device */
   int32_t e=error(TBX_FILE_RENAME);if(e)return e;char name[128],old[128];if(!norm(q,name)||!norm(p,old))return TBX_ERR_BADARG;
   char *a=strrchr(old,'\\'),*b=strrchr(name,'\\');size_t an=a?(size_t)(a-old):0,bn=b?(size_t)(b-name):0;
   if(an!=bn||memcmp(old,name,an))return TBX_ERR_DOS(17);
   if(find(q)>=0)return TBX_ERR_DOS(5);
-  int i=find(p);if(i<0)return TBX_ERR_DOS(2);if(S.files[i].attr&0x19)return TBX_ERR_DOS(5);if(!remember_deleted(S.files[i].name))return TBX_ERR_DOS(5);copy(S.files[i].name,sizeof S.files[i].name,name);return TBX_OK; }
+  int i=find(p);if(i<0)return TBX_ERR_DOS(2);if(S.files[i].attr&0x19)return TBX_ERR_DOS(5);if(!remember_deleted_on(S.files[i].drive,S.files[i].name))return TBX_ERR_DOS(5);copy(S.files[i].name,sizeof S.files[i].name,name);return TBX_OK; }
 int32_t tbx_file_replace(const char *p,const char *q)
 {
     R(0,0,0,0,0,0,p);LIVE();
     if(!path_valid(p)||!path_valid(q))return TBX_ERR_BADARG;
     if(device(p)||device(q))return TBX_ERR_DOS(5);
     if(volume_error(p)||volume_error(q))return TBX_ERR_DOS(15);
+    if(drive_of(p)!=drive_of(q))return TBX_ERR_DOS(17);
     int32_t e=error(TBX_FILE_REPLACE);if(e)return e;
     char src[128],dst[128];if(!norm(p,src)||!norm(q,dst))return TBX_ERR_BADARG;
     char *a=strrchr(src,'\\'),*b=strrchr(dst,'\\');
@@ -257,7 +259,7 @@ int32_t tbx_file_replace(const char *p,const char *q)
     if(i<0||j<0)return TBX_ERR_DOS(2);
     tbx_host_file_t *stage=&S.files[i],*dest=&S.files[j];
     if(i==j||((stage->attr|dest->attr)&0x19))return TBX_ERR_DOS(5);
-    if(!remember_deleted(stage->name))return TBX_ERR_DOS(5);
+    if(!remember_deleted_on(stage->drive,stage->name))return TBX_ERR_DOS(5);
     free(dest->data);
     dest->data=stage->data;dest->size=stage->size;dest->capacity=stage->capacity;
     dest->time=stage->time;dest->date=stage->date;
@@ -283,7 +285,7 @@ int32_t tbx_file_find(const char *p,uint32_t attr,void *buf,uint32_t max)
     if(volume_error(p))return volume_error(p);
     uint32_t n=0;for(int i=0;i<TBX_HOST_FILES&&n<max;i++) {
         tbx_host_file_t *f=&S.files[i];
-        if(!f->used||!match(pat,f->name)||((f->attr&0x1e)&~attr)||
+        if(!f->used||f->drive!=drive_of(p)||!match(pat,f->name)||((f->attr&0x1e)&~attr)||
            ((attr&0x1e)==8&&!(f->attr&8)))continue;
         const char *name=strrchr(f->name,'\\');name=name?name+1:f->name;
         tbx_find_rec_t rec={.attr=f->attr,.time=f->time,.date=f->date,.size=f->size};copy(rec.name,sizeof rec.name,name);
@@ -367,7 +369,7 @@ static int hostpath(char path[1024],const char *dir,const char *name)
     for(char *p=path+strlen(dir)+1;*p;p++)if(*p=='\\')*p='/';
     return 1;
 }
-static int import_tree(const char *dir,const char *rel)
+static int import_tree(const char *dir,const char *rel,char drive)
 {
     char path[1024];if(!hostpath(path,dir,rel))return 0;
     struct dirent **entries;int n=scandir(path,&entries,0,alphasort);
@@ -379,9 +381,11 @@ static int import_tree(const char *dir,const char *rel)
             char key[TBX_FILE_PATH_MAX];
             if(snprintf(key,sizeof key,"%s%s%s",rel,*rel?"\\":"",name)>=(int)sizeof key||!hostpath(path,dir,key))ok=0;
             struct stat st;if(ok&&lstat(path,&st))ok=0;
+            char vkey[TBX_FILE_PATH_MAX+3];
+            if(ok&&snprintf(vkey,sizeof vkey,"%c:%s",drive,key)>=(int)sizeof vkey)ok=0;
             if(ok&&S_ISDIR(st.st_mode)) {
-                ok=tbx_host_put_file(key,0,0);
-                if(ok) { S.files[find(key)].attr=16;ok=import_tree(dir,key); }
+                ok=tbx_host_put_file(vkey,0,0);
+                if(ok) { S.files[find(vkey)].attr=16;ok=import_tree(dir,key,drive); }
             } else if(ok&&S_ISREG(st.st_mode)) {
                 if(st.st_size<0||st.st_size>INT32_MAX)ok=0;
                 FILE *f=ok?fopen(path,"rb"):0;
@@ -391,7 +395,7 @@ static int import_tree(const char *dir,const char *rel)
                     if(!b)ok=0;
                     if(ok&&fread(b,1,size,f)!=size)ok=0;
                     if(fclose(f))ok=0;
-                    if(ok)ok=tbx_host_put_file(key,b,size);
+                    if(ok)ok=tbx_host_put_file(vkey,b,size);
                     free(b);
                 }
             }
@@ -400,15 +404,33 @@ static int import_tree(const char *dir,const char *rel)
     }
     free(entries);return ok;
 }
-int tbx_host_import(const char *d) { return import_tree(d,""); }
-int tbx_host_export(const char *dir)
+static char system_drive(void) { return S.system_drive?S.system_drive:'A'; }
+int tbx_host_import_drive(const char *d,char letter)
+{ int L=drive_up(letter);return drive_mounted(L)?import_tree(d,"",(char)L):0; }
+int tbx_host_import(const char *d) { return import_tree(d,"",system_drive()); }
+int tbx_host_mount(char letter,int on)
 {
-    char path[1024];
-    for(unsigned i=0;i<S.ndeleted;i++)if(find(S.deleted[i])<0) {
+    int L=drive_up(letter);
+    if(L<'A'||L>'Z'||(!on&&L==system_drive()))return 0;
+    if(L=='A')S.a_unmounted=(uint8_t)!on; else S.mounted[L-'A']=(uint8_t)(on!=0);
+    return 1;
+}
+int tbx_host_bind_system(char letter)
+{ int L=drive_up(letter);if(!drive_mounted(L))return 0;S.system_drive=(char)L;return 1; }
+int tbx_host_export(const char *dir) { return tbx_host_export_drive(dir,system_drive()); }
+int tbx_host_export_drive(const char *dir,char letter)
+{
+    char path[1024],key[TBX_FILE_PATH_MAX+3];
+    int L=drive_up(letter);
+    if(!drive_mounted(L))return 0;
+    for(unsigned i=0;i<S.ndeleted;i++) {
+        if(S.deleted_drive[i]!=L)continue;
+        if(snprintf(key,sizeof key,"%c:%s",L,S.deleted[i])>=(int)sizeof key)return 0;
+        if(find(key)>=0)continue;
         if(!hostpath(path,dir,S.deleted[i]))return 0;
         if(remove(path)&&errno!=ENOENT)return 0;
     }
-    for(int i=0;i<TBX_HOST_FILES;i++)if(S.files[i].used) {
+    for(int i=0;i<TBX_HOST_FILES;i++)if(S.files[i].used&&S.files[i].drive==L) {
         tbx_host_file_t *f=&S.files[i];
         if(!hostpath(path,dir,f->name))return 0;
         for(char *p=path+strlen(dir)+1;*p;p++)if(*p=='/') {

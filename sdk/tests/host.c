@@ -171,5 +171,32 @@ int main(void)
         }
         tbx_host_reset();
     }
+    /* Delivery's C: system disk (initech-tlhqy): bound C:, optional A: data.
+     * Root-relative paths live on C:, explicit A: paths on A:, and the two
+     * never alias; an unmounted drive is DOS 15, a cross-drive rename or
+     * replace DOS 17 (INT 21h 56h, not same device). */
+    {
+        CHECK(!tbx_host_bind_system('C'));                 /* not mounted yet */
+        CHECK(tbx_host_mount('C',1)&&tbx_host_bind_system('C')&&!tbx_host_mount('C',0));
+        CHECK(tbx_register()==0);
+        int32_t h=tbx_file_create("APPS\\TABLES.TXT");CHECK(h>=5&&tbx_file_write(h,"on C",4)==4&&tbx_file_close(h)==0);
+        CHECK(tbx_host_file("C:\\APPS\\TABLES.TXT")&&!tbx_host_file("A:\\APPS\\TABLES.TXT"));
+        h=tbx_file_create("A:\\LEDGER.TXT");CHECK(h>=5&&tbx_file_write(h,"on A",4)==4&&tbx_file_close(h)==0);
+        CHECK(tbx_host_file("A:LEDGER.TXT")&&!tbx_host_file("LEDGER.TXT")&&!tbx_host_file("C:LEDGER.TXT"));
+        CHECK(tbx_host_put_file("C:\\LEDGER.TXT","on C too",8));
+        CHECK(tbx_host_file("LEDGER.TXT")->size==8&&tbx_host_file("A:LEDGER.TXT")->size==4);
+        CHECK(tbx_file_open("D:\\X.TXT",0)==TBX_ERR_DOS(15)&&tbx_file_create("D:X")==TBX_ERR_DOS(15));
+        CHECK(tbx_file_rename("A:\\LEDGER.TXT","C:\\L2.TXT")==TBX_ERR_DOS(17));
+        CHECK(tbx_file_replace("A:\\LEDGER.TXT","C:\\LEDGER.TXT")==TBX_ERR_DOS(17));
+        static tbx_find_rec_t found[8];
+        CHECK(tbx_file_find("*.*",0x16,found,8)==1&&found[0].size==8);  /* C: root: its own LEDGER.TXT */
+        CHECK(tbx_file_find("A:*.*",0x16,found,8)==1&&!strcmp(found[0].name,"LEDGER.TXT")&&found[0].size==4);
+        CHECK(tbx_file_save("APPS\\TABLES.TXT","saved on C",10)==10);
+        CHECK(tbx_host_file("C:APPS\\TABLES.TXT")->size==10&&!tbx_host_file("A:APPS\\TABLES.$$$"));
+        CHECK(tbx_host_mount('A',0)&&tbx_file_open("A:LEDGER.TXT",0)==TBX_ERR_DOS(15)&&tbx_host_mount('A',1));
+        tbx_host_reset();
+        CHECK(tbx_register()==0&&tbx_file_create("C:\\X")==TBX_ERR_DOS(15));  /* legacy default: A: only */
+        tbx_host_reset();
+    }
     printf("shared fake: %u checks, 0 failures\n",checks);return 0;
 }

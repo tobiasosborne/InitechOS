@@ -1,0 +1,6 @@
+# test: host
+--- a/host/tbx_host.c
++++ b/host/tbx_host.c
+@@ -158,1 +158,1 @@
+-{ char name[TBX_FILE_PATH_MAX],d=drive_of(p);if(!norm(p,name))return -1;for(int i=0;i<TBX_HOST_FILES;i++)if(S.files[i].used&&S.files[i].drive==d&&!strcmp(S.files[i].name,name))return i;return -1; }
++{ char name[TBX_FILE_PATH_MAX],d=drive_of(p);if(!norm(p,name))return -1;for(int i=0;i<TBX_HOST_FILES;i++)if(S.files[i].used&&(S.files[i].drive==d||1)&&!strcmp(S.files[i].name,name))return i;return -1; }

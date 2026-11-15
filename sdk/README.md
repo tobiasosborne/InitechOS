@@ -25,6 +25,19 @@ WDEF's content rectangle in flair/window.c. TBX_FILECOPY_TEXT_W is the live
 FILE COPY caption, 314 px. This is not a crash-atomicity promise. See
 NOTES-FOR-FLAIR.md for private adapter work.
 
+## Volumes in the host fake
+
+The fake mounts A: only and binds it as the system drive by default, the
+legacy fixture every existing test relies on. For delivery's C: system disk
+(initech-tlhqy) a test calls tbx_host_mount('C',1) and tbx_host_bind_system('C'),
+and keeps or unmounts A:. Root-relative paths then name the bound drive and
+explicit "A:"/"C:" paths their own volume; files on different drives never
+alias (each record carries its drive). An unmounted drive is DOS 15, a rename
+or replace across drives DOS 17 (INT 21h 56h, not same device).
+tbx_host_export/import act on the bound drive; tbx_host_export_drive and
+tbx_host_import_drive on a named one. No gate verb changes: native
+flair_platform already resolves explicit mounted-drive paths.
+
 ## Dead-command sweep
 
 host/command_sweep.h is GOLDEN-MASTER item 4's dead-command sweep, published

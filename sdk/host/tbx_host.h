@@ -23,6 +23,7 @@ typedef struct tbx_host_file {
     uint8_t attr;
     uint16_t time, date;
     int used;
+    char drive;                /* the volume letter it lives on, e.g. 'A' */
 } tbx_host_file_t;
 typedef struct tbx_host_state {
     char scr[TBX_HOST_H][TBX_HOST_W+1], bg[TBX_HOST_H][TBX_HOST_W+1];
@@ -58,7 +59,14 @@ typedef struct tbx_host_state {
     uint8_t file_error[256];
     tbx_host_file_t files[TBX_HOST_FILES];
     char deleted[TBX_HOST_FILES*2][TBX_FILE_PATH_MAX];
+    char deleted_drive[TBX_HOST_FILES*2];
     unsigned ndeleted;
+    /* Mounted volumes (initech-tlhqy, delivery's C: system disk). Reset
+     * mounts A: only and binds it as the system drive, the legacy fixture;
+     * a root-relative path names the bound drive. Use tbx_host_mount and
+     * tbx_host_bind_system, never these fields. */
+    uint8_t mounted[26], a_unmounted;
+    char system_drive;
     struct { int used, file; uint32_t pos, mode; } handles[TBX_HOST_HANDLES];
     tbx_event_t events[TBX_HOST_EVENTS];
     unsigned event_head, event_count;
@@ -72,6 +80,15 @@ extern tbx_host_state_t tbx_host;
 void tbx_host_reset(void);
 void tbx_host_arena(const void *base, size_t module_bytes, size_t block_bytes);
 int tbx_host_put_file(const char *path, const void *bytes, uint32_t size);
+/* Volumes: mount or unmount drive LETTER (A-Z); the bound system drive cannot
+ * be unmounted. bind_system makes a mounted LETTER the drive root-relative
+ * paths resolve to. 1 on success, 0 on a bad request. */
+int tbx_host_mount(char letter, int mounted);
+int tbx_host_bind_system(char letter);
+/* Export/import the files of one volume (tbx_host_export/import: the bound
+ * system drive). */
+int tbx_host_export_drive(const char *directory, char letter);
+int tbx_host_import_drive(const char *directory, char letter);
 const tbx_host_file_t *tbx_host_file(const char *path);
 int tbx_host_push_event(const tbx_event_t *event);
 /* Delivers queued callbacks; each callback return is a yield. */

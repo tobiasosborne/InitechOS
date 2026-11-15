@@ -64,9 +64,15 @@ static int alert_valid(const char *t,const char *d,const char *c,const char *o)
     return nb&&!(nb<3&&o);
 }
 static int path_valid(const char *p) { return string_len(p,128,0)>0; }
-/* The native fixture mounts one data volume, A:, like the smoke disk. */
+/* Volumes the fixture has mounted (tbx_host_mount; legacy default A: only).
+ * An explicit drive that is not mounted is DOS 15, invalid drive. */
+static int drive_up(char c) { return c>='a'&&c<='z'?c-32:c; }
+static int drive_mounted(int L)
+{ if(L<'A'||L>'Z')return 0; return L=='A'?!S.a_unmounted:S.mounted[L-'A']; }
+static char drive_of(const char *p)
+{ return p&&p[0]&&p[1]==':'?(char)drive_up(p[0]):(S.system_drive?S.system_drive:'A'); }
 static int32_t volume_error(const char *p)
-{ return p[0]&&p[1]==':'&&p[0]!='A'&&p[0]!='a'?TBX_ERR_DOS(15):0; }
+{ return p[0]&&p[1]==':'&&!drive_mounted(drive_up(p[0]))?TBX_ERR_DOS(15):0; }
 static int device(const char *p)
 {
     if(p[0]&&p[1]==':')p+=2;
