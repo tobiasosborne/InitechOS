@@ -59,6 +59,10 @@ DBASE3_DECOMP        ?= $(INITECH_CORPUS)/dbase3-decomp
 LOTUS123_DECOMP      ?= $(INITECH_CORPUS)/lotus123-decomp
 WORDPERFECT51_DECOMP ?= $(INITECH_CORPUS)/wordperfect51-decomp
 TURBOPASCAL_DECOMP   ?= $(INITECH_CORPUS)/turbopascal-decomp
+# The surviving still and its libwebp decode (goldens/frame/README.md). It is
+# not vendored; provision it once by copying preview.webp there and decoding
+# it with the README's recipe. CORPORA.lock pins both files.
+FRAME_STILL          ?= $(INITECH_CORPUS)/initech-frame
 
 $(OUT):
 	@mkdir -p $@
