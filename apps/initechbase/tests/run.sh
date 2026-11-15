@@ -4,6 +4,8 @@ set -eu
 name=$1
 bins=$2
 src=$(pwd)
+# The factory's kill contract for shell checks (factory/testlib/README.md).
+checks=${INITECH_FACTORY_ROOT:-$src/../..}/factory/testlib/shell-checks.sh
 export LC_ALL=C SKIP_DBASE3_DECOMP=0 PYTHONDONTWRITEBYTECODE=1
 work=$bins/work/$name
 rm -rf "$work"
@@ -57,7 +59,7 @@ case "$name" in
  retained-screens)
   ln -s "$bins/screen_tool" build/screen_tool
   ln -s "$bins/w4_screen_check" build/w4_screen_check
-  sh tests/w4_retained_test.sh;;
+  INITECH_SHELL_CHECKS=$checks sh tests/w4_retained_test.sh;;
  conformance_host)
   mkdir -p "$work/conformance"
   ln -s "$bins/conformance_host" "$work/conformance/host"
@@ -81,35 +83,40 @@ case "$name" in
   python3 tests/ndx_ref.py --selftest
   python3 tests/conformance/read_dbf.py --selftest;;
  captured-hashes)
-  (cd tests/write-safety/captured && sha256sum --quiet -c SHA256SUMS)
-  (cd tests/prompt-tail && sha256sum --quiet -c SHA256SUMS)
+  . "$checks"
+  (cd tests/write-safety/captured && sha256sum --quiet -c SHA256SUMS) || fail "captured-hashes: write-safety captures"; ok
+  (cd tests/prompt-tail && sha256sum --quiet -c SHA256SUMS) || fail "captured-hashes: prompt-tail captures"; ok
   for manifest in use_mint005.md5 report_mint004.md5; do
-   (cd "$DBASE3_DECOMP/mint/work" && md5sum --quiet -c "$src/tests/$manifest")
+   (cd "$DBASE3_DECOMP/mint/work" && md5sum --quiet -c "$src/tests/$manifest") || fail "captured-hashes: $manifest"; ok
   done
-  (cd "$DBASE3_DECOMP/mint/work" && sha256sum --quiet -c "$src/tests/ndx_incremental.sha256")
-  sha256sum --quiet -c tests/list_off_real.sha256
+  (cd "$DBASE3_DECOMP/mint/work" && sha256sum --quiet -c "$src/tests/ndx_incremental.sha256") || fail "captured-hashes: ndx_incremental"; ok
+  sha256sum --quiet -c tests/list_off_real.sha256 || fail "captured-hashes: list_off_real"; ok
   for manifest in prog-real.sha256 dml-goldens.sha256 abbrev-goldens.sha256 fns-accepted.sha256 inspection-goldens.sha256; do
-   sha256sum --quiet -c "tests/xbase_prog_diff/$manifest"
+   sha256sum --quiet -c "tests/xbase_prog_diff/$manifest" || fail "captured-hashes: $manifest"; ok
   done
-  (cd tests/xbase_prog_diff/ibasectl-mint && md5sum --quiet -c ibasectl_mint.md5)
+  (cd tests/xbase_prog_diff/ibasectl-mint && md5sum --quiet -c ibasectl_mint.md5) || fail "captured-hashes: ibasectl-mint"; ok
   for tree in tests/xbase_prog_diff/*-mint/*; do
-   if [ -f "$tree/sha256.txt" ]; then (cd "$tree" && sha256sum --quiet -c sha256.txt); fi
+   if [ -f "$tree/sha256.txt" ]; then (cd "$tree" && sha256sum --quiet -c sha256.txt) || fail "captured-hashes: $tree"; ok; fi
   done
   # Real III+ forms captures: pinned outputs and the inputs that made them.
   n=0
   for tree in tests/xbase_prog_diff/screen-mint/forms-*; do
-   (cd "$tree" && sha256sum --quiet -c SHA256SUMS && sha256sum --quiet -c INPUTS.sha256)
-   grep -q '3f7ba1f5' "$tree/ORACLE.sha256"
+   (cd "$tree" && sha256sum --quiet -c SHA256SUMS) || fail "captured-hashes: $tree outputs"; ok
+   (cd "$tree" && sha256sum --quiet -c INPUTS.sha256) || fail "captured-hashes: $tree inputs"; ok
+   grep -q '3f7ba1f5' "$tree/ORACLE.sha256" || fail "captured-hashes: $tree is not the real DBASE.EXE"; ok
    n=$((n+1))
   done
-  test "$n" -ge 50;;
+  test "$n" -ge 50 || fail "captured-hashes: only $n forms captures"; ok
+  summary;;
  w4-files)
   for kind in frm lbl qry scr fmt config prg vue exact; do ln -s "$bins/${kind}_diff" "build/${kind}_diff"; done
   ln -s "$bins/w4_mutate" build/w4_mutate
-  sh tests/w4_files_paths_test.sh;;
+  INITECH_SHELL_CHECKS=$checks sh tests/w4_files_paths_test.sh;;
  messages-generated)
-  "$bins/../tools/ibase_msg_pack" spec/ibase/dbase_msg_codes.tsv > build/messages.h
-  cmp include/ibase/messages_packed.h build/messages.h;;
+  . "$checks"
+  "$bins/../tools/ibase_msg_pack" spec/ibase/dbase_msg_codes.tsv > build/messages.h || fail "messages-generated: packer"; ok
+  cmp include/ibase/messages_packed.h build/messages.h || fail "messages-generated: messages_packed.h is not the packed catalogue"; ok
+  summary;;
  core-live)
   command -v dosbox-x >/dev/null
   root=$work/live
