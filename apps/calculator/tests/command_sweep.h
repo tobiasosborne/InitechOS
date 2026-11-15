@@ -17,11 +17,13 @@
  *                                       cXX[-YY] for the character byte with
  *                                       no key code, vXX[-YY] for the key
  *                                       code with no character)
- *   Button: LABEL | CTX | EFFECT        a clickable dialog item
+ *   Button: LABEL@N | CTX | EFFECT      a clickable dialog item: its text
+ *                                       and its item number N, the order of
+ *                                       the item list handed to the gate
  *
  * STEP is: type TEXT | key [MODS:]cXX/vXX | menu TITLE/ROW | scrap TEXT |
  * scraplines N | file NAME TEXT | sfreply NAME | sfcancel | alert N |
- * button LABEL | click X Y | update. "\r" in TEXT is a carriage return.
+ * button LABEL@N | click X Y | update. "\r" in TEXT is a carriage return.
  * scrap and scraplines put TEXT on the desk scrap as another program would,
  * then bring this one to the front again (activateEvt).
  * The context "base" is the fresh launch itself.
@@ -373,16 +375,16 @@ static int sw_step(char *step)
         if (!tbx_host.alert_pending) return 0;
         sw_event(TBX_EVT_ALERT, atoi(a), 0, 0, 0);
     } else if (!strcmp(step, "button")) {
-        sw_snap();                      /* the dialog's current item list */
-        for (unsigned i = 0; tbx_host.dialog_items && i < tbx_host.dialog_count; i++) {
-            const cp_item_t *d = &tbx_host.dialog_items[i];
-            if (d->type < 1 || d->type > 3 || strcmp(d->text, a)) continue;
-            tbx_host.dialog_result = (int32_t)i + 1;
-            sw_event(mouseDown, 0, 0, (d->left + d->right) / 2, (d->top + d->bottom) / 2);
-            tbx_host.dialog_result = 0;
-            return 1;
-        }
-        return 0;
+        char *at = strrchr(a, '@'); unsigned i;
+        if (!at) return 0;
+        *at = 0; i = (unsigned)atoi(at + 1);
+        (void)sw_snap();                /* the dialog's current item list */
+        if (!tbx_host.dialog_items || i < 1 || i > tbx_host.dialog_count) return 0;
+        const cp_item_t *d = &tbx_host.dialog_items[i - 1];
+        if (d->type < 1 || d->type > 3 || strcmp(d->text, a)) return 0;
+        tbx_host.dialog_result = (int32_t)i;
+        sw_event(mouseDown, 0, 0, (d->left + d->right) / 2, (d->top + d->bottom) / 2);
+        tbx_host.dialog_result = 0;
     } else if (!strcmp(step, "click")) {
         int x, y;
         if (sscanf(a, "%d %d", &x, &y) != 2) return 0;
@@ -480,8 +482,12 @@ static int sw_declared(int mod, int vk, int code)
         if (sw_keys[i].mod == mod && sw_keys[i].vk == vk && code >= sw_keys[i].lo && code <= sw_keys[i].hi) return 1;
     return 0;
 }
-static int sw_button_declared(const char *label)
-{ for (int i = 0; i < sw_nbutton; i++) if (!strcmp(sw_buttons[i].label, label)) return 1; return 0; }
+static int sw_button_declared(const char *label, unsigned item)
+{
+    char want[80]; snprintf(want, sizeof want, "%s@%u", label, item);
+    for (int i = 0; i < sw_nbutton; i++) if (!strcmp(sw_buttons[i].label, want)) return 1;
+    return 0;
+}
 /* live[ctx][mod][vk][code] = the effect mask, -1 when resolved by the shell. */
 static int sw_live[SW_MAX][4][2][256];
 static void sw_sweep_keys(void)
@@ -502,7 +508,7 @@ static void sw_sweep_keys(void)
         for (unsigned i = 0; tbx_host.dialog_items && i < tbx_host.dialog_count; i++) {
             const cp_item_t *d = &tbx_host.dialog_items[i];
             if (d->type >= 1 && d->type <= 3 && d->text[0])
-                SW_CHECK(sw_button_declared(d->text), "%s: dialog item '%s' has no Button line", ctxs[c], d->text);
+                SW_CHECK(sw_button_declared(d->text, i + 1), "%s: dialog item %s@%u has no Button line", ctxs[c], d->text, i + 1);
         }
         sw_snap_t base = sw_snap(); int dirty = 0;
         sw_snap_t again = sw_snap();
