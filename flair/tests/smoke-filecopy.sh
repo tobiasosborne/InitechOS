@@ -46,7 +46,9 @@ for mode in $case_list; do
   point 520 350; inject "w100,D$d/idle.ppm,ks"
   case $mode in missing|bad-rate) :;; *)
    await_marker 'TENANT-FILECOPY-MID v='
-   inject "D$d/copy.ppm"
+   # MID reports progress, not a stable framebuffer boundary. Avoid an
+   # immediate snapshot of a progress repaint with the cursor shielded.
+   inject "w150,D$d/copy.ppm"
   esac
   case $mode in
    escape|empty) inject kesc;;

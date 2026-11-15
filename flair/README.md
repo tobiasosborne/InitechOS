@@ -166,8 +166,8 @@ regression pin, and SKIN_MUT_REPIN_MENUBAR shows a re-pinned wrong slot
 passing it and failing the manifest. test_part_manifest does the same for
 all 79 PARTs at every depth and skin; the part-map transcript is a regression
 pin, and PART_MUT_REGEN_DROP_SHADOW regenerates it around a wrong entry.
-Authored logo art and teal substitutions remain
-authored policy. No pixel or user-visible behavior is intentionally changed.
+Authored logo art and teal substitutions remain authored policy. The title
+spacing correction above follows the captured Chicago layout.
 
 The platform binding supplies private file sessions, DOS-form file/clock calls,
 DTA exchange, memory accounting, tenant loading and transfer, desktop pattern,
@@ -232,7 +232,7 @@ This includes five hooks omitted from the original 202-macro/243-entry inventory
 the two clock faults, modal passthrough, close hiding and update visibility.
 Shared scrollbar patches are counted once under control; surface/asset decoding
 under blitter, look resolution under chrome, font storage under text, and the
-menu gate helpers under menu. No product behavior changes.
+menu gate helpers under menu. Mutation scenarios remain external patches.
 
 Shared build conventions: command stamps rebuild on tool/flag changes; C
 translation units use -MMD dependencies. TEST_BUDGET_S is 30 seconds for the
