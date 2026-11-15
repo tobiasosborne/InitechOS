@@ -1,9 +1,9 @@
 # test: gen_control_deep
 --- a/turbo.pas
 +++ b/turbo.pas
-@@ -5658,7 +5658,7 @@
-   Native[11] := 0;
+@@ -5949,7 +5949,7 @@
    RunCodeGenerator();
+   if HadError or ParseFailed or TypeFailed or (FirstKind <> 0) then GenFlags[2] := true;
    Native[3] := ((Native[2] + 3) div 4) * 4; { NATIVE_SECTION }
 -  Native[4] := Native[3] + 32;
 +  Native[4] := Native[3] + 36;

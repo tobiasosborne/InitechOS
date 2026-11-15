@@ -1,0 +1,12 @@
+# test: cli
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -6021,7 +6021,7 @@
+   if DumpMode then DumpCompile()
+   else
+   begin
+-    RunTypeChecker();
++    GenFlags[2] := false;
+     if FirstKind = 0 then RunNative()
+   end
+ end;

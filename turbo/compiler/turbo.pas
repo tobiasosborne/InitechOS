@@ -6017,9 +6017,13 @@ begin
   HadError := false; ParseFailed := false; TypeFailed := false;
   GenFlags[1] := false; GenFlags[2] := false; Native[1] := 0;
   { MINT07 disk read-back: ordinary TP compilation creates the executable,
-    not an assembly listing. The native sizing pass already checks syntax
-    and types; keep the separate factory passes behind explicit /DUMP. }
-  if DumpMode then DumpCompile() else RunNative()
+    not an assembly listing. Retain the semantic precheck's first error. }
+  if DumpMode then DumpCompile()
+  else
+  begin
+    RunTypeChecker();
+    if FirstKind = 0 then RunNative()
+  end
 end;
 
 procedure CompilerDefaults();

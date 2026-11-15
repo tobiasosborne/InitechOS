@@ -2,5 +2,5 @@
 --- a/turbo.pas
 +++ b/turbo.pas
 @@ -1,1 +1,1 @@
--  if DumpMode then DumpCompile() else RunNative()
-+  if DumpMode then DumpCompile() else begin RunCodeGenerator(); if not GenFlags[2] then RunNative() end
+-    if FirstKind = 0 then RunNative()
++    if FirstKind = 0 then begin RunCodeGenerator(); if not GenFlags[2] then RunNative() end

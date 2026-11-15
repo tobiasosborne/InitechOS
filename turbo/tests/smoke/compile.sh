@@ -64,11 +64,18 @@ else
 fi
 tr -d '\r' < "$out/run.serial" > "$out/serial.txt"
 if grep -E 'TURBO-.*(ERROR|SKIP)|PANIC|Bad command|File not found' "$out/serial.txt"; then exit 1; fi
+if grep -E '^TURBO-(LEX|PARSE)-(BEGIN|END)$' "$out/serial.txt"; then
+ echo 'FAIL: proof compile emitted a factory trace' >&2; exit 1
+fi
 test "$(grep -c '^TURBO-NATIVE-OK form=1 ' "$out/serial.txt")" -eq 1
 if [ "$emulator" = qemu ]; then
  grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$out/report"
  test "$(grep -c 'CPU Reset' "$out/run.qemu.log")" -eq 2
 fi
 mcopy -o -i "$disk" ::TURBOOUT.EXE "$out/program.COM"
+mdir -b -i "$disk" :: > "$out/files.list"
+if grep -iE '(^|/)TURBOOUT[.]S$' "$out/files.list"; then
+ echo 'FAIL: proof compile emitted an assembly dump' >&2; exit 1
+fi
 build/factory/mz/mzcheck "$out/program.COM" > "$out/mzcheck.log"
 awk '/^TICK=/ {t=substr($0,6)+0;if(n++==0)start=t;else {d=t-start;if(d<0)d+=8640000;printf "compile=%.2fs (guest clock, 1s resolution)\n",d/100}} END{if(n!=2)exit 1}' "$out/serial.txt" | tee "$out/time.txt"
