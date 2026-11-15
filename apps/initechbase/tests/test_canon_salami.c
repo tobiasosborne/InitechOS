@@ -410,7 +410,7 @@ static int run_canon(ibase_pal_t *pal, const char *canon_dir)
     char prg[PRG_CAP];
     char gold[OUT_CAP];
     char ngot[NORM_CAP], nwant[NORM_CAP];
-    const char *wpath = "/tmp/test_canon_salami_INVOICE.dbf";
+    const char *wpath = "build/test_canon_salami_INVOICE.dbf";
     dbf_table *tbl;
     xb_interp *ip;
     wa_env *env;

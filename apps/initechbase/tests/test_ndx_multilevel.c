@@ -271,7 +271,7 @@ int main(int argc, char **argv)
 {
     struct pal_host_cfg cfg;
     ibase_pal_t *pal;
-    const char  *tmpdir = (argc >= 2) ? argv[1] : "/tmp";
+    const char  *tmpdir = (argc >= 2) ? argv[1] : "build";
     char         ndx_path[512];
     int          rc;
     ndx_index   *idx = NULL;

@@ -151,9 +151,9 @@ typedef struct { const char *code; double amt; } prow;
 
 static void test_pack_reindex(ibase_pal_t *pal)
 {
-    const char *pa   = "/tmp/test_ndx_pack.dbf";
-    const char *pcx  = "/tmp/test_ndx_pack_code.ndx";
-    const char *pnx  = "/tmp/test_ndx_pack_amt.ndx";
+    const char *pa   = "build/test_ndx_pack.dbf";
+    const char *pcx  = "build/test_ndx_pack_code.ndx";
+    const char *pnx  = "build/test_ndx_pack_amt.ndx";
     /* distinct CODE + AMT so every SEEK is unambiguous. */
     static const prow seed[5] = {
         {"AAA", 10.0}, {"BBB", 20.0}, {"CCC", 30.0}, {"DDD", 40.0}, {"EEE", 50.0}

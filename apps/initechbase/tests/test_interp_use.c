@@ -167,8 +167,8 @@ static void check_name_resolves(xb_interp *ip, const char *label, const char *wa
 
 static void test_synthetic_select(ibase_pal_t *pal)
 {
-    const char *pa = "/tmp/test_interp_use_a.dbf";
-    const char *pb = "/tmp/test_interp_use_b.dbf";
+    const char *pa = "build/test_interp_use_a.dbf";
+    const char *pb = "build/test_interp_use_b.dbf";
     xb_interp *ip;
     wa_env *env;
     int rc;

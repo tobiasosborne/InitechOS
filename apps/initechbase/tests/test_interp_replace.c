@@ -197,7 +197,7 @@ static xb_interp *build_q(ibase_pal_t *pal, const char *path,
 
 static void test_replace_matrix(ibase_pal_t *pal)
 {
-    const char *pa = "/tmp/test_interp_replace_q.dbf";
+    const char *pa = "build/test_interp_replace_q.dbf";
     static const qrow seed[6] = {
         {"AAA",100,1},{"BBB",200,0},{"CCC",100,1},
         {"DDD",300,0},{"EEE",100,1},{"FFF",400,1}
@@ -305,7 +305,7 @@ static void test_replace_matrix(ibase_pal_t *pal)
 
 static void test_append_delete_pack_zap(ibase_pal_t *pal)
 {
-    const char *pa = "/tmp/test_interp_replace_a.dbf";
+    const char *pa = "build/test_interp_replace_a.dbf";
     static const qrow seed[3] = { {"AAA",10,1},{"BBB",20,0},{"CCC",30,1} };
     dbf_table *tbl = NULL;
     xb_interp *ip;
@@ -421,8 +421,8 @@ static int count_entry(void *ctx, const uint8_t *key_data, uint32_t recno)
 
 static void test_master_key_drift(ibase_pal_t *pal)
 {
-    const char *pa  = "/tmp/test_interp_replace_k.dbf";
-    const char *pix = "/tmp/test_interp_replace_k.ndx";
+    const char *pa  = "build/test_interp_replace_k.dbf";
+    const char *pix = "build/test_interp_replace_k.ndx";
     static const qrow seed[4] = { {"BBB",1,1},{"DDD",2,1},{"FFF",3,1},{"HHH",4,1} };
     dbf_table *tbl = NULL;
     ndx_index *ix = NULL;

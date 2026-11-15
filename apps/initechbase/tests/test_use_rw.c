@@ -183,7 +183,7 @@ static int make_seed_dbf(ibase_pal_t *pal, const char *path,
 
 static void test_dbf_open_rw(ibase_pal_t *pal)
 {
-    const char *pa = "/tmp/test_use_rw_t0.dbf";
+    const char *pa = "build/test_use_rw_t0.dbf";
     static const qrow seed[3] = { {"AAA",100,1},{"BBB",200,0},{"CCC",300,1} };
     dbf_table *tbl = NULL;
     char cbuf[16];
@@ -198,7 +198,7 @@ static void test_dbf_open_rw(ibase_pal_t *pal)
     /* ---- dbf_open_rw on a MISSING file -> fail loud ---- */
     {
         dbf_table *bad = (dbf_table *)0xdead;
-        rc = dbf_open_rw(pal, "/tmp/test_use_rw_does_not_exist.dbf", &bad);
+        rc = dbf_open_rw(pal, "build/test_use_rw_does_not_exist.dbf", &bad);
         snprintf(msg, sizeof msg, "t0: dbf_open_rw(missing) -> fail loud (rc=%d)", rc);
         CHECK(rc == -DBF_ERR_NOENT, msg);
         CHECK(bad == NULL, "t0: *out NULL on dbf_open_rw failure");
@@ -283,7 +283,7 @@ static void test_dbf_open_rw(ibase_pal_t *pal)
 
 static void test_wa_set_open_rw(ibase_pal_t *pal)
 {
-    const char *pa = "/tmp/test_use_rw_t1.dbf";
+    const char *pa = "build/test_use_rw_t1.dbf";
     static const qrow seed[3] = { {"AAA",10,1},{"BBB",20,0},{"CCC",30,1} };
     xb_interp *ip;
     wa_env *env;
@@ -374,8 +374,8 @@ static int kp_code(void *user, uint32_t recno, uint8_t *key_out, uint16_t key_le
 
 static void test_wa_set_open_rw_indexed(ibase_pal_t *pal)
 {
-    const char *pa  = "/tmp/test_use_rw_k.dbf";
-    const char *pix = "/tmp/test_use_rw_k.ndx";
+    const char *pa  = "build/test_use_rw_k.dbf";
+    const char *pix = "build/test_use_rw_k.ndx";
     static const qrow seed[4] = { {"BBB",1,1},{"DDD",2,1},{"FFF",3,1},{"HHH",4,1} };
     xb_interp *ip;
     wa_env *env;
@@ -466,7 +466,7 @@ static void test_wa_set_open_rw_indexed(ibase_pal_t *pal)
 static void test_corpus_copy(ibase_pal_t *pal, const char *base)
 {
     char src[1024];
-    const char *dst = "/tmp/test_use_rw_clients.dbf";
+    const char *dst = "build/test_use_rw_clients.dbf";
     xb_interp *ip;
     wa_env *env;
     dbf_table *tbl;

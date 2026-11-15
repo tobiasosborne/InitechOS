@@ -170,10 +170,10 @@ void         pal_host_free(ibase_pal_t *p);
  * The .dbf + .dbt must share the same base name so the memo linkage works
  * (the reader derives the .dbt path from the .dbf path by extension).
  * ----------------------------------------------------------------------- */
-#define RT_DBF      "/tmp/ibase_s63_rt.dbf"
-#define RT_DBT      "/tmp/ibase_s63_rt.dbt"
-#define RT_NDX      "/tmp/ibase_s63_rt.ndx"
-#define RT_GOLD_DBF "/tmp/ibase_s63_gold.dbf"
+#define RT_DBF      "build/ibase_s63_rt.dbf"
+#define RT_DBT      "build/ibase_s63_rt.dbt"
+#define RT_NDX      "build/ibase_s63_rt.ndx"
+#define RT_GOLD_DBF "build/ibase_s63_gold.dbf"
 
 /* Fixed injected date for our writes (Rule 11).
  * We use 99/12/31 (NOT 85/10/30 which is CLIENTS' real date) so the Leg-C

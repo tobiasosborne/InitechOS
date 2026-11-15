@@ -746,7 +746,7 @@ static void test_tier1_corpus(ibase_pal_t *pal, const char *corpus_base)
 
     /* We open in RW mode and modify the file, so we MUST work on a COPY
      * to avoid corrupting the corpus golden. Copy to /tmp first. */
-    path_join(cnames_copy, sizeof(cnames_copy), "/tmp",
+    path_join(cnames_copy, sizeof(cnames_copy), "build",
               "maintain_tier1_cnames.ndx");
 
     fsrc = fopen(cnames_src, "rb");
@@ -843,7 +843,7 @@ static void test_tier1_corpus(ibase_pal_t *pal, const char *corpus_base)
 int main(int argc, char **argv)
 {
     const char *corpus_base = (argc >= 2) ? argv[1] : "../dbase3-decomp";
-    const char *tmpdir      = "/tmp";
+    const char *tmpdir      = "build";
     ibase_pal_t *pal;
     struct pal_host_cfg cfg;
 

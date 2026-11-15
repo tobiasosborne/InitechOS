@@ -118,9 +118,9 @@ ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
 void         pal_host_free(ibase_pal_t *p);
 
 /* ---- Fixed temp paths (deterministic; Rule 11) ---- */
-#define TMP_DBT_A      "/tmp/ibase_test_dbt_rt_a.dbt"
-#define TMP_DBT_B      "/tmp/ibase_test_dbt_rt_b.dbt"
-#define TMP_DBT_CORPUS "/tmp/ibase_test_dbt_rt_corpus.dbt"
+#define TMP_DBT_A      "build/ibase_test_dbt_rt_a.dbt"
+#define TMP_DBT_B      "build/ibase_test_dbt_rt_b.dbt"
+#define TMP_DBT_CORPUS "build/ibase_test_dbt_rt_corpus.dbt"
 
 /* ---- Corpus path ---- */
 #define PRISTINE_REL \

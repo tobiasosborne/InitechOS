@@ -195,7 +195,7 @@ static void check_iv_version_rejected(ibase_pal_t *pal)
         20, 0,            /* record_length = 20 (LE) */
         0,0, 0, 0, 0,0,0,0,0,0,0,0, 0, 0, 0,0  /* reserved (offsets 0x0C..0x1F) */
     };
-    const char *tmp = "/tmp/test_dbf_iv_version.dbf";
+    const char *tmp = "build/test_dbf_iv_version.dbf";
     FILE *f;
     dbf_table *tbl = NULL;
     int rc;

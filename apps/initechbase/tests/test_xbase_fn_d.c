@@ -207,7 +207,7 @@ static void test_no_workarea(void)
  * function through the evaluator.
  * ===================================================================== */
 
-#define SYN_PATH "/tmp/test_xbase_fn_d.dbf"
+#define SYN_PATH "build/test_xbase_fn_d.dbf"
 
 static const dbf_field_spec g_syn_schema[3] = {
     { "NAME",   'C', 8u, 0u },
@@ -351,7 +351,7 @@ static void test_synth_dbfns(ibase_pal_t *pal)
  * Tier 0c: EMPTY table -- RECNO()==1, RECCOUNT()==0, EOF()/BOF() both .T.
  * ===================================================================== */
 
-#define EMPTY_PATH "/tmp/test_xbase_fn_d_empty.dbf"
+#define EMPTY_PATH "build/test_xbase_fn_d_empty.dbf"
 
 static void test_empty_table(ibase_pal_t *pal)
 {

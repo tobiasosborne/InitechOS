@@ -548,7 +548,7 @@ static int write_num_dbf(const char *path)
 
 static void test_field_memvar(ibase_pal_t *pal)
 {
-    const char *pa = "/tmp/test_interp_flow_qty.dbf";
+    const char *pa = "build/test_interp_flow_qty.dbf";
     xb_interp *ip;
     wa_env *env;
     double total = -1.0;

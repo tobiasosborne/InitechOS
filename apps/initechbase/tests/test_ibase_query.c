@@ -231,7 +231,7 @@ static int build_date_table(ibase_pal_t *pal, const char *path,
  * ===================================================================== */
 static void test_logical_echo(ibase_pal_t *pal)
 {
-    const char *path = "/tmp/test_ibase_query_L.dbf";
+    const char *path = "build/test_ibase_query_L.dbf";
     static const char *code[3] = { "AAA", "BBB", "CCC" };
     static const int   amt[3]  = { 100, 200, 300 };
     static const int   ok[3]   = { 1, 0, 1 };            /* T F T */
@@ -287,7 +287,7 @@ static void test_logical_echo(ibase_pal_t *pal)
  * ===================================================================== */
 static void test_date_render(ibase_pal_t *pal)
 {
-    const char *path = "/tmp/test_ibase_query_D.dbf";
+    const char *path = "build/test_ibase_query_D.dbf";
     xb_interp *ip;
     static char useln[160];
 
@@ -342,7 +342,7 @@ static void test_date_render(ibase_pal_t *pal)
  * ===================================================================== */
 static void test_locate_record(ibase_pal_t *pal)
 {
-    const char *path = "/tmp/test_ibase_query_R.dbf";
+    const char *path = "build/test_ibase_query_R.dbf";
     static const char *code[5] = { "R1", "R2", "R3", "R4", "R5" };
     static const int   amt[5]  = { 10, 20, 99, 40, 50 };   /* AMT=99 ONLY at rec3 */
     static const int   ok[5]   = { 1, 1, 1, 1, 1 };
@@ -399,7 +399,7 @@ static void test_locate_record(ibase_pal_t *pal)
  * ===================================================================== */
 static void test_locate_next(ibase_pal_t *pal)
 {
-    const char *path = "/tmp/test_ibase_query_N.dbf";
+    const char *path = "build/test_ibase_query_N.dbf";
     const char *codes[100];
     int amts[100], oks[100];
     int i;

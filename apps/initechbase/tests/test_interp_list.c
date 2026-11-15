@@ -250,7 +250,7 @@ static int write_q_dbf(const char *path)
 
 static void test_tier0(ibase_pal_t *pal)
 {
-    const char *pa = "/tmp/test_interp_list_q.dbf";
+    const char *pa = "build/test_interp_list_q.dbf";
     xb_interp *ip;
     wa_env *env;
     int rc;

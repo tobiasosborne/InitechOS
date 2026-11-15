@@ -106,13 +106,13 @@ ibase_pal_t *pal_host_make(struct pal_host_cfg cfg);
 void         pal_host_free(ibase_pal_t *p);
 
 /* Deterministic temp paths (fixed names; Rule 11). */
-#define RT_PATH_A      "/tmp/ibase_rt_a.dbf"
-#define RT_PATH_B      "/tmp/ibase_rt_b.dbf"
-#define RT_PATH_TMPL   "/tmp/ibase_rt_tmpl.dbf"
-#define RT_PATH_MEMO   "/tmp/ibase_rt_memo.dbf"
-#define RT_PATH_GOLD   "/tmp/ibase_rt_gold.dbf"
+#define RT_PATH_A      "build/ibase_rt_a.dbf"
+#define RT_PATH_B      "build/ibase_rt_b.dbf"
+#define RT_PATH_TMPL   "build/ibase_rt_tmpl.dbf"
+#define RT_PATH_MEMO   "build/ibase_rt_memo.dbf"
+#define RT_PATH_GOLD   "build/ibase_rt_gold.dbf"
 /* The file LEFT for the orchestrator's dbf_ref.py independence check. */
-#define RT_PATH_REF    "/tmp/ibase_written.dbf"
+#define RT_PATH_REF    "build/ibase_written.dbf"
 
 /* Fixed injected date for all written tables (Rule 11). 1985-10-30 = the
  * CLIENTS.DBF last-update date (dbf.md sec 2 worked example), so a golden cmp

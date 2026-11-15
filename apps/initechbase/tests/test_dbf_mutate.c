@@ -95,15 +95,15 @@ void         pal_host_free(ibase_pal_t *p);
 #define MUT_DD  30
 
 /* Fixed /tmp paths (Rule 11; never a wall-clock or PID in the path). */
-#define MUT_PATH_BLANK  "/tmp/ibase_mut_blank.dbf"
-#define MUT_PATH_REPL   "/tmp/ibase_mut_repl.dbf"
-#define MUT_PATH_DELFLAG "/tmp/ibase_mut_del.dbf"
-#define MUT_PATH_PACK   "/tmp/ibase_mut_pack.dbf"
-#define MUT_PATH_ZAP    "/tmp/ibase_mut_zap.dbf"
-#define MUT_PATH_DET_A  "/tmp/ibase_mut_det_a.dbf"
-#define MUT_PATH_DET_B  "/tmp/ibase_mut_det_b.dbf"
+#define MUT_PATH_BLANK  "build/ibase_mut_blank.dbf"
+#define MUT_PATH_REPL   "build/ibase_mut_repl.dbf"
+#define MUT_PATH_DELFLAG "build/ibase_mut_del.dbf"
+#define MUT_PATH_PACK   "build/ibase_mut_pack.dbf"
+#define MUT_PATH_ZAP    "build/ibase_mut_zap.dbf"
+#define MUT_PATH_DET_A  "build/ibase_mut_det_a.dbf"
+#define MUT_PATH_DET_B  "build/ibase_mut_det_b.dbf"
 /* Independence barrier path -- left for dbf_ref.py. */
-#define MUT_PATH_REF    "/tmp/ibase_mutate_packed.dbf"
+#define MUT_PATH_REF    "build/ibase_mutate_packed.dbf"
 
 /* Shared schema: NAME C(8), SCORE N(6,2), JOINED D(8), ACTIVE L(1). */
 static const dbf_field_spec g_schema[4] = {

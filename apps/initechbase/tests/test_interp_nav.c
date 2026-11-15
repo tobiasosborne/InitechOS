@@ -195,7 +195,7 @@ static int write_min5_dbf(const char *path)
 
 static void test_physical_nav(ibase_pal_t *pal)
 {
-    const char *pa = "/tmp/test_interp_nav5.dbf";
+    const char *pa = "build/test_interp_nav5.dbf";
     xb_interp *ip;
     wa_env *env;
     int rc;

@@ -788,7 +788,7 @@ static void test_tax_rw_plus2form(ibase_pal_t *pal, const char *base)
  * ============================================================ */
 static void test_synthetic_plus2_rw_roundtrip(ibase_pal_t *pal)
 {
-    const char *tmppath = "/tmp/test_dbf_read_plus2_rw.dbf";
+    const char *tmppath = "build/test_dbf_read_plus2_rw.dbf";
     FILE *f;
     dbf_table *tbl = NULL;
     xb_val out[1];
@@ -934,7 +934,7 @@ static void test_synthetic_deleted(ibase_pal_t *pal)
 {
     /* Build a minimal .dbf in a temp file using the PAL write path.
      * We write raw bytes via fopen (libc OK in factory test; Law 3). */
-    const char *tmppath = "/tmp/test_dbf_read_del.dbf";
+    const char *tmppath = "build/test_dbf_read_del.dbf";
     FILE *f;
     dbf_table *tbl = NULL;
     xb_val out[1];

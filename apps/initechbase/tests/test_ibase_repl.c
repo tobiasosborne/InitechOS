@@ -286,8 +286,8 @@ static void read_c_field(dbf_table *tbl, uint32_t recno, int fld, char *out, int
  * ===================================================================== */
 static void test_session_convergence(ibase_pal_t *pal)
 {
-    const char *wpath = "/tmp/test_ibase_repl_w.dbf";
-    const char *rpath = "/tmp/test_ibase_repl_ro.dbf";
+    const char *wpath = "build/test_ibase_repl_w.dbf";
+    const char *rpath = "build/test_ibase_repl_ro.dbf";
     static const qrow seed[3] = { {"AAA",100,1}, {"BBB",200,0}, {"CCC",100,1} };
     dbf_table *wtbl;
     xb_interp *ip;
@@ -518,7 +518,7 @@ static void test_session_errors(ibase_pal_t *pal)
  * ===================================================================== */
 static void test_session_plain_use_rw(ibase_pal_t *pal)
 {
-    const char *path = "/tmp/test_ibase_repl_rw6.dbf";
+    const char *path = "build/test_ibase_repl_rw6.dbf";
     static const qrow seed[3] = { {"AAA",100,1}, {"BBB",200,0}, {"CCC",300,1} };
     dbf_table *wtbl;
     xb_interp *ip;
@@ -611,8 +611,8 @@ static void test_session_plain_use_rw(ibase_pal_t *pal)
  * ===================================================================== */
 static void test_session_do_file(ibase_pal_t *pal)
 {
-    const char *prgpath = "/tmp/test_ibase_repl_GREET.PRG";
-    const char *noext   = "/tmp/test_ibase_repl_GREET";   /* REPL appends .PRG */
+    const char *prgpath = "build/test_ibase_repl_GREET.PRG";
+    const char *noext   = "build/test_ibase_repl_GREET";   /* REPL appends .PRG */
     FILE *f;
     xb_interp *ip;
     int rc;
@@ -700,7 +700,7 @@ static void test_session_eof(ibase_pal_t *pal)
 /* ===================================================================== */
 static void test_session_abbreviations(ibase_pal_t *pal)
 {
-    const char *path = "/tmp/test_ibase_abbr.dbf";
+    const char *path = "build/test_ibase_abbr.dbf";
     char use[160]; xb_val v;
     xb_interp *ip = xb_interp_make(pal);
     CHECK(ip && write_ro_dbf(path) == 0, "abbrev prompt: fixture");
@@ -730,7 +730,7 @@ static void test_session_abbreviations(ibase_pal_t *pal)
     CHECK(xb_interp_get_memvar(ip,"STORENO",&v) == 0 && v.t == XB_N && v.u.n == 8,
           "abbrev prompt: STORENO distinct");
     CHECK(!wa_is_open(xb_interp_env(ip),1), "abbrev prompt: CLOS DATA dispatched");
-    xb_interp_free(ip); remove(path); remove("/tmp/test_ibase_abbr.ndx");
+    xb_interp_free(ip); remove(path); remove("build/test_ibase_abbr.ndx");
 }
 
 static void test_session_inspection(ibase_pal_t *pal)

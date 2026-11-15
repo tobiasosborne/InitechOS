@@ -10,6 +10,12 @@ export LC_ALL=C SKIP_DBASE3_DECOMP=0 PYTHONDONTWRITEBYTECODE=1
 work=$bins/work/$name
 rm -rf "$work"
 mkdir -p "$work/build"
+# initech-n64m7/6yek6: scratch files live in this private work tree, never
+# at a fixed path another worktree's run can clobber.
+if [ -f "tests/$name.c" ] && grep -n '"/tmp' "tests/$name.c"; then
+ echo "RED $name: fixed /tmp scratch path; use build/ under the private work tree" >&2
+ exit 1
+fi
 ln -s "$src/tests" "$work/tests"
 ln -s "$src/spec" "$work/spec"
 ln -s "$src/include" "$work/include"
