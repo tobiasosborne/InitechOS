@@ -52,7 +52,7 @@ static char to_lower(char c)
 /* ------------------------------------------------------------------ */
 static int at_end(const Lexer *lx)
 {
-    return lx->pos >= lx->len;
+    return lx->pos >= lx->len || (unsigned char)lx->src[lx->pos] == 26;
 }
 
 static char peek(const Lexer *lx)

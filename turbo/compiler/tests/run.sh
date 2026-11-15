@@ -9,7 +9,7 @@ run_compiler() {
     dest=$1 source=$2
     setup mkdir -p "$dest"
     setup cp "$source" "$dest/TURBOIN.PAS"
-    (cd "$dest" && setup "$out/turbo_fpc" > raw)
+    (cd "$dest" && setup "$out/turbo_fpc" /DUMP > raw)
     setup tr -d '\r' < "$dest/raw" > "$dest/normalized"
 }
 run_self_compiler() {
@@ -142,7 +142,7 @@ seed-build)
         '^pf_parseprogram:' '^v_symnameoffset: resd 2048$' '^pf_runtypechecker:' '^pf_runcodegenerator:' \
         'call rtl_file_blockread$' 'call rtl_file_blockwrite$'; do assert "$entry:ABI declaration" grep -q "$pattern" "$asm"; done
     assert_not "$entry:unexpected diagnostic or symbol" grep -q '^v_sourcewords:' "$asm"
-    assert "$entry:required diagnostic or symbol" grep -q "Assign(OutputFile, 'TURBOOUT.S')" turbo.pas
+    assert "$entry:required diagnostic or symbol" grep -q "Assign(OutputFile, OutputAsmName)" turbo.pas
     setup nm -n "$out/extended/zero.elf" > "$scratch/symbols"
     start=$(awk '$3 == "__bss_start" {print $1}' "$scratch/symbols")
     end=$(awk '$3 == "__bss_end" {print $1}' "$scratch/symbols")

@@ -18,10 +18,10 @@ for emulator in qemu bochs; do
  mcopy -i "$disk" turbo/compiler/fixtures/gen_control_deep.pas ::TURBOIN.PAS
  printf 'FILES=20\r\nSHELL=COMMAND.COM /P\r\n' > "$dir/CONFIG.SYS"
  mcopy -i "$disk" "$dir/CONFIG.SYS" ::
- printf '@echo off\r\nturbo\r\necho\r\necho turbo-smoke-complete\r\n' > "$dir/RUN.BAT"
+ printf '@echo off\r\nturbo /DUMP TURBOIN.PAS\r\necho\r\necho turbo-smoke-complete\r\n' > "$dir/RUN.BAT"
  mcopy -i "$disk" "$dir/RUN.BAT" ::
  cp turbo/compiler/fixtures/gen_control_deep.pas "$dir/host/TURBOIN.PAS"
- (cd "$dir/host" && "$root/build/turbo/compiler/turbo_fpc" > transcript)
+ (cd "$dir/host" && "$root/build/turbo/compiler/turbo_fpc" /DUMP > transcript)
  printf '\n\nrun\n' | build/factory/keys > "$dir/keys"
  extra=
  if [ "$emulator" = bochs ]; then extra='--vga-ext none'; fi

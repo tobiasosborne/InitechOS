@@ -18,7 +18,7 @@ mcopy -i "$disk" build/turbo/smoke/TIMER.COM ::
 mcopy -i "$disk" "$source" ::TURBOIN.PAS
 printf 'FILES=20\r\nSHELL=COMMAND.COM /P\r\n' > "$out/CONFIG.SYS"
 mcopy -i "$disk" "$out/CONFIG.SYS" ::
-printf '@echo off\r\ntimer\r\nturbo\r\ntimer\r\necho compile-complete\r\n' > "$out/RUN.BAT"
+printf '@echo off\r\ntimer\r\nturbo TURBOIN.PAS\r\ntimer\r\necho compile-complete\r\n' > "$out/RUN.BAT"
 mcopy -i "$disk" "$out/RUN.BAT" ::
 printf '\n\nrun\n' | build/factory/keys > "$out/keys"
 if [ "$emulator" = qemu ]; then

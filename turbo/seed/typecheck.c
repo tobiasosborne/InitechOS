@@ -238,7 +238,8 @@ typedef enum {
     FILEBI_RENAME,
     FILEBI_IORESULT,     /* function: integer, no arguments */
     FILEBI_READKEY,      /* function: char, no arguments */
-    FILEBI_ATTRIBUTES
+    FILEBI_ATTRIBUTES,
+    FILEBI_PARAMCOUNT, FILEBI_PARAMSTR, FILEBI_PAGE, FILEBI_EXECUTE, FILEBI_HALT, FILEBI_MEMORY
 } FileBuiltin;
 
 static FileBuiltin file_builtin_kind(const char *name_lc)
@@ -254,6 +255,12 @@ static FileBuiltin file_builtin_kind(const char *name_lc)
     if (strcmp(name_lc, "ioresult") == 0)   return FILEBI_IORESULT;
     if (strcmp(name_lc, "readkey") == 0)    return FILEBI_READKEY;
     if (strcmp(name_lc, "fileattributes") == 0) return FILEBI_ATTRIBUTES;
+    if (strcmp(name_lc, "paramcount") == 0) return FILEBI_PARAMCOUNT;
+    if (strcmp(name_lc, "paramstr") == 0) return FILEBI_PARAMSTR;
+    if (strcmp(name_lc, "screenpage") == 0) return FILEBI_PAGE;
+    if (strcmp(name_lc, "execute") == 0) return FILEBI_EXECUTE;
+    if (strcmp(name_lc, "halt") == 0) return FILEBI_HALT;
+    if (strcmp(name_lc, "dosmemory") == 0) return FILEBI_MEMORY;
     return FILEBI_NONE;
 }
 
@@ -948,6 +955,38 @@ static AstVarType check_file_builtin(Tc *tc, AstNode *call,
 {
     const char *verb = call->as.call.name;
     size_t n = call->as.call.args.count;
+    if (bi >= FILEBI_PARAMCOUNT) {
+        if (bi == FILEBI_PAGE) {
+            if (want_value || n != 2) {
+                fail_at(tc, call->line, call->col, "ScreenPage expects operation and char-array element");
+                return AST_TY_UNKNOWN;
+            }
+            AstNode *op = call->as.call.args.items[0], *buf = call->as.call.args.items[1];
+            if (check_expr(tc, op) != AST_TY_INTEGER || check_expr(tc, buf) != AST_TY_CHAR
+                || buf->kind != AST_INDEX || buf->as.arrayindex.is_string) {
+                fail_at(tc, call->line, call->col, "ScreenPage requires integer and char-array element");
+                return AST_TY_UNKNOWN;
+            }
+        } else {
+            int arity = (bi == FILEBI_PARAMCOUNT || bi == FILEBI_MEMORY) ? 0 : 1;
+            if (n != (size_t)arity || want_value == (bi == FILEBI_HALT)) {
+                fail_at(tc, call->line, call->col, "wrong builtin arguments or result use");
+                return AST_TY_UNKNOWN;
+            }
+            if (arity) {
+                AstVarType t = check_expr(tc, call->as.call.args.items[0]);
+                if (t != (bi == FILEBI_EXECUTE ? AST_TY_STRING : AST_TY_INTEGER)) {
+                    fail_at(tc, call->line, call->col, "wrong builtin argument type");
+                    return AST_TY_UNKNOWN;
+                }
+            }
+        }
+        tc->uses_fileio = 1;
+        if (bi == FILEBI_PARAMSTR) tc->uses_strings = 1;
+        call->type = bi == FILEBI_PARAMSTR ? AST_TY_STRING :
+            (bi == FILEBI_PAGE || bi == FILEBI_HALT) ? AST_TY_UNKNOWN : AST_TY_INTEGER;
+        return call->type;
+    }
     if (bi == FILEBI_ATTRIBUTES) {
         if (!want_value || n != 1) {
             fail_at(tc, call->line, call->col, "FileAttributes expects one file and returns integer");
