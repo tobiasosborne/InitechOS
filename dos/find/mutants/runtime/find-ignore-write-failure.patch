@@ -1,0 +1,14 @@
+# FIND_IGNORE_WRITE_FAILURE
+# session: filterfull
+--- a/find/find_program.asm
++++ b/find/find_program.asm
+@@ -287,9 +287,6 @@
+     mov ah, 0x40
+     int 0x21
+     pop ecx
+-    jc write_error
+-    cmp eax, ecx
+-    jne write_error                 ; short count = full disk (TR 6-139)
+     ret
+ write_error:
+     mov edx, msg_write

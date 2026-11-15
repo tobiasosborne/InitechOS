@@ -90,7 +90,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 153 host patches and 45 product-session patches,
+The current DOS inventory is 153 host patches and 47 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.
@@ -206,6 +206,14 @@ use "Error reading file" and status 1. These are stated safety assumptions.
 its only match beyond 70 KiB. FIND probes EOF when full and refuses before
 emitting any line or count if more input remains. It does not claim the
 recovered DOS utility's streaming capacity; initech-0e5gu tracks that capture.
+
+`make smoke-filter-full` checks the write side (initech-8ao8f): on a full
+disk, SORT, FIND and FIND /C redirected to a file end with nonzero
+ERRORLEVEL (a diagnostic reaches CON through the shell) and mtools proves
+the output really is a truncated prefix. A reported write failure never
+exits 0. The in-filter diagnostic "Insufficient disk space" (MSG-DOS-0005)
+and status 1 are stated safety assumptions pending genuine media
+(initech-0e5gu).
 
 SORT /+n compares from the documented one-based column (MS-DOS 3.3 User's
 Guide p.116), including short/empty suffixes and /R. `make smoke-sort-columns`

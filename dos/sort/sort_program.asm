@@ -20,6 +20,9 @@
 ;   - /R sorts in REVERSE (descending) order.
 ;   - /+n starts at column n (1-based), per Guide p.116. Unknown/malformed
 ;     switches refuse explicitly; exact diagnostic/status awaits genuine media.
+;   - Every AH=40h write is checked (CF and byte count): a failed or short
+;     write (full disk) refuses with "Insufficient disk space", status 1
+;     (initech-8ao8f). Exact DOS text/status awaits genuine media.
 ;   - Local safety limits: 64 KiB input and 7680 line records. These are
 ;     implementation bounds, not established DOS 3.30 limits (initech-0e5gu).
 ;     The pinned media lacks SORT. Guide pp.116-117 documents sorting and
@@ -286,11 +289,16 @@ start:
     test ecx, ecx
     jz .out_crlf
     push edi
+    push ecx                        ; requested count survives the call
     mov ebx, 1
     add edx, INBUF                  ; flat ptr to content
     mov ah, 0x40
     int 0x21
+    pop ecx
     pop edi
+    jc .write_error                 ; AH=40h error (CF) is never success
+    cmp eax, ecx
+    jne .write_error                ; short count = full disk (TR 6-139)
 .out_crlf:
     push edi
     mov ah, 0x40
@@ -299,6 +307,9 @@ start:
     mov edx, crlf
     int 0x21
     pop edi
+    jc .write_error
+    cmp eax, 2
+    jne .write_error
     inc edi
     jmp .out_loop
 .out_done:
@@ -309,6 +320,16 @@ start:
     int 0x21
     int 0x20                    ; defense in depth (the repository contract)
 
+.write_error:
+    ; A failed or short write leaves a truncated output file behind the
+    ; shell's redirection; it must never report success (initech-8ao8f).
+    ; The diagnostic goes to stdout like the other refusals (the shell
+    ; repeats "Insufficient disk space" on CON, initech-66oc); ERRORLEVEL
+    ; 1 is the signal a batch file can act on. Exact genuine SORT text
+    ; and status await authentic media (initech-0e5gu) -- stated safety
+    ; assumption: period MSG-DOS-0005 vocabulary, status 1.
+    mov edx, msg_write
+    jmp .refuse
 .bad_switch:
     mov edx, msg_switch
     jmp .refuse
@@ -409,6 +430,7 @@ crlf:      db 0x0D, 0x0A
 ; Period vocabulary, provisional diagnostics, not a captured SORT run.
 msg_switch: db MSG_DOS_0064, 0x0D, 0x0A, "$"
 msg_read:  db "Error reading file", 0x0D, 0x0A, "$"
+msg_write: db MSG_DOS_0005, 0x0D, 0x0A, "$"
 eof_probe: db 0
 msg_oom:   db MSG_DOS_0060, 0x0D, 0x0A, "$"
 

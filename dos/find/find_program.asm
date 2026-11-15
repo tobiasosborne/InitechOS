@@ -231,15 +231,11 @@ start:
     jz .emit_crlf
     mov edx, [ln_off]
     add edx, INBUF
-    mov ebx, 1
-    mov ah, 0x40
-    int 0x21
+    call out_write
 .emit_crlf:
-    mov ah, 0x40
-    mov ebx, 1
     mov ecx, 2
     mov edx, crlf
-    int 0x21
+    call out_write
 .next_line:
     mov esi, [scan]            ; restore the scan cursor clobbered by the helpers
     jmp .line_loop
@@ -249,11 +245,9 @@ start:
     jz .fin
     mov eax, [count]
     call emit_decimal
-    mov ah, 0x40
-    mov ebx, 1
     mov ecx, 2
     mov edx, crlf
-    int 0x21
+    call out_write
 .fin:
     mov ah, 0x4C
     mov al, 0
@@ -271,6 +265,34 @@ start:
 .param_err:
     mov edx, msg_param
 .refuse:
+    mov ah, 0x09
+    int 0x21
+    mov ah, 0x4C
+    mov al, 1
+    int 0x21
+    int 0x20
+
+; ---------------------------------------------------------------------------
+; out_write: write ECX bytes at EDX to stdout (handle 1) via AH=40h.
+; A failed (CF) or short write -- a full redirected disk -- is never a
+; success: print the period full-disk message and exit 1 (initech-8ao8f).
+; The shell repeats "Insufficient disk space" on CON (initech-66oc);
+; ERRORLEVEL 1 is the signal a batch file can act on. Exact genuine FIND
+; text/status await authentic media (initech-0e5gu): stated assumption.
+; Clobbers EAX/EBX. Does not return on failure.
+; ---------------------------------------------------------------------------
+out_write:
+    push ecx                        ; requested count survives the call
+    mov ebx, 1
+    mov ah, 0x40
+    int 0x21
+    pop ecx
+    jc write_error
+    cmp eax, ecx
+    jne write_error                 ; short count = full disk (TR 6-139)
+    ret
+write_error:
+    mov edx, msg_write
     mov ah, 0x09
     int 0x21
     mov ah, 0x4C
@@ -343,18 +365,14 @@ line_contains:
 ; emit_lineno: write "[<lineno>]" to stdout (handle 1).  Clobbers eax..edi.
 ; ---------------------------------------------------------------------------
 emit_lineno:
-    mov ah, 0x40
-    mov ebx, 1
     mov ecx, 1
     mov edx, lbrack
-    int 0x21
+    call out_write
     mov eax, [lineno]
     call emit_decimal
-    mov ah, 0x40
-    mov ebx, 1
     mov ecx, 1
     mov edx, rbrack
-    int 0x21
+    call out_write
     ret
 
 ; ---------------------------------------------------------------------------
@@ -383,9 +401,7 @@ emit_decimal:
     mov edx, edi
     mov ecx, numbuf_end
     sub ecx, edi               ; digit count
-    mov ah, 0x40
-    mov ebx, 1
-    int 0x21
+    call out_write
     ret
 
 ; --- Data -------------------------------------------------------------------
@@ -394,6 +410,7 @@ lbrack:    db "["
 rbrack:    db "]"
 msg_limit: db MSG_DOS_0060, 0x0D, 0x0A, "$"
 msg_read:  db "Error reading file", 0x0D, 0x0A, "$"
+msg_write: db MSG_DOS_0005, 0x0D, 0x0A, "$"
 eof_probe: db 0
 msg_param: db MSG_DOS_0059, 0x0D, 0x0A, "$"
 

@@ -1,0 +1,14 @@
+# SORT_IGNORE_WRITE_FAILURE
+# session: filterfull
+--- a/sort/sort_program.asm
++++ b/sort/sort_program.asm
+@@ -296,9 +296,6 @@
+     int 0x21
+     pop ecx
+     pop edi
+-    jc .write_error                 ; AH=40h error (CF) is never success
+-    cmp eax, ecx
+-    jne .write_error                ; short count = full disk (TR 6-139)
+ .out_crlf:
+     push edi
+     mov ah, 0x40
