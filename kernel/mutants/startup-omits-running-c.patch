@@ -1,0 +1,11 @@
+# test: test-startup-disks
+--- a/startup_disks.c
++++ b/startup_disks.c
+@@ -142,7 +142,6 @@
+     }
+     int_frame_t select={0};select.eax=0x0e00;select.edx=drive;int21_dispatch(&select);
+     /* bind_absdisk_volume keeps A's cache watch; running identity is separate. */
+-    block_device_running(drive==2 ? 0x80 : 0x81,system->base_lba);
+     crit_blockdev_set_hook(int21_run_critical_error);
+     serial_puts("FILEIO-BIND-OK\nABSDISK-BIND-OK\n");
+     return system;

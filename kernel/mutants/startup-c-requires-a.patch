@@ -1,0 +1,11 @@
+# test: test-startup-disks
+--- a/startup_disks.c
++++ b/startup_disks.c
+@@ -105,6 +105,7 @@
+     crit_blockdev_init(&data_crit,&data_dev);
+     int have_data=mount_dos_volume(0,&data_vol,&data_crit.dev,sector)==FAT12_OK;
+ 
++    if(!have_data)return 0;
+     ata_ctx_init_primary_master(&fixed_master);ata_blockdev_init(&fixed_dev,&fixed_master);
+     crit_blockdev_init(&fixed_crit,&fixed_dev);
+     for(unsigned letter=2;letter<4;letter++) {
