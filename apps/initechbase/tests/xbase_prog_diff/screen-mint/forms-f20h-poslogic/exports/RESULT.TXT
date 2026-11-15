@@ -1,0 +1,3 @@
+
+RK=        271 C:OTHER.dbf          1 .F.
+A1= ABCD          12.50

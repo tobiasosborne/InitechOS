@@ -1,0 +1,4 @@
+
+RK=        271 C:FORM2.dbf          1
+A2= ZONE          99.00
+A1= ABCD          12.50
