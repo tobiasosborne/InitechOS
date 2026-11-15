@@ -3,8 +3,6 @@
 # One row each: component test issue. A row is removed when its owner makes
 # the test print INITECH_CHECKS (or a counted summary); any other test
 # without one fails make test. The file is deleted when it is empty.
-apps/initech123 test_i123_copy_corpus initech-u5jow
-apps/initech123 test_i123_copy_tile initech-u5jow
 apps/initech123 test_i123_formula_x87_027F initech-u5jow
 apps/initech123 test_i123_transfer_baseline initech-u5jow
 apps/initechbase captured-hashes initech-zw6sl
@@ -49,27 +47,17 @@ dos test-utility-errors-compat33 initech-wb3kr
 dos test-xcopy-cwd-host initech-wb3kr
 dos test-xcopy-drive initech-wb3kr
 dos test-xcopy-tree initech-wb3kr
-kernel test-allocation-conservation initech-73hml
 kernel test-ansi-bridge initech-73hml
-kernel test-b53d initech-73hml
-kernel test-config-diagnostics33 initech-73hml
 kernel test-config-fuzz initech-73hml
-kernel test-conkeys-unit initech-73hml
-kernel test-console-look initech-73hml
-kernel test-create-stamp-conservation initech-73hml
 kernel test-dosmsg initech-73hml
-kernel test-dos-stamp-host initech-73hml
-kernel test-dos-volumes-host initech-73hml
 kernel test-drive-letters initech-73hml
 kernel test-fat-corrupt-fuzz initech-73hml
 kernel test-fat-fuzz initech-73hml
 kernel test-fat-partition initech-73hml
 kernel test-fat-spc initech-73hml
 kernel test-fat-truncate-host initech-73hml
-kernel test-file-conservation initech-73hml
 kernel test-int21-dpb initech-73hml
 kernel test-native initech-73hml
 kernel test-partition-spec initech-73hml
 kernel test-qekc-oracle initech-73hml
-kernel test-shell-config33 initech-73hml
 kernel write-probe initech-73hml

@@ -13,15 +13,8 @@ kernel	mz.c	MZ_ONLY_PARSER	initech-yuumo
 kernel	mz.c	MZ_PARSE_EXTERNAL	initech-yuumo
 dos	command/command.h	BOOT_SHELL	initech-jk1yb
 dos	tpsrep/tpsrep_program.asm	REALDOS	initech-jk1yb
-flair	textedit.c	__KERNEL_FREESTANDING__	initech-ao6o0
-flair	dialog.c	__KERNEL_FREESTANDING__	initech-ao6o0
-flair	process.c	__KERNEL_FREESTANDING__	initech-ao6o0
-flair	scrap.c	__KERNEL_FREESTANDING__	initech-ao6o0
-flair	window.c	__KERNEL_FREESTANDING__	initech-ao6o0
 flair/desktop	shell.c	__KERNEL_FREESTANDING__	initech-ao6o0
 flair/desktop	finder_desktop.c	__KERNEL_FREESTANDING__	initech-ao6o0
 flair/desktop	desktop.c	__KERNEL_FREESTANDING__	initech-ao6o0
-flair/desktop	desktop_db.c	DB_WRITE_SKIP	initech-e1j4j
-flair/desktop	desktop_db.c	DB_MAGIC_FLIP	initech-e1j4j
 flair/desktop	finder_actions.c	FILECOPY_RECORD_STEP	initech-e1j4j
 apps/initechbase	ibase_main.c	IBASE_MAIN_STANDALONE	initech-a8bhu
