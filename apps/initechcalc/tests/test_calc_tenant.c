@@ -113,6 +113,12 @@ int main(void)
     CHECK(calc_parse("-570",4,&x)&&x==-570,"reads a leading minus");
     CHECK(calc_parse("$112,276.87",11,&x)&&x==112276.87,"reads currency");
     CHECK(!calc_parse("abc",3,&x)&&!calc_parse(".",1,&x)&&!calc_parse("",0,&x)&&!calc_parse("1-2",3,&x),"refuses what is not a number");
+    /* Exponent form, as Initech 123 reads a typed value and writes a number
+     * (i123.h: "d[.ddd][E[+-]x]"), with Calc's signs around it. */
+    CHECK(calc_parse("1E-7",4,&x)&&x==1e-7,"reads an exponent");
+    CHECK(calc_parse("1.5E+21-",8,&x)&&x==-1.5e21,"reads an exponent with a trailing minus");
+    CHECK(calc_parse("-2e3",4,&x)&&x==-2000,"reads a lower-case exponent with a leading minus");
+    CHECK(!calc_parse("1E",2,&x)&&!calc_parse("E5",2,&x)&&!calc_parse("1E-",3,&x)&&!calc_parse("1E5E3",5,&x)&&!calc_parse("1E,5",4,&x)&&!calc_parse("1+E5",4,&x),"refuses a broken exponent");
 
     /* The chart: value/sum of a turn, labels as stated. */
     CHECK(nseries==5&&series_sum()==116,"the shipped series sums to 116");
@@ -152,7 +158,7 @@ int main(void)
     /* Which document opens. */
     CHECK(start_calc(shipped_bytes,HDR "2\t'saved\r\n")==0&&tbx_host.alerts==0&&!strcmp(shows(0,1),"saved"),"saved tables open in preference to the shipped ledger");
     CHECK(start_calc(shipped_bytes,"Previous saved ledger\r\n")==0&&tbx_host.alerts==1&&strstr(tbx_host.alert_text,"could not be read")&&!strcmp(shows(0,12),"Film Costs"),"unreadable tables: say so, open the shipped ledger");
-        CHECK(start_calc(0,0)==0&&tbx_host.alerts==1&&tbx_host.nwindows==2&&g_rows==0,"no ledger at all: say so, open empty");
+        CHECK(start_calc(0,0)==0&&tbx_host.alerts==1&&tbx_host.nwindows==2&&g_rows==CALC_ROW_MAX&&g_sheet.ncells==0&&nseries==0,"no ledger at all: say so, open an empty ledger of full size");
     CHECK(tbx_host.windows[0].l==116&&tbx_host.windows[1].l==349,"and the windows open in their home places");
 
     /* The reader is all or nothing. */
@@ -180,15 +186,16 @@ int main(void)
     };
     for(unsigned i=0;i<sizeof bad/sizeof bad[0];i++) {
         char msg[64]; snprintf(msg,sizeof msg,"malformed document %u is refused whole",i);
-        CHECK(start_calc(bad[i],0)==0&&tbx_host.alerts==1&&g_rows==0&&g_sheet.ncells==0&&nseries==0,msg);
+        CHECK(start_calc(bad[i],0)==0&&tbx_host.alerts==1&&g_rows==CALC_ROW_MAX&&g_sheet.ncells==0&&nseries==0,msg);
     }
     {   static char big[sizeof doc+16]; memset(big,' ',sizeof big); memcpy(big,HDR,strlen(HDR));
         tbx_host_reset(); tbx_host_put_file("APPS\\LEDGER.TXT",big,sizeof big);
-        CHECK(tbx_app_main()==0&&tbx_host.alerts==1&&g_rows==0,"a document larger than the reader's buffer is refused, not cut");
+        CHECK(tbx_app_main()==0&&tbx_host.alerts==1&&g_sheet.ncells==0&&nseries==0,"a document larger than the reader's buffer is refused, not cut");
     }
     CHECK(opens("INITECH LEDGER\r\nWINDOW\t300\t30\t790\t400\r\nCHART\t600\t460\t849\t676\r\nSERIES\t1\r\nROWS\t1\r\n"),"off-screen bounds open");
     CHECK(tbx_host.windows[0].l==150&&tbx_host.windows[0].r==640&&tbx_host.windows[0].t==30,"a window off the right edge comes back whole, same size");
     CHECK(tbx_host.windows[1].r==640&&tbx_host.windows[1].b==480&&tbx_host.windows[1].r-tbx_host.windows[1].l==249,"a window off the bottom right comes back whole, same size");
+    CHECK(opens("INITECH LEDGER\r\nSERIES\r\nROWS\t1\r\n")&&nseries==0,"a document with no chart values opens, its chart empty");
     CHECK(opens("INITECH LEDGER\r\nSERIES\t100\r\nROWS\t1\r\n"),"a one-slice chart opens");
     event(updateEvt,0); CHECK(drawn(2,"100%"),"and draws its whole turn");
 

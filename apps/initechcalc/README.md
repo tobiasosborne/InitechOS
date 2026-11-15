@@ -11,15 +11,17 @@ use FLAIR's public chrome metrics.
 
 Calc opens `APPS\TABLES.TXT` when the user has saved one, otherwise the
 shipped `APPS\LEDGER.TXT`. If TABLES.TXT is present but unreadable, Calc says
-so and opens LEDGER.TXT; if neither reads, it says so and opens empty. The
-reader is all or nothing: a document with any fault is refused whole.
+so and opens LEDGER.TXT; if neither reads, it says so and opens an empty
+ledger of 26 rows with an empty chart, an ordinary document whose entries
+save and reopen (initech-gs1ww). The reader is all or nothing: a document
+with any fault is refused whole.
 
 A document is ASCII text, CR LF lines, tab-separated:
 
     INITECH LEDGER
     WINDOW  l t r b         the ledger window's bounds
     CHART   l t r b         the chart window's bounds
-    SERIES  v1 ... vn       the chart's values, 1 to 8, each above zero
+    SERIES  v1 ... vn       the chart's values, 0 to 8, each above zero
     NOTE    text            the source note above the total (optional)
     ROWS    n               rows in the ledger, 1 to 26
     row  c0 c1 ... c9       a non-empty row, ascending, columns 0 to 9
@@ -27,8 +29,12 @@ A document is ASCII text, CR LF lines, tab-separated:
 A cell is empty, a label with its Lotus prefix (`'text`, or `\c` to repeat
 `c` across the cell), or a format and a number: `(G) 570-`, `(F2) 98`,
 `(F1) 89302`, `(C2) 112276.87` (general, fixed and currency with their
-decimals). Numbers are written as Calc prints them, sign at the tail. Saved
-bounds are fitted back on screen, keeping their size.
+decimals). Numbers are written as Calc prints them, sign at the tail, in
+Initech 123's shortest form, which is exponent form for very small and very
+large values (`(G) 1E-7`, `(G) 1.5E21-`); the reader and the typed-entry
+parser accept that form (initech-3yye3). A number that would not read back
+as itself refuses the save. Saved bounds are fitted back on screen, keeping
+their size.
 
 The shipped LEDGER.TXT is the transcription of the surviving still
 (`goldens/frame/transcription.tsv`): the certain and probable cells as data,
@@ -110,15 +116,17 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   introduces no recovered labels or amounts.
 - `test_calc_file_copy`: Save routing, the byte-for-byte round trip of the
   shipped ledger, saved positions after a drag, reopening the saved tables,
-  replace confirmation, stage ownership. Expected bytes are the shipped
-  fixture with literal substitutions.
+  replace confirmation, stage ownership, exponent-form numbers typed, saved
+  and reopened as the typed values, and the empty ledger's entry saved and
+  reopened. Expected bytes are the shipped fixture with literal
+  substitutions, or a document written by hand from the format above.
 - `test_calc_save_safety` + `tests/save-safety.sh`: 14 failure scenarios;
   the shell compares exported disk files with pre-save snapshots or the
   fixture with the edited row inserted by awk.
 
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 22 patches in `mutants/`; each must fail a host
+`make mutants` runs the 24 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,

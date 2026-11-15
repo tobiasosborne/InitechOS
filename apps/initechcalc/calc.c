@@ -85,19 +85,25 @@ static void calc_format(double x,uint8_t fmt,char *out)
     } else { i123_number_text(a,number,sizeof number); copy(out,number); }
     if(x<0) { unsigned n=length(out); out[n]='-'; out[n+1]=0; }
 }
-/* A typed or saved number: digits with an optional point, a leading or a
- * trailing minus, and for currency a dollar sign and thousands commas. */
+/* A typed or saved number: digits with an optional point and exponent, a
+ * leading or a trailing minus, and for currency a dollar sign and thousands
+ * commas. The exponent (1E-7, 1.5E+21) is Initech 123's typed-value syntax
+ * (i123.h, i123_parse_value) and the form i123_number_text writes, so every
+ * number Calc saves reads back. */
 static int calc_parse(const char *s,unsigned n,double *x)
 {
-    char t[48]; unsigned k=0; int neg=0, digits=0;
+    char t[48]; unsigned k=0; int neg=0, digits=0, expo=0;
     if(n&&s[0]=='-') { neg=1; s++; n--; }
     else if(n&&s[n-1]=='-') { neg=1; n--; }
     if(n&&s[0]=='$') { s++; n--; }
     for(unsigned i=0;i<n;i++) {
         char c=s[i];
-        if(c==',') { if(!digits) return 0; continue; }
-        if(!((c>='0'&&c<='9')||c=='.')||k>=sizeof t-1) return 0;
-        if(c!='.') digits++;
+        if(c==','&&!expo) { if(!digits) return 0; continue; }
+        if(k>=sizeof t-1) return 0;
+        if(c=='E'||c=='e') { if(!digits||expo) return 0; expo=1; }
+        else if(c=='+'||c=='-') { if(!k||(t[k-1]!='E'&&t[k-1]!='e')) return 0; }
+        else if(c>='0'&&c<='9') { if(!expo) digits++; }
+        else if(c!='.'||expo) return 0;
         t[k++]=c;
     }
     if(!digits||i123_parse_value(t,k,x)!=I123_OK) return 0;
@@ -190,10 +196,12 @@ static void fit(int32_t *b,const int32_t *fallback)
     if(b[1]+h>480) b[1]=480-h;
     b[2]=b[0]+w; b[3]=b[1]+h;
 }
-/* The empty model: no cells, no chart, the windows in their home places. */
+/* The empty model: a blank ledger of full size, no chart, the windows in
+ * their home places. It is an ordinary document: what is typed into it saves
+ * and reads back. */
 static void empty_model(void)
 {
-    i123_sheet_clear(&g_sheet); nseries=0; g_rows=0; note[0]=0;
+    i123_sheet_clear(&g_sheet); nseries=0; g_rows=CALC_ROW_MAX; note[0]=0;
     for(int w=0;w<2;w++) for(int i=0;i<4;i++) bounds[w][i]=home[w][i];
 }
 /* Parse doc[0,len) into the model. On any error the model is left empty and
@@ -217,8 +225,7 @@ static int parse(unsigned len)
                 if(nseries==SERIES_MAX||!calc_parse(f,n,&x)||x<=0) goto bad;
                 series[nseries++]=x;
             }
-            if(!nseries) goto bad;
-            seen|=4;
+            seen|=4;   /* no values: the chart is empty */
         }
         else if(n==4&&same(f,"NOTE",4)) {
             unsigned k=(unsigned)(e-q); if((seen&8)||k>NOTE_MAX) goto bad;
@@ -274,9 +281,16 @@ static void put_int(int32_t v)
     do { t[k++]=(char)('0'+v%10); v/=10; } while(v);
     char s[2]={0,0}; while(k) { s[0]=t[--k]; put(s); }
 }
+/* A number as Calc reads it, sign at the tail. One that would not read back
+ * as itself refuses the save: a successful Save never publishes a document
+ * Calc cannot reopen. */
 static void put_value(double x)
 {
-    char t[48]; i123_number_text(x<0?-x:x,t,sizeof t); put(t); if(x<0) put("-");
+    char t[48]; double back; unsigned n;
+    i123_number_text(x<0?-x:x,t,sizeof t-1); n=length(t);
+    if(x<0) { t[n++]='-'; t[n]=0; }
+    if(!calc_parse(t,n,&back)||back!=x) { put_full=1; return; }
+    put(t);
 }
 /* The bounds a window has now: its content rect less the document chrome
  * (CalcDocContentRect: 6 left, 22 top, 21 right, 21 bottom). */

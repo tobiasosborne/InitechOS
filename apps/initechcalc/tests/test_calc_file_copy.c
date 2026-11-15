@@ -64,6 +64,45 @@ static size_t edited(char *out,const char *from,const char *to)
 }
 #define SAVE TBX_MENU_WORD(129,1)
 #define QUIT TBX_MENU_WORD(129,2)
+/* An ordinary session: open what is on the disk, type `typed` into the first
+ * cell, Save (approving a replacement), let the copy land, then start Calc
+ * again on the disk as the Save left it. Returns the alerts the second launch
+ * raised (0: the saved document read cleanly); *saved is 0 when no copy was
+ * asked for. */
+static unsigned reopen_alerts;
+static int save_and_reopen(const char *shipped_doc,const char *tables,const char *typed,int *saved)
+{
+    static char keep[8192]; size_t kl=0;
+    tbx_host_reset(); copies=0; memset(drag_h,0,sizeof drag_h); memset(drag_v,0,sizeof drag_v);
+    if(shipped_doc) tbx_host_put_file("APPS\\LEDGER.TXT",shipped_doc,(uint32_t)strlen(shipped_doc));
+    if(tables) tbx_host_put_file("APPS\\TABLES.TXT",tables,(uint32_t)strlen(tables));
+    if(tbx_app_main()!=0) return -1;
+    if(tbx_host.alerts) event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);   /* dismiss the notice */
+    i123_set_cursor(&g_sheet,0,0);
+    for(const char *p=typed;*p;p++) key(*p);
+    key('\r');
+    int a=tbx_host.alerts;
+    event(TBX_EVT_MENU,SAVE);
+    if(tbx_host.alerts>a&&strstr(tbx_host.alert_text,"replace")) event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);
+    *saved=copies==1;
+    if(*saved) event(TBX_EVT_FILECOPY,(int32_t)staged_len);
+    if(*saved&&g_dirty) return -1;
+    const tbx_host_file_t *t=tbx_host_file("APPS\\TABLES.TXT");
+    if(t&&t->size<sizeof keep) { memcpy(keep,t->data,t->size); kl=t->size; }
+    tbx_host_reset();
+    if(shipped_doc) tbx_host_put_file("APPS\\LEDGER.TXT",shipped_doc,(uint32_t)strlen(shipped_doc));
+    if(t) tbx_host_put_file("APPS\\TABLES.TXT",keep,(uint32_t)kl);
+    if(tbx_app_main()!=0) return -1;
+    reopen_alerts=tbx_host.alerts;
+    return 0;
+}
+static int first_cell(double *x)
+{
+    const i123_cell_t *p=i123_find(&g_sheet,0,0); char raw[48];
+    if(!p||(p->kind!=I123_K_NUMBER&&p->kind!=I123_K_INTEGER)) return 0;
+    i123_cell_content(&g_sheet,p,raw,sizeof raw);
+    return i123_parse_value(raw,(uint32_t)strlen(raw),x)==I123_OK;
+}
 int main(void)
 {
     FILE *f=fopen("data/LEDGER.TXT","rb"); if(!f) return 2;
@@ -150,6 +189,39 @@ int main(void)
     CHECK(copies==c0+1&&tbx_host.exit_calls==0&&strstr(staged,"\r\n1\t(G) 9\r\n"),"QUITSAVE the copy holds the second edit; the session waits for it");
     event(TBX_EVT_FILECOPY,50);
     CHECK(tbx_host.exit_calls==1,"QUITSAVE a successful Save ends the session");
+
+    /* initech-3yye3: numbers Initech 123 writes in exponent form. Typed
+     * 0.0000001 and 1000000000000000000000 (and their negatives) must save,
+     * and the saved tables must reopen with the same value, never fall back
+     * to the shipped ledger. Expected values are the typed literals. */
+    {   static const struct { const char *typed; double value; } big[]={
+            {"0.0000001",1e-7},{"1000000000000000000000",1e21},{"0.0000001-",-1e-7},{"-1000000000000000000000",-1e21},{"1.5E-12",1.5e-12}};
+        for(unsigned i=0;i<sizeof big/sizeof big[0];i++) {
+            int saved=0; double x=0; char msg[96];
+            int rc=save_and_reopen(shipped_bytes,0,big[i].typed,&saved);
+            snprintf(msg,sizeof msg,"EXPONENT %s saves and reopens as itself",big[i].typed);
+            CHECK(rc==0&&saved&&reopen_alerts==0&&first_cell(&x)&&x==big[i].value,msg);
+            snprintf(msg,sizeof msg,"EXPONENT %s reopens with the rest of the ledger",big[i].typed);
+            {   char s[96]; CHECK(cell_text(8,15,s,42)&&!strcmp(s,"570-")&&nseries==5,msg); }
+        }
+        /* A previously saved ledger is replaced only by one that reads back. */
+        {   int saved=0; double x=0;
+            static char tables[4096]; snprintf(tables,sizeof tables,"%s",shipped_bytes);
+            CHECK(save_and_reopen(shipped_bytes,tables,"0.0000001",&saved)==0&&saved&&reopen_alerts==0&&first_cell(&x)&&x==1e-7,
+                  "EXPONENT replacing saved tables keeps a document Calc can open");
+        }
+    }
+    /* initech-gs1ww: with neither document readable Calc opens empty; what
+     * is typed there must save into a document that opens again. Expected
+     * bytes are written by hand from README.md "The ledger document": the
+     * home bounds, no chart values, the full 26 rows, the one typed cell. */
+    {   int saved=0; double x=0;
+        static const char want_empty[]="INITECH LEDGER\r\nWINDOW\t116\t104\t622\t474\r\nCHART\t349\t72\t598\t288\r\nSERIES\r\nROWS\t26\r\n1\t(G) 73\r\n";
+        int rc=save_and_reopen(0,0,"73",&saved);
+        const tbx_host_file_t *t=tbx_host_file("APPS\\TABLES.TXT");
+        CHECK(rc==0&&saved&&t&&t->size==sizeof want_empty-1&&!memcmp(t->data,want_empty,t->size),"EMPTY the empty ledger's entry is saved in an ordinary document");
+        CHECK(reopen_alerts==0&&first_cell(&x)&&x==73,"EMPTY the saved document reopens with the entry");
+    }
     printf("test_calc_file_copy: %u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;
 }

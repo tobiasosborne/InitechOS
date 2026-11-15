@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -201,7 +201,7 @@
+  * and reads back. */
+ static void empty_model(void)
+ {
+-    i123_sheet_clear(&g_sheet); nseries=0; g_rows=CALC_ROW_MAX; note[0]=0;
++    i123_sheet_clear(&g_sheet); nseries=0; g_rows=0; note[0]=0;
+     for(int w=0;w<2;w++) for(int i=0;i<4;i++) bounds[w][i]=home[w][i];
+ }
+ /* Parse doc[0,len) into the model. On any error the model is left empty and
