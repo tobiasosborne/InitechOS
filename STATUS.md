@@ -102,28 +102,24 @@ consolidation and start route (GM8), the manuals.
 
 ## Who holds what (one writer per directory)
 
-Assigned by phase 3's orchestrator (2026-11-15, updated 06:05). Each
+Assigned by phase 3's orchestrator (2026-11-15, updated 08:30). Each
 owner lands its own work; requests to another owner go in the
 requester's handoff.
 
-- `turbo/`: Turbo Initech owner (IDE save safety, one TURBO.COM,
-  Compile/Make/Run, initech-wkp2p).
-- `apps/initechcalc/`, `goldens/frame/`: the frame owner (GM3; Calc save
-  findings zev40/qdscg, then the frame journey).
-- `apps/initechbase/`: the forms owner (initech-p3nn0; READ write-back
-  findings first).
-- `dos/`: the DOS owner (XCOPY retention gze1f, check strength).
-- `kernel/`, `system/`, `apps/initech123/`: the delivery owner (kernel
-  mutation survivors initech-xn1ev, then the C: consolidation).
-- `apps/initechword/`, `flair/`: the InitechWord and Toolbox owner
-  (go4vt, suite budget, frame placement requests, qv7t).
-- `flair/desktop/`: the desktop owner (Finder menus, C: binding).
-- Shared places `factory/`, `mk/`, `sdk/`, top Makefile, and
-  `apps/notepad/` tests: the factory owner (strict mutation runner,
-  initech-vocfm/fl7ce/kkqbw; key pacing ix9by; smoke defects; forms
-  replay; frame support).
-- Free: `apps/initechtext/`, `apps/initechpaint/`, the small apps,
-  `boot/`.
+- `turbo/`: Turbo Initech owner (one TURBO.COM, Compile/Make/Run,
+  initech-wkp2p; IDE saves are write-aside since b07b6460).
+- `apps/initechbase/`: the forms owner (initech-p3nn0 stage 4, uctfu).
+- `dos/`: the DOS owner.
+- `kernel/`, `system/`, `apps/initech123/`: the delivery owner (the C:
+  consolidation; red test initech-1npv1).
+- `flair/`, `flair/desktop/`, `apps/initechword/`: the desktop owner
+  (shutdown wait qv7t, FILE COPY colours, gate tracing, C: binding).
+- `apps/notepad/`, `apps/calculator/`, `apps/controlpanels/`,
+  `apps/initechtext/`, `apps/initechpaint/`: the small apps owner.
+- Shared places `factory/`, `mk/`, `sdk/`, top Makefile: the factory
+  owner (runner, forms replay, frame captures, SDK requests).
+- Free: `apps/initechcalc/` and `goldens/frame/` (the frame line waits
+  on the Drive A seed, Bochs captures and slice blue), `boot/`.
 
 ## Notes for this week
 
