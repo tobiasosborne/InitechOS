@@ -48,7 +48,7 @@ for source in $sources; do
    sh turbo/compiler/tests/package.sh "$dir/program.s" "$dir/package" >> "$dir/build.log" 2>&1
    cp "$dir/package/program.exe" "$dir/PROGRAM.COM" ;;
   hosted|hosted-flat)
-   (cd "$dir" && "$hosted" > build.log)
+   (cd "$dir" && "$hosted" /DUMP > build.log)
    if grep -E 'TURBO-.*(ERROR|SKIP)' "$dir/build.log" || [ ! -s "$dir/TURBOOUT.EXE" ]; then
     echo "FAIL $name $path compilation"; failed=1; continue
    fi
@@ -93,7 +93,7 @@ for emulator in $emulators; do
   if [ "$path" = resident ] || [ "$path" = resident-flat ]; then
    mcopy -i "$disk" build/turbo/smoke/TIMER.COM ::"$id"/TIMER.COM
    mcopy -i "$disk" "$out/programs/$id/TURBOIN.PAS" ::"$id"/TURBOIN.PAS
-   printf 'echo compile-%s\r\ntimer\r\n\\turbo.com\r\ntimer\r\n' "$id" >> "$batch"
+   printf 'echo compile-%s\r\ntimer\r\n\\turbo.com TURBOIN.PAS\r\ntimer\r\n' "$id" >> "$batch"
    if [ "$path" = resident-flat ]; then program=turboout.com; else program=turboout.exe; fi
   else
    mcopy -i "$disk" "$out/programs/$id/PROGRAM.COM" ::"$id"/PROGRAM.COM

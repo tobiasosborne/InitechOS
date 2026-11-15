@@ -8,7 +8,7 @@ run_compiler() {
     dest=$1 source=$2
     mkdir -p "$dest"
     cp "$source" "$dest/TURBOIN.PAS"
-    (cd "$dest" && "$out/turbo_fpc" > raw)
+    (cd "$dest" && "$out/turbo_fpc" /DUMP > raw)
     tr -d '\r' < "$dest/raw" > "$dest/normalized"
 }
 run_self_compiler() {
@@ -135,7 +135,7 @@ seed-build)
         '^pf_parseprogram:' '^v_symnameoffset: resd 2048$' '^pf_runtypechecker:' '^pf_runcodegenerator:' \
         'call rtl_file_blockread$' 'call rtl_file_blockwrite$'; do grep -q "$pattern" "$asm"; done
     ! grep -q '^v_sourcewords:' "$asm"
-    grep -q "Assign(OutputFile, 'TURBOOUT.S')" turbo.pas
+    grep -q "Assign(OutputFile, OutputAsmName)" turbo.pas
     nm -n "$out/extended/zero.elf" > "$scratch/symbols"
     start=$(awk '$3 == "__bss_start" {print $1}' "$scratch/symbols")
     end=$(awk '$3 == "__bss_end" {print $1}' "$scratch/symbols")

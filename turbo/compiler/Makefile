@@ -21,8 +21,8 @@ tools:
 	@command -v $(FPC) >/dev/null 2>&1 || { echo 'FAIL: fpc is required (no skipped reference tests)' >&2; exit 1; }
 seed-tools:
 	+@$(MAKE) --no-print-directory -C $(TOP)/turbo/seed OUT=$(SEED_OUT) MAKEOVERRIDES= all TESTS=
-$(OUT)/turbo_fpc: turbo.pas $(MAKEFILE_LIST) | $(OUT) tools
-	@$(FPC) -B -O2 -v0 -FU$(OUT) -FE$(OUT) -o$@ $< > $(OUT)/fpc-build.log 2>&1 || { cat $(OUT)/fpc-build.log; exit 1; }
+$(OUT)/turbo_fpc: turbo.pas hostrtl.pas $(MAKEFILE_LIST) | $(OUT) tools
+	@$(FPC) -B -O2 -v0 -FaHostRTL -Fu. -FU$(OUT) -FE$(OUT) -o$@ $< > $(OUT)/fpc-build.log 2>&1 || { cat $(OUT)/fpc-build.log; exit 1; }
 $(OUT)/turbo_seed.s: turbo.pas $(wildcard $(TOP)/turbo/seed/*.[ch]) $(MAKEFILE_LIST) | $(OUT) seed-tools
 	@$(SEED_BIN) --emit-asm -o $@ $<
 $(OUT)/turbo_seed.o: $(OUT)/turbo_seed.s
