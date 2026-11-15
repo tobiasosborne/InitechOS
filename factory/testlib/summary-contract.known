@@ -4,10 +4,6 @@
 # the test print INITECH_CHECKS (or a counted summary); any other test
 # without one fails make test. The file is deleted when it is empty.
 apps/initech123 test_i123_transfer_baseline initech-u5jow
-apps/initechbase captured-hashes initech-zw6sl
-apps/initechbase messages-generated initech-zw6sl
-apps/initechbase retained-screens initech-zw6sl
-apps/initechbase w4-files initech-zw6sl
 dos batch-capacity initech-wb3kr
 dos batch-physical initech-wb3kr
 dos fdisk-session initech-wb3kr

@@ -22,12 +22,11 @@ case $component in
  check fdisk-reset initech-q9p80 fdisk/fdisk_program.c '[(]void[)]kernel_reset[(][)]'
  ;;
  apps/initechbase) check base-console39 initech-qu7rx pal/pal_dos.c '"int \$0x39; setc %0"';;
- apps/notepad) check notes-diagnostics21 initech-q9p80 notepad.c '"int \$0x21"';;
 esac
 while read -r first kind name issue; do
  [ "$kind" = migration: ] || continue
  case $component:$name:$issue in
- dos:chkdsk-arena:initech-q9p80|dos:fdisk-reset:initech-q9p80|apps/initechbase:base-console39:initech-qu7rx|apps/notepad:notes-diagnostics21:initech-q9p80) :;;
+ dos:chkdsk-arena:initech-q9p80|dos:fdisk-reset:initech-q9p80|apps/initechbase:base-console39:initech-qu7rx) :;;
  *) echo "FAIL interface: unknown migration $component/$name/$issue"; exit 1;;
  esac
 done < "$declarations"

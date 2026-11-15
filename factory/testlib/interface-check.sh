@@ -170,7 +170,6 @@ while read -r path; do
   awk -v component="$component" -v role="$object_role" -v object="$path" \
    -v artifacts="$members" \
    -v base39="$(grep -c '^Interface migration: base-console39 initech-qu7rx$' "$out/declarations" || :)" \
-   -v notes21="$(grep -c '^Interface migration: notes-diagnostics21 initech-q9p80$' "$out/declarations" || :)" \
    -v fdisk_reset="$(grep -c '^Interface migration: fdisk-reset initech-q9p80$' "$out/declarations" || :)" \
    -f "$helper/interface-vectors.awk" "$out/disassembly" || bad=1
   # Foreign code copied into a consumer's output remains foreign.

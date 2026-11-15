@@ -32,10 +32,9 @@ function only_programs(pattern, n,a,i,p) {
  if(v=="13" && component=="dos" && only_programs("^(FORMAT|FDISK|SYS|DISKCOPY|DISKCOMP)[.]COM$"))next
  if((v=="25" || v=="26") && component=="dos" && only_programs("^(CHKDSK|LABEL)[.]COM$"))next
  if(v=="39" && component=="apps/initechbase" && object ~ /\/pal\/pal_dos\.o$/ && base39) {base_seen++;next}
- if(v=="21" && component=="apps/notepad" && object ~ /\/tenant\/notepad\.o$/ && notes21) {notes_seen++;next}
  reject("forbidden INT " v "h for " role)
 }
 END {
- if(base_seen>1 || notes_seen>1)reject("migration covers one diagnostic/console site only")
+ if(base_seen>1)reject("migration covers one diagnostic/console site only")
  exit bad
 }
