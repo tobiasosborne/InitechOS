@@ -9,6 +9,25 @@ reference=${2:-"$src/reference"}
 (cd "$src" && sha256sum --quiet -c INPUTS.sha256)
 (cd "$reference" && sha256sum --quiet -c SHA256SUMS)
 fail=0;selected=0
+# Every DBF/DBT read goes through one reader process (read_dbf.py --batch);
+# each file still gets its own output or its own .failed verdict.
+jobs=$out/read-jobs.txt
+: > "$jobs"
+for case_dir in "$src"/cases/C*; do
+ name=${case_dir##*/}; host=$out/host-results/$name; ref=$reference/$name
+ case " ${CASES:-all} " in *" all "*|*" $name "*) ;; *) continue;; esac
+ for file in BASE.DBF SAVED.DBF; do
+  rm -f "$host/$file.reference" "$host/$file.reference.failed" "$host/$file.meaningful" "$host/$file.meaningful.failed"
+  test -f "$ref/$file" && printf 'dbf %s %s\n' "$ref/$file" "$host/$file.reference" >> "$jobs"
+  test -f "$host/$file" && printf 'dbf %s %s\n' "$host/$file" "$host/$file.meaningful" >> "$jobs"
+ done
+ rm -f "$host/memo.reference" "$host/memo.reference.failed" "$host/memo.txt" "$host/memo.txt.failed"
+ if [ -f "$ref/BASE.DBT" ]; then
+  printf 'dbt %s %s\n' "$ref/BASE.DBT" "$host/memo.reference" >> "$jobs"
+  test -f "$host/BASE.DBT" && printf 'dbt %s %s\n' "$host/BASE.DBT" "$host/memo.txt" >> "$jobs"
+ fi
+done
+python3 "$src/read_dbf.py" --batch "$jobs" || exit 2
 for case_dir in "$src"/cases/C*; do
  name=${case_dir##*/}; host=$out/host-results/$name; ref=$reference/$name
  case " ${CASES:-all} " in *" all "*|*" $name "*) ;; *) continue;; esac
@@ -28,8 +47,8 @@ for case_dir in "$src"/cases/C*; do
   if [ ! -f "$host/$file" ]; then
    printf 'FAIL: %s missing %s\n' "$name" "$file";mismatch=1;continue
   fi
-  python3 "$src/read_dbf.py" "$ref/$file" > "$host/$file.reference" || exit 2
-  if ! python3 "$src/read_dbf.py" "$host/$file" > "$host/$file.meaningful"; then
+  test -f "$host/$file.reference" || exit 2
+  if [ ! -f "$host/$file.meaningful" ]; then
    printf 'FAIL: %s invalid %s\n' "$name" "$file";mismatch=1;continue
   fi
   if ! cmp -s "$host/$file.meaningful" "$host/$file.reference"; then
@@ -40,9 +59,8 @@ for case_dir in "$src"/cases/C*; do
   if [ ! -f "$host/BASE.DBT" ]; then
    printf 'FAIL: %s missing memo file\n' "$name";mismatch=1
   else
-   python3 "$src/read_dbf.py" --dbt "$ref/BASE.DBT" > "$host/memo.reference" || exit 2
-   if ! python3 "$src/read_dbf.py" --dbt "$host/BASE.DBT" > "$host/memo.txt" ||
-      ! cmp -s "$host/memo.txt" "$host/memo.reference"; then
+   test -f "$host/memo.reference" || exit 2
+   if [ ! -f "$host/memo.txt" ] || ! cmp -s "$host/memo.txt" "$host/memo.reference"; then
     printf 'FAIL: %s memo bytes\n' "$name";mismatch=1
    fi
   fi

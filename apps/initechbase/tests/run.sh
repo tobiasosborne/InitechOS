@@ -70,7 +70,31 @@ case "$name" in
  test_ibase_datatype)
   for c in blankdate overflow dateindex dateindex-blank boundary blankdtoc numericfit valstar datecontract; do "$bins/$name" "$c"; done;;
  test_ibase_dbsafe)
-  for mode in append lifetime safety writes ndxfail rowfail dbtfail retry packfail fromfail blankfail; do "$bins/$name" "$mode"; done;;
+  # The modes are independent processes that share only build/dbsafe, so
+  # each runs in its own copy of the scratch tree, four at a time in the
+  # sequential order. Each is awaited in that order; the first failing mode
+  # ends the run, its batch-mates are stopped, and the printed logs are
+  # exactly those the sequential loop printed.
+  for batch in "append lifetime safety writes" "ndxfail rowfail dbtfail retry" "packfail fromfail blankfail"; do
+   pids=
+   for mode in $batch; do
+    mkdir -p "modes/$mode/build/dbsafe" "modes/$mode/build/ibase-audit" "modes/$mode/build/ibase.audit"
+    for d in tests spec include; do ln -s "$src/$d" "modes/$mode/$d"; done
+    (cd "modes/$mode" && exec "$bins/$name" "$mode") > "modes/$mode.log" 2>&1 &
+    pids="$pids $!"
+   done
+   set -- $pids
+   for mode in $batch; do
+    pid=$1; shift
+    rc=0; wait "$pid" || rc=$?
+    cat "modes/$mode.log"
+    if [ "$rc" != 0 ]; then
+     for other in "$@"; do kill "$other" 2>/dev/null || :; done
+     wait 2>/dev/null || :
+     exit "$rc"
+    fi
+   done
+  done;;
  test_interp_do_file) sh tests/do_file_test.sh host "$bins/$name";;
  test_ibase_memocells)
   mkdir -p build/memocells/DRIVE build/memocells/DATA

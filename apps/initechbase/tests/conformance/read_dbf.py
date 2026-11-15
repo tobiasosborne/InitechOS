@@ -97,13 +97,41 @@ def selftest():
     return 0
 
 
+def read_dbt(path):
+    with open(path, "rb") as stream:
+        raw = stream.read()
+    return {"next_free": raw[:4].hex(), "memo_blocks": raw[512:].hex()}
+
+
+def render(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n"
+
+
+def batch(listing):
+    """One interpreter for many files (check.sh): each line is `dbf|dbt IN OUT`.
+    A readable file writes OUT exactly as a single run prints it; a file this
+    reader rejects writes OUT.failed with the reason instead."""
+    with open(listing) as stream:
+        jobs = [line.split() for line in stream if line.strip()]
+    for kind, source, target in jobs:
+        try:
+            text = render(read_dbt(source) if kind == "dbt" else read(source))
+        except Exception as error:  # the per-file verdict belongs to check.sh
+            with open(target + ".failed", "w") as out:
+                out.write("%s\n" % error)
+            continue
+        with open(target, "w") as out:
+            out.write(text)
+    return 0
+
+
 if __name__ == "__main__":
     if sys.argv[1] == "--selftest":
         sys.exit(selftest())
+    if sys.argv[1] == "--batch":
+        sys.exit(batch(sys.argv[2]))
     if sys.argv[1] == "--dbt":
-        with open(sys.argv[2], "rb") as stream:
-            raw = stream.read()
-        value = {"next_free": raw[:4].hex(), "memo_blocks": raw[512:].hex()}
+        value = read_dbt(sys.argv[2])
     else:
         value = read(sys.argv[1])
-    print(json.dumps(value, sort_keys=True, separators=(",", ":")))
+    sys.stdout.write(render(value))
