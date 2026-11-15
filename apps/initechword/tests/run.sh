@@ -23,10 +23,49 @@ case "$name" in
     (cd "$capture"; printf '%s\n' \
       'b2b9df5cd68aee170538d21c36a405ea03dc7aa0d374fc9a26dba6d3002a2ab4  before.NAME.WP5' \
       '1de63f570187add4bdcc1310d90e8db617095525fbec8dbb6e2e299e773220dd  before.NAME.BK!' | sha256sum -c --quiet -)
-    "$bin" "$dir" "$capture/before.NAME.WP5" "$capture/before.NAME.BK!"
-    find "$dir" -type f ! -name readback -size +0c -exec python3 -I "$ref" {} + > "$dir/readback"
+    rc=0
+    "$bin" "$dir" "$capture/before.NAME.WP5" "$capture/before.NAME.BK!" > "$dir/stdout" || rc=$?
+    cat "$dir/stdout"
+    test "$rc" -eq 0 || exit "$rc"
+    find "$dir" -type f ! -name readback ! -name stdout -size +0c -exec python3 -I "$ref" {} + > "$dir/readback"
     ! grep -qE '!!|trailer-errors=[1-9]' "$dir/readback"
     test "$(grep -c '  END offset=' "$dir/readback")" -gt 0
+    . "${IWORD_GOLDENS%/goldens}/factory/testlib/shell-checks.sh"
+    sed -n 's/^move-readback //p' "$dir/stdout" > "$dir/states"
+    move_bytes() {
+      [ -f "$1" ] || exit 2
+      [ -f "$2" ] || fail "Move missing saved file: $2"
+      compared=0
+      cmp "$1" "$2" || compared=$?
+      case $compared in
+        0) :;;
+        1) fail "Move saved bytes differ: $2";;
+        *) exit 2;;
+      esac
+    }
+    while read -r state trial dest existed source_path; do
+      dest=$(printf '%s' "$dest" | tr '\\' '/')
+      source_path=$(printf '%s' "$source_path" | tr '\\' '/')
+      target=$dir/$trial/$dest
+      if [ "$state" = failed ]; then
+        move_bytes "$capture/before.NAME.WP5" "$dir/$trial/$source_path"
+        if [ "$existed" -eq 1 ]; then
+          move_bytes "$capture/before.NAME.BK!" "$target"
+        else
+          [ ! -e "$target" ] || fail 'Move precommit created a destination'
+        fi
+      else
+        move_bytes "$capture/before.NAME.WP5" "$target"
+        if [ "$state" = left ]; then
+          move_bytes "$capture/before.NAME.WP5" "$dir/$trial/$source_path"
+        else
+          [ ! -e "$dir/$trial/$source_path" ] || fail 'Move reported removal but source still exists'
+        fi
+      fi
+      ok
+    done < "$dir/states"
+    [ "$initech_checks" -gt 0 ] || fail 'Move readback has no trials'
+    summary
     ;;
  test_iword_retrieve)
     fixtures=tests/conformance/fixtures

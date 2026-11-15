@@ -10,6 +10,6 @@
 +            int32_t h=tbx_file_create(g_lf_dst);
 +            if(h>=0)(void)tbx_file_close(h);
 +        }
-         rc = g_lf_op == '3' ? lf_move_file(&move) : tbx_file_copy_save(g_lf_src, g_lf_dst);
+         rc = g_lf_op == '3' ? lf_move_file(&source_left) : tbx_file_copy_save(g_lf_src, g_lf_dst);
      }
-     if (rc < 0) { lf_error(rc); if(g_word_blocked)g_err=g_word_recovery; return; }
+     if (rc < 0) { lf_error(rc); return; }

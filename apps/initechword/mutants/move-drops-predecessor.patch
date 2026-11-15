@@ -1,0 +1,12 @@
+# test: test_iword_move
+# Precommit copy failures must leave the previous destination under its name.
+--- a/app/lf_move.h
++++ b/app/lf_move.h
+@@ -16,6 +16,7 @@
+     rc=tbx_file_replace(g_lf_src,g_lf_dst);
+     if(rc==TBX_OK)return rc;
+     if(rc!=TBX_ERR_DOS(17)&&rc!=TBX_ERR_DOS(2))return rc;
++    (void)tbx_file_delete(g_lf_dst);
+     rc=tbx_file_copy_save(g_lf_src,g_lf_dst);
+     if(rc<0)return rc;
+     if(tbx_file_delete(g_lf_src)<0)*source_left=1;

@@ -26,7 +26,6 @@ static void seed(const char *dir,int backup,int exists,int readonly)
 {
     save_fail_at=save_fail_again=save_call=save_failed=0;save_persistent=save_zero=save_reclaim_backup=0;
     tbx_host_reset();m_dir=0;g_mode=M_EDIT;g_current[0]=0;g_home=0;g_exiting=0;g_reveal=0;
-    g_word_blocked=0;g_word_recovery[0]=0;
     CHECK(tbx_app_main()==0,"save","launch");
     g_settings[6]=(uint8_t)backup;
     if(exists) CHECK(tbx_host_put_file("NAME.WP5",original,original_n),"save","seed captured original");

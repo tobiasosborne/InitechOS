@@ -19,7 +19,6 @@ static void seed_input(void)
 {
     tbx_host_reset();m_dir=0;
     g_mode=M_EDIT;g_current[0]=0;g_home=g_exiting=g_reveal=0;
-    g_word_blocked=0;g_word_recovery[0]=0;
     CHECK(tbx_app_main()==0,"retrieve","launch fresh tenant");
     CHECK(tbx_host_put_file("CASE.WP5",input_bytes,input_n),"retrieve","seed pinned input");
     m_read_limit=2;

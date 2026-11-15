@@ -30,6 +30,7 @@ static int save_reclaim_backup;
 static unsigned move_source_delete,move_restore,move_retire_copy;
 static int move_delete_persistent;
 static const char *move_destination;
+static const char *move_source_path;
 #endif
 static int save_fault(void)
 {
@@ -79,7 +80,7 @@ static int32_t fixture_create_new(const char *p)
 static int32_t fixture_delete(const char *p)
 {
 #ifdef IWORD_MOVE_FAULTS
-    if(!strcmp(p,"SOURCE.WP5")){
+    if(!strcmp(p,move_source_path?move_source_path:"SOURCE.WP5")){
         move_source_delete=save_call+1;
         if(move_delete_persistent)tbx_host.file_error[TBX_FILE_DELETE]=5;
     }

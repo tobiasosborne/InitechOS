@@ -211,18 +211,17 @@ while preserving existing text and source bytes. The tenant BSS limit remains
 
 ## List Files Move/Rename recovery
 
-Move retains an existing destination under an exclusively chosen `.M00`..`.M99`
-name until source removal and list refresh both succeed. Same-directory moves
-use rename; DOS 17 falls back to verified streaming copy followed by source
-removal. Any single reported failure restores the previous destination under
-its own name and retains the source. Rollback uses rename rather than delete,
-so a persistent refusal to remove the source cannot destroy the old target.
-A failed refresh also restores the source before restoring the destination.
-Postcommit cleanup failure retains an extra predecessor and reports success.
-Cross-directory Move also preflights the source against the shared helper's
-current 60-character recovery-name limit, so a failed refresh can restore it.
-Longer recovery names refuse before changing either file; the kernel primitive
-`initech-7mb66` removes this limitation.
+Move uses rename for an unused name and FILE_REPLACE for same-directory
+replacement. Across directories it uses the shared verified copy-save helper,
+then removes the source, as DOS Move did. The destination replacement is the
+commit point (operator clarification, 2026-11-15). Every earlier reported
+failure leaves the source and any previous destination under their original
+names. Once committed, a failed source deletion leaves both complete copies
+and displays "File moved; source remains:" with the exact source path across
+two rows. A failed directory refresh reports that the file moved but the list
+is unavailable; acknowledgement returns to editing so the user can reopen it.
+Neither case rolls back committed data or blocks later saves. No new kernel
+operation or application-wide recovery state is needed.
 
 Normal prompts and selection follow the real WP5.1 List Files captures in
 `tests/fixtures/iword-listfiles-ops/` (`13_move_replace`, `17_move_success`,
@@ -230,15 +229,14 @@ Normal prompts and selection follow the real WP5.1 List Files captures in
 The original-file guarantee is the stronger phase-2 ruling, rather than a claim
 that arbitrary injected DOS failures were captured in real WordPerfect.
 `test_iword_move` injects every nominal file/FIND boundary for new/replacing,
-same/cross-directory moves, checks repeated failures and retry, and compares
-literal pinned source/destination captures. An external WP5 reader checks all
-exported complete streams; the expected bytes never use the product codec.
-
-The existing `initech-7mb66` residual also applies when a Move failure is followed
-by a failed restoration: delete no retained complete stream, display the exact
-preceding destination's recovery name, and block further file operations/saves
-in that tenant. Paired source-delete/rollback failures are tested. This remains
-a known residual to the original-name ruling, not a policy exception.
+same/cross-directory moves and paired cleanup faults. Literal captured source
+and destination bytes are checked again by an independent shell reader from
+exported disk states; the external WP5 reader checks every complete stream.
+The long-source notice and a subsequent document save are checked too. The old
+requirement to roll back replacement, source deletion and refresh after two
+I/O failures was impossible with DOS copy/delete and the single-directory
+replacement primitive; it encouraged a destructive second rollback attempt.
+The commit point now makes the reported outcome agree with the saved bytes.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate

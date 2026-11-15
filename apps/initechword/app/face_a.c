@@ -310,7 +310,7 @@ enum { M_EDIT, M_SAVE_NAME, M_GET_NAME, M_REPLACE, M_SAVEQ, M_EXITQ, M_ERROR, M_
        M_RCONF, M_RSEARCH, M_RTEXT, M_RASK, M_UNDO,
        M_SETUP, M_ENV, M_UNITS, M_UNITVALUE, M_BACKUP, M_BACKUPVALUE,
        M_LISTDIR, M_LIST, M_LISTSUB, M_LOOK, M_LISTRQ,
-       M_LFDELETE, M_LFNAME, M_LFREPLACE, M_LFERROR, M_GOTO };
+       M_LFDELETE, M_LFNAME, M_LFREPLACE, M_LFERROR, M_LFNOTICE, M_GOTO };
 static int      g_mode = M_EDIT;
 static int      g_err_return;               /* the prompt an ERROR returns to */
 static const char *g_err;
@@ -1055,11 +1055,9 @@ static void paint_setup(void)
 
 static int lf_mode(void);
 static void paint_lf(void);
-static int word_recovery_paint(void);
 static void paint(void)
 {
     iw_where_t w;
-    if ((g_mode == M_ERROR || g_mode == M_LFERROR) && word_recovery_paint()) return;
     if (setup_mode()) { paint_setup(); return; }
     if (lf_mode()) { paint_lf(); return; }
     if (g_mode == M_UNDO) {
@@ -1231,7 +1229,6 @@ static void write_file(void)
 {
     uint32_t n = 0, wn;
     int32_t rc;
-    if (g_word_blocked) { error(g_word_recovery, M_SAVE_NAME); return; }
     /* Flatten BEFORE the save touches the disk (the 123.EXE preflight,
      * initech-tdnl.91). */
     if (flatten(&n) != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
@@ -1407,7 +1404,10 @@ static void lf_name_search(void)
     else if(first!=0xffffffffu)g_lf_sel=first;
 }
 
-static int lf_mode(void) { return g_mode >= M_LISTDIR && g_mode <= M_LFERROR; }
+static const char *g_lf_notice;
+static char g_lf_notice_path[TBX_FILE_PATH_MAX];
+static int g_lf_notice_return;
+static int lf_mode(void) { return g_mode >= M_LISTDIR && g_mode <= M_LFNOTICE; }
 static uint32_t lf_slots(void) { return g_lf_n + 2u; }
 static int lf_is_file(uint32_t slot)
 {
@@ -1507,7 +1507,7 @@ static void lf_question(const char *verb, const char *path)
     scopy(g_lf_question + slen(g_lf_question), IW_LF_NO_YES);
 }
 
-static int32_t lf_refresh(const char *omit)
+static int32_t lf_refresh(void)
 {
     char dir[TBX_FILE_PATH_MAX], path[TBX_FILE_PATH_MAX];
     const char *keep = g_lf_op == '8' ? g_lf_src : g_lf_dst;
@@ -1515,15 +1515,6 @@ static int32_t lf_refresh(const char *omit)
     scopy(dir, g_lf_dir);
     int32_t rc=lf_open(dir, 0u);
     if(rc<0)return rc;
-    /* Move still owns this predecessor until the refreshed listing succeeds.
-     * Exclude only that exact private name, then release it after this read. */
-    if(omit)for(uint32_t i=0;i<g_lf_n;i++){
-        if(lf_cat(path,g_lf_dir,g_lf_ent[i].name)&&lf_same(path,omit)){
-            g_lf_used-=g_lf_ent[i].size;g_lf_files--;
-            for(uint32_t j=i+1;j<g_lf_n;j++)g_lf_ent[j-1]=g_lf_ent[j];
-            g_lf_n--;break;
-        }
-    }
     g_lf_sel = sel < lf_slots() ? sel : lf_slots() - 1u;
     /* Real WP shots 32/33: Copy retains the source; Rename follows its
      * new alphabetical position. Delete selects the next remaining entry. */
@@ -1548,24 +1539,23 @@ static int lf_protected(const char *path)
 static void lf_perform(void)
 {
     int32_t rc;
-    lf_move_t move={0,0,0,0};
-    if (g_word_blocked) { lf_error(TBX_ERR_BADARG); g_err=g_word_recovery; return; }
+    int source_left=0;
     if (g_lf_op != '8' && lf_protected(g_lf_src)) return;
     if (g_lf_op == '2') rc = tbx_file_delete(g_lf_src);
     else {
         if (lf_same(g_lf_src, g_lf_dst)) { g_mode = M_LIST; return; }
         if (lf_protected(g_lf_dst)) return;
-        rc = g_lf_op == '3' ? lf_move_file(&move) : tbx_file_copy_save(g_lf_src, g_lf_dst);
+        rc = g_lf_op == '3' ? lf_move_file(&source_left) : tbx_file_copy_save(g_lf_src, g_lf_dst);
     }
-    if (rc < 0) { lf_error(rc); if(g_word_blocked)g_err=g_word_recovery; return; }
-    rc=lf_refresh(g_lf_op=='3'&&move.old?g_lf_move_old:0);
+    if (rc < 0) { lf_error(rc); return; }
+    rc=lf_refresh();
     if(g_lf_op=='3'){
-        if(rc<0){
-            rc=lf_move_undo(&move,rc);lf_error(rc);
-            if(g_word_blocked)g_err=g_word_recovery;
-            return;
+        if(source_left || rc<0){
+            g_lf_notice=source_left?"File moved; source remains:":"File moved; list unavailable:";
+            scopy(g_lf_notice_path,source_left?g_lf_src:g_lf_dst);
+            g_lf_notice_return=rc<0?M_EDIT:M_LIST;
+            g_mode=M_LFNOTICE;
         }
-        lf_move_cleanup(&move);
         int32_t free=tbx_disk_free();g_lf_free=free>0?(uint32_t)free:0;
     }
 }
@@ -1637,6 +1627,7 @@ static int lf_destination(void)
 
 static void lf_operation_key(char ch, uint8_t vk)
 {
+    if (g_mode == M_LFNOTICE) { g_mode=g_lf_notice_return; return; }
     if (g_mode == M_LFERROR) {
         if (g_lf_full && vk != VK_F1 && vk != VK_ESC && ch != 0x1B) lf_perform();
         else g_mode = M_LIST;
@@ -1691,7 +1682,7 @@ static void lf_key(char ch, uint8_t vk)
 {
     uint32_t n = lf_slots();
     char up = upper(ch);
-    if (g_mode >= M_LFDELETE && g_mode <= M_LFERROR) { lf_operation_key(ch, vk); return; }
+    if (g_mode >= M_LFDELETE && g_mode <= M_LFNOTICE) { lf_operation_key(ch, vk); return; }
     switch (g_mode) {
     case M_LISTDIR:
         if (vk == VK_ENTER || ch == '\r') { g_lf_dir[0] = 0; lf_open("", 0u); }
@@ -1858,6 +1849,19 @@ static void paint_lf(void)
     static row_t r;
     char row80[IW_LF_WP_COLS + 1], pat[TBX_FILE_PATH_MAX + 8];
     uint32_t i;
+    if (g_mode == M_LFNOTICE) {
+        iw_where_t w;
+        iw_ed_where(&g_ed,&w);paint_doc(&w,EDIT_ROWS);
+        put_text_row(LINE_STATUS-2,g_lf_notice);
+        uint32_t n=slen(g_lf_notice_path);
+        for(unsigned line=0;line<2;line++){
+            row_clear(&r);
+            for(unsigned col=0;col<SCR_COLS && line*SCR_COLS+col<n;col++)
+                r.t[col]=g_lf_notice_path[line*SCR_COLS+col];
+            put_row(LINE_STATUS-1+(int)line,&r);
+        }
+        return;
+    }
     if (g_mode == M_LISTDIR) {
         iw_where_t w;
         iw_ed_where(&g_ed, &w);
