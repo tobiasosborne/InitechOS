@@ -42,7 +42,14 @@ release and a white pressed face (graded against s8_calc_key7_pressed outside
 the pointer's 16x16 arrow cell). Mutation switches are
 absent from the product source. make smoke uses the booted
 product image and grades the window against the independent real-Mac PNG.
-Screendump: build/smoke-desktop/calculator.ppm.
+It also computes 12+3=, holds key 7 with the pointer where the capture pair
+puts it (screen (284,101): our window meets the menu bar 74 px above the
+capture's) and grades the screendump taken during the hold against
+s8_calc_key7_pressed, then the one after the release against
+s8_calc_after_click7, both outside the arrow's cell, which the pixel tool
+finds in the captures alone (initech-8l4kp). With calc_mut_no_pressed_paint
+applied to the image the held face is red (144 pixels).
+Screendumps: build/smoke-desktop/calculator{,-held7,-after7}.ppm.
 
 Remaining unclaimed legacy Calculator emulator traces and Apple-menu checks
 belong to the desktop/factory owners; the app routing and pixel checker are

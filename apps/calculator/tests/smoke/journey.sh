@@ -7,6 +7,19 @@ journey() {
  inject 'l1,w300,m40:41,l0'
  await_marker 'FLAIR-DISPATCH app=CALCULAT'
  capture calculator
+ # initech-8l4kp: the held key, as minted. 12+3= reads 15 (s8_calc_12plus3eq;
+ # '+' by its captured centre (351,123), as below); key 7 is pressed with the pointer where the capture pair puts it, screen
+ # (284,101) in our frame (the capture's (284,175): our window meets the menu
+ # bar 74 px higher); it is captured held, then released. Clear returns to 0.
+ inject 'k1,k2'
+ move_by 291 73
+ inject 'l1,l0,k3,kret'
+ move_by -67 -22
+ hold_capture calculator-held7
+ inject w300
+ capture calculator-after7
+ inject kc
+ move_by -224 -51
  # Authored Edit bindings: Copy 20 with the pointer, then Clear a pending
  # operation. Pointer starts at (60,50); Edit is at (95,9).
  inject 'k2,k0,m35:-41,l1,m0:22,l0'

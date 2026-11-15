@@ -18,6 +18,19 @@
  *       CW2 FACE     the content: the gray field, the readout frame, all 18
  *                    keys with their shadows and labels.
  *       CW3 READOUT  the readout interior: the Geneva 9 digits.
+ *   held <ppm> <pressed.png> <after.png> <idle.png>   initech-8l4kp: key 7
+ *                        HELD in the booted image, graded against
+ *                        s8_calc_key7_pressed (readout 15, key 7 inverted)
+ *                        over the window box, CW1-CW3 as above, except the
+ *                        pointer's 16x16 cell. The cell is found in the
+ *                        CAPTURES, never in ours: the first pixel, in reading
+ *                        order outside the readout, where s8_calc_after_click7
+ *                        leaves s8_calc_idle is the arrow's hot spot (1,1)
+ *                        (QuickDraw arrow, IM I-146..147). Our pointer must
+ *                        stand at the same place: anywhere else it is graded.
+ *   released <ppm> <after.png> <idle.png>   the same pointer after the
+ *                        release, against s8_calc_after_click7 (readout 7,
+ *                        key 7 idle), same exclusions.
  *   apple <ppm> <png>    the Apple menu held open from the band-1 glyph:
  *       AP1 BLOCK    the pulled block's extent on bar row 1 equals the
  *                    capture's (x 9..37), measured in each image (its
@@ -117,6 +130,51 @@ static int check_window(const img_t *ours, const img_t *mac)
     return fail;
 }
 
+/* initech-8l4kp: the arrow's hot spot in frame coordinates, from the two
+ * captures alone (see the header). The readout (frame x 9..92, y 27..44)
+ * differs between them by design ("0" against "7"). */
+static int find_pointer(const img_t *idle, const img_t *after, int *hx, int *hy)
+{
+    for (int y = 0; y < WH; y++)
+        for (int x = 0; x < WW; x++) {
+            if (y >= 5 && y <= 13 && x >= 26 && x <= 96) continue;
+            if (x >= 9 && x <= 92 && y >= 27 && y <= 44) continue;
+            if (cls(idle, WL + x, WT + y) != cls(after, WL + x, WT + y)) { *hx = x; *hy = y; return 1; }
+        }
+    return 0;
+}
+
+static int check_pointer_state(const img_t *ours, const img_t *mac, int hx, int hy, const char *what)
+{
+    int bad[3] = { 0, 0, 0 }, fx[3], fy[3], fail = 0;
+    static const char *leg[3] = { "CW1 FRAME", "CW2 FACE", "CW3 READOUT" };
+    printf(">>> %s: pointer hot spot at frame (%d,%d), screen (%d,%d) in ours\n",
+           what, hx, hy, WL + hx, 20 + hy);
+    for (int y = 0; y < WH; y++)
+        for (int x = 0; x < WW; x++) {
+            if (y >= 5 && y <= 13 && x >= 26 && x <= 96) continue;  /* Charcoal */
+            if (x >= hx - 1 && x < hx + 15 && y >= hy - 1 && y < hy + 15) continue;
+            int k, cx = x - 1, cy = y - 19;
+            if (cx < 0 || cy < 0 || cx >= 102 || cy >= 146) k = 0;
+            else if (cx >= 8 && cx <= 91 && cy >= 8 && cy <= 25) k = 2;
+            else k = 1;
+            if (cls(ours, WL + x, 20 + y) != cls(mac, WL + x, WT + y)) {
+                if (!bad[k]) { fx[k] = x; fy[k] = y; }
+                bad[k]++;
+            }
+        }
+    for (int k = 0; k < 3; k++) {
+        if (bad[k]) {
+            printf("!!! %s %s: %d pixels differ from the Mac OS 8.1 capture (first at frame (%d,%d))\n",
+                   what, leg[k], bad[k], fx[k], fy[k]);
+            fail = 1;
+        } else {
+            printf(">>> %s %s: class-exact against the capture outside the pointer\n", what, leg[k]);
+        }
+    }
+    return fail;
+}
+
 /* the run of colour c on row y through x0 */
 static void run_extent(const img_t *im, int x0, int y, int *l, int *r)
 {
@@ -181,6 +239,23 @@ static int check_apple(const img_t *ours, const img_t *mac)
 int main(int argc, char **argv)
 {
     img_t ours, mac;
+    if (argc >= 5 && (strcmp(argv[1], "held") == 0 || strcmp(argv[1], "released") == 0)) {
+        int held = argv[1][0] == 'h', hx, hy;
+        img_t after, idle;
+        if (argc != (held ? 6 : 5)) { fprintf(stderr, "usage: %s held <ppm> <pressed> <after> <idle> | released <ppm> <after> <idle>\n", argv[0]); return 2; }
+        if (!load_ppm(argv[2], &ours)) { printf("!!! cannot read %s\n", argv[2]); return 2; }
+        if (!load_png(argv[3], &mac) || !load_png(argv[held ? 4 : 3], &after) || !load_png(argv[held ? 5 : 4], &idle)) {
+            printf("!!! cannot read the captures (set SYSTEM7_DECOMP; mint-results-007)\n");
+            return 2;
+        }
+        if (ours.w != 640 || ours.h != 480 || mac.w != 640 || mac.h != 480 ||
+            after.w != 640 || after.h != 480 || idle.w != 640 || idle.h != 480) {
+            printf("!!! expected 640x480 frames\n");
+            return 2;
+        }
+        if (!find_pointer(&idle, &after, &hx, &hy)) { printf("!!! no pointer in the capture pair\n"); return 2; }
+        return check_pointer_state(&ours, &mac, hx, hy, held ? "HELD 7" : "RELEASED 7");
+    }
     if (argc != 4) { fprintf(stderr, "usage: %s window|apple <ppm> <capture.png>\n", argv[0]); return 2; }
     if (!load_ppm(argv[2], &ours)) { printf("!!! cannot read %s\n", argv[2]); return 2; }
     if (!load_png(argv[3], &mac)) {
