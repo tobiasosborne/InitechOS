@@ -40,7 +40,8 @@ for emulator in ${*:-qemu bochs}; do
  [ "$emulator" = bochs ] && extra='--vga-ext vbe --renew-ms 300000'
  setup build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" --expect native-driver-returned --quit-after native-driver-returned --timeout-ms 300000 --name run --out "$dir" > "$dir/stdout" 2> "$dir/report"
  setup tr -d '\r' < "$dir/run.serial" > "$dir/serial.txt"
- assert "$emulator:complete native gate and IDE journey" grep -Fx turbo-native-ide-complete "$dir/serial.txt"
+ setup grep -Fx turbo-native-ide-complete "$dir/serial.txt"
+ assert "$emulator:unpacked page cells and cursor" grep -Fx PAGE-READ-FAILURES=0 "$dir/serial.txt"
  setup mcopy -o -i "$disk" '::SHOT*.SCR' "$dir/"
  assert "$emulator:independent packed page cells and cursor" cmp "$out/pattern" "$dir/SHOT001.SCR"
  setup mkdir -p "$dir/compile" "$dir/run"

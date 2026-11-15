@@ -1,0 +1,6 @@
+# test: runtime-table
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -1,1 +1,1 @@
+-    else if Text = 'rtl_getdir' then N := 1295
++    else if Text = 'rtl_getdir' then N := 1296

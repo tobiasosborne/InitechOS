@@ -17,7 +17,6 @@ setup mkdir -p "$out"
 out=$(CDPATH= cd -- "$out" && pwd)
 echo "Turbo execution smoke evidence: $out"
 export MTOOLS_SKIP_CHECK=1 INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
-failed=0
 : > "$out/cases"
 n=0
 for source in $sources; do
@@ -165,7 +164,6 @@ for emulator in $emulators; do
    assert "$emulator:$name:$path flat image exists" test -s "$flat"
    assert "$emulator:$name:$path actual flat form" test "$(od -An -tx1 -N2 "$flat" | tr -d ' \n')" != 4d5a
   fi
-  checks=$((checks+1))
   count=$((count+1))
  done < "$out/cases"
  echo "$emulator: $count generated executions compared to independent FPC"

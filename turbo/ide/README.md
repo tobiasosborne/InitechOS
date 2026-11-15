@@ -1,16 +1,19 @@
 # Turbo Initech IDE
 
-The editor half of GOLDEN-MASTER item 7, in Pascal, compiled by Turbo
-Initech. The surface it implements is frozen in `../README.md` "IDE"; the
+The blue IDE for GOLDEN-MASTER item 7, in Pascal, compiled by Turbo
+Initech. The surface it implements is described in `../README.md` "IDE"; the
 reference is real TP 5.5 (turbopascal-decomp MINT06, pinned in
 `goldens/CORPORA.lock`).
 
 - `screen.pas`: the 80x25 cells (character, VGA attribute) and cursor.
 - `buffer.pas`: the paged document. Only a 16 KiB page of whole lines is in
   memory; leaving it writes prefix + page + suffix to the other of two work
-  files (`TURBOWK0.$$$`, `TURBOWK1.$$$`). Loading turns CR LF into LF and
+  files (a pair of `TURBOnnn.$00` and `TURBOnnn.$01` names proved absent
+  before either is created). Loading turns CR LF into LF and
   stops at 0x1A; saving writes CR LF and one 0x1A, keeping `NAME.BAK`.
 - `editor.pas`: menu bar, pulldowns, name and Verify boxes, editing keys.
+- `product.pas`: Compile/Make, first-error record, fresh output publication,
+  Run by DOS EXEC, saved user page and the interactive product loop.
 
 The language has no units or includes, so programs are built by
 concatenation: `tests/head.pas`, the three files above, then a main
@@ -47,8 +50,9 @@ directory." (51) and 5 as "File is read only." (54); other codes say
 (57). F3 on a missing file opens an empty buffer of that name (TP 5.5,
 not captured). A compiler error replaces the info row in 0x4E with the
 cursor on the token, an off-screen line placed on view row 11 (07, 34);
-the next key restores the row (08, 35). The journey drives it with an
-`error LINE COL` step until the compiler is folded in. `tests/fpc.pas`
+the next key restores the row (08, 35). The editor-only journey drives it
+with an `error LINE COL` step; `compile` checks the actual compiler's stored
+first error and all three compile/error screens. `tests/fpc.pas`
 and `tests/dos.pas` adapt Reset's open mode (FPC's FileMode 2 versus the
 Turbo runtime's read-only open).
 
@@ -65,11 +69,12 @@ tab-stop mutant applied, the QEMU run reports 26 differences on
 start-up menu state, error-row colour, refused save leaving its copy,
 missing overwrite prompt), all killed.
 
-Not yet here (see the handoff and bd initech-wkp2p): Compile/Make behind
-their menu items (needs the IDE folded into the compiler's source as one
-TURBO.COM, and a located-error record from the compiler), Run and User
-screen (kernel initech-fc4c3 and the screen-page call), the product main
-program (console through `CON`, ReadKey), deleting the work files.
+The four fragments are embedded verbatim in `compiler/turbo.pas`; its main
+opens the IDE without arguments and compiles a named source with an argument.
+`run-command` checks the DOS boundary order and post-Run MINT07 screens for
+exit codes 0 and 7. `work-names` conserves pre-existing work-name sentinels.
+Tier 1 also checks actual kernel screen cells through an independent C reader
+and drives the real product with injected keys, reading saved files off disk.
 
 Save conservation regressions (review initech-76j6x/qcg30/ge49u/v4gu0/zf5xe):
 `page-failure` injects every read/write position and both closes during
