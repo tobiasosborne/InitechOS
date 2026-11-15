@@ -3,7 +3,7 @@
 Two compilers: `seed/` is the C host bootstrap; `compiler/turbo.pas` is the
 Pascal compiler. The seed emits assembly for NASM and binutils on the host.
 The Pascal compiler emits native flat COM and extended InitechMZ executables,
-plus assembly retained for independent factory byte comparisons. No host
+plus optional assembly for independent factory byte comparisons. No host
 assembler or linker finishes the programs compiled inside InitechOS.
 
 `make` builds the seed, the FPC host compiler and resident `TURBO.COM`.
@@ -22,13 +22,15 @@ and checked by the independent mzcheck against the actual extended limits:
 262144 module bytes, aligned module+reserve before 0x7ef000, native heap
 header, separate guard and stack. The old conventional compiler placement
 gates are replaced by these real limits. Small programs retain their flat
-runtime/link route. The warm complete Turbo suite takes about 20 seconds.
+runtime/link route. Each host component retains its 30-second suite budget.
 Runtime is a checked-in NASM byte table with a tier-0 regeneration comparison;
 see compiler/NATIVE.md. The compiler patches include five native
 encoder/fixup/relocation/layout and five generated-execution patches.
 For every source, both compiler emissions match one fresh independent
 NASM/link result; their assembly and native containers also match each other.
 The suite does not rebuild identical foreign-tool inputs for the second pass.
+CLI comparisons reuse only this invocation's fresh, independently graded dump
+outputs; ordinary-mode and DOS-saved source translations still run separately.
 
 `make smoke` builds the product image and uses separate FAT12 TEST disks.
 QEMU and Bochs each execute all 19 corpus programs and 19 regressions through
@@ -40,7 +42,7 @@ bases. The earlier probes cover minimum-Integer div/mod and string temporaries
 in Length and record indices.
 Bochs uses the shared harness's progress renewal: 300 seconds initially and
 after progress, with the shared ceiling of three initial budgets. Resident
-compiles omit the lexer and parser dumps. Every registered case still runs.
+compiles omit the lexer/parser and assembly dumps. Every registered case runs.
 Every registered case fits the flat arena; missing flat output
 fails. Complete stdout and extracted files match FPC;
 the original corpus also matches its authored goldens. mzcheck validates the
@@ -80,19 +82,23 @@ produce D2. Each D2 must equal its K2/K3 and the other emulator's D2.
 Contamination and changed-source controls must fail. Evidence, FPC version
 and bootstrap hashes remain under build/turbo/ddc, with a separate bochs/ tree.
 
-Before the current IDE save/runtime work, the certified fixed point was
-K2==K3==D2: 170607 bytes, SHA-256
-a4ddd89971dfe232ccf0f43602fa5fba33ba4966d0bf7aeb7371aea2701ffe47.
-Stage B (initech-n6r9v) moved it from 164263 bytes (2c33ed0c...): the
-751-byte runtime with recoverable I/O, the new builtins and the 2,048-row
-symbol tables. Fresh QEMU DOS-clock times are 103s/93s for K2/K3 and 107s
-for D1(S). Bochs K2/K3/D2 agree with QEMU at this hash; measured host
-harness times are 2534.245s/2671.097s/1560.722s, each below 3600s, with
-other agents' Bochs runs on the host at the same time. The combined
-command was stopped by the agent's 2-hour background limit during the
-Bochs DDC leg, which was then rerun alone (bochs-ddc.sh) against the same
-source hash; all negative controls are red. Runtime-encoder authorship
-remains open separately as initech-cd2yi.
+The current proved fixed point is K2==K3==D2 on QEMU and Bochs: 241239 whole
+container bytes, SHA-256
+63abb2ce0325e3048f5146da294bc855ae997def5fda78bb8bff149475a57726.
+The exact compiler-plus-IDE source has SHA-256
+86abae7dcf44827ca9a95014960643fd6f1a6eba1a2d3f8e55ade04c0c5a1cb1.
+QEMU DOS-clock compilation times are 41s/65s for K2/K3. Bochs K2/K3 take
+355s/452s on the guest clock and 620.413s/1175.646s for the complete host
+harness runs, each below the unchanged 3600s acceptance bound under concurrent
+host load. These runs omit factory trace and assembly dumps; no container
+bytes are filtered from the comparison. Corrupted-container, clean guest
+loader-refusal and impossible-deadline controls are red. Runtime-encoder
+authorship remains open separately as initech-cd2yi.
+The separate `make ddc` invocation completed both FPC-bootstrap OS translations;
+QEMU D1(S) took 39 guest seconds; Bochs took 452 guest seconds and 791.128s
+for the complete host harness. Both D2 containers equal every K2/K3 byte.
+Contamination and an actual change to the used SourceMax constant make the
+comparison red. Source identity binds DDC to the completed selfhost run.
 The checked-in NASM tables regenerate
 byte-for-byte. Times use the guest clock with 1-second resolution. DDC removes sole
 reliance on the C seed's translation and its bootstrap assembler pipeline.
@@ -104,14 +110,16 @@ FPC, NASM, GNU binutils and mtools are required; missing tools fail. The added
 DOS intrinsics are described below. Existing corpus/protocol goldens are
 unchanged; the argument fixture adds a literal stdout oracle. Emulator
 work never runs in tier 0. See ROADMAP.md for remaining
-GOLDEN-MASTER.md item-7 work, including the IDE.
+GOLDEN-MASTER.md item-7 work and the final delivery session.
 
 Seed and compiler entries emit explicit assertions under `tests/entries.sh`.
 The adapter requires a positive completed summary consistent with exit status;
 setup failures, harness timeouts and absent serial are errors, never kills.
-Host-only controls in `tests/` include a catch-all-exit mutation. Fresh strict
-sweeps kill all 20 seed and 17 compiler patches with zero survivors or errors;
-all 17 IDE patches and the assertion-control patch also have semantic kills.
+Host-only controls in `tests/` include a catch-all-exit mutation. The original
+strict sweeps killed all 20 seed, 17 compiler and 17 IDE patches with zero
+survivors or errors; the assertion-control patch also had a semantic kill.
+The current inventory has 28 compiler and 28 IDE patches, including the
+save/reload and compiler/IDE batch regressions; added defects have semantic kills.
 The comment-only control survives, while injected NASM/FPC failures, missing
 serial and harness timeouts are errors with zero kills (initech-kkqbw).
 These results replace the earlier totals from the rejected exit-1 adapter.
@@ -159,7 +167,7 @@ vendor or product does not appear on any Initech screen.
 
 - **Program.** One `TURBO.COM`: no arguments opens the IDE, a file argument
   compiles from the command line (operator ruling on the IDE design). See
-  "Packaging" below for what that still needs.
+  "Packaging" below for its command-line mode.
 - **Layout.** The editor is always TP 5.5's zoomed editor (MINT06
   `03_zoom`): row 0 menu bar, row 1 info line (0x17), rows 2-23 text
   (0x1E), row 24 status line (0x70, keys 0x74). The Watch window does not
@@ -216,7 +224,8 @@ vendor or product does not appear on any Initech screen.
   box. No greyed placeholder or "not available" message exists for them.
 
 The editor, chrome and paged buffer are in `ide/` (its README): tier 0
-compares 47 screens with MINT06 and the saved bytes with TP 5.5's; `make
+compares 47 screens with MINT06 and five unnamed-save screens with repeated
+MINT08, plus the saved bytes with TP 5.5's; `make
 smoke` repeats both journeys with the Turbo-compiled IDE in the booted
 image on QEMU and Bochs. The single-program native journey also reads the
 actual DOS screen page through a separately compiled C reader: an authored
@@ -229,7 +238,10 @@ TURBO.COM and reads its saved source and backup from disk independently.
 The compiler and IDE are one single-file Pascal program. No arguments opens
 the editor; a source filename compiles to TURBOOUT.EXE and, when it fits,
 TURBOOUT.COM. `/DUMP filename` explicitly enables the host lexer/parser
-protocol; ordinary compilation and proof runs omit those dumps. The saved
+protocol and assembly listing; ordinary compilation and proof runs omit them.
+The semantic precheck still supplies canonical type errors in ordinary mode.
+Input aliases of the compiler's output names are refused before any write.
+The saved
 CRLF plus DOS EOF form of the compiler source also fits the input limit and
 produces the identical whole container.
 
@@ -265,5 +277,5 @@ The current save fixes add FileAttributes(file), a narrow integer intrinsic
 for published DOS AH=43h: an attribute mask or negative DOS error. This lets
 the write-aside save retain TP 5.5 MINT06's read-only refusal without a new
 kernel service. Its appended runtime bytes and entry offset are independently
-checked against NASM/ld. The historical certificate above does not certify
-this changed source; the next compiler/IDE batch refreshes selfhost and DDC.
+checked against NASM/ld. The current self-host source includes these save fixes
+and the integrated compiler/IDE commands.

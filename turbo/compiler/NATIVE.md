@@ -7,7 +7,9 @@ Container authority: kernel/include/initechmz_extended.h and documented
 loader_high_plan accounting in kernel/loader_validation.c. No kernel source
 is compiled or included in the compiler or its independent format checker.
 
-The existing AST-free stack-machine generator retains its NASM output. Its
+The existing AST-free stack-machine generator retains its NASM output under
+the explicit `/DUMP` factory switch. Ordinary compilation checks semantics
+and counts/emits native output without creating an assembly listing. Its
 fixed instruction vocabulary also feeds Pascal instruction encoders, with
 explicit near branches, fixed label/routine tables and counting/emission
 passes. Output streams in 255-byte chunks. No program-sized code buffer is
@@ -34,8 +36,8 @@ section 8.6.3 (THRE), also compatible with 16450 mode:
 https://media.digikey.com/pdf/Data%20Sheets/Texas%20Instruments%20PDFs/PC16550D.pdf
 All three assembly runtimes have the same serial helpers.
 
-Independent oracles in tests/run.sh: NASM/ld/objcopy byte equality for all 17
-flat corpus programs; NASM/ld/objcopy plus mzlink byte equality for all 17
+Independent oracles in tests/run.sh: NASM/ld/objcopy byte equality for all 19
+flat corpus programs; NASM/ld/objcopy plus mzlink byte equality for all 19
 extended corpus programs AND turbo.pas. mzlink derives sites independently by
 linking at zero and 0x01010180, which preserves section alignment and changes
 every absolute dword's low byte. mzcheck independently accepts every emitted

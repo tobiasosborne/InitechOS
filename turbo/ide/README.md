@@ -2,7 +2,7 @@
 
 The blue IDE for GOLDEN-MASTER item 7, in Pascal, compiled by Turbo
 Initech. The surface it implements is described in `../README.md` "IDE"; the
-reference is real TP 5.5 (turbopascal-decomp MINT06, pinned in
+reference is real TP 5.5 (turbopascal-decomp MINT06/07/08, pinned in
 `goldens/CORPORA.lock`).
 
 - `screen.pas`: the 80x25 cells (character, VGA attribute) and cursor.
@@ -16,12 +16,12 @@ reference is real TP 5.5 (turbopascal-decomp MINT06, pinned in
   Run by DOS EXEC, saved user page and the interactive product loop.
 
 The language has no units or includes, so programs are built by
-concatenation: `tests/head.pas`, the three files above, then a main
+concatenation: `tests/head.pas`, the four files above, then a main
 program. File transfers go through ShortString bytes (255 at a time) and
 parameterless calls are written `Name()`, as the compiler requires.
 Reset, Rewrite and Assign close an open file first (seed/rt/fileio.asm).
 
-`make test` (tier 0, about a second):
+`make test` (tier 0, about ten seconds under load):
 - `journey`: the IDE built by Free Pascal replays `tests/journey.steps`
   (key codes from the IBM AT BIOS table in `tests/keys.c`); `tests/screens`
   compares all 47 screens, characters, attributes and cursor, with the
@@ -29,6 +29,8 @@ Reset, Rewrite and Assign close an open file first (seed/rt/fileio.asm).
   explicit edits listed there (absent titles, legend items and Indent
   words; pulldowns without their absent items). The saved `DEMO.PAS` and
   `DEMO.BAK` must equal the bytes TP 5.5 saved in the same journey.
+- `unnamed`: Verify Y opens Rename, Esc retains the dirty buffer, and retry
+  saves before Quit; five screens and saved bytes come from repeated MINT08.
 - `paging`: a 5000-line, 213 KB file edited at the start, line 2500 and
   the end, then saved; awk computes the expected bytes.
 - `seed` and `turbo`: the C seed and Turbo Initech itself accept the source.
@@ -64,10 +66,8 @@ back with mtools and graded by the same `screens` tool and `cmp`. With the
 tab-stop mutant applied, the QEMU run reports 26 differences on
 `load_verify` and others (seen red 2026-11-14).
 
-`make mutants`: twelve patches (text colour, PgDn step, tab stops, missing
-0x1A, missing backup, caret column, dropped page suffix, Ctrl-PgDn lost,
-start-up menu state, error-row colour, refused save leaving its copy,
-missing overwrite prompt), all killed.
+`make mutants` grades 28 patches covering chrome, navigation, compile/run,
+save conservation, checked page reload and unnamed-save continuation.
 
 The four fragments are embedded verbatim in `compiler/turbo.pas`; its main
 opens the IDE without arguments and compiles a named source with an argument.

@@ -35,23 +35,25 @@ checking a local sentinel and the prefix independently against FPC.
 Only the original endpoint references change the Integer declaration to LongInt to
 match the product's documented 32-bit width. The existing corpus retains its
 Delphi/B+/H- directives; the original regressions use TP mode without a mode override.
-This work does not resolve the separately tracked TP integer-width decision.
+The operator has retained Turbo Initech's signed 32-bit Integer.
 
 Hosted and resident Pascal outputs run in both extended and flat form;
-the seed retains its extended assembly/link/mzlink leg. All 36 registered
+the seed retains its extended assembly/link/mzlink leg. All 38 registered
 programs fit the conventional arena, so a missing flat output fails rather
 than skipping execution. Flat outputs must be nonempty raw COM files, not
 renamed MZ containers. Each form has its own working directory and independent
-stdout/file comparison. Default smoke performs 360 executions across
-both emulators, preserving all prior 330 and adding 18 extended and 12 flat
-computed-left-character comparisons.
+stdout/file comparison. Default smoke performs 380 executions across
+both emulators, retaining the computed-left-character comparisons and adding
+the argument and recoverable-I/O corpus rows.
 
 `TURBO_EXEC_SOURCES`, `TURBO_EXEC_PATHS`
 (`seed hosted hosted-flat resident resident-flat`),
 `TURBO_EXEC_EMULATORS` (`qemu bochs`), `TURBO_HOSTED`, and `TURBO_EXEC_OUT`
 select focused red-first or tier-2 mutation runs. Defaults always run the full
 matrix; tier 0 never invokes the runner. `TURBO_EXEC_TIMEOUT_MS` bounds a
-focused nontermination probe; the normal driver deadlines are unchanged.
+focused nontermination probe. Bochs renews the unchanged 300-second deadline
+on progress through the shared harness, with its three-budget absolute ceiling.
+Resident compiles omit the factory trace and assembly dumps.
 Each batch stays below COMMAND.COM's 4096-byte input limit. Separate TEST
 disks and all reference sources, stdout, compiler transcripts, serial logs,
 CPU logs and extracted files remain under `build/turbo/smoke/execution`.
