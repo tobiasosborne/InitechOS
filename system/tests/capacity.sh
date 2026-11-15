@@ -2,7 +2,7 @@
 # Independent mtools FAT accounting. Ordinary product volume, no fixture mint.
 set -eu
 cd "$(dirname "$0")/../.."
-volume=${SYSTEM_WORK_IMAGE:-build/image/data.img}
+. "${SYSTEM_VOLUME_HELPER:-system/tests/work-volume.sh}"
 listing=$(mdir -i "$volume" ::)
 printf '%s\n' "$listing"
 free=$(printf '%s\n' "$listing" | awk '/bytes free/ {gsub(/ /,"",$0); sub(/bytesfree.*/,"",$0); print $0}')

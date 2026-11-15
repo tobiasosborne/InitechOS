@@ -132,3 +132,15 @@ Interface use-binding: kernel/include/power.h
 Interface use-pure: kernel/include/mcb.h
 Interface use-records: kernel/include/drive_letters.h
 <!-- end-interface-declarations -->
+
+The capacity and installed-workflow drivers identify an installed C: from its
+ordinary COMMAND.COM directory entry, using mtools. This matches the temporary
+kernel migration contract; the legacy A: selection expires when the canonical
+C: image activates. C: workflows clone the complete boot disk, remove AUTOEXEC
+only on that private partition, use C: PATH, and extract output from the actual
+writable C: disk (including Bochs's retained boot clone). The independent A:
+image must remain byte-identical. `SYSTEM_BOOT_IMAGE` and `SYSTEM_DATA_IMAGE`
+select the backing disks for layout acceptance; `SYSTEM_WORK_IMAGE` retains
+its explicit legacy-volume override. A two-volume capacity fixture requires
+the roomy installed C: to pass and the small legacy A: to refuse; setup and
+reader errors remain errors.

@@ -14,4 +14,5 @@ sh tests/manifest.sh
 sh tests/applist.sh
 sh tests/inputs.sh
 sh tests/data-volume.sh
+sh tests/working-capacity.sh
 echo 'system: composition and standalone boundary green'

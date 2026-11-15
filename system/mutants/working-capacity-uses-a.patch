@@ -1,0 +1,14 @@
+# test: working-capacity
+--- a/tests/work-volume.sh
++++ b/tests/work-volume.sh
+@@ -12,8 +12,8 @@
+   echo 'ERROR system volume: cannot read the boot partition' >&2; exit 2;
+  }
+  if printf '%s\n' "$root_listing" | grep -Eiq '(^|/)COMMAND\.COM$'; then
+-  drive=C
+-  volume=$boot@@32256
++  drive=A
++  volume=$data
+  else
+   reader_rc=$?
+   if [ "$reader_rc" != 1 ]; then

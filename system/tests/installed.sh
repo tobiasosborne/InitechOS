@@ -11,8 +11,7 @@ out=$(mktemp -d "$PWD/build/system/installed-smoke.XXXXXX")
 echo "system installed workflow evidence: $out"
 fail() { echo "FAIL installed workflow: $* (evidence: $out)" >&2; exit 1; }
 line() { grep -Fx -- "$2" "$1" >/dev/null || fail "missing [$2] in $1"; }
-boot=${SYSTEM_BOOT_IMAGE:-build/image/boot.img}
-volume=${SYSTEM_WORK_IMAGE:-build/image/data.img}
+. system/tests/work-volume.sh
 awk '$1 !~ /^#/ && NF {print $2}' system/working-volume.list | LC_ALL=C sort > "$out/inventory.expected"
 mdir -b -s -i "$volume" :: | sed '/\/$/d; s|^::/||' | LC_ALL=C sort > "$out/inventory.actual"
 diff -u "$out/inventory.expected" "$out/inventory.actual" || fail 'unlisted or missing installed file'
@@ -34,10 +33,12 @@ for emulator in $emulators; do
   dir=$out/$emulator-$workflow
   mkdir -p "$dir"
   cp "$boot" "$dir/boot.img"
-  cp "$volume" "$dir/data.img"
-  mdel -i "$dir/data.img" ::AUTOEXEC.BAT
+  cp "$data" "$dir/data.img"
+  working=$dir/data.img
+  if [ "$drive" = C ]; then working=$dir/boot.img@@32256; fi
+  mdel -i "$working" ::AUTOEXEC.BAT
   # Ordinary commands; no program, table, source or report is injected.
-  printf '\n\npath a:\\\n' > "$dir/session"
+  printf '\n\npath %s:\\\n' "$drive" > "$dir/session"
   case $workflow in
   tps)
    printf 'cd samples\ntpsrep tps.dbf\n       \n004417\n004417\n88-114\ny\n' >> "$dir/session";;
@@ -51,6 +52,7 @@ for emulator in $emulators; do
   # The final completion command must be terminal in the key trace.
   sed -i 's/ret/ret,w1000/g; s/,w1000$//; s/q,u,i,t,ret,w1000,/q,u,i,t,ret,w5000,/' "$dir/keys"
   extra=
+  if [ "$emulator" = qemu ] && [ "$drive" = C ]; then extra=--boot-rw; fi
   [ "$emulator" != bochs ] || extra='--vga-ext none --rtc-time0 699440400'
   finish=$(printf '\ninstalled%scomplete\r\n' "$workflow")
   if ! build/factory/${emulator}_harness --disk "$dir/boot.img" --disk2 "$dir/data.img" \
@@ -60,6 +62,11 @@ for emulator in $emulators; do
    cat "$dir/report"; fail "$emulator $workflow did not finish"
   fi
   tr -d '\r' < "$dir/run.serial" > "$dir/serial.txt"
+  if [ "$drive" = C ] && [ "$emulator" = bochs ]; then
+   written=$(sed -n 's/^\[bochs\] private_boot=//p' "$dir/report")
+   [ -f "$written" ] || { echo 'ERROR missing Bochs working boot clone' >&2; exit 2; }
+   working=$written@@32256
+  fi
   line "$dir/serial.txt" "installed${workflow}complete"
   if [ "$emulator" = qemu ]; then
    grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$dir/report" >/dev/null || fail 'QEMU faults'
@@ -70,7 +77,7 @@ for emulator in $emulators; do
   fi
   case $workflow in
   tps)
-   mcopy -i "$dir/data.img" ::SAMPLES/TPSREPT.TXT "$dir/report.txt"
+   mcopy -i "$working" ::SAMPLES/TPSREPT.TXT "$dir/report.txt"
    # Frozen report from REALDOS on MS-DOS 6.22; never minted by this run.
    build/system/tps-report dos/tpsrep/tests/reference/tpsrept_expected.txt "$dir/report.txt" || fail 'real-DOS TPS report differs';;
   base)
@@ -88,7 +95,7 @@ for emulator in $emulators; do
   turbo)
    line "$dir/serial.txt" 'Hello from Turbo Initech.'
    grep '^TURBO-NATIVE-OK form=0 ' "$dir/serial.txt" >/dev/null || fail 'resident compiler did not emit flat hello'
-   mcopy -i "$dir/data.img" ::TURBO/TURBOOUT.COM "$dir/hello.com"
+   mcopy -i "$working" ::TURBO/TURBOOUT.COM "$dir/hello.com"
    test -s "$dir/hello.com" || fail 'empty Pascal executable'
    # The greeting is an authored Pascal-language result; compare with FPC
    # independently too, rather than deriving expected stdout from Turbo.
@@ -97,6 +104,9 @@ for emulator in $emulators; do
    "$dir/fpc/hello" > "$dir/hello.expected"
    line "$dir/serial.txt" "$(cat "$dir/hello.expected")";;
   esac
+  if [ "$drive" = C ]; then
+   cmp "$data" "$dir/data.img" || fail "$emulator $workflow changed A instead of C"
+  fi
   echo "ok $emulator installed $workflow: ordinary product image, independent result"
  done
 done
