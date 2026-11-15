@@ -38,4 +38,11 @@ contract legacy-summary fixture unlisted 'suite: 4 checks, 0 failures' 0 'ok    
 contract ledgered fixture listed 'GREEN everything' 0 'NOTE summary contract: listed'
 contract other-component other listed 'GREEN everything' 1 'FAIL contract'
 contract stale-row fixture listed 'INITECH_CHECKS 2 failures=0' 0 'NOTE stale summary-contract row'
+# The ledger excuses a missing summary only, never counted failures
+# (initech-1lmgb): a listed test that counts a failure and exits 0 fails.
+contract ledgered-counted-failures fixture listed 'FAIL actual assertion
+INITECH_CHECKS 1 failures=1' 1 'FAIL count: listed exited 0'
+if grep -qx PASS "$work/listed.result" 2>/dev/null; then
+ echo "FAIL assertions contract/ledgered-counted-failures: result recorded PASS"; failed=1
+else echo "ok assertions contract/ledgered-counted-failures result"; fi
 exit "$failed"

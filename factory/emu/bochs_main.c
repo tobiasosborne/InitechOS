@@ -127,7 +127,7 @@ int main(int argc, char **argv)
     BochsResult res;
     if (bochs_run(&cfg, &res) != 0) {
         fprintf(stderr, "%s: harness failure\n", argv[0]);
-        emu_record_infra("bochs_harness", EMU_EXIT_HARNESS, 0, 0, 0);
+        emu_record_infra("bochs_harness", EMU_EXIT_HARNESS, 0, 0, 0, 0);
         bochs_result_free(&res);
         return 2;
     }
@@ -169,8 +169,15 @@ int main(int argc, char **argv)
         res.snapshot_ok ? res.snap_ppm_path : "(none)", res.ok);
 
     /* factory/README.md, Emulator exit status: an incomplete run is never a verdict. */
-    int rc = emu_run_status(res.ok, res.launched, res.timed_out, res.serial_len, res.triple_fault);
-    emu_record_infra("bochs_harness", rc, res.launched, res.timed_out, res.serial_len);
+    /* Bochs ends on its own only by exiting 0; the harness stops every other
+     * run. A spontaneous nonzero exit is Bochs's own failure (a panic). */
+    int bad_exit = !res.harness_stopped && res.term_signal == 0 && res.exit_code != 0;
+    int abnormal = emu_ended_abnormally(!res.reaped, res.term_signal, res.harness_stopped, bad_exit);
+    if (abnormal)
+        fprintf(stderr, "[bochs] INCOMPLETE: bochs ended abnormally (exit=%d signal=%d harness_stopped=%d reaped=%d)\n",
+                res.exit_code, res.term_signal, res.harness_stopped, res.reaped);
+    int rc = emu_run_status(res.ok, res.launched, res.timed_out, res.serial_len, res.triple_fault, abnormal);
+    emu_record_infra("bochs_harness", rc, res.launched, res.timed_out, res.serial_len, abnormal);
     bochs_result_free(&res);
     return rc;
 }

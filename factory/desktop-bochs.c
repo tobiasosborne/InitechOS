@@ -6,6 +6,9 @@
 static char *read_file(const char *path, size_t *len);
 /* End of the last accepted W marker in the transcript (emu/marker_match.h). */
 static size_t journey_marker_consumed;
+/* Session-wide progress cursor, distinct from marker matching (review F5):
+ * a line any wait has already scanned can never renew the session again. */
+static size_t journey_progress_scanned;
 static void (*journey_idle)(void *);
 static void *journey_context;
 /* The session deadline renews on meaningful guest progress (journey_progress)
@@ -66,7 +69,7 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
     }
     struct timespec pause={0,20000000};
     long long start=mono_ms(), last_progress=start;
-    size_t consumed=0;
+    size_t consumed=journey_progress_scanned;
     unsigned extensions=0;
     for(;;) {
         long long now=mono_ms();
@@ -97,7 +100,7 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
                 line[k]=0;at++;
                 if(journey_progress(line))progress=1;
             }
-            consumed=complete;
+            consumed=complete;journey_progress_scanned=complete;
             seen=marker_token_after(txt,len,journey_marker_consumed,marker,&end);
             free(txt);
         }

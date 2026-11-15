@@ -13,13 +13,14 @@ ulimit -c 0
 # the result is an error, never a kill (initech-kkqbw). The emulator harnesses
 # append to the same log when a guest run never completed (factory/README.md).
 shims=$run/shims
+qrecord=$(printf '%s' "$top/factory/testlib/infra-record.sh" | sed "s/'/'\\\\''/g")
 mkdir -p "$shims"
 for tool in cc gcc clang nasm as ld ar objcopy fpc; do
     real=$(command -v "$tool" 2>/dev/null) || continue
     case $real in /*) ;; *) continue;; esac
     quoted=$(printf '%s' "$real" | sed "s/'/'\\\\''/g")
-    printf '#!/bin/sh\n%s "$@" && exit 0\nrc=$?\n[ -z "${INITECH_INFRA_LOG:-}" ] || echo "%s exit $rc" >> "$INITECH_INFRA_LOG"\nexit "$rc"\n' \
-        "'$quoted'" "$tool" > "$shims/$tool"
+    printf '#!/bin/sh\n%s "$@" && exit 0\nrc=$?\nsh %s %s "$rc" "$@"\nexit "$rc"\n' \
+        "'$quoted'" "'$qrecord'" "$tool" > "$shims/$tool"
     chmod +x "$shims/$tool"
 done
 PATH=$shims:$PATH
@@ -38,7 +39,7 @@ for patch_file do
         mkdir -p "$baseline/component"
         cp -R . "$baseline/component/"
         : > "$baseline/infra"
-        if INITECH_INFRA_LOG=$baseline/infra "$make_cmd" --no-print-directory -C "$baseline/component" TOP="$top" OUT="$baseline/build" "$@" test > "$baseline/log" 2>&1; then
+        if INITECH_INFRA_LOG=$baseline/infra INITECH_INFRA_ROOT=$baseline "$make_cmd" --no-print-directory -C "$baseline/component" TOP="$top" OUT="$baseline/build" "$@" test > "$baseline/log" 2>&1; then
             touch "$baseline/ok"
         fi
     fi
@@ -58,7 +59,7 @@ for patch_file do
         rm -f "$scratch"/build/host/*.result
         rc=0
         : > "$scratch/infra-$pass"
-        INITECH_INFRA_LOG=$scratch/infra-$pass "$make_cmd" --no-print-directory -C "$scratch/component" TOP="$top" OUT="$scratch/build" "$@" test-run > "$scratch/test-$pass.log" 2>&1 || rc=$?
+        INITECH_INFRA_LOG=$scratch/infra-$pass INITECH_INFRA_ROOT=$scratch "$make_cmd" --no-print-directory -C "$scratch/component" TOP="$top" OUT="$scratch/build" "$@" test-run > "$scratch/test-$pass.log" 2>&1 || rc=$?
         sh "$top/factory/testlib/host-results.sh" "$scratch/build" "$scratch/test-$pass.log" "$rc" > "$scratch/fail-$pass"
         sh "$top/factory/testlib/infra-new.sh" "$baseline/infra" "$scratch/infra-$pass" > "$scratch/infra-$pass.new"
         [ ! -s "$scratch/infra-$pass.new" ] || echo ERROR > "$scratch/fail-$pass"

@@ -33,12 +33,15 @@ cat > "$c/run.sh" <<'SH'
 set -eu
 out=$1
 cc -o "$out/product" product.c
+# An independent negative compiler check: green when the compiler refuses.
+if [ -n "${NEGATIVE_CC:-}" ] && cc -c invalid.c -o "$out/invalid.o" 2>/dev/null; then exit 2; fi
 got=$("$out/product")
 [ "$got" = 7 ] || { echo "FAIL run.sh:5: product printed $got, want 7"; exit 1; }
 # A guest leg whose script ignores the harness status, as some do.
 "$EMU_HARNESS" > "$out/serial" 2>/dev/null || :
 grep -qx READY "$out/serial" || { echo 'FAIL run.sh:8: guest never printed READY'; exit 1; }
 SH
+printf 'not valid C\n' > "$c/invalid.c"
 printf '#include <stdio.h>\nint main(void) { printf("%%d\\n", 7); return 0; } /* seven */\n' > "$c/product.c"
 mkpatch() { # name, replacement line for product.c
  printf -- '--- a/product.c\n+++ b/product.c\n@@ -2 +2 @@\n-int main(void) { printf("%%d\\n", 7); return 0; } /* seven */\n+%s\n' "$2" > "$c/mutants/$1.patch"
@@ -77,4 +80,8 @@ expect comment-only-compiler-failure '0 killed, 0 survived, 1 errors' comment IN
 expect comment-only-emulator-incomplete '0 killed, 0 survived, 1 errors' comment INJECT_EMU=1
 expect build-breaking-at-test-time '0 killed, 0 survived, 1 errors' broken
 expect semantic-still-killed '1 killed, 0 survived, 0 errors' semantic
+# initech-kkqbw follow-up (review F1): the baseline's expected compiler
+# refusal of invalid.c must not cancel the mutant's new failure on product.c.
+expect build-breaking-behind-expected-refusal '0 killed, 0 survived, 1 errors' broken NEGATIVE_CC=1
+expect semantic-killed-with-expected-refusal '1 killed, 0 survived, 0 errors' semantic NEGATIVE_CC=1
 exit "$failed"

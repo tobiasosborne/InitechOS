@@ -9,6 +9,7 @@ cat > "$work/bin/make" <<'MAKE'
 #!/bin/sh
 case "$*" in
  '--no-print-directory -C a mutants') exec /usr/bin/make "$@";;
+ '-s --no-print-directory -f - cert-origins') exec /usr/bin/make "$@";;
  '-s dependencies') printf 'a: b\nb: c\nc:\n';;
  *test)
  case $CASE in
@@ -72,7 +73,10 @@ for strict in 0 1; do
 done
 # Loosened budgets from the shell or the make command line are refused before
 # any stage runs (review F5); the exported defaults are accepted above.
-for loose in 'TEST_BUDGET_S=600' 'TEST_TIMEOUT_S=60' 'TESTS=one' 'MAKEFLAGS= -- TEST_BUDGET_S=600'; do
+# Every assignment form GNU make accepts in MAKEFLAGS counts (initech-jgo5k).
+for loose in 'TEST_BUDGET_S=600' 'TEST_TIMEOUT_S=60' 'TESTS=one' 'MAKEFLAGS= -- TEST_BUDGET_S=600' \
+  'MAKEFLAGS= -- TEST_BUDGET_S:=600' 'MAKEFLAGS= -- TEST_TIMEOUT_S:=600' 'MAKEFLAGS= -- TESTS::=one' \
+  'MAKEFLAGS= -- TEST_BUDGET_S+=600' 'MAKEFLAGS=j4 -- TEST_TIMEOUT_S?=600'; do
  dir=$work/loose
  rm -rf "$dir"; mkdir -p "$dir/factory"
  cp "$root/factory/cert.sh" "$dir/factory/"

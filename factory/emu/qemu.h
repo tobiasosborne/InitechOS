@@ -294,6 +294,9 @@ typedef struct {
     int  exit_code;            /* qemu exit status (WEXITSTATUS), or -1 if
                                   killed/uncollectable.                     */
     int  term_signal;          /* signal that killed qemu, or 0.           */
+    bool harness_stopped;      /* the harness signalled qemu (deadline or
+                                  failed QMP) before it ended.              */
+    bool reap_failed;          /* qemu's status could not be collected.     */
 
     char *serial_text;         /* heap-owned NUL-terminated serial capture
                                   (may be ""); free via qemu_result_free.   */

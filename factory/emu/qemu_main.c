@@ -287,7 +287,7 @@ int main(int argc, char **argv)
         cfg.rtc_base = "1992-03-01T09:00:00";
     if (qemu_run(&cfg, &res) != 0) {
         fprintf(stderr, "%s: harness failure\n", argv[0]);
-        emu_record_infra("qemu_harness", EMU_EXIT_HARNESS, 0, 0, 0);
+        emu_record_infra("qemu_harness", EMU_EXIT_HARNESS, 0, 0, 0, 0);
         qemu_result_free(&res);
         return 2;
     }
@@ -328,8 +328,15 @@ int main(int argc, char **argv)
     fprintf(stderr, "[harness] OK=%d\n", res.ok);
 
     /* factory/README.md, Emulator exit status: an incomplete run is never a verdict. */
-    int rc = emu_run_status(res.ok, res.launched, res.timed_out, res.serial_len, res.triple_fault);
-    emu_record_infra("qemu_harness", rc, res.launched, res.timed_out, res.serial_len);
+    /* isa-debug-exit makes every guest verdict exit odd ((v << 1) | 1); 0 is
+     * a normal quit. Any other status is QEMU's own failure. */
+    int bad_exit = res.term_signal == 0 && res.exit_code != 0 && (res.exit_code & 1) == 0;
+    int abnormal = emu_ended_abnormally(res.reap_failed, res.term_signal, res.harness_stopped, bad_exit);
+    if (abnormal)
+        fprintf(stderr, "[harness] INCOMPLETE: qemu ended abnormally (exit=%d signal=%d harness_stopped=%d reap_failed=%d)\n",
+                res.exit_code, res.term_signal, res.harness_stopped, res.reap_failed);
+    int rc = emu_run_status(res.ok, res.launched, res.timed_out, res.serial_len, res.triple_fault, abnormal);
+    emu_record_infra("qemu_harness", rc, res.launched, res.timed_out, res.serial_len, abnormal);
     /* Keep the fault trace on successful runs for the outside smoke oracle. */
     qemu_result_free(&res);
     return rc;

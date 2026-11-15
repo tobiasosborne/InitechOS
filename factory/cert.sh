@@ -10,10 +10,15 @@ refuse() { echo "FAIL cert: $1; certify with the components' own budgets" >&2; e
 [ "${TEST_BUDGET_S:-30}" = 30 ] || refuse "TEST_BUDGET_S=$TEST_BUDGET_S is set"
 [ "${TEST_TIMEOUT_S:-20}" = 20 ] || refuse "TEST_TIMEOUT_S=$TEST_TIMEOUT_S is set"
 [ -z "${TESTS:-}" ] || refuse "TESTS selects a subset"
-for setting in TEST_BUDGET_S TEST_TIMEOUT_S TESTS; do
-    case " ${MAKEFLAGS:-} " in *" $setting="*) refuse "$setting is set on the make command line";; esac
-done
 unset TEST_BUDGET_S TEST_TIMEOUT_S TESTS
+# Inherited make command-line settings ride in MAKEFLAGS in any assignment
+# form (=, :=, ::=, +=, ?=); ask make itself rather than match spellings
+# (initech-jgo5k). With the environment copies unset, only the command line
+# can still define them.
+origins=$(printf 'cert-origins:\n\t@echo $(origin TEST_BUDGET_S) $(origin TEST_TIMEOUT_S) $(origin TESTS)\n' |
+          make -s --no-print-directory -f - cert-origins 2>/dev/null) || refuse "cannot read inherited make settings"
+[ "$origins" = "undefined undefined undefined" ] ||
+    refuse "TEST_BUDGET_S/TEST_TIMEOUT_S/TESTS origins '$origins' (set on the make command line)"
 id=$(date -u +%Y-%m-%dT%H%M%SZ)-$(git rev-parse --short HEAD)
 work=$(mktemp -d)
 start=$(date +%s)

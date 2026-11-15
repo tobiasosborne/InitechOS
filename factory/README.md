@@ -28,8 +28,14 @@ interactive graphical operation is available with the generated bochsrc.
 qemu_harness and bochs_harness (emu/run_status.h) exit 0 when the run
 completed and its verdict passed, 1 when it completed and the verdict failed,
 2 when the harness itself failed, and 3 when the guest run never completed:
-the emulator did not launch, the deadline expired, or it ended with no
-serial output and no triple fault. Only 1 is product evidence. When
+the emulator did not launch, the deadline expired, it ended with no serial
+output and no triple fault, or it ended abnormally without a triple fault
+however much serial it had printed: killed by a signal the harness did not
+send (OOM SIGKILL, SIGSEGV), not reaped, or an exit status that is no guest
+verdict (QEMU: even and nonzero, since isa-debug-exit is always odd; Bochs:
+any nonzero exit before the harness stopped it). Only 1 is product evidence.
+tests/emu-cli.sh links the real qemu_main.c and bochs_main.c to a scripted
+run (tests/emu-cli-stub.c) and grades each ending (review F2). When
 `INITECH_INFRA_LOG` is set, exits 2 and 3 append one line to that file; the
 mutation runner reads it, so a test script that ignores the harness status
 still cannot turn an incomplete run into a kill (testlib/README.md, Kill
@@ -91,6 +97,10 @@ display client can otherwise stop guest drawing before a serial marker is
 emitted. desktop-primitives-test.c proves progress requires transport pumping;
 ordinary factory tier 0 runs it. Marker and session timeout limits are unchanged.
 
+`make cert` refuses, before any stage, a TEST_BUDGET_S, TEST_TIMEOUT_S or
+TESTS other than the components' own, whether from the shell or inherited on
+a make command line in any assignment form (GNU make itself reports their
+origin; initech-jgo5k; tests/cert.sh).
 `make cert` composes clean/test, image/smoke, repro, patch mutation sweeps,
 Turbo Initech selfhost/DDC, oversized-kernel boot, status and clean git status.
 Every stage runs even after a failure; the final exit is nonzero if any failed.
@@ -251,6 +261,9 @@ Bochs desktop W waits use a 10-second idle allowance (DESKTOP_WAIT_MS still
 supports an explicit override). Newly observed consumed input, tenant drawing,
 file/dialog activity and Finder/dispatch progress renew it; clock heartbeats
 and update events alone do not. Repeated W markers still need new occurrences.
+Progress is judged against a session-wide cursor, separate from marker
+matching: output an earlier wait already scanned never renews the session
+again (review F5; desktop-wait-test's stale-history case).
 The shared driver's --timeout-ms is an absolute monotonic overall deadline,
 including time spent inside these waits. It never renews and rejects boundary
 or late completion. The desktop smoke uses the bounded session policy below with a 90000ms hard

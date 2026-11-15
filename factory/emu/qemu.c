@@ -2728,6 +2728,8 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         sleep_ms(20);
     }
 
+    out->harness_stopped = sent_term;
+    out->reap_failed = !reaped;
     if (reaped) {
         if (WIFEXITED(status)) {
             out->exit_code = WEXITSTATUS(status);

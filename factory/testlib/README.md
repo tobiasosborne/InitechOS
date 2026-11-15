@@ -185,7 +185,11 @@ of these hold, in both of two test runs, with the same receipt:
 4. No build tool and no emulator run failed during the mutant's test run in a
    way the baseline did not. The runner puts recording shims for cc, gcc,
    clang, nasm, as, ld, ar, objcopy and fpc first on PATH; a shim that sees a
-   nonzero exit appends `<tool> exit <rc>` to `$INITECH_INFRA_LOG`. The QEMU
+   nonzero exit appends `<tool> exit <rc> in <cwd>: <args>` to
+   `$INITECH_INFRA_LOG` (infra-record.sh). The run's own copy directory and
+   mktemp names are normalised, so only the same command failing in the
+   baseline excuses it: a baseline's expected refusal of one input never
+   cancels a mutant's new failure of another (review F1). The QEMU
    and Bochs harnesses append there when they exit 2 (harness failure) or 3
    (the guest run never completed; factory/README.md, Emulator exit status).
    Any new line is `INFRASTRUCTURE FAILURE (not a kill)`, an error, however
@@ -200,8 +204,10 @@ counts failures fails `FAIL count`. So a test either satisfies the contract
 or fails loudly, before a mutation sweep finds out. Tests with a custom
 `<test>_COUNT_PATTERN` are graded by that pattern instead.
 summary-contract.known lists, temporarily and issue-linked, the tests that
-did not print a summary when the rule was introduced (2026-11-15); a listed
-test passes with a NOTE and can never kill a mutant until its owner fixes it
+did not print a summary when the rule was introduced (2026-11-15). The list
+excuses a missing summary only: a listed test whose summary counts a failure
+fails `FAIL count` like any other (initech-1lmgb). A listed test with no
+summary passes with a NOTE and can never kill a mutant until its owner fixes it
 and deletes the row. A row whose test now prints a summary prints a NOTE
 asking for its deletion. The file is deleted when it is empty.
 

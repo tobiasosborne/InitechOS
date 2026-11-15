@@ -33,6 +33,7 @@ static int run(const char *name,const char *progress,long long at,long long hard
     clock_ms=0;next_progress=1000;marker_at=at;marker=name;activity=progress;published=0;
     if(ftruncate(fileno(serial),0)||fseek(serial,0,SEEK_SET))return 1;
     journey_marker_consumed=0; /* each scenario is a fresh session transcript */
+    journey_progress_scanned=0;
     long long deadline=hard;
     journey_deadline_ref=0; /* a new session: its ceiling comes from this deadline */
     BOCHS_TRACE_BIND_IDLE(NULL); /* Same binding as bochs_run, virtual transport. */
@@ -56,7 +57,31 @@ int main(void)
     serial=fdopen(fd,"w+");if(!serial)return 2;
     setenv("DESKTOP_SERIAL",path,1);
     const char *input="FLAIR-EVT what=3 where=112,102 msg=00001e61\n";
-    int bad=run("slow-input",input,15000,60000,1,15000);
+    int bad=0;
+    {
+        /* Review F5: a wait renews the session only on output no earlier
+         * wait has scanned. The first wait accepts its dispatch marker at
+         * 1 s; the guest then hangs and the next wait starts at 9 s with no
+         * fresh output, so the 12 s session deadline stands. Without the
+         * session cursor it rescanned the consumed dispatch line and renewed
+         * to the 36 s ceiling. */
+        setenv("DESKTOP_WAIT_MS","60000",1);
+        clock_ms=0;next_progress=1000;marker_at=1000;marker="FLAIR-DISPATCH app=WORD";
+        activity=NULL;published=0;journey_marker_consumed=0;journey_deadline_ref=0;
+        long long deadline=12000;
+        BOCHS_TRACE_BIND_IDLE(NULL);
+        journey_idle=produce;journey_context=NULL;
+        int first=journey_parse("WFLAIR-DISPATCH app=WORD",24,&step);
+        clock_ms=9000;journey_idle=NULL;
+        int second=journey_parse("Wmissing",8,&step);
+        if(!first || second || deadline!=12000 || clock_ms!=12000) {
+            fprintf(stderr,"FAIL desktop wait: stale-history first=%d second=%d deadline=%lld elapsed=%lld expected=1/0/12000/12000\n",
+                    first,second,deadline,clock_ms);
+            bad=1;
+        } else printf("ok desktop wait: stale-history deadline=%lld\n",deadline);
+        unsetenv("DESKTOP_WAIT_MS");
+    }
+    bad|=run("slow-input",input,15000,60000,1,15000);
     bad|=run("missing",NULL,999999,60000,0,10000);
     bad|=run("clock-only","FLAIR-CLOCK-POLL\nFLAIR-CLOCK 9:00 am\nFLAIR-EVT what=6\n",999999,60000,0,10000);
     /* Progress renews the 12 s session deadline by 30 s, up to 3 x 12 s. */

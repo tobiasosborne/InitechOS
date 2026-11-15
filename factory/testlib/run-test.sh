@@ -22,8 +22,8 @@ if [ "$rc" -eq 0 ]; then
     summary=$(awk -f "$(dirname "$0")/summary-contract.awk" "$bin.log")
     known=$(awk -v c="${INITECH_COMPONENT:-}" -v t="$name" '$1 == c && $2 == t {print $3; exit}' "$(dirname "$0")/summary-contract.known")
     case $summary in
-      failures) if [ -n "$known" ]; then echo "NOTE summary contract: $name exits 0 with a summary that counts failures ($known)"
-                else echo "FAIL count: $name exited 0 but its summary counts failures" >> "$bin.run.log"; rc=1; fi;;
+      # The ledger excuses a missing summary, never counted failures (initech-1lmgb).
+      failures) echo "FAIL count: $name exited 0 but its summary counts failures" >> "$bin.run.log"; rc=1;;
       ok) [ -z "$known" ] || echo "NOTE stale summary-contract row: ${INITECH_COMPONENT:-} $name now prints a summary; delete it";;
       none|empty) if [ -n "$pattern" ]; then :
             elif [ -n "$known" ]; then echo "NOTE summary contract: $name prints no completed check summary; its failures cannot kill a mutant ($known)"

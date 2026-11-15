@@ -1141,6 +1141,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     /* Recheck before signalling: a spontaneously dead child is not our stop. */
     if (!reaped && waitpid(pid, &status, WNOHANG) == pid) reaped = true;
     if (!reaped) {
+        out->harness_stopped = true;
         if (kill(pid, SIGTERM) == 0 && completed_shutdown)
             out->shutdown_requested = true;
         long long grace = mono_ms() + 1500;

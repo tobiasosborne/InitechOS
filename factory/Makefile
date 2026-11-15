@@ -85,7 +85,14 @@ gate-test: $(OUT)/bochs-verdict-test $(OUT)/qemu-deadline-test $(OUT)/port-lock-
 	$(OUT)/rfb-port-test
 	rm -f $(OUT)/emu-exit.infra
 	$(OUT)/emu-exit-test $(OUT)/emu-exit.infra
-gate-test: $(OUT)/emu-exit-test
+gate-test: $(OUT)/emu-exit-test emu-cli-check
+.PHONY: emu-cli-check
+emu-cli-check: $(OUT)/emu-cli-qemu $(OUT)/emu-cli-bochs
+	sh tests/emu-cli.sh $(OUT)/emu-cli-qemu $(OUT)/emu-cli-bochs
+$(OUT)/emu-cli-qemu: emu/qemu_main.c tests/emu-cli-stub.c emu/qemu.h emu/run_status.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) -Iemu emu/qemu_main.c tests/emu-cli-stub.c -o $@
+$(OUT)/emu-cli-bochs: emu/bochs_main.c tests/emu-cli-stub.c emu/bochs.h emu/run_status.h | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) -Iemu -DEMU_CLI_BOCHS emu/bochs_main.c tests/emu-cli-stub.c -o $@
 $(OUT)/emu-exit-test: tests/emu-exit.c emu/run_status.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 $(OUT)/rfb-port-test: tests/rfb-port.c emu/rfb_port.h | $(OUT)
