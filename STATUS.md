@@ -1,241 +1,116 @@
 # Status
 
-Rewritten 2026-11-14 after landing the reviewed InitechDOS fixes, data-loss
-captures and Turbo Initech compiler repairs on main. Setup: `docs/SETUP.md`.
+Rewritten 2026-11-15 at the close of phase 2. Setup: `docs/SETUP.md`.
+Phase 2's briefing (what landed, reviews, open work, next phase) is kept
+outside the tree by the orchestrator; this file is the in-tree truth.
 
-## Phase 2 landings (in progress; a full rewrite follows at phase end)
+## State of main
 
-Gate health while the fleet works (2026-11-14, ~11:20): the last full
-`make smoke` seen green on BOTH emulators is `da31e926` (09:16, clean
-build, orchestrator's smoke sentinel). At `ebf59aec` the host tests all
-pass but the kernel suite exceeds its 60 s budget under load (68 s, being
-sped up, not re-budgeted), and the Bochs desktop session exceeds its fixed
-90 s whole-session cap under load (10 of 12 launches; QEMU desktop, DOS,
-programs all green; being split/re-measured by the factory owner). Treat
-main's smoke as unknown, not green, until both emulators are seen green
-again. Known false-pass classes found and fixed today: smoke click
-targets by pixel (now by name), a truncated mouse trace returning OK
-(initech-jri2c), timeouts counted as mutant kills (DOS runner fixed;
-shared runner initech-zd68e in progress).
+- Certificate: `make cert CERT_STRICT=1` on 09230b74 (clean, load 4-5) is
+  RED at its mutation stage only: clean-test, the full two-emulator smoke
+  and repro are green; under the strict runner kernel has 2 surviving
+  MKDIR-rollback mutants (initech-xn1ev) and many components report runner
+  errors rather than kills (initech-vocfm, fl7ce); self-host was still
+  running at writing. Later commits (to 1ec9e363) are not covered.
+  CERT_STRICT stays 0 until the strict run is green.
+- Last full `make smoke` seen green on BOTH emulators from a clean
+  checkout: `aba1918d` (2026-11-14 22:38, default limits, 905 s). The
+  QEMU desktop session then outgrew its fixed 90 s deadline after
+  8fab6e40 lengthened the Word journey; `09230b74` sizes it from
+  measurement (180 s; factory/README.md).
+- `make status`: all 20 components imported. The import check now also
+  rejects product conditionals gated by macros no build defines; 26 such
+  branches existing before the rule are listed as issue-linked exceptions
+  in `factory/testlib/fault-branches.known` (initech-yuumo kernel,
+  jk1yb dos, ao6o0 flair, a8bhu InitechBase) and must be removed.
+- Mutation coverage: no pending patches remain (the 129 pending at the
+  start of phase 2 are all proven: DOS 46, kernel 39, FLAIR 16, InitechBase
+  28). The shared runner counts a kill only on a semantic assertion seen
+  twice; timeouts and startup failures are errors. Under that rule the
+  strict cert still reports errors instead of kills in kernel, dos,
+  Initech 123, Note Pad, SDK, turbo and factory (initech-vocfm, fl7ce),
+  and two kernel MKDIR-rollback mutants survive (initech-xn1ev).
+- Self-host: K2 == K3 == D2 proven on QEMU and Bochs at 37c815ad,
+  170,607 bytes, SHA-256
+  a4ddd89971dfe232ccf0f43602fa5fba33ba4966d0bf7aeb7371aea2701ffe47 (the
+  IDE work moved it from 164,263 bytes).
+- Host suites at their time budgets under load (defects for their owners,
+  not for re-budgeting): InitechWord (29-33 s of 30), Initech 123 (27-32
+  s), kernel (under budget after eab97a51 but grows). Bochs drops typed
+  characters under heavy load in program smoke (initech-ix9by).
 
-Landed after independent review, top `make test` green at default limits
-(19/19, 81 s): InitechCalc stages exclusively and closes failed writes
-(initech-1tuwf); Initech 123 protection follows the Lotus captures for
-Name Labels/Name Table and the audited write paths (initech-uyi1);
-InitechText reads a whole file, and confirms EOF, before opening it
-(initech-gxb4z). Tracker triage applied: one label convention
-(`component:<dir>`, `gm:<n>`, `sev:*`), priorities by the golden master.
+## Rulings in force
 
-Rulings in force. Operator rulings (2026-11-14): the graphical FILE COPY
-never destroys its destination on failure or cancel; InitechDOS COPY
-follows real DOS 3.30 as captured, including removing the target after a
-disk-full failure; the menu mark is Initech's three-block mark (candidate
-A) and no Apple glyph remains in the product; delivery (GM8) is by start,
-a ready-made reproducible fixed-disk image, with no SETUP and no install
-diskettes; unrecovered ledger cells are empty ruled cells with the one
-line "Blank entries were not recovered from the surviving material."; in
-the frame, InitechCalc's own menus are in the bar during the "Saving
-tables to disk" copy, InitechPaint is shown separately in front with its
-Photoshop menus, and two disk apps are never resident at once (that stays
-on Release 2). Advisor rulings from the golden master: desktop saves keep
-the previous file openable under its own name after any reported failure
-(not crash atomicity); 123 protection follows the Lotus captures;
-InitechBase `@...SAY/GET` and `READ` are in this master; refused visible
-commands are implemented when small or removed (reviewed split: 26
-implement, 325 remove); one product image; Turbo keeps 32-bit Integer.
+Operator (2026-11-13/14), also in CLAUDE.md and GOLDEN-MASTER.md:
+- GM2: FAT12 read-write; FAT16 read-only, a FAT16 volume mounts, lists
+  and reads, and every write to it is refused before the first sector
+  changes (DOS file layer, Finder, INT 13h/26h and the utilities all
+  refuse; FAT16 writes are Release 2). FAT12 and the FCB calls TPSREP
+  uses stay real: the FAT item expresses the product's accreted
+  corporate legacy.
+- "Two interfaces" (CLAUDE.md) is an explicit allowed list with two
+  temporary exceptions: the resident command processor (until a loaded
+  COMMAND.COM, Release 2, initech-1frx2) and the Finder's direct FAT use
+  (until its file operations go through DOS, initech-02siz). Four
+  crossings outside the list are being retired (initech-q9p80).
+- InitechDOS COPY follows real DOS 3.30 as captured, including removing
+  the target after a disk-full failure. The graphical FILE COPY never
+  destroys its destination on failure or cancel.
+- The menu mark is Initech's three-block mark; no Apple glyph remains.
+- Delivery (GM8) is by start: a ready-made reproducible fixed-disk image;
+  no SETUP and no install diskettes.
+- Frame: unrecovered ledger cells are empty ruled cells with the line
+  "Blank entries were not recovered from the surviving material.";
+  InitechCalc's own menus are in the bar during the copy; InitechPaint is
+  shown separately in front with the Photoshop menus; two disk apps are
+  never resident at once (Release 2).
+- Landing (CLAUDE.md): the agent that made a change lands it on main;
+  reviews read what has landed; `make cert` is the backstop.
 
-FAT: per the operator's stated intent, "FAT12/16" in GM2 expresses the
-accreted corporate legacy (the same spirit as the TPS Report Generator),
-not a storage feature to complete. FAT12 is the working read-write
-format; FAT12 and the FCB calls TPSREP uses stay real and supported.
-The operator amended GOLDEN-MASTER.md and CLAUDE.md (c7398425): GM2 is
-FAT12 read-write and FAT16 read-only, a FAT16 volume mounts, lists and
-reads and every write to it is refused before the first sector changes
-(FAT16 writes are Release 2); no FAT16 writer is built. "Two interfaces"
-is now an explicit allowed list with two temporary exceptions: the
-resident command processor (until a separately loaded COMMAND.COM,
-Release 2, initech-1frx2) and the Finder's direct FAT use (until it goes
-through DOS, initech-02siz). Work queued behind what is in flight: make
-the FAT16 refusal complete on every path (DOS file layer, Finder
-initech-pbl0i, INT 26h, INT 13h and the utilities on a mounted FAT16
-volume) with unchanged-sector evidence and a both-emulator session; fix
-the four crossings outside the list (CHKDSK arena walk, FDISK port reset,
-InitechBase INT 39h, Note Pad/Scrapbook INT 21h diagnostics,
-initech-q9p80); make declared libraries and published bindings checkable
-in the import audit.
+Advisor, from the golden master: desktop saves keep the previous file
+openable under its own name after any reported failure (not crash
+atomicity); since the kernel replace primitive (f4cac360, 7mb66) the
+Toolbox commits a save in one directory-sector write, and InitechBase,
+a DOS program, still reports the backup name in the double-failure case.
+Initech 123 protection follows the Lotus captures. InitechBase
+`@...SAY/GET` and `READ` are in this master (initech-p3nn0, in
+progress). Refused visible commands are implemented when small or
+removed (approved split: 26 implement, 325 remove; landed for 123, the
+small apps, Word and the Finder). One product image. Turbo keeps 32-bit
+Integer.
 
-## Where we are
+## Product today
 
-The three wave-2 branches are merged: InitechWord, small apps, factory.
-Every shipped GUI tenant is built before the disk. Nine GUI executables
-launch and exit in app-owned journeys on QEMU and Bochs at 8 MiB.
-Independent readers check worksheet, WP5, text, Note Pad/Scrapbook,
-settings and ledger saves. Calculator matches its real Mac capture;
-Paint has an independent canvas check. InitechBase and Turbo Initech
-retain separate sessions on both emulators.
+Boots on QEMU and Bochs at 8 MiB to InitechDOS and FLAIR. Nine GUI apps
+plus InitechBase and the DOS utilities on the working volume, with
+Initech's mark, full single-line Finder labels, app windows under the
+single menu bar. The product disk carries TURBO.COM with its source and
+HELLO.PAS (`\TURBO`), InitechBase samples and TPS.DBF/TPSPARM.DAT
+(`\SAMPLES`); TPSREP, USE/LIST and the Y2K program, and compiling HELLO
+work from the shipped disk. FILE COPY stages and commits, shows the
+hourglass and honours Cancel/Escape without touching the destination.
+InitechCalc's ledger shows honest gaps (treatment A). Fresh screenshots
+were taken by hand on 2026-11-14 (outside the tree).
 
-Turbo Initech's wrong-write runtime entry points are removed; both
-runtime tables regenerate exactly. Self-host and diverse bootstrap prove
-`K2 == K3 == D2`: 163,087 bytes, SHA-256
-`7bf6424c74a46106b01f5d75de2c422005a026d2624f1e044e626fc1ae801ff6`.
-Corruption, contamination and changed-source controls go red.
+Not yet built: the frame as a live arrangement (GM3; its reference
+package and the InitechCalc ledger content are on main, 1f7e16b0,
+ee66540c), the rest of the Turbo Initech IDE (GM7; editor, save and error
+display are on main; the loader now runs a flat child under a resident
+extended parent, da8f453e), InitechBase forms (GM5; work in progress is on branch
+`base-forms`, cut off when its agent's session ended), the C:
+consolidation and start route (GM8), the manuals.
 
-This machine's baseline exceeded Word and Turbo host time budgets and
-opened `123.MNU` instead of `123.EXE`. Hosted Word checks and the FPC
-bootstrap are now faster; no entry timeout or suite budget was raised.
-FAT directory insertion is lexical at every depth, independent of host
-creation order. `LEGACY_TREE` defaults to `$HOME/Projects/InitechOS-legacy`
-and accepts an override, replacing another user's hard-coded host path.
-Control Panels uses public FLAIR interfaces and an owner-built Dialog
-archive. Fresh compiler outputs build their seed in its declared directory.
+## Who holds what (one writer per directory)
 
-## Verification and limits
-
-The reviewed integration passed a complete local `make cert` at
-`2281fa64` in 41m21s: clean host tests, both-emulator smoke, reproducible
-builds, mutations, selfhost/DDC, oversized kernel and status audit.
-All 960 active mutation entries were killed, zero survivors or errors.
-Later commits correct documentation and reject an empty mutation inventory
-with a red-first regression. The first cert on main passed at `049b6b4a`
-in 41m7.69s: all eight stages green, 960 active kills, zero survivors/errors.
-Host tests passed in 63.66s and full smoke in 212.12s before the push.
-Logs: `build/cert/2026-11-14T005336Z-049b6b4a/`; an external copy is
-retained with the landing report. No limit was relaxed and no fix was needed.
-
-The independently reviewed Turbo repairs landed as `9228ccac` and `e717e105`,
-rebased onto `d4a0cfad`. Fresh self-host/DDC passed in 146.80s with the unchanged
-fixed point above. Worktree `make -j12 test` passed in 62.90s and full
-`make smoke` in 333.70s; the fast-forwarded main checkout's host gate passed
-in 50.11s. Default Turbo smoke now compares 280 generated executions on QEMU
-and Bochs: all 168 extended comparisons plus 112 real flat COM executions,
-with independent FPC stdout/files and no budget increase. The new flat-only
-runtime fault completes with wrong digits and is caught by execution.
-
-The end-of-day cert on `4f7c0cb4` passed in 2050.40s: all eight stages
-returned zero. Clean host tests took 76s, full smoke 335s, reproducibility
-45s, mutations 1221s, self-host/DDC 145s, oversized-kernel 26s, status
-202s and tracked-files 0s (stage times use the script's integer clock).
-All 964 active patches were killed, with zero survivors/errors. The 129
-pending patches and two incomplete imports below remain explicit coverage
-limits; the mutation stage is PASS_PENDING. The fixed point is unchanged.
-Evidence: `build/cert/2026-11-14T031436Z-4f7c0cb4/`; an external archive and
-timed logs are retained with the Turbo landing report.
-
-The first attempt on `f248a6d6` failed only mutation coverage: eight INT21
-patch contexts had drifted, and corrected FIND filtering masked XCOPY's
-old hidden-file fault. `d72eaa42` refreshes the faults and adds a recursive
-hidden/system-directory mtools oracle. All nine faults were proved red,
-clean baselines green, and full host tests passed before the successful
-cert rerun. No product source, budget or timeout changed. The seven Turbo
-issues and the two certificate-maintenance issues are closed; all tracked
-memory records were preserved in the issue snapshot.
-
-After fast-forwarding the main checkout from `62830873`, `make -j12 test`
-passes all 19 registered components in 55.96s, including default factory
-verification of the captures and configured reference readers. Full
-`make smoke` passes in 314.98s: DOS, programs, nine GUI executables,
-Turbo Initech and InitechBase on QEMU and Bochs at 8 MiB. Before landing,
-the full host gate also passed with relocated corpora in 84.89s. Fresh
-Lotus replay from a nonexistent output directory passes all seven cases;
-all 14 WK1 files match the retained captures. A delayed-monitor control
-proves the capture driver waits for command completion.
-
-The reviewed candidate's additional console-pair smoke passes four cases,
-and `make repro` passes in 84.01s across two clean builds. All four rebuilt
-main artifact hashes match those reproducibility hashes; the final review
-fixes affect capture tooling only. No budget was relaxed or needed a retry.
-Logs survive at `/tmp/integration-next-logs/` and
-`/tmp/integration-next-landing-logs/`. The later end-of-day cert above covers this landing.
-
-There are still 129 unproved pending patches: kernel 39, DOS 46,
-FLAIR 16, InitechBase 28. Default cert reports PASS_PENDING; it is not
-full mutation coverage. The audit reports 17 imported and two host-green:
-kernel includes a private DOS header; FLAIR desktop retains a product
-mutation hook and needs its import check. Boot's optional mutation branches
-are outside the registered audit. The legacy whole-desktop pixel comparison
-is informational; it does not certify the whole screen.
-
-## Review work and decisions
-
-Today's targeted reviews filed 37 new issues plus six Turbo compiler bugs.
-The fix plan starts with trustworthy readback, timeout, nonempty-run and
-smoke-coverage gates; then FAT/write protection, stage ownership and handles;
-then recovery policy, file conservation and independent execution/ABI oracles.
-The six Turbo bugs now have red-first FPC execution differentials for both
-compilers: record/var layout, byte-safe character access, for-loop bounds and
-endpoints, and single-evaluation seed record copies. Extended and flat native
-paths are both exercised; the three restored execution patches are active.
-
-`integration/next` was independently reviewed and fast-forwarded to main
-after the two capture-harness findings and the timing nit were fixed:
-
-- `fixes/initechdos` at `18750e4a`, all 17 commits, merged as `1fa2ebc5`.
-  FLAIR now checks CREATE EOF, seek/literal read and explicit write-only
-  OPEN refusal. SDK fake FIND matches all 896 genuine-DOS attribute/name
-  cases; the matrix was independently re-minted here. Factory requires
-  `WRITE-READBACK-OK` as well as independent disk bytes. Each follow-up
-  has a semantic red-first regression (`95a43cd0`).
-- `goldens/dataloss` at `773d45da`, merged as `6593a4df`: real DOS 3.30,
-  Lotus R2.2 and WordPerfect 5.1 captures. All 422 pinned files,
-  mtools disk readback and independent reader dumps verify; corrupted
-  evidence is rejected. Default factory verification is `3ce50293`.
-  `abdeb56c` makes that verifier use the configured, preflight-checked
-  readers, creates fresh Lotus output directories before compilation,
-  and waits for HMP completion. Retained capture bytes are unchanged;
-  only helper/documentation hashes were updated. No product data-loss
-  policy or behavior was changed.
-
-The sole merge conflict was the research branch's stale STATUS.md; the
-current main status was retained before the candidate rewrite. This landing
-closes initech-oecdm with guest and factory proof. The ten fully fixed
-kernel/DOS issues already closed by the implementer retain that status,
-with landing/commit comments. Partial issues and recovery-policy decisions
-remain open; the current tracker snapshot is committed with this rewrite.
-
-Operator decisions pending: real DOS 3.3 COPY deletes the target on
-failure; WordPerfect 5.1 can leave only `NAME.BK!` after a failed save.
-Should InitechOS reproduce those outcomes or protect the user's file?
-InitechBase `@GET/READ` was filed as Release 2 although GOLDEN-MASTER
-lists it for this release; the operator must resolve that conflict.
-Dead commands in the frozen app inventories also need implement/remove decisions.
-
-## Next, in order
-
-1. Repair the reviewed acceptance gates, then the data-loss bugs under the
-   agreed recovery policy.
-2. Finish kernel/FLAIR desktop imports and boot's audit; prove pending mutants.
-3. Initech's menu mark, app windows up 20 pixels, Finder long-label overlap.
-4. The film frame: safe FILE COPY; the arrangement (Drive A, FILE COPY,
-   frame smoke). The ledger and chart content is in (goldens/frame
-   transcription, InitechCalc's ledger document); its operator questions
-   are at the top of goldens/frame/README.md. Resolve the frozen dead commands.
-5. Turbo Initech IDE, runtime encoders and fixed point on Bochs.
-6. Install path and a single product disk.
+- Phase 3's orchestrator assigns all directories from 2026-11-15 03:00.
+  No phase-2 agent holds a directory. `apps/initechbase/` forms work sits
+  unlanded on branch `base-forms`. Shared places (`factory/`, `mk/`, top
+  Makefile, `sdk/`) had no holder at the close of phase 2.
 
 ## Notes for this week
 
-- Agents that work in their own worktree land their own work: when it is
-  green they rebase, push to `main` and carry on. Nobody merges for them,
-  no review or sign-off stands between green tests and `main`, and
-  reviews read what has already landed. Why: merge queues are how the
-  legacy tree ended with 23 unmerged branches, the oldest 670 commits
-  behind, and this phase rebuilt one (13 branches, 47 commits) in under
-  two hours before it was caught (reboot review at tag `legacy-final`,
-  `docs/audits/2026-11-13-reboot/README.md` decision 8 and
-  `report-D-process.md` sections 2 and 7). Tooling trap: a delegated
-  child given its own worktree gets a branch by default and will wait to
-  be merged unless its brief tells it to push to `main` itself.
-- Shared places owner: the phase-2 orchestrator, who delegates them one
-  holder at a time: `factory/`, `mk/` and the top Makefile to the gate-repair
-  task; `sdk/` to the fake/gate parity task, except `sdk/include/tbx_save.h`,
-  held by the Toolbox save-safety task.
-- Remaining Word/small-app attic journeys and pixel harnesses belong to
-  their component/factory importers; publication inventories and manuals
-  to the publication importer; composed chrome and menu/panel coverage
-  to FLAIR/desktop. Separate hosted TextEdit work belongs to FLAIR.
-  No build reads attic. FIND operands and DOS overlay behavior remain open.
-- The old deep-path Word List Files failure did not reproduce in integration
-  or its deeper mutation paths; it remains tracked without a path waiver.
-- QEMU: 486, 8 MiB, ACPI off. Bochs: installed Pentium model, 8 MiB.
-  IDE master boots; the slave is working volume A:. All checks run locally.
-- This session ran with a Fable advisor setting direction, an Opus orchestrator running the fleet, Sol 6.1 xhigh doing implementation and review, Astra hands-on, Muse Wonder Full for the outside view, and a cap of 1 to 2 percent ahead of pace on every account.
+- QEMU: 486, 8 MiB, ACPI off. Bochs: installed Pentium model, 8 MiB
+  (GM1 says a 486; open question for the operator).
+- Smoke journeys find Finder targets by name; per-run emulator ports; a
+  disk-content change runs a clean `make image` and `make smoke` before
+  pushing (both caught regressions on 2026-11-14).
