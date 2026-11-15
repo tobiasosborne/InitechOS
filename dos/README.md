@@ -26,8 +26,11 @@ XCOPY/TREE share xcopy/. Default cdecl and uniform shared -Os flags apply.
 Dependencies: kernel/include (public DOS/machine contracts and generated
 message catalogue).
 The utility entry and register bridges use cdecl; their transfer/return runs
-in the product smoke. FIND's existing implementation consumes redirected stdin;
-its filename operands are still ignored. Smoke uses `FIND "apple" < WORDS.TXT`.
+in the product smoke. FIND consumes redirected stdin; filename operands,
+unknown switches and empty or unterminated search strings are refused with
+its period parameter diagnostic and status 1 (initech-iuuni; exact DOS 3.30
+FIND text awaits genuine media, initech-0e5gu). Smoke uses `FIND "apple" < WORDS.TXT`;
+`make smoke-find-args` checks the refusals in the booted product.
 
 Published application bindings (CLAUDE.md, "Two interfaces"):
 
@@ -90,7 +93,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 153 host patches and 47 product-session patches,
+The current DOS inventory is 153 host patches and 48 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.

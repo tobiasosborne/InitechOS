@@ -53,7 +53,14 @@ F_N equ 4                       ; /N line numbers
 F_I equ 8                       ; /I ignore case
 
 start:
-    ; ---- Parse the command tail (PSP:80h): switches + the quoted string. ----
+    ; ---- Parse the command tail (PSP:80h): switches + the quoted string.
+    ; Nothing is accepted silently (GOLDEN-MASTER item 2, initech-iuuni,
+    ; as SORT was fixed in a78a4cce): an unknown switch, a file operand,
+    ; other trailing garbage, an empty, unterminated or overlong quoted
+    ; string, or a second string are all parameter errors. This FIND
+    ; filters stdin only; the DOS file-operand form (and its exact
+    ; per-file output) awaits genuine media (initech-0e5gu), so it is
+    ; refused rather than silently read from CON.
     mov dword [flags], 0
     mov dword [nlen], 0
     mov byte  [have_quote], 0
@@ -63,69 +70,87 @@ start:
     test ecx, ecx
     jz .tail_done
     mov al, [esi]
+    cmp al, ' '
+    je .tail_next
+    cmp al, 9
+    je .tail_next
     cmp al, '/'
     je .sw
     cmp al, '"'
     je .quote
-    jmp .tail_next
+    jmp .param_err             ; file operand or garbage: never ignored
+.tail_next:
+    inc esi
+    dec ecx
+    jmp .tail_scan
 .sw:
-    ; '/x' switch: look at the next char.
     cmp ecx, 1
-    jbe .tail_next
+    jbe .param_err             ; lone '/'
     mov dl, [esi + 1]
     and dl, 0xDF               ; fold to upper
     cmp dl, 'V'
     jne .not_v
     or dword [flags], F_V
-    jmp .sw_consumed
+    jmp .sw_done
 .not_v:
     cmp dl, 'C'
     jne .not_c
     or dword [flags], F_C
-    jmp .sw_consumed
+    jmp .sw_done
 .not_c:
     cmp dl, 'N'
     jne .not_n
     or dword [flags], F_N
-    jmp .sw_consumed
+    jmp .sw_done
 .not_n:
     cmp dl, 'I'
-    jne .sw_consumed
+    jne .param_err             ; unknown switch: refused, never consumed
     or dword [flags], F_I
-.sw_consumed:
-    inc esi                    ; also consume the switch letter
-    dec ecx
-    jmp .tail_next
+.sw_done:
+    add esi, 2
+    sub ecx, 2
+    jmp .separator
 .quote:
-    ; first '"': copy chars up to the next '"' into `needle`.
+    cmp byte [have_quote], 0
+    jne .param_err             ; a second quoted string
     mov byte [have_quote], 1
     inc esi                    ; skip opening quote
     dec ecx
     xor edx, edx               ; edx = needle length
 .q_copy:
     test ecx, ecx
-    jz .q_done
+    jz .param_err              ; unterminated string
     mov al, [esi]
     cmp al, '"'
     je .q_close
     cmp edx, 127
-    jae .q_skip                ; clamp (the repository contract: never overflow the 128-byte buf)
+    jae .param_err             ; overlong string: refuse, never truncate
     mov [needle + edx], al
     inc edx
-.q_skip:
     inc esi
     dec ecx
     jmp .q_copy
 .q_close:
     inc esi                    ; consume closing quote
     dec ecx
-.q_done:
     mov [nlen], edx
-    jmp .tail_scan             ; ecx already advanced; continue scanning switches
-.tail_next:
-    inc esi
-    dec ecx
-    jmp .tail_scan
+    test edx, edx
+    jz .param_err              ; empty string is a parameter error
+.separator:
+    ; After a switch or the string, only a separator, a glued switch or
+    ; (after a switch) the string may follow; anything else is an operand.
+    test ecx, ecx
+    jz .tail_done
+    mov al, [esi]
+    cmp al, ' '
+    je .tail_scan
+    cmp al, 9
+    je .tail_scan
+    cmp al, '/'
+    je .tail_scan
+    cmp al, '"'
+    je .tail_scan
+    jmp .param_err
 .tail_done:
     ; A quoted string is REQUIRED (DOS: quotes mandatory). No quote -> param error.
     cmp byte [have_quote], 0

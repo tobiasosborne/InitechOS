@@ -258,6 +258,11 @@ smoke-filter-full:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/filterfull.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$(abspath $(OUT))/filter-full"
 
+.PHONY: smoke-find-args
+smoke-find-args:
+	+$(MAKE) -C $(TOP) image
+	sh tests/runtime/findargs.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$(abspath $(OUT))/find-args"
+
 .PHONY: smoke-pipe-cwd
 smoke-pipe-cwd:
 	+$(MAKE) -C $(TOP) image

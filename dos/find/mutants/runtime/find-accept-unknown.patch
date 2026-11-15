@@ -1,0 +1,31 @@
+# FIND_ACCEPT_UNKNOWN
+# session: findargs
+--- a/find/find_program.asm
++++ b/find/find_program.asm
+@@ -78,7 +78,7 @@
+     je .sw
+     cmp al, '"'
+     je .quote
+-    jmp .param_err             ; file operand or garbage: never ignored
++    jmp .tail_next             ; mutant: silently skip file operands
+ .tail_next:
+     inc esi
+     dec ecx
+@@ -104,7 +104,7 @@
+     jmp .sw_done
+ .not_n:
+     cmp dl, 'I'
+-    jne .param_err             ; unknown switch: refused, never consumed
++    jne .sw_done               ; mutant: silently consume unknown switches
+     or dword [flags], F_I
+ .sw_done:
+     add esi, 2
+@@ -135,7 +135,7 @@
+     dec ecx
+     mov [nlen], edx
+     test edx, edx
+-    jz .param_err              ; empty string is a parameter error
++    jz .separator              ; mutant: empty string matches every line
+ .separator:
+     ; After a switch or the string, only a separator, a glued switch or
+     ; (after a switch) the string may follow; anything else is an operand.
