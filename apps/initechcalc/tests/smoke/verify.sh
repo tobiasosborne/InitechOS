@@ -18,6 +18,14 @@ case $out in *qemu-*)
  make -s -C apps/initechcalc "$PWD/build/apps/initechcalc/host/frame_pixels"
  sh apps/initechcalc/tests/frame-pixels.sh build/apps/initechcalc/host/frame_pixels "${out%qemu-*}calc.ppm" goldens/frame chart
  sh apps/initechcalc/tests/frame-pixels.sh build/apps/initechcalc/host/frame_pixels "${out%qemu-*}calc-copy.ppm" goldens/frame copy
+ # The canon hourglass, at the still's place, in at least one of the seven
+ # frames taken while the copy runs: a frame inside a shielded bar repaint
+ # shows no cursor (flair/tests/smoke-filecopy.sh), which proves nothing.
+ seen=0
+ for shot in calc-copy calc-glass-1 calc-glass-2 calc-glass-3 calc-glass-4 calc-glass-5 calc-glass-6; do
+  if sh apps/initechcalc/tests/frame-pixels.sh build/apps/initechcalc/host/frame_pixels "${out%qemu-*}$shot.ppm" goldens/frame hourglass; then seen=1; break; fi
+ done
+ [ "$seen" -eq 1 ] || { echo 'FAIL frame pixels: no hourglass at COPYHOURGLASS in any frame of the copy'; exit 1; }
  # The still beside the copy moment, for the operator's eye (not graded),
  # when the pinned still is provisioned (goldens/CORPORA.lock FRAME_STILL).
  still=${FRAME_STILL:-$HOME/Projects/initech-frame}/preview.ppm

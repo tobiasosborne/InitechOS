@@ -7,7 +7,7 @@
  *   frame-pixels shot.ppm REGION l t r b  PIE l t r b  ELLIPSE cx cy a b
  *                [SERIES v1 ... vn] [AT x y role] ...
  *   frame-pixels shot.ppm FRAME l t r b ... [TEXT l t r b] [BAR l t r b]
- *                [NONAVY l t r b]
+ *                [NONAVY l t r b] [HOURGLASS l t r b]
  *
  * REGION    where on screen the chart window may be (navy outside the pie is
  *           searched for only here)
@@ -26,6 +26,10 @@
  *           start within 4 px of its left, top and bottom
  * BAR       a progress bar's box: its black outline's bounds within 4 px
  * NONAVY    a box in front of the chart: no slice navy shows through it
+ * HOURGLASS the still's busy cursor: its black pixels (searched 16 px to
+ *           either side, 4 above and below) bounded within 4 px of the box,
+ *           and an hourglass (both ends at least 3/4 of its width, its
+ *           waist at most 1/4), never a watch
  * Colours: the Toolbox's black (0,0,0) and navy (0,0,128), the stand-in for
  * the still's slice blue until the SDK has one (goldens/frame/README.md
  * question 12). Tolerance: 3/255 per channel, the DAC's quantisation. */
@@ -65,11 +69,12 @@ static void edge(int k,int x,int y,int ix,int iy,const char *side)
         fail(s,x,y);
     }
 }
-/* Bounds of the black pixels in box b grown by 4; 0 when there are none. */
-static int dark_bounds(const int *b,int *o)
+/* Bounds of the black pixels in box b grown by mx across and 4 down;
+ * 0 when there are none. */
+static int dark_bounds_by(const int *b,int mx,int *o)
 {
     int l=W,t=H,r=-1,d=-1;
-    for(int y=b[1]-4;y<b[3]+4;y++) for(int x=b[0]-4;x<b[2]+4;x++) if(black(x,y)) {
+    for(int y=b[1]-4;y<b[3]+4;y++) for(int x=b[0]-mx;x<b[2]+mx;x++) if(black(x,y)) {
         if(x<l) l=x;
         if(x>r) r=x;
         if(y<t) t=y;
@@ -78,6 +83,7 @@ static int dark_bounds(const int *b,int *o)
     o[0]=l; o[1]=t; o[2]=r+1; o[3]=d+1;
     return r>=0;
 }
+static int dark_bounds(const int *b,int *o) { return dark_bounds_by(b,4,o); }
 static int num(char **argv,int i,int argc) { if(i>=argc) { fputs("frame-pixels: missing argument\n",stderr); exit(2); } return atoi(argv[i]); }
 int main(int argc,char **argv)
 {
@@ -87,7 +93,7 @@ int main(int argc,char **argv)
        ||fread(px,1,sizeof px,f)!=sizeof px) { fprintf(stderr,"frame-pixels: not a 640x480 P6: %s\n",argv[1]); return 2; }
     fclose(f);
     int reg[4]={0,0,W,H}, pie[4]={0}, havepie=0, haveell=0; double ell[4]={0}, ser[8]; int ns=0;
-    int text[4], bar[4], nonavy[4], havetext=0, havebar=0, havenonavy=0;
+    int text[4], bar[4], nonavy[4], glass[4], havetext=0, havebar=0, havenonavy=0, haveglass=0;
     for(int i=2;i<argc;) {
         if(!strcmp(argv[i],"REGION")) { for(int k=0;k<4;k++) reg[k]=num(argv,i+1+k,argc); i+=5; }
         else if(!strcmp(argv[i],"PIE")) { for(int k=0;k<4;k++) pie[k]=num(argv,i+1+k,argc); havepie=1; i+=5; }
@@ -96,6 +102,7 @@ int main(int argc,char **argv)
         else if(!strcmp(argv[i],"FRAME")) { if(nframes==FRAMES) return 2; for(int k=0;k<4;k++) frames[nframes][k]=num(argv,i+1+k,argc); nframes++; i+=5; }
         else if(!strcmp(argv[i],"TEXT")) { for(int k=0;k<4;k++) text[k]=num(argv,i+1+k,argc); havetext=1; i+=5; }
         else if(!strcmp(argv[i],"BAR")) { for(int k=0;k<4;k++) bar[k]=num(argv,i+1+k,argc); havebar=1; i+=5; }
+        else if(!strcmp(argv[i],"HOURGLASS")) { for(int k=0;k<4;k++) glass[k]=num(argv,i+1+k,argc); haveglass=1; i+=5; }
         else if(!strcmp(argv[i],"NONAVY")) { for(int k=0;k<4;k++) nonavy[k]=num(argv,i+1+k,argc); havenonavy=1; i+=5; }
         else if(!strcmp(argv[i],"AT")) {
             int x=num(argv,i+1,argc), y=num(argv,i+2,argc); const char *role=i+3<argc?argv[i+3]:"";
@@ -155,6 +162,28 @@ int main(int argc,char **argv)
         int n=0; checks++;
         for(int y=nonavy[1];y<nonavy[3];y++) for(int x=nonavy[0];x<nonavy[2];x++) n+=navy(x,y);
         if(n) { failures++; printf("FAIL frame pixels: %d navy pixels show through (%d,%d)-(%d,%d), which is in front of the chart\n",n,nonavy[0],nonavy[1],nonavy[2],nonavy[3]); }
+    }
+    if(haveglass) {
+        /* The canon busy cursor (CLAUDE.md, The constitution, point 2;
+         * transcription CANON.HOURGLASS): an hourglass, never a wristwatch.
+         * Its black pixels must sit at the still's place, and its rows must
+         * be wide at both ends and narrow at the waist: a watch's face is
+         * widest in the middle. */
+        int o[4], off=0, seen; checks++;
+        seen=dark_bounds_by(glass,16,o);   /* wide enough to see a sprite past the 4 px */
+        if(seen) for(int k=0;k<4;k++) if(o[k]-glass[k]<-4||o[k]-glass[k]>4) off=1;
+        if(!seen||off) { failures++; printf("FAIL frame pixels: the busy cursor spans (%d,%d)-(%d,%d); the still has the hourglass at (%d,%d)-(%d,%d)\n",o[0],o[1],o[2],o[3],glass[0],glass[1],glass[2],glass[3]); }
+        else {
+            int w=o[2]-o[0], h=o[3]-o[1], top=0, bottom=0, waist=w;
+            for(int y=o[1];y<o[3];y++) {
+                int n=0; for(int x=o[0];x<o[2];x++) n+=black(x,y);
+                if(y<o[1]+h/4&&n>top) top=n;
+                if(y>=o[3]-h/4&&n>bottom) bottom=n;
+                if(y>=o[1]+h/3&&y<o[3]-h/3&&n<waist) waist=n;
+            }
+            checks++;
+            if(4*top<3*w||4*bottom<3*w||4*waist>w) { failures++; printf("FAIL frame pixels: the busy cursor is not an hourglass: ends %d and %d wide, waist %d, of %d\n",top,bottom,waist,w); }
+        }
     }
     printf("frame-pixels: %d checks, %d failures\n",checks,failures);
     return failures?1:0;

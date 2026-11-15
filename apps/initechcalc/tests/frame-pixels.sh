@@ -2,8 +2,8 @@
 # A booted screen against goldens/frame: every expected point and box is read
 # here from the reference package, never from InitechCalc or FLAIR.
 #   $1 the frame-pixels program, $2 the screen (640 x 480 P6), $3 goldens/frame,
-#   $4 the moment: "chart" (Calc open, before Save; the default) or "copy"
-#      (FILE COPY running in front of it).
+#   $4 the moment: "chart" (Calc open, before Save; the default), "copy"
+#      (FILE COPY running in front of it) or "hourglass" (the busy cursor).
 # chart:
 # - CHARTWIN (geometry.tsv, 640 columns): the chart window's outline, exact.
 # - PIE / PIEDEPTH: where the pie's pixels are, searched for inside CHARTWIN.
@@ -20,6 +20,12 @@
 # - COPYCAPTION: the caption's black text starts at the still's place.
 # - COPYBAR: the progress bar's outline at the still's place.
 # - no slice navy shows through COPY: it is in front of the chart.
+# hourglass (a frame taken while the copy runs):
+# - COPYHOURGLASS: the busy cursor is an hourglass at the still's place
+#   (transcription CANON.HOURGLASS; the journey parks the pointer there).
+#   FLAIR shields the cursor while it repaints the bar, so one frame may
+#   catch it erased; tests/smoke/verify.sh asks this of several frames and
+#   needs the hourglass in one.
 # Not graded, stated departures (goldens/frame/README.md): colours.tsv's
 # progress_fill blue and filecopy_content white are FLAIR's Platinum bar and
 # dialog grey; the slice blue is the Toolbox's navy (question 12).
@@ -45,5 +51,10 @@ copy)
     [ -n "$chartwin" ] && [ -n "$copy" ] && [ -n "$caption" ] && [ -n "$bar" ] || { echo 'FAIL frame pixels: reference package incomplete'; exit 1; }
     # shellcheck disable=SC2086
     "$bin" "$shot" FRAME $chartwin FRAME $copy TEXT $caption BAR $bar NONAVY $copy ;;
+hourglass)
+    glass=$(box COPYHOURGLASS)
+    [ -n "$glass" ] || { echo 'FAIL frame pixels: reference package incomplete'; exit 1; }
+    # shellcheck disable=SC2086
+    "$bin" "$shot" HOURGLASS $glass ;;
 *) echo "frame-pixels.sh: unknown moment $moment" >&2; exit 2 ;;
 esac

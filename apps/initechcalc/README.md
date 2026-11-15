@@ -231,7 +231,7 @@ is a serialization regression for the locked literals, not a content oracle.
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,
-no stage left and fsck.fat. On QEMU it also grades two screendumps with
+no stage left and fsck.fat. On QEMU it also grades screendumps with
 `tests/frame-pixels.sh`, every expectation from goldens/frame, colours to
 3/255 (DAC quantisation). `calc.ppm`, before Save: the chart window's outline
 exactly at geometry.tsv CHARTWIN, the pie's navy pixels within 4 px of
@@ -244,8 +244,18 @@ COPYCAPTION and the bar's outline at COPYBAR within 4 px, and no slice navy
 showing through FILE COPY. Seen red on the captures from before FLAIR placed
 FILE COPY at the still's box (1218 outline failures, navy through the box)
 and on edited copies of a green capture (caption moved 10 px right, bar 8 px
-down, navy painted in the box, box 5 px left). Bochs has no capture stream in
-the desktop journey framework, so it makes no pixel claim.
+down, navy painted in the box, box 5 px left). Before Save the journey moves
+the pointer to the centre of geometry.tsv COPYHOURGLASS, as a user would
+leave it beside the caption, so the canon hourglass is graded where the still
+has it: in `calc-copy.ppm` or one of six more frames 60 ms apart
+(`calc-glass-N.ppm`), black pixels bounded within 4 px of COPYHOURGLASS, both
+ends at least 3/4 of its width and the waist at most 1/4 (never a watch).
+FLAIR shields the cursor while it repaints the bar (flair/tests/
+smoke-filecopy.sh), so a single frame can show none; one frame of seven must.
+Seen red with the pointer left at the trace's anchor (no hourglass in the
+box) and on edited copies of a green frame (waist filled out; moved 6 px
+right). Bochs has no capture stream in the desktop journey framework, so it
+makes no pixel claim.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
