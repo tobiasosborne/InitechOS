@@ -22,9 +22,10 @@
 ;     a program that reads /+n but ignores it would silently mis-sort, so we do
 ;     NOT accept it -- only plain ascending + /R are honored; any other switch is
 ;     ignored (the fixtures never pass one).
-;   - Buffer bound: real DOS SORT buffers a bounded amount (~63 KB in 3.3). We use
-;     a fixed 64 KiB buffer and FAIL LOUD ("SORT: Insufficient memory", the DOS
-;     3.3 diagnostic) if stdin exceeds it -- the repository contract, never silently truncate.
+;   - Local safety limits: 64 KiB input and 7680 line records. These are
+;     implementation bounds, not established DOS 3.30 limits (initech-0e5gu).
+;     The pinned media lacks SORT. Guide pp.116-117 documents sorting and
+;     p.357 lists SORT: Insufficient memory, without a numeric input limit.
 ;
 ; Ref:   os/initechdos/int21.c do_read (AH=3Fh: EBX=handle, ECX=count, EDX=buf ->
 ;        EAX=bytes, 0=EOF), do_write (AH=40h), do_puts (AH=09h), do_terminate
@@ -44,12 +45,13 @@ bits 32
 org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
 ; --- Fixed scratch addresses (mirrors datetime_program's absolute-page idiom).
-; All lie inside the program's own 64 KiB arena (PROGRAM_BASE 0x40000 .. 0x80000)
+; Scratch ends before ENV_BLOCK (0x6F000); the stack starts at 0x70000.
 ; and above the program image; the program is tiny so nothing else uses them.
 INBUF     equ 0x00050000       ; stdin buffer base
 INBUF_MAX equ 0x00010000       ; 64 KiB cap (the repository contract: overflow -> fail loud)
 LINEIDX   equ 0x00060000       ; array of 8-byte line records: [off:u32][clen:u32]
 REC_SIZE  equ 8
+LINE_MAX  equ (0x0006F000 - LINEIDX) / REC_SIZE ; exclusive ENV_BLOCK bound
 PSP_TAIL_LEN equ 0x00040080    ; PSP:80h byte0 = command-tail length
 PSP_TAIL_TXT equ 0x00040081    ; PSP:81h.. = command-tail text
 
@@ -84,18 +86,27 @@ start:
 .read_loop:
     mov eax, INBUF_MAX
     sub eax, edi               ; remaining capacity
-    jz .overflow               ; buffer full and stdin not at EOF -> fail loud
+    jz .probe_eof              ; capacity alone does not establish EOF
     mov ecx, eax               ; count = remaining
     mov ah, 0x3F
     xor ebx, ebx               ; handle 0 = stdin
     mov edx, INBUF
     add edx, edi               ; append point
     int 0x21
-    jc .read_done              ; read error -> treat like EOF
+    jc .read_error             ; never emit a silently partial sort
     test eax, eax
     jz .read_done              ; 0 bytes = EOF
     add edi, eax
     jmp .read_loop
+.probe_eof:
+    mov eax, 0x3F00
+    xor ebx, ebx
+    mov ecx, 1
+    mov edx, eof_probe
+    int 0x21
+    jc .read_error
+    test eax, eax
+    jnz .overflow
 .read_done:
     mov [total], edi
 
@@ -143,6 +154,10 @@ start:
     jne .store_rec
     dec ecx
 .store_rec:
+    ; Bound BEFORE either store: no record may reach the inherited environment
+    ; or program stack. Safety invariant; exact DOS limits await initech-0e5gu.
+    cmp ebx, LINE_MAX
+    jae .overflow
     ; record[ebx] = { off=edx, clen=ecx }
     mov eax, ebx
     shl eax, 3                 ; * REC_SIZE (8)
@@ -248,10 +263,14 @@ start:
     int 0x21
     int 0x20                    ; defense in depth (the repository contract)
 
+.read_error:
+    mov edx, msg_read
+    jmp .refuse
 .overflow:
+    mov edx, msg_oom
+.refuse:
     ; stdin exceeded the buffer: fail loud with the DOS 3.3 diagnostic (the repository contract).
     mov ah, 0x09
-    mov edx, msg_oom
     int 0x21
     mov ah, 0x4C
     mov al, 1
@@ -322,6 +341,9 @@ compare_lines:
 
 ; --- Data -------------------------------------------------------------------
 crlf:      db 0x0D, 0x0A
+; Period vocabulary, provisional diagnostics, not a captured SORT run.
+msg_read:  db "Error reading file", 0x0D, 0x0A, "$"
+eof_probe: db 0
 msg_oom:   db MSG_DOS_0060, 0x0D, 0x0A, "$"
 
 ; --- BSS-ish scratch (small; baked as zeros in the .COM image) --------------

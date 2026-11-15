@@ -1,0 +1,13 @@
+# SORT_UNBOUNDED_LINES
+# session: sortlimits
+--- a/sort/sort_program.asm
++++ b/sort/sort_program.asm
+@@ -157,7 +157,7 @@
+     ; Bound BEFORE either store: no record may reach the inherited environment
+     ; or program stack. Safety invariant; exact DOS limits await initech-0e5gu.
+     cmp ebx, LINE_MAX
+-    jae .overflow
++    ; unchecked line count
+     ; record[ebx] = { off=edx, clen=ecx }
+     mov eax, ebx
+     shl eax, 3                 ; * REC_SIZE (8)

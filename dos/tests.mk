@@ -238,4 +238,9 @@ test-batch-transfer_SRCS := tests/runner.c
 test-batch-transfer_ARGS := tests/run.sh test-batch-transfer
 test-batch-transfer_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-batch-transfer.sh
 
+.PHONY: smoke-sort-limits
+smoke-sort-limits:
+	+$(MAKE) -C $(TOP) image
+	FILTER_BOUNDARIES=1 sh tests/runtime/sortlimits.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$(abspath $(OUT))/sort-limits"
+
 include $(TOP)/mk/host-test.mk

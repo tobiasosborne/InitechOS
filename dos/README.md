@@ -188,3 +188,13 @@ Interface use-records: kernel/include/drive_letters.h
 Interface use-records: build/kernel/dos_messages.h
 Interface shell-services: fileio_fat_volume_label int21_batch_checkpoint int21_current_drive int21_directory_exists int21_directory_path int21_get_psp int21_io_drive int21_same_file int21_select_path int21_set_break_recovery int21_write_fault kernel_graphical_environment
 <!-- end-interface-declarations -->
+
+SORT resource safety is checked by `make smoke-sort-limits`: 64 KiB input
+and 7680 line records fit below ENV_BLOCK; additional bytes/records refuse
+before output. These are local safety bounds, not captured DOS limits.
+The MS-DOS 3.3 User's Guide pp.116-117 and p.357 describes SORT and its
+memory diagnostic but gives no numeric limit. Authentic SORT/FIND binaries
+are absent from the pinned media. initech-0e5gu tracks the exact-boundary,
+read-error and diagnostic/ERRORLEVEL captures. Until then, limit refusals
+use the period catalogue's "Insufficient memory" and status 1; read failures
+use "Error reading file" and status 1. These are stated safety assumptions.

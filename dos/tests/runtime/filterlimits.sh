@@ -1,0 +1,60 @@
+#!/bin/sh
+set -eu
+program=${FILTER_PROGRAM:?FILTER_PROGRAM}
+root=${1:?root} boot=${2:?boot} programs=${3:?program directory} out=${4:?output}
+cd "$root"
+mkdir -p "$out"
+out=$(realpath "$out")
+. "$root/dos/tests/runtime/verdict.sh"
+export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
+truncate -s 1474560 "$out/data.img"
+mformat -i "$out/data.img" -f 1440 ::
+mcopy -i "$out/data.img" "$programs/SORT.COM" "$programs/FIND.COM" ::
+nasm -f bin dos/tests/runtime/done.asm -o "$out/DONE.COM"
+mcopy -i "$out/data.img" "$out/DONE.COM" ::DONE.COM
+awk 'BEGIN {for(i=0;i<8000;i++)printf "a\r\n"}' > "$out/lines"
+dd if=/dev/zero bs=70000 count=1 status=none | tr '\000' 'a' > "$out/large"
+printf 'needle\r\n' >> "$out/large"
+# Local resource boundaries, deliberately independent of product constants.
+awk 'BEGIN {for(i=0;i<7680;i++)printf "\r\n"}' > "$out/fit-lines"
+awk 'BEGIN {for(i=0;i<20000;i++)printf "\r\n"}' > "$out/many-lines"
+dd if=/dev/zero bs=65536 count=1 status=none | tr '\000' 'a' > "$out/exact"
+cat "$out/exact" > "$out/exact-expected"
+printf '\r\n' >> "$out/exact-expected"
+for spec in 'fit-lines FIT.TXT' 'many-lines MANY.TXT' 'exact EXACT.TXT'; do
+ mcopy -i "$out/data.img" "$out/${spec%% *}" "::${spec##* }"
+done
+mcopy -i "$out/data.img" "$out/lines" ::LINES.TXT
+mcopy -i "$out/data.img" "$out/large" ::LARGE.TXT
+case $program in
+ SORT) command='SORT <LINES.TXT >SORT.OUT';;
+ FIND) command='FIND "needle" <LARGE.TXT >FIND.OUT';;
+ *) error 'unknown filter';;
+esac
+printf '@echo off\r\n%s\r\nif errorlevel 1 echo REFUSED >STATUS.TXT\r\nDONE\r\n' "$command" > "$out/AUTOEXEC.BAT"
+if [ "$program" = SORT ] && [ "${FILTER_BOUNDARIES:-0}" = 1 ]; then
+ sed '$d' "$out/AUTOEXEC.BAT" > "$out/auto-more"
+ printf 'SORT <FIT.TXT >FIT.OUT\r\nSORT <EXACT.TXT >EXACT.OUT\r\nSORT <MANY.TXT >MANY.OUT\r\nSORT <LARGE.TXT >LARGE.OUT\r\nDONE\r\n' >> "$out/auto-more"
+ mv "$out/auto-more" "$out/AUTOEXEC.BAT"
+fi
+mcopy -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
+if ! timeout 60 build/factory/qemu_harness --disk "$boot" --disk2 "$out/data.img" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 45000 --out "$out" --name limits > "$out/driver.log" 2> "$out/report"; then error 'filter limits transport did not complete'; fi
+transport_pass "$out/report"
+mtype -i "$out/data.img" "::$program.OUT" > "$out/output" || error 'output missing'
+tr -d '\r' < "$out/output" > "$out/text"
+require "$program bounded input refusal" grep -Fx 'Insufficient memory' "$out/text"
+mtype -i "$out/data.img" ::STATUS.TXT > "$out/status" || error 'status missing'
+tr -d '\r' < "$out/status" > "$out/status-text"
+require "$program refusal exit" grep -Fx 'REFUSED' "$out/status-text"
+echo "GREEN $program: explicit limit refusal and nonzero status"
+if [ "$program" = SORT ] && [ "${FILTER_BOUNDARIES:-0}" = 1 ]; then
+ for spec in 'FIT.OUT fit-lines' 'EXACT.OUT exact-expected'; do
+  mtype -i "$out/data.img" "::${spec%% *}" > "$out/actual" || error 'boundary output missing'
+  require "SORT accepts ${spec%% *} exactly at local capacity" cmp "$out/actual" "$out/${spec##* }"
+ done
+ for name in MANY LARGE; do
+  mtype -i "$out/data.img" "::$name.OUT" > "$out/actual" || error 'excess output missing'
+  tr -d '\r' < "$out/actual" > "$out/text"
+  require "SORT refuses $name before partial output" grep -Fx 'Insufficient memory' "$out/text"
+ done
+fi
