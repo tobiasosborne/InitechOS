@@ -15,6 +15,7 @@ TBX_SETMBAR	0x0050	1	tbx_set_mbar
 TBX_MENUSELECT	0x0051	-1	-
 TBX_DRAWMENUBAR	0x0052	0	tbx_draw_menubar
 TBX_EXIT	0x0070	1	tbx_exit
+TBX_QUIT_REPLY	0x0071	1	tbx_quit_reply
 TBX_FILE_CREATE	0x0080	1	tbx_file_create
 TBX_FILE_OPEN	0x0081	2	tbx_file_open
 TBX_FILE_READ	0x0082	3	tbx_file_read

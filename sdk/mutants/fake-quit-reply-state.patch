@@ -1,0 +1,6 @@
+# test: host
+--- a/host/tbx_host.c
++++ b/host/tbx_host.c
+@@ -93,1 +93,1 @@
+-    if(state!=TBX_QUIT_CANCEL && state!=TBX_QUIT_PENDING)return TBX_ERR_BADARG;
++    if(state>TBX_QUIT_PENDING+1u)return TBX_ERR_BADARG;

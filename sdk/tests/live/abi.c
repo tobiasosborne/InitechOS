@@ -53,5 +53,6 @@ void tbx_app_event(const tbx_event_t *e)
     BAD(tbx_sf_putfile(P(char,0x7161),P(char,0x7262),P(char,0x7363)));
     BAD(tbx_track_mouse());BAD(tbx_set_scroll(0x7171,0x7272,0x7373));BAD(tbx_get_scroll(0x7181));
     BAD(tbx_global_to_local(0x7191,-0x7292,0x7393));
+    BAD(tbx_quit_reply(0x71d1));
     sdk_exit_return=tbx_exit(failed?97:0x13579);
 }

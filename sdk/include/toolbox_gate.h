@@ -219,6 +219,24 @@
                                     * forever, never reused                    */
 #define TBX_DRAWMENUBAR   0x0052u  /* V3  () -> 0 | err  (Sec 9): redraw band 2
                                     * from the installed bar (IM DrawMenuBar)  */
+#define TBX_QUIT_REPLY    0x0071u  /* (state) -> 0 | err: the asynchronous
+                                    * answer to a Finder quit request          */
+#define TBX_ARGC_QUIT_REPLY 1u
+#define TBX_QUIT_CANCEL   0u
+#define TBX_QUIT_PENDING  1u
+/* QUIT_REPLY (initech-qv7t). At Restart / Shut Down the Finder sends the
+ * front application's enabled Command-Q, as System 7 sends every application
+ * the Quit Application event; the handler is the app's own File > Quit and
+ * may ask the user to save first (Inside Macintosh VI pp. 6-36/6-37, Listing
+ * 6-8). There a handler that interacts returns userCanceledErr when the user
+ * cancels and the Finder abandons the shutdown. A tenant callback cannot
+ * return late, so the answer is a call: a callback that needs more user
+ * events calls QUIT_REPLY(PENDING) before returning; later CANCEL declines
+ * (the user chose Cancel, or the save failed), and EXIT accepts. Returning
+ * from the request without PENDING or EXIT declines. A reply outside a Finder
+ * request changes nothing and still returns 0. Errors, in order: NOTREG when
+ * the tenant is not registered or has requested EXIT; BADARG for any state
+ * other than CANCEL or PENDING. */
 #define TBX_EXIT          0x0070u  /* V1  (rc) -> 0 ; teardown runs when the
                                     * tenant next RETURNS to the kernel         */
 

@@ -141,6 +141,10 @@ int tbx_take_drew(void);
  * tbx_resident_name: the resident live tenant's 8.3 file name, or NULL. */
 int tbx_ask_quit(void);
 const char *tbx_resident_name(void);
+/* A delivered request remains pending only while the application explicitly
+ * asks for more user events through TBX_QUIT_REPLY. EXIT finishes it; CANCEL
+ * or returning without PENDING declines. No resident app means no wait. */
+int tbx_quit_pending(void);
 
 /* 1 when `w` is the resident disk tenant's window (for the pump's policy
  * decisions; ownership itself is always the refCon demux in process.c). */

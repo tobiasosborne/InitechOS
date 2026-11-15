@@ -25,7 +25,7 @@ int main(int argc,char **argv)
         char *found=strstr(start,needle);
         if(found&&found<end){accepted[code]=1;count++;}
     }
-    fclose(f);free(text);if(count!=38)return 2;
+    fclose(f);free(text);if(count!=39)return 2;
     tbx_host_reset();tbx_host.registrations=1;
     unsigned bad=0;uint32_t args[6]={0};
     for(unsigned c=0;c<65536;c++) {

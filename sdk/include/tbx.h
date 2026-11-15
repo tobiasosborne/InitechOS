@@ -136,6 +136,7 @@ int32_t tbx_draw_cells(int32_t win, int32_t x, int32_t y, const char *s,
 int32_t tbx_set_mbar(const tbx_menubar_t *bar);
 int32_t tbx_draw_menubar(void);
 int32_t tbx_exit(int32_t rc);
+int32_t tbx_quit_reply(uint32_t state);
 
 /* Files: spec Sec 10 (initech-tdnl.91). Buffers must be static module/BSS
  * storage; automatic buffers are on the shared kernel stack and are refused.

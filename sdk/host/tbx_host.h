@@ -30,6 +30,7 @@ typedef struct tbx_host_state {
     uint8_t face[TBX_HOST_H][TBX_HOST_W], col[TBX_HOST_H][TBX_HOST_W];
     tbx_host_op_t ops[TBX_HOST_OPS];
     unsigned nops, dropped_ops, registrations, beeps, clock_reads;
+    int quit_replies, quit_reply_state;
     int exit_calls, exit_rc, alerts, setscroll, track, sf, menubar_draws;
     int cw, ch, origin_h, origin_v, nwindows;
     struct { int32_t l,t,r,b,goaway; char title[128]; int scroll_len,scroll_val; } windows[TBX_TENANT_WINDOWS];

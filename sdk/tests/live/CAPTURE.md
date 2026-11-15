@@ -1,6 +1,6 @@
 # Live gate conformance capture
 
-The 516-byte gate-results.bin contains 129 little-endian signed EAX results,
+The 632-byte gate-results.bin contains 158 little-endian signed EAX results,
 ordered by tests/live/cases.h (including its handle-capacity loop). It was read
 with mtools from SDKRES.BIN, written by SDKCHECK.EXE on the booted, ordinary
 product image at source base 09d52a32. The fake does not produce this file.
@@ -33,11 +33,17 @@ The host conformance check separately grades both returns and exit_rc=0.
 Before the follow-up fix, the fake returns NOTREG on the second EXIT and
 BADARG for dialog what=0x10003 (129 calls, two mismatches).
 
+QUIT_REPLY (initech-qv7t) adds four cases: before REGISTER (NOTREG), then
+state 2 (BADARG), PENDING and CANCEL (0, outside a Finder request), and the
+post-exit assertion that a reply after EXIT is NOTREG. The fake agreed with
+the newly booted gate on all 158 outcomes before the capture was re-pinned;
+a second boot reproduced it byte for byte.
+
 Capture hashes (SHA-256):
 
 ```
-2e0568d0fb68e153e6607d501cc5d3cf9d9d0533f9575a5c8c73025c98029471  gate-results.bin
-a5a6468ea6f99d44f7a930161fb082652d70ebd1217d1d93b8980b37bea74a96  flair/tbxgate.c
+8251ac0fc974438042b71c0f38675eb60e88e15deb871d9c7a12b8bf2c935308  gate-results.bin
+aea43c6959c5a05f65202a8a9ca3f3290e6d17fa7f3a38a445151c96ac66d12d  flair/tbxgate.c
 c92b667f81cb9751daf5ef5cb7680e1397b9f582bbae93702871e2e43bcda7f6  flair/tbxfile.h
 dee3b06eeb8ea6b01b9db3c298551ddf8ef13f77d7ef1c6ca10651a98599fb1b  flair/cp_service.h
 cc7bcf10637632c039808cc418f3db6b9a13398994ed0f95226f1fd710daf5c8  flair/desktop/tbx_gate.asm
@@ -78,7 +84,7 @@ The fake refusal mutant disagrees with live case 125 (zero vs DOS5).
 Extension capture SHA-256:
 
 ```
-7f10d7ad30f6b55af250feea36d90240ffc671350c450bdb0dc72405ef18bf87  gate-results.bin
+8251ac0fc974438042b71c0f38675eb60e88e15deb871d9c7a12b8bf2c935308  gate-results.bin
 faf73d75e4fe29e39b9547354500530d045782f65dd6bdb6672c669f26a31bdd  cases.h
 1f73949888ae2cba884c2255aadeebb7f5575d293c46cdc9e8f3e564459f9483  INITDOS.SYS
 ```

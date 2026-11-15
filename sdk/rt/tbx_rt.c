@@ -160,6 +160,12 @@ int32_t tbx_exit(int32_t rc)
     return tbx_trap(TBX_EXIT, TBX_ARGC_EXIT, a);
 }
 
+int32_t tbx_quit_reply(uint32_t state)
+{
+    uint32_t a[1] = { state };
+    return tbx_trap(TBX_QUIT_REPLY, TBX_ARGC_QUIT_REPLY, a);
+}
+
 /* Ref: sdk/include/toolbox_gate.h Sec 10, deliberately extended in initech-tdnl.91. */
 int32_t tbx_file_create(const char *path)
 { uint32_t a[] = { (uint32_t)(uintptr_t)path }; return tbx_trap(TBX_FILE_CREATE,1,a); }

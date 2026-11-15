@@ -20,6 +20,7 @@ static void cases(void)
     TAKE(tbx_set_mbar(&bar)); TAKE(tbx_draw_menubar()); TAKE(tbx_beep());
     TAKE(tbx_file_open("SDK.DAT",0)); TAKE(tbx_track_mouse());
     TAKE(tbx_set_wtitle(1,"x")); TAKE(tbx_fill_rect(1,1,2,30,40,1));
+    TAKE(tbx_quit_reply(TBX_QUIT_PENDING));
     TAKE(tbx_register()); TAKE(tbx_register());
     TAKE(tbx_new_window(-1,40,250,200,1));
     TAKE(tbx_new_window(12,19,250,200,1));
@@ -131,6 +132,8 @@ static void cases(void)
     TAKE(tbx_sf_getfile(buf)); TAKE(tbx_file_copy("Copy","SDK.DAT","COPY.DAT"));
     TAKE(tbx_new_window(20,50,300,250,1));
     TAKE(tbx_new_window(-1,0,1,1,9));
+    TAKE(tbx_quit_reply(2)); TAKE(tbx_quit_reply(TBX_QUIT_PENDING));
+    TAKE(tbx_quit_reply(TBX_QUIT_CANCEL));
 }
 /* These results cannot be written through a closed tenant's file gate.
  * A wrong return therefore crashes the test tenant, making smoke red. */
@@ -147,5 +150,6 @@ static int postexit(void)
         tbx_track_mouse()==TBX_ERR_NOTREG&&
         tbx_file_open("SDK.DAT",0)==TBX_ERR_NOTREG&&
         tbx_set_wtitle(1,"x")==TBX_ERR_BADARG&&
-        tbx_scrap_get(buf,sizeof buf)==TBX_ERR_NOTREG;
+        tbx_scrap_get(buf,sizeof buf)==TBX_ERR_NOTREG&&
+        tbx_quit_reply(TBX_QUIT_CANCEL)==TBX_ERR_NOTREG;
 }

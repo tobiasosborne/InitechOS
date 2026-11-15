@@ -140,6 +140,7 @@ typedef struct tbx_slot {
     uint8_t       crashed;      /* fault triaged inside the image             */
     uint8_t       torn_down;    /* terminate/kill already ran (close hook)    */
     uint8_t       mbar_redraw;  /* DRAWMENUBAR asked for a band-2 redraw      */
+    uint8_t       quit_requested, quit_pending;
     uint8_t       drew;         /* a draw verb reached the offscreen (8zii)   */
     uint8_t       alert;        /* an ALERT waits for the pump (fvnj)         */
     uint8_t       alert_lines, alert_btns;
@@ -1125,6 +1126,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         { (uint8_t)TBX_TEXTDRAW, (uint8_t)(TBX_ARGC_TEXTDRAW) },
         { (uint8_t)TBX_FILLRECT, (uint8_t)(TBX_ARGC_FILLRECT) },
         { (uint8_t)TBX_EXIT, (uint8_t)(TBX_ARGC_EXIT) },
+        { (uint8_t)TBX_QUIT_REPLY, (uint8_t)(TBX_ARGC_QUIT_REPLY) },
         { (uint8_t)TBX_SETMBAR, (uint8_t)(TBX_ARGC_SETMBAR) },
         { (uint8_t)TBX_DRAWMENUBAR, (uint8_t)(TBX_ARGC_DRAWMENUBAR) },
         { (uint8_t)TBX_DRAWCELLS, (uint8_t)(TBX_ARGC_DRAWCELLS) },
@@ -1176,6 +1178,19 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         case TBX_TEXTDRAW:  rc = v_textdraw(a);    break;
         case TBX_FILLRECT:  rc = v_fillrect(a);    break;
         case TBX_EXIT:      rc = v_exit(a[0]);     break;
+        case TBX_QUIT_REPLY:          /* toolbox_gate.h QUIT_REPLY */
+            if (g_slot.app == 0 || g_slot.exit_req)
+                rc = TBX_ERR_NOTREG;
+            else if (a[0] != TBX_QUIT_CANCEL && a[0] != TBX_QUIT_PENDING)
+                rc = TBX_ERR_BADARG;
+            else {
+                if (g_slot.quit_requested) {
+                    g_slot.quit_pending = (uint8_t)a[0];
+                    if (!g_slot.quit_pending) g_slot.quit_requested = 0u;
+                }
+                rc = TBX_OK;
+            }
+            break;
         case TBX_SETMBAR:   rc = v_setmbar(a[0]);  break;
         case TBX_DRAWMENUBAR: rc = v_drawmenubar(); break;
         case TBX_DRAWCELLS: rc = v_drawcells(a);   break;
@@ -1473,6 +1488,8 @@ int tbx_ask_quit(void)
             if (!tbx_is_quit(it)) continue;
             if (g_host.list != (FlairProcessList *)0 && g_host.wm != (WindowMgr *)0)
                 (void)FlairProcess_activate(g_host.list, g_host.wm, &ev, app);
+            g_slot.quit_requested = 1u;
+            g_slot.quit_pending = 0u;
             return tbx_menu_choice(bar, MenuResult(mi->menuID,
                                                    (uint16_t)(k + 1u)),
                                    &ev, "quit") ? 1 : -1;
@@ -1495,6 +1512,11 @@ int tbx_owns_window(const WindowRecord *w)
     for (uint32_t i = 0; i < g_slot.nwins; i++)
         if (w == g_slot.wins[i]) return 1;
     return 0;
+}
+
+int tbx_quit_pending(void)
+{
+    return tbx_resident_name() != 0 && g_slot.quit_pending;
 }
 
 /* Push a TBX_EVT_* the shell synthesizes (Sec 11): what + message, the rest 0

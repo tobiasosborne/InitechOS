@@ -228,6 +228,7 @@ Arity is gate dwords, including implicit runtime registration arguments.
 | 0x0051 | TBX_MENUSELECT | - | Reserved/dissolved; no binding | - |
 | 0x0052 | TBX_DRAWMENUBAR / tbx_draw_menubar | 0 | Redraw menu band | - |
 | 0x0070 | TBX_EXIT / tbx_exit | 1 | Request exit | calculator, controlpanels, ctenant, fonts, initech123, initechcalc, initechpaint, initechtext, initechword, notepad |
+| 0x0071 | TBX_QUIT_REPLY / tbx_quit_reply | 1 | Answer a Finder quit request: PENDING, then CANCEL or EXIT (initech-qv7t) | - |
 | 0x0080 | TBX_FILE_CREATE / tbx_file_create | 1 | Create/truncate file | ctenant, initechcalc, initechword |
 | 0x0081 | TBX_FILE_OPEN / tbx_file_open | 2 | Open file | ctenant, initech123, initechcalc, initechtext, initechword, notepad |
 | 0x0082 | TBX_FILE_READ / tbx_file_read | 3 | Read bytes | ctenant, initech123, initechtext, initechword, notepad |

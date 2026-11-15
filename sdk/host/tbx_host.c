@@ -86,6 +86,13 @@ int32_t tbx_draw_menubar(void) { R(0,0,0,0,0,0,0);LIVE();S.menubar_draws++;retur
 /* v_exit in flair/tbxgate.c: registration survives until callback return;
  * another EXIT before teardown succeeds and replaces the requested status. */
 int32_t tbx_exit(int32_t rc) { R(rc,0,0,0,0,0,0);if(!S.registrations)return TBX_ERR_NOTREG;S.exit_calls++;S.exit_rc=rc;return TBX_OK; }
+int32_t tbx_quit_reply(uint32_t state)
+{
+    R((int32_t)state,0,0,0,0,0,0);
+    LIVE();
+    if(state!=TBX_QUIT_CANCEL && state!=TBX_QUIT_PENDING)return TBX_ERR_BADARG;
+    S.quit_replies++;S.quit_reply_state=(int)state;return TBX_OK;
+}
 int32_t tbx_alert(const char *t,const char *d,const char *c,const char *o)
 { R(0,0,0,0,0,0,t);LIVE();if(S.alert_pending)return TBX_ERR_BUSY;if(!alert_valid(t,d,c,o))return TBX_ERR_BADARG;if(S.alert_rc)return S.alert_rc;S.alert_pending=1;S.alerts++;copy(S.alert_text,256,t);copy(S.alert_btn[0],32,d);copy(S.alert_btn[1],32,c);copy(S.alert_btn[2],32,o);return TBX_OK; }
 int32_t tbx_clock(uint32_t mode,cp_time_t *t)
@@ -320,6 +327,7 @@ TBX_TRAP_ABI int32_t tbx_trap(uint32_t c,uint32_t n,const uint32_t *a)
     case TBX_SETMBAR: ARGS(1);return tbx_set_mbar(PTR(tbx_menubar_t,0));
     case TBX_DRAWMENUBAR:return tbx_draw_menubar();
     case TBX_EXIT: ARGS(1);return tbx_exit(a[0]);
+    case TBX_QUIT_REPLY: ARGS(1);return tbx_quit_reply(a[0]);
     case TBX_FILE_CREATE: ARGS(1);return tbx_file_create(PTR(char,0));
     case TBX_FILE_CREATE_NEW: ARGS(1);return tbx_file_create_new(PTR(char,0));
     case TBX_FILE_OPEN: ARGS(2);return tbx_file_open(PTR(char,0),a[1]);

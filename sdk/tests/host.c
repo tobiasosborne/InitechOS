@@ -30,6 +30,14 @@ static const cp_item_t dialog_items[]={
 };
 int main(void)
 {
+    /* QUIT_REPLY (toolbox_gate.h, initech-qv7t): NOTREG before registration,
+     * then BADARG for a state other than CANCEL/PENDING; 0 records it. */
+    tbx_host_reset();CHECK(tbx_quit_reply(TBX_QUIT_PENDING)==TBX_ERR_NOTREG&&tbx_host.quit_replies==0);
+    CHECK(tbx_register()==0);
+    CHECK(tbx_quit_reply(2)==TBX_ERR_BADARG&&tbx_host.quit_replies==0);
+    CHECK(tbx_quit_reply(TBX_QUIT_PENDING)==0&&tbx_host.quit_replies==1&&tbx_host.quit_reply_state==1);
+    {uint32_t q[1]={TBX_QUIT_CANCEL};CHECK(tbx_trap(TBX_QUIT_REPLY,1,q)==0&&tbx_host.quit_replies==2&&tbx_host.quit_reply_state==0);}
+    CHECK(tbx_exit(0)==0&&tbx_quit_reply(TBX_QUIT_CANCEL)==TBX_ERR_NOTREG&&tbx_host.quit_replies==2);
     tbx_host_reset();CHECK(tbx_register()==0);CHECK(tbx_new_window(0,40,640,480,2)==1);
     CHECK(tbx_set_wtitle(1,"Document")==0);CHECK(!strcmp(tbx_host.windows[0].title,"Document"));
     CHECK(tbx_content_origin(1)==(62<<16|6));CHECK(tbx_content_size(1)==(397<<16|613));
