@@ -36,16 +36,33 @@ dir
 echo programsdone
 EOF
 build/factory/keys < "$out/session.txt" > "$out/keys"
+# Bochs types into the guest's keyboard ring with no flow control, so a command
+# typed while the previous program still runs can overflow it (KBD-RING-DROP,
+# initech-ix9by). Each command is typed only after the previous one printed
+# its own completion line (W waits, desktop-bochs.c, in order, whole lines).
+# CONIN's input line is typed with its command: CONIN reads it from the ring.
+session_keys() { printf '%s\n' "$1" | build/factory/keys; }
+bochs_keys="$(session_keys '')"
+bochs_keys="$bochs_keys,$(session_keys ''),w1000"
+for step in 'multi|MO-DONE' 'fcbx|FCBX-END' 'nest|EXEC-NESTED-RC=7 PSP-RESTORED INT20-OK' \
+  'cd ..|Invalid directory' 'services|SERVICES-MEMORY-VECTORS-CLOCK-OK' \
+  'write|WRITE-READBACK-OK' 'conin|' 'dir|CONIN-LINE=dir' 'echo programsdone|'; do
+ command=${step%%|*} done=${step#*|}
+ bochs_keys="$bochs_keys,$(session_keys "$command")"
+ [ -z "$done" ] || bochs_keys="$bochs_keys,W$done"
+done
+make -s -f factory/desktop-tools.mk build/factory/desktop-bochs > "$out/frontend.log" 2>&1 || fail 'Bochs journey frontend build'
 finish=$(printf '\nprogramsdone\r\n')
 for emu in qemu bochs; do
  cp "$out/test.img" "$out/$emu-data.img"
  keys=$(cat "$out/keys")
- marker=$finish
+ marker=$finish driver=build/factory/qemu_harness
  if [ "$emu" = bochs ]; then
-  marker=programsdone
-  keys=$(printf '%s' "$keys" | sed "s/ret/ret,w${PROGRAM_SMOKE_WAIT_MS:-1000}/g")
+  marker=programsdone driver=build/factory/desktop-bochs keys=$bochs_keys
+  export DESKTOP_SERIAL="$out/bochs.serial" DESKTOP_WAIT_MS=${PROGRAM_SMOKE_WAIT_MS:-30000}
  fi
- if ! "build/factory/${emu}_harness" --disk "${SMOKE_BOOT:-build/image/boot.img}" \
+ printf '%s\n' "$keys" > "$out/$emu.keys"
+ if ! "$driver" --disk "${SMOKE_BOOT:-build/image/boot.img}" \
   --disk2 "$out/$emu-data.img" --keys-after SHELL-READY --keys "$keys" \
   --expect "$marker" --quit-after "$marker" --timeout-ms "${PROGRAM_SMOKE_TIMEOUT_MS:-55000}" \
   --name "$emu" --out "$out" > "$out/$emu.stdout" 2> "$out/$emu.report"; then
@@ -58,7 +75,7 @@ for emu in qemu bochs; do
   'WRITE-READBACK-OK' 'CONIN-LINE=dir' 'programsdone'; do
   grep -Fx "$line" "$out/$emu.txt" >/dev/null || fail "$emu missing [$line]";
  done
- if grep -E '(SERVICES-FAIL|EXEC-NESTED-FAIL|WRITE-.*-FAIL|PANIC|Bad command)' "$out/$emu.txt"; then fail "$emu guest failure"; fi
+ if grep -E '(SERVICES-FAIL|EXEC-NESTED-FAIL|WRITE-.*-FAIL|PANIC|Bad command|KBD-RING-DROP)' "$out/$emu.txt"; then fail "$emu guest failure"; fi
  grep 'triple_fault=0' "$out/$emu.report" >/dev/null || fail "$emu CPU fault"
  if [ "$emu" = qemu ]; then
   grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$out/qemu.report" >/dev/null || fail 'QEMU fault/reset verdict'
