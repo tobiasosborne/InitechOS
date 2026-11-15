@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 static unsigned u16(const unsigned char *p){return p[0]+256u*p[1];}
-static void need(int x,const char *p){if(!x){fprintf(stderr,"RED formatsys %s\n",p);exit(1);}}
+static void need(int x,const char *p){if(!x){fprintf(stderr,"FAIL formatsys %s\nINITECH_CHECKS 1 failures=1\n",p);exit(1);}}
 int main(int n,char **v){
  if(n!=5)return 2;
  FILE *f=fopen(v[1],"rb");if(!f)return 2;

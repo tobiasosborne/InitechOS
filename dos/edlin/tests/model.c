@@ -55,7 +55,7 @@ static const size_t scriptlen[]={sizeof("i\rSharpe Office Supplies.\r\000\075\r\
  sizeof("e\r")-1,sizeof("5,10rour\032the\re\r")-1,
  sizeof("16,18,1m\r1,18L\re\r")-1,0};
 static const unsigned char *keyend;
-static void die(const char *s){fprintf(stderr,"RED EDLIN-model %s\n",s);exit(1);}
+static void die(const char *s){fprintf(stderr,"FAIL EDLIN-model %s\nINITECH_CHECKS 1 failures=1\n",s);exit(1);}
 static int gc(void){if(keys==keyend)die("script exhausted");return *keys++;}
 static void echo(int c){if(c<32 && c!=9){fputc('^',trans);fputc(c+64,trans);}else fputc(c,trans);}
 static void prefix(int l,int star){fprintf(trans,"%5d:%c",l,star?'*':' ');}

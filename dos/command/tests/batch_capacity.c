@@ -20,7 +20,7 @@ static int run_pipeline_or_redirect(const char *s)
     dos_puts_raw(s); dos_puts_raw("\r\n"); return 0;
 }
 static void check(int ok,const char *s)
-{ if(!ok){fprintf(stderr,"RED batch-capacity: %s\n",s);exit(1);} }
+{ if(!ok){fprintf(stderr,"FAIL batch-capacity: %s\nINITECH_CHECKS 1 failures=1\n",s);exit(1);} }
 static void run(const char *src,const char *child)
 {
     memset(output,0,sizeof output); output_n=0; old_intact=1; after=0;

@@ -8,7 +8,7 @@ boot=${2:-unused}
 tag=${3:-green}
 out=build/dir_match_${mode}_${tag}
 mkdir -p "$out"
-fail() { printf 'RED dir-match: %s\n' "$*" >&2; exit 1; }
+fail() { printf 'FAIL dir-match: %s\nINITECH_CHECKS 1 failures=1\n' "$*" >&2; exit 1; }
 dd if=/dev/zero of="$out/data.img" bs=512 count=2880 status=none
 mformat -i "$out/data.img" -f 1440 -N 102 ::
 printf 'fixture\r\n' > "$out/file"

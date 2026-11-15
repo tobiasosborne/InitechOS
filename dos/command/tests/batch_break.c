@@ -20,7 +20,7 @@ static int run_pipeline_or_redirect(const char *s)
 static unsigned count(const char *s)
 {unsigned n=0;const char *p=output;while((p=strstr(p,s))){n++;p+=strlen(s);}return n;}
 static void check(int v,const char *s)
-{if(!v){fprintf(stderr,"RED batch-break: %s\n",s);exit(1);}}
+{if(!v){fprintf(stderr,"FAIL batch-break: %s\nINITECH_CHECKS 1 failures=1\n",s);exit(1);}}
 static void reference(const char *leaf,int continued)
 {
     char path[128],text[4096];

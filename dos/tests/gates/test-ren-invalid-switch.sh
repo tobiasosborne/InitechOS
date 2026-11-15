@@ -10,9 +10,9 @@ mcopy -i build/actual.img build/expected-file ::B.TXT
 cp build/actual.img build/before.img
 build/shell_files build/actual.img build/command > build/diagnostic
 if ! mtype -i build/actual.img ::B.TXT > build/actual-file;then
- echo 'RED REN invalid switch: source was renamed' >&2;exit 1
+ echo 'FAIL REN invalid switch: source was renamed'; echo 'INITECH_CHECKS 1 failures=1'; exit 1
 fi
 cmp build/actual-file build/expected-file
 cmp build/actual.img build/before.img
-[ -s build/diagnostic ] || { echo 'RED REN invalid switch: refusal was silent' >&2;exit 1; }
+[ -s build/diagnostic ] || { echo 'FAIL REN invalid switch: refusal was silent'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 echo 'GREEN REN invalid switch: captured source bytes and whole-volume preservation'

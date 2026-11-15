@@ -11,9 +11,9 @@ mcopy -i build/actual.img build/expected-file ::DEL.TXT
 cp build/actual.img build/before.img
 build/shell_files build/actual.img build/command > build/diagnostic
 if ! mtype -i build/actual.img ::DEL.TXT > build/actual-file;then
- echo 'RED DEL invalid switch: protected file was deleted' >&2;exit 1
+ echo 'FAIL DEL invalid switch: protected file was deleted'; echo 'INITECH_CHECKS 1 failures=1'; exit 1
 fi
 cmp build/actual-file build/expected-file
 cmp build/actual.img build/before.img
-[ -s build/diagnostic ] || { echo 'RED DEL invalid switch: refusal was silent' >&2;exit 1; }
+[ -s build/diagnostic ] || { echo 'FAIL DEL invalid switch: refusal was silent'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 echo 'GREEN DEL invalid switch: genuine captured operand bytes and whole-volume preservation'

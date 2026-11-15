@@ -16,7 +16,7 @@ int main(int argc,char **argv)
     if(!strcmp(argv[1],"active"))rc=fdisk_active(b,2);
     if(!strcmp(argv[1],"delete-N"))rc=fdisk_delete(b,0);
     if(!strcmp(argv[1],"delete-Y"))rc=fdisk_delete(b,1);
-    if(rc<0){fprintf(stderr,"RED fdisk operation %s\n",argv[1]);return 1;}
+    if(rc<0){fprintf(stderr,"FAIL fdisk operation %s\nINITECH_CHECKS 1 failures=1\n",argv[1]);return 1;}
     rewind(f);if(fwrite(b,1,512,f)!=512 || fclose(f))return 2;
     return 0;
 }

@@ -33,7 +33,7 @@ int main(int argc,char **argv)
             for(unsigned j=0;j<3;j++) {
                 unsigned ah=j==0?0x3900:j==1?0x3c00:0x5b00;
                 if(call_host(ah,0,0,(uintptr_t)bad[i],0)>=0) {
-                    fprintf(stderr,"RED shell-files: invalid raw name allocated\n");return 1;
+                    fprintf(stderr,"FAIL shell-files: invalid raw name allocated\nINITECH_CHECKS 1 failures=1\n");return 1;
                 }
             }
         }
@@ -43,10 +43,10 @@ int main(int argc,char **argv)
         for(unsigned i=0;i<sizeof dev/sizeof *dev;i++) {
             if(call_host(0x3900,0,0,(uintptr_t)dev[i],0)>=0 ||
                call_host(0x5b00,0,0,(uintptr_t)dev[i],0)>=0) {
-                fprintf(stderr,"RED shell-files: reserved raw name allocated\n");return 1;
+                fprintf(stderr,"FAIL shell-files: reserved raw name allocated\nINITECH_CHECKS 1 failures=1\n");return 1;
             }
             int h=dos_open(dev[i]);
-            if(h<0){fprintf(stderr,"RED shell-files: device alias did not open\n");return 1;}
+            if(h<0){fprintf(stderr,"FAIL shell-files: device alias did not open\nINITECH_CHECKS 1 failures=1\n");return 1;}
             dos_close(h);
         }
         blockdev_file_close(&bf);

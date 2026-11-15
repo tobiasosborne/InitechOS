@@ -4,7 +4,7 @@ set -eu
 ref=dos/command/tests/dos33/reference
 out=build/copy-full
 mkdir -p "$out"
-fail() { echo "RED copy-full: $*" >&2; exit 1; }
+fail() { echo 'FAIL copy-full: $*'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 for scenario in concat append appendpartial final self; do
  d=$out/$scenario; mkdir -p "$d"
  gzip -dc "$ref/$scenario/data.img.gz" > "$d/expected.img"

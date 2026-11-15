@@ -10,5 +10,5 @@ sed -n '1p; /^for .*echo TOKEN=/p; /^for .*echo FILE=/p' build/captured-batch > 
 mcopy -o -i build/actual.img build/child ::CHILD.BAT
 sed -n '/^TOKEN=/p; /^FILE=/p; /^AFTER-COMMAND/p' "$ref/files/TRACE.TXT" > build/expected
 build/batch_fat build/actual.img BATCH.BAT '' > build/actual
-cmp build/expected build/actual || { echo 'RED secondary COMMAND: parent batch did not resume' >&2;exit 1; }
+cmp build/expected build/actual || { echo 'FAIL secondary COMMAND: parent batch did not resume'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 echo 'GREEN secondary COMMAND: captured child and resumed-parent bytes'

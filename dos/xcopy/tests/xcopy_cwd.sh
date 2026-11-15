@@ -4,7 +4,7 @@ set -efu
 export INITECH_QMP_STDIO=1 LC_ALL=C TZ=UTC
 mode=$1 runner=$2 out=build/xcopy-cwd-$1-${3:-green}
 mkdir -p "$out"
-fail() { echo "RED xcopy-cwd: $*";exit 1; }
+fail() { echo 'FAIL xcopy-cwd: $*'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 dd if=/dev/zero of="$out/data.img" bs=512 count=2880 status=none
 mformat -i "$out/data.img" -f 1440 -N 102 ::
 mmd -i "$out/data.img" ::SUB ::SUB/SRC ::DST ::SRC

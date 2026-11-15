@@ -5,7 +5,7 @@ export LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=315532800 INITECH_QMP_STDIO=1
 build=$1; tool=$2
 w=$build/fdisk
 mkdir -p "$w"
-red() { echo "RED fdisk $*"; exit 1; }
+red() { echo 'FAIL fdisk $*'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 for t in mpartition sfdisk mformat fsck.fat; do command -v "$t" >/dev/null; done
 for cyl in 4 8 65 66 513; do
  n=$((cyl*1008))

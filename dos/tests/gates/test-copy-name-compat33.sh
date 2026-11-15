@@ -10,7 +10,7 @@ mformat -i build/actual.img -f 1440 ::
 mcopy -i build/actual.img build/source ::A.TXT
 build/shell_files build/actual.img build/command > build/actual-output
 if ! mtype -i build/actual.img ::LONGFILE.LON > build/actual-file;then
- echo 'RED COPY name: captured truncated destination is missing' >&2;exit 1
+ echo 'FAIL COPY name: captured truncated destination is missing'; echo 'INITECH_CHECKS 1 failures=1'; exit 1
 fi
 cmp build/expected-file build/actual-file
 cmp build/expected-output build/actual-output
