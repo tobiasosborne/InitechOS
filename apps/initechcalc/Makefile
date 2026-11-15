@@ -17,6 +17,10 @@ test_calc_save_safety_ENV := sh tests/save-safety.sh
 test_calc_frame_COUNT_PATTERN := ^test_calc_frame: ([0-9]+) checks.*$$
 test_calc_frame_ENV := FRAME_TSV=$(TOP)/goldens/frame/transcription.tsv sh tests/frame-content.sh
 test_calc_frame_LIBS += -lm
+# The booted chart against goldens/frame, run by tests/smoke/verify.sh.
+EXTRA_HOST_TESTS := frame_pixels
+frame_pixels_SRCS := tests/frame-pixels.c
+frame_pixels_LIBS := -lm
 include $(TOP)/mk/host-test.mk
 TENANT := calc
 TENANT_EXE := CALC.EXE
@@ -31,7 +35,7 @@ $(TOP)/build/apps/initech123/libi123.a: | worksheet-library
 TARGET_ARTIFACTS := $(TENANT_IMAGE)
 include $(TOP)/mk/import-check.mk
 include $(TOP)/mk/mutants.mk
-smoke: all
+smoke: all $(HOST_OUT)/frame_pixels
 	+$(MAKE) -C $(TOP) image
 	sh $(TOP)/factory/smoke-desktop.sh
 all: $(OUT)/LEDGER.TXT $(OUT)/MICHAEL.CFG

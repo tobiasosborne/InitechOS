@@ -140,7 +140,13 @@ is a serialization regression for the locked literals, not a content oracle.
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,
-no stage left and fsck.fat. Screendump: build/smoke-desktop/calc.ppm.
+no stage left and fsck.fat. On QEMU it also grades the screendump
+(build/smoke-desktop/.../calc.ppm) with `tests/frame-pixels.sh`: the pie's
+navy pixels within 4 px of geometry.tsv PIE/PIEDEPTH, a navy face at each
+slice middle on geometry.tsv's PIE ellipse, and black at colours.tsv's
+chart-field samples mapped through geometry.tsv SCREEN, all to 3/255 (DAC
+quantisation). Bochs has no capture stream in the desktop journey framework,
+so it makes no pixel claim.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate

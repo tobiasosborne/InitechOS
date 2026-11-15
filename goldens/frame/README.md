@@ -135,6 +135,9 @@ eye, not a test oracle, and nothing reads them.
 ## How this is used
 
 InitechCalc's tier-0 content check reads `transcription.tsv` with an
-independent reader and compares the shipped ledger document against it; the
+independent reader and compares the shipped ledger document against it, and
+takes the pie's place on screen from `geometry.tsv` (PIE, PIEDEPTH). Its
+smoke grades the booted chart against `geometry.tsv` and the chart-field
+samples of `colours.tsv` (apps/initechcalc/tests/frame-pixels.sh). The
 product's code never reads this directory. `goldens/CORPORA.lock` pins
 `transcription.tsv`, so changing a reading is a deliberate, reviewed act.
