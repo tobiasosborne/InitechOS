@@ -81,7 +81,7 @@ Failure must EXIT(1), publish no UI and leave no open resource handle. Authority
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 59 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 60 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` builds the product image and runs the shared desktop
 journeys on QEMU and Bochs. It independently checks the worksheet saved from
@@ -131,7 +131,7 @@ three named formula exceptions remain documented by the formula oracle.
 | Copy, Move | Snapshot transfers, singleton-axis tiling for Copy rectangles, formula reference adjustment, named ranges; Copy retains the allowed prefix on protection refusal, Move checks all destinations first. Capacity failures discard the candidate bank. |
 | File | Retrieve and Save WK1, Cancel/Replace on existing files; filtered Erase/List Worksheet/Print/Graph/Other, session Directory and Import Text. Backup is omitted. |
 | Data | Fill, including expressions/names, remembered numeric defaults, column-first clear/fill and captured protection/memory prefixes. |
-| Quit | No/Yes and unsaved-work guard: Save, Cancel, Don't Save. Native File > Quit and the window close box use the same guard. |
+| Quit | No/Yes and unsaved-work guard: Save, Cancel, Don't Save. Native File > Quit and the window close box use the same guard. A Finder Restart / Shut Down request is answered PENDING while the guard asks, EXIT after Don't Save or a successful Save, and CANCEL on Cancel, Esc, Replace > Cancel or a failed save (sdk QUIT_REPLY; initech-li7r, test_i123_quit Q12, mutant quit_request_not_pending). |
 
 Entry, arrows, Tab/page navigation, F2 EDIT, F5 GOTO, F9 recalc, range POINT
 selection and resized/scrolled cell hit testing work. F3/F4/F6/F7/F8/F10 and

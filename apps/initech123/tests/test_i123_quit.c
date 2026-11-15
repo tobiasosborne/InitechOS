@@ -313,6 +313,87 @@ static void t_alert_refused(void)
     CHECK(line_has(1, "Hel_"), "Q10", "a refused alert keeps the pending entry");
 }
 
+/* Q12 THE FINDER'S QUIT REQUEST (initech-li7r). At Restart / Shut Down the
+ * Finder sends this same File > Quit. sdk/include/toolbox_gate.h QUIT_REPLY
+ * (Inside Macintosh VI pp. 6-36/6-37, Listing 6-8): a handler that needs more
+ * user events replies PENDING before returning, later CANCEL when the user
+ * cancels or the save fails, and EXIT accepts; returning without PENDING or
+ * EXIT declines. So the power action survives the alert and the file name
+ * prompt, and resumes only after the worksheet is saved. */
+#define REPLIED(state) (tbx_host.quit_replies > 0 && tbx_host.quit_reply_state == (int)(state))
+static void t_power_save(void)
+{
+    type_row();
+    menu_quit();
+    CHECK(REPLIED(TBX_QUIT_PENDING) && m_exit_calls == 0, "Q12", "dirty quit request must answer PENDING while the alert asks");
+    answer(1);
+    CHECK(REPLIED(TBX_QUIT_PENDING) && m_exit_calls == 0, "Q12", "Save keeps the request pending at the file name prompt");
+    tks("p\r");
+    CHECK(file_exists("P.WK1"), "Q12", "the pending request's Save writes P.WK1");
+    CHECK(m_exit_calls == 1 && m_exit_rc == 0 && REPLIED(TBX_QUIT_PENDING), "Q12", "a successful Save completes the request with EXIT, never CANCEL");
+}
+static void t_power_close(void)
+{
+    tks("Hello\r");
+    close_box();
+    CHECK(REPLIED(TBX_QUIT_PENDING), "Q12", "the asking close box answers PENDING too");
+}
+static void t_power_cancel(void)
+{
+    type_row();
+    menu_quit();
+    answer(2);
+    CHECK(REPLIED(TBX_QUIT_CANCEL) && m_exit_calls == 0, "Q12", "Cancel in the alert must decline the request with CANCEL");
+}
+static void t_power_dont_save(void)
+{
+    type_row();
+    menu_quit();
+    answer(3);
+    CHECK(m_exit_calls == 1 && REPLIED(TBX_QUIT_PENDING), "Q12", "Don't Save accepts with EXIT, never CANCEL");
+}
+static void t_power_escaped(void)
+{
+    type_row();
+    menu_quit();
+    answer(1);
+    tk(27);
+    CHECK(REPLIED(TBX_QUIT_CANCEL) && m_exit_calls == 0, "Q12", "Esc at the file name prompt declines with CANCEL");
+}
+static void t_power_save_fails(void)
+{
+    type_row();
+    menu_quit();
+    answer(1);
+    m_fail_create = 1;
+    tks("f\r");
+    CHECK(REPLIED(TBX_QUIT_CANCEL) && m_exit_calls == 0, "Q12", "a failed Save declines with CANCEL; the sheet stays open");
+    CHECK(!file_exists("F.WK1"), "Q12", "the failed Save left no file");
+}
+static void t_power_replace_cancel(void)
+{
+    tks("/frx\r");
+    tks("Changed\r");
+    menu_quit();
+    answer(1);
+    tk('\r');
+    CHECK(REPLIED(TBX_QUIT_PENDING), "Q12", "the Cancel / Replace question keeps the request pending");
+    tk('c');
+    CHECK(REPLIED(TBX_QUIT_CANCEL) && m_exit_calls == 0, "Q12", "Replace > Cancel declines with CANCEL");
+}
+static void t_power_clean(void)
+{
+    menu_quit();
+    CHECK(m_exit_calls == 1 && !REPLIED(TBX_QUIT_CANCEL), "Q12", "a clean sheet accepts at once with EXIT");
+}
+static void t_power_refused(void)
+{
+    tks("Hel");
+    m_alert_rc = TBX_ERR_BUSY;
+    menu_quit();
+    CHECK(m_exit_calls == 0 && !REPLIED(TBX_QUIT_PENDING), "Q12", "an alert that cannot be shown leaves no request pending");
+}
+
 /* Legacy test-flair-i123-file-ui-mutant: malformed Retrieve must refuse
  * without losing the prior cells. The codec rejects this BOF with no EOF;
  * preserving the active bank is the authored transaction documented above. */
@@ -360,6 +441,15 @@ int main(int argc, char **argv)
     launch("replace_cancel", t_replace_cancel);
     launch("alert_refused", t_alert_refused);
     launch("bad_retrieve", t_bad_retrieve);
+    launch("power_save", t_power_save);
+    launch("power_close", t_power_close);
+    launch("power_cancel", t_power_cancel);
+    launch("power_dont_save", t_power_dont_save);
+    launch("power_escaped", t_power_escaped);
+    launch("power_save_fails", t_power_save_fails);
+    launch("power_replace_cancel", t_power_replace_cancel);
+    launch("power_clean", t_power_clean);
+    launch("power_refused", t_power_refused);
     /* Last: overwrite X.WK1 through the alert's Save + Replace, then reread. */
     launch("replace_ok", t_replace_ok);
     launch("relaunch_again", t_relaunch_again);

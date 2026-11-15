@@ -1,0 +1,11 @@
+# test: test_i123_quit
+--- a/app/face_a.c
++++ b/app/face_a.c
+@@ -1509,7 +1509,6 @@
+      * waiting (Inside Macintosh VI Listing 6-8; outside a request a reply
+      * changes nothing). tbx_app_event declines once the question is over. */
+     g_quit_pending = 1;
+-    (void)tbx_quit_reply(TBX_QUIT_PENDING);
+ }
+ 
+ /* The alert's answer (spec Sec 11: 1 default = Save, 2 cancel, 3 other). The

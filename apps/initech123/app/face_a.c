@@ -237,6 +237,9 @@ static const char *g_error;
  * its success ends the session; any other way out of the flow (Esc, Replace
  * > Cancel, an error notice) drops it and the sheet stays open and dirty. */
 static uint8_t  g_dirty, g_asking, g_quit_after_save;
+/* initech-li7r: a quit request answered PENDING (sdk toolbox_gate.h
+ * QUIT_REPLY) that is still waiting for the alert or the Save flow. */
+static uint8_t  g_quit_pending;
 
 /* Ref: R2.2 Reference Manual p. 5-1 menu tree, pp. 1-13/14 placement/keys;
  * ../lotus123-decomp/goldens/lotus-123-2.2-installed-ref/extracted/installed/
@@ -787,7 +790,7 @@ static void write_sheet(void)
     if (rc != (int32_t)g_wk_len) { file_error(rc < 0 ? rc : 0); return; }
     copy_text(g_current, g_path); file_status("Saved ");
     g_dirty = 0;   /* initech-fvnj: only a successful Save (or Retrieve) cleans */
-    if (g_quit_after_save) { (void)tbx_exit(0); return; }   /* the alert's Save */
+    if (g_quit_after_save) { g_quit_pending = 0; (void)tbx_exit(0); return; }   /* the alert's Save; EXIT accepts */
     ready(); paint_all();
 }
 static void save(void)
@@ -1502,6 +1505,11 @@ static void request_quit(void)
         return;
     }
     g_asking = 1;
+    /* The answer needs more user events: keep a Finder Restart / Shut Down
+     * waiting (Inside Macintosh VI Listing 6-8; outside a request a reply
+     * changes nothing). tbx_app_event declines once the question is over. */
+    g_quit_pending = 1;
+    (void)tbx_quit_reply(TBX_QUIT_PENDING);
 }
 
 /* The alert's answer (spec Sec 11: 1 default = Save, 2 cancel, 3 other). The
@@ -1510,7 +1518,7 @@ static void request_quit(void)
 static void quit_answer(int32_t item)
 {
     g_asking = 0;
-    if (item == (int32_t)TBX_ALERT_OTHER) { (void)tbx_exit(0); return; }   /* Don't Save */
+    if (item == (int32_t)TBX_ALERT_OTHER) { g_quit_pending = 0; (void)tbx_exit(0); return; }   /* Don't Save: EXIT accepts */
     if (item != (int32_t)TBX_ALERT_DEFAULT) {
         return;      /* Cancel: the sheet, the mode and the typed entry stay */
     }
@@ -1599,5 +1607,11 @@ void tbx_app_event(const tbx_event_t *ev)
         break;
     default:
         break;
+    }
+    /* The question and its Save flow are over without EXIT: Cancel, Esc,
+     * Replace > Cancel or a failed save. The worksheet stays open. */
+    if (g_quit_pending && !g_asking && !g_quit_after_save) {
+        g_quit_pending = 0;
+        (void)tbx_quit_reply(TBX_QUIT_CANCEL);
     }
 }
