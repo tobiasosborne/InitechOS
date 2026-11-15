@@ -5,6 +5,7 @@
 # Only hidden allocation/count are compared here; the existing CHKDSK oracle
 # separately checks exact report columns, all categories, memory and repairs.
 set -eu
+fail() { echo "FAIL CHKDSK: $*"; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 work=$1; candidate=$2
 golden=dos/chkdsk/tests/chkdsk-label-golden
 export SOURCE_DATE_EPOCH=699408000 TZ=UTC
@@ -22,21 +23,21 @@ for name in none label hidden both; do
     cp -f "$image" "$image.before"
     "$candidate" "$image" 'A:' < /dev/null > "$work/$name.raw"
     tr -d '\r' < "$work/$name.raw" > "$work/$name.txt"
-    cmp -s "$image.before" "$image" || { echo 'RED CHKDSK-LABEL-READONLY'; exit 1; }
+    cmp -s "$image.before" "$image" || fail 'CHKDSK-LABEL-READONLY'
     # Read only the independent mint, never the candidate, for expected values.
     expected=$(awk '/bytes in .* hidden files/{print $1, $4; found=1} END{if(!found)print "0 0"}' "$golden/$name.txt")
     set -- $expected
     row=$(printf '%9u bytes in %u hidden files' "$1" "$2")
     if [ "$2" -eq 0 ];then
         if grep ' hidden files' "$work/$name.txt" >/dev/null;then
-            echo "RED CHKDSK-LABEL-EMPTY: $name emitted a row absent from genuine DOS";exit 1
+            fail "CHKDSK-LABEL-EMPTY: $name emitted a row absent from genuine DOS"
         fi
     else
         grep -qxF "$row" "$work/$name.txt" || {
-            cat "$work/$name.txt"; echo "RED CHKDSK-LABEL-COUNT: $name expected $row"; exit 1; }
+            cat "$work/$name.txt"; fail "CHKDSK-LABEL-COUNT: $name expected $row"; }
     fi
     free=$(mdir -i "$image" :: | sed -n '/bytes free/s/[^0-9]//gp')
     grep -qxF "$(printf '%9u bytes available on disk' "$free")" "$work/$name.txt" || {
-        echo "RED CHKDSK-LABEL-FREE: $name"; exit 1; }
+        fail "CHKDSK-LABEL-FREE: $name"; }
     echo "GREEN CHKDSK label classification $name: $expected (DOS 3.30 mint)"
 done

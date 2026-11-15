@@ -24,7 +24,7 @@ DISKCOPY, DISKCOMP, XCOPY, TREE, ATTRIB, LABEL and TPSREP. The shared pure helpe
 code is in common/; FORMAT/SYS/DISKCOPY/DISKCOMP share diskutil/;
 XCOPY/TREE share xcopy/. Default cdecl and uniform shared -Os flags apply.
 Dependencies: kernel/include (public DOS/machine contracts and generated
-message catalogue); CHKDSK also links the pure MCB validator from kernel/mcb.c.
+message catalogue).
 The utility entry and register bridges use cdecl; their transfer/return runs
 in the product smoke. FIND's existing implementation consumes redirected stdin;
 its filename operands are still ignored. Smoke uses `FIND "apple" < WORDS.TXT`.
@@ -38,10 +38,10 @@ Published application bindings (CLAUDE.md, "Two interfaces"):
   services plus INT21 console/process services.
 - The filters, EDLIN, XCOPY/TREE and TPSREP use INT21; entry fallbacks may use
   the standard INT20 exit. Disk programs link their own utility cores only.
-- Named migrations under initech-q9p80: CHKDSK still links kernel/mcb.c and
-  walks its arena until the kernel's INT21 summary lands; FDISK still uses
-  power.h's reset/halt until the kernel's INT21 restart request lands. These
-  are outstanding fixes, not exceptions to CLAUDE.md.
+- CHKDSK takes its memory figures from the kernel's OEM INT 21h AH=F9h
+  arena summary and FDISK restarts through OEM AH=FAh (initech-q9p80;
+  contracts in kernel/README.md and kernel/include/dos_oem.h). Neither
+  utility links kernel code or touches hardware ports for these services.
 - Utilities use the fixed conventional PSP/program layout, not a relocatable
   process ABI. The product keeps the old format/loader limits.
 - Mutation variants are patch files, graded by host tests or product sessions.
@@ -90,7 +90,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 150 host patches and 45 product-session patches,
+The current DOS inventory is 151 host patches and 45 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.
@@ -169,13 +169,11 @@ on caller-owned data; resident bindings are unavailable to disk applications.
 Records grant type/layout access only. The audit checks the target make graph,
 compiled includes, external symbols and interrupt vectors against these lines.
 Interface role: dos
-Interface migration: chkdsk-arena initech-q9p80
-Interface migration: fdisk-reset initech-q9p80
-CHKDSK's live arena walk and FDISK's port reset expire with their DOS services.
+CHKDSK's memory figures come from the OEM INT 21h AH=F9h summary and FDISK
+restarts through OEM AH=FAh (initech-q9p80).
 The resident command processor's existing kernel calls are the separate
 CLAUDE.md exception, ending at separately loaded COMMAND.COM (Release 2).
 Interface temporary: resident-command initech-1frx2
-Interface use-source: kernel/mcb.c
 Interface use-binding: kernel/include/blockdev.h
 Interface use-binding: kernel/include/conedit.h
 Interface use-binding: kernel/include/devices.h
@@ -189,8 +187,6 @@ Interface use-binding: kernel/include/idt.h
 Interface use-binding: kernel/include/int21.h
 Interface use-binding: kernel/include/io.h
 Interface use-binding: kernel/include/memory_map.h
-Interface use-binding: kernel/include/power.h
-Interface use-pure: kernel/include/mcb.h
 Interface use-records: kernel/include/drive_letters.h
 Interface use-records: build/kernel/dos_messages.h
 Interface shell-services: fileio_fat_volume_label int21_batch_checkpoint int21_current_drive int21_directory_exists int21_directory_path int21_get_psp int21_io_drive int21_same_file int21_select_path int21_set_break_recovery int21_write_fault kernel_graphical_environment

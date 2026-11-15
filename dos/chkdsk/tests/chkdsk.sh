@@ -2,6 +2,7 @@
 # Oracle first: mtools mints each image, fsck.fat judges the identical bytes.
 # Ref: PRD 6.1/8; MS-DOS 3.3 p43/319/334/344; IBM pp7-48..51/A-46.
 set -eu
+fail() { echo "FAIL CHKDSK: $*"; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 kind=$1; build=$2; candidate=$3; fixture=$4; boot=${5:-}
 export SOURCE_DATE_EPOCH=315532800 TZ=UTC INITECH_QMP_STDIO=1
 mkdir -p "$build/chkdsk"
@@ -76,11 +77,11 @@ for format in $formats; do
   esac
   if [ "$kind" = host ]; then tail='A:FRAG.TXT /V'; fi
   run "$image" "$tail" "$log"
-  cmp -s "$image.before" "$image" || { echo 'RED CHKDSK-NOFIX'; exit 1; }
+  cmp -s "$image.before" "$image" || fail 'CHKDSK-NOFIX'
   "$fixture" check "$image" "$scenario" "$log" "$kind"
   # Independent mtools free-space number must appear in the manual report.
   free=$(mdir -i "$image" :: | sed -n '/bytes free/s/[^0-9]//gp')
-  tr -d '\r' < "$log" | grep -q " *$free bytes available on disk" || { echo 'RED CHKDSK-REPORT-FREE'; exit 1; }
+  tr -d '\r' < "$log" | grep -q " *$free bytes available on disk" || fail 'CHKDSK-REPORT-FREE'
   echo "GREEN CHKDSK FAT$format $scenario: fsck.fat verdict, report, read-only bytes, mdir free space"
  done
  [ "$format" != 16 ] || continue  # GM2: FAT16 repairs are refused by the policy gate.
@@ -97,7 +98,7 @@ for format in $formats; do
   "$fixture" check "$image" "$scenario" "$log" "$kind"
   "$fixture" compare "$image" "$image.ref"
   if [ "$scenario" = cross ]; then
-   if fsck.fat -n "$image" > "$image.fsck" 2>&1; then echo 'RED CHKDSK-CROSS'; exit 1; fi
+   if fsck.fat -n "$image" > "$image.fsck" 2>&1; then fail 'CHKDSK-CROSS'; fi
   else fsck.fat -n "$image" > "$image.fsck" 2>&1; fi
   echo "GREEN CHKDSK FAT$format /F $scenario: manual repair policy and reference image diff"
  done
@@ -118,9 +119,20 @@ for format in $formats; do
   fsck.fat -n "$image" > "$image.fsck" 2>&1
   if [ "$kind" = emu ]; then
    free=$(mdir -i "$image" :: | sed -n '/bytes free/s/[^0-9]//gp')
-   tr -d '\r' < "$work/$(basename "$log" .log).serial" | grep -q " *$free bytes free" || { echo 'RED CHKDSK-CACHE'; exit 1; }
+   tr -d '\r' < "$work/$(basename "$log" .log).serial" | grep -q " *$free bytes free" || fail 'CHKDSK-CACHE'
   fi
   echo "GREEN CHKDSK FAT$format /F $answer: full image differential vs fsck.fat, clean rescan"
  done
 done
+if [ "$kind" = host ]; then
+ # initech-q9p80: with no arena summary available (AH=F9h CF=1/AX=7),
+ # CHKDSK must fail instead of printing partial or invented totals.
+ if CHKDSK_FAIL_MEMORY=1 "$candidate" "$work/12-clean.img" 'A:' < "$work/yes.txt" > "$work/memory-failure.log"; then
+  fail 'CHKDSK-MEMORY-FAILURE accepted'
+ fi
+ if tr -d '\r' < "$work/memory-failure.log" | grep -q 'bytes total memory'; then
+  fail 'CHKDSK-MEMORY-FAILURE partial totals'
+ fi
+ echo "GREEN CHKDSK memory summary failure: nonzero exit, no partial totals"
+fi
 echo "VERDICT: PASS CHKDSK $kind"

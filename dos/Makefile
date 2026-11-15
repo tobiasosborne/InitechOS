@@ -26,7 +26,7 @@ $(OUT)/$(1).elf: $(addprefix $(OUT)/,$(2)) $(3)
 $(OUT)/$(1).COM: $(OUT)/$(1).elf
 	objcopy -O binary $$< $$@
 endef
-$(eval $(call c_program,CHKDSK,chkdsk/chkdsk_start.o chkdsk/chkdsk.o chkdsk/chkdsk_program.o chkdsk/mcb.o,chkdsk/chkdsk.ld))
+$(eval $(call c_program,CHKDSK,chkdsk/chkdsk_start.o chkdsk/chkdsk.o chkdsk/chkdsk_program.o,chkdsk/chkdsk.ld))
 $(eval $(call c_program,EDLIN,edlin/edlin_start.o edlin/edlin.o edlin/edlin_program.o,edlin/edlin.ld))
 $(eval $(call c_program,FDISK,fdisk/fdisk_start.o fdisk/fdisk.o fdisk/fdisk_program.o,fdisk/fdisk.ld))
 $(OUT)/%_start.o: %_start.asm | $(OUT)
@@ -63,9 +63,6 @@ $(eval $(call c_program,ATTRIB,common/attrib.o common/dosutil_attrib.o,common/do
 $(eval $(call c_program,LABEL,common/label.o common/dosutil.o,common/dosutil.ld))
 smoke:
 	$(MAKE) -C $(TOP) smoke
-$(OUT)/chkdsk/mcb.o: $(TOP)/kernel/mcb.c $(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
-	@mkdir -p $(@D)
-	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
 all: $(OUT)/COMMAND.COM
 $(OUT)/COMMAND.COM: command/forward.asm | $(OUT)
 	$(NASM) -f bin $< -o $@

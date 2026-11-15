@@ -49,7 +49,7 @@ static unsigned char *dos_program(void) {
  fprintf(stderr,"missing fixture DOS/CHKDSK.COM\n");exit(2);
 }
 static void save(const char *p){FILE*f=fopen(p,"wb");if(!f||fwrite(b,1,size,f)!=size||fclose(f))exit(2);}
-static void require(int yes,const char *rule) {if(!yes){fprintf(stderr,"RED CHKDSK-%s\n",rule);exit(1);}}
+static void require(int yes,const char *rule) {if(!yes){fprintf(stderr,"FAIL CHKDSK-%s\nINITECH_CHECKS 1 failures=1\n",rule);exit(1);}}
 static void normalize(unsigned char *p) {
  /* Only volatile directory date/time and the documented REC/CHK name differ.
   * All FATs, all original directory fields, data, BPB and slack still diff. */

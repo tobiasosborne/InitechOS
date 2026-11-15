@@ -6,7 +6,6 @@
 #include "diskutil.h"      /* du_map: DEC-17 AH60h map record */
 #include "drive_letters.h" /* spec/drive_letters.json (DEC-18) */
 #include "fat_policy.h"
-#include "power.h" /* existing period AT 8042 reset mechanism */
 static int sector(unsigned drive,uint8_t *p,int write)
 {
     uint32_t a=write?0x0301:0x0201,b=(uint32_t)p,c=1,d=drive;unsigned char cf;
@@ -66,7 +65,13 @@ int fdisk_entry(void)
 }
 void fdisk_restart(void)
 {
-    (void)kernel_reset();
-    /* A reset that returns cannot resume DOS with stale partition state. */
-    kernel_halt();
+    /* OEM INT 21h AH=FAh AL=0 never returns, including a failed or
+     * unavailable reset (kernel/README.md; initech-q9p80). If an older
+     * kernel without the service ever returned here, halt rather than
+     * resume DOS with stale partition state. */
+    uint32_t a=0xfa00; /* AH=FAh AL=0: DOS_OEM_RESTART in kernel/include/dos_oem.h,
+     * unpublished in kernel/README.md interface records as of 2026-11-15;
+     * include the header once the kernel owner exports it (initech-q9p80). */
+    __asm__ volatile("int $0x21":"+a"(a)::"memory","cc");
+    for(;;)__asm__ volatile("cli; hlt");
 }

@@ -7,13 +7,15 @@
 #define INITECH_CHKDSK_H
 #include <stdint.h>
 #include "blockdev.h"
-#include "mcb.h"
 typedef struct chkdsk_io {
     blockdev_t disk;
     void *ctx;
     void (*put)(void *, const char *);
     int (*get)(void *);
-    mcb_arena_t arena;
+    /* Memory summary in DATA bytes (total excludes MCB headers), from the
+     * OEM INT 21h AH=F9h service in the product (initech-q9p80; contract in
+     * kernel/README.md). 0 on success, nonzero when no summary exists. */
+    int (*memory)(uint32_t *total_bytes, uint32_t *free_bytes);
     uint8_t drive;
     /* GETCWD of a zero-based drive (dospath.h contract; q45q). */
     int (*cwd)(unsigned drive, char out[64]);

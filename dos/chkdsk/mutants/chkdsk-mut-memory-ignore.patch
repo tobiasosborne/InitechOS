@@ -1,0 +1,13 @@
+# CHKDSK_MUT_MEMORY_IGNORE
+# test: test-chkdsk
+--- a/chkdsk/chkdsk.c
++++ b/chkdsk/chkdsk.c
+@@ -315,7 +315,7 @@
+      * accounting the former live arena walk produced (initech-q9p80).
+      * An absent or corrupt arena produces no partial totals: fail. */
+     uint32_t total=0,memfree=0;
+-    if(!io->memory||io->memory(&total,&memfree))goto failed;
++    if(io->memory)(void)io->memory(&total,&memfree);
+     line(total," bytes total memory");line(memfree,MSG_DOS_0025);
+     if(s.failed)goto failed;
+     return s.invalid_switch?-1:s.error?1:0;

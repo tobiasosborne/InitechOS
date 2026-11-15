@@ -4,8 +4,9 @@
  * IBM DOS Reference pp7-48..51 (paths, columns, FILE0000.CHK), A-46
  * (report BOTH cross-linked files, never automatically repair a cross-link).
  * Disk encoding: ADR-0003 B.1/DEC-07; docs/research/fat12-ground-truth.md 1-4;
- * FAT16: docs/research/fat16-ground-truth.md; memory: ADR-0003 DEC-03/B.3,
- * os/initechdos/mcb.c. No host services, timestamps, or embedded host paths.
+ * FAT16: docs/research/fat16-ground-truth.md; memory: ADR-0003 DEC-03/B.3
+ * accounting supplied by the OEM AH=F9h summary (kernel/README.md).
+ * No host services, timestamps, or embedded host paths.
  * Stream sectors; six 8KiB bitmaps cover FAT16 without a geometry-sized stack.
  */
 #include "chkdsk.h"
@@ -309,14 +310,13 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     num(s.dir_bytes,9);put(" bytes in ");num(s.dirs,0);put(" directories\r\n");
     num(s.user_bytes,9);put(" bytes in ");num(s.users,0);put(" user files\r\n");
     line(s.free*s.spc*512," bytes available on disk");nl();
-    if(!mcb_chain_intact(&io->arena))goto failed;
-    uint32_t total=0,free=0,at=0;
-    /* Use the live chain, including fragmented arenas and non-free owners.
-     * Memory figures are DATA bytes, exactly mcb.c's paragraph accounting. */
-    while(at<io->arena.total_paras){mcb_t*m=(mcb_t*)(io->arena.base+at*16);total+=(uint32_t)m->size_paras*16;
-        if(m->owner==MCB_OWNER_FREE)free+=(uint32_t)m->size_paras*16;
-        at+=1u+m->size_paras;}
-    line(total," bytes total memory");line(free,MSG_DOS_0025);
+    /* Memory figures are DATA bytes from the kernel's OEM AH=F9h summary
+     * (total excludes MCB headers; every owner counted), exactly the
+     * accounting the former live arena walk produced (initech-q9p80).
+     * An absent or corrupt arena produces no partial totals: fail. */
+    uint32_t total=0,memfree=0;
+    if(!io->memory||io->memory(&total,&memfree))goto failed;
+    line(total," bytes total memory");line(memfree,MSG_DOS_0025);
     if(s.failed)goto failed;
     return s.invalid_switch?-1:s.error?1:0;
 failed:

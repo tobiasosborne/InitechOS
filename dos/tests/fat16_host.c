@@ -26,6 +26,9 @@ void du_con_puts(const char *p){fputs(p,stderr);}
 static void put(void *ctx,const char *p){(void)ctx;du_puts(p);}
 static int get(void){return *keys?(unsigned char)*keys++:27;}
 static int chget(void *ctx){(void)ctx;return 'N';}
+/* Fake OEM AH=F9h summary (initech-q9p80): 256 paras, one header. */
+static int chk_memory(uint32_t *total,uint32_t *free_bytes)
+{ *total=*free_bytes=(256-1)*16; return 0; }
 static int rd(unsigned d,uint8_t b[512]){(void)d;return readsec(0,0,1,b);}
 static int wr(unsigned d,const uint8_t b[512]){(void)d;return writesec(0,0,1,b);}
 static uint32_t cap(unsigned d){return d==128?20000:0;}
@@ -40,9 +43,9 @@ int main(int argc,char **argv){
  keys=argv[3];int rc;
  if(!strcmp(argv[2],"label"))rc=label_main(argv[3]);
  else if(!strcmp(argv[2],"chkdsk")){
-  static uint8_t memory[4096];chkdsk_io_t io={0};
+  chkdsk_io_t io={0};
   io.disk=(blockdev_t){0,readsec,writesec};io.put=put;io.get=chget;io.cwd=du_cwd;
-  mcb_init(&io.arena,memory,sizeof memory/16);
+  io.memory=chk_memory;
   rc=chkdsk_run(&io,argv[3]);
  }else{
   fdisk_io io={rd,wr,cap,get,du_puts,129,0,letter,protect};
