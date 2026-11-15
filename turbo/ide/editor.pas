@@ -27,6 +27,9 @@ var
   UiMode, MenuSel, LastMenu, NameKind, NameRow, NameCol, VerifyKind: integer;
   ItemSel: array[1..4] of integer;
   NameText, PendingName: string;
+  ResumeName: string;
+  ResumeKind: integer;
+  VerifyBar: boolean;
   NameFresh: boolean;
   ErrCode, ErrReturn: integer;       { Error box (MINT06 51, 54) }
   ErrLineShown: boolean;             { compiler error on the info row (07) }
@@ -172,9 +175,9 @@ begin
   else Tx := 'Compile';
   if ((UiMode = ModeBar) or (UiMode = ModeMenu)) and (MenuSel = Which) then
     ScrText(0, Col, Tx, AtSelect)
-  else if (UiMode = ModeVerify) and (MenuSel = Which) and (VerifyKind <> VerifyQuit) then
+  else if (UiMode = ModeVerify) and (MenuSel = Which) and ((VerifyKind <> VerifyQuit) or VerifyBar) then
     ScrText(0, Col, Tx, AtSelect)
-  else if (UiMode = ModeName) and (MenuSel = Which) and (NameKind <> NameRename) then
+  else if (UiMode = ModeName) and (MenuSel = Which) and ((NameKind <> NameRename) or ((ResumeKind <> 0) and VerifyBar)) then
     ScrText(0, Col, Tx, AtSelect)
   else if (UiMode = ModeOverwrite) and (MenuSel = Which) then
     ScrText(0, Col, Tx, AtSelect)
@@ -578,6 +581,7 @@ end;
 
 procedure OpenName(Kind: integer);
 begin
+  ResumeKind := 0;
   NameKind := Kind;
   NameFresh := true;
   if Kind = NameRename then
@@ -640,10 +644,21 @@ begin
     EdModified := false;
     { after the Rename box TP shows the file from its start (MINT06 06) }
     if NameKind = NameRename then CursorHome();
-    UiMode := ModeEditor
+    UiMode := ModeEditor;
+    if ResumeKind <> 0 then
+    begin
+      Code := ResumeKind; ResumeKind := 0;
+      if Code = VerifyNew then DoNew()
+      else if Code = VerifyLoad then DoLoad(ResumeName)
+      else UiMode := ModeQuit
+    end
   end
-  else if NameKind = NameRename then ShowFileError(Code, ModeEditor)
-  else ShowFileError(Code, ModeMenu)
+  else
+  begin
+    ResumeKind := 0;
+    if NameKind = NameRename then ShowFileError(Code, ModeEditor)
+    else ShowFileError(Code, ModeMenu)
+  end
 end;
 
 procedure NameAccept;
@@ -687,6 +702,12 @@ end;
 
 procedure VerifyDone(Saved: boolean);
 begin
+  if Saved and (Length(FilePath) = 0) then
+  begin
+    OpenName(NameRename); ResumeKind := VerifyKind; ResumeName := PendingName
+  end
+  else
+  begin
   if Saved then DoSave();
   if UiMode <> ModeError then
   begin
@@ -694,6 +715,16 @@ begin
     else if VerifyKind = VerifyLoad then DoLoad(PendingName)
     else UiMode := ModeQuit
   end
+  end
+end;
+
+procedure CancelName;
+begin
+  if (NameKind = NameRename) and (ResumeKind = VerifyQuit) then
+  begin MenuSel := MenuFile; LastMenu := MenuFile; UiMode := ModeBar end
+  else if NameKind = NameRename then UiMode := ModeEditor
+  else UiMode := ModeMenu;
+  ResumeKind := 0
 end;
 
 procedure RunItem;
@@ -924,6 +955,7 @@ begin
   end
   else if K = KeyAltX then
   begin
+    VerifyBar := UiMode = ModeBar;
     if EdModified then begin VerifyKind := VerifyQuit; UiMode := ModeVerify end
     else UiMode := ModeQuit
   end
@@ -980,7 +1012,7 @@ begin
     if (K = ord('y')) or (K = ord('Y')) then WriteTo(PendingName, true)
     else if (K = ord('n')) or (K = ord('N')) or (K = KeyEsc) then
     begin
-      if NameKind = NameRename then UiMode := ModeEditor else UiMode := ModeMenu
+      CancelName()
     end
   end
   else if UiMode = ModeBar then
@@ -1019,7 +1051,7 @@ begin
     if K = KeyEnter then NameAccept()
     else if K = KeyEsc then
     begin
-      if NameKind = NameRename then UiMode := ModeEditor else UiMode := ModeMenu
+      CancelName()
     end
     else if K = KeyBack then
     begin
@@ -1069,6 +1101,7 @@ end;
   bar active on File, the cursor hidden. }
 procedure IdeStart;
 begin
+  ResumeKind := 0; VerifyBar := false;
   WorkName0 := 'TURBOWK0.$$$';
   WorkName1 := 'TURBOWK1.$$$';
   EdInsert := true;

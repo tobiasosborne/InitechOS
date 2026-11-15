@@ -1,0 +1,15 @@
+key alt-e
+type program x; begin end.
+shot dirty
+key alt-x
+shot verify
+key y
+shot rename
+key esc
+shot cancel
+key alt-x
+key y
+shot retry_rename
+type UNNAMED.PAS
+key ret
+end

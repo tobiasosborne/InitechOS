@@ -1,0 +1,39 @@
+# Expected screens for journey.steps: each is a turbopascal-decomp MINT06
+# capture (raw B800h + CRTC) with explicit edits; see screens.c.
+
+# The surviving chrome (turbo/README.md "IDE"): only File Edit Run Compile,
+# no Indent/Unindent words, the status legend keeps F9-Make and F10-Menu.
+define chrome
+fill 0 34 79 0x70        # Options, Debug, Break/watch are absent
+fill 1 32 37 0x17        # "Indent": auto-indent is absent
+fill 1 48 55 0x17        # "Unindent"
+fill 24 0 79 0x70        # F1 Help, F5 Zoom, F6 Switch, F7 Trace, F8 Step absent
+copy . 24 49 24 1 17     # "F9-Make  F10-Menu" moved to the front
+end
+
+# File pulldown with absent items removed (Pick, Directory, Change dir,
+# OS shell); rows from the named capture: top, Load, New, Save, Write to,
+# Quit, bottom.
+# Rows 0 and 24 only, for screens whose info row is not the info line.
+define chromebar
+fill 0 34 79 0x70
+fill 24 0 79 0x70
+copy . 24 49 24 1 17
+end
+
+define abort
+fill 24 0 79 0x70
+copy . 24 10 24 1 9   # "Esc-Abort" only (F1-Help absent)
+end
+
+shot dirty 00_dirty
+use chrome
+shot verify 01_verify
+use chrome
+use abort
+shot rename 02_rename
+use chrome
+shot cancel 03_cancel
+use chrome
+shot retry_rename 04_retry_rename
+use chrome

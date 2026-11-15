@@ -36,6 +36,9 @@ file_bytes() {
 }
 
 case $entry in
+unnamed)
+    check unnamed sh tests/unnamed.sh "$out"
+    ;;
 tab-width)
     check tab-width sh tests/tab-width.sh "$out"
     ;;

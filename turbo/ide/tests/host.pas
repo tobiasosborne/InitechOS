@@ -83,5 +83,6 @@ begin
       end
     end
   end;
-  writeln('IDE-HOST-END shots=', ShotNo)
+  writeln('IDE-HOST-END shots=', ShotNo);
+  writeln('IDE-HOST-MODE=', UiMode)
 end.

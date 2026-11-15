@@ -1,0 +1,6 @@
+# test: unnamed
+--- a/editor.pas
++++ b/editor.pas
+@@ -1,1 +1,1 @@
+-  if Saved and (Length(FilePath) = 0) then
++  if Saved and (Length(FilePath) < 0) then

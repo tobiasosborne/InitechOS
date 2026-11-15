@@ -1,0 +1,8 @@
+# test: unnamed
+--- a/editor.pas
++++ b/editor.pas
+@@ -1,2 +1,2 @@
+-      else if Code = VerifyLoad then DoLoad(ResumeName)
+-      else UiMode := ModeQuit
++      else if Code = VerifyLoad then DoLoad(ResumeName)
++      else UiMode := ModeEditor
