@@ -102,23 +102,28 @@ consolidation and start route (GM8), the manuals.
 
 ## Who holds what (one writer per directory)
 
-Assigned by phase 3's orchestrator (2026-11-15, 05:00). Each owner lands
-its own work; requests to another owner go in the requester's handoff.
+Assigned by phase 3's orchestrator (2026-11-15, updated 06:05). Each
+owner lands its own work; requests to another owner go in the
+requester's handoff.
 
 - `turbo/`: Turbo Initech owner (IDE save safety, one TURBO.COM,
   Compile/Make/Run, initech-wkp2p).
-- `apps/initechcalc/`, `goldens/frame/`: the frame owner (GM3).
-- `apps/initechbase/`: the forms owner (initech-p3nn0).
-- `dos/`: the DOS owner, until its session ends; then the delivery owner.
+- `apps/initechcalc/`, `goldens/frame/`: the frame owner (GM3; Calc save
+  findings zev40/qdscg, then the frame journey).
+- `apps/initechbase/`: the forms owner (initech-p3nn0; READ write-back
+  findings first).
+- `dos/`: the DOS owner (XCOPY retention gze1f, check strength).
 - `kernel/`, `system/`, `apps/initech123/`: the delivery owner (kernel
-  mutation survivors initech-xn1ev first, then the C: consolidation).
-- `flair/`: the FLAIR owner (initech-vhgid, ao6o0).
-- `flair/desktop/`: the desktop owner (Finder menus, C: binding, 02siz).
-- Shared places `factory/`, `mk/`, `sdk/`, top Makefile: the factory
-  owner (strict mutation runner, initech-vocfm/fl7ce/kkqbw; smoke
-  defects; forms replay).
-- Free: `apps/initechword/`, `apps/initechtext/`, `apps/initechpaint/`,
-  the small apps, `boot/`.
+  mutation survivors initech-xn1ev, then the C: consolidation).
+- `apps/initechword/`, `flair/`: the InitechWord and Toolbox owner
+  (go4vt, suite budget, frame placement requests, qv7t).
+- `flair/desktop/`: the desktop owner (Finder menus, C: binding).
+- Shared places `factory/`, `mk/`, `sdk/`, top Makefile, and
+  `apps/notepad/` tests: the factory owner (strict mutation runner,
+  initech-vocfm/fl7ce/kkqbw; key pacing ix9by; smoke defects; forms
+  replay; frame support).
+- Free: `apps/initechtext/`, `apps/initechpaint/`, the small apps,
+  `boot/`.
 
 ## Notes for this week
 
