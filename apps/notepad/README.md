@@ -33,14 +33,16 @@ existing store contract. The exact menu/shortcut inventory and semantic
 dead-command sweep are in test_notepad_route (both builds); tests/COMMANDS.md
 records the audited routes and independently authored outcomes.
 
-make test runs two unit/regression programs (<1 second),
+make test runs two unit/regression programs and the two command sweeps (about
+a second),
 retaining the legacy store, corruption, clipboard and page-boundary assertions.
 A store is read the way INT 21h AH=3Fh answers: every positive count is kept
 until end of file, so legally short reads of the pinned N01/S01 fixtures show
 the stored page (decoded by the test from the bytes) and N02/S02 stay damaged.
 These are independent authored contract expectations, not real-Mac file
-format differentials. make mutants kills eight patches, including a live Undo
-no-op in both builds and a single-read loader (initech-l3ahn). No mutation switches remain in the product source.
+format differentials. make mutants kills ten patches, including a live Undo
+no-op in both builds, a single-read loader (initech-l3ahn), and a grayed
+Select All and a dead Scrapbook Page Down that the command sweep catches. No mutation switches remain in the product source.
 make smoke launches both on QEMU, copies alpha from Note Pad into Scrapbook,
 closes both, extracts both stores with mtools and checks lengths, headers,
 page bytes and an independently implemented checksum, then runs fsck.fat.
@@ -54,6 +56,69 @@ Remaining legacy composed-chrome emulator gates belong to the factory owner.
 Initial windows meet the single menu bar (operator ruling, CLAUDE.md
 "Hazards that are still true"). Host routing checks their structure top
 against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.
+
+GM4 dead-command sweep (test_notepad_commands, test_scrapbook_commands): the
+blocks below are the frozen inventory as data. The sweep checks the installed
+bar against them in every context, chooses each row where it must be enabled
+and requires its effect, sends its command key the way the shell does, and
+sends every character byte and key code under each modifier, so a key that
+changes anything must be listed here and every listed key must work. Effects
+are judged only from what the host Toolbox records (paint, scrap, volume,
+exit, alerts). Shift and Option do not change the meaning of a key in either
+program; Control is Command and reaches only the menus. Tab, Delete and the
+bytes from 7F up are not typed in Note Pad (Paste keeps them).
+
+<!-- command-inventory NOTEPAD.EXE -->
+Context: typed = type ab\rcd
+Context: selected = type alpha; menu Edit/Select All
+Context: clip = scrap alpha
+Context: middle = type ab\rcd\ref; key v48; key v4B
+Title: File | 2
+Menu: File | Close | W | base | exit+file
+Menu: File | Quit | Q | base | exit+file
+Title: Edit | 7
+Menu: Edit | Undo | Z | typed | screen
+Menu: Edit | -
+Menu: Edit | Cut | X | selected | screen+scrap
+Menu: Edit | Copy | C | selected | scrap
+Menu: Edit | Paste | V | clip | screen
+Menu: Edit | Clear | - | selected | screen
+Menu: Edit | Select All | A | typed | screen
+Key: none | c0A c0D c20-7E | base | screen
+Key: none | c08 v48 v4B v4D v50 | middle | screen
+Key: shift | c0A c0D c20-7E | base | screen
+Key: shift | c08 v48 v4B v4D v50 | middle | screen
+Key: option | c0A c0D c20-7E | base | screen
+Key: option | c08 v48 v4B v4D v50 | middle | screen
+<!-- end-command-inventory -->
+
+<!-- command-inventory SCRAPBK.EXE -->
+Context: clip = scrap alpha
+Context: one = scrap alpha; menu Edit/Paste
+Context: three = scrap alpha; menu Edit/Paste; scrap bravo; menu Edit/Paste; scrap charlie; menu Edit/Paste; key v4B
+Context: long = scraplines 40; menu Edit/Paste
+Context: longdown = scraplines 40; menu Edit/Paste; key v50
+Title: File | 2
+Menu: File | Close | W | base | exit+file
+Menu: File | Quit | Q | base | exit+file
+Title: Edit | 6
+Menu: Edit | Undo | Z | one | screen
+Menu: Edit | -
+Menu: Edit | Cut | X | one | screen+scrap
+Menu: Edit | Copy | C | one | scrap
+Menu: Edit | Paste | V | clip | screen
+Menu: Edit | Clear | - | one | screen
+Absent: Edit | Select All
+Key: none | v49 v4B v4D v51 | three | screen
+Key: none | v50 | long | screen
+Key: none | v48 | longdown | screen
+Key: shift | v49 v4B v4D v51 | three | screen
+Key: shift | v50 | long | screen
+Key: shift | v48 | longdown | screen
+Key: option | v49 v4B v4D v51 | three | screen
+Key: option | v50 | long | screen
+Key: option | v48 | longdown | screen
+<!-- end-command-inventory -->
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate

@@ -1,0 +1,11 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -35,7 +35,7 @@
+     {"Cut",0,'X',0,0,0,{0,0,0}}, {"Copy",0,'C',0,0,0,{0,0,0}},
+     {"Paste",0,'V',0,0,0,{0,0,0}}, {"Clear",0,0,0,0,0,{0,0,0}},
+ #ifndef SCRAPBOOK
+-    {"Select All",0,'A',0,1,0,{0,0,0}}
++    {"Select All",0,'A',0,0,0,{0,0,0}}
+ #endif
+ };
+ static const tbx_menuinfo_t menus[] = {

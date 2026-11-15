@@ -1,0 +1,11 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -442,7 +442,7 @@
+ #ifdef SCRAPBOOK
+         (void)c;
+         if(vk==0x4b || vk==0x49) turn(g_page-1);
+-        else if(vk==0x4d || vk==0x51) turn(g_page+1);
++        else if(vk==0x4d) turn(g_page+1);
+         else if(vk==0x48 && g_scroll>0) g_scroll-=11;
+         else if(vk==0x50 && g_scroll+DA_TEXT_H<g_te.nLines*11+4) g_scroll+=11;
+ #else

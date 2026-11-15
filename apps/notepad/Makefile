@@ -3,7 +3,7 @@ COMPONENT := apps/notepad
 include $(TOP)/mk/config.mk
 FLAIR_INC := -I$(TOP)/flair/include -I$(TOP)/build/flair/generated -I$(TOP)/flair/include/assets -I$(TOP)/flair/region/include
 HOST_INCLUDES := -I. -Iinclude -I$(TOP)/sdk/include -I$(TOP)/sdk/host $(FLAIR_INC)
-HOST_TESTS := test_notepad_route test_scrapbook_route
+HOST_TESTS := test_notepad_route test_scrapbook_route test_notepad_commands test_scrapbook_commands
 # Temporary HOST binding: removed when FLAIR publishes its hosted TextEdit library.
 # Exact files: flair/textedit.c, flair/scrap.c. Target uses libflair.a below.
 HOST_TEXTEDIT := $(TOP)/flair/textedit.c $(TOP)/flair/scrap.c
@@ -12,9 +12,14 @@ test_scrapbook_route_SRCS := $(test_notepad_route_SRCS)
 # initech-l3ahn: the short-read leg decodes the pinned conformance fixtures.
 test_notepad_route_CFLAGS := -DDA_FIXTURES='"$(CURDIR)/tests/conformance/fixtures/"'
 test_scrapbook_route_CFLAGS := -DSCRAPBOOK $(test_notepad_route_CFLAGS)
+# GM4 dead-command sweep: the README's frozen inventory is its input.
+test_notepad_commands_SRCS := tests/test_notepad_commands.c $(HOST_TEXTEDIT)
+test_scrapbook_commands_SRCS := $(test_notepad_commands_SRCS)
+test_notepad_commands_CFLAGS := -DSWEEP_README='"$(CURDIR)/README.md"'
+test_scrapbook_commands_CFLAGS := -DSCRAPBOOK $(test_notepad_commands_CFLAGS)
 $(foreach t,$(HOST_TESTS),$(eval $(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_DEPS := $(TOP)/build/sdk/host/libtbx_host.a))
-$(foreach t,$(HOST_TESTS),$(eval $(t)_COUNT_PATTERN := ^test_notepad_route[^:]*: ([0-9]+) checks.*$$))
+$(foreach t,$(HOST_TESTS),$(eval $(t)_COUNT_PATTERN := ^$(t:test_scrapbook_route=test_notepad_route_scrapbook): ([0-9]+) checks.*$$))
 include $(TOP)/mk/host-test.mk
 TENANT := notepad
 TENANT_EXE := NOTEPAD.EXE
