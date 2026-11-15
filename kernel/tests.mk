@@ -515,6 +515,13 @@ test-commit-outcome_SRCS := tests/runner.c
 test-commit-outcome_ARGS := tests/run.sh test-commit-outcome
 test-commit-outcome_DEPS := $(OUT)/host/tool_test_commit_outcome tests/gates/test-commit-outcome.sh
 
+EXTRA_HOST_TESTS += tool_test_mkdir_rollback
+tool_test_mkdir_rollback_SRCS := tests/test_mkdir_rollback.c tests/disk/blockdev_file.c fat12.c
+HOST_TESTS += test-mkdir-rollback
+test-mkdir-rollback_SRCS := tests/runner.c
+test-mkdir-rollback_ARGS := tests/run.sh test-mkdir-rollback
+test-mkdir-rollback_DEPS := $(OUT)/host/tool_test_mkdir_rollback tests/gates/test-mkdir-rollback.sh tests/disk/check_conservation.py
+
 # Apply after every registration, before host_source_rule expands _DEPS into
 # object prerequisites. Earlier expansion in tools.mk omitted later tools,
 # including the independent int21.c compilation for test-loader-live.

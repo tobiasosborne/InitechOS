@@ -455,3 +455,14 @@ Interface export-binding: kernel/isr.asm irq12_entry
 The earlier private-header import-blocker notes predate c7398425. The current
 test/import gate checks this exact resident entry exception mechanically.
 <!-- end-interface-declarations -->
+
+`test-mkdir-rollback` uses mtools to fill a one-cluster parent, and for the
+NO_SPACE case allocates all but one cluster to a real named file. Failed
+MKDIR must restore the pre-call live and persisted FAT and parent bytes;
+mtools, fsck.fat and the independent FAT reader then verify named bytes and
+allocation ownership. The old flush-fail/no-space patches only removed inner
+cleanup and survived because the later rxh8o wrapper restored the same state.
+Their replacements disable recovery at both layers for the selected error,
+retaining the original observable fault rather than grading redundant code.
+Source: Microsoft FAT specification allocation invariants, not a DOS error-state
+parity claim (initech-xn1ev).

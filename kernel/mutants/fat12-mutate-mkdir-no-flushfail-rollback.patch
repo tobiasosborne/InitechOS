@@ -1,5 +1,5 @@
 # FAT12_MUTATE_MKDIR_NO_FLUSHFAIL_ROLLBACK
-# test: test-fat-fault-rollback
+# test: test-mkdir-rollback
 --- a/fat12.c
 +++ b/fat12.c
 @@ -3850,11 +3850,11 @@
@@ -19,3 +19,14 @@
  		return rc;
  	}
  
+--- a/fat12.c
++++ b/fat12.c
+@@ -4232,7 +4232,7 @@
+ 	}
+ 	for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];
+ 	rc = fat12_mkdir_inner(vol, fat, fat_len, name83, parent, sector_buf, cluster_buf, mtime, mdate);
+-	if (rc == FAT12_OK) return rc;
++	if (rc == FAT12_OK || rc == FAT12_ERR_WRITE) return rc;
+ 	for (i = 0u; i < bytes; i++) ((uint8_t *)fat)[i] = before[i];
+ 	restore_fat = fat12_flush_fats(vol, fat, fat_len);
+ 	if (have_free)
