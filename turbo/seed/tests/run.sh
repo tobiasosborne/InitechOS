@@ -3,6 +3,10 @@ set -eu
 out=$1 entry=$2
 . "$TOP/turbo/tests/checks.sh"
 case $entry in
+frame-layout)
+    setup "$out/initechc" --emit-asm -o "$out/frame-layout.s" examples/arith/func.pas
+    assert 'cdecl frame header is not variable storage' awk -f "$TOP/turbo/tests/frame-layout.awk" "$out/frame-layout.s"
+    finish; exit 0;;
 test-verdict) exec sh "$TOP/turbo/tests/verdict-test.sh" "$out";;
 guest-*) exec sh "$TOP/turbo/seed/tests/guest.sh" "$TOP" "$out" "${entry#guest-}";;
 lexer|parser) exec "$out/test_$entry" ;;
