@@ -3,7 +3,6 @@
 # One row each: component test issue. A row is removed when its owner makes
 # the test print INITECH_CHECKS (or a counted summary); any other test
 # without one fails make test. The file is deleted when it is empty.
-apps/initech123 test_i123_formula_x87_027F initech-u5jow
 apps/initech123 test_i123_transfer_baseline initech-u5jow
 apps/initechbase captured-hashes initech-zw6sl
 apps/initechbase messages-generated initech-zw6sl
@@ -21,7 +20,6 @@ dos test-command-batch-return initech-wb3kr
 dos test-compat33-evidence initech-wb3kr
 dos test-copy-full initech-wb3kr
 dos test-copy-name-compat33 initech-wb3kr
-dos test-del-directory-host initech-wb3kr
 dos test-del-invalid-switch initech-wb3kr
 dos test-dir-free-space initech-wb3kr
 dos test-dir-look initech-wb3kr
@@ -30,10 +28,8 @@ dos test-dir-volume initech-wb3kr
 dos test-dir-wide-compat33 initech-wb3kr
 dos test-dos-batch2-host initech-wb3kr
 dos test-dosmsg initech-wb3kr
-dos test-dos-stamp-copy-host initech-wb3kr
 dos test-dos-stamp-host initech-wb3kr
 dos test-edlin-host initech-wb3kr
-dos test-explicit-drive initech-wb3kr
 dos test-fdisk initech-wb3kr
 dos test-for-compat33 initech-wb3kr
 dos test-formatsys initech-wb3kr
@@ -41,11 +37,7 @@ dos test-if-exist-compat33 initech-wb3kr
 dos test-label-vol initech-wb3kr
 dos test-ren-invalid-switch initech-wb3kr
 dos test-runtime-verdict initech-wb3kr
-dos test-shell-failures initech-wb3kr
-dos test-shell-files-host initech-wb3kr
 dos test-utility-errors-compat33 initech-wb3kr
-dos test-xcopy-cwd-host initech-wb3kr
-dos test-xcopy-drive initech-wb3kr
 dos test-xcopy-tree initech-wb3kr
 kernel test-ansi-bridge initech-73hml
 kernel test-config-fuzz initech-73hml
