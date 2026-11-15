@@ -50,12 +50,14 @@ static inline void ibase_file_abort(ibase_file_write *t)
  * stage. Every source read and stage write is checked before publication. */
 static inline int ibase_file_clone(ibase_file_write *t,ibase_pal_t *p,const char *name,pal_fd source)
 {
-    uint8_t bytes[512];int32_t remaining,got;int rc=ibase_file_begin(t,p,name);
+    /* Eight sectors per DOS call: AH=3Fh/40h move up to 64 KiB, and the
+     * stage copy of a 255-block memo file then takes 33 calls, not 255. */
+    uint8_t bytes[4096];int32_t remaining,got;int rc=ibase_file_begin(t,p,name);
     if(rc)return rc;
     remaining=p->seek(p,source,0,PAL_SEEK_END);
     if(remaining<0 || p->seek(p,source,0,PAL_SEEK_SET)!=0){ibase_file_abort(t);return -PAL_EIO;}
     while(remaining){
-        uint32_t n=remaining>512?512u:(uint32_t)remaining;
+        uint32_t n=remaining>(int32_t)sizeof bytes?(uint32_t)sizeof bytes:(uint32_t)remaining;
         got=p->read(p,source,bytes,n);
         if(got!=(int32_t)n || p->write(p,t->fd,bytes,n)!=(int32_t)n){ibase_file_abort(t);return -PAL_EIO;}
         remaining-=(int32_t)n;
