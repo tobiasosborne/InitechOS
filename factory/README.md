@@ -112,7 +112,11 @@ display client can otherwise stop guest drawing before a serial marker is
 emitted. desktop-primitives-test.c proves progress requires transport pumping;
 ordinary factory tier 0 runs it. Marker and session timeout limits are unchanged.
 
-`make cert` refuses, before any stage, a TEST_BUDGET_S, TEST_TIMEOUT_S or
+`make image` builds system/'s components before linking (two make
+invocations) and image/system-fresh.sh refuses a system.elf older than any
+prerequisite in make's own database: under -j the one-step build rebuilt
+libdesktop.a and skipped the link, booting old Finder code (initech-ktd5j;
+red-first by toggling a Finder mutant). `make cert` refuses, before any stage, a TEST_BUDGET_S, TEST_TIMEOUT_S or
 TESTS other than the components' own, whether from the shell or inherited on
 a make command line in any assignment form (GNU make itself reports their
 origin; initech-jgo5k; tests/cert.sh).

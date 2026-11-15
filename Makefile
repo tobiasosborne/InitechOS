@@ -96,7 +96,11 @@ kernel-build: dos-build
 	$(MAKE) -C kernel
 factory-build:
 	$(MAKE) -C factory
+# system/Makefile rebuilds its archives in an order-only step; under -j the
+# link in that same invocation can miss them, so the components are made
+# first and the image refuses a system older than any input (initech-ktd5j).
 image: boot-build system-build factory-build
+	sh factory/image/system-fresh.sh
 	$(MAKE) -C factory image
 # Components with their own emulator session on the product image
 # (`make -C <component> smoke`), one per line.
@@ -124,6 +128,7 @@ repro:
 	sh factory/repro.sh
 .PHONY: system-build
 system-build: kernel-build
+	$(MAKE) -C system components
 	$(MAKE) -C system
 .PHONY: desktop-apps
 desktop-apps:
