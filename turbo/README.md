@@ -25,6 +25,9 @@ runtime/link route. The warm complete Turbo suite takes about 20 seconds.
 Runtime is a checked-in NASM byte table with a tier-0 regeneration comparison;
 see compiler/NATIVE.md. The 17 compiler patches include five native
 encoder/fixup/relocation/layout and five generated-execution patches.
+For every source, both compiler emissions match one fresh independent
+NASM/link result; their assembly and native containers also match each other.
+The suite does not rebuild identical foreign-tool inputs for the second pass.
 
 `make smoke` builds the product image and uses separate FAT12 TEST disks.
 QEMU and Bochs each execute all 17 corpus programs and 19 regressions through
