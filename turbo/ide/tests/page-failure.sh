@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 out=$1
-cat tests/head.pas tests/faults.pas screen.pas buffer.pas editor.pas tests/page-failure.pas > "$out/page-failure.pas"
+cat tests/head-fpc.pas tests/faults.pas screen.pas buffer.pas editor.pas tests/page-failure.pas > "$out/page-failure.pas"
 fpc -B -O- -v0 -FU"$out" -FE"$out" -o"$out/page-failure" "$out/page-failure.pas" > "$out/page-failure-build.log" 2>&1 || { cat "$out/page-failure-build.log"; exit 2; }
 scratch=$out/runs/page-failure
 mkdir -p "$scratch"

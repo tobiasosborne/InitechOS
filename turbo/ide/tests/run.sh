@@ -18,6 +18,9 @@ check() {
     if "$@"; then echo "PASS $name"; else echo "FAIL $name"; failures=$((failures+1)); fi
 }
 case $entry in
+save-failure)
+    check save-failure sh tests/save-failure.sh "$out"
+    ;;
 page-failure)
     check page-failure sh tests/page-failure.sh "$out"
     ;;

@@ -1,12 +1,12 @@
 # test: journey
 --- a/editor.pas
 +++ b/editor.pas
-@@ -492,7 +492,7 @@
+@@ -503,7 +503,7 @@
+     if (I <> 0) and (I <> 2) then Code := I;
      if Code = 0 then
      begin
-       Assign(F, Bak); Erase(F); I := IOResult();
--      Assign(F, Temp); Rename(F, Bak); I := IOResult()
-+      Assign(F, Temp); Erase(F); I := IOResult()
+-      Assign(F, Path); Rename(F, Bak); Code := IOResult();
++      Assign(F, Path); Erase(F); Code := IOResult();
+       Moved := Code = 0
      end
-     else
-     begin
+   end;
