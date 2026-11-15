@@ -1,0 +1,10 @@
+--- a/core.c
++++ b/core.c
+@@ -100,6 +100,6 @@
+     } else if(s->panel==4) {
+         if(item>=3&&item<=5)s->edit.sound=(uint8_t)(item-3);
+         if(item>=6&&item<=8)s->edit.volume=(uint8_t)(item-6);
+-        if(item>=3&&item<=9)o->beep(o->user);
++        if(item>=3&&item<=8)o->beep(o->user);
+     }
+ }

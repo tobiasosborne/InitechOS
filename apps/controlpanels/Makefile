@@ -2,7 +2,7 @@ TOP := $(abspath ../..)
 COMPONENT := apps/controlpanels
 include $(TOP)/mk/config.mk
 HOST_INCLUDES := -I. -Iinclude -I$(TOP)/sdk/include -I$(TOP)/sdk/host -I$(TOP)/flair/include -I$(TOP)/flair/region/include -I$(TOP)/factory/include
-HOST_TESTS := test_cpanels test_route
+HOST_TESTS := test_cpanels test_route test_cpanels_commands
 test_cpanels_SRCS := tests/test_cpanels.c core.c
 test_cpanels_LIBS := $(TOP)/build/flair/host/libdialog.a -lpng
 test_cpanels_DEPS := $(TOP)/build/flair/host/libdialog.a
@@ -11,6 +11,12 @@ test_cpanels_COUNT_PATTERN := ^test_cpanels: ([0-9]+) checks.*$$
 test_route_SRCS := tests/test_route.c core.c
 test_route_LIBS := $(TOP)/build/sdk/host/libtbx_host.a
 test_route_DEPS := $(TOP)/build/sdk/host/libtbx_host.a
+# GM4 dead-command sweep: the README's frozen inventory is its input.
+test_cpanels_commands_SRCS := tests/test_cpanels_commands.c core.c
+test_cpanels_commands_LIBS := $(TOP)/build/sdk/host/libtbx_host.a
+test_cpanels_commands_DEPS := $(TOP)/build/sdk/host/libtbx_host.a
+test_cpanels_commands_CFLAGS := -DSWEEP_README='"$(CURDIR)/README.md"'
+test_cpanels_commands_COUNT_PATTERN := ^test_cpanels_commands: ([0-9]+) checks.*$$
 include $(TOP)/mk/host-test.mk
 TENANT := cpanels
 TENANT_EXE := CPANELS.EXE
