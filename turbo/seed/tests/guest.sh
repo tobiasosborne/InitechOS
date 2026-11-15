@@ -9,7 +9,7 @@ work=$out/runs/guest-$name
 setup rm -rf "$work"
 setup mkdir -p "$work"
 setup "$out/initechc" --emit-asm -o "$work/frame.s" "examples/arith/$name.pas"
-assert "guest-$name:cdecl frame header conserved" awk -f "$root/turbo/tests/frame-layout.awk" "$work/frame.s"
+assert "guest-$name:cdecl header has no direct stores" awk -f "$root/turbo/tests/frame-layout.awk" "$work/frame.s"
 rc=0
 sh "$root/factory/seed-guest.sh" "$root" "$out" "$name" > "$work/factory.log" 2>&1 || rc=$?
 cat "$work/factory.log"
