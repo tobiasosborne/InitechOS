@@ -1,4 +1,6 @@
-/* Independent P6 and captured NFNT widths. Empty-menu policy: IM IV-55.
+/* Independent P6 and captured NFNT widths. Pitch = advance+13 from
+ * s7_desktop.png, specs/desktop/menu-bar.md Title layout.
+ * Empty-menu policy: IM IV-55.
  * Indexed Platinum title face is the retained idx63 gray, already pinned
  * by test_menu; compare every below-bar pixel at the same pointer position. */
 #define main cursor_reader_main
@@ -18,7 +20,7 @@ int main(int argc,char **argv)
  if(argc==2 && !strcmp(argv[1],"positions")) {
   for(int i=0;i<8;i++) {
    if(i) printf("%d %s %d\n",128+i,titles[i],x+12);
-   x+=advance(titles[i])+18;
+   x+=advance(titles[i])+13;
   }
   return 0;
  }
@@ -26,7 +28,7 @@ int main(int argc,char **argv)
  int found=0;
  for(int i=0;i<8;i++) {
   if(i && !strcmp(argv[1],titles[i])) {found=1;break;}
-  x+=advance(titles[i])+18;
+  x+=advance(titles[i])+13;
  }
  int file_panel=!strcmp(argv[1],"File");
  if(!found && !file_panel) return 2;

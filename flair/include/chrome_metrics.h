@@ -39,6 +39,10 @@
 #define FLAIR_CHROME_MENU_APPLE_W 33
 #define FLAIR_CHROME_MENU_APPLE_LEFT 15
 #define FLAIR_CHROME_MENU_TITLE_PAD 9
+/* s7_desktop.png pens 42/78/116/161/209: StringWidth + 13.
+ * The 9px left inset leaves 4px on the right. The pulled ink block has its
+ * own 10px padding (s8_menu_dropped.png), independent of the hit slot. */
+#define FLAIR_CHROME_MENU_TITLE_RPAD 4
 #define FLAIR_CHROME_MENU_ITEM_LPAD 19
 #define FLAIR_CHROME_MENU_CMD_RPAD 13
 

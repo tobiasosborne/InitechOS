@@ -133,7 +133,7 @@ void MenuClock_draw(GrafPort *port, const region_t *clip)
 static int title_slot_w(const char *title)
 {
     int tw = text_measure(FONT_CHICAGO, title);
-    return tw + 2 * FLAIR_MENU_TITLE_PAD;
+    return tw + FLAIR_MENU_TITLE_PAD + FLAIR_MENU_TITLE_RPAD;
 }
 
 /* --------------------------------------------------------------------------

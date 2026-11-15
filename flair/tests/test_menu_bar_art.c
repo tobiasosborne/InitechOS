@@ -11,7 +11,7 @@
  *       (vscan x=300 in five captures; the strip is full width).
  * CORNER the 15 x 9 grid of menus.md sec 1.2, transcribed from
  *       s8_desktop_menubar.png x=0..14 y=0..8; the right corner is its mirror.
- * TITLES the Finder titles File Edit View Special: ink width 21/23/30/44 and
+ * TITLES the Finder titles File Edit View Label Special: ink width 21/23/30/33/44 and
  *       ink rows 5..13 (Special 5..15), measured in s7_desktop.png (System
  *       7.5.3, Chicago 12; specs/desktop/menu-bar.md title table). File's
  *       first ink is x=43 in both s7_desktop.png and s8_desktop_menubar.png.
@@ -27,9 +27,8 @@
  *       order, File Edit Image Layer Select View Window Help
  *       (goldens/frame/transcription.tsv MB.1..MB.8, all certain).
  *
- * Title positions after File are not asserted: the product's spacing is
- * wider than both captures (initech-vhgid), and the captured positions are
- * the acceptance test of that fix.
+ * Title first-ink columns are literal s7_desktop.png measurements, including
+ * Label so Special's position is compared in the captured five-title set.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -91,16 +90,17 @@ static uint32_t corner_rgb(char c)
     default:  return 0xFFFFFF;
     }
 }
-typedef struct { const char *t; int w, y0, y1; } title_box;
-static const title_box FINDER[4] = {          /* s7_desktop.png */
-    { "File", 21, 5, 13 }, { "Edit", 23, 5, 13 },
-    { "View", 30, 5, 13 }, { "Special", 44, 5, 15 } };
+typedef struct { const char *t; int x, w, y0, y1; } title_box;
+static const title_box FINDER[5] = {          /* s7_desktop.png */
+    { "File", 43, 21, 5, 13 }, { "Edit", 79, 23, 5, 13 },
+    { "View", 117, 30, 5, 13 }, { "Label", 162, 33, 5, 13 },
+    { "Special", 210, 44, 5, 15 } };
 static const char *const PAINT[8] = {         /* frame MB.1..MB.8 */
     "File", "Edit", "Image", "Layer", "Select", "View", "Window", "Help" };
 
 /* ---- the bar under test ---- */
 static MenuItem g_item[] = { { "New", 0, 'N', 0, 1, 0 } };
-static MenuInfo g_finder[4], g_paint[8];
+static MenuInfo g_finder[5], g_paint[8];
 static MenuBar g_bar;
 static void draw(GrafPort *p) { DrawMenuBar(p, &g_bar, -1, NULL); }
 
@@ -162,7 +162,7 @@ static void run_depth(unsigned bpp)
     int g[9][4];
     if (render_ctx_init(&r, &b)) { CHECK(0, "render context"); return; }
 
-    g_bar = (MenuBar){ g_finder, 4, 1 };
+    g_bar = (MenuBar){ g_finder, 5, 1 };
     render_run(&r, draw);
 
     int bad = 0;
@@ -182,11 +182,14 @@ static void run_depth(unsigned bpp)
     CHECK(bad == 0, msg);
 
     int n = groups(&r, g, 9);
-    snprintf(msg, sizeof msg, "%u bpp: four Finder titles drawn (%d ink groups)", bpp, n);
-    CHECK(n == 4, msg);
+    snprintf(msg, sizeof msg, "%u bpp: five Finder titles drawn (%d ink groups)", bpp, n);
+    CHECK(n == 5, msg);
     snprintf(msg, sizeof msg, "%u bpp: File first ink x=43 (both captures)", bpp);
     CHECK(n >= 1 && g[0][0] == 43, msg);
-    for (int k = 0; k < 4 && k < n; k++) {
+    for (int k = 0; k < 5 && k < n; k++) {
+        snprintf(msg, sizeof msg, "%u bpp: %s first ink x=%d (s7_desktop.png)",
+                 bpp, FINDER[k].t, FINDER[k].x);
+        CHECK(g[k][0] == FINDER[k].x, msg);
         int cells, w = g[k][1] - g[k][0] + 1;
         snprintf(msg, sizeof msg, "%u bpp: %s ink %d px wide, rows %d..%d (s7_desktop.png %d, %d..%d)",
                  bpp, FINDER[k].t, w, g[k][2], g[k][3], FINDER[k].w, FINDER[k].y0, FINDER[k].y1);
@@ -214,7 +217,7 @@ static void run_depth(unsigned bpp)
 int main(void)
 {
     CHECK(load_art(CHICAGO12_ART), "chicago12.art reads with 16 rows of aw columns per glyph");
-    for (int k = 0; k < 4; k++)
+    for (int k = 0; k < 5; k++)
         g_finder[k] = (MenuInfo){ (int16_t)(512 + k), FINDER[k].t, g_item, 1, 0 };
     for (int k = 0; k < 8; k++)
         g_paint[k] = (MenuInfo){ (int16_t)(256 + k), PAINT[k], g_item, 1, 0 };

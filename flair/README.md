@@ -90,8 +90,12 @@ widths and rows from s7_desktop.png, every title cell against chicago12.art
 read by its own parser, and the frame's eight Photoshop titles in order.
 MENU_MUT_IDLE_TITLE_LOW (titles one row low) passes test_menu, test_menu_look
 and desktop test_shell's shared-DrawMenuBar comparison, and fails it.
-Title positions after File wait on initech-vhgid (spacing is +18, the
-captures +13).
+Title pens 42/78/116/161/209 and first ink 43/79/117/162/210 come from
+s7_desktop.png (specs/desktop/menu-bar.md, Title layout). Title pitch is
+StringWidth+13, with a 9px left inset and 4px right inset; the captured
+pulled block's ink+/-10 padding is independent of the hit slot. The literal
+checks failed before the spacing fix. MENU_MUT_TITLE_PITCH_18 restores the
+old pitch and is rejected by both geometry and rendered ink checks.
 
 Managers:
 
@@ -150,7 +154,7 @@ make test TESTS='test_window test_menu' selects registered entries for debugging
 The host tests use independent pixel/owner grids, text/layout models and
 reference-derived Mac resources and screen crops. SYSTEM7_DECOMP and
 WIN31_DECOMP default through mk/config.mk. Missing, changed or malformed corpus
-inputs fail loudly. Twenty runtime reference inputs are SHA-256 pinned in
+inputs fail loudly. Twenty-two runtime reference inputs are SHA-256 pinned in
 tests/REFERENCE-INPUTS.sha256; the five captured/transcribed golden headers cite
 their sources. tests/IMPORT.md gives every program, counts and the honest
 reference/self-derived split. In particular, DAC/skin consistency, compressed
@@ -205,7 +209,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 218 patches through the shared strict runner: passing baseline,
+make mutants runs 219 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
@@ -222,7 +226,7 @@ s8_alert_modal, s8_icons_alert_caution). No compile failure was counted as a kil
 The copy patches were refreshed against staged copying,
 with independent destination bytes and a literal configured-rate assertion.
 None was deleted as equivalent. tests/MUTATION-RESULTS.tsv records the 207 original
-macros and their 248 guard entries, plus eleven later external patches, test
+macros and their 248 guard entries, plus twelve later external patches, test
 selection, disposition, recipe evidence and completed semantic receipts.
 This includes five hooks omitted from the original 202-macro/243-entry inventory:
 the two clock faults, modal passthrough, close hiding and update visibility.

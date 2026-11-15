@@ -1,0 +1,13 @@
+# Restore the incorrect symmetric title padding; the capture pens reject it.
+# Source: s7_desktop.png, specs/desktop/menu-bar.md Title layout.
+# test: test_menu test_menu_bar_art
+--- a/include/chrome_metrics.h
++++ b/include/chrome_metrics.h
+@@ -46,6 +46,6 @@
+  * The 9px left inset leaves 4px on the right. The pulled ink block has its
+  * own 10px padding (s8_menu_dropped.png), independent of the hit slot. */
+-#define FLAIR_CHROME_MENU_TITLE_RPAD 4
++#define FLAIR_CHROME_MENU_TITLE_RPAD 9
+ #define FLAIR_CHROME_MENU_ITEM_LPAD 19
+ #define FLAIR_CHROME_MENU_CMD_RPAD 13
+ 

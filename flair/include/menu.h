@@ -72,12 +72,13 @@
 
 /* Deliberate re-key 2026-10-15, sys8/menus.md1.3/1.4/2.2:
  * File block/panel begins33; ink43 ->10px ink pad minus Chicago bearing1
- * =9px cell pad. File23px advance includes two blank outer columns, so its
- * substituted slot is41px (capture Charcoal40px;  remains separate).
+ * =9px left cell pad. s7_desktop.png title pens advance StringWidth+13:
+ * the right cell pad is4px. The pulled ink block is independent of the slot.
  * Initech mark cell origin15 is retained; the approved mask starts at column1.
  * Its 16px bitmap and the 33px menu hit slot are independent dimensions.
  */
 #define FLAIR_MENU_TITLE_PAD     FLAIR_CHROME_MENU_TITLE_PAD
+#define FLAIR_MENU_TITLE_RPAD    FLAIR_CHROME_MENU_TITLE_RPAD
 #define FLAIR_MENU_TITLE_HILITE_PAD  10
 #define FLAIR_MENU_APPLE_W       FLAIR_CHROME_MENU_APPLE_W
 #define FLAIR_MENU_APPLE_LEFT    FLAIR_CHROME_MENU_APPLE_LEFT
@@ -238,9 +239,9 @@ static inline uint16_t MenuResultItem(uint32_t r){ return (uint16_t)(r & 0xFFFFu
  * 5. BAR LAYOUT QUERIES  (proportional text; D-7)
  * ---------------------------------------------------------------------------
  * The bar lays each title out at a running x: starting at FLAIR_MENU_APPLE_W if
- * has_apple (else 0), each title occupies [x, x + PAD + text_measure + PAD) and
+ * has_apple (else 0), each title occupies [x, x + PAD + text_measure + RPAD) and
  * the next title starts where this one ends. The hit/draw width of a title is
- * text_measure(FONT_CHICAGO, title) + 2*FLAIR_MENU_TITLE_PAD.
+ * text_measure(FONT_CHICAGO, title) + FLAIR_MENU_TITLE_PAD + FLAIR_MENU_TITLE_RPAD.
  * ===========================================================================*/
 
 /*
@@ -251,7 +252,7 @@ static inline uint16_t MenuResultItem(uint32_t r){ return (uint16_t)(r & 0xFFFFu
 int MenuBar_title_x(const MenuBar *bar, int i);
 
 /*
- * MenuBar_title_w -- the WIDTH of menu index i's title slot (PAD + text + PAD).
+ * MenuBar_title_w -- the WIDTH of menu index i's title slot (PAD + text + RPAD).
  * Returns 0 if i is out of range.
  */
 int MenuBar_title_w(const MenuBar *bar, int i);

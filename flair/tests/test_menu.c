@@ -21,9 +21,9 @@
  *
  * THE PROPERTIES (in order of decisiveness):
  *
- *  1. BAR LAYOUT.  Each title's x-position == the cumulative sum of earlier
- *     PROPORTIONAL title widths (PAD + text_measure + PAD), computed INDEPENDENTLY
- *     here (not by calling the same internal). The bar is 20px. MenuBar_hit maps a
+ *  1. BAR LAYOUT. Finder pens equal the literal captured positions; Paint
+ *     tracking uses real NFNT advances plus the captured 13px spacing.
+ *     The bar is 20px. MenuBar_hit maps a
  *     point back to the title whose half-open slot contains it.
  *
  *  2. CANON.  The InitechPaint bar built from menu_canon.h matches the FROZEN
@@ -67,6 +67,7 @@
 #include "menu.h"               /* the Menu Manager under test (-Ios/flair)    */
 #include "menu_canon.h"         /* FROZEN canon string (-Ispec/assets)         */
 #include "initech_mark.h"
+#include "chicago12_nfnt_golden.h"
 #define APPLE_GLYPH_H 15
 #define APPLE_GLYPH_ROWS approved_initech_rows
 #include "marks/a-three-blocks.h"
@@ -78,22 +79,20 @@
 TEST_HARNESS();
 
 /* ===========================================================================
- * INDEPENDENT layout model (re-derives the proportional widths WITHOUT calling
- * the menu.c internals -- so a layout bug cannot mask itself; test_window idiom).
- * Mirrors menu.h's constants but recomputes the cumulative x from text_measure.
- * NOT AN ORACLE FOR THE SPACING. It reads FLAIR_MENU_TITLE_PAD and the
- * product's text_measure, so a wrong pad passes here, and one does: the
- * period Menu Manager spaces titles StringWidth + 13 apart (s7_desktop.png),
- * the product + 18. initech-vhgid replaces these legs with captured pens;
- * test_menu_bar_art grades the title glyphs and extents meanwhile.
+ * Independent placement for the Paint tracking fixture: real NFNT advances,
+ * plus 13 from s7_desktop.png (specs/desktop/menu-bar.md, Title layout).
+ * The literal Finder pens below grade this rule without rebuilding it.
  * ===========================================================================*/
 static int indep_title_w(const char *title)
 {
-    return text_measure(FONT_CHICAGO, title) + 2 * FLAIR_MENU_TITLE_PAD;
+    int w = 13;
+    for (; *title; title++)
+        w += NFNT5478_AW[(unsigned char)*title - NFNT5478_FIRST];
+    return w;
 }
 static int indep_title_x(const MenuBar *bar, int i)
 {
-    int x = bar->has_apple ? (int)FLAIR_MENU_APPLE_W : 0;
+    int x = bar->has_apple ? 33 : 0;
     for (int k = 0; k < i; k++)
         x += indep_title_w(bar->menus[k].title);
     return x;
@@ -232,8 +231,26 @@ int main(int argc, char **argv)
               FLAIR_MENUBAR_H == 20,
               "menu bar height is FLAIR_CHROME_MENUBAR_H == 20 (locked spec)");
 
-        /* Each title slot is at the independently-computed cumulative x, and its
-         * width is the proportional PAD+text+PAD. */
+        /* Captured Finder pens: s7_desktop.png ink starts minus bearing 1.
+         * Hit slots begin 9 px before the pen. No product metrics here. */
+        static const char *const titles[] = {"File", "Edit", "View", "Label", "Special"};
+        static const int pens[] = {42, 78, 116, 161, 209};
+        static const int widths[] = {36, 38, 45, 48, 59};
+        MenuInfo finder[5];
+        for (int k = 0; k < 5; k++)
+            finder[k] = (MenuInfo){(int16_t)(512 + k), titles[k], NULL, 0, 0};
+        MenuBar captured = {finder, 5, 1};
+        for (int k = 0; k < 5; k++) {
+            CHECK(MenuBar_title_x(&captured, k) + 9 == pens[k],
+                  "Finder title pen equals s7_desktop.png 42/78/116/161/209");
+            CHECK(MenuBar_title_w(&captured, k) == widths[k],
+                  "Finder title pitch equals captured advances plus 13");
+            CHECK(MenuBar_hit(&captured, pens[k] - 9) == k &&
+                  MenuBar_hit(&captured, pens[k] - 9 + widths[k] - 1) == k,
+                  "captured title slot boundaries select the correct menu");
+        }
+
+        /* Paint titles use the independent NFNT table and captured pitch. */
         int x_bad = 0, w_bad = 0;
         for (int k = 0; k < (int)g_bar.n_menus; k++) {
             if (MenuBar_title_x(&g_bar, k) != indep_title_x(&g_bar, k)) x_bad = 1;
@@ -241,7 +258,7 @@ int main(int argc, char **argv)
                 w_bad = 1;
         }
         CHECK(!x_bad, "MenuBar_title_x == cumulative proportional widths (D-7)");
-        CHECK(!w_bad, "MenuBar_title_w == PAD + text_measure + PAD (proportional)");
+        CHECK(!w_bad, "MenuBar_title_w == real NFNT advance + 13 (s7_desktop.png)");
 
         /* The first title starts AFTER the Apple slot. */
         CHECK(MenuBar_title_x(&g_bar, 0) == (int)FLAIR_MENU_APPLE_W,

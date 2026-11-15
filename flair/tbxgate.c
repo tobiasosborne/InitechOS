@@ -765,7 +765,7 @@ static int32_t v_setmbar(uint32_t bar)
     if (n > TBX_MBAR_MAX_MENUS) return mbar_bad("too-many-menus");
     if (n != 0u && !MB_IN(menus, n * WIRE_SIZE(tbx_menuinfo_t, TBX_MINFO_BYTES)))
         return mbar_bad("menus-outside-image");
-    /* menu.h Sec 5: the Apple slot, then text_measure(title) + 2*PAD per
+    /* menu.h Sec 5: the Apple slot, then text_measure(title) + PAD + RPAD per
      * title -- the proportional Chicago 12 width (spec/toolbox_gate.h Sec 9;
      * ), summed from the validated in-image bytes. */
     x = (*(const volatile uint8_t *)(uintptr_t)(bar + WIRE_OFF(tbx_menubar_t, has_apple, TBX_MBAR_APPLE_OFF)) != 0u)
@@ -783,7 +783,7 @@ static int32_t v_setmbar(uint32_t bar)
                 x += (uint32_t)chicago_advance(
                          (int)*(const volatile uint8_t *)(uintptr_t)(ta + (uint32_t)i));
         }
-        x += 2u * (uint32_t)FLAIR_MENU_TITLE_PAD;
+        x += (uint32_t)(FLAIR_MENU_TITLE_PAD + FLAIR_MENU_TITLE_RPAD);
         if (ni > TBX_MBAR_MAX_ITEMS) return mbar_bad("too-many-items");
         if (ni != 0u && !MB_IN(items, ni * WIRE_SIZE(tbx_menuitem_t, TBX_MITEM_BYTES)))
             return mbar_bad("items-outside-image");
