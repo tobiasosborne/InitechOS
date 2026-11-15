@@ -7,9 +7,10 @@
 #include <stdlib.h>
 #include <errno.h>
 typedef struct {
-    enum { BX_KEY, BX_MOVE, BX_BUTTON, BX_WAIT } kind;
+    enum { BX_KEY, BX_MOVE, BX_BUTTON, BX_WAIT, BX_TEXT } kind;
     unsigned key;
     int x, y, ctrl, shift, alt, delay;
+    char name[40];                /* BX_TEXT: <out>/<name>.screen */
 } BochsTraceStep;
 typedef struct {
     int x, y;                     /* the guest cursor this replay intends */
@@ -152,6 +153,15 @@ static inline int bochs_trace_parse(const char *s, size_t n, BochsTraceStep *v)
     }
     if (n == 2 && b[0] == 'l' && (b[1] == '0' || b[1] == '1')) {
         v->kind = BX_BUTTON; v->x = b[1] - '0'; return 1;
+    }
+    /* T<name>: the exact 80x25 text page and cursor, read from the stopped
+     * guest into <out>/<name>.screen (bochs.c, InitechBase stage 2). */
+    if (b[0] == 'T' && n > 1 && n - 1 < sizeof v->name) {
+        for (size_t i = 1; i < n; i++)
+            if (!((b[i] >= 'A' && b[i] <= 'Z') || (b[i] >= 'a' && b[i] <= 'z') ||
+                  (b[i] >= '0' && b[i] <= '9') || b[i] == '-' || b[i] == '_')) return 0;
+        memcpy(v->name, b + 1, n - 1); v->name[n - 1] = 0;
+        v->kind = BX_TEXT; return 1;
     }
     if (b[0] == 'w' && n > 1) {
         if (!bochs_trace_number(b+1, &end, 0, 30000, &v->delay) || *end) return 0;
