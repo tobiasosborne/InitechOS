@@ -50,8 +50,8 @@ and Data Fill, plus Global Zero, file browsing, Text import and every retained
 menu route, using sdk/host's
 shared fake Toolbox. No emulator runs in tier 0.
 The original 1,023,560 counted assertions are retained; malformed Retrieve and
-automatic numeric-entry recalculation add seven. Resource startup has 487
-checks across 22 fresh launches; all 81 shipped leaves have 360 route checks.
+automatic numeric-entry recalculation add seven. Resource startup has 652
+checks across 27 fresh launches; all 81 shipped leaves have 360 route checks.
 Separate checks still cover eight real Copy/Move pairs, four tiling fixtures,
 12 self-transfers and the complete 82-level/381-item reference. The shipped
 25-level/105-item tree is graded by full path, order, descriptions and action
@@ -68,13 +68,20 @@ Copy/Move retains 4000 random sheets and 1,020,041 assertions.
 
 The new suite compiles both face and menu core with I123_MENU_DISK, supplies the
 actual generated resource through sdk/host's memory volume, and checks slash
-navigation and Retrieve dispatch. Fresh processes exercise normal/short reads,
-truncated header/body, missing file, damaged magic/checksum and read/close errors.
+navigation and Retrieve dispatch. Startup opens the root-relative
+`\APPS\123.MNU`, which the Toolbox resolves on the volume it binds for the
+application: the C: system disk of the delivery layout (GOLDEN-MASTER.md item
+8). Fresh processes exercise, on a C:-only fake, normal/short reads,
+truncated header/body, missing file, damaged magic/checksum, read/close errors
+and every malformed tree. With A: also mounted, an A: copy never replaces a
+missing or damaged C: resource, and a damaged A: copy does not disturb a valid
+C: one. The legacy A:-bound layout keeps its two positives. Mutant
+`menu_resource_pins_a` (the old explicit A: path) fails 21 of these checks.
 Failure must EXIT(1), publish no UI and leave no open resource handle. Authority:
 legacy-final os/i123/app/face_a.c tbx_app_main and os/i123/core/menu.c; this binary
 resource framing and failure policy are authored, not Lotus file-format claims.
 
-`make mutants` applies 57 strict patches (including the 41 former hook locations), builds
+`make mutants` applies 59 strict patches (including the 41 former hook locations), builds
 each and requires the selected host suite to kill it twice. Mutants run only
 in tier 2. `make smoke` builds the product image and runs the shared desktop
 journeys on QEMU and Bochs. It independently checks the worksheet saved from

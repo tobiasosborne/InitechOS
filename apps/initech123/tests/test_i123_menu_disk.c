@@ -1,7 +1,14 @@
 /* Shipped startup configuration, over sdk/host. Ground truth: legacy-final
- * face_a.c tbx_app_main opens A:\APPS\123.MNU, closes it, and EXIT(1)s
+ * face_a.c tbx_app_main opens \APPS\123.MNU, closes it, and EXIT(1)s
  * before publishing the menu bar/window on missing, read/close error or any
  * i123_menu_load rejection. core/menu.c pins framing, length and FNV checksum.
+ * Legacy-final named A: because A: was then the system volume. The accepted
+ * delivery layout (GOLDEN-MASTER.md item 8, design-delivery: C: system disk,
+ * optional A: data volume) keeps APPS on the volume the Toolbox binds for the
+ * application (flair/desktop/platform.c: default paths use the bound volume),
+ * so every case below runs C:-only first. With A: also mounted, a resource on
+ * A: never stands in for a missing or damaged one on C:. The legacy A:-bound
+ * fixture is retained as two positives.
  * This is the authored resource policy, not a claim about Lotus's loader.
  * The input is the real generated resource; menu_tree independently compares
  * every word/edge against installed 123.RI and the captured tree. */
@@ -47,9 +54,28 @@ static void key_text(const char *s)
         tbx_app_event(&e);
     }
 }
+enum { KINDS_C = 22, KIND_A_ONLY = 22, KIND_A_DAMAGED, KIND_C_DAMAGED,
+       KIND_A_BOUND, KIND_A_BOUND_SHORT, KINDS };
 static void exercise(int kind)
 {
     tbx_host_reset();
+    const char *home = "C:\\APPS\\123.MNU";
+    if (kind >= KIND_A_BOUND) {
+        home = "A:\\APPS\\123.MNU";       /* sdk/host default: A: bound */
+        kind = kind == KIND_A_BOUND ? 0 : 6;
+    } else {
+        CHECK(tbx_host_mount('C', 1) && tbx_host_bind_system('C'), "bind C: system volume");
+        if (kind < KINDS_C) CHECK(tbx_host_mount('A', 0), "C:-only layout");
+    }
+    if (kind >= KINDS_C) {                  /* C: and A: both mounted */
+        uint8_t damaged[sizeof resource];
+        memcpy(damaged, resource, resource_len); damaged[100] ^= 1;
+        const void *on_a = kind == KIND_A_DAMAGED ? damaged : resource;
+        CHECK(tbx_host_put_file("A:\\APPS\\123.MNU", on_a, (uint32_t)resource_len),
+              "install A: data-volume copy");
+        /* A:-only = missing on C:; damaged A: beside valid C:; damaged C:. */
+        kind = kind == KIND_A_ONLY ? 3 : kind == KIND_A_DAMAGED ? 0 : 5;
+    }
     uint32_t len = (uint32_t)resource_len;
     if (kind == 1) len = 8;                /* truncated header */
     if (kind == 2) len--;                  /* truncated body/checksum */
@@ -57,7 +83,7 @@ static void exercise(int kind)
     if (kind == 5) resource[100] ^= 1;      /* valid header, bad checksum */
     if (kind >= 9) malformed((unsigned)kind,&len);
     if (kind != 3)
-        CHECK(tbx_host_put_file("A:\\APPS\\123.MNU", resource, len), "install menu fixture");
+        CHECK(tbx_host_put_file(home, resource, len), "install menu fixture");
     if (kind == 6) tbx_host.read_limit = 17; /* the loader must accumulate reads */
     if (kind == 7) tbx_host.file_error[TBX_FILE_READ] = 5;
     if (kind == 8) tbx_host.fail_close = 1;
@@ -90,7 +116,7 @@ int main(int argc, char **argv)
     if (!f) { perror(argv[1]); return 2; }
     resource_len = fread(resource, 1, sizeof resource, f);
     if (ferror(f) || fclose(f) || resource_len < 16) return 2;
-    for (int kind = 0; kind < 22; kind++) {
+    for (int kind = 0; kind < KINDS; kind++) {
         int fd[2], counts[2] = {0};
         if (pipe(fd)) return 2;
         fflush(NULL);

@@ -1546,7 +1546,9 @@ int tbx_app_main(void)
         __asm__ __volatile__ ("fldcw %0" : : "m"(cw));
     }
 #ifdef I123_MENU_DISK
-    int32_t mh=tbx_file_open("A:\\APPS\\123.MNU",TBX_FILE_READ_ONLY);
+    /* Root-relative: the resource lives on the volume the Toolbox binds for
+     * this application (the C: system disk), never on a mounted data volume. */
+    int32_t mh=tbx_file_open("\\APPS\\123.MNU",TBX_FILE_READ_ONLY);
     uint32_t got=0;int32_t mn=0;
     if(mh>=0) {
         do {mn=tbx_file_read(mh,g_wk+got,(uint32_t)sizeof g_wk-got);if(mn>0)got+=(uint32_t)mn;}while(mn>0&&got<sizeof g_wk);
