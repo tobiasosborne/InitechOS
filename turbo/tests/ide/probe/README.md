@@ -48,3 +48,21 @@ So one `TURBO.COM` cannot run what it compiles without a change outside
 `turbo/`; see the handoff and the bd issue for what the kernel must
 provide. This probe is evidence, not a regression test; it is not part of
 `make test` or `make smoke`.
+
+Re-run 2026-11-15 on main with the kernel's nested-flat placement
+(da8f453e, 7d162b78): the nested PIC child now runs at 0x40100, and Turbo's
+fixed-base flat output runs under the extended parent:
+
+```
+PROBE-PARENT-START
+PROBE-CHILD-RAN at=00040100
+PROBE-EXEC cf=0 ax=0000 status=0007 name=PIC.COM
+PROBE-EXEC cf=1 ax=0008 status=0000 name=EXT.EXE
+PROBE-PASCAL-CHILD
+PROBE-EXEC cf=0 ax=0000 status=0000 name=FLAT.COM
+PROBE-PARENT-END
+```
+
+So one TURBO.COM can EXEC the flat program it compiled. An extended child
+is still refused (error 8): programs too large for the flat arena cannot
+be run from the IDE.
