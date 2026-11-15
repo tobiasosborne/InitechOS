@@ -412,3 +412,11 @@ Interface export-pure: apps/initech123/include/i123.h i123_addr_text i123_after_
 Interface export-pure: apps/initech123/include/i123/wk1_format.h
 Interface use-gate: sdk/include/tbx.h
 <!-- end-interface-declarations -->
+
+Copy/Move's property and real-file comparisons emit completed assertion counts
+and `FAIL` at the actual mismatch; missing or empty reference decodes remain
+setup errors. The Fill adapter preserves producer failures and stops at the
+first independent WK1 mismatch, so later passing readers cannot replace its
+failure summary. The record reader counts each compared record. These changes
+repair the eight strict-runner diagnostic errors (initech-vocfm), with no
+worksheet or file-format behavior change.

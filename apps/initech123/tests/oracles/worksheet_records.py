@@ -40,9 +40,13 @@ if len(sys.argv) == 4 and sys.argv[3] in ("--native-fill-prefix", "--native-impo
     expected = {key: value for key, value in expected.items()
                 if key[0] != "cell" or (key[2] == 0 and key[3] < 2048)}
 errors = 0
+checks = 0
 for key in sorted(expected.keys() | actual.keys()):
+    checks += 1
     if expected.get(key) != actual.get(key):
         print('FAIL WK1', key, 'real:', expected.get(key), 'saved:', actual.get(key))
         errors += 1
-assert not errors, f'{errors} worksheet record mismatches'
+print(f'INITECH_CHECKS {checks} failures={errors}')
+if errors:
+    sys.exit(1)
 print(f'worksheet contents/settings match real R2.2 ({len(expected)} records)')

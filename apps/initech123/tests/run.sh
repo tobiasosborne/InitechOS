@@ -68,15 +68,14 @@ case $name in
     ;;
   test_i123_fill)
     (cd tests/fixtures/fill && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
-    rc=0; "$bin" "$out" || rc=1
+    "$bin" "$out"
     for pair in "basic BASIC" "fractional FRAC" "descending DESC" "formatted FMT" "protected PROT" "expressions EXPR" "zero ZERO" "bad_direction BADDIR" "decimal DECIMAL"; do
       set -- $pair
-      python3 tests/oracles/worksheet_records.py "tests/fixtures/fill/$1/RESULT.WK1" "$out/$2.WK1" || rc=1
+      python3 tests/oracles/worksheet_records.py "tests/fixtures/fill/$1/RESULT.WK1" "$out/$2.WK1"
     done
-    python3 tests/oracles/worksheet_records.py tests/fixtures/fill/reuse/REUSE.WK1 "$out/REUSE.WK1" || rc=1
-    python3 tests/oracles/worksheet_records.py tests/fixtures/fill/reuse/REUSE.WK1 "$out/CANCEL.WK1" || rc=1
-    python3 tests/oracles/worksheet_records.py tests/fixtures/fill/memory/FULLREF.WK1 "$out/MEMORY.WK1" --native-fill-prefix || rc=1
-    test "$rc" -eq 0
+    python3 tests/oracles/worksheet_records.py tests/fixtures/fill/reuse/REUSE.WK1 "$out/REUSE.WK1"
+    python3 tests/oracles/worksheet_records.py tests/fixtures/fill/reuse/REUSE.WK1 "$out/CANCEL.WK1"
+    python3 tests/oracles/worksheet_records.py tests/fixtures/fill/memory/FULLREF.WK1 "$out/MEMORY.WK1" --native-fill-prefix
     ;;
   test_i123_time)
     (cd tests/fixtures/time-formats && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"

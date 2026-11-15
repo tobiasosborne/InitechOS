@@ -24,7 +24,9 @@ static uint8_t mem[2][131072], cm[I123_CALC_BYTES(256)];
 static i123_calc_t cx;
 static unsigned rng=0x123a55,checks,failures;
 static unsigned random_(unsigned n) { rng=rng*1664525u+1013904223u; return (rng>>8)%n; }
-#define CHECK(x,why) do {checks++; if (!(x)) {failures++; if(failures<8) fprintf(stderr,"RED-REASON %s line %d\n",why,__LINE__);}}while(0)
+#define CHECK(x,why) do {checks++; if (!(x)) {failures++; if(failures<8) fprintf(stderr,"FAIL copy %s line %d\n",why,__LINE__);}}while(0)
+static int verdict(void)
+{ printf("INITECH_CHECKS %u failures=%u\n",checks,failures); return failures?1:0; }
 static void ref(char *out,int c,int r,int ac,int ar)
 { sprintf(out,"%s%c%s%d",ac?"$":"",'A'+c,ar?"$":"",r+1); }
 static void text(i123_sheet_t *s,int c,int r,char *out)
@@ -79,23 +81,25 @@ static int cell_line(const char *l)
 }
 static unsigned load_lines(const char *path,int cells_only,char lines[][256],unsigned cap)
 {
-    FILE *f=fopen(path,"r");unsigned n=0;char l[256];if(!f)return 0;
+    FILE *f=fopen(path,"r");unsigned n=0;char l[256];if(!f){perror(path);exit(2);}
     while(n<cap&&fgets(l,sizeof l,f)) {
         l[strcspn(l,"\r\n")]=0;
         if(cells_only&&!cell_line(l))continue;
         strcpy(lines[n++],l);
     }
-    fclose(f);return n;
+    if(ferror(f)||fclose(f))exit(2);
+    return n;
 }
 static char gl[512][256],al[512][256];
 /* 1 when the two decodes agree; prints every differing line otherwise. */
 static int same_decode(const char *name,const char *what,const char *g,const char *a,int cells_only)
 {
     unsigned ng=load_lines(g,cells_only,gl,512),na=load_lines(a,cells_only,al,512),bad=0;
-    if(!ng){fprintf(stderr,"!!! corpus %s: empty %s decode of the golden\n",name,what);return 0;}
+    if(!ng){fprintf(stderr,"!!! corpus %s: empty %s decode of the golden\n",name,what);exit(2);}
     for(unsigned i=0;i<ng||i<na;i++) {
         const char *x=i<ng?gl[i]:"(none)",*y=i<na?al[i]:"(none)";
-        if(strcmp(x,y)){if(!bad++)fprintf(stderr,"RED-REASON corpus %s %s\n",name,what);
+        checks++;
+        if(strcmp(x,y)){failures++;if(!bad++)fprintf(stderr,"FAIL corpus %s %s\n",name,what);
             fprintf(stderr,"    real 1-2-3: %s\n    artifact  : %s\n",x,y);}
     }
     return !bad;
@@ -144,7 +148,7 @@ static int tiles(const char *dir,const char *build,const char *formula_ref)
         }
         const char *name=cases[i].name;
         if(i123_transfer_rect(&s,&d,cases[i].from,cases[i].to,0)||i123_after_entry(&ccx,&d)||i123_wk1_write(&d,cout_,sizeof cout_,&n)) {
-            fprintf(stderr,"RED-REASON tile %s refused\n",name);bad++;continue;
+            CHECK(0,"captured tile transfer/recalculation/save succeeds");bad++;continue;
         }
         char golden[1024],out[1024],ga[1024],aa[1024];
         snprintf(golden,sizeof golden,"%s/%s.WK1",dir,name);
@@ -157,7 +161,8 @@ static int tiles(const char *dir,const char *build,const char *formula_ref)
         printf("tile %s: %s\n",name,ok?"agrees with real R2.2":"RED");
     }
     (void)formula_ref;
-    return bad?1:0;
+    (void)bad;
+    return verdict();
 }
 static int skip(const char *l) { return !strncmp(l,"sleep ",6)||!strncmp(l,"shot ",5)||!l[0]||l[0]=='#'; }
 static unsigned next_line(unsigned i,unsigned n) { while(i<n&&skip(sl[i]))i++; return i; }
@@ -192,7 +197,7 @@ static int corpus(const char *corpus_dir,const char *build,const char *formula_r
                 uint32_t len=(uint32_t)fread(cin_,1,sizeof cin_,g);fclose(g);
                 if(loaded&&pending) {
                     i123_sheet_t *s=&bank[cur];uint32_t olen;
-                    if(i123_after_entry(&ccx,s)||i123_wk1_write(s,cout_,sizeof cout_,&olen)){fprintf(stderr,"RED-REASON corpus %s: artifact refused recalc/write\n",name);return 1;}
+                    if(i123_after_entry(&ccx,s)||i123_wk1_write(s,cout_,sizeof cout_,&olen)){CHECK(0,"captured worksheet recalculates and saves");return verdict();}
                     snprintf(out,sizeof out,"%s/i123-copy-move-%s.WK1",build,name);
                     FILE *o=fopen(out,"wb");if(!o||fwrite(cout_,1,olen,o)!=olen)return 2;
                     fclose(o);
@@ -223,7 +228,7 @@ static int corpus(const char *corpus_dir,const char *build,const char *formula_r
             int other=1-cur;
             if(i123_sheet_init(&bank[other],cbank[other],sizeof cbank[other],256))return 2;
             int rc=i123_transfer(&bank[cur],&bank[other],from,to.c0,to.r0,mv?I123_TRANSFER_MOVE:I123_TRANSFER_COPY);
-            if(rc){fprintf(stderr,"RED-REASON corpus %s line %u: artifact refused the transfer (%d)\n",fname,i+1,rc);return 1;}
+            if(rc){CHECK(0,"captured transfer succeeds");return verdict();}
             cur=other;pending++;if(mv)moves++;else copies++;
             size_t dl=strlen(opdesc);snprintf(opdesc+dl,sizeof opdesc-dl," /%c%s->%s",mv?'m':'c',sl[i]+7,sl[b]+5);
             i=c;
@@ -237,7 +242,7 @@ static int corpus(const char *corpus_dir,const char *build,const char *formula_r
         return 2;
     }
     printf("i123-copy-move corpus: %u before/after pairs (%u /Copy, %u /Move) from %u step files, %u RED\n",pairs,copies,moves,files,red);
-    return red?1:0;
+    return verdict();
 }
 int main(int argc,char **argv)
 {
@@ -248,7 +253,8 @@ int main(int argc,char **argv)
         snprintf(a,sizeof a,"%s/i123-saved.golden.cells",argv[4]);
         snprintf(b,sizeof b,"%s/i123-saved.artifact.cells",argv[4]);
         if(reader(corpus_dir,ref,0,argv[2],a)||reader(corpus_dir,ref,0,argv[3],b))return 2;
-        return same_decode(argv[2],"saved cell records",a,b,1)?0:1;
+        (void)same_decode(argv[2],"saved cell records",a,b,1);
+        return verdict();
     }
     if(argc==5&&!strcmp(argv[1],"--corpus"))return corpus(argv[2],argv[3],argv[4]);
     if(argc==5&&!strcmp(argv[1],"--tile"))return tiles(argv[2],argv[3],argv[4]);
@@ -358,5 +364,5 @@ int main(int argc,char **argv)
         CHECK(q&&q->len==source->len&&!memcmp(sh.pool+source->off,dst.pool+q->off,q->len),"tile-copy-bytes");
     }
     printf("i123-copy-move: %u checks, %u failures (4000 random sheets)\n",checks,failures);
-    return failures?1:0;
+    return verdict();
 }
