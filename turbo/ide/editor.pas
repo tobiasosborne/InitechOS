@@ -547,15 +547,20 @@ function FileExists(var Path: string): boolean;
 var F: file;
     Code: integer;
 begin
+  BufErr := 0;
   Assign(F, Path);
   Reset(F, 1);
   Code := IOResult();
   if Code = 0 then
   begin
     Close(F);
-    FileExists := IOResult() = 0
+    Code := IOResult();
+    FileExists := Code = 0
   end
-  else FileExists := false
+  else FileExists := false;
+  { Only FILE NOT FOUND proves absence. Access/close errors must not turn
+    an existing destination into an unconfirmed new-file save. }
+  if (Code <> 0) and (Code <> 2) then BufErr := Code
 end;
 
 procedure DoSave;
@@ -656,12 +661,20 @@ begin
     end
     else DoLoad(NameText)
   end
-  else if (NameKind = NameWrite) and FileExists(NameText) then
+  else
   begin
-    PendingName := NameText;
-    UiMode := ModeOverwrite
+    if FileExists(NameText) then
+    begin
+      PendingName := NameText;
+      UiMode := ModeOverwrite
+    end
+    else if BufErr <> 0 then
+    begin
+      if NameKind = NameRename then ShowFileError(BufErr, ModeEditor)
+      else ShowFileError(BufErr, ModeMenu)
+    end
+    else WriteTo(NameText, false)
   end
-  else WriteTo(NameText, false)
 end;
 
 procedure SaveCommand;
@@ -964,7 +977,10 @@ begin
   else if UiMode = ModeOverwrite then
   begin
     if (K = ord('y')) or (K = ord('Y')) then WriteTo(PendingName, true)
-    else if (K = ord('n')) or (K = ord('N')) or (K = KeyEsc) then UiMode := ModeMenu
+    else if (K = ord('n')) or (K = ord('N')) or (K = KeyEsc) then
+    begin
+      if NameKind = NameRename then UiMode := ModeEditor else UiMode := ModeMenu
+    end
   end
   else if UiMode = ModeBar then
   begin

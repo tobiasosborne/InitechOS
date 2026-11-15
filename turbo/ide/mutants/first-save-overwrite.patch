@@ -1,0 +1,8 @@
+# test: first-save
+--- a/editor.pas
++++ b/editor.pas
+@@ -665,3 +665,3 @@
+   begin
+-    if FileExists(NameText) then
++    if (NameKind = NameWrite) and FileExists(NameText) then
+     begin
