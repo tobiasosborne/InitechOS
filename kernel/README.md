@@ -433,6 +433,7 @@ Interface export-binding: kernel/include/io.h
 Interface export-binding: kernel/include/kbd.h kbd_bios_flags kbd_console_replay kbd_getchar kbd_haschar kbd_init kbd_input_claim kbd_input_init kbd_input_put kbd_irq_handler kbd_ring_empty kbd_ring_get kbd_ring_init kbd_ring_put kbd_scancode_put kbd_set_input_owner kbd_set_scancode_hook kbd_state_init kbd_translate
 Interface export-binding: kernel/include/loader.h load_program load_program_from_fat load_program_in_place loader_bind_fat_volume loader_decide_env loader_image_is_transient loader_load_overlay loader_load_tenant loader_nest_enter loader_nest_leave loader_overlay_core loader_prepare loader_prepare_in_place loader_prepare_mz loader_prepare_mz_at loader_prepare_tenant
 Interface export-records: kernel/include/memory_map.h
+Interface export-records: kernel/include/dos_oem.h
 Interface export-binding: kernel/include/memory_map.h
 Interface export-binding: kernel/include/mouse.h mouse_init mouse_irq_handler mouse_set_event_hook
 Interface export-binding: kernel/include/mouse_pack.h
