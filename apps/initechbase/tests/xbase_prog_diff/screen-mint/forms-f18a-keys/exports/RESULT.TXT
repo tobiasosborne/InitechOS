@@ -1,0 +1,5 @@
+
+R1=   7 A= wxyz B=     
+R2=   7 A= wxyz B=     
+R3=   2 A= wxyz B=     
+R4=   7 A=      B= wxyz
