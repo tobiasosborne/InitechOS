@@ -8,4 +8,4 @@
 +static const char copy_caption[]="Saving tables to disk";
  static const char shipped[]="APPS\\LEDGER.TXT";
  static const char copy_dst[]="APPS\\TABLES.TXT";
- /* Stage names, tried in DOS order; an occupied name is never touched. */
+ /* Stage names, tried in DOS order; an occupied name is never touched. A

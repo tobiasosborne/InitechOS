@@ -1,0 +1,11 @@
+--- a/calc.c
++++ b/calc.c
+@@ -563,7 +563,7 @@
+     int32_t rc=tbx_file_delete(copy_stage);
+     g_staged=0;
+     if(rc<0&&rc!=TBX_ERR_DOS(2)) rc=tbx_file_delete(copy_stage);
+-    if(rc>=0||rc==TBX_ERR_DOS(2)) return otherwise;
++    if(1) return otherwise;
+     char *d=said;
+     if(otherwise) { for(const char *s=otherwise;*s;) *d++=*s++; *d++='\r'; }
+     for(const char *s=remains_text;*s;) *d++=*s++;

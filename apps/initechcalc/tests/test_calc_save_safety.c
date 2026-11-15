@@ -85,11 +85,66 @@ static void complete(int32_t result)
     }
     event(TBX_EVT_FILECOPY,result);
 }
+/* A stage FILE COPY used whose cleanup DELETE DOS refuses (initech-zev40,
+ * initech-40kpb). Once the Save is over the file is no longer provably
+ * Calc's: the user may move, delete or replace it through the Finder, and a
+ * later session cannot know it at all. So Calc must name it to the user,
+ * never delete it later, and later saves must still find a stage.
+ *   cleanup-replaced: a cancelled copy leaves APPS\TABLES.TMP; the user puts
+ *     an unrelated file of that name; the next Save must leave it alone.
+ *   cleanup-refused: Quit > Save lands but its stage stays (one session of a
+ *     sequence run by save-safety.sh over the same disk).
+ *   after-leftovers: a later session, no fault, types 74 and saves. */
+static const char replacement[]="Unrelated user file\000\377\r\n";
+static int cleanup_scenario(const char *scenario,const char *disk)
+{
+    int replaced=!strcmp(scenario,"cleanup-replaced"), later=!strcmp(scenario,"after-leftovers");
+    tbx_host_reset();
+    CHECK(tbx_host_import(disk),"import independent on-disk fixture");
+    CHECK(tbx_app_main()==0&&tbx_host.alerts==0,"Calc launches on the saved tables");
+    event(keyDown,'7'); event(keyDown,later?'4':'3'); event(keyDown,'\r');
+    if(replaced) event(TBX_EVT_MENU,TBX_MENU_WORD(129,1));
+    else { event(TBX_EVT_MENU,TBX_MENU_WORD(129,2)); event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT); }
+    CHECK(g_ask==ASK_REPLACE,"existing destination asks before replacement");
+    event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);
+    CHECK(copy_calls==1&&g_copying,"the stage goes through FILE COPY");
+    if(later) {
+        complete(0);
+        CHECK(!g_dirty&&tbx_host.exit_calls==1,"a later session saves and quits although earlier stages remain");
+    } else {
+        static char stage_name[TBX_FILE_PATH_MAX]; int a=tbx_host.alerts;
+        snprintf(stage_name,sizeof stage_name,"%s",tbx_host.copy_src);
+        tbx_host.file_error[TBX_FILE_DELETE]=5;
+        complete(replaced?TBX_ERR_BUSY:0);
+        tbx_host.file_error[TBX_FILE_DELETE]=0;
+        CHECK(tbx_host.alerts==a+1&&strstr(tbx_host.alert_text,"Temporary file remains")&&strstr(tbx_host.alert_text,stage_name),
+              "a stage Calc cannot remove is named to the user");
+        CHECK(replaced?!!strstr(tbx_host.alert_text,"could not be saved"):!strstr(tbx_host.alert_text,"could not be saved"),
+              "the notice says whether the worksheet was saved");
+        CHECK(tbx_host.exit_calls==0,"the session waits for the notice");
+        event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);
+        if(replaced) {
+            CHECK(g_dirty&&tbx_host.exit_calls==0,"a cancelled copy keeps the work");
+            /* The user, in the Finder, replaces the leftover with another file. */
+            CHECK(tbx_host_put_file(stage_name,replacement,sizeof replacement-1),"the user's file takes the leftover's name");
+            event(TBX_EVT_MENU,TBX_MENU_WORD(129,1));
+            event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);
+            CHECK(copy_calls==2&&g_copying&&strcmp(tbx_host.copy_src,stage_name),"the next Save stages under another name");
+            complete(0);
+            CHECK(!g_dirty&&tbx_host.alerts==a+2&&strstr(tbx_host.alert_text,"replace"),"the next Save lands without complaint (its one alert is the replace question)");
+        } else CHECK(!g_dirty&&tbx_host.exit_calls==1,"the landed Save quits once the notice is dismissed");
+    }
+    CHECK(handles()==0&&!g_staged&&!g_copying,"no handle, stage or copy left");
+    CHECK(tbx_host_export(disk),"export disk for independent shell readback");
+    printf("test_calc_save_safety: %u checks, %u failures (%s)\n",checks,failures,scenario);
+    return failures?1:0;
+}
 int main(int argc, char **argv)
 {
     (void)count_reserve; /* Also compile against the pre-CREATE_NEW tenant. */
     if(argc!=3) return 2;
     const char *scenario=argv[1];
+    if(!strncmp(scenario,"cleanup-",8)||!strcmp(scenario,"after-leftovers")) return cleanup_scenario(scenario,argv[2]);
     int probe=!strcmp(scenario,"destination-open-error") || !strcmp(scenario,"destination-close-error");
     int cancel=!strcmp(scenario,"replace-no");
     int copy_error=!strcmp(scenario,"copy-error") || !strcmp(scenario,"copy-cancel");
@@ -130,7 +185,7 @@ int main(int argc, char **argv)
             CHECK(copy_calls==(!strcmp(scenario,"copy-rejected")?1u:0u),"failed stage never reaches FILE COPY");
         }
         if(!strcmp(scenario,"create-error")) CHECK(reserve_calls==1,"only file-exists advances to another candidate");
-        if(!strcmp(scenario,"all-collisions")) CHECK(reserve_calls==4,"all four names reserved exclusively before safe refusal");
+        if(!strcmp(scenario,"all-collisions")) CHECK(reserve_calls==10,"all ten names reserved exclusively before safe refusal");
     }
     CHECK(handles()==0,"no open handles after completion/error");
     CHECK(!g_staged && !g_copying,"no stage ownership or copy left after terminal result");

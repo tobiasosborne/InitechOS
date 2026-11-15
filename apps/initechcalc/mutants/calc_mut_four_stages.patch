@@ -1,0 +1,12 @@
+--- a/calc.c
++++ b/calc.c
+@@ -29,8 +29,7 @@
+ static const char copy_dst[]="APPS\\TABLES.TXT";
+ /* Stage names, tried in DOS order; an occupied name is never touched. A
+  * stage DOS would not delete is left to the user, so there are spares. */
+-static const char *const stage_names[]={"APPS\\TABLES.TMP","APPS\\TABLE~1.TMP","APPS\\TABLE~2.TMP","APPS\\TABLE~3.TMP",
+-    "APPS\\TABLE~4.TMP","APPS\\TABLE~5.TMP","APPS\\TABLE~6.TMP","APPS\\TABLE~7.TMP","APPS\\TABLE~8.TMP","APPS\\TABLE~9.TMP"};
++static const char *const stage_names[]={"APPS\\TABLES.TMP","APPS\\TABLE~1.TMP","APPS\\TABLE~2.TMP","APPS\\TABLE~3.TMP"};
+ static const char *copy_stage;
+ #define STAGES (sizeof stage_names/sizeof stage_names[0])
+ static const char quit_text[]="Save changes to the worksheet\r\"TABLES.TXT\"\rbefore quitting?";

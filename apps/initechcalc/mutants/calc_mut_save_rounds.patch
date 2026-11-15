@@ -1,0 +1,15 @@
+--- a/calc.c
++++ b/calc.c
+@@ -346,9 +346,9 @@
+                 /* The stored number itself, not the control panel's
+                  * 15-digit text: a save never rounds what the user typed
+                  * (initech-qdscg). */
+-                i123_val_t v; uint8_t fmt=cell_fmt(p);
+-                i123_cell_value(&g_sheet,(uint16_t)c,(uint16_t)r,&v);
+-                if(v.t!=I123_V_NUM) { put_full=1; continue; }
++                i123_val_t v; uint8_t fmt=cell_fmt(p); char raw[48];
++                i123_cell_content(&g_sheet,p,raw,sizeof raw); v.t=I123_V_NUM;
++                if(i123_parse_value(raw,length(raw),&v.n)!=I123_OK) { put_full=1; continue; }
+                 if(fmt==FMT_GENERAL) put("(G) ");
+                 else { char t[6]={'(',WK1_FMT_TYPE(fmt)==WK1_FT_FIXED?'F':'C',(char)('0'+(fmt&15)),')',' ',0}; put(t); }
+                 put_value(v.n);

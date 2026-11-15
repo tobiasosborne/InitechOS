@@ -27,17 +27,19 @@ static const tbx_menubar_t mbar={menus,1,1,0};
 static const char copy_caption[]=CALC_COPY_CAPTION;
 static const char shipped[]="APPS\\LEDGER.TXT";
 static const char copy_dst[]="APPS\\TABLES.TXT";
-/* Stage names, tried in DOS order; an occupied name is never touched. */
-static const char *const stage_names[]={"APPS\\TABLES.TMP","APPS\\TABLE~1.TMP","APPS\\TABLE~2.TMP","APPS\\TABLE~3.TMP"};
+/* Stage names, tried in DOS order; an occupied name is never touched. A
+ * stage DOS would not delete is left to the user, so there are spares. */
+static const char *const stage_names[]={"APPS\\TABLES.TMP","APPS\\TABLE~1.TMP","APPS\\TABLE~2.TMP","APPS\\TABLE~3.TMP",
+    "APPS\\TABLE~4.TMP","APPS\\TABLE~5.TMP","APPS\\TABLE~6.TMP","APPS\\TABLE~7.TMP","APPS\\TABLE~8.TMP","APPS\\TABLE~9.TMP"};
 static const char *copy_stage;
 #define STAGES (sizeof stage_names/sizeof stage_names[0])
-static unsigned stage_at;           /* stage_names index of copy_stage */
-static uint8_t left_behind[STAGES]; /* stages of ours a refused DELETE kept */
 static const char quit_text[]="Save changes to the worksheet\r\"TABLES.TXT\"\rbefore quitting?";
 static const char replace_text[]="\"TABLES.TXT\" already exists.\rDo you want to replace it with the\rworksheet you are saving?";
 static const char fail_text[]="The worksheet could not be saved.";
 static const char unread_text[]="\"TABLES.TXT\" could not be read.\rThe original ledger was opened.";
 static const char lost_text[]="The ledger could not be read.";
+static const char remains_text[]="Temporary file remains:\r";
+static char said[3*48] TBX_IN_IMAGE={0};   /* a notice naming a file */
 enum { ASK_NONE, ASK_QUIT, ASK_REPLACE, ASK_NOTICE };
 
 /* ---- the ledger's layout (content pixels): label column, eight amount
@@ -341,12 +343,15 @@ static unsigned serialise(void)
                 char t[2]={0,0};
                 for(unsigned i=0;i<p->len;i++) { t[0]=b[i]; put(t); }
             } else if(p->kind==I123_K_NUMBER||p->kind==I123_K_INTEGER) {
-                char raw[48]; double x; uint8_t fmt=cell_fmt(p);
-                i123_cell_content(&g_sheet,p,raw,sizeof raw);
-                if(i123_parse_value(raw,length(raw),&x)!=I123_OK) { put_full=1; continue; }
+                /* The stored number itself, not the control panel's
+                 * 15-digit text: a save never rounds what the user typed
+                 * (initech-qdscg). */
+                i123_val_t v; uint8_t fmt=cell_fmt(p);
+                i123_cell_value(&g_sheet,(uint16_t)c,(uint16_t)r,&v);
+                if(v.t!=I123_V_NUM) { put_full=1; continue; }
                 if(fmt==FMT_GENERAL) put("(G) ");
                 else { char t[6]={'(',WK1_FMT_TYPE(fmt)==WK1_FT_FIXED?'F':'C',(char)('0'+(fmt&15)),')',' ',0}; put(t); }
-                put_value(x);
+                put_value(v.n);
             }
         }
         put("\r\n");
@@ -544,41 +549,55 @@ static int exists(const char *path)
     int32_t rc=tbx_file_close(h);
     return rc<0?rc:1;
 }
-/* Delete stage i, which this process created. If DOS refuses, the file is
- * still ours: remember it and try again at the next Save (initech-40kpb). */
-static void drop_stage(unsigned i)
+/* Delete the stage this Save created. It is provably Calc's only within
+ * that Save: CREATE_NEW made it, and the FILE COPY box is modal. Once the
+ * Save is over the user may move, delete or replace the file through the
+ * Finder, and a later session cannot know it at all, so Calc never deletes
+ * a stage later (initech-zev40). One that DOS refuses to delete, twice, is
+ * named to the user and left to them; the next Save takes another name
+ * (initech-40kpb). Returns the notice to show: `otherwise` when the stage
+ * is gone, else the remaining file's name after `otherwise` when that is
+ * the failure notice. */
+static const char *release_stage(const char *otherwise)
 {
-    int32_t rc=tbx_file_delete(stage_names[i]);
-    left_behind[i]=rc<0&&rc!=TBX_ERR_DOS(2);
+    int32_t rc=tbx_file_delete(copy_stage);
+    g_staged=0;
+    if(rc<0&&rc!=TBX_ERR_DOS(2)) rc=tbx_file_delete(copy_stage);
+    if(rc>=0||rc==TBX_ERR_DOS(2)) return otherwise;
+    char *d=said;
+    if(otherwise) { for(const char *s=otherwise;*s;) *d++=*s++; *d++='\r'; }
+    for(const char *s=remains_text;*s;) *d++=*s++;
+    for(const char *s=copy_stage;*s;) *d++=*s++;
+    *d=0;
+    return said;
 }
-static void release_stage(void) { g_staged=0; drop_stage(stage_at); }
+/* After a notice the user has dismissed: a Quit waiting on a landed Save. */
+static void quit_if_asked(void) { if(g_quit_after_save) { g_quit_after_save=0; (void)tbx_exit(0); } }
 /* Every save writes the model, with the windows where they are now, to a
  * stage this process owns, and FILE COPY copies the stage to TABLES.TXT. */
 static void do_save(void)
 {
     unsigned n=serialise(); int32_t h=TBX_ERR_DOS(80);
     if(!n) { g_quit_after_save=0; notice(fail_text); return; }
-    for(unsigned i=0;i<STAGES;i++) if(left_behind[i]) drop_stage(i);
     copy_stage=0;
     /* CREATE_NEW is the ownership proof (toolbox_gate.h Sec 10b). OPEN
      * errors never license truncating someone else's file. Only file-exists
      * advances to another candidate. */
     for(unsigned i=0;i<STAGES;i++) {
         h=tbx_file_create_new(stage_names[i]);
-        if(h>=0) { copy_stage=stage_names[i]; stage_at=i; break; }
+        if(h>=0) { copy_stage=stage_names[i]; break; }
         if(h!=TBX_ERR_DOS(80)) break;
     }
     if(h<0) { g_quit_after_save=0; notice(fail_text); return; }
     g_staged=1;
     int32_t written=tbx_file_write(h,stage,n);
     int32_t closed=tbx_file_close(h); /* also after a short or failed WRITE */
-    if(written!=(int32_t)n||closed<0) { release_stage(); g_quit_after_save=0; notice(fail_text); return; }
+    if(written!=(int32_t)n||closed<0) { g_quit_after_save=0; notice(release_stage(fail_text)); return; }
     g_copying=1;
     if(tbx_file_copy(copy_caption,copy_stage,copy_dst)!=TBX_OK) {
         g_copying=0;
         /* A rejected request has no completion event to clean up for us. */
-        release_stage();
-        g_quit_after_save=0; notice(fail_text);
+        g_quit_after_save=0; notice(release_stage(fail_text));
     }
 }
 static void begin_save(void)
@@ -607,7 +626,8 @@ static void request_quit(void)
 static void answer(int32_t item)
 {
     int k=g_ask; g_ask=ASK_NONE;
-    if(k==ASK_QUIT) {
+    if(k==ASK_NOTICE) quit_if_asked();
+    else if(k==ASK_QUIT) {
         if(item==(int32_t)TBX_ALERT_OTHER) { (void)tbx_exit(0); return; }
         if(item==(int32_t)TBX_ALERT_DEFAULT) { g_quit_after_save=1; begin_save(); }
     } else if(k==ASK_REPLACE) {
@@ -623,9 +643,11 @@ void tbx_app_event(const tbx_event_t *e)
     if(e->what==TBX_EVT_ALERT) { answer((int32_t)e->message); return; }
     if(e->what==TBX_EVT_FILECOPY) { /* the shell restored what the box covered */
         int ok=(int32_t)e->message>=0; g_copying=0;
-        if(g_staged) release_stage(); /* the stage never outlives the copy */
-        if(ok) { g_dirty=0; if(g_quit_after_save) { g_quit_after_save=0; (void)tbx_exit(0); } }
-        else { g_quit_after_save=0; notice(fail_text); }
+        /* the stage never outlives the copy, or the user is told its name */
+        const char *say=g_staged?release_stage(ok?0:fail_text):(ok?0:fail_text);
+        if(ok) g_dirty=0; else g_quit_after_save=0;
+        if(say) { notice(say); if(g_ask!=ASK_NOTICE) quit_if_asked(); }
+        else quit_if_asked();
         return;
     }
     if(e->what!=keyDown) return;

@@ -70,6 +70,8 @@ static size_t edited(char *out,const char *from,const char *to)
  * raised (0: the saved document read cleanly); *saved is 0 when no copy was
  * asked for. */
 static unsigned reopen_alerts;
+static double stored; static int stored_ok;   /* the cell's number before Save */
+static int first_cell(double *x);
 static int save_and_reopen(const char *shipped_doc,const char *tables,const char *typed,int *saved)
 {
     static char keep[8192]; size_t kl=0;
@@ -81,6 +83,7 @@ static int save_and_reopen(const char *shipped_doc,const char *tables,const char
     i123_set_cursor(&g_sheet,0,0);
     for(const char *p=typed;*p;p++) key(*p);
     key('\r');
+    stored_ok=first_cell(&stored);
     int a=tbx_host.alerts;
     event(TBX_EVT_MENU,SAVE);
     if(tbx_host.alerts>a&&strstr(tbx_host.alert_text,"replace")) event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);
@@ -96,12 +99,31 @@ static int save_and_reopen(const char *shipped_doc,const char *tables,const char
     reopen_alerts=tbx_host.alerts;
     return 0;
 }
+/* The stored number itself (the worksheet's numeric accessor), never the
+ * 15-digit control-panel text, which would hide a rounded save
+ * (initech-qdscg). */
 static int first_cell(double *x)
 {
-    const i123_cell_t *p=i123_find(&g_sheet,0,0); char raw[48];
-    if(!p||(p->kind!=I123_K_NUMBER&&p->kind!=I123_K_INTEGER)) return 0;
-    i123_cell_content(&g_sheet,p,raw,sizeof raw);
-    return i123_parse_value(raw,(uint32_t)strlen(raw),x)==I123_OK;
+    i123_val_t v;
+    i123_cell_value(&g_sheet,0,0,&v);
+    if(v.t!=I123_V_NUM) return 0;
+    *x=v.n; return 1;
+}
+/* Row 1's first cell as the saved TABLES.TXT holds it, read with the C
+ * library's strtod, independent of Calc and Initech 123: "(G) " and the
+ * number, sign at the tail. */
+static int saved_first_cell(double *x)
+{
+    static char text[8192];
+    const tbx_host_file_t *t=tbx_host_file("APPS\\TABLES.TXT");
+    if(!t||t->size>=sizeof text) return 0;
+    memcpy(text,t->data,t->size); text[t->size]=0;
+    char *p=strstr(text,"\r\n1\t(G) "), *end;
+    if(!p) return 0;
+    *x=strtod(p+8,&end);
+    if(end==p+8) return 0;
+    if(*end=='-') { *x=-*x; end++; }
+    return *end=='\r';
 }
 int main(void)
 {
@@ -194,13 +216,22 @@ int main(void)
      * 0.0000001 and 1000000000000000000000 (and their negatives) must save,
      * and the saved tables must reopen with the same value, never fall back
      * to the shipped ledger. Expected values are the typed literals. */
-    {   static const struct { const char *typed; double value; } big[]={
-            {"0.0000001",1e-7},{"1000000000000000000000",1e21},{"0.0000001-",-1e-7},{"-1000000000000000000000",-1e21},{"1.5E-12",1.5e-12}};
+    {   /* literal 0: the typed text has 17 digits, and which double Initech
+         * 123's entry stores for it is the engine's business; the save must
+         * keep that double (initech-qdscg). */
+        static const struct { const char *typed; double value; int literal; } big[]={
+            {"0.0000001",1e-7,1},{"1000000000000000000000",1e21,1},{"0.0000001-",-1e-7,1},{"-1000000000000000000000",-1e21,1},{"1.5E-12",1.5e-12,1},
+            /* initech-qdscg: more digits than the 15 the control panel shows */
+            {"1234567890123456",1234567890123456.0,1},{"1234567890123456-",-1234567890123456.0,1},{"0.12345678901234567",0,0}};
         for(unsigned i=0;i<sizeof big/sizeof big[0];i++) {
             int saved=0; double x=0; char msg[96];
             int rc=save_and_reopen(shipped_bytes,0,big[i].typed,&saved);
+            snprintf(msg,sizeof msg,"EXPONENT %s is stored as typed",big[i].typed);
+            CHECK(stored_ok&&(!big[i].literal||stored==big[i].value),msg);
             snprintf(msg,sizeof msg,"EXPONENT %s saves and reopens as itself",big[i].typed);
-            CHECK(rc==0&&saved&&reopen_alerts==0&&first_cell(&x)&&x==big[i].value,msg);
+            CHECK(rc==0&&saved&&reopen_alerts==0&&first_cell(&x)&&x==stored,msg);
+            snprintf(msg,sizeof msg,"EXACT %s is saved on the disk as itself",big[i].typed);
+            CHECK(saved_first_cell(&x)&&x==stored,msg);
             snprintf(msg,sizeof msg,"EXPONENT %s reopens with the rest of the ledger",big[i].typed);
             {   char s[96]; CHECK(cell_text(8,15,s,42)&&!strcmp(s,"570-")&&nseries==5,msg); }
         }
@@ -223,28 +254,29 @@ int main(void)
         CHECK(reopen_alerts==0&&first_cell(&x)&&x==73,"EMPTY the saved document reopens with the entry");
     }
 
-    /* initech-40kpb: a stage Calc created is still Calc's after its DELETE
-     * fails. A cancelled copy whose cleanup is refused leaves APPS\TABLES.TMP;
-     * the next Save must clear it, and after that Save lands no stage of
-     * Calc's may remain. (A stranger's TABLES.TMP is never touched:
-     * STAGE_CLOBBER above.) */
+    /* initech-40kpb, initech-zev40: a stage whose DELETE DOS refuses is no
+     * longer provably Calc's once its Save is over. Calc names it to the
+     * user, leaves it exactly as it was, and the next Save takes another
+     * name. (A stranger's TABLES.TMP is never touched: STAGE_CLOBBER above.) */
     {   tbx_host_reset(); copies=0; memset(drag_h,0,sizeof drag_h); memset(drag_v,0,sizeof drag_v);
         tbx_host_put_file("APPS\\LEDGER.TXT",shipped_bytes,(uint32_t)shipped_len);
         CHECK(tbx_app_main()==0,"LEFTOVER Calc launches");
         key('7'); key('3'); key('\r');
         event(TBX_EVT_MENU,SAVE);
         CHECK(copies==1&&!strcmp(tbx_host.copy_src,"APPS\\TABLES.TMP"),"LEFTOVER the first Save stages APPS\\TABLES.TMP");
+        static char first[8192]; size_t fl=staged_len; memcpy(first,staged,fl);
         tbx_host.file_error[TBX_FILE_DELETE]=5;
         event(TBX_EVT_FILECOPY,TBX_ERR_BUSY);              /* cancelled; the stage cannot be deleted */
         tbx_host.file_error[TBX_FILE_DELETE]=0;
-        CHECK(tbx_host_file("APPS\\TABLES.TMP")!=0&&g_dirty,"LEFTOVER the refused cleanup left the stage and the work");
+        CHECK(g_dirty&&!strcmp(tbx_host.alert_text,"The worksheet could not be saved.\rTemporary file remains:\rAPPS\\TABLES.TMP"),
+              "LEFTOVER the failure notice names the file left behind");
         event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);            /* dismiss the failure notice */
         event(TBX_EVT_MENU,SAVE);
-        CHECK(copies==2,"LEFTOVER the next Save copies");
+        CHECK(copies==2&&!strcmp(tbx_host.copy_src,"APPS\\TABLE~1.TMP"),"LEFTOVER the next Save takes another name");
         event(TBX_EVT_FILECOPY,(int32_t)staged_len);
-        CHECK(!tbx_host_file("APPS\\TABLES.TMP")&&!tbx_host_file("APPS\\TABLE~1.TMP")&&!tbx_host_file("APPS\\TABLE~2.TMP")&&!tbx_host_file("APPS\\TABLE~3.TMP"),
-              "LEFTOVER no stage of Calc's outlives the next landed Save");
-        CHECK(!g_dirty,"LEFTOVER the next Save lands");
+        {   const tbx_host_file_t *l=tbx_host_file("APPS\\TABLES.TMP");
+            CHECK(l&&l->size==fl&&!memcmp(l->data,first,fl),"LEFTOVER the file left behind is never deleted later"); }
+        CHECK(!tbx_host_file("APPS\\TABLE~1.TMP")&&!g_dirty,"LEFTOVER the next Save lands and removes its own stage");
     }
     printf("test_calc_file_copy: %u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;

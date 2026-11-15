@@ -26,7 +26,7 @@ for scenario in stage-open-error collision all-collisions create-error write-err
             printf 'Unrelated user file\000\377\r\n' > "$disk/APPS/TABLES.TMP" ;;
     esac
     if [ "$scenario" = all-collisions ]; then
-        for n in 1 2 3; do printf 'Unrelated file %s\r\n' "$n" > "$disk/APPS/TABLE~$n.TMP"; done
+        for n in 1 2 3 4 5 6 7 8 9; do printf 'Unrelated file %s\r\n' "$n" > "$disk/APPS/TABLE~$n.TMP"; done
     fi
     cp -R "$disk/APPS" "$tmp/expected/$scenario"
     if ! "$bin" "$scenario" "$disk" > "$tmp/out"; then fail=1; fi
@@ -43,5 +43,45 @@ for scenario in stage-open-error collision all-collisions create-error write-err
     fi
     checks=$((checks + 1))
 done
+# One run of the binary on DISK, its checks added to the totals.
+run() {
+    if ! "$bin" "$1" "$2" > "$tmp/out"; then fail=1; fi
+    cat "$tmp/out"
+    c=$(sed -n 's/^test_calc_save_safety: \([0-9]*\) checks, \([0-9]*\) failures.*/\1 \2/p' "$tmp/out")
+    checks=$((checks + ${c%% *})); failed=$((failed + ${c##* }))
+}
+readback() {
+    checks=$((checks + 1))
+    if ! diff -r "$1" "$2"; then
+        echo "FAIL save safety disk readback: $3"; fail=1; failed=$((failed + 1))
+    else
+        echo "ok independent disk readback: $3"
+    fi
+}
+fresh() {
+    mkdir -p "$1/APPS"
+    cp data/LEDGER.TXT "$1/APPS/LEDGER.TXT"
+    cp "$tmp/previous" "$1/APPS/TABLES.TXT"
+}
+# initech-zev40: a cancelled copy's stage that DOS would not delete, then
+# replaced by the user with an unrelated file, survives the next Save.
+fresh "$tmp/cleanup-replaced"
+run cleanup-replaced "$tmp/cleanup-replaced"
+mkdir -p "$tmp/expected/cleanup-replaced"
+cp data/LEDGER.TXT "$tmp/edited" "$tmp/expected/cleanup-replaced/"
+mv "$tmp/expected/cleanup-replaced/edited" "$tmp/expected/cleanup-replaced/TABLES.TXT"
+printf 'Unrelated user file\000\377\r\n' > "$tmp/expected/cleanup-replaced/TABLES.TMP"
+readback "$tmp/expected/cleanup-replaced" "$tmp/cleanup-replaced/APPS" cleanup-replaced
+# initech-40kpb: four sessions each Quit > Save, each stage's DELETE refused;
+# a fifth session without the fault still saves. The four stages are left
+# to the user as they were written (each the saved 73 ledger).
+fresh "$tmp/restart"
+for session in 1 2 3 4; do run cleanup-refused "$tmp/restart"; done
+run after-leftovers "$tmp/restart"
+mkdir -p "$tmp/expected/restart"
+cp data/LEDGER.TXT "$tmp/expected/restart/LEDGER.TXT"
+insert_after_rows data/LEDGER.TXT "1	(G) 74|2	'Keep under TABLES.TXT" > "$tmp/expected/restart/TABLES.TXT"
+for name in TABLES TABLE~1 TABLE~2 TABLE~3; do cp "$tmp/edited" "$tmp/expected/restart/$name.TMP"; done
+readback "$tmp/expected/restart" "$tmp/restart/APPS" restart-after-leftovers
 echo "test_calc_save_safety: $checks checks, $failed failures (all scenarios)"
 exit "$fail"
