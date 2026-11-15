@@ -1692,6 +1692,36 @@ static void leg_settings(void)
     flair_double_click_ticks = saved_ticks;
 }
 
+static void script_paint_trace(void)
+{
+    uint32_t reg[1]={g_base+IMG_REC},win[5]={T_L,T_T,T_R,T_B,1};
+    CHECK(gate(TBX_REGISTER,1,reg)==0,"paint trace registers tenant");
+    int32_t token=gate(TBX_NEWWINDOW,5,win);
+    CHECK(token==1,"paint trace opens real window");
+    uint32_t fill[6]={(uint32_t)token,5,5,10,10,0};
+    for(unsigned i=0;i<16;i++)CHECK(gate(TBX_FILLRECT,6,fill)==0,"bulk fill still executes");
+    fill[3]=6;fill[4]=6;
+    CHECK(gate(TBX_FILLRECT,6,fill)==0&&gate(TBX_FILLRECT,6,fill)==0,"graded control probes still execute");
+    fill[0]=99;
+    CHECK(gate(TBX_FILLRECT,6,fill)<0,"refused fill still reports its error");
+    uint32_t text[6]={(uint32_t)token,5,5,g_base+0x100,0,1};
+    memcpy((void *)(uintptr_t)text[3],"    ",5);
+    for(unsigned k=0;k<3;k++)CHECK(gate(TBX_TEXTDRAW,6,text)==0,"blank text still paints");
+    memcpy((void *)(uintptr_t)text[3],"Visible marker",15);
+    CHECK(gate(TBX_TEXTDRAW,6,text)==0,"visible text still paints");
+}
+static void leg_paint_trace(void)
+{
+    world_init();TP.script=script_paint_trace;
+    CHECK(launch()==TBX_OK,"paint trace launches");
+    CHECK(serial_has("TENANT-GATE paint fills=18 blanks=3\n"),"one callback emits exact successful draw counts");
+    CHECK(!serial_has("l=5 t=5 r=10 b=10"),"bulk fills emit no per-call serial line");
+    CHECK(serial_has("TENANT-GATE ax=0x0031 win=1 l=5 t=5 r=6 b=6 c=0 -> 0\n"),"single-pixel progress probes retain exact graded marker");
+    CHECK(serial_has("TENANT-GATE ax=0x0031 win=99"),"failed draw keeps detailed diagnostic");
+    CHECK(!serial_has("s=\"    \""),"blank rows emit no per-call text payload");
+    CHECK(serial_has("s=\"Visible marker\""),"semantic text milestones retain detailed payload");
+}
+
 int main(void)
 {
     FlairApp *t;
@@ -1724,5 +1754,6 @@ int main(void)
     leg_geneva();
     leg_cells();
     leg_settings();
+    leg_paint_trace();
     return TEST_SUMMARY("test-flair-routing");
 }

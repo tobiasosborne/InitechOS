@@ -1,0 +1,12 @@
+# test: test_flair_routing
+# A painting callback must not pay one UART line per bulk rectangle.
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1225,6 +1225,6 @@
+     if (ax == TBX_FILLRECT && rc == TBX_OK) {
+         g_slot.paint_fills++;
+-        if (a[3] != a[1]+1u || a[4] != a[2]+1u) {
++        if (0 && (a[3] != a[1]+1u || a[4] != a[2]+1u)) {
+             *eax_slot = (uint32_t)rc;
+             return;
+         }

@@ -329,3 +329,12 @@ Freestanding target flags set it to zero; hosted tests set it to one. The
 redundant __KERNEL_FREESTANDING__ guard (never defined by any build) was
 removed from the five Toolbox managers without changing generated target bytes.
 There was no dormant fault scenario in those terms to extract as a mutant.
+
+Tenant drawing traces summarize successful bulk FILLRECT calls and blank text
+rows once per callback (`TENANT-GATE paint fills=N blanks=N`). Period UART
+transmission otherwise costs more than the painting on Bochs (initech-9uxsg;
+frame-owner-3 measurements). Nonblank text, refused calls, file operations,
+lifecycle records and the existing single-pixel Control Panels probes retain
+their detailed markers. The summary keeps the existing progress prefix.
+The routing oracle independently scripts 18 successful fills, three blank rows,
+a refused fill and visible text, and checks both counts and retained records.

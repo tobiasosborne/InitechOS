@@ -141,6 +141,7 @@ typedef struct tbx_slot {
     uint8_t       torn_down;    /* terminate/kill already ran (close hook)    */
     uint8_t       mbar_redraw;  /* DRAWMENUBAR asked for a band-2 redraw      */
     uint8_t       quit_requested, quit_pending;
+    uint32_t      paint_fills, paint_blanks; /* completed drawing in callback */
     uint8_t       drew;         /* a draw verb reached the offscreen (8zii)   */
     uint8_t       alert;        /* an ALERT waits for the pump (fvnj)         */
     uint8_t       alert_lines, alert_btns;
@@ -290,10 +291,19 @@ static void run_tenant(uint32_t fn)
     int crashed;
     if (g_slot.in_call) tbx_panic("tenant code re-entered from inside a trap");
     g_slot.in_call = 1u;
+    g_slot.paint_fills = 0u;
+    g_slot.paint_blanks = 0u;
     crashed = flair_platform_tenant_call(fn, g_slot.plan.psp_addr);
     g_slot.in_call = 0u;
     g_slot.in_update = 0u;
     if (crashed) g_slot.crashed = 1u;
+    if (g_slot.paint_fills || g_slot.paint_blanks) {
+        tputs("TENANT-GATE paint fills=");
+        tputu(g_slot.paint_fills);
+        tputs(" blanks=");
+        tputu(g_slot.paint_blanks);
+        tputs("\n");
+    }
 }
 
 /* Push-callback delivery: copy the cooked EventRecord into the tenant's flat
@@ -1224,6 +1234,25 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         }
     }
 
+    /* Count successful bulk paint at callback boundaries. Keep failures,
+     * graded one-pixel control probes and semantic text milestones intact. */
+    if (ax == TBX_FILLRECT && rc == TBX_OK) {
+        g_slot.paint_fills++;
+        if (a[3] != a[1]+1u || a[4] != a[2]+1u) {
+            *eax_slot = (uint32_t)rc;
+            return;
+        }
+    }
+    if ((ax == TBX_TEXTDRAW || ax == TBX_DRAWCELLS) && rc == TBX_OK) {
+        /* The successful drawing call already validated this image string. */
+        const char *s = (const char *)(uintptr_t)a[3];
+        while (*s == ' ') s++;
+        if (!*s) {
+            g_slot.paint_blanks++;
+            *eax_slot = (uint32_t)rc;
+            return;
+        }
+    }
     tputs("TENANT-GATE ax=0x");
     tputx(ax, 4);
     switch (ax) {
