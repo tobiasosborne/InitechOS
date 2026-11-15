@@ -29,7 +29,7 @@ The utility entry and register bridges use cdecl; their transfer/return runs
 in the product smoke. FIND consumes redirected stdin; filename operands,
 unknown switches and empty or unterminated search strings are refused with
 its period parameter diagnostic and status 1 (initech-iuuni; exact DOS 3.30
-FIND text awaits genuine media, initech-0e5gu). Smoke uses `FIND "apple" < WORDS.TXT`;
+FIND text awaits a pinned utility capture, initech-0e5gu). Smoke uses `FIND "apple" < WORDS.TXT`;
 `make smoke-find-args` checks the refusals in the booted product.
 
 Published application bindings (CLAUDE.md, "Two interfaces"):
@@ -212,8 +212,10 @@ and 7680 line records fit below ENV_BLOCK; additional bytes/records refuse
 before output. These are local safety bounds, not captured DOS limits.
 The MS-DOS 3.3 User's Guide pp.116-117 and p.357 describes SORT and its
 memory diagnostic but gives no numeric limit. Authentic SORT/FIND binaries
-are absent from the pinned media. initech-0e5gu tracks the exact-boundary,
-read-error and diagnostic/ERRORLEVEL captures. Until then, limit refusals
+have now been recovered from hash-verified MS-DOS 3.30 disk images; acquisition
+identities are recorded in command/tests/compat33/UTILITY-MEDIA.md. They are
+private reference inputs and ship nowhere. initech-0e5gu still tracks the
+complete exact-boundary, read-error and diagnostic/ERRORLEVEL captures. Until then, limit refusals
 use the period catalogue's "Insufficient memory" and status 1; read failures
 use "Error reading file" and status 1. These are stated safety assumptions.
 
@@ -227,7 +229,7 @@ disk, SORT, FIND and FIND /C redirected to a file end with nonzero
 ERRORLEVEL (a diagnostic reaches CON through the shell) and mtools proves
 the output really is a truncated prefix. A reported write failure never
 exits 0. The in-filter diagnostic "Insufficient disk space" (MSG-DOS-0005)
-and status 1 are stated safety assumptions pending genuine media
+and status 1 are stated safety assumptions pending genuine utility captures
 (initech-0e5gu).
 
 SORT /+n compares from the documented one-based column (MS-DOS 3.3 User's
@@ -235,7 +237,7 @@ Guide p.116), including short/empty suffixes and /R. `make smoke-sort-columns`
 checks literal manual-derived column order. Unknown/malformed switches refuse
 with the period catalogue's "Invalid parameter", status 1, under GM2's
 explicit-refusal requirement. That exact SORT diagnostic/status is a stated
-assumption pending authentic media in initech-0e5gu.
+assumption pending the authentic utility capture in initech-0e5gu.
 
 Host verdict adapters name the actual failed property. Setup/tool failures carry
 no synthetic FAIL or completed-failure count. `test-verdict-controls` injects
