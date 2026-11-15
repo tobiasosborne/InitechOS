@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# A full numeric GET stays put under CONFIRM OFF (forms-f22a K1/K2).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1818,7 +1818,7 @@
+                          * decimals); a full integer part continues past the
+                          * point (forms-f20f 1234567890.15). */
+                         np=q_pic_next_mask(g,mp+1);pos=np>=0?np:mp;
+-                        if(np<0&&!confirm) {
++                        if(0) { /* MUTANT */
+                             /* CONFIRM OFF: a full numeric GET goes on to the
+                              * next one (forms-f22a K1 1234567890, K2 78). */
+                             int w;

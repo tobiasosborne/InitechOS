@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# The first numeric entry key repaints the cells it clears (forms-f22a n-partial, f22i r-5).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1793,7 +1793,7 @@
+                      * and stores 5.00; S=1234 shows 1934 after Right x7 and 9
+                      * and stores 19; forms-f22a N=0 shows "12       0". */
+                     if(!g->started) {
+-                        int i;for(i=pos;i<g->width;i++)if(q_pic_ismask(g,i)){g->buf[i]=' ';paintref[i]=' ';}
++                        int i;for(i=pos;i<g->width;i++)if(q_pic_ismask(g,i)){g->buf[i]=' ';} /* MUTANT */
+                         g->started=1;
+                     }
+                     accepted=1;

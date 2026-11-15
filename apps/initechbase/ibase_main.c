@@ -280,6 +280,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     char alias[REPL_TOK_CAP];
     static char idxbuf[NDX_PER_AREA][REPL_TOK_CAP];
     int idx_defaulted[NDX_PER_AREA] = {0};
+    int file_defaulted = 0;
     const char *idx_source[NDX_PER_AREA];
     wa_index_list il;
     const char *have_alias = (const char *)0;
@@ -332,7 +333,9 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
     }
 
     /* Ref: Using dBase III Plus.pdf U1-4: omitted extension defaults to .DBF. */
-    if (repl_default_ext(file, sizeof file, ".DBF") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+    { uint32_t before = rt_strlen(file);
+      if (repl_default_ext(file, sizeof file, ".DBF") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+      file_defaulted = rt_strlen(file) != before; }
     /* An index named without an extension is <name>.NDX: real dBASE III PLUS
      * 1.1 opens TRIPS.NDX for USE TRAVEL INDEX TRIPS (mint 005 M005U [U1],
      * dbase3-decomp/re/mint-results-005.md; initech-vfys). */
@@ -369,6 +372,7 @@ static int repl_do_use(xb_interp *ip, const char *args, int *ec)
         return -INTERP_ERR_EVAL;
     }
     wa_select(env, area);                     /* USE selects the area it opens */
+    wa_note_default_ext(env, area, file_defaulted);
     /* III+ ndx/GOLD.OUT: USE INDEX displays the operand's supplied spelling. */
     for (int k = 0; k < il.count; k++) {
         char display[REPL_TOK_CAP];

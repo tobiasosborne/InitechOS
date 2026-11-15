@@ -2,12 +2,12 @@
 # Esc saves the current GET instead of discarding it.
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -1633,7 +1633,7 @@
+@@ -1647,7 +1647,7 @@
          if(k<0) { if(ec)*ec=29;ibase_gets_clear(ip);return -INTERP_ERR_EVAL; }
          if(k==0)continue;
          /* Exit keys shared by empty and active READs (F01/F03). */
 -        if(k==QK_ESC||k==17) { code=12;save_cur=0;done=1;break; }
 +        if(k==QK_ESC||k==17) { code=12;save_cur=1;done=1;break; } /* MUTANT: Esc saves the current field. */
          if(g&&(k==QK_PGUP||k==18||k==QK_PGDN||k==3||k==QK_CTRLEND||k==23)) {
-             /* A save exit cannot leave an invalid date: real III+
-              * forms-f21c PgDn on 02/29/00 stays in READ with the cursor at
+             /* A save exit cannot leave an invalid date: real III+ keeps
+              * READ with the cursor at the field start, as Enter does

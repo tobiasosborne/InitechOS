@@ -27,7 +27,8 @@
  *     FOUND(): result of the last SEEK/LOCATE; fresh USE -> .F. (GATED beyond).
  *     DELETED(): current record's delete flag (0x2A); EOF -> .F.
  *     FIELD(<expN>): 1-based; name UPPERCASE; out of range -> "".
- *     DBF(): open table name (UPPERCASE; we return the alias); none open -> "".
+ *     DBF(): drive, then the name as opened (real III+ forms-f22h: USE FORM.DBF
+ *     gives C:FORM.DBF); none open -> "".
  *     FILE(<expC>): .T. iff the file exists (via PAL); you supply the extension.
  *   spec/ibase/dbase_msg_codes.tsv code 52 "No database is in USE." (no work area).
  *
@@ -299,25 +300,10 @@ static void test_synth_dbfns(ibase_pal_t *pal)
     eval_c(ip, "FIELD(0)", "",       "synth: FIELD(0)=='' (< 1, null string)");
     eval_c(ip, "FIELD(4)", "",       "synth: FIELD(4)=='' (> field count, null string)");
 
-    /* --- DBF(): the open table's name (we return the alias = base name) --- */
-    /* SYN_PATH base name is "test_xbase_fn_d" upper-cased; check the prefix is
-     * the alias (deterministic; the work-area derives it from the path). */
-    {
-        xb_val v; int ec = 0;
-        rc = xb_interp_eval_str(ip, "DBF()", 5u, &v, &ec);
-        snprintf(m, sizeof(m), "synth: DBF() resolves (rc=%d ec=%d t=%d)", rc, ec, (int)v.t);
-        CHECK(rc == INTERP_OK && ec == 0 && v.t == XB_C, m);
-        if (rc == INTERP_OK && v.t == XB_C) {
-            /* The work-area alias is the upper-cased base name; compare to the
-             * known alias for this path. derive_alias upper-cases "test_xbase_fn_d". */
-            const char *want = "TEST_XBASE_FN_D";
-            /* The alias is capped at WA_ALIAS_CAP-1 (11 chars). Compare the
-             * leading bytes against the (truncated) expected alias. */
-            snprintf(m, sizeof(m), "synth: DBF()==alias prefix (got len=%d)", (int)v.u.c.len);
-            CHECK(v.u.c.len >= 1u && v.u.c.len <= 11u &&
-                  memcmp(v.u.c.p, want, (size_t)v.u.c.len) == 0, m);
-        }
-    }
+    /* --- DBF(): the host PAL's drive C: and the name exactly as opened, which
+     * already carries its extension (real III+ forms-f22h: USE FORM.DBF shows
+     * C:FORM.DBF; only an extension USE supplied itself is spelled .dbf). --- */
+    eval_c(ip, "DBF()", "C:" SYN_PATH, "synth: DBF()==C: + the name as opened");
 
     /* --- FILE(): existence via the PAL --- */
     eval_l(ip, "FILE('test_xbase_fn_d.dbf')", 0,
@@ -446,7 +432,8 @@ static void test_corpus(ibase_pal_t *pal, const char *base)
     eval_c(ip, "FIELD(12)", "",          "corpus: TRAVEL FIELD(12)=='' (>11 fields)");
     eval_l(ip, "EOF()", 0, "corpus: TRAVEL EOF()=.F. at top");
     eval_l(ip, "DELETED()", 0, "corpus: TRAVEL rec1 DELETED()=.F.");
-    eval_c(ip, "DBF()", "TRAVEL", "corpus: TRAVEL DBF()==alias \"TRAVEL\"");
+    { char want[1040]; snprintf(want, sizeof want, "C:%s", trav);
+      eval_c(ip, "DBF()", want, "corpus: TRAVEL DBF()==C: + the name as opened"); }
 
     xb_interp_free(ip);
 }

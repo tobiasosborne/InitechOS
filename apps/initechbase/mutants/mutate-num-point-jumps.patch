@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# The point only moves the cursor to the decimals (forms-f22i Q 5.60, f22a P 34.50).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1805,7 +1805,7 @@
+                         if(dot>=0) {
+                             char ch[64];int nc=0,i,np;
+                             for(i=0;i<dot;i++)if(q_pic_ismask(g,i)&&g->buf[i]!=' '&&nc<63)ch[nc++]=g->buf[i];
+-                            for(i=dot-1;i>=0;i--)if(q_pic_ismask(g,i))g->buf[i]=nc>0?ch[--nc]:' ';
++                            (void)ch; /* MUTANT */
+                             for(i=0;i<=dot;i++)paintref[i]=(char)(g->buf[i]^0x7f);
+                             np=q_pic_next_mask(g,dot+1);if(np>=0)pos=np;
+                         }

@@ -60,6 +60,14 @@ case forms-f20n-reload
 case forms-f21a-words
 case forms-f21b-aliases
 case forms-f21c-exits
+case forms-f22a-intover
+case forms-f22b-datefmt
+case forms-f22c-badexits
+case forms-f22d-onescape
+case forms-f22e-badexits2
+case forms-f22g-badend
+case forms-f22h-dbfname
+case forms-f22i-numedit
 
 # Known disagreements, each with its cause.
 
@@ -99,8 +107,6 @@ differs forms-f19-lifetime dump:badcombo rows:1+rows:3-4+rows:6+rows:18-23 dot-p
 differs forms-f20c-eof dump:entered rows:1+rows:5+rows:20-24+cursor the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20c-eof dump:typed rows:1+rows:5+rows:20-24+cursor the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20c-eof dump:done rows:3+rows:18-23 the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
-differs forms-f20d-reuse dump:done rows:21 DBF() returns the alias, real III+ C:FORM2.dbf (initech-uo6zv)
-differs forms-f20d-reuse export:RESULT.TXT lines:2 DBF() returns the alias, real III+ C:FORM2.dbf (initech-uo6zv)
 differs forms-f20g-eofsecond dump:entered rows:1+rows:3+rows:5+rows:20-24+cursor the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20g-eofsecond dump:typed rows:1+rows:3+rows:5+rows:20-24+cursor the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20g-eofsecond dump:moved rows:1+rows:3+rows:18-23 the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree

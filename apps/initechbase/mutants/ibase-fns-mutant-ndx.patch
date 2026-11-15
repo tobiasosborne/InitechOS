@@ -1,6 +1,12 @@
 # test: test_ibase_fns
+# Intentional off-by-one: the golden's indexed NDX(1) line must catch it.
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -2218,0 +2219,2 @@
-+    /* Intentional off-by-one: the golden's indexed NDX(1) line must catch it. */
-+    slot++;
+@@ -2260,6 +2260,7 @@
+         return 0;
+     }
+     slot = to_int_trunc(args[0].u.n);
++    slot++; /* MUTANT */
+     if (!ctx || !ctx->dbcur || !ctx->dbcur->index_name)
+         return fn_fail(err, XBEE_NO_DATABASE);
+     nl = ctx->dbcur->index_name(ctx->dbcur_user, (int)slot, name, sizeof name);

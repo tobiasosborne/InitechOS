@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# The first numeric entry key keeps the old digits (forms-f22i R 5.00, S 19).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1793,7 +1793,7 @@
+                      * and stores 5.00; S=1234 shows 1934 after Right x7 and 9
+                      * and stores 19; forms-f22a N=0 shows "12       0". */
+                     if(!g->started) {
+-                        int i;for(i=pos;i<g->width;i++)if(q_pic_ismask(g,i)){g->buf[i]=' ';paintref[i]=' ';}
++                        int i;for(i=pos;i<0;i++)if(q_pic_ismask(g,i)){g->buf[i]=' ';paintref[i]=' ';} /* MUTANT */
+                         g->started=1;
+                     }
+                     accepted=1;

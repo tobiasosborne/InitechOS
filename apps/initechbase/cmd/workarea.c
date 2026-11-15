@@ -81,6 +81,7 @@ struct work_area {
 
     int          nfields;              /* cached dbf_nfields */
     char         alias[WA_ALIAS_CAP];  /* NUL-terminated alias */
+    int          ext_default;          /* USE appended .DBF itself (DBF() shows .dbf) */
 
     /* stable decoded-record cache (see lifetime note above) */
     xb_val      *rec_cache;            /* [nfields] decoded values */
@@ -737,6 +738,7 @@ int wa_close(wa_env *env, int area)
 
     close_handles(wa);
     wa->open = 0;
+    wa->ext_default = 0;
     wa->nidx = 0;
     wa->master = 0;
     wa->recno = 0u;
@@ -1072,23 +1074,35 @@ static int wac_field_name(void *u, uint32_t i, char *buf, uint32_t cap)
 
 static int wac_dbf_name(void *u, char *buf, uint32_t cap)
 {
-    work_area *wa = wa_cur_area((wa_env *)u);
-    uint32_t n;
-    if (!wa || !wa->open || cap == 0u)
+    wa_env *env = (wa_env *)u;
+    work_area *wa = wa_cur_area(env);
+    const char *name;
+    uint32_t n = 0u, len, i;
+    int drive;
+    if (!wa || !wa->open || !wa->tbl || cap < 8u)
         return -1;                     /* no table open -> "" (DBF()) */
-    /* DBF() returns the open file's name, UPPERCASE; we return the work-area
-     * alias (the upper-cased base name, e.g. "TRAVEL"). The exact path/extension
-     * form is [oracle-resolves] (system-and-database-functions.md DBF() open Q6);
-     * the alias is the conservative grounded choice. */
-    n = 0u;
-    while (wa->alias[n] != '\0' && n < cap - 1u) {
-        buf[n] = wa->alias[n];
-        n++;
+    /* Real III+ forms-f22h (see fn_dbf): drive unless typed, the name as
+     * typed, ".dbf" when USE supplied the extension itself. */
+    name = dbf_name(wa->tbl);
+    len = rt_strlen(name);
+    if (wa->ext_default && len >= 4u) len -= 4u;
+    drive = (env->pal && env->pal->curdrive) ? env->pal->curdrive(env->pal) : -1;
+    if (!(len >= 2u && name[1] == ':') && drive >= 'A' && drive <= 'Z') {
+        buf[n++] = (char)drive; buf[n++] = ':';
     }
+    for (i = 0u; i < len && n < cap - 5u; i++) buf[n++] = name[i];
+    if (wa->ext_default) { rt_memcpy(buf + n, ".dbf", 4u); n += 4u; }
     buf[n] = '\0';
-    if (n == 0u)
-        return -1;                     /* empty alias -> treat as none -> "" */
     return (int)n;
+}
+
+/* wa_note_default_ext: USE named the table without an extension and
+ * appended ".DBF" itself; DBF() then shows ".dbf" (forms-f22h). */
+void wa_note_default_ext(wa_env *env, int area, int defaulted)
+{
+    if (!env || area < 1 || area > WA_NAREAS || !env->area[area - 1].open)
+        return;
+    env->area[area - 1].ext_default = defaulted ? 1 : 0;
 }
 
 static int wac_file_exists(void *u, const char *name)

@@ -3,7 +3,7 @@
 InitechBase provides a dBASE III PLUS 1.1 command interpreter with DBF tables,
 DBT memos, NDX indexes, ten work areas, command programs and a dot prompt.
 
-`make` builds INITBASE.EXE and INITBASE.OVL. `make test` runs 78 independent
+`make` builds INITBASE.EXE and INITBASE.OVL. `make test` runs 79 independent
 host suites with a 30-second execution budget, excluding compilation, and
 validates the real target pair. `make test THOROUGH=1` adds the live genuine
 III+ differential. Missing references fail. `make pending CASE=...` exposes
@@ -14,7 +14,7 @@ files back with mtools/independent readers and reopens them with genuine III+.
 It passes 50 checks. Scenarios and the selected application pair live on a
 separate disposable TEST disk; no test scenario is compiled into the kernel.
 `make native-check` runs the DOS console, file, program-return and overlay
-oracles. `make mutants` runs 257 host patches and 19 target patches, including
+oracles. `make mutants` runs 272 host patches and 19 target patches, including
 three static semantic rejections. All 28 original pending faults are qualified.
 The test controls themselves must receive zero kills.
 Host kills require completed assertion counts and identical failure evidence
@@ -117,7 +117,7 @@ Omissions and current refusals (the catalogue text is retained verbatim):
 
 GOLDEN-MASTER item 5 adds `@...SAY/GET` and `READ`. The surface below is
 frozen: every behaviour is pinned by a twice-minted real III+ capture in
-`tests/xbase_prog_diff/screen-mint/forms-f01-*/` … `forms-f21c-*/` (design
+`tests/xbase_prog_diff/screen-mint/forms-f01-*/` … `forms-f22i-*/` (design
 cases C01-C18, renamed F because conformance C01-C38 own C-numbers;
 whole 80x25 text/attribute pages plus cursor, RESULT transcripts and
 DBF/DBT/NDX/MEM readbacks; mint with `make mint-forms`). Declaration,
@@ -158,6 +158,22 @@ prompt leaves READKEY() at 271 (F01-F03). Home/Ctrl-A and End/Ctrl-F move
 by words (F21a), Up/Down and Ctrl-E/Ctrl-X keep the cursor's offset (F21b),
 Ctrl-R and Ctrl-C exit as PgUp and PgDn, PgDn cannot leave an invalid date,
 and a READ with no pending GET leaves READKEY 15 (F21c).
+A numeric GET, variable or field, edits as the picture of its own width
+and decimals: the first entry key clears the buffer from the cursor to
+the end but repaints only what it types, so old digits stay on screen
+(F22a `12       0`, F22i `512.34` stores 5.00 and `1934` typed mid-field
+stores 19); the point right-justifies and repaints the integer part
+(F22i); past the last slot a key overwrites it (F22a); under CONFIRM OFF
+a full numeric GET goes on to the next (F22a). PgUp, Ctrl-R, Ctrl-W,
+Ctrl-End and End on an invalid date stay in READ as PgDn does (F22c,
+F22e, F22g). Up and a second Home there never leave READ in real III+
+either; it then stops taking keys, so that case cannot be pinned and
+READ keeps the field, as for Enter. Typed dates follow each SET DATE
+order (F22b). Esc inside READ never runs ON ESCAPE and leaves READKEY 12,
+under SET ESCAPE ON or OFF (F22d). INKEY() is -1 for F2 (the F22c/e/g
+barriers); other function keys are uncaptured and stay 0. DBF() is the
+drive, the name as USE typed it and `.dbf` when USE supplied the
+extension (F22h: `C:form.dbf`, `C:FORM.DBF`, `C:\SUB\FORM.dbf`).
 
 Supported: `@ r,c GET lvalue` and combined `@ r,c SAY expr GET lvalue`
 for C/N/D/L memory variables and fields (unqualified name binds the

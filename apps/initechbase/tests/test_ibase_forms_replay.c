@@ -13,10 +13,10 @@
  * bytes (12-31). Expected bytes come only from the captures.
  *
  * The capture programs hold before some READs with an INKEY loop that the
- * mint released with F2 (scaffolding, design-base-forms section 3). The
- * captures prove only that real INKEY() is non-zero for F2; its value is
- * uncaptured and the product's INKEY returns 0 for it. So the replay gives
- * each barrier's F2 to INKEY as the byte 'F' (a non-zero INKEY value) and
+ * mint released with F2 (scaffolding, design-base-forms section 3): either
+ * `DO WHILE H=0` or `DO WHILE H<>-1`. The second form ends only on -1, so
+ * the forms-f22c/e/g captures prove real INKEY() is -1 for F2. The replay
+ * gives each barrier's F2 to INKEY as that real key (scan code 3Ch) and
  * never to READ. The programs and other keys are replayed unchanged.
  *
  * A known disagreement is a `differs` line naming exactly what may differ:
@@ -35,6 +35,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/stat.h>
 #include <ctype.h>
 #include "test_assert.h"
 #include "screen_file.h"
@@ -240,8 +241,14 @@ static int32_t h_conin_poll(ibase_pal_t *p)
     (void)p;
     if (phase_setup) return -1;
     drain_dumps();
-    if (iev < nev && ev[iev].kind == EV_RELEASE) { iev++; return 'F'; }
-    if (++polls > 1000000u) { fprintf(stderr, "RED %s: program polls INKEY forever\n", case_name); exit(1); }
+    if (iev < nev && ev[iev].kind == EV_RELEASE) { iev++; return 0x100 | 0x3C; } /* F2 */
+    if (++polls > 1000000u) {
+        /* A program that never leaves its INKEY loop (a wrong INKEY value
+         * for F2) cannot continue; fail with a counted summary. */
+        CHECK(0, "the program leaves its INKEY barrier");
+        fprintf(stderr, "RED %s: program polls INKEY forever\n", case_name);
+        exit(TEST_SUMMARY("test-ibase-forms-replay"));
+    }
     return -1;
 }
 static int h_escape(ibase_pal_t *p) { (void)p; return 0; }
@@ -318,19 +325,27 @@ static int load_keys(const char *dir, int barriers)
     return 0;
 }
 
-/* Copy SETUP unchanged, counting each INKEY barrier loop in the programs. */
-static int copy_setup(const char *dir, const char *work)
+/* Copy SETUP unchanged, subdirectories included (forms-f22h USE \SUB\FORM),
+ * counting each INKEY barrier loop in the programs. */
+static int copy_tree(const char *from, const char *to)
 {
     char path[1024], out[1024];
     int barriers = 0;
-    snprintf(path, sizeof path, BASE "/%s/SETUP", dir);
-    DIR *d = opendir(path);
+    DIR *d = opendir(from);
     if (!d) return -1;
     struct dirent *e;
     while ((e = readdir(d))) {
         if (e->d_name[0] == '.') continue;
-        snprintf(path, sizeof path, BASE "/%s/SETUP/%s", dir, e->d_name);
-        snprintf(out, sizeof out, "%s/%s", work, e->d_name);
+        snprintf(path, sizeof path, "%s/%s", from, e->d_name);
+        snprintf(out, sizeof out, "%s/%s", to, e->d_name);
+        DIR *sub = opendir(path);
+        if (sub) {
+            int k;
+            closedir(sub);
+            if (mkdir(out, 0777) != 0 || (k = copy_tree(path, out)) < 0) { closedir(d); return -1; }
+            barriers += k;
+            continue;
+        }
         FILE *a = screen_open(path, "rb"), *b = screen_open(out, "wb");
         size_t len = strlen(e->d_name);
         int prg = len > 4 && !strcasecmp(e->d_name + len - 4, ".PRG");
@@ -339,7 +354,7 @@ static int copy_setup(const char *dir, const char *work)
             char lines[400][256]; int n = 0;
             while (n < 400 && fgets(lines[n], sizeof lines[n], a)) n++;
             for (int i = 0; i < n; i++) {
-                if (i + 2 < n && !strncmp(lines[i], "DO WHILE H=0", 12) &&
+                if (i + 2 < n && (!strncmp(lines[i], "DO WHILE H=0", 12) || !strncmp(lines[i], "DO WHILE H<>-1", 14)) &&
                     !strncmp(lines[i+1], "H=INKEY()", 9) && !strncmp(lines[i+2], "ENDDO", 5))
                     barriers++;
                 fputs(lines[i], b);
@@ -349,6 +364,12 @@ static int copy_setup(const char *dir, const char *work)
     }
     closedir(d);
     return barriers;
+}
+static int copy_setup(const char *dir, const char *work)
+{
+    char path[1024];
+    snprintf(path, sizeof path, BASE "/%s/SETUP", dir);
+    return copy_tree(path, work);
 }
 
 static long file_bytes(const char *path, unsigned char **out)

@@ -1,5 +1,12 @@
 # test: test_ibase_core
+# FILE() requires an open table.
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -1872,0 +1873 @@
-+    if (!need_dbcur(ctx, err)) return *err;
+@@ -1916,6 +1916,7 @@
+ 
+     /* FILE is an environment query, not a cursor operation. Using III+
+      * U6-33; ADR-0008 DEC-02 (initech-52ph/u5mw). */
++    if (!need_dbcur(ctx, err)) return *err; /* MUTANT */
+     len = args[0].u.c.len;
+     nm  = fn_scratch(ctx, (uint32_t)len + 1u);
+     if (nm == 0) return fn_fail(err, XBEE_SCRATCH_FULL);

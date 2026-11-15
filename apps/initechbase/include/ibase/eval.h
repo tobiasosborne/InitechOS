@@ -650,10 +650,9 @@ typedef struct {
     uint32_t buflen;          /* text bytes in buf (== width, NUL after) */
     uint8_t  changed;         /* buffer edited during the current READ */
     uint8_t  started;         /* numeric: entry started this activation */
-    char     raw[48];         /* numeric: raw entry text (live reformat) */
     char     pic[80];         /* effective PICTURE ("" = unformatted) */
     uint16_t srcwidth;        /* unformatted value width (confirm size) */
-    uint8_t  implicit;        /* pic is the numeric field's own 99.99 shape */
+    uint8_t  implicit;        /* pic is the numeric value's own 99.99 shape */
 } xb_get;
 struct xb_interp;
 struct ibase_pal;

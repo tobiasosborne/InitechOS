@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# INKEY() is 0 for F2 again (initech-f77be, forms-f22c/e/g barriers).
+--- a/core/fn_builtins.c
++++ b/core/fn_builtins.c
+@@ -2360,7 +2360,7 @@
+         case 0x75: key = 23; break;  /* Ctrl-End / Ctrl-W */
+         case 0x84: key = 31; break;  /* Ctrl-PgUp / Ctrl-_ */
+         case 0x76: key = 30; break;  /* Ctrl-PgDn / Ctrl-^ */
+-        case 0x3C: key = -1; break;  /* F2: real III+ forms-f22c/e/g end `DO WHILE H<>-1` on it */
++        case 0x3C: key = 0; break; /* MUTANT */  /* F2: real III+ forms-f22c/e/g end `DO WHILE H<>-1` on it */
+         default: key = 0; break;    /* No Table 6-1 equivalent. */
+         }
+     } else if (key == 17) key = 27; /* Ctrl-Q / Esc */

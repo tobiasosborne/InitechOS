@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# DBF() returns the work-area alias again (initech-uo6zv, forms-f20d/f22h).
+--- a/cmd/workarea.c
++++ b/cmd/workarea.c
+@@ -1083,7 +1083,7 @@
+         return -1;                     /* no table open -> "" (DBF()) */
+     /* Real III+ forms-f22h (see fn_dbf): drive unless typed, the name as
+      * typed, ".dbf" when USE supplied the extension itself. */
+-    name = dbf_name(wa->tbl);
++    name = wa->alias; /* MUTANT */
+     len = rt_strlen(name);
+     if (wa->ext_default && len >= 4u) len -= 4u;
+     drive = (env->pal && env->pal->curdrive) ? env->pal->curdrive(env->pal) : -1;

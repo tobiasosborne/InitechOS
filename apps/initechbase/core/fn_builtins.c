@@ -1868,16 +1868,15 @@ static int fn_field(xb_ctx *ctx, const xb_val *args,
 }
 
 /*
- * DBF() -> C. "The name of the database file if one is open."
- *   - No arguments. Returns the open table's name in the active area; "" if none
- *     is open (here the none-open case is the #52 fail-loud).
- *   - III+ returns the UPPER-cased file name; the exact form (path/extension) is
- *     interpreter-specific [oracle-resolves] (system-and-database-functions.md
- *     DBF() open question 6). CONSERVATIVE CHOICE: return the work-area ALIAS
- *     (the upper-cased base name, e.g. "TRAVEL"), which the vtable supplies. The
- *     oracle asserts the alias form; the path/extension exactness is GATED.
+ * DBF() -> C. The open table's file name in the active area, "" if none.
+ *   Real III+ forms-f22h: the current drive and a colon unless the USE named
+ *   a drive, then the name exactly as typed, then ".dbf" in lower case when
+ *   USE gave no extension: USE form -> C:form.dbf, USE FORM.DBF -> C:FORM.DBF,
+ *   USE \SUB\FORM -> C:\SUB\FORM.dbf; an ALIAS does not change it; after
+ *   CLOSE DATABASES it is "" (also at-clear-c). forms-f20d C:FORM2.dbf.
+ *   The workarea vtable composes it (wac_dbf_name).
  */
-#define WA_DBF_NAME_CAP 16   /* alias cap (workarea WA_ALIAS_CAP=12) + headroom */
+#define WA_DBF_NAME_CAP 272  /* drive + the 260-byte opened name + ".dbf" */
 static int fn_dbf(xb_ctx *ctx, xb_val *out, int *err)
 {
     char  namebuf[WA_DBF_NAME_CAP];
@@ -2343,6 +2342,7 @@ static int fn_inkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         key = ctx->file_pal->conin_poll(ctx->file_pal);
     if (key < 0) key = 0;
     else if (key >= 256) {
+        /* Other function keys are uncaptured and stay 0 (initech-f77be). */
         switch (key & 255) {
         case 0x4D: key = 4; break;   /* Right / Ctrl-D */
         case 0x4B: key = 19; break;  /* Left / Ctrl-S */
@@ -2360,6 +2360,7 @@ static int fn_inkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
         case 0x75: key = 23; break;  /* Ctrl-End / Ctrl-W */
         case 0x84: key = 31; break;  /* Ctrl-PgUp / Ctrl-_ */
         case 0x76: key = 30; break;  /* Ctrl-PgDn / Ctrl-^ */
+        case 0x3C: key = -1; break;  /* F2: real III+ forms-f22c/e/g end `DO WHILE H<>-1` on it */
         default: key = 0; break;    /* No Table 6-1 equivalent. */
         }
     } else if (key == 17) key = 27; /* Ctrl-Q / Esc */

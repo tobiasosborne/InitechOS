@@ -1,0 +1,10 @@
+
+[C:form.dbf]
+[C:FORM.DBF]
+[C:FORM.dbf]
+[C:\SUB\FORM.dbf]
+[C:SUB\FORM.dbf]
+[C:FORM.dbf]
+[C:FORM2.dbf]
+[C:FORM.dbf]
+[]

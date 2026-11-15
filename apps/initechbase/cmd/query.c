@@ -1191,8 +1191,7 @@ static int q_get_render(xb_interp *ip,xb_get *g,xb_val v,int *ec)
             if(v.t==XB_N){v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(ctx,&v);}
             /* A numeric field GET edits as the picture its structure
              * implies: forms-f20d N(10,2) after Ctrl-Y and 99 shows
-             * "99     ." (the point stays, digits fill from the left),
-             * where a numeric variable enters right-justified (forms-f07). */
+             * "99     ." (the point stays, digits fill from the left). */
             if(v.t==XB_N&&(!g->pic[0]||g->implicit)&&f->field_len<sizeof g->pic) {
                 uint32_t i,len=f->field_len,dot=f->dec_count?len-f->dec_count-1u:len;
                 for(i=0;i<len;i++)g->pic[i]=i==dot?'.':'9';
@@ -1205,6 +1204,15 @@ static int q_get_render(xb_interp *ip,xb_get *g,xb_val v,int *ec)
         if(g->kind==0) {
             g->width=(uint16_t)n;
             if(v.t==XB_N) { uint32_t w=10u+(uint32_t)(g->dec>0?g->dec+1:0);if(w>g->width)g->width=(uint16_t)w; }
+        }
+        /* A numeric variable edits as the picture of its own width and
+         * decimals, as a numeric field does: real III+ forms-f22a/f22i
+         * type into cells left to right (N=0 shows "12       0" after 12,
+         * Q=12.34 "5.34" after 5 and the point). */
+        if(g->kind==0&&v.t==XB_N&&(!g->pic[0]||g->implicit)&&g->width<sizeof g->pic) {
+            uint32_t i,len=g->width,dot=g->dec>0?len-(uint32_t)g->dec-1u:len;
+            for(i=0;i<len;i++)g->pic[i]=i==dot?'.':'9';
+            g->pic[len]=0;g->implicit=1;
         }
         g->srcwidth=g->width;
         if(g->pic[0]&&v.t==XB_L) {
@@ -1448,7 +1456,10 @@ static int q_get_parse(xb_interp *ip,const xb_get *g,xb_val *out)
         /* Collect digit slots in template order around its decimal point. */
         int tl,ti,off=q_pic_off(g),dot=-1;const char *t=q_pic_template(g->pic,&tl);
         char num[64];int nn=0,seen_dot=0;
-        if(g->raw[0]=='-'||g->buf[0]=='-'||g->buf[0]=='(')num[nn++]='-';
+        /* The sign is wherever it was typed; the point key moves it right
+         * with the integer digits (forms-f07 -12.345 shows -12.35). */
+        { uint32_t i;for(i=0;i<g->buflen;i++)if(g->buf[i]=='-'&&q_pic_ismask(g,(int)i))break;
+          if(i<g->buflen||g->buf[0]=='(')num[nn++]='-'; }
         for(ti=0;ti<tl;ti++)if(t[ti]=='.')dot=ti;
         for(ti=0;ti<tl;ti++) {
             char tc=t[ti];
@@ -1467,17 +1478,13 @@ static int q_get_parse(xb_interp *ip,const xb_get *g,xb_val *out)
     }
     if(g->type==XB_C) { *out=xb_c(g->buf,(uint16_t)g->buflen);return 1; }
     if(g->type==XB_L) { *out=xb_l(g->buf[0]=='T'||g->buf[0]=='Y');return 1; }
-    /* Numeric write-back parses the displayed buffer: it is reformatted
-     * to the field's decimals on every key (F07 typed screen shows
-     * -12.35 while -12.345 is being typed), so the stored value is the
-     * rounded display value, not the raw key stream. */
-    if(g->type==XB_N) { xb_val v=xb_n(dec_parse(g->buf,(int)g->buflen));v.num_dec=g->dec;*out=v;return 1; }
     /* Date: three digit groups in the order SET DATE renders them, the year
      * group four digits under CENTURY ON (forms-f20b: 01151993 -> 1993-01-15;
      * BRITISH 310192 -> 1992-01-31), else 1900+yy, also when an edit retypes
      * part of a later date (forms-f20b G: 0202 over 01/01/02 -> 1902-02-02;
-     * the canon two-digit rule, F17). Only AMERICAN and BRITISH entry are
-     * captured; the other formats use the same order as their picture. */
+     * the canon two-digit rule, F17). forms-f22b types 010203 under ANSI
+     * (1901-02-03), ITALIAN, FRENCH and GERMAN (1903-02-01), and 19920131 /
+     * 31011992 under CENTURY ON ANSI / GERMAN. */
     {
         const xb_ctx *ctx=xb_interp_ctx(ip);
         int grp[3]={0,0,0},nd[3]={0,0,0},ng=0,blanks=0,allblank=1;uint32_t i;
@@ -1602,7 +1609,7 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
     const set_state *ss=set_get_state(ip);
     int confirm=ss?ss->confirm:0;
     uint32_t cur=0;int pos=0,insert=0,any_change=0,code=15,done=0,save_cur=1;
-    char before[256];
+    char before[256],paintref[256];
     const char *t=q_skip_ws(args);
     if(*t) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; } /* READ SAVE: frozen omission */
     /* A field GET whose work area is at end of file stops READ before any
@@ -1642,10 +1649,11 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
         /* Exit keys shared by empty and active READs (F01/F03). */
         if(k==QK_ESC||k==17) { code=12;save_cur=0;done=1;break; }
         if(g&&(k==QK_PGUP||k==18||k==QK_PGDN||k==3||k==QK_CTRLEND||k==23)) {
-            /* A save exit cannot leave an invalid date: real III+
-             * forms-f21c PgDn on 02/29/00 stays in READ with the cursor at
-             * the field start, as Enter does (forms-f08). PgUp, Ctrl-End and
-             * Ctrl-W share this path; only PgDn is captured. */
+            /* A save exit cannot leave an invalid date: real III+ keeps
+             * READ with the cursor at the field start, as Enter does
+             * (forms-f08), for PgDn (forms-f21c, f22g), PgUp and Ctrl-End
+             * (forms-f22c), Ctrl-W and Ctrl-R (forms-f22e), and End
+             * (forms-f22g). */
             xb_val probe;
             if(g->changed&&!q_get_parse(ip,g,&probe)) { q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue; }
         }
@@ -1662,7 +1670,7 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
             else code=15; /* Enter (forms-f12) and X (forms-f21c RK4) */
             done=1;break;
         }
-        rt_memcpy(before,g->buf,g->width);
+        rt_memcpy(before,g->buf,g->width);rt_memcpy(paintref,g->buf,g->width);
         if(k==QK_ENTER||k==QK_DOWN||k==24) {
             int w=q_get_write(ip,g,ec);
             if(w==-1){q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue;} /* invalid date stays, cursor home (F08b) */
@@ -1676,6 +1684,10 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
             q_get_cursor(ip,g->row,g->col+pos);continue;
         }
         if(k==QK_UP||k==5) {
+            /* Up and a second Home on an invalid date: real III+ never
+             * leaves READ (three debug mints, phase3/base-forms-3-mints/
+             * unpinnable-f22f-home-up; it stops taking keys, so no capture
+             * can be pinned). The refusal below keeps READ, like Enter. */
             int w=q_get_write(ip,g,ec);
             if(w==-1){q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue;}
             if(w==-2)return -INTERP_ERR_EVAL;
@@ -1748,13 +1760,6 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
             if(g->pic[0]) {
                 int i=pos-1;while(i>=0&&!q_pic_ismask(g,i))i--;
                 if(i>=0){g->buf[i]=' ';pos=i;}
-            } else
-            if(g->type==XB_N) {
-                uint32_t rn=(uint32_t)rt_strlen(g->raw);
-                if(g->started&&rn){g->raw[rn-1]=0;
-                    if(g->raw[0]){xb_val v=xb_n(dec_parse(g->raw,(int)rn-1));char text[Q_LINEBUF];uint32_t n=0;v.num_width=g->width;v.num_dec=g->dec;q_render_val(text,&n,sizeof text,&v,ctx,0);rt_memset(g->buf,' ',g->width);{uint32_t tn=n<g->width?n:g->width;rt_memcpy(g->buf+(g->width-tn),text+(n-tn),tn);}}
-                    else rt_memset(g->buf,' ',g->width);
-                }
             }
             else if(pos>0) { int i;pos--;if(g->type==XB_C){for(i=pos;i<g->width-1;i++)g->buf[i]=g->buf[i+1];g->buf[g->width-1]=' ';}else g->buf[pos]=' '; }
         }
@@ -1767,7 +1772,6 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
                 /* A date keeps its separator cells (F08 c-blanked "  /  /  "). */
                 for(i=pos;i<g->width;i++)
                     if(!(g->type==XB_D&&(g->buf[i]=='/'||g->buf[i]=='-'||g->buf[i]=='.')))g->buf[i]=' ';
-                if(g->type==XB_N){g->raw[0]=0;g->started=1;rt_memset(g->buf,' ',g->width);}
             }
         }
         else if(k>=32&&k<127) {
@@ -1780,29 +1784,52 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
                 if(u=='T'||u=='Y'){g->buf[0]=yform?'Y':u;accepted=1;}
                 else if(u=='F'||u=='N'){g->buf[0]=yform?'N':u;accepted=1;}
             } else if(g->pic[0]&&g->type==XB_N) {
-                if(k=='-'||k=='+') { g->raw[0]=k=='-'?'-':0;g->raw[1]=0;g->started=1;accepted=1; }
-                else if(k=='.') {
-                    int tl,ti,off=q_pic_off(g);const char *tp=q_pic_template(g->pic,&tl);
-                    for(ti=0;ti<tl;ti++)if(tp[ti]=='.'){int np=q_pic_next_mask(g,off+ti+1);if(np>=0)pos=np;break;}
+                int tl,ti,off=q_pic_off(g),dot=-1;const char *tp=q_pic_template(g->pic,&tl);
+                for(ti=0;ti<tl;ti++)if(tp[ti]=='.')dot=off+ti;
+                if((k>='0'&&k<='9')||k=='-'||k=='+'||k=='.') {
+                    /* The first entry key clears the buffer from the cursor
+                     * to the end but repaints only what it types: real III+
+                     * forms-f22i R=12.34 under "999.99" shows 512.34 after 5
+                     * and stores 5.00; S=1234 shows 1934 after Right x7 and 9
+                     * and stores 19; forms-f22a N=0 shows "12       0". */
+                    if(!g->started) {
+                        int i;for(i=pos;i<g->width;i++)if(q_pic_ismask(g,i)){g->buf[i]=' ';paintref[i]=' ';}
+                        g->started=1;
+                    }
                     accepted=1;
-                }
-                else if(k>='0'&&k<='9') {
-                    int mp;
-                    if(!g->started){int i;for(i=0;i<g->width;i++)if(q_pic_ismask(g,i))g->buf[i]=' ';g->started=1;pos=0;}
-                    mp=q_pic_next_mask(g,pos);
-                    if(mp>=0) {
-                        int tl,ti,off=q_pic_off(g),dot=-1,np;const char *tp=q_pic_template(g->pic,&tl);
-                        g->buf[mp]=(char)k;accepted=1;
-                        /* The cursor stays on a full template's last slot
-                         * (forms-f18b G3 CURSOR 09 12). */
+                    if(k=='.') {
+                        /* The point right-justifies the integer part and
+                         * repaints it (forms-f22i Q: 5 then . shows 5.34 with
+                         * the old 34 still on screen; forms-f07 -12.345). With
+                         * no decimal places it does nothing (forms-f07 N4). */
+                        if(dot>=0) {
+                            char ch[64];int nc=0,i,np;
+                            for(i=0;i<dot;i++)if(q_pic_ismask(g,i)&&g->buf[i]!=' '&&nc<63)ch[nc++]=g->buf[i];
+                            for(i=dot-1;i>=0;i--)if(q_pic_ismask(g,i))g->buf[i]=nc>0?ch[--nc]:' ';
+                            for(i=0;i<=dot;i++)paintref[i]=(char)(g->buf[i]^0x7f);
+                            np=q_pic_next_mask(g,dot+1);if(np>=0)pos=np;
+                        }
+                    } else {
+                        int mp=q_pic_next_mask(g,pos),np;
+                        if(mp<0)mp=pos;
+                        g->buf[mp]=(char)k;
+                        /* Past the last slot a key overwrites it (forms-f22a
+                         * 1234567890 then 12 shows 1234567892; forms-f20f
+                         * decimals); a full integer part continues past the
+                         * point (forms-f20f 1234567890.15). */
                         np=q_pic_next_mask(g,mp+1);pos=np>=0?np:mp;
-                        /* Once a decimal digit is typed the untyped decimal
-                         * places show 0: forms-f10 M4 and forms-f18b G2 type
-                         * 1234 into 999.99 / ###.## and show "123.40". */
-                        for(ti=0;ti<tl;ti++)if(tp[ti]=='.')dot=ti;
-                        if(dot>=0&&mp-off>dot)
-                            for(ti=dot+1;ti<tl;ti++)
-                                if(q_pic_ismask(g,off+ti)&&g->buf[off+ti]==' ')g->buf[off+ti]='0';
+                        if(np<0&&!confirm) {
+                            /* CONFIRM OFF: a full numeric GET goes on to the
+                             * next one (forms-f22a K1 1234567890, K2 78). */
+                            int w;
+                            if(rt_memcmp(before,g->buf,g->width)){g->changed=1;any_change=1;}
+                            q_get_paint_changed(ip,g,paintref);
+                            w=q_get_write(ip,g,ec);
+                            if(w==-2)return -INTERP_ERR_EVAL;
+                            if(w==-1){q_bell(ip);pos=0;}
+                            else if(cur+1>=ctx->ngets){code=15;done=1;break;}
+                            else {cur++;pos=0;g=&ctx->gets[cur];rt_memcpy(before,g->buf,g->width);rt_memcpy(paintref,g->buf,g->width);}
+                        }
                     }
                 }
             } else if(g->pic[0]) { /* pictured character entry (F10) */
@@ -1827,41 +1854,6 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
                 /* The typed letter itself (forms-f20m: n shows N, y shows Y). */
                 if(u=='T'||u=='Y'){g->buf[0]=yform?'Y':u;accepted=1;}
                 else if(u=='F'||u=='N'){g->buf[0]=yform?'N':u;accepted=1;}
-            } else if(g->type==XB_N) {
-                if((k>='0'&&k<='9')||k=='.'||k=='-'||k=='+') {
-                    /* Live reformat (F07): the first key starts a new entry
-                     * (F13a FN typed over 12.50 becomes 77.25 untouched by
-                     * the old digits); later keys extend the raw text. */
-                    uint32_t rn;xb_val v;char text[Q_LINEBUF];uint32_t n=0;
-                    if(!g->started){g->raw[0]=0;g->started=1;}
-                    rn=(uint32_t)rt_strlen(g->raw);
-                    if(k>='0'&&k<='9') {
-                        /* Integer places fill first, then the next digit goes
-                         * past the point, and a full decimal part has its last
-                         * place overwritten: forms-f20f 123456789012345 into
-                         * N=12.50 (13 cells) is 1234567890.15, forms-f07
-                         * -12.345 is -12.35. A full field without decimals
-                         * overwrites its last digit (uncaptured, as CONFIRM ON
-                         * overwrites a full character field, forms-f05b). */
-                        uint32_t i,intd=0,decd=0,dot=0;
-                        int maxint=(int)g->width-(g->dec>0?g->dec+1:0);
-                        for(i=0;i<rn;i++){if(g->raw[i]=='.')dot=1;else if(g->raw[i]>='0'&&g->raw[i]<='9'){if(dot)decd++;else intd++;}}
-                        if(rn&&g->raw[0]=='-')maxint--;
-                        if(!dot&&(int)intd>=maxint&&g->dec>0&&rn<sizeof g->raw-2){g->raw[rn++]='.';g->raw[rn]=0;dot=1;}
-                        if((!dot&&(int)intd>=maxint)||(dot&&(int)decd>=g->dec)) { if(rn)g->raw[rn-1]=(char)k; }
-                        else if(rn<sizeof g->raw-1){g->raw[rn++]=(char)k;g->raw[rn]=0;}
-                    } else if(k=='.') {
-                        /* No decimal places: the point does nothing (forms-f07
-                         * N4, .5 into N=0 is 5). */
-                        uint32_t i,dot=0;for(i=0;i<rn;i++)if(g->raw[i]=='.')dot=1;
-                        if(g->dec>0&&!dot&&rn<sizeof g->raw-1){g->raw[rn++]='.';g->raw[rn]=0;}
-                    } else if(rn<sizeof g->raw-1){g->raw[rn++]=(char)k;g->raw[rn]=0;}
-                    v=xb_n(dec_parse(g->raw,(int)rn));v.num_width=g->width;v.num_dec=g->dec;
-                    q_render_val(text,&n,sizeof text,&v,ctx,0);
-                    rt_memset(g->buf,' ',g->width);
-                    { uint32_t tn=n<g->width?n:g->width;rt_memcpy(g->buf+(g->width-tn),text+(n-tn),tn); }
-                    pos=g->width-1;accepted=1;
-                }
             } else if(g->type==XB_D) {
                 if(k>='0'&&k<='9') {
                     while(pos<g->width&&(g->buf[pos]=='/'||g->buf[pos]=='-'||g->buf[pos]=='.'))pos++;
@@ -1879,12 +1871,12 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
                     /* Full field auto-advances under CONFIRM OFF (F05a). */
                     int w;
                     if(rt_memcmp(before,g->buf,g->width)){g->changed=1;any_change=1;}
-                    q_get_paint_changed(ip,g,before);
+                    q_get_paint_changed(ip,g,paintref);
                     w=q_get_write(ip,g,ec);
                     if(w==-2)return -INTERP_ERR_EVAL;
                     if(w==-1){ /* cannot happen for C */ }
                     else if(cur+1>=ctx->ngets){code=15;done=1;break;}
-                    else {cur++;pos=0;g=&ctx->gets[cur];rt_memcpy(before,g->buf,g->width);}
+                    else {cur++;pos=0;g=&ctx->gets[cur];rt_memcpy(before,g->buf,g->width);rt_memcpy(paintref,g->buf,g->width);}
                 }
             }
             if(!accepted)q_bell(ip); /* refused key: forms-f07 X, forms-f14 */
@@ -1894,7 +1886,7 @@ static int q_read_run(xb_interp *ip,const char *args,int *ec)
          * over 01/01/02 leaves READKEY 15, X then Left A over ABCD gives 271. */
         if(rt_memcmp(before,g->buf,g->width))g->changed=1;
         if(g->changed)any_change=1;
-        q_get_paint_changed(ip,g,before);
+        q_get_paint_changed(ip,g,paintref);
         q_get_cursor(ip,g->row,g->col+pos);
     }
     if(ctx->ngets&&save_cur) {

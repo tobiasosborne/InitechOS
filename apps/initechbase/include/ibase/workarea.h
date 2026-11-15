@@ -584,6 +584,9 @@ void wa_nav_set_bof(wa_env *env, int area, int val);
  * Pointer is owned by the area; valid until the area is closed/re-USEd. */
 const char *wa_alias(const wa_env *env, int area);
 
+/* wa_note_default_ext: USE appended the .DBF extension itself (DBF()). */
+void wa_note_default_ext(wa_env *env, int area, int defaulted);
+
 /* wa_master_order: the master index order of area `area` (0 = natural; 1..N).
  * 0 for a closed area. */
 int wa_master_order(const wa_env *env, int area);

@@ -54,7 +54,7 @@ static xb_interp *make_ip(ibase_pal_t *pal)
     pal->paint = paint; pal->say_screen = say_screen;
     pal->set_attr = set_attr; pal->gotoxy = gotoxy; pal->conin_char = conin_char;
     CHECK(set_register(ip) == 0 && query_register(ip) == 0, "modules register");
-    CHECK(ibase_do(ip, "SET TALK OFF\nSET STATUS OFF\nSET SCOREBOARD OFF\n") == INTERP_OK,
+    CHECK(ibase_do(ip, "SET TALK OFF\nSET STATUS OFF\nSET SCOREBOARD OFF\nSET CONFIRM ON\n") == INTERP_OK,
           "capture baseline sets");
     return ip;
 }

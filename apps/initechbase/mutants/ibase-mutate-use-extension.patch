@@ -1,5 +1,13 @@
 # test: test_ibase_use
+# USE does not default the .DBF extension.
 --- a/ibase_main.c
 +++ b/ibase_main.c
-@@ -335 +334,0 @@
--    if (repl_default_ext(file, sizeof file, ".DBF") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
+@@ -334,7 +334,7 @@
+ 
+     /* Ref: Using dBase III Plus.pdf U1-4: omitted extension defaults to .DBF. */
+     { uint32_t before = rt_strlen(file);
+-      if (repl_default_ext(file, sizeof file, ".DBF") != 0) { if(ec) *ec=10; return -INTERP_ERR_SYNTAX; }
++      /* MUTANT: no default extension */
+       file_defaulted = rt_strlen(file) != before; }
+     /* An index named without an extension is <name>.NDX: real dBASE III PLUS
+      * 1.1 opens TRIPS.NDX for USE TRAVEL INDEX TRIPS (mint 005 M005U [U1],

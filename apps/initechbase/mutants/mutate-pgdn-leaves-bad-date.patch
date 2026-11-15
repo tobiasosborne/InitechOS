@@ -1,10 +1,10 @@
 # test: test_ibase_forms_replay
-# PgDn leaves READ on an invalid date (forms-f21c stays).
+# Save exits leave READ on an invalid date (forms-f21c, f22c, f22e, f22g stay).
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -1640,7 +1640,7 @@
-              * the field start, as Enter does (forms-f08). PgUp, Ctrl-End and
-              * Ctrl-W share this path; only PgDn is captured. */
+@@ -1655,7 +1655,7 @@
+              * (forms-f22c), Ctrl-W and Ctrl-R (forms-f22e), and End
+              * (forms-f22g). */
              xb_val probe;
 -            if(g->changed&&!q_get_parse(ip,g,&probe)) { q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue; }
 +            if(0&&g->changed&&!q_get_parse(ip,g,&probe)) { q_bell(ip);pos=0;q_get_cursor(ip,g->row,g->col);continue; } /* MUTANT */
