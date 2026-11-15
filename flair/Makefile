@@ -120,6 +120,8 @@ test_menu_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_menu_look_SRCS := tests/test_menu_look.c menu.c text.c blitter.c surface.c $(TOP)/flair/region/region.c tests/render/render.c heap.c flair_look.c
 test_menu_look_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_menu_look_LIBS := -lpng
+test_menu_bar_art_SRCS := tests/test_menu_bar_art.c menu.c text.c blitter.c surface.c $(TOP)/flair/region/region.c tests/render/render.c heap.c flair_look.c
+test_menu_bar_art_CFLAGS := -D_POSIX_C_SOURCE=200809L -DCHICAGO12_ART='"$(abspath include/assets/chicago12.art)"'
 test_menu_record_COUNT_PATTERN := ^test-menu-record: ([0-9]+) checks.*$$
 test_menu_record_SRCS := tests/test_menu_record.c
 test_menu_record_CFLAGS := -D_POSIX_C_SOURCE=200809L
@@ -174,7 +176,7 @@ test_skin_manifest_SRCS := tests/test_skin_manifest.c
 test_skin_manifest_CFLAGS :=
 test_flair_routing_SRCS := tests/test_flair_routing.c tests/flair_routing_stubs.c tests/platform_routing.c tbxgate.c event.c process.c window.c heap.c $(TOP)/flair/region/region.c chrome.c blitter.c surface.c flair_look.c tests/render/render.c
 test_flair_routing_CFLAGS := -no-pie
-HOST_TESTS := test_blitter test_canon test_chicago_metrics test_chrome test_chrome_fidelity test_clut test_color_canon test_control test_control_record test_cursor test_dialog test_dialog_record test_dialog_tracking test_drawing_ops test_event test_flair_dac test_flair_headers test_flair_heap test_flair_mechanism_colorblind test_font_styles test_geneva12_metrics test_interact test_list test_menu test_menu_look test_menu_record test_process test_process_activate test_process_budget test_process_teardown test_process_update test_resource test_scrap test_scrollbar_look test_stdfile test_tbx_menu test_te_surface test_text test_text_clip test_textedit test_window test_winscroll test_asset_lz test_chicago_pack test_geneva12_pack test_flair_part_map test_part_manifest test_skin_teal test_skin_era_frozen test_skin_manifest test_flair_routing
+HOST_TESTS := test_blitter test_canon test_chicago_metrics test_chrome test_chrome_fidelity test_clut test_color_canon test_control test_control_record test_cursor test_dialog test_dialog_record test_dialog_tracking test_drawing_ops test_event test_flair_dac test_flair_headers test_flair_heap test_flair_mechanism_colorblind test_font_styles test_geneva12_metrics test_interact test_list test_menu test_menu_look test_menu_bar_art test_menu_record test_process test_process_activate test_process_budget test_process_teardown test_process_update test_resource test_scrap test_scrollbar_look test_stdfile test_tbx_menu test_te_surface test_text test_text_clip test_textedit test_window test_winscroll test_asset_lz test_chicago_pack test_geneva12_pack test_flair_part_map test_part_manifest test_skin_teal test_skin_era_frozen test_skin_manifest test_flair_routing
 # Host integration binding: real DOS, confined to this one program.
 HOST_TESTS += test_tbx_file test_boot_logo test_event_record
 test_event_record_SRCS := tests/test_event.c event.c

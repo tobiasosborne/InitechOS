@@ -42,6 +42,75 @@ static int shell_title_row_index(int row)
     return CIDX_PLAT_FRAME_SHADOW;
 }
 
+/* Independent top-band literals for leg (9). The composed band is compared
+ * there with a second DrawMenuBar call, which shares any DrawMenuBar bug
+ * (initech-jeo8c); these expectations come from references instead.
+ * Rows: system7-decomp specs/sys8/menus.md 1.1 (W, E7 x17, B3, black).
+ * Corners: menus.md 1.2, the s8_desktop_menubar.png grid x=0..14 y=0..8,
+ * mirrored on the right. Titles: Finder File Edit View Special ink widths
+ * 21/23/30/44, rows 5..13 (Special 5..15), File first ink x=43, measured in
+ * s7_desktop.png (System 7.5.3, Chicago 12; specs/desktop/menu-bar.md).
+ * Every title's ink starts on row 5 (s7_desktop.png) and ends by row 16,
+ * the bottom of the menus.md 1.3 glyph band (Image's g, Layer's y).
+ * The InitechPaint bar has the frame's eight titles (goldens/frame
+ * transcription.tsv MB.1..MB.8). Positions after File are initech-vhgid. */
+static const char *const BAR_CORNER[9] = {
+    "KKKKKsceWWWWWWW", "KKKscWWWeeeeeee", "KKseWeeeeeeeeee",
+    "KseWeeeeeeeeeee", "KcWeeeeeeeeeeee", "sWeeeeeeeeeeeee",
+    "cWeeeeeeeeeeeee", "eWeeeeeeeeeeeee", "Weeeeeeeeeeeeee" };
+
+static uint32_t bar_corner_rgb(char c)
+{
+    return c == 'K' ? 0x000000u : c == 's' ? 0x777777u : c == 'c' ? 0xC0C0C0u
+         : c == 'e' ? 0xE7E7E7u : 0xFFFFFFu;
+}
+
+/* Returns the number of literal mismatches; fills the title ink groups. */
+static int bar_literal_bad(render_ctx_t *c, int paint, int *n_groups)
+{
+    static const uint32_t rows[5][2] = {
+        { 0, 0xFFFFFFu }, { 1, 0xE7E7E7u }, { 17, 0xE7E7E7u },
+        { 18, 0xB3B3B3u }, { 19, 0x000000u } };
+    static const int width[4] = { 21, 23, 30, 44 }, bottom[4] = { 13, 13, 13, 15 };
+    int bad = 0, g[12][4], n = 0;
+    for (int x = 15; x < 625; x++)
+        for (int r = 0; r < 5; r++)
+            bad += (render_pixel_rgb(c, (uint32_t)x, (uint32_t)rows[r][0]) & 0xFFFFFFu) != rows[r][1];
+    for (int y = 0; y < 9; y++)
+        for (int x = 0; x < 15; x++) {
+            uint32_t want = bar_corner_rgb(BAR_CORNER[y][x]);
+            bad += (render_pixel_rgb(c, (uint32_t)x, (uint32_t)y) & 0xFFFFFFu) != want;
+            bad += (render_pixel_rgb(c, (uint32_t)(639 - x), (uint32_t)y) & 0xFFFFFFu) != want;
+        }
+    for (int x = 33; x < 500; x++) {
+        int ink = 0, y0 = 99, y1 = -1;
+        for (int y = 2; y <= 16; y++) {
+            uint32_t v = render_pixel_rgb(c, (uint32_t)x, (uint32_t)y) & 0xFFFFFFu;
+            if (v == 0xE7E7E7u) continue;
+            ink = 1;
+            bad += v != 0u;              /* title ink is black (wctb part2) */
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+        }
+        if (!ink) continue;
+        if (n && x - g[n - 1][1] - 1 < 8) {
+            g[n - 1][1] = x;
+            if (y0 < g[n - 1][2]) g[n - 1][2] = y0;
+            if (y1 > g[n - 1][3]) g[n - 1][3] = y1;
+        } else if (n < 12) {
+            g[n][0] = g[n][1] = x; g[n][2] = y0; g[n][3] = y1; n++;
+        }
+    }
+    *n_groups = n;
+    bad += n != (paint ? 8 : 4);
+    bad += n < 1 || g[0][0] != 43;
+    for (int k = 0; k < (paint ? 0 : 4) && k < n; k++)
+        bad += g[k][1] - g[k][0] + 1 != width[k] || g[k][2] != 5 || g[k][3] != bottom[k];
+    for (int k = 0; k < n; k++)
+        bad += g[k][2] != 5 || g[k][3] > 16;   /* cap top 5; band ends 16 */
+    return bad;
+}
+
 /* The native port (ADR-0004 OD-3). The offscreen IS the screen, so global coords
  * == port-local coords == offscreen pixel coords. */
 enum { SCRW = 640, SCRH = 480 };
@@ -651,6 +720,13 @@ int main(int argc, char **argv)
                     lower_bad += idx_at(&lc, x, y) != (int)FLAIR_DESKTOP_BG_INDEX;
                 CHECK(top_bad == 0, "(9) front owner's titles, glyph and clock in top bar");
                 CHECK(lower_bad == 0, "(9) no second band in Finder or app scene");
+                int n_groups = 0;
+                int lit_bad = bar_literal_bad(&lc, which == 1, &n_groups);
+                CHECK(lit_bad == 0,
+                      "(9) top band equals menus.md rows/corners and s7_desktop title boxes");
+                if (lit_bad)
+                    fprintf(stderr, "    (9) scene %d: %d literal mismatches, %d title groups\n",
+                            which, lit_bad, n_groups);
                 /* Independent presence invariant: a comparison to another
                  * DrawMenuBar call alone could bless two missing titles.
                  * Mac OS 8.1 sys8/menus.md section 1.3 puts File at x=42;

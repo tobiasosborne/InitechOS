@@ -84,6 +84,14 @@ The menu bar uses Initech's operator-approved three-block mark. Its 16 by 15
 transparent strike is independent of the retained 33px menu hit slot. The
 unchanged approved mask and provenance live in tests/goldens/marks; test_menu
 compares the product data and every normal/pulled rendered pixel against it.
+test_menu_bar_art grades the idle bar DrawMenuBar paints without asking it:
+full-width rows and both corners from sys8/menus.md 1.1/1.2, Finder title
+widths and rows from s7_desktop.png, every title cell against chicago12.art
+read by its own parser, and the frame's eight Photoshop titles in order.
+MENU_MUT_IDLE_TITLE_LOW (titles one row low) passes test_menu, test_menu_look
+and desktop test_shell's shared-DrawMenuBar comparison, and fails it.
+Title positions after File wait on initech-vhgid (spacing is +18, the
+captures +13).
 
 Managers:
 
@@ -197,7 +205,7 @@ Disabled and pressed CDEF capture gaps remain explicit. tests/SMOKES.md indexes
 remain with the factory and desktop owners. The product smoke exercises the
 current booted pump, rather than certifying every historical scenario.
 
-make mutants runs 217 patches through the shared strict runner: passing baseline,
+make mutants runs 218 patches through the shared strict runner: passing baseline,
 zero-fuzz application, successful compilation, and the same runtime failure twice.
 Each patch selects a killing host program. tools/run-mutants.sh groups exact
 selections and runs up to MUTANT_JOBS=16 groups concurrently with private scratch;
@@ -214,7 +222,7 @@ s8_alert_modal, s8_icons_alert_caution). No compile failure was counted as a kil
 The copy patches were refreshed against staged copying,
 with independent destination bytes and a literal configured-rate assertion.
 None was deleted as equivalent. tests/MUTATION-RESULTS.tsv records the 207 original
-macros and their 248 guard entries, plus ten later external patches, test
+macros and their 248 guard entries, plus eleven later external patches, test
 selection, disposition, recipe evidence and completed semantic receipts.
 This includes five hooks omitted from the original 202-macro/243-entry inventory:
 the two clock faults, modal passthrough, close hiding and update visibility.

@@ -8,9 +8,9 @@ All listed legacy targets were run in /home/tobiasosborne/Projects/InitechOS-leg
 with `. tools/lane-env.sh`, followed by `make -j16 <gate>`. Counts are observed
 outputs, not the draft inventory's inferred counts. No assertion count was reduced.
 
-54 invocations from 53 source programs: 27 ORACLE-STRONG, 27 UNIT/REGRESSION.
-test_skin_manifest and test_part_manifest (initech-jeo8c) are new, not imported;
-their legacy column is empty.
+55 invocations from 54 source programs: 28 ORACLE-STRONG, 27 UNIT/REGRESSION.
+test_skin_manifest, test_part_manifest and test_menu_bar_art (initech-jeo8c)
+are new, not imported; their legacy column is empty.
 451,944 baseline checks; 451,957 after restoring missing host coverage, plus separately counted storage/table
 comparisons below. The 438,499-check TextEdit property model dominates the total.
 
@@ -48,6 +48,7 @@ comparisons below. The 438,499-check TextEdit property model dominates the total
 | list | UNIT/REGRESSION | 57 | 57 |
 | menu | ORACLE-STRONG | 83 | 92 |
 | menu_look | ORACLE-STRONG | 21 | 21 |
+| menu_bar_art | ORACLE-STRONG | - | 43 |
 | menu_record | UNIT/REGRESSION | 101 | 101 |
 | process | UNIT/REGRESSION | 58 | 58 |
 | process_activate | ORACLE-STRONG | 21 | 21 |

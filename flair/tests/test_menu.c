@@ -81,6 +81,11 @@ TEST_HARNESS();
  * INDEPENDENT layout model (re-derives the proportional widths WITHOUT calling
  * the menu.c internals -- so a layout bug cannot mask itself; test_window idiom).
  * Mirrors menu.h's constants but recomputes the cumulative x from text_measure.
+ * NOT AN ORACLE FOR THE SPACING. It reads FLAIR_MENU_TITLE_PAD and the
+ * product's text_measure, so a wrong pad passes here, and one does: the
+ * period Menu Manager spaces titles StringWidth + 13 apart (s7_desktop.png),
+ * the product + 18. initech-vhgid replaces these legs with captured pens;
+ * test_menu_bar_art grades the title glyphs and extents meanwhile.
  * ===========================================================================*/
 static int indep_title_w(const char *title)
 {

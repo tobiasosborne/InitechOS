@@ -1,0 +1,16 @@
+# Idle menu titles are drawn one row low (the pulled title is unchanged).
+# test_menu, test_menu_look and the shared-DrawMenuBar comparison in
+# flair/desktop test_shell stay green; test_menu_bar_art (rows 5..13, art at row 2) goes red.
+# test: test_menu test_menu_look test_menu_bar_art
+--- a/menu.c
++++ b/menu.c
+@@ -669,7 +669,8 @@
+         /* clipped like every other bar primitive (:
+          * text never paints outside the effective clip) */
+         text_clip_t tk = { clip, 0, 0, 0, 0, 0 };
+-        (void)text_draw_run(bm, x + FLAIR_MENU_TITLE_PAD, FLAIR_MENU_TITLE_VPAD,
++        (void)text_draw_run(bm, x + FLAIR_MENU_TITLE_PAD,
++                            FLAIR_MENU_TITLE_VPAD + (k != hilited_menu),
+                             bar->menus[k].title, FONT_CHICAGO, 0u, title_fg,
+                             title_bg, &tk);
+     }
