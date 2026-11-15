@@ -11,6 +11,15 @@
 
 static void console_putc(char c) { putchar((unsigned char)c); }
 static void serial_discard(const char *s) { (void)s; }
+static unsigned checks;
+static void require(int yes, const char *what)
+{
+    checks++;
+    if (!yes) {
+        fprintf(stderr,"FAIL config: %s\nINITECH_CHECKS %u failures=1\n",what,checks);
+        exit(1);
+    }
+}
 int main(int argc,char **argv)
 {
     blockdev_file_t disk;
@@ -25,9 +34,9 @@ int main(int argc,char **argv)
     sft_init(); int21_set_psp(&process); int21_set_sink(console_putc);
     (void)sysinit_apply_config(&vol,sector,fat,sizeof fat,serial_discard);
     if (argc==3 && !strcmp(argv[2],"refused")) {
-        if (sysinit_shell_ready()) return 1;
+        require(!sysinit_shell_ready(), "unsupported SHELL refuses startup");
     } else if (argc==3 && !strcmp(argv[2],"ready")) {
-        if (!sysinit_shell_ready()) return 1;
+        require(sysinit_shell_ready(), "supported SHELL permits startup");
     } else if (argc==3) {
         unsigned count=0;
         uint16_t handles[20];
@@ -37,7 +46,7 @@ int main(int argc,char **argv)
             frame.edx=(uint32_t)(uintptr_t)"COMMAND.COM";
             int21_dispatch(&frame);
             if (frame.eflags&1) {
-                if ((frame.eax&65535)!=4) return 1;
+                require((frame.eax&65535)==4, "exhaustion reports too many open files");
                 break;
             }
             handles[count]=(uint16_t)frame.eax;
@@ -46,10 +55,7 @@ int main(int argc,char **argv)
             int_frame_t frame={0}; frame.eax=0x3e00; frame.ebx=handles[i];
             int21_dispatch(&frame);
         }
-        if (count!=strtoul(argv[2],0,10)) {
-            fprintf(stderr,"open capacity %u differs from genuine DOS %s\n",count,argv[2]);
-            return 1;
-        }
+        require(count==strtoul(argv[2],0,10), "open capacity agrees with genuine DOS");
     }
     blockdev_file_close(&disk);
     return ferror(stdout) ? 2 : 0;

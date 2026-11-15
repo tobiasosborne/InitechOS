@@ -1,0 +1,12 @@
+# test: test-verdict-controls
+--- a/tests/assertions.sh
++++ b/tests/assertions.sh
+@@ -6,7 +6,7 @@
+  rc=0; "$@" || rc=$?
+  case $rc in
+   0) ;;
+-  1) printf 'FAIL: %s\nINITECH_CHECKS %s failures=1\n' "$*" "$checks" >&2; exit 1;;
++  *) printf 'FAIL: %s\nINITECH_CHECKS %s failures=1\n' "$*" "$checks" >&2; exit 1;;
+   *) printf 'ERROR: %s (exit %s)\n' "$*" "$rc" >&2; exit 2;;
+  esac
+ }

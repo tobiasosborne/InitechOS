@@ -1,4 +1,5 @@
 set -eu
+. kernel/tests/assertions.sh
 dd if=/dev/zero of=build/fat12_fixture.img bs=512 count=2880 status=none
 mformat -i build/fat12_fixture.img -f 1440 ::
 mcopy -i build/fat12_fixture.img kernel/tests/fixtures/hello.txt ::HELLO.TXT
@@ -47,8 +48,8 @@ mcopy -n -i build/fat12_zs24_scratch.img ::SUB/NEW.TXT build/zs24_mcopy2.bin
 printf '>>> test-zs24 [LSEEK+WRITE]: positioned splice at offset 600 byte-exact (mcopy==python)\n'
 # (3) UNLINK '\SUB\NEW.TXT' -> mdir ::SUB no longer lists it; python list == only NESTED.TXT.
 build/test_fileio_subdir "build/fat12_zs24_scratch.img" "kernel/tests/fixtures" --write unlink
-if mdir -i build/fat12_zs24_scratch.img ::SUB 2>/dev/null | grep -q 'NEW *TXT'; then \
-	printf '!!! test-zs24 FAIL [UNLINK]: mdir ::SUB STILL lists NEW.TXT after UNLINK\n'; exit 1; fi
+mdir -i build/fat12_zs24_scratch.img ::SUB > build/zs24_unlink.list
+assert_not grep -q 'NEW *TXT' build/zs24_unlink.list
 "${PYTHON_FAT_REFERENCE:-python3}" kernel/tests/disk/fat12_ref.py build/fat12_zs24_scratch.img --list-path 'SUB' | grep -q '^NESTED.TXT ' \
 	|| { printf '!!! test-zs24 FAIL [UNLINK]: python --list-path SUB lost the original NESTED.TXT\n'; exit 1; }
 if "${PYTHON_FAT_REFERENCE:-python3}" kernel/tests/disk/fat12_ref.py build/fat12_zs24_scratch.img --list-path 'SUB' | grep -q '^NEW.TXT '; then \
@@ -74,10 +75,10 @@ sh kernel/tests/disk/verify_fixture_volume.sh harness "build/fat12_nested.img" H
 cp build/fat12_nested.img build/fat12_zs24_scratch.img
 sh kernel/tests/disk/verify_fixture_volume.sh harness "build/fat12_zs24_scratch.img" HELLO.TXT SUB/NESTED.TXT SUB/DEEP/DEEP.TXT BIGDIR/FILE01.TXT BIGDIR/FILE02.TXT BIGDIR/FILE03.TXT BIGDIR/FILE04.TXT BIGDIR/FILE05.TXT BIGDIR/FILE06.TXT BIGDIR/FILE07.TXT BIGDIR/FILE08.TXT BIGDIR/FILE09.TXT BIGDIR/FILE10.TXT BIGDIR/FILE11.TXT BIGDIR/FILE12.TXT BIGDIR/FILE13.TXT BIGDIR/FILE14.TXT BIGDIR/FILE15.TXT BIGDIR/FILE16.TXT BIGDIR/FILE17.TXT BIGDIR/FILE18.TXT BIGDIR/FILE19.TXT BIGDIR/FILE20.TXT BIGDIR/FILE21.TXT BIGDIR/FILE22.TXT BIGDIR/FILE23.TXT BIGDIR/FILE24.TXT BIGDIR/FILE25.TXT BIGDIR/FILE26.TXT BIGDIR/FILE27.TXT BIGDIR/FILE28.TXT BIGDIR/FILE29.TXT BIGDIR/FILE30.TXT BIGDIR/FILE31.TXT BIGDIR/FILE32.TXT BIGDIR/FILE33.TXT BIGDIR/FILE34.TXT BIGDIR/FILE35.TXT BIGDIR/FILE36.TXT BIGDIR/FILE37.TXT BIGDIR/FILE38.TXT BIGDIR/FILE39.TXT BIGDIR/FILE40.TXT
 build/test_fileio_subdir "build/fat12_zs24_scratch.img" "kernel/tests/fixtures" --write grow
+mdir -i build/fat12_zs24_scratch.img ::SUB > build/zs24_grow.list
 # mtools: ALL 13 GROW files are listed in ::SUB (rendered 8.3 "GROWnn   TXT").
 for n in 00 01 02 03 04 05 06 07 08 09 10 11 12; do \
-	mdir -i build/fat12_zs24_scratch.img ::SUB 2>/dev/null | grep -q "GROW$n  *TXT" \
-		|| { printf '!!! test-zs24 FAIL [GROW]: mdir ::SUB does not list GROW%s.TXT\n' "$n"; exit 1; }; \
+	assert grep -q "GROW$n  *TXT" build/zs24_grow.list; \
 done
 # python: ALL 13 GROW files listed (anchored, rendered 8.3 form).
 for n in 00 01 02 03 04 05 06 07 08 09 10 11 12; do \

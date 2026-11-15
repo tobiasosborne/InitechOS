@@ -16,8 +16,9 @@ static int read_disk(void *ctx, uint32_t l, uint32_t n, void *p)
 }
 static void w32(unsigned char *p, unsigned v)
 { for (unsigned i=0;i<4;i++) p[i]=(unsigned char)(v>>(i*8)); }
+static unsigned checks;
 static void require(int ok, const char *s, int rc)
-{ if(!ok){fprintf(stderr,"RED partition %s rc=%d\n",s,rc);exit(1);} }
+{ checks++; if(!ok){fprintf(stderr,"FAIL partition %s rc=%d\nINITECH_CHECKS %u failures=1\n",s,rc,checks);exit(1);} }
 static void check(int want, const char *name)
 {
     fat12_volume_t v;

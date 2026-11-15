@@ -304,6 +304,8 @@ int main(void)
         CHECK(g_sft[fslot].kind == SFT_KIND_FILE,
               "the file slot SURVIVES the child's exit (NOT over-freed) -- the "
               "parent's redirected stdout + open handle remain valid (bsy.9)");
+        /* Do not pass a proven stale JFT into the SFT invariant trap. */
+        if (g_fails) return TEST_SUMMARY("test_sft");
         CHECK(sft_from_handle(&parent, 1) != 0 &&
               sft_from_handle(&parent, 1)->kind == SFT_KIND_FILE,
               "parent stdout still resolves to the live file slot after child exit");

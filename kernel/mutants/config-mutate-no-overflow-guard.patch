@@ -1,4 +1,4 @@
-# test: test-config-sys test-config-fuzz
+# test: test-config-uint
 --- a/config_sys.c
 +++ b/config_sys.c
 @@ -69,7 +69,6 @@

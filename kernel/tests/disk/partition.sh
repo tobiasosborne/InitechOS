@@ -47,9 +47,9 @@ check_host() {
  echo "GREEN partition host base=$base: directory names/sizes + every file byte == mtools; fsck.fat -n clean"
 }
 if [ "$kind" = host ]; then
+ "$build/test_partition" "$work/partitioned.img"
  check_host "$work/super.img" 0 2880
  check_host "$work/partitioned.img" 63 2880
- "$build/test_partition" "$work/partitioned.img"
  mint "$work/partition16.img" 63 16384 16
  check_host "$work/partition16.img" 63 16384
  echo 'GREEN test-fat-partition'; exit 0

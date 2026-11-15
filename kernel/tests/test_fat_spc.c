@@ -19,8 +19,9 @@ static int bad_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
     if (!rc && lba == 0 && count) ((unsigned char *)buf)[13] = bad->spc;
     return rc;
 }
-#define REQUIRE(c, msg) do { if (!(c)) { \
-    fprintf(stderr, "RED fat-spc %s\n", msg); return 1; } } while (0)
+static unsigned checks;
+#define REQUIRE(c, msg) do { checks++; if (!(c)) { \
+    fprintf(stderr, "FAIL fat-spc %s\nINITECH_CHECKS %u failures=1\n", msg, checks); return 1; } } while (0)
 #define OK(c) REQUIRE((c) == FAT12_OK, #c)
 static int guarded(void)
 {

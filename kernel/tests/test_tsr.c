@@ -37,16 +37,8 @@
 #include "sft.h"
 #include "tsr_contract.h"
 #include "test_low_mapping.h"
-
-static int g_checks = 0, g_fails = 0;
-#define CHECK(cond, msg)                                                    \
-    do {                                                                    \
-        g_checks++;                                                         \
-        if (!(cond)) {                                                      \
-            g_fails++;                                                      \
-            fprintf(stderr, "  FAIL %s:%d: %s\n", __FILE__, __LINE__, msg); \
-        }                                                                   \
-    } while (0)
+#include "test_assert.h"
+TEST_HARNESS();
 
 static int     g_exit_fired;
 static uint8_t g_exit_code;
@@ -158,6 +150,7 @@ int main(void)
     CHECK(int21_mcb_bind_above_residents(Wl + WIN) == 1, "T3: arena above residents");
     uint32_t cpsp = 0, cend = 0;
     CHECK(int21_mcb_exec_alloc(0x200u, &cpsp, &cend) == 0u, "T3: EXEC block");
+    if (g_fails) return TEST_SUMMARY("test_tsr");
     CHECK(cpsp == int21_tsr_top() + 16u,
           "T3: next load's PSP follows the first free MCB above the resident");
     CHECK(W[0x100] == 0xA5 && W[0x3FF] == 0xA5, "T3: resident bytes intact");
@@ -230,6 +223,5 @@ int main(void)
     CHECK(int21_vector_gate(0x27u) == 0x8Fu && int21_vector_gate(0x38u) == 0x8Fu &&
           int21_vector_gate(0x21u) == 0x8Fu, "T8: software vectors -> trap gates");
 
-    printf("test_tsr: %d checks, %d failures\n", g_checks, g_fails);
-    return g_fails ? 1 : 0;
+    return TEST_SUMMARY("test_tsr");
 }

@@ -31,7 +31,9 @@ sh kernel/tests/disk/verify_fixture_volume.sh harness "build/fat12_b53d_scratch.
 # (1) CREATE '\SUB\ATTR.TXT' (0x20 baseline) + AH=43h SET RO|HIDDEN (0x03) +
 # FLUSH; the harness self-checks the 3 in-process read-backs + the dir/missing
 # reject set (10 CHECKs). A non-zero failure count fails the gate.
-build/test_fileio_subdir "build/fat12_b53d_scratch.img" "kernel/tests/fixtures" --write attr-set > build/b53d_attrset.report 2>&1; \
+rc=0; build/test_fileio_subdir "build/fat12_b53d_scratch.img" "kernel/tests/fixtures" --write attr-set > build/b53d_attrset.report 2>&1 || rc=$?
+cat build/b53d_attrset.report
+test "$rc" -eq 0 || exit "$rc"
 	grep -Eq 'test_fileio_subdir: [0-9]+ checks, 0 failures' build/b53d_attrset.report \
 	|| { printf '!!! test-b53d FAIL [SET]: the attr-set harness reported failures (in-process read-back / reject set):\n'; cat build/b53d_attrset.report; exit 1; }
 printf '>>> test-b53d [SET]: \\SUB\\ATTR.TXT on-disk attr set to 0x03 (dispatch GET + fat12_get_attr + resolved entry agree; dir/missing rejects fire)\n'

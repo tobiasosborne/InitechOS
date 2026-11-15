@@ -14,9 +14,8 @@ for n in 1 3 5 7; do mdel -i "$image" ::F$n; done
 mcopy -i "$image" build/conservation/old.bin ::OLD.BIN
 mmd -i "$image" ::SUB
 mcopy -i "$image" build/conservation/old.bin ::SUB/OLD.BIN
-failed=0
 for op in create unlink; do
- if ! build/test_file_conservation "$image" build/conservation "$op"; then failed=1; fi
+ build/test_file_conservation "$image" build/conservation "$op"
 done
 "$PYTHON_FAT_REFERENCE" kernel/tests/disk/check_conservation.py build/conservation/*.img
 for file in build/conservation/create-*.img build/conservation/unlink-*.img; do
@@ -41,4 +40,3 @@ for file in build/conservation/*-0-0.img; do
  esac
 done
 printf 'PASS mtools: original bytes survive every reported metadata error\n'
-test "$failed" -eq 0

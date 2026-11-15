@@ -43,6 +43,9 @@
 #include <stddef.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <signal.h>
+#include <setjmp.h>
+#include <unistd.h>
 
 #include "int21.h"
 #include "sft.h"
@@ -52,6 +55,39 @@
 #include "test_assert.h"
 
 TEST_HARNESS();
+
+/* Only the three deliberately invalid buffer calls below may recover an
+ * access to their NULL/wrapping range. Unrelated crashes remain setup errors. */
+static sigjmp_buf invalid_return;
+static volatile sig_atomic_t invalid_armed, invalid_wrap;
+static void invalid_fault(int signal_number, siginfo_t *info, void *context)
+{
+    (void)signal_number; (void)context;
+    uintptr_t address = (uintptr_t)info->si_addr;
+    int expected = invalid_wrap
+        ? (uint64_t)address >= UINT64_C(0xfffffff0) && (uint64_t)address < UINT64_C(0x100000010)
+        : address < 8u;
+    if (!invalid_armed || !expected) _exit(2);
+    siglongjmp(invalid_return, 1);
+}
+static int dispatch_invalid_buffer(int_frame_t *frame)
+{
+    struct sigaction action = {0}, previous;
+    action.sa_sigaction = invalid_fault;
+    action.sa_flags = SA_SIGINFO;
+    sigemptyset(&action.sa_mask);
+    if (sigaction(SIGSEGV, &action, &previous)) _exit(2);
+    int faulted = sigsetjmp(invalid_return, 1);
+    if (!faulted) {
+        invalid_wrap = frame->edx != 0;
+        invalid_armed = 1;
+        int21_dispatch(frame);
+    }
+    invalid_armed = 0;
+    if (sigaction(SIGSEGV, &previous, 0)) _exit(2);
+    CHECK(!faulted, "invalid user buffer is refused before its memory is touched");
+    return !faulted;
+}
 
 /* --- standard process binding (mirrors test_fileio.c) ------------------- */
 static psp_t g_test_psp;
@@ -685,7 +721,7 @@ int main(void)
         uint32_t h = open_hello();
         int_frame_t f = fresh_frame();
         f.eax = 0x3F00u; f.ebx = h; f.ecx = 8u; f.edx = 0u;   /* NULL dst */
-        int21_dispatch(&f);
+        if (!dispatch_invalid_buffer(&f)) return TEST_SUMMARY("test_int21_edge");
         CHECK(frame_cf(&f) == 1, "READ NULL buffer (valid handle) sets CF");
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_MEMORY,
               "READ NULL buffer -> AX=0x0009 (invalid memory, DEC-14)");
@@ -694,7 +730,7 @@ int main(void)
         /* (b) WRITE from a NULL buffer to CON (handle 1), count>0 -> 0x0009. */
         int_frame_t f = fresh_frame();
         f.eax = 0x4000u; f.ebx = 1u; f.ecx = 4u; f.edx = 0u;
-        int21_dispatch(&f);
+        if (!dispatch_invalid_buffer(&f)) return TEST_SUMMARY("test_int21_edge");
         CHECK(frame_cf(&f) == 1, "WRITE NULL buffer to CON sets CF");
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_MEMORY,
               "WRITE NULL buffer -> AX=0x0009 (DEC-14)");
@@ -703,7 +739,7 @@ int main(void)
         /* (c) WRITE with a count that WRAPS the 32-bit space -> 0x0009. */
         int_frame_t f = fresh_frame();
         f.eax = 0x4000u; f.ebx = 1u; f.ecx = 0x20u; f.edx = 0xFFFFFFF0u;
-        int21_dispatch(&f);
+        if (!dispatch_invalid_buffer(&f)) return TEST_SUMMARY("test_int21_edge");
         CHECK(frame_cf(&f) == 1, "WRITE wrapping [EDX,EDX+CX) sets CF");
         CHECK((uint16_t)(f.eax & 0xFFFFu) == INT21_ERR_INVALID_MEMORY,
               "WRITE 32-bit-wrap buffer -> AX=0x0009 (DEC-14)");

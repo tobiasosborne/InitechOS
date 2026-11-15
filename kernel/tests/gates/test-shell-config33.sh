@@ -1,4 +1,5 @@
 set -eu
+ . kernel/tests/assertions.sh
 sha256sum -c kernel/tests/fixtures/config33/SHA256SUMS
 reference=dos/command/tests/compat33/expected/CFG3
 gzip -dc "$reference/data.img.gz" > build/reference.img
@@ -11,14 +12,15 @@ build/test_config_apply build/config.img refused > build/console.raw
 tr -d '\r' < build/console.raw > build/console.txt
 sed -n '/Bad or missing Command Interpreter/{s/[[:space:]]*$//;p;}' "$reference/result.txt" > build/expected.txt
 test -s build/expected.txt
-diff -u build/expected.txt build/console.txt
-cmp build/before.img build/config.img
+assert diff -u build/expected.txt build/console.txt
+assert cmp build/before.img build/config.img
 printf 'SHELL=COMMAND.COM /P /E:1024\r\n' > build/CONFIG.SYS
 mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
 build/test_config_apply build/config.img refused > build/console.raw
 tr -d '\r' < build/console.raw > build/console.txt
-diff -u build/expected.txt build/console.txt
+assert diff -u build/expected.txt build/console.txt
 printf 'SHELL=COMMAND.COM /P /E:512\r\n' > build/CONFIG.SYS
 mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
 build/test_config_apply build/config.img ready > build/console.raw
-test ! -s build/console.raw
+assert test ! -s build/console.raw
+finish

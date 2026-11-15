@@ -1,4 +1,5 @@
 set -eu
+ . kernel/tests/assertions.sh
 dd if=/dev/zero of=build/fat12_fixture.img bs=512 count=2880 status=none
 mformat -i build/fat12_fixture.img -f 1440 ::
 mcopy -i build/fat12_fixture.img kernel/tests/fixtures/hello.txt ::HELLO.TXT
@@ -32,29 +33,28 @@ sh kernel/tests/disk/verify_fixture_volume.sh harness "build/fat12_qekc_scratch.
 build/test_fileio_subdir "build/fat12_qekc_scratch.img" "kernel/tests/fixtures" --write filetime-set
 # python: the on-disk 0x16/0x18 packed words EXACTLY equal what SET wrote
 # (0x4A6B 0x2C8D == 19051 11405). NO normalization -- the INVERSE oracle.
-test "$("${PYTHON_FAT_REFERENCE:-python3}" kernel/tests/disk/fat12_ref.py build/fat12_qekc_scratch.img --stat-path-time 'SUB\TSTAMP.TXT')" = "19051 11405" \
-	|| { printf '!!! test-qekc FAIL [SET]: python --stat-path-time != the written 19051 11405 (0x4A6B 0x2C8D)\n'; \
-	     printf '    got: [%s]\n' "$("${PYTHON_FAT_REFERENCE:-python3}" kernel/tests/disk/fat12_ref.py build/fat12_qekc_scratch.img --stat-path-time 'SUB\TSTAMP.TXT')"; exit 1; }
+stamp="$("${PYTHON_FAT_REFERENCE:-python3}" kernel/tests/disk/fat12_ref.py build/fat12_qekc_scratch.img --stat-path-time 'SUB\TSTAMP.TXT')"
+assert test "$stamp" = "19051 11405"
 # mtools: the SAME packed words rendered as the date 2002-04-13 + time 9:19
 # (an INDEPENDENT decoder agreeing with python -- the repository contract two-reference rule).
-mdir -i build/fat12_qekc_scratch.img ::SUB 2>/dev/null | grep -q 'TSTAMP  *TXT.*2002-04-13  *9:19' \
-	|| { printf '!!! test-qekc FAIL [SET]: mtools mdir does not render TSTAMP.TXT as 2002-04-13 9:19 (the written 0x4A6B/0x2C8D)\n'; \
-	     mdir -i build/fat12_qekc_scratch.img ::SUB 2>/dev/null | grep -i tstamp; exit 1; }
+mdir -i build/fat12_qekc_scratch.img ::SUB > build/qekc_list
+assert grep -q 'TSTAMP  *TXT.*2002-04-13  *9:19' build/qekc_list
 printf '>>> test-qekc [SET]: \\SUB\\TSTAMP.TXT on-disk mtime/mdate == 0x4A6B/0x2C8D (python==mtools==written)\n'
 # (2) CONTENT intact: the time-set flush did NOT clobber the file body.
 "${PYTHON_FAT_REFERENCE:-python3}" kernel/tests/disk/fat12_ref.py build/fat12_qekc_scratch.img --cat-path 'SUB\TSTAMP.TXT' > build/qekc_body.bin
-"${PYTHON_FAT_REFERENCE:-python3}" -c 'import sys; e=bytes(97+(i%26) for i in range(64)); sys.exit(0 if open("build/qekc_body.bin","rb").read()==e else 1)' \
-	|| { printf '!!! test-qekc FAIL [SET]: the file body changed after the time-set flush (data clobbered)\n'; exit 1; }
+printf 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl' > build/qekc_expected.bin
+assert cmp build/qekc_expected.bin build/qekc_body.bin
 printf '>>> test-qekc [SET]: TSTAMP.TXT body reads back byte-exact (the time-set flush left data untouched)\n'
 # (3) PERSISTENCE: a subsequent WRITE must PRESERVE the FILETIME-set stamp
 # (fat12_write_partial patches only size/start_cluster, NOT mtime/mdate).
 build/test_fileio_subdir "build/fat12_qekc_scratch.img" "kernel/tests/fixtures" --write filetime-persist
-test "$("${PYTHON_FAT_REFERENCE:-python3}" kernel/tests/disk/fat12_ref.py build/fat12_qekc_scratch.img --stat-path-time 'SUB\TSTAMP.TXT')" = "19051 11405" \
-	|| { printf '!!! test-qekc FAIL [PERSIST]: a later WRITE clobbered the FILETIME-set stamp (fat12_write_partial did not preserve mtime/mdate)\n'; exit 1; }
+stamp="$("${PYTHON_FAT_REFERENCE:-python3}" kernel/tests/disk/fat12_ref.py build/fat12_qekc_scratch.img --stat-path-time 'SUB\TSTAMP.TXT')"
+assert test "$stamp" = "19051 11405"
 printf '>>> test-qekc [PERSIST]: a later WRITE preserved the FILETIME-set stamp (write_partial leaves 0x16/0x18 alone)\n'
 # mtools independently decodes the modified file; require the literal 16-Z
 # prefix and all 48 original suffix bytes, not only an unchanged timestamp.
 mcopy -o -i build/fat12_qekc_scratch.img ::SUB/TSTAMP.TXT build/qekc_persist.bin
 printf 'ZZZZZZZZZZZZZZZZqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl' > build/qekc_expected.bin
-cmp build/qekc_expected.bin build/qekc_persist.bin
+assert cmp build/qekc_expected.bin build/qekc_persist.bin
+finish
 printf ">>> test-qekc: green\n"

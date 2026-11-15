@@ -14,13 +14,13 @@ static unsigned left, gets;
 static int poll_input;
 static char echo[4096],printer[4096],trace[4096];
 static unsigned ne,np,nt;
-static int failures;
+static int failures, checks;
 static int get(void) { if(!left){fprintf(stderr,"RED CONKEYS input-underflow\n");exit(2);} gets++;left--;return *keys++; }
 static int poll(void) { return poll_input&&left ? (left--,*keys++) : -1; }
 static void sink(char c) { if(ne<sizeof echo-1)echo[ne++]=c;echo[ne]=0; }
 static void debug(char c) { if(nt<sizeof trace-1)trace[nt++]=c;trace[nt]=0; }
 static int prn(const uint8_t *s,int n,void *ctx) { (void)ctx;for(int i=0;i<n;i++)printer[np++]=(char)s[i];printer[np]=0;return n; }
-static void check(int ok,const char *name) { if(!ok){fprintf(stderr,"RED CONKEYS %s\n",name);failures++;} }
+static void check(int ok,const char *name) { checks++; if(!ok){fprintf(stderr,"FAIL CONKEYS %s\n",name);failures++;} }
 static uint8_t *buf;
 static void vector(const char *name,const char *tmpl,const unsigned char *input,unsigned size,const char *want,const char *display) {
     memset(buf,0,260);buf[0]=255;buf[1]=(uint8_t)strlen(tmpl);memcpy(buf+2,tmpl,strlen(tmpl));
@@ -97,5 +97,6 @@ int main(void) {
     char full[255];memset(full,'x',254);full[254]=0;
     V("F3 maximum",full,"\0\075\r",full,0);
     printf("%s CONKEYS host manual vectors (%d failures)\n",failures?"RED":"GREEN",failures);
+    printf("INITECH_CHECKS %d failures=%d\n",checks,failures);
     return failures?1:0;
 }

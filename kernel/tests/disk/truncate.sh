@@ -2,6 +2,7 @@
 # Identical FAT12 seeds, independent mcopy replacements and free-space counts.
 # IBM DOS 3.30 TR p.6-140; FAT allocation layout ADR-0003 Appendix B.1/DEC-07.
 set -efu
+ . kernel/tests/assertions.sh
 export LC_ALL=C TZ=UTC INITECH_QMP_STDIO=1
 mode=$1 runner=$2 tag=${3:-green}
 out=build/truncate-$mode-$tag
@@ -48,23 +49,23 @@ fi
 for name in SHRINK BOUND EMPTY GROW GAPIN GAPOUT GUARD SUB/CHILD EXTEND RONLY; do
     mtype -i "$out/data.img" "::$name.BIN" > "$out/got"
     mtype -i "$out/reference.img" "::$name.BIN" > "$out/want"
-    cmp -s "$out/got" "$out/want" || fail "$name bytes != mcopy"
+    assert cmp "$out/got" "$out/want"
 done
 for img in data reference; do
     mdir -i "$out/$img.img" :: | sed -n '/bytes free/p' > "$out/$img.free"
 done
-cmp -s "$out/data.free" "$out/reference.free" || fail 'released clusters != mtools'
+assert cmp "$out/data.free" "$out/reference.free"
 fsck.fat -n "$out/data.img" > "$out/fsck" 2>&1 || fail 'dosfstools damage'
 if [ "$mode" = host ]; then
     for n in 1 2 3; do
         cp -f "$out/seed.img" "$out/fault.img"
         "$runner" "$out/fault.img" fault "$n"
-        cmp -s "$out/seed.img" "$out/fault.img" || fail "fault $n did not restore identical image"
+        assert cmp "$out/seed.img" "$out/fault.img"
     done
     for n in 0 1 2 3; do
         cp -f "$out/seed.img" "$out/corrupt.img"
         "$runner" "$out/corrupt.img" corrupt "$n"
-        cmp -s "$out/seed.img" "$out/corrupt.img" || fail 'corruption refusal changed disk'
+        assert cmp "$out/seed.img" "$out/corrupt.img"
     done
 fi
 echo "GREEN test-fat-truncate-$mode: AH40 position/size, tail release, zero, boundary, subdir, regrow == mtools; fsck.fat"

@@ -59,9 +59,14 @@ def check(path):
         assert (links[c] != 0) == (c in owners), 'lost allocation or free owner'
 
 
+checks = 0
 for image in sys.argv[1:]:
+    checks += 1  # One complete allocation-ownership property per disk.
     try:
         check(pathlib.Path(image))
     except (AssertionError, IndexError, struct.error) as error:
-        sys.exit(f'FAIL {image}: {error}')
+        print(f'FAIL {image}: {error}', file=sys.stderr)
+        print(f'INITECH_CHECKS {checks} failures=1', file=sys.stderr)
+        sys.exit(1)
 print(f'PASS independent cluster conservation: {len(sys.argv)-1} images')
+print(f'INITECH_CHECKS {checks} failures=0')

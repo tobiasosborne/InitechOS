@@ -5,6 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include "console.h"
+static unsigned checks;
+static void require(int ok, const char *what)
+{
+    checks++;
+    if (!ok) {
+        fprintf(stderr,"FAIL console: %s\nINITECH_CHECKS %u failures=1\n",what,checks);
+        exit(1);
+    }
+}
 int main(void)
 {
     uint8_t *fb = mmap(NULL, 640*480*4, PROT_READ|PROT_WRITE,
@@ -20,10 +29,7 @@ int main(void)
     if (console_init(&con,&bi)) return 2;
     console_set_cursor(&con,24,17);
     console_putc(&con,'\f');
-    if (con.cur_row || con.cur_col) {
-        fprintf(stderr,"CONSOLE LOOK RED: CLS cursor=(%u,%u)\n",con.cur_row,con.cur_col);
-        return 1;
-    }
+    require(!con.cur_row && !con.cur_col, "CLS homes cursor");
     /* Independent phase points: 16/60 s = 26 2/3 PIT ticks, so the
      * transitions are at 27,54,80. Restore exact pixels under a glyph. */
     const unsigned rates[] = {8,24,32};
@@ -39,23 +45,24 @@ int main(void)
         memset(fb+62u*bi.lfb_pitch+32u*(rates[b]/8),0x43,8*(rates[b]/8));
         memcpy(saved,fb,len);
         console_cursor_wait(&con,0,1);
-        if (!con.cursor_on) { fprintf(stderr,"CURSOR RED: no on phase\n"); return 1; }
+        require(con.cursor_on, "cursor starts in on phase");
         for (unsigned y=0;y<480;y++) for (unsigned x=0;x<640;x++) {
             size_t off=y*bi.lfb_pitch+x*(rates[b]/8);
-            if (!(x>=32 && x<40 && y>=62 && y<64) &&
-                memcmp(fb+off,saved+off,rates[b]/8)) return 1;
+            if (!(x>=32 && x<40 && y>=62 && y<64))
+                require(!memcmp(fb+off,saved+off,rates[b]/8), "cursor preserves surrounding pixels");
         }
         console_cursor_wait(&con,27,1);
-        if (con.cursor_on || memcmp(saved,fb,len)) return 1;
+        require(!con.cursor_on && !memcmp(saved,fb,len), "tick27 hides cursor and restores pixels");
         console_cursor_wait(&con,54,1);
-        if (!con.cursor_on) return 1;
+        require(con.cursor_on, "tick54 shows cursor");
         console_cursor_wait(&con,80,1);
-        if (con.cursor_on || memcmp(saved,fb,len)) return 1;
+        require(!con.cursor_on && !memcmp(saved,fb,len), "tick80 hides cursor and restores pixels");
         console_cursor_wait(&con,160,1);
         console_cursor_wait(&con,160,0);
-        if (con.cursor_on || memcmp(saved,fb,len)) return 1;
+        require(!con.cursor_on && !memcmp(saved,fb,len), "wait ends with original pixels restored");
         free(saved);
     }
     puts("CONSOLE LOOK PASS: CLS home; PIT phases 0/27/54/80; exact pixel restore at 8/24/32 bpp");
+    printf("INITECH_CHECKS %u failures=0\n",checks);
     return 0;
 }

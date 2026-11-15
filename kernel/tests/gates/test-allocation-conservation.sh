@@ -10,9 +10,8 @@ mcopy -i "$image" build/conservation/empty ::ZERO.BIN
 mmd -i "$image" ::SUB ::EMPTY ::SUB/EMPTY
 mcopy -i "$image" build/conservation/good ::SUB/OLD.BIN
 mcopy -i "$image" build/conservation/empty ::SUB/ZERO.BIN
-failed=0
 for op in partial append mkdir rmdir; do
- if ! build/test_file_conservation "$image" build/conservation "$op"; then failed=1; fi
+ build/test_file_conservation "$image" build/conservation "$op"
 done
 "$PYTHON_FAT_REFERENCE" kernel/tests/disk/check_conservation.py build/conservation/*.img
 for file in build/conservation/*-*.img; do
@@ -44,4 +43,3 @@ for file in build/conservation/*-0-0.img; do
  esac
 done
 printf 'PASS: failed extension/MKDIR/RMDIR conserves allocation and original bytes\n'
-test "$failed" -eq 0

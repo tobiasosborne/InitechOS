@@ -30,9 +30,15 @@ static int write_fault(void *ctx, uint32_t lba, uint32_t n, const void *p)
     return 0;
 }
 
+static unsigned checks;
+static void setup(int ok, const char *what)
+{
+    if (!ok) { fprintf(stderr, "ERROR conservation: %s\n", what); exit(2); }
+}
 static void require(int ok, const char *what)
 {
-    if (!ok) { fprintf(stderr, "FAIL conservation: %s\n", what); exit(1); }
+    checks++;
+    if (!ok) { fprintf(stderr, "FAIL conservation: %s\nINITECH_CHECKS %u failures=1\n", what, checks); exit(1); }
 }
 
 static void copy_image(const char *from, const char *to)
@@ -40,17 +46,17 @@ static void copy_image(const char *from, const char *to)
     unsigned char buf[8192];
     size_t n;
     FILE *in = fopen(from, "rb"), *out = fopen(to, "wb");
-    require(in && out, "open image copy");
+    setup(in && out, "open image copy");
     while ((n = fread(buf, 1, sizeof buf, in)) != 0)
-        require(fwrite(buf, 1, n, out) == n, "write image copy");
-    require(!ferror(in), "read image copy");
-    require(fclose(in) == 0 && fclose(out) == 0, "close image copy");
+        setup(fwrite(buf, 1, n, out) == n, "write image copy");
+    setup(!ferror(in), "read image copy");
+    setup(fclose(in) == 0 && fclose(out) == 0, "close image copy");
 }
 
 int main(int argc, char **argv)
 {
     int failures = 0;
-    require(argc == 4, "usage: fixture output-directory create|unlink");
+    setup(argc == 4, "usage: fixture output-directory create|unlink");
     for (unsigned sub = 0; sub < 2; sub++) {
         unsigned total = 0;
         for (unsigned nth = 0; nth <= total; nth++) {
@@ -64,7 +70,7 @@ int main(int argc, char **argv)
                 snprintf(path, sizeof path, "%s/%s-%s-%u-%d.img", argv[2],
                          argv[3], sub ? "sub" : "root", nth, after);
                 copy_image(argv[1], path);
-                require(blockdev_file_open_rw(&backing, path) == 0, "open backend");
+                setup(blockdev_file_open_rw(&backing, path) == 0, "open backend");
                 device = backing.dev;
                 device.write_sectors = write_fault;
                 require(fat12_mount(&vol, &device, sector) == FAT12_OK, "mount");
@@ -116,5 +122,6 @@ int main(int argc, char **argv)
         printf("PASS %s %s: %u physical write positions, before/after faults\n",
                argv[3], sub ? "subdirectory" : "root", total);
     }
+    printf("INITECH_CHECKS %u failures=%d\n", checks, failures);
     return failures != 0;
 }

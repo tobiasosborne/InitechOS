@@ -150,6 +150,7 @@ static void queue_set(const char *s, size_t n)
 static int mock_get(void)
 {
     if (g_q_pos >= g_q_len) {
+        if (g_fails) exit(TEST_SUMMARY("test_conin"));
         /* Underflow: the dispatcher asked for a char the test did not queue.
          * Fail loud (non-zero exit) rather than hang or return garbage -- the
          * brief's stop condition for the blocking path. */

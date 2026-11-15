@@ -1,5 +1,5 @@
 # FAT12_MUTATE_PARTIAL_STALE_GAP
-# test: test-fat-fuzz
+# test: test-fat-truncate-host
 --- a/fat12.c
 +++ b/fat12.c
 @@ -2981,18 +2981,6 @@

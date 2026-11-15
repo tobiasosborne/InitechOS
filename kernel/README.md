@@ -466,3 +466,15 @@ Their replacements disable recovery at both layers for the selected error,
 retaining the original observable fault rather than grading redundant code.
 Source: Microsoft FAT specification allocation invariants, not a DOS error-state
 parity claim (initech-xn1ev).
+
+Kernel host assertions report `FAIL` and completed `INITECH_CHECKS` counters
+at the comparison that fails. Shell assertions distinguish mismatch (exit1)
+from tool/I/O failure (other status); producer statuses remain intact. The
+`test-verdict-controls` gate checks healthy and mismatched properties, missing
+tools, explicit exit2 and missing cmp inputs against the shared verdict reader.
+Its mutation turns tool failure into an assertion and must be rejected.
+SFT/TSR/SEEK tests finish after a proven bad prerequisite, before using the
+invalid state. The invalid-buffer test arms recovery only around its deliberate
+NULL/wrapping accesses; unrelated faults remain errors. The Retry test grades
+queue exhaustion only in its armed finite-input bound case. These are test
+transport changes, with no kernel fault hooks (initech-vocfm).

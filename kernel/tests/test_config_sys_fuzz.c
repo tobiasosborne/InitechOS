@@ -396,6 +396,7 @@ static int run_seed(uint64_t seed, uint32_t max_lines)
                 len, (unsigned long long)seed);
         fwrite(gt->text, 1, len, stderr);
         fprintf(stderr, "\n  ---- end ----\n");
+        fprintf(stderr, "INITECH_CHECKS 1 failures=1\n");
         free(gt); free(gc);
         return 1;
     }

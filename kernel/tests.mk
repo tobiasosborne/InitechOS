@@ -522,6 +522,11 @@ test-mkdir-rollback_SRCS := tests/runner.c
 test-mkdir-rollback_ARGS := tests/run.sh test-mkdir-rollback
 test-mkdir-rollback_DEPS := $(OUT)/host/tool_test_mkdir_rollback tests/gates/test-mkdir-rollback.sh tests/disk/check_conservation.py
 
+HOST_TESTS += test-verdict-controls
+test-verdict-controls_SRCS := tests/runner.c
+test-verdict-controls_ARGS := tests/run.sh test-verdict-controls
+test-verdict-controls_DEPS := tests/gates/test-verdict-controls.sh tests/assertions.sh
+
 # Apply after every registration, before host_source_rule expands _DEPS into
 # object prerequisites. Earlier expansion in tools.mk omitted later tools,
 # including the independent int21.c compilation for test-loader-live.

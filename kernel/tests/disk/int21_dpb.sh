@@ -94,14 +94,15 @@ grade() { # $1 = artifact output file
     function wd(i) { return b(i) + 256*b(i+1) }
     function dw(i) { return wd(i) + 65536*wd(i+2) }
     function chk(name, got, want) {
-        if (got != want) { printf "RED int21-dpb %s %s got %d want %d (%s)\n",
+        checks++
+        if (got != want) { printf "FAIL int21-dpb %s %s got %d want %d (%s)\n",
             L, name, got, want, call; bad=1 } }
     BEGIN {
         while ((getline g < G) > 0) { split(g, f, " "); for (k=2;k<=15;k++) gold[f[1],k]=f[k] }
         n=0; while ((getline e < E) > 0) exp_[++n]=e
     }
     {
-        i++; split(exp_[i], ex, ":"); call=ex[1]; want=ex[2]
+        checks++; i++; split(exp_[i], ex, ":"); call=ex[1]; want=ex[2]
         if ($2 $3 != call) { printf "RED int21-dpb SCRIPT line %d is %s%s want %s\n", i, $2, $3, call; bad=1; next }
         if ($5 != "0") { printf "RED int21-dpb CF set on %s\n", call; bad=1 }
         if (want == "-") {
@@ -134,6 +135,8 @@ grade() { # $1 = artifact output file
     }
     END {
         if (!seen["A"] || !seen["C"] || !seen["D"]) { print "RED int21-dpb missing A/C/D DPB"; bad=1 }
+        if (bad) print "FAIL int21-dpb: captured record or field differs"
+        printf "INITECH_CHECKS %d failures=%d\n", checks, bad
         exit bad
     }' "$w/lines" > "$w/grade" || { cat "$w/grade"; red "$(head -1 "$w/grade" | sed 's/^RED int21-dpb //')"; }
 }

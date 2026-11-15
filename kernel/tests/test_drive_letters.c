@@ -7,7 +7,8 @@
 #include "drive_letters.h"
 static unsigned char disks[2][512];
 static du_map out;
-static void need(int b,const char *s){if(!b){fprintf(stderr,"RED drive-letters %s\n",s);exit(1);}}
+static unsigned checks;
+static void need(int b,const char *s){checks++;if(!b){fprintf(stderr,"FAIL drive-letters %s\nINITECH_CHECKS %u failures=1\n",s,checks);exit(1);}}
 static void w32(unsigned char *p,unsigned v){for(unsigned i=0;i<4;i++)p[i]=(unsigned char)(v>>(i*8));}
 static int rd(void *c,uint32_t l,uint32_t n,void *p){if(l||n!=1)return -1;memcpy(p,disks[(uintptr_t)c],512);return 0;}
 static void part(unsigned i,unsigned n,unsigned type,unsigned base,unsigned size){unsigned char *p=disks[i]+446+(n-1)*16;p[4]=(unsigned char)type;w32(p+8,base);w32(p+12,size);disks[i][510]=0x55;disks[i][511]=0xaa;}

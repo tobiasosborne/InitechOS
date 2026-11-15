@@ -979,6 +979,7 @@ int main(void)
         int21_dispatch(&s);
         CHECK(frame_cf(&s) == 0, "LSEEK SEEK_END clears CF");
         CHECK(s.eax == hsize, "LSEEK SEEK_END(0) returns file_size");
+        if (g_fails) return TEST_SUMMARY("test_fileio");
 
         /* a READ here returns 0 (at EOF) */
         uint8_t b[4];

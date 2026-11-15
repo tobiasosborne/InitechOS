@@ -110,9 +110,14 @@ static void queue_set(const char *s)
     g_q_pos = 0;
 }
 
+static int bounded_retry_armed;
 static int mock_get(void)
 {
     if (g_q_pos >= g_q_len) {
+        if (bounded_retry_armed) {
+            CHECK(0, "permanently failing device stops within the queued Retry bound");
+            exit(TEST_SUMMARY("test_int24_wired"));
+        }
         fprintf(stderr,
                 "  FATAL %s: mock_get underflow -- int24 read more keys than "
                 "queued (a runaway re-prompt or unbounded retry loop?)\n",
@@ -306,7 +311,9 @@ int main(int argc, char **argv)
 
         sink_reset();
         queue_set(retries);
+        bounded_retry_armed = 1;
         rc = cbd.dev.write_sectors(cbd.dev.ctx, 0u, 1u, sec);
+        bounded_retry_armed = 0;
 
         CHECK(rc != 0,
               "[E] a permanently-dead device returns the error (Retry cannot fix it)");

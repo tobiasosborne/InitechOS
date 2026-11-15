@@ -18,8 +18,9 @@ extern int fileio_fat_add_drive(unsigned, fat12_volume_t *) __attribute__((weak)
 static psp_t process;
 static char path[128], data[4096], cwd[64];
 static find_data_t dta;
+static unsigned checks;
 static void need(int yes, const char *rule)
-{ if (!yes) { fprintf(stderr,"RED dos-volumes %s\n",rule); exit(1); } }
+{ checks++; if (!yes) { fprintf(stderr,"FAIL dos-volumes %s\nINITECH_CHECKS %u failures=1\n",rule,checks); exit(1); } }
 static int_frame_t call(unsigned ax, unsigned bx, unsigned cx, uintptr_t dx)
 {
     int_frame_t f={0}; f.eax=ax; f.ebx=bx; f.ecx=cx; f.edx=(uint32_t)dx;
@@ -47,7 +48,7 @@ static void select_drive(unsigned d)
 static void read_equal(const char *name,const char *reference)
 {
     unsigned h=open_path(name), total=0;
-    FILE *f=fopen(reference,"rb"); need(f!=0,"REFERENCE open");
+    FILE *f=fopen(reference,"rb"); if (!f) { perror(reference); exit(2); }
     char expected[4096];
     for (;;) {
         unsigned got=ok(0x3f00,h,sizeof data,(uintptr_t)data,"HANDLE read");
@@ -96,7 +97,8 @@ static void review_fcb(fat12_volume_t *c,const char *a_ref,const char *c_ref)
             unsigned status=call(0x1400,0,0,(uintptr_t)opened).eax&255;
             need(status==0 || status==3,"us273 record read");
             FILE *ref=fopen(d==1?a_ref:c_ref,"rb"); char expected[128];
-            need(ref!=0,"review independent reference"); size_t n=fread(expected,1,128,ref); fclose(ref);
+            if (!ref) { perror("independent reference"); exit(2); }
+            size_t n=fread(expected,1,128,ref); if (ferror(ref) || fclose(ref)) exit(2);
             need(n && !memcmp(data,expected,n),"us273 reopened source vs mtype");
         }
     }
@@ -107,7 +109,7 @@ int main(int argc,char **argv)
     if(argc!=5) return 2;
     blockdev_file_t disks[2]; fat12_volume_t vols[2]; uint8_t sector[512];
     for(unsigned i=0;i<2;i++) {
-        need(!blockdev_file_open_rw(disks+i,argv[i+1]),"MOUNT image");
+        if (blockdev_file_open_rw(disks+i,argv[i+1])) return 2;
         need(!fat12_mount(vols+i,&disks[i].dev,sector),"MOUNT FAT");
     }
     need(!fileio_fat_bind(vols),"MOUNT A");
@@ -168,5 +170,6 @@ int main(int argc,char **argv)
     }
     for(unsigned i=0;i<2;i++) blockdev_file_close(disks+i);
     puts("GREEN dos-volumes host: path forms, SELDISK/GETDISK, per-drive CWD, SFT/COPY and search identity, absent B/D");
+    printf("INITECH_CHECKS %u failures=0\n",checks);
     return 0;
 }

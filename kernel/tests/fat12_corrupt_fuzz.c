@@ -480,38 +480,36 @@ static void fam_bad_bpb(prng_t *p, const char *template_img,
 	/* Fresh copy of the blank template (so each corruption starts pristine). */
 	snprintf(cmd, sizeof(cmd), "cp -f '%s' '%s'", template_img, scratch_img);
 	if (system(cmd) != 0) {
-		fail_set(f, idx, "bad-bpb", "could not mint a fresh scratch image");
-		return;
+		perror("mint scratch image"); exit(2);
 	}
 
 	switch (choice) {
 	case 0:  /* sectors_per_cluster = 0 (fat12.c:80 guard). */
-		(void)write_bpb_byte(scratch_img, BPB_OFF_SEC_PER_CLUSTER, 0u);
+		if (write_bpb_byte(scratch_img, BPB_OFF_SEC_PER_CLUSTER, 0u)) exit(2);
 		break;
 	case 1:  /* num_fats = 0 (fat12.c:81 guard). */
-		(void)write_bpb_byte(scratch_img, BPB_OFF_NUM_FATS, 0u);
+		if (write_bpb_byte(scratch_img, BPB_OFF_NUM_FATS, 0u)) exit(2);
 		break;
 	case 2:  /* sectors_per_fat = 0 (fat12.c:82 guard). */
-		(void)write_bpb_le16(scratch_img, BPB_OFF_SEC_PER_FAT, 0u);
+		if (write_bpb_le16(scratch_img, BPB_OFF_SEC_PER_FAT, 0u)) exit(2);
 		break;
 	case 3:  /* root_entry_count = 0 (fat12.c:83 guard). */
-		(void)write_bpb_le16(scratch_img, BPB_OFF_ROOT_ENTRIES, 0u);
+		if (write_bpb_le16(scratch_img, BPB_OFF_ROOT_ENTRIES, 0u)) exit(2);
 		break;
 	case 4:  /* total_sectors_16 = 0 AND total_sectors_32 = 0 (fat12.c:92). */
-		(void)write_bpb_le16(scratch_img, BPB_OFF_TOTAL_SEC_16, 0u);
-		(void)write_bpb_byte(scratch_img, BPB_OFF_TOTAL_SEC_32 + 0u, 0u);
-		(void)write_bpb_byte(scratch_img, BPB_OFF_TOTAL_SEC_32 + 1u, 0u);
-		(void)write_bpb_byte(scratch_img, BPB_OFF_TOTAL_SEC_32 + 2u, 0u);
-		(void)write_bpb_byte(scratch_img, BPB_OFF_TOTAL_SEC_32 + 3u, 0u);
+		if (write_bpb_le16(scratch_img, BPB_OFF_TOTAL_SEC_16, 0u)) exit(2);
+		if (write_bpb_byte(scratch_img, BPB_OFF_TOTAL_SEC_32 + 0u, 0u)) exit(2);
+		if (write_bpb_byte(scratch_img, BPB_OFF_TOTAL_SEC_32 + 1u, 0u)) exit(2);
+		if (write_bpb_byte(scratch_img, BPB_OFF_TOTAL_SEC_32 + 2u, 0u)) exit(2);
+		if (write_bpb_byte(scratch_img, BPB_OFF_TOTAL_SEC_32 + 3u, 0u)) exit(2);
 		break;
 	default: /* total_sectors_16 = 1 -> first_data_sector(33) >= total (fat12.c:105). */
-		(void)write_bpb_le16(scratch_img, BPB_OFF_TOTAL_SEC_16, 1u);
+		if (write_bpb_le16(scratch_img, BPB_OFF_TOTAL_SEC_16, 1u)) exit(2);
 		break;
 	}
 
 	if (blockdev_file_open(&bf, scratch_img) != 0) {
-		fail_set(f, idx, "bad-bpb", "could not open the corrupted scratch image");
-		return;
+		perror("open corrupted scratch image"); exit(2);
 	}
 	rc = fat12_mount(&vol, &bf.dev, sector_buf);
 	blockdev_file_close(&bf);
@@ -628,6 +626,8 @@ int main(int argc, char **argv)
 			    (unsigned long long)s, f.op_index, f.family, f.where,
 			    (unsigned long long)s, k);
 			remove(scratch_img);
+			if (!f.family[0]) return 2; /* template setup, no assertion */
+			fprintf(stderr,"FAIL corruption: %s\nINITECH_CHECKS 1 failures=1\n",f.where);
 			return 1;
 		}
 		remove(scratch_img);

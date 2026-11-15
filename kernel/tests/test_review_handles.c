@@ -39,6 +39,7 @@ int main(void)
                   "ktlzw CLOSE duplicated device handle");
             CHECK(!memcmp(&before,&g_sft[g_test_psp.jft[standard]],sizeof before),
                   "ktlzw repeated DUP/CLOSE preserves pinned resident entry");
+            if (g_fails) return TEST_SUMMARY("review-handles");
         }
     }
     reset();
