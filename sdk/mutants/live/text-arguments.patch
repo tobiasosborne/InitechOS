@@ -1,4 +1,5 @@
-# smoke: live-abi (run sdk/tests/live/red.sh; not a host mutant)
+# live: graded by sdk/tests/live/mutants.sh through the booted gate
+# kill: ABI argument identity FAIL at row 5
 --- a/rt/tbx_rt.c
 +++ b/rt/tbx_rt.c
 @@ -118,1 +118,1 @@

@@ -64,6 +64,11 @@ red-once: test
 	sh tests/red-once.sh $(TOP) $(OUT)/red "$(MAKE)"
 
 include $(TOP)/mk/mutants.mk
+# The live patches change the tenant runtime only the booted gate can judge.
+.PHONY: mutants-live
+mutants: mutants-live
+mutants-live:
+	sh tests/live/mutants.sh '$(TARGET_CFLAGS) -g'
 include $(TOP)/mk/import-check.mk
 
 $(OUT)/tests/conformance: tests/live/host.c tests/live/cases.h $(HOST_LIB) FORCE

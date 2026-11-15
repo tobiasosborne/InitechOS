@@ -266,8 +266,13 @@ short writes, preserving an existing target and preserving a colliding temporary
 The SDK runner uses the shared assertion-receipt protocol, so a setup failure,
 timeout or missing summary cannot kill a mutation. Nine patches compile and
 fail twice with matching semantic receipts; the new replacement refusal is
-graded against the real gate capture. Live replacement argument reversal is
-separately killed by GDB observing the actual decoded gate words.
+graded against the real gate capture. The two patches in mutants/live change
+the tenant runtime in ways the structural audit accepts; `make mutants` also
+runs tests/live/mutants.sh, which builds a debug image in an isolated snapshot
+and kills each only when GDB, observing the decoded gate words, prints the
+patch's own `# kill:` diagnostic in two runs after a healthy baseline (an
+incomplete emulator run is an error). A comment-only live patch survives it.
+layout and link are compile and link checks in test-build, not test entries.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
