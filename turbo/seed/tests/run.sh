@@ -5,7 +5,7 @@ out=$1 entry=$2
 case $entry in
 frame-layout)
     setup "$out/initechc" --emit-asm -o "$out/frame-layout.s" examples/arith/func.pas
-    assert 'cdecl frame header is not variable storage' awk -f "$TOP/turbo/tests/frame-layout.awk" "$out/frame-layout.s"
+    assert 'cdecl header has no direct stores' awk -f "$TOP/turbo/tests/frame-layout.awk" "$out/frame-layout.s"
     finish; exit 0;;
 test-verdict) exec sh "$TOP/turbo/tests/verdict-test.sh" "$out";;
 guest-*) exec sh "$TOP/turbo/seed/tests/guest.sh" "$TOP" "$out" "${entry#guest-}";;

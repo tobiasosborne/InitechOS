@@ -26,6 +26,6 @@ cannot manufacture assertion evidence. All tests stay within Turbo's tree.
 
 Controls also require a visit marker from each injected tool/harness, so an
 unrelated earlier error cannot satisfy the expected ERROR. A cdecl storage
-property rejects references to saved EBP or return PC before executing unsafe
+property rejects direct stores to saved EBP or return PC before executing unsafe
 code; argument/local slots are independently exercised. This catches the
 shallow-frame mutation semantically without using a guest crash as evidence.

@@ -44,14 +44,14 @@ for source in $sources; do
   case $path in
   seed)
    setup build/turbo/seed/initechc --emit-asm -o "$dir/program.s" "$source" > "$dir/build.log" 2>&1
-   assert "$name:$path cdecl frame header conserved" awk -f "$root/turbo/tests/frame-layout.awk" "$dir/program.s"
+   assert "$name:$path cdecl header has no direct stores" awk -f "$root/turbo/tests/frame-layout.awk" "$dir/program.s"
    setup sh turbo/compiler/tests/package.sh "$dir/program.s" "$dir/package" >> "$dir/build.log" 2>&1
    setup cp "$dir/package/program.exe" "$dir/PROGRAM.COM" ;;
   hosted|hosted-flat)
    (cd "$dir" && setup "$hosted" > build.log)
    assert_not "$name:$path compile diagnostic" grep -E 'TURBO-.*(ERROR|SKIP)' "$dir/build.log"
    assert "$name:$path native image exists" test -s "$dir/TURBOOUT.EXE"
-   assert "$name:$path cdecl frame header conserved" awk -f "$root/turbo/tests/frame-layout.awk" "$dir/TURBOOUT.S"
+   assert "$name:$path cdecl header has no direct stores" awk -f "$root/turbo/tests/frame-layout.awk" "$dir/TURBOOUT.S"
    if [ "$path" = hosted-flat ]; then artifact=TURBOOUT.COM; else artifact=TURBOOUT.EXE; fi
    assert "$name:$path selected image exists" test -s "$dir/$artifact"
    setup cp "$dir/$artifact" "$dir/PROGRAM.COM" ;;
