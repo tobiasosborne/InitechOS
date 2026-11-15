@@ -108,11 +108,9 @@ for emulator in $emulators; do
  extra= driver=build/factory/${emulator}_harness
  limit=${TURBO_EXEC_TIMEOUT_MS:-300000}
  if [ "$emulator" = bochs ]; then
-  setup make -s -f factory/desktop-tools.mk build/factory/desktop-bochs
-  setup sh turbo/tests/execution/keys.sh "$dir/keys" "$out/cases" > "$dir/journey.keys"
-  setup mv "$dir/journey.keys" "$dir/keys"
-  driver=build/factory/desktop-bochs; extra='--vga-ext none'
-  export DESKTOP_SERIAL="$dir/run.serial" DESKTOP_WAIT_MS="$limit" DESKTOP_RENEW_MS="$limit"
+  # Published shared progress renewal, bounded to three initial budgets.
+  # A stalled guest still expires; no larger fixed deadline is substituted.
+  extra="--vga-ext none --renew-ms $limit"
  fi
  setup "$driver" --disk build/image/boot.img --disk2 "$disk" \
   $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \

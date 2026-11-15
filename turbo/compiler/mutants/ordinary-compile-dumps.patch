@@ -1,0 +1,6 @@
+# test: cli
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -1,1 +1,1 @@
+-    InputName := ParamStr(1);
++    InputName := ParamStr(1); DumpMode := true;

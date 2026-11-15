@@ -37,7 +37,7 @@ begin
   ShotName := 'DEMO.PAS'; DoLoad(ShotName);
   ProductKey(KeyF9); FinishBuild(); ProductPaint(); RawShot();
   ProductKey(KeyEsc); ProductKey(KeyUp); ProductKey(KeyEnd); ProductKey(ord(';'));
-  ProductKey(KeyAltF9); FinishBuild(); ProductPaint(); RawShot();
+  DoSave(); ProductKey(KeyAltF9); FinishBuild(); ProductPaint(); RawShot();
   ProductKey(KeyEsc); ProductPaint(); RawShot();
   ShotName := 'EXIT7.PAS'; DoLoad(ShotName);
   ProductKey(KeyCtrlF9); FinishBuild(); ProductPaint(); RawShot();

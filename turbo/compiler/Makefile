@@ -9,7 +9,7 @@ SEED_RT := $(SEED_OUT)/rt
 RT_SRC := $(TOP)/turbo/seed/rt
 PROTOCOLS := $(patsubst fixtures/%.golden,%,$(wildcard fixtures/lex*.golden fixtures/parse*.golden fixtures/type*.golden))
 CORPUS := $(patsubst fixtures/%.pas,%,$(wildcard fixtures/gen*.pas))
-HOST_TESTS := $(PROTOCOLS) self-protocols $(CORPUS) self-generation seed-build isolated-seed runtime-table pool-search execution-frame execution-var execution-flat execution-io
+HOST_TESTS := $(PROTOCOLS) self-protocols $(CORPUS) self-generation seed-build isolated-seed runtime-table pool-search cli execution-frame execution-var execution-flat execution-io
 # Generated execution is tier 1/2 only; the default tier 0 stays emulator-free.
 TESTS ?= $(filter-out execution-frame execution-var execution-flat execution-io,$(HOST_TESTS))
 ifneq ($(filter-out $(HOST_TESTS),$(TESTS)),)

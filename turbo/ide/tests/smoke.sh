@@ -6,6 +6,7 @@
 set -eu
 cd "$(dirname "$0")/../../.."
 root=$PWD
+. "$root/turbo/tests/checks.sh"
 out=$root/build/turbo/ide/smoke
 build=$root/build/turbo/ide
 corpus=${TURBOPASCAL_DECOMP:-$HOME/Projects/turbopascal-decomp}
@@ -27,7 +28,6 @@ for prog in readkey iocheck; do
   grep -q '^TURBO-NATIVE-OK ' "$out/$prog/raw"
 done
 awk 'BEGIN { for (i = 1; i <= 5000; i++) printf "line %d of the paging fixture, tab\there\r\n", i }' > "$out/BIG.PAS"
-failed=0
 for emulator in ${*:-qemu bochs}; do
   dir=$out/$emulator
   mkdir -p "$dir"
@@ -53,40 +53,39 @@ for emulator in ${*:-qemu bochs}; do
   printf '\n\nrun\n' | build/factory/keys > "$dir/keys.base"
   printf '%s,a,f9,alt-x,ctrl-f9,up,q' "$(cat "$dir/keys.base")" > "$dir/keys"
   extra=
-  [ "$emulator" = bochs ] && extra='--vga-ext none'
-  if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" $extra \
+  [ "$emulator" = bochs ] && extra='--vga-ext none --renew-ms 300000'
+  setup build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" $extra \
        --keys-after SHELL-READY --keys "$(cat "$dir/keys")" --expect ide-smoke-complete \
        --quit-after ide-smoke-complete --timeout-ms "${IDE_SMOKE_TIMEOUT_MS:-900000}" \
-       --name run --out "$dir" > "$dir/stdout" 2> "$dir/report"; then
-    cat "$dir/report"; failed=1; continue
-  fi
+       --name run --out "$dir" > "$dir/stdout" 2> "$dir/report"
   tr -d '\r' < "$dir/run.serial" > "$dir/serial.txt"
-  if grep -E 'PANIC|Bad command|File not found' "$dir/serial.txt"; then failed=1; fi
+  assert_not "$emulator:no product diagnostics" grep -E 'PANIC|Bad command|File not found' "$dir/serial.txt"
   sed -n '/^readkey-begin$/,/^readkey-end$/p' "$dir/serial.txt" | sed '1d;$d' > "$dir/readkey.out"
-  diff -u turbo/ide/tests/readkey.expect "$dir/readkey.out" || { echo "FAIL $emulator readkey"; failed=1; }
+  assert "$emulator:BIOS key values" diff -u turbo/ide/tests/readkey.expect "$dir/readkey.out"
   sed -n '/^readkey-end$/,/^iocheck-end$/p' "$dir/serial.txt" | sed '1d;$d' > "$dir/iocheck.out"
-  diff -u turbo/ide/tests/iocheck.expect "$dir/iocheck.out" || { echo "FAIL $emulator iocheck"; failed=1; }
-  test "$(grep -c '^IDE-HOST-END ' "$dir/serial.txt")" -eq 2 || { echo "FAIL $emulator: runs did not finish"; failed=1; }
+  assert "$emulator:checked I/O errors" diff -u turbo/ide/tests/iocheck.expect "$dir/iocheck.out"
+  assert "$emulator:both journeys completed" test "$(grep -c '^IDE-HOST-END ' "$dir/serial.txt")" -eq 2
   mkdir -p "$dir/J" "$dir/P"
   mcopy -n -i "$disk" '::J/*' "$dir/J/"
   mcopy -n -i "$disk" '::P/*' "$dir/P/"
   cp "$out/journey.list" "$dir/J/shots.list"
-  "$build/screens" "$mint" "$dir/J" turbo/ide/tests/journey.expect > "$dir/screens.txt" || failed=1
+  assert "$emulator:47 real TP screens" "$build/screens" "$mint" "$dir/J" turbo/ide/tests/journey.expect > "$dir/screens.txt"
   tail -1 "$dir/screens.txt"
   grep FAIL "$dir/screens.txt" || :
-  cmp "$mint/disk/DEMO.PAS" "$dir/J/DEMO.PAS" || failed=1
-  cmp "$mint/disk/DEMO.BAK" "$dir/J/DEMO.BAK" || failed=1
-  cmp "$corpus/mint/src/MINT06/RO.PAS" "$dir/J/RO.PAS" || failed=1
-  cmp "$corpus/mint/src/MINT06/LONG.PAS" "$dir/J/LONG.PAS" || failed=1
-  if ls "$dir/J" | grep -E '^(RO[.]BAK|RO[.][$]{3}|DEMO[.][$]{3}|X[.]PAS)$'; then echo "FAIL $emulator: refused save left a file"; failed=1; fi
+  assert "$emulator:saved source bytes" cmp "$mint/disk/DEMO.PAS" "$dir/J/DEMO.PAS"
+  assert "$emulator:backup bytes" cmp "$mint/disk/DEMO.BAK" "$dir/J/DEMO.BAK"
+  assert "$emulator:read-only source conserved" cmp "$corpus/mint/src/MINT06/RO.PAS" "$dir/J/RO.PAS"
+  assert "$emulator:unsaved source conserved" cmp "$corpus/mint/src/MINT06/LONG.PAS" "$dir/J/LONG.PAS"
+  ls "$dir/J" > "$dir/files"
+  assert_not "$emulator:refused save leaves no new files" grep -E '^(RO[.]BAK|RO[.][$]{3}|DEMO[.][$]{3}|X[.]PAS)$' "$dir/files"
   awk 'BEGIN { RS = "\r\n" }
        NR == 1 { printf "TOP %s\r\n", $0; next }
        NR == 2500 { printf "%sMID %s\r\n", substr($0, 1, 4), substr($0, 5); next }
        NR == 2501 { next }
        { printf "%s\r\n", $0 }
        END { printf "END\032" }' "$out/BIG.PAS" > "$dir/expected"
-  cmp "$dir/expected" "$dir/P/BIG.PAS" || failed=1
-  cmp "$out/BIG.PAS" "$dir/P/BIG.BAK" || failed=1
-  [ "$failed" -eq 0 ] && echo "PASS $emulator ide journeys"
+  assert "$emulator:paged saved bytes" cmp "$dir/expected" "$dir/P/BIG.PAS"
+  assert "$emulator:paged backup bytes" cmp "$out/BIG.PAS" "$dir/P/BIG.BAK"
+  echo "PASS $emulator ide journeys"
 done
-test "$failed" -eq 0
+finish

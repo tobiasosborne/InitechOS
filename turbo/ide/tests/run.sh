@@ -36,6 +36,9 @@ file_bytes() {
 }
 
 case $entry in
+work-names)
+    check work-names sh tests/work-names.sh "$out"
+    ;;
 run-command)
     check run-command sh tests/run-command.sh "$out"
     ;;

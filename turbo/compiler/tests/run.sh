@@ -49,6 +49,9 @@ links() {
     setup "$OBJCOPY" -O binary "$dir/dos.elf" "$dir/program.com"
 }
 case $entry in
+cli)
+    exec sh tests/cli.sh "$scratch" "$PWD/turbo.pas" "$out/turbo_fpc"
+    ;;
 pool-search)
     exec sh tests/pool.sh "$PWD/turbo.pas" "$scratch"
     ;;

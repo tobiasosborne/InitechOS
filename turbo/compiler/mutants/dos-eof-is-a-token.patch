@@ -1,0 +1,6 @@
+# test: cli
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -1,1 +1,1 @@
+-  if ChunkLen > 0 then AtEnd := SourceGet(ScanPos) = chr(26)
++  if ChunkLen > 0 then AtEnd := false
