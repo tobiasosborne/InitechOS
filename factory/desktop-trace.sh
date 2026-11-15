@@ -41,18 +41,26 @@ launch_app() {
     # Keyboard selection reaches offscreen rows without moving the pointer.
     # Every prefix of a real name matches, and the Finder acknowledges each
     # with FINDER-WIN-SELECT once model and context agree (flair/desktop
-    # README). Each key waits for its acknowledgement, and the last one must
-    # name the full file before Open, so a type-ahead reset under load can
-    # never open whatever happened to be selected (initech-nylrt).
+    # README). The name is typed at the ordinary key pace (waiting between
+    # keys would let the guest's one-second type-ahead window lapse), then
+    # one acknowledgement per typed key is required and the line after them
+    # must name the full file before Open: a type-ahead reset under load
+    # leaves acknowledgements missing and fails here, never opening whatever
+    # happened to be selected (initech-nylrt). Up may or may not acknowledge;
+    # with N waits for N keys the name is checked on the last key's line
+    # either way.
     app_keys=$(printf '%s\n' "$1" | tr 'A-Z' 'a-z' | fold -w1 |
       while IFS= read -r key; do
        case $key in .) key=dot;; [a-z0-9]) ;; *) exit 1;; esac
-       printf 'k%s,WFINDER-WIN-SELECT win=,' "$key"
+       printf 'k%s,' "$key"
       done)
     expect_select=$(printf '%s\n' "$1" | fold -w1 | wc -l)
-    i=0; while [ "$i" -lt "$expect_select" ]; do expect_marker 'FINDER-WIN-SELECT win='; i=$((i+1)); done
+    acks= i=0
+    while [ "$i" -lt "$expect_select" ]; do
+     acks="${acks}WFINDER-WIN-SELECT win=,"; expect_marker 'FINDER-WIN-SELECT win='; i=$((i+1))
+    done
     expect_marker "name=$1 count=1"
-    inject "kup,${app_keys}Wname=$1 count=1,kctrl-o"
+    inject "kup,${app_keys}${acks}Wname=$1 count=1,kctrl-o"
     # Optional second argument is the app registration name when it differs.
     await_marker "FLAIR-DISPATCH app=${2:-${1%.EXE}}"
 }
