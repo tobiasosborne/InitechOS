@@ -611,6 +611,54 @@ reject:
     return rc;
 }
 
+/* One-field write for @...GET write-back (initech-p3nn0): the single-pair
+ * version of m_apply_replace_one's transaction, so a confirmed GET field
+ * publishes through the same staged flush and index maintenance as REPLACE. */
+int ibase_write_field(xb_interp *ip, int area, uint32_t recno,
+                      int field_idx, const xb_val *v, int *ec)
+{
+    wa_env *env = xb_interp_env(ip);
+    dbf_table *tbl = wa_table(env, area);
+    static uint8_t old_keys[NDX_PER_AREA][M_MAX_KEY];
+    int nidx = wa_index_count(env, area), i, rc;
+    dbf_flush_tx tx;
+    if (!tbl) return -INTERP_ERR_EVAL;
+    for (i = 0; i < nidx; i++) {
+        ndx_index *ix = wa_index(env, area, i);
+        uint16_t klen;
+        if (!ix) continue;
+        klen = ndx_key_length(ix);
+        if (klen == 0u || (uint32_t)klen > (uint32_t)M_MAX_KEY) continue;
+        rc = m_encode_key(ip, ndx_key_expr(ix), ndx_key_type(ix), klen,
+                          old_keys[i], ec);
+        if (rc != INTERP_OK) return rc;
+    }
+    rc = dbf_replace(tbl, recno, field_idx, v);
+    if (rc != DBF_OK) {
+        if (ec) *ec = rc == -DBF_ERR_MISMATCH ? XBEE_MISMATCH :
+                      rc == -DBF_ERR_IO ? M_MSG_READONLY : 0;
+        (void)dbf_reload_records(tbl); (void)wa_refresh(env, area, recno);
+        (void)wa_nav_reset(area);
+        return -INTERP_ERR_EVAL;
+    }
+    rc = dbf_flush_begin(tbl, &tx);
+    if (rc != DBF_OK) {
+        (void)dbf_reload_records(tbl); (void)wa_refresh(env, area, recno);
+        if (ec) *ec = m_write_error(rc);
+        return -INTERP_ERR_EVAL;
+    }
+    rc = wa_refresh(env, area, recno);
+    if (!rc) rc = m_index_after_replace(ip, area, recno,
+                                        (const uint8_t (*)[M_MAX_KEY])old_keys, ec);
+    if (rc) {
+        (void)dbf_flush_restore(tbl, &tx); (void)wa_refresh(env, area, recno);
+        return rc;
+    }
+    ibase_file_accept(&tx.file);
+    if (ec) *ec = 0;
+    return INTERP_OK;
+}
+
 static int m_replace_impl(xb_interp *ip, const char *args, int *ec)
 {
     wa_env *env = xb_interp_env(ip);

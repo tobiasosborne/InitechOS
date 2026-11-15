@@ -1,0 +1,13 @@
+# test: test_ibase_gets
+# Esc saves the current GET instead of discarding it.
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1263,7 +1263,7 @@
+         if(k<0) { if(ec)*ec=29;return -INTERP_ERR_EVAL; }
+         if(k==0)continue;
+         /* Exit keys shared by empty and active READs (F01/F03). */
+-        if(k==QK_ESC||k==17) { code=12;save_cur=0;done=1;break; }
++        if(k==QK_ESC||k==17) { code=12;save_cur=1;done=1;break; } /* MUTANT: Esc saves the current field. */
+         if(k==QK_PGUP||k==18) { code=6;done=1;break; }
+         if(k==QK_PGDN||k==3) { code=7;done=1;break; }
+         if(k==QK_CTRLEND||k==23) { code=14;done=1;break; }

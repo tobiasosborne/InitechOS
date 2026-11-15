@@ -127,7 +127,12 @@ int main(void)
     error(ip,"@ -1,0 SAY \"X\"\n",30);
     error(ip,"@ \"x\",0 SAY \"X\"\n",27);
     error(ip,"@ 0,0 SAY \"X\" PICTURE \"!\"\n",36);
-    error(ip,"@ 0,0 SAY \"X\" GET INPUT\n",36);
+    /* Combined SAY/GET exists now (initech-p3nn0, forms-f01): a defined
+     * variable declares; an undefined one is the captured #12 (f15a). */
+    CHECK(ibase_do(ip,"INPUT=SPACE(4)\n@ 0,0 SAY \"X\" GET INPUT\nCLEAR GETS\n")==INTERP_OK,
+          "combined SAY/GET declares");
+    CHECK(ibase_do(ip,"@ 0,0 SAY \"X\" GET UNDEFINED\n")!=INTERP_OK && ibase_last_error(ip)==12,
+          "combined SAY/GET undefined variable is error 12");
     error(ip,"SET DEVICE TO UNKNOWN\n",10);
     error(ip,"SET DEVICE SCREEN\n",10);
     {

@@ -991,11 +991,389 @@ static IBASE_OVL_TEXT(forms) int q_printer_at(xb_interp *ip,uint16_t target_row,
     return 0;
 }
 
+/* ===================================================================== */
+/* @...GET / READ (initech-p3nn0). Behaviour from the twice-minted real
+ * III+ captures in tests/xbase_prog_diff/screen-mint/forms-f01..f17;
+ * the frozen surface and refusal list is in this component's README.
+ * PICTURE/FUNCTION formatting is stage 5: a character PICTURE operand
+ * still refuses #36 here (a non-character one is the captured #45). */
+/* ===================================================================== */
+/* ibase_gets_clear lives in cmd/workarea.c beside xb_interp_free so every
+ * host link that carries the interpreter resolves it. */
+static void q_get_paint(xb_interp *ip,const xb_get *g)
+{
+    ibase_pal_t *pal=xb_interp_pal(ip);const set_state *ss=set_get_state(ip);
+    uint8_t enh=ss?(uint8_t)ss->color_enhanced:(uint8_t)0x70;
+    uint8_t std=ss?(uint8_t)ss->color_standard:(uint8_t)0x07;
+    uint32_t n=g->width;
+    if(!pal||!pal->paint)return;
+    if(g->col>=80||g->row>=25)return;
+    if(n>80u-g->col)n=80u-g->col;
+    if(pal->set_attr)pal->set_attr(pal,enh);
+    (void)pal->paint(pal,g->row,g->col,g->buf,n);
+    if(pal->set_attr)pal->set_attr(pal,std);
+}
+static void q_get_cursor(xb_interp *ip,int row,int col)
+{
+    xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
+    ctx->screen_row=(uint16_t)row;ctx->screen_col=(uint16_t)col;
+    if(pal&&pal->paint)(void)pal->paint(pal,(uint8_t)row,(uint8_t)(col<79?col:79),"",0);
+}
+/* Identifier token (dBASE name start/next characters) or digit-led alias. */
+static int q_get_ident(const char *p,char *out,int *len,int first_digit_ok)
+{
+    int n=0;
+    if(!((*p>='A'&&*p<='Z')||(*p>='a'&&*p<='z')||*p=='_'||(first_digit_ok&&*p>='0'&&*p<='9')))return 0;
+    while((*p>='A'&&*p<='Z')||(*p>='a'&&*p<='z')||(*p>='0'&&*p<='9')||*p=='_') {
+        if(n<11)out[n]=q_up1(*p);
+        n++;p++;
+    }
+    if(n>11)return 0;
+    out[n]=0;*len=n;return 1;
+}
+static int q_get_field_index(wa_env *env,int area,const char *name,int *type,int *dec)
+{
+    dbf_table *t=wa_table(env,area);int i;
+    for(i=0;t&&i<(int)dbf_nfields(t);i++) {
+        const dbf_field_t *f=dbf_field(t,i);
+        if(f&&q_ci_eq(f->name,name)) { *type=f->type;*dec=f->dec_count;return i; }
+    }
+    return -1;
+}
+static int q_get_declare(xb_interp *ip,int row,int col,const char *tail,int *ec)
+{
+    xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);wa_env *env=xb_interp_env(ip);
+    char first[12],name[12],expr[Q_MAX_EXPR+1];int n1=0,n2=0,have_alias=0,rc;
+    const char *p=q_skip_ws(tail);
+    xb_get g;xb_val v;uint32_t cap;
+    rt_memset(&g,0,sizeof g);g.field=-1;g.area=wa_selected(env);
+    if(!q_get_ident(p,first,&n1,0)) { if(ec)*ec=10;return -INTERP_ERR_SYNTAX; }
+    p+=n1;
+    if(p[0]=='-'&&p[1]=='>') {
+        have_alias=1;p+=2;
+        if(!q_get_ident(p,name,&n2,0)) { if(ec)*ec=10;return -INTERP_ERR_SYNTAX; }
+        p+=n2;
+    } else { rt_memcpy(name,first,(uint32_t)n1+1u); }
+    /* Trailing clauses: only the captured refusals and (for now) PICTURE. */
+    {
+        const char *t=q_skip_ws(p);
+        if(*t) {
+            int kw=rt_kw_word(t,"PICTURE\0RANGE\0VALID\0WHEN\0FUNCTION\0GET\0",(int *)0);
+            if(kw==0) {
+                /* Non-character PICTURE operand: real III+ #45 (F15b). */
+                const char *e=q_skip_ws(t+7);uint32_t n=(uint32_t)rt_strlen(e);
+                if(n>Q_MAX_EXPR) { if(ec)*ec=18;return -INTERP_ERR_SYNTAX; }
+                rt_memcpy(expr,e,n);expr[n]=0;
+                rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
+                if(v.t!=XB_C) { if(ec)*ec=45;return -INTERP_ERR_EVAL; }
+            }
+            if(ec)*ec=36;
+            return -INTERP_ERR_SYNTAX;
+        }
+    }
+    /* Resolve the binding (F13: field beats a same-named memvar). */
+    if(have_alias&&q_ci_eq(first,"M")) {
+        g.kind=0;
+    } else if(have_alias) {
+        int a,found=-1;
+        for(a=1;a<=10;a++) {
+            if(!wa_is_open(env,a))continue;
+            const char *al=wa_alias(env,a);
+            if(al&&q_ci_eq(al,first)) { found=a;break; }
+        }
+        if(found<0&&n1==1&&first[0]>='A'&&first[0]<='J'&&wa_is_open(env,first[0]-'A'+1))found=first[0]-'A'+1;
+        if(found<0) { if(ec)*ec=12;return -INTERP_ERR_EVAL; }
+        g.kind=1;g.area=(int16_t)found;
+    } else if(wa_is_open(env,wa_selected(env))&&q_get_field_index(env,wa_selected(env),name,&rc,&n1)>=0) {
+        g.kind=1;g.area=(int16_t)wa_selected(env);
+    } else g.kind=0;
+    if(g.kind==1) {
+        int ftype=0,fdec=0;
+        g.field=(int16_t)q_get_field_index(env,g.area,name,&ftype,&fdec);
+        if(g.field<0) { if(ec)*ec=12;return -INTERP_ERR_EVAL; }
+        if(ftype=='M') { if(ec)*ec=34;return -INTERP_ERR_EVAL; }
+        g.dec=(int16_t)fdec;
+        if(ftype!='C'&&ftype!='N'&&ftype!='D'&&ftype!='L') { if(ec)*ec=34;return -INTERP_ERR_EVAL; }
+        g.type=(uint8_t)(ftype=='C'?XB_C:ftype=='N'?XB_N:ftype=='D'?XB_D:XB_L);
+    } else {
+        if(xb_interp_get_memvar(ip,name,&v)) { if(ec)*ec=12;return -INTERP_ERR_EVAL; }
+        if(v.t==XB_M) { if(ec)*ec=34;return -INTERP_ERR_EVAL; }
+        if(v.t!=XB_C&&v.t!=XB_N&&v.t!=XB_D&&v.t!=XB_L) { if(ec)*ec=12;return -INTERP_ERR_EVAL; }
+        g.type=(uint8_t)v.t;g.dec=v.num_dec;
+    }
+    rt_memcpy(g.name,name,(uint32_t)rt_strlen(name)+1u);
+    /* Current value through the ordinary resolver (alias/M-> included). */
+    {
+        uint32_t n=0;
+        if(have_alias) { uint32_t a=(uint32_t)rt_strlen(first);rt_memcpy(expr,first,a);n=a;expr[n++]='-';expr[n++]='>'; }
+        rt_memcpy(expr+n,name,(uint32_t)rt_strlen(name)+1u);
+        rc=xb_interp_eval(ip,expr,&v,ec);if(rc)return rc;
+    }
+    /* Unformatted display text and width (stage 5 adds PICTURE). */
+    {
+        char text[Q_LINEBUF];uint32_t n=0;
+        if(g.kind==1) {
+            dbf_table *t=wa_table(env,g.area);const dbf_field_t *f=dbf_field(t,g.field);
+            g.width=f->field_len;
+            if(v.t==XB_N){v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(ctx,&v);}
+        }
+        if(v.t==XB_L) { text[0]=v.u.l?'T':'F';text[1]=0;n=1; }
+        else q_render_val(text,&n,sizeof text,&v,ctx,0);
+        text[n<sizeof text?n:sizeof text-1]=0;
+        if(g.kind==0) {
+            g.width=(uint16_t)n;
+            if(v.t==XB_N) { uint32_t w=10u+(uint32_t)(g.dec>0?g.dec+1:0);if(w>g.width)g.width=(uint16_t)w; }
+        }
+        if(g.width==0)g.width=1;
+        if(g.width>254)g.width=254;
+        cap=g.width+1u;
+        g.buf=(char *)pal->acquire(pal,cap);
+        if(!g.buf) { if(ec)*ec=43;return -INTERP_ERR_NOMEM; }
+        rt_memset(g.buf,' ',g.width);g.buf[g.width]=0;g.buflen=g.width;
+        if(v.t==XB_N) { /* right-justify the rendered number in the field */
+            uint32_t tn=n<g.width?n:g.width;
+            rt_memcpy(g.buf+(g.width-tn),text+(n-tn),tn);
+        } else {
+            uint32_t tn=n<g.width?n:g.width;
+            rt_memcpy(g.buf,text,tn);
+        }
+    }
+    g.row=(uint8_t)row;g.col=(uint8_t)col;
+    if(ctx->ngets==ctx->gets_cap) {
+        uint32_t ncap=ctx->gets_cap?ctx->gets_cap*2u:8u;
+        xb_get *next=(xb_get *)pal->acquire(pal,ncap*(uint32_t)sizeof(xb_get));
+        if(!next){pal->release(pal,g.buf);if(ec)*ec=43;return -INTERP_ERR_NOMEM;}
+        if(ctx->gets){rt_memcpy(next,ctx->gets,ctx->ngets*(uint32_t)sizeof(xb_get));pal->release(pal,ctx->gets);}
+        ctx->gets=next;ctx->gets_cap=ncap;
+    }
+    ctx->gets[ctx->ngets++]=g;
+    q_get_paint(ip,&ctx->gets[ctx->ngets-1]);
+    ctx->screen_row=(uint16_t)row;ctx->screen_col=(uint16_t)col;
+    rt_cursor_advance(&ctx->screen_row,&ctx->screen_col,g.buf,g.width,2);
+    if(ec)*ec=0;
+    return INTERP_OK;
+}
+/* Buffer -> value at confirm (stage 3 unformatted conversion). Returns 1 when
+ * valid; an invalid date stays in the field (F08b refuses Enter). */
+static int q_get_parse(const xb_get *g,xb_val *out)
+{
+    if(g->type==XB_C) { *out=xb_c(g->buf,(uint16_t)g->buflen);return 1; }
+    if(g->type==XB_L) { *out=xb_l(g->buf[0]=='T'||g->buf[0]=='Y');return 1; }
+    /* Numeric write-back parses the displayed buffer: it is reformatted
+     * to the field's decimals on every key (F07 typed screen shows
+     * -12.35 while -12.345 is being typed), so the stored value is the
+     * rounded display value, not the raw key stream. */
+    if(g->type==XB_N) { xb_val v=xb_n(dec_parse(g->buf,(int)g->buflen));v.num_dec=g->dec;*out=v;return 1; }
+    /* Date: fixed digit slots in the rendered mask, separators skipped. */
+    {
+        int dig[8],nd=0,allblank=1;uint32_t i;
+        static const int dim[12]={31,28,31,30,31,30,31,31,30,31,30,31};
+        int mm,dd,yy,year;
+        for(i=0;i<g->buflen&&nd<8;i++) {
+            char c=g->buf[i];
+            if(c>='0'&&c<='9'){dig[nd++]=c-'0';allblank=0;}
+            else if(c==' '){dig[nd++]=-1;}
+        }
+        if(allblank) { *out=xb_d(0);return 1; }
+        if(nd<6)return 0;
+        if(dig[0]<0||dig[1]<0||dig[2]<0||dig[3]<0||dig[4]<0||dig[5]<0)return 0;
+        mm=dig[0]*10+dig[1];dd=dig[2]*10+dig[3];yy=dig[4]*10+dig[5];year=1900+yy;
+        if(mm<1||mm>12)return 0;
+        if(dd<1||dd>dim[mm-1]+(mm==2&&((year%4==0&&year%100!=0)||year%400==0)))return 0;
+        *out=xb_d((double)jdn_from_ymd(year,mm,dd));return 1;
+    }
+}
+static int q_get_write(xb_interp *ip,xb_get *g,int *ec)
+{
+    xb_val v;wa_env *env=xb_interp_env(ip);
+    if(!q_get_parse(g,&v))return -1;
+    if(g->kind==0) {
+        char tmp[256];
+        if(v.t==XB_C) { rt_memcpy(tmp,g->buf,g->buflen>255?255:g->buflen);v=xb_c(tmp,(uint16_t)(g->buflen>255?255:g->buflen)); }
+        return xb_interp_store(ip,g->name,&v)==INTERP_OK?1:-2;
+    }
+    {
+        int sel=wa_selected(env),rc;
+        if(!wa_is_open(env,g->area)) { if(ec)*ec=12;return -2; }
+        if(sel!=g->area)(void)wa_select(env,g->area);
+        rc=ibase_write_field(ip,g->area,wa_recno(env,g->area),g->field,&v,ec);
+        if(sel!=g->area)(void)wa_select(env,sel);
+        return rc==INTERP_OK?1:-2;
+    }
+}
+/* READ: bounded per-key loop over the pending list (design section 4).
+ * Key/exit/write-back facts are the F01-F05/F07-F09 captures named in the
+ * README freeze. READ never reports success without consuming its exit
+ * key: an exhausted input source fails loud with #29 instead of hanging
+ * or silently ending the edit. */
+#define QK_ENTER 1001
+#define QK_ESC   1002
+#define QK_UP    1003
+#define QK_DOWN  1004
+#define QK_LEFT  1005
+#define QK_RIGHT 1006
+#define QK_HOME  1007
+#define QK_END   1008
+#define QK_PGUP  1009
+#define QK_PGDN  1010
+#define QK_INS   1011
+#define QK_DEL   1012
+#define QK_BS    1013
+#define QK_CTRLEND 1014
+#define QK_TAB   1015
+#define QK_SHTAB 1016
+static int q_read_key(ibase_pal_t *pal)
+{
+    int32_t c;
+    if(!pal||!pal->conin_char)return -1;
+    c=pal->conin_char(pal);
+    if(c<0)return -1;
+    if(c==0) { /* DOS extended key: scan code follows */
+        int32_t s=pal->conin_char(pal);
+        if(s<0)return -1;
+        switch(s) {
+        case 0x48:return QK_UP; case 0x50:return QK_DOWN;
+        case 0x4B:return QK_LEFT; case 0x4D:return QK_RIGHT;
+        case 0x47:return QK_HOME; case 0x4F:return QK_END;
+        case 0x49:return QK_PGUP; case 0x51:return QK_PGDN;
+        case 0x52:return QK_INS; case 0x53:return QK_DEL;
+        case 0x75:return QK_CTRLEND; case 0x0F:return QK_SHTAB;
+        default:return 0;
+        }
+    }
+    if(c==13)return QK_ENTER;
+    if(c==27)return QK_ESC;
+    if(c==8)return QK_BS;
+    if(c==9)return QK_TAB;
+    return (int)c; /* printable or Ctrl-letter byte (1..26) */
+}
+static int q_read(xb_interp *ip,const char *args,int *ec)
+{
+    xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
+    const set_state *ss=set_get_state(ip);
+    int confirm=ss?ss->confirm:0;
+    uint32_t cur=0;int pos=0,insert=0,any_change=0,code=15,done=0,save_cur=1;
+    const char *t=q_skip_ws(args);
+    if(*t) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; } /* READ SAVE: frozen omission */
+    { uint32_t i;for(i=0;i<ctx->ngets;i++)ctx->gets[i].started=0; }
+    if(ctx->ngets) { xb_get *g0=&ctx->gets[0];q_get_cursor(ip,g0->row,g0->col); }
+    while(!done) {
+        int k=q_read_key(pal);
+        xb_get *g=ctx->ngets?&ctx->gets[cur]:(xb_get *)0;
+        if(k<0) { if(ec)*ec=29;return -INTERP_ERR_EVAL; }
+        if(k==0)continue;
+        /* Exit keys shared by empty and active READs (F01/F03). */
+        if(k==QK_ESC||k==17) { code=12;save_cur=0;done=1;break; }
+        if(k==QK_PGUP||k==18) { code=6;done=1;break; }
+        if(k==QK_PGDN||k==3) { code=7;done=1;break; }
+        if(k==QK_CTRLEND||k==23) { code=14;done=1;break; }
+        if(!g) {
+            if(k==QK_ENTER) { code=15;done=1; }
+            else if(k==QK_UP) { code=4;done=1; }
+            else if(k==QK_DOWN) { code=5;done=1; }
+            continue;
+        }
+        if(k==QK_ENTER||k==QK_DOWN||k==24) {
+            int w=q_get_write(ip,g,ec);
+            if(w==-1)continue;              /* invalid date stays (F08b) */
+            if(w==-2)return -INTERP_ERR_EVAL;
+            if(cur+1>=ctx->ngets) { code=(k==QK_ENTER)?15:5;done=1;break; }
+            cur++;pos=0;g=&ctx->gets[cur];q_get_cursor(ip,g->row,g->col);continue;
+        }
+        if(k==QK_UP||k==5) {
+            int w=q_get_write(ip,g,ec);
+            if(w==-1)continue;
+            if(w==-2)return -INTERP_ERR_EVAL;
+            if(cur==0) { code=4;done=1;break; }
+            cur--;pos=0;g=&ctx->gets[cur];q_get_cursor(ip,g->row,g->col);continue;
+        }
+        if(k==QK_LEFT||k==19) { if(pos>0)pos--; }
+        else if(k==QK_RIGHT||k==4) { if(pos<g->width-1)pos++; }
+        else if(k==QK_HOME||k==1) { pos=0; }
+        else if(k==QK_END||k==6) {
+            int e=g->width-1;while(e>0&&g->buf[e]==' ')e--;
+            pos=(g->buf[e]==' ')?e:(e<g->width-1?e+1:e);
+        }
+        else if(k==QK_INS||k==22) { insert=!insert; }
+        else if(k==QK_DEL||k==7) {
+            if(g->type==XB_C) { int i;for(i=pos;i<g->width-1;i++)g->buf[i]=g->buf[i+1];g->buf[g->width-1]=' ';g->changed=1; }
+        }
+        else if(k==QK_BS) {
+            if(g->type==XB_N) {
+                uint32_t rn=(uint32_t)rt_strlen(g->raw);
+                if(g->started&&rn){g->raw[rn-1]=0;g->changed=1;
+                    if(g->raw[0]){xb_val v=xb_n(dec_parse(g->raw,(int)rn-1));char text[Q_LINEBUF];uint32_t n=0;v.num_width=g->width;v.num_dec=g->dec;q_render_val(text,&n,sizeof text,&v,ctx,0);rt_memset(g->buf,' ',g->width);{uint32_t tn=n<g->width?n:g->width;rt_memcpy(g->buf+(g->width-tn),text+(n-tn),tn);}}
+                    else rt_memset(g->buf,' ',g->width);
+                }
+            }
+            else if(pos>0) { int i;pos--;if(g->type==XB_C){for(i=pos;i<g->width-1;i++)g->buf[i]=g->buf[i+1];g->buf[g->width-1]=' ';}else g->buf[pos]=' ';g->changed=1; }
+        }
+        else if(k==25) { /* Ctrl-Y: clear from cursor to end (F04) */
+            int i;for(i=pos;i<g->width;i++)g->buf[i]=(g->type==XB_D&&(i==2||i==5))?'/':' ';g->changed=1;
+            if(g->type==XB_N){g->raw[0]=0;g->started=1;rt_memset(g->buf,' ',g->width);}
+        }
+        else if(k>=32&&k<127) {
+            int accepted=0;
+            if(g->type==XB_L) {
+                char u=q_up1((char)k);
+                if(u=='T'||u=='Y'){g->buf[0]='T';accepted=1;}
+                else if(u=='F'||u=='N'){g->buf[0]='F';accepted=1;}
+            } else if(g->type==XB_N) {
+                if((k>='0'&&k<='9')||k=='.'||k=='-'||k=='+') {
+                    /* Live reformat (F07): the first key starts a new entry
+                     * (F13a FN typed over 12.50 becomes 77.25 untouched by
+                     * the old digits); later keys extend the raw text. */
+                    uint32_t rn;xb_val v;char text[Q_LINEBUF];uint32_t n=0;
+                    if(!g->started){g->raw[0]=0;g->started=1;}
+                    rn=(uint32_t)rt_strlen(g->raw);
+                    if(rn<sizeof g->raw-1){g->raw[rn++]=(char)k;g->raw[rn]=0;}
+                    v=xb_n(dec_parse(g->raw,(int)rn));v.num_width=g->width;v.num_dec=g->dec;
+                    q_render_val(text,&n,sizeof text,&v,ctx,0);
+                    rt_memset(g->buf,' ',g->width);
+                    { uint32_t tn=n<g->width?n:g->width;rt_memcpy(g->buf+(g->width-tn),text+(n-tn),tn); }
+                    pos=g->width-1;accepted=1;
+                }
+            } else if(g->type==XB_D) {
+                if(k>='0'&&k<='9') {
+                    while(pos<g->width&&(g->buf[pos]=='/'||g->buf[pos]=='-'||g->buf[pos]=='.'))pos++;
+                    if(pos<g->width){g->buf[pos]=(char)k;accepted=1;if(pos<g->width-1)pos++;}
+                }
+            } else { /* XB_C */
+                if(insert) { int i;for(i=g->width-1;i>pos;i--)g->buf[i]=g->buf[i-1]; }
+                g->buf[pos]=(char)k;accepted=1;
+                if(pos<g->width-1)pos++;
+                else if(!confirm) {
+                    /* Full field auto-advances under CONFIRM OFF (F05a). */
+                    int w;q_get_paint(ip,g);
+                    w=q_get_write(ip,g,ec);
+                    if(w==-2)return -INTERP_ERR_EVAL;
+                    if(w==-1){ /* cannot happen for C */ }
+                    else if(cur+1>=ctx->ngets){code=15;done=1;g->changed=1;any_change=1;break;}
+                    else {cur++;pos=0;g=&ctx->gets[cur];}
+                }
+            }
+            if(accepted)g->changed=1;
+        }
+        if(g->changed)any_change=1;
+        q_get_paint(ip,g);
+        q_get_cursor(ip,g->row,g->col+pos);
+    }
+    if(ctx->ngets&&save_cur) {
+        int w=q_get_write(ip,&ctx->gets[cur],ec);
+        if(w==-2)return -INTERP_ERR_EVAL;
+        /* A save-exit on an unparseable current field keeps the old value:
+         * the buffer is dropped with the list below. */
+    }
+    ctx->readkey=code+((save_cur&&any_change)?256:0);
+    ibase_gets_clear(ip);
+    if(ec)*ec=0;
+    return INTERP_OK;
+}
 /* Ref: say-get-read.md sections 1-2; programming-and-io.md error 30.
  * Deliberately reject out-of-slice clauses before evaluating or painting. */
 static int q_say(xb_interp *ip,const char *args,int *ec)
 {
-    const char *p=args,*comma=0,*say=0;
+    const char *p=args,*comma=0,*say=0,*get=0,*bound;
     char quote=0,prev=' ',expr[Q_MAX_EXPR+1],line[Q_LINEBUF];
     int depth=0,rc,j;uint32_t n=0;xb_val v;double coordinate[2];
     xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
@@ -1006,15 +1384,18 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
         else if(c==')' && depth) depth--;
         if(!depth) {
             if(c==',' && !comma) comma=p;
-            if(q_isspace(prev) && q_match_kw(p,"SAY")) { say=p;break; }
+            if(q_isspace(prev) && !say && q_match_kw(p,"SAY")) say=p;
+            if(q_isspace(prev) && !get && q_match_kw(p,"GET")) get=p;
         }
         prev=c;
     }
-    /* W3: every other @ form is the FORMS overlay (a SAY after the comma only). */
-    if(!say) return IBASE_OVL_CALL(IBASE_OVL_FORMS,forms_ovl_entry,0,ip,args,ec);
-    if(!comma || comma>say) { if(ec)*ec=10;return -INTERP_ERR_SYNTAX; }
+    /* W3: @ forms with neither SAY nor GET are the FORMS overlay. */
+    if(!say&&!get) return IBASE_OVL_CALL(IBASE_OVL_FORMS,forms_ovl_entry,0,ip,args,ec);
+    bound=say?say:get;
+    if(get&&say&&get<say) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
+    if(!comma || comma>bound) { if(ec)*ec=10;return -INTERP_ERR_SYNTAX; }
     for(j=0;j<2;j++) {
-        const char *start=j?comma+1:args,*end=j?say:comma;
+        const char *start=j?comma+1:args,*end=j?bound:comma;
         n=(uint32_t)(end-start);
         if(n>Q_MAX_EXPR) { if(ec)*ec=18;return -INTERP_ERR_SYNTAX; }
         rt_memcpy(expr,start,n);expr[n]=0;
@@ -1025,13 +1406,21 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
          * loud outside the specified grid rather than invent page geometry. */
         if(!(v.u.n>-1 && v.u.n<(j?80:25))) { if(ec)*ec=30;return -INTERP_ERR_EVAL; }
     }
+    if(!say) /* bare @ r,c GET */
+        return q_get_declare(ip,(int)coordinate[0],(int)coordinate[1],get+3,ec);
     p=q_skip_ws(say+3);
+    if(get) { /* SAY operand ends where the GET clause starts */
+        n=(uint32_t)(get-p);
+        if(n>Q_MAX_EXPR) { if(ec)*ec=18;return -INTERP_ERR_SYNTAX; }
+        rt_memcpy(expr,p,n);expr[n]=0;p=expr;
+    }
     rc=xb_interp_eval(ip,p,&v,ec);if(rc)return rc;
     if(v.t==XB_N) {
         const dbf_field_t *f=q_field_descriptor(ip,p);
         if(f) { v.num_width=f->field_len;v.num_dec=f->dec_count;xb_fixed_picture(ctx,&v); }
     }
     n=0;q_render_val(line,&n,sizeof line,&v,ctx,1);
+    if(get&&ctx->device_print) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
     if(ctx->device_print) {
         /* FORMS overlay k=2: row and column in k, byte count through *ec. */
         int count=(int)n;
@@ -1040,6 +1429,13 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
         if(!pal->say_screen || pal->say_screen(pal,(uint8_t)coordinate[0],(uint8_t)coordinate[1],line,n))goto io_error;
         ctx->screen_row=(uint16_t)coordinate[0];ctx->screen_col=(uint16_t)coordinate[1];
         rt_cursor_advance(&ctx->screen_row,&ctx->screen_col,line,n,2);
+    }
+    if(get) {
+        /* Combined SAY/GET: one blank column after the SAY value (F01). */
+        int gr=ctx->screen_row,gc=ctx->screen_col+1;
+        if(gc>79){gr++;gc=0;}
+        if(gr>24) { if(ec)*ec=30;return -INTERP_ERR_EVAL; }
+        return q_get_declare(ip,gr,gc,get+3,ec);
     }
     if(ec)*ec=0;
     return INTERP_OK;
@@ -1926,7 +2322,23 @@ static inline __attribute__((always_inline)) int qv_eject(xb_interp *ip, query_s
 static inline __attribute__((always_inline)) int qv_say(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
 { (void)qs; (void)verb; return q_say(ip, args, ec); }
 static inline __attribute__((always_inline)) int qv_clear(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
-{ (void)qs; (void)verb; return IBASE_OVL_CALL(IBASE_OVL_FORMS,forms_ovl_entry,1,ip,args,ec); }
+{
+    int rc;
+    (void)qs; (void)verb;
+    rc = IBASE_OVL_CALL(IBASE_OVL_FORMS,forms_ovl_entry,1,ip,args,ec);
+    if (rc == INTERP_OK) {
+        /* Pending-GET lifetime is resident (xb_ctx), so the list drop for
+         * plain CLEAR (forms-f12), CLEAR GETS and CLEAR ALL happens here,
+         * around the overlay's screen work. The overlay does not repaint
+         * the fields on CLEAR GETS (forms-f12 cleared page). */
+        const char *t = q_skip_ws(args);
+        if (!*t || rt_kw_word(t, "ALL\0GETS\0", (int *)0) >= 0)
+            ibase_gets_clear(ip);
+    }
+    return rc;
+}
+static inline __attribute__((always_inline)) int qv_read(xb_interp *ip, query_state *qs, const char *verb, const char *args, int *ec)
+{ (void)qs; (void)verb; return q_read(ip, args, ec); }
 
 /* Rows come from query_verbs.def: QUERY_VERB(KEYWORD, handler). Row order is the
  * 4-letter-abbreviation tie-break (earlier row wins, as rt_kw_index). */

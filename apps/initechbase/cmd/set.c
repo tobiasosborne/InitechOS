@@ -837,6 +837,18 @@ static IBASE_OVL_TEXT(set) int set_opt_safety(xb_interp *ip, set_state *ss, cons
     return (rc == INTERP_OK) ? CMD_OK : rc;
 }
 
+/* SET CONFIRM ON|OFF: ON requires an explicit exit key to leave a GET
+ * even when full; OFF (III+ default) auto-advances. Real III+ forms
+ * captures forms-f05a (OFF) and forms-f05b (ON), initech-p3nn0. */
+static IBASE_OVL_TEXT(set) int set_opt_confirm(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ip;
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+    ss->confirm = on;
+    return CMD_OK;
+}
+
 /* SET ESCAPE ON|OFF (Using III+ U5-220): OFF disables the Esc program
  * interrupt and ON ESCAPE (U5-160). Before initech-39e5 it was #10. */
 static IBASE_OVL_TEXT(set) int set_opt_escape(xb_interp *ip, set_state *ss, const char *s, int *err_code)

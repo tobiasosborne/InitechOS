@@ -2,7 +2,7 @@ dbf_coerce_fuzz_SRCS := tests/dbf_coerce_fuzz.c
 dbf_coerce_fuzz_OBJS := $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o
 dbf_coerce_fuzz_CFLAGS := -D_POSIX_C_SOURCE=200809L
 ibase_numeric_format_SRCS := tests/numeric_format_driver.c
-ibase_numeric_format_OBJS := $(OUT)/host-core/cmd/proc.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
+ibase_numeric_format_OBJS := $(OUT)/host-core/cmd/proc.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/mutate.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
 ibase_numeric_format_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_canon_salami_SRCS := tests/test_canon_salami.c ibase_main.c
 test_canon_salami_OBJS := $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/mutate.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/cmd/proc.o $(OUT)/host-core/cmd/report.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
@@ -44,7 +44,7 @@ test_interp_flow_SRCS := tests/test_interp_flow.c
 test_interp_flow_OBJS := $(OUT)/host-core/cmd/set.o $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
 test_interp_flow_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_interp_list_SRCS := tests/test_interp_list.c
-test_interp_list_OBJS := $(OUT)/host-core/cmd/proc.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
+test_interp_list_OBJS := $(OUT)/host-core/cmd/proc.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/mutate.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
 test_interp_list_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_interp_nav_SRCS := tests/test_interp_nav.c
 test_interp_nav_OBJS := $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
@@ -56,7 +56,7 @@ test_interp_replace_SRCS := tests/test_interp_replace.c
 test_interp_replace_OBJS := $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/mutate.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
 test_interp_replace_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_interp_set_SRCS := tests/test_interp_set.c
-test_interp_set_OBJS := $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
+test_interp_set_OBJS := $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/mutate.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
 test_interp_set_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_interp_setfmt_SRCS := tests/test_interp_setfmt.c
 test_interp_setfmt_OBJS := $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/mutate.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
@@ -155,8 +155,11 @@ test_ibase_say_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_ibase_forms_SRCS := tests/test_ibase_forms.c tests/w2_host.c
 test_ibase_forms_OBJS := $(test_ibase_say_OBJS)
 test_ibase_forms_CFLAGS := -D_POSIX_C_SOURCE=200809L
+test_ibase_gets_SRCS := tests/test_ibase_gets.c tests/w2_host.c
+test_ibase_gets_OBJS := $(test_ibase_say_OBJS)
+test_ibase_gets_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_ibase_set_color_SRCS := tests/test_ibase_set_color.c
-test_ibase_set_color_OBJS := $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
+test_ibase_set_color_OBJS := $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/mutate.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
 test_ibase_set_color_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_ibase_softfp_SRCS := tests/test_ibase_softfp.c
 test_ibase_softfp_OBJS := $(OUT)/host-core/boot/softfp.o
@@ -165,7 +168,7 @@ test_ibase_spec_SRCS := tests/test_ibase_spec.c
 test_ibase_spec_OBJS :=
 test_ibase_spec_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_ibase_status_SRCS := tests/test_ibase_status.c
-test_ibase_status_OBJS := $(OUT)/host-core/core/screen.o $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
+test_ibase_status_OBJS := $(OUT)/host-core/core/screen.o $(OUT)/host-core/cmd/workarea.o $(OUT)/host-core/cmd/nav.o $(OUT)/host-core/cmd/flow.o $(OUT)/host-core/cmd/query.o $(OUT)/host-core/cmd/mutate.o $(OUT)/host-core/cmd/set.o $(OUT)/host-core/fs/dbf.o $(OUT)/host-core/fs/dbt.o $(OUT)/host-core/fs/ndx.o $(OUT)/host-core/core/eval.o $(OUT)/host-core/core/parse.o $(OUT)/host-core/core/lex.o $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o $(OUT)/host-core/core/fn_builtins.o $(OUT)/host-core/pal/pal_host.o
 test_ibase_status_CFLAGS := -D_POSIX_C_SOURCE=200809L
 test_ibase_value_SRCS := tests/test_ibase_value.c
 test_ibase_value_OBJS := $(OUT)/host-core/core/value.o $(OUT)/host-core/core/rt.o

@@ -1,0 +1,241 @@
+/* @ SAY/GET + READ against the twice-minted real III+ forms captures
+ * (tests/xbase_prog_diff/screen-mint/forms-f01..f17; initech-p3nn0).
+ * Expected values are literal from those captures, never from this code. */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include "test_assert.h"
+#include "screen_file.h"
+#include "w2_host.h"
+#include "ibase/screen.h"
+TEST_HARNESS();
+struct pal_host_cfg {uint8_t yy,mm,dd;uint32_t heap;};
+extern ibase_pal_t *pal_host_make(struct pal_host_cfg);
+extern void pal_host_free(ibase_pal_t *);
+extern int set_register(xb_interp *);
+extern int query_register(xb_interp *);
+
+/* Whole-page capture through the same PAL paint contract as the product. */
+static screen_file page;
+static uint8_t cur_attr = 7, cur_r, cur_c;
+static void page_reset(void)
+{
+    for (int i = 0; i < 2000; i++) { page.bytes[2*i] = ' '; page.bytes[2*i+1] = 7; }
+    page.bytes[4000] = page.bytes[4001] = 0; cur_attr = 7; cur_r = cur_c = 0;
+}
+static int paint(ibase_pal_t *p, uint8_t r, uint8_t c, const char *s, uint32_t n)
+{
+    (void)p;
+    if (!n) { if (r > 25 || c >= 80) return -PAL_EIO; cur_r = r; cur_c = c; return 0; }
+    if (r >= 25 || c + n > 80) return -PAL_EIO;
+    for (uint32_t i = 0; i < n; i++) {
+        page.bytes[2*(r*80+c+i)] = (uint8_t)s[i];
+        page.bytes[2*(r*80+c+i)+1] = cur_attr;
+    }
+    cur_r = r; cur_c = (uint8_t)(c + n < 80 ? c + n : 79);
+    return 0;
+}
+static void set_attr(ibase_pal_t *p, uint8_t a) { (void)p; cur_attr = a; }
+static void gotoxy(ibase_pal_t *p, uint8_t r, uint8_t c) { (void)p; cur_r = r; cur_c = c; }
+static int say_screen(ibase_pal_t *p, uint8_t r, uint8_t c, const char *s, uint32_t n)
+{ return paint(p, r, c, s, n); }
+
+/* Raw key byte queue: 0x00 then scan byte for extended keys, as DOS gives. */
+static const uint8_t *keys; static uint32_t keys_n, keys_i;
+static int32_t conin_char(ibase_pal_t *p)
+{ (void)p; return keys_i < keys_n ? keys[keys_i++] : -1; }
+static void feed(const uint8_t *k, uint32_t n) { keys = k; keys_n = n; keys_i = 0; }
+#define FEED(s) feed((const uint8_t *)(s), (uint32_t)(sizeof(s) - 1))
+
+static xb_interp *make_ip(ibase_pal_t *pal)
+{
+    xb_interp *ip = xb_interp_make(pal);
+    pal->paint = paint; pal->say_screen = say_screen;
+    pal->set_attr = set_attr; pal->gotoxy = gotoxy; pal->conin_char = conin_char;
+    CHECK(set_register(ip) == 0 && query_register(ip) == 0, "modules register");
+    CHECK(ibase_do(ip, "SET TALK OFF\nSET STATUS OFF\nSET SCOREBOARD OFF\n") == INTERP_OK,
+          "capture baseline sets");
+    return ip;
+}
+static void value_n(xb_interp *ip, const char *expr, double want)
+{
+    xb_val v; int ec = 0;
+    int ok = xb_interp_eval(ip, expr, &v, &ec) == INTERP_OK && v.t == XB_N && v.u.n == want;
+    if (!ok) fprintf(stderr, "value %s: ec=%d\n", expr, ec);
+    CHECK(ok, expr);
+}
+static void value_c(xb_interp *ip, const char *expr, const char *want)
+{
+    xb_val v; int ec = 0;
+    int ok = xb_interp_eval(ip, expr, &v, &ec) == INTERP_OK && v.t == XB_C &&
+             v.u.c.len == strlen(want) && !memcmp(v.u.c.p, want, v.u.c.len);
+    if (!ok) fprintf(stderr, "value %s: ec=%d got=[%.*s]\n", expr, ec,
+                     v.t == XB_C ? (int)v.u.c.len : 0, v.t == XB_C ? v.u.c.p : "");
+    CHECK(ok, expr);
+}
+static void cell(int r, int c, int ch, int attr)
+{
+    CHECK(page.bytes[2*(r*80+c)] == ch && page.bytes[2*(r*80+c)+1] == attr, "declared cell");
+}
+
+static void f01_memvar(void)
+{
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    /* F01: declaration paints X at (5,10), field reversed at cols 12-19. */
+    CHECK(ibase_do(ip, "VALUE=SPACE(8)\n@ 5,10 SAY \"X\" GET VALUE\n") == INTERP_OK, "declare combined SAY/GET");
+    cell(5, 10, 'X', 7);
+    for (int c = 12; c <= 19; c++) cell(5, c, ' ', 0x70);
+    value_n(ip, "ROW()", 5); value_n(ip, "COL()", 20);
+    FEED("HELLO\r");
+    CHECK(ibase_do(ip, "READ\n") == INTERP_OK, "READ runs");
+    value_c(ip, "VALUE", "HELLO   ");
+    value_n(ip, "READKEY()", 271);
+    /* Typed page: HELLO reversed from col 12 (existing mint get/read-typed). */
+    CHECK(!memcmp(&page.bytes[2*(5*80+12)], "H", 1), "typed cell text");
+    cell(5, 12, 'H', 0x70); cell(5, 16, 'O', 0x70);
+    /* F01 second READ: list consumed, empty READ still waits for Enter. */
+    FEED("\r");
+    CHECK(ibase_do(ip, "READ\n") == INTERP_OK, "second empty READ returns on Enter");
+    value_n(ip, "READKEY()", 15);
+    /* F12: CLEAR GETS drops the list; typing goes nowhere. */
+    CHECK(ibase_do(ip, "@ 5,10 GET VALUE\nCLEAR GETS\n") == INTERP_OK, "declare and CLEAR GETS");
+    FEED("ZZ\r");
+    CHECK(ibase_do(ip, "READ\n") == INTERP_OK, "READ after CLEAR GETS");
+    value_c(ip, "VALUE", "HELLO   ");
+    value_n(ip, "READKEY()", 15);
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
+static void f03_exits(void)
+{
+    static const uint8_t pgdn[] = {'A','B','\r','C','D',0,0x51};
+    static const uint8_t down2[] = {0,0x50,0,0x50};
+    static const uint8_t up1[] = {0,0x48};
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    const char *decl = "A=SPACE(4)\nB=SPACE(4)\n@ 5,10 GET A\n@ 7,10 GET B\nREAD\n";
+    FEED("AB\rCD\x1b"); /* F03a Esc */
+    CHECK(ibase_do(ip, decl) == INTERP_OK, "esc form");
+    value_c(ip, "A", "AB  "); value_c(ip, "B", "    "); value_n(ip, "READKEY()", 12);
+    feed(pgdn, sizeof pgdn); /* F03b PgDn saves */
+    CHECK(ibase_do(ip, decl) == INTERP_OK, "pgdn form");
+    value_c(ip, "A", "AB  "); value_c(ip, "B", "CD  "); value_n(ip, "READKEY()", 263);
+    feed(down2, sizeof down2); /* F02b Down past last exits */
+    CHECK(ibase_do(ip, decl) == INTERP_OK, "down-exit form");
+    value_n(ip, "READKEY()", 5);
+    feed(up1, sizeof up1); /* F02b Up on first exits */
+    CHECK(ibase_do(ip, decl) == INTERP_OK, "up-exit form");
+    value_n(ip, "READKEY()", 4);
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
+static void f15_refusals(void)
+{
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    static const struct { const char *cmd; int ec; } bad[] = {
+        {"@ 5,10 GET UNDEFINED\n", 12},
+        {"@ 5,10 GET 1+2\n", 10},
+        {"@ 5,10 GET V RANGE 1,9\n", 36},
+        {"@ 5,10 GET V VALID V=\"X\"\n", 36},
+        {"@ 5,10 GET V WHEN .T.\n", 36},
+        {"@ 5,10 GET V PICTURE 9\n", 45},
+        {"READ SAVE\n", 36},
+    };
+    CHECK(ibase_do(ip, "V=SPACE(4)\n") == INTERP_OK, "seed V");
+    for (unsigned i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        int rc = ibase_do(ip, bad[i].cmd);
+        if (rc == INTERP_OK || ibase_last_error(ip) != bad[i].ec)
+            fprintf(stderr, "refusal %s rc=%d ec=%d want %d\n", bad[i].cmd, rc, ibase_last_error(ip), bad[i].ec);
+        CHECK(rc != INTERP_OK && ibase_last_error(ip) == bad[i].ec, "captured refusal code");
+    }
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
+static void f07_f08_f09_types(void)
+{
+    static const uint8_t num[] = {25,'-','1','2','.','3','4','5','\r'}; /* Ctrl-Y then type */
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    feed(num, sizeof num);
+    CHECK(ibase_do(ip, "N=12.50\n@ 5,10 GET N\nREAD\n") == INTERP_OK, "numeric form");
+    value_c(ip, "STR(N,10,2)", "    -12.35");
+    value_n(ip, "READKEY()", 271);
+    FEED("013100\r");
+    CHECK(ibase_do(ip, "D=CTOD(\"\")\n@ 5,10 GET D\nREAD\n") == INTERP_OK, "date form");
+    value_n(ip, "YEAR(D)", 1900);
+    value_c(ip, "DTOC(D)", "01/31/00");
+    FEED("T\r");
+    CHECK(ibase_do(ip, "L=.F.\n@ 5,10 GET L\nREAD\n") == INTERP_OK, "logical form");
+    { xb_val v; int ec = 0;
+      CHECK(xb_interp_eval(ip, "L", &v, &ec) == INTERP_OK && v.t == XB_L && v.u.l, "logical true"); }
+    value_n(ip, "READKEY()", 271);
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
+static void copy_file(const char *from, const char *to)
+{
+    FILE *a = screen_open(from, "rb"), *b = screen_open(to, "wb"); int ch;
+    while ((ch = fgetc(a)) != EOF) if (fputc(ch, b) == EOF) screen_die("copy failed");
+    fclose(a); fclose(b);
+}
+static void f13_field(void)
+{
+    char root[2048]; if (!getcwd(root, sizeof root)) return;
+    char temp[] = "build/gets-target.XXXXXX", work[4200], path[8400];
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    if (!pal || !mkdtemp(temp)) return;
+    snprintf(work, sizeof work, "%s/%s", root, temp);
+    snprintf(path, sizeof path, "%s/FORM.DBF", work);
+    copy_file("tests/xbase_prog_diff/screen-mint/forms-f13a-bind/SETUP/FORM.DBF", path);
+    snprintf(path, sizeof path, "%s/FORM.DBT", work);
+    copy_file("tests/xbase_prog_diff/screen-mint/forms-f13a-bind/SETUP/FORM.DBT", path);
+    struct w2_host_env env;
+    struct w2_host_config cfg = {work, work, 16*1024*1024, 16*1024*1024, 'C'};
+    CHECK(w2_host_bind(&env, pal, &cfg) == 0, "field test binding");
+    pal->paint = paint; pal->say_screen = say_screen;
+    pal->set_attr = set_attr; pal->gotoxy = gotoxy; pal->conin_char = conin_char;
+    xb_interp *ip = xb_interp_make(pal); page_reset();
+    snprintf(path, sizeof path, "%s/MINT.PRG", work);
+    FILE *pf = screen_open(path, "wb");
+    fputs("SET TALK OFF\r\nSET STATUS OFF\r\nUSE FORM\r\n"
+          "@ 5,10 SAY \"FC:\" GET FC\r\nREAD\r\n"
+          "SET ALTERNATE TO RESULT\r\nSET ALTERNATE ON\r\n"
+          "? \"R1=\",FC,RECNO(),READKEY()\r\nGO 2\r\n? \"R2=\",FC\r\n"
+          "SET ALTERNATE OFF\r\nSET ALTERNATE TO\r\nCLOSE DATABASES\r\nRETURN\r\n", pf);
+    fclose(pf);
+    static const uint8_t keys13[] = {25,'K','E','Y','2','\r'};
+    feed(keys13, sizeof keys13);
+    int rc = w2_host_startup(pal, ip, "MINT.PRG");
+    if (rc) fprintf(stderr, "field form rc=%d ec=%d\n", rc, ibase_last_error(ip));
+    CHECK(rc == 0, "field form");
+    snprintf(path, sizeof path, "%s/RESULT.TXT", work);
+    FILE *rf = fopen(path, "rb");
+    char result[512] = ""; size_t rn = rf ? fread(result, 1, sizeof result - 1, rf) : 0;
+    if (rf) fclose(rf);
+    result[rn] = 0;
+    /* F13a RESULT shapes: edited record 1, record 2 untouched. */
+    CHECK(strstr(result, "R1= KEY2") != NULL, "F13 result record 1 edited");
+    CHECK(strstr(result, "R2= WXYZ") != NULL, "F13 result record 2 untouched");
+    CHECK(strstr(result, "271") != NULL, "F13 result readkey");
+    snprintf(path, sizeof path, "%s/FORM.DBF", work);
+    FILE *f = screen_open(path, "rb");
+    unsigned char rec[38];
+    CHECK(fseek(f, 193, SEEK_SET) == 0 && fread(rec, 1, 38, f) == 38, "read record bytes");
+    fclose(f);
+    CHECK(!memcmp(rec + 1, "KEY2    ", 8), "F13 record 1 FC bytes on disk");
+    CHECK(!memcmp(rec + 9, "     12.50", 10), "F13 record 1 FN untouched");
+    xb_interp_free(ip); w2_host_unbind(&env); pal_host_free(pal);
+}
+
+int main(void)
+{
+    f01_memvar();
+    f03_exits();
+    f15_refusals();
+    f07_f08_f09_types();
+    f13_field();
+    return TEST_SUMMARY("test-ibase-gets");
+}

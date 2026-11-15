@@ -3,7 +3,7 @@
 InitechBase provides a dBASE III PLUS 1.1 command interpreter with DBF tables,
 DBT memos, NDX indexes, ten work areas, command programs and a dot prompt.
 
-`make` builds INITBASE.EXE and INITBASE.OVL. `make test` runs 77 independent
+`make` builds INITBASE.EXE and INITBASE.OVL. `make test` runs 78 independent
 host suites with a 30-second execution budget, excluding compilation, and
 validates the real target pair. `make test THOROUGH=1` adds the live genuine
 III+ differential. Missing references fail. `make pending CASE=...` exposes
@@ -14,7 +14,7 @@ files back with mtools/independent readers and reopens them with genuine III+.
 It passes 50 checks. Scenarios and the selected application pair live on a
 separate disposable TEST disk; no test scenario is compiled into the kernel.
 `make native-check` runs the DOS console, file, program-return and overlay
-oracles. `make mutants` runs 252 host patches and 19 target patches, including
+oracles. `make mutants` runs 255 host patches and 19 target patches, including
 three static semantic rejections. All 28 original pending faults are qualified.
 The test controls themselves must receive zero kills.
 Host kills require completed assertion counts and identical failure evidence
@@ -58,10 +58,10 @@ This is the present subset, not a promise of complete III+ compatibility.
 Sources: cmd/*_verbs.def, cmd/set_options.def, core/fn_builtins.c:fn_names,
 the accepted host capture lists, and attic/triage/triage.md's Base findings.
 
-54 dispatch spellings (including aliases and punctuation):
+55 dispatch spellings (including aliases and punctuation):
 
 - Query: LIST, DISPLAY, ?, ??, LOCATE, CONTINUE, SEEK, FIND, GO, GOTO, SKIP,
-  @ (SAY, not GET), EJECT, CLEAR.
+  @ (SAY/GET), EJECT, CLEAR, READ.
 - Files/data: TYPE, RENAME, ERASE, COPY (FILE), RUN, !, SORT, TOTAL, INDEX,
   REINDEX, REPLACE, APPEND (BLANK/FROM), DELETE, RECALL, PACK, ZAP.
 - Variables/areas: SAVE, RESTORE, STORE, SELECT, RELEASE; USE, CLOSE.
@@ -88,19 +88,19 @@ DOW RECNO RECCOUNT EOF BOF FOUND DELETED FIELD DBF FILE LEFT RIGHT STUFF REPLICA
 AT ISALPHA ISUPPER ISLOWER TRANSFORM EXP LOG SQRT TIME LUPDATE NDX ROW COL PROW
 PCOL INKEY READKEY LASTKEY ISCOLOR FKLABEL OS VERSION GETENV DISKSPACE.
 
-28 SET spellings (27 distinct options because HEADING/HEADINGS are aliases):
+29 SET spellings (28 distinct options because HEADING/HEADINGS are aliases):
 
 ALTERNATE EXACT DECIMALS FIXED DATE CENTURY ORDER INDEX DELETED FILTER RELATION
 TALK SAFETY ESCAPE HEADING HEADINGS CONSOLE STATUS SCOREBOARD COLOR DEVICE
-UNIQUE MARGIN PRINT MEMOWIDTH HISTORY DOHISTORY PROCEDURE.
+UNIQUE MARGIN PRINT MEMOWIDTH HISTORY DOHISTORY PROCEDURE CONFIRM.
 
 RELATION and TALK currently store intent without the corresponding runtime
-behavior. The other 26 spellings have implemented effects, within the captured
+behavior. The other 27 spellings have implemented effects, within the captured
 subset; pending history, numeric formatting and memo layout cases limit parity.
 
 Omissions and current refusals (the catalogue text is retained verbatim):
 
-- CALL, LOAD, IMPORT, EXPORT, CREATE, MODIFY, EDIT, BROWSE, ASSIST, READ,
+- CALL, LOAD, IMPORT, EXPORT, CREATE, MODIFY, EDIT, BROWSE, ASSIST,
   COUNT, SUM, AVERAGE, JOIN, UPDATE, INSERT, TEXT, DIR: #16,
   `*** Unrecognized command verb.` These have no command rows. The message
   is generic, not yet an individual named refusal.
@@ -108,9 +108,7 @@ Omissions and current refusals (the catalogue text is retained verbatim):
   `Syntax error.` Unknown function names: #31, `Invalid function name.`
 - COPY TO is outside the COPY FILE subset; unrecognised supported-verb
   clauses use #36, `Unrecognized phrase/keyword in command.`, or #10 depending
-  on the parser. Interactive table/schema editors do not exist. CLEAR
-  FIELDS/GETS are accepted with nothing to clear until the forms surface
-  below lands.
+  on the parser. Interactive table/schema editors do not exist.
 - Unhandled program errors return to the dot prompt; the real III+ traceback
   and Cancel/Ignore/Suspend recovery dialog are absent.
 
@@ -121,9 +119,14 @@ frozen: every behaviour is pinned by a twice-minted real III+ capture in
 `tests/xbase_prog_diff/screen-mint/forms-f01-*/` … `forms-f17-*/` (design
 cases C01-C18, renamed F because conformance C01-C38 own C-numbers;
 whole 80x25 text/attribute pages plus cursor, RESULT transcripts and
-DBF/DBT/NDX/MEM readbacks; mint with `make mint-forms`). Until each
-stage lands, READ still refuses as #16 and @ GET is absent; the list
-above stays the implemented truth and this section is what ships.
+DBF/DBT/NDX/MEM readbacks; mint with `make mint-forms`). Declaration,
+the pending-GET list, CLEAR GETS/CLEAR cleanup, unformatted rendering
+and the editor core have landed and are graded by `test-ibase-gets`
+against those captures (values, READKEY codes, field/index write-back,
+record bytes). Still to land: PICTURE/FUNCTION formatting and editing
+(stage 5; a character PICTURE operand refuses #36 until then, a
+non-character one gives the captured #45), SET BELL/INTENSITY/
+DELIMITERS, and the both-emulator product-image replay.
 
 Supported: `@ r,c GET lvalue` and combined `@ r,c SAY expr GET lvalue`
 for C/N/D/L memory variables and fields (unqualified name binds the

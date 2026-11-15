@@ -498,6 +498,15 @@ int xb_interp_declare_private(xb_interp *ip, const char *name);
  */
 int xb_interp_store_param(xb_interp *ip, const char *name, const xb_val *v);
 
+/*
+ * ibase_write_field: write one field of one record through the same
+ * staged flush + open-index maintenance as REPLACE (cmd/mutate.c), for
+ * @...GET write-back. Returns INTERP_OK or a negative interp_err (*ec
+ * set); a failed write reloads the record arena and publishes nothing.
+ */
+int ibase_write_field(xb_interp *ip, int area, uint32_t recno,
+                      int field_idx, const xb_val *v, int *ec);
+
 /* Additional interp_err ordinals introduced by S5.3 (additive; INTERP_OK==0 and
  * the S5.1 codes are unchanged). Returned negated from ibase_do, recorded by
  * ibase_last_error. */

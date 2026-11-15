@@ -1434,10 +1434,26 @@ xb_interp *xb_interp_make(ibase_pal_t *pal)
     return ip;
 }
 
+void ibase_gets_clear(xb_interp *ip)
+{
+    xb_ctx *ctx;
+    uint32_t i;
+    if (!ip)
+        return;
+    ctx = &ip->ctx;
+    for (i = 0; i < ctx->ngets; i++)
+        if (ctx->gets[i].buf) ip->pal->release(ip->pal, ctx->gets[i].buf);
+    if (ctx->gets) ip->pal->release(ip->pal, ctx->gets);
+    ctx->gets = (xb_get *)0;
+    ctx->ngets = 0;
+    ctx->gets_cap = 0;
+}
+
 void xb_interp_free(xb_interp *ip)
 {
     if (!ip)
         return;
+    ibase_gets_clear(ip);
     (void)wa_close_all(ip->env);
     if (ip->teardown) ip->teardown(ip);
     /* unwind the arena to the mark taken at make (frees env + scratch + caches). */

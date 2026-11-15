@@ -632,6 +632,32 @@ struct xb_ctx;
 /* SET FIXED ON: re-picture a numeric value (keep integer room, SET DECIMALS places). */
 void xb_fixed_picture(const struct xb_ctx *ctx, xb_val *v);
 
+/* One pending @...GET (initech-p3nn0; real III+ captures forms-f01..f17).
+ * The list lives in xb_ctx (resident) because READ and the dot prompt span
+ * FORMS-overlay exchanges and DO calls. Identity only: the value is
+ * re-resolved at READ/write-back, so a field GET edits the record current
+ * then (forms-f13c), never a retained record-buffer pointer. */
+typedef struct {
+    uint8_t  row, col;        /* field start on the 25x80 page */
+    uint16_t width;           /* visible edit cells */
+    uint8_t  type;            /* XB_C / XB_N / XB_D / XB_L */
+    uint8_t  kind;            /* 0 = memvar, 1 = field */
+    int16_t  area;            /* field: work area index at declaration */
+    int16_t  field;           /* field: descriptor index, else -1 */
+    int16_t  dec;             /* numeric decimals */
+    char     name[12];        /* memvar or field name (uppercase, NUL-term) */
+    char    *buf;             /* edit/display text, owned (PAL acquire) */
+    uint32_t buflen;          /* text bytes in buf (== width, NUL after) */
+    uint8_t  changed;         /* buffer edited during the current READ */
+    uint8_t  started;         /* numeric: entry started this activation */
+    char     raw[48];         /* numeric: raw entry text (live reformat) */
+} xb_get;
+struct xb_interp;
+struct ibase_pal;
+/* Drop every pending GET and release its storage. Defined in
+ * cmd/workarea.c beside xb_interp_free, which also calls it. */
+void ibase_gets_clear(struct xb_interp *ip);
+
 typedef struct xb_ctx {
     /* Using III+ U5-210/235/259: screen controls. STATUS has no CONFIG.DB.
      * dot_command is set only around a command entered at the dot prompt. */
@@ -649,6 +675,12 @@ typedef struct xb_ctx {
      * operand (256 -> 0, 300 -> 44). Read with q_mw() in cmd/query.c. */
     uint16_t memo_width1;
     uint16_t screen_row, screen_col, printer_row, printer_col;
+    /* Pending @...GET list and the last READ exit code (READKEY()).
+     * gets[] and each xb_get.buf are PAL acquire storage, released by
+     * ibase_gets_clear (cmd/query.c) and at xb_interp_free. */
+    xb_get  *gets;
+    uint32_t ngets, gets_cap;
+    int      readkey;
     /* Using III+ U5-193: ALTERNATE records program output even CONSOLE OFF. */
     void (*mirror_output)(void *, const char *, uint32_t);
     void *mirror_user;

@@ -2331,10 +2331,11 @@ static int fn_readkey_stub(xb_ctx *ctx, const xb_val *args, int nargs,
      * fns-mint/readkey/GOLD.OUT: before any full-screen command, repeated
      * calls return zero in three numeric columns. READKEY is exit history,
      * not a keyboard poll: do not consume type-ahead or wait for a key.
-     * IBASE currently has no full-screen READ/EDIT/BROWSE command producer. */
-    (void)ctx; (void)args;
+     * The exit code itself is recorded by READ (cmd/query.c) from the real
+     * III+ forms captures (initech-p3nn0, forms-f01/f03). */
+    (void)args;
     if (nargs != 0) return fn_fail(err, XBEE_INVALID_ARG);
-    *out = xb_n(0.0);
+    *out = xb_n(ctx ? (double)ctx->readkey : 0.0);
     out->num_width = 3;
     *err = XBEE_OK;
     return 0;

@@ -1,0 +1,13 @@
+# test: test_ibase_gets
+# GET write-back dropped: READ edits never reach the memvar.
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1190,7 +1190,7 @@
+     if(g->kind==0) {
+         char tmp[256];
+         if(v.t==XB_C) { rt_memcpy(tmp,g->buf,g->buflen>255?255:g->buflen);v=xb_c(tmp,(uint16_t)(g->buflen>255?255:g->buflen)); }
+-        return xb_interp_store(ip,g->name,&v)==INTERP_OK?1:-2;
++        return 1; /* MUTANT: drop GET write-back. */
+     }
+     {
+         int sel=wa_selected(env),rc;
