@@ -126,6 +126,14 @@ gen*|self-generation)
             assert "$entry:independent bytes or determinism" cmp "$scratch/a/program.com" "$scratch/$pass/TURBOOUT.COM"
         fi
     done
+    if [ "$entry" != self-generation ] && [ -n "${TURBO_SELF_RUNS:-}" ]; then
+        # Let cli compare ordinary mode with this invocation's freshly graded
+        # dump output rather than translate the same fixture a third time.
+        shared_case=$TURBO_SELF_RUNS/corpus/$entry
+        setup mkdir -p "$shared_case"
+        setup cp "$scratch/a/TURBOIN.PAS" "$scratch/a/TURBOOUT.EXE" "$scratch/a/TURBOOUT.COM" "$shared_case/"
+        : > "$shared_case/complete"
+    fi
     for artifact in TURBOOUT.S TURBOOUT.EXE; do
         assert "$entry:independent bytes or determinism" cmp "$scratch/a/$artifact" "$scratch/b/$artifact"
     done

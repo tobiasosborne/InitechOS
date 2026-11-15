@@ -37,7 +37,15 @@ assert 'DOS-saved compiler source compiles' compile_cli "$out/dos" INPUT.PAS
 assert 'DOS CRLF and EOF marker are accepted' grep -F 'TURBO-NATIVE-OK form=1 ' "$out/dos/transcript"
 assert_not 'DOS-saved source has no compile errors' grep -E 'TURBO-.*(ERROR|SKIP)' "$out/dos/transcript"
 setup cp "$source" "$out/lf/INPUT.PAS"
-assert 'LF compiler source compiles' compile_cli "$out/lf" INPUT.PAS
+if [ -n "${TURBO_SELF_RUNS:-}" ] && [ -f "$TURBO_SELF_RUNS/a/complete" ]; then
+ # The default suite already translated this exact LF source and compared
+ # its native output with independent NASM/ld. Reuse only this invocation's
+ # fresh result; the DOS/ordinary-mode translation remains independent.
+ setup cmp "$source" "$TURBO_SELF_RUNS/a/TURBOIN.PAS"
+ setup cp "$TURBO_SELF_RUNS/a/TURBOOUT.EXE" "$out/lf/TURBOOUT.EXE"
+else
+ assert 'LF compiler source compiles' compile_cli "$out/lf" INPUT.PAS
+fi
 assert 'LF and DOS-saved source produce identical whole containers' cmp "$out/lf/TURBOOUT.EXE" "$out/dos/TURBOOUT.EXE"
 for alias in TURBOOUT.COM TURBOOUT.EXE TURBOOUT.S; do
  dir=$out/alias-$alias
@@ -55,9 +63,16 @@ for fixture in fixtures/gen*.pas; do
  dir=$out/modes-$name
  setup mkdir -p "$dir"
  setup cp "$fixture" "$dir/INPUT.PAS"
- assert "$name:factory mode compiles" compile_cli "$dir" /DUMP INPUT.PAS
- setup cp "$dir/TURBOOUT.EXE" "$dir/dump.exe"
- setup cp "$dir/TURBOOUT.COM" "$dir/dump.com"
+ shared_case=${TURBO_SELF_RUNS:-}/corpus/$name
+ if [ -n "${TURBO_SELF_RUNS:-}" ] && [ -f "$shared_case/complete" ]; then
+  setup cmp "$fixture" "$shared_case/TURBOIN.PAS"
+  setup cp "$shared_case/TURBOOUT.EXE" "$dir/dump.exe"
+  setup cp "$shared_case/TURBOOUT.COM" "$dir/dump.com"
+ else
+  assert "$name:factory mode compiles" compile_cli "$dir" /DUMP INPUT.PAS
+  setup cp "$dir/TURBOOUT.EXE" "$dir/dump.exe"
+  setup cp "$dir/TURBOOUT.COM" "$dir/dump.com"
+ fi
  assert "$name:native-only mode compiles" compile_cli "$dir" INPUT.PAS
  assert "$name:EXE invariant across dump switch" cmp "$dir/dump.exe" "$dir/TURBOOUT.EXE"
  assert "$name:COM invariant across dump switch" cmp "$dir/dump.com" "$dir/TURBOOUT.COM"
