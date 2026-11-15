@@ -35,6 +35,13 @@ int du_call(du_regs *r)
              ah == 0x41 || ah == 0x43 || ah == 0x4e || ah == 0x5b;
     /* Adapter fault injection after CREATE, outside the shipped product. */
     if (ah == 0x3f && getenv("XCOPY_FAIL_READ")) { r->a=5; return 1; }
+    /* XCOPY_FAIL_READ_AT=k fails the k-th and later reads, so a failure
+     * part-way through a multi-chunk source is reproducible (q2w4b). */
+    if (ah == 0x3f) {
+        static unsigned reads;
+        const char *at = getenv("XCOPY_FAIL_READ_AT");
+        if (at && ++reads >= (unsigned)atoi(at)) { r->a=5; return 1; }
+    }
     if (ah == 7 || ah == 8) {
         if (!*keys) { fputs("ORACLE RED: unexpected keyboard wait\n", stderr); exit(90); }
         r->a = (unsigned char)*keys++;

@@ -199,6 +199,19 @@ if [ "$mode" = host ]; then
     cmp "$work/previous.txt" "$work/art.bytes" || fail 'read failure destroyed pre-existing destination bytes'
     mtype -i "$work/art.img" ::SRC/ROOT.TXT > "$work/art.bytes"
     cmp "$work/old.txt" "$work/art.bytes" || fail 'read failure damaged source'
+    # initech-q2w4b: the same rule when the read failure lands past the
+    # first 2 KiB chunk of a larger source. No DOS 3.30 XCOPY capture
+    # exists (initech-0e5gu); the safe rule is that a source read failure
+    # never destroys the previous destination.
+    fresh
+    dd if=/dev/zero bs=5000 count=1 status=none | tr '\000' 'S' > "$work/bigsrc.bin"
+    mcopy -i "$work/art.img" "$work/bigsrc.bin" ::SRC/BIGSRC.BIN
+    mcopy -i "$work/art.img" "$work/previous.txt" ::DST/BIGSRC.BIN
+    if XCOPY_FAIL_READ_AT=3 run XCOPY 'SRC\BIGSRC.BIN DST'; then fail 'mid-file read error ignored'; fi
+    mtype -i "$work/art.img" ::DST/BIGSRC.BIN > "$work/art.bytes" || fail 'mid-file read failure deleted pre-existing destination'
+    cmp "$work/previous.txt" "$work/art.bytes" || fail 'mid-file read failure destroyed pre-existing destination bytes'
+    mtype -i "$work/art.img" ::SRC/BIGSRC.BIN > "$work/art.bytes"
+    cmp "$work/bigsrc.bin" "$work/art.bytes" || fail 'mid-file read failure damaged source'
     for tail in 'SRC DST /D:02-30-1988' 'SRC DST /D:07-15-1979' 'SRC DST /D:01-01-2080' 'SRC DST /Z' ''; do
         if run XCOPY "$tail"; then fail "invalid syntax accepted: $tail"; fi
         grep -q 'exit=4' "$work/run.log" || fail 'invalid syntax exit code'

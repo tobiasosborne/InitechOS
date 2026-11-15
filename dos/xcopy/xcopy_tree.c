@@ -237,13 +237,22 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
     if (!ensure_dir(parent)) return 0;
     int in=call(0x3d00,0,0,(uintptr_t)src);
     if (in < 0) { error=5; return 0; }
-    /* Read the first source chunk BEFORE creating/truncating the
-     * destination (initech-wz16r). Genuine XCOPY buffers source files in
-     * memory before writing, so an unreadable source is discovered before
-     * any destination is touched; genuine XCOPY media are still missing
-     * (initech-0e5gu), so byte retention on an unreadable source is the
-     * stated safety assumption here. A pre-existing destination keeps its
-     * bytes when the source cannot be read at all. */
+    /* Read the WHOLE source once BEFORE creating/truncating the
+     * destination, then rewind (initech-wz16r, initech-q2w4b). Genuine
+     * XCOPY buffers source files in memory before writing, so an
+     * unreadable source is discovered before any destination is touched;
+     * genuine XCOPY media are still missing (initech-0e5gu), so the safe
+     * rule stated here is that a source read failure -- at any offset,
+     * not only the first chunk -- never destroys the previous
+     * destination. The pre-pass costs one extra read of the source. */
+    for (;;) {
+        int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
+        if (n < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
+        if (!n) break;
+    }
+    if (call(0x4200,(unsigned)in,0,0) < 0) {   /* AH=42h AL=0: seek to 0 */
+        call(0x3e00,(unsigned)in,0,0); error=5; return 0;
+    }
     int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
     if (n < 0) { call(0x3e00,(unsigned)in,0,0); error=5; return 0; }
     int out=call(0x5b00,0,0,(uintptr_t)dst);
