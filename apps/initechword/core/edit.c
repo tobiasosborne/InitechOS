@@ -319,7 +319,7 @@ int iw_reflow_all(iw_doc_t *d, uint32_t width)
 static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fmt_t *fin,
                       uint32_t width0, iw_line_t *ln, fmt_t *fout)
 {
-    uint32_t p = start, c = col0, m = col0, width, w, lead_at = NONE;
+    uint32_t p = start, c = col0, m = col0, width, w, lead_at = NONE, nx = start;
     fmt_t lf = *fin, run = *fin;
     int lead = 1, k = IW_U_TEXT, ended = 0, placed = 0, after_just = 0;
     width = LINE_WIDTH(&lf, width0);
@@ -327,7 +327,7 @@ static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fm
     ln->pad = 0;
     ln->col0 = (uint16_t)col0;
     while (p < d->len) {
-        k = iw_unit_kind(d, p);
+        k = iw_unit_step(d, p, &nx);
         if (is_term(k)) { ended = 1; break; }
         {
             int fk = k == IW_U_CODE ? fmt_apply(d, p, &run) : 0;
@@ -356,12 +356,12 @@ static void line_from(const iw_doc_t *d, uint32_t start, uint32_t col0, const fm
         if (advances(k)) lead = 0;
         c = advance(k, c);
         if (k == IW_U_INDENT) m = c;
-        p = iw_unit_next(d, p);
+        p = nx;
     }
     ln->text_end = p;
     ln->cols = (uint16_t)c;
     if (ended) {
-        ln->end = iw_unit_next(d, p);
+        ln->end = nx;                        /* iw_unit_next(d, p) */
         ln->term = (uint8_t)k;
         ln->margin = (uint16_t)(k == IW_U_SRT ? m : 0u);
     } else {
@@ -410,8 +410,9 @@ uint32_t iw_line_col(const iw_doc_t *d, const iw_line_t *ln, uint32_t pos)
 {
     uint32_t p = ln->start, c = ln->col0;
     while (p < pos && p < d->len) {
-        c = advance(iw_unit_kind(d, p), c);
-        p = iw_unit_next(d, p);
+        uint32_t nx;
+        c = advance(iw_unit_step(d, p, &nx), c);
+        p = nx;
     }
     return c;
 }
@@ -953,8 +954,8 @@ static int fix_structure(iw_ed_t *e)
     int indent = 0, rc;
     (void)pg;
     while (p < d->len) {
-        int k = iw_unit_kind(d, p);
-        uint32_t n = iw_unit_next(d, p);
+        uint32_t n;
+        int k = iw_unit_step(d, p, &n);
         if (k == IW_U_HIDDEN) {
             int keep = is_page_grp(d, p) ? (n < d->len && iw_doc_byte(d, n) == (int)IW_WP5_HPG)
                                          : (indent && n < d->len && iw_doc_byte(d, n) == (int)IW_WP5_HRT);
@@ -1016,17 +1017,21 @@ static void u16put(uint8_t *g, uint32_t v)
  * MINT23 @0x1AE), and each format code's OLD values -- the format in effect
  * before it (MINT24: [Just:Right] old Center -> Full once the [Just:Center]
  * before it was deleted). */
-static int fix_payloads(iw_ed_t *e)
+/* Done line by line inside fix_linepos's walk, once that line's D4/05s are
+ * settled. None of these bytes is read by the layout, fmt_take or the unit
+ * lengths (format codes' old values at VAR_HDR, tab/indent geometry after the
+ * code byte, page positions), so the later lines lay out exactly as on a
+ * second walk from the top. */
+static int line_payloads(iw_ed_t *e, const walk_t *wp)
 {
     iw_doc_t *d = &e->doc;
-    walk_t w;
+    const walk_t w = *wp;
     int rc = IW_OK;
-    walk_first(e, &w);
-    for (;;) {
-        uint32_t p = w.ln.start, c = w.ln.col0, m = w.ln.col0;
+    {
+        uint32_t p = w.ln.start, c = w.ln.col0, m = w.ln.col0, nx;
         fmt_t run = w.fin;
         while (p < w.ln.end && rc == IW_OK) {
-            int k = iw_unit_kind(d, p), b0 = iw_doc_byte(d, p);
+            int k = iw_unit_step(d, p, &nx), b0 = iw_doc_byte(d, p);
             uint8_t g[10];
             if (k == IW_U_TAB || k == IW_U_INDENT) {
                 uint32_t a = w.ln.lm + IW_WP5_WPU_PER_COL * next_stop(c), o = 0;
@@ -1066,11 +1071,10 @@ static int fix_payloads(iw_ed_t *e)
             }
             c = advance(k, c);
             if (k == IW_U_INDENT) m = c;
-            p = iw_unit_next(d, p);
+            p = nx;                       /* in-place writes keep its length */
         }
-        if (rc != IW_OK) return rc;
-        if (!walk_next(e, &w)) return IW_OK;
     }
+    return rc;
 }
 
 /* ---- D4/05: where a centered / right-justified stretch starts (slice 3) ------- *
@@ -1141,24 +1145,35 @@ static int fix_linepos(iw_ed_t *e)
     walk_first(e, &w);
     for (;;) {
         uint32_t tries = 0;
+        /* This loop sees every unit in [start, text_end) on its last, unchanged
+         * pass, and [text_end, end) is the line's terminator alone. A line
+         * with no D4/05 has no lead payload to write; one with no tab, indent,
+         * hidden code or D0 format group has no other payload (line_payloads
+         * writes nothing else): both passes are skipped
+         * exactly when they would change nothing. */
+        int leads, payloads;
         for (;;) {                 /* the line, again after every change */
-            uint32_t p = w.ln.start, run = w.fin.just;
+            uint32_t p = w.ln.start, run = w.fin.just, nx;
             /* each change fixes one record; a line needing more than this
              * means the layout and the rule disagree: fail loud */
             if (++tries > 64u) return IW_E_CODE;
             int need = cr_just(run), changed = 0;
+            leads = payloads = 0;
             rc = IW_OK;
             for (;;) {
-                int k = p < w.ln.text_end ? iw_unit_kind(d, p) : -1;
+                int k = p < w.ln.text_end ? iw_unit_step(d, p, &nx) : -1;
+                if (k == IW_U_LEAD) leads = 1;
+                else if (k == IW_U_TAB || k == IW_U_INDENT || k == IW_U_HIDDEN ||
+                         (k == IW_U_CODE && iw_doc_byte(d, p) == (int)IW_WP5_MARGIN_GRP)) payloads = 1;
                 if (need) {
-                    if (k == IW_U_LEAD) { need = 0; p = iw_unit_next(d, p); continue; }
+                    if (k == IW_U_LEAD) { need = 0; p = nx; continue; }
                     rc = lead_insert(e, p);
                     changed = 1;
                     break;
                 }
                 if (k < 0) break;
                 if (k == IW_U_LEAD) {
-                    rc = fix_delete(e, p, iw_unit_next(d, p) - p);
+                    rc = fix_delete(e, p, nx - p);
                     changed = 1;
                     break;
                 }
@@ -1170,13 +1185,14 @@ static int fix_linepos(iw_ed_t *e)
                         run = f.just;
                     }
                 }
-                p = iw_unit_next(d, p);
+                p = nx;
             }
             if (rc != IW_OK) return rc;
             if (!changed) break;
             line_from(d, w.ln.start, w.ln.col0, &w.fin, e->width, &w.ln, &w.fout);
         }
-        rc = lead_payloads(e, &w);
+        rc = leads ? lead_payloads(e, &w) : IW_OK;
+        if (rc == IW_OK && payloads) rc = line_payloads(e, &w);
         if (rc != IW_OK) return rc;
         if (!walk_next(e, &w)) return IW_OK;
     }
@@ -1204,8 +1220,7 @@ static uint32_t after_lead(const iw_doc_t *d, uint32_t at)
 int iw_ed_fixup(iw_ed_t *e)
 {
     int rc = fix_structure(e);
-    if (rc == IW_OK) rc = fix_linepos(e);
-    if (rc == IW_OK) rc = fix_payloads(e);
+    if (rc == IW_OK) rc = fix_linepos(e);     /* and each line's payloads */
     e->cur = after_lead(&e->doc, before_hidden(&e->doc, e->cur));
     e->blk = after_lead(&e->doc, before_hidden(&e->doc, e->blk));
     return rc;

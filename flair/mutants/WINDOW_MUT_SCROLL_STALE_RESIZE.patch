@@ -2,10 +2,10 @@
 # test: test_winscroll
 --- a/window.c
 +++ b/window.c
-@@ -815,21 +815,6 @@
-         region_set_empty(w->contRgn);
-     } else {
-         region_set_rect(w->contRgn, CalcDocContentRect(next));
+@@ -851,21 +851,6 @@
+                         (w->widgetFlags & FLAIR_WINDOW_PLAIN_BODY) != 0u
+                             ? CalcPlainDocContentRect(next)
+                             : CalcDocContentRect(next));
 -        /*: chrome paints BEFORE the client's updateEvt. Settle the
 -         * cached document extents now, not during Finder content painting.
 -         * Grow, zoom and unshade all take this transaction. The full new

@@ -131,6 +131,9 @@ uint32_t iw_unit_len(const uint8_t *b, uint32_t n, uint32_t pos);
 /* On a (well-formed) document: */
 int      iw_unit_kind(const iw_doc_t *d, uint32_t pos);
 uint32_t iw_unit_next(const iw_doc_t *d, uint32_t pos);   /* pos < len  */
+/* Both at once from one read of the unit's bytes: returns iw_unit_kind(d,
+ * pos) and stores iw_unit_next(d, pos) in *next. */
+int      iw_unit_step(const iw_doc_t *d, uint32_t pos, uint32_t *next);
 uint32_t iw_unit_prev(const iw_doc_t *d, uint32_t pos);   /* pos > 0    */
 int      iw_is_boundary(const iw_doc_t *d, uint32_t pos);
 

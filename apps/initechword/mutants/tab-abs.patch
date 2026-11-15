@@ -1,8 +1,8 @@
 # test: test_iword_codes
 --- a/core/edit.c
 +++ b/core/edit.c
-@@ -1029,7 +1029,10 @@
-             int k = iw_unit_kind(d, p), b0 = iw_doc_byte(d, p);
+@@ -1034,7 +1034,10 @@
+             int k = iw_unit_step(d, p, &nx), b0 = iw_doc_byte(d, p);
              uint8_t g[10];
              if (k == IW_U_TAB || k == IW_U_INDENT) {
 -                uint32_t a = w.ln.lm + IW_WP5_WPU_PER_COL * next_stop(c), o = 0;

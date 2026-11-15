@@ -298,9 +298,9 @@ uint32_t iw_unit_len(const uint8_t *b, uint32_t n, uint32_t pos)
     }
 }
 
-static uint32_t unit_len_doc(const iw_doc_t *d, uint32_t pos)
+/* The unit's length from its first byte c (iw_doc_byte(d, pos)). */
+static uint32_t len_of(const iw_doc_t *d, uint32_t pos, int c)
 {
-    int c = iw_doc_byte(d, pos);
     if (c < 0) return 0;
     if (c >= (int)IW_WP5_FIXED_LO && c <= (int)IW_WP5_FIXED_HI) return FIXED_LEN[c - IW_WP5_FIXED_LO];
     if (c >= (int)IW_WP5_VAR_LO) {
@@ -310,9 +310,9 @@ static uint32_t unit_len_doc(const iw_doc_t *d, uint32_t pos)
     return 1;
 }
 
-int iw_unit_kind(const iw_doc_t *d, uint32_t pos)
+/* The unit's kind from its first byte c. */
+static int kind_of(const iw_doc_t *d, uint32_t pos, int c)
 {
-    int c = iw_doc_byte(d, pos);
     if (c >= (int)IW_WP5_TEXT_LO && c <= (int)IW_WP5_TEXT_HI) return IW_U_TEXT;
     if (c == IW_WP5_HRT) return IW_U_HRT;
     if (c == IW_WP5_SRT) return IW_U_SRT;
@@ -332,13 +332,32 @@ int iw_unit_kind(const iw_doc_t *d, uint32_t pos)
     return IW_U_CODE;
 }
 
-uint32_t iw_unit_next(const iw_doc_t *d, uint32_t pos)
+static uint32_t next_of(const iw_doc_t *d, uint32_t pos, int c)
 {
     uint32_t n;
     if (pos >= d->len) return d->len;
-    n = unit_len_doc(d, pos);
+    n = len_of(d, pos, c);
     if (n == 0u || n > d->len - pos) return d->len;
     return pos + n;
+}
+
+int iw_unit_kind(const iw_doc_t *d, uint32_t pos)
+{
+    return kind_of(d, pos, iw_doc_byte(d, pos));
+}
+
+uint32_t iw_unit_next(const iw_doc_t *d, uint32_t pos)
+{
+    return next_of(d, pos, iw_doc_byte(d, pos));
+}
+
+/* Layout and bookkeeping walks ask both questions of every unit; the first
+ * byte is read once (the codes suite's profile, phase 3). */
+int iw_unit_step(const iw_doc_t *d, uint32_t pos, uint32_t *next)
+{
+    int c = iw_doc_byte(d, pos);
+    *next = next_of(d, pos, c);
+    return kind_of(d, pos, c);
 }
 
 uint32_t iw_unit_prev(const iw_doc_t *d, uint32_t pos)

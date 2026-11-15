@@ -144,6 +144,17 @@ does not restore the cached span. Route checks preserve the live screen, code
 boundaries and Save/Retrieve readability, with a `cache-restore` patch control.
 No timeout, budget or optimization flag changed.
 
+Phase 3 profiling found iw_ed_fixup (three full-document passes per key) at
+62% of the codes suite. Its payload pass now runs inside the line-position
+walk, line by line: the bytes it writes (format codes' old values, tab and
+indent geometry, page positions) are read by neither the layout nor
+fmt_take, and never change a unit's length. A line with no D4/05, or with no
+tab, indent, hidden code or D0 group, skips the pass that would write
+nothing. iw_unit_step answers a unit's kind and successor from one read.
+Pinned single-core instruction counts for the whole suite: 57.3 G before,
+45.9 G after (codes 28.8 G to 21.8 G, face_small 10.3 G to 7.3 G); every check
+and session is unchanged, and `fixup-skip-hidden` is its mutation control.
+
 ## Original Document Backup and recovery
 
 Yes rotates the exact preceding disk document to same-directory `NAME.BK!`,

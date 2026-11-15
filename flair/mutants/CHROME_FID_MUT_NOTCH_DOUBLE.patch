@@ -2,8 +2,8 @@
 # test: test_chrome_fidelity
 --- a/chrome.c
 +++ b/chrome.c
-@@ -832,6 +832,7 @@
-         sb_left = grow_x - FLAIR_CHROME_FRAME;
+@@ -835,6 +835,7 @@
+         if ((widget_flags & FLAIR_WINDOW_PLAIN_BODY) == 0u) {
          {
              int sb_top = shared_line;
 +            sb_top++;
