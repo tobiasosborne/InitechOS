@@ -18,7 +18,10 @@ printf 'one\r\n' > "$out/one"
 for leaf in A.TXT B.TXT SKIP.BIN; do mcopy -i "$img" "$out/one" "::DIR/SUB/$leaf"; done
 cp -f "$img" "$out/reference.img"
 if [ "$mode" = host ]; then
-    "${BATCH2_HOST:-build/batch2_host}" "$img" > "$out/host.log" 2>&1 || { cat "$out/host.log"; fail 'host assertions'; }
+    rc=0
+    "${BATCH2_HOST:-build/batch2_host}" "$img" > "$out/host.log" 2>&1 || rc=$?
+    if [ "$rc" -gt 1 ]; then cat "$out/host.log"; echo "ERROR batch2 host producer exit $rc" >&2; exit 2; fi
+    if [ "$rc" -eq 1 ]; then cat "$out/host.log"; fail 'host assertions'; fi
     printf 'root\r\n' > "$out/root"
     mcopy -i "$out/reference.img" "$out/root" ::ROOT.TXT
     for leaf in ROOT.TXT DIR/SUB/A.TXT DIR/SUB/B.TXT; do
@@ -32,6 +35,7 @@ if [ "$mode" = host ]; then
     cat "$out/host.log"
     fsck.fat -n "$img" > "$out/fsck" 2>&1 || fail 'fsck damage'
     printf 'PASS batch2-host: identical-image mcopy/mdir differential; fsck.fat clean\n'
+    echo 'INITECH_CHECKS 1 failures=0'
     exit 0
 fi
 keys='e,x,i,t,ret'

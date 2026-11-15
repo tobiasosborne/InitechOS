@@ -280,4 +280,10 @@ test-verdict-controls_COUNT_PATTERN := ^INITECH_CHECKS ([0-9]+) failures=[0-9]+$
 test-verdict-controls_ARGS := tests/run.sh test-verdict-controls
 test-verdict-controls_DEPS := $(OUT)/host/tool_dos_parity_host tests/gates/test-verdict-controls.sh tests/assertions.sh
 
+
+HOST_TESTS += test-summary-controls
+test-summary-controls_SRCS := tests/runner.c
+test-summary-controls_ARGS := tests/run.sh test-summary-controls
+test-summary-controls_DEPS := $(OUT)/host/tool_edlin_model $(OUT)/host/tool_dosutil_host $(OUT)/host/batch-capacity $(OUT)/host/fdisk-session $(OUT)/host/tool_test_dir_look $(OUT)/host/tool_test_cmdline_fuzz $(OUT)/host/tool_batch_fat tests/gates/test-summary-controls.sh
+
 include $(TOP)/mk/host-test.mk

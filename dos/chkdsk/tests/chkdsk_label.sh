@@ -41,3 +41,4 @@ for name in none label hidden both; do
         fail "CHKDSK-LABEL-FREE: $name"; }
     echo "GREEN CHKDSK label classification $name: $expected (DOS 3.30 mint)"
 done
+echo 'INITECH_CHECKS 1 failures=0'

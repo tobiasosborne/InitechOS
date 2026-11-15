@@ -8,6 +8,7 @@ boot=${2:-unused}
 tag=${3:-green}
 out=build/dir_match_${mode}_${tag}
 mkdir -p "$out"
+error() { echo "ERROR dir-match: $*" >&2; exit 2; }
 fail() { printf 'FAIL dir-match: %s\nINITECH_CHECKS 1 failures=1\n' "$*" >&2; exit 1; }
 dd if=/dev/zero of="$out/data.img" bs=512 count=2880 status=none
 mformat -i "$out/data.img" -f 1440 -N 102 ::
@@ -42,8 +43,10 @@ for row in 'TXT *.TXT' 'A A*.*' 'FOO FOO?.*'; do
         TXT) mdir -b -i "$out/reference.img" '::*.TXT' ;;
         A) mdir -b -i "$out/reference.img" '::A*' ;;
         FOO) mdir -b -i "$out/reference.img" '::FOO?.*' '::FOO.*' ;;
-    esac | sed 's@.*/@@' | sort -u > "$out/$name.expected"
-    "${DIR_MATCH_HOST:-build/dir_match}" "$pattern" < "$out/all" | sort > "$out/$name.host"
+    esac > "$out/$name.reference" || error "$name reference listing"
+    sed 's@.*/@@' "$out/$name.reference" | sort -u > "$out/$name.expected"
+    "${DIR_MATCH_HOST:-build/dir_match}" "$pattern" < "$out/all" > "$out/$name.unsorted" || error "$name matcher producer"
+    sort "$out/$name.unsorted" > "$out/$name.host"
     cmp "$out/$name.expected" "$out/$name.host" || fail "$pattern host != mdir"
 done
 # These short-name cases distinguish DOS padded '?' from POSIX '?' semantics.
@@ -72,3 +75,4 @@ fi
 cmp "$out/reference.img" "$out/data.img" || fail 'read-only DIR changed disk'
 fsck.fat -n "$out/data.img" > "$out/fsck.log" 2>&1 || fail 'dosfstools found damage'
 printf 'GREEN dir-match-%s: *.TXT / A*.* / FOO?.* == mdir + test-80k matcher; identical image, fsck.fat clean\n' "$mode"
+echo 'INITECH_CHECKS 1 failures=0'

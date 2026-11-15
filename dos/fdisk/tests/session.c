@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "fdisk.h"
+#include "test_assert.h"
+TEST_HARNESS();
 static unsigned reads,writes,at;static char text[8192];static unsigned used;
 static const char keys[]="4\r\033\033";
 static int read_disk(unsigned d,uint8_t b[512])
@@ -19,10 +21,13 @@ static char letter(unsigned d,unsigned p){(void)d;return p==1?'D':'E';}
 int main(void)
 {
     fdisk_io io={read_disk,write_disk,cap,get,put,0x80,0,letter,0};
-    if(fdisk_run(&io)!=1 || reads || writes){fputs("FAIL FDISK: loaded volume was accessed\n",stderr);puts("INITECH_CHECKS 2 failures=1");return 1;}
+    int rc=fdisk_run(&io);
+    CHECK(rc==1 && !reads && !writes,"loaded volume was untouched");
+    if(g_fails)return TEST_SUMMARY("fdisk-session");
     io.loaded_drive=0x81;at=used=0;
-    if(fdisk_run(&io) || writes || !strstr(text,"D:") || !strstr(text,"E:")) {
-        fputs("FAIL FDISK: partition letters must follow the supplied mapping\n",stderr);puts("INITECH_CHECKS 2 failures=1");return 1;
-    }
-    puts("GREEN FDISK session: loaded drive untouched, independent D/E partition mapping");return 0;
+    rc=fdisk_run(&io);
+    CHECK(!rc && !writes && strstr(text,"D:") && strstr(text,"E:"),
+          "partition letters follow the supplied independent mapping");
+    if(g_fails)return TEST_SUMMARY("fdisk-session");
+    puts("GREEN FDISK session: loaded drive untouched, independent D/E partition mapping");return TEST_SUMMARY("fdisk-session");
 }

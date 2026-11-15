@@ -1,0 +1,13 @@
+# test-mutate-format-error
+# test: test-summary-controls
+--- a/diskutil/tests/formatsys.sh
++++ b/diskutil/tests/formatsys.sh
+@@ -17,7 +17,7 @@
+  producer_rc=0
+  "$exe" "$w/master.img" "$w/a.img" "$1" "$2" "$3" "$4" > "$w/console" 2> "$w/exit" || producer_rc=$?
+  if [ "$producer_rc" -gt 1 ] || ! grep -E '^diskutil exit=-?[0-9]+ swaps=[0-9]+ writes=[0-9]+$' "$w/exit" >/dev/null; then
+-  cat "$w/console" "$w/exit" 2>/dev/null || :; echo 'ERROR formatsys: host producer did not complete' >&2; exit 2
++  cat "$w/console" "$w/exit" 2>/dev/null || :; red 'producer incomplete'
+  fi
+  if [ "$producer_rc" -ne 0 ]; then cat "$w/console" "$w/exit"; red "command $2"; fi
+ }

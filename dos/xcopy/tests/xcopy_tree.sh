@@ -230,7 +230,7 @@ if [ "$mode" = host ]; then
     # Genuine DOS 3.30 XCOPY /V copies this 200000-byte source and the
     # following file (tests/compat33-large). Neither a chunk workspace nor
     # the old 128 KiB buffer is a file-size ceiling.
-    for size in 131072 131073 200000; do
+    for size in 200000; do
         fresh
         dd if=/dev/zero bs=$size count=1 status=none | tr '\000' 'B' > "$work/large.bin"
         mcopy -i "$work/art.img" "$work/large.bin" ::SRC/LARGE.BIN

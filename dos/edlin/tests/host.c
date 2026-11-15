@@ -18,11 +18,14 @@ static int cl(int h) { return err(close(h)); }
 static int rmfile(const char *p) { struct stat s;p=path(p);if(!stat(p,&s)&&!(s.st_mode&0200))return -5;return err(unlink(p)); }
 static int rn(const char *a,const char *b) { char c[128];snprintf(c,sizeof c,"%s",path(a));return err(rename(c,path(b))); }
 static int at(const char *p) { struct stat s; return stat(path(p),&s) ? -2 : (s.st_mode&0200 ? 0:1); }
-static int gc(void) { int c=getchar(); if(c==EOF) { fputs("RED EDLIN-input exhausted\n",stderr); exit(1); } return c; }
+static int gc(void) { int c=getchar(); if(c==EOF) { fputs("FAIL EDLIN: fixture input exhausted before command completion\nINITECH_CHECKS 1 failures=1\nORACLE EDLIN exit=1\n",stderr); exit(1); } return c; }
 #ifdef EDLIN_ABSENT
 int edlin_run(const edlin_io *io,const char *p) { (void)io;(void)p; fputs("RED EDLIN implementation missing\n",stderr);return 1; }
 #endif
 int main(int argc,char **argv) {
     edlin_io io={gc,op,cr,rd,wr,cl,rmfile,rn,at};
-    return argc==2 ? edlin_run(&io,argv[1]) : 2;
+    if(argc!=2)return 2;
+    int rc=edlin_run(&io,argv[1]);
+    fprintf(stderr,"ORACLE EDLIN exit=%u\n",(unsigned)rc & 255u);
+    return rc;
 }

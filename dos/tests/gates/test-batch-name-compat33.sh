@@ -10,3 +10,4 @@ tail=$(tr -d '\r' < "$ref/AUTOEXEC.BAT" | sed -n 's/^command \/c BATCH.BAT\(.*\)
 build/batch_fat build/actual.img BATCH.BAT "$tail" > build/actual
 cmp build/expected build/actual || { echo 'FAIL batch invocation: captured %0 differs'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 echo 'GREEN batch invocation: captured %0 and positional parameters'
+echo 'INITECH_CHECKS 1 failures=0'

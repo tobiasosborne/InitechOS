@@ -54,3 +54,4 @@ for scenario in new overwrite newbinary overwritebinary newzero overwritezero as
  cmp "$d/got" "$source" || fail "$scenario source changed"
 done
 echo 'GREEN copy-full: thirteen DOS 3.30 cases, exact stdout, survivors, bytes and free clusters'
+echo 'INITECH_CHECKS 1 failures=0'

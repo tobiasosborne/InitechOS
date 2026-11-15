@@ -10,7 +10,16 @@ fail() { echo "FAIL: $*" >&2; echo "INITECH_CHECKS 1 failures=1"; exit 1; }
 sh dos/common/tests/dosutil_fixture.sh "$b.seed"
 cp -f "$b.seed" "$b.img"
 cp -f "$b.seed" "$b.ref"
-run() { "$runner" "$b.img" "$mode" "$1" "${2-}" > "$b.out"; }
+run() {
+ producer_rc=0
+ DOSUTIL_COMPLETION=1 "$runner" "$b.img" "$mode" "$1" "${2-}" > "$b.out" 2> "$b.producer" || producer_rc=$?
+ if [ "$producer_rc" -gt 1 ] || ! grep -Fx "DOSUTIL-HOST-DONE rc=$producer_rc" "$b.producer" >/dev/null; then
+  cat "$b.producer" 2>/dev/null || :
+  echo 'ERROR DOS utility host producer did not complete' >&2; exit 2
+ fi
+ return "$producer_rc"
+}
+run_good() { run "$@" || fail "$mode $1 successful operation"; }
 attrs() {
     for p in ONE.TXT TWO.TXT OTHER.BIN SUB/ONE.TXT SUB/DEEP/ONE.TXT OTHER/ONE.TXT; do
         mattrib -i "$1" "::$p"
@@ -29,25 +38,25 @@ checklabel() {
     mdir -i "$b.img" :: > "$b.mdir"
 }
 if [ "$mode" = attrib ]; then
-    run '+R ONE.TXT'; mattrib -i "$b.ref" +r ::ONE.TXT
+    run_good '+R ONE.TXT'; mattrib -i "$b.ref" +r ::ONE.TXT
     checkattrs 'A1 set R'
-    run '-R ONE.TXT'; mattrib -i "$b.ref" -r ::ONE.TXT
+    run_good '-R ONE.TXT'; mattrib -i "$b.ref" -r ::ONE.TXT
     checkattrs 'A1 clear R'
-    run '-A ONE.TXT'; mattrib -i "$b.ref" -a ::ONE.TXT
+    run_good '-A ONE.TXT'; mattrib -i "$b.ref" -a ::ONE.TXT
     checkattrs 'A2 clear A'
-    run '+A ONE.TXT'; mattrib -i "$b.ref" +a ::ONE.TXT
+    run_good '+A ONE.TXT'; mattrib -i "$b.ref" +a ::ONE.TXT
     checkattrs 'A2 set A'
-    run '+R TWO.TXT'; mattrib -i "$b.ref" +r ::TWO.TXT
+    run_good '+R TWO.TXT'; mattrib -i "$b.ref" +r ::TWO.TXT
     checkattrs 'A3 preserve H/S and all nonattribute bytes'
-    run '+R A:\*.TXT'; mattrib -i "$b.ref" +r '::/*.TXT'
+    run_good '+R A:\*.TXT'; mattrib -i "$b.ref" +r '::/*.TXT'
     checkattrs 'A4 wildcard excludes BIN/subdirectories'
-    run '+R -A A:\ONE.TXT /S'
+    run_good '+R -A A:\ONE.TXT /S'
     for p in ONE.TXT SUB/ONE.TXT SUB/DEEP/ONE.TXT OTHER/ONE.TXT; do mattrib -i "$b.ref" +r -a "::$p"; done
     checkattrs 'A5 /S traverses every branch and depth'
-    run 'A:\SUB\ONE.TXT'
+    run_good 'A:\SUB\ONE.TXT'
     printf 'R        A:\\SUB\\ONE.TXT\r\n' > "$b.expected"
     cmp -s "$b.out" "$b.expected" || fail 'A6 display R/A columns and full path'
-    DOSUTIL_CWD=SUB "$runner" "$b.img" attrib 'DEEP\..\ONE.TXT' > "$b.out"
+    DOSUTIL_CWD=SUB run_good 'DEEP\..\ONE.TXT'
     cmp -s "$b.out" "$b.expected" || fail 'A6 relative CWD and dot normalization'
     cp -f "$b.img" "$b.before"
     for arg in '+H ONE.TXT' '+S ONE.TXT' 'SUB' 'ONE.TXT TWO.TXT' '/X ONE.TXT'; do
@@ -56,27 +65,27 @@ if [ "$mode" = attrib ]; then
     cmp -s "$b.img" "$b.before" || fail 'A7 rejected input wrote disk'
     # CHMOD must change no other byte, including timestamps, FATs and payloads.
     cp -f "$b.seed" "$b.img"
-    run '+R ONE.TXT'
-    "$runner" "$b.img" attrib '-R ONE.TXT' > "$b.out"
+    run_good '+R ONE.TXT'
+    run_good '-R ONE.TXT'
     cmp -s "$b.img" "$b.seed" || fail 'A3 CHMOD touched other disk bytes'
 else
-    run 'a:two words'; mlabel -i "$b.ref" ::'TWO WORDS'
+    run_good 'a:two words'; mlabel -i "$b.ref" ::'TWO WORDS'
     checklabel 'L1 create/replace uppercase label with spaces'
-    run 'A:123456789012345'; mlabel -i "$b.ref" ::12345678901
+    run_good 'A:123456789012345'; mlabel -i "$b.ref" ::12345678901
     checklabel 'L4 first eleven characters'
-    run 'A:' '
+    run_good 'A:' '
 N
 '
     checklabel 'L3 non-Y preserves current label'
     grep -Fq 'Volume in drive A is 12345678901' "$b.out" || fail 'L5 current label dialogue'
     grep -Fq 'Volume label (11 characters, ENTER for none)?' "$b.out" || fail 'L5 input prompt'
     grep -Fq 'Delete current volume label (Y/N)?' "$b.out" || fail 'L5 delete prompt'
-    run 'A:' '
+    run_good 'A:' '
 y
 '
     mlabel -c -i "$b.ref" ::
     checklabel 'L3 Y deletes label'
-    run 'A:' 'new label
+    run_good 'A:' 'new label
 '
     mlabel -i "$b.ref" ::'NEW LABEL'
     checklabel 'L1 interactive creation'
@@ -99,3 +108,4 @@ y
     cmp -s "$b.img" "$b.before" || fail 'L7 full-root failure wrote disk'
 fi
 echo "PASS: $mode host differential (mattrib/mlabel/mdir/fsck.fat; identical source images)"
+echo 'INITECH_CHECKS 1 failures=0'

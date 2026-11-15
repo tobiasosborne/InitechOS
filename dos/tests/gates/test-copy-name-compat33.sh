@@ -17,3 +17,4 @@ cmp build/expected-output build/actual-output
 mtype -i build/actual.img ::A.TXT > build/actual-source
 cmp build/source build/actual-source
 echo 'GREEN COPY name: captured LONGFILE.LON bytes, source and success count'
+echo 'INITECH_CHECKS 1 failures=0'

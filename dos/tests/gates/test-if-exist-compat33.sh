@@ -8,3 +8,4 @@ cmp build/expected build/actual || {
  echo 'FAIL IF EXIST: captured wildcard-file or directory decision differs'; echo 'INITECH_CHECKS 1 failures=1'; exit 1;
 }
 echo 'GREEN IF EXIST: wildcard matches file; bare directory does not execute body'
+echo 'INITECH_CHECKS 1 failures=0'

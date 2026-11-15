@@ -136,3 +136,4 @@ if [ "$kind" = host ]; then
  echo "GREEN CHKDSK memory summary failure: nonzero exit, no partial totals"
 fi
 echo "VERDICT: PASS CHKDSK $kind"
+echo 'INITECH_CHECKS 1 failures=0'

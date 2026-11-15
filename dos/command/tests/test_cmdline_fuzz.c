@@ -59,6 +59,8 @@
 
 #include "command.h"
 #include "psp.h"
+#include "test_assert.h"
+TEST_HARNESS();
 
 /* ---- Deterministic PRNG: splitmix64 seed -> xorshift128+ stream (the repository contract). -- */
 typedef struct { uint64_t s0, s1; } prng_t;
@@ -311,7 +313,8 @@ int main(int argc, char **argv)
     uint64_t count = 0;
     for (uint64_t s = seed_lo; s <= seed_hi; s++) {
         int rc = run_seed(s, target_len);
-        if (rc != 0) return rc;
+        CHECK(rc == 0,"tokenizer and PSP invariants for this seed");
+        if (rc != 0) return TEST_SUMMARY("cmdline-fuzz");
         count++;
         if (s == seed_hi) break;
     }
@@ -319,5 +322,5 @@ int main(int argc, char **argv)
     printf("test_cmdline_fuzz: %llu seeds, target_len=%u, ALL invariants held "
            "(cmd_parse no-overflow + psp_build clamp/no-overflow)\n",
            (unsigned long long)count, target_len);
-    return 0;
+    return TEST_SUMMARY("cmdline-fuzz");
 }

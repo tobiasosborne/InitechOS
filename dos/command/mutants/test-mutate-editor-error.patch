@@ -1,0 +1,13 @@
+# test-mutate-editor-error
+# test: test-summary-controls
+--- a/edlin/tests/edlin.sh
++++ b/edlin/tests/edlin.sh
+@@ -14,7 +14,7 @@
+ completed() {
+  producer_rc=$1 producer_log=$2
+  if ! grep -Fx "ORACLE EDLIN exit=$producer_rc" "$producer_log" >/dev/null; then
+-  cat "$producer_log" 2>/dev/null || :; echo 'ERROR EDLIN: host producer did not complete' >&2; exit 2
++  cat "$producer_log" 2>/dev/null || :; fail 'producer execution'
+  fi
+  [ "$producer_rc" = 0 ] || cat "$producer_log"
+ }

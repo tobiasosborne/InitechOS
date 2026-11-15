@@ -6,3 +6,4 @@ awk 'p && / File\(s\)/ {exit} /^SUB /{p=1} p {print}' "$ref/TRACE.TXT" > build/e
 build/dir_wide < build/names > build/actual
 cmp build/expected build/actual || { echo 'FAIL DIR/W: genuine captured fields, tabs or row endings differ'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 echo 'GREEN DIR/W: real DOS rows against independent mtools names'
+echo 'INITECH_CHECKS 1 failures=0'

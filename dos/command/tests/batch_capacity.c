@@ -9,6 +9,8 @@
 #include "command.c"
 #include "batch.c"
 #include "env.c"
+#include "test_assert.h"
+TEST_HARNESS();
 static int old_intact, after;
 static const char *grown;
 static int run_pipeline_or_redirect(const char *s)
@@ -20,7 +22,8 @@ static int run_pipeline_or_redirect(const char *s)
     dos_puts_raw(s); dos_puts_raw("\r\n"); return 0;
 }
 static void check(int ok,const char *s)
-{ if(!ok){fprintf(stderr,"FAIL batch-capacity: %s\nINITECH_CHECKS 1 failures=1\n",s);exit(1);} }
+{ CHECK(ok,s); if(!ok) exit(TEST_SUMMARY("batch-capacity")); }
+
 static void run(const char *src,const char *child)
 {
     memset(output,0,sizeof output); output_n=0; old_intact=1; after=0;
@@ -56,5 +59,5 @@ int main(void)
     run("@ECHO OFF\r\nCALL CHILD\r\nDEL OLD\r\nECHO END\r\n","@ECHO OFF\r\nGROW\r\n");
     check(old_intact && !after && strstr(output,"Insufficient memory"),"CALL reload uses same visible all-or-nothing refusal");
     puts("GREEN batch-capacity: 4095/4096 complete, 4097/5000 and CALL reload refuse before mutation");
-    return 0;
+    return TEST_SUMMARY("batch-capacity");
 }

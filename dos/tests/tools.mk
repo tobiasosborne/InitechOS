@@ -1,5 +1,5 @@
 # Tier 0 import wiring; target rules remain in Makefile.
-HOST_INCLUDES := -I. -Iinclude -Itests -Itests/disk -I$(TOP)/kernel/tests/disk -I$(TOP)/kernel/include -I$(TOP)/factory/testlib -I$(TOP)/build/kernel
+HOST_INCLUDES := -I. -Iinclude -Itests -Itests/disk -I$(TOP)/kernel/tests/disk -I$(TOP)/kernel/include -I$(TOP)/factory/include -I$(TOP)/factory/testlib -I$(TOP)/build/kernel
 HOST_INCLUDES += -Icommand -Icommand/tests -Icommon -Ichkdsk -Idiskutil -Ifdisk -Iedlin -Ixcopy
 TEST_HDRS := $(shell find . -name '*.h') $(wildcard $(TOP)/kernel/include/*.h) $(wildcard $(TOP)/factory/testlib/*.h)
 PYTHON_FAT_REFERENCE ?= python3

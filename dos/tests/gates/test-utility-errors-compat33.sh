@@ -26,3 +26,4 @@ if ! cmp build/expected build/actual-console;then echo 'FAIL ATTRIB captured CON
 cmp build/actual.img build/before.img
 [ "$status" -eq 0 ] || { echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 echo 'GREEN utility refusals: genuine raw bytes, report continuation, CON framing and unchanged volume'
+echo 'INITECH_CHECKS 1 failures=0'

@@ -24,7 +24,8 @@ DISKCOPY, DISKCOMP, XCOPY, TREE, ATTRIB, LABEL and TPSREP. The shared pure helpe
 code is in common/; FORMAT/SYS/DISKCOPY/DISKCOMP share diskutil/;
 XCOPY/TREE share xcopy/. Default cdecl and uniform shared -Os flags apply.
 Dependencies: kernel/include (public DOS/machine contracts and generated
-message catalogue).
+message catalogue); factory/include and factory/testlib (host assertions and
+grading support only).
 The utility entry and register bridges use cdecl; their transfer/return runs
 in the product smoke. FIND consumes redirected stdin; filename operands,
 unknown switches and empty or unterminated search strings are refused with
@@ -89,7 +90,7 @@ captured destructive disk-full behavior above is unchanged. No genuine
 XCOPY read-fault or interrupted-replacement behavior is claimed.
 The genuine DOS 3.30 XCOPY /V capture in xcopy/tests/compat33-large copies a
 200000-byte file and the following file successfully. Host tests compare
-both files through mtools, test the former 128 KiB boundary, and inject
+both files through mtools, exceed the former 128 KiB capacity, and inject
 read and rename failures outside product source. File size is limited by
 the DOS filesystem and available destination space, not a source buffer.
 Batch physical lines retain 127 characters and discard the remainder, exactly
@@ -282,3 +283,12 @@ removable flag are unchanged. The host A: FORMAT/copy/compare journeys use
 the shipped core and independent mtools/dosfstools readback with C: selected
 as the running volume. Until delivery activates native system C:, FORMAT A:
 correctly refuses the running A: volume; that guard is retained.
+
+Healthy host graders print a positive completed-check summary. C invariant
+programs use the factory assertion API; shell differentials report their
+completed aggregate property after all independent comparisons pass. Named
+failure summaries identify the actual false check. `test-summary-controls`
+runs real C and captured-input shell producers through the independent
+factory summary parser, and checks missing-reference and producer setup errors.
+A reference or setup failure keeps exit 2 and supplies no semantic-failure
+receipt. The summary-suppression mutant must fail that control twice.

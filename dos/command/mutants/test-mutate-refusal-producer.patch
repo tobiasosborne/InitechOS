@@ -1,0 +1,15 @@
+# test-mutate-refusal-producer
+# test: test-summary-controls
+--- a/common/tests/dosutil_diff.sh
++++ b/common/tests/dosutil_diff.sh
+@@ -13,10 +13,6 @@
+ run() {
+  producer_rc=0
+  DOSUTIL_COMPLETION=1 "$runner" "$b.img" "$mode" "$1" "${2-}" > "$b.out" 2> "$b.producer" || producer_rc=$?
+- if [ "$producer_rc" -gt 1 ] || ! grep -Fx "DOSUTIL-HOST-DONE rc=$producer_rc" "$b.producer" >/dev/null; then
+-  cat "$b.producer" 2>/dev/null || :
+-  echo 'ERROR DOS utility host producer did not complete' >&2; exit 2
+- fi
+  return "$producer_rc"
+ }
+ run_good() { run "$@" || fail "$mode $1 successful operation"; }

@@ -17,3 +17,4 @@ build/batch_fat build/actual.img build/commands > build/actual
 [ ! -s build/actual ] || { echo 'FAIL FOR no-match: body ran with no wildcard match' >&2; status=1; }
 [ "$status" = 0 ] || { echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 echo 'GREEN FOR: captured separators, no-match and wildcard continuation'
+echo 'INITECH_CHECKS 1 failures=0'

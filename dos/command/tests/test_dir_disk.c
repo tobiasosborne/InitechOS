@@ -8,6 +8,8 @@
 #include "blockdev_file.h"
 #include "fileio_fat.h"
 #include "int21.h"
+#include "test_assert.h"
+TEST_HARNESS();
 static const int21_file_backend_t *backend;
 void int21_set_file_backend(const int21_file_backend_t *b) { backend = b; }
 void int21_set_media(uint8_t media) { (void)media; }   /* AH=1Bh/1Ch seam (509.9) */
@@ -62,16 +64,18 @@ int main(int argc, char **argv)
         fileio_fat_bind(&vol) || backend->freespace(&spc,&bps,&total,&freec)) return 2;
     if (label_only) {
         char label[12];
-        if (fileio_fat_volume_label(label) || strcmp(label,argv[3])) {
+        CHECK(!fileio_fat_volume_label(label) && !strcmp(label,argv[3]),"volume label vs independent root/BPB fixture");
+        if (g_fails) {
             fprintf(stderr,"DIR LABEL RED: wanted [%s] got [%s]\n",argv[3],label);
-            return 1;
+            return TEST_SUMMARY("dir-disk");
         }
         blockdev_file_arm_read_fault(&bf,1);
-        if (fileio_fat_volume_label(label)>=0) {
-            fprintf(stderr,"DIR LABEL RED: read error silently fell back\n"); return 1;
+        CHECK(fileio_fat_volume_label(label)<0,"volume-label read failure must be reported");
+        if (g_fails) {
+            fprintf(stderr,"DIR LABEL RED: read error silently fell back\n"); return TEST_SUMMARY("dir-disk");
         }
         printf("DIR LABEL PASS: [%s], root/BPB selection, read faults loud\n",argv[3]);
-        blockdev_file_close(&bf); return 0;
+        blockdev_file_close(&bf); return TEST_SUMMARY("dir-disk");
     }
     if (!(f = fopen(argv[2], "r")) || !(cells = fopen(argv[3], "w"))) return 2;
     /* Shell starts with CLS, then echoes A:\>dir on row 0. Manual headers
@@ -113,11 +117,13 @@ int main(int argc, char **argv)
     }
     fprintf(cells,"%d 0 %9d File(s) %9lu bytes free\n", row+1,count,ref_free);
     fclose(f); fclose(cells); blockdev_file_close(&bf);
-    if (!have_volume || !have_free || (unsigned long)spc*bps*freec != ref_free) {
+    if (!have_volume || !have_free) return 2;
+    CHECK((unsigned long)spc*bps*freec == ref_free,"free clusters equal independent mdir bytes");
+    if (g_fails) {
         fprintf(stderr,"DIR SPACE RED: FAT=%lu mdir=%lu\n",(unsigned long)spc*bps*freec,ref_free);
-        return 1;
+        return TEST_SUMMARY("dir-disk");
     }
     printf("DIR SPACE PASS: FAT=%lu == mdir=%lu bytes free (%u clusters x %u bytes)\n",
            ref_free,ref_free,freec,spc*bps);
-    return 0;
+    return TEST_SUMMARY("dir-disk");
 }

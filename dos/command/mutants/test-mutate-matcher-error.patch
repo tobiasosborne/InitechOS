@@ -1,0 +1,14 @@
+# test-mutate-matcher-error
+# test: test-summary-controls
+--- a/command/tests/dir_match.sh
++++ b/command/tests/dir_match.sh
+@@ -45,8 +45,7 @@
+         FOO) mdir -b -i "$out/reference.img" '::FOO?.*' '::FOO.*' ;;
+     esac > "$out/$name.reference" || error "$name reference listing"
+     sed 's@.*/@@' "$out/$name.reference" | sort -u > "$out/$name.expected"
+-    "${DIR_MATCH_HOST:-build/dir_match}" "$pattern" < "$out/all" > "$out/$name.unsorted" || error "$name matcher producer"
+-    sort "$out/$name.unsorted" > "$out/$name.host"
++    "${DIR_MATCH_HOST:-build/dir_match}" "$pattern" < "$out/all" | sort > "$out/$name.host"
+     cmp "$out/$name.expected" "$out/$name.host" || fail "$pattern host != mdir"
+ done
+ # These short-name cases distinguish DOS padded '?' from POSIX '?' semantics.

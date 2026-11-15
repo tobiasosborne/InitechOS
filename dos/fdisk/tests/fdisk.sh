@@ -52,3 +52,4 @@ cmp "$w/before.img" "$w/ours.img" || red 'delete without confirmation'
 sfdisk --delete "$w/ref.img" 1 > "$w/delete.log" 2>&1
 cmp "$w/ref.img" "$w/ours.img" || red 'confirmed delete table vs sfdisk'
 echo '>>> test-fdisk: green (create/type/CHS/signature, native cluster sizes, active entry, default-No and confirmed deletion differential)'
+echo 'INITECH_CHECKS 1 failures=0'

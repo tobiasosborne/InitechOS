@@ -8,6 +8,8 @@
 #include "command.c"
 #include "batch.c"
 #include "env.c"
+#include "test_assert.h"
+TEST_HARNESS();
 static int run_pipeline_or_redirect(const char *s)
 {
     if(dispatch_control(s))return 0;
@@ -20,12 +22,13 @@ static int run_pipeline_or_redirect(const char *s)
 static unsigned count(const char *s)
 {unsigned n=0;const char *p=output;while((p=strstr(p,s))){n++;p+=strlen(s);}return n;}
 static void check(int v,const char *s)
-{if(!v){fprintf(stderr,"FAIL batch-break: %s\nINITECH_CHECKS 1 failures=1\n",s);exit(1);}}
+{ CHECK(v,s); if(!v) exit(TEST_SUMMARY("batch-break")); }
+
 static void reference(const char *leaf,int continued)
 {
     char path[128],text[4096];
     snprintf(path,sizeof path,"dos/command/tests/batch_break_mint/%s",leaf);
-    FILE *f=fopen(path,"rb");check(f!=0,"independent DOS 3.30 mint missing");
+    FILE *f=fopen(path,"rb");if(!f){fprintf(stderr,"ERROR batch-break reference: %s\n",path);exit(2);}
     size_t n=fread(text,1,sizeof text-1,f);fclose(f);text[n]=0;
     check(strstr(text,"Terminate batch job (Y/N)?")!=0,"mint question bytes");
     if(!strncmp(leaf,"exec-",5)) {
@@ -95,5 +98,5 @@ int main(void)
     g_shell_break.interrupted=0;run_external("BRKCHILD","");
     check(!g_batch_depth && !count("Terminate batch job") && input_pos==1,
           "interactive EXEC child never asks a batch-only question");
-    puts("GREEN batch-break: PAUSE Y/N, invalid key, LOOP, nested CALL, EXEC child Y/N after cleanup");return 0;
+    puts("GREEN batch-break: PAUSE Y/N, invalid key, LOOP, nested CALL, EXEC child Y/N after cleanup");return TEST_SUMMARY("batch-break");
 }

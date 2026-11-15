@@ -12,3 +12,4 @@ sed -n '/^TOKEN=/p; /^FILE=/p; /^AFTER-COMMAND/p' "$ref/files/TRACE.TXT" > build
 build/batch_fat build/actual.img BATCH.BAT '' > build/actual
 cmp build/expected build/actual || { echo 'FAIL secondary COMMAND: parent batch did not resume'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 echo 'GREEN secondary COMMAND: captured child and resumed-parent bytes'
+echo 'INITECH_CHECKS 1 failures=0'

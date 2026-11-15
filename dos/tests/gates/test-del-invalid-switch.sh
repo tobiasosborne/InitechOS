@@ -17,3 +17,4 @@ cmp build/actual-file build/expected-file
 cmp build/actual.img build/before.img
 [ -s build/diagnostic ] || { echo 'FAIL DEL invalid switch: refusal was silent'; echo 'INITECH_CHECKS 1 failures=1'; exit 1; }
 echo 'GREEN DEL invalid switch: genuine captured operand bytes and whole-volume preservation'
+echo 'INITECH_CHECKS 1 failures=0'

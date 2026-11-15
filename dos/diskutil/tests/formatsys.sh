@@ -5,7 +5,7 @@ set -eu
 export LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=315532800
 b=$1; boot=$2; exe=$3; only=${4:-all}; w=$b/formatsys
 mkdir -p "$w"
-red(){ echo "FAIL formatsys $*"; echo "INITECH_CHECKS 1 failures=1"; exit 1; }
+red(){ red_rc=$?; if [ "$red_rc" -gt 1 ]; then echo "ERROR formatsys $*: tool exit $red_rc" >&2; exit 2; fi; echo "FAIL formatsys $*"; echo "INITECH_CHECKS 1 failures=1"; exit 1; }
 prep(){
  cp -f "$boot" "$w/master.img"; truncate -s $((8064*512)) "$w/master.img"
  mcopy -o -i "$w/master.img@@32256" "$b/transient_flairtenants.bin" ::COMMAND.COM
@@ -13,7 +13,14 @@ prep(){
  truncate -s $((2880*512)) "$w/a.img"
  mformat -i "$w/a.img" -f 1440 -N 0x494e4954 ::
 }
-run(){ "$exe" "$w/master.img" "$w/a.img" "$1" "$2" "$3" "$4" > "$w/console" 2> "$w/exit" || { cat "$w/console" "$w/exit"; red "command $2"; }; }
+run(){
+ producer_rc=0
+ "$exe" "$w/master.img" "$w/a.img" "$1" "$2" "$3" "$4" > "$w/console" 2> "$w/exit" || producer_rc=$?
+ if [ "$producer_rc" -gt 1 ] || ! grep -E '^diskutil exit=-?[0-9]+ swaps=[0-9]+ writes=[0-9]+$' "$w/exit" >/dev/null; then
+  cat "$w/console" "$w/exit" 2>/dev/null || :; echo 'ERROR formatsys: host producer did not complete' >&2; exit 2
+ fi
+ if [ "$producer_rc" -ne 0 ]; then cat "$w/console" "$w/exit"; red "command $2"; fi
+}
 extract(){ dd if="$w/master.img" of="$w/ours.img" bs=512 skip=4032 count=2880 status=none; }
 clean(){ fsck.fat -n "$w/ours.img" > "$w/fsck" 2>&1 || { cat "$w/fsck"; red filesystem; }; }
 prep

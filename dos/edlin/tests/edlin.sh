@@ -11,6 +11,13 @@ boot=${5:-}
 root=$build/edlin-$mode-$(basename "$program")
 mkdir -p "$root"
 fail() { echo "FAIL EDLIN-$1 case=$case"; echo "INITECH_CHECKS 1 failures=1"; exit 1; }
+completed() {
+ producer_rc=$1 producer_log=$2
+ if ! grep -Fx "ORACLE EDLIN exit=$producer_rc" "$producer_log" >/dev/null; then
+  cat "$producer_log" 2>/dev/null || :; echo 'ERROR EDLIN: host producer did not complete' >&2; exit 2
+ fi
+ [ "$producer_rc" = 0 ] || cat "$producer_log"
+}
 cases='new edit replace repeat commands search confirm transfer keys binary eof staged insert relative robackup path move bakname'
 case ${EDLIN_ONLY:-} in
  NUMBER) cases=replace;; BACKUP) cases=repeat;; FIRST) cases=repeat;; QUIT) cases=search;;
@@ -36,7 +43,8 @@ for case in $cases; do
  if [ "$case" = robackup ]; then chmod 400 "$out/actual/IN.BAK"; fi
  if [ "$mode" = host ]; then
   rc=0
-  (cd "$out/actual"; "$program" "$tail" < ../model/keys.bin > ../got.txt) || rc=$?
+  (cd "$out/actual"; "$program" "$tail" < ../model/keys.bin > ../got.txt 2> ../producer.log) || rc=$?
+  completed "$rc" "$out/producer.log"
   if [ "$case" = bakname ]; then [ "$rc" = 1 ] || fail rejection
   else [ "$rc" = 0 ] || fail execution; fi
  else
@@ -136,10 +144,12 @@ if [ "$mode" = host ]; then
  case=nulsave
  rc=0
  printf '1d\re\rq\ry\r' > "$out/keys.bin"
- (cd "$out"; "$program" 'BIG.TXT' < keys.bin > got.txt) || rc=$?
+ (cd "$out"; "$program" 'BIG.TXT' < keys.bin > got.txt 2> producer.log) || rc=$?
+ completed "$rc" "$out/producer.log"
  grep -q 'Entry error' "$out/got.txt" || fail 'nul-save diagnostic'
  cmp -s "$out/BIG.BEFORE" "$out/BIG.TXT" || fail 'nul-save truncated the original'
  cmp -s "$out/BAK.BEFORE" "$out/BIG.BAK" || fail 'nul-save replaced the backup'
  echo "GREEN test-edlin-$mode nulsave (failed save stream commits nothing)"
 fi
 echo "GREEN test-edlin-$mode (all command scripts; independent manual model)"
+echo 'INITECH_CHECKS 1 failures=0'

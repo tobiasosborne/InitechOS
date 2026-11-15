@@ -39,6 +39,7 @@ if [ "$mode" = stamp-host ]; then
     stamp SUB/CHILD.TXT CHILD EARLY
     fsck.fat -n "$img" > "$out/fsck.txt" 2>&1 || fail 'fsck.fat damage'
     printf 'PASS stamp-host: create/write/truncate/mkdir/read-close == mtools; fsck.fat clean\n'
+    echo 'INITECH_CHECKS 1 failures=0'
     exit 0
 fi
 keys='e,x,i,t,ret'
