@@ -97,6 +97,12 @@ the documented form. Authored corpus/protocol goldens are unchanged. Emulator
 work never runs in tier 0. See ROADMAP.md for remaining
 GOLDEN-MASTER.md item-7 work, including the IDE.
 
+Seed and compiler entries run under `tests/entries.sh` (one check per
+entry, the mk/host-test.mk result files and `INITECH_TEST_RUN`), so the
+shared mutation runner grades them: `make mutants` kills 20/20 seed and
+17/17 compiler patches. Only exit status 1 counts as a failed check; a
+timeout or signal stays an error (initech-fytwe).
+
 ## Runtime for the IDE (stage B, initech-n6r9v)
 
 Both compilers accept TP 5.5's recoverable I/O: a comment holding exactly

@@ -26,7 +26,7 @@ tools:
 test-build: tools all $(OUT)/test_lexer $(OUT)/test_parser
 test: test-run
 test-run: test-build
-	@sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) "$(OUT)" tests/run.sh $(TESTS)
+	@sh $(TOP)/turbo/tests/entries.sh $(COMPONENT) "$(OUT)" tests/run.sh $(TESTS)
 export TOP FPC NASM TARGET_LD
 include $(TOP)/mk/mutants.mk
 smoke:

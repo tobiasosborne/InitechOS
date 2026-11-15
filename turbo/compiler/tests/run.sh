@@ -105,6 +105,7 @@ gen*|self-generation)
         test -s "$scratch/$pass/TURBOOUT.S"
         links "$scratch/$pass"
         sh tests/package.sh "$scratch/$pass/TURBOOUT.S" "$scratch/$pass/extended" "$scratch/$pass/program.o"
+        test -s "$scratch/$pass/TURBOOUT.EXE" || { echo "FAIL $entry: no native container emitted"; exit 1; }
         cmp "$scratch/$pass/extended/program.exe" "$scratch/$pass/TURBOOUT.EXE"
         "$TOP/build/factory/mz/mzcheck" "$scratch/$pass/TURBOOUT.EXE"
         if [ "$entry" != self-generation ]; then

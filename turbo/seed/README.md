@@ -18,8 +18,8 @@ Behavioural sources remain the source headers, fixture derivations and the
 legacy-final recipes recorded in tests/IMPORT.md. No optimiser/ABI tuning from
 the old monolithic build is needed. The factory uses shared HOST_CFLAGS;
 runtime assembly/link semantics are preserved. This import changes no behaviour.
-`make mutants` holds 20 patches (the three added for `$I`, IOResult and
-Rename go red; see turbo/README.md on grading): lexer/parser host checks, reproducibility,
+`make mutants` kills all 20 patches through the shared runner: entries run
+under `../tests/entries.sh`, which writes the host-test result protocol: lexer/parser host checks, reproducibility,
 and guest execution with independent Free Pascal stdout/file comparisons. Guest
 entries are selected only by tier 2; the default six tier-0 entries never boot
 an emulator. Build `make image` first for the guest mutation catchers. The two

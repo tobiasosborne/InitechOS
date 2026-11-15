@@ -41,7 +41,7 @@ test: test-run
 test-run: test-build
 	@shared=$$(mktemp -d "$(OUT)/self-runs.XXXXXX"); \
 	  trap 'rm -rf "$$shared"' 0; \
-	  TURBO_SELF_RUNS=$$shared sh $(TOP)/factory/testlib/run-entries.sh $(COMPONENT) "$(OUT)" tests/run.sh $(TESTS)
+	  TURBO_SELF_RUNS=$$shared sh $(TOP)/turbo/tests/entries.sh $(COMPONENT) "$(OUT)" tests/run.sh $(TESTS)
 export TOP FPC NASM TARGET_LD OBJCOPY SEED_OUT RT_SRC
 include $(TOP)/mk/mutants.mk
 smoke:
