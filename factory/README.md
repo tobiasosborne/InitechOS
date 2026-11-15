@@ -197,11 +197,16 @@ REPORTS bisect-cert-desktop.md), so 180000 is about twice the measured
 time; the progress-aware idle wait still fails a stalled guest early.
 Re-measure and restate this when journeys grow. Red-control desktop capture has a 60000 ms
 budget. Gate tests remain host-only; product mutation controls are tier 2.
-PROGRAM_SMOKE_WAIT_MS and IBASE_SMOKE_WAIT_MS (both default 1000) set Bochs's
-inter-command wait for a busy host; they do not alter the oracle or test set.
-DESKTOP_WAIT_MS (default 10000) bounds Bochs's frontend marker waits. The driver
-rechecks its overall deadline after a frontend wait/capture, so increasing
-that invocation limit never permits late completion to pass the session.
+IBASE_SMOKE_WAIT_MS (default 1000) sets Bochs's inter-command wait. The Bochs
+program smoke no longer waits on a timer: it types each command after the
+previous one's completion line (initech-ix9by; a KBD-RING-DROP fails it), and
+PROGRAM_SMOKE_WAIT_MS (default 30000) is its idle budget per command.
+DESKTOP_WAIT_MS (default 10000) bounds Bochs's frontend marker waits. Every
+Bochs journey session deadline renews on meaningful guest progress by
+DESKTOP_RENEW_MS (default 30000), up to three times the configured session
+timeout, so a loaded host slows a session instead of failing it; without
+progress it is not renewed. The driver rechecks the (renewed) deadline after
+a frontend wait/capture, so late completion never passes the session.
 LEGACY_SMOKE_TIMEOUT_MS controls the diagnostic legacy boot (default 15000);
 when only DESKTOP_SMOKE_TIMEOUT_MS is supplied it applies to that boot too.
 

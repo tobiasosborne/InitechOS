@@ -8,7 +8,23 @@ static char *read_file(const char *path, size_t *len);
 static size_t journey_marker_consumed;
 static void (*journey_idle)(void *);
 static void *journey_context;
-static long long journey_deadline;
+/* The session deadline renews on meaningful guest progress (journey_progress)
+ * by DESKTOP_RENEW_MS (default 30000), never beyond a ceiling of three times
+ * the configured budget, so a loaded host slows a run instead of failing it
+ * while a stalled guest still fails at its idle budget or the ceiling. */
+static long long *journey_deadline_ref, *journey_input_ref;
+static long long journey_ceiling, journey_renew_ms = 30000;
+static void journey_bind(long long *deadline, void *transport);
+static long long journey_deadline_now(void) { return journey_deadline_ref ? *journey_deadline_ref : 0; }
+static void journey_renew(long long now)
+{
+    if (!journey_deadline_ref || !*journey_deadline_ref) return;
+    long long want = now + journey_renew_ms;
+    if (want > journey_ceiling) want = journey_ceiling;
+    if (want <= *journey_deadline_ref) return;
+    *journey_deadline_ref = want;
+    if (journey_input_ref) *journey_input_ref = want;
+}
 static long long mono_ms(void);
 static void journey_rfb_pump(void *context);
 static int journey_progress(const char *line)
@@ -54,7 +70,7 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
     unsigned extensions=0;
     for(;;) {
         long long now=mono_ms();
-        if(journey_deadline && now>=journey_deadline) {
+        if(journey_deadline_now() && now>=journey_deadline_now()) {
             fprintf(stderr,"desktop: hard overall deadline expired waiting for W marker '%s' after byte %zu (waited %lldms)\n",marker,after,now-start);
             return 0;
         }
@@ -65,7 +81,7 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
         if(journey_idle)journey_idle(journey_context);
         now=mono_ms();
         /* Expiry is checked before accepting even a newly arrived marker. */
-        if((journey_deadline && now>=journey_deadline) || now-last_progress>=idle_ms)
+        if((journey_deadline_now() && now>=journey_deadline_now()) || now-last_progress>=idle_ms)
             continue;
         size_t len=0,end=0;char *txt=read_file(path,&len);
         int progress=0,seen=0;
@@ -90,16 +106,29 @@ static int journey_parse(const char *s, size_t n, BochsTraceStep *v)
             if(extensions)fprintf(stderr,"desktop: W marker '%s' reached after %lldms; progress renewals=%u\n",marker,now-start,extensions);
             memset(v,0,sizeof *v);v->kind=BX_WAIT;return 1;
         }
-        if(progress) {last_progress=now;extensions++;}
+        if(progress) {last_progress=now;extensions++;journey_renew(now);}
         nanosleep(&pause,0);
     }
 }
 #define BOCHS_TRACE_TAP_KEYS 1
 #define bochs_trace_parse journey_parse
-#define BOCHS_TRACE_BIND_IDLE(transport) do { \
-    journey_idle=journey_rfb_pump; journey_context=(transport); \
-    journey_deadline=deadline; \
-} while(0)
+#define BOCHS_TRACE_BIND_IDLE(transport) journey_bind(&deadline, (transport))
 #include "emu/bochs.c"
 #include "emu/bochs_main.c"
 static void journey_rfb_pump(void *context) { rfb_pump(context); }
+static void journey_bind(long long *deadline, void *transport)
+{
+    RfbShadow *r = transport;
+    journey_idle = journey_rfb_pump; journey_context = transport;
+    if (journey_deadline_ref != deadline) {
+        long long budget = *deadline - mono_ms();
+        const char *renew = getenv("DESKTOP_RENEW_MS");
+        journey_deadline_ref = deadline;
+        journey_ceiling = *deadline + 2 * (budget > 0 ? budget : 0);
+        if (renew && *renew) {
+            char *end; unsigned long ms = strtoul(renew, &end, 10);
+            if (!*end && ms <= 3600000) journey_renew_ms = (long long)ms;
+        }
+    }
+    journey_input_ref = r ? &r->input_deadline : 0;
+}

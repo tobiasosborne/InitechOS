@@ -34,6 +34,7 @@ static int run(const char *name,const char *progress,long long at,long long hard
     if(ftruncate(fileno(serial),0)||fseek(serial,0,SEEK_SET))return 1;
     journey_marker_consumed=0; /* each scenario is a fresh session transcript */
     long long deadline=hard;
+    journey_deadline_ref=0; /* a new session: its ceiling comes from this deadline */
     BOCHS_TRACE_BIND_IDLE(NULL); /* Same binding as bochs_run, virtual transport. */
     journey_idle=produce;journey_context=NULL;
     char token[160];snprintf(token,sizeof token,"W%s",name);
@@ -58,8 +59,14 @@ int main(void)
     int bad=run("slow-input",input,15000,60000,1,15000);
     bad|=run("missing",NULL,999999,60000,0,10000);
     bad|=run("clock-only","FLAIR-CLOCK-POLL\nFLAIR-CLOCK 9:00 am\nFLAIR-EVT what=6\n",999999,60000,0,10000);
-    bad|=run("boundary",input,12000,12000,0,12000);
-    bad|=run("late",input,14000,12000,0,12000);
+    /* Progress renews the 12 s session deadline by 30 s, up to 3 x 12 s. */
+    bad|=run("boundary",input,12000,12000,1,12000);
+    bad|=run("late",input,14000,12000,1,14000);
+    bad|=run("ceiling",input,50000,12000,0,36000);
+    /* Without progress the session deadline is not renewed. */
+    setenv("DESKTOP_WAIT_MS","60000",1);
+    bad|=run("silent",NULL,50000,12000,0,12000);
+    unsetenv("DESKTOP_WAIT_MS");
     bad|=run("painting","TENANT-GATE ax=0x0031 win=1 l=0 t=0 r=100 b=100\n",18000,60000,1,18000);
     bad|=run("repeated",input,0,60000,1,0);
     /* Do not clear the transcript: occurrence2 must wait for fresh evidence. */
