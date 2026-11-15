@@ -128,7 +128,7 @@ Two exceptions are temporary. The command processor is resident in
 `INITDOS.SYS`, and its entry header and existing shell service calls are
 permitted, until `COMMAND.COM` is a separately loaded program (Release
 2). The resident Finder may use the published FAT interface directly
-until its file operations go through DOS.
+until its file operations go through DOS (Release 2).
 
 A component may include its own headers,
 `sdk/` headers, and the public headers (`<component>/include/`) of the

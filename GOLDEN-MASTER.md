@@ -56,8 +56,15 @@ legacy tree to find more is not.
   exist today, Trash, the menu bar.
 - Calculator, Note Pad, Scrapbook, Control Panels, InitechText,
   InitechPaint (the menu-bar carrier the frame needs; a blank canvas).
-- Every visible command either works or is absent. No dead menu items,
-  no path that loses a user's data.
+- Every visible command either works or is absent. No dead menu items.
+  One stated exception (operator, 2026-11-15): InitechPaint's seven
+  Photoshop menu titles, which the frame makes the specification, are
+  titles only; they highlight and open nothing.
+- No Initech program destroys a user's file on a failure it reports: a
+  failed or cancelled save or FILE COPY leaves the previous file intact
+  under its own name. One stated exception (operator, 2026-11-15), for
+  fidelity: the InitechDOS `COPY` command follows DOS 3.30, which
+  removes an incomplete target after a full disk.
 - *Accept:* each app's host suite and smoke; a dead-command sweep.
 
 ## 5. InitechBase
@@ -115,6 +122,8 @@ legacy tree to find more is not.
 - Writing to FAT16 volumes.
 - `COMMAND.COM` as a separately loaded program; in this master the
   command processor is resident in `INITDOS.SYS`.
+- Routing the Finder's file operations through DOS; in this master the
+  resident Finder uses the published FAT interface directly.
 - The wider app-platform bar: Print Manager, CopyBits modes, GWorlds,
   several disk apps resident at once.
 - Games and further easter eggs.

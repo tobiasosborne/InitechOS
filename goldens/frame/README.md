@@ -9,9 +9,13 @@ oracle.
 
 ## Questions only the operator can settle
 
-Each has a recommendation. Item ids refer to `transcription.tsv`. Until the
-operator answers (initech-tunh0), the product follows every recommendation
-provisionally, and the checks grade that provisional reading.
+**Settled: the operator accepted every recommendation below on 2026-11-15
+(initech-tunh0).** The readings are no longer provisional. One of them is
+not yet in the product: question 9 puts the note below the total, and
+InitechCalc still draws it above (initech-tunh0 carries that change).
+
+Each has a recommendation. Item ids refer to `transcription.tsv`. The
+product follows every recommendation, and the checks grade that reading.
 
 1. **Vendoring the still.** The repository is public, and `.gitignore` has
    kept film stills out of it since 7b213e4c ("measured/derived from, never
