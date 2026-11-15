@@ -58,7 +58,7 @@
  * abort hosted). Self-contained (no panic.h dependency) so window.c dual-
  * compiles with only the locked headers.
  * ------------------------------------------------------------------------- */
-#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1 && !defined(__KERNEL_FREESTANDING__)
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1
 #  include <stdlib.h>   /* abort -- hosted only */
 #  define WIN_PANIC(msg)  abort()
 #else

@@ -86,7 +86,7 @@
  * FAIL-LOUD: dual panic (kernel infinite loop / hosted abort).
  * Mirrors window.c WIN_PANIC and control.c pattern exactly.
  * ------------------------------------------------------------------------- */
-#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1 && !defined(__KERNEL_FREESTANDING__)
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1
 #  include <stdlib.h>   /* abort -- hosted only */
 #  define DIALOG_PANIC(msg)  abort()
 #else

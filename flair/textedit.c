@@ -53,7 +53,7 @@
  * halt (explicit error handling / reproducibility). The (msg) is documentation; it is intentionally not
  * emitted (no serial here -- the in-kernel caller surfaces PC LOAD LETTER).
  * ------------------------------------------------------------------------- */
-#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1 && !defined(__KERNEL_FREESTANDING__)
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1
 #  include <stdlib.h>   /* abort -- hosted only */
 #  define TE_PANIC(msg)  abort()
 #else

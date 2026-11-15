@@ -307,3 +307,9 @@ Interface use-binding: flair/include/flair_platform.h
 Interface use-pure: flair/region/include/region_algebra.h
 Interface export-binding: flair/event.c flair_double_click_ticks
 <!-- end-interface-declarations -->
+
+The hosted panic bindings use the compiler's standard __STDC_HOSTED__ value.
+Freestanding target flags set it to zero; hosted tests set it to one. The
+redundant __KERNEL_FREESTANDING__ guard (never defined by any build) was
+removed from the five Toolbox managers without changing generated target bytes.
+There was no dormant fault scenario in those terms to extract as a mutant.

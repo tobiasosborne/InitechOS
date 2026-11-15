@@ -36,7 +36,7 @@
  * only the locked headers (explicit error handling -- a panic with context beats a silently
  * mis-routed event). Ref: window.c:54-60 (the same idiom).
  * ------------------------------------------------------------------------- */
-#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1 && !defined(__KERNEL_FREESTANDING__)
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1
 #  include <stdlib.h>   /* abort -- hosted only */
 #  define PROC_PANIC(msg)  abort()
 #else

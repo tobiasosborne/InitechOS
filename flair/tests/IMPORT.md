@@ -96,9 +96,9 @@ chrome_fidelity_golden.h, menu_look_golden.h, scrollbar_look_golden.h (tests/gol
 and font_styles_golden.h. Their opening comments identify the exact resource,
 capture coordinates, decomp specification and/or mint provenance. Runtime
 reference inputs are enumerated and SHA-256 pinned in REFERENCE-INPUTS.sha256:
-10 PNG captures, 6 binary resources (including the minted Geneva 12 NFNT),
-4 reference texts (3 Mac specifications and the Windows color cross-check).
-These are 20 external files, not 20 additional test programs. The screenshot
+11 PNG captures, 6 binary resources (including the minted Geneva 12 NFNT),
+5 reference texts (4 Mac specifications and the Windows color cross-check).
+These are 22 external files, not 22 additional test programs. The screenshot
 transcriptions also cite historical captures not reread at runtime.
 
 Two checked-in self-derived regression fixtures: fixtures/flair_part_map.golden

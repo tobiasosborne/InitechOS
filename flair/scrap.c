@@ -36,7 +36,7 @@
  * clean crash with a traceable cause. In the freestanding kernel, a deliberate
  * infinite loop is the loud deterministic halt (explicit error handling / reproducibility).
  * ------------------------------------------------------------------------- */
-#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1 && !defined(__KERNEL_FREESTANDING__)
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1
 #  include <stdlib.h>   /* abort -- hosted only */
 #  define SCRAP_PANIC(msg)  abort()
 #else
