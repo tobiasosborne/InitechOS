@@ -1,0 +1,25 @@
+                                                                                
+Fixed Disk Setup Program Version 3.30                                           
+(C)Copyright Microsoft Corp. 1987                                               
+                                                                                
+FDISK Options                                                                   
+                                                                                
+Current Fixed Disk Drive: 1                                                     
+                                                                                
+Choose one of the following:                                                    
+                                                                                
+    1. Create DOS partition                                                     
+    2. Change Active Partition                                                  
+    3. Delete DOS partition                                                     
+    4. Display Partition Information                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Enter choice: [1]                                                               
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Press ESC to return to DOS                                                      

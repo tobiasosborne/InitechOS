@@ -186,7 +186,9 @@ int fdisk_run(const fdisk_io *ops)
         int c=choice(1);
         if(c<0) {
             if(changed) {
-                put("\r\nSystem will now restart\r\n\r\nInsert DOS diskette in drive A:\r\nPress any key when ready . . .\r\n");
+                /* Genuine 3.30 restart wording, without the obsolete floppy
+                 * instruction: tests/compat33-restart (operator ATA ruling). */
+                put("\r\nSystem will now restart\r\n\r\nPress any key when ready . . .\r\n");
                 io->get();
                 if(io->restart)io->restart();
             }
@@ -239,7 +241,7 @@ int fdisk_run(const fdisk_io *ops)
                 if(save())return 1;
                 changed=1;
                 if(y) {
-                    put("\r\nSystem will now restart\r\n\r\nInsert DOS diskette in drive A:\r\nPress any key when ready . . .\r\n");
+                    put("\r\nSystem will now restart\r\n\r\nPress any key when ready . . .\r\n");
                     io->get();if(io->restart)io->restart();return 0;
                 }
             }

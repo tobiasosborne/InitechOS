@@ -292,3 +292,10 @@ runs real C and captured-input shell producers through the independent
 factory summary parser, and checks missing-reference and producer setup errors.
 A reference or setup failure keeps exit 2 and supplies no semantic-failure
 receipt. The summary-suppression mutant must fail that control twice.
+
+FDISK's fixed-disk restart wording is captured from genuine DOS 3.30 in
+`fdisk/tests/compat33-restart/`. Real FDISK still requests a DOS diskette
+in A after creating a fixed partition. Under the operator's ATA-only
+product ruling, InitechDOS omits that obsolete insertion line and keeps
+the captured restart and key prompts. Both immediate-create and changed-
+partition exit paths are checked; this is an explicit authored adaptation.
