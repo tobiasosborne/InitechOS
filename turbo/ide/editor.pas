@@ -14,7 +14,7 @@ const
   KeyCtrlEnd = 373; KeyCtrlPgDn = 374; KeyCtrlHome = 375; KeyCtrlPgUp = 388;
 
   ModeEditor = 0; ModeBar = 1; ModeMenu = 2; ModeName = 3; ModeVerify = 4;
-  ModeQuit = 5;
+  ModeQuit = 5; ModeError = 6; ModeOverwrite = 7;
   MenuFile = 1; MenuEdit = 2; MenuRun = 3; MenuCompile = 4;
   NameRename = 1; NameLoad = 2; NameWrite = 3;
   VerifyNew = 1; VerifyLoad = 2; VerifyQuit = 3;
@@ -28,6 +28,9 @@ var
   ItemSel: array[1..4] of integer;
   NameText, PendingName: string;
   NameFresh: boolean;
+  ErrCode, ErrReturn: integer;       { Error box (MINT06 51, 54) }
+  ErrLineShown: boolean;             { compiler error on the info row (07) }
+  ErrLineText: string;
   Tx: string;
 
 { ---- line geometry: tabs at 8-column stops (MINT06 36, 34) ---- }
@@ -147,6 +150,14 @@ end;
 procedure DrawInfo;
 var N: string;
 begin
+  if ErrLineShown then
+  begin
+    { MINT06 07: the error replaces the info row, 0x4E across it }
+    ScrFill(1, 0, 79, ' ', AtError);
+    ScrText(1, 0, ErrLineText, AtError)
+  end
+  else
+  begin
   ScrFill(1, 0, 79, ' ', AtInfo);
   Tx := 'Line'; ScrText(1, 6, Tx, AtInfo);
   NumText(EdLine, N); ScrText(1, 11, N, AtInfo);
@@ -156,6 +167,7 @@ begin
   if EdModified then ScrPut(1, 57, '*', AtInfo);
   Tx := FileDrive + ':' + FileName;
   ScrText(1, 59, Tx, AtInfo)
+  end
 end;
 
 procedure DrawTitle(Which, Col: integer);
@@ -169,6 +181,10 @@ begin
   else if (UiMode = ModeVerify) and (MenuSel = Which) and (VerifyKind <> VerifyQuit) then
     ScrText(0, Col, Tx, AtSelect)
   else if (UiMode = ModeName) and (MenuSel = Which) and (NameKind <> NameRename) then
+    ScrText(0, Col, Tx, AtSelect)
+  else if (UiMode = ModeOverwrite) and (MenuSel = Which) then
+    ScrText(0, Col, Tx, AtSelect)
+  else if (UiMode = ModeError) and (MenuSel = Which) and (ErrReturn = ModeMenu) then
     ScrText(0, Col, Tx, AtSelect)
   else
   begin
@@ -186,7 +202,7 @@ end;
 procedure DrawStatus;
 begin
   ScrFill(24, 0, 79, ' ', AtMenu);
-  if UiMode = ModeVerify then
+  if (UiMode = ModeVerify) or (UiMode = ModeError) or (UiMode = ModeOverwrite) then
   begin
     Tx := 'Esc'; ScrText(24, 1, Tx, AtMenuKey);
     Tx := '-Abort'; ScrText(24, 4, Tx, AtMenu)
@@ -283,6 +299,47 @@ begin
   ScrTitle(5, 10, 10 + W - 1, Tx, AtVerify)
 end;
 
+procedure LeafName(var S, L: string); forward;
+
+{ Overwrite prompt (MINT06 49): a Verify box where the name box was. }
+procedure DrawOverwrite;
+var L: string;
+    W: integer;
+begin
+  LeafName(PendingName, L);
+  Tx := ' Overwrite ' + L + '? (Y/N) ';
+  W := Length(Tx) + 2;
+  ScrBox(NameRow, NameCol, NameRow + 2, NameCol + W - 1, true, AtVerify);
+  ScrText(NameRow + 1, NameCol + 1, Tx, AtMenu);
+  Tx := 'Verify';
+  ScrTitle(NameRow, NameCol, NameCol + W - 1, Tx, AtVerify)
+end;
+
+{ Error box (MINT06 51, 54): DOS 3 and 5 as captured; others not captured. }
+procedure DrawError;
+var W: integer;
+    N: string;
+begin
+  { creating a file: 2 or 3 both mean the path cannot be reached }
+  if (ErrCode = 2) or (ErrCode = 3) then Tx := 'Invalid drive or directory.'
+  else if ErrCode = 5 then Tx := 'File is read only.'
+  else
+  begin
+    NumText(ErrCode, N);
+    Tx := 'File error ' + N + '.'
+  end;
+  Tx := ' ' + Tx + '  Press ';
+  W := Length(Tx) + 5 + 2;
+  ScrBox(10, 20, 12, 20 + W - 1, true, AtErrFrame);
+  ScrText(11, 21, Tx, AtErrText);
+  N := 'ESC';
+  ScrText(11, 21 + Length(Tx), N, AtError);
+  N := '. ';
+  ScrText(11, 24 + Length(Tx), N, AtErrText);
+  N := 'Error';
+  ScrTitle(10, 20, 20 + W - 1, N, AtErrText)
+end;
+
 procedure DrawAll;
 begin
   DrawText();
@@ -293,9 +350,15 @@ begin
   if (UiMode = ModeMenu) or ((UiMode = ModeVerify) and (VerifyKind <> VerifyQuit)) then
     DrawMenu()
   else if (UiMode = ModeName) and (NameKind <> NameRename) then
+    DrawMenu()
+  else if UiMode = ModeOverwrite then
+    DrawMenu()
+  else if (UiMode = ModeError) and (ErrReturn = ModeMenu) then
     DrawMenu();
   if UiMode = ModeName then DrawName();
-  if UiMode = ModeVerify then DrawVerify()
+  if UiMode = ModeVerify then DrawVerify();
+  if UiMode = ModeOverwrite then DrawOverwrite();
+  if UiMode = ModeError then DrawError()
 end;
 
 { ---- file commands ---- }
@@ -347,26 +410,124 @@ begin
   UiMode := ModeEditor
 end;
 
+procedure ShowFileError(Code, Back: integer);
+begin
+  ErrCode := Code;
+  ErrReturn := Back;
+  UiMode := ModeError
+end;
+
+{ A missing file opens as a new, empty buffer of that name (TP 5.5 F3;
+  not in the captures). Other errors leave the buffer as it was. }
 procedure DoLoad(var Name: string);
+var L: string;
 begin
   BufLoad(Name);
-  FileName := Name;
-  EdModified := false; EdOnDisk := true;
-  CursorHome();
-  UiMode := ModeEditor
+  LeafName(Name, L);
+  if BufErr = 2 then
+  begin
+    BufNew();
+    FileName := L;
+    EdModified := false; EdOnDisk := false;
+    CursorHome();
+    UiMode := ModeEditor
+  end
+  else if BufErr <> 0 then ShowFileError(BufErr, ModeMenu)
+  else
+  begin
+    FileName := L;
+    EdModified := false; EdOnDisk := true;
+    CursorHome();
+    UiMode := ModeEditor
+  end
+end;
+
+procedure ExtName(var S, Ext, B: string);
+var I, Dot: integer;
+    C: string;
+begin
+  Dot := 0; I := 1;
+  while I <= Length(S) do
+  begin
+    if S[I] = '.' then Dot := I;
+    if S[I] = chr(92) then Dot := 0;
+    I := I + 1
+  end;
+  B := ''; I := 1;
+  if Dot = 0 then Dot := Length(S) + 1;
+  while I < Dot do
+  begin
+    C := S[I];
+    B := B + C;
+    I := I + 1
+  end;
+  B := B + Ext
+end;
+
+{ Save to Path. The old file, if any, is first copied to NAME.$$$; only
+  when the new bytes are complete does that copy become NAME.BAK. A
+  refused or short write restores the old bytes and leaves no backup, as
+  TP 5.5 left RO.PAS (MINT06 54, disk/). Returns 0 or the DOS error. }
+function SaveAs(var Path: string; Existing: boolean): integer;
+var Temp, Bak, Ext: string;
+    Code, I: integer;
+    F: file;
+begin
+  Ext := '.$$$'; ExtName(Path, Ext, Temp);
+  Ext := '.BAK'; ExtName(Path, Ext, Bak);
+  Code := 0;
+  if Existing then
+  begin
+    FileCopy(Path, Temp);
+    Code := BufErr
+  end;
+  if Code = 0 then
+  begin
+    BufSave(Path);
+    Code := BufErr;
+    if (Code <> 0) and Existing then FileCopy(Temp, Path)
+  end;
+  if Existing then
+  begin
+    if Code = 0 then
+    begin
+      Assign(F, Bak); Erase(F); I := IOResult();
+      Assign(F, Temp); Rename(F, Bak); I := IOResult()
+    end
+    else
+    begin
+      Assign(F, Temp); Erase(F); I := IOResult()
+    end
+  end;
+  SaveAs := Code
+end;
+
+function FileExists(var Path: string): boolean;
+var F: file;
+    Code: integer;
+begin
+  Assign(F, Path);
+  Reset(F, 1);
+  Code := IOResult();
+  if Code = 0 then
+  begin
+    Close(F);
+    FileExists := IOResult() = 0
+  end
+  else FileExists := false
 end;
 
 procedure DoSave;
-var B: string;
+var Code: integer;
 begin
-  if EdOnDisk then
+  Code := SaveAs(FileName, EdOnDisk);
+  if Code = 0 then
   begin
-    BakName(FileName, B);
-    FileCopy(FileName, B)
-  end;
-  BufSave(FileName);
-  EdOnDisk := true;
-  EdModified := false
+    EdOnDisk := true;
+    EdModified := false;
+    UiMode := ModeEditor
+  end
+  else ShowFileError(Code, ModeEditor)
 end;
 
 procedure OpenName(Kind: integer);
@@ -418,6 +579,26 @@ begin
   end
 end;
 
+{ Save under a new name; on success the buffer takes that name. }
+procedure WriteTo(var Path: string; Existing: boolean);
+var L: string;
+    Code: integer;
+begin
+  Code := SaveAs(Path, Existing);
+  if Code = 0 then
+  begin
+    LeafName(Path, L);
+    FileName := L;
+    EdOnDisk := true;
+    EdModified := false;
+    { after the Rename box TP shows the file from its start (MINT06 06) }
+    if NameKind = NameRename then CursorHome();
+    UiMode := ModeEditor
+  end
+  else if NameKind = NameRename then ShowFileError(Code, ModeEditor)
+  else ShowFileError(Code, ModeMenu)
+end;
+
 procedure NameAccept;
 var L: string;
 begin
@@ -434,33 +615,30 @@ begin
     end
     else DoLoad(NameText)
   end
-  else
+  else if (NameKind = NameWrite) and FileExists(NameText) then
   begin
-    LeafName(NameText, L);
-    FileName := L;
-    EdOnDisk := false;
-    DoSave();
-    if NameKind = NameRename then CursorHome();
-    UiMode := ModeEditor
+    PendingName := NameText;
+    UiMode := ModeOverwrite
   end
+  else WriteTo(NameText, false)
 end;
 
 procedure SaveCommand;
 begin
   if FileName = 'NONAME.PAS' then OpenName(NameRename)
   else
-  begin
-    DoSave();
-    UiMode := ModeEditor
-  end
+    DoSave()
 end;
 
 procedure VerifyDone(Saved: boolean);
 begin
   if Saved then DoSave();
-  if VerifyKind = VerifyNew then DoNew()
-  else if VerifyKind = VerifyLoad then DoLoad(PendingName)
-  else UiMode := ModeQuit
+  if UiMode <> ModeError then
+  begin
+    if VerifyKind = VerifyNew then DoNew()
+    else if VerifyKind = VerifyLoad then DoLoad(PendingName)
+    else UiMode := ModeQuit
+  end
 end;
 
 procedure RunItem;
@@ -701,13 +879,50 @@ begin
               (K = KeyF10) or (K = KeyF2) or (K = KeyF3) or (K = KeyAltX)
 end;
 
+{ Show a compiler error (MINT06 07, 34): the message replaces the info
+  row and the cursor goes to the token; Col is the source byte column,
+  shown through the tabs. A line off screen is placed on view row 11. }
+procedure IdeError(Line, Col: integer; var Msg: string);
+var S: string;
+begin
+  if Line > DocLines then Line := DocLines;
+  if Line < 1 then Line := 1;
+  EdLine := Line;
+  PageCover(EdLine, 1);
+  LineText(EdLine, S);
+  EdCol := ByteCol(S, Col);
+  if (EdLine < EdTop) or (EdLine > EdTop + ViewRows - 1) then JumpTo()
+  else ScrollTo();
+  ErrLineText := Msg;
+  ErrLineShown := true;
+  UiMode := ModeEditor
+end;
+
 procedure IdeKey(K: integer);
 var M, I: integer;
     C: string;
 begin
-  if UiMode = ModeEditor then
+  if (UiMode = ModeEditor) and ErrLineShown then
+  begin
+    { the next key restores the info row (MINT06 08); Esc does no more }
+    ErrLineShown := false;
+    if K <> KeyEsc then
+    begin
+      if IsGlobal(K) then GlobalKey(K) else EditKey(K)
+    end
+  end
+  else if UiMode = ModeEditor then
   begin
     if IsGlobal(K) then GlobalKey(K) else EditKey(K)
+  end
+  else if UiMode = ModeError then
+  begin
+    if K = KeyEsc then UiMode := ErrReturn
+  end
+  else if UiMode = ModeOverwrite then
+  begin
+    if (K = ord('y')) or (K = ord('Y')) then WriteTo(PendingName, true)
+    else if (K = ord('n')) or (K = ord('N')) or (K = KeyEsc) then UiMode := ModeMenu
   end
   else if UiMode = ModeBar then
   begin
@@ -779,7 +994,14 @@ begin
     else if (K = ord('n')) or (K = ord('N')) then VerifyDone(false)
     else if K = KeyEsc then
     begin
-      if VerifyKind = VerifyQuit then UiMode := ModeEditor else UiMode := ModeMenu
+      { a cancelled Alt-X leaves the bar on File (MINT06 57) }
+      if VerifyKind = VerifyQuit then
+      begin
+        MenuSel := MenuFile;
+        LastMenu := MenuFile;
+        UiMode := ModeBar
+      end
+      else UiMode := ModeMenu
     end
   end
 end;

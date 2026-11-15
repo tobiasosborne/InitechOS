@@ -25,6 +25,8 @@ journey)
     setup sh -c "cd '$mint' && sha256sum --quiet -c SHA256SUMS"
     setup cp "$out/idehost" "$scratch/"
     setup cp "$corpus/mint/src/MINT06/LONG.PAS" "$scratch/LONG.PAS"
+    setup cp "$corpus/mint/src/MINT06/RO.PAS" "$scratch/RO.PAS"
+    setup chmod 444 "$scratch/RO.PAS"
     setup "$out/keys" tests/journey.steps "$scratch/IDEKEYS.BIN" "$scratch/shots.list"
     (cd "$scratch" && ./idehost > stdout)
     check completed grep -qx "IDE-HOST-END shots=$(wc -l < "$scratch/shots.list")" "$scratch/stdout"
@@ -32,6 +34,8 @@ journey)
     check saved-source cmp "$mint/disk/DEMO.PAS" "$scratch/DEMO.PAS"
     check saved-backup cmp "$mint/disk/DEMO.BAK" "$scratch/DEMO.BAK"
     check unsaved-file-unchanged cmp "$corpus/mint/src/MINT06/LONG.PAS" "$scratch/LONG.PAS"
+    check read-only-untouched cmp "$corpus/mint/src/MINT06/RO.PAS" "$scratch/RO.PAS"
+    check refused-saves-leave-nothing sh -c "! ls '$scratch' | grep -q -E '^(RO[.]BAK|RO[.][$]{3}|DEMO[.][$]{3}|X[.]PAS|.*NODIR.*)\$'"
     ;;
 paging)
     # A file far larger than the 16 KiB page: edits at the start, line 2500

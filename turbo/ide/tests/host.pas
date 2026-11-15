@@ -1,7 +1,7 @@
 { host.pas -- replay a key file through the IDE and dump the screens.
 
   IDEKEYS.BIN holds two-byte little-endian key codes as editor.pas defines
-  them; 65535 dumps the screen to SHOTnnn.SCR (4000 bytes of character and
+  them; 65533 LINE COL shows a compiler error there; 65535 dumps the screen to SHOTnnn.SCR (4000 bytes of character and
   attribute pairs, then cursor column, row and visibility), 65534 stops.
   Only the untyped-file runtime is used, so the same program runs under
   Free Pascal on the host and, compiled by Turbo Initech, inside the OS. }
@@ -11,7 +11,7 @@ var
   Dump: array[1..4003] of char;
   KeyGot, KeyCode, ShotNo, I: integer;
   Running: boolean;
-  ShotName, Digits: string;
+  ShotName, Digits, ErrMsg: string;
 
 procedure DumpScreen;
 var Wrote, J: integer;
@@ -50,6 +50,7 @@ begin
 end;
 
 begin
+  HostSetup();
   FileDrive := 'C';
   FileDir := 'C:' + chr(92) + 'TP55';
   IdeStart();
@@ -66,6 +67,15 @@ begin
       KeyCode := ord(KeyBuf[1]) + 256 * ord(KeyBuf[2]);
       if KeyCode = 65534 then Running := false
       else if KeyCode = 65535 then DumpScreen()
+      else if KeyCode = 65533 then
+      begin
+        { a compiler error, as TP 5.5 reported it for the same source
+          (MINT06 07, 34): line and source column follow }
+        BlockRead(Keys, KeyBuf[1], 4, KeyGot);
+        ErrMsg := 'Error 85: ";" expected';
+        IdeError(ord(KeyBuf[1]) + 256 * ord(KeyBuf[2]),
+                 ord(KeyBuf[3]) + 256 * ord(KeyBuf[4]), ErrMsg)
+      end
       else
       begin
         IdeKey(KeyCode);

@@ -16,7 +16,9 @@ mkdir -p "$out/compile"
 cp "$build/idehost.pas" "$out/compile/TURBOIN.PAS"
 (cd "$out/compile" && "$root/build/turbo/compiler/turbo_fpc" > raw)
 grep -q '^TURBO-NATIVE-OK ' "$out/compile/raw"
-"$build/keys" turbo/ide/tests/journey.steps "$out/JOURNEY.BIN" "$out/journey.list"
+sed 's|^type NODIR/X.PAS$|type \\NODIR\\X.PAS|' turbo/ide/tests/journey.steps > "$out/journey.steps"
+grep -qx 'type \\NODIR\\X.PAS' "$out/journey.steps"
+"$build/keys" "$out/journey.steps" "$out/JOURNEY.BIN" "$out/journey.list"
 "$build/keys" turbo/ide/tests/paging.steps "$out/PAGING.BIN" "$out/paging.list"
 for prog in readkey iocheck; do
   mkdir -p "$out/$prog"
@@ -39,6 +41,8 @@ for emulator in ${*:-qemu bochs}; do
   mcopy -i "$disk" "$out/iocheck/TURBOOUT.EXE" ::R/IOCHECK.EXE
   mcopy -i "$disk" "$out/JOURNEY.BIN" ::J/IDEKEYS.BIN
   mcopy -i "$disk" "$corpus/mint/src/MINT06/LONG.PAS" ::J/LONG.PAS
+  mcopy -i "$disk" "$corpus/mint/src/MINT06/RO.PAS" ::J/RO.PAS
+  mattrib -i "$disk" +r ::J/RO.PAS
   mcopy -i "$disk" "$out/PAGING.BIN" ::P/IDEKEYS.BIN
   mcopy -i "$disk" "$out/BIG.PAS" ::P/BIG.PAS
   printf 'FILES=20\r\nSHELL=COMMAND.COM /P\r\n' > "$dir/CONFIG.SYS"
@@ -72,6 +76,9 @@ for emulator in ${*:-qemu bochs}; do
   grep FAIL "$dir/screens.txt" || :
   cmp "$mint/disk/DEMO.PAS" "$dir/J/DEMO.PAS" || failed=1
   cmp "$mint/disk/DEMO.BAK" "$dir/J/DEMO.BAK" || failed=1
+  cmp "$corpus/mint/src/MINT06/RO.PAS" "$dir/J/RO.PAS" || failed=1
+  cmp "$corpus/mint/src/MINT06/LONG.PAS" "$dir/J/LONG.PAS" || failed=1
+  if ls "$dir/J" | grep -E '^(RO[.]BAK|RO[.][$]{3}|DEMO[.][$]{3}|X[.]PAS)$'; then echo "FAIL $emulator: refused save left a file"; failed=1; fi
   awk 'BEGIN { RS = "\r\n" }
        NR == 1 { printf "TOP %s\r\n", $0; next }
        NR == 2500 { printf "%sMID %s\r\n", substr($0, 1, 4), substr($0, 5); next }

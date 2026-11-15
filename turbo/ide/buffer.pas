@@ -29,6 +29,15 @@ var
   WorkIn, WorkOut: file;
   Chunk, OutChunk: string;
   OutUsed: integer;
+  BufErr: integer;     { first DOS error of the last load/save/copy; 0 if none }
+
+{ Take any pending I/O error; keep the first one in BufErr. }
+procedure IoNote;
+var Code: integer;
+begin
+  Code := IOResult();
+  if (Code <> 0) and (BufErr = 0) then BufErr := Code
+end;
 
 procedure WorkNames(Side: integer; var Name: string);
 begin
@@ -46,7 +55,13 @@ procedure OutFlush;
 var Wrote: integer;
 begin
   if OutUsed > 0 then
+  begin
+    Wrote := 0;
     BlockWrite(WorkOut, OutChunk[1], OutUsed, Wrote);
+    IoNote();
+    { a short write is DOS's disk-full answer: TP run-time error 101 }
+    if (Wrote <> OutUsed) and (BufErr = 0) then BufErr := 101
+  end;
   OutUsed := 0
 end;
 
@@ -295,15 +310,22 @@ var Src: file;
     Done, PendingCr: boolean;
     Name: string;
 begin
+  BufErr := 0;
   Assign(WorkIn, FileName);
   Reset(WorkIn, 1);
+  IoNote();
+  if BufErr = 0 then
+  begin
   WorkSide := 0;
   WorkNames(0, Name);
   OutStart(Name);
   DocLen := 0; DocLines := 1; Done := false; PendingCr := false;
   while not Done do
   begin
+    Got := 0;
     BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
+    IoNote();
+    if BufErr <> 0 then Got := 0;
     if Got = 0 then Done := true;
     I := 1;
     while I <= Got do
@@ -333,6 +355,7 @@ begin
   Assign(WorkOut, Name);
   PgDirty := false;
   PageLoad(1)
+  end
 end;
 
 procedure BufNew;
@@ -349,21 +372,36 @@ end;
 
 { Copy file From to file Into byte for byte (the .BAK copy). }
 procedure FileCopy(var From, Into: string);
-var Got: integer;
+var Got, Wrote: integer;
     Done: boolean;
 begin
+  BufErr := 0;
   Assign(WorkIn, From);
   Reset(WorkIn, 1);
-  OutStart(Into);
-  Done := false;
-  while not Done do
+  IoNote();
+  if BufErr = 0 then
   begin
-    BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
-    if Got = 0 then Done := true
-    else BlockWrite(WorkOut, Chunk[1], Got, Got)
+    OutStart(Into);
+    IoNote();
+    Done := BufErr <> 0;
+    while not Done do
+    begin
+      Got := 0;
+      BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
+      IoNote();
+      if (Got = 0) or (BufErr <> 0) then Done := true
+      else
+      begin
+        Wrote := 0;
+        BlockWrite(WorkOut, Chunk[1], Got, Wrote);
+        IoNote();
+        if (Wrote <> Got) and (BufErr = 0) then BufErr := 101
+      end
+    end
   end;
-  Assign(WorkIn, Into);
-  Assign(WorkOut, Into)
+  Close(WorkIn);
+  Close(WorkOut);
+  Got := IOResult()
 end;
 
 { Write the document as a DOS text file. }
@@ -373,15 +411,20 @@ var Name: string;
     Done: boolean;
 begin
   PageFlush();
+  BufErr := 0;
   WorkNames(WorkSide, Name);
   Assign(WorkIn, Name);
   Reset(WorkIn, 1);
+  IoNote();
   OutStart(FileName);
-  Done := false;
+  IoNote();
+  Done := BufErr <> 0;
   while not Done do
   begin
+    Got := 0;
     BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
-    if Got = 0 then Done := true;
+    IoNote();
+    if (Got = 0) or (BufErr <> 0) then Done := true;
     I := 1;
     while I <= Got do
     begin
@@ -390,8 +433,12 @@ begin
       I := I + 1
     end
   end;
-  OutByte(chr(26));
-  OutFlush();
-  Assign(WorkIn, Name);
-  Assign(WorkOut, Name)
+  if BufErr = 0 then
+  begin
+    OutByte(chr(26));
+    OutFlush()
+  end;
+  Close(WorkIn);
+  Close(WorkOut);
+  Got := IOResult()
 end;

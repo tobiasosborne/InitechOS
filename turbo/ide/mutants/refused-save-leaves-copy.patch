@@ -1,0 +1,12 @@
+# test: journey
+--- a/editor.pas
++++ b/editor.pas
+@@ -496,7 +496,7 @@
+     end
+     else
+     begin
+-      Assign(F, Temp); Erase(F); I := IOResult()
++      I := IOResult()
+     end
+   end;
+   SaveAs := Code

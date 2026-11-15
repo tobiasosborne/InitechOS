@@ -1,12 +1,12 @@
 # test: journey
 --- a/editor.pas
 +++ b/editor.pas
-@@ -359,7 +359,7 @@
- procedure DoSave;
- var B: string;
- begin
--  if EdOnDisk then
-+  if false then
-   begin
-     BakName(FileName, B);
-     FileCopy(FileName, B)
+@@ -492,7 +492,7 @@
+     if Code = 0 then
+     begin
+       Assign(F, Bak); Erase(F); I := IOResult();
+-      Assign(F, Temp); Rename(F, Bak); I := IOResult()
++      Assign(F, Temp); Erase(F); I := IOResult()
+     end
+     else
+     begin

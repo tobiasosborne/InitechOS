@@ -14,6 +14,13 @@ end
 # File pulldown with absent items removed (Pick, Directory, Change dir,
 # OS shell); rows from the named capture: top, Load, New, Save, Write to,
 # Quit, bottom.
+# Rows 0 and 24 only, for screens whose info row is not the info line.
+define chromebar
+fill 0 34 79 0x70
+fill 24 0 79 0x70
+copy . 24 49 24 1 17
+end
+
 define abort
 fill 24 0 79 0x70
 copy 43_new_dirty_prompt 24 10 24 1 9   # "Esc-Abort" only (F1-Help absent)
@@ -33,7 +40,9 @@ shot rename 05_f2_noname
 use chrome
 shot saved 06_saved_demo
 use chrome
-shot line4 08_after_error     # same position, reached by keys here
+shot error85 07_make_error85
+use chromebar
+shot line4 08_after_error
 use chrome
 shot fixed 09_fixed
 use chrome
@@ -108,6 +117,10 @@ shot ctrl_pgup 32_ctrl_pgup
 use chrome
 shot ctrl_pgdn 33_ctrl_pgdn
 use chrome
+shot long_error 34_long_error
+use chromebar
+shot long_after_error 35_long_after_error
+use chrome
 shot tab_end 36_tab_line_end
 use chrome
 shot long_end 37_long_line_end
@@ -159,6 +172,42 @@ cursor hidden
 
 shot quit_cancel 41_delete
 use chrome
+copy 57_quit_cancelled 0 0 0 0 34   # back on the bar, File selected
+cursor hidden
+
+# Write to an existing name, then a bad path; the pulldown keeps Write to.
+define writemenu
+copy 50_overwrite_refused 0 0 0 0 34
+copy 50_overwrite_refused 1 3 1 3 16
+copy 50_overwrite_refused 2 3 2 3 16
+copy 50_overwrite_refused 4 3 3 3 16
+copy 50_overwrite_refused 5 3 4 3 16
+copy 50_overwrite_refused 6 3 5 3 16
+copy 50_overwrite_refused 10 3 6 3 16
+copy 50_overwrite_refused 11 3 7 3 16
+cursor hidden
+end
+
+shot write_over 41_delete
+use chrome
+use writemenu
+copy 49_overwrite_prompt 7 5 6 5 29   # Verify box, one row higher: our
+copy 49_overwrite_prompt 8 5 7 5 29   # Write to is one item higher (25, 48)
+copy 49_overwrite_prompt 9 5 8 5 29
+use abort
+shot write_over_no 41_delete
+use chrome
+use writemenu
+shot badpath 41_delete
+use chrome
+use writemenu
+copy 51_write_badpath 10 20 10 20 43
+copy 51_write_badpath 11 20 11 20 43
+copy 51_write_badpath 12 20 12 20 43
+use abort
+shot badpath_esc 41_delete
+use chrome
+use writemenu
 
 shot load_verify 41_delete
 use chrome
@@ -180,3 +229,15 @@ shot demo 47_demo_loaded
 use chrome
 copy 26_long_loaded 1 0 1 0 31   # "Line 1     Col 1   Insert": no Pick memory
 cursor 0 2                       # 26_long_loaded
+
+shot readonly 54_save_readonly
+use chrome
+use abort
+cursor hidden
+shot readonly_esc 55_readonly_dismissed
+use chrome
+shot quit_ro 56_quit_prompt
+use chrome
+use abort
+shot quit_ro_esc 57_quit_cancelled
+use chrome

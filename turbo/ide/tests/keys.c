@@ -1,7 +1,9 @@
 /* keys.c -- turn a journey (MINT06 step grammar) into IDEKEYS.BIN.
  *
  * Usage: keys STEPS OUT.BIN SHOTLIST
- * Steps: type TEXT | key NAME | shot NAME | sleep/wait/wait-gone (ignored)
+ * Steps: type TEXT | key NAME | shot NAME | error LINE COL (the IDE's
+ * compiler-error display, at a source line and byte column) |
+ * sleep/wait/wait-gone (ignored)
  * | # comment. NAME is a QEMU sendkey name as in the TP 5.5 mint.
  * Codes are what DOS INT 21h AH=07h delivers: the character, or 0 followed
  * by the scan code, written here as 256 + scan code. The scan codes come
@@ -53,6 +55,10 @@ int main(int argc, char **argv)
             if (code < 0 && strlen(arg) == 1) code = (unsigned char)arg[0];
             if (code < 0) { fprintf(stderr, "%s:%d: unknown key %s\n", argv[1], n, arg); return 2; }
             put(out, code);
+        } else if (!strcmp(line, "error")) {
+            int l, c;
+            if (sscanf(arg, "%d %d", &l, &c) != 2) { fprintf(stderr, "%s:%d: error LINE COL\n", argv[1], n); return 2; }
+            put(out, 65533); put(out, l); put(out, c);
         } else if (!strcmp(line, "shot")) {
             put(out, 65535);
             fprintf(list, "%s\n", arg);

@@ -1,3 +1,6 @@
+{$I-}
+{ The IDE checks its own file errors with IOResult (TP 5.5 Reference Guide):
+  the switch above is off for everything that follows. }
 { screen.pas -- the IDE's 80x25 screen: characters, attributes, cursor.
 
   Everything the IDE shows is drawn into these cells first; the product

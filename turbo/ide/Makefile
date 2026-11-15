@@ -2,7 +2,8 @@ TOP := $(abspath ../..)
 COMPONENT := turbo/ide
 include $(TOP)/mk/config.mk
 FPC ?= fpc
-SOURCES := tests/head.pas screen.pas buffer.pas editor.pas tests/host.pas
+SOURCES := tests/head.pas screen.pas buffer.pas editor.pas tests/dos.pas tests/host.pas
+FPC_SOURCES := tests/head.pas screen.pas buffer.pas editor.pas tests/fpc.pas tests/host.pas
 TOOLS := $(OUT)/idehost.pas $(OUT)/idehost $(OUT)/keys $(OUT)/screens
 # Each entry is tests/run.sh ENTRY (README.md); the wrapper keeps the shared
 # host-test status protocol, so mutants are graded like any host program.
@@ -20,7 +21,10 @@ tools:
 $(OUT)/idehost.pas: $(SOURCES)
 	@mkdir -p $(@D)
 	cat $(SOURCES) > $@
-$(OUT)/idehost: $(OUT)/idehost.pas | tools
+$(OUT)/idehost-fpc.pas: $(FPC_SOURCES)
+	@mkdir -p $(@D)
+	cat $(FPC_SOURCES) > $@
+$(OUT)/idehost: $(OUT)/idehost-fpc.pas | tools
 	@$(FPC) -B -O- -v0 -FU$(OUT) -FE$(OUT) -o$@ $< > $(OUT)/fpc.log 2>&1 || { cat $(OUT)/fpc.log; exit 1; }
 $(OUT)/keys: tests/keys.c
 	@mkdir -p $(@D)
