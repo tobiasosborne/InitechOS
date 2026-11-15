@@ -4,6 +4,7 @@
  * Failure atomicity and abort/EOF rules: authored, no local reference.
  * Fixtures are factory-authored DBFs; dbf_ref.py independently reopens them.
  */
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -736,6 +737,62 @@ static void rejected_command_tests(void){
         xb_interp_free(c.ip);pal_host_free(c.inner);
     }
 }
+/* initech-o9l9: a failed command never leaves a half-written NEW output
+ * behind. The audit (2026-10-23 L043) found SORT left a truncated
+ * SORTED.DBF that SAFETY then refused, so a retry needed a manual ERASE.
+ * Invariant, not a captured III+ transcript: after any injected fault the
+ * new name is absent, no stage remains, and the same command retried under
+ * SAFETY ON produces the bytes an unfaulted run produces. */
+static int stage_left(void){
+    DIR *d=opendir(".");struct dirent *e;int n=0;
+    if(!d)return 1;
+    while((e=readdir(d))!=NULL)if(!strncmp(e->d_name,"IB",2) && (strstr(e->d_name,".TMP") || strstr(e->d_name,".BAK")))n++;
+    closedir(d);return n;
+}
+static void new_output_tests(void){
+    static const char *commands[]={"SORT TO NEWOUT ON LASTNAME","TOTAL ON STATE TO NEWOUT",
+        "INDEX ON LASTNAME TO NEWOUT","COPY FILE SOURCE.DBF TO NEWOUT.DBF"};
+    static const char *outputs[]={"NEWOUT.DBF","NEWOUT.DBF","NEWOUT.NDX","NEWOUT.DBF"};
+    static unsigned char control[132000];
+    unsigned failures=0;
+    for(unsigned cmd=0;cmd<sizeof commands/sizeof commands[0];cmd++){
+        size_t clen=0;
+        for(int kind=-1;kind<=6;kind++)for(int boundary=1;boundary<4000;boundary++){
+            ibase_pal_t *p=setup();wa_env *env;int rc,hit;size_t n;
+            wa_nav_reset(1);remove(outputs[cmd]);
+            copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CLIENTS.DBF"),"ROW.DBF");
+            copy_local(sibling("goldens/dbase-iii-plus-1.1-pristine/files/Sample_Programs_and_Utilities/CLIENTS.DBF"),"SOURCE.DBF");
+            c.ip=xb_interp_make(p);env=xb_interp_env(c.ip);
+            set_register(c.ip);mutate_register(c.ip);query_register(c.ip);
+            CHECK(wa_set_open_rw(env,1,"ROW.DBF",NULL,NULL)==0,"new output source table");
+            CHECK(ibase_do(c.ip,"SET SAFETY ON")==0,"new output safety on");
+            if(kind>=0){c.armed=1;c.failure_op=kind;c.boundary=boundary;c.error=PAL_ENOSPC;}
+            rc=ibase_do(c.ip,commands[cmd]);c.armed=0;hit=c.hit;
+            if(kind<0){
+                CHECK(rc==0,"new output no-fault control");
+                clen=readbytes(outputs[cmd]);memcpy(control,extracted,clen);
+                CHECK(clen>0,"new output control written");
+            }else if(rc){
+                FILE *f;
+                failures++;
+                if(cmd==2)CHECK(ibase_do(c.ip,"SET INDEX TO")==0,"failed index leaves no attached order");
+                f=fopen(outputs[cmd],"rb");
+                CHECK(f==NULL,"failed new output leaves no file under its name");
+                if(f){fprintf(stderr,"left %s cmd=%u kind=%d b=%d\n",outputs[cmd],cmd,kind,boundary);fclose(f);}
+                CHECK(!stage_left(),"failed new output leaves no stage or backup");
+                rc=ibase_do(c.ip,commands[cmd]);
+                CHECK(rc==0,"retry under SAFETY ON needs no ERASE");
+                if(rc)fprintf(stderr,"retry %s cmd=%u kind=%d b=%d error=%d\n",commands[cmd],cmd,kind,boundary,ibase_last_error(c.ip));
+                n=readbytes(outputs[cmd]);
+                CHECK(n==clen && !memcmp(extracted,control,n),"retry output equals the unfaulted output");
+            }
+            xb_interp_free(c.ip);pal_host_free(c.inner);
+            if(kind<0 || !hit)break;
+            CHECK(boundary<3999,"new output exhausts fault boundaries");
+        }
+    }
+    printf("NEW OUTPUT recovered failures=%u\n",failures);
+}
 int main(int argc,char **argv){
     const char *mode=argc>1?argv[1]:"append";
     char directory[]="build/dbsafe/host-XXXXXX";
@@ -744,6 +801,6 @@ int main(int argc,char **argv){
     CHECK(getcwd(project_root,sizeof project_root)!=NULL,"factory project root");
     CHECK(mkdtemp(directory)!=NULL,"private oracle directory");
     if(chdir(directory) || mkdir("build",0700) || mkdir("build/dbsafe",0700)) return 2;
-    if(!strcmp(mode,"fromfail")){indexed_command_failure_tests(1);append_batch_failure_tests();}else if(!strcmp(mode,"blankfail"))indexed_command_failure_tests(2);else if(!strcmp(mode,"packfail"))indexed_command_failure_tests(0);else if(!strcmp(mode,"retry"))rejected_command_tests();else if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"ndxfail"))incremental_failure_tests();else if(!strcmp(mode,"rowfail"))indexed_replace_failure_tests();else if(!strcmp(mode,"dbtfail"))memo_failure_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
+    if(!strcmp(mode,"fromfail")){indexed_command_failure_tests(1);append_batch_failure_tests();}else if(!strcmp(mode,"blankfail"))indexed_command_failure_tests(2);else if(!strcmp(mode,"packfail"))indexed_command_failure_tests(0);else if(!strcmp(mode,"retry")){rejected_command_tests();new_output_tests();}else if(!strcmp(mode,"append"))append_tests();else if(!strcmp(mode,"lifetime"))lifecycle_tests();else if(!strcmp(mode,"flush"))flush_tests();else if(!strcmp(mode,"ndxfail"))incremental_failure_tests();else if(!strcmp(mode,"rowfail"))indexed_replace_failure_tests();else if(!strcmp(mode,"dbtfail"))memo_failure_tests();else if(!strcmp(mode,"writes")){flush_tests();output_tests();metadata_tests();index_tests();output_alias_tests();final_index_tests();persistent_rename_tests();}else safety_tests();
     return TEST_SUMMARY(mode);
 }

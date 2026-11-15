@@ -14,7 +14,7 @@ files back with mtools/independent readers and reopens them with genuine III+.
 It passes 50 checks. Scenarios and the selected application pair live on a
 separate disposable TEST disk; no test scenario is compiled into the kernel.
 `make native-check` runs the DOS console, file, program-return and overlay
-oracles. `make mutants` runs 272 host patches and 19 target patches, including
+oracles. `make mutants` runs 273 host patches and 19 target patches, including
 three static semantic rejections. All 28 original pending faults are qualified.
 The test controls themselves must receive zero kills.
 Host kills require completed assertion counts and identical failure evidence
@@ -225,7 +225,9 @@ DBF flush stages the complete image, including +2-to-+1 header normalization.
 Incremental NDX changes and DBT append/flush also stage complete images.
 COPY FILE, SAVE TO, REPORT, LABEL, ALTERNATE and index builds retain predecessors
 through their last fallible validation. Open-table/memo/index output aliases are
-refused. ALTERNATE publishes on close and reports write/close failures. Real
+refused. A failed SORT, TOTAL, INDEX or COPY FILE into a new name leaves
+neither that name nor a stage behind, so the retry under SAFETY ON needs no
+ERASE (initech-o9l9; test_ibase_dbsafe retry mode, every fault boundary). ALTERNATE publishes on close and reports write/close failures. Real
 III+ full-disk COPY/SAVE captures are destructive; that behavior is not copied.
 Sources and detailed fault coverage are in tests/write-safety/README.md.
 

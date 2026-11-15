@@ -1,0 +1,8 @@
+# test: test_ibase_dbsafe
+--- a/include/ibase/file_write.h
++++ b/include/ibase/file_write.h
+@@ -82,3 +82,3 @@ static inline int ibase_file_restore(ibase_file_write *t)
+      * attempted until the predecessor is back under its original name. */
+-    if(t->installed){
++    if(t->installed && t->old){ /* MUTANT: a failed NEW output stays installed */
+         if(p->rename(p,t->name,t->stage)){ibase_file_recovery(t);return -PAL_EIO;}
