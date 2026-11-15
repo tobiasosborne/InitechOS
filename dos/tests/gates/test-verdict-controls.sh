@@ -40,4 +40,21 @@ CONTROL_STATUS=2 sh build/verdict-controls/fdisk-helper io-error > build/verdict
 check 'FDISK comparison I/O error remains exit 2' test "$rc" = 2
 if grep '^FAIL' build/verdict-controls/fdisk-io.log; then fail 'FDISK I/O error emitted assertion'; fi
 checks=$((checks+1))
+# A missing/corrupt reference is setup trouble. Exercise the actual stamp
+# comparator through the same verdict adapter, after a passing property.
+truncate -s 1474560 build/verdict-controls/valid.img
+mformat -i build/verdict-controls/valid.img -f 1440 ::
+printf 'known reference\r\n' > build/verdict-controls/payload
+mcopy -i build/verdict-controls/valid.img build/verdict-controls/payload ::KNOWN.TXT
+printf 'not a FAT image' > build/verdict-controls/corrupt.img
+for reference in absent.img corrupt.img valid.img; do
+ refpath=KNOWN.TXT
+ [ "$reference" != valid.img ] || refpath=MISSING.TXT
+ rc=0
+ (check 'earlier property' test 1 = 1
+  check_log 'stamp reference' build/verdict-controls/stamp-tool.log build/dos_parity_host --compare build/verdict-controls/valid.img KNOWN.TXT "build/verdict-controls/$reference" "$refpath") > "build/verdict-controls/stamp-$reference.log" 2>&1 || rc=$?
+ check "stamp $reference reference remains setup error" test "$rc" = 2
+ if grep '^FAIL' "build/verdict-controls/stamp-$reference.log"; then fail "stamp $reference reference emitted semantic assertion"; fi
+ checks=$((checks+1))
+done
 complete

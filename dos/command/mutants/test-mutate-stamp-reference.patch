@@ -1,0 +1,13 @@
+# test-mutate-stamp-reference
+# test: test-verdict-controls
+--- a/command/tests/dos_parity_host.c
++++ b/command/tests/dos_parity_host.c
+@@ -60,7 +60,7 @@
+     if (blockdev_file_open(&disk, image) || fat12_mount(&vol, &disk.dev, sector) ||
+         fat12_read_fat(&vol, fat, sizeof fat) ||
+         fat12_resolve_path(&vol, sector, fat, sizeof fat, normalized, &dir, &result)) {
+-        fprintf(stderr, "STAMP ERROR: cannot resolve %s\n", name); exit(2);
++        fprintf(stderr, "STAMP ERROR: cannot resolve %s\n", name); exit(1);
+     }
+     blockdev_file_close(&disk);
+     return result;

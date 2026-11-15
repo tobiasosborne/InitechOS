@@ -278,6 +278,6 @@ HOST_TESTS += test-verdict-controls
 test-verdict-controls_SRCS := tests/runner.c
 test-verdict-controls_COUNT_PATTERN := ^INITECH_CHECKS ([0-9]+) failures=[0-9]+$$
 test-verdict-controls_ARGS := tests/run.sh test-verdict-controls
-test-verdict-controls_DEPS := tests/gates/test-verdict-controls.sh tests/assertions.sh
+test-verdict-controls_DEPS := $(OUT)/host/tool_dos_parity_host tests/gates/test-verdict-controls.sh tests/assertions.sh
 
 include $(TOP)/mk/host-test.mk

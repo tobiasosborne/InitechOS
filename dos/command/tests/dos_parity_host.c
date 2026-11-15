@@ -60,7 +60,7 @@ static dir_entry_t entry(const char *image, const char *name)
     if (blockdev_file_open(&disk, image) || fat12_mount(&vol, &disk.dev, sector) ||
         fat12_read_fat(&vol, fat, sizeof fat) ||
         fat12_resolve_path(&vol, sector, fat, sizeof fat, normalized, &dir, &result)) {
-        fprintf(stderr, "STAMP RED: cannot resolve %s\n", name); exit(1);
+        fprintf(stderr, "STAMP ERROR: cannot resolve %s\n", name); exit(2);
     }
     blockdev_file_close(&disk);
     return result;
