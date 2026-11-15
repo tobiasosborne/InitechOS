@@ -29,7 +29,8 @@
  * The context "base" is the fresh launch itself.
  *
  * EFFECT names what must change (several joined by '+'): screen (the
- * complete paint of a forced update, window list and dialog items), scrap,
+ * complete paint of a forced update, the window list with each scroll bar's
+ * range and value, and dialog items), scrap,
  * file (every byte on the host volume), exit, alert, dialog (standard file
  * or FILE COPY state), beep, settings (the OS settings record and clock) or
  * menu (the installed bar's rows and enable bytes). Liveness is judged only
@@ -109,6 +110,9 @@ static void sw_event(int what, int32_t msg, int mods, int x, int y)
     (void)tbx_host_dispatch(tbx_app_event);
 }
 
+/* What a scroll bar shows is its range and value: a document shorter than
+ * the content area has range 0 however long it is (the gate's clamp). */
+static long sw_range(int len) { return len > tbx_host.ch ? len - tbx_host.ch : 0; }
 static sw_snap_t sw_snap(void)
 {
     sw_snap_t s; uint64_t h = 1469598103934665603ull;
@@ -124,9 +128,9 @@ static sw_snap_t sw_snap(void)
         h = sw_int(h, tbx_host.windows[w].l); h = sw_int(h, tbx_host.windows[w].t);
         h = sw_int(h, tbx_host.windows[w].r); h = sw_int(h, tbx_host.windows[w].b);
         h = sw_str(h, tbx_host.windows[w].title);
-        h = sw_int(h, tbx_host.windows[w].scroll_len); h = sw_int(h, tbx_host.windows[w].scroll_val);
+        h = sw_int(h, sw_range(tbx_host.windows[w].scroll_len)); h = sw_int(h, tbx_host.windows[w].scroll_val);
     }
-    h = sw_int(h, tbx_host.scroll_len); h = sw_int(h, tbx_host.scroll_val);
+    h = sw_int(h, sw_range(tbx_host.scroll_len)); h = sw_int(h, tbx_host.scroll_val);
     if (tbx_host.dialog_items)
         for (unsigned i = 0; i < tbx_host.dialog_count; i++) {
             const cp_item_t *d = &tbx_host.dialog_items[i];

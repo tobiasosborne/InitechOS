@@ -32,8 +32,8 @@ This implements GM4 and the operator's phase-2 original-name preservation
 ruling for failed opens; it does not extend the shared save transaction's
 rollback guarantees (sdk/include/tbx_save.h remains owned by SDK).
 
-make test runs the 127-check routing regression on sdk/host and a
-disk-backed load/conservation regression, both in <1s.
+make test runs the 127-check routing regression on sdk/host, a
+disk-backed load/conservation regression and the GM4 command sweep, in <1s.
 Expectations are authored from the real-Mac SimpleText mint-results-007 and
 Inside Macintosh contracts cited in the source; this is a unit/regression
 suite, not a binary or pixel differential. The load suite uses pinned T01..T05
@@ -44,8 +44,9 @@ one-/three-/four-byte reads, line-end normalization across chunks, empty and
 capacity inputs, seek/read/close failures, early EOF after a prefix, and real
 growth/shrinkage through a separate host descriptor during the load (including
 empty-to-nonempty and growth past capacity). The EOF probe must also succeed.
-make mutants kills thirteen patches, including partial-input publication,
-bypassing the final EOF check and reinserting a disabled Print command.
+make mutants kills fourteen patches, including partial-input publication,
+bypassing the final EOF check, reinserting a disabled Print command and a
+dead Save As that the command sweep catches.
 make smoke launches
 from the Finder on QEMU and Bochs, edits alpha CR bravo, saves UNTITLED on
 QEMU and Bochs, checks exact bytes with mtools/cmp and checks the volume with fsck.fat.
@@ -55,6 +56,50 @@ Remaining legacy SimpleText pixel/scroll emulator gates belong to factory.
 Initial windows meet the single menu bar (operator ruling, CLAUDE.md
 "Hazards that are still true"). Host routing checks their structure top
 against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.
+
+GM4 dead-command sweep (test_itext_commands, tests/command_sweep.h): the
+block below is the frozen inventory as data. The sweep checks the installed
+bar in every context, chooses each row where it must work, sends its command
+key as the shell does, and sends every character byte and key code under each
+modifier, so any key that changes anything must be listed and every listed key
+must work, judged only from the host Toolbox record. Shift and Option do not
+change a key; Control is Command and reaches only the menus. Tab, Delete and
+the bytes from 7F up are not typed (Paste keeps them).
+
+<!-- command-inventory TEXT.EXE -->
+Context: typed = type ab\rcd
+Context: selected = type alpha; menu Edit/Select All
+Context: clip = scrap alpha
+Context: middle = type ab\rcd\ref; key v48; key v4B
+Context: opened = file A.TXT alpha; menu File/Open...; sfreply A.TXT
+Context: openedtyped = file A.TXT alpha; menu File/Open...; sfreply A.TXT; type x
+Title: File | 8
+Menu: File | New | N | opened | screen
+Menu: File | Open... | O | base | dialog
+Menu: File | -
+Menu: File | Close | W | base | exit
+Menu: File | Save | S | openedtyped | file
+Menu: File | Save As... | - | base | dialog
+Menu: File | -
+Menu: File | Quit | Q | base | exit
+Title: Edit | 7
+Menu: Edit | Undo | Z | typed | screen
+Menu: Edit | -
+Menu: Edit | Cut | X | selected | screen+scrap
+Menu: Edit | Copy | C | selected | scrap
+Menu: Edit | Paste | V | clip | screen
+Menu: Edit | Clear | - | selected | screen
+Menu: Edit | Select All | A | typed | screen
+Absent: File | Page Setup...
+Absent: File | Print...
+Absent: File | Print One Copy
+Key: none | c0A c0D c20-7E | base | screen
+Key: none | c08 v48 v4B v4D v50 | middle | screen
+Key: shift | c0A c0D c20-7E | base | screen
+Key: shift | c08 v48 v4B v4D v50 | middle | screen
+Key: option | c0A c0D c20-7E | base | screen
+Key: option | c08 v48 v4B v4D v50 | middle | screen
+<!-- end-command-inventory -->
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate

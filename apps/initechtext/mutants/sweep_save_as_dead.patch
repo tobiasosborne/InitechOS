@@ -1,0 +1,11 @@
+--- a/itext.c
++++ b/itext.c
+@@ -550,7 +550,7 @@
+         case F_CLOSE:
+         case F_QUIT:   guarded(ACT_QUIT, " before quitting?"); break;
+         case F_SAVE:   save(ACT_NONE); break;
+-        case F_SAVEAS: save_as(ACT_NONE); break;
++        case F_SAVEAS: break;
+         default: break;
+         }
+     } else if (id == MENU_EDIT) {

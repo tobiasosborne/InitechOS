@@ -3,7 +3,7 @@ COMPONENT := apps/initechtext
 include $(TOP)/mk/config.mk
 FLAIR_INC := -I$(TOP)/flair/include -I$(TOP)/build/flair/generated -I$(TOP)/flair/include/assets -I$(TOP)/flair/region/include
 HOST_INCLUDES := -I. -Iinclude -I$(TOP)/sdk/include -I$(TOP)/sdk/host $(FLAIR_INC)
-HOST_TESTS := test_itext_route test_itext_load
+HOST_TESTS := test_itext_route test_itext_load test_itext_commands
 # Temporary HOST binding: removed when FLAIR publishes its hosted TextEdit library.
 # Exact files: flair/textedit.c, flair/scrap.c. Target uses libflair.a below.
 test_itext_route_SRCS := tests/test_itext_route.c $(TOP)/flair/textedit.c $(TOP)/flair/scrap.c
@@ -15,6 +15,12 @@ test_itext_load_LIBS := $(TOP)/build/sdk/host/libtbx_host.a
 test_itext_load_DEPS := $(TOP)/build/sdk/host/libtbx_host.a
 test_itext_load_ARGS := $(TOP)/apps/initechtext/tests/conformance/fixtures
 test_itext_load_COUNT_PATTERN := ^test_itext_load: ([0-9]+) checks.*$$
+# GM4 dead-command sweep: the README's frozen inventory is its input.
+test_itext_commands_SRCS := tests/test_itext_commands.c $(TOP)/flair/textedit.c $(TOP)/flair/scrap.c
+test_itext_commands_LIBS := $(TOP)/build/sdk/host/libtbx_host.a
+test_itext_commands_DEPS := $(TOP)/build/sdk/host/libtbx_host.a
+test_itext_commands_CFLAGS := -DSWEEP_README='"$(CURDIR)/README.md"'
+test_itext_commands_COUNT_PATTERN := ^test_itext_commands: ([0-9]+) checks.*$$
 include $(TOP)/mk/host-test.mk
 TENANT := text
 TENANT_EXE := TEXT.EXE

@@ -101,6 +101,9 @@ static void menu_hit(int id, int item) { hev(TBX_EVT_MENU, TBX_MENU_WORD(id, ite
 static void alert_answer(int item) { hev(TBX_EVT_ALERT, item, 0, 0, 0); }
 static void sf_answer(const char *path)
 {
+    /* No open dialog to answer is a failure of the route under test, not a
+     * crash of the test (a crash cannot kill a mutant). */
+    if (!m_sf || !m_sf_reply) { CHECK(0, R_ROUTE, "a standard file dialog is open to answer"); return; }
     if (path) snprintf(m_sf_reply, TBX_SF_REPLY_BYTES, "%s", path);
     m_sf = 0;
     hev(TBX_EVT_SFREPLY, path ? 1 : 0, 0, 0, 0);
