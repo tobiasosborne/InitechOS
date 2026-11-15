@@ -27,4 +27,18 @@ sed -n '/^PERCENT=/p' "$ref/files/TRACE.TXT" > build/expected
 build/batch_fat build/actual.img build/lines > build/actual || fail 'PERCENT host run failed'
 cmp build/expected build/actual || fail 'unmatched percent differs from captured output'
 echo 'GREEN batch expand percent: %% collapses and unmatched % contributes no bytes'
-echo 'INITECH_CHECKS 2 failures=0'
+
+# Interactive ground truth (compat33 INTERACT, genuine DOS 3.30 at the
+# prompt): %VAR% and %% are NOT expanded interactively; env expansion is
+# the batch path only. The same screen grades IBAT.BAT's unmatched-%
+# variants in a batch: each A=..E= line is the genuine batch output for
+# the IBAT input recorded in the capture image.
+ref=dos/command/tests/compat33/expected/INTERACT
+gzip -dc "$ref/data.img.gz" > build/actual.img
+mtype -i build/actual.img ::IBAT.BAT | tr -d '\r' | grep '^echo [A-D]=' > build/lines
+sed -n 's/^\([A-D]=\[[^]]*\]\).*$/\1/p' "$ref/result.txt" > build/expected
+build/batch_fat build/actual.img build/lines > build/actual || fail 'IBAT host run failed'
+tr -d '\r' < build/actual > build/text
+cmp build/expected build/text || fail 'batch unmatched-percent variants differ from genuine DOS screen'
+echo 'GREEN batch expand unmatched variants: IBAT A-D match the genuine DOS capture'
+echo 'INITECH_CHECKS 3 failures=0'

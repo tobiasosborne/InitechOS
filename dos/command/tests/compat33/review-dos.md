@@ -48,6 +48,7 @@ they are not defects. The report does not normalize meaningful formatting or
 | BATCH: SHIFT with a tenth supplied argument | `%0=one`, `%1=two`, `%2=three`, `%9=ten` | First three match; `%9` is empty | P1, existing `initech-tyvt` (tracker still has its earlier P3/docs classification) |
 | BATCH: unset ABSENT then ECHO [%ABSENT%] | `MISSING=[]` | `MISSING=[%ABSENT%]` | P1, existing `initech-xfg8` |
 | BATCH: %% and a trailing unmatched percent | `PERCENT=[%][trailing]` | `PERCENT=[%][trailing%]` | P1, existing `initech-xfg8` |
+| INTERACT (2026-11-15, interact-capture.sh): `SET ZZ=hello`, then at the prompt `ECHO [%ZZ%]`, `ECHO [%ABSENT%]`, `ECHO 100%%`, `FOR %F IN (ONE TWO) DO ECHO F=[%F]` | All literal (`[%ZZ%]`, `[%ABSENT%]`, `100%%`); FOR substitutes per member (`F=[ONE]`, `F=[TWO]`) | Interactive lines are never expanded (batch path only); FOR substitutes its variable | Matching: no interactive %VAR%/%% expansion in DOS 3.30; closes the interactive question of `initech-xfg8`. IBAT batch unmatched variants on the same screen: `[hello%]`→`[hello]`, `[%XYZ]`→`[XYZ]`, `[50% done]`→`[50 done]`, `[trailing%]`→`[trailing]`, `[%ZZ%]`→`[hello]` |
 | BATCH: IF x==X / IF NOT x==X | Case-sensitive comparison; CASE-OK only | Same | Matching control |
 | BATCH: IF EXIST *.TXT | Prints WILDCARD-EXISTS | False despite matching files | P1, `initech-upa66` |
 | BATCH: IF EXIST SUB for a bare directory | False | False | Matching control; do not invent a directory-exists expectation |

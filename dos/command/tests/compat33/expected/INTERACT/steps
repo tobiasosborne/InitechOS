@@ -1,0 +1,64 @@
+wait INTERACT-READY
+sleep 1
+type SET ZZ=hello
+key ret
+sleep 1
+type ECHO 
+key bracket_left
+key shift-5
+type ZZ
+key shift-5
+key bracket_right
+type  
+key shift-dot
+type INT.TXT
+key ret
+sleep 1
+type ECHO 
+key bracket_left
+key shift-5
+type ABSENT
+key shift-5
+key bracket_right
+type  
+key shift-dot
+key shift-dot
+type INT.TXT
+key ret
+sleep 1
+type ECHO 100
+key shift-5
+key shift-5
+type  
+key shift-dot
+key shift-dot
+type INT.TXT
+key ret
+sleep 1
+type FOR 
+key shift-5
+type F IN (ONE TWO) DO ECHO F=
+key bracket_left
+key shift-5
+type F
+key bracket_right
+type  
+key shift-dot
+key shift-dot
+type INT.TXT
+key ret
+sleep 1
+type ECHO INT-DONE 
+key shift-dot
+key shift-dot
+type INT.TXT
+key ret
+sleep 1
+type IBAT 
+key shift-dot
+type INTB.TXT
+key ret
+sleep 1
+sleep 2
+shot result
+end

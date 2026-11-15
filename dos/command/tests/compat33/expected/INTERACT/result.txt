@@ -1,0 +1,25 @@
+INTERACT-READY                                                                  
+B>SET ZZ=hello                                                                  
+                                                                                
+B>ECHO [%ZZ%] >INT.TXT                                                          
+                                                                                
+B>ECHO [%ABSENT%] >>INT.TXT                                                     
+                                                                                
+B>ECHO 100%% >>INT.TXT                                                          
+                                                                                
+B>FOR %F IN (ONE TWO) DO ECHO F=[%F] >>INT.TXT                                  
+                                                                                
+B>ECHO F=[ONE]                                                                  
+                                                                                
+B>ECHO F=[TWO]                                                                  
+                                                                                
+B>ECHO INT-DONE >>INT.TXT                                                       
+                                                                                
+B>IBAT >INTB.TXT                                                                
+A=[hello]                                                                       
+B=[XYZ]                                                                         
+C=[50 done]                                                                     
+D=[trailing]                                                                    
+E=[hello]                                                                       
+IBAT-DONE                                                                       
+B>                                                                              

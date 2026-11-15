@@ -1,0 +1,6 @@
+[%ZZ%] 
+[%ABSENT%] 
+100%% 
+F=[ONE] 
+F=[TWO] 
+INT-DONE 
