@@ -23,8 +23,8 @@ header, separate guard and stack. The old conventional compiler placement
 gates are replaced by these real limits. Small programs retain their flat
 runtime/link route. The warm complete Turbo suite takes about 20 seconds.
 Runtime is a checked-in NASM byte table with a tier-0 regeneration comparison;
-see compiler/NATIVE.md. The 15 compiler patches include five native
-encoder/fixup/relocation/layout and three generated-execution patches.
+see compiler/NATIVE.md. The 17 compiler patches include five native
+encoder/fixup/relocation/layout and five generated-execution patches.
 
 `make smoke` builds the product image and uses separate FAT12 TEST disks.
 QEMU and Bochs each execute all 17 corpus programs and 19 regressions through
@@ -104,10 +104,12 @@ GOLDEN-MASTER.md item-7 work, including the IDE.
 Seed and compiler entries emit explicit assertions under `tests/entries.sh`.
 The adapter requires a positive completed summary consistent with exit status;
 setup failures, harness timeouts and absent serial are errors, never kills.
-Host-only controls in `tests/` include a catch-all-exit mutation. Fresh host
-proof kills 4 seed, 12 compiler and all 17 IDE patches; the 21 emulator-selected
-patches await the strict certificate reservation (initech-kkqbw). The earlier
-20/20 and 17/17 totals used the rejected exit-1 adapter and are superseded.
+Host-only controls in `tests/` include a catch-all-exit mutation. Fresh strict
+sweeps kill all 20 seed and 17 compiler patches with zero survivors or errors;
+all 17 IDE patches and the assertion-control patch also have semantic kills.
+The comment-only control survives, while injected NASM/FPC failures, missing
+serial and harness timeouts are errors with zero kills (initech-kkqbw).
+These results replace the earlier totals from the rejected exit-1 adapter.
 
 ## Runtime for the IDE (stage B, initech-n6r9v)
 
