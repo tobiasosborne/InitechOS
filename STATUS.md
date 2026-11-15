@@ -102,7 +102,7 @@ consolidation and start route (GM8), the manuals.
 
 ## Who holds what (one writer per directory)
 
-Assigned by phase 3's orchestrator (2026-11-15, updated 08:30). Each
+Assigned by phase 3's orchestrator (2026-11-15, updated 11:05). Each
 owner lands its own work; requests to another owner go in the
 requester's handoff.
 
@@ -110,16 +110,19 @@ requester's handoff.
   initech-wkp2p; IDE saves are write-aside since b07b6460).
 - `apps/initechbase/`: the forms owner (initech-p3nn0 stage 4, uctfu).
 - `dos/`: the DOS owner.
-- `kernel/`, `system/`, `apps/initech123/`: the delivery owner (the C:
-  consolidation; red test initech-1npv1).
+- `kernel/`, `system/`: the delivery owner (the C: consolidation).
+- `apps/initech123/`: the Initech 123 owner (C: menu path, suite budget,
+  li7r).
 - `flair/`, `flair/desktop/`, `apps/initechword/`: the desktop owner
   (shutdown wait qv7t, FILE COPY colours, gate tracing, C: binding).
 - `apps/notepad/`, `apps/calculator/`, `apps/controlpanels/`,
   `apps/initechtext/`, `apps/initechpaint/`: the small apps owner.
 - Shared places `factory/`, `mk/`, `sdk/`, top Makefile: the factory
   owner (runner, forms replay, frame captures, SDK requests).
+- `apps/notepad/`, small apps: as above (second owner, k2rix, gmyxm).
 - Free: `apps/initechcalc/` and `goldens/frame/` (the frame line waits
-  on the Drive A seed, Bochs captures and slice blue), `boot/`.
+  on the Drive A seed in the image, Bochs captures and slice blue),
+  `boot/`.
 
 ## Notes for this week
 
