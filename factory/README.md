@@ -227,7 +227,9 @@ absolute capture paths in long checkouts; allocation failure fails the run.
 There is no total 4095-byte script limit. Chords, paths and waits retain their
 individual protocol bounds and reject excess or trailing data. The actual QMP
 regression checks 4095/4096/6001 bytes, an impossible mandatory suffix after
-4100 separators, and invalid suffixes with no prefix delivery. The live bisect
+4100 separators, invalid suffixes with no prefix delivery, and the bracket
+keys `bracket_left`/`bracket_right` (with shift, `{` `}`), added for the
+DOS 3.30 INTERACT replay (initech-kvwmq). The live bisect
 control is `sh factory/tests/trace-suffix.sh` against the ordinary product image.
 Finder journeys open APPS by name and launch the exact full EXE name after
 clearing the timed type-ahead prefix with Up. Finder reveals selected offscreen

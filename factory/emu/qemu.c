@@ -844,7 +844,8 @@ static const char *token_to_qcode(const char *tok)
      * comma, apostrophe. */
     if (strcmp(tok, "semicolon") == 0 || strcmp(tok, "slash") == 0 ||
         strcmp(tok, "comma") == 0 || strcmp(tok, "equal") == 0 ||
-        strcmp(tok, "apostrophe") == 0) {
+        strcmp(tok, "apostrophe") == 0 ||
+        strcmp(tok, "bracket_left") == 0 || strcmp(tok, "bracket_right") == 0) {
         return tok;
     }
     /* '\' for an ABSOLUTE DOS path like "\SUB\GREET" (beads initech-zs24: the

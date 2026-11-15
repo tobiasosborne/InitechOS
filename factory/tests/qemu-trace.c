@@ -29,6 +29,20 @@ int main(void)
     check(qmp_inject_mouse(fd[0],trace,NULL,NULL,NULL,NULL)<0,
           "mandatory assertion after byte 4103 was dropped");
     close(fd[0]);close(fd[1]);
+    /* '[' and ']' (and '{' '}' as shift chords) for the genuine DOS 3.30
+     * INTERACT capture replay (initech-kvwmq). Ref: qapi/ui.json QKeyCode
+     * bracket_left, bracket_right. */
+    check(token_to_qcode("bracket_left") && !strcmp(token_to_qcode("bracket_left"),"bracket_left") &&
+          token_to_qcode("bracket_right") && !strcmp(token_to_qcode("bracket_right"),"bracket_right"),
+          "bracket keys map to their QKeyCodes");
+    if(socketpair(AF_UNIX,SOCK_STREAM,0,fd))return 2;
+    {
+        int unknown=0;
+        check(qmp_inject_keys(fd[0],"bracket_left,bracket_right,shift-bracket_left,shift-bracket_right",
+                              &unknown,NULL,NULL,NULL)==4 && !unknown,
+              "bracket keys and shifted braces injected");
+    }
+    close(fd[0]);close(fd[1]);
     const char *bad[]={"m1:2garbage","mno:0","m2147483648:0","w1bad",
         "w30001","l2","Kbogus:0","Kctrl:2","kctrl-no-such-key","garbage","W","D","S"};
     for(unsigned i=0;i<sizeof bad/sizeof *bad;i++) {
@@ -71,6 +85,6 @@ int main(void)
         close(fd[0]);close(fd[1]);
     }
     unlink(serial);
-    if(!failed)puts("ok QEMU trace: 4095/4096/6001 bytes, required suffix retained; invalid input rejected before delivery; W markers consumed in order as whole names");
+    if(!failed)puts("ok QEMU trace: 4095/4096/6001 bytes, required suffix retained; invalid input rejected before delivery; bracket keys injectable; W markers consumed in order as whole names");
     return failed;
 }
