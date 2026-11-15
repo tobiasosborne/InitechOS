@@ -25,6 +25,7 @@
 #include "int21.h"        /* int21_set_exit / int21_exit_fn (the repointed hook) */
 #include "fat12.h"        /* FAT-sourced load (beads initech-saw): find + read file */
 #include "psp.h"          /* psp_save_vectors / psp_load_vectors (beads 509.8)    */
+#include "mcb.h"          /* separate reserved low controls for the high owner */
 #define TBX_TENANT_BSS_MAX (512u*1024u)
 #define TBX_TENANT_PSP_BYTES 256u /* Existing native tenant PSP layout. */
 static void loader_move_down(uint8_t *dst,const uint8_t *src,uint32_t n)
@@ -736,7 +737,8 @@ static loader_status_t loader_run_plan(loader_plan_t *plan_in, int do_copy,
          * a nested EXEC, or a top-level EXEC placed above a resident (bead
          * initech-6fdt). Reinitializing that chain would destroy the caller's
          * live heap or a resident's blocks. IBM DOS 3.30 TR pp. 11-4/5;
-         * ADR-0003 DEC-03. */
+         * ADR-0003 DEC-03. Extended controls own their separate reserved MCB;
+         * their conventional children use this existing caller chain too. */
     } else if (plan.arena_present) {
         (void)int21_mcb_bind_program(plan.arena_base, plan.arena_ceil);
     } else {
@@ -1320,7 +1322,8 @@ static loader_status_t loader_load_high(const dir_entry_t *de,const mz_image_t *
 {
     loader_plan_t plan;
     loader_ovl_source_t source={*de,0};
-    uint32_t psp=0,end=0;
+    uint32_t psp=EXT_APP_CONTROL_PSP;
+    mcb_arena_t control;
     loader_status_t st=loader_high_plan(img,tail,tail_len,&plan);
     if(st!=LOADER_OK) return st;
     if(loader_ovl_fat_check(&source)!=0) return LOADER_ERR_READ;
@@ -1328,15 +1331,16 @@ static loader_status_t loader_load_high(const dir_entry_t *de,const mz_image_t *
     if(st!=LOADER_OK) return st;
     if(!g_load.depth) {
         uint32_t above=int21_tsr_top();
-        if(!int21_mcb_bind_program(above>PROGRAM_BASE ? (above+15u)&~15u : PROGRAM_BASE,
+        if(!int21_mcb_bind_program(above>PROGRAM_BASE ? (above+15u)&~15u : PROGRAM_MCB_BASE,
                                    PROGRAM_ARENA_CEIL)) return LOADER_ERR_NOMEM;
     }
-    if(int21_mcb_exec_alloc(0,&psp,&end)!=0) return LOADER_ERR_NOMEM;
-    /* Return ALL unused conventional space for nested conventional children. */
-    if(int21_mcb_exec_trim(psp,psp+0x1100u)!=0) {
-        int21_mcb_exec_free(psp); return LOADER_ERR_NOMEM;
-    }
-    plan.psp_addr=psp; plan.params.alloc_end_linear=psp+0x1100u;
+    /* A separate reserved one-block arena preserves the ENTIRE native flat
+     * image/BSS/stack contract, not merely the child's entry address. The
+     * bootstrap stack/staging reservation is abandoned before the kernel runs
+     * (kstart.asm; initech-fc4c3). g_high_live excludes a second owner. */
+    mcb_init(&control,(void *)(uintptr_t)EXT_APP_CONTROL_BASE,0x111u);
+    (void)mcb_set_arena_owner(&control,(uint16_t)(psp >> 4));
+    plan.psp_addr=psp; plan.params.alloc_end_linear=EXT_APP_CONTROL_CEIL;
     g_high_live=1;
 #ifdef LOADER_TEST_HIGH_DIRTY
     /* Oracle-only arbitrary cold RAM, alternating on repeated launches. */
@@ -1362,6 +1366,9 @@ static loader_status_t loader_load_high(const dir_entry_t *de,const mz_image_t *
     for(uint32_t i=EXT_APP_GUARD_BASE;i<EXT_APP_STACK_BOT;i+=4)
         if(*(uint32_t *)(uintptr_t)i!=EXT_APP_GUARD_WORD) __builtin_trap();
     for(uint32_t i=EXT_APP_BASE;i<EXT_APP_CEIL;i++) *(uint8_t *)(uintptr_t)i=0;
+    (void)mcb_free_owner(&control,(uint16_t)(psp >> 4));
+    for(uint32_t i=EXT_APP_CONTROL_BASE;i<EXT_APP_CONTROL_CEIL;i++)
+        *(uint8_t *)(uintptr_t)i=0;
     g_high_live=0;
     int21_mcb_exec_free(psp);
     return st;

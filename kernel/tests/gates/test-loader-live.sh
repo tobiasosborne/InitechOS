@@ -8,7 +8,7 @@ mcopy -i build/loader-live/input.img build/loader-live/*.COM build/loader-live/*
 mmd -i build/loader-live/input.img ::SUB
 mcopy -i build/loader-live/input.img build/loader-live/RAW.COM ::SUB/ONLY.COM
 cp build/loader-live/input.img build/loader-live/before.img
-for mode in arena high-plan subdir cwd inplace high-owner high-reclaim nested-fixed nested-pic nested-invalid resident-flat resident-reloc; do
+for mode in arena high-plan subdir cwd inplace high-owner high-reclaim high-reclaim-failure high-canonical low-high nested-fixed nested-pic nested-invalid resident-flat resident-reloc resident-high; do
  printf 'loader live case: %s\n' "$mode"
  build/test_loader_live "$mode" build/loader-live/input.img
 done

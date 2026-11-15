@@ -1,0 +1,35 @@
+# test: test-loader-live
+--- a/loader.c
++++ b/loader.c
+@@ -1322,7 +1322,7 @@
+ {
+     loader_plan_t plan;
+     loader_ovl_source_t source={*de,0};
+-    uint32_t psp=EXT_APP_CONTROL_PSP;
++    uint32_t psp=0,end=0;
+     mcb_arena_t control;
+     loader_status_t st=loader_high_plan(img,tail,tail_len,&plan);
+     if(st!=LOADER_OK) return st;
+@@ -1331,16 +1331,20 @@
+     if(st!=LOADER_OK) return st;
+     if(!g_load.depth) {
+         uint32_t above=int21_tsr_top();
+-        if(!int21_mcb_bind_program(above>PROGRAM_BASE ? (above+15u)&~15u : PROGRAM_MCB_BASE,
++        if(!int21_mcb_bind_program(above>PROGRAM_BASE ? (above+15u)&~15u : PROGRAM_BASE,
+                                    PROGRAM_ARENA_CEIL)) return LOADER_ERR_NOMEM;
+     }
++    if(int21_mcb_exec_alloc(0,&psp,&end)!=0) return LOADER_ERR_NOMEM;
++    if(int21_mcb_exec_trim(psp,psp+0x1100u)!=0) {
++        int21_mcb_exec_free(psp); return LOADER_ERR_NOMEM;
++    }
+     /* A separate reserved one-block arena preserves the ENTIRE native flat
+      * image/BSS/stack contract, not merely the child's entry address. The
+      * bootstrap stack/staging reservation is abandoned before the kernel runs
+      * (kstart.asm; initech-fc4c3). g_high_live excludes a second owner. */
+     mcb_init(&control,(void *)(uintptr_t)EXT_APP_CONTROL_BASE,0x111u);
+     (void)mcb_set_arena_owner(&control,(uint16_t)(psp >> 4));
+-    plan.psp_addr=psp; plan.params.alloc_end_linear=EXT_APP_CONTROL_CEIL;
++    plan.psp_addr=psp; plan.params.alloc_end_linear=psp+0x1100u;
+     g_high_live=1;
+ #ifdef LOADER_TEST_HIGH_DIRTY
+     /* Oracle-only arbitrary cold RAM, alternating on repeated launches. */

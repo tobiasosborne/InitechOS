@@ -1,6 +1,7 @@
 /* Machine placement contract; derived from legacy-final spec/memory_map.h.
  * Kernel overlay/transient reservations retired: image and BSS may extend to
- * the fixed stack at 0x5f0000. Conventional program/native heap unchanged. */
+ * the fixed stack at 0x5f0000. Conventional images retain their canonical base;
+ * the low window also reserves the immediately preceding MCB paragraph. */
 
 #ifndef INITECH_SPEC_MEMORY_MAP_H
 #define INITECH_SPEC_MEMORY_MAP_H
@@ -18,6 +19,9 @@
     (((EXT_APP_CEIL) - 0x00100000u) / 1024u)
 
 #define PROGRAM_BASE        0x00040000u
+/* A real MCB immediately precedes the canonical PSP when an extended parent
+ * leaves conventional memory to its child (initech-fc4c3). */
+#define PROGRAM_MCB_BASE    (PROGRAM_BASE - 16u)
 
 #define PROGRAM_IMAGE       0x00040100u
 
@@ -41,6 +45,19 @@
 
 #define LOAD_STAGING_BASE   0x00080000u
 #define LOAD_STAGING_MAX    0x00010000u   
+
+/* Retired staging RAM; boot/io_sys.asm verifies coverage through90000 and
+ * kstart.asm abandons the bootstrap stack before C runs. One extended owner
+ * keeps its low PSP/environment here, outside the flat BSS and stack windows. */
+#define EXT_APP_CONTROL_CEIL (LOAD_STAGING_BASE + LOAD_STAGING_MAX)
+#define EXT_APP_CONTROL_BASE (EXT_APP_CONTROL_CEIL - 0x1110u)
+#define EXT_APP_CONTROL_PSP  (EXT_APP_CONTROL_BASE + 16u)
+_Static_assert(PROGRAM_ALLOC_END <= EXT_APP_CONTROL_BASE,
+               "extended controls must not overlap flat image, BSS, env or stack");
+_Static_assert(EXT_APP_CONTROL_BASE >= LOAD_STAGING_BASE,
+               "extended controls must fit the retired staging reservation");
+_Static_assert(EXT_APP_CONTROL_CEIL <= 0x90000u,
+               "extended controls must fit the boot-verified low RAM");
 
 #define FLAIR_HEAP_BASE     0x00100000u
 #define FLAIR_HEAP_SIZE     0x00400000u
@@ -66,7 +83,7 @@ _Static_assert(KERNEL_STACK_TOP + 4u <= FLAIR_HEAP_BASE ||
 
 #define MMAP_WIN_LO_BOUNCE      KERNEL_BOUNCE_BASE
 #define MMAP_WIN_HI_BOUNCE      (KERNEL_BOUNCE_BASE + KERNEL_BOUNCE_CAP)
-#define MMAP_WIN_LO_PROGRAM     PROGRAM_BASE
+#define MMAP_WIN_LO_PROGRAM     PROGRAM_MCB_BASE
 #define MMAP_WIN_HI_PROGRAM     PROGRAM_ALLOC_END
 #define MMAP_WIN_LO_STAGING     LOAD_STAGING_BASE
 #define MMAP_WIN_HI_STAGING     (LOAD_STAGING_BASE + LOAD_STAGING_MAX)
@@ -132,4 +149,4 @@ static inline int flair_heap_ram_ok(unsigned long ext_mem_kb)
     return (ext_mem_kb >= (unsigned long)FLAIR_HEAP_REQUIRED_EXT_KB) ? 1 : 0;
 }
 
-#endif 
+#endif

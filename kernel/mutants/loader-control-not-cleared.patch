@@ -1,0 +1,12 @@
+# test: test-loader-live
+--- a/loader.c
++++ b/loader.c
+@@ -1368,7 +1368,7 @@
+     for(uint32_t i=EXT_APP_BASE;i<EXT_APP_CEIL;i++) *(uint8_t *)(uintptr_t)i=0;
+     (void)mcb_free_owner(&control,(uint16_t)(psp >> 4));
+     for(uint32_t i=EXT_APP_CONTROL_BASE;i<EXT_APP_CONTROL_CEIL;i++)
+-        *(uint8_t *)(uintptr_t)i=0;
++        *(uint8_t *)(uintptr_t)i=0x5au;
+     g_high_live=0;
+     int21_mcb_exec_free(psp);
+     return st;

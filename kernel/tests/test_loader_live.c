@@ -16,6 +16,7 @@ static inline uint8_t inb(uint16_t port) { (void)port;return 0x20; }
 static inline void outb(uint16_t port,uint8_t value) { (void)port;(void)value; }
 #include "loader.c"
 #include "fileio_fat.h"
+#include "mcb.h"
 #include "blockdev_file.h"
 #include "test_assert.h"
 TEST_HARNESS();
@@ -25,6 +26,8 @@ void idt_install_trap(uint8_t vec,void *handler) { vectors[vec]=(uintptr_t)handl
 void panic_show_reason(panic_reason_t reason,const char *detail) { (void)reason;(void)detail;abort(); }
 static const char *mode;
 static unsigned guest_calls;
+static uintptr_t parent_control;
+static uint8_t saved_controls[0x1110], saved_high[0x1ef000];
 static uint16_t want_directory;
 static sigjmp_buf recovery;
 static volatile sig_atomic_t active;
@@ -43,7 +46,56 @@ static void guest(void)
     guest_calls++;
     psp_t *psp=int21_get_psp();
     CHECK(psp!=NULL,"executing child has a real PSP");
+    if(!strcmp(mode,"low-high") && guest_calls==1) {
+        memcpy(saved_high,(void *)0x40000,0x10110);
+        uint32_t total_before,largest_before,total_after,largest_after;
+        CHECK(int21_mcb_stats(&total_before,&largest_before),"conventional caller has its own live chain");
+        uint8_t child_rc=0;
+        loader_status_t child=load_program_from_fat("HIGH.EXE",0,NULL,0,0,&child_rc);
+        CHECK(child==LOADER_OK && child_rc==7 && guest_calls==2,"extended child executes under a conventional caller");
+        CHECK(int21_get_psp()==psp && g_load.depth==1 && !g_high_live &&
+              !memcmp(saved_high,(void *)0x40000,0x10110),"extended child preserves complete conventional PSP/image/BSS");
+        CHECK(int21_mcb_stats(&total_after,&largest_after) && total_after==total_before && largest_after==largest_before,
+              "extended child preserves conventional caller's entire allocation capacity");
+    }
+    if(!strcmp(mode,"high-canonical") && guest_calls==1) {
+        parent_control=(uintptr_t)psp;
+        CHECK(parent_control==0x8ef00u,"extended controls are outside flat image, BSS and fixed stack windows");
+        mcb_t *owner=(mcb_t *)(parent_control-16u);
+        CHECK(owner->signature=='Z' && owner->owner==0x8ef0 && owner->size_paras==0x110,
+              "reserved controls have a real terminal MCB owned by their parent");
+        memcpy(saved_controls,(void *)(parent_control-16u),sizeof saved_controls);
+        memcpy(saved_high,(void *)0x600000,sizeof saved_high);
+        uint32_t total_before,largest_before,total_after,largest_after;
+        CHECK(int21_mcb_stats(&total_before,&largest_before),"parent arena is valid before nested fixed child");
+        uint8_t child_rc=0;
+        loader_status_t child=load_program_from_fat("RAW.COM",0,NULL,0,0,&child_rc);
+        CHECK(child==LOADER_OK && child_rc==7 && guest_calls==2,
+              "fixed-base child actually executes under extended parent and returns exit7");
+        CHECK(int21_get_psp()==psp && g_load.depth==1 && g_high_live,
+              "extended parent regains its PSP and active high context");
+        CHECK(!memcmp(saved_controls,(void *)(parent_control-16u),sizeof saved_controls),
+              "child preserves complete parent PSP/environment and owning MCB");
+        CHECK(!memcmp(saved_high,(void *)0x600000,sizeof saved_high),
+              "child preserves entire extended image, reserve and heap (excluding active stack)");
+        CHECK(int21_mcb_stats(&total_after,&largest_after) && total_after==total_before && largest_after==largest_before,
+              "nested fixed child returns all its conventional allocation");
+    } else if(!strcmp(mode,"high-canonical")) {
+        uintptr_t sp;__asm__ volatile("movl %%esp,%0":"=r"(sp));
+        CHECK((uintptr_t)psp==0x40000u,"nested fixed child sees canonical PSP40000 and image40100");
+        CHECK(sp>0x40110u && sp<0x6f000u,"initial child stack is inside its own conventional allocation");
+        /* Native flat CRTs zero BSS through6f000 and reset ESP to7fffc.
+         * Sources: turbo/compiler/NATIVE.md, seed/rt/start_dos.asm. */
+        *(uint32_t *)(uintptr_t)0x6effc=0x89abcdefu;
+        *(uint32_t *)(uintptr_t)0x7fff0=0x76543210u;
+    }
     if(!strncmp(mode,"nested-",7) && guest_calls==1) {
+        /* Occupy the lowest available block so refusal/PIC tests continue to
+         * exercise a DIFFERENT address after canonical IDE placement works. */
+        uint32_t held=0,held_end=0;
+        CHECK(int21_mcb_exec_alloc(0,&held,&held_end)==0 && int21_mcb_exec_trim(held,held+0x1100u)==0,
+              "fixture owns the lower image region before a relocated child");
+        *(uint32_t *)(uintptr_t)held=0x2468ace0u;
         psp_t saved=*psp;
         uint8_t child_rc=0;
         uint32_t total_before,largest_before,total_after,largest_after;
@@ -68,6 +120,8 @@ static void guest(void)
               "child EXEC preserves extended parent's owned data and residency");
         CHECK(int21_mcb_stats(&total_after,&largest_after) && total_after==total_before && largest_after==largest_before,
               "child completion or refusal restores parent's free arena without a leak");
+        CHECK(*(uint32_t *)(uintptr_t)held==0x2468ace0u,"child preserves the occupied lower allocation");
+        int21_mcb_exec_free(held);
     }
     if (!strcmp(mode,"cwd")) {
         int21_cwd_snapshot_t cwd=int21_cwd_save();
@@ -114,9 +168,10 @@ int main(int argc,char **argv)
     if(argc!=3)return 2;
     if(!strcmp(argv[1],"fixtures")) { fixtures(argv[2]);return 0; }
     mode=argv[1];
-    void *low=mmap((void *)0x40000,0x50000,PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED,-1,0);
+    void *low_map=mmap((void *)0x3f000,0x51000,PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED,-1,0);
+    void *low=(void *)0x40000;
     void *high=mmap((void *)0x600000,0x200000,PROT_READ|PROT_WRITE|PROT_EXEC,MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED,-1,0);
-    if(low==MAP_FAILED || high==MAP_FAILED)return 2;
+    if(low_map==MAP_FAILED || high==MAP_FAILED)return 2;
     sft_init();
     blockdev_file_t disk;fat12_volume_t vol;uint8_t sector[512];
     if(blockdev_file_open(&disk,argv[2]) || fat12_mount(&vol,&disk.dev,sector) || fileio_fat_bind(&vol))return 2;
@@ -158,30 +213,39 @@ int main(int argc,char **argv)
             int21_set_psp(NULL);
             CHECK(int21_tsr_top()==0x40200,"resident fixture retains 32 paragraphs");
             uint8_t before[512];memcpy(before,low,sizeof before);
-            name=!strcmp(mode,"resident-flat")?"RAW.COM":"MZ.EXE";
+            name=!strcmp(mode,"resident-flat")?"RAW.COM":!strcmp(mode,"resident-high")?"HIGH.EXE":"MZ.EXE";
             st=load_program_from_fat(name,0,NULL,0,0,&rc);
             CHECK(!memcmp(before,low,sizeof before),"EXEC preserves entire retained PSP/image range");
             if(!strcmp(mode,"resident-flat")) {
                 CHECK(st==LOADER_ERR_FIXED_BASE && guest_calls==0,"raw flat image refuses while resident owns fixed base");
             } else CHECK(st==LOADER_OK && rc==7 && guest_calls==1,"relocated child returns above resident");
         } else if(!strcmp(mode,"high-owner")) {
-            memset(high,0x5a,0x200000);g_high_live=1;
+            memset(high,0x5a,0x200000);memset((void *)0x8eef0,0xa5,0x1110);g_high_live=1;
             st=load_program_from_fat("HIGH.EXE",0,NULL,0,0,&rc);
             CHECK(st==LOADER_ERR_NOMEM && guest_calls==0,"second high image refuses occupied owner window");
             int intact=1;for(unsigned i=0;i<0x200000;i++)if(((uint8_t *)high)[i]!=0x5a)intact=0;
             CHECK(intact,"refused high EXEC preserves all existing owner bytes");
-        } else if(!strcmp(mode,"high-reclaim") || !strncmp(mode,"nested-",7)) {
-            st=load_program_from_fat("HIGH.EXE",0,NULL,0,0,&rc);
-            CHECK(st==LOADER_OK && rc==7 && guest_calls==(!strcmp(mode,"nested-pic")?2u:1u),
-                  "real high parent returns without an undeclared transfer");
+            intact=1;for(unsigned i=0;i<0x1110;i++)if(*(uint8_t *)(uintptr_t)(0x8eef0+i)!=0xa5)intact=0;
+            CHECK(intact,"refused high EXEC preserves complete existing low controls");
+        } else if(!strncmp(mode,"high-reclaim",12) || !strncmp(mode,"nested-",7) || !strcmp(mode,"high-canonical")) {
+            int failed=!strcmp(mode,"high-reclaim-failure");
+            if(failed)memset((void *)0x8eef0,0xa5,0x1110);
+            st=load_program_from_fat("HIGH.EXE",0,NULL,0,failed?0x1234:0,&rc);
+            if(failed) CHECK(st==LOADER_ERR_BAD_ENV && guest_calls==0 && g_load.depth==0,
+                            "failed pre-transfer preparation reclaims both owned windows");
+            else CHECK(st==LOADER_OK && rc==7 && guest_calls==(!strcmp(mode,"nested-pic") || !strcmp(mode,"high-canonical")?2u:1u),
+                       "real high parent returns without an undeclared transfer");
             CHECK(g_high_live==0,"returned high child releases single owner");
             int zero=1;for(unsigned i=0;i<0x200000;i++)if(((uint8_t *)high)[i])zero=0;
             CHECK(zero,"returned high child clears complete high window");
+            zero=1;for(unsigned i=0;i<0x1110;i++)if(*(uint8_t *)(uintptr_t)(0x8eef0+i))zero=0;
+            CHECK(zero,"successful or failed high EXEC clears its entire separate low control window");
         } else if(sigsetjmp(recovery,1)) {
             CHECK(0,"in-place EXEC must never copy from its NULL image source");
         } else {
             active=1;st=load_program_from_fat(name,directory,NULL,0,0,&rc);active=0;
-            CHECK(st==LOADER_OK && rc==7 && guest_calls==1,"disk child transfers and returns with literal exit7");
+            CHECK(st==LOADER_OK && rc==7 && guest_calls==(!strcmp(mode,"low-high")?2u:1u),
+                  "disk child transfers and returns with literal exit7");
         }
     }
     blockdev_file_close(&disk);

@@ -320,6 +320,30 @@ The real 32-bit transfer test covers fixed-base refusal, valid PIC execution,
 every damaged record byte, parent PSP/high-memory preservation, arena reclamation
 and unchanged disk bytes; ordinary top-level flat programs still execute.
 
+An extended InitechMZ program owns a separate terminal MCB at `0x8eef0`, PSP
+`0x8ef00` and 4096-byte environment `0x8f000..0x90000`. This is reserved former
+load-buffer RAM: no product code uses that staging buffer now; boot/io_sys.asm
+verifies RAM coverage through90000 and kstart.asm abandons its bootstrap stack
+before C runs. The native flat contract remains intact: turbo/compiler/NATIVE.md
+allows BSS through6f000 and seed/rt/start_dos.asm resets ESP to7fffc. Controls
+inside that BSS window could be overwritten by an otherwise valid flat child.
+
+Without a conventional caller/resident, one MCB paragraph at `0x3fff0` lets
+the free DOS arena give a nested child PSP40000, image40100 and an initial stack
+inside its own low allocation. Existing conventional callers/retained ranges
+keep their chain; an occupied fixed image base still refuses with0Bh. The child
+initially owns the largest free block and must shrink it before allocating
+another conventional heap block (IBM DOS3.30 TR pp.11-4/5). No new INT21 service
+is needed. This placement implements initech-fc4c3 / GOLDEN-MASTER item7.
+Memory Arena Summary describes the bound DOS allocation chain; the native high
+heap and reserved control block have separate ownership outside that chain.
+The existing single extended-owner guard protects both reserved windows;
+successful or failed preparation/return releases and clears both. The real
+transfer property preserves all parent controls and high image/reserve/heap,
+including a child writing the old BSS and stack boundaries, verifies the
+separate published MCB owner/layout and proves reclamation with unchanged disk
+bytes. Refused second owners conserve both windows byte for byte.
+
 Host gate setup creates the complete helper alias set with one C adapter call,
 retaining each gate's private directory. It no longer forks `ln` once for every
 helper in every gate. Replacement metadata checks batch the independent reader

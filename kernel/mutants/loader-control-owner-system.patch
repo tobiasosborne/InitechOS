@@ -1,0 +1,12 @@
+# test: test-loader-live
+--- a/loader.c
++++ b/loader.c
+@@ -1339,7 +1339,7 @@
+      * bootstrap stack/staging reservation is abandoned before the kernel runs
+      * (kstart.asm; initech-fc4c3). g_high_live excludes a second owner. */
+     mcb_init(&control,(void *)(uintptr_t)EXT_APP_CONTROL_BASE,0x111u);
+-    (void)mcb_set_arena_owner(&control,(uint16_t)(psp >> 4));
++    (void)mcb_set_arena_owner(&control,MCB_OWNER_SYSTEM);
+     plan.psp_addr=psp; plan.params.alloc_end_linear=EXT_APP_CONTROL_CEIL;
+     g_high_live=1;
+ #ifdef LOADER_TEST_HIGH_DIRTY
