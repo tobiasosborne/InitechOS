@@ -2,9 +2,9 @@
 # test: test-dos-volumes-host
 --- a/fileio_fat.c
 +++ b/fileio_fat.c
-@@ -73,7 +73,7 @@
- static fileio_mount_t g_mounts[3]; /* A, C, D; B is unassigned. */
+@@ -81,7 +81,7 @@
  static fileio_mount_t *g_mount = &g_mounts[0];
+ static unsigned g_system_drive;
  #define g_vol (g_mount->vol)
 -#define g_fat (g_mount->fat)
 +#define g_fat (g_mounts[0].fat)
