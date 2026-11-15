@@ -28,7 +28,7 @@ static int run_pipeline_or_redirect(const char *s)
         FILE *f=fopen(path,"rb"); if(!f)exit(2);
         size_t n=fread(expected,1,sizeof expected,f);fclose(f);
         if(!payload || n<2 || strlen(payload)!=n-2 || memcmp(payload,expected,n-2)) {
-            fprintf(stderr,"RED batch-physical: E%d differs from real DOS (command %zu, captured %zu)\n",number,payload ? strlen(payload):0,n-2);exit(1);
+            fprintf(stderr,"FAIL batch-physical: E%d differs from real DOS (command %zu, captured %zu)\nINITECH_CHECKS 1 failures=1\n",number,payload ? strlen(payload):0,n-2);exit(1);
         }
         echoes++;
     }
@@ -45,12 +45,12 @@ int main(void)
     if(!f)return 2;
     char after[32];n=fread(after,1,sizeof after,f);fclose(f);
     if(rem_after!=1 || n!=strlen(observed_rem) || memcmp(after,observed_rem,n)) {
-        fputs("RED batch-physical: following REM sentinel was not dispatched exactly once\n",stderr);return 1;
+        fputs("FAIL batch-physical: following REM sentinel was not dispatched exactly once\nINITECH_CHECKS 1 failures=1\n",stderr);return 1;
     }
     if(rem_tail) {
-        fputs("RED batch-physical: long REM tail executed as a command\n",stderr);return 1;
+        fputs("FAIL batch-physical: long REM tail executed as a command\nINITECH_CHECKS 1 failures=1\n",stderr);return 1;
     }
-    if(echoes!=9){fprintf(stderr,"RED batch-physical: missing lines\n");return 1;}
+    if(echoes!=9){fprintf(stderr,"FAIL batch-physical: missing lines\nINITECH_CHECKS 1 failures=1\n");return 1;}
     /* Control bodies must retain SHIFT's %0 and execute under IF/FOR.
      * MS-DOS 3.3 Reference pp.144-151; tests grade resulting commands. */
     puts("GREEN batch-physical: 124..132 bytes match OEM DOS 3.30, including 126/127/128 boundaries");
