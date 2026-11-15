@@ -2,7 +2,7 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4211,30 +4211,7 @@
+@@ -4219,34 +4219,12 @@
          }
  
          /* ---- OUTER stdin: a consumer stage reads from temp[i-1] ---- */
@@ -34,3 +34,8 @@
  
          /* ---- run the stage; its OWN `<`/`>`/`>>` are peeled INSIDE (nested) ---- */
          rc = run_with_redirect(pl->stage[i]);
+         previous=current;
++        goto stage_cleanup; /* retain the ordinary fall-through label use */
+ 
+ stage_cleanup:
+         /* ---- tear down the OUTER handles (stdin first, then stdout) ---- */
