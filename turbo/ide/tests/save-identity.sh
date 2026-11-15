@@ -17,4 +17,12 @@ for name in DOC.BAK DOC.bak 'DOC.$$$' DOC; do
   printf OLD > "$scratch/old"
   assert "source:$name previous bytes" cmp "$scratch/old" "$scratch/$i/$backup"
 done
+for mode in dirty flush; do
+ for name in TURBOWK0.PAS TURBOWK1.PAS; do
+  i=$((i+1)); setup mkdir "$scratch/$i"
+  printf OLD > "$scratch/$i/$name"
+  cd "$scratch/$i"
+  assert "work alias:$name:$mode conserves bytes" "$out/save-identity" "$name" "$mode"
+ done
+done
 finish

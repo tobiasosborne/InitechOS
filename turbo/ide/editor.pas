@@ -470,6 +470,15 @@ begin
   SameName := X = Y
 end;
 
+{ Reserve the work-file leaves under every DOS path spelling, including
+  staging/backup siblings which a later page flush may create. }
+function WorkFileName(var Path: string): boolean;
+var Leaf, W0, W1: string;
+begin
+  LeafName(Path, Leaf); LeafName(WorkName0, W0); LeafName(WorkName1, W1);
+  WorkFileName := SameName(Leaf, W0) or SameName(Leaf, W1)
+end;
+
 { Write aside, close and check, then use only DOS renames to publish.
   MINT06 54 refuses a read-only source; 49 confirms overwrites. The
   operator's save ruling permits the residual double rename failure:
@@ -492,7 +501,7 @@ begin
   Assign(F, Temp); Attr := FileAttributes(F);
   if Attr >= 0 then Code := 80
   else if Attr <> -2 then Code := -Attr;
-  if SameName(Path, WorkName0) or SameName(Path, WorkName1) then Code := 5;
+  if WorkFileName(Path) or WorkFileName(Temp) or WorkFileName(Bak) then Code := 5;
   if Existing and (Code = 0) then
   begin
     Assign(F, Path);

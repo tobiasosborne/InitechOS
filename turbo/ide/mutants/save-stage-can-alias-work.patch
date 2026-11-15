@@ -1,0 +1,6 @@
+# test: save-identity
+--- a/editor.pas
++++ b/editor.pas
+@@ -1,1 +1,1 @@
+-  if WorkFileName(Path) or WorkFileName(Temp) or WorkFileName(Bak) then Code := 5;
++  if WorkFileName(Path) then Code := 5;
