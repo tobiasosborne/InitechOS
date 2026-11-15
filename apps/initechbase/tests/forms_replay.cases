@@ -57,7 +57,6 @@ case forms-f20n-reload
 # Known disagreements, each with its cause.
 differs forms-f01-dotget export:OUT.MEM SAVE TO writes 2, real 0, at byte 18 for dot-prompt variables (initech-fae7j)
 differs forms-f02b-bounds dump:r4-end End at the dot prompt moves the cursor to column 78 in real III+ (initech-a6hr9)
-differs forms-f07-num export:RESULT.TXT N4 typed .5 into N=0: real 5, unpictured numeric entry (initech-1ffs3)
 differs forms-f13a-bind export:FORMIDX.NDX real NDX key expression keeps its trailing blank "FC " (initech-5s3t4)
 differs forms-f15a-refuse dump:undef dot-prompt error display (initech-bgtl1)
 differs forms-f15a-refuse dump:expr dot-prompt error display (initech-bgtl1)
@@ -98,10 +97,6 @@ differs forms-f20e-restruct dump:typed COPY TO is a frozen omission, so the prog
 differs forms-f20e-restruct dump:done COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
 differs forms-f20e-restruct export:RESULT.TXT COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
 differs forms-f20e-restruct export:OTHER.DBF COPY TO is a frozen omission, so the program stops; graded in test_ibase_gets from the real OTHER.DBF
-differs forms-f20f-longnum dump:n-typed over-long numeric entry (initech-1ffs3)
-differs forms-f20f-longnum dump:fn-typed over-long numeric entry (initech-1ffs3)
-differs forms-f20f-longnum dump:done over-long numeric entry (initech-1ffs3)
-differs forms-f20f-longnum export:RESULT.TXT over-long numeric entry (initech-1ffs3)
 differs forms-f20g-eofsecond dump:entered the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20g-eofsecond dump:typed the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree
 differs forms-f20g-eofsecond dump:moved the program-error dialog and traceback are absent (README omissions); #4 itself and the files agree

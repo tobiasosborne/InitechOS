@@ -1795,7 +1795,27 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                     uint32_t rn;xb_val v;char text[Q_LINEBUF];uint32_t n=0;
                     if(!g->started){g->raw[0]=0;g->started=1;}
                     rn=(uint32_t)rt_strlen(g->raw);
-                    if(rn<sizeof g->raw-1){g->raw[rn++]=(char)k;g->raw[rn]=0;}
+                    if(k>='0'&&k<='9') {
+                        /* Integer places fill first, then the next digit goes
+                         * past the point, and a full decimal part has its last
+                         * place overwritten: forms-f20f 123456789012345 into
+                         * N=12.50 (13 cells) is 1234567890.15, forms-f07
+                         * -12.345 is -12.35. A full field without decimals
+                         * overwrites its last digit (uncaptured, as CONFIRM ON
+                         * overwrites a full character field, forms-f05b). */
+                        uint32_t i,intd=0,decd=0,dot=0;
+                        int maxint=(int)g->width-(g->dec>0?g->dec+1:0);
+                        for(i=0;i<rn;i++){if(g->raw[i]=='.')dot=1;else if(g->raw[i]>='0'&&g->raw[i]<='9'){if(dot)decd++;else intd++;}}
+                        if(rn&&g->raw[0]=='-')maxint--;
+                        if(!dot&&(int)intd>=maxint&&g->dec>0&&rn<sizeof g->raw-2){g->raw[rn++]='.';g->raw[rn]=0;dot=1;}
+                        if((!dot&&(int)intd>=maxint)||(dot&&(int)decd>=g->dec)) { if(rn)g->raw[rn-1]=(char)k; }
+                        else if(rn<sizeof g->raw-1){g->raw[rn++]=(char)k;g->raw[rn]=0;}
+                    } else if(k=='.') {
+                        /* No decimal places: the point does nothing (forms-f07
+                         * N4, .5 into N=0 is 5). */
+                        uint32_t i,dot=0;for(i=0;i<rn;i++)if(g->raw[i]=='.')dot=1;
+                        if(g->dec>0&&!dot&&rn<sizeof g->raw-1){g->raw[rn++]='.';g->raw[rn]=0;}
+                    } else if(rn<sizeof g->raw-1){g->raw[rn++]=(char)k;g->raw[rn]=0;}
                     v=xb_n(dec_parse(g->raw,(int)rn));v.num_width=g->width;v.num_dec=g->dec;
                     q_render_val(text,&n,sizeof text,&v,ctx,0);
                     rt_memset(g->buf,' ',g->width);

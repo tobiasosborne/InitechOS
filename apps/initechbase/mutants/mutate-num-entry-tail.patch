@@ -1,0 +1,13 @@
+# test: test_ibase_forms_replay
+# Every numeric digit is appended; an over-long entry keeps its rightmost cells (initech-1ffs3).
+--- a/cmd/query.c
++++ b/cmd/query.c
+@@ -1808,7 +1808,7 @@
+                         for(i=0;i<rn;i++){if(g->raw[i]=='.')dot=1;else if(g->raw[i]>='0'&&g->raw[i]<='9'){if(dot)decd++;else intd++;}}
+                         if(rn&&g->raw[0]=='-')maxint--;
+                         if(!dot&&(int)intd>=maxint&&g->dec>0&&rn<sizeof g->raw-2){g->raw[rn++]='.';g->raw[rn]=0;dot=1;}
+-                        if((!dot&&(int)intd>=maxint)||(dot&&(int)decd>=g->dec)) { if(rn)g->raw[rn-1]=(char)k; }
++                        if(0) { if(rn)g->raw[rn-1]=(char)k; } /* MUTANT */
+                         else if(rn<sizeof g->raw-1){g->raw[rn++]=(char)k;g->raw[rn]=0;}
+                     } else if(k=='.') {
+                         /* No decimal places: the point does nothing (forms-f07
