@@ -34,6 +34,8 @@ compilation. Hosted and resident Pascal output also runs as flat COM:
 computed characters at the start of concatenations, including higher temporary
 bases. The earlier probes cover minimum-Integer div/mod and string temporaries
 in Length and record indices.
+The full matrix uses groups of six sources so each invocation retains its
+300-second bound even while the resident compiler emits its old serial dumps.
 Every registered case fits the flat arena; missing flat output
 fails. Complete stdout and extracted files match FPC;
 the original corpus also matches its authored goldens. mzcheck validates the
