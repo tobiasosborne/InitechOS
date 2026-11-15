@@ -256,18 +256,9 @@ int batch_expand(const char *line,
                         out[0] = '\0';
                         return -1;
                     }
-                } else {
-                    /* Undefined: emit the literal "%VARNAME%" (DOS 3.3). */
-                    if (!bat_emit(out, &pos, cap, '%')) {
-                        out[0] = '\0'; return -1;
-                    }
-                    if (bat_emit_str(out, &pos, cap, vname) < 0) {
-                        out[0] = '\0'; return -1;
-                    }
-                    if (!bat_emit(out, &pos, cap, '%')) {
-                        out[0] = '\0'; return -1;
-                    }
                 }
+                /* Genuine DOS 3.30 compat33/expected/BATCH/files/TRACE.TXT:
+                 * MISSING=[]; a closed unset variable contributes no bytes. */
                 continue;
             }
             /* Unclosed '%NAME' (no closing '%') -- fall through: emit

@@ -81,9 +81,8 @@ typedef const char *(*batch_env_lookup_fn)(const char *name, void *ctx);
  *   %0         -> argv[0]  (the batch file name, caller-supplied)
  *   %1..%9     -> argv[1]..argv[9]  (batch parameters)
  *   %n out-of-range (n >= argc) -> empty string  (DOS 3.3 behavior)
- *   %VARNAME%  -> value from `env` callback; if NULL (undefined) -> the
- *                 literal text "%VARNAME%" is emitted  (DOS 3.3 behavior:
- *                 undefined variables are left unexpanded in the output).
+ *   %VARNAME%  -> value from `env` callback; NULL (undefined) -> empty.
+ *                 Ref: genuine DOS 3.30 compat33/expected/BATCH TRACE.TXT.
  *   %%         -> '%'  (escape for a literal percent sign)
  *   Lone '%' at end of string / %<non-digit-non-name> -> '%' passed through.
  *

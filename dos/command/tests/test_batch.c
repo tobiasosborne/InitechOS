@@ -116,21 +116,21 @@ static void test_expand(void)
     CHECK(strcmp(out, "A:\\COMMAND.COM") == 0,
           "expand %COMSPEC%: == A:\\COMMAND.COM");
 
-    /* Undefined variable: %MISSING% -> literal "%MISSING%" (DOS 3.3). */
-    n = batch_expand("%MISSING%", 0, 0, stub_env, 0, out, (int)sizeof(out));
+    /* DOS33 compat33/expected/BATCH/files/TRACE.TXT: MISSING=[]. */
+    n = batch_expand("MISSING=[%MISSING%]", 0, 0, stub_env, 0, out, (int)sizeof(out));
     CHECK(n > 0, "expand %MISSING%: returns > 0");
-    CHECK(strcmp(out, "%MISSING%") == 0,
-          "expand %MISSING%: unexpanded literal (DOS 3.3 behavior)");
+    CHECK(strcmp(out, "MISSING=[]") == 0,
+          "expand %MISSING%: empty value from genuine DOS 3.30 capture");
 
     /* Variable expansion with surrounding text. */
     n = batch_expand("CD %HOME%", 0, 0, stub_env, 0, out, (int)sizeof(out));
     CHECK(n > 0, "expand 'CD %HOME%': returns > 0");
     CHECK(strcmp(out, "CD A:\\") == 0, "expand 'CD %HOME%': correct");
 
-    /* NULL env callback + variable: leaves literal (same as undefined). */
+    /* NULL lookup supplies no variables, so its value is empty too. */
     n = batch_expand("%HOME%", 0, 0, 0, 0, out, (int)sizeof(out));
-    CHECK(n > 0, "expand %HOME% with NULL env: returns > 0");
-    CHECK(strcmp(out, "%HOME%") == 0, "expand %HOME% with NULL env: literal");
+    CHECK(n == 0, "expand %HOME% with NULL env: valid empty expansion");
+    CHECK(strcmp(out, "") == 0, "expand %HOME% with NULL env: empty");
 
     /* --- %% -> literal '%' (DOS percent escape) ------------------------- */
 

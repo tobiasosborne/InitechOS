@@ -1,0 +1,16 @@
+# BATCH_MUTATE_UNSET_LITERAL
+# test: test-batch
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -257,6 +257,11 @@
+                         return -1;
+                     }
+                 }
++                if (!val) {
++                    if (!bat_emit(out,&pos,cap,'%') ||
++                        bat_emit_str(out,&pos,cap,vname)<0 ||
++                        !bat_emit(out,&pos,cap,'%')) return -1;
++                }
+                 /* Genuine DOS 3.30 compat33/expected/BATCH/files/TRACE.TXT:
+                  * MISSING=[]; a closed unset variable contributes no bytes. */
+                 continue;
