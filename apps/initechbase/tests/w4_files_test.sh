@@ -10,7 +10,7 @@ fi
 ref=${DBASE3_DECOMP:-../dbase3-decomp}
 if ! ref=$(realpath -e -- "$ref") || [ ! -d "$ref/goldens" ]; then
     echo '!!! DBASE3_DECOMP FAIL: test-w4-files: corpus/goldens absent -- set SKIP_DBASE3_DECOMP=1 to explicitly opt out.'
-    exit 1
+    exit 2
 fi
 out=build/w4-files
 mkdir -p "$out"
@@ -20,6 +20,8 @@ red() {
     kind=$1; file=$2; offset=$3; reason=$4
     build/w4_mutate --xor "$offset" "$file" "$out/$kind.mut"
     rc=0; "build/${kind}_diff" "$file" "$out/$kind.mut" > "$out/$kind-$reason.log" 2>&1 || rc=$?
+    # A crash or refusal is not a detected difference (initech-zw6sl).
+    [ "$rc" -le 1 ] || { cat "$out/$kind-$reason.log"; echo "ERROR: ${kind}_diff exit $rc"; exit 2; }
     [ "$rc" = 1 ] && grep -q "RED: ${kind}_diff" "$out/$kind-$reason.log" || {
         cat "$out/$kind-$reason.log"; echo "RED: $kind $reason mutant survived / infrastructure failed"; exit 1;
     }
@@ -34,14 +36,14 @@ green_pad() {
 }
 one() {
     kind=$1; file=$2; off=$3
-    [ -s "$file" ] || { echo "RED: missing REAL III+ sample $file"; exit 1; }
+    [ -s "$file" ] || { echo "ERROR: missing REAL III+ sample $file"; exit 2; }
     # Differential TDD: meaningful mutation is tested BEFORE self equality.
     red "$kind" "$file" "$off" meaningful
     "build/${kind}_diff" "$file" "$file"
     build/w4_mutate --truncate 1 "$file" "$out/$kind.short"
-    if "build/${kind}_diff" "$file" "$out/$kind.short" > "$out/$kind-short.log" 2>&1; then
-        echo "RED: $kind accepted truncation"; exit 1
-    fi
+    rc=0; "build/${kind}_diff" "$file" "$out/$kind.short" > "$out/$kind-short.log" 2>&1 || rc=$?
+    [ "$rc" != 0 ] || { echo "RED: $kind accepted truncation"; exit 1; }
+    [ "$rc" = 1 ] || { cat "$out/$kind-short.log"; echo "ERROR: ${kind}_diff exit $rc on truncation"; exit 2; }
 }
 one frm "$real/FLT_INFO.FRM" 0xe0
 green_pad frm "$real/FLT_INFO.FRM" 0x1d8
@@ -55,7 +57,9 @@ red frm "$real/FLT_INFO.FRM" 0x6df last-column
 red frm "$real/FLT_INFO.FRM" 0x7b6 footer
 for name in TRAVELER TRIP; do build/frm_diff "$real/$name.FRM" "$real/$name.FRM"; done
 bad=$ref/goldens/dbase-iii-plus-1.1/extracted/disk2/UNIVERS.FRM
-if build/frm_diff "$bad" "$bad" > "$out/frm-corrupt.log" 2>&1; then echo 'RED: corrupt UNIVERS accepted'; exit 1; fi
+rc=0; build/frm_diff "$bad" "$bad" > "$out/frm-corrupt.log" 2>&1 || rc=$?
+[ "$rc" != 0 ] || { echo 'RED: corrupt UNIVERS accepted'; exit 1; }
+[ "$rc" = 1 ] || { cat "$out/frm-corrupt.log"; echo "ERROR: frm_diff exit $rc on corrupt UNIVERS"; exit 2; }
 one lbl "$real/ADDRESS.LBL" 0x3f
 green_pad lbl "$real/ADDRESS.LBL" 0x175
 green_pad lbl "$real/ADDRESS.LBL" 0x408

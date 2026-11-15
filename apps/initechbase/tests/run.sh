@@ -143,9 +143,10 @@ case "$name" in
   ln -s "$bins/w4_mutate" build/w4_mutate
   INITECH_SHELL_CHECKS=$checks sh tests/w4_files_paths_test.sh;;
  messages-generated)
-  . "$checks"
-  "$bins/../tools/ibase_msg_pack" spec/ibase/dbase_msg_codes.tsv > build/messages.h || fail "messages-generated: packer"; ok
-  cmp include/ibase/messages_packed.h build/messages.h || fail "messages-generated: messages_packed.h is not the packed catalogue"; ok
+  . "$checks"; . tests/check_status.sh
+  need "$bins/../tools/ibase_msg_pack" spec/ibase/dbase_msg_codes.tsv include/ibase/messages_packed.h
+  "$bins/../tools/ibase_msg_pack" spec/ibase/dbase_msg_codes.tsv > build/messages.h || setup_error "messages-generated: packer exit $?"
+  check "messages-generated: messages_packed.h is not the packed catalogue" cmp include/ibase/messages_packed.h build/messages.h
   summary;;
  core-live)
   command -v dosbox-x >/dev/null

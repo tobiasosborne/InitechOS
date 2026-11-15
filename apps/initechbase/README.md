@@ -166,9 +166,12 @@ stores 19); the point right-justifies and repaints the integer part
 (F22i); past the last slot a key overwrites it (F22a); under CONFIRM OFF
 a full numeric GET goes on to the next (F22a). PgUp, Ctrl-R, Ctrl-W,
 Ctrl-End and End on an invalid date stay in READ as PgDn does (F22c,
-F22e, F22g). Up and a second Home there never leave READ in real III+
-either; it then stops taking keys, so that case cannot be pinned and
-READ keeps the field, as for Enter. Typed dates follow each SET DATE
+F22e, F22g). A known, deliberate difference: pressing Up, or Home a
+second time at the start of the field, on an invalid date. Real III+
+stays in READ and then stops accepting any key (F22f, never pinned
+because the capture stalls). InitechBase rings the bell, keeps the
+invalid date field active and goes on accepting keys, so the user can
+correct the date, as after Enter. Typed dates follow each SET DATE
 order (F22b). Esc inside READ never runs ON ESCAPE and leaves READKEY 12,
 under SET ESCAPE ON or OFF (F22d). INKEY() is -1 for F2 (the F22c/e/g
 barriers); other function keys are uncaptured and stay 0. DBF() is the
