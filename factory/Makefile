@@ -11,6 +11,7 @@ $(OUT)/boot_system: image/boot_system.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 image: all
 	SYSTEM_IMAGE=$(TOP)/build/system/INITDOS$(if $(BIG_KERNEL),-big).SYS sh image/build.sh
+	sh image/c-disk-check.sh
 smoke:
 	+@set -e; \
 	sh smoke.sh; $(MAKE) smoke-programs; sh smoke-desktop.sh

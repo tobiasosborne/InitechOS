@@ -31,3 +31,20 @@ residency, CONFIG/AUTOEXEC placement and distribution of utilities. No such
 redesign belongs in this spine import. SYS/FORMAT's inherited physical-drive
 interfaces and protections also need an installation oracle before use as a
 product installer.
+
+## C: system disk (staged; initech-tlhqy)
+
+build.sh also mints build/image/c.img, the delivery owner's C: system disk:
+20160 sectors (20 complete 16x63 CHS cylinders), MBR and stage2, one FAT12
+partition at LBA 63 of 16384 sectors (8 MiB) with 8 sectors per cluster,
+IO.SYS and INITDOS.SYS as root entries 0 and 1 (HSR), label INITECH, then
+the same working volume as data.img with an AUTOEXEC.BAT putting C:\ and
+C:\APPS on the PATH; and build/image/a-data.img, the optional A: data volume
+(1.44 MB FAT12 ATA disk) filled by system/install-data.sh from
+system/data-volume.list with the shipped 1980-01-01 timestamps.
+c-disk-check.sh judges both independently (sfdisk, minfo, boot_system check,
+the working volume byte for byte, the data manifest and its attributes,
+>= 2 MiB free, fsck.fat), on every make image; repro.sh hashes both.
+They are not yet the booted product: boot.img/data.img stay the product
+until delivery's C: startup is on main and the smoke drivers move to
+C:@@32256 (the agreed staging in factory-owner-2.md).
