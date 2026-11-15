@@ -1,0 +1,12 @@
+# test: page-failure
+--- a/buffer.pas
++++ b/buffer.pas
+@@ -168,7 +168,7 @@
+     Close(WorkOut); IoNote();
+     { Commit only a complete, closed replacement. On failure the old
+       work file and every byte of the dirty page remain retryable. }
+-    if BufErr = 0 then
++    if true then
+     begin
+     DocLen := DocLen - PgOrig + PgLen;
+     PgOrig := PgLen;

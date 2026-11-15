@@ -48,6 +48,7 @@ procedure OutStart(var Name: string);
 begin
   Assign(WorkOut, Name);
   Rewrite(WorkOut, 1);
+  IoNote();
   OutUsed := 0
 end;
 
@@ -101,11 +102,13 @@ end;
 procedure CopyBytes(Count: integer);
 var Want, Got, I: integer;
 begin
-  while Count > 0 do
+  while (Count > 0) and (BufErr = 0) do
   begin
     Want := Count;
     if Want > BufChunkMax then Want := BufChunkMax;
     BlockRead(WorkIn, Chunk[1], Want, Got);
+    IoNote();
+    if (Got <> Want) and (BufErr = 0) then BufErr := 100;
     I := 1;
     while I <= Got do
     begin
@@ -123,9 +126,11 @@ var Name: string;
 begin
   if PgDirty then
   begin
+    BufErr := 0;
     WorkNames(WorkSide, Name);
     Assign(WorkIn, Name);
     Reset(WorkIn, 1);
+    IoNote();
     WorkNames(1 - WorkSide, Name);
     OutStart(Name);
     CopyBytes(PgStart);
@@ -137,28 +142,36 @@ begin
     end;
     { skip the old page bytes, then copy the suffix }
     I := PgOrig;
-    while I > 0 do
+    while (I > 0) and (BufErr = 0) do
     begin
       if I > BufChunkMax then
       begin
         BlockRead(WorkIn, Chunk[1], BufChunkMax, Got0);
+        IoNote();
+        if (Got0 <> BufChunkMax) and (BufErr = 0) then BufErr := 100;
         I := I - BufChunkMax
       end
       else
       begin
         BlockRead(WorkIn, Chunk[1], I, Got0);
+        IoNote();
+        if (Got0 <> I) and (BufErr = 0) then BufErr := 100;
         I := 0
       end
     end;
     CopyBytes(DocLen - PgStart - PgOrig);
     OutFlush();
+    Close(WorkIn); IoNote();
+    Close(WorkOut); IoNote();
+    { Commit only a complete, closed replacement. On failure the old
+      work file and every byte of the dirty page remain retryable. }
+    if BufErr = 0 then
+    begin
     DocLen := DocLen - PgOrig + PgLen;
     PgOrig := PgLen;
     WorkSide := 1 - WorkSide;
-    { Reassigning closes the files (fileio.asm rtl_file_close_current). }
-    Assign(WorkIn, Name);
-    Assign(WorkOut, Name);
     PgDirty := false
+    end
   end
 end;
 
@@ -169,6 +182,8 @@ var Name: string;
     Done: boolean;
 begin
   PageFlush();
+  if BufErr = 0 then
+  begin
   if First < 1 then First := 1;
   if First > DocLines then First := DocLines;
   WorkNames(WorkSide, Name);
@@ -214,6 +229,7 @@ begin
   PgOrig := PgLen;
   PgDirty := false;
   PageIndex(1)
+  end
 end;
 
 { Is document line L in the page? }
@@ -226,6 +242,7 @@ end;
 procedure PageCover(L, Span: integer);
 var Last: integer;
 begin
+  BufErr := 0;
   Last := L + Span - 1;
   if Last > DocLines then Last := DocLines;
   if not (PageHas(L) and PageHas(Last)) then
@@ -251,7 +268,7 @@ var Start, Len, I: integer;
     C: string;
 begin
   S := '';
-  if (L >= 1) and (L <= DocLines) then
+  if (L >= 1) and (L <= DocLines) and PageHas(L) then
   begin
     LineSpan(L, Start, Len);
     if Len > 255 then Len := 255;
@@ -275,6 +292,8 @@ begin
     PageLoad(L);
     At := PgLs[1] + Off
   end;
+  if BufErr = 0 then
+  begin
   I := PgLen;
   while I >= At do
   begin
@@ -286,11 +305,14 @@ begin
   PgDirty := true;
   if C = chr(10) then DocLines := DocLines + 1;
   PageIndex(L - PgLine + 1)
+  end
 end;
 
 procedure PageDelete(At: integer; L: integer);
 var I: integer;
 begin
+  if BufErr = 0 then
+  begin
   if Pg[At] = chr(10) then DocLines := DocLines - 1;
   I := At;
   while I < PgLen do
@@ -301,6 +323,7 @@ begin
   PgLen := PgLen - 1;
   PgDirty := true;
   PageIndex(L - PgLine + 1)
+  end
 end;
 
 { Load a DOS text file into a fresh work file. }
@@ -410,8 +433,10 @@ var Name: string;
     Got, I: integer;
     Done: boolean;
 begin
-  PageFlush();
   BufErr := 0;
+  PageFlush();
+  if BufErr = 0 then
+  begin
   WorkNames(WorkSide, Name);
   Assign(WorkIn, Name);
   Reset(WorkIn, 1);
@@ -438,7 +463,7 @@ begin
     OutByte(chr(26));
     OutFlush()
   end;
-  Close(WorkIn);
-  Close(WorkOut);
-  Got := IOResult()
+  Close(WorkIn); IoNote();
+  Close(WorkOut); IoNote()
+  end
 end;

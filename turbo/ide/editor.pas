@@ -127,6 +127,14 @@ var R, L, C: integer;
     S, D: string;
 begin
   PageCover(EdTop, ViewRows);
+  if BufErr <> 0 then
+  begin
+    { A failed page replacement leaves the old page live. Stay on it;
+      never use the requested line numbers to index another page. }
+    EdTop := PgLine;
+    if not PageHas(EdLine) then EdLine := PgLine;
+    ErrCode := BufErr; ErrReturn := ModeEditor; UiMode := ModeError
+  end;
   R := 0;
   while R < ViewRows do
   begin
@@ -671,6 +679,7 @@ procedure CurLineBytes(var S: string; var Start: integer);
 var Len: integer;
 begin
   PageCover(EdLine, 1);
+  if not PageHas(EdLine) then EdLine := PgLine;
   LineSpan(EdLine, Start, Len);
   LineText(EdLine, S)
 end;
