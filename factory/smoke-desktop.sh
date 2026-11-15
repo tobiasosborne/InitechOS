@@ -54,7 +54,7 @@ for emulator in qemu bochs; do
   --keys-after FLAIR-LIVE-READY --mouse "$trace" --expect FLAIR-EXIT-TO-DOS \
   --quit-after FLAIR-LIVE-READY --quit-after-count 2 --screendump \
   --screendump-after FLAIR-LIVE-READY --screendump-after-count 2 \
-  --timeout-ms "${DESKTOP_SMOKE_TIMEOUT_MS:-90000}" --name qemu --out "$out" \
+  --timeout-ms "${DESKTOP_SMOKE_TIMEOUT_MS:-180000}" --name qemu --out "$out" \
   > "$out/qemu.stdout" 2> "$out/qemu.report" || { cat "$out/qemu.report"; fail 'QEMU session'; }
  fi
  sort "$markers" | uniq -c | while read -r count marker; do

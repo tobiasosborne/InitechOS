@@ -176,8 +176,14 @@ fault on isolated product images, requiring two named semantic failures each.
 
 Shared-machine smoke limits can be overridden per invocation without changing
 defaults: DOS_SMOKE_TIMEOUT_MS (QEMU 150000, Bochs 45000),
-PROGRAM_SMOKE_TIMEOUT_MS (55000), DESKTOP_SMOKE_TIMEOUT_MS (90000), and
-IBASE_SMOKE_TIMEOUT_MS (90000). Red-control desktop capture has a 60000 ms
+PROGRAM_SMOKE_TIMEOUT_MS (55000), DESKTOP_SMOKE_TIMEOUT_MS (each Bochs
+boot 90000; the single-boot QEMU desktop session 180000), and
+IBASE_SMOKE_TIMEOUT_MS (90000). The QEMU desktop default was measured, not
+guessed: after 8fab6e40 lengthened the Word journey, the whole QEMU session
+took 89.9-94.2 s at load 3-6 (67 s before it; initech-bgr5m,
+REPORTS bisect-cert-desktop.md), so 180000 is about twice the measured
+time; the progress-aware idle wait still fails a stalled guest early.
+Re-measure and restate this when journeys grow. Red-control desktop capture has a 60000 ms
 budget. Gate tests remain host-only; product mutation controls are tier 2.
 PROGRAM_SMOKE_WAIT_MS and IBASE_SMOKE_WAIT_MS (both default 1000) set Bochs's
 inter-command wait for a busy host; they do not alter the oracle or test set.
