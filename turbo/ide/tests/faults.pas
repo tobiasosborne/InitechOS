@@ -35,7 +35,12 @@ var Kind: string;
 begin
   Kind := 'read';
   if Inject(Kind) then begin Got := 0; FaultCode := 100 end
-  else System.BlockRead(F, Data, Count, Got)
+  else
+  begin
+    Kind := 'short-read';
+    if Inject(Kind) then System.BlockRead(F, Data, Count div 2, Got)
+    else System.BlockRead(F, Data, Count, Got)
+  end
 end;
 
 procedure Close(var F: file);

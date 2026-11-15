@@ -3,6 +3,8 @@ set -eu
 out=$1
 . "$TOP/turbo/tests/checks.sh"
 setup cat tests/head-fpc.pas tests/faults.pas screen.pas buffer.pas editor.pas tests/page-failure.pas > "$out/page-failure.pas"
+setup cat tests/head-fpc.pas tests/faults.pas screen.pas buffer.pas editor.pas tests/page-reload.pas > "$out/page-reload.pas"
+setup fpc -B -O- -v0 -FU"$out" -FE"$out" -o"$out/page-reload" "$out/page-reload.pas" > "$out/page-reload-build.log" 2>&1
 fpc -B -O- -v0 -FU"$out" -FE"$out" -o"$out/page-failure" "$out/page-failure.pas" > "$out/page-failure-build.log" 2>&1 || { cat "$out/page-failure-build.log"; exit 2; }
 scratch=$out/runs/page-failure
 setup mkdir -p "$scratch"
@@ -19,6 +21,19 @@ for mode in page save; do
       i=$((i+1))
     done
   done
+done
+for first in 1 4900; do
+ for kind in read short-read open close; do
+  count=1
+  case $kind in read|short-read) count=33; [ "$first" -eq 4900 ] && count=79;; esac
+  i=1
+  while [ "$i" -le "$count" ]; do
+   cd "$scratch"
+   assert "reload:$first:$kind:$i preserves committed page" "$out/page-reload" "$kind" "$i" "$first"
+   assert 'reload retry:independent edited bytes' cmp "$scratch/expected" "$scratch/RESULT.PAS"
+   i=$((i+1))
+  done
+ done
 done
 echo 'PASS failed page transfers and closes preserve the dirty page; retry matches authored bytes'
 finish

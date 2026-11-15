@@ -19,6 +19,7 @@ const
 
 var
   Pg: array[1..PageMax] of char;
+  LoadPg: array[1..PageFill] of char; { commit only a complete checked reload }
   PgLs: array[1..PageLinesMax] of integer;  { start of each page line }
   PgLen, PgLines, PgLine, PgStart, PgOrig: integer;
   PgDirty: boolean;
@@ -178,7 +179,7 @@ end;
 { Load the page so that it starts at document line First (or earlier). }
 procedure PageLoad(First: integer);
 var Name: string;
-    Line, Pos, Got, I, Take, LastLf: integer;
+    Line, Pos, Got, I, Want, LastLf, NewLen, NewStart, NewStatus: integer;
     Done: boolean;
 begin
   PageFlush();
@@ -189,12 +190,14 @@ begin
   WorkNames(WorkSide, Name);
   Assign(WorkIn, Name);
   Reset(WorkIn, 1);
-  Line := 1; Pos := 0; PgLen := 0; Done := false; LastLf := 0;
-  BufStatus := BufOk;
-  while not Done do
+  IoNote();
+  Line := 1; Pos := 0; NewLen := 0; NewStart := 0; Done := false; LastLf := 0;
+  NewStatus := BufOk;
+  while (not Done) and (BufErr = 0) and (Pos < DocLen) do
   begin
-    BlockRead(WorkIn, Chunk[1], BufChunkMax, Got);
-    if Got = 0 then Done := true;
+    Want := DocLen - Pos; if Want > BufChunkMax then Want := BufChunkMax;
+    BlockRead(WorkIn, Chunk[1], Want, Got); IoNote();
+    if (Got <> Want) and (BufErr = 0) then BufErr := 100;
     I := 1;
     while I <= Got do
     begin
@@ -203,32 +206,37 @@ begin
         if Chunk[I] = chr(10) then
         begin
           Line := Line + 1;
-          if Line = First then PgStart := Pos + 1
+          if Line = First then NewStart := Pos + 1
         end
       end
-      else if PgLen < PageFill then
+      else if NewLen < PageFill then
       begin
-        PgLen := PgLen + 1;
-        Pg[PgLen] := Chunk[I];
-        if Chunk[I] = chr(10) then LastLf := PgLen
+        NewLen := NewLen + 1;
+        LoadPg[NewLen] := Chunk[I];
+        if Chunk[I] = chr(10) then LastLf := NewLen
       end
       else Done := true;
       Pos := Pos + 1;
       I := I + 1
     end
   end;
-  Assign(WorkIn, Name);
-  if First = 1 then PgStart := 0;
+  Close(WorkIn); IoNote();
   { keep whole lines only, unless the page reaches the end of the document }
-  if PgStart + PgLen < DocLen then
+  if NewStart + NewLen < DocLen then
   begin
-    if LastLf = 0 then BufStatus := BufTooLong
-    else PgLen := LastLf
+    if LastLf = 0 then NewStatus := BufTooLong
+    else NewLen := LastLf
   end;
+  if BufErr = 0 then
+  begin
+  I := 1;
+  while I <= NewLen do begin Pg[I] := LoadPg[I]; I := I + 1 end;
+  PgLen := NewLen; PgStart := NewStart; BufStatus := NewStatus;
   PgLine := First;
   PgOrig := PgLen;
   PgDirty := false;
   PageIndex(1)
+  end
   end
 end;
 
