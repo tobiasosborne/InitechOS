@@ -2,11 +2,12 @@
 # test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
-@@ -186,7 +186,6 @@
- static int transfer(const char *src, const char *dst, const find_data_t *fd)
- {
-     unsigned char buf[2048], verify[2048];
--    if (equal(src,dst)) { line(MSG_DOS_0020); error=4; return 0; }
+@@ -224,7 +224,7 @@
+     int source_found=entry_name(src,source_entry);
+     int target_found=entry_name(dst,target_entry);
+     if (source_found<0 || target_found<0) { error=5; return 0; }
+-    if (source_found && target_found && equal(source_entry,target_entry)) {
++    if (source_found && target_found && equal(source_entry,target_entry) && src[0]==0) {
+         line(MSG_DOS_0020); error=4; return 0;
+     }
      if (flags & P_PROMPT) {
-         text(src+2); text(" (Y/N?)");
-         if (!yes()) return 0;

@@ -17,6 +17,8 @@ run_case() {
  cp "$media" "$d/boot.img"
  truncate -s 0 "$d/data.img"; truncate -s 368640 "$d/data.img"
  mformat -i "$d/data.img" -f 360 -N 19920302 ::
+ printf '@echo off\r\ncopy *.txt all.txt\r\necho COPYWILD-DONE\r\n' > "$d/CPYCASE.BAT"
+ mcopy -o -i "$d/data.img" "$d/CPYCASE.BAT" ::CPYCASE.BAT
  case "$case_name" in
   deleted)
    mcopy -i "$d/data.img" "$base/X.TXT" ::X.TXT
@@ -31,10 +33,12 @@ run_case() {
    mcopy -i "$d/data.img" "$base/A.TXT" ::A.TXT
    mcopy -i "$d/data.img" "$base/B.TXT" ::B.TXT ;;
  esac
- printf '@echo off\r\ncopy *.txt all.txt\r\necho COPYWILD-DONE\r\n' > "$d/CPYCASE.BAT"
- mcopy -o -i "$d/data.img" "$d/CPYCASE.BAT" ::CPYCASE.BAT
  printf '@echo off\r\npath A:\\\r\nB:\r\ncommand /c CPYCASE.BAT >A:\\TRACE.TXT\r\necho CAPTURE-DONE\r\n' > "$d/AUTOEXEC.BAT"
  mcopy -o -i "$d/boot.img" "$d/AUTOEXEC.BAT" ::AUTOEXEC.BAT
+ if [ "$case_name" = deleted ]; then
+  # mformat -f 360: root starts at sector 5; CPYCASE occupies slot 0.
+  [ "$(od -An -tu1 -j 2592 -N 1 "$d/data.img" | tr -d ' ')" = 229 ]
+ fi
  mdir -a -i "$d/data.img" :: > "$d/before.mdir"
  gzip -n -c "$d/data.img" > "$d/before-data.img.gz"
  printf 'wait CAPTURE-DONE\nshot result\nend\n' > "$d/steps"

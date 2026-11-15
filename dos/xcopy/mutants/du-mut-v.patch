@@ -2,9 +2,9 @@
 # test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
-@@ -214,18 +214,7 @@
+@@ -261,18 +261,7 @@
      if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
-     if (error) return 0;
+     if (error) { if (created) call(0x4100,0,0,(uintptr_t)dst); return 0; }
      if (flags & V_VERIFY) {
 -        in=call(0x3d00,0,0,(uintptr_t)src);
 -        out=call(0x3d00,0,0,(uintptr_t)dst);

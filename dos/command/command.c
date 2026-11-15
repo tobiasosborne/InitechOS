@@ -3166,7 +3166,7 @@ static void builtin_copy(const char *arg)
     int append=omitted && plan.joined;
     /* Genuine DOS 3.30 copywild captures: in a combined copy the
      * destination may itself be an enumerated source (see below). */
-    int dest_existed=0, dest_seen=0, any_copied=0;
+    int dest_existed=0, any_copied=0;
     /* The warning on Reference p.51 applies to every source, including a
      * later + operand. Probe explicit identities BEFORE the first CREAT. */
     if(!per_file) {
@@ -3249,7 +3249,10 @@ static void builtin_copy(const char *arg)
                      * again; genuine DOS copies each source once. */
                     if(have_prev) {
                         int same_leaf=1;
-                        for(unsigned i=0;i<13;i++)if(base[i]!=prev_leaf[i])same_leaf=0;
+                        for(unsigned i=0;i<13;i++) {
+                            if(base[i]!=prev_leaf[i]) { same_leaf=0; break; }
+                            if(!base[i])break; /* DTA bytes after NUL are unspecified */
+                        }
                         if(same_leaf)continue;
                     }
                     if(!copy_path(source,spec,base))return;
@@ -3267,7 +3270,6 @@ static void builtin_copy(const char *arg)
                     if(sh>=0)dos_close(sh);
                     if(th>=0)dos_close(th);
                     if(self) {
-                        dest_seen=1;
                         for(unsigned i=0;i<13;i++)prev_leaf[i]=base[i];
                         have_prev=1;
                         if(!any_copied && dest_existed) { append=1; continue; }
@@ -3285,28 +3287,6 @@ static void builtin_copy(const char *arg)
                 }
                 if(per_file || !cmd_has_wildcard(spec))break;
             } while(!g_shell_break.interrupted);
-        }
-        /* A destination created by this copy in a slot enumeration had
-         * already passed is still reported (copywild-deleted). */
-        if(combined && !per_file && !plan.joined && !dest_seen && !dest_existed && any_copied) {
-            for(unsigned s=0;s<plan.count && !dest_seen;s++) {
-                const char *spec=plan.names+plan.offset[s];
-                if(!cmd_has_wildcard(spec))continue;
-                for(unsigned ordinal=0;copy_nth(spec,ordinal,base);ordinal++) {
-                    if(!copy_path(source,spec,base))return;
-                    int sh=dos_open(source),th=dos_open(target);
-                    int self=sh>=0 && th>=0 && int21_same_file((uint16_t)sh,(uint16_t)th);
-                    if(sh>=0)dos_close(sh);
-                    if(th>=0)dos_close(th);
-                    if(self) {
-                        dest_seen=1;
-                        dos_puts_raw(source);dos_print("\r\n$");
-                        dos_print("Content of destination lost before copy\r\n$");
-                        dos_print("Content of destination lost before copy\r\n$");
-                        break;
-                    }
-                }
-            }
         }
         if(!append) {dos_print(MSG_DOS_0003 "\r\n$");return;}
         /* Captured copywild2: only explicit + concatenation appends the

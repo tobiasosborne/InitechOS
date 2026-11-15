@@ -9,12 +9,20 @@ for spec in 'copywild-deleted ALL.TXT' 'copywild-plain ALL.TXT' \
  case=${spec%% *}; outname=${spec##* }
  ref=dos/command/tests/dos33/reference/$case
  gzip -dc "$ref/before-data.img.gz" > build/actual.img
+ if [ "$case" = copywild-deleted ]; then
+  [ "$(od -An -tu1 -j 2592 -N 1 build/actual.img | tr -d ' ')" = 229 ] || fail 'reference has no deleted slot'
+ fi
+ for source in A.TXT B.TXT; do mtype -i build/actual.img "::$source" > "build/$source.before"; done
  tr -d '\r' < "$ref/CPYCASE.BAT" | sed -n '/^copy /p' > build/command
  build/shell_files build/actual.img build/command > build/actual-output
  mtype -i build/actual.img "::$outname" > build/actual-file 2>/dev/null || fail "$case: destination missing"
  cmp "$ref/ALL-OUT.TXT" build/actual-file || fail "$case: destination bytes"
  grep -v 'COPYWILD-DONE' "$ref/TRACE.TXT" > build/expected-output
  cmp build/expected-output build/actual-output || { diff build/expected-output build/actual-output >&2 || true; fail "$case: console text"; }
+ for source in A.TXT B.TXT; do
+  mtype -i build/actual.img "::$source" > build/source.after || fail 'source deleted'
+  cmp "build/$source.before" build/source.after || fail 'source bytes changed'
+ done
  fsck.fat -n build/actual.img > build/fsck 2>&1 || { cat build/fsck; fail "$case: fsck"; }
 done
 echo 'GREEN COPY wildcard: captured destination bytes and console text for deleted/plain/existing/outside/inside/plus layouts'

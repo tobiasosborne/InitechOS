@@ -1,0 +1,13 @@
+# CMD_MUTATE_COPY_STALE_DTA
+# test: test-copy-wildcard-compat33
+--- a/command/command.c
++++ b/command/command.c
+@@ -3251,7 +3251,7 @@
+                         int same_leaf=1;
+                         for(unsigned i=0;i<13;i++) {
+                             if(base[i]!=prev_leaf[i]) { same_leaf=0; break; }
+-                            if(!base[i])break; /* DTA bytes after NUL are unspecified */
++                            /* compare stale padding too */
+                         }
+                         if(same_leaf)continue;
+                     }

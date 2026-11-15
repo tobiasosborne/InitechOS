@@ -2,21 +2,12 @@
 # test: test-copy-wildcard-compat33
 --- a/command/command.c
 +++ b/command/command.c
-@@ -3229,7 +3229,7 @@
+@@ -3269,7 +3269,7 @@
                      int self=sh>=0 && th>=0 && int21_same_file((uint16_t)sh,(uint16_t)th);
                      if(sh>=0)dos_close(sh);
                      if(th>=0)dos_close(th);
 -                    if(self) {
 +                    if(self && base[0]==0) {
-                         dest_seen=1;
                          for(unsigned i=0;i<13;i++)prev_leaf[i]=base[i];
                          have_prev=1;
-@@ -3261,7 +3261,7 @@
-                     int self=sh>=0 && th>=0 && int21_same_file((uint16_t)sh,(uint16_t)th);
-                     if(sh>=0)dos_close(sh);
-                     if(th>=0)dos_close(th);
--                    if(self) {
-+                    if(self && base[0]==0) {
-                         dest_seen=1;
-                         dos_puts_raw(source);dos_print("\r\n$");
-                         dos_print("Content of destination lost before copy\r\n$");
+                         if(!any_copied && dest_existed) { append=1; continue; }

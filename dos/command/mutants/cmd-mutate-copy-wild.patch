@@ -2,7 +2,7 @@
 # test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
 --- a/command/command.c
 +++ b/command/command.c
-@@ -3063,6 +3063,7 @@
+@@ -3213,6 +3213,7 @@
      do {
          if(per_file) {
              const char *first=plan.names+plan.offset[0];
@@ -10,11 +10,11 @@
              if(!copy_nth(first,outer++,base))break;
          }
          char target[CMD_LINE_MAX];
-@@ -3092,6 +3093,7 @@
+@@ -3243,6 +3244,7 @@
                          if(!cmd_name_map(base,leaf,mapped) || !copy_path(source,spec,mapped))return;
                      } else for(unsigned i=0;(source[i]=spec[i])!=0;i++){}
                  } else if(cmd_has_wildcard(spec)) {
 +                    break;
                      if(!copy_nth(spec,ordinal++,base))break;
-                     if(!copy_path(source,spec,base))return;
-                 } else for(unsigned i=0;(source[i]=spec[i])!=0;i++){}
+                     /* Creating the destination can insert it before the
+                      * enumeration cursor and yield the previous leaf
