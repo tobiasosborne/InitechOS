@@ -579,6 +579,10 @@ static IBASE_OVL_TEXT(set) void set_init_defaults(xb_interp *ip, set_state *ss)
     ss->color_border=ss->color_background=0;
     /* SET ESCAPE default = ON (Using III+ U5-220 "normally ON"). */
     ss->escape = 1;
+    /* Forms controls (initech-p3nn0): HELP_topics defaults in
+     * set-commands.md section 2; delimiter pair is ':' with display OFF. */
+    ss->confirm = 0; ss->bell = 1; ss->intensity = 1; ss->delimiters = 0;
+    ss->delim_l = ss->delim_r = ':';
     /* SET HISTORY ON, size 20; SET DOHISTORY OFF (real III+ history capture).
      * A reused set_state address must not inherit another session's ring. */
     ss->history_on = 1; ss->dohistory = 0;
@@ -846,6 +850,53 @@ static IBASE_OVL_TEXT(set) int set_opt_confirm(xb_interp *ip, set_state *ss, con
     (void)ip;
     if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
     ss->confirm = on;
+    return CMD_OK;
+}
+
+/* SET BELL / SET INTENSITY ON|OFF: plain toggles read by READ's editor
+ * and field painting (real III+ forms-f06b/f14 captures). */
+static IBASE_OVL_TEXT(set) int set_opt_bell(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ip;
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+    ss->bell = on;
+    return CMD_OK;
+}
+static IBASE_OVL_TEXT(set) int set_opt_intensity(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    (void)ip;
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+    ss->intensity = on;
+    return CMD_OK;
+}
+/* SET DELIMITERS ON|OFF and SET DELIMITERS TO [<expC>] [DEFAULT]
+ * (set-commands.md 3.3x): one character brackets both sides, two are
+ * left/right; TO with no operand or DEFAULT restores ':'. Real III+
+ * pages: forms-f06a (default pair), forms-f06c (TO "[]"). */
+static IBASE_OVL_TEXT(set) int set_opt_delimiters(xb_interp *ip, set_state *ss, const char *s, int *err_code)
+{
+    int on;
+    s = s_skip_ws(s);
+    if (rt_kw_word(s, "TO\0", (int *)0) == 0) {
+        xb_val v;
+        int rc;
+        s = s_skip_ws(s + 2);
+        if (!*s || rt_kw_word(s, "DEFAULT\0", (int *)0) == 0) {
+            ss->delim_l = ss->delim_r = ':';
+            return CMD_OK;
+        }
+        rc = xb_interp_eval(ip, s, &v, err_code);
+        if (rc != INTERP_OK) return rc;
+        if (v.t != XB_C) { if (err_code) *err_code = 45; return -INTERP_ERR_EVAL; }
+        if (v.u.c.len == 0) { ss->delim_l = ss->delim_r = ':'; return CMD_OK; }
+        ss->delim_l = v.u.c.p[0];
+        ss->delim_r = v.u.c.len > 1 ? v.u.c.p[1] : v.u.c.p[0];
+        return CMD_OK;
+    }
+    if (parse_on_off(s, &on)) { if (err_code) *err_code = 10; return -INTERP_ERR_SYNTAX; }
+    ss->delimiters = on;
     return CMD_OK;
 }
 

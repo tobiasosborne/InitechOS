@@ -651,12 +651,18 @@ typedef struct {
     uint8_t  changed;         /* buffer edited during the current READ */
     uint8_t  started;         /* numeric: entry started this activation */
     char     raw[48];         /* numeric: raw entry text (live reformat) */
+    char     pic[80];         /* effective PICTURE ("" = unformatted) */
+    uint16_t srcwidth;        /* unformatted value width (confirm size) */
 } xb_get;
 struct xb_interp;
 struct ibase_pal;
 /* Drop every pending GET and release its storage. Defined in
  * cmd/workarea.c beside xb_interp_free, which also calls it. */
 void ibase_gets_clear(struct xb_interp *ip);
+/* Format one value through the TRANSFORM/@...SAY PICTURE engine
+ * (core/fn_builtins.c). Out is an XB_C in ctx scratch. */
+int xb_picture_format(struct xb_ctx *ctx, const xb_val *v, const char *pic,
+                      uint16_t plen, xb_val *out, int *err);
 
 typedef struct xb_ctx {
     /* Using III+ U5-210/235/259: screen controls. STATUS has no CONFIG.DB.

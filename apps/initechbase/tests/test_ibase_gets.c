@@ -230,6 +230,97 @@ static void f13_field(void)
     xb_interp_free(ip); w2_host_unbind(&env); pal_host_free(pal);
 }
 
+static unsigned bell_count;
+static void conout_count(ibase_pal_t *p, const char *s, uint32_t n)
+{ (void)p; for (uint32_t i = 0; i < n; i++) if (s[i] == '\a') bell_count++; }
+static void row_text(int r, int col, const char *want)
+{
+    int ok = 1;
+    for (int i = 0; want[i]; i++) if (page.bytes[2*(r*80+col+i)] != (uint8_t)want[i]) ok = 0;
+    if (!ok) fprintf(stderr, "row %d col %d want [%s]\n", r, col, want);
+    CHECK(ok, "painted row text");
+}
+
+static void f05_f06_look_and_bell(void)
+{
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    pal->conout = conout_count;
+    /* F05b: CONFIRM ON overwrites the last column of a full field. */
+    FEED("ABCDE\r\r");
+    CHECK(ibase_do(ip, "SET CONFIRM ON\nA=SPACE(4)\nB=SPACE(4)\n@ 5,10 GET A\n@ 7,10 GET B\nREAD\n") == INTERP_OK, "confirm form");
+    value_c(ip, "A", "ABCE"); value_c(ip, "B", "    ");
+    /* F06a: default delimiters bracket the field; cursor after bracket. */
+    page_reset();
+    CHECK(ibase_do(ip, "SET DELIMITERS ON\n@ 5,10 GET A\n") == INTERP_OK, "delim declare");
+    cell(5, 10, ':', 7); cell(5, 11, 'A', 0x70); cell(5, 15, ':', 7);
+    value_n(ip, "COL()", 16);
+    CHECK(ibase_do(ip, "CLEAR GETS\nSET DELIMITERS TO \"[]\"\n@ 5,10 GET A\n") == INTERP_OK, "delim pair declare");
+    cell(5, 10, '[', 7); cell(5, 15, ']', 7);
+    /* F06b: INTENSITY OFF paints fields in the standard attribute. */
+    page_reset();
+    CHECK(ibase_do(ip, "CLEAR GETS\nSET INTENSITY OFF\n@ 5,10 GET A\n") == INTERP_OK, "intensity off declare");
+    cell(5, 11, 'A', 7);
+    CHECK(ibase_do(ip, "CLEAR GETS\nSET INTENSITY ON\nSET DELIMITERS OFF\n") == INTERP_OK, "look reset");
+    /* F14: a refused key rings only with BELL ON (speaker graded on image). */
+    bell_count = 0;
+    FEED("X5\r");
+    CHECK(ibase_do(ip, "SET BELL ON\nN=0\n@ 5,10 GET N\nREAD\n") == INTERP_OK, "bell form");
+    CHECK(bell_count == 1, "bell once for refused X with BELL ON");
+    bell_count = 0;
+    FEED("X5\r");
+    CHECK(ibase_do(ip, "SET BELL OFF\nN=0\n@ 5,10 GET N\nREAD\n") == INTERP_OK, "nobell form");
+    CHECK(bell_count == 0, "silent with BELL OFF");
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
+static void f10_masks(void)
+{
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    /* The F10 mint ran under the capture baseline SET CONFIRM ON. */
+    CHECK(ibase_do(ip, "SET CONFIRM ON\n") == INTERP_OK, "confirm on for masks");
+    FEED("aB1x\r");
+    CHECK(ibase_do(ip, "C=SPACE(4)\n@ 5,10 GET C PICTURE \"!!!!\"\nREAD\n") == INTERP_OK, "mask bang");
+    value_c(ip, "C", "AB1X");
+    FEED("1234567\r");
+    CHECK(ibase_do(ip, "C=SPACE(7)\n@ 5,10 GET C PICTURE \"999-9999\"\nREAD\n") == INTERP_OK, "mask phone");
+    value_c(ip, "C", "123-457");
+    FEED("a1bc\r");
+    CHECK(ibase_do(ip, "C=SPACE(4)\n@ 5,10 GET C PICTURE \"AAAA\"\nREAD\n") == INTERP_OK, "mask alpha");
+    value_c(ip, "C", "abc ");
+    FEED("1234\r");
+    CHECK(ibase_do(ip, "N=0\n@ 5,10 GET N PICTURE \"999.99\"\nREAD\n") == INTERP_OK, "mask numeric");
+    value_c(ip, "STR(N,10,2)", "    123.40");
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
+static void f11_say_pictures(void)
+{
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    CHECK(ibase_do(ip,
+        "@ 2,5 SAY 12.5 PICTURE \"@B 999.99\"\n"
+        "@ 3,5 SAY -12.5 PICTURE \"@B 999.99\"\n"
+        "@ 4,5 SAY -12.5 PICTURE \"@C 999.99\"\n"
+        "@ 5,5 SAY -12.5 PICTURE \"@X 999.99\"\n"
+        "@ 6,5 SAY -12.5 PICTURE \"@( 999.99\"\n"
+        "@ 7,5 SAY 0 PICTURE \"@C 999.99\"\n"
+        "@ 8,5 SAY \"ab\" PICTURE \"@!\"\n"
+        "@ 9,5 SAY -12.5 PICTURE \"999.99\"\n") == INTERP_OK, "F11 says");
+    row_text(2, 5, "12.50");
+    row_text(3, 5, "-12.50");
+    row_text(4, 5, "-12.50");
+    row_text(5, 5, " 12.50 DB");
+    row_text(6, 5, "( 12.50)");
+    row_text(8, 5, "AB");
+    row_text(9, 5, "-12.50");
+    FEED("cd\r");
+    CHECK(ibase_do(ip, "C=\"ab  \"\n@ 11,5 GET C PICTURE \"@!\"\nREAD\n") == INTERP_OK, "F11 get at-bang");
+    value_c(ip, "C", "CD  ");
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
 int main(void)
 {
     f01_memvar();
@@ -237,5 +328,8 @@ int main(void)
     f15_refusals();
     f07_f08_f09_types();
     f13_field();
+    f05_f06_look_and_bell();
+    f10_masks();
+    f11_say_pictures();
     return TEST_SUMMARY("test-ibase-gets");
 }

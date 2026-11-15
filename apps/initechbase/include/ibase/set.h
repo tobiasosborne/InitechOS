@@ -116,6 +116,10 @@ typedef struct {
     int  talk;              /* 1 = ON (default), 0 = OFF */
     int  safety;            /* 1 = ON (default), 0 = OFF */
     int  confirm;           /* SET CONFIRM: 0 = OFF (default), 1 = ON */
+    int  bell;              /* SET BELL: 1 = ON (default), 0 = OFF */
+    int  intensity;         /* SET INTENSITY: 1 = ON (default), 0 = OFF */
+    int  delimiters;        /* SET DELIMITERS: 0 = OFF (default), 1 = ON */
+    char delim_l, delim_r;  /* SET DELIMITERS TO pair (default ':') */
     int  unique;            /* SET UNIQUE: 0 = OFF (default), 1 = ON */
     /* HELP.DBS SET COLOR lines 1393-1396; CGA attribute bytes. */
     uint8_t color_standard, color_enhanced, color_border, color_background;

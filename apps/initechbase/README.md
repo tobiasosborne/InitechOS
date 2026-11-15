@@ -88,14 +88,15 @@ DOW RECNO RECCOUNT EOF BOF FOUND DELETED FIELD DBF FILE LEFT RIGHT STUFF REPLICA
 AT ISALPHA ISUPPER ISLOWER TRANSFORM EXP LOG SQRT TIME LUPDATE NDX ROW COL PROW
 PCOL INKEY READKEY LASTKEY ISCOLOR FKLABEL OS VERSION GETENV DISKSPACE.
 
-29 SET spellings (28 distinct options because HEADING/HEADINGS are aliases):
+32 SET spellings (31 distinct options because HEADING/HEADINGS are aliases):
 
 ALTERNATE EXACT DECIMALS FIXED DATE CENTURY ORDER INDEX DELETED FILTER RELATION
 TALK SAFETY ESCAPE HEADING HEADINGS CONSOLE STATUS SCOREBOARD COLOR DEVICE
-UNIQUE MARGIN PRINT MEMOWIDTH HISTORY DOHISTORY PROCEDURE CONFIRM.
+UNIQUE MARGIN PRINT MEMOWIDTH HISTORY DOHISTORY PROCEDURE CONFIRM BELL
+INTENSITY DELIMITERS.
 
 RELATION and TALK currently store intent without the corresponding runtime
-behavior. The other 27 spellings have implemented effects, within the captured
+behavior. The other 30 spellings have implemented effects, within the captured
 subset; pending history, numeric formatting and memo layout cases limit parity.
 
 Omissions and current refusals (the catalogue text is retained verbatim):
@@ -123,10 +124,16 @@ DBF/DBT/NDX/MEM readbacks; mint with `make mint-forms`). Declaration,
 the pending-GET list, CLEAR GETS/CLEAR cleanup, unformatted rendering
 and the editor core have landed and are graded by `test-ibase-gets`
 against those captures (values, READKEY codes, field/index write-back,
-record bytes). Still to land: PICTURE/FUNCTION formatting and editing
-(stage 5; a character PICTURE operand refuses #36 until then, a
-non-character one gives the captured #45), SET BELL/INTENSITY/
-DELIMITERS, and the both-emulator product-image replay.
+record bytes). Stage 5 has also landed for the captured subset:
+PICTURE masks `A N X ! 9 #` and literals on character GETs, digit-slot
+entry on numeric GETs, functions `! B C X (` (in the picture or as a
+separate FUNCTION clause) on SAY and GET through the shared TRANSFORM
+engine, and SET BELL/INTENSITY/DELIMITERS. Still to land:
+date/logical pictures (a PICTURE on a D or L GET/SAY refuses #36; no
+capture mints one yet), mask characters beyond the captured GET cases
+(`L`, `Y`; `,`/`$`/`*` reach GETs through the TRANSFORM engine's
+verified formatting, their entry editing uncaptured), and the
+both-emulator product-image replay (factory stage).
 
 Supported: `@ r,c GET lvalue` and combined `@ r,c SAY expr GET lvalue`
 for C/N/D/L memory variables and fields (unqualified name binds the

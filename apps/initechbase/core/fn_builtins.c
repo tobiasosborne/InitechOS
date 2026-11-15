@@ -1230,6 +1230,7 @@ static int fn_islower(const xb_val *args, xb_val *out, int *err)
 #define TR_AT_DEBIT  0x02   /* @X trailing " DB"       [verified: mint-002] */
 #define TR_AT_CREDIT 0x04   /* @C trailing " CR"       [verified: mint-002] */
 #define TR_AT_LEFT   0x08   /* @B left-justify          [verified: mint-002] */
+#define TR_AT_UPPER  0x10   /* @! uppercase [verified: forms-f11 SAY "@!"] */
 
 /* '9' and '#' both occupy numeric digit slots.
  * [verified: mint-002 "9999"; string-functions.md:581 "9/#(digit)"] */
@@ -1269,7 +1270,8 @@ static int tr_parse_at_flags(const char *pic, uint16_t plen,
         else if (fc == 'X') flags |= TR_AT_DEBIT;
         else if (fc == 'C') flags |= TR_AT_CREDIT;
         else if (fc == 'B') flags |= TR_AT_LEFT;
-        /* GATED: @!, @R, @Z, @S, @M, @E -- not minted; silently skip. */
+        else if (fc == '!') flags |= TR_AT_UPPER;
+        /* GATED: @R, @Z, @S, @M, @E -- not minted; silently skip. */
         i++;
     }
     if (i < plen && pic[i] == ' ') i++; /* skip separator space */
@@ -1600,7 +1602,8 @@ static int tr_format_char(xb_ctx *ctx,
         char tc = tmpl[i];
         char sc = (i < (int32_t)slen) ? src[i] : ' ';
         if      (tc == '!')                           dst[i] = fold_upper(sc);
-        else if (tc == 'X' || tc == 'A' || tc == 'N') dst[i] = sc;
+        else if (tc == 'X' || tc == 'A' || tc == 'N' ||
+                 tc == '9' || tc == '#')              dst[i] = sc;
         else                                          dst[i] = tc;
     }
     *out = xb_c(dst, tlen);
@@ -1636,10 +1639,29 @@ static int fn_transform(xb_ctx *ctx, const xb_val *args,
 
     if (is_char(&args[0])) {
         /* Character-source: use template char semantics (!,X,A,N).
-         * GATED: @( @X @C @B behavior for char source is [oracle-resolves]. */
-        return tr_format_char(ctx,
-                              args[0].u.c.p, args[0].u.c.len,
-                              tmpl, tlen, out, err);
+         * GATED: @( @X @C @B behavior for char source is [oracle-resolves].
+         * An empty template ("@!" alone) passes the source through, then
+         * @! uppercases it (real III+ forms-f11 SAY "ab" PICTURE "@!"). */
+        int rc;
+        if (tlen == 0) {
+            /* Copy: @! must never uppercase the source value in place. */
+            char *dst = fn_scratch(ctx, (uint32_t)(args[0].u.c.len ? args[0].u.c.len : 1));
+            if (dst == 0) return fn_fail(err, XBEE_SCRATCH_FULL);
+            { uint16_t i; for (i = 0; i < args[0].u.c.len; i++) dst[i] = args[0].u.c.p[i]; }
+            *out = xb_c(dst, args[0].u.c.len);
+            *err = XBEE_OK;
+            rc = 0;
+        } else {
+            rc = tr_format_char(ctx,
+                                args[0].u.c.p, args[0].u.c.len,
+                                tmpl, tlen, out, err);
+        }
+        if (rc == 0 && (at_flags & TR_AT_UPPER)) {
+            uint16_t i;
+            for (i = 0; i < out->u.c.len; i++)
+                out->u.c.p[i] = fold_upper(out->u.c.p[i]);
+        }
+        return rc;
     }
 
     /* Numeric source: pre-compute suffix_extra, then format. */
@@ -1658,6 +1680,19 @@ static int fn_transform(xb_ctx *ctx, const xb_val *args,
                                  at_flags, suffix_extra,
                                  out, err);
     }
+}
+
+/* Shared entry for @...SAY/GET PICTURE (cmd/query.c): the HELP text for
+ * TRANSFORM says to use the @...SAY PICTURE options, so both surfaces run
+ * this one engine. Callers pre-validate the picture to the captured
+ * forms subset; this wrapper adds no policy of its own. */
+int xb_picture_format(xb_ctx *ctx, const xb_val *v, const char *pic,
+                      uint16_t plen, xb_val *out, int *err)
+{
+    xb_val args[2];
+    args[0] = *v;
+    args[1] = xb_c(pic, plen);
+    return fn_transform(ctx, args, out, err);
 }
 
 /* ======================================================================== */

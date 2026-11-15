@@ -126,7 +126,11 @@ int main(void)
     error(ip,"@ 0,80 SAY \"X\"\n",30);
     error(ip,"@ -1,0 SAY \"X\"\n",30);
     error(ip,"@ \"x\",0 SAY \"X\"\n",27);
-    error(ip,"@ 0,0 SAY \"X\" PICTURE \"!\"\n",36);
+    /* SAY PICTURE landed with forms stage 5 (forms-f11); a non-character
+     * PICTURE operand is the captured #45 (forms-f15b, on GET). */
+    CHECK(ibase_do(ip,"@ 0,0 SAY \"x\" PICTURE \"!\"\n")==INTERP_OK && !strcmp(painted,"X"),
+          "SAY PICTURE bang uppercases");
+    error(ip,"@ 0,0 SAY \"X\" PICTURE 9\n",45);
     /* Combined SAY/GET exists now (initech-p3nn0, forms-f01): a defined
      * variable declares; an undefined one is the captured #12 (f15a). */
     CHECK(ibase_do(ip,"INPUT=SPACE(4)\n@ 0,0 SAY \"X\" GET INPUT\nCLEAR GETS\n")==INTERP_OK,
