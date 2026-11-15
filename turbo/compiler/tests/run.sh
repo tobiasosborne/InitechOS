@@ -106,22 +106,26 @@ gen*|self-generation)
         assert_not "$entry:unexpected diagnostic or symbol" grep -q '^TURBO-GEN-ERROR' "$scratch/$pass/bracket-GEN"
         assert "$entry:required artifact or count" test "$(grep -c '^TURBO-GEN-OK bytes=[0-9][0-9]* labels=[0-9][0-9]*$' "$scratch/$pass/bracket-GEN")" -eq 1
         assert "$entry:required artifact or count" test -s "$scratch/$pass/TURBOOUT.S"
-        links "$scratch/$pass"
-        setup sh tests/package.sh "$scratch/$pass/TURBOOUT.S" "$scratch/$pass/extended" "$scratch/$pass/program.o"
+        # One independent NASM/link oracle suffices: both compiler emissions
+        # are compared with it, and their assembly is compared directly below.
+        # Rebuilding identical foreign-tool inputs is not another compiler test.
+        if [ "$pass" = a ]; then
+            links "$scratch/a"
+            setup sh tests/package.sh "$scratch/a/TURBOOUT.S" "$scratch/a/extended" "$scratch/a/program.o"
+        fi
         assert "$entry:required artifact or count" test -s "$scratch/$pass/TURBOOUT.EXE" || { echo "FAIL $entry: no native container emitted"; exit 1; }
-        assert "$entry:independent bytes or determinism" cmp "$scratch/$pass/extended/program.exe" "$scratch/$pass/TURBOOUT.EXE"
+        assert "$entry:independent bytes or determinism" cmp "$scratch/a/extended/program.exe" "$scratch/$pass/TURBOOUT.EXE"
         setup "$TOP/build/factory/mz/mzcheck" "$scratch/$pass/TURBOOUT.EXE"
         if [ "$entry" != self-generation ]; then
-            assert "$entry:independent bytes or determinism" cmp "$scratch/$pass/program.com" "$scratch/$pass/TURBOOUT.COM"
+            assert "$entry:independent bytes or determinism" cmp "$scratch/a/program.com" "$scratch/$pass/TURBOOUT.COM"
         fi
     done
-    for artifact in TURBOOUT.S program.o bare.elf dos.elf program.com; do
+    for artifact in TURBOOUT.S TURBOOUT.EXE; do
         assert "$entry:independent bytes or determinism" cmp "$scratch/a/$artifact" "$scratch/b/$artifact"
     done
     if [ "$entry" = self-generation ]; then
         setup nm -n "$scratch/a/dos.elf" > "$scratch/symbols"
         end=$(awk '$3 == "__bss_end" {print $1}' "$scratch/symbols")
-        setup sh tests/package.sh "$scratch/a/TURBOOUT.S" "$scratch/extended" "$scratch/a/program.o"
         echo "self assembly=$(wc -c < "$scratch/a/TURBOOUT.S") DOS end=0x$end"
     else
         setup mkdir -p "$scratch/fpc"
@@ -143,7 +147,8 @@ seed-build)
     start=$(awk '$3 == "__bss_start" {print $1}' "$scratch/symbols")
     end=$(awk '$3 == "__bss_end" {print $1}' "$scratch/symbols")
     assert "$entry:required artifact or count" test -n "$start" && assert "$entry:required symbol" test -n "$end"
-    setup sh tests/package.sh "$asm" "$scratch/extended"
+    # all already packaged this seed assembly at both link bases and checked
+    # the real container. Keep the independent second seed emission below.
     setup "$SEED_OUT/initechc" --emit-asm -o "$scratch/again.s" turbo.pas
     assert "$entry:independent bytes or determinism" cmp "$asm" "$scratch/again.s"
     assert "$entry:required artifact or count" test -s "$out/TURBO.COM" && assert "$entry:required target" test -s "$out/turbo_seed_bare.elf"
