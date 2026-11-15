@@ -275,6 +275,12 @@ picks the page by size (two symbols share its name; tests/console-symbols.sh
 grades it against nm -S). A refused or failed capture ends the run
 incomplete (exit 3). On the DOS VER page it matched a fixed QEMU capture
 in every cell, attribute and the cursor except the clock's seconds.
+A trace step S<name> takes Bochs's own lossless snapshot (the header-bar
+button; the RFB view is only 8-bit BGR233) into <out>/<name>.ppm mid-run;
+Bochs then runs in the output directory, where it writes snapshot.bmp.
+Journey capture() emits it on Bochs only with DESKTOP_BOCHS_CAPTURE=1
+(frame request F2): ten snapshots in the InitechWord session all landed and
+the journey still passed, but each costs seconds, so smoke leaves them off.
 Journeys hold a press with hold_capture NAME [MARKER]: button down, the
 app's marker (or a 500 ms settle), a QEMU capture while held, button up
 (initech-8l4kp; tests/trace-hold.sh grades the emitted trace).

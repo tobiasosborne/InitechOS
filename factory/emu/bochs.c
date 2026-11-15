@@ -957,7 +957,17 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     char abs_serial[BOCHS_PATH_MAX], abs_bochsrc[BOCHS_PATH_MAX], abs_rcfile[BOCHS_PATH_MAX];
     const char *child_serial = out->serial_path, *child_rc = rc_path,
                *child_bochsrc = out->bochsrc_path;
-    if (cfg->screendump_after) {
+    /* Bochs writes its snapshot as snapshot.bmp in its working directory, so
+     * a trace with S<name> steps runs it in the output directory too. */
+    /* Detected by the token's letter, never by parsing: desktop-bochs makes
+     * the parser perform its W waits. Only snapshot steps begin with S. */
+    bool has_snap = false;
+    for (const char *p = cfg->keys_script; p && *p;) {
+        const char *end = strchr(p, ',');
+        if (p[0] == 'S') has_snap = true;
+        p = end ? end + 1 : NULL;
+    }
+    if (cfg->screendump_after || has_snap) {
         abs_dir = realpath(dir, NULL);
         abs_disk = realpath(out->boot_path, NULL);
         abs_data = cfg->data_disk_path ? realpath(cfg->data_disk_path, NULL) : NULL;
@@ -1129,7 +1139,27 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                 if (BOCHS_TRACE_TAP_KEYS) delay *= 2;
                 delay = BOCHS_TRACE_KEY_MS;
             } else if (step.kind == BX_WAIT) delay = step.delay;
-            else if (step.kind == BX_TEXT) {
+            else if (step.kind == BX_SNAP) {
+                /* The header-bar snapshot button writes Bochs's own
+                 * lossless VGA picture; retry a retrace-skipped blank. */
+                char bmp[BOCHS_PATH_MAX], ppm[BOCHS_PATH_MAX];
+                const char *dir = cfg->output_dir ? cfg->output_dir : ".";
+                bool got = false, blank = false;
+                if (snprintf(bmp, sizeof bmp, "%s/%s.bmp", dir, step.name) >= (int)sizeof bmp ||
+                    snprintf(ppm, sizeof ppm, "%s/%s.ppm", dir, step.name) >= (int)sizeof ppm) break;
+                for (int tries = 0; tries < 3 && !got; tries++) {
+                    remove(bochs_snap);
+                    if (!rfb_click_header(&rfb, 640)) break;
+                    long long until = mono_ms() + 15000;
+                    int c = 0;
+                    while (mono_ms() < until && (c = snapshot_complete(bochs_snap)) == 0) { rfb_pump(&rfb); sleep_ms(20); }
+                    if (c <= 0 || rename(bochs_snap, bmp) != 0) break;
+                    got = snapshot_to_ppm(bmp, ppm, &blank) && !blank;
+                }
+                if (!got) { fprintf(stderr, "bochs_run: S%s: snapshot FAILED\n", step.name); out->text_capture_failed = true; break; }
+                fprintf(stderr, "[bochs] snapshot %s\n", ppm);
+                delay = 0;
+            } else if (step.kind == BX_TEXT) {
                 if (dbg[1] < 0 || bochs_text_capture(pid, dbg[1], out->log_path, text_elf,
                                                      cfg->output_dir ? cfg->output_dir : ".", step.name) != 0) {
                     if (dbg[1] < 0) fprintf(stderr, "bochs_run: T%s needs INITECH_TEXT_SCREEN_ELF\n", step.name);

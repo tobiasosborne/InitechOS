@@ -9,8 +9,12 @@ await_marker() {
     expect_marker "$1"
     inject "W$1"
 }
+# QEMU captures every journey screenshot. Bochs takes its own lossless
+# snapshot (S<name> -> the session directory) only on request, for pixel
+# grading on both emulators (frame request F2): it costs seconds each.
 capture() {
-    if [ "$emulator" = qemu ]; then inject "D$out/$1.ppm"; fi
+    if [ "$emulator" = qemu ]; then inject "D$out/$1.ppm"
+    elif [ -n "${DESKTOP_BOCHS_CAPTURE:-}" ]; then inject "S$1"; fi
 }
 # Press and hold the mouse button where the pointer is, wait for the app's
 # MARKER (or a 500 ms settle when none is given), capture NAME while still
