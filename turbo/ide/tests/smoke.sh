@@ -93,7 +93,7 @@ for emulator in ${*:-qemu bochs}; do
   cp "$out/unnamed.list" "$dir/U/shots.list"
   assert "$emulator:MINT08 unnamed save screens" "$build/screens" "$corpus/goldens/minted/MINT08" "$dir/U" turbo/ide/tests/unnamed.expect
   assert "$emulator:MINT08 unnamed save bytes" cmp "$corpus/goldens/minted/MINT08/disk/UNNAMED.PAS" "$dir/U/UNNAMED.PAS"
-  assert "$emulator:unnamed save finishes Quit" grep -Fx 'IDE-HOST-MODE=5' "$dir/serial.txt"
+  assert "$emulator:all three journeys finish Quit" test "$(grep -c '^IDE-HOST-MODE=5$' "$dir/serial.txt")" -eq 3
   echo "PASS $emulator ide journeys"
 done
 finish
