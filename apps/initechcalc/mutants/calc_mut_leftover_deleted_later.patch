@@ -1,26 +1,25 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -549,6 +549,7 @@
-     int32_t rc=tbx_file_close(h);
-     return rc<0?rc:1;
- }
-+static const char *kept;   /* MUTANT: a leftover remembered for later */
- /* Delete the stage this Save created. It is provably Calc's only within
-  * that Save: CREATE_NEW made it, and the FILE COPY box is modal. Once the
-  * Save is over the user may move, delete or replace the file through the
-@@ -564,6 +565,7 @@
+@@ -651,12 +651,14 @@
+  * (initech-40kpb). Returns the notice to show: `otherwise` when the stage
+  * is gone, else the remaining file's name after `otherwise` when that is
+  * the failure notice. */
++static char kept[24];   /* MUTANT: a leftover remembered for later */
+ static const char *release_stage(const char *otherwise)
+ {
+     int32_t rc=tbx_file_delete(copy_stage);
      g_staged=0;
      if(rc<0&&rc!=TBX_ERR_DOS(2)) rc=tbx_file_delete(copy_stage);
      if(rc>=0||rc==TBX_ERR_DOS(2)) return otherwise;
-+    kept=copy_stage;
++    copy(kept,copy_stage);
      char *d=said;
      if(otherwise) { for(const char *s=otherwise;*s;) *d++=*s++; *d++='\r'; }
      for(const char *s=remains_text;*s;) *d++=*s++;
-@@ -579,6 +581,7 @@
+@@ -672,6 +674,7 @@
  {
      unsigned n=serialise(); int32_t h=TBX_ERR_DOS(80);
      if(!n) { g_quit_after_save=0; notice(fail_text); return; }
-+    if(kept) { (void)tbx_file_delete(kept); kept=0; }
-     copy_stage=0;
++    if(kept[0]) { (void)tbx_file_delete(kept); kept[0]=0; }
      /* CREATE_NEW is the ownership proof (toolbox_gate.h Sec 10b). OPEN
       * errors never license truncating someone else's file. Only file-exists
+      * advances to another candidate. */

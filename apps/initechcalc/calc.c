@@ -28,11 +28,27 @@ static const char copy_caption[]=CALC_COPY_CAPTION;
 static const char shipped[]="APPS\\LEDGER.TXT";
 static const char copy_dst[]="APPS\\TABLES.TXT";
 /* Stage names, tried in DOS order; an occupied name is never touched. A
- * stage DOS would not delete is left to the user, so there are spares. */
-static const char *const stage_names[]={"APPS\\TABLES.TMP","APPS\\TABLE~1.TMP","APPS\\TABLE~2.TMP","APPS\\TABLE~3.TMP",
-    "APPS\\TABLE~4.TMP","APPS\\TABLE~5.TMP","APPS\\TABLE~6.TMP","APPS\\TABLE~7.TMP","APPS\\TABLE~8.TMP","APPS\\TABLE~9.TMP"};
-static const char *copy_stage;
-#define STAGES (sizeof stage_names/sizeof stage_names[0])
+ * stage DOS would not delete is left to the user, so every Save may find
+ * earlier ones in the way and takes the next free name: TABLES.TMP, then a
+ * numeric tail that shortens the name as it grows, TABLE~1 to TABLE~9,
+ * TABL~10 to TABL~99 and so on to T~99999 (initech-40kpb). That is 100,000
+ * names, more than a FAT directory can hold (65,536 entries, Microsoft FAT
+ * specification 1.03, "FAT Directory Structure"), so the directory fills
+ * before the names run out, and that is reported as any refused CREATE. */
+#define STAGES 100000u
+static char copy_stage[24] TBX_IN_IMAGE={0};
+static void stage_name(unsigned i)
+{
+    char tail[8]; unsigned n=0, keep=6;
+    if(i) { for(unsigned v=i;v;v/=10) tail[n++]=(char)('0'+v%10); keep=6-n; }
+    char *d=copy_stage;
+    for(const char *s="APPS\\";*s;) *d++=*s++;
+    for(unsigned k=0;k<keep;k++) *d++="TABLES"[k];
+    if(n) *d++='~';
+    while(n) *d++=tail[--n];
+    for(const char *s=".TMP";*s;) *d++=*s++;
+    *d=0;
+}
 static const char quit_text[]="Save changes to the worksheet\r\"TABLES.TXT\"\rbefore quitting?";
 static const char replace_text[]="\"TABLES.TXT\" already exists.\rDo you want to replace it with the\rworksheet you are saving?";
 static const char fail_text[]="The worksheet could not be saved.";
@@ -656,13 +672,12 @@ static void do_save(void)
 {
     unsigned n=serialise(); int32_t h=TBX_ERR_DOS(80);
     if(!n) { g_quit_after_save=0; notice(fail_text); return; }
-    copy_stage=0;
     /* CREATE_NEW is the ownership proof (toolbox_gate.h Sec 10b). OPEN
      * errors never license truncating someone else's file. Only file-exists
      * advances to another candidate. */
     for(unsigned i=0;i<STAGES;i++) {
-        h=tbx_file_create_new(stage_names[i]);
-        if(h>=0) { copy_stage=stage_names[i]; break; }
+        stage_name(i);
+        h=tbx_file_create_new(copy_stage);
         if(h!=TBX_ERR_DOS(80)) break;
     }
     if(h<0) { g_quit_after_save=0; notice(fail_text); return; }

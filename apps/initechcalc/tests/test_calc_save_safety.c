@@ -149,7 +149,7 @@ int main(int argc, char **argv)
     int probe=!strcmp(scenario,"destination-open-error") || !strcmp(scenario,"destination-close-error");
     int cancel=!strcmp(scenario,"replace-no");
     int copy_error=!strcmp(scenario,"copy-error") || !strcmp(scenario,"copy-cancel");
-    int success=!strcmp(scenario,"stage-open-error") || !strcmp(scenario,"collision");
+    int success=!strcmp(scenario,"stage-open-error") || !strcmp(scenario,"collision") || !strcmp(scenario,"all-collisions");
     tbx_host_reset();
     CHECK(tbx_host_import(argv[2]),"import independent on-disk fixture");
     CHECK(tbx_app_main()==0&&tbx_host.alerts==0,"Calc launches on the saved tables");
@@ -177,7 +177,8 @@ int main(int argc, char **argv)
         if(success || copy_error) {
             CHECK(copy_calls==1 && g_copying,"completed stage goes through FILE COPY");
             CHECK(!strcmp(tbx_host.copy_caption,"Saving tables to disk..."),"canon FILE COPY caption");
-            CHECK(!strcmp(tbx_host.copy_src,success?"APPS\\TABLE~1.TMP":"APPS\\TABLES.TMP"),"copy uses exclusively owned stage");
+            CHECK(!strcmp(tbx_host.copy_src,!success?"APPS\\TABLES.TMP":!strcmp(scenario,"all-collisions")?"APPS\\TABL~10.TMP":"APPS\\TABLE~1.TMP"),
+                  "copy uses exclusively owned stage, the next name in DOS order");
             complete(copy_error?(!strcmp(scenario,"copy-cancel")?TBX_ERR_BUSY:TBX_ERR_DOS(39)):0);
         } else if(cancel) {
             CHECK(copy_calls==0 && reserve_calls==0,"declining replace creates nothing");
@@ -186,7 +187,17 @@ int main(int argc, char **argv)
             CHECK(copy_calls==(!strcmp(scenario,"copy-rejected")?1u:0u),"failed stage never reaches FILE COPY");
         }
         if(!strcmp(scenario,"create-error")) CHECK(reserve_calls==1,"only file-exists advances to another candidate");
-        if(!strcmp(scenario,"all-collisions")) CHECK(reserve_calls==10,"all ten names reserved exclusively before safe refusal");
+        if(!strcmp(scenario,"all-collisions")) {
+            CHECK(reserve_calls==11,"ten occupied names passed over, the eleventh reserved");
+            /* Every name in the reserve is a DOS 8.3 name in APPS. */
+            unsigned bad=0;
+            for(unsigned i=0;i<STAGES;i++) {
+                stage_name(i);
+                const char *n=copy_stage+5, *dot=strchr(n,'.');
+                if(strncmp(copy_stage,"APPS\\",5)||!dot||dot-n<1||dot-n>8||strcmp(dot,".TMP")||strchr(n,'\\')) bad++;
+            }
+            CHECK(bad==0&&STAGES>65536u,"the reserve is 8.3 names, more than a FAT directory holds");
+        }
     }
     CHECK(handles()==0,"no open handles after completion/error");
     CHECK(!g_staged && !g_copying,"no stage ownership or copy left after terminal result");
@@ -202,7 +213,7 @@ int main(int argc, char **argv)
         tbx_host.write_budget=-1;
     }
     CHECK(tbx_host_export(argv[2]),"export disk for independent shell readback");
-    if(!success && strcmp(scenario,"all-collisions")) {
+    if(!success) {
         event(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);
         unsigned before=copy_calls;
         event(TBX_EVT_MENU,TBX_MENU_WORD(129,1));

@@ -110,7 +110,9 @@ ledger at its saved places saves byte for byte as it was read.
 Save safety follows the operator's failed-save ruling (GM3/GM4): after any
 reported failure the previous file must still open under its own name.
 Calc reserves stages with CREATE_NEW (`TABLES.TMP`, then `TABLE~1.TMP` to
-`TABLE~9.TMP`), advances only on DOS file-exists, closes every acquired
+`TABLE~9.TMP`, `TABL~10.TMP` and so on to `T~99999.TMP`: 100,000 names, more
+than a FAT directory can hold, so leftovers never stop a Save before the
+directory is full; initech-40kpb), advances only on DOS file-exists, closes every acquired
 handle even after a failed or short write, and removes only the stage the
 current Save created, while that Save is still going on (the FILE COPY box
 is modal). Once a Save is over its stage is no longer provably Calc's: the
@@ -169,8 +171,10 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   pre-save snapshots or the fixture with the edited row inserted by awk.
   `cleanup-replaced`: a cancelled copy's undeletable stage, then replaced by
   the user with an unrelated file, which must survive the next Save.
-  `restart`: four sessions over one disk, each Quit > Save with its stage's
-  DELETE refused, then a fifth session without the fault that must save.
+  `restart`: eleven sessions over one disk, each Quit > Save with its
+  stage's DELETE refused, then a twelfth session without the fault that must
+  save (red on the ten-name reserve). `all-collisions`: ten unrelated files
+  hold TABLES.TMP to TABLE~9.TMP; the Save takes TABL~10.TMP and leaves them.
 
 - `test_calc_paint`: the gate-call budget and the repaint property. One
   update of the shipped ledger at most 600 drawing calls, one keystroke at

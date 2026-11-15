@@ -1,0 +1,12 @@
+# test: test_calc_save_safety
+--- a/calc.c
++++ b/calc.c
+@@ -35,7 +35,7 @@
+  * names, more than a FAT directory can hold (65,536 entries, Microsoft FAT
+  * specification 1.03, "FAT Directory Structure"), so the directory fills
+  * before the names run out, and that is reported as any refused CREATE. */
+-#define STAGES 100000u
++#define STAGES 10u
+ static char copy_stage[24] TBX_IN_IMAGE={0};
+ static void stage_name(unsigned i)
+ {

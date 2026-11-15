@@ -34,7 +34,7 @@ for scenario in stage-open-error collision all-collisions create-error write-err
     c=$(sed -n 's/^test_calc_save_safety: \([0-9]*\) checks, \([0-9]*\) failures.*/\1 \2/p' "$tmp/out")
     checks=$((checks + ${c%% *})); failed=$((failed + ${c##* }))
     case $scenario in
-        stage-open-error|collision) cp "$tmp/edited" "$tmp/expected/$scenario/TABLES.TXT" ;;
+        stage-open-error|collision|all-collisions) cp "$tmp/edited" "$tmp/expected/$scenario/TABLES.TXT" ;;
     esac
     if ! diff -r "$tmp/expected/$scenario" "$disk/APPS"; then
         echo "FAIL save safety disk readback: $scenario"; fail=1; failed=$((failed + 1))
@@ -72,16 +72,17 @@ cp data/LEDGER.TXT "$tmp/edited" "$tmp/expected/cleanup-replaced/"
 mv "$tmp/expected/cleanup-replaced/edited" "$tmp/expected/cleanup-replaced/TABLES.TXT"
 printf 'Unrelated user file\000\377\r\n' > "$tmp/expected/cleanup-replaced/TABLES.TMP"
 readback "$tmp/expected/cleanup-replaced" "$tmp/cleanup-replaced/APPS" cleanup-replaced
-# initech-40kpb: four sessions each Quit > Save, each stage's DELETE refused;
-# a fifth session without the fault still saves. The four stages are left
-# to the user as they were written (each the saved 73 ledger).
+# initech-40kpb: eleven sessions each Quit > Save, each stage's DELETE
+# refused; a twelfth session without the fault still saves. The eleven
+# stages are left to the user as they were written (each the saved 73
+# ledger), under the names DOS order gives them.
 fresh "$tmp/restart"
-for session in 1 2 3 4; do run cleanup-refused "$tmp/restart"; done
+for session in 1 2 3 4 5 6 7 8 9 10 11; do run cleanup-refused "$tmp/restart"; done
 run after-leftovers "$tmp/restart"
 mkdir -p "$tmp/expected/restart"
 cp data/LEDGER.TXT "$tmp/expected/restart/LEDGER.TXT"
 insert_after_rows data/LEDGER.TXT "1	(G) 74|2	'Keep under TABLES.TXT" > "$tmp/expected/restart/TABLES.TXT"
-for name in TABLES TABLE~1 TABLE~2 TABLE~3; do cp "$tmp/edited" "$tmp/expected/restart/$name.TMP"; done
+for name in TABLES TABLE~1 TABLE~2 TABLE~3 TABLE~4 TABLE~5 TABLE~6 TABLE~7 TABLE~8 TABLE~9 TABL~10; do cp "$tmp/edited" "$tmp/expected/restart/$name.TMP"; done
 readback "$tmp/expected/restart" "$tmp/restart/APPS" restart-after-leftovers
 echo "test_calc_save_safety: $checks checks, $failed failures (all scenarios)"
 exit "$fail"

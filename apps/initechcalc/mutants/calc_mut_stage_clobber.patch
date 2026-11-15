@@ -1,11 +1,11 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -584,7 +584,7 @@
-      * errors never license truncating someone else's file. Only file-exists
+@@ -677,7 +677,7 @@
       * advances to another candidate. */
      for(unsigned i=0;i<STAGES;i++) {
--        h=tbx_file_create_new(stage_names[i]);
-+        h=tbx_file_create(stage_names[i]);
-         if(h>=0) { copy_stage=stage_names[i]; break; }
+         stage_name(i);
+-        h=tbx_file_create_new(copy_stage);
++        h=tbx_file_create(copy_stage);
          if(h!=TBX_ERR_DOS(80)) break;
      }
+     if(h<0) { g_quit_after_save=0; notice(fail_text); return; }
