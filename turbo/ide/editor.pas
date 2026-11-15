@@ -472,6 +472,15 @@ begin
   B := B + Ext
 end;
 
+{ DOS names compare without case; generated siblings must never alias
+  the source. .BAK sources use .BK1 for their previous version. }
+function SameName(var A, B: string): boolean;
+var X, Y: string;
+begin
+  X := A; Y := B; Upper(X); Upper(Y);
+  SameName := X = Y
+end;
+
 { Write aside, close and check, then use only DOS renames to publish.
   MINT06 54 refuses a read-only source; 49 confirms overwrites. The
   operator's save ruling permits the residual double rename failure:
@@ -484,8 +493,18 @@ var Temp, Bak, Ext: string;
 begin
   Ext := '.$$$'; ExtName(Path, Ext, Temp);
   Ext := '.BAK'; ExtName(Path, Ext, Bak);
+  if SameName(Path, Temp) then
+  begin Ext := '.$$1'; ExtName(Path, Ext, Temp) end;
+  if SameName(Path, Bak) then
+  begin Ext := '.BK1'; ExtName(Path, Ext, Bak) end;
   Code := 0; Moved := false; KeepStage := false; StageOwned := false;
-  if Existing then
+  { A pre-existing stage belongs to someone else. Never truncate or erase
+    it, including when a prior rollback left recovery material behind. }
+  Assign(F, Temp); Attr := FileAttributes(F);
+  if Attr >= 0 then Code := 80
+  else if Attr <> -2 then Code := -Attr;
+  if SameName(Path, WorkName0) or SameName(Path, WorkName1) then Code := 5;
+  if Existing and (Code = 0) then
   begin
     Assign(F, Path);
     Attr := FileAttributes(F);

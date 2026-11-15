@@ -1,0 +1,8 @@
+# test: save-identity
+--- a/editor.pas
++++ b/editor.pas
+@@ -497,3 +497,3 @@
+   begin Ext := '.$$1'; ExtName(Path, Ext, Temp) end;
+-  if SameName(Path, Bak) then
++  if false then
+   begin Ext := '.BK1'; ExtName(Path, Ext, Bak) end;
