@@ -2,7 +2,13 @@ TOP := $(abspath ../..)
 COMPONENT := apps/initechpaint
 include $(TOP)/mk/config.mk
 HOST_INCLUDES := -I$(TOP)/flair/include -I$(TOP)/apps/initechcalc/include -I$(TOP)/sdk/include -I$(TOP)/sdk/host -I$(TOP)/factory/testlib
-HOST_TESTS := test_paint_tenant
+HOST_TESTS := test_paint_tenant test_paint_commands
+# GM4 dead-command sweep: the README's frozen inventory is its input.
+test_paint_commands_SRCS := tests/test_paint_commands.c
+test_paint_commands_LIBS := $(TOP)/build/sdk/host/libtbx_host.a
+test_paint_commands_DEPS := $(TOP)/build/sdk/host/libtbx_host.a
+test_paint_commands_CFLAGS := -DSWEEP_README='"$(CURDIR)/README.md"'
+test_paint_commands_COUNT_PATTERN := ^test_paint_commands: ([0-9]+) checks.*$$
 test_paint_tenant_COUNT_PATTERN := ^test_paint_tenant: ([0-9]+) checks.*$$
 test_paint_tenant_SRCS := tests/test_paint_tenant.c
 test_paint_tenant_LIBS := $(TOP)/build/sdk/host/libtbx_host.a

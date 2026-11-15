@@ -31,10 +31,12 @@ checks both commands exit and all empty-title command identities do nothing,
 and checks the blank canvas and absence of file/dialog activity. The event
 switch exposes no custom buttons, editable keys or contextual menus.
 
-make test runs the 33-check routing regression on sdk/host in <1s.
+make test runs the 33-check routing regression and the command sweep on
+sdk/host in <1s.
 Expected bar text is the independent PRD literal; this is unit/regression,
-not a period Photoshop differential. make mutants kills both patches,
-including reinsertion of disabled Edit Undo. No mutation switches remain
+not a period Photoshop differential. make mutants kills four patches,
+including reinsertion of disabled Edit Undo and a grayed Close that the
+command sweep catches. No mutation switches remain
 in the product source. make smoke launches/quits
 on QEMU and checks every pixel in a 260x190 interior canvas region is white
 using the claimed independent C grader. Screendump:
@@ -48,6 +50,49 @@ until the shared geometry issue initech-9jq67 is fixed.
 Initial windows meet the single menu bar (operator ruling, CLAUDE.md
 "Hazards that are still true"). Host routing checks their structure top
 against the public FLAIR_CHROME_MENUBAR_H metric; content sizes are preserved.
+
+GM4 dead-command sweep (test_paint_commands, tests/command_sweep.h): the
+block below is this inventory as data, the 23 omissions included. The sweep
+checks the installed bar, chooses Close and Quit, sends their command keys as
+the shell does, and sends every character byte and key code under each
+modifier: no key reaches the canvas. The empty titles' hold gesture is the
+Toolbox owner's (initech-9jq67).
+
+<!-- command-inventory PAINT.EXE -->
+Title: File | 2
+Menu: File | Close | W | base | exit
+Menu: File | Quit | Q | base | exit
+Title: Edit | 0
+Title: Image | 0
+Title: Layer | 0
+Title: Select | 0
+Title: View | 0
+Title: Window | 0
+Title: Help | 0
+Absent: File | New...
+Absent: File | Open...
+Absent: File | Save
+Absent: Edit | Undo
+Absent: Edit | Cut
+Absent: Edit | Copy
+Absent: Edit | Paste
+Absent: Edit | Clear
+Absent: Image | Adjust
+Absent: Image | Image Size...
+Absent: Image | Canvas Size...
+Absent: Layer | New Layer...
+Absent: Layer | Delete Layer
+Absent: Layer | Flatten Image
+Absent: Select | All
+Absent: Select | None
+Absent: Select | Inverse
+Absent: View | Zoom In
+Absent: View | Zoom Out
+Absent: View | Show Rulers
+Absent: Window | Show Brushes
+Absent: Window | Show Layers
+Absent: Help | Paint Help
+<!-- end-command-inventory -->
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate
