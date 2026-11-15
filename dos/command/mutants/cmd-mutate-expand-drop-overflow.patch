@@ -1,0 +1,13 @@
+# CMD_MUTATE_EXPAND_DROP_OVERFLOW
+# test: test-batch-expand-compat33
+--- a/command/command.c
++++ b/command/command.c
+@@ -4765,7 +4765,7 @@
+          * leaves that truncated prefix in `expanded` when it returns -1;
+          * an empty result has nothing to execute. */
+         if (batch_expand(raw,frame.view,frame.count,batch_env_cb,&g_master_env,
+-                         expanded,sizeof(expanded))<0 && !expanded[0]) continue;
++                         expanded,sizeof(expanded))<0) continue;
+         /* Preserve the established batch line-echo policy. Control bodies
+          * execute after this single physical-line parameter expansion. */
+         if (frame.echo_on && !bp.at_suppressed && bp.kind==BL_COMMAND)

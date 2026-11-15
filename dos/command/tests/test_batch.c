@@ -146,10 +146,23 @@ static void test_expand(void)
     CHECK(n > 0, "expand %%PATH%%: returns > 0");
     CHECK(strcmp(out, "%PATH%") == 0, "expand %%PATH%%: collapses both %%");
 
-    /* Lone '%' at end of string -> passed through verbatim. */
+    /* Genuine DOS 3.30 (compat33 BATCH): `echo PERCENT=[%%][trailing%]`
+     * prints PERCENT=[%][trailing]; an unmatched % contributes no bytes.
+     * A lone '%' at end of string is the same unmatched introducer. */
+    n = batch_expand("PERCENT=[%%][trailing%]", 0, 0, 0, 0, out, (int)sizeof(out));
+    CHECK(n > 0, "expand captured PERCENT line: returns > 0");
+    CHECK(strcmp(out, "PERCENT=[%][trailing]") == 0,
+          "expand captured PERCENT line: unmatched % dropped (DOS 3.30 capture)");
+
     n = batch_expand("hello%", 0, 0, 0, 0, out, (int)sizeof(out));
-    CHECK(n > 0, "expand lone trailing %%: returns > 0");
-    CHECK(strcmp(out, "hello%") == 0, "expand lone trailing %: verbatim");
+    CHECK(n == 5, "expand lone trailing %%: returns 5");
+    CHECK(strcmp(out, "hello") == 0, "expand lone trailing %: dropped");
+
+    /* An unclosed %NAME drops only the introducer; the name is literal. */
+    n = batch_expand("[trailing%XYZ]", 0, 0, stub_env, 0, out, (int)sizeof(out));
+    CHECK(n > 0, "expand unclosed %XYZ]: returns > 0");
+    CHECK(strcmp(out, "[trailingXYZ]") == 0,
+          "expand unclosed %XYZ]: introducer dropped, rest literal");
 
     /* --- Overflow guard (the repository contract) ---------------------------------------- */
 
@@ -165,10 +178,19 @@ static void test_expand(void)
     CHECK(n == 2, "expand exact cap: returns 2");
     CHECK(strcmp(exact, "hi") == 0, "expand exact cap: correct");
 
-    /* One byte too small -- fails. */
+    /* One byte too small -- fails, but leaves the truncated prefix DOS
+     * would execute (compat33 PARAMS: a 176-char expansion runs cut at
+     * the 127-char command limit, mid-parameter). */
     char small[2];
     n = batch_expand("hi", 0, 0, 0, 0, small, 2);
     CHECK(n == -1, "expand one-byte-too-small: returns -1");
+    CHECK(strcmp(small, "h") == 0, "expand overflow: truncated prefix kept");
+
+    /* Truncation lands mid-substitution, as in the PARAMS capture. */
+    char cut[8];
+    n = batch_expand("X%COMSPEC%", 0, 0, stub_env, 0, cut, (int)sizeof(cut));
+    CHECK(n == -1, "expand mid-parameter overflow: returns -1");
+    CHECK(strcmp(cut, "XA:\\COM") == 0, "expand mid-parameter overflow: prefix cut at cap");
 
     /* --- NULL / empty inputs -------------------------------------------- */
 

@@ -4759,8 +4759,13 @@ static void run_batch(const char *path, const char *const argv[], int argc)
         const char *raw=line;
         while (*raw==' ' || *raw=='\t') raw++;
         if (*raw=='@') raw++;
+        /* Genuine DOS 3.30 executes an overexpanded command truncated at
+         * its 127-character buffer limit (compat33 PARAMS: first ECHO cut
+         * mid-parameter, then SHIFT and the next ECHO run). batch_expand
+         * leaves that truncated prefix in `expanded` when it returns -1;
+         * an empty result has nothing to execute. */
         if (batch_expand(raw,frame.view,frame.count,batch_env_cb,&g_master_env,
-                         expanded,sizeof(expanded))<0) continue;
+                         expanded,sizeof(expanded))<0 && !expanded[0]) continue;
         /* Preserve the established batch line-echo policy. Control bodies
          * execute after this single physical-line parameter expansion. */
         if (frame.echo_on && !bp.at_suppressed && bp.kind==BL_COMMAND)

@@ -1,0 +1,24 @@
+# BATCH_MUTATE_KEEP_PERCENT
+# test: test-batch test-batch-expand-compat33
+--- a/command/batch.c
++++ b/command/batch.c
+@@ -192,8 +192,7 @@
+         i++;    /* skip the first '%' */
+ 
+         if (line[i] == '\0') {
+-            /* Lone '%' at end of line: an unmatched introducer, dropped.
+-             * Genuine DOS 3.30 compat33 BATCH: [trailing%] -> [trailing]. */
++            if (!bat_emit(out, &pos, cap, '%')) { out[pos]='\0'; return -1; }
+             break;
+         }
+ 
+@@ -267,8 +266,7 @@
+              * name characters are copied literally. */
+         }
+ 
+-        /* Unmatched '%' sequence: drop the '%' itself; the scan restarts
+-         * at `i` (the character after it) as ordinary input. */
++        if (!bat_emit(out, &pos, cap, '%')) { out[pos]='\0'; return -1; }
+     }
+ 
+     out[pos] = '\0';

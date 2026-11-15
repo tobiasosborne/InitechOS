@@ -84,20 +84,23 @@ typedef const char *(*batch_env_lookup_fn)(const char *name, void *ctx);
  *   %VARNAME%  -> value from `env` callback; NULL (undefined) -> empty.
  *                 Ref: genuine DOS 3.30 compat33/expected/BATCH TRACE.TXT.
  *   %%         -> '%'  (escape for a literal percent sign)
- *   Lone '%' at end of string / %<non-digit-non-name> -> '%' passed through.
+ *   Unmatched '%' (no closing '%' before end of line, including a lone
+ *                 trailing '%') -> dropped; following text is literal.
+ *                 Ref: genuine DOS 3.30 compat33 BATCH ([trailing%] prints
+ *                 as [trailing]).
  *
  * `argv` is an array of `argc` pointers (argv[0] = batch name, argv[1..9]
  * are the positional parameters).  Any of argv[i] may be NULL, treated as
  * empty string.
  *
- * `env` may be NULL (no environment lookup); in that case all %VAR% refs
- * are left as the literal text "%VAR%".  `envctx` is forwarded to `env`.
+ * `env` may be NULL (no environment lookup); a closed %VAR% then expands
+ * to empty, as an undefined variable does.  `envctx` is forwarded to `env`.
  *
  * Writes at most `cap`-1 characters to `out` and always NUL-terminates
- * (Rule 2: never overflow).  Returns the number of characters written (not
+ * (never overflow).  Returns the number of characters written (not
  * counting the NUL).  Returns -1 if the expanded result would not fit in
- * `cap` bytes (the partial output is indeterminate; `out[0]` is set to NUL
- * for safety).
+ * `cap` bytes; `out` then holds the truncated prefix genuine DOS 3.30
+ * executes at its 127-character command limit (compat33 PARAMS).
  *
  * Deterministic (Rule 11).  Pure: no asm, no I/O. */
 int batch_expand(const char *line,

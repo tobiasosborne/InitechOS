@@ -126,19 +126,22 @@ static int bat_emit(char *out, int *pos, int cap, char c)
 }
 
 /* Emit a NUL-terminated string `s` into `out` starting at `*pos`.
- * Returns the number of characters emitted on success.  Returns -1 and
- * leaves `*pos` unchanged if `s` does not fit within `cap`-1 chars
- * (overflow detected before writing, so `out` stays consistent). */
+ * Returns the number of characters emitted on success.  If `s` does not
+ * fit, emits the prefix that fits (genuine DOS 3.30 truncates an
+ * overexpanded command at its buffer limit, mid-parameter: compat33
+ * PARAMS) and returns -1 with `*pos` at the truncation point. */
 static int bat_emit_str(char *out, int *pos, int cap, const char *s)
 {
     int slen = bat_strlen(s);
-    if (*pos + slen >= cap) {
-        return -1;  /* would not fit (including the final NUL slot) */
+    int room = cap - 1 - *pos;   /* keep the final NUL slot */
+    int n = slen < room ? slen : room;
+    if (n < 0) {
+        n = 0;
     }
-    for (int i = 0; i < slen; i++) {
+    for (int i = 0; i < n; i++) {
         out[(*pos)++] = s[i];
     }
-    return slen;
+    return n == slen ? slen : -1;
 }
 
 /* Return 1 if c is a valid DOS environment variable name character:
@@ -178,8 +181,8 @@ int batch_expand(const char *line,
         if (line[i] != '%') {
             /* Ordinary character -- emit verbatim. */
             if (!bat_emit(out, &pos, cap, line[i])) {
-                out[0] = '\0';
-                return -1;  /* overflow (the repository contract) */
+                out[pos] = '\0';
+                return -1;  /* overflow: truncated prefix retained */
             }
             i++;
             continue;
@@ -189,11 +192,8 @@ int batch_expand(const char *line,
         i++;    /* skip the first '%' */
 
         if (line[i] == '\0') {
-            /* Lone '%' at end of line -- emit verbatim (DOS behaviour). */
-            if (!bat_emit(out, &pos, cap, '%')) {
-                out[0] = '\0';
-                return -1;
-            }
+            /* Lone '%' at end of line: an unmatched introducer, dropped.
+             * Genuine DOS 3.30 compat33 BATCH: [trailing%] -> [trailing]. */
             break;
         }
 
@@ -202,8 +202,8 @@ int batch_expand(const char *line,
              * MUTANT BATCH_MUTATE_NO_PCT_PCT: skip collapsing; emit '%'
              * twice so the test that checks for a single '%' goes RED. */
             if (!bat_emit(out, &pos, cap, '%')) {
-                out[0] = '\0';
-                return -1;
+                out[pos] = '\0';
+                return -1;  /* overflow: truncated prefix retained */
             }
             i++;    /* skip the second '%' */
             continue;
@@ -223,8 +223,8 @@ int batch_expand(const char *line,
                 continue;   /* emit nothing */
             }
             if (bat_emit_str(out, &pos, cap, param) < 0) {
-                out[0] = '\0';
-                return -1;  /* overflow */
+                out[pos] = '\0';
+                return -1;  /* overflow: truncated prefix retained */
             }
             continue;
         }
@@ -253,26 +253,22 @@ int batch_expand(const char *line,
                 if (val != 0) {
                     /* Defined: emit the value. */
                     if (bat_emit_str(out, &pos, cap, val) < 0) {
-                        out[0] = '\0';
-                        return -1;
+                        out[pos] = '\0';
+                        return -1;  /* overflow: truncated prefix retained */
                     }
                 }
                 /* Genuine DOS 3.30 compat33/expected/BATCH/files/TRACE.TXT:
                  * MISSING=[]; a closed unset variable contributes no bytes. */
                 continue;
             }
-            /* Unclosed '%NAME' (no closing '%') -- fall through: emit
-             * the leading '%' verbatim and restart the scan from `i`
-             * (the character after the first '%'). */
+            /* Unclosed '%NAME' (no closing '%') -- fall through: the
+             * unmatched introducer contributes no bytes (compat33 BATCH:
+             * [trailing%] -> [trailing]); restart the scan from `i` so the
+             * name characters are copied literally. */
         }
 
-        /* Unrecognized '%' sequence -- emit the '%' verbatim. */
-        if (!bat_emit(out, &pos, cap, '%')) {
-            out[0] = '\0';
-            return -1;
-        }
-        /* Do NOT advance i further -- restart from where the name scan left
-         * off (the character that broke the varname scan). */
+        /* Unmatched '%' sequence: drop the '%' itself; the scan restarts
+         * at `i` (the character after it) as ordinary input. */
     }
 
     out[pos] = '\0';

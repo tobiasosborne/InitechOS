@@ -237,6 +237,11 @@ test-batch-transfer_COUNT_PATTERN := ^INITECH_CHECKS ([0-9]+) failures=[0-9]+$$
 test-batch-transfer_SRCS := tests/runner.c
 test-batch-transfer_ARGS := tests/run.sh test-batch-transfer
 test-batch-transfer_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-batch-transfer.sh
+HOST_TESTS += test-batch-expand-compat33
+test-batch-expand-compat33_COUNT_PATTERN := ^INITECH_CHECKS ([0-9]+) failures=[0-9]+$$
+test-batch-expand-compat33_SRCS := tests/runner.c
+test-batch-expand-compat33_ARGS := tests/run.sh test-batch-expand-compat33
+test-batch-expand-compat33_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-batch-expand-compat33.sh command/tests/compat33/expected/PARAMS/files/TRACE.TXT command/tests/compat33/expected/BATCH/files/TRACE.TXT
 
 .PHONY: smoke-sort-limits
 smoke-sort-limits:
