@@ -3,7 +3,7 @@
 +++ b/include/tbx_save.h
 @@ -57,6 +57,13 @@
      const unsigned char *b = (const unsigned char *)buf;
-     uint32_t i = 0, dot = 0, pos = 0, k;
+     uint32_t i = 0, dot = 0, leaf = 0, pos = 0, k;
      int32_t h = TBX_ERR_DOS(0x50), rc = 0, cl;
 +    /* Deliberate in-place truncation, external mutation only. */
 +    h=tbx_file_create(path);

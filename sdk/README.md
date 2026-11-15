@@ -17,7 +17,9 @@ destination or non-overwriting RENAME for a first save. No previous version is
 moved aside by the helper. Only the stage the current save created (by
 CREATE_NEW) is ever deleted; a stage whose cleanup DELETE is refused is named
 to the user and never touched again, and the next save creates another
-(initech-ui9dg; tests/host.c, mutant save_retry_old_stage). NEWWINDOW accepts
+(initech-ui9dg; tests/host.c, mutant save_retry_old_stage). Stage names run
+<stem>.$$$, .$$0-.$$9, then <shortened stem>~1.$$$ .. ~99999.$$$, so leftover
+stages never block a later save (mutant save_eleven_names). NEWWINDOW accepts
 TBX_WDEF_RDOC and TBX_WDEF_NOGROW; the fake's dialog bounds follow each
 WDEF's content rectangle in flair/window.c. TBX_FILECOPY_TEXT_W is the live
 FILE COPY caption, 314 px. This is not a crash-atomicity promise. See

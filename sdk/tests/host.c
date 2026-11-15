@@ -145,5 +145,31 @@ int main(void)
         CHECK(f&&f->size==sizeof foreign-1&&!memcmp(f->data,foreign,sizeof foreign-1));
         tbx_host_reset();
     }
+    /* Eleven saves whose REPLACE and cleanup DELETE are refused leave eleven
+     * named stages (.$$$, .$$0-.$$9) that are the user's now. A twelfth save,
+     * faults cleared, must still succeed through a stage of its own and leave
+     * all eleven untouched (review xreview-frame-factory; Calc's 40kpb). */
+    {
+        static const char stages[11][8]={"$$$","$$0","$$1","$$2","$$3","$$4","$$5","$$6","$$7","$$8","$$9"};
+        CHECK(tbx_register()==0&&tbx_host_put_file("DOC.WP5","old document",12));
+        tbx_host.file_error[TBX_FILE_REPLACE]=5;tbx_host.file_error[TBX_FILE_DELETE]=5;
+        for(unsigned i=0;i<11;i++) {
+            CHECK(tbx_file_save("DOC.WP5","new document",12)==TBX_ERR_DOS(5));
+            deliver(TBX_EVT_ALERT,TBX_ALERT_DEFAULT);
+        }
+        tbx_host.file_error[TBX_FILE_REPLACE]=0;tbx_host.file_error[TBX_FILE_DELETE]=0;
+        for(unsigned i=0;i<11;i++) {
+            char name[16]="DOC.";memcpy(name+4,stages[i],4);
+            const tbx_host_file_t *f=tbx_host_file(name);
+            CHECK(f&&f->size==12&&!memcmp(f->data,"new document",12));
+        }
+        CHECK(tbx_file_save("DOC.WP5","new document",12)==12);
+        CHECK(!memcmp(tbx_host_file("DOC.WP5")->data,"new document",12));
+        for(unsigned i=0;i<11;i++) {
+            char name[16]="DOC.";memcpy(name+4,stages[i],4);
+            CHECK(tbx_host_file(name)!=0);
+        }
+        tbx_host_reset();
+    }
     printf("shared fake: %u checks, 0 failures\n",checks);return 0;
 }

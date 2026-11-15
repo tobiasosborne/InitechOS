@@ -1,0 +1,6 @@
+# test: host
+--- a/include/tbx_save.h
++++ b/include/tbx_save.h
+@@ -76,1 +76,1 @@
+-    for (k = 0; k < 11u + 99999u && h == TBX_ERR_DOS(0x50); k++) {
++    for (k = 0; k < 11u && h == TBX_ERR_DOS(0x50); k++) {

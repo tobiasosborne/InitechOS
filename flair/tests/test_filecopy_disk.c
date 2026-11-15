@@ -145,9 +145,11 @@ static void reserve(const char *name)
     int32_t h=tbx_file_create_new(name); CHECK(h>=5,"reserve collision fixture");
     if(h>=5) { CHECK(tbx_file_write(h,old,sizeof old-1)==sizeof old-1,"collision bytes"); CHECK(tbx_file_close(h)==0,"close collision"); }
 }
+static void recovered_stream(const char *cmd,const void *want,size_t len);
+static int absent(const char *path);
 static void extra_cases(void)
 {
-    static char collision[32]; uint32_t n;
+    static char collision[96]; uint32_t n;
     /* A cleanup CLOSE is still an owned handle on error. A single refusal
      * must not leak it; a later cleanup must also remain able to retry. */
     for(unsigned which=0;which<2;which++) {
@@ -184,8 +186,15 @@ static void extra_cases(void)
     setup(); strcpy(g_slot.fc_dst,"NUL.TXT"); CHECK(tbx_fc_open(&n)<0,"device refused before copy"); verify(old,sizeof old-1); fclose(disk);
     setup();
     for(unsigned i=0;i<11;i++) { snprintf(collision,sizeof collision,"TARGET.$$%c",i?(char)('0'+i-1):'$'); reserve(collision); }
-    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)==TBX_ERR_DOS(0x50),"all eleven SDK temporary collisions refuse");
-    verify(old,sizeof old-1); fclose(disk);
+    /* sdk/README.md: eleven taken names no longer block a save; the helper
+     * stages exclusively as TARGET~1.$$$ and touches none of the eleven. */
+    CHECK(tbx_file_save("TARGET.DAT",source,sizeof source)==sizeof source,"SDK saves past eleven temporary collisions");
+    for(unsigned i=0;i<11;i++) {
+        snprintf(collision,sizeof collision,"mcopy -o -i copy.img '::TARGET.$$%c' recovered.dat",i?(char)('0'+i-1):'$');
+        fflush(disk); recovered_stream(collision,old,sizeof old-1);
+    }
+    CHECK(absent("::TARGET~1.$$$"),"the save leaves no stage of its own");
+    verify(source,sizeof source); fclose(disk);
     setup();
     for(unsigned i=0;i<100;i++) { snprintf(collision,sizeof collision,"TARGET.$%02u",i); reserve(collision); }
     CHECK(tbx_fc_open(&n)==TBX_ERR_DOS(0x50),"all FILE COPY temporary collisions refuse");

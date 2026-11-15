@@ -55,13 +55,13 @@ static int32_t tbx_save_discard_stage(void)
 static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n, int32_t input)
 {
     const unsigned char *b = (const unsigned char *)buf;
-    uint32_t i = 0, dot = 0, pos = 0, k;
+    uint32_t i = 0, dot = 0, leaf = 0, pos = 0, k;
     int32_t h = TBX_ERR_DOS(0x50), rc = 0, cl;
 
     /* <name>.$$$: the leaf's extension (after the last '.' of the last
      * component) replaced, or appended when there is none. */
     for (; path[i] != '\0'; i++) {
-        if (path[i] == '\\' || path[i] == ':') dot = 0;
+        if (path[i] == '\\' || path[i] == ':') { dot = 0; leaf = i + 1u; }
         else if (path[i] == '.') dot = i;
     }
     if (dot == 0) dot = i;
@@ -69,14 +69,33 @@ static int32_t tbx_file_save_feed(const char *path, const void *buf, uint32_t n,
         if (input >= 0) (void)tbx_file_close(input);
         return TBX_ERR_BADARG;
     }
-    for (i = 0; i < dot; i++) g_tbx_save_tmp[i] = path[i];
-    g_tbx_save_tmp[dot] = '.'; g_tbx_save_tmp[dot+1] = '$';
-    g_tbx_save_tmp[dot+2] = '$'; g_tbx_save_tmp[dot+4] = '\0';
-    for (k = 0; k < 11u && h == TBX_ERR_DOS(0x50); k++) {
-        g_tbx_save_tmp[dot+3] = k == 0 ? '$' : (char)('0' + k - 1u);
-        if (path[dot] == '.' && path[dot+1] == '$' && path[dot+2] == '$' &&
-            path[dot+3] == g_tbx_save_tmp[dot+3] && path[dot+4] == '\0')
-            continue;                            /* never the target itself */
+    /* Candidates, each taken only by CREATE_NEW: <stem>.$$$, <stem>.$$0 ..
+     * .$$9, then <shortened stem>~1.$$$ .. ~99999.$$$, more than a FAT
+     * directory holds, so stages left by refused cleanups (the user's files
+     * now) never block a later save (as InitechCalc's 40kpb fix, 5d21c4a4). */
+    for (k = 0; k < 11u + 99999u && h == TBX_ERR_DOS(0x50); k++) {
+        uint32_t j = 0;
+        if (k < 11u) {
+            for (i = 0; i < dot; i++) g_tbx_save_tmp[j++] = path[i];
+            g_tbx_save_tmp[j++] = '.'; g_tbx_save_tmp[j++] = '$';
+            g_tbx_save_tmp[j++] = '$';
+            g_tbx_save_tmp[j++] = k == 0 ? '$' : (char)('0' + k - 1u);
+        } else {
+            char tail[6]; uint32_t t = 0, keep;
+            for (uint32_t v = k - 10u; v; v /= 10u) tail[t++] = (char)('0' + v % 10u);
+            keep = 7u - t;                       /* 8.3 stem: keep + '~' + t */
+            if (keep > dot - leaf) keep = dot - leaf;
+            if (leaf + keep + 1u + t + 4u + 1u > TBX_FILE_PATH_MAX ||
+                leaf + keep + 1u + t + 4u > 60u) break;
+            for (i = 0; i < leaf + keep; i++) g_tbx_save_tmp[j++] = path[i];
+            g_tbx_save_tmp[j++] = '~';
+            while (t) g_tbx_save_tmp[j++] = tail[--t];
+            g_tbx_save_tmp[j++] = '.'; g_tbx_save_tmp[j++] = '$';
+            g_tbx_save_tmp[j++] = '$'; g_tbx_save_tmp[j++] = '$';
+        }
+        g_tbx_save_tmp[j] = '\0';
+        for (i = 0; path[i] != '\0' && path[i] == g_tbx_save_tmp[i]; i++) ;
+        if (path[i] == g_tbx_save_tmp[i]) continue;  /* never the target itself */
 
         h = tbx_file_create_new(g_tbx_save_tmp); /* proven unused, or 0x50 */
 
