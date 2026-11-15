@@ -7,7 +7,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "tbx.h"
+/* initech-gmyxm: a read that fails after a chosen number of successful calls
+ * (DOS error 5, access denied). A test shim around the gate verb, never in
+ * product source; -1 passes every read through. */
+static int g_read_fail_after = -1;
+static int32_t shim_file_read(int32_t h, void *buf, uint32_t n)
+{
+    if (g_read_fail_after == 0) return TBX_ERR_DOS(5);
+    if (g_read_fail_after > 0) g_read_fail_after--;
+    return tbx_file_read(h, buf, n);
+}
+#define tbx_file_read shim_file_read
 #include "../notepad.c"
+#undef tbx_file_read
 #include "scrap.h"
 #define CONT_H 237
 static long checks, fails;
@@ -222,19 +235,20 @@ int main(void)
     mfile_t *file = mfind("NOTEPAD.DAT");
 #endif
     CHECK(m_exits > 0, "close");
-    if (file) { file->data[20] ^= 1; launch(); CHECK(g_te.teLength == 0, "corrupt"); }
     CHECK(m_alerts == 0, "unexpected-alert");
+    if (file) { file->data[20] ^= 1; launch(); CHECK(g_te.teLength == 0, "corrupt"); }
     /* initech-mcep (audit 2026-10-23-das L008): closing over the damaged store
-     * never writes it -- it warns once and ends on the answer; the bytes are
-     * the damaged bytes. The single-byte leg below then starts from a first
+     * never writes it; the bytes are the damaged bytes. initech-gmyxm: the
+     * warning comes at launch (the leg at the end of this file), so Close
+     * ends at once. The single-byte leg below then starts from a first
      * launch (no store), as it must: it no longer rides on the overwrite. */
     if (file) {
         static char keep[DA_FILE_BYTES + 1]; int kl = file->size, ex = (int)m_exits;
         memcpy(keep, file->data, (size_t)kl);
-        event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
         CHECK(m_alerts == 1 && (int)m_exits == ex, "keep-damaged");
         event(TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0);
-        CHECK((int)m_exits == ex + 1, "keep-damaged");
+        event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+        CHECK((int)m_exits == ex + 1 && m_alerts == 1, "keep-damaged");
         CHECK(file->used && file->size == (unsigned)kl && !memcmp(file->data, keep, (size_t)kl), "keep-damaged");
         file->used = 0;
         launch();
@@ -335,6 +349,77 @@ int main(void)
         event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
         CHECK(disk_page(mfind(DA_PATH), 0, ""), "refusals leave the page as it was");
 #endif
+    }
+    /* initech-gmyxm (GM4: no path that loses a user's data). A store that
+     * exists but cannot be read is kept as it is and never written, so this
+     * session cannot save. Macintosh System Software User's Guide v6.0 p. 87
+     * (initech-manuals-ref/macos): "Locking a document also prevents saving
+     * any changes to it. You can, however, open and print locked documents."
+     * Expected: the failure is told before any edit can be made, as soon as
+     * the window first appears; the pages take no new work while the store
+     * cannot be saved (each refused edit is heard, SysBeep, the
+     * Macintosh's answer to an action it will not take); Cut, Paste and Clear
+     * are gray; closing loses nothing because nothing was taken, and the old
+     * bytes are unchanged. Three ways to fail: the first read, a read after
+     * positive partial reads, and a store one byte short (N02/S02). */
+    {
+#ifdef SCRAPBOOK
+        static const char *good = DA_FIXTURES "S01.DAT", *cut = DA_FIXTURES "S02.DAT";
+        enum { want_size = 32848 };
+#else
+        static const char *good = DA_FIXTURES "N01.DAT", *cut = DA_FIXTURES "N02.DAT";
+        enum { want_size = 8224 };
+#endif
+        static unsigned char fx[want_size + 64], fc[want_size + 64];
+        FILE *f = fopen(good, "rb"); size_t n = f ? fread(fx, 1, sizeof fx, f) : 0; if (f) fclose(f);
+        f = fopen(cut, "rb"); size_t nc = f ? fread(fc, 1, sizeof fc, f) : 0; if (f) fclose(f);
+        CHECK(n == want_size && nc == want_size - 1, "failed-read fixtures");
+        const unsigned char *rec = fx + 16 + u16(fx + 8) * 1026;
+        static const struct { const char *why; int fail_after; uint32_t limit; int truncated; } modes[] = {
+            { "failed-read: error on the first read", 0, 0, 0 },
+            { "failed-read: error after positive partial reads", 2, 8, 0 },
+            { "failed-read: store one byte short", -1, 0, 1 },
+        };
+        for (unsigned m = 0; m < sizeof modes / sizeof modes[0]; m++) {
+            const unsigned char *src = modes[m].truncated ? fc : fx;
+            size_t sn = modes[m].truncated ? nc : n;
+            tbx_host_reset(); tbx_host.origin_h=166; tbx_host.origin_v=102; tbx_host.ch=237;
+            CHECK(tbx_host_put_file(DA_PATH, src, (uint32_t)sn), modes[m].why);
+            tbx_host.read_limit = modes[m].limit;
+            g_read_fail_after = modes[m].fail_after;
+            launch();
+            g_read_fail_after = -1; tbx_host.read_limit = 0;   /* the failure was transient */
+            printf("  %s:\n", modes[m].why);
+            CHECK(m_alerts == 1 && strstr(m_alert_text, "could not be read") &&
+                  !strcmp(m_alert_btn[0], "OK"), "  told at launch, before any edit");
+            event(TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0);
+            unsigned beeps = tbx_host.beeps;
+            tbx_scrap_put("new note", 8);
+#ifdef SCRAPBOOK
+            menu(5);
+            CHECK(g_count == 0 && g_te.teLength == 0 && !g_dirty, "  Paste takes no clip");
+            CHECK(tbx_host.beeps > beeps, "  the refused Paste is heard");
+#else
+            type("new note");
+            CHECK(g_te.teLength == 0 && !g_dirty, "  typing takes no text");
+            CHECK(tbx_host.beeps >= beeps + 8, "  each refused key is heard");
+            menu(5);
+            CHECK(g_te.teLength == 0 && !g_dirty, "  Paste takes no text");
+#endif
+            CHECK(!edit_items[2].enabled && !edit_items[4].enabled && !edit_items[5].enabled &&
+                  !edit_items[0].enabled, "  Cut, Paste, Clear and Undo are gray");
+            int ex = (int)m_exits, al = (int)m_alerts;
+            event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+            mfile_t *after = mfind(DA_PATH);
+            CHECK((int)m_exits == ex + 1 && (int)m_alerts == al, "  Close ends at once: nothing was taken");
+            CHECK(after && after->size == sn && !memcmp(after->data, src, sn), "  the store is kept as it was");
+            if (!modes[m].truncated) {
+                launch();
+                CHECK(m_alerts == 0 && g_te.teLength == u16(rec) && !memcmp(g_te.text, rec + 2, (size_t)u16(rec)),
+                      "  read again, the stored page is back");
+                event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+            }
+        }
     }
     printf("test_notepad_route%s: %ld checks, %ld failures\n",
 #ifdef SCRAPBOOK

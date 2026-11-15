@@ -1,0 +1,11 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -153,7 +153,7 @@
+ /* initech-gmyxm: an edit of pages that cannot be saved is refused, heard. */
+ static int refused(void)
+ {
+-    if(!g_keep) return 0;
++    if(1 || !g_keep) return 0;
+     (void)tbx_beep(); return 1;
+ }
+ static void stash(void)

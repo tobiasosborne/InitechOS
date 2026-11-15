@@ -107,15 +107,21 @@ static int valid(void)
 }
 /* initech-mcep (audit 2026-10-23-das L008): a store that exists but cannot
  * be read back -- a bad checksum, a wrong length, a read error -- is KEPT:
- * this session runs on empty pages and never writes over it (save() below),
- * and closing says so in an alert, the only report. initech-q9p80: the old
- * DOS AUX diagnostics are gone; a desktop app speaks only through INT 81h.
- * Only a missing store (first launch) is created. */
-static int g_keep, g_closing;
+ * this session never writes over it (save() below). initech-gmyxm: so the
+ * session cannot save, and it takes no work it would lose. Macintosh System
+ * Software User's Guide v6.0 p. 87: "Locking a document also prevents saving
+ * any changes to it. You can, however, open and print locked documents."
+ * The pages open as a locked document does: the failure is told when the
+ * window first appears, before any edit; typing, Paste and Clear are refused
+ * with SysBeep and Cut/Paste/Clear are gray; Copy and page turns still work.
+ * Close then has nothing to lose. initech-q9p80: the old DOS AUX diagnostics
+ * are gone; a desktop app speaks only through INT 81h. Only a missing store
+ * (first launch) is created. */
+static int g_keep, g_told;
 static void load(void)
 {
     int32_t fd=tbx_file_open(DA_PATH,TBX_FILE_READ_ONLY), n;
-    g_keep=0; g_closing=0;                     /* each launch judges afresh */
+    g_keep=0; g_told=0;                        /* each launch judges afresh */
     if(fd==TBX_ERR_DOS(2)) return;             /* first launch */
     if(fd<0) { g_keep=1; return; }
     /* initech-l3ahn: TBX_FILE_READ answers the bytes actually read (INT 21h
@@ -144,6 +150,12 @@ static void load(void)
  * second alert pending), the user hears the refusal instead: SysBeep, as
  * the Macintosh does when it cannot show an alert. */
 static void notice(const char *s) { if(tbx_alert(s,"OK",0,0)!=TBX_OK) (void)tbx_beep(); }
+/* initech-gmyxm: an edit of pages that cannot be saved is refused, heard. */
+static int refused(void)
+{
+    if(!g_keep) return 0;
+    (void)tbx_beep(); return 1;
+}
 static void stash(void)
 {
     if(!g_count) return;
@@ -214,6 +226,7 @@ static void menus_sync(void)
     edit_items[2].enabled=(uint8_t)range; edit_items[3].enabled=(uint8_t)range;
     edit_items[5].enabled=(uint8_t)range;
     edit_items[4].enabled=(uint8_t)(tbx_scrap_get(0,0)>0);
+    if(g_keep) edit_items[2].enabled=edit_items[4].enabled=edit_items[5].enabled=0;
 }
 static int decimal(int at,int n)
 {
@@ -306,6 +319,7 @@ static void turn(int page)
 #ifndef SCRAPBOOK
 static int replace(const char *s,int n,int typing)
 {
+    if(refused()) return 0;
     if(n<0 || n>DA_TEXT_MAX || g_te.teLength-(g_te.selEnd-g_te.selStart)+n>DA_TEXT_MAX ||
        !FlairTECanReplace(&g_te,g_te.selStart,g_te.selEnd,s,(int16_t)n)) {
         notice("This page is full.");return 0;
@@ -326,7 +340,7 @@ static int copy(void)
 static void clear(void)
 {
 #ifdef SCRAPBOOK
-    if(!g_count) return;
+    if(!g_count || refused()) return;
     undo_note(0);
     for(int p=g_page;p<g_count-1;p++) { g_len[p]=g_len[p+1]; bytes(g_pages[p],g_pages[p+1],g_len[p]); }
     g_count--; g_len[g_count]=0;
@@ -339,7 +353,7 @@ static void clear(void)
 static void paste(void)
 {
     int n=tbx_scrap_get(g_clip,sizeof g_clip),k=0,was_cr=0;
-    if(n<=0) return;                          /* no TEXT, including PICT */
+    if(n<=0 || refused()) return;             /* no TEXT, including PICT */
     for(int i=0;i<n;i++) {
         int c=(unsigned char)g_clip[i];
         if(c==10 && was_cr) {was_cr=0;continue;}
@@ -364,11 +378,6 @@ static void close_app(void)
 {
     stash();
     if(!save()) return;
-    /* A kept (damaged) store: say so once, and close on the answer. */
-    if(g_keep && !g_closing &&
-       tbx_alert("The " DA_TITLE " file is damaged.\rIt was kept as it is; these\rpages were not saved.","OK",0,0)==TBX_OK) {
-        g_closing=1; return;
-    }
     g_undo_ok=g_undo_run=0;
     (void)tbx_exit(0);
 }
@@ -394,11 +403,15 @@ void tbx_app_event(const tbx_event_t *ev)
 #else
         if(sv>=0) g_scroll=sv;
 #endif
-        paint();break;
+        paint();
+        if(g_keep && !g_told) {          /* initech-gmyxm: told before any edit */
+            g_told=1;
+            notice("The " DA_TITLE " file could not be read.\rIt was kept as it is, and these\rpages cannot be changed.");
+        }
+        break;
     }
     case activateEvt: g_active=(ev->modifiers&FLAIR_EVT_MOD_ACTIVE_FLAG)!=0;menus_sync();paint();break;
     case TBX_EVT_GOAWAY: close_app();break;
-    case TBX_EVT_ALERT: if(g_closing) (void)tbx_exit(0);break;
     case TBX_EVT_MENU:
         g_undo_run=0;
         if(ev->message==TBX_MENU_WORD(129,1) || ev->message==TBX_MENU_WORD(129,2)) {close_app();break;}
@@ -452,7 +465,8 @@ void tbx_app_event(const tbx_event_t *ev)
         else if(vk==0x50 && g_scroll+DA_TEXT_H<g_te.nLines*11+4) g_scroll+=11;
 #else
         if(c==8) {
-            if(g_te.selStart<g_te.selEnd || g_te.selStart>0) {
+            if(refused()) ;
+            else if(g_te.selStart<g_te.selEnd || g_te.selStart>0) {
                 undo_note(1);FlairTEKey(&g_te,8);
             }
         } else if(c==13 || c==10 || (c>=32 && c<127)) {

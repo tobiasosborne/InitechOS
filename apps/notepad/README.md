@@ -13,7 +13,14 @@ selection, typing, deletion, arrows, Cut/Copy/Paste/Clear/Select All, corner
 page turns, scroll, and save on turn/close. Scrapbook holds 32 TEXT clips,
 appends clipboard clips, turns/removes pages, copies/cuts, scrolls and saves
 on close. Both reopen their stores and retain a damaged store unchanged with
-a notice. PICT/sound, animations and native Note Pad pixel fidelity are absent.
+a notice. A store that exists but cannot be read (a read error, also after
+partial reads, or damaged bytes) is never written, so that session cannot
+save: it opens as a locked document does (System Software User's Guide v6.0
+p. 87, "Locking a document also prevents saving any changes to it. You can,
+however, open and print locked documents."). The notice appears when the
+window first does, before any edit; typing, Backspace, Paste and Clear are
+refused with SysBeep and Cut/Paste/Clear are gray; Copy and page turns work;
+Close then has nothing to lose and ends at once (initech-gmyxm). PICT/sound, animations and native Note Pad pixel fidelity are absent.
 The composed Platinum/Geneva9 windows follow the claimed store contract and
 SimpleText geometry. Both implement one-level Undo, including Undo of Undo.
 Note Pad restores page text, selection and dirty state; contiguous typing
@@ -40,10 +47,11 @@ A store is read the way INT 21h AH=3Fh answers: every positive count is kept
 until end of file, so legally short reads of the pinned N01/S01 fixtures show
 the stored page (decoded by the test from the bytes) and N02/S02 stay damaged.
 These are independent authored contract expectations, not real-Mac file
-format differentials. make mutants kills eleven patches, including a live Undo
+format differentials. make mutants kills twelve patches, including a live Undo
 no-op in both builds, a single-read loader (initech-l3ahn), and a grayed
 Select All and a dead Scrapbook Page Down that the command sweep catches,
-and the overlong capacity notice the gate refuses (initech-yhqb). Every
+the overlong capacity notice the gate refuses (initech-yhqb), and edits
+accepted after a failed read (notepad_mut_unsavable_edit, initech-gmyxm). Every
 refusal notice is shown: each alert line fits 47 bytes and 285 Chicago 12
 pixels (toolbox_gate.h Sec 11, applied by sdk/host); a refused alert beeps. No mutation switches remain in the product source.
 make smoke launches both on QEMU, copies alpha from Note Pad into Scrapbook,
@@ -53,7 +61,8 @@ Screendumps: build/smoke-desktop/{notepad,scrapbook}.ppm.
 
 Both apps reach the OS only through the Toolbox gate (INT 81h). The inherited
 DOS AUX diagnostics (initech-q9p80) were removed rather than rerouted: nothing
-read them, and a damaged store is reported to the user by the close alert.
+read them, and an unreadable store is reported to the user when the window
+first appears.
 Remaining legacy composed-chrome emulator gates belong to the factory owner.
 
 Initial windows meet the single menu bar (operator ruling, CLAUDE.md
