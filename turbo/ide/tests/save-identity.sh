@@ -3,6 +3,8 @@ set -eu
 out=$1
 . "$TOP/turbo/tests/checks.sh"
 setup cat tests/head-fpc.pas screen.pas buffer.pas editor.pas tests/save-identity.pas > "$out/save-identity.pas"
+setup cat tests/head-fpc.pas screen.pas buffer.pas editor.pas tests/work-load.pas > "$out/work-load.pas"
+setup fpc -B -O- -v0 -FU"$out" -FE"$out" -o"$out/work-load" "$out/work-load.pas" > "$out/work-load-build.log" 2>&1
 fpc -B -O- -v0 -FU"$out" -FE"$out" -o"$out/save-identity" "$out/save-identity.pas" > "$out/save-identity-build.log" 2>&1 || { cat "$out/save-identity-build.log"; exit 2; }
 scratch=$out/runs/save-identity
 setup rm -rf "$scratch"
@@ -25,4 +27,7 @@ for mode in dirty flush; do
   assert "work alias:$name:$mode conserves bytes" "$out/save-identity" "$name" "$mode"
  done
 done
+setup mkdir "$scratch/load"
+cd "$scratch/load"
+assert 'reserved Load conserves current page and file' "$out/work-load"
 finish

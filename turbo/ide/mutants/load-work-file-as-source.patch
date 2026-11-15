@@ -1,0 +1,6 @@
+# test: save-identity
+--- a/editor.pas
++++ b/editor.pas
+@@ -1,1 +1,1 @@
+-  if WorkFileName(Name) then BufErr := 5 else BufLoad(Name);
++  BufLoad(Name);

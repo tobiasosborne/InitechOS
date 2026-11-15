@@ -414,10 +414,12 @@ end;
 
 { A missing file opens as a new, empty buffer of that name (TP 5.5 F3;
   not in the captures). Other errors leave the buffer as it was. }
+function WorkFileName(var Path: string): boolean; forward;
+
 procedure DoLoad(var Name: string);
 var L: string;
 begin
-  BufLoad(Name);
+  if WorkFileName(Name) then BufErr := 5 else BufLoad(Name);
   LeafName(Name, L);
   if BufErr = 2 then
   begin
