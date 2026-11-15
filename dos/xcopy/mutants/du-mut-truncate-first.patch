@@ -2,23 +2,14 @@
 # test: test-xcopy-tree
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
-@@ -244,6 +244,9 @@
-      * DOS 3.30 COPY disk-full capture governs failed writes, not failed
-      * source reads. Genuine XCOPY read-fault captures remain unavailable
-      * (initech-0e5gu); destination retention is the stated safety property. */
-+    int out=call(0x5b00,0,0,(uintptr_t)dst);
-+    if (out == -80) out=call(0x3c00,0,0,(uintptr_t)dst);
-+    if (out < 0) { error=5; return 0; }
-     unsigned used=0;
+@@ -298,6 +298,10 @@
+     if (!ensure_dir(parent)) return 0;
+     int in=call(0x3d00,0,0,(uintptr_t)src);
+     if (in < 0) { error=5; return 0; }
++    if (target_found) {
++        int premature=call(0x3c00,0,0,(uintptr_t)dst);
++        if (premature>=0) call(0x3e00,(unsigned)premature,0,0);
++    }
+     int out=reserve(parent,dst,"TMP",stage);
+     if (out < 0) { call(0x3e00,(unsigned)in,0,0); return 0; }
      for (;;) {
-         int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
-@@ -256,9 +259,6 @@
-     }
-     if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
-     if (error) return 0;
--    int out=call(0x5b00,0,0,(uintptr_t)dst);
--    if (out == -80) out=call(0x3c00,0,0,(uintptr_t)dst);
--    if (out < 0) { error=5; return 0; }
-     for (unsigned at=0; at<used;) {
-         unsigned n=used-at;
-         if (n > sizeof(buf)) n=sizeof(buf);

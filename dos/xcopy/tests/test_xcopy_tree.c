@@ -13,6 +13,7 @@
 #include "sft.h"
 #include "psp.h"
 
+static unsigned char second_path[128];
 static unsigned char bounce[8192]; /* -no-pie: within the INT21 flat aperture */
 static psp_t psp;
 static const char *keys;
@@ -32,7 +33,7 @@ int du_call(du_regs *r)
     unsigned ah = (r->a >> 8) & 255, al = r->a & 255;
     uintptr_t original = r->d;
     int to = ah == 0x39 || ah == 0x3b || ah == 0x3c || ah == 0x3d ||
-             ah == 0x41 || ah == 0x43 || ah == 0x4e || ah == 0x5b;
+             ah == 0x41 || ah == 0x43 || ah == 0x4e || ah == 0x56 || ah == 0x5b;
     /* Adapter fault injection after CREATE, outside the shipped product. */
     if (ah == 0x3f && getenv("XCOPY_FAIL_READ")) { r->a=5; return 1; }
     /* XCOPY_FAIL_READ_AT=k fails the k-th and later reads, so a failure
@@ -41,6 +42,16 @@ int du_call(du_regs *r)
         static unsigned reads;
         const char *at = getenv("XCOPY_FAIL_READ_AT");
         if (at && ++reads >= (unsigned)atoi(at)) { r->a=5; return 1; }
+    }
+    if (ah == 0x56) {
+        static unsigned renames;
+        const char *at=getenv("XCOPY_FAIL_RENAME_AT"), *from=getenv("XCOPY_FAIL_RENAME_FROM");
+        ++renames;
+        if ((at && renames == (unsigned)atoi(at)) ||
+            (from && renames >= (unsigned)atoi(from))) { r->a=5; return 1; }
+        if (strlen((char *)r->s) >= sizeof(second_path)) exit(91);
+        strcpy((char *)second_path,(char *)r->s);
+        f.edi=(uint32_t)(uintptr_t)second_path;
     }
     if (ah == 7 || ah == 8) {
         if (!*keys) { fputs("ORACLE RED: unexpected keyboard wait\n", stderr); exit(90); }

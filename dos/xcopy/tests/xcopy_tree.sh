@@ -111,8 +111,10 @@ if [ "$mode" = host ]; then
     # initech-wz16r secondary: a copy that fails verification is a failed
     # output; it may not remain in place stamped like a good copy.
     if mtype -i "$work/art.img" ::DST/ROOT.TXT > "$work/art.bytes" 2>/dev/null; then fail '/V failure left the bad copy in place'; fi
+    mdir -a -b -i "$work/art.img" ::DST > "$work/private.list"
+    if grep -E 'XCOPY[0-9A-F]{3}\.(TMP|BAK)$' "$work/private.list"; then fail '/V failure leaked stage'; fi
     fresh
-    if run XCOPY 'SRC DST /E'; then fail '/E accepted without /S'; fi
+    if run XCOPY 'SRC DST /E' ; then fail '/E accepted without /S'; fi
     if run XCOPY 'SRC SRC\BRANCH /S'; then fail 'cyclic copy accepted'; fi
     grep -q 'Cannot perform a cyclic copy' "$work/output" || fail 'cyclic diagnostic'
     for flag in '' /F; do
@@ -225,25 +227,80 @@ if [ "$mode" = host ]; then
         mtype -i "$work/art.img" ::DST/BIGSRC.BIN > "$work/art.bytes" || fail "read $read_at deleted previous destination"
         cmp "$expected" "$work/art.bytes" || fail "read $read_at corrupted destination"
     done
-    # The conventional-memory buffer refuses oversized input BEFORE writes.
-    # Exact 128 KiB fits; byte 131073 must not truncate an existing target.
-    for size in 131072 131073; do
+    # Genuine DOS 3.30 XCOPY /V copies this 200000-byte source and the
+    # following file (tests/compat33-large). Neither a chunk workspace nor
+    # the old 128 KiB buffer is a file-size ceiling.
+    for size in 131072 131073 200000; do
         fresh
         dd if=/dev/zero bs=$size count=1 status=none | tr '\000' 'B' > "$work/large.bin"
         mcopy -i "$work/art.img" "$work/large.bin" ::SRC/LARGE.BIN
+        mcopy -i "$work/art.img" "$work/previous.txt" ::SRC/ZZZ.TXT
         mcopy -i "$work/art.img" "$work/previous.txt" ::DST/LARGE.BIN
-        if run XCOPY 'SRC\LARGE.BIN DST'; then
-            [ "$size" = 131072 ] || fail 'oversized input accepted'
-            expected=$work/large.bin
-        else
-            [ "$size" = 131073 ] || fail 'exact buffer capacity refused'
-            grep -q 'Insufficient memory' "$work/output" || fail 'capacity refusal diagnostic'
-            grep -q 'exit=4' "$work/run.log" || fail 'capacity refusal status'
-            expected=$work/previous.txt
-        fi
-        mtype -i "$work/art.img" ::DST/LARGE.BIN > "$work/art.bytes" || fail "size $size deleted target"
-        cmp "$expected" "$work/art.bytes" || fail "size $size wrong destination bytes"
+        run XCOPY 'SRC DST /V' || fail "large directory copy $size execution"
+        mtype -i "$work/art.img" ::DST/LARGE.BIN > "$work/art.bytes" || fail "large $size target missing"
+        cmp "$work/large.bin" "$work/art.bytes" || fail "large $size destination bytes"
+        mtype -i "$work/art.img" ::DST/ZZZ.TXT > "$work/art.bytes" || fail 'file following large source was skipped'
+        cmp "$work/previous.txt" "$work/art.bytes" || fail 'file following large source bytes'
     done
+    # /V re-reads the source while the old name still holds the old bytes.
+    for read_at in 6 7 70 100; do
+        fresh
+        mcopy -i "$work/art.img" "$work/large.bin" ::SRC/LARGE.BIN
+        mcopy -i "$work/art.img" "$work/previous.txt" ::DST/LARGE.BIN
+        if XCOPY_FAIL_READ_AT=$read_at run XCOPY 'SRC\LARGE.BIN DST /V'; then fail "read $read_at /V failure ignored"; fi
+        mtype -i "$work/art.img" ::DST/LARGE.BIN > "$work/art.bytes" || fail "read $read_at /V deleted target"
+        cmp "$work/previous.txt" "$work/art.bytes" || fail "read $read_at /V changed target"
+        mdir -a -b -i "$work/art.img" ::DST > "$work/private.list"
+        if grep -E 'XCOPY[0-9A-F]{3}\.(TMP|BAK)$' "$work/private.list"; then fail "read $read_at leaked private file"; fi
+    done
+    # A foreign candidate is never acquired, truncated or deleted. A source
+    # read-only bit and full timestamp survive publication by rename.
+    fresh
+    mcopy -i "$work/art.img" "$work/previous.txt" ::DST/XCOPY000.TMP
+    mcopy -i "$work/art.img" "$work/previous.txt" ::DST/XCOPY000.BAK
+    mcopy -i "$work/art.img" "$work/previous.txt" ::DST/ROOT.TXT
+    mattrib +r -i "$work/art.img" ::SRC/ROOT.TXT
+    run XCOPY 'SRC\ROOT.TXT DST /V' || fail 'stage collision execution'
+    for ext in TMP BAK; do
+        mtype -i "$work/art.img" "::DST/XCOPY000.$ext" > "$work/art.bytes" || fail "foreign $ext deleted"
+        cmp "$work/previous.txt" "$work/art.bytes" || fail "foreign $ext changed"
+    done
+    mtype -i "$work/art.img" ::DST/ROOT.TXT > "$work/art.bytes"
+    cmp "$work/old.txt" "$work/art.bytes" || fail 'stage collision destination bytes'
+    mattrib -i "$work/art.img" ::DST/ROOT.TXT > "$work/readonly"
+    grep -Eq '^[^:]*R[^:]*::' "$work/readonly" || fail 'published source read-only bit lost'
+    mdir -a -b -i "$work/art.img" ::DST > "$work/private.list"
+    if grep -E 'XCOPY00[1-9A-F]\.(TMP|BAK)$' "$work/private.list"; then fail 'owned stage or backup survived success'; fi
+    # An absent long destination can alias a private 8.3 candidate.
+    fresh
+    run XCOPY 'SRC\ROOT.TXT DST\XCOPY000.TMPX' F || fail 'private-name destination alias execution'
+    mtype -i "$work/art.img" ::DST/XCOPY000.TMP > "$work/art.bytes"
+    cmp "$work/old.txt" "$work/art.bytes" || fail 'private-name destination alias bytes'
+    # Publication failures restore the old name. If the device also refuses
+    # rollback, retain the only old bytes under the disclosed backup name.
+    for rename_at in 1 2 persistent; do
+        fresh
+        mcopy -i "$work/art.img" "$work/previous.txt" ::DST/ROOT.TXT
+        if [ "$rename_at" = persistent ]; then
+            if XCOPY_FAIL_RENAME_FROM=2 run XCOPY 'SRC\ROOT.TXT DST'; then fail 'rename failure ignored'; fi
+            old=::DST/XCOPY000.BAK
+            grep -F 'A:\DST\XCOPY000.BAK' "$work/output" >/dev/null || fail 'rollback recovery path not disclosed'
+        else
+            if XCOPY_FAIL_RENAME_AT=$rename_at run XCOPY 'SRC\ROOT.TXT DST'; then fail "rename $rename_at failure ignored"; fi
+            old=::DST/ROOT.TXT
+        fi
+        mtype -i "$work/art.img" "$old" > "$work/art.bytes" || fail "rename $rename_at lost old bytes"
+        cmp "$work/previous.txt" "$work/art.bytes" || fail "rename $rename_at changed old bytes"
+        mdir -a -b -i "$work/art.img" ::DST > "$work/private.list"
+        if grep -E '\.TMP$' "$work/private.list"; then fail "rename $rename_at leaked stage"; fi
+        fsck.fat -n "$work/art.img" > "$work/fsck.log" || fail "rename $rename_at filesystem consistency"
+    done
+    fresh
+    mcopy -i "$work/art.img" "$work/previous.txt" ::DST/ROOT.TXT
+    mattrib +r -i "$work/art.img" ::DST/ROOT.TXT
+    cp "$work/art.img" "$work/before.img"
+    if run XCOPY 'SRC\ROOT.TXT DST'; then fail 'read-only destination replaced'; fi
+    cmp "$work/before.img" "$work/art.img" || fail 'read-only destination altered volume'
     for tail in 'SRC DST /D:02-30-1988' 'SRC DST /D:07-15-1979' 'SRC DST /D:01-01-2080' 'SRC DST /Z' ''; do
         if run XCOPY "$tail"; then fail "invalid syntax accepted: $tail"; fi
         grep -q 'exit=4' "$work/run.log" || fail 'invalid syntax exit code'
@@ -276,10 +333,11 @@ if [ "$mode" = host ]; then
     if tr -d '\r' < "$work/output" | grep -qx 'Access denied'; then fail 'disk full reported as Access denied'; fi
     tr -d '\r' < "$work/output" | grep -qx '0 File(s) copied' || fail 'disk full count'
     if mtype -i "$work/art.img" ::DST/BIG.BIN > "$work/art.bytes" 2>/dev/null; then fail 'disk full left a partial destination'; fi
+    mdir -a -b -i "$work/art.img" ::DST > "$work/private.list"
+    if grep -E 'XCOPY[0-9A-F]{3}\.(TMP|BAK)$' "$work/private.list"; then fail 'disk full leaked partial stage'; fi
     fsck.fat -n "$work/art.img" > "$work/fsck.log" || fail 'disk full fsck'
-    # Same rule when the destination pre-existed: once XCOPY has opened it
-    # for writing and the copy fails, the truncated partial file is removed
-    # rather than left behind as a silently wrong file (initech-wz16r).
+    # The staged XCOPY transaction preserves an older destination on full
+    # disk. The genuine COPY disk-full deletion ruling remains in COPY.
     fresh
     mcopy -m -i "$work/art.img" "$work/big.bin" ::SRC/BIG.BIN
     mcopy -i "$work/art.img" "$work/previous.txt" ::DST/BIG.BIN
@@ -288,10 +346,12 @@ if [ "$mode" = host ]; then
     mcopy -i "$work/art.img" "$work/fill.bin" ::FILL.BIN
     if run XCOPY 'SRC\BIG.BIN DST'; then fail 'disk full over a pre-existing destination accepted'; fi
     grep -q 'exit=5' "$work/run.log" || fail 'disk full pre-existing exit'
-    if mtype -i "$work/art.img" ::DST/BIG.BIN > "$work/art.bytes" 2>/dev/null; then fail 'disk full left a partial pre-existing destination'; fi
+    mtype -i "$work/art.img" ::DST/BIG.BIN > "$work/art.bytes" || fail 'disk full deleted previous destination'
+    cmp "$work/previous.txt" "$work/art.bytes" || fail 'disk full changed previous destination'
     mtype -i "$work/art.img" ::SRC/BIG.BIN > "$work/art.bytes"
     cmp "$work/big.bin" "$work/art.bytes" || fail 'disk full damaged source'
     echo 'XCOPY GREEN: disk full reports Insufficient disk space and leaves no partial destination'
+    echo 'INITECH_CHECKS 1 failures=0'
     echo 'XCOPY/TREE GREEN: mcopy FAT differential; /S /E /A /M /D /P /V /W F/D; TREE mdir/manual rendering; fsck.fat'
     exit 0
 fi

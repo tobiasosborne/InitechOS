@@ -2,13 +2,12 @@
 # test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
-@@ -228,8 +228,7 @@
-         line(MSG_DOS_0020); error=4; return 0;
+@@ -286,7 +286,7 @@
      }
      if (flags & P_PROMPT) {
--        text(src+2); text(" (Y/N?)");
+         text(src+2); text(" (Y/N?)");
 -        if (!yes()) return 0;
-+        (void)yes;
++        (void)yes();
      }
-     char parent[CAP];
-     if (!put(parent,dst)) return 0;
+     if (target_found) {
+         du_regs r={0x4300,0,0,(uintptr_t)dst,0};

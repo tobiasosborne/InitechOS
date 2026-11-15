@@ -10,7 +10,7 @@ for cpu in qemu bochs; do
  truncate -s 1474560 "$d/data.img"
  mformat -i "$d/data.img" -f 1440 ::
  mmd -i "$d/data.img" ::SRC ::DST
- dd if=/dev/zero bs=131072 count=1 status=none | tr '\000' 'S' > "$d/source"
+ dd if=/dev/zero bs=200000 count=1 status=none | tr '\000' 'S' > "$d/source"
  printf 'OLD DESTINATION\r\n' > "$d/previous"
  mcopy -i "$d/data.img" "$d/source" ::SRC/LARGE.BIN
  mcopy -i "$d/data.img" "$d/previous" ::DST/LARGE.BIN
@@ -31,5 +31,5 @@ for cpu in qemu bochs; do
  cmp "$d/source" "$d/actual"
  if grep -F XCOPY-BAD "$d/run.serial"; then exit 1; fi
  fsck.fat -n "$actual" > "$d/fsck"
- echo "GREEN $cpu XCOPY: full 128 KiB retained buffer, /V, existing destination, mtools bytes and fsck"
+ echo "GREEN $cpu XCOPY: 200000-byte staged copy, /V, existing destination, mtools bytes and fsck"
 done

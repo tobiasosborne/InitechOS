@@ -1,0 +1,13 @@
+# du-mut-stage-clobber
+# test: test-xcopy-tree
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -251,7 +251,7 @@
+         for (unsigned j=0; j<3; j++) leaf[9+j]=ext[j];
+         char candidate[CAP];
+         if (!join(candidate,parent,leaf)) return -1;
+-        int h=call(0x5b00,0,0,(uintptr_t)candidate);
++        int h=call(0x3c00,0,0,(uintptr_t)candidate);
+         if (h == -80) continue;  /* foreign file: never truncate or remove */
+         if (h < 0) { error=5; return -1; }
+         if (!put(path,candidate)) { call(0x3e00,(unsigned)h,0,0); return -1; }

@@ -73,17 +73,25 @@ COPY disk-full behavior follows the provisional DOS 3.30 ruling: remove the
 failed output, print the captured insufficient-space message and copied-file
 count, and retain ERRORLEVEL. This includes destructive overwrite and append
 failures. Sources: goldens/dataloss/dos and command/tests/dos33/reference.
-XCOPY retains the whole source in a 128 KiB conventional-memory buffer before
-creating or truncating its destination, so a source read failure at any offset leaves
-a pre-existing destination's bytes intact (genuine XCOPY buffers sources
-in memory; its exact read-failure behavior is still uncaptured,
-initech-0e5gu, so retention on read failure is the stated safe rule,
-initech-wz16r/initech-q2w4b/initech-gze1f). /V compares the destination
-with those retained bytes without re-reading the source. Larger files refuse
-before writing with Insufficient memory and exit 4 (MS-DOS 3.3 Guide p.129);
-128 KiB is a local capacity, not a captured genuine XCOPY limit. Once a destination has been opened for writing, a failed copy
-or a failed /V verification removes the failed output rather than leaving a
-partial or source-stamped bad copy (initech-wz16r, initech-w33id).
+XCOPY streams through two 2 KiB work buffers into a uniquely acquired
+XCOPYnnn.TMP in the destination directory (AH=5Bh CREATE_NEW). The old
+destination stays intact through all source reads, writes, closes and /V
+readback. Only a complete, source-stamped stage is published with AH=56h;
+an older destination is held as XCOPYnnn.BAK until publication succeeds.
+A failed rename restores the old name; if the device refuses that rollback,
+XCOPY reports the recovery path and retains the backup. Foreign temporary
+names are skipped. Failed owned stages are retired; an unretirable path is
+reported once and left intact. /M clears the source archive bit only after
+publication. This bounded-memory transaction implements the operator's
+read-failure retention requirement (gze1f/q2w4b/fl0f3), including failures
+during /V. It also preserves an older destination on disk full; COPY's
+captured destructive disk-full behavior above is unchanged. No genuine
+XCOPY read-fault or interrupted-replacement behavior is claimed.
+The genuine DOS 3.30 XCOPY /V capture in xcopy/tests/compat33-large copies a
+200000-byte file and the following file successfully. Host tests compare
+both files through mtools, test the former 128 KiB boundary, and inject
+read and rename failures outside product source. File size is limited by
+the DOS filesystem and available destination space, not a source buffer.
 Batch physical lines retain 127 characters and discard the remainder, exactly
 as the synchronized OEM DOS capture does. Separate 122- and 123-space DEL
 cases retain KEEP.DAT and JUNK.TMP; tests compare the captured input volume,
@@ -244,10 +252,9 @@ retain their captured paths. Delivery must still validate real C-only/C+A
 boots after kernel/system/factory switch the installed volume; host path
 properties alone do not establish that integration.
 
-`make smoke-xcopy-buffer` executes the shipped XCOPY on both emulators at
-the full 128 KiB workspace capacity over a different pre-existing destination.
-Independent mtools bytes and fsck grade the result, including /V. The workspace
-is part of the flat loaded image, since that format has no BSS extent header.
+`make smoke-xcopy-buffer` executes the shipped XCOPY on both emulators with
+a 200000-byte source over a different pre-existing destination. Independent
+mtools bytes and fsck grade the staged replacement, including /V.
 Raw two-second stamp words have their own mutation control; captured command
 failures retain the exact assertion and status rather than disappearing into
 a redirected host log. Fixture verbs are validated before builtin dispatch.

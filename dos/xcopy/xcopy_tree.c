@@ -31,11 +31,6 @@
 #define P_PROMPT 16
 #define V_VERIFY 32
 #define W_WAIT 64
-/* Fixed conventional-memory workspace; DOS 3.3 Guide p.129 permits exit 4
- * for insufficient memory. Never touch a destination if the source will not fit. */
-/* Keep the workspace in the loaded image: flat .COM has no BSS extent
- * header and the loader only reserves 64 KiB for ordinary BSS. */
-static unsigned char source_bytes[128u * 1024u] = {1};
 static find_data_t dta;
 static char pattern[13];
 static unsigned flags, copied, date_min, default_drive;
@@ -222,6 +217,63 @@ static int entry_name(const char *path, char out[CAP])
     return 1;
 }
 
+/* Operator retention requirement (gze1f/fl0f3): publish only a completely
+ * read, written, closed and verified source. Genuine DOS 3.30 large-file
+ * capture: tests/compat33-large. AH=5B/41/56 are published DOS services;
+ * mtools readback grades the transaction independently of this code. */
+static int rename_file(const char *from, const char *to)
+{
+    du_regs r={0x5600,0,0,(uintptr_t)from,(uintptr_t)to};
+    return du_call(&r) ? -(int)(r.a & 65535) : 0;
+}
+static void recovery(const char *path)
+{
+    /* Keep an unretired file and disclose its actual path, never silently
+     * lose it or revisit a name after ownership has been relinquished. */
+    text(path); text("\r\n"); error=5;
+}
+static void discard(char path[CAP])
+{
+    if (!path[0]) return;
+    /* Only paths acquired by CREATE_NEW enter here. A staged copy may have
+     * inherited read-only; clear that bit before retiring our own entry. */
+    if (call(0x4301,0,0,(uintptr_t)path)<0 || call(0x4100,0,0,(uintptr_t)path)<0)
+        recovery(path);
+    path[0]=0;
+}
+static int reserve(const char *parent, const char *dst, const char *ext, char path[CAP])
+{
+    static const char hex[]="0123456789ABCDEF";
+    char leaf[]="XCOPY000.TMP";
+    path[0]=0;
+    for (unsigned n=0; n<4096; n++) {
+        leaf[5]=hex[n>>8]; leaf[6]=hex[(n>>4)&15]; leaf[7]=hex[n&15];
+        for (unsigned j=0; j<3; j++) leaf[9+j]=ext[j];
+        char candidate[CAP];
+        if (!join(candidate,parent,leaf)) return -1;
+        int h=call(0x5b00,0,0,(uintptr_t)candidate);
+        if (h == -80) continue;  /* foreign file: never truncate or remove */
+        if (h < 0) { error=5; return -1; }
+        if (!put(path,candidate)) { call(0x3e00,(unsigned)h,0,0); return -1; }
+        /* DOS truncates long leaf names to 8.3. Do not choose a staging
+         * name that aliases an absent destination supplied by the caller. */
+        char resolved[CAP], staged[CAP];
+        int target=entry_name(dst,resolved), own=entry_name(path,staged);
+        if (target<0 || own!=1) {
+            call(0x3e00,(unsigned)h,0,0); error=5; discard(path); return -1;
+        }
+        if (target && equal(resolved,staged)) {
+            if (call(0x3e00,(unsigned)h,0,0)<0) error=5;
+            discard(path);
+            if (error) return -1;
+            continue;
+        }
+        return h;
+    }
+    error=5;
+    return -1;
+}
+
 static int transfer(const char *src, const char *dst, const find_data_t *fd)
 {
     unsigned char buf[2048], verify[2048];
@@ -236,77 +288,79 @@ static int transfer(const char *src, const char *dst, const find_data_t *fd)
         text(src+2); text(" (Y/N?)");
         if (!yes()) return 0;
     }
-    char parent[CAP];
+    if (target_found) {
+        du_regs r={0x4300,0,0,(uintptr_t)dst,0};
+        if (du_call(&r) || (r.c & 1)) { error=5; return 0; }
+    }
+    char parent[CAP], stage[CAP]={0}, backup[CAP]={0};
     if (!put(parent,dst)) return 0;
     dospath_parent(parent);
     if (!ensure_dir(parent)) return 0;
     int in=call(0x3d00,0,0,(uintptr_t)src);
     if (in < 0) { error=5; return 0; }
-    /* initech-gze1f/q2w4b: retain every source byte BEFORE truncation.
-     * DOS 3.30 COPY disk-full capture governs failed writes, not failed
-     * source reads. Genuine XCOPY read-fault captures remain unavailable
-     * (initech-0e5gu); destination retention is the stated safety property. */
-    unsigned used=0;
+    int out=reserve(parent,dst,"TMP",stage);
+    if (out < 0) { call(0x3e00,(unsigned)in,0,0); return 0; }
     for (;;) {
         int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
         if (n < 0) { error=5; break; }
         if (!n) break;
-        if ((unsigned)n > sizeof(source_bytes)-used) {
-            line(MSG_DOS_0035); error=4; break;
-        }
-        for (int i=0; i<n; i++) source_bytes[used++]=buf[i];
+        int w=call(0x4000,(unsigned)out,(unsigned)n,(uintptr_t)buf);
+        if (w != n) { if (w >= 0) error_full=1; error=5; break; }
     }
-    if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
-    if (error) return 0;
-    int out=call(0x5b00,0,0,(uintptr_t)dst);
-    if (out == -80) out=call(0x3c00,0,0,(uintptr_t)dst);
-    if (out < 0) { error=5; return 0; }
-    for (unsigned at=0; at<used;) {
-        unsigned n=used-at;
-        if (n > sizeof(buf)) n=sizeof(buf);
-        int w=call(0x4000,(unsigned)out,n,(uintptr_t)(source_bytes+at));
-        if (w != (int)n) { if (w >= 0) error_full=1; error=5; break; }
-        at+=n;
-    }
-    /* Source date/time survives the last WRITE and CLOSE (initech-qqrz).
-     * Ref: MS-DOS 3.3 Reference p.50 (PDF135), mcopy -m on identical images;
-     * IBM DOS 3.30 Tech Ref p.6-208 (PDF331), AH=57h CX=time, DX=date.
-     * A failed copy is never stamped (initech-w33id): stamping first made
-     * a truncated destination look like a good copy. */
+    /* Ref: MS-DOS 3.3 Reference p.50; IBM DOS 3.30 TR p.6-208,
+     * AH=57h CX=time, DX=date; mcopy -m independently supplies the words. */
     if (!error) {
         du_regs r={0x5701,(unsigned)out,fd->ftime,fd->fdate,0};
         if (du_call(&r)) error=5;
     }
     if (call(0x3e00,(unsigned)out,0,0) < 0) error=5;
-    /* Once the destination was opened for writing, a failure leaves a
-     * truncated or partial file behind: remove the failed output, as the
-     * captured DOS 3.30 COPY disk-full ruling does (initech-w33id), whether
-     * the entry is new or pre-existing. An unreadable source never reaches
-     * here, so its destination was never touched. */
-    if (error) { call(0x4100,0,0,(uintptr_t)dst); return 0; }
+    if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
+    if (error) { discard(stage); return 0; }
     if (flags & V_VERIFY) {
-        out=call(0x3d00,0,0,(uintptr_t)dst);
-        if (out < 0) error=5;
-        unsigned at=0;
+        in=call(0x3d00,0,0,(uintptr_t)src);
+        out=call(0x3d00,0,0,(uintptr_t)stage);
+        if (in < 0 || out < 0) error=5;
         while (!error) {
+            int n=call(0x3f00,(unsigned)in,sizeof(buf),(uintptr_t)buf);
             int k=call(0x3f00,(unsigned)out,sizeof(verify),(uintptr_t)verify);
-            if (k < 0 || (unsigned)k > used-at) { error=5; break; }
-            for (int i=0; i<k; i++) if (source_bytes[at+i] != verify[i]) { error=5; break; }
-            at+=(unsigned)k;
-            if (!k) { if (at != used) error=5; break; }
+            if (n < 0 || k != n) { error=5; break; }
+            for (int i=0; i<n; i++) if (buf[i] != verify[i]) { error=5; break; }
+            if (!n) break;
         }
-        if (out >= 0) call(0x3e00,(unsigned)out,0,0);
+        if (in >= 0 && call(0x3e00,(unsigned)in,0,0)<0) error=5;
+        if (out >= 0 && call(0x3e00,(unsigned)out,0,0)<0) error=5;
     }
-    /* A copy that fails /V verification is a failed output: remove it
-     * instead of leaving a source-stamped bad copy in place (initech-wz16r). */
-    if (error) { call(0x4100,0,0,(uintptr_t)dst); return 0; }
-    /* mcopy oracle: copied files have archive set; source read-only survives. */
-    if (call(0x4301,0,(fd->attr & 1)|32,(uintptr_t)dst) < 0) { error=5; return 0; }
+    if (error) { discard(stage); return 0; }
+    /* mcopy oracle: archive is set and the source read-only bit survives. */
+    if (call(0x4301,0,(fd->attr & 1)|32,(uintptr_t)stage)<0) {
+        error=5; discard(stage); return 0;
+    }
+    /* No more source reads can fail. Keep the old entry under a uniquely
+     * acquired backup name until the completed stage has its final name. */
+    if (target_found) {
+        int h=reserve(parent,dst,"BAK",backup);
+        if (h<0) { discard(stage); return 0; }
+        if (call(0x3e00,(unsigned)h,0,0)<0) { error=5; discard(backup); discard(stage); return 0; }
+        if (call(0x4100,0,0,(uintptr_t)backup)<0) {
+            recovery(backup); discard(stage); return 0;
+        }
+        if (rename_file(dst,backup)<0) { error=5; backup[0]=0; discard(stage); return 0; }
+    }
+    if (rename_file(stage,dst)<0) {
+        error=5;
+        if (backup[0] && rename_file(backup,dst)<0) recovery(backup);
+        backup[0]=0;  /* either restored, or disclosed and left untouched */
+        discard(stage);
+        return 0;
+    }
+    stage[0]=0;  /* ownership followed the rename; this name is now free */
+    discard(backup);
+    if (error) return 0;
     if (flags & M_CLEAR) {
         if (call(0x4301,0,fd->attr & ~32u,(uintptr_t)src) < 0) { error=5; return 0; }
     }
     copied++;
-    if (!(flags & P_PROMPT)) line(src+2);   /* pre-q45q listing text */
+    if (!(flags & P_PROMPT)) line(src+2);
     return 1;
 }
 

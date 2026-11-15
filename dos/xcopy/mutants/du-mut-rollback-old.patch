@@ -1,0 +1,13 @@
+# du-mut-rollback-old
+# test: test-xcopy-tree
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -348,7 +348,7 @@
+     }
+     if (rename_file(stage,dst)<0) {
+         error=5;
+-        if (backup[0] && rename_file(backup,dst)<0) recovery(backup);
++        if (backup[0]) discard(backup);
+         backup[0]=0;  /* either restored, or disclosed and left untouched */
+         discard(stage);
+         return 0;

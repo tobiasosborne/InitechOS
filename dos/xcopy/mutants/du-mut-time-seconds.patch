@@ -2,9 +2,9 @@
 # test: test-dos-stamp-copy-host
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
-@@ -274,7 +274,7 @@
-      * A failed copy is never stamped (initech-w33id): stamping first made
-      * a truncated destination look like a good copy. */
+@@ -310,7 +310,7 @@
+     /* Ref: MS-DOS 3.3 Reference p.50; IBM DOS 3.30 TR p.6-208,
+      * AH=57h CX=time, DX=date; mcopy -m independently supplies the words. */
      if (!error) {
 -        du_regs r={0x5701,(unsigned)out,fd->ftime,fd->fdate,0};
 +        du_regs r={0x5701,(unsigned)out,fd->ftime ^ 1u,fd->fdate,0};

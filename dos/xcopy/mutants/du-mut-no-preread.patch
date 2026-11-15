@@ -2,11 +2,11 @@
 # test: test-xcopy-tree
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
-@@ -253,6 +253,7 @@
-             line(MSG_DOS_0035); error=4; break;
-         }
-         for (int i=0; i<n; i++) source_bytes[used++]=buf[i];
+@@ -306,6 +306,7 @@
+         if (!n) break;
+         int w=call(0x4000,(unsigned)out,(unsigned)n,(uintptr_t)buf);
+         if (w != n) { if (w >= 0) error_full=1; error=5; break; }
 +        break;
      }
-     if (call(0x3e00,(unsigned)in,0,0) < 0) error=5;
-     if (error) return 0;
+     /* Ref: MS-DOS 3.3 Reference p.50; IBM DOS 3.30 TR p.6-208,
+      * AH=57h CX=time, DX=date; mcopy -m independently supplies the words. */

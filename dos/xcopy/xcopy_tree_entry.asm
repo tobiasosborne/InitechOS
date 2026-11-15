@@ -37,19 +37,20 @@ du_call:
     push ebx
     push esi
     push edi
-    mov edi, [esp+20]
-    mov eax, [edi]
-    mov ebx, [edi+4]
-    mov ecx, [edi+8]
-    mov edx, [edi+12]
-    mov esi, [edi+16]
+    mov ebp, [esp+20]
+    mov eax, [ebp]
+    mov ebx, [ebp+4]
+    mov ecx, [ebp+8]
+    mov edx, [ebp+12]
+    mov esi, [ebp+16]
+    mov edi, esi                 ; AH=47 uses ESI; AH=56 uses EDI
     int 0x21
     pushfd
-    mov [edi], eax
-    mov [edi+4], ebx
-    mov [edi+8], ecx
-    mov [edi+12], edx
-    mov [edi+16], esi
+    mov [ebp], eax
+    mov [ebp+4], ebx
+    mov [ebp+8], ecx
+    mov [ebp+12], edx
+    mov [ebp+16], esi
     pop eax
     and eax, 1
     pop edi

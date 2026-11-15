@@ -1,0 +1,13 @@
+# du-mut-readonly
+# test: test-xcopy-tree
+--- a/xcopy/xcopy_tree.c
++++ b/xcopy/xcopy_tree.c
+@@ -332,7 +332,7 @@
+     }
+     if (error) { discard(stage); return 0; }
+     /* mcopy oracle: archive is set and the source read-only bit survives. */
+-    if (call(0x4301,0,(fd->attr & 1)|32,(uintptr_t)stage)<0) {
++    if (call(0x4301,0,32,(uintptr_t)stage)<0) {
+         error=5; discard(stage); return 0;
+     }
+     /* No more source reads can fail. Keep the old entry under a uniquely

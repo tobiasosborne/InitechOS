@@ -2,8 +2,8 @@
 # test: test-xcopy-tree test-xcopy-cwd-host test-dos-stamp-copy-host
 --- a/xcopy/xcopy_tree.c
 +++ b/xcopy/xcopy_tree.c
-@@ -255,6 +255,7 @@
-      * a truncated destination look like a good copy. */
+@@ -311,6 +311,7 @@
+      * AH=57h CX=time, DX=date; mcopy -m independently supplies the words. */
      if (!error) {
          du_regs r={0x5701,(unsigned)out,fd->ftime,fd->fdate,0};
 +        r.c=0; r.d=0;

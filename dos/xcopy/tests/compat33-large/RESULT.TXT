@@ -1,0 +1,5 @@
+
+Reading source file(s)...
+B:\SRC\LARGE.BIN
+B:\SRC\ZZZ.TXT
+        2 File(s) copied
