@@ -122,7 +122,7 @@ The platform adapter follows ../NOTES-FOR-KERNEL.md:
 | serial | serial_puts |
 | panic | panic_show_reason and cli/hlt, never returns |
 
-make test runs 19 host suites plus the shared target/import audit: Finder
+make test runs 22 host suites plus the shared target/import audit: Finder
 commands/model/windows/operations/menu/input/list view/replace/limits/notices/
 restore, label properties, captured desktop icons, Apple menu, shell, drag, power notice and heap
 RAM contract. Logs and generated host screens stay in build/flair/desktop/host.
@@ -378,8 +378,46 @@ the approved phase-2 frame judgement (ordinary persisted state). It is an image
 seed for the delivery/factory owner to install on the frame's data volume,
 not a startup command. `test_frame_desktop` compares every byte to an independent
 literal record, opens the root through normal Open, then moves, closes, encodes
-and reloads it to prove the user's position supersedes the seed. The patch
-`frame-root-position-ignored` is its semantic control. Version one's 24-byte
+and reloads it to prove the user's position supersedes the seed. After loading,
+it checks every allocated Finder window slot is still closed. The patch
+`frame-seed-opens-scene` opens the root from the loader; it survived the former
+pre-load assertion and must now fail. `frame-root-position-ignored` separately
+guards the saved origin. Version one's 24-byte
 view record retains the documented default window size; the seed claims only
 the transcribed origin. It neither opens windows nor changes the Finder's
 unseeded defaults. FILE COPY chrome belongs to the Toolbox owner.
+
+Install the seed hidden (H), with System and Read-only clear, retaining write
+access for ordinary preference changes. The delivery owner installs it as `A:\DESKTOP.DB`
+on the frame data volume and checks `mattrib`, both forms of `mdir` (ordinary
+and `-a`), and an exact `mcopy`/`cmp` readback. It belongs on A:, not on the C:
+system root. See the desktop-owner handoff for the exact image commands.
+
+Startup captures the DOS default drive, its mounted record and its own FAT
+cache under one explicit drive selection, then restores the caller's complete
+CWD/I/O snapshot. It does not inherit the last backend selected by earlier I/O.
+The same captured drive binds application file sessions and the resident loader;
+the root title uses its letter (the frame's Drive A Files convention). A missing
+default volume fails instead of falling back to another disk. The FAT engine
+streams through a single-sector bootstrap scratch buffer even on the delivery
+C: volume's eight-sector clusters (kernel/include/fat12.h). The volume-binding
+suite covers default C/prior A, C alone, default A/prior C, missing C and FAT16
+window/cache pairing. The startup-last-volume and startup-root-title patches
+each have a named semantic assertion. The mtools
+storage suite additionally exercises the 8 MiB FAT12/eight-sector geometry.
+`make smoke-volume` creates, launches Note Pad and saves on an explicitly
+selected C: boot-volume clone, reads it through mtools at byte offset 32256,
+and requires every A: byte unchanged. QEMU uses --boot-rw on that disposable
+clone; Bochs's retained private boot clone supplies its readback. The current
+kernel still requires A: during startup; C-alone activation and simultaneous
+C/A Finder contexts remain the joint delivery/frame issue initech-ektw0.
+
+The shell's menu oracle now fixes first-ink positions to 43/79/117/162 for
+the shipping four-title Finder and 43/79/117/162/210 for the captured five-title
+File/Edit/View/Label/Special resource. Source: system7-decomp s7_desktop.png
+and specs/desktop/menu-bar.md, also independently measured by the phase-3
+review. The extra Label exists only in test data. The new assertions fail on
+the former 18-pixel pitch and pass with the upstream captured 13-pixel pitch.
+The redundant __KERNEL_FREESTANDING__ clauses in desktop.c, shell.c and
+finder_desktop.c are removed; __STDC_HOSTED__ already selects host support.
+All three target objects are byte-identical before and after that cleanup.

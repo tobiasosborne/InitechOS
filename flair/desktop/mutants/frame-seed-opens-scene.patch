@@ -1,0 +1,13 @@
+# test: test_frame_desktop
+# Misinterpret a root view preference as a request to open its window now.
+--- a/finder_windows.c
++++ b/finder_windows.c
+@@ -1348,4 +1348,8 @@
+         took = (uint16_t)(took + 1u);
+     }
++    if (took != 0u) {
++        int slot;
++        (void)finder_win_open(sh,0,0,"",1,&slot,0);
++    }
+     return took;
+ }

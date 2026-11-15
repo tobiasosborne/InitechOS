@@ -21,8 +21,10 @@ int main(int argc, char **argv)
     size_t n=fread(bytes,1,sizeof bytes,f); fclose(f);
     CHECK(n==32 && !memcmp(bytes,expected,32),"seed is literal root-view record at frame coordinates");
     scene_init(&s,MOCK_DIRS,2);
-    CHECK(!s.sh.windows[0].open,"loading frame preference does not open a scene");
     CHECK(finder_shell_load_views(&s.sh,bytes,(uint32_t)n)==1,"ordinary view loader accepts frame seed");
+    CHECK(s.sh.window_cap>0 && s.sh.window_cap<=FINDER_WIN_MAX,"scene has allocated Finder window slots to inspect");
+    for(unsigned k=0;k<s.sh.window_cap;k++)
+        CHECK(!s.sh.windows[k].open,"loading frame preference leaves every allocated window slot closed");
     CHECK(finder_win_open(&s.sh,0,0,"",1,&slot,NULL)==FINDER_WIN_OK,"ordinary volume Open succeeds");
     rgn_rect_t frame=WindowFrameRect(&s.sh.windows[slot].rec);
     CHECK(frame.left==46 && frame.top==115,"Drive A opens at independently transcribed still origin");
@@ -37,5 +39,10 @@ int main(int argc, char **argv)
     CHECK(finder_win_open(&s.sh,0,0,"",1,&slot,NULL)==FINDER_WIN_OK,"next session opens root normally");
     frame=WindowFrameRect(&s.sh.windows[slot].rec);
     CHECK(frame.left==81 && frame.top==137,"user arrangement supersedes shipped frame preference");
+    CHECK(!strcmp(s.sh.windows[slot].rec.titleHandle,"Drive A Files"),"frame data volume keeps its captured title");
+    CHECK(finder_win_close(&s.sh,slot)==FINDER_WIN_OK,"close before switching startup-volume session");
+    s.sh.volume_drive=2;
+    CHECK(finder_win_open(&s.sh,0,0,"",1,&slot,NULL)==FINDER_WIN_OK,"C startup volume opens normally");
+    CHECK(!strcmp(s.sh.windows[slot].rec.titleHandle,"Drive C Files"),"root title identifies C instead of claiming frame A");
     return TEST_SUMMARY("test-frame-desktop");
 }

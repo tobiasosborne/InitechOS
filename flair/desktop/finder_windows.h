@@ -559,6 +559,7 @@ typedef struct finder_shell {
     finder_file_info_t   info;
     FlairScrap         *scrap;     /* borrowed shell-owned Scrap Manager */
     uint8_t              have_fs;  /* 1 once a binding is installed            */
+    uint8_t              volume_drive; /* DOS letter; zero retains frame A: */
     finder_cmd_outcome_t last;     /* the most recent command's outcome        */
     /* R3.4a (bead initech-34dh): the kind=5 trash-origin set (design F1.5),
      * serialised into \DESKTOP.DB after the views (finder_desk_db_encode_full)

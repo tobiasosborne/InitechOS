@@ -37,6 +37,7 @@ void kernel_graphical_environment(void)
                         "HALTED\n");
             while (!g_desktop_exit) { __asm__ __volatile__("cli; hlt"); }
         }
+        g_finder_shell->volume_drive=(uint8_t)g_finder_drive;
         finder_click_reset(&g_finder_click);
         {
             int vidx = finder_desk_find_kind(g_finder_desk, FINDER_ICON_VOLUME);

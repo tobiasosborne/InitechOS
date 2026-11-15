@@ -80,7 +80,7 @@ static const FLAIRDeskIcon *fd_strike_at(unsigned i)
  * Fail-loud, the desktop.c / window.c idiom: abort hosted, deterministic hang
  * in-kernel. Kept local so this TU dual-compiles with only FLAIR/spec headers.
  * ------------------------------------------------------------------------- */
-#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1 && !defined(__KERNEL_FREESTANDING__)
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1
 #  include <stdlib.h>   /* abort -- hosted only */
 #  define FDESK_PANIC(msg)  abort()
 #else

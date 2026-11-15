@@ -77,6 +77,7 @@ int flair_live_tenant_key(flair_live_ctx_t *ctx, const boot_info_t *bi,
 }
 
 const fat12_volume_t *g_finder_vol;
+unsigned g_finder_drive;
 
 void *g_finder_fat;
 

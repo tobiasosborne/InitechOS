@@ -15,7 +15,7 @@
  * desktop.c / window.c convention so shell.c dual-compiles with only the FLAIR/
  * spec headers (no panic.h dependency).
  * ------------------------------------------------------------------------- */
-#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1 && !defined(__KERNEL_FREESTANDING__)
+#if defined(__STDC_HOSTED__) && __STDC_HOSTED__ == 1
 #  include <stdlib.h>   /* abort -- hosted only */
 #  define SHELL_PANIC(msg)  abort()
 #else

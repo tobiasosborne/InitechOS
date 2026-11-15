@@ -53,7 +53,8 @@ static int shell_title_row_index(int row)
  * Every title's ink starts on row 5 (s7_desktop.png) and ends by row 16,
  * the bottom of the menus.md 1.3 glyph band (Image's g, Layer's y).
  * The InitechPaint bar has the frame's eight titles (goldens/frame
- * transcription.tsv MB.1..MB.8). Positions after File are initech-vhgid. */
+ * transcription.tsv MB.1..MB.8). The captured five-title Finder includes
+ * Label; the approved shipping four-title resource omits it (initech-vhgid). */
 static const char *const BAR_CORNER[9] = {
     "KKKKKsceWWWWWWW", "KKKscWWWeeeeeee", "KKseWeeeeeeeeee",
     "KseWeeeeeeeeeee", "KcWeeeeeeeeeeee", "sWeeeeeeeeeeeee",
@@ -102,10 +103,18 @@ static int bar_literal_bad(render_ctx_t *c, int paint, int *n_groups)
         }
     }
     *n_groups = n;
-    bad += n != (paint ? 8 : 4);
+    bad += n != (paint == 1 ? 8 : paint == 2 ? 5 : 4);
     bad += n < 1 || g[0][0] != 43;
-    for (int k = 0; k < (paint ? 0 : 4) && k < n; k++)
-        bad += g[k][1] - g[k][0] + 1 != width[k] || g[k][2] != 5 || g[k][3] != bottom[k];
+    /* Literal first ink from s7_desktop.png, not slot widths from menu.c.
+     * The omission of Label closes its gap in the shipping Finder. */
+    static const int first4[]={43,79,117,162};
+    static const int first5[]={43,79,117,162,210};
+    static const int width5[]={21,23,30,33,44}, bottom5[]={13,13,13,13,15};
+    for (int k = 0; k < (paint == 1 ? 0 : paint == 2 ? 5 : 4) && k < n; k++) {
+        bad += g[k][0] != (paint == 2 ? first5[k] : first4[k]);
+        bad += g[k][1] - g[k][0] + 1 != (paint == 2 ? width5[k] : width[k]) ||
+               g[k][2] != 5 || g[k][3] != (paint == 2 ? bottom5[k] : bottom[k]);
+    }
     for (int k = 0; k < n; k++)
         bad += g[k][2] != 5 || g[k][3] > 16;   /* cap top 5; band ends 16 */
     return bad;
@@ -788,6 +797,17 @@ int main(int argc, char **argv)
                   strcmp(live.paint_bar.menus[3].title, "Layer") == 0 &&
                   strcmp(live.paint_bar.menus[5].title, "View") == 0,
                   "(9) Photoshop titles survive as front application menus");
+
+            /* The full captured Finder set is test data; Label remains absent
+             * from the shipping resource under the approved command split. */
+            MenuInfo captured[5]={0};
+            const char *titles[]={"File","Edit","View","Label","Special"};
+            for(int i=0;i<5;i++) {captured[i].menuID=(int16_t)(512+i);captured[i].title=titles[i];}
+            MenuBar captured_bar={captured,5,1};
+            shell_render_with_menubar(&live.scene,&lc.fb.bm,&captured_bar);
+            int captured_groups=0;
+            CHECK(bar_literal_bad(&lc,2,&captured_groups)==0,
+                  "(9) full captured five-title set has literal first ink 43/79/117/162/210");
 
             /* A window may occupy the former band, and live damage repaint
              * must neither clip it nor overwrite the top bar. */

@@ -201,6 +201,7 @@ void flair_live_tenant_menu_result(flair_live_ctx_t *ctx,
 int flair_live_tenant_key(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                  const EventRecord *ev);
 extern const fat12_volume_t *g_finder_vol;
+extern unsigned g_finder_drive;
 extern void *g_finder_fat;
 extern uint32_t g_finder_fat_len;
 extern void *g_finder_secbuf;

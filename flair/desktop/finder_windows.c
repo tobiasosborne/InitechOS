@@ -1021,7 +1021,9 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, uint16_t parent,
     /* The icon view scrolls (Sec 10c): attach the window's two bars. Detached
      * by DisposeWindow on close (window.c), so the slot can be reused. */
     WindowScrollAttach(sh->wm, &w->scroll, &w->rec);
-    SetWTitle(sh->wm, &w->rec, is_root ? FINDER_WIN_ROOT_TITLE : w->name83);
+    char root_title[]=FINDER_WIN_ROOT_TITLE;
+    root_title[6]=(char)('A'+sh->volume_drive);
+    SetWTitle(sh->wm, &w->rec, is_root ? root_title : w->name83);
 
     /* The binding / demux rule (ADR-0013 Sec 3.1): FindWindow -> refCon ->
      * FlairApp*. This is what makes the window FINDER-OWNED, which is in turn

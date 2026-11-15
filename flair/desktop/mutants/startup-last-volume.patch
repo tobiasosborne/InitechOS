@@ -1,0 +1,12 @@
+# test: test_volume_binding
+# Reintroduce coupling to the last backend accessed instead of DOS default.
+--- a/volume_binding.c
++++ b/volume_binding.c
+@@ -12,6 +12,6 @@
+     const char *path=root;
+     out->volume=0;out->fat=0;out->fat_len=0;
+-    out->drive=int21_current_drive();
++    out->drive=int21_io_drive();
+     root[0]=(char)('A'+out->drive);
+     if(int21_select_path(&path)==0) {
+         out->volume=fileio_fat_current_volume();

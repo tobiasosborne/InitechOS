@@ -9,18 +9,20 @@ fail() { echo "FAIL Finder storage: $* ($out)" >&2; exit 1; }
 . factory/desktop-trace.sh
 printf 'Finder source bytes\r\n' > "$out/source.txt"
 printf '@ECHO OFF\r\nFLAIR\r\n' > "$out/autoexec"
-for kind in 12 16; do
- sectors=2880; [ "$kind" = 12 ] || sectors=16384
- truncate -s $((sectors*512)) "$out/fat$kind.img"
- mformat -i "$out/fat$kind.img" -T "$sectors" -h 16 -s 63 -c 1 -N 0x19910330 ::
- mmd -i "$out/fat$kind.img" ::FOLDER ::TRASH
- mcopy -i "$out/fat$kind.img" "$out/source.txt" ::SOURCE.TXT
- mcopy -i "$out/fat$kind.img" "$out/source.txt" ::TRASH/GONE.TXT
- mcopy -i "$out/fat$kind.img" "$out/autoexec" ::AUTOEXEC.BAT
- mattrib -i "$out/fat$kind.img" +h ::AUTOEXEC.BAT ::TRASH
+for spec in 12 16 12c8; do
+ kind=$spec; spc=1
+ [ "$spec" != 12c8 ] || { kind=12; spc=8; }
+ sectors=2880; [ "$spec" = 12 ] || sectors=16384
+ truncate -s $((sectors*512)) "$out/fat$spec.img"
+ mformat -i "$out/fat$spec.img" -T "$sectors" -h 16 -s 63 -c "$spc" -N 0x19910330 ::
+ mmd -i "$out/fat$spec.img" ::FOLDER ::TRASH
+ mcopy -i "$out/fat$spec.img" "$out/source.txt" ::SOURCE.TXT
+ mcopy -i "$out/fat$spec.img" "$out/source.txt" ::TRASH/GONE.TXT
+ mcopy -i "$out/fat$spec.img" "$out/autoexec" ::AUTOEXEC.BAT
+ mattrib -i "$out/fat$spec.img" +h ::AUTOEXEC.BAT ::TRASH
  for emulator in qemu bochs; do
-  name=$emulator-fat$kind; markers=$out/$name.markers; : > "$markers"
-  cp "$out/fat$kind.img" "$out/$name.img"
+  name=$emulator-fat$spec; markers=$out/$name.markers; : > "$markers"
+  cp "$out/fat$spec.img" "$out/$name.img"
   trace=$(
    if [ "$kind" = 16 ]; then
     await_marker 'FINDER-ALERT-LINE Write protect error.'; inject kret
