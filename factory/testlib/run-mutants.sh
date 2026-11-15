@@ -15,7 +15,9 @@ ulimit -c 0
 shims=$run/shims
 qrecord=$(printf '%s' "$top/factory/testlib/infra-record.sh" | sed "s/'/'\\\\''/g")
 mkdir -p "$shims"
-for tool in cc gcc clang nasm as ld ar objcopy fpc; do
+# FPC finds ld on PATH and then runs ld.bfd from that same directory, so
+# every linker variant present is shimmed too (initech-piuvw).
+for tool in cc gcc clang nasm as ld ld.bfd ld.gold ld.lld ar objcopy fpc; do
     real=$(command -v "$tool" 2>/dev/null) || continue
     case $real in /*) ;; *) continue;; esac
     quoted=$(printf '%s' "$real" | sed "s/'/'\\\\''/g")

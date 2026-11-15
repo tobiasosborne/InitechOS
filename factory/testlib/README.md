@@ -184,7 +184,8 @@ of these hold, in both of two test runs, with the same receipt:
    factory/include/test_assert.h), or the retained `n checks, k failures`.
 4. No build tool and no emulator run failed during the mutant's test run in a
    way the baseline did not. The runner puts recording shims for cc, gcc,
-   clang, nasm, as, ld, ar, objcopy and fpc first on PATH; a shim that sees a
+   clang, nasm, as, ld (and the ld.bfd/ld.gold/ld.lld variants FPC selects
+   beside it), ar, objcopy and fpc first on PATH; a shim that sees a
    nonzero exit appends `<tool> exit <rc> in <cwd>: <args>` to
    `$INITECH_INFRA_LOG` (infra-record.sh). The run's own copy directory and
    mktemp names are normalised, so only the same command failing in the

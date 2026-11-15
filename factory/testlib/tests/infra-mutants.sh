@@ -84,4 +84,41 @@ expect semantic-still-killed '1 killed, 0 survived, 0 errors' semantic
 # refusal of invalid.c must not cancel the mutant's new failure on product.c.
 expect build-breaking-behind-expected-refusal '0 killed, 0 survived, 1 errors' broken NEGATIVE_CC=1
 expect semantic-killed-with-expected-refusal '1 killed, 0 survived, 0 errors' semantic NEGATIVE_CC=1
+# initech-piuvw: FPC finds ld on PATH and then runs ld.bfd from the same
+# directory. A real FPC hello program compiled at test time is the
+# independent control: its baseline must pass through the recording shims.
+p=$work/pascal
+mkdir -p "$p/mutants"
+command -v fpc >/dev/null || { echo "FAIL infra mutants: fpc not installed (setup)"; exit 2; }
+cat > "$p/Makefile" <<'MAKE'
+COMPONENT := fixture
+include $(TOP)/mk/config.mk
+.PHONY: test test-build test-run
+test: test-run
+test-build:
+	@mkdir -p $(OUT)/host
+test-run: test-build
+	@rm -f $(OUT)/host/*.result; fail=0; \
+	sh $(TOP)/factory/testlib/run-test.sh probe 20 '' $(OUT)/host/probe sh run.sh $(OUT) || fail=1; \
+	echo 'INITECH_TEST_RUN 1'; test $$fail -eq 0
+MAKE
+cat > "$p/run.sh" <<'SH'
+out=$1
+mkdir -p "$out/fpc"
+fpc -v0 -FE"$out/fpc" probe.pas > "$out/host/probe.log" 2>&1 || exit 2
+got=$("$out/fpc/probe")
+if [ "$got" = 7 ]; then echo '1 checks, 0 failures' >> "$out/host/probe.log"; exit 0; fi
+echo "FAIL run.sh: probe printed $got, want 7" >> "$out/host/probe.log"
+echo '1 checks, 1 failures' >> "$out/host/probe.log"; exit 1
+SH
+printf 'program Probe;\nbegin\n  writeln(7) { seven }\nend.\n' > "$p/probe.pas"
+printf -- '--- a/probe.pas\n+++ b/probe.pas\n@@ -3 +3 @@\n-  writeln(7) { seven }\n+  writeln(7) { still seven }\n' > "$p/mutants/comment.patch"
+printf -- '--- a/probe.pas\n+++ b/probe.pas\n@@ -3 +3 @@\n-  writeln(7) { seven }\n+  writeln(8) { seven }\n' > "$p/mutants/semantic.patch"
+for case in comment:'0 killed, 1 survived, 0 errors' semantic:'1 killed, 0 survived, 0 errors'; do
+ patch=${case%%:*} want=${case#*:}
+ rc=0
+ (cd "$p" && sh "$runner" "$root" fixture "$work/out-fpc-$patch" make "mutants/$patch.patch") > "$work/fpc-$patch.log" 2>&1 || rc=$?
+ if grep -q "fixture: 1 mutants, $want" "$work/fpc-$patch.log"; then echo "ok infra mutants: real-fpc-$patch"
+ else echo "FAIL infra mutants: real-fpc-$patch: want '$want'"; tail -n 8 "$work/fpc-$patch.log"; failed=1; fi
+done
 exit "$failed"
