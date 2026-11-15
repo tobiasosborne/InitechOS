@@ -53,10 +53,15 @@ static const int colx[CALC_COLS+1]={0,100,146,192,238,284,330,376,422,468,478};
 #define SERIES_MAX 8
 #define NOTE_MAX 79
 /* Window bounds used when a document gives none it can use: the still's
- * arrangement (geometry.tsv LEDWIN, CHARTWIN). The chart is 7 px wider than
- * the still's window, whose field runs to its frame: the Platinum document
- * window keeps a scroll-bar gutter, and the pie must not be cut by it. */
-static const int32_t home[2][4]={{116,104,622,474},{349,72,605,288}};
+ * arrangement (geometry.tsv LEDWIN origin, CHARTWIN). The chart's field runs
+ * to its frame, as in the still: a no-grow document window (NEWWINDOW WDEF
+ * byte 4, the Mac's noGrowDocProc; flair/README.md -- the SDK has yet to
+ * name it), whose content is the frame less 6 at the sides and foot and the
+ * 22-pixel title bar. The ledger is an ordinary document window, whose
+ * content also stops 21 short of the right and bottom (the scroll bars). */
+#define CALC_WDEF_NOGROW (4u<<TBX_WDEF_SHIFT)
+static const int32_t home[2][4]={{116,104,622,474},{349,72,598,288}};
+static const int32_t inset_r[2]={21,6}, inset_b[2]={21,6};
 
 static uint8_t store[40960];
 static i123_sheet_t g_sheet;
@@ -300,14 +305,14 @@ static void put_value(double x)
     if(!calc_parse(t,n,&back)||back!=x) { put_full=1; return; }
     put(t);
 }
-/* The bounds a window has now: its content rect less the document chrome
- * (CalcDocContentRect: 6 left, 22 top, 21 right, 21 bottom). */
+/* The bounds a window has now: its content rect less its chrome (6 left,
+ * 22 top, and inset_r / inset_b). */
 static void current_bounds(int w)
 {
     int32_t o=tbx_content_origin(win[w]), s=tbx_content_size(win[w]);
     if(o<0||s<=0) return;   /* collapsed or unknown: keep what we had */
     int32_t l=(o&0xFFFF)-6, t=((o>>16)&0xFFFF)-22;
-    int32_t r=l+(s&0xFFFF)+27, b=t+((s>>16)&0xFFFF)+43;
+    int32_t r=l+(s&0xFFFF)+6+inset_r[w], b=t+((s>>16)&0xFFFF)+22+inset_b[w];
     int32_t nb[4]={l,t,r,b}; fit(nb,bounds[w]);
     for(int i=0;i<4;i++) bounds[w][i]=nb[i];
 }
@@ -515,7 +520,7 @@ int tbx_app_main(void)
     if(tbx_set_mbar(&mbar)<0) return 1;
     ledger=tbx_new_window(bounds[0][0],bounds[0][1],bounds[0][2],bounds[0][3],TBX_GOAWAY_ASK);
     if(ledger<0||tbx_set_wtitle(ledger,"InitechCalc")<0) { tbx_exit(1); return 1; }
-    chart=tbx_new_window(bounds[1][0],bounds[1][1],bounds[1][2],bounds[1][3],TBX_GOAWAY_ASK);
+    chart=tbx_new_window(bounds[1][0],bounds[1][1],bounds[1][2],bounds[1][3],(int32_t)(TBX_GOAWAY_ASK|CALC_WDEF_NOGROW));
     if(chart<0||tbx_set_wtitle(chart,"Pie Chart")<0) { tbx_exit(1); return 1; }
     if(problem) notice(problem);
     return 0;

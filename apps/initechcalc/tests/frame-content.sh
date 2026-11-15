@@ -24,7 +24,7 @@ awk -F'\t' 'NR>1 && $1 ~ /^LED\.R[0-9][0-9]\.C.$/ {
     print substr($1,6,2)+9 "\t" c "\t" $4 "\t" $5 }' "$tsv" > "$tmp/cells"
 awk -F'\t' 'NR>1 && $2=="chart" && $4 ~ /^[0-9]+%$/ { print $4 }' "$tsv" > "$tmp/labels"
 awk -F'\t' '$1=="CANON.PIE116" { print $4 }' "$tsv" > "$tmp/canon"
-awk -F'\t' '$1=="LEDWIN" || $1=="CHARTWIN" { print $11 "\t" $12 }' "$geom" > "$tmp/origins"
+awk -F'\t' '$1=="LEDWIN" || $1=="CHARTWIN" { print $11 "\t" $12 "\t" $13 "\t" $14 }' "$geom" > "$tmp/origins"
 # The pie's place on the 640 x 480 screen: the top face's bounds (PIE) and
 # the foot of its side (PIEDEPTH), as measured on the still.
 pie_box=$(awk -F'\t' '$1=="PIE" { l=$11; t=$12; r=$13 } $1=="PIEDEPTH" { b=$14 } END { print l "\t" t "\t" r "\t" b }' "$geom")
@@ -66,7 +66,7 @@ grade() {   # $1 = name, $2 = observation file
         while((getline l < cells) > 0) { split(l,f,"\t"); k=f[1] SUBSEP f[2]
             if((f[4]=="certain" || f[4]=="probable") && f[3]!="") want[k]=f[3]; else empty[k]=f[4] }
         while((getline l < labels) > 0) { nl++; lab[nl]=l; v=l; sub(/%$/,"",v); val[nl]=v+0; sum+=v }
-        while((getline l < origins) > 0) { no++; split(l,f,"\t"); ox[no]=f[1]; oy[no]=f[2] }
+        while((getline l < origins) > 0) { no++; split(l,f,"\t"); ox[no]=f[1]; oy[no]=f[2]; ex[no]=f[3]; ey[no]=f[4] }
         bad=0 }
     function fail(s) { print "FAIL " name ": " s; bad++ }
     $1=="CELL" { k=$2 SUBSEP $3; seen[k]=1
@@ -75,7 +75,10 @@ grade() {   # $1 = name, $2 = observation file
         if(got!=want[k]) fail("row " $2 " col " $3 " shows \"" $4 "\", the still reads \"" want[k] "\"") }
     $1=="LABEL" { ng++; if(lab[ng]!=$2) fail("chart label " ng " is \"" $2 "\", the still reads \"" lab[ng] "\"") }
     $1=="NOTE" { notes++; if($2!=note) fail("note reads \"" $2 "\"") }
-    $1=="WINDOW" { d1=$3-ox[$2]; d2=$4-oy[$2]; if(d1<-4 || d1>4 || d2<-4 || d2>4) fail("window " $2 " opens at " $3 "," $4 "; the still puts it at " ox[$2] "," oy[$2]) }
+    $1=="WINDOW" { d1=$3-ox[$2]; d2=$4-oy[$2]; if(d1<-4 || d1>4 || d2<-4 || d2>4) fail("window " $2 " opens at " $3 "," $4 "; the still puts it at " ox[$2] "," oy[$2])
+        # The chart window whole (CHARTWIN): its field runs to the frame, as
+        # in the still. The ledger is larger than LEDWIN (README "The ledger").
+        if($2==2) { d1=$5-ex[2]; d2=$6-ey[2]; if(d1<-4 || d1>4 || d2<-4 || d2>4) fail("chart window ends at " $5 "," $6 "; the still ends it at " ex[2] "," ey[2]) } }
     $1=="RING" { ring=$2 }
     $1=="EXTENT" { extent=1; split(pie,p,"\t")   # within 4 px, as the windows are
         off=0; for(i=1;i<=4;i++) { d=$(i+1)-p[i]; if(d<-4 || d>4) off=1 }

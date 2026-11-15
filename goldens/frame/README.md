@@ -79,12 +79,12 @@ provisionally, and the checks grade that provisional reading.
     ordinary order*: Drive A behind both of Calc's windows, at the still's
     place. The alternative, raising single windows across applications, would
     change every application's behaviour to match one photograph.
-15. **The chart window's width.** The still's chart field runs to the
-    window's frame; the Platinum document window keeps a 15-pixel scroll-bar
-    gutter. To show the still's pie whole (PIE to x=581), InitechCalc's chart
-    window is 7 pixels wider than CHARTWIN (right edge 605, same origin).
-    *Recommend accepting this* until the Toolbox offers a window without
-    scroll bars, when the chart can return to the still's width.
+15. **The chart window's width.** Settled by the Toolbox, no longer a
+    question: the still's chart field runs to the window's frame, which the
+    Platinum document window's 15-pixel scroll-bar gutter would not allow.
+    FLAIR now has the Mac's no-grow document window, without scroll bars
+    (3eda89aa), and InitechCalc's chart window is CHARTWIN exactly, the pie
+    whole inside it. Until then it was 7 pixels wider (right edge 605).
 
 ## The still
 

@@ -7,8 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../calc.c"
 #include "tbx_host.h"
+#include "host_windows.h"
+#include "../calc.c"
 #include "chrome_metrics.h"
 
 static int failures, checks;
@@ -91,7 +92,8 @@ int main(void)
     CHECK(!strcmp(tbx_app_name,"CALC"),"registered identity");
     CHECK(tbx_host.nwindows==2&&tbx_host.alerts==0,"ledger and chart are separate windows; the shipped ledger reads cleanly");
     CHECK(!strcmp(tbx_host.windows[0].title,"InitechCalc")&&!strcmp(tbx_host.windows[1].title,"Pie Chart"),"window titles");
-    CHECK(tbx_host.windows[0].goaway==2&&tbx_host.windows[1].goaway==2,"close asks the tenant");
+    CHECK(tbx_host.windows[0].goaway==2&&(tbx_host.windows[1].goaway&255)==2,"close asks the tenant");
+    CHECK(!host_plain(1)&&host_plain(2),"the ledger is a document window; the chart's field runs to its frame (no-grow, no scroll bars: the still's CHARTWIN)");
     CHECK(tbx_host.windows[0].l==116&&tbx_host.windows[0].t==104&&tbx_host.windows[1].l==349&&tbx_host.windows[1].t==72,"windows open where the document says");
     CHECK(tbx_host.bar&&tbx_host.bar->n_menus==1&&!strcmp(tbx_host.bar->menus[0].title,"File"),"File menu installed");
     CHECK(!strcmp(tbx_host.bar->menus[0].items[1].text,"Quit")&&tbx_host.bar->menus[0].items[1].enabled,"Quit enabled");

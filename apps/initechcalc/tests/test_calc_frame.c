@@ -28,8 +28,9 @@
 #include <string.h>
 #include <math.h>
 #include "tbx_host.h"
+#include "host_windows.h"
 /* The SDK fake's default origin/size is one fixed test viewport. Use each
- * recorded window's CalcDocContentRect (the public Toolbox binding's insets),
+ * recorded window's content rect (FLAIR's insets, tests/host_windows.h),
  * as the existing file-copy suite does, when observing saved bounds. */
 static int32_t frame_origin(int32_t w)
 {
@@ -40,8 +41,8 @@ static int32_t frame_origin(int32_t w)
 static int32_t frame_size(int32_t w)
 {
     if(w<1||w>tbx_host.nwindows) return TBX_ERR_BADARG;
-    const int cw=tbx_host.windows[w-1].r-tbx_host.windows[w-1].l-27;
-    const int ch=tbx_host.windows[w-1].b-tbx_host.windows[w-1].t-43;
+    const int cw=tbx_host.windows[w-1].r-tbx_host.windows[w-1].l-host_inset_w(w);
+    const int ch=tbx_host.windows[w-1].b-tbx_host.windows[w-1].t-host_inset_h(w);
     return (int32_t)(((uint32_t)(uint16_t)ch<<16)|(uint16_t)cw);
 }
 #define tbx_content_origin frame_origin

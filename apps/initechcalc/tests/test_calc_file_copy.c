@@ -5,11 +5,12 @@
  * the trap, answered by TBX_EVT_FILECOPY); README.md "The ledger document".
  * Expected bytes are the shipped fixture data/LEDGER.TXT, edited here by
  * literal text substitution; never Calc's serializer. The window insets
- * (6, 22, 27, 43) are FLAIR's CalcDocContentRect, as sdk/host uses them. */
+ * are FLAIR's (tests/host_windows.h). */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "tbx_host.h"
+#include "host_windows.h"
 static int drag_h[3], drag_v[3], collapsed[3];
 static int32_t fake_origin(int32_t w)
 {
@@ -21,7 +22,7 @@ static int32_t fake_size(int32_t w)
 {
     if(w<1||w>tbx_host.nwindows) return TBX_ERR_BADARG;
     if(collapsed[w]) return 0;
-    const int cw=tbx_host.windows[w-1].r-tbx_host.windows[w-1].l-27, ch=tbx_host.windows[w-1].b-tbx_host.windows[w-1].t-43;
+    const int cw=tbx_host.windows[w-1].r-tbx_host.windows[w-1].l-host_inset_w(w), ch=tbx_host.windows[w-1].b-tbx_host.windows[w-1].t-host_inset_h(w);
     return (int32_t)(((uint32_t)(uint16_t)ch<<16)|(uint16_t)cw);
 }
 #define tbx_content_origin fake_origin
@@ -247,7 +248,7 @@ int main(void)
      * bytes are written by hand from README.md "The ledger document": the
      * home bounds, no chart values, the full 26 rows, the one typed cell. */
     {   int saved=0; double x=0;
-        static const char want_empty[]="INITECH LEDGER\r\nWINDOW\t116\t104\t622\t474\r\nCHART\t349\t72\t605\t288\r\nSERIES\r\nROWS\t26\r\n1\t(G) 73\r\n";
+        static const char want_empty[]="INITECH LEDGER\r\nWINDOW\t116\t104\t622\t474\r\nCHART\t349\t72\t598\t288\r\nSERIES\r\nROWS\t26\r\n1\t(G) 73\r\n";
         int rc=save_and_reopen(0,0,"73",&saved);
         const tbx_host_file_t *t=tbx_host_file("APPS\\TABLES.TXT");
         CHECK(rc==0&&saved&&t&&t->size==sizeof want_empty-1&&!memcmp(t->data,want_empty,t->size),"EMPTY the empty ledger's entry is saved in an ordinary document");

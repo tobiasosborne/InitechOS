@@ -45,11 +45,15 @@ treatment A), and the note "Blank entries were not recovered from the
 surviving material." Document row = fragment row + 9: nine ruled rows stand
 for the part of the ledger window hidden under Drive A Files and the chart
 (goldens/frame/README.md question 7). The total is a stored number, not a
-sum of cells nobody can read. The window bounds are the still's arrangement
-mapped to 640 x 480 (geometry.tsv LEDWIN, CHARTWIN), except that the chart
-window is 7 px wider than the still's: the still's chart field runs to its
-frame, while the Platinum document window keeps a scroll-bar gutter that
-would cut the pie. The frame's arrangement
+sum of cells nobody can read. The chart window is the still's CHARTWIN
+mapped to 640 x 480, (349,72)-(598,288): a no-grow document window (NEWWINDOW
+WDEF byte 4, FLAIR's noGrowDocProc, 3eda89aa) whose field runs to its frame
+as in the still, with no scroll-bar gutter to cut the pie. The ledger window
+opens at LEDWIN's origin (116,104) but is larger than LEDWIN, to (622,474)
+against (568,449), because its grid is: amount columns of 46 pixels against
+about 41 and rows of 12 against about 11 (LEDGRID). That is a stated
+deviation carried from the import, to be settled against the full frame
+reference. The frame's arrangement
 is therefore ordinary saved state: launching Calc reproduces it, and moving
 the windows and saving keeps the new places.
 
@@ -156,7 +160,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 29 patches in `mutants/`; each must fail a host
+`make mutants` runs the 30 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,

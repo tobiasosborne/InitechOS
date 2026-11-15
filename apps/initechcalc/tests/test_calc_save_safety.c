@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tbx_host.h"
+#include "host_windows.h"
 
 static const char *open_fault;
 static int copy_rejected;
@@ -32,7 +33,7 @@ static int32_t fault_copy(const char *caption, const char *src, const char *dst)
     return tbx_file_copy(caption,src,dst);
 }
 /* Windows report the content rect of the bounds they were opened with
- * (FLAIR CalcDocContentRect insets 6, 22, 27, 43), so an undisturbed save
+ * (FLAIR's insets, tests/host_windows.h), so an undisturbed save
  * writes the positions it read. */
 static int32_t fake_origin(int32_t w)
 {
@@ -42,7 +43,7 @@ static int32_t fake_origin(int32_t w)
 static int32_t fake_size(int32_t w)
 {
     if(w<1||w>tbx_host.nwindows) return TBX_ERR_BADARG;
-    return (int32_t)(((uint32_t)(uint16_t)(tbx_host.windows[w-1].b-tbx_host.windows[w-1].t-43)<<16)|(uint16_t)(tbx_host.windows[w-1].r-tbx_host.windows[w-1].l-27));
+    return (int32_t)(((uint32_t)(uint16_t)(tbx_host.windows[w-1].b-tbx_host.windows[w-1].t-host_inset_h(w))<<16)|(uint16_t)(tbx_host.windows[w-1].r-tbx_host.windows[w-1].l-host_inset_w(w)));
 }
 #define tbx_file_open fault_open
 #define tbx_file_create_new count_reserve
