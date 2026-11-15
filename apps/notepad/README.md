@@ -40,9 +40,12 @@ A store is read the way INT 21h AH=3Fh answers: every positive count is kept
 until end of file, so legally short reads of the pinned N01/S01 fixtures show
 the stored page (decoded by the test from the bytes) and N02/S02 stay damaged.
 These are independent authored contract expectations, not real-Mac file
-format differentials. make mutants kills ten patches, including a live Undo
+format differentials. make mutants kills eleven patches, including a live Undo
 no-op in both builds, a single-read loader (initech-l3ahn), and a grayed
-Select All and a dead Scrapbook Page Down that the command sweep catches. No mutation switches remain in the product source.
+Select All and a dead Scrapbook Page Down that the command sweep catches,
+and the overlong capacity notice the gate refuses (initech-yhqb). Every
+refusal notice is shown: each alert line fits 47 bytes and 285 Chicago 12
+pixels (toolbox_gate.h Sec 11, applied by sdk/host); a refused alert beeps. No mutation switches remain in the product source.
 make smoke launches both on QEMU, copies alpha from Note Pad into Scrapbook,
 closes both, extracts both stores with mtools and checks lengths, headers,
 page bytes and an independently implemented checksum, then runs fsck.fat.

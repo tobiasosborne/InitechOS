@@ -298,6 +298,44 @@ int main(void)
         }
         tbx_host.read_limit = 0;
     }
+    /* initech-yhqb: every refusal is SHOWN. The gate refuses an alert line
+     * over 47 bytes or 285 Chicago 12 pixels (toolbox_gate.h Sec 11) and
+     * sdk/host applies the same validator, so a notice that does not fit
+     * never reaches the screen. Refusals leave the store as it was. */
+    {
+        static char big[DA_TEXT_MAX + 1];
+        memset(big, 'k', sizeof big);
+        tbx_host_reset(); tbx_host.origin_h=166; tbx_host.origin_v=102; tbx_host.ch=237;
+        launch();
+#ifdef SCRAPBOOK
+        for (int i = 0; i < DA_SLOTS; i++) { tbx_scrap_put("clip", 4); menu(5); }
+        int before = (int)m_alerts;
+        menu(5);
+        CHECK((int)m_alerts == before + 1 && strstr(m_alert_text, "full"), "full Scrapbook notice is shown");
+        event(TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0);
+        menu(6);
+        tbx_scrap_put(big, sizeof big); before = (int)m_alerts; menu(5);
+        CHECK((int)m_alerts == before + 1 && strstr(m_alert_text, "too large"), "oversized clip notice is shown");
+        event(TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0);
+        tbx_scrap_put("a\001b", 3); before = (int)m_alerts; menu(5);
+        CHECK((int)m_alerts == before + 1, "non-TEXT clip notice is shown");
+        event(TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0);
+        event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+        CHECK(mfind(DA_PATH) && u16(mfind(DA_PATH)->data + 6) == DA_SLOTS - 1, "refusals leave the 31 clips");
+#else
+        tbx_scrap_put(big, DA_TEXT_MAX); menu(5);
+        int before = (int)m_alerts;
+        type("X");
+        CHECK((int)m_alerts == before + 1 && strstr(m_alert_text, "full"), "full page notice is shown");
+        event(TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0);
+        menu(7); menu(6);
+        tbx_scrap_put("a\001b", 3); before = (int)m_alerts; menu(5);
+        CHECK((int)m_alerts == before + 1, "non-TEXT clip notice is shown");
+        event(TBX_EVT_ALERT, TBX_ALERT_DEFAULT, 0, 0, 0);
+        event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+        CHECK(disk_page(mfind(DA_PATH), 0, ""), "refusals leave the page as it was");
+#endif
+    }
     printf("test_notepad_route%s: %ld checks, %ld failures\n",
 #ifdef SCRAPBOOK
            "_scrapbook",

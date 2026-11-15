@@ -139,7 +139,11 @@ static void load(void)
         bytes(g_pages[p],g_disk+off+2,g_len[p]);
     }
 }
-static void notice(const char *s) { (void)tbx_alert(s,"OK",0,0); }
+/* initech-yhqb: every line fits the alert (toolbox_gate.h Sec 11: at most
+ * 47 bytes and 285 Chicago 12 pixels). Should the shell still refuse one (a
+ * second alert pending), the user hears the refusal instead: SysBeep, as
+ * the Macintosh does when it cannot show an alert. */
+static void notice(const char *s) { if(tbx_alert(s,"OK",0,0)!=TBX_OK) (void)tbx_beep(); }
 static void stash(void)
 {
     if(!g_count) return;
@@ -345,8 +349,9 @@ static void paste(void)
         g_clip[k++]=(char)c;
     }
 #ifdef SCRAPBOOK
-    if(g_count==DA_SLOTS || k>DA_TEXT_MAX || !FlairTECanReplace(&g_te,0,g_te.teLength,g_clip,(int16_t)k)) {
-        notice("The Scrapbook is full, or this clip is too large.");return;
+    if(g_count==DA_SLOTS) { notice("The Scrapbook is full.\rClear a page before pasting another.");return; }
+    if(k>DA_TEXT_MAX || !FlairTECanReplace(&g_te,0,g_te.teLength,g_clip,(int16_t)k)) {
+        notice("This clip is too large for one page.");return;
     }
     undo_note(0);g_page=g_count++;
     int target=g_page;

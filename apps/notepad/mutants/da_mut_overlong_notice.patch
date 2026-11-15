@@ -1,0 +1,11 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -349,7 +349,7 @@
+         g_clip[k++]=(char)c;
+     }
+ #ifdef SCRAPBOOK
+-    if(g_count==DA_SLOTS) { notice("The Scrapbook is full.\rClear a page before pasting another.");return; }
++    if(g_count==DA_SLOTS) { notice("The Scrapbook is full, or this clip is too large.");return; }
+     if(k>DA_TEXT_MAX || !FlairTECanReplace(&g_te,0,g_te.teLength,g_clip,(int16_t)k)) {
+         notice("This clip is too large for one page.");return;
+     }
