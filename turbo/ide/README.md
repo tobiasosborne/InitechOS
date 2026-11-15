@@ -33,10 +33,14 @@ Reset, Rewrite and Assign close an open file first (seed/rt/fileio.asm).
   program with both compilers (the capacity one TURBO.COM needs).
 
 File errors (stage E, host part): the IDE runs under `{$I-}` and checks
-IOResult. Saving copies the old file to `NAME.$$$` first, writes the new
-bytes, and only then turns the copy into `NAME.BAK`; a refused or short
-write restores the old bytes and leaves no backup, as TP left `RO.PAS`
-(MINT06 54). The Error box shows DOS 2/3 on create as "Invalid drive or
+IOResult. Saving writes the new text to a distinct sibling stage, checking every
+transfer and close before renaming the old source to `NAME.BAK` and the
+stage to the source. A failure before renames leaves the named original
+untouched. A failed publication rename rolls the backup back; if that
+rename also fails, both backup and stage remain for recovery (operator
+save ruling). Read-only sources are refused before staging (MINT06 54).
+`.BAK` sources use `.BK1`; `.$$$` sources use `.$$1`. An existing stage
+is refused. Full paths are retained separately from the displayed leaf. The Error box shows DOS 2/3 on create as "Invalid drive or
 directory." (51) and 5 as "File is read only." (54); other codes say
 "File error n." (not captured). Write to an existing name asks
 "Overwrite NAME? (Y/N)" (49, 50). A cancelled Alt-X leaves the bar on File
@@ -66,3 +70,17 @@ their menu items (needs the IDE folded into the compiler's source as one
 TURBO.COM, and a located-error record from the compiler), Run and User
 screen (kernel initech-fc4c3 and the screen-page call), the product main
 program (console through `CON`, ReadKey), deleting the work files.
+
+Save conservation regressions (review initech-76j6x/qcg30/ge49u/v4gu0/zf5xe):
+`page-failure` injects every read/write position and both closes during
+navigation and direct Save; the dirty page and work identity survive, and
+retry matches separately authored text. `save-failure` injects transfers,
+closes, backup removal, each rename and double failure; literal OLD stays
+at its path except the documented double failure, which retains both
+recovery files. `save-identity` covers .BAK/case/temporary/extensionless
+aliases; `first-save` covers Y/N/Esc and a failed existence probe;
+`save-path` covers Load/Write to/F2 with directory and drive prefixes and a
+root sentinel. The host path probe uses literal DOS backslashes in Unix
+filenames, testing retained identity rather than pretending to emulate a
+DOS filesystem. Fault adapters exist only in tests. Every regression was
+observed red before its fix; each defect has a semantic mutation kill.
