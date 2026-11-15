@@ -1,0 +1,14 @@
+# test: test_calc_paint
+--- a/calc.c
++++ b/calc.c
+@@ -744,8 +744,8 @@
+      * IM I-59). Anything else, the shell's resident WindowPtr until FLAIR's
+      * gate translates it (initech-3zcsf), cannot be told apart: both. */
+     if(e->what==updateEvt) {
+-        if(e->message==ledger) paint_ledger();
+-        else if(e->message==chart) paint_chart();
++        if(0&&e->message==ledger) paint_ledger();
++        else if(0&&e->message==chart) paint_chart();
+         else paint();
+         return;
+     }

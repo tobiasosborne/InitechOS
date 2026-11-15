@@ -740,7 +740,15 @@ static void answer(int32_t item)
 void tbx_app_event(const tbx_event_t *e)
 {
     if(!e) return;
-    if(e->what==updateEvt) { paint(); return; }
+    /* The message names the damaged window by its NEWWINDOW token (sdk tbx.h,
+     * IM I-59). Anything else, the shell's resident WindowPtr until FLAIR's
+     * gate translates it (initech-3zcsf), cannot be told apart: both. */
+    if(e->what==updateEvt) {
+        if(e->message==ledger) paint_ledger();
+        else if(e->message==chart) paint_chart();
+        else paint();
+        return;
+    }
     if(e->what==TBX_EVT_GOAWAY||(e->what==TBX_EVT_MENU&&e->message==TBX_MENU_WORD(129,2))) { request_quit(); return; }
     if(e->what==TBX_EVT_MENU&&e->message==TBX_MENU_WORD(129,1)) { begin_save(); return; }
     if(e->what==TBX_EVT_ALERT) { answer((int32_t)e->message); return; }

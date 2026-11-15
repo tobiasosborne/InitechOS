@@ -10,8 +10,9 @@
  * its usual load: 10,021 traced gate calls took 159 s, the 1,673 before the
  * pie took 51 s (investigate-bochs-calc). The journey has six updates, and
  * each repaints both windows (FLAIR's flair_route_updates puts a WindowPtr
- * in the updateEvt, not the window's token, so Calc cannot tell which window
- * is damaged), and three keystrokes. One update at most UPDATE_BUDGET calls
+ * in the updateEvt, not the window's token, until initech-3zcsf's gate half
+ * lands; Calc repaints only the named window once it does), and three
+ * keystrokes. One update at most UPDATE_BUDGET calls
  * and one keystroke at most KEY_BUDGET keep the session near 3,600 calls.
  * Seen red on the code before this budget: 1,472 per update, 380 per key.
  *
@@ -102,6 +103,31 @@ int main(void)
     printf("update: %u calls\n",u);
     check(u<=UPDATE_BUDGET,"one update within its budget",u);
     check(same_as_full_repaint(),"an update is a full repaint",0);
+    /* An updateEvt names the damaged window by its NEWWINDOW token (sdk tbx.h,
+     * cd590563; IM I-59): only that window is repainted, and what it shows
+     * is a full repaint's. A message that is no token of Calc's (the shell's
+     * resident WindowPtr until initech-3zcsf's gate half lands) repaints
+     * both. */
+    {   static const struct { int32_t msg; int led, cht; const char *what; } named[]={
+            {2,0,1,"an update naming the chart repaints only the chart"},
+            {1,1,0,"an update naming the ledger repaints only the ledger"},
+            {0x0011F000,1,1,"an update naming no window of Calc's repaints both"}};
+        for(unsigned k=0;k<sizeof named/sizeof named[0];k++) {
+            unsigned from=tbx_host.nops, per[3]={0,0,0};
+            tbx_event_t e={updateEvt,named[k].msg,0,0,0,0};
+            if(!tbx_host_push_event(&e)) exit(2);
+            (void)tbx_host_dispatch(tbx_app_event);
+            if(tbx_host.dropped_ops) { puts("DROPPED ops"); exit(2); }
+            for(unsigned i=from;i<tbx_host.nops;i++) {
+                const tbx_host_op_t *o=&tbx_host.ops[i];
+                if((o->a[0]==1||o->a[0]==2)&&(!strcmp(o->name,"tbx_fill_rect")||!strcmp(o->name,"tbx_draw_text"))) per[o->a[0]]++;
+            }
+            for(int w=1;w<=2;w++) (void)replay(&shown[w-1],w,from);
+            tbx_host.nops=from;
+            check((per[1]>0)==named[k].led&&(per[2]>0)==named[k].cht,named[k].what,per[1]*1000+per[2]);
+            check(same_as_full_repaint(),named[k].what,0);
+        }
+    }
     /* The smoke's keys: 7, 3, Return into the first cell. */
     type("73","typing into the first cell");
     press('\n',0x1C,"Return");

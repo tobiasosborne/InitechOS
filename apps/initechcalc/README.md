@@ -116,8 +116,10 @@ navy covers it. The ledger is painted a band of rows at a time, a column at
 a time, so a column's rule and stops are one call per run of rows; a
 keystroke repaints only the band between the row it left and the row it is
 on. The pixels are those of the cell-by-cell painting they replaced
-(test_calc_picture, below). An update repaints both windows: the updateEvt carries a
-WindowPtr, not Calc's window token.
+(test_calc_picture, below). An update repaints the window its message names
+by NEWWINDOW token (sdk tbx.h, cd590563; IM I-59); any other message
+repaints both, which is what happens until FLAIR's gate sends the token in
+place of its resident WindowPtr (initech-3zcsf).
 
 ## Numbers
 
@@ -208,7 +210,10 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   sequence (typing, Return, arrows, Tab into the narrow column, a label run
   over its neighbours and cleared, Escape, Del, down across the note strip
   and back) what the windows show equals a fresh full repaint, replayed
-  pixel by pixel by tests/replay.h with FLAIR's Geneva 9 strike.
+  pixel by pixel by tests/replay.h with FLAIR's Geneva 9 strike. An update
+  naming token 2 draws only in the chart, token 1 only in the ledger, and a
+  message that is no token in both; each leaves a full repaint's picture
+  (red before the change: 183 + 340 calls for either token).
 - `test_calc_picture`: the full repaint against a picture built without
   Calc's drawing code (initech-dbdp3), every pixel of both windows' content.
   The ledger is painted cell by cell, left to right, from transcription.tsv's
@@ -227,7 +232,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 35 patches in `mutants/`; each must fail a host
+`make mutants` runs the 36 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,
