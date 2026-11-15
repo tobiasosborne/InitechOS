@@ -1,0 +1,11 @@
+# test: verdict
+--- a/entry.sh
++++ b/entry.sh
+@@ -7,2 +7,7 @@
+ case $rc in 0|1) ;; *) exit "$rc";; esac
++if [ "$rc" -eq 1 ]; then
++    echo "FAIL $entry" >> "$log"
++    echo "1 checks, 1 failures" >> "$log"
++    exit 1
++fi
+ if ! awk -v status="$rc" '

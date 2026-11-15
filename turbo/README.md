@@ -13,7 +13,8 @@ Startup retains the loader's separate 64 KiB stack; descriptor reserve covers
 BSS including alignment. Files and exit use INT 21h. Inherited serial helpers
 now poll transmitter readiness. No private kernel header/code is included.
 
-`make test` composes 6 seed, 41 compiler and 5 IDE host entries, including
+`make test` composes 7 seed, 41 compiler and 11 IDE host entries, plus
+the factory assertion controls, including
 18 FPC execution references and independent native byte comparisons (18 flat,
 19 extended). The two compiler placements are packaged with factory/mz/mzlink
 and checked by the independent mzcheck against the actual extended limits:
@@ -72,7 +73,8 @@ produce D2. Each D2 must equal its K2/K3 and the other emulator's D2.
 Contamination and changed-source controls must fail. Evidence, FPC version
 and bootstrap hashes remain under build/turbo/ddc, with a separate bochs/ tree.
 
-The certified fixed point is K2==K3==D2: 170607 bytes, SHA-256
+Before the current IDE save/runtime work, the certified fixed point was
+K2==K3==D2: 170607 bytes, SHA-256
 a4ddd89971dfe232ccf0f43602fa5fba33ba4966d0bf7aeb7371aea2701ffe47.
 Stage B (initech-n6r9v) moved it from 164263 bytes (2c33ed0c...): the
 751-byte runtime with recoverable I/O, the new builtins and the 2,048-row
@@ -97,11 +99,13 @@ the documented form. Authored corpus/protocol goldens are unchanged. Emulator
 work never runs in tier 0. See ROADMAP.md for remaining
 GOLDEN-MASTER.md item-7 work, including the IDE.
 
-Seed and compiler entries run under `tests/entries.sh` (one check per
-entry, the mk/host-test.mk result files and `INITECH_TEST_RUN`), so the
-shared mutation runner grades them: `make mutants` kills 20/20 seed and
-17/17 compiler patches. Only exit status 1 counts as a failed check; a
-timeout or signal stays an error (initech-fytwe).
+Seed and compiler entries emit explicit assertions under `tests/entries.sh`.
+The adapter requires a positive completed summary consistent with exit status;
+setup failures, harness timeouts and absent serial are errors, never kills.
+Host-only controls in `tests/` include a catch-all-exit mutation. Fresh host
+proof kills 4 seed, 12 compiler and all 17 IDE patches; the 21 emulator-selected
+patches await the strict certificate reservation (initech-kkqbw). The earlier
+20/20 and 17/17 totals used the rejected exit-1 adapter and are superseded.
 
 ## Runtime for the IDE (stage B, initech-n6r9v)
 
@@ -117,7 +121,7 @@ between statements. Reference: TP 5.5 Reference Guide (IOResult, the I
 directive); Free Pascal is the independent oracle: `gen_ioresult` matches
 its hand-computed golden under FPC and, through all five paths, in the
 image on QEMU and Bochs; `ide/tests` checks ReadKey's codes and the abort
-in the image. The runtime is 751 bytes (padded to 752); its error word
+in the image. The runtime is 780 bytes (padded to 784); its error word
 sits in the code and is addressed position-independently, so neither
 output form gains a relocation. `tests/runtime.sh` also checks that the
 compiler's fixed runtime entry offsets equal the linker's.
@@ -229,3 +233,10 @@ Interface product-elf: build/turbo/compiler/extended/zero.elf
 The package recipe links this ELF into shipped TURBO.COM; Multiboot startup
 objects in all are judging fixtures, not DOS application inputs.
 <!-- end-interface-declarations -->
+
+The current save fixes add FileAttributes(file), a narrow integer intrinsic
+for published DOS AH=43h: an attribute mask or negative DOS error. This lets
+the write-aside save retain TP 5.5 MINT06's read-only refusal without a new
+kernel service. Its appended runtime bytes and entry offset are independently
+checked against NASM/ld. The historical certificate above does not certify
+this changed source; the next compiler/IDE batch refreshes selfhost and DDC.

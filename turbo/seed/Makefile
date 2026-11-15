@@ -4,8 +4,8 @@ include $(TOP)/mk/config.mk
 FPC ?= fpc
 LIB := token.c lexer.c ast.c parser.c typecheck.c codegen.c
 OBJS := $(addprefix $(OUT)/host/,$(LIB:.c=.o))
-HOST_TESTS := lexer parser repro fileio-build fileio-fpc fpc-shared guest-precedence guest-bool guest-control guest-char guest-func guest-array guest-record guest-string guest-fileio guest-ioresult
-TESTS ?= lexer parser repro fileio-build fileio-fpc fpc-shared
+HOST_TESTS := lexer parser test-verdict repro fileio-build fileio-fpc fpc-shared guest-precedence guest-bool guest-control guest-char guest-func guest-array guest-record guest-string guest-fileio guest-ioresult
+TESTS ?= lexer parser test-verdict repro fileio-build fileio-fpc fpc-shared
 ifneq ($(filter-out $(HOST_TESTS),$(TESTS)),)
 $(error unknown TESTS: $(filter-out $(HOST_TESTS),$(TESTS)))
 endif
