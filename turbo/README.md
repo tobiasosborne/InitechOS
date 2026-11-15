@@ -13,7 +13,7 @@ Startup retains the loader's separate 64 KiB stack; descriptor reserve covers
 BSS including alignment. Files, console output and exit use INT 21h. The bare
 factory startup retains serial output. No private kernel code is included.
 
-`make test` composes 8 seed, 44 compiler and 14 IDE host entries, plus
+`make test` composes 8 seed, 44 compiler and 15 IDE host entries, plus
 the factory assertion controls, including
 19 FPC execution references and independent native byte comparisons (19 flat,
 20 extended). The two
