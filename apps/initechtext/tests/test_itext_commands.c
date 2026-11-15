@@ -11,7 +11,7 @@
 #include "command_sweep.h"
 static void sweep_launch(void)
 {
-    tbx_host_reset();
+    tbx_host_reset(); tbx_host.cw = 557; tbx_host.ch = 389;   /* the measured window */
     /* A fresh launch's BSS, as test_itext_route's launch() restores it. */
     memset(&g_te, 0, sizeof g_te);
     g_win = 0; g_dirty = 0; g_active = 1; g_scroll = 0; g_anchor = 0;

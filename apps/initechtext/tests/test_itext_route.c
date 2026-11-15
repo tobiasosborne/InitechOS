@@ -175,9 +175,133 @@ static void sweep_file_routes(void)
     CHECK(doc_is("") && !g_dirty && !m_exits,R_EDIT,"New discards only on Don't Save");
 }
 
+
+/* initech-ulqb. A raster of what the recorded paint leaves on the content:
+ * FILLRECT fills, TEXTDRAW covers its run with one value per character
+ * (Geneva 12 advances from FLAIR's published text.h; the line pitch 16 is
+ * simpletext-stdfile.md Sec 1.2 [MEAS]). Clipped to the content size the
+ * gate reports. Only ever compared with itself: an edit's immediate paint
+ * against a forced full repaint of the same state. */
+#define RW 640
+#define RH 480
+static int g_ras[RH][RW], g_ref[RH][RW];
+static void raster(int (*c)[RW], unsigned from)
+{
+    int cw = tbx_host.cw, ch = tbx_host.ch;
+    for (unsigned i = from; i < m_nops; i++) {
+        const op_t *o = &m_ops[i];
+        if (!strcmp(o->name, "tbx_fill_rect")) {
+            for (int y = o->a[2] < 0 ? 0 : o->a[2]; y < o->a[4] && y < ch; y++)
+                for (int x = o->a[1] < 0 ? 0 : o->a[1]; x < o->a[3] && x < cw; x++) c[y][x] = 1000 + o->a[5];
+        } else if (!strcmp(o->name, "tbx_draw_text")) {
+            int x = o->a[1];
+            for (const char *t = o->text; *t; t++) {
+                int w = text_face_advance(FONT_GENEVA12, 0u, (unsigned char)*t);
+                for (int y = o->a[2] < 0 ? 0 : o->a[2]; y < o->a[2] + 16 && y < ch; y++)
+                    for (int xx = x < 0 ? 0 : x; xx < x + w && xx < cw; xx++) c[y][xx] = (unsigned char)*t + 256 * (o->a[4] & 3);
+                x += w;
+            }
+        }
+    }
+}
+/* Paint the full state into g_ref from nothing (an updateEvt). */
+static void reference(void)
+{
+    memset(g_ref, 0, sizeof g_ref); m_nops = 0;
+    tbx_event_t ev = {updateEvt, 0, 0, 0, 0, 0};
+    if (!tbx_host_push_event(&ev)) exit(2);
+    (void)tbx_host_dispatch(tbx_app_event);
+    raster(g_ref, 0);
+}
+static int same_screen(int *fx, int *fy)
+{
+    for (int y = 0; y < tbx_host.ch && y < RH; y++)
+        for (int x = 0; x < tbx_host.cw && x < RW; x++)
+            if (g_ras[y][x] != g_ref[y][x]) { *fx = x; *fy = y; return 0; }
+    return 1;
+}
+/* Every drawn run lies inside the text column of the CURRENT content width,
+ * and the runs, in order, are the document without its CRs. */
+static int runs_fit(int cw, char *joined, int cap)
+{
+    int ok = 1, n = 0;
+    for (unsigned i = 0; i < m_nops; i++) {
+        const op_t *o = &m_ops[i];
+        if (strcmp(o->name, "tbx_draw_text")) continue;
+        int w = 0;
+        for (const char *t = o->text; *t; t++) {
+            w += text_face_advance(FONT_GENEVA12, 0u, (unsigned char)*t);
+            if (n < cap - 1) joined[n++] = *t;
+        }
+        /* a run's trailing spaces may hang past the column (TextEdit lets a
+         * space end a line); the inked part must fit */
+        const char *e = o->text + strlen(o->text);
+        while (e > o->text && e[-1] == ' ') { e--; w -= text_face_advance(FONT_GENEVA12, 0u, ' '); }
+        if (o->a[1] < TEXT_X || o->a[1] + w > cw - TEXT_X) ok = 0;
+    }
+    joined[n] = 0;
+    return ok;
+}
+static void geometry_and_scroll(void)
+{
+    char joined[4200], want[4200]; int fx, fy;
+    /* LINES25 (audit 2026-10-23-das evidence): 25 numbered lines typed into
+     * the 389-px view; each keystroke's immediate paint must equal a full
+     * repaint, including the one whose caret-follow scrolls the view. */
+    launch();
+    reference(); memcpy(g_ras, g_ref, sizeof g_ras);
+    int bad = 0;
+    for (int line = 1; line <= 25 && !bad; line++) {
+        char row[16]; snprintf(row, sizeof row, "LINE %02d%s", line, line < 25 ? "\r" : "");
+        for (const char *t = row; *t && !bad; t++) {
+            m_nops = 0;
+            hkey(*t == '\r' ? 0x0A : *t, *t == '\r' ? 0x1C : 0, 0);
+            raster(g_ras, 0);
+            reference();
+            if (!same_screen(&fx, &fy)) {
+                bad = 1;
+                CHECK(0, R_SCROLL, "LINES25 line %d: the immediate paint differs from a full repaint at (%d,%d)", line, fx, fy);
+            }
+            memcpy(g_ras, g_ref, sizeof g_ras);
+        }
+    }
+    CHECK(!bad && m_scroll_val > 0, R_SCROLL, "LINES25 scrolled the view (value %d) and every paint matched", m_scroll_val);
+
+    /* Shrink and grow: the shell resizes, the application hears an update
+     * and lays its text out for the content size the gate reports (MTE ch. 4
+     * MyResizeWindow, p. 4-58; textedit.md Sec 4 wraps by destRect). */
+    launch();
+    static const char para[] = "Saving tables to disk is the slow part of every TPS report run on this "
+                               "machine, and the cover sheet goes on top of every one of them.";
+    type(para); type("\rend");
+    snprintf(want, sizeof want, "%s%s", para, "end");
+    int ss = g_te.selStart, se = g_te.selEnd;
+    tbx_host.cw = 300; tbx_host.ch = 389; m_nops = 0;
+    hev(updateEvt, 1, 0, 0, 0);
+    CHECK(runs_fit(300, joined, sizeof joined), R_SCROLL, "shrunk to 300: every run fits the new text column");
+    CHECK(!strcmp(joined, want), R_SCROLL, "shrunk to 300: all text is drawn and reachable");
+    CHECK(doc_is("Saving tables to disk is the slow part of every TPS report run on this "
+                 "machine, and the cover sheet goes on top of every one of them.\rend") &&
+          g_te.selStart == ss && g_te.selEnd == se, R_SCROLL, "resize keeps the bytes and the selection");
+    tbx_host.cw = 557; m_nops = 0;
+    hev(updateEvt, 1, 0, 0, 0);
+    CHECK(runs_fit(557, joined, sizeof joined) && !strcmp(joined, want), R_SCROLL, "grown back: text fits and is complete");
+    /* A shorter view: the caret still follows into the view the gate reports. */
+    launch();
+    for (int i = 0; i < 20; i++) type("\r");
+    tbx_host.ch = 200; hev(updateEvt, 1, 0, 0, 0);
+    type("x");
+    {
+        const op_t *c = &m_ops[m_nops - 1];
+        CHECK(!strcmp(c->name, "tbx_fill_rect") && c->a[3] - c->a[1] == 1 && c->a[2] >= 0 && c->a[4] <= 200,
+              R_SCROLL, "the caret stays inside a 200-px view: y %d..%d", c->a[2], c->a[4]);
+    }
+    tbx_host.cw = 557; tbx_host.ch = 389;
+}
 int main(void)
 {
-    tbx_host_reset(); tbx_host.origin_h=10; tbx_host.origin_v=66; tbx_host.ch=389;
+    /* The window's real content: x 10..566, y 66..454 (itext.c [MEAS]). */
+    tbx_host_reset(); tbx_host.origin_h=10; tbx_host.origin_v=66; tbx_host.cw=557; tbx_host.ch=389;
     /* -- launch 1: an empty scrap grays Paste; nothing selected grays Cut/Copy/Clear */
     launch();
     sweep_manifest();
@@ -483,6 +607,7 @@ int main(void)
     }
 
     sweep_file_routes();
+    geometry_and_scroll();
     printf("test_itext_route: %ld checks, %ld failures\n", g_checks, g_fails);
     return g_fails == 0 ? 0 : 1;
 }

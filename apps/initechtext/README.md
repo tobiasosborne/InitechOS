@@ -44,9 +44,16 @@ one-/three-/four-byte reads, line-end normalization across chunks, empty and
 capacity inputs, seek/read/close failures, early EOF after a prefix, and real
 growth/shrinkage through a separate host descriptor during the load (including
 empty-to-nonempty and growth past capacity). The EOF probe must also succeed.
-make mutants kills fifteen patches, including partial-input publication,
+make mutants kills seventeen patches, including partial-input publication,
 bypassing the final EOF check, reinserting a disabled Print command and a
-dead Save As that the command sweep catches.
+dead Save As that the command sweep catches, a fixed-geometry layout and a
+partial repaint after a caret-following scroll (initech-ulqb). The window's
+text is laid out for the content size the gate reports on every update
+(wrap, drawing, scroll extent, caret following); a scroll change repaints
+every row. The route test compares each LINES25 keystroke's immediate
+paint with a forced full repaint, and shrinks/grows the content to check
+that every run fits the new column, all text stays drawn, and the bytes and
+selection survive.
 make smoke launches
 from the Finder on QEMU and Bochs, edits alpha CR bravo, saves UNTITLED on
 QEMU and Bochs, checks exact bytes with mtools/cmp and checks the volume with fsck.fat.

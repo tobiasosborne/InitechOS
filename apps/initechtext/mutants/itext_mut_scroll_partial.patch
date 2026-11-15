@@ -1,0 +1,10 @@
+--- a/itext.c
++++ b/itext.c
+@@ -231,6 +231,7 @@
+     if (top - TEXT_Y < g_scroll) g_scroll = top - TEXT_Y;
+     if (bot + TEXT_Y > g_scroll + g_ch) g_scroll = bot + TEXT_Y - g_ch;
+     if (g_scroll < 0) g_scroll = 0;
++    was = g_scroll;
+     g_scroll = tbx_set_scroll(g_win, doc, g_scroll);
+     if (g_scroll < 0) g_scroll = 0;
+     if (g_scroll != was) g_full = 1;   /* every row moved: repaint them all */

@@ -33,12 +33,12 @@
  *   - Save changes alert: Save (default) / Cancel / Don't Save.
  * DEVIATIONS (stated, never hidden): the Geneva 12 glyph SHAPES are
  *   hand-authored clean-room (their metrics and ink extents are the real
- *   strike's; PRD Sec 6.4 / Sec 12); Page Setup, Print and Print One Copy are present but grayed
+ *   strike's; PRD Sec 6.4 / Sec 12); Page Setup, Print and Print One Copy are absent
  *   (not built); the Find / page items and Show Clipboard are not in the menu;
  *   Close == Quit (the V1 gate has one window per tenant and no
  *   DISPOSEWINDOW: closing SimpleText's last window leaves it running, here it
  *   ends the application); the caret does not blink (no idle events reach a
- *   tenant); the window does not re-wrap when grown; files are saved with CR
+ *   tenant); files are saved with CR
  *   line ends (the Mac TEXT convention) and an opened file's CR LF / LF ends
  *   become CR.
  *
@@ -63,7 +63,14 @@ const char tbx_app_name[] = "TEXT";
 #define CONT_H ((WIN_B - WIN_T) - 43)
 #define TEXT_X  5                         /* [MEAS] content left + 5 */
 #define TEXT_Y  4                         /* [MEAS] content top + 4  */
-#define WRAP_W (CONT_W - 2 * TEXT_X)
+/* initech-ulqb: the shell resizes the window (inGrow is shell chrome); the
+ * application reads the content size the gate reports on every update and
+ * lays its text out for it (toolbox_gate.h CONTENT_SIZE; MTE ch. 4
+ * MyResizeWindow p. 4-58): wrapping by the destRect width, drawing, the
+ * scroll extent and caret-following by the view (textedit.md Sec 4). The
+ * opening size is the measured one above. */
+static int g_cw = CONT_W, g_ch = CONT_H;
+#define WRAP_W (g_cw - 2 * TEXT_X)
 
 #define MENU_FILE 129
 #define MENU_EDIT 130
@@ -174,7 +181,7 @@ static void paint(void)
 {
     int L, h = lh(), s = g_te.selStart, e = g_te.selEnd, bottom;
     int lo = (g_ps < s) ? g_ps : s;
-    if (g_full) (void)tbx_fill_rect(g_win, 0, 0, CONT_W, CONT_H, TBX_COLOR_WHITE);
+    if (g_full) (void)tbx_fill_rect(g_win, 0, 0, g_cw, g_ch, TBX_COLOR_WHITE);
     for (L = 0; L < g_te.nLines; L++) {
         int y = TEXT_Y + L * h - g_scroll;
         int ls = g_te.lineStarts[L];
@@ -182,10 +189,10 @@ static void paint(void)
         int le = (ns > ls && g_te.text[ns - 1] == '\r') ? ns - 1 : ns;
         int x = TEXT_X, a, b;
         if (y + h <= 0) continue;
-        if (y >= CONT_H) break;
+        if (y >= g_ch) break;
         if (!g_full && ns < lo) continue;            /* untouched line */
         if (!g_full)                                /* this line's own row */
-            (void)tbx_fill_rect(g_win, 0, y < 0 ? 0 : y, CONT_W, y + h, TBX_COLOR_WHITE);
+            (void)tbx_fill_rect(g_win, 0, y < 0 ? 0 : y, g_cw, y + h, TBX_COLOR_WHITE);
         a = (s > ls) ? (s < le ? s : le) : ls;     /* the selected part */
         b = (e > ls) ? (e < le ? e : le) : ls;
         if (s >= e) { a = b = le; }
@@ -198,8 +205,8 @@ static void paint(void)
     }
     bottom = TEXT_Y + g_te.nLines * h - g_scroll;   /* below the text */
     if (bottom < 0) bottom = 0;
-    if (!g_full && g_last_bottom > bottom && bottom < CONT_H)
-        (void)tbx_fill_rect(g_win, 0, bottom, CONT_W, g_last_bottom, TBX_COLOR_WHITE);
+    if (!g_full && g_last_bottom > bottom && bottom < g_ch)
+        (void)tbx_fill_rect(g_win, 0, bottom, g_cw, g_last_bottom, TBX_COLOR_WHITE);
     g_last_bottom = bottom;
     g_full = 0;
     g_ps = s;
@@ -217,18 +224,41 @@ static void show_caret(void)
 {
     int16_t ph, pv;
     int top, bot, doc = TEXT_Y * 2 + g_te.nLines * lh();
+    int was = g_scroll;          /* initech-ulqb: before ANY change below */
     FlairTEGetPoint(&g_te, g_te.selEnd, &ph, &pv);
     top = TEXT_Y + pv;
     bot = top + lh();
     if (top - TEXT_Y < g_scroll) g_scroll = top - TEXT_Y;
-    if (bot + TEXT_Y > g_scroll + CONT_H) g_scroll = bot + TEXT_Y - CONT_H;
+    if (bot + TEXT_Y > g_scroll + g_ch) g_scroll = bot + TEXT_Y - g_ch;
     if (g_scroll < 0) g_scroll = 0;
-    {
-        int was = g_scroll;
-        g_scroll = tbx_set_scroll(g_win, doc, g_scroll);
-        if (g_scroll < 0) g_scroll = 0;
-        if (g_scroll != was) g_full = 1;
+    g_scroll = tbx_set_scroll(g_win, doc, g_scroll);
+    if (g_scroll < 0) g_scroll = 0;
+    if (g_scroll != was) g_full = 1;   /* every row moved: repaint them all */
+}
+
+/* Adopt the content size the gate reports. A new width re-wraps the text
+ * (bytes and selection kept); any change gives the bar its new range. */
+static void adopt_size(void)
+{
+    int32_t p = tbx_content_size(g_win);
+    int w, h;
+    if (p <= 0) return;
+    w = (int)(p & 0xFFFF);
+    h = (int)((uint32_t)p >> 16);
+    if (w <= 2 * TEXT_X || h <= 0 || (w == g_cw && h == g_ch)) return;
+    if (w != g_cw) {
+        int16_t s = g_te.selStart, e = g_te.selEnd;
+        g_cw = w;
+        g_te.wrapWidth = (int16_t)WRAP_W;
+        FlairTESetText(&g_te, g_te.text, g_te.teLength);   /* re-lay the lines */
+        FlairTESetSelect(&g_te, s, e);
     }
+    g_ch = h;
+    {
+        int sv = tbx_set_scroll(g_win, TEXT_Y * 2 + g_te.nLines * lh(), g_scroll);
+        if (sv >= 0) g_scroll = sv;
+    }
+    g_full = 1;
 }
 
 static void menus_sync(void)
@@ -570,6 +600,7 @@ static void menu(int32_t word)
 int tbx_app_main(void)
 {
     if (tbx_register() != TBX_OK) return 1;
+    g_cw = CONT_W; g_ch = CONT_H;                   /* the opening window */
     FlairTE_init(&g_te, (int16_t)WRAP_W, FLAIR_TE_JUST_LEFT);
     g_te.txFont = 1;                                /* applFont: Geneva ... */
     g_te.txSize = 12;                               /* ... 12 (SimpleText) */
@@ -593,6 +624,7 @@ void tbx_app_event(const tbx_event_t *ev)
     case updateEvt: {
         int32_t sv = tbx_get_scroll(g_win);
         if (sv >= 0) g_scroll = (int)sv;
+        adopt_size();
         g_full = 1;
         paint();
         break;
