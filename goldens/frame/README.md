@@ -85,6 +85,15 @@ provisionally, and the checks grade that provisional reading.
     FLAIR now has the Mac's no-grow document window, without scroll bars
     (3eda89aa), and InitechCalc's chart window is CHARTWIN exactly, the pie
     whole inside it. Until then it was 7 pixels wider (right edge 605).
+16. **The ledger's grid.** The still's ledger columns are about 41 pixels
+    and its rows about 11 at 640 x 480 (LEDGRID); InitechCalc's are 46 and
+    12, so its window runs to (622,474) where LEDWIN ends at (568,449). The
+    product's Geneva 9 sets `1150.00` 41 pixels wide (digits 6, `1` and `.`
+    narrower; flair/include/assets/geneva9.h) after a 2-pixel inset, and its
+    cell is 11 rows, so the still's columns cannot hold the transcribed
+    amounts at the product's font. *Recommend keeping 46 by 12*, the window
+    at LEDWIN's origin and larger than LEDWIN; the alternative is a smaller
+    ledger face, which the hand-authored fonts do not have.
 
 ## Departures the live scene states
 
@@ -101,7 +110,7 @@ do not grade these and say so (apps/initechcalc/tests/frame-pixels.sh).
 - The chart's slices are navy (question 12) and its title bar carries the
   title "Pie Chart" at the Toolbox's 22-pixel height, where the still's is
   thin and untitled.
-- The ledger window is larger than LEDWIN (apps/initechcalc/README.md).
+- The ledger window is larger than LEDWIN (question 16).
 
 ## The still
 
