@@ -24,6 +24,10 @@ awk -F'\t' 'NR>1 && $1 ~ /^LED\.R[0-9][0-9]\.C.$/ {
     print substr($1,6,2)+9 "\t" c "\t" $4 "\t" $5 }' "$tsv" > "$tmp/cells"
 awk -F'\t' 'NR>1 && $2=="chart" && $4 ~ /^[0-9]+%$/ { print $4 }' "$tsv" > "$tmp/labels"
 awk -F'\t' '$1=="CANON.PIE116" { print $4 }' "$tsv" > "$tmp/canon"
+# The chart window's title as the still shows it, when the reading is certain
+# or probable (CHT.TITLE: no title). The ledger's (LEDWIN.TITLE) is
+# unreadable, so it is not graded (README question 8).
+awk -F'\t' '$1=="CHT.TITLE" && ($5=="certain" || $5=="probable") { print "2\t" $4 }' "$tsv" > "$tmp/titles"
 awk -F'\t' '$1=="LEDWIN" || $1=="CHARTWIN" { print $11 "\t" $12 "\t" $13 "\t" $14 }' "$geom" > "$tmp/origins"
 # The pie's place on the 640 x 480 screen: the top face's bounds (PIE) and
 # the foot of its side (PIEDEPTH), as measured on the still.
@@ -61,12 +65,13 @@ read_document "$tmp/TABLES.TXT" > "$tmp/saved"
 
 grade() {   # $1 = name, $2 = observation file
     awk -F'\t' -v name="$1" -v note="$note" -v canon="$(cat "$tmp/canon")" -v pie="$pie_box" \
-        -v cells="$tmp/cells" -v labels="$tmp/labels" -v origins="$tmp/origins" '
+        -v cells="$tmp/cells" -v labels="$tmp/labels" -v origins="$tmp/origins" -v titles="$tmp/titles" '
     BEGIN {
         while((getline l < cells) > 0) { split(l,f,"\t"); k=f[1] SUBSEP f[2]
             if((f[4]=="certain" || f[4]=="probable") && f[3]!="") want[k]=f[3]; else empty[k]=f[4] }
         while((getline l < labels) > 0) { nl++; lab[nl]=l; v=l; sub(/%$/,"",v); val[nl]=v+0; sum+=v }
         while((getline l < origins) > 0) { no++; split(l,f,"\t"); ox[no]=f[1]; oy[no]=f[2]; ex[no]=f[3]; ey[no]=f[4] }
+        while((getline l < titles) > 0) { split(l,f,"\t"); title[f[1]]=f[2]; titled[f[1]]=1 }
         bad=0 }
     function fail(s) { print "FAIL " name ": " s; bad++ }
     $1=="CELL" { k=$2 SUBSEP $3; seen[k]=1
@@ -79,6 +84,7 @@ grade() {   # $1 = name, $2 = observation file
         # The chart window whole (CHARTWIN): its field runs to the frame, as
         # in the still. The ledger is larger than LEDWIN (README "The ledger").
         if($2==2) { d1=$5-ex[2]; d2=$6-ey[2]; if(d1<-4 || d1>4 || d2<-4 || d2>4) fail("chart window ends at " $5 "," $6 "; the still ends it at " ex[2] "," ey[2]) } }
+    $1=="TITLE" { tseen[$2]=1; if(($2 in titled) && $3!=title[$2]) fail("window " $2 " is titled \"" $3 "\"; the still reads \"" title[$2] "\"") }
     $1=="RING" { ring=$2 }
     $1=="EXTENT" { extent=1; split(pie,p,"\t")   # within 4 px, as the windows are
         off=0; for(i=1;i<=4;i++) { d=$(i+1)-p[i]; if(d<-4 || d>4) off=1 }
@@ -101,6 +107,7 @@ grade() {   # $1 = name, $2 = observation file
                 a=b } }
         else if(name=="drawn") fail("no ring")
         if(name=="drawn" && !extent) fail("no pie on screen")
+        if(name=="drawn") for(w in titled) if(!(w in tseen)) fail("window " w " was given no title")
         exit bad>0 }' "$2"
 }
 rc=0

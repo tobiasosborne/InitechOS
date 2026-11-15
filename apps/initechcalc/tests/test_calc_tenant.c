@@ -91,7 +91,7 @@ int main(void)
     CHECK(start_calc(shipped_bytes,0)==0,"launch");
     CHECK(!strcmp(tbx_app_name,"CALC"),"registered identity");
     CHECK(tbx_host.nwindows==2&&tbx_host.alerts==0,"ledger and chart are separate windows; the shipped ledger reads cleanly");
-    CHECK(!strcmp(tbx_host.windows[0].title,"InitechCalc")&&!strcmp(tbx_host.windows[1].title,"Pie Chart"),"window titles");
+    CHECK(!strcmp(tbx_host.windows[0].title,"InitechCalc")&&!strcmp(tbx_host.windows[1].title,""),"window titles (the chart's is empty, as in the still)");
     CHECK(tbx_host.windows[0].goaway==2&&(tbx_host.windows[1].goaway&255)==2,"close asks the tenant");
     CHECK(!host_plain(1)&&host_plain(2),"the ledger is a document window; the chart's field runs to its frame (no-grow, no scroll bars: the still's CHARTWIN)");
     CHECK(tbx_host.windows[0].l==116&&tbx_host.windows[0].t==104&&tbx_host.windows[1].l==349&&tbx_host.windows[1].t==72,"windows open where the document says");

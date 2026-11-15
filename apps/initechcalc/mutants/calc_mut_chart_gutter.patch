@@ -1,11 +1,11 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -520,7 +520,7 @@
+@@ -608,7 +608,7 @@
      if(tbx_set_mbar(&mbar)<0) return 1;
      ledger=tbx_new_window(bounds[0][0],bounds[0][1],bounds[0][2],bounds[0][3],TBX_GOAWAY_ASK);
      if(ledger<0||tbx_set_wtitle(ledger,"InitechCalc")<0) { tbx_exit(1); return 1; }
 -    chart=tbx_new_window(bounds[1][0],bounds[1][1],bounds[1][2],bounds[1][3],(int32_t)(TBX_GOAWAY_ASK|CALC_WDEF_NOGROW));
 +    chart=tbx_new_window(bounds[1][0],bounds[1][1],bounds[1][2],bounds[1][3],TBX_GOAWAY_ASK);
-     if(chart<0||tbx_set_wtitle(chart,"Pie Chart")<0) { tbx_exit(1); return 1; }
+     /* The still's chart title bar carries no title (goldens/frame CHT.TITLE). */
+     if(chart<0||tbx_set_wtitle(chart,"")<0) { tbx_exit(1); return 1; }
      if(problem) notice(problem);
-     return 0;

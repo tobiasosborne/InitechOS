@@ -107,9 +107,9 @@ do not grade these and say so (apps/initechcalc/tests/frame-pixels.sh).
   blue fill (progress_fill). FLAIR draws both from Mac OS 8 captures; the
   still's colours wait on a Toolbox colour (the slice-blue request also
   asks for the progress blue).
-- The chart's slices are navy (question 12) and its title bar carries the
-  title "Pie Chart" at the Toolbox's 22-pixel height, where the still's is
-  thin and untitled.
+- The chart's slices are navy (question 12) and its title bar is the
+  Toolbox's 22-pixel one, where the still's is thin. Like the still's, it
+  carries no title (CHT.TITLE; InitechCalc grades it).
 - The ledger window is larger than LEDWIN (question 16).
 
 ## The still

@@ -7,6 +7,15 @@ host tests compile its seven worksheet sources (sheet, fmt, formula, range,
 eval, recalc and fs/wk1) for the host architecture. Host geometry checks also
 use FLAIR's public chrome metrics.
 
+## Menus
+
+Frozen inventory: one menu, File, with Save (Ctrl-S) and Quit (Ctrl-Q). The
+bar shows the front program's menus (operator, 2026-11-13), so while Calc
+saves the bar is the Initech mark, File and the clock: that is Calc's whole
+set, not a cut-down one. The still's Photoshop and worksheet menus belong
+to programs Calc is not (goldens/frame/README.md question 13); a menu with
+no working command is not added (GOLDEN-MASTER item 4).
+
 ## The ledger document
 
 Calc opens `APPS\TABLES.TXT` when the user has saved one, otherwise the
@@ -48,7 +57,8 @@ for the part of the ledger window hidden under Drive A Files and the chart
 sum of cells nobody can read. The chart window is the still's CHARTWIN
 mapped to 640 x 480, (349,72)-(598,288): a no-grow document window (NEWWINDOW
 WDEF byte 4, FLAIR's noGrowDocProc, 3eda89aa) whose field runs to its frame
-as in the still, with no scroll-bar gutter to cut the pie. The ledger window
+as in the still, with no scroll-bar gutter to cut the pie, and no title
+(CHT.TITLE). The ledger window
 opens at LEDWIN's origin (116,104) but is larger than LEDWIN, to (622,474)
 against (568,449), because its grid is: amount columns of 46 pixels against
 about 41 and rows of 12 against about 11 (LEDGRID). That is a stated
@@ -138,7 +148,8 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   script reads goldens/frame/transcription.tsv and geometry.tsv and grades,
   with the same rules, the shipped and saved documents (read with awk, no product code)
   and what the real tenant drew (cell texts at cell origins, the note, the
-  chart labels, and the chart replayed on the screen at the window's
+  chart labels, the chart window's title against CHT.TITLE (empty), and
+  the chart replayed on the screen at the window's
   observed content origin and clipped to its observed size: every navy
   pixel's bounds within 4 px of geometry.tsv PIE/PIEDEPTH, and a ring at 80%
   of geometry.tsv's PIE ellipse with a slice face at each value/sum middle
@@ -187,7 +198,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 33 patches in `mutants/`; each must fail a host
+`make mutants` runs the 34 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,

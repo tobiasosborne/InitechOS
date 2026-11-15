@@ -1,0 +1,12 @@
+# test: test_calc_frame
+--- a/calc.c
++++ b/calc.c
+@@ -610,7 +610,7 @@
+     if(ledger<0||tbx_set_wtitle(ledger,"InitechCalc")<0) { tbx_exit(1); return 1; }
+     chart=tbx_new_window(bounds[1][0],bounds[1][1],bounds[1][2],bounds[1][3],(int32_t)(TBX_GOAWAY_ASK|CALC_WDEF_NOGROW));
+     /* The still's chart title bar carries no title (goldens/frame CHT.TITLE). */
+-    if(chart<0||tbx_set_wtitle(chart,"")<0) { tbx_exit(1); return 1; }
++    if(chart<0||tbx_set_wtitle(chart,"Pie Chart")<0) { tbx_exit(1); return 1; }
+     if(problem) notice(problem);
+     return 0;
+ }

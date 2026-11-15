@@ -5,6 +5,7 @@
  *
  * Output lines (tab-separated):
  *   WINDOW  n l t r b       the bounds each window was opened with
+ *   TITLE   n text          the title each window was given
  *   CELL    row col text    a ledger draw at a cell origin (row 1-based)
  *   NOTE    text            the ledger's recovery annotation
  *   OTHER   x y text        any other ledger draw (a failure for the script)
@@ -65,6 +66,7 @@ int main(int argc,char **argv)
     for(unsigned i=0,k=0;i<tbx_host.nops;i++) {
         const tbx_host_op_t *o=&tbx_host.ops[i];
         if(!strcmp(o->name,"tbx_new_window")) printf("WINDOW\t%u\t%d\t%d\t%d\t%d\n",++k,o->a[0],o->a[1],o->a[2],o->a[3]);
+        if(!strcmp(o->name,"tbx_set_wtitle")) printf("TITLE\t%d\t%s\n",o->a[0],o->text);
         if(!strcmp(o->name,"tbx_alert")) printf("ALERT\t%s\n",o->text);
     }
     tbx_event_t e={updateEvt,0,0,0,0,0};
