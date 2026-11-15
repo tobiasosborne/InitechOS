@@ -1,4 +1,4 @@
-# test: guest-record
+# test: guest-record_slot
 --- a/codegen.c
 +++ b/codegen.c
 @@ -576,7 +576,14 @@
