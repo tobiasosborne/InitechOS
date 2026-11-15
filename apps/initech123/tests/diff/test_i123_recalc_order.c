@@ -47,6 +47,7 @@
 #include <stdint.h>
 
 #include "test_assert.h"
+#include "oracle_server.h"
 #include "i123.h"
 #include "i123/wk1_format.h"
 
@@ -227,12 +228,11 @@ typedef struct { uint16_t c, r; char kind[4]; char payload[512]; } ref_t;
 
 static int load_refs(const char *name, ref_t *refs, int cap)
 {
-    char cmd[2048], line[1024];
+    char path[2048], line[1024];
     FILE *p;
     int n = 0;
-    snprintf(cmd, sizeof cmd, "LOTUS123_DECOMP='%s' python3 '%s' '%s/goldens/minted/%s.WK1'",
-             g_corpus, g_ref, g_corpus, name);
-    p = popen(cmd, "r");
+    snprintf(path, sizeof path, "%s/goldens/minted/%s.WK1", g_corpus, name);
+    int rc = oracle_read(g_corpus, &p, g_ref, path, (char *)0);
     if (!p) return -1;
     while (fgets(line, sizeof line, p) && n < cap) {
         unsigned c, r;
@@ -241,7 +241,7 @@ static int load_refs(const char *name, ref_t *refs, int cap)
             refs[n].c = (uint16_t)c; refs[n].r = (uint16_t)r; n++;
         }
     }
-    if (pclose(p) != 0) return -1;
+    if (fclose(p) != 0 || rc != 0) return -1;
     return n;
 }
 

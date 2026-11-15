@@ -7,6 +7,17 @@ out=${bin%/*}/$name.work
 rm -rf "$out"
 mkdir -p "$out"
 ref=tests/oracles/wk1_formula_ref.py
+# Several reader runs in one interpreter (tests/oracles/serve.py): each line
+# is OUT SCRIPT ARG..., run as `python3 SCRIPT ARG... > OUT` (OUT - is ours);
+# the batch stops at the first failing run with its status, like set -e.
+# readers N also requires exactly N completed runs (never an empty success).
+T=$(printf '\t')
+readers() {
+  rm -f "$out/readers.done"
+  python3 tests/oracles/serve.py --batch "$out/readers.done"
+  completed=$(cat "$out/readers.done" 2>/dev/null || echo none)
+  if [ "$completed" != "$1" ]; then echo "FAIL readers: $1 runs expected, $completed completed"; exit 2; fi
+}
 case $name in
   test_i123_menu_routes)
     awk -v ids=1 -f tests/oracles/menu/project.awk tests/oracles/menu/omissions.tsv tests/oracles/menu/descriptions.tsv tests/oracles/menu/menu_tree.golden > "$out/routes.tsv"
@@ -17,11 +28,11 @@ case $name in
     "$bin" "$out"
     i=0
     for c in CR LF CTRLZ MIX LONG PROTECTED EDGE RIGHT FULL PREFIX AFTERLONG MAX240 CONTROLS TABLIMIT OTHER; do
-      f=$(printf 'I%02u.WK1' "$i");set --
-      if [ "$c" = FULL ]; then set -- --native-import-prefix; fi
-      python3 tests/oracles/worksheet_records.py "tests/fixtures/files/import/$c/RESULT.WK1" "$out/$f" "$@"
+      f=$(printf 'I%02u.WK1' "$i");extra=
+      if [ "$c" = FULL ]; then extra="$T--native-import-prefix"; fi
+      printf '%s\n' "-${T}tests/oracles/worksheet_records.py${T}tests/fixtures/files/import/$c/RESULT.WK1${T}$out/$f$extra"
       i=$((i+1))
-    done
+    done | readers 15
     ;;
   test_i123_files)
     (cd tests/fixtures/files && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
@@ -60,27 +71,37 @@ case $name in
   test_i123_fill)
     (cd tests/fixtures/fill && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
     "$bin" "$out"
-    for pair in "basic BASIC" "fractional FRAC" "descending DESC" "formatted FMT" "protected PROT" "expressions EXPR" "zero ZERO" "bad_direction BADDIR" "decimal DECIMAL"; do
-      set -- $pair
-      python3 tests/oracles/worksheet_records.py "tests/fixtures/fill/$1/RESULT.WK1" "$out/$2.WK1"
-    done
-    python3 tests/oracles/worksheet_records.py tests/fixtures/fill/reuse/REUSE.WK1 "$out/REUSE.WK1"
-    python3 tests/oracles/worksheet_records.py tests/fixtures/fill/reuse/REUSE.WK1 "$out/CANCEL.WK1"
-    python3 tests/oracles/worksheet_records.py tests/fixtures/fill/memory/FULLREF.WK1 "$out/MEMORY.WK1" --native-fill-prefix
+    w="-${T}tests/oracles/worksheet_records.py${T}"
+    {
+      for pair in "basic BASIC" "fractional FRAC" "descending DESC" "formatted FMT" "protected PROT" "expressions EXPR" "zero ZERO" "bad_direction BADDIR" "decimal DECIMAL"; do
+        set -- $pair
+        printf '%s\n' "${w}tests/fixtures/fill/$1/RESULT.WK1${T}$out/$2.WK1"
+      done
+      printf '%s\n' "${w}tests/fixtures/fill/reuse/REUSE.WK1${T}$out/REUSE.WK1"
+      printf '%s\n' "${w}tests/fixtures/fill/reuse/REUSE.WK1${T}$out/CANCEL.WK1"
+      printf '%s\n' "${w}tests/fixtures/fill/memory/FULLREF.WK1${T}$out/MEMORY.WK1${T}--native-fill-prefix"
+    } | readers 12
     ;;
   test_i123_time)
     (cd tests/fixtures/time-formats && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
     "$bin" "$out"
-    python3 tests/oracles/time_records.py tests/fixtures/time-formats/TIMEREF.WK1 "$out/TIMEREF.WK1"
-    for f in GLOBAL1 GLOBAL2; do python3 tests/oracles/time_records.py "tests/fixtures/time-formats/global/$f.WK1" "$out/$f.WK1"; done
-    python3 tests/oracles/time_records.py tests/fixtures/time-formats/final/NARROW.WK1 "$out/NARROW.WK1"
-    python3 tests/oracles/time_records.py tests/fixtures/time-formats/more/MOREREF.WK1 "$out/MOREREF.WK1"
+    w="-${T}tests/oracles/time_records.py${T}tests/fixtures/time-formats"
+    {
+      printf '%s\n' "$w/TIMEREF.WK1${T}$out/TIMEREF.WK1"
+      for f in GLOBAL1 GLOBAL2; do printf '%s\n' "$w/global/$f.WK1${T}$out/$f.WK1"; done
+      printf '%s\n' "$w/final/NARROW.WK1${T}$out/NARROW.WK1"
+      printf '%s\n' "$w/more/MOREREF.WK1${T}$out/MOREREF.WK1"
+    } | readers 5
     ;;
   test_i123_widthrange)
     (cd tests/fixtures/width-range && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
     "$bin" "$out"
-    for f in RANGESET RANGERST RANGEIV RANGECAN; do python3 tests/oracles/width_records.py "tests/fixtures/width-range/$f.WK1" "$out/$f.WK1"; done
-    python3 tests/oracles/edit_labels.py "$out/KEEPBEF.WK1" "$out/KEEPAFT.WK1"
+    {
+      for f in RANGESET RANGERST RANGEIV RANGECAN; do
+        printf '%s\n' "-${T}tests/oracles/width_records.py${T}tests/fixtures/width-range/$f.WK1${T}$out/$f.WK1"
+      done
+      printf '%s\n' "-${T}tests/oracles/edit_labels.py${T}$out/KEEPBEF.WK1${T}$out/KEEPAFT.WK1"
+    } | readers 5
     ;;
   test_i123_conformance)
     (cd tests/conformance/fixtures && sha256sum -c ../SHA256SUMS) > "$out/fixture-hashes.log"
@@ -144,9 +165,9 @@ esac
 case $name in
   test_i123_quit)
     for f in Q PE X; do
-      python3 "$LOTUS123_DECOMP/tools/wk1_ref.py" "$out/$f.WK1" > "$out/$f.ref"
-      grep -q 'consumed=.* OK$' "$out/$f.ref"
-    done
+      printf '%s\n' "$out/$f.ref${T}$LOTUS123_DECOMP/tools/wk1_ref.py${T}$out/$f.WK1"
+    done | readers 3
+    for f in Q PE X; do grep -q 'consumed=.* OK$' "$out/$f.ref"; done
     grep -q 'LABEL.*c0 r0 label=.*Hello' "$out/Q.ref"
     grep -Eq 'INTEGER.*c1 r0 int=123$' "$out/Q.ref"
     grep -Eq 'NUMBER.*c2 r0 num=1\.5$' "$out/Q.ref"

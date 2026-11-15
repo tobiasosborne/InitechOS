@@ -48,6 +48,7 @@
 #include <stdint.h>
 
 #include "test_assert.h"
+#include "oracle_server.h"
 #include "i123.h"
 #include "i123/wk1_format.h"
 
@@ -211,10 +212,11 @@ static int save(const char *path, const uint8_t *b, uint32_t n)
 /* wk1_ref.py's reading of `file` == the C listing in `cdump`. */
 static int ref_agrees(const char *file, const char *cdump)
 {
-    char cmd[2048];
-    snprintf(cmd, sizeof cmd, "LOTUS123_DECOMP='%s' python3 '%s' compare '%s' '%s'",
-             g_corpus, g_canon, file, cdump);
-    return system(cmd) == 0;
+    FILE *said;
+    int rc = oracle_read(g_corpus, &said, g_canon, "compare", file, cdump, (char *)0), c;
+    if (!said) return 0;
+    while ((c = fgetc(said)) != EOF) putchar(c);      /* its diff, as before */
+    return fclose(said) == 0 && rc == 0;
 }
 
 /* ---- PART A: every golden ------------------------------------------------- */

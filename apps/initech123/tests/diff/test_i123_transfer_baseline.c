@@ -10,19 +10,12 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include "i123.h"
+#include "oracle_server.h"
 static uint8_t mem[2][131072],in[65536],out[65536];
 static const char *const names[]={"CIRC01","MINT01","MINT02","MINT03","MINT04","MINT05"};
 static int oracle(const char *corpus,const char *reader,const char *file,const char *result)
 {
-    pid_t pid=fork();if(pid<0)return 1;
-    if(!pid) {
-        int fd=open(result,O_WRONLY|O_CREAT|O_TRUNC,0600);if(fd<0)_exit(2);
-        if(dup2(fd,1)<0)_exit(2);
-        close(fd);if(setenv("LOTUS123_DECOMP",corpus,1))_exit(2);
-        execlp("python3","python3",reader,"--bytes",file,(char *)0);_exit(2);
-    }
-    int status=0;if(waitpid(pid,&status,0)<0)return 1;
-    return !WIFEXITED(status)||WEXITSTATUS(status);
+    return oracle_file(corpus,result,reader,"--bytes",file,(char *)0);
 }
 static int equal(const char *a,const char *b)
 {

@@ -91,7 +91,15 @@ The broader legacy emulator scenarios still awaiting factory adoption are in
 
 Tests require LOTUS123_DECOMP and its pinned corpus (missing input is an error).
 Inherited independent Python readers and adapters remain under tests/oracles;
-new factory work is C, make and POSIX shell. Scratch/logs stay under build.
+new factory work is C, make and POSIX shell. The readers run unchanged, but no
+longer one interpreter each: tests/oracles/serve.py runs each as `python3
+SCRIPT ARG...` would (runpy, its own argv and standard output) inside one
+interpreter per suite. The C suites talk to it through tests/oracle_server.h;
+tests/run.sh batches its shell readers and requires the exact number of
+completed runs. About 300 interpreter starts (0.1 s each under load) were the
+whole time budget; the suite went from 29-49 s to 6-8 s with identical
+assertion counts and reader outputs. A driver that runs nothing turns every
+reader-backed suite red, and 20 reader-graded mutants still die. Scratch/logs stay under build.
 Shared normal/x87 host core objects keep builds fast. The 30-second tier-0
 execution budget covers the complete independent corpus selection; compilation
 is measured separately. The shared runner preserves fresh scratch, file-reader

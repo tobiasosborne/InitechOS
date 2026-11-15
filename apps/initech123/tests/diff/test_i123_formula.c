@@ -51,6 +51,7 @@
 #include <stdint.h>
 
 #include "test_assert.h"
+#include "oracle_server.h"
 #include "i123.h"
 #include "i123/wk1_format.h"
 
@@ -319,11 +320,10 @@ static ref_t g_refs[2048];
 
 static int load_refs(const char *path, int *n)
 {
-    char cmd[2048], line[1024];
+    char line[1024];
     FILE *p;
     *n = 0;
-    snprintf(cmd, sizeof cmd, "LOTUS123_DECOMP='%s' python3 '%s' '%s'", g_corpus, g_ref, path);
-    p = popen(cmd, "r");
+    int rc = oracle_read(g_corpus, &p, g_ref, path, (char *)0);
     if (!p) return 0;
     while (fgets(line, sizeof line, p) && *n < 2048) {
         ref_t *r = &g_refs[*n];
@@ -334,7 +334,7 @@ static int load_refs(const char *path, int *n)
             (*n)++;
         }
     }
-    return pclose(p) == 0;
+    return fclose(p) == 0 && rc == 0;
 }
 
 static void val_text(const i123_val_t *v, char *kind, char *payload)

@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include "i123.h"
+#include "oracle_server.h"
 static uint8_t mem[2][131072], cm[I123_CALC_BYTES(256)];
 static i123_calc_t cx;
 static unsigned rng=0x123a55,checks,failures;
@@ -60,17 +61,8 @@ static void moved_words(int err,int c,int r,int hc,int hr,int ac,int ar,unsigned
 static uint8_t cin_[65536],cout_[65536],cbank[2][131072],ccalc[I123_CALC_BYTES(256)];
 static int reader(const char *corpus_dir,const char *script,int bytes,const char *file,const char *result)
 {
-    pid_t pid=fork();if(pid<0)return 1;
-    if(!pid) {
-        int fd=open(result,O_WRONLY|O_CREAT|O_TRUNC,0600);if(fd<0)_exit(2);
-        if(dup2(fd,1)<0)_exit(2);
-        close(fd);if(setenv("LOTUS123_DECOMP",corpus_dir,1))_exit(2);
-        if(bytes)execlp("python3","python3",script,"--bytes",file,(char *)0);
-        else execlp("python3","python3",script,file,(char *)0);
-        _exit(2);
-    }
-    int status=0;if(waitpid(pid,&status,0)<0)return 1;
-    return !WIFEXITED(status)||WEXITSTATUS(status);
+    return bytes?oracle_file(corpus_dir,result,script,"--bytes",file,(char *)0)
+                :oracle_file(corpus_dir,result,script,file,(char *)0);
 }
 /* The cell records of a wk1_ref.py dump (header records are not graded). */
 static int cell_line(const char *l)
