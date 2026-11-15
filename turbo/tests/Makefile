@@ -13,3 +13,7 @@ $(HOST_OUT)/verdict: private command = sh wrap.sh $@ $(TOP) $(CURDIR) $(OUT) $(H
 all: test-build
 smoke:
 	@echo 'Factory assertion controls are host-only; no emulator target.' >&2; exit 1
+
+.PHONY: controls
+controls: seed-tools
+	@env TOP="$(TOP)" sh noop-control.sh "$(OUT)" "$(CURDIR)"

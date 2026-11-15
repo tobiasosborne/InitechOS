@@ -1,0 +1,8 @@
+# test: gen_tiny
+--- a/turbo.pas
++++ b/turbo.pas
+@@ -2,3 +2,3 @@
+ {
+-  turbo.pas -- Turbo Initech single-file bootstrap, B9.4 x86 codegen slice.
++  turbo.pas -- Turbo Initech single-file bootstrap reference, B9.4 x86 codegen slice.
+ 

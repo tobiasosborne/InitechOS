@@ -1,0 +1,6 @@
+# test: repro
+--- a/codegen.c
++++ b/codegen.c
+@@ -2638,1 +2638,1 @@
+-    /* externs: runtime serial helpers. */
++    /* externs: runtime serial helpers (reviewer no-op). */
