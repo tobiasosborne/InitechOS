@@ -413,6 +413,24 @@ static void f18_keys_and_masks(void)
     xb_interp_free(ip); pal_host_free(pal);
 }
 
+static void f19_home_chain_and_badcombo(void)
+{
+    static const uint8_t chain[] = {'\r',0,0x47,'Z',0,0x51};
+    ibase_pal_t *pal = pal_host_make((struct pal_host_cfg){86,7,24,2*1024*1024});
+    xb_interp *ip = make_ip(pal); page_reset();
+    /* F19 P1: Home at the start of B lands on A's last cell. */
+    feed(chain, sizeof chain);
+    CHECK(ibase_do(ip, "A=SPACE(4)\nB=\"wxyz\"\n@ 5,10 GET A\n@ 7,10 GET B\nREAD\n") == INTERP_OK, "home chain form");
+    value_c(ip, "A", "   Z");
+    value_c(ip, "B", "wxyz");
+    /* F19: combined SAY with an invalid GET paints nothing. */
+    page_reset();
+    CHECK(ibase_do(ip, "@ 5,10 SAY \"LBL\" GET UNDEFINED\n") != INTERP_OK &&
+          ibase_last_error(ip) == 12, "bad combo refused");
+    cell(5, 10, ' ', 7); cell(5, 11, ' ', 7); cell(5, 12, ' ', 7);
+    xb_interp_free(ip); pal_host_free(pal);
+}
+
 int main(void)
 {
     f01_memvar();
@@ -426,5 +444,6 @@ int main(void)
     f02_order_and_f04_edit();
     f07_f08_more();
     f18_keys_and_masks();
+    f19_home_chain_and_badcombo();
     return TEST_SUMMARY("test-ibase-gets");
 }

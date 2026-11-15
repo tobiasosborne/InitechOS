@@ -1155,7 +1155,7 @@ static int q_pic_validate(int type,const char *pic,int is_get,int *ec)
     }
     return INTERP_OK;
 }
-static int q_get_declare(xb_interp *ip,int row,int col,const char *tail,int *ec)
+static int q_get_resolve(xb_interp *ip,int row,int col,const char *tail,xb_get *out,int *ec)
 {
     xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);wa_env *env=xb_interp_env(ip);
     char first[12],name[12],expr[Q_MAX_EXPR+1];int n1=0,n2=0,have_alias=0,rc;
@@ -1271,36 +1271,50 @@ static int q_get_declare(xb_interp *ip,int row,int col,const char *tail,int *ec)
         const set_state *ss=set_get_state(ip);
         int delim=ss&&ss->delimiters;
         g.row=(uint8_t)row;g.col=(uint8_t)(col+(delim?1:0));
-        if(delim&&pal->paint) {
-            /* Left bracket in the standard attribute at the @ column;
-             * the field itself starts one cell right (F06a/F06c). */
-            if(pal->set_attr)pal->set_attr(pal,(uint8_t)ss->color_standard);
-            (void)pal->paint(pal,(uint8_t)row,(uint8_t)col,&ss->delim_l,1);
-        }
     }
+    *out=g;
+    if(ec)*ec=0;
+    return INTERP_OK;
+}
+/* Append a resolved GET, paint it (with delimiter brackets) and leave the
+ * cursor after it. Split from resolution so a combined SAY/GET whose GET
+ * clause is invalid paints nothing at all (forms-f19 badcombo). */
+static int q_get_commit(xb_interp *ip,xb_get *g,int *ec)
+{
+    xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
+    const set_state *ss=set_get_state(ip);
+    int delim=ss&&ss->delimiters;
     if(ctx->ngets==ctx->gets_cap) {
         uint32_t ncap=ctx->gets_cap?ctx->gets_cap*2u:8u;
         xb_get *next=(xb_get *)pal->acquire(pal,ncap*(uint32_t)sizeof(xb_get));
-        if(!next){pal->release(pal,g.buf);if(ec)*ec=43;return -INTERP_ERR_NOMEM;}
+        if(!next){pal->release(pal,g->buf);if(ec)*ec=43;return -INTERP_ERR_NOMEM;}
         if(ctx->gets){rt_memcpy(next,ctx->gets,ctx->ngets*(uint32_t)sizeof(xb_get));pal->release(pal,ctx->gets);}
         ctx->gets=next;ctx->gets_cap=ncap;
     }
-    ctx->gets[ctx->ngets++]=g;
+    ctx->gets[ctx->ngets++]=*g;
+    if(delim&&pal->paint) {
+        if(pal->set_attr)pal->set_attr(pal,(uint8_t)ss->color_standard);
+        (void)pal->paint(pal,g->row,(uint8_t)(g->col-1),&ss->delim_l,1);
+    }
     q_get_paint(ip,&ctx->gets[ctx->ngets-1]);
     {
-        const set_state *ss=set_get_state(ip);
-        int delim=ss&&ss->delimiters;
-        int cr=row,cc;
-        if(delim&&pal->paint&&g.col+g.width<80) {
+        int cr=g->row,cc;
+        if(delim&&pal->paint&&g->col+g->width<80) {
             if(pal->set_attr)pal->set_attr(pal,(uint8_t)ss->color_standard);
-            (void)pal->paint(pal,(uint8_t)row,(uint8_t)(g.col+g.width),&ss->delim_r,1);
+            (void)pal->paint(pal,g->row,(uint8_t)(g->col+g->width),&ss->delim_r,1);
         }
-        cc=g.col+g.width+(delim?1:0);
+        cc=g->col+g->width+(delim?1:0);
         while(cc>=80){cc-=80;cr++;}
         ctx->screen_row=(uint16_t)cr;ctx->screen_col=(uint16_t)cc;
     }
     if(ec)*ec=0;
     return INTERP_OK;
+}
+static int q_get_declare(xb_interp *ip,int row,int col,const char *tail,int *ec)
+{
+    xb_get g;int rc=q_get_resolve(ip,row,col,tail,&g,ec);
+    if(rc)return rc;
+    return q_get_commit(ip,&g,ec);
 }
 /* Buffer -> value at confirm (stage 3 unformatted conversion). Returns 1 when
  * valid; an invalid date stays in the field (F08b refuses Enter). */
@@ -1497,7 +1511,10 @@ static int q_read(xb_interp *ip,const char *args,int *ec)
                 if(w==-1){q_bell(ip);continue;}
                 if(w==-2){ibase_gets_clear(ip);return -INTERP_ERR_EVAL;}
                 if(cur==0){code=2;done=1;break;}
-                cur--;pos=0;g=&ctx->gets[cur];q_get_cursor(ip,g->row,g->col);continue;
+                /* Previous field, at its last cell even when blank
+                 * (F19 h2 CURSOR 05 13 on a SPACE(4) field). */
+                cur--;g=&ctx->gets[cur];pos=g->width-1;
+                q_get_cursor(ip,g->row,g->col+pos);continue;
             }
         }
         if(k==QK_END||k==6) {
@@ -1649,6 +1666,7 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
     const char *p=args,*comma=0,*say=0,*get=0,*bound;
     char quote=0,prev=' ',expr[Q_MAX_EXPR+1],line[Q_LINEBUF];
     int depth=0,rc,j;uint32_t n=0;xb_val v;double coordinate[2];
+    xb_get pending;int have_pending=0;
     xb_ctx *ctx=xb_interp_ctx(ip);ibase_pal_t *pal=xb_interp_pal(ip);
     for(;*p;p++) {
         char c=*p;
@@ -1724,26 +1742,36 @@ static int q_say(xb_interp *ip,const char *args,int *ec)
     }
     n=0;q_render_val(line,&n,sizeof line,&v,ctx,1);
 say_paint:
-    if(get&&ctx->device_print) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
-    if(ctx->device_print) {
-        /* FORMS overlay k=2: row and column in k, byte count through *ec. */
-        int count=(int)n;
-        if(IBASE_OVL_CALL(IBASE_OVL_FORMS,forms_ovl_entry,2|((int)coordinate[0]<<8)|((int)coordinate[1]<<16),ip,line,&count))goto io_error;
-    } else {
-        if(!pal->say_screen || pal->say_screen(pal,(uint8_t)coordinate[0],(uint8_t)coordinate[1],line,n))goto io_error;
-        ctx->screen_row=(uint16_t)coordinate[0];ctx->screen_col=(uint16_t)coordinate[1];
-        rt_cursor_advance(&ctx->screen_row,&ctx->screen_col,line,n,2);
+    {
+        /* Resolve a combined GET before painting anything: with an
+         * invalid GET clause real III+ paints neither SAY nor field
+         * (forms-f19 badcombo). */
+        if(get&&ctx->device_print) { if(ec)*ec=36;return -INTERP_ERR_SYNTAX; }
+        if(get) {
+            uint16_t pr=(uint16_t)coordinate[0],pc=(uint16_t)coordinate[1];
+            int gr,gc;
+            rt_cursor_advance(&pr,&pc,line,n,2);
+            gr=pr;gc=pc+1;
+            if(gc>79){gr++;gc=0;}
+            if(gr>24) { if(ec)*ec=30;return -INTERP_ERR_EVAL; }
+            rc=q_get_resolve(ip,gr,gc,get+3,&pending,ec);
+            if(rc)return rc;
+            have_pending=1;
+        }
+        if(ctx->device_print) {
+            int count=(int)n;
+            if(IBASE_OVL_CALL(IBASE_OVL_FORMS,forms_ovl_entry,2|((int)coordinate[0]<<8)|((int)coordinate[1]<<16),ip,line,&count))goto io_error;
+        } else {
+            if(!pal->say_screen || pal->say_screen(pal,(uint8_t)coordinate[0],(uint8_t)coordinate[1],line,n))goto io_error;
+            ctx->screen_row=(uint16_t)coordinate[0];ctx->screen_col=(uint16_t)coordinate[1];
+            rt_cursor_advance(&ctx->screen_row,&ctx->screen_col,line,n,2);
+        }
+        if(have_pending)return q_get_commit(ip,&pending,ec);
+        if(ec)*ec=0;
+        return INTERP_OK;
     }
-    if(get) {
-        /* Combined SAY/GET: one blank column after the SAY value (F01). */
-        int gr=ctx->screen_row,gc=ctx->screen_col+1;
-        if(gc>79){gr++;gc=0;}
-        if(gr>24) { if(ec)*ec=30;return -INTERP_ERR_EVAL; }
-        return q_get_declare(ip,gr,gc,get+3,ec);
-    }
-    if(ec)*ec=0;
-    return INTERP_OK;
 io_error:
+    if(have_pending&&pending.buf)pal->release(pal,pending.buf);
     if(ec)*ec=29;
     return -INTERP_ERR_EVAL;
 }
