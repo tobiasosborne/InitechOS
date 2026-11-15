@@ -415,7 +415,7 @@ Interface use-gate: sdk/include/tbx.h
 
 Copy/Move's property and real-file comparisons emit completed assertion counts
 and `FAIL` at the actual mismatch; missing or empty reference decodes remain
-setup errors. The Fill adapter preserves producer failures and stops at the
+setup errors. The Fill and Import adapters preserve producer failures and stop at the
 first independent WK1 mismatch, so later passing readers cannot replace its
 failure summary. The record reader counts each compared record. These changes
 repair the eight strict-runner diagnostic errors (initech-vocfm), with no

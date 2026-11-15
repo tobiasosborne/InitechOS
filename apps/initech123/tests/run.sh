@@ -14,15 +14,14 @@ case $name in
     ;;
   test_i123_import)
     (cd tests/fixtures/files && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
-    rc=0; "$bin" "$out" || rc=1
+    "$bin" "$out"
     i=0
     for c in CR LF CTRLZ MIX LONG PROTECTED EDGE RIGHT FULL PREFIX AFTERLONG MAX240 CONTROLS TABLIMIT OTHER; do
       f=$(printf 'I%02u.WK1' "$i");set --
       if [ "$c" = FULL ]; then set -- --native-import-prefix; fi
-      python3 tests/oracles/worksheet_records.py "tests/fixtures/files/import/$c/RESULT.WK1" "$out/$f" "$@" || rc=1
+      python3 tests/oracles/worksheet_records.py "tests/fixtures/files/import/$c/RESULT.WK1" "$out/$f" "$@"
       i=$((i+1))
     done
-    test "$rc" -eq 0
     ;;
   test_i123_files)
     (cd tests/fixtures/files && sha256sum -c SHA256SUMS) > "$out/capture-hashes.log"
