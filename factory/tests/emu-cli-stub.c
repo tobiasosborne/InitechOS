@@ -52,6 +52,12 @@ static void script(RESULT *out)
     } else if (!strcmp(k, "stopped")) {           /* our own stop, no READY */
         out->harness_stopped = true; out->exit_code = -1; out->term_signal = SIGTERM;
     }
+#ifndef EMU_CLI_BOCHS
+    else if (!strcmp(k, "qmpfail")) {     /* QMP channel died; we stopped it */
+        out->harness_stopped = true; out->exit_code = -1; out->term_signal = SIGTERM;
+        out->qmp_infra = true;
+    }
+#endif
 }
 
 #ifdef EMU_CLI_BOCHS

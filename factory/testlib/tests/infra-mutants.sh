@@ -32,7 +32,18 @@ SH
 cat > "$c/run.sh" <<'SH'
 set -eu
 out=$1
+if [ -n "${MKTEMP_CC:-}" ]; then
+ # Review follow-up (xreview-frame-factory F1): generated temp sources and
+ # one reused output name; the baseline's expected refusal is a different
+ # input with the same command shape as the mutant's broken compile.
+ gen=$(mktemp ./tmp.XXXXXX); cp product.c "$gen"
+ cc -x c -c "$gen" -o "$out/x.o"; cc -o "$out/product" "$out/x.o"
+ gen2=$(mktemp ./tmp.XXXXXX); cp invalid.c "$gen2"
+ if cc -x c -c "$gen2" -o "$out/x.o" 2>/dev/null; then exit 2; fi
+ rm -f "$gen" "$gen2"
+else
 cc -o "$out/product" product.c
+fi
 # An independent negative compiler check: green when the compiler refuses.
 if [ -n "${NEGATIVE_CC:-}" ] && cc -c invalid.c -o "$out/invalid.o" 2>/dev/null; then exit 2; fi
 got=$("$out/product")
@@ -84,6 +95,8 @@ expect semantic-still-killed '1 killed, 0 survived, 0 errors' semantic
 # refusal of invalid.c must not cancel the mutant's new failure on product.c.
 expect build-breaking-behind-expected-refusal '0 killed, 0 survived, 1 errors' broken NEGATIVE_CC=1
 expect semantic-killed-with-expected-refusal '1 killed, 0 survived, 0 errors' semantic NEGATIVE_CC=1
+expect build-breaking-behind-generated-refusal '0 killed, 0 survived, 1 errors' broken MKTEMP_CC=1
+expect semantic-killed-with-generated-refusal '1 killed, 0 survived, 0 errors' semantic MKTEMP_CC=1
 # initech-piuvw: FPC finds ld on PATH and then runs ld.bfd from the same
 # directory. A real FPC hello program compiled at test time is the
 # independent control: its baseline must pass through the recording shims.

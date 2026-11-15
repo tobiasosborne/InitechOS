@@ -331,8 +331,11 @@ int main(int argc, char **argv)
     /* isa-debug-exit makes every guest verdict exit odd ((v << 1) | 1); 0 is
      * a normal quit. Any other status is QEMU's own failure. */
     int bad_exit = res.term_signal == 0 && res.exit_code != 0 && (res.exit_code & 1) == 0;
-    int abnormal = emu_ended_abnormally(res.reap_failed, res.term_signal, res.harness_stopped, bad_exit);
-    if (abnormal)
+    int abnormal = emu_ended_abnormally(res.reap_failed, res.term_signal, res.harness_stopped, bad_exit) ||
+                   res.qmp_infra;
+    if (res.qmp_infra)
+        fprintf(stderr, "[harness] INCOMPLETE: the QMP session failed on the harness's own channel\n");
+    else if (abnormal)
         fprintf(stderr, "[harness] INCOMPLETE: qemu ended abnormally (exit=%d signal=%d harness_stopped=%d reap_failed=%d)\n",
                 res.exit_code, res.term_signal, res.harness_stopped, res.reap_failed);
     int rc = emu_run_status(res.ok, res.launched, res.timed_out, res.serial_len, res.triple_fault, abnormal);

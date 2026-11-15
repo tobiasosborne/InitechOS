@@ -27,4 +27,8 @@ for cli in "qemu:$1" "bochs:$2"; do
     case_ "$bin" "$label" sigsegv 3 1
     case_ "$bin" "$label" badexit 3 1
 done
+# Review F2 follow-up: the QMP session failing on the harness's own channel
+# (transport, send, capture, screendump) after partial output is no verdict;
+# a missing marker ('stopped' above) still is.
+case_ "$1" qemu qmpfail 3 1
 summary

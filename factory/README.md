@@ -34,6 +34,9 @@ however much serial it had printed: killed by a signal the harness did not
 send (OOM SIGKILL, SIGSEGV), not reaped, or an exit status that is no guest
 verdict (QEMU: even and nonzero, since isa-debug-exit is always odd; Bochs:
 any nonzero exit before the harness stopped it). Only 1 is product evidence.
+A QEMU QMP session that failed on the harness's own channel (socket,
+send, capture, screendump) is incomplete too; only a W or quit-after marker
+the guest never printed is a verdict (qmp_infra; tests/qemu-trace.c).
 tests/emu-cli.sh links the real qemu_main.c and bochs_main.c to a scripted
 run (tests/emu-cli-stub.c) and grades each ending (review F2).
 

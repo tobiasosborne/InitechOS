@@ -84,6 +84,19 @@ int main(void)
         check(waits[i].ok ? sent>=0 : sent<0,waits[i].what);
         close(fd[0]);close(fd[1]);
     }
+    /* Review F2 follow-up: a W marker the guest never printed is guest
+     * evidence; a QMP send on a dead socket is the harness's own failure. */
+    if(socketpair(AF_UNIX,SOCK_STREAM,0,fd))return 2;
+    g_qmp_guest_verdict=0;w_marker_consumed=0;
+    check(qmp_inject_mouse(fd[0],"WNEVER-PRINTED",NULL,NULL,serial,NULL)<0&&g_qmp_guest_verdict==1,
+          "missing W marker is classified as guest evidence");
+    close(fd[0]);close(fd[1]);
+    if(socketpair(AF_UNIX,SOCK_STREAM,0,fd))return 2;
+    close(fd[1]);g_qmp_guest_verdict=0;
+    {int unknown=0;signal(SIGPIPE,SIG_IGN);
+     check(qmp_inject_keys(fd[0],"a,b",&unknown,NULL,NULL,NULL)<0&&g_qmp_guest_verdict==0,
+           "QMP send on a dead socket is not guest evidence");}
+    close(fd[0]);
     unlink(serial);
     if(!failed)puts("ok QEMU trace: 4095/4096/6001 bytes, required suffix retained; invalid input rejected before delivery; bracket keys injectable; W markers consumed in order as whole names");
     return failed;

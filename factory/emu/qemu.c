@@ -65,6 +65,12 @@
 #define MAX_ARGV 48
 
 /* Compose <dir>/<name><suffix> into dst (bounded). Returns 0 on success. */
+/* Set when the QMP session failed on guest evidence (a W or quit-after
+ * marker the guest never printed). Any other QMP failure is the harness's
+ * own channel, so the run is incomplete, not a verdict (review F2
+ * follow-up; factory/README.md, Emulator exit status). */
+static int g_qmp_guest_verdict;
+
 static int join_path(char *dst, size_t cap, const char *dir,
                      const char *name, const char *suffix)
 {
@@ -1525,6 +1531,7 @@ static int qmp_inject_mouse_trace(int fd, char *buf, RecordCtx *rec,
                 fprintf(stderr, "[harness] --mouse: W marker '%s' not seen "
                         "within %d ms (input stopped)\n",
                         tok + 1, w_budget_ms);
+                g_qmp_guest_verdict = 1;
                 return -1; /* Missing guest progress is a failed session. */
             }
         } else if (tok[0] == 'D' && tok[1] != '\0') {
@@ -2065,6 +2072,7 @@ static int qmp_session(int inherited_fd, const char *sock_path, const char *ppm_
                     "[harness] --quit-after marker '%s' not seen before "
                     "%s\n", quit_after, mono_ms() >= harness_deadline ?
                     "requested wall deadline (expired)" : "idle deadline (or qemu exited first)");
+            g_qmp_guest_verdict = 1;
             close(fd);
             return -1;
         }
@@ -2427,6 +2435,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
         return -1;
     }
     memset(out, 0, sizeof(*out));
+    g_qmp_guest_verdict = 0;
     out->exit_code = -1;
     unsigned long long log_cap;
     if (qemu_log_cap(&log_cap)) return -1;
@@ -2692,6 +2701,7 @@ int qemu_run(const QemuConfig *cfg, QemuResult *out)
             }
         } else {
             qmp_failed = true;
+            out->qmp_infra = !g_qmp_guest_verdict;
             kill(pid, SIGTERM);
         }
     }

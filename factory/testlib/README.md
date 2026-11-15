@@ -188,8 +188,9 @@ of these hold, in both of two test runs, with the same receipt:
    beside it), ar, objcopy and fpc first on PATH; a shim that sees a
    nonzero exit appends `<tool> exit <rc> in <cwd>: <args>` to
    `$INITECH_INFRA_LOG` (infra-record.sh). The run's own copy directory and
-   mktemp names are normalised, so only the same command failing in the
-   baseline excuses it: a baseline's expected refusal of one input never
+   mktemp names are normalised, and every existing input file argument
+   carries a hash of its contents, so only the same command on the same
+   inputs failing in the baseline excuses it: a baseline's expected refusal of one input never
    cancels a mutant's new failure of another (review F1). The QEMU
    and Bochs harnesses append there when they exit 2 (harness failure) or 3
    (the guest run never completed; factory/README.md, Emulator exit status).

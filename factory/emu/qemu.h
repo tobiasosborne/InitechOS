@@ -297,6 +297,9 @@ typedef struct {
     bool harness_stopped;      /* the harness signalled qemu (deadline or
                                   failed QMP) before it ended.              */
     bool reap_failed;          /* qemu's status could not be collected.     */
+    bool qmp_infra;            /* the QMP session failed on the harness's
+                                  own channel (transport, send, capture,
+                                  screendump), not on guest evidence.       */
 
     char *serial_text;         /* heap-owned NUL-terminated serial capture
                                   (may be ""); free via qemu_result_free.   */
