@@ -9,7 +9,9 @@ HOST_TESTS := test_notepad_route test_scrapbook_route
 HOST_TEXTEDIT := $(TOP)/flair/textedit.c $(TOP)/flair/scrap.c
 test_notepad_route_SRCS := tests/test_notepad_route.c $(HOST_TEXTEDIT)
 test_scrapbook_route_SRCS := $(test_notepad_route_SRCS)
-test_scrapbook_route_CFLAGS := -DSCRAPBOOK
+# initech-l3ahn: the short-read leg decodes the pinned conformance fixtures.
+test_notepad_route_CFLAGS := -DDA_FIXTURES='"$(CURDIR)/tests/conformance/fixtures/"'
+test_scrapbook_route_CFLAGS := -DSCRAPBOOK $(test_notepad_route_CFLAGS)
 $(foreach t,$(HOST_TESTS),$(eval $(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_DEPS := $(TOP)/build/sdk/host/libtbx_host.a))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_COUNT_PATTERN := ^test_notepad_route[^:]*: ([0-9]+) checks.*$$))

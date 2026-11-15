@@ -128,7 +128,16 @@ static void load(void)
     g_keep=0; g_closing=0;                     /* each launch judges afresh */
     if(fd==TBX_ERR_DOS(2)) return;             /* first launch */
     if(fd<0) { g_keep=1; DA_AUX("DA-READ-ERROR " DA_PATH "\r\n"); return; }
-    n=tbx_file_read(fd,g_disk,sizeof g_disk);
+    /* initech-l3ahn: TBX_FILE_READ answers the bytes actually read (INT 21h
+     * AH=3Fh); fewer than asked is legal and only 0 is end of file. Gather
+     * every positive read, then judge the whole store. The buffer holds one
+     * byte more than a store, so an overlong file is still caught. */
+    {
+        int32_t got=0,r;
+        while(got<(int32_t)sizeof g_disk &&
+              (r=tbx_file_read(fd,g_disk+got,(uint32_t)(sizeof g_disk-(uint32_t)got)))>0) got+=r;
+        n=r<0?r:got;
+    }
     if(tbx_file_close(fd)<0 || n!=DA_FILE_BYTES || !valid()) {
         g_keep=1;
         DA_AUX("DA-CORRUPT " DA_PATH " empty pages\r\n");

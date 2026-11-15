@@ -1,0 +1,12 @@
+--- a/notepad.c
++++ b/notepad.c
+@@ -134,8 +134,7 @@
+      * byte more than a store, so an overlong file is still caught. */
+     {
+         int32_t got=0,r;
+-        while(got<(int32_t)sizeof g_disk &&
+-              (r=tbx_file_read(fd,g_disk+got,(uint32_t)(sizeof g_disk-(uint32_t)got)))>0) got+=r;
++        r=tbx_file_read(fd,g_disk,(uint32_t)sizeof g_disk); if(r>0) got=r;
+         n=r<0?r:got;
+     }
+     if(tbx_file_close(fd)<0 || n!=DA_FILE_BYTES || !valid()) {

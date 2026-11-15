@@ -35,9 +35,12 @@ records the audited routes and independently authored outcomes.
 
 make test runs two unit/regression programs (<1 second),
 retaining the legacy store, corruption, clipboard and page-boundary assertions.
+A store is read the way INT 21h AH=3Fh answers: every positive count is kept
+until end of file, so legally short reads of the pinned N01/S01 fixtures show
+the stored page (decoded by the test from the bytes) and N02/S02 stay damaged.
 These are independent authored contract expectations, not real-Mac file
-format differentials. make mutants kills six patches, including a live Undo
-no-op in both builds. No mutation switches remain in the product source.
+format differentials. make mutants kills eight patches, including a live Undo
+no-op in both builds and a single-read loader (initech-l3ahn). No mutation switches remain in the product source.
 make smoke launches both on QEMU, copies alpha from Note Pad into Scrapbook,
 closes both, extracts both stores with mtools and checks lengths, headers,
 page bytes and an independently implemented checksum, then runs fsck.fat.

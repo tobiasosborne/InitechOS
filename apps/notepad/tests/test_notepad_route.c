@@ -257,6 +257,51 @@ int main(void)
         event(TBX_EVT_GOAWAY,0,0,0,0); launch();
         CHECK(g_te.teLength==6 && !memcmp(g_te.text,want,6) && diagnostics==1,"single-byte-text");
     }
+    /* initech-l3ahn: TBX_FILE_READ returns "bytes | err" (toolbox_gate.h),
+     * the INT 21h AH=3Fh contract: AX is the count actually read, fewer than
+     * asked is legal and only 0 is end of file. The pinned conformance
+     * fixtures (cases.tsv N01/S01: every page full, the last one current) are
+     * decoded here by their own byte offsets, never by the loader under test;
+     * N02/S02 (one byte short) stay damaged however the bytes arrive. */
+    {
+#ifdef SCRAPBOOK
+        static const char *good = DA_FIXTURES "S01.DAT", *cut = DA_FIXTURES "S02.DAT", *label = "32 of 32";
+        enum { want_size = 32848 };
+#else
+        static const char *good = DA_FIXTURES "N01.DAT", *cut = DA_FIXTURES "N02.DAT", *label = "8 of 8";
+        enum { want_size = 8224 };
+#endif
+        static unsigned char fx[want_size + 64], fc[want_size + 64];
+        static const uint32_t limits[] = {4, 1000, 4096, 8223};
+        FILE *f = fopen(good, "rb"); size_t n = f ? fread(fx, 1, sizeof fx, f) : 0; if (f) fclose(f);
+        f = fopen(cut, "rb"); size_t nc = f ? fread(fc, 1, sizeof fc, f) : 0; if (f) fclose(f);
+        CHECK(n == want_size && nc == want_size - 1, "short-read fixtures");
+        const unsigned char *rec = fx + 16 + u16(fx + 8) * 1026;
+        int len = u16(rec);
+        CHECK(len == 1024, "short-read fixture page is full");
+        for (unsigned i = 0; i < sizeof limits / sizeof limits[0]; i++) {
+            tbx_host_reset(); tbx_host.origin_h=166; tbx_host.origin_v=102; tbx_host.ch=237;
+            CHECK(tbx_host_put_file(DA_PATH, fx, (uint32_t)n), "short-read store");
+            tbx_host.read_limit = limits[i];
+            launch();
+            CHECK(g_te.teLength == len && !memcmp(g_te.text, rec + 2, (size_t)len), "short read shows the stored page");
+            CHECK(shown(label), "short read keeps the stored page count");
+            int ex = (int)m_exits;
+            event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+            mfile_t *after = mfind(DA_PATH);
+            CHECK(m_alerts == 0 && (int)m_exits == ex + 1, "short read is not a damaged store");
+            CHECK(after && after->size == n && !memcmp(after->data, fx, n), "short read: unedited close keeps every byte");
+            tbx_host_reset(); tbx_host.origin_h=166; tbx_host.origin_v=102; tbx_host.ch=237;
+            CHECK(tbx_host_put_file(DA_PATH, fc, (uint32_t)nc), "short-read cut store");
+            tbx_host.read_limit = limits[i];
+            launch();
+            CHECK(g_te.teLength == 0, "cut store under short reads stays damaged");
+            event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+            after = mfind(DA_PATH);
+            CHECK(m_alerts == 1 && after && after->size == nc && !memcmp(after->data, fc, nc), "cut store kept as it is");
+        }
+        tbx_host.read_limit = 0;
+    }
     printf("test_notepad_route%s: %ld checks, %ld failures\n",
 #ifdef SCRAPBOOK
            "_scrapbook",
