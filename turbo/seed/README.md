@@ -40,3 +40,10 @@ compiled includes, external symbols and interrupt vectors against these lines.
 Interface role: dos
 Interface callback: pas_main
 <!-- end-interface-declarations -->
+
+The strict runner rejects the old record-field mutant's pointer-fixture
+hang as an infrastructure error. Its `record_slot` guest instead writes a
+one-field integer record beside an integer sentinel: shifting the field by
+four bytes changes the sentinel's printed value, without a pointer walk.
+Free Pascal independently supplies the stdout oracle (37,111,222). The
+mutation must reach the completion marker and fail the stdout assertion.
