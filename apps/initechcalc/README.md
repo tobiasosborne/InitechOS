@@ -91,6 +91,20 @@ label is the value with a percent sign. The frame's series is 40 35 18 14 9,
 so the labels really sum to 116%. The Toolbox has one blue (navy): faces are
 navy, sides a navy and black scanline dither, edges black.
 
+Exactly, in the chart's content pixels: the disk's centre is (124,70) and its
+top face the pixel centres with (x/96)^2 + (y/55)^2 <= 1. Each slice is
+pushed out along its middle by 6 pixels across and 6*55/96 down, each cut to
+whole pixels toward zero. Its side is its face swept 42 rows down, navy on
+even content rows and black on odd ones; the row below each face pixel that
+is not face is a black edge. A slice of more than half a turn is drawn as its
+two halves. Slices are drawn from the back (middle nearest 12 o'clock) to the
+front, ties in series order. A label, white on navy, has its top-left corner
+5 rows above and 3 pixels per character left of the point 59 x 34 pixels
+(62% of the axes) out along the middle from the pushed-out centre. Angles
+are kept to 1/65536 of a turn, and the sine is the series to x^11 in fixed
+point (within about 1e-7), so an edge lies where value/sum puts it; the
+short table it replaced missed by up to about 0.2 pixels at the rim.
+
 ## Painting
 
 Every FILLRECT and TEXTDRAW is an INT 81h gate call that FLAIR clips and
@@ -102,7 +116,7 @@ navy covers it. The ledger is painted a band of rows at a time, a column at
 a time, so a column's rule and stops are one call per run of rows; a
 keystroke repaints only the band between the row it left and the row it is
 on. The pixels are those of the cell-by-cell painting they replaced
-(checked, below). An update repaints both windows: the updateEvt carries a
+(test_calc_picture, below). An update repaints both windows: the updateEvt carries a
 WindowPtr, not Calc's window token.
 
 ## Numbers
@@ -142,7 +156,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 
 ## Checks
 
-`make test`: five host programs over sdk/host.
+`make test`: six host programs over sdk/host.
 
 - `test_calc_frame` + `tests/frame-content.sh`: the frame's content. The
   script reads goldens/frame/transcription.tsv and geometry.tsv and grades,
@@ -195,10 +209,25 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   over its neighbours and cleared, Escape, Del, down across the note strip
   and back) what the windows show equals a fresh full repaint, replayed
   pixel by pixel by tests/replay.h with FLAIR's Geneva 9 strike.
+- `test_calc_picture`: the full repaint against a picture built without
+  Calc's drawing code (initech-dbdp3), every pixel of both windows' content.
+  The ledger is painted cell by cell, left to right, from transcription.tsv's
+  certain and probable readings and the layout above, in FLAIR's Geneva 9.
+  The pie is a per-pixel test in floating point with the C library's sine
+  from the specification under "The chart", and the model's own reach must
+  be geometry.tsv's PIE/PIEDEPTH box exactly. Pixels whose centre is within
+  the 1/65536-turn rounding of a slice's edge may be either colour (12 for
+  the frame, capped at 16); a cut to whole pixels that rounding could tip
+  (one for the frame, at most 4) is tried both ways. Charts of one slice,
+  eight equal slices, 1 and 999, and none are graded too. Seen red on a pie
+  that drops its 20 lone navy pixels (`calc_mut_pie_drops_pixels`, which
+  test_calc_paint and test_calc_frame pass), on the 17-point sine table it
+  replaced (47 pixels), and on a ledger without its bottom rule or with text
+  a pixel to the right.
 
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 34 patches in `mutants/`; each must fail a host
+`make mutants` runs the 35 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,

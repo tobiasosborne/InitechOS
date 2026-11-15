@@ -1,7 +1,7 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -455,7 +455,7 @@
-         int x=PIE_CX+ox+PIE_A*PIE_LABEL/100*sine(m)/1024, y=PIE_CY+oy-PIE_B*PIE_LABEL/100*cosine(m)/1024;
+@@ -599,7 +599,7 @@
+         int x=PIE_CX+ox+PIE_A*PIE_LABEL/100*sine(m)/65536, y=PIE_CY+oy-PIE_B*PIE_LABEL/100*cosine(m)/65536;
          i123_number_text(series[i],line,sizeof line);
          unsigned n=length(line); line[n]='%'; line[n+1]=0;
 -        text(chart,x-3*(int)(n+1),y-5,line,TBX_COLOR_WHITE,TBX_COLOR_NAVY);

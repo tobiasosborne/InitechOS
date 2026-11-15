@@ -469,13 +469,23 @@ static void paint_ledger(void) { paint_band(0,g_rows?g_rows-1:0,1); }
  * (goldens/frame/geometry.tsv PIE, PIEDEPTH). Integer only. Angles: 65536 to
  * the turn, clockwise from 12 o'clock. */
 enum { PIE_CX=124, PIE_CY=70, PIE_A=96, PIE_B=55, PIE_D=42, PIE_X=6, PIE_LABEL=62 };
-static const int16_t quarter[17]={0,100,200,297,392,483,569,650,724,792,851,903,946,980,1004,1019,1024};
-static int sine(uint32_t a)   /* sin of a turn fraction, scaled 1024 */
+/* sin of a turn fraction, scaled 65536: the sine series to x^11 in 2.30
+ * fixed point over a quarter turn (its first omitted term is below 6e-8 at
+ * a right angle), so a slice's edge is where value/sum of a turn puts it to
+ * a few millionths of a turn, not the tenth of a degree a short table
+ * misses by (initech-dbdp3). Integer only. */
+static int sine(uint32_t a)
 {
     a&=65535u; unsigned q=a>>14, i=a&16383u;
     if(q&1) i=16384u-i;
-    int k=(int)(i>>10), f=(int)(i&1023u);
-    int v=k<16?quarter[k]+((quarter[k+1]-quarter[k])*f>>10):1024;
+    int64_t x=((int64_t)i*105414358+512)>>10;   /* i * pi/32768, 2.30 */
+    int64_t x2=(x*x)>>30, t=-27;                /* -2^30/11! */
+    t=2959+((t*x2)>>30);                        /* 2^30/9! */
+    t=-213045+((t*x2)>>30);                     /* -2^30/7! */
+    t=8947849+((t*x2)>>30);                     /* 2^30/5! */
+    t=-178956971+((t*x2)>>30);                  /* -2^30/3! */
+    t=1073741824+((t*x2)>>30);
+    int v=(int)((((t*x)>>30)+8192)>>14);
     return q>=2?-v:v;
 }
 static int cosine(uint32_t a) { return sine(a+16384u); }
@@ -578,15 +588,15 @@ static void paint_chart(void)
     for(unsigned k=0;k<nseries;k++) {
         unsigned i=order[k]; uint32_t s=slice_start(i), e=slice_start(i+1), m=(s+e)/2;
         if(e<=s) continue;
-        int ox=PIE_X*sine(m)/1024, oy=-PIE_X*cosine(m)*PIE_B/PIE_A/1024;
+        int ox=PIE_X*sine(m)/65536, oy=-PIE_X*cosine(m)*PIE_B/PIE_A/65536;
         if(e-s>32768u) { draw_piece(s,m,ox,oy); draw_piece(m,e,ox,oy); }
         else draw_piece(s,e,ox,oy);
     }
     send_pie();
     for(unsigned i=0;i<nseries;i++) {
         uint32_t s=slice_start(i), e=slice_start(i+1), m=(s+e)/2;
-        int ox=PIE_X*sine(m)/1024, oy=-PIE_X*cosine(m)*PIE_B/PIE_A/1024;
-        int x=PIE_CX+ox+PIE_A*PIE_LABEL/100*sine(m)/1024, y=PIE_CY+oy-PIE_B*PIE_LABEL/100*cosine(m)/1024;
+        int ox=PIE_X*sine(m)/65536, oy=-PIE_X*cosine(m)*PIE_B/PIE_A/65536;
+        int x=PIE_CX+ox+PIE_A*PIE_LABEL/100*sine(m)/65536, y=PIE_CY+oy-PIE_B*PIE_LABEL/100*cosine(m)/65536;
         i123_number_text(series[i],line,sizeof line);
         unsigned n=length(line); line[n]='%'; line[n+1]=0;
         text(chart,x-3*(int)(n+1),y-5,line,TBX_COLOR_WHITE,TBX_COLOR_NAVY);

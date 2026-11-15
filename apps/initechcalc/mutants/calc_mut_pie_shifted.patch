@@ -1,11 +1,11 @@
 --- a/calc.c
 +++ b/calc.c
-@@ -402,7 +402,7 @@
+@@ -468,7 +468,7 @@
   * still shows: top face 378,107 to 581 across, side down to 265
   * (goldens/frame/geometry.tsv PIE, PIEDEPTH). Integer only. Angles: 65536 to
   * the turn, clockwise from 12 o'clock. */
 -enum { PIE_CX=124, PIE_CY=70, PIE_A=96, PIE_B=55, PIE_D=42, PIE_X=6, PIE_LABEL=62 };
 +enum { PIE_CX=164, PIE_CY=70, PIE_A=96, PIE_B=55, PIE_D=42, PIE_X=6, PIE_LABEL=62 };
- static const int16_t quarter[17]={0,100,200,297,392,483,569,650,724,792,851,903,946,980,1004,1019,1024};
- static int sine(uint32_t a)   /* sin of a turn fraction, scaled 1024 */
- {
+ /* sin of a turn fraction, scaled 65536: the sine series to x^11 in 2.30
+  * fixed point over a quarter turn (its first omitted term is below 6e-8 at
+  * a right angle), so a slice's edge is where value/sum of a turn puts it to

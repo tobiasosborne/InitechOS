@@ -1,0 +1,12 @@
+# test: test_calc_picture
+--- a/calc.c
++++ b/calc.c
+@@ -562,7 +562,7 @@
+         int h=1;
+         for(;y+h<PIE_H;h++) { int k=u; while(k<=v&&pie[y+h][k]) k++; if(k<=v) break; }
+         for(int t=y;t<y+h;t++) for(int k=u;k<=v;k++) pie[t][k]=2;
+-        rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,TBX_COLOR_NAVY);
++        if(h>1||v>u) rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,TBX_COLOR_NAVY);
+     }
+ }
+ static double series_sum(void) { double t=0; for(unsigned i=0;i<nseries;i++) t+=series[i]; return t; }

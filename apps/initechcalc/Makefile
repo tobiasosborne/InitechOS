@@ -6,7 +6,7 @@ CORE := $(TOP)/apps/initech123/core/sheet.c $(TOP)/apps/initech123/core/fmt.c $(
 CORE_INC := -I$(TOP)/apps/initech123/include
 TENANT_SRCS := calc.c
 HOST_INCLUDES := -Iinclude $(CORE_INC) -I$(TOP)/sdk/include -I$(TOP)/sdk/host -I$(TOP)/flair/include
-HOST_TESTS := test_calc_tenant test_calc_file_copy test_calc_save_safety test_calc_frame test_calc_paint
+HOST_TESTS := test_calc_tenant test_calc_file_copy test_calc_save_safety test_calc_frame test_calc_paint test_calc_picture
 $(foreach t,$(HOST_TESTS),$(eval $(t)_SRCS := tests/$(t).c $(CORE)))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_LIBS := $(TOP)/build/sdk/host/libtbx_host.a))
 $(foreach t,$(HOST_TESTS),$(eval $(t)_DEPS := $(TOP)/build/sdk/host/libtbx_host.a))
@@ -18,6 +18,10 @@ test_calc_frame_COUNT_PATTERN := ^test_calc_frame: ([0-9]+) checks.*$$
 test_calc_frame_ENV := FRAME_TSV=$(TOP)/goldens/frame/transcription.tsv sh tests/frame-content.sh
 test_calc_frame_LIBS += -lm
 test_calc_paint_COUNT_PATTERN := ^test_calc_paint: ([0-9]+) checks.*$$
+# The full repaint against a picture built from goldens/frame (initech-dbdp3).
+test_calc_picture_COUNT_PATTERN := ^test_calc_picture: ([0-9]+) checks.*$$
+test_calc_picture_ENV := FRAME_TSV=$(TOP)/goldens/frame/transcription.tsv FRAME_GEOM=$(TOP)/goldens/frame/geometry.tsv
+test_calc_picture_LIBS += -lm
 # The booted chart against goldens/frame, run by tests/smoke/verify.sh.
 EXTRA_HOST_TESTS := frame_pixels frame_compare
 frame_pixels_SRCS := tests/frame-pixels.c
