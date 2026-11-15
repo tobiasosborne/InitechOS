@@ -46,6 +46,10 @@ retaining the legacy store, corruption, clipboard and page-boundary assertions.
 A store is read the way INT 21h AH=3Fh answers: every positive count is kept
 until end of file, so legally short reads of the pinned N01/S01 fixtures show
 the stored page (decoded by the test from the bytes) and N02/S02 stay damaged.
+A valid edit keeps every other page (initech-stc9m, cases N01/S01): page 8's
+first byte becomes Z, or clip 32 is cleared and Z pasted; the saved store is
+decoded record by record and the other 7 (31) records equal the fixture's,
+byte for byte (red when save drops page 1).
 These are independent authored contract expectations, not real-Mac file
 format differentials. make mutants kills twelve patches, including a live Undo
 no-op in both builds, a single-read loader (initech-l3ahn), and a grayed

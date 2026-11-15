@@ -350,6 +350,52 @@ int main(void)
         CHECK(disk_page(mfind(DA_PATH), 0, ""), "refusals leave the page as it was");
 #endif
     }
+    /* initech-stc9m (cases.tsv N01/S01): a valid edit keeps every other page.
+     * N01: open page 8 of eight full pages, change its first byte to Z
+     * (Right, Backspace, Z), close. S01: open clip 32 of 32, Clear it, Paste
+     * Z, close. The saved store is decoded here by its own offsets (16-byte
+     * header, 1026-byte records: length word + 1,024 bytes) and compared
+     * with the fixture record by record; then it is reopened. */
+    {
+#ifdef SCRAPBOOK
+        static const char *good = DA_FIXTURES "S01.DAT"; enum { want_size = 32848, pages = 32 };
+#else
+        static const char *good = DA_FIXTURES "N01.DAT"; enum { want_size = 8224, pages = 8 };
+#endif
+        static unsigned char fx[want_size + 64];
+        FILE *f = fopen(good, "rb"); size_t n = f ? fread(fx, 1, sizeof fx, f) : 0; if (f) fclose(f);
+        CHECK(n == want_size, "preserve: fixture");
+        int cur = u16(fx + 8);
+        CHECK(u16(fx + 6) == pages && cur == pages - 1, "preserve: fixture opens on its last page");
+        tbx_host_reset(); tbx_host.origin_h=166; tbx_host.origin_v=102; tbx_host.ch=237;
+        CHECK(tbx_host_put_file(DA_PATH, fx, (uint32_t)n), "preserve: store");
+        launch();
+        tbx_scrap_put("Z", 1);
+#ifdef SCRAPBOOK
+        menu(6); menu(5);
+#else
+        event(keyDown, 0x4d00, 0, 0, 0); event(keyDown, 8, 0, 0, 0); type("Z");
+#endif
+        CHECK(m_alerts == 0, "preserve: the edit is accepted without a notice");
+        event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+        const mfile_t *out = mfind(DA_PATH);
+        CHECK(out && out->size == n && !memcmp(out->data, fx, 6) && u16(out->data + 6) == pages &&
+              u16(out->data + 8) == cur && u16(out->data + 10) == u16(fx + 10), "preserve: header framing");
+        int kept = 0;
+        for (int p = 0; out && p < pages; p++) {
+            const unsigned char *a = out->data + 16 + p * 1026, *b = fx + 16 + p * 1026;
+            if (p != cur) { kept += !memcmp(a, b, 1026); continue; }
+#ifdef SCRAPBOOK
+            CHECK(u16(a) == 1 && a[2] == 'Z' && a[3] == 0, "preserve: the last clip is the pasted Z");
+#else
+            CHECK(u16(a) == 1024 && a[2] == 'Z' && !memcmp(a + 3, b + 3, 1023), "preserve: page 8 has Z first, the rest as it was");
+#endif
+        }
+        CHECK(kept == pages - 1, "preserve: every other page byte for byte");
+        launch();
+        CHECK(m_alerts == 0 && g_te.teLength >= 1 && g_te.text[0] == 'Z', "preserve: reopened on the edited page");
+        event(TBX_EVT_GOAWAY, 0, 0, 0, 0);
+    }
     /* initech-gmyxm (GM4: no path that loses a user's data). A store that
      * exists but cannot be read is kept as it is and never written, so this
      * session cannot save. Macintosh System Software User's Guide v6.0 p. 87
