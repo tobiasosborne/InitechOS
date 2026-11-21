@@ -19,15 +19,18 @@ cloned at `/home/tobiasosborne/Projects/InitechOS-reports/`
   selfhost-ddc (K2 == K3 == D2, 241,239 bytes), status, tracked-files
   PASS; mutants and bigkernel FAIL, all in the checks themselves. All of
   those were repaired today (see below).
-- Evening: strict certificate on 964fa280, started 18:14.
-  At the stop (19:46) it had finished clean-test PASS (ALL GREEN 20/20),
-  image-smoke PASS (FULL SMOKE GREEN, QEMU and Bochs) and repro PASS
-  (identical across two clean builds); the mutation stage was running,
-  with 19 of 24 components finished and none red (kernel in progress);
-  selfhost-ddc, bigkernel, status and tracked-files had not started. It
-  was left running in ~/w/cert2 (log ~/w/cert2.log; evidence
-  ~/w/cert2/build/cert/<id>-964fa280 when it ends). Read it first next
-  session.
+- Evening: strict certificate on 964fa280, started 18:14: clean-test PASS
+  (155 s), image-smoke PASS (854 s, QEMU and Bochs), repro PASS (65 s),
+  mutants PASS (4956 s, 0 pending patches), selfhost-ddc PASS (947 s),
+  bigkernel PASS (35 s). It was cut off at 20:14 during the status
+  stage by the two-hour limit on the command that ran it, not by a
+  failure: status and tracked-files did not run, so its summary reads
+  "failed stages: 1". Every product stage and the mutation stage are
+  green on this head. Next session: run `make status` and the
+  tracked-files stage on a clean worktree to complete it, and give the
+  certificate command a limit above 7,500 s (the full mutation sweep now
+  takes 83 minutes). Evidence: ~/w/cert-evidence/2026-11-21T171431Z-964fa280
+  (and cert2.log beside it).
 
 ## Direction and rulings
 
