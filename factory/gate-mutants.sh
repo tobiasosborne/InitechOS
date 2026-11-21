@@ -32,6 +32,7 @@ for patch_file in factory/mutants/gates/*.patch; do
  rfb-default-port) command='mkdir -p build/factory; cc -std=c11 -O1 factory/tests/rfb-port.c -o build/factory/rfb-port && build/factory/rfb-port'; signature='FAIL RFB port:';;
  omit-boot-component) command='sh factory/tests/boot-registration.sh'; signature='FAIL boot registration:';;
  omit-smoke-component) command='make -s smoke-selection'; signature='FAIL smoke: incomplete components';;
+ console-symbols-last-match) command='make -s -C factory console-symbols-check'; signature='FAIL console symbols:';;
  *) echo "FAIL unregistered gate mutant $name"; exit 1;;
  esac
  good=1

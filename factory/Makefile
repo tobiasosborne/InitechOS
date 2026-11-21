@@ -10,8 +10,10 @@ $(OUT)/bochs_harness: emu/bochs.c emu/bochs_main.c emu/bochs.h emu/bochs_trace.h
 $(OUT)/boot_system: image/boot_system.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 image: all
+image: $(OUT)/console-symbols-test
 	SYSTEM_IMAGE=$(TOP)/build/system/INITDOS$(if $(BIG_KERNEL),-big).SYS sh image/build.sh
 	sh image/c-disk-check.sh
+	sh tests/console-symbols.sh $(TOP)/build/system/system.elf $(OUT)/console-symbols-test
 smoke:
 	+@set -e; \
 	sh smoke.sh; $(MAKE) smoke-programs; sh smoke-desktop.sh
@@ -39,6 +41,7 @@ test: testlib-test image-order-test desktop-tools-test dataloss-test host-paths-
 .PHONY: host-paths-test
 host-paths-test:
 	sh tests/host-paths.sh
+	sh tests/test-inputs.sh
 	sh tests/trace-hold.sh
 .PHONY: dataloss-test
 dataloss-test:
@@ -89,8 +92,15 @@ gate-test: $(OUT)/bochs-verdict-test $(OUT)/qemu-deadline-test $(OUT)/port-lock-
 	$(OUT)/emu-exit-test $(OUT)/emu-exit.infra
 gate-test: $(OUT)/emu-exit-test emu-cli-check console-symbols-check
 .PHONY: console-symbols-check
-console-symbols-check: $(OUT)/console-symbols-test
-	sh tests/console-symbols.sh $(TOP)/build/system/system.elf $<
+# Tier 0 reads a fixture ELF with the system's two g_console_page symbols;
+# the real build/system/system.elf is checked by `make image`, after it is
+# built (initech-qw018: tier 0 must not read another component's build).
+console-symbols-check: $(OUT)/console-symbols-test $(OUT)/console-symbols-fixture.elf
+	sh tests/console-symbols.sh $(OUT)/console-symbols-fixture.elf $<
+$(OUT)/console-symbols-fixture.elf: tests/console-symbols-fixture/page.c tests/console-symbols-fixture/pointer.c | $(OUT)
+	$(TARGET_CC) $(TARGET_CFLAGS) -c tests/console-symbols-fixture/page.c -o $(OUT)/console-symbols-page.o
+	$(TARGET_CC) $(TARGET_CFLAGS) -c tests/console-symbols-fixture/pointer.c -o $(OUT)/console-symbols-pointer.o
+	$(TARGET_LD) $(TARGET_LDFLAGS) -e fixture_page -Ttext=0x10000 $(OUT)/console-symbols-page.o $(OUT)/console-symbols-pointer.o -o $@
 $(OUT)/console-symbols-test: tests/console-symbols.c emu/console_symbols.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 .PHONY: emu-cli-check

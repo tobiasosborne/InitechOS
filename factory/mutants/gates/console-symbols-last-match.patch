@@ -1,0 +1,13 @@
+diff --git a/factory/emu/console_symbols.h b/factory/emu/console_symbols.h
+index e95b138b..3b5ed9e9 100644
+--- a/factory/emu/console_symbols.h
++++ b/factory/emu/console_symbols.h
+@@ -40,7 +40,7 @@ static int console_symbols(const char *path, uint32_t *page, uint32_t *con)
+             memcpy(&sym, b + sh.sh_offset + j, sizeof sym);
+             if (sym.st_name >= st.sh_size || !memchr(b + st.sh_offset + sym.st_name, 0, st.sh_size - sym.st_name)) continue;
+             const char *name = (const char *)b + st.sh_offset + sym.st_name;
+-            if (!strcmp(name, "g_console_page") && sym.st_size == 4000u) *page = sym.st_value;
++            if (!strcmp(name, "g_console_page")) *page = sym.st_value;
+             if (!strcmp(name, "g_int21_con") && sym.st_size == 4u) *con = sym.st_value;
+         }
+     }

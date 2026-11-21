@@ -272,7 +272,11 @@ g_int21_con, the console_t prefix (80x25, cursor) and the 4000-byte page
 with writemem, resumes with c and writes <out>/<name>.screen, the 4002-byte
 raw record of apps/initechbase/tests/screen_file.h. emu/console_symbols.h
 picks the page by size (two symbols share its name; tests/console-symbols.sh
-grades it against nm -S). A refused or failed capture ends the run
+grades it against nm -S: in tier 0 on a fixture ELF built from
+tests/console-symbols-fixture/, in `make image` on the real system.elf).
+Tier 0 runs before anything else is built, so no recipe in the `test`
+closure may read another component's build/ output; tests/test-inputs.sh
+checks that from make's database (initech-qw018). A refused or failed capture ends the run
 incomplete (exit 3). On the DOS VER page it matched a fixed QEMU capture
 in every cell, attribute and the cursor except the clock's seconds.
 Journeys hold a press with hold_capture NAME [MARKER]: button down, the
