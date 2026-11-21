@@ -21,6 +21,16 @@ MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
 # Override only for isolated builds (for example the mutation runner).
 OUT ?= $(TOP)/build/$(COMPONENT)
+ifeq ($(INITECH_MUTANT_BUILD),1)
+# Keep the runner's output and test selection local to this make. Recursive
+# recipes can still supply their own OUT and TESTS.
+override MAKEOVERRIDES := $(filter-out OUT=%,$(MAKEOVERRIDES))
+ifneq ($(strip $(INITECH_MUTANT_SELECTION)),)
+override TESTS := $(INITECH_MUTANT_SELECTION)
+unexport TESTS
+endif
+unexport OUT INITECH_MUTANT_SELECTION
+endif
 override OUT := $(abspath $(OUT))
 ifeq ($(strip $(OUT)),)
 $(error OUT must live under $(TOP)/build/: OUT is empty)

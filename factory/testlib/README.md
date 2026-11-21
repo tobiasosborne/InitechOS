@@ -66,6 +66,12 @@ The seeded region generators/shrinker remain private to the region engine.
 The outer sweep uses per-invocation worker records and verifies every process
 exit and count summary against the owned patch inventory. Discovery, missing
 records/logs, malformed or partial counts, survivors and errors are all red.
+The sweep prepares the pristine product image once. Each worker copies the
+source snapshot and the prepared build inputs, then owns its `TOP/build`.
+Within a component, each host runner invocation also has a private
+dependency tree seeded from the pristine inputs. Scratch `OUT` and the
+selected tests apply to the graded invocation. Recursive dependencies keep
+their own output paths in that tree (initech-r6xvy, initech-ruu4t).
 mutants/extra.list declares root-relative patches reused by an integration
 grader. Pending-only targets are invoked, not silently replaced with success;
 unimplemented targets fail. Pending patches remain explicitly unproved, and

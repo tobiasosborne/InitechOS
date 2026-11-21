@@ -50,14 +50,44 @@ wait_batch() {
     pids= count=0
 }
 case ${CERT_MUTANT_JOBS:-4} in ''|*[!0-9]*|0) echo 'FAIL invalid CERT_MUTANT_JOBS' >&2; exit 1;; esac
+# Recursive builds use paths under TOP/build directly. Give each worker a
+# source snapshot and its own TOP so even image builds have private outputs.
+# Default to a short workspace for the emulator's Unix socket paths.
+workspace=$(mktemp -d "${TMPDIR:-/tmp}/im.XXXXXX")
+echo "mutation worker trees: $workspace"
+mkdir "$workspace/source"
+sh "$script_root/testlib/snapshot.sh" "$workspace/source" --exclude=./build \
+    --exclude=./.git --exclude=./.beads --exclude=./attic --exclude=".${out#"$root"}" .
+# Prepare the product inputs used by the image and host graders. This tree
+# stays pristine after preparation. The small coordinator fixtures have only
+# component makefiles.
+unset INITECH_MUTANT_INPUTS
+if [ -f "$workspace/source/Makefile" ]; then
+    if ! make --no-print-directory -C "$workspace/source" image > "$run/image.log" 2>&1; then
+        echo "FAIL mutation image preparation; evidence: $run/image.log and $workspace" >&2
+        exit 1
+    fi
+    # Command/dependency records contain paths into the preparation tree.
+    # Each worker regenerates its own records as it builds.
+    find "$workspace/source/build" -type f \( -name '*.cmd' -o -name '*.d' \) -exec rm -f {} +
+    export INITECH_MUTANT_INPUTS="$workspace/source/build"
+fi
+worker_number=0
 while read -r component active pending; do
     key=$(printf '%s' "$component" | tr / _)
+    worker_number=$((worker_number+1))
+    worker=$workspace/$worker_number
     rm -f "$out/mutants/$key.log" "$out/mutants/$key.rc" "$out/mutants/$key.counts"
     (
         rc=0
         # Always run the declared target, including pending-only owners. An
         # unimplemented target must fail, never acquire a synthetic success.
-        make --no-print-directory -C "$component" mutants > "$run/$key.log" 2>&1 || rc=$?
+        {
+            echo "mutation worker $component: $worker"
+            cp -pR "$workspace/source" "$worker" &&
+                cd "$worker" &&
+                make --no-print-directory -C "$component" mutants
+        } > "$run/$key.log" 2>&1 || rc=$?
         printf '%s\n' "$rc" > "$run/$key.rc.tmp"
         mv "$run/$key.rc.tmp" "$run/$key.rc"
         exit "$rc"
@@ -87,6 +117,6 @@ while read -r component active pending; do
 done < "$run/inventory"
 printf '%s\n' "$pending_total" > "$out/mutants/pending-count"
 if [ "$pending_total" -gt 0 ]; then echo "INCOMPLETE: $pending_total pending patches remain unproved"; fi
-if [ "$bad" -ne 0 ]; then echo "FAIL mutation sweep; evidence: $run" >&2; exit 1; fi
+if [ "$bad" -ne 0 ]; then echo "FAIL mutation sweep; evidence: $run and $workspace" >&2; exit 1; fi
 echo 'ACTIVE MUTATIONS GREEN: every scheduled worker completed and every active entry was killed'
-rm -rf "$run"
+rm -rf "$run" "$workspace"

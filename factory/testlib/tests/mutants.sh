@@ -5,6 +5,7 @@ root=$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)
 sweep=${MUTATION_SWEEP:-$root/factory/mutants.sh}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
+export TMPDIR=$work
 failed=0
 fixture() {
  case_dir=$work/$1
@@ -92,5 +93,48 @@ if (cd "$case_dir" && sh "$sweep" "$case_dir/out") > "$case_dir/result.log" 2>&1
  test "$(cat "$case_dir/out/mutants/b.counts")" = '0 0 0 0'
  echo 'ok active kills accepted; pending coverage explicitly incomplete'
 else cat "$case_dir/result.log"; failed=$((failed+1)); fi
+
+# Force a reader to run during a second worker's dependency relink. Only the
+# rendezvous files are shared; an installed executable belongs to its worker.
+fixture dependency 'sh ../dependency.sh read && echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"'
+mkdir -p "$case_dir/b/mutants" "$case_dir/sync"
+: > "$case_dir/b/mutants/b.patch"
+printf '.PHONY: mutants\nmutants:\n\t@sh ../dependency.sh relink && echo "b: 1 mutants, 1 killed, 0 survived, 0 errors"\n' > "$case_dir/b/Makefile"
+cat > "$case_dir/dependency.sh" <<'CONTROL'
+set -eu
+cd ..
+tool=build/shared/generate
+mkdir -p build/shared
+await() {
+    timeout 10 sh -c 'while [ ! -f "$1" ]; do sleep 0.02; done' sh "$MUTANT_RENDEZVOUS/$1"
+}
+case $1 in
+    read)
+        printf '#!/bin/sh\necho generated\n' > "$tool"
+        chmod +x "$tool"
+        touch "$MUTANT_RENDEZVOUS/installed"
+        await relinking
+        rc=0
+        "$tool" > build/shared/header || rc=$?
+        touch "$MUTANT_RENDEZVOUS/read"
+        [ "$rc" -eq 0 ] || exit "$rc"
+        grep -qx generated build/shared/header
+        ;;
+    relink)
+        await installed
+        rm -f "$tool"
+        printf '#!/bin/sh\necho generated\n' > "$tool"
+        touch "$MUTANT_RENDEZVOUS/relinking"
+        await read
+        chmod +x "$tool"
+        ;;
+esac
+CONTROL
+if (cd "$case_dir" && MUTANT_RENDEZVOUS="$case_dir/sync" CERT_MUTANT_JOBS=2 sh "$sweep" "$case_dir/out") > "$case_dir/result.log" 2>&1; then
+ test ! -e "$case_dir/build"
+ echo 'ok parallel workers own their dependency builds'
+else
+ cat "$case_dir/result.log" "$case_dir/out/mutants/a.log"; failed=$((failed+1))
+fi
 test "$failed" -eq 0
 echo 'mutation sweep controls: failures propagate, counts complete, pending explicit'

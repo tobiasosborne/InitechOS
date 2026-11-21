@@ -66,6 +66,8 @@ mutants:
 	+sh red-desktop.sh
 	+sh gate-mutants.sh
 	+sh smoke-mutants.sh
+	+$(MAKE) -C $(TOP) image
+	+$(MAKE) -C $(TOP) -f factory/desktop-tools.mk all
 	+sh navigation-mutants.sh
 	+sh testlib/tests/host-mutants.sh
 	+sh desktop-wait-mutants.sh

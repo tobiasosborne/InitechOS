@@ -4,6 +4,7 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
+export TMPDIR=$work
 mkdir -p "$work/bin"
 cat > "$work/bin/make" <<'MAKE'
 #!/bin/sh
@@ -48,7 +49,7 @@ for strict in 0 1; do
   dir=$work/$strict-$name
   mkdir -p "$dir/factory/testlib" "$dir/a/mutants"
   cp "$root/factory/cert.sh" "$root/factory/mutants.sh" "$dir/factory/"
-  cp "$root/factory/testlib/"*.awk "$dir/factory/testlib/"
+  cp "$root/factory/testlib/"*.awk "$root/factory/testlib/snapshot.sh" "$dir/factory/testlib/"
   : > "$dir/a/mutants/active.patch"
   printf '.PHONY: mutants\nmutants:\n\t@echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"\n' > "$dir/a/Makefile"
   if [ "$name" = pending ]; then

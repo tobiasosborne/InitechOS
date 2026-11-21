@@ -5,9 +5,27 @@ top=$1 component=$2 out=$3 make_cmd=$4
 shift 4
 [ "$#" -gt 0 ] || { echo "FAIL: no mutation patches selected" >&2; exit 1; }
 mkdir -p "$out/mutants"
-run=$(mktemp -d "$out/mutants/run.XXXXXX")
+job=$(mktemp -d "$out/mutants/run.XXXXXX")
 start=$(date +%s)
 ulimit -c 0
+# An owner can start multiple selection groups in parallel. Each group
+# owns the dependency builds used by all of its baseline and patch copies.
+mkdir "$job/tree"
+(cd "$top" && sh factory/testlib/snapshot.sh "$job/tree" --exclude=./build \
+    --exclude=./.git --exclude=./.beads --exclude=./attic --exclude=".${out#"$top"}" .)
+top=$job/tree
+if [ -n "${INITECH_MUTANT_INPUTS:-}" ]; then
+    cp -pR "$INITECH_MUTANT_INPUTS" "$top/build"
+else
+    # Standalone runs do not get the sweep's pristine image preparation.
+    case $component in
+        kernel) "$make_cmd" --no-print-directory -C "$top" catalog > "$job/inputs.log" 2>&1 ;;
+        turbo/seed|turbo/compiler) "$make_cmd" --no-print-directory -C "$top" image > "$job/inputs.log" 2>&1 ;;
+    esac
+fi
+# Keep the graded outputs within the component's tree for ownership audits.
+run=$top/build/$component/mutation
+mkdir -p "$run"
 # Build tools run through recording shims. A tool that fails during a mutant's
 # test run (and did not fail the same way in its baseline) is infrastructure:
 # the result is an error, never a kill (initech-kkqbw). The emulator harnesses
@@ -27,6 +45,15 @@ for tool in cc gcc clang nasm as ld ld.bfd ld.gold ld.lld ar objcopy fpc; do
 done
 PATH=$shims:$PATH
 export PATH
+# Scope the scratch output to this make invocation. A recursive build can
+# still pass a specific OUT when its recipe calls for one.
+export INITECH_MUTANT_BUILD=1
+mutant_make() {
+    source_dir=$1
+    shift
+    INITECH_MUTANT_SELECTION="$selection" "$make_cmd" --no-print-directory -C "$source_dir/component" \
+        TOP="$top" OUT="$source_dir/build" "$@"
+}
 n=0 killed=0 survived=0 errors=0
 for patch_file do
     n=$((n+1))
@@ -34,14 +61,12 @@ for patch_file do
     selection=$(sed -n 's/^# test: //p' "$patch_file")
     key=$(printf '%s' "$selection" | sha256sum | cut -d ' ' -f1)
     baseline=$run/baseline-$key
-    set --
-    [ -z "$selection" ] || set -- "TESTS=$selection"
     if [ ! -d "$baseline" ]; then
         echo "  baseline ${selection:-default}"
         mkdir -p "$baseline/component"
         cp -R . "$baseline/component/"
         : > "$baseline/infra"
-        if INITECH_INFRA_LOG=$baseline/infra INITECH_INFRA_ROOT=$baseline "$make_cmd" --no-print-directory -C "$baseline/component" TOP="$top" OUT="$baseline/build" "$@" test > "$baseline/log" 2>&1; then
+        if INITECH_INFRA_LOG=$baseline/infra INITECH_INFRA_ROOT=$baseline mutant_make "$baseline" test > "$baseline/log" 2>&1; then
             touch "$baseline/ok"
         fi
     fi
@@ -54,14 +79,14 @@ for patch_file do
     if ! patch --batch --fuzz=0 -p1 -d "$scratch/component" < "$patch_file" > "$scratch/patch.log" 2>&1; then
         echo "!!! PATCH FAILED: $patch_file"; errors=$((errors+1)); continue
     fi
-    if ! "$make_cmd" --no-print-directory -C "$scratch/component" TOP="$top" OUT="$scratch/build" "$@" test-build > "$scratch/build.log" 2>&1; then
+    if ! mutant_make "$scratch" test-build > "$scratch/build.log" 2>&1; then
         echo "!!! BUILD FAILED (not a kill): $patch_file"; errors=$((errors+1)); continue
     fi
     for pass in 1 2; do
         rm -f "$scratch"/build/host/*.result
         rc=0
         : > "$scratch/infra-$pass"
-        INITECH_INFRA_LOG=$scratch/infra-$pass INITECH_INFRA_ROOT=$scratch "$make_cmd" --no-print-directory -C "$scratch/component" TOP="$top" OUT="$scratch/build" "$@" test-run > "$scratch/test-$pass.log" 2>&1 || rc=$?
+        INITECH_INFRA_LOG=$scratch/infra-$pass INITECH_INFRA_ROOT=$scratch mutant_make "$scratch" test-run > "$scratch/test-$pass.log" 2>&1 || rc=$?
         sh "$top/factory/testlib/host-results.sh" "$scratch/build" "$scratch/test-$pass.log" "$rc" > "$scratch/fail-$pass"
         sh "$top/factory/testlib/infra-new.sh" "$baseline/infra" "$scratch/infra-$pass" > "$scratch/infra-$pass.new"
         [ ! -s "$scratch/infra-$pass.new" ] || echo ERROR > "$scratch/fail-$pass"
@@ -78,4 +103,4 @@ for patch_file do
     fi
 done
 echo "$component: $n mutants, $killed killed, $survived survived, $errors errors; $(($(date +%s)-start))s"
-if [ "$survived" -eq 0 ] && [ "$errors" -eq 0 ]; then rm -rf "$run"; else echo "scratch retained: $run"; exit 1; fi
+if [ "$survived" -eq 0 ] && [ "$errors" -eq 0 ]; then rm -rf "$job"; else echo "scratch retained: $job"; exit 1; fi

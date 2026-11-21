@@ -121,7 +121,8 @@ if [ "$component" = flair/desktop ] && grep -Eq '^Interface use-binding: kernel/
  echo 'interface exception: Finder published FAT (initech-02siz; ends when Finder operations use DOS)'
 fi
 if [ "$component" = dos ]; then
- artifacts="$artifacts $root/build/dos/command-resident.o $root/build/dos/batch.o $root/build/dos/env.o"
+ dos_out=${IMPORT_BUILD_OUT:-$root/build/dos}
+ artifacts="$artifacts $dos_out/command-resident.o $dos_out/batch.o $dos_out/env.o"
 fi
 awk -v roots="$artifacts" -f "$helper/interface-graph.awk" "$database" > "$out/graph.paths"
 awk -v roots="$artifacts" -v membership=1 -f "$helper/interface-graph.awk" "$database" > "$out/graph.members"
