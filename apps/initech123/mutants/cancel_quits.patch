@@ -1,13 +1,12 @@
-# Legacy I123_MUT_CANCEL_QUITS (all hook locations together).
+# Treat Cancel like Don't Save, accepting any pending Finder quit request.
 # test: test_i123_quit
 --- a/app/face_a.c
 +++ b/app/face_a.c
-@@ -1228,6 +1228,9 @@
+@@ -1520,6 +1520,8 @@
      g_asking = 0;
-     if (item == (int32_t)TBX_ALERT_OTHER) { (void)tbx_exit(0); return; }   /* Don't Save */
+     if (item == (int32_t)TBX_ALERT_OTHER) { g_quit_pending = 0; (void)tbx_exit(0); return; }   /* Don't Save: EXIT accepts */
      if (item != (int32_t)TBX_ALERT_DEFAULT) {
-+        /* MUTANT (CLAUDE.md, The constitution; test-i123-quit-mutant Q3): Cancel ends the session
-+         * anyway. NEVER real. */
++        g_quit_pending = 0;
 +        (void)tbx_exit(0);
          return;      /* Cancel: the sheet, the mode and the typed entry stay */
      }
