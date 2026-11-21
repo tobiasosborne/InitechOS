@@ -61,16 +61,16 @@ The kernel checks the extended-memory minimum at boot.
 - Installable character-device drivers and the standard resident devices
   (`CON`, `AUX`, `PRN`, `CLOCK$`, `NUL`).
 
-## Installation
+## Starting InitechOS
 
-1. Insert Distribution Diskette 1 in drive A.
-2. At the system prompt, type `A:SETUP` and press ENTER.
-3. Follow the on-screen instructions. The Setup program will copy the system
-   files to your fixed disk and configure `CONFIG.SYS` and `AUTOEXEC.BAT`.
-4. Remove the diskette and restart the workstation.
+The distribution is supplied as a boot disk and an applications disk ready
+for use. Start the workstation with the boot disk as the primary IDE master
+and the applications disk as the primary IDE slave. InitechDOS mounts the
+applications disk as drive A: and starts FLAIR.
 
-Upon restart the system displays the InitechDOS banner and starts FLAIR. At the
-InitechDOS prompt, type `FLAIR` to start the FLAIR graphical operating environment.
+Keep both working disks together when making a backup. To return the
+workstation to its original condition, set the working pair aside and start
+with a fresh copy of the distribution.
 
 ## Conformance
 
@@ -84,33 +84,28 @@ requirement of the platform.
 
 ### Appendix A &mdash; Operation on contemporary host systems
 
-The distribution may be operated on a present-day host by means of an
-486-class system emulator. The build and emulation harness targets, in
-order of fidelity, QEMU (development), Bochs (transition accuracy), and 86Box
-(period authenticity).
+The distribution runs under QEMU or Bochs.
 
 ```sh
 # One-time host preparation (Debian/Ubuntu)
-sudo apt install qemu-system-i386 bochs make nasm mtools
+sudo apt install build-essential gcc-multilib nasm mtools fdisk dosfstools \
+  libpng-dev qemu-system-x86 bochs bochsbios vgabios
 
-make image        # produce a bootable distribution image
 make run          # start the system under QEMU
-make run-bochs    # start the system under Bochs
-make test         # run the full conformance and verification suite
+make run-bochs    # start the system under Bochs with serial capture
+make image        # build the distribution masters in build/image/
 ```
 
-The graphical distribution uses two images: `build/initech.img` is the boot
-disk and `build/flair_data.img` is the required application/data disk on the
-IDE primary slave. `make run` attaches both. The film scene also requires both:
+The first start builds the distribution and prepares the working copies
+`user-disks/boot.img` and `user-disks/data.img`. Both launch commands reuse
+that pair. Files saved to drive A: are in `user-disks/data.img`. The working
+copies are kept through `make image` and `make clean`.
 
-```sh
-make build/flair_live_interactive.img build/flair_data.img
-qemu-system-i386 -m 16 -drive file=build/flair_live_interactive.img,format=raw,index=0 \
-  -drive file=build/flair_data.img,format=raw,index=1 -serial stdio
-```
-
-The film scene halts with `PC LOAD LETTER` and the failed startup requirement
-if its data disk, `APPS` folder, or `CALC.EXE` cannot be loaded.
+To start with a fresh pair, exit the emulator and rename `user-disks/` to
+an unused name, such as `user-disks-backup/`. The next start prepares a new
+pair. If an earlier launcher left your working files in `build/image/`,
+move its `boot.img` and `data.img` together into `user-disks/` before
+building or starting this version.
 
 The build is freestanding (`gcc -m32 -ffreestanding -nostdlib` + `nasm` + `ld`
 on the interim toolchain; `i686-elf` cross-compilation on the target toolchain).

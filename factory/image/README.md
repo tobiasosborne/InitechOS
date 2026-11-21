@@ -48,3 +48,16 @@ the working volume byte for byte, the data manifest and its attributes,
 They are not yet the booted product: boot.img/data.img stay the product
 until delivery's C: startup is on main and the smoke drivers move to
 C:@@32256 (the agreed staging in factory-owner-2.md).
+
+## Working disks
+
+`make run` and `make run-bochs` use `user-disks/boot.img` and
+`user-disks/data.img`. On first start they copy the product pair after a
+fresh `make image`. They share a checkout lock and refuse an incomplete
+pair. Bochs attaches the working boot disk in place for this launcher.
+Smoke and repro still use the factory images.
+
+Run `sh factory/image/tests/launch.sh` from a disposable checkout to probe
+the launch path with stub emulators and mtools. It builds the image, inserts
+markers in both drives, and reads them on restart after an image rebuild
+and after `make clean`. It leaves the test's working disks in that checkout.

@@ -120,10 +120,8 @@ smoke: smoke-selection image
 	$(MAKE) -C factory smoke; \
 	for c in $(SMOKE_COMPONENTS); do $(MAKE) --no-print-directory -C $$c smoke || exit 1; done; \
 	echo 'FULL SMOKE GREEN: factory DOS/programs/desktop + $(REGISTERED_SMOKE_COMPONENTS); QEMU + Bochs'
-run: image
-	qemu-system-i386 -m 8 -machine acpi=off -cpu 486 -drive file=build/image/boot.img,format=raw,index=0 -drive file=build/image/data.img,format=raw,index=1 -serial stdio -d int,guest_errors,cpu_reset -D build/qemu.log -no-reboot
-run-bochs: image
-	INITECH_TEST_RAM_MB=8 build/factory/bochs_harness --disk build/image/boot.img --disk2 build/image/data.img --serial-stdout --timeout-ms 3600000 --out build/factory
+run run-bochs:
+	+sh factory/image/run.sh "$(MAKE)" "$@"
 repro:
 	sh factory/repro.sh
 .PHONY: system-build

@@ -16,8 +16,8 @@
  *  - Serial is captured via `com1: mode=file`. The guest hlt-loops, so the run
  *    times out unless a completion marker was requested; the verdict is
  *    markers + fault scan (PRD Sec 8; initech-cqej reboot-and-wait).
- *  - Each run clones its boot disk privately. Callers supply a private
- *    writable data disk; no other run's disk lock is removed.
+ *  - Tests clone the boot disk privately by default. The user launcher
+ *    supplies both writable disks. No other run's disk lock is removed.
  */
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700   /* realpath(3) (XSI; glibc gates it on XOPEN_EXTENDED) */
@@ -943,15 +943,17 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     if (join_path(out->snap_ppm_path, sizeof(out->snap_ppm_path), dir, fn) != 0) return -1;
     char bochs_snap[BOCHS_PATH_MAX];     /* where gui.cc writes, cwd=dir */
     if (join_path(bochs_snap, sizeof(bochs_snap), dir, "snapshot.bmp") != 0) return -1;
-    if(join_path(out->boot_path,sizeof out->boot_path,dir,".bochs-boot.XXXXXX") ||
-       bochs_boot_copy(cfg->disk_path,out->boot_path)) {
-        fprintf(stderr,"bochs_run: cannot create private boot copy\n");return -1;
-    }
-
     /* Screendump runs Bochs with cwd=dir: every path Bochs sees is absolute
      * (the report keeps the caller's relative spellings). */
     BochsConfig rcfg = *cfg;
-    rcfg.disk_path=out->boot_path;
+    if (!cfg->write_boot_disk) {
+        if (join_path(out->boot_path, sizeof out->boot_path, dir, ".bochs-boot.XXXXXX") ||
+            bochs_boot_copy(cfg->disk_path, out->boot_path)) {
+            fprintf(stderr, "bochs_run: cannot create private boot copy\n");
+            return -1;
+        }
+        rcfg.disk_path = out->boot_path;
+    }
     char *abs_dir = NULL, *abs_disk = NULL, *abs_data = NULL, *abs_bios = NULL,
          *abs_vga = NULL;
     char abs_serial[BOCHS_PATH_MAX], abs_bochsrc[BOCHS_PATH_MAX], abs_rcfile[BOCHS_PATH_MAX];
@@ -959,7 +961,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                *child_bochsrc = out->bochsrc_path;
     if (cfg->screendump_after) {
         abs_dir = realpath(dir, NULL);
-        abs_disk = realpath(out->boot_path, NULL);
+        abs_disk = realpath(rcfg.disk_path, NULL);
         abs_data = cfg->data_disk_path ? realpath(cfg->data_disk_path, NULL) : NULL;
         abs_bios = realpath(cfg->bios_path ? cfg->bios_path : BOCHS_DEFAULT_BIOS, NULL);
         abs_vga = realpath(cfg->vgabios_path ? cfg->vgabios_path : BOCHS_DEFAULT_VGABIOS, NULL);
@@ -1286,7 +1288,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
 
     /* Only our unique private clone belongs to this harness. Never remove
      * locks beside source images or caller-supplied writable data. */
-    {
+    if (!cfg->write_boot_disk) {
         char lock[BOCHS_PATH_MAX];
         if (snprintf(lock, sizeof(lock), "%s.lock", out->boot_path) < (int)sizeof(lock))
             remove(lock);

@@ -29,6 +29,7 @@ static void usage(const char *argv0)
     fprintf(stderr,
         "usage: %s --disk IMG [options]\n"
         "  --disk2 IMG        attach a raw disk as IDE primary slave\n"
+        "  --write-boot-disk  write to the provided boot disk in place\n"
         "  --expect MARKER    assert MARKER present (line-exact) on serial\n"
         "  --quit-after MARK  stop after this complete exact serial line\n"
         "  --quit-after-count N  wait for N occurrences (default 1)\n"
@@ -73,6 +74,7 @@ int main(int argc, char **argv)
     } while (0)
         if (strcmp(a, "--disk") == 0)            { NEED_ARG(); cfg.disk_path = argv[++i]; }
         else if (strcmp(a, "--disk2") == 0)      { NEED_ARG(); cfg.data_disk_path = argv[++i]; }
+        else if (strcmp(a, "--write-boot-disk") == 0) { cfg.write_boot_disk = true; }
         else if (strcmp(a, "--expect") == 0)     { NEED_ARG(); cfg.expect_marker = argv[++i]; }
         else if (strcmp(a, "--quit-after") == 0) { NEED_ARG(); cfg.quit_after = argv[++i]; }
         else if (strcmp(a, "--allow-reboot") == 0) { cfg.allow_reboot = true; }
@@ -161,7 +163,8 @@ int main(int argc, char **argv)
         res.reaped, res.shutdown_requested,
         res.serial_len, res.marker_found,
         cfg.expect_marker ? cfg.expect_marker : "(none)",
-        res.triple_fault, res.rfb_port, res.boot_path, res.keys_sent, res.trace_late, res.quit_marker_found, res.quit_markers_seen,
+        res.triple_fault, res.rfb_port, res.boot_path[0] ? res.boot_path : "(none)",
+        res.keys_sent, res.trace_late, res.quit_marker_found, res.quit_markers_seen,
         cfg.quit_after_count > 0 ? cfg.quit_after_count : 1,
         cfg.quit_after ? cfg.quit_after : "(none)", res.serial_path,
         cfg.screendump_after ? cfg.screendump_after : "(none)",
