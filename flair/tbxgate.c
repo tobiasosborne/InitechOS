@@ -377,6 +377,8 @@ static uint32_t color_px(uint32_t tok)
     case TBX_COLOR_BLACK: part = (int)FLAIR_PART_FRAME;        break;
     case TBX_COLOR_GRAY:  part = (int)FLAIR_PART_BTNFACE;      break;
     case TBX_COLOR_NAVY:  part = (int)FLAIR_PART_CAPTION_NAVY; break;
+    case TBX_COLOR_SLICE: part = (int)FLAIR_PART_SLICE;        break;
+    case TBX_COLOR_SLICE_SIDE: part = (int)FLAIR_PART_SLICE_SIDE; break;
     default:              part = (int)FLAIR_PART_CONTENT;      break;
     }
     return flair_look_pixel_depth(g_host.surface->bpp, part);

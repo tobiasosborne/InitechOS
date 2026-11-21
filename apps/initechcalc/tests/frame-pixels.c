@@ -4,19 +4,31 @@
  * every one of them from goldens/frame (geometry.tsv, colours.tsv,
  * transcription.tsv). Nothing here knows InitechCalc's drawing code.
  *
- *   frame-pixels shot.ppm REGION l t r b  PIE l t r b  ELLIPSE cx cy a b
+ *   frame-pixels shot.ppm SAMPLE l t r b R G B weight role name ...
+ *                REGION l t r b  PIE l t r b  ELLIPSE cx cy a b
  *                [SERIES v1 ... vn] [AT x y role] ...
- *   frame-pixels shot.ppm FRAME l t r b ... [TEXT l t r b] [BAR l t r b]
- *                [NONAVY l t r b] [COLOUR l t r b R G B name] ...
+ *   frame-pixels shot.ppm SLICEREF l t r b R G B weight role name ...
+ *                FRAME l t r b ... [TEXT l t r b] [BAR l t r b]
+ *                [NOSLICE l t r b] [COLOUR l t r b R G B name] ...
  *                [HOURGLASS l t r b]
  *
- * REGION    where on screen the chart window may be (navy outside the pie is
- *           searched for only here)
- * PIE       the still's pie: the navy pixels' bounds must be within 4 px
+ * SAMPLE    a colours.tsv slice sample: its box on screen, its colour
+ *           relative to the photographed white at full white, the area of
+ *           its box on the still and its role, "face" or "side". The
+ *           still's samples of one role are one paint under uneven light
+ *           (wedge18_top reads brighter than the photographed white), so
+ *           a role's colour is the area-weighted per-channel median of its
+ *           samples, the sheet's own statistic over its pooled boxes; each
+ *           sample's box on screen must have that colour, as COLOUR grades
+ * SLICEREF  a SAMPLE that only sets its role's colour; its box is not graded
+ * REGION    where on screen the chart window may be (slice colours outside
+ *           the pie are searched for only here)
+ * PIE       the still's pie: the slice-coloured pixels' bounds must be
+ *           within 4 px
  * ELLIPSE   the still's top face: at 80% of the way out, at each slice's
  *           middle (value/sum of a turn clockwise from 12 o'clock), the
  *           pixel must be a slice face
- * AT        a sampled point and its role, "field" (black) or "face" (navy)
+ * AT        a sampled point and its role, "field" (black) or "face"
  * FRAME     a window's outer bounds, half-open, given back to front: each
  *           edge pixel no later FRAME covers is the black outline, and the
  *           pixel just inside it is not black (the frame's rail or bevel,
@@ -26,7 +38,7 @@
  * TEXT      a caption's box: its black pixels (searched 4 px around the box)
  *           start within 4 px of its left, top and bottom
  * BAR       a progress bar's box: its black outline's bounds within 4 px
- * NONAVY    a box in front of the chart: no slice navy shows through it
+ * NOSLICE   a box in front of the chart: no slice colour shows through it
  * COLOUR    a colours.tsv sample's box: the per-channel median of its pixels
  *           (the sheet's own statistic) within 5/255 of R G B, which is the
  *           sample's colour relative to the photographed white scaled to
@@ -35,9 +47,8 @@
  *           either side, 4 above and below) bounded within 4 px of the box,
  *           and an hourglass (both ends at least 3/4 of its width, its
  *           waist at most 1/4), never a watch
- * Colours: the Toolbox's black (0,0,0) and navy (0,0,128), the stand-in for
- * the still's slice blue until the SDK has one (goldens/frame/README.md
- * question 12). Tolerance: 3/255 per channel, the DAC's quantisation. */
+ * Colours: black (0,0,0) within 3/255 per channel, the DAC's quantisation;
+ * a slice face or side within 5/255 of its role's colour, as COLOUR. */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,8 +64,32 @@ static void fail(const char *s,int x,int y)
 static int near(int v,int want) { return v>=want-3&&v<=want+3; }
 static int is(int x,int y,int r,int g,int b)
 { return x>=0&&x<W&&y>=0&&y<H&&near(px[y][x][0],r)&&near(px[y][x][1],g)&&near(px[y][x][2],b); }
-static int navy(int x,int y) { return is(x,y,0,0,128); }
 static int black(int x,int y) { return is(x,y,0,0,0); }
+/* The slice samples and each role's colour (0 face, 1 side). */
+enum { SAMPLES=16 };
+static struct { int box[4], rgb[3], role, graded; double weight; char name[32]; } sample[SAMPLES];
+static int nsample, role_rgb[2][3], have_role[2];
+static void role_colours(void)
+{
+    for(int k=0;k<2;k++) for(int c=0;c<3;c++) {
+        int v[SAMPLES], n=0; double w[SAMPLES], total=0, run=0;
+        for(int i=0;i<nsample;i++) if(sample[i].role==k) {   /* insertion sort by value */
+            int j=n++;
+            while(j>0&&v[j-1]>sample[i].rgb[c]) { v[j]=v[j-1]; w[j]=w[j-1]; j--; }
+            v[j]=sample[i].rgb[c]; w[j]=sample[i].weight; total+=sample[i].weight;
+        }
+        have_role[k]=n>0;
+        for(int j=0;j<n;j++) { run+=w[j]; if(2*run>=total) { role_rgb[k][c]=v[j]; break; } }
+    }
+}
+static int within5(int x,int y,const int *rgb)
+{
+    if(x<0||x>=W||y<0||y>=H) return 0;
+    for(int c=0;c<3;c++) if(px[y][x][c]<rgb[c]-5||px[y][x][c]>rgb[c]+5) return 0;
+    return 1;
+}
+static int face(int x,int y) { return have_role[0]&&within5(x,y,role_rgb[0]); }
+static int slice(int x,int y) { return face(x,y)||(have_role[1]&&within5(x,y,role_rgb[1])); }
 enum { FRAMES=8 };
 static int frames[FRAMES][4], nframes;
 static int covered(int k,int x,int y)   /* by a FRAME in front of frame k */
@@ -114,7 +149,8 @@ int main(int argc,char **argv)
        ||fread(px,1,sizeof px,f)!=sizeof px) { fprintf(stderr,"frame-pixels: not a 640x480 P6: %s\n",argv[1]); return 2; }
     fclose(f);
     int reg[4]={0,0,W,H}, pie[4]={0}, havepie=0, haveell=0; double ell[4]={0}, ser[8]; int ns=0;
-    int text[4], bar[4], nonavy[4], glass[4], havetext=0, havebar=0, havenonavy=0, haveglass=0;
+    int text[4], bar[4], noslice[4], glass[4], havetext=0, havebar=0, havenoslice=0, haveglass=0;
+    int at[16][3], nat=0;   /* AT points, graded once the slice colours are known */
     for(int i=2;i<argc;) {
         if(!strcmp(argv[i],"REGION")) { for(int k=0;k<4;k++) reg[k]=num(argv,i+1+k,argc); i+=5; }
         else if(!strcmp(argv[i],"PIE")) { for(int k=0;k<4;k++) pie[k]=num(argv,i+1+k,argc); havepie=1; i+=5; }
@@ -134,19 +170,48 @@ int main(int argc,char **argv)
             if(off) { failures++; printf("FAIL frame pixels: %s (%d,%d)-(%d,%d) has median #%02x%02x%02x; the still's is #%02x%02x%02x relative to its white\n",name,b[0],b[1],b[2],b[3],got[0]&255,got[1]&255,got[2]&255,want[0],want[1],want[2]); }
             i+=9;
         }
-        else if(!strcmp(argv[i],"NONAVY")) { for(int k=0;k<4;k++) nonavy[k]=num(argv,i+1+k,argc); havenonavy=1; i+=5; }
+        else if(!strcmp(argv[i],"NOSLICE")) { for(int k=0;k<4;k++) noslice[k]=num(argv,i+1+k,argc); havenoslice=1; i+=5; }
+        else if(!strcmp(argv[i],"SAMPLE")||!strcmp(argv[i],"SLICEREF")) {
+            if(nsample==SAMPLES||i+10>=argc) return 2;
+            for(int k=0;k<4;k++) sample[nsample].box[k]=num(argv,i+1+k,argc);
+            for(int k=0;k<3;k++) sample[nsample].rgb[k]=num(argv,i+5+k,argc);
+            sample[nsample].weight=atof(argv[i+8]);
+            if(!strcmp(argv[i+9],"face")) sample[nsample].role=0;
+            else if(!strcmp(argv[i+9],"side")) sample[nsample].role=1;
+            else { fprintf(stderr,"frame-pixels: unknown slice role %s\n",argv[i+9]); return 2; }
+            snprintf(sample[nsample].name,sizeof sample[nsample].name,"%s",argv[i+10]);
+            sample[nsample++].graded=!strcmp(argv[i],"SAMPLE");
+            i+=11;
+        }
         else if(!strcmp(argv[i],"AT")) {
-            int x=num(argv,i+1,argc), y=num(argv,i+2,argc); const char *role=i+3<argc?argv[i+3]:"";
-            checks++;
-            if(!strcmp(role,"field")) { if(!black(x,y)) fail("the chart field is not black",x,y); }
-            else if(!strcmp(role,"face")) { if(!navy(x,y)) fail("no slice face",x,y); }
+            const char *role=i+3<argc?argv[i+3]:"";
+            if(nat==16) return 2;
+            at[nat][0]=num(argv,i+1,argc); at[nat][1]=num(argv,i+2,argc);
+            if(!strcmp(role,"field")) at[nat++][2]=0;
+            else if(!strcmp(role,"face")) at[nat++][2]=1;
             else { fprintf(stderr,"frame-pixels: unknown role %s\n",role); return 2; }
             i+=4;
         } else { fprintf(stderr,"frame-pixels: unknown argument %s\n",argv[i]); return 2; }
     }
+    role_colours();
+    if((havepie||haveell||havenoslice)&&!have_role[0]) { fputs("frame-pixels: no slice face sample\n",stderr); return 2; }
+    for(int i=0;i<nsample;i++) if(sample[i].graded) {
+        int got[3], off=0, *want=role_rgb[sample[i].role];
+        median(sample[i].box,got); checks++;
+        for(int k=0;k<3;k++) if(got[k]<want[k]-5||got[k]>want[k]+5) off=1;
+        if(off) { failures++; printf("FAIL frame pixels: %s (%d,%d)-(%d,%d) has median #%02x%02x%02x; the still's slice %s is #%02x%02x%02x relative to its white\n",
+                                     sample[i].name,sample[i].box[0],sample[i].box[1],sample[i].box[2],sample[i].box[3],got[0]&255,got[1]&255,got[2]&255,
+                                     sample[i].role?"side":"face",want[0],want[1],want[2]); }
+    }
+    for(int i=0;i<nat;i++) {
+        int x=at[i][0], y=at[i][1];
+        checks++;
+        if(!at[i][2]) { if(!black(x,y)) fail("the chart field is not black",x,y); }
+        else if(!face(x,y)) fail("no slice face",x,y);
+    }
     if(havepie) {
         int l=W,t=H,r=-1,b=-1;
-        for(int y=reg[1];y<reg[3];y++) for(int x=reg[0];x<reg[2];x++) if(navy(x,y)) {
+        for(int y=reg[1];y<reg[3];y++) for(int x=reg[0];x<reg[2];x++) if(slice(x,y)) {
             if(x<l) l=x;
             if(x>r) r=x;
             if(y<t) t=y;
@@ -166,7 +231,7 @@ int main(int argc,char **argv)
             double m=(a+ser[i]/2)/sum*2*3.14159265358979323846;
             int x=(int)lround(ell[0]+0.8*ell[2]*sin(m)), y=(int)lround(ell[1]-0.8*ell[3]*cos(m));
             checks++;
-            if(!navy(x,y)) fail("no slice face at a slice's middle",x,y);
+            if(!face(x,y)) fail("no slice face at a slice's middle",x,y);
             a+=ser[i];
         }
     }
@@ -189,10 +254,10 @@ int main(int argc,char **argv)
         if(seen) for(int k=0;k<4;k++) if(o[k]-bar[k]<-4||o[k]-bar[k]>4) off=1;
         if(off||!seen) { failures++; printf("FAIL frame pixels: the progress bar spans (%d,%d)-(%d,%d); the still has it at (%d,%d)-(%d,%d)\n",o[0],o[1],o[2],o[3],bar[0],bar[1],bar[2],bar[3]); }
     }
-    if(havenonavy) {
+    if(havenoslice) {
         int n=0; checks++;
-        for(int y=nonavy[1];y<nonavy[3];y++) for(int x=nonavy[0];x<nonavy[2];x++) n+=navy(x,y);
-        if(n) { failures++; printf("FAIL frame pixels: %d navy pixels show through (%d,%d)-(%d,%d), which is in front of the chart\n",n,nonavy[0],nonavy[1],nonavy[2],nonavy[3]); }
+        for(int y=noslice[1];y<noslice[3];y++) for(int x=noslice[0];x<noslice[2];x++) n+=slice(x,y);
+        if(n) { failures++; printf("FAIL frame pixels: %d slice pixels show through (%d,%d)-(%d,%d), which is in front of the chart\n",n,noslice[0],noslice[1],noslice[2],noslice[3]); }
     }
     if(haveglass) {
         /* The canon busy cursor (CLAUDE.md, The constitution, point 2;

@@ -42,6 +42,12 @@ FILECOPY_PROGRESS; the bar keeps the CDEF's etch, frame, edge column and
 track. FileCopyCancelableDialog sets the record's fileCopyStyle; every other
 dialog keeps the captured E7 face and Platinum bar. test_frame_copy_colour
 grades both colours against colours.tsv at 8 and 32 bpp and through the DAC.
+The Toolbox's TBX_COLOR_SLICE and TBX_COLOR_SLICE_SIDE draw canon slots 28
+and 29 (PARTs SLICE and SLICE_SIDE): the still's slice face and side,
+colours.tsv wedge40_top and wedge_side_bottom (relative 0.26 0.51 1.00 and
+0.20 0.29 0.53, so #4282FF and #334A87), for InitechCalc's pie.
+test_frame_copy_colour grades them the same way; test_flair_routing checks
+the gate paints each token's PART.
 The Finder tableau uses this same live constructor and placement.
 
 NEWWINDOW's WDEF byte 4 is the Mac's noGrowDocProc (frame-owner request W1):

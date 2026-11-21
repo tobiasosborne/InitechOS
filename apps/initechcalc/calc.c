@@ -513,12 +513,14 @@ static void piece_spans(uint32_t s,uint32_t e)
     }
 }
 /* The pie is drawn in Calc's own memory first and sent to the Toolbox as
- * navy rectangles over the black field: a gate call per scanline of every
- * slice made the chart about 1,100 gate calls (initech-kzras). The picture
- * covers everything the slices can reach (each is pushed out at most PIE_X).
- * 0 is the black field, 1 navy, 2 navy already sent. */
+ * face and side rectangles over the black field: a gate call per scanline of
+ * every slice made the chart about 1,100 gate calls (initech-kzras). The
+ * picture covers everything the slices can reach (each is pushed out at most
+ * PIE_X). 0 is the black field, PIE_FACE a face, PIE_SIDE a side, either
+ * with PIE_SENT once sent. */
 enum { PIE_L=PIE_CX-PIE_A-PIE_X, PIE_T=PIE_CY-PIE_B-PIE_X,
-       PIE_W=2*(PIE_A+PIE_X)+1, PIE_H=2*(PIE_B+PIE_X)+PIE_D+1 };
+       PIE_W=2*(PIE_A+PIE_X)+1, PIE_H=2*(PIE_B+PIE_X)+PIE_D+1,
+       PIE_FACE=1, PIE_SIDE=2, PIE_SENT=4 };
 static uint8_t pie[PIE_H][PIE_W];
 static void pie_rect(int l,int t,int r,int b,uint8_t v)
 {
@@ -533,38 +535,44 @@ static void draw_piece(uint32_t s,uint32_t e,int ox,int oy)
 {
     piece_spans(s,e);
     int cx=PIE_CX+ox, cy=PIE_CY+oy;
-    /* the side: the face swept down PIE_D rows, shaded darker than the face
-     * by a scanline dither (the Toolbox has one blue; colours.tsv) */
+    /* the side: the face swept down PIE_D rows, in the side's darker blue
+     * (goldens/frame/colours.tsv slice side; TBX_COLOR_SLICE_SIDE) */
     for(int y=-PIE_B;y<=PIE_B+PIE_D;y++) {
         int l=32767, r=-32768;
         for(int t=y-PIE_D;t<=y;t++) if(t>=-PIE_B&&t<=PIE_B&&span_l[t+PIE_B]<=span_r[t+PIE_B]) {
             if(span_l[t+PIE_B]<l) l=span_l[t+PIE_B];
             if(span_r[t+PIE_B]>r) r=span_r[t+PIE_B];
         }
-        pie_rect(cx+l,cy+y,cx+r+1,cy+y+1,((cy+y)&1)?0:1);
+        pie_rect(cx+l,cy+y,cx+r+1,cy+y+1,PIE_SIDE);
     }
     /* the edge between face and side, then the face */
     for(int y=-PIE_B;y<=PIE_B;y++) if(span_l[y+PIE_B]<=span_r[y+PIE_B])
         pie_rect(cx+span_l[y+PIE_B],cy+y+1,cx+span_r[y+PIE_B]+1,cy+y+2,0);
     for(int y=-PIE_B;y<=PIE_B;y++) if(span_l[y+PIE_B]<=span_r[y+PIE_B])
-        pie_rect(cx+span_l[y+PIE_B],cy+y,cx+span_r[y+PIE_B]+1,cy+y+1,1);
+        pie_rect(cx+span_l[y+PIE_B],cy+y,cx+span_r[y+PIE_B]+1,cy+y+1,PIE_FACE);
 }
-/* Send the navy: each rectangle starts at the first row with navy not yet
- * sent, spans that row's unsent navy and runs down as far as navy covers it.
- * Navy over navy changes nothing, so rectangles may overlap. */
-static void send_pie(void)
+/* Send one colour: each rectangle starts at the first row with that colour
+ * not yet sent, spans that row's unsent run of it and runs down as far as
+ * the colour covers it. A colour over itself changes nothing, so rectangles
+ * of one colour may overlap. The sides go first and may also run over
+ * faces (`under`), which are all sent afterwards and cover them again:
+ * a side and the face above it are then one rectangle, not one a row. */
+static int pie_is(int y,int x,uint8_t c,uint8_t under)
+{ uint8_t p=(uint8_t)(pie[y][x]&~PIE_SENT); return p&&(p==c||p==under); }
+static void send_colour(uint8_t c,uint8_t under,uint32_t token)
 {
     for(int y=0;y<PIE_H;y++) for(int x=0;x<PIE_W;) {
-        if(!pie[y][x]) { x++; continue; }
+        if(!pie_is(y,x,c,under)) { x++; continue; }
         int u=-1, v=-1;
-        for(;x<PIE_W&&pie[y][x];x++) if(pie[y][x]==1) { if(u<0) u=x; v=x; }
+        for(;x<PIE_W&&pie_is(y,x,c,under);x++) if(pie[y][x]==c) { if(u<0) u=x; v=x; }
         if(u<0) continue;
         int h=1;
-        for(;y+h<PIE_H;h++) { int k=u; while(k<=v&&pie[y+h][k]) k++; if(k<=v) break; }
-        for(int t=y;t<y+h;t++) for(int k=u;k<=v;k++) pie[t][k]=2;
-        rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,TBX_COLOR_NAVY);
+        for(;y+h<PIE_H;h++) { int k=u; while(k<=v&&pie_is(y+h,k,c,under)) k++; if(k<=v) break; }
+        for(int t=y;t<y+h;t++) for(int k=u;k<=v;k++) if((pie[t][k]&~PIE_SENT)==c) pie[t][k]=c|PIE_SENT;
+        rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,token);
     }
 }
+static void send_pie(void) { send_colour(PIE_SIDE,PIE_FACE,TBX_COLOR_SLICE_SIDE); send_colour(PIE_FACE,0,TBX_COLOR_SLICE); }
 static double series_sum(void) { double t=0; for(unsigned i=0;i<nseries;i++) t+=series[i]; return t; }
 static uint32_t slice_start(unsigned i)   /* value/sum of a turn */
 {
@@ -599,7 +607,7 @@ static void paint_chart(void)
         int x=PIE_CX+ox+PIE_A*PIE_LABEL/100*sine(m)/65536, y=PIE_CY+oy-PIE_B*PIE_LABEL/100*cosine(m)/65536;
         i123_number_text(series[i],line,sizeof line);
         unsigned n=length(line); line[n]='%'; line[n+1]=0;
-        text(chart,x-3*(int)(n+1),y-5,line,TBX_COLOR_WHITE,TBX_COLOR_NAVY);
+        text(chart,x-3*(int)(n+1),y-5,line,TBX_COLOR_WHITE,TBX_COLOR_SLICE);
     }
 }
 static void paint(void) { paint_ledger(); paint_chart(); }

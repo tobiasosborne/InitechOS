@@ -240,7 +240,10 @@ static const flair_part_row_t flair_part_map[FLAIR_PART__COUNT] = {
     /* ICON_CLUT DESK_IC_RED_SEL    */ { CIDX_ICON_RED_SEL, 0u, FLAIR_NO_SKIN_SLOT },
     /* ICON_CLUT DESK_IC_PINK_SEL   */ { CIDX_ICON_PINK_SEL, 0u, FLAIR_NO_SKIN_SLOT },
     /* FILECOPY_PROGRESS (goldens/frame/colours.tsv) */
-    { CIDX_FILECOPY_PROGRESS, 0u, FLAIR_NO_SKIN_SLOT }
+    { CIDX_FILECOPY_PROGRESS, 0u, FLAIR_NO_SKIN_SLOT },
+    /* SLICE, SLICE_SIDE (goldens/frame/colours.tsv) */
+    { CIDX_SLICE, 0u, FLAIR_NO_SKIN_SLOT },
+    { CIDX_SLICE_SIDE, 0u, FLAIR_NO_SKIN_SLOT }
 };
 
 _Static_assert(sizeof(flair_skin_t) < 255u,

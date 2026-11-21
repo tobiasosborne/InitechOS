@@ -1,12 +1,12 @@
 # test: test_calc_picture
 --- a/calc.c
 +++ b/calc.c
-@@ -562,7 +562,7 @@
+@@ -569,7 +569,7 @@
          int h=1;
-         for(;y+h<PIE_H;h++) { int k=u; while(k<=v&&pie[y+h][k]) k++; if(k<=v) break; }
-         for(int t=y;t<y+h;t++) for(int k=u;k<=v;k++) pie[t][k]=2;
--        rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,TBX_COLOR_NAVY);
-+        if(h>1||v>u) rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,TBX_COLOR_NAVY);
+         for(;y+h<PIE_H;h++) { int k=u; while(k<=v&&pie_is(y+h,k,c,under)) k++; if(k<=v) break; }
+         for(int t=y;t<y+h;t++) for(int k=u;k<=v;k++) if((pie[t][k]&~PIE_SENT)==c) pie[t][k]=c|PIE_SENT;
+-        rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,token);
++        if(h>1||v>u) rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,token);
      }
  }
- static double series_sum(void) { double t=0; for(unsigned i=0;i<nseries;i++) t+=series[i]; return t; }
+ static void send_pie(void) { send_colour(PIE_SIDE,PIE_FACE,TBX_COLOR_SLICE_SIDE); send_colour(PIE_FACE,0,TBX_COLOR_SLICE); }

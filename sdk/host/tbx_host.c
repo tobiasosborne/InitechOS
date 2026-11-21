@@ -62,10 +62,10 @@ int32_t tbx_content_origin(int32_t w) { R(w,0,0,0,0,0,0);return win(w)?pack(S.or
 int32_t tbx_content_size(int32_t w) { R(w,0,0,0,0,0,0);return win(w)?pack(S.cw,S.ch):TBX_ERR_BADARG; }
 int32_t tbx_draw_text(int32_t w,int32_t x,int32_t y,const char *s,uint32_t f,uint32_t b)
 { R(w,x,y,(int32_t)f,(int32_t)b,0,s);unsigned face=f>>8&255,font=f>>16&255,size=f>>24;
-  return win(w)&&string_len(s,81,1)>=0&&(f&255)<4&&face<=7&&font<=1&&
-    (!size||(size==12&&font==1))&&b<4?TBX_OK:TBX_ERR_BADARG; }
+  return win(w)&&string_len(s,81,1)>=0&&(f&255)<TBX_COLOR_COUNT&&face<=7&&font<=1&&
+    (!size||(size==12&&font==1))&&b<TBX_COLOR_COUNT?TBX_OK:TBX_ERR_BADARG; }
 int32_t tbx_fill_rect(int32_t w,int32_t l,int32_t t,int32_t r,int32_t b,uint32_t c)
-{ R(w,l,t,r,b,(int32_t)c,0);return win(w)&&c<4&&l<r&&t<b?TBX_OK:TBX_ERR_BADARG; }
+{ R(w,l,t,r,b,(int32_t)c,0);return win(w)&&c<TBX_COLOR_COUNT&&l<r&&t<b?TBX_OK:TBX_ERR_BADARG; }
 int32_t tbx_draw_cells(int32_t w,int32_t x,int32_t y,const char *s,uint32_t f,uint32_t b)
 {
     R(w,x,y,(int32_t)f,(int32_t)b,0,s);

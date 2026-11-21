@@ -10,12 +10,13 @@
  *   NOTE    text            the ledger's recovery annotation
  *   OTHER   x y text        any other ledger draw (a failure for the script)
  *   LABEL   text            a chart draw
- *   EXTENT  l t r b         the bounds of every navy pixel the chart shows,
- *                           in SCREEN coordinates, half-open
+ *   EXTENT  l t r b         the bounds of every slice pixel (face or side)
+ *                           the chart shows, in SCREEN coordinates, half-open
  *   RING    360 chars       the chart around the reference ellipse, 1 per
- *                           degree clockwise from 12 o'clock: N solid navy (a
- *                           slice's face), S navy and black rows (a side), B
- *                           black, o other or outside what the window shows
+ *                           degree clockwise from 12 o'clock: N solid slice
+ *                           face, B black, S any other mix of face, side
+ *                           and black (a side, or a face at its edge), o
+ *                           other or outside what the window shows
  * The chart is replayed in screen coordinates: each fill at the observed
  * content origin, clipped to the observed content size, so a pie drawn past
  * the window's edge is seen as cut. Where the ring is sampled comes from
@@ -100,7 +101,7 @@ int main(int argc,char **argv)
                     px[yy+coy][xx+cox]=(uint8_t)(o->a[5]+1);
     }
     {   int l=640,t=480,r=-1,b=-1;
-        for(int yy=0;yy<480;yy++) for(int xx=0;xx<640;xx++) if(px[yy][xx]==TBX_COLOR_NAVY+1) {
+        for(int yy=0;yy<480;yy++) for(int xx=0;xx<640;xx++) if(px[yy][xx]==TBX_COLOR_SLICE+1||px[yy][xx]==TBX_COLOR_SLICE_SIDE+1) {
             if(xx<l) l=xx;
             if(xx>r) r=xx;
             if(yy<t) t=yy;
@@ -116,10 +117,10 @@ int main(int argc,char **argv)
         double t=d*3.14159265358979323846/180.0;
         int xx=(int)lround(pcx+0.8*pa*sin(t)), yy=(int)lround(pcy-0.8*pb*cos(t));
         if(xx<0||xx>=640||yy<1||yy>=479) { ring[d]='o'; continue; }
-        int v=px[yy][xx], up=px[yy-1][xx], dn=px[yy+1][xx], navy=TBX_COLOR_NAVY+1, black=TBX_COLOR_BLACK+1;
-        if(v==navy&&up==navy&&dn==navy) ring[d]='N';
+        int v=px[yy][xx], up=px[yy-1][xx], dn=px[yy+1][xx], face=TBX_COLOR_SLICE+1, side=TBX_COLOR_SLICE_SIDE+1, black=TBX_COLOR_BLACK+1;
+        if(v==face&&up==face&&dn==face) ring[d]='N';
         else if(v==black&&up==black&&dn==black) ring[d]='B';
-        else if((v==navy||v==black)&&(up==navy||up==black)&&(dn==navy||dn==black)) ring[d]='S';
+        else if((v==face||v==side||v==black)&&(up==face||up==side||up==black)&&(dn==face||dn==side||dn==black)) ring[d]='S';
         else ring[d]='o';
     }
     ring[360]=0;

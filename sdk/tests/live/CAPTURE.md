@@ -39,6 +39,12 @@ post-exit assertion that a reply after EXIT is NOTREG. The fake agreed with
 the newly booted gate on all 158 outcomes before the capture was re-pinned;
 a second boot reproduced it byte for byte.
 
+The slice colours (initech-h60sc) made tokens 4 and 5 valid. Cases 27 and 37,
+which probe a colour one past the last token, now pass TBX_COLOR_COUNT (6)
+instead of the literal 4; the booted gate still answers BADARG to both, and
+the re-read SDKRES.BIN was byte-identical to this capture. The fake, before
+its colour bound followed TBX_COLOR_COUNT, answered 0 to both (2 mismatches).
+
 Capture hashes (SHA-256):
 
 ```

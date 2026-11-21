@@ -4,12 +4,18 @@
  * progress_fill, relative to the photographed white), never from the painter
  * or the palette source. Graded at 32 bpp, at 8 bpp through the palette, and
  * through the DAC table the boot loads. The generic FileCopyDialog, built
- * into the same record afterwards, keeps the captured Platinum E7 face. */
+ * into the same record afterwards, keeps the captured Platinum E7 face.
+ * The Toolbox's slice face and side (PARTs SLICE and SLICE_SIDE, what
+ * TBX_COLOR_SLICE and TBX_COLOR_SLICE_SIDE draw) are graded the same way
+ * against the sheet's wedge40_top and wedge_side_bottom: the largest sample
+ * of each role, and the area-weighted median of its samples, which is what
+ * InitechCalc's booted check grades the pie against. */
 #define main old_dialog_main
 #include "test_dialog.c"
 #undef main
 #include "flair_dac.h"
 #include "palette.h"
+#include "flair_look.h"
 
 static uint32_t direct[640 * 480];
 static uint8_t indexed[640 * 480];
@@ -108,6 +114,25 @@ int main(void)
         CHECK(depth == 8 ? indexed[244 * 640 + 300] == 231
                          : direct[244 * 640 + 300] == 0xe7e7e7,
               "generic dialog retains captured Platinum face");
+    }
+    {
+        static const struct { int part; const char *sample, *what; } slice[2] = {
+            { FLAIR_PART_SLICE, "wedge40_top", "slice face" },
+            { FLAIR_PART_SLICE_SIDE, "wedge_side_bottom", "slice side" },
+        };
+        for (unsigned k = 0; k < 2; k++) {
+            unsigned want[3];
+            reference(FRAME_COLOURS, slice[k].sample, want);
+            uint32_t idx = flair_look_pixel_depth(8, slice[k].part);
+            uint32_t dac = ((uint32_t)flair_dac[idx & 255u][0] << 16) |
+                           ((uint32_t)flair_dac[idx & 255u][1] << 8) |
+                           flair_dac[idx & 255u][2];
+            grade(flair_look_pixel_depth(32, slice[k].part), want, 1, slice[k].what);
+            grade(flair_palette_rgb((uint8_t)idx), want, 1, slice[k].what);
+            grade(dac, want, 1, slice[k].what);
+            CHECK(idx != flair_look_pixel_depth(8, FLAIR_PART_CAPTION_NAVY),
+                  "a slice colour has its own palette slot, not navy's");
+        }
     }
     return TEST_SUMMARY("test-frame-copy-colour");
 }

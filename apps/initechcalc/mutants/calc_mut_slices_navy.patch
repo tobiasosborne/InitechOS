@@ -1,0 +1,12 @@
+# test: test_calc_frame
+--- a/calc.c
++++ b/calc.c
+@@ -572,7 +572,7 @@
+         rect(chart,PIE_L+u,PIE_T+y,PIE_L+v+1,PIE_T+y+h,token);
+     }
+ }
+-static void send_pie(void) { send_colour(PIE_SIDE,PIE_FACE,TBX_COLOR_SLICE_SIDE); send_colour(PIE_FACE,0,TBX_COLOR_SLICE); }
++static void send_pie(void) { send_colour(PIE_SIDE,PIE_FACE,TBX_COLOR_NAVY); send_colour(PIE_FACE,0,TBX_COLOR_NAVY); }
+ static double series_sum(void) { double t=0; for(unsigned i=0;i<nseries;i++) t+=series[i]; return t; }
+ static uint32_t slice_start(unsigned i)   /* value/sum of a turn */
+ {

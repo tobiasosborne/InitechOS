@@ -44,6 +44,10 @@ int main(void)
     CHECK(tbx_content_size(7)==TBX_ERR_BADARG);CHECK(tbx_global_to_local(1,14,78)==(16<<16|8));
     CHECK(tbx_draw_text(1,7,12,"text",1,0)==0);CHECK(!strcmp(tbx_host.ops[tbx_host.nops-1].text,"text"));
     CHECK(tbx_fill_rect(1,0,0,20,20,2)==0);
+    /* The slice face and side are the last tokens; one past them is refused. */
+    CHECK(tbx_fill_rect(1,0,0,20,20,TBX_COLOR_SLICE)==0&&tbx_fill_rect(1,0,0,20,20,TBX_COLOR_SLICE_SIDE)==0);
+    CHECK(tbx_fill_rect(1,0,0,20,20,TBX_COLOR_COUNT)==TBX_ERR_BADARG);
+    CHECK(tbx_draw_text(1,7,12,"9%",TBX_COLOR_WHITE,TBX_COLOR_SLICE)==0&&tbx_draw_text(1,7,12,"9%",1,TBX_COLOR_COUNT)==TBX_ERR_BADARG);
     CHECK(tbx_draw_cells(1,1,0,"AB",TBX_TEXT_BOLD|1,3)==0);
     CHECK(!strncmp(tbx_host.scr[0],"AB",2)&&tbx_host.bg[0][0]=='N'&&tbx_host.face[0][0]==1);
     CHECK(tbx_draw_cells(1,1,0,"C",3,0)==0);CHECK(tbx_host.inv[0][0]&&tbx_host.face[0][0]==1);

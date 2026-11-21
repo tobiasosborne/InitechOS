@@ -66,7 +66,9 @@ product follows every recommendation, and the checks grade that reading.
     0.26 0.51 1.00 of the photographed white) and a darker side (0.20 0.29
     0.53) on a near-black field. The Toolbox's colour tokens are white, black,
     grey and navy. *Recommend navy on black now, and a request to the SDK
-    owner for a slice-blue token.*
+    owner for a slice-blue token.* Done since (initech-h60sc): the Toolbox
+    has TBX_COLOR_SLICE and TBX_COLOR_SLICE_SIDE, #4282FF and #334A87, and
+    the pie is drawn in them.
 13. **Contradictions inside the still, for the record.** Two menu bars
     (settled: one, operator 2026-11-13); an outer worksheet whose rows are
     20.8 pixels apart under a ledger whose rows are 15.2 (SHEETWIN, LEDGRID:
@@ -111,9 +113,9 @@ do not grade these and say so (apps/initechcalc/tests/frame-pixels.sh).
   track (question 13): the live bar has to show how far the copy has got.
   Its body is the still's white (filecopy_content) with the Platinum
   dialog's one-pixel inset edges. Both colours are graded (initech-1swiy).
-- The chart's slices are navy (question 12) and its title bar is the
-  Toolbox's 22-pixel one, where the still's is thin. Like the still's, it
-  carries no title (CHT.TITLE; InitechCalc grades it).
+- The chart's title bar is the Toolbox's 22-pixel one, where the still's is
+  thin. Like the still's, it carries no title (CHT.TITLE; InitechCalc grades
+  it).
 - The ledger window is larger than LEDWIN (question 16).
 
 ## The still
@@ -176,7 +178,8 @@ running the real CALC.EXE code over sdk/host, recording its Toolbox calls
 and replaying them into a 640 x 480 buffer with the product's own Geneva 9
 strike and the four Toolbox colours (white, black, grey #C0C0C0, navy
 #000080); window chrome is not drawn. They are a proposal for the operator's
-eye, not a test oracle, and nothing reads them.
+eye, not a test oracle, and nothing reads them. They predate the slice blues
+(question 12), so their pie is navy.
 
 ## How this is used
 
@@ -188,5 +191,6 @@ samples of `colours.tsv`, and the booted FILE COPY against its boxes and the
 filecopy_content and progress_fill samples
 (apps/initechcalc/tests/frame-pixels.sh). FLAIR's host test
 test_frame_copy_colour reads the same two samples. The
-product's code never reads this directory. `goldens/CORPORA.lock` pins
+product's code never reads this directory; its slice samples grade the
+pie's blues there too. `goldens/CORPORA.lock` pins
 `transcription.tsv`, so changing a reading is a deliberate, reviewed act.

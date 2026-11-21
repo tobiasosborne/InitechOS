@@ -88,17 +88,18 @@ covering on screen the box the still shows (geometry.tsv PIE and PIEDEPTH:
 378,107 to 581,265 with the chart at its saved place), slices
 clockwise from 12 o'clock, each value/sum of a turn so the pie closes; each
 label is the value with a percent sign. The frame's series is 40 35 18 14 9,
-so the labels really sum to 116%. The Toolbox has one blue (navy): faces are
-navy, sides a navy and black scanline dither, edges black.
+so the labels really sum to 116%. Faces are the still's slice blue and sides
+its darker blue (goldens/frame/colours.tsv; the Toolbox's TBX_COLOR_SLICE,
+#4282FF, and TBX_COLOR_SLICE_SIDE, #334A87), edges black.
 
 Exactly, in the chart's content pixels: the disk's centre is (124,70) and its
 top face the pixel centres with (x/96)^2 + (y/55)^2 <= 1. Each slice is
 pushed out along its middle by 6 pixels across and 6*55/96 down, each cut to
-whole pixels toward zero. Its side is its face swept 42 rows down, navy on
-even content rows and black on odd ones; the row below each face pixel that
-is not face is a black edge. A slice of more than half a turn is drawn as its
+whole pixels toward zero. Its side is its face swept 42 rows down, in the
+side's blue; the row below each face pixel that is not face is a black edge.
+A slice of more than half a turn is drawn as its
 two halves. Slices are drawn from the back (middle nearest 12 o'clock) to the
-front, ties in series order. A label, white on navy, has its top-left corner
+front, ties in series order. A label, white on the face's blue, has its top-left corner
 5 rows above and 3 pixels per character left of the point 59 x 34 pixels
 (62% of the axes) out along the middle from the pushed-out centre. Angles
 are kept to 1/65536 of a turn, and the sine is the series to x^11 in fixed
@@ -111,8 +112,9 @@ Every FILLRECT and TEXTDRAW is an INT 81h gate call that FLAIR clips and
 traces, so Calc paints with as few as its picture allows (initech-kzras;
 since ee66540c the pie and ledger cost about 10,000 calls a session and the
 Bochs journey ran out of time). The pie is drawn into Calc's own memory and
-sent as navy rectangles over the black field, each running down as far as
-navy covers it. The ledger is painted a band of rows at a time, a column at
+sent as rectangles over the black field, each running down as far as its
+colour covers it: the sides first, which may run under the faces, then the
+faces over them. The ledger is painted a band of rows at a time, a column at
 a time, so a column's rule and stops are one call per run of rows; a
 keystroke repaints only the band between the row it left and the row it is
 on. The pixels are those of the cell-by-cell painting they replaced
@@ -166,7 +168,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   and what the real tenant drew (cell texts at cell origins, the note, the
   chart labels, the chart window's title against CHT.TITLE (empty), and
   the chart replayed on the screen at the window's
-  observed content origin and clipped to its observed size: every navy
+  observed content origin and clipped to its observed size: every slice
   pixel's bounds within 4 px of geometry.tsv PIE/PIEDEPTH, and a ring at 80%
   of geometry.tsv's PIE ellipse with a slice face at each value/sum middle
   and a gap within 4 degrees of each boundary). The pie's expected place
@@ -204,9 +206,10 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   hold TABLES.TMP to TABLE~9.TMP; the Save takes TABL~10.TMP and leaves them.
 
 - `test_calc_paint`: the gate-call budget and the repaint property. One
-  update of the shipped ledger at most 600 drawing calls, one keystroke at
+  update of the shipped ledger at most 700 drawing calls, one keystroke at
   most 80 (a budget for the Bochs journey's 90 s limit, not a measurement;
-  the code before it made 1,472 and 380). After every keystroke of a
+  the code before it made 1,472 and 380; 600 until the slices took two
+  colours, 635 since). After every keystroke of a
   sequence (typing, Return, arrows, Tab into the narrow column, a label run
   over its neighbours and cleared, Escape, Del, down across the note strip
   and back) what the windows show equals a fresh full repaint, replayed
@@ -221,31 +224,36 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   The pie is a per-pixel test in floating point with the C library's sine
   from the specification under "The chart", and the model's own reach must
   be geometry.tsv's PIE/PIEDEPTH box exactly. Pixels whose centre is within
-  the 1/65536-turn rounding of a slice's edge may be either colour (12 for
+  the 1/65536-turn rounding of a slice's edge may be either of the two
+  colours the two roundings give (12 for
   the frame, capped at 16); a cut to whole pixels that rounding could tip
   (one for the frame, at most 4) is tried both ways. Charts of one slice,
   eight equal slices, 1 and 999, and none are graded too. Seen red on a pie
-  that drops its 20 lone navy pixels (`calc_mut_pie_drops_pixels`, which
+  that drops its lone single pixels (`calc_mut_pie_drops_pixels`, which
   test_calc_paint and test_calc_frame pass), on the 17-point sine table it
   replaced (47 pixels), and on a ledger without its bottom rule or with text
   a pixel to the right.
 
 The JSON generator check (`include/calc_ledger.json` -> `calc_ledger.h`)
 is a serialization regression for the locked literals, not a content oracle.
-`make mutants` runs the 36 patches in `mutants/`; each must fail a host
+`make mutants` runs the 37 patches in `mutants/`; each must fail a host
 check for its own reason. `make smoke` boots QEMU and Bochs, types 73 into
 the first cell, saves through Quit, and checks every saved byte with mtools
 against the shipped ledger with that row inserted, the untouched original,
 no stage left and fsck.fat. On QEMU it also grades screendumps with
 `tests/frame-pixels.sh`, every expectation from goldens/frame, colours to
 3/255 (DAC quantisation). `calc.ppm`, before Save: the chart window's outline
-exactly at geometry.tsv CHARTWIN, the pie's navy pixels within 4 px of
-PIE/PIEDEPTH, a navy face at each slice middle on the PIE ellipse, and black
-at colours.tsv's chart-field samples mapped through SCREEN. `calc-copy.ppm`,
+exactly at geometry.tsv CHARTWIN, the pie's slice pixels within 4 px of
+PIE/PIEDEPTH, a slice face at each slice middle on the PIE ellipse, black
+at colours.tsv's chart-field samples mapped through SCREEN, and at each of
+its slice samples (three faces, two sides) the per-channel median of the
+box within 5/255 of its role's colour, the area-weighted median of the
+role's samples (#4282FF, #334A87). Seen red on main before the slice blues:
+every sample's box read navy or black. `calc-copy.ppm`,
 while FILE COPY runs: the chart's and FILE COPY's outlines exactly at
 CHARTWIN and COPY where nothing in front covers them (COPY's foot 11 rows
 lower for Cancel, FLAIR's stated departure), the caption's text starting at
-COPYCAPTION and the bar's outline at COPYBAR within 4 px, and no slice navy
+COPYCAPTION and the bar's outline at COPYBAR within 4 px, and no slice colour
 showing through FILE COPY. Seen red on the captures from before FLAIR placed
 FILE COPY at the still's box (1218 outline failures, navy through the box)
 and on edited copies of a green capture (caption moved 10 px right, bar 8 px

@@ -53,7 +53,12 @@ static int32_t frame_size(int32_t w)
 #undef tbx_content_size
 #include "replay.h"
 
-enum { WHITE=TBX_COLOR_WHITE+1, BLACK=TBX_COLOR_BLACK+1, GREY=TBX_COLOR_GRAY+1, NAVY=TBX_COLOR_NAVY+1, EITHER=255 };
+enum { WHITE=TBX_COLOR_WHITE+1, BLACK=TBX_COLOR_BLACK+1, GREY=TBX_COLOR_GRAY+1,
+       FACE=TBX_COLOR_SLICE+1, SIDE=TBX_COLOR_SLICE_SIDE+1 };
+/* A pixel that may honestly be either of two colours a and b. */
+#define EITHER(a,b) ((unsigned char)(0x80u|(unsigned)(a)<<3|(unsigned)(b)))
+static int either_of(unsigned char e) { return (e&0x80u)!=0; }
+static int allowed(unsigned char e,unsigned char g) { return either_of(e)?g==((e>>3)&7u)||g==(e&7u):g==e; }
 static int checks, failures;
 static void check(int ok,const char *what)
 {
@@ -87,8 +92,8 @@ static unsigned compare(const replay_screen_t *s,const pic_t *want,const char *w
     unsigned bad=0, either=0; char msg[160];
     for(int y=0;y<want->h;y++) for(int x=0;x<want->w;x++) {
         unsigned char e=want->px[y][x], g=s->px[y][x];
-        if(e==EITHER) { either++; if(g!=NAVY&&g!=BLACK) bad++; continue; }
-        if(g!=e) {
+        if(either_of(e)) either++;
+        if(!allowed(e,g)) {
             if(bad<8) printf("  %s: pixel %d,%d is %u, expected %u\n",what,x,y,(unsigned)g,(unsigned)e);
             bad++;
         }
@@ -198,12 +203,12 @@ static void model_ledger(pic_t *p)
  * pixels the disk's centre is (124,70) and its top face the pixel centres
  * with (x/96)^2 + (y/55)^2 <= 1. Each slice is pushed out from the centre
  * along its middle by 6 pixels across and 6*55/96 down the screen, each cut
- * to whole pixels toward zero. Its side is its face swept 42 rows down, navy
- * on even content rows and black on odd ones; the row below each face pixel
- * that is not face is a black edge; the face is navy. A slice of more than
+ * to whole pixels toward zero. Its side is its face swept 42 rows down, in
+ * the side's blue; the row below each face pixel that is not face is a black
+ * edge; the face is the face's blue. A slice of more than
  * half a turn is two halves, each swept on its own. Slices are drawn from the
  * back (middle nearest 12 o'clock) to the front. Each label, the value and a
- * percent sign in white on navy, has its top-left corner 5 rows above and 3
+ * percent sign in white on the face's blue, has its top-left corner 5 rows above and 3
  * pixels per character left of the point 59 x 34 pixels (62% of the axes, cut
  * to whole pixels) out along the slice's middle from its pushed-out centre.
  * The model's own reach must be geometry.tsv's PIE and PIEDEPTH box: the
@@ -275,12 +280,12 @@ static void model_piece(pic_t *p,const piece_t *q,int take)
             if(lo[t+P_B]<l) l=lo[t+P_B];
             if(hi[t+P_B]>r) r=hi[t+P_B];
         }
-        if(l<=r) fill(p,cx+l,cy+y,cx+r+1,cy+y+1,((cy+y)&1)?BLACK:NAVY);
+        if(l<=r) fill(p,cx+l,cy+y,cx+r+1,cy+y+1,SIDE);
     }
     for(int y=-P_B;y<=P_B;y++) for(int x=-P_A;x<=P_A;x++)   /* the edge */
         if(face[y+P_B][x+P_A]&&!(y<P_B&&face[y+1+P_B][x+P_A])) fill(p,cx+x,cy+y+1,cx+x+1,cy+y+2,BLACK);
     for(int y=-P_B;y<=P_B;y++) for(int x=-P_A;x<=P_A;x++)   /* the face */
-        if(face[y+P_B][x+P_A]) fill(p,cx+x,cy+y,cx+x+1,cy+y+1,NAVY);
+        if(face[y+P_B][x+P_A]) fill(p,cx+x,cy+y,cx+x+1,cy+y+1,FACE);
 }
 typedef struct { double v[8]; char label[8][24]; int n; } series_t;
 static void model_chart(pic_t *p,const series_t *sr,int take)
@@ -307,7 +312,7 @@ static void model_chart(pic_t *p,const series_t *sr,int take)
         else model_piece(p,&q,take);
     }
     for(int i=0;i<sr->n;i++)
-        words(p,P_CX+ox[i]+lx[i]-3*(int)strlen(sr->label[i]),P_CY+oy[i]-ly[i]-5,sr->label[i],WHITE,NAVY);
+        words(p,P_CX+ox[i]+lx[i]-3*(int)strlen(sr->label[i]),P_CY+oy[i]-ly[i]-5,sr->label[i],WHITE,FACE);
 }
 
 /* ---- running the tenant --------------------------------------------------- */
@@ -340,7 +345,7 @@ static unsigned differences(const replay_screen_t *s,const pic_t *want)
     unsigned bad=0;
     for(int y=0;y<want->h;y++) for(int x=0;x<want->w;x++) {
         unsigned char e=want->px[y][x], g=s->px[y][x];
-        bad+=e==EITHER?(g!=NAVY&&g!=BLACK):g!=e;
+        bad+=!allowed(e,g);
     }
     return bad;
 }
@@ -351,7 +356,7 @@ static unsigned expected_chart_as(pic_t *want,const series_t *sr,unsigned choice
     model_chart(want,sr,1); model_chart(&other,sr,0);
     unsigned n=0;
     for(int y=0;y<want->h;y++) for(int x=0;x<want->w;x++)
-        if(want->px[y][x]!=other.px[y][x]) { want->px[y][x]=EITHER; n++; }
+        if(want->px[y][x]!=other.px[y][x]) { want->px[y][x]=EITHER(want->px[y][x],other.px[y][x]); n++; }
     return n;
 }
 static unsigned expected_chart(pic_t *want,const series_t *sr,const replay_screen_t *s,unsigned *cuts)
@@ -406,7 +411,7 @@ int main(void)
      * from the top, PIEDEPTH's foot, on screen through the chart's content
      * origin as the window was opened. */
     {   int pie[4], depth[4], l=640, t=480, r=-1, b=-1, ox=tbx_host.windows[1].l+6, oy=tbx_host.windows[1].t+22;
-        for(int y=0;y<want_c.h;y++) for(int x=0;x<want_c.w;x++) if(want_c.px[y][x]==NAVY) {
+        for(int y=0;y<want_c.h;y++) for(int x=0;x<want_c.w;x++) if(want_c.px[y][x]==FACE||want_c.px[y][x]==SIDE) {
             if(x<l) l=x;
             if(x>r) r=x;
             if(y<t) t=y;

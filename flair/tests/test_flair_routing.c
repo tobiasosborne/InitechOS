@@ -1156,6 +1156,22 @@ static void script_fill_geometry(void)
         if(painted) CHECK(drew==1,"actual drawing requests presentation");
         CHECK(tbx_take_drew()==0,"presentation request is consumed once");
     }
+    /* The slice face and side tokens paint their own PARTs; one past the
+     * last token is refused. */
+    {
+        static const struct { uint32_t token; int part; } tok[]={
+            {TBX_COLOR_SLICE,FLAIR_PART_SLICE},{TBX_COLOR_SLICE_SIDE,FLAIR_PART_SLICE_SIDE}};
+        for(unsigned k=0;k<2;k++) {
+            uint32_t a[]={1u,0u,0u,4u,4u,tok[k].token};
+            CHECK(gate(TBX_FILLRECT,6,a)==0,"a slice token is a valid fill colour");
+            CHECK(fill_pixels[box[0][1]*FLAIR_SCREEN_W+box[0][0]]==flair_look_pixel_depth(32,tok[k].part) &&
+                  fill_pixels[box[0][1]*FLAIR_SCREEN_W+box[0][0]]!=flair_look_pixel_depth(32,FLAIR_PART_CAPTION_NAVY),
+                  "a slice token paints its own PART, not navy");
+        }
+        uint32_t bad[]={1u,0u,0u,4u,4u,TBX_COLOR_COUNT};
+        CHECK(gate(TBX_FILLRECT,6,bad)==TBX_ERR_BADARG,"one past the last colour token is refused");
+        (void)tbx_take_drew();
+    }
 }
 static void leg_fill_geometry(void)
 {

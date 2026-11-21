@@ -145,6 +145,8 @@ typedef enum {
     FLAIR_PART_ICON_CLUT,
     FLAIR_PART_ICON_CLUT_LAST = FLAIR_PART_ICON_CLUT + 29,
     FLAIR_PART_FILECOPY_PROGRESS, /* still's progress_fill, colours.tsv */
+    FLAIR_PART_SLICE,             /* still's slice face, colours.tsv  */
+    FLAIR_PART_SLICE_SIDE,        /* still's slice side, colours.tsv  */
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 

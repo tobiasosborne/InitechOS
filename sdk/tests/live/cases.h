@@ -36,7 +36,7 @@ static void cases(void)
     TAKE(tbx_draw_text(1,7,13,buf,1,2)); TAKE(tbx_draw_cells(1,1,0,buf,1,2));
     for(unsigned i=0;i<sizeof longtext-1;i++)longtext[i]='W';
     TAKE(tbx_set_wtitle(1,longtext));
-    TAKE(tbx_draw_text(1,7,13,"x",4,0));
+    TAKE(tbx_draw_text(1,7,13,"x",TBX_COLOR_COUNT,0));
     TAKE(tbx_draw_text(1,7,13,"x",0x800,0));
     TAKE(tbx_draw_text(1,7,13,"x",0x20000,0));
     TAKE(tbx_draw_text(1,7,13,"x",0x0c000000,0));
@@ -46,7 +46,7 @@ static void cases(void)
     TAKE(tbx_draw_text(1,7,13,0,1,2));
     TAKE(tbx_fill_rect(1,1,2,1,30,1));
     TAKE(tbx_fill_rect(1,1,30,20,2,1));
-    TAKE(tbx_fill_rect(1,1,2,20,30,4));
+    TAKE(tbx_fill_rect(1,1,2,20,30,TBX_COLOR_COUNT));
     TAKE(tbx_draw_cells(1,2,3,"ok",1,2));
     TAKE(tbx_draw_cells(1,-7,-9,"ok",1,2));
     TAKE(tbx_draw_cells(1,900,800,"ok",1,2));

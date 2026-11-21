@@ -13,8 +13,13 @@
  * in the updateEvt, not the window's token, until initech-3zcsf's gate half
  * lands; Calc repaints only the named window once it does), and three
  * keystrokes. One update at most UPDATE_BUDGET calls
- * and one keystroke at most KEY_BUDGET keep the session near 3,600 calls.
+ * and one keystroke at most KEY_BUDGET keep the session near 4,400 calls.
  * Seen red on the code before this budget: 1,472 per update, 380 per key.
+ * The budget was 600 until the slices took the still's two blues, face and
+ * side (initech-h60sc): a face and the side below it, parted by the black
+ * edge, are now two colours and cannot share a rectangle, so an update went
+ * from 523 calls to 635. The Bochs Calc session took 25 s of its 90 s at
+ * 523; about 13 ms a call (the figures above) adds some 9 s.
  *
  * The property: after any keystroke, what the windows show (the replayed
  * calls, tests/replay.h) equals what a fresh full repaint shows. A partial
@@ -45,7 +50,7 @@ static int32_t frame_size(int32_t w)
 #undef tbx_content_size
 #include "replay.h"
 
-#define UPDATE_BUDGET 600u
+#define UPDATE_BUDGET 700u
 #define KEY_BUDGET 80u
 static int checks, failures;
 static void check(int ok,const char *what,unsigned v)

@@ -494,7 +494,12 @@
 #define TBX_COLOR_BLACK  1u   /* -> FLAIR_PART_FRAME         */
 #define TBX_COLOR_GRAY   2u   /* -> FLAIR_PART_BTNFACE       */
 #define TBX_COLOR_NAVY   3u   /* -> FLAIR_PART_CAPTION_NAVY  */
-#define TBX_COLOR_COUNT  4u
+/* A pie chart's slice face and its darker extruded side: the surviving
+ * frame's blues (goldens/frame/colours.tsv, relative to the photographed
+ * white: face 0.26 0.51 1.00, side 0.20 0.29 0.53). */
+#define TBX_COLOR_SLICE      4u   /* -> FLAIR_PART_SLICE      */
+#define TBX_COLOR_SLICE_SIDE 5u   /* -> FLAIR_PART_SLICE_SIDE */
+#define TBX_COLOR_COUNT  6u
 
 /* TEXTDRAW STYLE (deliberate locked ABI extension, bead initech-tdnl.68,
  * 2026-10-15 -- the Font Manager's txFace synthesis reaches tenants; InitechWord

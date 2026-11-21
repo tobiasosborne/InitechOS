@@ -98,7 +98,7 @@ grade() {   # $1 = name, $2 = observation file
         if(notes!=1) fail(notes+0 " notes")
         if(ring!="") {   # slices are value/sum of a turn: a face (N) at each middle,
                          # a gap (black B or a side S) at each boundary, within 4 degrees
-            if(index(ring,"o")) fail("ring has colours other than navy and black")
+            if(index(ring,"o")) fail("ring has colours other than the slice face, its side and black")
             a=0
             for(i=1;i<=nl;i++) { b=a+360*val[i]/sum; m=int((a+b)/2+0.5)%360
                 if(substr(ring,m+1,1)!="N") fail("no slice at " m " degrees, the middle of " lab[i])
