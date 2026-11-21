@@ -1,0 +1,25 @@
+STOP-L10
+STOP-L11
+STOP-L12
+STOP-L13
+STOP-L14
+STOP-L15
+STOP-L16
+STOP-L17
+STOP-L18
+STOP-L19
+STOP-L20
+STOP-L21
+STOP-L22
+STOP-L23
+STOP-L24
+-- More --^C
+
+P>type short.txt|more>short.out
+
+P>type pages.txt|more>pipe.out
+
+P>echo PIPE-DONE
+PIPE-DONE
+
+P>

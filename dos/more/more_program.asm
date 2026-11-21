@@ -1,46 +1,6 @@
-; more_program.asm -- the FAT-sourced flat (.COM-equivalent) MORE filter.
-;
-; beads: initech-m0dc (the classic DOS filters MORE/SORT/FIND). MORE paginates its
-;        input one screenful (24 lines) at a time.  Like GREET/GOBBLE it is NOT
-;        baked into the kernel: mcopy'd onto a FAT12 data disk as MORE.COM and
-;        loaded BY NAME via load_program_from_fat / AH=4Bh EXEC.
-;
-; The device-vs-file fork (the key to making MORE emu-testable):
-;   Authentic MS-DOS MORE paginates ONLY when its STANDARD OUTPUT is the CON
-;   device.  When stdout is redirected to a FILE (or a pipe), there is no screen
-;   to pause for, so MORE passes its input straight through with NO "-- More --"
-;   prompt.  MORE learns which it is with INT 21h AH=44h AL=00h (IOCTL Get Device
-;   Information) on handle 1: bit 15 (ISDEV) of the returned DX is SET for a
-;   character device (CON), CLEAR for a disk file.  This is exactly how real MORE
-;   decides, and it makes `TYPE FILE | MORE > OUT.TXT` (stdout = a file) a
-;   deterministic PASSTHROUGH the emulator can gate -- a keywait would otherwise
-;   block the headless harness forever.
-;
-; Semantics ground truth:
-;   - MS-DOS 3.3 User's Guide "MORE": displays output one screen at a time.
-;   - MS-DOS 3.3 Programmer's Reference / RBIL INT 21,44,00: AH=44h AL=00h,
-;     BX=handle -> DX = device-information word; bit 15 = 1 iff handle is a
-;     character device.  (os/initechdos/int21.c do_ioctl AL=00h returns
-;     INT21_DEVINFO_CON with bit15 set for CON, INT21_DEVINFO_FILE with bit15
-;     clear for a disk file.)
-;   - When stdout IS CON: read stdin, echo to stdout, and after every 24 output
-;     lines pause for a keypress (AH=08h CHARACTER INPUT, no echo) before
-;     continuing -- the authentic pager.  (This path is present but is NOT
-;     exercised by the headless emu gate, which drives the passthrough path.)
-;
-; Ref:   os/initechdos/int21.c do_ioctl (AH=44h AL=00h), do_read (AH=3Fh), do_write
-;        (AH=40h), do_conin_noecho (AH=08h), do_terminate (AH=4Ch);
-;        kernel/include/memory_map.h (PROGRAM_IMAGE=0x00040100 == org);
-;        MS-DOS 3.3 PRM INT 21h Fn 44h.  the repository contract (cite), the repository contract, the repository contract
-;        (nasm -f bin deterministic), the repository contract (ASCII).
-;
-; Assembled: nasm -f bin os/initechdos/more_program.asm -o build/more_program.bin
-; Deployed:  mcopy build/more_program.bin ::MORE.COM  (NOT baked into kernel).
-;
-; Mutant (the repository contract): nasm -DMORE_MUTATE_DROP drops every input chunk after the
-; first, so the passthrough is LOSSY and the "output == input" emu assertion goes
-; RED (proves MORE actually forwards ALL bytes, not just the head).
-
+; MORE.COM uses the published DOS handle and console services.
+; The console sequence comes from more/tests/compat33, captured on MS-DOS 3.30.
+; File and pipe output use the InitechDOS byte-for-byte filter path.
 bits 32
 org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
@@ -62,7 +22,7 @@ start:
 
 ; ---------------------------------------------------------------------------
 ; PASSTHROUGH: stdout is a file/pipe.  Copy stdin -> stdout in chunks, verbatim,
-; no pause.  This is the authentic no-CON behavior AND the emu-gated path.
+; without a pause or page cue.
 ; ---------------------------------------------------------------------------
 .passthrough:
 .pt_loop:
@@ -82,9 +42,7 @@ start:
     jmp .pt_loop
 
 ; ---------------------------------------------------------------------------
-; PAGINATE: stdout is CON.  Echo stdin to stdout, counting newlines; after every
-; PAGE_LINES lines wait for one key (AH=08h) before continuing.  Present for
-; authenticity; the headless emu gate does not drive this path.
+; PAGINATE: echo stdin to CON and count newlines between key waits.
 ; ---------------------------------------------------------------------------
 .paginate:
     xor ebp, ebp               ; line counter within the current screenful
@@ -118,10 +76,16 @@ start:
     inc ebp
     cmp ebp, PAGE_LINES
     jb .pg_byte
-    ; screenful complete: pause for a key, then reset the counter.
-    mov ah, 0x08               ; CHARACTER INPUT, no echo
+    mov edx, page_prompt
+    mov ah, 0x09
+    int 0x21
+    mov eax, 0x0C01           ; flush typeahead, echo a key, check Ctrl-C
+    int 0x21
+    mov edx, page_break
+    mov ah, 0x09
     int 0x21
     xor ebp, ebp
+    dec edi                    ; replay the boundary LF on the new page
     jmp .pg_byte
 
 .done:
@@ -130,5 +94,6 @@ start:
     int 0x21
     int 0x20                    ; defense in depth (the repository contract)
 
-; --- scratch ----------------------------------------------------------------
+page_prompt: db 0x0D, "-- More --", "$"
+page_break:  db 0x0D, 0x0A, "$"
 chunk_len: dd 0

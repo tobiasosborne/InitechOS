@@ -175,7 +175,7 @@ test-runtime-verdict_DEPS := tests/gates/test-runtime-verdict.sh tests/runtime/c
 HOST_TESTS += test-compat33-evidence
 test-compat33-evidence_SRCS := tests/runner.c
 test-compat33-evidence_ARGS := tests/run.sh test-compat33-evidence
-test-compat33-evidence_DEPS := tests/gates/test-compat33-evidence.sh command/tests/compat33/EVIDENCE.sha256 find/tests/compat33/EVIDENCE.sha256
+test-compat33-evidence_DEPS := tests/gates/test-compat33-evidence.sh command/tests/compat33/EVIDENCE.sha256 find/tests/compat33/EVIDENCE.sha256 more/tests/compat33/EVIDENCE.sha256
 HOST_TESTS += test-del-invalid-switch
 test-del-invalid-switch_SRCS := tests/runner.c
 test-del-invalid-switch_ARGS := tests/run.sh test-del-invalid-switch
@@ -293,3 +293,9 @@ test-summary-controls_ARGS := tests/run.sh test-summary-controls
 test-summary-controls_DEPS := $(OUT)/host/tool_edlin_model $(OUT)/host/tool_dosutil_host $(OUT)/host/batch-capacity $(OUT)/host/fdisk-session $(OUT)/host/tool_test_dir_look $(OUT)/host/tool_test_cmdline_fuzz $(OUT)/host/tool_batch_fat tests/gates/test-summary-controls.sh
 
 include $(TOP)/mk/host-test.mk
+
+.PHONY: smoke-more-page
+smoke: smoke-more-page
+smoke-more-page:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/morepage.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/more-page.XXXXXX")"
