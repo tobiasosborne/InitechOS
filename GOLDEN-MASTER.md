@@ -119,6 +119,12 @@ legacy tree to find more is not.
 - 86Box and real hardware.
 - The physical edition: diskettes, box, printed manuals.
 - DOS 5-era utilities and memory managers.
+- The DOS 3.30 utilities left out of item 2 (operator, 2026-11-21): COMP,
+  REPLACE, SUBST, ASSIGN, JOIN and APPEND; and MODE, PRINT, GRAPHICS,
+  GRAFTABL, KEYB and NLSFUNC once the machine has the ports, printer or
+  code pages they drive. Not planned: BACKUP and RESTORE (files are copied
+  to disk by hand) and the 16-bit programmer's tools (DEBUG, LINK,
+  EXE2BIN).
 - Writing to FAT16 volumes.
 - `COMMAND.COM` as a separately loaded program; in this master the
   command processor is resident in `INITDOS.SYS`.
