@@ -4387,22 +4387,16 @@ static void do_exec(int_frame_t *f)
      * returns, so this snapshot/restore is a harmless no-op. */
     /* Command tail (initech-456): AH=4Bh takes an EXEC parameter block in EBX
      * (exec_param_block_t, the flat-32 analog of real DOS ES:BX). Extract the
-     * command-tail TEXT+len for the child PSP:80h; the env/FCB fields are
+     * command-tail TEXT+len for the child PSP:80h; the FCB fields are
      * reserved. Every level is DEC-14 user-pointer validated; an absent (EBX=0)
      * or unreadable block degrades to a no-argument launch (count=0) rather than
      * faulting on a legacy caller's stale EBX (the repository contract). The tail at cmd_tail is a
      * DOS-format {count, text, CR}; we hand the loader the TEXT (cmd_tail+1) and
      * its length, and psp_build re-frames it (count byte + CR) at PSP:80h.
      *
-     * EXEC env inheritance (beads initech-1i0x Tranche E inc 3): the SAME param
-     * block carries env_block at offset 0 (a FLAT linear ptr; 0 = inherit the
-     * parent's / inherit-empty, per dos_structs.h). We thread it to the EXEC
-     * backend unchanged -- the loader decides whether to synthesize the empty
-     * block (env_block==0) or honor the caller's populated block (the shell
-     * serializes its master env into ENV_BLOCK and passes env_block==ENV_BLOCK).
-     * An absent/unreadable EBX block degrades to env_block=0 (inherit-empty),
-     * exactly like the no-arg tail degrade above (the repository contract -- never fault on a
-     * legacy caller's stale EBX). */
+     * The loader copies variables from the shell's ENV_BLOCK when specified.
+     * Zero, including an absent/unreadable parameter block, requests the
+     * active caller's variables. */
     const char *tail_text = 0;
     uint32_t    tail_len  = 0;
     uint32_t    env_block = 0;
@@ -4410,14 +4404,7 @@ static void do_exec(int_frame_t *f)
         uint32_t pb = f->ebx;
         if (pb != 0 && user_buf_ok(pb, (uint32_t)sizeof(exec_param_block_t))) {
             const exec_param_block_t *blk = (const exec_param_block_t *)(uintptr_t)pb;
-            /* Sanitize the caller's env_block exactly as the cmd_tail below is guarded
-             * (the repository contract -- never fault on a legacy/stale EBX, this function's stated
-             * intent): loader_decide_env honors ONLY {0, ENV_BLOCK}, so any OTHER value
-             * -- a caller that left EBX pointing at a block whose env_block field is
-             * stale garbage, or a real-DOS program passing its own env segment we do not
-             * yet copy -- is degraded to inherit-empty instead of failing the EXEC
-             * (loader_decide_env's BAD_ENV mapped to BAD_FORMAT at the kmain seam). The
-             * shell's populated-env path (env_block == ENV_BLOCK) is preserved. */
+            /* Fall back to implicit inheritance for other supplied addresses. */
             env_block = blk->env_block;
             if (env_block != 0u && env_block != (uint32_t)ENV_BLOCK) {
                 env_block = 0u;

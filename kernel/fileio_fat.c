@@ -44,6 +44,7 @@
  */
 
 #include "fileio_fat.h"
+#include "fat_path.h"
 #include "fat12.h"
 #include "int21.h"
 #include "dos_structs.h"  /* dir_entry_t */
@@ -873,13 +874,10 @@ static int dotdot_cb(const dir_entry_t *e, void *user)
  * matching its start_cluster in its parent, then JOINS the names top-down with
  * single '\' separators. Returns 0 on success, or 0x0003 on a malformed chain /
  * an overlength canon (fail loud -- NEVER a truncated path; the repository contract). */
-static uint16_t fat_canon_from_cluster(uint16_t dir_cluster, char *canon,
-                                       uint32_t canon_max)
+uint16_t fat_directory_path(const fat12_volume_t *vol, void *sector,
+                            const void *fat, uint32_t fat_len,
+                            uint16_t dir_cluster, char *canon, uint32_t canon_max)
 {
-    /* Collect names bottom-up (deepest first); FAT12 directory nesting is
-     * bounded well under this on a 1.44 MB volume. */
-    char     names[16][FAT12_NAME83_MAX];
-    uint32_t depth = 0u;
     uint16_t cur   = dir_cluster;
 
     if (canon == 0 || canon_max == 0u) {
@@ -890,23 +888,22 @@ static uint16_t fat_canon_from_cluster(uint16_t dir_cluster, char *canon,
         return 0u;                  /* the root: the empty string */
     }
 
+    /* Build backwards into the caller's buffer. Each parent consumes space,
+     * so the same capacity bound stops loops in a damaged '..' chain. */
+    uint32_t pos = canon_max - 1u;
+    canon[pos] = '\0';
     while (cur != 0u) {
         fat12_dir_t cdir;
         dotdot_cookie_t dd;
         child_name_cookie_t cn;
         int rc;
 
-        if (depth >= (uint32_t)(sizeof(names) / sizeof(names[0]))) {
-            return FILEIO_ERR_PATH_NOT_FOUND;   /* pathologically deep */
-        }
-
         /* Parent cluster = cur's own '..' entry. */
         cdir.is_root       = 0;
         cdir.start_cluster = cur;
         dd.parent_cluster  = 0u;
         dd.found           = 0;
-        rc = fat12_read_dir(g_vol, &cdir, g_sector, g_fat, g_fat_len,
-                            dotdot_cb, &dd);
+        rc = fat12_read_dir(vol, &cdir, sector, fat, fat_len, dotdot_cb, &dd);
         if (rc < 0 || !dd.found) {
             return FILEIO_ERR_PATH_NOT_FOUND;   /* no '..' -> corrupt subdir */
         }
@@ -918,46 +915,24 @@ static uint16_t fat_canon_from_cluster(uint16_t dir_cluster, char *canon,
             pdir.start_cluster = dd.parent_cluster;
             cn.want_cluster    = cur;
             cn.found           = 0;
-            rc = fat12_read_dir(g_vol, &pdir, g_sector, g_fat, g_fat_len,
-                                child_name_cb, &cn);
+            rc = fat12_read_dir(vol, &pdir, sector, fat, fat_len, child_name_cb, &cn);
             if (rc < 0 || !cn.found) {
                 return FILEIO_ERR_PATH_NOT_FOUND;   /* unreachable from parent */
             }
         }
 
-        {
-            uint32_t k = 0u;
-            for (; cn.name[k] != '\0' && k < FAT12_NAME83_MAX - 1u; k++) {
-                names[depth][k] = cn.name[k];
-            }
-            names[depth][k] = '\0';
-        }
-        depth++;
+        uint32_t len = 0u;
+        while (cn.name[len]) len++;
+        if (!len || len > pos) return FILEIO_ERR_PATH_NOT_FOUND;
+        pos -= len;
+        for (uint32_t i = 0u; i < len; i++) canon[pos + i] = cn.name[i];
         cur = dd.parent_cluster;
-    }
-
-    /* Join names top-down (depth-1 .. 0) with single '\' separators. */
-    {
-        uint32_t pos = 0u;
-        uint32_t li  = depth;
-        while (li > 0u) {
-            uint32_t i;
-            li--;
-            if (pos != 0u) {
-                if (pos + 1u >= canon_max) {
-                    return FILEIO_ERR_PATH_NOT_FOUND;   /* overlength */
-                }
-                canon[pos++] = '\\';
-            }
-            for (i = 0u; names[li][i] != '\0'; i++) {
-                if (pos + 1u >= canon_max) {
-                    return FILEIO_ERR_PATH_NOT_FOUND;   /* overlength */
-                }
-                canon[pos++] = names[li][i];
-            }
+        if (cur != 0u) {
+            if (!pos) return FILEIO_ERR_PATH_NOT_FOUND;
+            canon[--pos] = '\\';
         }
-        canon[pos] = '\0';
     }
+    for (uint32_t i = 0u; i < canon_max - pos; i++) canon[i] = canon[pos + i];
     return 0u;
 }
 
@@ -997,7 +972,8 @@ static uint16_t fat_resolve_dir(const char *path, uint16_t cwd_start,
 
     uint16_t target = e.start_cluster;      /* 0 normalizes to the root */
     if (out_canon != 0 && canon_max > 0u) {
-        uint16_t cerr = fat_canon_from_cluster(target, out_canon, canon_max);
+        uint16_t cerr = fat_directory_path(g_vol, g_sector, g_fat, g_fat_len,
+                                           target, out_canon, canon_max);
         if (cerr != 0u) {
             return cerr;                    /* malformed chain / overlength */
         }

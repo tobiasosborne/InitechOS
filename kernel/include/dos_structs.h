@@ -146,9 +146,9 @@ _Static_assert(sizeof(mcb_t) == 16, "mcb_t must be 16 bytes (ADR-0003 B.3)");
  *   08h    4    Default FCB #1 (flat ptr; reserved)
  *   0Ch    4    Default FCB #2 (flat ptr; reserved)
  *
- * For the current milestone only cmd_tail is consumed (command-tail args ->
- * child PSP:80h, beads initech-456). env_block is reserved for the environment
- * block (the env-store work) and the FCB pointers for the FCB API.
+ * EXEC consumes the command tail and the environment source. The resident
+ * shell can supply ENV_BLOCK. Zero inherits the executing parent's variables.
+ * The FCB pointers are reserved.
  * ------------------------------------------------------------------------ */
 
 #pragma pack(push, 1)

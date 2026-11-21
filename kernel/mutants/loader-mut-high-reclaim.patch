@@ -3,7 +3,7 @@
 --- a/loader.c
 +++ b/loader.c
 @@ -1365,11 +1365,9 @@
-     if(st==LOADER_OK) st=loader_run_plan(&plan,0,env,out_rc);
+     if(st==LOADER_OK) st=loader_run_plan(&plan,0,env,exec_path,out_rc);
      for(uint32_t i=EXT_APP_GUARD_BASE;i<EXT_APP_STACK_BOT;i+=4)
          if(*(uint32_t *)(uintptr_t)i!=EXT_APP_GUARD_WORD) __builtin_trap();
 -    for(uint32_t i=EXT_APP_BASE;i<EXT_APP_CEIL;i++) *(uint8_t *)(uintptr_t)i=0;

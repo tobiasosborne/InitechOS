@@ -29,6 +29,9 @@ static unsigned guest_calls;
 static uintptr_t parent_control;
 static uint8_t saved_controls[0x1110], saved_high[0x1ef000];
 static uint16_t want_directory;
+static uint8_t dos_parent[128], dos_child[128], shell_env[4096], parent_env[4096];
+static size_t dos_parent_len, dos_child_len;
+static uint8_t *parent_env_addr;
 static sigjmp_buf recovery;
 static volatile sig_atomic_t active;
 static void fault(int sig, siginfo_t *info, void *ctx)
@@ -41,11 +44,70 @@ static void fault(int sig, siginfo_t *info, void *ctx)
     }
     _Exit(2);
 }
+
+/* Independent consumer, as in turbo/tests/ide/runtime/raw-psp.c. Read the
+ * published AH=62h PSP bytes, then compare against a real DOS capture. */
+static uint8_t *guest_environment(void)
+{
+    int_frame_t f = {0};
+    f.eax = 0x6200;
+    int21_dispatch(&f);
+    uintptr_t psp = (f.ebx & 0xffffu) << 4;
+    if (psp < 0x3f000u || psp > 0x8ff00u) return NULL;
+    const uint8_t *raw = (const uint8_t *)psp;
+    uintptr_t env = ((uintptr_t)raw[0x2c] | ((uintptr_t)raw[0x2d] << 8)) << 4;
+    if (env < 0x3f000u || env > 0x8f000u) return NULL;
+    return (uint8_t *)env;
+}
+
+static uint16_t exec_from_test_disk(const char *name, uint16_t directory,
+                                    const char *tail, uint32_t tail_len,
+                                    uint32_t env, uint8_t *rc)
+{
+    uint32_t fat_len;
+    const uint8_t *fat = fileio_fat_fat_buffer(&fat_len);
+    loader_bind_fat_volume(fileio_fat_current_volume(), fat, fat_len);
+    return load_program_from_fat(name, directory, tail, tail_len, env, rc) == LOADER_OK
+           ? 0u : INT21_ERR_BAD_FORMAT;
+}
+
+static void test_environment(void)
+{
+    uint8_t *env = guest_environment();
+    if (guest_calls == 1) {
+        parent_env_addr = env;
+        CHECK(env && !memcmp(env, dos_parent, dos_parent_len),
+              "parent PSP publishes the complete DOS 3.30 environment capture");
+        if (env) memcpy(parent_env, env, sizeof parent_env);
+        static const char *paths[] = {"sub\\dump.com", "c:\\sub\\..\\sub\\dump.com"};
+        for (unsigned i = 0; i < sizeof paths / sizeof paths[0]; i++) {
+            int_frame_t f = {0};
+            f.eax = 0x4b00;
+            f.edx = (uintptr_t)paths[i];
+            int21_dispatch(&f);
+            CHECK(!(f.eflags & 1u) && guest_calls == i + 2u,
+                  "AH=4Bh transfers to the child on the resolved drive");
+            CHECK(env && !memcmp(env, parent_env, sizeof parent_env),
+                  "nested EXEC and a write to the child's environment preserve every parent byte");
+        }
+    } else {
+        size_t drive_offset = 50u; /* first byte after the captured 01 00 word */
+        uint8_t drive = guest_calls == 2 ? 'A' : 'C';
+        CHECK(env && !memcmp(env, dos_child, drive_offset) && env[drive_offset] == drive &&
+              !memcmp(env + drive_offset + 1u, dos_child + drive_offset + 1u,
+                      dos_child_len - drive_offset - 1u),
+              "child inherits only the variables and publishes its own DOS 3.30 executable path");
+        CHECK(env && env != parent_env_addr, "child has a private environment block");
+        if (env) env[0] = 'X';
+    }
+}
+
 static void guest(void)
 {
     guest_calls++;
     psp_t *psp=int21_get_psp();
     CHECK(psp!=NULL,"executing child has a real PSP");
+    if (!strcmp(mode, "environment")) test_environment();
     if(!strcmp(mode,"low-high") && guest_calls==1) {
         memcpy(saved_high,(void *)0x40000,0x10110);
         uint32_t total_before,largest_before,total_after,largest_after;
@@ -126,6 +188,10 @@ static void guest(void)
     if (!strcmp(mode,"cwd")) {
         int21_cwd_snapshot_t cwd=int21_cwd_save();
         CHECK(cwd.start_cluster==want_directory,"actual child inherits caller CWD");
+        static const char empty_env[] = "\0\0\x01\0A:\\SUB\\ONLY.COM";
+        uint8_t *env = guest_environment();
+        CHECK(env && !memcmp(env, empty_env, sizeof empty_env),
+              "an empty environment is followed by the count and the CWD-relative executable path");
     }
     if (!strcmp(mode,"resident-reloc")) {
         uint32_t base=(uintptr_t)psp+0x100u;
@@ -163,6 +229,16 @@ static void fixtures(const char *dir)
     put32(high,44,32);put32(high,48,65536);put32(high,52,4096);
     memcpy(high+64,code,16);save(dir,"HIGH.EXE",high,sizeof high);
 }
+
+static size_t read_capture(const char *path, uint8_t *buf, size_t capacity)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) exit(2);
+    size_t n = fread(buf, 1, capacity, f);
+    if (ferror(f) || !feof(f) || fclose(f) || n <= 51u) exit(2);
+    return n;
+}
+
 int main(int argc,char **argv)
 {
     if(argc!=3)return 2;
@@ -192,6 +268,21 @@ int main(int argc,char **argv)
         img.load_module_len=16;img.max_alloc_paras=0xffff;
         st=loader_high_plan(&img,NULL,0,&plan);
         CHECK(st==LOADER_OK && plan.image_dst==0x600000,"extended image uses high address contract");
+    } else if (!strcmp(mode, "environment")) {
+        dos_parent_len = read_capture("kernel/tests/fixtures/dos33_env/PARENT.BIN",
+                                      dos_parent, sizeof dos_parent);
+        dos_child_len = read_capture("kernel/tests/fixtures/dos33_env/CHILD.BIN",
+                                     dos_child, sizeof dos_child);
+        if (fileio_fat_add_drive(2u, &vol)) return 2;
+        int21_set_exec_backend(exec_from_test_disk);
+        memset(shell_env, 0xa5, sizeof shell_env);
+        memcpy(shell_env, dos_parent, 48u); /* captured variables and both NULs */
+        memcpy((void *)(uintptr_t)ENV_BLOCK, shell_env, sizeof shell_env);
+        st = load_program_from_fat("parent.com", 0, NULL, 0, ENV_BLOCK, &rc);
+        CHECK(st == LOADER_OK && rc == 7 && guest_calls == 3,
+              "parent and both INT21 children complete");
+        CHECK(!memcmp((void *)(uintptr_t)ENV_BLOCK, shell_env, sizeof shell_env),
+              "EXEC preserves the shell's entire environment source block");
     } else {
         static uint16_t directory;
         static const char *name="RAW.COM";

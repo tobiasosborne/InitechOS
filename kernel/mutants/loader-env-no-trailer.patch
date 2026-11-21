@@ -1,0 +1,12 @@
+# test: test-loader-live
+--- a/loader.c
++++ b/loader.c
+@@ -550,7 +550,7 @@
+     if (exec_path) {
+         /* MS-DOS Encyclopedia section II, EXEC, figure 10-2. The second
+          * byte of the little-endian count is already zero. */
+-        dest[strings_len] = 1u;
++        dest[strings_len] = 0u;
+         loader_memcpy(dest + strings_len + 2u, (const uint8_t *)exec_path, path_len);
+     }
+     return LOADER_OK;

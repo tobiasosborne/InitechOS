@@ -7,11 +7,11 @@
          return LOADER_ERR_BAD_ENV;   /* an env at an address the loader never wrote */
      }
 -    if (env_block == 0u) {
--        out->env_linear  = (uint32_t)ENV_BLOCK;   /* inherit-empty: PSP -> ENV_BLOCK */
--        out->write_empty = 1;                     /* synthesize the 2-byte empty block */
+-        out->env_linear  = (uint32_t)ENV_BLOCK;   /* legacy default in the pure decision */
+-        out->write_empty = 1;                     /* use the implicit source */
 -    } else {
--        out->env_linear  = env_block;             /* inherit the populated block      */
--        out->write_empty = 0;                     /* do NOT overwrite the shell's env  */
+-        out->env_linear  = env_block;
+-        out->write_empty = 0;
 -    }
 +    /* MUTANT (the repository contract; make test-exec-env-mutant only): IGNORE the provided
 +     * env_block and ALWAYS choose the empty-block path -- the exact pre-inc-3 bug

@@ -129,14 +129,9 @@ typedef struct loader_env_decision {
     int      write_empty;  /* 1 => synthesize the 2-byte empty block at ENV_BLOCK */
 } loader_env_decision_t;
 
-/* loader_decide_env -- the PURE, host-testable EXEC env-inheritance decision
- * (beads initech-1i0x Tranche E inc 3). Maps the caller's env_block (0 =
- * inherit-empty; ENV_BLOCK = inherit the shell's populated env) to a
- * loader_env_decision_t. A non-zero env_block that is NOT ENV_BLOCK fails loud
- * (LOADER_ERR_BAD_ENV); a NULL out fails LOADER_ERR_NULL_OUT (The constitution). The kernel
- * loader (loader_run_plan, kernel-only asm path) calls this to choose, so the
- * oracle and the artifact agree by construction. Ref: spec/memory_map.h ENV_BLOCK;
- * spec/dos_structs.h exec_param_block_t.env_block. */
+/* Validate the EXEC environment source. Zero chooses implicit inheritance;
+ * ENV_BLOCK refers to the environment serialized by the resident shell.
+ * loader_run_plan resolves the implicit source and builds a private copy. */
 loader_status_t loader_decide_env(uint32_t env_block, loader_env_decision_t *out);
 
 /* loader_prepare -- validate inputs and compute the deterministic load plan
@@ -277,10 +272,9 @@ loader_status_t load_program(const uint8_t *image, uint32_t image_len,
  * `image_len` is the on-disk byte count already present at PROGRAM_IMAGE (used
  * for the arena base = roundup(PROGRAM_IMAGE + image_len + BSS_RESERVE) and the
  * PROGRAM_IMAGE_MAX bound). `env_block` (beads initech-1i0x Tranche E inc 3) is
- * the FLAT linear address of the env block the child inherits, or 0 for
- * inherit-empty (the loader then synthesizes the 2-byte empty block at ENV_BLOCK,
- * the legacy behavior); a non-zero value MUST be the locked ENV_BLOCK region or
- * the call fails LOADER_ERR_BAD_ENV (The constitution). Returns LOADER_OK on a clean
+ * the FLAT linear address of the shell's serialized env block, or 0 to inherit
+ * the active caller's variables (empty without a caller). A non-zero value
+ * must be ENV_BLOCK or the call fails LOADER_ERR_BAD_ENV. Returns LOADER_OK on a clean
  * run-and-return with *out_exit_code set; a LOADER_ERR_* on a validation failure
  * (the program is NOT run). KERNEL ONLY; in a hosted build it is a validate-only
  * stub. Ref: spec/memory_map.h; ADR-0009 DEC-04; psp-loader-ground-truth.md Sec 4. */
