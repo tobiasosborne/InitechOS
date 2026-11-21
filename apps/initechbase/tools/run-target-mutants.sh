@@ -27,7 +27,7 @@ for patch_file do
  static-cross) diagnostic='prohibited cross reference from .ovl_report to `ndx_rebuild' ;;
  static-resref) diagnostic='prohibited cross reference from .text to `.text.0ovl_report' ;;
  static-reenter) diagnostic='no-returning-into-an-evicted-overlay rule violated: ibase_ovl_call' ;;
- native-forms|native-enter|native-keys|native-color|native-color-state|native-controls|native-io|native-stream|native-stack|native-ovl-crc|native-ovl-missing|native-ovl-callback|native-ovl-hook)
+ native-forms|native-enter|native-keys|native-color|native-color-state|native-controls|native-io|native-stream|native-stack|native-ovl-crc|native-ovl-missing|native-ovl-callback|native-ovl-hook|native-ovl-raw|native-ovl-live)
   case $mode in native-io|native-stream|native-stack)checker=tests/native/files.sh;;esac
   case $mode in native-ovl-*)checker=tests/native/overlays.sh;;esac
   oracle=${mode#native-}

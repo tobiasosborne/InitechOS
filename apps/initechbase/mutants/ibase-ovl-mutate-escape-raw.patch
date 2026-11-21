@@ -1,5 +1,0 @@
-# test: test_interp_do_file
---- a/cmd/set.c
-+++ b/cmd/set.c
-@@ -1057,0 +1058 @@
-+    xb_interp_ctx(ip)->mirror_user=(void *)(uintptr_t)set_ovl_entry;

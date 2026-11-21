@@ -1,5 +1,11 @@
 # test: test_ibase_w2
 --- a/cmd/set.c
 +++ b/cmd/set.c
-@@ -871,0 +872 @@
+@@ -940,6 +940,7 @@
+         d = v.u.n;
+         if (d < 0.0 || d >= 16001.0) { if (err_code) *err_code = 46; return -INTERP_ERR_EVAL; }
+         n = (uint32_t)d;
 +        return CMD_OK;   /* MUTANT: SET HISTORY TO n never resizes */
+         if (n == ss->hist_cap) return CMD_OK;
+         if (ss->hist) {
+             char **fresh = (char **)0;

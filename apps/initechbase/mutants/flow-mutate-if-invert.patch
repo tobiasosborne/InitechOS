@@ -1,7 +1,10 @@
 # test: test_interp_flow
 --- a/cmd/flow.c
 +++ b/cmd/flow.c
-@@ -1360,0 +1361,11 @@
+@@ -1382,6 +1382,17 @@
+             return rc;
+     }
+ 
 +    /* MUTANT (CLAUDE.md, The constitution -- mutants/flow-mutate-if-invert.patch; initech-0k2d): invert the
 +     * evaluated guard, so IF takes the ELSE branch and vice versa (and a
 +     * guardless-ELSE IF wrongly runs its body when the guard is FALSE). A
@@ -13,3 +16,6 @@
 +     * on J=2), so the loop's "1"/"3" lines vanish entirely. Exactly one
 +     * perturbed value; no crash, no infinite loop (EXIT still terminates). */
 +    truth = !truth;
+ 
+     else_at = find_top_level(fp, start + 1, endif, LK_ELSE, LK_OTHER, LK_OTHER);
+ 

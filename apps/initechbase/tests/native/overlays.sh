@@ -25,13 +25,22 @@ case $mode in
   printf '%b' "\0$octal" | dd of="$out/BAD.OVL" bs=1 seek="$offset" conv=notrunc 2>/dev/null
   mcopy -i "$disk" "$out/BAD.OVL" ::APPS/INITBASE.OVL ;;
  ovl-missing) ;;
- ovl-callback|ovl-hook) mcopy -i "$disk" "$ovl" ::APPS/INITBASE.OVL ;;
+ ovl-callback|ovl-hook|ovl-raw|ovl-live) mcopy -i "$disk" "$ovl" ::APPS/INITBASE.OVL ;;
  *) fail 'unknown overlay oracle';;
 esac
 mcopy -i "$disk" "$root/build/dos/COMMAND.COM" ::
 printf 'FILES=20\r\nSHELL=COMMAND.COM /P\r\n' > "$out/CONFIG.SYS"
 mcopy -i "$disk" "$out/CONFIG.SYS" ::
-printf '?? "[OVL-ACCEPTED]"\nRETURN\n' > "$out/PROBE.PRG"
+# A SET command runs the SET overlay's full entry, not only its start-up
+# defaults. ON ERROR names a command in a second overlay (STATUS), so an
+# overlay that runs the trap itself would swap out its own code. In the
+# product no error occurs and the trap never runs. The legacy tree graded
+# both faults with this probe (harness/diff/dbf_diff, overlay guard).
+case $mode in
+ ovl-raw) printf 'SET TALK OFF\n?? "[OVL-ACCEPTED]"\nRETURN\n' ;;
+ ovl-live) printf 'ON ERROR LIST STATUS\nSET TALK OFF\n?? "[OVL-ACCEPTED]"\nRETURN\n' ;;
+ *) printf '?? "[OVL-ACCEPTED]"\nRETURN\n' ;;
+esac > "$out/PROBE.PRG"
 mcopy -i "$disk" "$out/PROBE.PRG" ::APPS/PROBE.PRG
 printf '\n\ncd apps\ninitbase\n' | "$root/build/factory/keys" | sed 's/\(^\|,\)/\1k/g' > "$out/launch"
 printf 'do probe\n' | "$root/build/factory/keys" | sed 's/\(^\|,\)/\1k/g' > "$out/probe"
@@ -41,11 +50,20 @@ rc=0
  --legacy-quit --timeout-ms 15000 > "$out/stdout" 2> "$out/report" || rc=$?
 grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$out/report" >/dev/null || fail 'emulator fault'
 case $mode in
- ovl-callback|ovl-hook)
-  why=fn;[ "$mode" != ovl-hook ] || why=hook
-  if grep -E "IBASE OVERLAY PANIC: $why loaded=00000003 requested=00000003 depth=00000001 pointer=[0-9A-F]{8}" "$out/run.serial" >/dev/null; then
+ ovl-callback|ovl-hook|ovl-raw|ovl-live)
+  # The guard names the retained field, or the swap a live overlay asked
+  # for, with the overlay in the slot (SET = 3), the one requested (STATUS
+  # = 2 for the swap) and the activation depth.
+  case $mode in
+   ovl-callback) why=fn requested=00000003 pointer='[0-9A-F]{8}';;
+   ovl-hook) why=hook requested=00000003 pointer='[0-9A-F]{8}';;
+   ovl-raw) why='c->mirror_user' requested=00000003 pointer='[0-9A-F]{8}';;
+   ovl-live) why='live swap' requested=00000002 pointer=00000000;;
+  esac
+  if grep -E "IBASE OVERLAY PANIC: $why loaded=00000003 requested=$requested depth=00000001 pointer=$pointer" "$out/run.serial" >/dev/null; then
    grep -F 'PANIC vec=06 err=00000000' "$out/run.serial" >/dev/null || fail 'missing invariant exception'
    grep -Fx HALTED "$out/run.serial" >/dev/null || fail 'missing invariant stop'
+   grep -F '[OVL-ACCEPTED]' "$out/run.serial" >/dev/null && fail 'program continued past the overlay panic'
    red "SET retained a slot $why; explicit lifetime guard rejected it"
   fi ;;
 esac

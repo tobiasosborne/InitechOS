@@ -14,3 +14,9 @@ The oracle is the overlay lifetime property described in README.md and
 boot/ibase.ld. The linker is independent of the product; the packer traverses
 ELF relocation edges. These three deliberate violations cannot be shipped.
 No crash or timeout is accepted as evidence. Logs retain the exact diagnostics.
+
+Runtime lifetime guards (tests/native/overlays.sh) boot the product image and
+run a probe program; the guard's own panic line is the rejection:
+
+- callback, hook: SET binds a slot function or command hook at start-up.
+- raw: a SET command stores a slot address in the context's mirror_user.

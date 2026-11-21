@@ -1,0 +1,11 @@
+# target: native-ovl-raw
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1126,6 +1126,7 @@
+         set_init_defaults(ip,ss);
+         return INTERP_OK;
+     }
++    xb_interp_ctx(ip)->mirror_user=(void *)(uintptr_t)set_ovl_entry;
+     /* Find the set_state for this interpreter. */
+     ss = set_state_for(ip, (int *)0);
+     if (!ss) {
