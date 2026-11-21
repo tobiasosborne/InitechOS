@@ -217,10 +217,12 @@ test-utility-errors-compat33_DEPS := $(OUT)/host/tool_chkdsk_host $(OUT)/host/to
 SESSION_MUTANT_PATCHES := $(wildcard */mutants/runtime/*.patch)
 .PHONY: mutants mutants-host mutants-sessions
 mutants: mutants-host mutants-sessions
+# Both sweeps reuse the repository catalogue in recursive builds.
+mutants-host mutants-sessions: $(TOP)/build/kernel/dos_messages.inc
 mutants-host:
 	+@sh $(TOP)/factory/testlib/run-mutants.sh "$(abspath $(TOP))" "$(COMPONENT)" \
 	  "$(abspath $(OUT))" "$(MAKE)" $(MUTANT_PATCHES)
-mutants-sessions:
+mutants-sessions: $(OUT)/host/tool_dos_parity_host
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/controls.sh "$(TOP)" "$(OUT)/runtime-controls"
 	+sh tests/runtime/mutants.sh "$(TOP)" $(SESSION_MUTANT_PATCHES)
