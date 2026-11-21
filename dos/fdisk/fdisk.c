@@ -168,8 +168,7 @@ int fdisk_run(const fdisk_io *ops)
 {
     io=ops;drive=0x80;int changed=0;
     for(;;) {
-        /* PM ruling: loaded volume is not an editing target. The present
-         * single-volume loader is bound exclusively to ATA primary slave. */
+        /* The operator's loaded-volume refusal protects its whole disk. */
         if(drive==io->loaded_drive)return 1;
         sectors=io->capacity(drive);
         if(!sectors || io->read(drive,mbr))return 1;

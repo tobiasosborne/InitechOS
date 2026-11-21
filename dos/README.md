@@ -172,6 +172,15 @@ CHKDSK remains a reader. FDISK preserves every mapped FAT16 partition entry,
 including its active flag, before writing the MBR. Blank media and FAT12
 maintenance retain their existing behavior. File-based utilities use INT 21h;
 the kernel refuses their FAT16 mutations with Access denied.
+FDISK uses the physical disk from the INT 13h AH=60h running-volume map.
+It refuses that entire disk and exits with status 1 if the map supplies
+no reliable running identity. The `fdisk-running-disk` host test drives
+the real adapter and core with independent A: and C: map records while
+the other DOS drive is selected.
+After the kernel boots from C:, replay with
+`sh dos/fdisk/tests/running-native.sh <qemu|bochs> <alone|with-data> <out>`
+from the built product root. Use a fresh, short output path. The test
+verifies FDISK's refusal and compares the entire writable disk copies.
 `test-fat16-utilities` uses mtools-created images, writable adapters, write-call
 counters and whole-image identity; existing fsck/mtools FAT12 controls remain.
 `make smoke-fat16` runs the DOS import/refusal session on QEMU and Bochs,

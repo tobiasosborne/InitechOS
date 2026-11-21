@@ -1,0 +1,12 @@
+# Restore the fixed primary-slave guard.
+# test: fdisk-running-disk
+--- a/fdisk/fdisk_program.c
++++ b/fdisk/fdisk_program.c
+@@ -72,6 +72,6 @@
+ {
+     const unsigned disk=running_disk();
+     if(!disk)return 1;
+-    const fdisk_io io={read_disk,write_disk,capacity,get,put,disk,fdisk_restart,letter,protected_letter};
++    const fdisk_io io={read_disk,write_disk,capacity,get,put,0x81,fdisk_restart,letter,protected_letter};
+     return fdisk_run(&io);
+ }

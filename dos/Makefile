@@ -28,7 +28,7 @@ $(OUT)/$(1).COM: $(OUT)/$(1).elf
 endef
 $(eval $(call c_program,CHKDSK,chkdsk/chkdsk_start.o chkdsk/chkdsk.o chkdsk/chkdsk_program.o,chkdsk/chkdsk.ld))
 $(eval $(call c_program,EDLIN,edlin/edlin_start.o edlin/edlin.o edlin/edlin_program.o,edlin/edlin.ld))
-$(eval $(call c_program,FDISK,fdisk/fdisk_start.o fdisk/fdisk.o fdisk/fdisk_program.o,fdisk/fdisk.ld))
+$(eval $(call c_program,FDISK,fdisk/fdisk_start.o fdisk/fdisk.o fdisk/fdisk_program.o fdisk/fdisk_gates.o,fdisk/fdisk.ld))
 $(OUT)/%_start.o: %_start.asm | $(OUT)
 	@mkdir -p $(@D)
 	$(NASM) -f elf32 $< -o $@
