@@ -1,0 +1,12 @@
+# Ignore the operand list and search stdin
+# session: findargs
+--- a/find/find_program.asm
++++ b/find/find_program.asm
+@@ -95,6 +95,7 @@
+     call skip_spaces
+     cmp esi, ebp
+     jae .stdin
++    jmp .stdin
+     mov [tail_end], ebp
+ .next_file:
+     mov edi, filename

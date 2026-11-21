@@ -1,38 +1,70 @@
 #!/bin/sh
-# initech-iuuni: FIND accepts nothing silently. Unknown switches, file
-# operands and empty strings refuse with the period parameter diagnostic
-# and nonzero ERRORLEVEL, as SORT refuses unsupported switches
-# (GOLDEN-MASTER item 2). Genuine FIND media are missing (initech-0e5gu):
-# the diagnostic (MSG-DOS-0059, MS-DOS 3.3 User's Guide p.341, already
-# FIND's missing-string message) and status 1 are stated assumptions.
+# Compare the shipped FIND with MS-DOS 3.30 stdout, diagnostics and status.
+# With stdout redirected, the native console receives FIND stderr.
 set -eu
 root=${1:?root} boot=${2:?boot} programs=${3:?programs} out=${4:?output}
 cd "$root"
-mkdir -p "$out"; out=$(realpath "$out")
+mkdir -p "$out"
+out=$(realpath "$out")
+rm -f "$out/transport.ok" "$out/assertion" "$out/result"
 . "$root/dos/tests/runtime/verdict.sh"
-export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
+case_dir=$root/dos/find/tests/compat33
+. "$case_dir/fixture.sh"
+export LC_ALL=C TZ=UTC INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 truncate -s 1474560 "$out/data.img"
 mformat -i "$out/data.img" -f 1440 ::
+find_fixture
+find_batches product
 nasm -f bin dos/tests/runtime/done.asm -o "$out/DONE.COM"
 mcopy -i "$out/data.img" "$out/DONE.COM" "$programs/FIND.COM" ::
-printf 'apple\r\nbanana\r\nAPPLE pie\r\n' > "$out/words"
-printf 'apple\r\n' > "$out/ok"
-printf '2\r\n' > "$out/count"
-mcopy -i "$out/data.img" "$out/words" ::WORDS.TXT
-printf '@echo off\r\nFIND "apple" <WORDS.TXT >OK.OUT\r\nFIND /C /I "APPLE" <WORDS.TXT >CNT.OUT\r\nFIND /Z "apple" <WORDS.TXT >BAD1.OUT\r\nif errorlevel 1 echo REFUSED >BAD1.RC\r\nFIND "apple" WORDS.TXT <WORDS.TXT >BAD2.OUT\r\nif errorlevel 1 echo REFUSED >BAD2.RC\r\nFIND "" <WORDS.TXT >BAD3.OUT\r\nif errorlevel 1 echo REFUSED >BAD3.RC\r\nDONE\r\n' > "$out/AUTOEXEC.BAT"
+{
+    printf '%s\r\n' '@echo off'
+    call_find_batches
+    if [ -z "${FIND_CASE:-}" ]; then
+        printf '%s\r\n' 'FIND /C /I "APPLE" <WORDS.TXT >ICOUNT.OUT' \
+            'FIND "apple" words.txt <OTHER.TXT >SHELL.OUT'
+    fi
+    printf '%s\r\n' DONE
+} > "$out/AUTOEXEC.BAT"
 mcopy -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
-if ! timeout 45 build/factory/qemu_harness --disk "$boot" --disk2 "$out/data.img" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 25000 --out "$out" --name findargs > "$out/driver.log" 2> "$out/report"; then error 'FIND args transport failed'; fi
+timeout 70 build/factory/qemu_harness --disk "$boot" --disk2 "$out/data.img" \
+    --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 55000 \
+    --out "$out" --name findargs > "$out/driver.log" 2> "$out/report" || error 'FIND args transport failed'
 transport_pass "$out/report"
-mtype -i "$out/data.img" ::OK.OUT > "$out/actual" || error 'FIND valid output missing'
-require 'FIND valid stdin form still filters' cmp "$out/ok" "$out/actual"
-mtype -i "$out/data.img" ::CNT.OUT > "$out/actual" || error 'FIND count output missing'
-require 'FIND /C /I still counts case-insensitively' cmp "$out/count" "$out/actual"
-for n in 1 2 3; do
- mtype -i "$out/data.img" ::BAD$n.OUT > "$out/actual" || error "FIND BAD$n diagnostic missing"
- tr -d '\r' < "$out/actual" > "$out/text"
- require "FIND refuses bad argument $n with period diagnostic" grep -Fx 'Invalid number of parameters' "$out/text"
- mtype -i "$out/data.img" ::BAD$n.RC > "$out/status" || error "FIND BAD$n status missing"
- tr -d '\r' < "$out/status" > "$out/text"
- require "FIND bad argument $n sets failure status" grep -Fx 'REFUSED' "$out/text"
-done
-echo 'GREEN FIND: valid forms work; unknown switch, file operand and empty string refused with nonzero status'
+tr -d '\r' < "$out/findargs.serial" > "$out/console"
+forbid 'FIND returned an unexpected status' grep -Fx 'FIND-PROBE-FAIL' "$out/console"
+mdir -i "$out/data.img" :: > "$out/volume" || error 'cannot read the result volume'
+
+# Collect all comparisons before giving the runner the first failed property.
+# This also shows which of the unchanged baseline cases already conformed.
+first_failure=
+compare_bytes() {
+    if cmp -s "$1" "$2"; then
+        printf 'PASS %s\n' "$3"
+        return
+    else
+        rc=$?
+        [ "$rc" -eq 1 ] || error "could not compare $2 ($rc)"
+    fi
+    printf 'FAIL %s\n' "$3"
+    first_failure=${first_failure:-$3}
+}
+compare() {
+    mcopy -o -i "$out/data.img" "::$1" "$out/$1" || error "missing or unreadable result $1"
+    compare_bytes "$2" "$out/$1" "$3"
+}
+while IFS='|' read -r name input args; do
+    [ -z "${FIND_CASE:-}" ] || [ "$FIND_CASE" = "$name" ] || continue
+    compare "$name.OUT" "$case_dir/expected/$name.OUT" "FIND $name stdout"
+    sed -n "/^BEGIN-$name$/,/^END-$name$/ { /^BEGIN-$name$/d; /^END-$name$/d; p; }" "$out/console" | \
+        awk '{printf "%s\r\n", $0}' > "$out/$name.ERR"
+    compare_bytes "$case_dir/expected/$name.ERR" "$out/$name.ERR" "FIND $name diagnostic"
+    compare "$name.RC" "$case_dir/expected/$name.RC" "FIND $name ERRORLEVEL"
+done < "$case_dir/cases"
+if [ -z "${FIND_CASE:-}" ]; then
+    printf '2\r\n' > "$out/count-expected"
+    compare ICOUNT.OUT "$out/count-expected" 'FIND /I extension'
+    compare SHELL.OUT "$case_dir/expected/NAMED.OUT" 'FIND shell passes named operand'
+fi
+[ -z "$first_failure" ] || semantic "$first_failure"
+echo 'GREEN FIND stdout, stderr and status'

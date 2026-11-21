@@ -1,4 +1,4 @@
-# FIND_MUTATE_INVERT
+# Reverse the line-selection decision
 # session: auto
 --- a/find/find_program.asm
 +++ b/find/find_program.asm

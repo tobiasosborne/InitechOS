@@ -1,0 +1,22 @@
+# Return success after empty or invalid syntax
+# session: findargs
+--- a/find/find_program.asm
++++ b/find/find_program.asm
+@@ -163,7 +163,7 @@
+     mov ax, 0x4C00
+     int 0x21
+ status_one:
+-    mov ax, 0x4C01
++    mov ax, 0x4C00
+     int 0x21
+ 
+ missing_string:
+@@ -175,7 +175,7 @@
+     mov ecx, msg_syntax_len
+ parse_error:
+     call err_write
+-    mov ax, 0x4C02
++    mov ax, 0x4C00
+     int 0x21
+ 
+ skip_spaces:

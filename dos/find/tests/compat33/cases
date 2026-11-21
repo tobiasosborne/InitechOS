@@ -1,0 +1,27 @@
+MATCH|WORDS.TXT|"apple"
+NOMATCH|WORDS.TXT|"pear"
+NAMED|OTHER.TXT|"apple" words.txt
+MULTI|NUL|/N "apple" words.txt other.txt
+MISSING|NUL|"apple" absent.txt
+QUOTES|QUOTES.TXT|"a""b"
+UNKNOWN|WORDS.TXT|/Z "apple"
+EMPTY|WORDS.TXT|""
+LATE|LATE.TXT|"apple"
+LATECNT|LATE.TXT|/C "apple"
+LATENUM|LATE.TXT|/N "apple"
+INVERT|WORDS.TXT|/V /N "apple"
+FILECNT|NUL|/C /N "apple" words.txt other.txt absent.txt
+CONTINUE|NUL|"apple" absent.txt words.txt
+UNQUOTED|WORDS.TXT|apple
+UNCLOSED|WORDS.TXT|"apple
+SECOND|WORDS.TXT|"apple" "pear"
+BADWORD|WORDS.TXT|/BAD "apple"
+SWAFTER|NUL|"apple" words.txt /N
+WILD|NUL|"apple" w*.txt
+PATH|NUL|"apple" .\sub\words.txt
+TEXT|TEXT.TXT|"apple"
+NONE|WORDS.TXT|
+DIR|NUL|"apple" SUB
+LONESW|WORDS.TXT|/ "apple"
+CTRLZ|CTRLZ.TXT|"apple"
+CROSS|CROSS.TXT|/N "apple"

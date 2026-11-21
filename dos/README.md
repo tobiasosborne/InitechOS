@@ -26,12 +26,12 @@ XCOPY/TREE share xcopy/. Default cdecl and uniform shared -Os flags apply.
 Dependencies: kernel/include (public DOS/machine contracts and generated
 message catalogue); factory/include and factory/testlib (host assertions and
 grading support only).
-The utility entry and register bridges use cdecl; their transfer/return runs
-in the product smoke. FIND consumes redirected stdin; filename operands,
-unknown switches and empty or unterminated search strings are refused with
-its period parameter diagnostic and status 1 (initech-iuuni; exact DOS 3.30
-FIND text awaits a pinned utility capture, initech-0e5gu). Smoke uses `FIND "apple" < WORDS.TXT`;
-`make smoke-find-args` checks the refusals in the booted product.
+The utility entry and register bridges use cdecl where they call C. The
+product smoke exercises transfer and return. FIND searches named files in
+order, or stdin when the command supplies no files. `make smoke-find-args`
+checks filenames, quoted strings, switches, stdout, stderr and status
+against [MS-DOS 3.30 captures](find/tests/compat33/README.md). `/I` is
+an InitechDOS extension for case-insensitive matching.
 
 Published application bindings (CLAUDE.md, "Two interfaces"):
 
@@ -106,7 +106,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 159 host patches and 49 product-session patches,
+The current DOS inventory is 159 host patches and 53 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.
@@ -229,14 +229,15 @@ memory diagnostic. The genuine size-based refusal in
 returned status 1. The numeric bounds come from InitechDOS's scratch layout.
 The recovered SORT/FIND binaries are private reference inputs and ship
 nowhere. initech-0e5gu still tracks the
-complete exact-boundary, read-error and diagnostic/ERRORLEVEL captures. Until then, limit refusals
-use the period catalogue's "Insufficient memory" and status 1; read failures
-use "Error reading file" and status 1. These are stated safety assumptions.
+complete exact-boundary, read-error and diagnostic/ERRORLEVEL captures.
+The provisional I/O refusals use "Insufficient memory" or "Error reading
+file" with status 1.
 
-`make smoke-find-limits` checks FIND's provisional 64 KiB input bound with
-its only match beyond 70 KiB. FIND probes EOF when full and refuses before
-emitting any line or count if more input remains. It does not claim the
-recovered DOS utility's streaming capacity; initech-0e5gu tracks that capture.
+FIND streams 4 KiB chunks and retains the current line. The genuine capture
+checks a 72,007-byte late match with and without /C or /N. The local 64 KiB
+line buffer still refuses an oversized line before matching or printing it.
+`make smoke-find-limits` checks the exact retained-line boundary and refusal
+with /C. The genuine long-line and I/O edge behavior remains in initech-pd6s8.
 
 `make smoke-filter-full` checks the write side (initech-8ao8f): on a full
 disk, SORT, FIND and FIND /C redirected to a file end with nonzero
@@ -244,7 +245,7 @@ ERRORLEVEL (a diagnostic reaches CON through the shell) and mtools proves
 the output really is a truncated prefix. A reported write failure never
 exits 0. The in-filter diagnostic "Insufficient disk space" (MSG-DOS-0005)
 and status 1 are stated safety assumptions pending genuine utility captures
-(initech-0e5gu).
+(SORT initech-0e5gu, FIND initech-pd6s8).
 
 SORT /+n compares from the documented one-based column (MS-DOS 3.3 User's
 Guide p.116), including short/empty suffixes and /R. `make smoke-sort-columns`

@@ -77,7 +77,7 @@ if [ "$output" = NUL ]; then
 else
  mtype -i "$out/data.img" "::$output" > "$out/output" || error 'output missing'
  tr -d '\r' < "$out/output" > "$out/text"
- require "$program bounded input refusal" grep -Fx 'Insufficient memory' "$out/text"
+ require "$program bounded buffer refusal" grep -Fx 'Insufficient memory' "$out/text"
 fi
 mtype -i "$out/data.img" ::STATUS.TXT > "$out/status" || error 'status missing'
 tr -d '\r' < "$out/status" > "$out/status-text"

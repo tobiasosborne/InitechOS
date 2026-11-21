@@ -1,13 +1,13 @@
-# FIND_TRUNCATE_LIMIT
+# Treat an oversized line as end of input
 # session: findlimits
 --- a/find/find_program.asm
 +++ b/find/find_program.asm
-@@ -156,7 +156,7 @@
-     int 0x21
-     jc .read_error
-     test eax, eax
--    jnz .limit_error
-+    jnz .read_done
- .read_done:
-     mov [total], edi
- 
+@@ -219,7 +219,7 @@
+     je .newline
+     mov ecx, [line_len]
+     cmp ecx, LINE_MAX
+-    jae limit_error
++    jae .eof
+     mov [LINEBUF + ecx], al
+     inc dword [line_len]
+     jmp .byte

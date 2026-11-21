@@ -1,0 +1,13 @@
+# Send diagnostics to standard output
+# session: findargs
+--- a/find/find_program.asm
++++ b/find/find_program.asm
+@@ -365,7 +365,7 @@
+     jne write_error
+     ret
+ err_write:
+-    mov ebx, 2
++    mov ebx, 1
+     mov ah, 0x40
+     int 0x21
+     ret

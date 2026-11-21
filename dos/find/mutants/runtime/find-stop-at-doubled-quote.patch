@@ -1,0 +1,14 @@
+# Treat the first quote of a doubled quote as the closing quote
+# session: findargs
+--- a/find/find_program.asm
++++ b/find/find_program.asm
+@@ -82,8 +82,7 @@
+     jne .copy_char
+     cmp esi, ebp
+     jae .end_string
+-    cmp byte [esi], '"'
+-    jne .end_string
++    jmp .end_string
+     inc esi                    ; a doubled quote is literal
+ .copy_char:
+     stosb

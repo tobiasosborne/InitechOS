@@ -35,8 +35,7 @@ refuse with `SORT: Insufficient memory`, ERRORLEVEL 1, on the tested 8 MiB
 configuration. A following line-heavy case did not complete within the
 reference harness bound, so the full run is incomplete. Neither that timeout
 nor the successful prefix establishes an exact numeric memory or line limit.
-FIND's late-match, count, refusal/status and diagnostic-stream cases remain
-uncaptured. Existing InitechDOS limits, refusal text, statuses and streams
-remain stated local safety assumptions until the complete captures are pinned.
-The original acquisition, decoder and incomplete-run receipts are retained in
-the DOS owner handoff; none of those runs is counted as a green full capture.
+FIND operand, late-match, count, status and diagnostic-stream captures are
+pinned in `dos/find/tests/compat33/`. FIND long-line and I/O fault behavior
+and exact SORT resource and I/O boundaries remain open. The incomplete
+SORT run is retained in the DOS owner handoff.
