@@ -2,6 +2,7 @@
  * Ordering and callbacks follow that reference; hardware contracts are in
  * sysinit.c, console.c, block_device.c and the public headers. */
 #include "startup.h"
+#include "startup_disks.h"
 #include "boot_info.h"
 #include "memory_map.h"
 #include "io.h"
@@ -13,9 +14,6 @@
 #include "fat12.h"
 #include "fileio_fat.h"
 #include "loader.h"
-#include "ata.h"
-#include "block_device.h"
-#include "absdisk_binding.h"
 #include "kbd.h"
 #include "pit.h"
 #include "rtc.h"
@@ -257,113 +255,6 @@ uint32_t int21_getvect_idt(uint8_t vec)
     return (uint32_t)g.offset_lo | ((uint32_t)g.offset_hi << 16);
 }
 
-fat12_volume_t g_absdisk_vol;
-
-int int21_absdisk_read(uint32_t lba, uint32_t count, void *buf)
-{
-    return fat12_read_sectors(&g_absdisk_vol, lba, count, buf);
-}
-
-int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf)
-{
-    int rc = fat12_write_sectors(&g_absdisk_vol, lba, count, buf);
-    
-    if (rc == 0) fileio_fat_absdisk_written(lba, count, buf);
-    return rc;
-}
-
-static int mount_dos_volume(unsigned letter, fat12_volume_t *vol,
-                            const blockdev_t *dev, uint8_t *sector)
-{
-    du_map map;
-    if (block_device_map(letter, &map)) {
-        
-        if (letter == 0u) {
-            int rc = fat12_mount(vol, dev, sector);
-            if (rc) return rc;
-        }
-        return FAT12_ERR_PARTITION;
-    }
-    int rc = map.partition ? fat12_mount_primary(vol, dev, sector, map.partition)
-                           : fat12_mount(vol, dev, sector);
-    if (!rc && (vol->base_lba != map.base || vol->total_sectors > map.sectors))
-        rc = FAT12_ERR_PARTITION;
-    return rc;
-}
-
-static ata_ctx_t fixed_master;
-static blockdev_t fixed_dev;
-static fat12_volume_t fixed_volumes[2];
-static uint8_t fixed_sector[512];
-static void bind_fixed_absdisk(unsigned letter, int mounted);
-
-static void mount_fixed_volume(unsigned letter)
-{
-    int rc = mount_dos_volume(letter, &fixed_volumes[letter-2], &fixed_dev,
-                              fixed_sector);
-    if (!rc) rc = fileio_fat_add_drive(letter, &fixed_volumes[letter-2]);
-    if (rc) fileio_fat_drop_drive(letter);
-    bind_fixed_absdisk(letter, !rc);
-    block_device_volume_policy(letter,0x80,fixed_volumes[letter-2].base_lba,
-        rc ? 0 : fixed_volumes[letter-2].extent_sectors,
-        !rc && fixed_volumes[letter-2].fat_type == FAT_TYPE_FAT16);
-    serial_puts(rc ? "DOS-VOLUME-FAIL " : "DOS-VOLUME-OK ");
-    serial_putc((char)('A'+letter));
-    serial_puts(" rc="); serial_puti(rc); serial_putc('\n');
-}
-
-static void fixed_volume_written(unsigned letter, uint32_t lba, uint32_t count,
-                                 const void *buf)
-{
-    if (lba == 0u) mount_fixed_volume(letter);
-    else fileio_fat_raw_written(letter, lba, count, buf);
-}
-
-static int fixed_write(unsigned letter, uint32_t lba, uint32_t count, const void *buf)
-{
-    int rc = fat12_write_sectors(&fixed_volumes[letter-2], lba, count, buf);
-    if (rc == 0) fixed_volume_written(letter, lba, count, buf);
-    return rc;
-}
-static int abs_read_c(uint32_t l, uint32_t n, void *b)
-{ return fat12_read_sectors(&fixed_volumes[0], l, n, b); }
-static int abs_read_d(uint32_t l, uint32_t n, void *b)
-{ return fat12_read_sectors(&fixed_volumes[1], l, n, b); }
-static int abs_write_c(uint32_t l, uint32_t n, const void *b) { return fixed_write(2u, l, n, b); }
-static int abs_write_d(uint32_t l, uint32_t n, const void *b) { return fixed_write(3u, l, n, b); }
-static void bind_fixed_absdisk(unsigned letter, int mounted)
-{
-    const fat12_volume_t *v = &fixed_volumes[letter-2];
-    int21_absdisk_backend_t backend;
-    if (!mounted) { int21_set_absdisk_drive(letter, 0); return; }
-    backend.read = letter == 2u ? abs_read_c : abs_read_d;
-    backend.write = v->fat_type == FAT_TYPE_FAT12 && fixed_dev.write_sectors
-        ? (letter == 2u ? abs_write_c : abs_write_d) : 0;
-    backend.total_sectors = v->total_sectors;
-    int21_set_absdisk_drive(letter, &backend);
-}
-
-static void mount_fixed_volumes(void)
-{
-    ata_ctx_init_primary_master(&fixed_master);
-    ata_blockdev_init(&fixed_dev, &fixed_master);
-    for (unsigned letter=2;letter<4;letter++) {
-        du_map map;
-        if (block_device_map(letter, &map)) continue;
-        mount_fixed_volume(letter);
-        
-        block_device_watch(letter, &map, fixed_volume_written);
-    }
-}
-
-static void mount_context(int rc, const fat12_volume_t *vol)
-{
-    serial_puti((int32_t)rc);
-    serial_puts(" base_lba="); serial_putu(vol->base_lba);
-    serial_puts(" hidden_sectors="); serial_putu(vol->bpb.hidden_sectors);
-    serial_putc('\n');
-}
-
 static inline void dos_puts(const char *dollar_terminated)
 {
     __asm__ __volatile__(
@@ -509,69 +400,30 @@ void startup(void)
  dos_puts("InitechDOS  Version 3.30\n$");
  dos_puts("Copyright (C) 1991 Initech Systems Corporation.  All Rights Reserved.\n$");
  serial_puts("BANNER-END\nBANNER\n");
-    static uint8_t sector_buf[BLOCKDEV_SECTOR_SIZE]; 
-    static ata_ctx_t      ata_slave;
-    static blockdev_t     fatdev;
-    static crit_blockdev_t crit_fatdev;   
-    static fat12_volume_t vol;
-    int            mounted = 0;
-
+    static uint8_t sector_buf[BLOCKDEV_SECTOR_SIZE];
     serial_puts("FAT-MOUNT-BEGIN\n");
-    {
-        int rc;
-
-        ata_ctx_init_primary_slave(&ata_slave);
-        ata_blockdev_init(&fatdev, &ata_slave);
-
-        crit_blockdev_init(&crit_fatdev, &fatdev);
-
-        rc = mount_dos_volume(0, &vol, &crit_fatdev.dev, sector_buf);
-        if (rc == FAT12_OK) {
-            serial_puts("FAT-MOUNT-OK\n");
-            mounted = 1;
-
-            crit_blockdev_set_hook(int21_run_critical_error);
-
-            dir_puts("Directory of A:\\\n");
-            rc = fat12_read_root_dir(&vol, sector_buf, dir_visit, (void *)0);
-            if (rc == FAT12_OK) {
-                serial_puts("DIR-OK\n");
-            } else {
-                serial_puts("DIR-FAIL rc=");
-                serial_puti((int32_t)rc);
-                serial_putc('\n');
-            }
-
-            rc = fileio_fat_bind(&vol);
-            if (rc == 0) {
-                serial_puts("FILEIO-BIND-OK\n");
-            } else {
-                serial_puts("FILEIO-BIND-FAIL rc=");
-                serial_puti((int32_t)rc);
-                serial_putc('\n');
-            }
-
-            {
-                uint32_t load_fat_len = 0;
-                const uint8_t *load_fat =
-                    (const uint8_t *)fileio_fat_fat_buffer(&load_fat_len);
-                loader_bind_fat_volume(&vol, load_fat, load_fat_len);
-            }
-            int21_set_exec_backend(loader_exec_by_name);
-            int21_set_overlay_backend(overlay_exec);   
-            serial_puts("LOADER-FAT-BIND-OK\n");
-
-            bind_absdisk_volume(&vol, &fatdev);
-            mount_fixed_volumes();
-            serial_puts("ABSDISK-BIND-OK\n");
+    const fat12_volume_t *system_vol = startup_disks_init();
+    if (system_vol) {
+        serial_puts("FAT-MOUNT-OK\n");
+        dir_puts("Directory of ");
+        dir_putc((char)('A' + fileio_fat_system_drive()));
+        dir_puts(":\\\n");
+        int rc = fat12_read_root_dir(system_vol, sector_buf, dir_visit, 0);
+        if (!rc) {
+            serial_puts("DIR-OK\n");
         } else {
-            
-            serial_puts("FAT-MOUNT-FAIL rc=");
-            mount_context(rc, &vol);
+            serial_puts("DIR-FAIL rc=");
+            serial_puti(rc);
+            serial_putc('\n');
         }
-    }
+        uint32_t load_fat_len = 0;
+        const uint8_t *load_fat = fileio_fat_fat_buffer(&load_fat_len);
+        loader_bind_fat_volume(system_vol, load_fat, load_fat_len);
+        int21_set_exec_backend(loader_exec_by_name);
+        int21_set_overlay_backend(overlay_exec);
+        serial_puts("LOADER-FAT-BIND-OK\n");
+    } else serial_puts("FAT-MOUNT-FAIL\n");
     serial_puts("FAT-MOUNT-END\n");
-    (void)mounted;
 
     int21_set_clock(int21_clock_get_rtc, int21_clock_set_rtc);
     serial_puts("CLOCK-LIVE\n");
@@ -595,13 +447,9 @@ void startup(void)
     int21_set_vectortable(int21_setvect_idt, int21_getvect_idt);
     serial_puts("VECT-LIVE\n");
 
-    {
-        
-        uint32_t cfg_fat_len = 0u;
-        void    *cfg_fat = fileio_fat_fat_buffer(&cfg_fat_len);
-        (void)sysinit_apply_config(mounted ? &vol : (const fat12_volume_t *)0,
-                                   sector_buf, cfg_fat, cfg_fat_len, serial_puts);
-    }
+    uint32_t cfg_fat_len = 0;
+    void *cfg_fat = fileio_fat_fat_buffer(&cfg_fat_len);
+    (void)sysinit_apply_config(system_vol, sector_buf, cfg_fat, cfg_fat_len, serial_puts);
 
  sysinit_enable_irqs(serial_puts);
  int21_set_conin(int21_conin_get_kbd,int21_conin_poll_kbd);

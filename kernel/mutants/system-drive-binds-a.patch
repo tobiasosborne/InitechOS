@@ -1,9 +1,9 @@
 # test: test-system-drive
 --- a/fileio_fat.c
 +++ b/fileio_fat.c
-@@ -1089,7 +1089,7 @@
- {
+@@ -1067,7 +1067,7 @@
      if (!vol || letter == 1u || letter > 3u) return FAT12_ERR_NULL;
+     g_system_drive = -1;
      for (unsigned i=0;i<3;i++) g_mounts[i].vol = 0;
 -    int rc = fileio_fat_add_drive(letter, vol);
 +    int rc = fileio_fat_add_drive(0u, vol);

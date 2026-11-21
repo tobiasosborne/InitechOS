@@ -36,6 +36,9 @@ int fileio_fat_bind_drive(unsigned letter, fat12_volume_t *vol);
 /* DEC-18: add A (0), C (2) or D (3) without rebinding or sharing FAT caches. */
 int fileio_fat_add_drive(unsigned letter, fat12_volume_t *vol);
 const fat12_volume_t *fileio_fat_current_volume(void);
+/* Resident system/Finder identity: the successful initial binding's letter,
+ * independent of subsequent DOS selections; -1 while that mount is absent. */
+int fileio_fat_system_drive(void);
 
 /* Resident startup/Finder binding: explicitly identify a mounted volume and
  * its matching live FAT cache, independently of the current DOS I/O volume.

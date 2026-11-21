@@ -1,0 +1,11 @@
+# test: test-startup-disks
+--- a/startup_disks.c
++++ b/startup_disks.c
+@@ -140,6 +140,7 @@
+     ata_ctx_init_primary_master(&fixed_master);
+     ata_blockdev_init(&fixed_dev, &fixed_master);
+     crit_blockdev_init(&fixed_crit, &fixed_dev);
++    if (!have_data) return 0;
+     for (unsigned letter = 2; letter < 4; letter++) {
+         du_map map;
+         if (block_device_map(letter, &map)) continue;

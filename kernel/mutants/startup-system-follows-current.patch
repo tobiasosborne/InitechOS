@@ -1,0 +1,9 @@
+# test: test-startup-disks
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -1089,4 +1089,3 @@
+ {
+-    return g_system_drive >= 0 && fileio_fat_drive_volume((unsigned)g_system_drive, 0, 0)
+-        ? g_system_drive : -1;
++    return (int)int21_current_drive();
+ }

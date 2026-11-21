@@ -1,0 +1,10 @@
+# test: test-startup-disks
+--- a/startup_disks.c
++++ b/startup_disks.c
+@@ -77,5 +77,5 @@
+ {
+     fat12_volume_t raw = fixed_volumes[letter - 2];
+-    raw.dev = &fixed_dev;
++    raw.dev = &fixed_crit.dev;
+     return fat12_read_sectors(&raw, lba, count, buf);
+ }

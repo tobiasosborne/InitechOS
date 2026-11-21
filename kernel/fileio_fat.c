@@ -80,6 +80,7 @@ typedef struct {
 } fileio_mount_t;
 static fileio_mount_t g_mounts[3]; /* A, C, D; B is unassigned. */
 static fileio_mount_t *g_mount = &g_mounts[0];
+static int g_system_drive = -1;
 #define g_vol (g_mount->vol)
 #define g_fat (g_mount->fat)
 #define g_fat_len (g_mount->fat_len)
@@ -1064,6 +1065,7 @@ int fileio_fat_add_drive(unsigned letter, fat12_volume_t *vol)
 int fileio_fat_bind_drive(unsigned letter, fat12_volume_t *vol)
 {
     if (!vol || letter == 1u || letter > 3u) return FAT12_ERR_NULL;
+    g_system_drive = -1;
     for (unsigned i=0;i<3;i++) g_mounts[i].vol = 0;
     int rc = fileio_fat_add_drive(letter, vol);
     if (rc) return rc;
@@ -1073,6 +1075,7 @@ int fileio_fat_bind_drive(unsigned letter, fat12_volume_t *vol)
     int21_set_drive_selector(fat_select_drive);
     int21_set_media(vol->bpb.media_descriptor);
     int21_set_dpb_source(fat_dpb_geometry);
+    g_system_drive = (int)letter;
     return 0;
 }
 
@@ -1082,6 +1085,11 @@ int fileio_fat_bind(fat12_volume_t *vol)
 }
 
 const fat12_volume_t *fileio_fat_current_volume(void) { return g_vol; }
+int fileio_fat_system_drive(void)
+{
+    return g_system_drive >= 0 && fileio_fat_drive_volume((unsigned)g_system_drive, 0, 0)
+        ? g_system_drive : -1;
+}
 
 const fat12_volume_t *fileio_fat_drive_volume(unsigned letter, void **fat,
                                              uint32_t *fat_len)

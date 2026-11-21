@@ -13,12 +13,24 @@ emulators exercise INT21, IRQ delivery, external program transfer and return.
 
 main.c is the single production entry: startup, then permanent COMMAND.COM.
 startup.c extracts the legacy-final BOOT_SHELL wiring: interrupt foundation,
-console/banner, slave FAT mount and fixed-drive mounts, file/EXEC/absolute-disk
+console/banner, disk mounts, file/EXEC/absolute-disk
 backends, RTC, ANSI console, vector table, CONFIG.SYS, then IRQ/input enable.
 The old boot demos/selftest ISR are absent. Persistent mount/driver objects are
 static because startup returns before the interpreter runs AUTOEXEC.BAT.
 Reference behavior is legacy-final kernel_shell / tracer_boot.img; the hardware
 and DOS references inside the original drivers remain the behavioral sources.
+
+`startup_disks.c` implements the accepted GM8 delivery layout: discover fixed C:
+independently of optional ATA A:, bind the installed C: system, then select it
+through DOS. CONFIG.SYS, the loader and the permanent command processor share
+that system volume. The resident `fileio_fat_system_drive()` identity survives
+later DOS selections; `fileio_fat_drive_volume()` supplies its matching cache.
+File I/O on C retains critical-error handling; raw absolute I/O does not prompt.
+The legacy A: system fallback expires at C activation plan step 21
+(initech-tlhqy). Host tests exercise the production mount sequence with mtools
+disks over file-backed ATA transport. `make smoke-startup` checks the staged
+factory disk with and without A: on both emulators, including the executable
+path reported by the Turbo Pascal runtime probe from initech-311t2.
 
 Public machine/DOS contracts, including the existing physical-disk/INT13 host
 transport declarations in block_device.h, are in include/, claimed from attic/spec and the
@@ -424,7 +436,7 @@ Interface export-binding: kernel/include/dos_structs.h
 Interface export-records: kernel/include/drive_letters.h
 Interface export-binding: kernel/include/environment.h desktop_console_restore kernel_graphical_environment
 Interface export-binding: kernel/include/fat12.h fat12_create fat12_create_timed fat12_dir_identity fat12_fat_window_init fat12_find fat12_find_slot fat12_find_slot_in fat12_flush_fats fat12_format_83 fat12_get_attr fat12_hide_dir fat12_mkdir fat12_mkdir_timed fat12_mount fat12_mount_primary fat12_move_dirent fat12_next_cluster fat12_read_dir fat12_read_dir_entry fat12_read_dir_entry_in fat12_read_fat fat12_read_fat_sector fat12_read_file fat12_read_partial fat12_read_root_dir fat12_read_sectors fat12_rename fat12_replace fat12_resolve_path fat12_resolve_path_from fat12_rmdir fat12_set_attr fat12_set_dirent_time fat12_set_entry fat12_set_size fat12_trash_suffix_name fat12_unlink fat12_validate_file_chain fat12_walk_chain fat12_write_file fat12_write_partial fat12_write_sectors fat16_next_cluster
-Interface export-binding: kernel/include/fileio_fat.h fileio_fat_absdisk_written fileio_fat_add_drive fileio_fat_bind fileio_fat_bind_drive fileio_fat_current_volume fileio_fat_drive_volume fileio_fat_drop_drive fileio_fat_fat_buffer fileio_fat_raw_written fileio_fat_volume_label
+Interface export-binding: kernel/include/fileio_fat.h fileio_fat_absdisk_written fileio_fat_add_drive fileio_fat_bind fileio_fat_bind_drive fileio_fat_current_volume fileio_fat_drive_volume fileio_fat_drop_drive fileio_fat_fat_buffer fileio_fat_raw_written fileio_fat_system_drive fileio_fat_volume_label
 Interface export-binding: kernel/include/find_data.h
 Interface export-binding: kernel/include/idt.h idt_get_gate idt_init idt_install_irq idt_install_trap idt_set_gate isr_dispatch_c panic_set_fault_hook
 Interface export-records: kernel/include/initechmz_extended.h
