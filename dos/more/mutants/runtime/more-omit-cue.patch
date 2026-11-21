@@ -1,0 +1,14 @@
+# Wait without displaying the cue
+# session: morepage
+--- a/more/more_program.asm
++++ b/more/more_program.asm
+@@ -76,9 +76,6 @@
+     inc ebp
+     cmp ebp, PAGE_LINES
+     jb .pg_byte
+-    mov edx, page_prompt
+-    mov ah, 0x09
+-    int 0x21
+     mov eax, 0x0C01           ; flush typeahead, echo a key, check Ctrl-C
+     int 0x21
+     mov edx, page_break

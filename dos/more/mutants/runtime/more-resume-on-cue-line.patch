@@ -1,0 +1,14 @@
+# Resume without moving past the cue row
+# session: morepage
+--- a/more/more_program.asm
++++ b/more/more_program.asm
+@@ -81,9 +81,6 @@
+     int 0x21
+     mov eax, 0x0C01           ; flush typeahead, echo a key, check Ctrl-C
+     int 0x21
+-    mov edx, page_break
+-    mov ah, 0x09
+-    int 0x21
+     xor ebp, ebp
+     dec edi                    ; replay the boundary LF on the new page
+     jmp .pg_byte

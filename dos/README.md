@@ -32,6 +32,10 @@ order, or stdin when the command supplies no files. `make smoke-find-args`
 checks filenames, quoted strings, switches, stdout, stderr and status
 against [MS-DOS 3.30 captures](find/tests/compat33/README.md). `/I` is
 an InitechDOS extension for case-insensitive matching.
+MORE shows the captured `-- More --` cue on the booted console.
+`make smoke-more-page` checks successive screen waits, continuation, Ctrl-C
+and byte-exact file and pipe output against the fixtures described in
+[the MORE captures](more/tests/compat33/README.md).
 
 Published application bindings (CLAUDE.md, "Two interfaces"):
 
@@ -106,7 +110,7 @@ builds the product image and proves the runtime patches, each twice after a
 green baseline. `make mutants` runs both, with factory-compatible counts.
 The DOS smoke leg remains `sh factory/smoke.sh` from the repository root.
 
-The current DOS inventory is 159 host patches and 53 product-session patches,
+The current DOS inventory is 159 host patches and 56 product-session patches,
 with zero pending entries. This includes the 46 formerly pending faults and
 four new controls for physical-line truncation, COPY output cleanup, missing
 REM sentinel dispatch and execution of a REM tail.

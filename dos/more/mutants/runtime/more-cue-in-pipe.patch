@@ -1,0 +1,14 @@
+# Send the page cue to redirected stdout
+# session: morepage
+--- a/more/more_program.asm
++++ b/more/more_program.asm
+@@ -25,6 +25,9 @@
+ ; without a pause or page cue.
+ ; ---------------------------------------------------------------------------
+ .passthrough:
++    mov edx, page_prompt
++    mov ah, 0x09
++    int 0x21
+ .pt_loop:
+     mov ah, 0x3F               ; READ handle 0
+     xor ebx, ebx
