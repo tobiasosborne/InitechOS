@@ -1,5 +1,11 @@
 # test: test_ibase_fns
 --- a/core/rt.c
 +++ b/core/rt.c
-@@ -576,0 +577 @@
+@@ -574,6 +574,7 @@
+     for (i = 0; i < pad; i++) out[i] = ' ';
+     out += pad;
+     dec_format_fit(v, field, dec, out, 2);
 +    return width; /* regression: star-fill instead of scientific fallback */
+     if (field < 7 || out[0] != '*' || !(mag > 0.0 && mag < 1e99))
+         return width;
+     while (mag >= 1.0) { mag /= 10.0; exponent++; }

@@ -1,5 +1,11 @@
 # test: test_ibase_status
 --- a/core/screen.c
 +++ b/core/screen.c
-@@ -38,0 +39 @@
+@@ -36,6 +36,7 @@
+         put(s->status,51,65,value);
+         put(s->guidance,24,80,"Enter a dBASE III PLUS command.");
+     }
 +    rt_memset(s->status,' ',80);rt_memset(s->guidance,' ',80);attr=0x07;
+     if(on || s->active) {
+         s->draw(s->user,22,0,attr,s->status,80);
+         s->draw(s->user,23,0,0x07,s->guidance,80);

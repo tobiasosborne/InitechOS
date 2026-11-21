@@ -1,7 +1,10 @@
 # test: test_xbase_fn_a
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -111,0 +112,29 @@
+@@ -109,6 +109,35 @@
+  * Mirrors eval.c's static date_is_blank (kept local; freestanding, no export). */
+ static int fn_date_blank(double jdn) { return jdn <= 0.0; }
+ 
 +/*
 + * xb_is_leap_year: proleptic Gregorian leap-year rule.
 + * Ref: the same Meeus Ch.7 Gregorian formula already cited for
@@ -31,8 +34,17 @@
 +    if (mm == 2 && xb_is_leap_year(yy)) return 29;
 +    return days_tbl[mm];
 +}
-@@ -498,0 +528,4 @@
-+            *out = xb_d(0.0); *err = XBEE_OK; return 0;
-+        }
+ 
+ /* Truncate a numeric arg toward zero to an int32 (string-functions.md: non-
+  * integer length/index args truncate toward zero -- the [oracle-resolves]
+@@ -500,6 +529,10 @@
+         if (yy < 1900 || yy > 2155) {
+             *out = xb_d(0.0); *err = XBEE_OK; return 0;
+         }
 +        /* CLAUDE.md, The constitution: restore the old calendar-invalid -> blank behavior. */
 +        if (mm < 1 || mm > 12 || dd < 1 || dd > xb_days_in_month(mm, yy)) {
++            *out = xb_d(0.0); *err = XBEE_OK; return 0;
++        }
+         /* initech-bkmv, real III+ DATECHK C01..C16: calendar components
+          * roll over, including zero and oversized month/day. Preserve the
+          * Gregorian March-based month term instead of range-checking or

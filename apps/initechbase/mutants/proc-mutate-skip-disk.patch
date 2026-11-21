@@ -1,5 +1,11 @@
 # test: test_interp_do_file
 --- a/cmd/proc.c
 +++ b/cmd/proc.c
-@@ -773,0 +774 @@
+@@ -772,6 +772,7 @@
+         body = p_find_procedure(ps->source, name);
+     }
+     if (!body) {
 +        if (depth_before) { if (ec) *ec = 16; return -INTERP_ERR_UNKNOWN_CMD; }
+         disk = proc_load_program(ip, name, (uint32_t *)0, ec);
+         if (!disk) {
+             /* In a running program a missing DO file is error 1 (real III+

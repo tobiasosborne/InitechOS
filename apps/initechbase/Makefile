@@ -200,6 +200,11 @@ package-check: package $(HOST_OUT)/test_ibase_ovl
 	$(MZ_OUT)/mzcheck $(OUT)/INITBASE.EXE $(OUT)/resident.bin $$(printf "%d" $$(awk '$$2=="IBASE_DECLARED_RESERVE" {print $$1; exit}' $(OUT)/target/link.map))
 	$(HOST_OUT)/test_ibase_ovl $(OUT)/INITBASE.EXE
 test: package-check
+# Every mutation hunk is located by context, and the target controls apply.
+.PHONY: patch-anchors
+test: patch-anchors
+patch-anchors:
+	@sh tests/patch-anchors.sh
 smoke: pinned-corpus
 
 include $(TOP)/mk/import-check.mk

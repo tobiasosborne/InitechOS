@@ -1,7 +1,10 @@
 # test: test_interp_proc
 --- a/cmd/flow.c
 +++ b/cmd/flow.c
-@@ -395,0 +396,14 @@
+@@ -393,6 +393,20 @@
+         return -INTERP_ERR_SYNTAX;
+ 
+     slot = memvar_find(fs, name);
 +    /* MUTANT (CLAUDE.md, The constitution -- mutants/proc-mutate-assign-shadow-outer.patch; initech-0k2d): an
 +     * assignment "<name> = <expr>" (or STORE ... TO) to a var VISIBLE from an
 +     * OUTER scope level (a caller's PUBLIC, e.g. proc.prg's `PUBLIC R` read
@@ -16,3 +19,6 @@
 +     * cur_level==0 -- are unaffected). */
 +    if (slot >= 0 && fs->vars[slot].level != fs->cur_level)
 +        slot = -1;
+     if (slot < 0) {
+         /* reuse a released slot if any, else extend. */
+         for (i = 0; i < fs->nvars; i++) {

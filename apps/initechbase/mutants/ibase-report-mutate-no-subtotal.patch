@@ -1,5 +1,11 @@
 # test: test_ibase_report
 --- a/cmd/report.c
 +++ b/cmd/report.c
-@@ -208,0 +209 @@
+@@ -208,6 +208,7 @@
+     int c;
+     char t[RP_TXT];
+     if (!R.nto) return;
 +    if (k < 2) return;   /* MUTANT: subtotal bands dropped */
+     rp_need(2);
+     rp_label(lab[k]); rp_out();
+     for (c = 0; c < R.ncol; c++) {

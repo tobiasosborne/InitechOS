@@ -1,7 +1,10 @@
 # test: test_xbase_fn_a
 --- a/core/fn_builtins.c
 +++ b/core/fn_builtins.c
-@@ -220,0 +221,7 @@
+@@ -218,6 +218,13 @@
+         *out = xb_c("", 0); *err = XBEE_OK; return 0;
+     }
+ 
 +    /* MUTATION HOOK (CLAUDE.md, The constitution): treat the start position as 0-BASED instead of
 +     * 1-based. Then SUBSTR("ABCDEF",2,3) returns "CDE" (wrong) not "BCD", and
 +     * the unit assertion goes RED, proving the test catches an off-by-one in
@@ -9,3 +12,6 @@
 +     * Compile with mutants/xb-mutate-fn-substr.patch to activate. Exactly one branch. */
 +    start += 1;
 +    if ((uint32_t)start > (uint32_t)len) { *out = xb_c("", 0); *err = XBEE_OK; return 0; }
+ 
+     avail = (uint16_t)(len - (start - 1));     /* chars from start to end     */
+     if (nargs == 3) {

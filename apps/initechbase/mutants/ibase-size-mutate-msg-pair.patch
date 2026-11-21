@@ -1,5 +1,11 @@
 # test: test_ibase_messages
 --- a/include/ibase/messages.h
 +++ b/include/ibase/messages.h
-@@ -23,0 +24 @@
+@@ -21,6 +21,7 @@
+         if (token >= 128) {
+             token -= 128;
+             if (token >= IBASE_MSG_PAIRS || depth + 2 > sizeof pending) return 0;
 +            if (!token) { if (n + 1 >= cap) return 0; out[n++] = '!'; continue; }
+             pending[depth++] = ibase_msg_pairs[token][1];
+             pending[depth++] = ibase_msg_pairs[token][0];
+         } else {

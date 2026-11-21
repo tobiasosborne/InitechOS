@@ -1,5 +1,11 @@
 # test: test_ibase_forms
 --- a/core/screen.c
 +++ b/core/screen.c
-@@ -47,0 +48 @@
+@@ -45,6 +45,7 @@
+ static void scroll(ibase_screen *s,uint8_t bottom)
+ {
+     uint32_t r,top=s->scoreboard?1u:0u;
 +    top=0;
+     for(r=top;r<bottom;r++) rt_memcpy(s->text[r],s->text[r+1],80);
+     rt_memset(s->text[bottom],' ',80);
+     if(s->scroll) s->scroll(s->user,(uint8_t)top,bottom);

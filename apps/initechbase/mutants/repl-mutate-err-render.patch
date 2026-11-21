@@ -1,5 +1,11 @@
 # test: test_ibase_repl
 --- a/ibase_main.c
 +++ b/ibase_main.c
-@@ -165,0 +166 @@
+@@ -163,6 +163,7 @@
+     char num[12];
+     int lookup = code;
+ 
 +    lookup = code + 1;   /* MUTANT: wrong catalog code -> wrong message text */
+ 
+     repl_uitoa((uint32_t)(code < 0 ? -code : code), num);
+     repl_puts(pal, num);

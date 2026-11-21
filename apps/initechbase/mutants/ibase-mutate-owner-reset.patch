@@ -1,11 +1,35 @@
 # test: test_ibase_dbsafe
 --- a/fs/dbf.c
 +++ b/fs/dbf.c
-@@ -154,0 +155 @@
+@@ -153,6 +153,7 @@
+     uint8_t       write_failed; /* failed rollback: refuse further writes */
+     pal_fd        fd;         /* OPEN handle; S1.3 reads the record area */
+     void         *owned;      /* buffers owned by this table only */
 +    void *scratch_mark;
-@@ -251,0 +253 @@
+ 
+     dbf_field_t  *fields;     /* S1.2: arena-allocated array of nfields decoded
+                                * field descriptors; NULL until S1.2 decode pass runs.
+@@ -252,6 +253,7 @@
+     if (tbl->fd >= 0)
+         close_rc = pal->close(pal, tbl->fd);
+     pal_owned_free(pal,&tbl->owned);
 +    pal->reset(pal,tbl->scratch_mark); /* mutant: rewind across a later live owner */
-@@ -315,0 +318 @@
+     pal->release(pal, table_memory);
+ 
+     if (rc != DBF_OK)
+@@ -315,6 +317,7 @@
+         return -DBF_ERR_NOMEM;
+     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
+     tbl->pal  = pal;
 +    tbl->scratch_mark=pal->alloc(pal,0u);
-@@ -1145,0 +1149 @@
+     if (rt_strlen(name) >= sizeof(tbl->name)) { pal->release(pal, tbl); return -DBF_ERR_IO; }
+     rt_memcpy(tbl->name, name, rt_strlen(name) + 1u);
+     tbl->fd   = -1;
+@@ -1177,6 +1180,7 @@
+         return -DBF_ERR_NOMEM;
+     rt_memset(tbl, 0, (uint32_t)sizeof(*tbl));
+     tbl->pal  = pal;
 +    tbl->scratch_mark=pal->alloc(pal,0u);
+     if (rt_strlen(name) >= sizeof(tbl->name)) { pal->release(pal, tbl); return -DBF_ERR_IO; }
+     rt_memcpy(tbl->name, name, rt_strlen(name) + 1u);
+     tbl->fd   = -1;

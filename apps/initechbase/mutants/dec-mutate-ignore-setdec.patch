@@ -1,5 +1,11 @@
 # test: test_ibase_datatype
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -290,0 +291 @@
+@@ -288,6 +288,7 @@
+     case XB_N: {
+         char cell[256];
+         int width=v->num_width?v->num_width:10,dec=v->num_dec;
 +        if(dec)dec=2;
+         if(width>255)width=255;
+         int n=dec_format_display(v->u.n,width,dec,cell);
+         q_append(buf,pos,cap,cell,(uint32_t)n);

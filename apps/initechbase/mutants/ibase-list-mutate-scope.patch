@@ -1,5 +1,11 @@
 # test: test_ibase_repl
 --- a/cmd/query.c
 +++ b/cmd/query.c
-@@ -451,0 +452 @@
+@@ -449,6 +449,7 @@
+         else if (c == ')' && depth) depth--;
+         if (!depth && q_isspace(prev)) {
+             if (!scope_at && !for_at && !while_at &&
 +                p == s &&
+                 rt_kw_word(p, Q_SCOPE_KWS, (int *)0) >= 0) scope_at=p;
+             if (!for_at && q_match_kw(p, "FOR"))     for_at = p;
+             if (!while_at && q_match_kw(p, "WHILE")) while_at = p;

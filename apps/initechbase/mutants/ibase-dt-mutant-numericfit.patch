@@ -1,5 +1,11 @@
 # test: test_ibase_datatype
 --- a/core/rt.c
 +++ b/core/rt.c
-@@ -560,0 +561 @@
+@@ -558,6 +558,7 @@
+     for (;;) {
+         dec_format_core(v, width, dec, out, ties_even);
+         if (width <= 0 || out[0] != '*' || dec == 0) return width;
 +        return width; /* mutant: discard a number whose integer part fits */
+         dec--;
+     }
+ }

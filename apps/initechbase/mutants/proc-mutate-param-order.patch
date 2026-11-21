@@ -1,9 +1,15 @@
 # test: test_interp_proc
 --- a/cmd/proc.c
 +++ b/cmd/proc.c
-@@ -519,0 +520,5 @@
+@@ -516,6 +516,11 @@
+     param_bind *pb = (param_bind *)ud;
+     if (pb->idx < pb->nargs) {
+         xb_val v = pb->args[pb->idx];
 +        /* MUTANT (CLAUDE.md, The constitution -- mutants/proc-mutate-param-order.patch): bind the args in REVERSE
 +         * positional order. PARAMETERS is positional (control-flow-and-
 +         * procedures.md sec 8.3), so a reversed bind swaps the param values ->
 +         * the oracle's "param N has the N-th WITH value" check goes RED. */
 +        v = pb->args[pb->nargs - 1 - pb->idx];
+         pb->idx++;
+         return xb_interp_store_param(ip, nm, &v);
+     }

@@ -1,10 +1,18 @@
 # test: test_ibase_say
 --- a/core/screen.c
 +++ b/core/screen.c
-@@ -128,0 +129,4 @@
+@@ -126,9 +126,14 @@
+     /* Real III+ at-say-edge-controls/controls: CR/LF are literal cells,
+      * just like printable bytes. Positioned output never scrolls the page. */
+     for(i=0;i<n;i++) {
 +        char c=text[i];
 +        if(c=='\n')say_next_row(s);
 +        else if(c=='\r')s->col=0;
 +        else
-@@ -131,0 +136 @@
+         {
+             uint32_t start=i,col=s->col;
+             while(i<n && s->col<80) {
 +                if(text[i]=='\r' || text[i]=='\n')break;
+                 if(s->row<25) s->text[s->row][s->col]=text[i];
+                 s->col++;i++;
+             }

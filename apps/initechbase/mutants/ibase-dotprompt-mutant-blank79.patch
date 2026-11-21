@@ -1,5 +1,11 @@
 # test: test_ibase_forms
 --- a/core/screen.c
 +++ b/core/screen.c
-@@ -80,0 +81 @@
+@@ -78,6 +78,7 @@
+     if(s->active) return;
+     if(s->row>=24) { s->row=24;next_row(s); }
+     else {
 +        n=80;
+         rt_memset(s->text[24],' ',n);
+         if(s->draw) s->draw(s->user,24,0,0x07,s->text[24],n);
+     }

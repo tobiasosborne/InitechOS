@@ -1,7 +1,10 @@
 # test: test_ibase_core
 --- a/cmd/flow.c
 +++ b/cmd/flow.c
-@@ -345,35 +344,0 @@
+@@ -342,47 +342,13 @@
+     v->program[n] = 0;
+ }
+ 
 -static int memvar_reclaim(flow_state *fs, int slot, xb_val *value)
 -{
 -    int i;
@@ -37,15 +40,34 @@
 -    fs->arena_used = used;
 -    return INTERP_OK;
 -}
-@@ -385,0 +351 @@
+ 
+ static int memvar_set(flow_state *fs, const char *name, const xb_val *v)
+ {
+     int slot, i;
+     uint32_t nlen;
+     xb_val value = *v;
 +    (void)value;
-@@ -406,2 +371,0 @@
+ 
+     /* validate the name length (dBASE memvar names are <= 10 chars). */
+     for (nlen = 0; name[nlen] != '\0'; nlen++) { }
+@@ -403,8 +369,6 @@
+                 return -INTERP_ERR_DEPTH;
+             slot = fs->nvars++;
+         }
 -        if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
 -            return -INTERP_ERR_NOMEM;
-@@ -422,2 +385,0 @@
+         /* copy the (upper-cased) name into the slot. */
+         for (i = 0; (uint32_t)i < nlen; i++)
+             fs->vars[slot].name[i] = fl_up1(name[i]);
+@@ -419,12 +383,24 @@
+         fs->vars[slot].shadows   = -1;
+         memvar_program(&fs->vars[slot], fs->program);
+     } else {
 -        if (memvar_reclaim(fs, slot, &value) != INTERP_OK)
 -            return -INTERP_ERR_NOMEM;
-@@ -427 +389,15 @@
+     }
+ 
+     /* copy the value; for C/M, copy the bytes into the memvar arena. */
 -    fs->vars[slot].val = value;
 +    if (v->t == XB_C || v->t == XB_M) {
 +        uint16_t len = v->u.c.len;
@@ -62,3 +84,6 @@
 +    } else {
 +        fs->vars[slot].val = *v;
 +    }
+     /* Real III+ DML-02/03 and PROG-04/05: ten integer columns regardless of
+      * the assigning literal. Keep this outside the arena-reclaim branches. */
+     if (fs->vars[slot].val.t == XB_N) {

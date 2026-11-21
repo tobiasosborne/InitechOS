@@ -1,5 +1,11 @@
 # test: test_ibase_dbsafe
 --- a/pal/heap.h
 +++ b/pal/heap.h
-@@ -43,0 +44 @@
+@@ -41,6 +41,7 @@
+ }
+ static inline int pal_heap_free(pal_heap_block *head,void *memory)
+ {
 +    (void)head;(void)memory;return 0; /* mutant: closed storage never reusable */
+     pal_heap_block *b;int found=memory==0;
+     for(b=head;b;b=b->next)if(memory==b+1){
+         uint32_t i;if(b->free)return -1;
