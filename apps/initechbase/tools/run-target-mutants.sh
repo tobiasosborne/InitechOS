@@ -18,7 +18,7 @@ if ! "$make_cmd" --no-print-directory -j2 -C "$run/baseline/component" TOP="$top
 fi
 find "$run/baseline/build/target" -name '*.o' -type f | sed "s@$run/baseline/build/@@" | sort > "$run/objects"
 [ -s "$run/objects" ] || { echo 'ERROR baseline has no target objects'; exit 1; }
-n=0 killed=0 errors=0
+n=0 killed=0 survived=0 errors=0 start=$(date +%s)
 for patch_file do
  n=$((n+1)); name=$(basename "$patch_file" .patch)
  mode=$(sed -n 's/^# target: //p' "$patch_file")
@@ -49,24 +49,28 @@ for patch_file do
   if ! "$make_cmd" --no-print-directory -j2 -C "$scratch/component" TOP="$top" OUT="$scratch/build" package > "$scratch/build.log" 2>&1; then
    echo "ERROR target compilation $name ($scratch/build.log)";errors=$((errors+1));continue
   fi
-  good=1
+  good=1 green=0
   for pass in 1 2; do
    rc=0
    sh "$checker" "$oracle" "$top" "$scratch/build/INITBASE.EXE" "$scratch/build/INITBASE.OVL" "$scratch/observe-$pass" > "$scratch/observe-$pass.log" 2>&1 || rc=$?
    if [ "$rc" -ne 1 ] || ! grep -E '^RED: first difference|^RED console-review:|^RED native (io|stream|stack|ovl-[a-z]+):' "$scratch/observe-$pass.log" > "$scratch/verdict-$pass"; then good=0; fi
+   [ "$rc" -ne 0 ] || green=$((green+1))
   done
   if [ "$good" -eq 1 ] && cmp -s "$scratch/verdict-1" "$scratch/verdict-2"; then
    echo "  killed $name ($mode: same independent semantic rejection twice)";killed=$((killed+1))
+  elif [ "$green" -eq 2 ]; then
+   echo "SURVIVED $name (oracle green on both runs; $scratch/observe-1.log)";survived=$((survived+1))
   else
-   echo "ERROR/SURVIVED $name ($scratch/observe-1.log)";errors=$((errors+1))
+   echo "ERROR $name ($scratch/observe-1.log)";errors=$((errors+1))
   fi
   continue;;
  esac
- good=1
+ good=1 built=0
  for pass in 1 2; do
   rm -f "$scratch/build/IBASE.elf" "$scratch/build/INITBASE.EXE" "$scratch/build/INITBASE.OVL"
   rc=0
   "$make_cmd" --no-print-directory -j2 -C "$scratch/component" TOP="$top" OUT="$scratch/build" package > "$scratch/build-$pass.log" 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || built=$((built+1))
   if [ "$rc" -eq 0 ] || ! grep -F "$diagnostic" "$scratch/build-$pass.log" > "$scratch/diagnostic-$pass"; then good=0; fi
   if [ "$mode" = static-reenter ] && ! grep -F ' <- ibase_do <- report_ovl_entry' "$scratch/build-$pass.log" >/dev/null; then good=0; fi
   while IFS= read -r object; do
@@ -76,10 +80,13 @@ for patch_file do
  if [ "$good" -eq 1 ]; then
   echo "  killed $name ($mode: all target objects compiled; semantic rejection twice)"
   killed=$((killed+1))
+ elif [ "$built" -eq 2 ]; then
+  echo "SURVIVED $name (linked without rejection twice; $scratch/build-1.log)"; survived=$((survived+1))
  else
-  echo "ERROR/SURVIVED $name ($scratch/build-1.log)"; errors=$((errors+1))
+  echo "ERROR $name ($scratch/build-1.log)"; errors=$((errors+1))
  fi
 done
-echo "InitechBase target mutations: $n patches, $killed killed, $errors errors"
+# The factory's standard receipt (factory/testlib/mutation-summary.awk).
+echo "apps/initechbase: $n mutants, $killed killed, $survived survived, $errors errors; $(($(date +%s)-start))s (target)"
 echo "evidence: $run"
-[ "$errors" -eq 0 ]
+[ "$errors" -eq 0 ] && [ "$survived" -eq 0 ]

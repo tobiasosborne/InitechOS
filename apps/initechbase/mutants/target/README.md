@@ -1,7 +1,8 @@
 # Target mutation proofs
 
-Tier 2 only. `make target-mutants` first rejects the no-fault and compiler-error
-controls, then proves each patch twice in isolated component copies. Baseline
+Tier 2 only. `make target-mutants` first rejects the no-fault, native no-fault
+and compiler-error controls (tests/target-controls), then proves each patch
+twice in isolated component copies. Baseline
 packaging and the 50 pair checks must pass. All baseline target objects must be
 present for a static rejection to count; a generic build failure earns no kill.
 

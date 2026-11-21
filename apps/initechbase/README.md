@@ -16,7 +16,10 @@ separate disposable TEST disk; no test scenario is compiled into the kernel.
 `make native-check` runs the DOS console, file, program-return and overlay
 oracles. `make mutants` runs 294 host patches and 21 target patches, including
 three static semantic rejections. All 28 original pending faults are qualified.
-The test controls themselves must receive zero kills.
+Both runners print the factory's standard count line, so the sweep reports
+all 315 patches it inventories. The target grader's three negative controls
+(no-fault, native no-fault, compiler error) are not mutants: they live in
+tests/target-controls, outside the inventory, and must receive zero kills.
 Host kills require completed assertion counts and identical failure evidence
 on two runs. Crashes, timeouts and missing fixtures are test errors. Recursive
 source growth is measured after normal completion, without counting a crash.
