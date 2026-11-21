@@ -1,8 +1,8 @@
 # test: journey
 --- a/editor.pas
 +++ b/editor.pas
-@@ -795,5 +795,5 @@
-   DoNew();
+@@ -1191,5 +1191,5 @@
+   if BufErr <> 0 then begin Writeln('Cannot create working files.'); Halt(1) end;
    MenuSel := MenuFile;
    LastMenu := MenuFile;
 -  UiMode := ModeBar
