@@ -126,8 +126,8 @@ static int read_rgb_bytes(const char *p, const char *end,
 
 /* ---- Canon entry store ---------------------------------------------------- */
 
-#define CANON_N  27   /* Retained rows + L023 slots 9/10 + Finder icon colors slots 11..25
-                        * +  native16 pencil yellow at slot 26. */
+#define CANON_N  28   /* Retained rows + L023 slots 9/10 + Finder icon colors slots 11..25
+                        * + native16 pencil yellow26 + frame progress blue27. */
 #define DERIVED_N 4   /* Four authored accent rows. */
 /* Platinum base /: 2 retained SYS7 names + 11 appended
  * Platinum sampled-domain names + 3 Finder icon colors Finder icon grays; exact count

@@ -72,6 +72,7 @@
 #include <stddef.h>
 
 #include "dialog.h"
+#include "progress_platinum.h"
 #include "surface.h"          /* surface_fill_span (-Ios/flair)               */
 #include "blitter.h"          /* blitter_fill_rect_clipped (-Ios/flair)       */
 #include "text.h"             /* text_draw / text_measure / FONT_CHICAGO       */
@@ -187,16 +188,16 @@ static void crect_dlg(GrafPort *port, int x0, int y0, int x1, int y1, int part)
 
 /* draw_dialog_content -- sampled Platinum content field.
  *
- * The body is E7 with a one-pixel inset bevel: white top/left, C0
- * bottom/right. The surrounding dBox/movable frame supplies the black
+ * The body is `face` (E7, or white for the live FILE COPY) with a one-pixel
+ * inset bevel: white top/left, C0 bottom/right. The surrounding dBox/movable frame supplies the black
  * bounding line. Ref:../system7-decomp/specs/sys8/controls.md Sec 1. */
 static void draw_dialog_content(GrafPort *port,
-                                int x0, int y0, int x1, int y1)
+                                int x0, int y0, int x1, int y1, int face)
 {
     if (x1 <= x0 || y1 <= y0) {
         return;
     }
-    crect_dlg(port, x0, y0, x1, y1, DLG_FACE);
+    crect_dlg(port, x0, y0, x1, y1, face);
     cfill_dlg(port, x0, y0, x1 - x0, DLG_WHITE);
     for (int y = y0; y < y1; y++) {
         cfill_dlg(port, x0, y, 1, DLG_WHITE);
@@ -496,6 +497,9 @@ void DrawDialog(DialogPtr dp)
     int top    = (int)bounds.top;
     int right  = (int)bounds.right;
     int bottom = (int)bounds.bottom;
+    /* The live FILE COPY's body is the still's white (goldens/frame/
+     * colours.tsv filecopy_content); every other dialog keeps E7. */
+    int face = dp->fileCopyStyle ? DLG_WHITE : DLG_FACE;
 
     if (dp->window.windowDefProcVariant == (int16_t)movableDBoxProc) {
         /* --- movableDBoxProc: the moveable titled modal.
@@ -509,7 +513,7 @@ void DrawDialog(DialogPtr dp)
         int content_top = top + FLAIR_CHROME_TITLEBAR_H;  /* locked 22px band */
 
         draw_dialog_content(port, left + fr, content_top,
-                            right - fr, bottom - fr);
+                            right - fr, bottom - fr, face);
         flair_draw_movable_dbox_chrome(port, flair_look_default_skin(),
                                        bounds, dp->window.titleHandle);
         if(dp->window.goAwayFlag) dialog_close_draw(dp,0);
@@ -530,7 +534,7 @@ void DrawDialog(DialogPtr dp)
             if (item->text) {
                 dlg_text(port, (int)item->rect.left, (int)item->rect.top,
                          item->text, dlg_px(port, DLG_TEXT_INK),
-                         dlg_px(port, DLG_FACE));
+                         dlg_px(port, face));
             }
             break;
         }
@@ -542,7 +546,7 @@ void DrawDialog(DialogPtr dp)
             if (txt) {
                 dlg_text(port, (int)item->rect.left, (int)item->rect.top,
                          txt, dlg_px(port, DLG_TEXT_INK),
-                         dlg_px(port, DLG_FACE));
+                         dlg_px(port, face));
             }
             break;
         }
@@ -551,6 +555,22 @@ void DrawDialog(DialogPtr dp)
              * Ref: IM-I Ch 6 "ctrlItem"; MTE Ch 6. */
             if (item->ctrl) {
                 DrawControl(port, item->ctrl);
+                if (dp->fileCopyStyle &&
+                    item->ctrl->contrlType == progressBar) {
+                    /* The live FILE COPY's fill is the still's solid blue
+                     * (goldens/frame/colours.tsv progress_fill). The CDEF's
+                     * etch, frame, black edge column and track stay: only
+                     * the filled run left of the edge column is repainted. */
+                    int f = (int)ctrl_progress_fill_px(item->ctrl);
+                    rgn_rect_t r = item->ctrl->contrlRect;
+                    if (f > 1) {
+                        crect_dlg(port, r.left + FLAIR_PROGRESS_INSET,
+                                  r.top + FLAIR_PROGRESS_INSET,
+                                  r.left + FLAIR_PROGRESS_INSET + f - 1,
+                                  r.bottom - FLAIR_PROGRESS_INSET,
+                                  FLAIR_PART_FILECOPY_PROGRESS);
+                    }
+                }
                 /* The ring's sampled corner moat overlaps the button's
                  * bounding box. Paint it last; its centre stays untouched. */
                 if ((uint16_t)(i + 1) == dp->defaultItem &&
@@ -1138,6 +1158,7 @@ DialogPtr FileCopyCancelableDialog(DialogRecord *storage, DialogItem *items,
     cancel.type=ctrlItem; cancel.rect=button; cancel.ctrl=&controls[1]; cancel.enabled=1;
     items[2]=cancel;
     dp->itemCount=3; dp->cancelItem=3;
+    dp->fileCopyStyle=1;
     return dp;
 }
 

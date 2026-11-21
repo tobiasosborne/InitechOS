@@ -1,0 +1,14 @@
+# The live bar's fill is painted the dialog grey instead of the still's blue.
+# Source: goldens/frame/colours.tsv progress_fill.
+# test: test_frame_copy_colour
+--- a/dialog.c
++++ b/dialog.c
+@@ -568,7 +568,7 @@
+                                   r.top + FLAIR_PROGRESS_INSET,
+                                   r.left + FLAIR_PROGRESS_INSET + f - 1,
+                                   r.bottom - FLAIR_PROGRESS_INSET,
+-                                  FLAIR_PART_FILECOPY_PROGRESS);
++                                  FLAIR_PART_PLAT_FACE);
+                     }
+                 }
+                 /* The ring's sampled corner moat overlaps the button's

@@ -144,6 +144,7 @@ typedef enum {
      * canon slots 11..25 (color_canon.json "indexed_icon_extension"). */
     FLAIR_PART_ICON_CLUT,
     FLAIR_PART_ICON_CLUT_LAST = FLAIR_PART_ICON_CLUT + 29,
+    FLAIR_PART_FILECOPY_PROGRESS, /* still's progress_fill, colours.tsv */
     FLAIR_PART__COUNT         /* sentinel: number of PARTs                       */
 } FLAIR_PART;
 

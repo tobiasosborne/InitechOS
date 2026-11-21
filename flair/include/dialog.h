@@ -256,7 +256,12 @@ struct DialogRecord {
      * TrackControl/TrackGoAway fire only on release inside the same target. */
     uint16_t      trackingItem;
 
-    uint8_t       _pad[2]; /* alignment */
+    /* Set by FileCopyCancelableDialog only: the live FILE COPY draws the
+     * still's white body and blue progress fill (goldens/frame/colours.tsv).
+     * Every other dialog and progress control keeps the captured Platinum
+     * skin. FileCopyDialog clears the record, so reuse resets it. */
+    uint8_t       fileCopyStyle;
+    uint8_t       _pad;
 };
 
 /* DialogPtr -- pointer to a DialogRecord (verbatim QuickDraw name).

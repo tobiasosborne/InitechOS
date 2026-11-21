@@ -106,11 +106,11 @@ do not grade these and say so (apps/initechcalc/tests/frame-pixels.sh).
 
 - FILE COPY is 11 rows deeper than COPY, for the Cancel button the still
   lacks (GM3 requires a cancelled copy; flair/README.md).
-- FILE COPY's body is the Platinum dialog grey, and its progress fill is the
-  Platinum bar's, where the still shows white (filecopy_content) and a deep
-  blue fill (progress_fill). FLAIR draws both from Mac OS 8 captures; the
-  still's colours wait on a Toolbox colour (the slice-blue request also
-  asks for the progress blue).
+- FILE COPY's fill, the still's blue (progress_fill), sits in the Platinum
+  bar's etched frame and grey track, where the still shows a fill with no
+  track (question 13): the live bar has to show how far the copy has got.
+  Its body is the still's white (filecopy_content) with the Platinum
+  dialog's one-pixel inset edges. Both colours are graded (initech-1swiy).
 - The chart's slices are navy (question 12) and its title bar is the
   Toolbox's 22-pixel one, where the still's is thin. Like the still's, it
   carries no title (CHT.TITLE; InitechCalc grades it).
@@ -184,6 +184,9 @@ InitechCalc's tier-0 content check reads `transcription.tsv` with an
 independent reader and compares the shipped ledger document against it, and
 takes the pie's place on screen from `geometry.tsv` (PIE, PIEDEPTH). Its
 smoke grades the booted chart against `geometry.tsv` and the chart-field
-samples of `colours.tsv` (apps/initechcalc/tests/frame-pixels.sh). The
+samples of `colours.tsv`, and the booted FILE COPY against its boxes and the
+filecopy_content and progress_fill samples
+(apps/initechcalc/tests/frame-pixels.sh). FLAIR's host test
+test_frame_copy_colour reads the same two samples. The
 product's code never reads this directory. `goldens/CORPORA.lock` pins
 `transcription.tsv`, so changing a reading is a deliberate, reviewed act.

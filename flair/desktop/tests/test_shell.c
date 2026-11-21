@@ -2,7 +2,11 @@
  * Single-bar expectations follow the operator ruling of 2026-11-13:
  * CLAUDE.md, Hazards that are still true; GOLDEN-MASTER item 3.
  * The frame's other chrome and FILE COPY geometry retain their captured
- * Platinum oracles. Photoshop titles belong to an application resource.
+ * Platinum oracles. FILE COPY's body and progress fill are the still's white
+ * and blue (goldens/frame/colours.tsv filecopy_content, progress_fill; their
+ * RGB is graded against that sheet by flair/tests/test_frame_copy_colour.c),
+ * so the probes below that tell the modal from the white windows behind it
+ * use its progress bar. Photoshop titles belong to an application resource.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -437,8 +441,8 @@ int main(int argc, char **argv)
                   "(4) FILE COPY title matches exact 22-row Platinum profile");
         }
 
-        /* The frame is PLAIN 1-px. The sampled content field is E7 with a
-         * white left inset and C0 right inset; under the OLD 7px dBoxProc
+        /* The frame is PLAIN 1-px. The content field is the still's white
+         * (colours.tsv filecopy_content) with a C0 right inset; under the OLD 7px dBoxProc
          * border both edge probes would still be solid BLACK.
          * SHELL_MUTATE_NO_MODAL / SHELL_MUTATE_MODAL_BEHIND do not affect this
          * (they are dialog-presence/z-order mutants, not chrome mutants); this
@@ -451,8 +455,10 @@ int main(int argc, char **argv)
         CHECK(idx_at(&ctx, dr - fr - 1, 240) == CIDX_PLAT_WELL,
               "(4) FILE COPY content just inside the RIGHT frame (x=498,y=240) "
               "is sampled C0 inset shadow");
-        CHECK(idx_at(&ctx, dl + fr + 1, 240) == CIDX_PLAT_FACE,
-              "(4) FILE COPY content body is sampled E7 face");
+        CHECK(idx_at(&ctx, dl + fr + 1, 240) == CIDX_WHITE &&
+              idx_at(&ctx, 300, 205) == CIDX_WHITE,
+              "(4) FILE COPY content body is the still's white, not the "
+              "generic dialog's E7 face");
         CHECK(idx_at(&ctx, 320, dt + FLAIR_CHROME_TITLEBAR_H) == CIDX_WHITE &&
               idx_at(&ctx, 320, db - 2) == CIDX_PLAT_WELL,
               "(4) FILE COPY content carries white top / C0 bottom inset legs");
@@ -502,7 +508,8 @@ int main(int argc, char **argv)
          * value (beads initech-a90f), and its rendered black frame + a
          * NON-ZERO fill are present. bar_rect: left=160, top=235, right=420,
          * bottom=249 -- the Platinum CDEF 5 etched bar (initech-bf2): fill
-         * rung #5454B3 -> the dark teal role (idx 63), empty track #CDCDCD.
+         * the still's progress blue (colours.tsv progress_fill, slot
+         * CIDX_FILECOPY_PROGRESS) over the CDEF's empty track #CDCDCD.
          * SHELL/DIALOG_MUTATE_PROGRESS_ZERO reverts to value=0 -> the fill
          * check goes RED (this leg's own mutation coverage is
          * DIALOG_MUTATE_PROGRESS_ZERO in test-dialog). */
@@ -519,9 +526,9 @@ int main(int argc, char **argv)
               FLAIR_CANON_FILECOPY_PROGRESS, msg);
         CHECK(idx_at(&ctx, 161, 245) == 0,
               "(4) FILE COPY progress bar black frame is painted (x=161)");
-        CHECK(idx_at(&ctx, 166, 245) == 63,
-              "(4) FILE COPY progress bar FILL (x=166,y=245) is the dark "
-              "teal rung idx63 -- a non-zero fill (initech-a90f, bf2)");
+        CHECK(idx_at(&ctx, 166, 245) == CIDX_FILECOPY_PROGRESS,
+              "(4) FILE COPY progress bar FILL (x=166,y=245) is the still's "
+              "progress blue -- a non-zero fill (initech-a90f, 1swiy)");
         CHECK(idx_at(&ctx, 400, 245) == 205,
               "(4) FILE COPY progress bar empty track (x=400,y=245) "
               "is #CDCDCD idx205 (bf2)");
@@ -545,8 +552,10 @@ int main(int argc, char **argv)
         CHECK(idx_at(&ctx, 150, 230) == 0,
               "(5) the modal OCCLUDES the window behind it -- modal frame on top (z-order)");
 
-        /* A second probe inside the modal's E7 interior, also over window 0. */
-        CHECK(idx_at(&ctx, 170, 230) == CIDX_PLAT_FACE,
+        /* A second probe inside the modal, on its progress fill, also over
+         * window 0, whose white body the modal's white body cannot be told
+         * from. */
+        CHECK(idx_at(&ctx, 166, 245) == CIDX_FILECOPY_PROGRESS,
               "(5) the modal interior occludes the window behind it (modal on top)");
     }
 
@@ -622,12 +631,12 @@ int main(int argc, char **argv)
              * non-tenant pump's content phase). */
             desktop_validate_all(&S3.scene.wm);
 
-            /* The modal SURVIVES: right frame still black, interior still E7,
+            /* The modal SURVIVES: right frame still black, bar track intact,
              * and the vacated right-half band shows NO seafoam teal. */
             CHECK(idx_at(&ctx3, 479, 230) == 0,
                   "(7) post-drag: modal right frame (479,230) STILL black idx0 (not erased)");
-            CHECK(idx_at(&ctx3, 450, 230) == CIDX_PLAT_FACE,
-                  "(7) post-drag: modal interior (450,230) STILL E7 idx231 (not erased)");
+            CHECK(idx_at(&ctx3, 400, 245) == 205,
+                  "(7) post-drag: modal bar track (400,245) STILL #CDCDCD idx205 (not erased)");
             int teal = 0, tot = 0;
             for (int y = 194; y < 283; y++)
                 for (int x = 366; x < 478; x++) {
@@ -678,8 +687,9 @@ int main(int argc, char **argv)
                   "(8) modal committed to literal new origin (0,171)");
             CHECK(idx_at(&ctx4, 329, 230) == CIDX_BLACK,
                   "(8) moved modal right frame (329,230) is black");
-            CHECK(idx_at(&ctx4, 300, 230) == CIDX_PLAT_FACE,
-                  "(8) moved modal interior (300,230) is E7");
+            CHECK(idx_at(&ctx4, 16, 245) == CIDX_FILECOPY_PROGRESS &&
+                  idx_at(&ctx4, 250, 245) == 205,
+                  "(8) moved modal's bar (fill x=16, track x=250) is drawn");
 
             int white = 0, teal = 0, tot = 0;
             for (int y = 194; y < 272; y++)

@@ -138,6 +138,7 @@ static const want_part WANT[] = {
     { (int)FLAIR_PART_ICON_CLUT + 27, 0x875454,  23, "mint8 selected flesh" },
     { (int)FLAIR_PART_ICON_CLUT + 28, 0x870000,  24, "mint8 selected red" },
     { (int)FLAIR_PART_ICON_CLUT + 29, 0x870054,  25, "mint8 selected pink" },
+    P(FILECOPY_PROGRESS, 0x4559FF, 27, "goldens/frame/colours.tsv progress_fill"),
 };
 #define N_WANT ((int)(sizeof WANT / sizeof WANT[0]))
 
@@ -176,7 +177,7 @@ int main(void)
     int seen[FLAIR_PART__COUNT] = { 0 };
     GrafPort port = { 0 };
 
-    CHECK(FLAIR_PART__COUNT == 79, "79 PARTs, all listed in this manifest");
+    CHECK(FLAIR_PART__COUNT == 80, "80 PARTs, all listed in this manifest");
     CHECK(N_WANT == (int)FLAIR_PART__COUNT, "manifest has one row per PART");
     for (int i = 0; i < N_WANT; i++) {
         const want_part *w = &WANT[i];

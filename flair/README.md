@@ -34,6 +34,14 @@ still's box grown 11 rows to hold Cancel below the bar, which the still lacks.
 The bar keeps the measured 14-row CDEF height, centred on the still's 16 fill
 rows. A live caption is at most TBX_FILECOPY_TEXT_W (314) pixels.
 test_dialog_tracking reads the expected boxes from geometry.tsv at run time.
+The live FILE COPY's body is the still's white and its bar's fill the still's
+blue (goldens/frame/colours.tsv filecopy_content and progress_fill: relative
+1.00 1.00 1.00 and 0.27 0.35 1.00 of the photographed white, so #FFFFFF and
+#4559FF). The blue is canon slot 27, CIDX_FILECOPY_PROGRESS, PART
+FILECOPY_PROGRESS; the bar keeps the CDEF's etch, frame, edge column and
+track. FileCopyCancelableDialog sets the record's fileCopyStyle; every other
+dialog keeps the captured E7 face and Platinum bar. test_frame_copy_colour
+grades both colours against colours.tsv at 8 and 32 bpp and through the DAC.
 The Finder tableau uses this same live constructor and placement.
 
 NEWWINDOW's WDEF byte 4 is the Mac's noGrowDocProc (frame-owner request W1):

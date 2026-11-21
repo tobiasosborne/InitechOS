@@ -1,0 +1,14 @@
+# The live FILE COPY falls back to the generic grey body and Platinum fill.
+# Source: goldens/frame/colours.tsv filecopy_content, progress_fill.
+# test: test_frame_copy_colour
+--- a/dialog.c
++++ b/dialog.c
+@@ -1158,7 +1158,7 @@
+     cancel.type=ctrlItem; cancel.rect=button; cancel.ctrl=&controls[1]; cancel.enabled=1;
+     items[2]=cancel;
+     dp->itemCount=3; dp->cancelItem=3;
+-    dp->fileCopyStyle=1;
++    dp->fileCopyStyle=0;
+     return dp;
+ }
+ 

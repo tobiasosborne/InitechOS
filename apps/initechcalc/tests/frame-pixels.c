@@ -7,7 +7,8 @@
  *   frame-pixels shot.ppm REGION l t r b  PIE l t r b  ELLIPSE cx cy a b
  *                [SERIES v1 ... vn] [AT x y role] ...
  *   frame-pixels shot.ppm FRAME l t r b ... [TEXT l t r b] [BAR l t r b]
- *                [NONAVY l t r b] [HOURGLASS l t r b]
+ *                [NONAVY l t r b] [COLOUR l t r b R G B name] ...
+ *                [HOURGLASS l t r b]
  *
  * REGION    where on screen the chart window may be (navy outside the pie is
  *           searched for only here)
@@ -26,6 +27,10 @@
  *           start within 4 px of its left, top and bottom
  * BAR       a progress bar's box: its black outline's bounds within 4 px
  * NONAVY    a box in front of the chart: no slice navy shows through it
+ * COLOUR    a colours.tsv sample's box: the per-channel median of its pixels
+ *           (the sheet's own statistic) within 5/255 of R G B, which is the
+ *           sample's colour relative to the photographed white scaled to
+ *           full white: 3 for the DAC, 2 for the sheet's two decimal places
  * HOURGLASS the still's busy cursor: its black pixels (searched 16 px to
  *           either side, 4 above and below) bounded within 4 px of the box,
  *           and an hourglass (both ends at least 3/4 of its width, its
@@ -84,6 +89,22 @@ static int dark_bounds_by(const int *b,int mx,int *o)
     return r>=0;
 }
 static int dark_bounds(const int *b,int *o) { return dark_bounds_by(b,4,o); }
+static int cmp_byte(const void *a,const void *b) { return *(const unsigned char *)a-*(const unsigned char *)b; }
+/* Per-channel median of box b, as colours.tsv takes it from the still. */
+static void median(const int *b,int *out)
+{
+    static unsigned char ch[3][W*H];
+    int n=0;
+    for(int y=b[1];y<b[3];y++) for(int x=b[0];x<b[2];x++) if(x>=0&&x<W&&y>=0&&y<H) {
+        for(int c=0;c<3;c++) ch[c][n]=px[y][x][c];
+        n++;
+    }
+    for(int c=0;c<3;c++) {
+        if(!n) { out[c]=-1; continue; }
+        qsort(ch[c],(size_t)n,1,cmp_byte);
+        out[c]=ch[c][n/2];
+    }
+}
 static int num(char **argv,int i,int argc) { if(i>=argc) { fputs("frame-pixels: missing argument\n",stderr); exit(2); } return atoi(argv[i]); }
 int main(int argc,char **argv)
 {
@@ -103,6 +124,16 @@ int main(int argc,char **argv)
         else if(!strcmp(argv[i],"TEXT")) { for(int k=0;k<4;k++) text[k]=num(argv,i+1+k,argc); havetext=1; i+=5; }
         else if(!strcmp(argv[i],"BAR")) { for(int k=0;k<4;k++) bar[k]=num(argv,i+1+k,argc); havebar=1; i+=5; }
         else if(!strcmp(argv[i],"HOURGLASS")) { for(int k=0;k<4;k++) glass[k]=num(argv,i+1+k,argc); haveglass=1; i+=5; }
+        else if(!strcmp(argv[i],"COLOUR")) {
+            int b[4], want[3], got[3], off=0;
+            for(int k=0;k<4;k++) b[k]=num(argv,i+1+k,argc);
+            for(int k=0;k<3;k++) want[k]=num(argv,i+5+k,argc);
+            const char *name=i+8<argc?argv[i+8]:"";
+            median(b,got); checks++;
+            for(int k=0;k<3;k++) if(got[k]<want[k]-5||got[k]>want[k]+5) off=1;
+            if(off) { failures++; printf("FAIL frame pixels: %s (%d,%d)-(%d,%d) has median #%02x%02x%02x; the still's is #%02x%02x%02x relative to its white\n",name,b[0],b[1],b[2],b[3],got[0]&255,got[1]&255,got[2]&255,want[0],want[1],want[2]); }
+            i+=9;
+        }
         else if(!strcmp(argv[i],"NONAVY")) { for(int k=0;k<4;k++) nonavy[k]=num(argv,i+1+k,argc); havenonavy=1; i+=5; }
         else if(!strcmp(argv[i],"AT")) {
             int x=num(argv,i+1,argc), y=num(argv,i+2,argc); const char *role=i+3<argc?argv[i+3]:"";

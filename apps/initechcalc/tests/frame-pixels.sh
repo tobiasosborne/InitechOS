@@ -20,15 +20,21 @@
 # - COPYCAPTION: the caption's black text starts at the still's place.
 # - COPYBAR: the progress bar's outline at the still's place.
 # - no slice navy shows through COPY: it is in front of the chart.
+# - colours.tsv filecopy_content and progress_fill, mapped through the still's
+#   visible raster (geometry.tsv SCREEN): the per-channel median of each box
+#   is the sample's colour relative to the photographed white, at full white
+#   (white #FFFFFF; blue 0.27 0.35 1.00, about #4559FF). The still's fill
+#   fraction cannot be read (README question 13) and the moment is taken at
+#   half way (TENANT-FILECOPY-MID v>=50), so the fill is graded over the left
+#   quarter of its sample, which the bar's fill covers by then.
 # hourglass (a frame taken while the copy runs):
 # - COPYHOURGLASS: the busy cursor is an hourglass at the still's place
 #   (transcription CANON.HOURGLASS; the journey parks the pointer there).
 #   FLAIR shields the cursor while it repaints the bar, so one frame may
 #   catch it erased; tests/smoke/verify.sh asks this of several frames and
 #   needs the hourglass in one.
-# Not graded, stated departures (goldens/frame/README.md): colours.tsv's
-# progress_fill blue and filecopy_content white are FLAIR's Platinum bar and
-# dialog grey; the slice blue is the Toolbox's navy (question 12).
+# Not graded, a stated departure (goldens/frame/README.md): the slice blue is
+# the Toolbox's navy (question 12).
 set -eu
 export LC_ALL=C
 bin=$1 shot=$2 ref=$3 moment=${4:-chart}
@@ -48,9 +54,17 @@ chart)
     "$bin" "$shot" FRAME $chartwin REGION $chartwin PIE $pie ELLIPSE $ellipse SERIES $series $fields ;;
 copy)
     copy=$(box COPY 11) caption=$(box COPYCAPTION) bar=$(box COPYBAR)
-    [ -n "$chartwin" ] && [ -n "$copy" ] && [ -n "$caption" ] && [ -n "$bar" ] || { echo 'FAIL frame pixels: reference package incomplete'; exit 1; }
+    # A sample's box in 640 x 480 and its relative colour at full white;
+    # $2 is the fraction of its width graded, from the left.
+    sample() { awk -F'\t' -v g="$g" -v id="$1" -v part="$2" '
+        BEGIN { while((getline l < g) > 0) { split(l,f,"\t"); if(f[1]=="SCREEN") { x0=f[3]; y0=f[4]; x1=f[5]; y1=f[6] } } }
+        $1==id { split($9,r," "); l=($4-x0)*640/(x1-x0); rt=($6-x0)*640/(x1-x0)
+                 printf "%d %d %d %d %d %d %d %s", l, ($5-y0)*480/(y1-y0), l+(rt-l)*part, ($7-y0)*480/(y1-y0),
+                        r[1]*255+0.5, r[2]*255+0.5, r[3]*255+0.5, id }' "$ref/colours.tsv"; }
+    body=$(sample filecopy_content 1) fill=$(sample progress_fill 0.25)
+    [ -n "$chartwin" ] && [ -n "$copy" ] && [ -n "$caption" ] && [ -n "$bar" ] && [ -n "$body" ] && [ -n "$fill" ] || { echo 'FAIL frame pixels: reference package incomplete'; exit 1; }
     # shellcheck disable=SC2086
-    "$bin" "$shot" FRAME $chartwin FRAME $copy TEXT $caption BAR $bar NONAVY $copy ;;
+    "$bin" "$shot" FRAME $chartwin FRAME $copy TEXT $caption BAR $bar NONAVY $copy COLOUR $body COLOUR $fill ;;
 hourglass)
     glass=$(box COPYHOURGLASS)
     [ -n "$glass" ] || { echo 'FAIL frame pixels: reference package incomplete'; exit 1; }
