@@ -2,7 +2,7 @@
 # test: test-fat-write-partial
 --- a/fat12.c
 +++ b/fat12.c
-@@ -2922,6 +2922,13 @@
+@@ -3068,6 +3068,13 @@
  		for (i = 0u; i < to_add; i++) {
  			uint16_t cl;
  			uint32_t lba;
@@ -13,6 +13,6 @@
 +			if (i + 1u >= to_add) {
 +				break;
 +			}
- 			cl = fat12_find_free(vol, fat, fat_len,
- 			                     (uint16_t)(prev ? (prev + 1u)
- 			                                     : FAT12_FIRST_DATA_CLUSTER));
+ 			cl = fat12_find_free(vol, fat, fat_len, search_from);
+ 			if (cl == 0u) {
+ 				/* Full volume: roll back ONLY the clusters THIS call claimed

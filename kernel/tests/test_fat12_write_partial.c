@@ -270,6 +270,34 @@ static int run_sequence(int verify)
 	return 0;
 }
 
+/* The outside gate mints the file and grades the persisted append with mtools. */
+static int append_fixture(const char *image)
+{
+	blockdev_file_t disk;
+	dir_entry_t entry;
+	uint32_t slot;
+	uint32_t wrote = 0;
+	const uint8_t payload = 'X';
+
+	if (blockdev_file_open_rw(&disk, image) != 0)
+		return 2;
+	if (fat12_mount(&g_vol, &disk.dev, g_sector) != FAT12_OK ||
+	    fat12_read_fat(&g_vol, g_fat, sizeof(g_fat)) != FAT12_OK ||
+	    fat12_find_slot(&g_vol, g_sector, "TARGET.BIN", &entry, &slot) != FAT12_OK) {
+		blockdev_file_close(&disk);
+		return 2;
+	}
+
+	g_fat_len = (uint32_t)g_vol.bpb.sectors_per_fat * g_vol.bpb.bytes_per_sector;
+	int rc = fat12_write_partial(&g_vol, g_fat, g_fat_len, 0, slot,
+	                             entry.file_size, &payload, 1,
+	                             g_sector, g_cluster, &wrote);
+	blockdev_file_close(&disk);
+	printf("append rc=%d wrote=%u\n", rc, wrote);
+	CHECK(rc == FAT12_OK && wrote == 1, "positioned append acknowledges one byte");
+	return TEST_SUMMARY("fragmented append");
+}
+
 int main(int argc, char **argv)
 {
 	const char     *img;
@@ -278,9 +306,11 @@ int main(int argc, char **argv)
 	int             diff_mode;
 
 	if (argc < 2) {
-		fprintf(stderr, "usage: %s <blank-fat12-image> [--diff]\n", argv[0]);
+		fprintf(stderr, "usage: %s <fat12-image> [--diff|--append]\n", argv[0]);
 		return 2;
 	}
+	if (argc == 3 && strcmp(argv[2], "--append") == 0)
+		return append_fixture(argv[1]);
 	img       = argv[1];
 	diff_mode = (argc >= 3 && strcmp(argv[2], "--diff") == 0);
 

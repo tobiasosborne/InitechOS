@@ -1,0 +1,29 @@
+# test: test-fragmented-append33
+--- a/fat12.c
++++ b/fat12.c
+@@ -3062,14 +3062,13 @@ static int fat12_write_partial_inner(const fat12_volume_t *vol, void *fat, uint3
+ 		uint32_t to_add = need_clusters - have_clusters;
+ 		uint32_t i;
+ 		uint16_t prev = tail;
+-		/* The Packard Bell DOS 3.30 fragmented-append capture takes
+-		 * the lowest free cluster even when the next cluster is free. */
+-		uint16_t search_from = FAT12_FIRST_DATA_CLUSTER;
+ 
+ 		for (i = 0u; i < to_add; i++) {
+ 			uint16_t cl;
+ 			uint32_t lba;
+-			cl = fat12_find_free(vol, fat, fat_len, search_from);
++			cl = fat12_find_free(vol, fat, fat_len,
++			                     (uint16_t)(prev ? (prev + 1u)
++			                                     : FAT12_FIRST_DATA_CLUSTER));
+ 			if (cl == 0u) {
+ 				/* Full volume: roll back ONLY the clusters THIS call claimed
+ 				 * (free + flush) so the prior chain is untouched. */
+@@ -3117,7 +3116,6 @@ static int fat12_write_partial_inner(const fat12_volume_t *vol, void *fat, uint3
+ 				return FAT12_ERR_WRITE;
+ 			}
+ 			prev = cl;
+-			search_from = (uint16_t)(cl + 1u);
+ 		}
+ 
+ 		/* Commit the FAT (both copies) now the whole extension is laid down. */
