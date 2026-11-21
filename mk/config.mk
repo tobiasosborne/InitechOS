@@ -82,3 +82,4 @@ clean:
 	echo "$(COMPONENT): '$@' is not implemented (or a file is missing)" >&2; exit 1
 
 include $(TOP)/mk/command.mk
+include $(TOP)/mk/check-mutant-patches.mk
