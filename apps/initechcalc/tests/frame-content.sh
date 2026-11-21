@@ -14,6 +14,9 @@ geom=$(dirname "$tsv")/geometry.tsv
 doc=${FRAME_DOC:-data/LEDGER.TXT}
 # Operator ruling 2026-11-14, gap treatment A.
 note='Blank entries were not recovered from the surviving material.'
+# Where it goes: the operator's ruling of 2026-11-15 on goldens/frame/README.md
+# question 9, "a strip at the foot of the ledger, below the total". The total
+# is the row above the still's double rules (LED.R17, "under the total").
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
@@ -68,7 +71,8 @@ grade() {   # $1 = name, $2 = observation file
         -v cells="$tmp/cells" -v labels="$tmp/labels" -v origins="$tmp/origins" -v titles="$tmp/titles" '
     BEGIN {
         while((getline l < cells) > 0) { split(l,f,"\t"); k=f[1] SUBSEP f[2]
-            if((f[4]=="certain" || f[4]=="probable") && f[3]!="") want[k]=f[3]; else empty[k]=f[4] }
+            if((f[4]=="certain" || f[4]=="probable") && f[3]!="") want[k]=f[3]; else empty[k]=f[4]
+            if(f[3]=="(double rule)" && (!rule || f[1]+0<rule)) rule=f[1]+0 }
         while((getline l < labels) > 0) { nl++; lab[nl]=l; v=l; sub(/%$/,"",v); val[nl]=v+0; sum+=v }
         while((getline l < origins) > 0) { no++; split(l,f,"\t"); ox[no]=f[1]; oy[no]=f[2]; ex[no]=f[3]; ey[no]=f[4] }
         while((getline l < titles) > 0) { split(l,f,"\t"); title[f[1]]=f[2]; titled[f[1]]=1 }
@@ -80,6 +84,8 @@ grade() {   # $1 = name, $2 = observation file
         if(got!=want[k]) fail("row " $2 " col " $3 " shows \"" $4 "\", the still reads \"" want[k] "\"") }
     $1=="LABEL" { ng++; if(lab[ng]!=$2) fail("chart label " ng " is \"" $2 "\", the still reads \"" lab[ng] "\"") }
     $1=="NOTE" { notes++; if($2!=note) fail("note reads \"" $2 "\"") }
+    $1=="NOTEY" { notey=$2+0; noted=1 }
+    $1=="ROWY" { rowy[$2]=$3+0; if(!(lowest in rowy) || $2+0>lowest+0) lowest=$2 }
     $1=="WINDOW" { d1=$3-ox[$2]; d2=$4-oy[$2]; if(d1<-4 || d1>4 || d2<-4 || d2>4) fail("window " $2 " opens at " $3 "," $4 "; the still puts it at " ox[$2] "," oy[$2])
         # The chart window whole (CHARTWIN): its field runs to the frame, as
         # in the still. The ledger is larger than LEDWIN (README "The ledger").
@@ -96,6 +102,13 @@ grade() {   # $1 = name, $2 = observation file
         if(ng!=nl) fail(ng " chart labels, the still has " nl)
         if(sum "%" != canon) fail("the still'"'"'s labels sum to " sum "%, canon " canon)
         if(notes!=1) fail(notes+0 " notes")
+        if(name=="drawn") {   # the note at the foot: below the total and every row
+            if(!noted) fail("the note has no place")
+            else if(!(rule-1 in rowy)) fail("no total drawn in row " rule-1)
+            else {
+                if(notey<rowy[rule-1]+12) fail("the note (y " notey ") is not below the total (row " rule-1 ", y " rowy[rule-1] ")")
+                if(notey<rowy[lowest]+12) fail("the note (y " notey ") is not at the foot, below row " lowest " (y " rowy[lowest] ")")
+            } }
         if(ring!="") {   # slices are value/sum of a turn: a face (N) at each middle,
                          # a gap (black B or a side S) at each boundary, within 4 degrees
             if(index(ring,"o")) fail("ring has colours other than the slice face, its side and black")

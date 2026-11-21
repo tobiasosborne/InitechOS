@@ -10,9 +10,8 @@ oracle.
 ## Questions only the operator can settle
 
 **Settled: the operator accepted every recommendation below on 2026-11-15
-(initech-tunh0).** The readings are no longer provisional. One of them is
-not yet in the product: question 9 puts the note below the total, and
-InitechCalc still draws it above (initech-tunh0 carries that change).
+(initech-tunh0).** The readings are no longer provisional, and the product
+follows all of them; question 9's note below the total was the last to land.
 
 Each has a recommendation. Item ids refer to `transcription.tsv`. The
 product follows every recommendation, and the checks grade that reading.
@@ -53,7 +52,9 @@ product follows every recommendation, and the checks grade that reading.
 9. **Where the note goes.** The design put "Blank entries were not recovered
    from the surviving material." in a strip above the total; the still has the
    total directly under the last data row, with ruled blank rows beneath it.
-   *Recommend a strip at the foot of the ledger, below the total.*
+   *Recommend a strip at the foot of the ledger, below the total.* Done:
+   InitechCalc draws it below the ledger's last row, and its content check
+   grades that place.
 10. **The pie's angles.** Measured clockwise from 12 o'clock on the unsquashed
     ellipse, the 40%, 14% and 9% slices span about 103, 36 and 21 degrees:
     proportional to their labels, but at about 2.6 degrees per percent, which

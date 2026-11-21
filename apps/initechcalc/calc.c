@@ -384,12 +384,11 @@ static unsigned serialise(void)
 static void text(int32_t w,int x,int y,const char *s,uint32_t fg,uint32_t bg)
 { (void)tbx_draw_text(w,x,y,s,fg|TBX_TEXT_GENEVA9,bg); }
 static void rect(int32_t w,int l,int t,int r,int b,uint32_t c) { if(l<r&&t<b) (void)tbx_fill_rect(w,l,t,r,b,c); }
-/* Treatment A (operator ruling 2026-11-14, design-frame section 3): reserve
- * one white annotation strip before the final total and its rule. It is
- * layout, never a worksheet row or a fabricated cell value. */
-static unsigned note_row(void) { return g_rows>1?g_rows-2:0; }
-static int row_y(unsigned r)
-{ return (int)r*ROW_H+(note[0]&&r>=note_row()?ROW_H:0); }
+/* Treatment A (operator ruling 2026-11-14): one white annotation strip for
+ * the note, a row deep, at the foot of the ledger below the total and its
+ * rule (operator ruling 2026-11-15, goldens/frame/README.md question 9). It
+ * is layout, never a worksheet row or a fabricated cell value. */
+static int row_y(unsigned r) { return (int)r*ROW_H; }
 /* What cell (c,r) shows, into `line`: the entry being typed, its text, or
  * nothing (0), when a label to its left may run over it. */
 static int cell_shows(unsigned c,unsigned r)
@@ -410,13 +409,13 @@ static int stops(unsigned c,unsigned r) { return (row_shown[r]>>c&1u)&&(row_show
  * shown cell clears its interior after the cells to its left have drawn and
  * before its own text; nothing else in the band lands on a row's rule lines,
  * so they are drawn once, at the end, with the cell pointer over them. The
- * note strip, between the last two rows, has no column rules. */
+ * note strip, below the last row, has no rules and is painted only with
+ * the whole ledger: a band never reaches below its last row's rule. */
 static void stop_runs(unsigned c,unsigned r0,unsigned r1,int white)
 {
-    unsigned nr=note[0]?note_row():CALC_ROW_MAX+1;
     for(unsigned a=r0;a<=r1;a++) {
         if(!stops(c,a)) continue;
-        unsigned b=a; while(b<r1&&b+1!=nr&&stops(c,b+1)) b++;
+        unsigned b=a; while(b<r1&&stops(c,b+1)) b++;
         if(white) rect(ledger,colx[c]+1,row_y(a)+1,colx[c+1],row_y(b)+ROW_H,TBX_COLOR_WHITE);
         else rect(ledger,colx[c],row_y(a),colx[c]+1,row_y(b)+ROW_H+1,TBX_COLOR_GRAY);
         a=b;
@@ -426,8 +425,6 @@ static void paint_band(unsigned r0,unsigned r1,int whole)
 {
     int32_t s=tbx_content_size(ledger);
     int cw=s&0xFFFF, ch=(s>>16)&0xFFFF, gw=colx[CALC_COLS];
-    unsigned nr=note_row();
-    int ny=(int)nr*ROW_H, strip=note[0]&&(whole||(r0<nr&&nr<=r1));
     int y0=whole?0:row_y(r0), y1=row_y(r1)+ROW_H+1;
     if(s<=0||!g_rows) return;
     for(unsigned r=r0;r<=r1;r++) {
@@ -436,12 +433,7 @@ static void paint_band(unsigned r0,unsigned r1,int whole)
     }
     if(whole) rect(ledger,0,0,cw,ch,TBX_COLOR_WHITE);
     else rect(ledger,0,y0+1,cw,y1-1,TBX_COLOR_WHITE);
-    for(unsigned c=0;c<=CALC_COLS;c++) {
-        if(strip) {
-            rect(ledger,colx[c],y0,colx[c]+1,ny+1,TBX_COLOR_GRAY);
-            rect(ledger,colx[c],ny+ROW_H,colx[c]+1,y1,TBX_COLOR_GRAY);
-        } else rect(ledger,colx[c],y0,colx[c]+1,y1,TBX_COLOR_GRAY);
-    }
+    for(unsigned c=0;c<=CALC_COLS;c++) rect(ledger,colx[c],y0,colx[c]+1,y1,TBX_COLOR_GRAY);
     for(unsigned c=0;c<CALC_COLS;c++) {
         stop_runs(c,r0,r1,1);
         for(unsigned r=r0;r<=r1;r++) if((row_shown[r]>>c&1u)&&cell_shows(c,r)) text(ledger,colx[c]+2,row_y(r)+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE);
@@ -449,10 +441,7 @@ static void paint_band(unsigned r0,unsigned r1,int whole)
     for(unsigned c=1;c<CALC_COLS;c++) stop_runs(c,r0,r1,0);
     for(unsigned r=r0;r<=r1;r++) rect(ledger,0,row_y(r),gw+1,row_y(r)+1,TBX_COLOR_GRAY);
     rect(ledger,0,y1-1,gw+1,y1,TBX_COLOR_GRAY);
-    if(strip) {
-        rect(ledger,0,ny,gw+1,ny+1,TBX_COLOR_GRAY);
-        copy(line,note); text(ledger,4,ny+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE);
-    }
+    if(whole&&note[0]) { copy(line,note); text(ledger,4,row_y(g_rows)+1,line,TBX_COLOR_BLACK,TBX_COLOR_WHITE); }
     {   /* the cell pointer */
         int x0=colx[i123_cursor_col(&g_sheet)], x1=colx[i123_cursor_col(&g_sheet)+1];
         int p0=row_y(i123_cursor_row(&g_sheet)), p1=p0+ROW_H;

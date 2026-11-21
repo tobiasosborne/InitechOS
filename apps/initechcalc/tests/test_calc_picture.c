@@ -142,13 +142,13 @@ static int geometry(const char *path,const char *id,int box[4])
  * aligned; a label runs over empty cells to its right and stops at a full
  * one; a repeating label (\=) fills the cell's interior with whole
  * characters. 26 rows: nine ruled rows stand for the ledger hidden under
- * Drive A Files and the chart, then the still's 17 fragment rows. A white
- * strip a row deep, with no column rules, lies above the total's row
- * (LED.R16.C7) with the note in it, 4 right of the edge (treatment A). The
- * cell pointer is a black box on the first cell. */
+ * Drive A Files and the chart, then the still's 17 fragment rows. Below the
+ * last row's rule, at the ledger's foot and so below the total's row
+ * (LED.R16.C7), the note, 4 right of the edge, on white with no rules
+ * (treatment A; operator 2026-11-15, goldens/frame/README.md question 9).
+ * The cell pointer is a black box on the first cell. */
 #define L_ROWS 26
 #define L_ABOVE 9
-#define L_TOTAL_ROW (16+L_ABOVE-1)   /* 0-based document row of the total */
 static const int lx[11]={0,100,146,192,238,284,330,376,422,468,478};
 static const char note_text[]="Blank entries were not recovered from the surviving material.";
 static char ledger_cell[L_ROWS][10][64];
@@ -174,12 +174,12 @@ static int ledger_from_transcription(const char *path)
     }
     return n;
 }
-static int ledger_row_y(int r) { return r*12+(r>=L_TOTAL_ROW?12:0); }
+static int ledger_row_y(int r) { return r*12; }
 static void model_ledger(pic_t *p)
 {
-    const int strip=L_TOTAL_ROW*12, bottom=ledger_row_y(L_ROWS-1)+12;
+    const int bottom=ledger_row_y(L_ROWS-1)+12;
     fill(p,0,0,p->w,p->h,WHITE);
-    for(int k=0;k<=10;k++) { fill(p,lx[k],0,lx[k]+1,strip+1,GREY); fill(p,lx[k],strip+12,lx[k]+1,bottom+1,GREY); }
+    for(int k=0;k<=10;k++) fill(p,lx[k],0,lx[k]+1,bottom+1,GREY);
     for(int r=0;r<L_ROWS;r++) {   /* cell by cell, left to right */
         int y=ledger_row_y(r), earlier=0;
         for(int c=0;c<10;c++) {
@@ -191,8 +191,7 @@ static void model_ledger(pic_t *p)
     }
     for(int r=0;r<L_ROWS;r++) fill(p,0,ledger_row_y(r),lx[10]+1,ledger_row_y(r)+1,GREY);
     fill(p,0,bottom,lx[10]+1,bottom+1,GREY);
-    fill(p,0,strip,lx[10]+1,strip+1,GREY);
-    words(p,4,strip+1,note_text,BLACK,WHITE);
+    words(p,4,bottom+1,note_text,BLACK,WHITE);
     fill(p,0,0,lx[1]+1,1,BLACK); fill(p,0,12,lx[1]+1,13,BLACK);
     fill(p,0,0,1,13,BLACK); fill(p,lx[1],0,lx[1]+1,13,BLACK);
 }

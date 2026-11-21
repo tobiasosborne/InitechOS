@@ -31,7 +31,7 @@ A document is ASCII text, CR LF lines, tab-separated:
     WINDOW  l t r b         the ledger window's bounds
     CHART   l t r b         the chart window's bounds
     SERIES  v1 ... vn       the chart's values, 0 to 8, each above zero
-    NOTE    text            the source note above the total (optional)
+    NOTE    text            the source note below the total (optional)
     ROWS    n               rows in the ledger, 1 to 26
     row  c0 c1 ... c9       a non-empty row, ascending, columns 0 to 9
 
@@ -70,11 +70,15 @@ the windows and saving keeps the new places.
 ## The ledger
 
 Ten columns (label 100 px, eight amounts of 46, one narrow of 10), rows 12 px,
-Geneva 9 and grey rules. Treatment A reserves a shallow white strip across the
-content width above the final total and its rule, in black Geneva 9. The strip
-is layout, not a worksheet row; it stays below the upper chart and copy dialog.
-It follows the operator's above-total ruling, rather than the reference
-package's later recommendation to put it below the grid. All cells are left-aligned, as
+Geneva 9 and grey rules. Treatment A puts the note in a white strip a row
+deep at the foot of the ledger, below the last row's rule and so below the
+total and its double rule, in black Geneva 9, 4 pixels in, with no rules
+(operator, 2026-11-15: goldens/frame/README.md question 9; it was above the
+total until then). The strip is layout, not a worksheet row; it stays below
+the upper chart and copy dialog. The shipped ledger's 26 rows end at 312 and
+the note's line at 324, inside the window's 327 rows of content; the window
+does not scroll, so a ledger shrunk below that clips the foot first
+(initech-j89c). All cells are left-aligned, as
 in the still. A label runs over empty cells to its right and stops at a full
 one. Arrows and Tab move the cell pointer; typing enters a value (a number,
 with a leading or trailing minus and for currency `$` and commas) or a label;
@@ -165,8 +169,10 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
 - `test_calc_frame` + `tests/frame-content.sh`: the frame's content. The
   script reads goldens/frame/transcription.tsv and geometry.tsv and grades,
   with the same rules, the shipped and saved documents (read with awk, no product code)
-  and what the real tenant drew (cell texts at cell origins, the note, the
-  chart labels, the chart window's title against CHT.TITLE (empty), and
+  and what the real tenant drew (cell texts at cell origins, the note and
+  its place, below the total's row and every other row (the total is the row
+  above the transcription's double rules; red when the note stood above
+  it), the chart labels, the chart window's title against CHT.TITLE (empty), and
   the chart replayed on the screen at the window's
   observed content origin and clipped to its observed size: every slice
   pixel's bounds within 4 px of geometry.tsv PIE/PIEDEPTH, and a ring at 80%
@@ -211,7 +217,7 @@ stage-and-commit transaction. This guarantees reported failures, not crashes.
   the code before it made 1,472 and 380; 600 until the slices took two
   colours, 635 since). After every keystroke of a
   sequence (typing, Return, arrows, Tab into the narrow column, a label run
-  over its neighbours and cleared, Escape, Del, down across the note strip
+  over its neighbours and cleared, Escape, Del, down to the total's rows
   and back) what the windows show equals a fresh full repaint, replayed
   pixel by pixel by tests/replay.h with FLAIR's Geneva 9 strike. An update
   naming token 2 draws only in the chart, token 1 only in the ledger, and a

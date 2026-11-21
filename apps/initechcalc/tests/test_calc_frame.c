@@ -8,6 +8,8 @@
  *   TITLE   n text          the title each window was given
  *   CELL    row col text    a ledger draw at a cell origin (row 1-based)
  *   NOTE    text            the ledger's recovery annotation
+ *   NOTEY   y               the top of the note's text, content-local
+ *   ROWY    row y           the top of a row's cell text (row 1-based)
  *   OTHER   x y text        any other ledger draw (a failure for the script)
  *   LABEL   text            a chart draw
  *   EXTENT  l t r b         the bounds of every slice pixel (face or side)
@@ -90,8 +92,11 @@ int main(int argc,char **argv)
         int w=o->a[0], x=o->a[1], y=o->a[2];
         if(!strcmp(o->name,"tbx_draw_text")&&w==1) {
             int c=-1; for(int k=0;k<10;k++) if(x==lx[k]+2) c=k;
-            if(x==4) printf("NOTE\t%s\n",o->text);
-            else if(c>=0&&y%12==1&&y<bottom) printf("CELL\t%d\t%d\t%s\n",y/12+1-(note_y>=0&&note_y<bottom&&y>note_y),c,o->text);
+            if(x==4) printf("NOTE\t%s\nNOTEY\t%d\n",o->text,y);
+            else if(c>=0&&y%12==1&&y<bottom) {
+                int row=y/12+1-(note_y>=0&&note_y<bottom&&y>note_y);
+                printf("CELL\t%d\t%d\t%s\nROWY\t%d\t%d\n",row,c,o->text,row,y);
+            }
             else printf("OTHER\t%d\t%d\t%s\n",x,y,o->text);
         }
         if(!strcmp(o->name,"tbx_draw_text")&&w==2) printf("LABEL\t%s\n",o->text);

@@ -1,12 +1,12 @@
 # test: test_calc_paint
 --- a/calc.c
 +++ b/calc.c
-@@ -419,7 +419,7 @@
+@@ -432,7 +432,7 @@
          for(unsigned c=0;c<CALC_COLS;c++) if(cell_shows(c,r)) row_shown[r]|=(uint16_t)(1u<<c);
      }
      if(whole) rect(ledger,0,0,cw,ch,TBX_COLOR_WHITE);
 -    else rect(ledger,0,y0+1,cw,y1-1,TBX_COLOR_WHITE);
 +    else (void)cw;
-     for(unsigned c=0;c<=CALC_COLS;c++) {
-         if(strip) {
-             rect(ledger,colx[c],y0,colx[c]+1,ny+1,TBX_COLOR_GRAY);
+     for(unsigned c=0;c<=CALC_COLS;c++) rect(ledger,colx[c],y0,colx[c]+1,y1,TBX_COLOR_GRAY);
+     for(unsigned c=0;c<CALC_COLS;c++) {
+         stop_runs(c,r0,r1,1);

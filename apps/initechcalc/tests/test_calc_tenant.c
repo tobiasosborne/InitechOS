@@ -58,7 +58,12 @@ static void treatment_a(void)
         if(!strcmp(o->text,"$112,276.87")) ty=o->a[2];
     }
     CHECK(count==1&&style,"one black Geneva 9 source note on white");
-    CHECK(ny>=0&&ty>=0&&ny+12<=ty,"source note occupies its own strip above the total");
+    /* Operator, 2026-11-15 (goldens/frame/README.md question 9): a strip at
+     * the foot of the ledger, below the total. The ledger's 26 rows of 12
+     * end at 312; the note's line (Geneva 9, 11 rows) must fit the window's
+     * content, which the user cannot scroll. */
+    CHECK(ny>=0&&ty>=0&&ny>=ty+12&&ny>=26*12,"source note occupies its own strip below the total, at the ledger's foot");
+    CHECK(ny>=0&&ny+11<=tbx_host.windows[0].b-tbx_host.windows[0].t-host_inset_h(1),"the note lies within the ledger's content");
     /* Public chrome metric plus observed window bounds, and COPY's bottom
      * from goldens/frame/geometry.tsv: the upper overlays cannot cover it. */
     int global_y=tbx_host.windows[0].t+FLAIR_CHROME_TITLEBAR_H+ny;

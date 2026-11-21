@@ -150,7 +150,7 @@ int main(void)
     press(0,0x50,"Down commits and moves");
     press(0,0x48,"Up");
     press(0,0x53,"Del");
-    /* Down into the recovered rows, over the note strip, and back. */
+    /* Down into the recovered rows, to the total and its rule, and back. */
     for(int i=0;i<25;i++) press(0,0x50,"Down");
     for(int i=0;i<25;i++) press(0,0x48,"Up");
     printf("test_calc_paint: %d checks, %d failures\n",checks,failures);
