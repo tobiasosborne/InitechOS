@@ -20,3 +20,5 @@ run a probe program; the guard's own panic line is the rejection:
 
 - callback, hook: SET binds a slot function or command hook at start-up.
 - raw: a SET command stores a slot address in the context's mirror_user.
+- live: a SET command runs the ON ERROR trap itself; the trap's LIST STATUS
+  asks for the STATUS overlay while SET is still active (a live swap).

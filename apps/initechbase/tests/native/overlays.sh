@@ -60,11 +60,13 @@ case $mode in
    ovl-raw) why='c->mirror_user' requested=00000003 pointer='[0-9A-F]{8}';;
    ovl-live) why='live swap' requested=00000002 pointer=00000000;;
   esac
+  what="SET retained a slot $why"
+  [ "$mode" != ovl-live ] || what='SET ran another overlay while active'
   if grep -E "IBASE OVERLAY PANIC: $why loaded=00000003 requested=$requested depth=00000001 pointer=$pointer" "$out/run.serial" >/dev/null; then
    grep -F 'PANIC vec=06 err=00000000' "$out/run.serial" >/dev/null || fail 'missing invariant exception'
    grep -Fx HALTED "$out/run.serial" >/dev/null || fail 'missing invariant stop'
    grep -F '[OVL-ACCEPTED]' "$out/run.serial" >/dev/null && fail 'program continued past the overlay panic'
-   red "SET retained a slot $why; explicit lifetime guard rejected it"
+   red "$what; explicit lifetime guard rejected it"
   fi ;;
 esac
 if [ "$rc" -ne 0 ] || ! grep -Fx '[harness] OK=1' "$out/report" >/dev/null; then cat "$out/report";fail 'incomplete guest';fi

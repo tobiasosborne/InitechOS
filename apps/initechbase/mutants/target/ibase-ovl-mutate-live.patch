@@ -1,0 +1,12 @@
+# target: native-ovl-live
+--- a/cmd/set.c
++++ b/cmd/set.c
+@@ -1126,6 +1126,8 @@
+         set_init_defaults(ip,ss);
+         return INTERP_OK;
+     }
++    /* Indirect ON ERROR is invisible to static relocation reachability. */
++    xb_interp_ctx(ip)->on_error(ip,10);
+     /* Find the set_state for this interpreter. */
+     ss = set_state_for(ip, (int *)0);
+     if (!ss) {
