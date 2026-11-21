@@ -1,7 +1,5 @@
 #!/bin/sh
-# Patch only isolated manifest copies; product sources are never changed.
-# Every patch is graded: strict apply, then the inventory check must fail on
-# the inventory signature. Prints the shared factory summary line.
+# Patch isolated copies and require the corresponding test's semantic failure.
 set -eu
 cd "$(dirname "$0")/.."
 work=$(mktemp -d)
@@ -10,21 +8,34 @@ start=$(date +%s)
 [ "$#" -gt 0 ] || set -- mutants/*.patch
 [ -f "$1" ] || { echo 'FAIL: no mutation patches selected' >&2; exit 1; }
 n=0 killed=0 survived=0 errors=0
-if ! { sh tests/manifest.sh && sh tests/data-volume.sh; } > "$work/baseline" 2>&1; then
+boot_inputs() {
+    sh "$1" "$work/installed" "${SYSTEM_MUTANT_SAMPLES:-../build/system/samples}" || return 2
+    sh tests/boot-inputs.sh "$work/installed"
+}
+if ! { sh tests/manifest.sh && boot_inputs install-inputs.sh &&
+       sh tests/data-volume.sh && sh tests/working-capacity.sh; } > "$work/baseline" 2>&1; then
     cat "$work/baseline"; echo '!!! BASELINE FAILED'
     errors=$#; n=$#
 else
     for fault do
         n=$((n+1))
         rm -rf "$work/copy"; mkdir "$work/copy"
-        cp working-volume.list data-volume.list install-data.sh "$work/copy/"
+        cp working-volume.list data-volume.list install-data.sh install-inputs.sh "$work/copy/"
+        mkdir "$work/copy/tests"
+        cp tests/work-volume.sh "$work/copy/tests/"
         if ! patch --batch --fuzz=0 -s -d "$work/copy" -p1 < "$fault" > "$work/patch.log" 2>&1; then
             echo "!!! PATCH FAILED: $fault"; errors=$((errors+1)); continue
         fi
         result=kill
         for repeat in 1 2; do
             rc=0
-            if grep -q '^# test: data-volume$' "$fault"; then
+            if grep -q '^# test: boot-inputs$' "$fault"; then
+                boot_inputs "$work/copy/install-inputs.sh" > "$work/verdict" 2>&1 || rc=$?
+                signature='^FAIL boot inputs: C: AUTOEXEC.BAT differs'
+            elif grep -q '^# test: working-capacity$' "$fault"; then
+                SYSTEM_VOLUME_HELPER="$work/copy/tests/work-volume.sh" sh tests/working-capacity.sh > "$work/verdict" 2>&1 || rc=$?
+                signature='^FAIL working capacity: installed C capacity must pass despite small A$'
+            elif grep -q '^# test: data-volume$' "$fault"; then
                 sh tests/data-volume.sh "$work/copy/install-data.sh" "$work/copy/data-volume.list" > "$work/verdict" 2>&1 || rc=$?
                 signature='^FAIL data volume:'
             else

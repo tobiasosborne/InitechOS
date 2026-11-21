@@ -69,11 +69,20 @@ keep every original application visible in the default Finder window. The
 host layout check compares APPS against its pre-example inventory; desktop
 smoke exercises the resulting icons on both emulators.
 
+`make installed-inputs` also writes `CONFIG.SYS` and `AUTOEXEC.BAT` under
+`build/system/installed/c-boot/` for the staged C: system disk. The approved
+GM8 delivery design sets C: PATH, COMSPEC and PROMPT and leaves the user at
+the DOS prompt to type FLAIR. The working-volume manifest still selects the A:
+files directly in `installed/`. The staged builder takes up the C: files in
+activation step 6, and the separate `c-boot/` path expires at step 20.
+
 `make test` additionally checks the required workflow inventory, independently
-reads the three DBFs in Python, and verifies source/protocol/canon input
-identity. `make mutants` (alias `manifest-mutants`) rejects an omitted table and an installed
-test driver using isolated manifest patches. Python only reads the foreign DBF format; C and shell produce all
-shipped bytes. Generated tables have a fixed 1993-07-19 update date. Recovered
+reads the three DBFs in Python, verifies source/protocol/canon input identity,
+and compares both sets of boot files byte for byte. `make mutants` (alias
+`manifest-mutants`) uses isolated patches to check inventory, data-volume
+attributes, C: startup bytes and capacity selection. Python only reads the
+foreign DBF format; C and shell produce all shipped bytes. Generated tables
+have a fixed 1993-07-19 update date. Recovered
 TPS bytes retain the original table date. These examples have no memo/index
 dependency, so no DBT/NDX is installed.
 
@@ -94,10 +103,14 @@ current fixed-name protocol, runs the result, and agrees with FPC stdout.
 Artifacts remain in build/system/installed-smoke.*. SYSTEM_SMOKE_CPUS can
 select a single emulator for iteration; the default runs both.
 
-`make capacity` independently measures free clusters with mtools and requires
-2 MiB free for the compiler's listing, two output generations, the full source
-input copy, reports and save stages. This fails on the inherited 1.44 MB volume;
-the image owner must enlarge it. A hosted run of the exact shipped source
+`make capacity` builds the image set and measures the installed C: partition
+with mtools. It requires 2 MiB free for the compiler's listing, two output
+generations, the full source input copy, reports and save stages. The check
+uses the staged `c.img` and `a-data.img`. With a boot-only master it grades
+the legacy A: volume; use `SYSTEM_BOOT_IMAGE` and `SYSTEM_DATA_IMAGE` to
+select another pair or `SYSTEM_WORK_IMAGE` to grade a volume explicitly.
+The host fixture checks a roomy C: beside a 1.44 MB A:, and requires refusal
+when A: is the working volume. A hosted run of the exact shipped source
 produced a 954720-byte listing and 164263-byte native executable, before the
 source copy and retained second generation. Capacity is separate from the
 ordinary Hello workflow so a passing short program cannot certify the finale.

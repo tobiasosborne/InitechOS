@@ -1,0 +1,10 @@
+# test: boot-inputs
+--- a/install-inputs.sh
++++ b/install-inputs.sh
+@@ -19,5 +19,5 @@
+ # The separate c-boot directory expires at C: activation (plan step 20).
+ mkdir -p "$out/c-boot"
+ cp "$out/CONFIG.SYS" "$out/c-boot/CONFIG.SYS"
+-printf '%s\r\n' '@ECHO OFF' 'PATH C:\;C:\APPS' 'SET COMSPEC=C:\COMMAND.COM' 'PROMPT $P$G' > "$out/c-boot/AUTOEXEC.BAT"
++printf '%s\r\n' '@ECHO OFF' 'PATH C:\;C:\APPS' 'SET COMSPEC=C:\COMMAND.COM' 'PROMPT $P$G' 'FLAIR' > "$out/c-boot/AUTOEXEC.BAT"
+ printf 'Hello from InitechDOS.\r\n' > "$out/HELLO.TXT"

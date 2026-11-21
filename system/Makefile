@@ -37,8 +37,8 @@ capacity:
 	sh tests/capacity.sh
 MUTANT_PATCHES ?= $(wildcard mutants/*.patch)
 manifest-mutants: mutants
-mutants:
-	sh tests/manifest-mutants.sh $(MUTANT_PATCHES)
+mutants: $(OUT)/samples
+	SYSTEM_MUTANT_SAMPLES="$(OUT)/samples" sh tests/manifest-mutants.sh $(MUTANT_PATCHES)
 
 TARGET_ARTIFACTS := $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS
 include $(TOP)/mk/import-check.mk

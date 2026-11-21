@@ -1,0 +1,12 @@
+# test: working-capacity
+--- a/tests/work-volume.sh
++++ b/tests/work-volume.sh
+@@ -10,7 +10,7 @@
+  }
+  # COMMAND.COM marks the installed C: layout during the transition.
+  if printf '%s\n' "$root_listing" | grep -Eiq '(^|/)COMMAND\.COM$'; then
+-  volume=$boot@@32256
++  volume=$data
+  else
+   reader_rc=$?
+   if [ "$reader_rc" != 1 ]; then

@@ -14,6 +14,12 @@ for path in COMMAND.COM CONFIG.SYS AUTOEXEC.BAT HELLO.TXT \
   echo "FAIL installed inventory: missing or repeated $path" >&2; exit 1;
  }
 done
+# The ordinary image still consumes the A: files until C: activation.
+for path in CONFIG.SYS AUTOEXEC.BAT; do
+ awk -v path="$path" '$1 == "build/system/installed/" path && $2 == path {found++} END {exit found != 1}' "$manifest" || {
+  echo "FAIL installed inventory: $path must use the A: boot input" >&2; exit 1;
+ }
+done
 awk '
  /^#/ || NF == 0 {next}
  NF != 2 || $1 !~ /^build\// || $2 ~ /(^\/|\.\.|\\)/ {bad=1}
