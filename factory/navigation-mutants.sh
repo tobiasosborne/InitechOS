@@ -51,6 +51,8 @@ mkdir -p "$scratch/build"
 sh factory/testlib/snapshot.sh "$scratch/build" --exclude=./factory/gate-mutants --exclude=./factory/smoke-mutants \
  --exclude=./factory/navigation-mutants --exclude=./factory/mutants \
  --exclude=./factory-gates --exclude=./smoke* --exclude=./test -C build .
+make image > "$work/pristine-build.log" 2>&1 || fail 'pristine image build'
+make -f factory/desktop-tools.mk all > "$work/pristine-tools.log" 2>&1 || fail 'pristine desktop frontend build'
 cp build/image/boot.img "$work/pristine-boot.img"
 cp build/image/data.img "$work/pristine-data.img"
 first=$(mdir -b -i "$work/pristine-data.img" ::APPS/ | sed -n '1p')

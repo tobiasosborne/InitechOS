@@ -63,14 +63,13 @@ testlib-test:
 
 .PHONY: mutants
 mutants:
-	+sh red-desktop.sh
-	+sh gate-mutants.sh
-	+sh smoke-mutants.sh
-	+$(MAKE) -C $(TOP) image
-	+$(MAKE) -C $(TOP) -f factory/desktop-tools.mk all
-	+sh navigation-mutants.sh
-	+sh testlib/tests/host-mutants.sh
-	+sh desktop-wait-mutants.sh
+	+@failed=0; \
+	for runner in red-desktop.sh gate-mutants.sh smoke-mutants.sh \
+	              navigation-mutants.sh testlib/tests/host-mutants.sh desktop-wait-mutants.sh; do \
+		printf '\nFactory mutation runner %s\n' "$$runner"; \
+		sh "$$runner" || { printf 'FAIL factory runner %s (exit %s)\n' "$$runner" "$$?" >&2; failed=1; }; \
+	done; \
+	exit "$$failed"
 
 .PHONY: gate-test
 $(OUT)/bochs-verdict-test: tests/bochs-verdict.c emu/bochs.c emu/bochs.h emu/bochs_trace.h emu/rfb_port.h | $(OUT)

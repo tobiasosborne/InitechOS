@@ -6,7 +6,7 @@
       * initech-tdnl.91). */
      if (flatten(&n) != IW_OK) { error("ERROR: Document too large", M_EDIT); return; }
 -    wn = n;
-+    wn = 0; /* wrong: save no document bytes */
++    wn = g_prefix_len; /* wrong: save the WP5 prefix and drop the body */
      rc = word_save(wn);
      if (rc == TBX_ERR_DOS(39)) rc = 0; /* copy-save's full-disk result */
      if (rc < 0) { error("ERROR: File I/O error", M_SAVE_NAME); return; }
