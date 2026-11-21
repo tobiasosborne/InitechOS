@@ -23,6 +23,7 @@ for emu in qemu bochs; do
   --out "$dir" --name result --allow-reboot --expect OEM-END \
   --quit-after OEM-END --timeout-ms 60000 > "$dir/driver.log" 2>&1
  tr -d '\r' < "$dir/result.serial" > "$dir/transcript"
+ grep -Fx CLOSE3-OK "$dir/transcript"
  grep -Fx OEM-CHECKS-OK "$dir/transcript"
  grep -Fx OEM-RESTART-OK "$dir/transcript"
  if grep -E 'OEM-FAIL|PANIC|RESTART-FAILED' "$dir/transcript"; then exit 1; fi

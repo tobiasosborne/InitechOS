@@ -1,0 +1,5 @@
+SeaBIOS (version 1.16.3-debian-1.16.3-2)
+Booting from Floppy...
+CLOSE3-OK
+CAPTURE-DONE
+C>

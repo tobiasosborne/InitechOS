@@ -541,6 +541,15 @@ test-system-drive_SRCS := tests/runner.c
 test-system-drive_ARGS := tests/run.sh test-system-drive
 test-system-drive_DEPS := $(OUT)/host/tool_test_system_drive tests/gates/test-system-drive.sh
 
+EXTRA_HOST_TESTS += tool_test_close_standard
+tool_test_close_standard_SRCS := tests/test_close_standard.c
+tool_test_close_standard_OBJS := $(tool_test_fileio_OBJS)
+tool_test_close_standard_CFLAGS := $(tool_test_fileio_CFLAGS)
+HOST_TESTS += test-close-standard
+test-close-standard_SRCS := tests/runner.c
+test-close-standard_ARGS := tests/run.sh test-close-standard
+test-close-standard_DEPS := $(OUT)/host/tool_test_close_standard tests/gates/test-close-standard.sh tests/fixtures/close3-dos33/SHA256SUMS
+
 # Apply after every registration, before host_source_rule expands _DEPS into
 # object prerequisites. Earlier expansion in tools.mk omitted later tools,
 # including the independent int21.c compilation for test-loader-live.

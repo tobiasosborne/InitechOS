@@ -1022,13 +1022,17 @@ int main(void)
         CHECK(frame_cf(&h) == 0, "CLOSE reopened file clears CF");
     }
 
-    /* --- CLOSE a predefined handle (1) is a no-op success ----------------- */
+    /* CLOSE releases a standard JFT slot; the resident device stays pinned.
+     * Genuine DOS3.30 CLOSE3 capture: tests/fixtures/close3-dos33. */
     {
+        bind_standard_process();
         int_frame_t f = fresh_frame();
         f.eax = 0x3E00u; f.ebx = 1u;
         f.eflags |= CF_BIT;
         int21_dispatch(&f);
-        CHECK(frame_cf(&f) == 0, "CLOSE predefined handle 1 is a no-op success");
+        CHECK(frame_cf(&f) == 0 && g_test_psp.jft[1] == JFT_CLOSED,
+              "CLOSE standard handle 1 releases its process slot");
+        bind_standard_process(); /* remaining independent cases need stdout */
     }
 
     /* --- CLOSE a bad handle -> CF=1, AX=0x0006 ---------------------------- */

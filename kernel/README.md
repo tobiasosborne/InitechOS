@@ -497,3 +497,11 @@ assertions now report byte mismatches as semantic failures. A positioned-write
 error that damages the old payload is a separate mutation, so allocation-only
 checks cannot stand in for the named-byte guarantee. No fault position is
 removed to reduce the number of mtools processes.
+AH=3Eh CLOSE releases any valid process JFT slot, including 0..4. Resident
+SFT entries stay pinned. Closing a file opened or duplicated into a standard
+slot releases its counted reference. Closing an invalid slot returns DOS
+error 6. See the genuine DOS 3.30 CLOSE3 capture and period references in
+`tests/fixtures/close3-dos33` (initech-kyrcw).
+`test-close-standard` checks slot reuse, parent handles, pinned devices,
+repeated CLOSE and file references for all five standard slots. `smoke-oem`
+runs the flat CLOSE3 adaptation on both emulators.

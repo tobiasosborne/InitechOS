@@ -7,6 +7,38 @@ org 0x40100
     mov ax,0x3d00
     int 0x21
     jnc restarted
+    ; Genuine DOS3.30 CLOSE3 probe, adapted to the existing flat COM ABI.
+    mov ebx,3
+    mov ah,0x3e
+    int 0x21
+    jc failed
+    mov edx,selfname
+    mov ax,0x3d00
+    int 0x21
+    jc failed
+    cmp ax,3
+    jne failed
+    movzx ebx,ax
+    mov edx,read_byte
+    mov ecx,1
+    mov ah,0x3f
+    int 0x21
+    jc failed
+    cmp eax,1
+    jne failed
+    cmp byte [read_byte],0xfc ; NASM fixture's first instruction is CLD
+    jne failed
+    mov ah,0x3e
+    int 0x21
+    jc failed
+    mov ah,0x3e
+    int 0x21
+    jnc failed
+    cmp ax,6
+    jne failed
+    mov edx,close_okay
+    mov ah,9
+    int 0x21
     mov byte [stage],'1'
     mov ax,0xf900
     int 0x21
@@ -107,12 +139,15 @@ restarted:
     mov ax,0x4c00
     int 0x21
 once db 'RESTART.DAT',0
+selfname db 'OEM.COM',0
+close_okay db 'CLOSE3-OK',13,10,'$'
 pagefile db 'PAGE.BIN',0
 okay db 'OEM-CHECKS-OK',13,10,'$'
 again db 'OEM-RESTART-OK',13,10,'OEM-END',13,10,'$'
 bad db 'OEM-FAIL stage='
 stage db '0'
 db 13,10,'OEM-END',13,10,'$'
+read_byte db 0
 original times 4002 db 0
 known times 4002 db 0
 actual times 4002 db 0
