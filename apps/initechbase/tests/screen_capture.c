@@ -111,8 +111,9 @@ static void symbols(const char *path,uint32_t *page,uint32_t *con)
                 !memchr(b+st.sh_offset+sym.st_name,0,st.sh_size-sym.st_name))
                 screen_die("bad ELF symbol name");
             const char *name=(char *)b+st.sh_offset+sym.st_name;
-            if (!strcmp(name,"g_console_page")) *page=sym.st_value;
-            if (!strcmp(name,"g_int21_con")) *con=sym.st_value;
+            /* int21.c also names its 4-byte service pointer g_console_page. */
+            if (!strcmp(name,"g_console_page") && sym.st_size==4000u) *page=sym.st_value;
+            if (!strcmp(name,"g_int21_con") && sym.st_size==4u) *con=sym.st_value;
         }
     }
     free(b);

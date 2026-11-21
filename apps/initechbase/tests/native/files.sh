@@ -32,7 +32,7 @@ GO 2
 REPLACE VALUE WITH 9
 USE
 ? "[NATIVE-END]"
-RETURN
+QUIT
 PRG
   copy "$out/PROBE.PRG" PROBE.PRG
   program=probe ;;
@@ -42,17 +42,17 @@ PRG
   program=mint ;;
  *) fail 'unknown oracle';;
 esac
-printf '\n\ncd apps\ninitbase\ndo %s\n' "$program" > "$out/session"
+# COMMAND.COM executes the ECHO only after INITBASE returns. Neither probe
+# needs a key after its final print, which leaves the serial line open.
+printf 'initbase\r\necho InitechBase returned\r\necho nativefilecomplete\r\n' > "$out/RUNPROBE.BAT"
+copy "$out/RUNPROBE.BAT" RUNPROBE.BAT
+printf '\n\ncd apps\nrunprobe\ndo %s\n' "$program" > "$out/session"
 "$root/build/factory/keys" < "$out/session" > "$out/keys"
-launch=$(sed 's/\(^\|,\)/\1k/g' "$out/keys")
-printf 'echo nativefilecomplete\n' | "$root/build/factory/keys" | sed 's/\(^\|,\)/\1k/g' > "$out/echo-keys"
-if [ "$mode" = io ]; then suffix='W[NATIVE-END],w200,kq,ku,ki,kt,kret';else suffix='W[DO-END]';fi
-spec="$launch,$suffix,w1000,$(cat "$out/echo-keys")"
 # Require the executed ECHO line, not its text in the shell's input echo.
 done_marker=$(printf '\r\nnativefilecomplete\r\n')
 rc=0
 "$root/build/factory/qemu_harness" --disk "$root/build/image/boot.img" --disk2 "$disk" \
-  --keys-after SHELL-READY --mouse "$spec" --expect "$done_marker" --quit-after "$done_marker" \
+  --keys-after SHELL-READY --keys "$(cat "$out/keys")" --expect "$done_marker" --quit-after "$done_marker" \
   --name run --out "$out" --timeout-ms 20000 > "$out/stdout" 2> "$out/report" || rc=$?
 stack_fault=0
 if [ "$mode" = stack ] && grep -F 'PANIC vec=06 err=00000000' "$out/run.serial" >/dev/null && grep -Fx HALTED "$out/run.serial" >/dev/null; then
