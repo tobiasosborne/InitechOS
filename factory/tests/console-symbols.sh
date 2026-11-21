@@ -1,6 +1,6 @@
 #!/bin/sh
 # Run tests/console-symbols.c against an i386 ELF (tier 0: the fixture in
-# tests/console-symbols-fixture/; make image: build/system/system.elf) with
+# tests/console-symbols-fixture/; make image: the linked system ELF) with
 # nm -S's independent answer: the g_console_page of size 0xfa0 and
 # g_int21_con. The ELF must also hold the second, 4-byte g_console_page, or
 # it cannot tell a reader that takes the last match from a correct one.
