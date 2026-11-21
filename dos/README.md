@@ -210,12 +210,16 @@ Interface shell-services: fileio_fat_volume_label int21_batch_checkpoint int21_c
 
 SORT resource safety is checked by `make smoke-sort-limits`: 64 KiB input
 and 7680 line records fit below ENV_BLOCK; additional bytes/records refuse
-before output. These are local safety bounds, not captured DOS limits.
-The MS-DOS 3.3 User's Guide pp.116-117 and p.357 describes SORT and its
-memory diagnostic but gives no numeric limit. Authentic SORT/FIND binaries
-have now been recovered from hash-verified MS-DOS 3.30 disk images; acquisition
-identities are recorded in command/tests/compat33/UTILITY-MEDIA.md. They are
-private reference inputs and ship nowhere. initech-0e5gu still tracks the
+before sorted output. The mutation session sends output to NUL and checks
+that 7680 lines succeed and 7681 return a nonzero status. This lets a mutant
+that sorts the excess line finish without thousands of FAT writes. The
+file-backed smoke also checks the output and refusal diagnostics.
+The MS-DOS 3.3 User's Guide pp.116-117 and p.357 documents SORT and its
+memory diagnostic. The genuine size-based refusal in
+[the DOS 3.30 utility capture](command/tests/compat33/UTILITY-MEDIA.md)
+returned status 1. The numeric bounds come from InitechDOS's scratch layout.
+The recovered SORT/FIND binaries are private reference inputs and ship
+nowhere. initech-0e5gu still tracks the
 complete exact-boundary, read-error and diagnostic/ERRORLEVEL captures. Until then, limit refusals
 use the period catalogue's "Insufficient memory" and status 1; read failures
 use "Error reading file" and status 1. These are stated safety assumptions.
