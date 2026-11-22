@@ -10,10 +10,11 @@ cloned at `/home/tobiasosborne/Projects/InitechOS-reports/`
 
 ## State of main
 
-- Owners on 2026-11-22 (one at a time): `kernel/` the kernel line, `dos/`
-  the dos line, `factory/` and `mk/` the factory line (handoffs
-  `phase4/kernel-line.md`, `dos-line.md`, `factory-line.md`); the top
-  Makefile and `sdk/` stay with the day's orchestrator.
+- Owners on 2026-11-22 (one at a time): `kernel/`, `dos/`, `boot/`,
+  `system/`, `flair/desktop/` each its own line; `factory/` and `mk/` the
+  factory line; `sdk/` and `flair/` outside desktop/ the step-7 line
+  (handoffs `phase4/<line>-line.md`). The top Makefile stays with the
+  day's orchestrator.
 - Morning: the P0 initech-qw018 (clean `make test` red) fixed in bcf0ed57;
   clean sample of bcf0ed57 green (test, image, smoke on QEMU and Bochs).
   Strict certificate on bcf0ed57: clean-test, image-smoke, repro,
