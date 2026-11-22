@@ -186,6 +186,24 @@ static void check_read_faults(void)
     crit_blockdev_set_hook(0);
 }
 
+/* BPB byte 21 read straight from the mtools-minted image file. */
+static int image_media(const char *image, long vbr)
+{
+    FILE *fp = fopen(image, "rb");
+    int media = fp && !fseek(fp, vbr + 21, SEEK_SET) ? fgetc(fp) : -1;
+    if (fp) fclose(fp);
+    return media;
+}
+
+static const char *c_image, *a_image;
+
+static int allocation_media(unsigned dl)
+{
+    int_frame_t f = call(0x1c00, 0, 0, dl);
+    if ((f.eax & 255) == 255 || !f.ebx) return -1;
+    return *(const uint8_t *)(uintptr_t)f.ebx;
+}
+
 static void check_fixed_system(int mounted_a)
 {
     du_map map;
@@ -206,6 +224,10 @@ static void check_fixed_system(int mounted_a)
         CHECK(fileio_fat_fat_buffer(&selected_size) == a_fat && selected_size == a_size,
               "drive selection uses the named A cache");
         read_file("ROOT.BIN", "legacy A bytes\n");
+        int a_media = allocation_media(1), c_media = allocation_media(3);
+        CHECK(a_media == image_media(a_image, 0) && c_media == image_media(c_image, 63 * 512) &&
+              a_media != c_media,
+              "AH=1Ch reports each drive's own BPB media byte");
     } else {
         CHECK(int21_current_drive() == 2 && !fileio_fat_drive_volume(0, NULL, NULL),
               "an unmounted A cannot replace default C");
@@ -275,6 +297,8 @@ int main(int argc, char **argv)
 {
     if (argc != 4 && argc != 5) return 2;
     have_a = strcmp(argv[2], "-") != 0;
+    c_image = argv[1];
+    a_image = argv[2];
     unsigned want = (unsigned)atoi(argv[3]);
     if (blockdev_file_open_rw(&drives[0], argv[1])) return 2;
     if (have_a && blockdev_file_open_rw(&drives[1], argv[2])) return 2;
