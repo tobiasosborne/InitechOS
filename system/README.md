@@ -86,10 +86,10 @@ have a fixed 1993-07-19 update date. Recovered
 TPS bytes retain the original table date. These examples have no memo/index
 dependency, so no DBT/NDX is installed.
 
-`make smoke` builds the ordinary product image and drives the installed TPS,
-Base and Turbo workflows on QEMU and Bochs at 8 MiB. Each session clones both
-product disks, removes AUTOEXEC on its private working copy to reach DOS,
-sets the ordinary root PATH, and changes to SAMPLES or TURBO. The Base session
+`make smoke` builds the ordinary product image and drives the installed TPS
+and Base workflows on QEMU and Bochs at 8 MiB. These sessions clone both
+product disks, remove AUTOEXEC from their private working copies to reach DOS,
+set the ordinary root PATH, and change to SAMPLES or APPS. The Base session
 starts in APPS beside its required overlay and opens the examples using
 absolute SAMPLES paths. No fixture or executable is
 injected. Every manifest file is independently extracted and compared before
@@ -98,10 +98,13 @@ with its directory census changed explicitly from the original single TPS.DBF
 to the four installed DBFs. The comparator also checks FCB record padding and
 rejects any other difference. Base LIST
 rows come from real III+ captures; the accounting report retains the canon
-negative ages and 0.00 total. Turbo compiles the installed HELLO via its
-current fixed-name protocol, runs the result, and agrees with FPC stdout.
-Artifacts remain in build/system/installed-smoke.*. SYSTEM_SMOKE_CPUS can
-select a single emulator for iteration; the default runs both.
+negative ages and 0.00 total. The Turbo Initech session boots the staged C:
+master with no ATA slave and uses its installed startup files. It opens DEMO.PAS
+in the IDE, checks the Error 85 console page, then compiles HELLO.PAS by name
+and compares its stdout with Free Pascal. The compiler source
+is read back from C: and compared with the current source. Evidence is in
+`build/system/installed-smoke.*`. Set `SYSTEM_SMOKE_CPUS` to select one emulator.
+The default runs both.
 
 `make capacity` builds the image set and measures the installed C: partition
 with mtools. It requires 2 MiB free for the compiler's listing, two output
@@ -118,9 +121,7 @@ ordinary Hello workflow so a passing short program cannot certify the finale.
 The boot/working disk split is unchanged here. IO.SYS and composed INITDOS.SYS
 remain the boot-volume builder's responsibility. Consolidating to C:, expanding
 the working volume, removing the builder's DOS wildcard, and scheduling Turbo
-before image assembly belong to the image composition owner. The installed
-README.TXT describes the currently available fixed-name compiler protocol;
-when the Turbo owner lands the IDE, update those directions with its workflow.
+before image assembly belong to the image composition owner.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate

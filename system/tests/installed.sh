@@ -30,7 +30,7 @@ python3 system/tests/read-samples.py "$out/installed/SAMPLES"
 mdir -i "$volume" :: > "$out/space.txt"
 cat "$out/space.txt"
 for emulator in $emulators; do
- for workflow in tps base turbo; do
+ for workflow in tps base; do
   dir=$out/$emulator-$workflow
   mkdir -p "$dir"
   cp "$boot" "$dir/boot.img"
@@ -43,8 +43,6 @@ for emulator in $emulators; do
    printf 'cd samples\ntpsrep tps.dbf\n       \n004417\n004417\n88-114\ny\n' >> "$dir/session";;
   base)
    printf 'cd apps\ninitbase\nuse \\samples\\clients\nlist\nuse \\samples\\parts\nlist\nuse \\samples\\invoice\ndo \\samples\\y2kacct\nquit\n' >> "$dir/session";;
-  turbo)
-   printf 'cd turbo\ncopy hello.pas turboin.pas\nturbo\nturboout\n' >> "$dir/session";;
   esac
   printf 'echo installed%scomplete\n' "$workflow" >> "$dir/session"
   build/factory/keys < "$dir/session" > "$dir/keys"
@@ -85,19 +83,8 @@ for emulator in $emulators; do
     while IFS= read -r expected; do
      [ -z "$expected" ] || line "$dir/base.txt" "$expected"
     done;;
-  turbo)
-   line "$dir/serial.txt" 'Hello from Turbo Initech.'
-   grep '^TURBO-NATIVE-OK form=0 ' "$dir/serial.txt" >/dev/null || fail 'resident compiler did not emit flat hello'
-   mcopy -i "$dir/data.img" ::TURBO/TURBOOUT.COM "$dir/hello.com"
-   test -s "$dir/hello.com" || fail 'empty Pascal executable'
-   # The greeting is an authored Pascal-language result; compare with FPC
-   # independently too, rather than deriving expected stdout from Turbo.
-   mkdir -p "$dir/fpc"
-   fpc -v0 -FE"$dir/fpc" -FU"$dir/fpc" -ohello "$out/installed/TURBO/HELLO.PAS" > "$dir/fpc.log"
-   "$dir/fpc/hello" > "$dir/hello.expected"
-   line "$dir/serial.txt" "$(cat "$dir/hello.expected")";;
   esac
   echo "ok $emulator installed $workflow: ordinary product image, independent result"
  done
 done
-echo 'system: installed TPS, Base and Turbo workflows GREEN'
+echo 'system: installed TPS and Base workflows GREEN'
