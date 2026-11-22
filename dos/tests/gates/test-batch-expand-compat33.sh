@@ -41,4 +41,16 @@ build/batch_fat build/actual.img build/lines > build/actual || fail 'IBAT host r
 tr -d '\r' < build/actual > build/text
 cmp build/expected build/text || fail 'batch unmatched-percent variants differ from genuine DOS screen'
 echo 'GREEN batch expand unmatched variants: IBAT A-D match the genuine DOS capture'
-echo 'INITECH_CHECKS 3 failures=0'
+
+ref=dos/command/tests/dos33/reference/shift-window
+truncate -s 1474560 build/shift.img
+mformat -i build/shift.img -f 1440 ::
+for name in PARENT CHILD; do
+    awk '{printf "%s\r\n",$0}' "$ref/$name.txt" > "build/$name.BAT"
+    mcopy -i build/shift.img "build/$name.BAT" ::
+done
+build/batch_fat build/shift.img PARENT.BAT "$(cat "$ref/tail.txt")" > build/actual || fail 'SHIFT batch run failed'
+tr -d '\r' < build/actual > build/text
+cmp "$ref/trace.txt" build/text || fail 'SHIFT positions differ from the genuine DOS capture'
+echo 'GREEN SHIFT: captured late positions, nested CALL and exhaustion'
+echo 'INITECH_CHECKS 4 failures=0'
