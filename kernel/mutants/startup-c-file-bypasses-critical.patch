@@ -3,7 +3,7 @@
 +++ b/startup_disks.c
 @@ -53,7 +53,7 @@
       * Mount/cache through the raw transport, then attach the file driver. */
-     int rc = mount_dos_volume(letter, vol, &fixed_dev, sector);
+     int rc = mount_dos_volume(map, vol, &fixed_dev, sector);
      if (!rc) rc = fileio_fat_add_drive(letter, vol);
 -    if (!rc) vol->dev = &fixed_crit.dev;
 +    if (!rc) vol->dev = &fixed_dev;

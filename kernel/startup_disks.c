@@ -15,6 +15,7 @@ extern void serial_puti(int32_t);
 static ata_ctx_t fixed_master;
 static blockdev_t fixed_dev;
 static crit_blockdev_t fixed_crit;
+static du_map fixed_maps[2];
 static fat12_volume_t fixed_volumes[2];
 static int fixed_mounted[2];
 static uint8_t sector[BLOCKDEV_SECTOR_SIZE];
@@ -34,31 +35,31 @@ int int21_absdisk_write(uint32_t lba, uint32_t count, const void *buf)
     return rc;
 }
 
-static int mount_dos_volume(unsigned letter, fat12_volume_t *vol,
+static int mount_dos_volume(const du_map *map, fat12_volume_t *vol,
                             const blockdev_t *dev, uint8_t *scratch)
 {
-    du_map map;
-    if (block_device_map(letter, &map)) return FAT12_ERR_PARTITION;
-    int rc = map.partition ? fat12_mount_primary(vol, dev, scratch, map.partition)
-                           : fat12_mount(vol, dev, scratch);
-    if (!rc && (vol->base_lba != map.base || vol->total_sectors > map.sectors))
+    int rc = map->partition ? fat12_mount_primary(vol, dev, scratch, map->partition)
+                            : fat12_mount(vol, dev, scratch);
+    if (!rc && (vol->base_lba != map->base || vol->extent_sectors != map->sectors))
         return FAT12_ERR_PARTITION;
     return rc;
 }
 
 static void mount_fixed_volume(unsigned letter)
 {
+    const du_map *map = &fixed_maps[letter - 2];
     fat12_volume_t *vol = &fixed_volumes[letter - 2];
     /* A raw metadata notification must not start a file-I/O INT24 exchange.
      * Mount/cache through the raw transport, then attach the file driver. */
-    int rc = mount_dos_volume(letter, vol, &fixed_dev, sector);
+    int rc = mount_dos_volume(map, vol, &fixed_dev, sector);
     if (!rc) rc = fileio_fat_add_drive(letter, vol);
     if (!rc) vol->dev = &fixed_crit.dev;
     else fileio_fat_drop_drive(letter);
     fixed_mounted[letter - 2] = !rc;
     bind_fixed_absdisk(letter, !rc);
-    block_device_volume_policy(letter, 0x80, vol->base_lba,
-        rc ? 0 : vol->extent_sectors, !rc && vol->fat_type == FAT_TYPE_FAT16);
+    /* GM2: keep the MBR extent protected if the file system probe fails. */
+    block_device_volume_policy(letter, (uint8_t)map->disk, map->base,
+                               map->sectors, rc || vol->fat_type == FAT_TYPE_FAT16);
     serial_puts(rc ? "DOS-VOLUME-FAIL " : "DOS-VOLUME-OK ");
     serial_putc((char)('A' + letter));
     serial_puts(" rc=");
@@ -135,16 +136,22 @@ const fat12_volume_t *startup_disks_init(void)
     ata_ctx_init_primary_slave(&slave);
     ata_blockdev_init(&data_dev, &slave);
     crit_blockdev_init(&data_crit, &data_dev);
-    int have_data = mount_dos_volume(0, &data_vol, &data_crit.dev, sector) == FAT12_OK;
+    du_map data_map;
+    int have_data = 0;
+    if (!block_device_map(0, &data_map)) {
+        have_data = mount_dos_volume(&data_map, &data_vol, &data_crit.dev, sector) == FAT12_OK;
+        block_device_volume_policy(0, (uint8_t)data_map.disk, data_map.base,
+                                   data_map.sectors, !have_data || data_vol.fat_type == FAT_TYPE_FAT16);
+    }
 
     ata_ctx_init_primary_master(&fixed_master);
     ata_blockdev_init(&fixed_dev, &fixed_master);
     crit_blockdev_init(&fixed_crit, &fixed_dev);
     for (unsigned letter = 2; letter < 4; letter++) {
-        du_map map;
-        if (block_device_map(letter, &map)) continue;
+        const unsigned index = letter - 2;
+        if (block_device_map(letter, &fixed_maps[index])) continue;
         mount_fixed_volume(letter);
-        block_device_watch(letter, &map, fixed_volume_written);
+        block_device_watch(letter, &fixed_maps[index], fixed_volume_written);
     }
 
     fat12_volume_t *system = 0;

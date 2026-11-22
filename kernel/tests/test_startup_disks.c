@@ -20,9 +20,21 @@ static blockdev_file_t drives[2];
 static blockdev_t missing;
 static int have_a;
 static char path[128];
-static uint8_t bytes[512];
+static uint8_t bytes[1024];
 static psp_t process;
 static unsigned critical_calls, critical_drive;
+static uint32_t fault_lba;
+static int faulted;
+static int (*master_read)(void *, uint32_t, uint32_t, void *);
+
+static int read_with_fault(void *ctx, uint32_t lba, uint32_t count, void *buf)
+{
+    if (!faulted && fault_lba >= lba && fault_lba - lba < count) {
+        faulted = 1;
+        return ATA_ERR_DEVICE;
+    }
+    return master_read(ctx, lba, count, buf);
+}
 
 void serial_puts(const char *s) { (void)s; }
 void serial_putc(char c) { (void)c; }
@@ -124,7 +136,7 @@ static void check_read_faults(void)
     crit_blockdev_set_hook(0);
 }
 
-static void check_fixed_system(void)
+static void check_fixed_system(int mounted_a)
 {
     du_map map;
     void *c_fat = NULL, *a_fat = NULL;
@@ -134,7 +146,7 @@ static void check_fixed_system(void)
     CHECK(fileio_fat_fat_buffer(&selected_size) == c_fat && selected_size == c_size,
           "startup selects the C cache for CONFIG and EXEC");
     (void)call(0x0e00, 0, 0, 0);
-    if (have_a) {
+    if (mounted_a) {
         CHECK(!block_device_map(0, &map) && map.disk == 0x81 && map.flags == 2,
               "ATA A is data, independently of running C");
         CHECK(int21_current_drive() == 0, "optional ATA data drive can be selected");
@@ -146,7 +158,7 @@ static void check_fixed_system(void)
         read_file("ROOT.BIN", "legacy A bytes\n");
     } else {
         CHECK(int21_current_drive() == 2 && !fileio_fat_drive_volume(0, NULL, NULL),
-              "absent A cannot replace default C");
+              "an unmounted A cannot replace default C");
     }
     CHECK(fileio_fat_system_drive() == 2, "AH=0Eh does not change system identity");
     CHECK(!block_device_map(2, &map) && map.disk == 0x80 && map.base == 63 && map.flags == 1,
@@ -155,13 +167,46 @@ static void check_fixed_system(void)
     check_read_faults();
 }
 
+static void check_failed_data_probe(unsigned letter, uint32_t base)
+{
+    unsigned disk = letter == 0 ? 0x81 : 0x80;
+    du_map map;
+    CHECK(letter == 0 ? blockdev_file_read_faulted(&drives[1]) : faulted,
+          "the boot-sector read fault fired");
+    CHECK(!fileio_fat_drive_volume(letter, NULL, NULL), "failed probe leaves data unmounted");
+    CHECK(!block_device_map(letter, &map) && map.disk == disk && map.base == base,
+          "the data extent can still be mapped");
+    uint32_t lba = base ? base - 1 : 0;
+    unsigned cyl = lba / (16 * 63), head = lba / 63 % 16, sec = lba % 63 + 1;
+    int_frame_t f = {0};
+    f.eax = base ? 0x0302 : 0x0301;
+    f.ebx = (uintptr_t)bytes;
+    f.ecx = ((cyl & 255) << 8) | ((cyl >> 2) & 192) | sec;
+    f.edx = (head << 8) | disk;
+    memset(bytes, 0xa5, sizeof bytes);
+    int13_dispatch(&f);
+    CHECK((f.eflags & 1) && ((f.eax >> 8) & 255) == 3,
+          "BIOS returns write protection for a request reaching unreadable FAT16 data");
+}
+
 int main(int argc, char **argv)
 {
-    if (argc != 4) return 2;
+    if (argc != 4 && argc != 5) return 2;
     have_a = strcmp(argv[2], "-") != 0;
     unsigned want = (unsigned)atoi(argv[3]);
     if (blockdev_file_open_rw(&drives[0], argv[1])) return 2;
     if (have_a && blockdev_file_open_rw(&drives[1], argv[2])) return 2;
+    int fail_a = argc == 5 && !strcmp(argv[4], "fail-a");
+    if (fail_a) {
+        if (!have_a) return 2;
+        /* The superfloppy map reads sector zero once before FAT mounts it. */
+        blockdev_file_arm_read_fault(&drives[1], 2);
+    } else if (argc == 5) {
+        fault_lba = (uint32_t)strtoul(argv[4], NULL, 10);
+        if (!fault_lba) return 2;
+        master_read = drives[0].dev.read_sectors;
+        drives[0].dev.read_sectors = read_with_fault;
+    }
     missing = (blockdev_t){0, absent_read, 0};
     block_device_bind(0, &drives[0].dev, sectors(&drives[0]));
     block_device_bind(1, have_a ? &drives[1].dev : &missing,
@@ -187,10 +232,12 @@ int main(int argc, char **argv)
         du_map map;
         CHECK(!block_device_map(want, &map) && (map.flags & 1),
               "the actual system pair is marked running");
-        if (want == 2) check_fixed_system();
+        if (want == 2) check_fixed_system(have_a && !fail_a);
     }
+    if (fault_lba) check_failed_data_probe(3, fault_lba);
+    if (fail_a) check_failed_data_probe(0, 0);
     CHECK(!drives[0].write_calls && (!have_a || !drives[1].write_calls),
-          "startup and reads never write either disk");
+          "startup, reads and refused requests never write either disk");
     blockdev_file_close(&drives[0]);
     if (have_a) blockdev_file_close(&drives[1]);
     return TEST_SUMMARY("startup-disks");
