@@ -4106,14 +4106,21 @@ static int do_fcb(int_frame_t *f, uint8_t ah)
     if (ah == 0x1Bu || ah == 0x1Cu) {
         /* Allocation table information (p. 6-83/6-84): AL = sectors per
          * cluster, CX = bytes per sector, DX = clusters, [EBX] = media byte. */
+        /* [EBX] is the selected volume's own BPB media byte (initech-k2e3x:
+         * C+A once reported C's F8h for A's F0h), one byte per drive. */
+        static uint8_t media[26];
         uint16_t spc, bps, tot, fr;
+        int21_dpb_geometry_t g;
         uint8_t drv = (ah == 0x1Bu) ? 0u : frame_dl(f);
-        if (select_volume(drv ? (unsigned)drv-1u : g_current_drive) && g_file != 0 && g_file->freespace != 0 &&
-            g_fcb_media != 0u && g_file->freespace(&spc, &bps, &tot, &fr) == 0u) {
+        unsigned want = drv ? (unsigned)drv - 1u : g_current_drive;
+        if (want < 26u && select_volume(want) && g_file != 0 && g_file->freespace != 0 &&
+            g_fcb_media != 0u && g_dpb_source != 0 && g_dpb_source(&g) == 0 &&
+            g_file->freespace(&spc, &bps, &tot, &fr) == 0u) {
             al = (uint8_t)spc;
             set_cx(f, bps);
             set_dx(f, tot);
-            f->ebx = (uint32_t)(uintptr_t)&g_fcb_media;
+            media[want] = g.media;
+            f->ebx = (uint32_t)(uintptr_t)&media[want];
         }
         set_al(f, al);
         return 1;
