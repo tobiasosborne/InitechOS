@@ -10,9 +10,10 @@ cloned at `/home/tobiasosborne/Projects/InitechOS-reports/`
 
 ## State of main
 
-- Head 964fa280 at the stop. Nobody holds a directory or a shared place
-  (`mk/`, `sdk/`, `factory/`, top Makefile): the next orchestrator takes
-  them.
+- Owners on 2026-11-22 (one at a time): `kernel/` the kernel line, `dos/`
+  the dos line, `factory/` and `mk/` the factory line (handoffs
+  `phase4/kernel-line.md`, `dos-line.md`, `factory-line.md`); the top
+  Makefile and `sdk/` stay with the day's orchestrator.
 - Morning: the P0 initech-qw018 (clean `make test` red) fixed in bcf0ed57;
   clean sample of bcf0ed57 green (test, image, smoke on QEMU and Bochs).
   Strict certificate on bcf0ed57: clean-test, image-smoke, repro,
@@ -22,14 +23,12 @@ cloned at `/home/tobiasosborne/Projects/InitechOS-reports/`
 - Evening: strict certificate on 964fa280, started 18:14: clean-test PASS
   (155 s), image-smoke PASS (854 s, QEMU and Bochs), repro PASS (65 s),
   mutants PASS (4956 s, 0 pending patches), selfhost-ddc PASS (947 s),
-  bigkernel PASS (35 s). It was cut off at 20:14 during the status
-  stage by the two-hour limit on the command that ran it, not by a
-  failure: status and tracked-files did not run, so its summary reads
-  "failed stages: 1". Every product stage and the mutation stage are
-  green on this head. Next session: run `make status` and the
-  tracked-files stage on a clean worktree to complete it, and give the
-  certificate command a limit above 7,500 s (the full mutation sweep now
-  takes 83 minutes). Evidence: ~/w/cert-evidence/2026-11-21T171431Z-964fa280
+  bigkernel PASS (35 s). It was cut off at 20:14 by the two-hour limit on the command
+  that ran it; the two remaining stages were run on the same worktree on
+  2026-11-22: status PASS (20 components imported, board check clean) and
+  tracked-files PASS. Every stage of the strict certificate is green on
+  964fa280; initech-vocfm closed. Future certificates run detached, with
+  no limit below 7,500 s. Evidence: ~/w/cert-evidence/2026-11-21T171431Z-964fa280
   (and cert2.log beside it).
 
 ## Direction and rulings
