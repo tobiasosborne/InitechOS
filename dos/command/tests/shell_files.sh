@@ -106,6 +106,13 @@ if [ "$mode" = host ]; then
     check 'COPY /V accepted corrupt read-back' grep -q 'Bad command or file name' "$out/verify-text"
     check 'COPY /V did not read recorded data' grep -q 'verify_reads=[1-9]' "$out/verify-report"
     if grep -q 'copied' "$out/verify-text"; then fail 'COPY /V printed success after corruption'; fi
+    ref=dos/command/tests/dos33/reference/type-eof
+    mcopy -i "$out/data.img" "$ref/input.bin" ::PADDED.TXT
+    printf 'TYPE PADDED.TXT\n' > "$out/type-command"
+    "$runner" "$out/data.img" "$out/type-command" > "$out/type-output" 2> "$out/type-report" ||
+        error 'TYPE command runner failed'
+    tr -d '\r' < "$out/type-output" | sed '/^$/d' > "$out/type-display"
+    check 'TYPE console stops before Ctrl-Z and later bytes' cmp -s "$ref/display.txt" "$out/type-display"
 fi
 mdir -b -i "$out/data.img" ::EXTRA.TXT >/dev/null 2>&1 && fail 'surplus COPY created destination'
 for dir in SRC DST REN; do

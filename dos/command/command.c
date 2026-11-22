@@ -2964,8 +2964,8 @@ static void dos_error(const char *message)
 }
 
 #ifndef COMMAND_BATCH_HOST
-/* TYPE <file>: OPEN the named file, READ it in chunks, WRITE each chunk to
- * stdout (handle 1), CLOSE. File-not-found => the controlled diagnostic. */
+/* TYPE <file>: write text to stdout (handle 1). The captured DOS 3.30
+ * type-eof case stops at Ctrl-Z for both CON and redirected output. */
 static void builtin_type(const char *arg)
 {
     char name[CMD_TOKEN_MAX];
@@ -3003,8 +3003,10 @@ static void builtin_type(const char *arg)
         if (got == 0u) {
             break;          /* EOF */
         }
-        dos_write((const char *)chunk, got);
-        if (g_shell_break.interrupted) break;
+        uint32_t text = 0;
+        while (text < got && chunk[text] != 0x1au) text++;
+        if (text) dos_write((const char *)chunk, text);
+        if (text < got || g_shell_break.interrupted) break;
     }
     dos_close(handle);
     if (g_shell_break.interrupted) return;

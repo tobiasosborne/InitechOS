@@ -299,3 +299,9 @@ smoke: smoke-more-page
 smoke-more-page:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/morepage.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/more-page.XXXXXX")"
+
+.PHONY: smoke-type-eof
+smoke: smoke-type-eof
+smoke-type-eof:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/type-eof.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/type-eof.XXXXXX")"

@@ -1,0 +1,11 @@
+# test: test-shell-files-host
+--- a/command/command.c
++++ b/command/command.c
+@@ -3001,6 +3001,6 @@
+         }
+         uint32_t text = 0;
+-        while (text < got && chunk[text] != 0x1au) text++;
++        while (text < got) text++;
+         if (text) dos_write((const char *)chunk, text);
+         if (text < got || g_shell_break.interrupted) break;
+     }

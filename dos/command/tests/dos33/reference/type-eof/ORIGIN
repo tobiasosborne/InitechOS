@@ -1,0 +1,9 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media SHA-256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Copy input.bin to the data disk as PADDED.TXT. At the B: prompt, run CLS,
+TYPE PADDED.TXT and TYPE PADDED.TXT>PADOUT.TXT. The two populated VGA
+output rows are in display.txt, with right-hand blank cells removed.
+redirected.bin is the full PADOUT.TXT read back through mtools. Both
+omit Ctrl-Z and everything beyond it. The same capture on the 2,432-byte
+TPS report from the original bug displayed its ending without arrows
+and redirected 2,377 bytes, ending before the FCB padding.
