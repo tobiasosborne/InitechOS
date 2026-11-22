@@ -1,0 +1,12 @@
+# test: test-find-dta33
+--- a/int21.c
++++ b/int21.c
+@@ -3683,7 +3683,7 @@
+     }
+     fd->search_attr    = search->search_attr;
+     fd->dir_entry      = (uint16_t)index;
+-    fd->parent_cluster = search->dir_start;
++    fd->parent_cluster = 0u;
+     for (int i = 0; i < 4; i++) {
+         fd->reserved1[i] = 0u;
+     }

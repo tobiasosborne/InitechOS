@@ -1,0 +1,12 @@
+# test: test-find-dta33
+--- a/int21.c
++++ b/int21.c
+@@ -3820,7 +3820,7 @@
+     search->drive = (uint8_t)(fd->drive_attr - 1u);
+     for (int i = 0; i < 11; i++) search->pattern[i] = fd->pattern[i];
+     search->search_attr = fd->search_attr;
+-    search->next_index  = (uint32_t)fd->dir_entry + 1u;
++    search->next_index  = (uint32_t)fd->dir_entry;
+     search->dir_start   = fd->parent_cluster;
+     return 1;
+ }
