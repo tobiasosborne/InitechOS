@@ -336,6 +336,34 @@ static void check_overlap_refused(const fat12_volume_t *system, uint32_t d_base)
           "BIOS write protection covers the rest of the refused C extent");
 }
 
+/* GM2 on a healthy mtools FAT16 D: mounted by production startup: the
+ * policy comes from startup, not from the fixture. */
+static void check_fat16_data(uint32_t base)
+{
+    du_map map;
+    CHECK(fileio_fat_drive_volume(3, NULL, NULL) != NULL, "healthy FAT16 D mounts");
+    read_file("D:KEEP.TXT", "independent imported bytes\n");
+    memset(bytes, 0xa5, sizeof bytes);
+    int_frame_t f = {0};
+    f.eax = 3;
+    f.ebx = (uintptr_t)bytes;
+    f.ecx = 1;
+    f.edx = 0;
+    int26_dispatch(&f);
+    CHECK(f.eflags & 1, "INT26 refuses to write the FAT16 D boot record");
+    CHECK(!block_device_map(3, &map) && map.disk == 0x80 && map.base == base,
+          "D maps to its minted extent");
+    unsigned cyl = base / (16 * 63), head = base / 63 % 16, sec = base % 63 + 1;
+    f = (int_frame_t){0};
+    f.eax = 0x0301;
+    f.ebx = (uintptr_t)bytes;
+    f.ecx = ((cyl & 255) << 8) | ((cyl >> 2) & 192) | sec;
+    f.edx = (head << 8) | 0x80;
+    int13_dispatch(&f);
+    CHECK((f.eflags & 1) && ((f.eax >> 8) & 255) == 3,
+          "BIOS write protection covers the mounted FAT16 D");
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4 && argc != 5) return 2;
@@ -347,11 +375,14 @@ int main(int argc, char **argv)
     if (have_a && blockdev_file_open_rw(&drives[1], argv[2])) return 2;
     int fail_a = argc == 5 && !strcmp(argv[4], "fail-a");
     int overlap = argc == 5 && !strcmp(argv[4], "overlap");
+    int fat16_d = argc == 5 && !strncmp(argv[4], "fat16-d=", 8);
     int c_fault = argc == 5 && !strncmp(argv[4], "c-fault=", 8);
     if (c_fault) {
         fault_lba = (uint32_t)strtoul(argv[4] + 8, NULL, 10);
         if (!have_a) return 2;
         faulted = !fault_lba; /* c-fault=0: a clean C without system files */
+    } else if (fat16_d) {
+        if (have_a) return 2;
     } else if (overlap) {
         if (have_a) return 2;
     } else if (fail_a) {
@@ -408,6 +439,7 @@ int main(int argc, char **argv)
               "the actual system pair is marked running");
         if (want == 2) check_fixed_system(have_a && !fail_a);
     }
+    if (fat16_d) check_fat16_data((uint32_t)strtoul(argv[4] + 8, NULL, 10));
     if (fault_lba) check_failed_data_probe(3, fault_lba);
     if (fail_a) check_failed_data_probe(0, 0);
     CHECK(!drives[0].write_calls && (!have_a || !drives[1].write_calls),

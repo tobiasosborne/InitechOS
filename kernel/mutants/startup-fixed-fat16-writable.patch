@@ -1,0 +1,12 @@
+# test: test-startup-disks
+--- a/startup_disks.c
++++ b/startup_disks.c
+@@ -59,7 +59,7 @@
+     bind_fixed_absdisk(letter, !rc);
+     /* GM2: keep the MBR extent protected if the file system probe fails. */
+     block_device_volume_policy(letter, (uint8_t)map->disk, map->base,
+-                               map->sectors, rc || vol->fat_type == FAT_TYPE_FAT16);
++                               map->sectors, rc != 0);
+     serial_puts(rc ? "DOS-VOLUME-FAIL " : "DOS-VOLUME-OK ");
+     serial_putc((char)('A' + letter));
+     serial_puts(" rc=");
