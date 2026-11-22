@@ -189,6 +189,37 @@ static void check_failed_data_probe(unsigned letter, uint32_t base)
           "BIOS returns write protection for a request reaching unreadable FAT16 data");
 }
 
+/* mtools will not create these tables; GM2 forbids FAT12 writes reaching
+ * FAT16 sectors. Neither overlapping fixed partition may be published. */
+static void check_overlap_refused(const fat12_volume_t *system, uint32_t d_base)
+{
+    CHECK(!system, "startup refuses a disk whose C and D partitions overlap");
+    CHECK(!fileio_fat_drive_volume(2, NULL, NULL) && !fileio_fat_drive_volume(3, NULL, NULL),
+          "neither overlapping fixed partition is mounted");
+    memset(bytes, 0xa5, sizeof bytes);
+    int_frame_t f = {0};
+    f.eax = 2;
+    f.ebx = (uintptr_t)bytes;
+    f.ecx = 1;
+    f.edx = d_base - 63; /* C-relative sector holding D's boot record */
+    int26_dispatch(&f);
+    CHECK(f.eflags & 1, "INT26 on C cannot write the FAT16 boot record it overlaps");
+    unsigned cyl = d_base / (16 * 63), head = d_base / 63 % 16, sec = d_base % 63 + 1;
+    f = (int_frame_t){0};
+    f.eax = 0x0301;
+    f.ebx = (uintptr_t)bytes;
+    f.ecx = ((cyl & 255) << 8) | ((cyl >> 2) & 192) | sec;
+    f.edx = (head << 8) | 0x80;
+    int13_dispatch(&f);
+    CHECK((f.eflags & 1) && ((f.eax >> 8) & 255) == 3,
+          "BIOS write protection covers the shared extent");
+    f.ecx = 0x0002; /* LBA 64, head 1 sector 2: C's first FAT, outside D */
+    f.edx = 0x0180;
+    int13_dispatch(&f);
+    CHECK((f.eflags & 1) && ((f.eax >> 8) & 255) == 3,
+          "BIOS write protection covers the rest of the refused C extent");
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 4 && argc != 5) return 2;
@@ -197,7 +228,10 @@ int main(int argc, char **argv)
     if (blockdev_file_open_rw(&drives[0], argv[1])) return 2;
     if (have_a && blockdev_file_open_rw(&drives[1], argv[2])) return 2;
     int fail_a = argc == 5 && !strcmp(argv[4], "fail-a");
-    if (fail_a) {
+    int overlap = argc == 5 && !strcmp(argv[4], "overlap");
+    if (overlap) {
+        if (have_a) return 2;
+    } else if (fail_a) {
         if (!have_a) return 2;
         /* The superfloppy map reads sector zero once before FAT mounts it. */
         blockdev_file_arm_read_fault(&drives[1], 2);
@@ -219,7 +253,12 @@ int main(int argc, char **argv)
     int21_set_psp(&process);
 
     const fat12_volume_t *system = startup_disks_init();
-    CHECK(system, "production startup binds a working volume");
+    if (overlap) {
+        check_overlap_refused(system, 8255);
+        system = 0;
+    } else {
+        CHECK(system, "production startup binds a working volume");
+    }
     if (system) {
         CHECK(int21_current_drive() == want && int21_io_drive() == want,
               "default and I/O drive select the installed system");

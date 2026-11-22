@@ -67,6 +67,27 @@ static void mount_fixed_volume(unsigned letter)
     serial_putc('\n');
 }
 
+static int fixed_extents_overlap(void)
+{
+    const du_map *c = &fixed_maps[0], *d = &fixed_maps[1];
+    /* block_device_map bounds each extent by the disk size: no wrap. */
+    return c->disk == d->disk && c->base < d->base + d->sectors &&
+           d->base < c->base + c->sectors;
+}
+
+static void refuse_fixed_volume(unsigned letter)
+{
+    const du_map *map = &fixed_maps[letter - 2];
+    fixed_mounted[letter - 2] = 0;
+    bind_fixed_absdisk(letter, 0);
+    block_device_volume_policy(letter, (uint8_t)map->disk, map->base, map->sectors, 1);
+    serial_puts("DOS-VOLUME-FAIL ");
+    serial_putc((char)('A' + letter));
+    serial_puts(" rc=");
+    serial_puti(FAT12_ERR_PARTITION);
+    serial_puts(" overlap\n");
+}
+
 static void fixed_volume_written(unsigned letter, uint32_t lba, uint32_t count,
                                  const void *buf)
 {
@@ -147,9 +168,19 @@ const fat12_volume_t *startup_disks_init(void)
     ata_ctx_init_primary_master(&fixed_master);
     ata_blockdev_init(&fixed_dev, &fixed_master);
     crit_blockdev_init(&fixed_crit, &fixed_dev);
+    int mapped[2];
+    for (unsigned index = 0; index < 2; index++)
+        mapped[index] = !block_device_map(index + 2, &fixed_maps[index]);
+    /* GM2: a FAT12 C: whose sectors intersect D: could write FAT16 sectors.
+     * FDISK and mtools never create such a table; publish neither volume. */
+    const int conflict = mapped[0] && mapped[1] && fixed_extents_overlap();
     for (unsigned letter = 2; letter < 4; letter++) {
         const unsigned index = letter - 2;
-        if (block_device_map(letter, &fixed_maps[index])) continue;
+        if (!mapped[index]) continue;
+        if (conflict) {
+            refuse_fixed_volume(letter);
+            continue;
+        }
         mount_fixed_volume(letter);
         block_device_watch(letter, &fixed_maps[index], fixed_volume_written);
     }

@@ -370,7 +370,11 @@ denied; INT26 refuses with write protection. INT13 AH=03h refuses the entire
 request with BIOS status03h before calling the backend when any requested sector
 intersects a mounted FAT16 partition (A, C or D), including either boundary and
 partition tail sectors. Startup also protects a mapped extent until its volume
-probe succeeds. Mount policy is keyed by physical disk and does not
+probe succeeds. When the C: and D: table entries intersect, startup mounts
+neither and protects both extents, because a FAT12 write through C: would
+otherwise reach D:'s sectors (FDISK and mtools refuse to create such a table;
+mtools reports `Partition would overlap with partition 1`). Mount policy is
+keyed by physical disk and does not
 follow the selected DOS drive. The shared FAT sector writer also refuses FAT16,
 so resident FAT consumers cannot bypass the file layer. FAT12 stays writable.
 Source: GOLDEN-MASTER item2 (operator amendment, 2026-11-14), Microsoft FAT BPB /
