@@ -31,7 +31,7 @@ test:
 	sh test.sh
 smoke:
 	+$(MAKE) -C $(TOP) image
-	sh tests/installed.sh
+	SYSTEM_IMAGE="$(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS" sh tests/installed.sh
 capacity:
 	+$(MAKE) -C $(TOP) image
 	sh tests/capacity.sh

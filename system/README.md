@@ -36,9 +36,8 @@ loader and framebuffer types used by the binding are public in kernel/include/.
 
 make test builds both links, checks a strong environment entry in the product
 and a weak one with no GUI symbols in the standalone DOS image, verifies archive
-inputs, and runs the factory transport parser check. make smoke delegates to
-the complete product session. Product sources use no overlay, section GC,
-regparm, callee-pop ABI or LTO.
+inputs, and runs the factory transport parser check. Product sources use no
+overlay, section GC, regparm, callee-pop ABI or LTO.
 
 The data-volume inputs have a separate three-column source/destination/attribute
 contract in data-volume.list. Run `sh system/install-data.sh IMAGE` from the
@@ -73,8 +72,8 @@ smoke exercises the resulting icons on both emulators.
 `build/system/installed/c-boot/` for the staged C: system disk. The approved
 GM8 delivery design sets C: PATH, COMSPEC and PROMPT and leaves the user at
 the DOS prompt to type FLAIR. The working-volume manifest still selects the A:
-files directly in `installed/`. The staged builder takes up the C: files in
-activation step 6, and the separate `c-boot/` path expires at step 20.
+files directly in `installed/`. The staged builder uses the C: files.
+The separate `c-boot/` path expires at activation step 20.
 
 `make test` additionally checks the required workflow inventory, independently
 reads the three DBFs in Python, verifies source/protocol/canon input identity,
@@ -86,22 +85,22 @@ have a fixed 1993-07-19 update date. Recovered
 TPS bytes retain the original table date. These examples have no memo/index
 dependency, so no DBT/NDX is installed.
 
-`make smoke` builds the ordinary product image and drives the installed TPS,
-Base and Turbo workflows on QEMU and Bochs at 8 MiB. Each session clones both
-product disks, removes AUTOEXEC on its private working copy to reach DOS,
-sets the ordinary root PATH, and changes to SAMPLES or TURBO. The Base session
-starts in APPS beside its required overlay and opens the examples using
-absolute SAMPLES paths. No fixture or executable is
-injected. Every manifest file is independently extracted and compared before
-boot. TPSREPT.TXT matches all meaningful bytes of the retained REALDOS report,
-with its directory census changed explicitly from the original single TPS.DBF
-to the four installed DBFs. The comparator also checks FCB record padding and
-rejects any other difference. Base LIST
-rows come from real III+ captures; the accounting report retains the canon
-negative ages and 0.00 total. Turbo compiles the installed HELLO via its
-current fixed-name protocol, runs the result, and agrees with FPC stdout.
-Artifacts remain in build/system/installed-smoke.*. SYSTEM_SMOKE_CPUS can
-select a single emulator for iteration; the default runs both.
+`make smoke` builds the product images and drives the staged C: system on
+QEMU and Bochs at 8 MiB. The test checks the active FAT12 partition, the
+hidden boot entries and their bytes, the visible files against their producers,
+and the available working space before boot. Each run uses disposable disk
+copies with the shipped CONFIG and AUTOEXEC. The first command runs at the C:
+prompt and reports the inherited PATH and COMSPEC.
+
+The TPS run keeps DATA attached and checks its disk stays byte-identical.
+The report comes from the written C: partition, including the Bochs private
+master. It matches the retained REALDOS report with the four installed
+tables in its census and the expected FCB padding. The Base run has no ATA
+slave. It starts INITBASE from APPS beside its overlay, checks LIST and
+accounting output against the retained III+ and canon references, and reads
+back a short file written after QUIT to verify return to the C: shell.
+Evidence remains in `build/system/installed-smoke.*`. Set `SYSTEM_SMOKE_CPUS`
+to select one emulator during iteration. The default runs both.
 
 `make capacity` builds the image set and measures the installed C: partition
 with mtools. It requires 2 MiB free for the compiler's listing, two output
