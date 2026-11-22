@@ -210,7 +210,7 @@ static void fo_zero(void *p, uint32_t n)
 }
 
 static void fo_follow(finder_shell_t *sh,const finder_desk_icon_t *ic,
-                       uint16_t parent,const char *name)
+                       finder_dir_id_t parent,const char *name)
 {
     int slot;
     if(ic->kind!=FINDER_ICON_FOLDER) return;
@@ -354,7 +354,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     fo_entry_probe_t probe;
     int td = -1;
     int is_trash;
-    uint16_t dst;
+    finder_dir_id_t dst;
     int rc;
     int dslot;
 
@@ -386,8 +386,8 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
         t->kind != (uint8_t)FINDER_TGT_TRASH)
         return fo_refuse(out, FINDER_WIN_ERR_MOVE);
     if (!sh->have_fs ||
-        sh->fs.move == (int (*)(void *, const char *, uint16_t,
-                                const char *, uint16_t))0)
+        sh->fs.move == (int (*)(void *, const char *, finder_dir_id_t,
+                                const char *, finder_dir_id_t))0)
         return fo_refuse(out, FINDER_WIN_ERR_MOVE);
 
     if (sh->fs.trash_dir != (int (*)(void *))0) td = sh->fs.trash_dir(sh->fs.user);
@@ -397,11 +397,11 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
          * as itself, so the kernel can try to make it and -- on a full disk --
          * offer Delete Now instead of a dead-end "could not be moved". */
         if (td < 0) return fo_refuse(out, FINDER_WIN_ERR_NOTRASH);
-        dst = (uint16_t)td;
+        dst = (finder_dir_id_t)td;
     } else {
         dst = t->dir;
     }
-    is_trash = (td >= 0 && dst == (uint16_t)td);
+    is_trash = (td >= 0 && dst == (finder_dir_id_t)td);
     out->op     = (uint8_t)(is_trash ? FINDER_OP_TRASH : FINDER_OP_MOVE);
     out->to_dir = dst;
 
@@ -428,7 +428,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
      * changes the source. The cached source view may predate a write/lock.
      * Ref: finder_windows.h callback lifetime + meta contract; initech-iebt. */
     probe.name = ic.name; probe.found = 0;
-    if (sh->fs.enumerate == (int (*)(void *, uint16_t, finder_enum_cb, void *))0 ||
+    if (sh->fs.enumerate == (int (*)(void *, finder_dir_id_t, finder_enum_cb, void *))0 ||
         sh->fs.enumerate(sh->fs.user, out->from_dir, fo_entry_cb, &probe) < 0 ||
         !probe.found)
         return fo_refuse(out, FINDER_WIN_ERR_ENUM);
@@ -437,7 +437,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
         char as[FINDER_DESK_NAME_MAX];
         if ((probe.meta.attribute & FINDER_ATTR_READONLY) != 0u)
             return fo_refuse(out, FINDER_WIN_ERR_LOCKED);
-        if (sh->fs.trash_name == (int (*)(void *, const char *, uint16_t,
+        if (sh->fs.trash_name == (int (*)(void *, const char *, finder_dir_id_t,
                                           char *))0)
             return fo_refuse(out, FINDER_WIN_ERR_MOVE);
         fo_zero(as, (uint32_t)sizeof as);
@@ -510,7 +510,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
 
     if (is_trash) {
         fo_origin_add(sh, out);
-    } else if (td >= 0 && out->from_dir == (uint16_t)td) {
+    } else if (td >= 0 && out->from_dir == (finder_dir_id_t)td) {
         fo_origin_drop(sh, ic.name, out);
     }
     /* \TRASH may have gained or lost an item: the FULL icon and the Empty
@@ -546,25 +546,25 @@ finder_win_status_t finder_ops_replace(finder_shell_t *sh,int slot,int idx,
     displaced.kind=(probe.meta.attribute & FINDER_ATTR_DIRECTORY)?FINDER_ICON_FOLDER:FINDER_ICON_FILE;
     displaced.dir_start=probe.cluster;
     td=sh->fs.trash_dir(sh->fs.user);
-    if(td<0 || (uint16_t)td==t->dir) return fo_refuse(out,FINDER_WIN_ERR_MOVE);
+    if(td<0 || (finder_dir_id_t)td==t->dir) return fo_refuse(out,FINDER_WIN_ERR_MOVE);
     fo_zero(&backup,sizeof backup);
-    backup.from_dir=t->dir;backup.to_dir=(uint16_t)td;
+    backup.from_dir=t->dir;backup.to_dir=(finder_dir_id_t)td;
     fo_copy83(backup.name,name);
-    rc=sh->fs.trash_name(sh->fs.user,name,(uint16_t)td,backup.as);
+    rc=sh->fs.trash_name(sh->fs.user,name,(finder_dir_id_t)td,backup.as);
     if(rc!=FINDER_WIN_OK) return fo_refuse(out,(finder_win_status_t)rc);
     backup.renamed=(uint8_t)!fo_action_ieq(backup.name,backup.as);
-    tw=finder_win_find(sh,(uint16_t)td);dw=finder_win_find(sh,t->dir);
+    tw=finder_win_find(sh,(finder_dir_id_t)td);dw=finder_win_find(sh,t->dir);
     if(tw>=0) {
         st=finder_win_reserve_icons(sh,tw,(uint16_t)(sh->windows[tw].view.n+1u));
         if(st!=FINDER_WIN_OK) return fo_refuse(out,st);
     }
-    rc=sh->fs.move(sh->fs.user,name,t->dir,backup.as,(uint16_t)td);
+    rc=sh->fs.move(sh->fs.user,name,t->dir,backup.as,(finder_dir_id_t)td);
     if(rc!=FINDER_WIN_OK) return fo_refuse(out,(finder_win_status_t)rc);
-    fo_follow(sh,&displaced,(uint16_t)td,backup.as);
+    fo_follow(sh,&displaced,(finder_dir_id_t)td,backup.as);
     if(dw>=0) (void)finder_win_populate(sh,dw);
     st=finder_ops_drop(sh,slot,idx,t,x,y,out);
     if(st!=FINDER_WIN_OK) {
-        if(sh->fs.move(sh->fs.user,backup.as,(uint16_t)td,name,t->dir)!=FINDER_WIN_OK) {
+        if(sh->fs.move(sh->fs.user,backup.as,(finder_dir_id_t)td,name,t->dir)!=FINDER_WIN_OK) {
             fo_origin_add(sh,&backup);
             out->db_dirty=1u;
         } else fo_follow(sh,&displaced,t->dir,name);

@@ -102,6 +102,7 @@
 #define INITECH_OS_FLAIR_FINDER_DESKTOP_H
 
 #include <stdint.h>
+#include "finder_identity.h"
 
 #include "surface.h"            /* bitmap_t                                   */
 #include "region_algebra.h"     /* region_t / rgn_rect_t (-Ispec)              */
@@ -236,7 +237,7 @@ typedef struct finder_desk_icon {
      * for every other kind, and the DESKTOP.DB codec does not read it (a
      * desktop record's dir_start field is the CONTAINING directory, always the
      * root, always 0). */
-    uint16_t dir_start;
+    finder_dir_id_t dir_start;
 } finder_desk_icon_t;
 
 typedef struct finder_desk {
@@ -277,7 +278,7 @@ void finder_desk_set_name(finder_desk_t *fd, int idx, const char *name);
 /* Set icon `idx`'s dir_start (R3.3: a FOLDER icon's own first cluster; see the
  * field comment). No-op on a bad index. Separate from finder_desk_add so the
  * R3.2 call sites keep their exact signature. */
-void finder_desk_set_cluster(finder_desk_t *fd, int idx, uint16_t cluster);
+void finder_desk_set_cluster(finder_desk_t *fd, int idx, finder_dir_id_t cluster);
 
 /* Find the first icon of `kind`, or -1. */
 int finder_desk_find_kind(const finder_desk_t *fd, finder_icon_kind_t kind);
@@ -456,6 +457,8 @@ void finder_desk_clamp(const finder_desk_t *fd, int16_t *x, int16_t *y);
  * STAGES the file (the move is the user's intent) but its origin is reported
  * lost on serial (FINDER-TRASH-ORIGIN-FULL) -- never silently dropped. */
 #define FINDER_DB_MAX_ORIGINS   16u
+#define FINDER_ALL_VIEWS (FINDER_DB_MAX_VIEWS * FINDER_VOLUME_SLOTS)
+#define FINDER_ALL_ORIGINS (FINDER_DB_MAX_ORIGINS * FINDER_VOLUME_SLOTS)
 #define FINDER_DB_MAX_RECORDS   ((uint32_t)FINDER_DESK_MAX_ICONS + \
                                  FINDER_DB_MAX_VIEWS + 2u * FINDER_DB_MAX_ORIGINS)
 #define FINDER_DB_MAX_BYTES     (FINDER_DB_HEADER_SIZE + \
@@ -507,7 +510,7 @@ finder_db_status_t finder_desk_db_apply(finder_desk_t *fd, const uint8_t *buf,
  * already load-bearing for the slice that does add list view.
  * ---------------------------------------------------------------------------*/
 typedef struct finder_view_rec {
-    uint16_t dir_start;                  /* the folder's first cluster (0=root) */
+    finder_dir_id_t dir_start;                  /* the folder's first cluster (0=root) */
     char     name83[FINDER_DESK_NAME_MAX];/* the folder's 8.3 name ("" for root)*/
     uint16_t x;                          /* window FRAME left                   */
     uint16_t y;                          /* window FRAME top                    */
@@ -532,7 +535,7 @@ uint32_t finder_desk_db_encode_all(const finder_desk_t *fd,
  * image does not validate (the caller then regenerates defaults loudly). The
  * FIRST matching record wins (the encoder never writes duplicates). */
 int finder_desk_db_find_view(const uint8_t *buf, uint32_t len,
-                             uint16_t dir_start, finder_view_rec_t *out);
+                             finder_dir_id_t dir_start, finder_view_rec_t *out);
 
 /* ---------------------------------------------------------------------------
  * kind=5 -- THE TRASH-ORIGIN RECORD (design F1.5: "The DB record kind=5
@@ -557,7 +560,7 @@ int finder_desk_db_find_view(const uint8_t *buf, uint32_t len,
 #define FINDER_ORIGIN_FLAG_RENAMED  0x01u
 
 typedef struct finder_origin_rec {
-    uint16_t dir_start;                    /* origin directory (0 == root)     */
+    finder_dir_id_t dir_start;                    /* origin directory (0 == root)     */
     uint8_t  flags;                        /* FINDER_ORIGIN_FLAG_*             */
     char     name83[FINDER_DESK_NAME_MAX]; /* the name as staged in \TRASH     */
     char     original83[FINDER_DESK_NAME_MAX]; /* kind=6; empty for legacy loss */

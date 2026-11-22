@@ -225,7 +225,7 @@ void finder_desk_set_name(finder_desk_t *fd, int idx, const char *name)
     fd_copy_name(fd->icons[idx].name, name, FINDER_ICON_NAME_MAX);
 }
 
-void finder_desk_set_cluster(finder_desk_t *fd, int idx, uint16_t cluster)
+void finder_desk_set_cluster(finder_desk_t *fd, int idx, finder_dir_id_t cluster)
 {
     if (!fd_valid(fd, idx)) return;
     fd->icons[idx].dir_start = cluster;
@@ -568,7 +568,7 @@ finder_db_status_t finder_desk_db_validate(const uint8_t *buf, uint32_t len)
 /* One 24-byte record, positionally assembled. `name` may be NULL (the field is
  * then all zero). Every byte of the record is written -- there is no padding
  * ambiguity and no reliance on the caller's buffer being pre-zeroed. */
-static void fd_put_record(uint8_t *r, uint8_t kind, uint16_t dir_start,
+static void fd_put_record(uint8_t *r, uint8_t kind, finder_dir_id_t dir_start,
                           const char *name, uint16_t x, uint16_t y,
                           uint16_t view_bits)
 {
@@ -721,7 +721,7 @@ uint32_t finder_desk_db_encode(const finder_desk_t *fd, uint8_t *buf,
 }
 
 int finder_desk_db_find_view(const uint8_t *buf, uint32_t len,
-                             uint16_t dir_start, finder_view_rec_t *out)
+                             finder_dir_id_t dir_start, finder_view_rec_t *out)
 {
     finder_db_status_t st;
     uint16_t n;

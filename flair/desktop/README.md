@@ -209,6 +209,35 @@ The unconverted rows in tests/MUTANTS-TODO.md remain coverage limits; the
 registered mutation set covers the power notice, full icon names, wide-name
 allocation, list-column fitting and File title.
 
+Finder directory identities name their volume as well as their directory
+(finder_identity.h): MTE Finder Interface, a file specification is a volume
+plus a parent directory, and FAT cluster numbers are local to a volume. The
+tag is the drive letter plus one above a 16-bit cluster; an untagged value
+means the system volume, which is every identity the running Finder creates
+until plan step 10 enumerates a second volume. Windows, view records, Trash
+origins and launch directories carry the full identity, so equal physical
+clusters on two volumes open two windows, each root keeps its own title and
+position, and each volume has its own eight view records and sixteen origins.
+DESKTOP.DB keeps its locked IDB1 records with 16-bit clusters: volume_db.c
+projects one volume's state onto its own file and imports a file into that
+volume's identities. Persist writes the system volume and any other volume
+whose Finder state was loaded or changed, using each volume's own FAT cache;
+it first reads the existing file and skips the write when the bytes are
+equal, and a failed read writes nothing and keeps the state dirty. An A: that
+DOS mounted but the Finder never loaded is never written. finder_fs.c still
+resolves every operation on the system volume (16-bit clusters) until step 10.
+test_finder_volumes (old 16-bit model: 9 of 21 red), test_volume_persist (old
+single-volume persist: 7 of 22 red) and test_volume_db_disk check this; the
+last mints two FAT12 roots with mtools, each with SAME.TXT on the same cluster
+and an authored 56-byte DESKTOP.DB, round-trips both through the FAT engine,
+then requires C: byte-identical and A: holding only its moved view (old
+persist: 4 of 19 red). `make smoke-root-view` boots the staged C: with DATA
+twice per emulator, drags the root window 60 pixels each boot and exits to
+DOS; mtools decodes C:'s root view, which must advance by the same step on
+the second boot, and A: must be byte-identical. ROOT_VIEW_CONTROL=pristine
+(the second boot from an unwritten C:) is its red control. The patch
+volume-db-shared-views projects every volume's views onto each file.
+
 Finder storage uses one write-capability decision in finder_storage.h, shared
 by the filesystem binding (finder_fs.c) and Desktop DB/Trash persistence.
 The operator's 2026-11-14 ruling is FAT12 read/write and FAT16 read-only.

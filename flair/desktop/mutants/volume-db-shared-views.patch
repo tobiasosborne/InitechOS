@@ -1,0 +1,12 @@
+# test: test_volume_persist
+# Project every volume's views onto each DESKTOP.DB (one shared namespace).
+--- a/volume_db.c
++++ b/volume_db.c
+@@ -35,7 +35,6 @@
+         icons[desk.n++]=*ic;
+     }
+     for(unsigned i=0;i<sh->n_views;i++){
+-        if(!on_drive(sh->views[i].dir_start,drive,sh->volume_drive))continue;
+         if(nv==FINDER_DB_MAX_VIEWS)return 0;
+         views[nv]=sh->views[i];views[nv++].dir_start=finder_dir_cluster(sh->views[i].dir_start);
+     }
