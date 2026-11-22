@@ -1,11 +1,13 @@
 #!/bin/sh
-# GM5/8 and C activation step 19a: ordinary startup and installed samples.
+# GM5/7/8 and C activation step 19: ordinary startup and installed samples.
 set -eu
 cd "$(dirname "$0")/../.."
 . factory/image/test-media.sh
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1 MTOOLS_SKIP_CHECK=1 LC_ALL=C
 emulators=${SYSTEM_SMOKE_CPUS-qemu bochs}
+workflows=${SYSTEM_SMOKE_WORKFLOWS-tps base turbo}
 sh factory/smoke-selection.sh system-emulators "$emulators" 'qemu bochs'
+sh factory/smoke-selection.sh system-workflows "$workflows" 'tps base turbo'
 mkdir -p build/system
 out=$(mktemp -d "$PWD/build/system/installed-smoke.XXXXXX")
 echo "system installed workflow evidence: $out"
@@ -44,6 +46,10 @@ while read -r source destination rest; do
  esac
  extract "$source" "$destination"
 done < system/working-volume.list
+cmp -s turbo/compiler/turbo.pas "$out/installed/TURBO/TURBO.PAS" ||
+ fail 'C: installed compiler source differs from turbo/compiler/turbo.pas'
+cmp -s system/samples/DEMO.PAS "$out/installed/TURBO/DEMO.PAS" ||
+ fail 'C: installed DEMO.PAS differs from the pinned MINT02 source'
 
 # GM1's two hidden boot entries precede the visible root, with H/S/R.
 mdir -a -b -i "$volume" :: > "$out/root"
@@ -62,21 +68,28 @@ SYSTEM_WORK_IMAGE=$volume sh system/tests/capacity.sh > "$out/space.txt" ||
  { cat "$out/space.txt"; fail 'C: working capacity'; }
 cat "$out/space.txt"
 
+encode_trace() {
+ build/factory/keys < "$1" > "$1.keys" || fail 'session contains an unsupported key'
+ # Leave the final command terminal and give Base QUIT time to return to DOS.
+ sed 's/^/k/; s/,/,k/g; s/kret,/kret,w1000,/g; s/kq,ku,ki,kt,kret,w1000,/kq,ku,ki,kt,kret,w5000,/' "$1.keys"
+}
+
 for emulator in $emulators; do
- for workflow in tps base; do
-  # TPS writes its report with DATA attached. Base also starts with no ATA slave.
-  attachment=with-data
-  [ "$workflow" != base ] || attachment=alone
+ for workflow in $workflows; do
+  # TPS writes its report with DATA attached. Base and Turbo boot C alone.
+  attachment=alone
+  [ "$workflow" != tps ] || attachment=with-data
   dir=$out/$emulator-$workflow
   mkdir -p "$dir"
   media_prepare staged "$attachment" "$dir" "$images"
   # Ordinary commands. Retain CONFIG, AUTOEXEC and the PATH under test.
   printf '%s\n' set > "$dir/session"
-  case $attachment in
-  with-data) printf '%s\n' 'if exist a:\ledger.txt echo installed-a-present' >> "$dir/session"
+  case $workflow in
+  tps) printf '%s\n' 'if exist a:\ledger.txt echo installed-a-present' >> "$dir/session"
    a_marker=installed-a-present;;
-  alone) printf '%s\n' 'if not exist a:\ledger.txt echo installed-a-absent' >> "$dir/session"
+  base) printf '%s\n' 'if not exist a:\ledger.txt echo installed-a-absent' >> "$dir/session"
    a_marker=installed-a-absent;;
+  turbo) a_marker=;;
   esac
   case $workflow in
   tps)
@@ -84,24 +97,41 @@ for emulator in $emulators; do
   base)
    printf 'cd apps\ninitbase\nuse \\samples\\clients\nlist\nuse \\samples\\parts\nlist\nuse \\samples\\invoice\ndo \\samples\\y2kacct\nquit\n' >> "$dir/session"
    printf '%s\n' 'echo base-complete>BASE.OK' >> "$dir/session";;
+  turbo)
+   printf 'cd turbo\nturbo\n' >> "$dir/session"
+   printf 'turbo hello.pas\nturboout.com\necho installedturbocomplete\n' > "$dir/compile";;
   esac
-  printf 'echo installed%scomplete\n' "$workflow" >> "$dir/session"
-  build/factory/keys < "$dir/session" > "$dir/keys"
-  # The shared trace form accepts both keys and waits. Leave the final
-  # completion command terminal.
-  sed 's/^/k/; s/,/,k/g; s/kret,/kret,w1000,/g; s/kq,ku,ki,kt,kret,w1000,/kq,ku,ki,kt,kret,w5000,/' \
-   "$dir/keys" > "$dir/trace"
+  if [ "$workflow" != turbo ]; then
+   printf 'echo installed%scomplete\n' "$workflow" >> "$dir/session"
+  fi
+  trace=$(encode_trace "$dir/session")
+  vga=none
+  if [ "$workflow" = turbo ]; then
+   case $emulator in
+   qemu) capture=D$dir/diagnostic;;
+   bochs) capture=Tdiagnostic; vga=vbe;;
+   esac
+   compile=$(encode_trace "$dir/compile")
+   # F3 opens the installed DEMO.PAS, F9 compiles it and Alt-X returns to DOS.
+   trace="$trace,w3000,kf3,w1000,kd,ke,km,ko,kdot,kp,ka,ks,kret,w1500,kf9,w3000,$capture,kalt-x,w3000,$compile"
+  fi
+  printf '%s\n' "$trace" > "$dir/trace"
   case $emulator in
-  qemu) set -- --mouse "$(cat "$dir/trace")";;
-  bochs) set -- --vga-ext none --rtc-time0 699440400 --keys "$(cat "$dir/trace")";;
+  qemu) set -- --mouse "$trace";;
+  bochs) set -- --vga-ext "$vga" --rtc-time0 699440400 --keys "$trace";;
   esac
   finish=installed${workflow}complete
   # QEMU matches a substring; require the output line, not the echoed command.
   [ "$emulator" != qemu ] || finish=$(printf '\n%s\r' "$finish")
-  if ! media_run "$emulator" "build/factory/${emulator}_harness" "$@" \
+  if ! (
+   if [ "$workflow" = turbo ]; then
+    export INITECH_TEXT_SCREEN_ELF=${SYSTEM_ELF:-build/system/system.elf}
+    export INITECH_TEXT_SCREEN_TOOL=$PWD/build/apps/initechbase/host/screen_capture
+   fi
+   media_run "$emulator" "build/factory/${emulator}_harness" "$@" \
     --keys-after SHELL-READY \
-    --expect "$finish" --quit-after "$finish" --timeout-ms 90000 --name run --out "$dir" \
-    > "$dir/stdout" 2> "$dir/report"; then
+    --expect "$finish" --quit-after "$finish" --timeout-ms 90000 --name run --out "$dir"
+  ) > "$dir/stdout" 2> "$dir/report"; then
    cat "$dir/report"; fail "$emulator $workflow did not finish"
   fi
   tr -d '\r' < "$dir/run.serial" > "$dir/serial.txt"
@@ -110,7 +140,7 @@ for emulator in $emulators; do
   line "$dir/serial.txt" 'C:\>set'
   line "$dir/serial.txt" 'COMSPEC=C:\COMMAND.COM'
   line "$dir/serial.txt" 'PATH=C:\;C:\APPS'
-  line "$dir/serial.txt" "$a_marker"
+  [ -z "$a_marker" ] || line "$dir/serial.txt" "$a_marker"
   line "$dir/serial.txt" "installed${workflow}complete"
   if grep -E '^(FLAIR-BOOT-SCREEN|PANIC|KBD-RING-DROP)' "$dir/serial.txt"; then
    fail "$emulator $workflow started FLAIR or reported a guest fault"
@@ -148,6 +178,38 @@ for emulator in $emulators; do
    mcopy -i "$media_volume" ::APPS/BASE.OK "$dir/base.ok"
    printf 'base-complete\r\n' > "$dir/base.want"
    cmp -s "$dir/base.want" "$dir/base.ok" || fail "$emulator Base did not return to the C: shell";;
+  turbo)
+   # Actual console cells. The wording comes from the pinned TP 5.5 MINT02
+   # E05 diagnostic and its IDE form from MINT06.
+   screen=$dir/diagnostic.screen
+   case $emulator in
+   qemu)
+    line "$screen" 'INITECH-SCREEN 1 CP437 80 25'
+    sed -n '3,27p' "$screen" > "$dir/diagnostic.rows";;
+   bochs)
+    [ -f "$screen" ] && [ "$(wc -c < "$screen")" -eq 4002 ] ||
+     fail 'Bochs Turbo diagnostic screen missing or short'
+    od -An -v -N4000 -tu1 "$screen" |
+     awk '{for (i=1;i<=NF;i+=2) {printf "%c", $i; if (++col==80) {print ""; col=0}}}' > "$dir/diagnostic.rows";;
+   esac
+   sed 's/ *$//' "$dir/diagnostic.rows" > "$dir/diagnostic.txt"
+   line "$dir/diagnostic.txt" 'Error 85: ";" expected'
+   line "$dir/diagnostic.txt" 'program e05;'
+   line "$dir/serial.txt" 'C:\TURBO>turbo hello.pas'
+   mcopy -i "$media_volume" ::TURBO/TURBOOUT.COM "$dir/hello.com" ||
+    fail "$emulator Turbo output absent from written C:"
+   test -s "$dir/hello.com" || fail 'empty Pascal executable'
+   mdir -a -b -i "$media_volume" ::TURBO/ > "$dir/turbo-files"
+   if grep -E '/(TURBOOUT\.S|DEMO\.(EXE|COM))$' "$dir/turbo-files"; then
+    fail "$emulator Turbo left an unexpected build output"
+   fi
+   mkdir "$dir/fpc"
+   fpc -v0 -FE"$dir/fpc" -FU"$dir/fpc" -ohello "$out/installed/TURBO/HELLO.PAS" > "$dir/fpc.log"
+   "$dir/fpc/hello" > "$dir/hello.expected"
+   awk '$0 == "C:\\TURBO>turboout.com" {run=1; next}
+        run && index($0, "C:\\TURBO>")==1 {exit}
+        run {print}' "$dir/serial.txt" > "$dir/hello.actual"
+   cmp -s "$dir/hello.expected" "$dir/hello.actual" || fail "$emulator Hello stdout differs from FPC";;
   esac
   if [ -n "$media_data" ]; then
    cmp -s "$data" "$media_data" || fail "$emulator $workflow changed A:"
@@ -156,4 +218,4 @@ for emulator in $emulators; do
  done
 done
 sha256sum -c "$out/masters.sha256"
-echo 'system: installed C: startup, TPS and Base workflows GREEN'
+echo "system: installed C: workflows GREEN ($workflows)"

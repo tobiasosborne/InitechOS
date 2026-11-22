@@ -99,8 +99,17 @@ tables in its census and the expected FCB padding. The Base run has no ATA
 slave. It starts INITBASE from APPS beside its overlay, checks LIST and
 accounting output against the retained III+ and canon references, and reads
 back a short file written after QUIT to verify return to the C: shell.
-Evidence remains in `build/system/installed-smoke.*`. Set `SYSTEM_SMOKE_CPUS`
-to select one emulator during iteration. The default runs both.
+
+The Turbo Initech run also boots C: alone. It opens the IDE by typing TURBO,
+loads the pinned DEMO.PAS and checks Error 85 on the real DOS console page.
+It returns to DOS, compiles HELLO.PAS by name, runs TURBOOUT.COM and
+compares stdout with Free Pascal. The check reads the executable from the
+written C: disk and compares the installed compiler source with the current
+Turbo source.
+
+Evidence remains in `build/system/installed-smoke.*`. For focused runs, set
+`SYSTEM_SMOKE_CPUS` to one emulator or `SYSTEM_SMOKE_WORKFLOWS` to a subset of
+`tps base turbo`. The default runs all workflows on both emulators.
 
 `make capacity` builds the image set and measures the installed C: partition
 with mtools. It requires 2 MiB free for the compiler's listing, two output
@@ -117,9 +126,7 @@ ordinary Hello workflow so a passing short program cannot certify the finale.
 The boot/working disk split is unchanged here. IO.SYS and composed INITDOS.SYS
 remain the boot-volume builder's responsibility. Consolidating to C:, expanding
 the working volume, removing the builder's DOS wildcard, and scheduling Turbo
-before image assembly belong to the image composition owner. The installed
-README.TXT describes the currently available fixed-name compiler protocol;
-when the Turbo owner lands the IDE, update those directions with its workflow.
+before image assembly belong to the image composition owner.
 
 <!-- interface-declarations -->
 These interface declarations for CLAUDE.md "Two interfaces". Pure contracts operate

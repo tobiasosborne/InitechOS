@@ -9,7 +9,7 @@ for file in HELLO.PAS Y2KACCT.PRG README.TXT; do
  awk '{sub(/\r$/, ""); printf "%s\r\n", $0}' "samples/$file" > "$out/$file"
 done
 cp "$out/HELLO.PAS" "$out/TURBOIN.PAS"
-cp samples/TPS.DBF samples/TPSPARM.DAT "$out/"
+cp samples/TPS.DBF samples/TPSPARM.DAT samples/DEMO.PAS "$out/"
 cp ../turbo/compiler/turbo.pas "$out/TURBO.PAS"
 cp ../flair/desktop/data/DESKTOP.DB "$out/DESKTOP.DB"
 cp ../apps/initechcalc/data/LEDGER.TXT ../apps/initechcalc/data/MICHAEL.CFG "$out/"

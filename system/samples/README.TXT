@@ -16,16 +16,18 @@ INITECHBASE
   Inspect the reporting date and aging columns before acting on a balance.
 
 TURBO INITECH
-  Enter CD \TURBO before using the compiler.
-  HELLO.PAS is a short introductory program. The compiler reads the fixed
-  input name TURBOIN.PAS; initially this contains the same program.
-    COPY HELLO.PAS TURBOIN.PAS
-    TURBO
-    TURBOOUT
-  Small programs are written as TURBOOUT.COM. Larger programs are written
-  as TURBOOUT.EXE. TURBOOUT.S is an assembly listing.
-  TURBO.PAS contains the complete compiler source. To compile it, copy
-  TURBO.PAS to TURBOIN.PAS and run TURBO. Keep the original TURBO.COM.
+  Enter CD \TURBO. To compile and run the introductory program, enter:
+    TURBO HELLO.PAS
+    TURBOOUT.COM
+  The compiler writes TURBOOUT.EXE and also writes TURBOOUT.COM when
+  the program fits in that form.
+
+  Enter TURBO by itself to open the editor. Press F3, enter DEMO.PAS,
+  and press F9. Error 85 marks the missing semicolon between the two
+  WRITELN statements. Alt-X returns to InitechDOS.
+
+  TURBO.PAS contains the complete compiler source. Enter TURBO TURBO.PAS
+  to compile it. Keep the original TURBO.COM.
 
 TPS REPORT GENERATOR
   Enter CD \SAMPLES, then TPSREP TPS.DBF. TPSPARM.DAT supplies the form

@@ -40,6 +40,7 @@ build/system/installed/INVOICE.DBF    SAMPLES/INVOICE.DBF
 build/system/installed/Y2KACCT.PRG    SAMPLES/Y2KACCT.PRG
 build/system/installed/TPS.DBF        SAMPLES/TPS.DBF
 build/system/installed/TPSPARM.DAT    SAMPLES/TPSPARM.DAT
+build/system/installed/DEMO.PAS       TURBO/DEMO.PAS
 build/system/installed/HELLO.PAS      TURBO/HELLO.PAS
 build/system/installed/TURBOIN.PAS    TURBO/TURBOIN.PAS
 build/system/installed/README.TXT     README.TXT

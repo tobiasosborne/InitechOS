@@ -1,0 +1,2 @@
+# Keep the captured DOS line endings and bytes.
+DEMO.PAS -text whitespace=cr-at-eol
