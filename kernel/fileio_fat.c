@@ -73,7 +73,7 @@ extern void int21_set_file_replace_backend(uint16_t (*replace)(const char *,
  * Ref: ADR-0003 DEC-07a/18; IBM DOS 3.30 TR pp5-4..11. */
 typedef struct {
     fat12_volume_t *vol;
-    uint8_t fat[12u * 512u];
+    uint8_t fat[FAT12_WHOLE_FAT_MAX]; /* initech-e1gio: stage2's 16-sector limit */
     uint32_t fat_len;
     fat12_fat_window_t window;
     uint8_t window_buf[2u * BLOCKDEV_SECTOR_SIZE];

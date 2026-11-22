@@ -88,6 +88,11 @@ typedef enum {
 
 /* DEC-07a proposed -16 before -16..-19 were allocated. Keep codes unique. */
 #define FAT12_ERR_PARTITION (-20)
+
+/* Largest whole FAT the resident caches and rollback snapshots hold: stage2
+ * boots a FAT12 volume with up to 16 sectors per FAT (boot/stage2.asm), and
+ * mtools can pad a FAT12 FAT past the 12 sectors its entries need. */
+#define FAT12_WHOLE_FAT_MAX (16u * 512u)
 #define FAT12_ERR_CLUSTER_SIZE (-21) /* invalid/unsupported BPB allocation unit */
 
 /* The FAT12/16 cluster-count threshold (Microsoft FAT spec). */

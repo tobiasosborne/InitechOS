@@ -376,11 +376,14 @@ int main(int argc, char **argv)
     int fail_a = argc == 5 && !strcmp(argv[4], "fail-a");
     int overlap = argc == 5 && !strcmp(argv[4], "overlap");
     int fat16_d = argc == 5 && !strncmp(argv[4], "fat16-d=", 8);
+    int write_new = argc == 5 && !strcmp(argv[4], "write-new");
     int c_fault = argc == 5 && !strncmp(argv[4], "c-fault=", 8);
     if (c_fault) {
         fault_lba = (uint32_t)strtoul(argv[4] + 8, NULL, 10);
         if (!have_a) return 2;
         faulted = !fault_lba; /* c-fault=0: a clean C without system files */
+    } else if (write_new) {
+        if (have_a) return 2;
     } else if (fat16_d) {
         if (have_a) return 2;
     } else if (overlap) {
@@ -440,9 +443,23 @@ int main(int argc, char **argv)
         if (want == 2) check_fixed_system(have_a && !fail_a);
     }
     if (fat16_d) check_fat16_data((uint32_t)strtoul(argv[4] + 8, NULL, 10));
+    if (write_new) {
+        uint32_t len = 0;
+        CHECK(fileio_fat_fat_buffer(&len) != NULL && len == 13u * 512u,
+              "CONFIG and EXEC receive the whole 13-sector system FAT");
+        strcpy(path, "C:NEW.TXT");
+        int_frame_t f = call(0x3c00, 0, 0, (uintptr_t)path);
+        unsigned h = f.eax & 65535;
+        CHECK(!(f.eflags & 1), "CREATE on the padded-FAT C");
+        memcpy(bytes, "padded FAT write\r\n", 18);
+        f = call(0x4000, h, 18, (uintptr_t)bytes);
+        CHECK(!(f.eflags & 1) && f.eax == 18, "WRITE through the padded FAT");
+        f = call(0x3e00, h, 0, 0);
+        CHECK(!(f.eflags & 1), "CLOSE the new file");
+    }
     if (fault_lba) check_failed_data_probe(3, fault_lba);
     if (fail_a) check_failed_data_probe(0, 0);
-    CHECK(!drives[0].write_calls && (!have_a || !drives[1].write_calls),
+    CHECK(write_new || (!drives[0].write_calls && (!have_a || !drives[1].write_calls)),
           "startup, reads and refused requests never write either disk");
     blockdev_file_close(&drives[0]);
     if (have_a) blockdev_file_close(&drives[1]);

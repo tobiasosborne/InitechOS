@@ -44,6 +44,24 @@ for scenario in c-alone c-with-data a-legacy; do
     [ "$case_status" -eq 0 ] || exit "$case_status"
 done
 
+# stage2 boots C: with up to 16 sectors per FAT. mtools pads this FAT12 C:
+# to 13; the system cache, CONFIG/EXEC binding and FAT writes must hold it.
+cp "$w/c-base.img" "$w/c-padded.img"
+mformat -i "$w/c-padded.img@@32256" -T 16384 -h 16 -s 63 -c 8 -L 13 -H 63 ::
+assert test "$(od -An -tu1 -j $((32256 + 22)) -N 1 "$w/c-padded.img" | tr -d ' ')" = 13
+mcopy -i "$w/c-padded.img@@32256" "$w/c-root" ::ROOT.BIN
+mcopy -i "$w/c-padded.img@@32256" "$w/command" ::COMMAND.COM
+cp "$w/c-padded.img" "$w/padded-run.img"
+echo "startup scenario: c-padded-fat"
+case_status=0
+build/test_startup_disks "$w/padded-run.img" - 2 write-new || case_status=$?
+[ "$case_status" -eq 0 ]
+printf 'padded FAT write\r\n' > "$w/new-want"
+assert sh -c "mtype -i '$w/padded-run.img@@32256' ::NEW.TXT | cmp - '$w/new-want'"
+assert sh -c "mtype -i '$w/padded-run.img@@32256' ::ROOT.BIN | cmp - '$w/c-root'"
+dd if="$w/padded-run.img" of="$w/padded-c.raw" bs=512 skip=63 count=16384 2>/dev/null
+assert fsck.fat -n "$w/padded-c.raw"
+
 # A read error on the installed C: must not hand startup to data A:.
 c_vbr=$(od -An -tu1 -j32256 -N24 "$w/c-installed.img" | tr -s ' \n' ' ')
 set -- $c_vbr

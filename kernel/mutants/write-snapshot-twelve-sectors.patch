@@ -1,0 +1,12 @@
+# test: test-startup-disks
+--- a/fat12.c
++++ b/fat12.c
+@@ -3254,7 +3254,7 @@
+                         const uint8_t *data, uint32_t len, void *sector_buf,
+                         void *cluster_buf, uint32_t *out_written)
+ {
+-	static uint8_t before[FAT12_WHOLE_FAT_MAX];
++	static uint8_t before[12u * 512u];
+ 	dir_entry_t old;
+ 	uint32_t bytes, i;
+ 	int rc, restore_fat, restore_dir;
