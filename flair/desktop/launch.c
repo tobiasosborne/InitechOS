@@ -45,7 +45,7 @@ void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi)
 }
 
 void flair_live_launch_app(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                                  const char *name83, uint16_t dir_start)
+                                  const char *name83, finder_dir_id_t dir_start)
 {
     int rc=tbx_launch(name83, dir_start);
     flair_live_tenant_service(ctx, bi);

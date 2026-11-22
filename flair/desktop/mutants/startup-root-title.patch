@@ -2,8 +2,6 @@
 # A C: root must identify itself rather than borrowing the frame A: title.
 --- a/finder_windows.c
 +++ b/finder_windows.c
-@@ -1024,3 +1024,3 @@
-     char root_title[]=FINDER_WIN_ROOT_TITLE;
--    root_title[6]=(char)('A'+sh->volume_drive);
+@@ -1025,1 +1025,1 @@
+-    root_title[6]=(char)('A'+finder_dir_drive(dir_start,sh->volume_drive));
 +    root_title[6]='A';
-     SetWTitle(sh->wm, &w->rec, is_root ? root_title : w->name83);

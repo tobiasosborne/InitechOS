@@ -10,6 +10,9 @@
 #include "desktop_db.h"
 #include "filecopy_cancel.h"
 #include "cursor.h"
+#include "volume_db.h"
+#include "fileio_fat.h"
+#include "finder_storage.h"
 #define FINDER_ZOOM_STEPS 8
 static int16_t finder_lerp16(int16_t a, int16_t b, int k)
 {
@@ -604,7 +607,7 @@ void finder_outcome_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
          * NAME an application to launch. Copy it out first -- the launch verb
          * services the tenant, and the shell's `last` is not ours after that. */
         uint16_t launch = o->launch;
-        uint16_t ldir   = o->launch_dir;
+        finder_dir_id_t ldir   = o->launch_dir;
         char     l83[FINDER_DESK_NAME_MAX];
         for (int i = 0; i < FINDER_DESK_NAME_MAX; i++) l83[i] = o->launch83[i];
         l83[FINDER_DESK_NAME_MAX - 1] = '\0';
@@ -648,60 +651,64 @@ void finder_outcome_run(flair_live_ctx_t *ctx, const boot_info_t *bi,
     }
 }
 
+/* A different volume's view change must not cause writes to an unchanged DB.
+ * The comparison is against the existing disk bytes, never a repaint result. */
+static uint8_t finder_db_previous[FINDER_DB_MAX_BYTES];
+static int finder_db_equal(const uint8_t *a,const uint8_t *b,uint32_t n)
+{
+    for(uint32_t i=0;i<n;i++)if(a[i]!=b[i])return 0;
+    return 1;
+}
 void finder_desk_persist(void)
 {
-    uint32_t len;
-    int rc;
-
-    if (!g_finder_db_dirty || g_finder_desk == (finder_desk_t *)0) return;
-    g_finder_db_dirty = 0;
-    if (g_finder_vol == (const fat12_volume_t *)0) {
-        serial_puts("DESKTOP-DB-WRITE-FAIL rc=0 no-volume\n");
-        return;
-    }
-    /* Desktop icon records THEN the kind=4 per-folder view records (design
-     * F1.3 / F3.3). With no window ever opened the view set is empty and the
-     * image is byte-identical to R3.2's -- which is exactly why the locked
-     * 56-byte on-disk assertion of test-flair-desktop-icons leg 7 still holds. */
-    /* ... THEN the kind=5 trash-origin records (bead initech-34dh, design
-     * F1.5). With nothing ever trashed the set is empty and the bytes are
-     * exactly the R3.3 image. */
-    len = finder_desk_db_encode_full(g_finder_desk,
-                                     (g_finder_shell != (finder_shell_t *)0)
-                                         ? g_finder_shell->views
-                                         : (const finder_view_rec_t *)0,
-                                     (g_finder_shell != (finder_shell_t *)0)
-                                         ? g_finder_shell->n_views : 0u,
-                                     (g_finder_shell != (finder_shell_t *)0)
-                                         ? g_finder_shell->origins
-                                         : (const finder_origin_rec_t *)0,
-                                     (g_finder_shell != (finder_shell_t *)0)
-                                         ? g_finder_shell->n_origins : 0u,
-                                     g_finder_db_buf,
-                                     (uint32_t)sizeof g_finder_db_buf);
-    if (len == 0u) {
-        /* The buffer is sized from the SAME fixed cap the record array is, so a
-         * zero here is a programming error, not a disk condition (contract). */
-        serial_puts("PANIC finder-desktop: DESKTOP.DB encode overflow\nHALTED\n");
-        for (;;) { __asm__ __volatile__("cli; hlt"); }
-    }
-    rc = desktop_db_write(g_finder_vol, g_finder_fat, g_finder_fat_len,
-                          g_finder_secbuf, g_finder_clusbuf,
-                          g_finder_db_buf, len);
-    if (rc == FAT12_OK) {
-        serial_puts("DESKTOP-DB-SAVE n=");
-        serial_putu((uint32_t)((len - FINDER_DB_HEADER_SIZE) /
-                               FINDER_DB_RECORD_SIZE));
-        serial_putc('\n');
-    } else {
-        g_finder_io_error=rc==FAT12_ERR_ACCESS ? FINDER_WIN_ERR_WRITEPROTECT :
-                            rc==FAT12_ERR_NO_SPACE || rc==FAT12_ERR_DIR_FULL?
-                            FINDER_WIN_ERR_DISKFULL:FINDER_WIN_ERR_STORAGE;
-        serial_puts("DESKTOP-DB-WRITE-FAIL rc=");
-        serial_puti((int32_t)rc);
-        if(desktop_db_recovery()) {
-            serial_puts(" previous="); serial_puts(desktop_db_recovery());
+    if(!g_finder_db_dirty || !g_finder_desk)return;
+    g_finder_db_dirty=0;
+    unsigned drives[FINDER_VOLUME_SLOTS]={g_finder_drive,0};
+    unsigned count=g_finder_drive==0?1:FINDER_VOLUME_SLOTS;
+    for(unsigned i=0;i<count;i++){
+        unsigned drive=drives[i];
+        if(i && !finder_volume_db_has_state(g_finder_shell,drive))continue;
+        void *fat=NULL;uint32_t fat_len=0,len=0,previous_len=0;
+        const fat12_volume_t *vol=fileio_fat_drive_volume(drive,&fat,&fat_len);
+        if(!vol){
+            if(i==0){g_finder_io_error=FINDER_WIN_ERR_STORAGE;g_finder_db_dirty=1;}
+            continue; /* A is optional. Never substitute the system volume. */
         }
-        serial_putc('\n');
+        if(g_finder_shell)len=finder_volume_db_encode(g_finder_shell,drive,
+                                    g_finder_db_buf,sizeof g_finder_db_buf);
+        else if(i==0)len=finder_desk_db_encode(g_finder_desk,g_finder_db_buf,
+                                    sizeof g_finder_db_buf);
+        else continue;
+        if(!len){
+            serial_puts("DESKTOP-DB-WRITE-FAIL invalid-state\n");
+            g_finder_io_error=FINDER_WIN_ERR_STORAGE;g_finder_db_dirty=1;continue;
+        }
+        fat=finder_storage_read_cache(vol,fat);
+        int rc=desktop_db_read(vol,fat,fat_len,g_finder_secbuf,g_finder_clusbuf,
+                    finder_db_previous,sizeof finder_db_previous,&previous_len);
+        if(rc==FAT12_OK && previous_len==len &&
+           finder_db_equal(finder_db_previous,g_finder_db_buf,len)){
+            serial_puts("DESKTOP-DB-SAVE n=");
+            serial_putu((len-FINDER_DB_HEADER_SIZE)/FINDER_DB_RECORD_SIZE);
+            serial_puts(" drive=");serial_putc((char)('A'+drive));
+            serial_puts(" unchanged\n");continue;
+        }
+        if(rc==FAT12_OK || rc==FAT12_ERR_NOT_FOUND)
+            rc=desktop_db_write(vol,fat,fat_len,g_finder_secbuf,g_finder_clusbuf,
+                                  g_finder_db_buf,len);
+        if(rc==FAT12_OK){
+            serial_puts("DESKTOP-DB-SAVE n=");
+            serial_putu((len-FINDER_DB_HEADER_SIZE)/FINDER_DB_RECORD_SIZE);
+        }else{
+            g_finder_db_dirty=1;
+            g_finder_io_error=rc==FAT12_ERR_ACCESS ? FINDER_WIN_ERR_WRITEPROTECT :
+                rc==FAT12_ERR_NO_SPACE || rc==FAT12_ERR_DIR_FULL ?
+                FINDER_WIN_ERR_DISKFULL:FINDER_WIN_ERR_STORAGE;
+            serial_puts("DESKTOP-DB-WRITE-FAIL rc=");serial_puti(rc);
+            if(desktop_db_recovery()){
+                serial_puts(" previous=");serial_puts(desktop_db_recovery());
+            }
+        }
+        serial_puts(" drive=");serial_putc((char)('A'+drive));serial_putc('\n');
     }
 }

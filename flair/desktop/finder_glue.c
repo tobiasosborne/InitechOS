@@ -133,7 +133,7 @@ void finder_open_volume(flair_live_ctx_t *ctx, const boot_info_t *bi)
 }
 
 void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                               uint16_t parent, uint16_t dir_start,
+                               finder_dir_id_t parent, finder_dir_id_t dir_start,
                                const char *name83)
 {
     int slot = -1;

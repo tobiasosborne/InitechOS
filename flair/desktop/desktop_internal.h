@@ -191,7 +191,7 @@ void flair_live_tenant_track(flair_live_ctx_t *ctx, const boot_info_t *bi);
 void flair_live_tenant_filecopy(flair_live_ctx_t *ctx, const boot_info_t *bi);
 void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi);
 void flair_live_launch_app(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                                  const char *name83, uint16_t dir_start);
+                                  const char *name83, finder_dir_id_t dir_start);
 void flair_live_tenant_heard(flair_live_ctx_t *ctx, const boot_info_t *bi);
 __attribute__((unused))
 void flair_live_tenant_menu_result(flair_live_ctx_t *ctx,
@@ -213,7 +213,7 @@ int finder_abs(int v);
 void __attribute__((unused)) finder_trace_serial(void *user, const char *line);
 int finder_fat_dirent_cb(const dir_entry_t *e, void *user);
 int finder_fat_geometry_ok(void);
-int finder_fat_enumerate(void *fs_user, uint16_t dir_start,
+int finder_fat_enumerate(void *fs_user, finder_dir_id_t dir_start,
                                 finder_enum_cb cb, void *cb_user);
 int finder_fat_trash_dir(void *fs_user);
 extern const finder_fs_t g_finder_fs_binding __attribute__((unused));
@@ -239,7 +239,7 @@ void finder_report_open_fail(flair_live_ctx_t *ctx, const boot_info_t *bi,
 void finder_report_dropped(int slot);
 void finder_open_volume(flair_live_ctx_t *ctx, const boot_info_t *bi);
 void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                               uint16_t parent, uint16_t dir_start,
+                               finder_dir_id_t parent, finder_dir_id_t dir_start,
                                const char *name83);
 void finder_open_trash(flair_live_ctx_t *ctx, const boot_info_t *bi);
 void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,

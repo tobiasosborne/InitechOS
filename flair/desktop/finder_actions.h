@@ -32,6 +32,7 @@ extern finder_desk_t        *g_finder_desk;
 extern uint8_t               g_finder_db_buf[FINDER_DB_MAX_BYTES];
 extern int                   g_finder_db_dirty;
 extern const fat12_volume_t *g_finder_vol;
+extern unsigned g_finder_drive;
 extern void                 *g_finder_fat;
 extern uint32_t              g_finder_fat_len;
 extern void                 *g_finder_secbuf;
@@ -50,24 +51,24 @@ extern DialogRecord g_al_dr;
 extern char g_finder_trash_confirm_lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
 extern char g_finder_delete_now_confirm_lines[FINDER_ALERT_LINES][FINDER_ALERT_LINE_MAX];
 int finder_fat_mkdir(void *fs_user, const char *name83,
-                            uint16_t parent_dir_start);
+                            finder_dir_id_t parent_dir_start);
 int finder_fat_move(void *fs_user, const char *src_name83,
-                           uint16_t src_dir, const char *dst_name83,
-                           uint16_t dst_dir);
+                           finder_dir_id_t src_dir, const char *dst_name83,
+                           finder_dir_id_t dst_dir);
 int finder_fat_trash_name(void *fs_user, const char *name83,
-                                 uint16_t dir, char *out);
+                                 finder_dir_id_t dir, char *out);
 int finder_trash_reserve(void);
-int finder_fat_unlink(void *fs_user, const char *name83, uint16_t dir);
-int finder_fat_rmdir(void *fs_user, const char *name83, uint16_t dir);
-int finder_fat_create(void *fs_user, const char *name83, uint16_t dir,
+int finder_fat_unlink(void *fs_user, const char *name83, finder_dir_id_t dir);
+int finder_fat_rmdir(void *fs_user, const char *name83, finder_dir_id_t dir);
+int finder_fat_create(void *fs_user, const char *name83, finder_dir_id_t dir,
                              uint32_t *out_slot);
-int finder_fat_dir_ident(void *fs_user, uint16_t dir, uint16_t parent,
+int finder_fat_dir_ident(void *fs_user, finder_dir_id_t dir, finder_dir_id_t parent,
                                 const char *name83);
 int finder_fat_read_partial(void *fs_user, const char *name83,
-                                   uint16_t dir, uint32_t offset,
+                                   finder_dir_id_t dir, uint32_t offset,
                                    uint32_t len, uint8_t *out,
                                    uint32_t *out_read);
-int finder_fat_write_partial(void *fs_user, uint16_t dir, uint32_t slot,
+int finder_fat_write_partial(void *fs_user, finder_dir_id_t dir, uint32_t slot,
                                     uint32_t offset, const uint8_t *data,
                                     uint32_t len, uint32_t *out_written);
 void finder_zoom_back(flair_live_ctx_t *ctx, const boot_info_t *bi,
@@ -108,7 +109,7 @@ void finder_power(flair_live_ctx_t *ctx, const boot_info_t *bi,
 void finder_exit_dos(flair_live_ctx_t *ctx, const boot_info_t *bi,
                             int16_t noted);
 void flair_live_launch_app(flair_live_ctx_t *ctx, const boot_info_t *bi,
-                                  const char *name83, uint16_t dir_start);
+                                  const char *name83, finder_dir_id_t dir_start);
 void flair_live_alert_open_icon(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                        const char *const *text, int n,
                                        const char *const *btn, int nb, int draw,
