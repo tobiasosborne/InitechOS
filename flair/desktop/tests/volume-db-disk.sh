@@ -4,7 +4,8 @@
 # occupy the same physical cluster, then an independently authored 56-byte
 # IDB1 DESKTOP.DB (header, a kind-4 root view, a kind-5 Trash origin).
 # After the Finder run, C must be byte-for-byte unchanged and A must hold
-# exactly the authored record with only its view x moved to 100.
+# exactly the authored records with its view x moved to 100, plus its own
+# disk icon record once that icon moved.
 set -eu
 export SOURCE_DATE_EPOCH=699350400 TZ=UTC
 bin=$1 w=$2
@@ -18,7 +19,15 @@ db() {
  bytes 4; zeros 15; bytes 0 "$1" 0 "$2"; zeros 4
  bytes 5 0 0 0; printf 'SAME.TXT'; zeros 12
 }
-db 70 90 > "$w/c.db"; db 46 115 > "$w/a.db"; db 100 115 > "$w/a-moved.db"
+db 70 90 > "$w/c.db"; db 46 115 > "$w/a.db"
+# Final A: file: three records, the DATA disk icon (kind 1, x 584 = 0x248,
+# y 150) first, then the moved root view, then the origin.
+{
+ bytes 73 68 66 49 1 0 3 0
+ bytes 1 0 0 0; printf 'DATA'; zeros 9; bytes 72 2 150 0; zeros 3
+ bytes 4; zeros 15; bytes 0 100 0 115; zeros 4
+ bytes 5 0 0 0; printf 'SAME.TXT'; zeros 12
+} > "$w/a-moved.db"
 [ "$(wc -c < "$w/c.db")" -eq 56 ] || exit 1
 printf 'Same name, different volume\r\n' > "$w/same.txt"
 for v in c a; do
@@ -36,4 +45,5 @@ cmp "$w/c.before" "$w/c.img"
 mtype -i "$w/a.img" ::DESKTOP.DB > "$w/a.after"
 cmp "$w/a-moved.db" "$w/a.after"
 mtype -i "$w/a.img" ::SAME.TXT | cmp "$w/same.txt" -
-echo "ok volume DB disk: C unchanged, A moved view only"
+[ "$(wc -c < "$w/a-moved.db")" -eq 80 ] || exit 1
+echo "ok volume DB disk: C unchanged, A holds only its own disk, view and origin"

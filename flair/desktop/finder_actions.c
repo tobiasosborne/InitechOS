@@ -659,6 +659,20 @@ static int finder_db_equal(const uint8_t *a,const uint8_t *b,uint32_t n)
     for(uint32_t i=0;i<n;i++)if(a[i]!=b[i])return 0;
     return 1;
 }
+/* A data volume's Desktop file is written only when the session changed
+ * its Finder state (plan steps 9/10: the optional A seed stays untouched
+ * unless the user changes A). The baseline is that volume's projection
+ * just after its file was loaded; length 0 means none was recorded. */
+static uint8_t finder_db_baseline[FINDER_DB_MAX_BYTES];
+static uint32_t finder_db_baseline_len;
+static unsigned finder_db_baseline_drive=26u;
+void finder_desk_note_loaded(unsigned drive)
+{
+    finder_db_baseline_len=0;finder_db_baseline_drive=drive;
+    if(g_finder_shell)
+        finder_db_baseline_len=finder_volume_db_encode(g_finder_shell,drive,
+                                finder_db_baseline,sizeof finder_db_baseline);
+}
 void finder_desk_persist(void)
 {
     if(!g_finder_db_dirty || !g_finder_desk)return;
@@ -683,6 +697,13 @@ void finder_desk_persist(void)
             serial_puts("DESKTOP-DB-WRITE-FAIL invalid-state\n");
             g_finder_io_error=FINDER_WIN_ERR_STORAGE;g_finder_db_dirty=1;continue;
         }
+        if(i && drive==finder_db_baseline_drive && finder_db_baseline_len==len &&
+           finder_db_equal(finder_db_baseline,g_finder_db_buf,len)){
+            serial_puts("DESKTOP-DB-SAVE n=");
+            serial_putu((len-FINDER_DB_HEADER_SIZE)/FINDER_DB_RECORD_SIZE);
+            serial_puts(" drive=");serial_putc((char)('A'+drive));
+            serial_puts(" unchanged\n");continue;
+        }
         fat=finder_storage_read_cache(vol,fat);
         int rc=desktop_db_read(vol,fat,fat_len,g_finder_secbuf,g_finder_clusbuf,
                     finder_db_previous,sizeof finder_db_previous,&previous_len);
@@ -699,6 +720,10 @@ void finder_desk_persist(void)
         if(rc==FAT12_OK){
             serial_puts("DESKTOP-DB-SAVE n=");
             serial_putu((len-FINDER_DB_HEADER_SIZE)/FINDER_DB_RECORD_SIZE);
+            if(i && drive==finder_db_baseline_drive){
+                for(uint32_t k=0;k<len;k++)finder_db_baseline[k]=g_finder_db_buf[k];
+                finder_db_baseline_len=len;
+            }
         }else{
             g_finder_db_dirty=1;
             g_finder_io_error=rc==FAT12_ERR_ACCESS ? FINDER_WIN_ERR_WRITEPROTECT :

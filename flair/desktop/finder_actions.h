@@ -33,6 +33,9 @@ extern uint8_t               g_finder_db_buf[FINDER_DB_MAX_BYTES];
 extern int                   g_finder_db_dirty;
 extern const fat12_volume_t *g_finder_vol;
 extern unsigned g_finder_drive;
+/* Record a data volume's just-loaded Desktop projection (finder_desk_persist
+ * writes that volume again only when its projection differs). */
+void finder_desk_note_loaded(unsigned drive);
 extern void                 *g_finder_fat;
 extern uint32_t              g_finder_fat_len;
 extern void                 *g_finder_secbuf;

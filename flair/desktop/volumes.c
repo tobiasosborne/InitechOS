@@ -3,6 +3,8 @@
 #include "flair_platform.h"
 #include "finder_storage.h"
 #include "volume_binding.h"
+#include "volume_db.h"
+#include "fileio_fat.h"
 
 int finder_abs(int v) { return v < 0 ? -v : v; }
 
@@ -52,6 +54,59 @@ void __attribute__((unused)) finder_desk_load_positions(void)
             serial_putc('\n');
         }
     }
+}
+
+/* The optional DATA A: beside an installed C: system (accepted GM8 delivery
+ * design; C activation plan step 10). Its disk icon goes directly below the
+ * system disk in the same column, 64 pixels lower: the genuine Mac OS 8.1
+ * Finder capture system7-decomp goldens/captures/s8_icons_floppy_sel.png has
+ * the startup disk at rows 47-69 and the second disk at 111-133, x 575-611.
+ * Its DESKTOP.DB is read into A: identities (the frame seed then opens Drive
+ * A Files at 46,115); nothing is created or written on A: here. Under the
+ * kernel's legacy A: system fallback (removed by plan step 21) the system is
+ * A: and the desktop keeps its single disk until the default pair switches
+ * at plan step 20. A missing A: simply omits the volume. */
+#define FINDER_DATA_VOLUME_PITCH 64
+void finder_desk_mount_data_volumes(void)
+{
+    char label[12];
+    void *fat = 0;
+    uint32_t fat_len = 0u, len = 0u;
+    const fat12_volume_t *v;
+    int sys, idx;
+    int rc;
+    if (g_finder_desk == (finder_desk_t *)0 || g_finder_shell == (finder_shell_t *)0 ||
+        g_finder_drive == 0u || g_finder_secbuf == 0) return;
+    v = fileio_fat_drive_volume(0u, &fat, &fat_len);
+    if (v == (const fat12_volume_t *)0) return;
+    fat = finder_storage_read_cache(v, fat);
+    sys = finder_desk_find_kind(g_finder_desk, FINDER_ICON_VOLUME);
+    if (sys < 0) return;
+    if (desktop_db_volume_label(v, g_finder_secbuf, label,
+                                (uint32_t)sizeof label) != FAT12_OK)
+        label[0] = '\0';
+    idx = finder_desk_add(g_finder_desk, FINDER_ICON_VOLUME, label,
+                          g_finder_desk->icons[sys].x,
+                          (int16_t)(g_finder_desk->icons[sys].y +
+                                    FINDER_DATA_VOLUME_PITCH), 1u);
+    if (idx < 0) { serial_puts("FINDER-VOLUME-ICON-FULL drive=A\n"); return; }
+    finder_desk_set_cluster(g_finder_desk, idx, finder_dir_make(0u, 0u));
+    serial_puts("FINDER-VOLUME-ICON drive=A name=");
+    serial_puts(label);
+    serial_putc('\n');
+    rc = desktop_db_read(v, fat, fat_len, g_finder_secbuf, g_finder_clusbuf,
+                         g_finder_db_buf, (uint32_t)sizeof g_finder_db_buf, &len);
+    if (rc == FAT12_OK) {
+        unsigned took = finder_volume_db_load(g_finder_shell, 0u, g_finder_db_buf, len);
+        serial_puts("DESKTOP-DB-VOLUME drive=A n=");
+        serial_putu((uint32_t)took);
+        serial_putc('\n');
+    } else {
+        serial_puts("DESKTOP-DB-VOLUME drive=A rc=");
+        serial_puti((int32_t)rc);
+        serial_putc('\n');
+    }
+    finder_desk_note_loaded(0u);
 }
 
 void flair_tenant_mount_volume(void)
