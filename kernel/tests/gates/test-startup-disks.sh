@@ -77,6 +77,13 @@ mformat -i "$d" -T "$d_size" -h 16 -s 63 -c 1 -H "$d_base" ::
 printf 'independent imported bytes\n' > "$w/d-root"
 mcopy -i "$d" "$w/d-root" ::KEEP.TXT
 cp "$w/c-fat16.img" "$w/d-probe-fails.img"
+cp "$w/c-fat16.img" "$w/d-healthy.img"
+
+echo "startup scenario: d-fat16"
+case_status=0
+build/test_startup_disks "$w/d-healthy.img" - 2 "fat16-d=$d_base" || case_status=$?
+assert cmp "$w/c-fat16.img" "$w/d-healthy.img"
+[ "$case_status" -eq 0 ]
 
 echo "startup scenario: d-probe-fails"
 case_status=0
