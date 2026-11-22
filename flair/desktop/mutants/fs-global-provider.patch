@@ -1,0 +1,13 @@
+# test: test_finder_fs_volumes
+# Resolve every identity on the global system binding (the old provider).
+--- a/finder_fs.c
++++ b/finder_fs.c
+@@ -36,7 +36,7 @@
+     drive = finder_dir_drive(dir, g_finder_drive);
+     t->cluster = finder_dir_cluster(dir);
+     t->tag = dir & ~(finder_dir_id_t)0xffffu;
+-    if (drive == g_finder_drive) {
++    if (drive == g_finder_drive || 1) {
+         t->vol = g_finder_vol; t->fat = g_finder_fat; t->fat_len = g_finder_fat_len;
+     } else {
+         void *fat = 0;
