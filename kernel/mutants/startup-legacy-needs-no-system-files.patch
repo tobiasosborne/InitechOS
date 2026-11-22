@@ -1,0 +1,13 @@
+# test: test-startup-disks
+--- a/startup_disks.c
++++ b/startup_disks.c
+@@ -206,8 +206,7 @@
+      * Remove at C activation plan step 21 (initech-tlhqy). Only a cleanly
+      * read old two-file master qualifies; a read or mount error never does. */
+     else if (lookup == FAT12_ERR_NOT_FOUND && have_data &&
+-             root_file(&fixed_volumes[0], "IO.SYS") == FAT12_OK &&
+-             root_file(&fixed_volumes[0], "INITDOS.SYS") == FAT12_OK) {
++             1) {
+         system = &data_vol;
+         drive = 0;
+     }

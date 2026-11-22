@@ -1,11 +1,13 @@
 # test: test-startup-disks
 --- a/startup_disks.c
 +++ b/startup_disks.c
-@@ -156,7 +156,7 @@
-         system = &fixed_volumes[0];
+@@ -205,9 +205,7 @@
      /* Temporary fallback for old images with only IO/INITDOS on C.
-      * Remove at C activation plan step 21 (initech-tlhqy). */
--    if (!system && have_data) {
+      * Remove at C activation plan step 21 (initech-tlhqy). Only a cleanly
+      * read old two-file master qualifies; a read or mount error never does. */
+-    else if (lookup == FAT12_ERR_NOT_FOUND && have_data &&
+-             root_file(&fixed_volumes[0], "IO.SYS") == FAT12_OK &&
+-             root_file(&fixed_volumes[0], "INITDOS.SYS") == FAT12_OK) {
 +    if (have_data) {
          system = &data_vol;
          drive = 0;

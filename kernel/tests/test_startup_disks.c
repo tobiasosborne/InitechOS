@@ -229,7 +229,14 @@ int main(int argc, char **argv)
     if (have_a && blockdev_file_open_rw(&drives[1], argv[2])) return 2;
     int fail_a = argc == 5 && !strcmp(argv[4], "fail-a");
     int overlap = argc == 5 && !strcmp(argv[4], "overlap");
-    if (overlap) {
+    int c_fault = argc == 5 && !strncmp(argv[4], "c-fault=", 8);
+    if (c_fault) {
+        fault_lba = (uint32_t)strtoul(argv[4] + 8, NULL, 10);
+        if (!have_a) return 2;
+        master_read = drives[0].dev.read_sectors;
+        drives[0].dev.read_sectors = read_with_fault;
+        faulted = !fault_lba; /* c-fault=0: a clean C without system files */
+    } else if (overlap) {
         if (have_a) return 2;
     } else if (fail_a) {
         if (!have_a) return 2;
@@ -255,6 +262,12 @@ int main(int argc, char **argv)
     const fat12_volume_t *system = startup_disks_init();
     if (overlap) {
         check_overlap_refused(system, 8255);
+        system = 0;
+    } else if (c_fault) {
+        CHECK(faulted, "the injected C read fault fired");
+        CHECK(!system && !fileio_fat_drive_volume(0, NULL, NULL),
+              "only a cleanly read old C layout may select data A");
+        fault_lba = 0;
         system = 0;
     } else {
         CHECK(system, "production startup binds a working volume");
