@@ -1,0 +1,6 @@
+@echo off
+echo CHILD=[%0][%1][%9]
+shift
+echo CHILD-TEN=[%0][%1][%9]
+shift
+echo CHILD-ELEVEN=[%0][%1][%9]

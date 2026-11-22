@@ -1,0 +1,9 @@
+Independent Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media SHA-256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Write PARENT.txt and CHILD.txt as CRLF .BAT files to the data disk.
+Boot with AUTOEXEC running @echo off, B:, CALL PARENT.BAT followed by
+tail.txt and >TRACE.TXT, then ECHO CAPTURE-DONE. DOS displays the
+CALL body on CON and creates an empty TRACE.TXT (as in reference/callredir).
+trace.txt is the captured VGA payload with right-hand blank cells removed.
+It shows the original %0 shifting out, later operands entering %9, the
+literal empty quotes, independent child positions and full exhaustion.

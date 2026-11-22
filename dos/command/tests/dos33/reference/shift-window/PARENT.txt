@@ -1,0 +1,26 @@
+@echo off
+echo OPEN=[%0][%1][%9]
+shift
+echo TEN=[%0][%1][%9]
+call CHILD.BAT one two three four five six seven eight nine ten eleven
+echo PARENT=[%0][%1][%9]
+shift
+echo ELEVEN=[%0][%1][%9]
+shift
+echo TWELVE=[%0][%1][%9]
+shift
+echo NO-NINTH=[%0][%1][%9]
+shift
+shift
+shift
+shift
+shift
+shift
+shift
+echo NEXT-LAST=[%0][%1][%9]
+shift
+echo LAST=[%0][%1][%9]
+shift
+echo EXHAUSTED=[%0][%1][%9]
+shift
+echo AFTER=[%0][%1][%9]

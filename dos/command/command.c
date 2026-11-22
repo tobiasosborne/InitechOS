@@ -4530,7 +4530,7 @@ static int resolve_bat_path(const char *word, char *out)
  * Ref: MS-DOS 3.3 Reference pp.141-149,152; ADR-0003 Appendix A. */
 typedef struct batch_frame {
     const char *path;
-    const char *view[10];
+    const char *const *view;
     int count, pos, len, echo_on, cancelled;
     unsigned branch;
     struct batch_frame *previous;
@@ -4669,8 +4669,7 @@ static int dispatch_control(const char *line)
     case BL_SHIFT:
         /* Reference p.151: SHIFT also discards the original %0. */
         if (frame && frame->count>0) {
-            int first=0;
-            for (int k=first;k<frame->count-1;k++) frame->view[k]=frame->view[k+1];
+            frame->view++;
             frame->count--;
         }
         return 1;
@@ -4734,8 +4733,7 @@ static void run_batch(const char *path, const char *const argv[], int argc)
     if (g_batch_depth >= BATCH_NEST_MAX) {
         dos_print(MSG_DOS_0037 "\r\n$"); return;
     }
-    frame.path=path; frame.count=argc>10 ? 10 : argc;
-    for (int k=0;k<frame.count;k++) frame.view[k]=argv[k];
+    frame.path=path; frame.view=argv; frame.count=argc;
     frame.pos=0; frame.echo_on=1; frame.branch=0; frame.cancelled=0;
     frame.len=batch_load_file(path,g_batch_buf);
     g_batch_buffer_owner=&frame;
@@ -4792,56 +4790,41 @@ static void run_batch(const char *path, const char *const argv[], int argc)
  *   `path` -- the resolved .BAT file path (used to OPEN/READ).
  *   `name` -- invocation spelling exposed as %0 (OEM DOS compat33/BATCH).
  *   `tail` -- the verbatim DOS command tail (leading separator + params), or
- *             NULL/"".  Tokenized into up to 9 positional parameters (%1..%9).
+ *             NULL/"". Store every operand that fits in the command line.
  *
- * The argv strings are copied into a local buffer (bounded), so the batch can
- * read %0..%9 without aliasing the caller's `tail`.  Ref: beads initech-xw1. */
+ * The bounded local buffers keep the arguments valid across nested calls.
+ * DOS 3.30 reference/shift-window shows later operands entering %9. */
 static void run_batch_named(const char *path, const char *tail, const char *name)
 {
-    /* argv[0] = invocation (%0); argv[1..9] = up to 9 params from the tail. */
-    char        slots[10][CMD_TOKEN_MAX];
-    const char *argv[10];
-    int         argc = 1;
+    char invocation[CMD_TOKEN_MAX];
+    char operands[CMD_LINE_MAX];
+    /* A one-character operand and its separator take two tail bytes. */
+    const char *argv[1 + CMD_LINE_MAX / 2];
+    int argc = 1;
+    unsigned used = 0;
+
+    unsigned n = 0;
+    while (name && name[n] && n + 1 < sizeof(invocation)) {
+        invocation[n] = name[n];
+        n++;
+    }
+    invocation[n] = '\0';
+    argv[0] = invocation;
+
     const char *p = tail;
-    int         i;
-
-    /* Keep the opened absolute path separate from the command's spelling. */
-    {
-        int n = 0;
-        const char *s = name;
-        while (s != 0 && *s != '\0' && n < CMD_TOKEN_MAX - 1) {
-            slots[0][n] = *s++;
-            n++;
+    while (p && *p && used < sizeof(operands) && argc <= CMD_LINE_MAX / 2) {
+        while (is_space(*p)) p++;
+        if (!*p) break;
+        argv[argc++] = operands + used;
+        unsigned length = 0;
+        while (*p && !is_space(*p)) {
+            if (length + 1 < CMD_TOKEN_MAX && used + 1 < sizeof(operands)) {
+                operands[used++] = *p;
+                length++;
+            }
+            p++;
         }
-        slots[0][n] = '\0';
-    }
-    argv[0] = slots[0];
-
-    /* Tokenize the tail into %1..%9 (whitespace-delimited). */
-    if (p != 0) {
-        for (i = 1; i <= 9 && *p != '\0'; i++) {
-            int n = 0;
-            while (*p == ' ' || *p == '\t') {
-                p++;
-            }
-            if (*p == '\0') {
-                break;
-            }
-            while (*p != '\0' && *p != ' ' && *p != '\t' &&
-                   n < CMD_TOKEN_MAX - 1) {
-                slots[i][n++] = *p++;
-            }
-            slots[i][n] = '\0';
-            /* swallow an over-long token's tail */
-            while (*p != '\0' && *p != ' ' && *p != '\t') {
-                p++;
-            }
-            argv[argc++] = slots[i];
-        }
-    }
-    /* Fill any unused slots with NULL (out-of-range %n -> empty, DOS 3.3). */
-    for (i = argc; i < 10; i++) {
-        argv[i] = 0;
+        operands[used++] = '\0';
     }
 
     run_batch(path, argv, argc);

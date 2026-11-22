@@ -246,7 +246,7 @@ HOST_TESTS += test-batch-expand-compat33
 test-batch-expand-compat33_COUNT_PATTERN := ^INITECH_CHECKS ([0-9]+) failures=[0-9]+$$
 test-batch-expand-compat33_SRCS := tests/runner.c
 test-batch-expand-compat33_ARGS := tests/run.sh test-batch-expand-compat33
-test-batch-expand-compat33_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-batch-expand-compat33.sh command/tests/compat33/expected/PARAMS/files/TRACE.TXT command/tests/compat33/expected/BATCH/files/TRACE.TXT
+test-batch-expand-compat33_DEPS := $(OUT)/host/tool_batch_fat tests/gates/test-batch-expand-compat33.sh command/tests/compat33/expected/PARAMS/files/TRACE.TXT command/tests/compat33/expected/BATCH/files/TRACE.TXT $(wildcard command/tests/dos33/reference/shift-window/*.txt)
 
 .PHONY: smoke-sort-limits
 smoke-sort-limits:
@@ -305,3 +305,9 @@ smoke: smoke-type-eof
 smoke-type-eof:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/type-eof.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/type-eof.XXXXXX")"
+
+.PHONY: smoke-shift-window
+smoke: smoke-shift-window
+smoke-shift-window:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/shift-window.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/shift-window.XXXXXX")"
