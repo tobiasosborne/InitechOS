@@ -146,6 +146,16 @@ static void bind_fixed_absdisk(unsigned letter, int mounted)
     int21_set_absdisk_drive(letter, &backend);
 }
 
+/* A plain root file is found; a directory or label of that name is not. */
+static int root_file(const fat12_volume_t *vol, const char *name)
+{
+    dir_entry_t entry;
+    int rc = fat12_find(vol, sector, name, &entry);
+    if (!rc && (entry.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)))
+        rc = FAT12_ERR_NOT_FOUND;
+    return rc;
+}
+
 const fat12_volume_t *startup_disks_init(void)
 {
     static ata_ctx_t slave;
@@ -187,18 +197,26 @@ const fat12_volume_t *startup_disks_init(void)
 
     fat12_volume_t *system = 0;
     unsigned drive = 2;
-    dir_entry_t command;
-    if (fixed_mounted[0] && fixed_volumes[0].fat_type == FAT_TYPE_FAT12 &&
-        fat12_find(&fixed_volumes[0], sector, "COMMAND.COM", &command) == FAT12_OK &&
-        !(command.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL)))
+    int lookup = FAT12_ERR_PARTITION; /* C: unmapped, unmounted or FAT16 */
+    if (fixed_mounted[0] && fixed_volumes[0].fat_type == FAT_TYPE_FAT12)
+        lookup = root_file(&fixed_volumes[0], "COMMAND.COM");
+    if (lookup == FAT12_OK)
         system = &fixed_volumes[0];
     /* Temporary fallback for old images with only IO/INITDOS on C.
-     * Remove at C activation plan step 21 (initech-tlhqy). */
-    if (!system && have_data) {
+     * Remove at C activation plan step 21 (initech-tlhqy). Only a cleanly
+     * read old two-file master qualifies; a read or mount error never does. */
+    else if (lookup == FAT12_ERR_NOT_FOUND && have_data &&
+             root_file(&fixed_volumes[0], "IO.SYS") == FAT12_OK &&
+             root_file(&fixed_volumes[0], "INITDOS.SYS") == FAT12_OK) {
         system = &data_vol;
         drive = 0;
     }
-    if (!system) return 0;
+    if (!system) {
+        serial_puts("SYSTEM-SELECT-FAIL rc=");
+        serial_puti(lookup);
+        serial_putc('\n');
+        return 0;
+    }
     int rc = fileio_fat_bind_drive(drive, system);
     if (rc) {
         serial_puts("FILEIO-BIND-FAIL rc=");

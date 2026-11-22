@@ -27,7 +27,10 @@ that system volume. The resident `fileio_fat_system_drive()` identity survives
 later DOS selections; `fileio_fat_drive_volume()` supplies its matching cache.
 File I/O on C retains critical-error handling; raw absolute I/O does not prompt.
 The legacy A: system fallback expires at C activation plan step 21
-(initech-tlhqy). Host tests exercise the production mount sequence with mtools
+(initech-tlhqy). Until then it applies only to the old two-file master
+(factory/image/mk_boot_system.sh): a cleanly read FAT12 C: whose root holds
+IO.SYS and INITDOS.SYS and no COMMAND.COM. A C: mount or root read error, or
+any other C: layout, refuses startup rather than running the data disk. Host tests exercise the production mount sequence with mtools
 disks over file-backed ATA transport. `make smoke-startup` checks the staged
 factory disk with and without A: on both emulators, including the executable
 path reported by the Turbo Pascal runtime probe from initech-311t2.

@@ -11,6 +11,14 @@ mpartition -a z:
 mformat -i "$w/c-base.img@@32256" -T 16384 -h 16 -s 63 -c 8 -H 63 ::
 printf 'system C bytes\n' > "$w/c-root"
 mcopy -o -i "$w/c-base.img@@32256" "$w/c-root" ::ROOT.BIN
+cp "$w/c-base.img" "$w/c-plain.img"
+# The old two-file master (factory/image/mk_boot_system.sh): hidden system
+# IO.SYS and INITDOS.SYS, no COMMAND.COM. Only this layout may start from A:.
+printf 'loader\n' > "$w/io"
+printf 'kernel\n' > "$w/initdos"
+mcopy -i "$w/c-base.img@@32256" "$w/io" ::IO.SYS
+mcopy -i "$w/c-base.img@@32256" "$w/initdos" ::INITDOS.SYS
+mattrib -i "$w/c-base.img@@32256" +h +s +r -a ::IO.SYS ::INITDOS.SYS
 cp "$w/c-base.img" "$w/c-installed.img"
 printf 'resident command entry\n' > "$w/command"
 mcopy -i "$w/c-installed.img@@32256" "$w/command" ::COMMAND.COM
@@ -34,6 +42,27 @@ for scenario in c-alone c-with-data a-legacy; do
     assert cmp "$w/$master.img" "$w/$scenario-c.img"
     assert cmp "$w/a-base.img" "$w/$scenario-a.img"
     [ "$case_status" -eq 0 ] || exit "$case_status"
+done
+
+# A read error on the installed C: must not hand startup to data A:.
+c_vbr=$(od -An -tu1 -j32256 -N24 "$w/c-installed.img" | tr -s ' \n' ' ')
+set -- $c_vbr
+c_root=$((63 + ${15} + ${16}*256 + ${17} * (${23} + ${24}*256)))
+# A clean C: with neither COMMAND.COM nor the old system files is no system.
+for fault in c-root-fault:$c_root c-vbr-fault:63 legacy-root-fault:$c_root c-unidentified:0; do
+    scenario=${fault%%:*}
+    master=c-installed
+    if [ "$scenario" = legacy-root-fault ]; then master=c-base; fi
+    if [ "$scenario" = c-unidentified ]; then master=c-plain; fi
+    cp "$w/$master.img" "$w/$scenario-c.img"
+    cp "$w/a-base.img" "$w/$scenario-a.img"
+    echo "startup scenario: $scenario (LBA ${fault#*:})"
+    case_status=0
+    build/test_startup_disks "$w/$scenario-c.img" "$w/$scenario-a.img" 2 "c-fault=${fault#*:}" ||
+        case_status=$?
+    assert cmp "$w/$master.img" "$w/$scenario-c.img"
+    assert cmp "$w/a-base.img" "$w/$scenario-a.img"
+    [ "$case_status" -eq 0 ]
 done
 
 # Keep C intact and mint a FAT16 data partition with one sector per cluster.
