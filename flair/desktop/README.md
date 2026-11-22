@@ -404,17 +404,23 @@ on the frame data volume and checks `mattrib`, both forms of `mdir` (ordinary
 and `-a`), and an exact `mcopy`/`cmp` readback. It belongs on A:, not on the C:
 system root. See the desktop-owner handoff for the exact image commands.
 
-Startup captures the DOS default drive, its mounted record and its own FAT
-cache under one explicit drive selection, then restores the caller's complete
-CWD/I/O snapshot. It does not inherit the last backend selected by earlier I/O.
-The same captured drive binds application file sessions and the resident loader;
-the root title uses its letter (the frame's Drive A Files convention). A missing
-default volume fails instead of falling back to another disk. The FAT engine
-streams through a single-sector bootstrap scratch buffer even on the delivery
-C: volume's eight-sector clusters (kernel/include/fat12.h). The volume-binding
-suite covers default C/prior A, C alone, default A/prior C, missing C and FAT16
-window/cache pairing. The startup-last-volume and startup-root-title patches
-each have a named semantic assertion. The mtools
+Startup binds the installed system volume: the kernel's initial binding,
+published as fileio_fat_system_drive(), which AH=0Eh does not change. Typing
+A: before FLAIR still opens the system disk. fileio_fat_drive_volume() names
+that volume and its own FAT cache without selecting a DOS drive, so every
+CWD, the default drive and the I/O selection are untouched. The same drive
+binds application file sessions and the resident loader; the root title uses
+its letter (the frame's Drive A Files convention). A missing or dropped system
+volume fails instead of falling back to another disk. Until plan step 21 the
+kernel's legacy A: system fallback reports A: here. The FAT engine streams
+through a single-sector bootstrap scratch buffer even on the delivery C:
+volume's eight-sector clusters (kernel/include/fat12.h: cluster_buf >=512,
+sector-at-a-time fill/splice/read), so the 512-byte scratch is not widened.
+The volume-binding suite covers A: typed before FLAIR on an installed C:,
+default C: with A: accessed last, C: alone, the legacy A: system, no system
+mount, a dropped system mount and FAT16 window/cache pairing; it requires no
+DOS drive selection and an unchanged CWD snapshot. The startup-default-drive
+and startup-root-title patches each have a named semantic assertion. The mtools
 storage suite additionally exercises the 8 MiB FAT12/eight-sector geometry.
 `make smoke-volume` creates, launches Note Pad and saves on an explicitly
 selected C: boot-volume clone, reads it through mtools at byte offset 32256,

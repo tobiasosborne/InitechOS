@@ -1,5 +1,5 @@
-/* Resident startup binding, not an application filesystem entry point.
- * DOS drive/default selection contract: kernel/include/int21.h. */
+/* Resident startup binding to the installed system volume, not an
+ * application filesystem entry point. Contracts: kernel/include/fileio_fat.h. */
 #ifndef INITECH_DESKTOP_VOLUME_BINDING_H
 #define INITECH_DESKTOP_VOLUME_BINDING_H
 #include "fat12.h"

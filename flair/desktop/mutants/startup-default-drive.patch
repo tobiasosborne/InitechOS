@@ -1,0 +1,17 @@
+# test: test_volume_binding
+# Reintroduce the startup coupling to the DOS default drive (A: typed
+# before FLAIR) instead of the installed system volume.
+--- a/volume_binding.c
++++ b/volume_binding.c
+@@ -8,9 +8,10 @@
+ #include "volume_binding.h"
+ #include "fileio_fat.h"
+ #include "finder_storage.h"
++#include "int21.h"
+ int finder_bind_startup_volume(finder_volume_binding_t *out)
+ {
+-    int sys=fileio_fat_system_drive();
++    int sys=(int)int21_current_drive();
+     void *fat=0;
+     uint32_t fat_len=0;
+     out->volume=0;out->fat=0;out->fat_len=0;out->drive=0;
