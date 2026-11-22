@@ -110,6 +110,56 @@ static int fail_critical(int write, int error)
     return CRIT_BLOCKDEV_FAIL;
 }
 
+/* MS-DOS 4.0 SYSINIT2.ASM INT24 answers Fail without a prompt until the
+ * command processor runs; the boot console cannot be read before then. */
+static unsigned key_reads;
+static char screen[256];
+static unsigned screen_len;
+
+static void screen_sink(char c)
+{
+    if (screen_len < sizeof screen - 1) screen[screen_len++] = c;
+}
+
+/* Answers F so that a premature prompt ends; the read count grades it. */
+static int scripted_key(void)
+{
+    key_reads++;
+    return 'F';
+}
+
+static int no_typeahead(void) { return -1; }
+
+static void check_startup_prompts(void)
+{
+    int h = open_file("C:ROOT.BIN");
+    if (h < 0) return;
+    int21_set_sink(screen_sink);
+    int21_set_conin(scripted_key, no_typeahead);
+    blockdev_file_arm_read_fault(&drives[0], 1);
+    int_frame_t f = call(0x3f00, (unsigned)h, sizeof bytes, (uintptr_t)bytes);
+    CHECK((f.eflags & 1) && blockdev_file_read_faulted(&drives[0]) && !key_reads,
+          "a C read error during startup fails without an operator prompt");
+    blockdev_file_arm_read_fault(&drives[0], 0);
+
+    /* Once input is live the production handler prompts and honours F. */
+    key_reads = 0;
+    screen_len = 0;
+    startup_disks_enable_prompts();
+    blockdev_file_arm_read_fault(&drives[0], 1);
+    f = call(0x4200, (unsigned)h, 0, 0);
+    f = call(0x3f00, (unsigned)h, sizeof bytes, (uintptr_t)bytes);
+    screen[screen_len] = 0;
+    CHECK((f.eflags & 1) && blockdev_file_read_faulted(&drives[0]) && key_reads == 1 &&
+          strstr(screen, "Abort, Retry, Fail?"),
+          "after input is live a C read error prompts once and F fails the read");
+    blockdev_file_arm_read_fault(&drives[0], 0);
+    crit_blockdev_set_hook(0);
+    int21_set_conin(0, 0);
+    int21_set_sink(0);
+    (void)call(0x3e00, (unsigned)h, 0, 0);
+}
+
 static void check_read_faults(void)
 {
     int h = open_file("C:ROOT.BIN");
@@ -164,6 +214,7 @@ static void check_fixed_system(int mounted_a)
     CHECK(!block_device_map(2, &map) && map.disk == 0x80 && map.base == 63 && map.flags == 1,
           "the installed physical disk stays marked running after AH=0Eh");
     read_file("C:ROOT.BIN", "system C bytes\n");
+    check_startup_prompts();
     check_read_faults();
 }
 

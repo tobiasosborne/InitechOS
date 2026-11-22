@@ -453,6 +453,7 @@ void startup(void)
 
  sysinit_enable_irqs(serial_puts);
  int21_set_conin(int21_conin_get_kbd,int21_conin_poll_kbd);
+ startup_disks_enable_prompts();
  int21_set_console_page(console_page_service);
  int21_set_restart(restart_machine);
  serial_puts("CONIN-LIVE\n");

@@ -243,7 +243,14 @@ const fat12_volume_t *startup_disks_init(void)
     int21_dispatch(&select);
     /* A's cache watch also sets the running pair. Record the actual system. */
     block_device_running(drive == 2 ? 0x80 : 0x81, system->base_lba);
-    crit_blockdev_set_hook(int21_run_critical_error);
     serial_puts("FILEIO-BIND-OK\nABSDISK-BIND-OK\n");
     return system;
+}
+
+/* MS-DOS 4.0 SYSINIT2.ASM: SYSINIT's INT 24h returns Fail (AL=3) without a
+ * prompt; the interactive handler arrives with the command processor. The
+ * root listing and CONFIG.SYS run before any key can be read. */
+void startup_disks_enable_prompts(void)
+{
+    crit_blockdev_set_hook(int21_run_critical_error);
 }
