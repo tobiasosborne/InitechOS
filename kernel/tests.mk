@@ -437,6 +437,14 @@ test-redir_SRCS := tests/runner.c
 test-redir_ARGS := tests/run.sh test-redir
 test-redir_DEPS := $(OUT)/host/tool_test_redir tests/gates/test-redir.sh tests/run.sh
 
+EXTRA_HOST_TESTS += tool_test_stdin33
+tool_test_stdin33_SRCS := tests/test_stdin33.c tests/disk/blockdev_file.c
+tool_test_stdin33_OBJS := $(tool_test_fileio_subdir_OBJS)
+HOST_TESTS += test-stdin33
+test-stdin33_SRCS := tests/runner.c
+test-stdin33_ARGS := tests/run.sh test-stdin33
+test-stdin33_DEPS := $(OUT)/host/tool_test_stdin33 tests/gates/test-stdin33.sh tests/assertions.sh tests/fixtures/stdin33/SHA256SUMS
+
 EXTRA_HOST_TESTS += tool_test_find_dta33
 tool_test_find_dta33_SRCS := tests/test_find_dta33.c tests/disk/blockdev_file.c
 tool_test_find_dta33_OBJS := $(tool_test_fileio_subdir_OBJS)

@@ -1,0 +1,12 @@
+# test: test-stdin33
+--- a/int21.c
++++ b/int21.c
+@@ -1401,7 +1401,7 @@
+     int c = stdin_file_byte();
+     if (c >= 0) {               /* stdin33: the raw byte echoes to stdout */
+         char ch = (char)c;
+-        stdout_emit(&ch, 1u);
++        con_putc(ch);
+         set_al(f, (uint8_t)c);
+         cf_clear(f);
+         return;

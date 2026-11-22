@@ -1,0 +1,12 @@
+# test: test-stdin33
+--- a/int21.c
++++ b/int21.c
+@@ -1371,7 +1371,7 @@
+ static int stdin_file_byte(void)
+ {
+     sft_entry_t *e = g_cur_psp ? sft_from_handle(g_cur_psp, 0u) : 0;
+-    if (e == 0 || e->kind != SFT_KIND_FILE) return -1;
++    if (1 || e == 0 || e->kind != SFT_KIND_FILE) return -1;
+     for (;;) {
+         uint8_t c = 0u;
+         uint32_t take = 0u;

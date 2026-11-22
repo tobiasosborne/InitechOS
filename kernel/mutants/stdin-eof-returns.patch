@@ -1,0 +1,11 @@
+# test: test-stdin33
+--- a/int21.c
++++ b/int21.c
+@@ -1383,6 +1383,7 @@
+                 return c;
+             }
+         }
++        return 0x1a;
+     }
+ }
+ 
