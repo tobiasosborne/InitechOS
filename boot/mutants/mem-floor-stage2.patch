@@ -1,0 +1,16 @@
+# test: RAM7
+# Lower only the stage2 AH=88h floor to the 7 MiB profile's report (6144):
+# INITDOS then loads to the high destination on a below-contract machine
+# and only the later IO.SYS check refuses. The RAM7 case requires the
+# stage2 refusal before INITDOS-FOUND, so this must go RED.
+--- a/stage2.asm
++++ b/stage2.asm
+@@ -214,7 +214,7 @@
+     mov ah, 0x88
+     int 0x15
+     jc fail_memory
+-    cmp ax, 7168
++    cmp ax, 6144
+     jb fail_memory
+     pop si
+     mov eax, [si+28]

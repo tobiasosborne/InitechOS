@@ -12,7 +12,7 @@ for patch_file do
     n=$((n+1))
     name=$(basename "$patch_file" .patch)
     scenario=$(sed -n 's/^# test: //p' "$patch_file")
-    case $scenario in normal|indexed|ORDER|ATTR_R|CHAIN) ;; *) echo "ERROR missing scenario: $patch_file"; exit 1;; esac
+    case $scenario in normal|indexed|ORDER|ATTR_R|CHAIN|RAM5|RAM7) ;; *) echo "ERROR missing scenario: $patch_file"; exit 1;; esac
     if [ ! -f "$run/baseline-$scenario.ok" ]; then
         if sh tests/boot.sh "$top" "$out" "$scenario" > "$run/baseline-$scenario.log" 2>&1; then
             touch "$run/baseline-$scenario.ok"

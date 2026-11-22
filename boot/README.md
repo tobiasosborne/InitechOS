@@ -32,8 +32,19 @@ scenario identifiers; this adds restrictions to the shared default.
 
 After `make image` at the root, `make -C boot smoke` checks normal boot,
 indexed VBE, Bochs VGA13, invalid order, missing read-only attribute,
-premature kernel EOC and fragmented valid files. Both emulators must reach
-the ordinary InitechDOS shell on valid disks. Invalid disks must print the
+premature kernel EOC and fragmented valid files. It also boots real
+firmware RAM profiles of 5 MiB and 7 MiB on both emulators: stage2 must
+print its insufficient-memory refusal after finding IO.SYS and before
+loading INITDOS. The boundary is grounded outside the boot constants:
+the placement contract (`kernel/include/memory_map.h`) requires usable
+RAM to `EXT_APP_CEIL` 0x800000, i.e. 7168 KiB above the 1 MiB line that
+INT 15h reports (RBIL AH=88h/E820h), on the 8 MiB machine of
+GOLDEN-MASTER item 1. Neither emulator can present an exact 7167 KiB
+extended report (QEMU creates a full 8 MiB for an 8191 KiB request —
+8388608 bytes by QMP `query-memory-size-summary`, while an 8000 KiB
+request is exact and is refused; Bochs `megs` is integral), so the exact-KiB IO.SYS
+boundary stays pinned by the fixed memory-report mutant below. Both
+emulators must reach the ordinary InitechDOS shell on valid disks. Invalid disks must print the
 exact Non-System refusal before entering IO.SYS or protected mode. mtools
 independently recovers both fragmented payloads and compares them to the
 product artifacts. Each run snapshots its input payloads before minting so

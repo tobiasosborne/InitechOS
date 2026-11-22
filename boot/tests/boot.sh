@@ -3,7 +3,7 @@
 # VBE Core 2.0 rev1.1 pp6,16-20; project hardware contract (8 MiB).
 # Test only copies of the product disk; no test kernel or product hook.
 set -eu
-top=$1 artifacts=$2 cases=${3:-'normal indexed fallback ORDER ATTR_R CHAIN FRAGMENT'}
+top=$1 artifacts=$2 cases=${3:-'normal indexed fallback ORDER ATTR_R CHAIN FRAGMENT RAM5 RAM7'}
 [ -n "$cases" ] || exit 2
 cd "$top"
 test -s build/system/INITDOS.SYS && test -s build/image/data.img || {
@@ -33,7 +33,14 @@ for scenario in $cases; do
     image=$out/$scenario.img
     cp "$out/boot.img" "$image"
     wanted=prompt
+    ram=8
     case $scenario in
+        # Real firmware RAM profiles below the 8 MiB hardware contract
+        # (memory_map.h: usable RAM must reach EXT_APP_CEIL 0x800000, i.e.
+        # 7168 KiB above the 1 MiB line). Stage2 must refuse before the
+        # high kernel load; no altered loader or forced report is used.
+        RAM5) ram=5; wanted=memrefusal ;;
+        RAM7) ram=7; wanted=memrefusal ;;
         ORDER|ATTR_R|CHAIN) build/factory/boot_system "$image" "$scenario"; wanted=refusal ;;
         FRAGMENT)
             build/factory/boot_system "$image" FRAGMENT
@@ -60,16 +67,17 @@ for scenario in $cases; do
         cp "$out/data.img" "$data"
         marker=SHELL-READY
         [ "$wanted" != refusal ] || marker='Replace and strike any key when ready'
+        [ "$wanted" != memrefusal ] || marker='Insufficient extended memory: 8 MB required'
         rc=0
         BOOT_INDEXED_ROM=$artifacts/monitor.rom
         [ "$scenario" != indexed ] || BOOT_INDEXED_ROM=$artifacts/indexed.rom
         if [ "$scenario" = indexed ] || [ "$scenario" = normal ]; then
-            PATH="$out/bin:$PATH" "build/factory/${emu}_harness" \
+            INITECH_TEST_RAM_MB=$ram PATH="$out/bin:$PATH" "build/factory/${emu}_harness" \
                 --disk "$image" --disk2 "$data" $extra \
                 --expect "$marker" --quit-after "$marker" --timeout-ms 8000 \
                 --name "$name" --out "$out" > "$out/$name.stdout" 2> "$out/$name.report" || rc=$?
         else
-            "build/factory/${emu}_harness" --disk "$image" --disk2 "$data" $extra \
+            INITECH_TEST_RAM_MB=$ram "build/factory/${emu}_harness" --disk "$image" --disk2 "$data" $extra \
                 --expect "$marker" --quit-after "$marker" --timeout-ms 8000 \
                 --name "$name" --out "$out" > "$out/$name.stdout" 2> "$out/$name.report" || rc=$?
         fi
@@ -89,11 +97,25 @@ for scenario in $cases; do
            grep -Fx 'Replace and strike any key when ready' "$serial" >/dev/null; then refused=1; fi
         # The IO memory refusal includes HALTED; stage2 has a separate message.
         if grep -Fx HALTED "$serial" >/dev/null; then refused=1; fi
+        memrefused=0
+        if grep -Fx 'Insufficient extended memory: 8 MB required' "$serial" >/dev/null; then
+            refused=1; memrefused=1
+        fi
         if grep -Fx SHELL-READY "$serial" >/dev/null; then prompt=1; fi
         if [ "$wanted" = refusal ] && [ "$prompt" -eq 1 ]; then
             echo "RED boot $name: reached InitechDOS prompt; corrupt $scenario must be refused"; failed=1
         elif [ "$wanted" = prompt ] && [ "$refused" -eq 1 ]; then
             echo "RED boot $name: refused a valid 8 MiB disk/memory configuration"; failed=1
+        elif [ "$wanted" = memrefusal ] && grep -Fx IOSYS-FOUND "$serial" >/dev/null; then
+            # Stage2 found IO.SYS, refused on the firmware RAM report, and
+            # never loaded INITDOS or entered IO/PM/kernel. Judged from the
+            # serial alone: a harness timeout here only means the stage2
+            # refusal marker never came, which is itself the RED evidence
+            # when INITDOS-FOUND shows the high load proceeded.
+            if [ "$memrefused" -ne 1 ] || [ "$prompt" -eq 1 ] ||
+               grep -Eq '^(INITDOS-FOUND|S2|PM|KERNEL|SHELL-READY)$' "$serial"; then
+                echo "RED boot $name: missing stage2 memory refusal or loaded INITDOS/entered IO"; failed=1
+            else echo "GREEN boot $name: stage2 refused ${ram} MiB firmware profile before INITDOS load"; fi
         elif [ "$rc" -ne 0 ]; then
             cat "$report"; echo "ERROR boot $name: no completed semantic observation"; exit 2
         elif [ "$wanted" = refusal ]; then
