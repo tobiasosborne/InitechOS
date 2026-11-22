@@ -91,6 +91,11 @@ smoke-root-view:
 	+$(MAKE) -C $(TOP) image
 	+$(MAKE) -C $(TOP) -f factory/desktop-tools.mk all
 	cd $(TOP) && sh flair/desktop/tests/smoke-root-view.sh
+.PHONY: smoke-data-volume
+smoke-data-volume:
+	+$(MAKE) -C $(TOP) image
+	+$(MAKE) -C $(TOP) -f factory/desktop-tools.mk all
+	cd $(TOP) && sh flair/desktop/tests/smoke-data-volume.sh
 TARGET_ARTIFACTS := $(OUT)/libdesktop.a
 include $(TOP)/mk/import-check.mk
 include $(TOP)/mk/mutants.mk
