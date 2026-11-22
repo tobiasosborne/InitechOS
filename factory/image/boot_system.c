@@ -17,7 +17,7 @@ static void fat_set(unsigned char *f,unsigned c,unsigned v) {
  n=c&1?(n&15)|(v<<4):(n&0xf000)|v;f[o]=(unsigned char)n;f[o+1]=(unsigned char)(n>>8);
 }
 int main(int argc,char **argv) {
- if(argc!=3)return 2;
+ if (argc != 3 && !(argc == 5 && !strcmp(argv[2], "check"))) return 2;
  FILE *f=fopen(argv[1],"rb");if(!f)return 2;
  size_t bytes=fread(disk,1,sizeof disk,f);fclose(f);
  need(bytes>=448*512,"image size");
@@ -80,16 +80,29 @@ int main(int argc,char **argv) {
      * and BSS against the reserved memory ceiling), so its chain bounds
      * here are the volume's. */
     need(n && (i || n<=4096),"file budget");
-    unsigned expected=(n+spc*512-1)/(spc*512);
+    FILE *source = argc == 5 ? fopen(argv[3+i], "rb") : NULL;
+    if (argc == 5 && !source) { perror(argv[3+i]); return 2; }
+    unsigned expected=1+(n-1)/(spc*512);
     while(count<expected) {
-     need(c>=2 && c<2+(u16(b+19)-data)/spc && !seen[c],"CHAIN bounds/cycle/overlap");
+     need(c>=2 && c<2+(u16(b+19)-data)/spc && c<sizeof seen && !seen[c],"CHAIN bounds/cycle/overlap");
      seen[c]=1;
+     if (source) {
+      unsigned remaining = n - count*spc*512;
+      unsigned take = remaining < spc*512 ? remaining : spc*512;
+      const unsigned char *payload = b+(data+(c-2)*spc)*512;
+      for (unsigned j=0; j<take; j++)
+       need(fgetc(source)==payload[j], i ? "INITDOS.SYS bytes" : "IO.SYS bytes");
+     }
      if(count)need(c==last+1,"CHAIN contiguous build layout");
      unsigned off=c+c/2;need(off+1<spf*512,"CHAIN FAT bounds");
      unsigned next=u16(fat+off);next=c&1?next>>4:next&0xfff;last=c;count++;
      if(count==expected)need(next>=0xff8,"CHAIN exact EOC");
      else need(next>=2 && next<0xff0,"CHAIN premature EOC");
      c=next;
+    }
+    if (source) {
+     need(fgetc(source)==EOF && !ferror(source), "source file length");
+     fclose(source);
     }
     printf("GREEN boot-system %s: root[%u] HSR, %u contiguous clusters, %u bytes\n",i?"INITDOS.SYS":"IO.SYS",i,count,n);
    }

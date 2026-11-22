@@ -26,6 +26,6 @@ mcopy -m -i "$volume" "$work/INITDOS.SYS" ::INITDOS.SYS
 mattrib -i "$volume" +h +s +r -a ::IO.SYS ::INITDOS.SYS
 mlabel -i "$volume" ::INITECH
 sh "$(dirname "$0")/copy-tree.sh" "$tree" "$volume"
-"$layout" "$image" check >/dev/null
+"$layout" "$image" check "$io" "$kernel" >/dev/null
 mv -f "$image" "$out"
 printf '>>> C: system disk: %s (FAT12 8 MiB spc8 @63; root[0]=IO.SYS, root[1]=INITDOS.SYS; HSR)\n' "$out"

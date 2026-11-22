@@ -12,8 +12,13 @@ $(OUT)/boot_system: image/boot_system.c | $(OUT)
 image: all
 image: $(OUT)/console-symbols-test
 	SYSTEM_IMAGE=$(TOP)/build/system/INITDOS$(if $(BIG_KERNEL),-big).SYS sh image/build.sh
-	sh image/c-disk-check.sh
+	SYSTEM_IMAGE=$(TOP)/build/system/INITDOS$(if $(BIG_KERNEL),-big).SYS sh image/c-disk-check.sh
 	sh tests/console-symbols.sh $(TOP)/build/system/system$(if $(BIG_KERNEL),-big).elf $(OUT)/console-symbols-test
+.PHONY: smoke-staged-media
+smoke-staged-media:
+	+$(MAKE) -C $(TOP) -f factory/desktop-tools.mk all
+	SYSTEM_IMAGE=$(TOP)/build/system/INITDOS$(if $(BIG_KERNEL),-big).SYS sh image/tests/sibling-corruption.sh
+	sh image/tests/staged-media.sh
 smoke:
 	+@set -e; \
 	sh smoke.sh; $(MAKE) smoke-programs; sh smoke-desktop.sh
