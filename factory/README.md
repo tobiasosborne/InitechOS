@@ -390,3 +390,18 @@ branches found when the rule landed, one (component, file, macro, issue) row
 each, and lets exactly those through as KNOWN. A row is deleted when its issue
 closes (the audit prints NOTE stale for rows that no longer match), and the
 file when it is empty. A new fault is a patch in mutants/, never a row there.
+
+The factory shell and COM sessions select the current product filenames by
+default. During C activation, set `FACTORY_MEDIA_PAIR=staged` to exercise
+the installed C system with ATA DATA attached. Both emulators read back the
+filesystem that DOS actually wrote. The FCBX probe explicitly switches to
+A for its captured FAT12 media byte and allocation geometry. The remaining
+probes run on the startup drive. Use the same selector with
+`make -C factory smoke-write-readback` for the early-exit WRITE control.
+
+`sh factory/parity.sh` runs the same shell session against the frozen
+tracer's own A disk and the selected product pair. An independent FAT12
+reader verifies the media-dependent DIR listing and CHKDSK allocation and
+memory figures for each run. The remaining transcript is compared with
+the working drive identified explicitly, followed by six saved-file byte
+comparisons. Both original serial streams remain in the parity run directory.
