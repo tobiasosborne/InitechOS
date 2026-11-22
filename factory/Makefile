@@ -58,6 +58,7 @@ desktop-tools-test:
 .PHONY: image-order-test
 image-order-test:
 	sh image/tests/order.sh
+	sh image/tests/launch-race.sh
 testlib-test:
 	sh testlib/tests/audit.sh
 	sh testlib/tests/mutants.sh

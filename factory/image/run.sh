@@ -21,9 +21,10 @@ if [ ! -e "$disks" ] && [ ! -L "$disks" ]; then
     trap 'exit 1' HUP INT TERM
     cp build/image/boot.img build/image/data.img "$stage/"
     # Publish the pair in one rename on the same filesystem.
-    mv -nT "$stage" "$disks"
-    if [ -d "$stage" ]; then
-        echo "InitechOS: $disks appeared during preparation. Start again to use it." >&2
+    if ! mv -nT "$stage" "$disks" || [ -d "$stage" ]; then
+        if [ -e "$disks" ] || [ -L "$disks" ]; then
+            echo "InitechOS: $disks appeared during preparation. Start again to use it." >&2
+        fi
         exit 1
     fi
     trap - EXIT HUP INT TERM
