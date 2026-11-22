@@ -44,7 +44,7 @@ while IFS= read -r group; do
  [ "$exits" -gt 0 ] || fail 'empty exit receipt'
  app_entries=$(mdir -b -i "$out/bochs-data.img" ::APPS/)
  trace=$(
-  inject "$open_disk"; await_marker FINDER-OPEN-VOLUME
+  open_volume
   inject m-100:0; inject m100:0
   inject "$open_apps"; await_marker 'FINDER-OPEN-FOLDER name=APPS'
   inject m22:20

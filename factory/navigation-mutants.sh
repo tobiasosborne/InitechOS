@@ -22,7 +22,7 @@ probe() {
  : > "$markers"
  trace=$(
   . factory/desktop-trace.sh
-  inject "$open_disk"; await_marker FINDER-OPEN-VOLUME
+  open_volume
   inject "$open_apps"; await_marker 'FINDER-OPEN-FOLDER name=APPS'
   inject m22:20
   if [ "$style" = position ]; then
