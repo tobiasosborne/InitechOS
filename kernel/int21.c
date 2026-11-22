@@ -1364,14 +1364,20 @@ void int21_batch_checkpoint(void)
     } else conin_unget(c);
 }
 
-/* Standard input redirected to a file (tests/fixtures/stdin33, genuine
- * MS-DOS 3.30): AH=01h, 07h and 08h take each byte verbatim, NUL and ^Z
- * included, and at end of file they wait for ever. Returns -1 when handle 0
- * is not a file, so the console paths below are unchanged. */
+/* DOS 3.30 character input follows a file duplicated onto handle 0.
+ * See tests/fixtures/stdin33. */
+static sft_entry_t *stdin_file(void)
+{
+    sft_entry_t *e = sft_from_handle(g_cur_psp, 0u);
+    return e && e->kind == SFT_KIND_FILE ? e : 0;
+}
+
+/* Read a file byte verbatim and wait at EOF. A negative result selects
+ * the console path when handle 0 is not a file. */
 static int stdin_file_byte(void)
 {
-    sft_entry_t *e = g_cur_psp ? sft_from_handle(g_cur_psp, 0u) : 0;
-    if (e == 0 || e->kind != SFT_KIND_FILE) return -1;
+    sft_entry_t *e = stdin_file();
+    if (e == 0) return -1;
     for (;;) {
         uint8_t c = 0u;
         uint32_t take = 0u;
@@ -1487,7 +1493,13 @@ static void do_direct_conio(int_frame_t *f)
 static void do_input_status(int_frame_t *f)
 {
     int avail;
-    if (g_conin_pushback >= 0) {
+    const sft_entry_t *e = stdin_file();
+    if (e) {
+        /* DOS 3.30 reports ready through the final file byte, then EOF.
+         * This call leaves both the file position and keyboard alone. */
+        avail = (e->open_mode & 3u) != SFT_MODE_WRITE &&
+                e->file_offset < e->dir_entry.file_size;
+    } else if (g_conin_pushback >= 0) {
         avail = 1;                 /* already have one queued */
     } else {
         int c = conin_poll_pb();
@@ -1537,13 +1549,45 @@ static void conedit_console_emit(uint8_t c, void *ctx)
     g_input_echo--;
 }
 
+/* Redirected-input echo goes to standard output (tests/fixtures/stdin33). */
+static void conedit_stdout_emit(uint8_t c, void *ctx)
+{
+    (void)ctx;
+    if (c == 0x1a) stdout_emit("^Z", 2u);
+    else {
+        char ch = (char)c;
+        stdout_emit(&ch, 1u);
+    }
+}
+
 static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap,
                                   const uint8_t *tmpl, unsigned len,
-                                  int_frame_t *f, int *broke)
+                                  int_frame_t *f, int *broke, int from_stdin)
 {
     conedit_t editor;
     conedit_init(&editor, tmpl, len);
     if (broke) *broke = 0;
+    /* Genuine DOS 3.30 with a file as standard input (stdin33, buffered33):
+     * the same editing, echoed to standard output. An LF that begins the
+     * call is dropped silently; a later LF echoes CR LF and is not stored;
+     * CR ends the line and echoes CR alone. End of file waits for ever. */
+    int c = from_stdin ? stdin_file_byte() : -1;
+    if (c >= 0) {
+        if (c == 0x0a) c = stdin_file_byte();
+        for (;; c = stdin_file_byte()) {
+            if (c == 0x0a) {
+                conedit_stdout_emit(13, 0);
+                conedit_stdout_emit(10, 0);
+                continue;
+            }
+            if (c == 0x0d && !editor.extended && !editor.target) {
+                conedit_stdout_emit(13, 0);
+                return (uint8_t)editor.count;
+            }
+            if (conedit_key(&editor, (uint8_t)c, out, cap, conedit_stdout_emit, 0))
+                return (uint8_t)editor.count;
+        }
+    }
     if (!g_conin_get && g_conin_pushback < 0) return 0;
     for (;;) {
         uint8_t c = (uint8_t)conin_get_pb();
@@ -1585,7 +1629,7 @@ static void do_buffered_input(int_frame_t *f)
      * overwrites buf[2..]; the caller retains the returned count and text. */
     unsigned template_len = buf[1] < max ? buf[1] : cap;
     uint8_t count = conin_cooked_line(&buf[2], cap, &buf[2],
-                                       template_len, f, &broke);
+                                       template_len, f, &broke, 1);
 
     /* ^C aborted the line (beads initech-4tw; DEC-16 Sec 3.3 Fork A): INT 23h has
      * already fired. In the kernel int23's default action terminated and never
@@ -3256,7 +3300,7 @@ static void con_handle_read(int_frame_t *f, sft_entry_t *e, uint8_t *buf,
         }
         int broke = 0;
         uint8_t n = conin_cooked_line(g_con_line, INT21_CON_LINE_MAX,
-                                      g_con_line, g_con_template_len, f, &broke);
+                                      g_con_line, g_con_template_len, f, &broke, 0);
         if (!broke) g_con_template_len = n;
         g_con_line_pos = g_con_line_len = 0u;
         if (broke || (!g_conin_get && g_conin_pushback < 0)) {

@@ -8,5 +8,5 @@
      unsigned template_len = buf[1] < max ? buf[1] : cap;
 +    template_len = 0; /* the repository contract: discard the previous AH=0Ah command. */
      uint8_t count = conin_cooked_line(&buf[2], cap, &buf[2],
-                                        template_len, f, &broke);
+                                        template_len, f, &broke, 1);
  

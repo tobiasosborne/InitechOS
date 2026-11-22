@@ -23,6 +23,65 @@ static int_frame_t call(unsigned ax, unsigned bx, unsigned cx, uintptr_t dx)
     return f;
 }
 
+static const char *console_keys;
+static int console_read(void)
+{
+    return *console_keys ? (unsigned char)*console_keys++ : -1;
+}
+
+/* buffered33.asm: IN0A.TXT is standard input and ECHO0A.TXT standard
+ * output; four AH=0Ah calls with max 8, each buffer pre-filled with CCh. */
+static int buffered(const char *out_path, int at_eof, char *low)
+{
+    uint8_t res[64];
+    unsigned n = 0;
+    int_frame_t f = call(0x3000, 0, 0, 0);
+    res[n++] = (uint8_t)f.eax; res[n++] = (uint8_t)(f.eax >> 8);
+    f = call(0x4500, 0, 0, 0);
+    if (f.eflags & 1) return 2;
+    unsigned console = f.eax & 65535u;
+    strcpy(low, "IN0A.TXT");
+    f = call(0x3d00, 0, 0, (uintptr_t)low);
+    if (f.eflags & 1) return 2;
+    unsigned h = f.eax & 65535;
+    if (call(0x4600, h, 0, 0).eflags & 1) return 2;
+    (void)call(0x3e00, h, 0, 0);
+    console_keys = "K\r";
+    int21_set_conin(console_read,0);
+    f = call(0x3f00,console,3,(uintptr_t)(low+64));
+    if ((f.eflags&1) || f.eax!=3 || memcmp(low+64,"K\r\n",3)) {
+        fputs("FAIL: AH=3Fh saved CON handle reads keyboard while stdin is a file\n",stderr);
+        return 1;
+    }
+    int21_set_conin(0,0);
+    (void)call(0x3e00,console,0,0);
+    strcpy(low, "ECHO0A.TXT");
+    f = call(0x3c00, 0, 0, (uintptr_t)low);
+    if (f.eflags & 1) return 2;
+    h = f.eax & 65535;
+    if (call(0x4600, h, 1, 0).eflags & 1) return 2;
+    (void)call(0x3e00, h, 0, 0);
+    uint8_t *buf = (uint8_t *)low + 64;
+    for (unsigned i = 0; i < 4; i++) {
+        memset(buf, 0xcc, 10);
+        buf[0] = 8;
+        (void)call(0x0a00, 0, 0, (uintptr_t)buf);
+        memcpy(res + n, buf, 10);
+        n += 10;
+    }
+    FILE *o = fopen(out_path, "wb");
+    if (!o || fwrite(res, 1, n, o) != n || fclose(o)) return 2;
+    if (at_eof) {
+        memset(buf, 0xcc, 10);
+        buf[0] = 8;
+        (void)call(0x0a00, 0, 0, (uintptr_t)buf);
+        printf("AH=0Ah returned at end of file\n");
+        return 1;
+    }
+    (void)call(0x3e00, 1, 0, 0);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 3 && argc != 4) return 2;
@@ -34,6 +93,11 @@ int main(int argc, char **argv)
     char *low = mmap(0, 4096, PROT_READ | PROT_WRITE,
                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
     if (low == MAP_FAILED) return 2;
+    if (argc == 4 && !strncmp(argv[3], "0a", 2)) {
+        int rc = buffered(argv[2], !strcmp(argv[3], "0a-eof"), low);
+        blockdev_file_close(&disk);
+        return rc;
+    }
     uint8_t res[16];
     unsigned n = 0;
     int_frame_t f = call(0x3000, 0, 0, 0);
@@ -50,9 +114,21 @@ int main(int argc, char **argv)
     h = f.eax & 65535;
     if (call(0x4600, h, 1, 0).eflags & 1) return 2;
     (void)call(0x3e00, h, 0, 0);
-    static const uint8_t script[] = {0x01, 0x07, 0x08, 0x01, 0x07, 0x08, 0x01, 0x07};
-    for (unsigned i = 0; i < sizeof script; i++)
-        res[n++] = (uint8_t)call((unsigned)script[i] << 8, 0, 0, 0).eax;
+    /* The paired INT 21h audit also reads redirected input with 0Ch/01h.
+     * Its chained byte is equivalent to a direct 01h read. */
+    static const uint16_t script[] = {0x0c01, 0x0700, 0x0800, 0x0100,
+                                      0x0700, 0x0800, 0x0100, 0x0700};
+    for (unsigned i = 0; i < sizeof script/sizeof script[0]; i++) {
+        if ((call(0x0b00,0,0,0).eax&255u)!=255u) {
+            fputs("FAIL: AH=0Bh reports input ready before reading a file byte\n",stderr);
+            return 1;
+        }
+        res[n++] = (uint8_t)call(script[i], 0, 0, 0).eax;
+    }
+    if (call(0x0b00,0,0,0).eax&255u) {
+        fputs("FAIL: AH=0Bh reports no input at file EOF\n",stderr);
+        return 1;
+    }
     FILE *o = fopen(argv[2], "wb");
     if (!o || fwrite(res, 1, n, o) != n || fclose(o)) return 2;
     if (argc == 4) {

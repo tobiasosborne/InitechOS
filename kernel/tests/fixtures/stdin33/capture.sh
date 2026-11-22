@@ -8,11 +8,12 @@ media=${DOS33_BOOT:-$HOME/Projects/initech-manuals-ref/sidekick/dosboot/PB_MSDOS
 test "$(sha256sum "$media" | cut -d ' ' -f 1)" = 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30
 mkdir "$out"
 cd "$out"
-nasm -f bin ${EOF:+-DEOF=$EOF} "$src/stdin33.asm" -o STDIN33.COM
-printf 'ECHO OFF\r\nSTDIN33\r\n' > AUTOEXEC.BAT
+prog=${PROGRAM:-stdin33}
+nasm -f bin ${EOF:+-DEOF=$EOF} ${CALLS:+-DCALLS=$CALLS} "$src/$prog.asm" -o PROBE.COM
+printf 'ECHO OFF\r\nPROBE\r\n' > AUTOEXEC.BAT
 cp "$media" boot.img
 mdel -i boot.img ::BACKUP.COM
-mcopy -o -i boot.img AUTOEXEC.BAT STDIN33.COM ::
+mcopy -o -i boot.img AUTOEXEC.BAT PROBE.COM ::
 sh "$src/mint.sh" b.img
 rc=0
 timeout "${CAPTURE_TIMEOUT:-25}" qemu-system-i386 -display none -monitor none -serial none -net none -cpu 486 -m 8 -no-reboot \
@@ -20,5 +21,10 @@ timeout "${CAPTURE_TIMEOUT:-25}" qemu-system-i386 -display none -monitor none -s
     -drive file=b.img,format=raw,if=floppy,index=1 -boot a \
     -device isa-debug-exit,iobase=0xf4,iosize=0x04 > qemu.log 2>&1 || rc=$?
 echo "qemu exit $rc" > exit.txt
-mcopy -i b.img ::RES.BIN RES.BIN
-mcopy -i b.img ::ECHO.TXT ECHO.TXT
+if [ "$prog" = buffered33 ]; then
+    mcopy -i b.img ::RES0A.BIN RES0A.BIN
+    mcopy -i b.img ::ECHO0A.TXT ECHO0A.TXT || true
+else
+    mcopy -i b.img ::RES.BIN RES.BIN
+    mcopy -i b.img ::ECHO.TXT ECHO.TXT
+fi

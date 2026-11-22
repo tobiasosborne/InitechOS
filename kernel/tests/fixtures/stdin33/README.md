@@ -15,5 +15,14 @@ bytes that the three AH=01h calls echoed (`H`, LF, ^Z) unchanged. Built with
 function at end of file. None of the three returned within 30 seconds, and
 RES.BIN still held the same ten bytes.
 
-Not captured: a 03h byte in the file, buffered input (0Ah) and the polling
-functions (06h, 0Bh).
+`buffered33.asm` records four AH=0Ah requests in `dos33-res0a.bin` and
+their output in `dos33-echo0a.txt`. The file supplies editing and line
+terminators, a leading LF is dropped, and a file with no next byte waits
+at EOF. An independent DOS 3.30 poll of H, NUL and Ctrl-Z returned FFh
+from AH=0Bh before each byte and 00h after those three bytes. Polls
+left all three bytes available for the following reads.
+
+The paired COMMAND audit uses a file containing CR LF for DATE and one
+containing y CR LF for PAUSE. Genuine DOS completes both with no keystrokes.
+The host gate also reads a literal K CR LF from a separately saved CON
+handle while standard input points to a file.
