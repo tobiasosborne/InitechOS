@@ -1,0 +1,9 @@
+# test: test-startup-disks
+--- a/startup_disks.c
++++ b/startup_disks.c
+@@ -252,5 +252,4 @@
+  * root listing and CONFIG.SYS run before any key can be read. */
+ void startup_disks_enable_prompts(void)
+ {
+-    crit_blockdev_set_hook(int21_run_critical_error);
+ }

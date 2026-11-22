@@ -26,6 +26,10 @@ through DOS. CONFIG.SYS, the loader and the permanent command processor share
 that system volume. The resident `fileio_fat_system_drive()` identity survives
 later DOS selections; `fileio_fat_drive_volume()` supplies its matching cache.
 File I/O on C retains critical-error handling; raw absolute I/O does not prompt.
+The interactive handler is installed only after the keyboard is bound
+(`startup_disks_enable_prompts`). Until then, as with SYSINIT's INT 24h in
+MS-DOS 4.0 `SYSINIT2.ASM`, which answers Fail, a disk error during the root
+listing or CONFIG.SYS fails the read without a prompt.
 The legacy A: system fallback expires at C activation plan step 21
 (initech-tlhqy). Until then it applies only to the old two-file master
 (factory/image/mk_boot_system.sh): a cleanly read FAT12 C: whose root holds

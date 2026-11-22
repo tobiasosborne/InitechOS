@@ -1,11 +1,11 @@
 # test: test-startup-disks
 --- a/startup_disks.c
 +++ b/startup_disks.c
-@@ -186,7 +186,6 @@
+@@ -242,7 +242,6 @@
      select.edx = drive;
      int21_dispatch(&select);
      /* A's cache watch also sets the running pair. Record the actual system. */
 -    block_device_running(drive == 2 ? 0x80 : 0x81, system->base_lba);
-     crit_blockdev_set_hook(int21_run_critical_error);
      serial_puts("FILEIO-BIND-OK\nABSDISK-BIND-OK\n");
      return system;
+ }
