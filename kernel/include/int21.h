@@ -544,6 +544,24 @@ typedef struct int21_file_backend {
      * 3.3 PRM AH=56h; spec/dos_structs.h (filename 0x00 / extension 0x08). */
     uint16_t (*rename)(const char *old83, uint16_t old_dir,
                        const char *new83, uint16_t new_dir);
+
+    /* CREATE WITH ATTRIBUTES (initech-eico5): as create, but the new or
+     * truncated entry receives `attr` (read-only, hidden, system and archive
+     * bits only; the dispatcher refuses the rest), and an existing hidden or
+     * system entry is refused 0x0005 unless `attr` carries the same bits.
+     * Ref: tests/fixtures/create-attrs33 (genuine MS-DOS 3.30). NULL keeps
+     * `create`, which can store only the archive attribute. */
+    uint16_t (*create_attr)(const char *name83, uint16_t dir_start_cluster,
+                            uint8_t attr, struct dir_entry *out_entry,
+                            uint32_t *out_slot);
+
+    /* WRITE THROUGH THE CREATING HANDLE (initech-eico5): as write_at, but a
+     * read-only attribute set by that handle's CREATE does not refuse it, as
+     * in genuine MS-DOS 3.30 (tests/fixtures/create-attrs33). Other handles
+     * still observe the attribute. NULL falls back to write_at. */
+    uint16_t (*write_created)(uint16_t dir_start, uint32_t slot, uint32_t offset,
+                              const uint8_t *data, uint32_t len,
+                              uint32_t *out_written, struct dir_entry *out_entry);
 } int21_file_backend_t;
 
 /* Staged replacement for the existing resident file binding. Both files must

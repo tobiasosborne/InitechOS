@@ -117,6 +117,9 @@ typedef struct sft_entry {
                                 /* pp.6-139/6-140). Shared by every DUP of    */
                                 /* the slot; cleared only when the slot is    */
                                 /* freed (initech-66oc).                      */
+    uint8_t      creator;       /* CREATE/CREATE NEW opened this slot; its    */
+                                /* writes pass the read-only bit that CREATE  */
+                                /* set (genuine DOS 3.30, initech-eico5).     */
     uint16_t     ref_count;     /* JFT references to this slot (DUP semantics) */
     /* --- DEVICE state (valid when kind == SFT_KIND_DEVICE; beads initech-6zd9) -
      * An AH=3Dh OPEN-by-name of "CON"/"NUL"/"PRN"/"AUX"/"CLOCK$" binds the slot to

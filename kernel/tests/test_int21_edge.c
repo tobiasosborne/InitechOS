@@ -264,7 +264,8 @@ static const int21_file_backend_t g_mock_backend = {
     NULL,  /* rmdir: edge oracle does not RMDIR (beads initech-u6wa) */
     NULL,  /* set_time: edge oracle does not SET file times (beads initech-qekc) */
     NULL,  /* chmod: edge oracle does not CHMOD (beads initech-b53d) */
-    NULL   /* rename: edge oracle does not RENAME (beads initech-gnrc) */
+    NULL,   /* rename: edge oracle does not RENAME (beads initech-gnrc) */
+    NULL, NULL /* create_attr, write_created (eico5) */
 };
 
 /* Open HELLO.TXT through the dispatcher and return its handle (lowest free = 5

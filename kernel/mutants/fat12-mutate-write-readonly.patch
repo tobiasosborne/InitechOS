@@ -2,7 +2,7 @@
 # test: test-dos-safety-create test-dos-safety-create-ro test-dos-safety-unlink-ro test-dos-safety-write-ro test-dos-safety-identity
 --- a/fat12.c
 +++ b/fat12.c
-@@ -2722,7 +2722,6 @@
+@@ -2726,7 +2726,6 @@
  	 * Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33 (L005). */
  	rc = fat12_read_dirent_local(vol, slot, &de, sector_buf);
  	if (rc != FAT12_OK) return rc;
@@ -10,11 +10,11 @@
  	rc = fat12_exclusive_allocation(vol,fat,fat_len,0u,slot,&de,sector_buf);
  	if (rc != FAT12_OK) return rc;
  
-@@ -3014,7 +3013,6 @@
- 	old_size   = de.file_size;
+@@ -3019,7 +3018,6 @@
  	/* Re-read the disk attribute: an already-open handle must not bypass a
- 	 * later lock. Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33. */
--	if ((de.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
+ 	 * later lock. Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33.
+ 	 * The handle that created the file is the exception (g_creator_write). */
+-	if ((de.attribute & DIR_ATTR_READONLY) != 0u && !g_creator_write) return FAT12_ERR_ACCESS;
  	orig_start = de.start_cluster;
  	new_start  = orig_start;
  	new_size   = (end > old_size) ? end : old_size;

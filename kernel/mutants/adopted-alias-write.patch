@@ -1,10 +1,10 @@
 # test: test-commit-outcome
 --- a/fat12.c
 +++ b/fat12.c
-@@ -3254,8 +3254,6 @@
+@@ -3273,8 +3273,6 @@
  	/* A refusal is not a transaction: do not write a rollback to a protected
  	 * file. This precedes both the inner writer and its recovery boundary. */
- 	if (old.attribute & DIR_ATTR_READONLY) return FAT12_ERR_ACCESS;
+ 	if ((old.attribute & DIR_ATTR_READONLY) && !g_creator_write) return FAT12_ERR_ACCESS;
 -	rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,slot,&old,sector_buf);
 -	if (rc != FAT12_OK) return rc;
  	for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];

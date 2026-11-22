@@ -324,8 +324,8 @@ static uint16_t fat_dir_entry(uint32_t index, uint16_t dir_start_cluster,
  * file + free its chain. All go through the oracle-green fat12.c write
  * functions over the mounted volume. */
 
-static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
-                           dir_entry_t *out_entry, uint32_t *out_slot)
+static uint16_t fat_create_attr(const char *name83, uint16_t dir_start_cluster,
+                                uint8_t attr, dir_entry_t *out_entry, uint32_t *out_slot)
 {
     char name[13];
     if (!dos_name83(name83,name)) return FILEIO_ERR_FILE_NOT_FOUND;
@@ -343,12 +343,22 @@ static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
 
     dir_entry_t de;
     uint32_t    slot = 0;
+    /* Genuine DOS 3.30 (tests/fixtures/create-attrs33): CREATE over a hidden
+     * or system file is refused unless CX carries the same bits. Refuse
+     * before the truncating create touches the entry or its chain. */
+    int found = fat12_find_slot_in(g_vol, g_fat, g_fat_len, parent, g_sector,
+                                   name83, &de, &slot);
+    if (found == FAT12_OK &&
+        (de.attribute & (DIR_ATTR_HIDDEN | DIR_ATTR_SYSTEM) & (uint8_t)~attr) != 0u)
+        return FILEIO_ERR_ACCESS_DENIED;
+    if (found != FAT12_OK && found != FAT12_ERR_NOT_FOUND)
+        return FILEIO_ERR_ACCESS_DENIED;
     uint16_t mtime = FAT12_FIXED_MTIME, mdate = FAT12_FIXED_MDATE;
     (void)int21_file_stamp(&mtime, &mdate);
     /* A second timestamp write after successful truncation could fail after
      * the original allocation was freed. Stamp in the rollback boundary.
      * Ref: IBM DOS 3.30 TR pp.5-12/13; initech-rg6d5. */
-    int rc = fat12_create_timed(g_vol, g_fat, g_fat_len, name83, DIR_ATTR_ARCHIVE,
+    int rc = fat12_create_timed(g_vol, g_fat, g_fat_len, name83, attr,
                                 parent, g_sector, g_cluster, &de, &slot, mtime, mdate);
     if (rc == FAT12_ERR_DIR_FULL) {
         return FILEIO_ERR_ACCESS_DENIED;   /* genuine DOS33 rootfull capture */
@@ -362,7 +372,13 @@ static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
     return 0u;
 }
 
-static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
+static uint16_t fat_create(const char *name83, uint16_t dir_start_cluster,
+                           dir_entry_t *out_entry, uint32_t *out_slot)
+{
+    return fat_create_attr(name83, dir_start_cluster, DIR_ATTR_ARCHIVE, out_entry, out_slot);
+}
+
+static uint16_t write_handle(int creator, uint16_t dir_start, uint32_t slot, uint32_t offset,
                              const uint8_t *data, uint32_t len,
                              uint32_t *out_written, dir_entry_t *out_entry)
 {
@@ -372,8 +388,9 @@ static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
     }
 
     uint32_t wrote = 0u;
-    int rc = fat12_write_partial(g_vol, g_fat, g_fat_len, dir_start, slot,
-                                 offset, data, len, g_sector, g_cluster, &wrote);
+    int rc = (creator ? fat12_write_partial_owner : fat12_write_partial)(
+        g_vol, g_fat, g_fat_len, dir_start, slot, offset, data, len, g_sector,
+        g_cluster, &wrote);
     if (rc != FAT12_OK) {
         *out_written = 0u;
         /* IBM DOS 3.30 Technical Reference pp. 6-139/6-140, AH=40h:
@@ -406,6 +423,20 @@ static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
         }
     }
     return 0u;
+}
+
+static uint16_t fat_write_at(uint16_t dir_start, uint32_t slot, uint32_t offset,
+                             const uint8_t *data, uint32_t len,
+                             uint32_t *out_written, dir_entry_t *out_entry)
+{
+    return write_handle(0, dir_start, slot, offset, data, len, out_written, out_entry);
+}
+
+static uint16_t fat_write_created(uint16_t dir_start, uint32_t slot, uint32_t offset,
+                                  const uint8_t *data, uint32_t len,
+                                  uint32_t *out_written, dir_entry_t *out_entry)
+{
+    return write_handle(1, dir_start, slot, offset, data, len, out_written, out_entry);
 }
 
 /* CLOSE: no-op with per-call flushing (write_at commits immediately). The hook
@@ -1035,7 +1066,9 @@ static const int21_file_backend_t g_fat_backend = {
     fat_rmdir,          /* AH=3Ah RMDIR (beads initech-u6wa)  */
     fat_set_time,       /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
     fat_chmod,          /* AH=43h CHMOD GET/SET ATTRIBUTES (beads initech-b53d) */
-    fat_rename          /* AH=56h RENAME same-directory dir-entry (beads initech-gnrc) */
+    fat_rename,         /* AH=56h RENAME same-directory dir-entry (beads initech-gnrc) */
+    fat_create_attr,    /* AH=3Ch/5Bh CX attributes (initech-eico5) */
+    fat_write_created   /* AH=40h through the creating handle (initech-eico5) */
 };
 
 /* ------------------------------------------------------------------------ *

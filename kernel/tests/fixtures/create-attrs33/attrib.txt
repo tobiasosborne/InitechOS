@@ -1,0 +1,10 @@
+             ::/
+  A    R     ::/F00
+  A    R     ::/F01
+  A   H      ::/F02
+  A  S       ::/F04
+  A  SHR     ::/F07
+  A          ::/F20
+  A  SHR     ::/F27
+  A   HR     ::/FN3
+  A          ::/FH1

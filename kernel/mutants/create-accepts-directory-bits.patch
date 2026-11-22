@@ -1,0 +1,12 @@
+# test: test-create-attrs33
+--- a/int21.c
++++ b/int21.c
+@@ -2559,7 +2559,7 @@
+     const uint8_t file_bits = DIR_ATTR_READONLY | DIR_ATTR_HIDDEN |
+                               DIR_ATTR_SYSTEM | DIR_ATTR_ARCHIVE;
+     uint8_t attr = (uint8_t)cx;
+-    if (attr & (uint8_t)~file_bits) return INT21_ERR_ACCESS_DENIED;
++    if (0 && (attr & (uint8_t)~file_bits)) return INT21_ERR_ACCESS_DENIED;
+     attr |= DIR_ATTR_ARCHIVE;
+     if (g_file->create_attr) return g_file->create_attr(leaf, dir_start, attr, de, slot);
+     if (attr != DIR_ATTR_ARCHIVE) return INT21_ERR_ACCESS_DENIED;

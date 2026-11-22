@@ -1138,10 +1138,11 @@ static uint16_t sft_write(sft_entry_t *e, const char *buf, uint32_t count,
         uint32_t wrote = 0u;
         dir_entry_t updated = e->dir_entry;
         (void)select_volume(e->drive);
-        uint16_t err = g_file->write_at(e->dir_start, e->root_slot,
-                                        e->file_offset,
-                                        (const uint8_t *)buf, count,
-                                        &wrote, &updated);
+        uint16_t (*write)(uint16_t, uint32_t, uint32_t, const uint8_t *, uint32_t,
+                          uint32_t *, dir_entry_t *) =
+            e->creator && g_file->write_created ? g_file->write_created : g_file->write_at;
+        uint16_t err = write(e->dir_start, e->root_slot, e->file_offset,
+                             (const uint8_t *)buf, count, &wrote, &updated);
         /* A short write is the TR pp.6-139/6-140 disk-full answer (CF clear,
          * fewer bytes). AH=02h/09h report no status at all, so remember it
          * on the slot for the shell that owns a redirect (initech-66oc). */
@@ -2548,6 +2549,23 @@ static void do_open(int_frame_t *f)
  * CF=1, AX=0x0003. No write backend / read-only volume -> CF=1, AX=0x0005
  * (access denied). Dir full -> CF=1, AX=0x0004.
  * Ref: DOS 3.3 PRM AH=3Ch; beads initech-0qh. */
+/* CREATE/CREATE NEW attribute (tests/fixtures/create-attrs33, genuine
+ * MS-DOS 3.30): CL OR 20h is stored and CH is ignored; 10h, 40h and 80h are
+ * refused with 5. CL=08h makes a volume label in DOS; InitechDOS refuses it
+ * (initech-78dat). The handle is read/write whatever the attribute. */
+static uint16_t create_entry(const char *leaf, uint16_t dir_start, uint32_t cx,
+                             dir_entry_t *de, uint32_t *slot)
+{
+    const uint8_t file_bits = DIR_ATTR_READONLY | DIR_ATTR_HIDDEN |
+                              DIR_ATTR_SYSTEM | DIR_ATTR_ARCHIVE;
+    uint8_t attr = (uint8_t)cx;
+    if (attr & (uint8_t)~file_bits) return INT21_ERR_ACCESS_DENIED;
+    attr |= DIR_ATTR_ARCHIVE;
+    if (g_file->create_attr) return g_file->create_attr(leaf, dir_start, attr, de, slot);
+    if (attr != DIR_ATTR_ARCHIVE) return INT21_ERR_ACCESS_DENIED;
+    return g_file->create(leaf, dir_start, de, slot);
+}
+
 static void do_creat(int_frame_t *f)
 {
     const char *path = (const char *)(uintptr_t)f->edx;
@@ -2601,7 +2619,7 @@ static void do_creat(int_frame_t *f)
 
     dir_entry_t de;
     uint32_t    root_slot = 0u;
-    uint16_t err = g_file->create(leaf, dir_start, &de, &root_slot);
+    uint16_t err = create_entry(leaf, dir_start, f->ecx, &de, &root_slot);
     if (err != 0) {
         set_ax(f, err);
         cf_set(f);
@@ -2611,6 +2629,7 @@ static void do_creat(int_frame_t *f)
     sft_entry_t *e = &g_sft[sft_idx];
     e->kind        = SFT_KIND_FILE;
     e->open_mode   = SFT_MODE_RDWR;    /* DOS 3.3 PRM AH=3Ch: read/write. */
+    e->creator     = 1u;               /* may write past its own read-only bit */
     e->dev_id      = 0;
     e->ref_count   = 1u;
     e->dir_entry   = de;
@@ -2628,8 +2647,8 @@ static void do_creat(int_frame_t *f)
  * an SFT FILE slot + JFT slot in WRITE mode, return EAX = handle, CF clear) WITH
  * ONE added precondition -- the target must NOT already exist. If it does, FAIL
  * with CF=1, AX=0x0050 (ERROR_FILE_EXISTS) and commit nothing (no truncate, no
- * slot churn). CX (attribute) is UNUSED here, exactly as in do_creat -- attribute
- * semantics are a separate, larger bead, NOT this one. The existence check reuses
+ * slot churn). CX is the attribute, applied by create_entry as in do_creat
+ * (initech-eico5). The existence check reuses
  * the backend's pure-locate open() member (NO SFT mutation, NO whole-file read --
  * int21.h backend contract: out_entry/out_slot written only on success, returns
  * 0 found / 0x0002 not-found) and runs AFTER resolve_dir_path succeeds and BEFORE
@@ -2736,7 +2755,7 @@ static void do_creatnew(int_frame_t *f)
 
     dir_entry_t de;
     uint32_t    root_slot = 0u;
-    uint16_t err = g_file->create(leaf, dir_start, &de, &root_slot);
+    uint16_t err = create_entry(leaf, dir_start, f->ecx, &de, &root_slot);
     if (err != 0) {
         set_ax(f, err);
         cf_set(f);
@@ -2746,6 +2765,7 @@ static void do_creatnew(int_frame_t *f)
     sft_entry_t *e = &g_sft[sft_idx];
     e->kind        = SFT_KIND_FILE;
     e->open_mode   = SFT_MODE_RDWR;    /* DOS 3.3 PRM AH=5Bh: read/write. */
+    e->creator     = 1u;               /* may write past its own read-only bit */
     e->dev_id      = 0;
     e->ref_count   = 1u;
     e->dir_entry   = de;

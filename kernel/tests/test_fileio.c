@@ -753,7 +753,8 @@ static const int21_file_backend_t g_mock_backend = {
     mock_rmdir,       /* AH=3Ah RMDIR (beads initech-u6wa) */
     mock_set_time,    /* AH=57h SET FILE DATE/TIME (beads initech-qekc) */
     mock_chmod,       /* AH=43h CHMOD GET/SET ATTRIBUTES (beads initech-b53d) */
-    mock_rename       /* AH=56h RENAME same-directory dir-entry (beads initech-gnrc) */
+    mock_rename,       /* AH=56h RENAME same-directory dir-entry (beads initech-gnrc) */
+    NULL, NULL /* create_attr, write_created (eico5) */
 };
 
 int main(void)
@@ -1502,7 +1503,7 @@ int main(void)
                 mock_resolve, mock_resolve_dir, NULL, NULL,
                 NULL, /* set_time: read-only (beads initech-qekc) */
                 NULL, /* chmod: read-only (beads initech-b53d) */
-                NULL /* rename: read-only (beads initech-gnrc) */ };
+                NULL /* rename: read-only (beads initech-gnrc) */, NULL, NULL };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&ro2);
@@ -1800,7 +1801,7 @@ int main(void)
             NULL, NULL,                          /* mkdir/rmdir: read-only */
             NULL,                                /* set_time: read-only */
             NULL,                                /* chmod: read-only */
-            NULL                                 /* rename: read-only */ };
+            NULL                                 /* rename: read-only */, NULL, NULL };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro_creatnew);
@@ -1839,7 +1840,7 @@ int main(void)
             NULL, NULL,                          /* mkdir/rmdir */
             NULL,                                /* set_time */
             NULL,                                /* chmod */
-            NULL                                 /* rename */ };
+            NULL                                 /* rename */, NULL, NULL };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&create_no_open);
@@ -1975,7 +1976,7 @@ int main(void)
                                                   NULL, NULL, /* mkdir/rmdir: read-only */
                                                   NULL, /* set_time: read-only (qekc) */
                                                   NULL, /* chmod: read-only (b53d) */
-                                                  NULL /* rename: read-only (gnrc) */ };
+                                                  NULL /* rename: read-only (gnrc) */, NULL, NULL };
         mock_reset_dir();
         bind_standard_process();
         int21_set_file_backend(&ro);
@@ -2102,7 +2103,7 @@ int main(void)
                 mock_open, mock_read_at, mock_dir_entry,
                 NULL, NULL, NULL, NULL, NULL,
                 mock_resolve, mock_resolve_dir, NULL, NULL, NULL, NULL,
-                NULL /* rename: read-only -> AH=56h access-denied (gnrc) */ };
+                NULL /* rename: read-only -> AH=56h access-denied (gnrc) */, NULL, NULL };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&roren);
@@ -2235,7 +2236,7 @@ int main(void)
                 mock_resolve, mock_resolve_dir, NULL, NULL,
                 NULL, /* set_time: read-only -> AH=57h SET access-denied */
                 NULL, /* chmod: read-only -> AH=43h SET access-denied (b53d) */
-                NULL /* rename: read-only -> AH=56h access-denied (gnrc) */ };
+                NULL /* rename: read-only -> AH=56h access-denied (gnrc) */, NULL, NULL };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&roqekc);
@@ -2417,7 +2418,7 @@ int main(void)
                 NULL, NULL, NULL, NULL, NULL,
                 mock_resolve, mock_resolve_dir, NULL, NULL, NULL,
                 NULL, /* chmod: read-only -> AH=43h GET/SET access-denied */
-                NULL /* rename: read-only -> AH=56h access-denied (gnrc) */ };
+                NULL /* rename: read-only -> AH=56h access-denied (gnrc) */, NULL, NULL };
             mock_reset_dir();
             bind_standard_process();
             int21_set_file_backend(&roattr);
