@@ -1364,6 +1364,28 @@ void int21_batch_checkpoint(void)
     } else conin_unget(c);
 }
 
+/* Standard input redirected to a file (tests/fixtures/stdin33, genuine
+ * MS-DOS 3.30): AH=01h, 07h and 08h take each byte verbatim, NUL and ^Z
+ * included, and at end of file they wait for ever. Returns -1 when handle 0
+ * is not a file, so the console paths below are unchanged. */
+static int stdin_file_byte(void)
+{
+    sft_entry_t *e = g_cur_psp ? sft_from_handle(g_cur_psp, 0u) : 0;
+    if (e == 0 || e->kind != SFT_KIND_FILE) return -1;
+    for (;;) {
+        uint8_t c = 0u;
+        uint32_t take = 0u;
+        if ((e->open_mode & 3u) != SFT_MODE_WRITE && g_file != 0 && g_file->read_at != 0) {
+            (void)select_volume(e->drive);
+            if (g_file->read_at(&e->dir_entry, e->file_offset, &c, 1u, &take) == 0u &&
+                take == 1u) {
+                e->file_offset++;
+                return c;
+            }
+        }
+    }
+}
+
 /* AH=01h CHARACTER INPUT WITH ECHO: block for one char, echo it to CON, AL=char.
  * (Ctrl-C check deferred -- see header note.) CF is not part of this function's
  * contract; success leaves it clear. Ref: DOS 3.3 PRM AH=01h.
@@ -1376,7 +1398,15 @@ void int21_batch_checkpoint(void)
  * ON-only non-CON widening is in int21_dispatch_body (C-6). */
 static void do_conin_echo(int_frame_t *f)
 {
-    int c = conin_get_pb();
+    int c = stdin_file_byte();
+    if (c >= 0) {               /* stdin33: the raw byte echoes to stdout */
+        char ch = (char)c;
+        stdout_emit(&ch, 1u);
+        set_al(f, (uint8_t)c);
+        cf_clear(f);
+        return;
+    }
+    c = conin_get_pb();
     /* ^C check-point (beads initech-4tw; DEC-16 Sec 3.3 Fork A): a 0x03 routes to
      * the INT 23h break handler instead of being delivered/echoed as a char. The
      * CON family is ALWAYS a check-point under Fork A (BREAK ON or OFF). If the
@@ -1394,7 +1424,8 @@ static void do_conin_echo(int_frame_t *f)
  * no echo. Ref: DOS 3.3 PRM AH=07h. */
 static void do_conin_raw(int_frame_t *f)
 {
-    int c = conin_get_pb();
+    int c = stdin_file_byte();
+    if (c < 0) c = conin_get_pb();
     set_al(f, (uint8_t)c);
     cf_clear(f);
 }
@@ -1405,7 +1436,13 @@ static void do_conin_raw(int_frame_t *f)
  * being delivered in AL. Ref: DOS 3.3 PRM AH=08h ("with Ctrl-C check"). */
 static void do_conin_noecho(int_frame_t *f)
 {
-    int c = conin_get_pb();
+    int c = stdin_file_byte();
+    if (c >= 0) {               /* stdin33: verbatim from the redirected file */
+        set_al(f, (uint8_t)c);
+        cf_clear(f);
+        return;
+    }
+    c = conin_get_pb();
     if (conin_check_ctrlc(c, f)) {
         return;
     }
