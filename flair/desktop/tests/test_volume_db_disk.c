@@ -98,7 +98,11 @@ int main(int argc,char **argv)
           "(fixture) SAME.TXT has the same physical cluster on both roots");
     clen=read_db(1,cdb,sizeof cdb); alen=read_db(0,adb,sizeof adb);
     CHECK(clen==56 && alen==56,"both DESKTOP.DB files are the authored 56 bytes");
-    shell.volume_drive=2; shell.desk.icons=shell.desk_icons;
+    shell.volume_drive=2;
+    {
+        rgn_rect_t screen={20,0,480,640}; /* top,left,bottom,right below the bar */
+        finder_desk_init(&shell.desk,shell.desk_icons,(uint16_t)FINDER_DESK_MAX_ICONS,screen);
+    }
     CHECK(finder_volume_db_load(&shell,2,cdb,clen)==2,"C imports its root view and origin");
     CHECK(finder_volume_db_load(&shell,0,adb,alen)==2,"A imports without replacing C");
     const finder_view_rec_t *cv=finder_shell_find_view(&shell,finder_dir_make(2,0));
@@ -128,6 +132,30 @@ int main(int argc,char **argv)
     g_finder_db_dirty=1; finder_desk_persist();
     CHECK(disks[1].writes==0,"moving A's view never writes C");
     CHECK(disks[0].writes>0 && g_finder_db_dirty==0,"A receives its moved view");
+    /* Step 10: the startup's A: disk icon (volumes.c) joins A:'s projection.
+     * Recording the just-loaded projection means no A: write follows from
+     * merely showing the disk; only a real A: change writes A:. */
+    {
+        unsigned aw=disks[0].writes,cw=disks[1].writes;
+        int ai=finder_desk_add(&shell.desk,FINDER_ICON_VOLUME,"DATA",584,92,1u);
+        int ti=finder_desk_add(&shell.desk,FINDER_ICON_TRASH,"Trash",584,404,0u);
+        CHECK(ai==0 && ti==1,"(fixture) A: disk icon and the Trash on the desktop");
+        finder_desk_set_cluster(&shell.desk,ai,finder_dir_make(0,0));
+        uint32_t n=finder_volume_db_encode(&shell,0,out,sizeof out);
+        int trash_records=0;
+        for(uint32_t off=8;off+24<=n;off+=24) trash_records+=out[off]==FINDER_DB_KIND_TRASH;
+        CHECK(n==8+3*24 && trash_records==0,
+              "A:'s file holds its disk, view and origin but never the shared Trash");
+        shell.desk.n=1; /* the Trash belongs to the system volume's file */
+        finder_desk_note_loaded(0);
+        g_finder_db_dirty=1; finder_desk_persist();
+        CHECK(disks[0].writes==aw && disks[1].writes==cw,
+              "showing the A: disk writes neither volume");
+        shell.desk.icons[ai].y=150;
+        g_finder_db_dirty=1; finder_desk_persist();
+        CHECK(disks[0].writes>aw && disks[1].writes==cw,
+              "moving the A: disk writes A:'s own file only");
+    }
     store_image(1,argv[1]); store_image(0,argv[2]);
     return TEST_SUMMARY("test-volume-db-disk");
 }

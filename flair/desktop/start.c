@@ -45,6 +45,7 @@ void kernel_graphical_environment(void)
                 finder_desk_set_name(g_finder_desk, vidx, g_finder_vol_label);
         }
         finder_desk_load_positions();
+        finder_desk_mount_data_volumes();
         finder_desk_install_underlay(g_finder_desk, ctx.wm);
         finder_shell_bind_fs(g_finder_shell, &g_finder_fs_binding);
         if (finder_shell_recount_trash(g_finder_shell)) {

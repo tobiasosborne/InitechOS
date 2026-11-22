@@ -31,7 +31,9 @@ uint32_t finder_volume_db_encode(const finder_shell_t *sh,unsigned drive,
     desk=sh->desk;desk.icons=icons;desk.n=0;desk.cap=FINDER_DESK_MAX_ICONS;
     for(unsigned i=0;i<sh->desk.n;i++){
         const finder_desk_icon_t *ic=&sh->desk.icons[i];
-        if(ic->kind==FINDER_ICON_VOLUME && !on_drive(ic->dir_start,drive,sh->volume_drive))continue;
+        if(ic->kind==FINDER_ICON_VOLUME){
+            if(!on_drive(ic->dir_start,drive,sh->volume_drive))continue;
+        }else if(drive!=sh->volume_drive)continue; /* one shared desktop Trash */
         icons[desk.n++]=*ic;
     }
     for(unsigned i=0;i<sh->n_views;i++){
