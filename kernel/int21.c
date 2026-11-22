@@ -5686,13 +5686,14 @@ int int21_run_critical_error(int op_is_write, int device_error)
 
     /* vlhp; DOS 3.3 Appendix F p.350/PDF435: the device cannot transmit
      * data. Use only the driver's explicit NO_DRIVE condition, never an
-     * arbitrary read error. The bound FAT data volume is DOS drive A.
+     * arbitrary read error. The letter is the failing I/O drive, as INT 24h
+     * AL names it (IBM DOS 3.30 TR; initech-loqhk: C: once printed A:).
      * Wording is the approved ADR-0003 Appendix C / MSG-DOS-0006 form. */
     if (!op_is_write && device_error == ATA_ERR_NO_DRIVE) {
         const char *s = MSG_DOS_0006;
         while (*s) {
             if (s[0] == '%' && s[1] == 'c') {
-                con_putc('A');
+                con_putc((char)('A' + g_io_drive));
                 s += 2;
             } else con_putc(*s++);
         }

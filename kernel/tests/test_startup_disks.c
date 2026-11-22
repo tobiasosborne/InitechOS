@@ -36,6 +36,20 @@ static int read_with_fault(void *ctx, uint32_t lba, uint32_t count, void *buf)
     return master_read(ctx, lba, count, buf);
 }
 
+static int no_drive_once;
+
+/* Every master read passes here: an optional one-time fault at fault_lba,
+ * or one ATA "no drive" answer when no_drive_once is armed. */
+static int read_master(void *ctx, uint32_t lba, uint32_t count, void *buf)
+{
+    if (no_drive_once) {
+        no_drive_once = 0;
+        return ATA_ERR_NO_DRIVE;
+    }
+    if (fault_lba) return read_with_fault(ctx, lba, count, buf);
+    return master_read(ctx, lba, count, buf);
+}
+
 void serial_puts(const char *s) { (void)s; }
 void serial_putc(char c) { (void)c; }
 void serial_puti(int32_t n) { (void)n; }
@@ -154,6 +168,16 @@ static void check_startup_prompts(void)
           strstr(screen, "Abort, Retry, Fail?"),
           "after input is live a C read error prompts once and F fails the read");
     blockdev_file_arm_read_fault(&drives[0], 0);
+
+    /* IBM DOS 3.30 TR INT 24h: AL names the failing drive. */
+    key_reads = 0;
+    screen_len = 0;
+    no_drive_once = 1;
+    f = call(0x4200, (unsigned)h, 0, 0);
+    f = call(0x3f00, (unsigned)h, sizeof bytes, (uintptr_t)bytes);
+    screen[screen_len] = 0;
+    CHECK((f.eflags & 1) && key_reads == 1 && strstr(screen, "Not ready reading drive C:"),
+          "a fixed-disk not-ready read names drive C");
     crit_blockdev_set_hook(0);
     int21_set_conin(0, 0);
     int21_set_sink(0);
@@ -308,8 +332,6 @@ int main(int argc, char **argv)
     if (c_fault) {
         fault_lba = (uint32_t)strtoul(argv[4] + 8, NULL, 10);
         if (!have_a) return 2;
-        master_read = drives[0].dev.read_sectors;
-        drives[0].dev.read_sectors = read_with_fault;
         faulted = !fault_lba; /* c-fault=0: a clean C without system files */
     } else if (overlap) {
         if (have_a) return 2;
@@ -320,9 +342,9 @@ int main(int argc, char **argv)
     } else if (argc == 5) {
         fault_lba = (uint32_t)strtoul(argv[4], NULL, 10);
         if (!fault_lba) return 2;
-        master_read = drives[0].dev.read_sectors;
-        drives[0].dev.read_sectors = read_with_fault;
     }
+    master_read = drives[0].dev.read_sectors;
+    drives[0].dev.read_sectors = read_master;
     missing = (blockdev_t){0, absent_read, 0};
     block_device_bind(0, &drives[0].dev, sectors(&drives[0]));
     block_device_bind(1, have_a ? &drives[1].dev : &missing,
