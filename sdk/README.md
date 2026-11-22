@@ -35,8 +35,15 @@ explicit "A:"/"C:" paths their own volume; files on different drives never
 alias (each record carries its drive). An unmounted drive is DOS 15, a rename
 or replace across drives DOS 17 (INT 21h 56h, not same device).
 tbx_host_export/import act on the bound drive; tbx_host_export_drive and
-tbx_host_import_drive on a named one. No gate verb changes: native
-flair_platform already resolves explicit mounted-drive paths.
+tbx_host_import_drive on a named one.
+
+`int32_t tbx_file_drive(void)` returns the drive used for unqualified
+file paths in the live registered session. INT 81h verb 008Ch takes no
+arguments and uses IBM DOS 3.30 Technical Reference p. 6-81 numbering
+(A: is 0, C: is 2). The drive follows the file-session binding
+throughout Finder browsing. Calls before REGISTER or after EXIT return
+TBX_ERR_NOTREG.
+The host fake reports the drive configured by `tbx_host_bind_system`.
 
 ## Dead-command sweep
 
@@ -211,11 +218,12 @@ gate; see tests/live/CAPTURE.md. Tier 0 compares against that capture, and
 smoke-conformance boots again and requires identical results. No expected
 result comes from the fake. make smoke builds the ordinary product image with
 debug metadata, adds SDKCHECK.EXE only to a copy of the working volume, and
-runs conformance and live ABI legs. Debug sections do not enter INITDOS.SYS.
+runs conformance, live ABI and file-drive checks. Debug sections do not enter
+INITDOS.SYS.
 
 smoke-abi uses the existing QEMU GDB stub to read a[] after the production
 dispatcher copies interrupted-stack arguments. abi.tsv is an independent
-literal table covering every argument of all 38 bindings, with distinct words
+literal table covering every argument of all 40 bindings, with distinct words
 at every position. Registration pointers are checked against the tenant ELF;
 all six callback fields read back from disk must match the desktop's source
 EventRecord. The tenant checks returned values, including the exit return
@@ -224,6 +232,13 @@ This leg needs GDB and the matching system.elf with -g; use make smoke to build
 both together. sdk/tests/live/red.sh proves the live check kills an x/y swap
 that the structural ABI audit accepts. Fake validation mutants run through
 the conformance entry with the ordinary mutation runner.
+
+`make smoke-file-drive` uses an already built product image. It runs a disk
+client on the staged C: and legacy A: layouts with QEMU and Bochs. The
+client queries 008Ch before registration, during registration before and
+after a search on A:, and after EXIT. The driver checks the returned values
+and uses mtools to compare an unqualified write and an opposite-volume
+decoy on the disks used by each emulator.
 
 Known debts: no ABI version negotiation; menus and dialog items contain native
 i386 pointers, not portable serialized records; the raw host trap cannot
@@ -271,6 +286,7 @@ Arity is gate dwords, including implicit runtime registration arguments.
 | 0x0089 | TBX_FILE_RENAME / tbx_file_rename | 2 | Rename file | initechword |
 | 0x008A | TBX_FILE_CREATE_NEW / tbx_file_create_new | 1 | Create without truncation | - |
 | 0x008B | TBX_FILE_REPLACE / tbx_file_replace | 2 | Commit a closed same-directory stage | - |
+| 0x008C | TBX_FILE_DRIVE / tbx_file_drive | 0 | Read the registered file-session drive | - |
 | 0x0090 | TBX_ALERT / tbx_alert | 4 | Ask alert | initech123, initechcalc, initechtext, notepad |
 | 0x0091 | TBX_FILECOPY / tbx_file_copy | 3 | Ask FILE COPY | initechcalc |
 | 0x0092 | TBX_DIALOG / tbx_dialog | 6 | Draw/route dialog | controlpanels |

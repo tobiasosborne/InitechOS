@@ -171,6 +171,9 @@ int32_t tbx_file_replace(const char *staged_path, const char *dest_path);
  * data volume's free bytes (INT 21h AH=36h). */
 int32_t tbx_file_find(const char *pattern, uint32_t attr, void *recs, uint32_t max);
 int32_t tbx_disk_free(void);
+/* Drive used by unqualified file paths in the registered session.
+ * IBM DOS 3.30 AH=19h numbering (A=0, C=2). Requires a live registration. */
+int32_t tbx_file_drive(void);
 /* TBX_CLOCK mode 0 (spec/cp_dialog.h, R4.5): the DOS date and time into
  * `t`, a cp_time_t (spec/cpanels_record.h) in module/BSS storage. */
 

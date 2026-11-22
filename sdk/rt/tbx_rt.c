@@ -201,6 +201,7 @@ int32_t tbx_file_find(const char *pattern, uint32_t attr, void *recs, uint32_t m
     return tbx_trap(TBX_FILE_FIND, TBX_ARGC_FILE_FIND, a);
 }
 int32_t tbx_disk_free(void) { return tbx_trap(TBX_DISK_FREE, TBX_ARGC_DISK_FREE, 0); }
+int32_t tbx_file_drive(void) { return tbx_trap(TBX_FILE_DRIVE, TBX_ARGC_FILE_DRIVE, 0); }
 int32_t tbx_clock(uint32_t mode, cp_time_t *t)
 { uint32_t a[2] = { mode, (uint32_t)(uintptr_t)t }; return tbx_trap(TBX_CLOCK, 2u, a); }
 int32_t tbx_get_clock(void *time) { return tbx_clock(0, time); }

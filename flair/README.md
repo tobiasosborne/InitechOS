@@ -83,8 +83,8 @@ selects that volume and root CWDs for all mounted drives, then restores the
 caller PSP, all per-drive CWDs, default drive and selected I/O drive. Explicit
 foreign-drive paths use that drive's root. Resolved file identity is the triple
 of volume, parent directory and directory slot; the internal platform record
-now supplies these fields. Existing INT81 numbers, arguments and records are
-unchanged; FILE_REPLACE 008Bh is a deliberate two-argument extension.
+supplies these fields. FILE_DRIVE 008Ch queries AH=19h through the registered
+file session. It reports the drive used for unqualified file paths.
 
 tests/test_filecopy_disk.c fault-injects each DOS operation and sector write
 through the real Toolbox adapter, InitechDOS dispatcher and FAT12 backend.

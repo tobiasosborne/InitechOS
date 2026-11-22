@@ -1,0 +1,10 @@
+# test: test_flair_routing
+--- a/tbxgate.c
++++ b/tbxgate.c
+@@ -1056,5 +1056,5 @@
+     flair_platform_regs f = {0};
+     f.eax = 0x1900u;
+-    flair_platform_dos(&g_slot.files, &f);
++    flair_platform_dos(0, &f);
+     return (int32_t)(f.eax & 0xffu);
+ }

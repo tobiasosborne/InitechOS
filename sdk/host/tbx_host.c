@@ -18,6 +18,7 @@ tbx_host_state_t tbx_host = {
 };
 #define S tbx_host
 #include "tbx_validate.h"
+static char system_drive(void) { return S.system_drive?S.system_drive:'A'; }
 static int32_t pack(int h,int v) { return (int32_t)(((uint32_t)(uint16_t)v<<16)|(uint16_t)h); }
 static void copy(char *to,size_t n,const char *from) { snprintf(to,n,"%s",from?from:""); }
 static void record(const char *name,int32_t a,int32_t b,int32_t c,int32_t d,int32_t e,int32_t f,const char *s)
@@ -294,6 +295,12 @@ int32_t tbx_file_find(const char *p,uint32_t attr,void *buf,uint32_t max)
     return (int32_t)n;
 }
 int32_t tbx_disk_free(void) { R(0,0,0,0,0,0,0);LIVE();int32_t e=error(TBX_DISK_FREE);return e?e:S.free_bytes; }
+int32_t tbx_file_drive(void)
+{
+    R(0,0,0,0,0,0,0);
+    LIVE();
+    return system_drive()-'A';
+}
 int tbx_host_push_event(const tbx_event_t *e)
 { if(!e||S.event_count==TBX_HOST_EVENTS)return 0;S.events[(S.event_head+S.event_count)%TBX_HOST_EVENTS]=*e;S.event_count++;return 1; }
 unsigned tbx_host_dispatch(void (*callback)(const tbx_event_t *))
@@ -342,6 +349,7 @@ TBX_TRAP_ABI int32_t tbx_trap(uint32_t c,uint32_t n,const uint32_t *a)
     case TBX_FILE_REPLACE: ARGS(2);return tbx_file_replace(PTR(char,0),PTR(char,1));
     case TBX_FILE_FIND: ARGS(4);return tbx_file_find(PTR(char,0),a[1],PTR(void,2),a[3]);
     case TBX_DISK_FREE:return tbx_disk_free();
+    case TBX_FILE_DRIVE:return tbx_file_drive();
     case TBX_ALERT: ARGS(4);return tbx_alert(PTR(char,0),PTR(char,1),PTR(char,2),PTR(char,3));
     case TBX_FILECOPY: ARGS(3);return tbx_file_copy(PTR(char,0),PTR(char,1),PTR(char,2));
     case TBX_DIALOG: ARGS(6);return tbx_dialog(a[0],PTR(cp_item_t,1),a[2],a[3],a[4],PTR(tbx_event_t,5));
@@ -404,7 +412,6 @@ static int import_tree(const char *dir,const char *rel,char drive)
     }
     free(entries);return ok;
 }
-static char system_drive(void) { return S.system_drive?S.system_drive:'A'; }
 int tbx_host_import_drive(const char *d,char letter)
 { int L=drive_up(letter);return drive_mounted(L)?import_tree(d,"",(char)L):0; }
 int tbx_host_import(const char *d) { return import_tree(d,"",system_drive()); }

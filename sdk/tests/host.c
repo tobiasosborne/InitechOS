@@ -182,7 +182,9 @@ int main(void)
     {
         CHECK(!tbx_host_bind_system('C'));                 /* not mounted yet */
         CHECK(tbx_host_mount('C',1)&&tbx_host_bind_system('C')&&!tbx_host_mount('C',0));
+        CHECK(tbx_trap(0x008Cu,0,0)==TBX_ERR_NOTREG);
         CHECK(tbx_register()==0);
+        CHECK(tbx_trap(0x008Cu,0,0)==2&&tbx_file_drive()==2);
         int32_t h=tbx_file_create("APPS\\TABLES.TXT");CHECK(h>=5&&tbx_file_write(h,"on C",4)==4&&tbx_file_close(h)==0);
         CHECK(tbx_host_file("C:\\APPS\\TABLES.TXT")&&!tbx_host_file("A:\\APPS\\TABLES.TXT"));
         h=tbx_file_create("A:\\LEDGER.TXT");CHECK(h>=5&&tbx_file_write(h,"on A",4)==4&&tbx_file_close(h)==0);
@@ -195,11 +197,14 @@ int main(void)
         static tbx_find_rec_t found[8];
         CHECK(tbx_file_find("*.*",0x16,found,8)==1&&found[0].size==8);  /* C: root: its own LEDGER.TXT */
         CHECK(tbx_file_find("A:*.*",0x16,found,8)==1&&!strcmp(found[0].name,"LEDGER.TXT")&&found[0].size==4);
+        CHECK(tbx_trap(0x008Cu,0,0)==2);
         CHECK(tbx_file_save("APPS\\TABLES.TXT","saved on C",10)==10);
         CHECK(tbx_host_file("C:APPS\\TABLES.TXT")->size==10&&!tbx_host_file("A:APPS\\TABLES.$$$"));
         CHECK(tbx_host_mount('A',0)&&tbx_file_open("A:LEDGER.TXT",0)==TBX_ERR_DOS(15)&&tbx_host_mount('A',1));
+        CHECK(tbx_exit(0)==TBX_OK&&tbx_trap(0x008Cu,0,0)==TBX_ERR_NOTREG);
         tbx_host_reset();
         CHECK(tbx_register()==0&&tbx_file_create("C:\\X")==TBX_ERR_DOS(15));  /* legacy default: A: only */
+        CHECK(tbx_trap(0x008Cu,0,0)==0&&tbx_file_drive()==0);
         tbx_host_reset();
     }
     printf("shared fake: %u checks, 0 failures\n",checks);return 0;

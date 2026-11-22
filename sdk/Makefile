@@ -65,6 +65,7 @@ smoke:
 	+$(MAKE) -C $(TOP) -j2 image TARGET_CFLAGS='$(TARGET_CFLAGS) -g'
 	+$(MAKE) smoke-conformance
 	+$(MAKE) smoke-abi
+	+$(MAKE) smoke-file-drive
 .PHONY: red-once
 red-once: test
 	sh tests/red-once.sh $(TOP) $(OUT)/red "$(MAKE)"
@@ -80,13 +81,17 @@ include $(TOP)/mk/import-check.mk
 $(OUT)/tests/conformance: tests/live/host.c tests/live/cases.h $(HOST_LIB) FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -MMD -MP $< $(HOST_LIB) -o $@)
 test-build: $(OUT)/tests/conformance
-.PHONY: smoke-conformance smoke-abi
+.PHONY: smoke-conformance smoke-abi smoke-file-drive
 smoke-conformance: $(OUT)/tests/conformance
 	+$(MAKE) -f tests/live/Makefile TOP=$(TOP) OUT=$(OUT)/live
 	SDK_HOST=$(OUT)/tests/conformance SDK_TENANT=$(OUT)/live/SDKCHECK.EXE sh tests/live/smoke.sh
 smoke-abi:
 	+$(MAKE) -f tests/live/Makefile TOP=$(TOP) OUT=$(OUT)/abi-live ABI=1
 	SDK_ABI_TENANT=$(OUT)/abi-live sh tests/live/abi-smoke.sh
+smoke-file-drive:
+	+$(MAKE) -C $(TOP) -f factory/desktop-tools.mk all
+	+$(MAKE) -f tests/live/Makefile TOP=$(TOP) OUT=$(OUT)/drive-live FILE_DRIVE=1
+	sh tests/live/file-drive.sh "$(OUT)/drive-live/SDKDRIVE.EXE"
 $(OUT)/tests/dispatch: tests/dispatch.c $(HOST_LIB) FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) -Iinclude -Ihost -MMD -MP $< $(HOST_LIB) -o $@)
 test-build: $(OUT)/tests/dispatch

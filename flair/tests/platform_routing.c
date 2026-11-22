@@ -9,7 +9,15 @@ void flair_platform_files_close(flair_platform_files *p) { (void)p; }
 uint32_t flair_platform_files_live(const flair_platform_files *p) { (void)p; return 0; }
 int flair_platform_file_info_get(flair_platform_files *p,uint8_t h,flair_platform_file_info *i) { (void)p;(void)h;(void)i; unused_service(); }
 int flair_platform_path_is_device(const char *p) { (void)p; unused_service(); }
-void flair_platform_dos(flair_platform_files *p,flair_platform_regs *r) { (void)p;(void)r; unused_service(); }
+/* IBM DOS 3.30 Technical Reference p. 6-81. A non-NULL file session
+ * runs in the bound volume's context (flair_platform.h). */
+unsigned routing_session_drive, routing_dos_drive, routing_drive_queries;
+void flair_platform_dos(flair_platform_files *p,flair_platform_regs *r)
+{
+    if (r->eax != 0x1900u) unused_service();
+    routing_drive_queries++;
+    r->eax |= p ? routing_session_drive : routing_dos_drive;
+}
 uint32_t flair_platform_swap_dta(uint32_t d) { (void)d; unused_service(); }
 int flair_platform_memory(uint32_t *t,uint32_t *f,uint32_t *l) { (void)t;(void)f;(void)l; unused_service(); }
 /* Leg K grades the SETTINGS apply: the desktop pattern call is recorded. */

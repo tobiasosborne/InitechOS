@@ -79,7 +79,7 @@ end
 continue
 end
 continue
-if \$index!=39
+if \$index!=40
  echo ABI missing calls FAIL\n
  quit 1
 end
@@ -107,4 +107,4 @@ mcopy -o -i "$out/data.img" ::SDKEVT.BIN "$out/event.bin"
 awk '/^CALLBACK /{last=$0}END{sub(/^CALLBACK /,"",last);print last}' "$out/gdb.log" > "$out/event.expected"
 od -An -v -tx4 "$out/event.bin" | xargs > "$out/event.actual"
 cmp "$out/event.expected" "$out/event.actual"
-printf 'live ABI: 39 bindings, all argument dwords; registration and six callback fields intact\n'
+printf 'live ABI: 40 bindings, all argument dwords; registration and six callback fields intact\n'

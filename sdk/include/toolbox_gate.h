@@ -265,6 +265,10 @@
  * name ceases to be caller-owned on success and MUST NOT be unlinked. */
 #define TBX_FILE_REPLACE 0x008Bu /* (stagedPath, destPath) -> 0 | err */
 #define TBX_ARGC_FILE_REPLACE 2u
+/* C activation step 7. The live file session's default drive (A=0, C=2).
+ * Returns TBX_ERR_NOTREG before REGISTER or after EXIT. */
+#define TBX_FILE_DRIVE 0x008Cu /* () -> drive index | err */
+#define TBX_ARGC_FILE_DRIVE 0u
 /* Deliberate locked ABI extension, initech-fvnj. Sec 11 below. */
 #define TBX_ALERT         0x0090u  /* (textPtr, defPtr, cancelPtr, otherPtr)
                                     * -> 0 | err; the answer is DELIVERED  */

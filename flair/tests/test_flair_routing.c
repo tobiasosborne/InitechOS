@@ -962,7 +962,8 @@ static const uint16_t k_callable[] = {
     0x0050u, 0x0052u, 0x0070u, 0x0071u,   /* EXIT, QUIT_REPLY (initech-qv7t) */
     0x0080u, 0x0081u, 0x0082u, 0x0083u, 0x0084u, 0x0085u, 0x0086u,
     0x0087u, 0x0088u,   /* Sec 10a FILE_FIND / DISK_FREE */
-    0x0089u, 0x008Au, 0x008Bu,   /* Sec 10b FILE_RENAME / FILE_CREATE_NEW */
+    0x0089u, 0x008Au, 0x008Bu,
+    0x008Cu,   /* C activation plan step 7 FILE_DRIVE */
     0x0090u, 0x0091u, 0x0092u, 0x0093u, 0x0094u, 0x0095u, 0x0096u,
     0x00A0u, 0x00A1u, 0x00B0u, 0x00B1u,
     0x00C0u, 0x00C1u, 0x00C2u, 0x00C3u
@@ -1112,6 +1113,40 @@ static void leg_gate(void)
     service();
     CHECK(t != NULL && W.plist.head == t,
           "leg(X6): the scripted tenant is affirmed like any other once it returns");
+}
+
+extern unsigned routing_session_drive, routing_dos_drive, routing_drive_queries;
+
+static void script_file_drive(void)
+{
+    uint32_t rec = g_base + IMG_REC, rc = 0;
+    CHECK(gate(0x008Cu, 0, NULL) == TBX_ERR_NOTREG,
+          "FILE_DRIVE before REGISTER returns NOTREG");
+    CHECK(gate(TBX_REGISTER, 1, &rec) == TBX_OK, "FILE_DRIVE tenant registers");
+
+    /* C activation plan step 7: DOS selection and file-session binding may
+     * differ. IBM DOS 3.30 Technical Reference p. 6-81 numbers A=0, C=2. */
+    routing_session_drive = 0;
+    routing_dos_drive = 2;
+    CHECK((int32_t)gate_raw(0x008Cu, 0, NULL, POISON) == 0,
+          "FILE_DRIVE returns bound A while DOS is on C");
+    routing_session_drive = 2;
+    routing_dos_drive = 0;
+    CHECK((int32_t)gate_raw(0x008Cu, 0, NULL, POISON) == 2,
+          "FILE_DRIVE returns bound C while DOS is on A");
+
+    CHECK(gate(TBX_EXIT, 1, &rc) == TBX_OK, "FILE_DRIVE tenant requests EXIT");
+    CHECK(gate(0x008Cu, 0, NULL) == TBX_ERR_NOTREG,
+          "FILE_DRIVE after EXIT returns NOTREG");
+    CHECK(routing_drive_queries == 2, "only registered FILE_DRIVE calls reach DOS");
+}
+
+static void leg_file_drive(void)
+{
+    world_init();
+    routing_drive_queries = 0;
+    TP.script = script_file_drive;
+    (void)launch();
 }
 
 /* SDK Sec 7 content-local rectangles. Literal captured document insets give
@@ -1761,6 +1796,7 @@ int main(void)
     leg_panic();
     leg_title();
     leg_gate();
+    leg_file_drive();
     leg_fill_geometry();
     leg_window_extremes();
     leg_plain_window();

@@ -1048,6 +1048,17 @@ static int32_t v_file_find(const uint32_t *a)
         return TBX_ERR_DOS(f.eax & 0xFFFFu);
     return (int32_t)n;
 }
+
+static int32_t v_file_drive(void)
+{
+    /* IBM DOS 3.30 Technical Reference p. 6-81. The file-session binding
+     * installs its default drive for this call and restores the caller's. */
+    flair_platform_regs f = {0};
+    f.eax = 0x1900u;
+    flair_platform_dos(&g_slot.files, &f);
+    return (int32_t)(f.eax & 0xffu);
+}
+
 static int32_t v_disk_free(void)
 {
     flair_platform_regs f;
@@ -1154,6 +1165,7 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         { (uint8_t)TBX_FILE_REPLACE, (uint8_t)(TBX_ARGC_FILE_REPLACE) },
         { (uint8_t)TBX_FILE_FIND, (uint8_t)(TBX_ARGC_FILE_FIND) },
         { (uint8_t)TBX_DISK_FREE, (uint8_t)(TBX_ARGC_DISK_FREE) },
+        { (uint8_t)TBX_FILE_DRIVE, (uint8_t)(TBX_ARGC_FILE_DRIVE) },
         { (uint8_t)TBX_ALERT, (uint8_t)(TBX_ARGC_ALERT) },
         { (uint8_t)TBX_SCRAP_PUT, (uint8_t)(TBX_ARGC_SCRAP_PUT) },
         { (uint8_t)TBX_SCRAP_GET, (uint8_t)(TBX_ARGC_SCRAP_GET) },
@@ -1221,8 +1233,15 @@ void KERNEL_ASM_ABI tbx_gate_dispatch(uint8_t *frame)
         case TBX_FILECOPY:  rc = v_filecopy(a);    break;
         case TBX_FILE_FIND:
         case TBX_DISK_FREE:
-            rc = g_slot.app == 0 || g_slot.exit_req || g_slot.crashed || g_slot.torn_down
-                ? TBX_ERR_NOTREG : ax == TBX_FILE_FIND ? v_file_find(a) : v_disk_free();
+        case TBX_FILE_DRIVE:
+            if (g_slot.app == 0 || g_slot.exit_req || g_slot.crashed || g_slot.torn_down)
+                rc = TBX_ERR_NOTREG;
+            else if (ax == TBX_FILE_FIND)
+                rc = v_file_find(a);
+            else if (ax == TBX_DISK_FREE)
+                rc = v_disk_free();
+            else
+                rc = v_file_drive();
             break;
         case TBX_FILE_CREATE: case TBX_FILE_OPEN: case TBX_FILE_READ:
         case TBX_FILE_WRITE: case TBX_FILE_SEEK: case TBX_FILE_CLOSE:
