@@ -24,7 +24,15 @@ hold_capture() {
 # Boot pointer starts at (320,240); APPS is the first folder in the working
 # volume. The imported full-name layout uses 128-pixel columns; the reviewed
 # ordinary APPS geometry puts its first icon's pointer anchor at (112,102).
-open_disk='m100:-98,m100:-98,m80:0,l1,l0,l1,l0'
+# Finder File > Open opens the selected desktop disk (Users Guide V6.0,
+# p.186). Acknowledging the single selection removes the inter-click deadline.
+# Other component journeys append their own volume-open wait to open_disk.
+open_disk='m100:-98,m100:-98,m80:0,l1,l0,WFINDER-ICON-SELECT name=,kctrl-o'
+open_volume() {
+    inject "$open_disk"
+    expect_marker 'FINDER-ICON-SELECT name='
+    await_marker FINDER-OPEN-VOLUME
+}
 # Open the folder by name too. The following movements only park the pointer;
 # they never choose a filesystem entry or depend on the icon's rectangle.
 open_apps='kup,ka,kp,kp,ks,kctrl-o,m-100:8,m-100:8,m-100:8,m-100:8,m-100:8,m-10:-2'

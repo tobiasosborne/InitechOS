@@ -33,7 +33,7 @@ for emulator in qemu bochs; do
  trace=$(
   if [ "$emulator" = qemu ]; then await_marker 'FLAIR-CLOCK 9:00 am'; fi
   capture desktop
-  inject "$open_disk"; await_marker 'FINDER-OPEN-VOLUME'
+  open_volume
   # Park off the independently graded volume icon, then restore trace anchor.
   inject m-100:0; capture disk; inject m100:0
   inject "$open_apps"; await_marker 'FINDER-OPEN-FOLDER name=APPS'; capture apps
