@@ -1,0 +1,13 @@
+# test: test_volume_db_disk
+# Ignore the loaded baseline: merely showing the A: disk rewrites A:.
+--- a/finder_actions.c
++++ b/finder_actions.c
+@@ -697,7 +697,7 @@
+             serial_puts("DESKTOP-DB-WRITE-FAIL invalid-state\n");
+             g_finder_io_error=FINDER_WIN_ERR_STORAGE;g_finder_db_dirty=1;continue;
+         }
+-        if(i && drive==finder_db_baseline_drive && finder_db_baseline_len==len &&
++        if(0 && i && drive==finder_db_baseline_drive && finder_db_baseline_len==len &&
+            finder_db_equal(finder_db_baseline,g_finder_db_buf,len)){
+             serial_puts("DESKTOP-DB-SAVE n=");
+             serial_putu((len-FINDER_DB_HEADER_SIZE)/FINDER_DB_RECORD_SIZE);

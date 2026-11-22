@@ -244,9 +244,29 @@ binding for an untagged identity, fileio_fat_drive_volume otherwise) before
 the 16-bit cluster is extracted, and enumerated children carry their parent's
 volume. The write check, geometry check and FAT walk all use that volume. A
 move between volumes is refused before any write; copying between volumes is
-plan step 12, and the Trash stays on the system volume until step 11. The
-running Finder still creates only system identities: icons, Desktop DBs and
-root windows for a second mounted drive are the remaining part of step 10.
+plan step 12, and the Trash stays on the system volume until step 11. 
+With the installed C: as system and the DATA A: mounted, the desktop shows
+A:'s disk (its label, e.g. DATA) directly below the system disk in the same
+column, 64 pixels lower: the genuine Mac OS 8.1 Finder capture
+system7-decomp goldens/captures/s8_icons_floppy_sel.png has the startup disk
+at rows 47-69 and a second disk at 111-133 in x 575-611 (measured from the
+PNG). A:'s DESKTOP.DB is read into A: identities, so the frame seed opens
+Drive A Files at (46,115). Startup creates nothing on A:; A:'s file is
+written only when the session changes A:'s projection (the loaded baseline),
+and it never carries the shared Trash, which belongs to the system file.
+Double-click and File > Open open the chosen disk under its own identity;
+FINDER-OPEN-VOLUME ends with " drive=A" for a non-system disk. A program on
+another volume is refused (FLAIR-LAUNCH-REFUSED ... other-volume) because
+the loader is bound to the system disk. Under the kernel's legacy A: system
+fallback (removed by plan step 21) the desktop keeps its single disk until
+the default pair switches at plan step 20. A missing A: omits the volume.
+`make smoke-data-volume` boots the staged C: with DATA and C: alone on both
+emulators: double-click the A: disk, drag its title bar from (46,115), New
+Folder, exit; mtools must find NEWFOLD and the root view (106,115) on A:
+and no NEWFOLD on C:. On the image before this change it is red (two icons,
+nothing to open). test_volume_db_disk also checks the A: disk's own record
+against bytes authored in its script; the patches data-db-baseline-ignored
+and data-db-trash-record break those rules.
 test_finder_fs_volumes mints C: and A: with mtools, both with \SUB at the
 same cluster and disjoint payloads, drives enumerate, read, identity, New
 Folder, create/write, move, delete and the Trash-name probe with A: identities,

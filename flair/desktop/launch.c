@@ -47,7 +47,18 @@ void flair_live_tenant_service(flair_live_ctx_t *ctx, const boot_info_t *bi)
 void flair_live_launch_app(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                   const char *name83, finder_dir_id_t dir_start)
 {
-    int rc=tbx_launch(name83, dir_start);
+    int rc;
+    /* The loader is bound to the system volume (volumes.c). A program on
+     * another mounted volume is refused loudly rather than loaded from the
+     * same-numbered directory of the system disk. */
+    if (finder_dir_drive(dir_start, g_finder_drive) != g_finder_drive) {
+        serial_puts("FLAIR-LAUNCH-REFUSED name=");
+        serial_puts(name83);
+        serial_puts(" other-volume\n");
+        (void)finder_notice(ctx,bi,FINDER_WIN_ERR_LAUNCH,name83);
+        return;
+    }
+    rc=tbx_launch(name83, finder_dir_cluster(dir_start));
     flair_live_tenant_service(ctx, bi);
     if (rc<0) (void)finder_notice(ctx,bi,FINDER_WIN_ERR_LAUNCH,name83);
 }

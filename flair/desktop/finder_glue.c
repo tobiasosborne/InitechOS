@@ -116,11 +116,20 @@ void finder_report_dropped(int slot)
 
 void finder_open_volume(flair_live_ctx_t *ctx, const boot_info_t *bi)
 {
+    finder_open_volume_at(ctx, bi, 0u);
+}
+
+/* Open a desktop disk's root window under that disk's own identity
+ * (untagged 0 is the system volume; plan step 10). */
+void finder_open_volume_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                           finder_dir_id_t root)
+{
     int slot = -1;
     int singleton = 0;
+    unsigned drive = finder_dir_drive(root, g_finder_drive);
     finder_win_status_t st;
     if (g_finder_shell == (finder_shell_t *)0) return;
-    st = finder_win_open(g_finder_shell, 0u, 0u , "", 1u,
+    st = finder_win_open(g_finder_shell, root, root, "", 1u,
                          &slot, &singleton);
     if (st != FINDER_WIN_OK) { finder_report_open_fail(ctx,bi,st); return; }
     finder_desk_repaint(ctx, bi);
@@ -128,6 +137,10 @@ void finder_open_volume(flair_live_ctx_t *ctx, const boot_info_t *bi)
     serial_puti((int32_t)slot);
     serial_puts(" n=");
     serial_putu((uint32_t)g_finder_shell->windows[slot].view.n);
+    if (drive != g_finder_drive) {
+        serial_puts(" drive=");
+        serial_putc((char)('A' + drive));
+    }
     serial_putc('\n');
     finder_report_dropped(slot);
 }
@@ -191,7 +204,7 @@ void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
             finder_open_trash(ctx, bi);
             return;
         }
-        finder_open_volume(ctx, bi);
+        finder_open_volume_at(ctx, bi, ic->dir_start);
         return;
     }
     if (ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
@@ -513,7 +526,12 @@ void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
          * still reports FINDER-OPEN-VOLUME. Users Guide V6.0 printed p.186 /
          * PDF p.206. Copy the flags first: the verbs reuse the shell. */
         uint8_t open_volume = o->open_volume, open_trash = o->open_trash;
-        if (open_volume) finder_open_volume(ctx, bi);
+        /* Each selected disk opens under its own identity, in desktop order. */
+        if (open_volume && g_finder_desk != (finder_desk_t *)0)
+            for (int i = 0; i < (int)g_finder_desk->n; i++)
+                if (g_finder_desk->icons[i].selected &&
+                    g_finder_desk->icons[i].kind == (uint8_t)FINDER_ICON_VOLUME)
+                    finder_open_volume_at(ctx, bi, g_finder_desk->icons[i].dir_start);
         if (open_trash) finder_open_trash(ctx, bi);
         return;
     }

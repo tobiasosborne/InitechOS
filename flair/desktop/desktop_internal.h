@@ -238,6 +238,9 @@ void finder_report_open_fail(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                      finder_win_status_t st);
 void finder_report_dropped(int slot);
 void finder_open_volume(flair_live_ctx_t *ctx, const boot_info_t *bi);
+void finder_open_volume_at(flair_live_ctx_t *ctx, const boot_info_t *bi,
+                           finder_dir_id_t root);
+void finder_desk_mount_data_volumes(void);
 void finder_open_folder(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                finder_dir_id_t parent, finder_dir_id_t dir_start,
                                const char *name83);

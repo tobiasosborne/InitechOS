@@ -1,0 +1,13 @@
+# test: test_volume_db_disk
+# Project the shared desktop Trash onto every volume's file.
+--- a/volume_db.c
++++ b/volume_db.c
+@@ -33,7 +33,7 @@
+         const finder_desk_icon_t *ic=&sh->desk.icons[i];
+         if(ic->kind==FINDER_ICON_VOLUME){
+             if(!on_drive(ic->dir_start,drive,sh->volume_drive))continue;
+-        }else if(drive!=sh->volume_drive)continue; /* one shared desktop Trash */
++        }
+         icons[desk.n++]=*ic;
+     }
+     for(unsigned i=0;i<sh->n_views;i++){
