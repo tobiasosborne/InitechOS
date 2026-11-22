@@ -1,15 +1,16 @@
 #!/bin/sh
-# Run in a disposable checkout with no user-disks directory. Builds the real
-# product image but substitutes host stubs for the two emulator executables.
+# Exercise the real launch targets, including make clean, on a source copy.
+# Exclude operator disks and factory outputs before invoking either launcher.
 set -eu
 cd "$(dirname "$0")/../../.."
-[ ! -e user-disks ] && [ ! -L user-disks ] || {
-    echo 'launch test: use a disposable checkout without user-disks' >&2
-    exit 1
-}
-work=$(mktemp -d)
+mkdir -p build
+work=$(mktemp -d "$PWD/build/launch-test.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 trap 'exit 1' HUP INT TERM
+mkdir "$work/tree"
+sh factory/testlib/snapshot.sh "$work/tree" --exclude=./build --exclude=./user-disks \
+    --exclude='./.user-disks.*' --exclude=./.git --exclude=./.beads --exclude=./attic .
+cd "$work/tree"
 export LAUNCH_TEST_DIR="$work" PATH="$work:$PATH"
 
 cat > "$work/qemu-system-i386" <<'EOF'
@@ -45,7 +46,7 @@ start() {
     if [ "$1" = run ]; then
         make run
     elif make run-bochs > "$work/bochs.log" 2>&1 ||
-        ! rg -Fq 'ended abnormally (exit=86 ' "$work/bochs.log"; then
+        ! grep -Fq 'ended abnormally (exit=86 ' "$work/bochs.log"; then
         cat "$work/bochs.log" >&2
         return 1
     fi

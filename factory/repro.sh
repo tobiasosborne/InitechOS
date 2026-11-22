@@ -11,5 +11,10 @@ done
 cmp "$work/hash-1" "$work/hash-2"
 mkdir -p build/repro
 cp "$work"/* build/repro/
+if ! sh factory/image/tests/launch.sh > build/repro/launch.log 2>&1; then
+ cat build/repro/launch.log >&2
+ exit 1
+fi
+tail -n 1 build/repro/launch.log
 cat build/repro/hash-2
 echo 'REPRO: identical across two clean builds'

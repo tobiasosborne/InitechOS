@@ -69,7 +69,7 @@ fresh `make image`. They share a checkout lock and refuse an incomplete
 pair. Bochs attaches the working boot disk in place for this launcher.
 Smoke and repro still use the factory images.
 
-Run `sh factory/image/tests/launch.sh` from a disposable checkout to probe
-the launch path with stub emulators and mtools. It builds the image, inserts
-markers in both drives, and reads them on restart after an image rebuild
-and after `make clean`. It leaves the test's working disks in that checkout.
+`make repro` also checks both launch targets in an isolated source copy.
+Stub emulators record the attached disks. The oracle writes a marker to
+each drive with mtools, then reads it across restarts, an image rebuild
+and a clean. Its transcript is in build/repro/launch.log.
