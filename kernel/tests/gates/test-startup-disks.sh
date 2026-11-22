@@ -35,3 +35,35 @@ for scenario in c-alone c-with-data a-legacy; do
     assert cmp "$w/a-base.img" "$w/$scenario-a.img"
     [ "$case_status" -eq 0 ] || exit "$case_status"
 done
+
+# Keep C intact and mint a FAT16 data partition with one sector per cluster.
+d_base=20160
+d_size=16384
+cp "$w/c-installed.img" "$w/c-fat16.img"
+truncate -s "$(((d_base+d_size+8)*512))" "$w/c-fat16.img"
+printf 'drive y: file="%s/%s/c-fat16.img" partition=2\n' "$PWD" "$w" >> "$MTOOLSRC"
+mpartition -c -b "$d_base" -l "$d_size" -T 4 y:
+d="$w/c-fat16.img@@$((d_base*512))"
+mformat -i "$d" -T "$d_size" -h 16 -s 63 -c 1 -H "$d_base" ::
+printf 'independent imported bytes\n' > "$w/d-root"
+mcopy -i "$d" "$w/d-root" ::KEEP.TXT
+cp "$w/c-fat16.img" "$w/d-probe-fails.img"
+
+echo "startup scenario: d-probe-fails"
+case_status=0
+build/test_startup_disks "$w/d-probe-fails.img" - 2 "$d_base" || case_status=$?
+assert cmp "$w/c-fat16.img" "$w/d-probe-fails.img"
+[ "$case_status" -eq 0 ]
+
+truncate -s "$((d_size*512))" "$w/a-fat16.img"
+mformat -i "$w/a-fat16.img" -T "$d_size" -h 16 -s 63 -c 1 ::
+mcopy -i "$w/a-fat16.img" "$w/d-root" ::KEEP.TXT
+cp "$w/a-fat16.img" "$w/a-probe-fails.img"
+cp "$w/c-installed.img" "$w/with-failed-a.img"
+
+echo "startup scenario: a-probe-fails"
+case_status=0
+build/test_startup_disks "$w/with-failed-a.img" "$w/a-probe-fails.img" 2 fail-a || case_status=$?
+assert cmp "$w/c-installed.img" "$w/with-failed-a.img"
+assert cmp "$w/a-fat16.img" "$w/a-probe-fails.img"
+[ "$case_status" -eq 0 ]

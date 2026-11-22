@@ -7,5 +7,5 @@
      crit_blockdev_init(&fixed_crit, &fixed_dev);
 +    if (!have_data) return 0;
      for (unsigned letter = 2; letter < 4; letter++) {
-         du_map map;
-         if (block_device_map(letter, &map)) continue;
+         const unsigned index = letter - 2;
+         if (block_device_map(letter, &fixed_maps[index])) continue;

@@ -369,7 +369,8 @@ GM2 mounts FAT16 for listing and reading only. DOS file mutations return access
 denied; INT26 refuses with write protection. INT13 AH=03h refuses the entire
 request with BIOS status03h before calling the backend when any requested sector
 intersects a mounted FAT16 partition (A, C or D), including either boundary and
-partition tail sectors. Mount policy is keyed by physical disk and does not
+partition tail sectors. Startup also protects a mapped extent until its volume
+probe succeeds. Mount policy is keyed by physical disk and does not
 follow the selected DOS drive. The shared FAT sector writer also refuses FAT16,
 so resident FAT consumers cannot bypass the file layer. FAT12 stays writable.
 Source: GOLDEN-MASTER item2 (operator amendment, 2026-11-14), Microsoft FAT BPB /
@@ -380,6 +381,8 @@ include/dos_messages.json (ADR-0003 Appendix C).
 `test-fat16-policy` mounts mtools-built FAT12/FAT16 partitions, lists/reads literal
 bytes, exercises file/INT26/shared-sector/INT13 refusals and compares complete
 refused disk images byte for byte, then independently extracts the old file.
+The startup gate fails the first mount read on independently formatted FAT16
+D: and A: fixtures and checks whole-request BIOS refusal and disk-image identity.
 
 InitechDOS provides three OEM INT21 functions. Microsoft reserved AH=F8h..FFh
 for OEM extensions in its [MS-DOS2 system-call documentation](https://github.com/microsoft/MS-DOS/blob/main/v2.0/source/SYSCALL.txt).
