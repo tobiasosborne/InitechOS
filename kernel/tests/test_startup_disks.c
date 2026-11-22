@@ -221,6 +221,25 @@ static int image_media(const char *image, long vbr)
 
 static const char *c_image, *a_image;
 
+/* FAT 1 read straight from the image file at the BPB's reserved-sector
+ * offset, as test_system_drive's independent reader does. 1 = same bytes. */
+static int image_fat_matches(const char *image, unsigned base, const void *cache,
+                             uint32_t bytes)
+{
+    static uint8_t bpb[512], raw[16 * 512];
+    FILE *fp = fopen(image, "rb");
+    int same = 0;
+    if (fp && !fseek(fp, (long)base * 512, SEEK_SET) && fread(bpb, 1, 512, fp) == 512) {
+        unsigned reserved = bpb[14] | (unsigned)bpb[15] << 8;
+        unsigned length = (bpb[22] | (unsigned)bpb[23] << 8) * 512u;
+        same = length <= sizeof raw && cache && bytes == length &&
+               !fseek(fp, (long)(base + reserved) * 512, SEEK_SET) &&
+               fread(raw, 1, length, fp) == length && !memcmp(cache, raw, length);
+    }
+    if (fp) fclose(fp);
+    return same;
+}
+
 static int allocation_media(unsigned dl)
 {
     int_frame_t f = call(0x1c00, 0, 0, dl);
@@ -368,6 +387,12 @@ int main(int argc, char **argv)
         system = 0;
     } else {
         CHECK(system, "production startup binds a working volume");
+        void *cache = NULL;
+        uint32_t cache_bytes = 0;
+        CHECK(system && fileio_fat_drive_volume(want, &cache, &cache_bytes) == system &&
+              image_fat_matches(want == 2 ? c_image : a_image, want == 2 ? 63u : 0u,
+                                cache, cache_bytes),
+              "at startup return the system FAT cache holds the image's FAT bytes");
     }
     if (system) {
         CHECK(int21_current_drive() == want && int21_io_drive() == want,
