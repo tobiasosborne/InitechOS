@@ -139,6 +139,20 @@ for scenario in $cases; do
                 echo "RED boot $name: wrong firmware display selection (want $mode)"
                 sed -n '/^VBE-/p; /^VGA13/p' "$serial"; failed=1
             else echo "GREEN boot $name: FAT -> IO -> protected mode -> InitechDOS prompt ${mode:+($mode)}"; fi
+            # The ROM independently read the selected mode's BIOS descriptor:
+            # BytesPerScanLine (10h, the field IO.SYS hands off) against
+            # LinBytesPerScanLine (32h, authoritative for the LFB where the
+            # BIOS provides it; VBE Core 2.0 rev 1.1 pp16-20). The last set
+            # is the one that took effect.
+            if [ "$scenario" = normal ] || [ "$scenario" = indexed ]; then
+                pitch=$(grep '^PITCH=' "$serial" | tail -1)
+                p10=$(printf %s "$pitch" | cut -c7-10)
+                p32=$(printf %s "$pitch" | cut -c12-15)
+                if [ -z "$pitch" ] || [ "$p10" = 0000 ] ||
+                   { [ "$p32" != 0000 ] && [ "$p32" != "$p10" ]; }; then
+                    echo "RED boot $name: handed-off pitch disagrees with BIOS linear pitch ($pitch)"; failed=1
+                else echo "GREEN boot $name: BIOS descriptor pitch verified ($pitch)"; fi
+            fi
         fi
     done
 done
