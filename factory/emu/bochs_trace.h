@@ -146,7 +146,7 @@ static inline int bochs_trace_parse(const char *s, size_t n, BochsTraceStep *v)
     if (!n || n >= sizeof b) return 0;
     memcpy(b, s, n); b[n] = 0;
     memset(v, 0, sizeof *v);
-    if (b[0] == 'm' && n > 1) {
+    if (b[0] == 'm' && strchr(b, ':')) {
         if (!bochs_trace_number(b+1, &end, -100, 100, &v->x) || *end != ':') return 0;
         if (!bochs_trace_number(end+1, &end, -100, 100, &v->y) || *end) return 0;
         v->kind = BX_MOVE; return 1;
@@ -175,6 +175,7 @@ static inline int bochs_trace_parse(const char *s, size_t n, BochsTraceStep *v)
     /* X11 keysyms from keysymdef.h (RFC 6143 Sec 7.5.4), independent
      * transport values, not BIOS scans. initech-wuxo0. */
     static const struct { const char *name; unsigned sym; } special[] = {
+        {"semicolon", ';'}, {"backslash", '\\'}, {"minus", '-'},
         {"f1",0xffbe}, {"f2",0xffbf}, {"f3",0xffc0}, {"f4",0xffc1},
         {"f5",0xffc2}, {"f6",0xffc3}, {"f7",0xffc4}, {"f8",0xffc5},
         {"f9",0xffc6}, {"f10",0xffc7},
