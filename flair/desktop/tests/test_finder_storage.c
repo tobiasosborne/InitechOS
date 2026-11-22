@@ -15,6 +15,10 @@ extern const finder_fs_t g_finder_fs_binding;
 const fat12_volume_t *g_finder_vol;
 void *g_finder_fat, *g_finder_secbuf;
 uint32_t g_finder_fat_len;
+unsigned g_finder_drive;
+/* One mounted volume: every identity here is the bound system volume. */
+const fat12_volume_t *fileio_fat_drive_volume(unsigned d,void **fat,uint32_t *len)
+{ (void)d; if(fat)*fat=0; if(len)*len=0; return 0; }
 uint8_t g_finder_dirbuf[FINDER_FS_MAX_SPC*512];
 uint8_t g_finder_clusbuf[FINDER_FS_MAX_SPC*512];
 void serial_puts(const char *s) { (void)s; }

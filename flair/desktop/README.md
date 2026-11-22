@@ -225,7 +225,7 @@ whose Finder state was loaded or changed, using each volume's own FAT cache;
 it first reads the existing file and skips the write when the bytes are
 equal, and a failed read writes nothing and keeps the state dirty. An A: that
 DOS mounted but the Finder never loaded is never written. finder_fs.c still
-resolves every operation on the system volume (16-bit clusters) until step 10.
+no longer narrows identities onto the system volume (plan step 10, below).
 test_finder_volumes (old 16-bit model: 9 of 21 red), test_volume_persist (old
 single-volume persist: 7 of 22 red) and test_volume_db_disk check this; the
 last mints two FAT12 roots with mtools, each with SAME.TXT on the same cluster
@@ -237,6 +237,22 @@ DOS; mtools decodes C:'s root view, which must advance by the same step on
 the second boot, and A: must be byte-identical. ROOT_VIEW_CONTROL=pristine
 (the second boot from an unwritten C:) is its red control. The patch
 volume-db-shared-views projects every volume's views onto each file.
+
+finder_fs.c resolves each operation on its named volume: the identity's
+drive selects the mounted volume and that volume's own FAT cache (the system
+binding for an untagged identity, fileio_fat_drive_volume otherwise) before
+the 16-bit cluster is extracted, and enumerated children carry their parent's
+volume. The write check, geometry check and FAT walk all use that volume. A
+move between volumes is refused before any write; copying between volumes is
+plan step 12, and the Trash stays on the system volume until step 11. The
+running Finder still creates only system identities: icons, Desktop DBs and
+root windows for a second mounted drive are the remaining part of step 10.
+test_finder_fs_volumes mints C: and A: with mtools, both with \SUB at the
+same cluster and disjoint payloads, drives enumerate, read, identity, New
+Folder, create/write, move, delete and the Trash-name probe with A: identities,
+and mtools then requires every change on A: and only a system-root NEWC on C:
+(old global binding: 6 of 17 red). The patch fs-global-provider restores the
+old resolution.
 
 Finder storage uses one write-capability decision in finder_storage.h, shared
 by the filesystem binding (finder_fs.c) and Desktop DB/Trash persistence.
