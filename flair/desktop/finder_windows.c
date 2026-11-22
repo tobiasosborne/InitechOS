@@ -1507,7 +1507,24 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
     const finder_desk_icon_t *app = (const finder_desk_icon_t *)0;
     int apps = 0;
     uint16_t dir;
-    if (slot < 0) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+    if (slot < 0) {
+        /* No Finder window in front: Open acts on the DESKTOP selection
+         * (bead initech-xrnwk; Users Guide V6.0 printed p.186 / PDF p.206,
+         * "select the hard disk icon and choose Open from the File menu").
+         * Name the disk and/or Trash; the glue runs the double-click verbs. */
+        uint8_t vol = 0u, trash = 0u;
+        for (int i = 0; i < (int)sh->desk.n; i++) {
+            const finder_desk_icon_t *ic = &sh->desk.icons[i];
+            if (!ic->selected) continue;
+            if (ic->kind == (uint8_t)FINDER_ICON_VOLUME) vol = 1u;
+            else if (ic->kind == (uint8_t)FINDER_ICON_TRASH) trash = 1u;
+        }
+        if (!vol && !trash) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
+        fw_outcome(sh, id, FINDER_WIN_OK, -1);
+        sh->last.open_volume = vol;
+        sh->last.open_trash  = trash;
+        return;
+    }
     dir = sh->windows[slot].dir_start;
     for (int i = 0; i < (int)sh->windows[slot].view.n; i++) {
         const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[i];
@@ -1762,6 +1779,14 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
                 for(int k=0;k<sh->n_origins;k++)
                     if(fw_ieq(v->icons[i].name,sh->origins[k].name83))
                         sh->ctx->selection_putaway=1u;
+    } else {
+        /* The desktop's own selection (bead initech-xrnwk): a selected disk
+         * or Trash is opened by File > Open exactly as by a double-click. */
+        for (int i = 0; i < (int)sh->desk.n; i++)
+            if (sh->desk.icons[i].selected &&
+                (sh->desk.icons[i].kind == (uint8_t)FINDER_ICON_VOLUME ||
+                 sh->desk.icons[i].kind == (uint8_t)FINDER_ICON_TRASH))
+                sh->ctx->selection_openable = 1u;
     }
 }
 

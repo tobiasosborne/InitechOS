@@ -1466,6 +1466,98 @@ static void leg_open_app(void)
     }
 }
 
+/* ===========================================================================
+ * L14 -- FILE > OPEN ON A SELECTED DESKTOP DISK (bead initech-xrnwk)
+ *
+ * GROUND TRUTH: Apple_Macintosh_System_Software_Users_Guide_V6.0.pdf
+ * (SHA-256 4b92373b...adf2c9) printed p.186 / PDF p.206, ch.7 step 2:
+ * "If it's not already open, select the hard disk icon and choose Open from
+ * the File menu. You can also double-click the icon to open it." So a
+ * selected desktop disk lights File > Open and the command asks for the same
+ * root-window open as the double-click (finder_open_volume, which prints
+ * FINDER-OPEN-VOLUME). The general rule (PDF p.38/p.45, L13) gives the Trash
+ * the same route. The shell cannot paint or report: it NAMES the desktop
+ * open in the outcome and the resident glue calls the one existing verb.
+ * ===========================================================================*/
+static void leg_open_desk(void)
+{
+    static scene_t s;
+    FinderCtx ctx;
+    const finder_cmd_t *c = finder_cmd_lookup(512, 2);
+    const finder_cmd_outcome_t *o;
+    int vol, tr;
+
+    scene_init(&s, MOCK_DIRS, (int)(sizeof MOCK_DIRS / sizeof MOCK_DIRS[0]));
+    CHECK(finder_desk_seed_defaults(&s.sh.desk) == 0,
+          "L14 (fixture) the desktop holds the volume and the Trash");
+    memset(&ctx, 0, sizeof ctx);
+    finder_shell_bind_ctx(&s.sh, &ctx);
+    vol = finder_desk_find_kind(&s.sh.desk, FINDER_ICON_VOLUME);
+    tr  = finder_desk_find_kind(&s.sh.desk, FINDER_ICON_TRASH);
+    CHECK(vol == 0 && tr == 1 && wm_count(&s.wm) == 0,
+          "L14 volume record 0, Trash record 1, no window open");
+
+    /* ---- nothing selected: Open stays dark ------------------------------ */
+    finder_shell_sync_ctx(&s.sh);
+    CHECK(ctx.front_is_diskwin == 0u && ctx.selection_count == 0u &&
+          ctx.selection_openable == 0u,
+          "L14 an empty desktop selection does not light Open");
+
+    /* ---- the disk selected: Open lights and names the volume open ------- */
+    s.sh.desk.icons[vol].selected = 1u;
+    finder_shell_sync_ctx(&s.sh);
+    CHECK(ctx.selection_count == 1u && ctx.selection_openable == 1u &&
+          finder_pred_selection_openable(&ctx) == 1u,
+          "L14 a selected desktop DISK lights File > Open (Users Guide p.186)");
+    finder_dispatch(&ctx, finder_cmd_result(c), "key");
+    o = finder_shell_take_outcome(&s.sh);
+    CHECK(o != NULL && o->id == FCMD_OPEN && o->status == FINDER_WIN_OK &&
+          o->slot == -1,
+          "L14 Cmd-O on the selected disk is a successful desktop Open");
+    CHECK(o != NULL && o->open_volume == 1u && o->open_trash == 0u &&
+          o->moved == 0 && o->launch == 0u,
+          "L14 ... naming the root disk window, no folder, Trash or launch");
+    CHECK(wm_count(&s.wm) == 0 && s.mock.mkdir_calls == 0,
+          "L14 ... the shell itself opened nothing and wrote nothing");
+    s.sh.desk.icons[vol].selected = 0u;
+
+    /* ---- the Trash selected: names the Trash open ----------------------- */
+    s.sh.desk.icons[tr].selected = 1u;
+    finder_shell_sync_ctx(&s.sh);
+    CHECK(ctx.selection_openable == 1u, "L14 a selected desktop Trash lights Open");
+    finder_dispatch(&ctx, finder_cmd_result(c), "mouse");
+    o = finder_shell_take_outcome(&s.sh);
+    CHECK(o != NULL && o->status == FINDER_WIN_OK && o->open_trash == 1u &&
+          o->open_volume == 0u && o->slot == -1,
+          "L14 ... and Open names the Trash window only");
+
+    /* ---- both selected: both named ------------------------------------- */
+    s.sh.desk.icons[vol].selected = 1u;
+    finder_shell_sync_ctx(&s.sh);
+    finder_dispatch(&ctx, finder_cmd_result(c), "key");
+    o = finder_shell_take_outcome(&s.sh);
+    CHECK(o != NULL && o->status == FINDER_WIN_OK && o->open_trash == 1u &&
+          o->open_volume == 1u,
+          "L14 the disk and the Trash selected: Open names both");
+
+    /* ---- a window front: its own selection still governs ---------------- */
+    {
+        int slot = -1;
+        s.sh.desk.icons[tr].selected = 0u;
+        s.sh.desk.icons[vol].selected = 0u;
+        CHECK(finder_win_open(&s.sh, 0u, 0u, "", 1u, &slot, NULL) == FINDER_WIN_OK,
+              "L14 (window) the root disk window opens");
+        s.sh.windows[slot].view.icons[1].selected = 1u;  /* APPS */
+        finder_shell_sync_ctx(&s.sh);
+        finder_dispatch(&ctx, finder_cmd_result(c), "key");
+        o = finder_shell_take_outcome(&s.sh);
+        CHECK(o != NULL && o->status == FINDER_WIN_OK && o->moved == 1 &&
+              strcmp(o->name83, "APPS") == 0 && o->open_volume == 0u &&
+              o->open_trash == 0u,
+              "L14 (window) a front window's folder still opens; no desktop open named");
+    }
+}
+
 int main(void)
 {
     leg_kind();
@@ -1482,5 +1574,6 @@ int main(void)
     leg_cmd_spine();
     leg_purge_views();
     leg_open_app();
+    leg_open_desk();
     return TEST_SUMMARY("test-finder-windows");
 }

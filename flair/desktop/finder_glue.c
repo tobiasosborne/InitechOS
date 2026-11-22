@@ -506,6 +506,17 @@ void finder_report_outcome(flair_live_ctx_t *ctx, const boot_info_t *bi)
     if (g_finder_shell == (finder_shell_t *)0) return;
     o = finder_shell_take_outcome(g_finder_shell);
     if (o == (const finder_cmd_outcome_t *)0) return;
+    if (o->id == FCMD_OPEN && o->status == FINDER_WIN_OK &&
+        (o->open_volume || o->open_trash)) {
+        /* bead initech-xrnwk: Open on a selected desktop disk/Trash runs the
+         * double-click's own verbs (finder_surface_open), so the root window
+         * still reports FINDER-OPEN-VOLUME. Users Guide V6.0 printed p.186 /
+         * PDF p.206. Copy the flags first: the verbs reuse the shell. */
+        uint8_t open_volume = o->open_volume, open_trash = o->open_trash;
+        if (open_volume) finder_open_volume(ctx, bi);
+        if (open_trash) finder_open_trash(ctx, bi);
+        return;
+    }
     finder_outcome_run(ctx, bi, o);
 }
 

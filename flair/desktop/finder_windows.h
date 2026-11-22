@@ -534,6 +534,14 @@ typedef struct finder_cmd_outcome {
     uint16_t            launch;
     uint16_t            launch_dir;
     char                launch83[FINDER_DESK_NAME_MAX];
+    /* Open with no Finder window in front acts on the DESKTOP selection
+     * (bead initech-xrnwk). Users Guide V6.0 printed p.186 / PDF p.206: "select
+     * the hard disk icon and choose Open from the File menu. You can also
+     * double-click the icon to open it." The shell names the desktop opens;
+     * the resident glue runs the double-click's own verbs, so the root window
+     * still opens through finder_open_volume (FINDER-OPEN-VOLUME). */
+    uint8_t             open_volume;
+    uint8_t             open_trash;
 } finder_cmd_outcome_t;
 
 /* Shell state and window records live in the RECORDS arena (ADR-0013 AC-2).

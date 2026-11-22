@@ -1,0 +1,12 @@
+# test: test_finder_windows
+--- a/finder_windows.c
++++ b/finder_windows.c
+@@ -1516,7 +1516,7 @@
+         for (int i = 0; i < (int)sh->desk.n; i++) {
+             const finder_desk_icon_t *ic = &sh->desk.icons[i];
+             if (!ic->selected) continue;
+-            if (ic->kind == (uint8_t)FINDER_ICON_VOLUME) vol = 1u;
++            if (ic->kind == (uint8_t)FINDER_ICON_TRASH && 0) vol = 1u;
+             else if (ic->kind == (uint8_t)FINDER_ICON_TRASH) trash = 1u;
+         }
+         if (!vol && !trash) { fw_outcome(sh, id, FINDER_WIN_ERR_NULL, -1); return; }
