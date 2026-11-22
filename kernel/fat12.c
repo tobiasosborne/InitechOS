@@ -2517,7 +2517,7 @@ static int fat12_remove_allocation(const fat12_volume_t *vol, void *fat,
                                     const dir_entry_t *replacement,
                                     void *sector_buf)
 {
-	static uint8_t before[6144];
+	static uint8_t before[FAT12_WHOLE_FAT_MAX];
 	uint32_t bytes = (uint32_t)vol->bpb.sectors_per_fat * vol->bpb.bytes_per_sector;
 	uint32_t i, count, bpc;
 	uint16_t cur;
@@ -2875,7 +2875,7 @@ int fat12_set_size(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                    uint16_t parent, uint32_t slot, uint32_t size,
                    void *sector_buf, void *cluster_buf)
 {
-	static uint8_t before[6144]; /* all supported FAT12 entries, packed */
+	static uint8_t before[FAT12_WHOLE_FAT_MAX]; /* the whole supported FAT */
 	dir_entry_t old, de;
 	uint32_t bpc, count, keep, bytes, i;
 	uint16_t cur;
@@ -3254,7 +3254,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                         const uint8_t *data, uint32_t len, void *sector_buf,
                         void *cluster_buf, uint32_t *out_written)
 {
-	static uint8_t before[6144];
+	static uint8_t before[FAT12_WHOLE_FAT_MAX];
 	dir_entry_t old;
 	uint32_t bytes, i;
 	int rc, restore_fat, restore_dir;
@@ -4224,7 +4224,7 @@ int fat12_mkdir_timed(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                 const char *name83, uint16_t parent, void *sector_buf,
                 void *cluster_buf, uint16_t mtime, uint16_t mdate)
 {
-	static uint8_t before[6144];
+	static uint8_t before[FAT12_WHOLE_FAT_MAX];
 	uint8_t want11[11];
 	uint32_t bytes, i, free_slot = 0u, match_slot = 0u;
 	int have_free = 0, found = 0, rc, restore_fat, restore_dir = FAT12_OK;
