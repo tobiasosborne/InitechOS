@@ -56,11 +56,70 @@ observe:
     out dx, al
     mov al, 10
     out dx, al
+    ; Report both pitch fields of the same BIOS descriptor, hex16/hex16:
+    ; BytesPerScanLine (offset 10h) / LinBytesPerScanLine (offset 32h).
+    ; VBE Core Functions 3.0 pp. 34-38 defines the linear field. The
+    ; checker compares the two when the BIOS populates both.
+    push ds
+    push cs
+    pop ds
+    mov si, pitch_tag
+    call puts
+    mov ax, [es:di+0x10]
+    call hex16
+    mov al, '/'
+    call putc
+    mov ax, [es:di+0x32]
+    call hex16
+    mov al, 10
+    call putc
+    pop ds
 .done:
     pop es
     popa
     int 0x60
     iret
+; Serial helpers (COM1 already initialized by the MBR). putc waits for
+; THRE so a longer report cannot overrun the UART FIFO.
+putc:
+    push dx
+    mov ah, al
+.wait:
+    mov dx, 0x3fd
+    in al, dx
+    test al, 0x20
+    jz .wait
+    mov dx, 0x3f8
+    mov al, ah
+    out dx, al
+    pop dx
+    ret
+puts:
+    lodsb
+    test al, al
+    jz .done
+    call putc
+    jmp puts
+.done:
+    ret
+hex16:
+    push cx
+    mov cx, 4
+.digit:
+    rol ax, 4
+    push ax
+    and al, 15
+    add al, '0'
+    cmp al, '9'
+    jbe .emit
+    add al, 7
+.emit:
+    call putc
+    pop ax
+    loop .digit
+    pop cx
+    ret
+pitch_tag: db 'PITCH=', 0
 init:
     push ax
     push ds

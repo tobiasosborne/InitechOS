@@ -56,7 +56,14 @@ private images, payload references and transcripts under
 `-d int,guest_errors,cpu_reset`; faults and extra resets fail.
 
 The test-only PC expansion ROM in `tests/` observes the actual BIOS
-descriptor selected by the loader. Its indexed variant rejects non-0101h
+descriptor selected by the loader. It also reports both pitch fields of
+that descriptor (`BytesPerScanLine` at 10h, the field IO.SYS hands off,
+and `LinBytesPerScanLine` at 32h, added in VBE 3.0 for the LFB, Core
+Functions Standard pp. 34–38): the smoke requires
+the handed-off field to be nonzero and the linear field absent or
+equal, so IO.SYS's pitch source is verified against each supported
+BIOS (0A00h at QEMU's 32 bpp mode, 0280h at 0101h on both, the two
+fields agreeing) instead of assumed. Its indexed variant rejects non-0101h
 mode queries, then delegates all supported operations to the real VGA BIOS.
 It changes firmware offers without changing the product disk or loader.
 It is injected using QEMU's option-ROM facility or Bochs' optromimage1.
