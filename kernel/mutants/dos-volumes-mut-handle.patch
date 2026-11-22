@@ -2,15 +2,15 @@
 # test: test-dos-volumes-host
 --- a/int21.c
 +++ b/int21.c
-@@ -1117,7 +1117,6 @@
+@@ -1137,7 +1137,6 @@
          }
          uint32_t wrote = 0u;
          dir_entry_t updated = e->dir_entry;
 -        (void)select_volume(e->drive);
-         uint16_t err = g_file->write_at(e->dir_start, e->root_slot,
-                                         e->file_offset,
-                                         (const uint8_t *)buf, count,
-@@ -3206,7 +3205,6 @@
+         uint16_t (*write)(uint16_t, uint32_t, uint32_t, const uint8_t *, uint32_t,
+                           uint32_t *, dir_entry_t *) =
+             e->creator && g_file->write_created ? g_file->write_created : g_file->write_at;
+@@ -3338,7 +3337,6 @@
       * backend serves min(count, file_size - file_offset) bytes from the chain. */
      uint32_t take = 0u;
      if (g_file != 0 && g_file->read_at != 0) {

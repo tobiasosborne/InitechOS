@@ -121,7 +121,8 @@ static const int21_file_backend_t g_space_backend = {
     NULL,  /* rmdir: AH=36h does not remove a dir (beads initech-u6wa) */
     NULL,  /* set_time: AH=36h does not set file times (beads initech-qekc) */
     NULL,  /* chmod: AH=36h does not chmod a file (beads initech-b53d) */
-    NULL   /* rename: AH=36h does not rename a file (beads initech-gnrc) */
+    NULL,   /* rename: AH=36h does not rename a file (beads initech-gnrc) */
+    NULL, NULL /* create_attr, write_created (eico5) */
 };
 
 /* AH=1Fh/32h DPB source mock (WL-0167): a 1.44 MB mformat geometry. */

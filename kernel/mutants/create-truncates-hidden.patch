@@ -1,0 +1,13 @@
+# test: test-create-attrs33
+--- a/fileio_fat.c
++++ b/fileio_fat.c
+@@ -348,9 +348,6 @@
+      * before the truncating create touches the entry or its chain. */
+     int found = fat12_find_slot_in(g_vol, g_fat, g_fat_len, parent, g_sector,
+                                    name83, &de, &slot);
+-    if (found == FAT12_OK &&
+-        (de.attribute & (DIR_ATTR_HIDDEN | DIR_ATTR_SYSTEM) & (uint8_t)~attr) != 0u)
+-        return FILEIO_ERR_ACCESS_DENIED;
+     if (found != FAT12_OK && found != FAT12_ERR_NOT_FOUND)
+         return FILEIO_ERR_ACCESS_DENIED;
+     uint16_t mtime = FAT12_FIXED_MTIME, mdate = FAT12_FIXED_MDATE;

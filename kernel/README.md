@@ -372,6 +372,14 @@ fault positions, image outcomes, assertions or time budget are removed or raised
 On idle core 0 the same 105 gates measured 16.68 s before and 9.53 s after; the added
 adapter filesystem regression separately checks complete alias creation.
 
+AH=3Ch and AH=5Bh store CL OR 20h as the new entry's attribute and ignore
+CH. They refuse 10h, 40h and 80h, and an existing hidden or system file
+unless CX carries the same bits. The creating handle (and its duplicates) is
+read/write and may write past the read-only bit its own CREATE set. Every
+other handle still observes a read-only attribute when it writes.
+Source: tests/fixtures/create-attrs33, a genuine MS-DOS 3.30 capture. CX=08h
+(a volume label in DOS) is refused with 5 (initech-78dat).
+
 GM2 mounts FAT16 for listing and reading only. DOS file mutations return access
 denied; INT26 refuses with write protection. INT13 AH=03h refuses the entire
 request with BIOS status03h before calling the backend when any requested sector

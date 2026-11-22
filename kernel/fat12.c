@@ -111,6 +111,10 @@ static int boot_bpb(const uint8_t *p)
 /* The single offset seam. DOS logical sector 0 is the VBR, never the MBR.
  * Bounds use subtraction before addition (the repository contract, including 32-bit wrap).
  * Ref: IBM TR pp9-3,6-24..25; ADR-0003 DEC-07a Sec5.3 / DEC-15. */
+/* Set only inside fat12_write_partial_owner: genuine MS-DOS 3.30 lets the
+ * handle that created a read-only file write it (tests/fixtures/create-attrs33). */
+static int g_creator_write;
+
 static int sector_range(const fat12_volume_t *v, uint32_t s, uint32_t n)
 {
 	return s < v->total_sectors && n <= v->total_sectors - s &&
@@ -3013,8 +3017,9 @@ static int fat12_write_partial_inner(const fat12_volume_t *vol, void *fat, uint3
 	}
 	old_size   = de.file_size;
 	/* Re-read the disk attribute: an already-open handle must not bypass a
-	 * later lock. Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33. */
-	if ((de.attribute & DIR_ATTR_READONLY) != 0u) return FAT12_ERR_ACCESS;
+	 * later lock. Ref: MS-DOS_3.3_Users_Guide_198707.pdf, Reference p. 33.
+	 * The handle that created the file is the exception (g_creator_write). */
+	if ((de.attribute & DIR_ATTR_READONLY) != 0u && !g_creator_write) return FAT12_ERR_ACCESS;
 	orig_start = de.start_cluster;
 	new_start  = orig_start;
 	new_size   = (end > old_size) ? end : old_size;
@@ -3232,6 +3237,18 @@ static int fat12_write_partial_inner(const fat12_volume_t *vol, void *fat, uint3
  * The original directory entry and full FAT are independent preimages.
  * This conserves allocation; ordinary in-place payload overwrites are not a
  * transactional file save (IBM DOS 3.30 TR pp.6-139/140). */
+int fat12_write_partial_owner(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                              uint16_t parent, uint32_t slot, uint32_t offset,
+                              const uint8_t *data, uint32_t len, void *sector_buf,
+                              void *cluster_buf, uint32_t *out_written)
+{
+	g_creator_write = 1;
+	int rc = fat12_write_partial(vol, fat, fat_len, parent, slot, offset, data, len,
+	                             sector_buf, cluster_buf, out_written);
+	g_creator_write = 0;
+	return rc;
+}
+
 int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                         uint16_t parent, uint32_t slot, uint32_t offset,
                         const uint8_t *data, uint32_t len, void *sector_buf,
@@ -3255,7 +3272,7 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
 	if (rc != FAT12_OK) return rc;
 	/* A refusal is not a transaction: do not write a rollback to a protected
 	 * file. This precedes both the inner writer and its recovery boundary. */
-	if (old.attribute & DIR_ATTR_READONLY) return FAT12_ERR_ACCESS;
+	if ((old.attribute & DIR_ATTR_READONLY) && !g_creator_write) return FAT12_ERR_ACCESS;
 	rc = fat12_exclusive_allocation(vol,fat,fat_len,parent,slot,&old,sector_buf);
 	if (rc != FAT12_OK) return rc;
 	for (i = 0u; i < bytes; i++) before[i] = ((uint8_t *)fat)[i];

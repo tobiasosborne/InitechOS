@@ -815,6 +815,15 @@ int fat12_write_partial(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
                         uint32_t len, void *sector_buf, void *cluster_buf,
                         uint32_t *out_written);
 
+/* As fat12_write_partial for the handle that created the file: a read-only
+ * attribute set by that CREATE does not refuse its writes. Genuine MS-DOS
+ * 3.30, tests/fixtures/create-attrs33 (initech-eico5). */
+int fat12_write_partial_owner(const fat12_volume_t *vol, void *fat, uint32_t fat_len,
+                              uint16_t parent_dir_start, uint32_t slot,
+                              uint32_t offset, const uint8_t *data,
+                              uint32_t len, void *sector_buf, void *cluster_buf,
+                              uint32_t *out_written);
+
 /* DOS AH=40h CX=0 size primitive. Same buffers/parent/slot as write_partial.
  * FAT12 only (FAT16 writes remain unsupported); inconsistent chains fail loud
  * before mutation. Ref: IBM DOS 3.30 TR p.6-140; ADR-0003 Appendix A/B.1. */
