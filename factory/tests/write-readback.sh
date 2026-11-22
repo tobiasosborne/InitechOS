@@ -19,7 +19,7 @@ rc=0
 PROGRAM_SMOKE_OUT="$out/negative" PROGRAM_SMOKE_PROGRAMS="$out/programs" \
  sh factory/smoke-programs.sh > "$out/negative.log" 2>&1 || rc=$?
 # Independently check the control even when the harness rejects the transcript.
-mcopy -o -i "$out/negative/qemu-data.img" ::OUT.TXT "$out/persisted.txt"
+mcopy -o -i "$(cat "$out/negative/qemu-volume")" ::OUT.TXT "$out/persisted.txt"
 printf 'hello\r\n' > "$out/expected.txt"
 cmp "$out/expected.txt" "$out/persisted.txt"
 if grep -E 'WRITE-(.*-FAIL|READBACK-OK)' "$out/negative/qemu.txt"; then

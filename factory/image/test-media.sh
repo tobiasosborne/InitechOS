@@ -10,7 +10,7 @@ media_prepare() {
  media_dir=$(mktemp -d "$3/media.XXXXXX") || return 2
  media_boot=$media_dir/master.img
  media_data=
- cp "${4:-build/image}/$media_master_name" "$media_boot" || return 2
+ cp "${5:-${4:-build/image}/$media_master_name}" "$media_boot" || return 2
  case $2 in
   with-data) media_data=$media_dir/slave.img
    cp "${4:-build/image}/$media_slave_name" "$media_data" || return 2;;
