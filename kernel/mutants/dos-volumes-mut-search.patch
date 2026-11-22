@@ -2,11 +2,11 @@
 # test: test-dos-volumes-host
 --- a/int21.c
 +++ b/int21.c
-@@ -3585,7 +3585,6 @@
+@@ -3717,7 +3717,6 @@
   * skipped UNLESS the search mask requests that class (brief Sec 4.5). */
- static uint16_t find_scan(int_frame_t *f)
+ static uint16_t find_scan(int_frame_t *f, find_state_t *search)
  {
--    if (!select_volume(g_find.drive)) return INT21_ERR_NO_MORE_FILES;
+-    if (!select_volume(search->drive)) return INT21_ERR_NO_MORE_FILES;
      if (g_file == 0 || g_file->dir_entry == 0) {
          return INT21_ERR_NO_MORE_FILES;   /* no volume -> empty directory */
      }

@@ -309,20 +309,18 @@ static int         g_arena_psp_window  = 0;
  * SETDTA sets it; AH=2Fh GETDTA returns it (beads initech-509.5). */
 static uint32_t g_dta = 0;
 
-/* The single active FINDFIRST/FINDNEXT search state (one search at a time this
- * milestone -- no reentrant concurrent searches; fs-mount-sft-ground-truth.md
- * Sec 4.5). pattern is the 11-byte 8.3 search template ('?' = wildcard byte);
- * next_index is the backend dir-entry index to examine next; active gates
- * FINDNEXT (a FINDNEXT with no prior FINDFIRST returns no-more-files). */
+/* A FINDFIRST/FINDNEXT search. Genuine MS-DOS 3.30 keeps it in the DTA's
+ * first 21 bytes (tests/fixtures/find-dta33): drive number (A=1), the
+ * 11-byte template, the attribute mask, the matched entry's index and the
+ * directory's start cluster. Interleaved searches in different DTAs, and a
+ * copied DTA, therefore continue independently. find_load decodes it. */
 typedef struct find_state {
     uint8_t  pattern[11];   /* 8.3 search template; '?' (0x3F) matches any byte */
     uint8_t  search_attr;   /* attribute mask from FINDFIRST ECX                */
     uint32_t next_index;    /* next backend dir-entry index to check            */
     uint16_t dir_start;     /* directory enumerated (0 == root; beads mzxa)     */
     uint8_t  drive;         /* DEC-18 search volume */
-    uint8_t  active;        /* 1 once FINDFIRST has run                          */
 } find_state_t;
-static find_state_t g_find;
 
 /* InDOS depth (beads initech-xk2; period-authentic DOS InDOS flag). Incremented
  * at int21_dispatch / int20_dispatch entry, decremented at exit, so it counts
@@ -376,14 +374,16 @@ uint8_t int21_get_break_flag(void)
 /* MUTANT-ONLY test seam (the repository contract; compiled ONLY into the mutant-A
  * irqstorm image via -DINT21_IRQTEST_SEAM). It lets the mutant PIT ISR
  * (pit.c -DPIT_MUTATE_SCRIBBLE_DOS) reach a DOS dispatcher global so we can PROVE
- * the storm oracle detects async shared-state corruption: bumping g_find.next_index
- * mid-enumeration makes FINDNEXT skip an entry, so the directory listing comes
+ * the storm oracle detects async shared-state corruption: bumping the DTA's
+ * search index mid-enumeration makes FINDNEXT skip an entry, so the directory listing comes
  * back WRONG and test-int21-irqstorm goes RED. NEVER compiled into a real build
  * (the flag is set only by the mutant image rule). Touches a dispatcher global
  * EXACTLY as a forbidden ISR<->DOS sharing would. */
+static uint32_t current_dta(void);
 void int21_irqtest_bump_find(void)
 {
-    g_find.next_index++;
+    uint32_t dta = current_dta();
+    if (dta) ((find_data_t *)(uintptr_t)dta)->dir_entry++;
 }
 #endif
 
@@ -3655,7 +3655,8 @@ static void format_83(const dir_entry_t *e, char out[13])
 
 /* Write the 43-byte find_data_t for a matched entry into the current DTA, then
  * record the search position for FINDNEXT. */
-static uint16_t emit_find_data(const dir_entry_t *e)
+static uint16_t emit_find_data(const find_state_t *search, uint32_t index,
+                               const dir_entry_t *e)
 {
     uint32_t dta = current_dta();
     if (dta == 0) {
@@ -3676,13 +3677,13 @@ static uint16_t emit_find_data(const dir_entry_t *e)
     /* Write all 43 bytes deterministically (the repository contract): the 0x00..0x14 internal
      * region first (drive/template/search-attr + reserved resume state), then
      * the found-entry fields at their real-DOS offsets 0x15.. (dww). */
-    fd->drive_attr = 0u;
+    fd->drive_attr = (uint8_t)(search->drive + 1u);
     for (int i = 0; i < 11; i++) {
-        fd->pattern[i] = g_find.pattern[i];
+        fd->pattern[i] = search->pattern[i];
     }
-    fd->search_attr    = g_find.search_attr;
-    fd->dir_entry      = 0u;
-    fd->parent_cluster = 0u;
+    fd->search_attr    = search->search_attr;
+    fd->dir_entry      = (uint16_t)index;
+    fd->parent_cluster = search->dir_start;
     for (int i = 0; i < 4; i++) {
         fd->reserved1[i] = 0u;
     }
@@ -3709,14 +3710,14 @@ static uint16_t emit_find_data(const dir_entry_t *e)
     return 0u;
 }
 
-/* Scan from g_find.next_index for the next surviving entry matching the search
+/* Scan from search->next_index for the next surviving entry matching the search
  * pattern + attribute mask, write it to the DTA, advance next_index past it, and
  * return 0 (CF clear). When none remain return AX=0x0012 (no more files). The
  * attribute filter: volume-label (bit 3) and directory (bit 4) entries are
  * skipped UNLESS the search mask requests that class (brief Sec 4.5). */
-static uint16_t find_scan(int_frame_t *f)
+static uint16_t find_scan(int_frame_t *f, find_state_t *search)
 {
-    if (!select_volume(g_find.drive)) return INT21_ERR_NO_MORE_FILES;
+    if (!select_volume(search->drive)) return INT21_ERR_NO_MORE_FILES;
     if (g_file == 0 || g_file->dir_entry == 0) {
         return INT21_ERR_NO_MORE_FILES;   /* no volume -> empty directory */
     }
@@ -3724,33 +3725,34 @@ static uint16_t find_scan(int_frame_t *f)
     for (;;) {
         dir_entry_t de;
         int found = 0;
-        uint16_t rc = g_file->dir_entry(g_find.next_index, g_find.dir_start,
-                                        &de, &found);
+        if (search->next_index > 0xFFFFu) return INT21_ERR_NO_MORE_FILES;
+        uint32_t index = search->next_index;
+        uint16_t rc = g_file->dir_entry(index, search->dir_start, &de, &found);
         if (rc != 0) {
             return rc;                     /* backend read error */
         }
         if (!found) {
             return INT21_ERR_NO_MORE_FILES;  /* end of directory */
         }
-        g_find.next_index++;
+        search->next_index++;
 
         /* Genuine DOS 3.30: tests/fixtures/search33 matrix. Mask 08h after
          * ignoring read-only/archive bits searches only labels; mixed
          * H/S/directory masks admit ordinary entries too.
          * Every H/S/directory/label bit on the entry must be requested. */
         uint8_t special = (uint8_t)(de.attribute & 0x1eu);
-        if ((special & (uint8_t)~g_find.search_attr) != 0u ||
-            ((g_find.search_attr & 0x1eu) == 8u && !(special & DIR_ATTR_VOLLABEL))) {
+        if ((special & (uint8_t)~search->search_attr) != 0u ||
+            ((search->search_attr & 0x1eu) == 8u && !(special & DIR_ATTR_VOLLABEL))) {
             continue;
         }
 
         uint8_t name[11];
         entry_template(&de, name);
-        if (!pattern_match(g_find.pattern, name)) {
+        if (!pattern_match(search->pattern, name)) {
             continue;
         }
 
-        uint16_t werr = emit_find_data(&de);
+        uint16_t werr = emit_find_data(search, index, &de);
         if (werr != 0u) {
             cf_set(f);
             return werr;       /* wild DTA -- fail loud (DEC-14) */
@@ -3786,14 +3788,15 @@ static void do_findfirst(int_frame_t *f)
         return;
     }
 
-    build_pattern(leaf, g_find.pattern);
-    g_find.search_attr = (uint8_t)(f->ecx & 0xFFu);
-    g_find.next_index  = 0u;
-    g_find.dir_start   = dir_start;
-    g_find.active      = 1u;
-    g_find.drive       = (uint8_t)g_io_drive;
+    find_state_t search;
+    build_pattern(leaf, search.pattern);
+    search.search_attr = (uint8_t)(f->ecx & 0xFFu);
+    search.next_index  = 0u;
+    search.dir_start   = dir_start;
+    search.drive       = (uint8_t)g_io_drive;
 
-    uint16_t rc = find_scan(f);
+    uint16_t rc = find_scan(f, &search);
+    if (rc == 0) set_ax(f, 0); /* genuine DOS 3.30 clears AX (find-dta33) */
     if (rc != 0) {
         /* FINDFIRST with no match returns file-not-found in real DOS (0x0002),
          * but DOS programs accept 0x0012 too; we use no-more-files for an empty
@@ -3806,14 +3809,32 @@ static void do_findfirst(int_frame_t *f)
 /* AH=4Fh FINDNEXT: no args; continue the active search from FINDFIRST. CF clear
  * on a hit; CF=1, AX=0x0012 when exhausted, or 0x0012 if no FINDFIRST ran.
  * Ref: brief Sec 4.5; DOS 3.3 PRM AH=4Fh. */
+/* Decode the continuation FINDFIRST/FINDNEXT left in the current DTA. A DTA
+ * no search has written (drive byte 0, or no such drive) cannot continue. */
+static int find_load(find_state_t *search)
+{
+    uint32_t dta = current_dta();
+    if (dta == 0 || !user_buf_ok(dta, (uint32_t)sizeof(find_data_t))) return 0;
+    const find_data_t *fd = (const find_data_t *)(uintptr_t)dta;
+    if (fd->drive_attr == 0u || fd->drive_attr > 26u) return 0;
+    search->drive = (uint8_t)(fd->drive_attr - 1u);
+    for (int i = 0; i < 11; i++) search->pattern[i] = fd->pattern[i];
+    search->search_attr = fd->search_attr;
+    search->next_index  = (uint32_t)fd->dir_entry + 1u;
+    search->dir_start   = fd->parent_cluster;
+    return 1;
+}
+
 static void do_findnext(int_frame_t *f)
 {
-    if (!g_find.active) {
+    find_state_t search;
+    if (!find_load(&search)) {
         set_ax(f, INT21_ERR_NO_MORE_FILES);
         cf_set(f);
         return;
     }
-    uint16_t rc = find_scan(f);
+    uint16_t rc = find_scan(f, &search);
+    if (rc == 0) set_ax(f, 0); /* genuine DOS 3.30 clears AX (find-dta33) */
     if (rc != 0) {
         set_ax(f, rc);
         cf_set(f);

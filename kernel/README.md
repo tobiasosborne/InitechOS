@@ -380,6 +380,12 @@ other handle still observes a read-only attribute when it writes.
 Source: tests/fixtures/create-attrs33, a genuine MS-DOS 3.30 capture. CX=08h
 (a volume label in DOS) is refused with 5 (initech-78dat).
 
+AH=4Eh/4Fh keep a search entirely in the DTA's first 17 bytes, as genuine
+MS-DOS 3.30 does: drive (A=1), template, attribute mask, the matched entry's
+index and the directory's start cluster. Searches in different DTAs, or a
+copied DTA, continue independently. AX is 0 on success. Source:
+tests/fixtures/find-dta33. Bytes 17-20 are DOS-internal and left zero.
+
 GM2 mounts FAT16 for listing and reading only. DOS file mutations return access
 denied; INT26 refuses with write protection. INT13 AH=03h refuses the entire
 request with BIOS status03h before calling the backend when any requested sector
