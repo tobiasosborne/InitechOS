@@ -32,8 +32,8 @@ test:
 smoke:
 	+$(MAKE) -C $(TOP) image
 	+$(MAKE) -C $(TOP)/apps/initechbase $(TOP)/build/apps/initechbase/host/screen_capture
-	SYSTEM_ELF="$(OUT)/system$(if $(BIG_KERNEL),-big).elf" sh tests/installed-turbo.sh
-	sh tests/installed.sh
+	SYSTEM_IMAGE="$(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS" \
+	 SYSTEM_ELF="$(OUT)/system$(if $(BIG_KERNEL),-big).elf" sh tests/installed.sh
 capacity:
 	+$(MAKE) -C $(TOP) image
 	sh tests/capacity.sh
