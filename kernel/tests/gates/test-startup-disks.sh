@@ -67,3 +67,29 @@ build/test_startup_disks "$w/with-failed-a.img" "$w/a-probe-fails.img" 2 fail-a 
 assert cmp "$w/c-installed.img" "$w/with-failed-a.img"
 assert cmp "$w/a-fat16.img" "$w/a-probe-fails.img"
 [ "$case_status" -eq 0 ]
+
+# mtools refuses to create overlapping partitions ("Partition would overlap
+# with partition 1"). Mint D: on its own disk, then copy only its table entry
+# so that FAT16 D: starts inside the installed FAT12 C:.
+o_base=8255
+truncate -s "$(((o_base+d_size+8)*512))" "$w/d-entry.img"
+printf 'drive x: file="%s/%s/d-entry.img" partition=2\n' "$PWD" "$w" >> "$MTOOLSRC"
+mpartition -I x:
+mpartition -c -b "$o_base" -l "$d_size" -T 4 x:
+mpartition -d x:
+cp "$w/c-installed.img" "$w/c-overlap.img"
+truncate -s "$(((o_base+d_size+8)*512))" "$w/c-overlap.img"
+dd if="$w/d-entry.img" of="$w/c-overlap.img" bs=1 skip=462 seek=462 count=16 conv=notrunc 2>/dev/null
+o="$w/c-overlap.img@@$((o_base*512))"
+mformat -i "$o" -T "$d_size" -h 16 -s 63 -c 1 -H "$o_base" ::
+mcopy -i "$o" "$w/d-root" ::KEEP.TXT
+assert sh -c "mtype -i '$w/c-overlap.img@@32256' ::ROOT.BIN | cmp - '$w/c-root'"
+assert sh -c "mtype -i '$o' ::KEEP.TXT | cmp - '$w/d-root'"
+cp "$w/c-overlap.img" "$w/overlap-run.img"
+
+echo "startup scenario: c-d-overlap"
+case_status=0
+build/test_startup_disks "$w/overlap-run.img" - 2 overlap || case_status=$?
+assert cmp "$w/c-overlap.img" "$w/overlap-run.img"
+assert sh -c "mtype -i '$w/overlap-run.img@@$((o_base*512))' ::KEEP.TXT | cmp - '$w/d-root'"
+[ "$case_status" -eq 0 ]
