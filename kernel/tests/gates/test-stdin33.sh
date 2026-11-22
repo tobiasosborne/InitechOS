@@ -18,4 +18,15 @@ for ah in 01 07 08; do
     assert test "$rc" -eq 124
     assert cmp "$capture/dos33-res.bin" "$w/eof.bin"
 done
+# Buffered input (buffered33.asm): bytes, editing and echo, then the wait.
+sh "$capture/mint.sh" "$w/b0a.img"
+build/test_stdin33 "$w/b0a.img" "$w/res0a.bin" 0a
+assert cmp "$capture/dos33-res0a.bin" "$w/res0a.bin"
+mtype -i "$w/b0a.img" ::ECHO0A.TXT > "$w/echo0a.txt"
+assert cmp "$capture/dos33-echo0a.txt" "$w/echo0a.txt"
+sh "$capture/mint.sh" "$w/eof0a.img"
+rc=0
+timeout 1 build/test_stdin33 "$w/eof0a.img" "$w/eof0a.bin" 0a-eof || rc=$?
+assert test "$rc" -eq 124
+assert cmp "$capture/dos33-res0a.bin" "$w/eof0a.bin"
 finish

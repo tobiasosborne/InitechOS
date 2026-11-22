@@ -1537,6 +1537,17 @@ static void conedit_console_emit(uint8_t c, void *ctx)
     g_input_echo--;
 }
 
+/* Redirected-input echo goes to standard output (tests/fixtures/stdin33). */
+static void conedit_stdout_emit(uint8_t c, void *ctx)
+{
+    (void)ctx;
+    if (c == 0x1a) stdout_emit("^Z", 2u);
+    else {
+        char ch = (char)c;
+        stdout_emit(&ch, 1u);
+    }
+}
+
 static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap,
                                   const uint8_t *tmpl, unsigned len,
                                   int_frame_t *f, int *broke)
@@ -1544,6 +1555,27 @@ static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap,
     conedit_t editor;
     conedit_init(&editor, tmpl, len);
     if (broke) *broke = 0;
+    /* Genuine DOS 3.30 with a file as standard input (stdin33, buffered33):
+     * the same editing, echoed to standard output. An LF that begins the
+     * call is dropped silently; a later LF echoes CR LF and is not stored;
+     * CR ends the line and echoes CR alone. End of file waits for ever. */
+    int c = stdin_file_byte();
+    if (c >= 0) {
+        if (c == 0x0a) c = stdin_file_byte();
+        for (;; c = stdin_file_byte()) {
+            if (c == 0x0a) {
+                conedit_stdout_emit(13, 0);
+                conedit_stdout_emit(10, 0);
+                continue;
+            }
+            if (c == 0x0d && !editor.extended && !editor.target) {
+                conedit_stdout_emit(13, 0);
+                return (uint8_t)editor.count;
+            }
+            if (conedit_key(&editor, (uint8_t)c, out, cap, conedit_stdout_emit, 0))
+                return (uint8_t)editor.count;
+        }
+    }
     if (!g_conin_get && g_conin_pushback < 0) return 0;
     for (;;) {
         uint8_t c = (uint8_t)conin_get_pb();
