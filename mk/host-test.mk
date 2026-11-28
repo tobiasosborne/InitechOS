@@ -1,7 +1,7 @@
 # HOST_TESTS / EXTRA_HOST_TESTS register programs; TESTS selects the run.
 # <name>_{SRCS,OBJS,CFLAGS,LIBS,ARGS,DEPS,ENV} and HOST_INCLUDES unchanged.
 # TEST_HDRS is an optional explicit dependency list (no directory scan).
-# TEST_TIMEOUT_S=20, <name>_TIMEOUT_S overrides; TEST_BUDGET_S=30 (run only).
+# TEST_TIMEOUT_S=20, <name>_TIMEOUT_S overrides; TEST_BUDGET_S=30 CPU seconds.
 # <name>_COUNT_PATTERN: ERE with one numeric capture; auto for shared header.
 # host_test_run may still be overridden (n/fail shell counters and per-test log).
 HOST_OUT := $(OUT)/host
@@ -44,9 +44,8 @@ test-run: test-build
 	@test -n '$(strip $(TESTS))' || { echo 'FAIL $(COMPONENT): empty test registration/selection'; exit 1; }
 	@start=$$(date +%s); fail=0; ulimit -c 0; \
 	$(foreach t,$(TESTS),$(call timed_test,$(t))) \
-	elapsed=$$(($$(date +%s)-start)); \
+	times > $(HOST_OUT)/suite.time; elapsed=$$(($$(date +%s)-start)); \
 	echo "INITECH_TEST_RUN $(words $(TESTS))"; \
-	echo "$(COMPONENT): $(words $(TESTS)) tests, $$fail failures ($${elapsed}s; budget $(TEST_BUDGET_S)s)"; \
-	if [ $$elapsed -gt $(TEST_BUDGET_S) ]; then \
-	  echo 'FAIL budget: speed the suite up or raise TEST_BUDGET_S with a reason in the component README'; fail=1; \
-	fi; test $$fail -eq 0
+	awk -v component=$(COMPONENT) -v count=$(words $(TESTS)) -v failed=$$fail \
+	  -v wall=$$elapsed -v budget=$(TEST_BUDGET_S) \
+	  -f $(TOP)/factory/testlib/test-budget.awk $(HOST_OUT)/suite.time && test $$fail -eq 0
