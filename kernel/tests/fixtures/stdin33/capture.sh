@@ -24,6 +24,8 @@ echo "qemu exit $rc" > exit.txt
 if [ "$prog" = status33 ]; then
     mcopy -i b.img ::RES0C.BIN RES0C.BIN
     mcopy -i b.img ::ECHO0C.TXT ECHO0C.TXT || true
+elif [ "$prog" = ctrlc33 ]; then
+    mcopy -i b.img ::RES.BIN RES.BIN
 elif [ "$prog" = buffered33 ]; then
     mcopy -i b.img ::RES0A.BIN RES0A.BIN
     mcopy -i b.img ::ECHO0A.TXT ECHO0A.TXT || true

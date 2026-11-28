@@ -35,4 +35,14 @@ build/test_stdin33 "$w/b0c.img" "$w/res0c.bin" 0c
 assert cmp "$capture/dos33-res0c.bin" "$w/res0c.bin"
 mtype -i "$w/b0c.img" ::ECHO0C.TXT > "$w/echo0c.txt"
 assert cmp "$capture/dos33-echo0c.txt" "$w/echo0c.txt"
+# Keyboard Ctrl-C at end of an empty redirected file (ctrlc33.asm): DOS 3.30
+# enters INT 23h from AH=01h, 08h and 0Ah, with BREAK off, and takes the key;
+# AH=07h goes on waiting.
+for ah in 01 08 0a 07; do
+    sh "$capture/mint.sh" "$w/c$ah.img"
+    rc=0
+    timeout 0.3 build/test_stdin33 "$w/c$ah.img" "$w/c$ah.bin" "c$ah" || rc=$?
+    if [ "$ah" = 07 ]; then assert test "$rc" -eq 124; else assert test "$rc" -eq 0; fi
+    assert cmp "$capture/dos33-ctrlc$ah.bin" "$w/c$ah.bin"
+done
 finish

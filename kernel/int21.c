@@ -1396,14 +1396,18 @@ void int21_batch_checkpoint(void)
 /* Standard input redirected to a file (tests/fixtures/stdin33, genuine
  * MS-DOS 3.30): AH=01h, 07h and 08h take each byte verbatim, NUL and ^Z
  * included, and at end of file they wait for ever. Returns -1 when handle 0
- * is not a file, so the console paths below are unchanged. */
+ * is not a file, so the console paths below are unchanged. While it waits,
+ * a call that checks Ctrl-C passes its frame as `brk`: a Ctrl-C typed on the
+ * keyboard is taken and enters INT 23h, even with BREAK off, and the result
+ * is -2 (ctrlc33.asm: AH=01h, 08h and 0Ah do this; AH=07h passes 0 and goes
+ * on waiting). Any other key is left for the next keyboard read. */
 static sft_entry_t *stdin_file(void)
 {
     sft_entry_t *e = g_cur_psp ? sft_from_handle(g_cur_psp, 0u) : 0;
     return e != 0 && e->kind == SFT_KIND_FILE ? e : 0;
 }
 
-static int stdin_file_byte(void)
+static int stdin_file_byte(int_frame_t *brk)
 {
     sft_entry_t *e = stdin_file();
     if (e == 0) return -1;
@@ -1417,6 +1421,11 @@ static int stdin_file_byte(void)
                 e->file_offset++;
                 return c;
             }
+        }
+        if (brk != 0) {
+            int k = conin_poll_pb();
+            if (k >= 0 && conin_check_ctrlc(k, brk)) return -2;
+            conin_unget(k);
         }
     }
 }
@@ -1433,7 +1442,8 @@ static int stdin_file_byte(void)
  * ON-only non-CON widening is in int21_dispatch_body (C-6). */
 static void do_conin_echo(int_frame_t *f)
 {
-    int c = stdin_file_byte();
+    int c = stdin_file_byte(f);
+    if (c == -2) return;        /* ^C at end of file: INT 23h was entered */
     if (c >= 0) {               /* stdin33: the raw byte echoes to stdout */
         char ch = (char)c;
         stdout_emit(&ch, 1u);
@@ -1459,7 +1469,7 @@ static void do_conin_echo(int_frame_t *f)
  * no echo. Ref: DOS 3.3 PRM AH=07h. */
 static void do_conin_raw(int_frame_t *f)
 {
-    int c = stdin_file_byte();
+    int c = stdin_file_byte(0);
     if (c < 0) c = conin_get_pb();
     set_al(f, (uint8_t)c);
     cf_clear(f);
@@ -1471,7 +1481,8 @@ static void do_conin_raw(int_frame_t *f)
  * being delivered in AL. Ref: DOS 3.3 PRM AH=08h ("with Ctrl-C check"). */
 static void do_conin_noecho(int_frame_t *f)
 {
-    int c = stdin_file_byte();
+    int c = stdin_file_byte(f);
+    if (c == -2) return;        /* ^C at end of file: INT 23h was entered */
     if (c >= 0) {               /* stdin33: verbatim from the redirected file */
         set_al(f, (uint8_t)c);
         cf_clear(f);
@@ -1597,11 +1608,16 @@ static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap,
     /* Genuine DOS 3.30 with a file as standard input (stdin33, buffered33):
      * the same editing, echoed to standard output. An LF that begins the
      * call is dropped silently; a later LF echoes CR LF and is not stored;
-     * CR ends the line and echoes CR alone. End of file waits for ever. */
-    int c = stdin_file_byte();
-    if (c >= 0) {
-        if (c == 0x0a) c = stdin_file_byte();
-        for (;; c = stdin_file_byte()) {
+     * CR ends the line and echoes CR alone. End of file waits for ever,
+     * until Ctrl-C on the keyboard enters INT 23h (ctrlc33.asm). */
+    int c = stdin_file_byte(f);
+    if (c >= 0 || c == -2) {
+        if (c == 0x0a) c = stdin_file_byte(f);
+        for (;; c = stdin_file_byte(f)) {
+            if (c == -2) {
+                if (broke) *broke = 1;
+                return (uint8_t)editor.count;
+            }
             if (c == 0x0a) {
                 conedit_stdout_emit(13, 0);
                 conedit_stdout_emit(10, 0);

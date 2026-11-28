@@ -23,6 +23,14 @@ AH=07h, then AH=0Bh at end of file. `dos33-res0c.bin` is FFh, `A B C`,
 the line `line` (count 4), FFh, 0Ah, 00h; `dos33-echo0c.txt` holds `A`
 and `line` CR. Run each with `PROGRAM=<name> sh capture.sh <new dir>`.
 
+`ctrlc33.asm` sets BREAK off, hooks INT 23h, makes a new empty
+B:EMPTY.IN standard input, puts Ctrl-C (2E03h) in the BIOS keyboard buffer
+with INT 16h AH=05h and calls one function at end of file. Run it with
+`PROGRAM=ctrlc33 EOF=<01h|07h|08h|0Ah>`. `dos33-ctrlc<ah>.bin` is the
+version, `B` before the call, `C` when INT 23h was entered, and `E` when
+the keyboard buffer was then empty. AH=01h, 08h and 0Ah entered INT 23h
+and took the key; AH=07h was still waiting after 25 seconds (`B` only).
+
 Not captured: a 03h byte in the file and AH=06h.
 
 `../../smoke/redirected-input.sh` boots the product image with

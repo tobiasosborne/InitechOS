@@ -3,7 +3,8 @@
  * DUP2. Writes RES.BIN's bytes to argv[2]. With argv[3] = 01, 07 or 08 it
  * then makes that call at end of file, which genuine DOS 3.30 never returns
  * from; the gate grades that with a timeout. argv[3] = 0a replays
- * buffered33.asm and 0c status33.asm. */
+ * buffered33.asm and 0c status33.asm; c01, c07, c08 or c0a replays
+ * ctrlc33.asm for that function. */
 #define _GNU_SOURCE
 #include <stdint.h>
 #include <stdio.h>
@@ -101,6 +102,46 @@ static int status(const char *out_path, char *low)
     return !o || fwrite(res, 1, n, o) != n || fclose(o) ? 2 : 0;
 }
 
+/* ctrlc33.asm: Ctrl-C waits on the keyboard while function AH reads an
+ * empty redirected B:EMPTY.IN, with BREAK off. The trace seam stands in for
+ * the program's INT 23h hook, and AH=06h DL=FFh for its INT 16h status. */
+static int g_key = 3, g_broke;
+static int key_get(void) { int c = g_key; g_key = -1; return c < 0 ? 0 : c; }
+static int key_poll(void) { int c = g_key; g_key = -1; return c; }
+static void broke(char c) { (void)c; g_broke = 1; }
+
+static int ctrlc(const char *out_path, unsigned ah, char *low)
+{
+    uint8_t res[16];
+    unsigned n = 0;
+    int_frame_t f = call(0x3000, 0, 0, 0);
+    res[n++] = (uint8_t)f.eax; res[n++] = (uint8_t)(f.eax >> 8);
+    (void)call(0x3301, 0, 0, 0);
+    strcpy(low, "EMPTY.IN");
+    f = call(0x3c00, 0, 0, (uintptr_t)low);
+    if (f.eflags & 1) return 2;
+    (void)call(0x3e00, f.eax & 65535, 0, 0);
+    f = call(0x3d00, 0, 0, (uintptr_t)low);
+    if (f.eflags & 1) return 2;
+    unsigned h = f.eax & 65535;
+    if (call(0x4600, h, 0, 0).eflags & 1) return 2;
+    (void)call(0x3e00, h, 0, 0);
+    int21_set_conin(key_get, key_poll);
+    int21_set_break_trace(broke);
+    res[n++] = 'B';
+    FILE *o = fopen(out_path, "wb");
+    if (!o || fwrite(res, 1, n, o) != n || fclose(o)) return 2;
+    uint8_t *buf = (uint8_t *)low + 64;
+    memset(buf, 0, 10);
+    buf[0] = 8;
+    f = call(ah << 8, 0, 0, (uintptr_t)buf);
+    if (g_broke) res[n++] = 'C';
+    else { res[n++] = 'R'; res[n++] = (uint8_t)f.eax; }
+    res[n++] = call(0x0600, 0, 0, 0xff).eflags & 0x40 ? 'E' : 'K';
+    o = fopen(out_path, "wb");
+    return !o || fwrite(res, 1, n, o) != n || fclose(o) ? 2 : 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 3 && argc != 4) return 2;
@@ -114,6 +155,11 @@ int main(int argc, char **argv)
     if (low == MAP_FAILED) return 2;
     if (argc == 4 && !strncmp(argv[3], "0a", 2)) {
         int rc = buffered(argv[2], !strcmp(argv[3], "0a-eof"), low);
+        blockdev_file_close(&disk);
+        return rc;
+    }
+    if (argc == 4 && argv[3][0] == 'c') {
+        int rc = ctrlc(argv[2], (unsigned)strtoul(argv[3] + 1, 0, 16), low);
         blockdev_file_close(&disk);
         return rc;
     }
