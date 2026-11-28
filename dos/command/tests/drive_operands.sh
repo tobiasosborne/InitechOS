@@ -99,11 +99,12 @@ if mdir -i "$C" ::FROMC >/dev/null 2>&1; then red 'L032 XCOPY C: to D: wrote to 
 # Directories/files created after TREE: none (LABEL's entry is not listed).
 mdir -/ -b -i "$D" :: > "$w/d.list"
 build/test_xcopy_tree --tree-golden "$w/d.list" "" 1 "$w/treed.exp" EXTRA
-build/test_xcopy_tree --tree-golden "$w/d.list" /DHOME 1 "$w/treedh.exp" EXTRA
+# The DOS 3.30 TREEPATH capture used by 1a8924b2 refuses a pathname.
+printf 'Invalid parameter\r\n' > "$w/treedh.exp"
 mtype -i "$w/a.img" ::TREED.TXT > "$w/got" || red 'L014 TREE D: output missing'
 cmp -s "$w/got" "$w/treed.exp" || red 'L014 TREE D: walked the wrong drive/volume'
 mtype -i "$w/a.img" ::TREEDH.TXT > "$w/got" || red 'L014 TREE D:\DHOME output missing'
-cmp -s "$w/got" "$w/treedh.exp" || red 'L014 TREE D:\DHOME path'
+cmp -s "$w/got" "$w/treedh.exp" || red 'L014 TREE D:\DHOME pathname refusal'
 # L012: ATTRIB sets R on D:, and displays the full drive-qualified path.
 cp -f "$w/d.img" "$w/d.ref"
 mattrib -i "$w/d.ref" +r ::DHOME/SAME.TXT
