@@ -23,7 +23,7 @@ id=$(date -u +%Y-%m-%dT%H%M%SZ)-$(git rev-parse --short HEAD)
 work=$(mktemp -d)
 start=$(date +%s)
 failed=0
-selfhost_pid=
+mutant_pid=
 : > "$work/summary"
 : > "$work/full.log"
 finish() {
@@ -43,9 +43,9 @@ finish() {
     echo "cert evidence: $dest"
 }
 interrupt() {
-    if [ -n "$selfhost_pid" ]; then
-        kill -TERM "-$selfhost_pid" 2>/dev/null || :
-        wait "$selfhost_pid" 2>/dev/null || :
+    if [ -n "$mutant_pid" ]; then
+        kill -TERM "-$mutant_pid" 2>/dev/null || :
+        wait "$mutant_pid" 2>/dev/null || :
     fi
     failed=$((failed+1))
     finish
@@ -103,7 +103,7 @@ image_smoke() {
     return "$rc"
 }
 board() {
-    make status > "$work/board.txt" 2>&1 || return
+    INITECH_STATUS_LOGS="$work/status-components" make status > "$work/board.txt" 2>&1 || return
     cat "$work/board.txt"
     make -s dependencies > "$work/registry.txt" || return
     awk -f factory/testlib/cert-board.awk "$work/registry.txt" "$work/board.txt"
@@ -116,29 +116,30 @@ unchanged() {
 stage clean-test clean_test
 stage image-smoke image_smoke
 stage repro make repro
-# The sweep builds from isolated snapshots outside build/. Self-host and
-# DDC can use the original build tree while the sweep grades its own images.
-selfhost_start=$(date +%s)
-echo 'cert: selfhost-ddc'
+# The sweep uses isolated snapshots. Self-host, DDC and the import board
+# can use the original build tree until bigkernel needs to clean it.
+mutant_start=$(date +%s)
+echo 'cert: mutants'
 setsid sh -c '
     rc=0
-    make -C turbo selfhost && make -C turbo ddc || rc=$?
-    date +%s > "$1" || exit 1
+    sh factory/mutants.sh "$1" || rc=$?
+    date +%s > "$1/mutants.end" || exit 1
     exit "$rc"
-' sh "$work/selfhost-ddc.end" > "$work/selfhost-ddc.log" 2>&1 &
-selfhost_pid=$!
-stage mutants sh factory/mutants.sh "$work"
-for log in "$work"/mutants/*.log; do [ ! -f "$log" ] || cat "$log" >> "$work/full.log"; done
-selfhost_rc=0
-wait "$selfhost_pid" || selfhost_rc=$?
-selfhost_pid=
-if ! selfhost_end=$(cat "$work/selfhost-ddc.end"); then
-    selfhost_end=$(date +%s)
-    selfhost_rc=1
-fi
-report_stage selfhost-ddc "$selfhost_rc" "$((selfhost_end-selfhost_start))"
-stage bigkernel make -C boot bigkernel-check
+' sh "$work" > "$work/mutants.log" 2>&1 &
+mutant_pid=$!
+selfhost_ddc() { make -C turbo selfhost && make -C turbo ddc; }
+stage selfhost-ddc selfhost_ddc
 stage status board
+mutant_rc=0
+wait "$mutant_pid" || mutant_rc=$?
+mutant_pid=
+if ! mutant_end=$(cat "$work/mutants.end"); then
+    mutant_end=$(date +%s)
+    mutant_rc=1
+fi
+report_stage mutants "$mutant_rc" "$((mutant_end-mutant_start))"
+for log in "$work"/mutants/*.log; do [ ! -f "$log" ] || cat "$log" >> "$work/full.log"; done
+stage bigkernel make -C boot bigkernel-check
 stage tracked-files unchanged
 finish
 test "$failed" -eq 0
