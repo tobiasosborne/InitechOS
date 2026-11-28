@@ -7,7 +7,7 @@
 #include "test_assert.h"
 TEST_HARNESS();
 static unsigned reads,writes,at;static char text[8192];static unsigned used;
-static const char keys[]="4\r\033\033";
+static const char *keys="4\r\033\033";
 static int read_disk(unsigned d,uint8_t b[512])
 {
     (void)d;reads++;memset(b,0,512);b[510]=0x55;b[511]=0xaa;
@@ -19,7 +19,7 @@ static int read_disk(unsigned d,uint8_t b[512])
 }
 static int write_disk(unsigned d,const uint8_t b[512]){(void)d;(void)b;writes++;return 0;}
 static uint32_t cap(unsigned d){return d==0x80?2943:0;}
-static int get(void){return at<sizeof keys-1?keys[at++]:27;}
+static int get(void){return keys[at]?keys[at++]:27;}
 static void put(const char *s){size_t n=strlen(s);if(used+n>=sizeof text)return;memcpy(text+used,s,n+1);used+=(unsigned)n;}
 static char letter(unsigned d,unsigned p){(void)d;return p==1?'D':'E';}
 int main(void)
@@ -40,6 +40,14 @@ int main(void)
           first==0 && last==1 && count==2,"partition cylinders follow its LBA extent");
     CHECK(strstr(text,"Total disk space is 3 cylinders."),
           "physical cylinder count includes the final partial cylinder");
+    keys="1\r2\r\033\033";at=used=0;
+    rc=fdisk_run(&io);
+    CHECK(!rc && !writes && strstr(text,"No space to create a DOS partition."),
+          "DOS 3.30 FDISKEXT explains a full disk");
+    keys="3\r2\r\033\033";at=used=0;
+    rc=fdisk_run(&io);
+    CHECK(!rc && !writes && strstr(text,"No Extended DOS partition to delete."),
+          "DOS 3.30 FDISKDEL explains an absent extended partition");
     if(g_fails)return TEST_SUMMARY("fdisk-session");
     puts("GREEN FDISK session: loaded drive untouched, independent D/E partition mapping");return TEST_SUMMARY("fdisk-session");
 }

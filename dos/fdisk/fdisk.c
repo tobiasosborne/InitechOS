@@ -217,7 +217,16 @@ int fdisk_run(const fdisk_io *ops)
             heading("Delete DOS Partition");
             put("    1. Delete Primary DOS Partition\r\n    2. Delete Extended DOS Partition\r\n"
                 "    3. Delete Logical DOS Drive(s) in\r\n       the Extended DOS Partition\r\n\r\nEnter choice:    [ ]\r\n");options();
-            if(choice(0)!=1)continue;
+            int partition=choice(0);
+            if(partition==2){
+                heading("Delete Extended DOS Partition");table();
+                int extended=0;
+                for(unsigned i=0;i<4;i++)if(entry(mbr,i)[4]==5)extended=1;
+                put(extended?"Extended DOS partitions are not supported.\r\n":
+                             "No Extended DOS partition to delete.\r\n");
+                options();waitesc();continue;
+            }
+            if(partition!=1)continue;
             heading("Delete Primary DOS Partition");table();
             put("Warning! Data in Primary DOS\r\npartition will be lost. Do you wish\r\nto continue.........................?  [N]\r\n\r\n");options();
             int y=yes(0);if(y<0)continue;
@@ -233,7 +242,15 @@ int fdisk_run(const fdisk_io *ops)
         if(c==1) {
             heading("Create DOS Partition");
             put("    1. Create Primary DOS Partition\r\n    2. Create Extended DOS Partition\r\n\r\nEnter choice:    [1]\r\n");options();
-            if(choice(1)!=1)continue;
+            int partition=choice(1);
+            if(partition==2){
+                heading("Create Extended DOS Partition");table();
+                unsigned first=0,available=0;
+                put(gap(mbr,sectors,&first,&available)?"No space to create a DOS partition.\r\n":
+                                                      "Extended DOS partitions are not supported.\r\n");
+                options();waitesc();continue;
+            }
+            if(partition!=1)continue;
             heading("Create Primary DOS Partition");
             int exists=0;for(unsigned i=0;i<4;i++)if(dos(entry(mbr,i)[4]))exists=1;
             if(exists){put("Primary DOS partition already exists\r\n");options();waitesc();continue;}
