@@ -1,0 +1,10 @@
+bits 16
+org 0x100
+mov ax,0x4400
+mov bx,5
+int 0x21
+jc .error
+xor al,al
+.error:
+mov ah,0x4c
+int 0x21

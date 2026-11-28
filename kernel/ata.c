@@ -52,6 +52,10 @@
 #define ATA_SR_DF   0x20u /* device fault*/
 #define ATA_SR_ERR  0x01u /* error       */
 
+/* T13/1321D rev 3 section 7.9: device control applies to both devices. */
+#define ATA_CTL_NIEN 0x02u
+#define ATA_CTL_SRST 0x04u
+
 #define ATA_CMD_READ_SECTORS  0x20u /* READ SECTORS  (PIO, LBA28)            */
 #define ATA_CMD_WRITE_SECTORS 0x30u /* WRITE SECTORS (PIO, LBA28)            */
 #define ATA_CMD_CACHE_FLUSH   0xE7u /* FLUSH CACHE (commit the write buffer) */
@@ -231,6 +235,7 @@ int ata_identify(ata_ctx_t *c, uint32_t *sectors)
 {
     if(c==NULL || sectors==NULL)return ATA_ERR_ARG;
     *sectors=0;
+    outb(c->ctrl_base, ATA_CTL_NIEN);
     outb(c->io_base+ATA_REG_DRIVE,c->drive_select);
     ata_delay_400ns(c->ctrl_base);
     int ready = ata_wait_command(c->io_base);
@@ -257,10 +262,10 @@ int ata_reset(void *ctx)
 {
     const ata_ctx_t *c=ctx;
     if(c==NULL)return ATA_ERR_ARG;
-    outb(c->ctrl_base,6); /* SRST + nIEN (polling) */
+    outb(c->ctrl_base, ATA_CTL_SRST | ATA_CTL_NIEN);
     /* ATA/ATAPI-6 requires >=5us assertion. */
     for(unsigned i=0;i<32;i++)ata_delay_400ns(c->ctrl_base);
-    outb(c->ctrl_base,2);
+    outb(c->ctrl_base, ATA_CTL_NIEN);
     ata_delay_400ns(c->ctrl_base);
     outb(c->io_base+ATA_REG_DRIVE,c->drive_select);
     ata_delay_400ns(c->ctrl_base);
@@ -291,6 +296,7 @@ static int ata_pio_read(void *ctx, uint32_t lba, uint32_t count, void *buf)
 
 	io_base   = c->io_base;
 	ctrl_base = c->ctrl_base;
+	outb(ctrl_base, ATA_CTL_NIEN);
 
 	/* Program the IDE registers for an LBA28 READ SECTORS (ATA/ATAPI-6). The
 	 * drive/head register selects channel device + carries LBA bits 24..27.
@@ -371,6 +377,7 @@ static int ata_pio_write(void *ctx, uint32_t lba, uint32_t count, const void *bu
 
 	io_base   = c->io_base;
 	ctrl_base = c->ctrl_base;
+	outb(ctrl_base, ATA_CTL_NIEN);
 
 	/* Same LBA28 register-programming order as the read path, but the command
 	 * is WRITE SECTORS (0x30). (brief Sec 2.2 -- the ATA-conformant sequence

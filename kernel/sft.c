@@ -367,6 +367,13 @@ void sft_inherit(psp_t *child)
             continue; /* resident CON/AUX/PRN device slot -- shared, not counted */
         }
 
+        /* DOS 3.30 OPEN bit 7 keeps the parent's handle private. Drop the
+         * copied handle before taking a reference (fixtures/handles33). */
+        if (g_sft[idx].open_mode & SFT_MODE_PRIVATE) {
+            child->jft[h] = JFT_CLOSED;
+            continue;
+        }
+
         /* the repository contract mutant target (SFT_MUTATE_NO_INHERIT_REFCOUNT): WITHOUT this bump
          * the child's exit (sft_close_process) OVER-FREES the inherited slot out
          * from under the parent -- the parent's next dos_dup2(saved,1)/dos_close

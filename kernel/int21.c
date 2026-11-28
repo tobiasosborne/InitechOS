@@ -2347,6 +2347,13 @@ static uint16_t dev_route_rw(device_header_t *dev, int is_write,
  * may be open concurrently (each its own SFT slot). Errors: AX=0x0002 (not
  * found), 0x0003 (path), 0x0004 (no free SFT/JFT slot). Ref: brief Sec 4.1;
  * DOS 3.3 PRM AH=3Dh; RBIL INT 21/AH=3Dh (device-name precedence). */
+static int same_dir_entry(const sft_entry_t *e, unsigned drive,
+                          uint16_t dir_start, uint32_t slot)
+{
+    return e->kind == SFT_KIND_FILE && e->drive == drive &&
+           e->dir_start == dir_start && e->root_slot == slot;
+}
+
 int int21_same_file(uint16_t first, uint16_t second)
 {
     sft_entry_t *a = first <= 0xFFu
@@ -2358,7 +2365,7 @@ int int21_same_file(uint16_t first, uint16_t second)
      * Cluster alone is insufficient (all empty files have cluster zero).
      * Ref: MS-DOS 3.3 User's Reference p. 50, COPY self refusal; initech-vj28. */
     if (a->kind == SFT_KIND_FILE)
-        return a->drive == b->drive && a->dir_start == b->dir_start && a->root_slot == b->root_slot;
+        return same_dir_entry(a, b->drive, b->dir_start, b->root_slot);
     return a->kind == SFT_KIND_DEVICE && a->device == b->device;
 }
 
@@ -2624,6 +2631,14 @@ static void do_creat(int_frame_t *f)
         set_ax(f, err);
         cf_set(f);
         return;
+    }
+
+    /* DOS 3.30 allows truncation while another handle is open. Keep each
+     * handle's position, but refresh the live entry copies before an old
+     * handle can follow clusters that this CREAT returned to the free list. */
+    for (unsigned i = SFT_FIRST_FILE; i < SFT_MAX_ENTRIES; i++) {
+        if (same_dir_entry(&g_sft[i], g_io_drive, dir_start, root_slot))
+            g_sft[i].dir_entry = de;
     }
 
     sft_entry_t *e = &g_sft[sft_idx];
@@ -3404,8 +3419,9 @@ static void do_close(int_frame_t *f)
     cf_clear(f);
 }
 
-/* AH=42h LSEEK: EBX=handle, AL=whence (0=start,1=cur,2=end), ECX:EDX offset
- * (ECX high 16 bits = 0 this milestone). New absolute offset -> EAX. Seeking
+/* AH=42h LSEEK: EBX=handle, AL=whence (0=start,1=cur,2=end), offset in CX:DX.
+ * CX=0 also supports the flat callers passing all 32 bits in EDX.
+ * New absolute offset -> EAX. Seeking
  * past EOF is allowed (a subsequent READ then returns 0). CF clear; bad handle
  * -> CF=1, AX=0x0006; bad whence -> CF=1, AX=0x0001.
  * Ref: brief Sec 4.4; DOS 3.3 PRM AH=42h. */
@@ -3413,7 +3429,8 @@ static void do_lseek(int_frame_t *f)
 {
     uint32_t handle = f->ebx;
     uint8_t  whence = frame_al(f);
-    uint32_t off    = f->edx;   /* low 32 bits; ECX high half is 0 this milestone */
+    uint32_t hi     = frame_cx(f);
+    uint32_t off    = hi ? (hi << 16) | frame_dx(f) : f->edx;
 
     sft_entry_t *e = (handle <= 0xFFu)
                        ? sft_from_handle(g_cur_psp, (uint8_t)handle)
@@ -4661,14 +4678,15 @@ static void do_setblock(int_frame_t *f)
     cf_clear(f);
 }
 
-/* AH=30h GET VERSION: AL=major(3), AH=minor(30=0x1E), BH=0 (OEM). CF clear.
- * Version 3.30 (ADR-0003 DEC-12 / kernel/include/dos_banner.txt). */
+/* AH=30h GET VERSION: AX=1E03, BX=CX=0, CF clear.
+ * See tests/fixtures/handles33/capture.txt from Packard Bell DOS 3.30. */
 static void do_getver(int_frame_t *f)
 {
     f->eax = (f->eax & 0xFFFF0000u)
            | ((uint32_t)INT21_VER_MINOR << 8)   /* AH = minor */
            | (uint32_t)INT21_VER_MAJOR;         /* AL = major */
-    f->ebx &= 0xFFFF00FFu;                      /* BH (bits 15:8) = 0 (OEM) */
+    set_bx(f, 0u);
+    set_cx(f, 0u);
     cf_clear(f);
 }
 
@@ -4938,14 +4956,17 @@ static void do_getcwd(int_frame_t *f)
     /* ESI = flat ptr to the caller's 64-byte buffer (DS:SI in real DOS). Copy the
      * canonical root-relative CWD (no leading '\', no drive), NUL-terminated and
      * bounded by the 64-byte DOS buffer (the repository contract -- never overrun). */
-    char *buf = (char *)(uintptr_t)f->esi;
-    if (buf != 0) {
-        uint32_t i = 0u;
-        for (; i < INT21_CWD_MAX - 1u && g_cwd_path[i] != '\0'; i++) {
-            buf[i] = g_cwd_path[i];
-        }
-        buf[i] = '\0';
+    if (!user_buf_ok(f->esi, INT21_CWD_MAX)) {
+        set_ax(f, INT21_ERR_INVALID_MEMORY);
+        cf_set(f);
+        return;
     }
+    char *buf = (char *)(uintptr_t)f->esi;
+    uint32_t i = 0u;
+    for (; i < INT21_CWD_MAX - 1u && g_cwd_path[i] != '\0'; i++) {
+        buf[i] = g_cwd_path[i];
+    }
+    buf[i] = '\0';
     cf_clear(f);
 }
 

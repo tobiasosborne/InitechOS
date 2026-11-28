@@ -301,6 +301,14 @@ static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *secto
 		return FAT12_ERR_GEOMETRY;
 	}
 
+	/* Microsoft FAT specification v1.03 pp. 15-16: each table holds
+	 * CountofClusters + 2 entries, including the two reserved entries. */
+	uint32_t fat_size = (uint32_t)vol->bpb.sectors_per_fat * vol->bpb.bytes_per_sector;
+	uint32_t fat_entries = vol->fat_type == FAT_TYPE_FAT12 ? fat_size * 2u / 3u
+	                                                       : fat_size / 2u;
+	if (fat_entries < vol->total_clusters + 2u)
+		return FAT12_ERR_GEOMETRY;
+
 	return FAT12_OK;
 }
 

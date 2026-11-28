@@ -209,6 +209,20 @@ in tests/fixtures/rootfull33/ (initech-knlbk, initech-2x5l7, initech-xhtlm;
 IBM DOS 3.30 TR pp.6-42, 6-137..140). Tests exercise the real FAT backend through
 INT21, not a mock file backend.
 
+The Packard Bell DOS 3.30 probe in `tests/fixtures/handles33` records version
+AX=1E03, BX=CX=0, signed CX:DX seeks, and error 6 in an EXEC child for a
+handle opened with bit 7 set. InitechDOS also accepts a full EDX seek offset
+with CX=0 for existing flat clients. CREAT still succeeds when the file is
+open. It refreshes the live handles' directory entries after truncation so
+their positions remain valid and their reads see the committed EOF. The DOS
+probe's older handle retained its previous size and bytes. InitechDOS releases
+the old allocation on commit, so its older handles use the new entry.
+
+AH=47h reports error 9 for a null or wrapping flat output span. AH=09h and
+AH=0Ah have no DOS status result and require valid caller buffers. Their
+existing null guards return without I/O. SETDTA with a null pointer selects
+the PSP default and does not access memory.
+
 CREAT's runtime timestamp now participates in its directory commit instead of
 being a separate fallible write after truncation. `test-create-stamp-conservation`
 binds a fixed DOS clock and faults each backend write, including the former

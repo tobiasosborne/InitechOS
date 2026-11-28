@@ -125,6 +125,23 @@ int main(int argc, char **argv)
         f=call(0x3f00,handle,1,(uintptr_t)(low+1024));
         CHECK((f.eflags&1) && (f.eax&65535)!=2,"media failure cannot report file-not-found");
         CHECK(blockdev_file_read_faulted(&disk),"read fault fired");
+        blockdev_file_arm_read_fault(&disk,fault);
+        (void)call(0x1a00,0,0,(uintptr_t)(low+1024));
+        f=call(0x4e00,0,0,(uintptr_t)low);
+        CHECK((f.eflags&1) && (f.eax&65535)==31,"FINDFIRST reports a directory read failure");
+        CHECK(blockdev_file_read_faulted(&disk),"directory read fault fired");
+        f=call(0x4e00,0,0,(uintptr_t)low);
+        CHECK(!(f.eflags&1),"FINDFIRST succeeds when directory is readable again");
+    } else if(!strcmp(argv[2],"open-truncate")) {
+        int_frame_t f=call(0x3d00,0,0,(uintptr_t)low);
+        CHECK(!(f.eflags&1),"open before truncation");
+        unsigned first=f.eax&65535u;
+        f=call(0x3c00,0,0,(uintptr_t)low);
+        CHECK(!(f.eflags&1) && (f.eax&65535u)!=first,"CREAT succeeds with another handle open");
+        f=call(0x3f00,first,1,(uintptr_t)(low+1024));
+        CHECK(!(f.eflags&1) && f.eax==0,"old handle reaches EOF without following a freed cluster");
+        f=call(0x4202,first,0,0);
+        CHECK(!(f.eflags&1) && f.eax==0,"old handle sees the committed length");
     } else if(!strcmp(argv[2],"refresh")) {
         int_frame_t f=call(0x3d02,0,0,(uintptr_t)low);
         CHECK(!(f.eflags&1),"open empty file");

@@ -89,9 +89,9 @@
     {
       "ah": "30h", "mnemonic": "GETVER",
       "in": {},
-      "out": {"AL": "3", "AH": "30 (0x1E)", "BH": "0 (OEM)"},
+      "out": {"AL": "3", "AH": "30 (0x1E)", "BX": "0", "CX": "0"},
       "cf": "never set",
-      "notes": "Version 3.30 per ADR-0003 DEC-12 / kernel/include/dos_banner.txt. EAX low word = 0x1E03."
+      "notes": "Packard Bell DOS 3.30 register capture in kernel/tests/fixtures/handles33/capture.txt. EAX low word = 0x1E03."
     },
     {
       "ah": "33h", "mnemonic": "BREAK",

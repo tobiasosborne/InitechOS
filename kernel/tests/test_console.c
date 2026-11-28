@@ -404,6 +404,16 @@ int main(void)
         CHECK(console_init(&con, &bad) == CONSOLE_ERR_GEOMETRY, "width 0 -> ERR_GEOMETRY");
         bad = bi; bad.lfb_height = 0;
         CHECK(console_init(&con, &bad) == CONSOLE_ERR_GEOMETRY, "height 0 -> ERR_GEOMETRY");
+        bad = bi; bad.lfb_width = 8; bad.lfb_height = 15; bad.lfb_pitch = 32;
+        CHECK(console_init(&con, &bad) == CONSOLE_ERR_GEOMETRY,
+              "a framebuffer shorter than one cell must refuse");
+        bad.lfb_width = 7; bad.lfb_height = 16;
+        CHECK(console_init(&con, &bad) == CONSOLE_ERR_GEOMETRY,
+              "a framebuffer narrower than one cell must refuse");
+        bad.lfb_width = 8;
+        CHECK(console_init(&con, &bad) == CONSOLE_OK, "a single complete cell fits");
+        console_putc(&con, '\n');
+        CHECK(con.cur_row == 0u && con.cur_col == 0u, "single-row scroll stays in bounds");
         bad = bi; bad.lfb_pitch = 0;
         CHECK(console_init(&con, &bad) == CONSOLE_ERR_GEOMETRY, "pitch 0 -> ERR_GEOMETRY");
         bad = bi; bad.lfb_pitch = bi.lfb_width * (bi.lfb_bpp / 8u) - 1u;

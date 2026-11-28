@@ -2,8 +2,8 @@
 # test: test-sft
 --- a/sft.c
 +++ b/sft.c
-@@ -363,12 +363,5 @@
-             continue; /* resident CON/AUX/PRN device slot -- shared, not counted */
+@@ -370,12 +370,5 @@
+             continue;
          }
  
 -        /* the repository contract mutant target (SFT_MUTATE_NO_INHERIT_REFCOUNT): WITHOUT this bump

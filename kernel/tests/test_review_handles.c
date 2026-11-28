@@ -94,6 +94,40 @@ int main(void)
     int21_set_file_backend(&g_mock_backend);
     (void)invoke(0x4202,h,0,0); f=invoke(0x3f00,h,1,buf);
     CHECK(!frame_cf(&f) && f.eax==0, "j8kmv genuine EOF remains successful");
+    f=invoke(0x4700,0,0,0);
+    CHECK(frame_cf(&f) && (f.eax&65535)==9, "GET CURRENT DIR needs an output buffer");
+    int_frame_t cwd=fresh_frame();
+    cwd.eax=0x4700; cwd.esi=0xfffffff0u;
+    int21_dispatch(&cwd);
+    CHECK(frame_cf(&cwd) && (cwd.eax&65535)==9, "GET CURRENT DIR refuses a wrapping span");
+
+    /* tests/fixtures/handles33/capture.txt: GETVER, signed split SEEK,
+     * and IOCTL on an absent inherited handle in an EXEC child. */
+    f=invoke(0x3000,0x1234,0x5678,0);
+    CHECK((f.eax&65535)==0x1e03 && (f.ebx&65535)==0 && (f.ecx&65535)==0,
+          "DOS 3.30 GETVER fills AX, BX and CX");
+    f=invoke(0x4200,h,1,0x2345);
+    CHECK(!frame_cf(&f) && f.eax==0x12345, "split seek uses the offset high word");
+    f=invoke(0x4200,h,0,0x12345);
+    CHECK(!frame_cf(&f) && f.eax==0x12345, "flat EDX seek still takes the whole offset");
+    f=invoke(0x4201,h,0xffff,0xfffe);
+    CHECK(!frame_cf(&f) && f.eax==0x12343, "split relative seek applies a negative delta");
+    (void)invoke(0x3e00,h,0,0);
+    f=invoke(0x3d82,0,0,name);
+    CHECK(!frame_cf(&f) && f.eax==5, "DOS 3.30 private open gets handle 5");
+    f=invoke(0x3d00,0,0,name);
+    CHECK(!frame_cf(&f) && f.eax==6, "inheritable open gets handle 6");
+    psp_t child=g_test_psp;
+    sft_inherit(&child);
+    int21_set_psp(&child);
+    f=invoke(0x4400,5,0,0);
+    CHECK(frame_cf(&f) && (f.eax&65535)==6, "private handle is absent in the child");
+    f=invoke(0x4400,6,0,0);
+    CHECK(!frame_cf(&f), "ordinary handle is present in the child");
+    sft_close_process(&child);
+    int21_set_psp(&g_test_psp);
+    f=invoke(0x4400,5,0,0);
+    CHECK(!frame_cf(&f), "private handle remains open in the parent");
     /* DOS 3.3 PRM AH=3Ch/5Bh returns a read/write handle, as required
      * by Toolbox FILE_READ after FILE_CREATE (toolbox_gate.h section 10). */
     for(unsigned ax=0x3c00;ax<=0x5b00;ax+=0x1f00) {

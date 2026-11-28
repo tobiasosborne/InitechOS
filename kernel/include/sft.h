@@ -85,6 +85,7 @@ typedef enum sft_dev_id {
 #define SFT_MODE_READ   0u
 #define SFT_MODE_WRITE  1u
 #define SFT_MODE_RDWR   2u
+#define SFT_MODE_PRIVATE 0x80u   /* excluded from a child's inherited JFT */
 
 /* One system-wide open-file (or device) registry entry. The JFT maps a process
  * handle (0..19) to an index into g_sft[]. For slots >= SFT_FIRST_FILE,

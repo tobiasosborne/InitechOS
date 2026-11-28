@@ -8,6 +8,10 @@ cp build/metadata/blank.img build/metadata/readerr.img
 mcopy -i build/metadata/readerr.img build/metadata/good ::TARGET.BIN
 failed=0
 if ! build/test_metadata_errors build/metadata/readerr.img readerr 1; then failed=1; fi
+cp build/metadata/readerr.img build/metadata/open-truncate.img
+if ! build/test_metadata_errors build/metadata/open-truncate.img open-truncate 0; then failed=1; fi
+mcopy -o -i build/metadata/open-truncate.img ::TARGET.BIN build/metadata/truncated
+cmp build/metadata/empty build/metadata/truncated
 for fault in 0 5; do
  cp build/metadata/blank.img build/metadata/refresh-$fault.img
  mcopy -i build/metadata/refresh-$fault.img build/metadata/empty ::TARGET.BIN

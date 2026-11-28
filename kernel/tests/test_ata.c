@@ -7,12 +7,14 @@
 #include "test_assert.h"
 TEST_HARNESS();
 static unsigned command, polls, words, early, writes, complete_polls;
+static unsigned irq_enabled_commands, control;
 static int response, pre_response, flush_response, completion_response;
 static ata_ctx_t ctx = {0x1f0,0x3f6,0xf0};
 static uint8_t buf[1024];
 static void reset(void)
 {
     command=polls=words=early=writes=complete_polls=0;
+    irq_enabled_commands=control=0;
     response=0x48; pre_response=-1; flush_response=0x40; completion_response=0x40;
     for (unsigned i=0;i<512;++i) buf[i]=(uint8_t)(i/2);
 }
@@ -40,9 +42,11 @@ uint16_t ata_test_inw(uint16_t port)
 void ata_test_outb(uint16_t port, uint8_t value)
 {
     ++writes;
+    if (port==0x3f6) control=value;
     if (port==0x1f6) return;
     if (port>=0x1f2 && port<=0x1f7 && !command && polls<5) ++early;
     if (port==0x1f7) {
+        if (!(control & 2u)) ++irq_enabled_commands;
         if (value==0xe7 && complete_polls<3) ++early;
         command=value;
     }
@@ -57,12 +61,18 @@ int main(void)
     reset();
     CHECK(ata_read_sectors(&ctx,1,1,buf)==0 && words==256, "READ 256 words");
     CHECK(!early, "bcg.12 BSY=0 DRDY=1 BEFORE taskfile/command writes");
+    CHECK(!irq_enabled_commands, "READ command runs with device interrupts disabled");
     CHECK(buf[2]==1 && buf[3]==0, "READ little-endian bytes");
     for (unsigned i=0;i<512;++i) buf[i]=(uint8_t)(i/2);
     reset();
     CHECK(ata_write_sectors(&ctx,1,1,buf)==0 && words==256 && command==0xe7,
           "WRITE data then FLUSH");
     CHECK(!early, "bcg.12 final WRITE completion BEFORE FLUSH command");
+    CHECK(!irq_enabled_commands, "WRITE and FLUSH run with device interrupts disabled");
+    reset();
+    uint32_t sectors=0;
+    CHECK(!ata_identify(&ctx,&sectors) && words==256, "IDENTIFY reads the PIO data");
+    CHECK(!irq_enabled_commands, "IDENTIFY runs with device interrupts disabled");
     for (int op=0;op<2;++op) {
         int (*read_op)(void *,uint32_t,uint32_t,void *)=ata_read_sectors;
 #define IO() (op ? ata_write_sectors(&ctx,1,1,buf) : read_op(&ctx,1,1,buf))
