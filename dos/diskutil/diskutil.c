@@ -236,6 +236,9 @@ static int format_run(const options *o,const du_map *m){
  if((o->four && o->tracks && o->tracks!=40) ||
     ((o->four || o->eight) && o->sectors && o->sectors!=fixed_spt))
   return error("Parameters not compatible\r\nFormat failure",4);
+ /* DOS 3.30 NATIVE1 refuses one-sided formatting on 1.44 MB media. */
+ if((m->flags&DU_REMOVABLE) && m->sectors==2880 && o->one)
+  return error("Parameters not Supported by Drive\r\nFormat failure",4);
  transfer_source src;volume dst;uint8_t template[512];du_map cm;
  unsigned count=o->s?3:2;
  if(o->s||o->b){

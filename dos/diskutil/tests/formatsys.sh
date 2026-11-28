@@ -158,6 +158,16 @@ N' 4
  cmp "$w/conflict.want" "$w/console" || red 'conflicting geometry diagnostic'
  cmp "$w/conflict-before.img" "$w/a.img" || red 'conflicting geometry wrote the disk'
 done
+# DOS 3.30 NATIVE1 refuses single-sided formatting of the 1.44 MB drive
+# before asking for media. The low-capacity /1 geometry above still works.
+prep
+mcopy -i "$w/a.img" "$b/transient_flairtenants.bin" ::KEEP.TXT
+cp "$w/a.img" "$w/one-before.img"
+DU_CURRENT_C=1 run 0 'A: /1' '
+N' 4
+printf 'Parameters not Supported by Drive\nFormat failure\n' > "$w/one.want"
+cmp "$w/one.want" "$w/console" || red '/1 high-capacity drive refusal'
+cmp "$w/one-before.img" "$w/a.img" || red '/1 high-capacity drive wrote the disk'
 # /B protects room for the two SYS files in root slots 0/1. Independent
 # mtools reads must see HSR reservations with the source sizes and zero bytes;
 # a later SYS fills them without consuming any additional free clusters.
