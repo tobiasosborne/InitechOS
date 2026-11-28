@@ -33,6 +33,11 @@ smoke-startup:
 smoke-shell-config:
 	$(MAKE) -C $(TOP) image
 	sh tests/smoke/shell-config33.sh "$(TOP)" "$(OUT)/smoke/shell-config33"
+.PHONY: smoke-redirected-input
+smoke: smoke-redirected-input
+smoke-redirected-input:
+	$(MAKE) -C $(TOP) image
+	sh tests/smoke/redirected-input.sh "$(TOP)" "$(OUT)/smoke/redirected-input"
 .PHONY: smoke-ctrl-break
 smoke-ctrl-break:
 	$(MAKE) -C $(TOP) image

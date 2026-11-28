@@ -1373,6 +1373,34 @@ void int21_batch_checkpoint(void)
     } else conin_unget(c);
 }
 
+/* Standard input redirected to a file (tests/fixtures/stdin33, genuine
+ * MS-DOS 3.30): AH=01h, 07h and 08h take each byte verbatim, NUL and ^Z
+ * included, and at end of file they wait for ever. Returns -1 when handle 0
+ * is not a file, so the console paths below are unchanged. */
+static sft_entry_t *stdin_file(void)
+{
+    sft_entry_t *e = g_cur_psp ? sft_from_handle(g_cur_psp, 0u) : 0;
+    return e != 0 && e->kind == SFT_KIND_FILE ? e : 0;
+}
+
+static int stdin_file_byte(void)
+{
+    sft_entry_t *e = stdin_file();
+    if (e == 0) return -1;
+    for (;;) {
+        uint8_t c = 0u;
+        uint32_t take = 0u;
+        if ((e->open_mode & 3u) != SFT_MODE_WRITE && g_file != 0 && g_file->read_at != 0) {
+            (void)select_volume(e->drive);
+            if (g_file->read_at(&e->dir_entry, e->file_offset, &c, 1u, &take) == 0u &&
+                take == 1u) {
+                e->file_offset++;
+                return c;
+            }
+        }
+    }
+}
+
 /* AH=01h CHARACTER INPUT WITH ECHO: block for one char, echo it to CON, AL=char.
  * (Ctrl-C check deferred -- see header note.) CF is not part of this function's
  * contract; success leaves it clear. Ref: DOS 3.3 PRM AH=01h.
@@ -1385,7 +1413,15 @@ void int21_batch_checkpoint(void)
  * ON-only non-CON widening is in int21_dispatch_body (C-6). */
 static void do_conin_echo(int_frame_t *f)
 {
-    int c = conin_get_pb();
+    int c = stdin_file_byte();
+    if (c >= 0) {               /* stdin33: the raw byte echoes to stdout */
+        char ch = (char)c;
+        stdout_emit(&ch, 1u);
+        set_al(f, (uint8_t)c);
+        cf_clear(f);
+        return;
+    }
+    c = conin_get_pb();
     /* ^C check-point (beads initech-4tw; DEC-16 Sec 3.3 Fork A): a 0x03 routes to
      * the INT 23h break handler instead of being delivered/echoed as a char. The
      * CON family is ALWAYS a check-point under Fork A (BREAK ON or OFF). If the
@@ -1403,7 +1439,8 @@ static void do_conin_echo(int_frame_t *f)
  * no echo. Ref: DOS 3.3 PRM AH=07h. */
 static void do_conin_raw(int_frame_t *f)
 {
-    int c = conin_get_pb();
+    int c = stdin_file_byte();
+    if (c < 0) c = conin_get_pb();
     set_al(f, (uint8_t)c);
     cf_clear(f);
 }
@@ -1414,7 +1451,13 @@ static void do_conin_raw(int_frame_t *f)
  * being delivered in AL. Ref: DOS 3.3 PRM AH=08h ("with Ctrl-C check"). */
 static void do_conin_noecho(int_frame_t *f)
 {
-    int c = conin_get_pb();
+    int c = stdin_file_byte();
+    if (c >= 0) {               /* stdin33: verbatim from the redirected file */
+        set_al(f, (uint8_t)c);
+        cf_clear(f);
+        return;
+    }
+    c = conin_get_pb();
     if (conin_check_ctrlc(c, f)) {
         return;
     }
@@ -1459,7 +1502,11 @@ static void do_direct_conio(int_frame_t *f)
 static void do_input_status(int_frame_t *f)
 {
     int avail;
-    if (g_conin_pushback >= 0) {
+    sft_entry_t *in = stdin_file();
+    if (in != 0) {
+        /* stdin33 status33: FF while bytes remain, 00 at end of file. */
+        avail = in->file_offset < in->dir_entry.file_size;
+    } else if (g_conin_pushback >= 0) {
         avail = 1;                 /* already have one queued */
     } else {
         int c = conin_poll_pb();
@@ -1509,6 +1556,17 @@ static void conedit_console_emit(uint8_t c, void *ctx)
     g_input_echo--;
 }
 
+/* Redirected-input echo goes to standard output (tests/fixtures/stdin33). */
+static void conedit_stdout_emit(uint8_t c, void *ctx)
+{
+    (void)ctx;
+    if (c == 0x1a) stdout_emit("^Z", 2u);
+    else {
+        char ch = (char)c;
+        stdout_emit(&ch, 1u);
+    }
+}
+
 static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap,
                                   const uint8_t *tmpl, unsigned len,
                                   int_frame_t *f, int *broke)
@@ -1516,6 +1574,27 @@ static uint8_t conin_cooked_line(uint8_t *out, uint8_t cap,
     conedit_t editor;
     conedit_init(&editor, tmpl, len);
     if (broke) *broke = 0;
+    /* Genuine DOS 3.30 with a file as standard input (stdin33, buffered33):
+     * the same editing, echoed to standard output. An LF that begins the
+     * call is dropped silently; a later LF echoes CR LF and is not stored;
+     * CR ends the line and echoes CR alone. End of file waits for ever. */
+    int c = stdin_file_byte();
+    if (c >= 0) {
+        if (c == 0x0a) c = stdin_file_byte();
+        for (;; c = stdin_file_byte()) {
+            if (c == 0x0a) {
+                conedit_stdout_emit(13, 0);
+                conedit_stdout_emit(10, 0);
+                continue;
+            }
+            if (c == 0x0d && !editor.extended && !editor.target) {
+                conedit_stdout_emit(13, 0);
+                return (uint8_t)editor.count;
+            }
+            if (conedit_key(&editor, (uint8_t)c, out, cap, conedit_stdout_emit, 0))
+                return (uint8_t)editor.count;
+        }
+    }
     if (!g_conin_get && g_conin_pushback < 0) return 0;
     for (;;) {
         uint8_t c = (uint8_t)conin_get_pb();

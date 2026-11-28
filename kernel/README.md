@@ -391,6 +391,15 @@ index and the directory's start cluster. Searches in different DTAs, or a
 copied DTA, continue independently. AX is 0 on success. Source:
 tests/fixtures/find-dta33. Bytes 17-20 are DOS-internal and left zero.
 
+With standard input redirected to a file, AH=01h, 07h and 08h take each
+byte verbatim (NUL and ^Z included) and wait for ever at end of file, and
+AH=01h echoes the raw byte to standard output. Source:
+tests/fixtures/stdin33 (genuine MS-DOS 3.30). AH=0Ah edits the file's
+line and echoes to standard output; AH=0Bh returns FFh while bytes remain
+and 00h at end of file; AH=0Ch chains to these without moving the file
+position. A 03h byte in the file is delivered rather than treated as a
+break; that case is not captured. AH=06h still reads the console.
+
 GM2 mounts FAT16 for listing and reading only. DOS file mutations return access
 denied; INT26 refuses with write protection. INT13 AH=03h refuses the entire
 request with BIOS status03h before calling the backend when any requested sector
