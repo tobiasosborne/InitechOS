@@ -32,7 +32,7 @@ DISKUTIL_REPORT_ONLY=1 DU_CURRENT_C=1 build/formatsys_host "$w/master.img" "$w/t
 if ! grep -qFx 'Write protect error writing drive D:' "$w/layout.out" || ! cmp -s "$w/before.img" "$w/master.img" || ! grep -q 'writes=0' "$w/layout.status" || ! grep -Eq 'exit=[1-9]' "$w/layout.status"; then
  echo 'FAIL FAT16 proposed layout: refusal before writes required'; bad=$((bad+1))
 else echo 'GREEN FAT16 proposed layout: refused before writes'; fi
-for spec in 'label|A: CHANGED' 'chkdsk|A: /F'; do
+for spec in 'label|A:CHANGED' 'chkdsk|A: /F'; do
  tool=${spec%%|*};tail=${spec#*|}
  cp "$w/fat16.img" "$w/target.img"
  build/fat16_host "$w/target.img" "$tool" "$tail" > "$w/$tool.out" 2> "$w/$tool.status"

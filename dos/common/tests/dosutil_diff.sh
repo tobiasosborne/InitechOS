@@ -71,6 +71,13 @@ if [ "$mode" = attrib ]; then
 else
     run_good 'a:two words'; mlabel -i "$b.ref" ::'TWO WORDS'
     checklabel 'L1 create/replace uppercase label with spaces'
+    # DOS 3.30 LABELW enters the interactive path when the drive and
+    # label are separated. Declining deletion must preserve every byte.
+    cp "$b.img" "$b.before"
+    run_good 'A: TEST LAB' '
+N'
+    grep -Fq 'Volume label (11 characters, ENTER for none)?' "$b.out" || fail 'LABEL spaced drive did not prompt'
+    cmp "$b.before" "$b.img" || fail 'LABEL spaced drive wrote media'
     run_good 'A:123456789012345'; mlabel -i "$b.ref" ::12345678901
     checklabel 'L4 first eleven characters'
     run_good 'A:' '
