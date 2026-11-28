@@ -4,10 +4,24 @@ set -eu
 top=$1 component=$2 out=$3 make_cmd=$4
 shift 4
 [ "$#" -gt 0 ] || { echo "FAIL: no mutation patches selected" >&2; exit 1; }
+# These components already distribute exact selections before invoking us.
+case $component in
+    flair|apps/initechbase) jobs=1 ;;
+    *) jobs=${MUTANT_JOBS:-4} ;;
+esac
+case $jobs in
+    ''|*[!0-9]*|0*) echo 'FAIL: MUTANT_JOBS must be a positive integer' >&2; exit 1 ;;
+esac
+if [ "$jobs" -gt 1 ] && [ "$#" -gt 1 ]; then
+    exec sh "$top/factory/testlib/parallel-mutants.sh" "$top" "$component" "$out" "$make_cmd" "$jobs" "$@"
+fi
 mkdir -p "$out/mutants"
 job=$(mktemp -d "$out/mutants/run.XXXXXX")
 start=$(date +%s)
 ulimit -c 0
+serial_make() {
+    "$make_cmd" -j1 --no-print-directory "$@"
+}
 # An owner can start multiple selection groups in parallel. Each group
 # owns the dependency builds used by all of its baseline and patch copies.
 mkdir "$job/tree"
@@ -19,8 +33,8 @@ if [ -n "${INITECH_MUTANT_INPUTS:-}" ]; then
 else
     # Standalone runs do not get the sweep's pristine image preparation.
     case $component in
-        kernel) "$make_cmd" --no-print-directory -C "$top" catalog > "$job/inputs.log" 2>&1 ;;
-        turbo/seed|turbo/compiler) "$make_cmd" --no-print-directory -C "$top" image > "$job/inputs.log" 2>&1 ;;
+        kernel) serial_make -C "$top" catalog > "$job/inputs.log" 2>&1 ;;
+        turbo/seed|turbo/compiler) serial_make -C "$top" image > "$job/inputs.log" 2>&1 ;;
     esac
 fi
 # Keep the graded outputs within the component's tree for ownership audits.
@@ -51,7 +65,7 @@ export INITECH_MUTANT_BUILD=1
 mutant_make() {
     source_dir=$1
     shift
-    INITECH_MUTANT_SELECTION="$selection" "$make_cmd" --no-print-directory -C "$source_dir/component" \
+    INITECH_MUTANT_SELECTION="$selection" serial_make -C "$source_dir/component" \
         TOP="$top" OUT="$source_dir/build" "$@"
 }
 n=0 killed=0 survived=0 errors=0

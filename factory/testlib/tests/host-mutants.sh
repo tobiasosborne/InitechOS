@@ -48,12 +48,31 @@ for fault in 1 2 124 126 127 137 139 143; do
  grep -q '1 mutants, 0 killed, 0 survived, 1 errors' "$work/$fault.log"
  echo "ok infrastructure exit $fault is an error"
 done
+cat > "$work/bin/timeout" <<'INJECT'
+#!/bin/sh
+case $* in
+    */assertion/*) mine=assertion peer=no-op ;;
+    */no-op/*) mine=no-op peer=assertion ;;
+    *) exec /usr/bin/timeout "$@" ;;
+esac
+touch "$RENDEZVOUS/$mine"
+tries=0
+while [ ! -f "$RENDEZVOUS/$peer" ]; do
+    tries=$((tries+1))
+    [ "$tries" -le 50 ] || exit 124
+    sleep 0.1
+done
+exec /usr/bin/timeout "$@"
+INJECT
 rc=0
-(cd "$work/component" && sh "$root/factory/testlib/run-mutants.sh" "$root" fixture "$work/control" make mutants/no-op.patch) > "$work/control.log" 2>&1 || rc=$?
-test "$rc" -ne 0
-grep -q '1 mutants, 0 killed, 1 survived, 0 errors' "$work/control.log"
-echo 'ok unchanged product survives'
-(cd "$work/component" && sh "$root/factory/testlib/run-mutants.sh" "$root" fixture "$work/semantic" make mutants/assertion.patch) > "$work/semantic.log" 2>&1 || { cat "$work/semantic.log"; exit 1; }
-grep -q '1 mutants, 1 killed, 0 survived, 0 errors' "$work/semantic.log"
-echo 'ok completed assertion killed twice'
+(cd "$work/component" && PATH="$work/bin:$PATH" RENDEZVOUS="$work" MUTANT_JOBS=2 \
+ sh "$root/factory/testlib/run-mutants.sh" "$root" fixture "$work/control" make \
+ mutants/no-op.patch mutants/assertion.patch) > "$work/control.log" 2>&1 || rc=$?
+if [ "$rc" -ne 1 ] ||
+   ! grep -q '^fixture: 1 mutants, 0 killed, 1 survived, 0 errors' "$work/control.log" ||
+   ! grep -q '^fixture: 1 mutants, 1 killed, 0 survived, 0 errors' "$work/control.log"; then
+    cat "$work/control.log"
+    exit 1
+fi
+echo 'ok two concurrent patches: assertion killed twice, unchanged product survives and fails the run'
 echo 'factory: 1 mutants, 1 killed, 0 survived, 0 errors'

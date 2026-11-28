@@ -59,9 +59,12 @@ component; logs explain failures. Undeclared artifacts are conservatively red.
 
 expect_abort.h supplies success, diagnostic-marker and SIGABRT probes.
 oracle_policy.h always fails missing references; no SKIP opt-outs exist.
-run-mutants.sh runs one passing baseline per exact selection, zero-fuzz patches,
-requires compilation, then the same failing test set twice. Success deletes
-scratch; failure preserves it and prints its location. Empty selections fail.
+run-mutants.sh distributes patches across MUTANT_JOBS workers (default 4).
+Each worker builds one passing baseline per exact selection, applies patches
+with zero fuzz, requires compilation, then runs the same failing test set
+twice. FLAIR and InitechBase schedule their own selection groups. Success
+deletes scratch; failure preserves it and prints its location. Empty
+selections fail.
 The seeded region generators/shrinker remain private to the region engine.
 
 The outer sweep uses per-invocation worker records and verifies every process
