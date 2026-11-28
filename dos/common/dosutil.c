@@ -247,10 +247,15 @@ int label_main(const char *tail)
     if (tail[0] && tail[1]==':') {
         disk.drive=(unsigned)(upper(tail[0])-'A');
         tail+=2;
-        /* DOS 3.30 LABELW: a separated label enters the dialogue.
-         * LABELBSD sets a label immediately only when attached to d:. */
-        if (space(*tail)) tail="";
     }
+    /* Golden Master item 2: refuse switch operands before the label
+     * dialogue can consume a replacement label from standard input. */
+    for (const char *p=tail; *p; ++p)
+        if (*p=='/' && (p==tail || space(p[-1]))) return error(MSG_DOS_0064);
+
+    /* DOS 3.30 LABELW: a separated label enters the dialogue.
+     * LABELBSD sets a label immediately only when attached to d:. */
+    if (space(*tail)) tail="";
     /* LABEL [drive:][label] (MS-DOS 3.3 Reference p.86 / PDF171; audit
      * L015): any mounted DEC-18 letter, judged by that drive's own GETCWD
      * (AX=000Fh for an absent letter) -- formerly every non-default drive

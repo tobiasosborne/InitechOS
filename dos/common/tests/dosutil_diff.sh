@@ -105,6 +105,13 @@ y
         esac
     done
     cmp -s "$b.img" "$b.before" || fail 'L6 invalid name/drive wrote disk'
+    # The COMMAND review found that A: /Z could enter the label dialogue
+    # and consume NEWLABEL. Golden Master item 2 requires a refusal.
+    if run 'A: /Z' 'NEWLABEL
+'; then fail 'LABEL accepted an unsupported switch'; fi
+    printf 'Invalid parameter\r\n' > "$b.expected"
+    cmp -s "$b.out" "$b.expected" || fail 'LABEL switch refusal diagnostic'
+    cmp -s "$b.img" "$b.before" || fail 'LABEL switch refusal changed the disk'
     # IBM Reference A-75 / MS 3.3 p.348: root exhaustion must be diagnosed.
     mlabel -c -i "$b.img" ::
     i=0
