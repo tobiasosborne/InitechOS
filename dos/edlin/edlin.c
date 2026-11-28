@@ -15,7 +15,7 @@ static const edlin_io *io;
 static char text[CAP],command[254],edited[254],oldtext[254],newtext[254];
 static char name[128],backup[128],temporary[128];
 static unsigned used,lines,current;
-static int output,existed,backup_ro,binary,failed;
+static int output,existed,backup_ro,keep_temporary,binary,failed;
 typedef struct {
     int h,eof,pos,size,push,ready;
     char buffer[512],pending[254];
@@ -142,8 +142,9 @@ static int write_lines(unsigned count,int automatic){
     }
     if(done){erase(1,done);current=1;}return 1;
 }
-/* pp.163-164,179,186: save via temporary; old input becomes .BAK, old BAK
- * replaced unless read-only. Q preserves both original and pre-existing BAK. */
+/* pp.163-164,179,186: save via temporary; old input becomes .BAK.
+ * DOS 3.30 EDLINBRO leaves the completed .$$$ if a read-only backup
+ * prevents the rotation. Q preserves both original and pre-existing BAK. */
 static int save(void){
     if(!write_lines(lines,0))return 0;
     while(nextline(&input)){if(!writebytes(input.pending,length(input.pending))||!writebytes("\r\n",2))return 0;input.ready=0;}
@@ -154,11 +155,9 @@ static int save(void){
     if(!writebytes("\032",1))return 0;
     if(io->close(output)<0){failed=1;return 0;}output=-1;
     if(input.h>=0){io->close(input.h);input.h=-1;}
+    if(existed && backup_ro){keep_temporary=1;return 1;}
     if(!backup_ro){int e=io->remove(backup);if(e<0&&e!=-2){emit(MSG_DOS_0053 "\r\n");return 0;}}
-    if(existed){
-        if(backup_ro){if(io->remove(name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}}
-        else if(io->rename(name,backup)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
-    }
+    if(existed && io->rename(name,backup)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
     if(io->rename(temporary,name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
     return 1;
 }
@@ -291,7 +290,7 @@ static void extension(char *dst,const char *src,const char *ext){
     copy(dst+dot,ext,5);
 }
 int edlin_run(const edlin_io *ops,const char *tail){
-    io=ops;used=lines=0;current=1;output=-1;failed=binary=0;oldtext[0]=newtext[0]=0;
+    io=ops;used=lines=0;current=1;output=-1;failed=binary=keep_temporary=0;oldtext[0]=newtext[0]=0;
     while(*tail==' ')tail++;
     unsigned n=0;while(*tail&&*tail!=' '&&*tail!='/'&&n<123)name[n++]=*tail++;name[n]=0;
     while(*tail==' ')tail++;
@@ -302,9 +301,11 @@ int edlin_run(const edlin_io *ops,const char *tail){
        upper(name[n-2])=='A'&&upper(name[n-1])=='K'){
         emit(MSG_DOS_0057 "\r\n");return 1;
     }
+    /* DOS 3.30 EDLINSRO refuses before opening an edit session. */
+    int attr=io->attr(name);
+    if(attr>=0 && (attr&1)){emit("File is READ-ONLY\r\n");return 1;}
     extension(backup,name,".BAK");extension(temporary,name,".$$$");
     backup_ro=io->attr(backup);backup_ro=backup_ro>=0&&(backup_ro&1);
-    if(backup_ro)emit(MSG_DOS_0058 "\r\n"); /* p.164 */
     int h=io->open(name);existed=h>=0;
     if(h<0&&h!=-2){emit(MSG_DOS_0053 "\r\n");return 1;}
     reader_init(&input,h);
@@ -312,6 +313,6 @@ int edlin_run(const edlin_io *ops,const char *tail){
     for(;;){emit("*");if(readline(command,"")<0){if(failed)break;continue;}if(commands())break;}
     if(input.h>=0)io->close(input.h);
     if(output>=0)io->close(output);
-    io->remove(temporary);
+    if(!keep_temporary)io->remove(temporary);
     return failed?1:0;
 }

@@ -33,14 +33,19 @@ for case in $cases; do
  tail=$(cat "$out/model/tail")
  leaf=IN.TXT
  bak=IN.BAK
+ saved_leaf=$leaf
  if [ "$case" = path ]; then
   mkdir -p "$out/actual/SUB"
   mv -f "$out/actual/IN.TXT" "$out/actual/SUB/IN.TXT"
   mv -f "$out/actual/IN.BAK" "$out/actual/SUB/IN.BAK"
   leaf=SUB/IN.TXT
   bak=SUB/IN.BAK
+  saved_leaf=$leaf
  fi
- if [ "$case" = robackup ]; then chmod 400 "$out/actual/IN.BAK"; fi
+ if [ "$case" = robackup ]; then
+  chmod 400 "$out/actual/IN.BAK"
+  saved_leaf='IN.$$$'
+ fi
  if [ "$mode" = host ]; then
   rc=0
   (cd "$out/actual"; "$program" "$tail" < ../model/keys.bin > ../got.txt 2> ../producer.log) || rc=$?
@@ -78,6 +83,9 @@ for case in $cases; do
   grep -q triple_fault=1 "$out/report" && fail fault
   mcopy -o -i "$img" ::TRACE.TXT "$out/got.txt" 2>/dev/null || fail transcript
   mcopy -o -i "$img" "::$leaf" "$out/actual/$leaf" 2>/dev/null || true
+  if [ "$case" = robackup ]; then
+   mcopy -o -i "$img" "::$saved_leaf" "$out/actual/$saved_leaf" 2>/dev/null || true
+  fi
   chmod -f u+w "$out/actual/$bak" 2>/dev/null || true
   rm -f "$out/actual/$bak"
   mcopy -o -i "$img" "::$bak" "$out/actual/$bak" 2>/dev/null || true
@@ -85,9 +93,10 @@ for case in $cases; do
  saved=0
  [ ! -f "$out/model/OUTPUT.TXT" ] || saved=1
  if [ "$saved" = 1 ]; then
-  cmp -s "$out/model/OUTPUT.TXT" "$out/actual/$leaf" || fail output
+  cmp -s "$out/model/OUTPUT.TXT" "$out/actual/$saved_leaf" || fail output
   if [ -f "$out/model/MANUAL.TXT" ]; then cmp -s "$out/model/MANUAL.TXT" "$out/actual/$leaf" || fail manual-file; fi
   if [ "$case" = robackup ]; then
+   cmp -s "$out/model/IN.TXT" "$out/actual/$leaf" || fail 'read-only backup original'
    cmp -s "$out/model/IN.BAK" "$out/actual/$bak" || fail backup
   elif [ -f "$out/model/IN.TXT" ]; then
    cmp -s "$out/model/IN.TXT" "$out/actual/$bak" || fail backup
@@ -103,12 +112,11 @@ for case in $cases; do
  if [ "$mode" = emu ]; then
   ref=$out/reference.img
   if [ "$saved" = 1 ]; then
-   if [ "$case" = robackup ]; then mdel -i "$ref" "::$leaf";
-   else
+   if [ "$case" != robackup ]; then
     mdel -i "$ref" "::$bak"
     if [ -f "$out/model/IN.TXT" ]; then mren -i "$ref" "::$leaf" "::$bak"; fi
    fi
-   mcopy -i "$ref" "$out/model/OUTPUT.TXT" "::$leaf"
+   mcopy -i "$ref" "$out/model/OUTPUT.TXT" "::$saved_leaf"
   fi
   mcopy -i "$ref" "$out/model/expected.txt" ::TRACE.TXT
   # Compare independently extracted semantic FAT contents, not timestamps or allocation order.
@@ -127,6 +135,25 @@ for case in $cases; do
  echo "GREEN test-edlin-$mode $case (transcript, output, backup)"
 done
 if [ "$mode" = host ]; then
+ # DOS 3.30 EDLINSRO never opens the edit session for a read-only file.
+ case=rosource
+ out=$root/$case
+ rm -rf "$out"; mkdir -p "$out"
+ printf 'apple\r\nzebra\r\nApple\r\n' > "$out/before"
+ cp "$out/before" "$out/WORDS.TXT"
+ printf 'PRECIOUS BACKUP' > "$out/backup"
+ cp "$out/backup" "$out/WORDS.BAK"
+ chmod 400 "$out/WORDS.TXT"
+ rc=0
+ (cd "$out"; printf 'e\r' | "$program" WORDS.TXT > got.txt 2> producer.log) || rc=$?
+ completed "$rc" "$out/producer.log"
+ [ "$rc" = 1 ] || fail 'read-only source exit'
+ printf 'File is READ-ONLY\r\n' > "$out/expected.txt"
+ cmp "$out/expected.txt" "$out/got.txt" || fail 'read-only source diagnostic'
+ cmp "$out/before" "$out/WORDS.TXT" || fail 'read-only source bytes'
+ cmp "$out/backup" "$out/WORDS.BAK" || fail 'existing backup bytes'
+ [ ! -e "$out/WORDS.\$\$\$" ] || fail 'read-only source created temporary'
+
  # Initech-zxv2d: a NUL in the unloaded remainder fails the save stream
  # (Entry error). E must commit nothing: the original file and the
  # previous backup stay byte-identical and no new file replaces either.

@@ -94,7 +94,6 @@ static void model(const scenario *sc){
  if(!strcmp(sc->name,"bakname")){fputs("Cannot edit .BAK file--rename file\r\n",trans);return;}
  char command[254],edit[254],temp[254];FILE *out=NULL;int done=0;
  cur=1;n=on=next=used=0;needle[0]=replacement[0]=0;
- if(!strcmp(sc->name,"robackup"))fputs("WARNING! Backup file is read-only -- backup\r\nwill not be made\r\n",trans);
  FILE *src=fopen("IN.TXT","rb");if(src){char *s=NULL;size_t z=0;ssize_t k;
   while((k=getline(&s,&z,src))>=0){if(k && s[k-1]=='\n')s[--k]=0;if(k&&s[k-1]=='\r')s[--k]=0;
    if(!strstr(sc->tail,"/B")){char *p=strchr(s,26);if(p){*p=0;if(*s)orig[on++]=strdup(s);break;}}

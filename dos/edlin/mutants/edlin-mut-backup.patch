@@ -2,13 +2,12 @@
 # test: test-edlin-host
 --- a/edlin/edlin.c
 +++ b/edlin/edlin.c
-@@ -152,8 +152,7 @@
+@@ -157,7 +157,7 @@
      if(input.h>=0){io->close(input.h);input.h=-1;}
+     if(existed && backup_ro){keep_temporary=1;return 1;}
      if(!backup_ro){int e=io->remove(backup);if(e<0&&e!=-2){emit(MSG_DOS_0053 "\r\n");return 0;}}
-     if(existed){
--        if(backup_ro){if(io->remove(name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}}
--        else if(io->rename(name,backup)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
-+        if(io->remove(name)<0)return 0; /* the repository contract: omit original .BAK. */
-     }
+-    if(existed && io->rename(name,backup)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
++    if(existed && io->remove(name)<0)return 0; /* Omit the original .BAK. */
      if(io->rename(temporary,name)<0){emit(MSG_DOS_0053 "\r\n");return 0;}
      return 1;
+ }
