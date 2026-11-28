@@ -1,3 +1,5 @@
+%include "dos_messages.inc"
+
 ; MORE.COM uses the published DOS handle and console services.
 ; The console sequence comes from more/tests/compat33, captured on MS-DOS 3.30.
 ; File and pipe output use the InitechDOS byte-for-byte filter path.
@@ -7,8 +9,28 @@ org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 RBUF     equ 0x00050000         ; read buffer base
 RBUF_MAX equ 0x00001000         ; 4 KiB chunk
 PAGE_LINES equ 24               ; screenful before the pager pauses
+PSP_TAIL_LEN equ 0x00040080
+PSP_TAIL_TXT equ 0x00040081
 
 start:
+    cld
+    ; DOS 3.30 MOREZ ignored its tail. The golden master requires an
+    ; explicit refusal for unsupported switches.
+    movzx ecx, byte [PSP_TAIL_LEN]
+    mov esi, PSP_TAIL_TXT
+.tail:
+    jecxz .device
+    lodsb
+    dec ecx
+    cmp al, ' '
+    je .tail
+    cmp al, 9
+    je .tail
+    mov edx, msg_switch
+    mov ah, 0x09
+    int 0x21
+    jmp .handle_error
+.device:
     ; ---- AH=44h AL=00h Get Device Information for handle 1 (stdout). ----
     mov eax, 0x00004400        ; AH=44h, AL=00h (get device info)
     mov ebx, 1                 ; handle 1 = stdout
@@ -109,6 +131,7 @@ start:
     int 0x21
     int 0x20                    ; defense in depth (the repository contract)
 
+msg_switch:  db MSG_DOS_0064, 0x0D, 0x0A, "$"
 page_prompt: db 0x0D, "-- More --", "$"
 page_break:  db 0x0D, 0x0A, "$"
 chunk_len: dd 0

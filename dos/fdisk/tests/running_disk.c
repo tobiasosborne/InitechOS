@@ -9,7 +9,7 @@
 #include "test_assert.h"
 
 TEST_HARNESS();
-int fdisk_entry(void);
+int fdisk_entry(const char *,unsigned);
 
 static const uint8_t partitioned[512] = {
     [450] = 1, [454] = 63, [459] = 64, [510] = 0x55, [511] = 0xaa
@@ -32,6 +32,8 @@ static unsigned mapped, selected;
 static unsigned queries[2], reads[2], writes, restarts;
 static uint8_t mbr[512];
 static const char *keys;
+static char output[4096];
+static unsigned output_used;
 
 static void unexpected(const char *gate, unsigned ax)
 {
@@ -79,12 +81,16 @@ int fdisk_int13(unsigned ax, uintptr_t bx, unsigned *cx, unsigned *dx)
 unsigned fdisk_int21(unsigned ax, unsigned bx, unsigned cx, uintptr_t dx)
 {
     (void)bx;
-    (void)cx;
-    (void)dx;
     switch (ax) {
     case 0x0700: return *keys ? (unsigned char)*keys++ : 27;
     case 0x1900: return selected;
-    case 0x4000: return 0;
+    case 0x4000:
+        if(cx<sizeof output-output_used){
+            memcpy(output+output_used,(const void *)dx,cx);
+            output_used+=cx;
+            output[output_used]=0;
+        }
+        return 0;
     default:
         unexpected("INT 21h",ax);
         return 0;
@@ -104,9 +110,10 @@ static int run(const du_map map[4], unsigned present, unsigned current, const ch
     keys = input;
     memset(queries,0,sizeof queries);
     memset(reads,0,sizeof reads);
-    writes = restarts = 0;
+    writes = restarts = output_used = 0;
+    output[0]=0;
     memcpy(mbr,partitioned,sizeof mbr);
-    return fdisk_entry();
+    return fdisk_entry("",0);
 }
 
 static int untouched(void)
@@ -139,5 +146,9 @@ int main(void)
     CHECK(rc == 1 && untouched(),"conflicting running disks: refuse before disk access");
     rc = run(invalid,0x4,2,"\033");
     CHECK(rc == 1 && untouched(),"invalid physical disk: refuse before disk access");
+    output_used=0;
+    rc=fdisk_entry(" /Z",3);
+    CHECK(rc==1 && !strcmp(output,"Invalid parameter\r\n") && untouched(),
+          "FDISK /Z is explicitly refused before accessing the disk");
     return TEST_SUMMARY("fdisk-running-disk");
 }

@@ -2,7 +2,6 @@
 
 ; FIND.COM, using the fixed native COM program and scratch layout.
 ; Grammar, streams and statuses: find/tests/compat33 (genuine MS-DOS 3.30).
-; /I is the existing InitechDOS extension.
 bits 32
 org 0x00040100
 
@@ -16,7 +15,6 @@ READ_MAX     equ 0x00001000
 F_V equ 1
 F_C equ 2
 F_N equ 4
-F_I equ 8
 
 start:
     cld
@@ -52,8 +50,6 @@ start:
     je .count
     cmp al, 'N'
     je .number
-    cmp al, 'I'
-    je .ignore_case
     mov [invalid_letter], al
     mov edx, msg_switch
     mov ecx, msg_switch_len
@@ -67,9 +63,6 @@ start:
     jmp .option
 .number:
     or byte [flags], F_N
-    jmp .option
-.ignore_case:
-    or byte [flags], F_I
     jmp .option
 
 .search_string:
@@ -298,20 +291,6 @@ line_contains:
 .cmp:
     mov al, [esi]
     mov ah, [edi]
-    test byte [flags], F_I
-    jz .compare
-    cmp al, 'a'
-    jb .fold_needle
-    cmp al, 'z'
-    ja .fold_needle
-    sub al, 'a' - 'A'
-.fold_needle:
-    cmp ah, 'a'
-    jb .compare
-    cmp ah, 'z'
-    ja .compare
-    sub ah, 'a' - 'A'
-.compare:
     cmp al, ah
     jne .next
     inc esi

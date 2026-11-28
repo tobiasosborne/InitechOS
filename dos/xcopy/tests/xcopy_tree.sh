@@ -119,10 +119,14 @@ if [ "$mode" = host ]; then
     grep -q 'Cannot perform a cyclic copy' "$work/output" || fail 'cyclic diagnostic'
     for flag in '' /F; do
         fresh
-        run TREE "SRC $flag" || fail "TREE $flag execution"
-        mdir -/ -b -i "$seed" ::SRC > "$work/mdir.list"
+        # Genuine DOS 3.30 TREEPATH/TREEF return zero with this refusal.
+        run TREE "SRC $flag" || fail "TREE directory operand status"
+        printf 'Invalid parameter\r\n' > "$work/expected"
+        cmp -s "$work/output" "$work/expected" || fail "TREE directory operand refusal"
+        run TREE "A: $flag" || fail "TREE $flag execution"
+        mdir -/ -b -i "$seed" :: > "$work/mdir.list"
         files=0; [ "$flag" != /F ] || files=1
-        "$runner" --tree-golden "$work/mdir.list" /SRC "$files" "$work/expected"
+        "$runner" --tree-golden "$work/mdir.list" '' "$files" "$work/expected"
         cmp -s "$work/output" "$work/expected" || fail "TREE $flag manual layout / mdir inventory"
     done
     fresh
@@ -314,7 +318,7 @@ if [ "$mode" = host ]; then
     if run XCOPY 'SRC DST /W' "$(printf '\003')"; then fail '/W Ctrl-C accepted'; fi
     grep -q 'exit=2' "$work/run.log" || fail '/W Ctrl-C exit'
     mlabel -i "$work/art.img" '::TEST VOLUME'
-    run TREE 'SRC /F' || fail 'volume label execution'
+    run TREE 'A: /F' || fail 'volume label execution'
     tr -d '\r' < "$work/output" | grep -qx 'DIRECTORY PATH LISTING FOR VOLUME TEST VOLUME' || fail 'volume label spaces preserved'
     # Disk full mid-copy (initech-w33id): Appendix F assigns
     # "Insufficient disk space" to Xcopy; the captured COPY disk-full
@@ -364,7 +368,10 @@ if [ "$mode" = cancel ]; then
     printf '@echo off\r\nPATH=A:\\DOS\r\nXCOPY SRC DST /W\r\nif errorlevel 2 echo ZUVO-CANCEL2\r\nif errorlevel 3 echo ZUVO-BAD-CANCEL\r\necho ZUVO-DONE\r\n' > "$work/autoexec.bat"
     trace='ctrl-c,ret,e,x,i,t,ret'
 else
-    printf '@echo off\r\nPATH=A:\\DOS\r\nXCOPY SRC DST /S /E /V /W /P\r\nTREE SRC /F > TREEF.TXT\r\nTREE SRC > TREE.TXT\r\necho ZUVO-DONE\r\n' > "$work/autoexec.bat"
+    printf '@echo off\r\nPATH=A:\\DOS\r\nXCOPY SRC DST /S /E /V /W /P\r\nTREE A: /F > TREEF.TXT\r\nTREE A: > TREE.TXT\r\necho ZUVO-DONE\r\n' > "$work/autoexec.bat"
+    # Pre-create the two redirected files so both listings see the same root.
+    : > "$work/TREEF.TXT"; : > "$work/TREE.TXT"
+    mcopy -i "$work/art.img" "$work/TREEF.TXT" "$work/TREE.TXT" ::
     trace='spc,y,y,y,y,ret,e,x,i,t,ret'
 fi
 mmd -i "$work/art.img" ::DOS
@@ -399,9 +406,9 @@ fi
 cp -f "$seed" "$work/ref.img"
 mcopy -s -m -i "$work/ref.img" '::SRC/*' ::DST
 compare 'QEMU /S /E /V /W /P'
-mdir -/ -b -i "$seed" ::SRC > "$work/mdir.list"
+mdir -/ -b -i "$work/art.img" :: > "$work/mdir.list"
 for files in 0 1; do
-    "$runner" --tree-golden "$work/mdir.list" /SRC "$files" "$work/expected"
+    "$runner" --tree-golden "$work/mdir.list" '' "$files" "$work/expected"
     p=::TREE.TXT; [ "$files" = 0 ] || p=::TREEF.TXT
     mtype -i "$work/art.img" "$p" > "$work/output" || fail 'QEMU TREE output missing'
     cmp -s "$work/output" "$work/expected" || fail 'QEMU TREE manual layout / mdir inventory'

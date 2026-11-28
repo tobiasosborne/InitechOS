@@ -10,7 +10,12 @@ _start:
     sub ecx,edi
     xor eax,eax
     rep stosb
+    ; PSP 80h holds the command-tail length. Pass the bounded tail to C.
+    movzx eax,byte [0x40080]
+    push eax
+    push dword 0x40081
     call fdisk_entry
+    add esp,8
     mov ah,0x4c
     int 0x21
     int 0x20

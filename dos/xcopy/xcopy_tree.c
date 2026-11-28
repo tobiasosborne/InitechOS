@@ -485,11 +485,12 @@ int du_main(int tree, char *tail)
         /* TREE [d:] lists the whole drive (MS-DOS 3.3 Reference p.122):
          * an empty operand or a bare "d:" names that drive's root. */
         char root[4]={'\\',0,0,0};
-        if (*source && source[1] == ':' && !source[2]) {
+        if (*source) {
+            /* DOS 3.30 TREEPATH/TREEF refuse a pathname, even with /F. */
+            if (source[1] != ':' || source[2]) { line(MSG_DOS_0064); return 0; }
             root[0]=source[0]; root[1]=':'; root[2]='\\';
         }
-        if (!absolute(*source && root[1] != ':' ? source : root,src) ||
-            !directory(src)) goto path_error;
+        if (!absolute(root,src) || !directory(src)) goto path_error;
         volume_heading(src[0]); tree_dir(src,files,0);
         return error;
     }

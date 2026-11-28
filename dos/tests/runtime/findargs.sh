@@ -8,6 +8,7 @@ mkdir -p "$out"
 out=$(realpath "$out")
 rm -f "$out/transport.ok" "$out/assertion" "$out/result"
 . "$root/dos/tests/runtime/verdict.sh"
+. "$root/dos/tests/runtime/utility-session.sh"
 case_dir=$root/dos/find/tests/compat33
 . "$case_dir/fixture.sh"
 export LC_ALL=C TZ=UTC INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
@@ -15,22 +16,24 @@ truncate -s 1474560 "$out/data.img"
 mformat -i "$out/data.img" -f 1440 ::
 find_fixture
 find_batches product
+printf 'apple\r\nApple\r\n' > "$out/IMIX.TXT"
 nasm -f bin dos/tests/runtime/done.asm -o "$out/DONE.COM"
-mcopy -i "$out/data.img" "$out/DONE.COM" "$programs/FIND.COM" ::
+mcopy -i "$out/data.img" "$out/DONE.COM" "$programs/FIND.COM" "$out/IMIX.TXT" ::
 {
     printf '%s\r\n' '@echo off'
     call_find_batches
     if [ -z "${FIND_CASE:-}" ]; then
-        printf '%s\r\n' 'FIND /C /I "APPLE" <WORDS.TXT >ICOUNT.OUT' \
+        printf '%s\r\n' 'ECHO FIND-I-BEGIN' 'FIND /I "APPLE" <IMIX.TXT >CASE.OUT' \
+            'IF ERRORLEVEL 1 ECHO FIND-PROBE-FAIL' 'ECHO FIND-I-END' \
             'FIND "apple" words.txt <OTHER.TXT >SHELL.OUT'
     fi
     printf '%s\r\n' DONE
 } > "$out/AUTOEXEC.BAT"
 mcopy -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
-timeout 70 build/factory/qemu_harness --disk "$boot" --disk2 "$out/data.img" \
+utility_session "$boot" "$out/data.img" "$out" \
     --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 55000 \
-    --out "$out" --name findargs > "$out/driver.log" 2> "$out/report" || error 'FIND args transport failed'
-transport_pass "$out/report"
+    --name findargs > "$out/driver.log" 2> "$out/report" || error 'FIND args transport failed'
+utility_transport "$out/report"
 tr -d '\r' < "$out/findargs.serial" > "$out/console"
 forbid 'FIND returned an unexpected status' grep -Fx 'FIND-PROBE-FAIL' "$out/console"
 mdir -i "$out/data.img" :: > "$out/volume" || error 'cannot read the result volume'
@@ -62,8 +65,11 @@ while IFS='|' read -r name input args; do
     compare "$name.RC" "$case_dir/expected/$name.RC" "FIND $name ERRORLEVEL"
 done < "$case_dir/cases"
 if [ -z "${FIND_CASE:-}" ]; then
-    printf '2\r\n' > "$out/count-expected"
-    compare ICOUNT.OUT "$out/count-expected" 'FIND /I extension'
+    # DOS 3.30 FINDI reports the bad switch and continues case-sensitively.
+    : > "$out/case-expected"
+    compare CASE.OUT "$out/case-expected" 'FIND /I does not fold case'
+    sed -n '/^FIND-I-BEGIN$/,/^FIND-I-END$/p' "$out/console" > "$out/find-i-console"
+    require 'FIND /I reports the DOS 3.30 refusal' grep -Fx 'FIND: Invalid Parameter I' "$out/find-i-console"
     compare SHELL.OUT "$case_dir/expected/NAMED.OUT" 'FIND shell passes named operand'
 fi
 [ -z "$first_failure" ] || semantic "$first_failure"

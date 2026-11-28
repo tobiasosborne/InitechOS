@@ -4,6 +4,7 @@
 #include "fdisk.h"
 #include "fdisk_gates.h"
 #include "diskutil.h"      /* du_map: DEC-17 AH60h map record */
+#include "dos_messages.h"
 #include "drive_letters.h" /* spec/drive_letters.json (DEC-18) */
 #include "fat_policy.h"
 static int sector(unsigned drive,uint8_t *p,int write)
@@ -68,8 +69,16 @@ static void put(const char *p)
     unsigned n=0;while(p[n])n++;
     fdisk_int21(0x4000,1,n,(uintptr_t)p);
 }
-int fdisk_entry(void)
+int fdisk_entry(const char *tail,unsigned length)
 {
+    /* DOS 3.30 FDISKZ ignored its tail. GOLDEN-MASTER item 2 requires
+     * unsupported switches to be refused before entering the editor. */
+    for(unsigned i=0;i<length;i++){
+        if(tail[i]!=' ' && tail[i]!='\t'){
+            put(MSG_DOS_0064 "\r\n");
+            return 1;
+        }
+    }
     const unsigned disk=running_disk();
     if(!disk)return 1;
     const fdisk_io io={read_disk,write_disk,capacity,get,put,disk,fdisk_restart,letter,protected_letter};

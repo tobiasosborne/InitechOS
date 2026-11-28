@@ -12,8 +12,8 @@ $(OUT)/batch.o: command/batch.c $(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
 $(OUT)/env.o: command/env.c $(filter-out %.d,$(MAKEFILE_LIST)) | $(OUT)
 	$(TARGET_CC) $(TARGET_CFLAGS) $(TARGET_INCLUDES) -MMD -MP -c $< -o $@
-$(OUT)/MORE.COM: more/more_program.asm | $(OUT)
-	$(NASM) -f bin $< -o $@
+$(OUT)/MORE.COM: more/more_program.asm $(TOP)/build/kernel/dos_messages.inc | $(OUT)
+	$(NASM) -I$(TOP)/build/kernel/ -f bin $< -o $@
 $(OUT)/FIND.COM: find/find_program.asm $(TOP)/build/kernel/dos_messages.inc | $(OUT)
 	$(NASM) -I$(TOP)/build/kernel/ -f bin $< -o $@
 $(OUT)/SORT.COM: sort/sort_program.asm $(TOP)/build/kernel/dos_messages.inc | $(OUT)
@@ -71,7 +71,7 @@ $(TOP)/build/kernel/dos_messages.h: $(TOP)/kernel/include/dos_messages.json $(TO
 	$(MAKE) -C $(TOP)/kernel $@
 $(TOP)/build/kernel/dos_messages.inc: $(TOP)/build/kernel/dos_messages.h
 	$(MAKE) -C $(TOP)/kernel $@
-$(OUT)/command-resident.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o $(OUT)/diskutil/diskutil.o $(OUT)/fdisk/fdisk.o: $(TOP)/build/kernel/dos_messages.h
+$(OUT)/command-resident.o $(OUT)/common/dosutil.o $(OUT)/edlin/edlin.o $(OUT)/chkdsk/chkdsk.o $(OUT)/xcopy/xcopy_tree.o $(OUT)/diskutil/diskutil.o $(OUT)/fdisk/fdisk.o $(OUT)/fdisk/fdisk_program.o: $(TOP)/build/kernel/dos_messages.h
 
 include tests-programs.mk
 
