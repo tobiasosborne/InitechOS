@@ -16,10 +16,20 @@ mcopy -o -i "$out/data.img" "$out/DONE.COM" ::DONE.COM
 # Keys: blank at the invalid-TIME prompt, a leap date at the DATE prompt,
 # blank at the bare TIME prompt, then the transport program.
 printf '\n2-29-92\n\n\ndone\n' | build/factory/keys > "$out/keys"
-. dos/tests/runtime/session-media.sh
-prepare_session_boot "$boot" "$out/data.img" "$out/boot.img"
-if ! timeout 40 build/factory/qemu_harness --disk "$out/boot.img" --disk2 "$out/data.img" --keys-after SHELL-READY --keys "$(cat "$out/keys")" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 15000 --rtc-base 1992-03-02T09:30:00 --rtc-deterministic --out "$out" --name datetime > "$out/driver.log" 2> "$out/report"; then error 'datetime transport did not complete'; fi
-transport_pass "$out/report"
+if [ "${DOS_SESSION_EMULATOR:-qemu}" = bochs ]; then
+    DOS_SESSION_RTC=1992-03-02T09:30:00 sh dos/tests/runtime/execute.sh \
+        "$root" "$boot" "$out" "$(cat "$out/keys")" TRANSPORT-DONE ||
+        error 'datetime transport did not complete'
+else
+    . dos/tests/runtime/session-media.sh
+    prepare_session_boot "$boot" "$out/data.img" "$out/boot.img"
+    timeout 40 build/factory/qemu_harness --disk "$out/boot.img" --disk2 "$out/data.img" \
+        --keys-after SHELL-READY --keys "$(cat "$out/keys")" --expect TRANSPORT-DONE \
+        --quit-after TRANSPORT-DONE --timeout-ms 15000 --rtc-base 1992-03-02T09:30:00 \
+        --rtc-deterministic --out "$out" --name datetime > "$out/driver.log" 2> "$out/report" ||
+        error 'datetime transport did not complete'
+    transport_pass "$out/report"
+fi
 mtype -i "$out/data.img" ::TRACE.TXT > "$out/trace" || error 'datetime trace missing'
 tr -d '\r' < "$out/trace" > "$out/text"
 require 'invalid TIME argument reports Invalid time' grep -F 'Invalid time' "$out/text"

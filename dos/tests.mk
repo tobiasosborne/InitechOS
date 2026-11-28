@@ -357,7 +357,7 @@ smoke-shell-c-files:
 	export DOS_SESSION_BOOT="$$boot"; \
 	for emulator in qemu bochs; do \
 	    export DOS_SESSION_EMULATOR=$$emulator; \
-	    for scenario in break callredir copy-state full pipecwd readerror shift-window type-eof volume; do \
+	    for scenario in break callredir copy-state datetime dirbreak full pipecwd readerror shift-window type-eof volume; do \
 	        sh "tests/runtime/$$scenario.sh" "$$root" "$$boot" "$(abspath $(OUT))" "$$out/$$emulator-$$scenario"; \
 	    done; \
 	    for scenario in control-syntax dir-wide pipe-names unknown-redirect; do \
@@ -365,10 +365,7 @@ smoke-shell-c-files:
 	    done; \
 	    sh tests/runtime/diagnostics.sh "$$root" ALL "$$out/$$emulator-diagnostics"; \
 	done; \
-	export DOS_SESSION_EMULATOR=qemu; \
-	for scenario in datetime dirbreak interact; do \
-	    sh "tests/runtime/$$scenario.sh" "$$root" "$$boot" "$(abspath $(OUT))" "$$out/qemu-$$scenario"; \
-	done
+	DOS_SESSION_EMULATOR=qemu sh tests/runtime/interact.sh "$$root" "$$boot" "$(abspath $(OUT))" "$$out/qemu-interact"
 
 .PHONY: mutants-shell-c
 mutants-shell-c:
@@ -379,7 +376,7 @@ mutants-shell-c:
 	set --; \
 	for patch in $$patches; do \
 	    case "$$(sed -n 's/^# session: //p' "$$patch")" in \
-	        datetime|dirbreak|interact) continue ;; \
+	        interact) continue ;; \
 	    esac; \
 	    set -- "$$@" "$$patch"; \
 	done; \

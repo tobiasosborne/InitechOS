@@ -27,18 +27,15 @@ touch -t 198707061330.58 "$out/words"
 mcopy -m -i "$img" "$out/words" ::SRC/ONE.TXT
 mcopy -i "$img" "$out/words" ::WORDS.TXT
 mcopy -i "$img" "$out/sentinel" '::PIPE1.$$$'
-# The captured hexadecimal pipe namespace is based on the guest clock. Seed
-# every whole-second candidate in this run's 13:30/13:31 observation window;
-# CREATE NEW must preserve them rather than truncate a stranger's bytes.
+# The captured hexadecimal pipe namespace includes hundredths. Seed every
+# candidate in the first second after the guest sets 13:30:00.
 : > "$out/foreign-names"
-for minute in 30 31;do
- second=0
- while [ "$second" -lt 60 ];do
-  name=$(printf '%02X%02X%02X00' 13 "$minute" "$second")
-  printf '%s\n' "$name" >> "$out/foreign-names"
-  mcopy -i "$img" "$out/sentinel" "::$name"
-  second=$((second+1))
- done
+hundredth=0
+while [ "$hundredth" -lt 100 ]; do
+ name=$(printf '0D1E00%02X' "$hundredth")
+ printf '%s\n' "$name" >> "$out/foreign-names"
+ mcopy -i "$img" "$out/sentinel" "::$name"
+ hundredth=$((hundredth+1))
 done
 printf '@ECHO OFF\r\nSHIFT\r\nECHO %%0 >SHIFT.OUT\r\n' > "$out/child"
 mcopy -i "$img" "$out/child" ::CHILD.BAT
@@ -54,6 +51,7 @@ IF x==x FOR %%f IN (one) DO IF y==y ECHO IF-BODY
 FOR %%f IN (SRC\*.TXT) DO ECHO %%f
 ECHO redirect-data >REDIR.TXT
 ECHO RESTORED
+TIME 13:30:00
 ECHO pipe-data | MORE >PIPE.OUT
 DIR SRC\*.TXT /W >DIR.OUT
 COPY SRC\ONE.TXT STAMP.TXT
