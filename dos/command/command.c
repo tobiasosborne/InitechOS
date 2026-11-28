@@ -3380,8 +3380,17 @@ static void builtin_del(const char *arg)
         }
     }
 
-    if (cmd_first_token(arg, name) == 0) {
+    int name_len = cmd_first_token(arg, name);
+    if (name_len == 0) {
         dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
+        return;
+    }
+    /* DOS 3.30 COMMAND audit T011 refuses extra operands before UNLINK. */
+    while (is_space(*arg)) ++arg;
+    arg += name_len;
+    while (is_space(*arg)) ++arg;
+    if (*arg) {
+        dos_error(MSG_DOS_0038 "\r\n$");
         return;
     }
     cmd_upcase_str(name);                       /* DOS upcases 8.3 names */
