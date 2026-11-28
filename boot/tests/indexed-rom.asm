@@ -1,4 +1,4 @@
-; External PC option ROM: expose only VBE 0101h mode information.
+; External PC option ROM: observe VBE mode sets and optionally filter offers.
 ; VBE Core 2.0 rev 1.1 pp6,16-20: AX=4F01h/CX=mode, AX=014Fh
 ; means unsupported. All other video operations chain to the real VGA BIOS.
 ; The IBM PC expansion-ROM header is 55 AA, size in 512-byte units,
@@ -17,6 +17,22 @@ handler:
     jne .chain
     cmp cx, 0x101
     je .chain
+    mov ax, 0x014f
+    iret
+%elifdef DEPTH24_ONLY
+    cmp ax, 0x4f01
+    jne .chain
+    int 0x60
+    cmp ax, 0x004f
+    jne .queried
+    cmp byte [es:di+0x19], 24
+    je .queried
+    mov ax, 0x014f
+.queried:
+    iret
+%elifdef NO_VBE
+    cmp ax, 0x4f00
+    jne .chain
     mov ax, 0x014f
     iret
 %endif

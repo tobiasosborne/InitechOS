@@ -3,7 +3,7 @@
 # VBE Core 2.0 rev1.1 pp6,16-20; project hardware contract (8 MiB).
 # Test only copies of the product disk; no test kernel or product hook.
 set -eu
-top=$1 artifacts=$2 cases=${3:-'normal indexed fallback ORDER ATTR_R CHAIN FRAGMENT RAM5 RAM7'}
+top=$1 artifacts=$2 cases=${3:-'normal indexed depth24 fallback ORDER ATTR_R CHAIN FRAGMENT RAM5 RAM7'}
 [ -n "$cases" ] || exit 2
 cd "$top"
 test -s build/image/c.img && test -s build/image/a-data.img || {
@@ -19,10 +19,9 @@ if [ "${INITECH_FULL_SMOKE:-0}" = 1 ] && [ "$#" -eq 2 ]; then
     exit 0
 fi
 export LC_ALL=C INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
-export BOOT_REAL_QEMU BOOT_REAL_BOCHS BOOT_INDEXED_ROM
+export BOOT_REAL_QEMU BOOT_REAL_BOCHS BOOT_TEST_ROM
 BOOT_REAL_QEMU=$(command -v qemu-system-i386)
 BOOT_REAL_BOCHS=$(command -v bochs)
-BOOT_INDEXED_ROM=$artifacts/indexed.rom
 mkdir "$out/bin"
 cp boot/tests/emulator-wrapper.sh "$out/bin/qemu-system-i386"
 cp boot/tests/emulator-wrapper.sh "$out/bin/bochs"
@@ -89,7 +88,7 @@ for scenario in $cases; do
                 }
             done < system/working-volume.list
             echo 'GREEN boot FRAGMENT: mtools recovered the boot payloads and all installed files' ;;
-        normal|indexed|fallback) ;;
+        normal|indexed|depth24|fallback) ;;
         *) echo "ERROR boot: unknown scenario $scenario"; exit 2 ;;
     esac
     for emu in ${4:-qemu bochs}; do
@@ -98,34 +97,38 @@ for scenario in $cases; do
         extra=''
         [ "$emu" != bochs ] || extra='--vga-ext vbe'
         [ "$scenario" != fallback ] || [ "$emu" != bochs ] || extra='--vga-ext none'
-        # VGA13 is exercised on Bochs, which can disable its VBE extension.
-        [ "$scenario:$emu" != fallback:qemu ] || continue
         name=$scenario-$emu
         # Each Bochs termination can leave its data image's lock file. Give
         # every leg its own writable disk rather than deleting source locks.
         data=$out/$name-data.img
         cp "$media_data" "$data"
-        set --
         case $wanted in
-            prompt)
-                marker='Hello from InitechDOS.'
-                set -- --keys-after SHELL-READY --keys t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret ;;
+            prompt) marker='Hello from InitechDOS.' ;;
             refusal) marker='Replace and strike any key when ready' ;;
             memrefusal) marker='Insufficient extended memory: 8 MB required' ;;
         esac
         rc=0
-        BOOT_INDEXED_ROM=$artifacts/monitor.rom
-        [ "$scenario" != indexed ] || BOOT_INDEXED_ROM=$artifacts/indexed.rom
-        if [ "$scenario" = indexed ] || [ "$scenario" = normal ]; then
-            INITECH_TEST_RAM_MB=$ram PATH="$out/bin:$PATH" "build/factory/${emu}_harness" \
+        rom=''
+        case $scenario:$emu in
+            normal:*) rom=monitor ;;
+            indexed:*) rom=indexed ;;
+            depth24:*) rom=depth24 ;;
+            fallback:qemu) rom=novbe ;;
+        esac
+        emulator_path=$PATH
+        if [ -n "$rom" ]; then
+            BOOT_TEST_ROM=$artifacts/$rom.rom
+            emulator_path=$out/bin:$PATH
+        fi
+        (
+            set --
+            [ "$wanted" != prompt ] ||
+                set -- --keys-after SHELL-READY --keys t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret
+            INITECH_TEST_RAM_MB=$ram PATH="$emulator_path" "build/factory/${emu}_harness" \
                 --disk "$image" --disk2 "$data" $extra "$@" \
                 --expect "$marker" --quit-after "$marker" --timeout-ms 8000 \
-                --name "$name" --out "$out" > "$out/$name.stdout" 2> "$out/$name.report" || rc=$?
-        else
-            INITECH_TEST_RAM_MB=$ram "build/factory/${emu}_harness" --disk "$image" --disk2 "$data" $extra "$@" \
-                --expect "$marker" --quit-after "$marker" --timeout-ms 8000 \
-                --name "$name" --out "$out" > "$out/$name.stdout" 2> "$out/$name.report" || rc=$?
-        fi
+                --name "$name" --out "$out"
+        ) > "$out/$name.stdout" 2> "$out/$name.report" || rc=$?
         report=$out/$name.report
         serial=$out/$name.txt
         if [ ! -f "$out/$name.serial" ]; then
@@ -177,24 +180,31 @@ for scenario in $cases; do
             done
             if ! grep -Fxi 'C:\>type hello.txt' "$serial" >/dev/null ||
                ! grep -Fx "$marker" "$serial" >/dev/null; then
-                echo "RED boot $name: missing command response at the installed C: prompt"; failed=1
+                echo "RED boot $name: missing command response at the installed C: prompt"
+                failed=1; continue
             fi
-            mode=''
+            modes='' verify_pitch=0
             case $scenario:$emu in
-                indexed:*) mode='VBE-MODE=0101' ;;
-                normal:qemu) mode='BPP=32' ;;
-                fallback:bochs) mode=VGA13 ;;
+                indexed:*|normal:bochs) modes='VBE-MODE=0101 BPP=08'; verify_pitch=1 ;;
+                normal:qemu) modes='BPP=32'; verify_pitch=1 ;;
+                depth24:qemu) modes='VBE-MODE=0112 BPP=24'; verify_pitch=1 ;;
+                depth24:bochs) modes='VBE-ENOMODE VGA13' ;;
+                fallback:qemu) modes='VBE-E00 VGA13' ;;
+                fallback:bochs) modes=VGA13 ;;
             esac
-            if [ -n "$mode" ] && ! grep -Fx "$mode" "$serial" >/dev/null; then
-                echo "RED boot $name: wrong firmware display selection (want $mode)"
-                sed -n '/^VBE-/p; /^VGA13/p' "$serial"; failed=1
-            else echo "GREEN boot $name: FAT -> IO -> protected mode -> InitechDOS prompt ${mode:+($mode)}"; fi
+            for mode in $modes; do
+                if ! grep -Fx "$mode" "$serial" >/dev/null; then
+                    echo "RED boot $name: wrong firmware display selection (want $mode)"
+                    sed -n '/^VBE-/p; /^VGA13/p; /^BPP=/p' "$serial"
+                    failed=1; continue 2
+                fi
+            done
+            echo "GREEN boot $name: FAT -> IO -> protected mode -> InitechDOS prompt${modes:+ ($modes)}"
             # The ROM independently read the selected mode's BIOS descriptor:
             # BytesPerScanLine (10h, the field IO.SYS hands off) against
             # LinBytesPerScanLine (32h, VBE Core Functions 3.0 pp. 34-38).
-            # The last set
-            # is the one that took effect.
-            if [ "$scenario" = normal ] || [ "$scenario" = indexed ]; then
+            # The last set is the one that took effect.
+            if [ "$verify_pitch" -eq 1 ]; then
                 pitch=$(grep '^PITCH=' "$serial" | tail -1)
                 p10=$(printf %s "$pitch" | cut -c7-10)
                 p32=$(printf %s "$pitch" | cut -c12-15)

@@ -33,7 +33,13 @@ $(OUT)/indexed.rom: tests/indexed-rom.asm $(OUT)/rom-checksum
 $(OUT)/monitor.rom: tests/indexed-rom.asm $(OUT)/rom-checksum
 	$(NASM) -f bin $< -o $@
 	$(OUT)/rom-checksum $@
-smoke-build: all $(OUT)/indexed.rom $(OUT)/monitor.rom $(OUT)/fragment-space
+$(OUT)/depth24.rom: tests/indexed-rom.asm $(OUT)/rom-checksum
+	$(NASM) -DDEPTH24_ONLY -f bin $< -o $@
+	$(OUT)/rom-checksum $@
+$(OUT)/novbe.rom: tests/indexed-rom.asm $(OUT)/rom-checksum
+	$(NASM) -DNO_VBE -f bin $< -o $@
+	$(OUT)/rom-checksum $@
+smoke-build: all $(OUT)/indexed.rom $(OUT)/monitor.rom $(OUT)/depth24.rom $(OUT)/novbe.rom $(OUT)/fragment-space
 	$(MAKE) -C $(TOP)/factory all
 .PHONY: smoke-on-image
 smoke smoke-on-image: smoke-build

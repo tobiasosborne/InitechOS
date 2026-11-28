@@ -31,9 +31,9 @@ lives in product source. The audit also rejects the retired memory/VBE
 scenario identifiers; this adds restrictions to the shared default.
 
 After `make image` at the root, `make -C boot smoke` clones the installed
-C: master and optional DATA disk. It checks normal boot, indexed VBE,
-Bochs VGA13, invalid order, missing read-only attribute, premature kernel
-EOC and fragmented valid files. It keeps the installed CONFIG.SYS and
+C: master and DATA disk. It checks normal boot, indexed and 24-bit VBE,
+VGA13, invalid order, missing read-only attribute, premature kernel EOC
+and fragmented valid files. It keeps the installed CONFIG.SYS and
 AUTOEXEC.BAT and types `TYPE HELLO.TXT` at the C: prompt. It also boots real
 firmware RAM profiles of 5 MiB and 7 MiB on both emulators: stage2 must
 print its insufficient-memory refusal after finding IO.SYS and before
@@ -58,14 +58,18 @@ private images, payload references and transcripts under
 The test-only PC expansion ROM in `tests/` observes the actual BIOS
 descriptor selected by the loader. It also reports both pitch fields of
 that descriptor (`BytesPerScanLine` at 10h, the field IO.SYS hands off,
-and `LinBytesPerScanLine` at 32h, added in VBE 3.0 for the LFB, Core
-Functions Standard pp. 34–38): the smoke requires
+and `LinBytesPerScanLine` at 32h, added in VBE 3.0 for the LFB): the smoke requires
 the handed-off field to be nonzero and the linear field absent or
 equal, so IO.SYS's pitch source is verified against each supported
 BIOS (0A00h at QEMU's 32 bpp mode, 0280h at 0101h on both, the two
-fields agreeing) instead of assumed. Its indexed variant rejects non-0101h
-mode queries, then delegates all supported operations to the real VGA BIOS.
-It changes firmware offers without changing the product disk or loader.
+fields agreeing). [VBE 3.0 Core Functions Standard, pp. 34–38](https://www.13thmonkey.org/documentation/Graphics/vbe3.pdf)
+
+The indexed variant offers mode 0101h. The 24-bit variant exposes BIOS
+mode descriptors with 24-bit depth. QEMU selects 0112h with pitch
+0780h, and Bochs finds no matching LFB and reaches C: in VGA13. The
+VGA13 test disables VBE via the Bochs setting and via a QEMU ROM that
+rejects the VBE controller query. The variants leave the disk and loader
+intact and delegate other video calls to the real VGA BIOS.
 It is injected using QEMU's option-ROM facility or Bochs' optromimage1.
 The ROM format/call contract is independently defined by SeaBIOS
 [`is_valid_rom`/`callrom`](https://github.com/coreboot/seabios/blob/master/src/optionroms.c)
