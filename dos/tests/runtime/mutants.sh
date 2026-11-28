@@ -40,12 +40,12 @@ for patch_file do
  if ! patch --batch --fuzz=0 -p1 -d "$d/component" < "$patch_file" > "$d/patch.log" 2>&1; then
   echo "ERROR patch $name";failed=$((failed+1));continue
  fi
- if ! nice make -j2 --no-print-directory -C "$d/component" TOP="$root" OUT="$d/build" all > "$d/build.log" 2>&1; then
+ if ! MAKEFLAGS= MFLAGS= nice make -j2 --no-print-directory -C "$d/component" TOP="$root" OUT="$d/build" all > "$d/build.log" 2>&1; then
   echo "ERROR build $name";failed=$((failed+1));continue
  fi
  boot=$stock_boot
  case $(sed -n 's|^--- a/||p' "$patch_file") in command/*)
-  if ! objects=$(make --no-print-directory -s -C "$root/kernel" object-list); then
+  if ! objects=$(MAKEFLAGS= MFLAGS= make --no-print-directory -s -C "$root/kernel" object-list); then
    echo "ERROR objects $name";failed=$((failed+1));continue
   fi
   if ! ld -m elf_i386 --build-id=none -T "$root/kernel/kernel.ld" -o "$d/system.elf" $objects \

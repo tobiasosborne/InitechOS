@@ -79,7 +79,6 @@ printf "cd ..\nDone\n" | "$root/build/factory/keys" >> "$out/keys"
 keys=ctrl-z,$(tr '\n' ', ' < "$out/keys"); marker=TRANSPORT-DONE
 if [ "${DOS_INTERACTIVE:-1}" = 0 ]; then
  keys=ctrl-z,ret,ret,ret,d,o,n,e,ret
- if [ "${DOS_SESSION_EMULATOR:-qemu}" = bochs ]; then keys=d,o,n,e,ret; fi
 fi
 if [ "${DOS_EXIT_CONTROL:-0}" = 1 ]; then
  sed '$d' "$out/autoexec" > "$out/exit-bat"
