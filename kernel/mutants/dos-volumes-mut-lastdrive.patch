@@ -2,11 +2,11 @@
 # test: test-dos-volumes-host
 --- a/int21.c
 +++ b/int21.c
-@@ -132,8 +132,7 @@
- static unsigned g_drive_limit = 5u; /* IBM DOS 3.30 TR p6-66 minimum. */
+@@ -150,8 +150,7 @@
+ static unsigned g_drive_limit = 5u; /* DOS default with no LASTDRIVE setting. */
  void int21_set_lastdrive(unsigned count)
  {
--    if (count < 5u) count = 5u;
+-    if (count < 2u) count = 2u;   /* DOS reports at least two floppy letters. */
 -    if (count <= 26u) g_drive_limit = count;
 +    (void)count;
  }

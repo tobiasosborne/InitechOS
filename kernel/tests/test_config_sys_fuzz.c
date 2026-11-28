@@ -119,7 +119,7 @@ static void emit_eol(char *t, uint32_t *len, prng_t *p)
     switch (prng_below(p, 4)) {
         case 0: emit(t, len, '\n'); break;
         case 1: emit(t, len, '\r'); emit(t, len, '\n'); break;
-        case 2: emit(t, len, '\r'); break;
+        case 2: emit(t, len, '\n'); break;
         default: emit(t, len, '\n'); break; /* bias toward LF */
     }
 }
@@ -261,6 +261,10 @@ static uint32_t generate(char *t, prng_t *p, uint32_t max_lines, gen_meta_t *met
             if (prng_next(p) & 1u) {
                 emit(t, &len, '=');
                 emit_str(t, &len, "value");
+            } else {
+                /* A value on the same line leaves following lines available.
+                 * The boot capture separately covers a lone keyword. */
+                emit_str(t, &len, " value");
             }
             emit_eol(t, &len, p);
             continue;
@@ -290,6 +294,8 @@ static uint32_t generate(char *t, prng_t *p, uint32_t max_lines, gen_meta_t *met
         if (has_eq) {
             emit(t, &len, '=');
             emit_ws(t, &len, p);
+        } else {
+            emit_str(t, &len, " ignored ");
         }
         char digits[64];
         int numeric = emit_value_token(t, &len, p, digits, sizeof(digits));

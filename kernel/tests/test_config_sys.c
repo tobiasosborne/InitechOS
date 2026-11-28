@@ -165,7 +165,7 @@ int main(void)
     /* ================= BREAK=ON|OFF (beads initech-er3h; DEC-16) ========== *
      * The CTRL-BREAK directive SYSINIT flows into g_break_flag. ON/OFF are the
      * only well-formed values (case-insensitive); a malformed value is ignored
-     * (lenient), leaving break_present == 0 so the boot default ON stands. */
+     * leaves break_present == 0 so the boot default OFF stands. */
     {
         dos_config_t on, off, lo, bad, none;
         static const char s_on[]  = "BREAK=ON\n";
@@ -182,7 +182,7 @@ int main(void)
         CHECK(off.break_present && off.break_on == 0u, "BREAK=OFF -> present + break_on==0");
         CHECK(lo.break_present && lo.break_on == 0u, "break=off (lowercase) -> present + break_on==0");
         CHECK(!bad.break_present, "BREAK=MAYBE (malformed) -> NOT present (lenient, default stands)");
-        CHECK(!none.break_present, "no BREAK= line -> break_present==0 (boot default ON stands)");
+        CHECK(!none.break_present && !none.break_on, "no BREAK= line defaults to OFF");
     }
 
     /* ================= empty / missing input ============================= */
@@ -191,7 +191,7 @@ int main(void)
         CHECK(config_sys_parse((const char *)0, 0u, &cfg) == 0,
               "NULL buffer -> 0 recognized");
         CHECK(!cfg.files_present && !cfg.shell_present && cfg.device_count == 0u,
-              "NULL buffer -> all directives absent (the baseline fallback)");
+              "NULL buffer -> all directives absent");
 
         static const char empty[] = "";
         CHECK(config_sys_parse(empty, 0u, &cfg) == 0, "zero-length -> 0 recognized");

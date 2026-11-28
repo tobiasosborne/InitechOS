@@ -1042,9 +1042,7 @@ int main(void)
      *   oracle this block transcribes step-for-step). NO QEMU -- pure flag logic.
      * ==================================================================== */
 
-    /* [er3h.1] GET initial (AL=00h): the boot default is ON, so DL == 1, CF=0.
-     * DEC-16 Sec 3.3 / Sec 7.1 step 1. (M6 mutant -- default flipped OFF -- and
-     * M1 -- GET hard-codes a value -- both go RED here / in [er3h.2].) */
+    /* Packard Bell DOS 3.30 boots with BREAK OFF (fixtures/config33). */
     {
         int_frame_t f = fresh_frame();
         f.eax = 0x3300u;          /* AH=33h, AL=00h GET */
@@ -1052,8 +1050,8 @@ int main(void)
         f.eflags |= CF_BIT;       /* preload CF=1 so we prove it is CLEARED */
         int21_dispatch(&f);
         CHECK(frame_cf(&f) == 0, "AH=33h/00 GET clears CF");
-        CHECK((uint8_t)(f.edx & 0xFFu) == 1u,
-              "AH=33h/00 GET returns DL=1 at the boot default (ON; DEC-16 3.3)");
+        CHECK((uint8_t)(f.edx & 0xFFu) == 0u,
+              "AH=33h/00 GET returns DL=0 at the boot default");
     }
 
     /* [er3h.2] SET OFF (AL=01h, DL=0) then GET -> DL==0. DEC-16 Sec 7.1 step 2.
@@ -1208,18 +1206,17 @@ int main(void)
               "CONFIG BREAK=ON flows to g_break_flag -> AH=33h GET DL=1");
     }
     {
-        /* No BREAK= line -> break_present == 0 -> SYSINIT keeps the boot default
-         * ON (cfg.break_present ? cfg.break_on : 1). */
+        /* No BREAK= line leaves the parsed flag OFF. */
         static const char src_none[] = "FILES=20\nBUFFERS=20\n";
         dos_config_t cfg;
         (void)config_sys_parse(src_none, (uint32_t)(sizeof(src_none) - 1u), &cfg);
         CHECK(!cfg.break_present, "no BREAK= line -> break_present == 0");
-        int21_set_break_flag(cfg.break_present ? cfg.break_on : 1u);
+        int21_set_break_flag(cfg.break_on);
         int_frame_t g = fresh_frame();
         g.eax = 0x3300u; g.edx = 0xFF00u;
         int21_dispatch(&g);
-        CHECK((uint8_t)(g.edx & 0xFFu) == 1u,
-              "absent BREAK= -> SYSINIT default ON -> AH=33h GET DL=1");
+        CHECK((uint8_t)(g.edx & 0xFFu) == 0u,
+              "absent BREAK= -> SYSINIT default OFF -> AH=33h GET DL=0");
     }
 
     return TEST_SUMMARY("test_int21");

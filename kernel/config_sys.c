@@ -112,23 +112,22 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
     }
 
     int recognized = 0;
+    int skip_value = 0;
     uint32_t i = 0;
 
     while (i < len) {
         /* ---- isolate one line [line_start, line_end) (LF/CRLF terminated) --- */
         uint32_t line_start = i;
-        uint32_t line_end = i;
-        while (line_end < len && buf[line_end] != '\n' && buf[line_end] != '\r') {
+        /* DOS advances to LF. CR terminates the directive within that line,
+         * and Ctrl-Z ends the source. See the CONFIG boot captures. */
+        while (i < len && buf[i] != '\n' && buf[i] != '\x1a') {
+            i++;
+        }
+        uint32_t line_end = line_start;
+        while (line_end < i && buf[line_end] != '\r') {
             line_end++;
         }
-        /* advance i past the line + its terminator (handle CRLF + bare CR/LF). */
-        i = line_end;
-        if (i < len && buf[i] == '\r') {
-            i++;
-        }
-        if (i < len && buf[i] == '\n') {
-            i++;
-        }
+        i = (i < len && buf[i] == '\n') ? i + 1u : len;
 
         /* ---- trim leading whitespace ---- */
         uint32_t p = line_start;
@@ -138,6 +137,10 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
         if (p >= line_end) {
             continue; /* blank line -> skip */
         }
+        if (skip_value) {
+            skip_value = 0;
+            continue;
+        }
 
         /* ---- split KEYWORD '=' VALUE. A line with no '=' is unknown -> skip. */
         uint32_t eq = p;
@@ -145,8 +148,14 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
             eq++;
         }
         if (eq >= line_end) {
+            /* A lone keyword consumes the next nonblank line as its value
+             * in DOS 3.30. An unknown keyword with a value stays on its line. */
+            uint32_t token = p;
+            while (token < line_end && !cfg_is_space(buf[token])) token++;
+            while (token < line_end && cfg_is_space(buf[token])) token++;
+            skip_value = token == line_end;
             if (report) report(context);
-            continue; /* no '=' -> unrecognized directive, skip (NOT fatal) */
+            continue;
         }
 
         /* keyword = [kw_start, kw_end), right-trimmed of spaces before '='. */
@@ -213,6 +222,7 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
                 }
                 char *slot = out->devices[out->device_count];
                 cfg_copy_clamped(slot, CONFIG_SYS_NAME_MAX, val, tok);
+                out->device_has_args[out->device_count] = tok < v_len;
                 out->device_count++;
                 recognized++;
             }
@@ -232,21 +242,14 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
                 recognized++;
             }
         } else if (cfg_kw_eq(kw, kw_len, "SHELL")) {
-            if (v_len >= 1u && v_len < CONFIG_SYS_SHELL_MAX) {
-                /* SHELL keeps the full tail (path + switches) -- e.g.
-                 * "COMMAND.COM /P /E:512" -- for 509.10/k6x. */
+            /* An empty or overlong request still selects an unusable shell.
+             * SYSINIT diagnoses it before entering COMMAND.COM. */
+            out->shell_present = 1u;
+            out->shell[0] = '\0';
+            if (v_len < CONFIG_SYS_SHELL_MAX)
                 cfg_copy_clamped(out->shell, CONFIG_SYS_SHELL_MAX, val, v_len);
-                out->shell_present = 1u;
-                recognized++;
-            }
+            recognized++;
         } else if (cfg_kw_eq(kw, kw_len, "BREAK")) {
-            /* BREAK=ON|OFF (beads initech-er3h; ADR-0003 Amendment DEC-16). The
-             * value is the literal token ON or OFF (case-insensitive). SYSINIT
-             * flows break_present/break_on into the kernel g_break_flag via
-             * int21_set_break_flag (DEC-16 Sec 3.3 / C-4). PERIOD-CORRECT
-             * LENIENCY: a malformed value (e.g. BREAK=MAYBE) is NOT recognized
-             * -- break_present stays 0 so the boot default ON stands, exactly as
-             * DOS ignores a directive value it does not understand. */
             /* Genuine DOS 3.30 accepts ONjunk as ON, unlike numeric junk. */
             if (v_len >= 2u && cfg_kw_eq(val, 2u, "ON")) {
                 out->break_on = 1u;

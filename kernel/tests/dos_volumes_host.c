@@ -119,6 +119,9 @@ int main(int argc,char **argv)
     need(!psp_build(&process,&p),"PSP"); sft_init(); int21_set_psp(&process);
     int21_set_lastdrive(26);
     need((call(0x0e00,0,0,0).eax&255)==26,"LIMIT LASTDRIVE=Z");
+    int21_set_lastdrive(1);
+    need((call(0x0e00,0,0,0).eax&255)==3,"LIMIT LASTDRIVE=A includes mounted C");
+    need(int21_current_drive()==0 && int21_io_drive()==0,"LIMIT preserves selected A");
     int21_set_lastdrive(5);
     select_drive(2); cd("\\SYS");
     select_drive(0); cd("\\USER");

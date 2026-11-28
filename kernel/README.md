@@ -224,33 +224,38 @@ Qualified character-device opens validate the selected drive and containing
  DOS 3.30 DEVICES trace, including valid SUB aliases and missing-parent/invalid-
  drive refusals (initech-905b8). The capture proves refusal, not the exact AX code.
 
-CONFIG.SYS refusals are visible on the console with captured DOS 3.30 wording;
-malformed lines do not abort boot or silently change a setting. Numeric tokens
-accept the captured whitespace-delimited suffixes; numeric junk and out-of-range
-values refuse. FILES accepts DOS syntax5..255, with an implemented capacity5..20.
-One additional physical SFT slot accounts for separate CON input/output entries;
-real independent OPEN counts at FILES5..8 match the native DOS captures. The
-process JFT remains20 handles.
+| CONFIG.SYS directive | Accepted values and observable effect |
+|---|---|
+| FILES | Decimal 5–20 sets the system file table capacity. A separate CON input/output pair takes one extra SFT slot. Native DOS FILES=5 through 8 open 2 through 5 additional handles. Values 21–255 receive the period unrecognized-command message. |
+| BUFFERS | Decimal 1–99 is recognized as DOS syntax. A BUFFERS setting receives the unrecognized-command message for the fixed cache. |
+| LASTDRIVE | The first letter A–Z sets the logical drive count returned by AH=0Eh. The count includes at least the two floppy letters and any higher mounted drive. |
+| BREAK | Prefix ON or OFF sets the state returned by AH=33h and used by Ctrl-Break checks. |
+| DEVICE | Bare ANSI.SYS enables the console escape interpreter when the file is on the CONFIG volume. Arguments receive the unrecognized-command message. An absent ANSI.SYS or another name token up to 15 bytes receives the captured bad-or-missing driver message. |
+| INSTALL | A name token up to 15 bytes, with optional arguments, receives the unrecognized-command message. |
+| SHELL | The resident COMMAND.COM requires /P and accepts optional /E:512. An empty, overlong, or unsupported final SHELL displays the captured bad-or-missing command interpreter message and stops before AUTOEXEC. |
 
-SHELL selects the resident COMMAND.COM with /P and optional /E:512. The frozen
-interpreter omissions are external/qualified interpreter paths, nonpermanent
-root shells and other environment capacities/options. They report the captured
-Bad or missing Command Interpreter refusal and stop before AUTOEXEC; no request
-is logged as applied while silently using the fixed512-byte environment.
+Keywords and the implemented names and switches are case-insensitive. A
+valid decimal token may have a whitespace-delimited suffix. LASTDRIVE and
+BREAK use the prefix behavior captured from DOS 3.30. Invalid values, unknown
+keywords, and DEVICE or INSTALL entries above eight per type receive the
+unrecognized-command message. A bare unknown keyword consumes the next
+nonblank line as its value. LF advances to the next line, CR ends a
+directive within the current line, and Ctrl-Z ends CONFIG input.
+
 `test-shell-config33` checks the real SYSINIT/FAT refusal and supported control;
 `test-shell-startup` checks the actual production entry never invokes COMMAND
 after refusal. `make smoke-shell-config` grades both emulators on the ordinary
 image, with mtools image conservation on refusal and an AUTOEXEC write control.
 
-The frozen CONFIG omissions are installable drivers other than the built-in
-ANSI selector, configurable BUFFERS, INSTALL commands and FILES above20.
-They receive a visible period refusal rather than a deferred-success marker.
-The baseline still selects20 files. `test-config-diagnostics33` mounts captured
-CONFIG inputs with the real SYSINIT/INT21/FAT stack, compares console messages
-with genuine VGA transcripts, checks native DOS file capacity and verifies that
-reading CONFIG leaves the image unchanged. Its malformed cases were red before
-the repair; negative controls also kill silent BUFFERS and incorrect resident
-console accounting. CONFIG is limited to1024 bytes; truncation is reported.
+`test-config-diagnostics33` mounts captured inputs with the real SYSINIT,
+INT21, and FAT stack. It compares console messages with genuine VGA
+transcripts and checks the BREAK state, logical drive count, ANSI selection,
+and native DOS file capacity. It also compares the disk before and after
+reading CONFIG. With no directives, the resident shell starts with BREAK
+off, five logical drives, eight SFT entries in DOS accounting, and ANSI
+disabled. The shipped CONFIG explicitly requests 20 files. The captured
+65533-byte file is applied. Longer files receive the unrecognized-command
+message and use the defaults.
 
 The PS/2 Ctrl-Pause make sequence E0/46/E0/C6 produces one DOS break byte and
 uses the existing batch cancellation path. Source: IBM PS/2 Common Interfaces,

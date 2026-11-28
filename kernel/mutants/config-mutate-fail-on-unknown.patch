@@ -6,10 +6,10 @@
          }
          if (eq >= line_end) {
 +            return -1;
-             if (report) report(context);
-             continue; /* no '=' -> unrecognized directive, skip (NOT fatal) */
-         }
-@@ -264,6 +265,7 @@
+             /* A lone keyword consumes the next nonblank line as its value
+              * in DOS 3.30. An unknown keyword with a value stays on its line. */
+             uint32_t token = p;
+@@ -263,6 +264,7 @@
              /* else: unrecognized BREAK= value -> ignored (lenient), not fatal. */
          } else {
              /* Unknown directive (keyword had no match) -> DOS ignores it. */
