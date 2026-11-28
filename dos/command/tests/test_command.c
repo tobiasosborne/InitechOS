@@ -696,11 +696,13 @@ static void test_path_candidates(void)
 #endif
 
     /* ---------------------------------------------------------------------- */
-    /* Test 2: explicit path, no extension -> 1 candidate with .COM appended. */
-    n = cmd_path_candidates("A:\\X\\FOO", "", "\\", &cands);
-    CHECK(n == 1, "path_candidates(A:\\X\\FOO explicit, no ext): 1 candidate");
+    /* DOS 3.30 exec-lookup: a qualified extensionless name can run BATCH. */
+    n = cmd_path_candidates("A:\\X\\FOO", "B:\\BIN", "\\", &cands);
+    CHECK(n == 3, "explicit extensionless path tries all suffixes in one directory");
     CHECK_STR_EQ(cands.entries[0], "A:\\X\\FOO.COM",
                  "path_candidates: explicit no-ext -> .COM appended");
+    CHECK_STR_EQ(cands.entries[1], "A:\\X\\FOO.EXE", "qualified EXE follows COM");
+    CHECK_STR_EQ(cands.entries[2], "A:\\X\\FOO.BAT", "qualified BAT follows EXE");
 
     /* ---------------------------------------------------------------------- */
     /* Test 3: explicit path WITH extension -> 1 candidate, verbatim. */
