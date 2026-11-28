@@ -332,8 +332,8 @@ int cmd_path_candidates(const char *word, const char *path_value,
  *   is initech-bsy.7 (this increment).
  *
  * SEMANTICS (kept deliberately simple -- this shell has no quoting):
- *   - Two independent scans.  For EACH of `>` and `<`, the LAST operator wins
- *     (DOS: a later redirect of the same stream supersedes the earlier).
+ *   - Two independent scans. Multiple output operators are refused.
+ *     For multiple input operators, the last wins.
  *   - `>>` (two adjacent '>') is APPEND; a single `>` is CREATE/TRUNCATE.  `<`
  *     has no `<<` form (a `<<` is two lone `<`, the last wins).
  *   - The TARGET is the next whitespace-delimited token after the operator,
@@ -342,7 +342,8 @@ int cmd_path_candidates(const char *word, const char *path_value,
  *   - `clean_out` receives the line with BOTH operator+target spans removed and
  *     the surrounding whitespace tidied (the OUTPUT span is stripped first, then
  *     the INPUT span from the intermediate) -- this is what gets dispatched.
- *   - Return value is a BITMASK: CMD_REDIR_OUT (0x1) set iff a `>`/`>>` was
+ *   - CMD_REDIR_INVALID_OUT reports repeated output and leaves clean_out unused.
+ *     Otherwise, the result is a bitmask: CMD_REDIR_OUT (0x1) is set if a `>`/`>>` was
  *     found (target_out/append_out valid), CMD_REDIR_IN (0x2) set iff a `<` was
  *     found (in_target_out valid).  0 means no redirect (clean_out == a copy of
  *     `line`, both targets == "", append_out == 0).  An OUTPUT-only line returns
@@ -353,6 +354,7 @@ int cmd_path_candidates(const char *word, const char *path_value,
  * (NUL-terminated within the buffer), never written past the end. */
 #define CMD_REDIR_OUT  0x1   /* a `>` / `>>` STDOUT redirect was parsed */
 #define CMD_REDIR_IN   0x2   /* a `<` STDIN redirect was parsed          */
+#define CMD_REDIR_INVALID_OUT (-1)
 
 int cmd_redir_parse(const char *line,
                     char *clean_out, uint32_t clean_cap,

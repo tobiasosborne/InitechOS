@@ -2,9 +2,9 @@
 # test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
 --- a/command/command.c
 +++ b/command/command.c
-@@ -1541,11 +1541,22 @@
-                                   tmp, (uint32_t)sizeof(tmp),
+@@ -1633,11 +1633,22 @@
                                    target_out, target_cap, append_out);
+     if (out_has < 0) return CMD_REDIR_INVALID_OUT;
  
 -    int in_has = redir_strip_one(tmp, '<', 0 /*no `<<`*/,
 -                                 clean_out, clean_cap,
