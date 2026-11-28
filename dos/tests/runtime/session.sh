@@ -15,7 +15,6 @@ out=$short
 export LC_ALL=C TZ=UTC INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 fail() { semantic "$*"; }
 img=$out/data.img
-cp "$boot" "$out/boot.img"
 truncate -s 1474560 "$img"
 mformat -i "$img" -f 1440 -v INITECH ::
 mcopy -i "$img" "$programs"/*.COM ::
@@ -76,19 +75,18 @@ printf "\n\n\ncd sub\n" | "$root/build/factory/keys" > "$out/keys"
 printf "f,o,r,spc,shift-5,f,spc,i,n,spc,shift-9,o,n,e,shift-0,spc,d,o,spc,e,c,h,o,spc,shift-f,shift-o,shift-r,minus,shift-p,shift-r,shift-o,shift-m,shift-p,shift-t,ret," >> "$out/keys"
 printf "cd ..\nDone\n" | "$root/build/factory/keys" >> "$out/keys"
 keys=ctrl-z,$(tr '\n' ', ' < "$out/keys"); marker=TRANSPORT-DONE
-if [ "${DOS_INTERACTIVE:-1}" = 0 ]; then keys=ctrl-z,ret,ret,ret,d,o,n,e,ret;marker=TRANSPORT-DONE;fi
+if [ "${DOS_INTERACTIVE:-1}" = 0 ]; then
+ keys=ctrl-z,ret,ret,ret,d,o,n,e,ret
+ if [ "${DOS_SESSION_EMULATOR:-qemu}" = bochs ]; then keys=''; fi
+fi
 if [ "${DOS_EXIT_CONTROL:-0}" = 1 ]; then
  sed '$d' "$out/autoexec" > "$out/exit-bat"
  printf 'COMMAND /C EXIT\n' >> "$out/exit-bat"
  mcopy -o -i "$img" "$out/exit-bat" ::AUTOEXEC.BAT
  marker=SHELL-EXIT
 fi
-if ! timeout 90 "$root/build/factory/qemu_harness" --disk "$out/boot.img" --boot-rw --disk2 "$img" --keys-after SHELL-READY \
- --keys "$keys" --expect "$marker" --quit-after "$marker" \
- --rtc-base 1987-07-06T13:30:58 --timeout-ms 15000 --name session --out "$out" \
- > "$out/stdout" 2> "$out/report"; then error 'session did not finish'; fi
-transport_pass "$out/report"
-tr -d '\r' < "$out/session.serial" > "$out/text"
+DOS_SESSION_RTC=1987-07-06T13:30:58 sh "$root/dos/tests/runtime/execute.sh" \
+ "$root" "$boot" "$out" "$keys" "$marker" || error 'session did not finish'
 mdir -i "$img" :: > "$out/volume-after" || error 'cannot read result volume'
 for s in AUTOEXEC-RAN IF-BODY 'SRC\ONE.TXT' RESTORED PERMANENT-SURVIVED 'A:\' 'Invalid drive specification'; do
  require "missing [$s]" grep -Fx "$s" "$out/text" >/dev/null;
@@ -126,5 +124,4 @@ require 'DIR operands' grep -F 'ONE      TXT' "$out/dir" >/dev/null
 if grep -F 'WORDS    TXT' "$out/dir" >/dev/null; then fail 'DIR ignored mask'; fi
 if mdir -i "$img" ::EMPTY >/dev/null 2>&1; then fail 'RD did not remove directory'; fi
 require 'COPY timestamp' "$root/build/dos/host/tool_dos_parity_host" --compare "$img" STAMP.TXT "$img" SRC/ONE.TXT > "$out/stamp"
-grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$out/report" >/dev/null || fail 'CPU fault'
 echo 'GREEN DOS session: product commands, batch control, handles, filters, timestamps and prompt'

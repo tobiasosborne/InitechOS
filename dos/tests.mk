@@ -335,3 +335,17 @@ smoke: smoke-c-command-startup
 smoke-c-command-startup:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/c-command-startup.sh "$(abspath $(TOP))" "$$(mktemp -d "$(abspath $(OUT))/c-command-startup.XXXXXX")"
+
+.PHONY: smoke-shell-c-sessions
+smoke-shell-c-sessions:
+	+$(MAKE) -C $(TOP) image
+	@set -eu; root="$(abspath $(TOP))"; boot="$$root/build/image/c.img"; \
+	out=$$(mktemp -d "$(abspath $(OUT))/shell-c-sessions.XXXXXX"); \
+	for emulator in qemu bochs; do \
+	    export DOS_SESSION_EMULATOR=$$emulator; \
+	    for scenario in startup auto permanent; do \
+	        sh "tests/runtime/$$scenario.sh" "$$root" "$$boot" "$(abspath $(OUT))" "$$out/$$emulator-$$scenario"; \
+	    done; \
+	    DOS_SESSION_BOOT="$$boot" sh tests/runtime/batch-return.sh "$$root" "$$out/$$emulator-batch-return"; \
+	done; \
+	DOS_SESSION_EMULATOR=qemu sh tests/runtime/basic.sh "$$root" "$$boot" "$(abspath $(OUT))" "$$out/qemu-basic"

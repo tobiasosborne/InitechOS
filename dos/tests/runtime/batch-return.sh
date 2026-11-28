@@ -16,9 +16,9 @@ mcopy -o -i "$out/data.img" "$out/DONE.COM" ::DONE.COM
 # The captured outer COMMAND /C invocation must return to its AUTOEXEC parent.
 sed 's/^B:/A:/' "$ref/AUTOEXEC.BAT" > "$out/AUTOEXEC.BAT"
 mcopy -o -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
-if ! timeout 40 build/factory/qemu_harness --disk build/image/boot.img --disk2 "$out/data.img" --keys-after SHELL-READY --keys d,o,n,e,ret --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 15000 --rtc-base 1987-07-06T13:30:58 --out "$out" --name nest > "$out/driver.log" 2> "$out/report";then error 'nest transport did not complete';fi
-transport_pass "$out/report"
-tr -d '\r' < "$out/nest.serial" > "$out/text"
+DOS_SESSION_RTC=1987-07-06T13:30:58 sh dos/tests/runtime/execute.sh "$root" \
+    "${DOS_SESSION_BOOT:-build/image/boot.img}" "$out" d,o,n,e,ret TRANSPORT-DONE ||
+    error 'nest transport did not complete'
 require 'outer batch resumes after secondary COMMAND' grep -Fx CAPTURE-DONE "$out/text"
 mtype -i "$out/data.img" ::TRACE.TXT > "$out/trace"
 grep -F AFTER-COMMAND "$ref/files/TRACE.TXT" >/dev/null
