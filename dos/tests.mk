@@ -337,7 +337,7 @@ smoke-c-command-startup:
 	+sh tests/runtime/c-command-startup.sh "$(abspath $(TOP))" "$$(mktemp -d "$(abspath $(OUT))/c-command-startup.XXXXXX")"
 
 .PHONY: smoke-shell-c-sessions
-smoke-shell-c-sessions:
+smoke-shell-c-sessions: $(OUT)/host/tool_dos_parity_host
 	+$(MAKE) -C $(TOP) image
 	@set -eu; root="$(abspath $(TOP))"; boot="$$root/build/image/c.img"; \
 	out=$$(mktemp -d "$(abspath $(OUT))/shell-c-sessions.XXXXXX"); \
@@ -368,7 +368,7 @@ smoke-shell-c-files:
 	DOS_SESSION_EMULATOR=qemu sh tests/runtime/interact.sh "$$root" "$$boot" "$(abspath $(OUT))" "$$out/qemu-interact"
 
 .PHONY: mutants-shell-c
-mutants-shell-c:
+mutants-shell-c: $(OUT)/host/tool_dos_parity_host
 	+$(MAKE) -C $(TOP) image
 	@set -eu; root="$(abspath $(TOP))"; export DOS_SESSION_BOOT="$$root/build/image/c.img"; \
 	patches="$(filter command/%,$(SESSION_MUTANT_PATCHES))"; \
