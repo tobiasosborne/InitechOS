@@ -48,6 +48,13 @@ int main(void)
     rc=fdisk_run(&io);
     CHECK(!rc && !writes && strstr(text,"No Extended DOS partition to delete."),
           "DOS 3.30 FDISKDEL explains an absent extended partition");
+    /* Second DOS review, primary-only MBR. DOS refuses 3 and stays in
+     * Delete DOS Partition, so both Escape keys are needed. */
+    keys="3\r3\r\033\033";at=used=0;
+    rc=fdisk_run(&io);
+    CHECK(!rc && !writes && !strstr(text,"Delete Logical DOS Drive(s)") &&
+          strstr(text,"3 is not a choice. Please enter 1-2.\r\n") &&
+          at==strlen(keys), "DOS 3.30 primary-only Delete menu has choices 1 and 2");
     if(g_fails)return TEST_SUMMARY("fdisk-session");
     puts("GREEN FDISK session: loaded drive untouched, independent D/E partition mapping");return TEST_SUMMARY("fdisk-session");
 }

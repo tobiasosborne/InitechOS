@@ -215,15 +215,31 @@ int fdisk_run(const fdisk_io *ops)
         }
         if(c==3) {
             heading("Delete DOS Partition");
-            put("    1. Delete Primary DOS Partition\r\n    2. Delete Extended DOS Partition\r\n"
-                "    3. Delete Logical DOS Drive(s) in\r\n       the Extended DOS Partition\r\n\r\nEnter choice:    [ ]\r\n");options();
-            int partition=choice(0);
+            int extended=0;
+            for(unsigned i=0;i<4;i++)if(entry(mbr,i)[4]==5)extended=1;
+            int maximum=extended ? 3 : 2;
+            put("    1. Delete Primary DOS Partition\r\n    2. Delete Extended DOS Partition\r\n");
+            if(extended)put("    3. Delete Logical DOS Drive(s) in\r\n       the Extended DOS Partition\r\n");
+            put("\r\nEnter choice:    [ ]\r\n");options();
+            /* DOS 3.30 primary-only Delete capture: an invalid choice
+             * leaves the submenu active so the next key can choose again. */
+            int partition;
+            for (;;) {
+                partition=choice(0);
+                if(partition<0 || (partition>=1 && partition<=maximum))break;
+                number((unsigned)partition);
+                put(" is not a choice. Please enter 1-");
+                number((unsigned)maximum);
+                put(".\r\nEnter choice:    [ ]\r\n");
+            }
             if(partition==2){
                 heading("Delete Extended DOS Partition");table();
-                int extended=0;
-                for(unsigned i=0;i<4;i++)if(entry(mbr,i)[4]==5)extended=1;
                 put(extended?"Extended DOS partitions are not supported.\r\n":
                              "No Extended DOS partition to delete.\r\n");
+                options();waitesc();continue;
+            }
+            if(partition==3){
+                put("Extended DOS partitions are not supported.\r\n");
                 options();waitesc();continue;
             }
             if(partition!=1)continue;
