@@ -21,6 +21,8 @@ forbid 'repeated output redirection created MISS' grep -Fx '::/MISS' "$out/names
 for name in KILL.ONE KILL.TWO; do
     require "DEL with two operands preserved $name" grep -Fx "::/$name" "$out/names"
 done
-awk '/^(File creation error|OLD-BYTES|REPLACED .*|Bad command or file name|Invalid number of parameters)$/ { print }' "$out/text" > "$out/actual"
+forbid 'redirected producer created SAFE.OUT' grep -Fx '::/SAFE.OUT' "$out/names"
+forbid 'redirected producer allowed the next stage to run' grep -Fx END "$out/text"
+awk '/^(File creation error|OLD-BYTES|REPLACED .*|Bad command or file name|Invalid number of parameters|File not found)$/ { print }' "$out/text" > "$out/actual"
 require 'shell refusals match DOS 3.30' cmp "$ref/console.txt" "$out/actual"
 echo 'GREEN shell data guards preserve DOS files'
