@@ -1,5 +1,11 @@
 # test: test-gnrc
 --- a/fat12.c
 +++ b/fat12.c
-@@ -3480,0 +3481 @@
+@@ -3543,6 +3543,7 @@
+ 	for (k = 0u; k < 3u; k++) {
+ 		match.extension[k] = new11[8u + k];
+ 	}
 +	match.start_cluster = 0u;
+ 	return fat12_publish_dirent(vol, fat, fat_len, is_root, dir_start,
+ 	                            match_slot, &match, sector_buf, NULL);
+ }
