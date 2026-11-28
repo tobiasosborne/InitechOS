@@ -1,0 +1,6 @@
+SMALL
+Out of environment space
+LARGE
+COMPACT
+SEPARATE
+OPTIONS-DONE

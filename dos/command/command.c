@@ -4948,27 +4948,47 @@ static void builtin_command(const char *arg)
     static unsigned depth;
     const char *tail = 0;
     int permanent = 0;
+    int env_bytes = -1;
     while (is_space(*arg)) ++arg;
-    if (*arg) {
+    while (*arg) {
         if (*arg != '/') goto invalid;
         char option = cmd_upcase_char(arg[1]);
-        if (option == 'C' && (!arg[2] || is_space(arg[2]))) {
+        if (option == 'C') {
             tail = arg + 2;
             while (is_space(*tail)) ++tail;
-        } else if (option == 'P') {
-            const char *end = arg + 2;
-            while (is_space(*end)) ++end;
-            if (*end) goto invalid;
+            break;
+        }
+        if (option == 'P' && !permanent) {
             permanent = 1;
+            arg += 2;
+        } else if (option == 'E' && arg[2] == ':' && env_bytes < 0) {
+            arg += 3;
+            if (*arg < '0' || *arg > '9') goto invalid;
+            env_bytes = 0;
+            while (*arg >= '0' && *arg <= '9') {
+                if (env_bytes <= ENV_ARENA_MAX + 1)
+                    env_bytes = env_bytes * 10 + (*arg - '0');
+                ++arg;
+            }
         } else {
             goto invalid;
         }
+        if (*arg && !is_space(*arg)) goto invalid;
+        while (is_space(*arg)) ++arg;
     }
+    if (permanent && tail) goto invalid;
 #ifdef COMMAND_BATCH_HOST
     if (!tail) goto invalid;
 #endif
+    if (env_bytes >= 0 &&
+        (env_bytes <= g_master_env.len || env_bytes > ENV_ARENA_MAX + 1)) {
+        dos_error(MSG_DOS_0031 "\r\n$");
+        return;
+    }
     if(depth>=8){dos_print(MSG_DOS_0035 "\r\n$");return;}
     env_store_t env=g_master_env;
+    /* DOS 3.30 secondary-options capture: /E limits the child's SETs. */
+    if (env_bytes >= 0) g_master_env.capacity = env_bytes - 1;
     int exit=g_shell_exit,saved_permanent=g_shell_permanent;
     int echo_on=g_prompt_echo_on;
     batch_frame_t *frame=g_batch_frame;

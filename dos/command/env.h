@@ -44,13 +44,15 @@
 /* The environment store: a fixed-capacity packed buffer of ASCIIZ entries of
  * the form "NAME=VALUE\0".  `len` is the number of bytes currently occupied
  * (does NOT include the final extra NUL terminator; that is appended only by
- * env_serialize).  An empty store has len == 0.
+ * env_serialize). An empty store has len == 0. The active capacity defaults
+ * to ENV_ARENA_MAX and a secondary processor may set a smaller limit.
  *
  * Internal invariant: no duplicate names (env_set enforces UPSERT); names are
  * always stored upper-cased (DOS upcases environment variable names). */
 typedef struct {
     uint8_t buf[ENV_ARENA_MAX];
     int     len;
+    int     capacity;
 } env_store_t;
 
 /* ---- API ----------------------------------------------------------------- */
@@ -66,7 +68,7 @@ void env_init(env_store_t *e);
  * for a given name.
  *
  * Returns 1 on success.  Returns 0 -- and leaves the store BYTE-IDENTICAL --
- * if the new entry would not fit in ENV_ARENA_MAX bytes (Rule 2: never
+ * if the new entry would not fit in the active capacity (Rule 2: never
  * truncate; fail loud by returning 0). */
 int env_set(env_store_t *e, const char *name, const char *value);
 

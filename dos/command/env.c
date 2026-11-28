@@ -111,6 +111,7 @@ static int env_entry_len(const env_store_t *e, int pos)
 void env_init(env_store_t *e)
 {
     e->len = 0;
+    e->capacity = ENV_ARENA_MAX;
     /* Zero the buffer for determinism (Rule 11) -- no stale bytes. */
     for (int i = 0; i < ENV_ARENA_MAX; i++) {
         e->buf[i] = 0;
@@ -141,11 +142,11 @@ int env_set(env_store_t *e, const char *name, const char *value)
     int  old_pos   = env_find(e, uname);
     int  old_len   = (old_pos >= 0) ? env_entry_len(e, old_pos) : 0;
 
-    /* Overflow guard (Rule 2): the new store size must not exceed ENV_ARENA_MAX.
+    /* Respect the active processor's environment capacity before changing bytes.
      * Compute BEFORE making any change so the store stays byte-identical on
      * failure (the caller can re-check e->len and a prior env_get). */
     int new_total = e->len - old_len + new_entry_len;
-    if (new_total > ENV_ARENA_MAX) {
+    if (new_total > e->capacity) {
         return 0;   /* would overflow; store is UNCHANGED */
     }
 

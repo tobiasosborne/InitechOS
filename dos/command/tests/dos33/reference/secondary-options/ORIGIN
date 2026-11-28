@@ -1,0 +1,7 @@
+DOS 3.30 COMMAND audit T078–T080 and Packard Bell OEM MS-DOS 3.30,
+QEMU 486 with 8 MiB. Media SHA-256
+3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Install environment.txt as TESTE.BAT and batch.txt as PROBE.BAT with
+CRLF line endings. The result records the environment refusal and the
+compact and separate /C command tails. The two SET operands are identical
+in both secondary processors.
