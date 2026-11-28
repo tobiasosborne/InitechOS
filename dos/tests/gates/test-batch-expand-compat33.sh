@@ -62,4 +62,13 @@ tr -d '\r' < build/actual | sed -n 's/^\(TEN\|ELEVEN\)=\[.*\]\[.*\]\(\[[^]]*\]\)
 printf '%s\n' '[j]' '[k]' > build/expected
 diff -u build/expected build/text || fail 'CALL punctuation changes which operands SHIFT exposes'
 echo 'GREEN CALL and SHIFT: comma, semicolon and equals split the batch operands'
-echo 'INITECH_CHECKS 5 failures=0'
+
+# OEM DOS 3.30 review-day3-1 row 2: a 70-character tenth operand fits
+# in the command tail and appears in full after one SHIFT.
+long=$(awk 'BEGIN { for (i = 0; i < 70; i++) printf "x" }')
+build/batch_fat build/shift.img PARENT.BAT " a b c d e f g h i $long z" > build/actual || fail 'SHIFT long batch run failed'
+tr -d '\r' < build/actual | sed -n '/^TEN=/p' > build/text
+printf 'TEN=[a][b][%s]\n' "$long" > build/expected
+diff -u build/expected build/text || fail 'SHIFT shortened the tenth operand'
+echo 'GREEN SHIFT: all 70 characters reach %9'
+echo 'INITECH_CHECKS 6 failures=0'

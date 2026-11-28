@@ -4932,12 +4932,8 @@ static void run_batch_named(const char *path, const char *tail, const char *name
         while (batch_operand_separator(*p)) p++;
         if (!*p) break;
         argv[argc++] = operands + used;
-        unsigned length = 0;
         while (*p && !batch_operand_separator(*p)) {
-            if (length + 1 < CMD_TOKEN_MAX && used + 1 < sizeof(operands)) {
-                operands[used++] = *p;
-                length++;
-            }
+            if (used + 1 < sizeof(operands)) operands[used++] = *p;
             p++;
         }
         operands[used++] = '\0';
