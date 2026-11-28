@@ -377,8 +377,8 @@ int cmd_redir_parse(const char *line,
  * Ref: DOS 3.3 COMMAND.COM pipes (MS-DOS 3.3 Tech Ref Ch.6): `a | b` is a
  *   TEMP-FILE pipe -- COMMAND.COM runs `a` with stdout to a temporary file, then
  *   runs `b` with stdin from that file, then deletes the temp; `a | b | c`
- *   composes left-to-right.  The shell has NO quoting, so every `|` is a
- *   separator.  beads initech-bsy.8 (this increment; deferred from initech-hsct).
+ *   composes left-to-right. The DOS 3.30 review shows that a pipe inside
+ *   double quotes remains part of its operand.
  *
  * SEMANTICS:
  *   - nstages == 1 with stage[0] == the trimmed line when there is no `|` (incl.

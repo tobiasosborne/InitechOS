@@ -396,6 +396,22 @@ static void test_pipe_split(void)
     CHECK_STR_EQ(pl.stage[1], "find y", "three: stage[1] == 'find y'");
     CHECK_STR_EQ(pl.stage[2], "sort", "three: stage[2] == 'sort'");
 
+    /* DOS 3.30 review: FIND receives the quoted operands as one command. */
+    const char *quoted = "FIND \"x|echo y>KEEP.TXT \" DATA";
+    n = cmd_pipe_split(quoted, &pl);
+    CHECK(n == 1, "a pipe inside the FIND operand does not start a stage");
+    CHECK_STR_EQ(pl.stage[0], quoted, "FIND retains the whole reviewed operand");
+    char clean[128], target[128];
+    int append = 0;
+    CHECK(run_redir(pl.stage[0], clean, target, &append) == 0,
+          "the quoted operator cannot redirect stdout to KEEP.TXT");
+    CHECK_STR_EQ(clean, quoted, "the reviewed FIND command reaches dispatch intact");
+
+    n = cmd_pipe_split("FIND \"x|y\" DATA | SORT", &pl);
+    CHECK(n == 2, "a pipe after the closing quote starts the next stage");
+    CHECK_STR_EQ(pl.stage[0], "FIND \"x|y\" DATA", "FIND keeps its quoted pipe");
+    CHECK_STR_EQ(pl.stage[1], "SORT", "the real pipe still dispatches SORT");
+
     /* Leading/trailing whitespace trimmed on the outer line + per stage. */
     n = cmd_pipe_split("  dir  |  sort  ", &pl);
     CHECK(n == 2, "outer-ws: nstages == 2");

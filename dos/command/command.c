@@ -1619,8 +1619,8 @@ int cmd_redir_parse(const char *line,
 /* cmd_pipe_split: split `line` on the `|` PIPE operator into ordered stages.
  * See command.h for the full citation + semantics block (beads initech-bsy.8).
  *
- * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (`a | b` is a TEMP-FILE pipe; the
- *   shell has no quoting so every `|` is a separator; `a | b | c` composes
+ * Ref: PRD Sec 6.1; MS-DOS 3.3 Tech Ref Ch.6 (`a | b` is a TEMP-FILE pipe.
+ *   Unquoted `|` separates stages and `a | b | c` composes
  *   left-to-right).  Pure: no asm, no I/O -- host-testable in test_redir_parse.c.
  *
  * Implementation: one left-to-right scan.  We emit a stage each time we hit a
@@ -1644,10 +1644,12 @@ int cmd_pipe_split(const char *line, cmd_pipeline_t *out)
 
     uint32_t seg_start = 0;   /* index of the first char of the current stage span */
     uint32_t i = 0;
+    int quoted = 0;
     for (;;) {
         int at_end = (line[i] == '\0');
 
-        int is_sep = (line[i] == '|');
+        if (line[i] == '"') quoted = !quoted;
+        int is_sep = !quoted && line[i] == '|';
 
         /* Cut a stage at a `|` OR at end-of-line -- UNLESS this is the last slot
          * we may fill, in which case we keep scanning so the remainder (any
