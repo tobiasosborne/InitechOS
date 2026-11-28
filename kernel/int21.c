@@ -3404,8 +3404,9 @@ static void do_close(int_frame_t *f)
     cf_clear(f);
 }
 
-/* AH=42h LSEEK: EBX=handle, AL=whence (0=start,1=cur,2=end), ECX:EDX offset
- * (ECX high 16 bits = 0 this milestone). New absolute offset -> EAX. Seeking
+/* AH=42h LSEEK: EBX=handle, AL=whence (0=start,1=cur,2=end), offset in CX:DX.
+ * CX=0 also accepts the full EDX offset used by flat clients.
+ * Return the new position in DX:AX and the full position in EAX. Seeking
  * past EOF is allowed (a subsequent READ then returns 0). CF clear; bad handle
  * -> CF=1, AX=0x0006; bad whence -> CF=1, AX=0x0001.
  * Ref: brief Sec 4.4; DOS 3.3 PRM AH=42h. */
@@ -3413,7 +3414,8 @@ static void do_lseek(int_frame_t *f)
 {
     uint32_t handle = f->ebx;
     uint8_t  whence = frame_al(f);
-    uint32_t off    = f->edx;   /* low 32 bits; ECX high half is 0 this milestone */
+    uint32_t hi     = frame_cx(f);
+    uint32_t off    = hi ? (hi << 16) | frame_dx(f) : f->edx;
 
     sft_entry_t *e = (handle <= 0xFFu)
                        ? sft_from_handle(g_cur_psp, (uint8_t)handle)
@@ -3436,6 +3438,7 @@ static void do_lseek(int_frame_t *f)
     }
     e->file_offset = base + off;   /* past-EOF allowed (DOS); READ then returns 0 */
     f->eax = e->file_offset;
+    set_dx(f, (uint16_t)(e->file_offset >> 16));
     cf_clear(f);
 }
 
