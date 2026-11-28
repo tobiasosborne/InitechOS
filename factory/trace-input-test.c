@@ -22,6 +22,11 @@ int main(void)
             return 1;
         }
     }
+    if (!bochs_trace_parse("esc", 3, &s) || s.kind != BX_KEY || s.key != 0xff1b ||
+        !bochs_trace_parse("kesc", 4, &s) || s.kind != BX_KEY || s.key != 0xff1b) {
+        fputs("FAIL Bochs Escape token\n", stderr);
+        return 1;
+    }
     if (bochs_trace_parse("kunknown",8,&s)) return 1;
     /* T<name>: a text-page capture into <out>/<name>.screen (stage 2). */
     if (!bochs_trace_parse("Tver_1-b",8,&s) || s.kind!=BX_TEXT || strcmp(s.name,"ver_1-b")) return 1;

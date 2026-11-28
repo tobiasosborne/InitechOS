@@ -59,17 +59,18 @@ static int rejected_stream(const char *records, unsigned key, bool down,
 }
 int main(void)
 {
-    /* Bochs REL_2_7_FINAL, iodev/scancodes.cc, set 1; keys 40, 42, 12. */
-    static const struct { unsigned key; unsigned char make, release; } punctuation[] = {
-        {0x003b, 0x27, 0xa7}, {0x005c, 0x2b, 0xab}, {0x002d, 0x0c, 0x8c}
+    /* Bochs REL_2_7_FINAL, iodev/scancodes.cc, set 1; keys 40, 42, 12, 110. */
+    static const struct { unsigned key; unsigned char make, release; } dos_keys[] = {
+        {0x003b, 0x27, 0xa7}, {0x005c, 0x2b, 0xab}, {0x002d, 0x0c, 0x8c},
+        {0xff1b, 0x01, 0x81}
     };
-    for (unsigned i = 0; i < sizeof punctuation / sizeof punctuation[0]; i++) {
+    for (unsigned i = 0; i < sizeof dos_keys / sizeof dos_keys[0]; i++) {
         unsigned char scan[2];
-        if (rfb_input_scan(punctuation[i].key, scan, true) != 1 ||
-            scan[0] != punctuation[i].make ||
-            rfb_input_scan(punctuation[i].key, scan, false) != 1 ||
-            scan[0] != punctuation[i].release) {
-            fprintf(stderr, "FAIL Bochs punctuation scan for keysym %#x\n", punctuation[i].key);
+        if (rfb_input_scan(dos_keys[i].key, scan, true) != 1 ||
+            scan[0] != dos_keys[i].make ||
+            rfb_input_scan(dos_keys[i].key, scan, false) != 1 ||
+            scan[0] != dos_keys[i].release) {
+            fprintf(stderr, "FAIL Bochs DOS scan for keysym %#x\n", dos_keys[i].key);
             return 1;
         }
     }

@@ -476,6 +476,7 @@ static unsigned rfb_input_scan(unsigned key, unsigned char scan[2], bool down)
     if(key>=0xffbe && key<=0xffc7)code=0x3b+key-0xffbe;
     static const struct { unsigned key,code,extended; } special[]={
         {0xffe3,0x1d,0},{0xffe1,0x2a,0},{0xffe9,0x38,0},
+        {0xff1b,0x01,0}, /* Bochs 2.7 iodev/scancodes.cc, BX_KEY_ESC. */
         {0xff0d,0x1c,0},{0xff08,0x0e,0},{' ',0x39,0},{'.',0x34,0},{'/',0x35,0},
         /* Bochs 2.7 iodev/scancodes.cc, BX_KEY_SEMICOLON/BACKSLASH/MINUS. */
         {';',0x27,0},{'\\',0x2b,0},{'-',0x0c,0},

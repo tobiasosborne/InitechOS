@@ -176,6 +176,7 @@ static inline int bochs_trace_parse(const char *s, size_t n, BochsTraceStep *v)
      * transport values, not BIOS scans. initech-wuxo0. */
     static const struct { const char *name; unsigned sym; } special[] = {
         {"semicolon", ';'}, {"backslash", '\\'}, {"minus", '-'},
+        {"esc",0xff1b},
         {"f1",0xffbe}, {"f2",0xffbf}, {"f3",0xffc0}, {"f4",0xffc1},
         {"f5",0xffc2}, {"f6",0xffc3}, {"f7",0xffc4}, {"f8",0xffc5},
         {"f9",0xffc6}, {"f10",0xffc7},
