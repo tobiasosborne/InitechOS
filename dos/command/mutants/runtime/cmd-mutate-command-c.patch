@@ -2,11 +2,12 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4900,7 +4900,6 @@
+@@ -4929,7 +4929,7 @@
       * ERRORLEVEL 0 and returns 0 even if its command ran a nonzero child. */
      g_errorlevel=0u;
      depth++;
--    run_with_redirect(arg);
-     depth--;
-     g_master_env=env;
-     g_shell_exit=exit;g_shell_permanent=permanent;
+-    if (tail) run_with_redirect(tail);
++    if (tail) (void)tail;
+ #ifndef COMMAND_BATCH_HOST
+     else {
+         /* DOS 3.30 secondary-processor capture: /P reruns AUTOEXEC

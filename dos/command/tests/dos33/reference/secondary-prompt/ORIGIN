@@ -1,0 +1,9 @@
+DOS 3.30 COMMAND audit row 8 and Secondary processor capture.
+Install batch.txt as AUTOEXEC.BAT. Type ECHO SECONDARY-PROMPT and EXIT
+at the child prompt, then EXIT at the permanent prompt. The upper-case
+payload comes from that transcript. The replay adds a final ECHO to
+establish that the permanent prompt still accepts commands.
+
+An additional capture on the Packard Bell DOS 3.30 image sets distinct
+A: and B: AUTOEXEC files, selects B:, and types COMMAND /P.
+The permanent child runs the B: file, then stays at the prompt.

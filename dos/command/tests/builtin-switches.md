@@ -8,6 +8,7 @@
 | `COPY /B` | Copies the source bytes through Ctrl-Z and omits a final Ctrl-Z on a binary destination. | `test-shell-files-host`, DOS 3.30 concatenation captures |
 | `COPY /V` | Reads written bytes back and reports a failure if they differ. | `test-shell-files-host` with a corrupt readback |
 | `COMMAND /C` | Starts a secondary with its own environment and returns after executing the tail. | `make smoke-batch-return`, `tests/runtime/session.sh` |
+| `COMMAND /P` | Runs the current drive startup batch and keeps the resulting prompt after EXIT. | `make smoke-shell-fidelity` |
 
 The COMMAND audit's DOS 3.30 switch sweep shows refusal of /A through /Z
 and /? for MD, RD, TYPE, CLS, VER and EXIT. Its hands-on comparison also

@@ -2,12 +2,10 @@
 # session: startup
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4706,7 +4706,7 @@
-             run_batch_invoke(autoexec, "");
-         }
-         else if (g_shell_permanent) {
--            startup_datetime();
-+            (void)&startup_datetime; /* the repository contract: omit both boot prompts. */
-         }
+@@ -5027,5 +5027,5 @@
+         run_batch_invoke(autoexec, "");
+     } else if (g_shell_permanent) {
+-        startup_datetime();
++        (void)&startup_datetime; /* the repository contract: omit both boot prompts. */
      }
-     if (g_shell_exit) {
+ }

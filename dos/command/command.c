@@ -4934,6 +4934,11 @@ static void run_batch_invoke(const char *path, const char *tail)
     run_batch_named(path, tail, path);
 }
 
+#ifndef COMMAND_BATCH_HOST
+static void command_startup(const char *autoexec);
+static void command_prompt_loop(void);
+#endif
+
 #if !defined(COMMAND_BATCH_HOST) || defined(COMMAND_BATCH_FAT_HOST)
 /* Reference pp.46-47: /C creates a private environment, executes one command
  * and returns automatically. Existing redirect/pipe scopes save and restore
@@ -4941,33 +4946,68 @@ static void run_batch_invoke(const char *path, const char *tail)
 static void builtin_command(const char *arg)
 {
     static unsigned depth;
-    while(is_space(*arg))arg++;
-    if(arg[0]!='/' || cmd_upcase_char(arg[1])!='C' ||
-       (arg[2] && !is_space(arg[2]))) {
-        dos_print(MSG_DOS_0038 "\r\n$");return;
+    const char *tail = 0;
+    int permanent = 0;
+    while (is_space(*arg)) ++arg;
+    if (*arg) {
+        if (*arg != '/') goto invalid;
+        char option = cmd_upcase_char(arg[1]);
+        if (option == 'C' && (!arg[2] || is_space(arg[2]))) {
+            tail = arg + 2;
+            while (is_space(*tail)) ++tail;
+        } else if (option == 'P') {
+            const char *end = arg + 2;
+            while (is_space(*end)) ++end;
+            if (*end) goto invalid;
+            permanent = 1;
+        } else {
+            goto invalid;
+        }
     }
-    arg+=2;while(is_space(*arg))arg++;
+#ifdef COMMAND_BATCH_HOST
+    if (!tail) goto invalid;
+#endif
     if(depth>=8){dos_print(MSG_DOS_0035 "\r\n$");return;}
     env_store_t env=g_master_env;
-    int exit=g_shell_exit,permanent=g_shell_permanent;
+    int exit=g_shell_exit,saved_permanent=g_shell_permanent;
     int echo_on=g_prompt_echo_on;
     batch_frame_t *frame=g_batch_frame;
-    g_shell_exit=0;g_shell_permanent=0;g_batch_frame=0;
+    g_shell_exit=0;g_shell_permanent=permanent;g_batch_frame=0;
     /* DOS 3.30 prompt-echo capture: a secondary starts with ECHO ON. */
     g_prompt_echo_on=1;
     /* DOS 3.30 secondary-status capture: the new processor starts with
      * ERRORLEVEL 0 and returns 0 even if its command ran a nonzero child. */
     g_errorlevel=0u;
     depth++;
-    run_with_redirect(arg);
+    if (tail) run_with_redirect(tail);
+#ifndef COMMAND_BATCH_HOST
+    else {
+        /* DOS 3.30 secondary-processor capture: /P reruns AUTOEXEC
+         * and EXIT does not leave the resulting permanent prompt. */
+        if (permanent) {
+            char comspec[15], autoexec[16];
+            /* The DOS 3.30 permanent-drive capture selects B: before /P.
+             * The new processor runs B:\\AUTOEXEC.BAT. */
+            cmd_startup_paths(int21_current_drive(), comspec, autoexec);
+            command_startup(autoexec);
+        } else {
+            builtin_ver();
+        }
+        if (!g_shell_exit) command_prompt_loop();
+    }
+#endif
     depth--;
     g_master_env=env;
-    g_shell_exit=exit;g_shell_permanent=permanent;
+    g_shell_exit=exit;g_shell_permanent=saved_permanent;
     g_prompt_echo_on=echo_on;
     g_errorlevel=0u;g_batch_frame=frame;
     /* OEM DOS 3.30 compat33/BATCH: COMMAND /C returns to the physical
      * parent line after its child overwrites the shared batch buffer. */
     if (frame) { frame->len=batch_load_file(frame->path,g_batch_buf); g_batch_buffer_owner=frame; }
+    return;
+
+invalid:
+    dos_print(MSG_DOS_0038 "\r\n$");
 }
 #endif
 
@@ -4990,7 +5030,6 @@ void command_exec_secondary(const char *tail, uint32_t len)
 
 void command_repl(int permanent)
 {
-    char line[CMD_LINE_MAX];
     g_shell_permanent = permanent != 0;
     g_shell_exit = 0;
     g_prompt_echo_on = 1;
@@ -5016,6 +5055,13 @@ void command_repl(int permanent)
     env_set(&g_master_env, "PROMPT",  "$P$G");
     env_set(&g_master_env, "PATH",    "");
 
+    command_startup(autoexec);
+    if (!g_shell_exit) command_prompt_loop();
+    int21_set_break_recovery(previous_break);
+}
+
+static void command_startup(const char *autoexec)
+{
     /* AUTOEXEC.BAT (beads initech-xw1): on startup, real COMMAND.COM runs
      * AUTOEXEC.BAT on the startup system drive once before the first prompt.  Probe for it
      * with AH=3Dh OPEN; if present, interpret it through run_batch (argv[0] =
@@ -5025,25 +5071,18 @@ void command_repl(int permanent)
      * AUTOEXEC.BAT runs an EXIT, only a nonpermanent processor unwinds; the
      * primary continues the batch. Recheck before entering the loop.
      * Ref: MS-DOS 3.3 Tech Ref Ch.3; spec/dos_autoexec_bat_baseline.txt. */
-    {
-        int fh = dos_open(autoexec);
-        if (fh >= 0) {
-            dos_close(fh);
-            run_batch_invoke(autoexec, "");
-        }
-        else if (g_shell_permanent) {
-            startup_datetime();
-        }
+    int fh = dos_open(autoexec);
+    if (fh >= 0) {
+        dos_close(fh);
+        run_batch_invoke(autoexec, "");
+    } else if (g_shell_permanent) {
+        startup_datetime();
     }
-    if (g_shell_exit) {
-        int21_set_break_recovery(previous_break);
-        return;     /* AUTOEXEC.BAT issued EXIT -> the shell is done */
-    }
+}
 
-    /* A serial marker the oracle gates key-injection on (mirrors KBD-ECHO-READY
-     * / CONIN-PROG-READY). The kernel's CON sink also fans this to serial via
-     * the AH=09h banner, but a distinct grep-able marker keeps the gate robust;
-     * kmain prints SHELL-READY before calling us, so we don't duplicate it. */
+static void command_prompt_loop(void)
+{
+    char line[CMD_LINE_MAX];
     for (;;) {
         g_shell_break.interrupted = 0u;
         /* $P$G prompt: read the PROMPT env var, build a prompt_ctx_t from the
@@ -5105,10 +5144,7 @@ void command_repl(int permanent)
          * line with neither passes straight through to dispatch_line.  A return
          * value of 1 means EXIT was issued (print already emitted); tear the REPL
          * down. */
-        if (run_pipeline_or_redirect(line)) {
-            int21_set_break_recovery(previous_break);
-            return;
-        }
+        if (run_pipeline_or_redirect(line)) return;
     }
 }
 
