@@ -232,8 +232,8 @@ start:
     mov [nlines], ebx
 
     ; ---- Insertion sort the record array by the case-insensitive comparator. ----
-    ; for i in 1..nlines-1: key=rec[i]; j=i-1; while j>=0 && cmp(rec[j],key)>0:
-    ;   rec[j+1]=rec[j]; j--; rec[j+1]=key.  Order sense flips with rflag.
+    ; Shift larger records in ascending order and smaller records with /R.
+    ; DOS 3.30 SORTR also puts a later input line first when keys tie with /R.
     mov ecx, [nlines]
     cmp ecx, 2
     jb .sort_done              ; 0 or 1 line: already sorted
@@ -267,7 +267,11 @@ start:
     pop edi
     pop esi
     test eax, eax
-    jle .sort_place            ; rec[j] <= key: stop
+    jl .sort_place
+    jg .sort_shift
+    cmp dword [rflag], 0
+    je .sort_place             ; preserve input order on ties without /R
+.sort_shift:
     ; shift rec[j] -> rec[j+1]
     mov eax, esi
     shl eax, 3

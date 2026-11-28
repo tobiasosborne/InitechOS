@@ -17,10 +17,15 @@ mcopy -i "$out/data.img" "$out/input" ::INPUT.TXT
 printf 'Z\r\n\032a\r\nx\r\n' > "$out/EOF.TXT"
 printf 'Z\r\n' > "$out/eof-expected"
 mcopy -i "$out/data.img" "$out/EOF.TXT" ::
+# DOS 3.30 utility audit SORTR and SORTEQ.
+printf 'apple\r\nzebra\r\nApple\r\n' > "$out/WORDS.TXT"
+printf 'zebra\r\nApple\r\napple\r\n' > "$out/ties-reverse"
+printf 'apple\r\nApple\r\nzebra\r\n' > "$out/ties-forward"
+mcopy -i "$out/data.img" "$out/WORDS.TXT" ::
 printf '%s\r\n' '@echo off' 'SORT <INPUT.TXT >DEFAULT.OUT' 'SORT /+1 <INPUT.TXT >FIRST.OUT' \
  'SORT /+2 <INPUT.TXT >COLUMN.OUT' 'SORT /R /+2 <INPUT.TXT >REVERSE.OUT' \
  'SORT /Z <INPUT.TXT >BAD.OUT' 'if errorlevel 1 echo REFUSED >BAD.RC' \
- 'SORT <EOF.TXT >EOF.OUT' DONE > "$out/AUTOEXEC.BAT"
+ 'SORT <EOF.TXT >EOF.OUT' 'SORT <WORDS.TXT >TIES.OUT' 'SORT /R <WORDS.TXT >RTIES.OUT' DONE > "$out/AUTOEXEC.BAT"
 mcopy -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
 utility_session "$boot" "$out/data.img" "$out" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE \
  --timeout-ms 25000 --name sortcolumns > "$out/driver.log" 2> "$out/report" || error 'SORT columns transport failed'
@@ -32,6 +37,10 @@ done
 # DOS 3.30 SORTEOF keeps only the line before Ctrl-Z.
 mtype -i "$out/data.img" ::EOF.OUT > "$out/actual" || error 'SORT EOF output missing'
 require 'SORT stops at Ctrl-Z' cmp "$out/eof-expected" "$out/actual"
+for spec in 'TIES.OUT ties-forward' 'RTIES.OUT ties-reverse'; do
+ mtype -i "$out/data.img" "::${spec%% *}" > "$out/actual" || error 'SORT ties output missing'
+ require "SORT case-folded ties in ${spec%% *}" cmp "$out/${spec##* }" "$out/actual"
+done
 mtype -i "$out/data.img" ::BAD.OUT > "$out/actual" || error 'SORT diagnostic missing'
 tr -d '\r' < "$out/actual" > "$out/text"
 require 'SORT refuses unsupported switch' grep -Fx 'Invalid parameter' "$out/text"
