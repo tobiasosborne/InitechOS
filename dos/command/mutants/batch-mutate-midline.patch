@@ -11,4 +11,4 @@
 +    if (i >= len) {
          return 0;
      }
-     while (i < len && buf[i] != '\r' && buf[i] != '\n' &&
+     /* DOS 3.30 audit: Ctrl-Z ends the batch, including after a partial line.

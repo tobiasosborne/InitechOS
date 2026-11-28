@@ -3,5 +3,5 @@
 --- a/command/batch.c
 +++ b/command/batch.c
 @@ -1,1 +1,1 @@
--           n < BATCH_LINE_MAX - 1) {
-+           n < BATCH_LINE_MAX - 2) {
+-        if (n < BATCH_LINE_MAX - 1) out[n++] = buf[i];
++        if (n < BATCH_LINE_MAX - 2) out[n++] = buf[i];

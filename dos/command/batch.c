@@ -838,7 +838,7 @@ int batch_for_subst(const char *templ, const char *var, const char *token,
 
 /* Extract the line that starts at byte offset `*pos` in `buf` (length `len`)
  * into `out` (capacity BATCH_LINE_MAX), advance `*pos` past the line and its
- * EOL sequence (CR, LF, or CRLF), and return 1.  Return 0 at end of buffer
+ * EOL sequence (CR, LF, or CRLF), and return 1. Return 0 at Ctrl-Z or end of buffer
  * (out[0] = '\0').  Real DOS 3.30 retains 127 characters and discards the remainder:
  * command/tests/dos33/reference/batch (124..132-byte physical lines). */
 int batch_next_line(const char *buf, int len, int *pos, char *out)
@@ -853,14 +853,16 @@ int batch_next_line(const char *buf, int len, int *pos, char *out)
         (i > 0 && buf[i-1]=='\r' && buf[i]=='\n')) {
         return 0;
     }
-    while (i < len && buf[i] != '\r' && buf[i] != '\n' &&
-           n < BATCH_LINE_MAX - 1) {
-        out[n++] = buf[i++];
+    /* DOS 3.30 audit: Ctrl-Z ends the batch, including after a partial line.
+     * Stop GOTO's scan at the same boundary as sequential execution. */
+    while (i < len && buf[i] != '\r' && buf[i] != '\n' && buf[i] != '\x1a') {
+        if (n < BATCH_LINE_MAX - 1) out[n++] = buf[i];
+        ++i;
     }
     out[n] = '\0';
-    /* Skip any remaining chars of an over-long line. */
-    while (i < len && buf[i] != '\r' && buf[i] != '\n') {
-        i++;
+    if (i < len && buf[i] == '\x1a') {
+        *pos = len;
+        return n != 0;
     }
     /* Consume the EOL sequence (CRLF, lone CR, or lone LF). */
     if (i < len && buf[i] == '\r') {
