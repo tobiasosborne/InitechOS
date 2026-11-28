@@ -2,8 +2,7 @@
 # test: test-command test-shell-files-host test-batch-break-host test-dos-batch2-host test-dos-stamp-host test-del-directory-host test-redir-parse
 --- a/command/command.c
 +++ b/command/command.c
-@@ -80,11 +80,6 @@
-         { "ECHO",  CMD_ECHO },
+@@ -84,9 +84,4 @@
          { "BREAK", CMD_BREAK },  /* BREAK [ON|OFF] -- CTRL-BREAK state (AH=33h; DEC-16) */
          { "EXIT",  CMD_EXIT },
 -        /* SET [NAME[=VALUE]] -- list/assign/clear/query env vars (beads
@@ -13,4 +12,3 @@
 -        { "SET",    CMD_SET    },
          /* PROMPT [template] -- set/reset the $P$G prompt string (beads
           * initech-dibc; ADR-0003 DEC-12). The CMD_MUTATE_NO_PROMPT mutant
-          * DROPS this row so "PROMPT" falls through to CMD_EXTERNAL -> the

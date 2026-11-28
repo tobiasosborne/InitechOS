@@ -381,3 +381,9 @@ mutants-shell-c:
 	    set -- "$$@" "$$patch"; \
 	done; \
 	DOS_SESSION_EMULATOR=bochs sh tests/runtime/mutants.sh "$$root" "$$@"
+
+.PHONY: smoke-ctty
+smoke: smoke-ctty
+smoke-ctty:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/ctty.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/ctty.XXXXXX")"

@@ -1,0 +1,5 @@
+CTTY-BEFORE
+CTTY-AFTER
+Invalid device
+Invalid device
+CTTY-DONE

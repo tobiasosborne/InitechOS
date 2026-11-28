@@ -80,6 +80,7 @@ cmd_kind_t cmd_classify(const char *upper_command)
         { "VER",   CMD_VER  },
         { "FLAIR", CMD_FLAIR },
         { "ECHO",  CMD_ECHO },
+        { "CTTY",  CMD_CTTY },
         { "BREAK", CMD_BREAK },  /* BREAK [ON|OFF] -- CTRL-BREAK state (AH=33h; DEC-16) */
         { "EXIT",  CMD_EXIT },
         /* SET [NAME[=VALUE]] -- list/assign/clear/query env vars (beads
@@ -2932,11 +2933,52 @@ static void builtin_break(const char *arg)
     }
 }
 
+static int dos_handle_is_device(int handle)
+{
+    uint32_t ax = 0x4400u, info, carry;
+    __asm__ __volatile__("int $0x21\n\tsbb %2, %2"
+                         : "+a"(ax), "=d"(info), "=r"(carry)
+                         : "b"((uint32_t)handle) : "cc", "memory");
+    return !carry && (info & INT21_DEVINFO_ISDEV);
+}
+
 static int dos_stdout_is_device(void)
 {
-    uint32_t ax=0x4400u, info;
-    __asm__ __volatile__("int $0x21" : "+a"(ax), "=d"(info) : "b"(1u) : "cc","memory");
-    return (info & 0x80u)!=0;
+    return dos_handle_is_device(1);
+}
+
+/* DOS 3.30 CTTY capture switches to a character device, discards output
+ * through NUL, and restores it on CON. Preserve the current handles if
+ * the requested device cannot be installed. */
+static void builtin_ctty(const char *arg)
+{
+    char name[CMD_TOKEN_MAX];
+    cmd_first_token(arg, name);
+    cmd_upcase_str(name);
+    int device = dos_open_mode(name, 2u);
+    if (device < 0 || !dos_handle_is_device(device)) {
+        if (device >= 0) dos_close(device);
+        dos_error("Invalid device\r\n$");
+        return;
+    }
+
+    int previous[3];
+    int saved = 0, changed = 0;
+    while (saved < 3) {
+        previous[saved] = dos_dup(saved);
+        if (previous[saved] < 0) break;
+        ++saved;
+    }
+    if (saved == 3) {
+        while (changed < 3 && dos_dup2(device, changed) >= 0) ++changed;
+    }
+    if (changed != 3) {
+        for (int handle = 0; handle < changed; ++handle)
+            (void)dos_dup2(previous[handle], handle);
+    }
+    while (saved > 0) dos_close(previous[--saved]);
+    dos_close(device);
+    if (changed != 3) dos_error("Invalid device\r\n$");
 }
 
 #elif defined(COMMAND_FILE_HOST)
@@ -3859,6 +3901,9 @@ static int dispatch_line(const char *line)
             break;
         case CMD_TYPE:
             builtin_type(parsed.arg);
+            break;
+        case CMD_CTTY:
+            builtin_ctty(parsed.arg);
             break;
         case CMD_CD:
             builtin_cd(parsed.arg);

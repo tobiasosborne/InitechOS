@@ -1,0 +1,6 @@
+DOS 3.30 COMMAND audit T026–T027 and Packard Bell OEM MS-DOS 3.30,
+QEMU 486 with 8 MiB. Media SHA-256
+3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+Run batch.txt as PROBE.BAT on a disk containing an ordinary FILE.TXT.
+CTTY NUL suppresses the intermediate ECHO. CTTY CON restores output.
+Neither an ordinary file nor a nonexistent device can become the terminal.

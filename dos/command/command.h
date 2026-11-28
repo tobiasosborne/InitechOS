@@ -75,6 +75,7 @@ typedef enum cmd_kind {
     CMD_VOL,         /* VOL [drive:] -- DOS 3.3 volume identity                 */
     CMD_PATH,        /* PATH [directories] -- shared SET PATH search variable  */
     CMD_COMMAND,     /* COMMAND /C command -- bounded secondary processor      */
+    CMD_CTTY,        /* CTTY device -- change the shell's terminal             */
     CMD_EXTERNAL     /* not a built-in -- try to EXEC <word>.COM                 */
 } cmd_kind_t;
 
