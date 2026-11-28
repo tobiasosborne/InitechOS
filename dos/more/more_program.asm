@@ -2,7 +2,7 @@
 
 ; MORE.COM uses the published DOS handle and console services.
 ; The console sequence comes from more/tests/compat33, captured on MS-DOS 3.30.
-; File and pipe output use the InitechDOS byte-for-byte filter path.
+; File and pipe output preserve bytes up to the text EOF marker.
 bits 32
 org 0x00040100                 ; == kernel/include/memory_map.h PROGRAM_IMAGE
 
@@ -43,8 +43,7 @@ start:
     jmp .paginate
 
 ; ---------------------------------------------------------------------------
-; PASSTHROUGH: stdout is a file/pipe.  Copy stdin -> stdout in chunks, verbatim,
-; without a pause or page cue.
+; PASSTHROUGH: stdout is a file/pipe. Copy chunks until Ctrl-Z or physical EOF.
 ; ---------------------------------------------------------------------------
 .passthrough:
 .pt_loop:
@@ -56,11 +55,23 @@ start:
     jc .done                   ; read error -> stop
     test eax, eax
     jz .done                   ; EOF
-    mov ecx, eax               ; bytes to write
+    mov esi, eax               ; untrimmed bytes
+    mov ecx, eax
+    mov edi, RBUF
+    mov al, 0x1A               ; DOS 3.30 MOREOUT: text EOF
+    repne scasb
+    jne .pt_chunk
+    dec edi
+.pt_chunk:
+    sub edi, RBUF
+    jz .done
+    mov ecx, edi               ; bytes before text EOF, or the full chunk
     mov ah, 0x40               ; WRITE handle 1
     mov ebx, 1
     mov edx, RBUF
     int 0x21
+    cmp edi, esi
+    jb .done
     jmp .pt_loop
 
 ; ---------------------------------------------------------------------------
@@ -95,6 +106,8 @@ start:
 .pg_byte:
     cmp edi, [chunk_len]
     jae .pg_read
+    cmp byte [RBUF + edi], 0x1A
+    je .done
     push edi
     mov ecx, 1
     mov ah, 0x40
