@@ -1027,14 +1027,6 @@ int main(void)
               (uint16_t)(bad_al.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
               "AH=57h AL=3 -> CF=1, AX=0x0001 (invalid function)");
 
-        /* A DEVICE handle (CON, handle 1) is resolvable but has no dir entry ->
-         * GET is invalid-function (0x0001), distinct from a bad handle (0x0006). */
-        int_frame_t dev = fresh_frame();
-        dev.eax = 0x5700u; dev.ebx = 1u;
-        int21_dispatch(&dev);
-        CHECK(frame_cf(&dev) == 1 &&
-              (uint16_t)(dev.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
-              "AH=57h GET on CON device handle -> CF=1, AX=0x0001");
     }
 
     /* ======================================================================

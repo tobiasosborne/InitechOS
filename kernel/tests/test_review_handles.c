@@ -22,6 +22,14 @@ static int queued=-1;
 static int poll_queued(void) { int c=queued; queued=-1; return c; }
 static const char *scripted;
 static int get_scripted(void) { return *scripted ? (unsigned char)*scripted++ : -1; }
+static uint16_t clock_year=1992;
+static int clock_read(uint16_t *year, uint8_t *month, uint8_t *day, uint8_t *hour,
+                      uint8_t *minute, uint8_t *second, uint8_t *weekday)
+{
+    *year=clock_year; *month=3; *day=clock_year==1992 ? 2 : 4;
+    *hour=9; *minute=30; *second=0; *weekday=0;
+    return 1;
+}
 int main(void)
 {
     int21_set_sink(sink_capture); int21_set_break_flag(0);
@@ -119,6 +127,26 @@ int main(void)
     /* Encyclopedia 4400h: bit7 and low device-identity bits, reserved bits
      * intentionally excluded. 4406h must not consume keyboard typeahead. */
     reset(); devices_init(); int21_set_devices(devices_head(),0);
+    /* Packard Bell DOS 3.30 console timestamps at 1992-03-02 09:30.
+     * SET on stdout is visible through all three inherited CON handles. */
+    int21_set_clock(clock_read,0);
+    f=invoke(0x5700,1,0,0);
+    CHECK(!frame_cf(&f) && f.ecx==0x4bc0u && f.edx==0x1862u,"CON starts with its packed open timestamp");
+    f=invoke(0x5701,1,0x1800,0x2221);
+    CHECK(!frame_cf(&f),"CON accepts a timestamp SET");
+    clock_year=1993;
+    for (unsigned standard=0;standard<3;standard++) {
+        f=invoke(0x5700,standard,0,0);
+        CHECK(!frame_cf(&f) && f.ecx==0x1800u && f.edx==0x2221u,
+              "inherited CON aliases keep the set timestamp after the clock changes");
+    }
+    f=invoke(0x3d00,0,0,low_dup("CON"));
+    CHECK(!frame_cf(&f),"named CON opens");
+    h=f.eax&65535u;
+    f=invoke(0x5700,h,0,0);
+    CHECK(!frame_cf(&f) && f.ecx==0x4bc0u && f.edx==0x1a64u,"a newly opened CON takes a new timestamp");
+    (void)invoke(0x3e00,h,0,0);
+    int21_set_clock(0,0);
     const char *devs[]={"CON","NUL","AUX","PRN"};
     const unsigned masks[]={0x83,0x84,0x80,0x80};
     for(unsigned i=0;i<4;i++) {
