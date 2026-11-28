@@ -3761,20 +3761,29 @@ static void run_external(const char *command, const char *tail)
  * bytes2.. = chars + CR. We copy the `count` chars out and NUL-terminate. */
 static void read_line(char *out)
 {
-    /* +2 for the AH=0Ah header (max + count) byte slots. */
-    static uint8_t blk[CMD_LINE_MAX + 2];
+    static uint8_t template[CMD_LINE_MAX - 1];
+    static uint8_t template_count;
+    uint8_t blk[CMD_LINE_MAX + 2];
     uint8_t count;
     uint8_t i;
 
     blk[0] = (uint8_t)CMD_LINE_MAX;   /* max length including the CR */
-    /* Ref: MS-DOS 3.3 User's Guide pp.154-155: retain count AND text for
-     * AH=0Ah's F3 template; Return replaces them with the submitted line. */
+    /* DOS 3.30 template-recall capture: Ctrl-C discards the working line
+     * and F3 recalls the last line submitted with Return. */
+    blk[1] = template_count;
+    for (i = 0; i < template_count; i++) blk[2 + i] = template[i];
     dos_getline(blk);
+    if (g_shell_break.interrupted) {
+        out[0] = '\0';
+        return;
+    }
 
     count = blk[1];
     for (i = 0; i < count && i < (uint8_t)(CMD_LINE_MAX - 1); i++) {
         out[i] = (char)blk[2 + i];
+        template[i] = blk[2 + i];
     }
+    template_count = i;
     out[i] = '\0';
 }
 

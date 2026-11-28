@@ -1,0 +1,5 @@
+Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB.
+Media SHA-256 3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+At PROMPT P$G, enter ECHO FIRST, type ECHO OTHER and press Ctrl-C,
+then press F3 and Enter. recall.txt is the relevant VGA text with
+right-hand blank cells removed.

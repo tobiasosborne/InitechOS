@@ -317,3 +317,13 @@ smoke: smoke-shell-data-guards
 smoke-shell-data-guards:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/shell-data-guards.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/shell-data-guards.XXXXXX")"
+
+SHELL_FIDELITY_CASES := template-recall
+.PHONY: smoke-shell-fidelity
+smoke: smoke-shell-fidelity
+smoke-shell-fidelity:
+	+$(MAKE) -C $(TOP) image
+	@set -e; for scenario in $(SHELL_FIDELITY_CASES); do \
+		sh "tests/runtime/$$scenario.sh" "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" \
+		    "$$(mktemp -d "$(abspath $(OUT))/$$scenario.XXXXXX")"; \
+	done
