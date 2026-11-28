@@ -3231,6 +3231,7 @@ static void builtin_copy(const char *arg)
     /* Genuine DOS 3.30 copywild captures: in a combined copy the
      * destination may itself be an enumerated source (see below). */
     int dest_existed=0, any_copied=0;
+    uint8_t missing[CMD_COPY_MAX] = {0};
     /* The warning on Reference p.51 applies to every source, including a
      * later + operand. Probe explicit identities BEFORE the first CREAT. */
     if(!per_file) {
@@ -3242,6 +3243,12 @@ static void builtin_copy(const char *arg)
             int h=dos_open(name);
             int same=h>=0 && target>=0 && int21_same_file((uint16_t)h,(uint16_t)target);
             if(h>=0)dos_close(h);
+            /* DOS 3.30 COPY audit: a missing explicit source is skipped
+             * in a concatenation with a separate output filename. */
+            if (plan.joined && !omitted && h == -(int)INT21_ERR_FILE_NOT_FOUND) {
+                missing[s] = 1;
+                continue;
+            }
             if(h<0 || (same && !(append && s==0))) {
                 if(target>=0)dos_close(target);
                 dos_print(same ? MSG_DOS_0020 "\r\n$":MSG_DOS_0003 "\r\n$");
@@ -3295,6 +3302,7 @@ static void builtin_copy(const char *arg)
             append=0;copy_verify_offset=0;
         } else for(unsigned i=0;(target[i]=dest[i])!=0;i++){}
         for(unsigned s=(omitted && plan.joined)?1u:0u;s<plan.count;s++) {
+            if (missing[s]) continue;
             const char *spec=plan.names+plan.offset[s];
             unsigned ordinal=0;
             char prev_leaf[13]="";int have_prev=0;

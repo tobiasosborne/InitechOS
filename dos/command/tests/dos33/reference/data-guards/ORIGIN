@@ -13,3 +13,7 @@ Mtools found EMPTY and no NEW directory.
 The DOS 3.30 DEL review uses one relative path through six subdirectories.
 Mtools found PROTECT.TXT in the target directory after REPORT01.TXT
 was deleted with no diagnostic.
+
+The COPY audit T102–T103 and a repeat on the Packard Bell DOS 3.30
+disk show a missing explicit source is skipped when other sources exist.
+Mtools reads back the copied source bytes and one final Ctrl-Z.

@@ -5,3 +5,10 @@ File creation error
 XX
 Invalid number of parameters
 Invalid number of parameters
+ONE.TXT
+TWO.TXT
+1 File(s) copied
+ONE.TXT
+1 File(s) copied
+ONE.TXT
+1 File(s) copied

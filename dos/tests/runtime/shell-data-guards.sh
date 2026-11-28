@@ -40,6 +40,17 @@ mdir -a -b -i "$out/data.img" "::$nested/" > "$out/deep-names" ||
     error 'cannot read the nested fixture directory'
 require 'DEL with a long path preserved PROTECT.TXT' grep -E '/PROTECT[.]TXT$' "$out/deep-names"
 forbid 'DEL retained REPORT01.TXT with a valid single long path' grep -E '/REPORT01[.]TXT$' "$out/deep-names"
-awk '/^(File creation error|OLD-BYTES|REPLACED .*|Bad command or file name|Invalid number of parameters|XX)$/ { print }' "$out/text" > "$out/actual"
+for name in OLD NEW ONLY; do
+    require "COPY created or replaced $name.TXT" grep -Fxq "::/$name.TXT" "$out/names"
+    mtype -i "$out/data.img" "::$name.TXT" > "$out/copied" || error "cannot read $name.TXT"
+    {
+        printf 'ONE\r\n'
+        if [ "$name" = OLD ]; then printf 'TWO\r\n'; fi
+        printf '\032'
+    } > "$out/expected-copy"
+    require "COPY retained the available source bytes in $name.TXT" cmp "$out/expected-copy" "$out/copied"
+done
+sed 's/^ *//' "$out/text" |
+    awk '/^(File creation error|OLD-BYTES|REPLACED .*|Bad command or file name|Invalid number of parameters|XX|File not found|ONE\.TXT|TWO\.TXT|1 File\(s\) copied)$/ { print }' > "$out/actual"
 require 'shell refusals match DOS 3.30' cmp "$ref/console.txt" "$out/actual"
 echo 'GREEN shell data guards preserve DOS files'
