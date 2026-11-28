@@ -3802,6 +3802,27 @@ static int dispatch_line(const char *line)
     if (dispatch_control(line)) return g_shell_exit;
 
     cmd_parse(line, &parsed);
+    /* The DOS 3.30 switch sweep refuses these options before the command
+     * can change a directory, clear the screen, or terminate a secondary. */
+    switch (parsed.kind) {
+        case CMD_VOL:
+        case CMD_TYPE:
+        case CMD_MD:
+        case CMD_RD:
+        case CMD_CLS:
+        case CMD_VER:
+        case CMD_BREAK:
+        case CMD_EXIT:
+            for (const char *arg = parsed.arg; *arg; ++arg) {
+                if (*arg == '/') {
+                    dos_error(MSG_DOS_0064 "\r\n$");
+                    return 0;
+                }
+            }
+            break;
+        default:
+            break;
+    }
     const char *drive_line=line;
     while(is_space(*drive_line)) drive_line++;
     if (drive_line[0] && drive_line[1]==':') {

@@ -317,3 +317,9 @@ smoke: smoke-shell-data-guards
 smoke-shell-data-guards:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/shell-data-guards.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/shell-data-guards.XXXXXX")"
+
+.PHONY: smoke-builtin-switches
+smoke: smoke-builtin-switches
+smoke-builtin-switches:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/builtin-switches.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/builtin-switches.XXXXXX")"
