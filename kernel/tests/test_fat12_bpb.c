@@ -128,11 +128,11 @@ int main(int argc, char **argv)
 		rc = bf.dev.read_sectors(bf.dev.ctx, 0u, 1u, boot);
 		CHECK(rc == 0, "bcg.4: re-read the real boot sector for patching");
 
-		/* bpb_t overlays the boot sector from byte 0 (fat12_mount copies it
-		 * byte-wise). first_data_sector stays 33; total_sectors_16=5000 gives
-		 * total_clusters = 5000-33 = 4967, which is >= 4085 => FAT16. */
+		/* A 20-sector FAT holds 5120 16-bit entries, enough for the
+		 * two reserved entries and 4967 data clusters. */
 		bpb = (bpb_t *)boot;
-		bpb->total_sectors_16 = 5000u;
+		bpb->sectors_per_fat = 20u;
+		bpb->total_sectors_16 = 5022u;
 
 		g_memdev_boot      = boot;
 		memdev.ctx         = NULL;
@@ -145,7 +145,20 @@ int main(int argc, char **argv)
 		CHECK(vol16.fat_type == FAT_TYPE_FAT16,
 		      "bcg.4: a FAT16 volume is classified FAT_TYPE_FAT16 by cluster count");
 		CHECK(vol16.total_clusters == 4967u,
-		      "bcg.4: FAT16 total_clusters == 4967 (5000 - 33 first_data_sector)");
+		      "bcg.4: FAT16 total_clusters == 4967 (5022 - 55 first_data_sector)");
+		bpb->sectors_per_fat = 19u;
+		CHECK(fat12_mount(&vol16, &memdev, sbuf) == FAT12_ERR_GEOMETRY,
+		      "FAT16 must cover every BPB data cluster");
+
+		/* One sector holds 341 packed FAT12 entries, including two
+		 * reserved. First data sector is 17 with this geometry. */
+		bpb->sectors_per_fat = 1u;
+		bpb->total_sectors_16 = 356u;
+		CHECK(fat12_mount(&vol16, &memdev, sbuf) == FAT12_OK,
+		      "FAT12 exact capacity mounts");
+		bpb->total_sectors_16++;
+		CHECK(fat12_mount(&vol16, &memdev, sbuf) == FAT12_ERR_GEOMETRY,
+		      "FAT12 one cluster beyond capacity refuses");
 	}
 
 	blockdev_file_close(&bf);

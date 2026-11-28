@@ -306,7 +306,7 @@ static uint16_t fat_dir_entry(uint32_t index, uint16_t dir_start_cluster,
      * the callback's non-zero early-stop value (our cb returns 1 on a hit). A
      * negative rc is a real backend read error. */
     if (rc < 0) {
-        return FILEIO_ERR_FILE_NOT_FOUND;   /* surfaced as a backend error */
+        return FILEIO_ERR_GENERAL_FAILURE;
     }
     if (c.found) {
         *out_entry = c.out;
