@@ -3166,6 +3166,9 @@ static void builtin_copy(const char *arg)
         const char *first=plan.names+plan.offset[0];
         if(cmd_has_wildcard(first)){dos_print(MSG_DOS_0002 "\r\n$");return;}
         for(unsigned i=0;(dest[i]=first[i])!=0;i++){}
+        /* DOS 3.30 omitted-target capture: the final source mode also
+         * governs the implied destination, including its EOF byte. */
+        plan.dest_mode = plan.mode[plan.count - 1];
     } else if(omitted) { dest[0]='.';dest[1]=0; }
     else for(unsigned i=0;(dest[i]=plan.dest[i])!=0;i++){}
     int directory=int21_directory_exists(dest);

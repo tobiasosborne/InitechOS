@@ -323,3 +323,9 @@ smoke: smoke-builtin-switches
 smoke-builtin-switches:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/builtin-switches.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/builtin-switches.XXXXXX")"
+
+.PHONY: smoke-copy-omitted-binary
+smoke: smoke-copy-omitted-binary
+smoke-copy-omitted-binary:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/copy-omitted-binary.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/copy-omitted-binary.XXXXXX")"
