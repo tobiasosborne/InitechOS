@@ -2830,28 +2830,7 @@ static void builtin_cd(const char *arg)
     /* Success is SILENT -- the new path shows at the next prompt (real DOS 3.3). */
 }
 
-/* DOS 3.30 directory review: validate the whole operand list before a
- * filesystem operation. A single path can fill the command tail. */
-static int single_path_operand(const char *arg, char path[CMD_LINE_MAX])
-{
-    while (is_space(*arg)) ++arg;
-    const char *end = arg;
-    while (*end && !is_space(*end)) ++end;
-    const char *rest = end;
-    while (is_space(*rest)) ++rest;
-    if (*rest || end - arg >= CMD_LINE_MAX) {
-        dos_error(MSG_DOS_0038 "\r\n$");
-        return 0;
-    }
-    if (end == arg) {
-        dos_print(MSG_DOS_0011 "\r\n$");
-        return 0;
-    }
-    int len = (int)(end - arg);
-    for (int i = 0; i < len; ++i) path[i] = arg[i];
-    path[len] = '\0';
-    return 1;
-}
+static int single_path_operand(const char *arg, char path[CMD_LINE_MAX]);
 
 /* MD/MKDIR <path>: AH=39h CREATE DIRECTORY. No arg => "Required parameter
  * missing" (MSG-DOS-0011). On success DOS prints NOTHING; any failure (name
@@ -3047,6 +3026,29 @@ static void dos_error(const char *message)
 }
 
 #ifndef COMMAND_BATCH_HOST
+/* DOS 3.30 directory review: validate the whole operand list before a
+ * filesystem operation. A single path can fill the command tail. */
+static int single_path_operand(const char *arg, char path[CMD_LINE_MAX])
+{
+    while (is_space(*arg)) ++arg;
+    const char *end = arg;
+    while (*end && !is_space(*end)) ++end;
+    const char *rest = end;
+    while (is_space(*rest)) ++rest;
+    if (*rest || end - arg >= CMD_LINE_MAX) {
+        dos_error(MSG_DOS_0038 "\r\n$");
+        return 0;
+    }
+    if (end == arg) {
+        dos_print(MSG_DOS_0011 "\r\n$");
+        return 0;
+    }
+    int len = (int)(end - arg);
+    for (int i = 0; i < len; ++i) path[i] = arg[i];
+    path[len] = '\0';
+    return 1;
+}
+
 /* TYPE <file>: write text to stdout (handle 1). The captured DOS 3.30
  * type-eof case stops at Ctrl-Z for both CON and redirected output. */
 static void builtin_type(const char *arg)
@@ -3466,20 +3468,8 @@ static void builtin_del(const char *arg)
         }
     }
 
-    int name_len = cmd_first_token(arg, name);
-    if (name_len == 0) {
-        dos_print(MSG_DOS_0011 "\r\n$");        /* "Required parameter missing" */
-        return;
-    }
-    /* DOS 3.30 COMMAND audit T011 refuses extra operands before UNLINK. */
-    while (is_space(*arg)) ++arg;
-    arg += name_len;
-    while (is_space(*arg)) ++arg;
-    if (*arg) {
-        dos_error(MSG_DOS_0038 "\r\n$");
-        return;
-    }
-    cmd_upcase_str(name);                       /* DOS upcases 8.3 names */
+    if (!single_path_operand(arg, name)) return;
+    cmd_upcase_str(name);
 
     /* Reference DEL, printed p.56 / PDF141: a directory operand means its
      * immediate files. Resolve BEFORE appending the mask, preserving the

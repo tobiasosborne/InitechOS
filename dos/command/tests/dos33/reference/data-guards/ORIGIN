@@ -9,3 +9,7 @@ DOS 3.30 reported File creation error, retained XX and skipped END.
 The directory review ran MD NEW EXTRA and RD EMPTY EXTRA with EMPTY
 already present. DOS reported Invalid number of parameters for each.
 Mtools found EMPTY and no NEW directory.
+
+The DOS 3.30 DEL review uses one relative path through six subdirectories.
+Mtools found PROTECT.TXT in the target directory after REPORT01.TXT
+was deleted with no diagnostic.
