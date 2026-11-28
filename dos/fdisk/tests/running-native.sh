@@ -56,6 +56,7 @@ tr -d '\r' < "$out/fdisk.serial" > "$out/text"
 grep -Fx 'Directory of C:\' "$out/text" >/dev/null || fail 'C startup missing'
 grep -Fx 'FDISK-C-START' "$out/text" >/dev/null || fail 'C AUTOEXEC missing'
 grep -Fx 'FDISK-REFUSED' "$out/text" >/dev/null || fail 'FDISK did not return status 1'
+grep -Fx "Cannot use FDISK on the system disk" "$out/text" >/dev/null || fail "missing running disk refusal"
 if grep -E 'FDISK-WRONG-|Disk Options|Bad command or file name|PANIC' "$out/text"; then
     fail 'unexpected guest path'
 fi

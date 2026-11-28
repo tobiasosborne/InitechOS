@@ -169,7 +169,10 @@ int fdisk_run(const fdisk_io *ops)
     io=ops;drive=0x80;int changed=0;
     for(;;) {
         /* The operator's loaded-volume refusal protects its whole disk. */
-        if(drive==io->loaded_drive)return 1;
+        if(drive==io->loaded_drive){
+            put("Cannot use FDISK on the system disk\r\n");
+            return 1;
+        }
         sectors=io->capacity(drive);
         if(!sectors || io->read(drive,mbr))return 1;
         for(unsigned i=0;i<512;i++)original[i]=mbr[i];
