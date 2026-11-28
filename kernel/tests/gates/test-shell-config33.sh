@@ -14,7 +14,7 @@ sed -n '/Bad or missing Command Interpreter/{s/[[:space:]]*$//;p;}' "$reference/
 test -s build/expected.txt
 assert diff -u build/expected.txt build/console.txt
 assert cmp build/before.img build/config.img
-printf 'SHELL=COMMAND.COM /P /E:1024\r\n' > build/CONFIG.SYS
+printf 'SHELL=COMMAND.COM /P /E:junk\r\n' > build/CONFIG.SYS
 mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
 build/test_config_apply build/config.img refused > build/console.raw
 tr -d '\r' < build/console.raw > build/console.txt
@@ -26,8 +26,13 @@ for shell in '' "$(printf '%064d' 0 | tr 0 x)"; do
  tr -d '\r' < build/console.raw > build/console.txt
  assert diff -u build/expected.txt build/console.txt
 done
-printf 'SHELL=COMMAND.COM /P /E:512\r\n' > build/CONFIG.SYS
-mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
-build/test_config_apply build/config.img ready > build/console.raw
-assert test ! -s build/console.raw
+# DOS 3.30 CONFIG.SYS audit row 4 measured MCB sizes 000A, 0020 and 0040.
+for size in 160 512 1024; do
+ printf 'SHELL=COMMAND.COM /P' > build/CONFIG.SYS
+ if [ "$size" != 160 ]; then printf ' /E:%s' "$size" >> build/CONFIG.SYS; fi
+ printf '\r\n' >> build/CONFIG.SYS
+ mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
+ assert build/test_config_apply build/config.img "env:$size" > build/console.raw
+ assert test ! -s build/console.raw
+done
 finish

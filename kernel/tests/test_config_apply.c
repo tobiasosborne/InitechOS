@@ -34,9 +34,10 @@ int main(int argc,char **argv)
     sft_init(); int21_set_psp(&process); int21_set_sink(console_putc);
     (void)sysinit_apply_config(&vol,sector,fat,sizeof fat,serial_discard);
     if (argc==3 && !strcmp(argv[2],"refused")) {
-        require(!sysinit_shell_ready(), "unsupported SHELL refuses startup");
-    } else if (argc==3 && !strcmp(argv[2],"ready")) {
-        require(sysinit_shell_ready(), "supported SHELL permits startup");
+        require(!sysinit_shell_env_bytes(), "unsupported SHELL refuses startup");
+    } else if (argc==3 && !strncmp(argv[2],"env:",4)) {
+        require(sysinit_shell_env_bytes()==strtoul(argv[2]+4,0,10),
+                "initial SHELL environment size agrees with DOS");
     } else if (argc==3) {
         unsigned expected=(unsigned)strtoul(argv[2],0,10);
         unsigned expect_break, expect_drives, expect_ansi;
@@ -50,7 +51,7 @@ int main(int argc,char **argv)
             int21_dispatch(&frame);
             require((frame.eax&255)==expect_drives, "LASTDRIVE agrees with genuine DOS");
             require(sysinit_ansi_enabled()==(int)expect_ansi, "ANSI selector changes console mode");
-            require(sysinit_shell_ready(), "supported final SHELL permits startup");
+            require(sysinit_shell_env_bytes(), "supported final SHELL permits startup");
         }
         unsigned count=0;
         uint16_t handles[20];

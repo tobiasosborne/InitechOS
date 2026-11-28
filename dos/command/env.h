@@ -33,25 +33,24 @@
 #define INITECH_ENV_H
 
 #include <stdint.h>
+#include "entry.h"
 
 /* Maximum size of the packed environment arena (all "NAME=VALUE\0" entries
- * concatenated, NOT including the final extra terminator).  512 bytes is a
- * safe per-process limit for this era of DOS (real DOS 3.3 used a 32-segment
- * default = 512 bytes; larger environments required SHELL=/E: in CONFIG.SYS).
- * The serialize output therefore fits in <= 513 bytes (arena + 1 extra NUL). */
+ * concatenated, excluding the final extra terminator) for a fixed store
+ * initialized without a SHELL environment size. */
 #define ENV_ARENA_MAX 512
 
 /* Bytes a store can hold. A secondary COMMAND /E:nnnnn takes up to 32768
  * (MS-DOS 3.3 Reference p.47); the shell can give a child what fits the
  * 4096-byte EXEC environment block with its count word and a full program
  * path, so a larger /E is honoured up to this size. */
-#define ENV_STORE_MAX 3840
+#define ENV_STORE_MAX COMMAND_ENV_MAX_BYTES
 
 /* The environment store: a fixed-capacity packed buffer of ASCIIZ entries of
  * the form "NAME=VALUE\0".  `len` is the number of bytes currently occupied
  * (does NOT include the final extra NUL terminator; that is appended only by
  * env_serialize). An empty store has len == 0. The active capacity defaults
- * to ENV_ARENA_MAX and a secondary processor may set a smaller limit.
+ * to ENV_ARENA_MAX. A primary processor may grow up to growth_limit.
  *
  * Internal invariant: no duplicate names (env_set enforces UPSERT); names are
  * always stored upper-cased (DOS upcases environment variable names). */
@@ -59,6 +58,7 @@ typedef struct {
     uint8_t buf[ENV_STORE_MAX];
     int     len;
     int     capacity;
+    int     growth_limit;
 } env_store_t;
 
 /* ---- API ----------------------------------------------------------------- */
@@ -66,6 +66,10 @@ typedef struct {
 /* Initialize the store to empty (len = 0).  Must be called before any other
  * operation.  Safe to call more than once (idempotent reset). */
 void env_init(env_store_t *e);
+
+/* Initialize the primary store to its CONFIG.SYS size in whole paragraphs,
+ * including the final terminator. It can grow up to the EXEC storage limit. */
+void env_init_primary(env_store_t *e, uint16_t bytes);
 
 /* UPSERT a variable.  `name` is upper-cased before storage (DOS semantics);
  * `value` is stored verbatim.  If a variable with the same name (case-

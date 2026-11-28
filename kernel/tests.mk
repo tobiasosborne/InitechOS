@@ -4,7 +4,7 @@ TEST_BUDGET_S := 90
 include tests/tools.mk
 EXTRA_HOST_TESTS += tool_test_config_apply
 tool_test_config_apply_SRCS := tests/test_config_apply.c tests/disk/blockdev_file.c sysinit.c config_sys.c fat12.c sft.c int21.c devices.c fileio_fat.c psp.c mcb.c irq.c
-tool_test_config_apply_CFLAGS := -m32 -ffunction-sections -fdata-sections -Wl,--gc-sections
+tool_test_config_apply_CFLAGS := -m32 -ffunction-sections -fdata-sections -Wl,--gc-sections -I$(TOP)/dos/command
 tool_test_config_apply_DEPS := $(TOP)/build/kernel/dos_messages.h
 HOST_TESTS += test-config-diagnostics33
 test-config-diagnostics33_SRCS := tests/runner.c

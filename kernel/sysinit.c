@@ -27,6 +27,7 @@
 #include "fpu_contract.h" /* X87_BOOT_CONTROL_WORD, locked spec-data (initech-zj6w) */
 #include "tsr_contract.h" /* TSR_VEC_* (bead initech-6fdt) */
 #include "dos_messages.h"
+#include "entry.h"
 
 /* ANSI.SYS install flag (beads initech-6zd9 records it; beads initech-p96i, the
  * ANSI escape interpreter, consumes it). A CONFIG.SYS `DEVICE=ANSI.SYS` line sets
@@ -34,8 +35,8 @@
  * (period-authentic: without ANSI.SYS, DOS prints the escape bytes literally).
  * This bead ONLY records the flag -- it does NOT implement any ANSI behavior. */
 static int g_ansi_enabled = 0;
-static int g_shell_ready = 1;
-int sysinit_shell_ready(void) { return g_shell_ready; }
+static uint16_t g_shell_env_bytes = COMMAND_ENV_DEFAULT_BYTES;
+uint16_t sysinit_shell_env_bytes(void) { return g_shell_env_bytes; }
 
 int sysinit_ansi_enabled(void) { return g_ansi_enabled; }
 
@@ -349,14 +350,15 @@ static void sysinit_config_unrecognized(void *context)
     sysinit_config_puts("\r\n");
 }
 
-/* The resident processor is permanent with a512-byte environment. Other
- * interpreters/options are refused under GM2, not logged and ignored.
- * Missing-interpreter wording: genuine DOS 3.30 CFG3 (initech-vx2ko). */
-static int sysinit_shell_supported(const char *tail)
+/* CONFIG.SYS audit row 4: DOS 3.30 starts with 160 bytes by default,
+ * and /E supplies an initial size in bytes, rounded to a paragraph.
+ * The resident processor requires /P and its store bounds /E. */
+static uint16_t sysinit_shell_env(const char *tail)
 {
     char token[CONFIG_SYS_SHELL_MAX];
     unsigned index=0;
     int permanent=0;
+    uint16_t env_bytes=COMMAND_ENV_DEFAULT_BYTES;
     while (*tail) {
         while (*tail==' ' || *tail=='\t') tail++;
         if (!*tail) break;
@@ -370,10 +372,19 @@ static int sysinit_shell_supported(const char *tail)
             if (!sysinit_name_eq_ci(token,"COMMAND.COM")) return 0;
         } else if (sysinit_name_eq_ci(token,"/P")) {
             permanent=1;
-        } else if (!sysinit_name_eq_ci(token,"/E:512")) return 0;
+        } else if (token[0]=='/' && (token[1]=='E' || token[1]=='e') && token[2]==':') {
+            unsigned bytes=0;
+            for (const char *p=token+3; *p; p++) {
+                if (*p<'0' || *p>'9') return 0;
+                bytes=bytes*10u+(unsigned)(*p-'0');
+                if (bytes>COMMAND_ENV_MAX_BYTES) return 0;
+            }
+            if (bytes<COMMAND_ENV_DEFAULT_BYTES) return 0;
+            env_bytes=(uint16_t)((bytes+15u)&~15u);
+        } else return 0;
         index++;
     }
-    return index && permanent;
+    return index && permanent ? env_bytes : 0;
 }
 
 uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
@@ -405,8 +416,8 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
 
     (void)config_sys_parse_report(cfg_buf, src_len, &cfg,
                                   sysinit_config_unrecognized, 0);
-    g_shell_ready = !cfg.shell_present || sysinit_shell_supported(cfg.shell);
-    if (!g_shell_ready) {
+    g_shell_env_bytes = cfg.shell_present ? sysinit_shell_env(cfg.shell) : COMMAND_ENV_DEFAULT_BYTES;
+    if (!g_shell_env_bytes) {
         sysinit_config_puts(MSG_DOS_0014);
         sysinit_config_puts("\r\n");
     }

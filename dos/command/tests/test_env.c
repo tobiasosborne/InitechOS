@@ -266,6 +266,29 @@ static void test_overflow(void)
     CHECK(env_get(&e, "OVERFLOW") == 0,        "overflow: OVERFLOW not present");
 }
 
+/* DOS 3.30 CONFIG.SYS audit row 4: both starting sizes retain V12. */
+static void test_primary_growth(void)
+{
+    const char value[] = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    const uint16_t sizes[] = {160, 512};
+    env_store_t e;
+    for (unsigned i = 0; i < sizeof sizes / sizeof sizes[0]; i++) {
+        env_init_primary(&e, sizes[i]);
+        CHECK(e.capacity + 1 == sizes[i], "primary: initial size includes terminator");
+        env_set(&e, "PATH", "");
+        env_set(&e, "COMSPEC", "A:\\COMMAND.COM");
+        for (unsigned n = 1; n <= 12; n++) {
+            char name[] = {'V', (char)('0' + n / 10), (char)('0' + n % 10), 0};
+            env_set(&e, name, value);
+        }
+        const char *v12 = env_get(&e, "V12");
+        CHECK(v12 && !strcmp(v12, value), "primary: DOS 3.30 V12 is retained");
+        /* The Packard Bell DOS 3.30 follow-up probe measured MCB size 0021
+         * after the twelfth SET with either starting size. */
+        CHECK(e.capacity + 1 == 528, "primary: grows by whole paragraphs");
+    }
+}
+
 /* Serialize: parse the emitted block back and cross-check entries. */
 static void test_serialize(void)
 {
@@ -356,6 +379,7 @@ int main(void)
     test_upsert();
     test_unset();
     test_overflow();
+    test_primary_growth();
     test_serialize();
     test_entry_iteration();
     return TEST_SUMMARY("test_env");

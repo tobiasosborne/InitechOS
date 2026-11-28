@@ -232,7 +232,7 @@ Qualified character-device opens validate the selected drive and containing
 | BREAK | Prefix ON or OFF sets the state returned by AH=33h and used by Ctrl-Break checks. |
 | DEVICE | Bare ANSI.SYS enables the console escape interpreter when the file is on the CONFIG volume. Arguments receive the unrecognized-command message. An absent ANSI.SYS or another name token up to 15 bytes receives the captured bad-or-missing driver message. |
 | INSTALL | A name token up to 15 bytes, with optional arguments, receives the unrecognized-command message. |
-| SHELL | The resident COMMAND.COM requires /P and accepts optional /E:512. An empty, overlong, or unsupported final SHELL displays the captured bad-or-missing command interpreter message and stops before AUTOEXEC. |
+| SHELL | The resident COMMAND.COM requires /P. Its primary environment starts at 160 bytes or the /E size rounded up to a paragraph and grows when needed. The fixed EXEC storage limits /E to 3840 bytes. An empty, overlong, or unsupported final SHELL displays the captured bad-or-missing command interpreter message and stops before AUTOEXEC. |
 
 Keywords and the implemented names and switches are case-insensitive. A
 valid decimal token may have a whitespace-delimited suffix. LASTDRIVE and

@@ -1,11 +1,11 @@
 # test: test-shell-config33
 --- a/sysinit.c
 +++ b/sysinit.c
-@@ -406,6 +406,6 @@
+@@ -417,6 +417,7 @@
      (void)config_sys_parse_report(cfg_buf, src_len, &cfg,
                                    sysinit_config_unrecognized, 0);
--    g_shell_ready = !cfg.shell_present || sysinit_shell_supported(cfg.shell);
-+    g_shell_ready = !cfg.shell_present || sysinit_shell_supported(cfg.shell) || cfg.shell_present;
-     if (!g_shell_ready) {
+     g_shell_env_bytes = cfg.shell_present ? sysinit_shell_env(cfg.shell) : COMMAND_ENV_DEFAULT_BYTES;
++    if (!g_shell_env_bytes) g_shell_env_bytes = COMMAND_ENV_DEFAULT_BYTES;
+     if (!g_shell_env_bytes) {
          sysinit_config_puts(MSG_DOS_0014);
          sysinit_config_puts("\r\n");

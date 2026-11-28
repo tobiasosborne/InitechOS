@@ -4988,11 +4988,13 @@ _Static_assert(ENV_STORE_MAX + 1 + 2 + CMD_LINE_MAX <= ENV_BLOCK_CAP,
                "a full store, its terminator, count word and path fit EXEC");
 static uint8_t g_env_parents[COMMAND_DEPTH_MAX * ENV_STORE_MAX];
 static int g_env_parents_used;
-typedef struct { int at, len, capacity; } env_parent_t;
+typedef struct { int at, len, capacity, growth_limit; } env_parent_t;
 
 static env_parent_t env_save_parent(void)
 {
-    env_parent_t p = { g_env_parents_used, g_master_env.len, g_master_env.capacity };
+    env_parent_t p = {
+        g_env_parents_used, g_master_env.len, g_master_env.capacity, g_master_env.growth_limit
+    };
     for (int i = 0; i < p.len; i++) g_env_parents[p.at + i] = g_master_env.buf[i];
     g_env_parents_used += p.len;
     return p;
@@ -5004,6 +5006,7 @@ static void env_restore_parent(env_parent_t p)
     for (int i = p.len; i < g_master_env.len; i++) g_master_env.buf[i] = 0;
     g_master_env.len = p.len;
     g_master_env.capacity = p.capacity;
+    g_master_env.growth_limit = p.growth_limit;
     g_env_parents_used = p.at;
 }
 
@@ -5057,8 +5060,10 @@ static void builtin_command(const char *arg)
     /* DOS 3.30 secondary-options capture: /E limits the child's SETs, and a
      * 1024-byte child holds six 93-byte SETs. The shell gives at most
      * ENV_STORE_MAX bytes. */
-    if (env_bytes >= 0)
+    if (env_bytes >= 0) {
         g_master_env.capacity = (env_bytes > ENV_STORE_MAX ? ENV_STORE_MAX + 1 : env_bytes) - 1;
+        g_master_env.growth_limit = 0;
+    }
     int exit=g_shell_exit,saved_permanent=g_shell_permanent;
     int echo_on=g_prompt_echo_on;
     batch_frame_t *frame=g_batch_frame;
@@ -5130,7 +5135,7 @@ void command_exec_secondary(const char *tail, uint32_t len)
     g_shell_break = saved;
 }
 
-void command_repl(int permanent)
+void command_repl(int permanent, uint16_t env_bytes)
 {
     g_shell_permanent = permanent != 0;
     g_shell_exit = 0;
@@ -5144,15 +5149,11 @@ void command_repl(int permanent)
     g_shell_break.interrupted = 0u;
     int21_break_recovery_t *previous_break = int21_set_break_recovery(&g_shell_break);
 
-    /* Seed the master environment once at REPL entry (beads initech-1i0x
-     * Tranche E inc 2). These three variables match DOS 3.3 startup defaults
-     * for the startup system drive. Overflow is impossible here (well under 512
-     * bytes), but we follow fail-loud discipline (the repository contract) with no-op silence:
-     * env_set returns 0 on overflow; the REPL continues regardless (the OS
-     * must boot even if seeding somehow fails on a future tiny-arena config). */
+    /* Seed the primary environment before AUTOEXEC. The DOS 3.30 CONFIG.SYS
+     * audit records the initial block size and continued SET past that size. */
     char comspec[15], autoexec[16];
     cmd_startup_paths(int21_current_drive(),comspec,autoexec);
-    env_init(&g_master_env);
+    env_init_primary(&g_master_env, env_bytes);
     env_set(&g_master_env, "COMSPEC", comspec);
     env_set(&g_master_env, "PROMPT",  "$P$G");
     env_set(&g_master_env, "PATH",    "");

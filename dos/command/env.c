@@ -112,10 +112,18 @@ void env_init(env_store_t *e)
 {
     e->len = 0;
     e->capacity = ENV_ARENA_MAX;
+    e->growth_limit = 0;
     /* Zero the buffer for determinism (Rule 11) -- no stale bytes. */
     for (int i = 0; i < ENV_STORE_MAX; i++) {
         e->buf[i] = 0;
     }
+}
+
+void env_init_primary(env_store_t *e, uint16_t bytes)
+{
+    env_init(e);
+    e->capacity = bytes - 1;
+    e->growth_limit = ENV_STORE_MAX - 1;
 }
 
 int env_set(env_store_t *e, const char *name, const char *value)
@@ -147,7 +155,11 @@ int env_set(env_store_t *e, const char *name, const char *value)
      * failure (the caller can re-check e->len and a prior env_get). */
     int new_total = e->len - old_len + new_entry_len;
     if (new_total > e->capacity) {
-        return 0;   /* would overflow; store is UNCHANGED */
+        /* DOS 3.30 grows the primary environment in 16-byte paragraphs.
+         * Round up with room for the extra terminator. */
+        int capacity = ((new_total + 16) & ~15) - 1;
+        if (capacity > e->growth_limit) return 0;
+        e->capacity = capacity;
     }
 
     /* Remove the existing entry (if any) by compacting the buffer.

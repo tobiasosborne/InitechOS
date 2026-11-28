@@ -8,11 +8,12 @@
 void kernel_main(void)
 {
     startup();
-    if (!sysinit_shell_ready()) {
+    uint16_t env_bytes = sysinit_shell_env_bytes();
+    if (!env_bytes) {
         for (;;) __asm__ __volatile__("hlt");
     }
     extern void serial_puts(const char *);
     serial_puts("SHELL-READY\n");
-    command_repl(1);
+    command_repl(1, env_bytes);
     for (;;) __asm__ __volatile__("hlt");
 }

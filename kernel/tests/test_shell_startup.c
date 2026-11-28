@@ -10,12 +10,17 @@
 #include "test_assert.h"
 TEST_HARNESS();
 void kernel_main(void);
-static int event_fd,ready;
+static int event_fd;
+static uint16_t shell_bytes;
 static void event(char c) { if(write(event_fd,&c,1)!=1) _exit(3); }
 void startup(void) { event('S'); }
-int sysinit_shell_ready(void) { return ready; }
+uint16_t sysinit_shell_env_bytes(void) { return shell_bytes; }
 void serial_puts(const char *s) { (void)s; event('M'); }
-void command_repl(int permanent) { event('R'); _exit(permanent==1 ? 0 : 4); }
+void command_repl(int permanent, uint16_t env_bytes)
+{
+    event('R');
+    _exit(permanent==1 && env_bytes==512 ? 0 : 4);
+}
 int main(void)
 {
     for(int accepted=0;accepted<2;accepted++) {
@@ -25,7 +30,7 @@ int main(void)
         if(child<0) return 2;
         if(!child) {
             struct rlimit no_core={0,0}; setrlimit(RLIMIT_CORE,&no_core);
-            close(fds[0]); event_fd=fds[1]; ready=accepted;
+            close(fds[0]); event_fd=fds[1]; shell_bytes=accepted ? 512 : 0;
             kernel_main(); _exit(5);
         }
         close(fds[1]);
@@ -36,7 +41,8 @@ int main(void)
               (got=read(fds[0],events+total,sizeof events-1-total))>0) total+=(size_t)got;
         close(fds[0]); waitpid(child,&status,0);
         if(accepted) {
-            CHECK(WIFEXITED(status) && WEXITSTATUS(status)==0,"accepted shell enters permanent interpreter");
+            CHECK(WIFEXITED(status) && WEXITSTATUS(status)==0,
+                  "accepted shell enters permanent interpreter with CONFIG.SYS environment size");
             CHECK(!strcmp(events,"SMR"),"accepted entry orders startup, marker, interpreter");
         } else {
             CHECK(WIFSIGNALED(status) && WTERMSIG(status)==SIGSEGV,"refused shell halts hosted production entry");
