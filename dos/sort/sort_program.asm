@@ -57,6 +57,7 @@ PSP_TAIL_LEN equ 0x00040080    ; PSP:80h byte0 = command-tail length
 PSP_TAIL_TXT equ 0x00040081    ; PSP:81h.. = command-tail text
 
 start:
+    cld
     ; ---- Parse the command tail (PSP:80h) for /R and /+n. ----
     xor ebp, ebp               ; EBP = reverse flag (0 = ascending)
     movzx ecx, byte [PSP_TAIL_LEN]
@@ -145,7 +146,18 @@ start:
     jc .read_error             ; never emit a silently partial sort
     test eax, eax
     jz .read_done              ; 0 bytes = EOF
-    add edi, eax
+    ; DOS 3.30 SORTEOF treats Ctrl-Z as logical EOF. Scan each chunk
+    ; before deciding whether the whole input exceeds the buffer.
+    mov ecx, eax
+    add edi, INBUF
+    mov al, 0x1A
+    repne scasb
+    jne .chunk_done
+    dec edi
+    sub edi, INBUF
+    jmp .read_done
+.chunk_done:
+    sub edi, INBUF
     jmp .read_loop
 .probe_eof:
     mov eax, 0x3F00
@@ -155,7 +167,9 @@ start:
     int 0x21
     jc .read_error
     test eax, eax
-    jnz .overflow
+    jz .read_done
+    cmp byte [eof_probe], 0x1A
+    jne .overflow
 .read_done:
     mov [total], edi
 

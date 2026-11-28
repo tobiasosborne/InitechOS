@@ -18,9 +18,12 @@ make --no-print-directory -s -C apps/initechbase native-tools > "$out/tools.log"
 truncate -s 1474560 "$out/data.img"
 mformat -i "$out/data.img" -f 1440 ::
 more_fixture
+printf 'MORE-BEFORE-EOF\r\n\032MORE-AFTER-EOF\r\n' > "$out/EOF.TXT"
+mcopy -i "$out/data.img" "$out/EOF.TXT" ::
 nasm -f bin dos/tests/runtime/done.asm -o "$out/DONE.COM"
 mcopy -i "$out/data.img" "$out/DONE.COM" "$programs/MORE.COM" ::
 printf '%s\r\n' '@echo off' 'MORE <PAGES.TXT >COPY.OUT' 'TYPE PAGES.TXT | MORE | MORE >PIPE.OUT' \
+    'MORE <EOF.TXT >EOF.OUT' 'ECHO MORE-EOF-BEGIN' 'MORE <EOF.TXT' 'ECHO MORE-EOF-END' \
     'MORE /Z <SHORT.TXT >BAD.OUT' 'IF ERRORLEVEL 1 ECHO MORE-REFUSED' \
     'PROMPT P$G' 'ECHO PAGER-READY' > "$out/AUTOEXEC.BAT"
 mcopy -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
@@ -89,6 +92,13 @@ for name in COPY PIPE; do
     mcopy -o -i "$out/data.img" "::$name.OUT" "$out/$name.OUT" || error "missing $name output"
     require "MORE $name output is byte-exact" cmp "$out/PAGES.TXT" "$out/$name.OUT"
 done
+# DOS 3.30 MOREOUT and MORETAB establish Ctrl-Z as text EOF.
+mtype -i "$out/data.img" ::EOF.OUT > "$out/eof-output" || error 'MORE EOF output missing'
+require 'MORE redirected output retains the earlier line' grep -F 'MORE-BEFORE-EOF' "$out/eof-output"
+forbid 'MORE redirected output stops at Ctrl-Z' grep -F 'MORE-AFTER-EOF' "$out/eof-output"
+tr -d '\r' < "$out/morepage.serial" | sed -n '/^MORE-EOF-BEGIN$/,/^MORE-EOF-END$/p' > "$out/eof-console"
+require 'MORE console retains the earlier line' grep -Fx 'MORE-BEFORE-EOF' "$out/eof-console"
+forbid 'MORE console stops at Ctrl-Z' grep -F 'MORE-AFTER-EOF' "$out/eof-console"
 # DOS 3.30 MOREZ ignores /Z. GOLDEN-MASTER item 2 calls
 # for an explicit refusal.
 mtype -i "$out/data.img" ::BAD.OUT > "$out/refusal" || error 'MORE switch output missing'

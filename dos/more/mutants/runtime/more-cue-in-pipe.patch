@@ -2,8 +2,8 @@
 # session: morepage
 --- a/more/more_program.asm
 +++ b/more/more_program.asm
-@@ -25,6 +25,9 @@
- ; without a pause or page cue.
+@@ -46,6 +46,9 @@
+ ; PASSTHROUGH: stdout is a file/pipe. Copy chunks until Ctrl-Z or physical EOF.
  ; ---------------------------------------------------------------------------
  .passthrough:
 +    mov edx, page_prompt
