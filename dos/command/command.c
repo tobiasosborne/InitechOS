@@ -1446,7 +1446,7 @@ int cmd_path_candidates(const char *word, const char *path_value,
  *   beads initech-hsct (OUTPUT increment: `>` create/truncate, `>>` append).
  *
  * Implementation: a single left-to-right scan that records the position of the
- * LAST `>` operator (and whether it was `>>`) plus the bounds of the target
+ * output operator (and whether it was `>>`) plus the bounds of the target
  * token that follows it.  We then rebuild `clean_out` = [prefix before op] +
  * " " (one space, only if both sides are non-empty) + [suffix after target],
  * with leading/trailing whitespace trimmed.  Pure: no asm, no I/O.
@@ -1471,13 +1471,12 @@ static int redir_is_space(char c)
  * no `<<`).  It reproduces the original hsct single-`>` split byte-for-byte when
  * called with opch='>' -- the OUTPUT parse oracle is unchanged.
  *
- *   - Scans left to right; the LAST `opch` operator wins.
+ *   - Scans left to right; repeated output redirection is rejected.
  *   - The TARGET token is the next whitespace-delimited run after the operator,
  *     stopping at EITHER redirect char ('>' or '<') so a combined `cmd<in>out`
  *     splits cleanly regardless of order.
  *   - `clean_out` = prefix [0,op_at) + suffix after the target, whitespace-tidied.
- *   - Returns 1 iff `opch` was present (target_out valid), else 0 (clean_out is a
- *     clamped copy of `line`, target_out == "").
+ *   - Returns 1 iff `opch` was present, 0 if absent, and -1 for repeated output.
  *
  * the repository contract: every write is bounded by its cap; NUL-terminated within the buffer,
  * never past the end.  The mutation hooks below are the SAME ones the hsct oracle
@@ -1502,18 +1501,18 @@ static int redir_strip_one(const char *line, char opch, int allow_append,
         return 0;
     }
 
-    /* Find the LAST `opch` operator. op_at = index of the FIRST char of the
-     * winning operator; op_len = 1, or 2 for a `>>` when allow_append. */
+    /* Locate the operator and consume both bytes of an append operator. */
     int op_at = -1;
     int op_len = 0;
     {
         uint32_t i = 0;
         while (line[i] != '\0') {
             if (line[i] == opch) {
+                if (allow_append && op_at >= 0) return -1;
                 op_at = (int)i;
                 if (allow_append && line[i + 1u] == opch) {
                     op_len = 2;
-                    i += 2u;     /* consume both so a later lone op wins fresh */
+                    i += 2u;
                 } else {
                     op_len = 1;
                     i += 1u;
@@ -1632,6 +1631,7 @@ int cmd_redir_parse(const char *line,
     int out_has = redir_strip_one(line, '>', 1 /*allow_append*/,
                                   tmp, (uint32_t)sizeof(tmp),
                                   target_out, target_cap, append_out);
+    if (out_has < 0) return CMD_REDIR_INVALID_OUT;
 
     int in_has = redir_strip_one(tmp, '<', 0 /*no `<<`*/,
                                  clean_out, clean_cap,
@@ -4060,6 +4060,12 @@ static int run_with_redirect(const char *line)
     int has = cmd_redir_parse(line, clean, (uint32_t)sizeof(clean),
                               target, (uint32_t)sizeof(target), &append,
                               in_target, (uint32_t)sizeof(in_target));
+    /* DOS 3.30 COMMAND audit X1: refuse multiple outputs before opening
+     * either one, even if the final target already exists. */
+    if (has == CMD_REDIR_INVALID_OUT) {
+        dos_error(MSG_DOS_0046 "\r\n$");
+        return 0;
+    }
     if (!has) {
         return dispatch_line(line);     /* no redirect -> unchanged behaviour */
     }

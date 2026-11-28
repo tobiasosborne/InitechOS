@@ -311,3 +311,9 @@ smoke: smoke-shift-window
 smoke-shift-window:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/shift-window.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/shift-window.XXXXXX")"
+
+.PHONY: smoke-shell-data-guards
+smoke: smoke-shell-data-guards
+smoke-shell-data-guards:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/shell-data-guards.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/shell-data-guards.XXXXXX")"

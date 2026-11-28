@@ -1,0 +1,3 @@
+Genuine DOS 3.30, phase 4 COMMAND audit, Overwrite and control flow X1.
+The product and DOS ran the same batch. DOS refused the repeated output
+redirect, retained TOUT and did not create MISS.

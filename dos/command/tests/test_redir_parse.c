@@ -142,28 +142,18 @@ static void test_append(void)
     CHECK_STR_EQ(clean, "type a.txt", "'>>' (mixed): clean preserves the arg");
 }
 
-/* --- last-operator-wins + interior args preserved ------------------------ */
-static void test_last_wins(void)
+static void test_repeated_output(void)
 {
     char clean[128];
     char target[128];
     int  append = 0;
 
-    /* Two operators: the LAST wins (DOS: a later stdout redirect supersedes). */
-    int has = run_redir("echo X > a.txt > b.txt", clean, target, &append);
-    CHECK(has == 1, "two '>': has_redirect == 1");
-    CHECK_STR_EQ(target, "b.txt", "two '>': last target wins (b.txt)");
-    CHECK(append == 0, "two '>': append == 0");
-    /* The earlier "> a.txt" is left in clean as ordinary text (we only strip the
-     * winning operator+target); the command still dispatches with the first
-     * redirect text as args, which is acceptable for this simple shell. The key
-     * assertion is the WINNING target. */
+    /* Genuine DOS 3.30 COMMAND audit X1. */
+    int has = run_redir("ECHO REPLACED >MISS>TOUT", clean, target, &append);
+    CHECK(has == CMD_REDIR_INVALID_OUT, "two stdout targets are refused");
 
-    /* `>` then `>>`: the last (>>) wins, append set. */
     has = run_redir("dir > a >> b", clean, target, &append);
-    CHECK(has == 1, "'>' then '>>': has_redirect == 1");
-    CHECK_STR_EQ(target, "b", "'>' then '>>': last target wins (b)");
-    CHECK(append == 1, "'>' then '>>': append == 1 (last op is append)");
+    CHECK(has == CMD_REDIR_INVALID_OUT, "append is also an output target");
 
     /* Interior args of the command are preserved on the clean side. */
     has = run_redir("type a.txt b.txt > out", clean, target, &append);
@@ -494,7 +484,7 @@ int main(void)
     test_no_redirect();
     test_truncate();
     test_append();
-    test_last_wins();
+    test_repeated_output();
     test_edges();
     test_bounds();
     test_input();
