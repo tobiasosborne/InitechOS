@@ -140,7 +140,8 @@ smoke-callredir:
 smoke: smoke-fat16
 smoke-fat16:
 	+$(MAKE) -C $(TOP) image
-	sh tests/runtime/fat16-policy.sh "$(TOP)" "$(OUT)/smoke-fat16"
+	@mkdir -p "$(OUT)" && out=$$(mktemp -d "$(OUT)/smoke-fat16.XXXXXX") && \
+	echo "FAT16 smoke evidence: $$out" && sh tests/runtime/fat16-policy.sh "$(TOP)" "$$out"
 
 .PHONY: smoke-xcopy-buffer
 smoke: smoke-xcopy-buffer
