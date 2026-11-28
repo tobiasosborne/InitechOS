@@ -11,8 +11,10 @@
 set -eu
 root=$1 boot=$2 programs=$3 out=$4
 . "$root/dos/tests/runtime/verdict.sh"
+. "$root/dos/tests/runtime/utility-session.sh"
 mkdir -p "$out"
 out=$(realpath "$out")
+export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 
 # 400 lines, every line matches FIND "needle"; SORT keeps the same lines.
 # (Kept small: each short write rescans the nearly full FAT, and the
@@ -35,7 +37,9 @@ run_case() {
     free=$(mdir -i "$img" :: | awk '/bytes free/{gsub(/ /,"");sub(/bytesfree.*/,"");print}')
     filler=$((free - leave_free))
     truncate -s "$filler" "$d/filler"; mcopy -i "$img" "$d/filler" ::FILL.BIN
-    sh "$root/dos/tests/runtime/execute.sh" "$root" "$boot" "$d" '' filterfull-done
+    utility_session "$boot" "$img" "$d" --expect filterfull-done --quit-after filterfull-done \
+      --timeout-ms 45000 --name run > "$d/stdout" 2> "$d/report" || error "$name transport did not complete"
+    utility_transport "$d/report" "$d"
     cp "$d/transport.ok" "$out/transport.ok"
     tr -d '\r' < "$d/run.serial" > "$d/text"
     require "$name write failure sets nonzero ERRORLEVEL" grep -Fx 'FILTER-REFUSED' "$d/text"

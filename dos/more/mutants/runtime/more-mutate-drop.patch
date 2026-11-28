@@ -1,5 +1,5 @@
 # MORE_MUTATE_DROP
-# session: auto
+# session: filterorder
 --- a/more/more_program.asm
 +++ b/more/more_program.asm
 @@ -75,6 +75,8 @@

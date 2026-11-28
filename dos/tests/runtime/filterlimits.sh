@@ -6,6 +6,7 @@ cd "$root"
 mkdir -p "$out"
 out=$(realpath "$out")
 . "$root/dos/tests/runtime/verdict.sh"
+. "$root/dos/tests/runtime/utility-session.sh"
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 truncate -s 1474560 "$out/data.img"
 mformat -i "$out/data.img" -f 1440 ::
@@ -68,8 +69,9 @@ if [ "$program" = FIND ]; then
  mv "$out/auto-more" "$out/AUTOEXEC.BAT"
 fi
 mcopy -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
-if ! timeout 60 build/factory/qemu_harness --disk "$boot" --disk2 "$out/data.img" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 45000 --out "$out" --name limits > "$out/driver.log" 2> "$out/report"; then error 'filter limits transport did not complete'; fi
-transport_pass "$out/report"
+utility_session "$boot" "$out/data.img" "$out" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE \
+ --timeout-ms 100000 --name limits > "$out/driver.log" 2> "$out/report" || error 'filter limits transport did not complete'
+utility_transport "$out/report"
 if [ "$output" = NUL ]; then
  mtype -i "$out/data.img" ::FIT.RC > "$out/status" || error 'fit status missing'
  tr -d '\r' < "$out/status" > "$out/status-text"

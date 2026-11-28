@@ -21,5 +21,11 @@ printf 'PASS\n' > "$out/result"
 verdict_case 0 PASS
 printf '[harness] OK=0\n[harness] timed_out=1\n' > "$out/report"
 verdict_case 0 'ERROR exit=0'
+printf '[bochs] launched=1 rfb_unblocked=1 timed_out=0 exit=0 signal=0\n[bochs] triple_fault=0\n[bochs] OK=1\n' > "$out/report"
+verdict_case 0 PASS
+cp "$out/assertion" "$out/result"
+verdict_case 42 'SEMANTIC independent assertion'
+printf '[bochs] launched=1 rfb_unblocked=1 timed_out=1 exit=0 signal=0\n[bochs] triple_fault=0\n[bochs] OK=1\n' > "$out/report"
+verdict_case 42 'ERROR exit=42'
 echo 'GREEN runtime verdict: explicit completed assertions only; timeout/startup/setup failures are errors'
 complete

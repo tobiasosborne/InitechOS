@@ -1,5 +1,5 @@
 # SORT_MUTATE_REVERSE
-# session: auto
+# session: filterorder
 --- a/sort/sort_program.asm
 +++ b/sort/sort_program.asm
 @@ -57,3 +57,3 @@

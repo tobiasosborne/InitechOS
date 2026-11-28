@@ -79,6 +79,34 @@ grep -q 'Compare OK' "$w/compare.console" || red 'compare OK'
 printf X | dd of="$w/target.img" bs=1 seek=$((2879*512+38)) conv=notrunc status=none
 "$exe" "$w/master.img" "$w/a.img" 3 'A: A:' N 1 "$w/source.img" "$w/target.img" > "$w/compare.console" 2> "$w/compare.exit" || red 'DISKCOMP missing differing sector'
 grep -q 'side 1, track 79' "$w/compare.console" || red 'DISKCOMP missing differing sector'
+# DOS 3.30 DISKC1, COMP1 and DISKCM8 select which sectors are touched.
+# Mtools supplies a 40-track, 2-head, 9-sector medium. Compare whole
+# copies and inject exactly one difference outside the selected geometry.
+dd if=/dev/zero of="$w/geometry-source.img" bs=512 count=720 status=none
+mformat -i "$w/geometry-source.img" -f 360 ::
+dd if=/dev/zero bs=512 count=720 status=none | tr '\000' '\245' > "$w/geometry-target.img"
+cp "$w/geometry-target.img" "$w/geometry-expected.img"
+track=0
+while [ "$track" -lt 40 ]; do
+ lba=$((track*18))
+ dd if="$w/geometry-source.img" of="$w/geometry-expected.img" bs=512 skip="$lba" seek="$lba" count=9 conv=notrunc status=none
+ track=$((track+1))
+done
+for mode in '2|/1|0' '3|/1|9' '3|/8|8'; do
+ kind=${mode%%|*}; rest=${mode#*|}; switch=${rest%%|*}; lba=${rest##*|}
+ if [ "$kind" = 3 ]; then
+  cp "$w/geometry-source.img" "$w/geometry-target.img"
+  printf DIFFERENT | dd of="$w/geometry-target.img" bs=1 seek=$((lba*512)) conv=notrunc status=none
+ fi
+ "$exe" "$w/master.img" "$w/a.img" "$kind" "A: A: $switch" N 0 \
+  "$w/geometry-source.img" "$w/geometry-target.img" > "$w/geometry.console" 2> "$w/geometry.exit" ||
+  red "geometry selection $kind $switch"
+ if [ "$kind" = 2 ]; then
+  cmp "$w/geometry-expected.img" "$w/geometry-target.img" || red 'DISKCOPY /1 wrote second side'
+ else
+  grep -qFx 'Compare OK' "$w/geometry.console" || red "DISKCOMP $switch compared outside geometry"
+ fi
+done
 # Genuine DOS 3.30 (dos33/reference/diskcopy-break): Ctrl-C at the first
 # TARGET prompt cancels before any target write. Keys: X at SOURCE, ^C at TARGET.
 dd if=/dev/zero bs=512 count=2880 status=none | tr '\000' '\245' > "$w/target.img"

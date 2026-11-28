@@ -3,7 +3,7 @@
 # Before the installed-image cutover, the legacy master starts that batch
 # itself. Remove the legacy path when the boot.img/data.img pair becomes C+A.
 utility_session() (
-    boot=$1 data=$2 output=$3
+    boot=${DOS_UTILITY_BOOT:-$1} data=$2 output=$3
     shift 3
     cpu=${DOS_UTILITY_EMULATOR:-qemu}
     case $cpu in qemu|bochs) ;; *) exit 2;; esac

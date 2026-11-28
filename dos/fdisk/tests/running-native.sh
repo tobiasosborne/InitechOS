@@ -17,7 +17,8 @@ fail() { echo "FAIL FDISK $cpu $mode: $*" >&2; exit 1; }
         printf 'A:\r\nIF NOT EXIST FDISKA.TXT GOTO FAIL\r\n'
     fi
     printf 'C:\\FDISK.COM\r\nIF ERRORLEVEL 2 GOTO FAIL\r\nIF NOT ERRORLEVEL 1 GOTO FAIL\r\n'
-    printf 'ECHO FDISK-REFUSED\r\nGOTO DONE\r\n:FAIL\r\nECHO FDISK-WRONG-STATUS\r\n'
+    printf 'ECHO FDISK-REFUSED\r\nC:\\FDISK.COM /Z\r\nIF ERRORLEVEL 2 GOTO FAIL\r\nIF NOT ERRORLEVEL 1 GOTO FAIL\r\n'
+    printf 'ECHO FDISK-SWITCH-REFUSED\r\nGOTO DONE\r\n:FAIL\r\nECHO FDISK-WRONG-STATUS\r\n'
     printf ':DONE\r\nECHO FDISK-NATIVE-DONE\r\n'
 } > "$out/C-AUTOEXEC.BAT"
 cp build/image/c.img "$out/boot.img"
@@ -57,6 +58,9 @@ grep -Fx 'Directory of C:\' "$out/text" >/dev/null || fail 'C startup missing'
 grep -Fx 'FDISK-C-START' "$out/text" >/dev/null || fail 'C AUTOEXEC missing'
 grep -Fx 'FDISK-REFUSED' "$out/text" >/dev/null || fail 'FDISK did not return status 1'
 grep -Fx "Cannot use FDISK on the system disk" "$out/text" >/dev/null || fail "missing running disk refusal"
+sed -n '/^FDISK-REFUSED$/,/^FDISK-SWITCH-REFUSED$/p' "$out/text" |
+    grep -Fx 'Invalid parameter' >/dev/null || fail 'missing unsupported-switch refusal'
+grep -Fx FDISK-SWITCH-REFUSED "$out/text" >/dev/null || fail 'FDISK /Z did not return status 1'
 if grep -E 'FDISK-WRONG-|Disk Options|Bad command or file name|PANIC' "$out/text"; then
     fail 'unexpected guest path'
 fi

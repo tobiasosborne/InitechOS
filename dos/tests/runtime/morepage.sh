@@ -46,7 +46,7 @@ case $cpu in
         >> "$out/tools.log" 2>&1 || error 'cannot build the ordered Bochs driver'
     export DOS_UTILITY_ORDERED=1 DESKTOP_SERIAL="$out/morepage.serial" DESKTOP_WAIT_MS=30000
     spec="$(type_keys pager),WPAGE-L24,w350,Tfirst,w400,Tstill,ret,WPAGE-L47,w350,Tsecond,x,WPAGE-L60,w350,Tafter"
-    spec="$spec,$(type_keys stopper),WSTOP-L24,w350,Tcancel-wait,ctrl-c,w500,Tcancelled,$(type_keys done)"
+    spec="$spec,$(type_keys stopper),WSTOP-L24,w350,Tcancel-wait,ctrl-c,WINT23-BREAK,w350,y,w500,Tcancelled,$(type_keys done)"
     set -- --keys "$spec";;
  *) error "unknown emulator $cpu";;
 esac
@@ -65,7 +65,7 @@ for name in first still second after cancel-wait cancelled; do
         # Bochs T returns character/attribute pairs, followed by the cursor.
         od -An -v -tu1 -N4000 "$screen" |
             awk '{for(i=1;i<=NF;i++){if(n%2==0) printf "%c",$i; if(++n%160==0) print ""}}' |
-            sed 's/ *$//' > "$out/$name.txt"
+            sed -e 's/ *$//' -e '/^Terminate batch job (Y\/N)? [yY]$/d' > "$out/$name.txt"
     fi
 done
 require 'MORE shows the first captured cue' cmp "$case_dir/expected/first.txt" "$out/first.txt"

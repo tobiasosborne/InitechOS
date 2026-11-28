@@ -16,6 +16,7 @@ mkdir -p "$out"
 out=$(realpath "$out")
 rm -f "$out/assertion" "$out/result" "$out/transport.ok"
 . "$root/dos/tests/runtime/verdict.sh"
+. "$root/dos/tests/runtime/utility-session.sh"
 export INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 ref=$root/dos/command/tests/compat33/expected/$capture_case
 case $capture_case in U04) program=CHKDSK;; U08) program=SYS;; U09) program=DISKCOPY;; U10) program=DISKCOMP;; U13) program=ATTRIB;ref=$root/dos/command/tests/dos33/reference/attrib-error;;esac
@@ -24,10 +25,16 @@ mcopy -o -i "$out/data.img" "build/dos/$program.COM" "::$program.COM"
 nasm -f bin dos/tests/runtime/done.asm -o "$out/DONE.COM"
 mcopy -o -i "$out/data.img" "$out/DONE.COM" ::SUB/DONE.COM
 sed 's/^B:/A:/' "$ref/AUTOEXEC.BAT" > "$out/AUTOEXEC.BAT"
+printf 'A:\\SUB\\DONE.COM\r\n' >> "$out/AUTOEXEC.BAT"
 mcopy -o -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
-printf 'sub\\done\n' | build/factory/keys > "$out/keys"
-if ! timeout 40 build/factory/qemu_harness --disk build/image/boot.img --disk2 "$out/data.img" --keys-after SHELL-READY --keys "$(cat "$out/keys")" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 15000 --rtc-base 1987-07-06T13:30:58 --out "$out" --name utility > "$out/driver.log" 2> "$out/report";then error 'utility transport did not complete';fi
-transport_pass "$out/report"
+case ${DOS_UTILITY_EMULATOR:-qemu} in
+ qemu) set -- --rtc-base 1987-07-06T13:30:58;;
+ bochs) set -- --rtc-time0 "$(date -u -d '1987-07-06 13:30:58' +%s)";;
+esac
+utility_session "${DOS_UTILITY_BOOT:-build/image/boot.img}" "$out/data.img" "$out" "$@" \
+ --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE \
+ --timeout-ms 30000 --name utility > "$out/driver.log" 2> "$out/report" || error 'utility transport did not complete'
+utility_transport "$out/report"
 mdir -a -b -i "$out/data.img" :: > "$out/names" || error 'cannot read utility result volume'
 require 'utility created output file' grep -Fx ::/UTIL.OUT "$out/names" >/dev/null
 mtype -i "$out/data.img" ::UTIL.OUT > "$out/actual" || error 'cannot read utility output'

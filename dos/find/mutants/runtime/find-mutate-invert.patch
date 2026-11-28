@@ -1,5 +1,5 @@
 # Reverse the line-selection decision
-# session: auto
+# session: filterorder
 --- a/find/find_program.asm
 +++ b/find/find_program.asm
 @@ -205,6 +205,8 @@
