@@ -3,3 +3,10 @@ OLD-BYTES
 Invalid number of parameters
 File creation error
 File not found
+ONE.TXT
+TWO.TXT
+1 File(s) copied
+ONE.TXT
+1 File(s) copied
+ONE.TXT
+1 File(s) copied

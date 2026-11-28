@@ -5,3 +5,7 @@ redirect, retained TOUT and did not create MISS.
 The DEL capture T009–T013 refuses both filenames before deleting either.
 The pipeline capture S3 refuses output redirection before the pipe.
 The subsequent TYPE reports that SAFE.OUT is absent.
+
+The COPY audit T102–T103 and a repeat on the Packard Bell DOS 3.30
+disk show a missing explicit source is skipped when other sources exist.
+Mtools reads back the copied source bytes and one final Ctrl-Z.

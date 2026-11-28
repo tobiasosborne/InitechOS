@@ -140,5 +140,5 @@
              int same=h>=0 && target>=0 && int21_same_file((uint16_t)h,(uint16_t)target);
 +            same=0;
              if(h>=0)dos_close(h);
-             if(h<0 || (same && !(append && s==0))) {
-                 if(target>=0)dos_close(target);
+             /* DOS 3.30 COPY audit: a missing explicit source is skipped
+              * in a concatenation with a separate output filename. */

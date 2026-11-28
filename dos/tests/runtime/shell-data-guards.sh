@@ -23,6 +23,17 @@ for name in KILL.ONE KILL.TWO; do
 done
 forbid 'redirected producer created SAFE.OUT' grep -Fx '::/SAFE.OUT' "$out/names"
 forbid 'redirected producer allowed the next stage to run' grep -Fx END "$out/text"
-awk '/^(File creation error|OLD-BYTES|REPLACED .*|Bad command or file name|Invalid number of parameters|File not found)$/ { print }' "$out/text" > "$out/actual"
+for name in OLD NEW ONLY; do
+    require "COPY created or replaced $name.TXT" grep -Fx "::/$name.TXT" "$out/names"
+    mtype -i "$out/data.img" "::$name.TXT" > "$out/copied" || error "cannot read $name.TXT"
+    {
+        printf 'ONE\r\n'
+        if [ "$name" = OLD ]; then printf 'TWO\r\n'; fi
+        printf '\032'
+    } > "$out/expected-copy"
+    require "COPY retained the available source bytes in $name.TXT" cmp "$out/expected-copy" "$out/copied"
+done
+sed 's/^ *//' "$out/text" |
+    awk '/^(File creation error|OLD-BYTES|REPLACED .*|Bad command or file name|Invalid number of parameters|File not found|ONE\.TXT|TWO\.TXT|1 File\(s\) copied)$/ { print }' > "$out/actual"
 require 'shell refusals match DOS 3.30' cmp "$ref/console.txt" "$out/actual"
 echo 'GREEN shell data guards preserve DOS files'
