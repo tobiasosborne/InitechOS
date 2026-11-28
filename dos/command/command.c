@@ -4416,6 +4416,16 @@ static int run_pipeline_or_redirect(const char *line)
     if (n <= 1) {
         return run_with_redirect(line);   /* no `|` -> unchanged behaviour */
     }
+    /* DOS 3.30 command review S3: refuse a producer's output redirect
+     * before either stage runs or allocates a file. */
+    for (int i = 0; i < n; ++i) {
+        int redirects = cmd_redir_parse(pl.stage[i], 0, 0, 0, 0, 0, 0, 0);
+        if (redirects == CMD_REDIR_INVALID_OUT ||
+            (i < n - 1 && (redirects & CMD_REDIR_OUT))) {
+            dos_error(MSG_DOS_0046 "\r\n$");
+            return 0;
+        }
+    }
     return run_pipeline(&pl);
 }
 

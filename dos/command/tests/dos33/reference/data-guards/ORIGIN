@@ -3,3 +3,5 @@ The product and DOS ran the same batch. DOS refused the repeated output
 redirect, retained TOUT and did not create MISS.
 
 The DEL capture T009–T013 refuses both filenames before deleting either.
+The review repeated pipeline capture S3 with SAFE.OUT already holding XX.
+DOS 3.30 reported File creation error, retained XX and skipped END.
