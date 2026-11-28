@@ -4981,15 +4981,17 @@ static void builtin_command(const char *arg)
     if(depth>=8){dos_print(MSG_DOS_0035 "\r\n$");return;}
     env_store_t env=g_master_env;
     int exit=g_shell_exit,permanent=g_shell_permanent;
-    uint8_t errorlevel=g_errorlevel;
     batch_frame_t *frame=g_batch_frame;
     g_shell_exit=0;g_shell_permanent=0;g_batch_frame=0;
+    /* DOS 3.30 secondary-status capture: the new processor starts with
+     * ERRORLEVEL 0 and returns 0 even if its command ran a nonzero child. */
+    g_errorlevel=0u;
     depth++;
     run_with_redirect(arg);
     depth--;
     g_master_env=env;
     g_shell_exit=exit;g_shell_permanent=permanent;
-    g_errorlevel=errorlevel;g_batch_frame=frame;
+    g_errorlevel=0u;g_batch_frame=frame;
     /* OEM DOS 3.30 compat33/BATCH: COMMAND /C returns to the physical
      * parent line after its child overwrites the shared batch buffer. */
     if (frame) { frame->len=batch_load_file(frame->path,g_batch_buf); g_batch_buffer_owner=frame; }

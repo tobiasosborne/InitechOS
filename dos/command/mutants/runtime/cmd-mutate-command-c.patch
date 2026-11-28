@@ -2,9 +2,9 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4641,7 +4641,6 @@
-     batch_frame_t *frame=g_batch_frame;
-     g_shell_exit=0;g_shell_permanent=0;g_batch_frame=0;
+@@ -4900,7 +4900,6 @@
+      * ERRORLEVEL 0 and returns 0 even if its command ran a nonzero child. */
+     g_errorlevel=0u;
      depth++;
 -    run_with_redirect(arg);
      depth--;
