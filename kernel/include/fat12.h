@@ -204,6 +204,9 @@ int fat12_read_sectors(const fat12_volume_t *vol, uint32_t sector,
                       uint32_t count, void *buf);
 int fat12_write_sectors(const fat12_volume_t *vol, uint32_t sector,
                        uint32_t count, const void *buf);
+/* With VERIFY on, fat12_write_sectors reads each sector back and fails
+ * with FAT12_ERR_WRITE when it differs (MS-DOS 3.3 User's Reference, VERIFY). */
+void fat12_set_verify(int on);
 
 /* ---- FAT12 entry decode + cluster-chain walk (beads initech-adf) ---- */
 

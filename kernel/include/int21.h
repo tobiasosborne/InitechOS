@@ -583,6 +583,9 @@ uint16_t int21_file_replace(const char *staged, const char *dest,
  * file-not-found / no-more-files as if the volume were empty). The kernel binds
  * the FAT12 backend after a successful mount; the host oracle binds a mock. */
 void int21_set_file_backend(const int21_file_backend_t *backend);
+/* AH=2Eh hands the VERIFY flag (0 or 1) to this sink, and binding passes the
+ * current flag at once. fileio_fat binds fat12_set_verify. */
+void int21_set_verify_sink(void (*sink)(int on));
 
 /* AH=1Bh/1Ch ALLOCATION TABLE INFORMATION (beads initech-509.9): the mounted
  * volume's BPB media descriptor byte (F0h = 1.44 MB diskette, F8h = fixed

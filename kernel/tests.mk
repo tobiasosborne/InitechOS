@@ -457,6 +457,14 @@ test-ioctl33_SRCS := tests/runner.c
 test-ioctl33_ARGS := tests/run.sh test-ioctl33
 test-ioctl33_DEPS := $(OUT)/host/tool_test_ioctl33 tests/gates/test-ioctl33.sh tests/assertions.sh tests/fixtures/ioctl33/SHA256SUMS
 
+EXTRA_HOST_TESTS += tool_test_verify33
+tool_test_verify33_SRCS := tests/test_verify33.c tests/disk/blockdev_file.c
+tool_test_verify33_OBJS := $(tool_test_fileio_subdir_OBJS)
+HOST_TESTS += test-verify33
+test-verify33_SRCS := tests/runner.c
+test-verify33_ARGS := tests/run.sh test-verify33
+test-verify33_DEPS := $(OUT)/host/tool_test_verify33 tests/gates/test-verify33.sh tests/assertions.sh tests/fixtures/verify33/SHA256SUMS
+
 EXTRA_HOST_TESTS += tool_test_find_dta33
 tool_test_find_dta33_SRCS := tests/test_find_dta33.c tests/disk/blockdev_file.c
 tool_test_find_dta33_OBJS := $(tool_test_fileio_subdir_OBJS)

@@ -1026,6 +1026,24 @@ static uint8_t  frame_cl(const int_frame_t *f) { return (uint8_t)(f->ecx & 0xFFu
  * the register lists. An AH NOT here is UNKNOWN (-> "unknown" diagnostic). An AH
  * here that this subset has not yet implemented is RECOGNIZED-but-deferred (->
  * "not-yet-impl" diagnostic). Source: spec/int21h_register.json (verbatim). */
+/* AH=2Eh/54h VERIFY flag. Genuine DOS 3.30 boots with it off; AH=2Eh stores
+ * AL AND 1 and leaves that value in AL, and AH=54h returns it in AL
+ * (tests/fixtures/verify33). The sink makes disk writes read back while it
+ * is on (MS-DOS 3.3 User's Reference, VERIFY). */
+static uint8_t g_verify;
+static void (*g_verify_sink)(int on);
+void int21_set_verify_sink(void (*sink)(int on))
+{
+    g_verify_sink = sink;
+    if (sink) sink(g_verify);
+}
+static void do_set_verify(int_frame_t *f)
+{
+    g_verify = frame_al(f) & 1u;
+    set_al(f, g_verify);
+    if (g_verify_sink) g_verify_sink(g_verify);
+}
+
 static int ah_is_listed(uint8_t ah)
 {
     /* Single-AH entries from the register. */
@@ -1034,6 +1052,7 @@ static int ah_is_listed(uint8_t ah)
         case 0x0E: case 0x19:            /* SELDISK / GETDISK */
         case 0x1A: case 0x2F:            /* SETDTA / GETDTA */
         case 0x25: case 0x35:            /* SETVECT / GETVECT */
+        case 0x2E:                       /* SET VERIFY */
         case 0x30:                       /* GETVER */
         case 0x31:                       /* KEEP (TSR) */
         case 0x32:                       /* GETDPB (admitted 2026-10-17; WL-0167) */
@@ -1057,6 +1076,7 @@ static int ah_is_listed(uint8_t ah)
         case 0x4C:                       /* EXIT */
         case 0x4D:                       /* WAIT */
         case 0x4E: case 0x4F:            /* FINDFIRST / FINDNEXT */
+        case 0x54:                       /* GET VERIFY */
         case 0x56:                       /* RENAME */
         case 0x57:                       /* FILETIME */
         case 0x59:                       /* GETERR */
@@ -5619,6 +5639,12 @@ static void int21_dispatch_body(int_frame_t *frame)
             return;
         case 0x2D:                       /* SET TIME */
             do_settime(frame);
+            return;
+        case 0x2E:                       /* SET VERIFY */
+            do_set_verify(frame);
+            return;
+        case 0x54:                       /* GET VERIFY */
+            set_al(frame, g_verify);
             return;
         case 0x36:                       /* GET DISK FREE SPACE */
             do_getspace(frame);

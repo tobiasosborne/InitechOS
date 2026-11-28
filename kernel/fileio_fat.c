@@ -54,6 +54,7 @@
  * is no replace entry to call, rather than a stub claiming success. */
 extern void int21_set_file_replace_backend(uint16_t (*replace)(const char *,
                         const char *, uint16_t, uint16_t *)) __attribute__((weak));
+extern void int21_set_verify_sink(void (*sink)(int on)) __attribute__((weak));
 
 /* DOS error codes returned to int21.c (the same set int21.h uses). */
 #define FILEIO_ERR_FILE_NOT_FOUND  0x0002u
@@ -1104,6 +1105,7 @@ int fileio_fat_bind_drive(unsigned letter, fat12_volume_t *vol)
     if (rc) return rc;
     g_mount = &g_mounts[letter ? letter - 1u : 0u];
     int21_set_file_backend(&g_fat_backend);
+    if (int21_set_verify_sink) int21_set_verify_sink(fat12_set_verify);
     if (int21_set_file_replace_backend) int21_set_file_replace_backend(fat_replace);
     int21_set_drive_selector(fat_select_drive);
     int21_set_media(vol->bpb.media_descriptor);

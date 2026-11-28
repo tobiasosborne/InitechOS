@@ -130,13 +130,27 @@ int fat12_read_sectors(const fat12_volume_t *v, uint32_t s, uint32_t n, void *p)
 	return v->dev->read_sectors(v->dev->ctx, v->base_lba + s, n, p);
 }
 
+static uint8_t g_verify_writes;
+void fat12_set_verify(int on) { g_verify_writes = on != 0; }
+
 int fat12_write_sectors(const fat12_volume_t *v, uint32_t s, uint32_t n,
                         const void *p)
 {
 	if (!v || v->fat_type != FAT_TYPE_FAT12 || !v->dev || !v->dev->write_sectors || !p)
 		return FAT12_ERR_WRITE;
 	if (!sector_range(v, s, n)) return FAT12_ERR_PARTITION;
-	return v->dev->write_sectors(v->dev->ctx, v->base_lba + s, n, p);
+	int rc = v->dev->write_sectors(v->dev->ctx, v->base_lba + s, n, p);
+	if (rc || !g_verify_writes) return rc;
+	/* VERIFY ON: read every written sector back before reporting success. */
+	static uint8_t check[512];
+	const uint8_t *src = (const uint8_t *)p;
+	for (uint32_t i = 0; i < n; i++, src += sizeof check) {
+		if (v->dev->read_sectors(v->dev->ctx, v->base_lba + s + i, 1u, check))
+			return FAT12_ERR_WRITE;
+		for (uint32_t k = 0; k < sizeof check; k++)
+			if (check[k] != src[k]) return FAT12_ERR_WRITE;
+	}
+	return 0;
 }
 
 static int mount_primary(fat12_volume_t *vol, const blockdev_t *dev, void *sector_buf, unsigned primary)

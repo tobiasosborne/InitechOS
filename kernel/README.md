@@ -400,6 +400,11 @@ and 00h at end of file; AH=0Ch chains to these without moving the file
 position. A 03h byte in the file is delivered rather than treated as a
 break; that case is not captured. AH=06h still reads the console.
 
+AH=2Eh stores AL AND 1 as the VERIFY flag and leaves it in AL; AH=54h
+returns it; the boot value is off (tests/fixtures/verify33). While it is
+on, every FAT12 sector write, INT 26h included, is read back and a
+mismatch fails the write.
+
 GM2 mounts FAT16 for listing and reading only. DOS file mutations return access
 denied; INT26 refuses with write protection. INT13 AH=03h refuses the entire
 request with BIOS status03h before calling the backend when any requested sector
