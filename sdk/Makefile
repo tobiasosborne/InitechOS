@@ -55,11 +55,13 @@ test-run: test-build
 	for entry in $(TESTS); do \
 	  sh $(TOP)/factory/testlib/run-test.sh "$$entry" "$${TEST_TIMEOUT_S:-20}" '' "$(OUT)/host/$$entry" \
 	    sh -c 'sh tests/run.sh "$$1" "$$2" > "$$3.log" 2>&1' sh "$(OUT)" "$$entry" "$(OUT)/host/$$entry" || fail=$$((fail+1)); \
-	done; elapsed=$$(($$(date +%s)-start)); \
+	done; \
+	times > $(OUT)/host/suite.time || { echo 'FAIL budget: cannot record suite CPU time'; exit 1; }; \
+	elapsed=$$(($$(date +%s)-start)); \
 	echo 'INITECH_TEST_RUN $(words $(TESTS))'; \
-	echo "$(COMPONENT): $(words $(TESTS)) tests, $$fail failures ($${elapsed}s; budget $(TEST_BUDGET_S)s)"; \
-	if [ $$elapsed -gt $(TEST_BUDGET_S) ]; then echo 'FAIL budget: sdk exceeded TEST_BUDGET_S'; fail=1; fi; \
-	test $$fail -eq 0
+	awk -v component=$(COMPONENT) -v count=$(words $(TESTS)) -v failed=$$fail \
+	  -v wall=$$elapsed -v budget=$(TEST_BUDGET_S) \
+	  -f $(TOP)/factory/testlib/test-budget.awk $(OUT)/host/suite.time && test $$fail -eq 0
 -include $(wildcard $(OUT)/host/*.d $(OUT)/tests/*.d)
 smoke:
 	+$(MAKE) -C $(TOP) -j2 image TARGET_CFLAGS='$(TARGET_CFLAGS) -g'
