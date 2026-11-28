@@ -28,14 +28,14 @@ mcopy -o -i "$out/data.img" "$out/DONE.COM" ::SUB/DONE.COM
 sed 's/^B:/A:/' "$ref/AUTOEXEC.BAT" > "$out/AUTOEXEC.BAT"
 mcopy -o -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
 printf 'sub\\done\n' | build/factory/keys > "$out/keys"
-if ! timeout 40 build/factory/qemu_harness --disk build/image/boot.img --disk2 "$out/data.img" --keys-after SHELL-READY --keys "$(cat "$out/keys")" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 15000 --rtc-base 1987-07-06T13:30:58 --out "$out" --name diagnostics > "$out/driver.log" 2> "$out/report";then error 'diagnostics transport did not complete';fi
-transport_pass "$out/report"
+DOS_SESSION_RTC=1987-07-06T13:30:58 sh dos/tests/runtime/execute.sh "$root" "${DOS_SESSION_BOOT:-build/image/boot.img}" \
+    "$out" "$(cat "$out/keys")" TRANSPORT-DONE ||
+    error 'diagnostics transport did not complete'
 mdir -a -b -i "$out/data.img" :: > "$out/names" || error 'cannot read result volume'
 extract() {
  require "created $1" grep -Fx "::/$1" "$out/names" >/dev/null
  mtype -i "$out/data.img" "::$1" > "$2" || error "cannot read $1"
 }
-tr -d '\r' < "$out/diagnostics.serial" > "$out/text"
 pattern='^(Invalid parameter(\(s\))?|Too many parameters|Invalid directory|Invalid number of parameters|Required parameter missing|Label not found|File not found|Bad command or file name|Invalid drive specification|Insufficient disk space|Intermediate file error during pipe|Syntax error)[[:space:]]*$'
 grep -E "$pattern" "$ref/result.txt" | sed 's/ *$//' > "$out/expected-console"
 if grep -E "$pattern" "$out/text" > "$out/actual-console";then :;else rc=$?;[ "$rc" = 1 ] || error 'diagnostic extraction failed';fi

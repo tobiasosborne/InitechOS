@@ -14,9 +14,9 @@ mcopy -o -i "$out/data.img" "$out/DONE.COM" ::SUB/DONE.COM
 sed 's/^B:/A:/' "$ref/AUTOEXEC.BAT" > "$out/AUTOEXEC.BAT"
 mcopy -o -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
 printf 'sub\\done\n' | build/factory/keys > "$out/keys"
-if ! timeout 40 build/factory/qemu_harness --disk build/image/boot.img --disk2 "$out/data.img" --keys-after SHELL-READY --keys "$(cat "$out/keys")" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 15000 --rtc-base 1987-07-06T13:30:58 --out "$out" --name syntax > "$out/driver.log" 2> "$out/report";then error 'control-syntax transport did not complete';fi
-transport_pass "$out/report"
-tr -d '\r' < "$out/syntax.serial" > "$out/text"
+DOS_SESSION_RTC=1987-07-06T13:30:58 sh dos/tests/runtime/execute.sh "$root" "${DOS_SESSION_BOOT:-build/image/boot.img}" \
+    "$out" "$(cat "$out/keys")" TRANSPORT-DONE ||
+    error 'control-syntax transport did not complete'
 pattern='^(C[0-9]+|Syntax error|Bad command or file name)[[:space:]]*$'
 grep -E "$pattern" "$ref/result.txt" | sed 's/ *$//' > "$out/expected-console"
 grep -E "$pattern" "$out/text" > "$out/actual-console"

@@ -25,8 +25,8 @@ A:\DONE
 INPUT
 cc -std=c11 -O2 -Wall -Wextra -Werror dos/tests/runtime/interact-keys.c -o "$out/keys-tool"
 "$out/keys-tool" < "$out/input" > "$out/keys"
-if ! timeout 55 build/factory/qemu_harness --disk "$boot" --disk2 "$out/data.img" --keys-after INTERACT-READY --keys "$(cat "$out/keys")" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 40000 --out "$out" --name interact > "$out/driver.log" 2> "$out/report"; then error 'interactive transport failed'; fi
-transport_pass "$out/report"
+DOS_SESSION_KEYS_AFTER=INTERACT-READY sh dos/tests/runtime/execute.sh "$root" \
+    "$boot" "$out" "$(cat "$out/keys")" TRANSPORT-DONE || error 'interactive transport failed'
 mdir -a -b -i "$out/data.img" :: > "$out/names"
 require 'interactive redirected INT.TXT exists' grep -F -x '::/INT.TXT' "$out/names"
 mtype -i "$out/data.img" ::INT.TXT > "$out/actual" || error 'read INT.TXT'

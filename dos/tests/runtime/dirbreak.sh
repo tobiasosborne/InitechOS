@@ -9,15 +9,8 @@ i=0;while [ "$i" -lt 30 ]; do n=$(printf 'F%02d.TXT' "$i");mcopy -i "$out/data.i
 printf '@ECHO OFF\r\nDIR /P\r\nECHO dirbreak-done\r\n' > "$out/autoexec"
 mcopy -i "$out/data.img" "$out/autoexec" ::AUTOEXEC.BAT
 # DIR/P owns the first key; the batch termination question owns N.
-short=$(mktemp -d /tmp/dos-dir.XXXXXX);rmdir "$short";ln -s "$out" "$short"
-trap 'rc=$?; rm -f "$short"; finish_scenario "$rc"' 0
-cp "$boot" "$out/boot.img"
-export INITECH_QMP_STDIO=1 INITECH_TEST_RAM_MB=8
-timeout -k 5 60 "$root/build/factory/qemu_harness" --disk "$short/boot.img" --boot-rw --disk2 "$short/data.img" \
- --keys ctrl-c,n --keys-after 'Press any key' --expect dirbreak-done --quit-after dirbreak-done \
- --timeout-ms 15000 --name run --out "$short" > "$out/stdout" 2> "$out/report"
-transport_pass "$out/report"
-tr -d '\r' < "$out/run.serial" > "$out/text"
+DOS_SESSION_KEYS_AFTER='Press any key' sh "$root/dos/tests/runtime/execute.sh" \
+ "$root" "$boot" "$out" ctrl-c,n dirbreak-done || error 'DIR pause transport failed'
 # The paused row is the 18th entry (header accounts for six lines).
 # Assert no directory entry at all appears after the pause marker.
 sed -n '/Press any key/,$p' "$out/text" > "$out/after"

@@ -15,11 +15,11 @@ mcopy -o -i "$out/data.img" "$out/DONE.COM" ::SUB/DONE.COM
 sed 's/^B:/A:/' "$ref/AUTOEXEC.BAT" > "$out/AUTOEXEC.BAT"
 mcopy -o -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
 printf 'sub\\done\n' | build/factory/keys > "$out/keys"
-if ! timeout 40 build/factory/qemu_harness --disk build/image/boot.img --disk2 "$out/data.img" --keys-after SHELL-READY --keys "$(cat "$out/keys")" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 15000 --rtc-base 1987-07-06T13:30:58 --out "$out" --name unknown > "$out/driver.log" 2> "$out/report";then error 'unknown-command transport did not complete';fi
-transport_pass "$out/report"
+DOS_SESSION_RTC=1987-07-06T13:30:58 sh dos/tests/runtime/execute.sh "$root" "${DOS_SESSION_BOOT:-build/image/boot.img}" \
+    "$out" "$(cat "$out/keys")" TRANSPORT-DONE ||
+    error 'unknown-command transport did not complete'
 mdir -a -b -i "$out/data.img" :: > "$out/names"
 forbid 'unknown command created BAD.OUT' grep -F /BAD.OUT "$out/names"
-tr -d '\r' < "$out/unknown.serial" > "$out/text"
 grep -F 'Bad command or file name' "$ref/result.txt" >/dev/null
 require 'unknown command diagnostic on CON' grep -Fx 'Bad command or file name' "$out/text"
 echo 'GREEN unknown command: refusal on CON, no redirection file'

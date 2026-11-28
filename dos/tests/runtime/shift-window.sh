@@ -18,12 +18,8 @@ nasm -f bin dos/tests/runtime/done.asm -o "$out/DONE.COM"
 printf '%s\r\n' '@echo off' 'echo SHIFT-BEGIN' "call PARENT.BAT$(cat "$ref/tail.txt")" \
     'echo SHIFT-END' DONE > "$out/AUTOEXEC.BAT"
 mcopy -i "$out/data.img" "$out/DONE.COM" "$out/AUTOEXEC.BAT" ::
-timeout 55 build/factory/qemu_harness --disk "$boot" --disk2 "$out/data.img" \
-    --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 40000 \
-    --out "$out" --name shift > "$out/driver.log" 2> "$out/report" ||
+sh dos/tests/runtime/execute.sh "$root" "$boot" "$out" '' TRANSPORT-DONE ||
     error 'SHIFT transport failed'
-transport_pass "$out/report"
-tr -d '\r' < "$out/shift.serial" > "$out/text"
 require 'SHIFT reached the start marker' grep -Fxq SHIFT-BEGIN "$out/text"
 require 'SHIFT reached the end marker' grep -Fxq SHIFT-END "$out/text"
 sed -n '/^SHIFT-BEGIN$/,/^SHIFT-END$/{ /^SHIFT-/d; /^$/d; p; }' "$out/text" > "$out/trace.txt"

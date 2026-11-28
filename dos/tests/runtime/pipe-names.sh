@@ -16,8 +16,9 @@ mcopy -o -i "$out/data.img" "$out/PASS.COM" ::SUB/PASS.COM
 sed 's/^B:/A:/' "$ref/AUTOEXEC.BAT" > "$out/AUTOEXEC.BAT"
 mcopy -o -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
 printf 'sub\\done\n' | build/factory/keys > "$out/keys"
-if ! timeout 40 build/factory/qemu_harness --disk build/image/boot.img --disk2 "$out/data.img" --keys-after SHELL-READY --keys "$(cat "$out/keys")" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 15000 --rtc-base 1987-07-06T13:30:58 --out "$out" --name pipe > "$out/driver.log" 2> "$out/report";then error 'pipe-name transport did not complete';fi
-transport_pass "$out/report"
+DOS_SESSION_RTC=1987-07-06T13:30:58 sh dos/tests/runtime/execute.sh "$root" "${DOS_SESSION_BOOT:-build/image/boot.img}" \
+    "$out" "$(cat "$out/keys")" TRANSPORT-DONE ||
+    error 'pipe-name transport did not complete'
 for name in ONE TWO THREE FOUR;do
  mtype -i "$out/data.img" "::$name.OUT" > "$out/$name.OUT"
  grep -E '^[0-9A-F]{8} ' "$ref/$name.OUT" | awk '{print $2}' > "$out/expected-sizes"

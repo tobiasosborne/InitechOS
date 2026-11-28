@@ -18,13 +18,13 @@ mcopy -o -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
 nasm -f bin dos/tests/runtime/done.asm -o "$out/DONE.COM"
 mcopy -o -i "$out/data.img" "$out/DONE.COM" ::DONE.COM
 printf 'done\n' | build/factory/keys > "$out/keys"
-if ! timeout 40 build/factory/qemu_harness --disk "$boot" --disk2 "$out/data.img" --keys-after SHELL-READY --keys "$(cat "$out/keys")" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 15000 --out "$out" --name callredir > "$out/driver.log" 2> "$out/report"; then error 'callredir transport did not complete'; fi
-transport_pass "$out/report"
+sh dos/tests/runtime/execute.sh "$root" "$boot" \
+    "$out" "$(cat "$out/keys")" TRANSPORT-DONE ||
+    error 'callredir transport did not complete'
 mtype -i "$out/data.img" ::TRACE.TXT > "$out/trace" 2>/dev/null || semantic 'CALL with redirection ran the child into TRACE'
 require 'CALL with redirection ran the child into TRACE' cmp "$out/A.TXT" "$out/trace"
 mtype -i "$out/data.img" ::NOPE.OUT > "$out/nope" 2>/dev/null || semantic 'missing CALL created its redirect target'
 require 'missing CALL target is created empty' test ! -s "$out/nope"
-tr -d '\r' < "$out/callredir.serial" > "$out/serial-text"
 require 'only the missing CALL reports Bad command' \
-  test "$(grep -c 'Bad command or file name' "$out/serial-text")" -eq 1
+  test "$(grep -c 'Bad command or file name' "$out/text")" -eq 1
 echo 'GREEN callredir: CALL honors redirection; missing CALL creates empty target and reports once'

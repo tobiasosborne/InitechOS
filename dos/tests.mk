@@ -343,9 +343,29 @@ smoke-shell-c-sessions:
 	out=$$(mktemp -d "$(abspath $(OUT))/shell-c-sessions.XXXXXX"); \
 	for emulator in qemu bochs; do \
 	    export DOS_SESSION_EMULATOR=$$emulator; \
-	    for scenario in startup auto permanent; do \
+	    for scenario in startup auto permanent basic; do \
 	        sh "tests/runtime/$$scenario.sh" "$$root" "$$boot" "$(abspath $(OUT))" "$$out/$$emulator-$$scenario"; \
 	    done; \
 	    DOS_SESSION_BOOT="$$boot" sh tests/runtime/batch-return.sh "$$root" "$$out/$$emulator-batch-return"; \
+	done
+
+.PHONY: smoke-shell-c-files
+smoke-shell-c-files:
+	+$(MAKE) -C $(TOP) image
+	@set -eu; root="$(abspath $(TOP))"; boot="$$root/build/image/c.img"; \
+	out=$$(mktemp -d "$(abspath $(OUT))/shell-c-files.XXXXXX"); \
+	export DOS_SESSION_BOOT="$$boot"; \
+	for emulator in qemu bochs; do \
+	    export DOS_SESSION_EMULATOR=$$emulator; \
+	    for scenario in break callredir copy-state full pipecwd readerror shift-window type-eof volume; do \
+	        sh "tests/runtime/$$scenario.sh" "$$root" "$$boot" "$(abspath $(OUT))" "$$out/$$emulator-$$scenario"; \
+	    done; \
+	    for scenario in control-syntax dir-wide pipe-names unknown-redirect; do \
+	        sh "tests/runtime/$$scenario.sh" "$$root" "$$out/$$emulator-$$scenario"; \
+	    done; \
+	    sh tests/runtime/diagnostics.sh "$$root" ALL "$$out/$$emulator-diagnostics"; \
 	done; \
-	DOS_SESSION_EMULATOR=qemu sh tests/runtime/basic.sh "$$root" "$$boot" "$(abspath $(OUT))" "$$out/qemu-basic"
+	export DOS_SESSION_EMULATOR=qemu; \
+	for scenario in datetime dirbreak interact; do \
+	    sh "tests/runtime/$$scenario.sh" "$$root" "$$boot" "$(abspath $(OUT))" "$$out/qemu-$$scenario"; \
+	done

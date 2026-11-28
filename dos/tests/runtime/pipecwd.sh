@@ -13,8 +13,8 @@ nasm -f bin dos/tests/runtime/done.asm -o "$out/DONE.COM"
 mcopy -i "$out/data.img" "$out/PASS.COM" "$out/DONE.COM" ::
 printf '@echo off\r\ntime 12:34:10\r\ncd START\r\necho hello|A:\\PASS >A:\\ONE.OUT\r\ncd ..\\SUB|cd >A:\\CWD.OUT\r\ncd >A:\\AFTER.OUT\r\nA:\\DONE\r\n' > "$out/AUTOEXEC.BAT"
 mcopy -i "$out/data.img" "$out/AUTOEXEC.BAT" ::AUTOEXEC.BAT
-if ! timeout 45 build/factory/qemu_harness --disk "$boot" --disk2 "$out/data.img" --expect TRANSPORT-DONE --quit-after TRANSPORT-DONE --timeout-ms 25000 --out "$out" --name pipecwd > "$out/driver.log" 2> "$out/report"; then error 'pipe CWD transport failed'; fi
-transport_pass "$out/report"
+sh dos/tests/runtime/execute.sh "$root" "$boot" "$out" '' TRANSPORT-DONE ||
+    error 'pipe CWD transport failed'
 mdir -b -i "$out/data.img" ::START > "$out/remaining"
 require 'pipe cleanup follows original directory' test ! -s "$out/remaining"
 for name in ONE CWD AFTER; do
