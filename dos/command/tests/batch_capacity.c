@@ -45,19 +45,28 @@ static void script(char *p,unsigned n)
 }
 int main(void)
 {
-    char src[5002];
-    for(unsigned n=4095;n<=4097;n++) {
+    /* DOS 3.30 COMMAND audit T144–T145. The exact 4,816-byte child
+     * reaches LONG-RAN and returns to the caller's LONG-RETURN. */
+    char captured[4817];
+    for (unsigned i = 0; i < 4800; i += 6) memcpy(captured + i, "@rem\r\n", 6);
+    strcpy(captured + 4800, "@echo LONG-RAN\r\n");
+    run("@ECHO OFF\r\nCALL CHILD\r\nECHO LONG-RETURN\r\n", captured);
+    check(!strcmp(output, "echo LONG-RAN\r\nECHO LONG-RETURN\r\n"),
+          "captured 4816-byte batch runs its final line and returns");
+
+    char src[9002];
+    for(unsigned n=8191;n<=8193;n++) {
         script(src,n); run(src,0);
-        if(n<=4096) check(!old_intact && after==1,"4095/4096 execute through final label and sentinel");
+        if(n<=8192) check(!old_intact && after==1,"8191/8192 execute through final label and sentinel");
         else check(old_intact && !after && strstr(output,"Insufficient memory"),
-                   "4097 refuses visibly before DEL OLD");
+                   "8193 refuses visibly before DEL OLD");
     }
     /* A physical command split by the old cap must never execute its prefix. */
-    script(src,5000); memcpy(src+4090,"ECHO SPLIT",10); run(src,0);
+    script(src,9000); memcpy(src+8186,"ECHO SPLIT",10); run(src,0);
     check(old_intact && !after && strstr(output,"Insufficient memory"),"large split script refuses before mutation");
     grown=src;
     run("@ECHO OFF\r\nCALL CHILD\r\nDEL OLD\r\nECHO END\r\n","@ECHO OFF\r\nGROW\r\n");
     check(old_intact && !after && strstr(output,"Insufficient memory"),"CALL reload uses same visible all-or-nothing refusal");
-    puts("GREEN batch-capacity: 4095/4096 complete, 4097/5000 and CALL reload refuse before mutation");
+    puts("GREEN batch-capacity: captured 4816 and boundary files complete, oversized files refuse before mutation");
     return TEST_SUMMARY("batch-capacity");
 }

@@ -1830,7 +1830,7 @@ static int dos_open(const char *path)
 
 /* Sentinel returned by dos_read on a CF=1 (error) completion of AH=3Fh. Every
  * caller in this file passes a `count` bounded well under this value (128-byte
- * TYPE/COPY chunks, the BATCH_FILE_MAX=4096 script cap), so a genuine byte
+ * TYPE/COPY chunks, the BATCH_FILE_MAX script cap), so a genuine byte
  * count from AH=3Fh can never collide with it -- it is unambiguously "the read
  * failed", distinct from the legitimate got==0 EOF case. */
 #define DOS_READ_ERROR 0xFFFFFFFFu
@@ -4419,7 +4419,8 @@ static int run_pipeline_or_redirect(const char *line)
  * during the kernel-window crunch (env+mz+batch+mvg+device-chain); restored
  * to 4 KiB by bead initech-o0td (whole-map +0x8000 shift gives 32 KiB of
  * kernel headroom -- the extra 2 KiB .bss here is well within that budget). */
-#define BATCH_FILE_MAX  4096
+/* The DOS 3.30 COMMAND audit runs the complete 4,816-byte child batch. */
+#define BATCH_FILE_MAX  8192
 
 /* The CALL nesting cap (the repository contract: bound recursion so a self-CALL'ing .BAT cannot
  * blow the stack).  8 levels is far beyond any real DOS batch nest. */
@@ -4646,7 +4647,7 @@ static unsigned g_body_depth;
 /* Snapshot names before executing bodies: DIR, nested FOR and CALL all use
  * FINDFIRST/NEXT too. One bounded arena, reclaimed on FOR return, avoids
  * overwriting a live enumeration or putting file lists on the kernel stack. */
-static char g_for_names[BATCH_FILE_MAX];
+static char g_for_names[4096];
 static unsigned g_for_used;
 
 static void control_body(const char *line)
