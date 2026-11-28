@@ -3,9 +3,11 @@ status=0
 ref=dos/command/tests/compat33/expected
 gzip -dc "$ref/U04/data.img.gz" > build/actual.img
 cp build/actual.img build/before.img
-# Raw core return codes are recorded, not asserted as period exit-code goldens:
-# those need an AH=4Dh capture. Setup errors still fail the adapter.
-CHKDSK_REPORT_ONLY=1 build/chkdsk_host build/actual.img /Z > build/chkdsk
+CHKDSK_REPORT_ONLY=1 build/chkdsk_host build/actual.img /Z > build/chkdsk 2> build/chkdsk-status
+# The DOS 3.30 CHKZ audit batch does not take the IF ERRORLEVEL 1 branch.
+if ! grep -Fx 'chkdsk result=0' build/chkdsk-status;then
+ echo 'FAIL CHKDSK clean check after /Z returns failure' >&2;status=1
+fi
 head -3 "$ref/U04/files/UTIL.OUT" > build/expected
 head -3 build/chkdsk > build/actual
 if ! cmp build/expected build/actual;then echo 'FAIL CHKDSK captured invalid-switch prefix' >&2;status=1;fi

@@ -9,4 +9,4 @@
 +    memfree=total=655360;
      line(total," bytes total memory");line(memfree,MSG_DOS_0025);
      if(s.failed)goto failed;
-     return s.invalid_switch?-1:s.error?1:0;
+     /* DOS 3.30 CHKZ, FIXINVAL and FIXSTART skip IF ERRORLEVEL 1.

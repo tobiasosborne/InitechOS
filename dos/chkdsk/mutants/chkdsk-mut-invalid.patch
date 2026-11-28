@@ -6,7 +6,7 @@
      for(uint32_t i=0;i<a;i++)if(p[i]!=n[i])return 0;
      return wild(p+a,n+b);
  }
--static void diagnostic(const char*t){put(s.path);nl();put(t);nl();s.error=1;}
+-static void diagnostic(const char*t){put(s.path);nl();put(t);nl();if(!s.fix)s.error=1;}
  static uint32_t walk_file(uint8_t*e,uint32_t lba,uint32_t at) {
      uint32_t c=u16(e+26),previous=0,units=0,runs=0;int invalid=0,changed=0;
      zero(s.local,MAP);

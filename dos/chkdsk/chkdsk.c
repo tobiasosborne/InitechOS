@@ -102,7 +102,7 @@ static int selected(void) {
     for(uint32_t i=0;i<a;i++)if(p[i]!=n[i])return 0;
     return wild(p+a,n+b);
 }
-static void diagnostic(const char*t){put(s.path);nl();put(t);nl();s.error=1;}
+static void diagnostic(const char*t){put(s.path);nl();put(t);nl();if(!s.fix)s.error=1;}
 static uint32_t walk_file(uint8_t*e,uint32_t lba,uint32_t at) {
     uint32_t c=u16(e+26),previous=0,units=0,runs=0;int invalid=0,changed=0;
     zero(s.local,MAP);
@@ -318,7 +318,9 @@ int chkdsk_run(chkdsk_io_t *io,const char*tail) {
     if(!io->memory||io->memory(&total,&memfree))goto failed;
     line(total," bytes total memory");line(memfree,MSG_DOS_0025);
     if(s.failed)goto failed;
-    return s.invalid_switch?-1:s.error?1:0;
+    /* DOS 3.30 CHKZ, FIXINVAL and FIXSTART skip IF ERRORLEVEL 1.
+     * A switch warning or a repaired invalid cluster is not a check failure. */
+    return s.error?1:0;
 failed:
     put(MSG_DOS_0049 "\r\n");return -1;
 }

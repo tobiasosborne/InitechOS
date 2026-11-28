@@ -94,7 +94,13 @@ for format in $formats; do
   if [ "$scenario" != cross ]; then
    fsck.fat -a "$image.ref" > "$image.ref.log" 2>&1 || test "$?" = 1
   fi
-  run "$image" 'A: /F' "$log"
+  if [ "$kind" = host ] && [ "$scenario" != cross ]; then
+   CHKDSK_REPORT_ONLY=1 "$candidate" "$image" 'A: /F' < "$work/yes.txt" > "$log" 2> "$log.status"
+   # DOS 3.30 FIXINVAL and FIXSTART both skip IF ERRORLEVEL 1.
+   grep -Fxq 'chkdsk result=0' "$log.status" || fail "CHKDSK-REPAIR-STATUS $scenario"
+  else
+   run "$image" 'A: /F' "$log"
+  fi
   "$fixture" check "$image" "$scenario" "$log" "$kind"
   "$fixture" compare "$image" "$image.ref"
   if [ "$scenario" = cross ]; then
