@@ -564,3 +564,9 @@ error 6. See the genuine DOS 3.30 CLOSE3 capture and period references in
 `test-close-standard` checks slot reuse, parent handles, pinned devices,
 repeated CLOSE and file references for all five standard slots. `smoke-oem`
 runs the flat CLOSE3 adaptation on both emulators.
+
+The tier 0 budget is 90 CPU seconds (`TEST_BUDGET_S` in `tests.mk`). The
+126 gates use about 55 s of CPU on a quiet machine, but under a top-level
+`make -j16 test` beside other agents' emulators the same suite was
+measured at 61 s and 75 s of CPU on 2026-11-28, so a 60 s budget turned
+landings red at random. Bring it back down when the suite is sped up.

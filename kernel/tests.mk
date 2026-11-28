@@ -1,6 +1,6 @@
 # 86 gates, 11,214 checks including the FAT differential: about 24 s
-# alone, more when every component runs at once.
-TEST_BUDGET_S := 60
+# alone, more when every component runs at once. Budget: kernel/README.md.
+TEST_BUDGET_S := 90
 include tests/tools.mk
 EXTRA_HOST_TESTS += tool_test_config_apply
 tool_test_config_apply_SRCS := tests/test_config_apply.c tests/disk/blockdev_file.c sysinit.c config_sys.c fat12.c sft.c int21.c devices.c fileio_fat.c psp.c mcb.c irq.c
