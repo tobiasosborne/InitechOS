@@ -2,11 +2,11 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4947,7 +4947,7 @@
+@@ -5087,7 +5087,7 @@
      }
  #endif
      depth--;
--    g_master_env=env;
+-    env_restore_parent(env);
 +    (void)env;
      g_shell_exit=exit;g_shell_permanent=saved_permanent;
      g_prompt_echo_on=echo_on;

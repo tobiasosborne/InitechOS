@@ -4977,6 +4977,36 @@ static void command_prompt_loop(void);
 #endif
 
 #if !defined(COMMAND_BATCH_HOST) || defined(COMMAND_BATCH_FAT_HOST)
+/* MS-DOS 3.3 Reference p.47: COMMAND /E:nnnnn ranges from 160 to 32768. */
+#define COMMAND_ENV_OPTION_MAX 32768
+#define COMMAND_DEPTH_MAX 8u
+
+/* Each active secondary keeps its parent's environment here, innermost
+ * last, rather than a whole store on the caller's stack. Each parent holds
+ * at most ENV_STORE_MAX bytes. */
+_Static_assert(ENV_STORE_MAX + 1 + 2 + CMD_LINE_MAX <= ENV_BLOCK_CAP,
+               "a full store, its terminator, count word and path fit EXEC");
+static uint8_t g_env_parents[COMMAND_DEPTH_MAX * ENV_STORE_MAX];
+static int g_env_parents_used;
+typedef struct { int at, len, capacity; } env_parent_t;
+
+static env_parent_t env_save_parent(void)
+{
+    env_parent_t p = { g_env_parents_used, g_master_env.len, g_master_env.capacity };
+    for (int i = 0; i < p.len; i++) g_env_parents[p.at + i] = g_master_env.buf[i];
+    g_env_parents_used += p.len;
+    return p;
+}
+
+static void env_restore_parent(env_parent_t p)
+{
+    for (int i = 0; i < p.len; i++) g_master_env.buf[i] = g_env_parents[p.at + i];
+    for (int i = p.len; i < g_master_env.len; i++) g_master_env.buf[i] = 0;
+    g_master_env.len = p.len;
+    g_master_env.capacity = p.capacity;
+    g_env_parents_used = p.at;
+}
+
 /* Reference pp.46-47: /C creates a private environment, executes one command
  * and returns automatically. Existing redirect/pipe scopes save and restore
  * the parent's handles; EXIT and batch control are isolated as well. */
@@ -5003,7 +5033,7 @@ static void builtin_command(const char *arg)
             if (*arg < '0' || *arg > '9') goto invalid;
             env_bytes = 0;
             while (*arg >= '0' && *arg <= '9') {
-                if (env_bytes <= ENV_ARENA_MAX + 1)
+                if (env_bytes <= COMMAND_ENV_OPTION_MAX)
                     env_bytes = env_bytes * 10 + (*arg - '0');
                 ++arg;
             }
@@ -5018,14 +5048,17 @@ static void builtin_command(const char *arg)
     if (!tail) goto invalid;
 #endif
     if (env_bytes >= 0 &&
-        (env_bytes <= g_master_env.len || env_bytes > ENV_ARENA_MAX + 1)) {
+        (env_bytes <= g_master_env.len || env_bytes > COMMAND_ENV_OPTION_MAX)) {
         dos_error(MSG_DOS_0031 "\r\n$");
         return;
     }
-    if(depth>=8){dos_print(MSG_DOS_0035 "\r\n$");return;}
-    env_store_t env=g_master_env;
-    /* DOS 3.30 secondary-options capture: /E limits the child's SETs. */
-    if (env_bytes >= 0) g_master_env.capacity = env_bytes - 1;
+    if(depth>=COMMAND_DEPTH_MAX){dos_print(MSG_DOS_0035 "\r\n$");return;}
+    env_parent_t env=env_save_parent();
+    /* DOS 3.30 secondary-options capture: /E limits the child's SETs, and a
+     * 1024-byte child holds six 93-byte SETs. The shell gives at most
+     * ENV_STORE_MAX bytes. */
+    if (env_bytes >= 0)
+        g_master_env.capacity = (env_bytes > ENV_STORE_MAX ? ENV_STORE_MAX + 1 : env_bytes) - 1;
     int exit=g_shell_exit,saved_permanent=g_shell_permanent;
     int echo_on=g_prompt_echo_on;
     batch_frame_t *frame=g_batch_frame;
@@ -5054,7 +5087,7 @@ static void builtin_command(const char *arg)
     }
 #endif
     depth--;
-    g_master_env=env;
+    env_restore_parent(env);
     g_shell_exit=exit;g_shell_permanent=saved_permanent;
     g_prompt_echo_on=echo_on;
     g_errorlevel=0u;g_batch_frame=frame;

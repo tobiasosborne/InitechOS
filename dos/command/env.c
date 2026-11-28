@@ -113,7 +113,7 @@ void env_init(env_store_t *e)
     e->len = 0;
     e->capacity = ENV_ARENA_MAX;
     /* Zero the buffer for determinism (Rule 11) -- no stale bytes. */
-    for (int i = 0; i < ENV_ARENA_MAX; i++) {
+    for (int i = 0; i < ENV_STORE_MAX; i++) {
         e->buf[i] = 0;
     }
 }

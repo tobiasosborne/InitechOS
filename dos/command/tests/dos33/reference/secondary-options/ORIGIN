@@ -5,3 +5,8 @@ Install environment.txt as TESTE.BAT and batch.txt as PROBE.BAT with
 CRLF line endings. The result records the environment refusal and the
 compact and separate /C command tails. The two SET operands are identical
 in both secondary processors.
+
+A second capture on the same media added ECHO HUGE and
+COMMAND /E:1024 /C TESTF.BAT, with environment-large.txt as TESTF.BAT.
+Its six 93-byte SETs fit in the 1024-byte child and DOS printed
+HUGE-ACCEPTED. The rest of the transcript was unchanged.

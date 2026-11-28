@@ -41,6 +41,12 @@
  * The serialize output therefore fits in <= 513 bytes (arena + 1 extra NUL). */
 #define ENV_ARENA_MAX 512
 
+/* Bytes a store can hold. A secondary COMMAND /E:nnnnn takes up to 32768
+ * (MS-DOS 3.3 Reference p.47); the shell can give a child what fits the
+ * 4096-byte EXEC environment block with its count word and a full program
+ * path, so a larger /E is honoured up to this size. */
+#define ENV_STORE_MAX 3840
+
 /* The environment store: a fixed-capacity packed buffer of ASCIIZ entries of
  * the form "NAME=VALUE\0".  `len` is the number of bytes currently occupied
  * (does NOT include the final extra NUL terminator; that is appended only by
@@ -50,7 +56,7 @@
  * Internal invariant: no duplicate names (env_set enforces UPSERT); names are
  * always stored upper-cased (DOS upcases environment variable names). */
 typedef struct {
-    uint8_t buf[ENV_ARENA_MAX];
+    uint8_t buf[ENV_STORE_MAX];
     int     len;
     int     capacity;
 } env_store_t;
