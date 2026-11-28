@@ -51,7 +51,7 @@ for step in 'multi|MO-DONE' 'fcbx|FCBX-END' 'nest|EXEC-NESTED-RC=7 PSP-RESTORED 
  bochs_keys="$bochs_keys,$(session_keys "$command")"
  [ -z "$done" ] || bochs_keys="$bochs_keys,W$done"
 done
-make -s -f factory/desktop-tools.mk build/factory/desktop-bochs > "$out/frontend.log" 2>&1 || fail 'Bochs journey frontend build'
+make -s -f factory/desktop-tools.mk desktop-bochs > "$out/frontend.log" 2>&1 || fail 'Bochs journey frontend build'
 finish=$(printf '\nprogramsdone\r\n')
 printf 'hello\r\n' > "$out/expected-out.txt"
 . factory/smoke-emulators.sh
