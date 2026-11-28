@@ -333,9 +333,10 @@ int cmd_path_candidates(const char *word, const char *path_value,
  *   (beads initech-bsy.8).  OUTPUT `>`/`>>` landed with initech-hsct; INPUT `<`
  *   is initech-bsy.7 (this increment).
  *
- * SEMANTICS (kept deliberately simple -- this shell has no quoting):
+ * SEMANTICS:
  *   - Two independent scans. Multiple output operators are refused.
  *     For multiple input operators, the last wins.
+ *   - Redirect characters inside double quotes remain part of the operand.
  *   - `>>` (two adjacent '>') is APPEND; a single `>` is CREATE/TRUNCATE.  `<`
  *     has no `<<` form (a `<<` is two lone `<`, the last wins).
  *   - The TARGET is the next whitespace-delimited token after the operator,

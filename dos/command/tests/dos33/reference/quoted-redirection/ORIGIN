@@ -1,0 +1,5 @@
+Packard Bell OEM MS-DOS 3.30 with FIND.EXE from the Microsoft 3.30
+PCjs disk set documented in command/tests/compat33/UTILITY-MEDIA.md.
+The COMMAND review and the repeated capture use the commands in batch.txt.
+KEEP.TXT retains its original bytes. FIND writes the matching line to MATCHES.
+The two readbacks in this directory are stored with LF line endings.

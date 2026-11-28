@@ -1473,7 +1473,7 @@ static int redir_is_space(char c)
  * no `<<`).  It reproduces the original hsct single-`>` split byte-for-byte when
  * called with opch='>' -- the OUTPUT parse oracle is unchanged.
  *
- *   - Scans left to right; repeated output redirection is rejected.
+ *   - Counts operators outside double quotes and rejects repeated output.
  *   - The TARGET token is the next whitespace-delimited run after the operator,
  *     stopping at EITHER redirect char ('>' or '<') so a combined `cmd<in>out`
  *     splits cleanly regardless of order.
@@ -1508,8 +1508,10 @@ static int redir_strip_one(const char *line, char opch, int allow_append,
     int op_len = 0;
     {
         uint32_t i = 0;
+        int quoted = 0;
         while (line[i] != '\0') {
-            if (line[i] == opch) {
+            if (line[i] == '"') quoted = !quoted;
+            if (!quoted && line[i] == opch) {
                 if (allow_append && op_at >= 0) return -1;
                 op_at = (int)i;
                 if (allow_append && line[i + 1u] == opch) {

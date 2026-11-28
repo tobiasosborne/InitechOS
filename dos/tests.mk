@@ -393,3 +393,9 @@ smoke: smoke-verify
 smoke-verify:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/verify.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/verify.XXXXXX")"
+
+.PHONY: smoke-quoted-redirection
+smoke: smoke-quoted-redirection
+smoke-quoted-redirection:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/quoted-redirection.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/quoted-redirection.XXXXXX")"
