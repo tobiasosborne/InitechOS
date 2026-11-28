@@ -46,16 +46,28 @@ run_emulator() {
  for file in PARTS.DBF BASE.DBF INVOICE.DBF IDXTEST.PRG Y2KACCT.PRG VALUES.PRG SHORT.DBF STALE.NDX C21TEST.PRG; do
   mcopy -i "$disk" "$dir/$file" ::APPS/
  done
- build/factory/keys < "$src/tests/smoke/session.txt" > "$dir/keys"
- extra=
- if [ "$emulator" = bochs ]; then
-  extra='--vga-ext none --rtc-time0 699440400'
+ session=$src/tests/smoke/session.txt
+ if [ "$emulator" = qemu ]; then
+  # PROMPT $p$g$_ ends the visible DOS prompt with CRLF for QEMU's
+  # line-based trace wait. Only a prompt after END C21 counts.
+  {
+   sed '/^initbase$/,$d' "$session" | build/factory/keys
+   printf '%s\n' 'p,r,o,m,p,t,spc,shift-4,p,shift-4,g,shift-4,shift-minus,ret'
+   sed -n '/^initbase$/,/^quit$/p' "$session" | build/factory/keys
+  } > "$dir/key-stages"
+  paste -sd , "$dir/key-stages" > "$dir/keys"
+  sed '1,/^quit$/d' "$session" | build/factory/keys > "$dir/echo-keys"
+  echo_trace=$(sed 's/^/k/; s/,/,k/g' "$dir/echo-keys")
+  printf '%s,%s\n' 'WEND C21.,WA:\APPS>' "$echo_trace" > "$dir/trace"
+  set -- --mouse "$(cat "$dir/trace")"
+ else
+  build/factory/keys < "$session" > "$dir/keys"
+  set -- --vga-ext none --rtc-time0 699440400
   # Pace commands, but leave the final completion command terminal. The
   # driver correctly rejects any trace step after its quit marker is seen.
   pause=${IBASE_SMOKE_WAIT_MS:-1000}
   sed -i "s/ret/ret,w$pause/g; s/,w$pause\$//" "$dir/keys"
-  # Child teardown can outlast the ordinary command gap on Bochs. Its DOS
-  # input reset discards an echo queued before COMMAND.COM resumes.
+  # Child teardown can outlast the ordinary command gap on Bochs.
   exit_pause=5000
   if [ "$pause" -gt "$exit_pause" ]; then exit_pause=$pause; fi
   sed -i "s/q,u,i,t,ret,w$pause,/q,u,i,t,ret,w$exit_pause,/" "$dir/keys"
@@ -65,7 +77,7 @@ run_emulator() {
  marker=initechbasesmokecomplete
  if [ "$emulator" = qemu ]; then marker=$(printf '\ninitechbasesmokecomplete\r'); fi
  if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" \
-    $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \
+    "$@" --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \
     --expect "$marker" --quit-after "$marker" \
     --timeout-ms "${IBASE_SMOKE_TIMEOUT_MS:-90000}" --name run --out "$dir" > "$dir/stdout" 2> "$dir/report"; then
   cat "$dir/report"; fail "$emulator session incomplete";
