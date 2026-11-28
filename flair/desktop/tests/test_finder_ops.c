@@ -198,7 +198,7 @@ static int m_trash_name(void *u, const char *n, finder_dir_id_t dir, char *out)
     strncpy(out, n, 5); strcat(out, "001");
     return 0;
 }
-static int m_trash_dir(void *u) { return ((mock_t *)u)->no_trash ? -1 : CL_TRASH; }
+static int m_trash_dir(void *u, unsigned drive) { (void)drive; return ((mock_t *)u)->no_trash ? -1 : CL_TRASH; }
 static int m_unlink(void *u, const char *n, finder_dir_id_t dir)
 {
     mock_t *m = (mock_t *)u;

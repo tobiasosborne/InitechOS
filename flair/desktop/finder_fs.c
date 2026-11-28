@@ -119,15 +119,16 @@ int finder_fat_trash_name(void *fs_user, const char *name83,
                                                   name83, out));
 }
 
-int finder_trash_reserve(void)
+int finder_trash_reserve(finder_dir_id_t dir)
 {
+    finder_fs_target_t t;
     desktop_trash_state_t state = DESKTOP_TRASH_OK;
     int rc;
 
-    if (!finder_fat_geometry_ok()) return FAT12_ERR_NULL;
-    rc = finder_storage_write_check(g_finder_vol);
+    if (!finder_fs_target(dir, &t)) return FAT12_ERR_NULL;
+    rc = finder_storage_write_check(t.vol);
     if (rc != FAT12_OK) return rc;
-    rc = desktop_trash_ensure(g_finder_vol, g_finder_fat, g_finder_fat_len,
+    rc = desktop_trash_ensure(t.vol, t.fat, t.fat_len,
                               g_finder_dirbuf, g_finder_clusbuf, &state);
     if (rc == FAT12_OK) {
         if (state == DESKTOP_TRASH_CREATE) serial_puts("TRASH-CREATE\n");
@@ -247,11 +248,6 @@ int finder_fat_dirent_cb(const dir_entry_t *e, void *user)
     return fe->cb(&d, fe->user);
 }
 
-int finder_fat_geometry_ok(void)
-{
-    return finder_fs_geometry(g_finder_vol);
-}
-
 int finder_fat_enumerate(void *fs_user, finder_dir_id_t dir_start,
                                 finder_enum_cb cb, void *cb_user)
 {
@@ -271,20 +267,23 @@ int finder_fat_enumerate(void *fs_user, finder_dir_id_t dir_start,
     return (rc < 0) ? -1 : rc;
 }
 
-/* The Trash stays on the system volume until per-volume Trash (step 11). */
-int finder_fat_trash_dir(void *fs_user)
+/* Inside Macintosh: Macintosh Toolbox Essentials, Finder Interface ch. 7:
+ * each mounted volume has its own Trash directory at its root. */
+int finder_fat_trash_dir(void *fs_user, unsigned drive)
 {
+    finder_fs_target_t t;
+    finder_dir_id_t root = drive == g_finder_drive ? 0u : finder_dir_make(drive, 0u);
     dir_entry_t e;
     uint32_t slot = 0u;
     (void)fs_user;
-    if (!finder_fat_geometry_ok()) return -1;
-    if (fat12_find_slot_in(g_finder_vol, g_finder_fat, g_finder_fat_len, 0u,
+    if (!finder_fs_target(root, &t)) return -1;
+    if (fat12_find_slot_in(t.vol, t.fat, t.fat_len, 0u,
                            g_finder_dirbuf, DESKTOP_TRASH_NAME, &e, &slot) !=
         FAT12_OK)
         return -1;
     if ((e.attribute & DIR_ATTR_DIRECTORY) == 0u || e.start_cluster < 2u)
         return -1;
-    return (int)e.start_cluster;
+    return (int)(root | e.start_cluster);
 }
 
 const finder_fs_t g_finder_fs_binding __attribute__((unused)) = {

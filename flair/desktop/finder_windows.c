@@ -711,6 +711,7 @@ typedef struct fw_enum_ctx {
     uint16_t         dropped;
     uint32_t         count;
     uint8_t          count_only;
+    finder_dir_id_t  container;
 } fw_enum_ctx_t;
 
 /* THE CALLBACK. Everything it needs is copied out HERE, during the call: the
@@ -759,6 +760,7 @@ static int fw_enum_cb(const finder_dirent_t *e, void *user)
     ec->w->meta[idx].date = e->date;
     ec->w->meta[idx].time = e->time;
     ec->w->meta[idx].attribute = e->attribute;
+    ec->w->meta[idx].container = ec->container;
 
     /* A FOLDER's own cluster is the key its window (and its kind=4 view record)
      * live under; everything else keeps 0 (design F3.3). */
@@ -887,6 +889,60 @@ finder_win_status_t finder_win_reserve_icons(finder_shell_t *sh, int slot,
     return FINDER_WIN_OK;
 }
 
+int finder_shell_trash_dir(const finder_shell_t *sh, finder_dir_id_t dir)
+{
+    if (!sh || !sh->have_fs || !sh->fs.trash_dir) return -1;
+    return sh->fs.trash_dir(sh->fs.user, finder_dir_drive(dir, sh->volume_drive));
+}
+
+int finder_shell_trash_origin(const finder_shell_t *sh, finder_dir_id_t dir,
+                              const char *name83)
+{
+    unsigned drive = finder_dir_drive(dir, sh->volume_drive);
+    for (uint16_t i = 0; i < sh->n_origins; i++)
+        if (finder_dir_drive(sh->origins[i].dir_start, sh->volume_drive) == drive &&
+            fw_ieq(sh->origins[i].name83, name83))
+            return (int)i;
+    return -1;
+}
+
+finder_dir_id_t finder_win_item_dir(const finder_window_t *w, int idx)
+{
+    return w->is_trash ? w->meta[idx].container : w->dir_start;
+}
+
+/* A single Trash window lists each represented volume's physical Trash. */
+static unsigned fw_trash_dirs(const finder_shell_t *sh,
+                              finder_dir_id_t dirs[FINDER_VOLUME_SLOTS])
+{
+    unsigned n = 0;
+    int dir = finder_shell_trash_dir(sh, 0u);
+    if (dir >= 0) dirs[n++] = (finder_dir_id_t)dir;
+    for (unsigned i = 0; i < sh->desk.n && n < FINDER_VOLUME_SLOTS; i++) {
+        const finder_desk_icon_t *ic = &sh->desk.icons[i];
+        if (ic->kind != FINDER_ICON_VOLUME ||
+            finder_dir_drive(ic->dir_start, sh->volume_drive) == sh->volume_drive)
+            continue;
+        dir = finder_shell_trash_dir(sh, ic->dir_start);
+        if (dir >= 0) dirs[n++] = (finder_dir_id_t)dir;
+    }
+    return n;
+}
+
+static int fw_enumerate_view(finder_shell_t *sh, fw_enum_ctx_t *ec)
+{
+    finder_dir_id_t dirs[FINDER_VOLUME_SLOTS];
+    unsigned n = 1;
+    dirs[0] = ec->w->dir_start;
+    if (ec->w->is_trash) n = fw_trash_dirs(sh, dirs);
+    for (unsigned i = 0; i < n; i++) {
+        ec->container = dirs[i];
+        int rc = sh->fs.enumerate(sh->fs.user, dirs[i], fw_enum_cb, ec);
+        if (rc < 0) return rc;
+    }
+    return 0;
+}
+
 finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
 {
     fw_enum_ctx_t ec;
@@ -902,7 +958,7 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
      * allocation refusal preserves the old view; no unreachable tail. */
     fw_zero(&ec, sizeof ec);
     ec.w = w; ec.count_only = 1u;
-    rc = sh->fs.enumerate(sh->fs.user, w->dir_start, fw_enum_cb, &ec);
+    rc = fw_enumerate_view(sh, &ec);
     if (rc < 0) return FINDER_WIN_ERR_ENUM;
     if (ec.count > 65535u) return FINDER_WIN_ERR_MEMORY;
     {
@@ -918,7 +974,7 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
     ec.w = w;
     ec.dropped = 0u;
     ec.count = 0u; ec.count_only = 0u;
-    rc = sh->fs.enumerate(sh->fs.user, w->dir_start, fw_enum_cb, &ec);
+    rc = fw_enumerate_view(sh, &ec);
     if (rc < 0) return FINDER_WIN_ERR_ENUM;
 
     w->dropped = ec.dropped;
@@ -938,10 +994,10 @@ finder_win_status_t finder_win_populate(finder_shell_t *sh, int slot)
     return FINDER_WIN_OK;
 }
 
-finder_win_status_t finder_win_open(finder_shell_t *sh, finder_dir_id_t parent,
-                                    finder_dir_id_t dir_start,
-                                    const char *name83, uint8_t is_root,
-                                    int *out_slot, int *out_singleton)
+static finder_win_status_t fw_open(finder_shell_t *sh, finder_dir_id_t parent,
+                                   finder_dir_id_t dir_start, const char *name83,
+                                   uint8_t is_root, uint8_t is_trash,
+                                   int *out_slot, int *out_singleton)
 {
     finder_window_t *w;
     rgn_rect_t frame, content;
@@ -1006,7 +1062,7 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, finder_dir_id_t parent,
 
     w->open      = 1u;
     w->is_root   = is_root ? 1u : 0u;
-    w->is_trash  = 0u;       /* finder_win_open_trash sets it after the build */
+    w->is_trash  = is_trash;
     w->dir_start = dir_start;
     w->parent    = is_root ? 0u : parent;     /* the identity (Sec 10d)     */
     fw_copy83(w->name83, is_root ? "" : name83);
@@ -1050,26 +1106,40 @@ finder_win_status_t finder_win_open(finder_shell_t *sh, finder_dir_id_t parent,
     return FINDER_WIN_OK;
 }
 
+finder_win_status_t finder_win_open(finder_shell_t *sh, finder_dir_id_t parent,
+                                    finder_dir_id_t dir_start,
+                                    const char *name83, uint8_t is_root,
+                                    int *out_slot, int *out_singleton)
+{
+    return fw_open(sh, parent, dir_start, name83, is_root, 0u, out_slot, out_singleton);
+}
+
 /* THE TRASH WINDOW (bead initech-tdnl.39; finder_windows.h Sec 10). */
 finder_win_status_t finder_win_open_trash(finder_shell_t *sh, int *out_slot,
                                           int *out_singleton)
 {
     finder_win_status_t st;
+    finder_dir_id_t dirs[FINDER_VOLUME_SLOTS];
     int td, slot = -1, single = 0;
 
     if (out_slot != (int *)0) *out_slot = -1;
     if (out_singleton != (int *)0) *out_singleton = 0;
     if (sh == (finder_shell_t *)0 || !sh->have_fs ||
-        sh->fs.trash_dir == (int (*)(void *))0)
+        !sh->fs.trash_dir)
         return FINDER_WIN_ERR_NULL;
-    td = sh->fs.trash_dir(sh->fs.user);
-    if (td < 0) return FINDER_WIN_ERR_NOTRASH;          /* fail loud, contract */
-    st = finder_win_open(sh, 0u /* \TRASH lives in the root */, (finder_dir_id_t)td,
-                         FINDER_SVC_TRASH_NAME, 0u, &slot, &single);
+    td = finder_shell_trash_dir(sh, 0u);
+    if (td < 0 && fw_trash_dirs(sh, dirs) == 0) return FINDER_WIN_ERR_NOTRASH;
+    /* Use the system Trash's existing view record when it is available. */
+    finder_dir_id_t key = td >= 0 ? (finder_dir_id_t)td : FINDER_DIR_TRASH;
+    for (int i = 0; i < sh->window_cap; i++)
+        if (sh->windows[i].open && sh->windows[i].is_trash) {
+            key = sh->windows[i].dir_start;
+            break;
+        }
+    st = fw_open(sh, 0u, key, FINDER_SVC_TRASH_NAME, 0u, 1u, &slot, &single);
     if (st != FINDER_WIN_OK) return st;
-    if (!single) {
-        /* A fresh window: title it by the icon it opened from. A raised one
-         * already carries both. */
+    if (!single || !sh->windows[slot].is_trash) {
+        /* Title the union by the icon it opened from. */
         sh->windows[slot].is_trash = 1u;
         SetWTitle(sh->wm, &sh->windows[slot].rec, FINDER_WIN_TRASH_TITLE);
     }
@@ -1112,6 +1182,7 @@ finder_win_status_t finder_win_check_live(finder_shell_t *sh, int slot)
     if (!fw_slot_ok(sh, slot)) return FINDER_WIN_ERR_NULL;
     w = &sh->windows[slot];
     if (w->is_root || w->dir_start == 0u) return FINDER_WIN_OK;
+    if (w->is_trash && w->dir_start == FINDER_DIR_TRASH) return FINDER_WIN_OK;
     if (!sh->have_fs ||
         sh->fs.dir_ident == (int (*)(void *, finder_dir_id_t, finder_dir_id_t, const char *))0)
         return FINDER_WIN_ERR_NULL;
@@ -1361,6 +1432,7 @@ int finder_shell_save_view(finder_shell_t *sh, int slot)
 
     if (!fw_slot_ok(sh, slot)) return 0;
     w = &sh->windows[slot];
+    if (w->dir_start == FINDER_DIR_TRASH) return 0;
     frame = WindowFrameRect(&w->rec);
     if (frame.left < 0) frame.left = 0;
     if (frame.top < 0) frame.top = 0;
@@ -1404,7 +1476,7 @@ int fw_trash_ok(const finder_shell_t *sh)
 {
     return sh != (const finder_shell_t *)0 && sh->have_fs &&
            sh->fs.enumerate != (int (*)(void *, finder_dir_id_t, finder_enum_cb, void *))0 &&
-           sh->fs.trash_dir != (int (*)(void *))0;
+           sh->fs.trash_dir != 0;
 }
 
 int finder_shell_recount_trash(finder_shell_t *sh)
@@ -1413,13 +1485,14 @@ int finder_shell_recount_trash(finder_shell_t *sh)
     uint16_t items = 0u;
     uint32_t bytes = 0u;
     uint8_t  was, now;
-    int d = 0, td;
+    finder_dir_id_t dirs[FINDER_VOLUME_SLOTS];
     fw_item_t it;
 
     if (sh == (finder_shell_t *)0) return 0;
-    td = fw_trash_ok(sh) ? sh->fs.trash_dir(sh->fs.user) : -1;
-    if (td >= 0) {
-        st[0].dir  = (finder_dir_id_t)td;
+    unsigned n = fw_trash_ok(sh) ? fw_trash_dirs(sh, dirs) : 0u;
+    for (unsigned i = 0; i < n; i++) {
+        int d = 0;
+        st[0].dir  = dirs[i];
         st[0].next = 0u;
         while (d >= 0) {
             if (fw_item(sh, st[d].dir, (int)st[d].next, &it) <= 0) { d--; continue; }
@@ -1510,7 +1583,7 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
     int opened = 0;
     const finder_desk_icon_t *app = (const finder_desk_icon_t *)0;
     int apps = 0;
-    finder_dir_id_t dir;
+    finder_dir_id_t app_dir = 0;
     if (slot < 0) {
         /* No Finder window in front: Open acts on the DESKTOP selection
          * (bead initech-xrnwk; Users Guide V6.0 printed p.186 / PDF p.206,
@@ -1529,13 +1602,12 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
         sh->last.open_trash  = trash;
         return;
     }
-    dir = sh->windows[slot].dir_start;
     for (int i = 0; i < (int)sh->windows[slot].view.n; i++) {
         const finder_desk_icon_t *ic = &sh->windows[slot].view.icons[i];
         if (!ic->selected) continue;
         if (ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
         int nslot = -1, singleton = 0;
-        finder_win_status_t st = finder_win_open(sh, dir,
+        finder_win_status_t st = finder_win_open(sh, finder_win_item_dir(&sh->windows[slot], i),
                                                  ic->dir_start, ic->name,
                                                  0u, &nslot, &singleton);
         fw_outcome(sh, id, st, nslot);
@@ -1548,7 +1620,10 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
         /* MUTANT FINDER_MUT_OPEN_NO_APP (contract): Open is lit for the
          * application but names no launch -- the L004 defect, half-fixed. */
         else if (ic->kind == (uint8_t)FINDER_ICON_APP) {
-            if (app == (const finder_desk_icon_t *)0) app = ic;
+            if (!app) {
+                app = ic;
+                app_dir = finder_win_item_dir(&sh->windows[slot], i);
+            }
             apps++;
         }
     }
@@ -1556,7 +1631,7 @@ static void fw_do_open(finder_shell_t *sh, finder_cmd_id id, int slot)
     if (!opened) fw_outcome(sh, id, FINDER_WIN_OK, slot);
     if (app != (const finder_desk_icon_t *)0) {
         sh->last.launch     = (uint16_t)apps;
-        sh->last.launch_dir = dir;
+        sh->last.launch_dir = app_dir;
         fw_copy83(sh->last.launch83, app->name);
     }
 }
@@ -1779,10 +1854,11 @@ void finder_shell_sync_ctx(finder_shell_t *sh)
                 ))
                 sh->ctx->selection_openable = 1u;
         if(sh->windows[slot].is_trash)
-            for(int i=0;i<v->n;i++) if(v->icons[i].selected)
-                for(int k=0;k<sh->n_origins;k++)
-                    if(fw_ieq(v->icons[i].name,sh->origins[k].name83))
-                        sh->ctx->selection_putaway=1u;
+            for (int i = 0; i < v->n; i++)
+                if (v->icons[i].selected &&
+                    finder_shell_trash_origin(sh, finder_win_item_dir(&sh->windows[slot], i),
+                                              v->icons[i].name) >= 0)
+                    sh->ctx->selection_putaway = 1u;
     } else {
         /* The desktop's own selection (bead initech-xrnwk): a selected disk
          * or Trash is opened by File > Open exactly as by a double-click. */
@@ -1988,13 +2064,14 @@ finder_desk_t *finder_shell_desk(finder_shell_t *sh)
  * event handling, enumeration callbacks and state remain resident. */
 #include "finder_windows_private.h"
 #include "chicago12.h"
-/* 1 when `name83` is an item of `dir` (case-insensitive 8.3). */
+/* Keep an origin if the item exists or the directory could not be read. */
 static int fw_has_item(finder_shell_t *sh, finder_dir_id_t dir, const char *name83)
 {
     fw_item_t it;
-    for (int n = 0; fw_item(sh, dir, n, &it) > 0; n++)
+    int rc;
+    for (int n = 0; (rc = fw_item(sh, dir, n, &it)) > 0; n++)
         if (fw_ieq(it.name, name83)) return 1;
-    return 0;
+    return rc != 0;
 }
 
 /* RETIRE every view of directory `dir`, which the purge has just REMOVED
@@ -2125,7 +2202,7 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
                                              uint8_t *out_db_dirty)
 {
     uint16_t kept = 0u;
-    int td;
+    finder_dir_id_t dirs[FINDER_VOLUME_SLOTS];
     fw_purge_t p;
 
     if (out_purged != 0)   *out_purged = 0u;
@@ -2136,17 +2213,22 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
         sh->fs.unlink == (int (*)(void *, const char *, finder_dir_id_t))0 ||
         sh->fs.rmdir == (int (*)(void *, const char *, finder_dir_id_t))0)
         return FINDER_WIN_ERR_NULL;
-    td = sh->fs.trash_dir(sh->fs.user);
-    if (td < 0) return FINDER_WIN_ERR_NOTRASH;
+    unsigned n = fw_trash_dirs(sh, dirs);
+    if (n == 0) return FINDER_WIN_ERR_NOTRASH;
 
     fw_zero(&p, (uint32_t)sizeof p);
-    fw_purge_tree(sh, (finder_dir_id_t)td, &p);
+    for (unsigned i = 0; i < n; i++) fw_purge_tree(sh, dirs[i], &p);
 
-    /* The kind=5 origins of purged items are stale; a refused item keeps its
-     * own (it is still in \TRASH and can still be put back). */
-    for (uint16_t i = 0u; i < sh->n_origins; i++)
-        if (fw_has_item(sh, (finder_dir_id_t)td, sh->origins[i].name83))
-            sh->origins[kept++] = sh->origins[i];
+    /* Remove an origin only when its own Trash was scanned and the item
+     * is gone. Another volume may still have a file with the same name. */
+    for (uint16_t i = 0u; i < sh->n_origins; i++) {
+        finder_origin_rec_t *origin = &sh->origins[i];
+        unsigned drive = finder_dir_drive(origin->dir_start, sh->volume_drive);
+        unsigned k = 0;
+        while (k < n && finder_dir_drive(dirs[k], sh->volume_drive) != drive) k++;
+        if (k == n || fw_has_item(sh, dirs[k], origin->name83))
+            sh->origins[kept++] = *origin;
+    }
     if ((kept != sh->n_origins || p.views_dropped) && out_db_dirty != (uint8_t *)0)
         *out_db_dirty = 1u;
     sh->n_origins = kept;
@@ -2156,7 +2238,10 @@ finder_win_status_t finder_shell_empty_trash(finder_shell_t *sh,
      * folder stayed for a locked descendant, its removed children must not
      * stay on as icons naming freed clusters). A retired slot is closed and
      * no longer matches. */
-    p.touched |= fw_slots_of(sh, (finder_dir_id_t)td);
+    for (int i = 0; i < sh->window_cap; i++)
+        if (sh->windows[i].open && sh->windows[i].is_trash)
+            p.touched |= 1u << i;
+    for (unsigned i = 0; i < n; i++) p.touched |= fw_slots_of(sh, dirs[i]);
     for (int i = 0; i < sh->window_cap; i++)
         if ((p.touched & (1u << i)) != 0u && sh->windows[i].open &&
             finder_win_populate(sh, i) == FINDER_WIN_OK)
@@ -2214,7 +2299,7 @@ finder_win_status_t finder_shell_delete_item(finder_shell_t *sh, int slot,
     /* The view must still BE its folder (Sec 10d). */
     st = finder_win_check_live(sh, slot);
     if (st != FINDER_WIN_OK) return st;
-    dir = w->dir_start;
+    dir = finder_win_item_dir(w, idx);
     fw_copy83(name, w->view.icons[idx].name);
     if (finder_win_is_service(dir, name)) return FINDER_WIN_ERR_SERVICE;
     /* The DISK says what the item is, not the icon (it may predate a lock). */
@@ -2444,7 +2529,7 @@ int finder_file_info(finder_shell_t *sh,finder_file_info_t *out)
     if(ic->kind!=FINDER_ICON_FILE&&ic->kind!=FINDER_ICON_APP)return 0;
     if(finder_win_check_live(sh,slot)!=FINDER_WIN_OK)return 0;
     fw_info_scan_t scan;fw_zero(&scan,sizeof scan);scan.name=ic->name;
-    if(sh->fs.enumerate(sh->fs.user,w->dir_start,fw_info_entry,&scan)!=0||scan.matches!=1)return 0;
+    if(sh->fs.enumerate(sh->fs.user,finder_win_item_dir(w, selected),fw_info_entry,&scan)!=0||scan.matches!=1)return 0;
     *out=scan.info;return 1;
 }
 static char *fw_info_number(char *dst,uint32_t n)

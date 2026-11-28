@@ -244,7 +244,18 @@ binding for an untagged identity, fileio_fat_drive_volume otherwise) before
 the 16-bit cluster is extracted, and enumerated children carry their parent's
 volume. The write check, geometry check and FAT walk all use that volume. A
 move between volumes is refused before any write; copying between volumes is
-plan step 12, and the Trash stays on the system volume until step 11. 
+plan step 12.
+
+A Trash drop moves the item to \TRASH on its own disk, creating that
+directory on demand. The common window lists the mounted Trash directories
+(Inside Macintosh: Macintosh Toolbox Essentials, Finder Interface ch. 7).
+Each entry retains its containing directory so Put Away, dragging out, and
+Get Info resolve the selected disk even for identical names. Empty Trash
+visits every represented volume and retains origins of items still present.
+Each volume keeps sixteen origin records in its own DESKTOP.DB; the common
+Trash position belongs to the system file. The mtools Finder binding oracle
+loads independently authored origin records and checks two same-name drops,
+a reload, Put Away, and a partial purge with a locked A: item.
 With the installed C: as system and the DATA A: mounted, the desktop shows
 A:'s disk (its label, e.g. DATA) directly below the system disk in the same
 column, 64 pixels lower: the genuine Mac OS 8.1 Finder capture

@@ -47,6 +47,7 @@ void finder_delete_now(flair_live_ctx_t *ctx, const boot_info_t *bi,
     uint8_t dirty = 0u;
     finder_win_status_t st;
     int k;
+    finder_dir_id_t dir = finder_win_item_dir(&g_finder_shell->windows[s->slot], idx);
 
     for (k = 0; k + 1 < FINDER_DESK_NAME_MAX && s->fd->icons[idx].name[k]; k++)
         name[k] = s->fd->icons[idx].name[k];
@@ -74,7 +75,7 @@ void finder_delete_now(flair_live_ctx_t *ctx, const boot_info_t *bi,
         serial_putu((uint32_t)purged);
         serial_putc('\n');
     }
-    if (purged != 0u) (void)finder_trash_reserve();
+    if (purged != 0u) (void)finder_trash_reserve(dir);
     (void)finder_shell_recount_trash(g_finder_shell);
     if (dirty) { g_finder_db_dirty = 1; finder_desk_persist(); }
 }
@@ -117,7 +118,7 @@ int finder_surface_drop(flair_live_ctx_t *ctx, const boot_info_t *bi,
      * if a cluster is free and stage as usual; on a FULL volume offer Delete
      * Now -- the only Finder route that frees space there. */
     if (status == FINDER_WIN_ERR_NOTRASH) {
-        int rrc = finder_trash_reserve();
+        int rrc = finder_trash_reserve(r.from_dir);
         if (rrc == FAT12_OK) {
             status=finder_ops_drop(g_finder_shell, s->slot, idx, &t,
                                 (int16_t)(s->fd->icons[idx].x + dh),

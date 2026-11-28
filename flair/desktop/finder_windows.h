@@ -336,11 +336,9 @@ typedef struct finder_fs {
     int (*trash_name)(void *fs_user, const char *name83, finder_dir_id_t dir,
                       char *out);
 
-    /* The first data cluster of the volume's \TRASH directory (design F1.4:
-     * created at volume init, so it always exists), or a NEGATIVE value when
-     * the volume has none -- the Finder then refuses every Trash drop loudly
-     * instead of guessing a cluster. */
-    int (*trash_dir)(void *fs_user);
+    /* The named volume's \TRASH directory identity, or a negative value
+     * if it has none. The live shell can create it on the first drop. */
+    int (*trash_dir)(void *fs_user, unsigned drive);
 
     /* Delete the regular file `name83` from `dir` (fat12_unlink). */
     int (*unlink)(void *fs_user, const char *name83, finder_dir_id_t dir);
@@ -438,6 +436,7 @@ typedef struct {
     uint32_t size;
     uint16_t date, time;
     uint8_t  attribute;
+    finder_dir_id_t container; /* physical Trash directory for a union row */
 } finder_win_meta_t;
 /* GM4's bounded file Info and read-only TEXT snapshot. The snapshot uses the
  * public Scrap Manager capacity and never retains pointers into live scrap. */
@@ -650,6 +649,11 @@ void finder_shell_sync_ctx(finder_shell_t *sh);
  * The extension test is COSMETIC ONLY (ADR-0003-AMENDMENT-DEC-08a.4 makes
  * dispatch content-based); it decides which sprite is drawn, nothing else. */
 finder_icon_kind_t finder_win_kind_of(const char *name83, uint8_t attribute);
+
+int finder_shell_trash_dir(const finder_shell_t *sh, finder_dir_id_t dir);
+int finder_shell_trash_origin(const finder_shell_t *sh, finder_dir_id_t dir,
+                              const char *name83);
+finder_dir_id_t finder_win_item_dir(const finder_window_t *w, int idx);
 
 /* 1 when the Finder must SKIP this entry (design F1.1: volume-label entries are
  * skipped by the Finder, because the FAT layer deliberately passes them through

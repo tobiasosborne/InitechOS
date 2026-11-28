@@ -9,10 +9,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "test_assert.h"
+#define main windows_suite_main
+#include "test_finder_windows.c"
+#undef main
 #include "finder_actions.h"
 #include "fileio_fat.h"
-TEST_HARNESS();
+#include "finder_ops.h"
+#include "volume_db.h"
+#include "desktop_db.h"
 extern const finder_fs_t g_finder_fs_binding;
 const fat12_volume_t *g_finder_vol;
 void *g_finder_fat,*g_finder_secbuf;
@@ -80,6 +84,80 @@ static int has(const seen_t *s,const char *name,finder_dir_id_t *id)
     for(int i=0;i<s->n;i++) if(!strcmp(s->names[i],name)){if(id)*id=s->ids[i];return 1;}
     return 0;
 }
+static int named_item(const finder_window_t *w, const char *name, uint32_t size)
+{
+    for (int i = 0; i < w->view.n; i++)
+        if (!strcmp(w->view.icons[i].name, name) && w->meta[i].size == size)
+            return i;
+    return -1;
+}
+
+static void trash_scene(scene_t *s, const finder_fs_t *fs)
+{
+    scene_init(s, MOCK_DIRS, 2);
+    finder_shell_bind_fs(&s->sh, fs);
+    s->sh.volume_drive = 2;
+    int idx = finder_desk_add(&s->sh.desk, FINDER_ICON_VOLUME, "DATA", 10, 30, 1);
+    finder_desk_set_cluster(&s->sh.desk, idx, finder_dir_make(0, 0));
+}
+
+static void check_trash(const finder_fs_t *fs, finder_dir_id_t csub,
+                        finder_dir_id_t asub)
+{
+    static scene_t s, reboot;
+    finder_tgt_t trash = { .kind = FINDER_TGT_TRASH, .slot = -1, .idx = -1 };
+    finder_move_result_t move;
+    uint8_t db[2][DESKTOP_DB_MAX_BYTES];
+    uint32_t len[2] = {0, 0};
+    int slot = -1;
+    const unsigned drives[] = {2, 0};
+    const finder_dir_id_t dirs[] = {csub, asub};
+    const uint32_t sizes[] = {9, 17};
+
+    trash_scene(&s, fs);
+    for (int i = 0; i < 2; i++) {
+        CHECK(fs->read_partial(NULL, "DESKTOP.DB", finder_dir_make(drives[i], 0),
+                               0, sizeof db[i], db[i], &len[i]) == FINDER_WIN_OK &&
+              finder_volume_db_load(&s.sh, drives[i], db[i], len[i]) == 15,
+              "load 15 independently authored Trash origins per volume");
+    }
+    for (int i = 0; i < 2; i++) {
+        CHECK(finder_win_open(&s.sh, finder_dir_make(drives[i], 0), dirs[i],
+                              i == 0 ? "SUB" : "DATAIN", 0, &slot, NULL) == FINDER_WIN_OK,
+              "open the source folder on its own volume");
+        int idx = named_item(&s.sh.windows[slot], "SAME.TXT", sizes[i]);
+        CHECK(idx >= 0 &&
+              finder_ops_drop(&s.sh, slot, idx, &trash, 0, 0, &move) == FINDER_WIN_OK &&
+              !move.renamed && !move.origin_lost,
+              "Trash stages SAME.TXT on its own volume and remembers a 16th origin");
+    }
+    CHECK(s.sh.n_origins == 32, "each volume keeps sixteen origins");
+    trash_scene(&reboot, fs);
+    for (int i = 0; i < 2; i++) {
+        len[i] = finder_volume_db_encode(&s.sh, drives[i], db[i], sizeof db[i]);
+        CHECK(len[i] && finder_volume_db_load(&reboot.sh, drives[i], db[i], len[i]) == 16,
+              "each Desktop DB survives reload with its own sixteen origins");
+    }
+    slot = -1;
+    CHECK(finder_win_open_trash(&reboot.sh, &slot, NULL) == FINDER_WIN_OK &&
+          reboot.sh.windows[slot].view.n == 32,
+          "Trash lists items from both volumes");
+    if (slot < 0) return;
+    for (int i = 1; i >= 0; i--) {
+        int idx = named_item(&reboot.sh.windows[slot], "SAME.TXT", sizes[i]);
+        CHECK(idx >= 0 && finder_ops_put_away(&reboot.sh, slot, idx) == FINDER_WIN_OK,
+              "same-name Put Away restores the selected volume and origin");
+    }
+    uint16_t purged = 0, refused = 0;
+    uint8_t dirty = 0;
+    CHECK(finder_shell_empty_trash(&reboot.sh, &purged, &refused, &dirty) ==
+          FINDER_WIN_ERR_LOCKED && purged == 29 && refused == 1,
+          "Empty Trash purges each writable item and keeps the locked A: item");
+    CHECK(dirty && reboot.sh.n_origins == 1 &&
+          finder_dir_drive(reboot.sh.origins[0].dir_start, 2) == 0,
+          "only the locked A: origin survives even though C: held the same name");
+}
+
 int main(int argc,char **argv)
 {
     const finder_fs_t *fs=&g_finder_fs_binding;
@@ -119,6 +197,11 @@ int main(int argc,char **argv)
           disks[1].writes+disks[0].writes==before,
           "a move between volumes is refused before any write");
     CHECK(fs->mkdir(NULL,"NEWC",0)==0,"New Folder in the system root still writes C:");
+    memset(&s,0,sizeof s);
+    finder_dir_id_t data_in = FINDER_DIR_INVALID;
+    CHECK(fs->enumerate(NULL,aroot,collect,&s)>=0 && has(&s,"DATAIN",&data_in),
+          "independent A: origin directory is present");
+    check_trash(fs, finder_dir_make(2, finder_dir_cluster(csub)), data_in);
     store(1,argv[1]); store(0,argv[2]);
     return TEST_SUMMARY("test-finder-fs-volumes");
 }

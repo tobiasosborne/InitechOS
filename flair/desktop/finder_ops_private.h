@@ -6,7 +6,7 @@
 typedef struct fo_entry_probe {
     const char *name;
     finder_win_meta_t meta;
-    uint16_t cluster;
+    finder_dir_id_t cluster;
     int found;
 } fo_entry_probe_t;
 int fo_entry_cb(const finder_dirent_t *, void *);

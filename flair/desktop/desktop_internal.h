@@ -212,10 +212,9 @@ extern uint8_t g_finder_clusbuf[FINDER_FS_MAX_SPC * BLOCKDEV_SECTOR_SIZE];
 int finder_abs(int v);
 void __attribute__((unused)) finder_trace_serial(void *user, const char *line);
 int finder_fat_dirent_cb(const dir_entry_t *e, void *user);
-int finder_fat_geometry_ok(void);
 int finder_fat_enumerate(void *fs_user, finder_dir_id_t dir_start,
                                 finder_enum_cb cb, void *cb_user);
-int finder_fat_trash_dir(void *fs_user);
+int finder_fat_trash_dir(void *fs_user, unsigned drive);
 extern const finder_fs_t g_finder_fs_binding __attribute__((unused));
 void __attribute__((unused)) finder_desk_load_positions(void);
 void flair_tenant_mount_volume(void);

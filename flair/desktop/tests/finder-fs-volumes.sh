@@ -19,6 +19,32 @@ for v in c a; do
  mcopy -i "$image" "$w/$v-file.txt" ::SUB/FILE.TXT
  mcopy -i "$image" "$w/$v-gone.txt" ::SUB/GONE.TXT
  mcopy -i "$image" "$w/$v-only.txt" "::${P}ONLY.TXT"
+ mmd -i "$image" ::TRASH
+ origin=SUB
+ if [ "$v" = c ]; then
+  printf 'C source\n' > "$w/c-same"
+ else
+  mmd -i "$image" ::DATAIN
+  printf 'A source payload\n' > "$w/a-same"
+  origin=DATAIN
+ fi
+ mcopy -i "$image" "$w/$v-same" "::$origin/SAME.TXT"
+ # Independent IDB1 header and 15 kind-5 records. The old Trash files
+ # came from each root, and both roots use the same staged names.
+ {
+  printf 'IDB1\001\000\017\000'
+  i=1; while [ "$i" -le 15 ]; do
+   printf '\005\000\000\000OLD%02d.TXT\000\000\000\000\000\000\000\000\000\000\000' "$i"
+   i=$((i+1))
+  done
+ } > "$w/$v-trash.db"
+ i=1; while [ "$i" -le 15 ]; do
+  old=$(printf 'OLD%02d.TXT' "$i")
+  mcopy -i "$image" "$w/$v-same" "::TRASH/$old"
+  i=$((i+1))
+ done
+ if [ "$v" = a ]; then mattrib -i "$image" +r ::TRASH/OLD01.TXT; fi
+ mcopy -i "$image" "$w/$v-trash.db" ::DESKTOP.DB
  cp "$image" "$w/$v.before"
 done
 "$bin" "$w/c.img" "$w/a.img"
@@ -38,5 +64,10 @@ for f in NEWA SUB/AONLY.TXT SUB/NEW.TXT; do absent "$w/c.img" "$f"; done
 mtype -i "$w/c.img" ::CONLY.TXT | cmp "$w/c-only.txt" -
 mtype -i "$w/c.img" ::SUB/FILE.TXT | cmp "$w/c-file.txt" -
 mtype -i "$w/c.img" ::SUB/GONE.TXT | cmp "$w/c-gone.txt" -
+mtype -i "$w/c.img" ::SUB/SAME.TXT | cmp "$w/c-same" -
+mtype -i "$w/a.img" ::DATAIN/SAME.TXT | cmp "$w/a-same" -
+absent "$w/c.img" TRASH/OLD01.TXT
+absent "$w/a.img" TRASH/OLD02.TXT
+mtype -i "$w/a.img" ::TRASH/OLD01.TXT | cmp "$w/a-same" -
 fsck.fat -n "$w/a.img" >/dev/null
 echo "ok Finder binding: A: operations on A:, C: only its system-root folder"

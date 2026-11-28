@@ -60,7 +60,7 @@ int finder_fat_move(void *fs_user, const char *src_name83,
                            finder_dir_id_t dst_dir);
 int finder_fat_trash_name(void *fs_user, const char *name83,
                                  finder_dir_id_t dir, char *out);
-int finder_trash_reserve(void);
+int finder_trash_reserve(finder_dir_id_t dir);
 int finder_fat_unlink(void *fs_user, const char *name83, finder_dir_id_t dir);
 int finder_fat_rmdir(void *fs_user, const char *name83, finder_dir_id_t dir);
 int finder_fat_create(void *fs_user, const char *name83, finder_dir_id_t dir,
@@ -92,7 +92,6 @@ void finder_empty_trash(flair_live_ctx_t *ctx, const boot_info_t *bi,
                                uint16_t items);
 void serial_putc(char c);
 void serial_puti(int32_t v);
-int finder_fat_geometry_ok(void);
 void finder_desk_persist(void);
 void finder_desk_repaint(flair_live_ctx_t *ctx, const boot_info_t *bi);
 void finder_report_dropped(int slot);

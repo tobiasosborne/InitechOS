@@ -1133,7 +1133,7 @@ static int pv_rmdir(void *u, const char *n, finder_dir_id_t dir)
     pv_del(m, d, i);
     return 0;
 }
-static int pv_trash_dir(void *u) { (void)u; return 2; }
+static int pv_trash_dir(void *u, unsigned drive) { (void)drive; (void)u; return 2; }
 static int pv_ident(void *u, finder_dir_id_t cl, finder_dir_id_t parent, const char *n)
 {
     pv_t *m = (pv_t *)u;

@@ -177,7 +177,7 @@ void finder_open_trash(flair_live_ctx_t *ctx, const boot_info_t *bi)
     if (g_finder_shell == (finder_shell_t *)0) return;
     st = finder_win_open_trash(g_finder_shell, &slot, &singleton);
     if (st == FINDER_WIN_ERR_NOTRASH) {
-        int rrc = finder_trash_reserve();
+        int rrc = finder_trash_reserve(0u);
         if (rrc == FAT12_OK)
             st = finder_win_open_trash(g_finder_shell, &slot, &singleton);
         else if (rrc != FAT12_ERR_NO_SPACE && rrc != FAT12_ERR_DIR_FULL)
@@ -208,13 +208,13 @@ void finder_surface_open(flair_live_ctx_t *ctx, const boot_info_t *bi,
         return;
     }
     if (ic->kind == (uint8_t)FINDER_ICON_FOLDER) {
-        finder_open_folder(ctx, bi, g_finder_shell->windows[s->slot].dir_start,
+        finder_open_folder(ctx, bi, finder_win_item_dir(&g_finder_shell->windows[s->slot], idx),
                            ic->dir_start, ic->name);
         return;
     }
     if (ic->kind == (uint8_t)FINDER_ICON_APP) {
         flair_live_launch_app(ctx, bi, ic->name,
-                              g_finder_shell->windows[s->slot].dir_start);
+                              finder_win_item_dir(&g_finder_shell->windows[s->slot], idx));
         return;
     }
     /* Document associations are omitted in this master. */

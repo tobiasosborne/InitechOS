@@ -96,6 +96,11 @@ smoke-data-volume:
 	+$(MAKE) -C $(TOP) image
 	+$(MAKE) -C $(TOP) -f factory/desktop-tools.mk all
 	cd $(TOP) && sh flair/desktop/tests/smoke-data-volume.sh
+.PHONY: smoke-volume-trash
+smoke-volume-trash:
+	+$(MAKE) -C $(TOP) image
+	+$(MAKE) -C $(TOP) -f factory/desktop-tools.mk all
+	cd $(TOP) && sh flair/desktop/tests/smoke-volume-trash.sh
 TARGET_ARTIFACTS := $(OUT)/libdesktop.a
 include $(TOP)/mk/import-check.mk
 include $(TOP)/mk/mutants.mk

@@ -314,34 +314,50 @@ static void fo_free_cell(finder_window_t *dw, int16_t *x, int16_t *y)
     }
 }
 
+static int fo_origin_room(const finder_shell_t *sh, finder_dir_id_t dir)
+{
+    unsigned count = 0, drive = finder_dir_drive(dir, sh->volume_drive);
+    for (uint16_t i = 0; i < sh->n_origins; i++)
+        if (finder_dir_drive(sh->origins[i].dir_start, sh->volume_drive) == drive)
+            count++;
+    return count < FINDER_DB_MAX_ORIGINS && sh->n_origins < FINDER_ALL_ORIGINS;
+}
+
 static void fo_origin_add(finder_shell_t *sh, finder_move_result_t *out)
 {
-    finder_origin_rec_t *o;
-    if ((uint32_t)sh->n_origins >= FINDER_DB_MAX_ORIGINS) {
-        out->origin_lost = 1u;           /* staged; the kernel says so (contract)*/
-        return;
+    int idx = finder_shell_trash_origin(sh, out->to_dir, out->as);
+    if (idx < 0) {
+        if (!fo_origin_room(sh, out->from_dir)) {
+            out->origin_lost = 1u;
+            return;
+        }
+        idx = sh->n_origins++;
     }
-    o = &sh->origins[sh->n_origins];
+    finder_origin_rec_t *o = &sh->origins[idx];
     o->dir_start = out->from_dir;
-    o->flags     = out->renamed ? (uint8_t)FINDER_ORIGIN_FLAG_RENAMED : 0u;
+    o->flags = out->renamed ? (uint8_t)FINDER_ORIGIN_FLAG_RENAMED : 0u;
     fo_copy83(o->name83, out->as);
-    fo_copy83(o->original83,out->name);
-    sh->n_origins = (uint16_t)(sh->n_origins + 1u);
+    fo_copy83(o->original83, out->name);
     out->db_dirty = 1u;
 }
 
-/* An item left \TRASH by an ordinary move: its origin record is stale. */
-static void fo_origin_drop(finder_shell_t *sh, const char *name,
-                           finder_move_result_t *out)
+/* An item left its volume's Trash by ordinary move or Put Away. */
+static void fo_origin_drop(finder_shell_t *sh, finder_dir_id_t dir,
+                           const char *name, finder_move_result_t *out)
 {
-    for (uint16_t i = 0u; i < sh->n_origins; i++) {
-        if (!fo_action_ieq(sh->origins[i].name83, name)) continue;
-        for (uint16_t k = i; (uint16_t)(k + 1u) < sh->n_origins; k++)
-            sh->origins[k] = sh->origins[k + 1u];
-        sh->n_origins = (uint16_t)(sh->n_origins - 1u);
-        out->db_dirty = 1u;
-        return;
-    }
+    int idx = finder_shell_trash_origin(sh, dir, name);
+    if (idx < 0) return;
+    sh->n_origins--;
+    for (int k = idx; k < sh->n_origins; k++)
+        sh->origins[k] = sh->origins[k + 1];
+    out->db_dirty = 1u;
+}
+
+static int fo_trash_window(const finder_shell_t *sh, finder_dir_id_t dir)
+{
+    for (int i = 0; i < sh->window_cap; i++)
+        if (sh->windows[i].open && sh->windows[i].is_trash) return i;
+    return finder_win_find(sh, dir);
 }
 
 finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
@@ -372,7 +388,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     ic = w->view.icons[src_idx];             /* a COPY: the array may shift   */
     fo_copy83(out->name, ic.name);
     fo_copy83(out->as, ic.name);
-    out->from_dir = w->dir_start;
+    out->from_dir = finder_win_item_dir(w, src_idx);
 
     /* The Finder's own \TRASH / \DESKTOP.DB never move, by IDENTITY, even if
      * a path reaches them (they are not listed -- finder_win_is_service): the
@@ -390,8 +406,10 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
                                 const char *, finder_dir_id_t))0)
         return fo_refuse(out, FINDER_WIN_ERR_MOVE);
 
-    if (sh->fs.trash_dir != (int (*)(void *))0) td = sh->fs.trash_dir(sh->fs.user);
-    if (t->kind == (uint8_t)FINDER_TGT_TRASH) {
+    td = finder_shell_trash_dir(sh, out->from_dir);
+    if (t->kind == (uint8_t)FINDER_TGT_TRASH ||
+        (t->kind == FINDER_TGT_WINDOW && fo_slot_ok(sh, t->slot) &&
+         sh->windows[t->slot].is_trash)) {
         out->op = (uint8_t)FINDER_OP_TRASH;
         /* No \TRASH (bead initech-vnl4, audit 2026-10-23 desktop L001): said
          * as itself, so the kernel can try to make it and -- on a full disk --
@@ -449,7 +467,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     }
 
     /* tdnl.61: reserve the destination view BEFORE committing storage. */
-    dslot=finder_win_find(sh,dst);
+    dslot = is_trash ? fo_trash_window(sh, dst) : finder_win_find(sh, dst);
     if(dslot>=0 && dslot!=src_slot) {
         uint16_t n=sh->windows[dslot].view.n;
         finder_win_status_t reserve=n==65535u?FINDER_WIN_ERR_MEMORY:
@@ -474,7 +492,6 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
         fo_remove_icon(w, src_idx);
     }
 
-    dslot = finder_win_find(sh, dst);
     if (dslot >= 0 && dslot != src_slot) {
         finder_window_t *dw = &sh->windows[dslot];
         int16_t x = 0, y = 0;
@@ -501,6 +518,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
             dw->dropped = (uint16_t)(dw->dropped + 1u);   /* the cap bit      */
         } else {
             dw->meta[nidx] = probe.meta;
+            dw->meta[nidx].container = dst;
             if (ic.kind == (uint8_t)FINDER_ICON_FOLDER)
                 finder_desk_set_cluster(&dw->view, nidx, ic.dir_start);
         }
@@ -511,7 +529,7 @@ finder_win_status_t finder_ops_drop(finder_shell_t *sh, int src_slot,
     if (is_trash) {
         fo_origin_add(sh, out);
     } else if (td >= 0 && out->from_dir == (finder_dir_id_t)td) {
-        fo_origin_drop(sh, ic.name, out);
+        fo_origin_drop(sh, out->from_dir, ic.name, out);
     }
     /* \TRASH may have gained or lost an item: the FULL icon and the Empty
      * Trash predicate follow (bead initech-6k12). */
@@ -536,7 +554,7 @@ finder_win_status_t finder_ops_replace(finder_shell_t *sh,int slot,int idx,
     if(!fo_slot_ok(sh,slot) || !t || !sh->fs.move || !sh->fs.trash_name ||
         !sh->fs.trash_dir || !sh->fs.enumerate) return fo_refuse(out,FINDER_WIN_ERR_NULL);
     if(idx<0 || idx>=sh->windows[slot].view.n) return fo_refuse(out,FINDER_WIN_ERR_NULL);
-    if(sh->n_origins>=FINDER_DB_MAX_ORIGINS) return fo_refuse(out,FINDER_WIN_ERR_MEMORY);
+    if(!fo_origin_room(sh,t->dir)) return fo_refuse(out,FINDER_WIN_ERR_MEMORY);
     fo_copy83(name,sh->windows[slot].view.icons[idx].name);
     probe.name=name;probe.found=0;
     if(sh->fs.enumerate(sh->fs.user,t->dir,fo_entry_cb,&probe)<0 || !probe.found)
@@ -545,7 +563,7 @@ finder_win_status_t finder_ops_replace(finder_shell_t *sh,int slot,int idx,
     fo_zero(&displaced,sizeof displaced);
     displaced.kind=(probe.meta.attribute & FINDER_ATTR_DIRECTORY)?FINDER_ICON_FOLDER:FINDER_ICON_FILE;
     displaced.dir_start=probe.cluster;
-    td=sh->fs.trash_dir(sh->fs.user);
+    td=finder_shell_trash_dir(sh,t->dir);
     if(td<0 || (finder_dir_id_t)td==t->dir) return fo_refuse(out,FINDER_WIN_ERR_MOVE);
     fo_zero(&backup,sizeof backup);
     backup.from_dir=t->dir;backup.to_dir=(finder_dir_id_t)td;
@@ -553,7 +571,7 @@ finder_win_status_t finder_ops_replace(finder_shell_t *sh,int slot,int idx,
     rc=sh->fs.trash_name(sh->fs.user,name,(finder_dir_id_t)td,backup.as);
     if(rc!=FINDER_WIN_OK) return fo_refuse(out,(finder_win_status_t)rc);
     backup.renamed=(uint8_t)!fo_action_ieq(backup.name,backup.as);
-    tw=finder_win_find(sh,(finder_dir_id_t)td);dw=finder_win_find(sh,t->dir);
+    tw=fo_trash_window(sh,(finder_dir_id_t)td);dw=finder_win_find(sh,t->dir);
     if(tw>=0) {
         st=finder_win_reserve_icons(sh,tw,(uint16_t)(sh->windows[tw].view.n+1u));
         if(st!=FINDER_WIN_OK) return fo_refuse(out,st);
@@ -586,12 +604,13 @@ finder_win_status_t finder_ops_put_away(finder_shell_t *sh,int slot,int idx)
     finder_origin_rec_t origin;
     finder_win_status_t st;
     finder_move_result_t result;
-    int found=-1, dest, rc;
+    int found, dest, rc;
+    finder_dir_id_t src;
     if(!fo_slot_ok(sh,slot) || !sh->fs.move) return FINDER_WIN_ERR_NULL;
     w=&sh->windows[slot];
     if(idx<0 || idx>=w->view.n || !w->is_trash) return FINDER_WIN_ERR_MOVE;
-    for(int i=0;i<sh->n_origins;i++)
-        if(fo_action_ieq(sh->origins[i].name83,w->view.icons[idx].name)) {found=i;break;}
+    src = finder_win_item_dir(w, idx);
+    found = finder_shell_trash_origin(sh, src, w->view.icons[idx].name);
     if(found<0) return FINDER_WIN_ERR_MOVE;
     origin=sh->origins[found];
     if(!origin.original83[0]) return FINDER_WIN_ERR_MOVE;
@@ -602,12 +621,12 @@ finder_win_status_t finder_ops_put_away(finder_shell_t *sh,int slot,int idx)
         st=finder_win_reserve_icons(sh,dest,(uint16_t)(sh->windows[dest].view.n+1u));
         if(st!=FINDER_WIN_OK) return st;
     }
-    rc=sh->fs.move(sh->fs.user,origin.name83,w->dir_start,
+    rc=sh->fs.move(sh->fs.user,origin.name83,src,
                    origin.original83,origin.dir_start);
     if(rc!=FINDER_WIN_OK) return (finder_win_status_t)rc;
     fo_follow(sh,&w->view.icons[idx],origin.dir_start,origin.original83);
     fo_zero(&result,sizeof result);
-    fo_origin_drop(sh,origin.name83,&result);
+    fo_origin_drop(sh,src,origin.name83,&result);
     /* bead initech-vnl4 (audit docs/audits/2026-10-23-desktop REPORT.md L006):
      * the item LEAVES the Trash window -- remove just its icon, the way a
      * drag out does (fo_remove_icon: a period window does not re-flow). A
