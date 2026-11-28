@@ -36,10 +36,11 @@ lists once real dependencies suffice. DEPS is for generated inputs/wrappers.
 externally compiled OBJS still need their owner's command-aware rules.
 
 TEST_TIMEOUT_S defaults to 20 seconds; `<test>_TIMEOUT_S` overrides it.
-TEST_BUDGET_S defaults to 30 seconds, measured over test execution, excluding
-compilation. Exceeding it fails, with directions to speed up or document a
-higher budget in the component README. Integer wall seconds have one-second
-resolution. GNU timeout kills the whole runner process group, including
+TEST_BUDGET_S defaults to 30 seconds. The make runner and SDK charge user and
+system CPU time during test execution, excluding compilation. Their summaries
+also report elapsed wall time. Exceeding the budget fails, with directions to
+speed up or document a higher budget in the component README. GNU timeout
+still uses wall time and kills the whole runner process group, including
 inherited post-checks. Logs and scratch are private per component/test. One
 make invocation owns a component OUT; concurrent independent invocations of
 the same component should supply distinct OUT directories.
