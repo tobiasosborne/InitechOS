@@ -681,10 +681,20 @@ void int21_conin_handoff(void)
     g_conin_pushback = -1;
     g_conin_scan_pending = g_conin_last_scan = 0;
 }
+static void stamp_device(sft_entry_t *entry)
+{
+    entry->dir_entry.mtime = 0;
+    entry->dir_entry.mdate = 0x21u; /* 1980-01-01 when no clock is available */
+    (void)int21_file_stamp(&entry->dir_entry.mtime, &entry->dir_entry.mdate);
+}
+
 void int21_set_clock(int21_clock_get_fn get, int21_clock_set_fn set)
 {
     g_clock_get = get;
     g_clock_set = set;
+    for (unsigned i = 0; i < SFT_FIRST_FILE; i++) {
+        if (g_sft[i].kind == SFT_KIND_DEVICE) stamp_device(&g_sft[i]);
+    }
 }
 
 /* dwbl: runtime metadata uses the AH=2Ah/2Ch clock, never the build host.
@@ -2460,6 +2470,7 @@ static void do_open(int_frame_t *f)
         e->con_eof     = 0u;
         e->ref_count   = 1u;
         e->device      = dev;                   /* the chain route selector */
+        stamp_device(e);
         e->file_offset = 0u;
         e->root_slot   = 0u;
         e->dir_start   = 0u;
@@ -3459,11 +3470,9 @@ static void do_lseek(int_frame_t *f)
  * ERRORS (CF=1):
  *   - bad / closed / out-of-range handle           -> AX=0x0006 (INVALID_HANDLE)
  *   - AL not in {0,1}                               -> AX=0x0001 (INVALID_FUNCTION)
- *   - a DEVICE handle (CON/AUX/PRN -- no dir entry) -> AX=0x0001 (a device has no
- *     filesystem date/time; documented as invalid-function, distinct from a bad
- *     handle which IS resolvable just not a file)
  *   - SET with no write backend (set_time == NULL) or a backend write failure
  *                                                   -> AX=0x0005 (ACCESS_DENIED)
+ * Character devices keep a handle timestamp in memory. See fixtures/con-time33.
  * No int21_note_error() call: the AH=59h auto-note at the dispatch choke point
  * captures CF + AX. Ref: DOS 3.3 PRM AH=57h; kernel/include/dos_structs.h (dir_entry_t
  * mtime 0x16 / mdate 0x18); the repository contract (cite), the repository contract (fail loud). */
@@ -3490,14 +3499,9 @@ static void do_filetime(int_frame_t *f)
         return;
     }
 
-    /* Only a disk FILE carries a directory date/time. A character device
-     * (CON/AUX/PRN) is resolvable but has no dir entry -> invalid-function
-     * (documented; distinct from a bad handle, which is not resolvable). */
-    if (e->kind != SFT_KIND_FILE) {
-        set_ax(f, INT21_ERR_INVALID_FUNCTION);
-        cf_set(f);
-        return;
-    }
+    /* The split resident CON input/output slots share the standard DOS
+     * device timestamp (tests/fixtures/con-time33). Other opens own a stamp. */
+    if (e == &g_sft[SFT_SLOT_CON_IN]) e = &g_sft[SFT_SLOT_CON_OUT];
 
     if (al == 0x00u) {
         /* GET: read the SFT's in-memory dir_entry copy (the kernel keeps it in
@@ -3515,6 +3519,12 @@ static void do_filetime(int_frame_t *f)
      * silent no-op). */
     uint16_t new_mtime = frame_cx(f);
     uint16_t new_mdate = frame_dx(f);
+    if (e->kind == SFT_KIND_DEVICE) {
+        e->dir_entry.mtime = new_mtime;
+        e->dir_entry.mdate = new_mdate;
+        cf_clear(f);
+        return;
+    }
     if (g_file == 0 || g_file->set_time == 0) {
         set_ax(f, INT21_ERR_ACCESS_DENIED);
         cf_set(f);

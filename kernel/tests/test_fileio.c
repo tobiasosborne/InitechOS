@@ -2217,15 +2217,6 @@ int main(void)
         cl2.eax = 0x3E00u; cl2.ebx = h2;
         int21_dispatch(&cl2);
 
-        /* A DEVICE handle (CON, handle 1 -- stdout) has no dir entry -> the GET is
-         * invalid-function (0x0001), distinct from a bad handle (0x0006). */
-        int_frame_t dev = fresh_frame();
-        dev.eax = 0x5700u; dev.ebx = 1u;
-        int21_dispatch(&dev);
-        CHECK(frame_cf(&dev) == 1 &&
-              (uint16_t)(dev.eax & 0xFFFFu) == INT21_ERR_INVALID_FUNCTION,
-              "qekc GET on a CON device handle -> CF=1, AX=0x0001");
-
         /* Read-only backend (set_time == NULL): a SET on a valid FILE handle ->
          * CF=1, AX=0x0005 (access denied). Use a read-only vtable that still
          * resolves OPEN so we have a live FILE handle. */

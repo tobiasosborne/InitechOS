@@ -130,8 +130,8 @@ typedef struct sft_entry {
      * dispatcher uses (device != NULL) to select the chain path; the predefined
      * CON slots stay on the byte-for-byte-preserved legacy leg. */
     struct device_header *device; /* devices.c header for an OPEN-by-name device */
+    dir_entry_t  dir_entry;     /* FAT entry copy. Devices use mtime/mdate.   */
     /* --- FILE state (valid when kind == SFT_KIND_FILE; set by OPEN/CREAT) --- */
-    dir_entry_t  dir_entry;     /* copy of the 32-byte FAT dir entry at open   */
     uint32_t     file_offset;   /* current byte offset (READ/WRITE/LSEEK move) */
     uint32_t     root_slot;     /* dir-entry slot index (backend write-back)   */
     uint16_t     dir_start;     /* containing dir's first cluster (0 == root;  */

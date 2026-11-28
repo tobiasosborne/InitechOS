@@ -2,9 +2,9 @@
 # test: test-fileio
 --- a/int21.c
 +++ b/int21.c
-@@ -3382,8 +3382,12 @@
-     uint16_t new_mtime = frame_cx(f);
-     uint16_t new_mdate = frame_dx(f);
+@@ -3516,8 +3516,12 @@
+         return;
+     }
      if (g_file == 0 || g_file->set_time == 0) {
 -        set_ax(f, INT21_ERR_ACCESS_DENIED);
 -        cf_set(f);
