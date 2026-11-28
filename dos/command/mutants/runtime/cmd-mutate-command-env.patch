@@ -7,7 +7,7 @@
  #endif
      depth--;
 -    env_restore_parent(env);
-+    (void)env;
++    (void)env_restore_parent; g_env_parents_used = env.at;
      g_shell_exit=exit;g_shell_permanent=saved_permanent;
      g_prompt_echo_on=echo_on;
      g_errorlevel=0u;g_batch_frame=frame;
