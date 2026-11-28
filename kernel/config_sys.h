@@ -38,6 +38,7 @@ typedef struct dos_config {
 
     uint8_t  device_count;     /* number of DEVICE= names retained                  */
     char     devices[CONFIG_SYS_MAX_DEVICES][CONFIG_SYS_NAME_MAX];
+    uint8_t  device_has_args[CONFIG_SYS_MAX_DEVICES];
 
     uint8_t  install_count;    /* number of INSTALL= names retained                 */
     char     install[CONFIG_SYS_MAX_INSTALL][CONFIG_SYS_NAME_MAX];
@@ -63,11 +64,15 @@ typedef struct dos_config {
  * empty file (out is zeroed, returns 0). Pure (no I/O), so host-testable. */
 int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out);
 
-/* Report each malformed/unrecognized line without aborting the boot. The
- * callback performs I/O; parsing itself still has no transport dependency.
- * Source: genuine DOS 3.30 CFGA..CFGF boot captures (initech-hp0tb). */
-typedef void (*config_sys_diagnostic_fn)(void *context);
+/* Report syntax failures and each parsed request whose support depends on
+ * startup policy, before a later directive can supersede it. The callback
+ * may perform I/O. The parser itself has no transport dependency. */
+typedef enum {
+    CONFIG_SYS_BAD_LINE, CONFIG_SYS_FILES, CONFIG_SYS_BUFFERS, CONFIG_SYS_SHELL
+} config_sys_event_t;
+typedef void (*config_sys_report_fn)(void *context, config_sys_event_t event,
+                                     const dos_config_t *cfg);
 int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
-                            config_sys_diagnostic_fn report, void *context);
+                            config_sys_report_fn report, void *context);
 
 #endif /* INITECH_INITECHDOS_CONFIG_SYS_H */

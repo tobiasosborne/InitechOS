@@ -97,7 +97,7 @@ static uint32_t cfg_copy_clamped(char *dst, uint32_t cap, const char *s, uint32_
 /* --- the parser ---------------------------------------------------------- */
 
 int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
-                            config_sys_diagnostic_fn report, void *context)
+                            config_sys_report_fn report, void *context)
 {
     if (out == 0) {
         /* Programmer bug, NOT user content -> fail loud (the repository contract). */
@@ -118,7 +118,9 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
         /* ---- isolate one line [line_start, line_end) (LF/CRLF terminated) --- */
         uint32_t line_start = i;
         uint32_t line_end = i;
+        int has_nul = 0;
         while (line_end < len && buf[line_end] != '\n' && buf[line_end] != '\r') {
+            if (buf[line_end] == '\0') has_nul = 1;
             line_end++;
         }
         /* advance i past the line + its terminator (handle CRLF + bare CR/LF). */
@@ -128,6 +130,10 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
         }
         if (i < len && buf[i] == '\n') {
             i++;
+        }
+        if (has_nul) {
+            if (report) report(context, CONFIG_SYS_BAD_LINE, out);
+            continue;
         }
 
         /* ---- trim leading whitespace ---- */
@@ -145,7 +151,7 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
             eq++;
         }
         if (eq >= line_end) {
-            if (report) report(context);
+            if (report) report(context, CONFIG_SYS_BAD_LINE, out);
             continue; /* no '=' -> unrecognized directive, skip (NOT fatal) */
         }
 
@@ -179,6 +185,7 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
             if (any && n >= CONFIG_SYS_FILES_MIN && n <= CONFIG_SYS_FILES_MAX) {
                 out->files = (uint16_t)n;
                 out->files_present = 1u;
+                if (report) report(context, CONFIG_SYS_FILES, out);
                 recognized++;
             }
         } else if (cfg_kw_eq(kw, kw_len, "BUFFERS")) {
@@ -187,6 +194,7 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
             if (any && n >= CONFIG_SYS_BUFFERS_MIN && n <= CONFIG_SYS_BUFFERS_MAX) {
                 out->buffers = (uint16_t)n;
                 out->buffers_present = 1u;
+                if (report) report(context, CONFIG_SYS_BUFFERS, out);
                 recognized++;
             }
         } else if (cfg_kw_eq(kw, kw_len, "LASTDRIVE")) {
@@ -208,11 +216,12 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
                     tok++;
                 }
                 if (tok >= CONFIG_SYS_NAME_MAX) {
-                    if (report) report(context);
+                    if (report) report(context, CONFIG_SYS_BAD_LINE, out);
                     continue;
                 }
                 char *slot = out->devices[out->device_count];
                 cfg_copy_clamped(slot, CONFIG_SYS_NAME_MAX, val, tok);
+                out->device_has_args[out->device_count] = tok < v_len;
                 out->device_count++;
                 recognized++;
             }
@@ -223,7 +232,7 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
                     tok++;
                 }
                 if (tok >= CONFIG_SYS_NAME_MAX) {
-                    if (report) report(context);
+                    if (report) report(context, CONFIG_SYS_BAD_LINE, out);
                     continue;
                 }
                 char *slot = out->install[out->install_count];
@@ -237,6 +246,7 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
                  * "COMMAND.COM /P /E:512" -- for 509.10/k6x. */
                 cfg_copy_clamped(out->shell, CONFIG_SYS_SHELL_MAX, val, v_len);
                 out->shell_present = 1u;
+                if (report) report(context, CONFIG_SYS_SHELL, out);
                 recognized++;
             }
         } else if (cfg_kw_eq(kw, kw_len, "BREAK")) {
@@ -261,7 +271,7 @@ int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
         } else {
             /* Unknown directive (keyword had no match) -> DOS ignores it. */
         }
-        if (recognized == before && report) report(context);
+        if (recognized == before && report) report(context, CONFIG_SYS_BAD_LINE, out);
     }
 
     return recognized;

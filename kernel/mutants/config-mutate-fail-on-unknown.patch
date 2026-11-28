@@ -1,19 +1,19 @@
 # test: test-config-sys test-config-fuzz
 --- a/config_sys.c
 +++ b/config_sys.c
-@@ -148,6 +148,7 @@
+@@ -151,6 +151,7 @@
              eq++;
          }
          if (eq >= line_end) {
 +            return -1;
-             if (report) report(context);
+             if (report) report(context, CONFIG_SYS_BAD_LINE, out);
              continue; /* no '=' -> unrecognized directive, skip (NOT fatal) */
          }
-@@ -264,6 +265,7 @@
+@@ -270,6 +271,7 @@
              /* else: unrecognized BREAK= value -> ignored (lenient), not fatal. */
          } else {
              /* Unknown directive (keyword had no match) -> DOS ignores it. */
 +            return -1;
          }
-         if (recognized == before && report) report(context);
+         if (recognized == before && report) report(context, CONFIG_SYS_BAD_LINE, out);
      }

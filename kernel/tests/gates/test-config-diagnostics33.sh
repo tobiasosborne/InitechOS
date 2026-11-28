@@ -67,4 +67,28 @@ mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
 build/test_config_apply build/config.img 15 > build/console.raw
 tr -d '\r' < build/console.raw > build/console.txt
 assert diff -u build/expected.txt build/console.txt
+# Every unsupported occurrence needs a refusal, including an overwritten
+# value. CFGA and CFG3 supply the two diagnostic strings.
+sed -n '/Bad or missing Command Interpreter/{s/[[:space:]]*$//;p;}' \
+ dos/command/tests/compat33/expected/CFG3/result.txt > build/shell-refusal.txt
+cp build/expected.txt build/unrecognized.txt
+printf 'FILES=255\r\nFILES=8\r\nBUFFERS=1\r\nBUFFERS=99\r\nSHELL=MISSING.COM /P\r\nSHELL=COMMAND.COM /P\r\nDEVICE=ANSI.SYS /Z\r\nDEVICE=ANSI.SYS\000\r\n' > build/CONFIG.SYS
+mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
+cp build/config.img build/before.img
+build/test_config_apply build/config.img state:010505:0 > build/console.raw
+tr -d '\r' < build/console.raw > build/console.txt
+cat build/unrecognized.txt build/unrecognized.txt build/unrecognized.txt \
+ build/shell-refusal.txt build/unrecognized.txt build/unrecognized.txt |
+ sort > build/expected.txt
+sort build/console.txt > build/sorted.txt
+assert diff -u build/expected.txt build/sorted.txt
+assert cmp build/before.img build/config.img
+
+# BREAK, logical drives and the handle limit are sampled through INT 21h.
+while read -r letter state; do
+ printf 'BREAK=OFF\r\nLASTDRIVE=%s\r\nFILES=8\r\nDEVICE=ANSI.SYS\r\n' "$letter" > build/CONFIG.SYS
+ mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
+ assert build/test_config_apply build/config.img "state:$state:1" > build/console.raw
+ assert test ! -s build/console.raw
+done < kernel/tests/fixtures/config33/lastdrive-state.txt
 finish

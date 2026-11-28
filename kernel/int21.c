@@ -147,10 +147,10 @@ static psp_t *g_cur_psp = 0;
 static char g_cwd_paths[4][INT21_CWD_MAX];
 static uint16_t g_cwd_starts[4];
 static unsigned g_current_drive, g_io_drive;
-static unsigned g_drive_limit = 5u; /* IBM DOS 3.30 TR p6-66 minimum. */
+static unsigned g_drive_limit = 5u; /* DOS default with no LASTDRIVE setting. */
 void int21_set_lastdrive(unsigned count)
 {
-    if (count < 5u) count = 5u;
+    if (count < 2u) count = 2u;   /* DOS reports at least two floppy letters. */
     if (count <= 26u) g_drive_limit = count;
 }
 static int (*g_select_drive)(unsigned);
@@ -4830,6 +4830,14 @@ static void do_seldisk(int_frame_t *f)
 {
     if (select_volume(frame_dl(f))) g_current_drive = frame_dl(f);
     unsigned count = g_drive_limit;
+    /* A configured ceiling cannot hide an available drive. The DOS 3.30
+     * LASTDRIVE probes in tests/fixtures/config33 establish the floppy floor. */
+    for (unsigned drive = 4u; drive > count; drive--) {
+        if (select_volume(drive - 1u)) {
+            count = drive;
+            break;
+        }
+    }
     (void)select_volume(g_current_drive);
     set_al(f, (uint8_t)count);
     cf_clear(f);

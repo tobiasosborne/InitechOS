@@ -357,9 +357,8 @@ static void sysinit_config_puts(const char *text)
     int21_dispatch(&frame);
 }
 
-static void sysinit_config_unrecognized(void *context)
+static void sysinit_config_unrecognized(void)
 {
-    (void)context;
     sysinit_config_puts(MSG_DOS_0067);
     sysinit_config_puts("\r\n");
 }
@@ -389,6 +388,28 @@ static int sysinit_shell_supported(const char *tail)
         index++;
     }
     return index && permanent;
+}
+
+static void sysinit_config_report(void *context, config_sys_event_t event,
+                                  const dos_config_t *cfg)
+{
+    (void)context;
+    switch (event) {
+    case CONFIG_SYS_BAD_LINE:
+    case CONFIG_SYS_BUFFERS:
+        sysinit_config_unrecognized();
+        break;
+    case CONFIG_SYS_FILES:
+        if (cfg->files > SFT_MAX_ENTRIES - 1u) sysinit_config_unrecognized();
+        break;
+    case CONFIG_SYS_SHELL:
+        g_shell_ready = sysinit_shell_supported(cfg->shell);
+        if (!g_shell_ready) {
+            sysinit_config_puts(MSG_DOS_0014);
+            sysinit_config_puts("\r\n");
+        }
+        break;
+    }
 }
 
 uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
@@ -452,14 +473,9 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
         }
     }
 
-    (void)config_sys_parse_report(src, src_len, &cfg,
-                                 sysinit_config_unrecognized, 0);
-    if (truncated) sysinit_config_unrecognized(0);
-    g_shell_ready=!cfg.shell_present || sysinit_shell_supported(cfg.shell);
-    if (!g_shell_ready) {
-        sysinit_config_puts(MSG_DOS_0014);
-        sysinit_config_puts("\r\n");
-    }
+    g_shell_ready = 1;
+    (void)config_sys_parse_report(src, src_len, &cfg, sysinit_config_report, 0);
+    if (truncated) sysinit_config_unrecognized();
 
     /* APPLY the CTRL-BREAK directive (beads initech-er3h; ADR-0003 Amendment
      * DEC-16 Sec 3.3 / C-4): BREAK=ON|OFF flows into the kernel g_break_flag via
@@ -473,9 +489,7 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
      * FILES=20 so the system always has a coherent cap. */
     uint16_t files = cfg.files_present ? cfg.files : 20u;
     if (files > SFT_MAX_ENTRIES - 1u) {
-        /* Refuse an unsupported table size instead of claiming it was applied.
-         * GM2 permits a visible period refusal; the fixed table is documented. */
-        sysinit_config_unrecognized(0);
+        /* The parser reported the unsupported capacity. Use the default. */
         files=20u;
     }
     /* Separate CON input/output cost one more resident slot than DOS. Keep
@@ -504,8 +518,13 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
         serial("SYSINIT: DEVICE=");
         serial(cfg.devices[d]);
         if (sysinit_name_eq_ci(cfg.devices[d], "ANSI.SYS")) {
-            g_ansi_enabled = 1;
-            serial(" ansi-enabled\n");
+            if (cfg.device_has_args[d]) {
+                sysinit_config_unrecognized();
+                serial(" refused\n");
+            } else {
+                g_ansi_enabled = 1;
+                serial(" ansi-enabled\n");
+            }
         } else {
             sysinit_config_puts(MSG_DOS_0068);
             sysinit_config_puts(cfg.devices[d]);
@@ -516,13 +535,12 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     for (uint8_t n = 0; n < cfg.install_count; n++) {
         serial("SYSINIT: INSTALL=");
         serial(cfg.install[n]);
-        sysinit_config_unrecognized(0);
+        sysinit_config_unrecognized();
         serial(" refused\n");
     }
     if (cfg.buffers_present) {
         serial("SYSINIT: BUFFERS=");
         sysinit_put_uint(serial, (uint32_t)cfg.buffers);
-        sysinit_config_unrecognized(0);
         serial(" refused\n");
     }
     if (cfg.lastdrive_present) {
