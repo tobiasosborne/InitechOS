@@ -33,7 +33,8 @@ while IFS= read -r dir; do
 done < "$run/directories"
 sort "$run/owners" > "$run/sorted"
 awk '{active[$1]+=$2;pending[$1]+=$3} END {for(c in active) print c,active[c],pending[c]}' "$run/sorted" > "$run/combined"
-sort "$run/combined" > "$run/inventory"
+# Start the larger patch inventories first, while all slots are available.
+sort -k2,2nr -k1,1 "$run/combined" > "$run/inventory"
 [ -s "$run/inventory" ] || { echo 'FAIL no mutation components discovered' >&2; exit 1; }
 awk '{total+=$2} END {exit (total <= 0)}' "$run/inventory" || {
     echo 'FAIL no active mutation patches discovered' >&2; exit 1;
@@ -49,7 +50,8 @@ wait_batch() {
     done
     pids= count=0
 }
-case ${CERT_MUTANT_JOBS:-4} in ''|*[!0-9]*|0) echo 'FAIL invalid CERT_MUTANT_JOBS' >&2; exit 1;; esac
+jobs=${CERT_MUTANT_JOBS:-8}
+case $jobs in ''|*[!0-9]*|0*) echo 'FAIL invalid CERT_MUTANT_JOBS' >&2; exit 1;; esac
 # Recursive builds use paths under TOP/build directly. Give each worker a
 # source snapshot and its own TOP so even image builds have private outputs.
 # Default to a short workspace for the emulator's Unix socket paths.
@@ -93,7 +95,7 @@ while read -r component active pending; do
         exit "$rc"
     ) &
     pids="$pids $!"; count=$((count+1))
-    [ "$count" -lt "${CERT_MUTANT_JOBS:-4}" ] || wait_batch
+    [ "$count" -lt "$jobs" ] || wait_batch
 done < "$run/inventory"
 wait_batch
 pending_total=0

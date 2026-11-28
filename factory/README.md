@@ -134,7 +134,9 @@ Logs and per-stage wall times survive clean builds in
 build/cert/<UTC date/time>-<short sha>/{summary,full.log}. Every certificate requires a complete, unique imported status row for every
 registered component, including at the default CERT_STRICT=0. Standalone
 make status remains informational. CERT_JOBS (default 16) and
-CERT_MUTANT_JOBS (default 4) bound parallel work. Mutation summaries include
+CERT_MUTANT_JOBS (default 8) bound parallel component workers.
+MUTANT_JOBS (default 4) bounds the shared host grader's patch workers within
+each component. Mutation summaries include
 pending patches without counting them as kills. Targets are invoked even for
 pending-only owners: unimplemented targets fail. Standalone active sweeps with pending work report incomplete coverage.
 Certificates reject pending or missing mutation coverage receipts with
