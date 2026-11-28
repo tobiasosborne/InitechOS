@@ -11,6 +11,13 @@ test -s build/system/INITDOS.SYS && test -s build/image/data.img || {
 }
 out=$(mktemp -d "$artifacts/smoke.XXXXXX")
 echo "boot evidence: $out"
+# The two firmware runs each mint and modify their own scenario images.
+if [ "${INITECH_FULL_SMOKE:-0}" = 1 ] && [ "$#" -eq 2 ]; then
+    . factory/smoke-emulators.sh
+    run_emulator() { sh boot/tests/boot.sh "$top" "$artifacts" "$cases" "$1"; }
+    smoke_emulators qemu bochs
+    exit 0
+fi
 export LC_ALL=C INITECH_TEST_RAM_MB=8 INITECH_QMP_STDIO=1
 export BOOT_REAL_QEMU BOOT_REAL_BOCHS BOOT_INDEXED_ROM
 BOOT_REAL_QEMU=$(command -v qemu-system-i386)
@@ -52,7 +59,7 @@ for scenario in $cases; do
         normal|indexed|fallback) ;;
         *) echo "ERROR boot: unknown scenario $scenario"; exit 2 ;;
     esac
-    for emu in qemu bochs; do
+    for emu in ${4:-qemu bochs}; do
         # QEMU's stock VGA has the preferred 32-bit tier. Bochs' stock VBE
         # advertises 0101h. The ROM independently limits either to 0101h.
         extra=''

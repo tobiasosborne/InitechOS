@@ -15,7 +15,9 @@ printf '\032' >> "$out/expected"
 # leg uses its text with the semicolon deleted (shared Bochs key vocabulary);
 # the native file-driven journey checks the exact captured Pascal text.
 setup tr -d ';' < "$corpus/goldens/minted/MINT08/disk/UNNAMED.PAS" > "$out/unnamed.expected"
-for emulator in ${*:-qemu bochs}; do
+. factory/smoke-emulators.sh
+run_emulator() {
+ emulator=$1
  dir=$out/$emulator
  setup mkdir -p "$dir"
  disk=$dir/test.img
@@ -48,5 +50,6 @@ for emulator in ${*:-qemu bochs}; do
   assert "$emulator:unnamed save and Quit preserve typed bytes" cmp "$out/unnamed.expected" "$dir/UNNAMED.PAS"
  setup mdir -b -i "$disk" ::TP55/ > "$dir/files"
  assert_not "$emulator:private files removed at quit" grep -Ei 'TURBO[0-9]{3}[.](PAS|\$0[01])|COMPI[0-9]{3}[.]' "$dir/files"
-done
+}
+smoke_emulators ${*:-qemu bochs}
 finish

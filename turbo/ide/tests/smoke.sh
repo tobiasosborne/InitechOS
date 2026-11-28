@@ -29,7 +29,9 @@ for prog in readkey iocheck; do
   grep -q '^TURBO-NATIVE-OK ' "$out/$prog/raw"
 done
 awk 'BEGIN { for (i = 1; i <= 5000; i++) printf "line %d of the paging fixture, tab\there\r\n", i }' > "$out/BIG.PAS"
-for emulator in ${*:-qemu bochs}; do
+. factory/smoke-emulators.sh
+run_emulator() {
+ emulator=$1
   dir=$out/$emulator
   mkdir -p "$dir"
   disk=$dir/test.img
@@ -95,5 +97,6 @@ for emulator in ${*:-qemu bochs}; do
   assert "$emulator:MINT08 unnamed save bytes" cmp "$corpus/goldens/minted/MINT08/disk/UNNAMED.PAS" "$dir/U/UNNAMED.PAS"
   assert "$emulator:all three journeys finish Quit" test "$(grep -c '^IDE-HOST-MODE=5$' "$dir/serial.txt")" -eq 3
   echo "PASS $emulator ide journeys"
-done
+}
+smoke_emulators ${*:-qemu bochs}
 finish

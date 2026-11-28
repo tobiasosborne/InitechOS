@@ -23,8 +23,10 @@ for dir in $journeys; do
  exits=$((exits+count))
 done
 app_entries=$(mdir -b -i build/image/data.img ::APPS/)
-n=0
-for emulator in qemu bochs; do
+checks=0
+. factory/smoke-emulators.sh
+run_emulator() {
+ emulator=$1
  markers=$out/$emulator.markers
  : > "$markers"
  if [ "$emulator" = bochs ]; then
@@ -57,6 +59,11 @@ for emulator in qemu bochs; do
   --timeout-ms "${DESKTOP_SMOKE_TIMEOUT_MS:-180000}" --name qemu --out "$out" \
   > "$out/qemu.stdout" 2> "$out/qemu.report" || { cat "$out/qemu.report"; fail 'QEMU session'; }
  fi
+ if [ "${INITECH_FULL_SMOKE:-0}" != 1 ]; then verify_emulator "$emulator"; fi
+}
+verify_emulator() {
+ emulator=$1
+ markers=$out/$emulator.markers
  sort "$markers" | uniq -c | while read -r count marker; do
   # Whole names, as the QEMU waits match: app=CALC is not app=CALCULAT.
   seen=$(MARKER=$marker awk -f factory/testlib/marker-count.awk "$out/$emulator.serial")
@@ -67,7 +74,7 @@ for emulator in qemu bochs; do
   grep -F 'A:\>' "$out/qemu.serial" >/dev/null || fail 'QEMU DOS prompt'
  fi
  echo "ok $emulator: Finder disk/APPS, all journeys exited cleanly; desktop lifecycle"
- n=$((n+1))
+ checks=$((checks+1))
  for dir in $journeys; do
   app=$(basename "$(dirname "$(dirname "$dir")")")
   # Keep the original worksheet failure diagnostic for red-desktop.sh.
@@ -75,7 +82,7 @@ for emulator in qemu bochs; do
   [ "$app" != initech123 ] || label='worksheet content'
   sh "$dir/verify.sh" "$out/$emulator-data.img" "$out/$emulator-$app" || case $emulator in qemu) fail "QEMU $label";; bochs) fail "Bochs $label";; esac
   echo "ok $emulator: $app independent saved-file verifier"
-  n=$((n+1))
+  checks=$((checks+1))
  done
  if [ "$emulator" = qemu ]; then
   grep -F 'triple_fault=0 cpu_reset=2 guest_errors=0' "$out/qemu.report" >/dev/null || fail 'QEMU fault verdict'
@@ -86,8 +93,14 @@ for emulator in qemu bochs; do
   grep -Fx VBE-MODE=0101 "$out/bochs.serial" >/dev/null || fail 'Bochs indexed VBE'
  fi
  echo "ok $emulator: video and CPU fault checks"
- n=$((n+1))
-done
+ checks=$((checks+1))
+}
+smoke_emulators qemu bochs
+# The app verifiers can build the same host reader. Run them in order after
+# both disks have been released. Mutation probes still stop at the first red.
+if [ "${INITECH_FULL_SMOKE:-0}" = 1 ]; then
+ for emulator in qemu bochs; do verify_emulator "$emulator"; done
+fi
 legacy=${LEGACY_TREE:-$HOME/Projects/InitechOS-legacy}
 cp "$legacy/build/flair_data.img" "$out/legacy-data.img"
 build/factory/qemu_harness --disk "$legacy/build/flair_tenants_interactive.img" \
@@ -97,7 +110,7 @@ build/factory/qemu_harness --disk "$legacy/build/flair_tenants_interactive.img" 
 sh factory/pixels-check.sh "$out" > "$out/pixels.txt" || { cat "$out/pixels.txt"; fail 'independent desktop pixels'; }
 build/factory/pixels-desktop --informational "$out/legacy.ppm" "$out/desktop.ppm" >> "$out/pixels.txt"
 cat "$out/pixels.txt"
-n=$((n+1))
+checks=$((checks+1))
 elapsed=$(($(date +%s)-start))
 printf '%s\n' "$elapsed" > "$out/elapsed-seconds"
-echo "DESKTOP SMOKE: $n checks, 0 failures (QEMU + Bochs, 8 MiB; ${elapsed}s)"
+echo "DESKTOP SMOKE: $checks checks, 0 failures (QEMU + Bochs, 8 MiB; ${elapsed}s)"

@@ -13,7 +13,9 @@ fail() { echo "FAIL $*" >&2; echo "InitechBase SMOKE: $checks checks completed, 
 line() { grep -Fx -- "$2" "$1" >/dev/null || fail "missing [$2] in $1"; echo "ok $emulator: $2"; checks=$((checks+1)); }
 cpus=${IBASE_SMOKE_CPUS-qemu bochs}
 sh factory/smoke-selection.sh InitechBase-emulators "$cpus" 'qemu bochs'
-for emulator in $cpus; do
+. factory/smoke-emulators.sh
+run_emulator() {
+ emulator=$1
  dir=$out/$emulator
  mkdir -p "$dir"
  disk=$dir/test.img
@@ -58,9 +60,13 @@ for emulator in $cpus; do
   if [ "$pause" -gt "$exit_pause" ]; then exit_pause=$pause; fi
   sed -i "s/q,u,i,t,ret,w$pause,/q,u,i,t,ret,w$exit_pause,/" "$dir/keys"
  fi
+ # DOS echoes the command while it is typed. Wait for the output line
+ # that the serial comparison below grades before terminating the guest.
+ marker=initechbasesmokecomplete
+ if [ "$emulator" = qemu ]; then marker=$(printf '\ninitechbasesmokecomplete\r'); fi
  if ! build/factory/${emulator}_harness --disk build/image/boot.img --disk2 "$disk" \
     $extra --keys-after SHELL-READY --keys "$(cat "$dir/keys")" \
-    --expect initechbasesmokecomplete --quit-after initechbasesmokecomplete \
+    --expect "$marker" --quit-after "$marker" \
     --timeout-ms "${IBASE_SMOKE_TIMEOUT_MS:-90000}" --name run --out "$dir" > "$dir/stdout" 2> "$dir/report"; then
   cat "$dir/report"; fail "$emulator session incomplete";
  fi
@@ -110,12 +116,15 @@ for emulator in $cpus; do
  checks=$((checks+3))
  echo "ok $emulator: C21 transcript, repaired DBF and rebuilt NDX match real III+"
  echo "$emulator: InitechBase smoke GREEN (8 MiB)"
-done
+}
+smoke_emulators $cpus
 # GM5: a fresh genuine III+ session must open serialized target output.
 core=$out/real-reopen/core
 mkdir -p "$core/build"
 (cd "$core" && "$root/build/apps/initechbase/host/test_ibase_core" "$core") > "$out/real-core.log" 2>&1
 mkdir -p "$core/build/dbsafe"
 (cd "$core" && "$root/build/apps/initechbase/host/test_ibase_dbsafe" flush) > "$out/real-flush.log" 2>&1
-sh "$src/tests/write-safety/reopen.sh" "$out/real-reopen" "$dir" "$core"
+# Reopen the final selected emulator's output, as in the serial run.
+for cpu in $cpus; do reopen_input=$out/$cpu; done
+sh "$src/tests/write-safety/reopen.sh" "$out/real-reopen" "$reopen_input" "$core"
 echo "InitechBase SMOKE: $checks checks, 0 failures (emulators: $cpus at 8 MiB)"

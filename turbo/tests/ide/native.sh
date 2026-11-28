@@ -20,7 +20,9 @@ setup cat turbo/tests/ide/runtime/driver.pas >> "$out/driver.pas"
 setup build/turbo/seed/initechc --emit-asm -o "$out/driver.s" "$out/driver.pas"
 setup sh turbo/compiler/tests/package.sh "$out/driver.s" "$out/package" > "$out/package.log" 2>&1
 setup env LC_ALL=C awk 'BEGIN {for(i=0;i<2000;i++)printf "%c%c",65+i%26,16+i%16;printf "%c%c%c",7,3,1}' > "$out/pattern"
-for emulator in ${*:-qemu bochs}; do
+. factory/smoke-emulators.sh
+run_emulator() {
+ emulator=$1
  dir=$out/$emulator
  setup mkdir -p "$dir"
  disk=$dir/test.img
@@ -59,5 +61,6 @@ for emulator in ${*:-qemu bochs}; do
  done
  printf 'after_run\nuser7\nafter_user\nafter_zero\nuser0\nafter_zero_user\n' > "$dir/run/shots.list"
  assert "$emulator:MINT07 actual Run/User screen cells" build/turbo/ide/screens "$corpus/goldens/minted/MINT07" "$dir/run" turbo/tests/ide/runtime/native.expect
-done
+}
+smoke_emulators ${*:-qemu bochs}
 finish

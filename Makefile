@@ -116,10 +116,20 @@ smoke-selection:
 	@INITECH_FULL_SMOKE=1 sh factory/smoke-selection.sh Turbo-sources "$${TURBO_EXEC_SOURCES-$$(echo turbo/compiler/fixtures/gen*.pas turbo/tests/execution/*.pas)}" "$$(echo turbo/compiler/fixtures/gen*.pas turbo/tests/execution/*.pas)"
 smoke: export INITECH_FULL_SMOKE := 1
 smoke: smoke-selection image
-	+@set -e; \
-	$(MAKE) -C factory smoke; \
-	for c in $(SMOKE_COMPONENTS); do $(MAKE) --no-print-directory -C $$c smoke || exit 1; done; \
-	echo 'FULL SMOKE GREEN: factory DOS/programs/desktop + $(REGISTERED_SMOKE_COMPONENTS); QEMU + Bochs'
+	+$(MAKE) $(if $(filter -j%,$(MAKEFLAGS)),,-j16) -k --output-sync=target smoke-legs
+	@echo 'FULL SMOKE GREEN: factory DOS/programs/desktop + $(REGISTERED_SMOKE_COMPONENTS); QEMU + Bochs'
+
+# The image is complete before these independent readers take their disk copies.
+.PHONY: smoke-legs smoke-dos smoke-programs smoke-desktop $(addprefix smoke-,$(SMOKE_COMPONENTS))
+smoke-legs: smoke-dos smoke-programs smoke-desktop $(addprefix smoke-,$(SMOKE_COMPONENTS))
+smoke-dos:
+	sh factory/smoke.sh
+smoke-programs:
+	+$(MAKE) -C factory smoke-programs
+smoke-desktop:
+	sh factory/smoke-desktop.sh
+$(addprefix smoke-,$(SMOKE_COMPONENTS)): smoke-%:
+	+$(MAKE) -C $* smoke-on-image
 run run-bochs:
 	+sh factory/image/run.sh "$(MAKE)" "$@"
 repro:

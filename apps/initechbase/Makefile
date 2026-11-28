@@ -156,9 +156,12 @@ $(OUT)/target/ibase-mz.args: $(OUT)/tools/ibase_memory_ld
 $(OUT)/INITBASE.EXE $(OUT)/INITBASE.OVL &: $(OUT)/IBASE.elf $(OUT)/tools/ibase_ovl_pack $(OUT)/target/ibase-mz.args $(wildcard $(TOP)/factory/mz/*.c) | mz-tools
 	$(OUT)/tools/ibase_ovl_pack $< --res-bin $(OUT)/resident.bin --res-rel $(OUT)/resident.rel --ovl $(OUT)/INITBASE.OVL --overlay .ovl_file --overlay .ovl_report --overlay .ovl_status --overlay .ovl_set --overlay .ovl_memfile --overlay .ovl_forms --forbid ibase_ovl_call --forbid ibase_do --forbid ibase_repl --forbid run_block --forbid exec_command --forbid fl_trap --forbid fl_escape
 	$(MZ_OUT)/mzlink $(OUT)/resident.bin $(OUT)/INITBASE.EXE --reloc-file $(OUT)/resident.rel --header-relocs $$(cat $(OUT)/target/ibase-mz.args)
-smoke: package $(HOST_OUT)/prog_diff $(HOST_OUT)/mint_clients_dbf $(OUT)/smoke/fixtures
-	+$(MAKE) -C $(TOP) image
+smoke-on-image: package $(HOST_OUT)/prog_diff $(HOST_OUT)/mint_clients_dbf $(OUT)/smoke/fixtures
 	sh tests/smoke/run.sh
+.PHONY: smoke-on-image
+smoke:
+	+$(MAKE) -C $(TOP) image
+	+$(MAKE) smoke-on-image
 $(OUT)/smoke/fixtures: tests/smoke/fixtures.c FORCE
 	$(call run-command,$(HOSTCC) $(HOST_CFLAGS) $< -o $@)
 
@@ -205,8 +208,8 @@ test: package-check
 test: patch-anchors
 patch-anchors:
 	@sh tests/patch-anchors.sh
-smoke: pinned-corpus
+smoke-on-image: pinned-corpus
 
 include $(TOP)/mk/import-check.mk
 
-smoke: $(HOST_OUT)/test_ibase_core $(HOST_OUT)/test_ibase_dbsafe
+smoke-on-image: $(HOST_OUT)/test_ibase_core $(HOST_OUT)/test_ibase_dbsafe

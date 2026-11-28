@@ -53,7 +53,10 @@ for step in 'multi|MO-DONE' 'fcbx|FCBX-END' 'nest|EXEC-NESTED-RC=7 PSP-RESTORED 
 done
 make -s -f factory/desktop-tools.mk build/factory/desktop-bochs > "$out/frontend.log" 2>&1 || fail 'Bochs journey frontend build'
 finish=$(printf '\nprogramsdone\r\n')
-for emu in qemu bochs; do
+printf 'hello\r\n' > "$out/expected-out.txt"
+. factory/smoke-emulators.sh
+run_emulator() {
+ emu=$1
  cp "$out/test.img" "$out/$emu-data.img"
  keys=$(cat "$out/keys")
  marker=$finish driver=build/factory/qemu_harness
@@ -91,8 +94,8 @@ for emu in qemu bochs; do
  mcopy -o -i "$out/$emu-data.img" ::FCBKEPT.DAT "$out/$emu-fcb-kept.dat"
  cmp kernel/tests/fixtures/fcb/fcbkept_expected.dat "$out/$emu-fcb-kept.dat" || fail "$emu FCB record bytes vs real DOS"
  mcopy -o -i "$out/$emu-data.img" ::OUT.TXT "$out/$emu-out.txt"
- printf 'hello\r\n' > "$out/expected-out.txt"
  cmp "$out/expected-out.txt" "$out/$emu-out.txt" || fail "$emu persisted write"
  echo "ok $emu: handles, FCB, nested EXEC/INT20/exit codes, memory, clock, vectors, CON; mtools persisted bytes"
-done
+}
+smoke_emulators qemu bochs
 echo 'PROGRAM SMOKE: 2 emulators, 0 failures'

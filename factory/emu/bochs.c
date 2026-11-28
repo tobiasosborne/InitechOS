@@ -1145,6 +1145,11 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
                 if (!rfb_pointer_event(&rfb, x, y, buttons)) break;
                 delay = pointer.hold_ms;
                 if (!consumed) { key_at = mono_ms() + delay; continue; }
+                /* Consecutive button edges replay a click or double-click.
+                 * Two movement delays plus RFB polling can exceed Finder's
+                 * 20-tick double-click interval before the second press. */
+                if (step.kind == BX_BUTTON && end && end[1] == 'l')
+                    delay = BOCHS_TRACE_KEY_MS;
             }
             if (!key_down) {
                 if (step.kind == BX_KEY) out->keys_sent++;

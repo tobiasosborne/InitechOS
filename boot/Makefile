@@ -33,7 +33,8 @@ $(OUT)/monitor.rom: tests/indexed-rom.asm $(OUT)/rom-checksum
 	$(OUT)/rom-checksum $@
 smoke-build: all $(OUT)/indexed.rom $(OUT)/monitor.rom
 	$(MAKE) -C $(TOP)/factory all
-smoke: smoke-build
+.PHONY: smoke-on-image
+smoke smoke-on-image: smoke-build
 	+sh tests/boot.sh "$(TOP)" "$(OUT)"
 mutants: smoke-build
 	+sh tests/mutants.sh "$(TOP)" "$(OUT)" "$(MAKE)" $(MUTANT_PATCHES)

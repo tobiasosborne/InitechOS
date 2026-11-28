@@ -60,7 +60,9 @@ for source in $sources; do
   echo "$id $name $path" >> "$out/cases"
  done
 done
-for emulator in $emulators; do
+. factory/smoke-emulators.sh
+run_emulator() {
+ emulator=$1
  dir=$out/$emulator
  setup mkdir -p "$dir"
  disk=$dir/test.img
@@ -167,5 +169,6 @@ for emulator in $emulators; do
   count=$((count+1))
  done < "$out/cases"
  echo "$emulator: $count generated executions compared to independent FPC"
-done
+}
+smoke_emulators $emulators
 finish

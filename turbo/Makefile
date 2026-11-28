@@ -5,18 +5,25 @@ include $(TOP)/mk/config.mk
 all test mutants:
 	+@for c in seed compiler ide tests; do $(MAKE) --no-print-directory -C $$c $@ || exit 1; done
 
-smoke: all
+smoke:
 	+$(MAKE) -C $(TOP) image
+	+$(MAKE) smoke-on-image
+.PHONY: smoke-on-image smoke-execution smoke-ide smoke-native smoke-interactive
+smoke-on-image: smoke-execution smoke-ide smoke-native smoke-interactive
+smoke-execution smoke-ide smoke-native smoke-interactive: all $(OUT)/smoke/TIMER.COM
+smoke-execution:
 	sh tests/execution/run.sh
+smoke-ide:
 	sh ide/tests/smoke.sh
+smoke-native:
 	sh tests/ide/native.sh
+smoke-interactive:
 	sh tests/ide/interactive.sh
 $(OUT)/smoke/timer.o: tests/smoke/timer.c
 	@mkdir -p $(@D)
 	$(TARGET_CC) $(TARGET_CFLAGS) -c $< -o $@
 $(OUT)/smoke/TIMER.COM: $(OUT)/smoke/timer.o
 	$(TARGET_LD) $(TARGET_LDFLAGS) -Ttext 0x40100 -e _start --oformat binary $< -o $@
-smoke: $(OUT)/smoke/TIMER.COM
 $(OUT)/smoke/compare: tests/smoke/compare.c
 	@mkdir -p $(@D)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@

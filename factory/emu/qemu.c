@@ -1454,6 +1454,7 @@ static int qmp_inject_mouse_trace(int fd, char *buf, RecordCtx *rec,
                           tok[tl - 2] == ':' && tok[tl - 1] == '0');
         int before = is_release ? key_ack_count(ack) : 0;
         if (before < 0) return -1;
+        long long cpu_at_send = ack ? guest_ms(ack->guest_clock) : 0;
         record_pre_event(rec);   /* initech-mfrb: is the guest still alive? */
         if (tok[0] == 'm') {
             /* "m<dx>:<dy>" -- a relative move. */
@@ -1579,6 +1580,11 @@ static int qmp_inject_mouse_trace(int fd, char *buf, RecordCtx *rec,
             /* RECORD-SYNC: an input token is queued while the guest is still
              * blocked; resume it now (a hold leaves it blocked on purpose). */
             if (tok[0] != 'w') rec_release(rec);
+            /* As with --keys, let a blind keystroke reach the guest. Mouse
+             * events have a separate queue: a page click otherwise overtakes
+             * Note Pad's pending paste under concurrent emulator load. */
+            if (tok[0] == 'k' && !key_ack_enabled(ack))
+                key_pace_wait(fd, ack, cpu_at_send);
             if (is_release && !key_ack_wait(fd, ack, before)) return -1;
             /* A DROP is emitted in response to left-button-down; an XDROP is
              * emitted in response to a move while that button remains held.
