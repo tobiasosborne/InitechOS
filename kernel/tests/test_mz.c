@@ -685,9 +685,27 @@ static void test_extended_descriptor(void)
               "DEC-03a: unknown version/length/stack/guard refused");
         f[off[i]]--;
     }
-    f[6]=1; f[0x18]=0x34;
-    CHECK(mz_parse_header(f,sizeof f,&m)==MZ_ERR_BAD_RELOC,
-          "DEC-03a: relocation table cannot overlap descriptor");
+    /* The descriptor ends at 0x38 and four paragraphs end at 0x40.
+     * Byte 0x54 is within the file but in the module. */
+    const struct {
+        uint8_t offset, count;
+        int expected;
+        const char *description;
+    } cases[] = {
+        {0x37, 0, MZ_ERR_BAD_RELOC, "empty table begins inside descriptor"},
+        {0x38, 0, MZ_OK, "empty table begins just past descriptor"},
+        {0x34, 1, MZ_ERR_BAD_RELOC, "relocation overlaps descriptor"},
+        {0x3c, 1, MZ_OK, "last relocation ends at the header boundary"},
+        {0x3d, 1, MZ_ERR_BAD_RELOC, "last relocation overruns the header by one"},
+        {0x40, 0, MZ_OK, "empty table starts at the header boundary"},
+        {0x41, 0, MZ_ERR_BAD_RELOC, "empty table starts beyond the header"},
+        {0x54, 1, MZ_ERR_BAD_RELOC, "legacy-style trailer table in extended image"},
+    };
+    for (unsigned i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        f[0x18] = cases[i].offset;
+        f[6] = cases[i].count;
+        CHECK(mz_parse_header(f, sizeof f, &m) == cases[i].expected, cases[i].description);
+    }
 }
 
 /* ---- main ---------------------------------------------------------------- */
