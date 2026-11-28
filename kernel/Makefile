@@ -19,33 +19,30 @@ $(OUT)/kernel$(if $(BIG_KERNEL),-big).elf: $(OBJECTS) $(TOP)/build/dos/command-r
 $(OUT)/INITDOS$(if $(BIG_KERNEL),-big).SYS: $(OUT)/kernel$(if $(BIG_KERNEL),-big).elf
 	objcopy -O binary $< $@
 	@echo "InitechDOS loaded bytes: $$(wc -c < $@)"
+KERNEL_SMOKE_LEGS := smoke-startup smoke-shell-config smoke-redirected-input \
+                     smoke-ctrl-break smoke-conpair smoke-oem smoke-alias
+.PHONY: smoke smoke-on-image smoke-image $(KERNEL_SMOKE_LEGS)
 smoke:
-	$(MAKE) smoke-shell-config
-	$(MAKE) smoke-ctrl-break
-	$(MAKE) -C $(TOP) smoke
-smoke: smoke-conpair
-.PHONY: smoke-startup
-smoke: smoke-startup
+	+$(MAKE) -C $(TOP) smoke
+smoke-on-image: $(KERNEL_SMOKE_LEGS)
+# Standalone sessions build their image. The top-level gate has already
+# built the shared image before invoking smoke-on-image.
+ifeq ($(filter smoke-on-image,$(MAKECMDGOALS)),)
+$(KERNEL_SMOKE_LEGS): | smoke-image
+endif
+smoke-image:
+	+$(MAKE) -C $(TOP) image
 smoke-startup:
-	$(MAKE) -C $(TOP) image
 	sh tests/startup-native.sh
-.PHONY: smoke-shell-config
 smoke-shell-config:
-	$(MAKE) -C $(TOP) image
 	sh tests/smoke/shell-config33.sh "$(TOP)" "$(OUT)/smoke/shell-config33"
-.PHONY: smoke-redirected-input
-smoke: smoke-redirected-input
 smoke-redirected-input:
-	$(MAKE) -C $(TOP) image
 	sh tests/smoke/redirected-input.sh "$(TOP)" "$(OUT)/smoke/redirected-input"
-.PHONY: smoke-ctrl-break
 smoke-ctrl-break:
-	$(MAKE) -C $(TOP) image
 	sh tests/smoke/ctrl-break.sh "$(TOP)" "$(OUT)/smoke/ctrl-break"
-.PHONY: smoke-conpair
 smoke-conpair: $(OUT)/smoke/CONPAIR10.COM $(OUT)/smoke/CONPAIR13.COM
-	$(MAKE) -C $(TOP) image
-	sh tests/smoke/conpair.sh "$(TOP)" "$(OUT)/smoke/conpair"
+	@out=$$(mktemp -d "$(OUT)/smoke/conpair.XXXXXX") && \
+	echo "CONPAIR smoke evidence: $$out" && sh tests/smoke/conpair.sh "$(TOP)" "$$out"
 $(OUT)/smoke/CONPAIR10.COM: tests/programs/conpair_program.asm
 	@mkdir -p $(@D)
 	$(NASM) -f bin -DSCAN=0x10 $< -o $@
@@ -80,14 +77,8 @@ include $(TOP)/mk/import-check.mk
 object-list:
 	@echo $(OBJECTS)
 
-.PHONY: smoke-oem
 smoke-oem:
-	$(MAKE) -C $(TOP) image
 	sh tests/smoke/oem.sh "$(TOP)" "$(OUT)/smoke/oem"
-smoke: smoke-oem
 
-.PHONY: smoke-alias
 smoke-alias: $(OUT)/host/tool_test_commit_outcome
-	$(MAKE) -C $(TOP) image
 	sh tests/smoke/alias.sh "$(TOP)" "$(OUT)/smoke/alias"
-smoke: smoke-alias

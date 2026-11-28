@@ -104,7 +104,7 @@ image: boot-build system-build factory-build
 	$(MAKE) -C factory image
 # Components with their own emulator session on the product image
 # (`make -C <component> smoke`), one per line.
-override REGISTERED_SMOKE_COMPONENTS := boot turbo apps/initechbase
+override REGISTERED_SMOKE_COMPONENTS := boot kernel turbo apps/initechbase
 SMOKE_COMPONENTS ?= $(REGISTERED_SMOKE_COMPONENTS)
 .PHONY: smoke-selection
 smoke-selection:
@@ -124,7 +124,7 @@ smoke: smoke-selection image
 smoke-legs: smoke-dos smoke-programs smoke-desktop $(addprefix smoke-,$(SMOKE_COMPONENTS))
 smoke-dos:
 	sh factory/smoke.sh
-smoke-programs smoke-desktop: | smoke-frontend
+smoke-programs smoke-desktop smoke-kernel: | smoke-frontend
 smoke-frontend:
 	+$(MAKE) -s -f factory/desktop-tools.mk desktop-bochs
 smoke-programs:
