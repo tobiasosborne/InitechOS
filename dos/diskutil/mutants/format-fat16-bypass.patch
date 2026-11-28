@@ -9,9 +9,9 @@
 - if(fat16_target(m))return protected(letter);
 + if(0&&fat16_target(m))return protected(letter);
   if(m->flags&DU_RUNNING){drive_text("Format not supported on drive ",letter,":\r\n");return 4;}
-  transfer_source src;volume dst;uint8_t template[512];du_map cm;
-  unsigned count=o->s?3:2;
-@@ -244,7 +244,7 @@
+  /* DOS 3.30 NATIVE4T/NATIVE8N reject contradictory dimensions
+   * before prompting for media or replacing the existing filesystem. */
+@@ -250,7 +250,7 @@
   }else if(io->map(2,&cm)||sec(&cm,0,template,0))return error("Format failure",4);
   dst.m=*m;int rc=layout(&dst,o,template);
   if(rc)return error(rc==-2?"Format requires more than one sector per cluster":"Format failure",4);
@@ -20,7 +20,7 @@
   if(o->s||o->b){
    unsigned start=2;
    for(unsigned i=0;i<count;i++){
-@@ -266,13 +266,13 @@
+@@ -271,13 +271,13 @@
     if(!mount(&old,m)){char label[12];label_name(&old,label);drive_text("Enter current Volume Label for drive ",letter,": ");if(input(answer,11)<0)return 3;if(!eq(label,answer,12))return error("Invalid Volume ID Format failure",4);}
     line("WARNING, ALL DATA ON NON-REMOVABLE DISK");drive_text("DRIVE ",letter,": WILL BE LOST!\r\nProceed with Format (Y/N)?");if(input(answer,11)<0)return 3;if(answer[0]!='Y')return 5;
    }

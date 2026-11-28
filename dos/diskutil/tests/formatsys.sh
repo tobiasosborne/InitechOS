@@ -119,6 +119,17 @@ N' 0 > "$w/floppy.console" 2> "$w/floppy.exit" || red 'floppy switches'
  fsck.fat -n "$w/a.img" > "$w/floppy-fsck" 2>&1 || red 'floppy fsck'
 done
 echo 'GREEN test-formatsys: /1 /4 /8 /T /N geometry and media match mformat; every volume SPC1 and fsck.fat clean'
+# DOS 3.30 NATIVE4T/NATIVE8N refuse before any prompt or disk write.
+for switches in '/4 /T:7 /N:7' '/8 /N:9'; do
+ prep
+ mcopy -i "$w/a.img" "$b/transient_flairtenants.bin" ::KEEP.TXT
+ cp "$w/a.img" "$w/conflict-before.img"
+ DU_CURRENT_C=1 run 0 "A: $switches" '
+N' 4
+ printf 'Parameters not compatible\nFormat failure\n' > "$w/conflict.want"
+ cmp "$w/conflict.want" "$w/console" || red 'conflicting geometry diagnostic'
+ cmp "$w/conflict-before.img" "$w/a.img" || red 'conflicting geometry wrote the disk'
+done
 # /B protects room for the two SYS files in root slots 0/1. Independent
 # mtools reads must see HSR reservations with the source sizes and zero bytes;
 # a later SYS fills them without consuming any additional free clusters.

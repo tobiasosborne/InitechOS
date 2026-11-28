@@ -230,6 +230,12 @@ static int format_run(const options *o,const du_map *m){
  unsigned letter=o->letter[0];
  if(fat16_target(m))return protected(letter);
  if(m->flags&DU_RUNNING){drive_text("Format not supported on drive ",letter,":\r\n");return 4;}
+ /* DOS 3.30 NATIVE4T/NATIVE8N reject contradictory dimensions
+  * before prompting for media or replacing the existing filesystem. */
+ unsigned fixed_spt=o->eight?8:9;
+ if((o->four && o->tracks && o->tracks!=40) ||
+    ((o->four || o->eight) && o->sectors && o->sectors!=fixed_spt))
+  return error("Parameters not compatible\r\nFormat failure",4);
  transfer_source src;volume dst;uint8_t template[512];du_map cm;
  unsigned count=o->s?3:2;
  if(o->s||o->b){
