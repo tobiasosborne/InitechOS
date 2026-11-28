@@ -213,6 +213,9 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
             fprintf(f, "clock: sync=%s\n", sync);
     }
     fputs("display_library: rfb\n", f);
+    /* Bochs 2.7's ALSA mixer can abort at startup without a host PCM device.
+     * Use the documented dummy audio backend for headless runs (initech-j9qde). */
+    fputs("sound: driver=dummy\n", f);
     if (cfg->keys_script)
         fputs("debug: action=ignore, keyboard=report\n", f);
     if (cfg->keys_script && strchr(cfg->keys_script, ':'))
