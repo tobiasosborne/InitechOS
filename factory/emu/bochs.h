@@ -62,7 +62,7 @@ typedef struct {
     int timeout_ms;            /* wall-clock kill deadline; <=0 => default.  */
     int renew_ms;              /* >0: serial growth renews the deadline by this
                                   much, up to 3 x timeout_ms (run_status.h). */
-    int rfb_port;              /* 0/default: backend allocates a free port */
+    int rfb_port;              /* 0/default: kernel allocates a loopback port */
 
     const char *expect_marker; /* if non-NULL, asserted present (line-exact,
                                   see bochs.c) in the serial capture.        */

@@ -1,12 +1,14 @@
 TOP := ..
 COMPONENT := factory
 include $(TOP)/mk/config.mk
+include bochs-rfb.mk
 export LOTUS123_DECOMP WORDPERFECT51_DECOMP
 all: $(OUT)/qemu_harness $(OUT)/bochs_harness $(OUT)/boot_system
 $(OUT)/qemu_harness: emu/qemu.c emu/qemu_main.c emu/qemu.h emu/port_lock.h emu/run_status.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) emu/qemu.c emu/qemu_main.c -o $@
 $(OUT)/bochs_harness: emu/bochs.c emu/bochs_main.c emu/bochs.h emu/bochs_trace.h emu/rfb_port.h emu/run_status.h | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) emu/bochs.c emu/bochs_main.c -o $@
+$(OUT)/bochs_harness: | $(OUT)/bochs-rfb.so
 $(OUT)/boot_system: image/boot_system.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 image: all

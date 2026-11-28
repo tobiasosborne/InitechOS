@@ -197,11 +197,12 @@ a private `build/.../run.XXXXXX` directory and prints its location. Explicit
 output overrides remain available; concurrent callers must choose distinct
 paths. Serial, logs, QMP endpoints, writable data and screenshots stay private.
 
-Bochs 2.7 binds an available RFB port starting at 5900. The harness reads the
-successful listener publication from that child's fresh log and reports the
-actual port. It never assumes that a failed attempt at 5900 was a bind, and
-rejects partial/stale log input. Each guest gets a private boot clone; source
-image locks are never removed. Ready/handshake waits share the caller deadline.
+Bochs 2.7's RFB plugin tries ports 5900 to 5949 (upstream gui/rfb.cc).
+Both Bochs frontends preload the sibling host adapter bochs-rfb.so into
+the emulator. It binds the plugin socket to loopback port zero, which lets
+the kernel allocate and hold a free port in one operation. The adapter
+publishes the actual port in the child's fresh log. Each guest gets a
+private boot clone. Ready/handshake waits share the caller deadline.
 Normal QEMU smoke has no TCP listener: QMP uses an inherited socketpair and
 serial uses a private file. Only optional GDB's specific fixed endpoint 1234
 has a resource lock; it cannot block ordinary smoke.

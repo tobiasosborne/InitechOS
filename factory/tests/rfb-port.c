@@ -10,10 +10,12 @@ int main(void)
 {
     if(check("",0) || check("[RFB   ] Trying port 5900\n",0) ||
        check("[RFB   ] Trying port 5900\n[RFB   ] Could not bind socket\n[RFB   ] Trying port 5901\n",0) ||
-       check("000000i[RFB   ] listening for connections on port 5901\n",5901) ||
+       check("000000i[RFB   ] listening for connections on port 5901\n",0) ||
+       check("000000i[RFB   ] Trying port 5900\n"
+             "[initech-rfb] bound loopback port 38417\n",38417) ||
        check("[OTHER ] listening for connections on port 5900\n",0) ||
-       check("[RFB   ] listening for connections on port 65536\n",0) ||
-       check("[RFB   ] listening for connections on port 59",0) ||
-       check("[RFB   ] listening for connections on port 0\n",0))return 1;
-    puts("ok RFB port: own published port, fallback, missing/partial/invalid publication");return 0;
+       check("[initech-rfb] bound loopback port 65536\n",0) ||
+       check("[initech-rfb] bound loopback port 38417",0) ||
+       check("[initech-rfb] bound loopback port 0\n",0))return 1;
+    puts("ok RFB port: adapter publication accepted; Bochs guesses, partial and invalid lines rejected");return 0;
 }

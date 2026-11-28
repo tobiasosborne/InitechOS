@@ -180,7 +180,6 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
 {
     const char *bios = cfg->bios_path    ? cfg->bios_path    : BOCHS_DEFAULT_BIOS;
     const char *vga  = cfg->vgabios_path ? cfg->vgabios_path : BOCHS_DEFAULT_VGABIOS;
-    int port = (cfg->rfb_port > 0) ? cfg->rfb_port : BOCHS_DEFAULT_RFB_PORT;
 
     FILE *f = fopen(path, "wb");
     if (!f) return -1;
@@ -218,9 +217,6 @@ static int write_bochsrc(const char *path, const BochsConfig *cfg,
         fputs("debug: action=ignore, keyboard=report\n", f);
     if (cfg->keys_script && strchr(cfg->keys_script, ':'))
         fputs("mouse: type=ps2, enabled=1\n", f);
-    /* The backend binds an available port starting at 5900. Its successful
-     * bind is published in this child's log; no configuration knob exists. */
-    (void)port;
     fclose(f);
     return 0;
 }
@@ -723,8 +719,8 @@ void bochs_result_free(BochsResult *out)
     out->serial_text = NULL;
 }
 
-/* No host queue: each Bochs binds its own available port. Read only this
- * child's freshly truncated log, and never guess 5900 while it is occupied. */
+/* No host queue: each Bochs binds its own ephemeral loopback port. Read the
+ * adapter's publication in this child's freshly truncated log. */
 static int bochs_listener_port(const char *path,pid_t child,long long deadline)
 {
     while(mono_ms()<deadline) {
@@ -737,6 +733,24 @@ static int bochs_listener_port(const char *path,pid_t child,long long deadline)
     }
     fprintf(stderr,"bochs_run: no listener published by child %ld before deadline (%s)\n",(long)child,path);
     return 0;
+}
+
+/* Use the adapter beside either harness binary, even after the child
+ * changes directory. The fd path also works in a checkout with spaces. */
+static int bochs_preload_rfb(void)
+{
+    char path[BOCHS_PATH_MAX], preload[64];
+    const char adapter[] = "/bochs-rfb.so";
+    ssize_t n = readlink("/proc/self/exe", path, sizeof path - 1);
+    if (n < 0 || n == sizeof path - 1) return -1;
+    path[n] = '\0';
+    char *base = strrchr(path, '/');
+    if (!base || (size_t)(base - path) + sizeof adapter > sizeof path) return -1;
+    memcpy(base, adapter, sizeof adapter);
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return -1;
+    snprintf(preload, sizeof preload, "/proc/self/fd/%d", fd);
+    return setenv("LD_PRELOAD", preload, 1);
 }
 
 static int bochs_boot_copy(const char *source,char *destination)
@@ -907,7 +921,7 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
     int timeout_ms = (cfg->timeout_ms > 0) ? cfg->timeout_ms : BOCHS_DEFAULT_TIMEOUT_MS;
     int port = (cfg->rfb_port > 0) ? cfg->rfb_port : BOCHS_DEFAULT_RFB_PORT;
     if (port != BOCHS_DEFAULT_RFB_PORT) {
-        fprintf(stderr, "bochs_run: explicit RFB port selection is unsupported; use the backend allocator\n");
+        fprintf(stderr, "bochs_run: RFB ports are assigned by the host\n");
         return -1;
     }
 
@@ -1038,6 +1052,10 @@ int bochs_run(const BochsConfig *cfg, BochsResult *out)
         /* A numeric time0 is localtime()d by Bochs 2.7 cmos.cc: pin UTC so
          * the guest RTC matches qemu -rtc base=<ISO> (UTC). */
         if (cfg->rtc_time0 > 0) setenv("TZ", "UTC", 1);
+        if (bochs_preload_rfb() != 0) {
+            fputs("bochs_run: cannot preload sibling bochs-rfb.so\n", stderr);
+            _exit(126);
+        }
         if (abs_dir && chdir(abs_dir) != 0) _exit(126);
         char *argv[] = {
             (char *)BOCHS_BIN, (char *)"-q",

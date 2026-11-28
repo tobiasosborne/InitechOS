@@ -39,7 +39,7 @@ static void usage(const char *argv0)
         "  --bios ROM         system BIOS (default %s)\n"
         "  --vgabios ROM      VGA BIOS  (default %s)\n"
         "  --timeout-ms N     wall-clock kill deadline (default %d)\n"
-        "  --rfb-port N       Bochs RFB port (default %d)\n"
+        "  --rfb-port %d    legacy argument (the host assigns the actual port)\n"
         "  --name LABEL       output filename label (default \"bochs\")\n"
         "  --out DIR          output dir (default \"build\")\n"
         "  --serial-stdout    echo captured serial to stdout\n"
