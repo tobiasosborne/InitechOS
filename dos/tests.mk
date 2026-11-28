@@ -329,3 +329,9 @@ smoke: smoke-copy-omitted-binary
 smoke-copy-omitted-binary:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/copy-omitted-binary.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/copy-omitted-binary.XXXXXX")"
+
+.PHONY: smoke-c-command-startup
+smoke: smoke-c-command-startup
+smoke-c-command-startup:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/c-command-startup.sh "$(abspath $(TOP))" "$$(mktemp -d "$(abspath $(OUT))/c-command-startup.XXXXXX")"

@@ -1,0 +1,7 @@
+Packard Bell OEM MS-DOS 3.30, QEMU 486, 8 MiB. Boot media SHA-256
+3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+The boot AUTOEXEC sets PATH A:\;A:\PROBES. At the prompt, type PATH,
+select B:, type COMMAND /C SET and start STARTCHK from the boot PATH.
+A different AUTOEXEC on B: does not run. The replay maps the reference
+boot drive to C: and the optional data drive to A:. It also reads the
+known STARTCHK message back from a file on the writable C: partition.
