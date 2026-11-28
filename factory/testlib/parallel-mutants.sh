@@ -9,13 +9,20 @@ mkdir -p "$out/mutants"
 run=$(mktemp -d "$out/mutants/parallel.XXXXXX")
 start=$(date +%s)
 
-# Split even patches with the same selection across workers. Each worker
-# caches its own baseline, so the baseline and its mutants share a TOP.
-slot=1
+# Keep equal selections near each other so most baselines are built once.
+# Split large groups at worker boundaries so a single selection can use all
+# slots when necessary. The baseline and its patches still share one TOP.
+: > "$run/selected"
 for patch_file do
-    printf '%s\n' "$patch_file" >> "$run/$slot.list"
-    slot=$((slot % jobs + 1))
+    selection=$(sed -n 's/^# test: //p' "$patch_file")
+    printf '%s\t%s\n' "$selection" "$patch_file" >> "$run/selected"
 done
+tab=$(printf '\t')
+LC_ALL=C sort -s -t "$tab" -k1,1 "$run/selected" > "$run/sorted"
+awk -F "$tab" -v run="$run" -v jobs="$jobs" -v count="$count" '
+    NF != 2 { exit 1 }
+    { slot = int((NR - 1) * jobs / count) + 1; print $2 > (run "/" slot ".list") }
+' "$run/sorted"
 
 pids=
 slot=1

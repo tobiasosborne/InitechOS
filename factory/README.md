@@ -126,6 +126,8 @@ origin; initech-jgo5k; tests/cert.sh).
 `make cert` composes clean/test, image/smoke, repro, patch mutation sweeps,
 Turbo Initech selfhost/DDC, oversized-kernel boot, status and clean git status.
 Every stage runs even after a failure; the final exit is nonzero if any failed.
+The mutation sweep uses private snapshots while self-host and DDC run on the
+certificate's original build tree. Self-host finishes before DDC starts.
 Mutation workers must exit successfully and produce fresh completion records;
 every summary is validated against the discovered patch inventory, with zero
 survivors/errors and no omitted entries. Reused cross-component patches are

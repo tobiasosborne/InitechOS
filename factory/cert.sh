@@ -23,6 +23,7 @@ id=$(date -u +%Y-%m-%dT%H%M%SZ)-$(git rev-parse --short HEAD)
 work=$(mktemp -d)
 start=$(date +%s)
 failed=0
+selfhost_pid=
 : > "$work/summary"
 : > "$work/full.log"
 finish() {
@@ -41,14 +42,18 @@ finish() {
     cat "$dest/summary"
     echo "cert evidence: $dest"
 }
-trap 'failed=$((failed+1)); finish; exit 1' HUP INT TERM
-stage() {
-    name=$1; shift
-    begun=$(date +%s)
-    echo "cert: $name"
-    rc=0
-    "$@" > "$work/$name.log" 2>&1 || rc=$?
-    took=$(($(date +%s)-begun))
+interrupt() {
+    if [ -n "$selfhost_pid" ]; then
+        kill -TERM "-$selfhost_pid" 2>/dev/null || :
+        wait "$selfhost_pid" 2>/dev/null || :
+    fi
+    failed=$((failed+1))
+    finish
+    exit 1
+}
+trap interrupt HUP INT TERM
+report_stage() {
+    name=$1 rc=$2 took=$3
     state=PASS
     if [ "$rc" -ne 0 ]; then state=FAIL; failed=$((failed+1)); fi
     if [ "$name" = mutants ] && [ "$rc" -eq 0 ]; then
@@ -63,6 +68,14 @@ stage() {
     cat "$work/$name.log" >> "$work/full.log"
     # Show the useful tail immediately; the complete log is retained.
     tail -n 8 "$work/$name.log"
+}
+stage() {
+    stage_name=$1; shift
+    begun=$(date +%s)
+    echo "cert: $stage_name"
+    rc=0
+    "$@" > "$work/$stage_name.log" 2>&1 || rc=$?
+    report_stage "$stage_name" "$rc" "$(($(date +%s)-begun))"
 }
 clean_test() {
     make clean || return
@@ -89,7 +102,6 @@ image_smoke() {
     done
     return "$rc"
 }
-selfhost_ddc() { make -C turbo selfhost ddc; }
 board() {
     make status > "$work/board.txt" 2>&1 || return
     cat "$work/board.txt"
@@ -104,9 +116,27 @@ unchanged() {
 stage clean-test clean_test
 stage image-smoke image_smoke
 stage repro make repro
+# The sweep builds from isolated snapshots outside build/. Self-host and
+# DDC can use the original build tree while the sweep grades its own images.
+selfhost_start=$(date +%s)
+echo 'cert: selfhost-ddc'
+setsid sh -c '
+    rc=0
+    make -C turbo selfhost && make -C turbo ddc || rc=$?
+    date +%s > "$1" || exit 1
+    exit "$rc"
+' sh "$work/selfhost-ddc.end" > "$work/selfhost-ddc.log" 2>&1 &
+selfhost_pid=$!
 stage mutants sh factory/mutants.sh "$work"
 for log in "$work"/mutants/*.log; do [ ! -f "$log" ] || cat "$log" >> "$work/full.log"; done
-stage selfhost-ddc selfhost_ddc
+selfhost_rc=0
+wait "$selfhost_pid" || selfhost_rc=$?
+selfhost_pid=
+if ! selfhost_end=$(cat "$work/selfhost-ddc.end"); then
+    selfhost_end=$(date +%s)
+    selfhost_rc=1
+fi
+report_stage selfhost-ddc "$selfhost_rc" "$((selfhost_end-selfhost_start))"
 stage bigkernel make -C boot bigkernel-check
 stage status board
 stage tracked-files unchanged
