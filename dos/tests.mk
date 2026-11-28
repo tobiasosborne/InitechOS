@@ -369,3 +369,18 @@ smoke-shell-c-files:
 	for scenario in datetime dirbreak interact; do \
 	    sh "tests/runtime/$$scenario.sh" "$$root" "$$boot" "$(abspath $(OUT))" "$$out/qemu-$$scenario"; \
 	done
+
+.PHONY: mutants-shell-c
+mutants-shell-c:
+	+$(MAKE) -C $(TOP) image
+	@set -eu; root="$(abspath $(TOP))"; export DOS_SESSION_BOOT="$$root/build/image/c.img"; \
+	patches="$(filter command/%,$(SESSION_MUTANT_PATCHES))"; \
+	DOS_SESSION_EMULATOR=qemu sh tests/runtime/mutants.sh "$$root" $$patches; \
+	set --; \
+	for patch in $$patches; do \
+	    case "$$(sed -n 's/^# session: //p' "$$patch")" in \
+	        datetime|dirbreak|interact) continue ;; \
+	    esac; \
+	    set -- "$$@" "$$patch"; \
+	done; \
+	DOS_SESSION_EMULATOR=bochs sh tests/runtime/mutants.sh "$$root" "$$@"

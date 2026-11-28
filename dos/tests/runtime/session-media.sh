@@ -10,6 +10,11 @@ prepare_session_boot() (
     grep -Fxiq '::/COMMAND.COM' "$target.files" || exit 0
 
     mdir -a -b -i "$data" :: > "$target.workspace"
+    # A broken startup can still complete transport from the C: prompt.
+    if grep -Fxiq '::/DONE.COM' "$target.workspace"; then
+        mcopy -o -i "$data" ::DONE.COM "$target.probe"
+        mcopy -o -i "$volume" "$target.probe" ::DONE.COM
+    fi
     if grep -Fxiq '::/AUTOEXEC.BAT' "$target.workspace"; then
         # Transfer to the same A: scenario after the primary starts on C:.
         printf '%s\r\n' '@echo off' 'A:' 'A:\AUTOEXEC.BAT' > "$target.startup"
@@ -19,3 +24,14 @@ prepare_session_boot() (
         mdel -i "$volume" ::AUTOEXEC.BAT
     fi
 )
+
+session_report_ok() {
+    grep -Fq 'timed_out=0' "$1" || return 1
+    if grep -Fxq '[harness] OK=1' "$1"; then
+        grep -Fq 'triple_fault=0 cpu_reset=2 guest_errors=0' "$1"
+    else
+        grep -Fxq '[bochs] OK=1' "$1" &&
+        grep -Eq '^\[bochs\] launched=1 rfb_unblocked=1 timed_out=0( |$)' "$1" &&
+        grep -Fxq '[bochs] triple_fault=0' "$1"
+    fi
+}

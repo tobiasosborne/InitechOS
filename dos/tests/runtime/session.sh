@@ -69,7 +69,11 @@ PROMPT $P$G$$$D
 ECHO SESSION-READY
 DONE
 BAT
-if [ "${DOS_INTERACTIVE:-1}" = 1 ]; then sed '$d' "$out/autoexec" > "$out/interactive-bat"; mv "$out/interactive-bat" "$out/autoexec";fi
+if [ "${DOS_INTERACTIVE:-1}" = 1 ] ||
+   { [ "${DOS_SESSION_EMULATOR:-qemu}" = bochs ] && [ "${DOS_EXIT_CONTROL:-0}" = 0 ]; }; then
+ sed '$d' "$out/autoexec" > "$out/interactive-bat"
+ mv "$out/interactive-bat" "$out/autoexec"
+fi
 mcopy -i "$img" "$out/autoexec" ::AUTOEXEC.BAT
 printf "\n\n\ncd sub\n" | "$root/build/factory/keys" > "$out/keys"
 printf "f,o,r,spc,shift-5,f,spc,i,n,spc,shift-9,o,n,e,shift-0,spc,d,o,spc,e,c,h,o,spc,shift-f,shift-o,shift-r,minus,shift-p,shift-r,shift-o,shift-m,shift-p,shift-t,ret," >> "$out/keys"
@@ -77,13 +81,14 @@ printf "cd ..\nDone\n" | "$root/build/factory/keys" >> "$out/keys"
 keys=ctrl-z,$(tr '\n' ', ' < "$out/keys"); marker=TRANSPORT-DONE
 if [ "${DOS_INTERACTIVE:-1}" = 0 ]; then
  keys=ctrl-z,ret,ret,ret,d,o,n,e,ret
- if [ "${DOS_SESSION_EMULATOR:-qemu}" = bochs ]; then keys=''; fi
+ if [ "${DOS_SESSION_EMULATOR:-qemu}" = bochs ]; then keys=d,o,n,e,ret; fi
 fi
 if [ "${DOS_EXIT_CONTROL:-0}" = 1 ]; then
  sed '$d' "$out/autoexec" > "$out/exit-bat"
  printf 'COMMAND /C EXIT\n' >> "$out/exit-bat"
  mcopy -o -i "$img" "$out/exit-bat" ::AUTOEXEC.BAT
  marker=SHELL-EXIT
+ if [ "${DOS_SESSION_EMULATOR:-qemu}" = bochs ]; then keys=''; fi
 fi
 DOS_SESSION_RTC=1987-07-06T13:30:58 sh "$root/dos/tests/runtime/execute.sh" \
  "$root" "$boot" "$out" "$keys" "$marker" || error 'session did not finish'

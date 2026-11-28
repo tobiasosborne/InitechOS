@@ -2,12 +2,21 @@
 # Strict patch -> target build -> external session, with a green baseline for
 # each case and repeatable runtime failures. Build errors never count as kills.
 set -eu
-root=$1; shift
+root=$(CDPATH= cd -- "$1" && pwd); shift
 [ "$#" -gt 0 ] || { echo 'FAIL: no runtime mutation patches selected' >&2;exit 1; }
 base=$root/build/dos/session-mutants
 mkdir -p "$base"
 out=$(mktemp -d "$base/run.XXXXXX")
 mkdir -p "$out"
+stock_boot=${DOS_SESSION_BOOT:-$root/build/image/boot.img}
+mdir -a -b -i "$stock_boot@@32256" :: > "$out/boot-files"
+installed=0
+if grep -Fxiq '::/COMMAND.COM' "$out/boot-files"; then
+ installed=1
+ mkdir "$out/c-tree"
+ mcopy -s -m -i "$stock_boot@@32256" '::*' "$out/c-tree"
+ rm -f "$out/c-tree/IO.SYS" "$out/c-tree/INITDOS.SYS"
+fi
 failed=0; survived=0; killed=0; total=0
 for patch_file do
  total=$((total+1))
@@ -18,7 +27,7 @@ for patch_file do
  if [ ! -f "$baseline/status" ]; then
   mkdir -p "$baseline"
   rc=0
-  sh -x "$root/dos/tests/runtime/$case_name.sh" "$root" "$root/build/image/boot.img" "$root/build/dos" "$baseline" > "$baseline/verdict" 2>&1 || rc=$?
+  sh -x "$root/dos/tests/runtime/$case_name.sh" "$root" "$stock_boot" "$root/build/dos" "$baseline" > "$baseline/verdict" 2>&1 || rc=$?
   sh "$root/dos/tests/runtime/classify.sh" "$baseline" "$rc" > "$baseline/status"
  fi
  if ! grep -Fx PASS "$baseline/status" >/dev/null; then
@@ -34,7 +43,7 @@ for patch_file do
  if ! nice make -j2 --no-print-directory -C "$d/component" TOP="$root" OUT="$d/build" all > "$d/build.log" 2>&1; then
   echo "ERROR build $name";failed=$((failed+1));continue
  fi
- boot=$root/build/image/boot.img
+ boot=$stock_boot
  case $(sed -n 's|^--- a/||p' "$patch_file") in command/*)
   if ! objects=$(make --no-print-directory -s -C "$root/kernel" object-list); then
    echo "ERROR objects $name";failed=$((failed+1));continue
@@ -49,8 +58,14 @@ for patch_file do
    echo "ERROR binary $name";failed=$((failed+1));continue
   fi
   boot=$d/boot.img
-  if ! sh "$root/factory/image/mk_boot_system.sh" "$boot" "$root/build/boot/mbr.bin" "$root/build/boot/stage2.bin" \
-   "$root/build/boot/IO.SYS" "$d/INITDOS.SYS" "$root/build/factory/boot_system" > "$d/image.log"; then
+  set -- "$boot" "$root/build/boot/mbr.bin" "$root/build/boot/stage2.bin" \
+   "$root/build/boot/IO.SYS" "$d/INITDOS.SYS" "$root/build/factory/boot_system"
+  builder=$root/factory/image/mk_boot_system.sh
+  if [ "$installed" = 1 ]; then
+   builder=$root/factory/image/mk_system_c.sh
+   set -- "$@" "$out/c-tree"
+  fi
+  if ! sh "$builder" "$@" > "$d/image.log"; then
    echo "ERROR image $name";failed=$((failed+1));continue
   fi
  esac
