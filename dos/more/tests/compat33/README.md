@@ -20,6 +20,12 @@ an initial CRLF. InitechDOS keeps its file and pipe output byte-exact, with
 no input wait. The product replay grades that path against the input fixture
 and grades the interactive cue against the genuine VGA rows.
 
+In the pinned MORE.COM, instructions at 0126h–0137h duplicate handle 0
+for data reads, close handle 0, then duplicate handle 2 into the freed slot.
+The paging key read at 01C3h uses AH=0Ch with AL=01h and so reads from
+the console in slot 0. The redirected console case in `morepage.sh`
+exercises this path with `MORE <PAGES.TXT`.
+
 Run the acquisition during an idle emulator slot with
 `sh dos/more/tests/compat33/capture.sh <disk1.img> <new-output-directory>`.
 Each VGA observation is saved as 80 columns by 25 rows. The checked-in text

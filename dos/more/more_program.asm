@@ -45,10 +45,22 @@ start:
 ; PAGINATE: echo stdin to CON and count newlines between key waits.
 ; ---------------------------------------------------------------------------
 .paginate:
+    ; DOS 3.30 saves the data handle before putting stderr (CON) in slot 0.
+    ; AH=0Ch/01h then reads the keyboard even when the data comes from a file.
+    mov eax, 0x4500            ; DUP stdin
+    xor ebx, ebx
+    int 0x21
+    jc .handle_error
+    mov [input_handle], eax
+    mov eax, 0x4600            ; force-duplicate stderr onto stdin
+    mov ebx, 2
+    xor ecx, ecx
+    int 0x21
+    jc .handle_error
     xor ebp, ebp               ; line counter within the current screenful
 .pg_read:
     mov ah, 0x3F
-    xor ebx, ebx
+    mov ebx, [input_handle]
     mov ecx, RBUF_MAX
     mov edx, RBUF
     int 0x21
@@ -89,11 +101,15 @@ start:
     jmp .pg_byte
 
 .done:
-    mov ah, 0x4C
-    mov al, 0
+    mov ax, 0x4C00
+    jmp .exit
+.handle_error:
+    mov ax, 0x4C01
+.exit:
     int 0x21
     int 0x20                    ; defense in depth (the repository contract)
 
 page_prompt: db 0x0D, "-- More --", "$"
 page_break:  db 0x0D, 0x0A, "$"
 chunk_len: dd 0
+input_handle: dd 0
