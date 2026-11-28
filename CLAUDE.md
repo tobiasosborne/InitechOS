@@ -172,8 +172,10 @@ wrong code never lives in product source: a mutant is a patch file.
    or proof packs.
 3. Tier 2 (`make cert` at the top: both emulators, pixel goldens, the
    mutation sweep, the reproducible hash) is run by the orchestrator at
-   the end of each working day and on release candidates. If it goes
-   red, revert or fix forward before new work starts.
+   the end of each working day and on release candidates. If a product
+   stage goes red (test, image, smoke, reproducible build, self-host),
+   revert or fix forward before new work starts. A fault in the checks
+   themselves is filed and fixed beside the work, not ahead of it.
 
 When several agents work at once, each owns one component directory.
 The shared places (`mk/`, `sdk/`, `factory/`, the top Makefile) have one

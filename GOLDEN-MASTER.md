@@ -16,7 +16,10 @@ legacy tree to find more is not.
 ## 1. It boots
 
 - Boots from the image to the InitechDOS prompt, then to the desktop, on
-  QEMU and on Bochs. A 486 with 8 MiB.
+  QEMU and on Bochs, each with 8 MiB. QEMU runs its 486. This Bochs build
+  has no 486 model, so it runs its nearest, a Pentium (decided 2026-11-28
+  under the operator's delegation, following the 2026-11-15 ruling; the
+  product is still compiled for the 386 instruction set).
 - The same source builds the same image bytes twice in a row.
 - *Accept:* `make cert` boot legs green on both emulators; image hash
   equal across two clean builds.
@@ -124,7 +127,11 @@ legacy tree to find more is not.
   GRAFTABL, KEYB and NLSFUNC once the machine has the ports, printer or
   code pages they drive. Not planned: BACKUP and RESTORE (files are copied
   to disk by hand) and the 16-bit programmer's tools (DEBUG, LINK,
-  EXE2BIN).
+  EXE2BIN). RECOVER belongs with the first group. Also not planned
+  (decided 2026-11-28 under the operator's delegation): SHARE and FASTOPEN,
+  which serve networks and large disks this machine does not have; SELECT,
+  because the system is delivered as a ready-made disk; and a BASIC
+  interpreter, because Turbo Initech is the language product.
 - Writing to FAT16 volumes.
 - `COMMAND.COM` as a separately loaded program; in this master the
   command processor is resident in `INITDOS.SYS`.
