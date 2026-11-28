@@ -318,7 +318,7 @@ smoke-shell-data-guards:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/shell-data-guards.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/shell-data-guards.XXXXXX")"
 
-SHELL_FIDELITY_CASES := template-recall
+SHELL_FIDELITY_CASES := template-recall secondary-status
 .PHONY: smoke-shell-fidelity
 smoke: smoke-shell-fidelity
 smoke-shell-fidelity:
