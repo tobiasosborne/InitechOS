@@ -447,6 +447,20 @@ int main(void)
         CHECK(!batch_next_line(physical,sizeof(physical)-1,&pos,line),
               "mid-line offset must never dispatch a REM fragment");
     }
+    /* DOS 3.30 hands-on and COMMAND audit captures. EDLIN ends a batch
+     * with Ctrl-Z, and bytes after it must never become commands. */
+    const char marked[] = "echo BEFORE-Z\r\n\x1a\r\ndel KEEP.TXT\r\n";
+    int pos = 0;
+    CHECK(batch_next_line(marked, sizeof(marked) - 1, &pos, line) &&
+          strcmp(line, "echo BEFORE-Z") == 0, "batch runs the last line before Ctrl-Z");
+    CHECK(!batch_next_line(marked, sizeof(marked) - 1, &pos, line),
+          "batch stops at Ctrl-Z before DEL KEEP.TXT");
+    const char inline_eof[] = "echo INLINE\x1a" "IGNORE\r\necho AFTER\r\n";
+    pos = 0;
+    CHECK(batch_next_line(inline_eof, sizeof(inline_eof) - 1, &pos, line) &&
+          strcmp(line, "echo INLINE") == 0, "Ctrl-Z ends a partially read line");
+    CHECK(!batch_next_line(inline_eof, sizeof(inline_eof) - 1, &pos, line),
+          "batch stops after the partial line before Ctrl-Z");
     test_expand();
     test_classify();
     test_label_matches();
