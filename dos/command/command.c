@@ -2870,15 +2870,9 @@ static void builtin_ver(void)
     dos_print("\r\n$");
 }
 
-/* ECHO <text>: print the text. With no arg, print the on/off status (minimal --
- * DOS prints "ECHO is on"). */
+/* ECHO <text> prints the text. dispatch_control handles ECHO state. */
 static void builtin_echo(const char *arg)
 {
-    char first[CMD_TOKEN_MAX];
-    if (cmd_first_token(arg, first) == 0) {
-        dos_print(MSG_DOS_0027 "\r\n$");
-        return;
-    }
     dos_puts_raw(arg);
     dos_print("\r\n$");
 }
@@ -4637,6 +4631,7 @@ typedef struct batch_frame {
     struct batch_frame *previous;
 } batch_frame_t;
 static batch_frame_t *g_batch_frame;
+static int g_prompt_echo_on = 1;
 static batch_frame_t *g_batch_buffer_owner;
 /* DOS 3.30 reference/batch-transfer: plain invocation abandons this frame,
  * while CALL retains its caller. Branch change also stops an IF/FOR body. */
@@ -4731,6 +4726,7 @@ static int dispatch_control(const char *line)
     batch_parsed_t bp;
     batch_frame_t *frame = g_batch_frame;
     const char *args = line;
+    int *echo_on = frame ? &frame->echo_on : &g_prompt_echo_on;
     while (*args==' ' || *args=='\t' || *args=='@') args++;
     batch_classify(args,&bp);
     while (*args && *args!=' ' && *args!='\t') args++;
@@ -4738,11 +4734,11 @@ static int dispatch_control(const char *line)
     switch (bp.kind) {
     case BL_BLANK: case BL_REM: case BL_LABEL: return 1;
     case BL_ECHO_ON: case BL_ECHO_OFF:
-        if (frame) frame->echo_on = bp.kind == BL_ECHO_ON;
-        return frame != 0;
+        *echo_on = bp.kind == BL_ECHO_ON;
+        return 1;
     case BL_ECHO_TEXT:
-        if (frame && !bp.echo_text[0]) {
-            dos_print(frame->echo_on ? MSG_DOS_0027 "\r\n$" : MSG_DOS_0028 "\r\n$");
+        if (!bp.echo_text[0]) {
+            dos_print(*echo_on ? MSG_DOS_0027 "\r\n$" : MSG_DOS_0028 "\r\n$");
             return 1;
         }
         return 0;
@@ -4835,10 +4831,11 @@ static void run_batch(const char *path, const char *const argv[], int argc)
         dos_print(MSG_DOS_0037 "\r\n$"); return;
     }
     frame.path=path; frame.view=argv; frame.count=argc;
-    frame.pos=0; frame.echo_on=1; frame.branch=0; frame.cancelled=0;
+    frame.pos=0; frame.branch=0; frame.cancelled=0;
     frame.len=batch_load_file(path,g_batch_buf);
     g_batch_buffer_owner=&frame;
     frame.previous=g_batch_frame;
+    frame.echo_on=frame.previous ? frame.previous->echo_on : g_prompt_echo_on;
     g_batch_frame=&frame;
     g_batch_depth++;
     while (!g_shell_exit && !frame.cancelled) {
@@ -4953,8 +4950,11 @@ static void builtin_command(const char *arg)
     if(depth>=8){dos_print(MSG_DOS_0035 "\r\n$");return;}
     env_store_t env=g_master_env;
     int exit=g_shell_exit,permanent=g_shell_permanent;
+    int echo_on=g_prompt_echo_on;
     batch_frame_t *frame=g_batch_frame;
     g_shell_exit=0;g_shell_permanent=0;g_batch_frame=0;
+    /* DOS 3.30 prompt-echo capture: a secondary starts with ECHO ON. */
+    g_prompt_echo_on=1;
     /* DOS 3.30 secondary-status capture: the new processor starts with
      * ERRORLEVEL 0 and returns 0 even if its command ran a nonzero child. */
     g_errorlevel=0u;
@@ -4963,6 +4963,7 @@ static void builtin_command(const char *arg)
     depth--;
     g_master_env=env;
     g_shell_exit=exit;g_shell_permanent=permanent;
+    g_prompt_echo_on=echo_on;
     g_errorlevel=0u;g_batch_frame=frame;
     /* OEM DOS 3.30 compat33/BATCH: COMMAND /C returns to the physical
      * parent line after its child overwrites the shared batch buffer. */
@@ -4992,6 +4993,7 @@ void command_repl(int permanent)
     char line[CMD_LINE_MAX];
     g_shell_permanent = permanent != 0;
     g_shell_exit = 0;
+    g_prompt_echo_on = 1;
     /* COMMAND.COM is resident in the kernel PSP. An INT 23h during a built-in
      * must unwind the command's normal CLOSE/DUP2 epilogues, then reprompt;
      * terminating this PSP would destroy saved redirection handles and halt.
@@ -5050,7 +5052,7 @@ void command_repl(int permanent)
          * the default "$P$G" produces byte-identical "A:\>" / "A:\SUB>" output
          * so the test-shell prompt-band assertions continue to pass (DEC-12).
          * Ref: ADR-0003 DEC-12; beads initech-dibc. */
-        {
+        if (g_prompt_echo_on) {
             /* Retrieve the PROMPT template from the master environment.
              * Fall back to "$P$G" if the variable is absent/empty (a defensive
              * guard: command_repl seeds it to "$P$G" above, but a PROMPT CLEAR

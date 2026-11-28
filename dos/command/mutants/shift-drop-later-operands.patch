@@ -7,6 +7,6 @@
      }
 -    frame.path=path; frame.view=argv; frame.count=argc;
 +    frame.path=path; frame.view=argv; frame.count=argc>10 ? 10 : argc;
-     frame.pos=0; frame.echo_on=1; frame.branch=0; frame.cancelled=0;
+     frame.pos=0; frame.branch=0; frame.cancelled=0;
      frame.len=batch_load_file(path,g_batch_buf);
      g_batch_buffer_owner=&frame;

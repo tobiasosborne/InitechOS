@@ -6,7 +6,7 @@
           * the default "$P$G" produces byte-identical "A:\>" / "A:\SUB>" output
           * so the test-shell prompt-band assertions continue to pass (DEC-12).
           * Ref: ADR-0003 DEC-12; beads initech-dibc. */
--        {
+-        if (g_prompt_echo_on) {
 -            /* Retrieve the PROMPT template from the master environment.
 -             * Fall back to "$P$G" if the variable is absent/empty (a defensive
 -             * guard: command_repl seeds it to "$P$G" above, but a PROMPT CLEAR
@@ -52,7 +52,7 @@
 +         * root "A:\>" regardless of the CWD, so after `CD SUB` the prompt never
 +         * shows "A:\SUB>" -> the test-ut6d subdir-prompt assertion goes RED.
 +         * NEVER in a real build. */
-+        dos_print("A:\\>$");
++        if (g_prompt_echo_on) dos_print("A:\\>$");
  
          read_line(line);
          if (g_shell_break.interrupted) continue; /* ^C at prompt discards line */

@@ -399,7 +399,7 @@ smoke: smoke-quoted-redirection
 smoke-quoted-redirection:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/quoted-redirection.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/quoted-redirection.XXXXXX")"
-SHELL_FIDELITY_CASES := secondary-status exec-lookup
+SHELL_FIDELITY_CASES := secondary-status exec-lookup prompt-echo
 .PHONY: smoke-shell-fidelity
 smoke: smoke-shell-fidelity
 smoke-shell-fidelity:

@@ -2,11 +2,12 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -4419,6 +4419,7 @@
+@@ -4419,7 +4419,8 @@
      batch_parsed_t bp;
      batch_frame_t *frame = g_batch_frame;
      const char *args = line;
 +    if (g_body_depth) return 0;
+     int *echo_on = frame ? &frame->echo_on : &g_prompt_echo_on;
      while (*args==' ' || *args=='\t' || *args=='@') args++;
      batch_classify(args,&bp);
      while (*args && *args!=' ' && *args!='\t') args++;
