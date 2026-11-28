@@ -5082,7 +5082,19 @@ void command_exec_secondary(const char *tail, uint32_t len)
     for (i = 0u; tail && i < len && i < CMD_LINE_MAX - 1u && tail[i] != '\r'; i++)
         line[i] = tail[i];
     line[i] = '\0';
+    /* The secondary runs under its caller's PSP. In DOS 3.30, Ctrl-C at the
+     * prompt of a COMMAND started by EXEC only reprompts, and EXIT returns
+     * to the caller with the caller's environment unchanged (capture in
+     * dos33/reference/exec-secondary). Recover INT 23h for that PSP while
+     * the secondary runs, as command_repl does for the primary, so the
+     * caller is not terminated and builtin_command restores its state. */
+    int21_break_recovery_t saved = g_shell_break;
+    g_shell_break.owner = int21_get_psp();
+    g_shell_break.interrupted = 0u;
+    int21_break_recovery_t *previous = int21_set_break_recovery(&g_shell_break);
     builtin_command(line);
+    int21_set_break_recovery(previous);
+    g_shell_break = saved;
 }
 
 void command_repl(int permanent)

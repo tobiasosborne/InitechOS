@@ -1,0 +1,8 @@
+Packard Bell OEM MS-DOS 3.30, QEMU 486 with 8 MiB. Media SHA-256
+3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+AUTOEXEC.BAT ran PATH A:\ and PROMPT P$G. At the prompt the capture
+typed COMMAND /C COMMAND, so a COMMAND started by EXEC runs another
+COMMAND, then SET ZZ=CHILD, Ctrl-C, ECHO INNER, EXIT, SET and
+ECHO PARENT-DONE. Ctrl-C printed ^C and a fresh prompt, EXIT returned to
+the first prompt, and SET there listed no ZZ. result.txt keeps INNER,
+the parent's SET listing and PARENT-DONE.
