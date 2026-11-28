@@ -1333,44 +1333,16 @@ int cmd_path_candidates(const char *word, const char *path_value,
     }
 
     if (is_explicit_path(word)) {
-        /* Explicit path: use verbatim.  If no extension present, append .COM.
-         * One candidate total (the explicit path -- no PATH search). */
-        char entry[CMD_PATH_MAX_LEN];
-        int n = 0;
-        const char *p = word;
-
-        entry[0] = '\0';
-        while (*p != '\0' && n < CMD_PATH_MAX_LEN - 1) {
-            entry[n++] = *p++;
+        /* DOS 3.30 exec-lookup capture: a qualified name searches its
+         * own directory for every suffix without consulting PATH. */
+        if (has_extension(word)) {
+            emit_candidate(out, 0, word, "");
+        } else {
+            emit_candidate(out, 0, word, ".COM");
+            emit_candidate(out, 0, word, ".EXE");
+            emit_candidate(out, 0, word, ".BAT");
         }
-        if (*p != '\0') {
-            /* Word too long to fit -- fail loud: return 0 candidates (the repository contract). */
-            return 0;
-        }
-        entry[n] = '\0';
-
-        if (!has_extension(word)) {
-            /* No extension: append .COM if it fits. */
-            if (n + 4 >= CMD_PATH_MAX_LEN) {
-                return 0;   /* would overflow -- skip */
-            }
-            entry[n++] = '.';
-            entry[n++] = 'C';
-            entry[n++] = 'O';
-            entry[n++] = 'M';
-            entry[n]   = '\0';
-        }
-
-        /* Store the single explicit-path candidate. */
-        {
-            int i;
-            for (i = 0; i < n && i < CMD_PATH_MAX_LEN - 1; i++) {
-                out->entries[0][i] = entry[i];
-            }
-            out->entries[0][i] = '\0';
-        }
-        out->count = 1;
-        return 1;
+        return out->count;
     }
 
     /* Simple name (no '\\' or ':'): generate extension rounds.
@@ -3742,12 +3714,17 @@ static void run_external(const char *command, const char *tail)
         /* h4bk: a found image whose required address is occupied must fail
          * loud with its name. DEC-13 controls message bytes: reuse the exact
          * MSG-DOS-0035 instead of inventing a resident/format diagnostic. */
-        if (err == 8u) {
+        if (err == INT21_ERR_INSUFFICIENT_MEM) {
             dos_puts_raw(prog);
             dos_print(": " MSG_DOS_0035 "\r\n$");
             return;
         }
-        /* Non-zero: file not found / bad format / load error -> try next. */
+        /* DOS 3.30 exec-lookup: a found but invalid image ends the search,
+         * even when a later PATH entry has an executable batch file. */
+        if (err == INT21_ERR_BAD_FORMAT) {
+            dos_error("Error in EXE file\r\n$");
+            return;
+        }
     }
 
     /* All candidates exhausted (or list empty) -> the canonical diagnostic. */
