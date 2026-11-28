@@ -2830,6 +2830,29 @@ static void builtin_cd(const char *arg)
     /* Success is SILENT -- the new path shows at the next prompt (real DOS 3.3). */
 }
 
+/* DOS 3.30 directory review: validate the whole operand list before a
+ * filesystem operation. A single path can fill the command tail. */
+static int single_path_operand(const char *arg, char path[CMD_LINE_MAX])
+{
+    while (is_space(*arg)) ++arg;
+    const char *end = arg;
+    while (*end && !is_space(*end)) ++end;
+    const char *rest = end;
+    while (is_space(*rest)) ++rest;
+    if (*rest || end - arg >= CMD_LINE_MAX) {
+        dos_error(MSG_DOS_0038 "\r\n$");
+        return 0;
+    }
+    if (end == arg) {
+        dos_print(MSG_DOS_0011 "\r\n$");
+        return 0;
+    }
+    int len = (int)(end - arg);
+    for (int i = 0; i < len; ++i) path[i] = arg[i];
+    path[len] = '\0';
+    return 1;
+}
+
 /* MD/MKDIR <path>: AH=39h CREATE DIRECTORY. No arg => "Required parameter
  * missing" (MSG-DOS-0011). On success DOS prints NOTHING; any failure (name
  * exists / no write backend / disk full / bad parent) => the single controlled
@@ -2837,10 +2860,8 @@ static void builtin_cd(const char *arg)
  * command, not per error code (DEC-13). */
 static void builtin_md(const char *arg)
 {
-    char path[CMD_TOKEN_MAX];
-
-    if (cmd_first_token(arg, path) == 0) {
-        dos_print(MSG_DOS_0011 "\r\n$");   /* "Required parameter missing" */
+    char path[CMD_LINE_MAX];
+    if (!single_path_operand(arg, path)) {
         return;
     }
     cmd_upcase_str(path);            /* DOS upcases 8.3 path components */
@@ -2856,13 +2877,9 @@ static void builtin_md(const char *arg)
  * "Invalid path, not directory, or directory not empty" (MSG-DOS-0019). */
 static void builtin_rd(const char *arg)
 {
-    char path[CMD_TOKEN_MAX];
-
-    if (cmd_first_token(arg, path) == 0) {
-        dos_print(MSG_DOS_0011 "\r\n$");   /* "Required parameter missing" */
-        return;
-    }
-    cmd_upcase_str(path);            /* DOS upcases 8.3 path components */
+    char path[CMD_LINE_MAX];
+    if (!single_path_operand(arg, path)) return;
+    cmd_upcase_str(path);
     if (dos_rmdir(path) != 0u) {
         dos_print(MSG_DOS_0019 "\r\n$");   /* "Invalid path, ... not empty" */
     }

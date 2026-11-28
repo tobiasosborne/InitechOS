@@ -5,3 +5,7 @@ redirect, retained TOUT and did not create MISS.
 The DEL capture T009–T013 refuses both filenames before deleting either.
 The review repeated pipeline capture S3 with SAFE.OUT already holding XX.
 DOS 3.30 reported File creation error, retained XX and skipped END.
+
+The directory review ran MD NEW EXTRA and RD EMPTY EXTRA with EMPTY
+already present. DOS reported Invalid number of parameters for each.
+Mtools found EMPTY and no NEW directory.

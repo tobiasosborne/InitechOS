@@ -2,10 +2,9 @@
 # session: auto
 --- a/command/command.c
 +++ b/command/command.c
-@@ -2759,9 +2759,15 @@
-         return;
-     }
-     cmd_upcase_str(path);            /* DOS upcases 8.3 path components */
+@@ -2881,7 +2881,13 @@
+     if (!single_path_operand(arg, path)) return;
+     cmd_upcase_str(path);
 -    if (dos_rmdir(path) != 0u) {
 -        dos_print(MSG_DOS_0019 "\r\n$");   /* "Invalid path, ... not empty" */
 -    }
@@ -20,4 +19,3 @@
 +    (void)&dos_rmdir;   /* keep dos_rmdir "used" without calling it (-Werror) */
      /* Success is SILENT (DOS RD prints nothing on success). */
  }
- 
