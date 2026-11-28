@@ -38,6 +38,20 @@ int main(int argc,char **argv)
     } else if (argc==3 && !strcmp(argv[2],"ready")) {
         require(sysinit_shell_ready(), "supported SHELL permits startup");
     } else if (argc==3) {
+        unsigned expected=(unsigned)strtoul(argv[2],0,10);
+        unsigned expect_break, expect_drives, expect_ansi;
+        if (sscanf(argv[2],"state:%2x%2x%2x:%u",
+                   &expect_break,&expect_drives,&expected,&expect_ansi)==4) {
+            int_frame_t frame={0};
+            frame.eax=0x3300;
+            int21_dispatch(&frame);
+            require((frame.edx&255)==expect_break, "BREAK agrees with genuine DOS");
+            frame.eax=0x0e00; frame.edx=0;
+            int21_dispatch(&frame);
+            require((frame.eax&255)==expect_drives, "LASTDRIVE agrees with genuine DOS");
+            require(sysinit_ansi_enabled()==(int)expect_ansi, "ANSI selector changes console mode");
+            require(sysinit_shell_ready(), "supported final SHELL permits startup");
+        }
         unsigned count=0;
         uint16_t handles[20];
         for (;count<20;count++) {
@@ -55,7 +69,7 @@ int main(int argc,char **argv)
             int_frame_t frame={0}; frame.eax=0x3e00; frame.ebx=handles[i];
             int21_dispatch(&frame);
         }
-        require(count==strtoul(argv[2],0,10), "open capacity agrees with genuine DOS");
+        require(count==expected, "open capacity agrees with genuine DOS");
     }
     blockdev_file_close(&disk);
     return ferror(stdout) ? 2 : 0;

@@ -30,7 +30,8 @@ for request in 'BUFFERS=20' 'FILES=255'; do
  assert diff -u build/expected.txt build/console.txt
 done
 printf 'FILES=20\r\nBREAK=ON junk\r\nLASTDRIVE=ZZ\r\nDEVICE=ANSI.SYS\r\n' > build/CONFIG.SYS
-mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
+printf 'ANSI driver fixture\r\n' > build/ANSI.SYS
+mcopy -o -i build/config.img build/CONFIG.SYS build/ANSI.SYS ::
 build/test_config_apply build/config.img > build/console.raw
 assert test ! -s build/console.raw
 for files in 5 6 7 8; do
@@ -53,7 +54,7 @@ for config_case in files4 filesjunk buffersjunk fileszero files256 filesspace la
  sed -n '/Unrecognized command in CONFIG.SYS/{s/[[:space:]]*$//;p;}' "$fixture/result.txt" > build/expected.txt
  assert diff -u build/expected.txt build/console.txt
 done
-# A 1024-byte read must not apply the numeric prefix of a cut-off bad line.
+# A bad numeric token crossing byte 1024 still refuses.
 printf 'FILES=8\r\n' > build/CONFIG.SYS
 awk 'BEGIN {for(i=0;i<1008;i++)printf " "; printf "FILES=9junk\r\n"}' >> build/CONFIG.SYS
 mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
@@ -61,10 +62,26 @@ build/test_config_apply build/config.img 5 > build/console.raw
 tr -d '\r' < build/console.raw > build/console.txt
 sed -n '/Unrecognized command in CONFIG.SYS/{s/[[:space:]]*$//;p;}' dos/command/tests/compat33/expected/CFGA/result.txt > build/expected.txt
 assert diff -u build/expected.txt build/console.txt
-# No complete prefix line is still a refused CONFIG, not the built-in file.
+# A malformed first line crossing byte 1024 leaves the default capacity.
 awk 'BEGIN {for(i=0;i<1017;i++)printf " "; printf "FILES=9junk\r\n"}' > build/CONFIG.SYS
 mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
-build/test_config_apply build/config.img 15 > build/console.raw
+build/test_config_apply build/config.img 5 > build/console.raw
 tr -d '\r' < build/console.raw > build/console.txt
 assert diff -u build/expected.txt build/console.txt
+# The driver exists, but the built-in interpreter has no driver arguments.
+printf 'DEVICE=ANSI.SYS /Z\r\n' > build/CONFIG.SYS
+mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
+cp build/config.img build/before.img
+build/test_config_apply build/config.img state:000505:0 > build/console.raw
+tr -d '\r' < build/console.raw > build/console.txt
+assert diff -u build/expected.txt build/console.txt
+assert cmp build/before.img build/config.img
+
+# BREAK, logical drives and the handle limit are sampled through INT 21h.
+while read -r letter state; do
+ printf 'BREAK=OFF\r\nLASTDRIVE=%s\r\nFILES=8\r\nDEVICE=ANSI.SYS\r\n' "$letter" > build/CONFIG.SYS
+ mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
+ assert build/test_config_apply build/config.img "state:$state:1" > build/console.raw
+ assert test ! -s build/console.raw
+done < kernel/tests/fixtures/config33/lastdrive-state.txt
 finish

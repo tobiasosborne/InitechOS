@@ -80,21 +80,6 @@ extern void int27_entry(void);       /* INT 27h TSR alias (bead initech-6fdt) */
 extern void tsr_idle_entry(void);    /* INT 28h-equivalent default IRETD (6fdt) */
 extern void tsr_screen_entry(void);  /* console page save/restore (6fdt) */
 
-/* The LOCKED CONFIG.SYS baseline, embedded byte-for-byte from
- * spec/dos_config_sys_baseline.txt (The constitution -- this is the fallback when no
- * CONFIG.SYS is present on the volume). Kept in sync with the spec file; the host
- * oracle (test_config_sys.c) parses the spec FILE directly so a drift between this
- * literal and the spec is caught there as a parse-result mismatch is NOT -- so the
- * literal is the deliberate embedded copy of the contract. ASCII, '\n' line ends. */
-static const char SYSINIT_CONFIG_BASELINE[] =
-    "FILES=20\n"
-    "BUFFERS=20\n"
-    "LASTDRIVE=Z\n"
-    "DEVICE=ANSI.SYS\n"
-    "DEVICE=INITNET.SYS\n"
-    "INSTALL=SHARE.EXE\n"
-    "SHELL=COMMAND.COM /P /E:512\n";
-
 /* Case-insensitive ASCII compare of a NUL-terminated parsed DEVICE= name against
  * a literal (e.g. "ANSI.SYS"). Freestanding (The constitution), bounded by the NUL on both
  * sides. Returns 1 iff equal ignoring case. */
@@ -396,85 +381,41 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
                              sysinit_serial_fn serial)
 {
     dos_config_t cfg;
-    const char *src = SYSINIT_CONFIG_BASELINE;
-    uint32_t    src_len = (uint32_t)(sizeof(SYSINIT_CONFIG_BASELINE) - 1u);
-    int         from_disk = 0;
-    int         truncated = 0;
-
-    /* Read CONFIG.SYS from the mounted volume if present; otherwise embed the
-     * LOCKED baseline. `fat_buf` caches the FAT for the cluster walk; the file
-     * bytes land in a small static scratch sized for a realistic CONFIG.SYS (no
-     * malloc, The constitution). A file LARGER than the scratch is not discarded: we honor
-     * its first sizeof(cfg_buf) bytes (the directives we apply -- FILES=, SHELL=
-     * -- sit in the early lines) and flag the truncation in the SYSINIT summary
-     * (bcg.9; operator choice 2026-06-13). */
-    static char cfg_buf[1024];
+    uint32_t src_len = 0;
+    int from_disk = 0;
+    /* Packard Bell DOS 3.30 applies settings in the 65533-byte capture.
+     * The 65534-byte capture uses defaults. Refuse an oversized file
+     * before applying any prefix settings. */
+    static char cfg_buf[65533u];
     if (vol != 0 && sector_buf != 0 && fat_buf != 0) {
         dir_entry_t de;
         int rc = fat12_find(vol, sector_buf, "CONFIG.SYS", &de);
         if (rc == FAT12_OK) {
-            /* Cache the FAT, then read the whole (small) file. */
-            int frc = fat12_read_fat(vol, fat_buf, fat_buf_len);
-            if (frc == FAT12_OK) {
-                uint32_t got = 0;
-                /* sector_buf doubles as the per-cluster scratch (>= sectors_per_
-                 * cluster*512; 512 for a 1.44 MB FAT12). The earlier fat12_find
-                 * use is complete, so reuse is safe (sequential, single-threaded). */
-                int rrc = fat12_read_file(vol, fat_buf, fat_buf_len, &de,
-                                          cfg_buf, (uint32_t)sizeof(cfg_buf),
-                                          sector_buf, &got);
-                if (rrc == FAT12_OK && got > 0u) {
-                    src = cfg_buf;
-                    src_len = got;
-                    from_disk = 1;
-                } else if (rrc == FAT12_ERR_BUFFER) {
-                    /* CONFIG.SYS exceeds cfg_buf: honor the first sizeof(cfg_buf)
-                     * bytes via a positioned read instead of silently discarding
-                     * the whole file (bcg.9). fat12_read_file fails loud on a
-                     * short buffer; fat12_read_partial clamps to the prefix. Trim
-                     * to the last complete line so a cut final line is not mis-
-                     * parsed. Truncation is surfaced in the summary (loud). */
-                    uint32_t got2 = 0;
-                    int prc = fat12_read_partial(vol, fat_buf, fat_buf_len, &de,
-                                                 0u, (uint32_t)sizeof(cfg_buf),
-                                                 cfg_buf, sector_buf, &got2);
-                    if (prc == FAT12_OK && got2 > 0u) {
-                        while (got2 > 0u && cfg_buf[got2 - 1u] != '\n') {
-                            got2--;          /* drop the partial final line */
-                        }
-                        src = cfg_buf;
-                        src_len = got2;
-                        from_disk = 1;
-                        truncated = 1;
-                    }
-                }
+            from_disk = 1;
+            if (de.file_size &&
+                (de.file_size > sizeof(cfg_buf) ||
+                 fat12_read_fat(vol, fat_buf, fat_buf_len) != FAT12_OK ||
+                 fat12_read_file(vol, fat_buf, fat_buf_len, &de, cfg_buf,
+                                 (uint32_t)sizeof(cfg_buf), sector_buf, &src_len) != FAT12_OK)) {
+                sysinit_config_unrecognized(0);
+                src_len = 0;
             }
         }
     }
 
-    (void)config_sys_parse_report(src, src_len, &cfg,
-                                 sysinit_config_unrecognized, 0);
-    if (truncated) sysinit_config_unrecognized(0);
-    g_shell_ready=!cfg.shell_present || sysinit_shell_supported(cfg.shell);
+    (void)config_sys_parse_report(cfg_buf, src_len, &cfg,
+                                  sysinit_config_unrecognized, 0);
+    g_shell_ready = !cfg.shell_present || sysinit_shell_supported(cfg.shell);
     if (!g_shell_ready) {
         sysinit_config_puts(MSG_DOS_0014);
         sysinit_config_puts("\r\n");
     }
 
-    /* APPLY the CTRL-BREAK directive (beads initech-er3h; ADR-0003 Amendment
-     * DEC-16 Sec 3.3 / C-4): BREAK=ON|OFF flows into the kernel g_break_flag via
-     * the public seam. Absent BREAK= keeps the boot default ON (the baseline has
-     * no BREAK= line, so the default stands). The flag is the SAME source of
-     * truth AH=33h GET/SET and the BREAK built-in read/write. */
-    int21_set_break_flag(cfg.break_present ? cfg.break_on : 1u);
-
-    /* APPLY the one directive with teeth: FILES=N -> the runtime SFT cap. If
-     * FILES= was absent (or the file was unparseable), fall back to the baseline
-     * FILES=20 so the system always has a coherent cap. */
-    uint16_t files = cfg.files_present ? cfg.files : 20u;
+    /* Genuine DOS 3.30 without CONFIG directives: BREAK off and five
+     * independent opens, the same capacity as FILES=8. */
+    int21_set_break_flag(cfg.break_on);
+    uint16_t files = cfg.files_present ? cfg.files : 8u;
     if (files > SFT_MAX_ENTRIES - 1u) {
-        /* Refuse an unsupported table size instead of claiming it was applied.
-         * GM2 permits a visible period refusal; the fixed table is documented. */
         sysinit_config_unrecognized(0);
         files=20u;
     }
@@ -485,9 +426,9 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     /* ---- the SYSINIT summary line the in-emulator oracle asserts ---- */
     serial("SYSINIT: source=");
     if (from_disk) {
-        serial(truncated ? "CONFIG.SYS(truncated@1024)" : "CONFIG.SYS");
+        serial("CONFIG.SYS");
     } else {
-        serial("baseline");
+        serial("defaults");
     }
     serial(" FILES=");
     sysinit_put_uint(serial, (uint32_t)files);
@@ -500,12 +441,21 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
     /* ANSI selects the built-in interpreter. External drivers, INSTALL and
      * configurable BUFFERS are visibly refused (GM2), never deferred success.
      * Wording: genuine DOS 3.30 CFGE/CFGF captures (initech-hp0tb). */
+    g_ansi_enabled = 0;
     for (uint8_t d = 0; d < cfg.device_count; d++) {
         serial("SYSINIT: DEVICE=");
         serial(cfg.devices[d]);
-        if (sysinit_name_eq_ci(cfg.devices[d], "ANSI.SYS")) {
-            g_ansi_enabled = 1;
-            serial(" ansi-enabled\n");
+        dir_entry_t driver;
+        if (vol && sector_buf && sysinit_name_eq_ci(cfg.devices[d], "ANSI.SYS") &&
+            fat12_find(vol, sector_buf, "ANSI.SYS", &driver) == FAT12_OK &&
+            !(driver.attribute & (DIR_ATTR_DIRECTORY | DIR_ATTR_VOLLABEL))) {
+            if (cfg.device_has_args[d]) {
+                sysinit_config_unrecognized(0);
+                serial(" refused\n");
+            } else {
+                g_ansi_enabled = 1;
+                serial(" ansi-enabled\n");
+            }
         } else {
             sysinit_config_puts(MSG_DOS_0068);
             sysinit_config_puts(cfg.devices[d]);
@@ -525,8 +475,8 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
         sysinit_config_unrecognized(0);
         serial(" refused\n");
     }
+    int21_set_lastdrive(cfg.lastdrive_present ? (unsigned)(cfg.lastdrive-'A'+1) : 5u);
     if (cfg.lastdrive_present) {
-        int21_set_lastdrive((unsigned)(cfg.lastdrive-'A'+1));
         char ld[2];
         ld[0] = cfg.lastdrive;
         ld[1] = '\0';
@@ -546,7 +496,7 @@ uint8_t sysinit_apply_config(const fat12_volume_t *vol, void *sector_buf,
      * the effective state (the parsed value, or the boot default ON if absent)
      * so the boot log shows it was honored (The constitution -- not silently dropped). */
     serial("SYSINIT: BREAK=");
-    serial((cfg.break_present ? cfg.break_on : 1u) ? "ON" : "OFF");
+    serial(cfg.break_on ? "ON" : "OFF");
     serial(cfg.break_present ? " applied\n" : " (default)\n");
 
     return (uint8_t)files;

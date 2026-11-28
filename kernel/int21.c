@@ -147,10 +147,10 @@ static psp_t *g_cur_psp = 0;
 static char g_cwd_paths[4][INT21_CWD_MAX];
 static uint16_t g_cwd_starts[4];
 static unsigned g_current_drive, g_io_drive;
-static unsigned g_drive_limit = 5u; /* IBM DOS 3.30 TR p6-66 minimum. */
+static unsigned g_drive_limit = 5u; /* DOS default with no LASTDRIVE setting. */
 void int21_set_lastdrive(unsigned count)
 {
-    if (count < 5u) count = 5u;
+    if (count < 2u) count = 2u;   /* DOS reports at least two floppy letters. */
     if (count <= 26u) g_drive_limit = count;
 }
 static int (*g_select_drive)(unsigned);
@@ -348,12 +348,11 @@ int dos_in_dos(void)
  * DEC-16, OEA-ADR-0003-A4, RATIFIED 2026-06-15) -----------------------------
  * The single source of truth read by AH=33h AL=00h GET and written by AH=33h
  * AL=01h SET, by CONFIG.SYS BREAK= at SYSINIT, and by the BREAK shell built-in.
- * Boot default ON (1): DOS 3.3 defaults BREAK ON per the DOS 3.3 PRM (DEC-16
- * Sec 3.3; C-7 86Box-confirmation obligation -- editorial-erratum flippable).
+ * Packard Bell DOS 3.30 boots with BREAK off (tests/fixtures/config33).
  * 4tw's ^C check-point reads this via int21_get_break_flag (the CON-input
  * functions are always a check-point under Fork A; int21_dispatch_body adds
  * the ON-only non-console check, DEC-16 C-6 / initech-vlhp). */
-static uint8_t g_break_flag = 1u;   /* DOS 3.3 boot default ON (DEC-16 3.3) */
+static uint8_t g_break_flag;
 
 /* SET the BREAK flag, NORMALIZING any non-zero to 1 (DEC-16 Sec 3.2 -- store the
  * boolean, not the raw byte, so a later GET returns exactly 0 or 1). The public
@@ -4825,6 +4824,14 @@ static void do_seldisk(int_frame_t *f)
 {
     if (select_volume(frame_dl(f))) g_current_drive = frame_dl(f);
     unsigned count = g_drive_limit;
+    /* A configured ceiling cannot hide an available drive. The DOS 3.30
+     * LASTDRIVE probes in tests/fixtures/config33 establish the floppy floor. */
+    for (unsigned drive = 4u; drive > count; drive--) {
+        if (select_volume(drive - 1u)) {
+            count = drive;
+            break;
+        }
+    }
     (void)select_volume(g_current_drive);
     set_al(f, (uint8_t)count);
     cf_clear(f);

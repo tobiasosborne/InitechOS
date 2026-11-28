@@ -19,6 +19,13 @@ mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
 build/test_config_apply build/config.img refused > build/console.raw
 tr -d '\r' < build/console.raw > build/console.txt
 assert diff -u build/expected.txt build/console.txt
+for shell in '' "$(printf '%064d' 0 | tr 0 x)"; do
+ printf 'SHELL=%s\r\n' "$shell" > build/CONFIG.SYS
+ mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
+ assert build/test_config_apply build/config.img refused > build/console.raw
+ tr -d '\r' < build/console.raw > build/console.txt
+ assert diff -u build/expected.txt build/console.txt
+done
 printf 'SHELL=COMMAND.COM /P /E:512\r\n' > build/CONFIG.SYS
 mcopy -o -i build/config.img build/CONFIG.SYS ::CONFIG.SYS
 build/test_config_apply build/config.img ready > build/console.raw

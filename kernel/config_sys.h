@@ -38,6 +38,7 @@ typedef struct dos_config {
 
     uint8_t  device_count;     /* number of DEVICE= names retained                  */
     char     devices[CONFIG_SYS_MAX_DEVICES][CONFIG_SYS_NAME_MAX];
+    uint8_t  device_has_args[CONFIG_SYS_MAX_DEVICES];
 
     uint8_t  install_count;    /* number of INSTALL= names retained                 */
     char     install[CONFIG_SYS_MAX_INSTALL][CONFIG_SYS_NAME_MAX];
@@ -45,12 +46,7 @@ typedef struct dos_config {
     char     shell[CONFIG_SYS_SHELL_MAX]; /* SHELL= full tail, e.g. "COMMAND.COM /P /E:512" */
     uint8_t  shell_present;
 
-    /* BREAK=ON|OFF (beads initech-er3h; ADR-0003 Amendment DEC-16). The CTRL-
-     * BREAK checking state SYSINIT flows into the kernel g_break_flag via
-     * int21_set_break_flag(break_present ? break_on : 1) -- absent BREAK= keeps
-     * the boot default ON (DEC-16 Sec 3.3 / C-4). break_on is the normalized
-     * boolean (1 = ON, 0 = OFF). Lenient: a malformed BREAK= value leaves
-     * break_present == 0 (DOS-faithful leniency; the boot default stands). */
+    /* BREAK=ON|OFF sets the flag queried by AH=33h. The boot default is OFF. */
     uint8_t  break_on;         /* parsed BREAK= state (1=ON, 0=OFF); 0 if absent */
     uint8_t  break_present;    /* 1 iff a well-formed BREAK=ON|OFF line was seen  */
 } dos_config_t;
@@ -63,9 +59,7 @@ typedef struct dos_config {
  * empty file (out is zeroed, returns 0). Pure (no I/O), so host-testable. */
 int config_sys_parse(const char *buf, uint32_t len, dos_config_t *out);
 
-/* Report each malformed/unrecognized line without aborting the boot. The
- * callback performs I/O; parsing itself still has no transport dependency.
- * Source: genuine DOS 3.30 CFGA..CFGF boot captures (initech-hp0tb). */
+/* Report syntax failures without aborting CONFIG parsing. */
 typedef void (*config_sys_diagnostic_fn)(void *context);
 int config_sys_parse_report(const char *buf, uint32_t len, dos_config_t *out,
                             config_sys_diagnostic_fn report, void *context);

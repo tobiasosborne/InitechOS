@@ -25,3 +25,20 @@ gate decodes those captured counts and drives the real INT21/SFT/FAT stack.
 One extra physical SFT slot accounts for this kernel's separate CON input and
 output entries, retaining a configured DOS capacity of20. Larger configurations
 are visibly refused; no implementation of their capacity is claimed.
+
+`lastdrive-state.txt` comes from the same disk and probe in QEMU at 486/8 MiB
+with a blank 1.44 MiB B:. Each CONFIG contains `BREAK=OFF`, `LASTDRIVE=` with
+the indicated letter, and `FILES=8`. AUTOEXEC runs PROBE and prints
+CAPTURE-DONE. The VGA capture from `goldens/dataloss/drive.c` supplies each
+CFG-STATE value. The A setting reports two logical floppy letters. D, E, F,
+and Z report 4, 5, 6, and 26 respectively.
+
+`startup-state.txt` records CFG-STATE from the phase 4 Packard Bell DOS
+3.30 boot captures `audit-config-dos-3.30/boots.txt`. The gate reproduces
+the absent, empty, blank, Ctrl-Z, longconfig, unknown-next, CR-only, LF-only
+and ANSI cases. The two length-boundary captures use LF padding followed
+by FILES=5 and LASTDRIVE=Z. Their complete CONFIG files measure 65533 and
+65534 bytes on the same medium and emulator. Bare ANSI is checked with a
+file present on the mounted volume, and the missing ANSI case compares
+the captured console wording. The product visibly refuses its driver
+arguments and files above the captured limit.

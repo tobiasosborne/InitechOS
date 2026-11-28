@@ -1,0 +1,12 @@
+absent 000505
+empty 000505
+blank 000505
+eof 000502
+longconfig 001A02
+config65533 001A02
+config65534 000505
+unknown-next 000505
+cr 000502
+lf 011102
+nodriver 000505
+driver 000505

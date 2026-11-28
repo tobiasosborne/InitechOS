@@ -8,11 +8,13 @@ cd "$root"
 export LC_ALL=C TZ=UTC SOURCE_DATE_EPOCH=315532800 INITECH_QMP_STDIO=1 INITECH_TEST_RAM_MB=8
 printf 'SHELL configuration evidence: %s\n' "$out"
 for emulator in qemu bochs; do
- for scenario in missing environment supported; do
+ for scenario in missing empty long environment supported; do
   dir=$out/$emulator-$scenario
   mkdir -p "$dir"
   case $scenario in
    missing) shell='MISSING.COM /P'; marker='Bad or missing Command Interpreter';;
+   empty) shell=; marker='Bad or missing Command Interpreter';;
+   long) shell=$(printf '%064d' 0 | tr 0 x); marker='Bad or missing Command Interpreter';;
    environment) shell='COMMAND.COM /P /E:1024'; marker='Bad or missing Command Interpreter';;
    supported) shell='COMMAND.COM /P /E:512'; marker='AUTOEXEC-RAN';;
   esac
