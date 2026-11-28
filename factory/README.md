@@ -126,6 +126,8 @@ origin; initech-jgo5k; tests/cert.sh).
 `make cert` composes clean/test, image/smoke, repro, patch mutation sweeps,
 Turbo Initech selfhost/DDC, oversized-kernel boot, status and clean git status.
 Every stage runs even after a failure; the final exit is nonzero if any failed.
+The mutation sweep uses private snapshots while self-host and DDC run on the
+certificate's original build tree. Self-host finishes before DDC starts.
 Mutation workers must exit successfully and produce fresh completion records;
 every summary is validated against the discovered patch inventory, with zero
 survivors/errors and no omitted entries. Reused cross-component patches are
@@ -134,7 +136,9 @@ Logs and per-stage wall times survive clean builds in
 build/cert/<UTC date/time>-<short sha>/{summary,full.log}. Every certificate requires a complete, unique imported status row for every
 registered component, including at the default CERT_STRICT=0. Standalone
 make status remains informational. CERT_JOBS (default 16) and
-CERT_MUTANT_JOBS (default 4) bound parallel work. Mutation summaries include
+CERT_MUTANT_JOBS (default 8) bound parallel component workers.
+MUTANT_JOBS (default 4) bounds the shared host grader's patch workers within
+each component. Mutation summaries include
 pending patches without counting them as kills. Targets are invoked even for
 pending-only owners: unimplemented targets fail. Standalone active sweeps with pending work report incomplete coverage.
 Certificates reject pending or missing mutation coverage receipts with

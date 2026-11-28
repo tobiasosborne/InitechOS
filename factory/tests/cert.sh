@@ -12,6 +12,11 @@ case "$*" in
  '--no-print-directory -C a mutants') exec /usr/bin/make "$@";;
  '-s --no-print-directory -f - cert-origins') exec /usr/bin/make "$@";;
  '-s dependencies') printf 'a: b\nb: c\nc:\n';;
+ '-C turbo selfhost ddc'|'-C turbo selfhost')
+ if [ "$CASE" = overlap ]; then
+  touch "$CERT_PEERS/selfhost"
+  timeout 5 sh -c 'until [ -f "$1/mutants" ]; do sleep 0.05; done' sh "$CERT_PEERS"
+ fi;;
  *test)
  case $CASE in
  subset) echo "registered 3, run 1; elapsed 0s"; echo "SUBSET GREEN (not ALL GREEN)";;
@@ -45,19 +50,24 @@ esac
 GIT
 chmod +x "$work/bin/"*
 for strict in 0 1; do
- for name in green red host-green missing duplicate unknown empty malformed pending subset no-receipt missing-host git-error git-dirty; do
+ for name in green overlap red host-green missing duplicate unknown empty malformed pending subset no-receipt missing-host git-error git-dirty; do
   dir=$work/$strict-$name
   mkdir -p "$dir/factory/testlib" "$dir/a/mutants"
   cp "$root/factory/cert.sh" "$root/factory/mutants.sh" "$dir/factory/"
   cp "$root/factory/testlib/"*.awk "$root/factory/testlib/snapshot.sh" "$dir/factory/testlib/"
   : > "$dir/a/mutants/active.patch"
   printf '.PHONY: mutants\nmutants:\n\t@echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"\n' > "$dir/a/Makefile"
+  if [ "$name" = overlap ]; then
+   printf '%s\n' 'mutants: wait-for-selfhost' 'wait-for-selfhost:' \
+    '	@touch "$$CERT_PEERS/mutants"' \
+    '	@timeout 5 sh -c '\''until [ -f "$$1/selfhost" ]; do sleep 0.05; done'\'' sh "$$CERT_PEERS"' >> "$dir/a/Makefile"
+  fi
   if [ "$name" = pending ]; then
    mkdir -p "$dir/a/mutants/pending"; : > "$dir/a/mutants/pending/later.patch"
   fi
   rc=0
-  (cd "$dir" && PATH="$work/bin:$PATH" CASE=$name CERT_STRICT=$strict sh factory/cert.sh) > "$dir/log" 2>&1 || rc=$?
-  if [ "$name" = green ]; then
+  (cd "$dir" && PATH="$work/bin:$PATH" CASE=$name CERT_PEERS="$dir" CERT_STRICT=$strict sh factory/cert.sh) > "$dir/log" 2>&1 || rc=$?
+  if [ "$name" = green ] || [ "$name" = overlap ]; then
    [ "$rc" -eq 0 ] || { cat "$dir/log"; exit 1; }
    grep -q 'status: PASS' "$dir/log"
   elif [ "$name" = git-error ] || [ "$name" = git-dirty ]; then
