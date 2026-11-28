@@ -53,4 +53,13 @@ build/batch_fat build/shift.img PARENT.BAT "$(cat "$ref/tail.txt")" > build/actu
 tr -d '\r' < build/actual > build/text
 cmp "$ref/trace.txt" build/text || fail 'SHIFT positions differ from the genuine DOS capture'
 echo 'GREEN SHIFT: captured late positions, nested CALL and exhaustion'
-echo 'INITECH_CHECKS 4 failures=0'
+
+# OEM DOS 3.30 review-day3-1 row 1: CALL splits all three punctuation
+# separators, so the first two shifts bring j and k into %9.
+printf '%s\n' 'call PARENT.BAT a,b;c=d e f g h i j k' > build/lines
+build/batch_fat build/shift.img build/lines > build/actual || fail 'CALL punctuation batch run failed'
+tr -d '\r' < build/actual | sed -n 's/^\(TEN\|ELEVEN\)=\[.*\]\[.*\]\(\[[^]]*\]\)$/\2/p' > build/text
+printf '%s\n' '[j]' '[k]' > build/expected
+diff -u build/expected build/text || fail 'CALL punctuation changes which operands SHIFT exposes'
+echo 'GREEN CALL and SHIFT: comma, semicolon and equals split the batch operands'
+echo 'INITECH_CHECKS 5 failures=0'

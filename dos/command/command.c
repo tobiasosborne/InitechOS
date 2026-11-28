@@ -4894,6 +4894,13 @@ static void run_batch(const char *path, const char *const argv[], int argc)
     g_batch_buffer_owner=0;
 }
 
+/* OEM DOS 3.30 splits batch operands on these characters (CALL and SHIFT
+ * captures). Double quotes are ordinary operand characters here. */
+static int batch_operand_separator(char c)
+{
+    return is_space(c) || c == ',' || c == ';' || c == '=';
+}
+
 /* Build a .BAT argv from a command word + a DOS command tail and run it.
  *
  *   `path` -- the resolved .BAT file path (used to OPEN/READ).
@@ -4922,11 +4929,11 @@ static void run_batch_named(const char *path, const char *tail, const char *name
 
     const char *p = tail;
     while (p && *p && used < sizeof(operands) && argc <= CMD_LINE_MAX / 2) {
-        while (is_space(*p)) p++;
+        while (batch_operand_separator(*p)) p++;
         if (!*p) break;
         argv[argc++] = operands + used;
         unsigned length = 0;
-        while (*p && !is_space(*p)) {
+        while (*p && !batch_operand_separator(*p)) {
             if (length + 1 < CMD_TOKEN_MAX && used + 1 < sizeof(operands)) {
                 operands[used++] = *p;
                 length++;
