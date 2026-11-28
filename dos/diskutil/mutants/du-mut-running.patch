@@ -2,11 +2,11 @@
 # test: test-formatsys
 --- a/diskutil/diskutil.c
 +++ b/diskutil/diskutil.c
-@@ -159,7 +159,6 @@
+@@ -229,7 +229,6 @@
  static int format_run(const options *o,const du_map *m){
   unsigned letter=o->letter[0];
   if(fat16_target(m))return protected(letter);
 - if(m->flags&DU_RUNNING){drive_text("Format not supported on drive ",letter,":\r\n");return 4;}
-  volume src,dst;uint8_t files[3][32],template[512];du_map cm;
+  transfer_source src;volume dst;uint8_t template[512];du_map cm;
+  unsigned count=o->s?3:2;
   if(o->s||o->b){
-   /* MS-DOS 3.3 UG p336 (PDF421), audit L041: unavailable source files

@@ -159,3 +159,9 @@ smoke: smoke-ata-terms
 smoke-ata-terms:
 	+$(MAKE) -C $(TOP) image
 	sh tests/runtime/ata-terms.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$(abspath $(OUT))" "$$(mktemp -d "$(abspath $(OUT))/smoke-ata-terms.XXXXXX")"
+
+.PHONY: smoke-system-transfer
+smoke: smoke-system-transfer
+smoke-system-transfer:
+	+$(MAKE) -C $(TOP) image
+	sh diskutil/tests/transfer-native.sh "$(abspath $(TOP))" "$(abspath $(OUT))/smoke-system-transfer"

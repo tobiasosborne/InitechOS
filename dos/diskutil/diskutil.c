@@ -31,15 +31,17 @@ static int protected(unsigned letter){
 }
 static int input(char *p,unsigned cap){unsigned n=0;zero(p,cap+1);for(;;){int c=io->get();if(c==3)return -1;if(c==13||c==10){p[n]=0;put("\r\n");return (int)n;}if(c==8){if(n){n--;put("\b \b");}}else if(c>=32&&c<127&&n<cap){p[n++]=upper((char)c);char b[2]={(char)c,0};put(b);}}}
 static int yes(void){int c;do{c=upper((char)io->get());if(c==3)return 0;}while(c!='Y'&&c!='N');char b[2]={(char)c,0};line(b);return c=='Y';}
-typedef struct {du_map m;uint8_t boot[512];unsigned spf,root,roots,data,bits,clusters;} volume;
+typedef struct {du_map m;uint8_t boot[512];unsigned spc,spf,root,roots,data,bits,clusters;} volume;
 static int sec(const du_map *m,uint32_t n,void *p,int write){if(n>=m->sectors)return -1;return io->sector(m->disk,m->base+n,p,write);}
 static int fat16_target(const du_map *m){uint8_t b[512];return !sec(m,0,b,0)&&dos_fat16(b);}
 static int parse(volume *v){
  uint8_t *b=v->boot;unsigned total=u16(b+19);if(!total)total=u32(b+32);
- if(u16(b+11)!=512 || b[13]!=1 || u16(b+14)!=1 || b[16]!=2 || !u16(b+22) || !u16(b+17) || total>v->m.sectors || b[510]!=0x55 || b[511]!=0xaa)return -1;
+ v->spc=b[13];
+ if(u16(b+11)!=512 || !v->spc || v->spc>8 || (v->spc&(v->spc-1)) ||
+    u16(b+14)!=1 || b[16]!=2 || !u16(b+22) || !u16(b+17) || total>v->m.sectors || b[510]!=0x55 || b[511]!=0xaa)return -1;
  v->spf=u16(b+22);v->roots=(u16(b+17)+15)/16;v->root=1+2*v->spf;v->data=v->root+v->roots;
  if(total<=v->data)return -1;
- v->clusters=total-v->data;v->bits=v->clusters<4085?12:16;
+ v->clusters=(total-v->data)/v->spc;v->bits=v->clusters<4085?12:16;
  if(v->clusters>=65525 || ((v->clusters+2)*v->bits+7)/8>v->spf*512)return -1;
  return 0;
 }
@@ -68,12 +70,43 @@ static const char names[3][12]={"IO      SYS","INITDOS SYS","COMMAND COM"};
 static int find(const volume *v,const char *name,uint8_t e[32]){
  for(unsigned n=0;n<v->roots*16;n++){if(entry(v,n,e,0))return -1;if(!e[0])return -1;if(e[0]!=0xe5&&!(e[11]&24)&&eq(e,name,11))return 0;}return -1;
 }
-static int source(volume *v,uint8_t files[3][32],unsigned count){du_map m;if(io->map(2,&m)||mount(v,&m))return -1;for(unsigned i=0;i<count;i++)if(find(v,names[i],files[i]))return -1;return 0;}
+typedef struct {
+ volume system, command;
+ uint8_t files[3][32];
+ int split;
+} transfer_source;
+static int source(transfer_source *src,unsigned count){
+ du_map m;
+ src->split=0;
+ if(io->map(2,&m)||mount(&src->system,&m))return -1;
+ for(unsigned i=0;i<2;i++)if(find(&src->system,names[i],src->files[i]))return -1;
+ if(count==2 || !find(&src->system,names[2],src->files[2]))return 0;
+ /* The two-file legacy master boots the resident shell from A:. The
+  * legacy pair and this source split expire at the installed C: cutover. */
+ if((src->system.m.flags&DU_RUNNING) || io->map(0,&m) ||
+    !(m.flags&DU_RUNNING) || mount(&src->command,&m) ||
+    find(&src->command,names[2],src->files[2]))return -1;
+ src->split=1;
+ return 0;
+}
+static const volume *file_volume(const transfer_source *src,unsigned i){
+ return i==2 && src->split ? &src->command : &src->system;
+}
+static int same_volume(const du_map *a,const du_map *b){
+ return a->disk==b->disk && a->base==b->base;
+}
+static unsigned file_sectors(const uint8_t e[32]){
+ uint32_t bytes=u32(e+28);
+ return bytes/512+(bytes%512!=0);
+}
+static unsigned file_clusters(const volume *v,const uint8_t e[32]){
+ return (file_sectors(e)+v->spc-1)/v->spc;
+}
 static int freecount(const volume *v,unsigned *n){*n=0;for(unsigned c=2;c<v->clusters+2;c++){unsigned x;if(fatget(v,c,&x))return -1;if(!x)(*n)++;}return 0;}
 static int freechain(const volume *v,unsigned c){for(unsigned n=0;c>=2&&c<v->clusters+2&&n<v->clusters;n++){unsigned next;if(fatget(v,c,&next)||fatset(v,c,0))return -1;c=next;}return 0;}
 /* Validate the full source chain before the first destination write. */
 static int chain(const volume *v,const uint8_t *e,int contiguous){
- unsigned count=(u32(e+28)+511)/512,c=u16(e+26);if(!count||count>v->clusters)return -1;
+ unsigned count=file_clusters(v,e),c=u16(e+26);if(!count||count>v->clusters)return -1;
  for(unsigned i=0;i<count;i++){
   unsigned next;if(c<2||c>=v->clusters+2||fatget(v,c,&next))return -1;
   if(i+1==count){if(next<(v->bits==12?0xff8u:0xfff8u))return -1;}
@@ -82,57 +115,70 @@ static int chain(const volume *v,const uint8_t *e,int contiguous){
  }
  return 0;
 }
-static int transfer(volume *dst,volume *src,uint8_t files[3][32],unsigned count,int formatted,unsigned *used){
- uint8_t old[3][32];unsigned needed=0,available=0,held=0;int same=dst->m.disk==src->m.disk&&dst->m.base==src->m.base;
+static int system_name(const uint8_t e[32],unsigned count){
+ if(e[11]&24)return 0;
+ for(unsigned i=0;i<count;i++)if(eq(e,names[i],11))return 1;
+ return 0;
+}
+static int transfer(volume *dst,const transfer_source *src,unsigned count,int formatted,unsigned *used){
+ unsigned needed=0,available=0,held=0,command_slot=dst->roots*16;
  *used=0;
- if(same&&!formatted)return -1; /* sys_run refuses this volume first. */
  for(unsigned i=0;i<count;i++){
-  if(!(same&&formatted)&&chain(src,files[i],0))return -1;
-  needed+=(u32(files[i]+28)+511)/512;
-  if(entry(dst,i,old[i],0))return -1;
-  if(old[i][0] && old[i][0]!=0xe5){
-   /* Slots 0..count-1 must end up holding the system files. A slot may
-    * already hold one of them (it is replaced below); any other live
-    * name there is the captured No-room refusal (sys-occupied). */
-   int replaceable=0;
-   for(unsigned j=0;j<count;j++)if(eq(old[i],names[j],11))replaceable=1;
-   if(!replaceable)return -1;
-  }
+  /* FORMAT has already validated its input before clearing the FAT.
+   * SYS refuses a destination that also contains any of its inputs. */
+  if(!formatted && (same_volume(&dst->m,&file_volume(src,i)->m) ||
+                    chain(file_volume(src,i),src->files[i],0)))return -1;
+  needed+=file_clusters(dst,src->files[i]);
  }
  /* Genuine DOS 3.30 (sys-elsewheresys): a system-named file anywhere in
-  * the root is replaced by the new entry in slots 0..count-1, never left
-  * as a duplicate. Its clusters count toward the space available. */
+  * the root is replaced in slots 0/1. COMMAND.COM uses the first free
+  * slot after those two, leaving unrelated files in place. */
  for(unsigned n=0;n<dst->roots*16;n++){
-  uint8_t e[32];if(entry(dst,n,e,0))return -1;if(!e[0])break;
-  if(e[0]==0xe5||(e[11]&24))continue;
-  for(unsigned j=0;j<count;j++)if(eq(e,names[j],11))held+=(u32(e+28)+511)/512;
+  uint8_t e[32];if(entry(dst,n,e,0))return -1;
+  int live=e[0] && e[0]!=0xe5, replace=live && system_name(e,count);
+  if(n<2 && live && !replace)return -1; /* DOS 3.30 sys-occupied */
+  if(n>=2 && (!live || replace) && command_slot==dst->roots*16)command_slot=n;
+  if(replace)held+=file_clusters(dst,e);
+  if(!e[0]){if(n<2)command_slot=2;break;}
  }
+ if(count==3 && command_slot==dst->roots*16)return -1;
  if(freecount(dst,&available))return -1;
  available+=held;
  if(available<needed)return -1;
  for(unsigned n=0;n<dst->roots*16;n++){
   uint8_t e[32];if(entry(dst,n,e,0))return -1;if(!e[0])break;
   if(e[0]==0xe5||(e[11]&24))continue;
-  int replace=0;
-  for(unsigned j=0;j<count;j++)if(eq(e,names[j],11))replace=1;
-  if(replace){if(freechain(dst,u16(e+26)))return -1;e[0]=0xe5;if(entry(dst,n,e,1))return -1;}
+  if(system_name(e,count)){if(freechain(dst,u16(e+26)))return -1;e[0]=0xe5;if(entry(dst,n,e,1))return -1;}
  }
  unsigned scan=2;
  for(unsigned i=0;i<count;i++){
-  unsigned source_c=u16(files[i]+26),first=0,prev=0,n=(u32(files[i]+28)+511)/512;
-  uint8_t buf[512],e[32];cp(e,files[i],32);e[11]=(uint8_t)(i<2?7:32);
+  const volume *from=file_volume(src,i);
+  int same=same_volume(&dst->m,&from->m);
+  unsigned source_c=u16(src->files[i]+26),source_sector=0,remaining=file_sectors(src->files[i]);
+  unsigned first=0,prev=0,n=file_clusters(dst,src->files[i]);
+  uint8_t buf[512],e[32];cp(e,src->files[i],32);e[11]=(uint8_t)(i<2?7:32);
   for(unsigned j=0;j<n;j++){
-   unsigned value,next;
+   unsigned value;
    for(;;){if(scan>=dst->clusters+2||fatget(dst,scan,&value))return -1;if(!value)break;scan++;}
    if(!first)first=scan;
-   if(sec(&src->m,src->data+source_c-2,buf,0))return -1;
-   if(same&&formatted)next=source_c+1;else if(fatget(src,source_c,&next))return -1;
-   if(sec(&dst->m,dst->data+scan-2,buf,1) || fatset(dst,scan,dst->bits==12?0xfff:0xffff) || (prev&&fatset(dst,prev,scan)))return -1;
-   prev=scan++;source_c=next;
+   for(unsigned k=0;k<dst->spc;k++){
+    if(remaining){
+     if(sec(&from->m,from->data+(source_c-2)*from->spc+source_sector,buf,0))return -1;
+     if(++source_sector==from->spc && remaining>1){
+      source_sector=0;
+      if(same)source_c++;
+      else if(fatget(from,source_c,&source_c))return -1;
+     }
+     remaining--;
+    }else zero(buf,sizeof buf);
+    if(sec(&dst->m,dst->data+(scan-2)*dst->spc+k,buf,1))return -1;
+   }
+   if(fatset(dst,scan,dst->bits==12?0xfff:0xffff) || (prev&&fatset(dst,prev,scan)))return -1;
+   prev=scan++;
   }
   w16(e+26,first);w16(e+22,0);w16(e+24,0x21); /* fixed DOS epoch, the repository contract */
-  if(entry(dst,i,e,1))return -1;
-  *used+=n*512;
+  if(entry(dst,i<2?i:command_slot,e,1))return -1;
+  *used+=n*dst->spc*512;
  }
  return sec(&dst->m,0,dst->boot,1);
 }
@@ -184,22 +230,33 @@ static int format_run(const options *o,const du_map *m){
  unsigned letter=o->letter[0];
  if(fat16_target(m))return protected(letter);
  if(m->flags&DU_RUNNING){drive_text("Format not supported on drive ",letter,":\r\n");return 4;}
- volume src,dst;uint8_t files[3][32],template[512];du_map cm;
+ transfer_source src;volume dst;uint8_t template[512];du_map cm;
+ unsigned count=o->s?3:2;
  if(o->s||o->b){
   /* MS-DOS 3.3 UG p336 (PDF421), audit L041: unavailable source files
    * prompt for a DOS disk; p337's memory error is a different condition.
    * DEC-18 fixes the source at C:. Retry the lookup before ANY writes. */
-  while(source(&src,files,o->s?3:2)){
+  while(source(&src,count)){
    char answer[1];drive_text("Insert DOS volume in drive ",2,":\r\nand strike ENTER when ready\r\n");
    if(input(answer,0)<0)return 3;
   }
-  cp(template,src.boot,512);
+  cp(template,src.system.boot,512);
  }else if(io->map(2,&cm)||sec(&cm,0,template,0))return error("Format failure",4);
  dst.m=*m;int rc=layout(&dst,o,template);
  if(rc)return error(rc==-2?"Format requires more than one sector per cluster":"Format failure",4);
  if(dst.bits==16)return protected(letter);
- if(o->s||o->b){unsigned count=o->s?3:2,need=0;for(unsigned i=0;i<count;i++){if(chain(&src,files[i],0))return error("Format failure",4);need+=(u32(files[i]+28)+511)/512;}if(need>dst.clusters)return error("No room for system on destination disk",4);
-  if(src.m.disk==m->disk&&src.m.base==m->base){unsigned start=2;if(src.data!=dst.data)return error("Insufficient memory for system transfer",4);for(unsigned i=0;i<3;i++){if(chain(&src,files[i],1)||u16(files[i]+26)!=start)return error("Insufficient memory for system transfer",4);start+=(u32(files[i]+28)+511)/512;}}
+ if(o->s||o->b){
+  unsigned start=2;
+  for(unsigned i=0;i<count;i++){
+   const volume *from=file_volume(&src,i);
+   if(chain(from,src.files[i],0))return error("Format failure",4);
+   if(same_volume(&from->m,m) &&
+      (from->data!=dst.data || from->spc!=dst.spc ||
+       chain(from,src.files[i],1) || u16(src.files[i]+26)!=start))
+    return error("Insufficient memory for system transfer",4);
+   start+=file_clusters(&dst,src.files[i]);
+  }
+  if(start-2>dst.clusters)return error("No room for system on destination disk",4);
  }
  for(;;){
   char answer[12];volume old;
@@ -217,8 +274,8 @@ static int format_run(const options *o,const du_map *m){
   b[0]=dst.boot[21];b[1]=b[2]=255;if(dst.bits==16)b[3]=255;
   if(sec(m,1,b,1)||sec(m,1+dst.spf,b,1)||sec(m,0,dst.boot,1))return error("Format failure",4);
   line("Format complete");unsigned used=0;
-  if(o->s||o->b){unsigned count=o->s?3:2;
-   if(transfer(&dst,&src,files,count,1,&used))return error("No room for system on destination disk",4);
+  if(o->s||o->b){
+   if(transfer(&dst,&src,count,1,&used))return error("No room for system on destination disk",4);
    if(o->b) {
     /* UG p74: /B leaves room for a later operating system. Reserve the
      * two HSR root slots and their clusters; no executable system content.
@@ -226,28 +283,30 @@ static int format_run(const options *o,const du_map *m){
     uint8_t empty[512];zero(empty,512);
     for(unsigned i=0;i<2;i++){
      uint8_t e[32];if(entry(&dst,i,e,0))return error("Format failure",4);
-     unsigned c=u16(e+26),n=(u32(e+28)+511)/512;
-     for(unsigned j=0;j<n;j++,c++)if(sec(m,dst.data+c-2,empty,1))return error("Format failure",4);
+     unsigned c=u16(e+26),n=file_clusters(&dst,e);
+     for(unsigned j=0;j<n*dst.spc;j++)if(sec(m,dst.data+(c-2)*dst.spc+j,empty,1))return error("Format failure",4);
     }
    }else line("System transferred");}
   if(o->v){put("Volume label (11 characters, ENTER for none)?");int n=input(answer,11);if(n<0)return 3;
    if(n){uint8_t e[32];zero(e,32);for(unsigned i=0;i<11;i++)e[i]=i<(unsigned)n?(uint8_t)answer[i]:' ';e[11]=8;w16(e+24,0x21);if(entry(&dst,o->s?3:0,e,1))return error("Format failure",4);cp(dst.boot+43,e,11);if(sec(m,0,dst.boot,1))return error("Format failure",4);}
   }
-  num(dst.clusters*512);line(" bytes total disk space");if(o->s){num(used);line(" bytes used by system");}num(dst.clusters*512-used);line(" bytes available on disk");
+  unsigned capacity=dst.clusters*dst.spc*512;
+  num(capacity);line(" bytes total disk space");if(o->s){num(used);line(" bytes used by system");}num(capacity-used);line(" bytes available on disk");
   if(!(m->flags&DU_REMOVABLE))return 0;
   put("Format another (Y/N)?");if(!yes())return 0;
  }
 }
-static int sys_run(const du_map *m,unsigned letter){volume src,dst;uint8_t files[3][32];unsigned used;du_map sm;
+static int sys_run(const du_map *m,unsigned letter){transfer_source src;volume dst;unsigned used;du_map sm;
  if(fat16_target(m))return protected(letter);
  /* Genuine DOS 3.30 (sys-self) refuses its source drive with Invalid
   * drive specification. The Initech source is fixed at C: (DEC-18), so
   * refuse exactly that volume; any other volume stays transferable. */
- if(!io->map(2,&sm)&&sm.disk==m->disk&&sm.base==m->base)return error(MSG_DOS_0004,4);
- if(source(&src,files,2)||mount(&dst,m))return error("No room for system on destination disk",1);
+ if(!io->map(2,&sm)&&same_volume(&sm,m))return error(MSG_DOS_0004,4);
+ if(source(&src,3)||mount(&dst,m))return error("No room for system on destination disk",1);
+ if(src.split&&same_volume(&src.command.m,m))return error(MSG_DOS_0004,4);
  /* Preserve destination BPB, use the existing InitechDOS VBR code. */
- cp(dst.boot,src.boot,11);cp(dst.boot+62,src.boot+62,450);
- if(transfer(&dst,&src,files,2,0,&used))return error("No room for system on destination disk",1);
+ cp(dst.boot,src.system.boot,11);cp(dst.boot+62,src.system.boot+62,450);
+ if(transfer(&dst,&src,3,0,&used))return error("No room for system on destination disk",1);
  return error("System transferred",0);
 }
 /* Genuine DOS 3.30 (dos33/reference/diskcopy-break): Ctrl-C or Ctrl-Break

@@ -2,16 +2,16 @@
 # test: test-formatsys
 --- a/diskutil/diskutil.c
 +++ b/diskutil/diskutil.c
-@@ -190,7 +190,7 @@
+@@ -237,7 +237,7 @@
     * prompt for a DOS disk; p337's memory error is a different condition.
     * DEC-18 fixes the source at C:. Retry the lookup before ANY writes. */
-   while(source(&src,files,o->s?3:2)){
+   while(source(&src,count)){
 -   char answer[1];drive_text("Insert DOS volume in drive ",2,":\r\nand strike ENTER when ready\r\n");
 +   char answer[1];drive_text("Insert DOS diskette in drive ",2,":\r\nand strike ENTER when ready\r\n");
     if(input(answer,0)<0)return 3;
    }
-   cp(template,src.boot,512);
-@@ -203,7 +203,7 @@
+   cp(template,src.system.boot,512);
+@@ -261,7 +261,7 @@
   }
   for(;;){
    char answer[12];volume old;
@@ -20,7 +20,7 @@
    else {
     if(!mount(&old,m)){char label[12];label_name(&old,label);drive_text("Enter current Volume Label for drive ",letter,": ");if(input(answer,11)<0)return 3;if(!eq(label,answer,12))return error("Invalid Volume ID Format failure",4);}
     line("WARNING, ALL DATA ON NON-REMOVABLE DISK");drive_text("DRIVE ",letter,": WILL BE LOST!\r\nProceed with Format (Y/N)?");if(input(answer,11)<0)return 3;if(answer[0]!='Y')return 5;
-@@ -254,7 +254,7 @@
+@@ -314,7 +314,7 @@
   * (byte 03h through the adapter) at a swap prompt echoes ^C, exits the
   * utility and writes nothing further. Returns -1 on that cancel. */
  static int swap_prompt(int compare,int target,unsigned letter){
@@ -29,7 +29,7 @@
   if(!compare)line("Press any key when ready . . .");
   if(io->get()==3){line("^C");return -1;}
   return 0;
-@@ -266,24 +266,24 @@
+@@ -326,24 +326,24 @@
   int result=0;
   do{
    if(swap_prompt(compare,0,o->letter[0]))return 3;

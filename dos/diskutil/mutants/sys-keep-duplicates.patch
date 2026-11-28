@@ -2,7 +2,7 @@
 # test: test-formatsys
 --- a/diskutil/diskutil.c
 +++ b/diskutil/diskutil.c
-@@ -107,7 +107,7 @@
+@@ -145,7 +145,7 @@
   if(freecount(dst,&available))return -1;
   available+=held;
   if(available<needed)return -1;
@@ -10,4 +10,4 @@
 + for(unsigned n=0;n<count;n++){
    uint8_t e[32];if(entry(dst,n,e,0))return -1;if(!e[0])break;
    if(e[0]==0xe5||(e[11]&24))continue;
-   int replace=0;
+   if(system_name(e,count)){if(freechain(dst,u16(e+26)))return -1;e[0]=0xe5;if(entry(dst,n,e,1))return -1;}

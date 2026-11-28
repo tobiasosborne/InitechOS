@@ -50,7 +50,7 @@ mdir -i "$w/ours.img" :: > "$w/mdir"; grep -q OFFICE "$w/mdir" || red label
 mattrib -i "$w/ours.img" ::IO.SYS ::INITDOS.SYS > "$w/attrs"
 grep -q 'SHR.*IO.SYS\|RSH.*IO.SYS\|SH.*R.*IO.SYS' "$w/attrs" || red attributes
 clean
-# SYS excludes COMMAND.COM, preserves occupied files, refuses occupied slots.
+# SYS transfers COMMAND.COM along with both system files and refuses occupied slots.
 prep; run 0 'D:' 'y
 ' 0; run 1 'D:' '' 0; extract
 "$b/formatsys_check" "$w/ours.img" "$w/ref.img" sys "$boot" || red 'SYS root or COMMAND'
@@ -94,7 +94,7 @@ for console in "$w/copybreak.console" "$w/compbreak.console"; do
  if grep -qi diskette "$console"; then red 'ATA A copy/compare diskette wording'; fi
 done
 echo 'GREEN test-formatsys: Ctrl-C at the DISKCOPY TARGET prompt writes nothing; DISKCOMP cancels the same way'
-echo 'GREEN test-formatsys: mformat BPB/FAT, /S bytes/HSR/order/label, SYS exclusions/occupied, invalid/running, single-drive copy/compare all sectors; fsck.fat'
+echo 'GREEN test-formatsys: mformat BPB/FAT, /S bytes/HSR/order/label, SYS transfer/occupied, invalid/running, single-drive copy/compare all sectors; fsck.fat'
 # Removable geometries and DOS switch spellings, with current=C in this host
 # fixture. Actual shipped current=A still refuses its own volume above.
 for desc in '2880||1440' '720|/4|360' '640|/4 /8|320' '320|/1 /8 /T:40 /N:8|160' '1440|/T:80 /N:9|720'; do
@@ -163,7 +163,7 @@ mdel -i "$w/master.img@@2064384" ::FIRST.TXT ::SECOND.TXT
 run 1 'D:' '' 0
 mcopy -i "$w/master.img@@2064384" ::KEEP.TXT - > "$w/keep-after"
 cmp "$w/keep" "$w/keep-after" || red 'SYS unrelated file'
-for f in IO.SYS INITDOS.SYS; do
+for f in IO.SYS INITDOS.SYS COMMAND.COM; do
  mcopy -i "$w/master.img@@32256" "::$f" - > "$w/ref-$f"
  mcopy -i "$w/master.img@@2064384" "::$f" - > "$w/ours-$f"
  cmp "$w/ref-$f" "$w/ours-$f" || red 'SYS fragmented destination'
@@ -256,4 +256,17 @@ run 1 'C:' '' 4
 grep -qFx 'Invalid drive specification' "$w/console" || red 'SYS source volume message'
 cmp "$w/master.img" "$w/master-before.img" || red 'SYS source volume writes'
 echo 'GREEN test-formatsys: SYS refuses the source volume with no writes'
+# During C: activation the legacy boot pair has its forwarder only on
+# the running A:. Check SYS on D: and reject the A: source as a target.
+prep; run 0 'D:' 'y
+' 0
+mmove -i "$w/master.img@@32256" ::COMMAND.COM ::FORWARD.COM
+mcopy -i "$w/master.img@@32256" ::FORWARD.COM "$w/COMMAND.COM"
+mcopy -i "$w/a.img" "$w/COMMAND.COM" ::
+run 1 'D:' '' 0
+mcopy -i "$w/master.img@@2064384" ::COMMAND.COM - > "$w/transferred-command"
+cmp "$w/COMMAND.COM" "$w/transferred-command" || red 'SYS legacy shell bytes'
+cp -f "$w/a.img" "$w/a-before.img"
+run 1 'A:' '' 4
+cmp "$w/a.img" "$w/a-before.img" || red 'SYS legacy shell source writes'
 echo 'INITECH_CHECKS 1 failures=0'

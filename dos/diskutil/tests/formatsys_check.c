@@ -26,8 +26,7 @@ int main(int n,char **v){
  else {
   need(!memcmp(e,"IO      SYS",11) && !memcmp(e+32,"INITDOS SYS",11),"root entry order");
   need(e[11]==7 && e[43]==7,"system HSR");
-  if(!strcmp(v[3],"system"))need(!memcmp(e+64,"COMMAND COM",11) && e[75]==32,"/S COMMAND.COM");
-  else need(e[64]==0,"SYS excludes COMMAND.COM");
+  need(!memcmp(e+64,"COMMAND COM",11) && e[75]==32,"transferred COMMAND.COM");
  }
  puts("GREEN formatsys independent image layout");return 0;
 }
