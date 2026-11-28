@@ -25,13 +25,15 @@ bigkernel-check:
 .PHONY: smoke smoke-build mutants
 $(OUT)/rom-checksum: tests/rom-checksum.c | $(OUT)
 	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
+$(OUT)/fragment-space: tests/fragment-space.c | $(OUT)
+	$(HOSTCC) $(HOST_CFLAGS) $< -o $@
 $(OUT)/indexed.rom: tests/indexed-rom.asm $(OUT)/rom-checksum
 	$(NASM) -DINDEXED_ONLY -f bin $< -o $@
 	$(OUT)/rom-checksum $@
 $(OUT)/monitor.rom: tests/indexed-rom.asm $(OUT)/rom-checksum
 	$(NASM) -f bin $< -o $@
 	$(OUT)/rom-checksum $@
-smoke-build: all $(OUT)/indexed.rom $(OUT)/monitor.rom
+smoke-build: all $(OUT)/indexed.rom $(OUT)/monitor.rom $(OUT)/fragment-space
 	$(MAKE) -C $(TOP)/factory all
 .PHONY: smoke-on-image
 smoke smoke-on-image: smoke-build

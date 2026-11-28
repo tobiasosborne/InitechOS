@@ -30,9 +30,11 @@ actual build graph. No deliberately wrong or scenario-selected assembly
 lives in product source. The audit also rejects the retired memory/VBE
 scenario identifiers; this adds restrictions to the shared default.
 
-After `make image` at the root, `make -C boot smoke` checks normal boot,
-indexed VBE, Bochs VGA13, invalid order, missing read-only attribute,
-premature kernel EOC and fragmented valid files. It also boots real
+After `make image` at the root, `make -C boot smoke` clones the installed
+C: master and optional DATA disk. It checks normal boot, indexed VBE,
+Bochs VGA13, invalid order, missing read-only attribute, premature kernel
+EOC and fragmented valid files. It keeps the installed CONFIG.SYS and
+AUTOEXEC.BAT and types `TYPE HELLO.TXT` at the C: prompt. It also boots real
 firmware RAM profiles of 5 MiB and 7 MiB on both emulators: stage2 must
 print its insufficient-memory refusal after finding IO.SYS and before
 loading INITDOS. The boundary is grounded outside the boot constants:
@@ -43,14 +45,14 @@ GOLDEN-MASTER item 1. Neither emulator can present an exact 7167 KiB
 extended report (QEMU creates a full 8 MiB for an 8191 KiB request —
 8388608 bytes by QMP `query-memory-size-summary`, while an 8000 KiB
 request is exact and is refused; Bochs `megs` is integral), so the exact-KiB IO.SYS
-boundary stays pinned by the fixed memory-report mutant below. Both
-emulators must reach the ordinary InitechDOS shell on valid disks. Invalid disks must print the
-exact Non-System refusal before entering IO.SYS or protected mode. mtools
-independently recovers both fragmented payloads and compares them to the
-product artifacts. Each run snapshots its input payloads before minting so
-a concurrent root rebuild cannot change the reference during a lock wait.
-Every run has private image copies and retained
-transcripts/reports under `build/boot/smoke.*/`. QEMU always uses
+boundary stays pinned by the fixed memory-report mutant below. Invalid
+disks must print the exact Non-System refusal before entering IO.SYS or
+protected mode. The fragmentation preflight checks that every destination
+cluster is free in both FATs before the injector writes. mtools reads back
+both relocated boot payloads and compares every installed file in the
+working-volume manifest with the original clone. Every run retains its
+private images, payload references and transcripts under
+`build/boot/smoke.*/`. QEMU always uses
 `-d int,guest_errors,cpu_reset`; faults and extra resets fail.
 
 The test-only PC expansion ROM in `tests/` observes the actual BIOS
@@ -65,7 +67,8 @@ and the Bochs BIOS
 No ROM, fixture program or altered loader ships in the product image.
 
 `make -C boot mutants` applies each external patch in a private copy,
-requires successful assembly and a clean baseline, then repeats the same
+requires successful assembly and a clean baseline, then puts the candidate
+MBR code, stage2 and IO.SYS into the installed clone. It repeats the same
 emulator observation twice. A kill requires a stable semantic RED
 (prompt reached on invalid media, refusal of valid memory/media, or wrong
 firmware display selection). Launch errors, crashes and timeouts without

@@ -6,7 +6,7 @@ set -eu
 top=$1 artifacts=$2 cases=${3:-'normal indexed fallback ORDER ATTR_R CHAIN FRAGMENT RAM5 RAM7'}
 [ -n "$cases" ] || exit 2
 cd "$top"
-test -s build/system/INITDOS.SYS && test -s build/image/data.img || {
+test -s build/image/c.img && test -s build/image/a-data.img || {
     echo 'ERROR boot: run make image first' >&2; exit 2;
 }
 out=$(mktemp -d "$artifacts/smoke.XXXXXX")
@@ -27,14 +27,26 @@ mkdir "$out/bin"
 cp boot/tests/emulator-wrapper.sh "$out/bin/qemu-system-i386"
 cp boot/tests/emulator-wrapper.sh "$out/bin/bochs"
 chmod +x "$out/bin/"*
-# Keep the input payloads used for minting: another root image build may
-# replace its outputs while these emulator legs wait on the shared lock.
+# Keep a private installed master and payload references. Mutation runs
+# replace only the boot artifacts from their own candidate build.
+. factory/image/test-media.sh
+media_prepare staged with-data "$out"
 cp "$artifacts/IO.SYS" "$out/expected-IO.SYS"
-cp build/system/INITDOS.SYS "$out/expected-INITDOS.SYS"
-sh factory/image/mk_boot_system.sh "$out/boot.img" "$artifacts/mbr.bin" \
-    "$artifacts/stage2.bin" "$out/expected-IO.SYS" "$out/expected-INITDOS.SYS" build/factory/boot_system
-cp build/image/data.img "$out/data.img"
-mdel -i "$out/data.img" ::AUTOEXEC.BAT
+installed=$media_work
+mcopy -i "$installed" ::INITDOS.SYS - > "$out/expected-INITDOS.SYS"
+mcopy -i "$installed" ::IO.SYS - > "$out/installed-IO.SYS"
+cp "$media_boot" "$out/boot.img"
+candidate=$out/boot.img@@32256
+# Preserve the partition table. Stage2 occupies exactly LBA 1 through 16.
+dd if="$artifacts/mbr.bin" of="$out/boot.img" bs=446 count=1 conv=notrunc status=none
+dd if="$artifacts/stage2.bin" of="$out/boot.img" bs=512 seek=1 conv=notrunc status=none
+if ! cmp -s "$out/expected-IO.SYS" "$out/installed-IO.SYS"; then
+    mattrib -i "$candidate" -r ::IO.SYS
+    mcopy -o -i "$candidate" "$out/expected-IO.SYS" ::IO.SYS
+    mattrib -i "$candidate" +h +s +r -a ::IO.SYS
+fi
+build/factory/boot_system "$out/boot.img" check \
+    "$out/expected-IO.SYS" "$out/expected-INITDOS.SYS"
 failed=0
 for scenario in $cases; do
     image=$out/$scenario.img
@@ -50,12 +62,33 @@ for scenario in $cases; do
         RAM7) ram=7; wanted=memrefusal ;;
         ORDER|ATTR_R|CHAIN) build/factory/boot_system "$image" "$scenario"; wanted=refusal ;;
         FRAGMENT)
+            "$artifacts/fragment-space" "$image"
             build/factory/boot_system "$image" FRAGMENT
+            fragmented=$image@@32256
             # A second reader proves relocation preserved BOTH file payloads.
-            mcopy -i "$image@@32256" ::IO.SYS - > "$out/IO.SYS"
-            mcopy -i "$image@@32256" ::INITDOS.SYS - > "$out/INITDOS.SYS"
-            cmp "$out/expected-IO.SYS" "$out/IO.SYS"
-            cmp "$out/expected-INITDOS.SYS" "$out/INITDOS.SYS" ;;
+            for file in IO.SYS INITDOS.SYS; do
+                mcopy -i "$fragmented" "::$file" - > "$out/$file"
+                cmp "$out/expected-$file" "$out/$file"
+                mshowfat -i "$installed" "::$file" > "$out/installed-$file.chain"
+                mshowfat -i "$fragmented" "::$file" > "$out/fragmented-$file.chain"
+                if cmp -s "$out/installed-$file.chain" "$out/fragmented-$file.chain"; then
+                    echo "RED boot FRAGMENT: $file did not move"; exit 1
+                fi
+            done
+            # mtools lists a contiguous span as <n-m>, and each singleton
+            # as <n>. A fragmented kernel must have multiple spans.
+            grep -Eq '> *<' "$out/fragmented-INITDOS.SYS.chain" || {
+                echo 'RED boot FRAGMENT: kernel chain is contiguous'; exit 1;
+            }
+            while read -r source file; do
+                case $source in ''|\#*) continue ;; esac
+                mcopy -i "$installed" "::$file" - > "$out/installed-file"
+                mcopy -i "$fragmented" "::$file" - > "$out/fragmented-file"
+                cmp -s "$out/installed-file" "$out/fragmented-file" || {
+                    echo "RED boot FRAGMENT: installed C:$file changed"; exit 1;
+                }
+            done < system/working-volume.list
+            echo 'GREEN boot FRAGMENT: mtools recovered the boot payloads and all installed files' ;;
         normal|indexed|fallback) ;;
         *) echo "ERROR boot: unknown scenario $scenario"; exit 2 ;;
     esac
@@ -71,20 +104,25 @@ for scenario in $cases; do
         # Each Bochs termination can leave its data image's lock file. Give
         # every leg its own writable disk rather than deleting source locks.
         data=$out/$name-data.img
-        cp "$out/data.img" "$data"
-        marker=SHELL-READY
-        [ "$wanted" != refusal ] || marker='Replace and strike any key when ready'
-        [ "$wanted" != memrefusal ] || marker='Insufficient extended memory: 8 MB required'
+        cp "$media_data" "$data"
+        set --
+        case $wanted in
+            prompt)
+                marker='Hello from InitechDOS.'
+                set -- --keys-after SHELL-READY --keys t,y,p,e,spc,h,e,l,l,o,dot,t,x,t,ret ;;
+            refusal) marker='Replace and strike any key when ready' ;;
+            memrefusal) marker='Insufficient extended memory: 8 MB required' ;;
+        esac
         rc=0
         BOOT_INDEXED_ROM=$artifacts/monitor.rom
         [ "$scenario" != indexed ] || BOOT_INDEXED_ROM=$artifacts/indexed.rom
         if [ "$scenario" = indexed ] || [ "$scenario" = normal ]; then
             INITECH_TEST_RAM_MB=$ram PATH="$out/bin:$PATH" "build/factory/${emu}_harness" \
-                --disk "$image" --disk2 "$data" $extra \
+                --disk "$image" --disk2 "$data" $extra "$@" \
                 --expect "$marker" --quit-after "$marker" --timeout-ms 8000 \
                 --name "$name" --out "$out" > "$out/$name.stdout" 2> "$out/$name.report" || rc=$?
         else
-            INITECH_TEST_RAM_MB=$ram "build/factory/${emu}_harness" --disk "$image" --disk2 "$data" $extra \
+            INITECH_TEST_RAM_MB=$ram "build/factory/${emu}_harness" --disk "$image" --disk2 "$data" $extra "$@" \
                 --expect "$marker" --quit-after "$marker" --timeout-ms 8000 \
                 --name "$name" --out "$out" > "$out/$name.stdout" 2> "$out/$name.report" || rc=$?
         fi
@@ -99,20 +137,21 @@ for scenario in $cases; do
            { [ "$emu" = qemu ] && ! grep -q 'cpu_reset=2 guest_errors=0' "$report"; }; then
             cat "$report"; echo "ERROR boot $name: emulator fault/launch"; exit 2
         fi
-        refused=0; prompt=0
+        diskrefused=0; prompt=0
         if grep -Fx 'Non-System disk or disk error' "$serial" >/dev/null &&
-           grep -Fx 'Replace and strike any key when ready' "$serial" >/dev/null; then refused=1; fi
-        # The IO memory refusal includes HALTED; stage2 has a separate message.
-        if grep -Fx HALTED "$serial" >/dev/null; then refused=1; fi
+           grep -Fx 'Replace and strike any key when ready' "$serial" >/dev/null; then diskrefused=1; fi
         memrefused=0
         if grep -Fx 'Insufficient extended memory: 8 MB required' "$serial" >/dev/null; then
-            refused=1; memrefused=1
+            memrefused=1
         fi
         if grep -Fx SHELL-READY "$serial" >/dev/null; then prompt=1; fi
         if [ "$wanted" = refusal ] && [ "$prompt" -eq 1 ]; then
             echo "RED boot $name: reached InitechDOS prompt; corrupt $scenario must be refused"; failed=1
-        elif [ "$wanted" = prompt ] && [ "$refused" -eq 1 ]; then
+        elif [ "$wanted" = prompt ] && { [ "$diskrefused" -eq 1 ] || [ "$memrefused" -eq 1 ] ||
+               grep -Fx HALTED "$serial" >/dev/null; }; then
             echo "RED boot $name: refused a valid 8 MiB disk/memory configuration"; failed=1
+        elif [ "$wanted" = prompt ] && grep -Fxi 'A:\>type hello.txt' "$serial" >/dev/null; then
+            echo "RED boot $name: reached the A: prompt instead of installed C:"; failed=1
         elif [ "$wanted" = memrefusal ] && grep -Fx IOSYS-FOUND "$serial" >/dev/null; then
             # Stage2 found IO.SYS, refused on the firmware RAM report, and
             # never loaded INITDOS or entered IO/PM/kernel. Judged from the
@@ -126,7 +165,7 @@ for scenario in $cases; do
         elif [ "$rc" -ne 0 ]; then
             cat "$report"; echo "ERROR boot $name: no completed semantic observation"; exit 2
         elif [ "$wanted" = refusal ]; then
-            if [ "$refused" -ne 1 ] || grep -Eq '^(S2|PM|KERNEL|SHELL-READY)$' "$serial"; then
+            if [ "$diskrefused" -ne 1 ] || grep -Eq '^(S2|PM|KERNEL|SHELL-READY)$' "$serial"; then
                 echo "RED boot $name: missing refusal or entered IO/kernel"; failed=1
             else echo "GREEN boot $name: exact Non-System refusal before IO/PM/kernel"; fi
         else
@@ -136,6 +175,10 @@ for scenario in $cases; do
                     echo "ERROR boot $name: incomplete handoff ($mark)"; exit 2;
                 }
             done
+            if ! grep -Fxi 'C:\>type hello.txt' "$serial" >/dev/null ||
+               ! grep -Fx "$marker" "$serial" >/dev/null; then
+                echo "RED boot $name: missing command response at the installed C: prompt"; failed=1
+            fi
             mode=''
             case $scenario:$emu in
                 indexed:*) mode='VBE-MODE=0101' ;;
