@@ -22,6 +22,15 @@ run_red() {
 }
 fixture survivor 'echo "a: 1 mutants, 0 killed, 1 survived, 0 errors"'
 run_red 'survivor with successful target exit'
+fixture duplicate 'printf "%s\n" "INITECH_MUTANT_KILLED a/mutants/a.patch" "INITECH_MUTANT_KILLED a/mutants/a.patch" "a: 2 mutants, 2 killed, 0 survived, 0 errors"'
+: > "$case_dir/a/mutants/no-op.patch"
+run_red 'duplicate patch hides a missing patch with equal counts'
+grep -Fq 'duplicate patch receipt a/mutants/a.patch' "$case_dir/result.log"
+grep -Fq 'missing patch receipt a/mutants/no-op.patch' "$case_dir/result.log"
+fixture no_receipt 'echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"'
+run_red 'successful count without a named receipt'
+fixture wrong_receipt 'printf "%s\n" "INITECH_MUTANT_KILLED a/mutants/other.patch" "a: 1 mutants, 1 killed, 0 survived, 0 errors"'
+run_red 'successful count with an unexpected patch'
 fixture errors 'echo "a: 1 mutants, 0 killed, 0 survived, 1 errors"'
 run_red 'error with successful target exit'
 fixture empty 'echo "a: 0 mutants, 0 killed, 0 survived, 0 errors"'
@@ -79,7 +88,7 @@ mkdir "${log%.log}.rc"
 CONTROL
 run_red 'missing regular completion record despite successful worker exit'
 # Positive controls: grouped counts, reused external patch, explicit pending.
-fixture green 'echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"; echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"'
+fixture green 'printf "%s\n" "INITECH_MUTANT_KILLED a/mutants/a.patch" "INITECH_MUTANT_KILLED shared.patch"; echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"; echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"'
 : > "$case_dir/shared.patch"
 echo shared.patch > "$case_dir/a/mutants/extra.list"
 mkdir "$case_dir/a/mutants/pending"
@@ -96,10 +105,10 @@ else cat "$case_dir/result.log"; failed=$((failed+1)); fi
 
 # Force a reader to run during a second worker's dependency relink. Only the
 # rendezvous files are shared; an installed executable belongs to its worker.
-fixture dependency 'sh ../dependency.sh read && echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"'
+fixture dependency 'sh ../dependency.sh read && printf "%s\n" "INITECH_MUTANT_KILLED a/mutants/a.patch" "a: 1 mutants, 1 killed, 0 survived, 0 errors"'
 mkdir -p "$case_dir/b/mutants" "$case_dir/sync"
 : > "$case_dir/b/mutants/b.patch"
-printf '.PHONY: mutants\nmutants:\n\t@sh ../dependency.sh relink && echo "b: 1 mutants, 1 killed, 0 survived, 0 errors"\n' > "$case_dir/b/Makefile"
+printf '%s\n' '.PHONY: mutants' 'mutants:' '	@sh ../dependency.sh relink && printf "%s\n" "INITECH_MUTANT_KILLED b/mutants/b.patch" "b: 1 mutants, 1 killed, 0 survived, 0 errors"' > "$case_dir/b/Makefile"
 cat > "$case_dir/dependency.sh" <<'CONTROL'
 set -eu
 cd ..

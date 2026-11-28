@@ -77,6 +77,7 @@ for patch_file do
  done
  if grep '^SEMANTIC ' "$d/status-1" >/dev/null && cmp -s "$d/status-1" "$d/status-2"; then
   echo "killed $name ($case_name; twice; $(cat "$d/status-1"))";killed=$((killed+1))
+  sh "$root/factory/testlib/mutation-receipt.sh" "$root" "$patch_file"
  elif grep -Fx PASS "$d/status-1" >/dev/null && grep -Fx PASS "$d/status-2" >/dev/null; then
   echo "SURVIVED $name ($case_name)";survived=$((survived+1))
  else

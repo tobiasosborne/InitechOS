@@ -67,9 +67,10 @@ deletes scratch; failure preserves it and prints its location. Empty
 selections fail.
 The seeded region generators/shrinker remain private to the region engine.
 
-The outer sweep uses per-invocation worker records and verifies every process
-exit and count summary against the owned patch inventory. Discovery, missing
-records/logs, malformed or partial counts, survivors and errors are all red.
+The outer sweep checks each process exit, its count summary and exactly one
+kill receipt per repository-relative patch in the owner's inventory.
+Duplicate, missing and unexpected receipts fail the sweep. Discovery errors,
+missing records/logs, malformed or partial counts and survivors also fail.
 The sweep prepares the pristine product image once. Each worker copies the
 source snapshot and the prepared build inputs, then owns its `TOP/build`.
 Within a component, each host runner invocation also has a private

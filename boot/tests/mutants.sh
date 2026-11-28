@@ -39,6 +39,7 @@ for patch_file do
     done
     if [ "$good" -eq 1 ] && cmp -s "$scratch/reasons-1" "$scratch/reasons-2"; then
         echo "  killed $name"
+        sh "$top/factory/testlib/mutation-receipt.sh" "$top" "$patch_file"
         cat "$scratch/reasons-1"
         killed=$((killed+1))
     else echo "ERROR survived/unstable $name"; survived=$((survived+1)); fi

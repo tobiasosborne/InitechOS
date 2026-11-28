@@ -43,6 +43,11 @@ failed=0
 for pid in $pids; do
     wait "$pid" || failed=$((failed + 1))
 done
+if [ "$failed" -eq 0 ]; then
+    for patch_file do realpath --relative-base="$top" -e -- "$patch_file"; done > "$run/expected"
+    awk -v component="$component" -v expected="$count" -v inventory="$run/expected" \
+        -f "$top/factory/testlib/mutation-summary.awk" "$run/expected" "$run"/*.log > "$run/counts" || failed=1
+fi
 slot=1
 while [ "$slot" -le "$jobs" ]; do
     cat "$run/$slot.log"

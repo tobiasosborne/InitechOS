@@ -18,6 +18,11 @@ while IFS= read -r dir; do
         component=$(dirname "$component")
     done
     find "$dir" -type f -name '*.patch' ! -path "$dir/pending/*" > "$run/active"
+    component=${component#"$root"/}
+    key=$(printf '%s' "$component" | tr / _)
+    while IFS= read -r patch_path; do
+        printf '%s\n' "${patch_path#"$root"/}"
+    done < "$run/active" >> "$run/$key.expected"
     active=$(wc -l < "$run/active")
     find "$dir" -type f -path "$dir/pending/*.patch" > "$run/pending"
     pending=$(wc -l < "$run/pending")
@@ -26,10 +31,12 @@ while IFS= read -r dir; do
             case $patch_path in ''|\#*) continue;; esac
             case $patch_path in /*|../*|*/../*|*/..) echo "FAIL invalid external mutation $patch_path" >&2; exit 1;; esac
             [ -z "$rest" ] && [ -f "$root/$patch_path" ] || { echo "FAIL missing external mutation $patch_path" >&2; exit 1; }
+            patch_path=$(realpath --relative-base="$root" -e -- "$root/$patch_path")
+            printf '%s\n' "$patch_path" >> "$run/$key.expected"
             active=$((active+1))
         done < "$dir/extra.list"
     fi
-    printf '%s %s %s\n' "${component#"$root"/}" "$active" "$pending" >> "$run/owners"
+    printf '%s %s %s\n' "$component" "$active" "$pending" >> "$run/owners"
 done < "$run/directories"
 sort "$run/owners" > "$run/sorted"
 awk '{active[$1]+=$2;pending[$1]+=$3} END {for(c in active) print c,active[c],pending[c]}' "$run/sorted" > "$run/combined"
@@ -79,7 +86,7 @@ while read -r component active pending; do
     key=$(printf '%s' "$component" | tr / _)
     worker_number=$((worker_number+1))
     worker=$workspace/$worker_number
-    rm -f "$out/mutants/$key.log" "$out/mutants/$key.rc" "$out/mutants/$key.counts"
+    rm -f "$out/mutants/$key.log" "$out/mutants/$key.rc" "$out/mutants/$key.counts" "$out/mutants/$key.expected"
     (
         rc=0
         # Always run the declared target, including pending-only owners. An
@@ -107,13 +114,14 @@ while read -r component active pending; do
     else
         rc=$(cat "$run/$key.rc")
         case $rc in 0) ;; *) echo "FAIL $component: worker result [$rc]" >&2; bad=1;; esac
-        if ! awk -v component="$component" -v expected="$active" -f "$script_root/testlib/mutation-summary.awk" "$run/$key.log" > "$run/$key.counts"; then
+        if ! awk -v component="$component" -v expected="$active" -v inventory="$run/$key.expected" \
+            -f "$script_root/testlib/mutation-summary.awk" "$run/$key.expected" "$run/$key.log" > "$run/$key.counts"; then
             bad=1; tail -n 5 "$run/$key.log"
         fi
         sed -n '/mutants, .*killed, .*survived/p' "$run/$key.log"
     fi
     echo "$component: $pending pending patches (unproved)"
-    for suffix in log rc counts; do
+    for suffix in log rc counts expected; do
         [ ! -f "$run/$key.$suffix" ] || cp "$run/$key.$suffix" "$out/mutants/$key.$suffix"
     done
 done < "$run/inventory"

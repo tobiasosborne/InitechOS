@@ -83,4 +83,5 @@ for cpu in qemu bochs; do
   "$work/pristine-$cpu-word" WORD.EXE 'FLAIR-DISPATCH app=WORD' || fail "$cpu pristine offscreen Word by name"
 done
 echo 'ok navigation: positional control RED after one-slot shift; names GREEN on QEMU + Bochs, including offscreen Word'
+sh factory/testlib/mutation-receipt.sh "$root" factory/mutants/navigation/finder-slot-shift.patch
 echo "factory: 1 mutants, 1 killed, 0 survived, 0 errors; navigation evidence: $work"

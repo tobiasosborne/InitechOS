@@ -48,6 +48,14 @@ for fault in 1 2 124 126 127 137 139 143; do
  grep -q '1 mutants, 0 killed, 0 survived, 1 errors' "$work/$fault.log"
  echo "ok infrastructure exit $fault is an error"
 done
+if (cd "$work/component" && MUTANT_JOBS=2 \
+    sh "$root/factory/testlib/run-mutants.sh" "$root" fixture "$work/duplicate" make \
+      mutants/assertion.patch ./mutants/assertion.patch) > "$work/duplicate.log" 2>&1; then
+    echo 'FAIL mutation schedule: counted the assertion patch twice and omitted the no-op'
+    cat "$work/duplicate.log"
+    exit 1
+fi
+grep -q 'duplicate mutation patch' "$work/duplicate.log"
 cat > "$work/bin/timeout" <<'INJECT'
 #!/bin/sh
 case $* in
@@ -75,4 +83,5 @@ if [ "$rc" -ne 1 ] ||
     exit 1
 fi
 echo 'ok two concurrent patches: assertion killed twice, unchanged product survives and fails the run'
+sh "$root/factory/testlib/mutation-receipt.sh" "$root" "$root/factory/mutants/host/assertion.patch"
 echo 'factory: 1 mutants, 1 killed, 0 survived, 0 errors'

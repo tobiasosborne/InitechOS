@@ -4,6 +4,12 @@ set -eu
 top=$1 component=$2 out=$3 make_cmd=$4
 shift 4
 [ "$#" -gt 0 ] || { echo "FAIL: no mutation patches selected" >&2; exit 1; }
+scheduled=$(for patch_file do realpath -e -- "$patch_file" || exit 1; done)
+printf '%s\n' "$scheduled" | awk '
+    seen[$0]++ { print "FAIL duplicate mutation patch: " $0 > "/dev/stderr"; bad=1 }
+    END { exit bad }
+'
+source_top=$top
 # These components already distribute exact selections before invoking us.
 case $component in
     flair|apps/initechbase) jobs=1 ;;
@@ -93,7 +99,7 @@ for patch_file do
     if [ ! -f "$baseline/ok" ]; then
         echo "!!! BASELINE FAILED: $patch_file (log: $baseline/log)"; errors=$((errors+1)); continue
     fi
-    scratch=$run/$name
+    scratch=$run/m$n/$name
     mkdir -p "$scratch/component"
     cp -R . "$scratch/component/"
     if ! patch --batch --fuzz=0 -p1 -d "$scratch/component" < "$patch_file" > "$scratch/patch.log" 2>&1; then
@@ -117,7 +123,8 @@ for patch_file do
         echo "!!! TEST ERROR (not a kill): $patch_file"; errors=$((errors+1))
     elif grep -q " SEMANTIC " "$scratch/fail-1" && cmp -s "$scratch/fail-1" "$scratch/fail-2"; then
         echo "  killed $name ($(tr '\n' ' ' < "$scratch/fail-1"))"; killed=$((killed+1))
-        rm -rf "$scratch"
+        sh "$source_top/factory/testlib/mutation-receipt.sh" "$source_top" "$patch_file"
+        rm -rf "$run/m$n"
     else
         echo "!!! SURVIVED/UNSTABLE: $patch_file"; survived=$((survived+1))
     fi

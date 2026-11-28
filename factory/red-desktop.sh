@@ -55,6 +55,7 @@ for mutation in save-empty loader-cap word-save; do
   echo "!!! factory desktop-$mutation: infrastructure failure (not a kill): $work/$mutation-*.infra"; errors=$((errors+1))
  elif [ "$good" -eq 1 ]; then
   echo "  killed desktop-$mutation (two matching semantic failures)"; killed=$((killed+1)); rm -rf "$scratch"
+  sh factory/testlib/mutation-receipt.sh "$root" "$patch_file"
  else
   echo "!!! factory desktop-$mutation survived/unstable"; survived=$((survived+1))
  fi

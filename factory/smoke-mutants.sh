@@ -42,7 +42,9 @@ for patch_file in factory/mutants/smoke/*.patch; do
   if [ "$rc" -eq 0 ] || ! grep -F "$signature" "$work/$name.$pass.log" >/dev/null; then good=0; fi
  done
  if [ "$infra" -eq 1 ]; then errors=$((errors+1)); echo "FAIL $name infrastructure failure (not a kill): $work/$name.*.infra"
- elif [ "$good" -eq 1 ]; then echo "  killed $name (two semantic failures)";killed=$((killed+1))
+ elif [ "$good" -eq 1 ]; then
+  echo "  killed $name (two semantic failures)";killed=$((killed+1))
+  sh factory/testlib/mutation-receipt.sh "$root" "$patch_file"
  else echo "FAIL $name survived or wrong failure";survived=$((survived+1));fi
 done
 echo "factory: $total mutants, $killed killed, $survived survived, $errors errors; smoke evidence: $work"

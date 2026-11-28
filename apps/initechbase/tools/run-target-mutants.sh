@@ -58,6 +58,7 @@ for patch_file do
   done
   if [ "$good" -eq 1 ] && cmp -s "$scratch/verdict-1" "$scratch/verdict-2"; then
    echo "  killed $name ($mode: same independent semantic rejection twice)";killed=$((killed+1))
+   sh "$top/factory/testlib/mutation-receipt.sh" "$top" "$patch_file"
   elif [ "$green" -eq 2 ]; then
    echo "SURVIVED $name (oracle green on both runs; $scratch/observe-1.log)";survived=$((survived+1))
   else
@@ -79,6 +80,7 @@ for patch_file do
  done
  if [ "$good" -eq 1 ]; then
   echo "  killed $name ($mode: all target objects compiled; semantic rejection twice)"
+  sh "$top/factory/testlib/mutation-receipt.sh" "$top" "$patch_file"
   killed=$((killed+1))
  elif [ "$built" -eq 2 ]; then
   echo "SURVIVED $name (linked without rejection twice; $scratch/build-1.log)"; survived=$((survived+1))

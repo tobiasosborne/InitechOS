@@ -42,6 +42,7 @@ for patch_file in factory/mutants/gates/*.patch; do
  done
  if [ "$good" -eq 1 ]; then
   echo "  killed $name (two semantic failures)"; killed=$((killed+1))
+  sh factory/testlib/mutation-receipt.sh "$root" "$patch_file"
  else echo "FAIL $name survived or failed for another reason"; survived=$((survived+1)); fi
 done
 echo "factory: $total mutants, $killed killed, $survived survived, $errors errors; gate evidence: $work"

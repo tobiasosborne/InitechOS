@@ -56,7 +56,7 @@ for strict in 0 1; do
   cp "$root/factory/cert.sh" "$root/factory/mutants.sh" "$dir/factory/"
   cp "$root/factory/testlib/"*.awk "$root/factory/testlib/snapshot.sh" "$dir/factory/testlib/"
   : > "$dir/a/mutants/active.patch"
-  printf '.PHONY: mutants\nmutants:\n\t@echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"\n' > "$dir/a/Makefile"
+  printf '.PHONY: mutants\nmutants:\n\t@echo "INITECH_MUTANT_KILLED a/mutants/active.patch"\n\t@echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"\n' > "$dir/a/Makefile"
   if [ "$name" = overlap ]; then
    printf '%s\n' 'mutants: wait-for-selfhost' 'wait-for-selfhost:' \
     '	@touch "$$CERT_PEERS/mutants"' \

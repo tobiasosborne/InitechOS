@@ -36,4 +36,5 @@ for pass in 1 2; do
  grep -F "rfb_error=(none)" "$work/stall-$pass/bochs-sessions/1/bochs.report" >/dev/null || error "display transport"
  echo "killed desktop-stall (semantic missing Finder marker, pass $pass)"
 done
+sh factory/testlib/mutation-receipt.sh "$root" factory/mutants/desktop-wait/stall.patch
 echo "factory: 1 mutants, 1 killed, 0 survived, 0 errors; desktop wait evidence: $work"

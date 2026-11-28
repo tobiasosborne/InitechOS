@@ -47,7 +47,9 @@ else
             fi
         done
         case $result in
-         kill) echo "  killed twice $fault: $(sed -n '/^FAIL /p' "$work/verdict")"; killed=$((killed+1));;
+         kill)
+            echo "  killed twice $fault: $(sed -n '/^FAIL /p' "$work/verdict")"; killed=$((killed+1))
+            sh ../factory/testlib/mutation-receipt.sh .. "$fault";;
          survive) echo "!!! SURVIVED: $fault"; survived=$((survived+1));;
          error) echo "!!! WRONG FAILURE (not a kill): $fault: $(cat "$work/verdict")"; errors=$((errors+1));;
         esac

@@ -59,7 +59,9 @@ MAKE
         if [ "$rc" -ne 1 ] || ! grep -Fq "$signature" "$mut/test-$pass.log"; then good=0; fi
     done
     if [ "$infra" -eq 1 ]; then echo "!!! sdk live $name: INFRASTRUCTURE FAILURE (not a kill)"; errors=$((errors+1))
-    elif [ "$good" -eq 1 ]; then echo "  killed $name ($signature, twice)"; killed=$((killed+1))
+    elif [ "$good" -eq 1 ]; then
+        echo "  killed $name ($signature, twice)"; killed=$((killed+1))
+        sh "$root/factory/testlib/mutation-receipt.sh" "$root" "$patch_file"
     else echo "!!! sdk live $name: SURVIVED/UNSTABLE (logs $mut/test-*.log)"; survived=$((survived+1)); fi
 done
 echo "sdk: $total mutants, $killed killed, $survived survived, $errors errors; $(($(date +%s)-start))s"
