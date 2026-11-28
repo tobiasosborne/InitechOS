@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
+log_root=${INITECH_STATUS_LOGS:-$(pwd)/build}
 for component do
-    out=$(pwd)/build/$component
+    out=$log_root/$component
     mkdir -p "$out"
     host=red
     if make --no-print-directory -C "$component" test > "$out/status-host.log" 2>&1; then host=host-green; fi

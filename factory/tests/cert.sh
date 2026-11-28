@@ -25,6 +25,7 @@ case "$*" in
  *) printf "a: 1 tests, 0 failures\nb: 1 tests, 0 failures\nc: 1 tests, 0 failures\nregistered 3, run 3; elapsed 0s\nALL GREEN\n";;
  esac;;
  status)
+ if [ "$CASE" = overlap ]; then touch "$CERT_PEERS/status"; fi
  case $CASE in
  red) printf 'a: imported\nb: red\nc: imported\n';;
  host-green) printf 'a: imported\nb: host-green\nc: imported\n';;
@@ -58,9 +59,9 @@ for strict in 0 1; do
   : > "$dir/a/mutants/active.patch"
   printf '.PHONY: mutants\nmutants:\n\t@echo "a: 1 mutants, 1 killed, 0 survived, 0 errors"\n' > "$dir/a/Makefile"
   if [ "$name" = overlap ]; then
-   printf '%s\n' 'mutants: wait-for-selfhost' 'wait-for-selfhost:' \
+   printf '%s\n' 'mutants: wait-for-peers' 'wait-for-peers:' \
     '	@touch "$$CERT_PEERS/mutants"' \
-    '	@timeout 5 sh -c '\''until [ -f "$$1/selfhost" ]; do sleep 0.05; done'\'' sh "$$CERT_PEERS"' >> "$dir/a/Makefile"
+    '	@timeout 5 sh -c '\''until [ -f "$$1/selfhost" ] && [ -f "$$1/status" ]; do sleep 0.05; done'\'' sh "$$CERT_PEERS"' >> "$dir/a/Makefile"
   fi
   if [ "$name" = pending ]; then
    mkdir -p "$dir/a/mutants/pending"; : > "$dir/a/mutants/pending/later.patch"
