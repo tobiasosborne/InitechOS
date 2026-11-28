@@ -104,6 +104,11 @@ static void heading(const char *title)
 static void options(void){put("Press ESC to return to Fdisk Options\r\n");}
 static void rownum(char *b,unsigned end,unsigned n)
 { do{b[end--]=(char)('0'+n%10);n/=10;}while(n); }
+static unsigned display_cylinder(uint32_t lba)
+{
+    unsigned c=lba/CYL_SECTORS;
+    return c<1024?c:1023;
+}
 static void table(void)
 {
     put("Partition  Status   Type  Start  End  Size\r\n");
@@ -120,11 +125,16 @@ static void table(void)
         b[5]=(char)('1'+i);if(p[0]==0x80)b[13]='A';
         const char *type=dos(p[4])?"PRI DOS":p[4]==5?"EXT DOS":"non DOS";
         for(unsigned j=0;j<7;j++)b[18+j]=type[j];
-        unsigned a=p[3]|((p[2]&192u)<<2),z=p[7]|((p[6]&192u)<<2);
-        rownum(b,30,a);rownum(b,36,z);rownum(b,42,z>=a?z-a+1:0);
+        /* The controller and drive map use LBA with fixed geometry.
+         * The MBR's stored CHS bytes may come from another geometry. */
+        uint32_t start=r32(p+8),length=r32(p+12);
+        if(length && start<sectors && length<=sectors-start){
+            unsigned a=display_cylinder(start),z=display_cylinder(start+length-1);
+            rownum(b,30,a);rownum(b,36,z);rownum(b,42,z-a+1);
+        }
         put(b);
     }
-    put("\r\nTotal disk space is ");number(cylinders(sectors));put(" cylinders.\r\n\r\n");
+    put("\r\nTotal disk space is ");number(display_cylinder(sectors-1)+1);put(" cylinders.\r\n\r\n");
 }
 /* Raw console reads, default values accepted with Return; ESC aborts any menu.
  * MS-DOS UG p287. Echo here because AH07 deliberately does not echo. */
