@@ -45,4 +45,19 @@ for mask in MASK122 MASK123;do
  done
 done
 echo 'GREEN batch masks: 122/123 spaces match real DOS diagnostics, names and surviving bytes'
+# DOS 3.30 deletes through a 127-character wildcard path (long-del/ORIGIN).
+ref=dos/command/tests/dos33/reference/long-del
+truncate -s 1474560 build/longdel.img
+mformat -i build/longdel.img -f 1440 ::
+mmd -i build/longdel.img ::A
+printf 'report\r\n' > build/report
+for leaf in REPORT01.TXT NOTES.TXT;do mcopy -i build/longdel.img build/report "::A/$leaf";done
+mcopy -i build/longdel.img "$ref/KEEP.DAT" ::A/KEEP.DAT
+build/shell_files build/longdel.img "$ref/batch.txt" > build/longdel-output
+check 'long DEL path prints nothing' test ! -s build/longdel-output
+mdir -b -i build/longdel.img ::A | sed 's@.*/@@' | LC_ALL=C sort > build/longdel-names
+check 'long DEL path leaves the DOS 3.30 inventory' cmp build/longdel-names "$ref/names"
+mtype -i build/longdel.img ::A/KEEP.DAT > build/longdel-keep
+check 'long DEL path keeps KEEP.DAT bytes' cmp build/longdel-keep "$ref/KEEP.DAT"
+echo 'GREEN long DEL path: 127-character wildcard deletes what DOS 3.30 deletes'
 complete

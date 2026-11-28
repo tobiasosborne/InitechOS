@@ -3397,9 +3397,28 @@ static void builtin_copy(const char *arg)
 }
 
 /* Preserve the operand's parent (including drive/CWD/dots) when substituting
- * the DTA's matched leaf. Both components are bounded: 63 + 12 < 128 bytes.
+ * the DTA's matched leaf. DEL accepts a 127-byte operand, and DOS 3.30 deletes
+ * through a 127-character wildcard path (dos33/reference/long-del), so the
+ * result holds that parent plus a 12-byte 8.3 leaf and its NUL.
  * Ref: MS-DOS 3.3 User's Reference pp. 13, 56; audit K03 / initech-8uad. */
-static void del_path(char out[CMD_LINE_MAX], const char *spec, int prefix,
+#define DEL_PATH_MAX (CMD_LINE_MAX + 12)
+
+/* A "." directory component names the directory it is in. DOS 3.30 deletes
+ * through a 127-character A\.\...\*.TXT (dos33/reference/long-del); drop those
+ * components so each substituted path fits the 128-byte INT 21h path. ".."
+ * and a final "." are kept. */
+static void del_drop_dot_dirs(char *name)
+{
+    unsigned r = 0, w = 0;
+    while (name[r]) {
+        int start = w == 0 || name[w - 1] == '\\' || name[w - 1] == ':';
+        if (start && name[r] == '.' && name[r + 1] == '\\') { r += 2; continue; }
+        name[w++] = name[r++];
+    }
+    name[w] = '\0';
+}
+
+static void del_path(char out[DEL_PATH_MAX], const char *spec, int prefix,
                      const char *leaf)
 {
     int i;
@@ -3413,7 +3432,7 @@ static void del_path(char out[CMD_LINE_MAX], const char *spec, int prefix,
  * Ref: the repository contract; MS-DOS 3.3 User's Reference p. 56 (specified files). */
 static void del_remaining(const char *spec, int prefix)
 {
-    char path[CMD_LINE_MAX];
+    char path[DEL_PATH_MAX];
     dos_print(MSG_DOS_0009 "\r\n$");
     if (dos_findfirst(spec, 0u)) {
         do {
@@ -3492,9 +3511,13 @@ static void builtin_del(const char *arg)
 
     /* One matched leaf at a time. Repeated first leaf detects a backend that
      * reports success without removing anything, rather than looping forever. */
+    del_drop_dot_dirs(name);
+    prefix = 0;
+    for (int i = 0; name[i]; i++)
+        if (name[i] == '\\' || name[i] == ':') prefix = i + 1;
     {
         char previous[13];
-        char path[CMD_LINE_MAX];
+        char path[DEL_PATH_MAX];
         int deleted = 0;
 
         dos_setdta(&g_shell_dta);

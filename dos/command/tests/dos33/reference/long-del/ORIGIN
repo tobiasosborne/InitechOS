@@ -1,0 +1,6 @@
+Packard Bell OEM MS-DOS 3.30, QEMU 486 with 8 MiB. Media SHA-256
+3612b044c7c1c0160768a26e18c2c7e2d68ecd67b375aae9f5ec43bb8548cc30.
+B:\A held REPORT01.TXT, NOTES.TXT and KEEP.DAT. A batch ran batch.txt,
+a 127-character DEL of A\ followed by 58 ".\" and *.TXT. DOS printed
+nothing and DIR A then listed only KEEP.DAT; mtools read back the same.
+names is that inventory and KEEP.DAT its surviving bytes.
