@@ -117,13 +117,15 @@ smoke-selection:
 smoke: export INITECH_FULL_SMOKE := 1
 smoke: smoke-selection image
 	+$(MAKE) $(if $(filter -j%,$(MAKEFLAGS)),,-j16) -k --output-sync=target smoke-legs
-	@echo 'FULL SMOKE GREEN: factory DOS/programs/desktop + $(REGISTERED_SMOKE_COMPONENTS); QEMU + Bochs'
+	@echo 'FULL SMOKE GREEN: factory DOS/shell-fidelity/programs/desktop + $(REGISTERED_SMOKE_COMPONENTS); QEMU + Bochs'
 
 # The image is complete before these independent readers take their disk copies.
-.PHONY: smoke-legs smoke-dos smoke-programs smoke-desktop smoke-frontend $(addprefix smoke-,$(SMOKE_COMPONENTS))
-smoke-legs: smoke-dos smoke-programs smoke-desktop $(addprefix smoke-,$(SMOKE_COMPONENTS))
+.PHONY: smoke-legs smoke-dos smoke-shell-fidelity smoke-programs smoke-desktop smoke-frontend $(addprefix smoke-,$(SMOKE_COMPONENTS))
+smoke-legs: smoke-dos smoke-shell-fidelity smoke-programs smoke-desktop $(addprefix smoke-,$(SMOKE_COMPONENTS))
 smoke-dos:
 	sh factory/smoke.sh
+smoke-shell-fidelity:
+	sh factory/smoke-shell-fidelity.sh
 smoke-programs smoke-desktop smoke-kernel: | smoke-frontend
 smoke-frontend:
 	+$(MAKE) -s -f factory/desktop-tools.mk desktop-bochs
