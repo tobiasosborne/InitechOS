@@ -55,7 +55,8 @@
  *           All five resident devices are character devices.
  *   Bit 14  IOCTL_SUP  1 = device supports IOCTL read/write (command 3/12).
  *           Not implemented here; set 0 on all resident devices.
- *   Bit 13  Reserved / OUTPUT_UNTIL_BUSY (char dev only). Set 0.
+ *   Bit 13  OUTPUT_UNTIL_BUSY (char dev only). PRN only, as in the DOS 3.30
+ *           AX=4400h capture (tests/fixtures/ioctl33: PRN A0C0h).
  *   Bit 12  Reserved. Set 0.
  *   Bit 11  OPEN_CLOSE 1 = device supports Open/Close/RemoveMedia (cmds 13-15).
  *           Not implemented here; set 0 on all resident devices.
@@ -69,12 +70,14 @@
  *   Bit  0  STDIN      1 = this is the current standard-input (CON-in) device.
  *           DOS routes INT 21h AH=01h/08h/0Ah input through the device with this.
  *
- * Note: PRN and AUX have NO special attribute bits beyond bit 15 (CHAR_DEV).
+ * Note: AUX has no special attribute bits beyond bit 15 (CHAR_DEV); PRN adds
+ * only bit 13.
  * Their role is discovered by name lookup ("PRN     " / "AUX     ") in the
  * device chain.
  * =========================================================================*/
 #define DEV_ATTR_CHAR_DEV   0x8000u  /* bit 15: character device              */
 #define DEV_ATTR_IOCTL_SUP  0x4000u  /* bit 14: IOCTL supported               */
+#define DEV_ATTR_OUT_BUSY   0x2000u  /* bit 13: output until busy (PRN)       */
 #define DEV_ATTR_OPEN_CLOSE 0x0800u  /* bit 11: Open/Close/RemoveMedia        */
 #define DEV_ATTR_CLOCK      0x0008u  /* bit  3: CLOCK$ device                 */
 #define DEV_ATTR_NUL        0x0004u  /* bit  2: NUL device                    */

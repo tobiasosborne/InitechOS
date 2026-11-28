@@ -2,12 +2,12 @@
 # test: test-er3h
 --- a/int21.c
 +++ b/int21.c
-@@ -1822,7 +1822,7 @@
-             uint16_t identity = e->device
-                 ? ((device_header_t *)e->device)->attribute & 0x0fu
-                 : e->dev_id == SFT_DEV_CON ? 3u : 0u;
+@@ -1908,7 +1908,7 @@
+                 ? ((device_header_t *)e->device)->attribute & 0xff00u
+                 : e->dev_id == SFT_DEV_PRN ? DEV_ATTR_CHAR_DEV | DEV_ATTR_OUT_BUSY
+                 : DEV_ATTR_CHAR_DEV;
 -            uint16_t word = identity == 3u ? INT21_DEVINFO_CON
 +            uint16_t word = identity == 3u ? (INT21_DEVINFO_CON & ~INT21_DEVINFO_STDIN)
-                 : (uint16_t)((INT21_DEVINFO_CON & ~0x1fu) | identity);
+                 : (uint16_t)(high | (INT21_DEVINFO_CON & 0xe0u) | identity);
              set_dx(f, word);
          } else {

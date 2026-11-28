@@ -612,10 +612,11 @@ void devices_init(void)
     g_aux_dev.handler   = dev_aux_handler;
     g_aux_dev.next_dev  = &g_prn_dev;
 
-    /* PRN: CHAR_DEV only (no special-role bits).
-     * Ref: MS-DOS 3.3 Tech Ref, Ch. 4: PRN is LPT1; discovered by name. */
+    /* PRN: CHAR_DEV and output-until-busy, no special-role bits.
+     * Ref: MS-DOS 3.3 Tech Ref, Ch. 4: PRN is LPT1; discovered by name.
+     * Bit 13: genuine DOS 3.30 AX=4400h on PRN (tests/fixtures/ioctl33). */
     dev_set_name(g_prn_dev.name, "PRN");
-    g_prn_dev.attribute = (uint16_t)DEV_ATTR_CHAR_DEV;
+    g_prn_dev.attribute = (uint16_t)(DEV_ATTR_CHAR_DEV | DEV_ATTR_OUT_BUSY);
     g_prn_dev.handler   = dev_prn_handler;
     g_prn_dev.next_dev  = &g_clk_dev;
 

@@ -449,6 +449,14 @@ test-stdin33_SRCS := tests/runner.c
 test-stdin33_ARGS := tests/run.sh test-stdin33
 test-stdin33_DEPS := $(OUT)/host/tool_test_stdin33 tests/gates/test-stdin33.sh tests/assertions.sh tests/fixtures/stdin33/SHA256SUMS
 
+EXTRA_HOST_TESTS += tool_test_ioctl33
+tool_test_ioctl33_SRCS := tests/test_ioctl33.c tests/disk/blockdev_file.c
+tool_test_ioctl33_OBJS := $(tool_test_fileio_subdir_OBJS)
+HOST_TESTS += test-ioctl33
+test-ioctl33_SRCS := tests/runner.c
+test-ioctl33_ARGS := tests/run.sh test-ioctl33
+test-ioctl33_DEPS := $(OUT)/host/tool_test_ioctl33 tests/gates/test-ioctl33.sh tests/assertions.sh tests/fixtures/ioctl33/SHA256SUMS
+
 EXTRA_HOST_TESTS += tool_test_find_dta33
 tool_test_find_dta33_SRCS := tests/test_find_dta33.c tests/disk/blockdev_file.c
 tool_test_find_dta33_OBJS := $(tool_test_fileio_subdir_OBJS)

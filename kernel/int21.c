@@ -1898,9 +1898,9 @@ static void do_ioctl(int_frame_t *f)
 {
     uint8_t al = frame_al(f);
 
-    /* AL=00h: device identity follows the resolved header; files report their
-     * SFT drive. Reserved/high legacy bits are retained pending initech-eb0n1;
-     * tests compare the defined identity mask from Encyclopedia 4400h. */
+    /* AL=00h: devices report bit 15 and the high byte of their header's
+     * attribute (PRN A0C0h), as genuine DOS 3.30 does for CON, NUL, AUX, PRN
+     * and CLOCK$ (tests/fixtures/ioctl33). Files report their SFT drive. */
     if (al == 0x00u) {
         sft_entry_t *e = ioctl_sft_from_ebx(f);
         if (e == 0) {
@@ -1913,8 +1913,12 @@ static void do_ioctl(int_frame_t *f)
             uint16_t identity = e->device
                 ? ((device_header_t *)e->device)->attribute & 0x0fu
                 : e->dev_id == SFT_DEV_CON ? 3u : 0u;
+            uint16_t high = e->device
+                ? ((device_header_t *)e->device)->attribute & 0xff00u
+                : e->dev_id == SFT_DEV_PRN ? DEV_ATTR_CHAR_DEV | DEV_ATTR_OUT_BUSY
+                : DEV_ATTR_CHAR_DEV;
             uint16_t word = identity == 3u ? INT21_DEVINFO_CON
-                : (uint16_t)((INT21_DEVINFO_CON & ~0x1fu) | identity);
+                : (uint16_t)(high | (INT21_DEVINFO_CON & 0xe0u) | identity);
             set_dx(f, word);
         } else {
             set_dx(f, (uint16_t)(INT21_DEVINFO_FILE | e->drive));

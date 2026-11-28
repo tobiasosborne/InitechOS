@@ -78,6 +78,9 @@ void int21_set_restart(void (*service)(void));
  *   bit2  NUL           1 = this is the NUL device
  *   bit1  STDOUT        1 = this is the standard-output (console) device
  *   bit0  STDIN         1 = this is the standard-input  (console) device
+ * Genuine DOS 3.30 sets bit15 on every character device handle and clears it
+ * on files; the high byte is the device header's attribute high byte (PRN
+ * A0C0h). Source: tests/fixtures/ioctl33.
  * NOTE (beads initech-4nbn): the prior labels for bits 1-4 were shifted one
  * position (ISCIN=1/ISCOT=2/ISNUL=3/ISCLK=4); corrected here to the PRM/RBIL
  * layout. The macro VALUES are unchanged, so this relabel has NO behavioral
