@@ -136,6 +136,7 @@ for emulator in $emulators; do
   fi
   tr -d '\r' < "$dir/run.serial" > "$dir/serial.txt"
   line "$dir/serial.txt" 'SYSINIT: source=CONFIG.SYS FILES=20 cap=20 SHELL=COMMAND.COM /P'
+  line "$dir/serial.txt" 'SYSINIT: DEVICE=ANSI.SYS ansi-enabled'
   line "$dir/serial.txt" 'C:\>set'
   line "$dir/serial.txt" 'COMSPEC=C:\COMMAND.COM'
   line "$dir/serial.txt" 'PATH=C:\;C:\APPS'

@@ -75,6 +75,10 @@ the DOS prompt to type FLAIR. The working-volume manifest still selects the A:
 files directly in `installed/`. The staged builder uses the C: files.
 The separate `c-boot/` path expires at activation step 20.
 
+Both working systems carry `ANSI.SYS` alongside `CONFIG.SYS`. The file
+selects the resident ANSI console interpreter under the DEVICE contract
+in `kernel/README.md`. Its contents explain that role to a user at DOS.
+
 `make test` additionally checks the required workflow inventory, independently
 reads the three DBFs in Python, verifies source/protocol/canon input identity,
 and compares both sets of boot files byte for byte. `make mutants` (alias

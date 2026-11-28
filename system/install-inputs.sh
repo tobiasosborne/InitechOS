@@ -14,6 +14,10 @@ cp ../turbo/compiler/turbo.pas "$out/TURBO.PAS"
 cp ../flair/desktop/data/DESKTOP.DB "$out/DESKTOP.DB"
 cp ../apps/initechcalc/data/LEDGER.TXT ../apps/initechcalc/data/MICHAEL.CFG "$out/"
 printf 'FILES=20\r\nSHELL=COMMAND.COM /P\r\nDEVICE=ANSI.SYS\r\n' > "$out/CONFIG.SYS"
+# Bare DEVICE=ANSI.SYS selects the resident interpreter when this file is present
+# on the CONFIG volume. See kernel/README.md, CONFIG.SYS.
+printf '%s\r\n' 'InitechDOS ANSI console support' \
+ 'This file selects the resident ANSI console interpreter.' > "$out/ANSI.SYS"
 printf '%s\r\n' '@ECHO OFF' 'PATH A:\;A:\APPS' 'FLAIR' > "$out/AUTOEXEC.BAT"
 # Approved GM8 delivery design: boot to the prompt, then type FLAIR.
 # The separate c-boot directory expires at C: activation (plan step 20).

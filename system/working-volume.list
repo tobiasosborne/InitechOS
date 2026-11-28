@@ -32,6 +32,7 @@ build/dos/DISKCOMP.COM                DISKCOMP.COM
 build/dos/TPSREP.COM                  TPSREP.COM
 # system owner: make -C system installed-inputs; samples/PROVENANCE.md.
 build/system/installed/CONFIG.SYS     CONFIG.SYS
+build/system/installed/ANSI.SYS       ANSI.SYS
 build/system/installed/AUTOEXEC.BAT   AUTOEXEC.BAT
 build/system/installed/HELLO.TXT      HELLO.TXT
 build/system/installed/CLIENTS.DBF    SAMPLES/CLIENTS.DBF
