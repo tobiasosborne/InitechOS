@@ -1,8 +1,16 @@
 /* LOCKED: ADR-0009 Amendment DEC-03a (RATIFIED 2026-11-06), initech-ayj36.
  * DEC-03a.3/.4: little-endian native flat-32 model, selected by CONTENT.
- * Descriptor at 0x20: version,length,reserve,usable minimum heap,stack,guard.
- * All six fields are uint32 bytes except version. Unknown versions refuse.
- * Legacy 0x4943 retains DEC-08a; native pointers never become fake segments. */
+ * The descriptor at file offset 0x20 consists of six little-endian uint32
+ * fields. Version is 1. Length, reserve, minimum usable heap, stack and
+ * guard are byte counts.
+ *
+ * Extended tag 0x5849: e_lfarlc is at least 0x38, the end of the descriptor.
+ * The exclusive table end e_lfarlc + 4 * e_crlc must be at or below
+ * 16 * e_cparhdr, the declared end of the header. Both bounds apply to
+ * an empty table. Tables ending exactly at the header boundary fit.
+ * The loader reports MZ_ERR_BAD_RELOC for placement outside these bounds.
+ *
+ * Legacy tag 0x4943 retains the DEC-08a placement rules. */
 #ifndef INITECHMZ_EXTENDED_H
 #define INITECHMZ_EXTENDED_H
 #define INITECHMZ_LEGACY_TAG 0x4943u
