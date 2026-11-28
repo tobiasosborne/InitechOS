@@ -387,3 +387,9 @@ smoke: smoke-ctty
 smoke-ctty:
 	+$(MAKE) -C $(TOP) image
 	+sh tests/runtime/ctty.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/ctty.XXXXXX")"
+
+.PHONY: smoke-verify
+smoke: smoke-verify
+smoke-verify:
+	+$(MAKE) -C $(TOP) image
+	+sh tests/runtime/verify.sh "$(abspath $(TOP))" "$(abspath $(TOP))/build/image/boot.img" "$$(mktemp -d "$(abspath $(OUT))/verify.XXXXXX")"

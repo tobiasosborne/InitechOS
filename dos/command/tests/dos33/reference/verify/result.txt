@@ -1,0 +1,8 @@
+VERIFY is off
+VERIFY is on
+VERIFY-GATE-ON
+Must specify ON or OFF
+Invalid parameter
+VERIFY is off
+VERIFY-GATE-OFF
+VERIFY-DONE

@@ -82,6 +82,7 @@ cmd_kind_t cmd_classify(const char *upper_command)
         { "ECHO",  CMD_ECHO },
         { "CTTY",  CMD_CTTY },
         { "BREAK", CMD_BREAK },  /* BREAK [ON|OFF] -- CTRL-BREAK state (AH=33h; DEC-16) */
+        { "VERIFY", CMD_VERIFY },
         { "EXIT",  CMD_EXIT },
         /* SET [NAME[=VALUE]] -- list/assign/clear/query env vars (beads
          * initech-1i0x Tranche E inc 2). The CMD_MUTATE_NO_SET mutant DROPS
@@ -2933,6 +2934,27 @@ static void builtin_break(const char *arg)
     }
 }
 
+/* DOS 3.30 VERIFY capture. Keep the flag in the DOS write service so
+ * programs and COMMAND observe the same state through INT 21h AH=54h. */
+static void builtin_verify(const char *arg)
+{
+    int mode = cmd_break_parse(arg);
+    if (mode < 0) {
+        dos_error("Must specify ON or OFF\r\n$");
+        return;
+    }
+
+    uint32_t ax = mode == 0 ? 0x5400u : 0x2e00u | (unsigned)(mode == 1);
+    uint32_t carry;
+    __asm__ __volatile__("clc\n\tint $0x21\n\tsbb %1, %1"
+                         : "+a"(ax), "=r"(carry) : "d"(0u) : "cc", "memory");
+    if (carry) {
+        dos_error("Invalid function\r\n$");
+        return;
+    }
+    if (mode == 0) dos_print((ax & 1u) ? "VERIFY is on\r\n$" : "VERIFY is off\r\n$");
+}
+
 static int dos_handle_is_device(int handle)
 {
     uint32_t ax = 0x4400u, info, carry;
@@ -3857,6 +3879,7 @@ static int dispatch_line(const char *line)
         case CMD_CLS:
         case CMD_VER:
         case CMD_BREAK:
+        case CMD_VERIFY:
         case CMD_EXIT:
             for (const char *arg = parsed.arg; *arg; ++arg) {
                 if (*arg == '/') {
@@ -3928,6 +3951,9 @@ static int dispatch_line(const char *line)
             break;
         case CMD_BREAK:
             builtin_break(parsed.arg);
+            break;
+        case CMD_VERIFY:
+            builtin_verify(parsed.arg);
             break;
         case CMD_SET:
             builtin_set(parsed.arg);
