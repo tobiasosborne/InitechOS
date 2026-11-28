@@ -39,7 +39,7 @@ else
 fi
 # Keep the graded outputs within the component's tree for ownership audits.
 run=$top/build/$component/mutation
-mkdir -p "$run"
+mkdir -p "$run/baseline-keys"
 # Build tools run through recording shims. A tool that fails during a mutant's
 # test run (and did not fail the same way in its baseline) is infrastructure:
 # the result is an error, never a kill (initech-kkqbw). The emulator harnesses
@@ -68,14 +68,20 @@ mutant_make() {
     INITECH_MUTANT_SELECTION="$selection" serial_make -C "$source_dir/component" \
         TOP="$top" OUT="$source_dir/build" "$@"
 }
-n=0 killed=0 survived=0 errors=0
+n=0 killed=0 survived=0 errors=0 baseline_count=0
 for patch_file do
     n=$((n+1))
     name=$(basename "$patch_file" .patch)
     selection=$(sed -n 's/^# test: //p' "$patch_file")
     key=$(printf '%s' "$selection" | sha256sum | cut -d ' ' -f1)
-    baseline=$run/baseline-$key
-    if [ ! -d "$baseline" ]; then
+    # FPC 3.2 cannot open a source passed in a path longer than 255 bytes.
+    # Keep the full cache key in the index, off the graded paths.
+    if [ -f "$run/baseline-keys/$key" ]; then
+        baseline=$run/baseline-$(cat "$run/baseline-keys/$key")
+    else
+        baseline_count=$((baseline_count+1))
+        baseline=$run/baseline-$baseline_count
+        printf '%s\n' "$baseline_count" > "$run/baseline-keys/$key"
         echo "  baseline ${selection:-default}"
         mkdir -p "$baseline/component"
         cp -R . "$baseline/component/"
